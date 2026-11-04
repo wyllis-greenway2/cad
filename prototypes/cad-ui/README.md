@@ -19,9 +19,13 @@ it, so objects behind a sheet stay visible) with charcoal grid lines; with dista
 
 **Mouse** (all remappable in `settings.input`; the left button is always the tool, never navigation)
 - Right-drag orbit, middle-drag pan (also Shift + right-drag), wheel zoom toward the point under the cursor,
-  Ctrl + wheel (trackpad pinch) zoom. Presets: `ours` (default), `fusion`, `solidworks`, `blender` (set `input.navPreset`).
-- **Right-click without dragging** opens a small menu (tools, undo/redo, home, exit). No toolbar anywhere.
-- Orbiting away from the face-on sketch view leaves the sketch and returns to the 3D view.
+  Ctrl + wheel (trackpad pinch) zoom. **Alt + left-drag also orbits** (trackpads, mice without a usable right button), and
+  **plain left-drag orbits whenever the left button has nothing else to do** (in the 3D view, and on empty space with the
+  select tool). Presets: `ours` (default), `fusion`, `solidworks`, `blender` (set `input.navPreset`).
+- **Right-click without dragging** opens a small menu (tools, undo/redo, home, back to 3D view). No toolbar anywhere.
+- **Getting out of a sketch** (it must never feel locked): press **Esc** (steps back, and from the select tool it glides
+  the camera back to the 3D view you came from), click the small **3D view** button in the status line, pick "Back to 3D
+  view" in the right-click menu, press **H**, or orbit away by any of the gestures above.
 
 **Keys** (all remappable in `settings.input.keys`)
 - **V** select, **L** line (polyline), **R** rectangle, **C** circle, **H** home view. Hover a plane in the 3D view and press
@@ -44,7 +48,8 @@ The colors, fog, grid and arrow values in `src/settings.js` were tuned by hand a
 checked). **One change since:** the sheet is now a see-through backlight instead of an opaque fill (`in_028`), so the
 two tuned sheet "fill" numbers (hover 0.75, selected 1.0) now mean light strength and were re-set to 0.62 and 0.6 so
 objects behind a sheet stay visible. `bash tools/preview.sh tune` brings back the temporary tuning panel (`?tune`) to
-set them (and the rest) exactly; send the values back and the panel is removed again.
+set them (and the rest) exactly. The panel has its own buttons (3D view, Sketch XY/XZ/YZ, a pinned hover sheet, test
+boxes), so the look can be tuned with no mouse navigation at all. Send the values back and the panel is removed again.
 
 ## How it works (short)
 - `src/viewmath.mjs`: pure math (turntable camera, standard views, ray-plane picking). Unit tested.

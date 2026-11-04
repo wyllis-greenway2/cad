@@ -19,7 +19,7 @@ export const settings = {
     // Left button = the tool (draw / select), never navigation. Navigation is a preset (dec_ui_conventions).
     navPreset: "ours",
     navPresets: {
-      ours: { orbit: [{ button: 2 }], pan: [{ button: 1 }, { button: 2, shift: true }] }, // right-drag orbit, middle-drag pan
+      ours: { orbit: [{ button: 2 }, { button: 0, alt: true }], pan: [{ button: 1 }, { button: 2, shift: true }, { button: 0, alt: true, shift: true }] }, // right-drag (or Alt+left-drag) orbit, middle-drag pan; plain left-drag also orbits when the left button has nothing else to do
       fusion: { orbit: [{ button: 1, shift: true }], pan: [{ button: 1 }] },
       solidworks: { orbit: [{ button: 1 }], pan: [{ button: 1, ctrl: true }] },
       blender: { orbit: [{ button: 1 }], pan: [{ button: 1, shift: true }] },

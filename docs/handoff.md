@@ -218,3 +218,22 @@ still-transparent sheets with a back light. Built stage 2 in `prototypes/cad-ui`
 backlight strength, so the AI reset them to 0.62 and 0.6. Tune them with the panel.
 **Not built yet:** extrude, the history list, the drawer, the dimension tool, constraints, trackpad orbit gestures.
 **Next:** the human tries stage 2 and reports; then stage 3 (extrude with Shapr3D-style defaults).
+
+## Handoff 016 — 2026-11-04
+**State:** Bug report `in_029`: after clicking a sheet the human got "locked" on it and could not get back to the 3D view,
+which also blocked tuning the sheet look. Likely causes, all fixed in `prototypes/cad-ui`:
+1. Esc dropped the sketch plane but left the camera face-on, so nothing visibly changed. Now Esc (from the select tool), the
+   menu entry "Back to 3D view" and a new **3D view** button in the status line glide the camera back to the pose it
+   came from (or the default oblique view if that was already face-on).
+2. The status line had lost its exit hint in stage 2; the button restores it.
+3. Orbit had moved to right-drag only. Plain left-drag now orbits when the left button has nothing else to do (3D view; select
+   tool on empty space), and Alt + left-drag orbits (Shift+Alt+left-drag pans), so a trackpad or a mouse without a usable
+   right button is never trapped.
+4. On the tuning page, keys were ignored while a panel slider had focus; sliders, colors and buttons now release the keyboard.
+The tuning panel gained its own buttons (3D view, Sketch XY/XZ/YZ, Pin hover sheet, Test boxes) so the look can be tuned
+without mouse navigation. 21 unit tests plus scripted browser runs (the lock-in scenarios: 12 checks, and the earlier stage 2
+workflow: 27 checks) all pass. `dec_ui_conventions` records the correction.
+
+**Open for the human:** do the new exits feel right (Esc glide, the button, left-drag orbit)? Then tune the sheet look with
+`bash tools/preview.sh tune` and send the values.
+**Next:** stage 3 (extrude with Shapr3D-style defaults, history list, drawer).

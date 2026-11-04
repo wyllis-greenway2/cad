@@ -25,6 +25,7 @@ const toHex = (c) => (Math.round(c[0] * 255) << 16) | (Math.round(c[1] * 255) <<
 const view = { a: V.homeAzimuth, e: V.homeElevation, dist: V.homeDistance, target: new THREE.Vector3() };
 let selected = null; // "XY" | "XZ" | "YZ" | null  (non-null = sketch mode)
 let hovered = null;
+let pinnedHover = null; // tuning only: keep a plane's hover preview showing without the mouse
 let anim = null;
 
 // ---------------------------------------------------------------- renderer, camera
@@ -173,7 +174,7 @@ function updatePlanes() {
     u.uFogK.value = F.sharpness;
     // Only the selected plane is shown (full grid); the hovered plane previews whenever it can be picked. The rest are hidden.
     const states = T().states;
-    const state = selected === name ? states.selected : hovered === name ? states.hover : states.base;
+    const state = selected === name ? states.selected : (pinnedHover && !selected ? pinnedHover : hovered) === name ? states.hover : states.base;
     const th = T();
     u.uCol.value.set(...th.sheet);
     u.uLineCol.value.set(...th.gridLine);
@@ -420,7 +421,8 @@ function updateStatus() {
   let text = "3D view   hover a plane and click it to sketch   right-click for the menu";
   if (flash) text = flash;
   else if (selected) text = inSketchView() ? `Sketching on ${selected}   ${session.prompt()}` : `Going to ${selected}...`;
-  $("status").textContent = text;
+  $("statusText").textContent = text;
+  $("exitBtn").style.display = selected && !flash ? "inline-block" : "none";
 }
 
 // ---------------------------------------------------------------- picking
@@ -446,7 +448,9 @@ function localPoint(clientX, clientY) {
 }
 
 // ---------------------------------------------------------------- actions (shared by hotkeys and the right-click menu)
+let prePose = null; // the 3D camera pose to return to when leaving the sketch
 function enterSketch(plane, tool = "select") {
+  if (!selected) prePose = { a: view.a, e: view.e, dist: view.dist, target: view.target.clone() };
   selected = plane;
   session.setPlane(plane);
   session.setTool(tool);
@@ -455,9 +459,17 @@ function enterSketch(plane, tool = "select") {
   updateStatus();
   markSketch();
 }
-function exitSketch() {
+/** Leave the sketch. With animate, the camera glides back to the 3D view it came from (or a default oblique view if that
+ *  was already face-on); orbiting out does not animate (the user is steering). */
+function exitSketch(animate = false) {
+  const plane = selected;
   selected = null;
   session.reset();
+  if (animate && plane) {
+    const back = prePose && !isNormal(prePose, plane, V.normalToleranceRad) ? prePose : { a: V.homeAzimuth, e: V.homeElevation, dist: view.dist, target: view.target.clone() };
+    animateTo({ a: back.a, e: back.e, target: back.target }, V.transitionMs);
+    view.dist = back.dist;
+  }
   updateStatus();
   updateReadout();
   markSketch();
@@ -486,8 +498,8 @@ function doRedo() {
 }
 function doEscape() {
   if (menuOpen()) return hideMenu();
-  if (!inSketchView()) return selected ? exitSketch() : undefined;
-  if (!session.escape()) exitSketch();
+  if (!inSketchView()) return selected ? exitSketch(true) : undefined;
+  if (!session.escape()) exitSketch(true);
   updateStatus();
   updateReadout();
   markSketch();
@@ -544,7 +556,7 @@ function menuItems() {
   }
   items.push({ label: "Undo", hint: key("undo"), run: ACTIONS.undo, off: !store.canUndo() }, { label: "Redo", hint: key("redo"), run: ACTIONS.redo, off: !store.canRedo() }, "sep");
   items.push({ label: "Home view", hint: key("home"), run: ACTIONS.home });
-  if (selected) items.push({ label: "Exit sketch", hint: key("cancel"), run: exitSketch });
+  if (selected) items.push({ label: "Back to 3D view", hint: key("cancel"), run: () => exitSketch(true) });
   return items;
 }
 function showMenu(x, y) {
@@ -581,10 +593,11 @@ canvas.addEventListener("pointerdown", (ev) => {
   if (nav) return void (g = { kind: nav, ...base });
   if (ev.button !== 0) return;
   if (selected && !inSketchView()) return; // gliding to the plane: ignore clicks until it is face-on
-  if (!inSketchView()) return void (g = { kind: "click", ...base });
+  if (!inSketchView()) return void (g = { kind: "click", ...base }); // a click picks a plane; a drag orbits
   const p = localPoint(ev.clientX, ev.clientY);
   if (!p) return;
   session.scale = pxPerMm();
+  if (session.tool === "select") return void (g = { kind: "selectclick", p, shift: ev.shiftKey, ...base }); // a click selects; a drag orbits
   const had = !!session.draft;
   const msg = session.click(p, { shift: ev.shiftKey });
   if (msg) flashMessage(msg);
@@ -596,8 +609,9 @@ canvas.addEventListener("pointerdown", (ev) => {
 });
 canvas.addEventListener("pointermove", (ev) => {
   lastPointer = { x: ev.clientX, y: ev.clientY };
-  if (g && (g.kind === "orbit" || g.kind === "pan")) {
+  if (g && (g.kind === "orbit" || g.kind === "pan" || g.kind === "click" || g.kind === "selectclick")) {
     if (!g.moved && Math.hypot(ev.clientX - g.x0, ev.clientY - g.y0) < V.clickMovePx) return;
+    if (g.kind === "click" || g.kind === "selectclick") g.kind = "orbit"; // dragging with the left button and no tool action: orbit
     g.moved = true;
     anim = null; // the user took over the camera
     const dx = ev.clientX - g.x;
@@ -613,7 +627,7 @@ canvas.addEventListener("pointermove", (ev) => {
     } else {
       view.a -= dx * V.orbitRadPerPx;
       view.e = clamp(view.e + dy * V.orbitRadPerPx, -Math.PI / 2, Math.PI / 2);
-      if (selected && !isNormal(view, selected, V.normalToleranceRad)) exitSketch(); // orbiting out of the face-on view = back to the 3D view
+      if (selected && !isNormal(view, selected, V.normalToleranceRad)) exitSketch(false); // orbiting out of the face-on view = back to the 3D view
     }
     updateStatus();
     markSketch();
@@ -654,6 +668,12 @@ canvas.addEventListener("pointerup", (ev) => {
     }
     return;
   }
+  if (was.kind === "selectclick" && !was.moved) {
+    session.click(was.p, { shift: was.shift });
+    updateStatus();
+    markSketch();
+    return;
+  }
   if (was.kind === "click" && !was.moved && !selected) {
     const hit = pickAt(ev.clientX, ev.clientY);
     if (hit) enterSketch(hit.plane);
@@ -688,13 +708,19 @@ canvas.addEventListener(
   },
   { passive: false },
 );
+$("exitBtn").addEventListener("click", () => exitSketch(true));
 addEventListener("pointerdown", (ev) => {
   if (menuOpen() && !menuEl.contains(ev.target)) hideMenu();
 });
 
 // ---------------------------------------------------------------- keyboard
 addEventListener("keydown", (e) => {
-  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return; // typing in the tuning panel
+  const el = e.target;
+  if (el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && ["text", "number", "search"].includes(el.type))) {
+    if (e.key === "Escape") el.blur(); // typing in the tuning panel: Esc hands the keyboard back to the view
+    return;
+  }
+  if (el instanceof HTMLElement && el !== document.body && !(el instanceof HTMLCanvasElement)) el.blur?.(); // sliders, colors and buttons never keep the keyboard
   // while a shape is being drawn, characters, Backspace, Tab and Enter belong to the typed-size field
   if (inSketchView() && session.draft && !e.ctrlKey && !e.metaKey) {
     if (e.key.length === 1 && session.type(e.key)) return e.preventDefault(), updateStatus(), updateReadout(), markSketch();
@@ -718,7 +744,13 @@ addEventListener("keydown", (e) => {
 
 // ---------------------------------------------------------------- boot
 if (new URLSearchParams(location.search).has("tune")) {
-  initTuning({ S, applyTheme, requestRender, getThemeName: () => themeName, setThemeName: (n) => ((themeName = n), applyTheme()) });
+  initTuning({
+    S, applyTheme, requestRender, getThemeName: () => themeName, setThemeName: (n) => ((themeName = n), applyTheme()),
+    view3D: () => (selected ? exitSketch(true) : goHome()),
+    sketchOn: (plane) => enterSketch(plane),
+    pinHover: (plane) => ((pinnedHover = plane), requestRender()),
+    addTestBoxes: () => window.__ui.addTestBox(25, 10, -14, 30, 24, 20) || window.__ui.addTestBox(-30, -20, 18, 14, 14, 36),
+  });
 }
 applyTheme();
 resize();

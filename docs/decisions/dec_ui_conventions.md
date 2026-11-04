@@ -3,7 +3,7 @@ id: dec_ui_conventions
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_026, in_027, in_028
+human_input: in_026, in_027, in_028, in_029
 date: 2026-11-04
 depends_on:
   - dec_ui_build_order: the conventions govern the sketching and extruding stages of the staged interface build
@@ -29,6 +29,11 @@ Approved by the human as a starting point (`in_028`); everything is a remappable
    right-click menu, a drawer and hotkeys. A right-click without dragging opens the menu; right-drag orbits.
 6. **Extrusion defaults like Shapr3D (`in_028`).** Pulling a region in the positive direction adds material; pulling
    it in the negative direction subtracts (cuts) from the existing body.
+
+Correction after hands-on use (`in_029`): the human got locked in a sketch with no way back to the 3D view. Leaving a
+sketch must always be obvious and possible: Esc glides the camera back to the 3D view it came from, the status line shows
+a "3D view" button, and left-drag (when the left button has no tool action) and Alt + left-drag also orbit, so a missing
+right or middle button can never trap anyone.
 
 Status (stage 2 of `prototypes/cad-ui`): navigation presets and the keymap are data in `settings.input`; items 1, 2 and
 4 are implemented, and item 5 (right-click menu, no toolbar) is started. Not built yet: the history list, the drawer,

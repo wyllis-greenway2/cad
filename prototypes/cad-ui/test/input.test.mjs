@@ -20,6 +20,8 @@ test("navigation presets: orbit and pan bindings per preset; the left button is 
   assert.equal(navAction(ev({ button: 1, metaKey: true }), P.solidworks), "pan", "Cmd counts as the mod key");
   assert.equal(navAction(ev({ button: 1, shiftKey: true }), P.blender), "pan");
   assert.equal(navAction(ev({ button: 2, altKey: true }), P.ours), null, "extra modifiers do not match");
+  assert.equal(navAction(ev({ button: 0, altKey: true }), P.ours), "orbit", "Alt+left-drag orbits (trackpads, mice without a usable right button)");
+  assert.equal(navAction(ev({ button: 0, altKey: true, shiftKey: true }), P.ours), "pan");
 });
 
 test("hotkeys: letters, undo and redo with Ctrl or Cmd, Esc, Enter, Delete", () => {

@@ -154,3 +154,8 @@ Reply to the AI's list of what users carry between CAD programs (mouse navigatio
 Approves the AI's proposed defaults for conventions (navigation, hotkeys and undo, workflow with a history list, typing numbers) as a starting point, answers the AI's questions, and adds a request about the sheets.
 
 > yes that sounds good, lets do that as a starting point. 1 I drove shapr3d with a mouse. 2 I think mostly I would want to improve the clutteredness of shapr 3d. Perhaps make more things available from a drawer or right click or hotkeys and less have it always in your face. The extrusion logic in shapr3d is pretty good, with the positive and negative extrusions defaults they have. One more thing also about the world view. Can we possible make it so that the sheets are both somehow lighter, brighter, but still transparent so you could see objects behind them? Maybe by having the fog only dissappear behind them when they are gone and replaced with like a slight back light?
+
+## in_029 — 2026-11-04 — preference
+Bug report after trying stage 2 of `prototypes/cad-ui` (and the tuning panel).
+
+> okay there is a pretty big problem where when I click on a sheet I just get locked on it, and can never get back to 3d view. You are supposed to be able to get back to 3d view. I can't really tune the panel colors and brightness without that

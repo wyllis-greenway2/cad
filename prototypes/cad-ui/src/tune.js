@@ -33,7 +33,7 @@ function hslToRgb([h, s, l]) {
   return [f(h + 1 / 3), f(h), f(h - 1 / 3)];
 }
 
-export function initTuning({ S, applyTheme, requestRender, getThemeName, setThemeName }) {
+export function initTuning({ S, applyTheme, requestRender, getThemeName, setThemeName, view3D, sketchOn, pinHover, addTestBoxes }) {
   const defaults = JSON.parse(JSON.stringify(S));
   const theme = () => S.themes[getThemeName()];
 
@@ -151,6 +151,15 @@ export function initTuning({ S, applyTheme, requestRender, getThemeName, setThem
     sync();
   };
 
+  panel.addEventListener("change", (e) => {
+    const el = e.target;
+    if (el instanceof HTMLInputElement && (el.type === "range" || el.type === "color")) el.blur();
+  });
+  panel.addEventListener("pointerup", (e) => {
+    const el = e.target;
+    if (el instanceof HTMLInputElement && el.type === "range") el.blur();
+  });
+
   // ---- header
   const title = document.createElement("div");
   title.innerHTML = "<b>Tuning</b> <small>(temporary &middot; K hides)</small>";
@@ -169,6 +178,35 @@ export function initTuning({ S, applyTheme, requestRender, getThemeName, setThem
     themeBtns[name] = btn(`theme: ${name}`, () => (setThemeName(name), refreshAll()));
   }
   panel.appendChild(bar);
+
+  // ---- view helpers, so the look can be tuned without any navigation
+  section("View (no mouse navigation needed)");
+  const nav = document.createElement("div");
+  nav.className = "bar";
+  panel.appendChild(nav);
+  const navBtn = (text, fn) => {
+    const b = document.createElement("button");
+    b.textContent = text;
+    b.addEventListener("click", () => (fn(), b.blur()));
+    nav.appendChild(b);
+    return b;
+  };
+  navBtn("3D view", () => view3D?.());
+  for (const p of ["XY", "XZ", "YZ"]) navBtn(`Sketch ${p}`, () => sketchOn?.(p));
+  const pins = [null, "XY", "XZ", "YZ"];
+  let pinIdx = 0;
+  const pinB = navBtn("Pin hover sheet: off", () => {
+    pinIdx = (pinIdx + 1) % pins.length;
+    pinB.textContent = `Pin hover sheet: ${pins[pinIdx] ?? "off"}`;
+    pinHover?.(pins[pinIdx]);
+  });
+  let boxes = false;
+  navBtn("Test boxes", () => {
+    if (!boxes) (boxes = true), addTestBoxes?.();
+  });
+  const hintNav = document.createElement("small");
+  hintNav.textContent = "In the 3D view the sheet shows only where the mouse hovers (or pin one here). Boxes show how the sheet looks over objects.";
+  panel.appendChild(hintNav);
 
   // ---- colors (for the theme currently shown; D or the buttons above switch themes)
   section("Colors (current theme)");
