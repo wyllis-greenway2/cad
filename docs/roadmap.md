@@ -6,8 +6,6 @@ Update it at the end of each session.
 ## Now
 - Interface in stages (`in_015`): **stage 1 built** (`prototypes/cad-ui`: infinite XYZ planes, select a
   plane, go normal to it, orbit, click to return). Human tries it and gives feedback.
-- Apply the human's tuned values from the temporary tuning panel (`bash tools/preview.sh tune`), then delete
-  `prototypes/cad-ui/src/tune.js`.
 - Then stage 2: sketch on the selected plane (reuse the tools from `sketch-extrude`). Then stage 3: extrude.
 - Human decides the open questions, starting with `q_kernel_choice` (evidence in `kernel-slice` and
   `sketch-extrude` READMEs).

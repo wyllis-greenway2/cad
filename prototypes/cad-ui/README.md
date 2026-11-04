@@ -32,16 +32,11 @@ or `cd prototypes/cad-ui && npm install && npm run dev`. Tests: `npm test` (7 te
 - **Esc** also drops the sketch plane; **H** resets the camera. One status line (a small dark pill) is the
   only text on screen.
 
-## Tuning panel (temporary, `in_024`)
-Run `bash tools/preview.sh tune` (or open the page with `?tune`). A panel appears beside the view with
-live controls for: the colors of the current theme (world/fog, plane sheet, grid lines, X/Y/Z axes, status text,
-each with a picker, a hex field and a lightness slider), the selected and hovered plane opacities, world fog
-(start, end, sharpness, axis reach), grid and axis line settings, arrow and letter size and placement, and the
-view (field of view, glide time, orbit and zoom speed). Everything updates the live view immediately. The
-**Exact values** box shows every number (colors as hex and as 0-1 floats, plus a JSON block); **Copy values**
-copies it so you can hand it back. Values persist across reloads; **Reset to defaults** restores the shipped ones.
-**K** hides or shows the panel; **D** (or the theme buttons) switches world/paper. Without `?tune` the panel is
-not loaded at all. Remove `src/tune.js` once the values are applied.
+## Look values (tuned by the human, `in_025`)
+The colors, opacities, fog, grid and arrow values in `src/settings.js` were tuned by hand with a temporary
+tuning panel and pasted back; they are applied exactly (all 68 pasted numbers were checked against the file).
+The panel itself has been removed. It lives in git history (commit `d86a2b4`, `src/tune.js`) if another round of
+tuning is wanted: ask and it can be restored.
 
 ## How it works (short)
 - `src/viewmath.mjs`: pure math (turntable camera, standard views, ray-plane picking). Unit tested.

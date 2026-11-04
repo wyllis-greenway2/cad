@@ -110,3 +110,31 @@ Reply to the dark-world / lit-plane version, with a screenshot of a low-angle vi
 
 ## in_024 — 2026-11-04 — directive
 > Okay that is pretty good! Now can you please give me a temporary version with knobs to adjust the colors brightness, shades etc, so that I can hand you back exact values to apply?
+
+## in_025 — 2026-11-04 — directive
+The human tuned the look with the temporary tuning panel (`bash tools/preview.sh tune`) and pasted the panel's text back. The human-readable "Exact values" block is quoted below; the same message also contained the panel's JSON block with identical numbers, which was applied to `settings.js`.
+
+> Exact values (copy and send back)
+> // cad-ui tuning (theme shown: world). Paste this back.
+> theme "world":
+>   background #121212   text #aeb2b7
+>   sheet [0.9176, 0.8902, 0.8627]  // #eae3dc
+>   gridLine [0.17, 0.18, 0.2]  // #2b2e33
+>   axisX [0.92, 0.32, 0.3]  // #eb524d
+>   axisY [0.25, 0.72, 0.38]  // #40b861
+>   axisZ [0.32, 0.52, 1]  // #5285ff
+>   selected: line 0.49  fill 1  fine 1
+>   hover: line 0.65  fill 0.75  fine 0.83
+> theme "paper":
+>   background #eeece6   text #625f58
+>   sheet [0.2, 0.21, 0.23]  // #33363b
+>   gridLine [0.2, 0.21, 0.23]  // #33363b
+>   axisX [0.84, 0.25, 0.22]  // #d64038
+>   axisY [0.16, 0.6, 0.3]  // #29994d
+>   axisZ [0.22, 0.42, 0.9]  // #386be6
+>   selected: line 0.85  fill 0.05  fine 1
+>   hover: line 0.7  fill 0.08  fine 0.55
+> fog: near 0.5  far 2.5  sharpness 2.5  axisFar 2.5
+> grid: axisWidthPx 2.2  axisAlpha 0.85  fineLineStrength 0.65  minCellPx 4  lodDivisor 8
+> axisArrow: sizePx 15  lengthFactor 0.83  labelGapPx 13  labelSidePx 10
+> view: fovDeg 35  transitionMs 450  orbitRadPerPx 0.006  zoomPerWheel 0.0015

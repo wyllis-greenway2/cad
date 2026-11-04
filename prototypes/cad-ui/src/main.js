@@ -3,7 +3,6 @@
 // plane (back to the 3D view, where any plane can be hovered and clicked). Sketching and extruding come next.
 import * as THREE from "three";
 import { settings as S } from "./settings.js";
-import { initTuning } from "./tune.js";
 import { PLANES, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, projectOnto, pickPlane } from "./viewmath.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -375,9 +374,6 @@ addEventListener("keydown", (e) => {
 });
 
 // ---------------------------------------------------------------- boot
-if (new URLSearchParams(location.search).has("tune")) {
-  initTuning({ S, applyTheme, requestRender, getThemeName: () => themeName, setThemeName: (n) => ((themeName = n), applyTheme()) });
-}
 applyTheme();
 resize();
 updateStatus();

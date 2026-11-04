@@ -3,7 +3,7 @@ id: dec_ui_plane_selection
 kind: decision
 status: accepted
 origin: human
-human_input: in_015, in_016, in_017, in_018, in_019, in_020, in_021, in_022, in_023
+human_input: in_015, in_016, in_017, in_018, in_019, in_020, in_021, in_022, in_023, in_024, in_025
 date: 2026-11-04
 depends_on:
   - dec_ui_build_order: this is stage 1 of the staged interface build
@@ -23,7 +23,9 @@ paper gray and charcoal greys remain, plus the world axis colors); a much darker
 Refinement (`in_022`): the fog is world fog, not on the planes, as if the whole world is dark and a light shines on
 the plane: the plane keeps its own color and fades into the dark world with distance. Refinement (`in_023`): at low
 angles the camera should visibly go through the plane; the plane must not separate, fade away or dissolve with
-viewing angle, only recede into the world fog toward the horizon. You select a plane to sketch on,
+viewing angle, only recede into the world fog toward the horizon. The exact colors, opacities, fog, grid and
+arrow values are the human's own, tuned by hand with a temporary panel and pasted back (`in_024`, `in_025`);
+they are applied verbatim in `settings.js` and are not AI choices. You select a plane to sketch on,
 and the view goes normal to that plane. You can still orbit in 3D, and clicking on the plane brings the
 view back normal to it. Reduce clutter: no XYZ buttons.
 

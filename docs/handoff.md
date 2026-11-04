@@ -182,3 +182,16 @@ edits apply, output reflects them, survives reload, reset, K hides) with no cons
 **Open for the human:** tune, then send the exact values (the text box, or a screenshot of it). Both themes are in
 the output.
 **Next:** apply the values to `settings.js`, delete `tune.js`, then stage 2 (sketch on the plane), stage 3 (extrude).
+
+## Handoff 014 — 2026-11-04
+**State:** The human tuned the look with the temporary panel and pasted the values back (`in_025`). Applied
+verbatim to `prototypes/cad-ui/src/settings.js` and verified by a script comparing every pasted number (68) to the
+file: exact match. Notable changes from my defaults: the world color is near black (#121212), the sheet is a warm
+cream gray (#eae3dc), selected sheet fully opaque with grid lines at 0.49, hover sheet 0.75, fog starts at 0.5 and is
+almost gone at 2.5 (sharpness 2.5; axis lines reach 2.5), grid density 8, minimum cell 4 px, arrows a bit longer on
+the line (0.83) with a wider letter gap (13). The paper theme was left as-is. The tuning panel (`src/tune.js`) and the
+`tune` launcher shortcut were removed as promised; they remain in git history (commit `d86a2b4`). 8 tests pass and
+the full interaction flow (select, pan/zoom, orbit away, reselect) passes with the applied look.
+
+**Next:** stage 2 (sketch on the plane), then stage 3 (extrude). The sketch tools, snapping and OCCT worker from
+`prototypes/sketch-extrude` are the reuse candidates; the human's interface rules (`dec_ui_plane_selection`) apply.
