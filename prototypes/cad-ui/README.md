@@ -66,6 +66,11 @@ the world fog 0.5 to 2.5; all other values unchanged (37 values checked against 
 fades objects. The temporary tuning panel and the reflective-sheet experiment were removed (`in_033`); git history has both.
 
 
+## Look changes (`in_035`)
+Plane view is orthographic; leaving it shows the hovered plane straight away. Sketch lines are thin (dark core, light halo); closed shapes are
+cream faces; a hovered or selected plane leans slightly blue (`states.*.blue`, `themes.world.blue*`). World view option `settings.backdrop`:
+the plane is almost see-through and the cream sheet sits behind it (drawn first, never covers an object); `enabled: false` = the older look.
+
 ## Dimension tool (D)
 Point at a shape (its dimensions appear), click it to keep them showing. Type a number (math works, `50/2`), Tab to the next
 dimension, Enter to apply; or click a number to edit that one. Esc cancels, then deselects, then leaves the tool. One undo step per Enter.

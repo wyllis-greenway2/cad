@@ -318,3 +318,12 @@ are looking at; extrusions keep a copy of the shape. These are what "sketch on a
 **Open for the human:** try `bash tools/preview.sh`: R, draw a box, E, click it, pull; then a circle on another plane, E, pull the other way;
 D to resize. Tell me what feels wrong. `q_kernel_choice` is still undecided; this reuses OCCT only as the working engine.
 **Next:** sketch on body faces; the drawer; whatever the trial turns up.
+
+## Handoff 023 — 2026-11-04
+**State:** `in_035` (feedback after trying extrude). Done in `prototypes/cad-ui`: orthographic camera face-on to a plane (perspective in 3D); leaving
+plane view re-picks the hovered plane at once; thin sketch lines (dark with a light halo); closed shapes as cream faces; slight blue on hovered and
+selected planes (surface, grid, sketch lines); sketch lines now draw over a body in sketch view; **backdrop experiment**: near-transparent plane plus a
+separate cream sheet behind it, drawn in its own pass before the scene so it never covers objects (`settings.backdrop`, `enabled: false` = old look).
+30 unit tests pass; browser screenshots checked; no console errors. The old tuned brightness/opacity values (`in_031`) are unused while the backdrop is on.
+**Open for the human:** is the sheet cream enough (it reads grayer than the face fill), is the blue slight enough, does the offset sheet feel right?
+**Next:** sketch on body faces; the drawer.

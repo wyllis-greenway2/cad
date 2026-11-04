@@ -38,17 +38,32 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.autoClear = false;
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0x000000, 1, 1000); // world fog for objects; near/far follow the camera distance each frame (see updatePlanes)
-const camera = new THREE.PerspectiveCamera(V.fovDeg, 1, 0.1, 1000);
+const persp = new THREE.PerspectiveCamera(V.fovDeg, 1, 0.1, 1000);
+const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000); // used face-on to a plane: no perspective, so the plane is seen flat
+let camera = persp;
+let aspect = 1;
 
 function applyCamera() {
   const o = cameraOffset(view.a, view.e);
   const up = cameraUp(view.a, view.e);
+  const useOrtho = !!selected && !extrude && isNormal(view, selected, V.normalToleranceRad);
+  camera = useOrtho ? ortho : persp;
   camera.position.set(view.target.x + view.dist * o[0], view.target.y + view.dist * o[1], view.target.z + view.dist * o[2]);
   camera.up.set(up[0], up[1], up[2]);
   camera.lookAt(view.target);
-  camera.fov = V.fovDeg;
   camera.near = Math.max(0.01, view.dist * V.nearFactor);
   camera.far = view.dist * V.farFactor + 100;
+  if (useOrtho) {
+    // same visible height at the target as the perspective view, so nothing jumps when switching
+    const h = view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2));
+    ortho.left = -h * aspect;
+    ortho.right = h * aspect;
+    ortho.top = h;
+    ortho.bottom = -h;
+  } else {
+    persp.fov = V.fovDeg;
+    persp.aspect = aspect;
+  }
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld();
 }
@@ -122,7 +137,8 @@ void main() {
 #endif
 }`;
 
-const planeMeshes = {}; // name -> { glow, lines }
+const planeMeshes = {}; // name -> { paint, glow, lines, back }
+const backdropScene = new THREE.Scene(); // the cream sheets: drawn first, then the scene over them, so a sheet never covers an object
 for (const [name, def] of Object.entries(PLANES)) {
   const axisCol = [T().axisX, T().axisY, T().axisZ];
   const makeMat = (pass) => new THREE.ShaderMaterial({
@@ -159,18 +175,41 @@ for (const [name, def] of Object.entries(PLANES)) {
     mesh.frustumCulled = false;
     scene.add(mesh);
   }
-  planeMeshes[name] = { paint, glow, lines };
+  const back = new THREE.Mesh(geo, makeMat(0));
+  back.material.depthTest = false;
+  back.frustumCulled = false;
+  if (def.axis === 1) back.rotation.x = Math.PI / 2;
+  if (def.axis === 0) back.rotation.y = Math.PI / 2;
+  backdropScene.add(back);
+  planeMeshes[name] = { paint, glow, lines, back };
 }
 
 /** Keep each plane's quad centered on the target (projected onto the plane) and sized to the view, so it looks
  *  infinite and vertex positions stay small (float precision). Grid lines are in world coordinates. */
+const mix3 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+/** How a plane looks right now: the selected plane shows fully, the hovered plane previews, the rest are hidden. */
+function stateOf(name) {
+  const states = T().states;
+  const pinned = pinnedHover && !selected && pinnedHover === name;
+  return selected === name ? states.selected : pinned ? states[pinnedStyle] : hovered === name && !pinnedHover ? states.hover : states.base;
+}
 function updatePlanes() {
   scene.fog.near = view.dist * F.nearFactor;
   scene.fog.far = view.dist * F.farFactor;
+  const B = S.backdrop;
+  const th = T();
   for (const [name, pair] of Object.entries(planeMeshes)) {
-   for (const mesh of [pair.paint, pair.glow, pair.lines]) {
+   const state = stateOf(name);
+   const shown = state.line > 0 || state.bright > 0 || state.opacity > 0;
+   const sheet = mix3(th.sheet, th.blueSurface, state.blue);
+   const lineCol = mix3(th.gridLine, th.blueLine, Math.min(1, state.blue * 3));
+   const nrm = BASIS[name][2];
+   const side = Math.sign(camera.position.x * nrm[0] + camera.position.y * nrm[1] + camera.position.z * nrm[2]) || 1;
+   pair.back.visible = B.enabled;
+   for (const mesh of [pair.paint, pair.glow, pair.lines, pair.back]) {
     const c = projectOnto(name, view.target.toArray());
     mesh.position.set(c[0], c[1], c[2]);
+    if (mesh === pair.back) mesh.position.addScaledVector(new THREE.Vector3(...nrm), -side * view.dist * B.offsetFactor); // behind the plane, seen from the camera
     mesh.scale.setScalar(view.dist * G.extentFactor);
     const u = mesh.material.uniforms;
     u.uCam.value.copy(camera.position);
@@ -183,18 +222,18 @@ function updatePlanes() {
     u.uFogNear.value = A.nearFactor;
     u.uFogFar.value = A.farFactor;
     u.uAxisFogFar.value = A.axisFarFactor;
-    u.uFogK.value = A.sharpness;
-    // Only the selected plane is shown (full grid); the hovered plane previews whenever it can be picked. The rest are hidden.
-    const states = T().states;
-    const pinned = pinnedHover && !selected && pinnedHover === name;
-    const state = selected === name ? states.selected : pinned ? states[pinnedStyle] : hovered === name && !pinnedHover ? states.hover : states.base;
-    const th = T();
-    u.uCol.value.set(...th.sheet);
-    u.uLineCol.value.set(...th.gridLine);
+    u.uFogK.value = mesh === pair.back ? A.sharpness * B.fogScale : A.sharpness;
+    u.uCol.value.set(...sheet);
+    u.uLineCol.value.set(...lineCol);
     u.uLineA.value = state.line;
-    u.uBright.value = state.bright;
-    u.uOpacity.value = state.opacity;
     u.uFineMul.value = state.fine; // the densest grid level is only shown on the sketch plane
+    if (B.enabled) {
+      u.uBright.value = 0;
+      u.uOpacity.value = mesh === pair.back ? (shown ? B.alpha : 0) : mesh === pair.paint && shown ? B.planeOpacity : 0;
+    } else {
+      u.uBright.value = state.bright;
+      u.uOpacity.value = mesh === pair.back ? 0 : state.opacity;
+    }
    }
   }
 }
@@ -272,7 +311,12 @@ function requestRender() {
     updatePlanes();
     renderer.setViewport(0, 0, w, h);
     renderer.clear();
+    if (inSketchView() !== sketchWasFlat) (sketchWasFlat = inSketchView()), (sketchDirty = true);
     if (sketchDirty) rebuildSketchViz();
+    if (S.backdrop.enabled) {
+      renderer.render(backdropScene, camera);
+      renderer.clearDepth();
+    }
     updateAxisArrows();
     updateOriginPill();
     updateDims();
@@ -284,7 +328,7 @@ function requestRender() {
 function resize() {
   renderer.setPixelRatio(devicePixelRatio);
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
-  camera.aspect = canvas.clientWidth / canvas.clientHeight;
+  aspect = canvas.clientWidth / canvas.clientHeight;
   requestRender();
 }
 addEventListener("resize", resize);
@@ -307,7 +351,7 @@ function animateTo({ a, e, target, dist }, ms) {
     updateStatus();
     requestRender();
     if (k < 1) requestAnimationFrame(step);
-    else anim = null;
+    else (anim = null), refreshHover();
   };
   requestAnimationFrame(step);
 }
@@ -394,7 +438,7 @@ function disc(plane, p, radiusMm, color, order, alpha = 1) {
 }
 function fillShape(plane, polygon, color, alpha) {
   const shape = new THREE.Shape(polygon.map((p) => new THREE.Vector2(p[0], p[1])));
-  const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: alpha, depthWrite: false, side: THREE.DoubleSide }));
+  const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: alpha, depthWrite: false, side: THREE.DoubleSide, fog: false }));
   mesh.matrixAutoUpdate = false;
   mesh.matrix.copy(basisMatrix(plane, new THREE.Vector3()));
   mesh.renderOrder = 3;
@@ -415,22 +459,31 @@ const clearGroup = (grp) => {
 
 /** Rebuild everything sketch-related that is drawn in the scene: committed shapes (on their planes, always), and,
  *  in the sketch view, the shape being drawn, placed points, inference guides and the snap marker. */
+let sketchWasFlat = false;
 function rebuildSketchViz() {
+  buildSketchViz();
+  if (inSketchView()) sketchGroup.traverse((o) => o.material && (o.material.depthTest = false)); // drawing on a plane: your lines stay visible even with a body in front
+}
+function buildSketchViz() {
   sketchDirty = false;
   clearGroup(sketchGroup);
   const th = T();
   const ink = toHex(th.sketchInk);
   const halo = toHex(th.sketchHalo);
   const SK = S.sketch;
+  const cream = th.sheet;
   for (const plane of Object.keys(PLANES)) {
+    const blue = stateOf(plane).blue > 0 ? SK.lineBlue : 0; // a hovered or selected plane leans blue
+    const inkC = toHex(mix3(th.sketchInk, th.blueInk, blue));
+    const haloC = toHex(mix3(th.sketchHalo, th.blueHalo, blue));
     for (const e of store.entities(plane)) {
       const o = outline(e);
       const pts = o.pts.map((p) => toWorld(plane, p));
       const sel = plane === session.plane && e.id === session.selectedId;
       const hov = plane === session.plane && session.tool === "extrude" && e.id === session.hoverId;
-      if (o.closed) sketchGroup.add(fillShape(plane, o.pts, ink, hov ? SK.regionFill * 3.5 : SK.regionFill));
-      sketchGroup.add(stroke(pts, { color: halo, width: SK.haloWidthPx * (sel ? 1.5 : 1), closed: o.closed, order: 4 }));
-      sketchGroup.add(stroke(pts, { color: ink, width: SK.lineWidthPx * (sel ? 1.7 : 1), closed: o.closed, order: 5 }));
+      if (o.closed) sketchGroup.add(fillShape(plane, o.pts, toHex(mix3(cream, th.blueSurface, hov ? SK.regionHoverBlue : 0)), SK.regionFill));
+      sketchGroup.add(stroke(pts, { color: haloC, width: SK.haloWidthPx * (sel ? 1.5 : 1), closed: o.closed, order: 4 }));
+      sketchGroup.add(stroke(pts, { color: inkC, width: SK.lineWidthPx * (sel ? 1.7 : 1), closed: o.closed, order: 5 }));
     }
   }
   if (!inSketchView() || session.tool === "select") return;
@@ -451,7 +504,7 @@ function rebuildSketchViz() {
   const d = session.draftShape();
   if (d) {
     const o = outline(d);
-    if (d.type === "rect") sketchGroup.add(fillShape(plane, o.pts, ink, SK.regionFill * 0.6));
+    if (d.type === "rect") sketchGroup.add(fillShape(plane, o.pts, toHex(cream), SK.regionFill * 0.5));
     const pts = o.pts.map((p) => toWorld(plane, p));
     sketchGroup.add(stroke(pts, { color: halo, width: SK.haloWidthPx, closed: o.closed, order: 6, alpha: 0.9 }));
     sketchGroup.add(stroke(pts, { color: ink, width: SK.lineWidthPx, closed: o.closed, order: 7, alpha: 0.8 }));
@@ -675,10 +728,17 @@ function enterSketch(plane, tool = "select") {
 }
 /** Leave the sketch. With animate, the camera glides back to the 3D view it came from (or a default oblique view if that
  *  was already face-on); orbiting out does not animate (the user is steering). */
+/** Back in the 3D view: the plane under the mouse shows as hovered straight away (not only after the mouse moves). */
+function refreshHover() {
+  if (selected || !pointerSeen) return;
+  hovered = pickAt(lastPointer.x, lastPointer.y)?.plane ?? null;
+  markSketch();
+}
 function exitSketch(animate = false) {
   const plane = selected;
   selected = null;
   session.reset();
+  refreshHover();
   if (animate && plane) {
     const back = prePose && !isNormal(prePose, plane, V.normalToleranceRad) ? prePose : { a: V.homeAzimuth, e: V.homeElevation, dist: view.dist, target: view.target.clone() };
     animateTo({ a: back.a, e: back.e, target: back.target }, V.transitionMs);
@@ -758,6 +818,7 @@ function updateDims() {
 
 // ---------------------------------------------------------------- the typing field next to the cursor
 let lastPointer = { x: 0, y: 0 };
+let pointerSeen = false;
 function updateReadout() {
   const el = $("readout");
   const segs = extrude
@@ -857,6 +918,7 @@ canvas.addEventListener("pointerdown", (ev) => {
 });
 canvas.addEventListener("pointermove", (ev) => {
   lastPointer = { x: ev.clientX, y: ev.clientY };
+  pointerSeen = true;
   if (g && g.kind === "extdrag" && extrude) {
     const t = pullParam(ev.clientX, ev.clientY);
     if (t !== null) extrude.sess.drag(g.d0 + (t - g.t0), ev.shiftKey);
@@ -904,7 +966,7 @@ canvas.addEventListener("pointermove", (ev) => {
   if (h !== hovered) {
     hovered = h;
     canvas.style.cursor = h ? "pointer" : "default";
-    requestRender();
+    markSketch();
   }
 });
 canvas.addEventListener("pointerup", (ev) => {
@@ -935,6 +997,7 @@ canvas.addEventListener("pointerup", (ev) => {
   }
 });
 canvas.addEventListener("pointerleave", () => {
+  pointerSeen = false;
   if (hovered) (hovered = null), requestRender();
 });
 let lastWheelAt = 0;

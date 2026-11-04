@@ -50,11 +50,13 @@ export const settings = {
     roundMm: 0.01, // free-placed points are rounded to this, so dimensions read 40.00 and not 39.999999
     selectTolPx: 8,
     dragFinishPx: 8, // press-and-drag creates a rectangle or circle if you release farther than this
-    lineWidthPx: 2.5,
-    haloWidthPx: 6,
+    lineWidthPx: 1.3, // sketch lines: a thin dark line traced with a thin light one, so they stay readable on any background
+    haloWidthPx: 3.2,
     markerPx: 5,
     snapSquarePx: 9,
-    regionFill: 0.1,
+    regionFill: 0.92, // closed sketch shapes are faces with no thickness: light cream
+    regionHoverBlue: 0.25, // a face under the cursor (extrude tool) leans this much blue
+    lineBlue: 0.6, // sketch lines on a hovered or selected plane lean this much blue
     dimOffsetPx: 22, // dimension lines sit this far (screen px) from the shape
     dimLabelHitPx: 20, // a click this close to a dimension number edits it
     dimLineWidthPx: 1.6,
@@ -93,6 +95,16 @@ export const settings = {
     sharpness: 2.5, // how quickly it fades between near and far (higher = faster, still smooth)
     axisFarFactor: 2.5, // how far the axis lines reach (they fade with the same curve)
   },
+  backdrop: {
+    // World view option: the plane itself is almost see-through, and the cream sheet is a SEPARATE sheet a little behind it (away from
+    // the camera). That sheet is drawn first and the scene is drawn over it, so it can never cover an object. enabled: false = the
+    // older look (one sheet with brightness and opacity, drawn over objects).
+    enabled: true,
+    offsetFactor: 0.15, // how far behind the plane, in view distances
+    alpha: 1.0, // how solid the cream sheet is
+    planeOpacity: 0.06, // how much of a veil the plane itself has
+    fogScale: 0.35, // the cream sheet fades into the dark world this much as fast as the grid does (lower = stays cream farther out)
+  },
   grid: {
     lodDivisor: 8, // grid spacing is chosen so about this many major cells span the view
     minCellPx: 4, // a grid level fades out when its cells get smaller than this on screen (prevents moire)
@@ -114,12 +126,14 @@ export const settings = {
       background: 0x242424, text: "#aeb2b7",
       axisX: [0.92, 0.32, 0.3], axisY: [0.25, 0.72, 0.38], axisZ: [0.32, 0.52, 1.0],
       sheet: [0.9529411764705882, 0.9411764705882353, 0.9058823529411765], gridLine: [0.17, 0.18, 0.2], // sheet #f3f0e7, grid #2b2e33
+      blueSurface: [0.5, 0.66, 1.0], blueLine: [0.1, 0.22, 0.55], blueInk: [0.05, 0.12, 0.32], blueHalo: [0.82, 0.9, 1.0], // the slight blue shade on a hovered or selected plane
       bodyColor: 0x8fa3b8, bodyEdge: 0x1c2733, addColor: 0x5fbf7a, cutColor: 0xe0645c, handleColor: 0xf2c14e,
       sketchInk: [0.09, 0.095, 0.105], sketchHalo: [0.95, 0.93, 0.9], // sketch lines: near-black with a light halo so they read on the lit sheet and on the dark world
       states: {
-        base: { line: 0, bright: 0, opacity: 0, fine: 0 },
-        hover: { line: 0.5, bright: 1.2, opacity: 0.5, fine: 0.5 },
-        selected: { line: 0.5, bright: 1.2, opacity: 0.5, fine: 0.5 },
+        // blue = how much the hovered / selected plane's surface and lines lean blue (0 = none)
+        base: { line: 0, bright: 0, opacity: 0, fine: 0, blue: 0 },
+        hover: { line: 0.5, bright: 1.2, opacity: 0.5, fine: 0.5, blue: 0.08 },
+        selected: { line: 0.5, bright: 1.2, opacity: 0.5, fine: 0.5, blue: 0.08 },
       },
     },
   },

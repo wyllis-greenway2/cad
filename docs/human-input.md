@@ -275,3 +275,8 @@ Answer to my three questions about the bad screenshot (1: how it got that way, 2
 Answer to my question about which sketching mechanic to do first (I suggested the dimension tool, then extrude).
 
 > Let's do the dimension tool first, then extrude
+
+## in_035 — 2026-11-04 — directive
+Feedback after trying extrude and the dimension tool, with several requests about plane view, leaving it, and a new look for lines and planes.
+
+> okay a few things. Plane view doesn't seem to really be in orthographic? I can see the z axis cross my face? Also When you leave plane view back into 3d view, it drops all hovered planes and shows pure blackness, lets have it already back in showing normal hovered plane mode. Also lets try a different visual for the lines and planes. Lets have the lines be smaller thinner lines. A thin light and dark line always traced together to always stay contrasty. Sort of like how you have now. Lets normal faces a complete sketch should be a face with no thickness) show as light cream. Lets have on hover selected add a slight blue shade to plane surfaces and lines. Also can we try something else for the world view? Can we have the planes almost transparent, and the cream colored sheet is another one that is actually offset behind it from the view of the camera by some amount. Can we have that second sheet do something special where it never covers objects?

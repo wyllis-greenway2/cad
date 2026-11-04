@@ -50,3 +50,11 @@ returns to normal only acts when the view is tilted; a single status line is the
 ## Rationale
 This is the human's stated interaction model. It keeps orientation obvious (sketching always starts
 face-on) while leaving free 3D navigation, which matches the blueprint's sketcher section.
+
+Refinement (`in_035`): in plane view the camera is **orthographic** (same visible height as the perspective view, so nothing jumps), so nothing in
+the plane's normal direction (like the Z axis) crosses the face; in the 3D view it is perspective. Leaving plane view shows the hovered plane
+at once. Sketch lines are thin (1.3 px dark traced with a 3.2 px light halo); closed sketch shapes are faces with no thickness, light cream; a
+hovered or selected plane leans slightly blue (surface, grid lines, sketch lines). **World view experiment (AI's design, not yet reviewed by
+the human):** the plane itself is almost see-through (`settings.backdrop.planeOpacity`), and the cream sheet is a separate sheet a little behind
+it as seen from the camera (`offsetFactor`), drawn first with the scene drawn over it so it never covers an object. `backdrop.enabled: false`
+brings back the older single-sheet look with the values from `in_031`.
