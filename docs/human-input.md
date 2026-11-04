@@ -77,3 +77,8 @@ First hands-on feedback on `prototypes/sketch-extrude` (a usability problem repo
 After hands-on use of `prototypes/sketch-extrude`; resets the interface work and sets the order: planes and navigation first, then sketching on a plane, then extruding on the plane.
 
 > Okay why don't we nail down the interface to start. Lets clear away a bunch of stuff so we dont have clutter and start from scratch. Let me describe what I want and you can toss what is not applicable. We dont have to start from actual scratch because some of what you built is good. So Here is what I think we should do, there should be a 3d view like in your other model. That 3d view should have xyz planes that go on forever. You should be able to select a plane to sketch on. When you select a plane, it should go normal to that plane. You should be able to still roll around in 3d view, but clicking on the plane brings you back normal to it. Lets do that first. Then we can move on to sketching on the plane. Then extruding on the plane.
+
+## in_016 — 2026-11-04 — directive
+Feedback on `prototypes/cad-ui` stage 1, plus a problem report about `tools/preview.sh`.
+
+> Okay pretty good. Now it is a little hard to see properly visually. Can we make the grid not be a grid at all? maybe only when we are in sketch mode. But in 3d mode can we try just semi transparent sheets on whatever sheet is hovered to select? Also for some reason I have to run the bash command twice to get the recent edits "bash ~/Documents/cad/tools/preview.sh"

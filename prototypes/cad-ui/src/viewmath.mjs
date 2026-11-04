@@ -39,16 +39,21 @@ export function projectOnto(plane, p) {
 
 /**
  * Nearest origin plane hit by a ray, ignoring planes seen (almost) edge-on and hits beyond maxDist.
+ * `only` restricts the test to one plane (sketch mode: only the sketch plane can be picked).
+ * `halfSize` makes each plane a finite square sheet centred on the origin (3D overview: you pick the visible sheet).
  * Returns { plane, t, point } or null.
  */
-export function pickPlane(origin, dir, { maxDist = Infinity, minCos = 0.03 } = {}) {
+export function pickPlane(origin, dir, { maxDist = Infinity, minCos = 0.03, only = null, halfSize = null } = {}) {
   let best = null;
   for (const [name, def] of Object.entries(PLANES)) {
+    if (only && name !== only) continue;
     const dk = dir[def.axis];
     if (Math.abs(dk) < minCos) continue;
     const t = -origin[def.axis] / dk;
     if (t <= 0 || t > maxDist) continue;
-    if (!best || t < best.t) best = { plane: name, t, point: origin.map((o, i) => o + t * dir[i]) };
+    const point = origin.map((o, i) => o + t * dir[i]);
+    if (halfSize !== null && (Math.abs(point[def.u]) > halfSize || Math.abs(point[def.v]) > halfSize)) continue;
+    if (!best || t < best.t) best = { plane: name, t, point };
   }
   return best;
 }

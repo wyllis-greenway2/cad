@@ -15,6 +15,7 @@
     button i { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
     #status { left:12px; bottom:12px; padding:7px 12px; max-width:calc(100% - 180px); }
     #hint { top:14px; right:14px; padding:6px 10px; opacity:.85; max-width:44vw; text-align:right; pointer-events:none; }
+    #tag { position:fixed; pointer-events:none; padding:3px 8px; font-size:12px; border-radius:6px; background:#000b; border:1px solid var(--line); display:none; white-space:nowrap; }
     .axl { position:fixed; font-weight:600; font-size:12px; pointer-events:none; transform:translate(-50%,-50%); text-shadow:0 1px 2px #000; }
   </style>
 </head>
@@ -26,8 +27,9 @@
     <button data-plane="YZ"><i style="background:#eb5959"></i>YZ</button>
     <button id="home">Home</button>
   </div>
-  <div id="hint" class="box">Click a plane to sketch on it. Drag to orbit, right-drag or Shift-drag to pan, scroll to zoom.</div>
+  <div id="hint" class="box">Hover near the origin to highlight a plane, click to sketch on it. Drag to orbit, right-drag or Shift-drag to pan, scroll to zoom. Esc leaves sketch mode.</div>
   <div id="status" class="box"></div>
+  <div id="tag"></div>
   <span class="axl" id="lx" style="color:#eb5959">X</span><span class="axl" id="ly" style="color:#66cc73">Y</span><span class="axl" id="lz" style="color:#66a0ff">Z</span>
   <script type="module" src="/src/main.js"></script>
 </body>

@@ -71,3 +71,18 @@ test("pickPlane: nearest plane along the ray, edge-on and far planes ignored", (
   assert.equal(pickPlane([0, 0, 10], [0, 0, -1], { maxDist: 5 }), null, "too far");
   assert.equal(pickPlane([0, 0, 10], [1, 0, -0.01], { minCos: 0.03 }), null, "grazing");
 });
+
+test("pickPlane `only` restricts picking to one plane (sketch mode)", () => {
+  assert.equal(pickPlane([5, -20, 3], [0, 1, 0], { only: "XZ" }).plane, "XZ");
+  assert.equal(pickPlane([5, -20, 3], [0, 1, 0], { only: "XY" }), null);
+  assert.equal(pickPlane([0, 0, 10], [0, 0, -1], { only: "XY" }).plane, "XY");
+});
+
+test("pickPlane `halfSize` makes each plane a finite sheet around the origin", () => {
+  assert.equal(pickPlane([0, 0, 10], [0, 0, -1], { halfSize: 5 }).plane, "XY");
+  assert.equal(pickPlane([4, -3, 10], [0, 0, -1], { halfSize: 5 }).plane, "XY");
+  assert.equal(pickPlane([20, 0, 10], [0, 0, -1], { halfSize: 5 }), null, "outside the sheet: nothing to pick");
+  // the nearest plane whose sheet contains the hit wins; a nearer plane hit outside its sheet is skipped
+  const hit = pickPlane([0, -30, 2], [0, 1, 0], { halfSize: 5 }); // along Y: XZ plane hit at (0,0,2) inside
+  assert.equal(hit.plane, "XZ");
+});

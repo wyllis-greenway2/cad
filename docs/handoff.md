@@ -67,3 +67,16 @@ the selected plane while tilted returns to normal (and does nothing yet when alr
 dim when one is selected; perspective camera; plane buttons as a fallback to clicking.
 
 **Next:** human tries stage 1 and gives feedback. Then stage 2 (sketch on the plane), stage 3 (extrude).
+
+## Handoff 005 — 2026-11-04
+**State:** Feedback on `cad-ui` stage 1 (`in_016`): the grid was hard to see; wanted no grid in 3D mode
+(grid only in sketch mode) and semi-transparent hover sheets to select planes; also reported needing to run
+`tools/preview.sh` twice. Done: 3D mode now shows only axis lines; hovering shows a finite outlined sheet
+with a tag; sketch mode shows the grid on the selected plane only; Esc leaves sketch mode. My first
+attempt (infinite hover sheet) washed the whole screen one color, so sheets are finite squares. 9 view-math
+tests plus a scripted browser run passed. `tools/preview.sh` now re-runs itself after `git pull` (the old
+copy kept running after a pull that changed it, which is the likely cause of the double run), prints the
+commit it is running, and refuses to start if port 5173 is busy.
+
+**Open for the human:** finite hover sheets vs faint outlines always visible; whether the XYZ buttons stay.
+**Next:** human tries it; then stage 2 (sketch on the plane), stage 3 (extrude).

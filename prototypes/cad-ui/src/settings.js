@@ -22,15 +22,14 @@ export const settings = {
     extentFactor: 60, // size of the quad that carries the grid, in view-distances
     grazeMinCos: 0.03, // planes seen edge-on fade out below this and cannot be picked
     grazeFullCos: 0.3,
-    lineAlpha: 0.2,
-    lineAlphaSelected: 0.28,
-    lineAlphaHover: 0.2,
+    lineAlpha: 0.3, // grid lines (sketch plane only)
     fineLineStrength: 0.4, // the finest grid level is this fraction as strong as the main one
-    fillAlpha: 0.012,
-    fillAlphaSelected: 0.05,
-    fillAlphaHover: 0.045,
+    sheetAlpha: 0.22, // the hover sheet in the 3D overview: a finite square around the origin
+    sheetBorderAlpha: 0.9,
+    sheetHalfFactor: 0.3, // half the sheet side, as a fraction of the camera distance to the origin
+    axisAlpha: 0.85,
+    axisAlphaOthers: 0.5, // axis lines on planes that are not the sketch plane
     axisWidthPx: 1.6,
-    dimOthers: 0.3, // once a plane is selected, the other planes fade to this strength (hovering one brings it back)
   },
   pick: { maxDistanceFactor: 6 }, // only pick where the plane is still visibly drawn
   gizmo: { sizePx: 96, padPx: 24, labelOffset: 1.2 },
