@@ -55,6 +55,9 @@ export const settings = {
     markerPx: 5,
     snapSquarePx: 9,
     regionFill: 0.1,
+    dimOffsetPx: 22, // dimension lines sit this far (screen px) from the shape
+    dimLabelHitPx: 20, // a click this close to a dimension number edits it
+    dimLineWidthPx: 1.6,
   },
   axisArrow: {
     // Arrowheads and letters sit ON the world axis lines (positive end); no separate corner gizmo.

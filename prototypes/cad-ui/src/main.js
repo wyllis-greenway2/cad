@@ -272,6 +272,7 @@ function requestRender() {
     if (sketchDirty) rebuildSketchViz();
     updateAxisArrows();
     updateOriginPill();
+    updateDims();
     renderer.render(scene, camera);
   });
 }
@@ -427,6 +428,18 @@ function rebuildSketchViz() {
   if (!inSketchView() || session.tool === "select") return;
   const plane = session.plane;
   const k = 1 / pxPerMm();
+  if (session.tool === "dimension") {
+    session.scale = pxPerMm();
+    for (const d of session.dims(SK.dimOffsetPx * k)) {
+      const lines = [[d.a, d.b], ...d.ext];
+      for (const [a, b] of lines) {
+        const w = [toWorld(plane, a), toWorld(plane, b)];
+        sketchGroup.add(stroke(w, { color: halo, width: SK.dimLineWidthPx + 3, order: 6, alpha: 0.85 }));
+        sketchGroup.add(stroke(w, { color: ink, width: SK.dimLineWidthPx, order: 7, alpha: d.active ? 1 : 0.75 }));
+      }
+    }
+    return;
+  }
   const d = session.draftShape();
   if (d) {
     const o = outline(d);
@@ -445,7 +458,7 @@ function rebuildSketchViz() {
       const line = gd.axis === "v" ? [[gd.value, -2000], [gd.value, 2000]] : [[-2000, gd.value], [2000, gd.value]];
       sketchGroup.add(stroke(line.map((p) => toWorld(plane, p)), { color: ink, width: 1.4, order: 6, alpha: 0.55, dashed: true }));
     }
-    if (info.kind !== "free") {
+    if (info.kind !== "free" && session.tool !== "dimension") {
       const s = SK.snapSquarePx * k;
       const [x, y] = info.point;
       const sq = [[x - s, y - s], [x + s, y - s], [x + s, y + s], [x - s, y + s]].map((p) => toWorld(plane, p));
@@ -532,7 +545,7 @@ function setTool(tool) {
   return true;
 }
 function doUndo() {
-  if (session.draft || session.entry) return session.escape(), updateStatus(), updateReadout(), markSketch();
+  if (session.draft || session.entry || session.dimEdit) return session.escape(), updateStatus(), updateReadout(), markSketch();
   const cmd = store.undo();
   if (cmd && session.selectedId && !store.entities(session.plane ?? "XY").some((e) => e.id === session.selectedId)) session.selectedId = null;
   markSketch();
@@ -562,8 +575,28 @@ const ACTIONS = {
   cancel: () => doEscape(),
   delete: () => (inSketchView() && session.deleteSelected() ? (updateStatus(), markSketch()) : false),
   extrude: () => flashMessage("Extrude comes in the next stage"),
-  dimension: () => flashMessage("Dimensions come after extrude"),
+  dimension: () => setTool("dimension"),
 };
+
+// ---------------------------------------------------------------- dimension numbers (shown by the dimension tool)
+const dimsEl = $("dims");
+function updateDims() {
+  const list = inSketchView() && session.tool === "dimension" ? session.dims(S.sketch.dimOffsetPx / pxPerMm()) : [];
+  while (dimsEl.children.length > list.length) dimsEl.lastChild.remove();
+  while (dimsEl.children.length < list.length) dimsEl.appendChild(Object.assign(document.createElement("div"), { className: "chip" }));
+  list.forEach((d, i) => {
+    const el = dimsEl.children[i];
+    el.className = `chip${d.typed ? " typed" : ""}${d.active ? " act" : ""}`;
+    el.replaceChildren();
+    const b = document.createElement("b");
+    b.textContent = d.label;
+    el.append(b, d.text || "_");
+    const [x, y, z] = toWorld(session.plane, d.pos);
+    const [sx, sy] = window.__ui.worldToScreen(x, y, z);
+    el.style.left = `${sx}px`;
+    el.style.top = `${sy}px`;
+  });
+}
 
 // ---------------------------------------------------------------- the typing field next to the cursor
 let lastPointer = { x: 0, y: 0 };
@@ -596,7 +629,7 @@ function menuItems() {
   const key = (a) => [].concat(K[a])[0].replace("mod", "Ctrl").replace(/\b\w/g, (c) => c.toUpperCase()).replace("Escape", "Esc");
   const items = [];
   if (inSketchView()) {
-    for (const [label, a] of [["Select", "select"], ["Line", "line"], ["Rectangle", "rect"], ["Circle", "circle"]]) items.push({ label, hint: key(a), run: ACTIONS[a], on: session.tool === a });
+    for (const [label, a] of [["Select", "select"], ["Line", "line"], ["Rectangle", "rect"], ["Circle", "circle"], ["Dimension", "dimension"]]) items.push({ label, hint: key(a), run: ACTIONS[a], on: session.tool === a });
     items.push("sep");
   } else if (!selected && hovered) {
     items.push({ label: `Sketch on ${hovered} plane`, hint: "click", run: () => enterSketch(hovered) }, "sep");
@@ -688,7 +721,7 @@ canvas.addEventListener("pointermove", (ev) => {
       updateReadout();
       markSketch();
     }
-    canvas.style.cursor = session.tool === "select" ? "default" : "crosshair";
+    canvas.style.cursor = session.tool === "select" || session.tool === "dimension" ? "default" : "crosshair";
     return;
   }
   if (g) return;
@@ -785,7 +818,7 @@ addEventListener("keydown", (e) => {
   }
   if (el instanceof HTMLElement && el !== document.body && !(el instanceof HTMLCanvasElement)) el.blur?.(); // sliders, colors and buttons never keep the keyboard
   // while a shape is being drawn, characters, Backspace, Tab and Enter belong to the typed-size field
-  if (inSketchView() && session.draft && !e.ctrlKey && !e.metaKey) {
+  if (inSketchView() && session.wantsKeys() && !e.ctrlKey && !e.metaKey) {
     if (e.key.length === 1 && session.type(e.key)) return e.preventDefault(), updateStatus(), updateReadout(), markSketch();
     if (e.key === "Backspace" && session.backspace()) return e.preventDefault(), updateStatus(), updateReadout(), markSketch();
     if (e.key === "Tab" && session.tab(e.shiftKey)) return e.preventDefault(), updateReadout(), markSketch();

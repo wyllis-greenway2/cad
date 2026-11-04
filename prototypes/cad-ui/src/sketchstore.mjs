@@ -1,5 +1,5 @@
 // The sketch model: entities per plane, with undo and redo as a command history. Pure (no DOM, no three.js).
-// A command is { type: "add" | "remove", plane, entity }. The history list in the UI (later) reads `past`.
+// A command is { type: "add" | "remove" | "update", plane, entity (for update: the new one, with `before` = the old one) }. The history list in the UI (later) reads `past`.
 export class SketchStore {
   constructor() {
     this.sketches = { XY: [], XZ: [], YZ: [] };
@@ -15,6 +15,12 @@ export class SketchStore {
 
   #apply(cmd, forward) {
     const list = this.sketches[cmd.plane];
+    if (cmd.type === "update") {
+      const i = list.findIndex((e) => e.id === cmd.entity.id);
+      if (i >= 0) list[i] = forward ? cmd.entity : cmd.before;
+      this.version++;
+      return;
+    }
     const adding = (cmd.type === "add") === forward;
     if (adding) {
       if (!list.some((e) => e.id === cmd.entity.id)) list.push(cmd.entity);
@@ -38,6 +44,17 @@ export class SketchStore {
     const entity = this.sketches[plane].find((e) => e.id === id);
     if (!entity) return false;
     const cmd = { type: "remove", plane, entity };
+    this.#apply(cmd, true);
+    this.past.push(cmd);
+    this.future = [];
+    return true;
+  }
+
+  /** Replace an entity by `after` (same id). One undo step. */
+  update(plane, after) {
+    const before = this.sketches[plane].find((e) => e.id === after.id);
+    if (!before) return false;
+    const cmd = { type: "update", plane, entity: after, before };
     this.#apply(cmd, true);
     this.past.push(cmd);
     this.future = [];

@@ -66,6 +66,12 @@ the world fog 0.5 to 2.5; all other values unchanged (37 values checked against 
 fades objects. The temporary tuning panel and the reflective-sheet experiment were removed (`in_033`); git history has both.
 
 
+## Dimension tool (D)
+Point at a shape (its dimensions appear), click it to keep them showing. Type a number (math works, `50/2`), Tab to the next
+dimension, Enter to apply; or click a number to edit that one. Esc cancels, then deselects, then leaves the tool. One undo step per Enter.
+No stored constraints yet (`q_constraint_solver` is open): it resizes the shape directly, keeping a rectangle's first corner, a circle's
+centre and the start of a polyline segment fixed. Look values: `settings.sketch.dim*`.
+
 ## How it works (short)
 - `src/viewmath.mjs`: pure math (turntable camera, standard views, ray-plane picking). Unit tested.
 - `src/main.js`: three.js view. Each plane is one quad that follows the camera target; a shader draws the

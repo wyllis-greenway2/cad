@@ -298,3 +298,10 @@ the whole tuning panel (`src/tune.js`, `?tune`, `preview.sh tune`). Kept: tuned 
 (rate limit, 3..5000 mm, grid scale readout, reset prompt). Verified: 20 unit tests, page loads with no console errors, screenshot looks right.
 **Open for the human:** confirm the plain `bash tools/preview.sh` view looks right. Then choose what sketching mechanics come first.
 **Next:** sketching mechanics (proposal to the human), then stage 3 (extrude with Shapr3D-style defaults, history list, drawer).
+
+## Handoff 021 — 2026-11-04
+**State:** `in_034` ("dimension tool first, then extrude"). Dimension tool built in `prototypes/cad-ui` (`src/dimensions.mjs`, session
+and store `update` command, DOM number chips, dimension lines): D, point at a shape, type a number, Tab, Enter; one undo step; no constraint
+solver (direct edit; anchors documented in `dec_ui_conventions`). 25 unit tests pass; browser run drew a rectangle, set W 60 and H 20 and
+undid it, no console errors. This is the AI's design; the human has not tried it.
+**Next:** extrude (stage 3).

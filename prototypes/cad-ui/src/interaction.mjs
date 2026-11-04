@@ -1,7 +1,8 @@
 // The sketching session on one plane: tools, snapping, typed sizes, selection. Pure (no DOM, no three.js).
-// Tools: select | line (polyline) | rect | circle. Local plane coordinates are (u right, v up) in mm.
+// Tools: select | line (polyline) | rect | circle | dimension. Local plane coordinates are (u right, v up) in mm.
 import { snap, dist, hitEntity } from "./sketch.mjs";
 import { evalExpr } from "./expr.mjs";
+import { dimensionsOf, applyDimension } from "./dimensions.mjs";
 
 const FIELDS = {
   rect: [{ name: "w", label: "W" }, { name: "h", label: "H" }],
@@ -20,7 +21,9 @@ export class SketchSession {
     this.tool = "select";
     this.draft = null; // { pts: [[u,v]...] }
     this.entry = null; // { fields: [{label, name, text}], active }
-    this.selectedId = null;
+    this.selectedId = null; // in the dimension tool this is the shape whose dimensions are being edited
+    this.hoverId = null; // dimension tool: the shape under the cursor
+    this.dimEdit = null; // dimension tool: { typed: {key: text}, active: key }
     this.cursor = null;
     this.snapInfo = null;
     this.scale = 1; // pixels per mm on the plane (set by the view)
@@ -39,6 +42,8 @@ export class SketchSession {
     this.draft = null;
     this.entry = null;
     this.selectedId = null;
+    this.hoverId = null;
+    this.dimEdit = null;
     this.tool = "select";
     this.cursor = null;
     this.snapInfo = null;
@@ -47,12 +52,19 @@ export class SketchSession {
   setTool(tool) {
     this.draft = null;
     this.entry = null;
+    this.dimEdit = null;
+    this.hoverId = null;
     this.tool = tool;
-    if (tool !== "select") this.selectedId = null;
+    if (tool !== "select" && tool !== "dimension") this.selectedId = null;
   }
 
   // ------------------------------------------------------------ pointer
   move(raw, { shift = false } = {}) {
+    if (this.tool === "dimension") {
+      this.cursor = raw;
+      this.hoverId = hitEntity(raw, this.entities(), this.s.sketch.selectTolPx / this.scale)?.id ?? null;
+      return { point: raw, kind: "free", guides: [] };
+    }
     const d = this.draft?.pts;
     const anchor = d?.length ? d[d.length - 1] : null;
     this.snapInfo = snap(raw, { entities: this.entities(), extra: d ?? [], anchor, scale: this.scale, settings: { snap: this.s.sketch }, disabled: shift });
@@ -67,6 +79,7 @@ export class SketchSession {
       this.selectedId = hit?.id ?? null;
       return null;
     }
+    if (this.tool === "dimension") return this.#clickDimension(raw);
     const p = this.move(raw, mods).point;
     if (!this.draft) {
       this.draft = { pts: [p] };
@@ -89,6 +102,64 @@ export class SketchSession {
     return null;
   }
 
+  // ------------------------------------------------------------ dimension tool
+  /** The shape whose dimensions are showing: the chosen one, else the one under the cursor. */
+  dimTarget() {
+    if (this.tool !== "dimension") return null;
+    const id = this.selectedId ?? this.hoverId;
+    return this.entities().find((e) => e.id === id) ?? null;
+  }
+
+  /** Dimensions to draw (with their typed text, if any). `off` is the offset of the dimension line from the shape in mm. */
+  dims(off) {
+    const e = this.dimTarget();
+    if (!e) return [];
+    return dimensionsOf(e, off).map((d) => {
+      const text = this.dimEdit?.typed[d.key];
+      return { ...d, typed: text !== undefined, text: text ?? String(Math.round(d.value * 100) / 100), active: this.dimEdit?.active === d.key };
+    });
+  }
+
+  #clickDimension(raw) {
+    const hitPx = this.s.sketch.dimLabelHitPx / this.scale;
+    const chip = this.dims(this.s.sketch.dimOffsetPx / this.scale).find((d) => dist(raw, d.pos) <= hitPx);
+    if (chip) {
+      this.dimEdit = { typed: this.dimEdit?.typed ?? {}, active: chip.key };
+      this.dimEdit.typed[chip.key] ??= "";
+      return null;
+    }
+    const hit = hitEntity(raw, this.entities(), this.s.sketch.selectTolPx / this.scale);
+    if (hit?.id !== this.selectedId) this.dimEdit = null;
+    this.selectedId = hit?.id ?? null;
+    return null;
+  }
+
+  #startDimEdit(first) {
+    const ds = this.dims(1);
+    if (!ds.length) return false;
+    this.dimEdit = { typed: { [ds[0].key]: "" }, active: ds[0].key };
+    return first;
+  }
+
+  /** Apply every typed dimension to the shape as one undoable change. Returns a message if refused, else true. */
+  #commitDimensions() {
+    const e = this.dimTarget();
+    if (!e || !this.dimEdit) return false;
+    let cur = e;
+    const dimsNow = dimensionsOf(e, 1).map((d) => d.key);
+    for (const key of dimsNow) {
+      const text = this.dimEdit.typed[key];
+      if (text === undefined || !text.trim()) continue;
+      const v = evalExpr(text);
+      const next = applyDimension(cur, key, v);
+      if (!next) return "Check the typed numbers (they must be positive and valid).";
+      cur = next;
+    }
+    this.dimEdit = null;
+    if (cur !== e) this.store.update(this.plane, cur);
+    return true;
+  }
+
   #add(entity) {
     const e = this.store.add(this.plane, entity);
     this.draft = null;
@@ -102,6 +173,16 @@ export class SketchSession {
   // ------------------------------------------------------------ typed sizes
   /** Offer a typed character. Returns true if the session consumed it. */
   type(ch) {
+    if (this.tool === "dimension") {
+      if (!this.dimTarget()) return false;
+      if (!this.dimEdit) {
+        if (!TYPE_START.test(ch)) return false;
+        this.#startDimEdit();
+      } else if (!TYPE_ANY.test(ch)) return false;
+      if (!this.dimEdit) return false;
+      this.dimEdit.typed[this.dimEdit.active] = (this.dimEdit.typed[this.dimEdit.active] ?? "") + ch;
+      return true;
+    }
     if (!this.draft || this.tool === "select") return false;
     if (!this.entry) {
       if (!TYPE_START.test(ch)) return false;
@@ -112,6 +193,12 @@ export class SketchSession {
   }
 
   backspace() {
+    if (this.tool === "dimension") {
+      if (!this.dimEdit) return false;
+      const t = this.dimEdit.typed;
+      t[this.dimEdit.active] = (t[this.dimEdit.active] ?? "").slice(0, -1);
+      return true;
+    }
     if (!this.entry) return false;
     const f = this.entry.fields[this.entry.active];
     f.text = f.text.slice(0, -1);
@@ -120,6 +207,15 @@ export class SketchSession {
   }
 
   tab(back = false) {
+    if (this.tool === "dimension") {
+      const ds = this.dims(1);
+      if (!this.dimEdit || ds.length < 2) return false;
+      const i = ds.findIndex((d) => d.key === this.dimEdit.active);
+      const next = ds[(i + (back ? ds.length - 1 : 1)) % ds.length];
+      this.dimEdit.active = next.key;
+      this.dimEdit.typed[next.key] ??= "";
+      return true;
+    }
     if (!this.entry) return false;
     const n = this.entry.fields.length;
     this.entry.active = (this.entry.active + (back ? n - 1 : 1)) % n;
@@ -134,6 +230,10 @@ export class SketchSession {
 
   /** Enter: commit typed sizes, or finish a polyline. Returns a message if it was refused, true if consumed, else false. */
   enter() {
+    if (this.tool === "dimension") {
+      if (this.dimEdit) return this.#commitDimensions();
+      return this.dimTarget() ? (this.#startDimEdit(), true) : false;
+    }
     if (!this.draft || this.tool === "select") return false;
     const shape = this.resolve();
     if (this.entry) {
@@ -161,6 +261,14 @@ export class SketchSession {
     }
     if (this.draft) {
       this.draft = null;
+      return true;
+    }
+    if (this.dimEdit) {
+      this.dimEdit = null;
+      return true;
+    }
+    if (this.tool === "dimension" && this.selectedId) {
+      this.selectedId = null;
       return true;
     }
     if (this.tool !== "select") {
@@ -230,7 +338,13 @@ export class SketchSession {
   }
 
   /** What to show next to the cursor: segments of {label, text, active, typed, invalid}. */
+  /** Does the session want typed characters, Backspace, Tab and Enter right now? */
+  wantsKeys() {
+    return !!this.draft || (this.tool === "dimension" && !!this.dimTarget());
+  }
+
   readout() {
+    if (this.tool === "dimension") return [];
     if (!this.draft || !this.cursor) return [];
     const r = this.resolve();
     const fmt = (v) => (Number.isFinite(v) ? String(Math.round(v * 100) / 100) : "?");
@@ -244,6 +358,10 @@ export class SketchSession {
 
   /** What the user should do next, for the hint line. */
   prompt() {
+    if (this.tool === "dimension") {
+      if (this.dimEdit) return "Type a number. Tab: next dimension   Enter: apply   Esc: cancel";
+      return this.dimTarget() ? "Click a number or just type a size, then Enter." : "Dimension: point at a shape, then click it.";
+    }
     const n = this.draft?.pts.length ?? 0;
     const typing = this.entry ? "  Tab: next field   Enter: apply   Esc: stop typing" : "  (or just type a size)";
     if (this.tool === "rect") return n ? `Click the opposite corner${typing}` : "Rectangle: click the first corner.";
