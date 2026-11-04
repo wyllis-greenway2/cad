@@ -260,3 +260,8 @@ After tuning the sheets with the temporary panel (a screenshot of the view was a
 > Copy values
 > Reset to defaults
 > ... Also I found that you can get it in a weird state if you zoom in and out and pan at different amounts, you can basically make it appear as though the whole world and xyz origin gets covered in fog. Is this because now that you can pan you really can travel away from origin? How should we solve this? and perhaps we should have a return to origin thing if you get too far away?
+
+## in_032 — 2026-11-04 — preference
+Bug report with a screenshot (a blurry, almost white, extremely magnified view: one thick green axis line, a tiny blue Z arrow, a faint grid, a cut-off status pill).
+
+> okay that is really terrible. Everything looks super zoomed in, and I cant tell what is happening. here is a screenshot

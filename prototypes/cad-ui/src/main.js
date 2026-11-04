@@ -415,10 +415,19 @@ function originInfo() {
   return { fog: +fog.toFixed(3), off, awayMm: Math.round(view.target.length()), lost: fog < S.view.originLostFog || (off && far) };
 }
 function updateOriginPill() {
-  const lost = originInfo().lost;
+  const info = originInfo();
+  const tooClose = view.dist < V.extremeNear;
+  const tooFar = view.dist > V.extremeFar;
   const btn = $("originBtn");
-  const show = lost ? "inline-block" : "none";
+  const label = info.lost ? "Origin is far away: return (O)" : tooClose ? "Zoomed very close: reset view (O)" : tooFar ? "Zoomed very far out: reset view (O)" : "";
+  if (btn.textContent !== label && label) btn.textContent = label;
+  const show = label ? "inline-block" : "none";
   if (btn.style.display !== show) btn.style.display = show;
+}
+/** The spacing of the main grid lines at the current zoom, as text (so you always know the scale you are looking at). */
+function gridScaleText() {
+  const spacing = 10 ** (Math.floor(Math.log10(view.dist / G.lodDivisor)) + 1);
+  return spacing >= 1000 ? `${spacing / 1000} m` : spacing >= 1 ? `${spacing} mm` : `${+spacing.toPrecision(2)} mm`;
 }
 function goHome() {
   exitSketch();
@@ -546,6 +555,7 @@ function updateStatus() {
   if (flash) text = flash;
   else if (selected) text = inSketchView() ? `Sketching on ${selected}   ${session.prompt()}` : `Going to ${selected}...`;
   $("statusText").textContent = text;
+  $("scaleText").textContent = `grid ${gridScaleText()}`;
   $("exitBtn").style.display = selected && !flash ? "inline-block" : "none";
 }
 
@@ -807,12 +817,21 @@ canvas.addEventListener("pointerup", (ev) => {
 canvas.addEventListener("pointerleave", () => {
   if (hovered) (hovered = null), requestRender();
 });
+let lastWheelAt = 0;
 canvas.addEventListener(
   "wheel",
   (e) => {
     e.preventDefault();
     const oldDist = view.dist;
-    const newDist = clamp(oldDist * Math.exp(e.deltaY * (e.ctrlKey ? S.input.pinchZoomPerWheel : V.zoomPerWheel)), V.minDistance, V.maxDistance);
+    // A trackpad flick (with its inertia) or a free-spinning wheel sends hundreds of events. Limit the zoom SPEED, not just the range,
+    // so a single gesture can never fling the view to the limits.
+    const now = performance.now();
+    const dt = clamp((now - lastWheelAt) / 1000, 0.008, 0.12);
+    lastWheelAt = now;
+    const lineScale = e.deltaMode === 1 ? 33 : 1; // some devices report lines instead of pixels
+    const wanted = e.deltaY * lineScale * (e.ctrlKey ? S.input.pinchZoomPerWheel : V.zoomPerWheel);
+    const limit = Math.log(S.input.maxZoomFactorPerSecond) * dt;
+    const newDist = clamp(oldDist * Math.exp(clamp(wanted, -limit, limit)), V.minDistance, V.maxDistance);
     if (S.input.zoomToCursor && newDist < oldDist) {
       // Zoom IN toward the cursor. Zooming OUT is about the view center: anchoring on the cursor would multiply the offset
       // (a 50x zoom-out moves the target 50x away), which is how the origin got lost.
@@ -834,6 +853,7 @@ canvas.addEventListener(
       }
     }
     view.dist = newDist;
+    updateStatus();
     markSketch();
   },
   { passive: false },
@@ -908,7 +928,7 @@ window.__ui = {
     requestRender();
   },
   pickAt,
-  setView: ({ a, e, dist }) => ((view.a = a ?? view.a), (view.e = e ?? view.e), (view.dist = dist ?? view.dist), requestRender()),
+  setView: ({ a, e, dist, target }) => ((view.a = a ?? view.a), (view.e = e ?? view.e), (view.dist = dist ?? view.dist), target && view.target.set(...target), requestRender()),
   worldToScreen(x, y, z) {
     applyCamera();
     const v = new THREE.Vector3(x, y, z).project(camera);

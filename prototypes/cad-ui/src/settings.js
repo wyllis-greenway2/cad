@@ -7,8 +7,8 @@ export const settings = {
     homeDistance: 120, // mm from the target
     orbitRadPerPx: 0.006,
     zoomPerWheel: 0.0015,
-    minDistance: 0.5,
-    maxDistance: 50000,
+    minDistance: 3, // mm from the target; closer than this is just a blur
+    maxDistance: 5000,
     transitionMs: 450, // camera move to a plane's normal view
     normalToleranceRad: 0.02, // within this of the plane's normal view counts as "normal"
     clickMovePx: 4, // pointer movement below this is a click, not a drag
@@ -16,6 +16,8 @@ export const settings = {
     farFactor: 120,
     originLostFog: 0.3, // the origin counts as lost when its axis fog strength falls below this...
     originFarFactor: 1.0, // ...or when it is off screen and the target is this many view-distances away
+    extremeNear: 8, // zoomed closer than this (mm) offers a reset, like a lost origin
+    extremeFar: 2500, // ...or farther than this
     originMinDistance: 30, // returning to the origin also brings the view distance into [min, max] mm
     originMaxDistance: 600,
   },
@@ -30,6 +32,7 @@ export const settings = {
     },
     zoomToCursor: true, // zoom IN toward the point under the cursor; zoom OUT is about the view center (no runaway)
     zoomAnchorMaxFactor: 1.5, // zoom toward plane points within this many view-distances of the target; farther ones use the camera-facing plane
+    maxZoomFactorPerSecond: 2.5, // one gesture can never zoom faster than this, however hard you flick or spin the wheel
     pinchZoomPerWheel: 0.01, // trackpad pinch (a wheel event with ctrl held) is more sensitive than a wheel notch
     keys: {
       select: "v", line: "l", rect: "r", circle: "c", extrude: "e", dimension: "d", home: "h",

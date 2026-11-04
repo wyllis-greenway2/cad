@@ -274,3 +274,18 @@ unchanged), asked for slightly reflective sheets, and reported getting the view 
 **Open for the human:** tune the reflection values with `bash tools/preview.sh tune` (sheen, object reflection, glancing sharpness); try the
 lost-origin prompt and O.
 **Next:** stage 3 (extrude with Shapr3D-style defaults, history list, drawer); reflections will then show real bodies.
+
+## Handoff 019 — 2026-11-04
+**State:** `in_032` (with a screenshot): the human got a near-white, blurry, extremely magnified view with a thick green axis line and
+could not tell what was happening. **I could not reproduce that exact picture** (a render at the old 0.5 mm limit was dark and sharp; a
+render 8 km from the origin at 4 mm was still sharp), so the cause is unconfirmed. Most likely cause is a fast wheel/trackpad flick
+driving the zoom to the old limit. Changes in `prototypes/cad-ui` (all values in `settings.js`):
+- Zoom speed is rate-limited (`maxZoomFactorPerSecond` 2.5; a 220-event flick now goes 120 to 21.7 mm instead of hitting 0.5 mm).
+- Distance limits tightened to 3..5000 mm.
+- The status pill shows the current grid scale ("grid 100 mm").
+- A reset prompt appears when zoomed very close or very far ("Zoomed very close: reset view (O)"); **O** resets the view.
+- 20 unit tests and the lock-in, stage 2 and origin scripted suites pass.
+
+**Open for the human:** please send what you were doing (wheel or trackpad, pinch or scroll), what the status pill said, and whether the
+`?tune` panel was open. Still pending: reflection tuning via `bash tools/preview.sh tune`.
+**Next:** confirm the cause of the screenshot; then stage 3 (extrude).
