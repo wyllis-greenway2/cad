@@ -11,8 +11,25 @@ export class SketchStore {
     this.version = 0; // bumped on every change so views know to redraw
   }
 
-  entities(plane) {
-    return (this.sketches[plane] ??= []); // face planes appear as they are first used
+  /** The entities of a sketch: a plane's loose sketch, or (key "feat:<id>") the profile of an extrusion step, which is a view of that step's own shape. */
+  entities(key) {
+    if (typeof key === "string" && key.startsWith("feat:")) {
+      const f = this.features.find((x) => x.id === key.slice(5));
+      return f && f.shape ? [{ ...f.shape, id: f.consumed?.entity.id ?? f.id }] : [];
+    }
+    return (this.sketches[key] ??= []); // face planes appear as they are first used
+  }
+  isFeatureKey = (key) => typeof key === "string" && key.startsWith("feat:");
+
+  /** A step that consumed a loose sketch shape: take it off its plane (consume) or put it back (restore). */
+  #swapConsumed(feature, consume) {
+    const c = feature.consumed;
+    if (!c) return;
+    const list = this.entities(c.plane);
+    const i = list.findIndex((e) => e.id === c.entity.id);
+    if (consume) {
+      if (i >= 0) list.splice(i, 1);
+    } else if (i < 0) list.splice(Math.min(c.index, list.length), 0, c.entity);
   }
 
   #apply(cmd, forward) {
@@ -23,7 +40,21 @@ export class SketchStore {
         if (at >= 0) this.features[at] = forward ? cmd.feature : cmd.before;
       } else if (adding) {
         if (at < 0) this.features.splice(Math.min(cmd.index, this.features.length), 0, cmd.feature);
-      } else if (at >= 0) this.features.splice(at, 1);
+        this.#swapConsumed(cmd.feature, true); // a step in the history owns its sketch: it is no longer loose on the plane
+      } else if (at >= 0) {
+        this.features.splice(at, 1);
+        this.#swapConsumed(cmd.feature, false); // without the step the sketch is loose again
+      }
+      this.version++;
+      return;
+    }
+    if (this.isFeatureKey(cmd.plane)) {
+      // editing the sketch of a step: the entity is the step's own shape
+      const f = this.features.find((x) => x.id === cmd.plane.slice(5));
+      if (f && cmd.type === "update") {
+        const { id, ...shape } = forward ? cmd.entity : cmd.before;
+        f.shape = shape;
+      }
       this.version++;
       return;
     }
@@ -45,6 +76,7 @@ export class SketchStore {
   }
 
   add(plane, entity) {
+    if (this.isFeatureKey(plane)) return null; // a step's sketch cannot be extended
     const e = { id: `e_${String(this.nextId++).padStart(3, "0")}`, ...entity };
     const cmd = { type: "add", plane, entity: e };
     this.#apply(cmd, true);
@@ -54,6 +86,7 @@ export class SketchStore {
   }
 
   remove(plane, id) {
+    if (this.isFeatureKey(plane)) return false;
     const entity = this.entities(plane).find((e) => e.id === id);
     if (!entity) return false;
     const cmd = { type: "remove", plane, entity };
@@ -69,8 +102,9 @@ export class SketchStore {
     this.future = [];
   }
   /** frame = { origin, xDir, normal } of the plane the shape was drawn on (a copy, so the feature does not move with the face). */
-  addFeature(plane, shape, distance, frame = null) {
-    const feature = { id: `f_${String(this.nextFeature++).padStart(3, "0")}`, plane, shape: JSON.parse(JSON.stringify(shape)), distance, ...(frame ? { frame: JSON.parse(JSON.stringify(frame)) } : {}) };
+  addFeature(plane, shape, distance, frame = null, consumed = null) {
+    // `consumed` = the loose sketch entity (with its id) this step takes over: it leaves the plane and is restored by undo
+    const feature = { id: `f_${String(this.nextFeature++).padStart(3, "0")}`, plane, shape: JSON.parse(JSON.stringify(shape)), distance, ...(frame ? { frame: JSON.parse(JSON.stringify(frame)) } : {}), ...(consumed ? { consumed: { plane, entity: JSON.parse(JSON.stringify(consumed)), index: this.entities(plane).findIndex((e) => e.id === consumed.id) } } : {}) };
     this.#pushFeatureCmd({ type: "feature-add", feature, index: this.features.length });
     return feature;
   }

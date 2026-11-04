@@ -355,3 +355,8 @@ Approval to record the four points proposed after the discussion of additive his
 Answer to the grid question (option 1, the grid is an interface feature only).
 
 > 1
+
+## in_051 — 2026-11-04 — directive
+Go-ahead for the build order I suggested: consume sketches first, then constraints, plus polish on sketching.
+
+> yes, start with consume sketches, then lets build constraints and work on polishing sketching

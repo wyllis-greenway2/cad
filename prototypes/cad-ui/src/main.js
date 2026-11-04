@@ -503,11 +503,12 @@ function buildSketchViz() {
   const halo = toHex(th.sketchHalo);
   const SK = S.sketch;
   const cream = hexToRgb(th.bodyColor);
-  for (const plane of Object.keys(store.sketches)) {
+  for (const key of [...Object.keys(store.sketches), ...(session.editKey ? [session.editKey] : [])]) {
+    const plane = store.isFeatureKey(key) ? session.plane : key; // a step's own sketch is drawn on the plane it was made on
     const blue = hotOf(plane) ? SK.lineBlue : 0; // a hovered or selected plane leans blue
     const inkC = toHex(mix3(th.sketchInk, th.blueInk, blue));
     const haloC = toHex(mix3(th.sketchHalo, th.blueHalo, blue));
-    for (const e of store.entities(plane)) {
+    for (const e of store.entities(key)) {
       const o = outline(e);
       const pts = o.pts.map((p) => toWorld(plane, p));
       const skSel = plane === session.plane && e.id === session.selectedId; // selected in the sketch view
@@ -654,13 +655,24 @@ function startExtrude(init) {
 }
 function startExtrudeFromRegion(region, plane = selected) {
   const { id, ...shape } = region.entity;
-  startExtrude({ plane, shape, polygon: region.polygon, centroid: region.centroid, origin: toWorld(plane, region.centroid), normal: normalOf(plane), hasBody: store.features.length > 0, fromSketch: !!selected });
+  startExtrude({ plane, shape, entity: region.entity, polygon: region.polygon, centroid: region.centroid, origin: toWorld(plane, region.centroid), normal: normalOf(plane), hasBody: store.features.length > 0, fromSketch: !!selected });
 }
 /** Push or pull a flat face of the body. face = { start, count, axis, sign, offset, point? }. */
 function startFaceExtrude(face, featureId = null, distance = 0) {
   const ref = { n: face.n, d: face.d, point: face.point ?? body.faceCenter(face).toArray() };
   const normal = new THREE.Vector3(...face.n);
   startExtrude({ face, ref, origin: body.faceCenter(face), normal, featureId, distance, hasBody: true });
+}
+/** Open the sketch an extrusion step owns, to resize it with the dimension tool (it cannot be extended). Later steps that change the same body are warned about. */
+function editFeatureSketch(id) {
+  if (extrude || xform) return;
+  const at = store.features.findIndex((f) => f.id === id);
+  const f = store.features[at];
+  if (!f || f.kind || !f.shape) return;
+  enterSketch(f.plane, "select");
+  session.editKey = `feat:${id}`;
+  const later = store.features.length - at - 1;
+  flashMessage(`Editing the sketch of step ${at + 1}. Use D to resize it.${later ? ` ${later} later step${later > 1 ? "s" : ""} build on this and may override a change.` : ""}`);
 }
 function editFeature(id) {
   if (extrude || xform) return;
@@ -696,10 +708,10 @@ function commitExtrude() {
   const v = extrude.sess.value();
   if (!Number.isFinite(v)) return flashMessage("Check the typed number.");
   if (extrude.sess.isEmpty()) return cancelExtrude();
-  const { sess, plane, ref, fromSketch } = extrude;
+  const { sess, plane, ref, fromSketch, entity } = extrude;
   if (sess.featureId) store.updateFeature(sess.featureId, v);
   else if (ref) store.addFaceFeature(ref, v);
-  else store.addFeature(plane, sess.shape, v, frameOf(plane));
+  else store.addFeature(plane, sess.shape, v, frameOf(plane), entity ?? null); // the extrusion takes the sketch over: it leaves the plane
   extrude = null;
   if (fromSketch) exitSketch(false);
   refreshUI();
@@ -901,6 +913,14 @@ function updateHistory() {
     b.onclick = () => editFeature(f.id);
     const li = document.createElement("li");
     li.appendChild(b);
+    if (!f.kind && f.shape) {
+      const sk = document.createElement("button"); // the step owns its sketch: open it here
+      sk.className = "sk";
+      sk.textContent = "sketch";
+      sk.title = "Edit this step's sketch";
+      sk.onclick = () => editFeatureSketch(f.id);
+      li.appendChild(sk);
+    }
     list.appendChild(li);
   });
 }
@@ -941,6 +961,7 @@ function updateStatus() {
   else if (xform) text = xform.sess.prompt();
   else if (extrude) text = `${extrude.ref ? "Move face" : `Extrude on ${extrude.plane}`}   ${extrude.sess.prompt()}`;
   else if (!selected && sel) text = `Selected: ${targetName(sel)}   ${selectionHint(sel)}   Esc deselect`;
+  else if (session.editKey && inSketchView()) text = `Editing the sketch of step ${store.features.findIndex((f) => `feat:${f.id}` === session.editKey) + 1}   ${session.prompt()}   Esc to finish`;
   else if (selected) text = inSketchView() ? `Sketching on ${selected}   ${session.prompt()}` : `Going to ${selected}...`;
   if (!body.ready() && (store.features.length || extrude)) text += "   (loading the geometry kernel...)";
   else if (body.info.error) text += `   [kernel: ${body.info.error}]`;
@@ -1125,6 +1146,7 @@ function exitSketch(animate = false) {
 }
 function setTool(tool) {
   if (extrude || xform) return false;
+  if (session.editKey && ["line", "rect", "circle", "extrude"].includes(tool)) return flashMessage("This sketch belongs to its step: resize it with D. It cannot be extended or extruded again here.");
   if (inSketchView()) {
     session.setTool(tool);
   } else if (!selected && currentTarget() && ["plane", "face", "sketch"].includes(currentTarget().kind) && planeOfTarget(currentTarget())) {

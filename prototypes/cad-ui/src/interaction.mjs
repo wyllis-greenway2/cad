@@ -18,6 +18,7 @@ export class SketchSession {
     this.s = settings;
     this.store = store;
     this.plane = null;
+    this.editKey = null; // when set, the sketch being worked on is a step's own profile ("feat:<id>"), not the plane's loose sketch
     this.tool = "select";
     this.draft = null; // { pts: [[u,v]...] }
     this.entry = null; // { fields: [{label, name, text}], active }
@@ -31,7 +32,11 @@ export class SketchSession {
   }
 
   entities() {
-    return this.plane ? this.store.entities(this.plane) : [];
+    return this.plane ? this.store.entities(this.key) : [];
+  }
+
+  get key() {
+    return this.editKey ?? this.plane;
   }
 
   setPlane(plane) {
@@ -45,6 +50,7 @@ export class SketchSession {
     this.selectedId = null;
     this.hoverId = null;
     this.dimEdit = null;
+    this.editKey = null;
     this.tool = "select";
     this.cursor = null;
     this.snapInfo = null;
@@ -172,12 +178,12 @@ export class SketchSession {
       cur = next;
     }
     this.dimEdit = null;
-    if (cur !== e) this.store.update(this.plane, cur);
+    if (cur !== e) this.store.update(this.key, cur);
     return true;
   }
 
   #add(entity) {
-    const e = this.store.add(this.plane, entity);
+    const e = this.store.add(this.key, entity);
     this.draft = null;
     this.entry = null;
     return e;
@@ -300,7 +306,7 @@ export class SketchSession {
 
   deleteSelected() {
     if (!this.selectedId) return false;
-    const ok = this.store.remove(this.plane, this.selectedId);
+    const ok = this.store.remove(this.key, this.selectedId);
     this.selectedId = null;
     return ok;
   }

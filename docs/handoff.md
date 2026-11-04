@@ -444,3 +444,9 @@ after extrusion). Open questions left: `q_grid_role` only (asked next).
 Decisions this session of questions: kernel (option 3, `dec_kernel_hybrid`, built as `src/kernel/`), solver (option 2), references (option 2), modification and sketch ownership (additive; three entries), grid (option 1).
 **Built vs not:** built: kernel isolation. Not built: consume sketches on extrude, named references and their proof test, the small solver, the drawer, save/load and STL/3MF export, partial round faces and other limits listed in earlier handoffs.
 **Next:** the human picks the build order (my suggestion below in the chat reply).
+
+## Handoff 037 — 2026-11-04
+**State:** `in_051`: built **sketch ownership** (`dec_sketch_belongs_to_step`): `SketchStore.addFeature(..., consumed)` takes the loose entity off its plane (undo, redo and removing the step restore or re-consume it); `store.entities("feat:<id>")` is a view of
+a step's own shape (updates patch the step; add and remove are refused); the session has `editKey`; History extrusions have a "sketch" button (`editFeatureSketch`) with a later-steps warning; draw tools and re-extruding are refused in a step's sketch.
+3 new tests (46 total); browser run: loose sketch consumed (1 to 0), undo and redo, resized the step's sketch 25 to 80 mm and the body volume followed (10096 = 80 x 12.62 x 10), no console errors.
+**Next (as the human asked):** constraints (the small solver, `dec_constraint_solver_small`), then polish sketching.

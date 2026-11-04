@@ -108,6 +108,11 @@ rotates what is selected (a body about X / Y / Z; tilts a face; tapers a round f
 angle** (for example after tilting one) can now be hovered, selected, moved along their own normal, tilted further, and **sketched on**: the view goes square (orthographic) to the tilted
 face and the sheet takes its angle.
 
+## Sketches belong to their step (`in_051`)
+Extruding a sketch shape **consumes** it: it leaves the plane and the extrusion step owns it. Undo (or deleting the step) puts it back on the plane. In the History list each extrusion
+has a small **sketch** button: it opens that step's own sketch so you can resize it with the dimension tool (D); it cannot be extended or extruded again there, and you are told how many
+later steps build on it. Esc finishes. See `dec_sketch_belongs_to_step`.
+
 ## Dimension tool (D)
 Point at a shape (its dimensions appear), click it to keep them showing. Type a number (math works, `50/2`), Tab to the next
 dimension, Enter to apply; or click a number to edit that one. Esc cancels, then deselects, then leaves the tool. One undo step per Enter.
