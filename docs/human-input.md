@@ -141,3 +141,11 @@ The human tuned the look with the temporary tuning panel (`bash tools/preview.sh
 
 ## in_026 — 2026-11-04 — directive
 > yes, start stage 2 with the sketching tools. But before we do, should we think about user adopting us? what are they used to? should we borrow hot key patterns or other interface patterns from solid works? or blender? or another popular cad program?
+
+## in_027 — 2026-11-04 — preference
+Reply to the AI's list of what users carry between CAD programs (mouse navigation, a few single-letter hotkeys plus undo/redo, the workflow model, typing a number to set a size) and its question about which programs the human has used.
+
+> okay lets get "Mouse navigation. This is the biggest one.
+> A handful of single-letter hotkeys, plus undo and redo.
+> The workflow model: sketch, finish, extrude, with a history list.
+> Typing a number to set a size." right, and the only program I really used much and liked was shapr 3d, but even then I thought it could be improved and I am not sure I want to copy it
