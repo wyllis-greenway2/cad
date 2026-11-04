@@ -3,7 +3,7 @@ id: dec_ui_plane_selection
 kind: decision
 status: accepted
 origin: human
-human_input: in_015, in_016, in_017, in_018, in_019, in_020, in_021, in_022, in_023, in_024, in_025, in_028
+human_input: in_015, in_016, in_017, in_018, in_019, in_020, in_021, in_022, in_023, in_024, in_025, in_028, in_030
 date: 2026-11-04
 depends_on:
   - dec_ui_build_order: this is stage 1 of the staged interface build
@@ -28,7 +28,11 @@ arrow values are the human's own, tuned by hand with a temporary panel and paste
 they are applied verbatim in `settings.js` and are not AI choices. Refinement (`in_028`): the sheets should be lighter
 and brighter but still transparent so objects behind them stay visible, with the fog fading away behind them and
 replaced by a slight back light. AI interpretation: a backlight that is screen-blended onto what is behind the sheet
-(so it is see-through), fading with distance into the dark world; the D key no longer toggles a theme (D is dimension). You select a plane to sketch on,
+(so it is see-through), fading with distance into the dark world; the D key no longer toggles a theme (D is dimension).
+Refinement (`in_030`): the human wants to adjust how bright a sheet is independently of how transparent it is, and the
+backlight area separately, with the fog behind the sheets and not only on top of them. AI interpretation: brightness (screen
+glow), opacity (sheet-colored veil), grid line strength, a "backlight area" falloff for the sheet, and a separate world fog
+that fades objects. You select a plane to sketch on,
 and the view goes normal to that plane. You can still orbit in 3D, and clicking on the plane brings the
 view back normal to it. Reduce clutter: no XYZ buttons.
 

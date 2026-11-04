@@ -57,10 +57,16 @@ export const settings = {
     hideCos: 0.96, // an axis pointing (almost) at or away from the camera has no visible length: hide its arrow
   },
   fog: {
-    // World fog: planes keep their own color and fade INTO the world (the background) with distance from the CAMERA,
-    // in multiples of the camera-to-target distance. The darkness of the "fog" is the world color itself.
-    nearFactor: 0.5, // fully visible up to here (a face-on view is a spotlight that dims slightly toward the edges)...
-    farFactor: 2.5, // ...and almost gone by here, with no hard end
+    // WORLD fog: objects in the scene (everything that is not a sheet) fade into the dark world with distance from the camera,
+    // in multiples of the camera-to-target distance. Because the sheets are see-through, this is the fog "behind" a sheet.
+    nearFactor: 0.9,
+    farFactor: 3.5,
+  },
+  sheetArea: {
+    // BACKLIGHT AREA: how far a sheet's own light, its grid and the axis lines reach from where you are looking (same
+    // distance units). Independent of the world fog above.
+    nearFactor: 0.5, // full strength up to here...
+    farFactor: 2.5, // ...almost gone by here, with no hard end
     sharpness: 2.5, // how quickly it fades between near and far (higher = faster, still smooth)
     axisFarFactor: 2.5, // how far the axis lines reach (they fade with the same curve)
   },
@@ -77,15 +83,20 @@ export const settings = {
   themes: {
     // world = the background (and therefore the fog); sheet = the plane's fill color; gridLine = grid lines.
     // Only paper-gray and charcoal tones plus the world axis colors. states: what each plane looks like when hovered
-    // (3D view) or selected (sketch view); unselected, unhovered planes are not drawn. "fill" is the strength of the
-    // backlight the sheet adds (screen-blended, so it is see-through).
+    // (3D view) or selected (sketch view); unselected, unhovered planes are not drawn. "bright" is how much light the sheet gives off (screen-blended: it brightens what is behind
+    // without clipping to white, 0..1); "opacity" is how much it hides what is behind it with the sheet color (0 = fully
+    // see-through). The two are independent.
     world: {
       // Values tuned by the human with the temporary tuning panel (in_025).
       background: 0x121212, text: "#aeb2b7",
       axisX: [0.92, 0.32, 0.3], axisY: [0.25, 0.72, 0.38], axisZ: [0.32, 0.52, 1.0],
       sheet: [0.9176470588235294, 0.8901960784313725, 0.8627450980392157], gridLine: [0.17, 0.18, 0.2],
       sketchInk: [0.09, 0.095, 0.105], sketchHalo: [0.95, 0.93, 0.9], // sketch lines: near-black with a light halo so they read on the lit sheet and on the dark world
-      states: { base: { line: 0, fill: 0, fine: 0 }, hover: { line: 0.65, fill: 0.62, fine: 0.83 }, selected: { line: 0.49, fill: 0.6, fine: 1 } },
+      states: {
+        base: { line: 0, bright: 0, opacity: 0, fine: 0 },
+        hover: { line: 0.65, bright: 0.62, opacity: 0, fine: 0.83 },
+        selected: { line: 0.49, bright: 0.6, opacity: 0, fine: 1 },
+      },
     },
   },
 };

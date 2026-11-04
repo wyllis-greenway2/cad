@@ -16,7 +16,8 @@ import { PLANES, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, p
 const $ = (id) => document.getElementById(id);
 const G = S.grid;
 const V = S.view;
-const F = S.fog;
+const F = S.fog; // world fog (objects)
+const A = S.sheetArea; // how far a sheet's light, grid and axes reach
 let themeName = S.themeName;
 const T = () => S.themes[themeName];
 const toHex = (c) => (Math.round(c[0] * 255) << 16) | (Math.round(c[1] * 255) << 8) | Math.round(c[2] * 255);
@@ -25,7 +26,8 @@ const toHex = (c) => (Math.round(c[0] * 255) << 16) | (Math.round(c[1] * 255) <<
 const view = { a: V.homeAzimuth, e: V.homeElevation, dist: V.homeDistance, target: new THREE.Vector3() };
 let selected = null; // "XY" | "XZ" | "YZ" | null  (non-null = sketch mode)
 let hovered = null;
-let pinnedHover = null; // tuning only: keep a plane's hover preview showing without the mouse
+let pinnedHover = null; // tuning only: keep a plane's preview showing without the mouse
+let pinnedStyle = "hover"; // ...in the "hover" or the "selected" look
 let anim = null;
 
 // ---------------------------------------------------------------- renderer, camera
@@ -33,6 +35,7 @@ const canvas = $("view");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.autoClear = false;
 const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x000000, 1, 1000); // world fog for objects; near/far follow the camera distance each frame (see updatePlanes)
 const camera = new THREE.PerspectiveCamera(V.fovDeg, 1, 0.1, 1000);
 
 function applyCamera() {
@@ -58,7 +61,7 @@ void main() {
 const FRAG = /* glsl */ `
 uniform vec3 uCam; uniform float uDist;
 uniform int uAxis; uniform vec3 uCol; uniform vec3 uColU; uniform vec3 uColV;
-uniform float uLineA; uniform float uFillA; uniform float uAxisA;
+uniform float uLineA; uniform float uBright; uniform float uOpacity; uniform float uAxisA;
 uniform vec3 uLineCol;
 uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul; uniform float uMinCellPx;
 uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar; uniform float uFogK;
@@ -103,9 +106,12 @@ void main() {
   float axFog = exp(-uFogK * ta * ta);
 
 #if PASS == 0
-  // Backlight: the sheet adds light ("screen" blending) to whatever is behind it, so it looks lighter and brighter
-  // but stays see-through. With distance the light fades away, leaving the dark world (that is the fog).
-  gl_FragColor = vec4(uCol * uFillA * fog, 1.0);
+  // Paint layer: the sheet's color at the chosen opacity, so opacity says how much of what is behind it is hidden.
+  gl_FragColor = vec4(uCol, uOpacity * fog);
+#elif PASS == 1
+  // Glow layer (brightness): light added with "screen" blending, out = light + behind * (1 - light). It brightens what is
+  // behind the sheet without clipping it to white, so a bright sheet can still be see-through. Independent of opacity.
+  gl_FragColor = vec4(min(uCol * uBright * fog, vec3(1.0)), 1.0);
 #else
   float a = grid * uLineA * fog;                                      // grid lines
   float ax = max(axU, axV) * uAxisA * axFog;                          // world axis lines
@@ -124,39 +130,43 @@ for (const [name, def] of Object.entries(PLANES)) {
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
-    ...(pass === 0
-      ? { blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcColorFactor } // screen: src + dst * (1 - src)
+    ...(pass === 1
+      ? { blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcColorFactor } // screen: light + dst * (1 - light)
       : {}),
     uniforms: {
       uCam: { value: new THREE.Vector3() }, uDist: { value: 1 },
       uAxis: { value: def.axis }, uCol: { value: new THREE.Vector3(...T().sheet) },
       uColU: { value: new THREE.Vector3(...axisCol[def.u]) }, uColV: { value: new THREE.Vector3(...axisCol[def.v]) },
-      uLineA: { value: 0 }, uFillA: { value: 0 }, uAxisA: { value: G.axisAlpha },
+      uLineA: { value: 0 }, uBright: { value: 0 }, uOpacity: { value: 0 }, uAxisA: { value: G.axisAlpha },
       uLodDiv: { value: G.lodDivisor }, uStyleMin: { value: G.fineLineStrength }, uFineMul: { value: 0 }, uMinCellPx: { value: G.minCellPx },
       uLineCol: { value: new THREE.Vector3() },
-      uFogNear: { value: F.nearFactor }, uFogFar: { value: F.farFactor }, uAxisFogFar: { value: F.axisFarFactor }, uFogK: { value: F.sharpness },
+      uFogNear: { value: A.nearFactor }, uFogFar: { value: A.farFactor }, uAxisFogFar: { value: A.axisFarFactor }, uFogK: { value: A.sharpness },
       uAxisW: { value: G.axisWidthPx },
     },
   });
   const geo = new THREE.PlaneGeometry(1, 1);
-  const glow = new THREE.Mesh(geo, makeMat(0));
-  const lines = new THREE.Mesh(geo, makeMat(1));
-  glow.renderOrder = 1;
-  lines.renderOrder = 2;
-  for (const mesh of [glow, lines]) {
+  const paint = new THREE.Mesh(geo, makeMat(0));
+  const glow = new THREE.Mesh(geo, makeMat(1));
+  const lines = new THREE.Mesh(geo, makeMat(2));
+  paint.renderOrder = 1;
+  glow.renderOrder = 2;
+  lines.renderOrder = 3;
+  for (const mesh of [paint, glow, lines]) {
     if (def.axis === 1) mesh.rotation.x = Math.PI / 2;
     if (def.axis === 0) mesh.rotation.y = Math.PI / 2;
     mesh.frustumCulled = false;
     scene.add(mesh);
   }
-  planeMeshes[name] = { glow, lines };
+  planeMeshes[name] = { paint, glow, lines };
 }
 
 /** Keep each plane's quad centered on the target (projected onto the plane) and sized to the view, so it looks
  *  infinite and vertex positions stay small (float precision). Grid lines are in world coordinates. */
 function updatePlanes() {
+  scene.fog.near = view.dist * F.nearFactor;
+  scene.fog.far = view.dist * F.farFactor;
   for (const [name, pair] of Object.entries(planeMeshes)) {
-   for (const mesh of [pair.glow, pair.lines]) {
+   for (const mesh of [pair.paint, pair.glow, pair.lines]) {
     const c = projectOnto(name, view.target.toArray());
     mesh.position.set(c[0], c[1], c[2]);
     mesh.scale.setScalar(view.dist * G.extentFactor);
@@ -168,18 +178,20 @@ function updatePlanes() {
     u.uMinCellPx.value = G.minCellPx;
     u.uAxisW.value = G.axisWidthPx;
     u.uAxisA.value = G.axisAlpha;
-    u.uFogNear.value = F.nearFactor;
-    u.uFogFar.value = F.farFactor;
-    u.uAxisFogFar.value = F.axisFarFactor;
-    u.uFogK.value = F.sharpness;
+    u.uFogNear.value = A.nearFactor;
+    u.uFogFar.value = A.farFactor;
+    u.uAxisFogFar.value = A.axisFarFactor;
+    u.uFogK.value = A.sharpness;
     // Only the selected plane is shown (full grid); the hovered plane previews whenever it can be picked. The rest are hidden.
     const states = T().states;
-    const state = selected === name ? states.selected : (pinnedHover && !selected ? pinnedHover : hovered) === name ? states.hover : states.base;
+    const pinned = pinnedHover && !selected && pinnedHover === name;
+    const state = selected === name ? states.selected : pinned ? states[pinnedStyle] : hovered === name && !pinnedHover ? states.hover : states.base;
     const th = T();
     u.uCol.value.set(...th.sheet);
     u.uLineCol.value.set(...th.gridLine);
     u.uLineA.value = state.line;
-    u.uFillA.value = state.fill;
+    u.uBright.value = state.bright;
+    u.uOpacity.value = state.opacity;
     u.uFineMul.value = state.fine; // the densest grid level is only shown on the sketch plane
    }
   }
@@ -231,10 +243,11 @@ function applyTheme() {
   const t = T();
   const axes = [t.axisX, t.axisY, t.axisZ];
   renderer.setClearColor(t.background);
+  scene.fog.color.setHex(t.background); // the fog is the world color itself
   document.documentElement.style.setProperty("--bg", `#${t.background.toString(16).padStart(6, "0")}`);
   document.documentElement.style.setProperty("--fg", t.text);
   for (const [name, pair] of Object.entries(planeMeshes)) {
-    for (const mesh of [pair.glow, pair.lines]) {
+    for (const mesh of [pair.paint, pair.glow, pair.lines]) {
       mesh.material.uniforms.uColU.value.set(...axes[PLANES[name].u]);
       mesh.material.uniforms.uColV.value.set(...axes[PLANES[name].v]);
     }
@@ -438,7 +451,7 @@ function setRay(clientX, clientY) {
 }
 function pickAt(clientX, clientY) {
   setRay(clientX, clientY);
-  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * F.farFactor, minCos: G.grazeMinCos, only: inSketchView() ? selected : null });
+  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * A.farFactor, minCos: G.grazeMinCos, only: inSketchView() ? selected : null });
 }
 /** The point under the cursor on the sketch plane, in local (u, v) mm. */
 function localPoint(clientX, clientY) {
@@ -749,6 +762,7 @@ if (new URLSearchParams(location.search).has("tune")) {
     view3D: () => (selected ? exitSketch(true) : goHome()),
     sketchOn: (plane) => enterSketch(plane),
     pinHover: (plane) => ((pinnedHover = plane), requestRender()),
+    pinStyle: (style) => ((pinnedStyle = style), requestRender()),
     addTestBoxes: () => window.__ui.addTestBox(25, 10, -14, 30, 24, 20) || window.__ui.addTestBox(-30, -20, 18, 14, 14, 36),
   });
 }

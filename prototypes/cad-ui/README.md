@@ -13,9 +13,16 @@ bash tools/preview.sh            # from the repo root; default prototype is cad-
 or `cd prototypes/cad-ui && npm install && npm run dev`. Tests: `npm test` (20 tests: view math, keymap and navigation presets, typed-size math, sketch store with undo/redo, drawing session). A scripted browser run (27 checks) also covers the full workflow; it is not part of the repo because it needs Playwright.
 
 ## What it does (stage 2: sketching on the plane)
-**Look.** A dark world with a backlit plane. A plane is a see-through sheet of light (it is *added* to whatever is behind
-it, so objects behind a sheet stay visible) with charcoal grid lines; with distance the light fades into the dark world
-(that is the fog). The only color is the world axes (X red, Y green, Z blue) with arrowheads and letters on the lines.
+**Look.** A dark world with lit sheets. Each sheet has four independent controls (all in `settings.themes.world.states`,
+separately for the selected plane and the hovered plane, and all on the tuning panel):
+- **brightness**: how much light the sheet gives off. It is screen-blended, so it brightens what is behind the sheet without
+  clipping it to white: a bright sheet can still be see-through.
+- **opacity**: how much the sheet hides what is behind it, using the sheet color. 0 = fully see-through, 1 = solid. It does not
+  change the brightness.
+- **grid line opacity** and **fine grid level**.
+And two separate falloffs: the **backlight area** (`settings.sheetArea`: how far a sheet's light, grid and the axis lines reach from
+where you look) and the **world fog** (`settings.fog`: objects in the scene fade into the dark world with distance, so the fog is
+*behind* the sheet and not only on it). The only color is the world axes (X red, Y green, Z blue) with arrowheads and letters.
 
 **Mouse** (all remappable in `settings.input`; the left button is always the tool, never navigation)
 - Right-drag orbit, middle-drag pan (also Shift + right-drag), wheel zoom toward the point under the cursor,
@@ -45,9 +52,10 @@ Rectangle: width, **Tab**, height. Circle: diameter. Line: length, **Tab**, angl
 
 ## Look values (tuned by the human, `in_025`) and the tuning panel
 The colors, fog, grid and arrow values in `src/settings.js` were tuned by hand and applied exactly (68 numbers
-checked). **One change since:** the sheet is now a see-through backlight instead of an opaque fill (`in_028`), so the
-two tuned sheet "fill" numbers (hover 0.75, selected 1.0) now mean light strength and were re-set to 0.62 and 0.6 so
-objects behind a sheet stay visible. `bash tools/preview.sh tune` brings back the temporary tuning panel (`?tune`) to
+checked). **Changes since:** the sheet is no longer one opaque fill (`in_028`, `in_030`). Your tuned fill numbers (hover 0.75, selected
+1.0) became **brightness** (re-set to 0.62 and 0.6) and **opacity** (0), independent of each other; and the fog you tuned
+(near 0.5, far 2.5, sharpness 2.5, axis 2.5) now drives the sheet's **backlight area**, while a new **world fog** (0.9 to 3.5)
+fades objects. `bash tools/preview.sh tune` brings back the temporary tuning panel (`?tune`) to
 set them (and the rest) exactly. The panel has its own buttons (3D view, Sketch XY/XZ/YZ, a pinned hover sheet, test
 boxes), so the look can be tuned with no mouse navigation at all. Send the values back and the panel is removed again.
 

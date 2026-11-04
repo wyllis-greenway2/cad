@@ -237,3 +237,18 @@ workflow: 27 checks) all pass. `dec_ui_conventions` records the correction.
 **Open for the human:** do the new exits feel right (Esc glide, the button, left-drag orbit)? Then tune the sheet look with
 `bash tools/preview.sh tune` and send the values.
 **Next:** stage 3 (extrude with Shapr3D-style defaults, history list, drawer).
+
+## Handoff 017 — 2026-11-04
+**State:** `in_030`: the human could not tune sheet brightness separately from transparency, and the fog was only on the sheet,
+not behind it. Rebuilt the sheet as three passes in `prototypes/cad-ui`: a paint layer (**opacity**, sheet color), a glow layer
+(**brightness**, screen-blended so it does not clip what is behind it to white; my first additive version made a bright sheet
+turn a box behind it pure white, which was caught by looking at the screenshot), and the grid and axis lines. The fog is split in two:
+**sheetArea** (backlight area: how far a sheet's light, grid and axes reach; carries the values the human tuned) and **fog** (world
+fog: a real scene fog on objects, 0.9 to 3.5 view distances). The tuning panel now has Brightness, Opacity, Backlight area and
+World fog sections, plus a "Pinned look" toggle so the selected look can be viewed in the 3D view with test boxes. Verified with
+screenshots (bright and see-through; bright and veiled; objects fading in fog), 20 unit tests, and the lock-in (12) and stage 2 (27)
+scripted checks, all passing.
+
+**Open for the human:** tune brightness and opacity (selected and hovered) and the two falloffs with `bash tools/preview.sh tune`
+and send the values.
+**Next:** apply the human's values and remove the panel; then stage 3 (extrude).

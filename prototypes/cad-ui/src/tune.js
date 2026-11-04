@@ -33,7 +33,7 @@ function hslToRgb([h, s, l]) {
   return [f(h + 1 / 3), f(h), f(h - 1 / 3)];
 }
 
-export function initTuning({ S, applyTheme, requestRender, getThemeName, setThemeName, view3D, sketchOn, pinHover, addTestBoxes }) {
+export function initTuning({ S, applyTheme, requestRender, getThemeName, setThemeName, view3D, sketchOn, pinHover, pinStyle, addTestBoxes }) {
   const defaults = JSON.parse(JSON.stringify(S));
   const theme = () => S.themes[getThemeName()];
 
@@ -42,6 +42,7 @@ export function initTuning({ S, applyTheme, requestRender, getThemeName, setThem
     themeName: getThemeName(),
     themes: S.themes,
     fog: S.fog,
+    sheetArea: S.sheetArea,
     grid: { lodDivisor: S.grid.lodDivisor, fineLineStrength: S.grid.fineLineStrength, minCellPx: S.grid.minCellPx, axisWidthPx: S.grid.axisWidthPx, axisAlpha: S.grid.axisAlpha },
     axisArrow: S.axisArrow,
     view: { fovDeg: S.view.fovDeg, transitionMs: S.view.transitionMs, orbitRadPerPx: S.view.orbitRadPerPx, zoomPerWheel: S.view.zoomPerWheel },
@@ -200,6 +201,12 @@ export function initTuning({ S, applyTheme, requestRender, getThemeName, setThem
     pinB.textContent = `Pin hover sheet: ${pins[pinIdx] ?? "off"}`;
     pinHover?.(pins[pinIdx]);
   });
+  let style = "hover";
+  const styleB = navBtn("Pinned look: hover", () => {
+    style = style === "hover" ? "selected" : "hover";
+    styleB.textContent = `Pinned look: ${style}`;
+    pinStyle?.(style);
+  });
   let boxes = false;
   navBtn("Test boxes", () => {
     if (!boxes) (boxes = true), addTestBoxes?.();
@@ -219,20 +226,26 @@ export function initTuning({ S, applyTheme, requestRender, getThemeName, setThem
   color("Status text", () => theme().text.length === 7 ? theme().text : "#aeb2b7", (h) => ((theme().text = h), applyTheme()));
 
   const st = (which) => theme().states[which];
-  section("Selected plane (sketch view): fill = backlight");
+  section("Selected plane (the sketch plane)");
+  number("brightness (light it gives)", () => st("selected").bright, (v) => (st("selected").bright = v), 0, 1.2, 0.01);
+  number("opacity (hides what is behind)", () => st("selected").opacity, (v) => (st("selected").opacity = v), 0, 1, 0.01);
   number("grid line opacity", () => st("selected").line, (v) => (st("selected").line = v), 0, 1, 0.01);
-  number("sheet opacity", () => st("selected").fill, (v) => (st("selected").fill = v), 0, 1, 0.01);
   number("fine grid level", () => st("selected").fine, (v) => (st("selected").fine = v), 0, 1, 0.01);
-  section("Hovered plane (3D view): fill = backlight");
+  section("Hovered plane (3D view preview)");
+  number("brightness (light it gives)", () => st("hover").bright, (v) => (st("hover").bright = v), 0, 1.2, 0.01);
+  number("opacity (hides what is behind)", () => st("hover").opacity, (v) => (st("hover").opacity = v), 0, 1, 0.01);
   number("grid line opacity", () => st("hover").line, (v) => (st("hover").line = v), 0, 1, 0.01);
-  number("sheet opacity", () => st("hover").fill, (v) => (st("hover").fill = v), 0, 1, 0.01);
   number("fine grid level", () => st("hover").fine, (v) => (st("hover").fine = v), 0, 1, 0.01);
 
-  section("World fog (distance from camera, x view distance)");
-  number("starts at", () => S.fog.nearFactor, (v) => (S.fog.nearFactor = v), 0, 4, 0.01);
-  number("almost gone at", () => S.fog.farFactor, (v) => (S.fog.farFactor = v), 0.3, 10, 0.05);
-  number("sharpness", () => S.fog.sharpness, (v) => (S.fog.sharpness = v), 0.2, 12, 0.1);
-  number("axis lines reach", () => S.fog.axisFarFactor, (v) => (S.fog.axisFarFactor = v), 0.3, 20, 0.1);
+  section("Backlight area (how far a sheet's light, grid and axes reach)");
+  number("starts fading at", () => S.sheetArea.nearFactor, (v) => (S.sheetArea.nearFactor = v), 0, 4, 0.01);
+  number("almost gone at", () => S.sheetArea.farFactor, (v) => (S.sheetArea.farFactor = v), 0.3, 10, 0.05);
+  number("sharpness", () => S.sheetArea.sharpness, (v) => (S.sheetArea.sharpness = v), 0.2, 12, 0.1);
+  number("axis lines reach", () => S.sheetArea.axisFarFactor, (v) => (S.sheetArea.axisFarFactor = v), 0.3, 20, 0.1);
+
+  section("World fog (objects fade into the dark, behind the sheets)");
+  number("starts at", () => S.fog.nearFactor, (v) => (S.fog.nearFactor = v), 0, 6, 0.01);
+  number("fully fogged at", () => S.fog.farFactor, (v) => (S.fog.farFactor = v), 0.3, 12, 0.05);
 
   section("Grid and axis lines");
   number("axis line width px", () => S.grid.axisWidthPx, (v) => (S.grid.axisWidthPx = v), 0.5, 6, 0.1);
@@ -277,10 +290,11 @@ export function initTuning({ S, applyTheme, requestRender, getThemeName, setThem
       lines.push(`  axisX ${rgbText(t.axisX)}`);
       lines.push(`  axisY ${rgbText(t.axisY)}`);
       lines.push(`  axisZ ${rgbText(t.axisZ)}`);
-      for (const w of ["selected", "hover"]) lines.push(`  ${w}: line ${num(t.states[w].line)}  fill ${num(t.states[w].fill)}  fine ${num(t.states[w].fine)}`);
+      for (const w of ["selected", "hover"]) lines.push(`  ${w}: brightness ${num(t.states[w].bright)}  opacity ${num(t.states[w].opacity)}  gridLine ${num(t.states[w].line)}  fine ${num(t.states[w].fine)}`);
     }
-    const f = S.fog;
-    lines.push(`fog: near ${num(f.nearFactor)}  far ${num(f.farFactor)}  sharpness ${num(f.sharpness)}  axisFar ${num(f.axisFarFactor)}`);
+    const sa = S.sheetArea;
+    lines.push(`sheetArea (backlight area): near ${num(sa.nearFactor)}  far ${num(sa.farFactor)}  sharpness ${num(sa.sharpness)}  axisFar ${num(sa.axisFarFactor)}`);
+    lines.push(`world fog (objects): near ${num(S.fog.nearFactor)}  far ${num(S.fog.farFactor)}`);
     const g = S.grid;
     lines.push(`grid: axisWidthPx ${num(g.axisWidthPx)}  axisAlpha ${num(g.axisAlpha)}  fineLineStrength ${num(g.fineLineStrength)}  minCellPx ${num(g.minCellPx)}  lodDivisor ${num(g.lodDivisor)}`);
     const a = S.axisArrow;

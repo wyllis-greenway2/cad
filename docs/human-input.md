@@ -159,3 +159,8 @@ Approves the AI's proposed defaults for conventions (navigation, hotkeys and und
 Bug report after trying stage 2 of `prototypes/cad-ui` (and the tuning panel).
 
 > okay there is a pretty big problem where when I click on a sheet I just get locked on it, and can never get back to 3d view. You are supposed to be able to get back to 3d view. I can't really tune the panel colors and brightness without that
+
+## in_030 — 2026-11-04 — directive
+Feedback after trying the tuning page for the see-through sheets.
+
+> I don't actually see the knobs to adjust the backlight area or how bright a sheet is because the fog is on top of but not behind it? Basically I want to ajdust how bright the sheets are (independent of them being transparent, like they should be able to be bright, but you can still see things behind them)
