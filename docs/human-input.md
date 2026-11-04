@@ -47,3 +47,8 @@ Shared a zip of an earlier project ("Mosaic") that used a database and a "decisi
 
 ## in_009 — 2026-11-04 — directive
 > Okay yes can we make a lean version of this? one thing I want to capture to is recorded human input and human decisions. Because I think it will be important to record human input or else the whole project could be considered only an AI project and I think it is important to know the input if we ever want to license code etc, since that is an important legal distinction. So what would a lean version of this look like exactly? Could we operate in this structure in our repo instead of needing to download and upload a zip every time?
+
+## in_010 — 2026-11-04 — preference
+Said in reply to the note that commits are authored under the Claude identity and that the push failed.
+
+> thats okay, I am not too worried about you authoring the code in github, I just want mostly a good solid design management structure, and some record of my human input. Okay so are we ready to start? Should we start by building the lean structure, then populating it with the design we already have slightly hashed out, then either start building or polish the design then start building?
