@@ -11,7 +11,7 @@ Update it at the end of each session.
   faces, the drawer, and whatever the human's trial turns up.
 - **No open questions left.** Decided (`in_044` to `in_050`): kernel hybrid and unpluggable (`dec_kernel_hybrid`, built as `src/kernel/`), small solver of our own (`dec_constraint_solver_small`, built for the first constraint types),
   named references (`dec_stable_references`, not built), additive history with modifications as steps and sketches owned by their step (`prin_history_additive`, `dec_modifications_are_steps`,
-  `dec_sketch_belongs_to_step`, not built), grid as an interface feature only (`dec_grid_ui_only`, already how the app works).
+  `dec_sketch_belongs_to_step`, built except warning-free folding), grid as an interface feature only (`dec_grid_ui_only`, already how the app works).
 
 ## Done
 - Project record set up; `docs/licenses.md` written; `kernel-slice`, `sketch-extrude`, `cad-ui` stages 1 and 2 built (2026-11-04).
