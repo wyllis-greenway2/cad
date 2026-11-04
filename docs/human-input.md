@@ -138,3 +138,6 @@ The human tuned the look with the temporary tuning panel (`bash tools/preview.sh
 > grid: axisWidthPx 2.2  axisAlpha 0.85  fineLineStrength 0.65  minCellPx 4  lodDivisor 8
 > axisArrow: sizePx 15  lengthFactor 0.83  labelGapPx 13  labelSidePx 10
 > view: fovDeg 35  transitionMs 450  orbitRadPerPx 0.006  zoomPerWheel 0.0015
+
+## in_026 — 2026-11-04 — directive
+> yes, start stage 2 with the sketching tools. But before we do, should we think about user adopting us? what are they used to? should we borrow hot key patterns or other interface patterns from solid works? or blender? or another popular cad program?
