@@ -55,7 +55,7 @@ sketching is on the three base planes only (no sketching on body faces yet), and
 sketch later does not change it. **Selection model (`in_036`, `in_037`; AI's design, not yet reviewed by the human):** in the 3D view, clicking selects (a plane, a flat axis-facing face
 of a body, or an unextruded closed sketch shape) and never moves the camera; actions then apply to the selection: **E** extrudes a closed shape or
 push/pulls a body face (out adds, in cuts), **S** or a sketch key sketches on it (the only thing that goes orthographic, face-on), Esc deselects.
-A sketch on a body face uses a frozen copy of the face's plane (see `q_topological_refs`); a push/pull feature finds its face again by position and can
+A sketch on a body face uses a frozen copy of the face's plane (see `dec_stable_references`; names are decided, not built); a push/pull feature finds its face again by position and can
 fail if earlier steps move it. Slanted and curved faces are not selectable yet. In sketch view E with a closed shape selected pulls it, otherwise
 picks one. Not built yet: the drawer.
 

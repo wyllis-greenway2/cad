@@ -330,3 +330,8 @@ Answer to the kernel question (option 3, the hybrid), with a requirement to keep
 Answer to the constraint solver question (option 2, a small solver of our own).
 
 > 2
+
+## in_046 — 2026-11-04 — approval
+Answer to the references question (option 2, name things by how they were made, with geometric matching as the fallback).
+
+> 2

@@ -29,7 +29,7 @@ are skipped (`upstream <id> failed`); independent ops still build. The final bod
 | `hole` `fillet` `chamfer` `shell` | older query-based forms (`kernel-slice`) | kept for the corpus |
 
 A flat-face `ref` is `{ n, d, point }`: the face's unit normal, its offset (`n . p = d`) and any point on it. A face is found by geometry, never by an id the kernel made up,
-so references survive a change of kernel (and they can go stale if earlier steps move the face: `q_topological_refs`).
+so references survive a change of kernel (and they can go stale if earlier steps move the face: `dec_stable_references`: named references are planned).
 
 ## Output: `evaluate(graph, tess)`
 `{ ops: [{ id, type, error, ms }], finalId, volume, bbox: { min, max }, mesh: { vertices, normals, triangles } | null, faces, edges, vertices, totalMs }`

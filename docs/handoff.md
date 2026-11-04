@@ -426,3 +426,8 @@ switch points; `body.js` uses `spawnKernel()`; contract in `src/kernel/README.md
 References updated (dimension code comment, README, licenses, `dec_ui_conventions`, roadmap). Next question asked: `q_topological_refs`, with a demonstration that editing an extrusion from 20 to 25 mm
 makes a later "move top face" step fail ("face not found"), because the reference is geometric.
 **Open for the human, one at a time:** `q_topological_refs` (asked), then `q_direct_modification`, `q_grid_role`.
+
+## Handoff 034 — 2026-11-04
+**State:** `in_046`: the human chose option 2 for references (names by construction, geometric fallback). Recorded as `dec_stable_references` (accepted); `q_topological_refs` deleted. Not built; the proof test
+(change an upstream number, a later face move and fillet still attach) is part of the decision. Next question asked: `q_direct_modification` (replay as steps versus edit the source feature).
+**Open for the human, one at a time:** `q_direct_modification` (asked), then `q_grid_role`.

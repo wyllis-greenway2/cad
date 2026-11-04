@@ -18,7 +18,7 @@ is found again by position), move / rotate / scale a whole body (built), and, no
 chamfer a selected line, move a line or corner.
 
 Open: should direct modifications be recorded as steps in the history like extrusions (replayable, but they fail when earlier steps move the face they
-point at, see `q_topological_refs`), or edit the earlier step's own parameters (for a radius, the sketch circle that made it)? Editing the originating
+point at, see `dec_stable_references`), or edit the earlier step's own parameters (for a radius, the sketch circle that made it)? Editing the originating
 parameter is more parametric but is not always possible (a face made by a boolean has no single parameter).
 
 Partly answered: the human approved building direct modification as a growing list of operations that stay valid, not by rebuilding bodies from planes (`in_041`,
