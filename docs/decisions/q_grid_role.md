@@ -14,6 +14,10 @@ endpoints no longer lie exactly on both surfaces, which can break watertightness
 revolves and patterns produce off-grid points; mesh cracks are avoided by sharing tessellated edges, not
 by a grid; 0.01 is not exactly representable in binary floats (integer microns would be).
 
+Prototype evidence: OCCT's tolerance handling fused coincident faces, line-contact tangency and boxes
+overlapping or separated by 1e-4 mm to exact volumes with no grid snapping, so the grid is not needed to
+solve the fuzzy-coincidence problem in these cases (`prototypes/kernel-slice`).
+
 AI suggestion, not approved: keep the grid for snapping, typed-value rounding and display, but not as a
 storage invariant for geometry. Until the human decides, the blueprint's position stands as the human's
 stated intent.

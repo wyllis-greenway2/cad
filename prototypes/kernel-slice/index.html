@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>kernel-slice (throwaway prototype)</title>
+  <style>
+    :root { color-scheme: light dark; --bg:#f4f5f7; --fg:#1b1d21; --panel:#fff; --line:#d5d8de; --ok:#1a7f4b; --bad:#b3261e; }
+    @media (prefers-color-scheme: dark) { :root { --bg:#16181c; --fg:#e8eaee; --panel:#20232a; --line:#353a44; --ok:#5fd18f; --bad:#ff8a80; } }
+    html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:14px/1.4 system-ui,sans-serif; }
+    #app { display:grid; grid-template-columns: 280px 1fr; height:100%; }
+    @media (max-width: 700px) { #app { grid-template-columns: 1fr; grid-template-rows: auto 60vh; } }
+    aside { background:var(--panel); border-right:1px solid var(--line); padding:12px 16px; overflow:auto; }
+    h1 { font-size:15px; margin:0 0 4px; } p.note { margin:0 0 12px; opacity:.7; font-size:12px; }
+    label { display:grid; grid-template-columns: 1fr 52px; gap:2px 8px; margin:8px 0; }
+    label input[type=range] { grid-column: 1 / 3; width:100%; }
+    ol { padding-left:20px; margin:8px 0; } li { margin:2px 0; } li.err { color:var(--bad); } li.ok span.s { color:var(--ok); }
+    #stats { font-variant-numeric: tabular-nums; opacity:.8; font-size:12px; }
+    main { position:relative; min-height:0; } canvas { display:block; width:100%; height:100%; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside>
+      <h1>kernel-slice</h1>
+      <p class="note">Throwaway prototype. JSON graph, compiled by OCCT (WASM) in a Web Worker.</p>
+      <div id="params"></div>
+      <h1 style="margin-top:16px">Operations</h1>
+      <ol id="ops"></ol>
+      <div id="stats"></div>
+    </aside>
+    <main><canvas id="view"></canvas></main>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

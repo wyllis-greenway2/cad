@@ -1,0 +1,10 @@
+{
+  "version": "proto-0",
+  "params": { "w": 50, "d": 30, "h": 20, "hole_d": 6, "r": 3 },
+  "ops": [
+    { "id": "op_001", "type": "sketch", "shape": "rect", "w": "$w", "d": "$d", "plane": "XY" },
+    { "id": "op_002", "type": "extrude", "profile": "op_001", "distance": "$h" },
+    { "id": "op_003", "type": "hole", "target": "op_002", "at": [0, 0], "diameter": "$hole_d" },
+    { "id": "op_004", "type": "fillet", "target": "op_003", "radius": "$r", "edges": { "direction": "Z", "within": "outer" } }
+  ]
+}

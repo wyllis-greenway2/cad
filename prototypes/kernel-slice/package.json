@@ -1,0 +1,18 @@
+{
+  "name": "kernel-slice",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "THROWAWAY prototype: JSON operation graph -> OCCT (WASM) -> mesh. See README.md.",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "corpus": "node test/corpus.mjs",
+    "dev": "vite"
+  },
+  "dependencies": {
+    "replicad": "^1.2.0",
+    "replicad-opencascadejs": "^1.1.0",
+    "three": "^0.187.0",
+    "vite": "^8.3.5"
+  }
+}

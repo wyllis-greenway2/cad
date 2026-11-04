@@ -20,3 +20,15 @@ recommendations on these; the human has not approved any of them.
 
 **Notes for next session:** commits so far are authored under the Claude identity in this
 environment. Ask the human whether they want to commit under their own identity as well.
+
+## Handoff 002 — 2026-11-04
+**State:** Wrote `docs/licenses.md` and `tools/license_scan.mjs`. Built `prototypes/kernel-slice` (approved
+in `in_012`): JSON graph to OCCT (replicad WASM) in a Web Worker with a Three.js view, 10 passing tests,
+a 19-case corpus (`corpus-results.md`) and a history-based reference experiment. Findings are in that
+README and were added to `q_kernel_choice`, `q_topological_refs` and `q_grid_role` as evidence. All three
+stay open: nothing was decided. Rule 9 was loosened in `in_011` (`dec_prototyping_policy`).
+
+**Not done / blocked:** pushing. GitHub returned 403 (the Claude GitHub App needs access to
+`wyllis-greenway2/cad`); every commit so far is local to this session's container until that is fixed.
+
+**Next:** the human reviews the findings and answers `q_kernel_choice`; then pick the next prototype.

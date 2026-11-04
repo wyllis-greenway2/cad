@@ -22,5 +22,10 @@ Options on the table:
    narrow cases (orthogonal parts, holes, simple fillets), switching per operation only where it passes
    the same corpus.
 
+Evidence from `prototypes/kernel-slice` (2026-11-04, see its README): OCCT via replicad built 16 of 16
+closed-form corpus cases to within 1.2e-11 and handled coincident faces, tangency and 1e-4 mm gaps exactly.
+One bad case: an impossible fillet returned an invalid solid without throwing (caught by OCCT's validity
+check). Browser error messages are opaque. These results do not say how a custom kernel would compare.
+
 Not decided. The human has not chosen among these. The AI's suggested way to decide with data: build a
 vertical slice and an adversarial test corpus (see roadmap).

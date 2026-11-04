@@ -57,3 +57,8 @@ Said in reply to the note that commits are authored under the Claude identity an
 Reply to the AI's request to approve the OCCT test slice as an experiment, citing rule 9 of CLAUDE.md ("build only on accepted ground").
 
 > Maybe we should toss rule 9? I am okay with rough prototyping quickly and tossing things if they don't work and trying again
+
+## in_012 — 2026-11-04 — approval
+Approves the AI's proposal to write `docs/licenses.md` and then build the first prototype (`prototypes/kernel-slice/`: OCCT in WASM, JSON operation graph, sketch/extrude/hole/fillet in a browser view, a reference-stability test and a corpus of awkward boolean and fillet cases).
+
+> yes, go ahead with licenses.md then the prototype

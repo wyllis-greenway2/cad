@@ -4,12 +4,15 @@ Phases come from the human's blueprint (section 17). This file only tracks what 
 Update it at the end of each session.
 
 ## Now
-- Project record set up (done 2026-11-04).
-- `docs/licenses.md`: dependency and license tracking file (requested in `in_007`).
+- Human reviews the `prototypes/kernel-slice` findings (README there) and decides the open questions,
+  starting with `q_kernel_choice`.
+
+## Done
+- Project record set up; `docs/licenses.md` written; first prototype built (2026-11-04).
 
 ## Next
-- Human decides `q_kernel_choice`, ideally after seeing data: a vertical slice (sketch, extrude, hole,
-  fillet, mesh on screen) plus an adversarial test corpus of nasty boolean and fillet cases.
+- Depending on the kernel decision: a larger adversarial corpus (random and chained operations), history
+  through fillet/chamfer/shell, or a first custom-kernel corpus run for comparison.
 - Revised `docs/blueprint.md` that folds in accepted decisions and resolved questions.
 
 ## Later
