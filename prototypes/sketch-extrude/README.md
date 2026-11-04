@@ -41,7 +41,7 @@ Middle or right mouse drag (or Space+drag) pans, the wheel zooms, left drag orbi
    flight, newest wins) kept it from queuing up. This was a laptop-class container with software
    rendering sharing the CPU, so real machines should do the same or better, but that is untested.
 3. **Rounding input to 0.01 mm gives clean numbers** (`40.00 x 30.00`, not `39.999999`) without a grid
-   rule on stored geometry. This is the blueprint's grid used only as input rounding (see `q_grid_role`).
+   rule on stored geometry. This is the blueprint's grid used only as input rounding (see `dec_grid_ui_only`).
 4. **The graph stays small and readable.** Each feature is one `sketch` op plus one `extrude` op, with
    `mode: "cut"` when pulled below the plane. Undo needed no special logic.
 5. **A bug class worth remembering:** my first tests assumed snaps would not trigger; the origin and

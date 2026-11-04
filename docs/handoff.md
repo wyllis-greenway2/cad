@@ -438,3 +438,9 @@ makes a later "move top face" step fail ("face not found"), because the referenc
 edited with its step, edits go through the solver with a warning when later steps override them; a later explicit "fold into the sketch" command is possible). None of the three is built yet (today a sketch stays on its plane
 after extrusion). Open questions left: `q_grid_role` only (asked next).
 **Not built, in rough order:** consume sketches on extrude (hide, restore on undo, show with the step); named references and their proof test; the small solver; the drawer; save/load and STL/3MF export.
+
+## Handoff 036 — 2026-11-04
+**State:** `in_050`: the human chose option 1 for the grid. Recorded as `dec_grid_ui_only` (accepted); `q_grid_role` deleted. **No open questions remain** (`ls docs/decisions | grep '^q_'` is empty).
+Decisions this session of questions: kernel (option 3, `dec_kernel_hybrid`, built as `src/kernel/`), solver (option 2), references (option 2), modification and sketch ownership (additive; three entries), grid (option 1).
+**Built vs not:** built: kernel isolation. Not built: consume sketches on extrude, named references and their proof test, the small solver, the drawer, save/load and STL/3MF export, partial round faces and other limits listed in earlier handoffs.
+**Next:** the human picks the build order (my suggestion below in the chat reply).

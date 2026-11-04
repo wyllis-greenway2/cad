@@ -32,7 +32,7 @@ Or, from the repo root, `bash tools/preview.sh kernel-slice` pulls the latest ch
    within 1.2e-11 relative error: all-edge fillets, a nearly spherical fillet (r=9.9 on a 20 mm cube),
    cylinder-edge fillet, a fillet next to a 0.2 mm wall, shell, Steinmetz cylinders, a 0.01 mm hole, a
    fillet on a rounded-rectangle extrusion. Coincident-face fuses, line-contact tangency and 1e-4 mm
-   overlaps and gaps all came out exact **without any grid snapping** (relevant to `q_grid_role`).
+   overlaps and gaps all came out exact **without any grid snapping** (relevant to `dec_grid_ui_only`).
 2. **Failures can be silent.** Filleting every edge of a 20 mm cube with r=11 did not throw: OCCT returned a
    solid with volume 8980 (bigger than the 8000 cube). Its own validity check (`BRepCheck_Analyzer`) says
    invalid, so the interpreter now runs that check after every solid-producing op and fails the op.

@@ -350,3 +350,8 @@ Follow-up to the discussion of additive history and sketches that belong to face
 Approval to record the four points proposed after the discussion of additive history and sketch ownership.
 
 > yes, record those four
+
+## in_050 — 2026-11-04 — approval
+Answer to the grid question (option 1, the grid is an interface feature only).
+
+> 1
