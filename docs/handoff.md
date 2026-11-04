@@ -431,3 +431,10 @@ makes a later "move top face" step fail ("face not found"), because the referenc
 **State:** `in_046`: the human chose option 2 for references (names by construction, geometric fallback). Recorded as `dec_stable_references` (accepted); `q_topological_refs` deleted. Not built; the proof test
 (change an upstream number, a later face move and fillet still attach) is part of the decision. Next question asked: `q_direct_modification` (replay as steps versus edit the source feature).
 **Open for the human, one at a time:** `q_direct_modification` (asked), then `q_grid_role`.
+
+## Handoff 035 — 2026-11-04
+**State:** `in_047` to `in_049`: the human thought through additive history and sketch ownership, then approved four points. Recorded: `prin_history_additive` (principle), `dec_modifications_are_steps`
+(every modification appends a step, never edits a sketch; answers and replaces `q_direct_modification`, deleted), `dec_sketch_belongs_to_step` (a sketch belongs to the step that consumes it: hidden from the plane, shown and
+edited with its step, edits go through the solver with a warning when later steps override them; a later explicit "fold into the sketch" command is possible). None of the three is built yet (today a sketch stays on its plane
+after extrusion). Open questions left: `q_grid_role` only (asked next).
+**Not built, in rough order:** consume sketches on extrude (hide, restore on undo, show with the step); named references and their proof test; the small solver; the drawer; save/load and STL/3MF export.

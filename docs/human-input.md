@@ -345,3 +345,8 @@ Tentative answer to the direct-modification question (leaning to option 1, addin
 Follow-up to the discussion of additive history and sketches that belong to faces: whether ownership forces some of option 2, and how constraints would behave when a sketch is edited outside sketch mode.
 
 > Okay but shouldn't it be both additive and also bring the sketch with it? because if we have the sketch belong to the face, then doesn't that require is to basically do some of what you are saying form option 2? while still leaning to option 1? So for example, if a sketch belongs to a face, and the rod radius changes, then option 2 would say you should change the circle radius, if the sketch belongs to the face then that also says you should change the cirlces radius right? but then we lose the benefits of things always being additive? and how can we handle constraints that may break when you are essentially editing a sketch when not in sketch mode?
+
+## in_049 — 2026-11-04 — approval
+Approval to record the four points proposed after the discussion of additive history and sketch ownership.
+
+> yes, record those four

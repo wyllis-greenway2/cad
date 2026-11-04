@@ -63,7 +63,7 @@ picks one. Not built yet: the drawer.
 pixels), a face, an unextruded sketch shape or a plane; a **double-click selects the whole body**. With a body selected: **M** move, **R** rotate,
 **K** scale (X / Y / Z picks the axis; drag or type a number; rotate and scale are about the body's box centre). With a face: **E** push/pull, **S**
 "sketch from this face". Lines and corners can be selected but cannot be modified yet. The last plane that was showing keeps showing when nothing is
-selected or pointed at. See `q_direct_modification` for the open question on how direct modifications relate to extrusion and history.
+selected or pointed at. See `dec_modifications_are_steps` for how direct modifications relate to extrusion and history.
 
 **Click rules (`in_039`, the human's words; supersede the earlier selection text above where they differ):** exactly one world plane shows at any time: the
 one being sketched on, else the one pointed at (pointing at another drops the old one), else the last one that showed, so the view is never without one. A
@@ -75,7 +75,7 @@ shape) only selects it and never moves the camera; a face's plane is oriented to
 extruding** sketch shapes. **M moves** what is selected: a whole body along X / Y / Z, or a face in or out along its normal. **R rotates**: a whole body about X / Y / Z,
 or tilts a face about an axis lying in it (material is added where the face lifts and removed where it dips). **K scales** a whole body. A selection stays blue until Esc
 or a click in the world. Lines and corners are selectable but cannot be moved yet: moving them reshapes the neighbouring faces, which the kernel's solid
-operations do not offer directly (needs a design decision, see `q_direct_modification`).
+operations do not offer directly (no valid general operation, see `dec_direct_modification`).
 
 **Fillet, chamfer, radius, taper (`in_041`, built as agreed in `dec_direct_modification`):** with a line selected, **F** rounds it and **B** bevels it (drag or type the
 size; works on round rims too). With a full round face (a post or a hole) selected, **M** changes its radius and **R** tapers it (the low end stays). Each is a

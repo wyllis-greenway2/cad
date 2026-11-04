@@ -16,8 +16,7 @@ and would be a second geometry engine.
 Current list: whole body move, rotate, scale; flat face move (in or out) and tilt; line fillet and chamfer; full round face radius and taper. Not offered: moving
 a line or a corner (it reshapes the neighbouring faces; no valid general operation), rotating a corner.
 
-The human approved this approach after the AI's recommendation (`in_041`). Which operations come next is the human's call. How a modification relates to the parameters of the
-feature that made the face (editing the original number instead of adding a step) is still open in `q_direct_modification`.
+The human approved this approach after the AI's recommendation (`in_041`). Which operations come next is the human's call. How a modification relates to the sketch that made the face is settled in `dec_modifications_are_steps`: it appends a step and never edits the sketch.
 
 ## Rationale
 
