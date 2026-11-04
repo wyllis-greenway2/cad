@@ -340,3 +340,8 @@ Answer to the references question (option 2, name things by how they were made, 
 Tentative answer to the direct-modification question (leaning to option 1, adding a step), with two reasons and a new idea about sketches. Not yet a decision: the human said they are not sure.
 
 > I am not sure. I am thinking 1 add step. Isn't it important to always always keep our history additive? And editing past things automatically would be bad? Another way to look at is that sketches should belong to the faces they produce, so we don't have divorced sketches floating around having nothing to do with faces anymore
+
+## in_048 — 2026-11-04 — question
+Follow-up to the discussion of additive history and sketches that belong to faces: whether ownership forces some of option 2, and how constraints would behave when a sketch is edited outside sketch mode.
+
+> Okay but shouldn't it be both additive and also bring the sketch with it? because if we have the sketch belong to the face, then doesn't that require is to basically do some of what you are saying form option 2? while still leaning to option 1? So for example, if a sketch belongs to a face, and the rod radius changes, then option 2 would say you should change the circle radius, if the sketch belongs to the face then that also says you should change the cirlces radius right? but then we lose the benefits of things always being additive? and how can we handle constraints that may break when you are essentially editing a sketch when not in sketch mode?
