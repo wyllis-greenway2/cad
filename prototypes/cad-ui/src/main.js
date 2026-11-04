@@ -141,11 +141,11 @@ function updatePlanes() {
     const u = mesh.material.uniforms;
     u.uCam.value.copy(camera.position);
     u.uDist.value = view.dist;
-    // Only the selected plane is shown (blue, full grid). In 3D mode the hovered plane previews; the rest are hidden.
-    const state = selected === name ? G.selected : !selected && hovered === name ? G.hover : G.base;
+    // Only the selected plane is shown (full grid); the hovered plane previews whenever it can be picked. The rest are hidden.
+    const state = selected === name ? G.selected : hovered === name ? G.hover : G.base;
     const th = T();
     u.uCol.value.set(...th.blue);
-    u.uLineCol.value.set(th.blue[0] * th.lineDarken, th.blue[1] * th.lineDarken, th.blue[2] * th.lineDarken);
+    u.uLineCol.value.set(...th.gridLine);
     u.uFogCol.value.set(...th.fogColor);
     u.uHaze.value = state === G.base ? 0 : F.hazeMax; // haze only on the plane that is shown
     u.uLineA.value = state.line;
@@ -279,13 +279,15 @@ function updateStatus() {
   let text = "Hover to find a plane, click to sketch on it";
   if (selected) {
     text = isNormal(view, selected, V.normalToleranceRad)
-      ? `Sketching on ${selected}   Esc to exit`
-      : `Sketching on ${selected} (tilted)   click the plane to return to normal view   Esc to exit`;
+      ? `Sketching on ${selected}   orbit to look around   Esc to exit`
+      : `3D view, sketch plane ${selected}   click it to return to normal view, or click another plane   Esc to exit`;
   }
   $("status").textContent = text;
 }
 
 // ---------------------------------------------------------------- picking
+/** Looking straight at the selected plane = sketch view. Anything else (tilted, or nothing selected) = 3D mode. */
+const inSketchView = () => !!selected && isNormal(view, selected, V.normalToleranceRad);
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 function pickAt(clientX, clientY) {
@@ -293,7 +295,7 @@ function pickAt(clientX, clientY) {
   ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
   applyCamera();
   raycaster.setFromCamera(ndc, camera);
-  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * S.pick.maxDistanceFactor, minCos: G.grazeMinCos, only: selected }); // sketch mode: only the sketch plane exists
+  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * S.pick.maxDistanceFactor, minCos: G.grazeMinCos, only: inSketchView() ? selected : null }); // face-on to the sketch plane: only it exists; tilted (3D mode): any plane
 }
 
 // ---------------------------------------------------------------- input

@@ -49,8 +49,8 @@ export const settings = {
   pick: { maxDistanceFactor: 2.4 }, // same as the fog's far edge: you cannot pick what you cannot see
   themeName: "light", // "light" | "dark" (press D in the view to toggle while trying them)
   themes: {
-    // blue = dusty teal blue; lineDarken < 1 makes grid lines darker than the sheet tint; fogColor = what far haze darkens toward
-    light: { background: 0xeeece6, text: "#625f58", axisX: [0.84, 0.25, 0.22], axisY: [0.16, 0.6, 0.3], axisZ: [0.22, 0.42, 0.9], blue: [0.24, 0.5, 0.58], lineDarken: 0.68, fogColor: [0.42, 0.4, 0.36] },
-    dark: { background: 0x15171b, text: "#aab0bb", axisX: [0.92, 0.35, 0.35], axisY: [0.4, 0.8, 0.45], axisZ: [0.4, 0.58, 1.0], blue: [0.38, 0.68, 0.76], lineDarken: 1.0, fogColor: [0.0, 0.0, 0.0] },
+    // blue = dusty teal blue (the sheet tint); gridLine = grid line color; fogColor = what far haze darkens toward
+    light: { background: 0xeeece6, text: "#625f58", axisX: [0.84, 0.25, 0.22], axisY: [0.16, 0.6, 0.3], axisZ: [0.22, 0.42, 0.9], blue: [0.24, 0.5, 0.58], gridLine: [0.34, 0.36, 0.38], fogColor: [0.18, 0.19, 0.21] },
+    dark: { background: 0x15171b, text: "#aab0bb", axisX: [0.92, 0.35, 0.35], axisY: [0.4, 0.8, 0.45], axisZ: [0.4, 0.58, 1.0], blue: [0.38, 0.68, 0.76], gridLine: [0.72, 0.76, 0.82], fogColor: [0.0, 0.0, 0.0] },
   },
 };

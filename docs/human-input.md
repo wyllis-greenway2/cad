@@ -93,3 +93,6 @@ Reply to the finite-sheet version of `prototypes/cad-ui` (the AI had asked wheth
 
 ## in_019 — 2026-11-04 — directive
 > Okay lets make the white world slightly more gray or paper colored ( very slight cream gray white) Lets make the blue slightly more dusty blue teal. Lets make the sub grid slightly darker and more defined. Lets make the xyz arrow indicators built directly into the main xzy world lines to reduce clutter. lets have the fog get slightly darker the further out it goes.
+
+## in_020 — 2026-11-04 — directive
+> Okay lets just try light charcoal grey for the grid lines. Lets make the fog a darker charcoal grey. lets have it so that when you go back into 3d mode you can select any plane again.

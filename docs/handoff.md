@@ -116,3 +116,15 @@ tests plus a scripted browser run passed; checked screenshots of overview, hover
 **AI choices not yet reviewed:** exact colors, haze strength (`fog.hazeMax`), arrow size and distance along
 each axis (`axisArrow.*`); arrows hide when an axis points at the camera.
 **Next:** human tries it; then stage 2 (sketch on the plane), stage 3 (extrude).
+
+## Handoff 009 — 2026-11-04
+**State:** `in_020` on `cad-ui`: charcoal gray grid lines (light charcoal #565c60-ish), darker charcoal fog,
+and "when you go back into 3D mode you can select any plane again". My reading: 3D mode = view is not
+face-on to the sketch plane. Picking is locked to the sketch plane only while looking straight at it; when
+tilted, any plane can be hovered (preview) and clicked (becomes the sketch plane); Esc still drops the sketch
+plane. Verified by a scripted run: face-on picks only XY; tilted picks XZ/YZ/XY; clicking YZ then XZ switches;
+Esc plus H makes all three pickable. 8 view-math tests passed.
+
+**Open for the human:** did I read "3D mode" right (orbiting away from the sketch view)? The old status text
+no longer mentions Esc-then-click as the only way to switch planes.
+**Next:** human tries it; then stage 2 (sketch on the plane), stage 3 (extrude).
