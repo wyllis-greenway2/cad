@@ -89,6 +89,26 @@ export function selectFaces(shape, query) {
   return f.find(shape);
 }
 
+/** The flat face of `shape` described by ref = { axis, sign, offset, point }: facing sign*axis, at that offset, its box containing the point. */
+function findFace(shape, ref) {
+  const { axis, sign, offset, point } = ref;
+  const tol = 1e-3;
+  let best = null;
+  for (const f of shape.faces) {
+    if (f.geomType !== "PLANE") continue;
+    const n = f.normalAt();
+    if (Math.abs([n.x, n.y, n.z][axis] * sign - 1) > 1e-6) continue;
+    const c = f.center;
+    if (Math.abs([c.x, c.y, c.z][axis] - offset) > tol) continue;
+    const [lo, hi] = f.boundingBox.bounds;
+    if (point.some((p, i) => p < lo[i] - tol || p > hi[i] + tol)) continue;
+    const area = (hi[0] - lo[0] + 1e-6) * (hi[1] - lo[1] + 1e-6) * (hi[2] - lo[2] + 1e-6);
+    if (!best || area < best.area) best = { f, area };
+  }
+  if (!best) throw new Error("face not found (the model changed since this step was made)");
+  return best.f;
+}
+
 const OPS = {
   sketch(op, ctx) {
     const p = (k) => resolve(op[k], ctx.params);
@@ -127,26 +147,62 @@ const OPS = {
    */
   faceExtrude(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;
-    const { axis, sign, offset, point } = op.ref;
+    const { axis, sign } = op.ref;
     const dist = resolve(op.distance, ctx.params);
-    const tol = 1e-3;
-    let best = null;
-    for (const f of t.faces) {
-      if (f.geomType !== "PLANE") continue;
-      const n = f.normalAt();
-      if (Math.abs([n.x, n.y, n.z][axis] * sign - 1) > 1e-6) continue;
-      const c = f.center;
-      if (Math.abs([c.x, c.y, c.z][axis] - offset) > tol) continue;
-      const [lo, hi] = f.boundingBox.bounds;
-      if (point.some((p, i) => p < lo[i] - tol || p > hi[i] + tol)) continue;
-      const area = (hi[0] - lo[0] + 1e-6) * (hi[1] - lo[1] + 1e-6) * (hi[2] - lo[2] + 1e-6);
-      if (!best || area < best.area) best = { f, area };
-    }
-    if (!best) throw new Error("face not found (the model changed since this step was made)");
+    const best = findFace(t, op.ref);
     const vec = [0, 0, 0];
     vec[axis] = sign * dist;
-    const prism = basicFaceExtrusion(best.f, new Vector(vec));
+    const prism = basicFaceExtrusion(best, new Vector(vec));
     return { kind: "solid", shape: dist >= 0 ? t.fuse(prism) : t.cut(prism) };
+  },
+
+  /**
+   * Tilt a flat face about an axis through its middle: material is added where the face lifts and removed where it dips.
+   * ref finds the face (see faceExtrude); axis is a world axis (0..2) lying in the face; angle is in degrees.
+   */
+  faceTilt(op, ctx) {
+    const t = ctx.get(op.target, "solid").shape;
+    const best = findFace(t, op.ref);
+    const angle = resolve(op.angle, ctx.params);
+    if (!Number.isFinite(angle)) throw new Error("bad angle");
+    const { axis, sign } = op.ref;
+    if (op.axis === axis) throw new Error("a face can only tilt about an axis lying in it");
+    const b = bounds(t);
+    const size = Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
+    const L = size * 3 + 100; // long enough to reach past any part of the body
+    const fb = best.boundingBox.bounds;
+    const c = [0, 1, 2].map((i) => (fb[0][i] + fb[1][i]) / 2);
+    const n = [0, 0, 0];
+    n[axis] = sign;
+    const k = [0, 0, 0];
+    k[op.axis] = 1;
+    // the new normal: n turned by `angle` about k
+    const rad = (angle * Math.PI) / 180;
+    const cross = [k[1] * n[2] - k[2] * n[1], k[2] * n[0] - k[0] * n[2], k[0] * n[1] - k[1] * n[0]];
+    const dot = k[0] * n[0] + k[1] * n[1] + k[2] * n[2];
+    const n2 = n.map((v, i) => v * Math.cos(rad) + cross[i] * Math.sin(rad) + k[i] * dot * (1 - Math.cos(rad)));
+    // a big box with one face on the new plane, extending along (+1) or against (-1) the new normal
+    const halfSpace = (dir) => {
+      const M = L * 2;
+      let box = dir > 0 ? makeBox([-M, -M, 0], [M, M, M]) : makeBox([-M, -M, -M], [M, M, 0]); // one face on z = 0, extending along +z (dir 1) or -z
+      const ax = [-n2[1], n2[0], 0]; // z x n2
+      const al = Math.hypot(...ax);
+      const ang = (Math.acos(Math.max(-1, Math.min(1, n2[2]))) * 180) / Math.PI;
+      if (al > 1e-9) box = box.rotate(ang, [0, 0, 0], ax); // turn +z onto the new normal
+      else if (n2[2] < 0) box = box.rotate(180, [0, 0, 0], [1, 0, 0]);
+      return box.translate(c);
+    };
+    const out = basicFaceExtrusion(best, new Vector(n.map((v) => v * L)));
+    const inn = basicFaceExtrusion(best, new Vector(n.map((v) => -v * L)));
+    let shape = t;
+    const below = halfSpace(-1); // the side of the new plane facing into the body
+    const above = halfSpace(1); // the side facing out
+    if (Math.abs(angle) > 1e-9) {
+      const add = out.intersect(below);
+      const remove = inn.intersect(above);
+      shape = shape.fuse(add).cut(remove);
+    }
+    return { kind: "solid", shape };
   },
 
   /** Move, rotate or scale the whole target. mode "move" (mm along axis), "rotate" (degrees about the axis through the box centre), "scale" (factor about the box centre). */

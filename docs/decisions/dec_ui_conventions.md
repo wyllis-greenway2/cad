@@ -70,6 +70,13 @@ one being sketched on, else the one pointed at (pointing at another drops the ol
 single click on a **world plane** orients the view to it (sketch view). A single click on anything of the **model** (face, line, corner, unextruded sketch
 shape) only selects it and never moves the camera; a face's plane is oriented to only through **Sketch on surface** (right-click, or S on a selected face).
 
+**Operations and clicks (`in_040`, the human's words; supersede earlier text where they differ):** a **double-click on a world plane orients to it**; a
+**single click on a world plane, or on nothing, deselects and applies** a running operation (extrude, move, rotate...), the same as Enter. **E is only for
+extruding** sketch shapes. **M moves** what is selected: a whole body along X / Y / Z, or a face in or out along its normal. **T rotates**: a whole body about X / Y / Z,
+or tilts a face about an axis lying in it (material is added where the face lifts and removed where it dips). **K scales** a whole body. A selection stays blue until Esc
+or a click in the world. Lines and corners are selectable but cannot be moved yet: moving them reshapes the neighbouring faces, which the kernel's solid
+operations do not offer directly (needs a design decision, see `q_direct_modification`).
+
 ## Rationale
 The human asked for navigation, a few hotkeys plus undo and redo, the sketch-finish-extrude workflow with a history
 list, and typing a number to be done right, and said Shapr3D (their only well-liked program) is a reference but

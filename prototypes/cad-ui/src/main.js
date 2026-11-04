@@ -516,8 +516,9 @@ function buildSketchViz() {
       const o = outline(e);
       const pts = o.pts.map((p) => toWorld(plane, p));
       const sel = plane === session.plane && e.id === session.selectedId;
-      const hov = (plane === session.plane && session.tool === "extrude" && e.id === session.hoverId) || (hoveredSketch?.plane === plane && hoveredSketch.id === e.id) || (sel?.kind === "sketch" && sel.plane === plane && sel.id === e.id);
-      if (o.closed && !isExtruded(plane, e)) sketchGroup.add(fillShape(plane, o.pts, toHex(mix3(cream, th.blueSurface, hov ? SK.regionHoverBlue : 0)), SK.regionFill));
+      const hov = (plane === session.plane && session.tool === "extrude" && e.id === session.hoverId) || (hoveredSketch?.plane === plane && hoveredSketch.id === e.id);
+      const picked = sel?.kind === "sketch" && sel.plane === plane && sel.id === e.id; // stays blue until deselected
+      if (o.closed && !isExtruded(plane, e)) sketchGroup.add(fillShape(plane, o.pts, toHex(mix3(cream, th.blueSurface, picked ? SK.regionSelectBlue : hov ? SK.regionHoverBlue : 0)), SK.regionFill));
       if (SK.haloWidthPx > 0) sketchGroup.add(stroke(pts, { color: haloC, width: SK.haloWidthPx * (sel ? 1.5 : 1), closed: o.closed, order: 4 }));
       sketchGroup.add(stroke(pts, { color: inkC, width: SK.lineWidthPx * (sel ? 1.7 : 1), closed: o.closed, order: 5 }));
     }
@@ -580,7 +581,7 @@ const effective = () => {
 /** The features as they would be right now, including the one being pulled. */
 function currentFeatures() {
   const list = store.features.map((f) => (extrude && extrude.sess.featureId === f.id ? { ...f, distance: effective() } : xform && xform.sess.featureId === f.id ? { ...f, mode: xform.sess.mode, axis: xform.sess.axis, distance: xformValue() } : f));
-  if (xform && !xform.sess.featureId && !xform.sess.isEmpty()) list.push({ id: "f_pending", kind: "transform", plane: null, mode: xform.sess.mode, axis: xform.sess.axis, distance: xformValue() });
+  if (xform && !xform.sess.featureId && !xform.sess.isEmpty()) list.push(xform.ref ? { id: "f_pending", kind: "faceTilt", plane: null, ref: xform.ref, axis: xform.sess.axis, distance: xformValue() } : { id: "f_pending", kind: "transform", plane: null, mode: xform.sess.mode, axis: xform.sess.axis, distance: xformValue() });
   if (extrude && !extrude.sess.featureId && !extrude.sess.isEmpty()) {
     const pending = extrude.ref
       ? { id: "f_pending", kind: "face", plane: null, ref: extrude.ref, distance: effective() }
@@ -672,6 +673,11 @@ function editFeature(id) {
   if (at < 0) return;
   const f = store.features[at];
   if (f.kind === "transform") return startTransform(f.mode, f.id, f.axis, f.distance);
+  if (f.kind === "faceTilt") {
+    const face = body.findFace(f.ref);
+    if (!face) return flashMessage("That face is not there any more (the model changed since this step).");
+    return startFaceTilt({ ...face, point: f.ref.point }, f.id, f.axis, f.distance);
+  }
   if (f.kind === "face") {
     const face = body.findFace(f.ref);
     if (!face) return flashMessage("That face is not there any more (the model changed since this step).");
@@ -728,6 +734,13 @@ let xform = null; // { sess: TransformSession, center: Vector3, size }
 const xformGroup = new THREE.Group(); // the arrow or ring showing the axis
 scene.add(xformGroup);
 const MODES = { move: "move", rotate: "rotate", scale: "scale" };
+/** Tilt a flat face about a world axis lying in it (the other two axes are allowed; the face's own normal axis is not). */
+function startFaceTilt(face, featureId = null, axis = null, value = null) {
+  const ref = { axis: face.axis, sign: face.sign, offset: face.offset, point: face.point ?? body.faceCenter(face).toArray() };
+  const a = axis ?? (face.axis + 1) % 3;
+  xform = { sess: new TransformSession(S, { mode: "rotate", axis: a, value, featureId }), center: body.faceCenter(face), size: Math.max(body.faceSize(face), 10), ref };
+  refreshUI();
+}
 function startTransform(mode, featureId = null, axis = 0, value = null) {
   const b = body.info.bbox;
   if (!b) return flashMessage("There is no body yet.");
@@ -747,7 +760,8 @@ function commitTransform() {
   const v = sess.current();
   if (!Number.isFinite(v)) return flashMessage("Check the typed number.");
   if (sess.isEmpty()) return cancelTransform();
-  if (sess.featureId) store.updateFeature(sess.featureId, v);
+  if (sess.featureId) store.updateFeature(sess.featureId, v, { axis: sess.axis, ...(xform.ref ? {} : { mode: sess.mode }) });
+  else if (xform.ref) store.addFaceTiltFeature(xform.ref, sess.axis, v);
   else store.addTransformFeature(sess.mode, sess.axis, v);
   xform = null;
   refreshUI();
@@ -826,6 +840,7 @@ canvas.addEventListener("dblclick", (ev) => {
   const h = hoverAt(ev.clientX, ev.clientY);
   setHover(h);
   if (h.face || h.edge || h.vertex) (sel = { kind: "body" }), applySel(); // a double-click anywhere on the body selects all of it
+  else if (h.plane) (sel = null), applySel(), enterSketch(h.plane); // a double-click on a world plane orients to it
 });
 
 // ---------------------------------------------------------------- history list (top left, only when there is something in it)
@@ -841,9 +856,11 @@ function updateHistory() {
     const b = document.createElement("button");
     const cut = f.distance < 0 && i > 0;
     b.className = err ? "err" : "";
-    const what = f.kind === "face" ? (f.distance < 0 ? "Push face" : "Pull face") : cut ? "Cut" : "Extrude";
+    const what = f.kind === "face" ? "Move face" : cut ? "Cut" : "Extrude";
     const n = Math.round(Math.abs(f.distance) * 1000) / 1000;
-    b.textContent = f.kind === "transform"
+    b.textContent = f.kind === "faceTilt"
+      ? `${i + 1}  Tilt face ${AXIS_NAMES[f.axis]} ${f.distance < 0 ? "−" : "+"}${n}°${err ? "  failed" : ""}`
+      : f.kind === "transform"
       ? `${i + 1}  ${f.mode === "move" ? "Move" : f.mode === "rotate" ? "Rotate" : "Scale"}${f.mode === "scale" ? ` ×${f.distance}` : ` ${AXIS_NAMES[f.axis]} ${f.distance < 0 ? "−" : "+"}${n}${UNITS[f.mode]}`}${err ? "  failed" : ""}`
       : `${i + 1}  ${what}  ${f.distance > 0 ? "+" : "−"}${n} mm${f.plane ? `  (${f.plane})` : ""}${err ? "  failed" : ""}`;
     b.title = err ?? "Click to change the distance";
@@ -878,16 +895,16 @@ function flashMessage(text) {
 /** What can be done with a selection (for the status line). */
 function selectionHint(t) {
   if (t.kind === "body") return "M move   T rotate   K scale";
-  if (t.kind === "face") return "E push/pull   S sketch on surface";
+  if (t.kind === "face") return "M move   T tilt   S sketch on surface";
   if (t.kind === "sketch") return "E extrude   S sketch on it";
   if (t.kind === "plane") return "S sketch on it (R C L too)";
-  return "double-click for the whole body";
+  return "double-click selects the whole body";
 }
 function updateStatus() {
   let text = "3D view   hover a plane or a face and click it to sketch   right-click for the menu";
   if (flash) text = flash;
   else if (xform) text = xform.sess.prompt();
-  else if (extrude) text = `${extrude.ref ? "Push/pull face" : `Extrude on ${extrude.plane}`}   ${extrude.sess.prompt()}`;
+  else if (extrude) text = `${extrude.ref ? "Move face" : `Extrude on ${extrude.plane}`}   ${extrude.sess.prompt()}`;
   else if (!selected && sel) text = `Selected: ${targetName(sel)}   ${selectionHint(sel)}   Esc deselect`;
   else if (selected) text = inSketchView() ? `Sketching on ${selected}   ${session.prompt()}` : `Going to ${selected}...`;
   if (!body.ready() && (store.features.length || extrude)) text += "   (loading the geometry kernel...)";
@@ -1014,15 +1031,10 @@ function applySel() {
   updateStatus();
   markSketch();
 }
-/** A single click: a base (world) plane orients the view to it for sketching; anything else on or of the model is selected. */
+/** A single click selects what is on the model; a click on a world plane or on nothing deselects (and, during an operation, applies it). */
 function selectFromHover() {
   const t = hoverAsSel();
-  if (t?.kind === "plane") {
-    sel = null;
-    applySel();
-    return enterSketch(t.plane);
-  }
-  sel = t;
+  sel = t?.kind === "plane" ? null : t; // a click on a world plane (or on nothing) deselects; orienting to a world plane is a double-click
   applySel();
 }
 function pickAt(clientX, clientY) {
@@ -1113,12 +1125,21 @@ function doEscape() {
   updateReadout();
   markSketch();
 }
-/** M, T, K: move, rotate or scale the selected body (or switch mode while doing it). */
+/** M, T, K: move, rotate (tilt, for a face) or scale what is selected, or switch mode while doing it. */
 function bodyTransform(mode) {
-  if (xform) return xform.sess.setMode(mode), refreshUI();
+  if (xform) return xform.ref ? undefined : (xform.sess.setMode(mode), refreshUI());
   if (extrude || selected) return;
-  if (sel?.kind === "body") return startTransform(mode);
-  flashMessage("Double-click a body to select all of it, then M move, T rotate, K scale.");
+  const t = sel;
+  if (!t) return flashMessage("Select something first (click a face, or double-click the body), then M move, T rotate, K scale.");
+  if (t.kind === "body") return startTransform(mode);
+  if (t.kind === "face") {
+    if (mode === "move") return startFaceExtrude(t.face); // moving a face in or out
+    if (mode === "rotate") return startFaceTilt(t.face);
+    return flashMessage("Scale works on a whole body: double-click it first.");
+  }
+  if (t.kind === "vertex" && mode === "rotate") return flashMessage("A corner cannot be rotated.");
+  if (t.kind === "edge" || t.kind === "vertex") return flashMessage("Moving lines and corners is not supported yet. Faces and whole bodies can be moved and rotated.");
+  flashMessage("Faces and whole bodies can be moved and rotated. E extrudes a sketch shape.");
 }
 const ACTIONS = {
   select: () => setTool("select"),
@@ -1149,7 +1170,7 @@ const ACTIONS = {
       return r ? startExtrudeFromRegion(r) : setTool("extrude"); // a closed shape is selected: pull it; otherwise pick one
     }
     const t = currentTarget();
-    if (t?.kind === "face") return startFaceExtrude(t.face);
+    if (t?.kind === "face") return flashMessage("E extrudes sketch shapes. To move a face press M; to extrude from a face, S sketches on it first.");
     if (t?.kind === "sketch") {
       const r = regionsOf(store.entities(t.plane)).find((x) => x.id === t.id);
       return r ? startExtrudeFromRegion(r, t.plane) : undefined;
@@ -1224,7 +1245,7 @@ function menuItems() {
       const plane = planeOfTarget(t);
       items.push({ label: t.kind === "face" ? "Sketch on surface" : `Sketch on this ${targetName(t)}`, hint: key("sketch"), run: () => (sel = null, applySel(), enterSketch(plane)) });
     }
-    if (t.kind === "face") items.push({ label: "Push / pull face", hint: key("extrude"), run: () => (sel = t, ACTIONS.extrude()) });
+    if (t.kind === "face") items.push({ label: "Move face", hint: key("move"), run: () => startFaceExtrude(t.face) }, { label: "Tilt face", hint: key("rotate"), run: () => startFaceTilt(t.face) });
     if (t.kind === "sketch") items.push({ label: "Extrude", hint: key("extrude"), run: () => (sel = t, ACTIONS.extrude()) });
     if (t.kind === "body") for (const [label, mode] of [["Move", "move"], ["Rotate", "rotate"], ["Scale", "scale"]]) items.push({ label, hint: key(mode), run: () => startTransform(mode) });
     items.push("sep");
@@ -1269,14 +1290,12 @@ canvas.addEventListener("pointerdown", (ev) => {
   if (ev.button !== 0) return;
   if (extrude) {
     // drag anywhere to pull: the distance follows the mouse along the arrow's axis
-    const t0 = pullParam(ev.clientX, ev.clientY);
-    if (t0 !== null) g = { kind: "extdrag", t0, d0: effective(), ...base };
+    g = { kind: "extdrag", t0: pullParam(ev.clientX, ev.clientY), d0: effective(), ...base }; // a press without dragging is a click: it applies
     return;
   }
   if (xform) {
     const sess = xform.sess;
-    const t0 = sess.mode === "move" ? moveParam(ev.clientX, ev.clientY) : 0;
-    if (t0 !== null) g = { kind: "xdrag", t0, v0: xformValue(), ...base };
+    g = { kind: "xdrag", t0: sess.mode === "move" ? moveParam(ev.clientX, ev.clientY) : 0, v0: xformValue(), ...base };
     return;
   }
   if (selected && !inSketchView()) return; // gliding to the plane: ignore clicks until it is face-on
@@ -1299,12 +1318,16 @@ canvas.addEventListener("pointerdown", (ev) => {
 canvas.addEventListener("pointermove", (ev) => {
   lastPointer = { x: ev.clientX, y: ev.clientY };
   pointerSeen = true;
+  if (g && (g.kind === "xdrag" || g.kind === "extdrag") && !g.moved) {
+    if (Math.hypot(ev.clientX - g.x0, ev.clientY - g.y0) < V.clickMovePx) return; // still a click
+    g.moved = true;
+  }
   if (g && g.kind === "xdrag" && xform) {
     const sess = xform.sess;
     const fine = ev.shiftKey;
     if (sess.mode === "move") {
       const t = moveParam(ev.clientX, ev.clientY);
-      if (t !== null) sess.drag(g.v0 + (t - g.t0), fine);
+      if (t !== null && g.t0 !== null) sess.drag(g.v0 + (t - g.t0), fine);
     } else if (sess.mode === "rotate") sess.drag(g.v0 + (ev.clientX - g.x0) * S.transform.rotateDegPerPx, fine);
     else sess.drag(g.v0 * Math.exp(-(ev.clientY - g.y0) * S.transform.scalePerPx), fine);
     refreshUI();
@@ -1312,7 +1335,7 @@ canvas.addEventListener("pointermove", (ev) => {
   }
   if (g && g.kind === "extdrag" && extrude) {
     const t = pullParam(ev.clientX, ev.clientY);
-    if (t !== null) extrude.sess.drag(g.d0 + (t - g.t0), ev.shiftKey);
+    if (t !== null && g.t0 !== null) extrude.sess.drag(g.d0 + (t - g.t0), ev.shiftKey);
     refreshUI();
     return;
   }
@@ -1359,6 +1382,14 @@ canvas.addEventListener("pointerup", (ev) => {
   const was = g;
   g = null;
   if (!was) return;
+  if ((was.kind === "xdrag" || was.kind === "extdrag") && !was.moved) {
+    // a click in the world, not a drag: apply the operation and let go of the selection
+    if (xform) commitTransform();
+    else if (extrude) commitExtrude();
+    sel = null;
+    applySel();
+    return;
+  }
   if (was.kind === "orbit" && !was.moved && was.button === 2) return void showMenu(ev.clientX, ev.clientY); // right-click without dragging
   if (was.kind === "draw" && session.draft && Math.hypot(ev.clientX - was.x0, ev.clientY - was.y0) >= S.sketch.dragFinishPx) {
     const p = localPoint(ev.clientX, ev.clientY);
@@ -1446,7 +1477,7 @@ addEventListener("keydown", (e) => {
     if (e.key === "Enter") return e.preventDefault(), commitTransform();
     if (e.key === "Backspace") return e.preventDefault(), xform.sess.backspace(), refreshUI();
     const ax = ["x", "y", "z"].indexOf(e.key.toLowerCase());
-    if (ax >= 0 && xform.sess.mode !== "scale") return e.preventDefault(), xform.sess.setAxis(ax), refreshUI();
+    if (ax >= 0 && xform.sess.mode !== "scale") return e.preventDefault(), xform.ref && ax === xform.ref.axis ? flashMessage("A face tilts about an axis lying in it, not its own normal.") : (xform.sess.setAxis(ax), refreshUI());
     if (e.key.length === 1 && xform.sess.type(e.key)) return e.preventDefault(), refreshUI();
   }
   // while pulling an extrusion, digits and Enter belong to the distance (Backspace always does, so it can never delete by accident)

@@ -375,3 +375,15 @@ the view, away keeps the last plane, no console errors); 34 unit tests pass.
 **Lesson:** the earlier "selects the plane with a sketch present" check passed because it only proved the plane fallback; it did not prove the sketch face was picked.
 **Open for the human:** zoom feel; the hotkeys S / R / C / L on a selected face still orient to it (an explicit command) in addition to the right-click menu.
 **Next:** the drawer; modifications the human picks (`q_direct_modification`).
+
+## Handoff 028 — 2026-11-04
+**State:** `in_040`. In `prototypes/cad-ui`: double-click a world plane orients; a single click in the world (plane or nothing) deselects and applies a running extrude/move/rotate
+(a press without a drag is a click); E only extrudes sketch shapes; M moves a body (X/Y/Z) or a face along its normal; T rotates a body or **tilts a face** (new `faceTilt` kernel op:
+wedge added where the face lifts, removed where it dips); K scales a body; lines and corners are selectable only. Lighting more contrasting (`light.key` 2.1, `fill` 0.1,
+`ambient` 0.22, lighter body color). **Two bugs found by looking, not by the numeric checks:** (1) the selected-face tint vanished when the mouse moved off the face: the tint
+geometry shared the body's vertex buffer, and disposing the hover tint deleted the buffer for the others (now each tint has its own copy); (2) the first tilt had the right volume
+and bounding box but the wrong shape (half-space flipped about a non-perpendicular axis, so add and cut landed on the same side); caught by a screenshot, then by slicing the result,
+and now covered by `test/kernel.test.mjs`, which runs the real kernel in node (move face, tilt heights, body move/rotate/scale). 37 tests pass.
+**Open for the human:** how moving a line or corner should behave (`q_direct_modification`): it reshapes neighbouring faces, which OCCT solids do not do directly; options are
+rebuilding a polyhedral body from its planes, or limiting to cases that stay valid.
+**Next:** the drawer; edge/corner moves if the human picks an approach; fillet/chamfer on a selected line.

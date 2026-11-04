@@ -55,6 +55,7 @@ export const settings = {
     markerPx: 5,
     snapSquarePx: 9,
     regionFill: 0.5, // closed sketch shapes that are not extruded are faces with no thickness: bone colored and semi-transparent
+    regionSelectBlue: 0.6, // a selected closed shape stays this blue until deselected
     regionHoverBlue: 0.25, // a face under the cursor (extrude tool) leans this much blue
     lineBlue: 0, // sketch lines on a hovered or selected plane lean this much blue (0 = pure black)
     dimOffsetPx: 22, // dimension lines sit this far (screen px) from the shape
@@ -109,14 +110,14 @@ export const settings = {
   },
   light: {
     // Lights ride with the camera (to one side and above, never in view); the body has a slight clear-coat sheen, not real reflection.
-    key: 1.2, fill: 0.3, ambient: 0.5,
+    key: 2.1, fill: 0.1, ambient: 0.22,
     keyRight: -0.7, keyUp: 0.9, // key light position in view distances: right (negative = left) and up of the camera
     roughness: 0.4, // the surface itself (lower = shinier)
     sheen: 0.6, // clear-coat strength: the sheen (0 = matt)
     sheenRoughness: 0.18, // lower = a tighter, shinier highlight
-    reflect: 0.4, // how strongly a soft studio environment is reflected in the surface (0 = none)
+    reflect: 0.3, // how strongly a soft studio environment is reflected in the surface (0 = none)
     faceHoverOpacity: 0.3, // blue shade on a face under the cursor
-    faceSelectOpacity: 0.5, // ...and on the selected face
+    faceSelectOpacity: 0.6, // ...and on the selected face
   },
   backdrop: {
     // World view option: the plane itself is almost see-through, and the cream sheet is a SEPARATE sheet a little behind it (away from
@@ -151,7 +152,7 @@ export const settings = {
       axisX: [0.92, 0.32, 0.3], axisY: [0.25, 0.72, 0.38], axisZ: [0.32, 0.52, 1.0],
       sheet: [0.8902, 0.8627, 0.7961], gridLine: [0.17, 0.18, 0.2], // sheet and bone-colored faces and bodies #e3dccb (`in_036`: slightly darker than the earlier cream #f3f0e7), grid #2b2e33
       blueSurface: [0.5, 0.66, 1.0], blueLine: [0.1, 0.22, 0.55], blueInk: [0.05, 0.12, 0.32], blueHalo: [0.82, 0.9, 1.0], // the slight blue shade on a hovered or selected plane
-      bodyColor: 0xf1ece0, bodyEdge: 0x3a352c, addColor: 0x5fbf7a, cutColor: 0xe0645c, handleColor: 0xf2c14e, // body color: objects and cream faces, lighter than the sheet (`in_037`)
+      bodyColor: 0xf7f3e9, bodyEdge: 0x3a352c, addColor: 0x5fbf7a, cutColor: 0xe0645c, handleColor: 0xf2c14e, // body color: objects and cream faces, lighter than the sheet (`in_037`)
       sketchInk: [0.0, 0.0, 0.0], sketchHalo: [0.95, 0.93, 0.9], // sketch lines: near-black with a light halo so they read on the lit sheet and on the dark world
       states: {
         // blue = how much the hovered / selected plane's surface and lines lean blue (0 = none)

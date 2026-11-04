@@ -85,15 +85,18 @@ behind an object show only faintly (`grid.axisGhost`, `axisArrow.faintOpacity`).
 
 ## Modify (`in_038`)
 Single click selects a **corner**, **line** (within a few pixels), **face**, unextruded **sketch shape** or **plane**; **double-click selects the whole body**.
-Body selected: **M** move, **T** rotate, **K** scale (X / Y / Z picks the axis, drag or type a number, Enter applies; rotate and scale are about the body's box
+Body selected: **M** move, **T** rotate, **K** scale (X / Y / Z picks the axis, drag or type a number, Enter or a click in the world applies; rotate and scale are about the body's box
 centre; each is a step in the History list you can click to change). Face selected: **E** push/pull, **S** sketch from this face. Lines and corners are only
 selectable so far. The last plane that was showing keeps showing when nothing is selected or pointed at. Rotating a body by an angle that is not a multiple of 90°
 makes its faces non-axis-aligned, and those cannot be selected or sketched on yet.
 
-## Click rules (`in_039`)
-Exactly one world plane shows at any time (the one you sketch on, else the one you point at, else the last that showed). A **single click on a world plane
-orients to it**; a click on the **model** (face, line, corner, unextruded sketch shape) only **selects**. To sketch on a face: right-click, **Sketch on surface**
-(or **S** on a selected face). Zoom speed: `view.zoomPerWheel`, `input.maxZoomFactorPerSecond`.
+## Click rules and operations (`in_039`, `in_040`)
+Exactly one world plane shows at any time (the one you sketch on, else the one you point at, else the last that showed). **Double-click a world plane** to orient to
+it. A **single click** in the world (on a world plane or on nothing) **deselects and applies** a running operation, like Enter. A click on the **model** selects
+(a face, line, corner or unextruded sketch shape; double-click the body to select all of it); the selection stays blue until Esc or a click in the world.
+**E** extrudes a sketch shape (only). **M** moves the selection: a body along X / Y / Z, or a face in or out. **T** rotates a body, or tilts a face about an axis lying in it
+(X / Y / Z picks the axis). **K** scales a body. **S**, or right-click **Sketch on surface**, sketches on a plane, face or shape. Lines and corners cannot be moved yet.
+Each step is in the History list (click to change it). Zoom speed: `view.zoomPerWheel`, `input.maxZoomFactorPerSecond`. Light: `settings.light` (key, fill, ambient, sheen).
 
 ## Dimension tool (D)
 Point at a shape (its dimensions appear), click it to keep them showing. Type a number (math works, `50/2`), Tab to the next

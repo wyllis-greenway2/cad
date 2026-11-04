@@ -17,6 +17,13 @@ export function buildGraph(features) {
       prev = xid;
       continue;
     }
+    if (f.kind === "faceTilt") {
+      if (!prev) continue;
+      const xid = `x_${f.id}`;
+      ops.push({ id: xid, type: "faceTilt", target: prev, ref: f.ref, axis: f.axis, angle: f.distance });
+      prev = xid;
+      continue;
+    }
     if (f.kind === "face") {
       if (!prev) continue; // nothing to push or pull yet
       const xid = `x_${f.id}`;

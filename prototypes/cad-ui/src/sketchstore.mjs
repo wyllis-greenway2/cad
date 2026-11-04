@@ -86,10 +86,16 @@ export class SketchStore {
     this.#pushFeatureCmd({ type: "feature-add", feature, index: this.features.length });
     return feature;
   }
-  updateFeature(id, distance) {
+  /** Tilt a flat face about a world axis lying in it; value in degrees (kept in `distance`). */
+  addFaceTiltFeature(ref, axis, value) {
+    const feature = { id: `f_${String(this.nextFeature++).padStart(3, "0")}`, kind: "faceTilt", plane: null, ref: JSON.parse(JSON.stringify(ref)), axis, distance: value };
+    this.#pushFeatureCmd({ type: "feature-add", feature, index: this.features.length });
+    return feature;
+  }
+  updateFeature(id, distance, extra = {}) {
     const before = this.features.find((f) => f.id === id);
     if (!before) return false;
-    this.#pushFeatureCmd({ type: "feature-update", feature: { ...before, distance }, before });
+    this.#pushFeatureCmd({ type: "feature-update", feature: { ...before, ...extra, distance }, before });
     return true;
   }
   removeFeature(id) {

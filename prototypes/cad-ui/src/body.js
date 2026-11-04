@@ -90,9 +90,13 @@ export function createBody(scene, S, colors, renderer) {
 
   /** A copy of the mesh triangles of one face (shares the vertex data). */
   function faceGeometry(face) {
+    // own copy of the vertices: sharing the body's attribute would make disposing this geometry delete the body's GPU buffer too
+    const pos = bodyMesh.geometry.getAttribute("position");
+    const idx = bodyMesh.geometry.index.array;
+    const out = new Float32Array(face.count * 3);
+    for (let k = 0; k < face.count; k++) for (let c = 0; c < 3; c++) out[k * 3 + c] = pos.getComponent(idx[face.start + k], c);
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", bodyMesh.geometry.getAttribute("position"));
-    geo.setIndex(Array.from(bodyMesh.geometry.index.array.subarray(face.start, face.start + face.count)));
+    geo.setAttribute("position", new THREE.BufferAttribute(out, 3));
     return geo;
   }
   function tint(group, face, opacity, current) {
@@ -167,6 +171,11 @@ export function createBody(scene, S, colors, renderer) {
     setHighlight,
     setSelected,
     faceGeometry: (face) => (bodyMesh ? faceGeometry(face) : null),
+    /** The size of a face's box (mm). */
+    faceSize(face) {
+      const { lo, hi } = positionsOf(face);
+      return Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
+    },
     /** Where a face is (the middle of its triangles' corners), as a THREE.Vector3. */
     faceCenter(face) {
       const { lo, hi } = positionsOf(face);
