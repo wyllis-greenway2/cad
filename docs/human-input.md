@@ -149,3 +149,8 @@ Reply to the AI's list of what users carry between CAD programs (mouse navigatio
 > A handful of single-letter hotkeys, plus undo and redo.
 > The workflow model: sketch, finish, extrude, with a history list.
 > Typing a number to set a size." right, and the only program I really used much and liked was shapr 3d, but even then I thought it could be improved and I am not sure I want to copy it
+
+## in_028 — 2026-11-04 — approval
+Approves the AI's proposed defaults for conventions (navigation, hotkeys and undo, workflow with a history list, typing numbers) as a starting point, answers the AI's questions, and adds a request about the sheets.
+
+> yes that sounds good, lets do that as a starting point. 1 I drove shapr3d with a mouse. 2 I think mostly I would want to improve the clutteredness of shapr 3d. Perhaps make more things available from a drawer or right click or hotkeys and less have it always in your face. The extrusion logic in shapr3d is pretty good, with the positive and negative extrusions defaults they have. One more thing also about the world view. Can we possible make it so that the sheets are both somehow lighter, brighter, but still transparent so you could see objects behind them? Maybe by having the fog only dissappear behind them when they are gone and replaced with like a slight back light?

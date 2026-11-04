@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Pull the latest changes and start a prototype in your browser (http://localhost:5173).
 # Usage:  bash ~/Documents/cad/tools/preview.sh [prototype]     default: cad-ui
-#         prototypes: cad-ui (clean interface, staged), sketch-extrude, kernel-slice
+#         prototypes: cad-ui (clean interface, staged), tune (cad-ui with the temporary tuning panel),
+#                     sketch-extrude, kernel-slice
 set -euo pipefail
 cd "$(dirname "$0")/.."
 arg="${1:-cad-ui}"
@@ -14,10 +15,12 @@ if [ -z "${PREVIEW_PULLED:-}" ]; then
 fi
 
 proto="$arg"
+open_path="/"
+if [ "$arg" = "tune" ]; then proto="cad-ui"; open_path="/?tune"; fi
 
 echo "Preview: $arg  |  commit $(git log -1 --format='%h %s')"
 cd "prototypes/$proto"
 npm install --no-audit --no-fund
 # --strictPort: if an older preview is still running on 5173, stop with a clear error instead of silently
 # starting on another port (which makes you look at a stale tab).
-exec npm run dev -- --open --port 5173 --strictPort
+exec npm run dev -- --open "$open_path" --port 5173 --strictPort

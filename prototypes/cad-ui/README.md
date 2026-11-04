@@ -10,33 +10,41 @@ Never import this code from production code (CLAUDE.md rule 9).
 ```bash
 bash tools/preview.sh            # from the repo root; default prototype is cad-ui
 ```
-or `cd prototypes/cad-ui && npm install && npm run dev`. Tests: `npm test` (7 tests).
+or `cd prototypes/cad-ui && npm install && npm run dev`. Tests: `npm test` (20 tests: view math, keymap and navigation presets, typed-size math, sketch store with undo/redo, drawing session). A scripted browser run (27 checks) also covers the full workflow; it is not part of the repo because it needs Playwright.
 
-## What it does
-- **A dark world with a lit plane.** The world is dark charcoal (`#2b2d30`). A plane is a light paper-gray
-  sheet with a dark charcoal grid, like a sheet lit in a dark room. The only color is the world axis lines
-  (X red, Y green, Z blue). Press **D** to compare the earlier light "paper" world.
-- **World fog:** the plane keeps its own colors and simply fades into the dark world with distance from the
-  camera (it does not darken itself). The fall-off is smooth and never ends abruptly. A face-on sketch view is
-  a soft spotlight that dims a little toward the edges. **A plane does not fade with viewing angle**: seen at
-  a low angle it is a solid plane receding to a horizon, and if you orbit below it you see its underside
-  overhead, so the camera visibly passes through it.
-- **3D view (nothing selected):** just the world axis lines, each with a flat arrowhead and its letter on
-  the positive end (constant on-screen size; hidden when an axis points straight at the camera).
-  **Hover** any plane to preview it (a dimmer lit sheet). Click it to make it the sketch plane.
-- **Sketch view:** the camera glides to look straight at the plane (standard, un-mirrored views: XY from
-  above with X right and Y up, XZ from the front, YZ from the right). Only that plane exists, fully lit, with
-  its grid cross-fading between levels as you zoom. Pan (right-drag or Shift-drag) and zoom keep you here.
-- **Orbit away** (left drag) and the sketch plane is dropped: you are back in the 3D view and any plane can
-  be hovered and clicked again, including the one you just left.
-- **Esc** also drops the sketch plane; **H** resets the camera. One status line (a small dark pill) is the
-  only text on screen.
+## What it does (stage 2: sketching on the plane)
+**Look.** A dark world with a backlit plane. A plane is a see-through sheet of light (it is *added* to whatever is behind
+it, so objects behind a sheet stay visible) with charcoal grid lines; with distance the light fades into the dark world
+(that is the fog). The only color is the world axes (X red, Y green, Z blue) with arrowheads and letters on the lines.
 
-## Look values (tuned by the human, `in_025`)
-The colors, opacities, fog, grid and arrow values in `src/settings.js` were tuned by hand with a temporary
-tuning panel and pasted back; they are applied exactly (all 68 pasted numbers were checked against the file).
-The panel itself has been removed. It lives in git history (commit `d86a2b4`, `src/tune.js`) if another round of
-tuning is wanted: ask and it can be restored.
+**Mouse** (all remappable in `settings.input`; the left button is always the tool, never navigation)
+- Right-drag orbit, middle-drag pan (also Shift + right-drag), wheel zoom toward the point under the cursor,
+  Ctrl + wheel (trackpad pinch) zoom. Presets: `ours` (default), `fusion`, `solidworks`, `blender` (set `input.navPreset`).
+- **Right-click without dragging** opens a small menu (tools, undo/redo, home, exit). No toolbar anywhere.
+- Orbiting away from the face-on sketch view leaves the sketch and returns to the 3D view.
+
+**Keys** (all remappable in `settings.input.keys`)
+- **V** select, **L** line (polyline), **R** rectangle, **C** circle, **H** home view. Hover a plane in the 3D view and press
+  R, L or C to start sketching on it with that tool. **E** extrude and **D** dimension are reserved (next stages).
+- **Esc** steps back one level: stop typing, then cancel the shape, then leave the tool, then clear the selection, then
+  leave the sketch. **Enter** applies. **Delete** removes the selected shape. **Ctrl/Cmd+Z** undo,
+  **Ctrl/Cmd+Shift+Z** or **Ctrl+Y** redo (undo covers drawing and deleting shapes, not camera moves).
+
+**Drawing** on the selected plane (face-on): click, or press-drag for rectangles and circles.
+Snapping to corners, midpoints, centers and the origin within 12 screen pixels, with horizontal/vertical inference lines
+(hold Shift for no snapping). A marker shows every placed point, the status line says what to do next, and closed shapes get a
+light fill (the regions to extrude later). Shapes stay on their plane when you leave the sketch.
+
+**Type a number.** While a shape is in progress, just start typing: a small field appears by the cursor.
+Rectangle: width, **Tab**, height. Circle: diameter. Line: length, **Tab**, angle (degrees). Math works (`80/2`, `3*4+1`),
+**Enter** commits (the direction comes from where the cursor is), **Esc** stops typing.
+
+## Look values (tuned by the human, `in_025`) and the tuning panel
+The colors, fog, grid and arrow values in `src/settings.js` were tuned by hand and applied exactly (68 numbers
+checked). **One change since:** the sheet is now a see-through backlight instead of an opaque fill (`in_028`), so the
+two tuned sheet "fill" numbers (hover 0.75, selected 1.0) now mean light strength and were re-set to 0.62 and 0.6 so
+objects behind a sheet stay visible. `bash tools/preview.sh tune` brings back the temporary tuning panel (`?tune`) to
+set them (and the rest) exactly; send the values back and the panel is removed again.
 
 ## How it works (short)
 - `src/viewmath.mjs`: pure math (turntable camera, standard views, ray-plane picking). Unit tested.

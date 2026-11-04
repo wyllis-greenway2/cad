@@ -3,7 +3,7 @@ id: dec_ui_plane_selection
 kind: decision
 status: accepted
 origin: human
-human_input: in_015, in_016, in_017, in_018, in_019, in_020, in_021, in_022, in_023, in_024, in_025
+human_input: in_015, in_016, in_017, in_018, in_019, in_020, in_021, in_022, in_023, in_024, in_025, in_028
 date: 2026-11-04
 depends_on:
   - dec_ui_build_order: this is stage 1 of the staged interface build
@@ -25,7 +25,10 @@ the plane: the plane keeps its own color and fades into the dark world with dist
 angles the camera should visibly go through the plane; the plane must not separate, fade away or dissolve with
 viewing angle, only recede into the world fog toward the horizon. The exact colors, opacities, fog, grid and
 arrow values are the human's own, tuned by hand with a temporary panel and pasted back (`in_024`, `in_025`);
-they are applied verbatim in `settings.js` and are not AI choices. You select a plane to sketch on,
+they are applied verbatim in `settings.js` and are not AI choices. Refinement (`in_028`): the sheets should be lighter
+and brighter but still transparent so objects behind them stay visible, with the fog fading away behind them and
+replaced by a slight back light. AI interpretation: a backlight that is screen-blended onto what is behind the sheet
+(so it is see-through), fading with distance into the dark world; the D key no longer toggles a theme (D is dimension). You select a plane to sketch on,
 and the view goes normal to that plane. You can still orbit in 3D, and clicking on the plane brings the
 view back normal to it. Reduce clutter: no XYZ buttons.
 

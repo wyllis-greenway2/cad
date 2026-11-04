@@ -2,7 +2,15 @@
 // colors. Click a plane: it becomes the sketch plane and the camera goes face-on to it. Orbiting away drops the sketch
 // plane (back to the 3D view, where any plane can be hovered and clicked). Sketching and extruding come next.
 import * as THREE from "three";
+import { Line2 } from "three/addons/lines/Line2.js";
+import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { settings as S } from "./settings.js";
+import { initTuning } from "./tune.js";
+import { SketchStore } from "./sketchstore.mjs";
+import { SketchSession } from "./interaction.mjs";
+import { navAction, keyAction } from "./keymap.mjs";
+import { circlePolygon } from "./sketch.mjs";
 import { PLANES, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, projectOnto, pickPlane } from "./viewmath.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -93,25 +101,31 @@ void main() {
   float fog = exp(-uFogK * t * t);
   float axFog = exp(-uFogK * ta * ta);
 
-  // World fog: the plane keeps its own colors and simply fades into the world behind it with distance.
-  float aLine = grid * uLineA * fog;          // grid lines
-  float aFill = uFillA * fog;                 // the sheet itself
-  float a = aLine + aFill * (1.0 - aLine);
-  vec3 col = a > 0.0 ? (uLineCol * aLine + uCol * aFill * (1.0 - aLine)) / a : uCol;
-  float ax = max(axU, axV) * uAxisA * axFog;
-  col = mix(col, mix(uColU, uColV, step(axU, axV)), step(a, ax)); // an axis line wins where it is stronger
+#if PASS == 0
+  // Backlight: the sheet adds light ("screen" blending) to whatever is behind it, so it looks lighter and brighter
+  // but stays see-through. With distance the light fades away, leaving the dark world (that is the fog).
+  gl_FragColor = vec4(uCol * uFillA * fog, 1.0);
+#else
+  float a = grid * uLineA * fog;                                      // grid lines
+  float ax = max(axU, axV) * uAxisA * axFog;                          // world axis lines
+  vec3 col = mix(uLineCol, mix(uColU, uColV, step(axU, axV)), step(a, ax)); // an axis line wins where it is stronger
   gl_FragColor = vec4(col, max(a, ax));
+#endif
 }`;
 
-const planeMeshes = {};
+const planeMeshes = {}; // name -> { glow, lines }
 for (const [name, def] of Object.entries(PLANES)) {
   const axisCol = [T().axisX, T().axisY, T().axisZ];
-  const mat = new THREE.ShaderMaterial({
+  const makeMat = (pass) => new THREE.ShaderMaterial({
     vertexShader: VERT,
     fragmentShader: FRAG,
+    defines: { PASS: pass },
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
+    ...(pass === 0
+      ? { blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcColorFactor } // screen: src + dst * (1 - src)
+      : {}),
     uniforms: {
       uCam: { value: new THREE.Vector3() }, uDist: { value: 1 },
       uAxis: { value: def.axis }, uCol: { value: new THREE.Vector3(...T().sheet) },
@@ -123,18 +137,25 @@ for (const [name, def] of Object.entries(PLANES)) {
       uAxisW: { value: G.axisWidthPx },
     },
   });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
-  if (def.axis === 1) mesh.rotation.x = Math.PI / 2;
-  if (def.axis === 0) mesh.rotation.y = Math.PI / 2;
-  mesh.frustumCulled = false;
-  planeMeshes[name] = mesh;
-  scene.add(mesh);
+  const geo = new THREE.PlaneGeometry(1, 1);
+  const glow = new THREE.Mesh(geo, makeMat(0));
+  const lines = new THREE.Mesh(geo, makeMat(1));
+  glow.renderOrder = 1;
+  lines.renderOrder = 2;
+  for (const mesh of [glow, lines]) {
+    if (def.axis === 1) mesh.rotation.x = Math.PI / 2;
+    if (def.axis === 0) mesh.rotation.y = Math.PI / 2;
+    mesh.frustumCulled = false;
+    scene.add(mesh);
+  }
+  planeMeshes[name] = { glow, lines };
 }
 
 /** Keep each plane's quad centered on the target (projected onto the plane) and sized to the view, so it looks
  *  infinite and vertex positions stay small (float precision). Grid lines are in world coordinates. */
 function updatePlanes() {
-  for (const [name, mesh] of Object.entries(planeMeshes)) {
+  for (const [name, pair] of Object.entries(planeMeshes)) {
+   for (const mesh of [pair.glow, pair.lines]) {
     const c = projectOnto(name, view.target.toArray());
     mesh.position.set(c[0], c[1], c[2]);
     mesh.scale.setScalar(view.dist * G.extentFactor);
@@ -159,6 +180,7 @@ function updatePlanes() {
     u.uLineA.value = state.line;
     u.uFillA.value = state.fill;
     u.uFineMul.value = state.fine; // the densest grid level is only shown on the sketch plane
+   }
   }
 }
 
@@ -210,9 +232,11 @@ function applyTheme() {
   renderer.setClearColor(t.background);
   document.documentElement.style.setProperty("--bg", `#${t.background.toString(16).padStart(6, "0")}`);
   document.documentElement.style.setProperty("--fg", t.text);
-  for (const [name, mesh] of Object.entries(planeMeshes)) {
-    mesh.material.uniforms.uColU.value.set(...axes[PLANES[name].u]);
-    mesh.material.uniforms.uColV.value.set(...axes[PLANES[name].v]);
+  for (const [name, pair] of Object.entries(planeMeshes)) {
+    for (const mesh of [pair.glow, pair.lines]) {
+      mesh.material.uniforms.uColU.value.set(...axes[PLANES[name].u]);
+      mesh.material.uniforms.uColV.value.set(...axes[PLANES[name].v]);
+    }
   }
   arrowHeads.forEach((p, i) => p.setAttribute("fill", `#${toHex(axes[i]).toString(16).padStart(6, "0")}`));
   axisLabels.forEach((l, i) => (l.style.color = `#${toHex(axes[i]).toString(16).padStart(6, "0")}`));
@@ -232,6 +256,7 @@ function requestRender() {
     updatePlanes();
     renderer.setViewport(0, 0, w, h);
     renderer.clear();
+    if (sketchDirty) rebuildSketchViz();
     updateAxisArrows();
     renderer.render(scene, camera);
   });
@@ -270,89 +295,369 @@ function goNormal(plane) {
   const def = PLANES[plane];
   animateTo({ a: def.view.a, e: def.view.e, target: new THREE.Vector3(...projectOnto(plane, view.target.toArray())) }, V.transitionMs);
 }
-function selectPlane(plane) {
-  selected = plane;
-  goNormal(plane);
-  updateStatus();
-}
 function goHome() {
-  selected = null;
+  exitSketch();
   animateTo({ a: V.homeAzimuth, e: V.homeElevation, target: new THREE.Vector3() }, V.transitionMs);
-  updateStatus();
-  requestRender();
 }
 
-// ---------------------------------------------------------------- status text (the only text on screen)
-function updateStatus() {
-  let text = "3D view   hover to find a plane, click it to sketch on it";
-  if (selected) {
-    text = isNormal(view, selected, V.normalToleranceRad)
-      ? `Sketching on ${selected}   orbit away or press Esc for the 3D view`
-      : `Going to ${selected}...`;
+// ---------------------------------------------------------------- sketch model + drawing in the scene
+const store = new SketchStore();
+const session = new SketchSession(S, store);
+const BASIS = { XY: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], XZ: [[1, 0, 0], [0, 0, 1], [0, -1, 0]], YZ: [[0, 1, 0], [0, 0, 1], [1, 0, 0]] }; // u, v, normal
+const toWorld = (plane, [u, v]) => {
+  const [U, W] = BASIS[plane];
+  return new THREE.Vector3(U[0] * u + W[0] * v, U[1] * u + W[1] * v, U[2] * u + W[2] * v);
+};
+const basisMatrix = (plane, at) => {
+  const [U, W, N] = BASIS[plane];
+  return new THREE.Matrix4().makeBasis(new THREE.Vector3(...U), new THREE.Vector3(...W), new THREE.Vector3(...N)).setPosition(at);
+};
+const sketchGroup = new THREE.Group();
+scene.add(sketchGroup);
+let sketchDirty = true;
+const markSketch = () => ((sketchDirty = true), requestRender());
+const pxPerMm = () => canvas.clientHeight / (2 * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2))); // face-on to the plane
+
+function stroke(pts3, { color, width, closed = false, order = 5, alpha = 1, dashed = false }) {
+  const flat = [];
+  for (const p of closed ? [...pts3, pts3[0]] : pts3) flat.push(p.x, p.y, p.z);
+  const geo = new LineGeometry();
+  geo.setPositions(flat);
+  const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+  const mat = new LineMaterial({ color, linewidth: width * renderer.getPixelRatio(), transparent: true, opacity: alpha, depthWrite: false, dashed, dashSize: 3, gapSize: 2 });
+  mat.resolution.set(size.x, size.y);
+  const line = new Line2(geo, mat);
+  if (dashed) line.computeLineDistances();
+  line.renderOrder = order;
+  return line;
+}
+function disc(plane, p, radiusMm, color, order, alpha = 1) {
+  const mesh = new THREE.Mesh(new THREE.CircleGeometry(radiusMm, 20), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: alpha, depthWrite: false }));
+  mesh.matrixAutoUpdate = false;
+  mesh.matrix.copy(basisMatrix(plane, toWorld(plane, p)));
+  mesh.renderOrder = order;
+  return mesh;
+}
+function fillShape(plane, polygon, color, alpha) {
+  const shape = new THREE.Shape(polygon.map((p) => new THREE.Vector2(p[0], p[1])));
+  const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: alpha, depthWrite: false, side: THREE.DoubleSide }));
+  mesh.matrixAutoUpdate = false;
+  mesh.matrix.copy(basisMatrix(plane, new THREE.Vector3()));
+  mesh.renderOrder = 3;
+  return mesh;
+}
+const outline = (e) => {
+  if (e.type === "rect") return { pts: [[e.x0, e.y0], [e.x1, e.y0], [e.x1, e.y1], [e.x0, e.y1]], closed: true };
+  if (e.type === "circle") return { pts: circlePolygon(e.cx, e.cy, e.r, 96), closed: true };
+  return { pts: e.points, closed: !!e.closed };
+};
+const clearGroup = (grp) => {
+  for (const c of [...grp.children]) {
+    grp.remove(c);
+    c.geometry?.dispose();
+    c.material?.dispose();
   }
+};
+
+/** Rebuild everything sketch-related that is drawn in the scene: committed shapes (on their planes, always), and,
+ *  in the sketch view, the shape being drawn, placed points, inference guides and the snap marker. */
+function rebuildSketchViz() {
+  sketchDirty = false;
+  clearGroup(sketchGroup);
+  const th = T();
+  const ink = toHex(th.sketchInk);
+  const halo = toHex(th.sketchHalo);
+  const SK = S.sketch;
+  for (const plane of Object.keys(PLANES)) {
+    for (const e of store.entities(plane)) {
+      const o = outline(e);
+      const pts = o.pts.map((p) => toWorld(plane, p));
+      const sel = plane === session.plane && e.id === session.selectedId;
+      if (o.closed) sketchGroup.add(fillShape(plane, o.pts, ink, SK.regionFill));
+      sketchGroup.add(stroke(pts, { color: halo, width: SK.haloWidthPx * (sel ? 1.5 : 1), closed: o.closed, order: 4 }));
+      sketchGroup.add(stroke(pts, { color: ink, width: SK.lineWidthPx * (sel ? 1.7 : 1), closed: o.closed, order: 5 }));
+    }
+  }
+  if (!inSketchView() || session.tool === "select") return;
+  const plane = session.plane;
+  const k = 1 / pxPerMm();
+  const d = session.draftShape();
+  if (d) {
+    const o = outline(d);
+    if (d.type === "rect") sketchGroup.add(fillShape(plane, o.pts, ink, SK.regionFill * 0.6));
+    const pts = o.pts.map((p) => toWorld(plane, p));
+    sketchGroup.add(stroke(pts, { color: halo, width: SK.haloWidthPx, closed: o.closed, order: 6, alpha: 0.9 }));
+    sketchGroup.add(stroke(pts, { color: ink, width: SK.lineWidthPx, closed: o.closed, order: 7, alpha: 0.8 }));
+    for (const p of session.draft.pts) {
+      sketchGroup.add(disc(plane, p, (SK.markerPx + 2) * k, halo, 8));
+      sketchGroup.add(disc(plane, p, SK.markerPx * k, ink, 9));
+    }
+  }
+  const info = session.snapInfo;
+  if (info && session.cursor) {
+    for (const gd of info.guides) {
+      const line = gd.axis === "v" ? [[gd.value, -2000], [gd.value, 2000]] : [[-2000, gd.value], [2000, gd.value]];
+      sketchGroup.add(stroke(line.map((p) => toWorld(plane, p)), { color: ink, width: 1.4, order: 6, alpha: 0.55, dashed: true }));
+    }
+    if (info.kind !== "free") {
+      const s = SK.snapSquarePx * k;
+      const [x, y] = info.point;
+      const sq = [[x - s, y - s], [x + s, y - s], [x + s, y + s], [x - s, y + s]].map((p) => toWorld(plane, p));
+      sketchGroup.add(stroke(sq, { color: halo, width: 5, closed: true, order: 8 }));
+      sketchGroup.add(stroke(sq, { color: ink, width: 2, closed: true, order: 9 }));
+    }
+  }
+}
+
+// ---------------------------------------------------------------- status text (the only text on screen besides the typing field)
+let flash = null; // a short message that replaces the status for a moment (e.g. why a click was ignored)
+function flashMessage(text) {
+  flash = text;
+  updateStatus();
+  setTimeout(() => ((flash = null), updateStatus()), 2600);
+}
+function updateStatus() {
+  let text = "3D view   hover a plane and click it to sketch   right-click for the menu";
+  if (flash) text = flash;
+  else if (selected) text = inSketchView() ? `Sketching on ${selected}   ${session.prompt()}` : `Going to ${selected}...`;
   $("status").textContent = text;
 }
 
 // ---------------------------------------------------------------- picking
-/** Looking straight at the selected plane = sketch view. Anything else (tilted, or nothing selected) = 3D mode. */
+/** Looking straight at the selected plane = sketch view. Anything else (orbited away, or nothing selected) = 3D view. */
 const inSketchView = () => !!selected && isNormal(view, selected, V.normalToleranceRad);
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
-function pickAt(clientX, clientY) {
+function setRay(clientX, clientY) {
   const r = canvas.getBoundingClientRect();
   ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
   applyCamera();
   raycaster.setFromCamera(ndc, camera);
-  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * F.farFactor, minCos: G.grazeMinCos, only: inSketchView() ? selected : null }); // face-on to the sketch plane: only it exists; tilted (3D mode): any plane
+}
+function pickAt(clientX, clientY) {
+  setRay(clientX, clientY);
+  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * F.farFactor, minCos: G.grazeMinCos, only: inSketchView() ? selected : null });
+}
+/** The point under the cursor on the sketch plane, in local (u, v) mm. */
+function localPoint(clientX, clientY) {
+  if (!selected) return null;
+  const hit = pickPlane(...((setRay(clientX, clientY), [raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray()])), { minCos: 1e-3, only: selected });
+  return hit ? [hit.point[PLANES[selected].u], hit.point[PLANES[selected].v]] : null;
 }
 
-// ---------------------------------------------------------------- input
-let g = null; // { x, y, x0, y0, button, pan, moved }
+// ---------------------------------------------------------------- actions (shared by hotkeys and the right-click menu)
+function enterSketch(plane, tool = "select") {
+  selected = plane;
+  session.setPlane(plane);
+  session.setTool(tool);
+  goNormal(plane);
+  hovered = null;
+  updateStatus();
+  markSketch();
+}
+function exitSketch() {
+  selected = null;
+  session.reset();
+  updateStatus();
+  updateReadout();
+  markSketch();
+}
+function setTool(tool) {
+  if (inSketchView()) {
+    session.setTool(tool);
+  } else if (!selected && hovered) {
+    enterSketch(hovered, tool); // hotkey while hovering a plane in the 3D view: start sketching on it with that tool
+  } else return false;
+  updateStatus();
+  updateReadout();
+  markSketch();
+  return true;
+}
+function doUndo() {
+  if (session.draft || session.entry) return session.escape(), updateStatus(), updateReadout(), markSketch();
+  const cmd = store.undo();
+  if (cmd && session.selectedId && !store.entities(session.plane ?? "XY").some((e) => e.id === session.selectedId)) session.selectedId = null;
+  markSketch();
+  return cmd;
+}
+function doRedo() {
+  store.redo();
+  markSketch();
+}
+function doEscape() {
+  if (menuOpen()) return hideMenu();
+  if (!inSketchView()) return selected ? exitSketch() : undefined;
+  if (!session.escape()) exitSketch();
+  updateStatus();
+  updateReadout();
+  markSketch();
+}
+const ACTIONS = {
+  select: () => setTool("select"),
+  line: () => setTool("line"),
+  rect: () => setTool("rect"),
+  circle: () => setTool("circle"),
+  home: () => goHome(),
+  undo: () => doUndo(),
+  redo: () => doRedo(),
+  cancel: () => doEscape(),
+  delete: () => (inSketchView() && session.deleteSelected() ? (updateStatus(), markSketch()) : false),
+  extrude: () => flashMessage("Extrude comes in the next stage"),
+  dimension: () => flashMessage("Dimensions come after extrude"),
+};
+
+// ---------------------------------------------------------------- the typing field next to the cursor
+let lastPointer = { x: 0, y: 0 };
+function updateReadout() {
+  const el = $("readout");
+  const segs = inSketchView() && session.tool !== "select" ? session.readout() : [];
+  el.replaceChildren();
+  if (!segs.length) return void (el.style.display = "none");
+  for (const s of segs) {
+    const span = document.createElement("span");
+    span.className = `f${s.active ? " act" : ""}${s.invalid ? " bad" : ""}${s.typed ? " typed" : ""}`;
+    const b = document.createElement("b");
+    b.textContent = s.label;
+    span.append(b, ` ${s.text}`);
+    el.appendChild(span);
+  }
+  el.style.display = "block";
+  el.style.left = `${lastPointer.x + 18}px`;
+  el.style.top = `${lastPointer.y + 18}px`;
+}
+
+// ---------------------------------------------------------------- right-click menu (no permanent toolbar)
+const menuEl = $("menu");
+const menuOpen = () => menuEl.style.display === "block";
+function hideMenu() {
+  menuEl.style.display = "none";
+}
+function menuItems() {
+  const K = S.input.keys;
+  const key = (a) => [].concat(K[a])[0].replace("mod", "Ctrl").replace(/\b\w/g, (c) => c.toUpperCase()).replace("Escape", "Esc");
+  const items = [];
+  if (inSketchView()) {
+    for (const [label, a] of [["Select", "select"], ["Line", "line"], ["Rectangle", "rect"], ["Circle", "circle"]]) items.push({ label, hint: key(a), run: ACTIONS[a], on: session.tool === a });
+    items.push("sep");
+  } else if (!selected && hovered) {
+    items.push({ label: `Sketch on ${hovered} plane`, hint: "click", run: () => enterSketch(hovered) }, "sep");
+  }
+  items.push({ label: "Undo", hint: key("undo"), run: ACTIONS.undo, off: !store.canUndo() }, { label: "Redo", hint: key("redo"), run: ACTIONS.redo, off: !store.canRedo() }, "sep");
+  items.push({ label: "Home view", hint: key("home"), run: ACTIONS.home });
+  if (selected) items.push({ label: "Exit sketch", hint: key("cancel"), run: exitSketch });
+  return items;
+}
+function showMenu(x, y) {
+  menuEl.replaceChildren();
+  for (const it of menuItems()) {
+    if (it === "sep") {
+      menuEl.appendChild(Object.assign(document.createElement("hr")));
+      continue;
+    }
+    const b = document.createElement("button");
+    b.className = it.on ? "on" : "";
+    b.disabled = !!it.off;
+    b.innerHTML = `<span></span><kbd></kbd>`;
+    b.firstChild.textContent = it.label;
+    b.lastChild.textContent = it.hint ?? "";
+    b.addEventListener("click", () => (hideMenu(), it.run()));
+    menuEl.appendChild(b);
+  }
+  menuEl.style.display = "block";
+  const r = menuEl.getBoundingClientRect();
+  menuEl.style.left = `${Math.min(x, innerWidth - r.width - 8)}px`;
+  menuEl.style.top = `${Math.min(y, innerHeight - r.height - 8)}px`;
+}
+
+// ---------------------------------------------------------------- mouse input
+const preset = () => S.input.navPresets[S.input.navPreset];
+let g = null; // the gesture in progress: { kind: "orbit" | "pan" | "draw" | "click", x, y, x0, y0, button, moved }
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 canvas.addEventListener("pointerdown", (ev) => {
+  hideMenu();
   canvas.setPointerCapture(ev.pointerId);
-  g = { x: ev.clientX, y: ev.clientY, x0: ev.clientX, y0: ev.clientY, button: ev.button, pan: ev.button === 1 || ev.button === 2 || ev.shiftKey, moved: false };
+  const nav = navAction(ev, preset());
+  const base = { x: ev.clientX, y: ev.clientY, x0: ev.clientX, y0: ev.clientY, button: ev.button, moved: false };
+  if (nav) return void (g = { kind: nav, ...base });
+  if (ev.button !== 0) return;
+  if (selected && !inSketchView()) return; // gliding to the plane: ignore clicks until it is face-on
+  if (!inSketchView()) return void (g = { kind: "click", ...base });
+  const p = localPoint(ev.clientX, ev.clientY);
+  if (!p) return;
+  session.scale = pxPerMm();
+  const had = !!session.draft;
+  const msg = session.click(p, { shift: ev.shiftKey });
+  if (msg) flashMessage(msg);
+  // press-and-drag also draws a rectangle or circle: if this press started the shape, releasing far away finishes it
+  if (!had && session.draft && (session.tool === "rect" || session.tool === "circle")) g = { kind: "draw", ...base };
+  updateStatus();
+  updateReadout();
+  markSketch();
 });
 canvas.addEventListener("pointermove", (ev) => {
-  if (!g) {
-    const h = pickAt(ev.clientX, ev.clientY)?.plane ?? null;
-    if (h !== hovered) {
-      hovered = h;
-      const clickable = h && (h !== selected || !isNormal(view, selected, V.normalToleranceRad));
-      canvas.style.cursor = clickable ? "pointer" : "default";
-      requestRender();
+  lastPointer = { x: ev.clientX, y: ev.clientY };
+  if (g && (g.kind === "orbit" || g.kind === "pan")) {
+    if (!g.moved && Math.hypot(ev.clientX - g.x0, ev.clientY - g.y0) < V.clickMovePx) return;
+    g.moved = true;
+    anim = null; // the user took over the camera
+    const dx = ev.clientX - g.x;
+    const dy = ev.clientY - g.y;
+    g.x = ev.clientX;
+    g.y = ev.clientY;
+    if (g.kind === "pan") {
+      const k = (2 * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2))) / canvas.clientHeight;
+      const m = camera.matrixWorld.elements;
+      view.target.x += -m[0] * dx * k + m[4] * dy * k;
+      view.target.y += -m[1] * dx * k + m[5] * dy * k;
+      view.target.z += -m[2] * dx * k + m[6] * dy * k;
+    } else {
+      view.a -= dx * V.orbitRadPerPx;
+      view.e = clamp(view.e + dy * V.orbitRadPerPx, -Math.PI / 2, Math.PI / 2);
+      if (selected && !isNormal(view, selected, V.normalToleranceRad)) exitSketch(); // orbiting out of the face-on view = back to the 3D view
     }
+    updateStatus();
+    markSketch();
     return;
   }
-  if (!g.moved && Math.hypot(ev.clientX - g.x0, ev.clientY - g.y0) < V.clickMovePx) return;
-  g.moved = true;
-  anim = null; // the user took over the camera
-  const dx = ev.clientX - g.x;
-  const dy = ev.clientY - g.y;
-  g.x = ev.clientX;
-  g.y = ev.clientY;
-  if (g.pan) {
-    const k = (2 * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2))) / canvas.clientHeight;
-    const m = camera.matrixWorld.elements;
-    view.target.x += -m[0] * dx * k + m[4] * dy * k;
-    view.target.y += -m[1] * dx * k + m[5] * dy * k;
-    view.target.z += -m[2] * dx * k + m[6] * dy * k;
-  } else {
-    view.a -= dx * V.orbitRadPerPx;
-    view.e = clamp(view.e + dy * V.orbitRadPerPx, -Math.PI / 2, Math.PI / 2);
-    if (selected && !isNormal(view, selected, V.normalToleranceRad)) selected = null; // orbiting out of the face-on view = back to 3D mode
+  if (inSketchView()) {
+    const p = localPoint(ev.clientX, ev.clientY);
+    if (p && session.tool !== "select") {
+      session.scale = pxPerMm();
+      session.move(p, { shift: ev.shiftKey });
+      updateReadout();
+      markSketch();
+    }
+    canvas.style.cursor = session.tool === "select" ? "default" : "crosshair";
+    return;
   }
-  updateStatus();
-  requestRender();
+  if (g) return;
+  const h = selected ? null : pickAt(ev.clientX, ev.clientY)?.plane ?? null;
+  if (h !== hovered) {
+    hovered = h;
+    canvas.style.cursor = h ? "pointer" : "default";
+    requestRender();
+  }
 });
 canvas.addEventListener("pointerup", (ev) => {
   const was = g;
   g = null;
-  if (!was || was.moved || was.button !== 0) return;
-  const hit = pickAt(ev.clientX, ev.clientY);
-  if (!hit) return;
-  if (selected !== hit.plane) selectPlane(hit.plane);
-  // clicking the sketch plane while face-on: later stages will use this click to sketch
+  if (!was) return;
+  if (was.kind === "orbit" && !was.moved && was.button === 2) return void showMenu(ev.clientX, ev.clientY); // right-click without dragging
+  if (was.kind === "draw" && session.draft && Math.hypot(ev.clientX - was.x0, ev.clientY - was.y0) >= S.sketch.dragFinishPx) {
+    const p = localPoint(ev.clientX, ev.clientY);
+    if (p) {
+      session.scale = pxPerMm();
+      session.click(p, { shift: ev.shiftKey });
+      updateStatus();
+      updateReadout();
+      markSketch();
+    }
+    return;
+  }
+  if (was.kind === "click" && !was.moved && !selected) {
+    const hit = pickAt(ev.clientX, ev.clientY);
+    if (hit) enterSketch(hit.plane);
+  }
 });
 canvas.addEventListener("pointerleave", () => {
   if (hovered) (hovered = null), requestRender();
@@ -360,27 +665,81 @@ canvas.addEventListener("pointerleave", () => {
 canvas.addEventListener(
   "wheel",
   (e) => {
-    view.dist = clamp(view.dist * Math.exp(e.deltaY * V.zoomPerWheel), V.minDistance, V.maxDistance);
-    requestRender();
     e.preventDefault();
+    const oldDist = view.dist;
+    const newDist = clamp(oldDist * Math.exp(e.deltaY * (e.ctrlKey ? S.input.pinchZoomPerWheel : V.zoomPerWheel)), V.minDistance, V.maxDistance);
+    if (S.input.zoomToCursor) {
+      // Keep the point under the cursor fixed on screen. Prefer the plane point you are pointing at; otherwise the point
+      // on the camera-facing plane through the target. Any point on the cursor ray works for the math below.
+      const planeHit = pickAt(e.clientX, e.clientY);
+      let P = planeHit ? new THREE.Vector3(...planeHit.point) : null;
+      if (!P) {
+        const n = camera.getWorldDirection(new THREE.Vector3());
+        const denom = raycaster.ray.direction.dot(n);
+        if (Math.abs(denom) > 1e-6) P = raycaster.ray.origin.clone().addScaledVector(raycaster.ray.direction, view.target.clone().sub(raycaster.ray.origin).dot(n) / denom);
+      }
+      if (P) {
+        const offset = view.target.clone().sub(P); // computed BEFORE the target is overwritten
+        view.target.copy(P).addScaledVector(offset, newDist / oldDist);
+      }
+    }
+    view.dist = newDist;
+    markSketch();
   },
   { passive: false },
 );
+addEventListener("pointerdown", (ev) => {
+  if (menuOpen() && !menuEl.contains(ev.target)) hideMenu();
+});
+
+// ---------------------------------------------------------------- keyboard
 addEventListener("keydown", (e) => {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return; // typing in the tuning panel
-  if (e.key === "Escape") (selected = null), updateStatus(), requestRender();
-  if (e.key.toLowerCase() === "h") goHome();
-  if (e.key.toLowerCase() === "d") (themeName = themeName === "world" ? "paper" : "world"), applyTheme();
+  // while a shape is being drawn, characters, Backspace, Tab and Enter belong to the typed-size field
+  if (inSketchView() && session.draft && !e.ctrlKey && !e.metaKey) {
+    if (e.key.length === 1 && session.type(e.key)) return e.preventDefault(), updateStatus(), updateReadout(), markSketch();
+    if (e.key === "Backspace" && session.backspace()) return e.preventDefault(), updateStatus(), updateReadout(), markSketch();
+    if (e.key === "Tab" && session.tab(e.shiftKey)) return e.preventDefault(), updateReadout(), markSketch();
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const r = session.enter();
+      if (typeof r === "string") flashMessage(r);
+      updateStatus();
+      updateReadout();
+      markSketch();
+      return;
+    }
+  }
+  const action = keyAction(e, S.input.keys);
+  if (!action) return;
+  if (action === "cancel" || action === "undo" || action === "redo" || action === "home" || action === "delete") e.preventDefault();
+  ACTIONS[action]?.();
 });
 
 // ---------------------------------------------------------------- boot
+if (new URLSearchParams(location.search).has("tune")) {
+  initTuning({ S, applyTheme, requestRender, getThemeName: () => themeName, setThemeName: (n) => ((themeName = n), applyTheme()) });
+}
 applyTheme();
 resize();
 updateStatus();
 // Hooks for the automated browser check (not used by the UI).
 window.__ui = {
-  state: () => ({ selected, hovered, a: view.a, e: view.e, dist: view.dist, target: view.target.toArray(), normal: selected ? isNormal(view, selected, V.normalToleranceRad) : null, animating: !!anim }),
+  session,
+  store,
+  inSketchView: () => inSketchView(),
+  menuOpen: () => menuOpen(),
+  state: () => ({ selected, hovered, tool: session.tool, draft: session.draft && session.draft.pts.length, selectedEntity: session.selectedId, a: view.a, e: view.e, dist: view.dist, target: view.target.toArray(), normal: selected ? isNormal(view, selected, V.normalToleranceRad) : null, animating: !!anim }),
   settings: S,
+  addTestBox: (x, y, z, w, d, h) => {
+    const light = new THREE.DirectionalLight(0xffffff, 2);
+    light.position.set(30, -40, 60);
+    scene.add(light, new THREE.AmbientLight(0xffffff, 0.8));
+    const box = new THREE.Mesh(new THREE.BoxGeometry(w, d, h), new THREE.MeshLambertMaterial({ color: 0x8a6f4d }));
+    box.position.set(x, y, z);
+    scene.add(box);
+    requestRender();
+  },
   pickAt,
   setView: ({ a, e, dist }) => ((view.a = a ?? view.a), (view.e = e ?? view.e), (view.dist = dist ?? view.dist), requestRender()),
   worldToScreen(x, y, z) {

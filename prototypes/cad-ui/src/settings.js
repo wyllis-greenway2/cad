@@ -15,6 +15,39 @@ export const settings = {
     nearFactor: 0.02, // camera near plane as a fraction of distance
     farFactor: 120,
   },
+  input: {
+    // Left button = the tool (draw / select), never navigation. Navigation is a preset (dec_ui_conventions).
+    navPreset: "ours",
+    navPresets: {
+      ours: { orbit: [{ button: 2 }], pan: [{ button: 1 }, { button: 2, shift: true }] }, // right-drag orbit, middle-drag pan
+      fusion: { orbit: [{ button: 1, shift: true }], pan: [{ button: 1 }] },
+      solidworks: { orbit: [{ button: 1 }], pan: [{ button: 1, ctrl: true }] },
+      blender: { orbit: [{ button: 1 }], pan: [{ button: 1, shift: true }] },
+    },
+    zoomToCursor: true,
+    pinchZoomPerWheel: 0.01, // trackpad pinch (a wheel event with ctrl held) is more sensitive than a wheel notch
+    keys: {
+      select: "v", line: "l", rect: "r", circle: "c", extrude: "e", dimension: "d", home: "h",
+      undo: "mod+z", redo: ["mod+shift+z", "mod+y"],
+      cancel: "escape", confirm: "enter", nextField: "tab", prevField: "shift+tab", delete: ["delete", "backspace"],
+    },
+  },
+  sketch: {
+    // snapping and drawing feel (distances in SCREEN pixels so they feel the same at any zoom)
+    enabled: true,
+    thresholdPx: 12,
+    inference: true, // horizontal / vertical alignment with existing points
+    gridEnabled: false,
+    gridStepMm: 1,
+    roundMm: 0.01, // free-placed points are rounded to this, so dimensions read 40.00 and not 39.999999
+    selectTolPx: 8,
+    dragFinishPx: 8, // press-and-drag creates a rectangle or circle if you release farther than this
+    lineWidthPx: 2.5,
+    haloWidthPx: 6,
+    markerPx: 5,
+    snapSquarePx: 9,
+    regionFill: 0.1,
+  },
   axisArrow: {
     // Arrowheads and letters sit ON the world axis lines (positive end); no separate corner gizmo.
     lengthFactor: 0.83, // distance from the origin along the axis, as a fraction of the half-height of the view
@@ -40,23 +73,19 @@ export const settings = {
     axisAlpha: 0.85,
     extentFactor: 60, // size of the quad that carries a plane, in view-distances (fog hides its edge)
   },
-  themeName: "world", // "world" (dark world, lit plane) | "paper" (the earlier light world) - press D to toggle
+  themeName: "world", // dark world, backlit plane (the paper theme was dropped: D now means dimension)
   themes: {
     // world = the background (and therefore the fog); sheet = the plane's fill color; gridLine = grid lines.
     // Only paper-gray and charcoal tones plus the world axis colors. states: what each plane looks like when hovered
-    // (3D view) or selected (sketch view); unselected, unhovered planes are not drawn.
+    // (3D view) or selected (sketch view); unselected, unhovered planes are not drawn. "fill" is the strength of the
+    // backlight the sheet adds (screen-blended, so it is see-through).
     world: {
       // Values tuned by the human with the temporary tuning panel (in_025).
       background: 0x121212, text: "#aeb2b7",
       axisX: [0.92, 0.32, 0.3], axisY: [0.25, 0.72, 0.38], axisZ: [0.32, 0.52, 1.0],
       sheet: [0.9176470588235294, 0.8901960784313725, 0.8627450980392157], gridLine: [0.17, 0.18, 0.2],
-      states: { base: { line: 0, fill: 0, fine: 0 }, hover: { line: 0.65, fill: 0.75, fine: 0.83 }, selected: { line: 0.49, fill: 1, fine: 1 } },
-    },
-    paper: {
-      background: 0xeeece6, text: "#625f58",
-      axisX: [0.84, 0.25, 0.22], axisY: [0.16, 0.6, 0.3], axisZ: [0.22, 0.42, 0.9],
-      sheet: [0.2, 0.21, 0.23], gridLine: [0.2, 0.21, 0.23],
-      states: { base: { line: 0, fill: 0, fine: 0 }, hover: { line: 0.7, fill: 0.08, fine: 0.55 }, selected: { line: 0.85, fill: 0.05, fine: 1 } },
+      sketchInk: [0.09, 0.095, 0.105], sketchHalo: [0.95, 0.93, 0.9], // sketch lines: near-black with a light halo so they read on the lit sheet and on the dark world
+      states: { base: { line: 0, fill: 0, fine: 0 }, hover: { line: 0.65, fill: 0.62, fine: 0.83 }, selected: { line: 0.49, fill: 0.6, fine: 1 } },
     },
   },
 };

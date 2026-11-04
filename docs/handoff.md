@@ -195,3 +195,26 @@ the full interaction flow (select, pan/zoom, orbit away, reselect) passes with t
 
 **Next:** stage 2 (sketch on the plane), then stage 3 (extrude). The sketch tools, snapping and OCCT worker from
 `prototypes/sketch-extrude` are the reuse candidates; the human's interface rules (`dec_ui_plane_selection`) apply.
+
+## Handoff 015 — 2026-11-04
+**State:** The human approved the conventions as a starting point (`in_028`; recorded as `dec_ui_conventions`, the
+question `q_ui_conventions` was removed): they drove Shapr3D with a mouse, want less always on screen (drawer,
+right-click, hotkeys), like Shapr3D's extrude defaults (positive adds, negative cuts), and asked for lighter, brighter,
+still-transparent sheets with a back light. Built stage 2 in `prototypes/cad-ui`:
+- **Sheets:** two passes per plane: a screen-blended backlight (see-through; objects behind stay visible, verified with a
+  test box) and the grid/axis lines. The paper theme and the D theme toggle were removed (D means dimension).
+- **Input:** data-driven keymap and navigation presets (`settings.input`): right-drag orbit, middle-drag pan, wheel zoom
+  toward the plane point under the cursor (a bug where the target was overwritten before use was caught by the tests),
+  presets for Fusion, SolidWorks and Blender; right-click menu; hotkeys V/L/R/C/H, Esc as a stepwise back, Enter,
+  Delete, Ctrl/Cmd+Z, Ctrl+Shift+Z / Ctrl+Y; hover a plane and press R/L/C to start sketching on it.
+- **Sketching:** rectangle, circle, polyline on any plane; snapping and inference; clear feedback; shapes persist on their
+  plane in 3D; select by edge or inside; delete; undo/redo through a sketch store (command history).
+- **Typing:** a field next to the cursor; rectangle W/Tab/H, circle diameter, line length/Tab/angle; safe math; direction
+  from the cursor.
+- 20 unit tests plus a scripted browser run of the whole workflow (27 checks) all pass; no console errors.
+- The temporary tuning panel is back (`bash tools/preview.sh tune`) for the new sheet brightness.
+
+**Important for the human:** their tuned sheet "fill" values (hover 0.75, selected 1.0) meant opacity before; they now mean
+backlight strength, so the AI reset them to 0.62 and 0.6. Tune them with the panel.
+**Not built yet:** extrude, the history list, the drawer, the dimension tool, constraints, trackpad orbit gestures.
+**Next:** the human tries stage 2 and reports; then stage 3 (extrude with Shapr3D-style defaults).
