@@ -17,8 +17,10 @@ or `cd prototypes/cad-ui && npm install && npm run dev`. Tests: `npm test` (7 te
   sheet with a dark charcoal grid, like a sheet lit in a dark room. The only color is the world axis lines
   (X red, Y green, Z blue). Press **D** to compare the earlier light "paper" world.
 - **World fog:** the plane keeps its own colors and simply fades into the dark world with distance from the
-  camera (it does not darken itself). A face-on sketch view is a soft spotlight that dims a little toward
-  the edges; a plane seen at a steep angle recedes into the darkness at the horizon.
+  camera (it does not darken itself). The fall-off is smooth and never ends abruptly. A face-on sketch view is
+  a soft spotlight that dims a little toward the edges. **A plane does not fade with viewing angle**: seen at
+  a low angle it is a solid plane receding to a horizon, and if you orbit below it you see its underside
+  overhead, so the camera visibly passes through it.
 - **3D view (nothing selected):** just the world axis lines, each with a flat arrowhead and its letter on
   the positive end (constant on-screen size; hidden when an axis points straight at the camera).
   **Hover** any plane to preview it (a dimmer lit sheet). Click it to make it the sketch plane.
@@ -54,7 +56,12 @@ or `cd prototypes/cad-ui && npm install && npm run dev`. Tests: `npm test` (7 te
    read as a dark smudge. `in_022` clarified: world fog. The fix was to make the world the dark color and
    let the plane fade into it, which needed a dark background. The status text then needed its own dark
    pill because it sits over both the dark world and the light sheet.
-6. **A real bug class**: my first "hover" screenshot looked identical to the no-hover one because the test
+6. **A leftover fade broke the "infinite plane" illusion** (`in_023`): an early angle-based fade (added to
+   stop shimmer) made the plane dissolve as the camera dropped toward it, which read as the plane separating
+   and fading away. It was redundant (grid levels already fade by on-screen cell size), so it was removed;
+   fog is now distance-only and smooth. Checked at elevations 0.5, 0.2, 0.06, 0 and -0.1 rad, including below
+   the plane. At exactly 0 the plane is edge-on and invisible (and cannot be picked), which is geometrically right.
+7. **A real bug class**: my first "hover" screenshot looked identical to the no-hover one because the test
    mouse was hovering a plane. Judging visuals needs the cursor state controlled.
 
 ## What this does NOT show

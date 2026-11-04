@@ -51,8 +51,8 @@ uniform int uAxis; uniform vec3 uCol; uniform vec3 uColU; uniform vec3 uColV;
 uniform float uLineA; uniform float uFillA; uniform float uAxisA;
 uniform vec3 uLineCol;
 uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul; uniform float uMinCellPx;
-uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar;
-uniform float uGrazeMin; uniform float uGrazeFull; uniform float uAxisW;
+uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar; uniform float uFogK;
+uniform float uAxisW;
 varying vec3 vPos;
 
 float gridLine(vec2 c, float s) {
@@ -84,15 +84,17 @@ void main() {
   float axU = 1.0 - min(abs(c.y) / (max(w.y, 1e-6) * uAxisW), 1.0); // v = 0 runs along the u axis
   float axV = 1.0 - min(abs(c.x) / (max(w.x, 1e-6) * uAxisW), 1.0); // u = 0 runs along the v axis
 
-  // fog by distance from the camera; planes seen edge-on fade out
+  // World fog by distance from the camera: a smooth fall-off that never has a hard end, so a plane seen at a low angle
+  // stays a solid plane that recedes all the way to the horizon (no fade with viewing angle).
   float dc = distance(uCam, vPos);
-  float fog = 1.0 - smoothstep(uDist * uFogNear, uDist * uFogFar, dc);
-  float axFog = 1.0 - smoothstep(uDist * uFogNear, uDist * uAxisFogFar, dc);
-  float ang = smoothstep(uGrazeMin, uGrazeFull, abs(dot(normalize(uCam - vPos), n)));
+  float t = max(dc - uDist * uFogNear, 0.0) / (uDist * (uFogFar - uFogNear));
+  float ta = max(dc - uDist * uFogNear, 0.0) / (uDist * (uAxisFogFar - uFogNear));
+  float fog = exp(-uFogK * t * t);
+  float axFog = exp(-uFogK * ta * ta);
 
   // World fog: the plane keeps its own colors and simply fades into the world behind it with distance.
-  float aLine = grid * uLineA * fog * ang;          // grid lines
-  float aFill = uFillA * fog * ang;                 // the sheet itself
+  float aLine = grid * uLineA * fog;          // grid lines
+  float aFill = uFillA * fog;                 // the sheet itself
   float a = aLine + aFill * (1.0 - aLine);
   vec3 col = a > 0.0 ? (uLineCol * aLine + uCol * aFill * (1.0 - aLine)) / a : uCol;
   float ax = max(axU, axV) * uAxisA * axFog;
@@ -116,8 +118,8 @@ for (const [name, def] of Object.entries(PLANES)) {
       uLineA: { value: 0 }, uFillA: { value: 0 }, uAxisA: { value: G.axisAlpha },
       uLodDiv: { value: G.lodDivisor }, uStyleMin: { value: G.fineLineStrength }, uFineMul: { value: 0 }, uMinCellPx: { value: G.minCellPx },
       uLineCol: { value: new THREE.Vector3() },
-      uFogNear: { value: F.nearFactor }, uFogFar: { value: F.farFactor }, uAxisFogFar: { value: F.axisFarFactor },
-      uGrazeMin: { value: G.grazeMinCos }, uGrazeFull: { value: G.grazeFullCos }, uAxisW: { value: G.axisWidthPx },
+      uFogNear: { value: F.nearFactor }, uFogFar: { value: F.farFactor }, uAxisFogFar: { value: F.axisFarFactor }, uFogK: { value: F.sharpness },
+      uAxisW: { value: G.axisWidthPx },
     },
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
@@ -368,6 +370,7 @@ updateStatus();
 window.__ui = {
   state: () => ({ selected, hovered, a: view.a, e: view.e, dist: view.dist, target: view.target.toArray(), normal: selected ? isNormal(view, selected, V.normalToleranceRad) : null, animating: !!anim }),
   pickAt,
+  setView: ({ a, e, dist }) => ((view.a = a ?? view.a), (view.e = e ?? view.e), (view.dist = dist ?? view.dist), requestRender()),
   worldToScreen(x, y, z) {
     applyCamera();
     const v = new THREE.Vector3(x, y, z).project(camera);

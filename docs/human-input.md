@@ -102,3 +102,8 @@ Reply to the finite-sheet version of `prototypes/cad-ui` (the AI had asked wheth
 
 ## in_022 — 2026-11-04 — directive
 > Okay but it looks like the plane itself gets darker, not that it is protruding deeper into dark fog. Can you make the fog be world fog, not on the planes. Almost like the whole world is dark but a light is shining on the plane.
+
+## in_023 — 2026-11-04 — preference
+Reply to the dark-world / lit-plane version, with a screenshot of a low-angle view (camera just above the XY plane): the plane fades toward a dark horizon.
+
+> Looks better, but it doesn't really look like the camera goes through the plane at low angles. It kinda looks like the plane separates and goes away or fades away

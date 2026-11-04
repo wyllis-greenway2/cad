@@ -155,3 +155,16 @@ with no errors; checked screenshots.
 **Open for the human:** is this the "world fog / lit plane" you meant? The face-on view is nearly an
 edge-to-edge light sheet with only a mild vignette (fog.nearFactor).
 **Next:** UI polish as wanted, then stage 2 (sketch on the plane), stage 3 (extrude).
+
+## Handoff 012 — 2026-11-04
+**State:** `in_023` on `cad-ui` (the human sent a low-angle screenshot): at low angles the plane looked like it
+separated and faded away instead of the camera passing through it. Cause: a grazing-angle alpha fade in the plane
+shader (added early against shimmer; redundant since grid levels fade by on-screen cell size) plus a fog that
+ended in a smooth-step cutoff. Fixed: removed the angle fade entirely; fog is now an exponential-style smooth
+fall-off with no hard end (`fog.nearFactor`, `farFactor`, `sharpness`). Verified in screenshots at elevations
+0.5, 0.2, 0.06, 0 and -0.1 rad: the floor stays solid and meets a dark horizon; below the plane its underside is a
+ceiling overhead. 8 view-math tests passed, no console errors. Added a `__ui.setView` test hook.
+
+**Open for the human:** is the horizon/fog now the "camera goes through the plane" feel you meant? Edge-on
+(elevation exactly 0) the plane is a line and cannot be picked.
+**Next:** more UI polish if wanted; then stage 2 (sketch on the plane), stage 3 (extrude).
