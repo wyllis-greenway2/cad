@@ -51,3 +51,19 @@ human; if not, ask for browser, OS, and what the sidebar cursor line shows.
 **Next:** the human tries it and reports what feels right, wrong or missing. Likely candidates after that:
 pick a face to sketch on (real face picking), constraints and dimensions, fillet handles, or deciding
 `q_kernel_choice`.
+
+## Handoff 004 — 2026-11-04
+**State:** After hands-on use, the human reset the interface work (`in_015`): start clean, in stages (planes
+and navigation, then sketch on a plane, then extrude). Built stage 1 as `prototypes/cad-ui`: a 3D view with
+infinite XYZ plane grids (shader), click-to-select with an animated move to the plane's normal view,
+free orbit, click-the-plane-to-return, dimming of non-selected planes, axis gizmo. 7 unit tests on the
+view math plus a scripted browser run (select, orbit, return, XZ/YZ, zoom extremes) all passed. The
+earlier `sketch-extrude` drawing feedback fixes were pushed before this (`in_014`). `tools/preview.sh`
+now defaults to `cad-ui`. Two human-origin decisions recorded: `dec_ui_plane_selection`,
+`dec_ui_build_order`.
+
+**AI choices in stage 1 that the human has not reviewed:** standard un-mirrored views per plane; clicking
+the selected plane while tilted returns to normal (and does nothing yet when already normal); other planes
+dim when one is selected; perspective camera; plane buttons as a fallback to clicking.
+
+**Next:** human tries stage 1 and gives feedback. Then stage 2 (sketch on the plane), stage 3 (extrude).

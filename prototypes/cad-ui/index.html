@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>cad-ui (throwaway prototype)</title>
+  <style>
+    :root { color-scheme: dark; --bg:#15171b; --fg:#e8eaee; --panel:#1f2228cc; --line:#3a3f4a; --accent:#4f8cff; }
+    html,body { margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--fg); font:13px/1.4 system-ui,sans-serif; }
+    canvas { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+    .box { position:fixed; background:var(--panel); border:1px solid var(--line); border-radius:8px; backdrop-filter: blur(6px); }
+    #tools { top:12px; left:12px; display:flex; gap:6px; padding:6px; }
+    button { background:#2a2e37; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:5px 11px; font:inherit; cursor:pointer; }
+    button:hover { border-color:#667; } button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+    button i { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+    #status { left:12px; bottom:12px; padding:7px 12px; max-width:calc(100% - 180px); }
+    #hint { top:14px; right:14px; padding:6px 10px; opacity:.85; max-width:44vw; text-align:right; pointer-events:none; }
+    .axl { position:fixed; font-weight:600; font-size:12px; pointer-events:none; transform:translate(-50%,-50%); text-shadow:0 1px 2px #000; }
+  </style>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div id="tools" class="box">
+    <button data-plane="XY"><i style="background:#66a0ff"></i>XY</button>
+    <button data-plane="XZ"><i style="background:#66cc73"></i>XZ</button>
+    <button data-plane="YZ"><i style="background:#eb5959"></i>YZ</button>
+    <button id="home">Home</button>
+  </div>
+  <div id="hint" class="box">Click a plane to sketch on it. Drag to orbit, right-drag or Shift-drag to pan, scroll to zoom.</div>
+  <div id="status" class="box"></div>
+  <span class="axl" id="lx" style="color:#eb5959">X</span><span class="axl" id="ly" style="color:#66cc73">Y</span><span class="axl" id="lz" style="color:#66a0ff">Z</span>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

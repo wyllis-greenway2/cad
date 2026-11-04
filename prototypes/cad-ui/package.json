@@ -1,0 +1,15 @@
+{
+  "name": "cad-ui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "THROWAWAY prototype: the clean interface, built in stages. Stage 1: 3D view with infinite XYZ planes, select a plane, go normal to it. See README.md.",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "dev": "vite"
+  },
+  "dependencies": {
+    "three": "^0.187.0",
+    "vite": "^8.3.5"
+  }
+}

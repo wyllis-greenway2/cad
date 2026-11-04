@@ -4,13 +4,14 @@ Phases come from the human's blueprint (section 17). This file only tracks what 
 Update it at the end of each session.
 
 ## Now
-- Human tries `prototypes/sketch-extrude` (`bash tools/preview.sh`) and says what feels right, wrong or
-  missing; that steers the next step.
+- Interface in stages (`in_015`): **stage 1 built** (`prototypes/cad-ui`: infinite XYZ planes, select a
+  plane, go normal to it, orbit, click to return). Human tries it and gives feedback.
+- Then stage 2: sketch on the selected plane (reuse the tools from `sketch-extrude`). Then stage 3: extrude.
 - Human decides the open questions, starting with `q_kernel_choice` (evidence in `kernel-slice` and
   `sketch-extrude` READMEs).
 
 ## Done
-- Project record set up; `docs/licenses.md` written; `kernel-slice` and `sketch-extrude` prototypes built (2026-11-04).
+- Project record set up; `docs/licenses.md` written; `kernel-slice`, `sketch-extrude` and `cad-ui` stage 1 prototypes built (2026-11-04).
 
 ## Next
 - Depending on the kernel decision: a larger adversarial corpus (random and chained operations), history

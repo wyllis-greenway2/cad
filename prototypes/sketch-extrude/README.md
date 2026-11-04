@@ -1,6 +1,6 @@
 # sketch-extrude (THROWAWAY prototype)
 
-Approved as the next experiment in `in_013`. It decides nothing by itself. Never import this code from
+Approved as the next experiment in `in_013`. Superseded by `prototypes/cad-ui` for the interface (`in_015`); kept as reference for the sketch tools, snapping and the OCCT worker. It decides nothing by itself. Never import this code from
 production code (CLAUDE.md rule 9).
 
 **Meant to learn:** does the blueprint's core interaction work (draw on a plane, see closed regions, pick
