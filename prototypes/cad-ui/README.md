@@ -20,13 +20,17 @@ separately for the selected plane and the hovered plane, and all on the tuning p
 - **opacity**: how much the sheet hides what is behind it, using the sheet color. 0 = fully see-through, 1 = solid. It does not
   change the brightness.
 - **grid line opacity** and **fine grid level**.
+- **reflection** (`settings.reflect`): sheets are slightly glossy. A **sky sheen** (a soft reflection of an imaginary sky, light above and dark
+  below) and a **real mirror image of objects** (rendered from a mirrored camera into a small image; any object added with
+  `addReflectable` shows up in the sheet, so extruded bodies will). Both grow toward glancing angles (Fresnel). Defaults are subtle
+  (sheen 0.22, objects 0.35) and live on the tuning panel.
 And two separate falloffs: the **backlight area** (`settings.sheetArea`: how far a sheet's light, grid and the axis lines reach from
 where you look) and the **world fog** (`settings.fog`: objects in the scene fade into the dark world with distance, so the fog is
 *behind* the sheet and not only on it). The only color is the world axes (X red, Y green, Z blue) with arrowheads and letters.
 
 **Mouse** (all remappable in `settings.input`; the left button is always the tool, never navigation)
-- Right-drag orbit, middle-drag pan (also Shift + right-drag), wheel zoom toward the point under the cursor,
-  Ctrl + wheel (trackpad pinch) zoom. **Alt + left-drag also orbits** (trackpads, mice without a usable right button), and
+- Right-drag orbit, middle-drag pan (also Shift + right-drag), wheel zoom (**in** toward the point under the cursor, **out**
+  about the view center, so zooming out can never fling the view away), Ctrl + wheel (trackpad pinch) zoom. **Alt + left-drag also orbits** (trackpads, mice without a usable right button), and
   **plain left-drag orbits whenever the left button has nothing else to do** (in the 3D view, and on empty space with the
   select tool). Presets: `ours` (default), `fusion`, `solidworks`, `blender` (set `input.navPreset`).
 - **Right-click without dragging** opens a small menu (tools, undo/redo, home, back to 3D view). No toolbar anywhere.
@@ -34,8 +38,13 @@ where you look) and the **world fog** (`settings.fog`: objects in the scene fade
   the camera back to the 3D view you came from), click the small **3D view** button in the status line, pick "Back to 3D
   view" in the right-click menu, press **H**, or orbit away by any of the gestures above.
 
+**Getting lost**: panning and zooming into a spot can take you far from the origin, where the axes fog out. When the origin is lost
+(fogged out, or far and off screen) a small **"Origin is far away: return (O)"** button appears by the status line. **O**, that button, or
+"Return to origin" in the right-click menu glides the view back to the origin, keeping your viewing direction (a sketch stays face-on) and
+bringing the view distance into a sensible range. **H** still resets the whole camera.
+
 **Keys** (all remappable in `settings.input.keys`)
-- **V** select, **L** line (polyline), **R** rectangle, **C** circle, **H** home view. Hover a plane in the 3D view and press
+- **V** select, **L** line (polyline), **R** rectangle, **C** circle, **H** home view, **O** return to origin. **O** return to the origin. Hover a plane in the 3D view and press
   R, L or C to start sketching on it with that tool. **E** extrude and **D** dimension are reserved (next stages).
 - **Esc** steps back one level: stop typing, then cancel the shape, then leave the tool, then clear the selection, then
   leave the sketch. **Enter** applies. **Delete** removes the selected shape. **Ctrl/Cmd+Z** undo,
@@ -52,7 +61,10 @@ Rectangle: width, **Tab**, height. Circle: diameter. Line: length, **Tab**, angl
 
 ## Look values (tuned by the human, `in_025`) and the tuning panel
 The colors, fog, grid and arrow values in `src/settings.js` were tuned by hand and applied exactly (68 numbers
-checked). **Changes since:** the sheet is no longer one opaque fill (`in_028`, `in_030`). Your tuned fill numbers (hover 0.75, selected
+checked). **Tuned again (`in_031`):** world #242424, sheet #f3f0e7, brightness 1.2 and opacity 0.5 (selected and hovered), grid lines 0.5, fine level 0.5, and
+the world fog 0.5 to 2.5; all other values unchanged (37 values checked against the file). Reflection values are the AI's defaults.
+
+**Changes since:** the sheet is no longer one opaque fill (`in_028`, `in_030`). Your tuned fill numbers (hover 0.75, selected
 1.0) became **brightness** (re-set to 0.62 and 0.6) and **opacity** (0), independent of each other; and the fog you tuned
 (near 0.5, far 2.5, sharpness 2.5, axis 2.5) now drives the sheet's **backlight area**, while a new **world fog** (0.9 to 3.5)
 fades objects. `bash tools/preview.sh tune` brings back the temporary tuning panel (`?tune`) to

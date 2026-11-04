@@ -3,7 +3,7 @@ id: dec_ui_plane_selection
 kind: decision
 status: accepted
 origin: human
-human_input: in_015, in_016, in_017, in_018, in_019, in_020, in_021, in_022, in_023, in_024, in_025, in_028, in_030
+human_input: in_015, in_016, in_017, in_018, in_019, in_020, in_021, in_022, in_023, in_024, in_025, in_028, in_030, in_031
 date: 2026-11-04
 depends_on:
   - dec_ui_build_order: this is stage 1 of the staged interface build
@@ -32,7 +32,10 @@ replaced by a slight back light. AI interpretation: a backlight that is screen-b
 Refinement (`in_030`): the human wants to adjust how bright a sheet is independently of how transparent it is, and the
 backlight area separately, with the fog behind the sheets and not only on top of them. AI interpretation: brightness (screen
 glow), opacity (sheet-colored veil), grid line strength, a "backlight area" falloff for the sheet, and a separate world fog
-that fades objects. You select a plane to sketch on,
+that fades objects.
+Refinement (`in_031`): the human tuned these values by hand and they are applied verbatim (world #242424, sheet #f3f0e7, brightness 1.2,
+opacity 0.5, grid 0.5, fine 0.5, world fog 0.5 to 2.5) and are not AI choices; and asked for the sheets to be slightly reflective.
+AI interpretation: a subtle sky sheen plus a real mirror image of objects, both strongest at glancing angles (Fresnel), with knobs. You select a plane to sketch on,
 and the view goes normal to that plane. You can still orbit in 3D, and clicking on the plane brings the
 view back normal to it. Reduce clutter: no XYZ buttons.
 

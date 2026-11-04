@@ -43,6 +43,7 @@ export function initTuning({ S, applyTheme, requestRender, getThemeName, setThem
     themes: S.themes,
     fog: S.fog,
     sheetArea: S.sheetArea,
+    reflect: S.reflect,
     grid: { lodDivisor: S.grid.lodDivisor, fineLineStrength: S.grid.fineLineStrength, minCellPx: S.grid.minCellPx, axisWidthPx: S.grid.axisWidthPx, axisAlpha: S.grid.axisAlpha },
     axisArrow: S.axisArrow,
     view: { fovDeg: S.view.fovDeg, transitionMs: S.view.transitionMs, orbitRadPerPx: S.view.orbitRadPerPx, zoomPerWheel: S.view.zoomPerWheel },
@@ -247,6 +248,14 @@ export function initTuning({ S, applyTheme, requestRender, getThemeName, setThem
   number("starts at", () => S.fog.nearFactor, (v) => (S.fog.nearFactor = v), 0, 6, 0.01);
   number("fully fogged at", () => S.fog.farFactor, (v) => (S.fog.farFactor = v), 0.3, 12, 0.05);
 
+  section("Reflection (sheets are slightly glossy)");
+  number("sky sheen strength", () => S.reflect.sheen, (v) => (S.reflect.sheen = v), 0, 1, 0.01);
+  number("object reflection strength", () => S.reflect.objects, (v) => (S.reflect.objects = v), 0, 1, 0.01);
+  number("reflective straight on", () => S.reflect.base, (v) => (S.reflect.base = v), 0, 1, 0.01);
+  number("glancing-angle sharpness", () => S.reflect.glancing, (v) => (S.reflect.glancing = v), 0.5, 8, 0.1);
+  color("Sky: light (above)", () => rgbToHex(theme().skyHigh), (h) => (theme().skyHigh = hexToRgb(h)));
+  color("Sky: dark (below)", () => rgbToHex(theme().skyLow), (h) => (theme().skyLow = hexToRgb(h)));
+
   section("Grid and axis lines");
   number("axis line width px", () => S.grid.axisWidthPx, (v) => (S.grid.axisWidthPx = v), 0.5, 6, 0.1);
   number("axis line opacity", () => S.grid.axisAlpha, (v) => (S.grid.axisAlpha = v), 0, 1, 0.01);
@@ -290,11 +299,15 @@ export function initTuning({ S, applyTheme, requestRender, getThemeName, setThem
       lines.push(`  axisX ${rgbText(t.axisX)}`);
       lines.push(`  axisY ${rgbText(t.axisY)}`);
       lines.push(`  axisZ ${rgbText(t.axisZ)}`);
+      lines.push(`  skyHigh ${rgbText(t.skyHigh)}`);
+      lines.push(`  skyLow ${rgbText(t.skyLow)}`);
       for (const w of ["selected", "hover"]) lines.push(`  ${w}: brightness ${num(t.states[w].bright)}  opacity ${num(t.states[w].opacity)}  gridLine ${num(t.states[w].line)}  fine ${num(t.states[w].fine)}`);
     }
     const sa = S.sheetArea;
     lines.push(`sheetArea (backlight area): near ${num(sa.nearFactor)}  far ${num(sa.farFactor)}  sharpness ${num(sa.sharpness)}  axisFar ${num(sa.axisFarFactor)}`);
     lines.push(`world fog (objects): near ${num(S.fog.nearFactor)}  far ${num(S.fog.farFactor)}`);
+    const rf = S.reflect;
+    lines.push(`reflection: sheen ${num(rf.sheen)}  objects ${num(rf.objects)}  straightOn ${num(rf.base)}  glancing ${num(rf.glancing)}`);
     const g = S.grid;
     lines.push(`grid: axisWidthPx ${num(g.axisWidthPx)}  axisAlpha ${num(g.axisAlpha)}  fineLineStrength ${num(g.fineLineStrength)}  minCellPx ${num(g.minCellPx)}  lodDivisor ${num(g.lodDivisor)}`);
     const a = S.axisArrow;

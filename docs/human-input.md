@@ -164,3 +164,99 @@ Bug report after trying stage 2 of `prototypes/cad-ui` (and the tuning panel).
 Feedback after trying the tuning page for the see-through sheets.
 
 > I don't actually see the knobs to adjust the backlight area or how bright a sheet is because the fog is on top of but not behind it? Basically I want to ajdust how bright the sheets are (independent of them being transparent, like they should be able to be bright, but you can still see things behind them)
+
+## in_031 — 2026-11-04 — directive
+After tuning the sheets with the temporary panel (a screenshot of the view was attached; the pasted panel text is quoted below with blank lines omitted; the panel's "Exact values" box itself was cut off with "..." in the paste, so the control values above it are what was applied). Also asks for a reflective look and reports a navigation problem.
+
+> can we make the sheets slightly reflective? Okay this is pretty good. Tuning (temporary · K hides)
+> theme: world
+> theme: paper
+> View (no mouse navigation needed)
+> 3D view
+> Sketch XY
+> Sketch XZ
+> Sketch YZ
+> Pin hover sheet: off
+> Pinned look: hover
+> Test boxes
+> In the 3D view the sheet shows only where the mouse hovers (or pin one here). Boxes show how the sheet looks over objects.
+> Colors (current theme)
+> World / fog color
+> #242424
+> Plane sheet fill
+> #f3f0e7
+> Grid lines
+> #2b2e33
+> X axis
+> #eb524d
+> Y axis
+> #40b861
+> Z axis
+> #5285ff
+> Status text
+> #aeb2b7
+> Selected plane (the sketch plane)
+> brightness (light it gives)
+> 1.2
+> opacity (hides what is behind)
+> .5
+> grid line opacity
+> 0.5
+> fine grid level
+> 0.5
+> Hovered plane (3D view preview)
+> brightness (light it gives)
+> 1.2
+> opacity (hides what is behind)
+> 0.5
+> grid line opacity
+> 0.5
+> fine grid level
+> 0.5
+> Backlight area (how far a sheet's light, grid and axes reach)
+> starts fading at
+> 0.5
+> almost gone at
+> 2.5
+> sharpness
+> 2.5
+> axis lines reach
+> 2.5
+> World fog (objects fade into the dark, behind the sheets)
+> starts at
+> 0.5
+> fully fogged at
+> 2.5
+> Grid and axis lines
+> axis line width px
+> 2.2
+> axis line opacity
+> 0.85
+> fine level strength
+> 0.65
+> min cell size px
+> 4
+> grid density
+> 8
+> Axis arrows and letters
+> arrow size px
+> 15
+> distance on line
+> 0.83
+> letter gap px
+> 13
+> letter side px
+> 10
+> View
+> field of view deg
+> 35
+> glide time ms
+> 450
+> orbit speed
+> 0.006
+> zoom speed
+> 0.0015
+> Exact values (copy and send back)
+> Copy values
+> Reset to defaults
+> ... Also I found that you can get it in a weird state if you zoom in and out and pan at different amounts, you can basically make it appear as though the whole world and xyz origin gets covered in fog. Is this because now that you can pan you really can travel away from origin? How should we solve this? and perhaps we should have a return to origin thing if you get too far away?

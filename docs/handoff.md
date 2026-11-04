@@ -252,3 +252,25 @@ scripted checks, all passing.
 **Open for the human:** tune brightness and opacity (selected and hovered) and the two falloffs with `bash tools/preview.sh tune`
 and send the values.
 **Next:** apply the human's values and remove the panel; then stage 3 (extrude).
+
+## Handoff 018 — 2026-11-04
+**State:** `in_031` (with a screenshot): the human tuned the look and sent the values (applied verbatim; 37 values checked: world #242424,
+sheet #f3f0e7, brightness 1.2, opacity 0.5, grid line 0.5, fine 0.5 for both selected and hovered; world fog 0.5 to 2.5; everything else
+unchanged), asked for slightly reflective sheets, and reported getting the view "covered in fog" after zooming and panning.
+- **Lost origin.** Reproduced: zoom-to-cursor and panning moved the target 430 mm from the origin in a few moves, far past where the axes fog
+  out. Root cause beyond plain panning: zooming OUT anchored on the cursor point multiplies the offset (a 50x zoom-out moved the target ~50x
+  away). Fixed: zoom in toward the cursor, zoom out about the view center; anchor only on plane points within 1.5 view-distances of the
+  target; a small "Origin is far away: return (O)" button appears when the origin is lost (fog strength below 0.3, or off screen and over
+  1 view-distance away); **O** and a "Return to origin" menu item glide the target back to the origin keeping the viewing direction (so a sketch
+  stays face-on) and clamp the distance to 30..600 mm. 12 scripted checks pass.
+- **Reflective sheets.** A sky sheen (neutral light-above, dark-below gradient reflected by the view vector) plus a real mirror image of
+  objects (mirrored camera into a half-resolution render target, clipped to the camera side of the plane; reflectables on layer 1, lights too),
+  both Fresnel-weighted; premultiplied blending so reflected objects blend toward their color. Defaults sheen 0.22, objects 0.35. The tuning
+  panel has a Reflection section (strengths, straight-on reflectivity, glancing sharpness, sky colors). Nothing real is reflected yet except
+  the test boxes; extruded bodies will be. Two bugs found by looking at screenshots: lights on the wrong layer rendered reflected objects
+  black, and screen-blending a dark reflection onto a bright sheet was almost invisible.
+- 20 unit tests plus scripted browser suites (lock-in 12, stage 2 27, origin 12) all pass; no console errors.
+
+**Open for the human:** tune the reflection values with `bash tools/preview.sh tune` (sheen, object reflection, glancing sharpness); try the
+lost-origin prompt and O.
+**Next:** stage 3 (extrude with Shapr3D-style defaults, history list, drawer); reflections will then show real bodies.

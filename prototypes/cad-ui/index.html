@@ -8,6 +8,7 @@
     :root { --bg:#2b2d30; --fg:#aeb2b7; }
     html,body { margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--fg); font:13px/1.4 system-ui,sans-serif; }
     canvas { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+    #status #originBtn { display:none; margin-left:12px; pointer-events:auto; background:#5a4a2a; color:#fff2d6; border:1px solid #8a7440; border-radius:6px; padding:2px 9px; font:inherit; cursor:pointer; }
     #status #exitBtn { display:none; margin-left:12px; pointer-events:auto; background:#3a3e44; color:#e8eaec; border:1px solid #5a5f66; border-radius:6px; padding:2px 9px; font:inherit; cursor:pointer; }
     #status { position:fixed; left:14px; bottom:12px; pointer-events:none; padding:5px 11px; border-radius:7px; background:rgba(34,36,39,.82); color:#e4e6e8; }
     #readout { position:fixed; display:none; pointer-events:none; background:rgba(26,28,31,.92); color:#e8eaec; border:1px solid #4a4f56; border-radius:7px; padding:4px 9px; font:13px/1.3 ui-monospace,Menlo,monospace; white-space:nowrap; z-index:5; }
@@ -23,7 +24,7 @@
 <body>
   <canvas id="view"></canvas>
   <svg style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none"><polygon id="ax" /><polygon id="ay" /><polygon id="az" /></svg>
-  <div id="status"><span id="statusText"></span><button id="exitBtn" title="Esc">3D view</button></div>
+  <div id="status"><span id="statusText"></span><button id="exitBtn" title="Esc">3D view</button><button id="originBtn" title="O">Origin is far away: return (O)</button></div>
   <div id="readout"></div>
   <div id="menu"></div>
   <span class="axl" id="lx">X</span><span class="axl" id="ly">Y</span><span class="axl" id="lz">Z</span>

@@ -3,7 +3,7 @@ id: dec_ui_conventions
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_026, in_027, in_028, in_029
+human_input: in_026, in_027, in_028, in_029, in_031
 date: 2026-11-04
 depends_on:
   - dec_ui_build_order: the conventions govern the sketching and extruding stages of the staged interface build
@@ -34,6 +34,11 @@ Correction after hands-on use (`in_029`): the human got locked in a sketch with 
 sketch must always be obvious and possible: Esc glides the camera back to the 3D view it came from, the status line shows
 a "3D view" button, and left-drag (when the left button has no tool action) and Alt + left-drag also orbit, so a missing
 right or middle button can never trap anyone.
+
+Second correction (`in_031`): zooming and panning at different amounts could lose the origin in fog. Cause: zoom-to-cursor moves the
+camera target, and zooming OUT around the cursor multiplied that offset. Fixes: zoom in toward the cursor but zoom out about the view
+center, anchor only on plane points near the target, show a "return to origin" prompt when the origin is lost, and add an O hotkey and a
+menu item.
 
 Status (stage 2 of `prototypes/cad-ui`): navigation presets and the keymap are data in `settings.input`; items 1, 2 and
 4 are implemented, and item 5 (right-click menu, no toolbar) is started. Not built yet: the history list, the drawer,

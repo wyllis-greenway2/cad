@@ -14,6 +14,10 @@ export const settings = {
     clickMovePx: 4, // pointer movement below this is a click, not a drag
     nearFactor: 0.02, // camera near plane as a fraction of distance
     farFactor: 120,
+    originLostFog: 0.3, // the origin counts as lost when its axis fog strength falls below this...
+    originFarFactor: 1.0, // ...or when it is off screen and the target is this many view-distances away
+    originMinDistance: 30, // returning to the origin also brings the view distance into [min, max] mm
+    originMaxDistance: 600,
   },
   input: {
     // Left button = the tool (draw / select), never navigation. Navigation is a preset (dec_ui_conventions).
@@ -24,12 +28,13 @@ export const settings = {
       solidworks: { orbit: [{ button: 1 }], pan: [{ button: 1, ctrl: true }] },
       blender: { orbit: [{ button: 1 }], pan: [{ button: 1, shift: true }] },
     },
-    zoomToCursor: true,
+    zoomToCursor: true, // zoom IN toward the point under the cursor; zoom OUT is about the view center (no runaway)
+    zoomAnchorMaxFactor: 1.5, // zoom toward plane points within this many view-distances of the target; farther ones use the camera-facing plane
     pinchZoomPerWheel: 0.01, // trackpad pinch (a wheel event with ctrl held) is more sensitive than a wheel notch
     keys: {
       select: "v", line: "l", rect: "r", circle: "c", extrude: "e", dimension: "d", home: "h",
       undo: "mod+z", redo: ["mod+shift+z", "mod+y"],
-      cancel: "escape", confirm: "enter", nextField: "tab", prevField: "shift+tab", delete: ["delete", "backspace"],
+      origin: "o", cancel: "escape", confirm: "enter", nextField: "tab", prevField: "shift+tab", delete: ["delete", "backspace"],
     },
   },
   sketch: {
@@ -59,8 +64,8 @@ export const settings = {
   fog: {
     // WORLD fog: objects in the scene (everything that is not a sheet) fade into the dark world with distance from the camera,
     // in multiples of the camera-to-target distance. Because the sheets are see-through, this is the fog "behind" a sheet.
-    nearFactor: 0.9,
-    farFactor: 3.5,
+    nearFactor: 0.5,
+    farFactor: 2.5,
   },
   sheetArea: {
     // BACKLIGHT AREA: how far a sheet's own light, its grid and the axis lines reach from where you are looking (same
@@ -69,6 +74,16 @@ export const settings = {
     farFactor: 2.5, // ...almost gone by here, with no hard end
     sharpness: 2.5, // how quickly it fades between near and far (higher = faster, still smooth)
     axisFarFactor: 2.5, // how far the axis lines reach (they fade with the same curve)
+  },
+  reflect: {
+    // Sheets are slightly glossy, like glass. "sheen" is a soft reflection of an imaginary sky (light above, dark below) and
+    // "objects" is a real mirror image of objects in the scene (extruded bodies later). Both grow toward glancing angles
+    // (Fresnel): "base" is how reflective a sheet is when seen straight on, "glancing" how sharply it grows toward the edge.
+    sheen: 0.22,
+    objects: 0.35,
+    base: 0.06,
+    glancing: 3,
+    resolution: 0.5, // the mirror image is rendered at this fraction of the screen size
   },
   grid: {
     lodDivisor: 8, // grid spacing is chosen so about this many major cells span the view
@@ -87,15 +102,16 @@ export const settings = {
     // without clipping to white, 0..1); "opacity" is how much it hides what is behind it with the sheet color (0 = fully
     // see-through). The two are independent.
     world: {
-      // Values tuned by the human with the temporary tuning panel (in_025).
-      background: 0x121212, text: "#aeb2b7",
+      // Values tuned by the human with the temporary tuning panel (in_025, in_031).
+      background: 0x242424, text: "#aeb2b7",
       axisX: [0.92, 0.32, 0.3], axisY: [0.25, 0.72, 0.38], axisZ: [0.32, 0.52, 1.0],
-      sheet: [0.9176470588235294, 0.8901960784313725, 0.8627450980392157], gridLine: [0.17, 0.18, 0.2],
+      sheet: [0.9529411764705882, 0.9411764705882353, 0.9058823529411765], gridLine: [0.17, 0.18, 0.2], // sheet #f3f0e7, grid #2b2e33
+      skyHigh: [0.93, 0.93, 0.92], skyLow: [0.1, 0.1, 0.11], // the imaginary sky the sheen reflects (neutral grays)
       sketchInk: [0.09, 0.095, 0.105], sketchHalo: [0.95, 0.93, 0.9], // sketch lines: near-black with a light halo so they read on the lit sheet and on the dark world
       states: {
         base: { line: 0, bright: 0, opacity: 0, fine: 0 },
-        hover: { line: 0.65, bright: 0.62, opacity: 0, fine: 0.83 },
-        selected: { line: 0.49, bright: 0.6, opacity: 0, fine: 1 },
+        hover: { line: 0.5, bright: 1.2, opacity: 0.5, fine: 0.5 },
+        selected: { line: 0.5, bright: 1.2, opacity: 0.5, fine: 0.5 },
       },
     },
   },
