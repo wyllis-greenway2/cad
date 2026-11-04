@@ -2,7 +2,9 @@
 // Tools: select | line (polyline) | rect | circle | dimension | extrude (pick a closed shape to pull). Local plane coordinates are (u right, v up) in mm.
 import { snap, dist, hitEntity, regionsOf, hitRegion } from "./sketch.mjs";
 import { evalExpr } from "./expr.mjs";
-import { dimensionsOf, applyDimension } from "./dimensions.mjs";
+import { dimensionsOf } from "./dimensions.mjs";
+import { solveSketch, dimensionConstraint, sameDimension, anchorsOf, modelOf } from "./sketchsolve.mjs";
+import { elementAt, offersFor, glyphsFor } from "./sketchpick.mjs";
 
 const FIELDS = {
   rect: [{ name: "w", label: "W" }, { name: "h", label: "H" }],
@@ -24,6 +26,11 @@ export class SketchSession {
     this.entry = null; // { fields: [{label, name, text}], active }
     this.selectedId = null; // in the dimension tool this is the shape whose dimensions are being edited
     this.hoverId = null; // dimension tool: the shape under the cursor
+    this.picks = []; // select tool: the parts picked (corners, lines, circles, whole shapes) as { kind, ref, shape }
+    this.pickedConstraint = null; // a constraint mark that was clicked
+    this.preview = null; // while dragging: the shapes as the solver has them now (committed on release)
+    this.drag = null;
+    this.solveCache = null;
     this.picked = null; // extrude tool: the closed shape just clicked (the view takes it with takePicked)
     this.dimEdit = null; // dimension tool: { typed: {key: text}, active: key }
     this.cursor = null;
@@ -51,6 +58,10 @@ export class SketchSession {
     this.hoverId = null;
     this.dimEdit = null;
     this.editKey = null;
+    this.picks = [];
+    this.pickedConstraint = null;
+    this.preview = null;
+    this.drag = null;
     this.tool = "select";
     this.cursor = null;
     this.snapInfo = null;
@@ -87,8 +98,19 @@ export class SketchSession {
   /** Returns a short message when the click was ignored (so the UI can explain), else null. */
   click(raw, mods = {}) {
     if (this.tool === "select") {
-      const hit = hitEntity(raw, this.entities(), this.s.sketch.selectTolPx / this.scale);
-      this.selectedId = hit?.id ?? null;
+      const tol = this.s.sketch.selectTolPx / this.scale;
+      const el = elementAt(raw, this.entities(), tol) ?? (() => {
+        const inside = hitEntity(raw, this.entities(), tol);
+        return inside ? { kind: "entity", ref: inside.id, shape: inside.id } : null;
+      })();
+      this.pickedConstraint = null;
+      if (!el) this.picks = [];
+      else if (mods.shift && this.picks.length && this.picks[0].kind !== "entity" && el.kind !== "entity") {
+        const at = this.picks.findIndex((k) => k.ref === el.ref);
+        if (at >= 0) this.picks.splice(at, 1);
+        else this.picks.push(el);
+      } else this.picks = [el];
+      this.selectedId = this.picks[0]?.shape ?? null;
       return null;
     }
     if (this.tool === "dimension") return this.#clickDimension(raw);
@@ -124,6 +146,98 @@ export class SketchSession {
     return r;
   }
 
+  // ------------------------------------------------------------ constraints, picks and dragging
+  /** The shapes to draw: while dragging, as the solver has them now. */
+  viewEntities() {
+    return this.preview ?? this.entities();
+  }
+
+  /** Constraint buttons that fit the current picks. */
+  offers() {
+    return this.tool === "select" ? offersFor(this.picks.filter((k) => k.kind !== "entity")) : [];
+  }
+
+  applyOffer(i) {
+    const offer = this.offers()[i];
+    if (!offer) return "Nothing to apply.";
+    const spec = offer.make(modelOf(this.entities()));
+    const id = this.store.newConstraintId();
+    const cons = [...this.store.constraintsOf(this.key).map((c) => ({ ...c })), { id, ...spec }];
+    const before = this.entities();
+    const res = solveSketch(before, cons);
+    if (res.status !== "ok") return `That conflicts with other constraints (${res.conflicts.join(", ") || "they cannot all hold"}). Nothing changed.`;
+    if (res.redundant.includes(id)) return "That is already true of this sketch, so nothing was added.";
+    const changed = res.entities.filter((x, i2) => JSON.stringify(x) !== JSON.stringify(before[i2]));
+    this.store.edit(this.key, { entities: changed, constraints: cons });
+    this.picks = [];
+    this.selectedId = null;
+    return null;
+  }
+
+  /** Marks for the stored constraints: [{ id, text, pos, dimension, picked }]. */
+  glyphs() {
+    return glyphsFor(this.viewEntities(), this.store.constraintsOf(this.key)).map((g) => ({ ...g, picked: g.id === this.pickedConstraint }));
+  }
+  pickConstraint(id) {
+    this.pickedConstraint = id;
+    this.picks = [];
+    this.selectedId = null;
+  }
+  deleteConstraint(id) {
+    const cons = this.store.constraintsOf(this.key);
+    if (!cons.some((c) => c.id === id)) return false;
+    this.store.edit(this.key, { constraints: cons.filter((c) => c.id !== id) });
+    this.pickedConstraint = null;
+    return true;
+  }
+
+  /** How constrained the sketch is: { status, dof, redundant, conflicts } (cached until the sketch changes). */
+  solveInfo() {
+    const key = `${this.key}|${this.store.version}`;
+    if (this.solveCache?.key !== key) {
+      const ents = this.entities();
+      const cons = this.store.constraintsOf(this.key);
+      const r = solveSketch(ents, cons);
+      this.solveCache = { key, info: { status: r.status, dof: r.dof, redundant: r.redundant, conflicts: r.conflicts, count: cons.length, shapes: ents.length } };
+    }
+    return this.solveCache.info;
+  }
+
+  /** Start dragging a corner, line or circle (el from elementAt). The solver keeps every constraint true while it follows the mouse. */
+  dragStart(el, raw) {
+    this.drag = { el, start: raw, base: JSON.parse(JSON.stringify(this.entities())) };
+    this.preview = null;
+  }
+  dragMove(raw) {
+    if (!this.drag) return;
+    const { el, start, base } = this.drag;
+    const model = modelOf(base);
+    let prefs = [];
+    if (el.kind === "point") prefs = [{ p: el.ref, at: raw, w: 0.1 }];
+    else if (el.kind === "seg") {
+      const dx = raw[0] - start[0];
+      const dy = raw[1] - start[1];
+      prefs = model.segments[el.ref].map((pid) => ({ p: pid, at: [model.points[pid][0] + dx, model.points[pid][1] + dy], w: 0.1 }));
+    } else if (el.kind === "circle") {
+      const c = base.find((e) => e.id === el.shape);
+      prefs = [{ r: el.ref, value: Math.max(0.01, dist(raw, [c.cx, c.cy])), w: 0.1 }];
+    }
+    const res = solveSketch(base, this.store.constraintsOf(this.key), prefs);
+    if (res.status === "ok") this.preview = res.entities;
+  }
+  /** Finish the drag: one undoable change. Returns true if something moved. */
+  dragEnd() {
+    const prev = this.preview;
+    const base = this.drag?.base;
+    this.drag = null;
+    this.preview = null;
+    if (!prev || !base) return false;
+    const changed = prev.filter((x, i) => JSON.stringify(x) !== JSON.stringify(base[i]));
+    if (!changed.length) return false;
+    this.store.edit(this.key, { entities: changed });
+    return true;
+  }
+
   // ------------------------------------------------------------ dimension tool
   /** The shape whose dimensions are showing: the chosen one, else the one under the cursor. */
   dimTarget() {
@@ -138,7 +252,9 @@ export class SketchSession {
     if (!e) return [];
     return dimensionsOf(e, off).map((d) => {
       const text = this.dimEdit?.typed[d.key];
-      return { ...d, typed: text !== undefined, text: text ?? String(Math.round(d.value * 100) / 100), active: this.dimEdit?.active === d.key };
+      const spec = dimensionConstraint(e, d.key, d.value);
+      const locked = this.store.constraintsOf(this.key).some((c) => sameDimension(c, spec)); // a stored dimension: it stays when the sketch changes
+      return { ...d, locked, typed: text !== undefined, text: text ?? String(Math.round(d.value * 100) / 100), active: this.dimEdit?.active === d.key };
     });
   }
 
@@ -163,33 +279,57 @@ export class SketchSession {
     return first;
   }
 
-  /** Apply every typed dimension to the shape as one undoable change. Returns a message if refused, else true. */
+  /**
+   * Apply every typed dimension as one undoable change: each becomes a stored dimension constraint (or updates the one that is there), then the sketch is solved
+   * keeping the shape's first corner / centre roughly in place. A conflict changes nothing and says which constraints are involved. Returns a message if refused, else true.
+   */
   #commitDimensions() {
     const e = this.dimTarget();
     if (!e || !this.dimEdit) return false;
-    let cur = e;
-    const dimsNow = dimensionsOf(e, 1).map((d) => d.key);
-    for (const key of dimsNow) {
-      const text = this.dimEdit.typed[key];
+    const cons = this.store.constraintsOf(this.key).map((c) => ({ ...c }));
+    let anchors = [];
+    for (const d of dimensionsOf(e, 1)) {
+      const text = this.dimEdit.typed[d.key];
       if (text === undefined || !text.trim()) continue;
       const v = evalExpr(text);
-      const next = applyDimension(cur, key, v);
-      if (!next) return "Check the typed numbers (they must be positive and valid).";
-      cur = next;
+      if (!(Number.isFinite(v) && v > 1e-9)) return "Check the typed numbers (they must be positive and valid).";
+      const spec = dimensionConstraint(e, d.key, v);
+      if (!spec) return "That dimension cannot be set.";
+      const at = cons.findIndex((c) => sameDimension(c, spec));
+      if (at >= 0) cons[at] = { ...cons[at], ...spec };
+      else cons.push({ id: this.store.newConstraintId(), ...spec });
+      anchors = anchors.concat(anchorsOf(e, d.key));
     }
+    const before = this.entities();
+    const res = solveSketch(before, cons, anchors);
+    if (res.status !== "ok") return `That conflicts with other constraints (${res.conflicts.join(", ") || "they cannot all hold"}). Nothing changed.`;
+    const changed = res.entities.filter((x, i) => JSON.stringify(x) !== JSON.stringify(before[i]));
     this.dimEdit = null;
-    if (cur !== e) this.store.update(this.key, cur);
+    this.store.edit(this.key, { entities: changed, constraints: cons });
     return true;
   }
 
-  #add(entity) {
-    const e = this.store.add(this.key, entity);
+  #add(entity, constraintsFor = null) {
+    const e = this.store.add(this.key, entity, constraintsFor);
     this.draft = null;
     this.entry = null;
     return e;
   }
   #addPoly(closed) {
-    this.#add({ type: "poly", points: this.draft.pts.map((p) => p.slice()), closed });
+    const pts = this.draft.pts.map((p) => p.slice());
+    // a segment drawn exactly horizontal or vertical is remembered as such (so it stays that way when the sketch is edited)
+    const auto = (e) => {
+      const out = [];
+      const n = pts.length;
+      for (let i = 0; i < (closed ? n : n - 1); i++) {
+        const a = pts[i];
+        const b = pts[(i + 1) % n];
+        if (Math.abs(a[1] - b[1]) < 1e-9) out.push({ type: "horizontal", seg: `${e.id}.s${i}` });
+        else if (Math.abs(a[0] - b[0]) < 1e-9) out.push({ type: "vertical", seg: `${e.id}.s${i}` });
+      }
+      return out;
+    };
+    this.#add({ type: "poly", points: pts, closed }, auto);
   }
 
   // ------------------------------------------------------------ typed sizes
@@ -297,7 +437,9 @@ export class SketchSession {
       this.tool = "select";
       return true;
     }
-    if (this.selectedId) {
+    if (this.pickedConstraint || this.picks.length || this.selectedId) {
+      this.pickedConstraint = null;
+      this.picks = [];
       this.selectedId = null;
       return true;
     }
@@ -305,6 +447,7 @@ export class SketchSession {
   }
 
   deleteSelected() {
+    if (this.pickedConstraint) return this.deleteConstraint(this.pickedConstraint);
     if (!this.selectedId) return false;
     const ok = this.store.remove(this.key, this.selectedId);
     this.selectedId = null;

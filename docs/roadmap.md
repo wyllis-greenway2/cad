@@ -9,7 +9,7 @@ Update it at the end of each session.
   presets). Look values are tuned and applied (`in_031`); reflections and the tuning panel were dropped (`in_033`).
 - Stage 3 first cut is built (`in_034`): dimension tool and extrude with a history list, on the three base planes. Next: sketch on body
   faces, the drawer, and whatever the human's trial turns up.
-- **No open questions left.** Decided (`in_044` to `in_050`): kernel hybrid and unpluggable (`dec_kernel_hybrid`, built as `src/kernel/`), small solver of our own (`dec_constraint_solver_small`, not built),
+- **No open questions left.** Decided (`in_044` to `in_050`): kernel hybrid and unpluggable (`dec_kernel_hybrid`, built as `src/kernel/`), small solver of our own (`dec_constraint_solver_small`, built for the first constraint types),
   named references (`dec_stable_references`, not built), additive history with modifications as steps and sketches owned by their step (`prin_history_additive`, `dec_modifications_are_steps`,
   `dec_sketch_belongs_to_step`, not built), grid as an interface feature only (`dec_grid_ui_only`, already how the app works).
 

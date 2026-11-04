@@ -116,8 +116,8 @@ later steps build on it. Esc finishes. See `dec_sketch_belongs_to_step`.
 ## Dimension tool (D)
 Point at a shape (its dimensions appear), click it to keep them showing. Type a number (math works, `50/2`), Tab to the next
 dimension, Enter to apply; or click a number to edit that one. Esc cancels, then deselects, then leaves the tool. One undo step per Enter.
-No stored constraints yet (a small solver of our own is decided, `dec_constraint_solver_small`, not built): it resizes the shape directly, keeping a rectangle's first corner, a circle's
-centre and the start of a polyline segment fixed. Look values: `settings.sketch.dim*`.
+Each typed dimension is a stored **constraint** (a locked dimension shows with a double border); the solver moves the sketch the least it can, keeping a rectangle's first corner, a circle's
+centre and the start of a polyline segment roughly in place. A conflicting dimension is refused and names the constraints involved. Look values: `settings.sketch.dim*`.
 
 ## Extrude (E)
 Press **E**, click inside a closed shape. The view tilts to 3D and a yellow arrow shows the pull. Drag anywhere (hold Shift for fine steps) or just
@@ -126,6 +126,14 @@ The exact solid comes from OCCT (`src/worker.js`, `src/interpreter.mjs`, copied 
 translucent green (add) or red (cut) prism shows. **History (n)** (top left) lists the extrusions: click one to change its distance, Delete removes it.
 Ctrl+Z / Ctrl+Y undo and redo them with sketch edits. Limits: only the three base planes can be sketched on (not body faces yet), and an extrusion
 keeps a copy of its shape (editing the sketch later does not change it). Look values: `settings.extrude`, `themes.world.body*`.
+
+## Constraints and sketch editing (`in_051`)
+In the sketch view's select tool: click a **corner, line or circle** to pick it (Shift adds a second pick); the buttons that fit appear at the bottom: one line: **Horizontal / Vertical**; two lines: **Equal length /
+Parallel / Perpendicular**; one corner: **Fix in place**; two corners: **Coincident / Same height / Same position across**; two circles: **Equal radius**. Dimensions (D) add distance and radius constraints. Marks (H, V, =, ∥, ⊥, ●, fix, and
+dimension values) show on the sketch; click one and press Delete to remove that constraint. **Drag** a corner, line or circle: the solver keeps every constraint true while it follows the mouse (one undo step on release).
+A polyline segment drawn exactly horizontal or vertical is remembered as such. The status line shows `[fully constrained]`, `[n free]` or `[constraints conflict]`. A constraint that is already true is refused
+("already true"); a conflicting one is refused and changes nothing. Constraints go with a sketch into its extrusion (`dec_sketch_belongs_to_step`); ones that linked it to other shapes are released (undo restores them).
+The solver (`src/solver/solver.mjs`) is pure and replaceable (`dec_constraint_solver_small`). Not yet: angle, tangent, point on line, midpoint, symmetric, arcs.
 
 ## How it works (short)
 - `src/viewmath.mjs`: pure math (turntable camera, standard views, ray-plane picking). Unit tested.

@@ -23,6 +23,11 @@
     #history ol button { display:block; width:100%; text-align:left; background:none; border:0; color:#e4e6e8; padding:5px 9px; border-radius:6px; font:13px ui-monospace,Menlo,monospace; cursor:pointer; white-space:pre; }
     #history ol li { display:flex; gap:4px; align-items:center; } #history ol li button.sk { width:auto; flex:none; font:11px system-ui,sans-serif; opacity:.75; padding:3px 8px; border:1px solid #4a4f56; }
     #history ol button:hover { background:#3a3e44; } #history ol button.err { color:#eb524d; }
+    #cbar { position:fixed; left:50%; bottom:58px; transform:translateX(-50%); display:none; gap:6px; padding:5px; background:rgba(34,36,39,.92); border:1px solid #484d54; border-radius:9px; z-index:7; }
+    #cbar button { background:#3a3e44; color:#e4e6e8; border:1px solid #5a5f66; border-radius:6px; padding:4px 10px; font:13px system-ui,sans-serif; cursor:pointer; } #cbar button:hover { background:#4a4f56; }
+    #cglyphs .glyph { position:fixed; transform:translate(-50%,-50%); background:rgba(26,28,31,.88); color:#e8eaec; border:1px solid #4a4f56; border-radius:6px; padding:0 6px; min-width:18px; text-align:center; font:12px/1.4 ui-monospace,Menlo,monospace; cursor:pointer; z-index:4; }
+    #cglyphs .glyph.dim { border-color:#9aa0a8; } #cglyphs .glyph.picked { border-color:#7fa8ff; box-shadow:0 0 0 1px #7fa8ff; }
+    #dims .chip.locked { border-color:#9aa0a8; border-style:double; }
     #menu { position:fixed; display:none; min-width:210px; padding:5px; background:rgba(34,36,39,.97); border:1px solid #484d54; border-radius:9px; box-shadow:0 8px 24px rgba(0,0,0,.45); z-index:20; }
     #menu button { display:flex; justify-content:space-between; gap:24px; width:100%; background:none; border:0; color:#e4e6e8; padding:6px 10px; border-radius:6px; font:13px system-ui,sans-serif; cursor:pointer; text-align:left; }
     #menu button:hover:not(:disabled) { background:#3a3e44; } #menu button:disabled { opacity:.4; cursor:default; } #menu button.on span { font-weight:700; }
@@ -36,6 +41,8 @@
   <div id="status"><span id="statusText"></span><span id="scaleText"></span><button id="exitBtn" title="Esc">3D view</button><button id="originBtn" title="O">Origin is far away: return (O)</button></div>
   <div id="readout"></div>
   <div id="dims"></div>
+  <div id="cglyphs"></div>
+  <div id="cbar"></div>
   <div id="history"><button id="histBtn">History</button><ol id="histList"></ol></div>
   <div id="menu"></div>
   <span class="axl" id="lx">X</span><span class="axl" id="ly">Y</span><span class="axl" id="lz">Z</span>

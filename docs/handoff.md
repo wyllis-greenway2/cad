@@ -450,3 +450,12 @@ Decisions this session of questions: kernel (option 3, `dec_kernel_hybrid`, buil
 a step's own shape (updates patch the step; add and remove are refused); the session has `editKey`; History extrusions have a "sketch" button (`editFeatureSketch`) with a later-steps warning; draw tools and re-extruding are refused in a step's sketch.
 3 new tests (46 total); browser run: loose sketch consumed (1 to 0), undo and redo, resized the step's sketch 25 to 80 mm and the body volume followed (10096 = 80 x 12.62 x 10), no console errors.
 **Next (as the human asked):** constraints (the small solver, `dec_constraint_solver_small`), then polish sketching.
+
+## Handoff 038 — 2026-11-04
+**State:** `in_051` continued: **constraints built.** `src/solver/solver.mjs` (pure small solver: Levenberg-Marquardt, numeric Jacobian, rank/DOF, redundant and conflict detection, soft preferences for dragging), `src/sketchsolve.mjs` (shapes to
+solver and back; rectangle carries built-in horizontal/vertical), `src/sketchpick.mjs` (pick corner/line/circle, which constraints fit, marks). Store: constraints per sketch (loose and per step), one-undo-step `edit()`, constraints move with a consumed
+sketch. Session: picks, `offers`/`applyOffer`, glyph marks, `deleteConstraint`, drag with the solver (`dragStart/Move/End`), dimension edits are stored constraints (solved, conflicts refused). Polish: hover highlight and pointer cursor on
+corners/lines/circles, auto horizontal/vertical for drawn polyline segments, DOF status, locked dimension look; the old direct-edit `applyDimension` was removed. 69 tests (solver 8, mapping 7, picking 3, ownership 3, more); browser runs: ownership (consume, undo, edit a
+step's sketch), constraints (two lines Equal length, drag a corner keeps a square, circle dimension, undo), and the earlier face/body modify flow: all pass, no console errors.
+**Limits / next polish:** no angle, tangent, point-on-line, midpoint, symmetric or arcs; rectangles cannot be rotated; polyline dimension edits no longer shift later points rigidly (the solver moves the end point only); constraint marks can overlap on small
+shapes; no keyboard shortcuts for constraints (buttons only). Candidates: arc tool, trim, offset, mirror, angle dimension, a constraint mode for typing values on marks.

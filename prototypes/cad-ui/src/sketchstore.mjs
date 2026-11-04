@@ -1,3 +1,4 @@
+import { refsOf, shapeOfRef } from "./sketchsolve.mjs";
 // The sketch model: entities per plane, with undo and redo as a command history. Pure (no DOM, no three.js).
 // A command is { type: "add" | "remove" | "update", plane, entity (for update: the new one, with `before` = the old one) }. The history list in the UI (later) reads `past`.
 export class SketchStore {
@@ -8,6 +9,8 @@ export class SketchStore {
     this.features = []; // extrusions: { id, plane, shape (a copy of the shape's data), distance }; they build the body in order
     this.nextId = 1;
     this.nextFeature = 1;
+    this.cons = {}; // constraints of the loose sketches: plane -> [{ id, type, ...refs }]
+    this.nextCons = 1;
     this.version = 0; // bumped on every change so views know to redraw
   }
 
@@ -20,6 +23,37 @@ export class SketchStore {
     return (this.sketches[key] ??= []); // face planes appear as they are first used
   }
   isFeatureKey = (key) => typeof key === "string" && key.startsWith("feat:");
+  /** The constraints of a sketch (a plane's loose sketch, or a step's own). The array is live: change it only through edit(). */
+  constraintsOf(key) {
+    if (this.isFeatureKey(key)) {
+      const f = this.features.find((x) => x.id === key.slice(5));
+      return f ? (f.constraints ??= []) : [];
+    }
+    return (this.cons[key] ??= []);
+  }
+  newConstraintId() {
+    return `c_${String(this.nextCons++).padStart(3, "0")}`;
+  }
+  #setConstraints(key, list) {
+    if (this.isFeatureKey(key)) {
+      const f = this.features.find((x) => x.id === key.slice(5));
+      if (f) f.constraints = JSON.parse(JSON.stringify(list));
+    } else this.cons[key] = JSON.parse(JSON.stringify(list));
+  }
+  /**
+   * One undoable change to a sketch: replace some shapes (same ids) and/or its whole constraint list. Used by dimension edits, constraints and dragging.
+   * `entities`: the changed shapes (full objects); `constraints`: the new list (omit to leave it).
+   */
+  edit(key, { entities = [], constraints = null }) {
+    const list = this.entities(key);
+    const before = entities.map((e) => list.find((x) => x.id === e.id)).filter(Boolean).map((e) => JSON.parse(JSON.stringify(e)));
+    const after = before.map((b) => JSON.parse(JSON.stringify(entities.find((e) => e.id === b.id))));
+    const cmd = { type: "sketch-edit", plane: key, before, after, consBefore: JSON.parse(JSON.stringify(this.constraintsOf(key))), consAfter: constraints ? JSON.parse(JSON.stringify(constraints)) : null };
+    this.#apply(cmd, true);
+    this.past.push(cmd);
+    this.future = [];
+    return true;
+  }
 
   /** A step that consumed a loose sketch shape: take it off its plane (consume) or put it back (restore). */
   #swapConsumed(feature, consume) {
@@ -27,9 +61,15 @@ export class SketchStore {
     if (!c) return;
     const list = this.entities(c.plane);
     const i = list.findIndex((e) => e.id === c.entity.id);
+    const loose = this.cons[c.plane] ?? [];
+    const mine = new Set([...(c.moved ?? []), ...(c.released ?? [])].map((k) => k.id));
     if (consume) {
       if (i >= 0) list.splice(i, 1);
-    } else if (i < 0) list.splice(Math.min(c.index, list.length), 0, c.entity);
+      this.cons[c.plane] = loose.filter((k) => !mine.has(k.id)); // its constraints go with it (or, if they linked it to other shapes, are released)
+    } else {
+      if (i < 0) list.splice(Math.min(c.index, list.length), 0, c.entity);
+      this.cons[c.plane] = [...loose, ...(c.moved ?? []), ...(c.released ?? [])].map((k) => JSON.parse(JSON.stringify(k)));
+    }
   }
 
   #apply(cmd, forward) {
@@ -45,6 +85,25 @@ export class SketchStore {
         this.features.splice(at, 1);
         this.#swapConsumed(cmd.feature, false); // without the step the sketch is loose again
       }
+      this.version++;
+      return;
+    }
+    if (cmd.type === "sketch-edit") {
+      const ents = forward ? cmd.after : cmd.before;
+      if (this.isFeatureKey(cmd.plane)) {
+        const f = this.features.find((x) => x.id === cmd.plane.slice(5));
+        if (f && ents[0]) {
+          const { id, ...shape } = ents[0];
+          f.shape = JSON.parse(JSON.stringify(shape));
+        }
+      } else {
+        const list = this.entities(cmd.plane);
+        for (const e of ents) {
+          const i = list.findIndex((x) => x.id === e.id);
+          if (i >= 0) list[i] = JSON.parse(JSON.stringify(e));
+        }
+      }
+      if (cmd.consAfter) this.#setConstraints(cmd.plane, forward ? cmd.consAfter : cmd.consBefore);
       this.version++;
       return;
     }
@@ -72,13 +131,20 @@ export class SketchStore {
       const i = list.findIndex((e) => e.id === cmd.entity.id);
       if (i >= 0) list.splice(i, 1);
     }
+    if (cmd.type === "add" && cmd.consAdd?.length) {
+      const ids = new Set(cmd.consAdd.map((c) => c.id));
+      const cur = (this.cons[cmd.plane] ??= []).filter((c) => !ids.has(c.id));
+      this.cons[cmd.plane] = forward ? [...cur, ...cmd.consAdd.map((c) => ({ ...c }))] : cur;
+    }
     this.version++;
   }
 
-  add(plane, entity) {
+  /** Add a shape. `constraintsFor(shape)` may return constraints (without ids) to add with it in the same undo step. */
+  add(plane, entity, constraintsFor = null) {
     if (this.isFeatureKey(plane)) return null; // a step's sketch cannot be extended
     const e = { id: `e_${String(this.nextId++).padStart(3, "0")}`, ...entity };
-    const cmd = { type: "add", plane, entity: e };
+    const consAdd = (constraintsFor ? constraintsFor(e) : []).map((c) => ({ id: this.newConstraintId(), ...c }));
+    const cmd = { type: "add", plane, entity: e, consAdd };
     this.#apply(cmd, true);
     this.past.push(cmd);
     this.future = [];
@@ -104,7 +170,11 @@ export class SketchStore {
   /** frame = { origin, xDir, normal } of the plane the shape was drawn on (a copy, so the feature does not move with the face). */
   addFeature(plane, shape, distance, frame = null, consumed = null) {
     // `consumed` = the loose sketch entity (with its id) this step takes over: it leaves the plane and is restored by undo
-    const feature = { id: `f_${String(this.nextFeature++).padStart(3, "0")}`, plane, shape: JSON.parse(JSON.stringify(shape)), distance, ...(frame ? { frame: JSON.parse(JSON.stringify(frame)) } : {}), ...(consumed ? { consumed: { plane, entity: JSON.parse(JSON.stringify(consumed)), index: this.entities(plane).findIndex((e) => e.id === consumed.id) } } : {}) };
+    // the constraints entirely inside the consumed shape move with it; ones that linked it to other shapes are released (kept so undo can put them back)
+    const loose = consumed ? this.constraintsOf(plane) : [];
+    const moved = loose.filter((k) => refsOf(k).length && refsOf(k).every((r) => shapeOfRef(r) === consumed.id));
+    const released = loose.filter((k) => !moved.includes(k) && refsOf(k).some((r) => shapeOfRef(r) === consumed.id));
+    const feature = { id: `f_${String(this.nextFeature++).padStart(3, "0")}`, plane, shape: JSON.parse(JSON.stringify(shape)), distance, ...(frame ? { frame: JSON.parse(JSON.stringify(frame)) } : {}), ...(consumed ? { constraints: JSON.parse(JSON.stringify(moved)), consumed: { plane, entity: JSON.parse(JSON.stringify(consumed)), index: this.entities(plane).findIndex((e) => e.id === consumed.id), moved: JSON.parse(JSON.stringify(moved)), released: JSON.parse(JSON.stringify(released)) } } : {}) };
     this.#pushFeatureCmd({ type: "feature-add", feature, index: this.features.length });
     return feature;
   }

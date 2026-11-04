@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { settings } from "../src/settings.js";
 import { SketchStore } from "../src/sketchstore.mjs";
 import { SketchSession } from "../src/interaction.mjs";
-import { dimensionsOf, applyDimension } from "../src/dimensions.mjs";
+import { dimensionsOf } from "../src/dimensions.mjs";
 
 const make = () => {
   const store = new SketchStore();
@@ -20,17 +20,6 @@ test("dimensions of a rectangle, circle and polyline", () => {
   assert.deepEqual(dimensionsOf({ type: "circle", cx: 1, cy: 2, r: 5 }, 5).map((d) => [d.key, d.value]), [["d", 10]]);
   const p = dimensionsOf({ type: "poly", points: [[0, 0], [3, 4], [3, 10]], closed: false }, 1);
   assert.deepEqual(p.map((d) => [d.key, d.value]), [["s0", 5], ["s1", 6]]);
-});
-
-test("applyDimension keeps anchors: rect first corner (even when drawn backwards), circle centre, open polyline rigid", () => {
-  assert.deepEqual(applyDimension({ type: "rect", x0: 10, y0: 10, x1: -15, y1: 22.5 }, "w", 20), { type: "rect", x0: 10, y0: 10, x1: -10, y1: 22.5 });
-  assert.deepEqual(applyDimension({ type: "circle", cx: 1, cy: 2, r: 5 }, "d", 8), { type: "circle", cx: 1, cy: 2, r: 4 });
-  const e = applyDimension({ type: "poly", points: [[0, 0], [3, 4], [3, 10]], closed: false }, "s0", 10);
-  assert.deepEqual(e.points, [[0, 0], [6, 8], [6, 14]]);
-  const c = applyDimension({ type: "poly", points: [[0, 0], [10, 0], [10, 10]], closed: true }, "s0", 20);
-  assert.deepEqual(c.points, [[0, 0], [20, 0], [10, 10]]);
-  assert.equal(applyDimension({ type: "rect", x0: 0, y0: 0, x1: 4, y1: 4 }, "w", -3), null);
-  assert.equal(applyDimension({ type: "rect", x0: 0, y0: 0, x1: 4, y1: 4 }, "w", NaN), null);
 });
 
 test("dimension tool: click a shape, type W, Tab, H (math ok), Enter = one undoable change", () => {

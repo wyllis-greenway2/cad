@@ -1,8 +1,6 @@
 // Dimensions of sketch shapes: what to show, and how typing a new number reshapes the shape. Pure (no DOM, no three.js).
-// There is no constraint solver yet (a small one of our own is decided, dec_constraint_solver_small, not built): a dimension here is a direct edit, not a stored constraint.
-// Anchors that stay put: a rectangle keeps its first corner (it grows toward where it already pointed), a circle keeps its
-// centre, a polyline segment keeps its start point (an open polyline moves everything after it along, a closed one moves
-// only the end vertex of that segment).
+// What to show for a shape's dimensions (the numbers and where their lines go). Typing a new number does not edit the shape directly: it becomes a stored
+// constraint (sketchsolve.dimensionConstraint) and the solver moves the sketch the least it can (dec_constraint_solver_small).
 const r6 = (v) => Math.round(v * 1e6) / 1e6;
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
@@ -37,36 +35,4 @@ export function dimensionsOf(e, off) {
     }
   }
   return out;
-}
-
-/** The entity after setting one dimension to `value` (mm), or null if that is not possible. */
-export function applyDimension(e, key, value) {
-  if (!Number.isFinite(value) || !(value > 1e-9)) return null;
-  if (e.type === "rect") {
-    const sx = e.x1 >= e.x0 ? 1 : -1;
-    const sy = e.y1 >= e.y0 ? 1 : -1;
-    if (key === "w") return { ...e, x1: r6(e.x0 + sx * value) };
-    if (key === "h") return { ...e, y1: r6(e.y0 + sy * value) };
-  } else if (e.type === "circle") {
-    if (key === "d") return { ...e, r: r6(value / 2) };
-  } else if (e.type === "poly" && /^s\d+$/.test(key)) {
-    const i = Number(key.slice(1));
-    const n = e.points.length;
-    const j = (i + 1) % n;
-    if (i >= n || (!e.closed && i >= n - 1)) return null;
-    const p = e.points[i];
-    const q = e.points[j];
-    const len = dist(p, q);
-    if (len < 1e-9) return null;
-    const nq = [r6(p[0] + ((q[0] - p[0]) / len) * value), r6(p[1] + ((q[1] - p[1]) / len) * value)];
-    const dx = nq[0] - q[0];
-    const dy = nq[1] - q[1];
-    const points = e.points.map((pt, k) => {
-      if (k === j) return nq;
-      if (!e.closed && k > j) return [r6(pt[0] + dx), r6(pt[1] + dy)]; // an open chain moves along rigidly
-      return pt.slice();
-    });
-    return { ...e, points };
-  }
-  return null;
 }

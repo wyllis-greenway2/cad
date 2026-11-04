@@ -10,6 +10,8 @@ import { SketchStore } from "./sketchstore.mjs";
 import { SketchSession } from "./interaction.mjs";
 import { navAction, keyAction } from "./keymap.mjs";
 import { circlePolygon, regionsOf, hitRegion, paramOnAxisFromRay } from "./sketch.mjs";
+import { elementAt } from "./sketchpick.mjs";
+import { modelOf } from "./sketchsolve.mjs";
 import { ExtrudeSession } from "./extrude.mjs";
 import { TransformSession, AXIS_NAMES, UNITS } from "./transform.mjs";
 import { buildGraph } from "./features.mjs";
@@ -342,6 +344,7 @@ function requestRender() {
     updateAxisArrows();
     updateOriginPill();
     updateDims();
+    updateConstraintUI();
     syncBody();
     updateExtrudeViz();
     updateXformViz();
@@ -508,15 +511,40 @@ function buildSketchViz() {
     const blue = hotOf(plane) ? SK.lineBlue : 0; // a hovered or selected plane leans blue
     const inkC = toHex(mix3(th.sketchInk, th.blueInk, blue));
     const haloC = toHex(mix3(th.sketchHalo, th.blueHalo, blue));
-    for (const e of store.entities(key)) {
+    for (const e of key === session.key && session.preview ? session.preview : store.entities(key)) {
       const o = outline(e);
       const pts = o.pts.map((p) => toWorld(plane, p));
-      const skSel = plane === session.plane && e.id === session.selectedId; // selected in the sketch view
+      const skSel = plane === session.plane && key === session.key && (session.picks.some((k) => k.kind === "entity" && k.shape === e.id) || (session.tool === "dimension" && e.id === session.selectedId)); // the whole shape is selected in the sketch view
       const hov = (plane === session.plane && session.tool === "extrude" && e.id === session.hoverId) || (hoveredSketch?.plane === plane && hoveredSketch.id === e.id);
       const picked = skSel || (sel?.kind === "sketch" && sel.plane === plane && sel.id === e.id); // stays blue until deselected, in the sketch view and in 3D
       if (o.closed && !isExtruded(plane, e)) sketchGroup.add(fillShape(plane, o.pts, toHex(mix3(cream, th.blueSurface, picked ? SK.regionSelectBlue : hov ? SK.regionHoverBlue : 0)), SK.regionFill));
       if (SK.haloWidthPx > 0) sketchGroup.add(stroke(pts, { color: haloC, width: SK.haloWidthPx * (skSel ? 1.5 : 1), closed: o.closed, order: 4 }));
       sketchGroup.add(stroke(pts, { color: inkC, width: SK.lineWidthPx * (skSel ? 1.7 : 1), closed: o.closed, order: 5 }));
+    }
+  }
+  if (inSketchView() && session.tool === "select" && hoverEl && !session.picks.some((k) => k.ref === hoverEl.ref)) {
+    const model = modelOf(session.viewEntities());
+    const lightC = toHex(th.blueSurface);
+    const kk = 1 / pxPerMm();
+    if (hoverEl.kind === "point" && model.points[hoverEl.ref]) sketchGroup.add(disc(session.plane, model.points[hoverEl.ref], S.sketch.markerPx * 1.4 * kk, lightC, 9));
+    else if (hoverEl.kind === "seg" && model.segments[hoverEl.ref]) sketchGroup.add(stroke(model.segments[hoverEl.ref].map((id) => toWorld(session.plane, model.points[id])), { color: lightC, width: 3, order: 8, alpha: 0.7 }));
+    else if (hoverEl.kind === "circle") {
+      const c = session.viewEntities().find((e) => e.id === hoverEl.shape);
+      if (c) sketchGroup.add(stroke(circlePolygon(c.cx, c.cy, c.r, 96).map((q) => toWorld(session.plane, q)), { color: lightC, width: 3, closed: true, order: 8, alpha: 0.7 }));
+    }
+  }
+  if (inSketchView() && session.tool === "select" && session.picks.length) {
+    // the picked corners, lines and circles, in blue
+    const model = modelOf(session.viewEntities());
+    const blueC = toHex(th.blueSurface);
+    const kk = 1 / pxPerMm();
+    for (const pk of session.picks) {
+      if (pk.kind === "point" && model.points[pk.ref]) sketchGroup.add(disc(session.plane, model.points[pk.ref], S.sketch.markerPx * 1.7 * kk, blueC, 9));
+      else if (pk.kind === "seg" && model.segments[pk.ref]) sketchGroup.add(stroke(model.segments[pk.ref].map((id) => toWorld(session.plane, model.points[id])), { color: blueC, width: 4, order: 8 }));
+      else if (pk.kind === "circle") {
+        const c = session.viewEntities().find((e) => e.id === pk.shape);
+        if (c) sketchGroup.add(stroke(circlePolygon(c.cx, c.cy, c.r, 96).map((q) => toWorld(session.plane, q)), { color: blueC, width: 4, closed: true, order: 8 }));
+      }
     }
   }
   if (!inSketchView() || session.tool === "select") return;
@@ -940,6 +968,7 @@ body.onResult(() => {
 });
 
 // ---------------------------------------------------------------- status text (the only text on screen besides the typing field)
+let hoverEl = null; // the corner, line or circle under the cursor in the sketch select tool
 let flash = null; // a short message that replaces the status for a moment (e.g. why a click was ignored)
 function flashMessage(text) {
   flash = text;
@@ -963,6 +992,10 @@ function updateStatus() {
   else if (!selected && sel) text = `Selected: ${targetName(sel)}   ${selectionHint(sel)}   Esc deselect`;
   else if (session.editKey && inSketchView()) text = `Editing the sketch of step ${store.features.findIndex((f) => `feat:${f.id}` === session.editKey) + 1}   ${session.prompt()}   Esc to finish`;
   else if (selected) text = inSketchView() ? `Sketching on ${selected}   ${session.prompt()}` : `Going to ${selected}...`;
+  if (inSketchView() && !flash && !extrude && !xform) {
+    const info = session.solveInfo();
+    if (info.count) text += info.status === "conflict" ? "   [constraints conflict]" : info.dof === 0 ? "   [fully constrained]" : `   [${info.dof} free]`;
+  }
   if (!body.ready() && (store.features.length || extrude)) text += "   (loading the geometry kernel...)";
   else if (body.info.error) text += `   [kernel: ${body.info.error}]`;
   $("statusText").textContent = text;
@@ -1266,6 +1299,51 @@ const ACTIONS = {
   dimension: () => setTool("dimension"),
 };
 
+// ---------------------------------------------------------------- constraint buttons and marks (sketch view)
+const cbarEl = $("cbar");
+const glyphEl = $("cglyphs");
+let cbarKey = "";
+function updateConstraintUI() {
+  const on = inSketchView() && !extrude && !xform;
+  // buttons that fit what is picked
+  const offers = on ? session.offers() : [];
+  const key = offers.map((o) => o.label).join("|");
+  if (key !== cbarKey) {
+    cbarKey = key;
+    cbarEl.replaceChildren();
+    offers.forEach((o, i) => {
+      const b = document.createElement("button");
+      b.textContent = o.label;
+      b.onclick = () => {
+        const msg = session.applyOffer(i);
+        if (msg) flashMessage(msg);
+        refreshUI();
+      };
+      cbarEl.appendChild(b);
+    });
+  }
+  cbarEl.style.display = offers.length ? "flex" : "none";
+  // marks for the stored constraints (their numbers are shown by the dimension tool instead)
+  const marks = on ? session.glyphs().filter((g) => !(g.dimension && session.tool === "dimension")) : [];
+  while (glyphEl.children.length > marks.length) glyphEl.lastChild.remove();
+  while (glyphEl.children.length < marks.length) {
+    const d = document.createElement("div");
+    d.className = "glyph";
+    d.onclick = () => (session.pickConstraint(d.dataset.id), refreshUI());
+    glyphEl.appendChild(d);
+  }
+  marks.forEach((g, i) => {
+    const el = glyphEl.children[i];
+    el.dataset.id = g.id;
+    el.className = `glyph${g.picked ? " picked" : ""}${g.dimension ? " dim" : ""}`;
+    el.textContent = g.text;
+    const [x, y, z] = toWorld(session.plane, g.pos).toArray();
+    const [sx, sy] = window.__ui.worldToScreen(x, y, z);
+    el.style.left = `${sx}px`;
+    el.style.top = `${sy - 16}px`;
+  });
+}
+
 // ---------------------------------------------------------------- dimension numbers (shown by the dimension tool)
 const dimsEl = $("dims");
 function updateDims() {
@@ -1274,7 +1352,7 @@ function updateDims() {
   while (dimsEl.children.length < list.length) dimsEl.appendChild(Object.assign(document.createElement("div"), { className: "chip" }));
   list.forEach((d, i) => {
     const el = dimsEl.children[i];
-    el.className = `chip${d.typed ? " typed" : ""}${d.active ? " act" : ""}`;
+    el.className = `chip${d.typed ? " typed" : ""}${d.active ? " act" : ""}${d.locked ? " locked" : ""}`;
     el.replaceChildren();
     const b = document.createElement("b");
     b.textContent = d.label;
@@ -1390,7 +1468,11 @@ canvas.addEventListener("pointerdown", (ev) => {
   const p = localPoint(ev.clientX, ev.clientY);
   if (!p) return;
   session.scale = pxPerMm();
-  if (session.tool === "select") return void (g = { kind: "selectclick", p, shift: ev.shiftKey, ...base }); // a click selects; a drag orbits
+  if (session.tool === "select") {
+    // pressing on a corner, line or circle: dragging it moves it (constraints stay true); a click picks it. Elsewhere a click selects and a drag orbits.
+    const el = ev.shiftKey ? null : elementAt(p, session.entities(), S.sketch.selectTolPx / pxPerMm());
+    return void (g = el ? { kind: "skdrag", el, p, started: false, ...base } : { kind: "selectclick", p, shift: ev.shiftKey, ...base });
+  }
   const had = !!session.draft;
   const msg = session.click(p, { shift: ev.shiftKey });
   if (msg) flashMessage(msg);
@@ -1405,6 +1487,14 @@ canvas.addEventListener("pointerdown", (ev) => {
 canvas.addEventListener("pointermove", (ev) => {
   lastPointer = { x: ev.clientX, y: ev.clientY };
   pointerSeen = true;
+  if (g && g.kind === "skdrag") {
+    if (!g.started && Math.hypot(ev.clientX - g.x0, ev.clientY - g.y0) < V.clickMovePx) return; // still a click
+    if (!g.started) (g.started = true), (g.moved = true), session.dragStart(g.el, g.p);
+    const q = localPoint(ev.clientX, ev.clientY);
+    if (q) (session.scale = pxPerMm()), session.dragMove(q);
+    refreshUI();
+    return;
+  }
   if (g && (g.kind === "xdrag" || g.kind === "extdrag") && !g.moved) {
     if (Math.hypot(ev.clientX - g.x0, ev.clientY - g.y0) < V.clickMovePx) return; // still a click
     g.moved = true;
@@ -1463,7 +1553,12 @@ canvas.addEventListener("pointermove", (ev) => {
       updateReadout();
       markSketch();
     }
-    canvas.style.cursor = session.tool === "select" || session.tool === "dimension" ? "default" : "crosshair";
+    if (p && session.tool === "select" && !g) {
+      // a corner, line or circle under the cursor lights up (you can drag it)
+      const el = elementAt(p, session.entities(), S.sketch.selectTolPx / pxPerMm());
+      if ((el?.ref ?? null) !== (hoverEl?.ref ?? null)) (hoverEl = el), markSketch();
+    } else if (hoverEl && session.tool !== "select") (hoverEl = null), markSketch();
+    canvas.style.cursor = session.tool === "select" && hoverEl ? "pointer" : session.tool === "select" || session.tool === "dimension" ? "default" : "crosshair";
     return;
   }
   if (g) return;
@@ -1491,6 +1586,16 @@ canvas.addEventListener("pointerup", (ev) => {
       updateReadout();
       markSketch();
     }
+    return;
+  }
+  if (was.kind === "skdrag") {
+    if (was.started) {
+      session.dragEnd();
+    } else {
+      session.scale = pxPerMm();
+      session.click(was.p, { shift: false });
+    }
+    refreshUI();
     return;
   }
   if (was.kind === "selectclick" && !was.moved) {

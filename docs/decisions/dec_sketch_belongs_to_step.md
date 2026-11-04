@@ -23,7 +23,7 @@ The human wants sketches to belong to the faces they produce, with no "divorced"
 4. **Warn about overrides.** If later steps modify the faces the sketch made (a later "radius to 5" step), editing the sketch warns that those steps will override the change.
 5. **Possible later command (not decided in detail):** an explicit "fold this modification into the sketch", offered only when the solver says the constraints allow it, as one undoable step the user chose.
 
-Built (`in_051`) for points 1, 2 and 4 on extrusions: extruding takes the sketch off the plane (undo and deleting the step restore it), the History list has a "sketch" button on each extrusion that opens the step's own sketch for resizing with the dimension tool (it cannot be extended there), and it warns how many later steps build on it. Point 3 waits for the solver (resizing is a direct edit for now). Point 5 is not built.
+Built (`in_051`) for points 1, 2 and 4 on extrusions: extruding takes the sketch off the plane (undo and deleting the step restore it), the History list has a "sketch" button on each extrusion that opens the step's own sketch for resizing with the dimension tool (it cannot be extended there), and it warns how many later steps build on it. Point 3 is built too (`in_051`): resizing a step's sketch stores a dimension constraint and solves it with the sketch's constraints; a conflict is refused with the constraints named. Point 5 is not built.
 
 ## Rationale
 
