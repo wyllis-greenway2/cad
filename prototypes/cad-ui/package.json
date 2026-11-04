@@ -9,6 +9,8 @@
     "dev": "vite"
   },
   "dependencies": {
+    "replicad": "^1.2.0",
+    "replicad-opencascadejs": "^1.1.0",
     "three": "^0.187.0",
     "vite": "^8.3.5"
   }

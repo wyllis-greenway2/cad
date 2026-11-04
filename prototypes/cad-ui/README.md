@@ -41,7 +41,7 @@ bringing the view distance into a sensible range. **H** still resets the whole c
 
 **Keys** (all remappable in `settings.input.keys`)
 - **V** select, **L** line (polyline), **R** rectangle, **C** circle, **H** home view, **O** return to origin. **O** return to the origin. Hover a plane in the 3D view and press
-  R, L or C to start sketching on it with that tool. **E** extrude and **D** dimension are reserved (next stages).
+  R, L or C to start sketching on it with that tool. **D** dimension and **E** extrude work in the sketch view (below).
 - **Esc** steps back one level: stop typing, then cancel the shape, then leave the tool, then clear the selection, then
   leave the sketch. **Enter** applies. **Delete** removes the selected shape. **Ctrl/Cmd+Z** undo,
   **Ctrl/Cmd+Shift+Z** or **Ctrl+Y** redo (undo covers drawing and deleting shapes, not camera moves).
@@ -71,6 +71,14 @@ Point at a shape (its dimensions appear), click it to keep them showing. Type a 
 dimension, Enter to apply; or click a number to edit that one. Esc cancels, then deselects, then leaves the tool. One undo step per Enter.
 No stored constraints yet (`q_constraint_solver` is open): it resizes the shape directly, keeping a rectangle's first corner, a circle's
 centre and the start of a polyline segment fixed. Look values: `settings.sketch.dim*`.
+
+## Extrude (E)
+Press **E**, click inside a closed shape. The view tilts to 3D and a yellow arrow shows the pull. Drag anywhere (hold Shift for fine steps) or just
+type a distance (math works). **Positive adds, negative cuts** (when a body exists; otherwise it adds the other way). Enter applies, Esc cancels.
+The exact solid comes from OCCT (`src/worker.js`, `src/interpreter.mjs`, copied from `sketch-extrude`; `src/body.js` shows it); until it arrives a
+translucent green (add) or red (cut) prism shows. **History (n)** (top left) lists the extrusions: click one to change its distance, Delete removes it.
+Ctrl+Z / Ctrl+Y undo and redo them with sketch edits. Limits: only the three base planes can be sketched on (not body faces yet), and an extrusion
+keeps a copy of its shape (editing the sketch later does not change it). Look values: `settings.extrude`, `themes.world.body*`.
 
 ## How it works (short)
 - `src/viewmath.mjs`: pure math (turntable camera, standard views, ray-plane picking). Unit tested.

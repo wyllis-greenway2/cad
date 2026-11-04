@@ -9,7 +9,10 @@ import { settings as S } from "./settings.js";
 import { SketchStore } from "./sketchstore.mjs";
 import { SketchSession } from "./interaction.mjs";
 import { navAction, keyAction } from "./keymap.mjs";
-import { circlePolygon } from "./sketch.mjs";
+import { circlePolygon, regionsOf, paramOnAxisFromRay } from "./sketch.mjs";
+import { ExtrudeSession } from "./extrude.mjs";
+import { buildGraph } from "./features.mjs";
+import { createBody } from "./body.js";
 import { PLANES, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, projectOnto, pickPlane } from "./viewmath.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -273,6 +276,8 @@ function requestRender() {
     updateAxisArrows();
     updateOriginPill();
     updateDims();
+    syncBody();
+    updateExtrudeViz();
     renderer.render(scene, camera);
   });
 }
@@ -360,6 +365,8 @@ const basisMatrix = (plane, at) => {
   return new THREE.Matrix4().makeBasis(new THREE.Vector3(...U), new THREE.Vector3(...W), new THREE.Vector3(...N)).setPosition(at);
 };
 const sketchGroup = new THREE.Group();
+const body = createBody(scene, S, () => T());
+body.request({ params: {}, ops: [] }); // warms the geometry kernel up (it is a large download)
 scene.add(sketchGroup);
 let sketchDirty = true;
 const markSketch = () => ((sketchDirty = true), requestRender());
@@ -420,7 +427,8 @@ function rebuildSketchViz() {
       const o = outline(e);
       const pts = o.pts.map((p) => toWorld(plane, p));
       const sel = plane === session.plane && e.id === session.selectedId;
-      if (o.closed) sketchGroup.add(fillShape(plane, o.pts, ink, SK.regionFill));
+      const hov = plane === session.plane && session.tool === "extrude" && e.id === session.hoverId;
+      if (o.closed) sketchGroup.add(fillShape(plane, o.pts, ink, hov ? SK.regionFill * 3.5 : SK.regionFill));
       sketchGroup.add(stroke(pts, { color: halo, width: SK.haloWidthPx * (sel ? 1.5 : 1), closed: o.closed, order: 4 }));
       sketchGroup.add(stroke(pts, { color: ink, width: SK.lineWidthPx * (sel ? 1.7 : 1), closed: o.closed, order: 5 }));
     }
@@ -468,6 +476,150 @@ function rebuildSketchViz() {
   }
 }
 
+// ---------------------------------------------------------------- extrude (pull a closed shape; positive adds, negative cuts)
+let extrude = null; // { sess: ExtrudeSession, plane, centroid: [u, v], polygon }
+const ghostGroup = new THREE.Group(); // instant preview prism, shown until the exact result arrives
+const handleGroup = new THREE.Group(); // the arrow showing the pull
+scene.add(ghostGroup, handleGroup);
+const normalOf = (plane) => new THREE.Vector3(...BASIS[plane][2]);
+const effective = () => {
+  const v = extrude.sess.value();
+  return Number.isFinite(v) ? v : extrude.sess.distance;
+};
+/** The features as they would be right now, including the one being pulled. */
+function currentFeatures() {
+  const list = store.features.map((f) => (extrude && extrude.sess.featureId === f.id ? { ...f, distance: effective() } : f));
+  if (extrude && !extrude.sess.featureId && !extrude.sess.isEmpty()) list.push({ id: "f_pending", plane: extrude.plane, shape: extrude.sess.shape, distance: effective() });
+  return list;
+}
+let seenVersion = -1;
+function syncBody() {
+  body.request(buildGraph(currentFeatures()));
+  if (store.version !== seenVersion) {
+    seenVersion = store.version;
+    updateHistory();
+  }
+}
+function clearGroup2(g) {
+  for (const c of [...g.children]) {
+    c.geometry?.dispose();
+    c.material?.dispose?.();
+    g.remove(c);
+  }
+}
+function updateExtrudeViz() {
+  clearGroup2(ghostGroup);
+  clearGroup2(handleGroup);
+  if (!extrude) return;
+  const th = T();
+  const v = effective();
+  const E = S.extrude;
+  const n = normalOf(extrude.plane);
+  const c0 = toWorld(extrude.plane, extrude.centroid);
+  const empty = Math.abs(v) < E.minMm;
+  const cut = extrude.sess.mode() === "cut";
+  if (!empty && !body.fresh()) {
+    const shape = new THREE.Shape(extrude.polygon.map(([u, w]) => new THREE.Vector2(u, w)));
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: Math.abs(v), bevelEnabled: false });
+    if (v < 0) geo.translate(0, 0, -Math.abs(v));
+    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: cut ? th.cutColor : th.addColor, transparent: true, opacity: E.ghostOpacity, side: THREE.DoubleSide, depthWrite: false }));
+    mesh.matrixAutoUpdate = false;
+    mesh.matrix.copy(basisMatrix(extrude.plane, new THREE.Vector3()));
+    ghostGroup.add(mesh);
+  }
+  const len = empty ? view.dist * E.handleFactor : Math.abs(v);
+  const head = Math.min(len * 0.5, view.dist * E.handleFactor * 0.45);
+  const arrow = new THREE.ArrowHelper(n.clone().multiplyScalar(empty || v >= 0 ? 1 : -1), c0, len, th.handleColor, head, head * 0.55);
+  for (const m of [arrow.line, arrow.cone]) {
+    m.material.depthTest = false;
+    m.material.transparent = true;
+    m.renderOrder = 20;
+  }
+  handleGroup.add(arrow);
+}
+function startExtrude({ plane, shape, polygon, centroid, featureId = null, distance = 0, hasBody }) {
+  extrude = { sess: new ExtrudeSession(S, { plane, shape, distance, featureId, hasBody }), plane, polygon, centroid };
+  session.setTool("select");
+  const c = toWorld(plane, centroid);
+  animateTo({ a: V.homeAzimuth, e: V.homeElevation, target: c }, S.extrude.tiltMs);
+  refreshUI();
+}
+function startExtrudeFromRegion(region) {
+  const { id, ...shape } = region.entity;
+  startExtrude({ plane: selected, shape, polygon: region.polygon, centroid: region.centroid, hasBody: store.features.length > 0 });
+}
+function editFeature(id) {
+  if (extrude) return;
+  const at = store.features.findIndex((f) => f.id === id);
+  if (at < 0) return;
+  const f = store.features[at];
+  const region = regionsOf([{ ...f.shape, id: f.id }])[0];
+  if (!region) return;
+  if (!selected) prePose = { a: view.a, e: view.e, dist: view.dist, target: view.target.clone() };
+  selected = f.plane;
+  session.setPlane(f.plane);
+  hovered = null;
+  startExtrude({ plane: f.plane, shape: f.shape, polygon: region.polygon, centroid: region.centroid, featureId: f.id, distance: f.distance, hasBody: at > 0 });
+}
+function commitExtrude() {
+  const v = extrude.sess.value();
+  if (!Number.isFinite(v)) return flashMessage("Check the typed number.");
+  if (extrude.sess.isEmpty()) return cancelExtrude();
+  const { sess, plane } = extrude;
+  if (sess.featureId) store.updateFeature(sess.featureId, v);
+  else store.addFeature(plane, sess.shape, v);
+  extrude = null;
+  exitSketch(false);
+}
+function cancelExtrude() {
+  const { plane, sess } = extrude;
+  extrude = null;
+  if (sess.featureId) exitSketch(false);
+  else {
+    session.setTool("select");
+    goNormal(plane); // back to drawing on the plane
+  }
+  refreshUI();
+}
+function deleteFeatureBeingEdited() {
+  const id = extrude?.sess.featureId;
+  if (!id) return false;
+  extrude = null;
+  store.removeFeature(id);
+  exitSketch(false);
+  return true;
+}
+/** Where the mouse is along the pull axis (mm from the shape's plane), or null. */
+function pullParam(clientX, clientY) {
+  setRay(clientX, clientY);
+  return paramOnAxisFromRay({ o: raycaster.ray.origin.toArray(), v: raycaster.ray.direction.toArray() }, toWorld(extrude.plane, extrude.centroid).toArray(), normalOf(extrude.plane).toArray());
+}
+const refreshUI = () => (updateStatus(), updateReadout(), markSketch());
+
+// ---------------------------------------------------------------- history list (top left, only when there is something in it)
+function updateHistory() {
+  const wrap = $("history");
+  const list = $("histList");
+  const fs = store.features;
+  wrap.style.display = fs.length ? "block" : "none";
+  $("histBtn").textContent = `History (${fs.length})`;
+  list.replaceChildren();
+  fs.forEach((f, i) => {
+    const err = body.info.ops.find((o) => o.id === `x_${f.id}`)?.error;
+    const b = document.createElement("button");
+    const cut = f.distance < 0 && i > 0;
+    b.className = err ? "err" : "";
+    b.textContent = `${i + 1}  ${cut ? "Cut" : "Extrude"}  ${f.distance > 0 ? "+" : "−"}${Math.abs(Math.round(f.distance * 100) / 100)} mm  (${f.plane})${err ? "  failed" : ""}`;
+    b.title = err ?? "Click to change the distance";
+    b.onclick = () => editFeature(f.id);
+    const li = document.createElement("li");
+    li.appendChild(b);
+    list.appendChild(li);
+  });
+}
+$("histBtn").onclick = () => $("histList").classList.toggle("open");
+body.onResult(() => (updateStatus(), updateHistory(), requestRender()));
+
 // ---------------------------------------------------------------- status text (the only text on screen besides the typing field)
 let flash = null; // a short message that replaces the status for a moment (e.g. why a click was ignored)
 function flashMessage(text) {
@@ -478,10 +630,13 @@ function flashMessage(text) {
 function updateStatus() {
   let text = "3D view   hover a plane and click it to sketch   right-click for the menu";
   if (flash) text = flash;
+  else if (extrude) text = `Extrude on ${extrude.plane}   ${extrude.sess.prompt()}`;
   else if (selected) text = inSketchView() ? `Sketching on ${selected}   ${session.prompt()}` : `Going to ${selected}...`;
+  if (!body.ready() && (store.features.length || extrude)) text += "   (loading the geometry kernel...)";
+  else if (body.info.error) text += `   [kernel: ${body.info.error}]`;
   $("statusText").textContent = text;
   $("scaleText").textContent = `grid ${gridScaleText()}`;
-  $("exitBtn").style.display = selected && !flash ? "inline-block" : "none";
+  $("exitBtn").style.display = selected && !flash && !extrude ? "inline-block" : "none";
 }
 
 // ---------------------------------------------------------------- picking
@@ -534,6 +689,7 @@ function exitSketch(animate = false) {
   markSketch();
 }
 function setTool(tool) {
+  if (extrude) return false;
   if (inSketchView()) {
     session.setTool(tool);
   } else if (!selected && hovered) {
@@ -545,6 +701,7 @@ function setTool(tool) {
   return true;
 }
 function doUndo() {
+  if (extrude) return cancelExtrude();
   if (session.draft || session.entry || session.dimEdit) return session.escape(), updateStatus(), updateReadout(), markSketch();
   const cmd = store.undo();
   if (cmd && session.selectedId && !store.entities(session.plane ?? "XY").some((e) => e.id === session.selectedId)) session.selectedId = null;
@@ -557,6 +714,7 @@ function doRedo() {
 }
 function doEscape() {
   if (menuOpen()) return hideMenu();
+  if (extrude) return cancelExtrude();
   if (!inSketchView()) return selected ? exitSketch(true) : undefined;
   if (!session.escape()) exitSketch(true);
   updateStatus();
@@ -573,8 +731,8 @@ const ACTIONS = {
   undo: () => doUndo(),
   redo: () => doRedo(),
   cancel: () => doEscape(),
-  delete: () => (inSketchView() && session.deleteSelected() ? (updateStatus(), markSketch()) : false),
-  extrude: () => flashMessage("Extrude comes in the next stage"),
+  delete: () => (extrude ? deleteFeatureBeingEdited() : inSketchView() && session.deleteSelected() ? (updateStatus(), markSketch()) : false),
+  extrude: () => setTool("extrude"),
   dimension: () => setTool("dimension"),
 };
 
@@ -602,7 +760,9 @@ function updateDims() {
 let lastPointer = { x: 0, y: 0 };
 function updateReadout() {
   const el = $("readout");
-  const segs = inSketchView() && session.tool !== "select" ? session.readout() : [];
+  const segs = extrude
+    ? [{ label: extrude.sess.mode() === "cut" ? "cut" : "add", text: extrude.sess.text || String(Math.round(effective() * 100) / 100), active: !!extrude.sess.text, typed: !!extrude.sess.text, invalid: extrude.sess.invalid() }]
+    : inSketchView() && session.tool !== "select" ? session.readout() : [];
   el.replaceChildren();
   if (!segs.length) return void (el.style.display = "none");
   for (const s of segs) {
@@ -629,7 +789,7 @@ function menuItems() {
   const key = (a) => [].concat(K[a])[0].replace("mod", "Ctrl").replace(/\b\w/g, (c) => c.toUpperCase()).replace("Escape", "Esc");
   const items = [];
   if (inSketchView()) {
-    for (const [label, a] of [["Select", "select"], ["Line", "line"], ["Rectangle", "rect"], ["Circle", "circle"], ["Dimension", "dimension"]]) items.push({ label, hint: key(a), run: ACTIONS[a], on: session.tool === a });
+    for (const [label, a] of [["Select", "select"], ["Line", "line"], ["Rectangle", "rect"], ["Circle", "circle"], ["Dimension", "dimension"], ["Extrude", "extrude"]]) items.push({ label, hint: key(a), run: ACTIONS[a], on: session.tool === a });
     items.push("sep");
   } else if (!selected && hovered) {
     items.push({ label: `Sketch on ${hovered} plane`, hint: "click", run: () => enterSketch(hovered) }, "sep");
@@ -672,6 +832,12 @@ canvas.addEventListener("pointerdown", (ev) => {
   const base = { x: ev.clientX, y: ev.clientY, x0: ev.clientX, y0: ev.clientY, button: ev.button, moved: false };
   if (nav) return void (g = { kind: nav, ...base });
   if (ev.button !== 0) return;
+  if (extrude) {
+    // drag anywhere to pull: the distance follows the mouse along the arrow's axis
+    const t0 = pullParam(ev.clientX, ev.clientY);
+    if (t0 !== null) g = { kind: "extdrag", t0, d0: effective(), ...base };
+    return;
+  }
   if (selected && !inSketchView()) return; // gliding to the plane: ignore clicks until it is face-on
   if (!inSketchView()) return void (g = { kind: "click", ...base }); // a click picks a plane; a drag orbits
   const p = localPoint(ev.clientX, ev.clientY);
@@ -681,6 +847,8 @@ canvas.addEventListener("pointerdown", (ev) => {
   const had = !!session.draft;
   const msg = session.click(p, { shift: ev.shiftKey });
   if (msg) flashMessage(msg);
+  const picked = session.takePicked();
+  if (picked) return startExtrudeFromRegion(picked);
   // press-and-drag also draws a rectangle or circle: if this press started the shape, releasing far away finishes it
   if (!had && session.draft && (session.tool === "rect" || session.tool === "circle")) g = { kind: "draw", ...base };
   updateStatus();
@@ -689,6 +857,12 @@ canvas.addEventListener("pointerdown", (ev) => {
 });
 canvas.addEventListener("pointermove", (ev) => {
   lastPointer = { x: ev.clientX, y: ev.clientY };
+  if (g && g.kind === "extdrag" && extrude) {
+    const t = pullParam(ev.clientX, ev.clientY);
+    if (t !== null) extrude.sess.drag(g.d0 + (t - g.t0), ev.shiftKey);
+    refreshUI();
+    return;
+  }
   if (g && (g.kind === "orbit" || g.kind === "pan" || g.kind === "click" || g.kind === "selectclick")) {
     if (!g.moved && Math.hypot(ev.clientX - g.x0, ev.clientY - g.y0) < V.clickMovePx) return;
     if (g.kind === "click" || g.kind === "selectclick") g.kind = "orbit"; // dragging with the left button and no tool action: orbit
@@ -707,12 +881,13 @@ canvas.addEventListener("pointermove", (ev) => {
     } else {
       view.a -= dx * V.orbitRadPerPx;
       view.e = clamp(view.e + dy * V.orbitRadPerPx, -Math.PI / 2, Math.PI / 2);
-      if (selected && !isNormal(view, selected, V.normalToleranceRad)) exitSketch(false); // orbiting out of the face-on view = back to the 3D view
+      if (selected && !extrude && !isNormal(view, selected, V.normalToleranceRad)) exitSketch(false); // orbiting out of the face-on view = back to the 3D view
     }
     updateStatus();
     markSketch();
     return;
   }
+  if (extrude) return;
   if (inSketchView()) {
     const p = localPoint(ev.clientX, ev.clientY);
     if (p && session.tool !== "select") {
@@ -817,6 +992,12 @@ addEventListener("keydown", (e) => {
     return;
   }
   if (el instanceof HTMLElement && el !== document.body && !(el instanceof HTMLCanvasElement)) el.blur?.(); // sliders, colors and buttons never keep the keyboard
+  // while pulling an extrusion, digits and Enter belong to the distance (Backspace always does, so it can never delete by accident)
+  if (extrude && !e.ctrlKey && !e.metaKey) {
+    if (e.key === "Enter") return e.preventDefault(), commitExtrude();
+    if (e.key === "Backspace") return e.preventDefault(), extrude.sess.backspace(), refreshUI();
+    if (e.key.length === 1 && extrude.sess.type(e.key)) return e.preventDefault(), refreshUI();
+  }
   // while a shape is being drawn, characters, Backspace, Tab and Enter belong to the typed-size field
   if (inSketchView() && session.wantsKeys() && !e.ctrlKey && !e.metaKey) {
     if (e.key.length === 1 && session.type(e.key)) return e.preventDefault(), updateStatus(), updateReadout(), markSketch();
@@ -851,11 +1032,11 @@ window.__ui = {
   menuOpen: () => menuOpen(),
   state: () => ({ selected, hovered, tool: session.tool, draft: session.draft && session.draft.pts.length, selectedEntity: session.selectedId, a: view.a, e: view.e, dist: view.dist, target: view.target.toArray(), normal: selected ? isNormal(view, selected, V.normalToleranceRad) : null, animating: !!anim }),
   settings: S,
+  enterSketch: (pl, tool) => enterSketch(pl, tool),
+  store,
+  body: () => ({ ready: body.ready(), fresh: body.fresh(), ...body.info }),
+  extrudeState: () => (extrude ? { plane: extrude.plane, distance: extrude.sess.distance, value: effective(), mode: extrude.sess.mode(), featureId: extrude.sess.featureId } : null),
   addTestBox: (x, y, z, w, d, h) => {
-    const light = new THREE.DirectionalLight(0xffffff, 2);
-    light.position.set(30, -40, 60);
-    const ambient = new THREE.AmbientLight(0xffffff, 0.8);
-    scene.add(light, ambient);
     const box = new THREE.Mesh(new THREE.BoxGeometry(w, d, h), new THREE.MeshLambertMaterial({ color: 0x8a6f4d }));
     box.position.set(x, y, z);
     scene.add(box);

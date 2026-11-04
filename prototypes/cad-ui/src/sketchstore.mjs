@@ -5,7 +5,9 @@ export class SketchStore {
     this.sketches = { XY: [], XZ: [], YZ: [] };
     this.past = [];
     this.future = [];
+    this.features = []; // extrusions: { id, plane, shape (a copy of the shape's data), distance }; they build the body in order
     this.nextId = 1;
+    this.nextFeature = 1;
     this.version = 0; // bumped on every change so views know to redraw
   }
 
@@ -14,6 +16,17 @@ export class SketchStore {
   }
 
   #apply(cmd, forward) {
+    if (cmd.type.startsWith("feature-")) {
+      const at = this.features.findIndex((f) => f.id === cmd.feature.id);
+      const adding = (cmd.type === "feature-add") === forward;
+      if (cmd.type === "feature-update") {
+        if (at >= 0) this.features[at] = forward ? cmd.feature : cmd.before;
+      } else if (adding) {
+        if (at < 0) this.features.splice(Math.min(cmd.index, this.features.length), 0, cmd.feature);
+      } else if (at >= 0) this.features.splice(at, 1);
+      this.version++;
+      return;
+    }
     const list = this.sketches[cmd.plane];
     if (cmd.type === "update") {
       const i = list.findIndex((e) => e.id === cmd.entity.id);
@@ -47,6 +60,29 @@ export class SketchStore {
     this.#apply(cmd, true);
     this.past.push(cmd);
     this.future = [];
+    return true;
+  }
+
+  #pushFeatureCmd(cmd) {
+    this.#apply(cmd, true);
+    this.past.push(cmd);
+    this.future = [];
+  }
+  addFeature(plane, shape, distance) {
+    const feature = { id: `f_${String(this.nextFeature++).padStart(3, "0")}`, plane, shape: JSON.parse(JSON.stringify(shape)), distance };
+    this.#pushFeatureCmd({ type: "feature-add", feature, index: this.features.length });
+    return feature;
+  }
+  updateFeature(id, distance) {
+    const before = this.features.find((f) => f.id === id);
+    if (!before) return false;
+    this.#pushFeatureCmd({ type: "feature-update", feature: { ...before, distance }, before });
+    return true;
+  }
+  removeFeature(id) {
+    const index = this.features.findIndex((f) => f.id === id);
+    if (index < 0) return false;
+    this.#pushFeatureCmd({ type: "feature-remove", feature: this.features[index], index });
     return true;
   }
 

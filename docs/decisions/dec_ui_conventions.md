@@ -45,7 +45,14 @@ Status (`prototypes/cad-ui`): navigation presets and the keymap are data in `set
 shape and its dimensions show (rectangle W and H, circle diameter, each polyline segment length); click a number or just type, Tab for the
 next, Enter applies them as one undoable change. There is no constraint solver (`q_constraint_solver` is open), so a dimension is a direct
 edit, not a stored constraint: a rectangle keeps its first corner, a circle its centre, an open polyline moves everything after the edited
-segment along. Not built yet: the history list, the drawer, extrusion (item 6).
+segment along. 
+**Extrude built (`in_034`, AI's design, not yet reviewed by the human):** E, click a closed shape; the view tilts to 3D with an arrow; drag
+anywhere (or type a distance, math works) to pull it: positive adds, negative cuts when there is a body (otherwise it adds the other way);
+Enter applies, Esc cancels. The result is exact OCCT geometry (the `sketch-extrude` worker, copied into `cad-ui`; this does not decide
+`q_kernel_choice`) with an instant translucent ghost until it arrives. A small "History (n)" list appears top left once something is
+extruded; click an entry to change its distance, Delete removes it, Ctrl+Z / Ctrl+Y undo and redo it together with sketch edits. Limits:
+sketching is on the three base planes only (no sketching on body faces yet), and an extrusion keeps a copy of its shape, so editing the
+sketch later does not change it. Not built yet: the drawer, sketching on faces.
 
 ## Rationale
 The human asked for navigation, a few hotkeys plus undo and redo, the sketch-finish-extrude workflow with a history

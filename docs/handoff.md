@@ -305,3 +305,16 @@ and store `update` command, DOM number chips, dimension lines): D, point at a sh
 solver (direct edit; anchors documented in `dec_ui_conventions`). 25 unit tests pass; browser run drew a rectangle, set W 60 and H 20 and
 undid it, no console errors. This is the AI's design; the human has not tried it.
 **Next:** extrude (stage 3).
+
+## Handoff 022 — 2026-11-04
+**State:** `in_034` continued: extrude built in `prototypes/cad-ui` (AI's design; the human has not tried it). `src/extrude.mjs` (pull distance:
+drag steps, typing, add or cut), `src/features.mjs` (feature list to operation graph), store `addFeature/updateFeature/removeFeature` on the
+same undo stack as sketch edits, `src/body.js` + `src/worker.js` + `src/interpreter.mjs` (OCCT in a worker, copied from `sketch-extrude`; deps
+`replicad`, `replicad-opencascadejs` added to `cad-ui`, already in `docs/licenses.md`), a History list top left, and an instant ghost prism.
+30 unit tests pass. Browser runs: rectangle extruded 20 mm (volume 9547.03 = closed form), circle on XZ pulled -30 cut the body
+(14869.03 = closed form), undo and redo, history edit by drag (+28), Delete removed the feature, no console errors.
+**Known limits:** only the three base planes can be sketched on, so a cut starts at the plane through the origin and may not reach the face you
+are looking at; extrusions keep a copy of the shape. These are what "sketch on a face" (next) would fix.
+**Open for the human:** try `bash tools/preview.sh`: R, draw a box, E, click it, pull; then a circle on another plane, E, pull the other way;
+D to resize. Tell me what feels wrong. `q_kernel_choice` is still undecided; this reuses OCCT only as the working engine.
+**Next:** sketch on body faces; the drawer; whatever the trial turns up.

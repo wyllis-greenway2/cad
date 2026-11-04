@@ -59,6 +59,18 @@ export const settings = {
     dimLabelHitPx: 20, // a click this close to a dimension number edits it
     dimLineWidthPx: 1.6,
   },
+  extrude: {
+    // Pull a closed shape along the plane's normal: positive adds, negative cuts (when there is a body to cut).
+    dragStepMm: 1, // dragging rounds the distance to this (hold Shift for fine steps)
+    fineStepMm: 0.01,
+    minMm: 0.01, // a distance smaller than this is "no change"
+    handleFactor: 0.14, // arrow size as a fraction of the view distance
+    tiltMs: 450, // the view tilts from face-on to a 3D angle when you start pulling
+    tessTolerance: 0.05, // mesh quality (mm)
+    tessAngular: 0.3,
+    edgeAngleDeg: 30, // outline edges are drawn where faces meet at more than this angle
+    ghostOpacity: 0.35, // the instant preview prism, shown until the exact result arrives
+  },
   axisArrow: {
     // Arrowheads and letters sit ON the world axis lines (positive end); no separate corner gizmo.
     lengthFactor: 0.83, // distance from the origin along the axis, as a fraction of the half-height of the view
@@ -102,6 +114,7 @@ export const settings = {
       background: 0x242424, text: "#aeb2b7",
       axisX: [0.92, 0.32, 0.3], axisY: [0.25, 0.72, 0.38], axisZ: [0.32, 0.52, 1.0],
       sheet: [0.9529411764705882, 0.9411764705882353, 0.9058823529411765], gridLine: [0.17, 0.18, 0.2], // sheet #f3f0e7, grid #2b2e33
+      bodyColor: 0x8fa3b8, bodyEdge: 0x1c2733, addColor: 0x5fbf7a, cutColor: 0xe0645c, handleColor: 0xf2c14e,
       sketchInk: [0.09, 0.095, 0.105], sketchHalo: [0.95, 0.93, 0.9], // sketch lines: near-black with a light halo so they read on the lit sheet and on the dark world
       states: {
         base: { line: 0, bright: 0, opacity: 0, fine: 0 },

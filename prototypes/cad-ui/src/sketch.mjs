@@ -144,9 +144,9 @@ export function hitRegion(p, regions) {
 }
 
 /** Operation-graph sketch op for a region, on the XY plane at height z. Numbers are rounded to 1e-6 mm. */
-export function regionToSketchOp(region, id, z) {
+export function regionToSketchOp(region, id, z, plane = "XY") {
   const r6 = (v) => Math.round(v * 1e6) / 1e6;
-  const base = { id, type: "sketch", plane: "XY", origin: r6(z) };
+  const base = { id, type: "sketch", plane, origin: r6(z) };
   if (region.kind === "rect") return { ...base, shape: "rect", w: r6(region.w), d: r6(region.d), at: region.centroid.map(r6) };
   if (region.kind === "circle") return { ...base, shape: "circle", radius: r6(region.r), at: region.centroid.map(r6) };
   return { ...base, shape: "polygon", points: region.polygon.map((p) => p.map(r6)) };
@@ -166,6 +166,19 @@ export function zOnVerticalLineFromRay(ray, x, y) {
   const d = w0[2]; // u . w0
   const e = vx * w0[0] + vy * w0[1] + vz * w0[2]; // v . w0
   return (b * e - d) / denom;
+}
+
+/**
+ * The parameter t of the point p0 + t*n (n a unit vector) on a line that is closest to a camera ray {o, v (unit)}.
+ * Null if the ray is parallel to the line. Used to turn a mouse position into a distance along a plane's normal.
+ */
+export function paramOnAxisFromRay(ray, p0, n) {
+  const w = [p0[0] - ray.o[0], p0[1] - ray.o[1], p0[2] - ray.o[2]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const b = dot(ray.v, n);
+  const denom = 1 - b * b;
+  if (denom < 1e-9) return null;
+  return (b * dot(ray.v, w) - dot(n, w)) / denom;
 }
 
 const distToSegment = (p, a, b) => {

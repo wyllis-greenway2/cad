@@ -7,8 +7,8 @@ Update it at the end of each session.
 - Interface in stages (`in_015`): **stages 1 and 2 built** in `prototypes/cad-ui`: planes and navigation; sketching
   on a plane (rectangle, circle, line, snapping, typed sizes, select/delete, undo/redo, right-click menu, navigation
   presets). Look values are tuned and applied (`in_031`); reflections and the tuning panel were dropped (`in_033`).
-- **Next, by the human's request (`in_033`): sketching mechanics, then stage 3:** extrude on the plane with Shapr3D-style defaults (pull up adds, pull down cuts), plus the history list
-  and the drawer (`dec_ui_conventions`). Reuse the OCCT worker from `kernel-slice` / `sketch-extrude`.
+- Stage 3 first cut is built (`in_034`): dimension tool and extrude with a history list, on the three base planes. Next: sketch on body
+  faces, the drawer, and whatever the human's trial turns up.
 - Human decides the open questions, starting with `q_kernel_choice` (evidence in `kernel-slice` and
   `sketch-extrude` READMEs).
 

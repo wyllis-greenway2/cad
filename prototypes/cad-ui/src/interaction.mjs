@@ -1,6 +1,6 @@
 // The sketching session on one plane: tools, snapping, typed sizes, selection. Pure (no DOM, no three.js).
-// Tools: select | line (polyline) | rect | circle | dimension. Local plane coordinates are (u right, v up) in mm.
-import { snap, dist, hitEntity } from "./sketch.mjs";
+// Tools: select | line (polyline) | rect | circle | dimension | extrude (pick a closed shape to pull). Local plane coordinates are (u right, v up) in mm.
+import { snap, dist, hitEntity, regionsOf, hitRegion } from "./sketch.mjs";
 import { evalExpr } from "./expr.mjs";
 import { dimensionsOf, applyDimension } from "./dimensions.mjs";
 
@@ -23,6 +23,7 @@ export class SketchSession {
     this.entry = null; // { fields: [{label, name, text}], active }
     this.selectedId = null; // in the dimension tool this is the shape whose dimensions are being edited
     this.hoverId = null; // dimension tool: the shape under the cursor
+    this.picked = null; // extrude tool: the closed shape just clicked (the view takes it with takePicked)
     this.dimEdit = null; // dimension tool: { typed: {key: text}, active: key }
     this.cursor = null;
     this.snapInfo = null;
@@ -60,6 +61,11 @@ export class SketchSession {
 
   // ------------------------------------------------------------ pointer
   move(raw, { shift = false } = {}) {
+    if (this.tool === "extrude") {
+      this.cursor = raw;
+      this.hoverId = hitRegion(raw, regionsOf(this.entities()))?.id ?? null;
+      return { point: raw, kind: "free", guides: [] };
+    }
     if (this.tool === "dimension") {
       this.cursor = raw;
       this.hoverId = hitEntity(raw, this.entities(), this.s.sketch.selectTolPx / this.scale)?.id ?? null;
@@ -80,6 +86,10 @@ export class SketchSession {
       return null;
     }
     if (this.tool === "dimension") return this.#clickDimension(raw);
+    if (this.tool === "extrude") {
+      this.picked = hitRegion(raw, regionsOf(this.entities())) ?? null;
+      return this.picked ? null : "Click inside a closed shape to extrude it.";
+    }
     const p = this.move(raw, mods).point;
     if (!this.draft) {
       this.draft = { pts: [p] };
@@ -100,6 +110,12 @@ export class SketchSession {
     }
     this.entry = null;
     return null;
+  }
+
+  takePicked() {
+    const r = this.picked;
+    this.picked = null;
+    return r;
   }
 
   // ------------------------------------------------------------ dimension tool
@@ -358,6 +374,7 @@ export class SketchSession {
 
   /** What the user should do next, for the hint line. */
   prompt() {
+    if (this.tool === "extrude") return "Extrude: click a closed shape, then pull it (drag or type a distance).";
     if (this.tool === "dimension") {
       if (this.dimEdit) return "Type a number. Tab: next dimension   Enter: apply   Esc: cancel";
       return this.dimTarget() ? "Click a number or just type a size, then Enter." : "Dimension: point at a shape, then click it.";
