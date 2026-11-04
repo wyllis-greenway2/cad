@@ -25,6 +25,7 @@ npm test            # 10 tests
 npm run corpus      # rewrites corpus-results.md
 npm run dev         # browser view at http://localhost:5173
 ```
+Or, from the repo root, `bash tools/preview.sh` pulls the latest changes, installs and starts the view.
 
 ## What we learned (2026-11-04; Node 22 and headless Chromium)
 1. **Correctness on this kind of part is good.** 16 corpus cases with a closed-form volume all matched
