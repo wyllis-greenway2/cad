@@ -67,3 +67,8 @@ Approves the AI's proposal to write `docs/licenses.md` and then build the first 
 After trying the first prototype locally ("okay I launched it, nice start!") and being offered five next steps, chose the interactive sketch-to-extrude prototype.
 
 > Let's do the interactive sketch to extrude one
+
+## in_014 — 2026-11-04 — preference
+First hands-on feedback on `prototypes/sketch-extrude` (a usability problem report).
+
+> I am having trouble with it. I click R and click and nothing happens?

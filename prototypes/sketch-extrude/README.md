@@ -14,7 +14,7 @@ bash tools/preview.sh            # from the repo root: pulls, installs, opens ht
 or `cd prototypes/sketch-extrude && npm install && npm run dev`. Tests: `npm test` (9 tests).
 
 ## Try this
-1. Press **R**, click two corners (watch the yellow snap square and blue dashed inference lines; hold
+1. Press **R**, then click two corners (or press, drag and release) (watch the yellow snap square and blue dashed inference lines; hold
    **Shift** to turn snapping off). **C** circle, **L** polyline (click the first point or press Enter to close).
 2. Press **V** (select), hover a closed region (it brightens), click it. The view tilts to 3D.
 3. Drag the yellow arrow up. A green ghost appears instantly; the exact OCCT result follows. Or type a
@@ -46,6 +46,16 @@ Middle or right mouse drag (or Space+drag) pans, the wheel zooms, left drag orbi
    `mode: "cut"` when pulled below the plane. Undo needed no special logic.
 5. **A bug class worth remembering:** my first tests assumed snaps would not trigger; the origin and
    edge midpoints are snap targets and silently won. Snap priority and discoverability will need design.
+
+6. **First human report: "I click R and click and nothing happens" (`in_014`).** I could not reproduce a
+   functional failure (logic worked at 1x and 2x pixel ratio), but the feedback was far too weak: after
+   the first click there was only a faint 1 px marker, the rubber band was a 1 px line (nearly invisible on
+   high-density screens), and a second click on the same spot silently threw the first corner away.
+   Fixed: pixel-width lines, a big marker on every placed point, a step-by-step prompt ("Click the opposite
+   corner"), press-and-drag drawing, an explanation when a click is ignored (the first corner is kept),
+   and a sidebar line showing the cursor position and clicks seen, so "events not arriving" can be told
+   apart from "drawn but not visible". Lesson: scripted tests passed while the first real user was
+   confused, so feedback and discoverability need a human pass early.
 
 ## What this does NOT show
 - Nobody has used it with a real hand, trackpad or touch screen. Scripted events cannot judge feel,

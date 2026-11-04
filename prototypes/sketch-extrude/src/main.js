@@ -1,5 +1,8 @@
 // View + input glue. All sketch logic is in interaction.mjs / sketch.mjs; all geometry is in the worker.
 import * as THREE from "three";
+import { Line2 } from "three/addons/lines/Line2.js";
+import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { settings as S } from "./settings.js";
 import { SketchSession } from "./interaction.mjs";
 import { regionsOf, hitRegion, regionToSketchOp, zOnVerticalLineFromRay, circlePolygon } from "./sketch.mjs";
@@ -99,7 +102,8 @@ function clearGroup(g) {
 const lineMat = (color, dashed = false) =>
   dashed ? new THREE.LineDashedMaterial({ color, dashSize: 2, gapSize: 1.5, depthTest: false }) : new THREE.LineBasicMaterial({ color, depthTest: false });
 
-function polyline(points, z, color, { closed = false, dashed = false } = {}) {
+function polyline(points, z, color, { closed = false, dashed = false, width = 0 } = {}) {
+  if (width > 0) return fatLine(points, z, color, { closed, dashed, width });
   const pts = points.map((p) => new THREE.Vector3(p[0], p[1], z));
   if (closed) pts.push(pts[0].clone());
   const g = new THREE.BufferGeometry().setFromPoints(pts);
@@ -107,6 +111,26 @@ function polyline(points, z, color, { closed = false, dashed = false } = {}) {
   if (dashed) l.computeLineDistances();
   l.renderOrder = 10;
   return l;
+}
+/** Lines with a real pixel width (plain WebGL lines are 1 device pixel: nearly invisible on high-density screens). */
+function fatLine(points, z, color, { closed, dashed, width }) {
+  const flat = [];
+  for (const p of closed ? [...points, points[0]] : points) flat.push(p[0], p[1], z);
+  const g = new LineGeometry();
+  g.setPositions(flat);
+  const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+  const m = new LineMaterial({ color, linewidth: width * renderer.getPixelRatio(), depthTest: false, transparent: true, dashed, dashSize: 2, gapSize: 1.5 });
+  m.resolution.set(size.x, size.y);
+  const l = new Line2(g, m);
+  if (dashed) l.computeLineDistances();
+  l.renderOrder = 10;
+  return l;
+}
+function dot(x, y, z, radiusMm, color) {
+  const m = new THREE.Mesh(new THREE.CircleGeometry(radiusMm, 24), new THREE.MeshBasicMaterial({ color, depthTest: false }));
+  m.position.set(x, y, z);
+  m.renderOrder = 12;
+  return m;
 }
 function entityOutline(e) {
   if (e.type === "rect") return { pts: [[e.x0, e.y0], [e.x1, e.y0], [e.x1, e.y1], [e.x0, e.y1]], closed: true };
@@ -140,27 +164,30 @@ function rebuildOverlay() {
   const selectedId = ext?.region.id;
   for (const r of regions) {
     const hot = r.id === selectedId || (mode === "sketch" && session.tool === "select" && r.id === hoverId);
-    overlay.add(fill(r.polygon, z - 0.01, hot ? T.regionHover : T.regionFill, hot ? 0.45 : 0.18));
+    overlay.add(fill(r.polygon, z - 0.01, hot ? T.regionHover : T.regionFill, hot ? 0.5 : 0.28));
   }
   for (const e of session.entities) {
     const o = entityOutline(e);
-    overlay.add(polyline(o.pts, z, T.entity, { closed: o.closed }));
+    overlay.add(polyline(o.pts, z, T.entity, { closed: o.closed, width: 2 }));
   }
   const d = session.draftShape();
   if (d && mode === "sketch") {
     const o = entityOutline(d);
-    overlay.add(polyline(o.pts, z, T.draft, { closed: o.closed }));
+    overlay.add(polyline(o.pts, z, T.draft, { closed: o.closed, width: 2.5 }));
+    if (d.type === "rect") overlay.add(fill(entityOutline(d).pts, z - 0.02, T.draft, 0.12));
+    const r = 5 / pixelsPerMm();
+    for (const p of session.draft.pts) overlay.add(dot(p[0], p[1], z + 0.01, r, T.snap)); // mark every placed point
   }
   const info = session.snapInfo;
   if (info && mode === "sketch" && session.cursor && session.tool !== "select") {
     for (const g of info.guides) {
       const a = g.axis === "v" ? [[g.value, -1000], [g.value, 1000]] : [[-1000, g.value], [1000, g.value]];
-      overlay.add(polyline(a, z, T.guide, { dashed: true }));
+      overlay.add(polyline(a, z, T.guide, { dashed: true, width: 1.5 }));
     }
     if (info.kind !== "free") {
-      const s = 6 / pixelsPerMm();
+      const s = 9 / pixelsPerMm();
       const [x, y] = info.point;
-      overlay.add(polyline([[x - s, y - s], [x + s, y - s], [x + s, y + s], [x - s, y + s]], z, T.snap, { closed: true }));
+      overlay.add(polyline([[x - s, y - s], [x + s, y - s], [x + s, y + s], [x - s, y + s]], z, T.snap, { closed: true, width: 2.5 }));
     }
   }
   requestRender();
@@ -304,7 +331,7 @@ const HINTS = {
 };
 function updateUi() {
   document.querySelectorAll("#tools button").forEach((b) => b.classList.toggle("on", mode === "sketch" && b.dataset.tool === session.tool));
-  $("hint").textContent = mode === "extrude" ? HINTS.extrude : HINTS[session.tool];
+  $("hint").textContent = mode === "extrude" ? HINTS.extrude : session.prompt();
   $("extrudePanel").style.display = mode === "extrude" ? "block" : "none";
   $("status").textContent = `plane z = ${plane.z.toFixed(2)} mm | ${session.entities.length} sketch entities | ${features.length} features`;
   $("undo").disabled = features.length === 0;
@@ -414,6 +441,11 @@ const quantize = (d, fine) => {
 };
 
 let gesture = null; // { kind: "pan"|"orbit"|"handle", x, y, ... }
+const debugInput = { clicks: 0 };
+// Live cursor readout in the sidebar: if these numbers do not change, your mouse events are not reaching the canvas.
+function showCursor(p) {
+  $("cursor").textContent = `cursor ${p[0].toFixed(2)}, ${p[1].toFixed(2)} mm  |  clicks seen: ${debugInput.clicks}  |  tool: ${session.tool}${session.draft ? " (1st point placed)" : ""}`;
+}
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 canvas.addEventListener("pointerdown", (ev) => {
   canvas.setPointerCapture(ev.pointerId);
@@ -436,9 +468,15 @@ canvas.addEventListener("pointerdown", (ev) => {
     if (hit) enterExtrude(hit);
     return;
   }
-  session.click(p, { shift: ev.shiftKey });
+  const hadDraft = !!session.draft;
+  const msg = session.click(p, { shift: ev.shiftKey });
+  // press-and-drag also works for rectangle and circle: if this press started the shape, releasing far away finishes it
+  if (!hadDraft && session.draft && (session.tool === "rect" || session.tool === "circle")) gesture = { kind: "draw", x: ev.clientX, y: ev.clientY };
   rebuildOverlay();
   updateUi();
+  if (msg) $("hint").textContent = msg;
+  debugInput.clicks++;
+  showCursor(p);
 });
 canvas.addEventListener("pointermove", (ev) => {
   if (gesture?.kind === "pan") {
@@ -482,6 +520,7 @@ canvas.addEventListener("pointermove", (ev) => {
     return;
   }
   session.move(p, { shift: ev.shiftKey });
+  showCursor(p);
   rebuildOverlay();
   const ro = $("readout");
   const text = [session.readout(), session.snapInfo.kind !== "free" ? `[${session.snapInfo.kind}]` : ""].filter(Boolean).join("  ");
@@ -491,7 +530,18 @@ canvas.addEventListener("pointermove", (ev) => {
   ro.style.left = `${ev.clientX - r.left + 16}px`;
   ro.style.top = `${ev.clientY - r.top + 16}px`;
 });
-canvas.addEventListener("pointerup", () => (gesture = null));
+canvas.addEventListener("pointerup", (ev) => {
+  if (gesture?.kind === "draw" && session.draft && Math.hypot(ev.clientX - gesture.x, ev.clientY - gesture.y) >= 8) {
+    const p = planePoint(ev);
+    if (p) {
+      session.scale = pixelsPerMm();
+      session.click(p, { shift: ev.shiftKey });
+      rebuildOverlay();
+      updateUi();
+    }
+  }
+  gesture = null;
+});
 canvas.addEventListener("pointerleave", () => ($("readout").style.display = "none"));
 canvas.addEventListener(
   "wheel",

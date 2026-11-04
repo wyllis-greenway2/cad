@@ -25,6 +25,18 @@ test("rectangle tool: two clicks make one rect and one region", () => {
   assert.deepEqual(r.centroid, [20, 12.5]);
 });
 
+test("a second click on the same spot keeps the first corner and explains itself", () => {
+  const s = session();
+  s.setTool("rect");
+  assert.equal(s.click([5, 5], { shift: true }), null);
+  assert.match(s.click([5, 5], { shift: true }), /Move away/);
+  assert.ok(s.draft, "first corner is kept (a double-click must not lose it)");
+  assert.equal(s.entities.length, 0);
+  s.click([25, 15], { shift: true });
+  assert.equal(s.entities.length, 1);
+  assert.match(s.prompt(), /first corner/);
+});
+
 test("snapping: endpoint wins within the pixel threshold, shift disables it", () => {
   const s = session();
   s.setTool("rect");

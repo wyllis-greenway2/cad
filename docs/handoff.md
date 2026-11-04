@@ -41,6 +41,11 @@ live JSON graph. 9 passing tests plus a scripted end-to-end run in headless Chro
 closed forms; drag round trips about 20 to 30 ms). `tools/preview.sh` now takes a prototype name and
 defaults to `sketch-extrude`. Evidence added to `q_grid_role`. No open question was decided.
 
+**First human report (`in_014`):** "I click R and click and nothing happens". Not reproducible as a logic
+bug; the visual feedback was too weak. Fixed in a follow-up commit (fat lines, start-point marker, prompts,
+press-and-drag, ignored-click message, cursor/click readout). Waiting to hear whether it now works for the
+human; if not, ask for browser, OS, and what the sidebar cursor line shows.
+
 **Not verified:** feel with a real hand, trackpad or touch; browsers other than headless Chromium.
 
 **Next:** the human tries it and reports what feels right, wrong or missing. Likely candidates after that:

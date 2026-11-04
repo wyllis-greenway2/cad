@@ -44,6 +44,7 @@ export class SketchSession {
     return this.snapInfo;
   }
 
+  /** Returns a short message when the click was ignored (so the UI can explain), else null. */
   click(raw, mods = {}) {
     if (this.tool === "select") return null;
     const p = this.move(raw, mods).point;
@@ -53,11 +54,13 @@ export class SketchSession {
     }
     const a = this.draft.pts[0];
     if (this.tool === "rect") {
-      if (Math.abs(p[0] - a[0]) > 1e-9 && Math.abs(p[1] - a[1]) > 1e-9) this.addEntity({ type: "rect", x0: a[0], y0: a[1], x1: p[0], y1: p[1] });
+      if (Math.abs(p[0] - a[0]) < 1e-9 || Math.abs(p[1] - a[1]) < 1e-9) return "Move away from the first corner, then click the opposite corner.";
+      this.addEntity({ type: "rect", x0: a[0], y0: a[1], x1: p[0], y1: p[1] });
       this.draft = null;
     } else if (this.tool === "circle") {
       const r = dist(a, p);
-      if (r > 1e-9) this.addEntity({ type: "circle", cx: a[0], cy: a[1], r });
+      if (r < 1e-9) return "Move away from the centre, then click to set the radius.";
+      this.addEntity({ type: "circle", cx: a[0], cy: a[1], r });
       this.draft = null;
     } else if (this.tool === "poly") {
       if (this.draft.pts.length >= 3 && dist(p, a) < 1e-9) this.#closePoly();
@@ -78,6 +81,15 @@ export class SketchSession {
       this.draft.pts.pop();
       if (!this.draft.pts.length) this.draft = null;
     }
+  }
+
+  /** What the user should do next, for the hint line. */
+  prompt() {
+    const n = this.draft?.pts.length ?? 0;
+    if (this.tool === "rect") return n ? "Click the opposite corner. Esc cancels." : "Rectangle: click the first corner.";
+    if (this.tool === "circle") return n ? "Click to set the radius. Esc cancels." : "Circle: click the centre.";
+    if (this.tool === "poly") return n ? "Click the next point. Click the first point or press Enter to close. Backspace removes a point." : "Polyline: click the first point.";
+    return "Select: click a closed region to extrude it. Draw with R (rectangle), C (circle), L (polyline).";
   }
 
   /** The shape under construction, including the cursor, for drawing the rubber band. */
