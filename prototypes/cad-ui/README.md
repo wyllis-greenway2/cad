@@ -71,12 +71,17 @@ Plane view is orthographic; leaving it shows the hovered plane straight away. Sk
 cream faces; a hovered or selected plane leans slightly blue (`states.*.blue`, `themes.world.blue*`). World view option `settings.backdrop`:
 the plane is almost see-through and the cream sheet sits behind it (drawn first, never covers an object); `enabled: false` = the older look.
 
-## Faces, color and light (`in_036`)
-Objects, the sheet and closed sketch faces are one **bone** color (#e3dccb); a body is solid, a closed shape that is not extruded is a
-semi-transparent face (`settings.sketch.regionFill`). A light rides with the camera (to one side and above, never in view) plus a weaker fill,
-and the body has a slight clear-coat sheen (`settings.light`: `sheen`, `roughness`, `key`, `fill`). In the 3D view any flat axis-facing face
-of a body tints blue on hover; **click it** to go face-on (orthographic) and sketch on it; or press a tool key (R, C, L, E, D) while pointing at it.
-Pulling out of the face adds, pushing in cuts. The face plane is a frozen copy (it does not follow the face if you later change an earlier step).
+## Selecting, faces, color and light (`in_036`, `in_037`)
+**Click selects; it never moves the camera.** In the 3D view you can select a plane, a flat axis-facing face of a body, or a closed sketch shape that
+is not extruded yet (hover tints it blue; a body face wins over the see-through planes). With something selected, act on it: **E** extrudes a face
+or a closed shape (drag or type a distance: out adds, in cuts; a body face is pushed or pulled), **S** or a sketch key (**R**, **C**, **L**) sketches on
+it (this is the only thing that goes orthographic and face-on), Esc deselects. No more "E, then pick, then pull". Pointing at something without selecting
+also works for the key, and the right-click menu offers both. The face plane a sketch uses is a frozen copy of the face (it does not follow the face if
+you later change an earlier step); a pushed or pulled face is found again by its position, so it can fail ("face not found") if earlier steps move it.
+Look: objects and faces are one light bone color (`themes.world.bodyColor`), the sheet a slightly darker one; bodies are solid, unextruded closed shapes are
+semi-transparent faces (`settings.sketch.regionFill`); sketch lines are thin and black (`lineWidthPx`, no halo). A light rides with the camera plus a
+fill, the body has a clear-coat sheen and a soft studio reflection (`settings.light`: `sheen`, `reflect`, `roughness`, `key`, `fill`). Axis lines and arrows
+behind an object show only faintly (`grid.axisGhost`, `axisArrow.faintOpacity`).
 
 ## Dimension tool (D)
 Point at a shape (its dimensions appear), click it to keep them showing. Type a number (math works, `50/2`), Tab to the next

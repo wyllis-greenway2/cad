@@ -339,3 +339,16 @@ matched the closed form (15607.30). 33 unit tests pass; no console errors.
 face is hovered in sketch view is not offered.
 **Open for the human:** is the sheen the right amount (`light.sheen`, `light.key`)? Is the bone color right? Does face hover/click feel natural?
 **Next:** the drawer; fillet/chamfer on faces and edges (hover and click), if the human wants.
+
+## Handoff 025 — 2026-11-04
+**State:** `in_037`. In `prototypes/cad-ui`: sketch lines thin and black (no halo); body and cream faces lighter, with more sheen and a soft studio
+reflection (`settings.light`); axis lines faint through objects (a second axis-only pass drawn only behind existing depth) and axis arrows faint when a
+body is in front (ray test); clicking selects without moving the camera (plane, flat body face, unextruded closed sketch shape; hover tints blue, a body face
+beats the see-through planes); with a selection, **E** extrudes (a closed shape, or push/pull of a body face via the new `faceExtrude` op using OCCT
+`basicFaceExtrusion`), **S** or R/C/L sketch on it (the only thing that goes orthographic). History lists push/pull steps. Verified: kernel volumes
+(box 16000; pull top +10 = 24000; push -5 = 20000; pull side +5 = 18000; missing face reports an error), browser flow (select does not change the view, E, typed
+distance, Enter, push, side face + R goes face-on), 34 unit tests, no console errors. Bug found by looking: a `//` comment swallowed other values on one settings
+line (body edge and add/cut colors were undefined) until the screenshot showed white edges.
+**Limits:** slanted and curved faces cannot be selected; a face push/pull can fail if earlier steps move the face; planes are only selectable where no body is under the cursor.
+**Open for the human:** do selection and E on a face feel right? Is the body light and shiny enough (`light.sheen`, `light.reflect`, `light.key`)?
+**Next:** the drawer; fillet/chamfer on selected faces or edges (edge selection), if the human wants.

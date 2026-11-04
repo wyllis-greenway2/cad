@@ -10,6 +10,13 @@ export function buildGraph(features) {
   const ops = [];
   let prev = null;
   for (const f of features) {
+    if (f.kind === "face") {
+      if (!prev) continue; // nothing to push or pull yet
+      const xid = `x_${f.id}`;
+      ops.push({ id: xid, type: "faceExtrude", target: prev, ref: f.ref, distance: f.distance });
+      prev = xid;
+      continue;
+    }
     const region = regionsOf([{ ...f.shape, id: f.id }])[0];
     if (!region) continue;
     const sk = regionToSketchOp(region, `s_${f.id}`, 0, f.plane);

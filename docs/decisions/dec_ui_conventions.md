@@ -52,10 +52,12 @@ Enter applies, Esc cancels. The result is exact OCCT geometry (the `sketch-extru
 `q_kernel_choice`) with an instant translucent ghost until it arrives. A small "History (n)" list appears top left once something is
 extruded; click an entry to change its distance, Delete removes it, Ctrl+Z / Ctrl+Y undo and redo it together with sketch edits. Limits:
 sketching is on the three base planes only (no sketching on body faces yet), and an extrusion keeps a copy of its shape, so editing the
-sketch later does not change it. **Sketch on a face (`in_036`, AI's design, not yet reviewed by the human):** in the 3D view any flat face of the body that faces along an axis
-tints blue on hover; clicking it (or pressing a tool key while pointing at it, or the right-click menu) goes orthographic, face-on, and
-sketches on it. The face becomes a plane that is a frozen copy of its geometry (see `q_topological_refs`); pulling out of the face adds,
-pushing in cuts. Slanted and curved faces are not hoverable yet. Not built yet: the drawer.
+sketch later does not change it. **Selection model (`in_036`, `in_037`; AI's design, not yet reviewed by the human):** in the 3D view, clicking selects (a plane, a flat axis-facing face
+of a body, or an unextruded closed sketch shape) and never moves the camera; actions then apply to the selection: **E** extrudes a closed shape or
+push/pulls a body face (out adds, in cuts), **S** or a sketch key sketches on it (the only thing that goes orthographic, face-on), Esc deselects.
+A sketch on a body face uses a frozen copy of the face's plane (see `q_topological_refs`); a push/pull feature finds its face again by position and can
+fail if earlier steps move it. Slanted and curved faces are not selectable yet. In sketch view E with a closed shape selected pulls it, otherwise
+picks one. Not built yet: the drawer.
 
 ## Rationale
 The human asked for navigation, a few hotkeys plus undo and redo, the sketch-finish-extrude workflow with a history

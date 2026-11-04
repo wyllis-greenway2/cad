@@ -35,7 +35,7 @@ export const settings = {
     maxZoomFactorPerSecond: 2.5, // one gesture can never zoom faster than this, however hard you flick or spin the wheel
     pinchZoomPerWheel: 0.01, // trackpad pinch (a wheel event with ctrl held) is more sensitive than a wheel notch
     keys: {
-      select: "v", line: "l", rect: "r", circle: "c", extrude: "e", dimension: "d", home: "h",
+      select: "v", line: "l", rect: "r", circle: "c", extrude: "e", sketch: "s", dimension: "d", home: "h",
       undo: "mod+z", redo: ["mod+shift+z", "mod+y"],
       origin: "o", cancel: "escape", confirm: "enter", nextField: "tab", prevField: "shift+tab", delete: ["delete", "backspace"],
     },
@@ -50,13 +50,13 @@ export const settings = {
     roundMm: 0.01, // free-placed points are rounded to this, so dimensions read 40.00 and not 39.999999
     selectTolPx: 8,
     dragFinishPx: 8, // press-and-drag creates a rectangle or circle if you release farther than this
-    lineWidthPx: 1.3, // sketch lines: a thin dark line traced with a thin light one, so they stay readable on any background
-    haloWidthPx: 3.2,
+    lineWidthPx: 1.0, // sketch lines: thin and black (`in_037`)
+    haloWidthPx: 0, // a light line traced along them (0 = none); used to be 3.2
     markerPx: 5,
     snapSquarePx: 9,
     regionFill: 0.5, // closed sketch shapes that are not extruded are faces with no thickness: bone colored and semi-transparent
     regionHoverBlue: 0.25, // a face under the cursor (extrude tool) leans this much blue
-    lineBlue: 0.6, // sketch lines on a hovered or selected plane lean this much blue
+    lineBlue: 0, // sketch lines on a hovered or selected plane lean this much blue (0 = pure black)
     dimOffsetPx: 22, // dimension lines sit this far (screen px) from the shape
     dimLabelHitPx: 20, // a click this close to a dimension number edits it
     dimLineWidthPx: 1.6,
@@ -79,6 +79,7 @@ export const settings = {
     sizePx: 15, // arrowhead length on screen
     labelGapPx: 13, // letter offset beyond the arrowhead
     labelSidePx: 10, // ...and sideways, so the letter does not sit on the line
+    faintOpacity: 0.22, // arrow and letter behind an object
     hideCos: 0.96, // an axis pointing (almost) at or away from the camera has no visible length: hide its arrow
   },
   fog: {
@@ -97,12 +98,14 @@ export const settings = {
   },
   light: {
     // Lights ride with the camera (to one side and above, never in view); the body has a slight clear-coat sheen, not real reflection.
-    key: 2.0, fill: 0.5, ambient: 0.85,
+    key: 1.2, fill: 0.3, ambient: 0.5,
     keyRight: -0.7, keyUp: 0.9, // key light position in view distances: right (negative = left) and up of the camera
-    roughness: 0.55, // the surface itself (lower = shinier)
-    sheen: 0.3, // clear-coat strength: the slight sheen (0 = matt)
-    sheenRoughness: 0.35, // lower = a tighter, shinier highlight
-    faceHoverOpacity: 0.4, // blue shade on a face under the cursor
+    roughness: 0.4, // the surface itself (lower = shinier)
+    sheen: 0.6, // clear-coat strength: the sheen (0 = matt)
+    sheenRoughness: 0.18, // lower = a tighter, shinier highlight
+    reflect: 0.4, // how strongly a soft studio environment is reflected in the surface (0 = none)
+    faceHoverOpacity: 0.3, // blue shade on a face under the cursor
+    faceSelectOpacity: 0.5, // ...and on the selected face
   },
   backdrop: {
     // World view option: the plane itself is almost see-through, and the cream sheet is a SEPARATE sheet a little behind it (away from
@@ -121,6 +124,7 @@ export const settings = {
     grazeMinCos: 0.03, // a plane seen this nearly edge-on cannot be picked (the ray is almost parallel to it)
     axisWidthPx: 2.2, // world axis lines stay the heaviest lines in the scene
     axisAlpha: 0.85,
+    axisGhost: 0.22, // axis lines behind an object show through at this strength
     extentFactor: 60, // size of the quad that carries a plane, in view-distances (fog hides its edge)
   },
   themeName: "world", // dark world, backlit plane (the paper theme was dropped: D now means dimension)
@@ -136,8 +140,8 @@ export const settings = {
       axisX: [0.92, 0.32, 0.3], axisY: [0.25, 0.72, 0.38], axisZ: [0.32, 0.52, 1.0],
       sheet: [0.8902, 0.8627, 0.7961], gridLine: [0.17, 0.18, 0.2], // sheet and bone-colored faces and bodies #e3dccb (`in_036`: slightly darker than the earlier cream #f3f0e7), grid #2b2e33
       blueSurface: [0.5, 0.66, 1.0], blueLine: [0.1, 0.22, 0.55], blueInk: [0.05, 0.12, 0.32], blueHalo: [0.82, 0.9, 1.0], // the slight blue shade on a hovered or selected plane
-      bodyColor: 0xe3dccb, bodyEdge: 0x3a352c, addColor: 0x5fbf7a, cutColor: 0xe0645c, handleColor: 0xf2c14e,
-      sketchInk: [0.09, 0.095, 0.105], sketchHalo: [0.95, 0.93, 0.9], // sketch lines: near-black with a light halo so they read on the lit sheet and on the dark world
+      bodyColor: 0xf1ece0, bodyEdge: 0x3a352c, addColor: 0x5fbf7a, cutColor: 0xe0645c, handleColor: 0xf2c14e, // body color: objects and cream faces, lighter than the sheet (`in_037`)
+      sketchInk: [0.0, 0.0, 0.0], sketchHalo: [0.95, 0.93, 0.9], // sketch lines: near-black with a light halo so they read on the lit sheet and on the dark world
       states: {
         // blue = how much the hovered / selected plane's surface and lines lean blue (0 = none)
         base: { line: 0, bright: 0, opacity: 0, fine: 0, blue: 0 },

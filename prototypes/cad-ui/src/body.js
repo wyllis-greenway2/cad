@@ -1,8 +1,11 @@
 // The solid body: runs the geometry kernel (OCCT in a worker), shows the result in the scene, and keeps lights.
 // The view asks for a graph with request(); newest request wins while one is in flight, so dragging never queues up.
 import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
-export function createBody(scene, S, colors) {
+export function createBody(scene, S, colors, renderer) {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; // a soft studio, only reflected in the body (not a real reflection of the scene)
   const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
   const group = new THREE.Group();
   scene.add(group);
@@ -12,7 +15,8 @@ export function createBody(scene, S, colors) {
   const fill = new THREE.DirectionalLight(0xffffff, S.light.fill);
   scene.add(key, key.target, fill, fill.target, new THREE.AmbientLight(0xffffff, S.light.ambient));
   const highlight = new THREE.Group(); // the face under the cursor, tinted blue
-  scene.add(highlight);
+  const selectedGroup = new THREE.Group(); // the selected face, tinted more strongly
+  scene.add(highlight, selectedGroup);
   let bodyMesh = null;
   let faces = [];
   const ray = new THREE.Raycaster();
@@ -48,7 +52,8 @@ export function createBody(scene, S, colors) {
       info.bbox = data.bbox;
       faces = data.faces ?? [];
       info.faceCount = faces.length;
-      setHighlight(null);
+      hoverState.face = null;
+      selectState.face = null;
       info.ms = data.totalMs;
       info.error = data.ops.find((o) => o.error)?.error ?? null;
       show(data.mesh);
@@ -67,30 +72,54 @@ export function createBody(scene, S, colors) {
   function show(mesh) {
     clear();
     bodyMesh = null;
+    for (const g of [highlight, selectedGroup]) for (const c of [...g.children]) (c.geometry.dispose(), c.material.dispose(), g.remove(c));
     if (!mesh) return;
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(mesh.vertices, 3));
     geo.setAttribute("normal", new THREE.BufferAttribute(mesh.normals, 3));
     geo.setIndex(new THREE.BufferAttribute(mesh.triangles, 1));
-    const m = new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({ color: colors().bodyColor, roughness: S.light.roughness, metalness: 0, clearcoat: S.light.sheen, clearcoatRoughness: S.light.sheenRoughness, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
+    const m = new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({ color: colors().bodyColor, roughness: S.light.roughness, metalness: 0, clearcoat: S.light.sheen, clearcoatRoughness: S.light.sheenRoughness, envMap, envMapIntensity: S.light.reflect, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
     const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, S.extrude.edgeAngleDeg), new THREE.LineBasicMaterial({ color: colors().bodyEdge }));
     group.add(m, edges);
     bodyMesh = m;
   }
 
-  let shownFace = null;
-  function setHighlight(face) {
-    if (face === shownFace) return;
-    shownFace = face;
-    for (const c of [...highlight.children]) (c.geometry.dispose(), c.material.dispose(), highlight.remove(c));
-    if (!face || !bodyMesh) return;
+  /** A copy of the mesh triangles of one face (shares the vertex data). */
+  function faceGeometry(face) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", bodyMesh.geometry.getAttribute("position"));
     geo.setIndex(Array.from(bodyMesh.geometry.index.array.subarray(face.start, face.start + face.count)));
-    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: colors().blueSurface.length ? new THREE.Color(...colors().blueSurface) : 0x88aaff, transparent: true, opacity: S.light.faceHoverOpacity, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, fog: false, side: THREE.DoubleSide }));
-    m.renderOrder = 6;
-    highlight.add(m);
+    return geo;
   }
+  function tint(group, face, opacity, current) {
+    if (face === current.face) return;
+    current.face = face;
+    for (const c of [...group.children]) (c.geometry.dispose(), c.material.dispose(), group.remove(c));
+    if (!face || !bodyMesh) return;
+    const m = new THREE.Mesh(faceGeometry(face), new THREE.MeshBasicMaterial({ color: new THREE.Color(...colors().blueSurface), transparent: true, opacity, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, fog: false, side: THREE.DoubleSide }));
+    m.renderOrder = 6;
+    group.add(m);
+  }
+  const hoverState = { face: null };
+  const selectState = { face: null };
+  const setHighlight = (face) => tint(highlight, face, S.light.faceHoverOpacity, hoverState);
+  const setSelected = (face) => tint(selectedGroup, face, S.light.faceSelectOpacity, selectState);
+  const positionsOf = (face) => {
+    const pos = bodyMesh.geometry.getAttribute("position");
+    const idx = bodyMesh.geometry.index.array;
+    const lo = [Infinity, Infinity, Infinity];
+    const hi = [-Infinity, -Infinity, -Infinity];
+    const sum = [0, 0, 0];
+    for (let k = face.start; k < face.start + face.count; k++) {
+      for (let c = 0; c < 3; c++) {
+        const v = pos.getComponent(idx[k], c);
+        lo[c] = Math.min(lo[c], v);
+        hi[c] = Math.max(hi[c], v);
+        sum[c] += v;
+      }
+    }
+    return { lo, hi, mean: sum.map((x) => x / face.count) };
+  };
 
   return {
     /** Ask for this graph (ignored if it is the same as the last request). */
@@ -114,9 +143,40 @@ export function createBody(scene, S, colors) {
       if (!hit) return null;
       const at = hit.faceIndex * 3;
       const face = faces.find((f) => at >= f.start && at < f.start + f.count);
-      return face ? { face, distance: hit.distance } : null;
+      return face ? { face, distance: hit.distance, point: hit.point.toArray() } : null;
+    },
+    /** Is the straight line from `from` to `to` blocked by the body? */
+    blocked(from, to) {
+      if (!bodyMesh) return false;
+      const d = to.clone().sub(from);
+      const len = d.length();
+      ray.set(from, d.normalize());
+      ray.far = len - 0.01;
+      const hit = ray.intersectObject(bodyMesh, false).length > 0;
+      ray.far = Infinity;
+      return hit;
     },
     setHighlight,
+    setSelected,
+    faceGeometry: (face) => (bodyMesh ? faceGeometry(face) : null),
+    /** Where a face is (the middle of its triangles' corners), as a THREE.Vector3. */
+    faceCenter(face) {
+      const { lo, hi } = positionsOf(face);
+      return new THREE.Vector3(...lo.map((l, i) => (l + hi[i]) / 2));
+    },
+    /** The current face matching an earlier reference { axis, sign, offset, point }, or null (e.g. after the model changed). */
+    findFace(ref) {
+      if (!bodyMesh) return null;
+      let best = null;
+      for (const f of faces) {
+        if (f.axis !== ref.axis || f.sign !== ref.sign || Math.abs(f.offset - ref.offset) > 1e-3) continue;
+        const { lo, hi } = positionsOf(f);
+        if (ref.point.some((p, i) => p < lo[i] - 1e-3 || p > hi[i] + 1e-3)) continue;
+        const area = (hi[0] - lo[0] + 1e-6) * (hi[1] - lo[1] + 1e-6) * (hi[2] - lo[2] + 1e-6);
+        if (!best || area < best.area) best = { f, area };
+      }
+      return best?.f ?? null;
+    },
     /** Put the lights to one side of and above the camera. */
     updateLights(camera, target, dist) {
       const m = camera.matrixWorld.elements;

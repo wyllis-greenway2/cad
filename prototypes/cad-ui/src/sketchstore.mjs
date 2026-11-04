@@ -74,6 +74,12 @@ export class SketchStore {
     this.#pushFeatureCmd({ type: "feature-add", feature, index: this.features.length });
     return feature;
   }
+  /** Push or pull a flat face of the body. ref = { axis, sign, offset, point } finds the face again when the model is rebuilt. */
+  addFaceFeature(ref, distance) {
+    const feature = { id: `f_${String(this.nextFeature++).padStart(3, "0")}`, kind: "face", plane: null, ref: JSON.parse(JSON.stringify(ref)), distance };
+    this.#pushFeatureCmd({ type: "feature-add", feature, index: this.features.length });
+    return feature;
+  }
   updateFeature(id, distance) {
     const before = this.features.find((f) => f.id === id);
     if (!before) return false;

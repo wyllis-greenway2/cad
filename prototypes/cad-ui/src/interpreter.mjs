@@ -13,6 +13,8 @@ import {
   measureVolume,
   getOC,
   Plane,
+  Vector,
+  basicFaceExtrusion,
 } from "replicad";
 
 /** OCCT's own topology/geometry check. Operations can return garbage without throwing. */
@@ -117,6 +119,34 @@ const OPS = {
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
     return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
+  },
+
+  /**
+   * Push or pull a flat face of the target. ref = { axis, sign, offset, point } finds the face (flat, facing sign*axis, at that offset,
+   * its box containing the point). Pulling out adds the prism the face sweeps; pushing in cuts it.
+   */
+  faceExtrude(op, ctx) {
+    const t = ctx.get(op.target, "solid").shape;
+    const { axis, sign, offset, point } = op.ref;
+    const dist = resolve(op.distance, ctx.params);
+    const tol = 1e-3;
+    let best = null;
+    for (const f of t.faces) {
+      if (f.geomType !== "PLANE") continue;
+      const n = f.normalAt();
+      if (Math.abs([n.x, n.y, n.z][axis] * sign - 1) > 1e-6) continue;
+      const c = f.center;
+      if (Math.abs([c.x, c.y, c.z][axis] - offset) > tol) continue;
+      const [lo, hi] = f.boundingBox.bounds;
+      if (point.some((p, i) => p < lo[i] - tol || p > hi[i] + tol)) continue;
+      const area = (hi[0] - lo[0] + 1e-6) * (hi[1] - lo[1] + 1e-6) * (hi[2] - lo[2] + 1e-6);
+      if (!best || area < best.area) best = { f, area };
+    }
+    if (!best) throw new Error("face not found (the model changed since this step was made)");
+    const vec = [0, 0, 0];
+    vec[axis] = sign * dist;
+    const prism = basicFaceExtrusion(best.f, new Vector(vec));
+    return { kind: "solid", shape: dist >= 0 ? t.fuse(prism) : t.cut(prism) };
   },
 
   /** Cylindrical hole cut from the top of the target, at (x, y). depth omitted = through. */

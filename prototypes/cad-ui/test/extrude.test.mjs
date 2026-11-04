@@ -92,3 +92,23 @@ test("a feature on a body face carries its frame into the graph", () => {
   assert.deepEqual(g.ops[0].frame, f.frame);
   assert.equal(store.entities("F1").length, 0); // face planes get their own sketch lists on first use
 });
+
+test("face features: stored with a face reference, undoable, and become a faceExtrude op after the body", () => {
+  const store = new SketchStore();
+  const ref = { axis: 2, sign: 1, offset: 20, point: [1, 2, 20] };
+  store.addFeature("XY", rect, 20);
+  const f = store.addFaceFeature(ref, 10);
+  assert.equal(f.kind, "face");
+  const g = buildGraph(store.features);
+  assert.deepEqual(g.ops.map((o) => o.type), ["sketch", "extrude", "faceExtrude"]);
+  assert.equal(g.ops[2].target, "x_f_001");
+  assert.deepEqual(g.ops[2].ref, ref);
+  assert.equal(g.ops[2].distance, 10);
+  store.updateFeature(f.id, -4);
+  assert.equal(buildGraph(store.features).ops[2].distance, -4);
+  store.undo();
+  store.undo();
+  assert.equal(store.features.length, 1);
+  // a face feature with no body before it is skipped (nothing to push or pull)
+  assert.equal(buildGraph([{ id: "f_9", kind: "face", plane: null, ref, distance: 3 }]).ops.length, 0);
+});
