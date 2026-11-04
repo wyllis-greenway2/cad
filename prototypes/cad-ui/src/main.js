@@ -3,6 +3,7 @@
 // plane (back to the 3D view, where any plane can be hovered and clicked). Sketching and extruding come next.
 import * as THREE from "three";
 import { settings as S } from "./settings.js";
+import { initTuning } from "./tune.js";
 import { PLANES, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, projectOnto, pickPlane } from "./viewmath.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -32,6 +33,7 @@ function applyCamera() {
   camera.position.set(view.target.x + view.dist * o[0], view.target.y + view.dist * o[1], view.target.z + view.dist * o[2]);
   camera.up.set(up[0], up[1], up[2]);
   camera.lookAt(view.target);
+  camera.fov = V.fovDeg;
   camera.near = Math.max(0.01, view.dist * V.nearFactor);
   camera.far = view.dist * V.farFactor + 100;
   camera.updateProjectionMatrix();
@@ -140,6 +142,15 @@ function updatePlanes() {
     const u = mesh.material.uniforms;
     u.uCam.value.copy(camera.position);
     u.uDist.value = view.dist;
+    u.uLodDiv.value = G.lodDivisor;
+    u.uStyleMin.value = G.fineLineStrength;
+    u.uMinCellPx.value = G.minCellPx;
+    u.uAxisW.value = G.axisWidthPx;
+    u.uAxisA.value = G.axisAlpha;
+    u.uFogNear.value = F.nearFactor;
+    u.uFogFar.value = F.farFactor;
+    u.uAxisFogFar.value = F.axisFarFactor;
+    u.uFogK.value = F.sharpness;
     // Only the selected plane is shown (full grid); the hovered plane previews whenever it can be picked. The rest are hidden.
     const states = T().states;
     const state = selected === name ? states.selected : hovered === name ? states.hover : states.base;
@@ -293,7 +304,7 @@ function pickAt(clientX, clientY) {
   ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
   applyCamera();
   raycaster.setFromCamera(ndc, camera);
-  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * S.pick.maxDistanceFactor, minCos: G.grazeMinCos, only: inSketchView() ? selected : null }); // face-on to the sketch plane: only it exists; tilted (3D mode): any plane
+  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * F.farFactor, minCos: G.grazeMinCos, only: inSketchView() ? selected : null }); // face-on to the sketch plane: only it exists; tilted (3D mode): any plane
 }
 
 // ---------------------------------------------------------------- input
@@ -357,18 +368,23 @@ canvas.addEventListener(
   { passive: false },
 );
 addEventListener("keydown", (e) => {
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return; // typing in the tuning panel
   if (e.key === "Escape") (selected = null), updateStatus(), requestRender();
   if (e.key.toLowerCase() === "h") goHome();
   if (e.key.toLowerCase() === "d") (themeName = themeName === "world" ? "paper" : "world"), applyTheme();
 });
 
 // ---------------------------------------------------------------- boot
+if (new URLSearchParams(location.search).has("tune")) {
+  initTuning({ S, applyTheme, requestRender, getThemeName: () => themeName, setThemeName: (n) => ((themeName = n), applyTheme()) });
+}
 applyTheme();
 resize();
 updateStatus();
 // Hooks for the automated browser check (not used by the UI).
 window.__ui = {
   state: () => ({ selected, hovered, a: view.a, e: view.e, dist: view.dist, target: view.target.toArray(), normal: selected ? isNormal(view, selected, V.normalToleranceRad) : null, animating: !!anim }),
+  settings: S,
   pickAt,
   setView: ({ a, e, dist }) => ((view.a = a ?? view.a), (view.e = e ?? view.e), (view.dist = dist ?? view.dist), requestRender()),
   worldToScreen(x, y, z) {

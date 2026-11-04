@@ -40,7 +40,6 @@ export const settings = {
     axisAlpha: 0.85,
     extentFactor: 60, // size of the quad that carries a plane, in view-distances (fog hides its edge)
   },
-  pick: { maxDistanceFactor: 3.2 }, // same as the fog's far edge: you cannot pick what you cannot see
   themeName: "world", // "world" (dark world, lit plane) | "paper" (the earlier light world) - press D to toggle
   themes: {
     // world = the background (and therefore the fog); sheet = the plane's fill color; gridLine = grid lines.

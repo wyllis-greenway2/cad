@@ -107,3 +107,6 @@ Reply to the finite-sheet version of `prototypes/cad-ui` (the AI had asked wheth
 Reply to the dark-world / lit-plane version, with a screenshot of a low-angle view (camera just above the XY plane): the plane fades toward a dark horizon.
 
 > Looks better, but it doesn't really look like the camera goes through the plane at low angles. It kinda looks like the plane separates and goes away or fades away
+
+## in_024 — 2026-11-04 — directive
+> Okay that is pretty good! Now can you please give me a temporary version with knobs to adjust the colors brightness, shades etc, so that I can hand you back exact values to apply?

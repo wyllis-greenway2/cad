@@ -168,3 +168,17 @@ ceiling overhead. 8 view-math tests passed, no console errors. Added a `__ui.set
 **Open for the human:** is the horizon/fog now the "camera goes through the plane" feel you meant? Edge-on
 (elevation exactly 0) the plane is a line and cannot be picked.
 **Next:** more UI polish if wanted; then stage 2 (sketch on the plane), stage 3 (extrude).
+
+## Handoff 013 — 2026-11-04
+**State:** The human said the look is "pretty good" and asked (`in_024`) for a temporary version with knobs so they
+can hand back exact values. Built `src/tune.js`, loaded only with `?tune` (`bash tools/preview.sh tune`): live
+controls for theme colors (picker, hex and lightness slider each), selected and hover opacities, world fog, grid
+and axis line settings, arrow and letter placement, and view settings; an exact-values box with Copy; localStorage
+persistence; Reset; K hides it; the 3D view sits beside it. To make everything live, the shader parameters are now
+set every frame from `settings` (they were set once at creation) and the pick distance follows the fog's far edge.
+Typing in the panel no longer triggers view shortcuts. Verified by a scripted run (panel absent without `?tune`,
+edits apply, output reflects them, survives reload, reset, K hides) with no console errors; 8 tests pass.
+
+**Open for the human:** tune, then send the exact values (the text box, or a screenshot of it). Both themes are in
+the output.
+**Next:** apply the values to `settings.js`, delete `tune.js`, then stage 2 (sketch on the plane), stage 3 (extrude).
