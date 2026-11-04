@@ -80,3 +80,16 @@ commit it is running, and refuses to start if port 5173 is busy.
 
 **Open for the human:** finite hover sheets vs faint outlines always visible; whether the XYZ buttons stay.
 **Next:** human tries it; then stage 2 (sketch on the plane), stage 3 (extrude).
+
+## Handoff 006 — 2026-11-04
+**State:** Feedback `in_017` on `cad-ui`: drop the XYZ buttons and reduce clutter; the sheets should be
+infinite (the finite hover sheets in Handoff 005 were a misreading); put a very light gray grid back on
+the sheets; add distance fog; things are gray, or blue when selected; keep the colored world axes. Done:
+toolbar, hint box and tag removed (one status line left); infinite sheets with grid; fog by camera
+distance; gray/blue states (hover previews blue); grid zoom levels cross-fade; clicking another plane
+while tilted switches. 7 view-math tests plus a scripted browser run (hover, select, tilt, switch, return,
+Esc, zoom) passed. `dec_ui_plane_selection` updated to the human's current wording.
+
+**Open for the human:** whether the overview with three faint grids is calm enough; hover = blue preview
+is my reading of "blue when selected".
+**Next:** human tries it; then stage 2 (sketch on the plane), stage 3 (extrude).

@@ -82,3 +82,8 @@ After hands-on use of `prototypes/sketch-extrude`; resets the interface work and
 Feedback on `prototypes/cad-ui` stage 1, plus a problem report about `tools/preview.sh`.
 
 > Okay pretty good. Now it is a little hard to see properly visually. Can we make the grid not be a grid at all? maybe only when we are in sketch mode. But in 3d mode can we try just semi transparent sheets on whatever sheet is hovered to select? Also for some reason I have to run the bash command twice to get the recent edits "bash ~/Documents/cad/tools/preview.sh"
+
+## in_017 — 2026-11-04 — directive
+Reply to the finite-sheet version of `prototypes/cad-ui` (the AI had asked whether finite sheets were what was meant).
+
+> Lets drop the xyz buttons and reduce clutter. I meant infinite sheets. Lets add the grid back to the sheets because that helps use know that we are zooming or not. But lets make it a very light gray grid. Lets add a fog to the view so that things further out in the distance fade. Lets have it so things are either un-selected gray or blue when selected. The xyz world lines can keep their colors.

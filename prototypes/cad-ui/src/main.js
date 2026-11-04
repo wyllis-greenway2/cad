@@ -1,5 +1,6 @@
-// Stage 1: 3D view with infinite XYZ planes. Select a plane -> the camera goes normal to it. Orbit freely;
-// clicking the selected plane while tilted returns to its normal view. (Sketching and extruding come next.)
+// 3D view with infinite XYZ planes. Planes are gray (blue when selected or hovered) with a very light grid and
+// distance fog; the world axes keep their colors. Click a plane: sketch mode, camera goes normal to it. Orbit
+// freely; clicking the plane while tilted returns to its normal view. (Sketching and extruding come next.)
 import * as THREE from "three";
 import { settings as S } from "./settings.js";
 import { PLANES, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, projectOnto, pickPlane } from "./viewmath.mjs";
@@ -7,17 +8,19 @@ import { PLANES, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, p
 const $ = (id) => document.getElementById(id);
 const G = S.grid;
 const V = S.view;
+const F = S.fog;
+const T = S.theme;
 
 // ---------------------------------------------------------------- state
 const view = { a: V.homeAzimuth, e: V.homeElevation, dist: V.homeDistance, target: new THREE.Vector3() };
-let selected = null; // "XY" | "XZ" | "YZ" | null
+let selected = null; // "XY" | "XZ" | "YZ" | null  (non-null = sketch mode)
 let hovered = null;
 let anim = null;
 
 // ---------------------------------------------------------------- renderer, camera
 const canvas = $("view");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setClearColor(S.theme.background);
+renderer.setClearColor(T.background);
 renderer.autoClear = false;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(V.fovDeg, 1, 0.1, 1000);
@@ -34,7 +37,7 @@ function applyCamera() {
   camera.updateMatrixWorld();
 }
 
-// ---------------------------------------------------------------- infinite grid planes (shader)
+// ---------------------------------------------------------------- infinite planes (shader)
 const VERT = /* glsl */ `
 varying vec3 vPos;
 void main() {
@@ -42,12 +45,12 @@ void main() {
   gl_Position = projectionMatrix * viewMatrix * vec4(vPos, 1.0);
 }`;
 const FRAG = /* glsl */ `
-uniform vec3 uCam; uniform vec3 uTarget; uniform float uDist;
-uniform int uAxis; uniform vec3 uTint; uniform vec3 uColU; uniform vec3 uColV;
-uniform float uGrid; uniform float uSheet; uniform float uAxes;
-uniform float uLodDiv; uniform float uFadeNear; uniform float uFadeFar;
-uniform float uGrazeMin; uniform float uGrazeFull; uniform float uAxisW; uniform float uStyleMin;
-uniform float uLineA; uniform float uSheetA; uniform float uBorderA; uniform float uSheetR;
+uniform vec3 uCam; uniform float uDist;
+uniform int uAxis; uniform vec3 uCol; uniform vec3 uColU; uniform vec3 uColV;
+uniform float uLineA; uniform float uFillA; uniform float uAxisA;
+uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul;
+uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar;
+uniform float uGrazeMin; uniform float uGrazeFull; uniform float uAxisW;
 varying vec3 vPos;
 
 float gridLine(vec2 c, float s) {
@@ -61,14 +64,14 @@ void main() {
   else if (uAxis == 1) { c = vPos.xz; n = vec3(0.0, 1.0, 0.0); }
   else { c = vPos.yz; n = vec3(1.0, 0.0, 0.0); }
 
-  // grid (sketch plane only): three levels 10x apart that cross-fade as you zoom. A level's weight depends only on
-  // its spacing relative to the view, so it is continuous across zoom steps.
+  // grid: three levels 10x apart that cross-fade as you zoom. A level's weight depends only on its spacing
+  // relative to the view, so it is continuous across zoom steps (this is what shows you are zooming).
   float lg = log(uDist / uLodDiv) / log(10.0);
   float lod = floor(lg);
   float f = lg - lod;
   float s0 = pow(10.0, lod);
   float x0 = -f; float x1 = 1.0 - f;
-  float w0 = clamp(x0 + 1.0, 0.0, 1.0) * mix(uStyleMin, 1.0, clamp((x0 + 1.0) / 2.0, 0.0, 1.0));
+  float w0 = clamp(x0 + 1.0, 0.0, 1.0) * mix(uStyleMin, 1.0, clamp((x0 + 1.0) / 2.0, 0.0, 1.0)) * uFineMul; // finest level only where wanted
   float w1 = mix(uStyleMin, 1.0, clamp((x1 + 1.0) / 2.0, 0.0, 1.0));
   float w2 = f;
   float grid = max(max(gridLine(c, s0) * w0, gridLine(c, s0 * 10.0) * w1), gridLine(c, s0 * 100.0) * w2);
@@ -77,27 +80,20 @@ void main() {
   float axU = 1.0 - min(abs(c.y) / (max(w.y, 1e-6) * uAxisW), 1.0); // v = 0 runs along the u axis
   float axV = 1.0 - min(abs(c.x) / (max(w.x, 1e-6) * uAxisW), 1.0); // u = 0 runs along the v axis
 
-  float d = length(vPos - uTarget);
-  float fade = 1.0 - smoothstep(uDist * uFadeNear, uDist * uFadeFar, d);
+  // fog by distance from the camera; planes seen edge-on fade out
+  float dc = distance(uCam, vPos);
+  float fog = 1.0 - smoothstep(uDist * uFogNear, uDist * uFogFar, dc);
+  float axFog = 1.0 - smoothstep(uDist * uFogNear, uDist * uAxisFogFar, dc);
   float ang = smoothstep(uGrazeMin, uGrazeFull, abs(dot(normalize(uCam - vPos), n)));
 
-  // hover sheet: a finite square around the origin with an outline
-  float m = max(abs(c.x), abs(c.y));
-  float fm = max(fwidth(m), 1e-6);
-  float inside = 1.0 - smoothstep(uSheetR - fm, uSheetR, m);
-  float border = 1.0 - min(abs(m - uSheetR) / (fm * 1.5), 1.0);
-  float sheet = (uSheetA * inside + uBorderA * border) * uSheet * ang;
-
-  vec3 col = mix(uTint, vec3(0.82, 0.86, 0.95), 0.45 * uGrid + 0.35 * border * uSheet);
-  float a = max(grid * uLineA * uGrid * fade * ang, sheet);          // grid (sketch plane) or hover sheet
-  float ax = max(axU, axV) * uAxes * fade;                              // axis lines
-  col = mix(col, mix(uColU, uColV, step(axU, axV)), step(a, ax));        // an axis line wins where it is stronger
+  float a = (grid * uLineA + uFillA) * fog * ang;
+  float ax = max(axU, axV) * uAxisA * axFog;
+  vec3 col = mix(uCol, mix(uColU, uColV, step(axU, axV)), step(a, ax)); // an axis line wins where it is stronger
   gl_FragColor = vec4(col, max(a, ax));
 }`;
 
 const planeMeshes = {};
 for (const [name, def] of Object.entries(PLANES)) {
-  const T = S.theme;
   const axisCol = [T.axisX, T.axisY, T.axisZ];
   const mat = new THREE.ShaderMaterial({
     vertexShader: VERT,
@@ -106,13 +102,13 @@ for (const [name, def] of Object.entries(PLANES)) {
     depthWrite: false,
     side: THREE.DoubleSide,
     uniforms: {
-      uCam: { value: new THREE.Vector3() }, uTarget: { value: new THREE.Vector3() }, uDist: { value: 1 },
-      uAxis: { value: def.axis }, uTint: { value: new THREE.Vector3(...T[`tint${name}`]) },
+      uCam: { value: new THREE.Vector3() }, uDist: { value: 1 },
+      uAxis: { value: def.axis }, uCol: { value: new THREE.Vector3(...T.gray) },
       uColU: { value: new THREE.Vector3(...axisCol[def.u]) }, uColV: { value: new THREE.Vector3(...axisCol[def.v]) },
-      uGrid: { value: 0 }, uSheet: { value: 0 }, uAxes: { value: 1 },
-      uLodDiv: { value: G.lodDivisor }, uFadeNear: { value: G.fadeNearFactor }, uFadeFar: { value: G.fadeFarFactor },
-      uGrazeMin: { value: G.grazeMinCos }, uGrazeFull: { value: G.grazeFullCos }, uAxisW: { value: G.axisWidthPx }, uStyleMin: { value: G.fineLineStrength },
-      uLineA: { value: G.lineAlpha }, uSheetA: { value: G.sheetAlpha }, uBorderA: { value: G.sheetBorderAlpha }, uSheetR: { value: 1 },
+      uLineA: { value: 0 }, uFillA: { value: 0 }, uAxisA: { value: G.axisAlpha },
+      uLodDiv: { value: G.lodDivisor }, uStyleMin: { value: G.fineLineStrength }, uFineMul: { value: 0 },
+      uFogNear: { value: F.nearFactor }, uFogFar: { value: F.farFactor }, uAxisFogFar: { value: F.axisFarFactor },
+      uGrazeMin: { value: G.grazeMinCos }, uGrazeFull: { value: G.grazeFullCos }, uAxisW: { value: G.axisWidthPx },
     },
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
@@ -123,11 +119,8 @@ for (const [name, def] of Object.entries(PLANES)) {
   scene.add(mesh);
 }
 
-/** Keep each grid quad centered on the target (projected onto its plane) and sized to the view, so the grid
- *  looks infinite and vertex positions stay small (float precision). Grid lines are in world coordinates. */
-/** Half side of the hover sheets, scaled with the camera distance so they keep the same apparent size. */
-const sheetHalf = () => camera.position.length() * G.sheetHalfFactor;
-
+/** Keep each plane's quad centered on the target (projected onto the plane) and sized to the view, so it looks
+ *  infinite and vertex positions stay small (float precision). Grid lines are in world coordinates. */
 function updatePlanes() {
   for (const [name, mesh] of Object.entries(planeMeshes)) {
     const c = projectOnto(name, view.target.toArray());
@@ -135,13 +128,14 @@ function updatePlanes() {
     mesh.scale.setScalar(view.dist * G.extentFactor);
     const u = mesh.material.uniforms;
     u.uCam.value.copy(camera.position);
-    u.uTarget.value.copy(view.target);
     u.uDist.value = view.dist;
-    // 3D overview: no grid, only a sheet on the hovered plane. Sketch mode: grid on the sketch plane only.
-    u.uGrid.value = selected === name ? 1 : 0;
-    u.uSheet.value = !selected && hovered === name ? 1 : 0;
-    u.uSheetR.value = sheetHalf();
-    u.uAxes.value = !selected || selected === name ? G.axisAlpha : G.axisAlphaOthers;
+    // gray, or blue when selected; hover previews blue (in 3D mode, or on another plane while sketching)
+    const state = selected === name ? G.selected : hovered === name ? G.hover : G.base;
+    const blue = selected === name || hovered === name;
+    u.uCol.value.set(...(blue ? T.blue : T.gray));
+    u.uLineA.value = state.line;
+    u.uFillA.value = state.fill;
+    u.uFineMul.value = state.fine; // the densest grid level is only shown on the sketch plane
   }
 }
 
@@ -237,16 +231,16 @@ function goHome() {
   selected = null;
   animateTo({ a: V.homeAzimuth, e: V.homeElevation, target: new THREE.Vector3() }, V.transitionMs);
   updateStatus();
+  requestRender();
 }
 
-// ---------------------------------------------------------------- UI text
+// ---------------------------------------------------------------- status text (the only text on screen)
 function updateStatus() {
-  document.querySelectorAll("#tools button[data-plane]").forEach((b) => b.classList.toggle("on", b.dataset.plane === selected));
-  let text = "3D view. Hover near the origin to see a plane, click it to sketch on it.";
+  let text = "Click a plane to sketch on it";
   if (selected) {
     text = isNormal(view, selected, V.normalToleranceRad)
-      ? `Sketch mode on ${selected}. Esc leaves sketch mode.`
-      : `Sketch mode on ${selected}, tilted. Click the plane to return to its normal view. Esc leaves sketch mode.`;
+      ? `Sketching on ${selected}   Esc to exit`
+      : `Sketching on ${selected} (tilted)   click the plane to return to normal view   Esc to exit`;
   }
   $("status").textContent = text;
 }
@@ -259,11 +253,11 @@ function pickAt(clientX, clientY) {
   ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
   applyCamera();
   raycaster.setFromCamera(ndc, camera);
-  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * S.pick.maxDistanceFactor, minCos: G.grazeMinCos, only: selected, halfSize: selected ? null : sheetHalf() }); // sketch mode: only the sketch plane (infinite); 3D mode: the visible sheets
+  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * S.pick.maxDistanceFactor, minCos: G.grazeMinCos });
 }
 
 // ---------------------------------------------------------------- input
-let g = null; // { x, y, button, shift, moved }
+let g = null; // { x, y, x0, y0, button, pan, moved }
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 canvas.addEventListener("pointerdown", (ev) => {
   canvas.setPointerCapture(ev.pointerId);
@@ -271,14 +265,11 @@ canvas.addEventListener("pointerdown", (ev) => {
 });
 canvas.addEventListener("pointermove", (ev) => {
   if (!g) {
-    const hit = pickAt(ev.clientX, ev.clientY);
-    const h = hit?.plane ?? null;
-    const tag = $("tag");
-    tag.style.display = h && !selected ? "block" : "none";
-    if (h && !selected) (tag.textContent = `${h} plane: click to sketch`), (tag.style.left = `${ev.clientX + 16}px`), (tag.style.top = `${ev.clientY + 16}px`);
+    const h = pickAt(ev.clientX, ev.clientY)?.plane ?? null;
     if (h !== hovered) {
       hovered = h;
-      canvas.style.cursor = h && (!selected || !isNormal(view, selected, V.normalToleranceRad)) ? "pointer" : "default";
+      const clickable = h && (h !== selected || !isNormal(view, selected, V.normalToleranceRad));
+      canvas.style.cursor = clickable ? "pointer" : "default";
       requestRender();
     }
     return;
@@ -314,7 +305,6 @@ canvas.addEventListener("pointerup", (ev) => {
   // already normal: later stages will use this click to sketch
 });
 canvas.addEventListener("pointerleave", () => {
-  $("tag").style.display = "none";
   if (hovered) (hovered = null), requestRender();
 });
 canvas.addEventListener(
@@ -330,8 +320,6 @@ addEventListener("keydown", (e) => {
   if (e.key === "Escape") (selected = null), updateStatus(), requestRender();
   if (e.key.toLowerCase() === "h") goHome();
 });
-document.querySelectorAll("#tools button[data-plane]").forEach((b) => b.addEventListener("click", () => selectPlane(b.dataset.plane)));
-$("home").addEventListener("click", goHome);
 
 // ---------------------------------------------------------------- boot
 resize();

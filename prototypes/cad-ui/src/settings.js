@@ -15,31 +15,33 @@ export const settings = {
     nearFactor: 0.02, // camera near plane as a fraction of distance
     farFactor: 120,
   },
+  fog: {
+    // Fog fades things by their distance from the CAMERA, in multiples of the camera-to-target distance.
+    nearFactor: 1.05, // fully visible up to here (about the whole screen in a face-on view)...
+    farFactor: 3.2, // ...and gone by here
+    axisFarFactor: 7.0, // axis lines fade more slowly so orientation survives
+  },
   grid: {
     lodDivisor: 14, // grid spacing is chosen so about this many major cells span the view
-    fadeNearFactor: 0.5, // grid starts fading this many view-distances from the target...
-    fadeFarFactor: 2.6, // ...and is gone at this many (a soft edge, so it reads as open space)
-    extentFactor: 60, // size of the quad that carries the grid, in view-distances
+    fineLineStrength: 0.4, // the finest grid level is this fraction as strong as the main one
     grazeMinCos: 0.03, // planes seen edge-on fade out below this and cannot be picked
     grazeFullCos: 0.3,
-    lineAlpha: 0.3, // grid lines (sketch plane only)
-    fineLineStrength: 0.4, // the finest grid level is this fraction as strong as the main one
-    sheetAlpha: 0.22, // the hover sheet in the 3D overview: a finite square around the origin
-    sheetBorderAlpha: 0.9,
-    sheetHalfFactor: 0.3, // half the sheet side, as a fraction of the camera distance to the origin
-    axisAlpha: 0.85,
-    axisAlphaOthers: 0.5, // axis lines on planes that are not the sketch plane
     axisWidthPx: 1.6,
+    axisAlpha: 0.85,
+    extentFactor: 60, // size of the quad that carries a plane, in view-distances (fog hides its edge)
+    // Plane states. Everything is gray, or blue when selected; hover previews blue.
+    base: { line: 0.09, fill: 0.01, fine: 0 }, // unselected: gray, main grid levels only
+    hover: { line: 0.4, fill: 0.09, fine: 0.4 }, // under the cursor: blue preview
+    selected: { line: 0.45, fill: 0.06, fine: 1 }, // the sketch plane: blue, full grid
   },
-  pick: { maxDistanceFactor: 6 }, // only pick where the plane is still visibly drawn
+  pick: { maxDistanceFactor: 3.2 }, // same as the fog's far edge: you cannot pick what you cannot see
   gizmo: { sizePx: 96, padPx: 24, labelOffset: 1.2 },
   theme: {
     background: 0x15171b,
     axisX: [0.92, 0.35, 0.35],
     axisY: [0.4, 0.8, 0.45],
     axisZ: [0.4, 0.58, 1.0],
-    tintXY: [0.4, 0.58, 1.0], // XY plane (normal = Z)
-    tintXZ: [0.4, 0.8, 0.45], // XZ plane (normal = Y)
-    tintYZ: [0.92, 0.35, 0.35], // YZ plane (normal = X)
+    gray: [0.82, 0.82, 0.82], // very light gray grid on unselected planes
+    blue: [0.36, 0.56, 1.0], // selected (and hovered) planes
   },
 };
