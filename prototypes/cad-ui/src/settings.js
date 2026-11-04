@@ -17,9 +17,9 @@ export const settings = {
   },
   fog: {
     // Fog fades things by their distance from the CAMERA, in multiples of the camera-to-target distance.
-    nearFactor: 1.05, // fully visible up to here (about the whole screen in a face-on view)...
-    farFactor: 3.2, // ...and gone by here
-    axisFarFactor: 7.0, // axis lines fade more slowly so orientation survives
+    nearFactor: 0.9, // fully visible up to here (about the whole screen in a face-on view)...
+    farFactor: 2.4, // ...and gone by here
+    axisFarFactor: 5.0, // axis lines fade more slowly so orientation survives
   },
   grid: {
     lodDivisor: 14, // grid spacing is chosen so about this many major cells span the view
@@ -29,19 +29,17 @@ export const settings = {
     axisWidthPx: 1.6,
     axisAlpha: 0.85,
     extentFactor: 60, // size of the quad that carries a plane, in view-distances (fog hides its edge)
-    // Plane states. Everything is gray, or blue when selected; hover previews blue.
-    base: { line: 0.09, fill: 0.01, fine: 0 }, // unselected: gray, main grid levels only
-    hover: { line: 0.4, fill: 0.09, fine: 0.4 }, // under the cursor: blue preview
-    selected: { line: 0.45, fill: 0.06, fine: 1 }, // the sketch plane: blue, full grid
+    // Plane states. Only the selected plane is shown (blue, full grid); in 3D mode the hovered plane previews.
+    // Unselected planes are hidden (set base.line/fill above 0 to bring them back as faint sheets).
+    base: { line: 0, fill: 0, fine: 0 },
+    hover: { line: 0.4, fill: 0.09, fine: 0.4 },
+    selected: { line: 0.5, fill: 0.06, fine: 1 },
   },
-  pick: { maxDistanceFactor: 3.2 }, // same as the fog's far edge: you cannot pick what you cannot see
+  pick: { maxDistanceFactor: 2.4 }, // same as the fog's far edge: you cannot pick what you cannot see
   gizmo: { sizePx: 96, padPx: 24, labelOffset: 1.2 },
-  theme: {
-    background: 0x15171b,
-    axisX: [0.92, 0.35, 0.35],
-    axisY: [0.4, 0.8, 0.45],
-    axisZ: [0.4, 0.58, 1.0],
-    gray: [0.82, 0.82, 0.82], // very light gray grid on unselected planes
-    blue: [0.36, 0.56, 1.0], // selected (and hovered) planes
+  themeName: "light", // "light" | "dark" (press D in the view to toggle while trying them)
+  themes: {
+    light: { background: 0xf4f5f7, text: "#5a6270", axisX: [0.86, 0.22, 0.22], axisY: [0.14, 0.62, 0.27], axisZ: [0.2, 0.42, 0.95], blue: [0.16, 0.4, 0.88] },
+    dark: { background: 0x15171b, text: "#aab0bb", axisX: [0.92, 0.35, 0.35], axisY: [0.4, 0.8, 0.45], axisZ: [0.4, 0.58, 1.0], blue: [0.36, 0.56, 1.0] },
   },
 };

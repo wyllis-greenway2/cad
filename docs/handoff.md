@@ -93,3 +93,15 @@ Esc, zoom) passed. `dec_ui_plane_selection` updated to the human's current wordi
 **Open for the human:** whether the overview with three faint grids is calm enough; hover = blue preview
 is my reading of "blue when selected".
 **Next:** human tries it; then stage 2 (sketch on the plane), stage 3 (extrude).
+
+## Handoff 007 — 2026-11-04
+**State:** Feedback `in_018` on `cad-ui`: stronger fog; show only the selected sheet; try a light world.
+Done: fog nearer (starts 0.9 view-distances, gone by 2.4; was 1.05 and 3.2); unselected planes hidden (hover
+previews the plane in 3D mode; in sketch mode only the sketch plane exists and is the only pickable one,
+so Esc is needed to switch); light theme is the default, **D** toggles dark. 8 view-math tests plus a
+scripted browser run passed (overview, hover, select, tilt, sketch-mode picking, dark toggle).
+`dec_ui_plane_selection` updated.
+
+**Open for the human:** is hover-only discovery OK (nothing drawn until you hover)? Light vs dark? Fog
+strength (settings `fog.*`)?
+**Next:** human tries it; then stage 2 (sketch on the plane), stage 3 (extrude).

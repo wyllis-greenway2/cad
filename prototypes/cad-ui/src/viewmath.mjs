@@ -39,11 +39,13 @@ export function projectOnto(plane, p) {
 
 /**
  * Nearest origin plane hit by a ray, ignoring planes seen (almost) edge-on and hits beyond maxDist.
+ * `only` restricts the test to one plane (sketch mode: only the sketch plane exists).
  * Returns { plane, t, point } or null.
  */
-export function pickPlane(origin, dir, { maxDist = Infinity, minCos = 0.03 } = {}) {
+export function pickPlane(origin, dir, { maxDist = Infinity, minCos = 0.03, only = null } = {}) {
   let best = null;
   for (const [name, def] of Object.entries(PLANES)) {
+    if (only && name !== only) continue;
     const dk = dir[def.axis];
     if (Math.abs(dk) < minCos) continue;
     const t = -origin[def.axis] / dk;

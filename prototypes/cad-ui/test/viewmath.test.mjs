@@ -71,3 +71,8 @@ test("pickPlane: nearest plane along the ray, edge-on and far planes ignored", (
   assert.equal(pickPlane([0, 0, 10], [0, 0, -1], { maxDist: 5 }), null, "too far");
   assert.equal(pickPlane([0, 0, 10], [1, 0, -0.01], { minCos: 0.03 }), null, "grazing");
 });
+
+test("pickPlane `only` restricts picking to one plane (sketch mode)", () => {
+  assert.equal(pickPlane([5, -20, 3], [0, 1, 0], { only: "XZ" }).plane, "XZ");
+  assert.equal(pickPlane([5, -20, 3], [0, 1, 0], { only: "XY" }), null);
+});

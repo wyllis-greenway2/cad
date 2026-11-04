@@ -87,3 +87,6 @@ Feedback on `prototypes/cad-ui` stage 1, plus a problem report about `tools/prev
 Reply to the finite-sheet version of `prototypes/cad-ui` (the AI had asked whether finite sheets were what was meant).
 
 > Lets drop the xyz buttons and reduce clutter. I meant infinite sheets. Lets add the grid back to the sheets because that helps use know that we are zooming or not. But lets make it a very light gray grid. Lets add a fog to the view so that things further out in the distance fade. Lets have it so things are either un-selected gray or blue when selected. The xyz world lines can keep their colors.
+
+## in_018 — 2026-11-04 — directive
+> Can we have the fog a little stronger. Can we have it only show the selected sheet. Can we try a light world instead of dark.

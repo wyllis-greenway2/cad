@@ -9,7 +9,9 @@ const $ = (id) => document.getElementById(id);
 const G = S.grid;
 const V = S.view;
 const F = S.fog;
-const T = S.theme;
+let themeName = S.themeName;
+const T = () => S.themes[themeName];
+const toHex = (c) => (Math.round(c[0] * 255) << 16) | (Math.round(c[1] * 255) << 8) | Math.round(c[2] * 255);
 
 // ---------------------------------------------------------------- state
 const view = { a: V.homeAzimuth, e: V.homeElevation, dist: V.homeDistance, target: new THREE.Vector3() };
@@ -20,7 +22,6 @@ let anim = null;
 // ---------------------------------------------------------------- renderer, camera
 const canvas = $("view");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setClearColor(T.background);
 renderer.autoClear = false;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(V.fovDeg, 1, 0.1, 1000);
@@ -94,7 +95,7 @@ void main() {
 
 const planeMeshes = {};
 for (const [name, def] of Object.entries(PLANES)) {
-  const axisCol = [T.axisX, T.axisY, T.axisZ];
+  const axisCol = [T().axisX, T().axisY, T().axisZ];
   const mat = new THREE.ShaderMaterial({
     vertexShader: VERT,
     fragmentShader: FRAG,
@@ -103,7 +104,7 @@ for (const [name, def] of Object.entries(PLANES)) {
     side: THREE.DoubleSide,
     uniforms: {
       uCam: { value: new THREE.Vector3() }, uDist: { value: 1 },
-      uAxis: { value: def.axis }, uCol: { value: new THREE.Vector3(...T.gray) },
+      uAxis: { value: def.axis }, uCol: { value: new THREE.Vector3(...T().blue) },
       uColU: { value: new THREE.Vector3(...axisCol[def.u]) }, uColV: { value: new THREE.Vector3(...axisCol[def.v]) },
       uLineA: { value: 0 }, uFillA: { value: 0 }, uAxisA: { value: G.axisAlpha },
       uLodDiv: { value: G.lodDivisor }, uStyleMin: { value: G.fineLineStrength }, uFineMul: { value: 0 },
@@ -129,10 +130,9 @@ function updatePlanes() {
     const u = mesh.material.uniforms;
     u.uCam.value.copy(camera.position);
     u.uDist.value = view.dist;
-    // gray, or blue when selected; hover previews blue (in 3D mode, or on another plane while sketching)
-    const state = selected === name ? G.selected : hovered === name ? G.hover : G.base;
-    const blue = selected === name || hovered === name;
-    u.uCol.value.set(...(blue ? T.blue : T.gray));
+    // Only the selected plane is shown (blue, full grid). In 3D mode the hovered plane previews; the rest are hidden.
+    const state = selected === name ? G.selected : !selected && hovered === name ? G.hover : G.base;
+    u.uCol.value.set(...T().blue);
     u.uLineA.value = state.line;
     u.uFillA.value = state.fill;
     u.uFineMul.value = state.fine; // the densest grid level is only shown on the sketch plane
@@ -143,8 +143,8 @@ function updatePlanes() {
 const gizmoScene = new THREE.Scene();
 const gizmoCam = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
 const axisDirs = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
-const axisHex = [0xeb5959, 0x66cc73, 0x66a0ff];
-axisDirs.forEach((d, i) => gizmoScene.add(new THREE.ArrowHelper(d, new THREE.Vector3(), 1, axisHex[i], 0.3, 0.16)));
+const gizmoArrows = axisDirs.map((d) => new THREE.ArrowHelper(d, new THREE.Vector3(), 1, 0xffffff, 0.3, 0.16));
+gizmoArrows.forEach((a) => gizmoScene.add(a));
 const axisLabels = [$("lx"), $("ly"), $("lz")];
 
 function drawGizmo(w, h) {
@@ -169,6 +169,22 @@ function drawGizmo(w, h) {
     axisLabels[i].style.left = `${x + ((p.x + 1) / 2) * size}px`;
     axisLabels[i].style.top = `${h - y - size + ((1 - p.y) / 2) * size}px`;
   });
+}
+
+// ---------------------------------------------------------------- theme (light / dark)
+function applyTheme() {
+  const t = T();
+  const axes = [t.axisX, t.axisY, t.axisZ];
+  renderer.setClearColor(t.background);
+  document.documentElement.style.setProperty("--bg", `#${t.background.toString(16).padStart(6, "0")}`);
+  document.documentElement.style.setProperty("--fg", t.text);
+  for (const [name, mesh] of Object.entries(planeMeshes)) {
+    mesh.material.uniforms.uColU.value.set(...axes[PLANES[name].u]);
+    mesh.material.uniforms.uColV.value.set(...axes[PLANES[name].v]);
+  }
+  gizmoArrows.forEach((a, i) => a.setColor(toHex(axes[i])));
+  axisLabels.forEach((l, i) => (l.style.color = `#${toHex(axes[i]).toString(16).padStart(6, "0")}`));
+  requestRender();
 }
 
 // ---------------------------------------------------------------- render loop (on demand)
@@ -236,7 +252,7 @@ function goHome() {
 
 // ---------------------------------------------------------------- status text (the only text on screen)
 function updateStatus() {
-  let text = "Click a plane to sketch on it";
+  let text = "Hover to find a plane, click to sketch on it";
   if (selected) {
     text = isNormal(view, selected, V.normalToleranceRad)
       ? `Sketching on ${selected}   Esc to exit`
@@ -253,7 +269,7 @@ function pickAt(clientX, clientY) {
   ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
   applyCamera();
   raycaster.setFromCamera(ndc, camera);
-  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * S.pick.maxDistanceFactor, minCos: G.grazeMinCos });
+  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * S.pick.maxDistanceFactor, minCos: G.grazeMinCos, only: selected }); // sketch mode: only the sketch plane exists
 }
 
 // ---------------------------------------------------------------- input
@@ -319,9 +335,11 @@ canvas.addEventListener(
 addEventListener("keydown", (e) => {
   if (e.key === "Escape") (selected = null), updateStatus(), requestRender();
   if (e.key.toLowerCase() === "h") goHome();
+  if (e.key.toLowerCase() === "d") (themeName = themeName === "light" ? "dark" : "light"), applyTheme();
 });
 
 // ---------------------------------------------------------------- boot
+applyTheme();
 resize();
 updateStatus();
 // Hooks for the automated browser check (not used by the UI).

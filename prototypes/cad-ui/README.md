@@ -13,38 +13,40 @@ bash tools/preview.sh            # from the repo root; default prototype is cad-
 or `cd prototypes/cad-ui && npm install && npm run dev`. Tests: `npm test` (7 tests).
 
 ## What it does
-- **Three infinite planes** (XY, XZ, YZ), each a semi-transparent sheet with a **very light gray grid**.
-  The grid cross-fades between levels as you zoom, so you can tell you are zooming. The world axis lines
-  keep their colors (X red, Y green, Z blue). A small axis gizmo sits in the corner.
-- **Fog**: everything fades with distance from the camera, so the far parts of the planes dissolve.
-- **Gray or blue**: unselected planes are gray (main grid levels only); the plane under your cursor previews
-  **blue**; the selected sketch plane is blue with the full grid.
-- **Click a plane**: sketch mode. The camera glides to look straight at it (standard, un-mirrored views:
-  XY from above with X right and Y up, XZ from the front, YZ from the right).
+- **Light world** (a "dark" theme exists too; press **D** to flip between them while you compare).
+- **3D mode (nothing selected):** just the world axis lines (X red, Y green, Z blue) and a small axis
+  gizmo. **Hover** and the plane under the cursor appears as an infinite blue sheet with a light grid.
+  Move off it and it disappears. Unselected planes are never shown.
+- **Click a plane:** sketch mode. The camera glides to look straight at it, and **only that plane is
+  drawn** (blue sheet, full grid that cross-fades between levels as you zoom). Standard, un-mirrored views:
+  XY from above (X right, Y up), XZ from the front, YZ from the right.
+- **Fog:** everything fades into the background with distance from the camera.
 - **Orbit freely** (left drag); right-drag or Shift-drag pans; scroll zooms.
-- **Click the plane while tilted** to return to its normal view. Clicking a different plane while tilted
-  switches to it. When already in a normal view, clicks on the plane are saved for sketching (next stage).
-- **Esc** leaves sketch mode; **H** resets the camera. The only text on screen is one status line.
+- **Click the plane while tilted** to return to its normal view. In sketch mode only the sketch plane
+  exists, so **Esc** leaves sketch mode (then hover and click another plane). **H** resets the camera.
+  One status line is the only text on screen.
 
 ## How it works (short)
 - `src/viewmath.mjs`: pure math (turntable camera, standard views, ray-plane picking). Unit tested.
 - `src/main.js`: three.js view. Each plane is one quad that follows the camera target; a shader draws the
   grid (three levels 10x apart, weights continuous across zoom), the fill, the axis lines and the fog.
-  Picking is analytic (ray against the three planes, nearest wins, limited to the fog's far edge). A plane
-  seen edge-on fades out and cannot be picked.
+  Picking is analytic (ray against the planes; nearest wins; in sketch mode only the sketch plane;
+  limited to the fog's far edge). A plane seen edge-on fades out and cannot be picked.
 - `src/settings.js`: every threshold, duration, opacity, fog distance and color.
 
 ## What we learned (2026-11-04; scripted browser run, headless Chromium)
 1. **The flow works end to end**: select, normal view (azimuth -90 degrees, elevation 90 degrees for XY),
    orbit away, click back to normal, switch planes, Esc; zoom from 3 mm to 38 m across with no errors.
-2. **Three infinite grids at once get busy.** Feedback `in_016`/`in_017` asked for the grid back on infinite
-   sheets, light gray, with fog. What keeps it calm: very low alpha on unselected planes, no fine grid
-   level on them, fog starting at about one view-distance, and edge-on planes fading out. Judge by eye;
-   all of it is in `settings.js`.
+2. **Three infinite grids at once got busy** (in dark mode), even at low alpha. `in_018` settled it:
+   show only the selected sheet (hover previews in 3D mode), stronger fog, and try a light world. In the
+   scripted screenshots the light version reads clearly: blue grid on a pale background, fog fading into
+   it. Unselected planes can be brought back as faint sheets in `settings.js` (`grid.base`).
 3. **Infinite sheets cannot be hover targets in the usual sense**: every pixel is on some plane, so
    hover always highlights the nearest plane along the cursor's ray. I tried finite sheets (a misreading
    of `in_016`); `in_017` clarified infinite is wanted.
-4. **A real bug class**: my first "hover" screenshot looked identical to the no-hover one because the test
+4. **Discoverability cost:** with nothing drawn until you hover, a new user has to know to move the mouse
+   over the view; the status line says so. Whether that is fine or needs a cue is your call.
+5. **A real bug class**: my first "hover" screenshot looked identical to the no-hover one because the test
    mouse was hovering a plane. Judging visuals needs the cursor state controlled.
 
 ## What this does NOT show
