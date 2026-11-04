@@ -49,15 +49,18 @@ const FRAG = /* glsl */ `
 uniform vec3 uCam; uniform float uDist;
 uniform int uAxis; uniform vec3 uCol; uniform vec3 uColU; uniform vec3 uColV;
 uniform float uLineA; uniform float uFillA; uniform float uAxisA;
-uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul;
+uniform vec3 uLineCol; uniform vec3 uFogCol; uniform float uHaze; uniform float uHazeOut;
+uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul; uniform float uMinCellPx;
 uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar;
 uniform float uGrazeMin; uniform float uGrazeFull; uniform float uAxisW;
 varying vec3 vPos;
 
 float gridLine(vec2 c, float s) {
   vec2 q = c / s;
-  vec2 g = abs(fract(q - 0.5) - 0.5) / max(fwidth(q), vec2(1e-6));
-  return 1.0 - min(min(g.x, g.y), 1.0);
+  vec2 fw = max(fwidth(q), vec2(1e-6));
+  vec2 g = abs(fract(q - 0.5) - 0.5) / fw;
+  float cellPx = 1.0 / max(fw.x, fw.y); // size of one cell on screen, in pixels
+  return (1.0 - min(min(g.x, g.y), 1.0)) * smoothstep(uMinCellPx, uMinCellPx * 2.5, cellPx);
 }
 void main() {
   vec2 c; vec3 n;
@@ -87,9 +90,16 @@ void main() {
   float axFog = 1.0 - smoothstep(uDist * uFogNear, uDist * uAxisFogFar, dc);
   float ang = smoothstep(uGrazeMin, uGrazeFull, abs(dot(normalize(uCam - vPos), n)));
 
-  float a = (grid * uLineA + uFillA) * fog * ang;
+  float aLine = grid * uLineA * fog * ang;          // grid lines (a darker shade than the sheet)
+  float aFill = uFillA * fog * ang;                 // the sheet itself
+  // haze: far away the fog tints toward a darker color (strongest at the far edge, then dissolving so there is no hard edge)
+  float haze = uHaze * smoothstep(uDist * uFogNear, uDist * uFogFar, dc) * (1.0 - smoothstep(uDist * uFogFar, uDist * uFogFar * uHazeOut, dc)) * ang;
+  float aSheet = aLine + aFill * (1.0 - aLine);
+  vec3 sheetCol = aSheet > 0.0 ? (uLineCol * aLine + uCol * aFill * (1.0 - aLine)) / aSheet : uCol;
+  float a = aSheet + haze * (1.0 - aSheet);
+  vec3 col = a > 0.0 ? (sheetCol * aSheet + uFogCol * haze * (1.0 - aSheet)) / a : uCol;
   float ax = max(axU, axV) * uAxisA * axFog;
-  vec3 col = mix(uCol, mix(uColU, uColV, step(axU, axV)), step(a, ax)); // an axis line wins where it is stronger
+  col = mix(col, mix(uColU, uColV, step(axU, axV)), step(a, ax)); // an axis line wins where it is stronger
   gl_FragColor = vec4(col, max(a, ax));
 }`;
 
@@ -107,7 +117,8 @@ for (const [name, def] of Object.entries(PLANES)) {
       uAxis: { value: def.axis }, uCol: { value: new THREE.Vector3(...T().blue) },
       uColU: { value: new THREE.Vector3(...axisCol[def.u]) }, uColV: { value: new THREE.Vector3(...axisCol[def.v]) },
       uLineA: { value: 0 }, uFillA: { value: 0 }, uAxisA: { value: G.axisAlpha },
-      uLodDiv: { value: G.lodDivisor }, uStyleMin: { value: G.fineLineStrength }, uFineMul: { value: 0 },
+      uLodDiv: { value: G.lodDivisor }, uStyleMin: { value: G.fineLineStrength }, uFineMul: { value: 0 }, uMinCellPx: { value: G.minCellPx },
+      uLineCol: { value: new THREE.Vector3() }, uFogCol: { value: new THREE.Vector3() }, uHaze: { value: 0 }, uHazeOut: { value: F.hazeFadeOutFactor },
       uFogNear: { value: F.nearFactor }, uFogFar: { value: F.farFactor }, uAxisFogFar: { value: F.axisFarFactor },
       uGrazeMin: { value: G.grazeMinCos }, uGrazeFull: { value: G.grazeFullCos }, uAxisW: { value: G.axisWidthPx },
     },
@@ -132,42 +143,55 @@ function updatePlanes() {
     u.uDist.value = view.dist;
     // Only the selected plane is shown (blue, full grid). In 3D mode the hovered plane previews; the rest are hidden.
     const state = selected === name ? G.selected : !selected && hovered === name ? G.hover : G.base;
-    u.uCol.value.set(...T().blue);
+    const th = T();
+    u.uCol.value.set(...th.blue);
+    u.uLineCol.value.set(th.blue[0] * th.lineDarken, th.blue[1] * th.lineDarken, th.blue[2] * th.lineDarken);
+    u.uFogCol.value.set(...th.fogColor);
+    u.uHaze.value = state === G.base ? 0 : F.hazeMax; // haze only on the plane that is shown
     u.uLineA.value = state.line;
     u.uFillA.value = state.fill;
     u.uFineMul.value = state.fine; // the densest grid level is only shown on the sketch plane
   }
 }
 
-// ---------------------------------------------------------------- axis gizmo (corner)
-const gizmoScene = new THREE.Scene();
-const gizmoCam = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
+// ---------------------------------------------------------------- axis arrows (on the world axis lines)
 const axisDirs = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
-const gizmoArrows = axisDirs.map((d) => new THREE.ArrowHelper(d, new THREE.Vector3(), 1, 0xffffff, 0.3, 0.16));
-gizmoArrows.forEach((a) => gizmoScene.add(a));
 const axisLabels = [$("lx"), $("ly"), $("lz")];
+const arrowHeads = ["ax", "ay", "az"].map((id) => $(id));
 
-function drawGizmo(w, h) {
-  const size = S.gizmo.sizePx;
-  const x = w - size - S.gizmo.padPx;
-  const y = S.gizmo.padPx; // from the bottom
-  const o = cameraOffset(view.a, view.e);
-  const up = cameraUp(view.a, view.e);
-  gizmoCam.position.set(o[0] * 4, o[1] * 4, o[2] * 4);
-  gizmoCam.up.set(up[0], up[1], up[2]);
-  gizmoCam.lookAt(0, 0, 0);
-  gizmoCam.updateMatrixWorld();
-  renderer.setScissorTest(true);
-  renderer.setViewport(x, y, size, size);
-  renderer.setScissor(x, y, size, size);
-  renderer.clearDepth();
-  renderer.render(gizmoScene, gizmoCam);
-  renderer.setScissorTest(false);
-  renderer.setViewport(0, 0, w, h);
+/** Arrowheads sit on the +X/+Y/+Z world lines as flat triangles of constant on-screen size that follow each
+ *  line's projected direction; the axis letter sits just beyond, nudged beside the line. An axis seen
+ *  (almost) end-on has no visible length, so its arrow and letter are hidden. */
+function updateAxisArrows() {
+  const A = S.axisArrow;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  const viewDir = view.target.clone().sub(camera.position).normalize();
+  const L = A.lengthFactor * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2));
+  const toScreen = (p) => {
+    const v = p.clone().project(camera);
+    return [((v.x + 1) / 2) * w, ((1 - v.y) / 2) * h];
+  };
   axisDirs.forEach((d, i) => {
-    const p = d.clone().multiplyScalar(S.gizmo.labelOffset).project(gizmoCam);
-    axisLabels[i].style.left = `${x + ((p.x + 1) / 2) * size}px`;
-    axisLabels[i].style.top = `${h - y - size + ((1 - p.y) / 2) * size}px`;
+    const poly = arrowHeads[i];
+    const label = axisLabels[i];
+    const p0 = d.clone().multiplyScalar(L);
+    const [x0, y0] = toScreen(p0);
+    const [x1, y1] = toScreen(p0.clone().addScaledVector(d, L * 0.05));
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    const hide = Math.abs(d.dot(viewDir)) > A.hideCos || len < 1e-3;
+    poly.style.display = label.style.display = hide ? "none" : "block";
+    if (hide) return;
+    const ux = (x1 - x0) / len; // screen direction of the axis
+    const uy = (y1 - y0) / len;
+    const px = -uy; // perpendicular
+    const py = ux;
+    const tipX = x0 + ux * A.sizePx;
+    const tipY = y0 + uy * A.sizePx;
+    const hw = A.sizePx * 0.32;
+    poly.setAttribute("points", `${tipX},${tipY} ${x0 + px * hw},${y0 + py * hw} ${x0 - px * hw},${y0 - py * hw}`);
+    label.style.left = `${tipX + ux * A.labelGapPx + px * A.labelSidePx}px`;
+    label.style.top = `${tipY + uy * A.labelGapPx + py * A.labelSidePx}px`;
   });
 }
 
@@ -182,7 +206,7 @@ function applyTheme() {
     mesh.material.uniforms.uColU.value.set(...axes[PLANES[name].u]);
     mesh.material.uniforms.uColV.value.set(...axes[PLANES[name].v]);
   }
-  gizmoArrows.forEach((a, i) => a.setColor(toHex(axes[i])));
+  arrowHeads.forEach((p, i) => p.setAttribute("fill", `#${toHex(axes[i]).toString(16).padStart(6, "0")}`));
   axisLabels.forEach((l, i) => (l.style.color = `#${toHex(axes[i]).toString(16).padStart(6, "0")}`));
   requestRender();
 }
@@ -200,8 +224,8 @@ function requestRender() {
     updatePlanes();
     renderer.setViewport(0, 0, w, h);
     renderer.clear();
+    updateAxisArrows();
     renderer.render(scene, camera);
-    drawGizmo(w, h);
   });
 }
 function resize() {

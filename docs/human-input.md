@@ -90,3 +90,6 @@ Reply to the finite-sheet version of `prototypes/cad-ui` (the AI had asked wheth
 
 ## in_018 — 2026-11-04 — directive
 > Can we have the fog a little stronger. Can we have it only show the selected sheet. Can we try a light world instead of dark.
+
+## in_019 — 2026-11-04 — directive
+> Okay lets make the white world slightly more gray or paper colored ( very slight cream gray white) Lets make the blue slightly more dusty blue teal. Lets make the sub grid slightly darker and more defined. Lets make the xyz arrow indicators built directly into the main xzy world lines to reduce clutter. lets have the fog get slightly darker the further out it goes.

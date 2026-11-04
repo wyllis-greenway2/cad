@@ -13,14 +13,18 @@ bash tools/preview.sh            # from the repo root; default prototype is cad-
 or `cd prototypes/cad-ui && npm install && npm run dev`. Tests: `npm test` (7 tests).
 
 ## What it does
-- **Light world** (a "dark" theme exists too; press **D** to flip between them while you compare).
-- **3D mode (nothing selected):** just the world axis lines (X red, Y green, Z blue) and a small axis
-  gizmo. **Hover** and the plane under the cursor appears as an infinite blue sheet with a light grid.
+- **Light world** in a paper-like cream gray, with a dusty teal-blue for the selected plane (a "dark" theme exists too; press **D** to flip between them while you compare).
+- **3D mode (nothing selected):** just the world axis lines (X red, Y green, Z blue). The axis
+  indicators are built into those lines: a flat arrowhead and a letter on the positive end of each,
+  constant on-screen size, hidden when an axis points straight at the camera. No corner gizmo. **Hover** and the plane under the cursor appears as an infinite blue sheet with a light grid.
   Move off it and it disappears. Unselected planes are never shown.
 - **Click a plane:** sketch mode. The camera glides to look straight at it, and **only that plane is
   drawn** (blue sheet, full grid that cross-fades between levels as you zoom). Standard, un-mirrored views:
   XY from above (X right, Y up), XZ from the front, YZ from the right.
-- **Fog:** everything fades into the background with distance from the camera.
+- **Grid:** the selected plane's grid has darker, more defined lines; the finest level is stronger than
+  before, and each level fades out when its cells get too small on screen (this removed a moire pattern).
+- **Fog:** everything fades with distance from the camera, and the far haze tints slightly darker (strongest
+  near the far edge, then dissolving so there is no hard edge).
 - **Orbit freely** (left drag); right-drag or Shift-drag pans; scroll zooms.
 - **Click the plane while tilted** to return to its normal view. In sketch mode only the sketch plane
   exists, so **Esc** leaves sketch mode (then hover and click another plane). **H** resets the camera.

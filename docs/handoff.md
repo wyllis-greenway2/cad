@@ -105,3 +105,14 @@ scripted browser run passed (overview, hover, select, tilt, sketch-mode picking,
 **Open for the human:** is hover-only discovery OK (nothing drawn until you hover)? Light vs dark? Fog
 strength (settings `fog.*`)?
 **Next:** human tries it; then stage 2 (sketch on the plane), stage 3 (extrude).
+
+## Handoff 008 — 2026-11-04
+**State:** Visual refinements `in_019` on `cad-ui`: paper cream-gray background (#eeece6), dusty teal blue
+(selected plane), darker and more defined grid lines (and each grid level fades out when its cells get under
+7 px, which removed a moire pattern), XYZ indicators moved onto the world axis lines as flat arrowheads with
+letters (corner gizmo removed), and fog that tints darker with distance (then dissolves far out). 8 view-math
+tests plus a scripted browser run passed; checked screenshots of overview, hover, sketch, tilted and dark.
+
+**AI choices not yet reviewed:** exact colors, haze strength (`fog.hazeMax`), arrow size and distance along
+each axis (`axisArrow.*`); arrows hide when an axis points at the camera.
+**Next:** human tries it; then stage 2 (sketch on the plane), stage 3 (extrude).
