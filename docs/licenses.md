@@ -44,7 +44,7 @@ The kernel stays behind our own interface (`prin_never_box_in`), so it can be sw
 | Candidate | License | Verdict |
 |---|---|---|
 | SolveSpace libslvs (2D constraint solver) | GPLv3 | **Rejected**: would require open-sourcing the app. |
-| planegcs (FreeCAD's solver) | LGPL | Candidate; same packaging care as OCCT. See `q_constraint_solver`. |
+| planegcs (FreeCAD's solver) | LGPL | Not used: we write our own small solver (`dec_constraint_solver_small`). |
 | Ceres Solver | BSD | Candidate for a custom solver. |
 | Eigen | MPL-2.0 | Candidate math library for a custom solver. |
 | opencascade.js (original package) | LGPL-2.1-only | Older (last published 2023); the replicad build is smaller and maintained. |

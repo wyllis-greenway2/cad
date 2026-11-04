@@ -325,3 +325,8 @@ Next round: delete a selected object with the Delete key, R for rotate, and sele
 Answer to the kernel question (option 3, the hybrid), with a requirement to keep the kernel unpluggable and our work portable.
 
 > question 1, 3, lets use OCCT for now, with the plan that we will move to our own later, so we should try to keep it modular, unpluggable, and replaceable. We should keep our work isolated and ready to take with us when we move to our own.
+
+## in_045 — 2026-11-04 — approval
+Answer to the constraint solver question (option 2, a small solver of our own).
+
+> 2

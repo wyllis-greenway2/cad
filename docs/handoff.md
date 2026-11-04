@@ -420,3 +420,9 @@ switch points; `body.js` uses `spawnKernel()`; contract in `src/kernel/README.md
 "result is plain data" test); `tools/check_kernel_boundary.py` enforces the boundary (verified it catches a stray import). 43 tests pass; the app still builds and runs through the worker.
 **Open for the human, one at a time:** `q_constraint_solver` next, then `q_topological_refs`, `q_direct_modification`, `q_grid_role`.
 **Suggestion for the working agreement:** run `python3 tools/check_kernel_boundary.py` with `check_docs.py` at session start (I did not edit CLAUDE.md; your call).
+
+## Handoff 033 — 2026-11-04
+**State:** `in_045`: the human chose option 2 for the constraint solver (a small one of our own). Recorded as `dec_constraint_solver_small` (accepted); `q_constraint_solver` deleted. Not built.
+References updated (dimension code comment, README, licenses, `dec_ui_conventions`, roadmap). Next question asked: `q_topological_refs`, with a demonstration that editing an extrusion from 20 to 25 mm
+makes a later "move top face" step fail ("face not found"), because the reference is geometric.
+**Open for the human, one at a time:** `q_topological_refs` (asked), then `q_direct_modification`, `q_grid_role`.

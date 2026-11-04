@@ -111,7 +111,7 @@ face and the sheet takes its angle.
 ## Dimension tool (D)
 Point at a shape (its dimensions appear), click it to keep them showing. Type a number (math works, `50/2`), Tab to the next
 dimension, Enter to apply; or click a number to edit that one. Esc cancels, then deselects, then leaves the tool. One undo step per Enter.
-No stored constraints yet (`q_constraint_solver` is open): it resizes the shape directly, keeping a rectangle's first corner, a circle's
+No stored constraints yet (a small solver of our own is decided, `dec_constraint_solver_small`, not built): it resizes the shape directly, keeping a rectangle's first corner, a circle's
 centre and the start of a polyline segment fixed. Look values: `settings.sketch.dim*`.
 
 ## Extrude (E)

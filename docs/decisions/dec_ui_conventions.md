@@ -43,7 +43,7 @@ menu item.
 Status (`prototypes/cad-ui`): navigation presets and the keymap are data in `settings.input`; items 1, 2 and 4 are implemented, and item 5
 (right-click menu, no toolbar) is started. **Dimension tool built (`in_034`, AI's design, not yet reviewed by the human):** D, point at a
 shape and its dimensions show (rectangle W and H, circle diameter, each polyline segment length); click a number or just type, Tab for the
-next, Enter applies them as one undoable change. There is no constraint solver (`q_constraint_solver` is open), so a dimension is a direct
+next, Enter applies them as one undoable change. There is no constraint solver (`dec_constraint_solver_small` is decided but not built), so a dimension is a direct
 edit, not a stored constraint: a rectangle keeps its first corner, a circle its centre, an open polyline moves everything after the edited
 segment along. 
 **Extrude built (`in_034`, AI's design, not yet reviewed by the human):** E, click a closed shape; the view tilts to 3D with an arrow; drag

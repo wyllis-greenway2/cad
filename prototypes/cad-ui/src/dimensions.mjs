@@ -1,5 +1,5 @@
 // Dimensions of sketch shapes: what to show, and how typing a new number reshapes the shape. Pure (no DOM, no three.js).
-// There is no constraint solver yet (q_constraint_solver is open): a dimension here is a direct edit, not a stored constraint.
+// There is no constraint solver yet (a small one of our own is decided, dec_constraint_solver_small, not built): a dimension here is a direct edit, not a stored constraint.
 // Anchors that stay put: a rectangle keeps its first corner (it grows toward where it already pointed), a circle keeps its
 // centre, a polyline segment keeps its start point (an open polyline moves everything after it along, a closed one moves
 // only the end vertex of that segment).

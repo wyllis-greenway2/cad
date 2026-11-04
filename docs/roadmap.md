@@ -10,7 +10,7 @@ Update it at the end of each session.
 - Stage 3 first cut is built (`in_034`): dimension tool and extrude with a history list, on the three base planes. Next: sketch on body
   faces, the drawer, and whatever the human's trial turns up.
 - Kernel decided (`dec_kernel_hybrid`: OCCT now, our own later, behind `src/kernel/`). The human decides the other open questions one at a time:
-  `q_constraint_solver`, `q_topological_refs`, `q_direct_modification`, `q_grid_role`.
+  `q_topological_refs`, `q_direct_modification`, `q_grid_role`.
 
 ## Done
 - Project record set up; `docs/licenses.md` written; `kernel-slice`, `sketch-extrude`, `cad-ui` stages 1 and 2 built (2026-11-04).
