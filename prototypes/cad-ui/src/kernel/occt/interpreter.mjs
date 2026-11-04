@@ -257,6 +257,12 @@ const OPS = {
     return { kind: "solid", shape };
   },
 
+  /** Keep only the part of the target inside an axis-aligned box (min, max). Used to measure a shape piece by piece. */
+  cropBox(op, ctx) {
+    const t = ctx.get(op.target, "solid").shape;
+    return { kind: "solid", shape: t.intersect(makeBox(op.min, op.max)) };
+  },
+
   /** Delete the whole body: later steps start a new one. */
   clear() {
     return { kind: "empty" };

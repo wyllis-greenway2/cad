@@ -1,6 +1,6 @@
 # kernel-slice (THROWAWAY prototype)
 
-Approved as an experiment in `in_012`; it does **not** decide `q_kernel_choice`. Never import this code
+Approved as an experiment in `in_012`; it does **not** decide the kernel decision (`dec_kernel_hybrid`). Never import this code
 from production code (CLAUDE.md rule 9).
 
 **Meant to learn:** can OCCT (via the replicad WASM build) handle a JSON operation graph for

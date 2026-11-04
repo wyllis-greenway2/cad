@@ -6,6 +6,7 @@
   "description": "THROWAWAY prototype: the clean interface, built in stages. Stage 1: 3D view with infinite XYZ planes, select a plane, go normal to it. See README.md.",
   "scripts": {
     "test": "node --test test/*.test.mjs",
+    "check:kernel": "python3 ../../tools/check_kernel_boundary.py",
     "dev": "vite"
   },
   "dependencies": {

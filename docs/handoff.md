@@ -412,3 +412,11 @@ planes were axis-aligned throughout. Generalized: the worker reports every flat 
 the normal), browser run (tilt top 10 degrees, select it, S goes square to it, rectangle, extrude 6 perpendicular to it, double-click body + Delete, undo), screenshots; 42 tests, no console errors.
 **Limits:** deleting a single face is not offered; the grid axis lines on a face sketch plane are the world axis lines' colors (not meaningful there); a datum plane's ref goes stale if earlier steps move the face.
 **Next:** the drawer; the human's pick of modifications.
+
+## Handoff 032 — 2026-11-04
+**State:** `in_044`: the human answered the kernel question with option 3 (OCCT now, our own kernel later, kept unpluggable). Recorded as `dec_kernel_hybrid` (accepted) and `inv_kernel_boundary` (accepted); `q_kernel_choice` deleted
+(answered). Code: all OCCT code moved to `prototypes/cad-ui/src/kernel/occt/` (`oc.mjs`, `interpreter.mjs`, new `evaluate.mjs` = graph in, plain-data result out, thin `worker.js`); `src/kernel/index.mjs` and `client.js` are the only
+switch points; `body.js` uses `spawnKernel()`; contract in `src/kernel/README.md`; kernel tests became `test/kernel-conformance.test.mjs` (only the interface, no replicad import; new `cropBox` op for measuring pieces; plus a
+"result is plain data" test); `tools/check_kernel_boundary.py` enforces the boundary (verified it catches a stray import). 43 tests pass; the app still builds and runs through the worker.
+**Open for the human, one at a time:** `q_constraint_solver` next, then `q_topological_refs`, `q_direct_modification`, `q_grid_role`.
+**Suggestion for the working agreement:** run `python3 tools/check_kernel_boundary.py` with `check_docs.py` at session start (I did not edit CLAUDE.md; your call).

@@ -10,7 +10,7 @@ date: 2026-11-04
 
 Rough, fast, throwaway prototyping needs no prior decision and can be discarded and retried. It lives
 under `prototypes/` and is never imported by production code. Production code needs an accepted entry
-behind it. Prototype results are what settle open questions such as `q_kernel_choice`.
+behind it. Prototype results are what settle open questions such as the kernel choice (`dec_kernel_hybrid`).
 
 ## Rationale
 The human is comfortable prototyping quickly and tossing what does not work (`in_011`). Open questions

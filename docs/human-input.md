@@ -320,3 +320,8 @@ Bug report: a selected closed sketch shape lost its blue highlight when the curs
 Next round: delete a selected object with the Delete key, R for rotate, and selecting and sketching on a face after it has been tilted.
 
 > Okay can we make it so that we can delete an object with the delete button if an object is selected? Can we make R be rotate instead of T ? Also after I rotate a face why can't I select it anymore? Also why cant I sketch and go normal to a tilted face?
+
+## in_044 — 2026-11-04 — directive
+Answer to the kernel question (option 3, the hybrid), with a requirement to keep the kernel unpluggable and our work portable.
+
+> question 1, 3, lets use OCCT for now, with the plan that we will move to our own later, so we should try to keep it modular, unpluggable, and replaceable. We should keep our work isolated and ready to take with us when we move to our own.

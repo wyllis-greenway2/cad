@@ -1,12 +1,13 @@
-// The solid body: runs the geometry kernel (OCCT in a worker), shows the result in the scene, and keeps lights.
+// The solid body: asks the geometry kernel (through ./kernel/client.js; today OCCT) for the result, shows it in the scene, and keeps lights.
 // The view asks for a graph with request(); newest request wins while one is in flight, so dragging never queues up.
 import * as THREE from "three";
+import { spawnKernel } from "./kernel/client.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 export function createBody(scene, S, colors, renderer) {
   const pmrem = new THREE.PMREMGenerator(renderer);
   const envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; // a soft studio, only reflected in the body (not a real reflection of the scene)
-  const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
+  const worker = spawnKernel();
   const group = new THREE.Group();
   scene.add(group);
   // Lights ride with the camera (to one side and above it, never in view), so the sheen on a surface moves as you orbit, which is

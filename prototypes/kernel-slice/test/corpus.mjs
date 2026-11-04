@@ -1,7 +1,7 @@
 // THROWAWAY: adversarial corpus for the OCCT kernel via replicad.
 // Each case builds a solid; we record success/failure, OCCT's own validity check, volume vs a
 // closed-form expectation (where one exists) and time. This is measurement, not pass/fail:
-// it feeds q_kernel_choice. Run: node test/corpus.mjs   (writes corpus-results.md)
+// it feeds the kernel decision (dec_kernel_hybrid). Run: node test/corpus.mjs   (writes corpus-results.md)
 import { writeFileSync } from "node:fs";
 import { loadOC } from "../src/oc.mjs";
 import { getOC, FaceFinder, makeBox, makeCylinder, makeSphere, drawRoundedRectangle, measureVolume, EdgeFinder } from "replicad";

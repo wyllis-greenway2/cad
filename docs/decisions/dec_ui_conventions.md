@@ -49,7 +49,7 @@ segment along.
 **Extrude built (`in_034`, AI's design, not yet reviewed by the human):** E, click a closed shape; the view tilts to 3D with an arrow; drag
 anywhere (or type a distance, math works) to pull it: positive adds, negative cuts when there is a body (otherwise it adds the other way);
 Enter applies, Esc cancels. The result is exact OCCT geometry (the `sketch-extrude` worker, copied into `cad-ui`; this does not decide
-`q_kernel_choice`) with an instant translucent ghost until it arrives. A small "History (n)" list appears top left once something is
+`dec_kernel_hybrid`) with an instant translucent ghost until it arrives. A small "History (n)" list appears top left once something is
 extruded; click an entry to change its distance, Delete removes it, Ctrl+Z / Ctrl+Y undo and redo it together with sketch edits. Limits:
 sketching is on the three base planes only (no sketching on body faces yet), and an extrusion keeps a copy of its shape, so editing the
 sketch later does not change it. **Selection model (`in_036`, `in_037`; AI's design, not yet reviewed by the human):** in the 3D view, clicking selects (a plane, a flat axis-facing face
