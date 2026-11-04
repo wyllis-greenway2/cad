@@ -515,12 +515,12 @@ function buildSketchViz() {
     for (const e of store.entities(plane)) {
       const o = outline(e);
       const pts = o.pts.map((p) => toWorld(plane, p));
-      const sel = plane === session.plane && e.id === session.selectedId;
+      const skSel = plane === session.plane && e.id === session.selectedId; // selected in the sketch view
       const hov = (plane === session.plane && session.tool === "extrude" && e.id === session.hoverId) || (hoveredSketch?.plane === plane && hoveredSketch.id === e.id);
-      const picked = sel?.kind === "sketch" && sel.plane === plane && sel.id === e.id; // stays blue until deselected
+      const picked = skSel || (sel?.kind === "sketch" && sel.plane === plane && sel.id === e.id); // stays blue until deselected, in the sketch view and in 3D
       if (o.closed && !isExtruded(plane, e)) sketchGroup.add(fillShape(plane, o.pts, toHex(mix3(cream, th.blueSurface, picked ? SK.regionSelectBlue : hov ? SK.regionHoverBlue : 0)), SK.regionFill));
-      if (SK.haloWidthPx > 0) sketchGroup.add(stroke(pts, { color: haloC, width: SK.haloWidthPx * (sel ? 1.5 : 1), closed: o.closed, order: 4 }));
-      sketchGroup.add(stroke(pts, { color: inkC, width: SK.lineWidthPx * (sel ? 1.7 : 1), closed: o.closed, order: 5 }));
+      if (SK.haloWidthPx > 0) sketchGroup.add(stroke(pts, { color: haloC, width: SK.haloWidthPx * (skSel ? 1.5 : 1), closed: o.closed, order: 4 }));
+      sketchGroup.add(stroke(pts, { color: inkC, width: SK.lineWidthPx * (skSel ? 1.7 : 1), closed: o.closed, order: 5 }));
     }
   }
   if (!inSketchView() || session.tool === "select") return;

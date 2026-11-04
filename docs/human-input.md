@@ -310,3 +310,8 @@ Next round: double-click orients to a world plane, a single click in the world a
 Answer to my recommendation (allow only the cases that stay valid, built as a growing list of operations: line fillet and chamfer next, then radius change and draft for curved faces).
 
 > I agree, build it please
+
+## in_042 — 2026-11-04 — preference
+Bug report: a selected closed sketch shape lost its blue highlight when the cursor left it.
+
+> okay when I select a closed sketch plane right after drawing it, it wont stay highlighted blue as selected, it drops the highlight as soon as the cursor goes off it.

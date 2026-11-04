@@ -396,3 +396,9 @@ line and an over-steep taper); browser run (fillet 2 mm and radius 3 → 4 gave 
 **Limits:** partial round faces (arcs), cones, slanted faces and non-axis-aligned round faces are not selectable for these; a taper keeps the low end of the face and the angle sign picks the direction; corners cannot be modified.
 **Open for the human:** which operation next (offset a round rim, hole from a face, shell, mirror?); `q_direct_modification` replay-versus-edit-the-source.
 **Next:** the drawer; the human's pick.
+
+## Handoff 030 — 2026-11-04
+**State:** `in_042` bug: a selected closed sketch shape lost its blue as soon as the cursor left it. Cause: in `buildSketchViz` a local `const sel` (is this shape selected in the sketch
+view?) shadowed the module-level 3D selection `sel`, so the 3D selection test always read undefined and only the hover blue showed. Renamed the local to `skSel`; a shape selected in the
+sketch view (select tool) now also turns blue and stays so. Verified by reading the fill colors and pixels after the cursor moved away, in both views.
+**Lesson:** a persistent-selection feature needs a test that moves the cursor away, which is what the earlier checks lacked for sketch shapes.
