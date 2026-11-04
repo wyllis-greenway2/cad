@@ -60,7 +60,7 @@ fail if earlier steps move it. Slanted and curved faces are not selectable yet. 
 picks one. Not built yet: the drawer.
 
 **Selection levels, modify and transform (`in_038`; AI's design, not yet reviewed by the human):** a single click selects a corner, a line (within a few
-pixels), a face, an unextruded sketch shape or a plane; a **double-click selects the whole body**. With a body selected: **M** move, **T** rotate,
+pixels), a face, an unextruded sketch shape or a plane; a **double-click selects the whole body**. With a body selected: **M** move, **R** rotate,
 **K** scale (X / Y / Z picks the axis; drag or type a number; rotate and scale are about the body's box centre). With a face: **E** push/pull, **S**
 "sketch from this face". Lines and corners can be selected but cannot be modified yet. The last plane that was showing keeps showing when nothing is
 selected or pointed at. See `q_direct_modification` for the open question on how direct modifications relate to extrusion and history.

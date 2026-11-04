@@ -85,7 +85,7 @@ behind an object show only faintly (`grid.axisGhost`, `axisArrow.faintOpacity`).
 
 ## Modify (`in_038`)
 Single click selects a **corner**, **line** (within a few pixels), **face**, unextruded **sketch shape** or **plane**; **double-click selects the whole body**.
-Body selected: **M** move, **T** rotate, **K** scale (X / Y / Z picks the axis, drag or type a number, Enter or a click in the world applies; rotate and scale are about the body's box
+Body selected: **M** move, **R** rotate, **K** scale (X / Y / Z picks the axis, drag or type a number, Enter or a click in the world applies; rotate and scale are about the body's box
 centre; each is a step in the History list you can click to change). Face selected: **E** push/pull, **S** sketch from this face. Lines and corners are only
 selectable so far. The last plane that was showing keeps showing when nothing is selected or pointed at. Rotating a body by an angle that is not a multiple of 90°
 makes its faces non-axis-aligned, and those cannot be selected or sketched on yet.
