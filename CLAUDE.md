@@ -38,8 +38,11 @@ Current decisions live in `docs/decisions/`. This file is the short version of h
    kept as dead files. `alternative_to` marks a deliberately preserved Plan B.
 8. **Look before you write.** Search `docs/decisions/` (grep) for related entries before adding one or
    before proposing code that touches the same area.
-9. **Build only on accepted ground.** Implement something only if an accepted entry backs it. Otherwise
-   propose it (as a `provisional` entry or a question) and ask.
+9. **Prototypes are free; production code is gated.** Anything under `prototypes/` may be built fast
+   and thrown away with no prior decision. Prototype code is never imported by production code, and each
+   prototype's README says what it was meant to learn and what it did learn. Code outside `prototypes/`
+   needs an accepted entry behind it; otherwise propose it (as a `provisional` entry or a question) and
+   ask. Promoting prototype work means rewriting or reviewing it first.
 10. **Dependencies:** adding one means recording its license in `docs/licenses.md` first. No GPL or
     AGPL. LGPL needs the packaging care described there.
 11. **Architecture invariants** (`inv_*` entries) are checked in code review and, where possible, by

@@ -52,3 +52,8 @@ Shared a zip of an earlier project ("Mosaic") that used a database and a "decisi
 Said in reply to the note that commits are authored under the Claude identity and that the push failed.
 
 > thats okay, I am not too worried about you authoring the code in github, I just want mostly a good solid design management structure, and some record of my human input. Okay so are we ready to start? Should we start by building the lean structure, then populating it with the design we already have slightly hashed out, then either start building or polish the design then start building?
+
+## in_011 — 2026-11-04 — directive
+Reply to the AI's request to approve the OCCT test slice as an experiment, citing rule 9 of CLAUDE.md ("build only on accepted ground").
+
+> Maybe we should toss rule 9? I am okay with rough prototyping quickly and tossing things if they don't work and trying again
