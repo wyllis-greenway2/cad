@@ -6,7 +6,6 @@ import { Line2 } from "three/addons/lines/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { settings as S } from "./settings.js";
-import { initTuning } from "./tune.js";
 import { SketchStore } from "./sketchstore.mjs";
 import { SketchSession } from "./interaction.mjs";
 import { navAction, keyAction } from "./keymap.mjs";
@@ -51,61 +50,11 @@ function applyCamera() {
   camera.updateMatrixWorld();
 }
 
-// ---------------------------------------------------------------- reflections (mirror image of objects in the visible sheet)
-const reflectRT = new THREE.WebGLRenderTarget(16, 16);
-// the mirror image is stored linear; the reflection shader converts it to display values
-const texMatrix = new THREE.Matrix4(); // world position -> mirror-image texture coordinates
-const mirrorCam = new THREE.PerspectiveCamera();
-const reflectGroup = new THREE.Group(); // objects that can be reflected (bodies later; test boxes now)
-scene.add(reflectGroup);
-const addReflectable = (obj) => (obj.layers.enable(1), reflectGroup.add(obj)); // layer 1 = seen by the mirror camera; sheets and sketch lines are not
-const NORMALS = { XY: new THREE.Vector3(0, 0, 1), XZ: new THREE.Vector3(0, 1, 0), YZ: new THREE.Vector3(1, 0, 0) };
-const clipPlane = new THREE.Plane();
-
-/** Render the reflectable objects as seen in a mirror lying in `plane` (through the origin), from the camera's side of it. */
-function renderReflection(plane) {
-  const nrm = NORMALS[plane].clone();
-  const side = Math.sign(camera.position.dot(nrm)) || 1;
-  nrm.multiplyScalar(side); // pointing toward the camera
-  // mirrored camera (same construction three.js's Reflector uses, for a mirror through the origin)
-  const rot = new THREE.Matrix4().extractRotation(camera.matrixWorld);
-  const camPos = camera.position.clone();
-  const mirroredPos = camPos.clone().sub(nrm.clone().multiplyScalar(2 * camPos.dot(nrm)));
-  const look = new THREE.Vector3(0, 0, -1).applyMatrix4(rot).add(camPos);
-  const lookM = look.clone().sub(nrm.clone().multiplyScalar(2 * look.dot(nrm)));
-  const up = new THREE.Vector3(0, 1, 0).applyMatrix4(rot);
-  const upM = up.clone().sub(nrm.clone().multiplyScalar(2 * up.dot(nrm)));
-  mirrorCam.position.copy(mirroredPos);
-  mirrorCam.up.copy(upM);
-  mirrorCam.lookAt(lookM);
-  mirrorCam.near = camera.near;
-  mirrorCam.far = camera.far;
-  mirrorCam.updateMatrixWorld();
-  mirrorCam.projectionMatrix.copy(camera.projectionMatrix);
-  mirrorCam.layers.set(1);
-  texMatrix.set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1);
-  texMatrix.multiply(mirrorCam.projectionMatrix).multiply(mirrorCam.matrixWorldInverse);
-  // only what is on the camera's side of the mirror may appear in it
-  clipPlane.set(nrm, 0);
-  const prevClip = renderer.clippingPlanes;
-  renderer.clippingPlanes = [clipPlane];
-  renderer.setRenderTarget(reflectRT);
-  renderer.setClearColor(0x000000, 0);
-  renderer.clear();
-  renderer.render(scene, mirrorCam);
-  renderer.setRenderTarget(null);
-  renderer.setClearColor(T().background, 1);
-  renderer.clippingPlanes = prevClip;
-}
-
 // ---------------------------------------------------------------- infinite planes (shader)
 const VERT = /* glsl */ `
 varying vec3 vPos;
-varying vec4 vUvProj;
-uniform mat4 uTexMatrix;
 void main() {
   vPos = (modelMatrix * vec4(position, 1.0)).xyz;
-  vUvProj = uTexMatrix * vec4(vPos, 1.0);
   gl_Position = projectionMatrix * viewMatrix * vec4(vPos, 1.0);
 }`;
 const FRAG = /* glsl */ `
@@ -116,10 +65,7 @@ uniform vec3 uLineCol;
 uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul; uniform float uMinCellPx;
 uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar; uniform float uFogK;
 uniform float uAxisW;
-uniform sampler2D tReflect; uniform float uSheen; uniform float uObjects; uniform float uBase; uniform float uGlancing; uniform float uVisible;
-uniform vec3 uSkyHigh; uniform vec3 uSkyLow;
 varying vec3 vPos;
-varying vec4 vUvProj;
 
 float gridLine(vec2 c, float s) {
   vec2 q = c / s;
@@ -165,20 +111,6 @@ void main() {
   // Glow layer (brightness): light added with "screen" blending, out = light + behind * (1 - light). It brightens what is
   // behind the sheet without clipping it to white, so a bright sheet can still be see-through. Independent of opacity.
   gl_FragColor = vec4(min(uCol * uBright * fog, vec3(1.0)), 1.0);
-#elif PASS == 2
-  // Reflection (slightly glossy): a sky sheen plus a real mirror image of objects, both strongest at glancing angles (Fresnel).
-  // Premultiplied blend: result = sheen + object color * a + behind * (1 - a).
-  vec3 v = normalize(uCam - vPos);
-  float cosT = abs(dot(v, n));
-  float fres = uBase + (1.0 - uBase) * pow(1.0 - cosT, uGlancing);
-  vec3 nn = dot(v, n) < 0.0 ? -n : n;
-  vec3 r = reflect(-v, nn);
-  vec3 sky = mix(uSkyLow, uSkyHigh, smoothstep(-0.15, 0.9, r.z));
-  vec2 uv = vUvProj.xy / vUvProj.w;
-  vec4 o = (uObjects > 0.0 && vUvProj.w > 0.0 && uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) ? texture2D(tReflect, uv) : vec4(0.0);
-  float aObj = o.a * fres * uObjects * fog * uVisible;               // objects blend toward their reflected color (like glass)
-  vec3 sheen = sky * uSheen * fres * fog * uVisible;                 // the sky sheen is added light
-  gl_FragColor = vec4(min(sheen + pow(o.rgb, vec3(1.0 / 2.2)) * aObj, vec3(1.0)), aObj); // premultiplied
 #else
   float a = grid * uLineA * fog;                                      // grid lines
   float ax = max(axU, axV) * uAxisA * axFog;                          // world axis lines
@@ -199,9 +131,7 @@ for (const [name, def] of Object.entries(PLANES)) {
     side: THREE.DoubleSide,
     ...(pass === 1
       ? { blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcColorFactor } // screen: light + dst * (1 - light)
-      : pass === 2
-        ? { blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor } // premultiplied alpha
-        : {}),
+      : {}),
     uniforms: {
       uCam: { value: new THREE.Vector3() }, uDist: { value: 1 },
       uAxis: { value: def.axis }, uCol: { value: new THREE.Vector3(...T().sheet) },
@@ -209,8 +139,6 @@ for (const [name, def] of Object.entries(PLANES)) {
       uLineA: { value: 0 }, uBright: { value: 0 }, uOpacity: { value: 0 }, uAxisA: { value: G.axisAlpha },
       uLodDiv: { value: G.lodDivisor }, uStyleMin: { value: G.fineLineStrength }, uFineMul: { value: 0 }, uMinCellPx: { value: G.minCellPx },
       uLineCol: { value: new THREE.Vector3() },
-      tReflect: { value: reflectRT.texture }, uTexMatrix: { value: texMatrix }, uSheen: { value: 0 }, uObjects: { value: 0 }, uBase: { value: 0 }, uGlancing: { value: 3 }, uVisible: { value: 0 },
-      uSkyHigh: { value: new THREE.Vector3() }, uSkyLow: { value: new THREE.Vector3() },
       uFogNear: { value: A.nearFactor }, uFogFar: { value: A.farFactor }, uAxisFogFar: { value: A.axisFarFactor }, uFogK: { value: A.sharpness },
       uAxisW: { value: G.axisWidthPx },
     },
@@ -218,29 +146,26 @@ for (const [name, def] of Object.entries(PLANES)) {
   const geo = new THREE.PlaneGeometry(1, 1);
   const paint = new THREE.Mesh(geo, makeMat(0));
   const glow = new THREE.Mesh(geo, makeMat(1));
-  const reflect = new THREE.Mesh(geo, makeMat(2));
-  const lines = new THREE.Mesh(geo, makeMat(3));
+  const lines = new THREE.Mesh(geo, makeMat(2));
   paint.renderOrder = 1;
   glow.renderOrder = 2;
-  reflect.renderOrder = 3;
-  lines.renderOrder = 4;
-  for (const mesh of [paint, glow, reflect, lines]) {
+  lines.renderOrder = 3;
+  for (const mesh of [paint, glow, lines]) {
     if (def.axis === 1) mesh.rotation.x = Math.PI / 2;
     if (def.axis === 0) mesh.rotation.y = Math.PI / 2;
     mesh.frustumCulled = false;
     scene.add(mesh);
   }
-  planeMeshes[name] = { paint, glow, reflect, lines };
+  planeMeshes[name] = { paint, glow, lines };
 }
 
 /** Keep each plane's quad centered on the target (projected onto the plane) and sized to the view, so it looks
  *  infinite and vertex positions stay small (float precision). Grid lines are in world coordinates. */
-let reflectingPlane = null; // the one sheet whose mirror image is rendered this frame
 function updatePlanes() {
   scene.fog.near = view.dist * F.nearFactor;
   scene.fog.far = view.dist * F.farFactor;
   for (const [name, pair] of Object.entries(planeMeshes)) {
-   for (const mesh of [pair.paint, pair.glow, pair.reflect, pair.lines]) {
+   for (const mesh of [pair.paint, pair.glow, pair.lines]) {
     const c = projectOnto(name, view.target.toArray());
     mesh.position.set(c[0], c[1], c[2]);
     mesh.scale.setScalar(view.dist * G.extentFactor);
@@ -264,14 +189,6 @@ function updatePlanes() {
     u.uCol.value.set(...th.sheet);
     u.uLineCol.value.set(...th.gridLine);
     u.uLineA.value = state.line;
-    const visible = state.line > 0 || state.bright > 0 || state.opacity > 0;
-    u.uVisible.value = visible ? 1 : 0;
-    u.uSheen.value = S.reflect.sheen;
-    u.uObjects.value = reflectingPlane === name ? S.reflect.objects : 0;
-    u.uBase.value = S.reflect.base;
-    u.uGlancing.value = S.reflect.glancing;
-    u.uSkyHigh.value.set(...th.skyHigh);
-    u.uSkyLow.value.set(...th.skyLow);
     u.uBright.value = state.bright;
     u.uOpacity.value = state.opacity;
     u.uFineMul.value = state.fine; // the densest grid level is only shown on the sketch plane
@@ -329,7 +246,7 @@ function applyTheme() {
   document.documentElement.style.setProperty("--bg", `#${t.background.toString(16).padStart(6, "0")}`);
   document.documentElement.style.setProperty("--fg", t.text);
   for (const [name, pair] of Object.entries(planeMeshes)) {
-    for (const mesh of [pair.paint, pair.glow, pair.reflect, pair.lines]) {
+    for (const mesh of [pair.paint, pair.glow, pair.lines]) {
       mesh.material.uniforms.uColU.value.set(...axes[PLANES[name].u]);
       mesh.material.uniforms.uColV.value.set(...axes[PLANES[name].v]);
     }
@@ -349,10 +266,6 @@ function requestRender() {
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     applyCamera();
-    // which sheet is showing (selected, pinned or hovered)? Render the mirror image for it, if there is anything to reflect
-    const shown = selected ?? (pinnedHover || hovered);
-    reflectingPlane = shown && S.reflect.objects > 0 && reflectGroup.children.length ? shown : null;
-    if (reflectingPlane) renderReflection(reflectingPlane);
     updatePlanes();
     renderer.setViewport(0, 0, w, h);
     renderer.clear();
@@ -365,7 +278,6 @@ function requestRender() {
 function resize() {
   renderer.setPixelRatio(devicePixelRatio);
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
-  reflectRT.setSize(Math.max(16, Math.round(canvas.clientWidth * devicePixelRatio * S.reflect.resolution)), Math.max(16, Math.round(canvas.clientHeight * devicePixelRatio * S.reflect.resolution)));
   camera.aspect = canvas.clientWidth / canvas.clientHeight;
   requestRender();
 }
@@ -894,16 +806,6 @@ addEventListener("keydown", (e) => {
 });
 
 // ---------------------------------------------------------------- boot
-if (new URLSearchParams(location.search).has("tune")) {
-  initTuning({
-    S, applyTheme, requestRender, getThemeName: () => themeName, setThemeName: (n) => ((themeName = n), applyTheme()),
-    view3D: () => (selected ? exitSketch(true) : goHome()),
-    sketchOn: (plane) => enterSketch(plane),
-    pinHover: (plane) => ((pinnedHover = plane), requestRender()),
-    pinStyle: (style) => ((pinnedStyle = style), requestRender()),
-    addTestBoxes: () => window.__ui.addTestBox(25, 10, -14, 30, 24, 20) || window.__ui.addTestBox(-30, -20, 18, 14, 14, 36),
-  });
-}
 applyTheme();
 resize();
 updateStatus();
@@ -920,11 +822,10 @@ window.__ui = {
     const light = new THREE.DirectionalLight(0xffffff, 2);
     light.position.set(30, -40, 60);
     const ambient = new THREE.AmbientLight(0xffffff, 0.8);
-    for (const l of [light, ambient]) l.layers.enable(1); // lights must be on the mirror camera's layer too, or reflected objects render unlit
     scene.add(light, ambient);
     const box = new THREE.Mesh(new THREE.BoxGeometry(w, d, h), new THREE.MeshLambertMaterial({ color: 0x8a6f4d }));
     box.position.set(x, y, z);
-    addReflectable(box);
+    scene.add(box);
     requestRender();
   },
   pickAt,

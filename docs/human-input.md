@@ -265,3 +265,8 @@ After tuning the sheets with the temporary panel (a screenshot of the view was a
 Bug report with a screenshot (a blurry, almost white, extremely magnified view: one thick green axis line, a tiny blue Z arrow, a faint grid, a cut-off status pill).
 
 > okay that is really terrible. Everything looks super zoomed in, and I cant tell what is happening. here is a screenshot
+
+## in_033 — 2026-11-04 — directive
+Answer to my three questions about the bad screenshot (1: how it got that way, 2: what the status line said, 3: whether the tuning panel was open), then a request to drop the reflections and move on to sketching and extruding.
+
+> 1 no it just loaded that way, 2 it said 3d hover a plane and click... yes it was in tune. it still has the problem in tune, but not when not in tune. Also I am sorry I think I got distracted with visuals, lets just revert back to how it was before I asked you to make it reflective and proceed from there working on sketching mechanics and extruding

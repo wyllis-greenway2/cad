@@ -14,16 +14,12 @@ or `cd prototypes/cad-ui && npm install && npm run dev`. Tests: `npm test` (20 t
 
 ## What it does (stage 2: sketching on the plane)
 **Look.** A dark world with lit sheets. Each sheet has four independent controls (all in `settings.themes.world.states`,
-separately for the selected plane and the hovered plane, and all on the tuning panel):
+separately for the selected plane and the hovered plane,):
 - **brightness**: how much light the sheet gives off. It is screen-blended, so it brightens what is behind the sheet without
   clipping it to white: a bright sheet can still be see-through.
 - **opacity**: how much the sheet hides what is behind it, using the sheet color. 0 = fully see-through, 1 = solid. It does not
   change the brightness.
 - **grid line opacity** and **fine grid level**.
-- **reflection** (`settings.reflect`): sheets are slightly glossy. A **sky sheen** (a soft reflection of an imaginary sky, light above and dark
-  below) and a **real mirror image of objects** (rendered from a mirrored camera into a small image; any object added with
-  `addReflectable` shows up in the sheet, so extruded bodies will). Both grow toward glancing angles (Fresnel). Defaults are subtle
-  (sheen 0.22, objects 0.35) and live on the tuning panel.
 And two separate falloffs: the **backlight area** (`settings.sheetArea`: how far a sheet's light, grid and the axis lines reach from
 where you look) and the **world fog** (`settings.fog`: objects in the scene fade into the dark world with distance, so the fog is
 *behind* the sheet and not only on it). The only color is the world axes (X red, Y green, Z blue) with arrowheads and letters.
@@ -62,14 +58,13 @@ Rectangle: width, **Tab**, height. Circle: diameter. Line: length, **Tab**, angl
 ## Look values (tuned by the human, `in_025`) and the tuning panel
 The colors, fog, grid and arrow values in `src/settings.js` were tuned by hand and applied exactly (68 numbers
 checked). **Tuned again (`in_031`):** world #242424, sheet #f3f0e7, brightness 1.2 and opacity 0.5 (selected and hovered), grid lines 0.5, fine level 0.5, and
-the world fog 0.5 to 2.5; all other values unchanged (37 values checked against the file). Reflection values are the AI's defaults.
+the world fog 0.5 to 2.5; all other values unchanged (37 values checked against the file).
 
 **Changes since:** the sheet is no longer one opaque fill (`in_028`, `in_030`). Your tuned fill numbers (hover 0.75, selected
 1.0) became **brightness** (re-set to 0.62 and 0.6) and **opacity** (0), independent of each other; and the fog you tuned
 (near 0.5, far 2.5, sharpness 2.5, axis 2.5) now drives the sheet's **backlight area**, while a new **world fog** (0.9 to 3.5)
-fades objects. `bash tools/preview.sh tune` brings back the temporary tuning panel (`?tune`) to
-set them (and the rest) exactly. The panel has its own buttons (3D view, Sketch XY/XZ/YZ, a pinned hover sheet, test
-boxes), so the look can be tuned with no mouse navigation at all. Send the values back and the panel is removed again.
+fades objects. The temporary tuning panel and the reflective-sheet experiment were removed (`in_033`); git history has both.
+
 
 ## How it works (short)
 - `src/viewmath.mjs`: pure math (turntable camera, standard views, ray-plane picking). Unit tested.

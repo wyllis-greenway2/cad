@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Pull the latest changes and start a prototype in your browser (http://localhost:5173).
 # Usage:  bash ~/Documents/cad/tools/preview.sh [prototype]     default: cad-ui
-#         prototypes: cad-ui (clean interface, staged), tune (cad-ui with the temporary tuning panel),
-#                     sketch-extrude, kernel-slice
+#         prototypes: cad-ui (clean interface, staged), sketch-extrude, kernel-slice
 set -euo pipefail
 cd "$(dirname "$0")/.."
 arg="${1:-cad-ui}"
@@ -16,7 +15,6 @@ fi
 
 proto="$arg"
 open_path="/"
-if [ "$arg" = "tune" ]; then proto="cad-ui"; open_path="/?tune"; fi
 
 echo "Preview: $arg  |  commit $(git log -1 --format='%h %s')"
 cd "prototypes/$proto"

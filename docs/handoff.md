@@ -289,3 +289,12 @@ driving the zoom to the old limit. Changes in `prototypes/cad-ui` (all values in
 **Open for the human:** please send what you were doing (wheel or trackpad, pinch or scroll), what the status pill said, and whether the
 `?tune` panel was open. Still pending: reflection tuning via `bash tools/preview.sh tune`.
 **Next:** confirm the cause of the screenshot; then stage 3 (extrude).
+
+## Handoff 020 — 2026-11-04
+**State:** `in_033`: the bad screenshot happened with the `?tune` panel open (it loaded that way, and the problem did not appear without the
+panel; the panel persists its own view values in the browser, which is the likely cause). The human asked to drop the reflective sheets and
+move on to sketching mechanics and extruding. Removed from `prototypes/cad-ui`: the reflection passes, mirror render target and `settings.reflect`;
+the whole tuning panel (`src/tune.js`, `?tune`, `preview.sh tune`). Kept: tuned look values (`in_031`), return-to-origin, the zoom safety
+(rate limit, 3..5000 mm, grid scale readout, reset prompt). Verified: 20 unit tests, page loads with no console errors, screenshot looks right.
+**Open for the human:** confirm the plain `bash tools/preview.sh` view looks right. Then choose what sketching mechanics come first.
+**Next:** sketching mechanics (proposal to the human), then stage 3 (extrude with Shapr3D-style defaults, history list, drawer).

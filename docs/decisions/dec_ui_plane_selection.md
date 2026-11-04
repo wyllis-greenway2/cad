@@ -34,8 +34,8 @@ backlight area separately, with the fog behind the sheets and not only on top of
 glow), opacity (sheet-colored veil), grid line strength, a "backlight area" falloff for the sheet, and a separate world fog
 that fades objects.
 Refinement (`in_031`): the human tuned these values by hand and they are applied verbatim (world #242424, sheet #f3f0e7, brightness 1.2,
-opacity 0.5, grid 0.5, fine 0.5, world fog 0.5 to 2.5) and are not AI choices; and asked for the sheets to be slightly reflective.
-AI interpretation: a subtle sky sheen plus a real mirror image of objects, both strongest at glancing angles (Fresnel), with knobs. You select a plane to sketch on,
+opacity 0.5, grid 0.5, fine 0.5, world fog 0.5 to 2.5) and are not AI choices. Reflective sheets were tried at the human's request and then dropped (`in_033`): they were never needed.
+You select a plane to sketch on,
 and the view goes normal to that plane. You can still orbit in 3D, and clicking on the plane brings the
 view back normal to it. Reduce clutter: no XYZ buttons.
 

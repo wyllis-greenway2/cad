@@ -78,16 +78,6 @@ export const settings = {
     sharpness: 2.5, // how quickly it fades between near and far (higher = faster, still smooth)
     axisFarFactor: 2.5, // how far the axis lines reach (they fade with the same curve)
   },
-  reflect: {
-    // Sheets are slightly glossy, like glass. "sheen" is a soft reflection of an imaginary sky (light above, dark below) and
-    // "objects" is a real mirror image of objects in the scene (extruded bodies later). Both grow toward glancing angles
-    // (Fresnel): "base" is how reflective a sheet is when seen straight on, "glancing" how sharply it grows toward the edge.
-    sheen: 0.22,
-    objects: 0.35,
-    base: 0.06,
-    glancing: 3,
-    resolution: 0.5, // the mirror image is rendered at this fraction of the screen size
-  },
   grid: {
     lodDivisor: 8, // grid spacing is chosen so about this many major cells span the view
     minCellPx: 4, // a grid level fades out when its cells get smaller than this on screen (prevents moire)
@@ -109,7 +99,6 @@ export const settings = {
       background: 0x242424, text: "#aeb2b7",
       axisX: [0.92, 0.32, 0.3], axisY: [0.25, 0.72, 0.38], axisZ: [0.32, 0.52, 1.0],
       sheet: [0.9529411764705882, 0.9411764705882353, 0.9058823529411765], gridLine: [0.17, 0.18, 0.2], // sheet #f3f0e7, grid #2b2e33
-      skyHigh: [0.93, 0.93, 0.92], skyLow: [0.1, 0.1, 0.11], // the imaginary sky the sheen reflects (neutral grays)
       sketchInk: [0.09, 0.095, 0.105], sketchHalo: [0.95, 0.93, 0.9], // sketch lines: near-black with a light halo so they read on the lit sheet and on the dark world
       states: {
         base: { line: 0, bright: 0, opacity: 0, fine: 0 },
