@@ -17,6 +17,20 @@ export function buildGraph(features) {
       prev = xid;
       continue;
     }
+    if (f.kind === "edge") {
+      if (!prev) continue;
+      const xid = `x_${f.id}`;
+      ops.push({ id: xid, type: "edgeMod", target: prev, ref: f.ref, mode: f.mode, value: f.distance });
+      prev = xid;
+      continue;
+    }
+    if (f.kind === "cylRadius" || f.kind === "cylDraft") {
+      if (!prev) continue;
+      const xid = `x_${f.id}`;
+      ops.push(f.kind === "cylRadius" ? { id: xid, type: "cylRadius", target: prev, ref: f.ref, radius: f.distance } : { id: xid, type: "cylDraft", target: prev, ref: f.ref, angle: f.distance });
+      prev = xid;
+      continue;
+    }
     if (f.kind === "faceTilt") {
       if (!prev) continue;
       const xid = `x_${f.id}`;

@@ -98,6 +98,10 @@ it. A **single click** in the world (on a world plane or on nothing) **deselects
 (X / Y / Z picks the axis). **K** scales a body. **S**, or right-click **Sketch on surface**, sketches on a plane, face or shape. Lines and corners cannot be moved yet.
 Each step is in the History list (click to change it). Zoom speed: `view.zoomPerWheel`, `input.maxZoomFactorPerSecond`. Light: `settings.light` (key, fill, ambient, sheen).
 
+## Fillet, chamfer, radius, taper (`in_041`)
+Click a **line**: **F** rounds it, **B** bevels it (drag, or type the size in mm; Enter or a click in the world applies). Click a full **round face** (a post or a hole): **M** changes
+its radius (type the new radius), **T** tapers it by an angle (the low end stays). A selection that has no valid operation says why. See `dec_direct_modification`.
+
 ## Dimension tool (D)
 Point at a shape (its dimensions appear), click it to keep them showing. Type a number (math works, `50/2`), Tab to the next
 dimension, Enter to apply; or click a number to edit that one. Esc cancels, then deselects, then leaves the tool. One undo step per Enter.

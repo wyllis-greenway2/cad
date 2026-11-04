@@ -109,6 +109,48 @@ function findFace(shape, ref) {
   return best.f;
 }
 
+/** A profile (points in the XZ plane: x = distance from the axis, y = height) revolved once about Z, then put on an axis (0 X, 1 Y, 2 Z) starting at `at`. */
+function revolved(points, axis, at) {
+  let pen = draw(points[0]);
+  for (let i = 1; i < points.length; i++) pen = pen.lineTo(points[i]);
+  let solid = pen.close().sketchOnPlane("XZ").revolve("Z");
+  if (axis === 0) solid = solid.rotate(90, [0, 0, 0], [0, 1, 0]);
+  else if (axis === 1) solid = solid.rotate(-90, [0, 0, 0], [1, 0, 0]);
+  return solid.translate(at);
+}
+
+/** A full round (cylindrical) face described by ref = { axis, center (on the axis, at its low end), radius, lo, hi }; returns { face, convex }. */
+function findCylinder(shape, ref) {
+  const tol = 1e-3;
+  for (const f of shape.faces) {
+    if (f.geomType !== "CYLINDRE") continue;
+    const cyl = f._geomAdaptor().Cylinder();
+    const loc = cyl.Axis().Location();
+    const dir = cyl.Axis().Direction();
+    const d = [dir.X(), dir.Y(), dir.Z()];
+    const l = [loc.X(), loc.Y(), loc.Z()];
+    if (Math.abs(Math.abs(d[ref.axis]) - 1) > 1e-6 || Math.abs(cyl.Radius() - ref.radius) > tol) continue;
+    if ([0, 1, 2].some((i) => i !== ref.axis && Math.abs(l[i] - ref.center[i]) > tol)) continue;
+    const [lo, hi] = f.boundingBox.bounds;
+    if (Math.abs(lo[ref.axis] - ref.lo) > tol || Math.abs(hi[ref.axis] - ref.hi) > tol) continue;
+    const pt = f.pointOnSurface(0.25, 0.5);
+    const n = f.normalAt(pt);
+    const radial = [pt.x - (ref.axis === 0 ? pt.x : ref.center[0]), pt.y - (ref.axis === 1 ? pt.y : ref.center[1]), pt.z - (ref.axis === 2 ? pt.z : ref.center[2])];
+    return { face: f, convex: n.x * radial[0] + n.y * radial[1] + n.z * radial[2] > 0 };
+  }
+  throw new Error("round face not found (the model changed since this step was made)");
+}
+
+/** Does this edge match ref = { a, b, mid } (its end points and its middle)? */
+const edgeMatches = (e, ref) => {
+  const m = e.pointAt(0.5);
+  if (Math.hypot(m.x - ref.mid[0], m.y - ref.mid[1], m.z - ref.mid[2]) > 1e-3) return false;
+  const a = e.startPoint;
+  const b = e.endPoint;
+  const d = (p, q) => Math.hypot(p.x - q[0], p.y - q[1], p.z - q[2]);
+  return (d(a, ref.a) < 1e-3 && d(b, ref.b) < 1e-3) || (d(a, ref.b) < 1e-3 && d(b, ref.a) < 1e-3);
+};
+
 const OPS = {
   sketch(op, ctx) {
     const p = (k) => resolve(op[k], ctx.params);
@@ -203,6 +245,50 @@ const OPS = {
       shape = shape.fuse(add).cut(remove);
     }
     return { kind: "solid", shape };
+  },
+
+  /** Round (fillet) or bevel (chamfer) one line of the target. ref = { a, b, mid } finds the line; value is the size in mm. */
+  edgeMod(op, ctx) {
+    const t = ctx.get(op.target, "solid").shape;
+    const v = resolve(op.value, ctx.params);
+    if (!(v > 1e-6)) throw new Error("the size must be positive");
+    if (!t.edges.some((e) => edgeMatches(e, op.ref))) throw new Error("line not found (the model changed since this step was made)");
+    const pick = (ef) => ef.when(({ element }) => edgeMatches(element, op.ref));
+    return { kind: "solid", shape: op.mode === "chamfer" ? t.chamfer(v, pick) : t.fillet(v, pick) };
+  },
+
+  /** Change the radius of a full round face: material is added or removed in a ring (outside it for a post, inside it for a hole). */
+  cylRadius(op, ctx) {
+    const t = ctx.get(op.target, "solid").shape;
+    const { face, convex } = findCylinder(t, op.ref);
+    const R = op.ref.radius;
+    const R2 = resolve(op.radius, ctx.params);
+    if (!(R2 > 1e-6)) throw new Error("the radius must be positive");
+    if (Math.abs(R2 - R) < 1e-9) return { kind: "solid", shape: t };
+    const h = op.ref.hi - op.ref.lo;
+    const at = [...op.ref.center];
+    at[op.ref.axis] = op.ref.lo;
+    const ring = revolved([[Math.min(R, R2), 0], [Math.max(R, R2), 0], [Math.max(R, R2), h], [Math.min(R, R2), h]], op.ref.axis, at);
+    const add = convex ? R2 > R : R2 < R;
+    return { kind: "solid", shape: add ? t.fuse(ring) : t.cut(ring) };
+  },
+
+  /** Taper (draft) a full round face by an angle, keeping the low end where it is. */
+  cylDraft(op, ctx) {
+    const t = ctx.get(op.target, "solid").shape;
+    const { convex } = findCylinder(t, op.ref);
+    const R = op.ref.radius;
+    const angle = resolve(op.angle, ctx.params);
+    if (!Number.isFinite(angle)) throw new Error("bad angle");
+    const h = op.ref.hi - op.ref.lo;
+    const R2 = R + h * Math.tan((angle * Math.PI) / 180);
+    if (!(R2 > 1e-6)) throw new Error("that angle closes the shape to a point before the other end");
+    if (Math.abs(R2 - R) < 1e-9) return { kind: "solid", shape: t };
+    const at = [...op.ref.center];
+    at[op.ref.axis] = op.ref.lo;
+    const wedge = revolved([[R, 0], [R, h], [R2, h]], op.ref.axis, at);
+    const add = convex ? R2 > R : R2 < R;
+    return { kind: "solid", shape: add ? t.fuse(wedge) : t.cut(wedge) };
   },
 
   /** Move, rotate or scale the whole target. mode "move" (mm along axis), "rotate" (degrees about the axis through the box centre), "scale" (factor about the box centre). */

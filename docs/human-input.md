@@ -305,3 +305,8 @@ Feedback after trying selection and modify: zoom speed, a bug selecting a drawn 
 Next round: double-click orients to a world plane, a single click in the world applies and deselects, E only for extrude, M for every move (including a face in or out), selection stays highlighted until Esc or a click out, move or rotate anything, and more contrasting light.
 
 > okay, can we have it so that double click on world plane orients to it. Can we have it so that single click on world plane applies as enter and deselects. So if I am extruding for example, or rotating or other operation. I can just click outside in the world somewhere to deselect and apply the edits. Can we have it so that E is explicitly for extrude? M could be used for all moving operations such as moving a face inward outward etc. Also when you click and select a face, or anything else. It should stay the highlighted blue color, and stay selected until Esc or clicking out in world view. We could also have it so that you could move or rotate a single face right? I understand some geometry would become invalid at extremes. Basically you should be able to move or rotate anything (except maybe not rotate a verticy) with select and M right? A line, face, verticy, whole body etc. Can we make the lighting on the objects a little more contrasting. Darker shadows, lighter surfaces etc?
+
+## in_041 — 2026-11-04 — approval
+Answer to my recommendation (allow only the cases that stay valid, built as a growing list of operations: line fillet and chamfer next, then radius change and draft for curved faces).
+
+> I agree, build it please

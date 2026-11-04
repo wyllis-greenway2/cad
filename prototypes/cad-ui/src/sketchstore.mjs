@@ -92,6 +92,12 @@ export class SketchStore {
     this.#pushFeatureCmd({ type: "feature-add", feature, index: this.features.length });
     return feature;
   }
+  /** A whole-model step on one selected thing: kind "edge" (mode fillet or chamfer, value in mm), "cylRadius" (new radius) or "cylDraft" (degrees). */
+  addRefFeature(kind, ref, value, extra = {}) {
+    const feature = { id: `f_${String(this.nextFeature++).padStart(3, "0")}`, kind, plane: null, ref: JSON.parse(JSON.stringify(ref)), ...extra, distance: value };
+    this.#pushFeatureCmd({ type: "feature-add", feature, index: this.features.length });
+    return feature;
+  }
   updateFeature(id, distance, extra = {}) {
     const before = this.features.find((f) => f.id === id);
     if (!before) return false;

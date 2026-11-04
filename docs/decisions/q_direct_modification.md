@@ -21,4 +21,6 @@ Open: should direct modifications be recorded as steps in the history like extru
 point at, see `q_topological_refs`), or edit the earlier step's own parameters (for a radius, the sketch circle that made it)? Editing the originating
 parameter is more parametric but is not always possible (a face made by a boolean has no single parameter).
 
-Not decided. The human has not chosen.
+Partly answered: the human approved building direct modification as a growing list of operations that stay valid, not by rebuilding bodies from planes (`in_041`,
+`dec_direct_modification`). **Still open:** the replay-versus-edit-the-source question above. Today every modification is its own replayable step (a radius change
+is a ring added or cut, found again by position), never an edit of the sketch that made the face.

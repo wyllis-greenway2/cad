@@ -35,7 +35,7 @@ export const settings = {
     maxZoomFactorPerSecond: 5, // one gesture can never zoom faster than this, however hard you flick or spin the wheel
     pinchZoomPerWheel: 0.01, // trackpad pinch (a wheel event with ctrl held) is more sensitive than a wheel notch
     keys: {
-      select: "v", line: "l", rect: "r", circle: "c", extrude: "e", sketch: "s", move: "m", rotate: "t", scale: "k", dimension: "d", home: "h",
+      select: "v", line: "l", rect: "r", circle: "c", extrude: "e", sketch: "s", move: "m", rotate: "t", scale: "k", fillet: "f", chamfer: "b", dimension: "d", home: "h",
       undo: "mod+z", redo: ["mod+shift+z", "mod+y"],
       origin: "o", cancel: "escape", confirm: "enter", nextField: "tab", prevField: "shift+tab", delete: ["delete", "backspace"],
     },
@@ -102,6 +102,7 @@ export const settings = {
     moveStep: 1, moveFineStep: 0.01, minMoveMm: 0.01,
     rotateStep: 1, rotateFineStep: 0.1, minRotateDeg: 0.01, rotateDegPerPx: 0.5,
     scaleStep: 0.01, scaleFineStep: 0.001, scalePerPx: 0.004,
+    sizeStep: 0.1, sizeFineStep: 0.01, // fillet, chamfer and radius sizes (mm)
   },
   pick: {
     vertexPx: 10, // pointing within this many pixels of a corner selects the corner

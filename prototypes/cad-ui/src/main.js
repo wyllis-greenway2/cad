@@ -580,8 +580,8 @@ const effective = () => {
 };
 /** The features as they would be right now, including the one being pulled. */
 function currentFeatures() {
-  const list = store.features.map((f) => (extrude && extrude.sess.featureId === f.id ? { ...f, distance: effective() } : xform && xform.sess.featureId === f.id ? { ...f, mode: xform.sess.mode, axis: xform.sess.axis, distance: xformValue() } : f));
-  if (xform && !xform.sess.featureId && !xform.sess.isEmpty()) list.push(xform.ref ? { id: "f_pending", kind: "faceTilt", plane: null, ref: xform.ref, axis: xform.sess.axis, distance: xformValue() } : { id: "f_pending", kind: "transform", plane: null, mode: xform.sess.mode, axis: xform.sess.axis, distance: xformValue() });
+  const list = store.features.map((f) => (extrude && extrude.sess.featureId === f.id ? { ...f, distance: effective() } : xform && xform.sess.featureId === f.id ? { ...f, ...xformFeature() } : f));
+  if (xform && !xform.sess.featureId && !xform.sess.isEmpty()) list.push({ id: "f_pending", ...xformFeature() });
   if (extrude && !extrude.sess.featureId && !extrude.sess.isEmpty()) {
     const pending = extrude.ref
       ? { id: "f_pending", kind: "face", plane: null, ref: extrude.ref, distance: effective() }
@@ -673,6 +673,16 @@ function editFeature(id) {
   if (at < 0) return;
   const f = store.features[at];
   if (f.kind === "transform") return startTransform(f.mode, f.id, f.axis, f.distance);
+  if (f.kind === "edge") {
+    const edge = body.findEdge(f.ref);
+    if (!edge) return flashMessage("That line is not there any more (the model changed since this step).");
+    return startEdgeMod(f.mode, edge, f.id, f.distance);
+  }
+  if (f.kind === "cylRadius" || f.kind === "cylDraft") {
+    const face = body.findFace(f.ref);
+    if (!face) return flashMessage("That round face is not there any more (the model changed since this step).");
+    return startCylinder(f.kind, face, f.id, f.distance);
+  }
   if (f.kind === "faceTilt") {
     const face = body.findFace(f.ref);
     if (!face) return flashMessage("That face is not there any more (the model changed since this step).");
@@ -738,7 +748,19 @@ const MODES = { move: "move", rotate: "rotate", scale: "scale" };
 function startFaceTilt(face, featureId = null, axis = null, value = null) {
   const ref = { axis: face.axis, sign: face.sign, offset: face.offset, point: face.point ?? body.faceCenter(face).toArray() };
   const a = axis ?? (face.axis + 1) % 3;
-  xform = { sess: new TransformSession(S, { mode: "rotate", axis: a, value, featureId }), center: body.faceCenter(face), size: Math.max(body.faceSize(face), 10), ref };
+  xform = { kind: "faceTilt", sess: new TransformSession(S, { mode: "rotate", axis: a, value, featureId }), center: body.faceCenter(face), size: Math.max(body.faceSize(face), 10), ref };
+  refreshUI();
+}
+/** Round (fillet) or bevel (chamfer) one selected line. */
+function startEdgeMod(mode, edge, featureId = null, value = null) {
+  const ref = { a: edge.a, b: edge.b, mid: edge.mid };
+  xform = { kind: "edge", edgeMode: mode, sess: new TransformSession(S, { mode, value, featureId }), center: new THREE.Vector3(...edge.mid), size: 10, ref };
+  refreshUI();
+}
+/** Change the radius of a full round face, or taper it. kind: "cylRadius" | "cylDraft". */
+function startCylinder(kind, face, featureId = null, value = null) {
+  const ref = { kind: "cyl", axis: face.axis, center: face.center, radius: face.radius, lo: face.lo, hi: face.hi };
+  xform = { kind, sess: new TransformSession(S, { mode: kind === "cylRadius" ? "radius" : "draft", value, featureId, base: face.radius }), center: body.faceCenter(face), size: 10, ref };
   refreshUI();
 }
 function startTransform(mode, featureId = null, axis = 0, value = null) {
@@ -746,7 +768,7 @@ function startTransform(mode, featureId = null, axis = 0, value = null) {
   if (!b) return flashMessage("There is no body yet.");
   const center = new THREE.Vector3(...[0, 1, 2].map((i) => (b.min[i] + b.max[i]) / 2));
   const size = Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
-  xform = { sess: new TransformSession(S, { mode, axis, value, featureId }), center, size };
+  xform = { kind: "body", sess: new TransformSession(S, { mode, axis, value, featureId }), center, size };
   sel = null;
   applySel();
   refreshUI();
@@ -755,13 +777,25 @@ const xformValue = () => {
   const v = xform.sess.current();
   return Number.isFinite(v) ? v : xform.sess.value;
 };
+/** The feature fields for what is being done now (used for the live preview and when applying). */
+function xformFeature() {
+  const { sess, kind, ref } = xform;
+  const v = xformValue();
+  if (kind === "faceTilt") return { kind, plane: null, ref, axis: sess.axis, distance: v };
+  if (kind === "edge") return { kind, plane: null, ref, mode: xform.edgeMode, distance: v };
+  if (kind === "cylRadius" || kind === "cylDraft") return { kind, plane: null, ref, distance: v };
+  return { kind: "transform", plane: null, mode: sess.mode, axis: sess.axis, distance: v };
+}
 function commitTransform() {
-  const { sess } = xform;
+  const { sess, kind } = xform;
   const v = sess.current();
   if (!Number.isFinite(v)) return flashMessage("Check the typed number.");
   if (sess.isEmpty()) return cancelTransform();
-  if (sess.featureId) store.updateFeature(sess.featureId, v, { axis: sess.axis, ...(xform.ref ? {} : { mode: sess.mode }) });
-  else if (xform.ref) store.addFaceTiltFeature(xform.ref, sess.axis, v);
+  const f = xformFeature();
+  if (sess.featureId) store.updateFeature(sess.featureId, v, kind === "faceTilt" ? { axis: sess.axis } : kind === "body" ? { axis: sess.axis, mode: sess.mode } : kind === "edge" ? { mode: xform.edgeMode } : {});
+  else if (kind === "faceTilt") store.addFaceTiltFeature(f.ref, f.axis, v);
+  else if (kind === "edge") store.addRefFeature("edge", f.ref, v, { mode: f.mode });
+  else if (kind === "cylRadius" || kind === "cylDraft") store.addRefFeature(kind, f.ref, v);
   else store.addTransformFeature(sess.mode, sess.axis, v);
   xform = null;
   refreshUI();
@@ -858,7 +892,11 @@ function updateHistory() {
     b.className = err ? "err" : "";
     const what = f.kind === "face" ? "Move face" : cut ? "Cut" : "Extrude";
     const n = Math.round(Math.abs(f.distance) * 1000) / 1000;
-    b.textContent = f.kind === "faceTilt"
+    const sz = Math.round(f.distance * 1000) / 1000;
+    b.textContent = f.kind === "edge" ? `${i + 1}  ${f.mode === "chamfer" ? "Chamfer" : "Fillet"} ${sz} mm${err ? "  failed" : ""}`
+      : f.kind === "cylRadius" ? `${i + 1}  Radius ${f.ref.radius} → ${sz} mm${err ? "  failed" : ""}`
+      : f.kind === "cylDraft" ? `${i + 1}  Taper ${sz}°${err ? "  failed" : ""}`
+      : f.kind === "faceTilt"
       ? `${i + 1}  Tilt face ${AXIS_NAMES[f.axis]} ${f.distance < 0 ? "−" : "+"}${n}°${err ? "  failed" : ""}`
       : f.kind === "transform"
       ? `${i + 1}  ${f.mode === "move" ? "Move" : f.mode === "rotate" ? "Rotate" : "Scale"}${f.mode === "scale" ? ` ×${f.distance}` : ` ${AXIS_NAMES[f.axis]} ${f.distance < 0 ? "−" : "+"}${n}${UNITS[f.mode]}`}${err ? "  failed" : ""}`
@@ -895,9 +933,10 @@ function flashMessage(text) {
 /** What can be done with a selection (for the status line). */
 function selectionHint(t) {
   if (t.kind === "body") return "M move   T rotate   K scale";
-  if (t.kind === "face") return "M move   T tilt   S sketch on surface";
+  if (t.kind === "face") return t.face.type === "cyl" ? "M radius   T taper" : "M move   T tilt   S sketch on surface";
   if (t.kind === "sketch") return "E extrude   S sketch on it";
   if (t.kind === "plane") return "S sketch on it (R C L too)";
+  if (t.kind === "edge") return "F fillet   B chamfer   double-click selects the whole body";
   return "double-click selects the whole body";
 }
 function updateStatus() {
@@ -1018,13 +1057,13 @@ const hoverAsSel = () =>
   hoveredVertex ? { kind: "vertex", v: hoveredVertex }
   : hoveredEdge ? { kind: "edge", edge: hoveredEdge }
   : hoveredSketch ? { kind: "sketch", ...hoveredSketch }
-  : hoveredFace ? { kind: "face", ref: { axis: hoveredFace.axis, sign: hoveredFace.sign, offset: hoveredFace.offset, point: hoveredFace.point }, face: hoveredFace }
+  : hoveredFace ? { kind: "face", ref: hoveredFace.type === "cyl" ? { kind: "cyl", axis: hoveredFace.axis, center: hoveredFace.center, radius: hoveredFace.radius, lo: hoveredFace.lo, hi: hoveredFace.hi } : { axis: hoveredFace.axis, sign: hoveredFace.sign, offset: hoveredFace.offset, point: hoveredFace.point }, face: hoveredFace }
   : hovered ? { kind: "plane", plane: hovered }
   : null;
 /** What actions apply to: the selection, or else what the cursor is on. */
 const currentTarget = () => sel ?? hoverAsSel();
 /** The plane to sketch on for a target (a body face becomes a plane the first time it is used). */
-const planeOfTarget = (t) => (t.kind === "face" ? addFacePlane(t.face, Math.round(view.a / (Math.PI / 2)) * (Math.PI / 2)) : t.plane); // a horizontal face is squared up to the nearest quarter turn
+const planeOfTarget = (t) => (t.kind === "face" && t.face.type === "cyl" ? null : t.kind === "face" ? addFacePlane(t.face, Math.round(view.a / (Math.PI / 2)) * (Math.PI / 2)) : t.plane); // a horizontal face is squared up to the nearest quarter turn
 const targetName = (t) => ({ face: "face", sketch: "sketch shape", edge: "line", vertex: "corner", body: "body" }[t.kind] ?? `${t.plane} plane`);
 function applySel() {
   body.setSelected(sel?.kind === "face" ? sel.face : sel?.kind === "body" ? body.wholeBody() : null);
@@ -1091,7 +1130,7 @@ function setTool(tool) {
   if (extrude || xform) return false;
   if (inSketchView()) {
     session.setTool(tool);
-  } else if (!selected && currentTarget() && ["plane", "face", "sketch"].includes(currentTarget().kind)) {
+  } else if (!selected && currentTarget() && ["plane", "face", "sketch"].includes(currentTarget().kind) && planeOfTarget(currentTarget())) {
     const t = currentTarget();
     sel = null;
     applySel();
@@ -1127,11 +1166,16 @@ function doEscape() {
 }
 /** M, T, K: move, rotate (tilt, for a face) or scale what is selected, or switch mode while doing it. */
 function bodyTransform(mode) {
-  if (xform) return xform.ref ? undefined : (xform.sess.setMode(mode), refreshUI());
+  if (xform) return xform.kind === "body" ? (xform.sess.setMode(mode), refreshUI()) : undefined;
   if (extrude || selected) return;
   const t = sel;
   if (!t) return flashMessage("Select something first (click a face, or double-click the body), then M move, T rotate, K scale.");
   if (t.kind === "body") return startTransform(mode);
+  if (t.kind === "face" && t.face.type === "cyl") {
+    if (mode === "move") return startCylinder("cylRadius", t.face); // moving a round face = changing its radius
+    if (mode === "rotate") return startCylinder("cylDraft", t.face); // tilting a round face = tapering it
+    return flashMessage("Scale works on a whole body: double-click it first.");
+  }
   if (t.kind === "face") {
     if (mode === "move") return startFaceExtrude(t.face); // moving a face in or out
     if (mode === "rotate") return startFaceTilt(t.face);
@@ -1141,7 +1185,16 @@ function bodyTransform(mode) {
   if (t.kind === "edge" || t.kind === "vertex") return flashMessage("Moving lines and corners is not supported yet. Faces and whole bodies can be moved and rotated.");
   flashMessage("Faces and whole bodies can be moved and rotated. E extrudes a sketch shape.");
 }
+/** F fillet, B chamfer: on a selected line (or switch between them while doing it). */
+function edgeAction(mode) {
+  if (xform) return xform.kind === "edge" ? ((xform.sess.setMode(mode), xform.edgeMode = mode), refreshUI()) : undefined;
+  if (extrude || selected) return;
+  if (sel?.kind === "edge") return startEdgeMod(mode, sel.edge);
+  flashMessage("Click a line of the body first, then F to round it or B to bevel it.");
+}
 const ACTIONS = {
+  fillet: () => edgeAction("fillet"),
+  chamfer: () => edgeAction("chamfer"),
   select: () => setTool("select"),
   line: () => setTool("line"),
   rect: () => setTool("rect"),
@@ -1159,6 +1212,7 @@ const ACTIONS = {
     const t = !selected && currentTarget();
     if (!t) return flashMessage("Select a plane or a face first (click it), then press S or a sketch tool key.");
     if (!["plane", "face", "sketch"].includes(t.kind)) return flashMessage("Sketch from a plane, a face or a closed sketch shape. Click one first.");
+    if (!planeOfTarget(t)) return flashMessage("Round faces cannot be sketched on yet.");
     sel = null;
     applySel();
     enterSketch(planeOfTarget(t));
@@ -1241,11 +1295,13 @@ function menuItems() {
     items.push("sep");
   } else if (!selected && currentTarget()) {
     const t = currentTarget();
-    if (["plane", "face", "sketch"].includes(t.kind)) {
+    if (["plane", "face", "sketch"].includes(t.kind) && planeOfTarget(t)) {
       const plane = planeOfTarget(t);
       items.push({ label: t.kind === "face" ? "Sketch on surface" : `Sketch on this ${targetName(t)}`, hint: key("sketch"), run: () => (sel = null, applySel(), enterSketch(plane)) });
     }
-    if (t.kind === "face") items.push({ label: "Move face", hint: key("move"), run: () => startFaceExtrude(t.face) }, { label: "Tilt face", hint: key("rotate"), run: () => startFaceTilt(t.face) });
+    if (t.kind === "face" && t.face.type === "cyl") items.push({ label: "Change radius", hint: key("move"), run: () => startCylinder("cylRadius", t.face) }, { label: "Taper", hint: key("rotate"), run: () => startCylinder("cylDraft", t.face) });
+    else if (t.kind === "face") items.push({ label: "Move face", hint: key("move"), run: () => startFaceExtrude(t.face) }, { label: "Tilt face", hint: key("rotate"), run: () => startFaceTilt(t.face) });
+    if (t.kind === "edge") items.push({ label: "Fillet (round)", hint: key("fillet"), run: () => startEdgeMod("fillet", t.edge) }, { label: "Chamfer (bevel)", hint: key("chamfer"), run: () => startEdgeMod("chamfer", t.edge) });
     if (t.kind === "sketch") items.push({ label: "Extrude", hint: key("extrude"), run: () => (sel = t, ACTIONS.extrude()) });
     if (t.kind === "body") for (const [label, mode] of [["Move", "move"], ["Rotate", "rotate"], ["Scale", "scale"]]) items.push({ label, hint: key(mode), run: () => startTransform(mode) });
     items.push("sep");
@@ -1328,8 +1384,12 @@ canvas.addEventListener("pointermove", (ev) => {
     if (sess.mode === "move") {
       const t = moveParam(ev.clientX, ev.clientY);
       if (t !== null && g.t0 !== null) sess.drag(g.v0 + (t - g.t0), fine);
-    } else if (sess.mode === "rotate") sess.drag(g.v0 + (ev.clientX - g.x0) * S.transform.rotateDegPerPx, fine);
-    else sess.drag(g.v0 * Math.exp(-(ev.clientY - g.y0) * S.transform.scalePerPx), fine);
+    } else if (sess.mode === "rotate" || sess.mode === "draft") sess.drag(g.v0 + (ev.clientX - g.x0) * S.transform.rotateDegPerPx, fine);
+    else if (sess.mode === "scale") sess.drag(g.v0 * Math.exp(-(ev.clientY - g.y0) * S.transform.scalePerPx), fine);
+    else {
+      const mmPerPx = (2 * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2))) / canvas.clientHeight; // fillet, chamfer, radius: mm per pixel on screen
+      sess.drag(g.v0 + (ev.clientX - g.x0) * mmPerPx, fine);
+    }
     refreshUI();
     return;
   }
@@ -1477,7 +1537,7 @@ addEventListener("keydown", (e) => {
     if (e.key === "Enter") return e.preventDefault(), commitTransform();
     if (e.key === "Backspace") return e.preventDefault(), xform.sess.backspace(), refreshUI();
     const ax = ["x", "y", "z"].indexOf(e.key.toLowerCase());
-    if (ax >= 0 && xform.sess.mode !== "scale") return e.preventDefault(), xform.ref && ax === xform.ref.axis ? flashMessage("A face tilts about an axis lying in it, not its own normal.") : (xform.sess.setAxis(ax), refreshUI());
+    if (ax >= 0 && ["move", "rotate"].includes(xform.sess.mode)) return e.preventDefault(), xform.kind === "faceTilt" && ax === xform.ref.axis ? flashMessage("A face tilts about an axis lying in it, not its own normal.") : (xform.sess.setAxis(ax), refreshUI());
     if (e.key.length === 1 && xform.sess.type(e.key)) return e.preventDefault(), refreshUI();
   }
   // while pulling an extrusion, digits and Enter belong to the distance (Backspace always does, so it can never delete by accident)

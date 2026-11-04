@@ -77,6 +77,10 @@ or tilts a face about an axis lying in it (material is added where the face lift
 or a click in the world. Lines and corners are selectable but cannot be moved yet: moving them reshapes the neighbouring faces, which the kernel's solid
 operations do not offer directly (needs a design decision, see `q_direct_modification`).
 
+**Fillet, chamfer, radius, taper (`in_041`, built as agreed in `dec_direct_modification`):** with a line selected, **F** rounds it and **B** bevels it (drag or type the
+size; works on round rims too). With a full round face (a post or a hole) selected, **M** changes its radius and **T** tapers it (the low end stays). Each is a
+step in the history. Partial round faces, slanted faces, corners and moving lines are not offered.
+
 ## Rationale
 The human asked for navigation, a few hotkeys plus undo and redo, the sketch-finish-extrude workflow with a history
 list, and typing a number to be done right, and said Shapr3D (their only well-liked program) is a reference but

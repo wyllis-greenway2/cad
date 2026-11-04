@@ -387,3 +387,12 @@ and now covered by `test/kernel.test.mjs`, which runs the real kernel in node (m
 **Open for the human:** how moving a line or corner should behave (`q_direct_modification`): it reshapes neighbouring faces, which OCCT solids do not do directly; options are
 rebuilding a polyhedral body from its planes, or limiting to cases that stay valid.
 **Next:** the drawer; edge/corner moves if the human picks an approach; fillet/chamfer on a selected line.
+
+## Handoff 029 — 2026-11-04
+**State:** `in_041` approved the plan (`dec_direct_modification`, accepted). Built in `prototypes/cad-ui`: line **fillet (F) and chamfer (B)** (kernel op `edgeMod`, line found by its end points and midpoint),
+full round face **radius (M) and taper (T)** (ops `cylRadius`, `cylDraft`: a revolved ring or wedge added or cut, outside a post, inside a hole; the worker now reports full round faces and line midpoints).
+All are steps in the history (editable, undoable) through the generalized transform session (`xform.kind`). Verified: 39 tests (closed-form volumes for fillet, chamfer, post and hole radius, taper, errors for a missing
+line and an over-steep taper); browser run (fillet 2 mm and radius 3 → 4 gave the exact volumes; taper 10° gave 16722.5 = frustum + rest; screenshot shows a rounded edge and a tapered post); no console errors.
+**Limits:** partial round faces (arcs), cones, slanted faces and non-axis-aligned round faces are not selectable for these; a taper keeps the low end of the face and the angle sign picks the direction; corners cannot be modified.
+**Open for the human:** which operation next (offset a round rim, hole from a face, shell, mirror?); `q_direct_modification` replay-versus-edit-the-source.
+**Next:** the drawer; the human's pick.

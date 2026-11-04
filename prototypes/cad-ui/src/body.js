@@ -164,6 +164,8 @@ export function createBody(scene, S, colors, renderer) {
       ray.far = Infinity;
       return hit;
     },
+    /** The current line matching an earlier reference { a, b, mid }, or null. */
+    findEdge: (ref) => edges.find((e) => e.mid && Math.hypot(e.mid[0] - ref.mid[0], e.mid[1] - ref.mid[1], e.mid[2] - ref.mid[2]) < 1e-3 && ((e.a.join() === ref.a.join() && e.b.join() === ref.b.join()) || (e.a.join() === ref.b.join() && e.b.join() === ref.a.join()))) ?? null,
     get edges() { return edges; },
     get vertices() { return vertices; },
     /** The whole body as one "face" (every triangle), for tinting a selected body. */
@@ -184,8 +186,12 @@ export function createBody(scene, S, colors, renderer) {
     /** The current face matching an earlier reference { axis, sign, offset, point }, or null (e.g. after the model changed). */
     findFace(ref) {
       if (!bodyMesh) return null;
+      if (ref.kind === "cyl") {
+        return faces.find((f) => f.type === "cyl" && f.axis === ref.axis && Math.abs(f.radius - ref.radius) < 1e-3 && Math.abs(f.lo - ref.lo) < 1e-3 && Math.abs(f.hi - ref.hi) < 1e-3 && [0, 1, 2].every((i) => i === ref.axis || Math.abs(f.center[i] - ref.center[i]) < 1e-3)) ?? null;
+      }
       let best = null;
       for (const f of faces) {
+        if (f.type === "cyl") continue;
         if (f.axis !== ref.axis || f.sign !== ref.sign || Math.abs(f.offset - ref.offset) > 1e-3) continue;
         const { lo, hi } = positionsOf(f);
         if (ref.point.some((p, i) => p < lo[i] - 1e-3 || p > hi[i] + 1e-3)) continue;

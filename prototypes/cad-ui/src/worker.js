@@ -32,6 +32,23 @@ self.onmessage = async ({ data }) => {
       faces = [];
       for (const f of fin.shape.faces) {
         const g = ranges.get(f.hashCode);
+        if (g && f.geomType === "CYLINDRE") {
+          // a full round face (post or hole): can have its radius changed or be tapered
+          const uv = f.UVBounds;
+          if (Math.abs(uv.uMax - uv.uMin - 2 * Math.PI) < 1e-6) {
+            const cyl = f._geomAdaptor().Cylinder();
+            const loc = cyl.Axis().Location();
+            const dir = cyl.Axis().Direction();
+            const d = [dir.X(), dir.Y(), dir.Z()];
+            const axis = d.findIndex((v) => Math.abs(Math.abs(v) - 1) < 1e-6);
+            if (axis >= 0) {
+              const [lo, hi] = f.boundingBox.bounds;
+              const center = [loc.X(), loc.Y(), loc.Z()].map((v) => Math.round(v * 1e4) / 1e4);
+              faces.push({ type: "cyl", start: g.start, count: g.count, axis, center, radius: Math.round(cyl.Radius() * 1e4) / 1e4, lo: Math.round(lo[axis] * 1e4) / 1e4, hi: Math.round(hi[axis] * 1e4) / 1e4 });
+            }
+          }
+          continue;
+        }
         if (!g || f.geomType !== "PLANE") continue;
         const n = f.normalAt();
         const c = f.center;
@@ -51,7 +68,8 @@ self.onmessage = async ({ data }) => {
         const pts = Float32Array.from(em.lines.slice(g.start * 3, (g.start + g.count) * 3));
         const a = e.startPoint;
         const z = e.endPoint;
-        edges.push({ type: e.geomType, pts, a: [r4(a.x), r4(a.y), r4(a.z)], b: [r4(z.x), r4(z.y), r4(z.z)] });
+        const mid = e.pointAt(0.5);
+        edges.push({ type: e.geomType, pts, a: [r4(a.x), r4(a.y), r4(a.z)], b: [r4(z.x), r4(z.y), r4(z.z)], mid: [r4(mid.x), r4(mid.y), r4(mid.z)] });
         for (const v of [a, z]) seen.set(`${r4(v.x)},${r4(v.y)},${r4(v.z)}`, [r4(v.x), r4(v.y), r4(v.z)]);
       }
       vertices = [...seen.values()];
