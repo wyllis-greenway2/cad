@@ -110,3 +110,23 @@ test("a face plane can be picked only when asked for, and projectOnto puts a poi
   near(hit.point, [5, 6, 20]);
   near(projectOnto(id, [1, 2, 3]), [1, 2, 20]);
 });
+
+test("a face plane at any angle: not mirrored, camera looks along its normal, points project onto it", () => {
+  const t = (10 * Math.PI) / 180;
+  const n = [Math.sin(t), 0, Math.cos(t)];
+  const id = addFacePlane({ n, d: 20 * n[2] }, 0);
+  const def = planeDef(id);
+  const [u, v, nn] = basisOf(id);
+  near(cross(u, v), nn);
+  near(nn, n, 1e-9);
+  near(cameraOffset(def.view.a, def.view.e), n, 1e-9);
+  assert.ok(isNormal(def.view, id, 1e-9));
+  const forward = neg(cameraOffset(def.view.a, def.view.e));
+  near(cross(forward, cameraUp(def.view.a, def.view.e)), u, 1e-9); // u is screen right
+  const q = projectOnto(id, [3, 4, 50]);
+  assert.ok(Math.abs(q[0] * n[0] + q[1] * n[1] + q[2] * n[2] - def.d) < 1e-9);
+  assert.equal(addFacePlane({ n, d: 20 * n[2] }, 2), id); // the same face again gives the same plane
+  const hit = pickPlane([0, 0, 100], [0, 0, -1], { only: id });
+  assert.equal(hit.plane, id);
+  assert.ok(Math.abs(hit.point[0] * n[0] + hit.point[2] * n[2] - def.d) < 1e-9);
+});

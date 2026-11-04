@@ -98,6 +98,12 @@ export class SketchStore {
     this.#pushFeatureCmd({ type: "feature-add", feature, index: this.features.length });
     return feature;
   }
+  /** Delete the whole body (a step in the history, so it can be undone). */
+  addClearFeature() {
+    const feature = { id: `f_${String(this.nextFeature++).padStart(3, "0")}`, kind: "clear", plane: null, distance: 0 };
+    this.#pushFeatureCmd({ type: "feature-add", feature, index: this.features.length });
+    return feature;
+  }
   updateFeature(id, distance, extra = {}) {
     const before = this.features.find((f) => f.id === id);
     if (!before) return false;

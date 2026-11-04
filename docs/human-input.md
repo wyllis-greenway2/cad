@@ -315,3 +315,8 @@ Answer to my recommendation (allow only the cases that stay valid, built as a gr
 Bug report: a selected closed sketch shape lost its blue highlight when the cursor left it.
 
 > okay when I select a closed sketch plane right after drawing it, it wont stay highlighted blue as selected, it drops the highlight as soon as the cursor goes off it.
+
+## in_043 — 2026-11-04 — directive
+Next round: delete a selected object with the Delete key, R for rotate, and selecting and sketching on a face after it has been tilted.
+
+> Okay can we make it so that we can delete an object with the delete button if an object is selected? Can we make R be rotate instead of T ? Also after I rotate a face why can't I select it anymore? Also why cant I sketch and go normal to a tilted face?

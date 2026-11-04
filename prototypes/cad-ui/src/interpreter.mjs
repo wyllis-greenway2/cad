@@ -89,19 +89,28 @@ export function selectFaces(shape, query) {
   return f.find(shape);
 }
 
-/** The flat face of `shape` described by ref = { axis, sign, offset, point }: facing sign*axis, at that offset, its box containing the point. */
+/** The plane of a face reference: unit normal n and offset d (n . p = d). A ref is { n, d, point } (any angle) or the older { axis, sign, offset, point }. */
+const refPlane = (ref) => {
+  if (ref.n) return { n: ref.n, d: ref.d };
+  const n = [0, 0, 0];
+  n[ref.axis] = ref.sign;
+  return { n, d: ref.sign * ref.offset };
+};
+
+/** The flat face of `shape` described by ref: facing along n, on the plane n . p = d, its box containing the point. */
 function findFace(shape, ref) {
-  const { axis, sign, offset, point } = ref;
+  const { n, d } = refPlane(ref);
   const tol = 1e-3;
   let best = null;
   for (const f of shape.faces) {
     if (f.geomType !== "PLANE") continue;
-    const n = f.normalAt();
-    if (Math.abs([n.x, n.y, n.z][axis] * sign - 1) > 1e-6) continue;
+    const fn = f.normalAt();
+    const l = Math.hypot(fn.x, fn.y, fn.z);
+    if ((fn.x * n[0] + fn.y * n[1] + fn.z * n[2]) / l < 1 - 1e-5) continue;
     const c = f.center;
-    if (Math.abs([c.x, c.y, c.z][axis] - offset) > tol) continue;
+    if (Math.abs(n[0] * c.x + n[1] * c.y + n[2] * c.z - d) > tol) continue;
     const [lo, hi] = f.boundingBox.bounds;
-    if (point.some((p, i) => p < lo[i] - tol || p > hi[i] + tol)) continue;
+    if (ref.point.some((p, i) => p < lo[i] - tol || p > hi[i] + tol)) continue;
     const area = (hi[0] - lo[0] + 1e-6) * (hi[1] - lo[1] + 1e-6) * (hi[2] - lo[2] + 1e-6);
     if (!best || area < best.area) best = { f, area };
   }
@@ -189,12 +198,10 @@ const OPS = {
    */
   faceExtrude(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;
-    const { axis, sign } = op.ref;
+    const { n } = refPlane(op.ref);
     const dist = resolve(op.distance, ctx.params);
     const best = findFace(t, op.ref);
-    const vec = [0, 0, 0];
-    vec[axis] = sign * dist;
-    const prism = basicFaceExtrusion(best, new Vector(vec));
+    const prism = basicFaceExtrusion(best, new Vector(n.map((v) => v * dist)));
     return { kind: "solid", shape: dist >= 0 ? t.fuse(prism) : t.cut(prism) };
   },
 
@@ -207,17 +214,20 @@ const OPS = {
     const best = findFace(t, op.ref);
     const angle = resolve(op.angle, ctx.params);
     if (!Number.isFinite(angle)) throw new Error("bad angle");
-    const { axis, sign } = op.ref;
-    if (op.axis === axis) throw new Error("a face can only tilt about an axis lying in it");
+    const { n } = refPlane(op.ref);
     const b = bounds(t);
     const size = Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
     const L = size * 3 + 100; // long enough to reach past any part of the body
-    const fb = best.boundingBox.bounds;
-    const c = [0, 1, 2].map((i) => (fb[0][i] + fb[1][i]) / 2);
-    const n = [0, 0, 0];
-    n[axis] = sign;
-    const k = [0, 0, 0];
-    k[op.axis] = 1;
+    const cm = best.center;
+    const c = [cm.x, cm.y, cm.z]; // the face's middle: the tilt turns about a line through it
+    // the world axis `op.axis`, squeezed into the face's plane, is the line the face turns about
+    const e = [0, 0, 0];
+    e[op.axis] = 1;
+    const along = e[0] * n[0] + e[1] * n[1] + e[2] * n[2];
+    const k = e.map((v, i) => v - along * n[i]);
+    const kl = Math.hypot(...k);
+    if (kl < 0.2) throw new Error("a face can only tilt about an axis lying in it");
+    for (let i = 0; i < 3; i++) k[i] /= kl;
     // the new normal: n turned by `angle` about k
     const rad = (angle * Math.PI) / 180;
     const cross = [k[1] * n[2] - k[2] * n[1], k[2] * n[0] - k[0] * n[2], k[0] * n[1] - k[1] * n[0]];
@@ -245,6 +255,11 @@ const OPS = {
       shape = shape.fuse(add).cut(remove);
     }
     return { kind: "solid", shape };
+  },
+
+  /** Delete the whole body: later steps start a new one. */
+  clear() {
+    return { kind: "empty" };
   },
 
   /** Round (fillet) or bevel (chamfer) one line of the target. ref = { a, b, mid } finds the line; value is the size in mm. */
@@ -385,6 +400,7 @@ export function compile(graph) {
 export function finalSolid(graph, results) {
   for (let i = graph.ops.length - 1; i >= 0; i--) {
     const r = results.get(graph.ops[i].id);
+    if (r && !r.error && r.value.kind === "empty") return null; // the body was deleted
     if (r && !r.error && r.value.kind === "solid") return { id: graph.ops[i].id, shape: r.value.shape };
   }
   return null;

@@ -74,3 +74,27 @@ test("radius and taper of a round post and a round hole", () => {
   near(runHole(5), 16000 - cyl(5, 10), 0.1);
   near(runHole(2), 16000 - cyl(2, 10), 0.1);
 });
+
+test("a tilted face can be found again, moved along its own normal, and tilted further", () => {
+  const rad = (10 * Math.PI) / 180;
+  const n = [Math.sin(rad), 0, Math.cos(rad)]; // top face tilted 10 degrees about Y (its normal leans toward +x)
+  const c = [0, 0, 20];
+  const tilted = { id: "f_2", kind: "faceTilt", ref: top, axis: 1, distance: 10 };
+  const ref = { n, d: n[0] * c[0] + n[1] * c[1] + n[2] * c[2], point: [0, 0, 20] };
+  const { shape, errors } = build([base, tilted, { id: "f_3", kind: "face", ref, distance: 5 }]);
+  assert.deepEqual(errors, []);
+  // moving a sloped face out by 5 along its normal adds a prism of (face area) x 5 on the high side only: here the face area is 40/cos(10deg) x 20
+  near(volume(shape), 16000 + (40 / Math.cos(rad)) * 20 * 5, 0.5);
+  const missing = build([base, tilted, { id: "f_3", kind: "face", ref: { ...ref, d: ref.d + 3 }, distance: 5 }]);
+  assert.match(missing.errors[0], /face not found/);
+  const again = build([base, tilted, { id: "f_3", kind: "faceTilt", ref, axis: 0, distance: 5 }]);
+  assert.deepEqual(again.errors, []);
+});
+
+test("delete the whole body: later steps start a new one", () => {
+  const g = buildGraph([base, { id: "f_2", kind: "clear" }]);
+  const r = compile(g);
+  assert.equal(finalSolid(g, r), null);
+  const next = build([base, { id: "f_2", kind: "clear" }, { ...base, id: "f_3" }]);
+  near(volume(next.shape), 16000);
+});

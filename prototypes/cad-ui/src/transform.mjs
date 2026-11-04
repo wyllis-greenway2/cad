@@ -68,6 +68,6 @@ export class TransformSession {
     const own = { fillet: "Round this line: drag or type the size in mm.", chamfer: "Bevel this line: drag or type the size in mm.", radius: "Change the radius: drag or type the new radius in mm.", draft: "Taper this round face: drag or type an angle in degrees (the low end stays)." }[this.mode];
     if (own) return `${own} Enter applies, Esc cancels.`;
     const what = { move: "Move", rotate: "Rotate", scale: "Scale" }[this.mode];
-    return `${what}${this.mode === "scale" ? "" : ` along ${AXIS_NAMES[this.axis]}`}: drag or type a number. ${this.mode === "scale" ? "" : "X Y Z pick the axis. "}M move  T rotate  K scale. Enter applies, Esc cancels.`;
+    return `${what}${this.mode === "scale" ? "" : ` along ${AXIS_NAMES[this.axis]}`}: drag or type a number. ${this.mode === "scale" ? "" : "X Y Z pick the axis. "}M move  R rotate  K scale. Enter applies, Esc cancels.`;
   }
 }

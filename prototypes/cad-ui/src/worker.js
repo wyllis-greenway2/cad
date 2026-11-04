@@ -27,7 +27,7 @@ self.onmessage = async ({ data }) => {
       mesh = { vertices: new Float32Array(m.vertices), normals: new Float32Array(m.normals), triangles: new Uint32Array(m.triangles) };
       vol = volume(fin.shape);
       bbox = bounds(fin.shape);
-      // flat faces that face along an axis: these can be hovered and sketched on (start/count are index ranges into `triangles`)
+      // flat faces at any angle, and full round faces: these can be hovered, selected and sketched on (start/count are index ranges into `triangles`)
       const ranges = new Map(m.faceGroups.map((g) => [g.faceId, g]));
       faces = [];
       for (const f of fin.shape.faces) {
@@ -52,10 +52,11 @@ self.onmessage = async ({ data }) => {
         if (!g || f.geomType !== "PLANE") continue;
         const n = f.normalAt();
         const c = f.center;
-        const nv = [n.x, n.y, n.z];
+        const nv = [n.x, n.y, n.z].map((v) => Math.round(v * 1e6) / 1e6);
+        const d = Math.round((nv[0] * c.x + nv[1] * c.y + nv[2] * c.z) * 1e4) / 1e4;
         const axis = nv.findIndex((v) => Math.abs(v) > 0.9999);
-        if (axis < 0) continue;
-        faces.push({ start: g.start, count: g.count, axis, sign: Math.sign(nv[axis]), offset: Math.round([c.x, c.y, c.z][axis] * 1e4) / 1e4 });
+        // every flat face, at any angle: its unit normal n and offset d (n . p = d); axis, sign and offset also when it faces along an axis
+        faces.push({ start: g.start, count: g.count, n: nv, d, ...(axis >= 0 ? { axis, sign: Math.sign(nv[axis]), offset: Math.round([c.x, c.y, c.z][axis] * 1e4) / 1e4 } : {}) });
       }
       // edges as polylines, and their end points as vertices (for selecting lines and corners)
       const em = fin.shape.meshEdges({ tolerance: tess.tolerance, angularTolerance: tess.angular });

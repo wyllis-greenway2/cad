@@ -402,3 +402,13 @@ line and an over-steep taper); browser run (fillet 2 mm and radius 3 → 4 gave 
 view?) shadowed the module-level 3D selection `sel`, so the 3D selection test always read undefined and only the hover blue showed. Renamed the local to `skSel`; a shape selected in the
 sketch view (select tool) now also turns blue and stays so. Verified by reading the fill colors and pixels after the cursor moved away, in both views.
 **Lesson:** a persistent-selection feature needs a test that moves the cursor away, which is what the earlier checks lacked for sketch shapes.
+
+## Handoff 031 — 2026-11-04
+**State:** `in_043`. In `prototypes/cad-ui`: **Delete** deletes the selected sketch shape or the whole body (new history step `clear`: later steps start a new body; undoable); **R** is rotate
+(was T; rectangle when nothing is selected, always rectangle in the sketch view); **faces at any angle**: the old code only reported axis-aligned faces, so a tilted face could not be selected, and
+planes were axis-aligned throughout. Generalized: the worker reports every flat face with unit normal n and offset d; `viewmath` planes are n/d/basis (any orientation, `addFacePlane({n,d})`,
+`planeOrigin`, general `projectOnto`/`pickPlane`); the plane shader takes the plane's own axes (`uU`, `uV`) and the sheet meshes are oriented by quaternion; kernel `findFace`/`faceExtrude`/`faceTilt` use n and d
+(the tilt axis is the chosen world axis squeezed into the face). Verified: kernel tests (find, move and re-tilt a tilted face; delete body), viewmath test for a tilted plane (not mirrored, view along
+the normal), browser run (tilt top 10 degrees, select it, S goes square to it, rectangle, extrude 6 perpendicular to it, double-click body + Delete, undo), screenshots; 42 tests, no console errors.
+**Limits:** deleting a single face is not offered; the grid axis lines on a face sketch plane are the world axis lines' colors (not meaningful there); a datum plane's ref goes stale if earlier steps move the face.
+**Next:** the drawer; the human's pick of modifications.

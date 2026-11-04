@@ -14,7 +14,7 @@ import { ExtrudeSession } from "./extrude.mjs";
 import { TransformSession, AXIS_NAMES, UNITS } from "./transform.mjs";
 import { buildGraph } from "./features.mjs";
 import { createBody } from "./body.js";
-import { PLANES, planeDef, addFacePlane, basisOf, frameOf, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, projectOnto, pickPlane } from "./viewmath.mjs";
+import { PLANES, planeDef, addFacePlane, basisOf, frameOf, planeOrigin, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, projectOnto, pickPlane } from "./viewmath.mjs";
 
 const $ = (id) => document.getElementById(id);
 const G = S.grid;
@@ -79,7 +79,7 @@ void main() {
 }`;
 const FRAG = /* glsl */ `
 uniform vec3 uCam; uniform float uDist;
-uniform int uAxis; uniform vec3 uCol; uniform vec3 uColU; uniform vec3 uColV;
+uniform vec3 uU; uniform vec3 uV; uniform vec3 uCol; uniform vec3 uColU; uniform vec3 uColV;
 uniform float uLineA; uniform float uBright; uniform float uOpacity; uniform float uAxisA;
 uniform vec3 uLineCol;
 uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul; uniform float uMinCellPx;
@@ -95,10 +95,7 @@ float gridLine(vec2 c, float s) {
   return (1.0 - min(min(g.x, g.y), 1.0)) * smoothstep(uMinCellPx, uMinCellPx * 2.5, cellPx);
 }
 void main() {
-  vec2 c; vec3 n;
-  if (uAxis == 2) { c = vPos.xy; n = vec3(0.0, 0.0, 1.0); }
-  else if (uAxis == 1) { c = vPos.xz; n = vec3(0.0, 1.0, 0.0); }
-  else { c = vPos.yz; n = vec3(1.0, 0.0, 0.0); }
+  vec2 c = vec2(dot(vPos, uU), dot(vPos, uV)); // position in the plane's own axes (any orientation)
 
   // grid: three levels 10x apart that cross-fade as you zoom. A level's weight depends only on its spacing
   // relative to the view, so it is continuous across zoom steps (this is what shows you are zooming).
@@ -160,7 +157,7 @@ for (const [name, def] of Object.entries(PLANES)) {
       : {}),
     uniforms: {
       uCam: { value: new THREE.Vector3() }, uDist: { value: 1 },
-      uAxis: { value: def.axis }, uCol: { value: new THREE.Vector3(...T().sheet) },
+      uU: { value: new THREE.Vector3(...def.basis[0]) }, uV: { value: new THREE.Vector3(...def.basis[1]) }, uCol: { value: new THREE.Vector3(...T().sheet) },
       uColU: { value: new THREE.Vector3(...axisCol[def.u]) }, uColV: { value: new THREE.Vector3(...axisCol[def.v]) },
       uLineA: { value: 0 }, uBright: { value: 0 }, uOpacity: { value: 0 }, uAxisA: { value: G.axisAlpha },
       uLodDiv: { value: G.lodDivisor }, uStyleMin: { value: G.fineLineStrength }, uFineMul: { value: 0 }, uMinCellPx: { value: G.minCellPx },
@@ -179,16 +176,12 @@ for (const [name, def] of Object.entries(PLANES)) {
   lines.renderOrder = 3;
   ghost.renderOrder = 3;
   for (const mesh of [paint, glow, lines, ghost]) {
-    if (def.axis === 1) mesh.rotation.x = Math.PI / 2;
-    if (def.axis === 0) mesh.rotation.y = Math.PI / 2;
     mesh.frustumCulled = false;
     scene.add(mesh);
   }
   const back = new THREE.Mesh(geo, makeMat(0));
   back.material.depthTest = false;
   back.frustumCulled = false;
-  if (def.axis === 1) back.rotation.x = Math.PI / 2;
-  if (def.axis === 0) back.rotation.y = Math.PI / 2;
   backdropScene.add(back);
   planeMeshes[name] = { paint, glow, lines, ghost, back };
 }
@@ -221,17 +214,22 @@ function updatePlanes() {
    const shown = state.line > 0 || state.bright > 0 || state.opacity > 0;
    const sheet = mix3(th.sheet, th.blueSurface, state.blue);
    const lineCol = mix3(th.gridLine, th.blueLine, Math.min(1, state.blue * 3));
-   const ax = PLANES[name].axis;
-   const off = selected && (planeDef(selected).base ?? selected) === name ? planeDef(selected).offset ?? 0 : 0; // sketching on a face: the sheet sits on that face
-   const side = Math.sign(camera.position.getComponent(ax) - off) || 1;
+   // while sketching on a face, this sheet takes that face's place and orientation (any angle); otherwise it is the base plane itself
+   const planeId = selected && (planeDef(selected).base ?? selected) === name ? selected : name;
+   const def = planeDef(planeId);
+   const nrm = new THREE.Vector3(...def.n);
+   const sheetQuat = new THREE.Quaternion().setFromRotationMatrix(basisMatrix(planeId, new THREE.Vector3()));
+   const center = new THREE.Vector3(...projectOnto(planeId, view.target.toArray()));
+   const side = Math.sign(camera.position.clone().sub(center).dot(nrm)) || 1;
    pair.back.visible = B.enabled;
    for (const mesh of [pair.paint, pair.glow, pair.lines, pair.ghost, pair.back]) {
-    const c = projectOnto(name, view.target.toArray());
-    mesh.position.set(c[0], c[1], c[2]);
-    mesh.position.setComponent(ax, off);
-    if (mesh === pair.back) mesh.position.setComponent(ax, off - side * view.dist * B.offsetFactor); // behind the plane, seen from the camera
+    mesh.quaternion.copy(sheetQuat);
+    mesh.position.copy(center);
+    if (mesh === pair.back) mesh.position.addScaledVector(nrm, -side * view.dist * B.offsetFactor); // behind the plane, seen from the camera
     mesh.scale.setScalar(view.dist * G.extentFactor);
     const u = mesh.material.uniforms;
+    u.uU.value.set(...def.basis[0]);
+    u.uV.value.set(...def.basis[1]);
     u.uCam.value.copy(camera.position);
     u.uDist.value = view.dist;
     u.uLodDiv.value = G.lodDivisor;
@@ -425,11 +423,8 @@ function goHome() {
 // ---------------------------------------------------------------- sketch model + drawing in the scene
 const store = new SketchStore();
 const session = new SketchSession(S, store);
-/** The point of a plane where the world origin projects onto it (local (0, 0)); planes are axis-aligned, so only one coordinate is non-zero. */
-const originOf = (plane) => {
-  const d = planeDef(plane);
-  return new THREE.Vector3().setComponent(d.axis, d.offset ?? 0);
-};
+/** The point of a plane where the world origin projects onto it (local (0, 0)). */
+const originOf = (plane) => new THREE.Vector3(...planeOrigin(plane));
 const toWorld = (plane, [u, v]) => {
   const [U, W] = basisOf(plane);
   return originOf(plane).add(new THREE.Vector3(U[0] * u + W[0] * v, U[1] * u + W[1] * v, U[2] * u + W[2] * v));
@@ -663,8 +658,8 @@ function startExtrudeFromRegion(region, plane = selected) {
 }
 /** Push or pull a flat face of the body. face = { start, count, axis, sign, offset, point? }. */
 function startFaceExtrude(face, featureId = null, distance = 0) {
-  const ref = { axis: face.axis, sign: face.sign, offset: face.offset, point: face.point ?? body.faceCenter(face).toArray() };
-  const normal = AXES3[face.axis].clone().multiplyScalar(face.sign);
+  const ref = { n: face.n, d: face.d, point: face.point ?? body.faceCenter(face).toArray() };
+  const normal = new THREE.Vector3(...face.n);
   startExtrude({ face, ref, origin: body.faceCenter(face), normal, featureId, distance, hasBody: true });
 }
 function editFeature(id) {
@@ -746,8 +741,8 @@ scene.add(xformGroup);
 const MODES = { move: "move", rotate: "rotate", scale: "scale" };
 /** Tilt a flat face about a world axis lying in it (the other two axes are allowed; the face's own normal axis is not). */
 function startFaceTilt(face, featureId = null, axis = null, value = null) {
-  const ref = { axis: face.axis, sign: face.sign, offset: face.offset, point: face.point ?? body.faceCenter(face).toArray() };
-  const a = axis ?? (face.axis + 1) % 3;
+  const ref = { n: face.n, d: face.d, point: face.point ?? body.faceCenter(face).toArray() };
+  const a = axis ?? face.n.map(Math.abs).reduce((best, v, i, all) => (v < all[best] ? i : best), 0); // the world axis lying most nearly in the face
   xform = { kind: "faceTilt", sess: new TransformSession(S, { mode: "rotate", axis: a, value, featureId }), center: body.faceCenter(face), size: Math.max(body.faceSize(face), 10), ref };
   refreshUI();
 }
@@ -896,6 +891,7 @@ function updateHistory() {
     b.textContent = f.kind === "edge" ? `${i + 1}  ${f.mode === "chamfer" ? "Chamfer" : "Fillet"} ${sz} mm${err ? "  failed" : ""}`
       : f.kind === "cylRadius" ? `${i + 1}  Radius ${f.ref.radius} → ${sz} mm${err ? "  failed" : ""}`
       : f.kind === "cylDraft" ? `${i + 1}  Taper ${sz}°${err ? "  failed" : ""}`
+      : f.kind === "clear" ? `${i + 1}  Delete body`
       : f.kind === "faceTilt"
       ? `${i + 1}  Tilt face ${AXIS_NAMES[f.axis]} ${f.distance < 0 ? "−" : "+"}${n}°${err ? "  failed" : ""}`
       : f.kind === "transform"
@@ -932,8 +928,8 @@ function flashMessage(text) {
 }
 /** What can be done with a selection (for the status line). */
 function selectionHint(t) {
-  if (t.kind === "body") return "M move   T rotate   K scale";
-  if (t.kind === "face") return t.face.type === "cyl" ? "M radius   T taper" : "M move   T tilt   S sketch on surface";
+  if (t.kind === "body") return "M move   R rotate   K scale";
+  if (t.kind === "face") return t.face.type === "cyl" ? "M radius   R taper" : "M move   R tilt   S sketch on surface";
   if (t.kind === "sketch") return "E extrude   S sketch on it";
   if (t.kind === "plane") return "S sketch on it (R C L too)";
   if (t.kind === "edge") return "F fillet   B chamfer   double-click selects the whole body";
@@ -977,9 +973,10 @@ function pickSketchFace(o, d, limit) {
     const regions = regionsOf(ents);
     if (!regions.length) continue;
     const def = planeDef(plane);
-    const dk = d.getComponent(def.axis);
+    const nv = new THREE.Vector3(...def.n);
+    const dk = nv.dot(d);
     if (Math.abs(dk) < 1e-3) continue;
-    const t = ((def.offset ?? 0) - o.getComponent(def.axis)) / dk;
+    const t = (def.d - nv.dot(o)) / dk;
     if (t <= 0 || t > limit + 1e-4 || (best && t >= best.t)) continue;
     const p = [o.x + t * d.x, o.y + t * d.y, o.z + t * d.z];
     const [U, W] = def.basis;
@@ -1057,7 +1054,7 @@ const hoverAsSel = () =>
   hoveredVertex ? { kind: "vertex", v: hoveredVertex }
   : hoveredEdge ? { kind: "edge", edge: hoveredEdge }
   : hoveredSketch ? { kind: "sketch", ...hoveredSketch }
-  : hoveredFace ? { kind: "face", ref: hoveredFace.type === "cyl" ? { kind: "cyl", axis: hoveredFace.axis, center: hoveredFace.center, radius: hoveredFace.radius, lo: hoveredFace.lo, hi: hoveredFace.hi } : { axis: hoveredFace.axis, sign: hoveredFace.sign, offset: hoveredFace.offset, point: hoveredFace.point }, face: hoveredFace }
+  : hoveredFace ? { kind: "face", ref: hoveredFace.type === "cyl" ? { kind: "cyl", axis: hoveredFace.axis, center: hoveredFace.center, radius: hoveredFace.radius, lo: hoveredFace.lo, hi: hoveredFace.hi } : { n: hoveredFace.n, d: hoveredFace.d, point: hoveredFace.point }, face: hoveredFace }
   : hovered ? { kind: "plane", plane: hovered }
   : null;
 /** What actions apply to: the selection, or else what the cursor is on. */
@@ -1164,12 +1161,12 @@ function doEscape() {
   updateReadout();
   markSketch();
 }
-/** M, T, K: move, rotate (tilt, for a face) or scale what is selected, or switch mode while doing it. */
+/** M, R, K: move, rotate (tilt, for a face) or scale what is selected, or switch mode while doing it. */
 function bodyTransform(mode) {
   if (xform) return xform.kind === "body" ? (xform.sess.setMode(mode), refreshUI()) : undefined;
   if (extrude || selected) return;
   const t = sel;
-  if (!t) return flashMessage("Select something first (click a face, or double-click the body), then M move, T rotate, K scale.");
+  if (!t) return flashMessage("Select something first (click a face, or double-click the body), then M move, R rotate, K scale.");
   if (t.kind === "body") return startTransform(mode);
   if (t.kind === "face" && t.face.type === "cyl") {
     if (mode === "move") return startCylinder("cylRadius", t.face); // moving a round face = changing its radius
@@ -1185,6 +1182,18 @@ function bodyTransform(mode) {
   if (t.kind === "edge" || t.kind === "vertex") return flashMessage("Moving lines and corners is not supported yet. Faces and whole bodies can be moved and rotated.");
   flashMessage("Faces and whole bodies can be moved and rotated. E extrudes a sketch shape.");
 }
+/** Delete: the selected sketch shape, or the whole body (a history step, so it can be undone). */
+function deleteSelection() {
+  if (!sel) return false;
+  if (sel.kind === "sketch") store.remove(sel.plane, sel.id);
+  else if (sel.kind === "body") store.addClearFeature();
+  else return flashMessage(sel.kind === "face" ? "Deleting a single face is not supported yet. Double-click the body to delete all of it." : "Only a sketch shape or a whole body can be deleted. Double-click the body to select all of it.");
+  sel = null;
+  applySel();
+  refreshUI();
+  refreshHover();
+  return true;
+}
 /** F fillet, B chamfer: on a selected line (or switch between them while doing it). */
 function edgeAction(mode) {
   if (xform) return xform.kind === "edge" ? ((xform.sess.setMode(mode), xform.edgeMode = mode), refreshUI()) : undefined;
@@ -1197,14 +1206,14 @@ const ACTIONS = {
   chamfer: () => edgeAction("chamfer"),
   select: () => setTool("select"),
   line: () => setTool("line"),
-  rect: () => setTool("rect"),
+  rect: () => ((xform || (!inSketchView() && !selected && sel)) ? ACTIONS.rotate() : setTool("rect")), // R rotates what is selected (or switches to rotate while modifying); with nothing selected it is the rectangle tool
   circle: () => setTool("circle"),
   home: () => goHome(),
   origin: () => returnToOrigin(),
   undo: () => doUndo(),
   redo: () => doRedo(),
   cancel: () => doEscape(),
-  delete: () => (xform ? deleteTransformBeingEdited() : extrude ? deleteFeatureBeingEdited() : inSketchView() && session.deleteSelected() ? (updateStatus(), markSketch()) : false),
+  delete: () => (xform ? deleteTransformBeingEdited() : extrude ? deleteFeatureBeingEdited() : inSketchView() ? (session.deleteSelected() ? (updateStatus(), markSketch()) : false) : deleteSelection()),
   move: () => bodyTransform("move"),
   rotate: () => bodyTransform("rotate"),
   scale: () => bodyTransform("scale"),
@@ -1229,7 +1238,7 @@ const ACTIONS = {
       const r = regionsOf(store.entities(t.plane)).find((x) => x.id === t.id);
       return r ? startExtrudeFromRegion(r, t.plane) : undefined;
     }
-    if (t && ["body", "edge", "vertex"].includes(t.kind)) return flashMessage(t.kind === "body" ? "E pulls faces and sketch shapes. For the whole body: M move, T rotate, K scale." : "E pulls faces and sketch shapes. Lines and corners cannot be modified yet.");
+    if (t && ["body", "edge", "vertex"].includes(t.kind)) return flashMessage(t.kind === "body" ? "E pulls faces and sketch shapes. For the whole body: M move, R rotate, K scale." : "E pulls faces and sketch shapes. Lines and corners cannot be modified yet.");
     flashMessage(t ? "Planes have nothing to pull: select a face or a closed sketch shape, then press E." : "Select a face or a closed sketch shape first (click it), then press E.");
   },
   dimension: () => setTool("dimension"),
@@ -1537,7 +1546,7 @@ addEventListener("keydown", (e) => {
     if (e.key === "Enter") return e.preventDefault(), commitTransform();
     if (e.key === "Backspace") return e.preventDefault(), xform.sess.backspace(), refreshUI();
     const ax = ["x", "y", "z"].indexOf(e.key.toLowerCase());
-    if (ax >= 0 && ["move", "rotate"].includes(xform.sess.mode)) return e.preventDefault(), xform.kind === "faceTilt" && ax === xform.ref.axis ? flashMessage("A face tilts about an axis lying in it, not its own normal.") : (xform.sess.setAxis(ax), refreshUI());
+    if (ax >= 0 && ["move", "rotate"].includes(xform.sess.mode)) return e.preventDefault(), xform.kind === "faceTilt" && Math.abs(xform.ref.n[ax]) > 0.97 ? flashMessage("A face tilts about an axis lying in it, not its own normal.") : (xform.sess.setAxis(ax), refreshUI());
     if (e.key.length === 1 && xform.sess.type(e.key)) return e.preventDefault(), refreshUI();
   }
   // while pulling an extrusion, digits and Enter belong to the distance (Backspace always does, so it can never delete by accident)

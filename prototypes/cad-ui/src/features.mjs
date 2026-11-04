@@ -17,6 +17,12 @@ export function buildGraph(features) {
       prev = xid;
       continue;
     }
+    if (f.kind === "clear") {
+      if (!prev) continue; // nothing to delete
+      ops.push({ id: `x_${f.id}`, type: "clear" });
+      prev = null;
+      continue;
+    }
     if (f.kind === "edge") {
       if (!prev) continue;
       const xid = `x_${f.id}`;

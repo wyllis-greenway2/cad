@@ -72,14 +72,18 @@ shape) only selects it and never moves the camera; a face's plane is oriented to
 
 **Operations and clicks (`in_040`, the human's words; supersede earlier text where they differ):** a **double-click on a world plane orients to it**; a
 **single click on a world plane, or on nothing, deselects and applies** a running operation (extrude, move, rotate...), the same as Enter. **E is only for
-extruding** sketch shapes. **M moves** what is selected: a whole body along X / Y / Z, or a face in or out along its normal. **T rotates**: a whole body about X / Y / Z,
+extruding** sketch shapes. **M moves** what is selected: a whole body along X / Y / Z, or a face in or out along its normal. **R rotates**: a whole body about X / Y / Z,
 or tilts a face about an axis lying in it (material is added where the face lifts and removed where it dips). **K scales** a whole body. A selection stays blue until Esc
 or a click in the world. Lines and corners are selectable but cannot be moved yet: moving them reshapes the neighbouring faces, which the kernel's solid
 operations do not offer directly (needs a design decision, see `q_direct_modification`).
 
 **Fillet, chamfer, radius, taper (`in_041`, built as agreed in `dec_direct_modification`):** with a line selected, **F** rounds it and **B** bevels it (drag or type the
-size; works on round rims too). With a full round face (a post or a hole) selected, **M** changes its radius and **T** tapers it (the low end stays). Each is a
+size; works on round rims too). With a full round face (a post or a hole) selected, **M** changes its radius and **R** tapers it (the low end stays). Each is a
 step in the history. Partial round faces, slanted faces, corners and moving lines are not offered.
+
+**Delete, R, any-angle faces (`in_043`, the human's words; supersede earlier text where they differ):** **Delete** removes the selected sketch shape or the selected whole body
+(an undoable step). **R rotates** (replacing T): a body, a flat face (tilt) or a round face (taper); with nothing selected R is still the rectangle tool, and in the sketch view it is always
+the rectangle. A flat face at **any angle** can be selected, moved along its own normal, tilted further and sketched on (the view goes square to it).
 
 ## Rationale
 The human asked for navigation, a few hotkeys plus undo and redo, the sketch-finish-extrude workflow with a history

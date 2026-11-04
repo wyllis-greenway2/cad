@@ -94,13 +94,19 @@ makes its faces non-axis-aligned, and those cannot be selected or sketched on ye
 Exactly one world plane shows at any time (the one you sketch on, else the one you point at, else the last that showed). **Double-click a world plane** to orient to
 it. A **single click** in the world (on a world plane or on nothing) **deselects and applies** a running operation, like Enter. A click on the **model** selects
 (a face, line, corner or unextruded sketch shape; double-click the body to select all of it); the selection stays blue until Esc or a click in the world.
-**E** extrudes a sketch shape (only). **M** moves the selection: a body along X / Y / Z, or a face in or out. **T** rotates a body, or tilts a face about an axis lying in it
+**E** extrudes a sketch shape (only). **M** moves the selection: a body along X / Y / Z, or a face in or out. **R** rotates a body, or tilts a face about an axis lying in it
 (X / Y / Z picks the axis). **K** scales a body. **S**, or right-click **Sketch on surface**, sketches on a plane, face or shape. Lines and corners cannot be moved yet.
 Each step is in the History list (click to change it). Zoom speed: `view.zoomPerWheel`, `input.maxZoomFactorPerSecond`. Light: `settings.light` (key, fill, ambient, sheen).
 
 ## Fillet, chamfer, radius, taper (`in_041`)
 Click a **line**: **F** rounds it, **B** bevels it (drag, or type the size in mm; Enter or a click in the world applies). Click a full **round face** (a post or a hole): **M** changes
-its radius (type the new radius), **T** tapers it by an angle (the low end stays). A selection that has no valid operation says why. See `dec_direct_modification`.
+its radius (type the new radius), **R** tapers it by an angle (the low end stays). A selection that has no valid operation says why. See `dec_direct_modification`.
+
+## Delete, R, tilted faces (`in_043`)
+**Delete** removes the selected sketch shape, or (with the whole body selected by a double-click) the body, as an undoable history step ("Delete body"); later steps start a new body. **R**
+rotates what is selected (a body about X / Y / Z; tilts a face; tapers a round face): with nothing selected, R is still the rectangle tool, and in the sketch view it is always the rectangle. Faces at **any
+angle** (for example after tilting one) can now be hovered, selected, moved along their own normal, tilted further, and **sketched on**: the view goes square (orthographic) to the tilted
+face and the sheet takes its angle.
 
 ## Dimension tool (D)
 Point at a shape (its dimensions appear), click it to keep them showing. Type a number (math works, `50/2`), Tab to the next

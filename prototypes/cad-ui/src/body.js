@@ -189,10 +189,12 @@ export function createBody(scene, S, colors, renderer) {
       if (ref.kind === "cyl") {
         return faces.find((f) => f.type === "cyl" && f.axis === ref.axis && Math.abs(f.radius - ref.radius) < 1e-3 && Math.abs(f.lo - ref.lo) < 1e-3 && Math.abs(f.hi - ref.hi) < 1e-3 && [0, 1, 2].every((i) => i === ref.axis || Math.abs(f.center[i] - ref.center[i]) < 1e-3)) ?? null;
       }
+      const n = ref.n ?? [0, 1, 2].map((i) => (i === ref.axis ? ref.sign : 0)); // the face's unit normal and offset (n . p = d)
+      const d = ref.n ? ref.d : ref.sign * ref.offset;
       let best = null;
       for (const f of faces) {
         if (f.type === "cyl") continue;
-        if (f.axis !== ref.axis || f.sign !== ref.sign || Math.abs(f.offset - ref.offset) > 1e-3) continue;
+        if (f.n[0] * n[0] + f.n[1] * n[1] + f.n[2] * n[2] < 1 - 1e-5 || Math.abs(f.d - d) > 1e-3) continue;
         const { lo, hi } = positionsOf(f);
         if (ref.point.some((p, i) => p < lo[i] - 1e-3 || p > hi[i] + 1e-3)) continue;
         const area = (hi[0] - lo[0] + 1e-6) * (hi[1] - lo[1] + 1e-6) * (hi[2] - lo[2] + 1e-6);
