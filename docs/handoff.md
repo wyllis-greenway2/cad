@@ -141,3 +141,17 @@ errors. 8 view-math tests passed.
 beyond it (the plane fades at the horizon). Alternatives recorded in the README.
 **Open for the human:** is the fog now right, or should it be milder / a screen-space gradient?
 **Next:** more UI-foundation polish if wanted; then stage 2 (sketch on the plane), stage 3 (extrude).
+
+## Handoff 011 — 2026-11-04
+**State:** `in_022` on `cad-ui`: the fog must be world fog, not darkening the planes; "the whole world is dark but a
+light is shining on the plane". Done: the world (background) is dark charcoal #2b2d30; the plane is a light
+paper-gray sheet with dark charcoal grid lines that fades (alpha) into the world with distance from the
+camera (the earlier haze that darkened the plane was removed); hover shows a dimmer lit sheet, the sketch
+plane is fully lit; subtle spotlight vignette in the face-on view; the status text got a dark pill so it reads
+on both; axis letters got a dark halo. The previous light world remains as the "paper" theme (press D).
+8 view-math tests plus a scripted run (select, pan/zoom, orbit away, hover, reselect, theme toggle) passed
+with no errors; checked screenshots.
+
+**Open for the human:** is this the "world fog / lit plane" you meant? The face-on view is nearly an
+edge-to-edge light sheet with only a mild vignette (fog.nearFactor).
+**Next:** UI polish as wanted, then stage 2 (sketch on the plane), stage 3 (extrude).

@@ -13,21 +13,22 @@ bash tools/preview.sh            # from the repo root; default prototype is cad-
 or `cd prototypes/cad-ui && npm install && npm run dev`. Tests: `npm test` (7 tests).
 
 ## What it does
-- **Paper gray and charcoal only, no blue.** The world axis lines (X red, Y green, Z blue) are the only
-  color in the scene. Light world by default (cream-tinted paper gray, `#eeece6`); press **D** to compare a
-  dark version.
+- **A dark world with a lit plane.** The world is dark charcoal (`#2b2d30`). A plane is a light paper-gray
+  sheet with a dark charcoal grid, like a sheet lit in a dark room. The only color is the world axis lines
+  (X red, Y green, Z blue). Press **D** to compare the earlier light "paper" world.
+- **World fog:** the plane keeps its own colors and simply fades into the dark world with distance from the
+  camera (it does not darken itself). A face-on sketch view is a soft spotlight that dims a little toward
+  the edges; a plane seen at a steep angle recedes into the darkness at the horizon.
 - **3D view (nothing selected):** just the world axis lines, each with a flat arrowhead and its letter on
   the positive end (constant on-screen size; hidden when an axis points straight at the camera).
-  **Hover** any plane to preview it: an infinite sheet with a **dark charcoal grid** (light fill). Click it
-  to make it the sketch plane.
+  **Hover** any plane to preview it (a dimmer lit sheet). Click it to make it the sketch plane.
 - **Sketch view:** the camera glides to look straight at the plane (standard, un-mirrored views: XY from
-  above with X right and Y up, XZ from the front, YZ from the right). Only that plane exists, with its full
-  grid, which cross-fades between levels as you zoom. Pan (right-drag or Shift-drag) and zoom keep you here.
+  above with X right and Y up, XZ from the front, YZ from the right). Only that plane exists, fully lit, with
+  its grid cross-fading between levels as you zoom. Pan (right-drag or Shift-drag) and zoom keep you here.
 - **Orbit away** (left drag) and the sketch plane is dropped: you are back in the 3D view and any plane can
-  be hovered and clicked again, including the one you just left (clicking it returns to face-on).
-- **Esc** also drops the sketch plane; **H** resets the camera. One status line is the only text on screen.
-- **Fog:** everything fades with distance from the camera, and the far haze tints toward a very dark
-  charcoal (`fog.hazeMax`, `fogColor`).
+  be hovered and clicked again, including the one you just left.
+- **Esc** also drops the sketch plane; **H** resets the camera. One status line (a small dark pill) is the
+  only text on screen.
 
 ## How it works (short)
 - `src/viewmath.mjs`: pure math (turntable camera, standard views, ray-plane picking). Unit tested.
@@ -49,10 +50,10 @@ or `cd prototypes/cad-ui && npm install && npm run dev`. Tests: `npm test` (7 te
    of `in_016`); `in_017` clarified infinite is wanted.
 4. **Discoverability cost:** with nothing drawn until you hover, a new user has to know to move the mouse
    over the view; the status line says so. Whether that is fine or needs a cue is your call.
-5. **The dark fog has a side effect**: on a plane seen at a steep angle (a wall receding into the distance)
-   the far part goes very dark and then the plane vanishes at the horizon, which reads as a dark band with a
-   lighter gap beyond it. It is correct for "much darker" but not very fog-like. Alternatives if it bothers you:
-   a milder darkening, or a screen-space gradient that also darkens the empty background.
+5. **Fog was first built wrong.** My earlier "fog" tinted the plane itself darker toward the distance, which
+   read as a dark smudge. `in_022` clarified: world fog. The fix was to make the world the dark color and
+   let the plane fade into it, which needed a dark background. The status text then needed its own dark
+   pill because it sits over both the dark world and the light sheet.
 6. **A real bug class**: my first "hover" screenshot looked identical to the no-hover one because the test
    mouse was hovering a plane. Judging visuals needs the cursor state controlled.
 

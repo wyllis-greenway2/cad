@@ -3,7 +3,7 @@ id: dec_ui_plane_selection
 kind: decision
 status: accepted
 origin: human
-human_input: in_015, in_016, in_017, in_018, in_019, in_020, in_021
+human_input: in_015, in_016, in_017, in_018, in_019, in_020, in_021, in_022
 date: 2026-11-04
 depends_on:
   - dec_ui_build_order: this is stage 1 of the staged interface build
@@ -19,7 +19,9 @@ cream-gray paper white; a dusty teal-blue; a slightly darker, more defined sub g
 into the main world lines (no separate gizmo); fog that gets slightly darker with distance. Refinement (`in_020`): charcoal gray grid lines, a darker
 charcoal fog, and when you go back into 3D mode you can select any plane again. Refinement (`in_021`):
 un-select the selected grid when you go back into 3D mode; a darker charcoal grid; drop every blue tint (only
-paper gray and charcoal greys remain, plus the world axis colors); a much darker charcoal fog. You select a plane to sketch on,
+paper gray and charcoal greys remain, plus the world axis colors); a much darker charcoal fog.
+Refinement (`in_022`): the fog is world fog, not on the planes, as if the whole world is dark and a light shines on
+the plane: the plane keeps its own color and fades into the dark world with distance. You select a plane to sketch on,
 and the view goes normal to that plane. You can still orbit in 3D, and clicking on the plane brings the
 view back normal to it. Reduce clutter: no XYZ buttons.
 

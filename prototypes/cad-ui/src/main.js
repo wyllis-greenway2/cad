@@ -49,7 +49,7 @@ const FRAG = /* glsl */ `
 uniform vec3 uCam; uniform float uDist;
 uniform int uAxis; uniform vec3 uCol; uniform vec3 uColU; uniform vec3 uColV;
 uniform float uLineA; uniform float uFillA; uniform float uAxisA;
-uniform vec3 uLineCol; uniform vec3 uFogCol; uniform float uHaze; uniform float uHazeOut; uniform float uHazeGraze;
+uniform vec3 uLineCol;
 uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul; uniform float uMinCellPx;
 uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar;
 uniform float uGrazeMin; uniform float uGrazeFull; uniform float uAxisW;
@@ -90,14 +90,11 @@ void main() {
   float axFog = 1.0 - smoothstep(uDist * uFogNear, uDist * uAxisFogFar, dc);
   float ang = smoothstep(uGrazeMin, uGrazeFull, abs(dot(normalize(uCam - vPos), n)));
 
-  float aLine = grid * uLineA * fog * ang;          // grid lines (a darker shade than the sheet)
+  // World fog: the plane keeps its own colors and simply fades into the world behind it with distance.
+  float aLine = grid * uLineA * fog * ang;          // grid lines
   float aFill = uFillA * fog * ang;                 // the sheet itself
-  // haze: far away the fog tints toward a darker color (strongest at the far edge, then dissolving so there is no hard edge)
-  float haze = uHaze * smoothstep(uDist * uFogNear, uDist * uFogFar, dc) * (1.0 - smoothstep(uDist * uFogFar, uDist * uFogFar * uHazeOut, dc)) * smoothstep(0.0, uHazeGraze, abs(dot(normalize(uCam - vPos), n)));
-  float aSheet = aLine + aFill * (1.0 - aLine);
-  vec3 sheetCol = aSheet > 0.0 ? (uLineCol * aLine + uCol * aFill * (1.0 - aLine)) / aSheet : uCol;
-  float a = aSheet + haze * (1.0 - aSheet);
-  vec3 col = a > 0.0 ? (sheetCol * aSheet + uFogCol * haze * (1.0 - aSheet)) / a : uCol;
+  float a = aLine + aFill * (1.0 - aLine);
+  vec3 col = a > 0.0 ? (uLineCol * aLine + uCol * aFill * (1.0 - aLine)) / a : uCol;
   float ax = max(axU, axV) * uAxisA * axFog;
   col = mix(col, mix(uColU, uColV, step(axU, axV)), step(a, ax)); // an axis line wins where it is stronger
   gl_FragColor = vec4(col, max(a, ax));
@@ -118,7 +115,7 @@ for (const [name, def] of Object.entries(PLANES)) {
       uColU: { value: new THREE.Vector3(...axisCol[def.u]) }, uColV: { value: new THREE.Vector3(...axisCol[def.v]) },
       uLineA: { value: 0 }, uFillA: { value: 0 }, uAxisA: { value: G.axisAlpha },
       uLodDiv: { value: G.lodDivisor }, uStyleMin: { value: G.fineLineStrength }, uFineMul: { value: 0 }, uMinCellPx: { value: G.minCellPx },
-      uLineCol: { value: new THREE.Vector3() }, uFogCol: { value: new THREE.Vector3() }, uHaze: { value: 0 }, uHazeOut: { value: F.hazeFadeOutFactor }, uHazeGraze: { value: F.hazeGrazeCos },
+      uLineCol: { value: new THREE.Vector3() },
       uFogNear: { value: F.nearFactor }, uFogFar: { value: F.farFactor }, uAxisFogFar: { value: F.axisFarFactor },
       uGrazeMin: { value: G.grazeMinCos }, uGrazeFull: { value: G.grazeFullCos }, uAxisW: { value: G.axisWidthPx },
     },
@@ -142,12 +139,11 @@ function updatePlanes() {
     u.uCam.value.copy(camera.position);
     u.uDist.value = view.dist;
     // Only the selected plane is shown (full grid); the hovered plane previews whenever it can be picked. The rest are hidden.
-    const state = selected === name ? G.selected : hovered === name ? G.hover : G.base;
+    const states = T().states;
+    const state = selected === name ? states.selected : hovered === name ? states.hover : states.base;
     const th = T();
     u.uCol.value.set(...th.sheet);
     u.uLineCol.value.set(...th.gridLine);
-    u.uFogCol.value.set(...th.fogColor);
-    u.uHaze.value = state === G.base ? 0 : F.hazeMax; // haze only on the plane that is shown
     u.uLineA.value = state.line;
     u.uFillA.value = state.fill;
     u.uFineMul.value = state.fine; // the densest grid level is only shown on the sketch plane
@@ -361,7 +357,7 @@ canvas.addEventListener(
 addEventListener("keydown", (e) => {
   if (e.key === "Escape") (selected = null), updateStatus(), requestRender();
   if (e.key.toLowerCase() === "h") goHome();
-  if (e.key.toLowerCase() === "d") (themeName = themeName === "light" ? "dark" : "light"), applyTheme();
+  if (e.key.toLowerCase() === "d") (themeName = themeName === "world" ? "paper" : "world"), applyTheme();
 });
 
 // ---------------------------------------------------------------- boot

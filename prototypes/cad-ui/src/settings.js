@@ -24,13 +24,11 @@ export const settings = {
     hideCos: 0.96, // an axis pointing (almost) at or away from the camera has no visible length: hide its arrow
   },
   fog: {
-    // Fog fades things by their distance from the CAMERA, in multiples of the camera-to-target distance.
-    nearFactor: 0.9, // fully visible up to here (about the whole screen in a face-on view)...
-    farFactor: 2.4, // ...and gone by here
+    // World fog: planes keep their own color and fade INTO the world (the background) with distance from the CAMERA,
+    // in multiples of the camera-to-target distance. The darkness of the "fog" is the world color itself.
+    nearFactor: 0.7, // fully visible up to here (a face-on view is a spotlight that dims slightly toward the edges)...
+    farFactor: 2.3, // ...and gone by here
     axisFarFactor: 5.0, // axis lines fade more slowly so orientation survives
-    hazeMax: 0.85,
-    hazeGrazeCos: 0.06, // the haze keeps its strength almost to edge-on, then drops to nothing (no hard far edge) // the fog also tints toward a dark charcoal with distance (max strength)...
-    hazeFadeOutFactor: 12.0, // ...and only dissolves very far out (planes also fade to nothing as they are seen edge-on, so there is no hard edge)
   },
   grid: {
     lodDivisor: 14, // grid spacing is chosen so about this many major cells span the view
@@ -41,18 +39,24 @@ export const settings = {
     axisWidthPx: 2.2, // world axis lines stay the heaviest lines in the scene
     axisAlpha: 0.85,
     extentFactor: 60, // size of the quad that carries a plane, in view-distances (fog hides its edge)
-    // Plane states. Only the selected plane is shown (full grid); in 3D mode the hovered plane previews.
-    // Unselected planes are hidden (set base.line/fill above 0 to bring them back as faint sheets).
-    base: { line: 0, fill: 0, fine: 0 },
-    hover: { line: 0.7, fill: 0.08, fine: 0.55 },
-    selected: { line: 0.85, fill: 0.05, fine: 1 },
   },
   pick: { maxDistanceFactor: 2.4 }, // same as the fog's far edge: you cannot pick what you cannot see
-  themeName: "light", // "light" | "dark" (press D in the view to toggle while trying them)
+  themeName: "world", // "world" (dark world, lit plane) | "paper" (the earlier light world) - press D to toggle
   themes: {
-    // Paper gray and charcoal only (no blue). sheet = the plane's faint fill; gridLine = grid lines; fogColor = what far haze darkens
-    // toward. The world axis colors (red, green, blue) are the only color in the scene.
-    light: { background: 0xeeece6, text: "#625f58", axisX: [0.84, 0.25, 0.22], axisY: [0.16, 0.6, 0.3], axisZ: [0.22, 0.42, 0.9], sheet: [0.2, 0.21, 0.23], gridLine: [0.2, 0.21, 0.23], fogColor: [0.05, 0.05, 0.06] },
-    dark: { background: 0x15171b, text: "#aab0bb", axisX: [0.92, 0.35, 0.35], axisY: [0.4, 0.8, 0.45], axisZ: [0.4, 0.58, 1.0], sheet: [0.8, 0.8, 0.8], gridLine: [0.74, 0.74, 0.76], fogColor: [0.0, 0.0, 0.0] },
+    // world = the background (and therefore the fog); sheet = the plane's fill color; gridLine = grid lines.
+    // Only paper-gray and charcoal tones plus the world axis colors. states: what each plane looks like when hovered
+    // (3D view) or selected (sketch view); unselected, unhovered planes are not drawn.
+    world: {
+      background: 0x2b2d30, text: "#aeb2b7",
+      axisX: [0.92, 0.32, 0.3], axisY: [0.25, 0.72, 0.38], axisZ: [0.32, 0.52, 1.0],
+      sheet: [0.93, 0.925, 0.9], gridLine: [0.17, 0.18, 0.2],
+      states: { base: { line: 0, fill: 0, fine: 0 }, hover: { line: 0.55, fill: 0.62, fine: 0.5 }, selected: { line: 0.8, fill: 0.94, fine: 1 } },
+    },
+    paper: {
+      background: 0xeeece6, text: "#625f58",
+      axisX: [0.84, 0.25, 0.22], axisY: [0.16, 0.6, 0.3], axisZ: [0.22, 0.42, 0.9],
+      sheet: [0.2, 0.21, 0.23], gridLine: [0.2, 0.21, 0.23],
+      states: { base: { line: 0, fill: 0, fine: 0 }, hover: { line: 0.7, fill: 0.08, fine: 0.55 }, selected: { line: 0.85, fill: 0.05, fine: 1 } },
+    },
   },
 };

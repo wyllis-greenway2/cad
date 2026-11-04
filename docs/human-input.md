@@ -99,3 +99,6 @@ Reply to the finite-sheet version of `prototypes/cad-ui` (the AI had asked wheth
 
 ## in_021 — 2026-11-04 — directive
 > Lets keep getting it because the user interface foundations are really important because that is the context that every other thing will be tested in. So lets make it un-select the selected grid when you go back into 3d mode. Lets make the grid darker charcoal. Also does the grid have a blue hint at all anymore? lets drop it. Lets just use paper gray (slight cream tiny amount) and charcoal greys. Also the fog needs to be much darker charcoal grey.
+
+## in_022 — 2026-11-04 — directive
+> Okay but it looks like the plane itself gets darker, not that it is protruding deeper into dark fog. Can you make the fog be world fog, not on the planes. Almost like the whole world is dark but a light is shining on the plane.
