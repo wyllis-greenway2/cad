@@ -335,3 +335,8 @@ Answer to the constraint solver question (option 2, a small solver of our own).
 Answer to the references question (option 2, name things by how they were made, with geometric matching as the fallback).
 
 > 2
+
+## in_047 — 2026-11-04 — preference
+Tentative answer to the direct-modification question (leaning to option 1, adding a step), with two reasons and a new idea about sketches. Not yet a decision: the human said they are not sure.
+
+> I am not sure. I am thinking 1 add step. Isn't it important to always always keep our history additive? And editing past things automatically would be bad? Another way to look at is that sketches should belong to the faces they produce, so we don't have divorced sketches floating around having nothing to do with faces anymore
