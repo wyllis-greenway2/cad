@@ -18,12 +18,12 @@ planned licensing review).
 
 | Package | Version | License | Used in | Notes |
 |---|---|---|---|---|
-| replicad | 1.2.0 | MIT | `prototypes/kernel-slice` | Friendly API over OCCT. Prototype only; we may call OCCT directly instead. |
-| replicad-opencascadejs | 1.1.0 | **LGPL-2.1-only** | `prototypes/kernel-slice` | OCCT compiled to WASM (about 23 MB, 7 MB gzipped). The LGPL obligations below apply. |
-| three | 0.187.0 | MIT | `prototypes/kernel-slice` | Rendering. |
-| vite | 8.3.5 | MIT | `prototypes/kernel-slice` | Dev server and bundler; build time only. |
+| replicad | 1.2.0 | MIT | `prototypes/kernel-slice`, `prototypes/sketch-extrude` | Friendly API over OCCT. Prototype only; we may call OCCT directly instead. |
+| replicad-opencascadejs | 1.1.0 | **LGPL-2.1-only** | `prototypes/kernel-slice`, `prototypes/sketch-extrude` | OCCT compiled to WASM (about 23 MB, 7 MB gzipped). The LGPL obligations below apply. |
+| three | 0.187.0 | MIT | `prototypes/kernel-slice`, `prototypes/sketch-extrude` | Rendering. |
+| vite | 8.3.5 | MIT | `prototypes/kernel-slice`, `prototypes/sketch-extrude` | Dev server and bundler; build time only. |
 
-Transitive dependencies in the prototype (scan on 2026-11-04, 22 packages): MIT 14, ISC 3, Apache-2.0 1,
+Transitive dependencies (identical in both prototypes; scan on 2026-11-04, 22 packages each): MIT 14, ISC 3, Apache-2.0 1,
 BSD-3-Clause 1, LGPL-2.1-only 1 (the OCCT build above), MPL-2.0 2. The two MPL-2.0 packages are
 `lightningcss` (a CSS minifier used by Vite at build time; not shipped to users). No GPL, AGPL or
 unknown licenses.

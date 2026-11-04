@@ -62,3 +62,8 @@ Reply to the AI's request to approve the OCCT test slice as an experiment, citin
 Approves the AI's proposal to write `docs/licenses.md` and then build the first prototype (`prototypes/kernel-slice/`: OCCT in WASM, JSON operation graph, sketch/extrude/hole/fillet in a browser view, a reference-stability test and a corpus of awkward boolean and fillet cases).
 
 > yes, go ahead with licenses.md then the prototype
+
+## in_013 — 2026-11-04 — directive
+After trying the first prototype locally ("okay I launched it, nice start!") and being offered five next steps, chose the interactive sketch-to-extrude prototype.
+
+> Let's do the interactive sketch to extrude one

@@ -18,6 +18,9 @@ Prototype evidence: OCCT's tolerance handling fused coincident faces, line-conta
 overlapping or separated by 1e-4 mm to exact volumes with no grid snapping, so the grid is not needed to
 solve the fuzzy-coincidence problem in these cases (`prototypes/kernel-slice`).
 
+Second piece of evidence (`prototypes/sketch-extrude`): rounding free-placed sketch points to 0.01 mm at
+input time gave clean dimensions (40.00 x 30.00) with no grid rule on stored geometry.
+
 AI suggestion, not approved: keep the grid for snapping, typed-value rounding and display, but not as a
 storage invariant for geometry. Until the human decides, the blueprint's position stands as the human's
 stated intent.

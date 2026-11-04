@@ -4,11 +4,13 @@ Phases come from the human's blueprint (section 17). This file only tracks what 
 Update it at the end of each session.
 
 ## Now
-- Human reviews the `prototypes/kernel-slice` findings (README there) and decides the open questions,
-  starting with `q_kernel_choice`.
+- Human tries `prototypes/sketch-extrude` (`bash tools/preview.sh`) and says what feels right, wrong or
+  missing; that steers the next step.
+- Human decides the open questions, starting with `q_kernel_choice` (evidence in `kernel-slice` and
+  `sketch-extrude` READMEs).
 
 ## Done
-- Project record set up; `docs/licenses.md` written; first prototype built (2026-11-04).
+- Project record set up; `docs/licenses.md` written; `kernel-slice` and `sketch-extrude` prototypes built (2026-11-04).
 
 ## Next
 - Depending on the kernel decision: a larger adversarial corpus (random and chained operations), history

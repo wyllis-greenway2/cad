@@ -32,3 +32,17 @@ stay open: nothing was decided. Rule 9 was loosened in `in_011` (`dec_prototypin
 `wyllis-greenway2/cad`); every commit so far is local to this session's container until that is fixed.
 
 **Next:** the human reviews the findings and answers `q_kernel_choice`; then pick the next prototype.
+
+## Handoff 003 — 2026-11-04
+**State:** Built `prototypes/sketch-extrude` (approved in `in_013`): rectangle, circle and polyline tools with
+snapping and inference lines, closed-region highlight, tilt to 3D, drag-the-arrow or typed extrude with an
+instant ghost plus exact OCCT preview, cut by pulling below the plane, sketch on the top face, undo,
+live JSON graph. 9 passing tests plus a scripted end-to-end run in headless Chromium (volumes matched
+closed forms; drag round trips about 20 to 30 ms). `tools/preview.sh` now takes a prototype name and
+defaults to `sketch-extrude`. Evidence added to `q_grid_role`. No open question was decided.
+
+**Not verified:** feel with a real hand, trackpad or touch; browsers other than headless Chromium.
+
+**Next:** the human tries it and reports what feels right, wrong or missing. Likely candidates after that:
+pick a face to sketch on (real face picking), constraints and dimensions, fillet handles, or deciding
+`q_kernel_choice`.

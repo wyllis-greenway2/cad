@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>sketch-extrude (throwaway prototype)</title>
+  <style>
+    :root { color-scheme: dark; --bg:#15171b; --fg:#e8eaee; --panel:#1f2228; --line:#343944; --accent:#4f8cff; --ok:#5fd18f; --bad:#ff8a80; --warn:#ffc857; }
+    html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:13px/1.4 system-ui,sans-serif; }
+    #app { display:grid; grid-template-columns: 270px 1fr; height:100%; }
+    @media (max-width: 760px) { #app { grid-template-columns: 1fr; grid-template-rows: auto 62vh; } }
+    aside { background:var(--panel); border-right:1px solid var(--line); padding:12px 14px; overflow:auto; }
+    h1 { font-size:14px; margin:0 0 2px; } h2 { font-size:11px; text-transform:uppercase; letter-spacing:.08em; opacity:.6; margin:14px 0 6px; }
+    p.note { margin:0 0 8px; opacity:.65; font-size:12px; }
+    .row { display:flex; flex-wrap:wrap; gap:6px; }
+    button { background:#2a2e37; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:5px 9px; font:inherit; cursor:pointer; }
+    button:hover { border-color:#566; } button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+    button kbd { opacity:.6; font-size:11px; margin-left:4px; }
+    ol { padding-left:20px; margin:4px 0; } li.err { color:var(--bad); } li small { display:block; opacity:.8; }
+    #stats, #status { font-variant-numeric: tabular-nums; font-size:12px; opacity:.85; margin-top:6px; }
+    pre { background:#14161a; border:1px solid var(--line); border-radius:6px; padding:8px; max-height:220px; overflow:auto; font-size:11px; }
+    main { position:relative; min-height:0; } canvas { display:block; width:100%; height:100%; touch-action:none; }
+    #hint { position:absolute; left:12px; top:10px; right:12px; pointer-events:none; opacity:.85; text-shadow:0 1px 2px #000; }
+    #readout { position:absolute; pointer-events:none; background:#000a; border:1px solid var(--line); border-radius:4px; padding:2px 6px; font-size:12px; display:none; white-space:nowrap; }
+    #extrudePanel { position:absolute; right:14px; bottom:14px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:none; min-width:230px; }
+    #extrudePanel label { display:flex; gap:8px; align-items:center; justify-content:space-between; }
+    #extrudePanel input { width:90px; background:#14161a; color:var(--fg); border:1px solid var(--line); border-radius:4px; padding:4px 6px; font:inherit; text-align:right; }
+    #extrudePanel .row { margin-top:8px; justify-content:flex-end; } #extrudeMode { opacity:.8; margin-top:6px; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside>
+      <h1>sketch-extrude</h1>
+      <p class="note">Throwaway prototype. Draw, pick a closed region, pull it into a solid. Geometry by OCCT in a Web Worker.</p>
+      <h2>Tool</h2>
+      <div class="row" id="tools">
+        <button data-tool="select">Select<kbd>V</kbd></button>
+        <button data-tool="rect">Rectangle<kbd>R</kbd></button>
+        <button data-tool="circle">Circle<kbd>C</kbd></button>
+        <button data-tool="poly">Polyline<kbd>L</kbd></button>
+      </div>
+      <h2>Sketch plane</h2>
+      <div class="row">
+        <button id="planeXY">XY (z=0)<kbd>X</kbd></button>
+        <button id="planeTop">Top face<kbd>T</kbd></button>
+        <button id="undo">Undo<kbd>Ctrl+Z</kbd></button>
+      </div>
+      <div id="status"></div>
+      <h2>Operations</h2>
+      <ol id="ops"></ol>
+      <div id="stats"></div>
+      <h2>Live graph (the model)</h2>
+      <details><summary>JSON</summary><pre id="json"></pre></details>
+    </aside>
+    <main>
+      <canvas id="view"></canvas>
+      <div id="hint"></div>
+      <div id="readout"></div>
+      <div id="extrudePanel">
+        <label>Distance (mm) <input id="dist" type="number" step="0.5" value="0" /></label>
+        <div id="extrudeMode"></div>
+        <div class="row"><button id="cancelExtrude">Cancel<kbd>Esc</kbd></button><button id="applyExtrude" class="on">Apply<kbd>Enter</kbd></button></div>
+      </div>
+    </main>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
