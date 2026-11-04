@@ -9,8 +9,9 @@ import { settings as S } from "./settings.js";
 import { SketchStore } from "./sketchstore.mjs";
 import { SketchSession } from "./interaction.mjs";
 import { navAction, keyAction } from "./keymap.mjs";
-import { circlePolygon, regionsOf, paramOnAxisFromRay } from "./sketch.mjs";
+import { circlePolygon, regionsOf, hitRegion, paramOnAxisFromRay } from "./sketch.mjs";
 import { ExtrudeSession } from "./extrude.mjs";
+import { TransformSession, AXIS_NAMES, UNITS } from "./transform.mjs";
 import { buildGraph } from "./features.mjs";
 import { createBody } from "./body.js";
 import { PLANES, planeDef, addFacePlane, basisOf, frameOf, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, projectOnto, pickPlane } from "./viewmath.mjs";
@@ -196,11 +197,20 @@ for (const [name, def] of Object.entries(PLANES)) {
  *  infinite and vertex positions stay small (float precision). Grid lines are in world coordinates. */
 const mix3 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
 /** How a plane looks right now: the selected plane shows fully, the hovered plane previews, the rest are hidden. */
+let lastPlane = "XY"; // the sheet that keeps showing when nothing is selected or pointed at, so the view is never left without one
+const baseOf = (id) => (id ? planeDef(id).base ?? id : null);
 function stateOf(name) {
   const states = T().states;
   const pinned = pinnedHover && !selected && pinnedHover === name;
-  const selBase = selected ? planeDef(selected).base ?? selected : sel?.kind === "plane" ? sel.plane : null; // a face plane shows the sheet of its own orientation
-  return selBase === name ? states.selected : pinned ? states[pinnedStyle] : hovered === name && !pinnedHover ? states.hover : states.base;
+  const selBase = selected ? baseOf(selected) : sel?.plane ? baseOf(sel.plane) : null; // a face plane shows the sheet of its own orientation
+  const hovBase = baseOf(hovered ?? hoveredSketch?.plane ?? null);
+  const active = selBase ?? hovBase ?? (pinnedHover || null);
+  if (active) lastPlane = active;
+  if (selBase === name) return states.selected;
+  if (pinned) return states[pinnedStyle];
+  if (hovBase === name && !pinnedHover) return states.hover;
+  if (!active && lastPlane === name) return states.hover;
+  return states.base;
 }
 /** Is this plane the one being sketched on or pointed at? (Its surface and lines lean blue.) */
 const hotOf = (plane) => plane === selected || plane === hovered || sel?.plane === plane || hoveredSketch?.plane === plane || (!!pinnedHover && !selected && plane === pinnedHover);
@@ -339,6 +349,8 @@ function requestRender() {
     updateDims();
     syncBody();
     updateExtrudeViz();
+    updateXformViz();
+    updatePickViz();
     renderer.render(scene, camera);
   });
 }
@@ -570,7 +582,8 @@ const effective = () => {
 };
 /** The features as they would be right now, including the one being pulled. */
 function currentFeatures() {
-  const list = store.features.map((f) => (extrude && extrude.sess.featureId === f.id ? { ...f, distance: effective() } : f));
+  const list = store.features.map((f) => (extrude && extrude.sess.featureId === f.id ? { ...f, distance: effective() } : xform && xform.sess.featureId === f.id ? { ...f, mode: xform.sess.mode, axis: xform.sess.axis, distance: xformValue() } : f));
+  if (xform && !xform.sess.featureId && !xform.sess.isEmpty()) list.push({ id: "f_pending", kind: "transform", plane: null, mode: xform.sess.mode, axis: xform.sess.axis, distance: xformValue() });
   if (extrude && !extrude.sess.featureId && !extrude.sess.isEmpty()) {
     const pending = extrude.ref
       ? { id: "f_pending", kind: "face", plane: null, ref: extrude.ref, distance: effective() }
@@ -657,10 +670,11 @@ function startFaceExtrude(face, featureId = null, distance = 0) {
   startExtrude({ face, ref, origin: body.faceCenter(face), normal, featureId, distance, hasBody: true });
 }
 function editFeature(id) {
-  if (extrude) return;
+  if (extrude || xform) return;
   const at = store.features.findIndex((f) => f.id === id);
   if (at < 0) return;
   const f = store.features[at];
+  if (f.kind === "transform") return startTransform(f.mode, f.id, f.axis, f.distance);
   if (f.kind === "face") {
     const face = body.findFace(f.ref);
     if (!face) return flashMessage("That face is not there any more (the model changed since this step).");
@@ -712,6 +726,111 @@ function pullParam(clientX, clientY) {
 }
 const refreshUI = () => (updateStatus(), updateReadout(), markSketch());
 
+// ---------------------------------------------------------------- move / rotate / scale a whole body
+let xform = null; // { sess: TransformSession, center: Vector3, size }
+const xformGroup = new THREE.Group(); // the arrow or ring showing the axis
+scene.add(xformGroup);
+const MODES = { move: "move", rotate: "rotate", scale: "scale" };
+function startTransform(mode, featureId = null, axis = 0, value = null) {
+  const b = body.info.bbox;
+  if (!b) return flashMessage("There is no body yet.");
+  const center = new THREE.Vector3(...[0, 1, 2].map((i) => (b.min[i] + b.max[i]) / 2));
+  const size = Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
+  xform = { sess: new TransformSession(S, { mode, axis, value, featureId }), center, size };
+  sel = null;
+  applySel();
+  refreshUI();
+}
+const xformValue = () => {
+  const v = xform.sess.current();
+  return Number.isFinite(v) ? v : xform.sess.value;
+};
+function commitTransform() {
+  const { sess } = xform;
+  const v = sess.current();
+  if (!Number.isFinite(v)) return flashMessage("Check the typed number.");
+  if (sess.isEmpty()) return cancelTransform();
+  if (sess.featureId) store.updateFeature(sess.featureId, v);
+  else store.addTransformFeature(sess.mode, sess.axis, v);
+  xform = null;
+  refreshUI();
+  refreshHover();
+}
+function cancelTransform() {
+  xform = null;
+  refreshUI();
+  refreshHover();
+}
+function deleteTransformBeingEdited() {
+  const id = xform?.sess.featureId;
+  if (!id) return false;
+  xform = null;
+  store.removeFeature(id);
+  refreshUI();
+  refreshHover();
+  return true;
+}
+/** Where the mouse is along the move axis through the body's centre (mm). */
+function moveParam(clientX, clientY) {
+  setRay(clientX, clientY);
+  return paramOnAxisFromRay({ o: raycaster.ray.origin.toArray(), v: raycaster.ray.direction.toArray() }, xform.center.toArray(), AXES3[xform.sess.axis].toArray());
+}
+function updateXformViz() {
+  clearGroup2(xformGroup);
+  if (!xform) return;
+  const col = toHex([T().axisX, T().axisY, T().axisZ][xform.sess.axis]);
+  const axis = AXES3[xform.sess.axis];
+  const mode = xform.sess.mode;
+  const mat = () => new THREE.LineBasicMaterial({ color: col, depthTest: false, transparent: true });
+  if (mode === "move") {
+    const v = xformValue();
+    const len = Math.max(Math.abs(v), xform.size * 0.3);
+    const arrow = new THREE.ArrowHelper(axis.clone().multiplyScalar(v < 0 ? -1 : 1), xform.center, len, col, len * 0.15, len * 0.08);
+    for (const m of [arrow.line, arrow.cone]) (m.material.depthTest = false, m.renderOrder = 20);
+    xformGroup.add(arrow);
+  } else if (mode === "rotate") {
+    const u = AXES3[(xform.sess.axis + 1) % 3];
+    const w = AXES3[(xform.sess.axis + 2) % 3];
+    const r = xform.size * 0.75;
+    const pts = Array.from({ length: 65 }, (_, i) => xform.center.clone().addScaledVector(u, Math.cos((i / 64) * Math.PI * 2) * r).addScaledVector(w, Math.sin((i / 64) * Math.PI * 2) * r));
+    const ring = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat());
+    ring.renderOrder = 20;
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([xform.center.clone().addScaledVector(axis, -r), xform.center.clone().addScaledVector(axis, r)]), mat());
+    line.renderOrder = 20;
+    xformGroup.add(ring, line);
+  }
+}
+
+// ---------------------------------------------------------------- lines and corners under the cursor / selected (drawn in blue)
+const pickGroup = new THREE.Group();
+scene.add(pickGroup);
+function updatePickViz() {
+  clearGroup2(pickGroup);
+  const color = toHex(T().blueSurface);
+  const edgeLine = (edge, width, alpha) => {
+    const pts = [];
+    for (let i = 0; i < edge.pts.length; i += 3) pts.push(new THREE.Vector3(edge.pts[i], edge.pts[i + 1], edge.pts[i + 2]));
+    pickGroup.add(stroke(pts, { color, width, order: 9, alpha }));
+  };
+  const dot = (v, k) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.95, fog: false }));
+    m.position.set(...v);
+    m.scale.setScalar(view.dist * S.pick.vertexScale * k);
+    m.renderOrder = 10;
+    pickGroup.add(m);
+  };
+  if (hoveredEdge) edgeLine(hoveredEdge, 3, 0.8);
+  if (hoveredVertex) dot(hoveredVertex, 1);
+  if (sel?.kind === "edge") edgeLine(sel.edge, 4.5, 1);
+  if (sel?.kind === "vertex") dot(sel.v, 1.35);
+}
+canvas.addEventListener("dblclick", (ev) => {
+  if (selected || extrude || xform) return;
+  const h = hoverAt(ev.clientX, ev.clientY);
+  setHover(h);
+  if (h.face || h.edge || h.vertex) (sel = { kind: "body" }), applySel(); // a double-click anywhere on the body selects all of it
+});
+
 // ---------------------------------------------------------------- history list (top left, only when there is something in it)
 function updateHistory() {
   const wrap = $("history");
@@ -726,7 +845,10 @@ function updateHistory() {
     const cut = f.distance < 0 && i > 0;
     b.className = err ? "err" : "";
     const what = f.kind === "face" ? (f.distance < 0 ? "Push face" : "Pull face") : cut ? "Cut" : "Extrude";
-    b.textContent = `${i + 1}  ${what}  ${f.distance > 0 ? "+" : "−"}${Math.abs(Math.round(f.distance * 100) / 100)} mm${f.plane ? `  (${f.plane})` : ""}${err ? "  failed" : ""}`;
+    const n = Math.round(Math.abs(f.distance) * 1000) / 1000;
+    b.textContent = f.kind === "transform"
+      ? `${i + 1}  ${f.mode === "move" ? "Move" : f.mode === "rotate" ? "Rotate" : "Scale"}${f.mode === "scale" ? ` ×${f.distance}` : ` ${AXIS_NAMES[f.axis]} ${f.distance < 0 ? "−" : "+"}${n}${UNITS[f.mode]}`}${err ? "  failed" : ""}`
+      : `${i + 1}  ${what}  ${f.distance > 0 ? "+" : "−"}${n} mm${f.plane ? `  (${f.plane})` : ""}${err ? "  failed" : ""}`;
     b.title = err ?? "Click to change the distance";
     b.onclick = () => editFeature(f.id);
     const li = document.createElement("li");
@@ -740,8 +862,11 @@ body.onResult(() => {
     const f = body.findFace(sel.ref); // the model was rebuilt: find the selected face again, or let go of it
     sel = f ? { ...sel, face: { ...f, point: sel.ref.point } } : null;
   }
+  if (sel?.kind === "edge") sel = body.edges.find((e) => e.a.join() === sel.edge.a.join() && e.b.join() === sel.edge.b.join()) ? { kind: "edge", edge: body.edges.find((e) => e.a.join() === sel.edge.a.join() && e.b.join() === sel.edge.b.join()) } : null;
+  if (sel?.kind === "vertex" && !body.vertices.some((v) => v.join() === sel.v.join())) sel = null;
+  if (sel?.kind === "body" && !body.wholeBody()) sel = null;
   applySel();
-  if (!selected && !extrude) refreshHover();
+  if (!selected && !extrude && !xform) refreshHover();
   updateHistory();
   requestRender();
 });
@@ -753,11 +878,20 @@ function flashMessage(text) {
   updateStatus();
   setTimeout(() => ((flash = null), updateStatus()), 2600);
 }
+/** What can be done with a selection (for the status line). */
+function selectionHint(t) {
+  if (t.kind === "body") return "M move   T rotate   K scale";
+  if (t.kind === "face") return "E push/pull   S sketch from this face";
+  if (t.kind === "sketch") return "E extrude   S sketch on it";
+  if (t.kind === "plane") return "S sketch on it (R C L too)";
+  return "double-click for the whole body";
+}
 function updateStatus() {
   let text = "3D view   hover a plane or a face and click it to sketch   right-click for the menu";
   if (flash) text = flash;
+  else if (xform) text = xform.sess.prompt();
   else if (extrude) text = `${extrude.ref ? "Push/pull face" : `Extrude on ${extrude.plane}`}   ${extrude.sess.prompt()}`;
-  else if (!selected && sel) text = `Selected: ${targetName(sel)}   E ${sel.kind === "plane" ? "(needs a face)" : "extrude"}   S sketch on it   Esc deselect`;
+  else if (!selected && sel) text = `Selected: ${targetName(sel)}   ${selectionHint(sel)}   Esc deselect`;
   else if (selected) text = inSketchView() ? `Sketching on ${selected}   ${session.prompt()}` : `Going to ${selected}...`;
   if (!body.ready() && (store.features.length || extrude)) text += "   (loading the geometry kernel...)";
   else if (body.info.error) text += `   [kernel: ${body.info.error}]`;
@@ -779,7 +913,9 @@ function setRay(clientX, clientY) {
 }
 let hoveredFace = null; // a flat face of the body under the cursor (3D view only): { start, count, axis, sign, offset, point }
 let hoveredSketch = null; // an unextruded closed sketch shape under the cursor: { plane, id }
-let sel = null; // the selection in the 3D view: { kind: "plane", plane } | { kind: "face", ref, face } | { kind: "sketch", plane, id }
+let hoveredEdge = null; // a line of the body under the cursor: { type, pts (flat xyz), a, b (end points) }
+let hoveredVertex = null; // a corner of the body under the cursor: [x, y, z]
+let sel = null; // the selection in the 3D view: { kind: "plane" | "face" | "sketch" | "edge" | "vertex" | "body", ... }
 /** The nearest unextruded closed sketch shape (a face with no thickness) along a ray, no farther than `limit`. */
 function pickSketchFace(o, d, limit) {
   let best = null;
@@ -799,9 +935,51 @@ function pickSketchFace(o, d, limit) {
   }
   return best;
 }
+/** The corner or line of the body nearest the cursor within a few pixels (corners first), if it is not hidden behind the body. */
+function pickNearest(clientX, clientY) {
+  if (!body.vertices.length) return null;
+  const r = canvas.getBoundingClientRect();
+  const x = clientX - r.left;
+  const y = clientY - r.top;
+  applyCamera();
+  const px = (p) => {
+    const v = p.clone().project(camera);
+    return v.z > 1 || v.z < -1 ? null : [((v.x + 1) / 2) * r.width, ((1 - v.y) / 2) * r.height];
+  };
+  let best = null;
+  for (const v of body.vertices) {
+    const p = new THREE.Vector3(...v);
+    const q = px(p);
+    if (!q) continue;
+    const d = Math.hypot(q[0] - x, q[1] - y);
+    if (d <= S.pick.vertexPx && (!best || d < best.d) && !body.blocked(camera.position, p)) best = { kind: "vertex", v, d };
+  }
+  if (best) return best;
+  for (const edge of body.edges) {
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    for (let i = 0; i + 1 < edge.pts.length / 3; i++) {
+      a.fromArray(edge.pts, i * 3);
+      b.fromArray(edge.pts, (i + 1) * 3);
+      const qa = px(a);
+      const qb = px(b);
+      if (!qa || !qb) continue;
+      const dx = qb[0] - qa[0];
+      const dy = qb[1] - qa[1];
+      const len2 = dx * dx + dy * dy;
+      const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((x - qa[0]) * dx + (y - qa[1]) * dy) / len2));
+      const d = Math.hypot(qa[0] + t * dx - x, qa[1] + t * dy - y);
+      if (d <= S.pick.edgePx && (!best || d < best.d)) best = { kind: "edge", edge, d, at: a.clone().lerp(b, t) };
+    }
+  }
+  return best && !body.blocked(camera.position, best.at) ? best : null;
+}
 /** What is under the cursor in the 3D view, nearest first: an unextruded sketch face, a body face, or a base plane. */
 function hoverAt(clientX, clientY) {
   const planeHit = pickAt(clientX, clientY);
+  const near = pickNearest(clientX, clientY);
+  if (near?.kind === "vertex") return { plane: null, face: null, sketch: null, edge: null, vertex: near.v };
+  if (near?.kind === "edge") return { plane: null, face: null, sketch: null, edge: near.edge, vertex: null };
   const o = raycaster.ray.origin;
   const d = raycaster.ray.direction;
   const faceHit = body.pick(o, d);
@@ -810,18 +988,22 @@ function hoverAt(clientX, clientY) {
   if (faceHit) return { plane: null, face: { ...faceHit.face, point: faceHit.point }, sketch: null }; // a body face wins over the see-through planes
   return { plane: planeHit?.plane ?? null, face: null, sketch: null };
 }
-function setHover({ plane = null, face = null, sketch = null }) {
-  if (plane === hovered && face?.start === hoveredFace?.start && face?.axis === hoveredFace?.axis && sketch?.id === hoveredSketch?.id && sketch?.plane === hoveredSketch?.plane) return false;
+function setHover({ plane = null, face = null, sketch = null, edge = null, vertex = null }) {
+  if (plane === hovered && face?.start === hoveredFace?.start && face?.axis === hoveredFace?.axis && sketch?.id === hoveredSketch?.id && sketch?.plane === hoveredSketch?.plane && edge?.pts === hoveredEdge?.pts && vertex?.join() === hoveredVertex?.join()) return false;
   hovered = plane;
   hoveredFace = face;
   hoveredSketch = sketch;
+  hoveredEdge = edge;
+  hoveredVertex = vertex;
   body.setHighlight(face);
-  canvas.style.cursor = plane || face || sketch ? "pointer" : "default";
+  canvas.style.cursor = plane || face || sketch || edge || vertex ? "pointer" : "default";
   markSketch();
   return true;
 }
 const hoverAsSel = () =>
-  hoveredSketch ? { kind: "sketch", ...hoveredSketch }
+  hoveredVertex ? { kind: "vertex", v: hoveredVertex }
+  : hoveredEdge ? { kind: "edge", edge: hoveredEdge }
+  : hoveredSketch ? { kind: "sketch", ...hoveredSketch }
   : hoveredFace ? { kind: "face", ref: { axis: hoveredFace.axis, sign: hoveredFace.sign, offset: hoveredFace.offset, point: hoveredFace.point }, face: hoveredFace }
   : hovered ? { kind: "plane", plane: hovered }
   : null;
@@ -829,9 +1011,9 @@ const hoverAsSel = () =>
 const currentTarget = () => sel ?? hoverAsSel();
 /** The plane to sketch on for a target (a body face becomes a plane the first time it is used). */
 const planeOfTarget = (t) => (t.kind === "face" ? addFacePlane(t.face, Math.round(view.a / (Math.PI / 2)) * (Math.PI / 2)) : t.plane); // a horizontal face is squared up to the nearest quarter turn
-const targetName = (t) => (t.kind === "face" ? "face" : t.kind === "sketch" ? "sketch shape" : `${t.plane} plane`);
+const targetName = (t) => ({ face: "face", sketch: "sketch shape", edge: "line", vertex: "corner", body: "body" }[t.kind] ?? `${t.plane} plane`);
 function applySel() {
-  body.setSelected(sel?.kind === "face" ? sel.face : null);
+  body.setSelected(sel?.kind === "face" ? sel.face : sel?.kind === "body" ? body.wholeBody() : null);
   updateStatus();
   markSketch();
 }
@@ -890,10 +1072,10 @@ function exitSketch(animate = false) {
   markSketch();
 }
 function setTool(tool) {
-  if (extrude) return false;
+  if (extrude || xform) return false;
   if (inSketchView()) {
     session.setTool(tool);
-  } else if (!selected && currentTarget()) {
+  } else if (!selected && currentTarget() && ["plane", "face", "sketch"].includes(currentTarget().kind)) {
     const t = currentTarget();
     sel = null;
     applySel();
@@ -906,6 +1088,7 @@ function setTool(tool) {
 }
 function doUndo() {
   if (extrude) return cancelExtrude();
+  if (xform) return cancelTransform();
   if (session.draft || session.entry || session.dimEdit) return session.escape(), updateStatus(), updateReadout(), markSketch();
   const cmd = store.undo();
   if (cmd && session.selectedId && !store.entities(session.plane ?? "XY").some((e) => e.id === session.selectedId)) session.selectedId = null;
@@ -919,11 +1102,19 @@ function doRedo() {
 function doEscape() {
   if (menuOpen()) return hideMenu();
   if (extrude) return cancelExtrude();
+  if (xform) return cancelTransform();
   if (!inSketchView()) return selected ? exitSketch(true) : sel ? ((sel = null), applySel()) : undefined;
   if (!session.escape()) exitSketch(true);
   updateStatus();
   updateReadout();
   markSketch();
+}
+/** M, T, K: move, rotate or scale the selected body (or switch mode while doing it). */
+function bodyTransform(mode) {
+  if (xform) return xform.sess.setMode(mode), refreshUI();
+  if (extrude || selected) return;
+  if (sel?.kind === "body") return startTransform(mode);
+  flashMessage("Double-click a body to select all of it, then M move, T rotate, K scale.");
 }
 const ACTIONS = {
   select: () => setTool("select"),
@@ -935,10 +1126,14 @@ const ACTIONS = {
   undo: () => doUndo(),
   redo: () => doRedo(),
   cancel: () => doEscape(),
-  delete: () => (extrude ? deleteFeatureBeingEdited() : inSketchView() && session.deleteSelected() ? (updateStatus(), markSketch()) : false),
+  delete: () => (xform ? deleteTransformBeingEdited() : extrude ? deleteFeatureBeingEdited() : inSketchView() && session.deleteSelected() ? (updateStatus(), markSketch()) : false),
+  move: () => bodyTransform("move"),
+  rotate: () => bodyTransform("rotate"),
+  scale: () => bodyTransform("scale"),
   sketch: () => {
     const t = !selected && currentTarget();
     if (!t) return flashMessage("Select a plane or a face first (click it), then press S or a sketch tool key.");
+    if (!["plane", "face", "sketch"].includes(t.kind)) return flashMessage("Sketch from a plane, a face or a closed sketch shape. Click one first.");
     sel = null;
     applySel();
     enterSketch(planeOfTarget(t));
@@ -955,6 +1150,7 @@ const ACTIONS = {
       const r = regionsOf(store.entities(t.plane)).find((x) => x.id === t.id);
       return r ? startExtrudeFromRegion(r, t.plane) : undefined;
     }
+    if (t && ["body", "edge", "vertex"].includes(t.kind)) return flashMessage(t.kind === "body" ? "E pulls faces and sketch shapes. For the whole body: M move, T rotate, K scale." : "E pulls faces and sketch shapes. Lines and corners cannot be modified yet.");
     flashMessage(t ? "Planes have nothing to pull: select a face or a closed sketch shape, then press E." : "Select a face or a closed sketch shape first (click it), then press E.");
   },
   dimension: () => setTool("dimension"),
@@ -985,7 +1181,9 @@ let lastPointer = { x: 0, y: 0 };
 let pointerSeen = false;
 function updateReadout() {
   const el = $("readout");
-  const segs = extrude
+  const segs = xform
+    ? [{ label: xform.sess.label(), text: `${xform.sess.text || String(Math.round(xformValue() * 1000) / 1000)}${UNITS[xform.sess.mode]}`, active: !!xform.sess.text, typed: !!xform.sess.text, invalid: xform.sess.invalid() }]
+    : extrude
     ? [{ label: extrude.sess.mode() === "cut" ? "cut" : "add", text: extrude.sess.text || String(Math.round(effective() * 100) / 100), active: !!extrude.sess.text, typed: !!extrude.sess.text, invalid: extrude.sess.invalid() }]
     : inSketchView() && session.tool !== "select" ? session.readout() : [];
   el.replaceChildren();
@@ -1018,9 +1216,13 @@ function menuItems() {
     items.push("sep");
   } else if (!selected && currentTarget()) {
     const t = currentTarget();
-    const plane = planeOfTarget(t);
-    items.push({ label: `Sketch on this ${targetName(t)}`, hint: key("sketch"), run: () => (sel = null, applySel(), enterSketch(plane)) });
-    if (t.kind === "face" || t.kind === "sketch") items.push({ label: "Extrude", hint: key("extrude"), run: () => (sel = t, ACTIONS.extrude()) });
+    if (["plane", "face", "sketch"].includes(t.kind)) {
+      const plane = planeOfTarget(t);
+      items.push({ label: t.kind === "face" ? "Sketch from this face" : `Sketch on this ${targetName(t)}`, hint: key("sketch"), run: () => (sel = null, applySel(), enterSketch(plane)) });
+    }
+    if (t.kind === "face") items.push({ label: "Push / pull face", hint: key("extrude"), run: () => (sel = t, ACTIONS.extrude()) });
+    if (t.kind === "sketch") items.push({ label: "Extrude", hint: key("extrude"), run: () => (sel = t, ACTIONS.extrude()) });
+    if (t.kind === "body") for (const [label, mode] of [["Move", "move"], ["Rotate", "rotate"], ["Scale", "scale"]]) items.push({ label, hint: key(mode), run: () => startTransform(mode) });
     items.push("sep");
   }
   items.push({ label: "Undo", hint: key("undo"), run: ACTIONS.undo, off: !store.canUndo() }, { label: "Redo", hint: key("redo"), run: ACTIONS.redo, off: !store.canRedo() }, "sep");
@@ -1067,6 +1269,12 @@ canvas.addEventListener("pointerdown", (ev) => {
     if (t0 !== null) g = { kind: "extdrag", t0, d0: effective(), ...base };
     return;
   }
+  if (xform) {
+    const sess = xform.sess;
+    const t0 = sess.mode === "move" ? moveParam(ev.clientX, ev.clientY) : 0;
+    if (t0 !== null) g = { kind: "xdrag", t0, v0: xformValue(), ...base };
+    return;
+  }
   if (selected && !inSketchView()) return; // gliding to the plane: ignore clicks until it is face-on
   if (!inSketchView()) return void (g = { kind: "click", ...base }); // a click picks a plane; a drag orbits
   const p = localPoint(ev.clientX, ev.clientY);
@@ -1087,6 +1295,17 @@ canvas.addEventListener("pointerdown", (ev) => {
 canvas.addEventListener("pointermove", (ev) => {
   lastPointer = { x: ev.clientX, y: ev.clientY };
   pointerSeen = true;
+  if (g && g.kind === "xdrag" && xform) {
+    const sess = xform.sess;
+    const fine = ev.shiftKey;
+    if (sess.mode === "move") {
+      const t = moveParam(ev.clientX, ev.clientY);
+      if (t !== null) sess.drag(g.v0 + (t - g.t0), fine);
+    } else if (sess.mode === "rotate") sess.drag(g.v0 + (ev.clientX - g.x0) * S.transform.rotateDegPerPx, fine);
+    else sess.drag(g.v0 * Math.exp(-(ev.clientY - g.y0) * S.transform.scalePerPx), fine);
+    refreshUI();
+    return;
+  }
   if (g && g.kind === "extdrag" && extrude) {
     const t = pullParam(ev.clientX, ev.clientY);
     if (t !== null) extrude.sess.drag(g.d0 + (t - g.t0), ev.shiftKey);
@@ -1117,7 +1336,7 @@ canvas.addEventListener("pointermove", (ev) => {
     markSketch();
     return;
   }
-  if (extrude) return;
+  if (extrude || xform) return;
   if (inSketchView()) {
     const p = localPoint(ev.clientX, ev.clientY);
     if (p && session.tool !== "select") {
@@ -1218,6 +1437,14 @@ addEventListener("keydown", (e) => {
     return;
   }
   if (el instanceof HTMLElement && el !== document.body && !(el instanceof HTMLCanvasElement)) el.blur?.(); // sliders, colors and buttons never keep the keyboard
+  // while moving, rotating or scaling a body: digits, Enter, Backspace, X Y Z (axis) and M T K (mode)
+  if (xform && !e.ctrlKey && !e.metaKey) {
+    if (e.key === "Enter") return e.preventDefault(), commitTransform();
+    if (e.key === "Backspace") return e.preventDefault(), xform.sess.backspace(), refreshUI();
+    const ax = ["x", "y", "z"].indexOf(e.key.toLowerCase());
+    if (ax >= 0 && xform.sess.mode !== "scale") return e.preventDefault(), xform.sess.setAxis(ax), refreshUI();
+    if (e.key.length === 1 && xform.sess.type(e.key)) return e.preventDefault(), refreshUI();
+  }
   // while pulling an extrusion, digits and Enter belong to the distance (Backspace always does, so it can never delete by accident)
   if (extrude && !e.ctrlKey && !e.metaKey) {
     if (e.key === "Enter") return e.preventDefault(), commitExtrude();
@@ -1258,6 +1485,8 @@ window.__ui = {
   menuOpen: () => menuOpen(),
   state: () => ({ selected, hovered, tool: session.tool, draft: session.draft && session.draft.pts.length, selectedEntity: session.selectedId, a: view.a, e: view.e, dist: view.dist, target: view.target.toArray(), normal: selected ? isNormal(view, selected, V.normalToleranceRad) : null, animating: !!anim }),
   settings: S,
+  shown: () => ({ lastPlane, hovered }),
+  xformState: () => (xform ? { mode: xform.sess.mode, axis: xform.sess.axis, value: xformValue() } : null),
   selInfo: () => (sel ? { kind: sel.kind, plane: sel.plane, id: sel.id } : null),
   hoverInfo: () => ({ hovered, face: hoveredFace }),
   enterSketch: (pl, tool) => enterSketch(pl, tool),

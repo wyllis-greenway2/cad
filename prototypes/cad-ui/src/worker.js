@@ -20,6 +20,8 @@ self.onmessage = async ({ data }) => {
     let vol = null;
     let bbox = null;
     let faces = null;
+    let edges = null;
+    let vertices = null;
     if (fin) {
       const m = fin.shape.mesh({ tolerance: tess.tolerance, angularTolerance: tess.angular });
       mesh = { vertices: new Float32Array(m.vertices), normals: new Float32Array(m.normals), triangles: new Uint32Array(m.triangles) };
@@ -38,8 +40,23 @@ self.onmessage = async ({ data }) => {
         if (axis < 0) continue;
         faces.push({ start: g.start, count: g.count, axis, sign: Math.sign(nv[axis]), offset: Math.round([c.x, c.y, c.z][axis] * 1e4) / 1e4 });
       }
+      // edges as polylines, and their end points as vertices (for selecting lines and corners)
+      const em = fin.shape.meshEdges({ tolerance: tess.tolerance, angularTolerance: tess.angular });
+      const byHash = new Map(fin.shape.edges.map((e) => [e.hashCode, e]));
+      const r4 = (v) => Math.round(v * 1e4) / 1e4;
+      const seen = new Map();
+      edges = [];
+      for (const g of em.edgeGroups) {
+        const e = byHash.get(g.edgeId);
+        const pts = Float32Array.from(em.lines.slice(g.start * 3, (g.start + g.count) * 3));
+        const a = e.startPoint;
+        const z = e.endPoint;
+        edges.push({ type: e.geomType, pts, a: [r4(a.x), r4(a.y), r4(a.z)], b: [r4(z.x), r4(z.y), r4(z.z)] });
+        for (const v of [a, z]) seen.set(`${r4(v.x)},${r4(v.y)},${r4(v.z)}`, [r4(v.x), r4(v.y), r4(v.z)]);
+      }
+      vertices = [...seen.values()];
     }
-    const msg = { id, ops, finalId: fin?.id ?? null, volume: vol, bbox, faces, totalMs: performance.now() - t0, mesh };
+    const msg = { id, ops, finalId: fin?.id ?? null, volume: vol, bbox, faces, edges, vertices, totalMs: performance.now() - t0, mesh };
     self.postMessage(msg, mesh ? [mesh.vertices.buffer, mesh.normals.buffer, mesh.triangles.buffer] : []);
   } catch (e) {
     self.postMessage({ id, fatal: String(e?.message ?? e) });

@@ -10,6 +10,13 @@ export function buildGraph(features) {
   const ops = [];
   let prev = null;
   for (const f of features) {
+    if (f.kind === "transform") {
+      if (!prev) continue; // nothing to transform yet
+      const xid = `x_${f.id}`;
+      ops.push({ id: xid, type: "transform", target: prev, mode: f.mode, axis: f.axis, value: f.distance });
+      prev = xid;
+      continue;
+    }
     if (f.kind === "face") {
       if (!prev) continue; // nothing to push or pull yet
       const xid = `x_${f.id}`;

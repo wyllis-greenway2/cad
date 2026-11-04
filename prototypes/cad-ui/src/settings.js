@@ -35,7 +35,7 @@ export const settings = {
     maxZoomFactorPerSecond: 2.5, // one gesture can never zoom faster than this, however hard you flick or spin the wheel
     pinchZoomPerWheel: 0.01, // trackpad pinch (a wheel event with ctrl held) is more sensitive than a wheel notch
     keys: {
-      select: "v", line: "l", rect: "r", circle: "c", extrude: "e", sketch: "s", dimension: "d", home: "h",
+      select: "v", line: "l", rect: "r", circle: "c", extrude: "e", sketch: "s", move: "m", rotate: "t", scale: "k", dimension: "d", home: "h",
       undo: "mod+z", redo: ["mod+shift+z", "mod+y"],
       origin: "o", cancel: "escape", confirm: "enter", nextField: "tab", prevField: "shift+tab", delete: ["delete", "backspace"],
     },
@@ -95,6 +95,17 @@ export const settings = {
     farFactor: 2.5, // ...almost gone by here, with no hard end
     sharpness: 2.5, // how quickly it fades between near and far (higher = faster, still smooth)
     axisFarFactor: 2.5, // how far the axis lines reach (they fade with the same curve)
+  },
+  transform: {
+    // Move, rotate or scale a whole body (select it with a double-click, then M, T or K).
+    moveStep: 1, moveFineStep: 0.01, minMoveMm: 0.01,
+    rotateStep: 1, rotateFineStep: 0.1, minRotateDeg: 0.01, rotateDegPerPx: 0.5,
+    scaleStep: 0.01, scaleFineStep: 0.001, scalePerPx: 0.004,
+  },
+  pick: {
+    vertexPx: 10, // pointing within this many pixels of a corner selects the corner
+    edgePx: 6, // ...or of a line selects the line
+    vertexScale: 0.006, // size of the corner dot, in view distances
   },
   light: {
     // Lights ride with the camera (to one side and above, never in view); the body has a slight clear-coat sheen, not real reflection.

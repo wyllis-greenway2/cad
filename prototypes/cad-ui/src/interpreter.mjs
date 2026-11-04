@@ -149,6 +149,24 @@ const OPS = {
     return { kind: "solid", shape: dist >= 0 ? t.fuse(prism) : t.cut(prism) };
   },
 
+  /** Move, rotate or scale the whole target. mode "move" (mm along axis), "rotate" (degrees about the axis through the box centre), "scale" (factor about the box centre). */
+  transform(op, ctx) {
+    const t = ctx.get(op.target, "solid").shape;
+    const v = resolve(op.value, ctx.params);
+    if (!Number.isFinite(v)) throw new Error("bad number");
+    const b = bounds(t);
+    const c = [0, 1, 2].map((i) => (b.min[i] + b.max[i]) / 2);
+    const axis = [0, 0, 0];
+    axis[op.axis] = 1;
+    if (op.mode === "move") return { kind: "solid", shape: t.translate(axis.map((a) => a * v)) };
+    if (op.mode === "rotate") return { kind: "solid", shape: t.rotate(v, c, axis) };
+    if (op.mode === "scale") {
+      if (!(v > 1e-6)) throw new Error("scale must be positive");
+      return { kind: "solid", shape: t.scale(v, c) };
+    }
+    throw new Error(`unknown transform ${op.mode}`);
+  },
+
   /** Cylindrical hole cut from the top of the target, at (x, y). depth omitted = through. */
   hole(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;

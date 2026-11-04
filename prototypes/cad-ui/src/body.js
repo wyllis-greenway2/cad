@@ -19,6 +19,8 @@ export function createBody(scene, S, colors, renderer) {
   scene.add(highlight, selectedGroup);
   let bodyMesh = null;
   let faces = [];
+  let edges = [];
+  let vertices = [];
   const ray = new THREE.Raycaster();
 
   let seq = 0;
@@ -52,6 +54,8 @@ export function createBody(scene, S, colors, renderer) {
       info.bbox = data.bbox;
       faces = data.faces ?? [];
       info.faceCount = faces.length;
+      edges = data.edges ?? [];
+      vertices = data.vertices ?? [];
       hoverState.face = null;
       selectState.face = null;
       info.ms = data.totalMs;
@@ -156,6 +160,10 @@ export function createBody(scene, S, colors, renderer) {
       ray.far = Infinity;
       return hit;
     },
+    get edges() { return edges; },
+    get vertices() { return vertices; },
+    /** The whole body as one "face" (every triangle), for tinting a selected body. */
+    wholeBody: () => (bodyMesh ? { start: 0, count: bodyMesh.geometry.index.count } : null),
     setHighlight,
     setSelected,
     faceGeometry: (face) => (bodyMesh ? faceGeometry(face) : null),

@@ -352,3 +352,16 @@ line (body edge and add/cut colors were undefined) until the screenshot showed w
 **Limits:** slanted and curved faces cannot be selected; a face push/pull can fail if earlier steps move the face; planes are only selectable where no body is under the cursor.
 **Open for the human:** do selection and E on a face feel right? Is the body light and shiny enough (`light.sheen`, `light.reflect`, `light.key`)?
 **Next:** the drawer; fillet/chamfer on selected faces or edges (edge selection), if the human wants.
+
+## Handoff 026 — 2026-11-04
+**State:** `in_038`. **Bug** (rectangle on a plane, then 3D: plane not selectable): my own regression from Handoff 025, `hitRegion` was not imported in
+`main.js`, so hover threw whenever a closed sketch existed. Fixed, and re-tested with a sketch present. Built in `prototypes/cad-ui`: the last plane that was
+showing keeps showing (hover style) when nothing else is; a hovered or selected sketch shape also shows its plane; single click selects corners, lines, faces,
+sketch shapes, planes; double-click selects the whole body; whole-body move / rotate / scale (M / T / K, X Y Z axis, drag or type, history steps, editable) via a new
+`transform` kernel op (about the box centre) and `TransformSession`; the worker now returns edges (polylines) and corners. Wording: S = "sketch from this face".
+Verified: kernel (move x+10, rotate z 90, scale 2 = 8x volume), browser run (plane select with sketch present, sticky plane, corner, line, double-click body, move 15,
+rotate 90, undo, history labels), 34 unit tests, no console errors. New open question `q_direct_modification` (extrusion vs direct modification, from the human's
+idea). **Lesson:** I had not tested "sketch exists, then 3D" after adding sketch-face picking; add that case to the scripted checks (they live in the scratchpad, not the repo).
+**Limits:** lines and corners cannot be modified yet; rotate by other than 90° breaks face selection; non-uniform scale is not supported.
+**Open for the human:** `q_direct_modification`; which modifications first (radius of a curved face, fillet or chamfer a selected line, rotate a face)?
+**Next:** the drawer; the modifications the human picks.

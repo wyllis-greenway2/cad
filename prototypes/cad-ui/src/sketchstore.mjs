@@ -80,6 +80,12 @@ export class SketchStore {
     this.#pushFeatureCmd({ type: "feature-add", feature, index: this.features.length });
     return feature;
   }
+  /** Move, rotate or scale the whole body: mode "move" | "rotate" | "scale", axis 0..2, value in mm, degrees or a factor (kept in `distance` so editing is the same as for extrusions). */
+  addTransformFeature(mode, axis, value) {
+    const feature = { id: `f_${String(this.nextFeature++).padStart(3, "0")}`, kind: "transform", plane: null, mode, axis, distance: value };
+    this.#pushFeatureCmd({ type: "feature-add", feature, index: this.features.length });
+    return feature;
+  }
   updateFeature(id, distance) {
     const before = this.features.find((f) => f.id === id);
     if (!before) return false;

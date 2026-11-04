@@ -59,6 +59,12 @@ A sketch on a body face uses a frozen copy of the face's plane (see `q_topologic
 fail if earlier steps move it. Slanted and curved faces are not selectable yet. In sketch view E with a closed shape selected pulls it, otherwise
 picks one. Not built yet: the drawer.
 
+**Selection levels, modify and transform (`in_038`; AI's design, not yet reviewed by the human):** a single click selects a corner, a line (within a few
+pixels), a face, an unextruded sketch shape or a plane; a **double-click selects the whole body**. With a body selected: **M** move, **T** rotate,
+**K** scale (X / Y / Z picks the axis; drag or type a number; rotate and scale are about the body's box centre). With a face: **E** push/pull, **S**
+"sketch from this face". Lines and corners can be selected but cannot be modified yet. The last plane that was showing keeps showing when nothing is
+selected or pointed at. See `q_direct_modification` for the open question on how direct modifications relate to extrusion and history.
+
 ## Rationale
 The human asked for navigation, a few hotkeys plus undo and redo, the sketch-finish-extrude workflow with a history
 list, and typing a number to be done right, and said Shapr3D (their only well-liked program) is a reference but
