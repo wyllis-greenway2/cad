@@ -21,3 +21,7 @@ filleting the surviving named edges matched the closed-form volume. Not yet test
 chamfer and shell, and replicad does not expose the history objects, so this needs our own thin OCCT
 wrapper. Must be proven with a test: change an upstream parameter and
 check a downstream fillet still attaches to the right edges.
+Evidence (`prototypes/cad-ui`, `in_036`): sketching on a body face avoids this question for now by taking a **frozen copy** of the face's plane
+(origin, x direction, normal) the moment you click it. The extrusion keeps that copy, so it never follows the face if an earlier feature
+changes. That is simple and deterministic but not parametric; a real answer is still needed.
+

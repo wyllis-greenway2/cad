@@ -76,3 +76,37 @@ test("pickPlane `only` restricts picking to one plane (sketch mode)", () => {
   assert.equal(pickPlane([5, -20, 3], [0, 1, 0], { only: "XZ" }).plane, "XZ");
   assert.equal(pickPlane([5, -20, 3], [0, 1, 0], { only: "XY" }), null);
 });
+
+import { addFacePlane, planeDef, frameOf, basisOf, DATUMS } from "../src/viewmath.mjs";
+
+test("face planes: base planes are reused, the same face gives the same plane, views are not mirrored", () => {
+  assert.equal(addFacePlane({ axis: 2, sign: 1, offset: 0 }), "XY");
+  assert.equal(addFacePlane({ axis: 1, sign: -1, offset: 0 }), "XZ");
+  assert.equal(addFacePlane({ axis: 0, sign: 1, offset: 0 }), "YZ");
+  const top = addFacePlane({ axis: 2, sign: 1, offset: 20 }, -Math.PI / 2);
+  assert.notEqual(top, "XY");
+  assert.equal(addFacePlane({ axis: 2, sign: 1, offset: 20 }, 1), top);
+  const bottom = addFacePlane({ axis: 2, sign: -1, offset: 0 }, 0);
+  assert.notEqual(bottom, "XY"); // the underside of the XY plane faces the other way
+  for (const id of [top, bottom, addFacePlane({ axis: 1, sign: 1, offset: 10 }), addFacePlane({ axis: 0, sign: -1, offset: -20 })]) {
+    const d = planeDef(id);
+    const [u, v, n] = basisOf(id);
+    near(cross(u, v), n); // right handed, so a sketch is not mirrored
+    const forward = neg(cameraOffset(d.view.a, d.view.e));
+    near(cross(forward, cameraUp(d.view.a, d.view.e)), u); // u is screen right when looking straight at the face
+    near(cameraUp(d.view.a, d.view.e), v);
+    assert.ok(isNormal(d.view, id, 1e-9));
+  }
+  near(frameOf(top).origin, [0, 0, 20]);
+  near(frameOf(top).normal, [0, 0, 1]);
+  assert.ok(Object.keys(DATUMS).length >= 4);
+});
+
+test("a face plane can be picked only when asked for, and projectOnto puts a point on it", () => {
+  const id = addFacePlane({ axis: 2, sign: 1, offset: 20 });
+  assert.equal(pickPlane([0, 0, 100], [0, 0, -1])?.plane, "XY"); // not the face plane
+  const hit = pickPlane([5, 6, 100], [0, 0, -1], { only: id });
+  assert.equal(hit.plane, id);
+  near(hit.point, [5, 6, 20]);
+  near(projectOnto(id, [1, 2, 3]), [1, 2, 20]);
+});

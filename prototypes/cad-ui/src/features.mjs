@@ -5,7 +5,7 @@ import { regionsOf, regionToSketchOp } from "./sketch.mjs";
 
 export const featureMode = (distance, hasBody) => (distance < 0 && hasBody ? "cut" : "add");
 
-/** features: [{ id, plane, shape, distance }]. Returns { params, ops } for the worker. Features with a bad shape are skipped. */
+/** features: [{ id, plane, shape, distance, frame? }]. Returns { params, ops } for the worker. Features with a bad shape are skipped. */
 export function buildGraph(features) {
   const ops = [];
   let prev = null;
@@ -13,6 +13,7 @@ export function buildGraph(features) {
     const region = regionsOf([{ ...f.shape, id: f.id }])[0];
     if (!region) continue;
     const sk = regionToSketchOp(region, `s_${f.id}`, 0, f.plane);
+    if (f.frame) sk.frame = f.frame; // an explicit plane (a body face, or the base plane's own numbers) wins over the plane's name
     const xid = `x_${f.id}`;
     ops.push(sk, { id: xid, type: "extrude", profile: sk.id, distance: f.distance, ...(prev ? { target: prev } : {}), mode: featureMode(f.distance, !!prev) });
     prev = xid;

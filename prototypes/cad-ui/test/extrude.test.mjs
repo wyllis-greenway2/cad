@@ -81,3 +81,14 @@ test("mouse ray to distance along an axis", () => {
   assert.ok(Math.abs(t - 20) < 1e-9);
   assert.equal(paramOnAxisFromRay({ o: [0, 0, 5], v: [0, 0, 1] }, [0, 0, 0], [0, 0, 1]), null);
 });
+
+test("a feature on a body face carries its frame into the graph", () => {
+  const frame = { origin: [0, 0, 20], xDir: [1, 0, 0], normal: [0, 0, 1] };
+  const store = new SketchStore();
+  const f = store.addFeature("F1", { type: "circle", cx: 1, cy: 2, r: 3 }, -5, frame);
+  frame.origin[2] = 99; // the stored copy does not change
+  assert.deepEqual(f.frame.origin, [0, 0, 20]);
+  const g = buildGraph(store.features);
+  assert.deepEqual(g.ops[0].frame, f.frame);
+  assert.equal(store.entities("F1").length, 0); // face planes get their own sketch lists on first use
+});

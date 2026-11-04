@@ -12,6 +12,7 @@ import {
   FaceFinder,
   measureVolume,
   getOC,
+  Plane,
 } from "replicad";
 
 /** OCCT's own topology/geometry check. Operations can return garbage without throwing. */
@@ -104,6 +105,8 @@ const OPS = {
       const [x, y] = resolve(op.at, ctx.params);
       drawing = drawing.translate(x, y);
     }
+    // op.frame = { origin, xDir, normal }: an explicit plane (e.g. a face of the body); otherwise the named base plane
+    if (op.frame) return { kind: "sketch", drawing, plane: new Plane(op.frame.origin, op.frame.xDir, op.frame.normal), origin: undefined };
     return { kind: "sketch", drawing, plane: op.plane ?? "XY", origin: p("origin") ?? 0 };
   },
 

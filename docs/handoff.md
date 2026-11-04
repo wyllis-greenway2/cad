@@ -327,3 +327,15 @@ separate cream sheet behind it, drawn in its own pass before the scene so it nev
 30 unit tests pass; browser screenshots checked; no console errors. The old tuned brightness/opacity values (`in_031`) are unused while the backdrop is on.
 **Open for the human:** is the sheet cream enough (it reads grayer than the face fill), is the blue slight enough, does the offset sheet feel right?
 **Next:** sketch on body faces; the drawer.
+
+## Handoff 024 — 2026-11-04
+**State:** `in_036`. In `prototypes/cad-ui`: bone color (#e3dccb) for sheet, faces and bodies; unextruded closed sketch shapes are semi-transparent faces
+(fill hidden once extruded); camera-following key and fill lights with a clear-coat sheen on bodies (`settings.light`); hover any flat axis-facing body face
+(blue), click to go orthographic face-on and sketch on it (also hotkeys and the right-click menu). Mechanics: the worker returns each flat face's triangle
+range, axis, sign and offset; `viewmath.addFacePlane` makes a frozen "face plane" (reused for the same face; base planes reused when they match); features
+carry a `frame` that the interpreter turns into a replicad `Plane`. Browser run: extruded a box, sketched a circle on the top face, pushed -5 and the volume
+matched the closed form (15607.30). 33 unit tests pass; no console errors.
+**Limits:** slanted and curved faces cannot be hovered yet; face planes are frozen copies (see `q_topological_refs`); sketch on a face while another body
+face is hovered in sketch view is not offered.
+**Open for the human:** is the sheen the right amount (`light.sheen`, `light.key`)? Is the bone color right? Does face hover/click feel natural?
+**Next:** the drawer; fillet/chamfer on faces and edges (hover and click), if the human wants.

@@ -12,7 +12,7 @@ export class SketchStore {
   }
 
   entities(plane) {
-    return this.sketches[plane];
+    return (this.sketches[plane] ??= []); // face planes appear as they are first used
   }
 
   #apply(cmd, forward) {
@@ -27,7 +27,7 @@ export class SketchStore {
       this.version++;
       return;
     }
-    const list = this.sketches[cmd.plane];
+    const list = this.entities(cmd.plane);
     if (cmd.type === "update") {
       const i = list.findIndex((e) => e.id === cmd.entity.id);
       if (i >= 0) list[i] = forward ? cmd.entity : cmd.before;
@@ -54,7 +54,7 @@ export class SketchStore {
   }
 
   remove(plane, id) {
-    const entity = this.sketches[plane].find((e) => e.id === id);
+    const entity = this.entities(plane).find((e) => e.id === id);
     if (!entity) return false;
     const cmd = { type: "remove", plane, entity };
     this.#apply(cmd, true);
@@ -68,8 +68,9 @@ export class SketchStore {
     this.past.push(cmd);
     this.future = [];
   }
-  addFeature(plane, shape, distance) {
-    const feature = { id: `f_${String(this.nextFeature++).padStart(3, "0")}`, plane, shape: JSON.parse(JSON.stringify(shape)), distance };
+  /** frame = { origin, xDir, normal } of the plane the shape was drawn on (a copy, so the feature does not move with the face). */
+  addFeature(plane, shape, distance, frame = null) {
+    const feature = { id: `f_${String(this.nextFeature++).padStart(3, "0")}`, plane, shape: JSON.parse(JSON.stringify(shape)), distance, ...(frame ? { frame: JSON.parse(JSON.stringify(frame)) } : {}) };
     this.#pushFeatureCmd({ type: "feature-add", feature, index: this.features.length });
     return feature;
   }
@@ -88,7 +89,7 @@ export class SketchStore {
 
   /** Replace an entity by `after` (same id). One undo step. */
   update(plane, after) {
-    const before = this.sketches[plane].find((e) => e.id === after.id);
+    const before = this.entities(plane).find((e) => e.id === after.id);
     if (!before) return false;
     const cmd = { type: "update", plane, entity: after, before };
     this.#apply(cmd, true);

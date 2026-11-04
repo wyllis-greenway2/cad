@@ -19,13 +19,27 @@ self.onmessage = async ({ data }) => {
     let mesh = null;
     let vol = null;
     let bbox = null;
+    let faces = null;
     if (fin) {
       const m = fin.shape.mesh({ tolerance: tess.tolerance, angularTolerance: tess.angular });
       mesh = { vertices: new Float32Array(m.vertices), normals: new Float32Array(m.normals), triangles: new Uint32Array(m.triangles) };
       vol = volume(fin.shape);
       bbox = bounds(fin.shape);
+      // flat faces that face along an axis: these can be hovered and sketched on (start/count are index ranges into `triangles`)
+      const ranges = new Map(m.faceGroups.map((g) => [g.faceId, g]));
+      faces = [];
+      for (const f of fin.shape.faces) {
+        const g = ranges.get(f.hashCode);
+        if (!g || f.geomType !== "PLANE") continue;
+        const n = f.normalAt();
+        const c = f.center;
+        const nv = [n.x, n.y, n.z];
+        const axis = nv.findIndex((v) => Math.abs(v) > 0.9999);
+        if (axis < 0) continue;
+        faces.push({ start: g.start, count: g.count, axis, sign: Math.sign(nv[axis]), offset: Math.round([c.x, c.y, c.z][axis] * 1e4) / 1e4 });
+      }
     }
-    const msg = { id, ops, finalId: fin?.id ?? null, volume: vol, bbox, totalMs: performance.now() - t0, mesh };
+    const msg = { id, ops, finalId: fin?.id ?? null, volume: vol, bbox, faces, totalMs: performance.now() - t0, mesh };
     self.postMessage(msg, mesh ? [mesh.vertices.buffer, mesh.normals.buffer, mesh.triangles.buffer] : []);
   } catch (e) {
     self.postMessage({ id, fatal: String(e?.message ?? e) });

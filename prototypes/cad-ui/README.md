@@ -71,6 +71,13 @@ Plane view is orthographic; leaving it shows the hovered plane straight away. Sk
 cream faces; a hovered or selected plane leans slightly blue (`states.*.blue`, `themes.world.blue*`). World view option `settings.backdrop`:
 the plane is almost see-through and the cream sheet sits behind it (drawn first, never covers an object); `enabled: false` = the older look.
 
+## Faces, color and light (`in_036`)
+Objects, the sheet and closed sketch faces are one **bone** color (#e3dccb); a body is solid, a closed shape that is not extruded is a
+semi-transparent face (`settings.sketch.regionFill`). A light rides with the camera (to one side and above, never in view) plus a weaker fill,
+and the body has a slight clear-coat sheen (`settings.light`: `sheen`, `roughness`, `key`, `fill`). In the 3D view any flat axis-facing face
+of a body tints blue on hover; **click it** to go face-on (orthographic) and sketch on it; or press a tool key (R, C, L, E, D) while pointing at it.
+Pulling out of the face adds, pushing in cuts. The face plane is a frozen copy (it does not follow the face if you later change an earlier step).
+
 ## Dimension tool (D)
 Point at a shape (its dimensions appear), click it to keep them showing. Type a number (math works, `50/2`), Tab to the next
 dimension, Enter to apply; or click a number to edit that one. Esc cancels, then deselects, then leaves the tool. One undo step per Enter.
