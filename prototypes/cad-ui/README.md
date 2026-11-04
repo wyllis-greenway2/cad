@@ -90,6 +90,11 @@ centre; each is a step in the History list you can click to change). Face select
 selectable so far. The last plane that was showing keeps showing when nothing is selected or pointed at. Rotating a body by an angle that is not a multiple of 90°
 makes its faces non-axis-aligned, and those cannot be selected or sketched on yet.
 
+## Click rules (`in_039`)
+Exactly one world plane shows at any time (the one you sketch on, else the one you point at, else the last that showed). A **single click on a world plane
+orients to it**; a click on the **model** (face, line, corner, unextruded sketch shape) only **selects**. To sketch on a face: right-click, **Sketch on surface**
+(or **S** on a selected face). Zoom speed: `view.zoomPerWheel`, `input.maxZoomFactorPerSecond`.
+
 ## Dimension tool (D)
 Point at a shape (its dimensions appear), click it to keep them showing. Type a number (math works, `50/2`), Tab to the next
 dimension, Enter to apply; or click a number to edit that one. Esc cancels, then deselects, then leaves the tool. One undo step per Enter.

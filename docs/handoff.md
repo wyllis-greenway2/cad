@@ -365,3 +365,13 @@ idea). **Lesson:** I had not tested "sketch exists, then 3D" after adding sketch
 **Limits:** lines and corners cannot be modified yet; rotate by other than 90° breaks face selection; non-uniform scale is not supported.
 **Open for the human:** `q_direct_modification`; which modifications first (radius of a curved face, fillet or chamfer a selected line, rotate a face)?
 **Next:** the drawer; the modifications the human picks.
+
+## Handoff 027 — 2026-11-04
+**State:** `in_039`. Fixed: drawn (unextruded) sketch shapes could never be hovered or selected in 3D because `pickSketchFace` indexed a `THREE.Vector3` like an
+array (`d[axis]` is undefined); now uses `getComponent`. Exactly one world plane shows at any time (sketching plane, else pointed-at, else last shown); a single click on a
+world plane orients to it, a click on the model only selects; faces are oriented to only via "Sketch on surface" (menu, or S on a selected face). Zoom roughly 2x more
+sensitive (`zoomPerWheel` 0.003, `maxZoomFactorPerSecond` 5; one notch about x0.82). Verified in the browser (world click orients, drawn shape selects, face click leaves
+the view, away keeps the last plane, no console errors); 34 unit tests pass.
+**Lesson:** the earlier "selects the plane with a sketch present" check passed because it only proved the plane fallback; it did not prove the sketch face was picked.
+**Open for the human:** zoom feel; the hotkeys S / R / C / L on a selected face still orient to it (an explicit command) in addition to the right-click menu.
+**Next:** the drawer; modifications the human picks (`q_direct_modification`).

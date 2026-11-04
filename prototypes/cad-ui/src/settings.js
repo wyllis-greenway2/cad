@@ -6,7 +6,7 @@ export const settings = {
     homeElevation: 0.6, // radians above the XY plane
     homeDistance: 120, // mm from the target
     orbitRadPerPx: 0.006,
-    zoomPerWheel: 0.0015,
+    zoomPerWheel: 0.003,
     minDistance: 3, // mm from the target; closer than this is just a blur
     maxDistance: 5000,
     transitionMs: 450, // camera move to a plane's normal view
@@ -32,7 +32,7 @@ export const settings = {
     },
     zoomToCursor: true, // zoom IN toward the point under the cursor; zoom OUT is about the view center (no runaway)
     zoomAnchorMaxFactor: 1.5, // zoom toward plane points within this many view-distances of the target; farther ones use the camera-facing plane
-    maxZoomFactorPerSecond: 2.5, // one gesture can never zoom faster than this, however hard you flick or spin the wheel
+    maxZoomFactorPerSecond: 5, // one gesture can never zoom faster than this, however hard you flick or spin the wheel
     pinchZoomPerWheel: 0.01, // trackpad pinch (a wheel event with ctrl held) is more sensitive than a wheel notch
     keys: {
       select: "v", line: "l", rect: "r", circle: "c", extrude: "e", sketch: "s", move: "m", rotate: "t", scale: "k", dimension: "d", home: "h",

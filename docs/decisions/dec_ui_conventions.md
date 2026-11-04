@@ -65,6 +65,11 @@ pixels), a face, an unextruded sketch shape or a plane; a **double-click selects
 "sketch from this face". Lines and corners can be selected but cannot be modified yet. The last plane that was showing keeps showing when nothing is
 selected or pointed at. See `q_direct_modification` for the open question on how direct modifications relate to extrusion and history.
 
+**Click rules (`in_039`, the human's words; supersede the earlier selection text above where they differ):** exactly one world plane shows at any time: the
+one being sketched on, else the one pointed at (pointing at another drops the old one), else the last one that showed, so the view is never without one. A
+single click on a **world plane** orients the view to it (sketch view). A single click on anything of the **model** (face, line, corner, unextruded sketch
+shape) only selects it and never moves the camera; a face's plane is oriented to only through **Sketch on surface** (right-click, or S on a selected face).
+
 ## Rationale
 The human asked for navigation, a few hotkeys plus undo and redo, the sketch-finish-extrude workflow with a history
 list, and typing a number to be done right, and said Shapr3D (their only well-liked program) is a reference but

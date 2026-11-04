@@ -197,23 +197,20 @@ for (const [name, def] of Object.entries(PLANES)) {
  *  infinite and vertex positions stay small (float precision). Grid lines are in world coordinates. */
 const mix3 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
 /** How a plane looks right now: the selected plane shows fully, the hovered plane previews, the rest are hidden. */
-let lastPlane = "XY"; // the sheet that keeps showing when nothing is selected or pointed at, so the view is never left without one
+let lastPlane = "XY"; // exactly one sheet shows at any time: the one being sketched on, else the one pointed at, else the last one that showed
 const baseOf = (id) => (id ? planeDef(id).base ?? id : null);
+function shownPlane() {
+  const now = selected ? baseOf(selected) : baseOf(hovered ?? hoveredSketch?.plane ?? null) ?? (pinnedHover || null);
+  if (now) lastPlane = now; // pointing at another plane drops the old one; pointing at nothing keeps it
+  return lastPlane;
+}
 function stateOf(name) {
   const states = T().states;
-  const pinned = pinnedHover && !selected && pinnedHover === name;
-  const selBase = selected ? baseOf(selected) : sel?.plane ? baseOf(sel.plane) : null; // a face plane shows the sheet of its own orientation
-  const hovBase = baseOf(hovered ?? hoveredSketch?.plane ?? null);
-  const active = selBase ?? hovBase ?? (pinnedHover || null);
-  if (active) lastPlane = active;
-  if (selBase === name) return states.selected;
-  if (pinned) return states[pinnedStyle];
-  if (hovBase === name && !pinnedHover) return states.hover;
-  if (!active && lastPlane === name) return states.hover;
-  return states.base;
+  if (name !== shownPlane()) return states.base;
+  return selected ? states.selected : pinnedHover === name ? states[pinnedStyle] : states.hover;
 }
 /** Is this plane the one being sketched on or pointed at? (Its surface and lines lean blue.) */
-const hotOf = (plane) => plane === selected || plane === hovered || sel?.plane === plane || hoveredSketch?.plane === plane || (!!pinnedHover && !selected && plane === pinnedHover);
+const hotOf = (plane) => plane === selected || plane === hovered || hoveredSketch?.plane === plane || (sel?.kind === "sketch" && sel.plane === plane) || (!!pinnedHover && !selected && plane === pinnedHover);
 function updatePlanes() {
   scene.fog.near = view.dist * F.nearFactor;
   scene.fog.far = view.dist * F.farFactor;
@@ -881,7 +878,7 @@ function flashMessage(text) {
 /** What can be done with a selection (for the status line). */
 function selectionHint(t) {
   if (t.kind === "body") return "M move   T rotate   K scale";
-  if (t.kind === "face") return "E push/pull   S sketch from this face";
+  if (t.kind === "face") return "E push/pull   S sketch on surface";
   if (t.kind === "sketch") return "E extrude   S sketch on it";
   if (t.kind === "plane") return "S sketch on it (R C L too)";
   return "double-click for the whole body";
@@ -924,9 +921,9 @@ function pickSketchFace(o, d, limit) {
     const regions = regionsOf(ents);
     if (!regions.length) continue;
     const def = planeDef(plane);
-    const dk = d[def.axis];
+    const dk = d.getComponent(def.axis);
     if (Math.abs(dk) < 1e-3) continue;
-    const t = ((def.offset ?? 0) - o[def.axis]) / dk;
+    const t = ((def.offset ?? 0) - o.getComponent(def.axis)) / dk;
     if (t <= 0 || t > limit + 1e-4 || (best && t >= best.t)) continue;
     const p = [o.x + t * d.x, o.y + t * d.y, o.z + t * d.z];
     const [U, W] = def.basis;
@@ -1017,8 +1014,15 @@ function applySel() {
   updateStatus();
   markSketch();
 }
+/** A single click: a base (world) plane orients the view to it for sketching; anything else on or of the model is selected. */
 function selectFromHover() {
-  sel = hoverAsSel();
+  const t = hoverAsSel();
+  if (t?.kind === "plane") {
+    sel = null;
+    applySel();
+    return enterSketch(t.plane);
+  }
+  sel = t;
   applySel();
 }
 function pickAt(clientX, clientY) {
@@ -1218,7 +1222,7 @@ function menuItems() {
     const t = currentTarget();
     if (["plane", "face", "sketch"].includes(t.kind)) {
       const plane = planeOfTarget(t);
-      items.push({ label: t.kind === "face" ? "Sketch from this face" : `Sketch on this ${targetName(t)}`, hint: key("sketch"), run: () => (sel = null, applySel(), enterSketch(plane)) });
+      items.push({ label: t.kind === "face" ? "Sketch on surface" : `Sketch on this ${targetName(t)}`, hint: key("sketch"), run: () => (sel = null, applySel(), enterSketch(plane)) });
     }
     if (t.kind === "face") items.push({ label: "Push / pull face", hint: key("extrude"), run: () => (sel = t, ACTIONS.extrude()) });
     if (t.kind === "sketch") items.push({ label: "Extrude", hint: key("extrude"), run: () => (sel = t, ACTIONS.extrude()) });
