@@ -128,3 +128,16 @@ Esc plus H makes all three pickable. 8 view-math tests passed.
 **Open for the human:** did I read "3D mode" right (orbiting away from the sketch view)? The old status text
 no longer mentions Esc-then-click as the only way to switch planes.
 **Next:** human tries it; then stage 2 (sketch on the plane), stage 3 (extrude).
+
+## Handoff 010 — 2026-11-04
+**State:** `in_021` on `cad-ui`: un-select the sketch plane when going back into 3D mode (orbiting away from
+the face-on view drops it; pan and zoom do not; Esc also drops it); darker charcoal grid; no blue anywhere
+(sheet and lines are charcoal, only the world axis colors remain); much darker charcoal fog. The "tilted but
+still selected" state from Handoff 009 no longer exists. Verified by a scripted run: select XY, pan and zoom
+keep it, orbit away drops it, hover and click YZ selects it, clicking the plane just left reselects it, no
+errors. 8 view-math tests passed.
+
+**Known visual caveat:** very dark haze on a steeply viewed plane shows as a dark band with a lighter gap
+beyond it (the plane fades at the horizon). Alternatives recorded in the README.
+**Open for the human:** is the fog now right, or should it be milder / a screen-space gradient?
+**Next:** more UI-foundation polish if wanted; then stage 2 (sketch on the plane), stage 3 (extrude).

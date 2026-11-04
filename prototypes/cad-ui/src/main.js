@@ -1,6 +1,6 @@
-// 3D view with infinite XYZ planes. Planes are gray (blue when selected or hovered) with a very light grid and
-// distance fog; the world axes keep their colors. Click a plane: sketch mode, camera goes normal to it. Orbit
-// freely; clicking the plane while tilted returns to its normal view. (Sketching and extruding come next.)
+// 3D view with infinite XYZ planes in paper gray and charcoal (no blue), with distance fog; the world axes keep their
+// colors. Click a plane: it becomes the sketch plane and the camera goes face-on to it. Orbiting away drops the sketch
+// plane (back to the 3D view, where any plane can be hovered and clicked). Sketching and extruding come next.
 import * as THREE from "three";
 import { settings as S } from "./settings.js";
 import { PLANES, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, projectOnto, pickPlane } from "./viewmath.mjs";
@@ -49,7 +49,7 @@ const FRAG = /* glsl */ `
 uniform vec3 uCam; uniform float uDist;
 uniform int uAxis; uniform vec3 uCol; uniform vec3 uColU; uniform vec3 uColV;
 uniform float uLineA; uniform float uFillA; uniform float uAxisA;
-uniform vec3 uLineCol; uniform vec3 uFogCol; uniform float uHaze; uniform float uHazeOut;
+uniform vec3 uLineCol; uniform vec3 uFogCol; uniform float uHaze; uniform float uHazeOut; uniform float uHazeGraze;
 uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul; uniform float uMinCellPx;
 uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar;
 uniform float uGrazeMin; uniform float uGrazeFull; uniform float uAxisW;
@@ -93,7 +93,7 @@ void main() {
   float aLine = grid * uLineA * fog * ang;          // grid lines (a darker shade than the sheet)
   float aFill = uFillA * fog * ang;                 // the sheet itself
   // haze: far away the fog tints toward a darker color (strongest at the far edge, then dissolving so there is no hard edge)
-  float haze = uHaze * smoothstep(uDist * uFogNear, uDist * uFogFar, dc) * (1.0 - smoothstep(uDist * uFogFar, uDist * uFogFar * uHazeOut, dc)) * ang;
+  float haze = uHaze * smoothstep(uDist * uFogNear, uDist * uFogFar, dc) * (1.0 - smoothstep(uDist * uFogFar, uDist * uFogFar * uHazeOut, dc)) * smoothstep(0.0, uHazeGraze, abs(dot(normalize(uCam - vPos), n)));
   float aSheet = aLine + aFill * (1.0 - aLine);
   vec3 sheetCol = aSheet > 0.0 ? (uLineCol * aLine + uCol * aFill * (1.0 - aLine)) / aSheet : uCol;
   float a = aSheet + haze * (1.0 - aSheet);
@@ -114,11 +114,11 @@ for (const [name, def] of Object.entries(PLANES)) {
     side: THREE.DoubleSide,
     uniforms: {
       uCam: { value: new THREE.Vector3() }, uDist: { value: 1 },
-      uAxis: { value: def.axis }, uCol: { value: new THREE.Vector3(...T().blue) },
+      uAxis: { value: def.axis }, uCol: { value: new THREE.Vector3(...T().sheet) },
       uColU: { value: new THREE.Vector3(...axisCol[def.u]) }, uColV: { value: new THREE.Vector3(...axisCol[def.v]) },
       uLineA: { value: 0 }, uFillA: { value: 0 }, uAxisA: { value: G.axisAlpha },
       uLodDiv: { value: G.lodDivisor }, uStyleMin: { value: G.fineLineStrength }, uFineMul: { value: 0 }, uMinCellPx: { value: G.minCellPx },
-      uLineCol: { value: new THREE.Vector3() }, uFogCol: { value: new THREE.Vector3() }, uHaze: { value: 0 }, uHazeOut: { value: F.hazeFadeOutFactor },
+      uLineCol: { value: new THREE.Vector3() }, uFogCol: { value: new THREE.Vector3() }, uHaze: { value: 0 }, uHazeOut: { value: F.hazeFadeOutFactor }, uHazeGraze: { value: F.hazeGrazeCos },
       uFogNear: { value: F.nearFactor }, uFogFar: { value: F.farFactor }, uAxisFogFar: { value: F.axisFarFactor },
       uGrazeMin: { value: G.grazeMinCos }, uGrazeFull: { value: G.grazeFullCos }, uAxisW: { value: G.axisWidthPx },
     },
@@ -144,7 +144,7 @@ function updatePlanes() {
     // Only the selected plane is shown (full grid); the hovered plane previews whenever it can be picked. The rest are hidden.
     const state = selected === name ? G.selected : hovered === name ? G.hover : G.base;
     const th = T();
-    u.uCol.value.set(...th.blue);
+    u.uCol.value.set(...th.sheet);
     u.uLineCol.value.set(...th.gridLine);
     u.uFogCol.value.set(...th.fogColor);
     u.uHaze.value = state === G.base ? 0 : F.hazeMax; // haze only on the plane that is shown
@@ -276,11 +276,11 @@ function goHome() {
 
 // ---------------------------------------------------------------- status text (the only text on screen)
 function updateStatus() {
-  let text = "Hover to find a plane, click to sketch on it";
+  let text = "3D view   hover to find a plane, click it to sketch on it";
   if (selected) {
     text = isNormal(view, selected, V.normalToleranceRad)
-      ? `Sketching on ${selected}   orbit to look around   Esc to exit`
-      : `3D view, sketch plane ${selected}   click it to return to normal view, or click another plane   Esc to exit`;
+      ? `Sketching on ${selected}   orbit away or press Esc for the 3D view`
+      : `Going to ${selected}...`;
   }
   $("status").textContent = text;
 }
@@ -332,6 +332,7 @@ canvas.addEventListener("pointermove", (ev) => {
   } else {
     view.a -= dx * V.orbitRadPerPx;
     view.e = clamp(view.e + dy * V.orbitRadPerPx, -Math.PI / 2, Math.PI / 2);
+    if (selected && !isNormal(view, selected, V.normalToleranceRad)) selected = null; // orbiting out of the face-on view = back to 3D mode
   }
   updateStatus();
   requestRender();
@@ -343,8 +344,7 @@ canvas.addEventListener("pointerup", (ev) => {
   const hit = pickAt(ev.clientX, ev.clientY);
   if (!hit) return;
   if (selected !== hit.plane) selectPlane(hit.plane);
-  else if (!isNormal(view, selected, V.normalToleranceRad)) goNormal(selected); // tilted: click returns to normal
-  // already normal: later stages will use this click to sketch
+  // clicking the sketch plane while face-on: later stages will use this click to sketch
 });
 canvas.addEventListener("pointerleave", () => {
   if (hovered) (hovered = null), requestRender();

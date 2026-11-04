@@ -96,3 +96,6 @@ Reply to the finite-sheet version of `prototypes/cad-ui` (the AI had asked wheth
 
 ## in_020 — 2026-11-04 — directive
 > Okay lets just try light charcoal grey for the grid lines. Lets make the fog a darker charcoal grey. lets have it so that when you go back into 3d mode you can select any plane again.
+
+## in_021 — 2026-11-04 — directive
+> Lets keep getting it because the user interface foundations are really important because that is the context that every other thing will be tested in. So lets make it un-select the selected grid when you go back into 3d mode. Lets make the grid darker charcoal. Also does the grid have a blue hint at all anymore? lets drop it. Lets just use paper gray (slight cream tiny amount) and charcoal greys. Also the fog needs to be much darker charcoal grey.

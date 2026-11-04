@@ -13,21 +13,21 @@ bash tools/preview.sh            # from the repo root; default prototype is cad-
 or `cd prototypes/cad-ui && npm install && npm run dev`. Tests: `npm test` (7 tests).
 
 ## What it does
-- **Light world** in a paper-like cream gray, with a dusty teal-blue for the selected plane (a "dark" theme exists too; press **D** to flip between them while you compare).
-- **3D mode (nothing selected):** just the world axis lines (X red, Y green, Z blue). The axis
-  indicators are built into those lines: a flat arrowhead and a letter on the positive end of each,
-  constant on-screen size, hidden when an axis points straight at the camera. No corner gizmo. **Hover** and the plane under the cursor appears as an infinite blue sheet with a light grid.
-  Move off it and it disappears. Unselected planes are never shown.
-- **Click a plane:** it becomes the sketch plane. The camera glides to look straight at it, and that plane
-  is drawn with a **charcoal gray grid** on a dusty-teal sheet (full grid that cross-fades between levels as
-  you zoom). Standard, un-mirrored views: XY from above (X right, Y up), XZ from the front, YZ from the right.
-- **Two modes, decided by where you look:** looking straight at the sketch plane is the **sketch view** (only
-  that plane exists, so nothing else can be hovered or clicked). Orbit away and you are in the **3D view**:
-  hover any plane to preview it, click it to make it the sketch plane, or click the current sketch plane to
-  return to its normal view.
-- **Orbit freely** (left drag); right-drag or Shift-drag pans; scroll zooms.
-- **Esc** drops the sketch plane entirely (back to the empty 3D view where all planes can be hovered); **H**
-  resets the camera. One status line is the only text on screen.
+- **Paper gray and charcoal only, no blue.** The world axis lines (X red, Y green, Z blue) are the only
+  color in the scene. Light world by default (cream-tinted paper gray, `#eeece6`); press **D** to compare a
+  dark version.
+- **3D view (nothing selected):** just the world axis lines, each with a flat arrowhead and its letter on
+  the positive end (constant on-screen size; hidden when an axis points straight at the camera).
+  **Hover** any plane to preview it: an infinite sheet with a **dark charcoal grid** (light fill). Click it
+  to make it the sketch plane.
+- **Sketch view:** the camera glides to look straight at the plane (standard, un-mirrored views: XY from
+  above with X right and Y up, XZ from the front, YZ from the right). Only that plane exists, with its full
+  grid, which cross-fades between levels as you zoom. Pan (right-drag or Shift-drag) and zoom keep you here.
+- **Orbit away** (left drag) and the sketch plane is dropped: you are back in the 3D view and any plane can
+  be hovered and clicked again, including the one you just left (clicking it returns to face-on).
+- **Esc** also drops the sketch plane; **H** resets the camera. One status line is the only text on screen.
+- **Fog:** everything fades with distance from the camera, and the far haze tints toward a very dark
+  charcoal (`fog.hazeMax`, `fogColor`).
 
 ## How it works (short)
 - `src/viewmath.mjs`: pure math (turntable camera, standard views, ray-plane picking). Unit tested.
@@ -49,7 +49,11 @@ or `cd prototypes/cad-ui && npm install && npm run dev`. Tests: `npm test` (7 te
    of `in_016`); `in_017` clarified infinite is wanted.
 4. **Discoverability cost:** with nothing drawn until you hover, a new user has to know to move the mouse
    over the view; the status line says so. Whether that is fine or needs a cue is your call.
-5. **A real bug class**: my first "hover" screenshot looked identical to the no-hover one because the test
+5. **The dark fog has a side effect**: on a plane seen at a steep angle (a wall receding into the distance)
+   the far part goes very dark and then the plane vanishes at the horizon, which reads as a dark band with a
+   lighter gap beyond it. It is correct for "much darker" but not very fog-like. Alternatives if it bothers you:
+   a milder darkening, or a screen-space gradient that also darkens the empty background.
+6. **A real bug class**: my first "hover" screenshot looked identical to the no-hover one because the test
    mouse was hovering a plane. Judging visuals needs the cursor state controlled.
 
 ## What this does NOT show
