@@ -97,6 +97,7 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
     const alpha = kind === "red" ? h.red?.alpha ?? 1 : 1;
     const fade = <T extends THREE.Object3D>(m: T): T => { if (alpha < 1) m.traverse((c) => { const mat = (c as THREE.Mesh).material as THREE.Material | undefined; if (mat) { mat.transparent = true; mat.opacity = alpha; } }); return m; };
     if (o.shape === "point") overlay.add(fade(sphereAt(o.at, unit * settings.pick.vertexScale * (kind === "select" ? settings.pick.vertexSelectScale : 1), col)));
+    else if (o.shape === "polyline") overlay.add(fade(pen.line(o.pts.flat(), col, kind === "red" ? 3.4 : w, false)));
     else if (o.shape === "segment") overlay.add(fade(pen.line([...o.a, ...o.b], col, kind === "red" ? 3.4 : w, false)));
     else if (o.shape === "circle") overlay.add(fade(pen.line(ringOf(o.center, o.radius, o.normal), col, kind === "red" ? 3.4 : w, false)));
     else if (p.kind === "axis") overlay.add(pen.line([...p.at, ...[0, 1, 2].map((i) => p.at[i]! + p.dir[i]! * AXIS_LEN)], col, w, false));

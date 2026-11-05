@@ -321,3 +321,17 @@ test("the pencil: a selected face offers it (a world plane does not), it offers 
   assert.equal(st.tool!.plane, topFace.ref);
   assert.equal(st.sketching, null);
 });
+
+test("while drawing, the pointer lines up with a corner that is level or upright with it, and a guide line shows it", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  st = click(st, [5, 5, 0]);
+  st = click(st, [25, 15, 0]);
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [40, 2, 0]);
+  const [x, y] = px(st, [25.05, 22.03, 0]); // a hair off the upright through the corner (25, 15)
+  st = reduce(st, { type: "hover", x, y }, env);
+  near(st.tool!.cursor![0], 25, 1e-6);
+  near(st.tool!.cursor![1], 22.03, 0.02);
+  assert.ok(previewFor(scene(st.session), st.tool)!.segments.some(([a]) => a[0] === 25 && a[1] === 15), "a guide from the corner it lines up with");
+});

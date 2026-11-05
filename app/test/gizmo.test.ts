@@ -13,6 +13,7 @@ import { projector, homeCamera } from "../src/interaction/camera.ts";
 import { gizmoOf } from "../src/interaction/control/handles.ts";
 import { edgeDirection, paramOnLine, hitHandle } from "../src/interaction/gizmo.ts";
 import { frameOf } from "../src/interaction/frame.ts";
+import { candidatesAt } from "../src/interaction/picking.ts";
 import { BODY_OBJECT, cornerName } from "../src/compiler/body.ts";
 import { entryOf } from "../src/interaction/entry.ts";
 
@@ -501,4 +502,47 @@ test("a drawn figure can be scaled about its middle: corners go out, a circle's 
   cs = reduce(cs, { type: "typed", key: "Enter", shift: false }, env);
   assert.equal(cs.session.message, null);
   near((Object.values(scene(cs.session).parts).find((p) => p.kind === "circle") as { radius: number }).radius, 15, 1e-6);
+});
+
+test("dragging a corner of a drawing resizes the figure: the rectangle stays a rectangle, and the whole drag is one undo", () => {
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [40, 20, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  let st: AppState = { ...createState(s), cam: homeCamera() };
+  const before = Object.keys(st.session.history.commands ?? {}).length;
+  st = drag(st, [40, 20, 0], [55, 30, 0], 6);
+  const cs = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner").map((p) => (p as { at: Vec3 }).at);
+  near(Math.max(...cs.map((c) => c[0])) - Math.min(...cs.map((c) => c[0])), 55, 0.5);
+  near(Math.max(...cs.map((c) => c[1])) - Math.min(...cs.map((c) => c[1])), 30, 0.5);
+  assert.equal(new Set(cs.map((c) => Math.round(c[0] * 100))).size, 2, "still a rectangle");
+  void before;
+  st = { ...st, session: undoLast(st.session) };
+  const back = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner").map((p) => (p as { at: Vec3 }).at);
+  near(Math.max(...back.map((c) => c[0])), 40, 0.01);
+});
+
+test("several flat faces can be pushed or pulled at once by the same distance", () => {
+  let st = box(); // 40 x 20 x 20
+  const faceAt = (n: Vec3, off: number) => Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && Math.abs(dot(normalOf(p), n) - 1) < 1e-6 && Math.abs(dot(p.at, n) - off) < 1e-3)!.ref;
+  st = select(st, [faceAt([0, 0, 1], 20), faceAt([1, 0, 0], 40)]);
+  assert.deepEqual(frame(st).annotations.filter((a) => a.mode).map((a) => a.mode), ["pushpull"]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: "5" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.deepEqual(st.session.outcome.errors, {});
+  near(st.session.outcome.kernel!.volume!, 45 * 20 * 25, 0.5);
+});
+
+test("a curved edge of the body (the rim of a post) is picked along its curve, not along its chord", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 10);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 20 } } });
+  const st: AppState = { ...createState(s), cam: homeCamera() };
+  const arcs = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "body" && p.mid && p.mid[2] === 20);
+  assert.ok(arcs.length >= 1, "the rim is a line with a middle");
+  const arc = arcs.find((p) => p.kind === "line" && p.mid![1] > 0)!;
+  const [x, y] = px(st, (arc as { mid: Vec3 }).mid);
+  const hit = candidatesAt(scene(st.session), projector(st.cam, env.w, env.h).view(x, y), { pointTol: 4, lineTol: 4 }).filter((q) => q.kind === "line");
+  assert.equal(hit[0]?.ref, arc.ref);
 });

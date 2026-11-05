@@ -12,7 +12,8 @@ import { lookup } from "../operation/scene.ts";
 import { buildMap } from "../operation/ownership.ts";
 import type { Lookup } from "../operation/part.ts";
 import { pointOf, segmentOf, circleOf } from "../operation/part.ts";
-import { actionsFor, ROWS, REFERENCES_ONLY } from "./actions.ts";
+import { actionsFor } from "./actions.ts";
+import { ROWS, REFERENCES_ONLY } from "./rows.ts";
 import { planeOf } from "./objects.ts";
 import { surfaceTriangles } from "./surfaces.ts";
 
@@ -187,6 +188,12 @@ export function focusParts(scene: Scene, selection: readonly Ref[], focus: strin
 
 /** The bubbles that offer a mode for what is selected: lines of the body offer fillet / chamfer (the handle appears once you choose it). */
 export function modesFor(scene: Scene, selection: readonly Ref[], sketching: Ref | null = null): Annotation[] {
+  const flatFaces = selection.length > 1 && selection.every((r) => { const p = scene.parts[r]; return p?.kind === "plane" && p.origin === "body" && !p.curved; });
+  if (flatFaces) {
+    // several flat faces of the body: push / pull moves them all by the same distance
+    const last = scene.parts[selection[selection.length - 1]!]!;
+    return [{ id: "mode:pushpull", relationId: null, kind: "pushpull", label: "Push / pull", at: centreOf(scene, last), value: null, unit: null, locked: false, editable: false, readOnly: false, broken: false, open: false, others: [], lines: [], mode: "pushpull" }];
+  }
   const only = selection.length === 1 ? scene.parts[selection[0]!] : undefined;
   if (only && (only.kind === "plane" || only.kind === "face") && only.origin !== "world") { // (a world plane has no bubbles: you start a drawing there with R C L or the menu)
     // a plane or a face offers the pencil; once it is clicked, the shapes to draw on it

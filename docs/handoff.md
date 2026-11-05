@@ -883,3 +883,15 @@ Do not touch `compiler/` or `ui/` in phase 1. Keep porting honest: copy pure cod
 **One step per operation:** for push / pull, extrude and fillet / chamfer the operation makes one step; each further drag or typed number takes that step out and makes it again with the total, so the value is the total since the operation began and does not reset between drags, the push / pull arrow stays on the face where it is (out by the total), and the preview while dragging is the real result with the earlier step replaced. A number typed in the bubble is the total too. A click in blank space or Esc ends the operation (the step stays); Ctrl+Z ends it as well as undoing the step. Rotate, move and scale still make a step per drag.
 **0:** a bubble with no value yet says 0, not a blank.
 **Removed:** `afterPushPull` (the arrow now follows the total instead of jumping to a re-found face).
+
+## Handoff 111 — 2026-11-05 (the not-done list, as far as it could go)
+**State:** `in_131`. 174 tests pass, checks clean. Browser: a rectangle from the menu shows the push / pull and pencil bubbles, the 24 mm axes, no page errors.
+**Decisions taken from the human:** hover ring stays over a selected body; no letter keys for now (the keymap keeps only Ctrl+Z, Ctrl+Shift+Z or Y, Ctrl+S, Ctrl+O, Esc, Delete); constraints are bubbles only; the extrude bubble stays; the push / pull slivers cannot be reproduced for now.
+**Handles:** `settings.gizmo`: length 0.11 of the view distance (was 0.17), opacity 0.6, line width 2.2, heads and balls at 0.7 of the old size; the one under the pointer or being dragged is solid.
+**Scale for a drawn figure:** select it, Scale from the menu: a ball pulls out (or type the factor): corners move about the figure's middle, a circle gets its radius times the factor (new command `setRadius`); what fixes a size (fixed corners, lengths, diameters, angles) is let go.
+**Corner drag:** pressing on a corner of a drawing and dragging moves the corner (not the camera); it is held where the pointer is while the solver settles the rest, so a rectangle stays a rectangle; the whole drag is one undo.
+**Alignment:** while drawing, the pointer lines up (level or upright) with a corner within 6 px (`settings.sketch.alignPx`), with a thin guide line from that corner.
+**Several faces:** select flat body faces (Shift) and the push / pull bubble moves them all by the same distance along their own normals (one command).
+**Curved edges:** a curved edge of the body (a rim) is picked and highlighted along its arc (`arcPoints`), not along its chord.
+**Code:** `interaction/actions.ts` (99 lines) builds actions; `interaction/rows.ts` (172) holds the relations table.
+**Not done, and why:** more than one body, kernel in a worker, stable references, history panel, press-drag drawing and the rest of the curved faces: see `docs/roadmap.md`; each needs a decision or is large.

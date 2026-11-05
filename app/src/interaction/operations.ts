@@ -33,6 +33,8 @@ export interface Op {
   normal: Vec3 | null;
   /** push / pull, extrude, fillet / chamfer: a step has been made for this operation (more drags and typed numbers replace it, so the value is the total since the operation began) */
   made: boolean;
+  /** push / pull of several flat faces at once: each face's own direction and middle (the first is `normal` and `origin`) */
+  faces?: { normal: Vec3; origin: Vec3 }[];
   /** fillet / chamfer: where each edge's arrow stands (the edges themselves are gone once the step is made) */
   edges?: { mid: Vec3; dir: Vec3 }[];
   /** rotate the body: the three angles typed so far (X, Y, Z) as the body is to be turned (empty = as it is now) */
@@ -81,6 +83,18 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, origin: centroid(pts), normal: normalOfPlane(pl) } };
   }
   if (kind === "pushpull" && drawnFace(scene, parts)) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
+  if (kind === "pushpull" && parts.length > 1) {
+    // several flat faces of the body: each moves along its own normal by the same distance
+    const flat = parts.filter((p): p is Extract<Part, { kind: "plane" }> => p.kind === "plane" && p.origin === "body" && !p.curved && !!p.mesh && p.mesh.length >= 9);
+    if (flat.length !== parts.length) return { ok: false, why: "select flat faces of the body" };
+    const faces = flat.map((f) => {
+      const m = f.mesh!;
+      const pts: Vec3[] = [];
+      for (let i = 0; i + 2 < m.length; i += 3) pts.push([m[i]!, m[i + 1]!, m[i + 2]!]);
+      return { normal: normalOfPlane(f), origin: centroid(pts) };
+    });
+    return { ok: true, op: { ...base, parts: flat.map((f) => f.ref), origin: faces[0]!.origin, normal: faces[0]!.normal, faces } };
+  }
   if (kind === "pushpull") {
     const f = parts.length === 1 ? parts[0] : undefined;
     if (!f || f.kind !== "plane" || f.origin !== "body" || !f.mesh || f.mesh.length < 9) return { ok: false, why: "select a flat face of the body first" };
@@ -212,6 +226,10 @@ export function opCommand(scene: Scene, op: Op): Command | null {
     return a && v > 0 ? a.run(v) : null;
   }
   if (op.kind === "extrude") return v === 0 ? null : { type: "addStep", step: { id, type: "extrude", parts: op.parts, params: { depth: v } } };
+  if (op.kind === "pushpull" && op.faces && op.faces.length > 1) {
+    if (v === 0) return null;
+    return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }) } } })) };
+  }
   if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
   if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v) } } };

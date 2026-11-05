@@ -73,6 +73,7 @@ export interface PointerView {
 export type Outline =
   | { shape: "point"; at: Vec3 }
   | { shape: "segment"; a: Vec3; b: Vec3 }
+  | { shape: "polyline"; pts: Vec3[] }
   | { shape: "circle"; center: Vec3; radius: number; normal: Vec3 }
   | { shape: "none" };
 
@@ -102,14 +103,47 @@ const cornerOps: KindOps<Corner> = {
   outline: (_g, part) => ({ shape: "point", at: part.at }),
   anchors: (part) => [part.ref],
 };
+/** Points along the circular arc from `a` through `m` to `b` (a curved edge of the body), or just the two ends if they are in a line. */
+export function arcPoints(a: Vec3, m: Vec3, b: Vec3, steps = 40): Vec3[] {
+  const [ab, ac] = [sub(b, a), sub(m, a)];
+  const n = cross(ab, ac);
+  const nn = dot(n, n);
+  if (nn < 1e-12) return [a, b];
+  // the centre of the circle through the three points
+  const c = add(a, scale(add(scale(cross(n, ab), dot(ac, ac)), scale(cross(ac, n), dot(ab, ab))), 1 / (2 * nn)));
+  const u = sub(a, c);
+  const r = Math.hypot(...u);
+  const e1 = scale(u, 1 / r);
+  const nu = scale(n, 1 / Math.sqrt(nn));
+  const e2 = cross(nu, e1);
+  const ang = (p: Vec3) => Math.atan2(dot(sub(p, c), e2), dot(sub(p, c), e1));
+  const tm = ang(m);
+  let tb = ang(b);
+  if (tm > 0) { while (tb <= tm) tb += 2 * Math.PI; } else { while (tb >= tm) tb -= 2 * Math.PI; }
+  const out: Vec3[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = (tb * i) / steps;
+    out.push(add(c, add(scale(e1, Math.cos(t) * r), scale(e2, Math.sin(t) * r))));
+  }
+  return out;
+}
 const lineOps: KindOps<Line> = {
   hit: (get, part, pv) => {
     const s = segmentOf(get, part.ref);
-    return s ? distToSegment2d([pv.x, pv.y], px(pv, s[0]), px(pv, s[1])) : null;
+    if (!s) return null;
+    if (part.mid) {
+      // a curved edge: the nearest of the pieces of its arc
+      const q = arcPoints(s[0], part.mid, s[1]).map((p) => px(pv, p));
+      let best = Infinity;
+      for (let i = 0; i + 1 < q.length; i++) best = Math.min(best, distToSegment2d([pv.x, pv.y], q[i]!, q[i + 1]!));
+      return best;
+    }
+    return distToSegment2d([pv.x, pv.y], px(pv, s[0]), px(pv, s[1]));
   },
   outline: (get, part) => {
     const s = segmentOf(get, part.ref);
-    return s ? { shape: "segment", a: s[0], b: s[1] } : { shape: "none" };
+    if (!s) return { shape: "none" };
+    return part.mid ? { shape: "polyline", pts: arcPoints(s[0], part.mid, s[1]) } : { shape: "segment", a: s[0], b: s[1] };
   },
   anchors: (part) => [part.a, part.b],
 };

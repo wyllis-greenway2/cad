@@ -3,6 +3,10 @@
 import type { Intent } from "../../shared/input.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { scene as sceneOf, selection as selectionOf, run, undoLast } from "../session.ts";
+import type { Session } from "../session.ts";
+import type { Command } from "../../operation/commands.ts";
+import type { Ref } from "../../shared/ref.ts";
+import { snapOnPlane } from "../tools.ts";
 import { opCommand, autoOp, isLive } from "../operations.ts";
 import type { Op } from "../operations.ts";
 import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed } from "../gizmo.ts";
@@ -42,18 +46,51 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
   const pr = projector(s.cam, env.w, env.h);
   if (!s.drag) {
     const g = gizmoOf(s);
-    if (!g) return doOrbit(s, i);
+    if (!g) return orbitOrCorner(s, i, env);
     // the first move of a drag: where did it begin? (the pointer is at (x, y) now and has moved (dx, dy) since the press)
     const h = hitHandle(g, pr.project, i.x - i.dx, i.y - i.dy);
     const d = h ? startDrag(g, h, pr.ray(i.x - i.dx, i.y - i.dy), s.cam) : null;
-    if (!d) return doOrbit({ ...s, drag: { camera: true } }, i); // not on a handle: this drag turns the camera
+    if (!d) return orbitOrCorner(s, i, env); // not on a handle: this drag turns the camera (or drags a corner of a drawing)
     s = { ...s, op: s.op ?? activeOp(s), drag: { handle: d, base: isLive(s.op ?? activeOp(s)!) ? (s.op ?? activeOp(s)!).value ?? 0 : 0 }, gizmoHover: h!.id }; // a handle that showed up by itself becomes the operation being worked
   }
+  if ("corner" in s.drag!) return moveCorner(s, i, env);
   if (!("handle" in s.drag!) || !s.op) return doOrbit(s, i);
   const r = dragTo(s.drag.handle, pr.ray(i.x, i.y));
   if (!r) return s;
   if ("value" in r) return { ...s, op: { ...s.op, value: Math.round((s.drag.base + r.value) * 1e6) / 1e6, typed: "", rot: ["", "", ""] as [string, string, string], ...(s.drag.handle.axis !== null ? { axis: s.drag.handle.axis } : {}) } };
   return { ...s, op: { ...s.op, pivot: snapPivot(s, r.pivot, i.x, i.y, env) } };
+}
+
+/** A drag that starts on a corner of a drawing drags the corner (the solver keeps the relations: a rectangle stays a rectangle); anywhere else it turns the camera. */
+function orbitOrCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): AppState {
+  if (!s.tool && !s.op) {
+    const sc = sceneOf(s.session);
+    const pv = projector(s.cam, env.w, env.h).view(i.x - i.dx, i.y - i.dy);
+    const c = candidatesAt(sc, pv, { ...pickOpts(), lineTol: 0 }).find((k) => k.kind === "corner" && sc.parts[k.ref]?.origin === "drawn" && sc.parts[k.ref]?.plane);
+    if (c) return { ...s, drag: { corner: c.ref, base: s.session }, hoverPoint: null };
+  }
+  return doOrbit({ ...s, drag: { camera: true } }, i);
+}
+/** The corner follows the pointer on its plane: every move is made again from where the drag began, so the whole drag is one step. */
+function moveCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): AppState {
+  const d = s.drag as { corner: Ref; base: Session };
+  const sc = sceneOf(d.base);
+  const part = sc.parts[d.corner];
+  const pl = part?.plane ? sc.parts[part.plane] : undefined;
+  if (!pl || pl.kind !== "plane") return s;
+  const at = snapOnPlane(sc, projector(s.cam, env.w, env.h).view(i.x, i.y), pl, d.corner);
+  if (!at) return s;
+  // the corner is held where the pointer is while the rest is solved (else the solver splits the difference); what the solver then settles on is the one step made
+  const pin: Command = { type: "addRelation", relation: { id: "drag_pin", kind: "fixed", parts: [d.corner] } };
+  const held = run(d.base, { type: "batch", commands: [pin, { type: "movePart", ref: d.corner, to: at }] });
+  if (held.message) return { ...s, session: held };
+  const after = sceneOf(held).parts;
+  const moves: Command[] = [];
+  for (const [ref, p] of Object.entries(sc.parts)) {
+    const q = after[ref as Ref];
+    if (p.kind === "corner" && q?.kind === "corner" && p.movable && (Math.abs(p.at[0] - q.at[0]) + Math.abs(p.at[1] - q.at[1]) + Math.abs(p.at[2] - q.at[2])) > 1e-9) moves.push({ type: "movePart", ref: ref as Ref, to: q.at });
+  }
+  return { ...s, session: run(d.base, { type: "batch", commands: moves }) };
 }
 
 /** The centre of the rotator sticks to a corner you point near (the point you want to turn about), else it goes where the pointer puts it. */

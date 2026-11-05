@@ -50,16 +50,27 @@ const round = (v: number, step: number) => Math.round(v / step) * step;
  * The point to use for the pointer on a plane: a corner of the scene that is within the snap distance on the screen and on the plane, else the point rounded to
  * `roundMm` in the plane's own coordinates (so sizes read 40.00 and not 39.999999).
  */
-export function snapOnPlane(scene: Scene, pv: PointerView, pl: Plane): Vec3 | null {
+export function snapOnPlane(scene: Scene, pv: PointerView, pl: Plane, skip?: Ref): Vec3 | null {
   const raw = pointOnPlane(pv, pl);
   if (!raw) return null;
   for (const c of candidatesAt(scene, pv, { pointTol: settings.sketch.snapPx, lineTol: 0 })) {
-    if (c.kind !== "corner") continue;
+    if (c.kind !== "corner" || c.ref === skip) continue;
     const q = pointOf((r) => scene.parts[r], c.ref);
     if (q && Math.abs(dot(sub(q, pl.at), normalOfPlane(pl))) < 1e-3) return q;
   }
   const [x, y] = localOf(pl, raw);
-  return liftOf(pl, [round(x, settings.sketch.roundMm), round(y, settings.sketch.roundMm)]);
+  let [sx, sy] = [round(x, settings.sketch.roundMm), round(y, settings.sketch.roundMm)];
+  // in line with a corner of the scene (level or upright on the plane) within the snap distance on the screen: the pointer takes that line (the guide is drawn by `previewOf`)
+  const near = (p: Vec3): boolean => { const [a, b] = pv.project(p); return Math.hypot(a - pv.x, b - pv.y) <= settings.sketch.alignPx; };
+  let [ax, ay] = [false, false];
+  for (const p of Object.values(scene.parts)) {
+    if (p.kind !== "corner" || p.ref === skip) continue;
+    if (Math.abs(dot(sub(p.at, pl.at), normalOfPlane(pl))) > 1e-3) continue;
+    const [qx, qy] = localOf(pl, p.at);
+    if (!ax && near(liftOf(pl, [qx, y]))) { sx = qx; ax = true; }
+    if (!ay && near(liftOf(pl, [x, qy]))) { sy = qy; ay = true; }
+  }
+  return liftOf(pl, [sx, sy]);
 }
 
 // ---- typing ----
@@ -125,9 +136,26 @@ export interface Preview {
   /** where the pointer is on the plane (a small ball marks it) */
   cursor: Vec3 | null;
 }
+/** Thin lines from the cursor to the corners it lines up with (level or upright), so you can see what it is aligned to. */
+function guidesOf(scene: Scene, pl: Plane, cursor: Vec3 | null): [Vec3, Vec3][] {
+  if (!cursor) return [];
+  const [cx, cy] = localOf(pl, cursor);
+  const out: [Vec3, Vec3][] = [];
+  for (const p of Object.values(scene.parts)) {
+    if (p.kind !== "corner" || Math.abs(dot(sub(p.at, pl.at), normalOfPlane(pl))) > 1e-3) continue;
+    const [qx, qy] = localOf(pl, p.at);
+    const same = (Math.abs(qx - cx) < 1e-6 ? 1 : 0) + (Math.abs(qy - cy) < 1e-6 ? 1 : 0);
+    if (same === 1) out.push([p.at, cursor]);
+  }
+  return out;
+}
 export function previewOf(scene: Scene, t: Tool): Preview | null {
   const pl = t.plane ? (scene.parts[t.plane] as Plane | undefined) : undefined;
   if (!pl || pl.kind !== "plane" || !t.points.length) return null;
+  const p = previewShape(scene, t, pl);
+  return p ? { ...p, segments: [...p.segments, ...guidesOf(scene, pl, t.cursor)] } : p;
+}
+function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
   const n = normalOfPlane(pl);
   if (t.kind === "rect") {
     const a = t.points[0]!;

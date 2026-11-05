@@ -68,7 +68,7 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
     if (d === null || d > (rank === 0 ? opts.pointTol : opts.lineTol)) continue;
     if (pv.ray) {
       const o = outlineOf(get, p);
-      const at = o.shape === "point" ? o.at : o.shape === "segment" ? closestOnSegment(pv.ray.o, pv.ray.d, o.a, o.b) : o.shape === "circle" ? o.center : null;
+      const at = o.shape === "point" ? o.at : o.shape === "segment" ? closestOnSegment(pv.ray.o, pv.ray.d, o.a, o.b) : o.shape === "polyline" ? o.pts[Math.floor(o.pts.length / 2)]! : o.shape === "circle" ? o.center : null;
       if (at && !visible(at)) continue;
     }
     out.push({ ref: p.ref, kind: p.kind, rank, score: d });
