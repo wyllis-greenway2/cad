@@ -520,3 +520,8 @@ The orbit around the model feels like it adds an auto-pan that re-centres the ob
 Swap the click counts (one click selects, two look straight at the clicked plane, three select the body), and make a sketch's lines and vertices as easy to select as a body's, so they can be worked on and constrained.
 
 > Excellent that is pretty good. Now lets make a small change, lets have one click select as it does, two clicks normal to that selected plane (as it currently does on 3 clicks) and three clicks select the body (a it currently does on 2 clicks). Also after you add a sketch, it is really hard to select its lines or vertices to work on, add constraints etc. It doesn't seem to be that hard to select body lines or vertices
+
+## in_084 — 2026-11-05 — question
+Says it still feels like a sketch mode that isolates the sketch being worked on; wants no isolation: just sets of lines, planes and objects that can all be clicked and constrained at any time (example: draw a square, extrude a cube, draw a small square on the cube's face, select a vertex of the new drawing and a vertex of the cube, make them coincident). Asks whether that makes sense.
+
+> Okay it is still feeling like I am stuck in some sort of sketch mode that isolates just the sketch I am working on. I was thinking that there would be no isolation. Instead you basically just have sets of lines and planes and objects etc. You can click on any of them any time. You can set constraints on any of them any time. So for example I could draw a square, extrude as cube, then draw a small square on the face of that cube, and then select a vertice of that new draw drawing, and a verticy of the original cube, and tell the drawing verticie to be coincident with the cube corner etc. Does that make sense?
