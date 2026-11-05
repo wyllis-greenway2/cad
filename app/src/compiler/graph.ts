@@ -8,7 +8,7 @@ import { lookup } from "../operation/scene.ts";
 import type { Plane } from "../operation/part.ts";
 import { normalOfPlane, pointOf } from "../operation/part.ts";
 import type { KernelGraph, KernelOp } from "./kernel/adapter.ts";
-import { decodeEdge } from "./body.ts";
+import { decodeEdge, decodeFace } from "./body.ts";
 import { loopOf } from "../operation/loops.ts";
 export { loopOf };
 
@@ -53,6 +53,18 @@ export function buildGraph(scene: Scene): GraphResult {
         if (typeof sk === "string") { errors[st.id] = sk; break; }
         const distance = Number(st.params.depth ?? 0);
         ops.push(sk, { id: xid, type: "extrude", profile: sk.id, distance, ...(prev ? { target: prev } : {}), mode: distance < 0 && prev ? "cut" : "add" });
+        prev = xid;
+        break;
+      }
+      case "pushPull": {
+        // push or pull a flat face of the body along its normal: out adds material, in cuts it (the same helper arrow as an extrude)
+        const face = get(st.parts[0]!);
+        const ref = face?.kind === "plane" ? decodeFace(face.ref) : null;
+        if (!prev) { errors[st.id] = "there is no body yet"; break; }
+        if (!face || face.kind !== "plane" || !ref || !face.mesh || face.mesh.length < 9) { errors[st.id] = "the face is gone"; break; }
+        const m = face.mesh;
+        const point: Vec3 = [(m[0]! + m[3]! + m[6]!) / 3, (m[1]! + m[4]! + m[7]!) / 3, (m[2]! + m[5]! + m[8]!) / 3]; // a point on the face itself: the kernel finds it by plane and by this point
+        ops.push({ id: xid, type: "faceExtrude", target: prev, ref: { n: ref.n, d: ref.d, point }, distance: Number(st.params.depth ?? 0) });
         prev = xid;
         break;
       }

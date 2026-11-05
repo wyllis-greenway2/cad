@@ -26,6 +26,12 @@ export function decodeEdge(r: Ref): { a: Vec3; b: Vec3; mid: Vec3 } | null {
   return m ? { a: vec(m[1]!), b: vec(m[2]!), mid: vec(m[3]!) } : null;
 }
 
+/** The unit normal and offset of a flat face of the body, read from its name alone. */
+export function decodeFace(r: Ref): { n: Vec3; d: number } | null {
+  const m = /^b\/body\/f@([^,]+),([^,]+),([^,]+),(.+)$/.exec(r);
+  return m ? { n: [Number(m[1]), Number(m[2]), Number(m[3])], d: Number(m[4]) } : null;
+}
+
 export function bodyParts(result: KernelResult): Part[] {
   const out: Part[] = [];
   const base = { origin: "body" as const, plane: null, movable: false };

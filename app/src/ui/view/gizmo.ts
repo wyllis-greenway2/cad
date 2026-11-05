@@ -37,6 +37,13 @@ export function buildGizmo(group: THREE.Group, g: GizmoView | null, unit: number
     line.renderOrder = 6;
     group.add(line);
     const n = pts.length;
+    if (h.kind === "scale") { group.add(sphereAt(pts[1]!, unit * 0.014, col)); continue; } // pull the ball at the corner out to make it bigger
+    if (h.kind === "arc") {
+      // a full circle, so the plane it turns in is plain; one arrowhead says which way
+      const k = h.head ?? 6;
+      group.add(cone(pts[k + 1]!, unitDir(pts[k]!, pts[k + 1]!), unit, col));
+      continue;
+    }
     group.add(cone(pts[n - 1]!, unitDir(pts[n - 2]!, pts[n - 1]!), unit, col));
     if (h.kind === "double") group.add(cone(pts[0]!, unitDir(pts[1]!, pts[0]!), unit, col));
   }

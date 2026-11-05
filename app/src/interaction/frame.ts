@@ -20,7 +20,7 @@ import { entryOf, previewFor } from "./entry.ts";
 import type { Entry } from "./entry.ts";
 import type { Preview } from "./tools.ts";
 import { gizmoOf } from "./control/handles.ts";
-import { hasGizmo } from "./gizmo.ts";
+import { followed } from "./gizmo.ts";
 import type { Handle } from "./gizmo.ts";
 
 export interface GizmoFrame { handles: Handle[]; hover: string | null; active: string | null }
@@ -61,19 +61,22 @@ export function frameOf(s: AppState, size: { w: number; h: number }): Frame {
   const sel = selectionOf(s.session);
   const outcome = shown?.outcome ?? s.session.outcome;
   const hasBody = Object.values(sc.parts).some((p) => p.kind === "body");
+  // the handles follow what they drag, live (a body being moved takes its arrows with it)
+  const raw = gizmoOf(s);
+  const gizmo = raw ? followed(raw, s.drag && "handle" in s.drag ? s.drag.handle : null, s.op?.value ?? null) : null;
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
   const gp = gridPlaneOf(s);
   return {
     scene: sc,
     mesh: outcome.kernel?.mesh ?? null,
-    highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: s.op && hasGizmo(s.op.kind) ? sel.filter((r) => s.session.history.scene.parts[r]?.kind !== "body") : sel, // the handles show what is being worked on: the body is not tinted while they are up
+    highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: gizmo ? sel.filter((r) => s.session.history.scene.parts[r]?.kind !== "body") : sel, // the handles show what is being worked on: the body is not tinted while they are up
     amber: focusParts(sc, sel, s.focus), spread: s.spread },
     preview: previewFor(sc, s.tool),
     entry: entryOf(sc, s.tool, s.op),
     annotations: busy ? [] : annotationsFor(sc, sel, s.focus),
     world: { big: !hasBody || s.axesBig, panes: !hasBody, lit: [...(s.session.hover ? [s.session.hover] : []), ...sel], corner: hasBody },
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // off by default (`in_117`)
-    gizmo: ((g) => (g ? { handles: g.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null } : null))(gizmoOf(s)),
+    gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null } : null,
     cursor: s.tool ? "crosshair" : s.gizmoHover ? "grab" : "",
     message: s.session.message ?? Object.values(outcome.errors)[0] ?? "",
   };

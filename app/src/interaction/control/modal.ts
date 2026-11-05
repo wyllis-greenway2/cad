@@ -5,7 +5,7 @@ import { actionsFor } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
 import { armTool, typeKey, finish, lineNext } from "../tools.ts";
 import type { OpKind } from "../operations.ts";
-import { startOp, typeOp, opCommand } from "../operations.ts";
+import { startOp, typeOp, opCommand, autoOp } from "../operations.ts";
 import type { AppState } from "./state.ts";
 import { withSession } from "./state.ts";
 
@@ -39,10 +39,15 @@ export function commitOp(s: AppState): AppState {
   if (s.op.kind === "dimension") return { ...s, session: next, op: null }; // a number on a relation: the selection stays, so its badge shows
   const settled = { spread: null, hoverPoint: null }; // what was under the pointer before the step is not what is under it now
   // an extrude leaves nothing selected (the new body shows as itself); the other steps keep what was selected so they can go on (move, then rotate)
-  return { ...s, ...settled, session: s.op.kind === "extrude" ? { ...next, hover: undefined, click: { ...next.click, selection: [] } } : next, op: null };
+  return { ...s, ...settled, session: s.op.kind === "extrude" || s.op.kind === "pushpull" ? { ...next, hover: undefined, click: { ...next.click, selection: [] } } : next, op: null };
 }
 
 export function doTyped(s: AppState, key: string): AppState {
+  if (!s.op && !s.tool && /^[0-9.\-]$/.test(key)) {
+    // a handle is showing for the selection: typing a number is the same as dragging it that far
+    const a = autoOp(sceneOf(s.session), selectionOf(s.session));
+    if (a) return { ...s, op: typeOp(a, key) };
+  }
   if (s.op) return key === "Enter" ? commitOp(s) : { ...s, op: typeOp(s.op, key) };
   const t = s.tool;
   if (!t || !t.plane) return s;

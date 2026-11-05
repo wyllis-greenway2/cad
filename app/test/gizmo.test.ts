@@ -77,7 +77,7 @@ test("Move offers X Y Z arrows at the body; dragging one moves the body that way
   nearV(bbox(st).min, [10, 0, 0]);
 });
 
-test("a drag that does not start on a handle turns the camera; a click does not finish the operation; Esc does", () => {
+test("a drag that does not start on a handle turns the camera; a click on a handle does nothing; a click anywhere else, blank space too, leaves the operation", () => {
   let st = select(box(), [BODY_OBJECT]);
   st = reduce(st, { type: "begin", name: "move" }, env);
   const before = st.cam.azimuth;
@@ -85,10 +85,17 @@ test("a drag that does not start on a handle turns the camera; a click does not 
   assert.ok(st.cam.azimuth !== before);
   st = reduce(st, { type: "dragEnd" }, env);
   assert.equal(scene(st.session).steps.length, 1, "no step was made");
-  st = reduce(st, { type: "click", x: 300, y: 300, count: 1, shift: false }, env);
-  assert.ok(st.op, "a click leaves it open");
+  const g = gizmoOf(st)!;
+  const onArrow = scale(add(g.handles[0]!.points[0]!, g.handles[0]!.points[1]!), 0.5);
+  st = reduce(st, { type: "click", x: px(st, onArrow)[0], y: px(st, onArrow)[1], count: 1, shift: false }, env);
+  assert.ok(st.op, "a click on a handle leaves it open");
+  st = reduce(st, { type: "click", x: 40, y: 560, count: 1, shift: false }, env);
+  assert.equal(st.op, null, "a click in blank space leaves the operation");
+  assert.deepEqual(selection(st.session), [], "and lets go of the selection like any click on nothing");
+  st = select(box(), [BODY_OBJECT]);
+  st = reduce(st, { type: "begin", name: "move" }, env);
   st = reduce(st, { type: "escape" }, env);
-  assert.equal(st.op, null);
+  assert.equal(st.op, null, "Esc does too");
 });
 
 function edgeSelected(): { st: AppState; a: Vec3; b: Vec3 } {
@@ -105,7 +112,7 @@ test("Fillet / chamfer is one operation with a double arrow on the edge: drag ou
   assert.ok(dot(d, [0, -1, 1]) > 1.3);
   let st = reduce(st0, { type: "begin", name: "edge" }, env);
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => [h.id, h.kind]), [["edge", "double"]]);
+  assert.deepEqual(g.handles.map((h) => [h.id, h.kind]), [["edge:0", "double"]]);
   nearV(g.centre, [20, 0, 20]);
   const h = g.handles[0]!;
   const centre = scale(add(h.points[0]!, h.points[1]!), 0.5);
@@ -130,6 +137,8 @@ test("Rotate offers curved arrows round X Y Z and a ball at the centre; a drag o
   const g = gizmoOf(st)!;
   assert.deepEqual(g.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot"]);
   const arc = g.handles[2]!;
+  assert.equal(arc.points.length, 49, "a full circle");
+  nearV(arc.points[0]!, arc.points[48]!, 1e-9);
   const c = g.centre;
   const p = arc.points[10]!;
   const r = sub(p, c);
@@ -174,4 +183,133 @@ test("fillet / chamfer and the helpers need what they need; the frame carries th
   assert.equal(f.gizmo!.hover, null);
   assert.equal(paramOnLine([0, 0, 0], [1, 0, 0], { o: [0, 5, 5], d: [1, 0, 0] }), null, "looking along the line: no distance");
   assert.deepEqual(selection(st.session), [BODY_OBJECT]);
+});
+
+const frame = (st: AppState) => frameOf(st, { w: 800, h: 600 });
+
+test("the handles show up by themselves from a click: the body shows its X Y Z arrows, no menu", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  assert.equal(st.op, null);
+  assert.deepEqual(frame(st).gizmo!.handles.map((h) => h.id), ["move:x", "move:y", "move:z"]);
+  const g = gizmoOf(st)!;
+  const x = g.handles[0]!;
+  const mid = scale(add(x.points[0]!, x.points[1]!), 0.5);
+  st = drag(st, mid, add(mid, [8, 0, 0]));
+  nearV(bbox(st).min, [8, 0, 0]);
+  assert.equal(st.op, null, "it ends with the drag: nothing is left open");
+  assert.deepEqual(selection(st.session), [BODY_OBJECT]);
+  nearV(frame(st).gizmo!.handles[0]!.points[0]!, [28, 10, 10], 1e-3);
+});
+
+test("the arrows follow the object live while it is dragged", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  const g = gizmoOf(st)!;
+  const x = g.handles[0]!;
+  const mid = scale(add(x.points[0]!, x.points[1]!), 0.5);
+  const [x0, y0] = px(st, mid);
+  const [x1, y1] = px(st, add(mid, [6, 0, 0]));
+  st = reduce(st, { type: "orbit", dx: x1 - x0, dy: y1 - y0, x: x1, y: y1 }, env);
+  assert.ok(st.drag && "handle" in st.drag);
+  near(st.op!.value!, 6, 0.11);
+  nearV(frame(st).gizmo!.handles[0]!.points[0]!, [26, 10, 10], 0.2);
+  assert.equal(scene(st.session).steps.length, 1, "and nothing is done until the drag ends");
+});
+
+test("a closed figure shows the arrow to pull it out; the same arrow on a flat face of the body pushes and pulls it", () => {
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [40, 20, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  let st = { ...createState(s), cam: homeCamera() };
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref;
+  st = select(st, [face]);
+  const h = frame(st).gizmo!.handles;
+  assert.deepEqual(h.map((q) => q.id), ["pull"]);
+  nearV(h[0]!.points[0]!, [20, 10, 0]);
+  nearV(sub(h[0]!.points[1]!, h[0]!.points[0]!).map((v, i) => (i < 2 ? Math.abs(v) : v / Math.abs(v || 1))), [0, 0, 1], 1e-6);
+  const mid = scale(add(h[0]!.points[0]!, h[0]!.points[1]!), 0.5);
+  st = drag(st, mid, add(mid, [0, 0, 12]));
+  near(st.session.outcome.kernel!.volume!, 40 * 20 * 12, 0.5);
+  assert.deepEqual(selection(st.session), [], "after an extrude nothing is selected");
+  // the top face of the new body: push it in 5 (cut) and pull it out 3 (add)
+  const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 12)!;
+  st = select(st, [top.ref]);
+  assert.deepEqual(frame(st).gizmo!.handles.map((q) => q.id), ["pull"]);
+  const pg = gizmoOf(st)!.handles[0]!;
+  const pm = scale(add(pg.points[0]!, pg.points[1]!), 0.5);
+  const pulled = drag(st, pm, add(pm, [0, 0, 3]));
+  near(pulled.session.outcome.kernel!.volume!, 40 * 20 * 15, 0.5);
+  assert.equal(scene(pulled.session).steps.at(-1)!.type, "pushPull");
+  const pushed = drag(st, pm, add(pm, [0, 0, -5]));
+  near(pushed.session.outcome.kernel!.volume!, 40 * 20 * 7, 0.5);
+  // typing a number does the same as dragging it that far
+  const typed = reduce(typeText(st, "4"), { type: "typed", key: "Enter", shift: false }, env);
+  near(typed.session.outcome.kernel!.volume!, 40 * 20 * 16, 0.5);
+});
+
+const typeText = (st: AppState, text: string) => [...text].reduce((a, c) => reduce(a, { type: "typed", key: c, shift: false }, env), st);
+
+test("a line of the body shows the fillet / chamfer double arrow by itself; several lines each show one, and the size dragged on any applies to all", () => {
+  let st = box();
+  const vertical = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "body" && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] !== (scene(st.session).parts[p.b] as { at: Vec3 }).at[2]);
+  st = select(st, vertical.map((p) => p.ref));
+  const g = gizmoOf(st)!;
+  assert.equal(g.handles.length, 4);
+  assert.ok(g.handles.every((h) => h.kind === "double"));
+  const h = g.handles[1]!;
+  const centre = scale(add(h.points[0]!, h.points[1]!), 0.5);
+  const d = sub(h.points[1]!, h.points[0]!);
+  const unit = scale(d, 1 / Math.hypot(...d));
+  const done = drag(st, centre, add(centre, scale(unit, 2)));
+  assert.deepEqual(scene(done.session).steps.at(-1)!.params, { mode: "fillet", value: 2 });
+  assert.equal(scene(done.session).steps.at(-1)!.parts.length, 4, "all four edges at once");
+  near(done.session.outcome.kernel!.volume!, 16000 - 4 * (1 - Math.PI / 4) * 4 * 20, 0.2);
+  assert.equal(done.op, null);
+});
+
+test("Scale has a handle: pull the ball at the corner out to make the body bigger", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  st = reduce(st, { type: "begin", name: "scale" }, env);
+  const g = gizmoOf(st)!;
+  assert.deepEqual(g.handles.map((h) => h.kind), ["scale"]);
+  const [c, corner] = g.handles[0]!.points;
+  nearV(c!, [20, 10, 10]);
+  nearV(corner!, [40, 20, 20]);
+  const out: Vec3 = add(c!, scale(sub(corner!, c!), 2)); // twice as far from the centre
+  st = drag(st, corner!, out, 6);
+  near(Number(scene(st.session).steps.at(-1)!.params.value), 2, 0.02);
+  const bb = bbox(st);
+  near(bb.max[0] - bb.min[0], 80, 0.5);
+});
+
+test("a drawn figure can be moved and turned with handles: arrows along its plane, a ring round its normal and a centre you can place", () => {
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [40, 20, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  let st = { ...createState(s), cam: homeCamera() };
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref;
+  st = select(st, [face]);
+  st = reduce(st, { type: "begin", name: "move" }, env);
+  const g = gizmoOf(st)!;
+  assert.deepEqual(g.handles.map((h) => h.id), ["move:u", "move:v"]);
+  const u = g.handles[0]!;
+  const mid = scale(add(u.points[0]!, u.points[1]!), 0.5);
+  st = drag(st, mid, add(mid, [7, 0, 0]));
+  const corners = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as { at: Vec3 }).at);
+  near(Math.min(...corners.map((c) => c[0])), 7, 0.15);
+  near(Math.max(...corners.map((c) => c[0])), 47, 0.15);
+  assert.equal(scene(st.session).steps.length, 0, "a figure is moved by its corners: no step, just a change");
+  st = reduce(st, { type: "escape" }, env);
+  st = reduce(st, { type: "begin", name: "rotate" }, env);
+  const rg = gizmoOf(st)!;
+  assert.deepEqual(rg.handles.map((h) => h.id), ["rot:n", "pivot"]);
+  const ring = rg.handles[0]!;
+  const p = ring.points[12];
+  const c = rg.centre;
+  const rr = sub(p!, c);
+  st = drag(st, p!, add(c, [-rr[1], rr[0], 0]));
+  const turned = Object.values(scene(st.session).parts).filter((q) => q.kind === "corner" && q.origin === "drawn").map((q) => (q as { at: Vec3 }).at);
+  const xs = turned.map((q) => q[0]);
+  const ys = turned.map((q) => q[1]);
+  near(Math.max(...xs) - Math.min(...xs), 20, 0.5);
+  near(Math.max(...ys) - Math.min(...ys), 40, 0.5);
 });

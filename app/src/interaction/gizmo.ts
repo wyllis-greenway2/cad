@@ -11,18 +11,23 @@ import type { Camera } from "./camera.ts";
 import { basis } from "./camera.ts";
 import { settings } from "../shared/settings.ts";
 
-export type HandleKind = "arrow" | "double" | "arc" | "ball";
+export type HandleKind = "arrow" | "double" | "arc" | "ball" | "scale";
 export interface Handle {
   id: string;
   kind: HandleKind;
   axis: 0 | 1 | 2 | null;
-  /** an arrow or double arrow: [from, to]; an arc: the points along it; a ball: [at] */
+  /** an arrow or double arrow: [from, to]; a turning ring: the points round it (closed); a ball: [at]; a scale handle: [centre, the corner you pull] */
   points: Vec3[];
+  /** a turning ring: the axis it turns about */
+  dir?: Vec3;
+  /** a turning ring: which of its points carries the arrowhead */
+  head?: number;
 }
 export interface Gizmo { handles: Handle[]; centre: Vec3 }
 
-export const hasGizmo = (kind: Op["kind"]): boolean => kind === "move" || kind === "rotate" || kind === "edge";
+export const hasGizmo = (kind: Op["kind"]): boolean => kind !== "dimension";
 const AXES: Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+const RING = 48;
 
 /** The direction that is "out" of an edge of the body: the two faces that meet there, added. Dragging along it makes a fillet, against it a chamfer. */
 export function edgeDirection(scene: Scene, a: Vec3, b: Vec3): Vec3 {
@@ -41,35 +46,72 @@ export function edgeDirection(scene: Scene, a: Vec3, b: Vec3): Vec3 {
   return normalize(cross(along, helper)); // a straight edge between parallel faces: any way across it
 }
 
-/** The handles for the operation that is being set up, sized to the view (about a sixth of the view distance). */
+/** A full circle round `axis` through `centre`, so which plane it turns in is plain to see; the arrowhead sits a little way round. */
+function ring(id: string, centre: Vec3, axis: Vec3, R: number, i: 0 | 1 | 2 | null): Handle {
+  const u = normalize(cross(Math.abs(axis[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], axis));
+  const v = cross(axis, u);
+  const points: Vec3[] = [];
+  for (let k = 0; k <= RING; k++) {
+    const t = (k / RING) * Math.PI * 2;
+    points.push(add(centre, scale(add(scale(u, Math.cos(t)), scale(v, Math.sin(t))), R)));
+  }
+  return { id, kind: "arc", axis: i, points, dir: axis, head: Math.round(RING / 8) };
+}
+const cornersOf = (scene: Scene, refs: readonly string[]): Vec3[] => refs.map((r) => scene.parts[r]).filter((p): p is Extract<NonNullable<Scene["parts"][string]>, { kind: "corner" }> => p?.kind === "corner").map((p) => p.at);
+const middle = (pts: Vec3[]): Vec3 => scale(pts.reduce((a, p) => add(a, p), [0, 0, 0] as Vec3), 1 / Math.max(1, pts.length));
+/** The box that holds the body's corners, or null with no body. */
+function bodyBox(scene: Scene): { lo: Vec3; hi: Vec3 } | null {
+  const pts = Object.values(scene.parts).filter((p) => p.kind === "corner" && p.origin === "body").map((p) => (p as { at: Vec3 }).at);
+  if (!pts.length) return null;
+  const lo: [number, number, number] = [Infinity, Infinity, Infinity];
+  const hi: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+  for (const p of pts) for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i]!, p[i]!); hi[i] = Math.max(hi[i]!, p[i]!); }
+  return { lo, hi };
+}
+
+/** The handles for the operation that is being set up (or whose handle shows up by itself), sized to the view (about a sixth of the view distance). */
 export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
   const L = cam.distance * settings.gizmo.sizeOfView;
-  if (op.kind === "move" || op.kind === "rotate") {
-    const centre = op.kind === "rotate" ? (op.pivot ?? bodyCentre(scene)) : bodyCentre(scene);
-    if (!centre) return null;
-    if (op.kind === "move") return { centre, handles: AXES.map((d, i): Handle => ({ id: `move:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, L))] })) };
-    // three curved arrows, one round each axis, each a quarter turn in its own plane, and a ball at the centre to move it
-    const handles: Handle[] = AXES.map((_, i): Handle => {
-      const u = AXES[(i + 1) % 3]!;
-      const v = AXES[(i + 2) % 3]!;
-      const pts: Vec3[] = [];
-      for (let k = 0; k <= 20; k++) {
-        const t = ((20 + (k / 20) * 90) * Math.PI) / 180;
-        pts.push(add(centre, scale(add(scale(u, Math.cos(t)), scale(v, Math.sin(t))), L * 0.8)));
-      }
-      return { id: `rot:${"xyz"[i]}`, kind: "arc", axis: i as 0 | 1 | 2, points: pts };
-    });
-    handles.push({ id: "pivot", kind: "ball", axis: null, points: [centre] });
-    return { centre, handles };
+  if ((op.kind === "extrude" || op.kind === "pushpull") && op.origin && op.normal) {
+    // the arrow normal to the figure or the face: drag it out to pull, in to push
+    return { centre: op.origin, handles: [{ id: "pull", kind: "arrow", axis: null, points: [op.origin, add(op.origin, scale(op.normal, L))] }] };
   }
-  // an edge: a double arrow through its middle, along the way out of the corner
-  const line = scene.parts[op.parts[0]!];
-  if (!line || line.kind !== "line") return null;
-  const [pa, pb] = [scene.parts[line.a], scene.parts[line.b]];
-  if (!pa || !pb || pa.kind !== "corner" || pb.kind !== "corner") return null;
-  const m = scale(add(pa.at, pb.at), 0.5);
-  const d = edgeDirection(scene, pa.at, pb.at);
-  return { centre: m, handles: [{ id: "edge", kind: "double", axis: null, points: [add(m, scale(d, -L * 0.3)), add(m, scale(d, L * 0.3))] }] };
+  if (op.kind === "edge") {
+    // a double arrow on each selected edge, through its middle, along the way out of the corner; the size you drag applies to all of them
+    const handles: Handle[] = [];
+    op.parts.forEach((ref, i) => {
+      const line = scene.parts[ref];
+      if (!line || line.kind !== "line") return;
+      const [pa, pb] = [scene.parts[line.a], scene.parts[line.b]];
+      if (!pa || !pb || pa.kind !== "corner" || pb.kind !== "corner") return;
+      const m = scale(add(pa.at, pb.at), 0.5);
+      const d = edgeDirection(scene, pa.at, pb.at);
+      handles.push({ id: `edge:${i}`, kind: "double", axis: null, points: [add(m, scale(d, -L * 0.3)), add(m, scale(d, L * 0.3))] });
+    });
+    return handles.length ? { centre: scale(add(handles[0]!.points[0]!, handles[0]!.points[1]!), 0.5), handles } : null;
+  }
+  if (op.target === "shape") {
+    const pl = op.plane ? scene.parts[op.plane] : undefined;
+    const pts = cornersOf(scene, op.parts);
+    if (!pl || pl.kind !== "plane" || !pts.length) return null;
+    const centre = op.kind === "rotate" ? (op.pivot ?? middle(pts)) : middle(pts);
+    if (op.kind === "move") return { centre, handles: [pl.u, pl.v].map((d, i): Handle => ({ id: `move:${"uv"[i]}`, kind: "arrow", axis: i as 0 | 1, points: [centre, add(centre, scale(d, L))] })) };
+    return { centre, handles: [ring("rot:n", centre, normalOfPlane(pl), L * 0.8, null), { id: "pivot", kind: "ball", axis: null, points: [centre] }] };
+  }
+  const box = bodyBox(scene);
+  if (!box) return null;
+  const centre = op.kind === "rotate" ? (op.pivot ?? bodyCentre(scene) ?? scale(add(box.lo, box.hi), 0.5)) : scale(add(box.lo, box.hi), 0.5);
+  if (op.kind === "move") return { centre, handles: AXES.map((d, i): Handle => ({ id: `move:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, L))] })) };
+  if (op.kind === "rotate") return { centre, handles: [...AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, centre, d, L * 0.8, i as 0 | 1 | 2)), { id: "pivot", kind: "ball", axis: null, points: [centre] }] };
+  if (op.kind === "scale") return { centre, handles: [{ id: "scale", kind: "scale", axis: null, points: [centre, box.hi] }] };
+  return null;
+}
+
+/** The handles moved along with what they are dragging (the arrows of a move or a pull follow the object live). */
+export function followed(g: Gizmo, drag: { dir: Vec3; kind: HandleKind; id: string } | null, value: number | null): Gizmo {
+  if (!drag || value === null || (drag.kind !== "arrow" && drag.kind !== "double") || drag.id.startsWith("edge")) return g;
+  const by = scale(drag.dir, value);
+  return { centre: add(g.centre, by), handles: g.handles.map((h) => ({ ...h, points: h.points.map((p) => add(p, by)) })) };
 }
 
 // ---- which handle is under the pointer ----
@@ -128,8 +170,14 @@ export function startDrag(g: Gizmo, h: Handle, ray: Ray, cam: Camera): Drag | nu
     const t = paramOnLine(origin, dir, ray);
     return t === null ? null : { id: h.id, kind: h.kind, axis: h.axis, origin, dir, start: t, offset: null };
   }
+  if (h.kind === "scale") {
+    // the ball slides along the diagonal from the centre: how far along it the pointer is, relative to where you took hold, is the factor
+    const dir = sub(h.points[1]!, h.points[0]!);
+    const t = paramOnLine(h.points[0]!, normalize(dir), ray);
+    return t === null ? null : { id: h.id, kind: "scale", axis: null, origin: h.points[0]!, dir, start: Math.max(1e-6, t / Math.hypot(...dir)), offset: null };
+  }
   if (h.kind === "arc") {
-    const dir = AXES[h.axis!]!;
+    const dir = h.dir ?? AXES[h.axis!]!;
     const p = hitPlane(ray, g.centre, dir);
     return p ? { id: h.id, kind: "arc", axis: h.axis, origin: g.centre, dir, start: angleIn(g.centre, dir, p), offset: null } : null;
   }
@@ -160,6 +208,10 @@ export function dragTo(d: Drag, ray: Ray): { value: number } | { pivot: Vec3 } |
     while (a > Math.PI) a -= 2 * Math.PI;
     while (a <= -Math.PI) a += 2 * Math.PI;
     return { value: clean(snap((a * 180) / Math.PI, settings.gizmo.angleStep)) };
+  }
+  if (d.kind === "scale") {
+    const t = paramOnLine(d.origin, normalize(d.dir), ray);
+    return t === null ? null : { value: clean(Math.max(0.05, snap(t / Math.hypot(...d.dir) / d.start, 0.01))) };
   }
   const p = hitPlane(ray, d.origin, d.dir);
   return p && d.offset ? { pivot: sub(p, d.offset) } : null;

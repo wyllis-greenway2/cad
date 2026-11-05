@@ -105,3 +105,14 @@ test("the same model gives the same names; unchanged corners keep their names af
   const taller = must(exec(h, { type: "addStep", step: { id: "s_950", type: "move", parts: [], params: { axis: 0, value: 5 } } }));
   assert.ok(!(bottomCorner in compile(taller.scene, kernel).scene.parts), "after a move the corner is elsewhere: its old name is gone (reported broken, not guessed)");
 });
+
+test("push and pull a flat face of the body: out adds material, in cuts it (the same step either way)", () => {
+  const { h } = box();
+  const compiled = compile(h.scene, kernel).scene; // a session's scenes already carry the body parts; a bare history does not
+  const top = Object.values(compiled.parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20)!;
+  const run = (depth: number) => compile({ ...compiled, steps: [...compiled.steps, { id: "s_700", type: "pushPull", parts: [top.ref], params: { depth } }] }, kernel);
+  const out = run(10);
+  assert.deepEqual(out.errors, {});
+  near(out.kernel!.volume!, 40 * 20 * 30);
+  near(run(-5).kernel!.volume!, 40 * 20 * 15);
+});
