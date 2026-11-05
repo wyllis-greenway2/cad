@@ -467,3 +467,8 @@ and the buttons are greyed out with the reason (hover), typed values are refused
 perpendicular, opposite sides, equal length; collapse; polyline angle; separate lines parallel). Browser run confirmed the chips, the refusals with reasons, and the polyline angle (screenshot). No console errors.
 **Not yet:** tangent, point on line, midpoint, symmetric, arcs; the value chip is not clickable (type directly or press Enter); with nothing anchored a length change can shift the whole sketch a little (the solver moves the least).
 **Next candidates:** save/load and STL/3MF export; named references with the proof test; arcs and trim/offset/mirror; the drawer.
+
+## Handoff 040 — 2026-11-05
+**State:** `in_053` bug: clicking a line showed no length input. Cause: the CSS for the value chip (`#vchip`) and for disabled constraint buttons never landed in `index.html` (my edit used a search string that did not match, so the replace silently did nothing); the chip existed
+but was an unstyled block at the top left, invisible. My browser test read the chip's text, not its position, so it passed. Fixed by adding the CSS; verified with the chip's measured position and a screenshot (the number appears above the line, the unusable buttons are greyed).
+**Lesson:** a UI check must look at where the element is (or a screenshot), and edits that do a text replacement must assert the replacement happened.
