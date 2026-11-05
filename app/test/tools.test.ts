@@ -26,30 +26,60 @@ const typeText = (st: AppState, text: string) => [...text].reduce((s, c) => key(
 const corners = (st: AppState) => Object.values(scene(st.session).parts).filter((p) => p.origin === "drawn" && p.kind === "corner").map((p) => (p as { at: Vec3 }).at);
 const volume = (st: AppState) => st.session.outcome.kernel?.volume ?? 0;
 
-test("rectangle: arm, click a surface, click again: one rectangle kept level, selected as a closed figure, tool put away; one undo removes it all", () => {
+function drag(st: AppState, from: Vec3, to: Vec3, steps = 4): AppState {
+  const [x0, y0] = px(st, from);
+  const [x1, y1] = px(st, to);
+  let [lx, ly] = [x0, y0];
+  for (let k = 1; k <= steps; k++) {
+    const x = x0 + ((x1 - x0) * k) / steps;
+    const y = y0 + ((y1 - y0) * k) / steps;
+    st = reduce(st, { type: "orbit", dx: k === 1 ? x - x0 : x - lx, dy: k === 1 ? y - y0 : y - ly, x, y }, env);
+    [lx, ly] = [x, y];
+  }
+  return reduce(st, { type: "dragEnd" }, env);
+}
+const rounded = (cs: Vec3[]) => cs.map((c) => c.map((v) => Math.round(v * 100) / 100)).sort();
+
+test("rectangle: the click makes it at once (10 by 10, selected); dragging its ball sets the size; one undo removes it all", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "rect" }, env);
   assert.ok(st.tool && !st.tool.plane);
   st = click(st, [5, 5, 0]); // on the XY pane
   assert.equal(st.tool!.plane, XY);
-  st = move(st, [25, 15, 0]);
-  assert.equal(previewFor(scene(st.session), st.tool)!.segments.length, 4);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, null)!.fields.map((f) => f.value), ["20", "10"]);
-  st = click(st, [25, 15, 0]);
-  assert.equal(st.tool, null);
-  assert.deepEqual(corners(st).map((c) => c.map((v) => Math.round(v * 100) / 100)).sort(), [[5, 5, 0], [5, 15, 0], [25, 5, 0], [25, 15, 0]].sort());
+  assert.ok(st.tool!.placed);
+  assert.deepEqual(rounded(corners(st)), rounded([[5, 5, 0], [5, 15, 0], [15, 5, 0], [15, 15, 0]]), "the figure exists after the first click");
+  assert.match(selection(st.session)[0]!, /^d\/loop@/);
+  assert.equal(frameOf(st, { w: 800, h: 600 }).preview, null, "it is in the scene, nothing extra is previewed");
+  st = drag(st, [15, 15, 0], [25, 15, 0]);
+  assert.deepEqual(rounded(corners(st)), rounded([[5, 5, 0], [5, 15, 0], [25, 5, 0], [25, 15, 0]]));
   assert.equal(scene(st.session).relations.length, 4);
   assert.match(selection(st.session)[0]!, /^d\/loop@/);
+  assert.ok(st.tool, "the ball stays for another drag");
   st = { ...st, session: undoLast(st.session) };
   assert.equal(corners(st).length, 0, "the whole rectangle goes in one undo");
   assert.equal(scene(st.session).relations.length, 0);
+});
+
+test("while the ball is dragged the figure is previewed; a click away ends the drawing and the figure stays selected", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  st = click(st, [5, 5, 0]);
+  const [x0, y0] = px(st, [15, 15, 0]);
+  const [x1, y1] = px(st, [30, 20, 0]);
+  st = reduce(st, { type: "orbit", dx: x1 - x0, dy: y1 - y0, x: x1, y: y1 }, env);
+  assert.equal(previewFor(scene(st.session), st.tool)!.segments.length, 4);
+  assert.equal(corners(st).length, 0, "lifted out of the scene while it is dragged");
+  st = reduce(st, { type: "dragEnd" }, env);
+  assert.equal(corners(st).length, 4);
+  st = click(st, [300, 300, 0]);
+  assert.equal(st.tool, null);
 });
 
 test("a rectangle stays a rectangle when a corner is dragged: its sides are kept level with the plane", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "rect" }, env);
   st = click(st, [5, 5, 0]);
-  st = click(st, [25, 15, 0]);
+  st = drag(st, [15, 15, 0], [25, 15, 0]);
   const some = Object.values(scene(st.session).parts).find((p) => p.kind === "corner" && p.origin === "drawn")!;
   const session = (applyCommand(st, { type: "movePart", ref: some.ref, to: [7, 9, 0] }));
   const cs = Object.values(scene(session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as unknown as { at: Vec3 }).at);
@@ -59,11 +89,11 @@ test("a rectangle stays a rectangle when a corner is dragged: its sides are kept
   assert.equal(ys.size, 2);
 });
 
-test("typed sizes: width, Tab, height, Enter makes exactly that rectangle, on the side the cursor is", () => {
+test("typed sizes make the placed figure again at that size, on the side the ball was dragged to; Enter ends the drawing", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "rect" }, env);
   st = click(st, [10, 10, 0]);
-  st = move(st, [2, 4, 0]); // up-left of the first corner
+  st = drag(st, [20, 20, 0], [2, 4, 0]); // up-left of the first corner
   st = typeText(st, "40");
   st = key(st, "Tab");
   st = typeText(st, "2.5");
@@ -72,51 +102,42 @@ test("typed sizes: width, Tab, height, Enter makes exactly that rectangle, on th
   assert.equal(st.tool, null);
   const xs = corners(st).map((c) => c[0]);
   const ys = corners(st).map((c) => c[1]);
+  assert.equal(corners(st).length, 4, "one figure, however often it was made again");
   near(Math.min(...xs), -30);
   near(Math.max(...xs), 10);
   near(Math.min(...ys), 7.5);
   near(Math.max(...ys), 10);
 });
 
-test("circle: centre then radius by click; or a typed diameter with Enter", () => {
+test("circle: the click makes it (diameter 10); the ball sets the radius; or a typed diameter", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "circle" }, env);
   st = click(st, [10, 10, 0]);
-  st = click(st, [16, 10, 0]);
-  const circles = Object.values(scene(st.session).parts).filter((p) => p.kind === "circle") as { radius: number }[];
-  near(circles[0]!.radius, 6);
+  const radius = () => (Object.values(scene(st.session).parts).filter((p) => p.kind === "circle") as { radius: number }[]).map((c) => c.radius);
+  assert.deepEqual(radius(), [5]);
   assert.match(selection(st.session)[0]!, /^d\/disk@/);
-  st = reduce(st, { type: "begin", name: "circle" }, env);
-  st = click(st, [20, 20, 0]);
+  st = drag(st, [15, 10, 0], [16, 10, 0]);
+  assert.deepEqual(radius(), [6]);
   st = typeText(st, "9");
-  st = key(st, "Enter");
-  const radii = (Object.values(scene(st.session).parts).filter((p) => p.kind === "circle") as { radius: number }[]).map((c) => c.radius).sort();
-  near(radii[0]!, 4.5);
+  near(radius()[0]!, 4.5);
+  assert.equal(radius().length, 1);
 });
 
-test("line: clicks add corners; clicking the first corner again closes it into a figure; Enter ends an open line; a typed length places the next corner", () => {
+test("line: the click makes a segment (10 long along the plane); the ball at its end moves the end", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "line" }, env);
-  for (const p of [[5, 5, 0], [25, 5, 0], [25, 15, 0]] as Vec3[]) st = click(st, p);
   st = click(st, [5, 5, 0]);
-  assert.equal(st.tool, null);
-  assert.match(selection(st.session)[0]!, /^d\/loop@/);
-  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn").length, 3);
-  // open line by Enter, with a typed length
-  st = reduce(st, { type: "begin", name: "line" }, env);
-  st = click(st, [12, 2, 0]);
-  st = move(st, [18, 2, 0]);
-  st = typeText(st, "4");
-  st = key(st, "Enter");
-  assert.ok(st.tool, "a typed length places a corner and the line goes on");
-  st = key(st, "Enter");
-  assert.equal(st.tool, null);
-  const pts = corners(st).filter((c) => c[1] < 4);
+  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn").length, 1);
+  st = drag(st, [15, 5, 0], [15, 20, 0]);
+  const pts = corners(st);
   assert.equal(pts.length, 2);
-  near(Math.max(...pts.map((c) => c[0])), 16);
+  assert.deepEqual(rounded(pts), rounded([[5, 5, 0], [15, 20, 0]]));
+  st = typeText(st, "4");
+  assert.equal(corners(st).length, 2);
+  near(Math.hypot(pts[0]![0] - corners(st)[1]![0], 0), Math.hypot(pts[0]![0] - corners(st)[1]![0], 0));
 });
 
-test("a tool is armed again to put it away; Esc cancels a figure half drawn; a click on nothing says where to click", () => {
+test("a tool is armed again to put it away; Esc ends a drawing but keeps the figure; a click on a world plane takes the drawing", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "rect" }, env);
   st = reduce(st, { type: "begin", name: "rect" }, env);
@@ -125,19 +146,17 @@ test("a tool is armed again to put it away; Esc cancels a figure half drawn; a c
   st = click(st, [300, 300, 0]);
   assert.equal(st.tool!.plane, XY, "the world planes are infinite: a click anywhere on one takes the drawing");
   st = reduce(st, { type: "escape" }, env);
-  st = reduce(st, { type: "begin", name: "rect" }, env);
-  st = click(st, [5, 5, 0]);
-  st = reduce(st, { type: "escape" }, env);
   assert.equal(st.tool, null);
-  assert.equal(corners(st).length, 0);
+  assert.equal(corners(st).length, 4, "the figure was made by the click and stays");
 });
 
-test("the first corner snaps to a corner that is already there; free points are rounded", () => {
+test("the first point snaps to a corner that is already there; free points are rounded", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "rect" }, env);
   st = click(st, [5, 5, 0]);
-  st = click(st, [25.003, 15.004, 0]);
+  st = drag(st, [15, 15, 0], [25.003, 15.004, 0]);
   assert.ok(corners(st).some((c) => c[0] === 25 && c[1] === 15), "rounded to 0.01");
+  st = reduce(st, { type: "escape" }, env);
   st = reduce(st, { type: "begin", name: "line" }, env);
   st = click(st, [5.05, 4.95, 0]); // within the snap distance of the corner at (5, 5)
   assert.deepEqual(st.tool!.points[0], [5, 5, 0]);
@@ -285,12 +304,11 @@ test("while the distance is being set the picture is the real result: a body app
   assert.ok(Object.values(f.scene.parts).some((p) => p.kind === "body"));
   assert.equal(st.session.outcome.kernel, null, "and still nothing is done");
   assert.equal(scene(st.session).steps.length, 0);
-  // the pointer ball marks the cursor while drawing
+  // a ball sits on the placed figure's other defining point
   let t = top();
   t = reduce(t, { type: "begin", name: "rect" }, env);
   t = click(t, [5, 5, 0]);
-  t = move(t, [20, 12, 0]);
-  assert.deepEqual(previewFor(scene(t.session), t.tool)!.cursor, [20, 12, 0], "a ball marks where the pointer is on the plane");
+  assert.deepEqual(frameOf(t, { w: 800, h: 600 }).gizmo!.handles.map((h) => [h.id, h.kind, h.points[0]]), [["sketch", "ball", [15, 15, 0]]]);
   // cut: draw on the top of a body and set a negative distance: the preview is the body with the hole
   let c = top();
   c = drawBox(c, 20);
@@ -311,4 +329,21 @@ test("after an extrude nothing is selected and nothing is hovered or spreading f
   assert.deepEqual(selection(st.session), []);
   assert.equal(st.session.hover, undefined);
   assert.equal(st.spread, null);
+});
+
+test("the pencil: a selected plane offers it, it offers the shapes, and the shape's first click lands on that plane", () => {
+  let st = top();
+  st = reduce(st, { type: "look", plane: "Z" }, env); // the compass button selects the XY plane
+  st = { ...st, anim: null, cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 15, 0] } };
+  assert.deepEqual(selection(st.session), [XY]);
+  const modes = (s: AppState) => frameOf(s, { w: 800, h: 600 }).annotations.filter((a) => a.mode).map((a) => a.mode);
+  assert.deepEqual(modes(st), ["sketch"]);
+  st = reduce(st, { type: "begin", name: "sketch" }, env); // what a click on the pencil does
+  assert.deepEqual(modes(st), ["rect", "circle", "line"]);
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  assert.equal(st.tool!.plane, XY);
+  assert.equal(st.sketching, null);
+  st = click(st, [30, 12, 0]);
+  assert.ok(st.tool!.placed);
+  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "circle").length, 1);
 });

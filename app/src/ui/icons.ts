@@ -17,6 +17,10 @@ const ICONS: Record<string, string> = {
 
 Object.assign(ICONS, {
   edge: svg('<path d="M3 13V6.5C3 4.6 4.6 3 6.5 3H13"/><path d="M5.5 13.5L13.5 5.5"/>'),
+  sketch: svg('<path d="M3 13l.6-3L10.8 2.8a1.4 1.4 0 012 2L5.6 12z"/><path d="M9.4 4.2l2.4 2.4"/>'),
+  rect: svg('<rect x="2.5" y="4" width="11" height="8" rx="0.6"/>'),
+  circle: svg('<circle cx="8" cy="8" r="5.5"/>'),
+  line: svg('<path d="M3 13L13 3"/><circle cx="3" cy="13" r="1" /><circle cx="13" cy="3" r="1"/>'),
   cross: svg('<path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>'),
   sameHeight: svg('<circle cx="3.6" cy="8" r="1.5"/><circle cx="12.4" cy="8" r="1.5"/><path d="M5.5 8h5" stroke-dasharray="1.4 1.6"/>'),
   sameAcross: svg('<circle cx="8" cy="3.6" r="1.5"/><circle cx="8" cy="12.4" r="1.5"/><path d="M8 5.5v5" stroke-dasharray="1.4 1.6"/>'),

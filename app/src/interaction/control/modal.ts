@@ -3,9 +3,12 @@ import type { Intent } from "../../shared/input.ts";
 import { scene as sceneOf, selection as selectionOf, run, undoLast, redoLast, clearSelection } from "../session.ts";
 import { actionsFor } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
-import { armTool, typeKey, finish, lineNext } from "../tools.ts";
+import { armTool, typeKey, finish, figureTool } from "../tools.ts";
+import { remake } from "./handles.ts";
 import type { OpKind } from "../operations.ts";
 import { startOp, typeOp, opCommand, autoOp } from "../operations.ts";
+import { lookup } from "../../operation/scene.ts";
+import { planeOf } from "../objects.ts";
 import type { AppState } from "./state.ts";
 import { withSession } from "./state.ts";
 
@@ -19,17 +22,18 @@ function beginOp(s: AppState, kind: OpKind): AppState {
   return { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: null } };
 }
 export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["name"]): AppState {
-  return name === "rect" || name === "circle" || name === "line" ? beginTool(s, name) : beginOp(s, name);
+  if (name === "sketch") {
+    // the pencil: offer the shapes for the selected plane or face
+    const only = selectionOf(s.session).length === 1 ? planeOf(lookup(sceneOf(s.session)), selectionOf(s.session)[0]!) : null;
+    return only ? { ...s, sketching: only.ref, tool: null, op: null, menu: null } : s;
+  }
+  if (name === "rect" || name === "circle" || name === "line") {
+    const plane = s.sketching; // chosen from a bubble on a plane: the first click lands on that plane
+    return plane ? { ...s, sketching: null, tool: armTool(name, plane), op: null, menu: null } : beginTool(s, name);
+  }
+  return beginOp({ ...s, sketching: null }, name);
 }
 
-/** Put a finished figure into the scene and hand back to normal selection with the figure selected. */
-export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppState {
-  if (!fin) return s;
-  const next = run(s.session, fin.command);
-  if (next.message) return { ...s, session: next };
-  const sel = fin.select.filter((r) => r in sceneOf(next).parts);
-  return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: null, spread: null };
-}
 export function commitOp(s: AppState): AppState {
   if (!s.op) return s;
   const cmd = opCommand(sceneOf(s.session), s.op);
@@ -50,16 +54,18 @@ export function doTyped(s: AppState, key: string): AppState {
   }
   if (s.op) return key === "Enter" ? commitOp(s) : { ...s, op: typeOp(s.op, key) };
   const t = s.tool;
-  if (!t || !t.plane) return s;
-  if (key !== "Enter") return { ...s, tool: typeKey(t, key) };
-  const next = t.kind === "line" && t.typed[0] !== "" ? lineNext(t) : null; // a typed length places the next corner and the line goes on
-  if (next) return { ...s, tool: { ...t, points: [...t.points, next], typed: ["", ""] } };
-  return commitFigure(s, finish(sceneOf(s.session), t));
+  if (!t || !t.placed) return s;
+  if (key === "Enter") return { ...s, tool: null }; // the figure is already made: Enter ends the drawing
+  const typed = typeKey(t, key); // a typed size makes the figure again at that size
+  if (typed === t) return s;
+  if (!finish(sceneOf(s.session), figureTool(typed))) return { ...s, tool: typed };
+  return remake({ ...s, session: undoLast(s.session) }, typed);
 }
 
 /** Esc lets go in steps: the menu, then an open badge, then the tool or operation, then the selection. */
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
+  if (s.sketching) return { ...s, sketching: null };
   if (s.focus && !s.tool && !s.op) return { ...s, focus: null };
   if (s.tool || s.op) return { ...s, tool: null, op: null, drag: null, gizmoHover: null };
   return withSession(s, clearSelection(s.session));

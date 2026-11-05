@@ -13,6 +13,8 @@ import { buildMap } from "../operation/ownership.ts";
 import type { Lookup } from "../operation/part.ts";
 import { pointOf, segmentOf, circleOf } from "../operation/part.ts";
 import { actionsFor, ROWS, REFERENCES_ONLY } from "./actions.ts";
+import { planeOf } from "./objects.ts";
+import { surfaceTriangles } from "./surfaces.ts";
 
 export interface Annotation {
   /** the relation id, or "measure" for a number that could be locked */
@@ -184,7 +186,16 @@ export function focusParts(scene: Scene, selection: readonly Ref[], focus: strin
 }
 
 /** The bubbles that offer a mode for what is selected: lines of the body offer fillet / chamfer (the handle appears once you choose it). */
-export function modesFor(scene: Scene, selection: readonly Ref[]): Annotation[] {
+export function modesFor(scene: Scene, selection: readonly Ref[], sketching: Ref | null = null): Annotation[] {
+  const only = selection.length === 1 ? scene.parts[selection[0]!] : undefined;
+  if (only && (only.kind === "plane" || only.kind === "face")) {
+    // a plane or a face offers the pencil; once it is clicked, the shapes to draw on it
+    const pl = planeOf(lookup(scene), only.ref);
+    if (!pl) return [];
+    const at = centreOf(scene, only);
+    const bubble = (mode: string, label: string): Annotation => ({ id: `mode:${mode}`, relationId: null, kind: mode, label, at, value: null, unit: null, locked: false, editable: false, readOnly: false, broken: false, open: false, others: [], lines: [], mode });
+    return sketching === pl.ref ? [bubble("rect", "Rectangle"), bubble("circle", "Circle"), bubble("line", "Line")] : [bubble("sketch", "Sketch")];
+  }
   const lines = selection.map((r) => scene.parts[r]);
   if (!lines.length || !lines.every((p) => p?.kind === "line" && p.origin === "body")) return [];
   const last = lines[lines.length - 1]!;
@@ -192,4 +203,16 @@ export function modesFor(scene: Scene, selection: readonly Ref[]): Annotation[] 
   const [a, b] = [scene.parts[last.a], scene.parts[last.b]];
   if (!a || !b || a.kind !== "corner" || b.kind !== "corner") return [];
   return [{ id: "mode:edge", relationId: null, kind: "edge", label: "Fillet / chamfer", at: mid(a.at, b.at), value: null, unit: null, locked: false, editable: false, readOnly: false, broken: false, open: false, others: [], lines: [], mode: "edge" }];
+}
+
+/** The middle of a plane or face (of its triangles; an infinite plane has the point it passes through). */
+function centreOf(scene: Scene, p: Scene["parts"][string]): Vec3 {
+  const tris = surfaceTriangles(lookup(scene), p);
+  if (tris && tris.length >= 9) {
+    let [x, y, z] = [0, 0, 0];
+    for (let i = 0; i + 2 < tris.length; i += 3) { x += tris[i]!; y += tris[i + 1]!; z += tris[i + 2]!; }
+    const n = tris.length / 3;
+    return [x / n, y / n, z / n];
+  }
+  return p.kind === "plane" ? p.at : [0, 0, 0];
 }
