@@ -37,7 +37,8 @@ test("hotkeys: letters, undo and redo with Ctrl or Cmd, Esc, Enter, Delete", () 
   assert.equal(keyAction(ev({ key: "Delete" }), K), "delete");
   assert.equal(keyAction(ev({ key: "Tab", shiftKey: true }), K), "prevField");
   assert.equal(keyAction(ev({ key: "Tab" }), K), "nextField");
-  assert.equal(keyAction(ev({ key: "z" }), K), null);
+  assert.equal(keyAction(ev({ key: "z" }), K), "lookZ"); // X Y Z look along an axis (`in_068`)
+  assert.equal(keyAction(ev({ key: "z", ctrlKey: true }), K), "undo");
   assert.ok(!matchKey(ev({ key: "z", ctrlKey: true }), "mod+shift+z"));
 });
 

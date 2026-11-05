@@ -130,3 +130,14 @@ test("a face plane at any angle: not mirrored, camera looks along its normal, po
   assert.equal(hit.plane, id);
   assert.ok(Math.abs(hit.point[0] * n[0] + hit.point[2] * n[2] - def.d) < 1e-9);
 });
+
+test("a plane can be looked at straight on from either side (`in_068`)", async () => {
+  const { normalSide, flippedView } = await import("../src/viewmath.mjs");
+  for (const id of ["XY", "XZ", "YZ"]) {
+    const t = PLANES[id].view;
+    assert.equal(normalSide(t, id, 1e-6), 1);
+    assert.equal(normalSide(flippedView(t), id, 1e-6), -1);
+    assert.ok(isNormal(flippedView(t), id, 1e-6));
+  }
+  assert.equal(normalSide({ a: 0.3, e: 0.3 }, "XY", 0.02), 0);
+});

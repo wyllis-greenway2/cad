@@ -39,6 +39,7 @@ export const settings = {
       // constraint hotkeys (sketch select tool): Shift + the first letter of the constraint
       select: "v", line: "l", rect: "r", circle: "c", extrude: "e", sketch: "s", move: "m", rotate: "r", scale: "k", faceOn: "n", fillet: "f", chamfer: "b", consH: "shift+h", consV: "shift+v", consE: "shift+e", consL: "shift+l", consP: "shift+p", consF: "shift+f", consC: "shift+c", dimension: "d", home: "h",
       undo: "mod+z", redo: ["mod+shift+z", "mod+y"],
+      lookX: "x", lookY: "y", lookZ: "z",
       origin: "o", cancel: "escape", confirm: "enter", nextField: "tab", prevField: "shift+tab", delete: ["delete", "backspace"],
     },
   },
@@ -180,7 +181,7 @@ settings.styles = {
   panesDark: { label: "Panes, dark", theme: "panesDark", mode: "panes" },
   panesLight: { label: "Panes, light", theme: "panesLight", mode: "panes" },
   blueprint: { label: "Panes, blueprint", theme: "blueprint", mode: "panes" },
-  compass: { label: "Compass (blank)", theme: "pencil", mode: "compass", lodDivisor: 30, gridAlpha: 1 }, // nothing in the world; a corner compass and X Y Z buttons (`in_067`)
+  compass: { label: "Compass (home, then corner)", theme: "pencil", mode: "compass", shortAxes: true, paneSize: 0.13, paneOffset: 0.05, paneRadius: 0.16, hoverBlue: 0, lodDivisor: 30, gridAlpha: 1 }, // the pencil look until the first sketch, then the axes live in a corner compass with X Y Z buttons (`in_067`, `in_068`)
   pencil: { label: "Pencil (white)", theme: "pencil", mode: "panes", shortAxes: true, paneSize: 0.13, paneOffset: 0.05, paneRadius: 0.16, hoverBlue: 0, lodDivisor: 30, gridAlpha: 1 }, // white world, short charcoal axes, floating rounded grey panes
 };
 settings.styleName = "current";
@@ -192,6 +193,7 @@ settings.panes = {
   orthoGridOnly: true, // the sketch grid shows only while you look straight at the plane, and fades away in 3D (`in_066`)
   axisBehind: 0, // axis lines and arrows are not seen through objects (0 = hidden; the sheets style shows them faintly)
   sketchGrid: 0.42, fine: 0.5, // the faint grid on the plane being sketched on, and its finest level
+  cornerSeconds: 0.7, // the axes take this long to move into the corner compass
   fadeRadius: 1.15, fadeEase: 0.22, // the grid fades out this many view-distances from the view centre; it fades in over a few frames
 };
 const base = settings.themes.world;

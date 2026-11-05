@@ -74,11 +74,17 @@ export const cameraUp = (a, e) => [-Math.sin(e) * Math.cos(a), -Math.sin(e) * Ma
 export const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 export const easeInOut = (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
 
-/** Is the camera looking straight along the plane's normal, in the plane's standard orientation? */
-export function isNormal(view, plane, tol) {
+/** The same plane seen from its other side (the camera turned half way round, so the plane's u axis runs the other way on screen). */
+export const flippedView = (t) => ({ a: t.a + Math.PI, e: -t.e });
+/** Which side of the plane is the camera looking at it from, straight on? +1 = the standard front side (along the normal), -1 = the back, 0 = neither. */
+export function normalSide(view, plane, tol) {
   const t = planeDef(plane).view;
-  return Math.abs(view.e - t.e) <= tol && Math.abs(shortest(view.a, t.a)) <= tol;
+  if (Math.abs(view.e - t.e) <= tol && Math.abs(shortest(view.a, t.a)) <= tol) return 1;
+  const f = flippedView(t);
+  return Math.abs(view.e - f.e) <= tol && Math.abs(shortest(view.a, f.a)) <= tol ? -1 : 0;
 }
+/** Is the camera looking straight along the plane's normal, from either side? */
+export const isNormal = (view, plane, tol) => normalSide(view, plane, tol) !== 0;
 
 /** A point projected onto a plane (any orientation). */
 export function projectOnto(plane, p) {

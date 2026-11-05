@@ -440,3 +440,8 @@ Refinements to the style being tried: grid lines a little smaller and darker, sh
 Another style: a blank world with only a small xyz compass showing orientation and little x, y, z buttons next to it that orient to those planes.
 
 > I killed it and the preview is running now. Okay so I have an idea, how about we just have a little xyz compas thing that shows orientation, and a little x y z button next to it, and other then that the world is totally blank, hitting z y or z button should orient to those planes.
+
+## in_068 — 2026-11-05 — directive
+The compass style should start like the prior one (central xyz with the little helper panes) until the first sketch is made; when going to 3D after that first sketch, it animates into the corner where it lives with its x y z buttons. The x y z keyboard keys do the same as the buttons. Each click alternates positive and negative (first x is positive x, second is negative x).
+
+> Okay, can we make it so that it is like in the prior one, where it has the central xyz and the little helper panes, untill you make your first sketch, then when as soon as you go to 3d after making your first sketch the little animates over into the corner where it starts to live with its x y z buttons. Also the x y z keyboard buttons should do the same thing. Also I think every time you click it, it should swap from positive to negative. So first x is positive x, second click is negative x etc.

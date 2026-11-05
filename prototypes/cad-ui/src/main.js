@@ -18,7 +18,7 @@ import { ExtrudeSession } from "./extrude.mjs";
 import { TransformSession, AXIS_NAMES, UNITS } from "./transform.mjs";
 import { buildGraph } from "./features.mjs";
 import { createBody } from "./body.js";
-import { PLANES, planeDef, addFacePlane, basisOf, frameOf, planeOrigin, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, projectOnto, pickPlane } from "./viewmath.mjs";
+import { PLANES, planeDef, addFacePlane, basisOf, frameOf, planeOrigin, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, normalSide, flippedView, projectOnto, pickPlane } from "./viewmath.mjs";
 
 const $ = (id) => document.getElementById(id);
 const G = S.grid;
@@ -240,8 +240,9 @@ function updatePlanes() {
   const th = T();
   const PN = S.panes;
   const ST = S.styles[S.styleName];
-  const compassOnly = styleMode === "compass"; // nothing in the world: no axes, no panes (the corner compass and its buttons do the work)
-  const panes = styleMode === "panes" || compassOnly;
+  stepCorner();
+  const cornerK = styleMode === "compass" ? 1 - cornerT : 1; // the world axes and panes fade as the compass moves to the corner
+  const panes = styleMode === "panes" || styleMode === "compass";
   const axisLen = ST.shortAxes ? S.axisArrow.lengthFactor * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2)) : 0; // axes that stop at their arrows
   const want = panes && selected && (!PN.orthoGridOnly || isFaceOn()) ? 1 : 0;
   paneFade += (want - paneFade) * PN.fadeEase;
@@ -261,11 +262,9 @@ function updatePlanes() {
        state = mine ? { line: (ST.gridAlpha ?? PN.sketchGrid) * paneFade, bright: 0, opacity: 0, fine: PN.fine, blue: 0 } : { line: 0, bright: 0, opacity: 0, fine: 0, blue: 0 };
        fadeR = mine ? view.dist * PN.fadeRadius : 0;
      } else {
-       if (!compassOnly) {
-         state = { line: 0, bright: 0, opacity: hot ? PN.hoverOpacity : PN.opacity, fine: 0, blue: hot ? ST.hoverBlue ?? PN.hoverBlue : 0 };
-         paneSize = view.dist * (ST.paneSize ?? PN.size);
-         edgeA = hot ? PN.hoverEdgeAlpha : PN.edgeAlpha;
-       } else state = { line: 0, bright: 0, opacity: 0, fine: 0, blue: 0 };
+       state = { line: 0, bright: 0, opacity: (hot ? PN.hoverOpacity : PN.opacity) * cornerK, fine: 0, blue: hot ? ST.hoverBlue ?? PN.hoverBlue : 0 };
+       paneSize = cornerK > 0 ? view.dist * (ST.paneSize ?? PN.size) : 0;
+       edgeA = (hot ? PN.hoverEdgeAlpha : PN.edgeAlpha) * cornerK;
      }
      blue = state.blue;
    }
@@ -294,7 +293,7 @@ function updatePlanes() {
     u.uStyleMin.value = G.fineLineStrength;
     u.uMinCellPx.value = G.minCellPx;
     u.uAxisW.value = G.axisWidthPx;
-    u.uAxisA.value = compassOnly ? 0 : G.axisAlpha;
+    u.uAxisA.value = G.axisAlpha * cornerK;
     u.uFogNear.value = A.nearFactor;
     u.uFogFar.value = A.farFactor;
     u.uAxisFogFar.value = A.axisFarFactor;
@@ -350,11 +349,11 @@ function updateAxisArrows() {
     const [x0, y0] = toScreen(p0);
     const [x1, y1] = toScreen(p0.clone().addScaledVector(d, L * 0.05));
     const len = Math.hypot(x1 - x0, y1 - y0);
-    const hide = styleMode === "compass" || Math.abs(d.dot(viewDir)) > A.hideCos || len < 1e-3;
+    const hide = (styleMode === "compass" && cornerT >= 1) || Math.abs(d.dot(viewDir)) > A.hideCos || len < 1e-3;
     poly.style.display = label.style.display = hide ? "none" : "block";
     if (hide) return;
     const faint = body.blocked(camera.position, p0) ? (styleMode === "panes" ? S.panes.axisBehind : S.axisArrow.faintOpacity) : 1; // behind an object: only faintly visible
-    poly.style.opacity = label.style.opacity = String(faint);
+    poly.style.opacity = label.style.opacity = String(faint * (styleMode === "compass" ? 1 - cornerT : 1));
     const ux = (x1 - x0) / len; // screen direction of the axis
     const uy = (y1 - y0) / len;
     const px = -uy; // perpendicular
@@ -387,48 +386,110 @@ function applyTheme() {
   requestRender();
 }
 
-// ---------------------------------------------------------------- the corner compass and X Y Z buttons (compass style, `in_067`)
-const compassEl = $("compass");
-const compassSvg = compassEl.querySelector("svg");
-const COMPASS_BUTTONS = [["X", "YZ"], ["Y", "XZ"], ["Z", "XY"]]; // looking along an axis = square to the plane across it
-for (const [label, plane] of COMPASS_BUTTONS) {
-  const b = document.createElement("button");
-  b.textContent = label;
-  b.dataset.plane = plane;
-  withTip(b, { label: `Look along ${label}`, help: `Sketch on the ${plane} plane, looking straight at it.` });
-  b.onclick = () => (extrude || xform ? undefined : (sel = null, applySel(), enterSketch(plane)));
-  compassEl.querySelector(".cbtns").appendChild(b);
+// ---------------------------------------------------------------- the compass and X Y Z buttons (compass style, `in_067`, `in_068`)
+// Until the first sketch exists the world shows the short axes and the helper panes at the origin. When you go to 3D after the first sketch, the axes
+// shrink and slide into the bottom-right corner, where they live as a compass with X, Y and Z buttons (and the X, Y, Z keys do the same).
+let compassHome = false; // the first sketch has been made and you are back in 3D: the compass lives in the corner
+let cornerT = 0; // 0 = at the origin, 1 = in the corner
+let cornerLast = 0;
+function stepCorner() {
+  if (styleMode !== "compass") {
+    cornerT = 0;
+    compassHome = false;
+    return;
+  }
+  const hasSketch = store.features.length > 0 || Object.values(store.sketches).some((a) => a.length > 0);
+  if (!hasSketch) compassHome = false;
+  else if (!selected) compassHome = true;
+  const now = performance.now();
+  const dt = Math.min(0.1, (now - cornerLast) / 1000);
+  cornerLast = now;
+  const want = compassHome ? 1 : 0;
+  if (cornerT !== want) {
+    const step = dt / S.panes.cornerSeconds;
+    cornerT = want > cornerT ? Math.min(want, cornerT + step) : Math.max(want, cornerT - step);
+    if (cornerT !== want) requestRender(); // keep animating
+  }
 }
+const AXIS_PLANES = ["YZ", "XZ", "XY"]; // looking along an axis = square to the plane across it
+/** Which end of the axis the camera is on while looking straight at that axis's plane: +1, -1, or 0 when not looking along it. */
+function lookSign(ax) {
+  const plane = AXIS_PLANES[ax];
+  if (selected !== plane) return 0;
+  return normalSide(view, plane, V.normalToleranceRad) * Math.sign(planeDef(plane).n[ax]);
+}
+/** X, Y, Z (keys or buttons): look straight along that axis from its + end; again, from its - end; and so on (`in_068`). */
+function lookAlong(ax) {
+  if (extrude || xform) return;
+  const plane = AXIS_PLANES[ax];
+  const want = lookSign(ax) > 0 ? -1 : 1; // the end of the axis to look from
+  const side = want * Math.sign(planeDef(plane).n[ax]); // +1 = the plane's front side
+  if (selected === plane) {
+    goNormal(plane, side);
+  } else {
+    sel = null;
+    applySel();
+    enterSketch(plane, "select", side);
+    goNormal(plane, side); // enterSketch only keeps the camera for drawing tools
+  }
+}
+const compassEl = $("compass");
+const compassSvg = $("compassSvg");
+AXIS_NAMES.forEach((label, ax) => {
+  const b = document.createElement("button");
+  b.dataset.ax = String(ax);
+  b.textContent = label;
+  withTip(b, { label: `Look along ${label}`, help: `Sketch on the ${AXIS_PLANES[ax]} plane, looking straight at it. Click again to look from the other end.` });
+  b.onclick = () => lookAlong(ax);
+  compassEl.querySelector(".cbtns").appendChild(b);
+});
 function updateCompass() {
-  const on = styleMode === "compass";
-  compassEl.style.display = on ? "flex" : "none";
+  const on = styleMode === "compass" && cornerT > 0;
+  compassEl.style.display = on ? "block" : "none";
   if (!on) return;
-  const m = camera.matrixWorld.elements;
-  const right = [m[0], m[1], m[2]];
-  const up = [m[4], m[5], m[6]];
-  const fwd = [-m[8], -m[9], -m[10]];
+  const t = cornerT;
+  const e = easeInOut(t);
+  const W = innerWidth;
+  const H = innerHeight;
+  const corner = [W - 94, H - 63];
+  const o = window.__ui.worldToScreen(0, 0, 0); // where the world origin is: the tripod starts there, as big as the world axes
+  const R0 = S.axisArrow.lengthFactor * (H / 2);
+  const R = R0 + (30 - R0) * e;
+  const cx = o[0] + (corner[0] - o[0]) * e;
+  const cy = o[1] + (corner[1] - o[1]) * e;
+  const mm = camera.matrixWorld.elements;
+  const right = [mm[0], mm[1], mm[2]];
+  const up = [mm[4], mm[5], mm[6]];
+  const fwd = [-mm[8], -mm[9], -mm[10]];
   const T3 = T();
   const cols = [T3.axisX, T3.axisY, T3.axisZ].map((c) => `rgb(${c.map((v) => Math.round(v * 255)).join(",")})`);
-  const R = 30;
   const items = [[1, 0, 0, "X"], [0, 1, 0, "Y"], [0, 0, 1, "Z"]].map(([x, y, z, name], i) => {
     const dot = (a) => x * a[0] + y * a[1] + z * a[2];
-    return { name, sx: 42 + dot(right) * R, sy: 42 - dot(up) * R, depth: dot(fwd), col: cols[i] };
+    return { name, sx: cx + dot(right) * R, sy: cy - dot(up) * R, depth: dot(fwd), col: cols[i] };
   }).sort((a, b) => b.depth - a.depth); // far ones first, near ones on top
   compassSvg.replaceChildren();
   const ns = "http://www.w3.org/2000/svg";
+  const fade = Math.min(1, t * 3); // the world axes fade out as this one fades in
   for (const it of items) {
-    const near = it.depth < 0;
     const g = document.createElementNS(ns, "g");
-    g.setAttribute("opacity", near ? "1" : "0.5");
+    g.setAttribute("opacity", String(fade * (it.depth < 0 ? 1 : 0.5)));
     const line = document.createElementNS(ns, "line");
-    for (const [k, v] of [["x1", 42], ["y1", 42], ["x2", it.sx], ["y2", it.sy], ["stroke", it.col], ["stroke-width", 2.2], ["stroke-linecap", "round"]]) line.setAttribute(k, v);
+    for (const [k, v] of [["x1", cx], ["y1", cy], ["x2", it.sx], ["y2", it.sy], ["stroke", it.col], ["stroke-width", 2.2], ["stroke-linecap", "round"]]) line.setAttribute(k, v);
     const tx = document.createElementNS(ns, "text");
-    for (const [k, v] of [["x", 42 + (it.sx - 42) * 1.28], ["y", 42 + (it.sy - 42) * 1.28 + 4], ["text-anchor", "middle"], ["fill", it.col], ["font-size", 12], ["font-weight", 700], ["font-family", "system-ui,sans-serif"]]) tx.setAttribute(k, v);
+    for (const [k, v] of [["x", cx + (it.sx - cx) * 1.12 + Math.sign(it.sx - cx) * 6], ["y", cy + (it.sy - cy) * 1.12 + 4], ["text-anchor", "middle"], ["fill", it.col], ["font-size", 12], ["font-weight", 700], ["font-family", "system-ui,sans-serif"]]) tx.setAttribute(k, v);
     tx.textContent = it.name;
     g.append(line, tx);
     compassSvg.appendChild(g);
   }
-  for (const b of compassEl.querySelectorAll("button")) b.classList.toggle("on", !!selected && baseOf(selected) === b.dataset.plane);
+  const btns = compassEl.querySelector(".cbtns");
+  btns.style.opacity = String(t * t);
+  btns.style.pointerEvents = t > 0.6 ? "auto" : "none";
+  for (const b of btns.children) {
+    const ax = Number(b.dataset.ax);
+    const s = lookSign(ax);
+    b.textContent = (s < 0 ? "\u2212" : "") + AXIS_NAMES[ax];
+    b.classList.toggle("on", selected === AXIS_PLANES[ax]);
+  }
 }
 
 /** TEMPORARY (`in_064`): switch between the visual styles. */
@@ -514,9 +575,10 @@ function animateTo({ a, e, target, dist }, ms) {
   requestAnimationFrame(step);
 }
 
-function goNormal(plane) {
+function goNormal(plane, side = 1) {
   const def = planeDef(plane);
-  animateTo({ a: def.view.a, e: def.view.e, target: new THREE.Vector3(...projectOnto(plane, view.target.toArray())) }, V.transitionMs);
+  const t = side < 0 ? flippedView(def.view) : def.view; // from the back when asked (`in_068`)
+  animateTo({ a: t.a, e: t.e, target: new THREE.Vector3(...projectOnto(plane, view.target.toArray())) }, V.transitionMs);
 }
 /** Return to the origin: the camera target glides back to (0, 0, 0), keeping the viewing direction (so a sketch stays face-on),
  *  and the distance is brought into a sensible range. */
@@ -1152,7 +1214,7 @@ function selectionHint(t) {
   return "double-click selects the whole body";
 }
 function updateStatus() {
-  let text = styleMode === "compass" ? "3D view   X Y Z (bottom right) look along an axis and sketch   right-click for the menu" : "3D view   hover a plane or a face and click it to sketch   right-click for the menu";
+  let text = styleMode === "compass" && compassHome ? "3D view   X Y Z (bottom right, or the keys) look along an axis; again for the other end   right-click for the menu" : "3D view   hover a plane or a face and click it to sketch   right-click for the menu";
   if (flash) text = flash;
   else if (xform) text = xform.sess.prompt();
   else if (extrude) text = `${extrude.ref ? "Move face" : `Extrude on ${extrude.plane}`}   ${extrude.sess.prompt()}`;
@@ -1302,7 +1364,7 @@ function selectFromHover() {
 }
 function pickAt(clientX, clientY) {
   setRay(clientX, clientY);
-  const paneOnly = styleMode === "compass" && !inSketchView() ? () => false : styleMode === "panes" && !inSketchView() ? (name, p) => {
+  const paneOnly = styleMode === "compass" && cornerT > 0 && !inSketchView() ? () => false : (styleMode === "panes" || styleMode === "compass") && !inSketchView() ? (name, p) => {
     // panes style: only the small panes can be pointed at
     const [u, v] = planeDef(name).basis;
     const st = S.styles[S.styleName];
@@ -1325,7 +1387,7 @@ function localPoint(clientX, clientY) {
 
 // ---------------------------------------------------------------- actions (shared by hotkeys and the right-click menu)
 let prePose = null; // the 3D camera pose to return to when leaving the sketch
-function enterSketch(plane, tool = "select") {
+function enterSketch(plane, tool = "select", side = 1) {
   sel = null;
   body.setSelected(null);
   if (!selected) prePose = { a: view.a, e: view.e, dist: view.dist, target: view.target.clone() };
@@ -1336,7 +1398,7 @@ function enterSketch(plane, tool = "select") {
   const drawing = ["line", "rect", "circle"].includes(tool);
   const toCam = camera.position.clone().sub(view.target).normalize();
   const n = planeDef(plane).n;
-  if (!drawing || Math.abs(toCam.x * n[0] + toCam.y * n[1] + toCam.z * n[2]) < V.drawMinFacing) goNormal(plane);
+  if (!drawing || Math.abs(toCam.x * n[0] + toCam.y * n[1] + toCam.z * n[2]) < V.drawMinFacing) goNormal(plane, side);
   setHover({ plane: null, face: null });
   updateStatus();
   markSketch();
@@ -1456,10 +1518,16 @@ function constraintKey(labels) {
 }
 /** Square the camera to the sketch plane, remembering the angle it had so it can go back. */
 let obliquePose = null;
+/** +1 if the camera is on the plane's front side (along its normal), -1 if on the back. */
+function cameraSide(plane) {
+  const n = planeDef(plane).n;
+  const c = camera.position.clone().sub(view.target);
+  return c.x * n[0] + c.y * n[1] + c.z * n[2] >= 0 ? 1 : -1;
+}
 function goSquare() {
   if (!selected) return;
   if (!isFaceOn()) obliquePose = { a: view.a, e: view.e };
-  goNormal(selected);
+  goNormal(selected, cameraSide(selected)); // squares up from the side you are already on
 }
 /** Back to the 3D angle the sketch was seen from (or a standard oblique one). */
 function goOblique() {
@@ -1467,6 +1535,7 @@ function goOblique() {
   animateTo({ a: back.a, e: back.e, target: view.target.clone() }, V.transitionMs);
 }
 const ACTIONS = {
+  lookX: () => lookAlong(0), lookY: () => lookAlong(1), lookZ: () => lookAlong(2),
   faceOn: () => (selected && !extrude && !xform ? (isFaceOn() ? goOblique() : goSquare()) : undefined), // N: back and forth between looking straight at the sketch plane and the 3D angle
   consH: () => constraintKey(["Horizontal"]),
   consV: () => constraintKey(["Vertical"]),
