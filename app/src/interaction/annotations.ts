@@ -128,30 +128,36 @@ function place(get: Lookup, kind: string, parts: readonly Ref[]): Placed | null 
   }
 }
 
+/** The annotation of one relation (where it is shown, its number, its state), or null if its parts are gone. */
+function annotationOf(scene: Scene, rel: Scene["relations"][number], sel: readonly Ref[], focus: string | null, map: ReturnType<typeof buildMap>): Annotation | null {
+  const placed = place(lookup(scene), rel.kind, rel.parts);
+  if (!placed) return null;
+  const action = actionsFor(scene, rel.parts).find((a) => a.id === rel.kind && a.dimensional);
+  const measured = action ? action.measure() : null;
+  const locked = rel.value !== undefined && rel.locked !== false;
+  return {
+    id: rel.id, relationId: rel.id, kind: rel.kind, label: labelOf(rel.kind), at: placed.at,
+    value: rel.value === undefined ? null : locked ? rel.value : measured ?? rel.value,
+    unit: rel.value === undefined ? null : action?.unit ?? (rel.kind === "angle" ? "deg" : "mm"),
+    locked, editable: rel.value !== undefined, readOnly: false,
+    broken: map.items.get(rel.id)?.broken ?? false, open: focus === rel.id,
+    others: rel.parts.filter((p) => !sel.includes(p)), lines: placed.lines,
+  };
+}
+
 /** What each selected part has applied, one annotation per constraint (a constraint between two selected parts is shown once), then the measure of the selection that could be locked. */
 export function annotationsFor(scene: Scene, selection: readonly Ref[], focus: string | null): Annotation[] {
-  const get = lookup(scene);
   const sel = selection.filter((r) => isPart(scene, r)); // planes, faces and the body have no constraints of their own
   const map = buildMap(scene);
-  const out: Annotation[] = [];
-  for (const rel of scene.relations) {
-    if (!rel.parts.some((p) => sel.includes(p))) continue;
-    const placed = place(get, rel.kind, rel.parts);
-    if (!placed) continue;
-    const action = actionsFor(scene, rel.parts).find((a) => a.id === rel.kind && a.dimensional);
-    const measured = action ? action.measure() : null;
-    const locked = rel.value !== undefined && rel.locked !== false;
-    out.push({
-      id: rel.id, relationId: rel.id, kind: rel.kind, label: labelOf(rel.kind), at: placed.at,
-      value: rel.value === undefined ? null : locked ? rel.value : measured ?? rel.value,
-      unit: rel.value === undefined ? null : action?.unit ?? (rel.kind === "angle" ? "deg" : "mm"),
-      locked, editable: rel.value !== undefined, readOnly: false,
-      broken: map.items.get(rel.id)?.broken ?? false, open: focus === rel.id,
-      others: rel.parts.filter((p) => !sel.includes(p)), lines: placed.lines,
-    });
-  }
+  const out = scene.relations.filter((rel) => rel.parts.some((p) => sel.includes(p))).map((rel) => annotationOf(scene, rel, sel, focus, map)).filter((a): a is Annotation => !!a);
   const m = measureOf(scene, selection);
   return m ? [...out, m] : out;
+}
+
+/** The annotations of these relations whether or not their parts are selected (to show what a refused change would have broken). */
+export function annotationsOf(scene: Scene, ids: readonly string[]): Annotation[] {
+  const map = buildMap(scene);
+  return scene.relations.filter((r) => ids.includes(r.id)).map((rel) => annotationOf(scene, rel, [], null, map)).filter((a): a is Annotation => !!a);
 }
 
 /** The measure of the selected pair (or part) when the relation table offers a number for it and no relation of that kind already holds it. */

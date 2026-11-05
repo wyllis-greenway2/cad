@@ -16,13 +16,16 @@ export interface Highlight {
   selection: readonly Ref[];
   /** the parts a focused relation ties the selection to */
   amber?: readonly Ref[];
+  /** what a refused change would have broken: mild red, fading */
+  red?: { refs: readonly Ref[]; alpha: number };
   /** the last selected surface spreads its colour from where it was clicked */
   spread: { ref: Ref; point: Vec3; startMs: number } | null;
 }
-type Kind = "select" | "hover" | "amber";
+type Kind = "select" | "hover" | "amber" | "red";
 
 const AXIS_LEN = 30; // the world axes are lines too: pointing at one highlights it to that length
 const AMBER = 0xf2c14e;
+const RED = 0xe46a6a;
 const teal = settings.orb.color;
 const ringRgb = selectedLook(teal, settings.orb.selectOpacity, [0.8, 0.8, 0.82]);
 const tealHex = rgb(teal).getHex();
@@ -80,18 +83,21 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
   const mark = (ref: Ref, kind: Kind) => {
     const p = get(ref);
     if (!p) return;
-    const tris = kind === "amber" ? null : fillTriangles(s, ref, kind, body);
+    const tris = kind === "amber" || kind === "red" ? null : fillTriangles(s, ref, kind, body);
     if (!tris && p.origin === "world" && p.kind === "plane") return; // nothing to draw for a picked world plane
     if (tris) return void overlay.add(surfaceOrb(kind, ref, tris, h, unit, nowMs));
     const o = outlineOf(get, p);
     const w = kind === "select" ? settings.pick.edgeWidthPx : settings.pick.edgeHoverWidthPx;
-    const col = kind === "amber" ? AMBER : tealHex;
-    if (o.shape === "point") overlay.add(sphereAt(o.at, unit * settings.pick.vertexScale * (kind === "select" ? settings.pick.vertexSelectScale : 1), col));
-    else if (o.shape === "segment") overlay.add(pen.line([...o.a, ...o.b], col, w, false));
-    else if (o.shape === "circle") overlay.add(pen.line(ringOf(o.center, o.radius, o.normal), col, w, false));
+    const col = kind === "amber" ? AMBER : kind === "red" ? RED : tealHex;
+    const alpha = kind === "red" ? h.red?.alpha ?? 1 : 1;
+    const fade = <T extends THREE.Object3D>(m: T): T => { if (alpha < 1) m.traverse((c) => { const mat = (c as THREE.Mesh).material as THREE.Material | undefined; if (mat) { mat.transparent = true; mat.opacity = alpha; } }); return m; };
+    if (o.shape === "point") overlay.add(fade(sphereAt(o.at, unit * settings.pick.vertexScale * (kind === "select" ? settings.pick.vertexSelectScale : 1), col)));
+    else if (o.shape === "segment") overlay.add(fade(pen.line([...o.a, ...o.b], col, kind === "red" ? 3.4 : w, false)));
+    else if (o.shape === "circle") overlay.add(fade(pen.line(ringOf(o.center, o.radius, o.normal), col, kind === "red" ? 3.4 : w, false)));
     else if (p.kind === "axis") overlay.add(pen.line([...p.at, ...[0, 1, 2].map((i) => p.at[i]! + p.dir[i]! * AXIS_LEN)], col, w, false));
   };
   for (const r of h.amber ?? []) mark(r, "amber");
+  for (const r of h.red?.refs ?? []) mark(r, "red");
   for (const r of h.selection) mark(r, "select");
   if (h.hover && !h.selection.includes(h.hover)) mark(h.hover, "hover");
 }

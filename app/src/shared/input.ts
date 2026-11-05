@@ -18,7 +18,6 @@ export type Intent =
   | { type: "hoverEnd" }
   | { type: "click"; x: number; y: number; count: number; shift: boolean }
   | { type: "menu"; x: number; y: number; /** from the menu button: act on the selection, ignore what is under the point */ button?: boolean }
-  | { type: "compass" }
   /** a drag that orbits (or drags a handle): the movement since the last event and where the pointer is now; the drag began at (x - total dx, y - total dy) */
   | { type: "orbit"; dx: number; dy: number; x: number; y: number }
   /** the pointer went up after a drag */

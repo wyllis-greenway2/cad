@@ -171,3 +171,40 @@ test("several selected parts each show their own: one line shows its constraints
   assert.equal(both.length, 2);
   assert.notDeepEqual(one[0]!.at, two[0]!.at, "each is on its own line");
 });
+
+import { frameOf } from "../src/interaction/frame.ts";
+import { advance } from "../src/interaction/controller.ts";
+
+test("a change that would break other constraints is refused: nothing moves, the constraints it would break flash red and fade, the one that tried shakes", () => {
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [30, 20, 0], [1, 0, 0], [0, 1, 0]); // four sides held horizontal and vertical
+  s = run(s, r.command);
+  let st = select(createState(s), [r.lines[0]!, r.lines[1]!]);
+  st = reduce(st, { type: "runAction", id: "angle" }, env);
+  const angle = scene(st.session).relations.find((x) => x.kind === "angle")!;
+  assert.equal(Math.round(angle.value!), 90, "a square's corner is 90 and that holds");
+  const before = JSON.stringify(Object.values(scene(st.session).parts).filter((p) => p.kind === "corner").map((p) => (p as { at: Vec3 }).at));
+  // try to make it 60: the sides are held horizontal and vertical, so it cannot be
+  const refused = reduce({ ...st, session: { ...st.session } }, { type: "relation", act: "set", id: angle.id, value: 60 }, { ...env, now: 1000 });
+  assert.equal(scene(refused.session).relations.find((x) => x.id === angle.id)!.value, angle.value, "the number is not changed");
+  assert.equal(JSON.stringify(Object.values(scene(refused.session).parts).filter((p) => p.kind === "corner").map((p) => (p as { at: Vec3 }).at)), before, "and nothing moved");
+  assert.match(refused.session.message ?? "", /cannot be done without breaking/);
+  const c = refused.session.conflict!;
+  assert.deepEqual(c.culprits, [angle.id]);
+  assert.ok(c.victims.length >= 2, "the horizontal and vertical sides it would have broken");
+  assert.ok(c.victims.every((id) => scene(refused.session).relations.some((x) => x.id === id && ["horizontal", "vertical"].includes(x.kind))));
+  assert.deepEqual(refused.flash && { at: refused.flash.at }, { at: 1000 });
+  // while it flashes the frame carries it: red parts fading, the broken constraints shown even though their lines are not selected, the one that tried shaking
+  const early = frameOf(refused, { w: 800, h: 600 }, 1100);
+  assert.ok(early.flash && early.flash.t > 0 && early.flash.t < 0.2);
+  assert.ok(early.highlight.red.refs.length > 0 && early.highlight.red.alpha > 0.8);
+  assert.ok(c.victims.every((id) => early.annotations.some((a) => a.id === id)), "the broken constraints are shown");
+  const late = frameOf(refused, { w: 800, h: 600 }, 1000 + 1000);
+  assert.ok(late.flash!.t > 0.85 && late.highlight.red.alpha < 0.15, "fading out");
+  assert.equal(frameOf(refused, { w: 800, h: 600 }, 5000).flash, null, "and gone");
+  assert.equal(advance(refused, 5000).flash, null);
+  // a change that can be done is not refused
+  const fine = reduce(st, { type: "relation", act: "set", id: angle.id, value: 90 }, env);
+  assert.equal(fine.session.conflict, null);
+  assert.equal(fine.flash, null);
+});

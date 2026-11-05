@@ -63,15 +63,6 @@ test("the starter panes can be picked until there is a body; after that only the
   assert.ok(!candidatesAt(scene(st.session), pv2).some((c) => c.ref.startsWith("w/") && c.ref.length === 4));
 });
 
-test("a click on the compass sends the axes back to the origin and again to return", () => {
-  let st = withBody();
-  assert.equal(st.axesBig, false);
-  st = reduce(st, { type: "compass" }, env);
-  assert.equal(st.axesBig, true);
-  st = reduce(st, { type: "compass" }, env);
-  assert.equal(st.axesBig, false);
-});
-
 test("with a plane selected by the compass buttons, a tool draws on it without clicking a surface", () => {
   let st = withBody();
   st = reduce(st, { type: "look", plane: "Z" }, env);
@@ -165,17 +156,12 @@ test("what an extrude has used up is neither drawn nor picked; undo and deleting
 import { frameOf } from "../src/interaction/frame.ts";
 import { appRows, nextScrollMode, isScrollMode } from "../src/interaction/appmenu.ts";
 
-test("the frame says what to draw: starter panes and big axes before a body, compass and no panes after; badges give way to a tool", () => {
+test("the frame says what to draw: the cursor, the body, the selection; the small axes are always there and nothing flies into a corner", () => {
   const empty = frameOf(createState(createSession(kernel)), { w: 800, h: 600 });
-  assert.deepEqual(empty.world, { big: true, panes: true, lit: [], corner: false });
   assert.equal(empty.mesh, null);
   assert.equal(empty.cursor, "");
   let st = withBody();
-  const f = frameOf(st, { w: 800, h: 600 });
-  assert.deepEqual([f.world.big, f.world.panes, f.world.corner], [false, false, true]);
-  assert.ok(f.mesh);
-  st = reduce(st, { type: "compass" }, env);
-  assert.equal(frameOf(st, { w: 800, h: 600 }).world.big, true, "the compass click brings the big axes back");
+  assert.ok(frameOf(st, { w: 800, h: 600 }).mesh);
   st = reduce(st, { type: "begin", name: "rect" }, env);
   assert.equal(frameOf(st, { w: 800, h: 600 }).cursor, "crosshair");
   const sel = select(withBody(), [XY]);

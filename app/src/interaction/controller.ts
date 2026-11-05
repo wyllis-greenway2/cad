@@ -14,7 +14,14 @@ export type { AppState } from "./control/state.ts";
 export { advance, gridPlaneOf } from "./control/viewing.ts";
 export { pivotOf, planeOf, objectOf } from "./objects.ts";
 
+/** Apply one intent. A command that was refused for breaking constraints starts the flash. */
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
+  const next = apply(s, i, env);
+  const c = next.session.conflict;
+  return c && c !== s.session.conflict ? { ...next, flash: { ...c, at: env.now } } : next;
+}
+
+function apply(s: AppState, i: Intent, env: Env): AppState {
   switch (i.type) {
     case "hover": return doHover(s, i, env);
     case "hoverEnd": return { ...s, session: hoverOn(s.session, undefined), hoverPoint: null };
@@ -34,7 +41,6 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
     case "begin": return doBegin(s, i.name);
     case "typed": return doTyped(s, i.key);
     case "relation": return doRelation(s, i);
-    case "compass": return { ...s, axesBig: !s.axesBig };
     case "save":
     case "open":
       return s; // files are the platform's business: the composition root handles these

@@ -58,7 +58,7 @@ export function pan(c: Camera, dxPx: number, dyPx: number, viewportHeightPx: num
   const { right, up } = basis(c);
   return { ...c, target: add(c.target, add(scale(right, -dxPx * wpp), scale(up, dyPx * wpp))) };
 }
-export const worldPerPixel = (c: Camera, viewportHeightPx: number): number => (2 * c.distance * Math.tan((settings.view.fovDeg * Math.PI) / 360)) / viewportHeightPx;
+const worldPerPixel = (c: Camera, viewportHeightPx: number): number => (2 * c.distance * Math.tan((settings.view.fovDeg * Math.PI) / 360)) / viewportHeightPx;
 
 /** Zoom by a factor (below 1 = closer). */
 export const zoom = (c: Camera, factor: number): Camera => ({ ...c, distance: clamp(c.distance * factor, settings.view.minDistance, settings.view.maxDistance) });

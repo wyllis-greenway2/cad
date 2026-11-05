@@ -8,7 +8,6 @@ import type { Camera } from "../interaction/camera.ts";
 import { basis, position, projector } from "../interaction/camera.ts";
 import type { Grid } from "../interaction/api.ts";
 import { createWorld } from "./world.ts";
-import type { WorldState } from "./world.ts";
 import { createPen, clearGroup, ringOf, sphereAt } from "./view/pen.ts";
 import { buildContent } from "./view/content.ts";
 import type { BodyMesh } from "./view/content.ts";
@@ -40,7 +39,7 @@ export function createView(host: HTMLElement) {
   const gizmo = new THREE.Group();
   const notes = new THREE.Group();
   scene3.add(content, overlay, preview, gizmo, notes);
-  const world = createWorld(renderer, scene3, host);
+  const world = createWorld(scene3, host);
   const pen = createPen();
   const envMap = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture; // a soft studio, only reflected in the body
   let lastScene: Scene | null = null;
@@ -82,10 +81,10 @@ export function createView(host: HTMLElement) {
     renderer.setSize(w, h);
     pen.setSize(w, h);
   }
-  /** Draw the frame. Returns true while the world is still animating (the axes moving into the compass), so the caller keeps drawing. */
-  function render(cam: Camera, ws: WorldState, grid: Grid | null, nowMs: number): boolean {
+  /** Draw the frame. */
+  function render(cam: Camera, grid: Grid | null) {
     world.setGrid(grid);
-    const animating = world.update(ws, cam, size, nowMs);
+    world.update(cam, size);
     const b = basis(cam);
     const eye = position(cam);
     const active = cam.straight ? ortho : persp;
@@ -107,9 +106,7 @@ export function createView(host: HTMLElement) {
     fill.position.set(...eye);
     pen.setSize(size.w, size.h);
     renderer.render(scene3, active);
-    world.renderCompass(cam, size);
-    return animating;
   }
   resize();
-  return { setScene, setHighlight, setPreview, setGizmo, setNotes, render, cornerRect: world.cornerRect, resize, size: () => size, canvas: renderer.domElement };
+  return { setScene, setHighlight, setPreview, setGizmo, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

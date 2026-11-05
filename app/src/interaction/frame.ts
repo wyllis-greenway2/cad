@@ -14,7 +14,7 @@ import { gridPlaneOf } from "./control/viewing.ts";
 import { gridFor } from "./grid.ts";
 import { settings } from "../shared/settings.ts";
 import type { Grid } from "./grid.ts";
-import { annotationsFor, focusParts } from "./annotations.ts";
+import { annotationsFor, annotationsOf, focusParts } from "./annotations.ts";
 import type { Annotation } from "./annotations.ts";
 import { entryOf, previewFor } from "./entry.ts";
 import type { Entry } from "./entry.ts";
@@ -23,17 +23,20 @@ import { gizmoOf } from "./control/handles.ts";
 import { followed } from "./gizmo.ts";
 import type { Handle } from "./gizmo.ts";
 
+/** A refused change, while it flashes: how far through it is (0 to 1), the constraints it would have broken (red, fading), the ones that tried (they shake), and the parts of the broken ones. */
+export interface FlashFrame { t: number; victims: string[]; culprits: string[]; parts: Ref[] }
+
 export interface GizmoFrame { handles: Handle[]; hover: string | null; active: string | null }
 
 export interface Frame {
   scene: Scene;
   mesh: KernelResult["mesh"];
-  highlight: { hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; spread: AppState["spread"] };
+  highlight: { hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; /** the parts of constraints a refused change would have broken, and how red they still are */ red: { refs: readonly Ref[]; alpha: number }; spread: AppState["spread"] };
   preview: Preview | null;
   entry: Entry | null;
   /** the constraints of the selected parts, each with the spot it is shown at (on the line, at the vertex, between the lines, at the angle) */
   annotations: Annotation[];
-  world: { big: boolean; panes: boolean; lit: Ref[]; corner: boolean };
+  flash: FlashFrame | null;
   grid: Grid | null;
   /** the helper handles of the running operation (arrows, a double arrow, curved arrows), or null */
   gizmo: GizmoFrame | null;
@@ -55,7 +58,7 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
   return value;
 }
 
-export function frameOf(s: AppState, size: { w: number; h: number }): Frame {
+export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): Frame {
   const shown = operationResult(s);
   const sc = shown?.scene ?? sceneOf(s.session);
   const sel = selectionOf(s.session);
@@ -64,20 +67,34 @@ export function frameOf(s: AppState, size: { w: number; h: number }): Frame {
   // the handles follow what they drag, live (a body being moved takes its arrows with it)
   const raw = gizmoOf(s);
   const gizmo = raw ? followed(raw, s.drag && "handle" in s.drag ? s.drag.handle : null, s.op?.value ?? null) : null;
+  const flash = flashOf(s, sc, now);
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
   const gp = gridPlaneOf(s);
   return {
     scene: sc,
     mesh: outcome.kernel?.mesh ?? null,
     highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: gizmo ? sel.filter((r) => s.session.history.scene.parts[r]?.kind !== "body") : sel, // the handles show what is being worked on: the body is not tinted while they are up
-    amber: focusParts(sc, sel, s.focus), spread: s.spread },
+    amber: focusParts(sc, sel, s.focus), red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
     preview: previewFor(sc, s.tool),
     entry: entryOf(sc, s.tool, s.op),
-    annotations: busy ? [] : annotationsFor(sc, sel, s.focus),
-    world: { big: !hasBody || s.axesBig, panes: !hasBody, lit: [...(s.session.hover ? [s.session.hover] : []), ...sel], corner: hasBody },
+    annotations: busy ? [] : withFlashed(annotationsFor(sc, sel, s.focus), sc, flash),
+    flash,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // off by default (`in_117`)
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null } : null,
     cursor: s.tool ? "crosshair" : s.gizmoHover ? "grab" : "",
     message: s.session.message ?? Object.values(outcome.errors)[0] ?? "",
   };
+}
+
+const withFlashed = (list: Annotation[], sc: Scene, flash: FlashFrame | null): Annotation[] => {
+  if (!flash) return list;
+  const have = new Set(list.map((a) => a.id));
+  return [...list, ...annotationsOf(sc, [...flash.victims, ...flash.culprits]).filter((a) => !have.has(a.id))];
+};
+function flashOf(s: AppState, sc: Scene, now: number): FlashFrame | null {
+  if (!s.flash) return null;
+  const t = (now - s.flash.at) / settings.flash.ms;
+  if (t < 0 || t >= 1) return null;
+  const parts = sc.relations.filter((r) => s.flash!.victims.includes(r.id)).flatMap((r) => r.parts);
+  return { t, victims: s.flash.victims, culprits: s.flash.culprits, parts };
 }

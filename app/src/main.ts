@@ -56,7 +56,6 @@ const menu = createMenu(document.body, (id) => {
 
 const controls = createControls(document.body, {
   menu: (x, y) => dispatch({ type: "menu", x, y, button: true }),
-  compass: () => dispatch({ type: "compass" }),
   look: (plane) => dispatch({ type: "look", plane }),
 });
 const env = () => ({ w: view.size().w, h: view.size().h, now: performance.now() });
@@ -106,28 +105,26 @@ async function boot() {
   };
   requestAnimationFrame(frame);
 }
-let moving = false;
 function frame(now: number) {
-  if (state.anim || state.pendingLook) { state = advance(state, now); dirty = true; }
+  if (state.anim || state.pendingLook || state.flash) { state = advance(state, now); dirty = true; }
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
-  if (dirty || spreading) {
+  if (dirty || spreading || state.flash) {
     const size = view.size();
-    const f = frameOf(state, size);
+    const f = frameOf(state, size, now);
     const page = host.getBoundingClientRect();
     view.setScene(f.scene, f.mesh);
     view.setHighlight(f.highlight, state.cam, now);
     view.setPreview(f.preview, state.cam);
     view.setGizmo(f.gizmo, state.cam);
     const project = projector(state.cam, size.w, size.h).project;
-    bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; });
+    bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash);
     view.setNotes(f.annotations.flatMap((a) => a.lines));
     chip.update(f.entry?.fields ?? null, f.entry?.unit ?? "mm", pointer[0], pointer[1]);
     host.style.cursor = f.cursor;
-    moving = view.render(state.cam, f.world, f.grid, now);
-    const cr = view.cornerRect(size);
-    controls.update(f.world.corner, window.innerWidth, window.innerHeight, { cx: cr.cx + page.left, cy: cr.cy + page.top, size: cr.size }, settings.compass.marginPx, settings.compass.buttonPx);
+    view.render(state.cam, f.grid);
+    controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);
     statusEl.textContent = f.message;
-    dirty = moving; // keep drawing while the axes are moving into the compass
+    dirty = !!f.flash; // keep drawing while a refused change flashes
   }
   requestAnimationFrame(frame);
 }

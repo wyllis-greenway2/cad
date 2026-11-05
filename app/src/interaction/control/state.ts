@@ -28,18 +28,18 @@ export interface AppState {
   op: Op | null;
   /** the relation whose badge is open: the other parts it ties show in amber */
   focus: string | null;
-  /** the big axes at the origin are kept on even though there is a body (a click on the compass toggles it) */
-  axesBig: boolean;
   /** a double click turns the view to the plane, but only once the window for a third click has passed: a triple click selects the object and leaves the view alone */
   pendingLook: { plane: Plane; due: number } | null;
   /** a drag in progress: of the camera, or of a helper handle (`gizmo.ts`) */
   drag: { camera: true } | { handle: Drag } | null;
   /** the helper handle under the pointer */
   gizmoHover: string | null;
+  /** a command was refused because it could not be done without breaking constraints: they flash red and fade, and the one that tried shakes (`in_120`) */
+  flash: { culprits: string[]; victims: string[]; at: number } | null;
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, tool: null, op: null, focus: null, axesBig: false, pendingLook: null, drag: null, gizmoHover: null });
+export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, tool: null, op: null, focus: null, pendingLook: null, drag: null, gizmoHover: null, flash: null });
 
 export const pickOpts = () => ({ pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx });
 export const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });

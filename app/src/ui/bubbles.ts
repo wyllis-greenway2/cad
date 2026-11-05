@@ -4,6 +4,7 @@
 import type { Vec3 } from "../interaction/api.ts";
 import type { Annotation } from "../interaction/annotations.ts";
 import { iconKey, iconSvg } from "./icons.ts";
+import { settings } from "../shared/settings.ts";
 
 export interface BubbleHandlers {
   focus(id: string): void;
@@ -18,7 +19,9 @@ const fmt = (v: number) => String(Math.round(v * 100) / 100);
 const GAP = 4;
 const CLUSTER_PX = 34; // bubbles closer than this on the screen are laid side by side
 
-interface Entry { el: HTMLElement; sig: string; editing: boolean; a: Annotation }
+interface Entry { el: HTMLElement; sig: string; editing: boolean; a: Annotation; tinted: boolean }
+/** A refused change while it flashes: how far through it is, what it would have broken (red, fading) and what tried it (it shakes). */
+export interface Flash { t: number; victims: readonly string[]; culprits: readonly string[] }
 
 export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
   const root = document.createElement("div");
@@ -83,7 +86,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
       e.editing = false;
       const v = Number(input.value);
       if (keep && Number.isFinite(v) && v > 0) (a.relationId ? h.set(a.relationId, v) : h.measure(v));
-      else make(a, e);
+      make(a, e); // back to showing the number (a refused change leaves the old one; an accepted one is redrawn with the new)
     };
     input.addEventListener("keydown", (ev) => { ev.stopPropagation(); if (ev.key === "Enter") finish(true); else if (ev.key === "Escape") finish(false); });
     input.addEventListener("blur", () => finish(false));
@@ -92,7 +95,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
 
   return {
     /** `project`: a point of the scene to a point on the page, in pixels. Called every frame the view changes. */
-    update(list: Annotation[], project: (p: Vec3) => [number, number]) {
+    update(list: Annotation[], project: (p: Vec3) => [number, number], flash: Flash | null = null) {
       const seen = new Set<string>();
       const placed: { a: Annotation; e: Entry; x: number; y: number }[] = [];
       for (const a of list) {
@@ -100,7 +103,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
         let e = entries.get(a.id);
         const sig = JSON.stringify([a.kind, a.value, a.unit, a.locked, a.editable, a.readOnly, a.broken, a.open]);
         if (!e) {
-          const entry: Entry = { el: document.createElement("div"), sig: "", editing: false, a };
+          const entry: Entry = { el: document.createElement("div"), sig: "", editing: false, a, tinted: false };
           // listeners on the bubble itself are added once (the contents are rebuilt when it changes, the bubble is not), and read the current annotation
           entry.el.addEventListener("click", () => { if (entry.a.relationId) h.focus(entry.a.relationId); }); // click the bubble: open it; click again: close it
           entry.el.addEventListener("pointerenter", () => { const x = entry.el.querySelector<HTMLElement>("[data-x]"); if (x) x.style.display = "inline-flex"; });
@@ -128,7 +131,13 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
         let left = cx - total / 2;
         group.forEach((j, k) => {
           const q = placed[j]!;
-          q.e.el.style.transform = `translate(${Math.round(left)}px, ${Math.round(cy - 13)}px)`;
+          // a refused change: what it would have broken goes mild red and fades back; what tried it shakes for a moment
+          let dx = 0;
+          const e = q.e;
+          if (flash && flash.victims.includes(q.a.id)) { const k = 1 - flash.t; e.el.style.background = `rgb(255, ${Math.round(255 - 110 * k)}, ${Math.round(255 - 110 * k)})`; e.el.style.borderColor = `rgba(220, 70, 70, ${k})`; e.tinted = true; }
+          else if (e.tinted) { e.el.style.background = "#fff"; e.el.style.borderColor = q.a.open ? "#e0a82e" : "#d6d7db"; e.tinted = false; }
+          if (flash && flash.culprits.includes(q.a.id)) { const phase = (flash.t * settings.flash.ms) / settings.flash.shakeMs; if (phase < 1) dx = Math.sin(phase * Math.PI * 6) * 7 * (1 - phase); }
+          q.e.el.style.transform = `translate(${Math.round(left + dx)}px, ${Math.round(cy - 13)}px)`;
           left += widths[k]! + GAP;
         });
       });
