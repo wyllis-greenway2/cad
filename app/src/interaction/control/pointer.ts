@@ -12,7 +12,7 @@ import { actionsFor } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
 import { snapOnPlane, finish, planeForDrawing } from "../tools.ts";
 import type { OpKind } from "../operations.ts";
-import { startOp, OP_LABEL } from "../operations.ts";
+import { startOp } from "../operations.ts";
 import { projector } from "../camera.ts";
 import { settings } from "../../shared/settings.ts";
 import { planeOf, objectOf } from "../objects.ts";
@@ -22,16 +22,27 @@ import { commitFigure, commitOp } from "./modal.ts";
 import { doGizmoHover, gizmoOf } from "./handles.ts";
 import { hasGizmo, hitHandle } from "../gizmo.ts";
 
-const TOOL_LABEL: Record<ToolKind, string> = { rect: "Rectangle", circle: "Circle", line: "Line" };
-const OPS: OpKind[] = ["extrude", "pushpull", "edge", "move", "rotate", "scale", "dimension"];
-
-/** The menu: what applies to the selection (relations, delete), the operations that can start from it, and the drawing tools. */
+/** The operations a right click offers (`in_133`): the drawing tools, push / pull (an extrude, for a drawn figure), fillet / chamfer, move, rotate, scale and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
+const RING: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind }[] = [
+  { id: "tool:rect", label: "Rectangle", icon: "rect", tool: "rect" },
+  { id: "tool:circle", label: "Circle", icon: "circle", tool: "circle" },
+  { id: "tool:line", label: "Line", icon: "line", tool: "line" },
+  { id: "op:pushpull", label: "Push / pull", icon: "pushpull", op: "pushpull" },
+  { id: "op:edge", label: "Fillet / chamfer", icon: "edge", op: "edge" },
+  { id: "op:move", label: "Move", icon: "move", op: "move" },
+  { id: "op:rotate", label: "Rotate", icon: "rotate", op: "rotate" },
+  { id: "op:scale", label: "Scale", icon: "scale", op: "scale" },
+  { id: "delete", label: "Delete", icon: "trash" },
+];
 function menuFor(session: Session, x: number, y: number): AppState["menu"] {
   const sc = sceneOf(session);
   const sel = selectionOf(session);
-  const items: MenuItem[] = actionsFor(sc, sel).map((a) => ({ id: a.id, label: a.label, enabled: a.enabled, why: a.why, group: "action" as const }));
-  for (const k of OPS) if (startOp(sc, sel, k).ok) items.push({ id: `op:${k}`, label: OP_LABEL[k], enabled: true, why: null, group: "op" });
-  for (const k of ["rect", "circle", "line"] as const) items.push({ id: `tool:${k}`, label: TOOL_LABEL[k], enabled: true, why: null, group: "tool" });
+  const items: MenuItem[] = RING.map((r) => {
+    if (r.tool) return { id: r.id, label: r.label, icon: r.icon, enabled: true, why: null };
+    if (r.op) { const st = startOp(sc, sel, r.op); return { id: r.id, label: r.label, icon: r.icon, enabled: st.ok, why: st.ok ? null : st.why }; }
+    const del = actionsFor(sc, sel).find((a) => a.id === "delete");
+    return { id: r.id, label: r.label, icon: r.icon, enabled: !!del?.enabled, why: del?.why ?? "select something to delete" };
+  });
   return { x, y, items };
 }
 
@@ -67,7 +78,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const pv = projector(base.cam, env.w, env.h).view(i.x, i.y);
   if (!t.points.length) {
     // the plane chosen from the pencil bubble, else the surface under the click takes the drawing, from wherever the camera is; with none under it, the selected plane does
-    const planeRef = t.plane ?? drawingPlane(sc, refs) ?? drawingPlane(sc, selectionOf(sess));
+    const planeRef = drawingPlane(sc, refs) ?? drawingPlane(sc, selectionOf(sess));
     const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
     const at = pl ? snapOnPlane(sc, pv, pl) : null;
     if (!pl || !at) return { ...base, session: { ...sess, message: "click on a surface to draw on" } };
@@ -127,7 +138,7 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   const sc = sceneOf(s.session);
   const cands = i.button ? [] : candidatesAt(sc, projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts()); // the menu button works on the selection, not on what is under it
   let session = s.session;
-  const first = cands[0]?.ref;
+  const first = cands.find((c) => !(sc.parts[c.ref]?.origin === "world" && sc.parts[c.ref]?.kind === "plane"))?.ref; // (a world plane is never selected)
   if (first && !selectionOf(session).includes(first)) session = clickOn(session, [first], false); // a right click on something selects it, as usual
   return { ...withSession(s, session), menu: menuFor(session, i.x, i.y) };
 }

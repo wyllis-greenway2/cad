@@ -120,8 +120,8 @@ test("delete the body: select the object, Delete: the body goes as one step you 
   let st = withBody();
   assert.ok(st.session.outcome.kernel);
   st = select(st, [BODY_OBJECT]);
-  const labels = (reduce(st, { type: "menu", x: 5, y: 5, button: true }, env).menu!.items).filter((i) => i.group === "action").map((i) => i.label);
-  assert.deepEqual(labels, ["Delete"]);
+  const items = reduce(st, { type: "menu", x: 5, y: 5, button: true }, env).menu!.items;
+  assert.ok(items.find((i) => i.id === "delete")!.enabled);
   st = reduce(st, { type: "delete" }, env);
   assert.ok(!Object.values(scene(st.session).parts).some((p) => p.kind === "body"), "no body any more");
   assert.ok(drawnParts(st) > 0, "the rectangle is still there");

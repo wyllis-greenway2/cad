@@ -12,7 +12,7 @@ import type { Camera } from "../camera.ts";
 import type { Drag } from "../gizmo.ts";
 import { homeCamera, lookStraight, lookAlternating, offsetOf } from "../camera.ts";
 
-export interface MenuItem { id: string; label: string; enabled: boolean; why: string | null; group: "action" | "op" | "tool" }
+export interface MenuItem { id: string; label: string; /** the name of its icon */ icon: string; enabled: boolean; why: string | null }
 export interface AppState {
   session: Session;
   cam: Camera;
@@ -24,8 +24,6 @@ export interface AppState {
   menu: { x: number; y: number; items: MenuItem[] } | null;
   /** the list open from the ⋯ menu (`in_132`) */
   panel: "bodies" | "history" | null;
-  /** the plane whose pencil bubble was clicked: the shapes to draw on it are on offer */
-  sketching: Ref | null;
   /** the drawing tool being used (null = normal selection) */
   tool: Tool | null;
   /** the operation being set up (extrude, round, bevel, move, rotate, scale, dimension, edit) */
@@ -43,7 +41,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, panel: null, sketching: null, tool: null, op: null, focus: null, pendingLook: null, drag: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, panel: null, tool: null, op: null, focus: null, pendingLook: null, drag: null, gizmoHover: null, flash: null });
 
 export const pickOpts = () => ({ pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx });
 export const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });

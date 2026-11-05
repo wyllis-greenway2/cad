@@ -28,8 +28,8 @@ export interface Tool {
   typed: [string, string];
   field: 0 | 1;
 }
-/** A tool that waits for its first click; given a plane (chosen from the pencil bubble) the click is taken on that plane. */
-export const armTool = (kind: ToolKind, plane: Ref | null = null): Tool => ({ kind, plane, points: [], cursor: null, typed: ["", ""], field: 0 });
+/** A tool that waits for its first click on a surface. */
+export const armTool = (kind: ToolKind): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0 });
 
 export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"] };
 

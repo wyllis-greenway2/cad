@@ -14,8 +14,6 @@ import type { Lookup } from "../operation/part.ts";
 import { pointOf, segmentOf, circleOf } from "../operation/part.ts";
 import { actionsFor } from "./actions.ts";
 import { ROWS, REFERENCES_ONLY } from "./rows.ts";
-import { planeOf } from "./objects.ts";
-import { surfaceTriangles } from "./surfaces.ts";
 
 export interface Annotation {
   /** the relation id, or "measure" for a number that could be locked */
@@ -39,8 +37,6 @@ export interface Annotation {
   others: Ref[];
   /** polylines drawn with it: the arc of an angle, the segment a distance measures */
   lines: Vec3[][];
-  /** not a constraint: a bubble that enters this mode when clicked (an operation name) */
-  mode?: string;
 }
 
 const labelOf = (kind: string): string => ROWS.find((r) => r.id === kind)?.label ?? kind;
@@ -184,45 +180,4 @@ function measureOf(scene: Scene, selection: readonly Ref[]): Annotation | null {
 export function focusParts(scene: Scene, selection: readonly Ref[], focus: string | null): Ref[] {
   const rel = focus ? scene.relations.find((r) => r.id === focus) : undefined;
   return rel ? rel.parts.filter((p) => !selection.includes(p) && p in scene.parts) : [];
-}
-
-/** The bubbles that offer a mode for what is selected: lines of the body offer fillet / chamfer (the handle appears once you choose it). */
-export function modesFor(scene: Scene, selection: readonly Ref[], sketching: Ref | null = null): Annotation[] {
-  const flatFaces = selection.length > 1 && selection.every((r) => { const p = scene.parts[r]; return p?.kind === "plane" && p.origin === "body" && !p.curved && !p.rounded; });
-  if (flatFaces) {
-    // several flat faces of the body: push / pull moves them all by the same distance
-    const last = scene.parts[selection[selection.length - 1]!]!;
-    return [{ id: "mode:pushpull", relationId: null, kind: "pushpull", label: "Push / pull", at: centreOf(scene, last), value: null, unit: null, locked: false, editable: false, readOnly: false, broken: false, open: false, others: [], lines: [], mode: "pushpull" }];
-  }
-  const only = selection.length === 1 ? scene.parts[selection[0]!] : undefined;
-  if (only && (only.kind === "plane" || only.kind === "face") && only.origin !== "world") { // (a world plane has no bubbles: you start a drawing there with R C L or the menu)
-    // a plane or a face offers the pencil; once it is clicked, the shapes to draw on it
-    const pl = planeOf(lookup(scene), only.ref);
-    if (!pl) return only.kind === "plane" && only.curved ? [{ id: "mode:pushpull", relationId: null, kind: "pushpull", label: "Push / pull", at: centreOf(scene, only), value: null, unit: null, locked: false, editable: false, readOnly: false, broken: false, open: false, others: [], lines: [], mode: "pushpull" }] : [];
-    const at = centreOf(scene, only);
-    const bubble = (mode: string, label: string): Annotation => ({ id: `mode:${mode}`, relationId: null, kind: mode, label, at, value: null, unit: null, locked: false, editable: false, readOnly: false, broken: false, open: false, others: [], lines: [], mode });
-    if (sketching === pl.ref) return [bubble("rect", "Rectangle"), bubble("circle", "Circle"), bubble("line", "Line")];
-    // a flat face of the body, or a drawn closed figure (a sketch plane), can be pushed or pulled
-    const pushable = (only.kind === "plane" && only.origin === "body") || (only.kind === "face" && only.origin === "drawn");
-    return pushable ? [bubble("pushpull", "Push / pull"), bubble("sketch", "Sketch")] : [bubble("sketch", "Sketch")];
-  }
-  const lines = selection.map((r) => scene.parts[r]);
-  if (!lines.length || !lines.every((p) => p?.kind === "line" && p.origin === "body")) return [];
-  const last = lines[lines.length - 1]!;
-  if (last.kind !== "line") return [];
-  const [a, b] = [scene.parts[last.a], scene.parts[last.b]];
-  if (!a || !b || a.kind !== "corner" || b.kind !== "corner") return [];
-  return [{ id: "mode:edge", relationId: null, kind: "edge", label: "Fillet / chamfer", at: mid(a.at, b.at), value: null, unit: null, locked: false, editable: false, readOnly: false, broken: false, open: false, others: [], lines: [], mode: "edge" }];
-}
-
-/** The middle of a plane or face (of its triangles; an infinite plane has the point it passes through). */
-function centreOf(scene: Scene, p: Scene["parts"][string]): Vec3 {
-  const tris = surfaceTriangles(lookup(scene), p);
-  if (tris && tris.length >= 9) {
-    let [x, y, z] = [0, 0, 0];
-    for (let i = 0; i + 2 < tris.length; i += 3) { x += tris[i]!; y += tris[i + 1]!; z += tris[i + 2]!; }
-    const n = tris.length / 3;
-    return [x / n, y / n, z / n];
-  }
-  return p.kind === "plane" ? p.at : [0, 0, 0];
 }

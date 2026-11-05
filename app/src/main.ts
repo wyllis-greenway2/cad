@@ -21,6 +21,7 @@ import { kernel, initKernelWeb, drawRectangle, nextId } from "./interaction/api.
 import type { Ref, Command, Vec3 } from "./interaction/api.ts";
 import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
+import { createRing } from "./ui/ring.ts";
 import { createChip } from "./ui/chip.ts";
 import { createPanel } from "./ui/panel.ts";
 import { createControls } from "./ui/controls.ts";
@@ -40,7 +41,6 @@ const bubbles = createBubbles(document.body, {
   lock: (id) => dispatch({ type: "relation", act: "lock", id }),
   set: (id, value) => dispatch({ type: "relation", act: "set", id, value }),
   measure: (value) => dispatch({ type: "relation", act: "measure", id: null, value }),
-  mode: (name) => dispatch({ type: "begin", name: name as "edge" }),
 });
 const bus = createBus<{ input: RawInput }>();
 const recognizer = createRecognizer();
@@ -51,6 +51,7 @@ const panel = createPanel(document.body, {
   close: () => dispatch({ type: "panel", name: state.panel ?? "bodies" }),
 });
 let state: AppState;
+let engine: Kernel = kernel; // the kernel in use: on its own thread when that could start (`boot`), else the one in this page
 let dirty = true;
 
 const SCROLL_KEY = "cad.scrollMode";
@@ -68,27 +69,39 @@ const menu = createMenu(document.body, (id) => {
   else dispatch({ type: "runAction", id });
 });
 
+const ring = createRing(document.body, (id) => {
+  ring.hide();
+  dispatch({ type: "runAction", id });
+});
+
 const controls = createControls(document.body, {
   menu: (x, y) => dispatch({ type: "menu", x, y, button: true }),
   look: (plane) => dispatch({ type: "look", plane }),
 });
 const env = () => ({ w: view.size().w, h: view.size().h, now: performance.now() });
 const FILE_NAME = "model.cad.json";
-function adopt(session: Session) { state = { ...createState(session), cam: state.cam }; menu.hide(); dirty = true; }
+function adopt(session: Session) { state = { ...createState(session), cam: state.cam }; menu.hide(); ring.hide(); dirty = true; }
 function dispatch(i: Intent) {
   if (i.type === "save") { webFiles.save(FILE_NAME, saveText(state.session)); return; }
   if (i.type === "open") {
     void webFiles.open().then((text) => {
       if (text === null) return;
-      const r = openSession(kernel, text);
+      const r = openSession(engine, text);
       if (r.ok) adopt(r.value);
       else state = { ...state, session: { ...state.session, message: r.error } }, (dirty = true);
     });
     return;
   }
   state = reduce(state, i, env());
-  if (i.type === "menu") menu.show(i.x, i.y, state.menu?.items ?? [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : ""));
-  else if (menu.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) menu.hide(); // pointing around does not close the menu; any other intent does
+  if (i.type === "menu") {
+    // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "")); }
+    else { menu.hide(); ring.show(i.x, i.y, state.menu?.items ?? []); }
+  } else {
+    // pointing around does not close a menu; any other intent does
+    if (menu.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) menu.hide();
+    if (ring.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) ring.hide();
+  }
   dirty = true;
 }
 bus.on("input", (raw) => {
@@ -99,7 +112,6 @@ attachInput(host, bus);
 async function boot() {
   statusEl.textContent = "loading the geometry kernel…";
   // the kernel works on its own thread so a heavy model does not freeze the page; if that cannot start, it runs here instead
-  let engine: Kernel = kernel;
   try {
     const worked = createAsyncKernel(() => { state = { ...state, session: refresh(state.session) }; dirty = true; });
     await worked.init();

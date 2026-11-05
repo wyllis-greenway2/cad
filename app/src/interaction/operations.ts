@@ -53,7 +53,6 @@ export interface Op {
   unit?: string;
 }
 
-export const OP_LABEL: Record<OpKind, string> = { extrude: "Extrude", pushpull: "Push / pull", edge: "Fillet / chamfer", move: "Move", rotate: "Rotate", scale: "Scale", dimension: "Dimension" };
 export const OP_UNIT: Record<OpKind, string> = { extrude: "mm", pushpull: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm" };
 export const OP_FIELD: Record<OpKind, string> = { extrude: "Distance", pushpull: "Distance", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", dimension: "Value" };
 

@@ -6,7 +6,7 @@ export function createControls(host: HTMLElement, h: ControlHandlers) {
   const css = "position:fixed;z-index:7;user-select:none;-webkit-user-select:none;touch-action:manipulation;";
   const menu = document.createElement("div");
   menu.textContent = "⋯";
-  menu.title = "Menu (the same as a right click)";
+  menu.title = "Settings and options";
   menu.style.cssText = css + "top:12px;right:12px;width:40px;height:40px;border-radius:20px;background:#34363b;color:#fff;font:700 22px/38px system-ui,sans-serif;text-align:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)";
   menu.addEventListener("click", (e) => { e.stopPropagation(); const r = menu.getBoundingClientRect(); h.menu(r.left, r.bottom + 6); });
   host.appendChild(menu);

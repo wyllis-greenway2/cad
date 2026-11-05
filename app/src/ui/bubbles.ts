@@ -14,8 +14,6 @@ export interface BubbleHandlers {
   set(id: string, value: number): void;
   /** lock the measure of the selection at a number */
   measure(value: number): void;
-  /** enter a mode (an operation) offered by a bubble */
-  mode(name: string): void;
 }
 const fmt = (v: number) => String(Math.round(v * 100) / 100);
 const GAP = 4;
@@ -36,7 +34,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
     e.a = a;
     el.replaceChildren();
     el.title = `${a.label}${a.value !== null ? ` ${fmt(a.value)} ${a.unit ?? ""}${a.locked ? " (locked)" : a.readOnly ? " (measured: it belongs to the body)" : " (measured: click the number to type one and lock it)"}` : ""}${a.broken ? ": a part it used is gone" : ""}`;
-    el.style.cssText = `position:absolute;left:0;top:0;display:flex;align-items:center;gap:3px;height:26px;box-sizing:border-box;padding:0 7px;border-radius:13px;background:#fff;border:1px solid ${a.broken ? "#d33" : a.open ? "#e0a82e" : "#d6d7db"};box-shadow:0 1px 6px rgba(0,0,0,.12);cursor:${a.relationId || a.mode ? "pointer" : "default"};white-space:nowrap`;
+    el.style.cssText = `position:absolute;left:0;top:0;display:flex;align-items:center;gap:3px;height:26px;box-sizing:border-box;padding:0 7px;border-radius:13px;background:#fff;border:1px solid ${a.broken ? "#d33" : a.open ? "#e0a82e" : "#d6d7db"};box-shadow:0 1px 6px rgba(0,0,0,.12);cursor:${a.relationId ? "pointer" : "default"};white-space:nowrap`;
     const relation = a.relationId;
     if (a.value !== null) {
       const num = document.createElement("span");
@@ -107,7 +105,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
         if (!e) {
           const entry: Entry = { el: document.createElement("div"), sig: "", editing: false, a, tinted: false };
           // listeners on the bubble itself are added once (the contents are rebuilt when it changes, the bubble is not), and read the current annotation
-          entry.el.addEventListener("click", () => { if (entry.a.mode) h.mode(entry.a.mode); else if (entry.a.relationId) h.focus(entry.a.relationId); }); // click the bubble: open it; click again: close it
+          entry.el.addEventListener("click", () => { if (entry.a.relationId) h.focus(entry.a.relationId); }); // click the bubble: open it; click again: close it
           entry.el.addEventListener("pointerenter", () => { const x = entry.el.querySelector<HTMLElement>("[data-x]"); if (x) x.style.display = "inline-flex"; });
           entry.el.addEventListener("pointerleave", () => { const x = entry.el.querySelector<HTMLElement>("[data-x]"); if (x && !entry.a.open) x.style.display = "none"; });
           root.appendChild(entry.el);

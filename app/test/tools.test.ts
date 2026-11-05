@@ -305,21 +305,21 @@ test("after an extrude nothing is selected and nothing is hovered or spreading f
   assert.equal(st.spread, null);
 });
 
-test("the pencil: a selected face offers it (a world plane does not), it offers the shapes, and the shape's first click lands on that face (then the corners are clicked as usual)", () => {
-  let st = top();
-  st = reduce(st, { type: "look", plane: "Z" }, env); // the compass button selects the XY world plane
-  assert.deepEqual(frameOf(st, { w: 800, h: 600 }).annotations.filter((a) => a.mode), [], "no pencil on a world plane");
-  st = drawBox(top(), 20);
+test("the right-click ring offers all the operations around the click; nothing on the left click offers a mode (no pencil, no extrude bubble)", () => {
+  let st = drawBox(top(), 20);
   st = reduce(st, { type: "escape" }, env);
   const topFace = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20)!;
   st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [topFace.ref] } } };
-  const modes = (s: AppState) => frameOf(s, { w: 800, h: 600 }).annotations.filter((a) => a.mode).map((a) => a.mode);
-  assert.deepEqual(modes(st), ["pushpull", "sketch"]);
-  st = reduce(st, { type: "begin", name: "sketch" }, env);
-  assert.deepEqual(modes(st), ["rect", "circle", "line"]);
-  st = reduce(st, { type: "begin", name: "circle" }, env);
-  assert.equal(st.tool!.plane, topFace.ref);
-  assert.equal(st.sketching, null);
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok(!f.annotations.some((a) => ["pushpull", "sketch", "edge", "rect"].includes(a.kind)), "a left click shows constraints and dimensions only");
+  const ring = reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items;
+  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "op:pushpull", "op:edge", "op:move", "op:rotate", "op:scale", "delete"]);
+  assert.deepEqual(ring.filter((i) => !i.enabled).map((i) => i.id), ["op:edge", "delete"], "fillet / chamfer needs lines of the body; a face cannot be deleted");
+  assert.ok(ring.every((i) => i.icon));
+  const drawing = reduce(st, { type: "runAction", id: "tool:circle" }, env);
+  assert.equal(drawing.tool!.kind, "circle");
+  const pushing = reduce(st, { type: "runAction", id: "op:pushpull" }, env);
+  assert.equal(pushing.op!.kind, "pushpull");
 });
 
 test("while drawing, the pointer lines up with a corner that is level or upright with it, and a guide line shows it", () => {

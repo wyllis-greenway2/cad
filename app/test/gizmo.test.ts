@@ -50,6 +50,8 @@ function drag(st: AppState, from: Vec3, to: Vec3, steps = 4): AppState {
   }
   return reduce(st, { type: "dragEnd" }, env);
 }
+/** The operations the right-click ring offers for what is selected (the ones that can start). */
+const ringOps = (st: AppState): string[] => reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.filter((i) => i.enabled).map((i) => i.id);
 const bbox = (st: AppState) => st.session.outcome.kernel!.bbox!;
 
 test("Move offers X Y Z arrows at the body; dragging one moves the body that way as one step, and the move stays open for another drag", () => {
@@ -225,7 +227,7 @@ test("a closed figure shows the arrow to pull it out; the same arrow on a flat f
   const face = Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref;
   st = select(st, [face]);
   assert.equal(frame(st).gizmo, null, "a sketch plane offers the push / pull bubble like any plane, not the arrow");
-  assert.deepEqual(frame(st).annotations.filter((a) => a.mode).map((a) => a.mode), ["pushpull", "sketch"]);
+  assert.ok(ringOps(st).includes("op:pushpull"), "the right-click ring offers push / pull for it");
   st = reduce(st, { type: "begin", name: "pushpull" }, env);
   assert.equal(st.op!.kind, "extrude", "the same operation");
   const h = frame(st).gizmo!.handles;
@@ -242,7 +244,7 @@ test("a closed figure shows the arrow to pull it out; the same arrow on a flat f
   const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 12)!;
   st = select(st, [top.ref]);
   assert.equal(frame(st).gizmo, null, "a face offers the push / pull bubble, not the arrow");
-  assert.ok(frame(st).annotations.some((a) => a.mode === "pushpull"));
+  assert.ok(ringOps(st).includes("op:pushpull"), "push / pull is in the right-click ring, not a bubble on the left click");
   st = reduce(st, { type: "begin", name: "pushpull" }, env); // what a click on the bubble does
   assert.deepEqual(frame(st).gizmo!.handles.map((q) => q.id), ["pull"]);
   const pg = gizmoOf(st)!.handles[0]!;
@@ -264,7 +266,7 @@ test("a line of the body offers a fillet / chamfer bubble, which shows the doubl
   const vertical = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "body" && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] !== (scene(st.session).parts[p.b] as { at: Vec3 }).at[2]);
   st = select(st, vertical.map((p) => p.ref));
   assert.equal(gizmoOf(st), null, "no arrow until you choose the mode");
-  assert.deepEqual(frame(st).annotations.filter((a) => a.mode).map((a) => a.mode), ["edge"]);
+  assert.ok(ringOps(st).includes("op:edge"), "fillet / chamfer is in the right-click ring");
   st = reduce(st, { type: "begin", name: "edge" }, env); // what a click on the bubble does
   const g = gizmoOf(st)!;
   assert.equal(g.handles.length, 4);
@@ -444,8 +446,7 @@ test("a round face can be selected, and push / pull changes its radius (a post g
   assert.ok(round, "the round face is a part");
   near(st.session.outcome.kernel!.volume!, Math.PI * 100 * 20, 1);
   st = select(st, [round.ref]);
-  assert.ok(frame(st).annotations.some((a) => a.mode === "pushpull"), "it offers push / pull");
-  assert.ok(!frame(st).annotations.some((a) => a.mode === "sketch"), "but no pencil: it is not flat");
+  assert.ok(ringOps(st).includes("op:pushpull"), "it offers push / pull");
   st = reduce(st, { type: "begin", name: "pushpull" }, env);
   st = reduce(st, { type: "entry", field: 0, text: "2" }, env);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
@@ -525,7 +526,7 @@ test("several flat faces can be pushed or pulled at once by the same distance", 
   let st = box(); // 40 x 20 x 20
   const faceAt = (n: Vec3, off: number) => Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && Math.abs(dot(normalOf(p), n) - 1) < 1e-6 && Math.abs(dot(p.at, n) - off) < 1e-3)!.ref;
   st = select(st, [faceAt([0, 0, 1], 20), faceAt([1, 0, 0], 40)]);
-  assert.deepEqual(frame(st).annotations.filter((a) => a.mode).map((a) => a.mode), ["pushpull"]);
+  assert.ok(ringOps(st).includes("op:pushpull"));
   st = reduce(st, { type: "begin", name: "pushpull" }, env);
   st = reduce(st, { type: "entry", field: 0, text: "5" }, env);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
@@ -557,7 +558,7 @@ test("other curved faces (a fillet, a cone, a turned post) can be selected too, 
   const round = Object.values(scene(st.session).parts).filter((p) => p.kind === "plane" && p.origin === "body" && (p.rounded || p.curved));
   assert.ok(round.length >= 1, "the fillet's surface is a part");
   st = select(st, [round[0]!.ref]);
-  assert.deepEqual(frame(st).annotations.filter((a) => a.mode).map((a) => a.mode).filter((m) => m === "sketch"), [], "no pencil on a curved face");
+  assert.ok(!ringOps(st).includes("op:pushpull"), "a fillet face cannot be pushed or pulled yet");
   assert.ok(frame(st).highlight.selection.includes(round[0]!.ref));
 });
 

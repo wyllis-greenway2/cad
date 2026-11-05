@@ -17,7 +17,7 @@ import { gridPlaneOf } from "./control/viewing.ts";
 import { gridFor } from "./grid.ts";
 import { settings } from "../shared/settings.ts";
 import type { Grid } from "./grid.ts";
-import { annotationsFor, annotationsOf, focusParts, modesFor } from "./annotations.ts";
+import { annotationsFor, annotationsOf, focusParts } from "./annotations.ts";
 import type { Annotation } from "./annotations.ts";
 import { entryOf, previewFor } from "./entry.ts";
 import type { Entry } from "./entry.ts";
@@ -85,7 +85,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     preview: previewFor(sc, s.tool),
     entry: entryWhere(entryOf(sc, s.tool, s.op), s, gizmo),
     panel: panelOf(s.panel, sceneOf(s.session), sel),
-    annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash), ...modesFor(sc, sel, s.sketching)],
+    annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash)],
     flash,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // off by default (`in_117`)
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null } : null,
