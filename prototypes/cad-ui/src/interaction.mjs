@@ -195,6 +195,15 @@ export class SketchSession {
   #allOffers() {
     const parts = this.picks.filter((k) => k.kind !== "entity");
     const list = offersFor(parts);
+    if (parts.length === 2) {
+      // the first thing picked is the mover and the second is the reference (`in_090`): the second is held where it is, the first does the moving
+      const held = (model) => {
+        const k = parts[1];
+        const ids = k.kind === "point" ? [k.ref] : k.kind === "seg" ? model.segments[k.ref] ?? [] : [`${k.shape}.c`];
+        return ids.filter((id) => model.points[id]).map((id) => ({ p: id, at: model.points[id].slice(), w: 0.5 }));
+      };
+      for (const o of list) o.soft = held;
+    }
     if (this.ext?.kind === "vertex" && parts.length === 1 && parts[0].kind === "point" && this.plane) {
       const world = this.ext.world.slice();
       const p = parts[0].ref;
@@ -314,9 +323,9 @@ export class SketchSession {
       replace = (c) => c.type === "angle" && c.a === spec.a && ((c.b === spec.b && c.d === spec.d) || (c.b === spec.d && c.d === spec.b));
       watch = [[chip.segs[0], chip.segs[1]]];
       const pts = modelOf(ents).points;
-      const len = Math.hypot(pts[spec.d][0] - pts[spec.c][0], pts[spec.d][1] - pts[spec.c][1]);
-      // the first line stays and the second turns about the shared corner, keeping its length
-      soft = [{ p: spec.a, at: pts[spec.a].slice(), w: 0.5 }, { p: spec.b, at: pts[spec.b].slice(), w: 0.5 }, { dist: [spec.c, spec.d], d: len, w: 0.5 }];
+      // the second line is the reference and stays; the first turns about the shared corner, keeping its length (the first picked is the mover, `in_090`)
+      const len1 = Math.hypot(pts[spec.b][0] - pts[spec.a][0], pts[spec.b][1] - pts[spec.a][1]);
+      soft = [{ p: spec.c, at: pts[spec.c].slice(), w: 0.5 }, { p: spec.d, at: pts[spec.d].slice(), w: 0.5 }, { dist: [spec.a, spec.b], d: len1, w: 0.5 }];
     }
     const t = tryConstraint(ents, cons, spec, { newId: this.store.newConstraintId(), soft, replace, watch });
     if (!t.ok) return `That cannot be set: ${this.#reason(t)}. Nothing changed.`;

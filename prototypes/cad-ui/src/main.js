@@ -1488,6 +1488,19 @@ function applySel() {
 }
 /** A single click selects what is on the model (a plane, face, line, corner or sketch shape), never a whole object and never moving the camera; a click on nothing lets go. */
 const edgeKey = (e) => `${e.a.join()}|${e.b.join()}`;
+/** Shift + click on a line, corner or circle of a sketch, in the 3D view: add it to the selection, keeping a body corner or line that is already selected (`in_090`). */
+function shiftSelectSketchPart() {
+  const t = hoveredSkEl;
+  if (!t) return;
+  const keep = sel && (sel.kind === "vertex" || sel.kind === "edge") ? sel : null;
+  armedTool = null;
+  enterSketch(t.plane, "select", 1, true); // (this lets go of `sel`: it is put back)
+  sel = keep;
+  applySel();
+  session.scale = pxPerMm(t.p, t.plane);
+  session.click(t.p, { shift: true });
+  refreshUI();
+}
 /** Shift + click on a line or corner of the body: add it to the selection (or take it out again). Lines can be many (to round or bevel them together); a corner is one. */
 function shiftSelect() {
   if (hoveredEdge) {
@@ -2360,6 +2373,7 @@ function onPointerUp(ev) {
   }
   if (was.kind === "selectclick" && !was.moved) {
     session.click(was.p, { shift: was.shift });
+    if (!was.shift && (sel?.kind === "vertex" || sel?.kind === "edge")) (sel = null), applySel(); // a click on nothing lets go of the body corner or line picked along with them too
     updateStatus();
     markSketch();
     return;
@@ -2367,6 +2381,7 @@ function onPointerUp(ev) {
   if (was.kind === "click" && !was.moved && !selected) {
     setHover(hoverAt(ev.clientX, ev.clientY));
     if (ev.shiftKey && (hoveredEdge || hoveredVertex)) return void shiftSelect(); // Shift + click adds lines to the selection (round or bevel them together)
+    if (ev.shiftKey && hoveredSkEl) return void shiftSelectSketchPart(); // ...and sketch parts, in either order with the body parts
     if (!ev.shiftKey && cycleClick(ev)) return; // several things overlap here: a repeated click goes to the next one
     // one click selects (a face, line, corner, plane or sketch shape: never a whole object); two look straight at the plane clicked; three select the whole object (`in_070`, swapped in `in_083`)
     const now = performance.now();

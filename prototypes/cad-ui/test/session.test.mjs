@@ -292,3 +292,18 @@ test("a direction taken from a body line follows the body", () => {
   store.refreshAnchors(() => null);
   assert.equal(store.constraintsOf("XY").find((c) => c.type === "extDir").ext.lost, true);
 });
+
+test("with two things picked, the first is the mover and the second the reference (`in_090`)", async () => {
+  const { modelOf } = await import("../src/sketchsolve.mjs");
+  const { store, s } = make();
+  store.add("XY", { type: "poly", closed: false, points: [[0, 0], [10, 0]] }); // e_001
+  store.add("XY", { type: "poly", closed: false, points: [[30, 20], [40, 20]] }); // e_002
+  s.click([0, 0]); // the first corner picked: it moves
+  s.click([30, 20], { shift: true }); // the second: it stays
+  assert.deepEqual(s.picks.map((k) => k.ref), ["e_001.p0", "e_002.p0"]);
+  const at = (ref) => modelOf(store.entities("XY")).points[ref];
+  const idx = s.offers().findIndex((o) => o.label === "Coincident");
+  assert.equal(s.applyOffer(idx), null);
+  assert.ok(Math.hypot(at("e_002.p0")[0] - 30, at("e_002.p0")[1] - 20) < 1e-3, "the reference stayed");
+  assert.ok(Math.hypot(at("e_001.p0")[0] - 30, at("e_001.p0")[1] - 20) < 1e-3, "the mover came to it");
+});

@@ -134,17 +134,20 @@ test("two lines that share no corner can be made parallel or perpendicular", () 
   assert.equal(store.constraintsOf("XY").length, 0);
 });
 
-test("setting an angle turns the second line about the shared corner and leaves the first where it is", () => {
+test("setting an angle turns the first picked line about the shared corner and leaves the second (the reference) where it is (`in_090`)", () => {
   const { store, s } = mk();
   store.add("XY", { type: "poly", closed: false, points: [[0, 0], [10, 0], [10, 8]] });
-  s.click([5, 0.2], ONE);
-  s.click([10.2, 4], { shift: true });
+  s.click([5, 0.2], ONE); // the first picked line: the mover
+  s.click([10.2, 4], { shift: true }); // the second: the reference
   typeText(s, "45");
   s.enter();
   const [p0, p1, p2] = store.entities("XY")[0].points;
-  assert.ok(Math.hypot(p0[0], p0[1]) < 0.01 && Math.abs(p1[0] - 10) < 0.01 && Math.abs(p1[1]) < 0.01); // the first line did not move
-  assert.ok(Math.abs(Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) * 180 / Math.PI - 135) < 0.01); // 45 degrees between them (the second now points up and back)
-  assert.ok(Math.abs(Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) - 8) < 0.02); // and it keeps its length: it turned, it did not shrink
+  assert.ok(Math.abs(p1[0] - 10) < 0.01 && Math.abs(p1[1]) < 0.01 && Math.abs(p2[0] - 10) < 0.01 && Math.abs(p2[1] - 8) < 0.01); // the second line did not move
+  const u = [p0[0] - p1[0], p0[1] - p1[1]];
+  const v = [p2[0] - p1[0], p2[1] - p1[1]];
+  const ang = (Math.acos((u[0] * v[0] + u[1] * v[1]) / (Math.hypot(...u) * Math.hypot(...v))) * 180) / Math.PI;
+  assert.ok(Math.abs(ang - 45) < 0.02, `45 degrees between them: ${ang}`);
+  assert.ok(Math.abs(Math.hypot(...u) - 10) < 0.02); // and the first keeps its length: it turned, it did not shrink
 });
 
 test("a thing's constraint marks show only while it is selected", () => {
