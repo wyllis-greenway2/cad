@@ -535,3 +535,8 @@ Approves starting with stage 1 of the no-isolation plan; notes that constraint b
 Approves starting stage 2 of the no-isolation plan (mixing sketch and body parts in a selection, and constraints from a sketch to the body).
 
 > yes, start stage 2
+
+## in_087 — 2026-11-05 — directive
+Still cannot freely select lines and faces and relate them; suggests dropping the idea of a sketch altogether: just a pile of vertices, lines and faces that can always be selected and related to one another (e.g. make a line of a small square on a cube face parallel to or rotated against a cube edge); also wants to shift-select many cube edges and chamfer them all together.
+
+> okay so I still can't freely select lines and faces and make relationships to them. Maybe we should just drop the idea of a sketch at all? We just have a pile of vertices, lines, and faces. Any any time can always be selected and related to one another. For example right now if I add a small square on a cube surface, I can shift select two vertices and make them coincident, which is good, but I cannot select two lines. I cannot select a line from the small square and the cube edge and make them parallel, or perhaps make them rotated etc. Also I cannot select multiple lines of the cub surface. Lets say if I want to chamfer them all together, I cannot shift select many and operate on them.

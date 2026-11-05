@@ -975,9 +975,9 @@ function editFeature(id) {
   const f = store.features[at];
   if (f.kind === "transform") return startTransform(f.mode, f.id, f.axis, f.distance);
   if (f.kind === "edge") {
-    const edge = body.findEdge(f.ref);
-    if (!edge) return flashMessage("That line is not there any more (the model changed since this step).");
-    return startEdgeMod(f.mode, edge, f.id, f.distance);
+    const found = [].concat(f.ref).map((r) => body.findEdge(r));
+    if (found.some((e) => !e)) return flashMessage("A line of this step is not there any more (the model changed since this step).");
+    return startEdgeMod(f.mode, found, f.id, f.distance);
   }
   if (f.kind === "cylRadius" || f.kind === "cylDraft") {
     const face = body.findFace(f.ref);
@@ -1053,9 +1053,12 @@ function startFaceTilt(face, featureId = null, axis = null, value = null) {
   refreshUI();
 }
 /** Round (fillet) or bevel (chamfer) one selected line. */
-function startEdgeMod(mode, edge, featureId = null, value = null) {
-  const ref = { a: edge.a, b: edge.b, mid: edge.mid };
-  xform = { kind: "edge", edgeMode: mode, sess: new TransformSession(S, { mode, value, featureId }), center: new THREE.Vector3(...edge.mid), size: 10, ref };
+/** Round or bevel one line, or several selected together (`in_087`): they are one step with one size. */
+function startEdgeMod(mode, edges, featureId = null, value = null) {
+  const list = [].concat(edges);
+  const refs = list.map((e) => ({ a: e.a, b: e.b, mid: e.mid }));
+  const ref = refs.length === 1 ? refs[0] : refs;
+  xform = { kind: "edge", edgeMode: mode, sess: new TransformSession(S, { mode, value, featureId }), center: new THREE.Vector3(...list[0].mid), size: 10, ref };
   refreshUI();
 }
 /** Change the radius of a full round face, or taper it. kind: "cylRadius" | "cylDraft". */
@@ -1167,7 +1170,7 @@ function updatePickViz() {
   };
   if (hoveredEdge) edgeLine(hoveredEdge, S.pick.edgeHoverWidthPx, 0.8);
   if (hoveredVertex) dot(hoveredVertex, 1);
-  if (sel?.kind === "edge") edgeLine(sel.edge, S.pick.edgeWidthPx, 1);
+  if (sel?.kind === "edge") for (const e of sel.edges ?? [sel.edge]) edgeLine(e, S.pick.edgeWidthPx, 1);
   if (sel?.kind === "vertex") dot(sel.v, 1.2);
 }
 
@@ -1187,7 +1190,7 @@ function updateHistory() {
     const what = f.kind === "face" ? "Move face" : cut ? "Cut" : "Extrude";
     const n = Math.round(Math.abs(f.distance) * 1000) / 1000;
     const sz = Math.round(f.distance * 1000) / 1000;
-    b.textContent = f.kind === "edge" ? `${i + 1}  ${f.mode === "chamfer" ? "Chamfer" : "Fillet"} ${sz} mm${err ? "  failed" : ""}`
+    b.textContent = f.kind === "edge" ? `${i + 1}  ${f.mode === "chamfer" ? "Chamfer" : "Fillet"}${Array.isArray(f.ref) ? ` ${f.ref.length} lines` : ""} ${sz} mm${err ? "  failed" : ""}`
       : f.kind === "cylRadius" ? `${i + 1}  Radius ${f.ref.radius} → ${sz} mm${err ? "  failed" : ""}`
       : f.kind === "cylDraft" ? `${i + 1}  Taper ${sz}°${err ? "  failed" : ""}`
       : f.kind === "clear" ? `${i + 1}  Delete body`
@@ -1212,14 +1215,31 @@ function updateHistory() {
   });
 }
 $("histBtn").onclick = () => $("histList").classList.toggle("open");
-/** Where a body corner a sketch is pinned to is now (the nearest corner of the rebuilt body), as a position on that sketch's plane; null if it is gone. */
-function resolveAnchor(key, world) {
-  let best = null;
-  for (const v of body.vertices) {
-    const d = Math.hypot(v[0] - world[0], v[1] - world[1], v[2] - world[2]);
-    if (d <= S.sketch.anchorTolMm && (!best || d < best.d)) best = { d, v };
+/** Find the body part a sketch constraint refers to again after the body was rebuilt (the nearest corner, or the line with the nearest ends); null if it is gone. */
+function resolveAnchor(key, c) {
+  const tol = S.sketch.anchorTolMm;
+  const near = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+  if (c.ext.kind === "vertex") {
+    let best = null;
+    for (const v of body.vertices) {
+      const d = near(v, c.ext.world);
+      if (d <= tol && (!best || d < best.d)) best = { d, v };
+    }
+    return best ? { ext: { kind: "vertex", world: best.v.slice() }, at: planeUV(key, best.v) } : null;
   }
-  return best ? { world: best.v.slice(), at: planeUV(key, best.v) } : null;
+  let best = null;
+  for (const e of body.edges) {
+    const d1 = Math.max(near(e.a, c.ext.a), near(e.b, c.ext.b));
+    const d2 = Math.max(near(e.a, c.ext.b), near(e.b, c.ext.a));
+    const d = Math.min(d1, d2);
+    if (d <= tol && (!best || d < best.d)) best = { d, e, flip: d2 < d1 };
+  }
+  if (!best) return null;
+  const [a, b] = best.flip ? [best.e.b, best.e.a] : [best.e.a, best.e.b];
+  const ua = planeUV(key, a);
+  const ub = planeUV(key, b);
+  const len = Math.hypot(ub[0] - ua[0], ub[1] - ua[1]);
+  return len > 1e-3 ? { ext: { kind: "edge", a: a.slice(), b: b.slice() }, dir: [(ub[0] - ua[0]) / len, (ub[1] - ua[1]) / len] } : null;
 }
 body.onResult(() => {
   if (body.ready() && store.refreshAnchors(resolveAnchor)) markSketch(); // pins to body corners follow the rebuilt body
@@ -1227,7 +1247,11 @@ body.onResult(() => {
     const f = body.findFace(sel.ref); // the model was rebuilt: find the selected face again, or let go of it
     sel = f ? { ...sel, face: { ...f, point: sel.ref.point } } : null;
   }
-  if (sel?.kind === "edge") sel = body.edges.find((e) => e.a.join() === sel.edge.a.join() && e.b.join() === sel.edge.b.join()) ? { kind: "edge", edge: body.edges.find((e) => e.a.join() === sel.edge.a.join() && e.b.join() === sel.edge.b.join()) } : null;
+  if (sel?.kind === "edge") {
+    // the model was rebuilt: find each selected line again, or let it go
+    const again = (sel.edges ?? [sel.edge]).map((o) => body.edges.find((e) => e.a.join() === o.a.join() && e.b.join() === o.b.join())).filter(Boolean);
+    sel = again.length ? { kind: "edge", edge: again[again.length - 1], edges: again } : null;
+  }
   if (sel?.kind === "vertex" && !body.vertices.some((v) => v.join() === sel.v.join())) sel = null;
   if (sel?.kind === "body" && !body.wholeBody()) sel = null;
   applySel();
@@ -1430,14 +1454,28 @@ const hoverAsSel = () =>
 const currentTarget = () => sel ?? hoverAsSel();
 /** The plane to sketch on for a target (a body face becomes a plane the first time it is used). */
 const planeOfTarget = (t) => (t.kind === "face" && t.face.type === "cyl" ? null : t.kind === "face" ? addFacePlane(t.face, Math.round(view.a / (Math.PI / 2)) * (Math.PI / 2)) : t.plane); // a horizontal face is squared up to the nearest quarter turn
-const targetName = (t) => ({ face: "face", sketch: "sketch shape", edge: "line", vertex: "corner", body: "body" }[t.kind] ?? `${t.plane} plane`);
+const targetName = (t) => (t.kind === "edge" && (t.edges?.length ?? 1) > 1 ? `${t.edges.length} lines` : { face: "face", sketch: "sketch shape", edge: "line", vertex: "corner", body: "body" }[t.kind] ?? `${t.plane} plane`);
 function applySel() {
-  session.ext = sel?.kind === "vertex" ? sel.v : null; // a selected corner of the body is available to the sketch's constraints (stage 2 of `dec_no_sketch_isolation`)
+  session.ext = sel?.kind === "vertex" ? { kind: "vertex", world: sel.v } : sel?.kind === "edge" && (sel.edges?.length ?? 1) === 1 ? { kind: "edge", a: sel.edge.a, b: sel.edge.b } : null; // a selected corner or line of the body is available to the sketch's constraints (stage 2 of `dec_no_sketch_isolation`)
   body.setSelected(sel?.kind === "face" ? sel.face : sel?.kind === "body" ? body.wholeBody() : null);
   updateStatus();
   markSketch();
 }
 /** A single click selects what is on the model (a plane, face, line, corner or sketch shape), never a whole object and never moving the camera; a click on nothing lets go. */
+const edgeKey = (e) => `${e.a.join()}|${e.b.join()}`;
+/** Shift + click on a line or corner of the body: add it to the selection (or take it out again). Lines can be many (to round or bevel them together); a corner is one. */
+function shiftSelect() {
+  if (hoveredEdge) {
+    const e = hoveredEdge;
+    const cur = sel?.kind === "edge" ? sel.edges ?? [sel.edge] : [];
+    const i = cur.findIndex((x) => edgeKey(x) === edgeKey(e));
+    const next = i >= 0 ? cur.filter((_, k) => k !== i) : [...cur, e];
+    sel = next.length ? { kind: "edge", edge: next[next.length - 1], edges: next } : null;
+  } else if (hoveredVertex) sel = { kind: "vertex", v: hoveredVertex };
+  else return;
+  armedTool = null;
+  applySel();
+}
 function selectFromHover() {
   const t0 = hoverAsSel();
   if (t0?.kind === "skel") {
@@ -1574,7 +1612,7 @@ function doEscape() {
   if (xform) return cancelTransform();
   if (armedTool) return void ((armedTool = null), (canvas.style.cursor = "default"));
   if (!inSketchView()) return selected ? exitSketch(true) : sel ? ((sel = null), applySel()) : undefined;
-  if (sel?.kind === "vertex") return void ((sel = null), applySel(), refreshUI()); // first let go of a body corner picked along with the sketch parts
+  if (sel?.kind === "vertex" || sel?.kind === "edge") return void ((sel = null), applySel(), refreshUI()); // first let go of a body corner or line picked along with the sketch parts
   if (!session.escape()) exitSketch(true);
   updateStatus();
   updateReadout();
@@ -1617,8 +1655,8 @@ function deleteSelection() {
 function edgeAction(mode) {
   if (xform) return xform.kind === "edge" ? ((xform.sess.setMode(mode), xform.edgeMode = mode), refreshUI()) : undefined;
   if (extrude || selected) return;
-  if (sel?.kind === "edge") return startEdgeMod(mode, sel.edge);
-  flashMessage("Click a line of the body first, then F to round it or B to bevel it.");
+  if (sel?.kind === "edge") return startEdgeMod(mode, sel.edges ?? [sel.edge]);
+  flashMessage("Click a line of the body first (Shift + click adds more), then F to round them or B to bevel them.");
 }
 /** A constraint hotkey: apply the first matching button of the current picks (or say why it cannot be). */
 function constraintKey(labels) {
@@ -2272,10 +2310,10 @@ function onPointerUp(ev) {
     refreshUI();
     return;
   }
-  if (was.kind === "selectclick" && !was.moved && was.shift && was.target?.vertex) {
-    // Shift + a corner of the body, while a sketch is being edited: add it to the selection, so a constraint can tie a sketch corner to it
-    sel = { kind: "vertex", v: was.target.vertex };
-    applySel();
+  if (was.kind === "selectclick" && !was.moved && was.shift && (was.target?.vertex || was.target?.edge)) {
+    // Shift + a corner or line of the body, while a sketch is being edited: add it to the selection, so a constraint can tie a sketch part to it
+    setHover(was.target);
+    shiftSelect();
     refreshUI();
     return;
   }
@@ -2303,6 +2341,7 @@ function onPointerUp(ev) {
   }
   if (was.kind === "click" && !was.moved && !selected) {
     setHover(hoverAt(ev.clientX, ev.clientY));
+    if (ev.shiftKey && (hoveredEdge || hoveredVertex)) return void shiftSelect(); // Shift + click adds lines to the selection (round or bevel them together)
     // one click selects (a face, line, corner, plane or sketch shape: never a whole object); two look straight at the plane clicked; three select the whole object (`in_070`, swapped in `in_083`)
     const now = performance.now();
     clickCount = now - lastClickAt < (ev.touch ? S.input.multiTapMs : S.input.multiClickMs) && Math.hypot(ev.clientX - lastClickXY[0], ev.clientY - lastClickXY[1]) < (ev.touch ? S.input.multiTapPx : S.input.multiClickPx) ? clickCount + 1 : 1;

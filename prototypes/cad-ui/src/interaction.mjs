@@ -195,26 +195,54 @@ export class SketchSession {
   #allOffers() {
     const parts = this.picks.filter((k) => k.kind !== "entity");
     const list = offersFor(parts);
-    if (this.ext && parts.length === 1 && parts[0].kind === "point" && this.plane) {
-      const world = this.ext.slice();
+    if (this.ext?.kind === "vertex" && parts.length === 1 && parts[0].kind === "point" && this.plane) {
+      const world = this.ext.world.slice();
       const p = parts[0].ref;
       list.push({ label: "Coincident with the body corner", make: () => ({ type: "anchor", p, at: planeUV(this.plane, world), ext: { kind: "vertex", world } }) });
     }
+    if (this.ext?.kind === "edge" && parts.length === 1 && parts[0].kind === "seg" && this.plane) {
+      // a line of the sketch and a line of the body: parallel or perpendicular (the body line as it appears on the sketch's plane)
+      const { a, b } = this.ext;
+      const [ua, ub] = [planeUV(this.plane, a), planeUV(this.plane, b)];
+      const len = Math.hypot(ub[0] - ua[0], ub[1] - ua[1]);
+      const dir = len > 1e-9 ? [(ub[0] - ua[0]) / len, (ub[1] - ua[1]) / len] : null;
+      const seg = parts[0].ref;
+      const blocked = dir && len > 1e-3 ? null : "that line points straight out of this sketch's plane";
+      for (const [label, perp] of [["Parallel to the body line", false], ["Perpendicular to the body line", true]]) {
+        // the line turns about its middle: its two ends are held near where they are, so it does not wander off
+        const soft = (model) => {
+          const ids = model.segments[seg] ?? [];
+          if (ids.length < 2) return [];
+          const [pa, pb] = ids.map((id) => model.points[id]);
+          return [...ids.map((id) => ({ p: id, at: model.points[id].slice(), w: 0.3 })), { dist: [ids[0], ids[1]], d: Math.hypot(pb[0] - pa[0], pb[1] - pa[1]), w: 0.6 }]; // and its length stays
+        };
+        list.push({ label, blocked, soft, make: () => ({ type: "extDir", seg, perp, dir: dir ?? [1, 0], ext: { kind: "edge", a: a.slice(), b: b.slice() } }) });
+      }
+    }
     return list;
   }
+  /** Try a constraint with soft preferences (keep things near where they are); if that cannot be solved (a big turn), try again without them. */
+  #tryWithSoft(ents, cons, spec, opts) {
+    const t = tryConstraint(ents, cons, spec, opts);
+    return !t.ok && opts.soft?.length ? tryConstraint(ents, cons, spec, { ...opts, soft: [] }) : t;
+  }
   /** Is this the same anchor (same corner pinned to the same body corner)? */
-  #sameAnchor = (c, spec) => c.type === "anchor" && c.p === spec.p && Math.hypot(c.ext.world[0] - spec.ext.world[0], c.ext.world[1] - spec.ext.world[1], c.ext.world[2] - spec.ext.world[2]) < 1e-6;
+  #sameAnchor = (c, spec) => {
+    if (spec.type === "anchor") return c.type === "anchor" && c.p === spec.p && Math.hypot(c.ext.world[0] - spec.ext.world[0], c.ext.world[1] - spec.ext.world[1], c.ext.world[2] - spec.ext.world[2]) < 1e-6;
+    return c.type === "extDir" && c.seg === spec.seg && !!c.perp === !!spec.perp && [...c.ext.a, ...c.ext.b].every((v, k) => Math.abs(v - [...spec.ext.a, ...spec.ext.b][k]) < 1e-6);
+  };
   offers() {
     if (this.tool !== "select") return [];
     const ents = this.entities();
     const cons = this.store.constraintsOf(this.key);
     const model = modelOf(ents);
     return this.#allOffers().map((o) => {
+      if (o.blocked) return { label: o.label, enabled: false, active: false, reason: o.blocked };
       const spec = o.make(model);
-      const replace = spec.type === "anchor" ? (c) => c.type === "anchor" && c.p === spec.p : null; // pinning a corner to another body corner replaces the earlier pin
-      const on = cons.find((c) => (spec.type === "anchor" ? this.#sameAnchor(c, spec) : sameConstraint(c, spec)));
+      const replace = spec.type === "anchor" ? (c) => c.type === "anchor" && c.p === spec.p : spec.type === "extDir" ? (c) => c.type === "extDir" && c.seg === spec.seg : null; // a new pin or direction for the same corner or line replaces the earlier one
+      const on = cons.find((c) => (spec.type === "anchor" || spec.type === "extDir" ? this.#sameAnchor(c, spec) : sameConstraint(c, spec)));
       if (on) return { label: o.label, enabled: true, active: true, reason: null, id: on.id };
-      const t = tryConstraint(ents, cons, spec, { newId: "c_try", watch: this.#watch(), replace });
+      const t = this.#tryWithSoft(ents, cons, spec, { newId: "c_try", watch: this.#watch(), replace, soft: o.soft ? o.soft(model) : [] });
       return { label: o.label, enabled: t.ok, active: false, reason: t.ok ? null : this.#reason(t), redundant: !!t.redundant };
     });
   }
@@ -222,13 +250,14 @@ export class SketchSession {
   applyOffer(i) {
     const offer = this.#allOffers()[i];
     if (!offer) return "Nothing to apply.";
+    if (offer.blocked) return `That cannot be set: ${offer.blocked}.`;
     const ents = this.entities();
     const cons = this.store.constraintsOf(this.key);
     const spec = offer.make(modelOf(ents));
-    const on = cons.find((c) => (spec.type === "anchor" ? this.#sameAnchor(c, spec) : sameConstraint(c, spec)));
+    const on = cons.find((c) => (spec.type === "anchor" || spec.type === "extDir" ? this.#sameAnchor(c, spec) : sameConstraint(c, spec)));
     if (on) return this.deleteConstraint(on.id) ? null : "Could not remove it."; // asking for what is already set turns it off
-    const replace = spec.type === "anchor" ? (c) => c.type === "anchor" && c.p === spec.p : null;
-    const t = tryConstraint(ents, cons, spec, { newId: this.store.newConstraintId(), watch: this.#watch(), replace });
+    const replace = spec.type === "anchor" ? (c) => c.type === "anchor" && c.p === spec.p : spec.type === "extDir" ? (c) => c.type === "extDir" && c.seg === spec.seg : null;
+    const t = this.#tryWithSoft(ents, cons, spec, { newId: this.store.newConstraintId(), watch: this.#watch(), replace, soft: offer.soft ? offer.soft(modelOf(ents)) : [] });
     if (!t.ok) return `That cannot be set: ${this.#reason(t)}. Nothing changed.`;
     const changed = t.entities.filter((x, i2) => JSON.stringify(x) !== JSON.stringify(ents[i2]));
     this.store.edit(this.key, { entities: changed, constraints: t.constraints });
@@ -351,7 +380,7 @@ export class SketchSession {
     const icons = this.store.constraintsOf(this.key)
       .filter((c) => refsOf(c).some((r) => parts.has(r) || wholeShapes.has(shapeOfRef(r))))
       .filter((c) => wholeShapes.size || !DIM.has(c.type)) // a dimension shows as the lock on the number
-      .map((c) => ({ id: c.id, key: iconKey(c.type), picked: c.id === this.pickedConstraint }));
+      .map((c) => ({ id: c.id, key: iconKey(c.type === "extDir" && c.perp ? "perpendicular" : c.type), picked: c.id === this.pickedConstraint }));
     // where: at the number if there is one, else at the picked corner, else the shape's middle
     let pos = chip?.pos;
     let normal = chip?.normal ?? [0, 1];

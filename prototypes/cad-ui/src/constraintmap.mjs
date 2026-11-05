@@ -9,7 +9,7 @@
 import { refsOf, shapeOfRef, modelOf } from "./sketchsolve.mjs";
 
 /** The name of a part of the body in the map: "body|vertex@x,y,z". Parts of the body use the key "body". */
-export const bodyRef = (ext) => `${ext.kind}@${ext.world.map((v) => Math.round(v * 1000) / 1000).join(",")}`;
+export const bodyRef = (ext) => `${ext.kind}@${(ext.world ?? [...ext.a, ...ext.b]).map((v) => Math.round(v * 1000) / 1000).join(",")}`;
 
 /** Does this part (corner, line, radius, centre or whole shape) exist in these entities? */
 export function partExists(entities, ref) {

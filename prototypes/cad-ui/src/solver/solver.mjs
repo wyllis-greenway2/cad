@@ -8,6 +8,7 @@
 //   equalLength {a, b, c, d} |ab| = |cd|                 parallel {a, b, c, d}    ab || cd      perpendicular {a, b, c, d}  ab _|_ cd
 //   radius {r, value}        scalar r = value            equalRadius {r, s}       r = s
 //   angle {a, b, c, d, value} the angle from ab to cd (signed, radians) equals value
+//   parallelDir / perpDir {a, b, dir}  the line ab is parallel / perpendicular to a fixed direction dir = [dx, dy] (a line of the body, seen on the sketch plane)
 // The solver moves everything the least it can to satisfy the constraints (Levenberg-Marquardt from the current positions).
 // Result: { status: "ok" | "conflict", points, scalars, dof, redundant: [ids], conflicts: [ids], residual, iterations }
 //   dof = how many independent directions are still free (0 = fully constrained; a whole sketch that can slide counts too).
@@ -69,6 +70,14 @@ function residualsOf(c, x, index) {
       const u = dir(c.a, c.b);
       const v = dir(c.c, c.d);
       return [((u[0] * v[0] + u[1] * v[1]) / (u[2] * v[2])) * w];
+    }
+    case "parallelDir": {
+      const u = dir(c.a, c.b); // the line ab is parallel to the fixed direction c.dir = [dx, dy] (unit)
+      return [((u[0] * c.dir[1] - u[1] * c.dir[0]) / u[2]) * w];
+    }
+    case "perpDir": {
+      const u = dir(c.a, c.b);
+      return [((u[0] * c.dir[0] + u[1] * c.dir[1]) / u[2]) * w];
     }
     case "angle": {
       const u = dir(c.a, c.b);
@@ -148,7 +157,8 @@ function lm(cons, x0, index, maxIter = 200) {
     }
     let accepted = false;
     for (let tries = 0; tries < 12 && !accepted; tries++) {
-      const A = H.map((row, i) => row.map((v, j) => (i === j ? v + lambda * (v + 1e-9) : v)));
+      const dmax = Math.max(1e-9, ...H.map((row, i) => row[i])); // the same damping for every variable (not scaled by each one's own sensitivity), so a step that has freedom moves things the least, not the ones the constraint hardly touches
+      const A = H.map((row, i) => row.map((v, j) => (i === j ? v + lambda * dmax : v)));
       const d = linsolve(A, g.map((v) => -v));
       if (d) {
         const xn = x.map((v, i) => v + d[i]);

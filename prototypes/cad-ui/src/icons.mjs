@@ -52,7 +52,7 @@ const TITLES = {
 /** Which icon a stored constraint uses. */
 /** Short text for the key badge on a button ("Shift+H" -> "⇧H"); the full text is in the tooltip. */
 export const keyShort = (label) => label.replace("Ctrl+Shift+", "⇧^").replace("Ctrl+", "^").replace("Shift+", "⇧").replace("Backspace", "⌫").replace("Enter", "↵");
-export const iconKey = (type) => ({ equalLength: "equal", equalRadius: "equal", distance: "dimension", hdist: "dimension", vdist: "dimension", anchor: "coincident" }[type] ?? type);
+export const iconKey = (type) => ({ equalLength: "equal", equalRadius: "equal", distance: "dimension", hdist: "dimension", vdist: "dimension", anchor: "coincident", extDir: "parallel" }[type] ?? type);
 /** Does this icon exist? (A test uses it to make sure every action has one.) */
 export const hasIcon = (key) => key in ICONS;
 export const iconSvg = (key) => ICONS[key] ?? ICONS.dimension;

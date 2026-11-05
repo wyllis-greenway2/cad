@@ -199,7 +199,7 @@ test("a sketch corner picked together with a body corner can be pinned to it, re
   const ref = s.picks[0].ref;
   assert.equal(s.picks[0].kind, "point");
   assert.equal(s.offers().some((o) => o.label === "Coincident with the body corner"), false, "no body corner selected: no such offer");
-  s.ext = [25, 30, 0]; // a corner of the body, on the plane XY here
+  s.ext = { kind: "vertex", world: [25, 30, 0] }; // a corner of the body, on the plane XY here
   const idx = s.offers().findIndex((o) => o.label === "Coincident with the body corner");
   assert.ok(idx >= 0);
   assert.equal(s.offers()[idx].enabled, true);
@@ -208,7 +208,7 @@ test("a sketch corner picked together with a body corner can be pinned to it, re
   assert.ok(Math.hypot(at[0] - 25, at[1] - 30) < 1e-3, `the corner is at the body corner: ${at}`);
   const pin = store.constraintsOf("XY").find((c) => c.type === "anchor");
   assert.deepEqual(pin.ext.world, [25, 30, 0]);
-  s.ext = [40, 12, 0]; // another body corner: the pin moves to it
+  s.ext = { kind: "vertex", world: [40, 12, 0] }; // another body corner: the pin moves to it
   assert.equal(s.applyOffer(idx), null);
   assert.equal(store.constraintsOf("XY").filter((c) => c.type === "anchor").length, 1);
   const at2 = modelOf(store.entities("XY")).points[ref];
@@ -223,15 +223,72 @@ test("a pin to a body corner follows the body, and is lost with it", () => {
   s.click([0, 0], SH);
   s.click([10, 8], SH);
   s.click([10, 8]);
-  s.ext = [25, 30, 0];
+  s.ext = { kind: "vertex", world: [25, 30, 0] };
   s.applyOffer(s.offers().findIndex((o) => o.label === "Coincident with the body corner"));
   const ref = s.picks[0].ref;
   const where = () => store.entities("XY").flatMap((e) => e.points).some((p) => Math.hypot(p[0] - 26, p[1] - 31) < 1e-3);
   // the body changed: the corner is now at (26, 31, 0)
-  store.refreshAnchors((key, world) => (Math.hypot(world[0] - 25, world[1] - 30) < 2 ? { world: [26, 31, 0], at: [26, 31] } : null));
+  store.refreshAnchors((key, c) => (Math.hypot(c.ext.world[0] - 25, c.ext.world[1] - 30) < 2 ? { ext: { kind: "vertex", world: [26, 31, 0] }, at: [26, 31] } : null));
   assert.ok(where(), "the sketch corner moved with the body corner");
   assert.equal(store.constraintsOf("XY").find((c) => c.type === "anchor").ext.world.join(), "26,31,0");
   store.refreshAnchors(() => null); // the corner is gone
   assert.equal(store.constraintsOf("XY").find((c) => c.type === "anchor").ext.lost, true);
   assert.ok(ref);
+});
+
+test("a sketch line and a line of the body can be made parallel or perpendicular (`in_087`)", async () => {
+  const { modelOf } = await import("../src/sketchsolve.mjs");
+  const setup = () => {
+    const { store, s } = make();
+    s.setTool("line");
+    s.click([0, 0], SH);
+    s.click([10, 3], SH);
+    s.click([4, 9], SH);
+    s.click([0, 0]); // closes: a triangle with no horizontal or vertical sides
+    s.click([5, 1.5]); // pick its first side
+    return { store, s };
+  };
+  const dirOf = (store, ref) => {
+    const m = modelOf(store.entities("XY"));
+    const [a, b] = m.segments[ref].map((id) => m.points[id]);
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    return [(b[0] - a[0]) / l, (b[1] - a[1]) / l];
+  };
+  const a = setup();
+  assert.equal(a.s.picks[0].kind, "seg");
+  const ref = a.s.picks[0].ref;
+  a.s.ext = { kind: "edge", a: [0, 0, 5], b: [8, 8, 5] }; // a line of the body running at 45 degrees
+  const labels = a.s.offers().map((o) => o.label);
+  assert.ok(labels.includes("Parallel to the body line") && labels.includes("Perpendicular to the body line"));
+  assert.equal(a.s.applyOffer(labels.indexOf("Parallel to the body line")), null);
+  const d = dirOf(a.store, ref);
+  assert.ok(Math.abs(d[0] * Math.SQRT1_2 - d[1] * Math.SQRT1_2) < 1e-4, "parallel to (1, 1)");
+  assert.equal(a.s.applyOffer(labels.indexOf("Perpendicular to the body line")), null); // replaces the parallel one
+  assert.equal(a.store.constraintsOf("XY").filter((c) => c.type === "extDir").length, 1);
+  const d2 = dirOf(a.store, ref);
+  assert.ok(Math.abs(d2[0] * Math.SQRT1_2 + d2[1] * Math.SQRT1_2) < 1e-4, "perpendicular to (1, 1)");
+  assert.equal(a.s.applyOffer(labels.indexOf("Perpendicular to the body line")), null); // the same again: released
+  assert.equal(a.store.constraintsOf("XY").some((c) => c.type === "extDir"), false);
+  const b = setup();
+  b.s.ext = { kind: "edge", a: [0, 0, 0], b: [0, 0, 5] }; // straight out of the plane
+  const off = b.s.offers().find((o) => o.label === "Parallel to the body line");
+  assert.equal(off.enabled, false);
+  assert.match(off.reason, /straight out/);
+});
+
+test("a direction taken from a body line follows the body", () => {
+  const { store, s } = make();
+  s.setTool("line");
+  s.click([0, 0], SH);
+  s.click([10, 3], SH);
+  s.click([4, 9], SH);
+  s.click([0, 0]);
+  s.click([5, 1.5]);
+  s.ext = { kind: "edge", a: [0, 0, 5], b: [8, 8, 5] };
+  s.applyOffer(s.offers().findIndex((o) => o.label === "Parallel to the body line"));
+  store.refreshAnchors((key, c) => ({ ext: { kind: "edge", a: [0, 0, 5], b: [8, 0, 5] }, dir: [1, 0] })); // the body line turned to run along x
+  const pts = store.entities("XY")[0].points;
+  assert.ok(Math.abs(pts[1][1] - pts[0][1]) < 1e-4, "the sketch line now runs along x too");
+  store.refreshAnchors(() => null);
+  assert.equal(store.constraintsOf("XY").find((c) => c.type === "extDir").ext.lost, true);
 });

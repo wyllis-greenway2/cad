@@ -3,7 +3,7 @@ id: dec_no_sketch_isolation
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_084, in_085, in_086
+human_input: in_084, in_085, in_086, in_087
 date: 2026-11-05
 depends_on:
   - dec_stable_references: a constraint to a corner of the body has to find that corner again when the body changes
@@ -29,3 +29,8 @@ With the select tool, nothing is isolated any more: hovering and clicking work o
 
 ## Stage 2 as built (`in_086`, "yes, start stage 2")
 While a sketch is being edited, **Shift + click a corner of the body** adds it to the selection next to the picked sketch parts (it shows as the selected corner; Esc lets go of it first). With one sketch corner and one body corner selected, the menu offers **Coincident with the body corner**: the sketch corner is pinned to where the body corner lands on the sketch's plane (a constraint of kind `anchor`, which the solver treats as a fixed point; the other constraints of the sketch keep working, so a rectangle stretches to reach it). The pin remembers the body corner's 3D position and is re-found (the nearest body corner within `sketch.anchorTolMm`) whenever the body is rebuilt, so it follows the body (`SketchStore.refreshAnchors`, not an undo step); if the corner is gone the pin is marked lost and stops acting (the ownership map lists it as broken). Asking for the same pin again releases it; pinning to another body corner replaces it. Only loose sketches follow the body: a sketch that has become a step keeps where it was pinned (following would make the step depend on the body it builds). Not yet: pins to lines (edges) of the body, distance and horizontal or vertical constraints to a body corner, a richer display of what a body corner is pinned to (the status line shows a count when the corner is selected outside a sketch), repairing a lost pin.
+
+## Direction: drop the idea of a sketch (`in_087`, the human's words: "Maybe we should just drop the idea of a sketch at all? We just have a pile of vertices, lines, and faces. Any any time can always be selected and related to one another.")
+The end state is a pile of **parts** (corners, lines, circles, faces, whole bodies), each selectable at any time, with **relations** between any two parts (coincident, parallel, perpendicular, distance, angle...) and **operations** that work on a set of selected parts (round or bevel many lines together). A "sketch" stops being something you are inside; it is only the plane a drawn part lives on (needed to place and solve it), and `selected` / the sketch session becomes an implementation detail of the solver. This agrees with stages 1 to 3 above; the remaining work is to widen what can be selected together and related:
+- **Built now (`in_087`):** Shift + click adds body lines to the selection (many; a corner is one) and one step rounds or bevels them all (the kernel takes a list of lines: `edgeMod` with an array `ref`); a sketch line plus a body line can be made **Parallel to** or **Perpendicular to** each other (constraint kind `extDir`, the body line as it appears on the sketch's plane, followed when the body is rebuilt like the pin to a corner); a sketch corner plus a body corner can be pinned (`anchor`, stage 2).
+- **Next:** angle ("rotated") and distance between a sketch part and a body part, faces in the selection (a face and a line, several faces for operations), body part with body part (two body corners), a selection of mixed parts shown as one set with its relations, and then sketch to sketch.

@@ -21,7 +21,7 @@ const CONS_KEY = {
 const ICON = {
   Select: "select", Line: "line", Rectangle: "rect", Circle: "circle", Dimension: "dimTool", Extrude: "extrude",
   Horizontal: "horizontal", Vertical: "vertical", "Equal length": "equal", "Equal radius": "equal", Parallel: "parallel", Perpendicular: "perpendicular", "Fix in place": "fixed",
-  Coincident: "coincident", "Coincident with the body corner": "coincident", "Same height": "sameHeight", "Same position across": "sameAcross",
+  Coincident: "coincident", "Coincident with the body corner": "coincident", "Parallel to the body line": "parallel", "Perpendicular to the body line": "perpendicular", "Same height": "sameHeight", "Same position across": "sameAcross",
   "Move face": "moveFace", "Tilt face": "tilt", "Change radius": "radius", Taper: "taper", Fillet: "fillet", Chamfer: "chamfer",
   Move: "move", Rotate: "rotate", Scale: "scale", Delete: "trash", "Delete step": "trash", "Home view": "home", "Return to origin": "origin", Undo: "undo", Redo: "redo",
   Apply: "check", Cancel: "cross", "Exit sketch": "view3d", "Normal to the plane": "viewNormal",
@@ -31,7 +31,7 @@ const HELP = {
   Rectangle: "Draw a rectangle: four lines with horizontal and vertical constraints you can turn off.", Circle: "Draw a circle from its centre.",
   Dimension: "Click a shape and type exact sizes. Each becomes a locked constraint.", Extrude: "Pull the closed shape into a solid (out adds, in cuts).",
   Horizontal: "Make the line level and keep it level.", Vertical: "Make the line upright and keep it upright.", "Equal length": "Make the two lines the same length.", "Equal radius": "Make the two circles the same size.",
-  Parallel: "Keep the two lines parallel.", Perpendicular: "Keep the two lines at a right angle.", "Fix in place": "Pin this corner where it is.", Coincident: "Put the two corners on the same spot.", "Coincident with the body corner": "Pin the sketch corner to the selected corner of the body (it follows the body if the body changes).",
+  Parallel: "Keep the two lines parallel.", Perpendicular: "Keep the two lines at a right angle.", "Fix in place": "Pin this corner where it is.", Coincident: "Put the two corners on the same spot.", "Coincident with the body corner": "Pin the sketch corner to the selected corner of the body (it follows the body if the body changes).", "Parallel to the body line": "Keep the sketch line parallel to the selected line of the body.", "Perpendicular to the body line": "Keep the sketch line at a right angle to the selected line of the body.",
   "Same height": "Keep the two corners level with each other.", "Same position across": "Keep the two corners one above the other.",
   "Move face": "Push or pull the face along its normal (out adds material, in cuts it).", "Tilt face": "Turn the face about an axis in it.",
   "Change radius": "Change the radius of this round face.", Taper: "Give this round face a taper angle.", Fillet: "Round this edge.", Chamfer: "Bevel this edge.",

@@ -268,13 +268,14 @@ const OPS = {
     return { kind: "empty" };
   },
 
-  /** Round (fillet) or bevel (chamfer) one line of the target. ref = { a, b, mid } finds the line; value is the size in mm. */
+  /** Round (fillet) or bevel (chamfer) one or several lines of the target at once. ref = { a, b, mid } finds a line (or an array of them: all are done together); value is the size in mm. */
   edgeMod(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;
     const v = resolve(op.value, ctx.params);
     if (!(v > 1e-6)) throw new Error("the size must be positive");
-    if (!t.edges.some((e) => edgeMatches(e, op.ref))) throw new Error("line not found (the model changed since this step was made)");
-    const pick = (ef) => ef.when(({ element }) => edgeMatches(element, op.ref));
+    const refs = [].concat(op.ref);
+    if (!refs.length || !refs.every((r) => t.edges.some((e) => edgeMatches(e, r)))) throw new Error("line not found (the model changed since this step was made)");
+    const pick = (ef) => ef.when(({ element }) => refs.some((r) => edgeMatches(element, r)));
     return { kind: "solid", shape: op.mode === "chamfer" ? t.chamfer(v, pick) : t.fillet(v, pick) };
   },
 

@@ -61,6 +61,17 @@ test("fillet and chamfer one line (a straight edge and a round rim)", () => {
   assert.match(missing.errors[0], /line not found/);
 });
 
+test("fillet and chamfer several lines together as one step (`in_087`)", () => {
+  const front = { a: [-20, -10, 20], b: [20, -10, 20], mid: [0, -10, 20] };
+  const back = { a: [-20, 10, 20], b: [20, 10, 20], mid: [0, 10, 20] };
+  const vol = (mode, size, ref) => volume(build([base, { id: "f_2", kind: "edge", ref, mode, distance: size }]));
+  near(vol("chamfer", 2, [front, back]), 16000 - 2 * 0.5 * 4 * 40, 0.05); // two parallel lines, each removes 0.5 d^2 per unit length
+  near(vol("fillet", 2, [front, back]), 16000 - 2 * (1 - Math.PI / 4) * 4 * 40, 0.05);
+  near(vol("chamfer", 2, front), 16000 - 0.5 * 4 * 40, 0.05); // one line as before
+  const missing = build([base, { id: "f_2", kind: "edge", ref: [front, { a: [0, 0, 0], b: [1, 1, 1], mid: [0.5, 0.5, 0.5] }], mode: "chamfer", distance: 1 }]);
+  assert.match(missing.errors[0], /line not found/);
+});
+
 test("radius and taper of a round post and a round hole", () => {
   const post = { id: "f_2", plane: "XY", shape: { type: "circle", cx: 5, cy: 0, r: 3 }, distance: 10, frame: { origin: [0, 0, 20], xDir: [1, 0, 0], normal: [0, 0, 1] } };
   const ref = { axis: 2, center: [5, 0, 0], radius: 3, lo: 20, hi: 30 };

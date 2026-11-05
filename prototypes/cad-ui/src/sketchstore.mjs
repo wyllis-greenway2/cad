@@ -157,8 +157,8 @@ export class SketchStore {
   }
 
   /**
-   * Keep pins to body corners true when the body changes (`dec_no_sketch_isolation`, stage 2). `resolve(key, world)` finds the body corner again (the nearest one) and returns
-   * { world, at: [u, v] } or null if it is gone. A pin whose corner is gone is marked lost and stops acting. Only loose sketches follow the body: a sketch that has become a step
+   * Keep pins to body corners and directions from body lines true when the body changes (`dec_no_sketch_isolation`, stage 2). `resolve(key, constraint)` finds the body part again (the nearest one)
+   * and returns { ext, at } (a corner) or { ext, dir } (a line), or null if it is gone. A constraint whose part is gone is marked lost and stops acting. Only loose sketches follow the body: a sketch that has become a step
    * keeps the place it was pinned to (following would make the step depend on the body it builds). Not an edit: it is derived state, so it is not in the undo history.
    */
   refreshAnchors(resolve) {
@@ -167,11 +167,14 @@ export class SketchStore {
       const list = this.cons[key];
       let touched = false;
       for (const c of list) {
-        if (c.type !== "anchor") continue;
-        const r = resolve(key, c.ext.world);
-        const lost = !r;
-        if (r && (Math.hypot(r.at[0] - c.at[0], r.at[1] - c.at[1]) > 1e-9 || r.world.join() !== c.ext.world.join())) (c.at = r.at), (c.ext = { ...c.ext, world: r.world, lost: false }), (touched = true);
-        else if (lost !== !!c.ext.lost) (c.ext = { ...c.ext, lost }), (touched = true);
+        if (c.type !== "anchor" && c.type !== "extDir") continue;
+        const r = resolve(key, c); // { ext, at } for a pin to a corner, { ext, dir } for a direction from a line; null if the part is gone
+        if (!r) {
+          if (!c.ext.lost) (c.ext = { ...c.ext, lost: true }), (touched = true);
+          continue;
+        }
+        const next = { ...c, ...(r.at ? { at: r.at } : {}), ...(r.dir ? { dir: r.dir } : {}), ext: { ...r.ext, lost: false } };
+        if (JSON.stringify([next.at, next.dir, next.ext]) !== JSON.stringify([c.at, c.dir, c.ext])) (Object.assign(c, next), (touched = true));
       }
       if (touched) {
         const ents = this.entities(key);
