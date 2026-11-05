@@ -33,7 +33,7 @@ test("rectangle: arm, click a surface, click again: one rectangle kept level, se
   st = click(st, [5, 5, 0]); // on the XY pane
   assert.equal(st.tool!.plane, XY);
   st = move(st, [25, 15, 0]);
-  assert.equal(previewFor(scene(st.session), st.tool, null)!.segments.length, 4);
+  assert.equal(previewFor(scene(st.session), st.tool)!.segments.length, 4);
   assert.deepEqual(entryOf(scene(st.session), st.tool, null)!.fields.map((f) => f.value), ["20", "10"]);
   st = click(st, [25, 15, 0]);
   assert.equal(st.tool, null);
@@ -123,7 +123,9 @@ test("a tool is armed again to put it away; Esc cancels a figure half drawn; a c
   assert.equal(st.tool, null);
   st = reduce(st, { type: "begin", name: "rect" }, env);
   st = click(st, [300, 300, 0]);
-  assert.match(st.session.message ?? "", /click on a surface/);
+  assert.equal(st.tool!.plane, XY, "the world planes are infinite: a click anywhere on one takes the drawing");
+  st = reduce(st, { type: "escape" }, env);
+  st = reduce(st, { type: "begin", name: "rect" }, env);
   st = click(st, [5, 5, 0]);
   st = reduce(st, { type: "escape" }, env);
   assert.equal(st.tool, null);
@@ -157,7 +159,7 @@ test("extrude: pick a closed figure, type a distance, Enter: one step, the body 
   assert.equal(st.op!.kind, "extrude");
   assert.equal(entryOf(scene(st.session), null, st.op)!.fields[0]!.label, "Distance");
   st = typeText(st, "15");
-  assert.equal(previewFor(scene(st.session), null, st.op)!.segments.length, 8, "the prism is shown as lines before it is made");
+  assert.equal(previewFor(scene(st.session), null) , null, "an extrude shows its real result, not a sketch of it");
   st = key(st, "Enter");
   assert.equal(st.op, null);
   near(volume(st), 40 * 20 * 15, 0.1);
@@ -266,22 +268,37 @@ function applyCommand(st: AppState, c: Command) {
   return run(st.session, c);
 }
 
-import { prismTriangles } from "../src/interaction/entry.ts";
-test("the extrude preview is a real solid: a box has 12 triangles (4 sides of 2, two caps of 2), a circle's prism has its sides and caps; the pointer ball marks the cursor", () => {
-  const base: Vec3[] = [[0, 0, 0], [4, 0, 0], [4, 3, 0], [0, 3, 0]];
-  const tris = prismTriangles(base, [0, 0, 5], [0, 0, 1]);
-  assert.equal(tris.length / 9, 12);
+import { frameOf } from "../src/interaction/frame.ts";
+test("while the distance is being set the picture is the real result: a body appears (gray, from the kernel) before the extrude is done, and the cut shows the hole", () => {
   let st = top();
   st = drawBox(st, 0);
-  st = typeText(st, "7");
-  const pv = previewFor(scene(st.session), null, st.op)!;
-  assert.equal(pv.solid!.length / 9, 12);
-  assert.equal(pv.cursor, null);
+  assert.equal(st.session.outcome.kernel, null, "nothing is extruded yet");
+  const none = frameOf(st, { w: 800, h: 600 });
+  assert.equal(none.mesh, null, "no number yet: nothing to show");
+  st = typeText(st, "15");
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok(f.mesh && f.mesh.triangles.length >= 36, "the body it would make");
+  assert.ok(Object.values(f.scene.parts).some((p) => p.kind === "body"));
+  assert.equal(st.session.outcome.kernel, null, "and still nothing is done");
+  assert.equal(scene(st.session).steps.length, 0);
+  // the pointer ball marks the cursor while drawing
   let t = top();
   t = reduce(t, { type: "begin", name: "rect" }, env);
   t = click(t, [5, 5, 0]);
   t = move(t, [20, 12, 0]);
-  assert.deepEqual(previewFor(scene(t.session), t.tool, null)!.cursor, [20, 12, 0], "a ball marks where the pointer is on the plane");
+  assert.deepEqual(previewFor(scene(t.session), t.tool)!.cursor, [20, 12, 0], "a ball marks where the pointer is on the plane");
+  // cut: draw on the top of a body and set a negative distance: the preview is the body with the hole
+  let c = top();
+  c = drawBox(c, 20);
+  c = { ...c, cam: homeCamera() };
+  c = reduce(c, { type: "begin", name: "rect" }, env);
+  c = click(c, [30, 10, 20]);
+  c = key(typeText(c, "10"), "Tab");
+  c = key(typeText(c, "10"), "Enter");
+  c = reduce(c, { type: "begin", name: "extrude" }, env);
+  const solid = frameOf(typeText(c, "-5"), { w: 800, h: 600 }).mesh!.triangles.length;
+  const plain = c.session.outcome.kernel!.mesh!.triangles.length;
+  assert.ok(solid > plain, "the hole adds faces");
 });
 
 test("after an extrude nothing is selected and nothing is hovered or spreading from before", () => {

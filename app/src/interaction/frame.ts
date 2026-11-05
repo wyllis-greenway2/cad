@@ -4,7 +4,11 @@ import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
-import { scene as sceneOf, selection as selectionOf } from "./session.ts";
+import { scene as sceneOf, selection as selectionOf, previewCommand } from "./session.ts";
+import type { Session } from "./session.ts";
+import { opCommand } from "./operations.ts";
+import type { Command } from "../operation/commands.ts";
+import type { CompileOutcome } from "../compiler/compile.ts";
 import type { AppState } from "./control/state.ts";
 import { gridPlaneOf } from "./control/viewing.ts";
 import { projector } from "./camera.ts";
@@ -26,17 +30,31 @@ export interface Frame {
   suggestion: Suggestion | null;
   /** where the badges go on the screen (pixels in the view), or null for the corner of the page */
   badgeAt: [number, number] | null;
-  world: { big: boolean; panes: boolean; hover: Ref | undefined; corner: boolean };
+  world: { big: boolean; panes: boolean; lit: Ref[]; corner: boolean };
   grid: Grid | null;
   cursor: "crosshair" | "";
   /** the message to show: a refusal, or the first step that failed to build */
   message: string;
 }
 
+/** While an operation's number is being set, the scene as it would be after it: the real result (a gray body, a cut, a round) and not a sketch of it. Remembered for the same command. */
+let memo: { history: Session["history"]; key: string; value: { scene: Scene; outcome: CompileOutcome } | null } | null = null;
+function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
+  if (!s.op) return null;
+  const cmd: Command | null = opCommand(sceneOf(s.session), s.op);
+  if (!cmd) return null;
+  const key = JSON.stringify(cmd);
+  if (memo && memo.history === s.session.history && memo.key === key) return memo.value;
+  const value = previewCommand(s.session, cmd);
+  memo = { history: s.session.history, key, value };
+  return value;
+}
+
 export function frameOf(s: AppState, size: { w: number; h: number }): Frame {
-  const sc = sceneOf(s.session);
+  const shown = operationResult(s);
+  const sc = shown?.scene ?? sceneOf(s.session);
   const sel = selectionOf(s.session);
-  const outcome = s.session.outcome;
+  const outcome = shown?.outcome ?? s.session.outcome;
   const hasBody = Object.values(sc.parts).some((p) => p.kind === "body");
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the badges
   const anchor = anchorOf(sc, sel);
@@ -45,12 +63,12 @@ export function frameOf(s: AppState, size: { w: number; h: number }): Frame {
     scene: sc,
     mesh: outcome.kernel?.mesh ?? null,
     highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel, amber: focusParts(sc, sel, s.focus), spread: s.spread },
-    preview: previewFor(sc, s.tool, s.op),
+    preview: previewFor(sc, s.tool),
     entry: entryOf(sc, s.tool, s.op),
     badges: busy ? [] : badgesFor(sc, sel, s.focus),
     suggestion: busy ? null : suggestMeasure(sc, sel),
     badgeAt: anchor ? projector(s.cam, size.w, size.h).project(anchor) : null,
-    world: { big: !hasBody || s.axesBig, panes: !hasBody, hover: s.session.hover, corner: hasBody },
+    world: { big: !hasBody || s.axesBig, panes: !hasBody, lit: [...(s.session.hover ? [s.session.hover] : []), ...sel], corner: hasBody },
     grid: gp ? gridFor(s.cam, gp, size.w, size.h) : null,
     cursor: s.tool ? "crosshair" : "",
     message: s.session.message ?? Object.values(outcome.errors)[0] ?? "",

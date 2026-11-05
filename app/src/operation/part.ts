@@ -21,8 +21,8 @@ export interface Line extends Base { kind: "line"; a: Ref; b: Ref; /** a point h
 export interface Circle extends Base { kind: "circle"; center: Ref; radius: number }
 /** A derived face of drawn lines: a closed loop (its lines and, in order, its corners), or a disk (a circle). Rebuilt from the lines; never saved. */
 export interface Face extends Base { kind: "face"; loop: Ref[]; corners: Ref[]; disk?: Ref }
-/** A plane you can look at, select and draw on. `extent`: a world plane is a square pane from `at` to `at + extent` along u and v. `mesh`: a flat face of the body, as triangles (flat xyz). */
-export interface Plane extends Base { kind: "plane"; at: Vec3; u: Vec3; v: Vec3; extent?: number; mesh?: readonly number[] }
+/** A plane you can look at, select and draw on. `infinite`: a world plane, hit anywhere on it (`in_116`). `extent`: a square pane from `at` to `at + extent` along u and v. `mesh`: a flat face of the body, as triangles (flat xyz). */
+export interface Plane extends Base { kind: "plane"; at: Vec3; u: Vec3; v: Vec3; extent?: number; infinite?: boolean; mesh?: readonly number[] }
 export interface Axis extends Base { kind: "axis"; at: Vec3; dir: Vec3 }
 export interface Body extends Base { kind: "body" }
 export type Part = Corner | Line | Circle | Face | Plane | Axis | Body;
@@ -182,6 +182,7 @@ const planeOps: KindOps<Plane> = {
       }
       return best;
     }
+    if (part.infinite) return rayPlane(pv, part.at, normalOfPlane(part)); // anywhere on it
     if (part.extent === undefined) return null;
     const t = rayPlane(pv, part.at, normalOfPlane(part));
     if (t === null) return null;

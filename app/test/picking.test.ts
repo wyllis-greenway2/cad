@@ -58,9 +58,9 @@ test("order: corners, then lines, then faces and planes; nearest first within ea
   const rank = { corner: 0, line: 1, face: 2, plane: 2 } as Record<string, number>;
   assert.deepEqual(onLine.map((c) => rank[c.kind]), [...onLine.map((c) => rank[c.kind])].sort(), "corners, lines, then surfaces");
   assert.equal(onLine[0]!.ref, r.lines[0]);
-  assert.equal(at(15, 10)[0]!.kind, "face", "inside the shape: the face, ahead of the world pane under it");
-  assert.equal(at(15, 10)[1]!.ref, XY);
-  assert.deepEqual(at(500, 500), []);
+  assert.equal(at(15, 10)[0]!.kind, "face", "inside the shape: the face");
+  assert.equal(at(15, 10).length, 1, "the infinite world plane under it is only the background: it is a candidate where nothing else is");
+  assert.deepEqual(at(500, 500).map((c) => c.ref), [XY], "empty space on the plane: the plane, anywhere on it");
 });
 
 test("exactly overlapping corners are all candidates (those hidden behind the body are not), and repeated clicks cycle through them with 'i of n'", () => {

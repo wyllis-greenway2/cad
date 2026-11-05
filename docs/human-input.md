@@ -681,3 +681,8 @@ Asks the AI to do the rest of the cleanup.
 Asks why sketches are still drawn in the old style of lines and vertices (wants one line and vertex engine that treats them all the same), wants the constraints UI back as it was (a length is just a number inline with the constraints at the left, clickable, which then offers an x to delete), wants extruding shown in 3D and not only as wireframe lines, and wants the object deselected after extruding.
 
 > Why are the sketches still in the old style lines and vertices? We should have a singular line and verticy engine that treats them all the same. Also lets have the constraints UI like it was before where the length is just a number inline with the constraints to the lef tthat could be clicked on that then offered an x to delete. also extruding a shape should be in 3d not in just wireframe lines. Also after extruding it should de-select the object.
+
+## in_116 — 2026-11-05 — directive
+Asks to try something new for the XYZ on load: panes transparent and infinite so they can be clicked anywhere, not turning blue when clicked; an extrude should show as a normal gray object and not semi-transparent blue panes; gray objects slightly diffuse glossy gray; and asks why clicking on a line no longer shows its length and constraints.
+
+> Also lets try something new for the zyx thing on load. Lets make the panes transparent and infinite, so you could click on them anywhere. Lets make them not turn blue when clicked on. It should extrude just as a normal gray object, not semi transparent blue panes. The gray objects should be slightly diffuse glossy gray. Why does clicking on a line not show its length and constraints now?

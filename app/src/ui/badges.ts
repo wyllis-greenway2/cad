@@ -8,7 +8,7 @@ export interface BadgeView {
   id: string; kind: string; label: string; dimensional: boolean; value: number | null; measured: number | null; unit: string | null;
   locked: boolean; broken: boolean; focused: boolean;
 }
-export interface SuggestView { label: string; value: number; unit: string }
+export interface SuggestView { label: string; value: number; unit: string; readOnly: boolean }
 export interface BadgeHandlers {
   focus(id: string): void; remove(id: string): void; lock(id: string): void; edit(id: string): void; measure(): void;
 }
@@ -67,7 +67,9 @@ export function createBadges(host: HTMLElement, h: BadgeHandlers) {
         }
         el.appendChild(pill(inner, { title, onClick: b.focused ? undefined : () => h.focus(b.id), focused: b.focused, broken: b.broken }));
       }
-      if (suggest) el.appendChild(pill([number(suggest.value)], { title: `${suggest.label} ${fmt(suggest.value)} ${suggest.unit}: measured now. Click, or press D, to type a number and lock it`, onClick: h.measure, dashed: true }));
+      if (suggest) el.appendChild(pill([number(suggest.value)], suggest.readOnly
+        ? { title: `${suggest.label} ${fmt(suggest.value)} ${suggest.unit}: measured. It belongs to the body, so it cannot be locked`, dashed: true }
+        : { title: `${suggest.label} ${fmt(suggest.value)} ${suggest.unit}: measured now. Click, or press D, to type a number and lock it`, onClick: h.measure, dashed: true }));
       el.style.display = "flex";
       const w = el.offsetWidth;
       const x = at ? at[0] - w - 14 : 12;

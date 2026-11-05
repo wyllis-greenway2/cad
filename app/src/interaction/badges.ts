@@ -8,7 +8,7 @@ import type { Scene } from "../operation/scene.ts";
 import { lookup } from "../operation/scene.ts";
 import { buildMap, touching } from "../operation/ownership.ts";
 import { outlineOf, anchorsOf } from "../operation/part.ts";
-import { actionsFor, ROWS } from "./actions.ts";
+import { actionsFor, ROWS, REFERENCES_ONLY } from "./actions.ts";
 
 export interface Badge {
   id: string;
@@ -78,15 +78,23 @@ export function focusParts(scene: Scene, selection: readonly Ref[], focus: strin
   return rel ? rel.parts.filter((p) => !mine.has(p) && p in scene.parts) : [];
 }
 
-export interface Suggestion { id: string; label: string; value: number; unit: "mm" | "deg" }
+export interface Suggestion {
+  id: string;
+  label: string;
+  value: number;
+  unit: "mm" | "deg";
+  /** it can be measured but not locked: every part is a reference (a line of the body) */
+  readOnly: boolean;
+}
 /** The measure of the selected pair when it has a number the relation table offers (distance, angle) and no relation of that kind already holds it. */
 export function suggestMeasure(scene: Scene, selection: readonly Ref[]): Suggestion | null {
-  const a = actionsFor(scene, selection).find((x) => x.dimensional && x.enabled);
+  // a number that only references have (a line of the body, two body corners) is shown as a measurement too, but cannot be locked
+  const a = actionsFor(scene, selection).find((x) => x.dimensional && (x.enabled || x.why === REFERENCES_ONLY));
   if (!a || !a.unit) return null;
   const v = a.measure();
   if (v === null) return null;
   const already = scene.relations.some((r) => r.kind === a.id && r.value !== undefined && a.parts.length === r.parts.length && a.parts.every((p) => r.parts.includes(p)));
-  return already ? null : { id: a.id, label: a.label, value: v, unit: a.unit };
+  return already ? null : { id: a.id, label: a.label, value: v, unit: a.unit, readOnly: !a.enabled };
 }
 
 /** A point to put the badges next to: the last selected part's own spot, or null. */

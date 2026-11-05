@@ -35,11 +35,11 @@ export function createPanes() {
   }
   return {
     group,
-    /** `e`: how much of the big world is shown (0 to 1); the pane under the pointer is brighter. */
-    apply(visible: boolean, hover: Ref | undefined, e: number) {
+    /** `e`: how much of the big world is shown (0 to 1); a pane under the pointer or selected is a little brighter (never blue). */
+    apply(visible: boolean, lit: readonly Ref[], e: number) {
       group.visible = visible;
       for (const [ref, m] of mats) {
-        const hot = hover === ref;
+        const hot = lit.includes(ref as Ref);
         m.fill.opacity = (hot ? P.hoverOpacity : P.opacity) * e;
         m.edge.opacity = (hot ? P.hoverEdgeAlpha : P.edgeAlpha) * e;
       }

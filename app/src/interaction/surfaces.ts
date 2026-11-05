@@ -34,13 +34,16 @@ export function triangulate(poly: [number, number][]): number[] {
   return out;
 }
 
+/** How far an infinite plane is drawn for highlighting (mm): far past anything you will look at. */
+const INFINITE = 20000;
+
 /** The triangles of a surface part, or null if the part is not a surface. */
 export function surfaceTriangles(get: Lookup, p: Part): number[] | null {
   if (p.kind === "plane") {
     if (p.mesh) return [...p.mesh];
-    const e = p.extent;
+    const e = p.infinite ? INFINITE : p.extent;
     if (e === undefined) return null;
-    const from = p.origin === "world" ? settings.panes.offset : 0; // a world pane floats out from the axes
+    const from = p.infinite ? -INFINITE : p.origin === "world" ? settings.panes.offset : 0; // a world pane floats out from the axes
     const c = (x: number, y: number): Vec3 => add(p.at, add(scale(p.u, from + x * (e - from)), scale(p.v, from + y * (e - from))));
     return [c(0, 0), c(1, 0), c(1, 1), c(0, 0), c(1, 1), c(0, 1)].flat();
   }

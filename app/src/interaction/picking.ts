@@ -47,7 +47,9 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
   }
   const tmin = surfaces.reduce((m, x) => Math.min(m, x.t), Infinity);
   const flush = (t: number) => t <= tmin + 1e-3 + 1e-6 * tmin;
-  const out: Candidate[] = surfaces.filter((x) => flush(x.t)).map((x) => ({ ref: x.p.ref, kind: x.p.kind, rank: 2, score: x.t }));
+  // an infinite world plane is the background: it is what a click lands on only when nothing else is there (so a figure drawn on it is not always "overlapping" it)
+  const out: Candidate[] = surfaces.filter((x) => flush(x.t) && !(x.p.origin === "world" && x.p.kind === "plane" && x.p.infinite)).map((x) => ({ ref: x.p.ref, kind: x.p.kind, rank: 2, score: x.t }));
+  const background = surfaces.filter((x) => flush(x.t) && x.p.origin === "world" && x.p.kind === "plane" && x.p.infinite).map((x) => ({ ref: x.p.ref, kind: x.p.kind, rank: 2, score: x.t }));
   // corners and lines are hidden when a face of the body is in front of them
   const occluders = parts.filter((p) => p.kind === "plane" && p.origin === "body");
   const visible = (point: Vec3): boolean => {
@@ -73,6 +75,7 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
     }
     out.push({ ref: p.ref, kind: p.kind, rank, score: d });
   }
+  if (!out.length) out.push(...background);
   const order = (c: Candidate) => ORIGIN_ORDER[scene.parts[c.ref]!.origin];
   return out.sort((a, b) => a.rank - b.rank || (a.rank === 2 ? order(a) - order(b) || a.score - b.score : a.score - b.score) || (a.ref < b.ref ? -1 : 1));
 }

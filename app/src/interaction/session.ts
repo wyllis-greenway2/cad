@@ -32,7 +32,7 @@ export const selection = (s: Session): Selection => s.click.selection;
 
 /** The compile step and its cache: the outcome of the latest derive of each scene is kept beside the history, so the view shows errors and the kernel result without compiling twice. */
 function makeCompiler(kernel: Kernel) {
-  const cache = new Map<Scene, CompileOutcome>();
+  const cache = new WeakMap<Scene, CompileOutcome>();
   const derive = (sc: Scene): Scene => {
     const o = compile(sc, kernel);
     cache.set(o.scene, o);
@@ -73,3 +73,9 @@ export function clickOn(s: Session, candidates: readonly Ref[], shift = false): 
 }
 export const hoverOn = (s: Session, ref: Ref | undefined): Session => (s.hover === ref ? s : { ...s, hover: ref });
 export const clearSelection = (s: Session): Session => ({ ...s, click: initialClick(), message: null });
+
+/** What the scene would be if this command were done (not done): the compiled scene and its outcome, or null if the command is refused. Used to show an operation's real result while its number is set. */
+export function previewCommand(s: Session, c: Command): { scene: Scene; outcome: CompileOutcome } | null {
+  const r = exec(s.history, c);
+  return r.ok ? { scene: r.value.scene, outcome: s.outcomeOf(r.value) } : null;
+}

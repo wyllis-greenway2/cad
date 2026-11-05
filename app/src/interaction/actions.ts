@@ -14,6 +14,9 @@ import { ordered } from "./selection.ts";
 
 const PARALLEL_SIN = 0.02; // two lines count as parallel for a distance when the sine of the angle between them is below this (about 1 degree)
 
+/** Why a relation is off when every part is a reference (body or world): nothing can move. */
+export const REFERENCES_ONLY = "all of these are references: nothing here can move";
+
 export interface Action {
   id: string;
   label: string;
@@ -204,7 +207,7 @@ export function actionsFor(scene: Scene, selection: readonly Ref[]): Action[] {
   for (const row of ROWS) {
     if (row.pair.length !== sel.length) continue;
     if (!(same(row.pair, kinds) || (row.anyOrder && same(row.pair, [...kinds].reverse())))) continue;
-    const why = !movable ? "all of these are references: nothing here can move" : (row.unavailable?.(ctx, sel) ?? null);
+    const why = !movable ? REFERENCES_ONLY : (row.unavailable?.(ctx, sel) ?? null);
     const dimensional = !!row.measure;
     out.push({
       id: row.id,

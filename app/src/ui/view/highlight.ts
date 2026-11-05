@@ -29,9 +29,10 @@ const tealHex = rgb(teal).getHex();
 export const TEAL = tealHex;
 
 /** The triangles a part is made of for a fill (a surface, or the whole body), or null for a line or a corner. */
-function fillTriangles(s: Scene, ref: Ref, body: { vertices: Float32Array; triangles: Uint32Array } | null): number[] | null {
+function fillTriangles(s: Scene, ref: Ref, kind: Kind, body: { vertices: Float32Array; triangles: Uint32Array } | null): number[] | null {
   const p = s.parts[ref];
   if (!p) return null;
+  if (p.origin === "world" && kind === "select") return null; // a world plane is never filled blue when picked (`in_116`); the hover ring still shows
   if (p.kind === "body" && body) {
     const tris: number[] = [];
     for (const ix of body.triangles) tris.push(body.vertices[ix * 3]!, body.vertices[ix * 3 + 1]!, body.vertices[ix * 3 + 2]!);
@@ -79,7 +80,8 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
   const mark = (ref: Ref, kind: Kind) => {
     const p = get(ref);
     if (!p) return;
-    const tris = kind === "amber" ? null : fillTriangles(s, ref, body);
+    const tris = kind === "amber" ? null : fillTriangles(s, ref, kind, body);
+    if (!tris && p.origin === "world" && p.kind === "plane") return; // nothing to draw for a picked world plane
     if (tris) return void overlay.add(surfaceOrb(kind, ref, tris, h, unit, nowMs));
     const o = outlineOf(get, p);
     const w = kind === "select" ? settings.pick.edgeWidthPx : settings.pick.edgeHoverWidthPx;

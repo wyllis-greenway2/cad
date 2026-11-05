@@ -18,7 +18,8 @@ export interface WorldState {
   big: boolean;
   /** the starter panes are shown (no body yet) */
   panes: boolean;
-  hover: Ref | undefined;
+  /** panes under the pointer or selected: a little brighter */
+  lit: readonly Ref[];
   /** there is a body: the compass lives in the corner (a faint copy stays when the big axes are out) */
   corner: boolean;
 }
@@ -54,7 +55,7 @@ export function createWorld(renderer: THREE.WebGLRenderer, scene3: THREE.Scene, 
     st = { corner: state.corner, flying, e };
     big.visible = e > 0.01 && !flying;
     for (const m of fade) m.opacity = e;
-    panes.apply(state.panes, state.hover, e);
+    panes.apply(state.panes, state.lit, e);
     for (const l of lineMats) l.resolution.set(size.w, size.h);
     const pr = projector(cam, size.w, size.h);
     const fwd = basis(cam).forward;

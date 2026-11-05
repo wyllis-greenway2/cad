@@ -167,7 +167,7 @@ import { appRows, nextScrollMode, isScrollMode } from "../src/interaction/appmen
 
 test("the frame says what to draw: starter panes and big axes before a body, compass and no panes after; badges give way to a tool", () => {
   const empty = frameOf(createState(createSession(kernel)), { w: 800, h: 600 });
-  assert.deepEqual(empty.world, { big: true, panes: true, hover: undefined, corner: false });
+  assert.deepEqual(empty.world, { big: true, panes: true, lit: [], corner: false });
   assert.equal(empty.mesh, null);
   assert.equal(empty.cursor, "");
   let st = withBody();
@@ -187,4 +187,21 @@ test("the menu always ends with save, open and the scroll mode, which cycles", (
   assert.match(appRows("pan")[2]!.label, /always pans/);
   assert.deepEqual(["auto", "pan", "zoom"].map((m) => nextScrollMode(m as never)), ["pan", "zoom", "auto"]);
   assert.ok(isScrollMode("zoom") && !isScrollMode("x") && !isScrollMode(null));
+});
+
+import { suggestMeasure } from "../src/interaction/badges.ts";
+test("a line of the body shows its length as a measurement you cannot lock; a world pane picked anywhere is not filled", () => {
+  const st = withBody();
+  const sc = scene(st.session);
+  const line = Object.values(sc.parts).find((p) => p.kind === "line" && p.origin === "body")!;
+  const sug = suggestMeasure(sc, [line.ref])!;
+  assert.equal(sug.label, "Length");
+  assert.equal(sug.readOnly, true);
+  assert.ok(sug.value > 9);
+  // before a body: a click anywhere on the infinite plane selects it, and an empty-space click lands on a plane
+  let e = createState(createSession(kernel));
+  e = { ...e, cam: lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]) };
+  const [x, y] = projector(e.cam, 800, 600).project([300, 200, 0] as Vec3);
+  e = reduce(e, { type: "click", x, y, count: 1, shift: false }, env);
+  assert.deepEqual(selection(e.session), [XY]);
 });

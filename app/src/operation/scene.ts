@@ -35,8 +35,6 @@ const X: Vec3 = [1, 0, 0];
 const Y: Vec3 = [0, 1, 0];
 const Z: Vec3 = [0, 0, 1];
 const O: Vec3 = [0, 0, 0];
-/** The side of a world plane's pane (mm), from the origin along its two axes: the little squares you select a world plane by. */
-const PANE = 22;
 
 /** The world: the three planes, the three axes and the origin. Always references (origin "world", not movable). */
 function worldParts(): Part[] {
@@ -47,9 +45,9 @@ function worldParts(): Part[] {
     { ...base, ref: w("X"), kind: "axis", at: O, dir: X },
     { ...base, ref: w("Y"), kind: "axis", at: O, dir: Y },
     { ...base, ref: w("Z"), kind: "axis", at: O, dir: Z },
-    { ...base, ref: w("XY"), kind: "plane", at: O, u: X, v: Y, extent: PANE }, // normal +Z
-    { ...base, ref: w("XZ"), kind: "plane", at: O, u: X, v: Z, extent: PANE }, // normal -Y
-    { ...base, ref: w("YZ"), kind: "plane", at: O, u: Y, v: Z, extent: PANE }, // normal +X
+    { ...base, ref: w("XY"), kind: "plane", at: O, u: X, v: Y, infinite: true }, // normal +Z
+    { ...base, ref: w("XZ"), kind: "plane", at: O, u: X, v: Z, infinite: true }, // normal -Y
+    { ...base, ref: w("YZ"), kind: "plane", at: O, u: Y, v: Z, infinite: true }, // normal +X
   ];
 }
 

@@ -9,14 +9,14 @@ import { basis, position, projector } from "../interaction/camera.ts";
 import type { Grid } from "../interaction/api.ts";
 import { createWorld } from "./world.ts";
 import type { WorldState } from "./world.ts";
-import { createPen, clearGroup, ringOf, trisMesh, sphereAt } from "./view/pen.ts";
+import { createPen, clearGroup, ringOf, sphereAt } from "./view/pen.ts";
 import { buildContent } from "./view/content.ts";
 import type { BodyMesh } from "./view/content.ts";
 import { buildHighlight, TEAL } from "./view/highlight.ts";
 import type { Highlight } from "./view/highlight.ts";
 
 export type { Highlight };
-type Preview = { segments: [Vec3, Vec3][]; circle: { center: Vec3; radius: number; normal: Vec3 } | null; solid: number[] | null; cursor: Vec3 | null };
+type Preview = { segments: [Vec3, Vec3][]; circle: { center: Vec3; radius: number; normal: Vec3 } | null; cursor: Vec3 | null };
 
 export function createView(host: HTMLElement) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -55,12 +55,6 @@ export function createView(host: HTMLElement) {
   function setPreview(p: Preview | null, cam: Camera) {
     clearGroup(preview);
     if (!p) return;
-    if (p.solid && p.solid.length) {
-      // an extrude shows the solid it would make, translucent and lit, so you see it in 3D before you commit
-      const m = trisMesh(p.solid, new THREE.MeshStandardMaterial({ color: TEAL, transparent: true, opacity: 0.42, roughness: 0.6, metalness: 0, side: THREE.DoubleSide, depthWrite: false }));
-      m.geometry.computeVertexNormals();
-      preview.add(m);
-    }
     if (p.cursor) preview.add(sphereAt(p.cursor, cam.distance * settings.pick.vertexScale, TEAL));
     for (const [a, b] of p.segments) preview.add(pen.line([...a, ...b], TEAL, 2, false));
     if (p.circle) preview.add(pen.line(ringOf(p.circle.center, p.circle.radius, p.circle.normal), TEAL, 2, false));
