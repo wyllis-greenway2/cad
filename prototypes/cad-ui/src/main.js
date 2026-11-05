@@ -25,10 +25,7 @@ const G = S.grid;
 const V = S.view;
 const F = S.fog; // world fog (objects)
 const A = S.sheetArea; // how far a sheet's light, grid and axes reach
-let themeName = S.styles[S.styleName].theme;
-let styleMode = S.styles[S.styleName].mode; // "sheets" or "panes" (`in_064`, temporary style switcher)
-const T = () => S.themes[themeName];
-let paneFade = 0; // 0..1: the sketch grid fading in on the plane being sketched on
+const T = () => S.themes[S.themeName];
 const hexToRgb = (h) => [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255];
 const toHex = (c) => (Math.round(c[0] * 255) << 16) | (Math.round(c[1] * 255) << 8) | Math.round(c[2] * 255);
 
@@ -36,8 +33,6 @@ const toHex = (c) => (Math.round(c[0] * 255) << 16) | (Math.round(c[1] * 255) <<
 const view = { a: V.homeAzimuth, e: V.homeElevation, dist: V.homeDistance, target: new THREE.Vector3() };
 let selected = null; // "XY" | "XZ" | "YZ" | null  (non-null = sketch mode)
 let hovered = null;
-let pinnedHover = null; // tuning only: keep a plane's preview showing without the mouse
-let pinnedStyle = "hover"; // ...in the "hover" or the "selected" look
 let anim = null;
 
 // ---------------------------------------------------------------- renderer, camera
@@ -51,10 +46,11 @@ const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000); // used fac
 let camera = persp;
 let aspect = 1;
 
+let normalFor = null; // the plane the camera was last turned square to (by N, X Y Z or a triple click)
 function applyCamera() {
   const o = cameraOffset(view.a, view.e);
   const up = cameraUp(view.a, view.e);
-  const useOrtho = !!selected && !extrude && isNormal(view, selected, V.normalToleranceRad);
+  const useOrtho = !extrude && ((!!selected && isNormal(view, selected, V.normalToleranceRad)) || (!!normalFor && isNormal(view, normalFor, V.normalToleranceRad))); // looking straight at a plane is always orthographic (`in_070`)
   camera = useOrtho ? ortho : persp;
   camera.position.set(view.target.x + view.dist * o[0], view.target.y + view.dist * o[1], view.target.z + view.dist * o[2]);
   camera.up.set(up[0], up[1], up[2]);
@@ -86,11 +82,11 @@ void main() {
 const FRAG = /* glsl */ `
 uniform vec3 uCam; uniform float uDist;
 uniform vec3 uU; uniform vec3 uV; uniform vec3 uCol; uniform vec3 uColU; uniform vec3 uColV;
-uniform float uLineA; uniform float uBright; uniform float uOpacity; uniform float uAxisA;
+uniform float uLineA; uniform float uOpacity; uniform float uAxisA;
 uniform vec3 uLineCol;
 uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul; uniform float uMinCellPx;
 uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar; uniform float uFogK;
-uniform float uAxisW; uniform float uGhost;
+uniform float uAxisW;
 uniform float uPane; uniform float uPaneOff; uniform float uPaneR; uniform float uAxisLen; uniform float uEdgeA; uniform vec3 uFadeC; uniform float uFadeR;
 varying vec3 vPos;
 
@@ -150,16 +146,8 @@ void main() {
   float axFog = exp(-uFogK * ta * ta);
 
 #if PASS == 0
-  // Paint layer: the sheet's color at the chosen opacity, so opacity says how much of what is behind it is hidden.
+  // Paint layer: a pane's fill.
   gl_FragColor = vec4(uCol, uOpacity * fog * paneIn);
-#elif PASS == 1
-  // Glow layer (brightness): light added with "screen" blending, out = light + behind * (1 - light). It brightens what is
-  // behind the sheet without clipping it to white, so a bright sheet can still be see-through. Independent of opacity.
-  gl_FragColor = vec4(min(uCol * uBright * fog * paneIn, vec3(1.0)), 1.0);
-#elif PASS == 3
-  // Axis lines where an object is in front of them: drawn only behind existing depth, faintly.
-  float axg = max(axU, axV) * uAxisA * axFog * uGhost;
-  gl_FragColor = vec4(mix(uColU, uColV, step(axU, axV)), axg);
 #else
   float a = max(grid * uLineA * fog, edge * uEdgeA);                  // grid lines and the pane outline
   float ax = max(axU, axV) * uAxisA * axFog;                          // world axis lines
@@ -168,8 +156,7 @@ void main() {
 #endif
 }`;
 
-const planeMeshes = {}; // name -> { paint, glow, lines, back }
-const backdropScene = new THREE.Scene(); // the cream sheets: drawn first, then the scene over them, so a sheet never covers an object
+const planeMeshes = {}; // name -> { paint, lines }: a pane's fill; its outline, the sketch grid and the axis lines
 for (const [name, def] of Object.entries(PLANES)) {
   const axisCol = [T().axisX, T().axisY, T().axisZ];
   const makeMat = (pass) => new THREE.ShaderMaterial({
@@ -179,53 +166,34 @@ for (const [name, def] of Object.entries(PLANES)) {
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
-    ...(pass === 3 ? { depthFunc: THREE.GreaterDepth } : {}),
-    ...(pass === 1
-      ? { blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcColorFactor } // screen: light + dst * (1 - light)
-      : {}),
     uniforms: {
       uCam: { value: new THREE.Vector3() }, uDist: { value: 1 },
       uU: { value: new THREE.Vector3(...def.basis[0]) }, uV: { value: new THREE.Vector3(...def.basis[1]) }, uCol: { value: new THREE.Vector3(...T().sheet) },
       uColU: { value: new THREE.Vector3(...axisCol[def.u]) }, uColV: { value: new THREE.Vector3(...axisCol[def.v]) },
-      uLineA: { value: 0 }, uBright: { value: 0 }, uOpacity: { value: 0 }, uAxisA: { value: G.axisAlpha },
+      uLineA: { value: 0 }, uOpacity: { value: 0 }, uAxisA: { value: G.axisAlpha },
       uLodDiv: { value: G.lodDivisor }, uStyleMin: { value: G.fineLineStrength }, uFineMul: { value: 0 }, uMinCellPx: { value: G.minCellPx },
       uLineCol: { value: new THREE.Vector3() },
       uFogNear: { value: A.nearFactor }, uFogFar: { value: A.farFactor }, uAxisFogFar: { value: A.axisFarFactor }, uFogK: { value: A.sharpness },
-      uAxisW: { value: G.axisWidthPx }, uGhost: { value: 0 },
+      uAxisW: { value: G.axisWidthPx },
       uPane: { value: 0 }, uPaneOff: { value: 0 }, uPaneR: { value: 0 }, uAxisLen: { value: 0 }, uEdgeA: { value: 0 }, uFadeC: { value: new THREE.Vector3() }, uFadeR: { value: 0 },
     },
   });
   const geo = new THREE.PlaneGeometry(1, 1);
   const paint = new THREE.Mesh(geo, makeMat(0));
-  const glow = new THREE.Mesh(geo, makeMat(1));
   const lines = new THREE.Mesh(geo, makeMat(2));
-  const ghost = new THREE.Mesh(geo, makeMat(3));
   paint.renderOrder = 1;
-  glow.renderOrder = 2;
   lines.renderOrder = 3;
-  ghost.renderOrder = 3;
-  for (const mesh of [paint, glow, lines, ghost]) {
+  for (const mesh of [paint, lines]) {
     mesh.frustumCulled = false;
     scene.add(mesh);
   }
-  const back = new THREE.Mesh(geo, makeMat(0));
-  back.material.depthTest = false;
-  back.frustumCulled = false;
-  backdropScene.add(back);
-  planeMeshes[name] = { paint, glow, lines, ghost, back };
+  planeMeshes[name] = { paint, lines };
 }
 
 /** Keep each plane's quad centered on the target (projected onto the plane) and sized to the view, so it looks
  *  infinite and vertex positions stay small (float precision). Grid lines are in world coordinates. */
 const mix3 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
-/** How a plane looks right now: the selected plane shows fully, the hovered plane previews, the rest are hidden. */
-let lastPlane = "XY"; // exactly one sheet shows at any time: the one being sketched on, else the one pointed at, else the last one that showed
 const baseOf = (id) => (id ? planeDef(id).base ?? id : null);
-function shownPlane() {
-  const now = selected ? baseOf(selected) : selPlane() ? baseOf(selPlane()) : baseOf(hovered ?? hoveredSketch?.plane ?? null) ?? (pinnedHover || null);
-  if (now) lastPlane = now; // pointing at another plane drops the old one; pointing at nothing keeps it
-  return lastPlane;
-}
 const selPlane = () => (sel?.kind === "plane" ? sel.plane : null); // a selected world plane (not sketching on it)
 /** The plane that N, X, Y and Z act on: the sketch plane, else a selected plane, or the plane of a selected face or sketch shape. */
 function actingPlane() {
@@ -234,72 +202,57 @@ function actingPlane() {
   if (sel.kind === "plane") return sel.plane;
   return ["face", "sketch"].includes(sel.kind) ? planeOfTarget(sel) ?? null : null;
 }
-function stateOf(name) {
-  const states = T().states;
-  if (name !== shownPlane()) return states.base;
-  return selected || selPlane() ? states.selected : pinnedHover === name ? states[pinnedStyle] : states.hover;
-}
-/** Is this plane the one being sketched on or pointed at? (Its surface and lines lean blue.) */
-const hotOf = (plane) => plane === selected || plane === selPlane() || plane === hovered || hoveredSketch?.plane === plane || (sel?.kind === "sketch" && sel.plane === plane) || (!!pinnedHover && !selected && plane === pinnedHover);
+/** Is this plane the one being sketched on, selected or pointed at? (Its surface and lines lean blue.) */
+const hotOf = (plane) => plane === selected || plane === selPlane() || plane === hovered || hoveredSketch?.plane === plane || (sel?.kind === "sketch" && sel.plane === plane);
+let paneFade = 0; // 0..1: the sketch grid fading in on the plane you look straight at
 function updatePlanes() {
   scene.fog.near = view.dist * F.nearFactor;
   scene.fog.far = view.dist * F.farFactor;
-  const B = S.backdrop;
   const th = T();
   const PN = S.panes;
-  const ST = S.styles[S.styleName];
   stepCorner();
-  const cornerK = styleMode === "compass" ? 1 - cornerT : 1; // the world axes and panes fade as the compass moves to the corner
-  const panes = styleMode === "panes" || styleMode === "compass";
-  const axisLen = ST.shortAxes ? S.axisArrow.lengthFactor * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2)) : 0; // axes that stop at their arrows
+  const cornerK = 1 - cornerT; // the world axes and panes fade as the compass moves to the corner
+  const axisLen = S.axisArrow.lengthFactor * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2)); // the axes stop at their arrows
   const actP = selected ?? selPlane(); // the plane being sketched on or selected
   const faceOnAct = !!actP && isNormal(view, actP, V.normalToleranceRad);
-  const want = panes && faceOnAct ? 1 : 0;
+  const want = faceOnAct ? 1 : 0; // the grid shows only while you look straight at the plane
   paneFade += (want - paneFade) * PN.fadeEase;
   if (Math.abs(want - paneFade) < 0.01) paneFade = want;
   else requestRender(); // keep fading
   for (const [name, pair] of Object.entries(planeMeshes)) {
-   let state = stateOf(name);
+   const mine = !!actP && baseOf(actP) === name;
+   const hot = !faceOnAct && (hovered === name || mine); // the selected plane's pane is blue; looking straight at it, the pane gives way to the grid
+   let line = 0;
+   let opacity = 0;
+   let fine = 0;
    let paneSize = 0;
    let edgeA = 0;
    let fadeR = 0;
-   let blue = state.blue;
-   if (panes) {
-     // blank world: three small panes at the origin (hover to preview, click to sketch); while sketching, only a faint grid on that plane
-     const mine = actP && baseOf(actP) === name;
-     const hot = !faceOnAct && (hovered === name || pinnedHover === name || mine); // the selected plane's pane is blue; looking straight at it, the pane gives way to the grid
-     if (faceOnAct) {
-       state = mine ? { line: (ST.gridAlpha ?? PN.sketchGrid) * paneFade, bright: 0, opacity: 0, fine: PN.fine, blue: 0 } : { line: 0, bright: 0, opacity: 0, fine: 0, blue: 0 };
-       fadeR = mine ? view.dist * PN.fadeRadius : 0;
-     } else {
-       state = { line: 0, bright: 0, opacity: (hot ? PN.hoverOpacity : PN.opacity) * cornerK, fine: 0, blue: hot ? (mine ? PN.hoverBlue : ST.hoverBlue ?? PN.hoverBlue) : 0 };
-       paneSize = cornerK > 0 ? view.dist * (ST.paneSize ?? PN.size) : 0;
-       edgeA = (hot ? PN.hoverEdgeAlpha : PN.edgeAlpha) * cornerK;
-     }
-     blue = state.blue;
+   if (faceOnAct) {
+     if (mine) (line = PN.gridAlpha * paneFade), (fine = PN.fine), (fadeR = view.dist * PN.fadeRadius);
+   } else {
+     opacity = (hot ? PN.hoverOpacity : PN.opacity) * cornerK;
+     paneSize = cornerK > 0 ? view.dist * PN.size : 0;
+     edgeA = (hot ? PN.hoverEdgeAlpha : PN.edgeAlpha) * cornerK;
    }
-   const shown = state.line > 0 || state.bright > 0 || state.opacity > 0;
+   const blue = hot ? PN.hoverBlue : 0;
    const sheet = mix3(th.sheet, th.blueSurface, blue);
    const lineCol = mix3(th.gridLine, th.blueLine, Math.min(1, blue * 3));
    // while sketching on a face, this sheet takes that face's place and orientation (any angle); otherwise it is the base plane itself
    const planeId = selected && (planeDef(selected).base ?? selected) === name ? selected : name;
    const def = planeDef(planeId);
-   const nrm = new THREE.Vector3(...def.n);
    const sheetQuat = new THREE.Quaternion().setFromRotationMatrix(basisMatrix(planeId, new THREE.Vector3()));
    const center = new THREE.Vector3(...projectOnto(planeId, view.target.toArray()));
-   const side = Math.sign(camera.position.clone().sub(center).dot(nrm)) || 1;
-   pair.back.visible = B.enabled && !panes;
-   for (const mesh of [pair.paint, pair.glow, pair.lines, pair.ghost, pair.back]) {
+   for (const mesh of [pair.paint, pair.lines]) {
     mesh.quaternion.copy(sheetQuat);
     mesh.position.copy(center);
-    if (mesh === pair.back) mesh.position.addScaledVector(nrm, -side * view.dist * B.offsetFactor); // behind the plane, seen from the camera
     mesh.scale.setScalar(view.dist * G.extentFactor);
     const u = mesh.material.uniforms;
     u.uU.value.set(...def.basis[0]);
     u.uV.value.set(...def.basis[1]);
     u.uCam.value.copy(camera.position);
     u.uDist.value = view.dist;
-    u.uLodDiv.value = panes ? ST.lodDivisor ?? G.lodDivisor : G.lodDivisor;
+    u.uLodDiv.value = PN.lodDivisor;
     u.uStyleMin.value = G.fineLineStrength;
     u.uMinCellPx.value = G.minCellPx;
     u.uAxisW.value = G.axisWidthPx;
@@ -307,29 +260,19 @@ function updatePlanes() {
     u.uFogNear.value = A.nearFactor;
     u.uFogFar.value = A.farFactor;
     u.uAxisFogFar.value = A.axisFarFactor;
-    u.uFogK.value = mesh === pair.back ? A.sharpness * B.fogScale : A.sharpness;
+    u.uFogK.value = A.sharpness;
     u.uCol.value.set(...sheet);
     u.uLineCol.value.set(...lineCol);
-    u.uLineA.value = state.line;
-    u.uGhost.value = panes ? PN.axisBehind : G.axisGhost;
-    u.uFineMul.value = state.fine; // the densest grid level is only shown on the sketch plane
+    u.uLineA.value = line;
+    u.uFineMul.value = fine;
     u.uPane.value = paneSize;
-    u.uPaneOff.value = view.dist * (ST.paneOffset ?? 0);
-    u.uPaneR.value = ST.paneRadius ?? 0;
+    u.uPaneOff.value = view.dist * PN.offset;
+    u.uPaneR.value = PN.radius;
     u.uAxisLen.value = axisLen;
     u.uEdgeA.value = edgeA;
     u.uFadeC.value.copy(center);
     u.uFadeR.value = fadeR;
-    if (panes) {
-      u.uBright.value = 0;
-      u.uOpacity.value = mesh === pair.paint ? state.opacity : 0;
-    } else if (B.enabled) {
-      u.uBright.value = 0;
-      u.uOpacity.value = mesh === pair.back ? (shown ? B.alpha : 0) : mesh === pair.paint && shown ? B.planeOpacity : 0;
-    } else {
-      u.uBright.value = state.bright;
-      u.uOpacity.value = mesh === pair.back ? 0 : state.opacity;
-    }
+    u.uOpacity.value = mesh === pair.paint ? opacity : 0;
    }
   }
 }
@@ -359,11 +302,11 @@ function updateAxisArrows() {
     const [x0, y0] = toScreen(p0);
     const [x1, y1] = toScreen(p0.clone().addScaledVector(d, L * 0.05));
     const len = Math.hypot(x1 - x0, y1 - y0);
-    const hide = (styleMode === "compass" && cornerT >= 1) || Math.abs(d.dot(viewDir)) > A.hideCos || len < 1e-3;
+    const hide = cornerT >= 1 || Math.abs(d.dot(viewDir)) > A.hideCos || len < 1e-3;
     poly.style.display = label.style.display = hide ? "none" : "block";
     if (hide) return;
-    const faint = body.blocked(camera.position, p0) ? (styleMode === "panes" ? S.panes.axisBehind : S.axisArrow.faintOpacity) : 1; // behind an object: only faintly visible
-    poly.style.opacity = label.style.opacity = String(faint * (styleMode === "compass" ? 1 - cornerT : 1));
+    const faint = body.blocked(camera.position, p0) ? 0 : 1; // behind an object: not seen through it (`in_066`)
+    poly.style.opacity = label.style.opacity = String(faint * (1 - cornerT));
     const ux = (x1 - x0) / len; // screen direction of the axis
     const uy = (y1 - y0) / len;
     const px = -uy; // perpendicular
@@ -386,7 +329,7 @@ function applyTheme() {
   document.documentElement.style.setProperty("--bg", `#${t.background.toString(16).padStart(6, "0")}`);
   document.documentElement.style.setProperty("--fg", t.text);
   for (const [name, pair] of Object.entries(planeMeshes)) {
-    for (const mesh of [pair.paint, pair.glow, pair.lines, pair.ghost]) {
+    for (const mesh of [pair.paint, pair.lines]) {
       mesh.material.uniforms.uColU.value.set(...axes[PLANES[name].u]);
       mesh.material.uniforms.uColV.value.set(...axes[PLANES[name].v]);
     }
@@ -399,16 +342,13 @@ function applyTheme() {
 // ---------------------------------------------------------------- the compass and X Y Z buttons (compass style, `in_067`, `in_068`)
 // Until the first object (an extrusion) exists the world shows the short axes and the helper panes at the origin. When the first object exists, the axes
 // shrink and slide into the bottom-right corner, where they live as a compass with X, Y and Z buttons (and the X, Y, Z keys do the same).
-let compassHome = false; // the first sketch has been made and you are back in 3D: the compass lives in the corner
+let compassHome = false; // the first object exists: the compass lives in the corner
+let bigWanted = false; // the compass was clicked: it is back at the origin (big, with the panes) until it is clicked again
 let cornerT = 0; // 0 = at the origin, 1 = in the corner
 let cornerLast = 0;
 function stepCorner() {
-  if (styleMode !== "compass") {
-    cornerT = 0;
-    compassHome = false;
-    return;
-  }
-  compassHome = store.features.length > 0; // the first object (an extrusion) exists: the compass moves to its corner (`in_069`)
+  if (!store.features.length) bigWanted = false;
+  compassHome = store.features.length > 0 && !bigWanted; // the first object (an extrusion) exists: the compass moves to its corner (`in_069`)
   const now = performance.now();
   const dt = Math.min(0.1, (now - cornerLast) / 1000);
   cornerLast = now;
@@ -442,6 +382,7 @@ function lookAlong(ax) {
 }
 const compassEl = $("compass");
 const compassSvg = $("compassSvg");
+$("compassHit").onclick = () => ((bigWanted = !bigWanted), requestRender()); // click the compass: it goes big at the origin; click it again: back to the corner (`in_070`)
 AXIS_NAMES.forEach((label, ax) => {
   const b = document.createElement("button");
   b.dataset.ax = String(ax);
@@ -459,10 +400,12 @@ AXIS_NAMES.forEach((label, ax) => {
   compassEl.querySelector(".cbtns").appendChild(n);
 }
 function updateCompass() {
-  const on = styleMode === "compass" && cornerT > 0;
-  compassEl.style.display = on ? "block" : "none";
-  if (!on) return;
-  const t = cornerT;
+  const have = store.features.length > 0;
+  compassEl.style.display = cornerT > 0 || have ? "block" : "none";
+  compassEl.querySelector("#compassHit").style.display = have ? "block" : "none";
+  if (cornerT <= 0 && !have) return;
+  const ghost = cornerT <= 0; // big at the origin: a faint compass stays in the corner to click it back
+  const t = ghost ? 1 : cornerT;
   const e = easeInOut(t);
   const W = innerWidth;
   const H = innerHeight;
@@ -484,7 +427,7 @@ function updateCompass() {
   }).sort((a, b) => b.depth - a.depth); // far ones first, near ones on top
   compassSvg.replaceChildren();
   const ns = "http://www.w3.org/2000/svg";
-  const fade = Math.min(1, t * 3); // the world axes fade out as this one fades in
+  const fade = ghost ? 0.35 : Math.min(1, t * 3); // the world axes fade out as this one fades in
   for (const it of items) {
     const g = document.createElementNS(ns, "g");
     g.setAttribute("opacity", String(fade * (it.depth < 0 ? 1 : 0.5)));
@@ -497,8 +440,8 @@ function updateCompass() {
     compassSvg.appendChild(g);
   }
   const btns = compassEl.querySelector(".cbtns");
-  btns.style.opacity = String(t * t);
-  btns.style.pointerEvents = t > 0.6 ? "auto" : "none";
+  btns.style.opacity = ghost ? "0" : String(t * t);
+  btns.style.pointerEvents = !ghost && t > 0.6 ? "auto" : "none";
   for (const b of btns.children) {
     if (b.dataset.ax === undefined) continue; // the N button
     const ax = Number(b.dataset.ax);
@@ -506,26 +449,6 @@ function updateCompass() {
     b.textContent = (s < 0 ? "\u2212" : "") + AXIS_NAMES[ax];
     b.classList.toggle("on", selected === AXIS_PLANES[ax] || selPlane() === AXIS_PLANES[ax]);
   }
-}
-
-/** TEMPORARY (`in_064`): switch between the visual styles. */
-function applyStyle(name) {
-  const st = S.styles[name];
-  if (!st) return;
-  S.styleName = name;
-  themeName = st.theme;
-  styleMode = st.mode;
-  paneFade = selected && st.mode === "panes" ? 1 : 0;
-  applyTheme();
-  body.recolor();
-  markSketch();
-  requestRender();
-}
-{
-  const box = $("styleSwitch");
-  for (const [k, st] of Object.entries(S.styles)) box.appendChild(Object.assign(document.createElement("option"), { value: k, textContent: st.label }));
-  box.value = S.styleName;
-  box.onchange = () => (applyStyle(box.value), box.blur());
 }
 
 // ---------------------------------------------------------------- render loop (on demand)
@@ -544,10 +467,6 @@ function requestRender() {
     renderer.clear();
     if (inSketchView() !== sketchWasFlat) (sketchWasFlat = inSketchView()), (sketchDirty = true);
     if (sketchDirty) rebuildSketchViz();
-    if (S.backdrop.enabled) {
-      renderer.render(backdropScene, camera);
-      renderer.clearDepth();
-    }
     updateAxisArrows();
     updateCompass();
     updateOriginPill();
@@ -592,6 +511,7 @@ function animateTo({ a, e, target, dist }, ms) {
 }
 
 function goNormal(plane, side = 1) {
+  normalFor = plane;
   const def = planeDef(plane);
   const t = side < 0 ? flippedView(def.view) : def.view; // from the back when asked (`in_068`)
   animateTo({ a: t.a, e: t.e, target: new THREE.Vector3(...projectOnto(plane, view.target.toArray())) }, V.transitionMs);
@@ -1149,13 +1069,6 @@ function updatePickViz() {
   if (sel?.kind === "edge") edgeLine(sel.edge, S.pick.edgeWidthPx, 1);
   if (sel?.kind === "vertex") dot(sel.v, 1.2);
 }
-canvas.addEventListener("dblclick", (ev) => {
-  if (selected || extrude || xform) return;
-  const h = hoverAt(ev.clientX, ev.clientY);
-  setHover(h);
-  if (h.face || h.edge || h.vertex) (sel = { kind: "body" }), applySel(); // a double-click anywhere on the body selects all of it
-  else if (h.plane) (sel = null), applySel(), enterSketch(h.plane); // a double-click on a world plane orients to it
-});
 
 // ---------------------------------------------------------------- history list (top left, only when there is something in it)
 function updateHistory() {
@@ -1230,7 +1143,7 @@ function selectionHint(t) {
   return "double-click selects the whole body";
 }
 function updateStatus() {
-  let text = styleMode === "compass" && compassHome ? "3D view   click to select   L R C then click a surface to draw   X Y Z N look straight at it   right-click for the menu" : "3D view   click to select   L R C then click a surface to draw   N looks straight at the selection   right-click for the menu";
+  let text = "3D view   click selects, double-click the object, triple-click looks straight at the plane   L R C then click a surface to draw   right-click for the menu";
   if (flash) text = flash;
   else if (xform) text = xform.sess.prompt();
   else if (extrude) text = `${extrude.ref ? "Move face" : `Extrude on ${extrude.plane}`}   ${extrude.sess.prompt()}`;
@@ -1375,21 +1288,18 @@ function selectFromHover() {
   armedTool = null;
   applySel();
 }
-/** In the panes styles only the small panes can be pointed at; null = every (infinite) plane counts. `always`: also while sketching. */
+/** Only the small panes can be pointed at (not the whole infinite plane); none while the compass is in the corner. `always`: also while sketching. */
 function paneFilter(always = false) {
-  if (styleMode === "compass" && cornerT > 0 && !inSketchView() && !always) return () => false;
-  if ((styleMode === "panes" || styleMode === "compass") && (!inSketchView() || always)) {
-    return (name, p) => {
-      const [u, v] = planeDef(name).basis;
-      const st = S.styles[S.styleName];
-      const s = view.dist * (st.paneSize ?? S.panes.size);
-      const o = view.dist * (st.paneOffset ?? 0);
-      const a = p[0] * u[0] + p[1] * u[1] + p[2] * u[2];
-      const b = p[0] * v[0] + p[1] * v[1] + p[2] * v[2];
-      return a >= o && a <= o + s && b >= o && b <= o + s;
-    };
-  }
-  return null;
+  if (inSketchView() && !always) return null;
+  if (cornerT > 0) return () => false;
+  return (name, p) => {
+    const [u, v] = planeDef(name).basis;
+    const s = view.dist * S.panes.size;
+    const o = view.dist * S.panes.offset;
+    const a = p[0] * u[0] + p[1] * u[1] + p[2] * u[2];
+    const b = p[0] * v[0] + p[1] * v[1] + p[2] * v[2];
+    return a >= o && a <= o + s && b >= o && b <= o + s;
+  };
 }
 function pickAt(clientX, clientY) {
   setRay(clientX, clientY);
@@ -1404,7 +1314,6 @@ function surfaceUnder(clientX, clientY) {
   const sk = pickSketchFace(o, d, Math.min(faceHit ? faceHit.distance : Infinity, view.dist * A.farFactor));
   if (sk) return sk.plane;
   if (faceHit) return faceHit.face.type === "cyl" ? null : planeOfTarget({ kind: "face", face: { ...faceHit.face, point: faceHit.point } });
-  if (selected && styleMode === "sheets") return null; // the sheets are infinite: while sketching, a plane behind the cursor must not take over
   return pickPlane(o.toArray(), d.toArray(), { maxDist: view.dist * A.farFactor, minCos: G.grazeMinCos, within: paneFilter(true) })?.plane ?? null;
 }
 /** The point under the cursor on the sketch plane, in local (u, v) mm. */
@@ -1463,13 +1372,13 @@ function setTool(tool) {
   if (session.editKey && ["line", "rect", "circle", "extrude"].includes(tool)) return flashMessage("This sketch belongs to its step: resize it with D. It cannot be extended or extruded again here.");
   if (inSketchView()) {
     session.setTool(tool);
-  } else if (!selected && currentTarget() && ["plane", "face", "sketch"].includes(currentTarget().kind) && planeOfTarget(currentTarget())) {
-    const t = currentTarget();
+  } else if (!selected && sel && ["plane", "face", "sketch"].includes(sel.kind) && planeOfTarget(sel) && ["line", "rect", "circle"].includes(tool)) {
+    const pl = planeOfTarget(sel);
     sel = null;
     applySel();
-    enterSketch(planeOfTarget(t), tool); // a sketch tool key acts on the selection: sketch on it // hotkey while hovering a plane in the 3D view: start sketching on it with that tool
+    enterSketch(pl, tool); // a selected surface: draw on it right away
   } else if (!selected && ["line", "rect", "circle"].includes(tool)) {
-    armedTool = tool; // nothing under the pointer yet: the next click on a surface starts drawing there
+    armedTool = tool; // nothing selected yet: the next click on a surface starts drawing there
     flashMessage(`${{ line: "Line", rect: "Rectangle", circle: "Circle" }[tool]}: click a plane, a face or a sketch to draw on it.`);
   } else return false;
   updateStatus();
@@ -1553,29 +1462,19 @@ function constraintKey(labels) {
   refreshUI();
 }
 /** Square the camera to the sketch plane, remembering the angle it had so it can go back. */
-let obliquePose = null;
 /** +1 if the camera is on the plane's front side (along its normal), -1 if on the back. */
 function cameraSide(plane) {
   const n = planeDef(plane).n;
   const c = camera.position.clone().sub(view.target);
   return c.x * n[0] + c.y * n[1] + c.z * n[2] >= 0 ? 1 : -1;
 }
-function goSquare() {
-  if (!selected) return;
-  if (!isFaceOn()) obliquePose = { a: view.a, e: view.e };
-  goNormal(selected, cameraSide(selected)); // squares up from the side you are already on
-}
-/** Back to the 3D angle the sketch was seen from (or a standard oblique one). */
+
 /** N (`in_069`): normal to the selected / sketched plane: from the front; again from the back; again from the front. */
 function normalAction() {
   if (extrude || xform) return;
   const plane = actingPlane();
   if (!plane) return flashMessage("Select a plane or a face first (or start sketching); then N looks straight at it.");
   goNormal(plane, normalSide(view, plane, V.normalToleranceRad) > 0 ? -1 : 1);
-}
-function goOblique() {
-  const back = obliquePose ?? { a: V.homeAzimuth, e: V.homeElevation };
-  animateTo({ a: back.a, e: back.e, target: view.target.clone() }, V.transitionMs);
 }
 const ACTIONS = {
   lookX: () => lookAlong(0), lookY: () => lookAlong(1), lookZ: () => lookAlong(2),
@@ -1602,15 +1501,6 @@ const ACTIONS = {
   move: () => bodyTransform("move"),
   rotate: () => bodyTransform("rotate"),
   scale: () => bodyTransform("scale"),
-  sketch: () => {
-    const t = !selected && currentTarget();
-    if (!t) return flashMessage("Select a plane or a face first (click it), then press S or a sketch tool key.");
-    if (!["plane", "face", "sketch"].includes(t.kind)) return flashMessage("Sketch from a plane, a face or a closed sketch shape. Click one first.");
-    if (!planeOfTarget(t)) return flashMessage("Round faces cannot be sketched on yet.");
-    sel = null;
-    applySel();
-    enterSketch(planeOfTarget(t));
-  },
   extrude: () => {
     if (extrude) return;
     if (inSketchView()) {
@@ -1725,7 +1615,6 @@ function updateConstraintUI() {
 /** Run what a bar button stands for. */
 function runBar(id) {
   const [kind, name] = id.split(":");
-  if (kind === "surf") return menuSurface ? (sel = null, applySel(), enterSketch(menuSurface, name)) : undefined; // sketch on the surface that was right-clicked
   if (kind === "tool" || kind === "act") return void ACTIONS[name]?.();
   if (kind === "cons") {
     const msg = session.applyOffer(Number(name));
@@ -1746,7 +1635,6 @@ function barContext() {
     pickShapeClosed: session.picks.some((k) => k.kind === "entity" && regionsOf(session.entities()).some((r) => r.id === k.shape)),
     editingStepSketch: !!session.editKey,
     faceOn: isFaceOn(),
-    surface: mode === "3d" && !!menuSurface,
     sel: sel ? { kind: sel.kind, round: sel.kind === "face" && sel.face?.type === "cyl" } : null,
   };
 }
@@ -1820,11 +1708,8 @@ function pickUnderPointer(x, y) {
   const t = hoverAsSel();
   if (t && t.kind !== "plane" && !(sel && t.kind === sel.kind && t.id === sel.id && t.plane === sel.plane && t.face === sel.face)) (sel = t), applySel();
 }
-let menuSurface = null; // the plane or flat face under the right-click: Line, Rectangle and Circle sketch on it
 function showMenu(x, y) {
   pickUnderPointer(x, y);
-  const tg = !selected && !extrude && !xform ? currentTarget() : null;
-  menuSurface = tg && ["plane", "face", "sketch"].includes(tg.kind) ? planeOfTarget(tg) ?? null : null;
   menuEl.replaceChildren();
   const groups = barItems(barContext()).filter((g) => g.items.length);
   groups.forEach((g, gi) => {
@@ -1849,6 +1734,26 @@ function showMenu(x, y) {
 
 // ---------------------------------------------------------------- mouse input
 const preset = () => S.input.navPresets[S.input.navPreset];
+let clickCount = 0;
+let lastClickAt = 0;
+let lastClickXY = [0, 0];
+/** Double-click: the whole object under the pointer. */
+function selectObjectFromHover() {
+  const h = hoveredFace || hoveredEdge || hoveredVertex || hoveredSketch;
+  if (!h) return;
+  sel = { kind: "body" };
+  applySel();
+}
+/** Triple-click: look straight at the plane that was clicked (a pane, a face, a closed sketch), from the side you are on. */
+function normalToClicked() {
+  const t = hoverAsSel();
+  if (!t || !["plane", "face", "sketch"].includes(t.kind)) return;
+  const plane = planeOfTarget(t);
+  if (!plane) return;
+  sel = t;
+  applySel();
+  goNormal(plane, cameraSide(plane));
+}
 let g = null; // the gesture in progress: { kind: "orbit" | "pan" | "draw" | "click", x, y, x0, y0, button, moved }
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 canvas.addEventListener("pointerdown", (ev) => {
@@ -2022,17 +1927,21 @@ canvas.addEventListener("pointerup", (ev) => {
     return;
   }
   if (was.kind === "selectclick" && !was.moved) {
-    const hadPicks = !!(session.picks.length || session.pickedConstraint || session.pickEdit);
     session.click(was.p, { shift: was.shift });
-    // clicking the sketch plane again (nothing under the cursor, nothing to let go of) goes back to looking straight at it
-    if (!hadPicks && !session.picks.length && !isFaceOn() && !anim) goSquare();
     updateStatus();
     markSketch();
     return;
   }
   if (was.kind === "click" && !was.moved && !selected) {
     setHover(hoverAt(ev.clientX, ev.clientY));
-    selectFromHover(); // selecting does not move the camera; E, S, R, C, L then act on the selection
+    // one click selects (a face, line, corner, plane or sketch shape: never a whole object); two select the whole object; three look straight at the plane clicked (`in_070`)
+    const now = performance.now();
+    clickCount = now - lastClickAt < S.input.multiClickMs && Math.hypot(ev.clientX - lastClickXY[0], ev.clientY - lastClickXY[1]) < S.input.multiClickPx ? clickCount + 1 : 1;
+    lastClickAt = now;
+    lastClickXY = [ev.clientX, ev.clientY];
+    if (clickCount === 2) return void selectObjectFromHover();
+    if (clickCount >= 3) return void normalToClicked();
+    selectFromHover();
   }
 });
 canvas.addEventListener("pointerleave", () => {
@@ -2142,10 +2051,11 @@ window.__ui = {
   menuOpen: () => menuOpen(),
   state: () => ({ selected, hovered, tool: session.tool, draft: session.draft && session.draft.pts.length, selectedEntity: session.selectedId, a: view.a, e: view.e, dist: view.dist, target: view.target.toArray(), normal: selected ? isNormal(view, selected, V.normalToleranceRad) : null, animating: !!anim }),
   settings: S,
-  shown: () => ({ lastPlane, hovered }),
   xformState: () => (xform ? { mode: xform.sess.mode, axis: xform.sess.axis, value: xformValue() } : null),
   selInfo: () => (sel ? { kind: sel.kind, plane: sel.plane, id: sel.id } : null),
   hoverInfo: () => ({ hovered, face: hoveredFace }),
+  cameraType: () => (camera === ortho ? "ortho" : "persp"),
+  cornerT: () => cornerT,
   enterSketch: (pl, tool) => enterSketch(pl, tool),
   store,
   body: () => ({ ready: body.ready(), fresh: body.fresh(), ...body.info }),

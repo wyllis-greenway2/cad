@@ -17,11 +17,11 @@ test("key labels read the way they are typed", () => {
 });
 
 test("3D view: the bar follows the selection and shows the hotkey of each action", () => {
-  assert.deepEqual(labels(barItems({ ...base, sel: { kind: "face" } }), "selection"), ["Move face (M)", "Tilt face (R)", "Sketch on surface (S)", "Normal to the plane (N)"]);
+  assert.deepEqual(labels(barItems({ ...base, sel: { kind: "face" } }), "selection"), ["Move face (M)", "Tilt face (R)", "Normal to the plane (N)"]);
   assert.deepEqual(labels(barItems({ ...base, sel: { kind: "face", round: true } }), "selection"), ["Change radius (M)", "Taper (R)", "Normal to the plane (N)"]);
   assert.deepEqual(labels(barItems({ ...base, sel: { kind: "edge" } }), "selection"), ["Fillet (F)", "Chamfer (B)"]);
   assert.deepEqual(labels(barItems({ ...base, sel: { kind: "body" } }), "selection"), ["Move (M)", "Rotate (R)", "Scale (K)", "Delete (Del)"]);
-  assert.deepEqual(labels(barItems({ ...base, sel: { kind: "sketch" } }), "selection"), ["Extrude (E)", "Sketch on it (S)", "Delete (Del)", "Normal to the plane (N)"]);
+  assert.deepEqual(labels(barItems({ ...base, sel: { kind: "sketch" } }), "selection"), ["Extrude (E)", "Delete (Del)", "Normal to the plane (N)"]);
   assert.deepEqual(labels(barItems(base), "selection"), ["Home view (H)", "Return to origin (O)"]); // nothing selected
   const undo = barItems(base).find((g) => g.id === "view").items.find((i) => i.label === "Undo");
   assert.equal(undo.enabled, true);
@@ -81,9 +81,9 @@ test("every action in every context has an icon and a help line (text is only fo
   assert.equal(keyShort("Ctrl+Shift+Z"), "⇧^Z");
 });
 
-test("a right-clicked plane or flat face offers Line, Rectangle and Circle on it (`in_062`)", () => {
-  const g = barItems({ ...base, surface: true });
-  assert.deepEqual(labels(g, "sketchon"), ["Line (L)", "Rectangle (R)", "Circle (C)"]);
-  assert.ok(g.find((x) => x.id === "sketchon").items.every((i) => i.id.startsWith("surf:") && hasIcon(i.icon)));
-  assert.equal(barItems(base).some((x) => x.id === "sketchon"), false);
+test("the 3D menu offers the drawing tools with nothing selected or with a plane, face or sketch shape selected (`in_062`, `in_070`)", () => {
+  assert.deepEqual(labels(barItems(base), "draw"), ["Line (L)", "Rectangle (R)", "Circle (C)"]);
+  assert.deepEqual(labels(barItems({ ...base, sel: { kind: "face" } }), "draw"), ["Line (L)", "Rectangle (R)", "Circle (C)"]);
+  assert.equal(barItems({ ...base, sel: { kind: "body" } }).some((x) => x.id === "draw"), false);
+  assert.ok(barItems(base).find((x) => x.id === "draw").items.every((i) => i.id.startsWith("tool:") && hasIcon(i.icon)));
 });

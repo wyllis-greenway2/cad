@@ -22,7 +22,7 @@ const ICON = {
   Select: "select", Line: "line", Rectangle: "rect", Circle: "circle", Dimension: "dimTool", Extrude: "extrude",
   Horizontal: "horizontal", Vertical: "vertical", "Equal length": "equal", "Equal radius": "equal", Parallel: "parallel", Perpendicular: "perpendicular", "Fix in place": "fixed",
   Coincident: "coincident", "Same height": "sameHeight", "Same position across": "sameAcross",
-  "Move face": "moveFace", "Tilt face": "tilt", "Sketch on surface": "sketchOn", "Sketch on it": "sketchOn", "Change radius": "radius", Taper: "taper", Fillet: "fillet", Chamfer: "chamfer",
+  "Move face": "moveFace", "Tilt face": "tilt", "Change radius": "radius", Taper: "taper", Fillet: "fillet", Chamfer: "chamfer",
   Move: "move", Rotate: "rotate", Scale: "scale", Delete: "trash", "Delete step": "trash", "Home view": "home", "Return to origin": "origin", Undo: "undo", Redo: "redo",
   Apply: "check", Cancel: "cross", "Exit sketch": "view3d", "Normal to the plane": "viewNormal",
 };
@@ -33,8 +33,8 @@ const HELP = {
   Horizontal: "Make the line level and keep it level.", Vertical: "Make the line upright and keep it upright.", "Equal length": "Make the two lines the same length.", "Equal radius": "Make the two circles the same size.",
   Parallel: "Keep the two lines parallel.", Perpendicular: "Keep the two lines at a right angle.", "Fix in place": "Pin this corner where it is.", Coincident: "Put the two corners on the same spot.",
   "Same height": "Keep the two corners level with each other.", "Same position across": "Keep the two corners one above the other.",
-  "Move face": "Push or pull the face along its normal (out adds material, in cuts it).", "Tilt face": "Turn the face about an axis in it.", "Sketch on surface": "Start a sketch on this face.",
-  "Sketch on it": "Start a sketch on this shape's plane.", "Change radius": "Change the radius of this round face.", Taper: "Give this round face a taper angle.", Fillet: "Round this edge.", Chamfer: "Bevel this edge.",
+  "Move face": "Push or pull the face along its normal (out adds material, in cuts it).", "Tilt face": "Turn the face about an axis in it.",
+  "Change radius": "Change the radius of this round face.", Taper: "Give this round face a taper angle.", Fillet: "Round this edge.", Chamfer: "Bevel this edge.",
   Move: "Move the whole body along X, Y or Z.", Rotate: "Rotate the whole body about X, Y or Z.", Scale: "Scale the whole body.", Delete: "Delete the selection.", "Delete step": "Delete this step from the history.",
   "Home view": "Return to the standard 3D view.", "Return to origin": "Bring the world origin back into view.", Undo: "Undo the last change.", Redo: "Redo what was undone.",
   Apply: "Apply this change.", Cancel: "Cancel this change.", "Exit sketch": "Leave the sketch (you can sketch from any camera angle, so orbiting does not leave it).", "Normal to the plane": "Look straight at the plane. Again: from its back. Again: from its front.",
@@ -76,14 +76,14 @@ export function barItems(ctx) {
   // the 3D view: actions for the selection
   const sel = ctx.sel;
   const acts = [];
-  if (ctx.surface) groups.push({ id: "sketchon", items: [["line", "Line"], ["rect", "Rectangle"], ["circle", "Circle"]].map(([t, label]) => item(`surf:${t}`, label, t, { help: "Start sketching on this surface with this tool." })) });
+  if (!ctx.sel || ["plane", "face", "sketch"].includes(ctx.sel.kind)) groups.push({ id: "draw", items: [["line", "Line"], ["rect", "Rectangle"], ["circle", "Circle"]].map(([tl, label]) => item(`tool:${tl}`, label, tl, { help: "Then click a plane, a face or a sketch to draw on it." })) });
   if (!sel) {
     acts.push(item("act:home", "Home view", "home"), item("act:origin", "Return to origin", "origin"));
   } else if (sel.kind === "sketch") {
-    acts.push(item("act:extrude", "Extrude", "extrude"), item("act:sketch", "Sketch on it", "sketch"), item("act:delete", "Delete", "delete"));
+    acts.push(item("act:extrude", "Extrude", "extrude"), item("act:delete", "Delete", "delete"));
   } else if (sel.kind === "face") {
     if (sel.round) acts.push(item("act:move", "Change radius", "move"), item("act:rotate", "Taper", "rotate"));
-    else acts.push(item("act:move", "Move face", "move"), item("act:rotate", "Tilt face", "rotate"), item("act:sketch", "Sketch on surface", "sketch"));
+    else acts.push(item("act:move", "Move face", "move"), item("act:rotate", "Tilt face", "rotate"));
   } else if (sel.kind === "edge") {
     acts.push(item("act:fillet", "Fillet", "fillet"), item("act:chamfer", "Chamfer", "chamfer"));
   } else if (sel.kind === "body") {

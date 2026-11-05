@@ -31,13 +31,14 @@ export const settings = {
       solidworks: { orbit: [{ button: 1 }], pan: [{ button: 1, ctrl: true }] },
       blender: { orbit: [{ button: 1 }], pan: [{ button: 1, shift: true }] },
     },
+    multiClickMs: 400, multiClickPx: 6, // clicks this close in time and place count as a double or triple click (`in_070`)
     zoomToCursor: true, // zoom IN toward the point under the cursor; zoom OUT is about the view center (no runaway)
     zoomAnchorMaxFactor: 1.5, // zoom toward plane points within this many view-distances of the target; farther ones use the camera-facing plane
     maxZoomFactorPerSecond: 5, // one gesture can never zoom faster than this, however hard you flick or spin the wheel
     pinchZoomPerWheel: 0.01, // trackpad pinch (a wheel event with ctrl held) is more sensitive than a wheel notch
     keys: {
       // constraint hotkeys (sketch select tool): Shift + the first letter of the constraint
-      select: "v", line: "l", rect: "r", circle: "c", extrude: "e", sketch: "s", move: "m", rotate: "r", scale: "k", faceOn: "n", fillet: "f", chamfer: "b", consH: "shift+h", consV: "shift+v", consE: "shift+e", consL: "shift+l", consP: "shift+p", consF: "shift+f", consC: "shift+c", dimension: "d", home: "h",
+      select: "v", line: "l", rect: "r", circle: "c", extrude: "e", move: "m", rotate: "r", scale: "k", faceOn: "n", fillet: "f", chamfer: "b", consH: "shift+h", consV: "shift+v", consE: "shift+e", consL: "shift+l", consP: "shift+p", consF: "shift+f", consC: "shift+c", dimension: "d", home: "h",
       undo: "mod+z", redo: ["mod+shift+z", "mod+y"],
       lookX: "x", lookY: "y", lookZ: "z",
       origin: "o", cancel: "escape", confirm: "enter", nextField: "tab", prevField: "shift+tab", delete: ["delete", "backspace"],
@@ -129,16 +130,6 @@ export const settings = {
     faceHoverOpacity: 0.3, // blue shade on a face under the cursor
     faceSelectOpacity: 0.6, // ...and on the selected face
   },
-  backdrop: {
-    // World view option: the plane itself is almost see-through, and the cream sheet is a SEPARATE sheet a little behind it (away from
-    // the camera). That sheet is drawn first and the scene is drawn over it, so it can never cover an object. enabled: false = the
-    // older look (one sheet with brightness and opacity, drawn over objects).
-    enabled: true,
-    offsetFactor: 0.15, // how far behind the plane, in view distances
-    alpha: 1.0, // how solid the cream sheet is
-    planeOpacity: 0.06, // how much of a veil the plane itself has
-    fogScale: 0.35, // the cream sheet fades into the dark world this much as fast as the grid does (lower = stays cream farther out)
-  },
   grid: {
     lodDivisor: 8, // grid spacing is chosen so about this many major cells span the view
     minCellPx: 4, // a grid level fades out when its cells get smaller than this on screen (prevents moire)
@@ -146,73 +137,27 @@ export const settings = {
     grazeMinCos: 0.03, // a plane seen this nearly edge-on cannot be picked (the ray is almost parallel to it)
     axisWidthPx: 2.2, // world axis lines stay the heaviest lines in the scene
     axisAlpha: 0.85,
-    axisGhost: 0.22, // axis lines behind an object show through at this strength
     extentFactor: 60, // size of the quad that carries a plane, in view-distances (fog hides its edge)
   },
-  themeName: "world", // dark world, backlit plane (the paper theme was dropped: D now means dimension)
+  themeName: "pencil", // the look: a white world, charcoal pencil axes, grey panes and model (the earlier sheet and dark styles were dropped, `in_070`)
   themes: {
-    // world = the background (and therefore the fog); sheet = the plane's fill color; gridLine = grid lines.
-    // Only paper-gray and charcoal tones plus the world axis colors. states: what each plane looks like when hovered
-    // (3D view) or selected (sketch view); unselected, unhovered planes are not drawn. "bright" is how much light the sheet gives off (screen-blended: it brightens what is behind
-    // without clipping to white, 0..1); "opacity" is how much it hides what is behind it with the sheet color (0 = fully
-    // see-through). The two are independent.
-    world: {
-      // Values tuned by the human with the temporary tuning panel (in_025, in_031).
-      background: 0x242424, text: "#aeb2b7",
-      axisX: [0.92, 0.32, 0.3], axisY: [0.25, 0.72, 0.38], axisZ: [0.32, 0.52, 1.0],
-      sheet: [0.8, 0.7765, 0.7176], gridLine: [0.17, 0.18, 0.2], // sheet and bone-colored faces and bodies #e3dccb (`in_036`: slightly darker than the earlier cream #f3f0e7), grid #2b2e33
-      blueSurface: [0.5, 0.66, 1.0], blueLine: [0.1, 0.22, 0.55], blueInk: [0.05, 0.12, 0.32], blueHalo: [0.82, 0.9, 1.0], // the slight blue shade on a hovered or selected plane
-      bodyColor: 0xf9f6ee, bodyEdge: 0x3a352c, addColor: 0x5fbf7a, cutColor: 0xe0645c, handleColor: 0xf2c14e, // body color: objects and cream faces, lighter than the sheet (`in_037`)
-      sketchInk: [0.0, 0.0, 0.0], sketchHalo: [0.95, 0.93, 0.9], // sketch lines: near-black with a light halo so they read on the lit sheet and on the dark world
-      states: {
-        // blue = how much the hovered / selected plane's surface and lines lean blue (0 = none)
-        base: { line: 0, bright: 0, opacity: 0, fine: 0, blue: 0 },
-        hover: { line: 0.5, bright: 1.2, opacity: 0.5, fine: 0.5, blue: 0.08 },
-        selected: { line: 0.5, bright: 1.2, opacity: 0.5, fine: 0.5, blue: 0.08 },
-      },
+    pencil: {
+      background: 0xffffff, text: "#2b2b2d",
+      axisX: [0.17, 0.17, 0.19], axisY: [0.17, 0.17, 0.19], axisZ: [0.17, 0.17, 0.19], // charcoal, like a pencil
+      sheet: [0.5, 0.51, 0.54], gridLine: [0.18, 0.19, 0.22], // a pane's fill, and the sketch grid
+      blueSurface: [0.3, 0.5, 0.95], blueLine: [0.15, 0.35, 0.85], blueInk: [0.05, 0.12, 0.32], blueHalo: [0.82, 0.9, 1.0], // selected things lean blue
+      bodyColor: 0xcdcdd0, bodyEdge: 0x2a2a2d, addColor: 0x5fbf7a, cutColor: 0xe0645c, handleColor: 0xf2c14e, // the model is grey
+      sketchInk: [0.0, 0.0, 0.0], sketchHalo: [0.95, 0.93, 0.9],
     },
   },
-};
-
-// ---- TEMPORARY visual styles to try (`in_064`): the style switcher at the top right picks one. "sheets" = the world as it was; "panes" = a blank world with only
-// the axis lines, three small translucent panes at the origin to pick a plane, and a faint grid that fades in on the plane you sketch on.
-settings.styles = {
-  current: { label: "Current (sheets)", theme: "world", mode: "sheets" },
-  panesDark: { label: "Panes, dark", theme: "panesDark", mode: "panes" },
-  panesLight: { label: "Panes, light", theme: "panesLight", mode: "panes" },
-  blueprint: { label: "Panes, blueprint", theme: "blueprint", mode: "panes" },
-  compass: { label: "Compass (home, then corner)", theme: "pencil", mode: "compass", shortAxes: true, paneSize: 0.13, paneOffset: 0.05, paneRadius: 0.16, lodDivisor: 30, gridAlpha: 1 }, // the pencil look until the first sketch, then the axes live in a corner compass with X Y Z buttons (`in_067`, `in_068`)
-  pencil: { label: "Pencil (white)", theme: "pencil", mode: "panes", shortAxes: true, paneSize: 0.13, paneOffset: 0.05, paneRadius: 0.16, lodDivisor: 30, gridAlpha: 1 }, // white world, short charcoal axes, floating rounded grey panes
-};
-settings.styleName = "current";
-settings.panes = {
-  size: 0.2, // a pane is a square this many view-distances wide, in the corner of the + axes
-  opacity: 0.16, hoverOpacity: 0.38, // the pane fill
-  edgeAlpha: 0.55, hoverEdgeAlpha: 1, // its outline
-  hoverBlue: 0.45, // how much a hovered pane leans blue
-  orthoGridOnly: true, // the sketch grid shows only while you look straight at the plane, and fades away in 3D (`in_066`)
-  axisBehind: 0, // axis lines and arrows are not seen through objects (0 = hidden; the sheets style shows them faintly)
-  sketchGrid: 0.42, fine: 0.5, // the faint grid on the plane being sketched on, and its finest level
-  cornerSeconds: 0.7, // the axes take this long to move into the corner compass
-  fadeRadius: 1.15, fadeEase: 0.22, // the grid fades out this many view-distances from the view centre; it fades in over a few frames
-};
-const base = settings.themes.world;
-settings.themes.panesDark = { ...base, background: 0x1b1c1e, gridLine: [0.55, 0.58, 0.64], sheet: [0.8, 0.84, 0.92] };
-settings.themes.panesLight = {
-  ...base, background: 0xe8e6e1, text: "#3a3d42",
-  axisX: [0.82, 0.22, 0.2], axisY: [0.2, 0.58, 0.28], axisZ: [0.22, 0.4, 0.88],
-  sheet: [0.38, 0.5, 0.72], gridLine: [0.45, 0.48, 0.54], blueSurface: [0.2, 0.4, 0.9], blueLine: [0.1, 0.25, 0.7],
-  bodyColor: 0xfbfaf6, bodyEdge: 0x2f2b24,
-};
-settings.themes.blueprint = {
-  ...base, background: 0x10243b, text: "#9fb6d4",
-  axisX: [1.0, 0.45, 0.4], axisY: [0.4, 0.9, 0.55], axisZ: [0.45, 0.65, 1.0],
-  sheet: [0.45, 0.7, 1.0], gridLine: [0.5, 0.7, 1.0], blueSurface: [0.7, 0.85, 1.0], blueLine: [0.6, 0.8, 1.0],
-  bodyColor: 0xdfeaf7, bodyEdge: 0x10243b,
-};
-settings.themes.pencil = {
-  ...base, background: 0xffffff, text: "#2b2b2d",
-  axisX: [0.17, 0.17, 0.19], axisY: [0.17, 0.17, 0.19], axisZ: [0.17, 0.17, 0.19], // charcoal, like a pencil
-  sheet: [0.5, 0.51, 0.54], gridLine: [0.18, 0.19, 0.22], blueSurface: [0.3, 0.5, 0.95], blueLine: [0.15, 0.35, 0.85],
-  bodyColor: 0xcdcdd0, bodyEdge: 0x2a2a2d,
+  // The helper panes at the origin and the compass they turn into (`in_064` to `in_070`).
+  panes: {
+    size: 0.13, offset: 0.05, radius: 0.16, // a pane is a rounded square this many view-distances wide, floating this far out from the axes' corner
+    opacity: 0.16, hoverOpacity: 0.38, // the pane fill
+    edgeAlpha: 0.55, hoverEdgeAlpha: 1, // its outline
+    hoverBlue: 0.45, // how much a hovered or selected pane leans blue
+    gridAlpha: 1, sketchGrid: 1, fine: 0.5, lodDivisor: 30, // the grid on the plane you look straight at (shown only then, `in_066`), its finest level, and how fine it is
+    cornerSeconds: 0.7, // the axes take this long to move into the corner compass (and back)
+    fadeRadius: 1.15, fadeEase: 0.22, // the grid fades out this many view-distances from the view centre; it fades in over a few frames
+  },
 };
