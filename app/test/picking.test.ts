@@ -13,6 +13,7 @@ import { candidatesAt, refsAt, hoverAt } from "../src/interaction/picking.ts";
 import { click, initialClick } from "../src/interaction/selection.ts";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { compile } from "../src/compiler/compile.ts";
+import { projector, homeCamera } from "../src/interaction/camera.ts";
 
 await kernel.init();
 const XY = worldRef("XY");
@@ -21,9 +22,10 @@ const must = (r: ReturnType<typeof exec>): History => {
   return r.value;
 };
 /** Looking straight down the Z axis, 1 pixel = 1 mm, y up on the screen. */
-const top = (x: number, y: number): PointerView => ({ x, y: -y, project: (p: Vec3) => [p[0], -p[1]], ray: { o: [x, y, 500], d: [0, 0, -1] } });
+const topRay = (px: number, py: number) => ({ o: [px, -py, 500] as Vec3, d: [0, 0, -1] as Vec3 });
+const top = (x: number, y: number): PointerView => ({ x, y: -y, project: (p: Vec3) => [p[0], -p[1]], ray: { o: [x, y, 500], d: [0, 0, -1] }, rayAt: topRay });
 /** Looking along +Y (a side view): screen x = world x, screen y = -z. */
-const front = (x: number, z: number): PointerView => ({ x, y: -z, project: (p: Vec3) => [p[0], -p[2]], ray: { o: [x, -500, z], d: [0, 1, 0] } });
+const front = (x: number, z: number): PointerView => ({ x, y: -z, project: (p: Vec3) => [p[0], -p[2]], ray: { o: [x, -500, z], d: [0, 1, 0] }, rayAt: (px, py) => ({ o: [px, -500, -py] as Vec3, d: [0, 1, 0] as Vec3 }) });
 
 function box(w = 40, d = 20) {
   const r = drawRectangle(newHistory().scene, XY, [-w / 2, -d / 2, 0], [w / 2, d / 2, 0], [1, 0, 0], [0, 1, 0]);
@@ -61,21 +63,29 @@ test("order: corners, then lines, then faces and planes; nearest first within ea
   assert.deepEqual(at(500, 500), []);
 });
 
-test("exactly overlapping corners are all candidates, and repeated clicks cycle through them with 'i of n'", () => {
-  const { scene } = box();
-  const c = candidatesAt(scene, top(20, 10)).filter((x) => x.kind === "corner").map((x) => x.ref);
-  assert.equal(c.length, 3, "the drawn corner and the body corners above and below it: seen from above they coincide");
+test("exactly overlapping corners are all candidates (those hidden behind the body are not), and repeated clicks cycle through them with 'i of n'", () => {
+  let { h, scene } = box();
+  const topFace = Object.values(scene.parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20)!;
+  h = must(exec(h, { type: "addPart", part: topFace }));
+  const r = drawRectangle(h.scene, topFace.ref, [20, 10, 20], [10, 0, 20], [1, 0, 0], [0, 1, 0]);
+  h = must(exec(h, r.command));
+  scene = compile(h.scene, kernel).scene;
+  const pr = projector(homeCamera(), 800, 600);
+  const [x, y] = pr.project([20, 10, 20]);
+  const c = candidatesAt(scene, pr.view(x, y)).filter((k) => k.kind === "corner").map((k) => k.ref);
+  assert.equal(c.length, 2, "the drawn corner and the body corner under it; the bottom corner of the body is hidden behind it");
   let st = initialClick();
+  const refs = refsAt(scene, pr.view(x, y));
   const seen: Ref[] = [];
   let msg = "";
-  for (let i = 0; i < 4; i++) {
-    const r = click(st, refsAt(scene, top(20, 10)));
-    st = r.state;
+  for (let i = 0; i < 3; i++) {
+    const r2 = click(st, refs);
+    st = r2.state;
     seen.push(st.selection[0]!);
-    msg = r.cycled ? `${r.cycled.index} of ${r.cycled.of}` : msg;
+    msg = r2.cycled ? `${r2.cycled.index} of ${r2.cycled.of}` : msg;
   }
-  assert.equal(new Set(seen.slice(0, 3)).size > 1, true);
-  assert.match(msg, /of/);
+  assert.equal(new Set(seen).size, 3);
+  assert.match(msg, /3 of \d+/);
 });
 
 test("a body face is hit through its triangles: the nearer face wins, and the hole of a face is not hit", () => {
@@ -83,7 +93,7 @@ test("a body face is hit through its triangles: the nearer face wins, and the ho
   const hit = candidatesAt(scene, top(0, 0)).filter((c) => c.kind === "plane");
   const topFace = Object.values(scene.parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20)!;
   assert.equal(hit[0]!.ref, topFace.ref, "seen from above, the top face is nearer than the bottom face");
-  assert.ok(hit.length >= 3, "top, bottom and the world pane");
+  assert.equal(hit.length, 1, "only the nearest face counts: the bottom face and the world pane are hidden behind it");
   assert.equal(candidatesAt(scene, top(60, 0)).length, 0, "outside the body nothing is hit");
   const side = candidatesAt(scene, front(0, 10)).filter((c) => c.kind === "plane");
   assert.equal(side[0]!.ref.includes("f@"), true);

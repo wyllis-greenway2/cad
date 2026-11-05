@@ -18,6 +18,7 @@ ALLOWED = {
     "interaction": {"compiler", "operation", "math", "shared"},
     "ui": {"interaction", "shared"},
     "platform": {"shared"},
+    "root": {"ui", "interaction", "compiler", "operation", "platform", "math", "shared"},
 }
 BROWSER = re.compile(r"\b(window|document|navigator|localStorage|sessionStorage|requestAnimationFrame|HTMLElement|HTMLCanvasElement|addEventListener)\b")
 IMPORT = re.compile(r"""^\s*(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]""", re.M)
@@ -38,6 +39,8 @@ def main() -> int:
     for f in files:
         rel = f.relative_to(ROOT)
         layer = rel.parts[0]
+        if len(rel.parts) == 1:
+            layer = "root"  # the composition root (src/main.ts): wires every layer together; it may import all of them and the browser
         if layer not in ALLOWED:
             problems.append(f"{rel}: not inside a known layer folder ({', '.join(sorted(ALLOWED))})")
             continue
@@ -62,9 +65,9 @@ def main() -> int:
                 in_adapter = rel.parts[:4] == ("compiler", "kernel", "occt") or rel.parts[:3] == ("compiler", "kernel", "occt")
                 if bare in KERNEL_PKGS and not in_adapter:
                     problems.append(f"{rel}: only compiler/kernel/occt may import {spec}")
-                elif bare not in KERNEL_PKGS and layer not in ("ui", "platform"):
+                elif bare not in KERNEL_PKGS and layer not in ("ui", "platform", "root"):
                     problems.append(f"{rel}: the {layer} layer may not import the package {spec}")
-        if layer not in ("ui", "platform") and BROWSER.search(code):
+        if layer not in ("ui", "platform", "root") and BROWSER.search(code):
             problems.append(f"{rel}: browser API in the {layer} layer ({BROWSER.search(code).group(1)})")
     if problems:
         print(f"{len(problems)} problem(s):")

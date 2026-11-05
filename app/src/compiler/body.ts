@@ -12,6 +12,8 @@ import type { KernelResult } from "./kernel/adapter.ts";
 const r4 = (v: number) => Math.round(v * 1e4) / 1e4;
 const key = (p: readonly number[]) => p.map((v) => String(r4(v) + 0)).join(",");
 
+/** The whole body as one part (a single body for now). */
+export const BODY_OBJECT: Ref = bodyRef("body", "o");
 export const cornerName = (p: Vec3): Ref => bodyRef("body", `v@${key(p)}`);
 export const edgeName = (a: Vec3, b: Vec3, m: Vec3): Ref => bodyRef("body", `e@${key(a)}~${key(b)}~${key(m)}`);
 export const faceName = (n: Vec3, d: number): Ref => bodyRef("body", `f@${key([...n, d])}`);
@@ -36,6 +38,7 @@ export function bodyParts(result: KernelResult): Part[] {
     }
     return ref;
   };
+  if (result.mesh) out.push({ ...base, ref: BODY_OBJECT, kind: "body" }); // the whole object: selected by the third click
   for (const v of result.vertices ?? []) corner(v);
   for (const e of result.edges ?? []) {
     const straight = e.type === "LINE";

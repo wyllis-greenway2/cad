@@ -605,3 +605,34 @@ Approves the four proposals in the clean engine design (new code in a top-level 
 After compressing the context, asks whether the AI is ready to build the cleaner version of the app from the prototype findings and the plan; taken as the go-ahead for phase 1.
 
 > Okay are you ready to build the cleaner version of the app based off the prototype findings we discussed and the plan we built?
+
+## in_101 — 2026-11-05 — directive
+Tells the AI to go ahead with phase 2 of the clean engine.
+
+> continue with phase 2
+
+## in_102 — 2026-11-05 — directive
+Tells the AI to go ahead with phase 3 of the clean engine.
+
+> continue with phase 3
+
+## in_103 — 2026-11-05 — directive
+Tells the AI to go ahead with phase 4 of the clean engine.
+
+> continue with phase 4
+
+## in_104 — 2026-11-05 — question
+Asks for a launch command like the old preview one, to preview the app as the AI works and see it on the mobile.
+
+> shouldn't we have a command like our old one that launches the code for me to preview as you work and see in my mobile like this ? "LAN=1 bash ~/Documents/cad/tools/preview.sh
+"
+
+## in_105 — 2026-11-05 — question
+Asks whether right click can already add rectangles and circles, or whether phase 5 must be finished first.
+
+> should I be able to right click and add rectangles circles etc? or do you need to finish phase 5 first?
+
+## in_106 — 2026-11-05 — directive
+Chooses to do phase 5 (the input layer) before the minimal draw menu.
+
+> phase 5 first

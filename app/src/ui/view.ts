@@ -39,6 +39,7 @@ export function createView(host: HTMLElement) {
   const overlay = new THREE.Group();
   scene3.add(content, overlay);
   let lastScene: Scene | null = null;
+  let lastMesh: { vertices: Float32Array; triangles: Uint32Array } | null = null;
   let size = { w: 1, h: 1 };
   const lineMats: LineMaterial[] = [];
 
@@ -86,6 +87,7 @@ export function createView(host: HTMLElement) {
   function setScene(s: Scene, mesh: { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array } | null) {
     if (s === lastScene) return;
     lastScene = s;
+    lastMesh = mesh;
     dispose(content);
     lineMats.length = 0;
     const get = lookup(s);
@@ -136,7 +138,11 @@ export function createView(host: HTMLElement) {
     const mark = (ref: Ref, kind: "select" | "hover") => {
       const p = get(ref);
       if (!p) return;
-      const tris = surfaceTriangles(get, p);
+      let tris = surfaceTriangles(get, p);
+      if (p.kind === "body" && lastMesh) {
+        tris = [];
+        for (const ix of lastMesh.triangles) tris.push(lastMesh.vertices[ix * 3]!, lastMesh.vertices[ix * 3 + 1]!, lastMesh.vertices[ix * 3 + 2]!);
+      }
       if (tris) {
         const spread = h.spread?.ref === ref && kind === "select";
         const orb = kind === "hover" ? hoverOrb : spread ? selectOrb : fullOrb;

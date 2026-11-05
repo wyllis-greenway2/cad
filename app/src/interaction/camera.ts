@@ -124,6 +124,21 @@ export function projector(c: Camera, widthPx: number, heightPx: number) {
     if (ortho) return { o: add(eye, add(scale(right, nx * halfH), scale(up, ny * halfH))), d: forward };
     return { o: eye, d: normalize(add(forward, add(scale(right, nx / f), scale(up, ny / f)))) };
   };
-  const view = (px: number, py: number): PointerView => ({ x: px, y: py, project, ray: ray(px, py) });
+  const view = (px: number, py: number): PointerView => ({ x: px, y: py, project, ray: ray(px, py), rayAt: ray });
   return { project, ray, view, eye, forward, right, up, ortho, halfH };
+}
+
+/**
+ * Zoom by a factor (below 1 = closer) keeping the world point `anchor` where it is on the screen (zoom toward the cursor). Without an anchor: about the view centre.
+ * The anchor's offsets from the target (right, up) scale with the new view size, and its depth offset is kept, so it does not move on screen.
+ */
+export function zoomAt(c: Camera, factor: number, anchor?: Vec3): Camera {
+  const next = zoom(c, factor);
+  if (!anchor || next.distance === c.distance) return next;
+  const b = basis(c);
+  const rel = sub(anchor, c.target);
+  const [a, u, f] = [dot(rel, b.right), dot(rel, b.up), dot(rel, b.forward)];
+  const k = c.straight ? next.distance / c.distance : (next.distance + f) / (c.distance + f);
+  const target = sub(anchor, add(add(scale(b.right, a * k), scale(b.up, u * k)), scale(b.forward, f)));
+  return { ...next, target };
 }

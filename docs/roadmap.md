@@ -5,7 +5,7 @@ Update it at the end of each session.
 
 ## Now
 - **Building the clean engine in `app/`** under `dec_clean_engine_design` (accepted, `in_099`); the behaviours to reproduce are `dec_interaction_spec` (still to be confirmed by the human), the relations rules `dec_relations_standard` (provisional except the mover rule), no sketch isolation `dec_no_sketch_isolation`, ownership `dec_constraint_ownership`.
-- **Phases 1 to 4 are done** (74 tests): core, compiler, picking, and a minimal view you can run (`cd app && npm run dev`, `/?demo=box`). The prototype is frozen. **Next: phase 5, the input layer** (device tables, click grammar, long press); see Handoff 085.
+- **Phases 1 to 5 are done** (99 tests): core, compiler, picking, a minimal view, and the input layer (mouse, trackpad, finger and pen into intents; click grammar; menu; touch). Run it: `LAN=1 bash tools/preview.sh`. **Next: phase 6, drawing and operations** (menu tools, typed sizes, extrude, round and bevel, move and rotate); see Handoff 087.
 - `prototypes/cad-ui` is frozen (its README says what it taught); `tools/preview.sh` still runs it until the cut-over (phase 8).
 
 ## Done

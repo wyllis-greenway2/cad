@@ -64,6 +64,8 @@ export interface PointerView {
   project: (p: Vec3) => [number, number];
   /** The ray under the pointer (origin and unit direction), for surfaces. */
   ray?: { o: Vec3; d: Vec3 };
+  /** The ray under any other pixel (to ask whether a point is hidden behind a surface). */
+  rayAt?: (x: number, y: number) => { o: Vec3; d: Vec3 };
 }
 /** What to draw for a part (the view reads this and knows no kinds). */
 export type Outline =
