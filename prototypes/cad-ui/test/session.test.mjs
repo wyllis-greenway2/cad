@@ -188,3 +188,50 @@ test("a drawing tool draws one figure and then hands back to the select tool (`i
   s.click([30, 8], SH);
   assert.equal(store.entities("XY").length, 2);
 });
+
+test("a sketch corner picked together with a body corner can be pinned to it, replaced, and released (`dec_no_sketch_isolation` stage 2)", async () => {
+  const { modelOf } = await import("../src/sketchsolve.mjs");
+  const { store, s } = make();
+  s.setTool("rect");
+  s.click([0, 0], SH);
+  s.click([10, 8], SH);
+  s.click([10, 8]); // pick the far corner (the select tool is back)
+  const ref = s.picks[0].ref;
+  assert.equal(s.picks[0].kind, "point");
+  assert.equal(s.offers().some((o) => o.label === "Coincident with the body corner"), false, "no body corner selected: no such offer");
+  s.ext = [25, 30, 0]; // a corner of the body, on the plane XY here
+  const idx = s.offers().findIndex((o) => o.label === "Coincident with the body corner");
+  assert.ok(idx >= 0);
+  assert.equal(s.offers()[idx].enabled, true);
+  assert.equal(s.applyOffer(idx), null);
+  const at = modelOf(store.entities("XY")).points[ref];
+  assert.ok(Math.hypot(at[0] - 25, at[1] - 30) < 1e-3, `the corner is at the body corner: ${at}`);
+  const pin = store.constraintsOf("XY").find((c) => c.type === "anchor");
+  assert.deepEqual(pin.ext.world, [25, 30, 0]);
+  s.ext = [40, 12, 0]; // another body corner: the pin moves to it
+  assert.equal(s.applyOffer(idx), null);
+  assert.equal(store.constraintsOf("XY").filter((c) => c.type === "anchor").length, 1);
+  const at2 = modelOf(store.entities("XY")).points[ref];
+  assert.ok(Math.hypot(at2[0] - 40, at2[1] - 12) < 1e-3);
+  assert.equal(s.applyOffer(idx), null); // the same body corner again: released
+  assert.equal(store.constraintsOf("XY").some((c) => c.type === "anchor"), false);
+});
+
+test("a pin to a body corner follows the body, and is lost with it", () => {
+  const { store, s } = make();
+  s.setTool("rect");
+  s.click([0, 0], SH);
+  s.click([10, 8], SH);
+  s.click([10, 8]);
+  s.ext = [25, 30, 0];
+  s.applyOffer(s.offers().findIndex((o) => o.label === "Coincident with the body corner"));
+  const ref = s.picks[0].ref;
+  const where = () => store.entities("XY").flatMap((e) => e.points).some((p) => Math.hypot(p[0] - 26, p[1] - 31) < 1e-3);
+  // the body changed: the corner is now at (26, 31, 0)
+  store.refreshAnchors((key, world) => (Math.hypot(world[0] - 25, world[1] - 30) < 2 ? { world: [26, 31, 0], at: [26, 31] } : null));
+  assert.ok(where(), "the sketch corner moved with the body corner");
+  assert.equal(store.constraintsOf("XY").find((c) => c.type === "anchor").ext.world.join(), "26,31,0");
+  store.refreshAnchors(() => null); // the corner is gone
+  assert.equal(store.constraintsOf("XY").find((c) => c.type === "anchor").ext.lost, true);
+  assert.ok(ref);
+});

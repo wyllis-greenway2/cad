@@ -1,4 +1,4 @@
-import { refsOf, shapeOfRef } from "./sketchsolve.mjs";
+import { refsOf, shapeOfRef, solveSketch } from "./sketchsolve.mjs";
 // The sketch model: entities per plane, with undo and redo as a command history. Pure (no DOM, no three.js).
 // A command is { type: "add" | "remove" | "update", plane, entity (for update: the new one, with `before` = the old one) }. The history list in the UI (later) reads `past`.
 export class SketchStore {
@@ -156,6 +156,33 @@ export class SketchStore {
     return e;
   }
 
+  /**
+   * Keep pins to body corners true when the body changes (`dec_no_sketch_isolation`, stage 2). `resolve(key, world)` finds the body corner again (the nearest one) and returns
+   * { world, at: [u, v] } or null if it is gone. A pin whose corner is gone is marked lost and stops acting. Only loose sketches follow the body: a sketch that has become a step
+   * keeps the place it was pinned to (following would make the step depend on the body it builds). Not an edit: it is derived state, so it is not in the undo history.
+   */
+  refreshAnchors(resolve) {
+    let changed = false;
+    for (const key of Object.keys(this.cons)) {
+      const list = this.cons[key];
+      let touched = false;
+      for (const c of list) {
+        if (c.type !== "anchor") continue;
+        const r = resolve(key, c.ext.world);
+        const lost = !r;
+        if (r && (Math.hypot(r.at[0] - c.at[0], r.at[1] - c.at[1]) > 1e-9 || r.world.join() !== c.ext.world.join())) (c.at = r.at), (c.ext = { ...c.ext, world: r.world, lost: false }), (touched = true);
+        else if (lost !== !!c.ext.lost) (c.ext = { ...c.ext, lost }), (touched = true);
+      }
+      if (touched) {
+        const ents = this.entities(key);
+        const res = solveSketch(ents, list);
+        if (res.status === "ok") res.entities.forEach((e, k) => (ents[k] = e));
+        changed = true;
+      }
+    }
+    if (changed) this.version++;
+    return changed;
+  }
   /** The constraints of a sketch that use any part of this shape (what deleting it would take with it). */
   dependentsOf(key, shapeId) {
     return this.constraintsOf(key).filter((c) => refsOf(c).some((r) => shapeOfRef(r) === shapeId));

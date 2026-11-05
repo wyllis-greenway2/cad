@@ -65,6 +65,7 @@ export const settings = {
     haloWidthPx: 0, // a light line traced along them (0 = none); used to be 3.2
     markerPx: 5,
     snapSquarePx: 9,
+    anchorTolMm: 2, // a sketch corner pinned to a body corner finds that corner again if the body moved it by less than this (`dec_no_sketch_isolation`)
     oneShot: true, // a drawing tool (line, rectangle, circle) draws one figure and then hands back to the select tool, so it does not keep dropping shapes (`in_079`)
     regionFill: 0.5, // closed sketch shapes that are not extruded are faces with no thickness: bone colored and semi-transparent
     regionSelectBlue: 0.6, // a selected closed shape stays this blue until deselected

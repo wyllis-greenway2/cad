@@ -19,7 +19,8 @@ import { TransformSession, AXIS_NAMES, UNITS } from "./transform.mjs";
 import { buildGraph } from "./features.mjs";
 import { createBody } from "./body.js";
 import { hoverOrb, selectOrb, fullOrb, orbMaterial, selectedLook } from "./orb.js";
-import { PLANES, planeDef, addFacePlane, basisOf, frameOf, planeOrigin, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, normalSide, flippedView, projectOnto, pickPlane } from "./viewmath.mjs";
+import { buildMap, constraintsOn, bodyRef } from "./constraintmap.mjs";
+import { PLANES, planeUV, planeDef, addFacePlane, basisOf, frameOf, planeOrigin, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, normalSide, flippedView, projectOnto, pickPlane } from "./viewmath.mjs";
 
 const $ = (id) => document.getElementById(id);
 const G = S.grid;
@@ -808,6 +809,10 @@ function buildSketchViz() {
       }
     }
   }
+  if (inSketchView() && session.tool === "select" && session.relatedAnchor()) {
+    // the clicked pin to a body corner: where the corner is held, in amber
+    sketchGroup.add(disc(session.plane, session.relatedAnchor(), S.sketch.markerPx * S.sketch.pickPointScale * 1.6 / pxPerMm(), S.sketch.relatedColor, 10, 0.9));
+  }
   if (!inSketchView() || session.tool === "select") return;
   const plane = session.plane;
   const k = 1 / pxPerMm();
@@ -1207,7 +1212,17 @@ function updateHistory() {
   });
 }
 $("histBtn").onclick = () => $("histList").classList.toggle("open");
+/** Where a body corner a sketch is pinned to is now (the nearest corner of the rebuilt body), as a position on that sketch's plane; null if it is gone. */
+function resolveAnchor(key, world) {
+  let best = null;
+  for (const v of body.vertices) {
+    const d = Math.hypot(v[0] - world[0], v[1] - world[1], v[2] - world[2]);
+    if (d <= S.sketch.anchorTolMm && (!best || d < best.d)) best = { d, v };
+  }
+  return best ? { world: best.v.slice(), at: planeUV(key, best.v) } : null;
+}
 body.onResult(() => {
+  if (body.ready() && store.refreshAnchors(resolveAnchor)) markSketch(); // pins to body corners follow the rebuilt body
   if (sel?.kind === "face") {
     const f = body.findFace(sel.ref); // the model was rebuilt: find the selected face again, or let go of it
     sel = f ? { ...sel, face: { ...f, point: sel.ref.point } } : null;
@@ -1246,6 +1261,12 @@ function settleFinished(fin) {
     applySel();
   }
 }
+/** How many sketch constraints are pinned to this corner of the body, for the status line (the richer display comes later, `in_085`). */
+function anchorNote(v) {
+  const map = buildMap(Object.keys(store.sketches).map((key) => ({ key, entities: store.entities(key), constraints: store.constraintsOf(key) })));
+  const n = constraintsOn(map, "body", bodyRef({ kind: "vertex", world: v })).length;
+  return n ? `   (${n} sketch constraint${n === 1 ? "" : "s"} pinned to it)` : "";
+}
 function updateStatus() {
   const fin = session.takeFinished();
   if (fin) settleFinished(fin);
@@ -1254,7 +1275,7 @@ function updateStatus() {
   else if (xform) text = xform.sess.prompt();
   else if (extrude) text = `${extrude.ref ? "Move face" : `Extrude on ${extrude.plane}`}   ${extrude.sess.prompt()}`;
   else if (armedTool && !selected) text = `${{ line: "Line", rect: "Rectangle", circle: "Circle" }[armedTool]}: click a plane, a face or a sketch to draw on it   Esc to cancel`;
-  else if (!selected && sel) text = `Selected: ${targetName(sel)}`; // what you can do is in the bar (icons and tooltips), not repeated here
+  else if (!selected && sel) text = `Selected: ${targetName(sel)}${sel.kind === "vertex" ? anchorNote(sel.v) : ""}`; // what you can do is in the bar (icons and tooltips), not repeated here
   else if (session.editKey && inSketchView()) text = `Editing the sketch of step ${store.features.findIndex((f) => `feat:${f.id}` === session.editKey) + 1}   ${session.prompt()}   Esc to finish`;
   else if (selected) text = inSketchView() ? `Sketching on ${selected}   ${session.prompt()}` : `Going to ${selected}...`;
   if (inSketchView() && !flash && !extrude && !xform) {
@@ -1411,6 +1432,7 @@ const currentTarget = () => sel ?? hoverAsSel();
 const planeOfTarget = (t) => (t.kind === "face" && t.face.type === "cyl" ? null : t.kind === "face" ? addFacePlane(t.face, Math.round(view.a / (Math.PI / 2)) * (Math.PI / 2)) : t.plane); // a horizontal face is squared up to the nearest quarter turn
 const targetName = (t) => ({ face: "face", sketch: "sketch shape", edge: "line", vertex: "corner", body: "body" }[t.kind] ?? `${t.plane} plane`);
 function applySel() {
+  session.ext = sel?.kind === "vertex" ? sel.v : null; // a selected corner of the body is available to the sketch's constraints (stage 2 of `dec_no_sketch_isolation`)
   body.setSelected(sel?.kind === "face" ? sel.face : sel?.kind === "body" ? body.wholeBody() : null);
   updateStatus();
   markSketch();
@@ -1552,6 +1574,7 @@ function doEscape() {
   if (xform) return cancelTransform();
   if (armedTool) return void ((armedTool = null), (canvas.style.cursor = "default"));
   if (!inSketchView()) return selected ? exitSketch(true) : sel ? ((sel = null), applySel()) : undefined;
+  if (sel?.kind === "vertex") return void ((sel = null), applySel(), refreshUI()); // first let go of a body corner picked along with the sketch parts
   if (!session.escape()) exitSketch(true);
   updateStatus();
   updateReadout();
@@ -2127,7 +2150,7 @@ function onPointerDown(ev) {
   if (session.tool === "select") {
     // pressing on a corner, line or circle: dragging it moves it (constraints stay true); a click picks it. Elsewhere a click selects and a drag orbits.
     const el = ev.shiftKey ? null : elementAt(p, session.entities(), S.sketch.selectTolPx / pxPerMm(p));
-    return void (g = el ? { kind: "skdrag", el, p, started: false, ...base } : { kind: "selectclick", p, shift: ev.shiftKey, target: ev.shiftKey ? null : otherTargetAt(ev.clientX, ev.clientY), ...base });
+    return void (g = el ? { kind: "skdrag", el, p, started: false, ...base } : { kind: "selectclick", p, shift: ev.shiftKey, target: otherTargetAt(ev.clientX, ev.clientY), ...base });
   }
   const had = !!session.draft;
   const msg = session.click(p, { shift: ev.shiftKey });
@@ -2249,7 +2272,14 @@ function onPointerUp(ev) {
     refreshUI();
     return;
   }
-  if (was.kind === "selectclick" && !was.moved && was.target) {
+  if (was.kind === "selectclick" && !was.moved && was.shift && was.target?.vertex) {
+    // Shift + a corner of the body, while a sketch is being edited: add it to the selection, so a constraint can tie a sketch corner to it
+    sel = { kind: "vertex", v: was.target.vertex };
+    applySel();
+    refreshUI();
+    return;
+  }
+  if (was.kind === "selectclick" && !was.moved && was.target && !was.shift) {
     const t = was.target;
     if (t.skel) {
       // a line or corner of another sketch: that sketch takes over, with the element picked

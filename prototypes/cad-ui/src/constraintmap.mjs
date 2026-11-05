@@ -8,6 +8,9 @@
 // A part is addressed by { key, ref } where `key` is the sketch ("XY", "F1", "feat:f_001"). Later, parts of the body can be addressed the same way (stage 2 of `dec_no_sketch_isolation`).
 import { refsOf, shapeOfRef, modelOf } from "./sketchsolve.mjs";
 
+/** The name of a part of the body in the map: "body|vertex@x,y,z". Parts of the body use the key "body". */
+export const bodyRef = (ext) => `${ext.kind}@${ext.world.map((v) => Math.round(v * 1000) / 1000).join(",")}`;
+
 /** Does this part (corner, line, radius, centre or whole shape) exist in these entities? */
 export function partExists(entities, ref) {
   const m = modelOf(entities);
@@ -26,10 +29,12 @@ export function buildMap(sketches) {
   for (const sk of sketches) {
     for (const c of sk.constraints ?? []) {
       const uses = refsOf(c).map((ref) => ({ ref, shape: shapeOfRef(ref), exists: partExists(sk.entities, ref) }));
+      if (c.ext) uses.push({ ref: bodyRef(c.ext), shape: "body", exists: !c.ext.lost }); // a pin to a corner of the body: that corner is used too
       constraints.set(c.id, { id: c.id, key: sk.key, type: c.type, uses, broken: uses.some((u) => !u.exists) });
       for (const u of uses) {
-        add(byPart, `${sk.key}|${u.ref}`, c.id);
-        if (!(byShape.get(`${sk.key}|${u.shape}`) ?? []).includes(c.id)) add(byShape, `${sk.key}|${u.shape}`, c.id);
+        const owner = u.shape === "body" ? "body" : sk.key; // body parts are addressed under "body", whichever sketch uses them
+        add(byPart, `${owner}|${u.ref}`, c.id);
+        if (!(byShape.get(`${owner}|${u.shape}`) ?? []).includes(c.id)) add(byShape, `${owner}|${u.shape}`, c.id);
       }
     }
   }

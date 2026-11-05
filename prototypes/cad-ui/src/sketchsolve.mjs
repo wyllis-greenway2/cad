@@ -62,6 +62,7 @@ export function expand(c, model) {
     case "angle": return hasP(c.a) && hasP(c.b) && hasP(c.c) && hasP(c.d) ? { id: c.id, type: "angle", a: c.a, b: c.b, c: c.c, d: c.d, value: (c.deg * Math.PI) / 180 } : null;
     case "coincident": return hasP(c.a) && hasP(c.b) ? { id: c.id, type: "coincident", a: c.a, b: c.b } : null;
     case "fixed": return hasP(c.p) ? { id: c.id, type: "fixed", p: c.p, at: c.at } : null;
+    case "anchor": return hasP(c.p) && !c.ext?.lost ? { id: c.id, type: "fixed", p: c.p, at: c.at } : null; // a sketch corner pinned to a corner of the body: where that corner lands on this sketch's plane (`dec_no_sketch_isolation`)
     case "radius": return hasS(c.r) ? { id: c.id, type: "radius", r: c.r, value: c.value } : null;
     case "equalRadius": return hasS(c.r) && hasS(c.s) ? { id: c.id, type: "equalRadius", r: c.r, s: c.s } : null;
     default: return null;

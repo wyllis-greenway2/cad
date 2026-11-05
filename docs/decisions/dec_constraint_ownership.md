@@ -18,7 +18,7 @@ What is built (`src/constraintmap.mjs`, pure, tested in `test/constraintmap.test
 - **deleting a shape now removes the constraints that used it** (it used to leave them dangling) and undo brings them back together; a note says how many went with it;
 - `session.constraintsOnPicks()` returns the constraints touching what is picked, ready for a UI (the selection pill already shows icons for them; richer display comes later).
 
-Later (with stage 2 of `dec_no_sketch_isolation`): a part of the body is addressed the same way (`key` plus a stable name), so a constraint from a sketch to a body corner shows up on both ends, and a broken one is listed and can be repaired or removed.
+Stage 2 of `dec_no_sketch_isolation` is built (`in_086`): a part of the body is addressed under the key `body` (`bodyRef`: "vertex@x,y,z"), so a pin from a sketch to a body corner shows up on both ends (`constraintsOn(map, "body", ref)`), and a pin whose corner is gone is listed as broken. Repairing or removing broken pins from the UI comes later.
 
 ## Rationale
 

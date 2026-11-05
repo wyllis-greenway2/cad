@@ -3,7 +3,7 @@ id: dec_no_sketch_isolation
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_084, in_085
+human_input: in_084, in_085, in_086
 date: 2026-11-05
 depends_on:
   - dec_stable_references: a constraint to a corner of the body has to find that corner again when the body changes
@@ -26,3 +26,6 @@ It is the human's stated direction, and it removes the mode confusion that the s
 
 ## Stage 1 as built (`in_085`)
 With the select tool, nothing is isolated any more: hovering and clicking work on every sketch's lines, corners and circles, on faces, planes, body corners and lines, whatever sketch is being edited. Clicking another sketch's part makes that sketch the one being edited with the part picked; clicking a face, plane, body corner or line leaves the edited sketch and selects it. Only the drawing tools still belong to one plane (the surface you start on). Not done: picking a sketch part together with a body part (stage 2).
+
+## Stage 2 as built (`in_086`, "yes, start stage 2")
+While a sketch is being edited, **Shift + click a corner of the body** adds it to the selection next to the picked sketch parts (it shows as the selected corner; Esc lets go of it first). With one sketch corner and one body corner selected, the menu offers **Coincident with the body corner**: the sketch corner is pinned to where the body corner lands on the sketch's plane (a constraint of kind `anchor`, which the solver treats as a fixed point; the other constraints of the sketch keep working, so a rectangle stretches to reach it). The pin remembers the body corner's 3D position and is re-found (the nearest body corner within `sketch.anchorTolMm`) whenever the body is rebuilt, so it follows the body (`SketchStore.refreshAnchors`, not an undo step); if the corner is gone the pin is marked lost and stops acting (the ownership map lists it as broken). Asking for the same pin again releases it; pinning to another body corner replaces it. Only loose sketches follow the body: a sketch that has become a step keeps where it was pinned (following would make the step depend on the body it builds). Not yet: pins to lines (edges) of the body, distance and horizontal or vertical constraints to a body corner, a richer display of what a body corner is pinned to (the status line shows a count when the corner is selected outside a sketch), repairing a lost pin.

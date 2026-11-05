@@ -46,3 +46,14 @@ test("deleting a shape takes its constraints with it, and undo brings both back"
   assert.equal(store.entities("XY").some((e) => e.id === a.id), true);
   assert.equal(store.constraintsOf("XY").some((c) => c.id === "k1"), true, "undo restores them");
 });
+
+test("a pin to a body corner is listed under the body corner too", async () => {
+  const { bodyRef } = await import("../src/constraintmap.mjs");
+  const ext = { kind: "vertex", world: [25, 30, 0] };
+  const map = buildMap([{ key: "F1", entities: [poly("e_001", [[0, 0], [10, 0], [10, 10]])], constraints: [{ id: "k1", type: "anchor", p: "e_001.p1", at: [25, 30], ext }] }]);
+  assert.deepEqual(constraintsOn(map, "body", bodyRef(ext)).map((c) => c.id), ["k1"]);
+  assert.deepEqual(constraintsOn(map, "F1", "e_001.p1").map((c) => c.id), ["k1"]);
+  assert.equal(brokenConstraints(map).length, 0);
+  const lost = buildMap([{ key: "F1", entities: [poly("e_001", [[0, 0], [10, 0], [10, 10]])], constraints: [{ id: "k1", type: "anchor", p: "e_001.p1", at: [25, 30], ext: { ...ext, lost: true } }] }]);
+  assert.deepEqual(brokenConstraints(lost).map((c) => c.id), ["k1"]);
+});

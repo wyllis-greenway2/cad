@@ -7,6 +7,7 @@ import { buildMap, constraintsOn } from "./constraintmap.mjs";
 import { refsOf, shapeOfRef, solveSketch, dimensionConstraint, sameDimension, sameConstraint, anchorsOf, modelOf, tryConstraint, lengthSpec, angleSpec } from "./sketchsolve.mjs";
 import { elementAt, offersFor, glyphsFor, valueFor } from "./sketchpick.mjs";
 import { iconKey } from "./icons.mjs";
+import { planeUV } from "./viewmath.mjs";
 
 const FIELDS = {
   rect: [{ name: "w", label: "W" }, { name: "h", label: "H" }],
@@ -23,6 +24,7 @@ export class SketchSession {
     this.store = store;
     this.plane = null;
     this.editKey = null; // when set, the sketch being worked on is a step's own profile ("feat:<id>"), not the plane's loose sketch
+    this.ext = null; // a corner of the body selected along with the sketch parts: [x, y, z] (`dec_no_sketch_isolation`, stage 2)
     this.tool = "select";
     this.draft = null; // { pts: [[u,v]...] }
     this.entry = null; // { fields: [{label, name, text}], active }
@@ -189,29 +191,44 @@ export class SketchSession {
    * One that is merely implied by others (a rectangle's right angle) can still be added, to lock it. A button is disabled (with the reason) when it would contradict the shape or
    * other constraints, or would collapse or fold the geometry.
    */
+  /** The offers for what is picked, plus (a corner picked together with a corner of the body) pinning that corner to the body's. */
+  #allOffers() {
+    const parts = this.picks.filter((k) => k.kind !== "entity");
+    const list = offersFor(parts);
+    if (this.ext && parts.length === 1 && parts[0].kind === "point" && this.plane) {
+      const world = this.ext.slice();
+      const p = parts[0].ref;
+      list.push({ label: "Coincident with the body corner", make: () => ({ type: "anchor", p, at: planeUV(this.plane, world), ext: { kind: "vertex", world } }) });
+    }
+    return list;
+  }
+  /** Is this the same anchor (same corner pinned to the same body corner)? */
+  #sameAnchor = (c, spec) => c.type === "anchor" && c.p === spec.p && Math.hypot(c.ext.world[0] - spec.ext.world[0], c.ext.world[1] - spec.ext.world[1], c.ext.world[2] - spec.ext.world[2]) < 1e-6;
   offers() {
     if (this.tool !== "select") return [];
     const ents = this.entities();
     const cons = this.store.constraintsOf(this.key);
     const model = modelOf(ents);
-    return offersFor(this.picks.filter((k) => k.kind !== "entity")).map((o) => {
+    return this.#allOffers().map((o) => {
       const spec = o.make(model);
-      const on = cons.find((c) => sameConstraint(c, spec));
+      const replace = spec.type === "anchor" ? (c) => c.type === "anchor" && c.p === spec.p : null; // pinning a corner to another body corner replaces the earlier pin
+      const on = cons.find((c) => (spec.type === "anchor" ? this.#sameAnchor(c, spec) : sameConstraint(c, spec)));
       if (on) return { label: o.label, enabled: true, active: true, reason: null, id: on.id };
-      const t = tryConstraint(ents, cons, spec, { newId: "c_try", watch: this.#watch() });
+      const t = tryConstraint(ents, cons, spec, { newId: "c_try", watch: this.#watch(), replace });
       return { label: o.label, enabled: t.ok, active: false, reason: t.ok ? null : this.#reason(t), redundant: !!t.redundant };
     });
   }
 
   applyOffer(i) {
-    const offer = offersFor(this.picks.filter((k) => k.kind !== "entity"))[i];
+    const offer = this.#allOffers()[i];
     if (!offer) return "Nothing to apply.";
     const ents = this.entities();
     const cons = this.store.constraintsOf(this.key);
     const spec = offer.make(modelOf(ents));
-    const on = cons.find((c) => sameConstraint(c, spec));
+    const on = cons.find((c) => (spec.type === "anchor" ? this.#sameAnchor(c, spec) : sameConstraint(c, spec)));
     if (on) return this.deleteConstraint(on.id) ? null : "Could not remove it."; // asking for what is already set turns it off
-    const t = tryConstraint(ents, cons, spec, { newId: this.store.newConstraintId(), watch: this.#watch() });
+    const replace = spec.type === "anchor" ? (c) => c.type === "anchor" && c.p === spec.p : null;
+    const t = tryConstraint(ents, cons, spec, { newId: this.store.newConstraintId(), watch: this.#watch(), replace });
     if (!t.ok) return `That cannot be set: ${this.#reason(t)}. Nothing changed.`;
     const changed = t.entities.filter((x, i2) => JSON.stringify(x) !== JSON.stringify(ents[i2]));
     this.store.edit(this.key, { entities: changed, constraints: t.constraints });
@@ -297,6 +314,11 @@ export class SketchSession {
   pickConstraint(id) {
     this.pickedConstraint = this.pickedConstraint === id ? null : id; // clicking it again lets go of it
     this.pickEdit = null;
+  }
+  /** Where the clicked constraint pins its corner on this plane (when it is a pin to a body corner), else null. */
+  relatedAnchor() {
+    const c = this.pickedConstraint && this.store.constraintsOf(this.key).find((x) => x.id === this.pickedConstraint);
+    return c?.type === "anchor" ? c.at : null;
   }
   /** What the clicked constraint relates: its corners, lines and circles ("e_001.s0", "e_001.p2", "e_002.r"). Empty when none is clicked. */
   relatedRefs() {

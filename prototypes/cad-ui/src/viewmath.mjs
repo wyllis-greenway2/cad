@@ -53,6 +53,13 @@ export const planeOrigin = (id) => {
   const { n, d } = planeDef(id);
   return n.map((v) => v * d);
 };
+/** A world point as local (u, v) coordinates on a plane (the inverse of placing a point on it). The point need not lie on the plane: it is projected. */
+export function planeUV(id, p) {
+  const [u, v] = planeDef(id).basis;
+  const o = planeOrigin(id);
+  const q = [p[0] - o[0], p[1] - o[1], p[2] - o[2]];
+  return [q[0] * u[0] + q[1] * u[1] + q[2] * u[2], q[0] * v[0] + q[1] * v[1] + q[2] * v[2]];
+}
 /** The world-space frame of a plane (origin = where the world origin projects onto it) as numbers, for the geometry kernel. */
 export function frameOf(id) {
   const [u, , n] = planeDef(id).basis;

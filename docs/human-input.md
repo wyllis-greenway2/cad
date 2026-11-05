@@ -530,3 +530,8 @@ Says it still feels like a sketch mode that isolates the sketch being worked on;
 Approves starting with stage 1 of the no-isolation plan; notes that constraint breakage when something is deleted is not a new problem (it already happens inside one sketch); asks for a map of constraint ownership and a way to see constraints when something is clicked, with the UI to be worked out later.
 
 > yes, start with stage 1, also this constraint breakage isn't really a different or new problem right? inside a single sketch, you can have it constrained to other parts that can get deleted. I think we need to map constraint ownership and have some sort of way to see them when something is clicked on, we can work the UI out later for that.
+
+## in_086 — 2026-11-05 — approval
+Approves starting stage 2 of the no-isolation plan (mixing sketch and body parts in a selection, and constraints from a sketch to the body).
+
+> yes, start stage 2

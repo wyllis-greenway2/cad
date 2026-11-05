@@ -141,3 +141,10 @@ test("a plane can be looked at straight on from either side (`in_068`)", async (
   }
   assert.equal(normalSide({ a: 0.3, e: 0.3 }, "XY", 0.02), 0);
 });
+
+test("planeUV places a world point on a plane's own (u, v) axes", async () => {
+  const { planeUV } = await import("../src/viewmath.mjs");
+  assert.deepEqual(planeUV("XY", [3, 4, 9]).map((v) => Math.round(v * 1e6) / 1e6), [3, 4]);
+  const [u, v] = planeUV("XZ", [3, 99, 7]);
+  assert.ok(Math.abs(u - 3) < 1e-9 && Math.abs(v - 7) < 1e-9);
+});
