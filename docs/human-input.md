@@ -575,3 +575,8 @@ Suggests taking a step back and housecleaning, possibly almost starting from scr
 In a clean rebuild, do not lose the xyz ideas (axes, compass, panes), the idea of the viewport rotating around the centre of the object, the world-view manipulation for the different devices, and the single, double and triple click interface.
 
 > Okay I also dont want to lose the xyz ideas, the viewport rotating around center of object ideas, the worldview manipulation we have for different devices. I also dont want to lose the single double triple click interface etc.
+
+## in_095 — 2026-11-05 — approval
+Asks for the design of the clean engine to be written.
+
+> yes, write the design
