@@ -1865,9 +1865,17 @@ function panBy(dx, dy) {
   updateStatus();
   markSketch();
 }
-let orbitPivot = null; // while orbiting: the middle of the model if it is in view, which the view eases toward so the model turns about its own centre (`in_081`)
-/** Start of an orbit: if the model is in view, remember its middle as the pivot. The view then eases toward it a little with every step of the drag (a pan and a change of
- *  distance, so the model does not jump and keeps about the same size), instead of turning about wherever the origin or the last pan left the target. */
+let orbitPivot = null; // while orbiting: the model's middle, and where it sits in the camera's own frame (right, up, forward), so it stays put on screen (`in_081`, `in_082`)
+const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+/** The camera's frame { eye, f (forward), u (up), r (right) } for an azimuth and elevation about the current target and distance. */
+function cameraFrame(a, e) {
+  const o = cameraOffset(a, e);
+  const f = [-o[0], -o[1], -o[2]];
+  const u = cameraUp(a, e);
+  return { eye: [view.target.x + view.dist * o[0], view.target.y + view.dist * o[1], view.target.z + view.dist * o[2]], f, u, r: cross3(f, u) };
+};
+/** Start of an orbit: if the model is in view, it becomes the pivot. The camera then turns about the model's middle and the model stays exactly where it is on the screen, even
+ *  if you had panned it to the side: nothing is re-centred. The model's place in the camera's frame is remembered here, and `orbitBy` rebuilds the camera around it. */
 function repivotOrbit() {
   orbitPivot = null;
   const info = body.info;
@@ -1878,16 +1886,21 @@ function repivotOrbit() {
   if (Math.abs(ndc.x) > 1 || Math.abs(ndc.y) > 1 || ndc.z < -1 || ndc.z > 1) return; // the model is not in view: keep the current pivot
   const d = c.distanceTo(camera.position);
   if (!(d > V.minDistance && d < V.maxDistance)) return;
-  orbitPivot = { c, d };
+  const fr = cameraFrame(view.a, view.e);
+  const p = [c.x - fr.eye[0], c.y - fr.eye[1], c.z - fr.eye[2]];
+  const dot = (x, y) => x[0] * y[0] + x[1] * y[1] + x[2] * y[2];
+  orbitPivot = { c: [c.x, c.y, c.z], x: dot(p, fr.r), y: dot(p, fr.u), z: dot(p, fr.f) };
 }
 function orbitBy(dx, dy) {
-  if (orbitPivot) {
-    // ease the view toward the model's middle while turning (not a jump)
-    view.target.lerp(orbitPivot.c, V.orbitEase);
-    view.dist += (orbitPivot.d - view.dist) * V.orbitEase;
-  }
   view.a -= dx * V.orbitRadPerPx;
   view.e = clamp(view.e + dy * V.orbitRadPerPx, -Math.PI / 2, Math.PI / 2);
+  if (orbitPivot) {
+    // keep the model where it is on screen: put the camera back so the model has the same place in its frame, then look along the new direction
+    const P = orbitPivot;
+    const fr = cameraFrame(view.a, view.e);
+    const eye = [0, 1, 2].map((i) => P.c[i] - P.x * fr.r[i] - P.y * fr.u[i] - P.z * fr.f[i]);
+    view.target.set(eye[0] + view.dist * fr.f[0], eye[1] + view.dist * fr.f[1], eye[2] + view.dist * fr.f[2]);
+  }
   updateStatus();
   markSketch();
 }

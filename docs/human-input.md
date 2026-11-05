@@ -510,3 +510,8 @@ Bug report: after adding a circle the app is stuck in a not-normal mode (cannot 
 Orbiting around large objects or parts far from the origin feels odd because the camera orbits the origin; asks whether the camera can instead rotate around the centre of the object nearest the camera within the view, or whether that could get buggy.
 
 > okay now I noticed that when trying to rotate around objects it can be kinda weird. I think it is because the object is always rotating around origin, or the camera is relative to origin. This gets more and more weird the bigger your models are or if parts are far a way from origin. Can we make it so that the camera just rotates around the center of the object closest to the camera within the camera view area? Or do you think that could get buggy?
+
+## in_082 — 2026-11-05 — directive
+The orbit around the model feels like it adds an auto-pan that re-centres the object; wants the camera to pivot around the object while the object stays where it is on screen if it was panned to the side.
+
+> Okay that is much better, but it does feel slightly odd that it always centers the object in the screen when rotating. Can we have it so that if you pan the object to the side, the camrea will still pivot around the object, but not necessarily reposition it back in center? I realize that since it is pivoting around the object that enough pivot would bring it roughly back in the center, but now it feels almost like there is some amount of auto pan added to the rotation to put back in center?
