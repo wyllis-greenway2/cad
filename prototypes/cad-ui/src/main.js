@@ -18,7 +18,7 @@ import { ExtrudeSession } from "./extrude.mjs";
 import { TransformSession, AXIS_NAMES, UNITS } from "./transform.mjs";
 import { buildGraph } from "./features.mjs";
 import { createBody } from "./body.js";
-import { hoverOrb, selectOrb, fullOrb, orbMaterial, ORB_GLSL } from "./orb.js";
+import { hoverOrb, selectOrb, fullOrb, orbMaterial, selectedLook, ORB_GLSL } from "./orb.js";
 import { PLANES, planeDef, addFacePlane, basisOf, frameOf, planeOrigin, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, normalSide, flippedView, projectOnto, pickPlane } from "./viewmath.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -27,6 +27,8 @@ const V = S.view;
 const F = S.fog; // world fog (objects)
 const A = S.sheetArea; // how far a sheet's light, grid and axes reach
 const T = () => S.themes[S.themeName];
+/** The ring's colour: exactly what a selected face looks like (the teal at its opacity over the model's grey), `in_075`. */
+const ringColor = () => selectedLook(S.orb.color, S.orb.selectOpacity, hexToRgb(T().bodyColor));
 const hexToRgb = (h) => [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255];
 const toHex = (c) => (Math.round(c[0] * 255) << 16) | (Math.round(c[1] * 255) << 8) | Math.round(c[2] * 255);
 
@@ -89,7 +91,7 @@ uniform vec3 uLineCol;
 uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul; uniform float uMinCellPx;
 uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar; uniform float uFogK;
 uniform float uAxisW;
-uniform vec3 uOrbCol; uniform vec3 uHC; uniform float uHR; uniform float uHRing; uniform vec3 uSC; uniform float uSR; uniform float uSA; uniform float uSRing; uniform float uSSoft; uniform float uSFill; uniform float uRingPx;
+uniform vec3 uOrbCol; uniform vec3 uRingCol; uniform vec3 uHC; uniform float uHR; uniform float uHRing; uniform vec3 uSC; uniform float uSR; uniform float uSA; uniform float uSRing; uniform float uSSoft; uniform float uSFill; uniform float uRingPx;
 uniform float uPane; uniform float uPaneOff; uniform float uPaneR; uniform float uAxisLen; uniform float uEdgeA; uniform vec3 uFadeC; uniform float uFadeR;
 varying vec3 vPos;
 
@@ -152,11 +154,14 @@ void main() {
   // Paint layer: a pane's fill.
   // the pane's own fill, plus the orb highlights lying on it (the hover orb at the cursor, the selection orb spreading from the click)
   float baseA = uOpacity * fog * paneIn;
-  float hA = orbAlpha(vPos, uHC, uHR, 0.0, 0.0, uHRing, 1.0, uRingPx) * paneIn;
-  float sA = orbAlpha(vPos, uSC, uSR, uSA, uSFill, uSRing, uSSoft, uRingPx) * paneIn;
-  float orbA = 1.0 - (1.0 - hA) * (1.0 - sA);
+  vec2 hp = orbParts(vPos, uHC, uHR, 0.0, 0.0, uHRing, 1.0, uRingPx) * paneIn;
+  vec2 sp = orbParts(vPos, uSC, uSR, uSA, uSFill, uSRing, uSSoft, uRingPx) * paneIn;
+  float fillA = 1.0 - (1.0 - hp.x) * (1.0 - sp.x);
+  float ringA = 1.0 - (1.0 - hp.y) * (1.0 - sp.y);
+  float orbA = 1.0 - (1.0 - fillA) * (1.0 - ringA);
   float tot = 1.0 - (1.0 - baseA) * (1.0 - orbA);
-  gl_FragColor = vec4(mix(uCol, uOrbCol, orbA / max(tot, 1e-4)), tot);
+  vec3 orbCol = mix(uOrbCol, uRingCol, ringA / max(orbA, 1e-4));
+  gl_FragColor = vec4(mix(uCol, orbCol, orbA / max(tot, 1e-4)), tot);
 #else
   float a = max(grid * uLineA * fog, edge * uEdgeA);                  // grid lines and the pane outline
   float ax = max(axU, axV) * uAxisA * axFog;                          // world axis lines
@@ -184,7 +189,7 @@ for (const [name, def] of Object.entries(PLANES)) {
       uLineCol: { value: new THREE.Vector3() },
       uFogNear: { value: A.nearFactor }, uFogFar: { value: A.farFactor }, uAxisFogFar: { value: A.axisFarFactor }, uFogK: { value: A.sharpness },
       uAxisW: { value: G.axisWidthPx },
-      uOrbCol: { value: new THREE.Vector3(...S.orb.color) }, uHC: { value: new THREE.Vector3() }, uHR: { value: 1 }, uHRing: { value: 0 }, uSC: { value: new THREE.Vector3() }, uSR: { value: 1 }, uSA: { value: 0 }, uSRing: { value: 0 }, uSSoft: { value: 2 }, uSFill: { value: 0 }, uRingPx: { value: 1.6 },
+      uOrbCol: { value: new THREE.Vector3(...S.orb.color) }, uRingCol: { value: new THREE.Vector3(...ringColor()) }, uHC: { value: new THREE.Vector3() }, uHR: { value: 1 }, uHRing: { value: 0 }, uSC: { value: new THREE.Vector3() }, uSR: { value: 1 }, uSA: { value: 0 }, uSRing: { value: 0 }, uSSoft: { value: 2 }, uSFill: { value: 0 }, uRingPx: { value: 1.6 },
       uPane: { value: 0 }, uPaneOff: { value: 0 }, uPaneR: { value: 0 }, uAxisLen: { value: 0 }, uEdgeA: { value: 0 }, uFadeC: { value: new THREE.Vector3() }, uFadeR: { value: 0 },
     },
   });
@@ -296,6 +301,7 @@ function updatePlanes() {
     u.uSR.value = selectOrb.uOrbR.value;
     u.uSFill.value = selPlane() ? selectOrb.uOrbFill.value : 1;
     u.uOrbCol.value.set(...S.orb.color);
+    u.uRingCol.value.set(...ringColor());
    }
   }
 }
@@ -711,7 +717,7 @@ function disc(plane, p, radiusMm, color, order, alpha = 1) {
 }
 /** An orb of blue lying on a flat shape (`in_073`): the same soft highlight as on body faces and panes. */
 function orbShape(plane, polygon, orb) {
-  const mesh = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(polygon.map((p) => new THREE.Vector2(p[0], p[1])))), orbMaterial(S.orb.color, orb));
+  const mesh = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(polygon.map((p) => new THREE.Vector2(p[0], p[1])))), orbMaterial(S.orb.color, ringColor(), orb));
   mesh.matrixAutoUpdate = false;
   mesh.matrix.copy(basisMatrix(plane));
   mesh.renderOrder = 3.5;

@@ -139,11 +139,11 @@ export const settings = {
   },
   orb: {
     // The orb highlight (`in_073`, `in_074`): a thin line ring on the surface under the cursor; a click fills the surface with colour while the ring expands to its edges.
-    radius: 0.09, // the hover ring's radius, in view-distances
+    radius: 0.025, // the hover ring's radius, in view-distances (small, `in_075`)
     ringPx: 1.6, // the ring is a line this many pixels wide
-    ringOpacity: 0.95, // not faded: a crisp line
+    ringOpacity: 1, // not faded: a crisp line, in the exact colour of a selected face (`in_075`)
     selectOpacity: 0.3, // the colour that fills the clicked surface: more transparent than before
-    color: [0.1, 0.72, 0.7], // teal
+    color: [0.1, 0.72, 0.7], // THE teal (kept for use elsewhere, `in_075`): it fills a clicked surface at `selectOpacity`, and what that looks like on the grey surface is the ring's colour
     fillMs: 520, // how long the colour takes to spread over the whole clicked surface
     reachFactor: 1.04, // the ring grows to this many times the surface's reach (a little past its far edge)
     softFactor: 2.2, // while spreading, the soft colour reaches this many times the ring's radius

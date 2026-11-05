@@ -475,3 +475,8 @@ Undo the touch shadow; instead try an orb-like hover highlight on the surface un
 Change the orb to a thin line ring on the face under the cursor; on click the face fills with colour as it does now while the ring expands to the edges; the colour should be more transparent and teal.
 
 > okay can we make the orb just be a circle that goes on the face of an object under the cursor hover? The circle can be a thin line ring, not faded, just a line. When click happens, the face should filly with color kind of like it already does but with the ring expanding to the edges at the same time. the blue color should be more transparent and teal.
+
+## in_075 — 2026-11-05 — directive
+Make the hover ring much smaller and the exact same colour as the selected face colour (a good teal to keep for use elsewhere).
+
+> Okay lets make the ring much smaller, land lets try making it the exact same color as the selected face color. (which is a good teal lets make sure we keep that color for use elsewhere)

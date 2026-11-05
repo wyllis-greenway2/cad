@@ -1,7 +1,8 @@
 // The solid body: asks the geometry kernel (through ./kernel/client.js; today OCCT) for the result, shows it in the scene, and keeps lights.
 // The view asks for a graph with request(); newest request wins while one is in flight, so dragging never queues up.
 import * as THREE from "three";
-import { hoverOrb, selectOrb, orbMaterial } from "./orb.js";
+import { hoverOrb, selectOrb, orbMaterial, selectedLook } from "./orb.js";
+const hexRgb = (h) => [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255];
 import { spawnKernel } from "./kernel/client.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
@@ -106,7 +107,7 @@ export function createBody(scene, S, colors, renderer) {
     current.face = face;
     for (const c of [...group.children]) (c.geometry.dispose(), c.material.dispose(), group.remove(c));
     if (!face || !bodyMesh) return;
-    const m = new THREE.Mesh(faceGeometry(face), orbMaterial(S.orb.color, orb, { offset: -2 })); // a ring on the face, and a teal fill when clicked (`in_073`, `in_074`)
+    const m = new THREE.Mesh(faceGeometry(face), orbMaterial(S.orb.color, selectedLook(S.orb.color, S.orb.selectOpacity, hexRgb(colors().bodyColor)), orb, { offset: -2 })); // a ring on the face, and a teal fill when clicked (`in_073`, `in_074`)
     m.renderOrder = 6;
     group.add(m);
   }

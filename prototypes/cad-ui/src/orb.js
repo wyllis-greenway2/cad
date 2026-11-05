@@ -16,24 +16,29 @@ export const selectOrb = make();
 export const fullOrb = make();
 fullOrb.uOrbFill.value = 1;
 
-/** Alpha of one orb at world point p: the soft fill (smooth to nothing at soft * R; lifted to flat by `fill`) and the crisp ring at radius R, combined. */
+/** The colour a selected surface shows: the teal at the selection opacity over the surface's own colour (`in_075`: the ring is exactly this colour, and it is the one to reuse elsewhere). */
+export const selectedLook = (teal, opacity, surface) => teal.map((c, i) => surface[i] + (c - surface[i]) * opacity);
+
+/** One orb at world point p: x = the soft fill's alpha (smooth to nothing at soft * R; lifted to flat by `fill`), y = the crisp ring's alpha at radius R. */
 export const ORB_GLSL = /* glsl */ `
-float orbAlpha(vec3 p, vec3 c, float R, float fillA, float fill, float ringA, float soft, float px) {
+vec2 orbParts(vec3 p, vec3 c, float R, float fillA, float fill, float ringA, float soft, float px) {
   float d = distance(p, c);
   float k = 1.0 - smoothstep(0.0, max(R * soft, 1e-6), d);
-  float fa = fillA * mix(k * k, 1.0, fill);
   float w = max(fwidth(d), 1e-6) * px;
-  float ra = ringA * (1.0 - smoothstep(0.5 * w, w, abs(d - R)));
-  return 1.0 - (1.0 - fa) * (1.0 - ra);
+  return vec2(fillA * mix(k * k, 1.0, fill), ringA * (1.0 - smoothstep(0.5 * w, w, abs(d - R))));
 }`;
 
 /** A material that draws the orb on whatever geometry it is given (positions are world positions through the mesh's own matrix). */
-export function orbMaterial(rgb, orb, { offset = 0 } = {}) {
+export function orbMaterial(rgb, ringRgb, orb, { offset = 0 } = {}) {
   return new THREE.ShaderMaterial({
-    uniforms: { uCol: { value: new THREE.Vector3(...rgb) }, ...orb },
+    uniforms: { uCol: { value: new THREE.Vector3(...rgb) }, uRingCol: { value: new THREE.Vector3(...ringRgb) }, ...orb },
     vertexShader: "varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }",
-    fragmentShader: `uniform vec3 uCol; uniform vec3 uOrbC; uniform float uOrbR; uniform float uOrbA; uniform float uOrbRingA; uniform float uOrbSoft; uniform float uOrbFill; uniform float uRingPx; varying vec3 vW; ${ORB_GLSL}
-      void main() { gl_FragColor = vec4(uCol, orbAlpha(vW, uOrbC, uOrbR, uOrbA, uOrbFill, uOrbRingA, uOrbSoft, uRingPx)); }`,
+    fragmentShader: `uniform vec3 uCol; uniform vec3 uRingCol; uniform vec3 uOrbC; uniform float uOrbR; uniform float uOrbA; uniform float uOrbRingA; uniform float uOrbSoft; uniform float uOrbFill; uniform float uRingPx; varying vec3 vW; ${ORB_GLSL}
+      void main() {
+        vec2 pr = orbParts(vW, uOrbC, uOrbR, uOrbA, uOrbFill, uOrbRingA, uOrbSoft, uRingPx);
+        float a = 1.0 - (1.0 - pr.x) * (1.0 - pr.y);
+        gl_FragColor = vec4(mix(uCol, uRingCol, pr.y / max(a, 1e-4)), a); // the fill is the teal, the ring is the colour the selected face shows
+      }`,
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
