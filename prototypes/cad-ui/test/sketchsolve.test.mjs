@@ -144,6 +144,8 @@ test("a constraint mark can be picked and deleted (undoable)", () => {
   s.enter();
   assert.equal(store.entities("XY")[0].r, 5); // diameter 10
   s.setTool("select");
+  assert.deepEqual(s.glyphs(), []); // marks show only for what is selected
+  s.click([5.1, 0], {}); // the circle's outline
   assert.deepEqual(s.glyphs().map((g) => g.text), ["R5"]);
   s.pickConstraint("c_001");
   assert.equal(s.deleteSelected(), true);

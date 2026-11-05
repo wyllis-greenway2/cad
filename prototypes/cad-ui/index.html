@@ -11,7 +11,7 @@
     #status #scaleText { margin-left:14px; opacity:.6; font-variant-numeric:tabular-nums; }
     #status #originBtn { display:none; margin-left:12px; pointer-events:auto; background:#5a4a2a; color:#fff2d6; border:1px solid #8a7440; border-radius:6px; padding:2px 9px; font:inherit; cursor:pointer; }
     #status #exitBtn { display:none; margin-left:12px; pointer-events:auto; background:#3a3e44; color:#e8eaec; border:1px solid #5a5f66; border-radius:6px; padding:2px 9px; font:inherit; cursor:pointer; }
-    #status { position:fixed; left:14px; bottom:12px; pointer-events:none; padding:5px 11px; border-radius:7px; background:rgba(34,36,39,.82); color:#e4e6e8; }
+    #status { position:fixed; left:14px; bottom:calc(var(--abar-h, 44px) + 14px); pointer-events:none; padding:5px 11px; border-radius:7px; background:rgba(34,36,39,.82); color:#e4e6e8; }
     #readout { position:fixed; display:none; pointer-events:none; background:rgba(26,28,31,.92); color:#e8eaec; border:1px solid #4a4f56; border-radius:7px; padding:4px 9px; font:13px/1.3 ui-monospace,Menlo,monospace; white-space:nowrap; z-index:5; }
     #readout .f { margin-right:10px; opacity:.8; } #readout .f b { opacity:.65; margin-right:3px; }
     #readout .f.typed { opacity:1; } #readout .f.act { border-bottom:2px solid #e8eaec; opacity:1; } #readout .f.bad { color:#eb524d; }
@@ -23,6 +23,12 @@
     #history ol button { display:block; width:100%; text-align:left; background:none; border:0; color:#e4e6e8; padding:5px 9px; border-radius:6px; font:13px ui-monospace,Menlo,monospace; cursor:pointer; white-space:pre; }
     #history ol li { display:flex; gap:4px; align-items:center; } #history ol li button.sk { width:auto; flex:none; font:11px system-ui,sans-serif; opacity:.75; padding:3px 8px; border:1px solid #4a4f56; }
     #history ol button:hover { background:#3a3e44; } #history ol button.err { color:#eb524d; }
+    #abar { position:fixed; left:0; right:0; bottom:0; min-height:44px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:5px 12px; background:rgba(30,32,35,.95); border-top:1px solid #484d54; z-index:8; font:13px system-ui,sans-serif; }
+    #abar button { display:flex; align-items:center; gap:7px; background:#3a3e44; color:#e4e6e8; border:1px solid #5a5f66; border-radius:6px; padding:5px 10px; font:inherit; cursor:pointer; white-space:nowrap; }
+    #abar button:hover:not(:disabled) { background:#4a4f56; } #abar button.on { background:#2f4f86; border-color:#7fa8ff; } #abar button:disabled { opacity:.4; cursor:not-allowed; }
+    #abar kbd { font:11px ui-monospace,Menlo,monospace; opacity:.7; background:rgba(0,0,0,.28); border-radius:4px; padding:0 5px; }
+    #abar .sep { width:1px; height:22px; background:#484d54; margin:0 6px; } #abar .hint { color:#9aa0a8; margin-left:4px; }
+    #status #exitBtn { display:none !important; }
     #cbar { position:fixed; left:50%; bottom:58px; transform:translateX(-50%); display:none; gap:6px; padding:5px; background:rgba(34,36,39,.92); border:1px solid #484d54; border-radius:9px; z-index:7; }
     #cbar button { background:#3a3e44; color:#e4e6e8; border:1px solid #5a5f66; border-radius:6px; padding:4px 10px; font:13px system-ui,sans-serif; cursor:pointer; } #cbar button:hover { background:#4a4f56; }
     #cbar button:disabled { opacity:.4; cursor:not-allowed; }
@@ -46,7 +52,7 @@
   <div id="dims"></div>
   <div id="cglyphs"></div>
   <div class="chip" id="vchip" style="display:none"></div>
-  <div id="cbar"></div>
+  <div id="abar"></div>
   <div id="history"><button id="histBtn">History</button><ol id="histList"></ol></div>
   <div id="menu"></div>
   <span class="axl" id="lx">X</span><span class="axl" id="ly">Y</span><span class="axl" id="lz">Z</span>

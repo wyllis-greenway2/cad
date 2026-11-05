@@ -74,7 +74,7 @@ test("two lines sharing a corner show the angle between them; typing sets it; ou
   assert.match(s.enter(), /between 1° and 179°/);
 });
 
-test("a rectangle's corner angle cannot be changed, and its sides cannot be made parallel or perpendicular the wrong way", () => {
+test("a (legacy, built-in constraints) rectangle: its corner angle cannot be changed; parallel on adjacent sides is refused; perpendicular can be locked", () => {
   const { store, s } = mk();
   store.add("XY", { type: "rect", x0: 0, y0: 0, x1: 40, y1: 20 });
   s.click([20, 0.2], ONE); // bottom
@@ -86,18 +86,34 @@ test("a rectangle's corner angle cannot be changed, and its sides cannot be made
   const o = labels(s);
   assert.equal(o["Equal length"].enabled, true); // makes a square: fine
   assert.equal(o["Parallel"].enabled, false); // would fold the sides onto each other: refused
-  assert.match(o["Parallel"].reason, /contradicts the shape itself|fold/);
-  assert.equal(o["Perpendicular"].enabled, false);
-  assert.match(o["Perpendicular"].reason, /already true/);
-  assert.match(s.applyOffer(1), /cannot be set/);
-  // opposite sides (no shared corner): parallel is already true, perpendicular would flatten it
-  s.click([20, 0.2], ONE);
-  s.click([20, 20.2], { shift: true });
-  assert.equal(s.valueChip(), null); // no shared corner, so no angle
-  const o2 = labels(s);
-  assert.equal(o2["Parallel"].enabled, false);
-  assert.match(o2["Parallel"].reason, /already true/);
-  assert.equal(o2["Perpendicular"].enabled, false);
+  assert.equal(o["Perpendicular"].enabled, true); // already true, but it can be locked
+  assert.equal(s.applyOffer(2), null);
+  assert.equal(store.constraintsOf("XY").length, 1);
+  assert.equal(labels(s)["Perpendicular"].active, true); // now shown as on; asking again turns it off
+  assert.equal(s.applyOffer(2), null);
+  assert.equal(store.constraintsOf("XY").length, 0);
+});
+
+test("a drawn rectangle is four lines with real horizontal and vertical constraints you can turn off, and then it can shear", () => {
+  const { store, s } = mk();
+  s.setTool("rect");
+  s.click([0, 0], ONE);
+  s.click([40, 20], ONE);
+  s.setTool("select");
+  s.click([20, 0.2], ONE); // bottom line
+  let o = labels(s);
+  assert.equal(o["Horizontal"].active, true);
+  assert.equal(o["Vertical"].enabled, false);
+  assert.match(o["Vertical"].reason, /shrink a line to nothing/); // horizontal and vertical at once would squash it to a point
+  s.applyOffer(0); // turn Horizontal off
+  assert.equal(store.constraintsOf("XY").length, 3);
+  s.dragStart({ kind: "point", ref: "e_001.p1", shape: "e_001" }, [40, 0]);
+  s.dragMove([46, -6]); // pull the bottom-right corner down and out: the bottom line may now tilt
+  s.dragEnd();
+  const pts = store.entities("XY")[0].points;
+  assert.ok(Math.abs(pts[1][1] - pts[0][1]) > 1); // no longer horizontal
+  assert.ok(Math.abs(pts[1][0] - pts[2][0]) < 1e-4); // the right side stays vertical
+  s.click([20, -2.5], ONE);
 });
 
 test("two lines that share no corner can be made parallel or perpendicular", () => {
@@ -129,4 +145,18 @@ test("setting an angle turns the second line about the shared corner and leaves 
   assert.ok(Math.hypot(p0[0], p0[1]) < 0.01 && Math.abs(p1[0] - 10) < 0.01 && Math.abs(p1[1]) < 0.01); // the first line did not move
   assert.ok(Math.abs(Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) * 180 / Math.PI - 135) < 0.01); // 45 degrees between them (the second now points up and back)
   assert.ok(Math.abs(Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) - 8) < 0.02); // and it keeps its length: it turned, it did not shrink
+});
+
+test("a thing's constraint marks show only while it is selected", () => {
+  const { store, s } = mk();
+  s.setTool("rect");
+  s.click([0, 0], ONE);
+  s.click([40, 20], ONE);
+  store.add("XY", { type: "circle", cx: 80, cy: 10, r: 5 });
+  s.setTool("select");
+  assert.deepEqual(s.glyphs(), []); // nothing selected: no marks
+  s.click([20, 0.2], ONE); // a line of the rectangle
+  assert.deepEqual(s.glyphs().map((g) => g.text), ["H"]); // only the constraint on the line itself, not the whole rectangle's
+  s.click([85.1, 10], ONE); // the circle: it has none
+  assert.deepEqual(s.glyphs(), []);
 });

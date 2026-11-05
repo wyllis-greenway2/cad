@@ -12,6 +12,7 @@ import { navAction, keyAction } from "./keymap.mjs";
 import { circlePolygon, regionsOf, hitRegion, paramOnAxisFromRay } from "./sketch.mjs";
 import { elementAt } from "./sketchpick.mjs";
 import { modelOf } from "./sketchsolve.mjs";
+import { barItems, barHint } from "./actionbar.mjs";
 import { ExtrudeSession } from "./extrude.mjs";
 import { TransformSession, AXIS_NAMES, UNITS } from "./transform.mjs";
 import { buildGraph } from "./features.mjs";
@@ -345,6 +346,7 @@ function requestRender() {
     updateOriginPill();
     updateDims();
     updateConstraintUI();
+    updateBar();
     syncBody();
     updateExtrudeViz();
     updateXformViz();
@@ -1256,7 +1258,25 @@ function edgeAction(mode) {
   if (sel?.kind === "edge") return startEdgeMod(mode, sel.edge);
   flashMessage("Click a line of the body first, then F to round it or B to bevel it.");
 }
+/** A constraint hotkey: apply the first matching button of the current picks (or say why it cannot be). */
+function constraintKey(labels) {
+  if (!inSketchView() || session.tool !== "select") return;
+  const offers = session.offers();
+  const i = offers.findIndex((o) => labels.includes(o.label));
+  if (i < 0) return flashMessage("Pick lines or corners first (Shift-click for a second one).");
+  if (!offers[i].enabled) return flashMessage(`That cannot be set: ${offers[i].reason}.`);
+  const msg = session.applyOffer(i);
+  if (msg) flashMessage(msg);
+  refreshUI();
+}
 const ACTIONS = {
+  consH: () => constraintKey(["Horizontal"]),
+  consV: () => constraintKey(["Vertical"]),
+  consE: () => constraintKey(["Equal length", "Equal radius"]),
+  consL: () => constraintKey(["Parallel"]),
+  consP: () => constraintKey(["Perpendicular"]),
+  consF: () => constraintKey(["Fix in place"]),
+  consC: () => constraintKey(["Coincident"]),
   fillet: () => edgeAction("fillet"),
   chamfer: () => edgeAction("chamfer"),
   select: () => setTool("select"),
@@ -1300,31 +1320,9 @@ const ACTIONS = {
 };
 
 // ---------------------------------------------------------------- constraint buttons and marks (sketch view)
-const cbarEl = $("cbar");
 const glyphEl = $("cglyphs");
-let cbarKey = "";
 function updateConstraintUI() {
   const on = inSketchView() && !extrude && !xform;
-  // buttons that fit what is picked
-  const offers = on ? session.offers() : [];
-  const key = offers.map((o) => `${o.label}:${o.enabled ? 1 : 0}:${o.reason ?? ""}`).join("|");
-  if (key !== cbarKey) {
-    cbarKey = key;
-    cbarEl.replaceChildren();
-    offers.forEach((o, i) => {
-      const b = document.createElement("button");
-      b.textContent = o.label;
-      b.disabled = !o.enabled; // not allowed: it would contradict the shape, repeat what is already true, or collapse the geometry
-      b.title = o.enabled ? "" : `Not possible: ${o.reason}`;
-      b.onclick = () => {
-        const msg = session.applyOffer(i);
-        if (msg) flashMessage(msg);
-        refreshUI();
-      };
-      cbarEl.appendChild(b);
-    });
-  }
-  cbarEl.style.display = offers.length ? "flex" : "none";
   // the number you can type for what is picked (a line's length, a circle's radius, the angle between two lines)
   const chip = on ? session.valueChip() : null;
   const vEl = $("vchip");
@@ -1363,6 +1361,58 @@ function updateConstraintUI() {
     el.style.left = `${sx}px`;
     el.style.top = `${sy - 16}px`;
   });
+}
+
+// ---------------------------------------------------------------- the context action bar (full width, bottom): what can be done now, with hotkeys
+const barEl = $("abar");
+let barSig = "";
+let barMap = new Map();
+/** Run what a bar button stands for. */
+function runBar(id) {
+  const [kind, name] = id.split(":");
+  if (kind === "tool" || kind === "act") return void ACTIONS[name]?.();
+  if (kind === "cons") {
+    const msg = session.applyOffer(Number(name));
+    if (msg) flashMessage(msg);
+    return refreshUI();
+  }
+  if (id === "apply") return xform ? commitTransform() : extrude ? commitExtrude() : undefined;
+  if (id === "cancel") return doEscape();
+}
+function barContext() {
+  const mode = extrude || xform ? "op" : inSketchView() ? "sketch" : "3d";
+  return {
+    mode, keys: S.input.keys, tool: session.tool, canUndo: store.canUndo(), canRedo: store.canRedo(),
+    op: extrude ? { editing: !!extrude.sess.featureId } : xform ? { editing: !!xform.sess.featureId } : null,
+    offers: mode === "sketch" ? session.offers() : [],
+    sketchHasSelection: !!(session.picks.length || session.pickedConstraint),
+    editingStepSketch: !!session.editKey,
+    sel: sel ? { kind: sel.kind, round: sel.kind === "face" && sel.face?.type === "cyl" } : null,
+  };
+}
+function updateBar() {
+  const ctx = barContext();
+  const groups = barItems(ctx);
+  const hint = barHint(ctx);
+  const sig = JSON.stringify([groups, hint]);
+  if (sig === barSig) return;
+  barSig = sig;
+  barEl.replaceChildren();
+  groups.forEach((g, gi) => {
+    if (gi) barEl.appendChild(Object.assign(document.createElement("span"), { className: "sep" }));
+    for (const it of g.items) {
+      const b = document.createElement("button");
+      b.className = it.active ? "on" : "";
+      b.disabled = !it.enabled;
+      b.title = it.enabled ? "" : `Not possible: ${it.reason}`;
+      b.append(it.label);
+      if (it.key) b.appendChild(Object.assign(document.createElement("kbd"), { textContent: it.key }));
+      b.onclick = () => runBar(it.id);
+      barEl.appendChild(b);
+    }
+  });
+  if (hint) barEl.appendChild(Object.assign(document.createElement("span"), { className: "hint", textContent: hint }));
+  document.documentElement.style.setProperty("--abar-h", `${barEl.offsetHeight}px`); // the status line sits just above the bar, however tall it wraps
 }
 
 // ---------------------------------------------------------------- dimension numbers (shown by the dimension tool)

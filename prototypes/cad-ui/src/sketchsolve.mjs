@@ -238,14 +238,24 @@ export function tryConstraint(entities, constraints, spec, { newId, soft = [], r
   const res = solveSketch(entities, cons, soft);
   if (res.status !== "ok") {
     const named = res.conflicts.filter((c) => c !== id);
-    return { ok: false, reason: named.length ? `it conflicts with other constraints (${named.join(", ")})` : "it contradicts the shape itself (a rectangle's corners are always square, for example)" };
+    return { ok: false, conflicts: named, reason: named.length ? `it conflicts with other constraints (${named.join(", ")})` : "it contradicts the shape itself" };
   }
-  if (at < 0 && res.redundant.includes(id)) return { ok: false, reason: "that is already true of this sketch" };
+  // A constraint that is already true of the sketch (implied by others) is allowed: the user may want it locked that way. It is only noted.
   const flat = collapsed(res.entities);
   if (flat) return { ok: false, reason: flat };
   for (const [sa, sb] of watch) {
     const ang = angleBetween(res.entities, sa, sb);
     if (ang !== null && (Math.abs(ang) < MIN_ANGLE || Math.abs(ang) > 180 - MIN_ANGLE)) return { ok: false, reason: "it would fold the two lines onto each other" };
   }
-  return { ok: true, reason: null, entities: res.entities, constraints: cons, id, dof: res.dof };
+  return { ok: true, reason: null, entities: res.entities, constraints: cons, id, dof: res.dof, redundant: res.redundant.includes(id) };
+}
+
+/** Are these the same constraint (same kind on the same elements)? Used to toggle a constraint off when it is asked for again. */
+export function sameConstraint(c, spec) {
+  if (c.type !== spec.type) return false;
+  const pairs = (x) => [x.seg1, x.seg2].filter(Boolean).sort().join("|");
+  if (c.seg1 || spec.seg1) return pairs(c) === pairs(spec);
+  if (c.type === "equalRadius") return [c.r, c.s].sort().join("|") === [spec.r, spec.s].sort().join("|");
+  if (c.type === "coincident") return [c.a, c.b].sort().join("|") === [spec.a, spec.b].sort().join("|");
+  return ["a", "b", "c", "d", "p", "r", "s", "seg"].every((k) => c[k] === spec[k]);
 }

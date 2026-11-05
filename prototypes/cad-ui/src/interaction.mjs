@@ -3,7 +3,7 @@
 import { snap, dist, hitEntity, regionsOf, hitRegion } from "./sketch.mjs";
 import { evalExpr } from "./expr.mjs";
 import { dimensionsOf } from "./dimensions.mjs";
-import { solveSketch, dimensionConstraint, sameDimension, anchorsOf, modelOf, tryConstraint, lengthSpec, angleSpec } from "./sketchsolve.mjs";
+import { refsOf, shapeOfRef, solveSketch, dimensionConstraint, sameDimension, sameConstraint, anchorsOf, modelOf, tryConstraint, lengthSpec, angleSpec } from "./sketchsolve.mjs";
 import { elementAt, offersFor, glyphsFor, valueFor } from "./sketchpick.mjs";
 
 const FIELDS = {
@@ -129,7 +129,7 @@ export class SketchSession {
     const a = this.draft.pts[0];
     if (this.tool === "rect") {
       if (Math.abs(p[0] - a[0]) < 1e-9 || Math.abs(p[1] - a[1]) < 1e-9) return "Move away from the first corner, then click the opposite corner.";
-      this.#add({ type: "rect", x0: a[0], y0: a[1], x1: p[0], y1: p[1] });
+      this.#addRect(a[0], a[1], p[0], p[1]);
     } else if (this.tool === "circle") {
       const r = dist(a, p);
       if (r < 1e-9) return "Move away from the centre, then click to set the radius.";
@@ -161,9 +161,20 @@ export class SketchSession {
     return segs.length === 2 ? [[segs[0].ref, segs[1].ref]] : [];
   }
 
+  /** A short name for a stored constraint, for messages. */
+  #nameOf(id) {
+    const c = this.store.constraintsOf(this.key).find((k) => k.id === id);
+    const N = { horizontal: "Horizontal", vertical: "Vertical", equalLength: "Equal length", equalRadius: "Equal radius", parallel: "Parallel", perpendicular: "Perpendicular", coincident: "Coincident", fixed: "Fixed", distance: "a length", hdist: "a width", vdist: "a height", radius: "a radius", angle: "an angle" };
+    return c ? N[c.type] ?? c.type : id;
+  }
+  #reason(t) {
+    return t.conflicts?.length ? `it conflicts with ${[...new Set(t.conflicts.map((id) => this.#nameOf(id)))].join(", ")}; remove that first` : t.reason;
+  }
+
   /**
-   * Constraint buttons that fit the current picks: [{ label, enabled, reason }]. A button is disabled (with the reason) when the constraint would contradict the shape
-   * or other constraints, is already true, or would collapse or fold the geometry.
+   * Constraint buttons that fit the current picks: [{ label, enabled, active, reason, id }]. A constraint that is already on is shown as active (asking again turns it off).
+   * One that is merely implied by others (a rectangle's right angle) can still be added, to lock it. A button is disabled (with the reason) when it would contradict the shape or
+   * other constraints, or would collapse or fold the geometry.
    */
   offers() {
     if (this.tool !== "select") return [];
@@ -171,8 +182,11 @@ export class SketchSession {
     const cons = this.store.constraintsOf(this.key);
     const model = modelOf(ents);
     return offersFor(this.picks.filter((k) => k.kind !== "entity")).map((o) => {
-      const t = tryConstraint(ents, cons, o.make(model), { newId: "c_try", watch: this.#watch() });
-      return { label: o.label, enabled: t.ok, reason: t.reason };
+      const spec = o.make(model);
+      const on = cons.find((c) => sameConstraint(c, spec));
+      if (on) return { label: o.label, enabled: true, active: true, reason: null, id: on.id };
+      const t = tryConstraint(ents, cons, spec, { newId: "c_try", watch: this.#watch() });
+      return { label: o.label, enabled: t.ok, active: false, reason: t.ok ? null : this.#reason(t), redundant: !!t.redundant };
     });
   }
 
@@ -180,13 +194,14 @@ export class SketchSession {
     const offer = offersFor(this.picks.filter((k) => k.kind !== "entity"))[i];
     if (!offer) return "Nothing to apply.";
     const ents = this.entities();
+    const cons = this.store.constraintsOf(this.key);
     const spec = offer.make(modelOf(ents));
-    const t = tryConstraint(ents, this.store.constraintsOf(this.key), spec, { newId: this.store.newConstraintId(), watch: this.#watch() });
-    if (!t.ok) return `That cannot be set: ${t.reason}. Nothing changed.`;
+    const on = cons.find((c) => sameConstraint(c, spec));
+    if (on) return this.deleteConstraint(on.id) ? null : "Could not remove it."; // asking for what is already set turns it off
+    const t = tryConstraint(ents, cons, spec, { newId: this.store.newConstraintId(), watch: this.#watch() });
+    if (!t.ok) return `That cannot be set: ${this.#reason(t)}. Nothing changed.`;
     const changed = t.entities.filter((x, i2) => JSON.stringify(x) !== JSON.stringify(ents[i2]));
     this.store.edit(this.key, { entities: changed, constraints: t.constraints });
-    this.picks = [];
-    this.selectedId = null;
     return null;
   }
 
@@ -232,7 +247,7 @@ export class SketchSession {
       soft = [{ p: spec.a, at: pts[spec.a].slice(), w: 0.5 }, { p: spec.b, at: pts[spec.b].slice(), w: 0.5 }, { dist: [spec.c, spec.d], d: len, w: 0.5 }];
     }
     const t = tryConstraint(ents, cons, spec, { newId: this.store.newConstraintId(), soft, replace, watch });
-    if (!t.ok) return `That cannot be set: ${t.reason}. Nothing changed.`;
+    if (!t.ok) return `That cannot be set: ${this.#reason(t)}. Nothing changed.`;
     const changed = t.entities.filter((x, i) => JSON.stringify(x) !== JSON.stringify(ents[i]));
     this.pickEdit = null;
     this.store.edit(this.key, { entities: changed, constraints: t.constraints });
@@ -241,7 +256,16 @@ export class SketchSession {
 
   /** Marks for the stored constraints: [{ id, text, pos, dimension, picked }]. */
   glyphs() {
-    return glyphsFor(this.viewEntities(), this.store.constraintsOf(this.key)).map((g) => ({ ...g, picked: g.id === this.pickedConstraint }));
+    // a thing's constraints show only while the thing is selected (`in_054`)
+    const wholeShapes = new Set(this.picks.filter((k) => k.kind === "entity").map((k) => k.shape));
+    const parts = new Set(); // the picked lines, corners and circles (a line includes its two end corners)
+    const seg = modelOf(this.viewEntities()).segments;
+    for (const k of this.picks) {
+      parts.add(k.ref);
+      if (k.kind === "seg" && seg[k.ref]) seg[k.ref].forEach((id) => parts.add(id));
+    }
+    const mine = this.store.constraintsOf(this.key).filter((c) => c.id === this.pickedConstraint || refsOf(c).some((r) => parts.has(r) || wholeShapes.has(shapeOfRef(r))));
+    return glyphsFor(this.viewEntities(), mine).map((g) => ({ ...g, picked: g.id === this.pickedConstraint }));
   }
   pickConstraint(id) {
     this.pickedConstraint = id;
@@ -380,6 +404,11 @@ export class SketchSession {
     this.entry = null;
     return e;
   }
+  /** A rectangle is just four lines and four corners with horizontal and vertical constraints: a shortcut for what you could draw yourself (`in_054`). */
+  #addRect(x0, y0, x1, y1) {
+    this.draft = { pts: [[x0, y0], [x1, y0], [x1, y1], [x0, y1]] };
+    this.#addPoly(true);
+  }
   #addPoly(closed) {
     const pts = this.draft.pts.map((p) => p.slice());
     // a segment drawn exactly horizontal or vertical is remembered as such (so it stays that way when the sketch is edited)
@@ -489,7 +518,8 @@ export class SketchSession {
         this.entry = null;
         return true;
       }
-      this.#add(shape.entity);
+      if (this.tool === "rect") this.#addRect(shape.entity.x0, shape.entity.y0, shape.entity.x1, shape.entity.y1);
+      else this.#add(shape.entity);
       return true;
     }
     if (this.tool === "line" && this.draft.pts.length >= 2) {

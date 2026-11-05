@@ -22,7 +22,8 @@ test("rectangle by two clicks; a second click on the same spot keeps the first c
   assert.ok(s.draft);
   s.click([45, 35], SH);
   assert.equal(store.entities("XY").length, 1);
-  assert.deepEqual(store.entities("XY")[0], { id: "e_001", type: "rect", x0: 5, y0: 5, x1: 45, y1: 35 });
+  assert.deepEqual(store.entities("XY")[0], { id: "e_001", type: "poly", closed: true, points: [[5, 5], [45, 5], [45, 35], [5, 35]] }); // a rectangle is four corners and lines
+  assert.deepEqual(store.constraintsOf("XY").map((c) => c.type), ["horizontal", "vertical", "horizontal", "vertical"]);
   assert.equal(s.draft, null);
 });
 
@@ -39,7 +40,7 @@ test("typed rectangle: width, Tab, height, math, direction follows the cursor qu
   assert.equal(r.valid, true);
   assert.deepEqual(r.values, { w: 25, h: 12.5 });
   assert.equal(s.enter(), true);
-  assert.deepEqual(store.entities("XY")[0], { id: "e_001", type: "rect", x0: 10, y0: 10, x1: -15, y1: 22.5 });
+  assert.deepEqual(store.entities("XY")[0].points, [[10, 10], [-15, 10], [-15, 22.5], [10, 22.5]]);
   assert.equal(s.entry, null);
 });
 

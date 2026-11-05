@@ -472,3 +472,13 @@ perpendicular, opposite sides, equal length; collapse; polyline angle; separate 
 **State:** `in_053` bug: clicking a line showed no length input. Cause: the CSS for the value chip (`#vchip`) and for disabled constraint buttons never landed in `index.html` (my edit used a search string that did not match, so the replace silently did nothing); the chip existed
 but was an unstyled block at the top left, invisible. My browser test read the chip's text, not its position, so it passed. Fixed by adding the CSS; verified with the chip's measured position and a screenshot (the number appears above the line, the unusable buttons are greyed).
 **Lesson:** a UI check must look at where the element is (or a screenshot), and edits that do a text replacement must assert the replacement happened.
+
+## Handoff 041 — 2026-11-05
+**State:** `in_054`. Built in `prototypes/cad-ui`: (1) **context action bar** (`src/actionbar.mjs`, pure, 4 tests; DOM in `main.js` `updateBar`/`runBar`; full width at the bottom, wraps when narrow, the status line sits above it): sketch tools, constraint buttons that
+fit the picks (lit when on, greyed with a reason when not possible), 3D actions per selection, Apply/Cancel during an operation, each with its hotkey from the keymap; new constraint hotkeys Shift+H/V/E/L/P/F/C. The old floating button bar is gone. (2) **Constraints fixed:**
+already-true constraints can be added (lock), asking for an active one turns it off (toggle), refusals only for conflict, collapse or folding; conflicts name the constraint ("conflicts with Horizontal"). (3) **Rectangles are four lines with real stored constraints** (the rectangle tool makes a
+closed polyline plus horizontal/vertical constraints; the legacy `rect` shape with built-in rules remains only for tests); you can turn a constraint off and shear it. (4) **Constraint marks show only for what is picked.** `dec_context_action_bar` accepted;
+`dec_sketch_lines_and_constraints` **provisional** (the human said "I am not sure"; needs their confirmation). 82 tests; browser runs measured the bar's position (full width, y=595 of 640) and contents in sketch and 3D, toggles with Shift+H, the perpendicular lock with Shift+P,
+marks only for the picked line, screenshots checked; regression runs (extrude a drawn rectangle, edit a step's sketch, face/body flow) pass; no console errors.
+**Lesson (again):** a trailing `//` comment appended to a settings line swallowed the keys after it (`home`, `dimension`), caught by the new bar test; never add a trailing comment to a line that has more entries after the insertion point.
+**Not yet:** dimension chips for a rectangle are four lengths (no W/H pair); circles are not lines (no arcs yet); legacy `rect` code paths can be removed later.
