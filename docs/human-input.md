@@ -565,3 +565,8 @@ Asks what the relations table is for: to make the code work without bugs, or onl
 Approves building the relations table, starting with distance between two corners and between two parallel lines.
 
 > yes, start with that
+
+## in_093 — 2026-11-05 — question
+Suggests taking a step back and housecleaning, possibly almost starting from scratch, to build a clean logical engine in the direction now known (the world UI, the device inputs, a free set of lines, vertices and faces all worked on in the same manner, always the same interface and abilities on each component); asks whether that would be wise and whether it would clean up the ghosts of earlier ideas still living in the code.
+
+> Hang on before we go too much further, I am kind of thinking we should take a step back. Now that we know the general direction of things, we know the world UI, and differen device inputs, we know we want a system that is entirely free set of just lines vertices and faces all of which could be worked on in the same mannar. At this point should we do a house cleaning? This prototype tells us a lot, maybe we should take several steps back, almost start from scratch, and build clean in this direction we want to go. So a clean logical engine that allows us to select any verticy line face etc, it always offers the same interface and abilities on each component etc. Do you think that would be wise and clean up some of our prior ideas we were chasing around? It feels like those prior ideas have ghosts living in the code
