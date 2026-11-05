@@ -108,7 +108,6 @@ export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
   if (parts.length !== selection.length) return null;
   const kind: OpKind | null =
     parts.length === 1 && drawnFace(scene, parts) ? "extrude"
-    : parts.length === 1 && parts[0]!.kind === "plane" && parts[0]!.origin === "body" ? "pushpull"
     : parts.length === 1 && parts[0]!.kind === "body" ? "move"
     : null;
   if (!kind) return null;
@@ -137,6 +136,13 @@ export function typeOp(op: Op, key: string): Op {
 }
 
 /** The step that does it (one command, one undo). Null while there is no number yet. */
+/** The face a push / pull works on, as numbers kept in the step: the body is changed by later steps (another push, a turn) so its named faces move, but this step always meant the face as it was. */
+const faceParams = (op: Op): Record<string, number> => {
+  const n = op.normal;
+  const p = op.origin;
+  return n && p ? { nx: n[0], ny: n[1], nz: n[2], fd: n[0] * p[0] + n[1] * p[1] + n[2] * p[2], px: p[0], py: p[1], pz: p[2] } : {};
+};
+
 export function opCommand(scene: Scene, op: Op): Command | null {
   const v = valueOf(op);
   if (v === null) return null;
@@ -146,7 +152,7 @@ export function opCommand(scene: Scene, op: Op): Command | null {
     return a && v > 0 ? a.run(v) : null;
   }
   if (op.kind === "extrude") return v === 0 ? null : { type: "addStep", step: { id, type: "extrude", parts: op.parts, params: { depth: v } } };
-  if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v } } };
+  if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
   if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v) } } };
   if (op.kind === "scale") return v <= 0 ? null : { type: "addStep", step: { id, type: "scale", parts: op.parts, params: { axis: 0, value: v } } };

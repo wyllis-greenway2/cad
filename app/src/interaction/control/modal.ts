@@ -62,6 +62,18 @@ export function doTyped(s: AppState, key: string): AppState {
   return remake({ ...s, session: undoLast(s.session) }, typed);
 }
 
+/** The text of a field of the value box changed: the operation's number, or a size of the figure just made (it is made again at that size). */
+export function doEntry(s: AppState, field: number, text: string): AppState {
+  if (!/^-?\d*\.?\d*$/.test(text)) return s;
+  if (s.op) return { ...s, op: { ...s.op, typed: text } };
+  const t = s.tool;
+  if (!t || !t.placed) return s;
+  const typed: [string, string] = field === 0 ? [text, t.typed[1]] : [t.typed[0], text];
+  const next = { ...t, typed, field: (field === 0 ? 0 : 1) as 0 | 1 };
+  if (!finish(sceneOf(s.session), figureTool(next))) return { ...s, tool: next };
+  return remake({ ...s, session: undoLast(s.session) }, next);
+}
+
 /** Esc lets go in steps: the menu, then an open badge, then the tool or operation, then the selection. */
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };

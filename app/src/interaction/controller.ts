@@ -6,7 +6,7 @@ import type { AppState, Env } from "./control/state.ts";
 import { doHover, doClick, doMenu } from "./control/pointer.ts";
 import { doPan, doZoom, doLook, doHome } from "./control/viewing.ts";
 import { doDragMove, doDragEnd } from "./control/handles.ts";
-import { doBegin, doTyped, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
+import { doBegin, doTyped, doEntry, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn } from "./session.ts";
 
 export { createState } from "./control/state.ts";
@@ -40,6 +40,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "escape": return doEscape(s);
     case "begin": return doBegin(s, i.name);
     case "typed": return doTyped(s, i.key);
+    case "entry": return doEntry(s, i.field, i.text);
     case "relation": return doRelation(s, i);
     case "save":
     case "open":

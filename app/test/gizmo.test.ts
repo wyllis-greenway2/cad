@@ -234,6 +234,9 @@ test("a closed figure shows the arrow to pull it out; the same arrow on a flat f
   // the top face of the new body: push it in 5 (cut) and pull it out 3 (add)
   const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 12)!;
   st = select(st, [top.ref]);
+  assert.equal(frame(st).gizmo, null, "a face offers the push / pull bubble, not the arrow");
+  assert.ok(frame(st).annotations.some((a) => a.mode === "pushpull"));
+  st = reduce(st, { type: "begin", name: "pushpull" }, env); // what a click on the bubble does
   assert.deepEqual(frame(st).gizmo!.handles.map((q) => q.id), ["pull"]);
   const pg = gizmoOf(st)!.handles[0]!;
   const pm = scale(add(pg.points[0]!, pg.points[1]!), 0.5);
@@ -315,4 +318,62 @@ test("a drawn figure can be moved and turned with handles: arrows along its plan
   const ys = turned.map((q) => q[1]);
   near(Math.max(...xs) - Math.min(...xs), 20, 0.5);
   near(Math.max(...ys) - Math.min(...ys), 40, 0.5);
+});
+
+/** Push (or pull) the body face with this outward normal and plane offset by `d`, through the same bubble and typed number a person uses. */
+function push(st: AppState, n: Vec3, off: number, d: number): AppState {
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && Math.abs(dot(normalOf(p), n) - 1) < 1e-6 && Math.abs(dot(p.at, n) - off) < 1e-3)!;
+  assert.ok(face, `a face with normal ${n} at ${off}`);
+  st = select(st, [face.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: String(d) }, env);
+  return reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+}
+const normalOf = (p: { u: Vec3; v: Vec3 }): Vec3 => { const [a, b] = [p.u, p.v]; return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; };
+
+test("push a face, then a perpendicular face: the first push stays (steps are kept whatever the body looks like now)", () => {
+  let st = box(); // 40 x 20 x 20
+  st = push(st, [0, 0, 1], 20, 5); // top up 5: 40 x 20 x 25
+  near(st.session.outcome.kernel!.volume!, 40 * 20 * 25, 0.5);
+  st = push(st, [1, 0, 0], 40, 5); // the +x end out 5: 45 x 20 x 25
+  assert.deepEqual(st.session.outcome.errors, {});
+  near(st.session.outcome.kernel!.volume!, 45 * 20 * 25, 0.5);
+  st = push(st, [0, 1, 0], 20, -5); // the +y side in 5: 45 x 15 x 25
+  assert.deepEqual(st.session.outcome.errors, {});
+  near(st.session.outcome.kernel!.volume!, 45 * 15 * 25, 0.5);
+});
+
+test("push a face after the body was rotated", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  st = reduce(st, { type: "begin", name: "rotate" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: "90" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.deepEqual(st.session.outcome.errors, {});
+  const bb = st.session.outcome.kernel!.bbox!;
+  const top = Object.values(scene(st.session).parts).filter((p) => p.kind === "plane" && p.origin === "body");
+  assert.ok(top.length >= 6);
+  const before = st.session.outcome.kernel!.volume!;
+  const face = top.find((p) => normalOf(p as never)[0] > 0.99)!; // whichever face now points along +x
+  st = select(st, [face.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: "3" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.deepEqual(st.session.outcome.errors, {});
+  assert.ok(st.session.outcome.kernel!.volume! > before + 1, `volume grew from ${before} (bbox ${JSON.stringify(bb)})`);
+});
+
+test("push a face of a body turned by an angle that is not a right angle", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  st = reduce(st, { type: "begin", name: "rotate" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: "30" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  const before = st.session.outcome.kernel!.volume!;
+  const faces = Object.values(scene(st.session).parts).filter((p) => p.kind === "plane" && p.origin === "body");
+  const face = faces.find((p) => Math.abs(normalOf(p as never)[2]) > 0.5 && Math.abs(normalOf(p as never)[2]) < 0.99) ?? faces[0]!;
+  st = select(st, [face.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: "2" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.deepEqual(st.session.outcome.errors, {});
+  assert.ok(st.session.outcome.kernel!.volume! > before + 1);
 });

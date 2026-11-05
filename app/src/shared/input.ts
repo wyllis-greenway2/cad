@@ -34,8 +34,10 @@ export type Intent =
   | { type: "open" }
   | { type: "runAction"; id: string }
   /** start a drawing tool or an operation (a key or the menu) */
-  | { type: "begin"; name: "sketch" | "rect" | "circle" | "line" | "extrude" | "edge" | "move" | "rotate" | "scale" | "dimension" }
+  | { type: "begin"; name: "sketch" | "pushpull" | "rect" | "circle" | "line" | "extrude" | "edge" | "move" | "rotate" | "scale" | "dimension" }
   /** a constraint shown on a selected part: open or close it (its other parts show amber), delete it, lock or unlock its number, give it a new number (`set`), or lock the measure of the selection at a number (`measure`) */
   | { type: "relation"; act: "focus" | "remove" | "lock" | "set" | "measure"; id: string | null; value?: number }
   /** a key for the number being typed (digits, ".", "-", Backspace, Tab, Enter, the arrows) */
-  | { type: "typed"; key: string; shift: boolean };
+  | { type: "typed"; key: string; shift: boolean }
+  /** the text of a field of the value box changed (a tool's field, or the operation's one number) */
+  | { type: "entry"; field: number; text: string };

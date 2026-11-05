@@ -198,9 +198,11 @@ const OPS = {
    */
   faceExtrude(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;
-    const { n } = refPlane(op.ref);
     const dist = resolve(op.distance, ctx.params);
     const best = findFace(t, op.ref);
+    const fn = best.normalAt(); // the face's own normal, exactly: a rounded one slants the prism and leaves slivers (an invalid solid)
+    const fl = Math.hypot(fn.x, fn.y, fn.z);
+    const n = [fn.x / fl, fn.y / fl, fn.z / fl];
     if (!Number.isFinite(dist)) throw new Error("bad distance");
     if (Math.abs(dist) < 1e-6) return { kind: "solid", shape: t }; // nothing to push
     if (dist < 0) {

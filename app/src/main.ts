@@ -26,7 +26,11 @@ import { createBubbles } from "./ui/bubbles.ts";
 const host = document.getElementById("view")!;
 const statusEl = document.getElementById("status")!;
 const view = createView(host);
-const chip = createChip(document.body);
+const chip = createChip(document.body, {
+  entry: (field, text) => dispatch({ type: "entry", field, text }),
+  enter: () => dispatch({ type: "typed", key: "Enter", shift: false }),
+  cancel: () => dispatch({ type: "escape" }),
+});
 const bubbles = createBubbles(document.body, {
   focus: (id) => dispatch({ type: "relation", act: "focus", id }),
   remove: (id) => dispatch({ type: "relation", act: "remove", id }),
@@ -35,7 +39,6 @@ const bubbles = createBubbles(document.body, {
   measure: (value) => dispatch({ type: "relation", act: "measure", id: null, value }),
   mode: (name) => dispatch({ type: "begin", name: name as "edge" }),
 });
-let pointer: [number, number] = [0, 0]; // where the pointer is, for placing the number chip
 const bus = createBus<{ input: RawInput }>();
 const recognizer = createRecognizer();
 let state: AppState;
@@ -79,7 +82,6 @@ function dispatch(i: Intent) {
   dirty = true;
 }
 bus.on("input", (raw) => {
-  if (raw.kind === "move" || raw.kind === "down") { const r = host.getBoundingClientRect(); pointer = [raw.x + r.left, raw.y + r.top]; }
   for (const i of recognizer.feed(raw)) dispatch(i);
 });
 attachInput(host, bus);
@@ -120,7 +122,7 @@ function frame(now: number) {
     const project = projector(state.cam, size.w, size.h).project;
     bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash);
     view.setNotes(f.annotations.flatMap((a) => a.lines));
-    chip.update(f.entry?.fields ?? null, f.entry?.unit ?? "mm", pointer[0], pointer[1]);
+    chip.update(f.entry?.fields ?? null, f.entry?.unit ?? "mm");
     host.style.cursor = f.cursor;
     view.render(state.cam, f.grid);
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);
