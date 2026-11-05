@@ -15,19 +15,26 @@ export interface History {
   readonly scene: Scene;
   /** Scenes after each command so far (index i = after the first i commands), so undo and redo do not replay. */
   readonly snapshots: readonly Scene[];
+  /** Applied to every scene after a command (the compiler: solve, body parts, derived faces), so commands always see the whole scene. Must be deterministic. */
+  readonly derive: (s: Scene) => Scene;
 }
 
-export const newHistory = (base: Scene = emptyScene()): History => ({ base, commands: [], cursor: 0, scene: base, snapshots: [base] });
+export function newHistory(base: Scene = emptyScene(), derive: (s: Scene) => Scene = (s) => s): History {
+  const first = derive(base);
+  return { base, commands: [], cursor: 0, scene: first, snapshots: [first], derive };
+}
 
 export function exec(h: History, c: Command): Result<History> {
   const r = apply(h.scene, c);
   if (!r.ok) return r;
+  const scene = h.derive(r.value);
   return ok({
+    derive: h.derive,
     base: h.base,
     commands: [...h.commands.slice(0, h.cursor), c],
     cursor: h.cursor + 1,
-    scene: r.value,
-    snapshots: [...h.snapshots.slice(0, h.cursor + 1), r.value],
+    scene,
+    snapshots: [...h.snapshots.slice(0, h.cursor + 1), scene],
   });
 }
 export const canUndo = (h: History) => h.cursor > 0;
@@ -36,8 +43,8 @@ export const undo = (h: History): History => (canUndo(h) ? { ...h, cursor: h.cur
 export const redo = (h: History): History => (canRedo(h) ? { ...h, cursor: h.cursor + 1, scene: h.snapshots[h.cursor + 1] ?? h.scene } : h);
 
 /** Rebuild a history from its saved commands (the file format stores the base and the command list). */
-export function replay(base: Scene, commands: readonly Command[], cursor = commands.length): Result<History> {
-  let h = newHistory(base);
+export function replay(base: Scene, commands: readonly Command[], cursor = commands.length, derive?: (s: Scene) => Scene): Result<History> {
+  let h = newHistory(base, derive);
   for (const c of commands) {
     const r = exec(h, c);
     if (!r.ok) return r;

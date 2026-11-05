@@ -1,3 +1,6 @@
+> **FROZEN (2026-11-05, clean engine phase 4).** This prototype is now a reference only; new work happens in `app/` under `dec_clean_engine_design`. Only blocker fixes go here.
+> What it taught: the interaction model (one click selects, two look straight at the plane, three select the object; cycling through overlaps; Shift adds; first selected moves, second is the reference), the pencil look and the teal ring (`orb.js`, kept in `app/src/ui/orb.ts`), orbit about the model without re-centring, trackpad and touch handling, and relations by kind of part. What it got wrong: modes and stores added on top of each other (a sketch mode, four selection stores, four ways to find what is under the pointer). The clean engine replaces those with one part interface, one selection, one picking function and one actions table.
+
 # cad-ui (THROWAWAY prototype, built in stages)
 
 Started from `in_015`: a clean interface, one stage at a time. It reuses ideas from `kernel-slice` and
