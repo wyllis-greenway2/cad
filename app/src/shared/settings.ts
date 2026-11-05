@@ -56,6 +56,6 @@ export const settings = {
   flash: { ms: 1100, shakeMs: 450 }, // a refused change: the broken constraints flash red and fade over this long; the one that tried shakes for the first part of it
   world: { axisLengthMm: 18, axisWidthPx: 1.6, axisOpacity: 1 }, // the small charcoal axes at the origin: their real length in mm (so they zoom with the model: was 8.4), line width, opacity
   buttons: { marginPx: 18, sizePx: 34 }, // the X Y Z buttons at the right edge, lower right
-  light: { key: 1.7, fill: 0.12, ambient: 0.42, roughness: 0.5, sheen: 0.3, sheenRoughness: 0.45, reflect: 0.35 }, // lights ride with the camera; the body has a slight clear-coat sheen and a soft studio reflected in it
+  light: { key: 1.7, fill: 0.12, ambient: 0.42, roughness: 0.4, sheen: 0.55, sheenRoughness: 0.25, reflect: 0.5 }, // lights ride with the camera; the body has a slight clear-coat sheen and a soft studio reflected in it
   extrude: { edgeAngleDeg: 30 }, // outline edges are drawn where faces meet at more than this angle
 };

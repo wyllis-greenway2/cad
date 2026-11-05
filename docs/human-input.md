@@ -741,3 +741,8 @@ Asks for a more obvious push / pull icon (a sheet with an arrow out of its norma
 Asks for a new push / pull icon, for the pencil on a clicked world plane to go, for the big input box at the bottom of the screen to go and be replaced by a small amount bubble like the line length bubble (to set exactly how much to push or pull, the fillet or chamfer size, the rotation and so on), and for the X Y Z axes to be a little bigger again.
 
 > Lets change the icon of the push pull, just try something new. Lets get rid of the world plane adding the pencil icon to it do draw stuff. Lets get rid of the big size input box at the bottom of the screen, instead I meant it should have a little size or amount constraint bubble type of thing just like the line length input that is used to set precise settings for how much to push pull face, or set chanmfer fillet, or rotate etc.  Lets make the zyx even a little bigger.
+
+## in_128 — 2026-11-05 — directive
+Reports that the push / pull arrow jumps back after a pull (it should stay at the new face), that a curved surface cannot be selected (it should be, and push / pull on it should change its diameter), and asks for the grey objects to be a little glossier.
+
+> The push pull arrow jumps back to its starting position after a pull, it should stop where you leave it where the new face is. You cannot select a curved surface plane, and you should be able to. Also pushing and pulling that should increase or decrease its diameter. Also lets make the grey objects slightly more glossy

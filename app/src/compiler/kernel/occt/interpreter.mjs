@@ -298,7 +298,8 @@ const OPS = {
     const t = ctx.get(op.target, "solid").shape;
     const { face, convex } = findCylinder(t, op.ref);
     const R = op.ref.radius;
-    const R2 = resolve(op.radius, ctx.params);
+    // `delta`: how far the face moves along its own outward normal (a post grows, a hole shrinks): positive adds material either way
+    const R2 = op.delta !== undefined ? (convex ? R + resolve(op.delta, ctx.params) : R - resolve(op.delta, ctx.params)) : resolve(op.radius, ctx.params);
     if (!(R2 > 1e-6)) throw new Error("the radius must be positive");
     if (Math.abs(R2 - R) < 1e-9) return { kind: "solid", shape: t };
     const h = op.ref.hi - op.ref.lo;

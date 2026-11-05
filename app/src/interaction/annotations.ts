@@ -191,7 +191,7 @@ export function modesFor(scene: Scene, selection: readonly Ref[], sketching: Ref
   if (only && (only.kind === "plane" || only.kind === "face")) {
     // a plane or a face offers the pencil; once it is clicked, the shapes to draw on it
     const pl = planeOf(lookup(scene), only.ref);
-    if (!pl) return [];
+    if (!pl) return only.kind === "plane" && only.curved ? [{ id: "mode:pushpull", relationId: null, kind: "pushpull", label: "Push / pull", at: centreOf(scene, only), value: null, unit: null, locked: false, editable: false, readOnly: false, broken: false, open: false, others: [], lines: [], mode: "pushpull" }] : [];
     const at = centreOf(scene, only);
     const bubble = (mode: string, label: string): Annotation => ({ id: `mode:${mode}`, relationId: null, kind: mode, label, at, value: null, unit: null, locked: false, editable: false, readOnly: false, broken: false, open: false, others: [], lines: [], mode });
     if (sketching === pl.ref) return [bubble("rect", "Rectangle"), bubble("circle", "Circle"), bubble("line", "Line")];

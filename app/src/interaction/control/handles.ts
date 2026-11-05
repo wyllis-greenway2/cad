@@ -3,7 +3,7 @@
 import type { Intent } from "../../shared/input.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { scene as sceneOf, selection as selectionOf, run } from "../session.ts";
-import { opCommand, autoOp } from "../operations.ts";
+import { opCommand, autoOp, afterPushPull, valueOf } from "../operations.ts";
 import type { Op } from "../operations.ts";
 import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo } from "../gizmo.ts";
 import type { Gizmo } from "../gizmo.ts";
@@ -74,6 +74,9 @@ export function doDragEnd(s: AppState): AppState {
   if (next.message) return { ...cleared, session: next, op: s.op.auto ? null : s.op };
   // an operation you started stays open for another drag; one that came from a selection ends (and what was selected may be gone: the face you pulled, the figure you extruded)
   // an extrude or a push / pull leaves nothing selected (the new body shows as itself)
+  // a push / pull stays open on the face where it now is, so the arrow stops where you left it and can go on
+  const moved = s.op.kind === "pushpull" && !s.op.auto ? afterPushPull(sceneOf(next), s.op, valueOf(s.op) ?? 0) : null;
+  if (moved) return { ...cleared, session: { ...next, hover: undefined, click: { ...next.click, selection: moved.parts } }, op: moved, spread: null, hoverPoint: null };
   const left = s.op.kind === "extrude" || s.op.kind === "pushpull" ? { ...next, hover: undefined, click: { ...next.click, selection: [] } } : next;
   return { ...cleared, session: left, op: s.op.auto ? null : { ...s.op, value: null, typed: "" }, spread: null, hoverPoint: null };
 }

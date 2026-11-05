@@ -16,6 +16,7 @@ const key = (p: readonly number[]) => p.map((v) => String(r4(v) + 0)).join(",");
 export const BODY_OBJECT: Ref = bodyRef("body", "o");
 export const cornerName = (p: Vec3): Ref => bodyRef("body", `v@${key(p)}`);
 const edgeName = (a: Vec3, b: Vec3, m: Vec3): Ref => bodyRef("body", `e@${key(a)}~${key(b)}~${key(m)}`);
+export const cylName = (c: { axis: number; center: Vec3; radius: number; lo: number; hi: number }): Ref => bodyRef("body", `c@${key([c.axis, ...c.center, c.radius, c.lo, c.hi])}`);
 export const faceName = (n: Vec3, d: number): Ref => bodyRef("body", `f@${key([...n, d])}`);
 
 const vec = (s: string): Vec3 => s.split(",").map(Number) as unknown as Vec3;
@@ -51,7 +52,20 @@ export function bodyParts(result: KernelResult): Part[] {
     out.push({ ...base, ref: edgeName(e.a, e.b, e.mid), kind: "line", a: corner(e.a), b: corner(e.b), ...(straight ? {} : { mid: e.mid }) });
   }
   for (const f of result.faces ?? []) {
-    if (!f.n || f.d === undefined) continue; // full round faces come later
+    if (f.type === "cyl") {
+      // a full round face along a world axis: a part you can select and push / pull (its radius changes)
+      const axis = f.axis as 0 | 1 | 2;
+      const center = (f.center as Vec3).map((v, i) => (i === axis ? (f.lo as number) : v)) as unknown as Vec3;
+      const e = [0, 1, 2].filter((i) => i !== axis);
+      const dirs = e.map((i) => [0, 0, 0].map((_, k) => (k === i ? 1 : 0)) as unknown as Vec3);
+      const mesh: number[] = [];
+      const m = result.mesh;
+      if (m) for (const r of (f.ranges as { start: number; count: number }[] | undefined) ?? [{ start: f.start, count: f.count }]) for (let i = r.start; i < r.start + r.count; i++) { const ix = m.triangles[i]!; mesh.push(m.vertices[ix * 3]!, m.vertices[ix * 3 + 1]!, m.vertices[ix * 3 + 2]!); }
+      const curved = { axis, center, radius: f.radius as number, lo: f.lo as number, hi: f.hi as number, convex: f.convex !== false };
+      out.push({ ...base, ref: cylName(curved), kind: "plane", at: center, u: dirs[0]!, v: dirs[1]!, curved, ...(mesh.length ? { mesh } : {}) });
+      continue;
+    }
+    if (!f.n || f.d === undefined) continue;
     const n = f.n as Vec3;
     // the plane's first axis: along the world X on floors and ceilings, along the world Z-cross-normal on walls (so a face reads like the world plane it is parallel to)
     const u: Vec3 = Math.abs(n[2]) > 0.9 ? normalize([1 - n[0] * n[0], -n[0] * n[1], -n[0] * n[2]]) : normalize(cross([0, 0, 1], n));

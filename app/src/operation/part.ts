@@ -22,7 +22,9 @@ export interface Circle extends Base { kind: "circle"; center: Ref; radius: numb
 /** A derived face of drawn lines: a closed loop (its lines and, in order, its corners), or a disk (a circle). Rebuilt from the lines; never saved. */
 export interface Face extends Base { kind: "face"; loop: Ref[]; corners: Ref[]; disk?: Ref }
 /** A plane you can look at, select and draw on. `infinite`: a world plane, hit anywhere on it (`in_116`). `extent`: a square pane from `at` to `at + extent` along u and v. `mesh`: a flat face of the body, as triangles (flat xyz). */
-export interface Plane extends Base { kind: "plane"; at: Vec3; u: Vec3; v: Vec3; extent?: number; infinite?: boolean; mesh?: readonly number[] }
+export interface Plane extends Base { kind: "plane"; at: Vec3; u: Vec3; v: Vec3; extent?: number; infinite?: boolean; mesh?: readonly number[]; curved?: Curved }
+/** A full round face of the body (a post or a hole) that stands along a world axis: it is selected and pushed / pulled like a face, which changes its radius. Its `at` is where its axis starts, `u` and `v` the other two directions. */
+export interface Curved { axis: 0 | 1 | 2; center: Vec3; radius: number; lo: number; hi: number; /** a post (the surface faces away from its axis) or a hole */ convex: boolean }
 export interface Axis extends Base { kind: "axis"; at: Vec3; dir: Vec3 }
 export interface Body extends Base { kind: "body" }
 export type Part = Corner | Line | Circle | Face | Plane | Axis | Body;

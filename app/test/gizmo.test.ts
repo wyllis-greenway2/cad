@@ -7,7 +7,7 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, run, scene, selection, undoLast } from "../src/interaction/session.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
 import type { AppState } from "../src/interaction/controller.ts";
-import { drawSquaredRectangle } from "../src/operation/build.ts";
+import { drawSquaredRectangle, drawCircle } from "../src/operation/build.ts";
 import { nextId } from "../src/operation/scene.ts";
 import { projector, homeCamera } from "../src/interaction/camera.ts";
 import { gizmoOf } from "../src/interaction/control/handles.ts";
@@ -381,4 +381,41 @@ test("push a face of a body turned by an angle that is not a right angle", () =>
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   assert.deepEqual(st.session.outcome.errors, {});
   assert.ok(st.session.outcome.kernel!.volume! > before + 1);
+});
+
+test("after a pull the arrow stays on the new face (it does not jump back), and goes on from there", () => {
+  let st = select(box(), []);
+  const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20)!;
+  st = select(st, [top.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  const g0 = gizmoOf(st)!.handles[0]!;
+  const mid0 = scale(add(g0.points[0]!, g0.points[1]!), 0.5);
+  st = drag(st, mid0, add(mid0, [0, 0, 4]));
+  near(st.session.outcome.kernel!.volume!, 40 * 20 * 24, 0.5);
+  const g1 = gizmoOf(st)!.handles[0]!;
+  nearV(scale(add(g1.points[0]!, g1.points[1]!), 0.5), [20, 10, 24]);
+  assert.deepEqual(selection(st.session), [scene(st.session).parts[selection(st.session)[0]!]!.ref], "the new face is selected");
+  assert.equal((scene(st.session).parts[selection(st.session)[0]!] as { at: Vec3 }).at[2], 24);
+  const mid1 = scale(add(g1.points[0]!, g1.points[1]!), 0.5);
+  st = drag(st, mid1, add(mid1, [0, 0, 2]));
+  near(st.session.outcome.kernel!.volume!, 40 * 20 * 26, 0.5);
+});
+
+test("a round face can be selected, and push / pull changes its radius (a post grows, a hole shrinks as it is pulled)", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 10);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 20 } } });
+  let st: AppState = { ...createState(s), cam: homeCamera() };
+  const round = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.curved)!;
+  assert.ok(round, "the round face is a part");
+  near(st.session.outcome.kernel!.volume!, Math.PI * 100 * 20, 1);
+  st = select(st, [round.ref]);
+  assert.ok(frame(st).annotations.some((a) => a.mode === "pushpull"), "it offers push / pull");
+  assert.ok(!frame(st).annotations.some((a) => a.mode === "sketch"), "but no pencil: it is not flat");
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: "2" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.deepEqual(st.session.outcome.errors, {});
+  near(st.session.outcome.kernel!.volume!, Math.PI * 144 * 20, 2);
 });

@@ -35,22 +35,30 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     // flat faces at any angle, and full round faces: these can be hovered, selected and sketched on (start/count are index ranges into `triangles`)
     const ranges = new Map(m.faceGroups.map((g) => [g.faceId, g]));
     faces = [];
+    const round = new Map();
     for (const f of fin.shape.faces) {
       const g = ranges.get(f.hashCode);
       if (g && f.geomType === "CYLINDRE") {
-        // a full round face (post or hole): can have its radius changed or be tapered
+        // a round face (post or hole) along a world axis; a circle is often made of two halves, so the halves with the same axis, radius and height are gathered
         const uv = f.UVBounds;
-        if (Math.abs(uv.uMax - uv.uMin - 2 * Math.PI) < 1e-6) {
-          const cyl = f._geomAdaptor().Cylinder();
-          const loc = cyl.Axis().Location();
-          const dir = cyl.Axis().Direction();
-          const d = [dir.X(), dir.Y(), dir.Z()];
-          const axis = d.findIndex((v) => Math.abs(Math.abs(v) - 1) < 1e-6);
-          if (axis >= 0) {
-            const [lo, hi] = f.boundingBox.bounds;
-            const center = [loc.X(), loc.Y(), loc.Z()].map((v) => Math.round(v * 1e4) / 1e4);
-            faces.push({ type: "cyl", start: g.start, count: g.count, axis, center, radius: Math.round(cyl.Radius() * 1e4) / 1e4, lo: Math.round(lo[axis] * 1e4) / 1e4, hi: Math.round(hi[axis] * 1e4) / 1e4 });
-          }
+        const cyl = f._geomAdaptor().Cylinder();
+        const loc = cyl.Axis().Location();
+        const dir = cyl.Axis().Direction();
+        const d = [dir.X(), dir.Y(), dir.Z()];
+        const axis = d.findIndex((v) => Math.abs(Math.abs(v) - 1) < 1e-6);
+        if (axis >= 0) {
+          const [lo, hi] = f.boundingBox.bounds;
+          const center = [loc.X(), loc.Y(), loc.Z()].map((v) => Math.round(v * 1e4) / 1e4);
+          const radius = Math.round(cyl.Radius() * 1e4) / 1e4;
+          const key = JSON.stringify([axis, center.filter((_, i) => i !== axis), radius, Math.round(lo[axis] * 1e4), Math.round(hi[axis] * 1e4)]);
+          const pt = f.pointOnSurface(0.25, 0.5);
+          const nn = f.normalAt(pt);
+          const rad = [pt.x - (axis === 0 ? pt.x : center[0]), pt.y - (axis === 1 ? pt.y : center[1]), pt.z - (axis === 2 ? pt.z : center[2])];
+          const convex = nn.x * rad[0] + nn.y * rad[1] + nn.z * rad[2] > 0;
+          const have = round.get(key) ?? { type: "cyl", convex, ranges: [], turn: 0, axis, center, radius, lo: Math.round(lo[axis] * 1e4) / 1e4, hi: Math.round(hi[axis] * 1e4) / 1e4 };
+          have.ranges.push({ start: g.start, count: g.count });
+          have.turn += uv.uMax - uv.uMin;
+          round.set(key, have);
         }
         continue;
       }
@@ -63,6 +71,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
       // every flat face, at any angle: its unit normal n and offset d (n . p = d); axis, sign and offset also when it faces along an axis
       faces.push({ start: g.start, count: g.count, n: nv, d, ...(axis >= 0 ? { axis, sign: Math.sign(nv[axis]), offset: Math.round([c.x, c.y, c.z][axis] * 1e4) / 1e4 } : {}) });
     }
+    for (const c of round.values()) if (Math.abs(c.turn - 2 * Math.PI) < 1e-6) faces.push({ type: "cyl", convex: c.convex, start: c.ranges[0].start, count: c.ranges[0].count, ranges: c.ranges, axis: c.axis, center: c.center, radius: c.radius, lo: c.lo, hi: c.hi });
     // edges as polylines, and their end points as vertices (for selecting lines and corners)
     const em = fin.shape.meshEdges({ tolerance: tess.tolerance, angularTolerance: tess.angular });
     const byHash = new Map(fin.shape.edges.map((e) => [e.hashCode, e]));

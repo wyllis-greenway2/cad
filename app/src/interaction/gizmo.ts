@@ -35,7 +35,7 @@ const HALF = 0.3;
 export function edgeDirection(scene: Scene, a: Vec3, b: Vec3): Vec3 {
   const normals: Vec3[] = [];
   for (const p of Object.values(scene.parts)) {
-    if (p.kind !== "plane" || p.origin !== "body") continue;
+    if (p.kind !== "plane" || p.origin !== "body" || p.curved) continue;
     const n = normalOfPlane(p);
     if (Math.abs(dot(n, sub(a, p.at))) < 1e-3 && Math.abs(dot(n, sub(b, p.at))) < 1e-3) normals.push(n);
   }

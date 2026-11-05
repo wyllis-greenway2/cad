@@ -1,6 +1,7 @@
 // The operations that take a number (`dec_interaction_spec`): extrude a closed figure, fillet or chamfer lines of the body (one operation: one way is a fillet, the other a chamfer), move, rotate or scale the body.
 // An operation starts from the selection (the menu or a key), shows its number, and is finished by Enter or a click: that adds ONE step to the scene, so it undoes in one go.
 import type { Ref } from "../shared/ref.ts";
+import type { Curved } from "../operation/part.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
@@ -9,7 +10,7 @@ import type { Part, Plane, PointerView } from "../operation/part.ts";
 import { normalOfPlane, pointOf } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
 import { actionsFor } from "./actions.ts";
-import { BODY_OBJECT } from "../compiler/body.ts";
+import { BODY_OBJECT, faceName, cylName } from "../compiler/body.ts";
 import { objectOf, bodyCentre } from "./objects.ts";
 import { settings } from "../shared/settings.ts";
 
@@ -27,6 +28,8 @@ export interface Op {
   /** extrude and push / pull: the figure's or face's middle and the direction along which the distance is measured */
   origin: Vec3 | null;
   normal: Vec3 | null;
+  /** push / pull of a round face: the face (the radius changes by the distance) */
+  curved?: Curved;
   /** rotate: the point it turns about (the rotator's centre; you can move it) */
   pivot: Vec3 | null;
   /** move and rotate: the body, or a drawn shape (its corners are `parts`, its plane is `plane`) */
@@ -72,6 +75,17 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
   if (kind === "pushpull") {
     const f = parts.length === 1 ? parts[0] : undefined;
     if (!f || f.kind !== "plane" || f.origin !== "body" || !f.mesh || f.mesh.length < 9) return { ok: false, why: "select a flat face of the body first" };
+    if (f.curved) {
+      // a round face: the arrow stands out of its surface (a post) or into the hole, in the middle of its height; pulling adds material, which changes the radius
+      const c = f.curved;
+      const e = [0, 1, 2].filter((i) => i !== c.axis);
+      const radial: [number, number, number] = [0, 0, 0];
+      radial[e[0]!] = c.convex ? 1 : -1;
+      const at: [number, number, number] = [...c.center];
+      at[c.axis] = (c.lo + c.hi) / 2;
+      at[e[0]!] = at[e[0]!]! + c.radius; // the surface point on the +e side; the arrow points out of it for a post and into the hole's axis for a hole
+      return { ok: true, op: { ...base, parts: [f.ref], origin: at, normal: radial, curved: c } };
+    }
     const m = f.mesh;
     const pts: Vec3[] = [];
     for (let i = 0; i + 2 < m.length; i += 3) pts.push([m[i]!, m[i + 1]!, m[i + 2]!]);
@@ -140,6 +154,8 @@ export function typeOp(op: Op, key: string): Op {
 const faceParams = (op: Op): Record<string, number> => {
   const n = op.normal;
   const p = op.origin;
+  const c = op.curved;
+  if (c && n && p) return { cax: c.axis, ccx: c.center[0], ccy: c.center[1], ccz: c.center[2], cr: c.radius, clo: c.lo, chi: c.hi, cconvex: c.convex ? 1 : 0 };
   return n && p ? { nx: n[0], ny: n[1], nz: n[2], fd: n[0] * p[0] + n[1] * p[1] + n[2] * p[2], px: p[0], py: p[1], pz: p[2] } : {};
 };
 
@@ -189,4 +205,26 @@ function shapeCommand(scene: Scene, op: Op, v: number): Command | null {
   const pins = op.kind === "rotate" ? ["fixed", "horizontal", "vertical", "sameHeight", "sameAcross"] : ["fixed"];
   const released = scene.relations.filter((r) => pins.includes(r.kind) && r.parts.every((q) => corners.has(q) || sides.has(q)));
   return { type: "batch", commands: [...released.map((r): Command => ({ type: "removeRelation", id: r.id })), ...commands] };
+}
+
+/** After a push / pull has been made by `value`: the same operation moved to where the face is now (its arrow stands on the new face, ready for another drag), or null if the new face is not found. */
+export function afterPushPull(scene: Scene, op: Op, value: number): Op | null {
+  const n = op.normal;
+  const p = op.origin;
+  if (!n || !p) return null;
+  if (op.curved) {
+    const c = op.curved;
+    const r = c.convex ? c.radius + value : c.radius - value;
+    if (!(r > 1e-6)) return null;
+    const next = { ...c, radius: Math.round(r * 1e4) / 1e4 };
+    const ref = cylName(next);
+    if (!(ref in scene.parts)) return null;
+    const e = [0, 1, 2].filter((i) => i !== c.axis);
+    const at: [number, number, number] = [...p];
+    at[e[0]!] = c.center[e[0]!]! + next.radius;
+    return { ...op, parts: [ref], origin: at, curved: next, value: null, typed: "" };
+  }
+  const origin: Vec3 = [p[0] + n[0] * value, p[1] + n[1] * value, p[2] + n[2] * value];
+  const ref = faceName(n, n[0] * origin[0] + n[1] * origin[1] + n[2] * origin[2]);
+  return ref in scene.parts ? { ...op, parts: [ref], origin, value: null, typed: "" } : null;
 }

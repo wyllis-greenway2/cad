@@ -15,7 +15,7 @@ export function pivotOf(s: Session): Vec3 | undefined {
 export function planeOf(get: Lookup, ref: Ref): Plane | null {
   const p = get(ref);
   if (!p) return null;
-  if (p.kind === "plane") return p;
+  if (p.kind === "plane") return p.curved ? null : p; // a curved face has no flat plane to draw on
   const pl = p.plane ? get(p.plane) : undefined;
   return pl && pl.kind === "plane" ? pl : null;
 }

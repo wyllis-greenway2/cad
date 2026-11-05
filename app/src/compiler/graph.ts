@@ -60,6 +60,12 @@ export function buildGraph(scene: Scene): GraphResult {
         // push or pull a flat face of the body along its normal: out adds material, in cuts it (the same helper arrow as an extrude)
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const p = st.params;
+        if (p.cax !== undefined) {
+          // a round face: its radius changes by the distance (the kernel knows whether it is a post or a hole)
+          ops.push({ id: xid, type: "cylRadius", target: prev, ref: { axis: Number(p.cax), center: [Number(p.ccx), Number(p.ccy), Number(p.ccz)], radius: Number(p.cr), lo: Number(p.clo), hi: Number(p.chi) }, delta: Number(p.depth ?? 0) });
+          prev = xid;
+          break;
+        }
         if (p.nx !== undefined && p.px !== undefined) {
           // the face as it was when the step was made (later steps move the body's named faces, this one still means its own)
           ops.push({ id: xid, type: "faceExtrude", target: prev, ref: { n: [Number(p.nx), Number(p.ny), Number(p.nz)], d: Number(p.fd), point: [Number(p.px), Number(p.py), Number(p.pz)] }, distance: Number(p.depth ?? 0) });
