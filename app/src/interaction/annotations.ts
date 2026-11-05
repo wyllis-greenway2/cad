@@ -186,12 +186,7 @@ export function focusParts(scene: Scene, selection: readonly Ref[], focus: strin
 }
 
 /** The bubbles that offer a mode for what is selected: lines of the body offer fillet / chamfer (the handle appears once you choose it). */
-export function modesFor(scene: Scene, selection: readonly Ref[], sketching: Ref | null = null, spot: { plane: Ref; at: Vec3 } | null = null): Annotation[] {
-  if (spot && !selection.length) {
-    // a click on a world plane: the pencil (then the shapes) where it landed
-    const bubble = (mode: string, label: string): Annotation => ({ id: `mode:${mode}`, relationId: null, kind: mode, label, at: spot.at, value: null, unit: null, locked: false, editable: false, readOnly: false, broken: false, open: false, others: [], lines: [], mode });
-    return sketching === spot.plane ? [bubble("rect", "Rectangle"), bubble("circle", "Circle"), bubble("line", "Line")] : [bubble("sketch", "Sketch")];
-  }
+export function modesFor(scene: Scene, selection: readonly Ref[], sketching: Ref | null = null): Annotation[] {
   const only = selection.length === 1 ? scene.parts[selection[0]!] : undefined;
   if (only && (only.kind === "plane" || only.kind === "face")) {
     // a plane or a face offers the pencil; once it is clicked, the shapes to draw on it

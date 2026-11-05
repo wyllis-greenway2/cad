@@ -8,7 +8,8 @@ import type { Op } from "./operations.ts";
 import { OP_FIELD, OP_UNIT, valueOf } from "./operations.ts";
 
 export interface EntryField { label: string; value: string; active: boolean; typed: boolean }
-export interface Entry { fields: EntryField[]; unit: string }
+/** `at`: where in the scene the bubble sits (null: no place to attach it to) */
+export interface Entry { fields: EntryField[]; unit: string; at?: Vec3 | null }
 
 const fmt = (v: number) => String(Math.round(v * 100) / 100);
 

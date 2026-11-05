@@ -89,7 +89,7 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
   const cands = candidatesAt(sc, pv, pickOpts());
   const refs = cands.map((c) => c.ref);
-  const base: AppState = { ...s, menu: null, focus: null, spot: null, pendingLook: i.count >= 2 ? s.pendingLook : null };
+  const base: AppState = { ...s, menu: null, focus: null, pendingLook: i.count >= 2 ? s.pendingLook : null };
   if (s.tool) return clickWithTool(base, i, env, refs);
   if (s.op && !hasGizmo(s.op.kind)) return commitOp(base); // the dimension number chip: a click finishes it
   // the handles are dragged, so a click on one does nothing (it must not reselect what is under it)
@@ -120,10 +120,7 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const top = selectionOf(next).at(-1);
   const hit = cands.find((c) => c.ref === top);
   const point = hit && hit.rank === 2 ? surfacePoint(pv, hit.score) : null;
-  // a single click on a world plane selects nothing, but offers the pencil where it landed
-  const world = i.count === 1 && !selectable.length ? cands.find((c) => sc.parts[c.ref]?.origin === "world" && sc.parts[c.ref]?.kind === "plane") : undefined;
-  const wp = world ? surfacePoint(pv, world.score) : null;
-  return { ...withSession(base, next), spread: hit && point ? { ref: hit.ref, point, startMs: env.now } : null, spot: world && wp ? { plane: world.ref, at: wp } : null };
+  return { ...withSession(base, next), spread: hit && point ? { ref: hit.ref, point, startMs: env.now } : null };
 }
 
 export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: Env): AppState {

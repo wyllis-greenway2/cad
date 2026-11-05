@@ -1,6 +1,7 @@
 // What to draw for the current state: one plain description the view, the chip, the badges and the controls draw from. All the decisions about what is shown
 // (the big axes or the compass, which plane's grid, whether badges give way to a tool or operation) are made here, so the UI only draws.
 import type { Ref } from "../shared/ref.ts";
+import type { Gizmo } from "./gizmo.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
@@ -76,8 +77,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel,
     amber: focusParts(sc, sel, s.focus), red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
     preview: previewFor(sc, s.tool),
-    entry: entryOf(sc, s.tool, s.op),
-    annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash), ...modesFor(sc, sel, s.sketching, s.spot)],
+    entry: entryWhere(entryOf(sc, s.tool, s.op), s, gizmo),
+    annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash), ...modesFor(sc, sel, s.sketching)],
     flash,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // off by default (`in_117`)
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null } : null,
@@ -97,4 +98,15 @@ function flashOf(s: AppState, sc: Scene, now: number): FlashFrame | null {
   if (t < 0 || t >= 1) return null;
   const parts = sc.relations.filter((r) => s.flash!.victims.includes(r.id)).flatMap((r) => r.parts);
   return { t, victims: s.flash.victims, culprits: s.flash.culprits, parts };
+}
+
+/** Where the value bubble sits: at the tip of the arrow for a push / pull or an extrude and at the edge for a fillet or chamfer (so it is by what it sets), else at the middle of the handles, or by the figure being drawn. */
+function entryWhere(e: Entry | null, s: AppState, g: Gizmo | null): Entry | null {
+  if (!e) return null;
+  let at: Vec3 | null = null;
+  if (s.op && g) {
+    const k = s.op.kind;
+    at = k === "extrude" || k === "pushpull" || k === "edge" ? g.handles[0]?.points.at(-1) ?? g.centre : g.centre;
+  } else if (s.tool) at = s.tool.cursor ?? s.tool.points.at(-1) ?? null;
+  return { ...e, at };
 }

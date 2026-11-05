@@ -22,8 +22,6 @@ export interface AppState {
   /** the point under the pointer on the hovered surface (for the ring) */
   hoverPoint: Vec3 | null;
   menu: { x: number; y: number; items: MenuItem[] } | null;
-  /** where a click landed on a world plane (which selects nothing): the pencil is offered there */
-  spot: { plane: Ref; at: Vec3 } | null;
   /** the plane whose pencil bubble was clicked: the shapes to draw on it are on offer */
   sketching: Ref | null;
   /** the drawing tool being used (null = normal selection) */
@@ -43,7 +41,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, spot: null, sketching: null, tool: null, op: null, focus: null, pendingLook: null, drag: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, sketching: null, tool: null, op: null, focus: null, pendingLook: null, drag: null, gizmoHover: null, flash: null });
 
 export const pickOpts = () => ({ pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx });
 export const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });

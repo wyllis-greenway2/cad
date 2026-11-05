@@ -855,3 +855,9 @@ Do not touch `compiler/` or `ui/` in phase 1. Keep porting honest: copy pure cod
 **State:** `in_126`. 166 tests pass, checks clean (not tried in a browser).
 **Icon:** a flat sheet (a parallelogram) with an arrow standing out of its middle, along its normal.
 **Sketch planes:** a selected drawn closed figure now offers the push / pull bubble and the pencil, like a body face; nothing shows by itself any more except the body's move arrows. The bubble starts push / pull, which on a drawn figure is the extrude (same operation, same arrow, E still starts it too).
+
+## Handoff 107 — 2026-11-05 (value bubble, new icon, no pencil on world planes, bigger axes)
+**State:** `in_127`. 165 tests pass, checks clean. Browser: a rectangle, E: a small white bubble sits at the arrow tip.
+**Value bubble:** the box at the bottom is gone. A small rounded bubble like a constraint's number (just the number, the words are the tooltip) sits by what it sets: at the tip of the push / pull or extrude arrow, at the first edge for fillet / chamfer, at the middle of the handles for move, rotate and scale, by the pointer's figure for a drawing tool (the two fields side by side). It shows the live value while you drag an arrow; click it and type an exact number, Enter applies, Esc cancels; typing on the keyboard still works without clicking. (`ui/chip.ts`, `Entry.at`, `entryWhere` in `frame.ts`.) A Dimension has no handles, so its bubble sits at the bottom middle.
+**World planes:** the pencil on a click on a world plane is removed (`spot` and its test are gone). The pencil is offered for a selected plane or face, including a world plane chosen with the X Y Z buttons.
+**Push / pull icon:** now a small block with an arrow pulling out of its top. **Axes:** `axisLengthMm` 18 (12 before).

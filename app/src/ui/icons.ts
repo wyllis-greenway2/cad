@@ -21,7 +21,7 @@ Object.assign(ICONS, {
   rect: svg('<rect x="2.5" y="4" width="11" height="8" rx="0.6"/>'),
   circle: svg('<circle cx="8" cy="8" r="5.5"/>'),
   line: svg('<path d="M3 13L13 3"/><circle cx="3" cy="13" r="1" /><circle cx="13" cy="3" r="1"/>'),
-  pushpull: svg('<path d="M1.8 13.5l3.4-4.2h9l-3.4 4.2z"/><path d="M8.6 9.3V2.4"/><path d="M6.2 4.6l2.4-2.4 2.4 2.4"/>'),
+  pushpull: svg('<path d="M2.5 9.5h11v4.5h-11z"/><path d="M2.5 9.5L5 7.2h8.5L13.5 9.5"/><path d="M8 6.2V1.8"/><path d="M5.8 3.9L8 1.7l2.2 2.2"/>'),
   cross: svg('<path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>'),
   sameHeight: svg('<circle cx="3.6" cy="8" r="1.5"/><circle cx="12.4" cy="8" r="1.5"/><path d="M5.5 8h5" stroke-dasharray="1.4 1.6"/>'),
   sameAcross: svg('<circle cx="8" cy="3.6" r="1.5"/><circle cx="8" cy="12.4" r="1.5"/><path d="M8 5.5v5" stroke-dasharray="1.4 1.6"/>'),

@@ -736,3 +736,8 @@ Asks for the pencil icon to be offered on a click on a world plane too, for sket
 Asks for a more obvious push / pull icon (a sheet with an arrow out of its normal) and for a clicked sketch plane to offer the same options as any plane (the push / pull icon, which then goes into push / pull) instead of going straight into it.
 
 > Can we make the icon for push pull a little more obvious, maybe like an icon that looks like sheet with an arrow coming out of its normal. Clicking a sketch plane should offer the same options as many plane. It shouldn't go directly to pull push as it does now, it should just offer the pull push icon which then goes into pull push.
+
+## in_127 — 2026-11-05 — directive
+Asks for a new push / pull icon, for the pencil on a clicked world plane to go, for the big input box at the bottom of the screen to go and be replaced by a small amount bubble like the line length bubble (to set exactly how much to push or pull, the fillet or chamfer size, the rotation and so on), and for the X Y Z axes to be a little bigger again.
+
+> Lets change the icon of the push pull, just try something new. Lets get rid of the world plane adding the pencil icon to it do draw stuff. Lets get rid of the big size input box at the bottom of the screen, instead I meant it should have a little size or amount constraint bubble type of thing just like the line length input that is used to set precise settings for how much to push pull face, or set chanmfer fillet, or rotate etc.  Lets make the zyx even a little bigger.

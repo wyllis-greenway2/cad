@@ -329,20 +329,3 @@ test("the pencil: a selected plane offers it, it offers the shapes, and the shap
   st = click(st, [36, 12, 0]);
   assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "circle").length, 1);
 });
-
-test("a click on a world plane selects nothing but offers the pencil where it landed", () => {
-  let st = top();
-  st = click(st, [12, 9, 0]);
-  assert.deepEqual(selection(st.session), []);
-  assert.equal(st.spot!.plane, XY);
-  const modes = (s: AppState) => frameOf(s, { w: 800, h: 600 }).annotations.filter((a) => a.mode);
-  assert.deepEqual(modes(st).map((a) => a.mode), ["sketch"]);
-  near(modes(st)[0]!.at[0], 12, 0.2);
-  st = reduce(st, { type: "begin", name: "sketch" }, env);
-  assert.deepEqual(modes(st).map((a) => a.mode), ["rect", "circle", "line"]);
-  st = reduce(st, { type: "begin", name: "rect" }, env);
-  st = click(st, [5, 5, 0]);
-  st = click(st, [25, 15, 0]);
-  assert.equal(corners(st).length, 4);
-  assert.equal(st.spot, null);
-});

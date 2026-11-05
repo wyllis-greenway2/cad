@@ -122,7 +122,7 @@ function frame(now: number) {
     const project = projector(state.cam, size.w, size.h).project;
     bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash);
     view.setNotes(f.annotations.flatMap((a) => a.lines));
-    chip.update(f.entry?.fields ?? null, f.entry?.unit ?? "mm");
+    chip.update(f.entry?.fields ?? null, f.entry?.unit ?? "mm", f.entry?.at ? ((q) => [q[0] + page.left, q[1] + page.top] as [number, number])(project(f.entry.at)) : null);
     host.style.cursor = f.cursor;
     view.render(state.cam, f.grid);
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);

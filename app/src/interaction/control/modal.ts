@@ -24,12 +24,11 @@ export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["n
   if (name === "sketch") {
     // the pencil: offer the shapes for the selected plane or face
     const only = selectionOf(s.session).length === 1 ? planeOf(lookup(sceneOf(s.session)), selectionOf(s.session)[0]!) : null;
-    const ref = only?.ref ?? s.spot?.plane;
-    return ref ? { ...s, sketching: ref, tool: null, op: null, menu: null } : s;
+    return only ? { ...s, sketching: only.ref, tool: null, op: null, menu: null } : s;
   }
   if (name === "rect" || name === "circle" || name === "line") {
     const plane = s.sketching; // chosen from a bubble on a plane: the first click lands on that plane
-    return plane ? { ...s, sketching: null, spot: null, tool: armTool(name, plane), op: null, menu: null } : beginTool(s, name);
+    return plane ? { ...s, sketching: null, tool: armTool(name, plane), op: null, menu: null } : beginTool(s, name);
   }
   return beginOp({ ...s, sketching: null }, name);
 }
@@ -82,7 +81,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 /** Esc lets go in steps: the menu, then an open badge, then the tool or operation, then the selection. */
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
-  if (s.sketching || s.spot) return { ...s, sketching: null, spot: null };
+  if (s.sketching) return { ...s, sketching: null };
   if (s.focus && !s.tool && !s.op) return { ...s, focus: null };
   if (s.tool || s.op) return { ...s, tool: null, op: null, drag: null, gizmoHover: null };
   return withSession(s, clearSelection(s.session));
