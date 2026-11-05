@@ -385,3 +385,8 @@ Visual tuning: thinner blue selection, lighter faces, darker world planes, less 
 Directive to keep the action bar trimmed to the current selection.
 
 > Okay the menu needs to stay trimmed and clean. if I have a line selected, then I am in the context of that line. I should see the things I can do with that line or set of selected lines. The menu shows extrusion and rectangle and all kinds of things. Extrusion should be available if I have a face selected, rectangle and other sketching options should be available if I am on the sketching plane.
+
+## in_057 — 2026-11-05 — directive
+Fixes and a new look for the value boxes: the length box overlaps the constraint marks, constraint icons instead of letters, constraints inline to the left of the length box, and a new style for the little value boxes.
+
+> The length input box is directly over the horizontal or viertical boxes. When I click to input length, it collapses and selectes the horizonta constraint.Also the constraints should use little icons that would make them more obvious not a letter. Lets make a set of icons to indicate constraints belong to a line. I think the constraints should exist inline to the left of the length input box. I think we should try a new style for the little value boxes.

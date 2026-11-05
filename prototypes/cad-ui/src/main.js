@@ -13,6 +13,7 @@ import { circlePolygon, regionsOf, hitRegion, paramOnAxisFromRay } from "./sketc
 import { elementAt } from "./sketchpick.mjs";
 import { modelOf } from "./sketchsolve.mjs";
 import { barItems, barHint } from "./actionbar.mjs";
+import { iconSvg, iconTitle } from "./icons.mjs";
 import { ExtrudeSession } from "./extrude.mjs";
 import { TransformSession, AXIS_NAMES, UNITS } from "./transform.mjs";
 import { buildGraph } from "./features.mjs";
@@ -1319,48 +1320,55 @@ const ACTIONS = {
   dimension: () => setTool("dimension"),
 };
 
-// ---------------------------------------------------------------- constraint buttons and marks (sketch view)
-const glyphEl = $("cglyphs");
+// ---------------------------------------------------------------- the selection widget (sketch view): constraint icons, then the number
+const widgetEl = $("pickw");
+let widgetSig = "";
 function updateConstraintUI() {
   const on = inSketchView() && !extrude && !xform;
-  // the number you can type for what is picked (a line's length, a circle's radius, the angle between two lines)
-  const chip = on ? session.valueChip() : null;
-  const vEl = $("vchip");
-  if (!chip) vEl.style.display = "none";
-  else {
-    const k = 1 / pxPerMm();
-    const nl = Math.hypot(chip.normal[0], chip.normal[1]) || 1;
-    const off = chip.kind === "radius" ? 0 : (chip.kind === "angle" ? 34 : 18) * k;
-    const at = toWorld(session.plane, [chip.pos[0] + (chip.normal[0] / nl) * off, chip.pos[1] + (chip.normal[1] / nl) * off]);
-    const [sx, sy] = window.__ui.worldToScreen(at.x, at.y, at.z);
-    vEl.style.display = "block";
-    vEl.style.left = `${sx}px`;
-    vEl.style.top = `${sy}px`;
-    vEl.className = `chip${chip.editing !== null ? " act typed" : ""}`;
-    vEl.replaceChildren();
-    const lab = document.createElement("b");
-    lab.textContent = chip.kind === "length" ? "L" : chip.kind === "radius" ? "R" : "∠";
-    vEl.append(lab, chip.editing !== null ? chip.editing || "_" : chip.text);
+  const w = on ? session.widget() : null;
+  if (!w) {
+    widgetEl.style.display = "none";
+    widgetSig = "";
+    return;
   }
-  // marks for the stored constraints (their numbers are shown by the dimension tool instead)
-  const marks = on ? session.glyphs().filter((g) => !(g.dimension && session.tool === "dimension")) : [];
-  while (glyphEl.children.length > marks.length) glyphEl.lastChild.remove();
-  while (glyphEl.children.length < marks.length) {
-    const d = document.createElement("div");
-    d.className = "glyph";
-    d.onclick = () => (session.pickConstraint(d.dataset.id), refreshUI());
-    glyphEl.appendChild(d);
+  // rebuild the pill only when its content changes (so a click on it is not lost to a re-render)
+  const sig = JSON.stringify([w.icons, w.value && [w.value.kind, w.value.text, w.value.locked, w.value.editing]]);
+  if (sig !== widgetSig) {
+    widgetSig = sig;
+    widgetEl.replaceChildren();
+    const pill = document.createElement("div");
+    pill.className = "pill";
+    for (const ic of w.icons) {
+      const b = document.createElement("button");
+      b.className = `ico${ic.picked ? " picked" : ""}`;
+      b.title = `${iconTitle(ic.key)}${ic.picked ? " (Delete removes it)" : ": click to select it"}`;
+      b.innerHTML = iconSvg(ic.key);
+      b.onclick = () => (session.pickConstraint(ic.id), refreshUI());
+      pill.appendChild(b);
+    }
+    if (w.value) {
+      if (w.icons.length) pill.appendChild(Object.assign(document.createElement("span"), { className: "sepv" }));
+      const v = document.createElement("div");
+      v.className = `val${w.value.editing !== null ? " act" : ""}`;
+      v.title = "Click, then type a number";
+      const lab = document.createElement("b");
+      lab.textContent = w.value.kind === "length" ? "LEN" : w.value.kind === "radius" ? "RAD" : "ANG";
+      v.append(lab, w.value.editing !== null ? w.value.editing || "_" : w.value.text);
+      if (w.value.locked) v.insertAdjacentHTML("beforeend", `<span class="lock" title="${iconTitle("lock")}">${iconSvg("lock")}</span>`);
+      v.onclick = () => (session.startPickEdit(), refreshUI());
+      pill.appendChild(v);
+    }
+    widgetEl.appendChild(pill);
   }
-  marks.forEach((g, i) => {
-    const el = glyphEl.children[i];
-    el.dataset.id = g.id;
-    el.className = `glyph${g.picked ? " picked" : ""}${g.dimension ? " dim" : ""}`;
-    el.textContent = g.text;
-    const [x, y, z] = toWorld(session.plane, g.pos).toArray();
-    const [sx, sy] = window.__ui.worldToScreen(x, y, z);
-    el.style.left = `${sx}px`;
-    el.style.top = `${sy - 16}px`;
-  });
+  // where: just off the line (or on the corner / shape)
+  const k = 1 / pxPerMm();
+  const nl = Math.hypot(w.normal[0], w.normal[1]);
+  const off = (w.value?.kind === "angle" ? 36 : 24) * k;
+  const at = toWorld(session.plane, nl ? [w.pos[0] + (w.normal[0] / nl) * off, w.pos[1] + (w.normal[1] / nl) * off] : [w.pos[0], w.pos[1]]);
+  const [sx, sy] = window.__ui.worldToScreen(at.x, at.y, at.z);
+  widgetEl.style.display = "block";
+  widgetEl.style.left = `${sx}px`;
+  widgetEl.style.top = `${nl ? sy : sy - 20}px`;
 }
 
 // ---------------------------------------------------------------- the context action bar (full width, bottom): what can be done now, with hotkeys

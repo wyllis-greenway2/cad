@@ -32,11 +32,16 @@
     #cbar { position:fixed; left:50%; bottom:58px; transform:translateX(-50%); display:none; gap:6px; padding:5px; background:rgba(34,36,39,.92); border:1px solid #484d54; border-radius:9px; z-index:7; }
     #cbar button { background:#3a3e44; color:#e4e6e8; border:1px solid #5a5f66; border-radius:6px; padding:4px 10px; font:13px system-ui,sans-serif; cursor:pointer; } #cbar button:hover { background:#4a4f56; }
     #cbar button:disabled { opacity:.4; cursor:not-allowed; }
-    #vchip { position:fixed; transform:translate(-50%,-50%); background:rgba(26,28,31,.94); color:#e8eaec; border:1px solid #7fa8ff; border-radius:6px; padding:1px 8px; font:13px/1.35 ui-monospace,Menlo,monospace; white-space:nowrap; z-index:6; pointer-events:none; }
-    #vchip b { opacity:.6; margin-right:4px; font-weight:400; } #vchip.act { box-shadow:0 0 0 1px #e8eaec; }
-    #cglyphs .glyph { position:fixed; transform:translate(-50%,-50%); background:rgba(26,28,31,.88); color:#e8eaec; border:1px solid #4a4f56; border-radius:6px; padding:0 6px; min-width:18px; text-align:center; font:12px/1.4 ui-monospace,Menlo,monospace; cursor:pointer; z-index:4; }
-    #cglyphs .glyph.dim { border-color:#9aa0a8; } #cglyphs .glyph.picked { border-color:#7fa8ff; box-shadow:0 0 0 1px #7fa8ff; }
     #dims .chip.locked { border-color:#9aa0a8; border-style:double; }
+    #pickw { position:fixed; transform:translate(-50%,-50%); z-index:6; pointer-events:none; }
+    #pickw .pill { pointer-events:auto; display:flex; align-items:center; gap:2px; padding:3px; background:rgba(22,24,27,.93); border:1px solid rgba(255,255,255,.16); border-radius:999px; box-shadow:0 3px 10px rgba(0,0,0,.4); white-space:nowrap; }
+    #pickw .ico { width:24px; height:24px; display:grid; place-items:center; padding:0; color:#d3d8de; background:transparent; border:0; border-radius:50%; cursor:pointer; }
+    #pickw .ico:hover { background:rgba(255,255,255,.12); } #pickw .ico.picked { background:#2f4f86; color:#fff; box-shadow:0 0 0 1px #7fa8ff; }
+    #pickw .sepv { width:1px; height:18px; background:rgba(255,255,255,.18); margin:0 4px; }
+    #pickw .val { display:flex; align-items:center; gap:7px; padding:2px 11px 2px 8px; border-radius:999px; color:#fff; font:600 13px ui-monospace,Menlo,monospace; cursor:text; }
+    #pickw .val b { font:600 9.5px system-ui,sans-serif; letter-spacing:.09em; color:#8fa6c9; }
+    #pickw .val:hover { background:rgba(255,255,255,.08); } #pickw .val.act { background:rgba(127,168,255,.2); box-shadow:inset 0 0 0 1px #7fa8ff; }
+    #pickw .val .lock { display:grid; color:#8fa6c9; } #pickw .val .lock svg { width:12px; height:12px; }
     #menu { position:fixed; display:none; min-width:210px; padding:5px; background:rgba(34,36,39,.97); border:1px solid #484d54; border-radius:9px; box-shadow:0 8px 24px rgba(0,0,0,.45); z-index:20; }
     #menu button { display:flex; justify-content:space-between; gap:24px; width:100%; background:none; border:0; color:#e4e6e8; padding:6px 10px; border-radius:6px; font:13px system-ui,sans-serif; cursor:pointer; text-align:left; }
     #menu button:hover:not(:disabled) { background:#3a3e44; } #menu button:disabled { opacity:.4; cursor:default; } #menu button.on span { font-weight:700; }
@@ -50,8 +55,7 @@
   <div id="status"><span id="statusText"></span><span id="scaleText"></span><button id="exitBtn" title="Esc">3D view</button><button id="originBtn" title="O">Origin is far away: return (O)</button></div>
   <div id="readout"></div>
   <div id="dims"></div>
-  <div id="cglyphs"></div>
-  <div class="chip" id="vchip" style="display:none"></div>
+  <div id="pickw" style="display:none"></div>
   <div id="abar"></div>
   <div id="history"><button id="histBtn">History</button><ol id="histList"></ol></div>
   <div id="menu"></div>

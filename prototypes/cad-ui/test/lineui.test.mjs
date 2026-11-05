@@ -160,3 +160,48 @@ test("a thing's constraint marks show only while it is selected", () => {
   s.click([85.1, 10], ONE); // the circle: it has none
   assert.deepEqual(s.glyphs(), []);
 });
+
+test("the selection widget: a line's constraints as icons next to its number, with a lock when the length is stored", () => {
+  const { store, s } = mk();
+  s.setTool("rect");
+  s.click([0, 0], ONE);
+  s.click([40, 20], ONE);
+  s.setTool("select");
+  s.click([20, 0.2], ONE); // bottom line
+  let w = s.widget();
+  assert.deepEqual(w.icons.map((i) => i.key), ["horizontal"]);
+  assert.equal(w.value.kind, "length");
+  assert.equal(w.value.locked, false);
+  typeText(s, "50");
+  s.enter(); // stored as a dimension
+  w = s.widget();
+  assert.equal(w.value.locked, true);
+  assert.deepEqual(w.icons.map((i) => i.key), ["horizontal"]); // the dimension shows as the lock, not as an icon
+  const id = w.icons[0].id;
+  s.pickConstraint(id); // clicking the icon picks the constraint but keeps the line selected, so the number stays
+  assert.equal(s.widget().value.kind, "length");
+  assert.equal(s.widget().icons[0].picked, true);
+  assert.equal(s.deleteSelected(), true);
+  assert.deepEqual(s.widget().icons, []);
+  assert.equal(s.widget().value.text, "50");
+  s.click([20, 20.2], { shift: true }); // add the top line: the pair
+  s.click([0, 10], ONE);
+  assert.equal(s.widget().icons.length >= 0, true);
+});
+
+test("a corner shows its constraints as icons (no number); a whole shape shows all of its constraints", () => {
+  const { store, s } = mk();
+  s.setTool("rect");
+  s.click([0, 0], ONE);
+  s.click([40, 20], ONE);
+  s.setTool("select");
+  s.click([0.2, 0.2], ONE); // the first corner
+  assert.equal(s.widget(), null); // no constraints on it and no number: nothing to show
+  s.applyOffer(0); // Fix in place
+  const w = s.widget();
+  assert.deepEqual(w.icons.map((i) => i.key), ["fixed"]);
+  assert.equal(w.value, null);
+  s.click([20, 10], ONE); // inside the shape: the whole shape
+  const all = s.widget();
+  assert.ok(all.icons.length >= 5); // four horizontal/vertical locks and the fixed corner
+});

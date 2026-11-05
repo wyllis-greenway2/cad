@@ -5,6 +5,7 @@ import { evalExpr } from "./expr.mjs";
 import { dimensionsOf } from "./dimensions.mjs";
 import { refsOf, shapeOfRef, solveSketch, dimensionConstraint, sameDimension, sameConstraint, anchorsOf, modelOf, tryConstraint, lengthSpec, angleSpec } from "./sketchsolve.mjs";
 import { elementAt, offersFor, glyphsFor, valueFor } from "./sketchpick.mjs";
+import { iconKey } from "./icons.mjs";
 
 const FIELDS = {
   rect: [{ name: "w", label: "W" }, { name: "h", label: "H" }],
@@ -209,7 +210,20 @@ export class SketchSession {
   valueChip() {
     if (this.tool !== "select") return null;
     const v = valueFor(this.picks, this.viewEntities());
-    return v ? { ...v, editing: this.pickEdit ? this.pickEdit.text : null } : null;
+    if (!v) return null;
+    // is the number a stored (locked) dimension?
+    const ents = this.entities();
+    const cons = this.store.constraintsOf(this.key);
+    let locked = false;
+    if (v.kind === "length") {
+      const spec = lengthSpec(ents, v.segs[0], v.value);
+      locked = !!spec && cons.some((c) => sameDimension(c, spec));
+    } else if (v.kind === "radius") locked = cons.some((c) => c.type === "radius" && c.r === `${v.circle}.r`);
+    else {
+      const sp = angleSpec(ents, v.segs[0], v.segs[1], 90);
+      locked = !!sp && cons.some((c) => c.type === "angle" && c.a === sp.a && ((c.b === sp.b && c.d === sp.d) || (c.b === sp.d && c.d === sp.b)));
+    }
+    return { ...v, locked, editing: this.pickEdit ? this.pickEdit.text : null };
   }
 
   /** Apply the typed value for the picks. Returns a message if it was refused, else null. */
@@ -267,10 +281,53 @@ export class SketchSession {
     const mine = this.store.constraintsOf(this.key).filter((c) => c.id === this.pickedConstraint || refsOf(c).some((r) => parts.has(r) || wholeShapes.has(shapeOfRef(r))));
     return glyphsFor(this.viewEntities(), mine).map((g) => ({ ...g, picked: g.id === this.pickedConstraint }));
   }
+  /** Pick one of the constraint icons shown with the selection (Delete then removes it). The selection itself stays. */
   pickConstraint(id) {
     this.pickedConstraint = id;
-    this.picks = [];
-    this.selectedId = null;
+    this.pickEdit = null;
+  }
+  startPickEdit() {
+    if (this.valueChip() && !this.pickEdit) this.pickEdit = { text: "" };
+  }
+
+  /**
+   * What to show next to the selection (`in_057`): the constraints that belong to it as icons, then the number that can be typed (with a lock when it is a stored dimension).
+   * Returns { pos, normal, icons: [{ id, key, picked }], value } or null.
+   */
+  widget() {
+    if (this.tool !== "select") return null;
+    const live = this.picks;
+    if (!live.length) return null;
+    const ents = this.viewEntities();
+    const model = modelOf(ents);
+    const chip = this.valueChip();
+    const wholeShapes = new Set(live.filter((k) => k.kind === "entity").map((k) => k.shape));
+    const parts = new Set();
+    for (const k of live) {
+      if (k.kind === "entity") continue;
+      parts.add(k.ref);
+      if (k.kind === "seg" && model.segments[k.ref]) model.segments[k.ref].forEach((id) => parts.add(id));
+    }
+    const DIM = new Set(["distance", "hdist", "vdist", "radius", "angle"]);
+    const icons = this.store.constraintsOf(this.key)
+      .filter((c) => refsOf(c).some((r) => parts.has(r) || wholeShapes.has(shapeOfRef(r))))
+      .filter((c) => wholeShapes.size || !DIM.has(c.type)) // a dimension shows as the lock on the number
+      .map((c) => ({ id: c.id, key: iconKey(c.type), picked: c.id === this.pickedConstraint }));
+    // where: at the number if there is one, else at the picked corner, else the shape's middle
+    let pos = chip?.pos;
+    let normal = chip?.normal ?? [0, 1];
+    if (!pos) {
+      const first = live[0];
+      if (first.kind === "point" && model.points[first.ref]) pos = model.points[first.ref];
+      else if (first.kind === "entity") {
+        const e = ents.find((x) => x.id === first.shape);
+        const pts = e ? Object.entries(model.points).filter(([id]) => id.startsWith(`${e.id}.`)).map(([, p]) => p) : [];
+        if (pts.length) pos = [pts.reduce((a, p) => a + p[0], 0) / pts.length, pts.reduce((a, p) => a + p[1], 0) / pts.length];
+      }
+      normal = [0, 0];
+    }
+    if (!pos || (!icons.length && !chip)) return null;
+    return { pos, normal, icons, value: chip };
   }
   deleteConstraint(id) {
     const cons = this.store.constraintsOf(this.key);
