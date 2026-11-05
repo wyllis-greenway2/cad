@@ -80,16 +80,7 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
   }
   if (op.kind === "edge") {
     // a double arrow on each selected edge, through its middle, along the way out of the corner; the size you drag applies to all of them
-    const handles: Handle[] = [];
-    op.parts.forEach((ref, i) => {
-      const line = scene.parts[ref];
-      if (!line || line.kind !== "line") return;
-      const [pa, pb] = [scene.parts[line.a], scene.parts[line.b]];
-      if (!pa || !pb || pa.kind !== "corner" || pb.kind !== "corner") return;
-      const m = scale(add(pa.at, pb.at), 0.5);
-      const d = edgeDirection(scene, pa.at, pb.at);
-      handles.push({ id: `edge:${i}`, kind: "double", axis: null, points: [add(m, scale(d, -HALF * L)), add(m, scale(d, HALF * L))] });
-    });
+    const handles: Handle[] = (op.edges ?? []).map((e, i): Handle => ({ id: `edge:${i}`, kind: "double", axis: null, points: [add(e.mid, scale(e.dir, -HALF * L)), add(e.mid, scale(e.dir, HALF * L))] }));
     return handles.length ? { centre: scale(add(handles[0]!.points[0]!, handles[0]!.points[1]!), 0.5), handles } : null;
   }
   if (op.target === "shape") {

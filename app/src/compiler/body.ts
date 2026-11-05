@@ -16,7 +16,7 @@ const key = (p: readonly number[]) => p.map((v) => String(r4(v) + 0)).join(",");
 export const BODY_OBJECT: Ref = bodyRef("body", "o");
 export const cornerName = (p: Vec3): Ref => bodyRef("body", `v@${key(p)}`);
 const edgeName = (a: Vec3, b: Vec3, m: Vec3): Ref => bodyRef("body", `e@${key(a)}~${key(b)}~${key(m)}`);
-export const cylName = (c: { axis: number; center: Vec3; radius: number; lo: number; hi: number }): Ref => bodyRef("body", `c@${key([c.axis, ...c.center, c.radius, c.lo, c.hi])}`);
+const cylName = (c: { axis: number; center: Vec3; radius: number; lo: number; hi: number }): Ref => bodyRef("body", `c@${key([c.axis, ...c.center, c.radius, c.lo, c.hi])}`);
 export const faceName = (n: Vec3, d: number): Ref => bodyRef("body", `f@${key([...n, d])}`);
 
 const vec = (s: string): Vec3 => s.split(",").map(Number) as unknown as Vec3;

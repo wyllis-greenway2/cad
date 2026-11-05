@@ -2,10 +2,10 @@
 // works the handle and does not turn the camera; letting go does it (one step, one undo) and leaves the operation open for another drag. Esc or Enter ends it.
 import type { Intent } from "../../shared/input.ts";
 import type { Vec3 } from "../../math/vec.ts";
-import { scene as sceneOf, selection as selectionOf, run } from "../session.ts";
-import { opCommand, autoOp, afterPushPull, valueOf } from "../operations.ts";
+import { scene as sceneOf, selection as selectionOf, run, undoLast } from "../session.ts";
+import { opCommand, autoOp, isLive } from "../operations.ts";
 import type { Op } from "../operations.ts";
-import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo } from "../gizmo.ts";
+import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed } from "../gizmo.ts";
 import type { Gizmo } from "../gizmo.ts";
 import { candidatesAt } from "../picking.ts";
 import { projector } from "../camera.ts";
@@ -24,7 +24,9 @@ function activeOp(s: AppState): Op | null {
 /** The handles to show and work, or null. */
 export function gizmoOf(s: AppState): Gizmo | null {
   const op = activeOp(s);
-  return op ? gizmoFor(sceneOf(s.session), op, s.cam) : null;
+  const g = op ? gizmoFor(sceneOf(s.session), op, s.cam) : null;
+  // the arrow of a push / pull or an extrude stands where the face is now: out by the value so far (it stays there when you let go, until the operation ends)
+  return g && op && op.normal && (op.kind === "pushpull" || op.kind === "extrude") ? followed(g, { dir: op.normal, kind: "double", id: "pull" }, op.value) : g;
 }
 
 export function doGizmoHover(s: AppState, x: number, y: number, env: Env): AppState {
@@ -45,12 +47,12 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const h = hitHandle(g, pr.project, i.x - i.dx, i.y - i.dy);
     const d = h ? startDrag(g, h, pr.ray(i.x - i.dx, i.y - i.dy), s.cam) : null;
     if (!d) return doOrbit({ ...s, drag: { camera: true } }, i); // not on a handle: this drag turns the camera
-    s = { ...s, op: s.op ?? activeOp(s), drag: { handle: d }, gizmoHover: h!.id }; // a handle that showed up by itself becomes the operation being worked
+    s = { ...s, op: s.op ?? activeOp(s), drag: { handle: d, base: isLive(s.op ?? activeOp(s)!) ? (s.op ?? activeOp(s)!).value ?? 0 : 0 }, gizmoHover: h!.id }; // a handle that showed up by itself becomes the operation being worked
   }
   if (!("handle" in s.drag!) || !s.op) return doOrbit(s, i);
   const r = dragTo(s.drag.handle, pr.ray(i.x, i.y));
   if (!r) return s;
-  if ("value" in r) return { ...s, op: { ...s.op, value: r.value, typed: "", rot: ["", "", ""] as [string, string, string], ...(s.drag.handle.axis !== null ? { axis: s.drag.handle.axis } : {}) } };
+  if ("value" in r) return { ...s, op: { ...s.op, value: Math.round((s.drag.base + r.value) * 1e6) / 1e6, typed: "", rot: ["", "", ""] as [string, string, string], ...(s.drag.handle.axis !== null ? { axis: s.drag.handle.axis } : {}) } };
   return { ...s, op: { ...s.op, pivot: snapPivot(s, r.pivot, i.x, i.y, env) } };
 }
 
@@ -68,15 +70,18 @@ export function doDragEnd(s: AppState): AppState {
   const cleared: AppState = { ...s, drag: null };
   if (!d || !("handle" in d) || !s.op) return cleared;
   if (d.handle.kind === "ball") return s.op.auto ? { ...cleared, op: null } : cleared;
+  if (isLive(s.op)) {
+    // one step for the whole operation: what was made before is taken out and made again with the total value (so the number does not start over between drags)
+    const sess = s.op.made ? undoLast(s.session) : s.session;
+    const cmd = opCommand(sceneOf(sess), s.op);
+    if (!cmd) return { ...cleared, session: sess, op: { ...s.op, made: false } };
+    const next = run(sess, cmd);
+    if (next.message) return { ...cleared, session: next, op: { ...s.op, made: false } };
+    return { ...cleared, session: { ...next, hover: undefined, click: { ...next.click, selection: [] } }, op: { ...s.op, made: true }, spread: null, hoverPoint: null };
+  }
   const cmd = opCommand(sceneOf(s.session), s.op);
   if (!cmd) return s.op.auto ? { ...cleared, op: null } : cleared;
   const next = run(s.session, cmd);
   if (next.message) return { ...cleared, session: next, op: s.op.auto ? null : s.op };
-  // an operation you started stays open for another drag; one that came from a selection ends (and what was selected may be gone: the face you pulled, the figure you extruded)
-  // an extrude or a push / pull leaves nothing selected (the new body shows as itself)
-  // a push / pull stays open on the face where it now is, so the arrow stops where you left it and can go on
-  const moved = s.op.kind === "pushpull" && !s.op.auto ? afterPushPull(sceneOf(next), s.op, valueOf(s.op) ?? 0) : null;
-  if (moved) return { ...cleared, session: { ...next, hover: undefined, click: { ...next.click, selection: moved.parts } }, op: moved, spread: null, hoverPoint: null };
-  const left = s.op.kind === "extrude" || s.op.kind === "pushpull" ? { ...next, hover: undefined, click: { ...next.click, selection: [] } } : next;
-  return { ...cleared, session: left, op: s.op.auto ? null : { ...s.op, value: null, typed: "" }, spread: null, hoverPoint: null };
+  return { ...cleared, session: next, op: s.op.auto ? null : { ...s.op, value: null, typed: "" }, spread: null, hoverPoint: null };
 }

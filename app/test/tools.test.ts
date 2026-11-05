@@ -204,7 +204,7 @@ test("fillet or chamfer in one operation: lines of the body, a size (a minus mak
   assert.equal(selection(sel.session).length, 3);
   st = reduce(sel, { type: "begin", name: "edge" }, env);
   assert.equal(st.op!.kind, "edge");
-  assert.equal(entryOf(scene(st.session), null, st.op)!.fields[0]!.value, "", "no size yet: drag the double arrow or type one");
+  assert.equal(entryOf(scene(st.session), null, st.op)!.fields[0]!.value, "0", "no size yet (it says 0, not a blank): drag the double arrow or type one");
   st = key(st, "ArrowUp");
   assert.equal(entryOf(scene(st.session), null, st.op)!.fields[0]!.value, "0.1");
   st = typeText(st, "3");

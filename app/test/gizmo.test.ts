@@ -31,6 +31,7 @@ function box(): AppState {
   return { ...createState(s), cam: homeCamera() };
 }
 const select = (st: AppState, refs: string[]): AppState => ({ ...st, session: { ...st.session, click: { ...st.session.click, selection: refs as never } } });
+const click = (st: AppState, x: number, y: number) => reduce(st, { type: "click", x, y, count: 1, shift: false }, env);
 const px = (st: AppState, p: Vec3) => projector(st.cam, env.w, env.h).project(p);
 /** Press at `from` (a 3D point), move to `to`, let go: what a drag of a handle looks like to the controller. */
 function drag(st: AppState, from: Vec3, to: Vec3, steps = 4): AppState {
@@ -383,22 +384,53 @@ test("push a face of a body turned by an angle that is not a right angle", () =>
   assert.ok(st.session.outcome.kernel!.volume! > before + 1);
 });
 
-test("after a pull the arrow stays on the new face (it does not jump back), and goes on from there", () => {
+test("after a pull the arrow stays on the new face and the value stays (the whole operation is one step that each drag changes)", () => {
   let st = select(box(), []);
   const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20)!;
   st = select(st, [top.ref]);
   st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  assert.equal(frame(st).entry!.fields[0]!.value, "0", "no value yet: 0, not blank");
   const g0 = gizmoOf(st)!.handles[0]!;
   const mid0 = scale(add(g0.points[0]!, g0.points[1]!), 0.5);
   st = drag(st, mid0, add(mid0, [0, 0, 4]));
   near(st.session.outcome.kernel!.volume!, 40 * 20 * 24, 0.5);
   const g1 = gizmoOf(st)!.handles[0]!;
-  nearV(scale(add(g1.points[0]!, g1.points[1]!), 0.5), [20, 10, 24]);
-  assert.deepEqual(selection(st.session), [scene(st.session).parts[selection(st.session)[0]!]!.ref], "the new face is selected");
-  assert.equal((scene(st.session).parts[selection(st.session)[0]!] as { at: Vec3 }).at[2], 24);
   const mid1 = scale(add(g1.points[0]!, g1.points[1]!), 0.5);
-  st = drag(st, mid1, add(mid1, [0, 0, 2]));
+  nearV(mid1, [20, 10, 24]);
+  assert.equal(frame(st).entry!.fields[0]!.value, "4", "the value stays after you let go");
+  st = drag(st, mid1, add(mid1, [0, 0, 2])); // 2 more: 6 in all
   near(st.session.outcome.kernel!.volume!, 40 * 20 * 26, 0.5);
+  assert.equal(frame(st).entry!.fields[0]!.value, "6");
+  assert.equal(scene(st.session).steps.length, 2, "the box and one push / pull, however many drags");
+  const mid2 = scale(add(gizmoOf(st)!.handles[0]!.points[0]!, gizmoOf(st)!.handles[0]!.points[1]!), 0.5);
+  st = drag(st, mid2, add(mid2, [0, 0, -3])); // back by 3: 3 in all
+  near(st.session.outcome.kernel!.volume!, 40 * 20 * 23, 0.5);
+  // a number typed in the bubble is the total
+  st = reduce(st, { type: "entry", field: 0, text: "10" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  near(st.session.outcome.kernel!.volume!, 40 * 20 * 30, 0.5);
+  assert.equal(scene(st.session).steps.length, 2);
+  assert.equal(st.op, null);
+});
+
+test("the fillet / chamfer arrows stay after a drag, and the size is the total, until you click away", () => {
+  let st = box();
+  const vertical = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "body" && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] !== (scene(st.session).parts[p.b] as { at: Vec3 }).at[2]);
+  st = select(st, [vertical[0]!.ref]);
+  st = reduce(st, { type: "begin", name: "edge" }, env);
+  let h = gizmoOf(st)!.handles[0]!;
+  const dirOf = (q: typeof h) => { const d = sub(q.points[1]!, q.points[0]!); return scale(d, 1 / Math.hypot(...d)); };
+  const centre = (q: typeof h) => scale(add(q.points[0]!, q.points[1]!), 0.5);
+  st = drag(st, centre(h), add(centre(h), scale(dirOf(h), 1)));
+  assert.ok(gizmoOf(st), "the arrow is still there");
+  h = gizmoOf(st)!.handles[0]!;
+  assert.equal(frame(st).entry!.fields[0]!.value, "1");
+  st = drag(st, centre(h), add(centre(h), scale(dirOf(h), 1))); // another 1: 2 in all
+  assert.equal(frame(st).entry!.fields[0]!.value, "2");
+  assert.deepEqual(scene(st.session).steps.at(-1)!.params, { mode: "fillet", value: 2 });
+  assert.equal(scene(st.session).steps.length, 2, "one step however many drags");
+  st = click(st, 700, 560);
+  assert.equal(st.op, null, "a click in blank space ends the operation");
 });
 
 test("a round face can be selected, and push / pull changes its radius (a post grows, a hole shrinks as it is pulled)", () => {

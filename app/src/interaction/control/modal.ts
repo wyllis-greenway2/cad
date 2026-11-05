@@ -43,9 +43,10 @@ export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppSt
 }
 export function commitOp(s: AppState): AppState {
   if (!s.op) return s;
-  const cmd = opCommand(sceneOf(s.session), s.op);
+  const sess = s.op.made ? undoLast(s.session) : s.session; // a step made by dragging is replaced by the typed number
+  const cmd = opCommand(sceneOf(sess), s.op);
   if (!cmd) return s;
-  const next = run(s.session, cmd);
+  const next = run(sess, cmd);
   if (next.message) return { ...s, session: next };
   if (s.op.kind === "dimension") return { ...s, session: next, op: null }; // a number on a relation: the selection stays, so its badge shows
   const settled = { spread: null, hoverPoint: null }; // what was under the pointer before the step is not what is under it now
@@ -112,8 +113,8 @@ export function doDelete(s: AppState): AppState {
   const a = actionsFor(sceneOf(s.session), selectionOf(s.session)).find((x) => x.id === "delete");
   return a ? { ...withSession(s, run(s.session, a.run())), menu: null } : s;
 }
-export const doUndo = (s: AppState): AppState => ({ ...withSession(s, undoLast(s.session)), menu: null });
-export const doRedo = (s: AppState): AppState => ({ ...withSession(s, redoLast(s.session)), menu: null });
+export const doUndo = (s: AppState): AppState => ({ ...withSession(s, undoLast(s.session)), menu: null, op: s.op?.made ? null : s.op });
+export const doRedo = (s: AppState): AppState => ({ ...withSession(s, redoLast(s.session)), menu: null, op: s.op?.made ? null : s.op });
 
 /** A constraint shown on a selected part: open or close it, delete it, lock or unlock its number, give it a new number, or lock the measure of the selection. */
 export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>): AppState {

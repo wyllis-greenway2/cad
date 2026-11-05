@@ -17,13 +17,14 @@ Update it at the end of each session.
 
 ## Not done yet (kept here so nothing is forgotten; update when one is done)
 From the human's requests and my own handoffs; each has a handoff entry that says more.
-- **Scale for a drawn figure** (a circle's radius has no command yet); **push / pull for a curved face**; a handle for several faces at once.
+- **Scale for a drawn figure** (a circle's radius has no command yet); **curved faces:** only full round faces along a world axis are selectable (cones, spheres, fillet faces and turned posts are not) and a curved face cannot be sketched on; a handle for several faces at once.
 - **Handles on a real phone:** touch uses the same intents as the mouse but a drag on a handle has not been tried on a device. **The kernel's memory on real phones** (Android and iPhone) is untested.
-- **Arrow size:** all handles now share one size (my guess); the human to tune. **Push / pull slivers** (zero-thickness planes after a face push) not reproduced in the kernel; need the exact steps.
+- **Arrow size:** all handles now share one size (my guess); the human to tune. **Push / pull slivers** were never reproduced; the stacked-push and turned-face faults are fixed (`in_124`); tell me if zero-thickness planes still appear.
 - **History panel** (the history exists and undoes; nothing shows it); **kernel in a worker** so a heavy model does not freeze dragging; **named stable references** for body parts (`dec_stable_references`); **curved body edges** pickable along their curve (`Line.pts`).
 - **Constraints:** relations between parts on different planes have no special placement; bubbles do not avoid overlapping geometry; the step that uses a deleted figure is reported broken but not shown; the conflict flash names constraints found by leaving each out, not a minimal set.
 - **Drawing:** place-then-drag was tried and removed (`in_125`); resizing a finished figure by dragging its points; inference lines (horizontal or vertical alignment with existing points); more than one body (one body is assumed).
 - **Look:** the hover ring still shows over a selected body (decide); compare the pencil look with the old one again after the helpers settle; the corner compass was removed on request (axes are small and stay at the origin) so the X Y Z buttons are all that is left of it.
 - **To decide with the human:** confirm `dec_interaction_spec` (still provisional); the constraints UI beyond bubbles (a panel, a list); key choices (T rotate, F fillet).
+- **Rotation angles** are one fixed order (X then Y then Z); a body turned about several axes has other equal ways to say it. Rotate, move and scale still make one step per drag (only push / pull, extrude and fillet / chamfer are one step per operation).
 - **Code:** `interaction/actions.ts` (259 lines) mixes the relations table and the code that builds actions from it (split into `rows.ts`); `frameOf` is computed on every dirty frame (profile before optimising).
 - **Blueprint, later:** STEP export, assemblies, threads, AI generation (`docs/origin/CAD_Blueprint.original.md`).

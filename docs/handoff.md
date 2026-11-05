@@ -876,3 +876,10 @@ Do not touch `compiler/` or `ui/` in phase 1. Keep porting honest: copy pure cod
 **Pencil:** a world plane never offers it (a selected world plane, by the X Y Z buttons or a double click, shows nothing; use R C L or the menu to draw on one). The pencil stays for body faces and drawn figures.
 **Axes:** `axisLengthMm` 24.
 **Not done:** angles are written in one fixed order (X, Y, Z) so for a body turned about more than one axis the three numbers are not the only way to say the same turn; a turn very near the Y axis standing on end (gimbal) shows Z as 0.
+
+## Handoff 110 — 2026-11-05 (one step per operation, arrows stay, 0 not blank)
+**State:** `in_130`. 169 tests pass, checks clean (not tried by hand in a browser).
+**Cause of the vanishing chamfer arrow:** the arrow was found from the selected lines; once the fillet exists those lines are gone, so there was nothing to draw it on. The edge arrows' places are now kept when the operation starts (`Op.edges`).
+**One step per operation:** for push / pull, extrude and fillet / chamfer the operation makes one step; each further drag or typed number takes that step out and makes it again with the total, so the value is the total since the operation began and does not reset between drags, the push / pull arrow stays on the face where it is (out by the total), and the preview while dragging is the real result with the earlier step replaced. A number typed in the bubble is the total too. A click in blank space or Esc ends the operation (the step stays); Ctrl+Z ends it as well as undoing the step. Rotate, move and scale still make a step per drag.
+**0:** a bubble with no value yet says 0, not a blank.
+**Removed:** `afterPushPull` (the arrow now follows the total instead of jumping to a re-found face).

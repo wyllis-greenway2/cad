@@ -5,7 +5,7 @@ import type { Gizmo } from "./gizmo.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
-import { scene as sceneOf, selection as selectionOf, previewCommand } from "./session.ts";
+import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
 import { opCommand } from "./operations.ts";
 import type { Command } from "../operation/commands.ts";
@@ -50,11 +50,12 @@ export interface Frame {
 let memo: { history: Session["history"]; key: string; value: { scene: Scene; outcome: CompileOutcome } | null } | null = null;
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
   if (!s.op) return null;
-  const cmd: Command | null = opCommand(sceneOf(s.session), s.op);
+  const base = s.op.made ? undoLast(s.session) : s.session; // a step already made for this operation is replaced by what is being dragged
+  const cmd: Command | null = opCommand(sceneOf(base), s.op);
   if (!cmd) return null;
-  const key = JSON.stringify(cmd);
+  const key = JSON.stringify([cmd, s.op.made]);
   if (memo && memo.history === s.session.history && memo.key === key) return memo.value;
-  const value = previewCommand(s.session, cmd);
+  const value = previewCommand(base, cmd);
   memo = { history: s.session.history, key, value };
   return value;
 }
@@ -67,7 +68,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   const hasBody = Object.values(sc.parts).some((p) => p.kind === "body");
   // the handles follow what they drag, live (a body being moved takes its arrows with it)
   const raw = gizmoOf(s);
-  const gizmo = raw ? followed(raw, s.drag && "handle" in s.drag ? s.drag.handle : null, s.op?.value ?? null) : null;
+  const live = s.op?.kind === "pushpull" || s.op?.kind === "extrude"; // (their arrows follow inside `gizmoOf`)
+  const gizmo = raw && !live ? followed(raw, s.drag && "handle" in s.drag ? s.drag.handle : null, s.op?.value ?? null) : raw;
   const flash = flashOf(s, sc, now);
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
   const gp = gridPlaneOf(s);

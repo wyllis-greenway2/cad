@@ -1,6 +1,7 @@
 // The operations that take a number (`dec_interaction_spec`): extrude a closed figure, fillet or chamfer lines of the body (one operation: one way is a fillet, the other a chamfer), move, rotate or scale the body.
 // An operation starts from the selection (the menu or a key), shows its number, and is finished by Enter or a click: that adds ONE step to the scene, so it undoes in one go.
 import type { Ref } from "../shared/ref.ts";
+import { edgeDirection } from "./gizmo.ts";
 import type { Mat3, Angles } from "../math/rotation.ts";
 import { IDENTITY, about, then, anglesOf, stepsBetween } from "../math/rotation.ts";
 import type { Curved } from "../operation/part.ts";
@@ -12,7 +13,7 @@ import type { Part, Plane, PointerView } from "../operation/part.ts";
 import { normalOfPlane, pointOf } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
 import { actionsFor } from "./actions.ts";
-import { BODY_OBJECT, faceName, cylName } from "../compiler/body.ts";
+import { BODY_OBJECT } from "../compiler/body.ts";
 import { objectOf, bodyCentre } from "./objects.ts";
 import { settings } from "../shared/settings.ts";
 
@@ -30,6 +31,10 @@ export interface Op {
   /** extrude and push / pull: the figure's or face's middle and the direction along which the distance is measured */
   origin: Vec3 | null;
   normal: Vec3 | null;
+  /** push / pull, extrude, fillet / chamfer: a step has been made for this operation (more drags and typed numbers replace it, so the value is the total since the operation began) */
+  made: boolean;
+  /** fillet / chamfer: where each edge's arrow stands (the edges themselves are gone once the step is made) */
+  edges?: { mid: Vec3; dir: Vec3 }[];
   /** rotate the body: the three angles typed so far (X, Y, Z) as the body is to be turned (empty = as it is now) */
   rot: [string, string, string];
   /** push / pull of a round face: the face (the radius changes by the distance) */
@@ -66,7 +71,7 @@ function drawnFace(scene: Scene, parts: Part[]): Extract<Part, { kind: "face" }>
 export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): StartResult {
   const get = lookup(scene);
   const parts = selection.map((r) => get(r)).filter((p): p is Part => !!p);
-  const base: Omit<Op, "parts"> = { kind, typed: "", value: null, axis: kind === "rotate" ? 2 : 0, origin: null, normal: null, pivot: null, target: "body", plane: null, auto: false, rot: ["", "", ""] };
+  const base: Omit<Op, "parts"> = { kind, typed: "", value: null, axis: kind === "rotate" ? 2 : 0, origin: null, normal: null, pivot: null, target: "body", plane: null, auto: false, made: false, rot: ["", "", ""] };
   if (kind === "extrude") {
     const face = drawnFace(scene, parts);
     if (!face) return { ok: false, why: "select a closed figure first" };
@@ -98,7 +103,12 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
   if (kind === "edge") {
     const lines = parts.filter((p) => p.kind === "line" && p.origin === "body");
     if (!lines.length || lines.length !== parts.length) return { ok: false, why: "select lines of the body first" };
-    return { ok: true, op: { ...base, parts: lines.map((p) => p.ref) } }; // no size yet: drag the double arrow, or type one
+    const edges = lines.flatMap((l) => {
+      if (l.kind !== "line") return [];
+      const [pa, pb] = [get(l.a), get(l.b)];
+      return pa?.kind === "corner" && pb?.kind === "corner" ? [{ mid: scale(add(pa.at, pb.at), 0.5), dir: edgeDirection(scene, pa.at, pb.at) }] : [];
+    });
+    return { ok: true, op: { ...base, parts: lines.map((p) => p.ref), edges } }; // no size yet: drag the double arrow, or type one
   }
   if (kind === "dimension") {
     // measure, then lock: the chip shows the current value of the pair; typing a number locks it (`dec_relations_standard`)
@@ -233,24 +243,5 @@ function shapeCommand(scene: Scene, op: Op, v: number): Command | null {
   return { type: "batch", commands: [...released.map((r): Command => ({ type: "removeRelation", id: r.id })), ...commands] };
 }
 
-/** After a push / pull has been made by `value`: the same operation moved to where the face is now (its arrow stands on the new face, ready for another drag), or null if the new face is not found. */
-export function afterPushPull(scene: Scene, op: Op, value: number): Op | null {
-  const n = op.normal;
-  const p = op.origin;
-  if (!n || !p) return null;
-  if (op.curved) {
-    const c = op.curved;
-    const r = c.convex ? c.radius + value : c.radius - value;
-    if (!(r > 1e-6)) return null;
-    const next = { ...c, radius: Math.round(r * 1e4) / 1e4 };
-    const ref = cylName(next);
-    if (!(ref in scene.parts)) return null;
-    const e = [0, 1, 2].filter((i) => i !== c.axis);
-    const at: [number, number, number] = [...p];
-    at[e[0]!] = c.center[e[0]!]! + next.radius;
-    return { ...op, parts: [ref], origin: at, curved: next, value: null, typed: "" };
-  }
-  const origin: Vec3 = [p[0] + n[0] * value, p[1] + n[1] * value, p[2] + n[2] * value];
-  const ref = faceName(n, n[0] * origin[0] + n[1] * origin[1] + n[2] * origin[2]);
-  return ref in scene.parts ? { ...op, parts: [ref], origin, value: null, typed: "" } : null;
-}
+/** Operations that make one step and then change it as you drag or type again, until you click away: the value is the total since the operation began. */
+export const isLive = (op: Op): boolean => !op.auto && (op.kind === "extrude" || op.kind === "pushpull" || op.kind === "edge");

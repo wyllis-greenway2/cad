@@ -751,3 +751,8 @@ Reports that the push / pull arrow jumps back after a pull (it should stay at th
 Reports that the value bubble covers the arrows; asks for rotation to have three separate labeled X, Y, Z fields that set each angle independently and show how the object is currently rotated; says clicking in the world plane still sometimes adds a pencil at the origin; asks for the X Y Z axes a little bigger.
 
 > The value input for operations cover the arrows. The rotation should have three separate ones labeled x y z to let you set each independently and also show you how the object is currently rotated. Clicking in the world plane still adds a pencil to origin sometimes. Also lets make the xyz slightly bigger
+
+## in_130 — 2026-11-05 — directive
+Asks whether a recent session was interrupted and for the list of what is not done and what decisions are needed; reports that the chamfer arrow disappears after one drag (it should stay like the push / pull arrow until a click in blank space ends the operation), that the value resets when the pointer is let go (it should be remembered from the beginning of the operation to its end), and asks for a zero to show as 0 and not a blank box.
+
+> Sorry did I interrupt one of your recent sessions? The prompt before the last I believe? what is still not done and what are decisions you need from me? The chamfer arrow dissapears after one drag, it should be more like the push pull arrow and stay untill you click into blank space to dismiss and end operation. Also the values vanish, If I push pull it shows change till I letup then seems to reset. It should remember from beginning of operation untill end and not reset between arrow push and pull. Also if it is zero, it should just say 0 instead of having a blank value input

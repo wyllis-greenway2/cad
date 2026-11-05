@@ -33,7 +33,7 @@ export interface AppState {
   /** a double click turns the view to the plane, but only once the window for a third click has passed: a triple click selects the object and leaves the view alone */
   pendingLook: { plane: Plane; due: number } | null;
   /** a drag in progress: of the camera, or of a helper handle (`gizmo.ts`) */
-  drag: { camera: true } | { handle: Drag } | null;
+  drag: { camera: true } | { handle: Drag; /** the operation's value when the drag began (the drag adds to it) */ base: number } | null;
   /** the helper handle under the pointer */
   gizmoHover: string | null;
   /** a command was refused because it could not be done without breaking constraints: they flash red and fade, and the one that tried shakes (`in_120`) */
