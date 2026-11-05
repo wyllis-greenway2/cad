@@ -22,6 +22,8 @@ planned licensing review).
 | replicad-opencascadejs | 1.1.0 | **LGPL-2.1-only** | `prototypes/kernel-slice`, `prototypes/sketch-extrude`, `prototypes/cad-ui` | OCCT compiled to WASM (about 23 MB, 7 MB gzipped). The LGPL obligations below apply. |
 | three | 0.187.0 | MIT | `prototypes/kernel-slice`, `prototypes/sketch-extrude`, `prototypes/cad-ui`, `prototypes/cad-ui` | Rendering. |
 | vite | 8.3.5 | MIT | `prototypes/kernel-slice`, `prototypes/sketch-extrude`, `prototypes/cad-ui`, `prototypes/cad-ui` | Dev server and bundler; build time only. |
+| typescript | 5.x (dev only) | Apache-2.0 | `app/` | Type checking only (`tsc --noEmit`); nothing of it ships. Tests run TypeScript directly with Node's built-in type stripping, so no other tool is needed. Added 2026-11-05 (`in_099`). |
+| @types/node | 22.x (dev only) | MIT | `app/` | Type declarations for `node:test` in the tests; nothing ships. Added 2026-11-05 (`in_099`). |
 
 Transitive dependencies (scan on 2026-11-04: 22 packages in the two OCCT prototypes and 22 in `cad-ui` (which now uses OCCT too, behind `src/kernel/occt/`); same license mix, no GPL/AGPL/unknown): MIT 14, ISC 3, Apache-2.0 1,
 BSD-3-Clause 1, LGPL-2.1-only 1 (the OCCT build above), MPL-2.0 2. The two MPL-2.0 packages are

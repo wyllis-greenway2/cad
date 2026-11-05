@@ -1,9 +1,9 @@
 ---
 id: dec_clean_engine_design
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_093, in_094, in_095, in_096
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_093, in_094, in_095, in_096, in_099
 date: 2026-11-05
 depends_on:
   - inv_layer_adjacency: the engine is laid out in the human's layers (UI, Interaction, Operation, Geometry Compiler, Platform) and nothing reaches across them
@@ -17,7 +17,7 @@ depends_on:
 ---
 # The clean engine: one kind of part, one selection, one table of actions
 
-The prototype taught what the product is (`in_093`: "we know we want a system that is entirely free set of just lines vertices and faces all of which could be worked on in the same manner"). This is the design for rebuilding it clean, with the prototype kept as a frozen reference. Nothing here is built yet; it needs the human's approval (and the open questions at the end answered) before code outside `prototypes/` is written (`dec_prototyping_policy`).
+The prototype taught what the product is (`in_093`: "we know we want a system that is entirely free set of just lines vertices and faces all of which could be worked on in the same manner"). This is the design for rebuilding it clean, with the prototype kept as a frozen reference. Accepted with the four proposals of section 12 (`in_099`: "yes, go with those four proposals, lets build it"); code outside `prototypes/` may now be written under it (`dec_prototyping_policy`). The layer order below follows the blueprint: the geometry compiler reads the operation layer and the operation layer knows nothing of the compiler.
 
 ## 1. The layers (the human's, `inv_layer_adjacency`) and what lives in each
 
@@ -26,8 +26,8 @@ The prototype taught what the product is (`in_093`: "we know we want a system th
 | **Platform** | pointer, wheel, key and touch events; storage; clipboard; the file format on disk | one implementation per target (`dec_platform_web_portable`) |
 | **UI** | drawing (three.js), the world dressing (axes, panes, compass), the ring highlight, menus, number chips, the cursor readout, the look values | displays; decides nothing (`inv_no_logic_in_ui`) |
 | **Interaction** | intents, click grammar, selection, picking (the candidate list), camera controller (orbit about the model, ortho when straight, X Y Z N), what can I do with this selection (the actions service), drawing tools as state machines | pure logic, testable without a screen |
-| **Operation** | the scene: parts, relations, steps (features); commands; undo and redo (additive history); the ownership map | the graph that is saved (`prin_graph_is_truth`) |
 | **Geometry compiler** | solves relations into positions (the 2D solver, per plane), builds the kernel graph, calls the kernel adapter, turns the result back into body parts | `src/kernel/` and `src/solver/` as they are |
+| **Operation** | the scene: parts, relations, steps (features); commands; undo and redo (additive history); the ownership map | the graph that is saved (`prin_graph_is_truth`) |
 
 Data flows down by calls, events up through one event bus. If a layer needs something from a non-adjacent layer, an interface method is missing.
 
@@ -95,12 +95,11 @@ A thin three.js layer: `world` (axes, panes, compass, the grid on the plane you 
 
 A rewrite takes longer than it looks and tempts adding features. Limits: the keep list above, the phase order (something runs after each), and the rule that nothing is added that is not in `dec_interaction_spec` or the phase list. The risk of losing tuned feel is handled by keeping the look and input values and by writing the spec first. Body-part stable names depend on kernel work (`dec_stable_references` is decided but not built): phase 2 builds it with a position fallback first.
 
-## 12. Open questions for the human
-
-1. Where does the new code live? Proposed: a new top-level `app/` (production code, gated by this decision), the prototype untouched under `prototypes/cad-ui`.
-2. Language: **TypeScript now** (changed from my first proposal, after the human asked about real apps on other systems, `in_096`: see section 13). It compiles to the same JavaScript that runs in every shell, and the part, platform and intent interfaces become checked contracts. Keep the same test runner.
-3. Freeze the prototype the day phase 4 runs, or keep fixing bugs in it until the cut-over? Proposed: freeze at phase 4 (bug fixes only for blockers).
-4. The ghosts list in section 9 (what is dropped): anything you want to keep?
+## 12. The four questions, decided (`in_099`)
+1. The new code lives in a top-level `app/` (done: scaffolded, with its own `package.json`); the prototype stays under `prototypes/cad-ui`.
+2. TypeScript, run by Node's type stripping in tests, type checked by `tsc`; the same test runner (`node:test`).
+3. The prototype is frozen when phase 4 runs (blocker fixes only after that).
+4. The drop list in section 9 stands.
 
 ## 13. Real apps on other systems (`in_096`)
 

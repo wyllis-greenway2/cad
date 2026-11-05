@@ -595,3 +595,8 @@ Asks whether building this way means it will work the same for web but be slight
 Asks whether building this way will run any less well in the browser.
 
 > I guess my main question is, will this run any less good on the browser though?
+
+## in_099 — 2026-11-05 — approval
+Approves the four proposals in the clean engine design (new code in a top-level app folder, TypeScript, freeze the prototype at phase 4, the drop list as written), says to build it, and asks whether to compress the context first since the build is large and the context is about 85 percent used.
+
+> yes, go with those four proposals, lets build it. Should we compress context before we build it though? I see you are at 85% context used and this seems like a large build
