@@ -1231,7 +1231,17 @@ function selectionHint(t) {
   if (t.kind === "edge") return "F fillet   B chamfer   double-click selects the whole body";
   return "double-click selects the whole body";
 }
+/** A drawing tool just added its one figure: leave the sketch (normal interaction is back: faces and the rest can be clicked) and select the figure if it is closed (`in_080`). */
+function settleFinished(fin) {
+  exitSketch(false);
+  if (fin.closed) {
+    sel = { kind: "sketch", plane: fin.plane, id: fin.id };
+    applySel();
+  }
+}
 function updateStatus() {
+  const fin = session.takeFinished();
+  if (fin) settleFinished(fin);
   let text = (matchMedia("(pointer: coarse)").matches ? "Tap selects   double-tap: object   triple-tap: look straight   long-press or the ⋯ button: menu   drag: orbit   two fingers: pan and zoom" : "Click selects   double-click: object   triple-click: look straight   L R C then a surface: draw   right-click: menu");
   if (flash) text = flash;
   else if (xform) text = xform.sess.prompt();
@@ -1867,7 +1877,14 @@ let lastClickAt = 0;
 let lastClickXY = [0, 0];
 /** Double-click: the whole object under the pointer. */
 function selectObjectFromHover() {
-  const h = hoveredFace || hoveredEdge || hoveredVertex || hoveredSketch;
+  if (hoveredSketch && !hoveredFace) {
+    // a double-click on a sketch shape opens it for editing (its lines, corners and constraints); Esc leaves
+    const pl = hoveredSketch.plane;
+    sel = null;
+    applySel();
+    return void enterSketch(pl, "select");
+  }
+  const h = hoveredFace || hoveredEdge || hoveredVertex;
   if (!h) return;
   sel = { kind: "body" };
   applySel();

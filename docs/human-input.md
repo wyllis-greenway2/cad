@@ -500,3 +500,8 @@ Clean up contradictions and bugs left from earlier work (the menu says R is rect
 World planes should not turn blue (object planes do); the trackpad should pan and zoom like a phone screen (two fingers pan, pinch zooms); after applying a sketch figure the drawing tool should drop back to normal interaction instead of repeating.
 
 > Okay lets make it so that world planes don't turn blue. Object planes do, but world planes dont. Also the track pad doesn't seem to pan very easily. Can we make its input interpenetrated similar to a phone screen? that works pretty well with two fingers panning, and pinch or separate doing zoom well. Also can we have it leave the selection after applying a sketch figure? so for example if you click rectangle, then click again, it should add rectangle somewhere, but then drop the rectangle add and go back to normal interaction so it doesn't keep dropping rectangles.
+
+## in_080 — 2026-11-05 — directive
+Bug report: after adding a circle the app is stuck in a not-normal mode (cannot click faces or other things until Esc); and on the phone the whole screen flashes blue when clicking a line or vertex but not a face.
+
+> Okay after I add a circle or something, I seem to get stuck in a non normal mode, I cannot click on faces any things anymore until I hit escape. What is that? Also the whole mobile screen flashes blue whenever I click on a line or vertice but not a face.

@@ -149,6 +149,12 @@ export class SketchSession {
     return null;
   }
 
+  /** The figure that was just added by a one-shot drawing tool ({ plane, id, closed }), once. */
+  takeFinished() {
+    const f = this.finished ?? null;
+    this.finished = null;
+    return f;
+  }
   takePicked() {
     const r = this.picked;
     this.picked = null;
@@ -469,7 +475,10 @@ export class SketchSession {
     const e = this.store.add(this.key, entity, constraintsFor);
     this.draft = null;
     this.entry = null;
-    if (this.s.sketch.oneShot && this.tool !== "select") this.tool = "select"; // a drawing tool adds one figure, then normal interaction is back (`in_079`)
+    if (this.s.sketch.oneShot && this.tool !== "select") {
+      this.tool = "select"; // a drawing tool adds one figure, then normal interaction is back (`in_079`)
+      this.finished = { plane: this.plane, id: e.id, closed: entity.type !== "poly" || !!entity.closed }; // the view takes this, leaves the sketch and selects the figure (`in_080`)
+    }
     return e;
   }
   /** A rectangle is just four lines and four corners with horizontal and vertical constraints: a shortcut for what you could draw yourself (`in_054`). */
