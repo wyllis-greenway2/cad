@@ -172,3 +172,35 @@ export const settings = {
     },
   },
 };
+
+// ---- TEMPORARY visual styles to try (`in_064`): the style switcher at the top right picks one. "sheets" = the world as it was; "panes" = a blank world with only
+// the axis lines, three small translucent panes at the origin to pick a plane, and a faint grid that fades in on the plane you sketch on.
+settings.styles = {
+  current: { label: "Current (sheets)", theme: "world", mode: "sheets" },
+  panesDark: { label: "Panes, dark", theme: "panesDark", mode: "panes" },
+  panesLight: { label: "Panes, light", theme: "panesLight", mode: "panes" },
+  blueprint: { label: "Panes, blueprint", theme: "blueprint", mode: "panes" },
+};
+settings.styleName = "current";
+settings.panes = {
+  size: 0.2, // a pane is a square this many view-distances wide, in the corner of the + axes
+  opacity: 0.16, hoverOpacity: 0.38, // the pane fill
+  edgeAlpha: 0.55, hoverEdgeAlpha: 1, // its outline
+  hoverBlue: 0.45, // how much a hovered pane leans blue
+  sketchGrid: 0.42, fine: 0.5, // the faint grid on the plane being sketched on, and its finest level
+  fadeRadius: 1.15, fadeEase: 0.22, // the grid fades out this many view-distances from the view centre; it fades in over a few frames
+};
+const base = settings.themes.world;
+settings.themes.panesDark = { ...base, background: 0x1b1c1e, gridLine: [0.55, 0.58, 0.64], sheet: [0.8, 0.84, 0.92] };
+settings.themes.panesLight = {
+  ...base, background: 0xe8e6e1, text: "#3a3d42",
+  axisX: [0.82, 0.22, 0.2], axisY: [0.2, 0.58, 0.28], axisZ: [0.22, 0.4, 0.88],
+  sheet: [0.38, 0.5, 0.72], gridLine: [0.45, 0.48, 0.54], blueSurface: [0.2, 0.4, 0.9], blueLine: [0.1, 0.25, 0.7],
+  bodyColor: 0xfbfaf6, bodyEdge: 0x2f2b24,
+};
+settings.themes.blueprint = {
+  ...base, background: 0x10243b, text: "#9fb6d4",
+  axisX: [1.0, 0.45, 0.4], axisY: [0.4, 0.9, 0.55], axisZ: [0.45, 0.65, 1.0],
+  sheet: [0.45, 0.7, 1.0], gridLine: [0.5, 0.7, 1.0], blueSurface: [0.7, 0.85, 1.0], blueLine: [0.6, 0.8, 1.0],
+  bodyColor: 0xdfeaf7, bodyEdge: 0x10243b,
+};

@@ -151,6 +151,9 @@ Lines you draw stay as an **open line** when you press Esc, pick another tool or
 
 **Draw in 3D (`in_063`):** a drawing tool chosen on a surface does not turn the camera; you draw on the surface from where you are (`view.drawMinFacing` = how edge-on is too edge-on). N or the view button still squares up.
 
+## Visual styles (temporary, `in_064`)
+A **style switcher** (top right, to be removed) tries looks: *Current (sheets)*, and three **panes** styles (dark, light, blueprint). In a panes style the world is blank except the **XYZ lines**; **three small translucent panes** sit in the + corner at the origin (hover to light one, click to sketch); there are no world-level grids. When you sketch, a **faint grid fades in on the sketch plane**, strongest at the view centre and fading outward (`settings.panes`, themes `panesDark`, `panesLight`, `blueprint`; `settings.styleName` picks the start style). Only the panes can be pointed at in 3D (the infinite planes cannot).
+
 ## Constraints and sketch editing (`in_051`, `in_052`, `in_054`)
 A sketch is **corners and lines** (and circles). A **rectangle is a shortcut**: four lines with real horizontal and vertical constraints. Click a **line**: its **length** shows and you type a number to set it. A **circle's outline**: its radius.
 Shift-click a second line: if they **share a corner** their **angle** shows (type 1° to 179°; the first line stays, the second turns and keeps its length); if not, Parallel / Perpendicular / Equal length are offered. Corners: Fix in place (one),

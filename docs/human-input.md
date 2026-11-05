@@ -420,3 +420,8 @@ Allow open lines (only extruding needs a closed sketch), and make sketching less
 Approval to draw directly on a surface in the 3D view, without the camera turning square to it.
 
 > yes, let me draw directly on a surface in 3D
+
+## in_064 — 2026-11-05 — directive
+Try different visual styles with a temporary style switcher; the first new style: blank world except the xyz lines, small translucent panes near the origin to select a plane, and a faint grid fading in on the sketching plane.
+
+> I am having a bit of a hard time seeing the model as I work, can we try a few different styles? Lets temporarily add a style switcher. One style I want to try is where the world is entirely blank except the xyz lines, and then little small translucent panes that show up around 0,0,0 to let you select your xyz plane, but now world level grids. Then when you start sketching I think I faint grid should fade into your sketching plane to help you sketch.

@@ -527,3 +527,7 @@ Browser runs: menu with nothing picked, on a line (Horizontal/Delete/Undo...), o
 ## Handoff 050 — 2026-11-05
 **State:** `in_063`: `enterSketch` skips `goNormal` when the tool is line/rect/circle and the surface faces the camera by at least `view.drawMinFacing` (0.3). Browser: pointing at the XZ plane and pressing R kept the camera (e 0.6, a -0.79, normal false), two clicks drew a rectangle on the plane, screenshot checked, no console errors. 87 tests.
 **Not yet:** no unit test for the camera rule (it lives in main.js); snapping and typed sizes at steep angles are only approximate (`in_059` limits).
+
+## Handoff 051 — 2026-11-05
+**State:** `in_064`: temporary style switcher (`#styleSwitch`, `applyStyle`) with four styles from `settings.styles`; panes mode in the plane shader (`uPane`, `uEdgeA`, `uFadeC`, `uFadeR`; axis lines are never masked) and `updatePlanes`; panes-only picking via the new `within` option of `pickPlane`; sketch grid eases in (`paneFade`). Browser: pane hover/click entered a sketch, far from the panes nothing hovers, screenshots of all styles checked, no console errors. 87 tests.
+**Not yet:** no unit test for the pane pick rule; the choice is not remembered between runs; the old sheet style is untouched. Remove the switcher once a style is chosen.

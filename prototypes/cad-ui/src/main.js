@@ -25,8 +25,10 @@ const G = S.grid;
 const V = S.view;
 const F = S.fog; // world fog (objects)
 const A = S.sheetArea; // how far a sheet's light, grid and axes reach
-let themeName = S.themeName;
+let themeName = S.styles[S.styleName].theme;
+let styleMode = S.styles[S.styleName].mode; // "sheets" or "panes" (`in_064`, temporary style switcher)
 const T = () => S.themes[themeName];
+let paneFade = 0; // 0..1: the sketch grid fading in on the plane being sketched on
 const hexToRgb = (h) => [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255];
 const toHex = (c) => (Math.round(c[0] * 255) << 16) | (Math.round(c[1] * 255) << 8) | Math.round(c[2] * 255);
 
@@ -89,6 +91,7 @@ uniform vec3 uLineCol;
 uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul; uniform float uMinCellPx;
 uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar; uniform float uFogK;
 uniform float uAxisW; uniform float uGhost;
+uniform float uPane; uniform float uEdgeA; uniform vec3 uFadeC; uniform float uFadeR;
 varying vec3 vPos;
 
 float gridLine(vec2 c, float s) {
@@ -113,6 +116,20 @@ void main() {
   float w2 = f;
   float grid = max(max(gridLine(c, s0) * w0, gridLine(c, s0 * 10.0) * w1), gridLine(c, s0 * 100.0) * w2);
 
+  // panes style: the plane is only a small square (0..uPane in its own axes) with an outline; the axis lines are never cut
+  float paneIn = 1.0;
+  float edge = 0.0;
+  if (uPane > 0.0) {
+    vec2 q = c / uPane;
+    vec2 fq = max(fwidth(q), vec2(1e-6));
+    if (q.x < 0.0 || q.y < 0.0 || q.x > 1.0 || q.y > 1.0) paneIn = 0.0;
+    vec2 e = min(q, 1.0 - q) / fq;
+    edge = (1.0 - min(min(e.x, e.y) / 1.3, 1.0)) * paneIn;
+  }
+  // the sketch grid fades out away from the view centre (uFadeR > 0)
+  float gridFade = uFadeR > 0.0 ? 1.0 - smoothstep(0.35 * uFadeR, uFadeR, distance(vPos, uFadeC)) : 1.0;
+  grid *= gridFade * paneIn;
+
   vec2 w = fwidth(c);
   float axU = 1.0 - min(abs(c.y) / (max(w.y, 1e-6) * uAxisW), 1.0); // v = 0 runs along the u axis
   float axV = 1.0 - min(abs(c.x) / (max(w.x, 1e-6) * uAxisW), 1.0); // u = 0 runs along the v axis
@@ -127,17 +144,17 @@ void main() {
 
 #if PASS == 0
   // Paint layer: the sheet's color at the chosen opacity, so opacity says how much of what is behind it is hidden.
-  gl_FragColor = vec4(uCol, uOpacity * fog);
+  gl_FragColor = vec4(uCol, uOpacity * fog * paneIn);
 #elif PASS == 1
   // Glow layer (brightness): light added with "screen" blending, out = light + behind * (1 - light). It brightens what is
   // behind the sheet without clipping it to white, so a bright sheet can still be see-through. Independent of opacity.
-  gl_FragColor = vec4(min(uCol * uBright * fog, vec3(1.0)), 1.0);
+  gl_FragColor = vec4(min(uCol * uBright * fog * paneIn, vec3(1.0)), 1.0);
 #elif PASS == 3
   // Axis lines where an object is in front of them: drawn only behind existing depth, faintly.
   float axg = max(axU, axV) * uAxisA * axFog * uGhost;
   gl_FragColor = vec4(mix(uColU, uColV, step(axU, axV)), axg);
 #else
-  float a = grid * uLineA * fog;                                      // grid lines
+  float a = max(grid * uLineA * fog, edge * uEdgeA);                  // grid lines and the pane outline
   float ax = max(axU, axV) * uAxisA * axFog;                          // world axis lines
   vec3 col = mix(uLineCol, mix(uColU, uColV, step(axU, axV)), step(a, ax)); // an axis line wins where it is stronger
   gl_FragColor = vec4(col, max(a, ax));
@@ -168,6 +185,7 @@ for (const [name, def] of Object.entries(PLANES)) {
       uLineCol: { value: new THREE.Vector3() },
       uFogNear: { value: A.nearFactor }, uFogFar: { value: A.farFactor }, uAxisFogFar: { value: A.axisFarFactor }, uFogK: { value: A.sharpness },
       uAxisW: { value: G.axisWidthPx }, uGhost: { value: 0 },
+      uPane: { value: 0 }, uEdgeA: { value: 0 }, uFadeC: { value: new THREE.Vector3() }, uFadeR: { value: 0 },
     },
   });
   const geo = new THREE.PlaneGeometry(1, 1);
@@ -213,11 +231,35 @@ function updatePlanes() {
   scene.fog.far = view.dist * F.farFactor;
   const B = S.backdrop;
   const th = T();
+  const PN = S.panes;
+  const panes = styleMode === "panes";
+  const want = panes && selected ? 1 : 0;
+  paneFade += (want - paneFade) * PN.fadeEase;
+  if (Math.abs(want - paneFade) < 0.01) paneFade = want;
+  else requestRender(); // keep fading
   for (const [name, pair] of Object.entries(planeMeshes)) {
-   const state = stateOf(name);
+   let state = stateOf(name);
+   let paneSize = 0;
+   let edgeA = 0;
+   let fadeR = 0;
+   let blue = state.blue;
+   if (panes) {
+     // blank world: three small panes at the origin (hover to preview, click to sketch); while sketching, only a faint grid on that plane
+     const mine = selected && baseOf(selected) === name;
+     const hot = !selected && (hovered === name || pinnedHover === name);
+     if (selected) {
+       state = mine ? { line: PN.sketchGrid * paneFade, bright: 0, opacity: 0, fine: PN.fine, blue: 0 } : { line: 0, bright: 0, opacity: 0, fine: 0, blue: 0 };
+       fadeR = mine ? view.dist * PN.fadeRadius : 0;
+     } else {
+       state = { line: 0, bright: 0, opacity: hot ? PN.hoverOpacity : PN.opacity, fine: 0, blue: hot ? PN.hoverBlue : 0 };
+       paneSize = view.dist * PN.size;
+       edgeA = hot ? PN.hoverEdgeAlpha : PN.edgeAlpha;
+     }
+     blue = state.blue;
+   }
    const shown = state.line > 0 || state.bright > 0 || state.opacity > 0;
-   const sheet = mix3(th.sheet, th.blueSurface, state.blue);
-   const lineCol = mix3(th.gridLine, th.blueLine, Math.min(1, state.blue * 3));
+   const sheet = mix3(th.sheet, th.blueSurface, blue);
+   const lineCol = mix3(th.gridLine, th.blueLine, Math.min(1, blue * 3));
    // while sketching on a face, this sheet takes that face's place and orientation (any angle); otherwise it is the base plane itself
    const planeId = selected && (planeDef(selected).base ?? selected) === name ? selected : name;
    const def = planeDef(planeId);
@@ -225,7 +267,7 @@ function updatePlanes() {
    const sheetQuat = new THREE.Quaternion().setFromRotationMatrix(basisMatrix(planeId, new THREE.Vector3()));
    const center = new THREE.Vector3(...projectOnto(planeId, view.target.toArray()));
    const side = Math.sign(camera.position.clone().sub(center).dot(nrm)) || 1;
-   pair.back.visible = B.enabled;
+   pair.back.visible = B.enabled && !panes;
    for (const mesh of [pair.paint, pair.glow, pair.lines, pair.ghost, pair.back]) {
     mesh.quaternion.copy(sheetQuat);
     mesh.position.copy(center);
@@ -250,7 +292,14 @@ function updatePlanes() {
     u.uLineA.value = state.line;
     u.uGhost.value = G.axisGhost;
     u.uFineMul.value = state.fine; // the densest grid level is only shown on the sketch plane
-    if (B.enabled) {
+    u.uPane.value = paneSize;
+    u.uEdgeA.value = edgeA;
+    u.uFadeC.value.copy(center);
+    u.uFadeR.value = fadeR;
+    if (panes) {
+      u.uBright.value = 0;
+      u.uOpacity.value = mesh === pair.paint ? state.opacity : 0;
+    } else if (B.enabled) {
       u.uBright.value = 0;
       u.uOpacity.value = mesh === pair.back ? (shown ? B.alpha : 0) : mesh === pair.paint && shown ? B.planeOpacity : 0;
     } else {
@@ -321,6 +370,26 @@ function applyTheme() {
   arrowHeads.forEach((p, i) => p.setAttribute("fill", `#${toHex(axes[i]).toString(16).padStart(6, "0")}`));
   axisLabels.forEach((l, i) => (l.style.color = `#${toHex(axes[i]).toString(16).padStart(6, "0")}`));
   requestRender();
+}
+
+/** TEMPORARY (`in_064`): switch between the visual styles. */
+function applyStyle(name) {
+  const st = S.styles[name];
+  if (!st) return;
+  S.styleName = name;
+  themeName = st.theme;
+  styleMode = st.mode;
+  paneFade = selected && st.mode === "panes" ? 1 : 0;
+  applyTheme();
+  body.recolor();
+  markSketch();
+  requestRender();
+}
+{
+  const box = $("styleSwitch");
+  for (const [k, st] of Object.entries(S.styles)) box.appendChild(Object.assign(document.createElement("option"), { value: k, textContent: st.label }));
+  box.value = S.styleName;
+  box.onchange = () => (applyStyle(box.value), box.blur());
 }
 
 // ---------------------------------------------------------------- render loop (on demand)
@@ -1173,7 +1242,15 @@ function selectFromHover() {
 }
 function pickAt(clientX, clientY) {
   setRay(clientX, clientY);
-  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * A.farFactor, minCos: G.grazeMinCos, only: inSketchView() ? selected : null });
+  const paneOnly = styleMode === "panes" && !inSketchView() ? (name, p) => {
+    // panes style: only the small panes can be pointed at
+    const [u, v] = planeDef(name).basis;
+    const s = view.dist * S.panes.size;
+    const a = p[0] * u[0] + p[1] * u[1] + p[2] * u[2];
+    const b = p[0] * v[0] + p[1] * v[1] + p[2] * v[2];
+    return a >= 0 && a <= s && b >= 0 && b <= s;
+  } : null;
+  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * A.farFactor, minCos: G.grazeMinCos, only: inSketchView() ? selected : null, within: paneOnly });
 }
 /** The point under the cursor on the sketch plane, in local (u, v) mm. */
 function localPoint(clientX, clientY) {

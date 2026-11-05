@@ -92,7 +92,7 @@ export function projectOnto(plane, p) {
  * `only` restricts the test to one plane (sketch mode: only the sketch plane exists).
  * Returns { plane, t, point } or null.
  */
-export function pickPlane(origin, dir, { maxDist = Infinity, minCos = 0.03, only = null } = {}) {
+export function pickPlane(origin, dir, { maxDist = Infinity, minCos = 0.03, only = null, within = null } = {}) {
   let best = null;
   const all = { ...PLANES, ...(only && DATUMS[only] ? { [only]: DATUMS[only] } : {}) }; // face planes can only be picked when asked for
   for (const [name, def] of Object.entries(all)) {
@@ -101,7 +101,9 @@ export function pickPlane(origin, dir, { maxDist = Infinity, minCos = 0.03, only
     if (Math.abs(dk) < minCos) continue;
     const t = (def.d - dot3(def.n, origin)) / dk;
     if (t <= 0 || t > maxDist) continue;
-    if (!best || t < best.t) best = { plane: name, t, point: origin.map((o, i) => o + t * dir[i]) };
+    const point = origin.map((o, i) => o + t * dir[i]);
+    if (within && !within(name, point)) continue; // e.g. only the small panes count, not the whole infinite plane
+    if (!best || t < best.t) best = { plane: name, t, point };
   }
   return best;
 }
