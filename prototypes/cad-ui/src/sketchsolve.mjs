@@ -59,6 +59,7 @@ export function expand(c, model) {
       if (!s1 || !s2) return null;
       return { id: c.id, type: c.type, a: s1[0], b: s1[1], c: s2[0], d: s2[1] };
     }
+    case "angle": return hasP(c.a) && hasP(c.b) && hasP(c.c) && hasP(c.d) ? { id: c.id, type: "angle", a: c.a, b: c.b, c: c.c, d: c.d, value: (c.deg * Math.PI) / 180 } : null;
     case "coincident": return hasP(c.a) && hasP(c.b) ? { id: c.id, type: "coincident", a: c.a, b: c.b } : null;
     case "fixed": return hasP(c.p) ? { id: c.id, type: "fixed", p: c.p, at: c.at } : null;
     case "radius": return hasS(c.r) ? { id: c.id, type: "radius", r: c.r, value: c.value } : null;
@@ -105,10 +106,13 @@ export function solveSketch(entities, constraints, soft = []) {
     if (x) stored.push(x);
     else dropped.push(c.id);
   }
-  // soft preferences: keep or pull a point ({ p, at, w }) or a radius ({ r, value, w })
+  // soft preferences: keep or pull a point ({ p, at, w }), a radius ({ r, value, w }) or a length ({ dist: [a, b], d, w })
   const prefs = soft
-    .filter((s) => (s.p ? s.p in model.points : s.r in model.scalars))
-    .map((s, i) => (s.p ? { id: `soft${i}`, type: "fixed", p: s.p, at: s.at, w: s.w ?? 0.1 } : { id: `soft${i}`, type: "radius", r: s.r, value: s.value, w: s.w ?? 0.1 }));
+    .filter((s) => (s.p ? s.p in model.points : s.dist ? s.dist.every((id) => id in model.points) : s.r in model.scalars))
+    .map((s, i) =>
+      s.p ? { id: `soft${i}`, type: "fixed", p: s.p, at: s.at, w: s.w ?? 0.1 }
+      : s.dist ? { id: `soft${i}`, type: "distance", a: s.dist[0], b: s.dist[1], d: s.d, w: s.w ?? 0.1 }
+      : { id: `soft${i}`, type: "radius", r: s.r, value: s.value, w: s.w ?? 0.1 });
   const result = solve({ points: model.points, scalars: model.scalars }, [...model.builtin, ...stored, ...prefs]);
   const ids = (list) => list.filter((id) => !id.includes("~") && !id.startsWith("soft"));
   if (result.status !== "ok") return { status: "conflict", entities, dof: null, redundant: [], conflicts: ids(result.conflicts), dropped };
@@ -117,7 +121,7 @@ export function solveSketch(entities, constraints, soft = []) {
 
 /** Every element reference (point, segment or value id) a stored constraint mentions. */
 export function refsOf(c) {
-  return ["a", "b", "p", "r", "s", "seg", "seg1", "seg2"].map((k) => c[k]).filter((v) => typeof v === "string");
+  return ["a", "b", "c", "d", "p", "r", "s", "seg", "seg1", "seg2"].map((k) => c[k]).filter((v) => typeof v === "string");
 }
 /** The shape a reference belongs to ("e_001.s0" -> "e_001"). */
 export const shapeOfRef = (ref) => ref.slice(0, ref.lastIndexOf("."));
@@ -142,4 +146,106 @@ export function anchorsOf(e, key) {
     return [{ p: `${e.id}.p${i}`, at: e.points[i].slice(), w: 0.5 }];
   }
   return [];
+}
+
+// ---------------------------------------------------------------- trying a constraint before applying it
+
+const MIN_SIZE = 1e-3; // mm: anything smaller counts as collapsed
+const MIN_ANGLE = 1; // degrees: two lines closer than this to lying on each other count as folded
+
+/** Is any shape squashed flat (a zero-width rectangle, a zero-length line, a point-sized circle)? Returns a short reason or null. */
+export function collapsed(entities) {
+  for (const e of entities) {
+    if (e.type === "rect" && (Math.abs(e.x1 - e.x0) < MIN_SIZE || Math.abs(e.y1 - e.y0) < MIN_SIZE)) return "it would flatten the rectangle";
+    if (e.type === "circle" && e.r < MIN_SIZE) return "it would shrink the circle to a point";
+    if (e.type === "poly") {
+      const n = e.points.length;
+      for (let i = 0; i < (e.closed ? n : n - 1); i++) {
+        const a = e.points[i];
+        const b = e.points[(i + 1) % n];
+        if (Math.hypot(a[0] - b[0], a[1] - b[1]) < MIN_SIZE) return "it would shrink a line to nothing";
+      }
+    }
+  }
+  return null;
+}
+
+/** If two lines share a corner: { v: the shared point, p: the far end of the first line, q: the far end of the second }. */
+export function sharedVertex(model, segA, segB) {
+  const A = model.segments[segA];
+  const B = model.segments[segB];
+  if (!A || !B || segA === segB) return null;
+  for (const i of [0, 1]) {
+    for (const j of [0, 1]) {
+      const same = A[i] === B[j] || (model.points[A[i]][0] === model.points[B[j]][0] && model.points[A[i]][1] === model.points[B[j]][1] && A[i].split(".")[0] === B[j].split(".")[0]);
+      if (same) return { v: A[i], p: A[1 - i], q: B[1 - j] };
+    }
+  }
+  return null;
+}
+
+/** The signed angle in degrees from the first line to the second, both measured away from their shared corner; null if they do not share one. */
+export function angleBetween(entities, segA, segB) {
+  const m = modelOf(entities);
+  const sh = sharedVertex(m, segA, segB);
+  if (!sh) return null;
+  const v = m.points[sh.v];
+  const p = m.points[sh.p];
+  const q = m.points[sh.q];
+  const u = [p[0] - v[0], p[1] - v[1]];
+  const w = [q[0] - v[0], q[1] - v[1]];
+  return (Math.atan2(u[0] * w[1] - u[1] * w[0], u[0] * w[0] + u[1] * w[1]) * 180) / Math.PI;
+}
+
+/** The constraint for "set this angle between two lines that share a corner" (keeps the side they are on now). Null if they do not share one. */
+export function angleSpec(entities, segA, segB, deg) {
+  const m = modelOf(entities);
+  const sh = sharedVertex(m, segA, segB);
+  if (!sh) return null;
+  const cur = angleBetween(entities, segA, segB);
+  return { type: "angle", a: sh.v, b: sh.p, c: sh.v, d: sh.q, deg: (cur < 0 ? -1 : 1) * deg };
+};
+
+/** The constraint for "this line is `value` mm long" (a rectangle side is its width or height). Null if it does not apply. */
+export function lengthSpec(entities, segRef, value) {
+  const shape = shapeOfRef(segRef);
+  const e = entities.find((x) => x.id === shape);
+  const i = Number(segRef.slice(segRef.lastIndexOf(".") + 2));
+  if (!e) return null;
+  if (e.type === "rect") return dimensionConstraint(e, i % 2 === 0 ? "w" : "h", value);
+  if (e.type === "poly") return dimensionConstraint(e, `s${i}`, value);
+  return null;
+}
+
+/** The current length of a line in mm. */
+export function lengthOf(entities, segRef) {
+  const m = modelOf(entities);
+  const pair = m.segments[segRef];
+  return pair ? Math.hypot(m.points[pair[0]][0] - m.points[pair[1]][0], m.points[pair[0]][1] - m.points[pair[1]][1]) : null;
+}
+
+/**
+ * Try a constraint without changing anything: would it hold, and would it leave the geometry sound?
+ * `replace(c)` marks an existing constraint the new one takes the place of (a dimension being retyped); `watch` lists pairs of lines that must not end up
+ * lying on each other. Returns { ok, reason, entities (solved), constraints (the new list), id }.
+ */
+export function tryConstraint(entities, constraints, spec, { newId, soft = [], replace = null, watch = [] } = {}) {
+  const cons = constraints.map((c) => ({ ...c }));
+  const at = replace ? cons.findIndex(replace) : -1;
+  const id = at >= 0 ? cons[at].id : newId;
+  if (at >= 0) cons[at] = { ...cons[at], ...spec, id };
+  else cons.push({ id, ...spec });
+  const res = solveSketch(entities, cons, soft);
+  if (res.status !== "ok") {
+    const named = res.conflicts.filter((c) => c !== id);
+    return { ok: false, reason: named.length ? `it conflicts with other constraints (${named.join(", ")})` : "it contradicts the shape itself (a rectangle's corners are always square, for example)" };
+  }
+  if (at < 0 && res.redundant.includes(id)) return { ok: false, reason: "that is already true of this sketch" };
+  const flat = collapsed(res.entities);
+  if (flat) return { ok: false, reason: flat };
+  for (const [sa, sb] of watch) {
+    const ang = angleBetween(res.entities, sa, sb);
+    if (ang !== null && (Math.abs(ang) < MIN_ANGLE || Math.abs(ang) > 180 - MIN_ANGLE)) return { ok: false, reason: "it would fold the two lines onto each other" };
+  }
+  return { ok: true, reason: null, entities: res.entities, constraints: cons, id, dof: res.dof };
 }

@@ -1307,13 +1307,15 @@ function updateConstraintUI() {
   const on = inSketchView() && !extrude && !xform;
   // buttons that fit what is picked
   const offers = on ? session.offers() : [];
-  const key = offers.map((o) => o.label).join("|");
+  const key = offers.map((o) => `${o.label}:${o.enabled ? 1 : 0}:${o.reason ?? ""}`).join("|");
   if (key !== cbarKey) {
     cbarKey = key;
     cbarEl.replaceChildren();
     offers.forEach((o, i) => {
       const b = document.createElement("button");
       b.textContent = o.label;
+      b.disabled = !o.enabled; // not allowed: it would contradict the shape, repeat what is already true, or collapse the geometry
+      b.title = o.enabled ? "" : `Not possible: ${o.reason}`;
       b.onclick = () => {
         const msg = session.applyOffer(i);
         if (msg) flashMessage(msg);
@@ -1323,6 +1325,25 @@ function updateConstraintUI() {
     });
   }
   cbarEl.style.display = offers.length ? "flex" : "none";
+  // the number you can type for what is picked (a line's length, a circle's radius, the angle between two lines)
+  const chip = on ? session.valueChip() : null;
+  const vEl = $("vchip");
+  if (!chip) vEl.style.display = "none";
+  else {
+    const k = 1 / pxPerMm();
+    const nl = Math.hypot(chip.normal[0], chip.normal[1]) || 1;
+    const off = chip.kind === "radius" ? 0 : (chip.kind === "angle" ? 34 : 18) * k;
+    const at = toWorld(session.plane, [chip.pos[0] + (chip.normal[0] / nl) * off, chip.pos[1] + (chip.normal[1] / nl) * off]);
+    const [sx, sy] = window.__ui.worldToScreen(at.x, at.y, at.z);
+    vEl.style.display = "block";
+    vEl.style.left = `${sx}px`;
+    vEl.style.top = `${sy}px`;
+    vEl.className = `chip${chip.editing !== null ? " act typed" : ""}`;
+    vEl.replaceChildren();
+    const lab = document.createElement("b");
+    lab.textContent = chip.kind === "length" ? "L" : chip.kind === "radius" ? "R" : "∠";
+    vEl.append(lab, chip.editing !== null ? chip.editing || "_" : chip.text);
+  }
   // marks for the stored constraints (their numbers are shown by the dimension tool instead)
   const marks = on ? session.glyphs().filter((g) => !(g.dimension && session.tool === "dimension")) : [];
   while (glyphEl.children.length > marks.length) glyphEl.lastChild.remove();

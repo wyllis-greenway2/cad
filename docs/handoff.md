@@ -459,3 +459,11 @@ corners/lines/circles, auto horizontal/vertical for drawn polyline segments, DOF
 step's sketch), constraints (two lines Equal length, drag a corner keeps a square, circle dimension, undo), and the earlier face/body modify flow: all pass, no console errors.
 **Limits / next polish:** no angle, tangent, point-on-line, midpoint, symmetric or arcs; rectangles cannot be rotated; polyline dimension edits no longer shift later points rigidly (the solver moves the end point only); constraint marks can overlap on small
 shapes; no keyboard shortcuts for constraints (buttons only). Candidates: arc tool, trim, offset, mirror, angle dimension, a constraint mode for typing values on marks.
+
+## Handoff 039 — 2026-11-05
+**State:** `in_052`: the human's design for intuitive constraints, built: click a line to see and type its length; click a circle outline for its radius; two lines sharing a corner show the angle (type to set, 1 to 179 degrees; the first line stays, the second
+turns and keeps its length); two lines not sharing a corner get Parallel / Perpendicular / Equal length. New solver constraint `angle`; `sketchsolve.tryConstraint` tries any constraint first (conflict, already true, collapsed geometry, folded lines)
+and the buttons are greyed out with the reason (hover), typed values are refused with it. Session: `valueChip`, typed pick values, `offers()` with `enabled` and `reason`. 76 tests (new `lineui.test.mjs`: square cases: corner angle, parallel,
+perpendicular, opposite sides, equal length; collapse; polyline angle; separate lines parallel). Browser run confirmed the chips, the refusals with reasons, and the polyline angle (screenshot). No console errors.
+**Not yet:** tangent, point on line, midpoint, symmetric, arcs; the value chip is not clickable (type directly or press Enter); with nothing anchored a length change can shift the whole sketch a little (the solver moves the least).
+**Next candidates:** save/load and STL/3MF export; named references with the proof test; arcs and trim/offset/mirror; the drawer.

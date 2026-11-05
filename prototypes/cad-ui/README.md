@@ -127,13 +127,16 @@ translucent green (add) or red (cut) prism shows. **History (n)** (top left) lis
 Ctrl+Z / Ctrl+Y undo and redo them with sketch edits. Limits: only the three base planes can be sketched on (not body faces yet), and an extrusion
 keeps a copy of its shape (editing the sketch later does not change it). Look values: `settings.extrude`, `themes.world.body*`.
 
-## Constraints and sketch editing (`in_051`)
-In the sketch view's select tool: click a **corner, line or circle** to pick it (Shift adds a second pick); the buttons that fit appear at the bottom: one line: **Horizontal / Vertical**; two lines: **Equal length /
-Parallel / Perpendicular**; one corner: **Fix in place**; two corners: **Coincident / Same height / Same position across**; two circles: **Equal radius**. Dimensions (D) add distance and radius constraints. Marks (H, V, =, ∥, ⊥, ●, fix, and
-dimension values) show on the sketch; click one and press Delete to remove that constraint. **Drag** a corner, line or circle: the solver keeps every constraint true while it follows the mouse (one undo step on release).
-A polyline segment drawn exactly horizontal or vertical is remembered as such. The status line shows `[fully constrained]`, `[n free]` or `[constraints conflict]`. A constraint that is already true is refused
-("already true"); a conflicting one is refused and changes nothing. Constraints go with a sketch into its extrusion (`dec_sketch_belongs_to_step`); ones that linked it to other shapes are released (undo restores them).
-The solver (`src/solver/solver.mjs`) is pure and replaceable (`dec_constraint_solver_small`). Not yet: angle, tangent, point on line, midpoint, symmetric, arcs.
+## Constraints and sketch editing (`in_051`, `in_052`)
+In the sketch view's select tool, **click a line**: its **length** shows next to it, and you can just **type a number** (Enter applies; a rectangle side is its width or height). Click a **circle's outline**: its **radius**
+shows the same way. **Shift-click a second line**: if the two lines **share a corner**, the **angle** between them shows and you type a number to set it (1° to 179°; the first line stays, the second turns about the corner and keeps its
+length); if they **do not share a corner**, buttons at the bottom offer **Parallel / Perpendicular / Equal length**. Corners: **Fix in place** (one), **Coincident / Same height / Same position across** (two); two circles: **Equal radius**.
+A button that cannot be used is **greyed out and says why on hover**: it would contradict the shape itself (a rectangle's corners are always square, so its sides cannot be made parallel or its corner angle changed), conflicts
+with other constraints, is already true, or would collapse the geometry (a zero-width rectangle, a zero-length line, two lines folded onto each other). A typed number that would do that is refused with the reason, and nothing changes.
+Dimensions with the D tool work as before and add the same kind of constraints. Marks (H, V, =, ∥, ⊥, ●, fix, ∠60°, dimension values) show on the sketch; click one and press Delete to remove that constraint. **Drag** a corner,
+line or circle: the solver keeps every constraint true while it follows the mouse (one undo step on release). A polyline segment drawn exactly horizontal or vertical is remembered as such. The status line shows `[fully constrained]`,
+`[n free]` or `[constraints conflict]`. Constraints go with a sketch into its extrusion (`dec_sketch_belongs_to_step`); ones that linked it to other shapes are released (undo restores them). The solver (`src/solver/solver.mjs`) is pure
+and replaceable (`dec_constraint_solver_small`). Not yet: tangent, point on line, midpoint, symmetric, arcs.
 
 ## How it works (short)
 - `src/viewmath.mjs`: pure math (turntable camera, standard views, ray-plane picking). Unit tested.

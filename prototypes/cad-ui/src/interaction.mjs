@@ -3,8 +3,8 @@
 import { snap, dist, hitEntity, regionsOf, hitRegion } from "./sketch.mjs";
 import { evalExpr } from "./expr.mjs";
 import { dimensionsOf } from "./dimensions.mjs";
-import { solveSketch, dimensionConstraint, sameDimension, anchorsOf, modelOf } from "./sketchsolve.mjs";
-import { elementAt, offersFor, glyphsFor } from "./sketchpick.mjs";
+import { solveSketch, dimensionConstraint, sameDimension, anchorsOf, modelOf, tryConstraint, lengthSpec, angleSpec } from "./sketchsolve.mjs";
+import { elementAt, offersFor, glyphsFor, valueFor } from "./sketchpick.mjs";
 
 const FIELDS = {
   rect: [{ name: "w", label: "W" }, { name: "h", label: "H" }],
@@ -28,6 +28,7 @@ export class SketchSession {
     this.hoverId = null; // dimension tool: the shape under the cursor
     this.picks = []; // select tool: the parts picked (corners, lines, circles, whole shapes) as { kind, ref, shape }
     this.pickedConstraint = null; // a constraint mark that was clicked
+    this.pickEdit = null; // typing a value for the picked line, circle or pair of lines: { text }
     this.preview = null; // while dragging: the shapes as the solver has them now (committed on release)
     this.drag = null;
     this.solveCache = null;
@@ -60,6 +61,7 @@ export class SketchSession {
     this.editKey = null;
     this.picks = [];
     this.pickedConstraint = null;
+    this.pickEdit = null;
     this.preview = null;
     this.drag = null;
     this.tool = "select";
@@ -104,6 +106,7 @@ export class SketchSession {
         return inside ? { kind: "entity", ref: inside.id, shape: inside.id } : null;
       })();
       this.pickedConstraint = null;
+      this.pickEdit = null;
       if (!el) this.picks = [];
       else if (mods.shift && this.picks.length && this.picks[0].kind !== "entity" && el.kind !== "entity") {
         const at = this.picks.findIndex((k) => k.ref === el.ref);
@@ -152,25 +155,87 @@ export class SketchSession {
     return this.preview ?? this.entities();
   }
 
-  /** Constraint buttons that fit the current picks. */
+  /** The two-line picks to watch so a constraint cannot fold them onto each other. */
+  #watch() {
+    const segs = this.picks.filter((k) => k.kind === "seg");
+    return segs.length === 2 ? [[segs[0].ref, segs[1].ref]] : [];
+  }
+
+  /**
+   * Constraint buttons that fit the current picks: [{ label, enabled, reason }]. A button is disabled (with the reason) when the constraint would contradict the shape
+   * or other constraints, is already true, or would collapse or fold the geometry.
+   */
   offers() {
-    return this.tool === "select" ? offersFor(this.picks.filter((k) => k.kind !== "entity")) : [];
+    if (this.tool !== "select") return [];
+    const ents = this.entities();
+    const cons = this.store.constraintsOf(this.key);
+    const model = modelOf(ents);
+    return offersFor(this.picks.filter((k) => k.kind !== "entity")).map((o) => {
+      const t = tryConstraint(ents, cons, o.make(model), { newId: "c_try", watch: this.#watch() });
+      return { label: o.label, enabled: t.ok, reason: t.reason };
+    });
   }
 
   applyOffer(i) {
-    const offer = this.offers()[i];
+    const offer = offersFor(this.picks.filter((k) => k.kind !== "entity"))[i];
     if (!offer) return "Nothing to apply.";
-    const spec = offer.make(modelOf(this.entities()));
-    const id = this.store.newConstraintId();
-    const cons = [...this.store.constraintsOf(this.key).map((c) => ({ ...c })), { id, ...spec }];
-    const before = this.entities();
-    const res = solveSketch(before, cons);
-    if (res.status !== "ok") return `That conflicts with other constraints (${res.conflicts.join(", ") || "they cannot all hold"}). Nothing changed.`;
-    if (res.redundant.includes(id)) return "That is already true of this sketch, so nothing was added.";
-    const changed = res.entities.filter((x, i2) => JSON.stringify(x) !== JSON.stringify(before[i2]));
-    this.store.edit(this.key, { entities: changed, constraints: cons });
+    const ents = this.entities();
+    const spec = offer.make(modelOf(ents));
+    const t = tryConstraint(ents, this.store.constraintsOf(this.key), spec, { newId: this.store.newConstraintId(), watch: this.#watch() });
+    if (!t.ok) return `That cannot be set: ${t.reason}. Nothing changed.`;
+    const changed = t.entities.filter((x, i2) => JSON.stringify(x) !== JSON.stringify(ents[i2]));
+    this.store.edit(this.key, { entities: changed, constraints: t.constraints });
     this.picks = [];
     this.selectedId = null;
+    return null;
+  }
+
+  /** The number that can be typed for the current picks (a line's length, a circle's radius, the angle between two lines at a shared corner), or null. */
+  valueChip() {
+    if (this.tool !== "select") return null;
+    const v = valueFor(this.picks, this.viewEntities());
+    return v ? { ...v, editing: this.pickEdit ? this.pickEdit.text : null } : null;
+  }
+
+  /** Apply the typed value for the picks. Returns a message if it was refused, else null. */
+  #applyValue() {
+    const chip = this.valueChip();
+    if (!chip || !this.pickEdit) return null;
+    const v = evalExpr(this.pickEdit.text);
+    if (!Number.isFinite(v) || !(v > 0)) return "Check the typed number (it must be positive).";
+    const ents = this.entities();
+    const cons = this.store.constraintsOf(this.key);
+    let spec;
+    let replace;
+    let soft = [];
+    let watch = [];
+    if (chip.kind === "length") {
+      spec = lengthSpec(ents, chip.segs[0], v);
+      if (!spec) return "That length cannot be set.";
+      replace = (c) => sameDimension(c, spec);
+      const e = ents.find((x) => x.id === chip.segs[0].slice(0, chip.segs[0].lastIndexOf(".")));
+      const i = Number(chip.segs[0].slice(chip.segs[0].lastIndexOf(".") + 2));
+      soft = anchorsOf(e, e.type === "rect" ? "w" : `s${i}`);
+    } else if (chip.kind === "radius") {
+      spec = { type: "radius", r: `${chip.circle}.r`, value: v };
+      replace = (c) => sameDimension(c, spec);
+      soft = anchorsOf(ents.find((x) => x.id === chip.circle), "d");
+    } else {
+      if (v < 1 || v > 179) return "The angle must be between 1° and 179°.";
+      spec = angleSpec(ents, chip.segs[0], chip.segs[1], v);
+      if (!spec) return "Those lines do not share a corner.";
+      replace = (c) => c.type === "angle" && c.a === spec.a && ((c.b === spec.b && c.d === spec.d) || (c.b === spec.d && c.d === spec.b));
+      watch = [[chip.segs[0], chip.segs[1]]];
+      const pts = modelOf(ents).points;
+      const len = Math.hypot(pts[spec.d][0] - pts[spec.c][0], pts[spec.d][1] - pts[spec.c][1]);
+      // the first line stays and the second turns about the shared corner, keeping its length
+      soft = [{ p: spec.a, at: pts[spec.a].slice(), w: 0.5 }, { p: spec.b, at: pts[spec.b].slice(), w: 0.5 }, { dist: [spec.c, spec.d], d: len, w: 0.5 }];
+    }
+    const t = tryConstraint(ents, cons, spec, { newId: this.store.newConstraintId(), soft, replace, watch });
+    if (!t.ok) return `That cannot be set: ${t.reason}. Nothing changed.`;
+    const changed = t.entities.filter((x, i) => JSON.stringify(x) !== JSON.stringify(ents[i]));
+    this.pickEdit = null;
+    this.store.edit(this.key, { entities: changed, constraints: t.constraints });
     return null;
   }
 
@@ -335,6 +400,15 @@ export class SketchSession {
   // ------------------------------------------------------------ typed sizes
   /** Offer a typed character. Returns true if the session consumed it. */
   type(ch) {
+    if (this.tool === "select") {
+      if (!this.valueChip()) return false;
+      if (!this.pickEdit) {
+        if (!/^[0-9.]$/.test(ch)) return false;
+        this.pickEdit = { text: "" };
+      } else if (!TYPE_ANY.test(ch)) return false;
+      this.pickEdit.text += ch;
+      return true;
+    }
     if (this.tool === "dimension") {
       if (!this.dimTarget()) return false;
       if (!this.dimEdit) {
@@ -355,6 +429,11 @@ export class SketchSession {
   }
 
   backspace() {
+    if (this.tool === "select") {
+      if (!this.pickEdit) return false;
+      this.pickEdit.text = this.pickEdit.text.slice(0, -1);
+      return true;
+    }
     if (this.tool === "dimension") {
       if (!this.dimEdit) return false;
       const t = this.dimEdit.typed;
@@ -392,6 +471,11 @@ export class SketchSession {
 
   /** Enter: commit typed sizes, or finish a polyline. Returns a message if it was refused, true if consumed, else false. */
   enter() {
+    if (this.tool === "select") {
+      if (this.pickEdit && this.pickEdit.text) return this.#applyValue() ?? true;
+      if (this.valueChip()) return ((this.pickEdit = { text: "" }), true); // Enter starts typing a value for what is picked
+      return false;
+    }
     if (this.tool === "dimension") {
       if (this.dimEdit) return this.#commitDimensions();
       return this.dimTarget() ? (this.#startDimEdit(), true) : false;
@@ -417,6 +501,10 @@ export class SketchSession {
 
   /** Esc steps back one level. Returns true if it did something, false if there was nothing left to back out of. */
   escape() {
+    if (this.pickEdit) {
+      this.pickEdit = null;
+      return true;
+    }
     if (this.entry) {
       this.entry = null;
       return true;
@@ -505,7 +593,7 @@ export class SketchSession {
   /** What to show next to the cursor: segments of {label, text, active, typed, invalid}. */
   /** Does the session want typed characters, Backspace, Tab and Enter right now? */
   wantsKeys() {
-    return !!this.draft || (this.tool === "dimension" && !!this.dimTarget());
+    return !!this.draft || (this.tool === "dimension" && !!this.dimTarget()) || (this.tool === "select" && !!this.valueChip());
   }
 
   readout() {
@@ -533,6 +621,8 @@ export class SketchSession {
     if (this.tool === "rect") return n ? `Click the opposite corner${typing}` : "Rectangle: click the first corner.";
     if (this.tool === "circle") return n ? `Click to set the size${typing}` : "Circle: click the centre.";
     if (this.tool === "line") return n ? `Click the next point; click the first point to close; Enter to finish${typing}` : "Line: click the first point.";
-    return this.selectedId ? "Selected. Delete removes it." : "Select: click a shape. R rectangle, C circle, L line.";
+    const chip = this.valueChip();
+    if (chip) return `${chip.kind === "length" ? "Type a number to set this line's length" : chip.kind === "radius" ? "Type a number to set the radius" : "Type a number to set the angle between these lines"}. Shift-click another line for relationships.`;
+    return this.selectedId ? "Selected. Delete removes it." : "Select: click a shape or a line. R rectangle, C circle, L line.";
   }
 }

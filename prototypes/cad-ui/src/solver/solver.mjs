@@ -7,6 +7,7 @@
 //   distance {a, b, d}       |ab| = d                    hdist / vdist {a, b, d}  (b - a) along x / y = d (signed)
 //   equalLength {a, b, c, d} |ab| = |cd|                 parallel {a, b, c, d}    ab || cd      perpendicular {a, b, c, d}  ab _|_ cd
 //   radius {r, value}        scalar r = value            equalRadius {r, s}       r = s
+//   angle {a, b, c, d, value} the angle from ab to cd (signed, radians) equals value
 // The solver moves everything the least it can to satisfy the constraints (Levenberg-Marquardt from the current positions).
 // Result: { status: "ok" | "conflict", points, scalars, dof, redundant: [ids], conflicts: [ids], residual, iterations }
 //   dof = how many independent directions are still free (0 = fully constrained; a whole sketch that can slide counts too).
@@ -68,6 +69,13 @@ function residualsOf(c, x, index) {
       const u = dir(c.a, c.b);
       const v = dir(c.c, c.d);
       return [((u[0] * v[0] + u[1] * v[1]) / (u[2] * v[2])) * w];
+    }
+    case "angle": {
+      const u = dir(c.a, c.b);
+      const v = dir(c.c, c.d);
+      let diff = Math.atan2(u[0] * v[1] - u[1] * v[0], u[0] * v[0] + u[1] * v[1]) - c.value;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff)); // wrap into (-pi, pi]
+      return [diff * w];
     }
     case "radius": return [(S(c.r) - c.value) * w];
     case "equalRadius": return [(S(c.r) - S(c.s)) * w];

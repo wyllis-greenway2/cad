@@ -85,6 +85,10 @@ step in the history. Partial round faces, slanted faces, corners and moving line
 (an undoable step). **R rotates** (replacing T): a body, a flat face (tilt) or a round face (taper); with nothing selected R is still the rectangle tool, and in the sketch view it is always
 the rectangle. A flat face at **any angle** can be selected, moved along its own normal, tilted further and sketched on (the view goes square to it).
 
+**Sketch constraints by direct manipulation (`in_052`, the human's design):** clicking a line shows its length for typing; two lines sharing a corner show their angle for typing; two lines not sharing a corner offer parallel
+and perpendicular; relationships that would collapse the geometry or contradict the shape (for example making the sides of a square parallel) are not allowed: their buttons are disabled with the reason, and typed values that
+would do it are refused. Built (`prototypes/cad-ui`, tests in `test/lineui.test.mjs`).
+
 ## Rationale
 The human asked for navigation, a few hotkeys plus undo and redo, the sketch-finish-extrude workflow with a history
 list, and typing a number to be done right, and said Shapr3D (their only well-liked program) is a reference but

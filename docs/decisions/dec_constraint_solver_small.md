@@ -21,7 +21,7 @@ Shape of it (not built yet):
 
 **Built (`in_051`)** in `prototypes/cad-ui/src/solver/solver.mjs` (pure; Levenberg-Marquardt with a numeric Jacobian, rank check for degrees of freedom and redundant constraints, leave-one-out search for the constraints in a
 conflict) and `src/sketchsolve.mjs` (maps rectangles, circles and polylines to it; a rectangle carries built-in horizontal and vertical constraints). Constraints so far: fixed point, coincident, horizontal, vertical,
-distance, horizontal and vertical distance, equal length, equal radius, radius, parallel, perpendicular. Not yet: angle, tangent, point on line, midpoint, symmetric, arcs. The interface is `solve(system, constraints)`
+distance, horizontal and vertical distance, equal length, equal radius, radius, parallel, perpendicular, angle (added in `in_052`). Not yet: tangent, point on line, midpoint, symmetric, arcs. The interface is `solve(system, constraints)`
 and `solveSketch(shapes, constraints, soft)`; nothing else knows how it works.
 
 ## Rationale

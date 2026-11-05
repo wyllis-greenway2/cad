@@ -84,3 +84,14 @@ test("a soft preference (dragging) loses to hard constraints but is followed whe
   near(r.points.b[1], 0, 1e-6); // the horizontal constraint won
   near(r.points.b[0], 25, 1e-3); // along the free direction it followed the mouse
 });
+
+test("angle: two lines from a shared corner at a set angle (signed), nearest to where they were", () => {
+  const sys = { points: { o: [0, 0], a: [10, 0], b: [4, 7] }, scalars: {} };
+  const hold = [{ id: "f", type: "fixed", p: "o", at: [0, 0] }, { id: "g", type: "fixed", p: "a", at: [10, 0] }];
+  const r = solve(sys, [...hold, { id: "ang", type: "angle", a: "o", b: "a", c: "o", d: "b", value: Math.PI / 3 }]);
+  assert.equal(r.status, "ok");
+  near(Math.atan2(r.points.b[1], r.points.b[0]), Math.PI / 3, 1e-6); // 60 degrees above the first line
+  assert.ok(r.points.b[1] > 0);
+  const neg = solve(sys, [...hold, { id: "ang", type: "angle", a: "o", b: "a", c: "o", d: "b", value: -Math.PI / 3 }]);
+  assert.ok(neg.points.b[1] < 0); // a negative angle puts it on the other side
+});

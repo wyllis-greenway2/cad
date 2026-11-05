@@ -360,3 +360,8 @@ Answer to the grid question (option 1, the grid is an interface feature only).
 Go-ahead for the build order I suggested: consume sketches first, then constraints, plus polish on sketching.
 
 > yes, start with consume sketches, then lets build constraints and work on polishing sketching
+
+## in_052 — 2026-11-04 — directive
+Direction for making sketch constraints more direct and intuitive: values on picked lines and angles, relationships for two lines, and refusing any that would collapse the geometry.
+
+> okay lets make the sketching more UI intuitive. How about we have it so that if you click on a line, it shows you the lines length, and you can input a value to set it. If you select two lines sharing a vertice, it shows you the angle between them and allows you to set it. If you select two lines not sharing a vertice, you can set relationship of perpendicular, or parallel. You shouldn't be able to set relationships that will collapse the geometry. Like for example setting perpendicular lines on a square to be parallel.
