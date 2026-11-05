@@ -3,7 +3,7 @@
 // never ask where a part came from.
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
-import { length, add, scale } from "../math/vec.ts";
+import { length, add, scale, sub, dot, cross } from "../math/vec.ts";
 
 export type Kind = "corner" | "line" | "circle" | "face" | "plane" | "axis" | "body";
 export type Origin = "drawn" | "body" | "world";
@@ -19,8 +19,10 @@ interface Base {
 export interface Corner extends Base { kind: "corner"; at: Vec3 }
 export interface Line extends Base { kind: "line"; a: Ref; b: Ref; /** a point halfway along a curved edge (body edges only; straight lines omit it) */ mid?: Vec3 }
 export interface Circle extends Base { kind: "circle"; center: Ref; radius: number }
-export interface Face extends Base { kind: "face"; loop: Ref[] }
-export interface Plane extends Base { kind: "plane"; at: Vec3; u: Vec3; v: Vec3 }
+/** A derived face of drawn lines: a closed loop (its lines and, in order, its corners), or a disk (a circle). Rebuilt from the lines; never saved. */
+export interface Face extends Base { kind: "face"; loop: Ref[]; corners: Ref[]; disk?: Ref }
+/** A plane you can look at, select and draw on. `extent`: a world plane is a square pane from `at` to `at + extent` along u and v. `mesh`: a flat face of the body, as triangles (flat xyz). */
+export interface Plane extends Base { kind: "plane"; at: Vec3; u: Vec3; v: Vec3; extent?: number; mesh?: readonly number[] }
 export interface Axis extends Base { kind: "axis"; at: Vec3; dir: Vec3 }
 export interface Body extends Base { kind: "body" }
 export type Part = Corner | Line | Circle | Face | Plane | Axis | Body;
@@ -60,6 +62,8 @@ export interface PointerView {
   x: number;
   y: number;
   project: (p: Vec3) => [number, number];
+  /** The ray under the pointer (origin and unit direction), for surfaces. */
+  ray?: { o: Vec3; d: Vec3 };
 }
 /** What to draw for a part (the view reads this and knows no kinds). */
 export type Outline =
@@ -71,6 +75,8 @@ export type Outline =
 export interface KindOps<P extends Part> {
   /** Distance in pixels from the pointer to the part, or null if it cannot be hit (missing geometry). */
   hit(get: Lookup, part: P, pointer: PointerView): number | null;
+  /** For surfaces: how far along the pointer's ray the part is hit (nearer is smaller), or null if the ray misses it. */
+  depth?(get: Lookup, part: P, pointer: PointerView): number | null;
   outline(get: Lookup, part: P): Outline;
   /** The corners the part contains or is made of (so a relation on a line also touches its corners). */
   anchors(part: P): Ref[];
@@ -126,6 +132,85 @@ const circleOps: KindOps<Circle> = {
   },
   anchors: (part) => [part.center],
 };
+
+// ---- surfaces ----
+const rayPlane = (pv: PointerView, at: Vec3, n: Vec3): number | null => {
+  if (!pv.ray) return null;
+  const den = dot(n, pv.ray.d);
+  if (Math.abs(den) < 1e-9) return null;
+  const t = dot(n, sub(at, pv.ray.o)) / den;
+  return t > 0 ? t : null;
+};
+const pointAt = (pv: PointerView, t: number): Vec3 => add(pv.ray!.o, scale(pv.ray!.d, t));
+const inPolygon = (q: [number, number], poly: [number, number][]): boolean => {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [a, b] = [poly[i]!, poly[j]!];
+    if (a[1] > q[1] !== b[1] > q[1] && q[0] < ((b[0] - a[0]) * (q[1] - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
+  }
+  return inside;
+};
+/** Moller-Trumbore: the distance along the ray to a triangle, or null. */
+function rayTriangle(o: Vec3, d: Vec3, a: Vec3, b: Vec3, c: Vec3): number | null {
+  const e1 = sub(b, a);
+  const e2 = sub(c, a);
+  const h = cross(d, e2);
+  const det = dot(e1, h);
+  if (Math.abs(det) < 1e-12) return null;
+  const f = 1 / det;
+  const s = sub(o, a);
+  const u = f * dot(s, h);
+  if (u < 0 || u > 1) return null;
+  const q = cross(s, e1);
+  const v = f * dot(d, q);
+  if (v < 0 || u + v > 1) return null;
+  const t = f * dot(e2, q);
+  return t > 1e-9 ? t : null;
+}
+const planeOps: KindOps<Plane> = {
+  hit: (get, part, pv) => (planeOps.depth!(get, part, pv) === null ? null : 0),
+  depth: (_g, part, pv) => {
+    if (!pv.ray) return null;
+    if (part.mesh) {
+      let best: number | null = null;
+      const m = part.mesh;
+      for (let i = 0; i + 8 < m.length; i += 9) {
+        const t = rayTriangle(pv.ray.o, pv.ray.d, [m[i]!, m[i + 1]!, m[i + 2]!], [m[i + 3]!, m[i + 4]!, m[i + 5]!], [m[i + 6]!, m[i + 7]!, m[i + 8]!]);
+        if (t !== null && (best === null || t < best)) best = t;
+      }
+      return best;
+    }
+    if (part.extent === undefined) return null;
+    const t = rayPlane(pv, part.at, normalOfPlane(part));
+    if (t === null) return null;
+    const d = sub(pointAt(pv, t), part.at);
+    const [x, y] = [dot(d, part.u), dot(d, part.v)];
+    return x >= 0 && x <= part.extent && y >= 0 && y <= part.extent ? t : null;
+  },
+  outline: () => ({ shape: "none" }),
+  anchors: () => [],
+};
+const faceOps: KindOps<Face> = {
+  hit: (get, part, pv) => (faceOps.depth!(get, part, pv) === null ? null : 0),
+  depth: (get, part, pv) => {
+    const pl = part.plane ? get(part.plane) : undefined;
+    if (!pl || pl.kind !== "plane") return null;
+    const t = rayPlane(pv, pl.at, normalOfPlane(pl));
+    if (t === null) return null;
+    const d = sub(pointAt(pv, t), pl.at);
+    const q: [number, number] = [dot(d, pl.u), dot(d, pl.v)];
+    if (part.disk) {
+      const c = circleOf(get, part.disk);
+      if (!c) return null;
+      const cd = sub(c.center, pl.at);
+      return Math.hypot(q[0] - dot(cd, pl.u), q[1] - dot(cd, pl.v)) <= c.radius ? t : null;
+    }
+    const poly = part.corners.map((r) => pointOf(get, r)).filter((p): p is Vec3 => !!p).map((p): [number, number] => [dot(sub(p, pl.at), pl.u), dot(sub(p, pl.at), pl.v)]);
+    return poly.length >= 3 && inPolygon(q, poly) ? t : null;
+  },
+  outline: () => ({ shape: "none" }),
+  anchors: (part) => part.corners,
+};
 const noOps: KindOps<Part> = { hit: () => null, outline: () => ({ shape: "none" }), anchors: () => [] };
 
 /** The registry: one entry per kind. Adding a kind means adding a row here; no other code changes. */
@@ -133,13 +218,14 @@ export const REGISTRY: { [K in Kind]: KindOps<Extract<Part, { kind: K }>> } = {
   corner: cornerOps,
   line: lineOps,
   circle: circleOps,
-  face: noOps as KindOps<Face>,
-  plane: noOps as KindOps<Plane>,
+  face: faceOps,
+  plane: planeOps,
   axis: noOps as KindOps<Axis>,
   body: noOps as KindOps<Body>,
 };
 const ops = (p: Part): KindOps<Part> => REGISTRY[p.kind] as KindOps<Part>;
 export const hitPart = (get: Lookup, p: Part, pv: PointerView) => ops(p).hit(get, p, pv);
+export const depthOf = (get: Lookup, p: Part, pv: PointerView): number | null => ops(p).depth?.(get, p, pv) ?? null;
 export const outlineOf = (get: Lookup, p: Part) => ops(p).outline(get, p);
 export const anchorsOf = (p: Part): Ref[] => ops(p).anchors(p);
 

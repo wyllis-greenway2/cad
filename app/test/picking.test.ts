@@ -1,0 +1,128 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { worldRef } from "../src/shared/ref.ts";
+import type { Ref } from "../src/shared/ref.ts";
+import type { Vec3 } from "../src/math/vec.ts";
+import type { PointerView } from "../src/operation/part.ts";
+import { newHistory, exec } from "../src/operation/history.ts";
+import type { History } from "../src/operation/history.ts";
+import { drawRectangle, drawCircle } from "../src/operation/build.ts";
+import { nextId, toJSON, withDerived } from "../src/operation/scene.ts";
+import type { Scene } from "../src/operation/scene.ts";
+import { candidatesAt, refsAt, hoverAt } from "../src/interaction/picking.ts";
+import { click, initialClick } from "../src/interaction/selection.ts";
+import { kernel } from "../src/compiler/kernel/index.ts";
+import { compile } from "../src/compiler/compile.ts";
+
+await kernel.init();
+const XY = worldRef("XY");
+const must = (r: ReturnType<typeof exec>): History => {
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  return r.value;
+};
+/** Looking straight down the Z axis, 1 pixel = 1 mm, y up on the screen. */
+const top = (x: number, y: number): PointerView => ({ x, y: -y, project: (p: Vec3) => [p[0], -p[1]], ray: { o: [x, y, 500], d: [0, 0, -1] } });
+/** Looking along +Y (a side view): screen x = world x, screen y = -z. */
+const front = (x: number, z: number): PointerView => ({ x, y: -z, project: (p: Vec3) => [p[0], -p[2]], ray: { o: [x, -500, z], d: [0, 1, 0] } });
+
+function box(w = 40, d = 20) {
+  const r = drawRectangle(newHistory().scene, XY, [-w / 2, -d / 2, 0], [w / 2, d / 2, 0], [1, 0, 0], [0, 1, 0]);
+  let h = must(exec(newHistory(), r.command));
+  h = must(exec(h, { type: "addStep", step: { id: nextId(h.scene, "s"), type: "extrude", parts: r.lines, params: { depth: 20 } } }));
+  return { h, ...r, scene: compile(h.scene, kernel).scene };
+}
+
+test("a closed loop of lines is a face, a circle is a disk; faces are derived and never saved", () => {
+  const r = drawRectangle(newHistory().scene, XY, [0, 0, 0], [10, 6, 0], [1, 0, 0], [0, 1, 0]);
+  let h = must(exec(newHistory(), r.command));
+  const c = drawCircle(h.scene, XY, [30, 0, 0], 4);
+  h = must(exec(h, c.command));
+  const s = withDerived(h.scene);
+  const faces = Object.values(s.parts).filter((p) => p.kind === "face");
+  assert.equal(faces.length, 2);
+  assert.equal(toJSON(s).parts.filter((p) => p.kind === "face").length, 0);
+  const open = drawRectangle(h.scene, XY, [50, 0, 0], [60, 5, 0], [1, 0, 0], [0, 1, 0]);
+  const h2 = must(exec(h, { type: "batch", commands: [open.command, { type: "deletePart", ref: open.lines[3]! }] }));
+  assert.equal(Object.values(withDerived(h2.scene).parts).filter((p) => p.kind === "face").length, 2, "an open chain is not a face");
+});
+
+test("order: corners, then lines, then faces and planes; nearest first within each", () => {
+  const r = drawRectangle(newHistory().scene, XY, [-40, -30, 0], [40, 30, 0], [1, 0, 0], [0, 1, 0]);
+  const scene = withDerived(must(exec(newHistory(), r.command)).scene);
+  const at = (x: number, y: number) => candidatesAt(scene, top(x, y));
+  assert.equal(at(-40, -30)[0]!.kind, "corner");
+  assert.equal(at(-40, -30)[0]!.ref, r.corners[0]);
+  const onLine = at(5, -30);
+  const rank = { corner: 0, line: 1, face: 2, plane: 2 } as Record<string, number>;
+  assert.deepEqual(onLine.map((c) => rank[c.kind]), [...onLine.map((c) => rank[c.kind])].sort(), "corners, lines, then surfaces");
+  assert.equal(onLine[0]!.ref, r.lines[0]);
+  assert.equal(at(15, 10)[0]!.kind, "face", "inside the shape: the face, ahead of the world pane under it");
+  assert.equal(at(15, 10)[1]!.ref, XY);
+  assert.deepEqual(at(500, 500), []);
+});
+
+test("exactly overlapping corners are all candidates, and repeated clicks cycle through them with 'i of n'", () => {
+  const { scene } = box();
+  const c = candidatesAt(scene, top(20, 10)).filter((x) => x.kind === "corner").map((x) => x.ref);
+  assert.equal(c.length, 3, "the drawn corner and the body corners above and below it: seen from above they coincide");
+  let st = initialClick();
+  const seen: Ref[] = [];
+  let msg = "";
+  for (let i = 0; i < 4; i++) {
+    const r = click(st, refsAt(scene, top(20, 10)));
+    st = r.state;
+    seen.push(st.selection[0]!);
+    msg = r.cycled ? `${r.cycled.index} of ${r.cycled.of}` : msg;
+  }
+  assert.equal(new Set(seen.slice(0, 3)).size > 1, true);
+  assert.match(msg, /of/);
+});
+
+test("a body face is hit through its triangles: the nearer face wins, and the hole of a face is not hit", () => {
+  const { scene } = box();
+  const hit = candidatesAt(scene, top(0, 0)).filter((c) => c.kind === "plane");
+  const topFace = Object.values(scene.parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20)!;
+  assert.equal(hit[0]!.ref, topFace.ref, "seen from above, the top face is nearer than the bottom face");
+  assert.ok(hit.length >= 3, "top, bottom and the world pane");
+  assert.equal(candidatesAt(scene, top(60, 0)).length, 0, "outside the body nothing is hit");
+  const side = candidatesAt(scene, front(0, 10)).filter((c) => c.kind === "plane");
+  assert.equal(side[0]!.ref.includes("f@"), true);
+});
+
+test("drawn parts on a body face are picked as easily as the body's own", () => {
+  let { h, scene } = box(80, 60);
+  const topFace = Object.values(scene.parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20)!;
+  h = must(exec(h, { type: "addPart", part: topFace })); // a drawn part names the plane it lies on
+  const r = drawRectangle(h.scene, topFace.ref, [-30, -20, 20], [30, 20, 20], [1, 0, 0], [0, 1, 0]);
+  h = must(exec(h, r.command));
+  scene = compile(h.scene, kernel).scene;
+  assert.equal(hoverAt(scene, top(-30, -20)), r.corners[0], "the small corner, not the face or the body under it");
+  assert.equal(hoverAt(scene, top(-7, -20)), r.lines[0]);
+  const inside = refsAt(scene, top(12, 0));
+  assert.equal(scene.parts[inside[0]!]!.kind, "face");
+  assert.equal(scene.parts[inside[0]!]!.origin, "drawn", "the small shape's face is ahead of the big top face under it");
+});
+
+test("a circle: its ring is a line-class candidate, its inside is a disk", () => {
+  const c = drawCircle(newHistory().scene, XY, [0, 0, 0], 25);
+  const scene = withDerived(must(exec(newHistory(), c.command)).scene);
+  assert.equal(hoverAt(scene, top(25, 0)), c.circle);
+  assert.equal(hoverAt(scene, top(0, 0)), c.centre, "the centre is a corner");
+  assert.equal(scene.parts[hoverAt(scene, top(10, 8))!]!.kind, "face");
+});
+
+test("a click on nothing lets go of everything", () => {
+  const { scene } = box();
+  let r = click(initialClick(), refsAt(scene, top(20, -10)));
+  assert.ok(r.state.selection.length === 1);
+  r = click(r.state, refsAt(scene, top(300, 300)));
+  assert.deepEqual(r.state.selection, []);
+});
+
+test("the pane of a world plane can be hit from either side", () => {
+  const scene: Scene = withDerived(newHistory().scene);
+  const above = candidatesAt(scene, top(15, 15));
+  assert.equal(above[0]!.ref, XY);
+  const below = candidatesAt(scene, { x: 15, y: -15, project: (p) => [p[0], -p[1]], ray: { o: [15, 15, -500], d: [0, 0, 1] } });
+  assert.equal(below[0]!.ref, XY);
+});

@@ -47,7 +47,16 @@ export function bodyParts(result: KernelResult): Part[] {
     const helper: Vec3 = Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
     const u = normalize(cross(helper, n));
     const v = cross(n, u);
-    out.push({ ...base, ref: faceName(n, f.d), kind: "plane", at: [n[0] * f.d, n[1] * f.d, n[2] * f.d], u, v });
+    const mesh: number[] = [];
+    const m = result.mesh;
+    if (m) {
+      // the triangles of this face (start and count are ranges into the index list)
+      for (let i = f.start; i < f.start + f.count; i++) {
+        const ix = m.triangles[i]!;
+        mesh.push(m.vertices[ix * 3]!, m.vertices[ix * 3 + 1]!, m.vertices[ix * 3 + 2]!);
+      }
+    }
+    out.push({ ...base, ref: faceName(n, f.d), kind: "plane", at: [n[0] * f.d, n[1] * f.d, n[2] * f.d], u, v, ...(mesh.length ? { mesh } : {}) });
   }
   return out;
 }

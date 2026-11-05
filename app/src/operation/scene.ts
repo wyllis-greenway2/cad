@@ -4,6 +4,7 @@ import type { Ref } from "../shared/ref.ts";
 import { worldRef, formatId } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Part, Lookup } from "./part.ts";
+import { derivedFaces } from "./loops.ts";
 
 /** A relation between parts. `parts` are in selection order: the first moves, the second is the reference (`in_090`). `kind` is a row id of the actions table. */
 export interface Relation {
@@ -34,6 +35,8 @@ const X: Vec3 = [1, 0, 0];
 const Y: Vec3 = [0, 1, 0];
 const Z: Vec3 = [0, 0, 1];
 const O: Vec3 = [0, 0, 0];
+/** The side of a world plane's pane (mm), from the origin along its two axes: the little squares you select a world plane by. */
+export const PANE = 20;
 
 /** The world: the three planes, the three axes and the origin. Always references (origin "world", not movable). */
 export function worldParts(): Part[] {
@@ -44,9 +47,9 @@ export function worldParts(): Part[] {
     { ...base, ref: w("X"), kind: "axis", at: O, dir: X },
     { ...base, ref: w("Y"), kind: "axis", at: O, dir: Y },
     { ...base, ref: w("Z"), kind: "axis", at: O, dir: Z },
-    { ...base, ref: w("XY"), kind: "plane", at: O, u: X, v: Y }, // normal +Z
-    { ...base, ref: w("XZ"), kind: "plane", at: O, u: X, v: Z }, // normal -Y
-    { ...base, ref: w("YZ"), kind: "plane", at: O, u: Y, v: Z }, // normal +X
+    { ...base, ref: w("XY"), kind: "plane", at: O, u: X, v: Y, extent: PANE }, // normal +Z
+    { ...base, ref: w("XZ"), kind: "plane", at: O, u: X, v: Z, extent: PANE }, // normal -Y
+    { ...base, ref: w("YZ"), kind: "plane", at: O, u: Y, v: Z, extent: PANE }, // normal +X
   ];
 }
 
@@ -79,7 +82,7 @@ export function toJSON(s: Scene): SceneJson {
   return {
     version: 1,
     counter: s.counter,
-    parts: Object.values(s.parts).filter((p) => p.origin === "drawn"),
+    parts: Object.values(s.parts).filter((p) => p.origin === "drawn" && p.kind !== "face"), // faces are derived
     relations: [...s.relations],
     steps: [...s.steps],
   };
@@ -97,5 +100,13 @@ export function withBody(s: Scene, body: readonly Part[]): Scene {
   const parts: Record<string, Part> = {};
   for (const p of Object.values(s.parts)) if (p.origin !== "body") parts[p.ref] = p;
   for (const p of body) parts[p.ref] = p;
+  return { ...s, parts };
+}
+
+/** The scene with its derived faces (closed loops, disks) rebuilt. */
+export function withDerived(s: Scene): Scene {
+  const parts: Record<string, Part> = {};
+  for (const p of Object.values(s.parts)) if (p.kind !== "face") parts[p.ref] = p;
+  for (const f of derivedFaces({ ...s, parts })) parts[f.ref] = f;
   return { ...s, parts };
 }

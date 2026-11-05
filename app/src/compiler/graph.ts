@@ -5,30 +5,14 @@ import type { Vec3 } from "../math/vec.ts";
 import { normalize, sub } from "../math/vec.ts";
 import type { Scene, Step } from "../operation/scene.ts";
 import { lookup } from "../operation/scene.ts";
-import type { Lookup, Plane } from "../operation/part.ts";
+import type { Plane } from "../operation/part.ts";
 import { normalOfPlane, pointOf } from "../operation/part.ts";
 import type { KernelGraph, KernelOp } from "./kernel/adapter.ts";
 import { decodeEdge } from "./body.ts";
+import { loopOf } from "../operation/loops.ts";
+export { loopOf };
 
 export interface GraphResult { graph: KernelGraph; errors: Record<string, string> }
-
-/** Order the lines into one closed loop of corners, or say why not. */
-export function loopOf(get: Lookup, lines: readonly Ref[]): { ok: true; corners: Ref[] } | { ok: false; error: string } {
-  const segs = lines.map((r) => get(r)).filter((p): p is Extract<NonNullable<ReturnType<Lookup>>, { kind: "line" }> => p?.kind === "line");
-  if (!segs.length || segs.length !== lines.length) return { ok: false, error: "select lines to extrude" };
-  const used = new Set<number>();
-  const corners: Ref[] = [segs[0]!.a];
-  let cur = segs[0]!.b;
-  used.add(0);
-  while (cur !== corners[0]) {
-    corners.push(cur);
-    const next = segs.findIndex((s, i) => !used.has(i) && (s.a === cur || s.b === cur));
-    if (next < 0) return { ok: false, error: "the lines do not make a closed shape" };
-    used.add(next);
-    cur = segs[next]!.a === cur ? segs[next]!.b : segs[next]!.a;
-  }
-  return used.size === segs.length ? { ok: true, corners } : { ok: false, error: "the lines make more than one shape" };
-}
 
 const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
 const frameOf = (pl: Plane) => ({ origin: [...pl.at], xDir: [...normalize(pl.u)], normal: [...normalOfPlane(pl)] });
