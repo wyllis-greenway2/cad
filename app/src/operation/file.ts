@@ -16,7 +16,7 @@ export interface ProjectFile {
   cursor: number;
 }
 
-export const toFile = (h: History): ProjectFile => ({ format: "cad-project", version: 1, base: toJSON(h.base), commands: [...h.commands], cursor: h.cursor });
+const toFile = (h: History): ProjectFile => ({ format: "cad-project", version: 1, base: toJSON(h.base), commands: [...h.commands], cursor: h.cursor });
 
 /** Read a project from text, replaying its commands through `derive` (the compiler). A file that is not ours, or does not replay, is refused with the reason. */
 export function fromText(text: string, derive: (s: Scene) => Scene): Result<History> {

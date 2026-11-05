@@ -216,7 +216,7 @@ const faceOps: KindOps<Face> = {
 const noOps: KindOps<Part> = { hit: () => null, outline: () => ({ shape: "none" }), anchors: () => [] };
 
 /** The registry: one entry per kind. Adding a kind means adding a row here; no other code changes. */
-export const REGISTRY: { [K in Kind]: KindOps<Extract<Part, { kind: K }>> } = {
+const REGISTRY: { [K in Kind]: KindOps<Extract<Part, { kind: K }>> } = {
   corner: cornerOps,
   line: lineOps,
   circle: circleOps,

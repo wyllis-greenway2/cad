@@ -8,7 +8,7 @@ import { attachInput } from "./platform/dom-input.ts";
 import { createRecognizer } from "./interaction/recognizer.ts";
 import { createSession, openSession, saveText, run, scene, selection } from "./interaction/session.ts";
 import type { Session } from "./interaction/session.ts";
-import { webFiles } from "./platform/web-files.ts";
+import { webFiles, webStore } from "./platform/web-files.ts";
 import { createState, reduce, advance } from "./interaction/controller.ts";
 import type { AppState } from "./interaction/controller.ts";
 import { projector } from "./interaction/camera.ts";
@@ -43,10 +43,8 @@ let state: AppState;
 let dirty = true;
 
 const SCROLL_KEY = "cad.scrollMode";
-try {
-  const saved = localStorage.getItem(SCROLL_KEY);
-  if (saved === "auto" || saved === "pan" || saved === "zoom") recognizer.setScrollMode(saved);
-} catch { /* storage may be unavailable */ }
+const savedScroll = webStore.get(SCROLL_KEY);
+if (savedScroll === "auto" || savedScroll === "pan" || savedScroll === "zoom") recognizer.setScrollMode(savedScroll);
 const SCROLL_NEXT = { auto: "pan", pan: "zoom", zoom: "auto" } as const;
 const SCROLL_LABEL = { auto: "Scroll: trackpad pans, wheel zooms", pan: "Scroll: always pans", zoom: "Scroll: always zooms" } as const;
 
@@ -54,7 +52,7 @@ const menu = createMenu(document.body, (id) => {
   if (id === "scrollMode") {
     const next = SCROLL_NEXT[recognizer.scrollMode];
     recognizer.setScrollMode(next);
-    try { localStorage.setItem(SCROLL_KEY, next); } catch { /* ignore */ }
+    webStore.set(SCROLL_KEY, next);
     menu.hide();
     return;
   }

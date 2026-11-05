@@ -33,7 +33,7 @@ export const armTool = (kind: ToolKind): Tool => ({ kind, plane: null, points: [
 export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"] };
 
 // ---- points on a plane ----
-export function pointOnPlane(pv: PointerView, pl: Plane): Vec3 | null {
+function pointOnPlane(pv: PointerView, pl: Plane): Vec3 | null {
   if (!pv.ray) return null;
   const n = normalOfPlane(pl);
   const den = dot(n, pv.ray.d);
@@ -42,7 +42,7 @@ export function pointOnPlane(pv: PointerView, pl: Plane): Vec3 | null {
   return t > 0 ? add(pv.ray.o, scale(pv.ray.d, t)) : null;
 }
 export const localOf = (pl: Plane, p: Vec3): [number, number] => [dot(sub(p, pl.at), pl.u), dot(sub(p, pl.at), pl.v)];
-export const liftOf = (pl: Plane, [x, y]: readonly [number, number]): Vec3 => add(pl.at, add(scale(pl.u, x), scale(pl.v, y)));
+const liftOf = (pl: Plane, [x, y]: readonly [number, number]): Vec3 => add(pl.at, add(scale(pl.u, x), scale(pl.v, y)));
 const round = (v: number, step: number) => Math.round(v / step) * step;
 
 /**
@@ -80,7 +80,7 @@ export function typeKey(t: Tool, key: string): Tool {
   const typed: [string, string] = t.field === 0 ? [next, t.typed[1]] : [t.typed[0], next];
   return { ...t, typed };
 }
-export const typedValues = (t: Tool): [number | null, number | null] => [num(t.typed[0]), num(t.typed[1])];
+const typedValues = (t: Tool): [number | null, number | null] => [num(t.typed[0]), num(t.typed[1])];
 
 // ---- the figure being drawn ----
 /** The second corner of a rectangle from the first, the cursor and typed sizes (a typed size keeps the side the cursor is on). */

@@ -134,6 +134,7 @@ test("delete the body: select the object, Delete: the body goes as one step you 
   st = reduce(st, { type: "delete" }, env);
   assert.ok(!Object.values(scene(st.session).parts).some((p) => p.kind === "body"), "no body any more");
   assert.ok(drawnParts(st) > 0, "the rectangle is still there");
+  assert.equal(consumed(scene(st.session)).size, 0, "and shows again, since the body it made is gone");
   st = { ...st, session: undoLast(st.session) };
   assert.ok(Object.values(scene(st.session).parts).some((p) => p.kind === "body"), "undo brings the body back");
 });

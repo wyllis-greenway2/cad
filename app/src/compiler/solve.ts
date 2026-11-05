@@ -51,25 +51,33 @@ class Frame {
   }
 }
 
-/** Build and solve the system of one plane. Returns the new 2D positions of its variable corners. */
-function solvePlane(scene: Scene, get: Lookup, plane: Plane, rels: Relation[]) {
-  const f = new Frame(plane);
+/** The 2D system of one plane being built: the corners that can move, the fixed virtual copies of everything else, and the constraints. */
+interface Model {
+  frame: Frame;
+  get: Lookup;
+  points: Record<string, [number, number]>;
+  scalars: Record<string, number>;
+  cons: SolverConstraint[];
+  variable: Set<Ref>;
+  cornerId(ref: Ref): string | null;
+  lineIds(ref: Ref): [string, string] | null;
+  radiusId(ref: Ref): string | null;
+}
+
+function newModel(get: Lookup, plane: Plane): Model {
+  const frame = new Frame(plane);
   const points: Record<string, [number, number]> = {};
   const scalars: Record<string, number> = {};
   const cons: SolverConstraint[] = [];
   const variable = new Set<Ref>();
-  const virtual = new Set<Ref>();
-
   const cornerId = (ref: Ref): string | null => {
     const p = get(ref);
     if (!p || p.kind !== "corner") return null;
     if (!(ref in points)) {
-      points[ref] = f.to2d(p.at);
+      points[ref] = frame.to2d(p.at);
+      // a corner of this plane can move; any other (a body corner, a world part, a part on another plane) is a fixed virtual copy at its projection
       if (p.movable && p.plane === plane.ref) variable.add(ref);
-      else {
-        virtual.add(ref);
-        cons.push({ id: `~v:${ref}`, type: "fixed", p: ref, at: points[ref] });
-      }
+      else cons.push({ id: `~v:${ref}`, type: "fixed", p: ref, at: points[ref] });
     }
     return ref;
   };
@@ -87,79 +95,79 @@ function solvePlane(scene: Scene, get: Lookup, plane: Plane, rels: Relation[]) {
     scalars[ref] = c.radius;
     return ref;
   };
+  return { frame, get, points, scalars, cons, variable, cornerId, lineIds, radiusId };
+}
 
-  const kindOf = (r: Ref) => get(r)?.kind;
-  let softN = 0;
+/** The solver constraint a relation means, or null if it cannot be made (a part is missing, a number is not set). */
+function constraintFor(m: Model, rel: Relation): Omit<SolverConstraint, "id"> | null {
+  const kindOf = (r: Ref) => m.get(r)?.kind;
+  const ofKind = (k: "corner" | "line" | "circle") => rel.parts.filter((p) => kindOf(p) === k);
+  const [c1, c2] = ofKind("corner");
+  const [l1, l2] = ofKind("line");
+  const [k1, k2] = ofKind("circle");
+  const L1 = l1 ? m.lineIds(l1) : null;
+  const L2 = l2 ? m.lineIds(l2) : null;
+  const v = rel.value;
+  const side = rel.params?.side ?? 1;
+  switch (rel.kind) {
+    case "horizontal": case "vertical":
+      return L1 ? { type: rel.kind, a: L1[0], b: L1[1] } : null;
+    case "length":
+      return L1 && v !== undefined ? { type: "distance", a: L1[0], b: L1[1], d: v } : null;
+    case "diameter": {
+      const r = k1 ? m.radiusId(k1) : null;
+      return r && v !== undefined ? { type: "radius", r, value: v / 2 } : null;
+    }
+    case "fixed": {
+      const c = c1 ? m.cornerId(c1) : null;
+      return c ? { type: "fixed", p: c, at: m.points[c] } : null;
+    }
+    case "coincident": case "sameHeight": case "sameAcross": {
+      const a = c1 ? m.cornerId(c1) : null;
+      const b = c2 ? m.cornerId(c2) : null;
+      return a && b ? { type: rel.kind === "coincident" ? "coincident" : rel.kind === "sameHeight" ? "horizontal" : "vertical", a, b } : null;
+    }
+    case "distance": {
+      if (v === undefined) return null;
+      if (c1 && c2) return { type: "distance", a: m.cornerId(c1)!, b: m.cornerId(c2)!, d: v };
+      if (c1 && L1) return { type: "ptLineDist", p: m.cornerId(c1)!, a: L1[0], b: L1[1], d: v, side };
+      if (L1 && L2) return { type: "lineGap", a: L1[0], b: L1[1], c: L2[0], d: L2[1], dist: v, side };
+      return null;
+    }
+    case "equalLength": case "parallel": case "perpendicular":
+      return L1 && L2 ? { type: rel.kind, a: L1[0], b: L1[1], c: L2[0], d: L2[1] } : null;
+    case "angle": {
+      if (!L1 || !L2 || v === undefined) return null;
+      const shared = L1.find((p) => L2.includes(p));
+      if (!shared) return null;
+      return { type: "angle", a: shared, b: L1.find((x) => x !== shared)!, c: shared, d: L2.find((x) => x !== shared)!, value: (side * v * Math.PI) / 180 };
+    }
+    case "equalRadius": {
+      const r = k1 ? m.radiusId(k1) : null;
+      const q = k2 ? m.radiusId(k2) : null;
+      return r && q ? { type: "equalRadius", r, s: q } : null;
+    }
+    default:
+      return null;
+  }
+}
+
+/** Build and solve the system of one plane. Returns the solver's result and which corners were free to move. */
+function solvePlane(get: Lookup, plane: Plane, rels: Relation[]) {
+  const m = newModel(get, plane);
+  let soft = 0;
   for (const rel of rels) {
     if (rel.locked === false) continue; // an unlocked number is a measurement only (`dec_relations_standard`: measure, then lock)
-    const parts = rel.parts;
-    const ids = (k: "corner" | "line") => parts.filter((p) => kindOf(p) === k);
-    const [c1, c2] = ids("corner");
-    const [l1, l2] = ids("line");
-    const L1 = l1 ? lineIds(l1) : null;
-    const L2 = l2 ? lineIds(l2) : null;
-    const id = rel.id;
-    const v = rel.value;
-    const side = rel.params?.side ?? 1;
-    const add1 = (c: Omit<SolverConstraint, "id">) => cons.push({ id, ...c } as SolverConstraint);
-    switch (rel.kind) {
-      case "horizontal": case "vertical":
-        if (L1) add1({ type: rel.kind, a: L1[0], b: L1[1] });
-        break;
-      case "length":
-        if (L1 && v !== undefined) add1({ type: "distance", a: L1[0], b: L1[1], d: v });
-        break;
-      case "diameter": {
-        const circle = parts.find((x) => kindOf(x) === "circle");
-        const r = circle ? radiusId(circle) : null;
-        if (r && v !== undefined) add1({ type: "radius", r, value: v / 2 });
-        break;
-      }
-      case "fixed": {
-        const c = c1 ? cornerId(c1) : null;
-        if (c) add1({ type: "fixed", p: c, at: points[c] });
-        break;
-      }
-      case "coincident": case "sameHeight": case "sameAcross": {
-        const a = c1 ? cornerId(c1) : null;
-        const b = c2 ? cornerId(c2) : null;
-        if (a && b) add1({ type: rel.kind === "coincident" ? "coincident" : rel.kind === "sameHeight" ? "horizontal" : "vertical", a, b });
-        break;
-      }
-      case "distance": {
-        if (c1 && c2 && v !== undefined) add1({ type: "distance", a: cornerId(c1)!, b: cornerId(c2)!, d: v });
-        else if (c1 && L1 && v !== undefined) add1({ type: "ptLineDist", p: cornerId(c1)!, a: L1[0], b: L1[1], d: v, side });
-        else if (L1 && L2 && v !== undefined) add1({ type: "lineGap", a: L1[0], b: L1[1], c: L2[0], d: L2[1], dist: v, side });
-        break;
-      }
-      case "equalLength": case "parallel": case "perpendicular":
-        if (L1 && L2) add1({ type: rel.kind, a: L1[0], b: L1[1], c: L2[0], d: L2[1] });
-        break;
-      case "angle": {
-        if (!L1 || !L2 || v === undefined) break;
-        const shared = L1.find((p) => L2.includes(p));
-        if (!shared) break;
-        const p = L1.find((x) => x !== shared)!;
-        const q = L2.find((x) => x !== shared)!;
-        add1({ type: "angle", a: shared, b: p, c: shared, d: q, value: (side * v * Math.PI) / 180 });
-        break;
-      }
-      case "equalRadius": {
-        const circles = parts.filter((p) => kindOf(p) === "circle");
-        const r = circles[0] ? radiusId(circles[0]) : null;
-        const s = circles[1] ? radiusId(circles[1]) : null;
-        if (r && s) add1({ type: "equalRadius", r, s });
-        break;
-      }
-    }
+    const c = constraintFor(m, rel);
+    if (c) m.cons.push({ id: rel.id, ...c } as SolverConstraint);
     // the second part is the reference: held softly where it is, so the first part moves
-    for (const refPart of parts.slice(1)) {
-      const pts = kindOf(refPart) === "corner" ? [cornerId(refPart)] : kindOf(refPart) === "line" ? (lineIds(refPart) ?? []) : [];
-      for (const p of pts) if (p && variable.has(p as Ref)) cons.push({ id: `~soft${softN++}`, type: "fixed", p, at: points[p]!, w: REFERENCE_WEIGHT });
+    for (const refPart of rel.parts.slice(1)) {
+      const kind = get(refPart)?.kind;
+      const pts = kind === "corner" ? [m.cornerId(refPart)] : kind === "line" ? (m.lineIds(refPart) ?? []) : [];
+      for (const p of pts) if (p && m.variable.has(p as Ref)) m.cons.push({ id: `~soft${soft++}`, type: "fixed", p, at: m.points[p]!, w: REFERENCE_WEIGHT });
     }
   }
-  const result = solve({ points, scalars }, cons);
-  return { f, result, variable };
+  return { f: m.frame, result: solve({ points: m.points, scalars: m.scalars }, m.cons), variable: m.variable };
 }
 
 /** Solve every relation in the scene, plane by plane. A conflict leaves that plane unchanged and names the relations involved. */
@@ -177,7 +185,7 @@ export function solveScene(scene: Scene): SolveOutcome {
   let cur = scene;
   for (const [planeRef, rels] of byPlane) {
     const plane = get(planeRef) as Plane;
-    const { f, result, variable } = solvePlane(scene, get, plane, rels);
+    const { f, result, variable } = solvePlane(get, plane, rels);
     const clean = (ids: string[]) => ids.filter((i) => !i.startsWith("~"));
     reports.push({ plane: planeRef, status: result.status, dof: result.dof, conflicts: clean(result.conflicts), redundant: clean(result.redundant) });
     if (result.status !== "ok") continue;

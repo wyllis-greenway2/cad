@@ -16,7 +16,7 @@ export interface Camera {
 
 const HALF_PI = Math.PI / 2;
 const TWO_PI = Math.PI * 2;
-export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 export const easeInOut = (k: number) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
 /** Signed shortest rotation from `from` to `to`, in (-PI, PI]. */
 export function shortest(from: number, to: number): number {

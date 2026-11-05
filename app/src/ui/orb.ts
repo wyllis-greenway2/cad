@@ -21,7 +21,7 @@ fullOrb.uOrbFill.value = 1;
 export const selectedLook = (teal: Rgb, opacity: number, surface: Rgb): Rgb => teal.map((c, i) => surface[i]! + (c - surface[i]!) * opacity) as Rgb;
 
 /** One orb at world point p: x = the soft fill's alpha (smooth to nothing at soft * R; lifted to flat by `fill`), y = the crisp ring's alpha at radius R. */
-export const ORB_GLSL = /* glsl */ `
+const ORB_GLSL = /* glsl */ `
 vec2 orbParts(vec3 p, vec3 c, float R, float fillA, float fill, float ringA, float soft, float px) {
   float d = distance(p, c);
   float k = 1.0 - smoothstep(0.0, max(R * soft, 1e-6), d);

@@ -17,7 +17,7 @@ export interface PickOptions {
   pointTol: number;
   lineTol: number;
 }
-export const DEFAULT_PICK: PickOptions = { pointTol: 10, lineTol: 8 };
+const DEFAULT_PICK: PickOptions = { pointTol: 10, lineTol: 8 };
 
 const RANK: Record<Kind, number> = { corner: 0, line: 1, circle: 1, axis: 1, face: 2, plane: 2, body: 3 };
 

@@ -1,13 +1,13 @@
 // Which key means which action: data in settings.input.keys, parsed here (ported from the prototype's keymap.mjs). No DOM.
 import type { Mods } from "../shared/input.ts";
 
-export interface KeyChord { key: string; mod: boolean; shift: boolean; alt: boolean }
+interface KeyChord { key: string; mod: boolean; shift: boolean; alt: boolean }
 /** Parse "mod+shift+z": mod = Ctrl on Windows and Linux, Cmd on Mac (either works). */
-export function parseKey(spec: string): KeyChord {
+function parseKey(spec: string): KeyChord {
   const parts = spec.toLowerCase().split("+");
   return { key: parts[parts.length - 1]!, mod: parts.includes("mod"), shift: parts.includes("shift"), alt: parts.includes("alt") };
 }
-export const matchKey = (key: string, mods: Mods, spec: string): boolean => {
+const matchKey = (key: string, mods: Mods, spec: string): boolean => {
   const k = parseKey(spec);
   return key.toLowerCase() === k.key && mods.ctrl === k.mod && mods.shift === k.shift && mods.alt === k.alt;
 };

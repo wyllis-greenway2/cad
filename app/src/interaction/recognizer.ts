@@ -172,4 +172,3 @@ export function createRecognizer(opts: { input?: S } = {}) {
 
   return { feed, setScrollMode: (m: S["scrollMode"]) => { scrollMode = m; }, get scrollMode() { return scrollMode; } };
 }
-export type Recognizer = ReturnType<typeof createRecognizer>;

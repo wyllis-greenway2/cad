@@ -6,7 +6,7 @@ Production code for the rebuild described in `docs/decisions/dec_clean_engine_de
 From the repository root: `LAN=1 bash tools/preview.sh` (pulls, installs, starts the app and prints the address to open on a phone on the same Wi-Fi; `DEMO=0` starts empty, without `?demo=box`). Or here: `npm install && npm run dev`, then open `http://localhost:5173/?demo=box`.
 
 ## Check it
-`npm run check` runs everything: `npm test` (node:test on TypeScript, no build step), `npm run typecheck` (tsc) and `npm run layers` (the layer rules). `npm run build` makes the static site in `dist/`.
+`npm run check` runs everything: `npm test` (node:test on TypeScript, no build step), `npm run typecheck` (tsc), `npm run layers` (the layer rules) and `npm run unused` (dead code: functions that are exported but unused, files nobody imports, names in the UI's window `interaction/api.ts` that the UI never uses). `npm run build` makes the static site in `dist/`.
 
 ## What you can do now
 Look: orbit about the model (it stays where it is on screen), pan, zoom to the cursor, X Y Z N and H keys. Select: one click selects, two look straight at the plane, three select the object, Shift adds, repeated clicks on overlapping things cycle. Draw: R rectangle, C circle, L line (click a surface, click again or type sizes, Enter). Build: E extrude, F round, B bevel, M move, T rotate, K scale (type a number, Enter). Relations: select parts and use the menu or D for a number (measure, then lock); badges next to the selection show, edit, unlock and delete them. Ctrl+Z / Ctrl+Shift+Z undo and redo, Ctrl+S saves a `.cad.json` file, Ctrl+O opens one. Every load starts fresh (nothing is restored); save a file to keep your work. Right click, long press and the two-finger click open the menu. Mouse, trackpad, finger and (as a mouse) pen work; see `src/interaction/recognizer.ts` for the tables.
@@ -17,6 +17,6 @@ Who may import whom is enforced by `tools/check_layers.py`. Only `ui`, `platform
 
 ## Where things are
 - A part is one record with per-kind functions (`operation/part.ts`); everything you can select is a part, whether drawn, from the body or from the world.
-- One selection (`interaction/selection.ts`), one picking function (`interaction/picking.ts`), one table of relations and actions (`interaction/actions.ts`), one controller that applies an intent to the state (`interaction/controller.ts`).
+- One selection (`interaction/selection.ts`), one picking function (`interaction/picking.ts`), one table of relations and actions (`interaction/actions.ts`), one controller that applies an intent to the state (`interaction/controller.ts`, with the work in `interaction/control/`: `viewing`, `pointer`, `modal`).
 - `shared/settings.ts` holds every tuned look and behaviour value (the human's, copied from the prototype).
 - Tests are in `test/`, including the kernel conformance suite (`kernel-conformance.test.mjs`), which a replacement kernel must pass unchanged.

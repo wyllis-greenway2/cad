@@ -36,10 +36,10 @@ const Y: Vec3 = [0, 1, 0];
 const Z: Vec3 = [0, 0, 1];
 const O: Vec3 = [0, 0, 0];
 /** The side of a world plane's pane (mm), from the origin along its two axes: the little squares you select a world plane by. */
-export const PANE = 22;
+const PANE = 22;
 
 /** The world: the three planes, the three axes and the origin. Always references (origin "world", not movable). */
-export function worldParts(): Part[] {
+function worldParts(): Part[] {
   const w = (name: string) => worldRef(name);
   const base = { origin: "world" as const, plane: null, movable: false };
   return [
@@ -60,7 +60,6 @@ export function emptyScene(): Scene {
 }
 
 export const lookup = (s: Scene): Lookup => (r) => s.parts[r];
-export const partOf = (s: Scene, r: Ref): Part | undefined => s.parts[r];
 export const hasPart = (s: Scene, r: Ref): boolean => r in s.parts;
 
 /** The next id with a prefix ("e" for shapes, "r" for relations, "s" for steps). */

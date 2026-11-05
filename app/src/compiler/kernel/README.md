@@ -4,11 +4,10 @@ The app never touches a geometry library. It builds an **operation graph** (JSON
 a custom kernel replaces it by providing the same two things and passing `test/kernel-conformance.test.mjs` unchanged (`dec_kernel_hybrid`, `inv_kernel_boundary`).
 
 ## What lives where
-- `index.mjs`: node and test entry: `{ KERNEL_NAME, init(options), evaluate(graph, tess) }`.
-- `client.js`: browser entry: `spawnKernel()` returns a Worker that takes `{ id, graph, tess }` and answers `{ id, ...result }` or `{ id, fatal }`.
-- `occt/`: the only code that may import OCCT or replicad. `interpreter.mjs` (graph to solids), `evaluate.mjs` (solids to the result), `worker.js`, `oc.mjs` (loader).
-- Outside `src/kernel/`, nothing may import `replicad`, `opencascade` or anything under `kernel/occt/` (checked by `tools/check_kernel_boundary.py`).
-  The graph builder (`../features.mjs`), the sketch logic, selection and the UI are kernel-agnostic and move to a new kernel unchanged.
+- `index.ts`: the one place the app gets a kernel from: `{ name, init(options), evaluate(graph, tess) }` (types in `adapter.ts`); `web.ts` adds the browser start (`initKernelWeb`).
+- `occt/`: the only code that may import OCCT or replicad. `interpreter.mjs` (graph to solids), `evaluate.mjs` (solids to the result), `oc.mjs` (loader), `web.mjs` (where the browser finds the .wasm). The kernel runs on the main thread today; a worker entry will be added when it matters (large models, phones).
+- Outside `compiler/kernel/occt/`, nothing may import `replicad`, `opencascade` or the OCCT files (checked by `tools/check_layers.py`).
+  The graph builder (`../graph.ts`), selection and the UI are kernel-agnostic and move to a new kernel unchanged.
 
 ## Input: `{ params: {}, ops: [...] }`
 Ops run in order; each has `{ id, type, ... }` and may name an earlier op as `target` (a solid) or `profile` (a sketch). A failing op is reported and the ops that depend on it
@@ -39,5 +38,5 @@ so references survive a change of kernel (and they can go stale if earlier steps
 - Plain numbers and arrays only: no kernel objects, handles or ids; it survives `structuredClone` (a worker boundary).
 
 ## Moving to our own kernel
-Write `src/kernel/<ours>/` with the same `init`, `evaluate` and worker, point `index.mjs` and `client.js` at it, and run the conformance suite. A hybrid (some ops ours, the rest OCCT)
+Write `compiler/kernel/<ours>/` with the same `init` and `evaluate`, point `index.ts` at it, and run the conformance suite (`app/test/kernel-conformance.test.mjs`). A hybrid (some ops ours, the rest OCCT)
 is one adapter that dispatches per op type. Each op we replace is judged on the same suite plus any new cases we add for it.
