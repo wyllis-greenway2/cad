@@ -168,3 +168,23 @@ test("an open line is kept when you stop drawing it (Esc, or another tool); a si
   s.setTool("select"); // switching tools keeps it too
   assert.equal(store.entities("XY").length, 2);
 });
+
+test("a drawing tool draws one figure and then hands back to the select tool (`in_079`)", () => {
+  for (const tool of ["rect", "circle", "line"]) {
+    const { store, s } = make();
+    s.setTool(tool);
+    if (tool === "line") (s.click([0, 0], SH), s.click([10, 0], SH), s.click([10, 8], SH), s.enter());
+    else (s.click([0, 0], SH), s.click([10, 8], SH));
+    assert.equal(store.entities("XY").length, 1, tool);
+    assert.equal(s.tool, "select", `${tool} drops back to select`);
+  }
+  const { store, s } = make();
+  s.s = { ...settings, sketch: { ...settings.sketch, oneShot: false } }; // the setting turns it off
+  s.setTool("rect");
+  s.click([0, 0], SH);
+  s.click([10, 8], SH);
+  assert.equal(s.tool, "rect");
+  s.click([20, 0], SH);
+  s.click([30, 8], SH);
+  assert.equal(store.entities("XY").length, 2);
+});

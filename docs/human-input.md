@@ -495,3 +495,8 @@ Design for mouse, trackpad and phone touch from the beginning, keeping a stylus 
 Clean up contradictions and bugs left from earlier work (the menu says R is rectangle but clicking it rotates); asks how to right-click on mobile, notes there is no pan on mobile, and asks how to pan on a trackpad.
 
 > okay perfect that works. Now lets clean stuff up, there are still a few contradictions and bugs from all the prior work to our current work. Like for example the menu says R is rectangle but when I click it, then it goes into rotation. Also there is no right click for mobile. How do I do that? Also there is no pan for mobile. Also how do I pan on track-pad?
+
+## in_079 — 2026-11-05 — directive
+World planes should not turn blue (object planes do); the trackpad should pan and zoom like a phone screen (two fingers pan, pinch zooms); after applying a sketch figure the drawing tool should drop back to normal interaction instead of repeating.
+
+> Okay lets make it so that world planes don't turn blue. Object planes do, but world planes dont. Also the track pad doesn't seem to pan very easily. Can we make its input interpenetrated similar to a phone screen? that works pretty well with two fingers panning, and pinch or separate doing zoom well. Also can we have it leave the selection after applying a sketch figure? so for example if you click rectangle, then click again, it should add rectangle somewhere, but then drop the rectangle add and go back to normal interaction so it doesn't keep dropping rectangles.

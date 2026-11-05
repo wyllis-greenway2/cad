@@ -32,6 +32,7 @@ export const settings = {
       blender: { orbit: [{ button: 1 }], pan: [{ button: 1, shift: true }] },
     },
     longPressMs: 450, touchSlopPx: 10, multiTapPx: 28, multiTapMs: 550, // touch: a press this long without moving is a right click; a finger must move this far to drag; taps this close count as a double or triple tap (`in_078`)
+    scrollMode: "auto", // what a scroll does: "auto" = a trackpad's two-finger scroll pans and a mouse wheel zooms (a pinch always zooms); or "pan" / "zoom" for all scrolling (`in_079`)
     multiClickMs: 400, multiClickPx: 6, // clicks this close in time and place count as a double or triple click (`in_070`)
     zoomToCursor: true, // zoom IN toward the point under the cursor; zoom OUT is about the view center (no runaway)
     zoomAnchorMaxFactor: 1.5, // zoom toward plane points within this many view-distances of the target; farther ones use the camera-facing plane
@@ -63,6 +64,7 @@ export const settings = {
     haloWidthPx: 0, // a light line traced along them (0 = none); used to be 3.2
     markerPx: 5,
     snapSquarePx: 9,
+    oneShot: true, // a drawing tool (line, rectangle, circle) draws one figure and then hands back to the select tool, so it does not keep dropping shapes (`in_079`)
     regionFill: 0.5, // closed sketch shapes that are not extruded are faces with no thickness: bone colored and semi-transparent
     regionSelectBlue: 0.6, // a selected closed shape stays this blue until deselected
     regionHoverBlue: 0.25, // a face under the cursor (extrude tool) leans this much blue
@@ -165,7 +167,6 @@ export const settings = {
     size: 0.13, offset: 0.05, radius: 0.16, // a pane is a rounded square this many view-distances wide, floating this far out from the axes' corner
     opacity: 0.16, hoverOpacity: 0.38, // the pane fill
     edgeAlpha: 0.55, hoverEdgeAlpha: 1, // its outline
-    hoverBlue: 0.45, // how much a hovered or selected pane leans blue
     gridAlpha: 1, sketchGrid: 1, fine: 0.5, lodDivisor: 30, // the grid on the plane you look straight at (shown only then, `in_066`), its finest level, and how fine it is
     cornerSeconds: 0.7, // the axes take this long to move into the corner compass (and back)
     fadeRadius: 1.15, fadeEase: 0.22, // the grid fades out this many view-distances from the view centre; it fades in over a few frames

@@ -18,7 +18,7 @@ import { ExtrudeSession } from "./extrude.mjs";
 import { TransformSession, AXIS_NAMES, UNITS } from "./transform.mjs";
 import { buildGraph } from "./features.mjs";
 import { createBody } from "./body.js";
-import { hoverOrb, selectOrb, fullOrb, orbMaterial, selectedLook, ORB_GLSL } from "./orb.js";
+import { hoverOrb, selectOrb, fullOrb, orbMaterial, selectedLook } from "./orb.js";
 import { PLANES, planeDef, addFacePlane, basisOf, frameOf, planeOrigin, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, normalSide, flippedView, projectOnto, pickPlane } from "./viewmath.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -83,7 +83,6 @@ void main() {
   gl_Position = projectionMatrix * viewMatrix * vec4(vPos, 1.0);
 }`;
 const FRAG = /* glsl */ `
-${ORB_GLSL}
 uniform vec3 uCam; uniform float uDist;
 uniform vec3 uU; uniform vec3 uV; uniform vec3 uCol; uniform vec3 uColU; uniform vec3 uColV;
 uniform float uLineA; uniform float uOpacity; uniform float uAxisA;
@@ -91,7 +90,6 @@ uniform vec3 uLineCol;
 uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul; uniform float uMinCellPx;
 uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar; uniform float uFogK;
 uniform float uAxisW;
-uniform vec3 uOrbCol; uniform vec3 uRingCol; uniform vec3 uHC; uniform float uHR; uniform float uHRing; uniform vec3 uSC; uniform float uSR; uniform float uSA; uniform float uSRing; uniform float uSSoft; uniform float uSFill; uniform float uRingPx;
 uniform float uPane; uniform float uPaneOff; uniform float uPaneR; uniform float uAxisLen; uniform float uEdgeA; uniform vec3 uFadeC; uniform float uFadeR;
 varying vec3 vPos;
 
@@ -152,16 +150,7 @@ void main() {
 
 #if PASS == 0
   // Paint layer: a pane's fill.
-  // the pane's own fill, plus the orb highlights lying on it (the hover orb at the cursor, the selection orb spreading from the click)
-  float baseA = uOpacity * fog * paneIn;
-  vec2 hp = orbParts(vPos, uHC, uHR, 0.0, 0.0, uHRing, 1.0, uRingPx) * paneIn;
-  vec2 sp = orbParts(vPos, uSC, uSR, uSA, uSFill, uSRing, uSSoft, uRingPx) * paneIn;
-  float fillA = 1.0 - (1.0 - hp.x) * (1.0 - sp.x);
-  float ringA = 1.0 - (1.0 - hp.y) * (1.0 - sp.y);
-  float orbA = 1.0 - (1.0 - fillA) * (1.0 - ringA);
-  float tot = 1.0 - (1.0 - baseA) * (1.0 - orbA);
-  vec3 orbCol = mix(uOrbCol, uRingCol, ringA / max(orbA, 1e-4));
-  gl_FragColor = vec4(mix(uCol, orbCol, orbA / max(tot, 1e-4)), tot);
+  gl_FragColor = vec4(uCol, uOpacity * fog * paneIn); // world planes stay grey: only objects turn teal
 #else
   float a = max(grid * uLineA * fog, edge * uEdgeA);                  // grid lines and the pane outline
   float ax = max(axU, axV) * uAxisA * axFog;                          // world axis lines
@@ -189,7 +178,6 @@ for (const [name, def] of Object.entries(PLANES)) {
       uLineCol: { value: new THREE.Vector3() },
       uFogNear: { value: A.nearFactor }, uFogFar: { value: A.farFactor }, uAxisFogFar: { value: A.axisFarFactor }, uFogK: { value: A.sharpness },
       uAxisW: { value: G.axisWidthPx },
-      uOrbCol: { value: new THREE.Vector3(...S.orb.color) }, uRingCol: { value: new THREE.Vector3(...ringColor()) }, uHC: { value: new THREE.Vector3() }, uHR: { value: 1 }, uHRing: { value: 0 }, uSC: { value: new THREE.Vector3() }, uSR: { value: 1 }, uSA: { value: 0 }, uSRing: { value: 0 }, uSSoft: { value: 2 }, uSFill: { value: 0 }, uRingPx: { value: 1.6 },
       uPane: { value: 0 }, uPaneOff: { value: 0 }, uPaneR: { value: 0 }, uAxisLen: { value: 0 }, uEdgeA: { value: 0 }, uFadeC: { value: new THREE.Vector3() }, uFadeR: { value: 0 },
     },
   });
@@ -236,6 +224,7 @@ function updatePlanes() {
   else requestRender(); // keep fading
   for (const [name, pair] of Object.entries(planeMeshes)) {
    const mine = !!actP && baseOf(actP) === name;
+   const hot = !faceOnAct && (hovered === name || mine);
    let line = 0;
    let opacity = 0;
    let fine = 0;
@@ -245,9 +234,9 @@ function updatePlanes() {
    if (faceOnAct) {
      if (mine) (line = PN.gridAlpha * paneFade), (fine = PN.fine), (fadeR = view.dist * PN.fadeRadius);
    } else {
-     opacity = PN.opacity * cornerK; // pointing at a pane no longer tints all of it: the orb does (`in_073`)
+     opacity = (hot ? PN.hoverOpacity : PN.opacity) * cornerK; // a world plane only gets a little greyer and its outline stronger when pointed at or selected: it never turns blue (`in_079`)
      paneSize = cornerK > 0 ? view.dist * PN.size : 0;
-     edgeA = PN.edgeAlpha * cornerK;
+     edgeA = (hot ? PN.hoverEdgeAlpha : PN.edgeAlpha) * cornerK;
    }
    const blue = 0;
    const sheet = mix3(th.sheet, th.blueSurface, blue);
@@ -287,21 +276,6 @@ function updatePlanes() {
     u.uFadeC.value.copy(center);
     u.uFadeR.value = fadeR;
     u.uOpacity.value = mesh === pair.paint ? opacity : 0;
-    // the orbs on this pane: the hover orb if the cursor is on it, the selection orb if it is the selected plane (or the plane being sketched on, flat)
-    const hovHere = hovered === name && !selected && hoverOrb.uOrbRingA.value > 0;
-    const selHere = !!actP && baseOf(actP) === name;
-    u.uHRing.value = hovHere ? hoverOrb.uOrbRingA.value : 0;
-    u.uHC.value.copy(hoverOrb.uOrbC.value);
-    u.uHR.value = hoverOrb.uOrbR.value;
-    u.uSA.value = selHere ? (selPlane() ? selectOrb.uOrbA.value : S.orb.selectOpacity) : 0;
-    u.uSRing.value = selHere && selPlane() ? selectOrb.uOrbRingA.value : 0;
-    u.uSSoft.value = selectOrb.uOrbSoft.value;
-    u.uRingPx.value = S.orb.ringPx;
-    u.uSC.value.copy(selectOrb.uOrbC.value);
-    u.uSR.value = selectOrb.uOrbR.value;
-    u.uSFill.value = selPlane() ? selectOrb.uOrbFill.value : 1;
-    u.uOrbCol.value.set(...S.orb.color);
-    u.uRingCol.value.set(...ringColor());
    }
   }
 }
@@ -506,21 +480,21 @@ function surfaceReach(c) {
 function startSelectOrb() {
   orbSel = sel;
   selOrbAnim = null;
-  if (!sel || !["face", "body", "sketch", "plane"].includes(sel.kind) || !hoverPoint) return;
+  if (!sel || !["face", "body", "sketch"].includes(sel.kind) || !hoverPoint) return;
   const R0 = view.dist * S.orb.radius;
   selOrbAnim = { t0: performance.now(), c: hoverPoint.slice(), R0, R1: Math.max(R0, surfaceReach(hoverPoint)) * S.orb.reachFactor };
   requestRender();
 }
 function updateOrbs() {
   const O = S.orb;
-  const hovering = !selected && !extrude && !xform && !!hoverPoint && !!(hoveredFace || hoveredSketch || hovered);
+  const hovering = !selected && !extrude && !xform && !!hoverPoint && !!(hoveredFace || hoveredSketch); // objects only: a world plane gets no ring
   hoverOrb.uOrbA.value = 0; // pointing at a surface draws only a thin ring, no fill
   hoverOrb.uOrbRingA.value = hovering ? O.ringOpacity : 0;
   if (hoverPoint) hoverOrb.uOrbC.value.set(...hoverPoint);
   hoverOrb.uOrbR.value = view.dist * O.radius;
   hoverOrb.uRingPx.value = O.ringPx;
   fullOrb.uOrbA.value = O.selectOpacity;
-  const surface = !!sel && ["face", "body", "sketch", "plane"].includes(sel.kind);
+  const surface = !!sel && ["face", "body", "sketch"].includes(sel.kind);
   selectOrb.uOrbA.value = surface ? O.selectOpacity : 0;
   selectOrb.uOrbSoft.value = O.softFactor;
   selectOrb.uRingPx.value = O.ringPx;
@@ -1849,18 +1823,18 @@ function showMenu(x, y, pick = true) {
     }
   });
   menuEl.appendChild(document.createElement("hr"));
-  const nav = document.createElement("button"); // how a two-finger scroll on a trackpad behaves
+  const nav = document.createElement("button"); // what a scroll does: pan or zoom
   nav.innerHTML = `${iconSvg("pan")}<span></span><kbd></kbd>`;
-  nav.querySelector("span").textContent = scrollPans ? "Trackpad: scroll pans (on)" : "Trackpad: scroll pans (off)";
-  nav.querySelector("kbd").textContent = scrollPans ? "pinch zooms" : "scroll zooms";
-  nav.title = "On a trackpad, a two-finger scroll pans the view and a pinch zooms. Off: scrolling zooms, as with a mouse wheel. Shift + scroll and Space + drag always pan.";
+  nav.querySelector("span").textContent = `Scroll: ${scrollMode}`;
+  nav.querySelector("kbd").textContent = { auto: "trackpad pans, wheel zooms", pan: "always pans", zoom: "always zooms" }[scrollMode];
+  nav.title = "Auto: a trackpad's two-finger scroll pans (like a phone screen) and a mouse wheel zooms; a pinch always zooms. Click to switch to always pan, or always zoom. Shift + scroll and Space + drag always pan.";
   nav.addEventListener("click", () => {
     hideMenu();
-    scrollPans = !scrollPans;
+    scrollMode = { auto: "pan", pan: "zoom", zoom: "auto" }[scrollMode];
     try {
-      localStorage.setItem("cad.scrollPans", scrollPans ? "1" : "0");
+      localStorage.setItem("cad.scrollMode", scrollMode);
     } catch {}
-    flashMessage(scrollPans ? "Two-finger scroll now pans; pinch zooms." : "Scrolling now zooms.");
+    flashMessage(`Scroll: ${scrollMode === "auto" ? "a trackpad pans, a mouse wheel zooms" : scrollMode === "pan" ? "always pans" : "always zooms"}.`);
   });
   menuEl.appendChild(nav);
   menuEl.style.display = "block";
@@ -2191,18 +2165,43 @@ canvas.addEventListener("pointerleave", () => {
   if (hovered || hoveredFace) setHover({ plane: null, face: null });
 });
 let lastWheelAt = 0;
-let scrollPans = false; // trackpad mode: a two-finger scroll pans (a pinch still zooms); off: scrolling zooms like a mouse wheel
+let scrollMode = S.input.scrollMode; // "auto" | "pan" | "zoom" (the menu cycles it; kept in this browser)
 try {
-  scrollPans = localStorage.getItem("cad.scrollPans") === "1";
+  scrollMode = localStorage.getItem("cad.scrollMode") || scrollMode;
 } catch {}
+let lastScroll = { t: 0, pans: false };
+/** Does this wheel event pan (a trackpad's two-finger scroll, Shift + scroll) or zoom (a mouse wheel notch, a pinch)? `in_079`: the trackpad behaves like a phone screen. */
+function scrollPansFor(e) {
+  if (e.ctrlKey) return false; // a pinch
+  if (e.shiftKey) return true;
+  if (scrollMode === "pan") return true;
+  if (scrollMode === "zoom") return false;
+  // auto: a wheel notch is a big whole number (a multiple of 120 in wheelDeltaY) or counted in lines; a trackpad sends small, fine steps, often with a sideways part.
+  // A gesture keeps its kind while its events (and their inertia) keep arriving.
+  const now = performance.now();
+  if (now - lastScroll.t < 160) return (lastScroll.t = now), lastScroll.pans;
+  const notch = e.deltaMode === 1 || (e.deltaX === 0 && Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= 50 && (e.wheelDeltaY === undefined || e.wheelDeltaY % 120 === 0));
+  lastScroll = { t: now, pans: !notch };
+  return !notch;
+}
+// Safari sends a pinch as gesture events, not as a ctrl + wheel
+let gestureDist0 = 0;
+canvas.addEventListener("gesturestart", (e) => (e.preventDefault(), (gestureDist0 = view.dist)));
+canvas.addEventListener("gesturechange", (e) => {
+  e.preventDefault();
+  view.dist = clamp(gestureDist0 / (e.scale || 1), V.minDistance, V.maxDistance);
+  updateStatus();
+  markSketch();
+});
 canvas.addEventListener(
   "wheel",
   (e) => {
     e.preventDefault();
-    if (!e.ctrlKey && (e.shiftKey || scrollPans)) {
-      // Shift + scroll, or (trackpad mode) a two-finger scroll: pan the view
-      const px = e.shiftKey ? e.deltaX || e.deltaY : e.deltaX;
-      const py = e.shiftKey ? 0 : e.deltaY;
+    if (scrollPansFor(e)) {
+      // a two-finger scroll on a trackpad (or Shift + scroll): the view follows the fingers, like a phone screen
+      const unit = e.deltaMode === 1 ? 33 : 1;
+      const px = (e.shiftKey ? e.deltaX || e.deltaY : e.deltaX) * unit;
+      const py = (e.shiftKey ? 0 : e.deltaY) * unit;
       anim = null;
       return void panBy(-px, -py);
     }

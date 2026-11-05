@@ -469,6 +469,7 @@ export class SketchSession {
     const e = this.store.add(this.key, entity, constraintsFor);
     this.draft = null;
     this.entry = null;
+    if (this.s.sketch.oneShot && this.tool !== "select") this.tool = "select"; // a drawing tool adds one figure, then normal interaction is back (`in_079`)
     return e;
   }
   /** A rectangle is just four lines and four corners with horizontal and vertical constraints: a shortcut for what you could draw yourself (`in_054`). */
