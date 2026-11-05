@@ -13,7 +13,7 @@ import { circlePolygon, regionsOf, hitRegion, paramOnAxisFromRay } from "./sketc
 import { elementAt } from "./sketchpick.mjs";
 import { modelOf } from "./sketchsolve.mjs";
 import { barItems, barHint } from "./actionbar.mjs";
-import { iconSvg, iconTitle } from "./icons.mjs";
+import { iconSvg, iconTitle, keyShort } from "./icons.mjs";
 import { ExtrudeSession } from "./extrude.mjs";
 import { TransformSession, AXIS_NAMES, UNITS } from "./transform.mjs";
 import { buildGraph } from "./features.mjs";
@@ -992,7 +992,7 @@ function updateStatus() {
   if (flash) text = flash;
   else if (xform) text = xform.sess.prompt();
   else if (extrude) text = `${extrude.ref ? "Move face" : `Extrude on ${extrude.plane}`}   ${extrude.sess.prompt()}`;
-  else if (!selected && sel) text = `Selected: ${targetName(sel)}   ${selectionHint(sel)}   Esc deselect`;
+  else if (!selected && sel) text = `Selected: ${targetName(sel)}`; // what you can do is in the bar (icons and tooltips), not repeated here
   else if (session.editKey && inSketchView()) text = `Editing the sketch of step ${store.features.findIndex((f) => `feat:${f.id}` === session.editKey) + 1}   ${session.prompt()}   Esc to finish`;
   else if (selected) text = inSketchView() ? `Sketching on ${selected}   ${session.prompt()}` : `Going to ${selected}...`;
   if (inSketchView() && !flash && !extrude && !xform) {
@@ -1320,6 +1320,35 @@ const ACTIONS = {
   dimension: () => setTool("dimension"),
 };
 
+// ---------------------------------------------------------------- tooltips (text lives here; the interface itself is icons)
+const tipEl = $("tip");
+function hideTip() {
+  tipEl.style.display = "none";
+}
+/** Show a tooltip above an element: { label, help, key, reason }. */
+function showTip(el, d) {
+  tipEl.replaceChildren();
+  const head = document.createElement("div");
+  head.className = "tl";
+  head.textContent = d.label;
+  if (d.key) head.appendChild(Object.assign(document.createElement("kbd"), { textContent: d.key }));
+  tipEl.appendChild(head);
+  if (d.help) tipEl.appendChild(Object.assign(document.createElement("div"), { className: "th", textContent: d.help }));
+  if (d.reason) tipEl.appendChild(Object.assign(document.createElement("div"), { className: "tr", textContent: `Not possible: ${d.reason}` }));
+  tipEl.style.display = "block";
+  const r = el.getBoundingClientRect();
+  const w = tipEl.offsetWidth;
+  tipEl.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
+  tipEl.style.top = `${Math.max(8, r.top - tipEl.offsetHeight - 8)}px`;
+}
+function withTip(el, d) {
+  el.onmouseenter = () => showTip(el, d);
+  el.onmouseleave = hideTip;
+  el.onpointerdown = hideTip;
+  el.setAttribute("aria-label", d.label);
+  return el;
+}
+
 // ---------------------------------------------------------------- the selection widget (sketch view): constraint icons, then the number
 const widgetEl = $("pickw");
 let widgetSig = "";
@@ -1341,8 +1370,8 @@ function updateConstraintUI() {
     for (const ic of w.icons) {
       const b = document.createElement("button");
       b.className = `ico${ic.picked ? " picked" : ""}`;
-      b.title = `${iconTitle(ic.key)}${ic.picked ? " (Delete removes it)" : ": click to select it"}`;
       b.innerHTML = iconSvg(ic.key);
+      withTip(b, { label: iconTitle(ic.key), help: ic.picked ? "Selected: press Delete to remove this constraint." : "A constraint on this selection. Click to select it." });
       b.onclick = () => (session.pickConstraint(ic.id), refreshUI());
       pill.appendChild(b);
     }
@@ -1350,7 +1379,7 @@ function updateConstraintUI() {
       if (w.icons.length) pill.appendChild(Object.assign(document.createElement("span"), { className: "sepv" }));
       const v = document.createElement("div");
       v.className = `val${w.value.editing !== null ? " act" : ""}`;
-      v.title = "Click, then type a number";
+      withTip(v, { label: w.value.kind === "length" ? "Length" : w.value.kind === "radius" ? "Radius" : "Angle", help: `Click, then type a number${w.value.locked ? ". It is locked: a new number replaces it" : ""}.` });
       const lab = document.createElement("b");
       lab.textContent = w.value.kind === "length" ? "LEN" : w.value.kind === "radius" ? "RAD" : "ANG";
       v.append(lab, w.value.editing !== null ? w.value.editing || "_" : w.value.text);
@@ -1414,10 +1443,10 @@ function updateBar() {
       const b = document.createElement("button");
       b.className = it.active ? "on" : "";
       b.disabled = !it.enabled;
-      b.title = it.enabled ? "" : `Not possible: ${it.reason}`;
-      b.append(it.label);
-      if (it.key) b.appendChild(Object.assign(document.createElement("kbd"), { textContent: it.key }));
+      b.innerHTML = iconSvg(it.icon);
+      if (it.key) b.appendChild(Object.assign(document.createElement("kbd"), { textContent: keyShort(it.key) }));
       b.onclick = () => runBar(it.id);
+      withTip(b, { label: it.label, help: it.help, key: it.key, reason: it.enabled ? "" : it.reason });
       barEl.appendChild(b);
     }
   });

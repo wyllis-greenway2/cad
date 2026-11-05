@@ -24,10 +24,14 @@
     #history ol li { display:flex; gap:4px; align-items:center; } #history ol li button.sk { width:auto; flex:none; font:11px system-ui,sans-serif; opacity:.75; padding:3px 8px; border:1px solid #4a4f56; }
     #history ol button:hover { background:#3a3e44; } #history ol button.err { color:#eb524d; }
     #abar { position:fixed; left:0; right:0; bottom:0; min-height:44px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:5px 12px; background:rgba(30,32,35,.95); border-top:1px solid #484d54; z-index:8; font:13px system-ui,sans-serif; }
-    #abar button { display:flex; align-items:center; gap:7px; background:#3a3e44; color:#e4e6e8; border:1px solid #5a5f66; border-radius:6px; padding:5px 10px; font:inherit; cursor:pointer; white-space:nowrap; }
+    #abar button { position:relative; display:grid; place-items:center; width:42px; height:38px; padding:0; background:#3a3e44; color:#e4e6e8; border:1px solid #5a5f66; border-radius:7px; cursor:pointer; }
+    #abar button svg { width:19px; height:19px; margin-bottom:6px; }
     #abar button:hover:not(:disabled) { background:#4a4f56; } #abar button.on { background:#2f4f86; border-color:#7fa8ff; } #abar button:disabled { opacity:.4; cursor:not-allowed; }
-    #abar kbd { font:11px ui-monospace,Menlo,monospace; opacity:.7; background:rgba(0,0,0,.28); border-radius:4px; padding:0 5px; }
-    #abar .sep { width:1px; height:22px; background:#484d54; margin:0 6px; } #abar .hint { color:#9aa0a8; margin-left:4px; }
+    #abar kbd { position:absolute; right:3px; bottom:2px; font:600 8px ui-monospace,Menlo,monospace; color:#aab1ba; background:none; padding:0; line-height:1; }
+    #tip { position:fixed; z-index:30; max-width:260px; padding:7px 10px; background:rgba(14,15,17,.96); border:1px solid rgba(255,255,255,.18); border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.5); color:#e8eaec; font:12px/1.4 system-ui,sans-serif; pointer-events:none; }
+    #tip .tl { font-weight:600; display:flex; align-items:center; gap:8px; } #tip kbd { font:600 10px ui-monospace,Menlo,monospace; background:rgba(255,255,255,.12); border-radius:4px; padding:0 5px; }
+    #tip .th { color:#aeb4bc; margin-top:2px; } #tip .tr { color:#ffb070; margin-top:4px; }
+    #abar .sep { width:1px; height:20px; background:#484d54; margin:0 6px; } #abar .hint { color:#9aa0a8; margin-left:4px; }
     #status #exitBtn { display:none !important; }
     #cbar { position:fixed; left:50%; bottom:58px; transform:translateX(-50%); display:none; gap:6px; padding:5px; background:rgba(34,36,39,.92); border:1px solid #484d54; border-radius:9px; z-index:7; }
     #cbar button { background:#3a3e44; color:#e4e6e8; border:1px solid #5a5f66; border-radius:6px; padding:4px 10px; font:13px system-ui,sans-serif; cursor:pointer; } #cbar button:hover { background:#4a4f56; }
@@ -57,6 +61,7 @@
   <div id="dims"></div>
   <div id="pickw" style="display:none"></div>
   <div id="abar"></div>
+  <div id="tip" style="display:none"></div>
   <div id="history"><button id="histBtn">History</button><ol id="histList"></ol></div>
   <div id="menu"></div>
   <span class="axl" id="lx">X</span><span class="axl" id="ly">Y</span><span class="axl" id="lz">Z</span>

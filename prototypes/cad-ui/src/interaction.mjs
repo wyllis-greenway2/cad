@@ -708,8 +708,6 @@ export class SketchSession {
     if (this.tool === "rect") return n ? `Click the opposite corner${typing}` : "Rectangle: click the first corner.";
     if (this.tool === "circle") return n ? `Click to set the size${typing}` : "Circle: click the centre.";
     if (this.tool === "line") return n ? `Click the next point; click the first point to close; Enter to finish${typing}` : "Line: click the first point.";
-    const chip = this.valueChip();
-    if (chip) return `${chip.kind === "length" ? "Type a number to set this line's length" : chip.kind === "radius" ? "Type a number to set the radius" : "Type a number to set the angle between these lines"}. Shift-click another line for relationships.`;
-    return this.selectedId ? "Selected. Delete removes it." : "Select: click a shape or a line. R rectangle, C circle, L line.";
+    return ""; // the select tool shows its actions in the bar and its numbers next to the selection: no sentence here
   }
 }

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { settings } from "../src/settings.js";
 import { barItems, keyLabel, barHint } from "../src/actionbar.mjs";
+import { hasIcon, keyShort } from "../src/icons.mjs";
 
 const keys = settings.input.keys;
 const base = { keys, canUndo: true, canRedo: false, tool: "select", offers: [], sel: null, mode: "3d" };
@@ -58,4 +59,23 @@ test("drawing tools are not offered while editing a step's own sketch; an operat
   assert.equal(tools.find((i) => i.label === "Line").enabled, false);
   assert.equal(tools.find((i) => i.label === "Dimension").enabled, true);
   assert.deepEqual(labels(barItems({ ...base, mode: "op", op: { editing: true } }), "op"), ["Apply (Enter)", "Cancel (Esc)", "Delete step (Del)"]);
+});
+
+test("every action in every context has an icon and a help line (text is only for tooltips)", () => {
+  const offers = ["Horizontal", "Vertical", "Equal length", "Equal radius", "Parallel", "Perpendicular", "Fix in place", "Coincident", "Same height", "Same position across"].map((label) => ({ label, enabled: true }));
+  const contexts = [
+    { ...base }, ...["sketch", "face", "edge", "body", "vertex"].map((kind) => ({ ...base, sel: { kind } })), { ...base, sel: { kind: "face", round: true } },
+    { ...base, mode: "sketch", offers: [] }, { ...base, mode: "sketch", offers, pickParts: true }, { ...base, mode: "sketch", pickShape: true, pickShapeClosed: true },
+    { ...base, mode: "op", op: { editing: true } },
+  ];
+  for (const ctx of contexts) {
+    for (const g of barItems(ctx)) {
+      for (const it of g.items) {
+        assert.ok(hasIcon(it.icon), `${it.label} has no icon`);
+        assert.ok(it.help, `${it.label} has no help text`);
+      }
+    }
+  }
+  assert.equal(keyShort("Shift+H"), "⇧H");
+  assert.equal(keyShort("Ctrl+Shift+Z"), "⇧^Z");
 });

@@ -17,9 +17,32 @@ const CONS_KEY = {
   Horizontal: "consH", Vertical: "consV", "Equal length": "consE", "Equal radius": "consE", Parallel: "consL", Perpendicular: "consP", "Fix in place": "consF", Coincident: "consC",
 };
 
+// the icon (see icons.mjs) and the help line (for the tooltip) of each action, by its label
+const ICON = {
+  Select: "select", Line: "line", Rectangle: "rect", Circle: "circle", Dimension: "dimTool", Extrude: "extrude",
+  Horizontal: "horizontal", Vertical: "vertical", "Equal length": "equal", "Equal radius": "equal", Parallel: "parallel", Perpendicular: "perpendicular", "Fix in place": "fixed",
+  Coincident: "coincident", "Same height": "sameHeight", "Same position across": "sameAcross",
+  "Move face": "moveFace", "Tilt face": "tilt", "Sketch on surface": "sketchOn", "Sketch on it": "sketchOn", "Change radius": "radius", Taper: "taper", Fillet: "fillet", Chamfer: "chamfer",
+  Move: "move", Rotate: "rotate", Scale: "scale", Delete: "trash", "Delete step": "trash", "Home view": "home", "Return to origin": "origin", Undo: "undo", Redo: "redo",
+  Apply: "check", Cancel: "cross", "3D view": "view3d",
+};
+const HELP = {
+  Select: "Pick lines, corners, circles or whole shapes. Shift-click adds. Drag to move.", Line: "Draw connected lines. Click the first point again to close the shape.",
+  Rectangle: "Draw a rectangle: four lines with horizontal and vertical constraints you can turn off.", Circle: "Draw a circle from its centre.",
+  Dimension: "Click a shape and type exact sizes. Each becomes a locked constraint.", Extrude: "Pull the closed shape into a solid (out adds, in cuts).",
+  Horizontal: "Make the line level and keep it level.", Vertical: "Make the line upright and keep it upright.", "Equal length": "Make the two lines the same length.", "Equal radius": "Make the two circles the same size.",
+  Parallel: "Keep the two lines parallel.", Perpendicular: "Keep the two lines at a right angle.", "Fix in place": "Pin this corner where it is.", Coincident: "Put the two corners on the same spot.",
+  "Same height": "Keep the two corners level with each other.", "Same position across": "Keep the two corners one above the other.",
+  "Move face": "Push or pull the face along its normal (out adds material, in cuts it).", "Tilt face": "Turn the face about an axis in it.", "Sketch on surface": "Start a sketch on this face.",
+  "Sketch on it": "Start a sketch on this shape's plane.", "Change radius": "Change the radius of this round face.", Taper: "Give this round face a taper angle.", Fillet: "Round this edge.", Chamfer: "Bevel this edge.",
+  Move: "Move the whole body along X, Y or Z.", Rotate: "Rotate the whole body about X, Y or Z.", Scale: "Scale the whole body.", Delete: "Delete the selection.", "Delete step": "Delete this step from the history.",
+  "Home view": "Return to the standard 3D view.", "Return to origin": "Bring the world origin back into view.", Undo: "Undo the last change.", Redo: "Redo what was undone.",
+  Apply: "Apply this change.", Cancel: "Cancel this change.", "3D view": "Leave the sketch and return to the 3D view.",
+};
+
 export function barItems(ctx) {
   const k = (action) => keyLabel(ctx.keys[action]);
-  const item = (id, label, action, extra = {}) => ({ id, label, key: action ? k(action) : "", enabled: true, reason: null, active: false, ...extra });
+  const item = (id, label, action, extra = {}) => ({ id, label, icon: ICON[label] ?? "dimension", help: HELP[label] ?? "", key: action ? k(action) : "", enabled: true, reason: null, active: false, ...extra });
   const groups = [];
   const edit = { id: "edit", items: [item("act:undo", "Undo", "undo", { enabled: ctx.canUndo }), item("act:redo", "Redo", "redo", { enabled: ctx.canRedo })] };
 

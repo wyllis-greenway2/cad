@@ -17,6 +17,8 @@ A full-width bar toward the bottom of the screen presents the actions available 
 **Trimmed to the selection (`in_056`, the human's words):** if a line is selected the bar shows only what can be done with that line or set of lines; sketching tools (rectangle, line, circle...) show only on the sketch plane with nothing picked or a drawing tool in use;
 extrusion shows when a closed shape (a face) is selected, not otherwise.
 
+**Icons, not words (`in_058`, the human's words):** every operation has an icon and perhaps a keyboard key; text is reserved for the tooltip (name, one line of help, the hotkey, the reason a button is off). This applies to the bar and to the constraint icons next to a selection.
+
 Built in `prototypes/cad-ui` (`src/actionbar.mjs` pure, tests in `test/actionbar.test.mjs`).
 
 ## Rationale

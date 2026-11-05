@@ -131,6 +131,10 @@ keeps a copy of its shape (editing the sketch later does not change it). Look va
 Selected and hovered blue lines are thinner (`settings.sketch.pickWidthPx`, `pickHoverWidthPx`, `pickPointScale`; `settings.pick.edgeWidthPx`, `edgeHoverWidthPx`, `vertexScale`). Objects are a little lighter (`themes.world.bodyColor`, `light.ambient`), the world planes a little
 darker (`themes.world.sheet`), and objects less glossy but still reflective in a diffuse way (`light.roughness` 0.6, `sheen` 0.22 and `sheenRoughness` 0.55 for a broad soft highlight, `reflect` 0.3 for the studio reflection). Measured on a box: faces 3 to 13 levels lighter, the plane 13 darker.
 
+## Icons everywhere, text only in tooltips (`in_058`)
+Every operation has an icon (`src/icons.mjs`) and the bar is **icons with a tiny hotkey badge** (⇧ = Shift, ^ = Ctrl); the words (the name, one line of help, the full hotkey, and why a button is unavailable) appear in a **tooltip on hover**. The same goes for the constraint icons next to a
+selection and for the number. The status line no longer repeats what the bar offers (it says what is selected, or prompts while you draw). A test checks that every action in every context has an icon and a help line.
+
 ## The context action bar (`in_054`)
 A **full-width bar at the bottom** shows what can be done now, with the **hotkey on each button**. **It stays trimmed to what is selected.** In the sketch view: with **nothing picked** (or a drawing tool in use) the sketching tools (Select V, Line L, Rectangle R, Circle C, Dimension D; the active one lit), Undo, Redo, 3D view; with **lines, corners or
 circles picked** only what can be done with them (the constraints that fit, Delete, Undo, Redo); with a **whole closed shape picked** Extrude E, Dimension D, Delete. Drawing tools never show while something is picked. In the 3D view it follows the selection: face (Move M, Tilt R, Sketch on surface S), round face (Radius M, Taper R), line (Fillet F, Chamfer B), body

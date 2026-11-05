@@ -390,3 +390,8 @@ Directive to keep the action bar trimmed to the current selection.
 Fixes and a new look for the value boxes: the length box overlaps the constraint marks, constraint icons instead of letters, constraints inline to the left of the length box, and a new style for the little value boxes.
 
 > The length input box is directly over the horizontal or viertical boxes. When I click to input length, it collapses and selectes the horizonta constraint.Also the constraints should use little icons that would make them more obvious not a letter. Lets make a set of icons to indicate constraints belong to a line. I think the constraints should exist inline to the left of the length input box. I think we should try a new style for the little value boxes.
+
+## in_058 — 2026-11-05 — directive
+Direction to use icons for every operation, with text reserved for tooltips.
+
+> lets try to make icons for everything, and go light on text. It will make it compact, We can have tooltips that help on hover. For example the rectangle, circle, extrude, etc, Basically every operation can have an icon and maybe a keyboard key but we will reserve text for the tooltip.
