@@ -10,6 +10,7 @@ import { lookup } from "../../operation/scene.ts";
 import { planeOf } from "../objects.ts";
 import type { AppState } from "./state.ts";
 import { activeOp } from "./handles.ts";
+import { setLineLength } from "../lengths.ts";
 import { withSession } from "./state.ts";
 
 function beginTool(s: AppState, kind: ToolKind): AppState {
@@ -53,7 +54,7 @@ export function doTyped(s: AppState, key: string): AppState {
     const a = autoOp(sceneOf(s.session), selectionOf(s.session));
     if (a) return { ...s, op: typeOp(a.kind === "move" ? a : { ...a, auto: false }, key) };
   }
-  if (s.op && s.op.kind === "rotate" && s.op.target === "body" && key !== "Enter") {
+  if (s.op && s.op.kind === "rotate" && (s.op.target === "body" || s.op.target === "plane") && key !== "Enter") {
     // typing turns the body to that angle about the axis in use (the one whose ring was dragged, X to begin with)
     const i = s.op.axis;
     const typed = typeOp({ ...s.op, typed: s.op.rot[i]! }, key);
@@ -73,7 +74,7 @@ export function doTyped(s: AppState, key: string): AppState {
 /** The text of a field of the value box changed: the operation's number, or a size of the figure being drawn. */
 export function doEntry(s: AppState, field: number, text: string): AppState {
   if (!/^-?\d*\.?\d*$/.test(text)) return s;
-  if (s.op && s.op.kind === "rotate" && s.op.target === "body") {
+  if (s.op && s.op.kind === "rotate" && (s.op.target === "body" || s.op.target === "plane")) {
     const rot = [...s.op.rot] as [string, string, string];
     if (field >= 0 && field < 3) rot[field] = text;
     return { ...s, op: { ...s.op, rot, axis: (field as 0 | 1 | 2), value: null, typed: "" } };
@@ -115,8 +116,12 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
   const sc = sceneOf(s.session);
   if (i.act === "focus") return { ...s, focus: i.id === s.focus ? null : i.id }; // a second click closes it again
   if (i.act === "measure") {
-    const a = actionsFor(sc, selectionOf(s.session)).find((x) => x.dimensional && x.enabled);
-    return a && i.value !== undefined && i.value > 0 ? withSession(s, run(s.session, a.run(i.value))) : s;
+    const sel = selectionOf(s.session);
+    const a = actionsFor(sc, sel).find((x) => x.dimensional && x.enabled);
+    if (a) return i.value !== undefined && i.value > 0 ? withSession(s, run(s.session, a.run(i.value))) : s;
+    // a line of the body: its length is made by pushing or pulling the face at its end
+    const cmd = sel.length === 1 && i.value !== undefined ? setLineLength(sc, sel[0]!, i.value) : null;
+    return cmd ? withSession({ ...s, op: null }, run(s.session, cmd)) : s;
   }
   const rel = i.id ? sc.relations.find((r) => r.id === i.id) : undefined;
   if (!rel) return s;

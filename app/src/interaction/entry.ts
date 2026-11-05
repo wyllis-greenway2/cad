@@ -15,7 +15,7 @@ const fmt = (v: number) => String(Math.round(v * 100) / 100);
 
 /** The number chip: for a tool, its fields (what is typed, else the live size); for an operation, its one number. Null when there is nothing to show yet. */
 export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry | null {
-  if (op && op.kind === "rotate" && op.target === "body") {
+  if (op && op.kind === "rotate" && (op.target === "body" || op.target === "plane")) {
     // three angles, how the body is turned about X, Y and Z (what is typed in one of them is how it is to be turned about that axis)
     const now = turnAngles(scene, op);
     return { fields: (["X", "Y", "Z"] as const).map((label, i) => ({ label, short: label, value: op.rot[i] !== "" ? op.rot[i]! : fmt(now[i]!), active: op.axis === i, typed: op.rot[i] !== "" })), unit: "deg" };

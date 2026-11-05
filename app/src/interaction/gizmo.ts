@@ -90,13 +90,13 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
     const far = first?.kind === "corner" ? first.at : first?.kind === "circle" && pl?.kind === "plane" ? add(op.pivot, scale(pl.u, first.radius)) : null;
     return far ? { centre: op.pivot, handles: [{ id: "scale", kind: "scale", axis: null, points: [op.pivot, far] }] } : null;
   }
-  if (op.target === "shape") {
-    const pl = op.plane ? scene.parts[op.plane] : undefined;
+  if (op.target === "plane") {
+    // a drawn figure: the same X Y Z arrows and rings as an object, at the figure's middle (the pivot of a turn can be moved)
     const pts = cornersOf(scene, op.parts);
-    if (!pl || pl.kind !== "plane" || !pts.length) return null;
+    if (!pts.length) return null;
     const centre = op.kind === "rotate" ? (op.pivot ?? middle(pts)) : middle(pts);
-    if (op.kind === "move") return { centre, handles: [pl.u, pl.v].map((d, i): Handle => ({ id: `move:${"uv"[i]}`, kind: "arrow", axis: i as 0 | 1, points: [centre, add(centre, scale(d, 2 * HALF * L))] })) };
-    return { centre, handles: [ring("rot:n", centre, normalOfPlane(pl), L * 0.8, null), { id: "pivot", kind: "ball", axis: null, points: [centre] }] };
+    if (op.kind === "move") return { centre, handles: AXES.map((d, i): Handle => ({ id: `move:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, 2 * HALF * L))] })) };
+    return { centre, handles: [...AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, centre, d, L * 0.8, i as 0 | 1 | 2)), { id: "pivot", kind: "ball", axis: null, points: [centre] }] };
   }
   const box = bodyBox(scene);
   if (!box) return null;

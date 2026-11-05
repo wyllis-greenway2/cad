@@ -14,6 +14,7 @@ import { normalOfPlane, pointOf } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
 import { actionsFor } from "./actions.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
+import { drawnRef } from "../shared/ref.ts";
 import { objectOf, bodyCentre } from "./objects.ts";
 import { settings } from "../shared/settings.ts";
 
@@ -46,7 +47,7 @@ export interface Op {
   /** rotate: the point it turns about (the rotator's centre; you can move it) */
   pivot: Vec3 | null;
   /** move and rotate: the body, or a drawn shape (its corners are `parts`, its plane is `plane`) */
-  target: "body" | "shape";
+  target: "body" | "shape" | "plane";
   plane: Ref | null;
   /** the operation came from selecting something (its handle showed up by itself): it ends when the drag does, instead of staying open */
   auto: boolean;
@@ -149,8 +150,11 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.corners, target: "shape", plane: face.plane, pivot: centre } };
   }
   if (face) {
-    const pts = face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
-    return { ok: true, op: { ...base, parts: face.corners, target: "shape", plane: face.plane, axis: kind === "rotate" ? 2 : 0, pivot: kind === "rotate" ? centroid(pts) : null } };
+    // a drawn figure moves and turns like an object (`in_135`): X Y Z arrows, X Y Z rings, with its plane (the figure's parts and the plane they lie on)
+    const circle = face.disk ? get(face.disk) : undefined;
+    const figure: Ref[] = circle?.kind === "circle" ? [circle.ref, circle.center] : [...face.corners, ...face.loop];
+    const pts = figure.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
+    return { ok: true, op: { ...base, parts: figure, target: "plane", plane: face.plane, axis: kind === "rotate" ? 2 : 0, pivot: kind === "rotate" ? centroid(pts) : null } };
   }
   return { ok: false, why: kind === "scale" ? "select the body first (click it three times): scale works on the body" : "select the body or a closed figure first" };
 }
@@ -220,12 +224,34 @@ function bodyTurn(scene: Scene): Mat3 {
 /** The three angles of the body's turn, with the turn being dragged or typed on top of it (what the bubble shows and sets). */
 export function turnAngles(scene: Scene, op: Op): Angles {
   const live = valueOf(op);
-  const now = bodyTurn(scene);
-  return anglesOf(live !== null && op.target === "body" ? then(now, about(op.axis, live)) : now);
+  const now = op.target === "plane" ? planeTurn(scene, op) : bodyTurn(scene);
+  return anglesOf(live !== null && (op.target === "body" || op.target === "plane") ? then(now, about(op.axis, live)) : now);
+}
+/** How a drawn figure's plane is turned: the turn that takes the world axes onto its directions (its first, its second and its normal). */
+function planeTurn(scene: Scene, op: Op): Mat3 {
+  const first = op.parts.map((r) => scene.parts[r]).find((p) => p?.kind === "corner");
+  const pl = first?.plane ? scene.parts[first.plane] : undefined;
+  if (!pl || pl.kind !== "plane") return IDENTITY;
+  const [u, v, n] = [pl.u, pl.v, normalOfPlane(pl)];
+  return [u[0], v[0], n[0], u[1], v[1], n[1], u[2], v[2], n[2]];
+}
+/** Moving or turning a drawn figure with its plane: `transformFigure`, and the corners it pinned in place let go (one command, so one undo). */
+function figureCommand(scene: Scene, op: Op, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3): Command | null {
+  const first = op.parts.map((r) => scene.parts[r]).find((p) => p?.kind === "corner");
+  if (!first?.plane) return null;
+  const corners = new Set(op.parts.filter((r) => scene.parts[r]?.kind === "corner"));
+  const pivot = op.pivot ?? centroid(op.parts.map((r) => scene.parts[r]).filter((p): p is Extract<Part, { kind: "corner" }> => p?.kind === "corner").map((p) => p.at));
+  const released = scene.relations.filter((r) => r.kind === "fixed" && r.parts.every((q) => corners.has(q)));
+  return { type: "batch", commands: [...released.map((r): Command => ({ type: "removeRelation", id: r.id })), { type: "transformFigure", parts: op.parts, plane: first.plane, newPlane: drawnRef(nextId(scene, "p")), turns, pivot, translate }] };
 }
 const rotTarget = (scene: Scene, op: Op): Angles => { const cur = turnAngles(scene, op); return cur.map((c, i) => (num(op.rot[i]!) ?? c)) as Angles; };
 
 export function opCommand(scene: Scene, op: Op): Command | null {
+  if (op.kind === "rotate" && op.target === "plane" && op.rot.some((t) => num(t) !== null)) {
+    // angles typed for a figure: it is turned to exactly those, about its pivot
+    const steps = stepsBetween(planeTurn(scene, op), rotTarget(scene, { ...op, value: null, typed: "" }));
+    return steps.length ? figureCommand(scene, op, steps.map((t) => ({ axis: t.axis, angle: t.angle })), [0, 0, 0]) : null;
+  }
   if (op.kind === "rotate" && op.target === "body" && op.rot.some((t) => num(t) !== null)) {
     // angles typed in the bubble: the body is turned to exactly those (as three turns about X, Y, Z that go from how it is turned now), one command
     const id = nextId(scene, "s");
@@ -251,7 +277,10 @@ export function opCommand(scene: Scene, op: Op): Command | null {
   if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v) } } };
   if (op.kind === "scale" && op.target === "shape") return v <= 0 ? null : scaleShapeCommand(scene, op, v);
   if (op.kind === "scale") return v <= 0 ? null : { type: "addStep", step: { id, type: "scale", parts: op.parts, params: { axis: 0, value: v } } };
-  if (op.target === "shape") return v === 0 ? null : shapeCommand(scene, op, v);
+  if (op.target === "plane") {
+    if (v === 0) return null;
+    return op.kind === "rotate" ? figureCommand(scene, op, [{ axis: op.axis, angle: v }], [0, 0, 0]) : figureCommand(scene, op, [], scale(([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Vec3[])[op.axis]!, v));
+  }
   const pivot: Record<string, number> = op.kind === "rotate" && op.pivot ? { px: op.pivot[0], py: op.pivot[1], pz: op.pivot[2] } : {};
   return v === 0 ? null : { type: "addStep", step: { id, type: op.kind, parts: op.parts, params: { axis: op.axis, value: v, ...pivot } } };
 }
@@ -271,36 +300,6 @@ function scaleShapeCommand(scene: Scene, op: Op, f: number): Command | null {
   const sides = new Set(Object.values(scene.parts).filter((p) => p.kind === "line" && held.has(p.a) && held.has(p.b)).map((p) => p.ref));
   const sizes = ["fixed", "length", "distance", "diameter", "equalRadius", "angle"];
   const released = scene.relations.filter((r) => sizes.includes(r.kind) && r.parts.every((q) => held.has(q) || sides.has(q)));
-  return { type: "batch", commands: [...released.map((r): Command => ({ type: "removeRelation", id: r.id })), ...commands] };
-}
-
-/** Moving or turning a drawn figure: its corners go to their new places (one command, so one undo). The solver keeps the relations that still hold. */
-function shapeCommand(scene: Scene, op: Op, v: number): Command | null {
-  const pl = op.plane ? scene.parts[op.plane] : undefined;
-  if (!pl || pl.kind !== "plane") return null;
-  const n = normalOfPlane(pl);
-  const commands: Command[] = [];
-  for (const ref of op.parts) {
-    const p = scene.parts[ref];
-    if (!p || p.kind !== "corner") continue;
-    let to: Vec3;
-    if (op.kind === "move") to = add(p.at, scale(op.axis === 1 ? pl.v : pl.u, v));
-    else {
-      const piv = op.pivot ?? p.at;
-      const r = sub(p.at, piv);
-      const c = Math.cos((v * Math.PI) / 180);
-      const sn = Math.sin((v * Math.PI) / 180);
-      const k = [n[1] * r[2] - n[2] * r[1], n[2] * r[0] - n[0] * r[2], n[0] * r[1] - n[1] * r[0]] as Vec3; // n x r
-      to = add(piv, add(add(scale(r, c), scale(k, sn)), scale(n, dot(n, r) * (1 - c))));
-    }
-    commands.push({ type: "movePart", ref, to });
-  }
-  if (!commands.length) return null;
-  // a figure that is moved or turned lets go of what pins it in place: a corner fixed where it was, and (turning) sides held level with the plane's axes
-  const corners = new Set(op.parts);
-  const sides = new Set(Object.values(scene.parts).filter((p) => p.kind === "line" && corners.has(p.a) && corners.has(p.b)).map((p) => p.ref));
-  const pins = op.kind === "rotate" ? ["fixed", "horizontal", "vertical", "sameHeight", "sameAcross"] : ["fixed"];
-  const released = scene.relations.filter((r) => pins.includes(r.kind) && r.parts.every((q) => corners.has(q) || sides.has(q)));
   return { type: "batch", commands: [...released.map((r): Command => ({ type: "removeRelation", id: r.id })), ...commands] };
 }
 

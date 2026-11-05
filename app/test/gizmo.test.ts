@@ -295,37 +295,53 @@ test("Scale has a handle: pull the ball at the corner out to make the body bigge
   near(bb.max[0] - bb.min[0], 80, 0.5);
 });
 
-test("a drawn figure can be moved and turned with handles: arrows along its plane, a ring round its normal and a centre you can place", () => {
+test("a drawn figure moves and turns like an object: X Y Z arrows, X Y Z rings and angle fields, taking its plane with it", () => {
   let s = createSession(kernel);
   const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [40, 20, 0], [1, 0, 0], [0, 1, 0]);
   s = run(s, r.command);
   let st = { ...createState(s), cam: homeCamera() };
-  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref;
-  st = select(st, [face]);
+  const faceRef = () => Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref;
+  const cornersOf = () => Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as { at: Vec3 }).at);
+  st = select(st, [faceRef()]);
   st = reduce(st, { type: "begin", name: "move" }, env);
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id), ["move:u", "move:v"]);
-  const u = g.handles[0]!;
-  const mid = scale(add(u.points[0]!, u.points[1]!), 0.5);
+  assert.deepEqual(g.handles.map((h) => h.id), ["move:x", "move:y", "move:z"], "the same arrows as an object");
+  const x = g.handles[0]!;
+  const mid = scale(add(x.points[0]!, x.points[1]!), 0.5);
   st = drag(st, mid, add(mid, [7, 0, 0]));
-  const corners = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as { at: Vec3 }).at);
-  near(Math.min(...corners.map((c) => c[0])), 7, 0.15);
-  near(Math.max(...corners.map((c) => c[0])), 47, 0.15);
-  assert.equal(scene(st.session).steps.length, 0, "a figure is moved by its corners: no step, just a change");
-  st = reduce(st, { type: "escape" }, env);
+  near(Math.min(...cornersOf().map((c) => c[0])), 7, 0.15);
+  near(Math.max(...cornersOf().map((c) => c[0])), 47, 0.15);
+  // up out of the world plane: the figure takes a plane of its own at the new height
+  st = reduce(st, { type: "entry", field: 0, text: "5" }, env);
+  st = reduce({ ...st, op: { ...st.op!, axis: 2 } }, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  near(Math.min(...cornersOf().map((c) => c[2])), 5, 1e-6);
+  const pl = scene(st.session).parts[Object.values(scene(st.session).parts).find((p) => p.kind === "corner" && p.origin === "drawn")!.plane!];
+  assert.ok(pl && pl.kind === "plane" && pl.origin === "drawn", "a plane of its own");
+  assert.notEqual(pl!.ref, XY);
+  nearV((pl as { at: Vec3 }).at, [7, 0, 5]);
+  st = { ...st, op: null };
+  // turning: three rings and the angle fields (0 0 0 for a figure lying flat), 90 about Z by typing
+  st = select(st, [faceRef()]);
   st = reduce(st, { type: "begin", name: "rotate" }, env);
-  const rg = gizmoOf(st)!;
-  assert.deepEqual(rg.handles.map((h) => h.id), ["rot:n", "pivot"]);
-  const ring = rg.handles[0]!;
-  const p = ring.points[12];
-  const c = rg.centre;
-  const rr = sub(p!, c);
-  st = drag(st, p!, add(c, [-rr[1], rr[0], 0]));
-  const turned = Object.values(scene(st.session).parts).filter((q) => q.kind === "corner" && q.origin === "drawn").map((q) => (q as { at: Vec3 }).at);
-  const xs = turned.map((q) => q[0]);
-  const ys = turned.map((q) => q[1]);
-  near(Math.max(...xs) - Math.min(...xs), 20, 0.5);
-  near(Math.max(...ys) - Math.min(...ys), 40, 0.5);
+  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot"]);
+  assert.deepEqual(frame(st).entry!.fields.map((f) => [f.label, f.value]), [["X", "0"], ["Y", "0"], ["Z", "0"]]);
+  st = reduce(st, { type: "entry", field: 2, text: "90" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  const xs = cornersOf().map((q) => q[0]);
+  const ys = cornersOf().map((q) => q[1]);
+  near(Math.max(...xs) - Math.min(...xs), 20, 0.01);
+  near(Math.max(...ys) - Math.min(...ys), 40, 0.01);
+  st = select({ ...st, op: null }, [faceRef()]);
+  st = reduce(st, { type: "begin", name: "rotate" }, env);
+  assert.deepEqual(frame(st).entry!.fields.map((f) => [f.label, f.value]), [["X", "0"], ["Y", "0"], ["Z", "90"]], "it shows how the figure is turned now");
+  // turn it up on its edge about X: it stands on end, its plane turns with it
+  st = reduce(st, { type: "entry", field: 0, text: "90" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  const zs = cornersOf().map((q) => q[2]);
+  assert.ok(Math.max(...zs) - Math.min(...zs) > 15, "it stands up");
 });
 
 /** Push (or pull) the body face with this outward normal and plane offset by `d`, through the same bubble and typed number a person uses. */
@@ -591,4 +607,19 @@ test("the arrow of a selected face has its size bubble at once; typing a size ma
   near(st.session.outcome.kernel!.volume!, 20 * 20 * 20, 0.5);
   const b = bbox(st);
   near(b.max[0]! - b.min[0]!, 20); near(b.max[1]! - b.min[1]!, 20); near(b.max[2]! - b.min[2]!, 20);
+});
+
+test("the length of a line of the body can be set like a sketch line's: the face at its end is pushed or pulled", () => {
+  let st = box(); // 40 x 20 x 20
+  const sc = scene(st.session);
+  const along = (p: { kind: string; a?: string; b?: string }, i: number) => p.kind === "line" && Math.abs((sc.parts[p.a as never] as { at: Vec3 }).at[i]! - (sc.parts[p.b as never] as { at: Vec3 }).at[i]!) > 1;
+  const xLine = Object.values(sc.parts).find((p) => p.kind === "line" && p.origin === "body" && along(p, 0))!;
+  st = select(st, [xLine.ref]);
+  const m = frame(st).annotations.find((a) => a.id === "measure")!;
+  near(m.value!, 40);
+  assert.equal(m.editable, true, "it can be typed over like a sketch line's length");
+  st = reduce(st, { type: "relation", act: "measure", id: null, value: 30 }, env);
+  assert.equal(st.session.message, null);
+  near(st.session.outcome.kernel!.volume!, 30 * 20 * 20, 0.5);
+  near(bbox(st).max[0]! - bbox(st).min[0]!, 30);
 });

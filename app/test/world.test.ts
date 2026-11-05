@@ -176,13 +176,13 @@ test("the menu always ends with the lists, save, open and the scroll mode, which
 });
 
 import { annotationsFor } from "../src/interaction/annotations.ts";
-test("a line of the body shows its length as a measurement you cannot lock; a world plane is only a surface for the ring, never selected", () => {
+test("a line of the body shows its length (a block edge can be set, others are measurements only); a world plane is only a surface for the ring, never selected", () => {
   const st = withBody();
   const sc = scene(st.session);
   const line = Object.values(sc.parts).find((p) => p.kind === "line" && p.origin === "body")!;
   const sug = annotationsFor(sc, [line.ref], null).find((x) => x.id === "measure")!;
   assert.equal(sug.label, "Length");
-  assert.equal(sug.readOnly, true);
+  assert.equal(sug.readOnly, false, "a block edge: its length can be set (the face at its end moves)");
   assert.ok(sug.value! > 9);
   // before a body: a click anywhere on the infinite plane selects it, and an empty-space click lands on a plane
   let e = createState(createSession(kernel));

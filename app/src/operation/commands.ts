@@ -1,6 +1,8 @@
 // Every change to the scene is a command: plain data that can be saved, replayed and undone (`dec_clean_engine_design` section 6).
 // `apply` is pure: it returns a new scene or says why the command cannot apply. Deleting a part removes the relations that used it in the same command,
 // so undo restores both.
+import { about } from "../math/rotation.ts";
+import { add, sub } from "../math/vec.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
@@ -21,6 +23,9 @@ export type Command =
   | { type: "setRelationValue"; id: string; value: number; locked?: boolean }
   | { type: "addStep"; step: Step }
   | { type: "removeStep"; id: string }
+  /** Move or turn a drawn figure in space like an object (`in_135`): its corners (and circles, lines) with the plane they lie on. `turns` are about the world axes through `pivot`, in order, then `translate`.
+   *  If the plane is shared with other drawings (a world plane, a face of the body) the figure gets a new drawn plane, named `newPlane`. */
+  | { type: "transformFigure"; parts: Ref[]; plane: Ref; newPlane: Ref; turns: { axis: 0 | 1 | 2; angle: number }[]; pivot: Vec3; translate: Vec3 }
   | { type: "batch"; commands: Command[] };
 
 const idOf = (full: string): string => full.slice(full.indexOf("/") + 1).split(/[./]/)[0] ?? full;
@@ -63,6 +68,30 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       if (!p.movable) return err(`${c.ref} is a reference and cannot change`);
       if (!(c.radius > 0)) return err("the radius must be positive");
       return ok({ ...s, parts: { ...s.parts, [c.ref]: { ...p, radius: c.radius } } });
+    }
+    case "transformFigure": {
+      const pl = s.parts[c.plane];
+      if (!pl || pl.kind !== "plane") return err(`${c.plane} is not a plane`);
+      const figure = new Set<Ref>(c.parts);
+      const mats = c.turns.map((t) => about(t.axis, t.angle));
+      const turn = (v: Vec3): Vec3 => mats.reduce((q, m) => [m[0] * q[0] + m[1] * q[1] + m[2] * q[2], m[3] * q[0] + m[4] * q[1] + m[5] * q[2], m[6] * q[0] + m[7] * q[1] + m[8] * q[2]] as Vec3, v);
+      const move = (p: Vec3): Vec3 => add(add(c.pivot, turn(sub(p, c.pivot))), c.translate);
+      const others = Object.values(s.parts).some((p) => p.origin === "drawn" && p.plane === c.plane && p.kind !== "face" && !figure.has(p.ref));
+      const inPlace = pl.origin === "drawn" && !others;
+      const target: Ref = inPlace ? pl.ref : c.newPlane;
+      const parts: Record<Ref, Part> = { ...s.parts };
+      if (inPlace) parts[pl.ref] = { ...pl, at: move(pl.at), u: turn(pl.u), v: turn(pl.v) };
+      else {
+        if (c.newPlane in s.parts) return err(`${c.newPlane} already exists`);
+        parts[c.newPlane] = { ref: c.newPlane, kind: "plane", origin: "drawn", plane: null, movable: false, at: move(pl.at), u: turn(pl.u), v: turn(pl.v) };
+      }
+      for (const ref of c.parts) {
+        const p = s.parts[ref];
+        if (!p || p.origin !== "drawn") return err(`${ref} is not a drawn part`);
+        if (p.kind === "corner") parts[ref] = { ...p, at: move(p.at), plane: target };
+        else if (p.kind === "line" || p.kind === "circle") parts[ref] = { ...p, plane: target };
+      }
+      return ok(inPlace ? { ...s, parts } : bumpCounter({ ...s, parts }, idOf(c.newPlane)));
     }
     case "deletePart": {
       const p = s.parts[c.ref];

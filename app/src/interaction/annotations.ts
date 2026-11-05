@@ -13,6 +13,7 @@ import { buildMap } from "../operation/ownership.ts";
 import type { Lookup } from "../operation/part.ts";
 import { pointOf, segmentOf, circleOf } from "../operation/part.ts";
 import { actionsFor } from "./actions.ts";
+import { lengthEditable } from "./lengths.ts";
 import { ROWS, REFERENCES_ONLY } from "./rows.ts";
 
 export interface Annotation {
@@ -167,13 +168,15 @@ function measureOf(scene: Scene, selection: readonly Ref[]): Annotation | null {
   // a number that only references have (a line of the body, two body corners) is shown as a measurement too, but cannot be locked
   const a = actionsFor(scene, selection).find((x) => x.dimensional && (x.enabled || x.why === REFERENCES_ONLY));
   if (!a || !a.unit) return null;
+  // the length of a block's edge can be set too: the face at its end is pushed or pulled (`lengths.ts`)
+  const bodyLine = a.id === "length" && selection.length === 1 && !a.enabled && lengthEditable(scene, selection[0]!);
   const v = a.measure();
   if (v === null) return null;
   if (scene.relations.some((r) => r.kind === a.id && r.value !== undefined && a.parts.length === r.parts.length && a.parts.every((p) => r.parts.includes(p)))) return null;
   const placed = place(lookup(scene), a.id, a.parts);
   const at = placed?.at ?? a.spot();
   if (!at) return null;
-  return { id: "measure", relationId: null, kind: a.id, label: a.label, at, value: v, unit: a.unit, locked: false, editable: a.enabled, readOnly: !a.enabled, broken: false, open: false, others: [], lines: placed?.lines ?? [] };
+  return { id: "measure", relationId: null, kind: a.id, label: a.label, at, value: v, unit: a.unit, locked: false, editable: a.enabled || bodyLine, readOnly: !a.enabled && !bodyLine, broken: false, open: false, others: [], lines: placed?.lines ?? [] };
 }
 
 /** The parts to show in amber: what the open constraint ties the selection to. */
