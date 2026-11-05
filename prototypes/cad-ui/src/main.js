@@ -91,7 +91,7 @@ uniform vec3 uLineCol;
 uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul; uniform float uMinCellPx;
 uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar; uniform float uFogK;
 uniform float uAxisW; uniform float uGhost;
-uniform float uPane; uniform float uEdgeA; uniform vec3 uFadeC; uniform float uFadeR;
+uniform float uPane; uniform float uPaneOff; uniform float uPaneR; uniform float uAxisLen; uniform float uEdgeA; uniform vec3 uFadeC; uniform float uFadeR;
 varying vec3 vPos;
 
 float gridLine(vec2 c, float s) {
@@ -120,11 +120,14 @@ void main() {
   float paneIn = 1.0;
   float edge = 0.0;
   if (uPane > 0.0) {
-    vec2 q = c / uPane;
-    vec2 fq = max(fwidth(q), vec2(1e-6));
-    if (q.x < 0.0 || q.y < 0.0 || q.x > 1.0 || q.y > 1.0) paneIn = 0.0;
-    vec2 e = min(q, 1.0 - q) / fq;
-    edge = (1.0 - min(min(e.x, e.y) / 1.3, 1.0)) * paneIn;
+    // a rounded square from uPaneOff to uPaneOff + uPane in the plane's own axes (signed distance to its outline: negative inside)
+    float hf = uPane * 0.5;
+    float r = min(uPaneR * uPane, hf);
+    vec2 pc = abs(c - vec2(uPaneOff + hf)) - vec2(hf - r);
+    float d = length(max(pc, 0.0)) + min(max(pc.x, pc.y), 0.0) - r;
+    float fw = max(length(fwidth(c)), 1e-6);
+    paneIn = 1.0 - smoothstep(-0.5 * fw, 0.5 * fw, d);
+    edge = (1.0 - clamp(-d / (fw * 1.3), 0.0, 1.0)) * paneIn;
   }
   // the sketch grid fades out away from the view centre (uFadeR > 0)
   float gridFade = uFadeR > 0.0 ? 1.0 - smoothstep(0.35 * uFadeR, uFadeR, distance(vPos, uFadeC)) : 1.0;
@@ -133,6 +136,10 @@ void main() {
   vec2 w = fwidth(c);
   float axU = 1.0 - min(abs(c.y) / (max(w.y, 1e-6) * uAxisW), 1.0); // v = 0 runs along the u axis
   float axV = 1.0 - min(abs(c.x) / (max(w.x, 1e-6) * uAxisW), 1.0); // u = 0 runs along the v axis
+  if (uAxisLen > 0.0) { // short axes: only the + half, ending at the arrows
+    axU *= step(0.0, c.x) * step(c.x, uAxisLen);
+    axV *= step(0.0, c.y) * step(c.y, uAxisLen);
+  }
 
   // World fog by distance from the camera: a smooth fall-off that never has a hard end, so a plane seen at a low angle
   // stays a solid plane that recedes all the way to the horizon (no fade with viewing angle).
@@ -185,7 +192,7 @@ for (const [name, def] of Object.entries(PLANES)) {
       uLineCol: { value: new THREE.Vector3() },
       uFogNear: { value: A.nearFactor }, uFogFar: { value: A.farFactor }, uAxisFogFar: { value: A.axisFarFactor }, uFogK: { value: A.sharpness },
       uAxisW: { value: G.axisWidthPx }, uGhost: { value: 0 },
-      uPane: { value: 0 }, uEdgeA: { value: 0 }, uFadeC: { value: new THREE.Vector3() }, uFadeR: { value: 0 },
+      uPane: { value: 0 }, uPaneOff: { value: 0 }, uPaneR: { value: 0 }, uAxisLen: { value: 0 }, uEdgeA: { value: 0 }, uFadeC: { value: new THREE.Vector3() }, uFadeR: { value: 0 },
     },
   });
   const geo = new THREE.PlaneGeometry(1, 1);
@@ -232,7 +239,9 @@ function updatePlanes() {
   const B = S.backdrop;
   const th = T();
   const PN = S.panes;
+  const ST = S.styles[S.styleName];
   const panes = styleMode === "panes";
+  const axisLen = ST.shortAxes ? S.axisArrow.lengthFactor * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2)) : 0; // axes that stop at their arrows
   const want = panes && selected ? 1 : 0;
   paneFade += (want - paneFade) * PN.fadeEase;
   if (Math.abs(want - paneFade) < 0.01) paneFade = want;
@@ -251,8 +260,8 @@ function updatePlanes() {
        state = mine ? { line: PN.sketchGrid * paneFade, bright: 0, opacity: 0, fine: PN.fine, blue: 0 } : { line: 0, bright: 0, opacity: 0, fine: 0, blue: 0 };
        fadeR = mine ? view.dist * PN.fadeRadius : 0;
      } else {
-       state = { line: 0, bright: 0, opacity: hot ? PN.hoverOpacity : PN.opacity, fine: 0, blue: hot ? PN.hoverBlue : 0 };
-       paneSize = view.dist * PN.size;
+       state = { line: 0, bright: 0, opacity: hot ? PN.hoverOpacity : PN.opacity, fine: 0, blue: hot ? ST.hoverBlue ?? PN.hoverBlue : 0 };
+       paneSize = view.dist * (ST.paneSize ?? PN.size);
        edgeA = hot ? PN.hoverEdgeAlpha : PN.edgeAlpha;
      }
      blue = state.blue;
@@ -293,6 +302,9 @@ function updatePlanes() {
     u.uGhost.value = G.axisGhost;
     u.uFineMul.value = state.fine; // the densest grid level is only shown on the sketch plane
     u.uPane.value = paneSize;
+    u.uPaneOff.value = view.dist * (ST.paneOffset ?? 0);
+    u.uPaneR.value = ST.paneRadius ?? 0;
+    u.uAxisLen.value = axisLen;
     u.uEdgeA.value = edgeA;
     u.uFadeC.value.copy(center);
     u.uFadeR.value = fadeR;
@@ -1245,10 +1257,12 @@ function pickAt(clientX, clientY) {
   const paneOnly = styleMode === "panes" && !inSketchView() ? (name, p) => {
     // panes style: only the small panes can be pointed at
     const [u, v] = planeDef(name).basis;
-    const s = view.dist * S.panes.size;
+    const st = S.styles[S.styleName];
+    const s = view.dist * (st.paneSize ?? S.panes.size);
+    const o = view.dist * (st.paneOffset ?? 0);
     const a = p[0] * u[0] + p[1] * u[1] + p[2] * u[2];
     const b = p[0] * v[0] + p[1] * v[1] + p[2] * v[2];
-    return a >= 0 && a <= s && b >= 0 && b <= s;
+    return a >= o && a <= o + s && b >= o && b <= o + s;
   } : null;
   return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * A.farFactor, minCos: G.grazeMinCos, only: inSketchView() ? selected : null, within: paneOnly });
 }

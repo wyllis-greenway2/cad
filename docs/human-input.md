@@ -425,3 +425,8 @@ Approval to draw directly on a surface in the 3D view, without the camera turnin
 Try different visual styles with a temporary style switcher; the first new style: blank world except the xyz lines, small translucent panes near the origin to select a plane, and a faint grid fading in on the sketching plane.
 
 > I am having a bit of a hard time seeing the model as I work, can we try a few different styles? Lets temporarily add a style switcher. One style I want to try is where the world is entirely blank except the xyz lines, and then little small translucent panes that show up around 0,0,0 to let you select your xyz plane, but now world level grids. Then when you start sketching I think I faint grid should fade into your sketching plane to help you sketch.
+
+## in_065 — 2026-11-05 — directive
+Another style to try: all white, charcoal pencil-colored short xyz lines that stop at the arrows, small floating rounded panes out from the corners of the xyz lines, and everything else white except the model and planes, which are grey.
+
+> okay lets try something totally different. Lets make one that is totally white. Lets have a dark charcoal pencil colored xyz, but it doesn't go throughout the whole world, it is small and stops at the arrows. It should have a little xyz pane that but they are floating a bit out of the corners of the xyz lines and also have slightly rounded corners. Everything else is white except the model and planes themselves are grey.

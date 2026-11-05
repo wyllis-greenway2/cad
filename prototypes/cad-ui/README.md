@@ -154,6 +154,8 @@ Lines you draw stay as an **open line** when you press Esc, pick another tool or
 ## Visual styles (temporary, `in_064`)
 A **style switcher** (top right, to be removed) tries looks: *Current (sheets)*, and three **panes** styles (dark, light, blueprint). In a panes style the world is blank except the **XYZ lines**; **three small translucent panes** sit in the + corner at the origin (hover to light one, click to sketch); there are no world-level grids. When you sketch, a **faint grid fades in on the sketch plane**, strongest at the view centre and fading outward (`settings.panes`, themes `panesDark`, `panesLight`, `blueprint`; `settings.styleName` picks the start style). Only the panes can be pointed at in 3D (the infinite planes cannot).
 
+**Pencil (white) style (`in_065`):** a white world; the XYZ lines are charcoal, short (+ half only) and stop at their arrows (`styles.pencil.shortAxes`); the three panes float a little out from the corners of the axes (`paneOffset`), with rounded corners (`paneRadius`), grey; the model and planes are grey; nothing else is drawn. Per-style overrides live in `settings.styles`.
+
 ## Constraints and sketch editing (`in_051`, `in_052`, `in_054`)
 A sketch is **corners and lines** (and circles). A **rectangle is a shortcut**: four lines with real horizontal and vertical constraints. Click a **line**: its **length** shows and you type a number to set it. A **circle's outline**: its radius.
 Shift-click a second line: if they **share a corner** their **angle** shows (type 1° to 179°; the first line stays, the second turns and keeps its length); if not, Parallel / Perpendicular / Equal length are offered. Corners: Fix in place (one),

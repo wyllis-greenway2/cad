@@ -531,3 +531,7 @@ Browser runs: menu with nothing picked, on a line (Horizontal/Delete/Undo...), o
 ## Handoff 051 — 2026-11-05
 **State:** `in_064`: temporary style switcher (`#styleSwitch`, `applyStyle`) with four styles from `settings.styles`; panes mode in the plane shader (`uPane`, `uEdgeA`, `uFadeC`, `uFadeR`; axis lines are never masked) and `updatePlanes`; panes-only picking via the new `within` option of `pickPlane`; sketch grid eases in (`paneFade`). Browser: pane hover/click entered a sketch, far from the panes nothing hovers, screenshots of all styles checked, no console errors. 87 tests.
 **Not yet:** no unit test for the pane pick rule; the choice is not remembered between runs; the old sheet style is untouched. Remove the switcher once a style is chosen.
+
+## Handoff 052 — 2026-11-05
+**State:** `in_065`: a fifth style "Pencil (white)": `themes.pencil`, `styles.pencil` (`shortAxes`, `paneSize`, `paneOffset`, `paneRadius`, `hoverBlue`); shader got `uPaneOff`, `uPaneR` (rounded-square signed-distance pane) and `uAxisLen` (axes only 0..arrow length). Pane picking honours the offset. Browser: hover lights one pane, a drawn and extruded box showed grey; screenshots checked; no console errors; 87 tests.
+**Not yet:** selection blue is still blue in this style; the sketch grid in this style is untested by eye.

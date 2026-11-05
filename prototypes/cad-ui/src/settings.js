@@ -180,6 +180,7 @@ settings.styles = {
   panesDark: { label: "Panes, dark", theme: "panesDark", mode: "panes" },
   panesLight: { label: "Panes, light", theme: "panesLight", mode: "panes" },
   blueprint: { label: "Panes, blueprint", theme: "blueprint", mode: "panes" },
+  pencil: { label: "Pencil (white)", theme: "pencil", mode: "panes", shortAxes: true, paneSize: 0.13, paneOffset: 0.05, paneRadius: 0.16, hoverBlue: 0 }, // white world, short charcoal axes, floating rounded grey panes
 };
 settings.styleName = "current";
 settings.panes = {
@@ -203,4 +204,10 @@ settings.themes.blueprint = {
   axisX: [1.0, 0.45, 0.4], axisY: [0.4, 0.9, 0.55], axisZ: [0.45, 0.65, 1.0],
   sheet: [0.45, 0.7, 1.0], gridLine: [0.5, 0.7, 1.0], blueSurface: [0.7, 0.85, 1.0], blueLine: [0.6, 0.8, 1.0],
   bodyColor: 0xdfeaf7, bodyEdge: 0x10243b,
+};
+settings.themes.pencil = {
+  ...base, background: 0xffffff, text: "#2b2b2d",
+  axisX: [0.17, 0.17, 0.19], axisY: [0.17, 0.17, 0.19], axisZ: [0.17, 0.17, 0.19], // charcoal, like a pencil
+  sheet: [0.5, 0.51, 0.54], gridLine: [0.58, 0.59, 0.62], blueSurface: [0.5, 0.51, 0.54], blueLine: [0.3, 0.3, 0.33],
+  bodyColor: 0xcdcdd0, bodyEdge: 0x2a2a2d,
 };
