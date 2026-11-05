@@ -104,7 +104,7 @@ const cornerOps: KindOps<Corner> = {
   anchors: (part) => [part.ref],
 };
 /** Points along the circular arc from `a` through `m` to `b` (a curved edge of the body), or just the two ends if they are in a line. */
-export function arcPoints(a: Vec3, m: Vec3, b: Vec3, steps = 40): Vec3[] {
+function arcPoints(a: Vec3, m: Vec3, b: Vec3, steps = 40): Vec3[] {
   const [ab, ac] = [sub(b, a), sub(m, a)];
   const n = cross(ab, ac);
   const nn = dot(n, n);
