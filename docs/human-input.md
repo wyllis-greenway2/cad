@@ -600,3 +600,8 @@ Asks whether building this way will run any less well in the browser.
 Approves the four proposals in the clean engine design (new code in a top-level app folder, TypeScript, freeze the prototype at phase 4, the drop list as written), says to build it, and asks whether to compress the context first since the build is large and the context is about 85 percent used.
 
 > yes, go with those four proposals, lets build it. Should we compress context before we build it though? I see you are at 85% context used and this seems like a large build
+
+## in_100 — 2026-11-05 — directive
+After compressing the context, asks whether the AI is ready to build the cleaner version of the app from the prototype findings and the plan; taken as the go-ahead for phase 1.
+
+> Okay are you ready to build the cleaner version of the app based off the prototype findings we discussed and the plan we built?

@@ -1,0 +1,44 @@
+// Builders for the commands that draw parts: they take the next ids from the scene, so callers never invent names.
+import type { Ref } from "../shared/ref.ts";
+import { drawnRef } from "../shared/ref.ts";
+import type { Vec3 } from "../math/vec.ts";
+import type { Scene } from "./scene.ts";
+import { nextId } from "./scene.ts";
+import type { Command } from "./commands.ts";
+
+/** A line chain through points on a plane: corners d/e_N.p0.. and lines d/e_N.s0.. (closed adds the last line back to the first corner). Returns the command and the refs. */
+export function drawChain(s: Scene, plane: Ref, points: Vec3[], closed = false): { command: Command; corners: Ref[]; lines: Ref[] } {
+  const id = nextId(s, "e");
+  const corners = points.map((_, i) => drawnRef(`${id}.p${i}`));
+  const n = closed ? points.length : points.length - 1;
+  const lines = Array.from({ length: n }, (_, i) => drawnRef(`${id}.s${i}`));
+  const base = { origin: "drawn" as const, plane, movable: true };
+  const commands: Command[] = [
+    ...points.map((at, i): Command => ({ type: "addPart", part: { ...base, ref: corners[i]!, kind: "corner", at } })),
+    ...lines.map((ref, i): Command => ({ type: "addPart", part: { ...base, ref, kind: "line", a: corners[i]!, b: corners[(i + 1) % points.length]! } })),
+  ];
+  return { command: { type: "batch", commands }, corners, lines };
+}
+
+export function drawRectangle(s: Scene, plane: Ref, a: Vec3, b: Vec3, u: Vec3, v: Vec3) {
+  const d: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+  const du = d[0] * u[0] + d[1] * u[1] + d[2] * u[2];
+  const dv = d[0] * v[0] + d[1] * v[1] + d[2] * v[2];
+  const at = (x: number, y: number): Vec3 => [a[0] + u[0] * x + v[0] * y, a[1] + u[1] * x + v[1] * y, a[2] + u[2] * x + v[2] * y];
+  return drawChain(s, plane, [at(0, 0), at(du, 0), at(du, dv), at(0, dv)], true);
+}
+
+export function drawCircle(s: Scene, plane: Ref, centre: Vec3, radius: number): { command: Command; centre: Ref; circle: Ref } {
+  const id = nextId(s, "e");
+  const centreRef = drawnRef(`${id}.c`);
+  const circle = drawnRef(`${id}.k`);
+  const base = { origin: "drawn" as const, plane, movable: true };
+  return {
+    command: { type: "batch", commands: [
+      { type: "addPart", part: { ...base, ref: centreRef, kind: "corner", at: centre } },
+      { type: "addPart", part: { ...base, ref: circle, kind: "circle", center: centreRef, radius } },
+    ] },
+    centre: centreRef,
+    circle,
+  };
+}

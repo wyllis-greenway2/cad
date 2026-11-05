@@ -29,6 +29,8 @@ The prototype taught what the product is (`in_093`: "we know we want a system th
 | **Geometry compiler** | solves relations into positions (the 2D solver, per plane), builds the kernel graph, calls the kernel adapter, turns the result back into body parts | `src/kernel/` and `src/solver/` as they are |
 | **Operation** | the scene: parts, relations, steps (features); commands; undo and redo (additive history); the ownership map | the graph that is saved (`prin_graph_is_truth`) |
 
+The support layers `math` (pure vector and plane maths, imports nothing) and `shared` (refs, results, the event bus) may be imported by every layer above them; the operation layer needs vectors for the positions of parts.
+
 Data flows down by calls, events up through one event bus. If a layer needs something from a non-adjacent layer, an interface method is missing.
 
 ## 2. The one part interface

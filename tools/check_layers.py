@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent / "app" / "src"
 ALLOWED = {
     "math": set(),
     "shared": set(),
-    "operation": {"shared"},
+    "operation": {"math", "shared"},
     "compiler": {"operation", "math", "shared"},
     "interaction": {"compiler", "operation", "math", "shared"},
     "ui": {"interaction", "shared"},
