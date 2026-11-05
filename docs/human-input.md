@@ -590,3 +590,8 @@ Asks, before proceeding, whether anything should be considered now for turning t
 Asks whether building this way means it will work the same for web but be slightly under-performing on phone or operating system because it was designed for web and runs in a wrapper.
 
 > Okay so if we build this way it will work the same for web, but will be slightly under performing on phone or operating system since it was originally designed for web and will be in a wrapper?
+
+## in_098 — 2026-11-05 — question
+Asks whether building this way will run any less well in the browser.
+
+> I guess my main question is, will this run any less good on the browser though?
