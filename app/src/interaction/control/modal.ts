@@ -37,8 +37,9 @@ export function commitOp(s: AppState): AppState {
   const next = run(s.session, cmd);
   if (next.message) return { ...s, session: next };
   if (s.op.kind === "dimension" || s.op.kind === "edit") return { ...s, session: next, op: null }; // a number on a relation: the selection stays, so its badge shows
+  const settled = { spread: null, hoverPoint: null }; // what was under the pointer before the step is not what is under it now
   // an extrude leaves nothing selected (the new body shows as itself); the other steps keep what was selected so they can go on (move, then rotate)
-  return { ...s, session: s.op.kind === "extrude" ? { ...next, click: { ...next.click, selection: [] } } : next, op: null };
+  return { ...s, ...settled, session: s.op.kind === "extrude" ? { ...next, hover: undefined, click: { ...next.click, selection: [] } } : next, op: null };
 }
 
 export function doTyped(s: AppState, key: string): AppState {

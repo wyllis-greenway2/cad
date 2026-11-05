@@ -1,6 +1,5 @@
 // What the UI layer may use. The UI sits directly above the interaction layer (`inv_layer_adjacency`), so everything it needs from below comes through here.
 export type { Scene } from "../operation/scene.ts";
-export type { Part } from "../operation/part.ts";
 export type { Ref } from "../shared/ref.ts";
 export type { Vec3 } from "../math/vec.ts";
 export type { Command } from "../operation/commands.ts";

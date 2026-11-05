@@ -115,7 +115,7 @@ function frame(now: number) {
     const page = host.getBoundingClientRect();
     view.setScene(f.scene, f.mesh);
     view.setHighlight(f.highlight, state.cam, now);
-    view.setPreview(f.preview);
+    view.setPreview(f.preview, state.cam);
     badges.update(f.badges, f.suggestion, f.badgeAt ? [f.badgeAt[0] + page.left, f.badgeAt[1] + page.top] : null);
     chip.update(f.entry?.fields ?? null, f.entry?.unit ?? "mm", pointer[0], pointer[1]);
     host.style.cursor = f.cursor;

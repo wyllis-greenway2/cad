@@ -118,7 +118,14 @@ export function lineNext(t: Tool): Vec3 | null {
 }
 
 /** What to draw while a figure is being made (the view draws it; it is not part of the scene). */
-export interface Preview { segments: [Vec3, Vec3][]; circle: { center: Vec3; radius: number; normal: Vec3 } | null }
+export interface Preview {
+  segments: [Vec3, Vec3][];
+  circle: { center: Vec3; radius: number; normal: Vec3 } | null;
+  /** triangles (flat xyz) of a solid to show, for an extrude: the prism it would make */
+  solid: number[] | null;
+  /** where the pointer is on the plane (a small ball marks it) */
+  cursor: Vec3 | null;
+}
 export function previewOf(scene: Scene, t: Tool): Preview | null {
   const pl = t.plane ? (scene.parts[t.plane] as Plane | undefined) : undefined;
   if (!pl || pl.kind !== "plane" || !t.points.length) return null;
@@ -130,13 +137,13 @@ export function previewOf(scene: Scene, t: Tool): Preview | null {
     const [ax, ay] = localOf(pl, a);
     const [ex, ey] = localOf(pl, e);
     const c = [liftOf(pl, [ax, ay]), liftOf(pl, [ex, ay]), liftOf(pl, [ex, ey]), liftOf(pl, [ax, ey])] as Vec3[];
-    return { segments: c.map((p, i): [Vec3, Vec3] => [p, c[(i + 1) % 4]!]), circle: null };
+    return { segments: c.map((p, i): [Vec3, Vec3] => [p, c[(i + 1) % 4]!]), circle: null, solid: null, cursor: t.cursor };
   }
-  if (t.kind === "circle") return { segments: [], circle: { center: t.points[0]!, radius: circleRadius(pl, t), normal: n } };
+  if (t.kind === "circle") return { segments: [], circle: { center: t.points[0]!, radius: circleRadius(pl, t), normal: n }, solid: null, cursor: t.cursor };
   const pts = [...t.points];
   const nx = lineNext(t);
   if (nx) pts.push(nx);
-  return { segments: pts.slice(1).map((p, i): [Vec3, Vec3] => [pts[i]!, p]), circle: null };
+  return { segments: pts.slice(1).map((p, i): [Vec3, Vec3] => [pts[i]!, p]), circle: null, solid: null, cursor: t.cursor };
 }
 
 export interface Finished { command: Command; select: Ref[] }

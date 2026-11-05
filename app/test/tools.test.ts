@@ -265,3 +265,29 @@ import type { Command } from "../src/interaction/api.ts";
 function applyCommand(st: AppState, c: Command) {
   return run(st.session, c);
 }
+
+import { prismTriangles } from "../src/interaction/entry.ts";
+test("the extrude preview is a real solid: a box has 12 triangles (4 sides of 2, two caps of 2), a circle's prism has its sides and caps; the pointer ball marks the cursor", () => {
+  const base: Vec3[] = [[0, 0, 0], [4, 0, 0], [4, 3, 0], [0, 3, 0]];
+  const tris = prismTriangles(base, [0, 0, 5], [0, 0, 1]);
+  assert.equal(tris.length / 9, 12);
+  let st = top();
+  st = drawBox(st, 0);
+  st = typeText(st, "7");
+  const pv = previewFor(scene(st.session), null, st.op)!;
+  assert.equal(pv.solid!.length / 9, 12);
+  assert.equal(pv.cursor, null);
+  let t = top();
+  t = reduce(t, { type: "begin", name: "rect" }, env);
+  t = click(t, [5, 5, 0]);
+  t = move(t, [20, 12, 0]);
+  assert.deepEqual(previewFor(scene(t.session), t.tool, null)!.cursor, [20, 12, 0], "a ball marks where the pointer is on the plane");
+});
+
+test("after an extrude nothing is selected and nothing is hovered or spreading from before", () => {
+  let st = top();
+  st = drawBox(st, 20);
+  assert.deepEqual(selection(st.session), []);
+  assert.equal(st.session.hover, undefined);
+  assert.equal(st.spread, null);
+});

@@ -15,11 +15,6 @@ export function clearGroup(g: THREE.Group) {
   }
 }
 
-export const dot = (p: Vec3, color: number, px: number): THREE.Points => {
-  const g = new THREE.BufferGeometry();
-  g.setAttribute("position", new THREE.Float32BufferAttribute([...p], 3));
-  return new THREE.Points(g, new THREE.PointsMaterial({ color, size: px, sizeAttenuation: false }));
-};
 export const trisMesh = (tris: number[], mat: THREE.Material): THREE.Mesh => {
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.Float32BufferAttribute(tris, 3));

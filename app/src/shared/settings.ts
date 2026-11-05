@@ -50,7 +50,6 @@ export const settings = {
     sheet: [0.5, 0.51, 0.54] as [number, number, number], // a pane's fill
     bodyColor: 0xcdcdd0,
     bodyEdge: 0x2a2a2d,
-    sketchInk: 0x000000,
   },
   panes: { opacity: 0.16, hoverOpacity: 0.38, edgeAlpha: 0.55, hoverEdgeAlpha: 1, size: 16, offset: 6, radius: 0.16 }, // the helper panes at the origin: rounded squares floating out from the axes (`in_064` to `in_070`), in mm at the home distance
   grid: { divisions: 30, minorAlpha: 0.35, majorAlpha: 0.7, color: [0.62, 0.63, 0.67] as [number, number, number] },
