@@ -27,6 +27,8 @@ export type Intent =
   | { type: "redo" }
   | { type: "delete" }
   | { type: "escape" }
+  | { type: "save" }
+  | { type: "open" }
   | { type: "runAction"; id: string }
   /** start a drawing tool or an operation (a key or the menu) */
   | { type: "begin"; name: "rect" | "circle" | "line" | "extrude" | "round" | "bevel" | "move" | "rotate" | "scale" | "dimension" }

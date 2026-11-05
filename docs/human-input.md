@@ -646,3 +646,8 @@ Tells the AI to go ahead with phase 6 of the clean engine (drawing and operation
 Tells the AI to go ahead with phase 7 of the clean engine (the relations UI).
 
 > continue with phase 7
+
+## in_109 — 2026-11-05 — directive
+Tells the AI to go ahead with phase 8 of the clean engine (the cut over).
+
+> continue with phase 8

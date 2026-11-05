@@ -66,7 +66,7 @@ export function createRecognizer(opts: { input?: S } = {}) {
         const a = keyAction(e.key, e.mods, I.keys);
         const typing = !e.mods.ctrl && !e.mods.alt && /^([0-9.\-]|Backspace|Tab|Enter|ArrowUp|ArrowDown)$/.test(e.key);
         if (typing) return [...(e.key === "Backspace" && a === "delete" ? [{ type: "delete" } as Intent] : []), { type: "typed", key: e.key, shift: e.mods.shift }];
-        if (a === "undo" || a === "redo" || a === "home" || a === "delete") return [{ type: a }];
+        if (a === "undo" || a === "redo" || a === "home" || a === "delete" || a === "save" || a === "open") return [{ type: a }];
         if (a === "cancel") return [{ type: "escape" }];
         if (a === "lookX") return [{ type: "look", plane: "X" }];
         if (a === "lookY") return [{ type: "look", plane: "Y" }];

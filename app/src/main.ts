@@ -6,7 +6,9 @@ import type { Intent } from "./shared/input.ts";
 import { settings } from "./shared/settings.ts";
 import { attachInput } from "./platform/dom-input.ts";
 import { createRecognizer } from "./interaction/recognizer.ts";
-import { createSession, run, scene, selection } from "./interaction/session.ts";
+import { createSession, openSession, saveText, run, scene, selection } from "./interaction/session.ts";
+import type { Session } from "./interaction/session.ts";
+import { webFiles, webStore } from "./platform/web-files.ts";
 import { createState, reduce, advance } from "./interaction/controller.ts";
 import type { AppState } from "./interaction/controller.ts";
 import { projector } from "./interaction/camera.ts";
@@ -36,6 +38,9 @@ const bus = createBus<{ input: RawInput }>();
 const recognizer = createRecognizer();
 let state: AppState;
 let dirty = true;
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let lastSaved: unknown = null;
+let autosave = true; // off for the demo, so trying it never overwrites your own work
 
 const SCROLL_KEY = "cad.scrollMode";
 try {
@@ -53,15 +58,30 @@ const menu = createMenu(document.body, (id) => {
     menu.hide();
     return;
   }
+  if (id === "save" || id === "open") { dispatch({ type: id }); menu.hide(); return; }
   dispatch({ type: "runAction", id });
   menu.hide();
 });
+const fileRows = () => [{ id: "save", label: "Save", enabled: true, why: null }, { id: "open", label: "Open…", enabled: true, why: null }];
 const scrollRow = () => ({ id: "scrollMode", label: SCROLL_LABEL[recognizer.scrollMode], enabled: true, why: null });
 
 const env = () => ({ w: view.size().w, h: view.size().h, now: performance.now() });
+const AUTOSAVE_KEY = "cad.autosave";
+const FILE_NAME = "model.cad.json";
+function adopt(session: Session) { state = { ...createState(session), cam: state.cam }; menu.hide(); dirty = true; }
 function dispatch(i: Intent) {
+  if (i.type === "save") { webFiles.save(FILE_NAME, saveText(state.session)); return; }
+  if (i.type === "open") {
+    void webFiles.open().then((text) => {
+      if (text === null) return;
+      const r = openSession(kernel, text);
+      if (r.ok) adopt(r.value);
+      else state = { ...state, session: { ...state.session, message: r.error } }, (dirty = true);
+    });
+    return;
+  }
   state = reduce(state, i, env());
-  if (i.type === "menu") menu.show(i.x, i.y, state.menu?.items ?? [], [scrollRow()]);
+  if (i.type === "menu") menu.show(i.x, i.y, state.menu?.items ?? [], [...fileRows(), scrollRow()]);
   else if (menu.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) menu.hide(); // pointing around does not close the menu; any other intent does
   dirty = true;
 }
@@ -76,7 +96,14 @@ async function boot() {
   await initKernelWeb();
   statusEl.textContent = "";
   let session = createSession(kernel);
-  if (new URLSearchParams(location.search).get("demo") === "box") {
+  const demo = new URLSearchParams(location.search).get("demo") === "box";
+  autosave = !demo;
+  const saved = demo ? null : webStore.get(AUTOSAVE_KEY);
+  if (saved) {
+    const r = openSession(kernel, saved);
+    if (r.ok) session = r.value;
+  }
+  if (demo) {
     const r = drawRectangle(scene(session), "w/XY" as Ref, [-20, -10, 0], [20, 10, 0], [1, 0, 0], [0, 1, 0]);
     session = run(session, r.command);
     session = run(session, { type: "addStep", step: { id: nextId(scene(session), "s"), type: "extrude", parts: r.lines, params: { depth: 20 } } });
@@ -96,6 +123,12 @@ function frame(now: number) {
   if (state.anim) { state = advance(state, now); dirty = true; }
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading) {
+    if (autosave && state.session.history !== lastSaved) {
+      lastSaved = state.session.history;
+      if (saveTimer) clearTimeout(saveTimer);
+      const h = state.session;
+      saveTimer = setTimeout(() => webStore.set(AUTOSAVE_KEY, saveText(h)), 600); // the autosave: what you were doing is back after a refresh
+    }
     const o = state.session.outcome;
     view.setScene(scene(state.session), o.kernel?.mesh ?? null);
     const sc = scene(state.session);

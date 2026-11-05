@@ -27,7 +27,7 @@ export const settings = {
     scrollNotchMs: 160, // a scroll gesture keeps its kind while its events keep arriving within this
     keys: {
       undo: ["mod+z"], redo: ["mod+shift+z", "mod+y"], lookX: ["x"], lookY: ["y"], lookZ: ["z"], lookN: ["n"], home: ["h"],
-      cancel: ["escape"], delete: ["delete", "backspace"],
+      cancel: ["escape"], save: ["mod+s"], open: ["mod+o"], delete: ["delete", "backspace"],
       toolRect: ["r"], toolCircle: ["c"], toolLine: ["l"], extrude: ["e"], round: ["f"], bevel: ["b"], move: ["m"], rotate: ["t"], scale: ["k"], dimension: ["d"],
     } as Record<string, string[]>,
   },

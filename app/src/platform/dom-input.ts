@@ -61,6 +61,7 @@ export function attachInput(el: HTMLElement, bus: InputBus): () => void {
   const key = (down: boolean) => (e: KeyboardEvent) => {
     const t = e.target as HTMLElement | null;
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+    if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "o")) e.preventDefault(); // save and open are ours, not the browser's
     if (e.key === " " || e.key === "Tab" || e.key === "Backspace" || e.key.startsWith("Arrow")) e.preventDefault(); // Space + drag pans, Tab moves between typed fields: the page must not scroll, change focus or go back
     bus.emit("input", { kind: "key", key: e.key, down, mods: modsOf(e), t: now() });
   };

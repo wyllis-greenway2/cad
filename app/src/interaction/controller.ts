@@ -244,6 +244,9 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
       if (s.focus && !s.tool && !s.op) return { ...s, focus: null };
       if (s.tool || s.op) return { ...s, tool: null, op: null };
       return withSession(s, clearSelection(sess));
+    case "save":
+    case "open":
+      return s; // files are the platform's business: the composition root handles these
     case "relation": {
       const rel = i.id ? sc.relations.find((r) => r.id === i.id) : undefined;
       if (i.act === "focus") return { ...s, focus: i.id === s.focus ? null : i.id };

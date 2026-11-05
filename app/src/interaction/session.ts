@@ -9,6 +9,9 @@ import type { Command } from "../operation/commands.ts";
 import type { History } from "../operation/history.ts";
 import { newHistory, exec, undo, redo } from "../operation/history.ts";
 import type { Scene } from "../operation/scene.ts";
+import type { Result } from "../shared/result.ts";
+import { ok } from "../shared/result.ts";
+import { fromText, toText } from "../operation/file.ts";
 import { emptyScene } from "../operation/scene.ts";
 import type { Selection } from "./selection.ts";
 import { click as clickGrammar, initialClick } from "./selection.ts";
@@ -27,18 +30,29 @@ export interface Session {
 export const scene = (s: Session): Scene => s.history.scene;
 export const selection = (s: Session): Selection => s.click.selection;
 
-export function createSession(kernel: Kernel, base: Scene = emptyScene()): Session {
-  // the outcome of the latest derive is kept beside the history, so the view can show errors and the kernel result without compiling twice
+/** The compile step and its cache: the outcome of the latest derive of each scene is kept beside the history, so the view shows errors and the kernel result without compiling twice. */
+function makeCompiler(kernel: Kernel) {
   const cache = new Map<Scene, CompileOutcome>();
   const derive = (sc: Scene): Scene => {
     const o = compile(sc, kernel);
     cache.set(o.scene, o);
     return o.scene;
   };
-  const history = newHistory(base, derive);
-  const outcomeOf = (h: History): CompileOutcome => cache.get(h.scene)!;
-  return { history, click: initialClick(), hover: undefined, outcome: outcomeOf(history), message: null, outcomeOf };
+  return { derive, outcomeOf: (h: History): CompileOutcome => cache.get(h.scene)! };
 }
+const wrap = (history: History, outcomeOf: (h: History) => CompileOutcome): Session => ({ history, click: initialClick(), hover: undefined, outcome: outcomeOf(history), message: null, outcomeOf });
+
+export function createSession(kernel: Kernel, base: Scene = emptyScene()): Session {
+  const c = makeCompiler(kernel);
+  return wrap(newHistory(base, c.derive), c.outcomeOf);
+}
+/** A session from the text of a project file (see `operation/file.ts`), or why it cannot be opened. */
+export function openSession(kernel: Kernel, text: string): Result<Session> {
+  const c = makeCompiler(kernel);
+  const h = fromText(text, c.derive);
+  return h.ok ? ok(wrap(h.value, c.outcomeOf)) : h;
+}
+export const saveText = (s: Session): string => toText(s.history);
 function withHistory(s: Session, h: History, message: string | null = null): Session {
   // the selection keeps only parts that still exist
   return { ...s, history: h, outcome: s.outcomeOf(h), message, click: { ...s.click, selection: s.click.selection.filter((r) => r in h.scene.parts) } };
