@@ -485,3 +485,8 @@ Make the hover ring much smaller and the exact same colour as the selected face 
 Asks whether it makes sense to build the modeler so it can be used on mobile or touch devices, and whether anyone really does CAD on touch devices.
 
 > Okay now does it make sense to build this cad modeler so it could be used on mobile or touch devices? does anyone really do cad on touch devices?
+
+## in_077 — 2026-11-05 — directive
+Design for mouse, trackpad and phone touch from the beginning, keeping a stylus in mind, so the design does not paint itself into a corner; and asks how to preview on the phone (USB cable, or a small server to deploy to).
+
+> okay well I kind of want to think about multi device use from the beginning because I dont want to design into a corner and later find out that it is really hard to offer interactions for something on a different device. So I have a mouse, a track-pad, and a mobile phone. Lets design for all those three, and keep stylus in mind as well so our design decisions can hopefully capture all four whenever I get a stylus. So how can I preview this on my phone? I have a USB data cable I can plug into my laptop, or alternatively I could setup a real little server where we can deploy the code and I could try from whatever device
