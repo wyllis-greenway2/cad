@@ -1,6 +1,7 @@
 // The solid body: asks the geometry kernel (through ./kernel/client.js; today OCCT) for the result, shows it in the scene, and keeps lights.
 // The view asks for a graph with request(); newest request wins while one is in flight, so dragging never queues up.
 import * as THREE from "three";
+import { hoverOrb, selectOrb, orbMaterial } from "./orb.js";
 import { spawnKernel } from "./kernel/client.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
@@ -100,19 +101,19 @@ export function createBody(scene, S, colors, renderer) {
     geo.setAttribute("position", new THREE.BufferAttribute(out, 3));
     return geo;
   }
-  function tint(group, face, opacity, current) {
+  function tint(group, face, orb, current) {
     if (face === current.face) return;
     current.face = face;
     for (const c of [...group.children]) (c.geometry.dispose(), c.material.dispose(), group.remove(c));
     if (!face || !bodyMesh) return;
-    const m = new THREE.Mesh(faceGeometry(face), new THREE.MeshBasicMaterial({ color: new THREE.Color(...colors().blueSurface), transparent: true, opacity, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, fog: false, side: THREE.DoubleSide }));
+    const m = new THREE.Mesh(faceGeometry(face), orbMaterial(colors().blueSurface, orb, { offset: -2 })); // an orb of blue on the face, not a tint over all of it (`in_073`)
     m.renderOrder = 6;
     group.add(m);
   }
   const hoverState = { face: null };
   const selectState = { face: null };
-  const setHighlight = (face) => tint(highlight, face, S.light.faceHoverOpacity, hoverState);
-  const setSelected = (face) => tint(selectedGroup, face, S.light.faceSelectOpacity, selectState);
+  const setHighlight = (face) => tint(highlight, face, hoverOrb, hoverState);
+  const setSelected = (face) => tint(selectedGroup, face, selectOrb, selectState);
   const positionsOf = (face) => {
     const pos = bodyMesh.geometry.getAttribute("position");
     const idx = bodyMesh.geometry.index.array;

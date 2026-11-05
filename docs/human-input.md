@@ -465,3 +465,8 @@ Use the app as a user would and look for bugs; a first bug: rectangle cannot be 
 Replace the three panes on the large xyz thing with something like a touch shadow (something added to the face it touches that fades), and make the grid lines lighter grey.
 
 > Can we get rid of the 3 panes on the large xyz thing, and instead can we have something like a touch shadow? So it adds a something to the face it touches and fades. Also can we make the grid lines lighter grey
+
+## in_073 — 2026-11-05 — directive
+Undo the touch shadow; instead try an orb-like hover highlight on the surface under the cursor (a semi-transparent circle on the surface that fades smoothly to nothing, no hard edges) and on click let the orb colour radiate to fill the whole clicked surface.
+
+> No lets undo that. Lets try something else. Can we have it so that there is like a hover highlight? So as apposed to a whole surface highlighting on hover, a circle of it highlights where the cursor is. The circle is actually on the surface so you can see the surface as it traces over it. The circle should be semi transparent and smoothly gradient into nothing, like an orb, with no hard edges. On click, it should radiate that orb color to fill the whole surface that was clicked.

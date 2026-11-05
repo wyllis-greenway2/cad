@@ -18,6 +18,7 @@ import { ExtrudeSession } from "./extrude.mjs";
 import { TransformSession, AXIS_NAMES, UNITS } from "./transform.mjs";
 import { buildGraph } from "./features.mjs";
 import { createBody } from "./body.js";
+import { hoverOrb, selectOrb, fullOrb, orbMaterial, ORB_GLSL } from "./orb.js";
 import { PLANES, planeDef, addFacePlane, basisOf, frameOf, planeOrigin, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, normalSide, flippedView, projectOnto, pickPlane } from "./viewmath.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -80,6 +81,7 @@ void main() {
   gl_Position = projectionMatrix * viewMatrix * vec4(vPos, 1.0);
 }`;
 const FRAG = /* glsl */ `
+${ORB_GLSL}
 uniform vec3 uCam; uniform float uDist;
 uniform vec3 uU; uniform vec3 uV; uniform vec3 uCol; uniform vec3 uColU; uniform vec3 uColV;
 uniform float uLineA; uniform float uOpacity; uniform float uAxisA;
@@ -87,7 +89,8 @@ uniform vec3 uLineCol;
 uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul; uniform float uMinCellPx;
 uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar; uniform float uFogK;
 uniform float uAxisW;
-uniform float uPane; uniform float uAxisLen; uniform vec3 uFadeC; uniform float uFadeR;
+uniform vec3 uOrbCol; uniform vec3 uHC; uniform float uHR; uniform float uHA; uniform vec3 uSC; uniform float uSR; uniform float uSA; uniform float uSFill;
+uniform float uPane; uniform float uPaneOff; uniform float uPaneR; uniform float uAxisLen; uniform float uEdgeA; uniform vec3 uFadeC; uniform float uFadeR;
 varying vec3 vPos;
 
 float gridLine(vec2 c, float s) {
@@ -113,16 +116,17 @@ void main() {
   float grid = max(max(gridLine(c, s0) * w0, gridLine(c, s0 * 10.0) * w1), gridLine(c, s0 * 100.0) * w2);
 
   // panes style: the plane is only a small square (0..uPane in its own axes) with an outline; the axis lines are never cut
-  // Touch shadow: where an axis touches this plane it leaves a soft shadow on both sides of the line that fades with distance from the axis and toward its tip.
-  // uPane = how wide the shadow reaches (0 = no shadow: the plane is only a grid, or nothing); it is also what can be pointed at.
   float paneIn = 1.0;
+  float edge = 0.0;
   if (uPane > 0.0) {
-    float tipFade = max(uAxisLen, 1e-6);
-    float sU = smoothstep(uPane, 0.0, abs(c.y)); // beside the axis that runs along u (v = 0)
-    float sV = smoothstep(uPane, 0.0, abs(c.x)); // beside the axis that runs along v (u = 0)
-    float alongU = smoothstep(-0.5 * uPane, 0.0, c.x) * (1.0 - smoothstep(0.35 * tipFade, tipFade, c.x));
-    float alongV = smoothstep(-0.5 * uPane, 0.0, c.y) * (1.0 - smoothstep(0.35 * tipFade, tipFade, c.y));
-    paneIn = max(sU * sU * alongU, sV * sV * alongV);
+    // a rounded square from uPaneOff to uPaneOff + uPane in the plane's own axes (signed distance to its outline: negative inside)
+    float hf = uPane * 0.5;
+    float r = min(uPaneR * uPane, hf);
+    vec2 pc = abs(c - vec2(uPaneOff + hf)) - vec2(hf - r);
+    float d = length(max(pc, 0.0)) + min(max(pc.x, pc.y), 0.0) - r;
+    float fw = max(length(fwidth(c)), 1e-6);
+    paneIn = 1.0 - smoothstep(-0.5 * fw, 0.5 * fw, d);
+    edge = (1.0 - clamp(-d / (fw * 1.3), 0.0, 1.0)) * paneIn;
   }
   // the sketch grid fades out away from the view centre (uFadeR > 0)
   float gridFade = uFadeR > 0.0 ? 1.0 - smoothstep(0.35 * uFadeR, uFadeR, distance(vPos, uFadeC)) : 1.0;
@@ -146,9 +150,15 @@ void main() {
 
 #if PASS == 0
   // Paint layer: a pane's fill.
-  gl_FragColor = vec4(uCol, uOpacity * fog * paneIn);
+  // the pane's own fill, plus the orb highlights lying on it (the hover orb at the cursor, the selection orb spreading from the click)
+  float baseA = uOpacity * fog * paneIn;
+  float hA = uHA * orbProfile(vPos, uHC, uHR, 0.0) * paneIn;
+  float sA = uSA * orbProfile(vPos, uSC, uSR, uSFill) * paneIn;
+  float orbA = 1.0 - (1.0 - hA) * (1.0 - sA);
+  float tot = 1.0 - (1.0 - baseA) * (1.0 - orbA);
+  gl_FragColor = vec4(mix(uCol, uOrbCol, orbA / max(tot, 1e-4)), tot);
 #else
-  float a = grid * uLineA * fog;                                      // grid lines
+  float a = max(grid * uLineA * fog, edge * uEdgeA);                  // grid lines and the pane outline
   float ax = max(axU, axV) * uAxisA * axFog;                          // world axis lines
   vec3 col = mix(uLineCol, mix(uColU, uColV, step(axU, axV)), step(a, ax)); // an axis line wins where it is stronger
   gl_FragColor = vec4(col, max(a, ax));
@@ -174,7 +184,8 @@ for (const [name, def] of Object.entries(PLANES)) {
       uLineCol: { value: new THREE.Vector3() },
       uFogNear: { value: A.nearFactor }, uFogFar: { value: A.farFactor }, uAxisFogFar: { value: A.axisFarFactor }, uFogK: { value: A.sharpness },
       uAxisW: { value: G.axisWidthPx },
-      uPane: { value: 0 }, uAxisLen: { value: 0 }, uFadeC: { value: new THREE.Vector3() }, uFadeR: { value: 0 },
+      uOrbCol: { value: new THREE.Vector3(...T().blueSurface) }, uHC: { value: new THREE.Vector3() }, uHR: { value: 1 }, uHA: { value: 0 }, uSC: { value: new THREE.Vector3() }, uSR: { value: 1 }, uSA: { value: 0 }, uSFill: { value: 0 },
+      uPane: { value: 0 }, uPaneOff: { value: 0 }, uPaneR: { value: 0 }, uAxisLen: { value: 0 }, uEdgeA: { value: 0 }, uFadeC: { value: new THREE.Vector3() }, uFadeR: { value: 0 },
     },
   });
   const geo = new THREE.PlaneGeometry(1, 1);
@@ -192,8 +203,6 @@ for (const [name, def] of Object.entries(PLANES)) {
 /** Keep each plane's quad centered on the target (projected onto the plane) and sized to the view, so it looks
  *  infinite and vertex positions stay small (float precision). Grid lines are in world coordinates. */
 const mix3 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
-/** How long the axes are (they stop at their arrows). */
-const axisLength = () => S.axisArrow.lengthFactor * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2));
 const baseOf = (id) => (id ? planeDef(id).base ?? id : null);
 const selPlane = () => (sel?.kind === "plane" ? sel.plane : null); // a selected world plane (not sketching on it)
 /** The plane that N, X, Y and Z act on: the sketch plane, else a selected plane, or the plane of a selected face or sketch shape. */
@@ -213,7 +222,7 @@ function updatePlanes() {
   const PN = S.panes;
   stepCorner();
   const cornerK = 1 - cornerT; // the world axes and panes fade as the compass moves to the corner
-  const axisLen = axisLength(); // the axes stop at their arrows
+  const axisLen = S.axisArrow.lengthFactor * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2)); // the axes stop at their arrows
   const actP = selected ?? selPlane(); // the plane being sketched on or selected
   const faceOnAct = !!actP && isNormal(view, actP, V.normalToleranceRad);
   const want = faceOnAct ? 1 : 0; // the grid shows only while you look straight at the plane
@@ -222,19 +231,20 @@ function updatePlanes() {
   else requestRender(); // keep fading
   for (const [name, pair] of Object.entries(planeMeshes)) {
    const mine = !!actP && baseOf(actP) === name;
-   const hot = !faceOnAct && (hovered === name || mine); // the selected plane's pane is blue; looking straight at it, the pane gives way to the grid
    let line = 0;
    let opacity = 0;
    let fine = 0;
    let paneSize = 0;
+   let edgeA = 0;
    let fadeR = 0;
    if (faceOnAct) {
      if (mine) (line = PN.gridAlpha * paneFade), (fine = PN.fine), (fadeR = view.dist * PN.fadeRadius);
    } else {
-     opacity = (hot ? PN.hoverOpacity : PN.opacity) * cornerK;
-     paneSize = cornerK > 0 ? view.dist * PN.shadowWidth : 0;
+     opacity = PN.opacity * cornerK; // pointing at a pane no longer tints all of it: the orb does (`in_073`)
+     paneSize = cornerK > 0 ? view.dist * PN.size : 0;
+     edgeA = PN.edgeAlpha * cornerK;
    }
-   const blue = hot ? PN.hoverBlue : 0;
+   const blue = 0;
    const sheet = mix3(th.sheet, th.blueSurface, blue);
    const lineCol = mix3(th.gridLine, th.blueLine, Math.min(1, blue * 3));
    // while sketching on a face, this sheet takes that face's place and orientation (any angle); otherwise it is the base plane itself
@@ -265,10 +275,24 @@ function updatePlanes() {
     u.uLineA.value = line;
     u.uFineMul.value = fine;
     u.uPane.value = paneSize;
+    u.uPaneOff.value = view.dist * PN.offset;
+    u.uPaneR.value = PN.radius;
     u.uAxisLen.value = axisLen;
+    u.uEdgeA.value = edgeA;
     u.uFadeC.value.copy(center);
     u.uFadeR.value = fadeR;
     u.uOpacity.value = mesh === pair.paint ? opacity : 0;
+    // the orbs on this pane: the hover orb if the cursor is on it, the selection orb if it is the selected plane (or the plane being sketched on, flat)
+    const hovHere = hovered === name && !selected && hoverOrb.uOrbA.value > 0;
+    const selHere = !!actP && baseOf(actP) === name;
+    u.uHA.value = hovHere ? hoverOrb.uOrbA.value : 0;
+    u.uHC.value.copy(hoverOrb.uOrbC.value);
+    u.uHR.value = hoverOrb.uOrbR.value;
+    u.uSA.value = selHere ? (selPlane() ? selectOrb.uOrbA.value : S.light.faceSelectOpacity) : 0;
+    u.uSC.value.copy(selectOrb.uOrbC.value);
+    u.uSR.value = selectOrb.uOrbR.value;
+    u.uSFill.value = selPlane() ? selectOrb.uOrbFill.value : 1;
+    u.uOrbCol.value.set(...th.blueSurface);
    }
   }
 }
@@ -447,6 +471,68 @@ function updateCompass() {
   }
 }
 
+// ---------------------------------------------------------------- the orb highlights (`in_073`)
+let selOrbAnim = null; // the colour spreading over the clicked surface: { t0, c, R0, R1 }
+let orbSel = null; // the selection the orb was last set up for
+/** How far from `c` the surface under the selection reaches (world): the orb must grow past this to fill it. */
+function surfaceReach(c) {
+  const far = (pts) => pts.reduce((m, q) => Math.max(m, Math.hypot(q[0] - c[0], q[1] - c[1], q[2] - c[2])), 0);
+  if ((sel?.kind === "face" || sel?.kind === "body") && body.ready()) {
+    const g = body.faceGeometry(sel.kind === "body" ? body.wholeBody() : sel.face);
+    const a = g?.getAttribute("position");
+    if (a) {
+      let m = 0;
+      for (let i = 0; i < a.count; i++) m = Math.max(m, Math.hypot(a.getX(i) - c[0], a.getY(i) - c[1], a.getZ(i) - c[2]));
+      g.dispose();
+      return m;
+    }
+  }
+  if (sel?.kind === "sketch") {
+    const e = store.entities(sel.plane).find((x) => x.id === sel.id);
+    if (e) return far(outline(e).pts.map((p) => toWorld(sel.plane, p)));
+  }
+  return view.dist * 0.35;
+}
+/** A click just selected a surface: the orb colour radiates from the click over the whole surface. */
+function startSelectOrb() {
+  orbSel = sel;
+  selOrbAnim = null;
+  if (!sel || !["face", "body", "sketch", "plane"].includes(sel.kind) || !hoverPoint) return;
+  const R0 = view.dist * S.orb.radius;
+  selOrbAnim = { t0: performance.now(), c: hoverPoint.slice(), R0, R1: Math.max(R0, surfaceReach(hoverPoint)) * S.orb.reachFactor };
+  requestRender();
+}
+function updateOrbs() {
+  const O = S.orb;
+  const hovering = !selected && !extrude && !xform && !!hoverPoint && !!(hoveredFace || hoveredSketch || hovered);
+  hoverOrb.uOrbA.value = hovering ? O.hoverOpacity : 0;
+  if (hoverPoint) hoverOrb.uOrbC.value.set(...hoverPoint);
+  hoverOrb.uOrbR.value = view.dist * O.radius;
+  const surface = !!sel && ["face", "body", "sketch", "plane"].includes(sel.kind);
+  selectOrb.uOrbA.value = surface ? S.light.faceSelectOpacity : 0;
+  if (sel !== orbSel) {
+    // selected some other way (no click to spread from): lit all over at once
+    orbSel = sel;
+    selOrbAnim = null;
+    selectOrb.uOrbR.value = 1e6;
+    selectOrb.uOrbFill.value = 1;
+  }
+  if (selOrbAnim) {
+    const k = clamp((performance.now() - selOrbAnim.t0) / O.fillMs, 0, 1);
+    if (k >= 1) {
+      selOrbAnim = null;
+      selectOrb.uOrbR.value = 1e6;
+      selectOrb.uOrbFill.value = 1;
+    } else {
+      const e = 1 - (1 - k) ** 3;
+      selectOrb.uOrbC.value.set(...selOrbAnim.c);
+      selectOrb.uOrbR.value = selOrbAnim.R0 + (selOrbAnim.R1 - selOrbAnim.R0) * e;
+      selectOrb.uOrbFill.value = clamp((k - 0.55) / 0.45, 0, 1) ** 2 * (3 - 2 * clamp((k - 0.55) / 0.45, 0, 1));
+      requestRender(); // keep spreading
+    }
+  }
+}
+
 // ---------------------------------------------------------------- render loop (on demand)
 let dirty = false;
 function requestRender() {
@@ -458,6 +544,7 @@ function requestRender() {
     const h = canvas.clientHeight;
     applyCamera();
     body.updateLights(camera, view.target, view.dist);
+    updateOrbs();
     updatePlanes();
     renderer.setViewport(0, 0, w, h);
     renderer.clear();
@@ -611,6 +698,14 @@ function disc(plane, p, radiusMm, color, order, alpha = 1) {
   mesh.renderOrder = order;
   return mesh;
 }
+/** An orb of blue lying on a flat shape (`in_073`): the same soft highlight as on body faces and panes. */
+function orbShape(plane, polygon, orb) {
+  const mesh = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(polygon.map((p) => new THREE.Vector2(p[0], p[1])))), orbMaterial(T().blueSurface, orb));
+  mesh.matrixAutoUpdate = false;
+  mesh.matrix.copy(basisMatrix(plane));
+  mesh.renderOrder = 3.5;
+  return mesh;
+}
 function fillShape(plane, polygon, color, alpha) {
   const shape = new THREE.Shape(polygon.map((p) => new THREE.Vector2(p[0], p[1])));
   const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: alpha, depthWrite: false, side: THREE.DoubleSide, fog: false }));
@@ -664,7 +759,14 @@ function buildSketchViz() {
       const skSel = plane === session.plane && key === session.key && (session.picks.some((k) => k.kind === "entity" && k.shape === e.id) || (session.tool === "dimension" && e.id === session.selectedId)); // the whole shape is selected in the sketch view
       const hov = (plane === session.plane && session.tool === "extrude" && e.id === session.hoverId) || (hoveredSketch?.plane === plane && hoveredSketch.id === e.id);
       const picked = skSel || (sel?.kind === "sketch" && sel.plane === plane && sel.id === e.id); // stays blue until deselected, in the sketch view and in 3D
-      if (o.closed && !isExtruded(plane, e)) sketchGroup.add(fillShape(plane, o.pts, toHex(mix3(cream, th.blueSurface, picked ? SK.regionSelectBlue : hov ? SK.regionHoverBlue : 0)), SK.regionFill));
+      if (o.closed && !isExtruded(plane, e)) {
+        sketchGroup.add(fillShape(plane, o.pts, toHex(cream), SK.regionFill));
+        const hoverHere = hoveredSketch?.plane === plane && hoveredSketch.id === e.id;
+        const selHere = sel?.kind === "sketch" && sel.plane === plane && sel.id === e.id;
+        if (selHere) sketchGroup.add(orbShape(plane, o.pts, selectOrb)); // the selected shape: the orb spread over it
+        else if (skSel || (plane === session.plane && session.tool === "extrude" && e.id === session.hoverId)) sketchGroup.add(orbShape(plane, o.pts, fullOrb)); // selected or picked in the sketch view: lit all over
+        if (hoverHere) sketchGroup.add(orbShape(plane, o.pts, hoverOrb)); // pointed at: an orb at the cursor
+      }
       if (SK.haloWidthPx > 0) sketchGroup.add(stroke(pts, { color: haloC, width: SK.haloWidthPx * (skSel ? 1.5 : 1), closed: o.closed, order: 4 }));
       sketchGroup.add(stroke(pts, { color: inkC, width: SK.lineWidthPx * (skSel ? 1.7 : 1), closed: o.closed, order: 5 }));
     }
@@ -1194,7 +1296,7 @@ function pickSketchFace(o, d, limit) {
     const p = [o.x + t * d.x, o.y + t * d.y, o.z + t * d.z];
     const [U, W] = def.basis;
     const hit = hitRegion([p[0] * U[0] + p[1] * U[1] + p[2] * U[2], p[0] * W[0] + p[1] * W[1] + p[2] * W[2]], regions);
-    if (hit) best = { plane, id: hit.id, t };
+    if (hit) best = { plane, id: hit.id, t, point: p };
   }
   return best;
 }
@@ -1247,11 +1349,13 @@ function hoverAt(clientX, clientY) {
   const d = raycaster.ray.direction;
   const faceHit = body.pick(o, d);
   const sk = pickSketchFace(o, d, Math.min(faceHit ? faceHit.distance : Infinity, view.dist * A.farFactor));
-  if (sk) return { plane: null, face: null, sketch: { plane: sk.plane, id: sk.id } };
+  if (sk) return { plane: null, face: null, sketch: { plane: sk.plane, id: sk.id }, point: sk.point };
   if (faceHit) return { plane: null, face: { ...faceHit.face, point: faceHit.point }, sketch: null }; // a body face wins over the see-through planes
-  return { plane: planeHit?.plane ?? null, face: null, sketch: null };
+  return { plane: planeHit?.plane ?? null, face: null, sketch: null, point: planeHit?.point ?? null };
 }
-function setHover({ plane = null, face = null, sketch = null, edge = null, vertex = null }) {
+let hoverPoint = null; // where on the surface under the cursor (world): the hover orb sits here
+function setHover({ plane = null, face = null, sketch = null, edge = null, vertex = null, point = null }) {
+  hoverPoint = point ?? face?.point ?? null;
   if (plane === hovered && face?.start === hoveredFace?.start && face?.axis === hoveredFace?.axis && sketch?.id === hoveredSketch?.id && sketch?.plane === hoveredSketch?.plane && edge?.pts === hoveredEdge?.pts && vertex?.join() === hoveredVertex?.join()) return false;
   hovered = plane;
   hoveredFace = face;
@@ -1286,18 +1390,19 @@ function selectFromHover() {
   sel = hoverAsSel();
   armedTool = null;
   applySel();
+  startSelectOrb();
 }
-/** Only the touch shadows beside the axes can be pointed at (not the whole infinite plane); none while the compass is in the corner. `always`: also while sketching. */
+/** Only the small panes can be pointed at (not the whole infinite plane); none while the compass is in the corner. `always`: also while sketching. */
 function paneFilter(always = false) {
   if (inSketchView() && !always) return null;
   if (cornerT > 0) return () => false;
   return (name, p) => {
     const [u, v] = planeDef(name).basis;
-    const w = view.dist * S.panes.shadowWidth;
-    const L = axisLength();
+    const s = view.dist * S.panes.size;
+    const o = view.dist * S.panes.offset;
     const a = p[0] * u[0] + p[1] * u[1] + p[2] * u[2];
     const b = p[0] * v[0] + p[1] * v[1] + p[2] * v[2];
-    return (a >= 0 && a <= L && Math.abs(b) <= w) || (b >= 0 && b <= L && Math.abs(a) <= w);
+    return a >= o && a <= o + s && b >= o && b <= o + s;
   };
 }
 function pickAt(clientX, clientY) {
@@ -1742,6 +1847,7 @@ function selectObjectFromHover() {
   if (!h) return;
   sel = { kind: "body" };
   applySel();
+  startSelectOrb();
 }
 /** Triple-click: look straight at the plane that was clicked (a pane, a face, a closed sketch), from the side you are on. */
 function normalToClicked() {
@@ -1751,6 +1857,7 @@ function normalToClicked() {
   if (!plane) return;
   sel = t;
   applySel();
+  startSelectOrb();
   goNormal(plane, cameraSide(plane), t.kind === "face" ? body.faceCenter(t.face).toArray() : null); // a face is centred in the view
 }
 let g = null; // the gesture in progress: { kind: "orbit" | "pan" | "draw" | "click", x, y, x0, y0, button, moved }
@@ -1889,7 +1996,10 @@ canvas.addEventListener("pointermove", (ev) => {
     return;
   }
   if (g) return;
-  if (!selected) setHover(hoverAt(ev.clientX, ev.clientY));
+  if (!selected) {
+    setHover(hoverAt(ev.clientX, ev.clientY));
+    requestRender(); // the orb follows the cursor even while the surface under it stays the same
+  }
 });
 canvas.addEventListener("pointerup", (ev) => {
   const was = g;
@@ -2054,6 +2164,7 @@ window.__ui = {
   selInfo: () => (sel ? { kind: sel.kind, plane: sel.plane, id: sel.id } : null),
   hoverInfo: () => ({ hovered, face: hoveredFace }),
   cameraType: () => (camera === ortho ? "ortho" : "persp"),
+  orb: () => ({ R: selectOrb.uOrbR.value, fill: selectOrb.uOrbFill.value, A: selectOrb.uOrbA.value, hover: hoverOrb.uOrbA.value }),
   cornerT: () => cornerT,
   enterSketch: (pl, tool) => enterSketch(pl, tool),
   store,
