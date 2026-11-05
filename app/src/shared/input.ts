@@ -39,5 +39,9 @@ export type Intent =
   | { type: "relation"; act: "focus" | "remove" | "lock" | "set" | "measure"; id: string | null; value?: number }
   /** a key for the number being typed (digits, ".", "-", Backspace, Tab, Enter, the arrows) */
   | { type: "typed"; key: string; shift: boolean }
+  /** open or close a list from the ⋯ menu (the bodies, the history) */
+  | { type: "panel"; name: "bodies" | "history" }
+  /** a row of the open list: select it (a body) or take it out (a step) */
+  | { type: "panelRow"; id: string; act: "select" | "remove" }
   /** the text of a field of the value box changed (a tool's field, or the operation's one number) */
   | { type: "entry"; field: number; text: string };

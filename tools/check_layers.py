@@ -40,7 +40,7 @@ def main() -> int:
         rel = f.relative_to(ROOT)
         layer = rel.parts[0]
         if len(rel.parts) == 1:
-            layer = "root"  # the composition root (src/main.ts): wires every layer together; it may import all of them and the browser
+            layer = "root"  # the composition root (src/*.ts: main.ts and the kernel's thread files): wires every layer together; it may import all of them and the browser
         if layer not in ALLOWED:
             problems.append(f"{rel}: not inside a known layer folder ({', '.join(sorted(ALLOWED))})")
             continue
@@ -50,7 +50,8 @@ def main() -> int:
             if spec.startswith("."):
                 target = (f.parent / spec).resolve()
                 try:
-                    tl = target.relative_to(ROOT).parts[0]
+                    tparts = target.relative_to(ROOT).parts
+                    tl = "root" if len(tparts) == 1 else tparts[0]  # a file directly in app/src belongs to the composition root (main.ts and the kernel's thread: kernel-async.ts, kernel-worker.ts)
                 except ValueError:
                     problems.append(f"{rel}: imports {spec} outside app/src")
                     continue

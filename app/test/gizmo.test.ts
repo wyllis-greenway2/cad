@@ -546,3 +546,35 @@ test("a curved edge of the body (the rim of a post) is picked along its curve, n
   const hit = candidatesAt(scene(st.session), projector(st.cam, env.w, env.h).view(x, y), { pointTol: 4, lineTol: 4 }).filter((q) => q.kind === "line");
   assert.equal(hit[0]?.ref, arc.ref);
 });
+
+test("other curved faces (a fillet, a cone, a turned post) can be selected too, and offer nothing they cannot do", () => {
+  let st = box();
+  const vertical = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "body" && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] !== (scene(st.session).parts[p.b] as { at: Vec3 }).at[2])!;
+  st = select(st, [vertical.ref]);
+  st = reduce(st, { type: "begin", name: "edge" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: "3" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  const round = Object.values(scene(st.session).parts).filter((p) => p.kind === "plane" && p.origin === "body" && (p.rounded || p.curved));
+  assert.ok(round.length >= 1, "the fillet's surface is a part");
+  st = select(st, [round[0]!.ref]);
+  assert.deepEqual(frame(st).annotations.filter((a) => a.mode).map((a) => a.mode).filter((m) => m === "sketch"), [], "no pencil on a curved face");
+  assert.ok(frame(st).highlight.selection.includes(round[0]!.ref));
+});
+
+test("the ⋯ menu opens a list of the bodies with their names and a list of the history steps; a step can be taken out", () => {
+  let st = box();
+  assert.equal(frame(st).panel, null);
+  st = reduce(st, { type: "panel", name: "bodies" }, env);
+  assert.deepEqual(frame(st).panel!.rows.map((r) => r.label), ["Body 1"]);
+  st = reduce(st, { type: "panelRow", id: frame(st).panel!.rows[0]!.id, act: "select" }, env);
+  assert.deepEqual(selection(st.session), [BODY_OBJECT]);
+  assert.equal(frame(st).panel!.rows[0]!.active, true);
+  st = reduce(st, { type: "panel", name: "history" }, env);
+  assert.deepEqual(frame(st).panel!.rows.map((r) => r.label), ["Extrude 20 mm"]);
+  st = reduce(st, { type: "panel", name: "history" }, env);
+  assert.equal(frame(st).panel, null, "choosing it again closes it");
+  st = reduce(st, { type: "panel", name: "history" }, env);
+  st = reduce(st, { type: "panelRow", id: frame(st).panel!.rows[0]!.id, act: "remove" }, env);
+  assert.equal(st.session.outcome.kernel, null, "taking the step out takes the body away");
+  assert.deepEqual(frame(st).panel!.rows, []);
+});

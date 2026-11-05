@@ -6,7 +6,7 @@ import type { Intent } from "./shared/input.ts";
 import { settings } from "./shared/settings.ts";
 import { attachInput } from "./platform/dom-input.ts";
 import { createRecognizer } from "./interaction/recognizer.ts";
-import { createSession, openSession, saveText, run, scene, selection } from "./interaction/session.ts";
+import { createSession, openSession, saveText, run, scene, selection, refresh } from "./interaction/session.ts";
 import type { Session } from "./interaction/session.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
 import { createState, reduce, advance } from "./interaction/controller.ts";
@@ -15,11 +15,14 @@ import { appRows, nextScrollMode, isScrollMode } from "./interaction/appmenu.ts"
 import type { AppState } from "./interaction/controller.ts";
 import { projector } from "./interaction/camera.ts";
 import { candidatesAt } from "./interaction/picking.ts";
+import { createAsyncKernel } from "./kernel-async.ts";
+import type { Kernel } from "./compiler/kernel/adapter.ts";
 import { kernel, initKernelWeb, drawRectangle, nextId } from "./interaction/api.ts";
 import type { Ref, Command, Vec3 } from "./interaction/api.ts";
 import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
 import { createChip } from "./ui/chip.ts";
+import { createPanel } from "./ui/panel.ts";
 import { createControls } from "./ui/controls.ts";
 import { createBubbles } from "./ui/bubbles.ts";
 
@@ -41,6 +44,12 @@ const bubbles = createBubbles(document.body, {
 });
 const bus = createBus<{ input: RawInput }>();
 const recognizer = createRecognizer();
+const panel = createPanel(document.body, {
+  row: (id, act) => dispatch({ type: "panelRow", id, act }),
+  undo: () => dispatch({ type: "undo" }),
+  redo: () => dispatch({ type: "redo" }),
+  close: () => dispatch({ type: "panel", name: state.panel ?? "bodies" }),
+});
 let state: AppState;
 let dirty = true;
 
@@ -55,6 +64,7 @@ const menu = createMenu(document.body, (id) => {
     recognizer.setScrollMode(next);
     webStore.set(SCROLL_KEY, next);
   } else if (id === "save" || id === "open") dispatch({ type: id });
+  else if (id === "bodies" || id === "history") dispatch({ type: "panel", name: id });
   else dispatch({ type: "runAction", id });
 });
 
@@ -88,9 +98,17 @@ attachInput(host, bus);
 
 async function boot() {
   statusEl.textContent = "loading the geometry kernel…";
-  await initKernelWeb();
+  // the kernel works on its own thread so a heavy model does not freeze the page; if that cannot start, it runs here instead
+  let engine: Kernel = kernel;
+  try {
+    const worked = createAsyncKernel(() => { state = { ...state, session: refresh(state.session) }; dirty = true; });
+    await worked.init();
+    engine = worked;
+  } catch {
+    await initKernelWeb();
+  }
   statusEl.textContent = "";
-  let session = createSession(kernel);
+  let session = createSession(engine);
   if (new URLSearchParams(location.search).get("demo") === "box") {
     const r = drawRectangle(scene(session), "w/XY" as Ref, [-20, -10, 0], [20, 10, 0], [1, 0, 0], [0, 1, 0]);
     session = run(session, r.command);
@@ -122,6 +140,7 @@ function frame(now: number) {
     const project = projector(state.cam, size.w, size.h).project;
     bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash);
     view.setNotes(f.annotations.flatMap((a) => a.lines));
+    panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
     chip.update(f.entry?.fields ?? null, f.entry?.unit ?? "mm", onPage(f.entry?.at), onPage(f.entry?.from));
     host.style.cursor = f.cursor;

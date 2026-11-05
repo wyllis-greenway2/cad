@@ -133,3 +133,11 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
   const value = rel.locked === false ? (action?.measure() ?? rel.value) : rel.value; // locking takes the value it measures now
   return withSession(s, run(s.session, { type: "setRelationValue", id: rel.id, value, locked: rel.locked === false }));
 }
+
+/** The ⋯ menu's lists: choosing one opens it, choosing it again closes it. */
+export const doPanel = (s: AppState, name: "bodies" | "history"): AppState => ({ ...s, panel: s.panel === name ? null : name, menu: null });
+/** A row of the open list: a body is selected, a step is taken out of the history. */
+export function doPanelRow(s: AppState, id: string, act: "select" | "remove"): AppState {
+  if (act === "select") return id in sceneOf(s.session).parts ? withSession(s, { ...s.session, click: { ...s.session.click, selection: [id as never] } }) : s;
+  return withSession({ ...s, op: null }, run(s.session, { type: "removeStep", id }));
+}

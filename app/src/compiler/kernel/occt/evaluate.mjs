@@ -36,6 +36,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     const ranges = new Map(m.faceGroups.map((g) => [g.faceId, g]));
     faces = [];
     const round = new Map();
+    const other = [];
     for (const f of fin.shape.faces) {
       const g = ranges.get(f.hashCode);
       if (g && f.geomType === "CYLINDRE") {
@@ -55,13 +56,16 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
           const nn = f.normalAt(pt);
           const rad = [pt.x - (axis === 0 ? pt.x : center[0]), pt.y - (axis === 1 ? pt.y : center[1]), pt.z - (axis === 2 ? pt.z : center[2])];
           const convex = nn.x * rad[0] + nn.y * rad[1] + nn.z * rad[2] > 0;
-          const have = round.get(key) ?? { type: "cyl", convex, ranges: [], turn: 0, axis, center, radius, lo: Math.round(lo[axis] * 1e4) / 1e4, hi: Math.round(hi[axis] * 1e4) / 1e4 };
+          const have = round.get(key) ?? { type: "cyl", convex, ranges: [], faces: [], turn: 0, axis, center, radius, lo: Math.round(lo[axis] * 1e4) / 1e4, hi: Math.round(hi[axis] * 1e4) / 1e4 };
           have.ranges.push({ start: g.start, count: g.count });
+          have.faces.push(f);
           have.turn += uv.uMax - uv.uMin;
           round.set(key, have);
         }
+        else other.push(f); // a cylinder that is not along a world axis
         continue;
       }
+      if (g && f.geomType !== "PLANE") { other.push(f); continue; } // a cone, a sphere, a fillet: shown as a curved face you can select
       if (!g || f.geomType !== "PLANE") continue;
       const n = f.normalAt();
       const c = f.center;
@@ -71,7 +75,14 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
       // every flat face, at any angle: its unit normal n and offset d (n . p = d); axis, sign and offset also when it faces along an axis
       faces.push({ start: g.start, count: g.count, n: nv, d, ...(axis >= 0 ? { axis, sign: Math.sign(nv[axis]), offset: Math.round([c.x, c.y, c.z][axis] * 1e4) / 1e4 } : {}) });
     }
+    for (const c of round.values()) if (Math.abs(c.turn - 2 * Math.PI) >= 1e-6) other.push(...c.faces); // part of a round face (a fillet): selectable like any other curved face
     for (const c of round.values()) if (Math.abs(c.turn - 2 * Math.PI) < 1e-6) faces.push({ type: "cyl", convex: c.convex, start: c.ranges[0].start, count: c.ranges[0].count, ranges: c.ranges, axis: c.axis, center: c.center, radius: c.radius, lo: c.lo, hi: c.hi });
+    for (const f of other) {
+      const g = ranges.get(f.hashCode);
+      const [lo, hi] = f.boundingBox.bounds;
+      const r4s = (v) => Math.round(v * 1e3) / 1e3;
+      faces.push({ type: "surf", surface: String(f.geomType), start: g.start, count: g.count, lo: lo.map(r4s), hi: hi.map(r4s) });
+    }
     // edges as polylines, and their end points as vertices (for selecting lines and corners)
     const em = fin.shape.meshEdges({ tolerance: tess.tolerance, angularTolerance: tess.angular });
     const byHash = new Map(fin.shape.edges.map((e) => [e.hashCode, e]));

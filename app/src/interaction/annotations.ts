@@ -188,7 +188,7 @@ export function focusParts(scene: Scene, selection: readonly Ref[], focus: strin
 
 /** The bubbles that offer a mode for what is selected: lines of the body offer fillet / chamfer (the handle appears once you choose it). */
 export function modesFor(scene: Scene, selection: readonly Ref[], sketching: Ref | null = null): Annotation[] {
-  const flatFaces = selection.length > 1 && selection.every((r) => { const p = scene.parts[r]; return p?.kind === "plane" && p.origin === "body" && !p.curved; });
+  const flatFaces = selection.length > 1 && selection.every((r) => { const p = scene.parts[r]; return p?.kind === "plane" && p.origin === "body" && !p.curved && !p.rounded; });
   if (flatFaces) {
     // several flat faces of the body: push / pull moves them all by the same distance
     const last = scene.parts[selection[selection.length - 1]!]!;

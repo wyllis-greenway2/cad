@@ -6,6 +6,8 @@ const NEXT: Record<ScrollMode, ScrollMode> = { auto: "pan", pan: "zoom", zoom: "
 const LABEL: Record<ScrollMode, string> = { auto: "Scroll: trackpad pans, wheel zooms", pan: "Scroll: always pans", zoom: "Scroll: always zooms" };
 
 export const appRows = (mode: ScrollMode, build = ""): AppRow[] => [
+  { id: "bodies", label: "Bodies", enabled: true, why: null },
+  { id: "history", label: "History", enabled: true, why: null },
   { id: "save", label: "Save", enabled: true, why: null },
   { id: "open", label: "Open…", enabled: true, why: null },
   { id: "scrollMode", label: LABEL[mode], enabled: true, why: null },

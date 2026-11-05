@@ -65,6 +65,17 @@ export function bodyParts(result: KernelResult): Part[] {
       out.push({ ...base, ref: cylName(curved), kind: "plane", at: center, u: dirs[0]!, v: dirs[1]!, curved, ...(mesh.length ? { mesh } : {}) });
       continue;
     }
+    if (f.type === "surf") {
+      // any other curved face (a cone, a sphere, a fillet, a turned post): a part to select and look at, named by its surface and where it lies
+      const lo = f.lo as Vec3;
+      const hi = f.hi as Vec3;
+      const mesh: number[] = [];
+      const m = result.mesh;
+      if (m) for (let i = f.start; i < f.start + f.count; i++) { const ix = m.triangles[i]!; mesh.push(m.vertices[ix * 3]!, m.vertices[ix * 3 + 1]!, m.vertices[ix * 3 + 2]!); }
+      const mid: Vec3 = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
+      out.push({ ...base, ref: bodyRef("body", `s@${String(f.surface)},${key([...lo, ...hi])}`), kind: "plane", at: mid, u: [1, 0, 0], v: [0, 1, 0], rounded: String(f.surface), ...(mesh.length ? { mesh } : {}) });
+      continue;
+    }
     if (!f.n || f.d === undefined) continue;
     const n = f.n as Vec3;
     // the plane's first axis: along the world X on floors and ceilings, along the world Z-cross-normal on walls (so a face reads like the world plane it is parallel to)

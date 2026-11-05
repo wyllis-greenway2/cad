@@ -85,7 +85,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
   if (kind === "pushpull" && drawnFace(scene, parts)) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
   if (kind === "pushpull" && parts.length > 1) {
     // several flat faces of the body: each moves along its own normal by the same distance
-    const flat = parts.filter((p): p is Extract<Part, { kind: "plane" }> => p.kind === "plane" && p.origin === "body" && !p.curved && !!p.mesh && p.mesh.length >= 9);
+    const flat = parts.filter((p): p is Extract<Part, { kind: "plane" }> => p.kind === "plane" && p.origin === "body" && !p.curved && !p.rounded && !!p.mesh && p.mesh.length >= 9);
     if (flat.length !== parts.length) return { ok: false, why: "select flat faces of the body" };
     const faces = flat.map((f) => {
       const m = f.mesh!;
@@ -98,6 +98,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
   if (kind === "pushpull") {
     const f = parts.length === 1 ? parts[0] : undefined;
     if (!f || f.kind !== "plane" || f.origin !== "body" || !f.mesh || f.mesh.length < 9) return { ok: false, why: "select a flat face of the body first" };
+    if (f.rounded) return { ok: false, why: "this curved face can be selected but not pushed or pulled yet (only round posts and holes along an axis)" };
     if (f.curved) {
       // a round face: the arrow stands out of its surface (a post) or into the hole, in the middle of its height; pulling adds material, which changes the radius
       const c = f.curved;

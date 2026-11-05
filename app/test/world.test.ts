@@ -168,9 +168,9 @@ test("the frame says what to draw: the cursor, the body, the selection; the smal
   assert.deepEqual(frameOf(sel, { w: 800, h: 600 }).highlight.selection, [XY]);
 });
 
-test("the menu always ends with save, open and the scroll mode, which cycles", () => {
-  assert.deepEqual(appRows("auto").map((r) => r.id), ["save", "open", "scrollMode"]);
-  assert.match(appRows("pan")[2]!.label, /always pans/);
+test("the menu always ends with the lists, save, open and the scroll mode, which cycles", () => {
+  assert.deepEqual(appRows("auto").map((r) => r.id), ["bodies", "history", "save", "open", "scrollMode"]);
+  assert.match(appRows("pan")[4]!.label, /always pans/);
   assert.deepEqual(["auto", "pan", "zoom"].map((m) => nextScrollMode(m as never)), ["pan", "zoom", "auto"]);
   assert.ok(isScrollMode("zoom") && !isScrollMode("x") && !isScrollMode(null));
 });

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";
 import { kernel } from "../src/compiler/kernel/index.ts";
-import { createSession, run, undoLast, redoLast, clickOn, scene, selection } from "../src/interaction/session.ts";
+import { createSession, run, undoLast, redoLast, refresh, clickOn, scene, selection } from "../src/interaction/session.ts";
 import { drawRectangle, drawCircle } from "../src/operation/build.ts";
 import { nextId } from "../src/operation/scene.ts";
 import { actionsFor } from "../src/interaction/actions.ts";
@@ -81,4 +81,23 @@ test("surfaces as triangles: a pane is two, a rectangle face is two, a disk is a
   const g2 = lookup(scene(t));
   const disk = Object.values(scene(t).parts).find((p) => p.kind === "face")!;
   assert.equal(surfaceTriangles(g2, disk)!.length, (64 - 2) * 9);
+});
+
+test("a kernel that answers later (its own thread): the picture lags, then refresh brings the body in; undo and redo stay right", () => {
+  let ready = false;
+  const empty = { ops: [], finalId: null, volume: null, bbox: null, mesh: null, faces: null, edges: null, vertices: null, totalMs: 0 };
+  const slow = { ...kernel, lagging: true, evaluate: (g: Parameters<typeof kernel.evaluate>[0]) => (ready ? kernel.evaluate(g) : empty) };
+  let s = createSession(slow);
+  const r = drawRectangle(scene(s), XY, [-20, -10, 0], [20, 10, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: r.lines, params: { depth: 20 } } });
+  assert.equal(s.outcome.kernel!.volume, null, "the answer has not come yet: no body");
+  ready = true; // the worker answers
+  s = refresh(s);
+  assert.ok(Math.abs(s.outcome.kernel!.volume! - 16000) < 0.1);
+  assert.ok(Object.values(scene(s).parts).some((p) => p.kind === "body"), "the body's parts are in the scene");
+  s = undoLast(s);
+  assert.equal(s.outcome.kernel, null);
+  s = redoLast(s);
+  assert.ok(Math.abs(s.outcome.kernel!.volume! - 16000) < 0.1, "redo shows the body again");
 });

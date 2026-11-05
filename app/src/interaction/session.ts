@@ -26,6 +26,8 @@ export interface Session {
   /** The last message worth showing ("2 of 3 here", an error), or null. */
   readonly message: string | null;
   readonly outcomeOf: (h: History) => CompileOutcome;
+  /** the kernel answers later than it is asked (its own thread): what is shown is made again when the answer comes, and after an undo or redo */
+  readonly lagging: boolean;
   /** the last command that was refused because it could not be done without breaking constraints: who tried (`culprits`: relation ids) and what it would have broken (`victims`) */
   readonly conflict: { culprits: string[]; victims: string[] } | null;
 }
@@ -42,17 +44,17 @@ function makeCompiler(kernel: Kernel) {
   };
   return { derive, outcomeOf: (h: History): CompileOutcome => cache.get(h.scene)! };
 }
-const wrap = (history: History, outcomeOf: (h: History) => CompileOutcome): Session => ({ history, click: initialClick(), hover: undefined, outcome: outcomeOf(history), message: null, outcomeOf, conflict: null });
+const wrap = (history: History, outcomeOf: (h: History) => CompileOutcome, lagging: boolean): Session => ({ history, click: initialClick(), hover: undefined, outcome: outcomeOf(history), message: null, outcomeOf, lagging, conflict: null });
 
 export function createSession(kernel: Kernel, base: Scene = emptyScene()): Session {
   const c = makeCompiler(kernel);
-  return wrap(newHistory(base, c.derive), c.outcomeOf);
+  return wrap(newHistory(base, c.derive), c.outcomeOf, !!kernel.lagging);
 }
 /** A session from the text of a project file (see `operation/file.ts`), or why it cannot be opened. */
 export function openSession(kernel: Kernel, text: string): Result<Session> {
   const c = makeCompiler(kernel);
   const h = fromText(text, c.derive);
-  return h.ok ? ok(wrap(h.value, c.outcomeOf)) : h;
+  return h.ok ? ok(wrap(h.value, c.outcomeOf, !!kernel.lagging)) : h;
 }
 export const saveText = (s: Session): string => toText(s.history);
 function withHistory(s: Session, h: History, message: string | null = null): Session {
@@ -90,8 +92,16 @@ export function run(s: Session, c: Command): Session {
   }
   return { ...next, conflict: null };
 }
-export const undoLast = (s: Session): Session => withHistory(s, undo(s.history));
-export const redoLast = (s: Session): Session => withHistory(s, redo(s.history));
+/** The same history compiled again (the kernel's worker has an answer that was not there when the history was last compiled). */
+export function refresh(s: Session): Session {
+  const h = s.history;
+  const scene = h.derive(h.scene); // the same scene derived again: the body parts come from the kernel's newest answer
+  const snapshots = [...h.snapshots];
+  snapshots[h.cursor] = scene;
+  return withHistory(s, { ...h, scene, snapshots }, s.message);
+}
+export const undoLast = (s: Session): Session => { const n = withHistory(s, undo(s.history)); return s.lagging ? refresh(n) : n; };
+export const redoLast = (s: Session): Session => { const n = withHistory(s, redo(s.history)); return s.lagging ? refresh(n) : n; };
 
 /** A click on the candidates under the pointer (see `picking.refsAt`). */
 export function clickOn(s: Session, candidates: readonly Ref[], shift = false): Session {

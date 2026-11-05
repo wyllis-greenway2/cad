@@ -2,6 +2,8 @@
 // (the big axes or the compass, which plane's grid, whether badges give way to a tool or operation) are made here, so the UI only draws.
 import type { Ref } from "../shared/ref.ts";
 import type { Gizmo } from "./gizmo.ts";
+import { panelOf } from "./panels.ts";
+import type { Panel } from "./panels.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
@@ -35,6 +37,8 @@ export interface Frame {
   highlight: { hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; /** the parts of constraints a refused change would have broken, and how red they still are */ red: { refs: readonly Ref[]; alpha: number }; spread: AppState["spread"] };
   preview: Preview | null;
   entry: Entry | null;
+  /** the open list (bodies, history) */
+  panel: Panel | null;
   /** the constraints of the selected parts, each with the spot it is shown at (on the line, at the vertex, between the lines, at the angle) */
   annotations: Annotation[];
   flash: FlashFrame | null;
@@ -47,16 +51,16 @@ export interface Frame {
 }
 
 /** While an operation's number is being set, the scene as it would be after it: the real result (a gray body, a cut, a round) and not a sketch of it. Remembered for the same command. */
-let memo: { history: Session["history"]; key: string; value: { scene: Scene; outcome: CompileOutcome } | null } | null = null;
+let memo: { history: Session["history"]; outcome: Session["outcome"]; key: string; value: { scene: Scene; outcome: CompileOutcome } | null } | null = null;
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
   if (!s.op) return null;
   const base = s.op.made ? undoLast(s.session) : s.session; // a step already made for this operation is replaced by what is being dragged
   const cmd: Command | null = opCommand(sceneOf(base), s.op);
   if (!cmd) return null;
   const key = JSON.stringify([cmd, s.op.made]);
-  if (memo && memo.history === s.session.history && memo.key === key) return memo.value;
+  if (memo && memo.history === s.session.history && memo.outcome === s.session.outcome && memo.key === key) return memo.value;
   const value = previewCommand(base, cmd);
-  memo = { history: s.session.history, key, value };
+  memo = { history: s.session.history, outcome: s.session.outcome, key, value };
   return value;
 }
 
@@ -80,6 +84,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     amber: focusParts(sc, sel, s.focus), red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
     preview: previewFor(sc, s.tool),
     entry: entryWhere(entryOf(sc, s.tool, s.op), s, gizmo),
+    panel: panelOf(s.panel, sceneOf(s.session), sel),
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash), ...modesFor(sc, sel, s.sketching)],
     flash,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // off by default (`in_117`)

@@ -20,6 +20,8 @@ export interface KernelResult {
 }
 export interface Kernel {
   name: string;
+  /** the answer may come later than the question (the kernel works on its own thread): `evaluate` then gives the last result until the new one is ready */
+  lagging?: boolean;
   init(options?: object): Promise<unknown>;
   evaluate(graph: KernelGraph, tess?: { tolerance: number; angular: number }): KernelResult;
 }
