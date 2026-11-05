@@ -222,6 +222,10 @@ test("a closed figure shows the arrow to pull it out; the same arrow on a flat f
   let st = { ...createState(s), cam: homeCamera() };
   const face = Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref;
   st = select(st, [face]);
+  assert.equal(frame(st).gizmo, null, "a sketch plane offers the push / pull bubble like any plane, not the arrow");
+  assert.deepEqual(frame(st).annotations.filter((a) => a.mode).map((a) => a.mode), ["pushpull", "sketch"]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  assert.equal(st.op!.kind, "extrude", "the same operation");
   const h = frame(st).gizmo!.handles;
   assert.deepEqual(h.map((q) => q.id), ["pull"]);
   nearV(scale(add(h[0]!.points[0]!, h[0]!.points[1]!), 0.5), [20, 10, 0]);
@@ -231,6 +235,7 @@ test("a closed figure shows the arrow to pull it out; the same arrow on a flat f
   st = drag(st, mid, add(mid, [0, 0, 12]));
   near(st.session.outcome.kernel!.volume!, 40 * 20 * 12, 0.5);
   assert.deepEqual(selection(st.session), [], "after an extrude nothing is selected");
+  st = reduce(st, { type: "escape" }, env); // leave the extrude
   // the top face of the new body: push it in 5 (cut) and pull it out 3 (add)
   const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 12)!;
   st = select(st, [top.ref]);

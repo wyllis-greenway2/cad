@@ -68,6 +68,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     const pts = face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
     return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, origin: centroid(pts), normal: normalOfPlane(pl) } };
   }
+  if (kind === "pushpull" && drawnFace(scene, parts)) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
   if (kind === "pushpull") {
     const f = parts.length === 1 ? parts[0] : undefined;
     if (!f || f.kind !== "plane" || f.origin !== "body" || !f.mesh || f.mesh.length < 9) return { ok: false, why: "select a flat face of the body first" };
@@ -107,8 +108,7 @@ export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
   const parts = selection.map((r) => scene.parts[r]).filter((p): p is Part => !!p);
   if (parts.length !== selection.length) return null;
   const kind: OpKind | null =
-    parts.length === 1 && drawnFace(scene, parts) ? "extrude"
-    : parts.length === 1 && parts[0]!.kind === "body" ? "move"
+    parts.length === 1 && parts[0]!.kind === "body" ? "move"
     : null;
   if (!kind) return null;
   const r = startOp(scene, selection, kind);

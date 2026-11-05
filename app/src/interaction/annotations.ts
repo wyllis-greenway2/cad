@@ -200,7 +200,9 @@ export function modesFor(scene: Scene, selection: readonly Ref[], sketching: Ref
     const at = centreOf(scene, only);
     const bubble = (mode: string, label: string): Annotation => ({ id: `mode:${mode}`, relationId: null, kind: mode, label, at, value: null, unit: null, locked: false, editable: false, readOnly: false, broken: false, open: false, others: [], lines: [], mode });
     if (sketching === pl.ref) return [bubble("rect", "Rectangle"), bubble("circle", "Circle"), bubble("line", "Line")];
-    return only.kind === "plane" && only.origin === "body" ? [bubble("pushpull", "Push / pull"), bubble("sketch", "Sketch")] : [bubble("sketch", "Sketch")];
+    // a flat face of the body, or a drawn closed figure (a sketch plane), can be pushed or pulled
+    const pushable = (only.kind === "plane" && only.origin === "body") || (only.kind === "face" && only.origin === "drawn");
+    return pushable ? [bubble("pushpull", "Push / pull"), bubble("sketch", "Sketch")] : [bubble("sketch", "Sketch")];
   }
   const lines = selection.map((r) => scene.parts[r]);
   if (!lines.length || !lines.every((p) => p?.kind === "line" && p.origin === "body")) return [];

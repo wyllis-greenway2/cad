@@ -850,3 +850,8 @@ Do not touch `compiler/` or `ui/` in phase 1. Keep porting honest: copy pure cod
 **Sketching is back to clicking the points:** the first click on a surface sets the plane and the first point, the next click finishes a rectangle or circle, a line takes corners and closes on the first (or double click ends it), typed sizes and Enter as before. The place-then-drag experiment (`dec_sketch_place_then_drag`) is retired: its entry is deleted and its code removed. What stayed: the pencil, and the plane chosen from it takes the first click.
 **Pencil on a world plane:** a single click on a world plane still selects nothing, but a pencil bubble appears where the click landed (`AppState.spot`); clicking it offers rectangle, circle and line there; Esc or any other click clears it.
 **Axes:** `settings.world.axisLengthMm` 12 (was 8.4); still a real size in the world, so they zoom with the model.
+
+## Handoff 106 — 2026-11-05 (push / pull icon, sketch planes offer it)
+**State:** `in_126`. 166 tests pass, checks clean (not tried in a browser).
+**Icon:** a flat sheet (a parallelogram) with an arrow standing out of its middle, along its normal.
+**Sketch planes:** a selected drawn closed figure now offers the push / pull bubble and the pencil, like a body face; nothing shows by itself any more except the body's move arrows. The bubble starts push / pull, which on a drawn figure is the extrude (same operation, same arrow, E still starts it too).

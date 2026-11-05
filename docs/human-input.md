@@ -731,3 +731,8 @@ Asks for charcoal grey arrows instead of white, a push / pull icon on a clicked 
 Asks for the pencil icon to be offered on a click on a world plane too, for sketching to go back to clicking the points you want (no shape added automatically), and for the X Y Z axes to be a little larger by default.
 
 > Lets have it so that the world plane offers the little pencil icon too when clicked on. Lets put the sketching mode back to how it was where it let you click the points you wanted and didn't automatically add a shape for you. Lets have the xyz thing a little larger by default.
+
+## in_126 — 2026-11-05 — directive
+Asks for a more obvious push / pull icon (a sheet with an arrow out of its normal) and for a clicked sketch plane to offer the same options as any plane (the push / pull icon, which then goes into push / pull) instead of going straight into it.
+
+> Can we make the icon for push pull a little more obvious, maybe like an icon that looks like sheet with an arrow coming out of its normal. Clicking a sketch plane should offer the same options as many plane. It shouldn't go directly to pull push as it does now, it should just offer the pull push icon which then goes into pull push.
