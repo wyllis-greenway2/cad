@@ -127,6 +127,10 @@ translucent green (add) or red (cut) prism shows. **History (n)** (top left) lis
 Ctrl+Z / Ctrl+Y undo and redo them with sketch edits. Limits: only the three base planes can be sketched on (not body faces yet), and an extrusion
 keeps a copy of its shape (editing the sketch later does not change it). Look values: `settings.extrude`, `themes.world.body*`.
 
+## Look tuning (`in_055`)
+Selected and hovered blue lines are thinner (`settings.sketch.pickWidthPx`, `pickHoverWidthPx`, `pickPointScale`; `settings.pick.edgeWidthPx`, `edgeHoverWidthPx`, `vertexScale`). Objects are a little lighter (`themes.world.bodyColor`, `light.ambient`), the world planes a little
+darker (`themes.world.sheet`), and objects less glossy but still reflective in a diffuse way (`light.roughness` 0.6, `sheen` 0.22 and `sheenRoughness` 0.55 for a broad soft highlight, `reflect` 0.3 for the studio reflection). Measured on a box: faces 3 to 13 levels lighter, the plane 13 darker.
+
 ## The context action bar (`in_054`)
 A **full-width bar at the bottom** shows what can be done now, with the **hotkey on each button**. In the sketch view: the tools (Select V, Line L, Rectangle R, Circle C, Dimension D, Extrude E; the active one lit), then the
 **constraints that fit what is picked**, then Delete, Undo, Redo and 3D view. In the 3D view it follows the selection: face (Move M, Tilt R, Sketch on surface S), round face (Radius M, Taper R), line (Fillet F, Chamfer B), body

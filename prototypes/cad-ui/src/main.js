@@ -528,11 +528,11 @@ function buildSketchViz() {
     const model = modelOf(session.viewEntities());
     const lightC = toHex(th.blueSurface);
     const kk = 1 / pxPerMm();
-    if (hoverEl.kind === "point" && model.points[hoverEl.ref]) sketchGroup.add(disc(session.plane, model.points[hoverEl.ref], S.sketch.markerPx * 1.4 * kk, lightC, 9));
-    else if (hoverEl.kind === "seg" && model.segments[hoverEl.ref]) sketchGroup.add(stroke(model.segments[hoverEl.ref].map((id) => toWorld(session.plane, model.points[id])), { color: lightC, width: 3, order: 8, alpha: 0.7 }));
+    if (hoverEl.kind === "point" && model.points[hoverEl.ref]) sketchGroup.add(disc(session.plane, model.points[hoverEl.ref], S.sketch.markerPx * (S.sketch.pickPointScale * 0.8) * kk, lightC, 9));
+    else if (hoverEl.kind === "seg" && model.segments[hoverEl.ref]) sketchGroup.add(stroke(model.segments[hoverEl.ref].map((id) => toWorld(session.plane, model.points[id])), { color: lightC, width: S.sketch.pickHoverWidthPx, order: 8, alpha: 0.7 }));
     else if (hoverEl.kind === "circle") {
       const c = session.viewEntities().find((e) => e.id === hoverEl.shape);
-      if (c) sketchGroup.add(stroke(circlePolygon(c.cx, c.cy, c.r, 96).map((q) => toWorld(session.plane, q)), { color: lightC, width: 3, closed: true, order: 8, alpha: 0.7 }));
+      if (c) sketchGroup.add(stroke(circlePolygon(c.cx, c.cy, c.r, 96).map((q) => toWorld(session.plane, q)), { color: lightC, width: S.sketch.pickHoverWidthPx, closed: true, order: 8, alpha: 0.7 }));
     }
   }
   if (inSketchView() && session.tool === "select" && session.picks.length) {
@@ -541,11 +541,11 @@ function buildSketchViz() {
     const blueC = toHex(th.blueSurface);
     const kk = 1 / pxPerMm();
     for (const pk of session.picks) {
-      if (pk.kind === "point" && model.points[pk.ref]) sketchGroup.add(disc(session.plane, model.points[pk.ref], S.sketch.markerPx * 1.7 * kk, blueC, 9));
-      else if (pk.kind === "seg" && model.segments[pk.ref]) sketchGroup.add(stroke(model.segments[pk.ref].map((id) => toWorld(session.plane, model.points[id])), { color: blueC, width: 4, order: 8 }));
+      if (pk.kind === "point" && model.points[pk.ref]) sketchGroup.add(disc(session.plane, model.points[pk.ref], S.sketch.markerPx * S.sketch.pickPointScale * kk, blueC, 9));
+      else if (pk.kind === "seg" && model.segments[pk.ref]) sketchGroup.add(stroke(model.segments[pk.ref].map((id) => toWorld(session.plane, model.points[id])), { color: blueC, width: S.sketch.pickWidthPx, order: 8 }));
       else if (pk.kind === "circle") {
         const c = session.viewEntities().find((e) => e.id === pk.shape);
-        if (c) sketchGroup.add(stroke(circlePolygon(c.cx, c.cy, c.r, 96).map((q) => toWorld(session.plane, q)), { color: blueC, width: 4, closed: true, order: 8 }));
+        if (c) sketchGroup.add(stroke(circlePolygon(c.cx, c.cy, c.r, 96).map((q) => toWorld(session.plane, q)), { color: blueC, width: S.sketch.pickWidthPx, closed: true, order: 8 }));
       }
     }
   }
@@ -901,10 +901,10 @@ function updatePickViz() {
     m.renderOrder = 10;
     pickGroup.add(m);
   };
-  if (hoveredEdge) edgeLine(hoveredEdge, 3, 0.8);
+  if (hoveredEdge) edgeLine(hoveredEdge, S.pick.edgeHoverWidthPx, 0.8);
   if (hoveredVertex) dot(hoveredVertex, 1);
-  if (sel?.kind === "edge") edgeLine(sel.edge, 4.5, 1);
-  if (sel?.kind === "vertex") dot(sel.v, 1.35);
+  if (sel?.kind === "edge") edgeLine(sel.edge, S.pick.edgeWidthPx, 1);
+  if (sel?.kind === "vertex") dot(sel.v, 1.2);
 }
 canvas.addEventListener("dblclick", (ev) => {
   if (selected || extrude || xform) return;

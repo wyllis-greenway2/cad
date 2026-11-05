@@ -51,6 +51,9 @@ export const settings = {
     roundMm: 0.01, // free-placed points are rounded to this, so dimensions read 40.00 and not 39.999999
     selectTolPx: 8,
     dragFinishPx: 8, // press-and-drag creates a rectangle or circle if you release farther than this
+    pickWidthPx: 2.2, // a picked line or circle in the sketch view, in blue
+    pickHoverWidthPx: 1.7, // ...and the one under the cursor
+    pickPointScale: 1.25, // a picked corner's dot, relative to the normal corner marker
     lineWidthPx: 1.0, // sketch lines: thin and black (`in_037`)
     haloWidthPx: 0, // a light line traced along them (0 = none); used to be 3.2
     markerPx: 5,
@@ -106,17 +109,19 @@ export const settings = {
     sizeStep: 0.1, sizeFineStep: 0.01, // fillet, chamfer and radius sizes (mm)
   },
   pick: {
+    edgeWidthPx: 2.4, // a selected line in the 3D view
+    edgeHoverWidthPx: 1.8,
     vertexPx: 10, // pointing within this many pixels of a corner selects the corner
     edgePx: 6, // ...or of a line selects the line
-    vertexScale: 0.006, // size of the corner dot, in view distances
+    vertexScale: 0.0042, // size of the corner dot, in view distances
   },
   light: {
     // Lights ride with the camera (to one side and above, never in view); the body has a slight clear-coat sheen, not real reflection.
-    key: 2.1, fill: 0.1, ambient: 0.22,
+    key: 1.7, fill: 0.12, ambient: 0.42,
     keyRight: -0.7, keyUp: 0.9, // key light position in view distances: right (negative = left) and up of the camera
-    roughness: 0.4, // the surface itself (lower = shinier)
-    sheen: 0.6, // clear-coat strength: the sheen (0 = matt)
-    sheenRoughness: 0.18, // lower = a tighter, shinier highlight
+    roughness: 0.6, // the surface itself (lower = shinier)
+    sheen: 0.22, // clear-coat strength: the sheen (0 = matt)
+    sheenRoughness: 0.55, // lower = a tighter, shinier highlight; higher = a broad, soft one
     reflect: 0.3, // how strongly a soft studio environment is reflected in the surface (0 = none)
     faceHoverOpacity: 0.3, // blue shade on a face under the cursor
     faceSelectOpacity: 0.6, // ...and on the selected face
@@ -152,9 +157,9 @@ export const settings = {
       // Values tuned by the human with the temporary tuning panel (in_025, in_031).
       background: 0x242424, text: "#aeb2b7",
       axisX: [0.92, 0.32, 0.3], axisY: [0.25, 0.72, 0.38], axisZ: [0.32, 0.52, 1.0],
-      sheet: [0.8902, 0.8627, 0.7961], gridLine: [0.17, 0.18, 0.2], // sheet and bone-colored faces and bodies #e3dccb (`in_036`: slightly darker than the earlier cream #f3f0e7), grid #2b2e33
+      sheet: [0.8, 0.7765, 0.7176], gridLine: [0.17, 0.18, 0.2], // sheet and bone-colored faces and bodies #e3dccb (`in_036`: slightly darker than the earlier cream #f3f0e7), grid #2b2e33
       blueSurface: [0.5, 0.66, 1.0], blueLine: [0.1, 0.22, 0.55], blueInk: [0.05, 0.12, 0.32], blueHalo: [0.82, 0.9, 1.0], // the slight blue shade on a hovered or selected plane
-      bodyColor: 0xf7f3e9, bodyEdge: 0x3a352c, addColor: 0x5fbf7a, cutColor: 0xe0645c, handleColor: 0xf2c14e, // body color: objects and cream faces, lighter than the sheet (`in_037`)
+      bodyColor: 0xf9f6ee, bodyEdge: 0x3a352c, addColor: 0x5fbf7a, cutColor: 0xe0645c, handleColor: 0xf2c14e, // body color: objects and cream faces, lighter than the sheet (`in_037`)
       sketchInk: [0.0, 0.0, 0.0], sketchHalo: [0.95, 0.93, 0.9], // sketch lines: near-black with a light halo so they read on the lit sheet and on the dark world
       states: {
         // blue = how much the hovered / selected plane's surface and lines lean blue (0 = none)

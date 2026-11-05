@@ -482,3 +482,8 @@ closed polyline plus horizontal/vertical constraints; the legacy `rect` shape wi
 marks only for the picked line, screenshots checked; regression runs (extrude a drawn rectangle, edit a step's sketch, face/body flow) pass; no console errors.
 **Lesson (again):** a trailing `//` comment appended to a settings line swallowed the keys after it (`home`, `dimension`), caught by the new bar test; never add a trailing comment to a line that has more entries after the insertion point.
 **Not yet:** dimension chips for a rectangle are four lengths (no W/H pair); circles are not lines (no arcs yet); legacy `rect` code paths can be removed later.
+
+## Handoff 042 — 2026-11-05
+**State:** `in_055` look tuning in `prototypes/cad-ui` (all in `settings.js`): blue pick lines thinner (sketch 4 to 2.2 px, hover 3 to 1.7; 3D line 4.5 to 2.4, hover 3 to 1.8; corner dots smaller); `bodyColor` 0xf9f6ee, `ambient` 0.42, `key` 1.7; `sheet` darker (0.80, 0.78, 0.72);
+gloss down and diffuse (`roughness` 0.6, `sheen` 0.22, `sheenRoughness` 0.55, `reflect` 0.3). Measured before and after on a box (top 237 to 240, left face 163 to 167, right face 147 to 160, plane 150 to 137) and checked screenshots. My first try blew the top face out to white (key 2.1
+with a lighter color), so I raised ambient instead of the key light. 82 tests pass.
