@@ -34,6 +34,7 @@ export const settings = {
     },
     longPressMs: 450, touchSlopPx: 10, multiTapPx: 28, multiTapMs: 550, // touch: a press this long without moving is a right click; a finger must move this far to drag; taps this close count as a double or triple tap (`in_078`)
     scrollMode: "auto", // what a scroll does: "auto" = a trackpad's two-finger scroll pans and a mouse wheel zooms (a pinch always zooms); or "pan" / "zoom" for all scrolling (`in_079`)
+    cyclePx: 6, // clicks this close to each other pick the next of several overlapping things (`in_088`)
     multiClickMs: 400, multiClickPx: 6, // clicks this close in time and place count as a double or triple click (`in_070`)
     zoomToCursor: true, // zoom IN toward the point under the cursor; zoom OUT is about the view center (no runaway)
     zoomAnchorMaxFactor: 1.5, // zoom toward plane points within this many view-distances of the target; farther ones use the camera-facing plane

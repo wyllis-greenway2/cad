@@ -10,7 +10,7 @@ import { SketchStore } from "./sketchstore.mjs";
 import { SketchSession } from "./interaction.mjs";
 import { navAction, keyAction } from "./keymap.mjs";
 import { circlePolygon, regionsOf, hitRegion, paramOnAxisFromRay } from "./sketch.mjs";
-import { elementAt } from "./sketchpick.mjs";
+import { elementAt, elementsAt } from "./sketchpick.mjs";
 import { modelOf } from "./sketchsolve.mjs";
 import { barItems, barHint } from "./actionbar.mjs";
 import { iconSvg, iconTitle, keyShort } from "./icons.mjs";
@@ -19,7 +19,6 @@ import { TransformSession, AXIS_NAMES, UNITS } from "./transform.mjs";
 import { buildGraph } from "./features.mjs";
 import { createBody } from "./body.js";
 import { hoverOrb, selectOrb, fullOrb, orbMaterial, selectedLook } from "./orb.js";
-import { buildMap, constraintsOn, bodyRef } from "./constraintmap.mjs";
 import { PLANES, planeUV, planeDef, addFacePlane, basisOf, frameOf, planeOrigin, shortest, cameraOffset, cameraUp, clamp, easeInOut, isNormal, normalSide, flippedView, projectOnto, pickPlane } from "./viewmath.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -395,14 +394,6 @@ AXIS_NAMES.forEach((label, ax) => {
   b.onclick = () => lookAlong(ax);
   compassEl.querySelector(".cbtns").appendChild(b);
 });
-{
-  const n = document.createElement("button"); // N: normal to the plane
-  n.id = "compassN";
-  n.textContent = "N";
-  withTip(n, { label: "Normal", key: "N", help: "Look straight at the selected plane or the plane being sketched on. Again: from its back. Again: from its front." });
-  n.onclick = () => normalAction();
-  compassEl.querySelector(".cbtns").appendChild(n);
-}
 function updateCompass() {
   const have = store.features.length > 0;
   compassEl.style.display = cornerT > 0 || have ? "block" : "none";
@@ -544,7 +535,6 @@ function requestRender() {
     if (sketchDirty) rebuildSketchViz();
     updateAxisArrows();
     updateCompass();
-    updateOriginPill();
     updateDims();
     updateConstraintUI();
     syncBody();
@@ -596,31 +586,6 @@ function goNormal(plane, side = 1, at = null) {
 function returnToOrigin() {
   const dist = clamp(view.dist, S.view.originMinDistance, S.view.originMaxDistance);
   animateTo({ a: view.a, e: view.e, target: new THREE.Vector3(), dist }, V.transitionMs);
-}
-/** Is the origin lost? (fogged out, or far from where you are looking and off screen) */
-function originInfo() {
-  const dc = camera.position.length();
-  const t = Math.max(dc - view.dist * A.nearFactor, 0) / (view.dist * (A.axisFarFactor - A.nearFactor));
-  const fog = Math.exp(-A.sharpness * t * t);
-  const p = new THREE.Vector3().project(camera);
-  const off = p.z > 1 || Math.abs(p.x) > 1.05 || Math.abs(p.y) > 1.05;
-  const far = view.target.length() > S.view.originFarFactor * view.dist;
-  return { fog: +fog.toFixed(3), off, awayMm: Math.round(view.target.length()), lost: fog < S.view.originLostFog || (off && far) };
-}
-function updateOriginPill() {
-  const info = originInfo();
-  const tooClose = view.dist < V.extremeNear;
-  const tooFar = view.dist > V.extremeFar;
-  const btn = $("originBtn");
-  const label = info.lost ? "Origin is far away: return (O)" : tooClose ? "Zoomed very close: reset view (O)" : tooFar ? "Zoomed very far out: reset view (O)" : "";
-  if (btn.textContent !== label && label) btn.textContent = label;
-  const show = label ? "inline-block" : "none";
-  if (btn.style.display !== show) btn.style.display = show;
-}
-/** The spacing of the main grid lines at the current zoom, as text (so you always know the scale you are looking at). */
-function gridScaleText() {
-  const spacing = 10 ** (Math.floor(Math.log10(view.dist / G.lodDivisor)) + 1);
-  return spacing >= 1000 ? `${spacing / 1000} m` : spacing >= 1 ? `${spacing} mm` : `${+spacing.toPrecision(2)} mm`;
 }
 function goHome() {
   exitSketch();
@@ -1268,15 +1233,6 @@ function flashMessage(text) {
   updateStatus();
   setTimeout(() => ((flash = null), updateStatus()), 2600);
 }
-/** What can be done with a selection (for the status line). */
-function selectionHint(t) {
-  if (t.kind === "body") return "M move   R rotate   K scale";
-  if (t.kind === "face") return t.face.type === "cyl" ? "M radius   R taper" : "M move   R tilt";
-  if (t.kind === "sketch") return "E extrude   L R C draw on it   N look straight";
-  if (t.kind === "plane") return "L R C draw on it   N look straight";
-  if (t.kind === "edge") return "F fillet   B chamfer   triple-click selects the whole body";
-  return "triple-click selects the whole body";
-}
 /** A drawing tool just added its one figure: leave the sketch (normal interaction is back: faces and the rest can be clicked) and select the figure if it is closed (`in_080`). */
 function settleFinished(fin) {
   exitSketch(false);
@@ -1285,34 +1241,17 @@ function settleFinished(fin) {
     applySel();
   }
 }
-/** How many sketch constraints are pinned to this corner of the body, for the status line (the richer display comes later, `in_085`). */
-function anchorNote(v) {
-  const map = buildMap(Object.keys(store.sketches).map((key) => ({ key, entities: store.entities(key), constraints: store.constraintsOf(key) })));
-  const n = constraintsOn(map, "body", bodyRef({ kind: "vertex", world: v })).length;
-  return n ? `   (${n} sketch constraint${n === 1 ? "" : "s"} pinned to it)` : "";
-}
 function updateStatus() {
   const fin = session.takeFinished();
   if (fin) settleFinished(fin);
-  let text = (matchMedia("(pointer: coarse)").matches ? "Tap selects   double-tap: look straight   triple-tap: object   long-press or the ⋯ button: menu   drag: orbit   two fingers: pan and zoom" : "Click selects   double-click: look straight   triple-click: object   L R C then a surface: draw   right-click: menu");
-  if (flash) text = flash;
-  else if (xform) text = xform.sess.prompt();
-  else if (extrude) text = `${extrude.ref ? "Move face" : `Extrude on ${extrude.plane}`}   ${extrude.sess.prompt()}`;
-  else if (armedTool && !selected) text = `${{ line: "Line", rect: "Rectangle", circle: "Circle" }[armedTool]}: click a plane, a face or a sketch to draw on it   Esc to cancel`;
-  else if (!selected && sel) text = `Selected: ${targetName(sel)}${sel.kind === "vertex" ? anchorNote(sel.v) : ""}`; // what you can do is in the bar (icons and tooltips), not repeated here
-  else if (session.editKey && inSketchView()) text = `Editing the sketch of step ${store.features.findIndex((f) => `feat:${f.id}` === session.editKey) + 1}   ${session.prompt()}   Esc to finish`;
-  else if (selected) text = inSketchView() ? `Sketching on ${selected}   ${session.prompt()}` : `Going to ${selected}...`;
-  if (inSketchView() && !flash && !extrude && !xform) {
-    const info = session.solveInfo();
-    if (info.count) text += info.status === "conflict" ? "   [constraints conflict]" : info.dof === 0 ? "   [fully constrained]" : `   [${info.dof} free]`;
-  }
-  if (!body.ready() && (store.features.length || extrude)) text += "   (loading the geometry kernel...)";
+  // No helper text (`in_088`): the line shows only what has to be reported: a message about something that was refused or done, and a kernel error.
+  let text = flash ?? "";
+  if (!body.ready() && (store.features.length || extrude) && !text) text = "loading the geometry kernel...";
   if (armedTool && !selected) canvas.style.cursor = "crosshair";
   else if (inSketchView() && !extrude && !xform && !hoverEl) canvas.style.cursor = session.tool === "select" || session.tool === "dimension" ? "default" : "crosshair"; // the cursor follows the tool even before the mouse moves
-  else if (body.info.error) text += `   [kernel: ${body.info.error}]`;
+  if (!text && body.info.error) text = `kernel: ${body.info.error}`;
   $("statusText").textContent = text;
-  $("scaleText").textContent = `grid ${gridScaleText()}`;
-  $("exitBtn").style.display = selected && !flash && !extrude ? "inline-block" : "none";
+  $("status").style.display = text ? "block" : "none";
 }
 
 // ---------------------------------------------------------------- picking
@@ -1371,6 +1310,92 @@ function pickSketchElement(clientX, clientY) {
     if (el && (!best || hit.t < best.t)) best = { plane, el, p, t: hit.t };
   }
   return best;
+}
+/**
+ * Everything at the spot under the pointer, in the order a repeated click goes through it (`in_088`): corners (body, then sketch), lines (body, then sketch), faces and planes from the nearest out.
+ * Each entry is { key, name, hover } where `hover` is what `setHover` takes (so choosing one is `setHover(hover)` then `selectFromHover()`).
+ */
+function candidatesAt(clientX, clientY) {
+  setRay(clientX, clientY);
+  const r = canvas.getBoundingClientRect();
+  const x = clientX - r.left;
+  const y = clientY - r.top;
+  applyCamera();
+  const o = raycaster.ray.origin;
+  const d = raycaster.ray.direction;
+  const px = (p) => {
+    const v = p.clone().project(camera);
+    return v.z > 1 || v.z < -1 ? null : [((v.x + 1) / 2) * r.width, ((1 - v.y) / 2) * r.height];
+  };
+  const corners = [];
+  const lines = [];
+  for (const v of body.vertices) {
+    const p = new THREE.Vector3(...v);
+    const q = px(p);
+    if (!q) continue;
+    const dd = Math.hypot(q[0] - x, q[1] - y);
+    if (dd <= S.pick.vertexPx && !body.blocked(camera.position, p)) corners.push({ d: dd, key: `v:${v.join()}`, name: "body corner", hover: { vertex: v } });
+  }
+  for (const edge of body.edges) {
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    let best = null;
+    for (let i = 0; i + 1 < edge.pts.length / 3; i++) {
+      a.fromArray(edge.pts, i * 3);
+      b.fromArray(edge.pts, (i + 1) * 3);
+      const qa = px(a);
+      const qb = px(b);
+      if (!qa || !qb) continue;
+      const dx = qb[0] - qa[0];
+      const dy = qb[1] - qa[1];
+      const len2 = dx * dx + dy * dy;
+      const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((x - qa[0]) * dx + (y - qa[1]) * dy) / len2));
+      const dd = Math.hypot(qa[0] + t * dx - x, qa[1] + t * dy - y);
+      if (dd <= S.pick.edgePx && (!best || dd < best.d)) best = { d: dd, at: a.clone().lerp(b, t) };
+    }
+    if (best && !body.blocked(camera.position, best.at)) lines.push({ d: best.d, key: `e:${edgeKey(edge)}`, name: "body line", hover: { edge } });
+  }
+  const faces = [];
+  for (const plane of Object.keys(store.sketches)) {
+    const ents = store.entities(plane).filter((e) => !isExtruded(plane, e));
+    if (!ents.length) continue;
+    const hit = pickPlane(o.toArray(), d.toArray(), { only: plane, minCos: 0.05, maxDist: view.dist * A.farFactor });
+    if (!hit) continue;
+    const [U, W] = basisOf(plane);
+    const p = [hit.point[0] * U[0] + hit.point[1] * U[1] + hit.point[2] * U[2], hit.point[0] * W[0] + hit.point[1] * W[1] + hit.point[2] * W[2]];
+    for (const el of elementsAt(p, ents, S.sketch.selectTolPx / pxPerMm(p, plane))) {
+      const item = { d: 0, key: `sk:${plane}:${el.ref}`, name: el.kind === "point" ? "sketch corner" : el.kind === "circle" ? "sketch circle" : "sketch line", hover: { skel: { plane, el, p, t: hit.t } } };
+      (el.kind === "point" ? corners : lines).push(item);
+    }
+    const reg = hitRegion(p, regionsOf(ents));
+    if (reg) faces.push({ t: hit.t, key: `sf:${plane}:${reg.id}`, name: "sketch shape", hover: { sketch: { plane, id: reg.id }, point: hit.point } });
+  }
+  const fh = body.pick(o, d);
+  if (fh && !(fh.face.type === "cyl" && false)) faces.push({ t: fh.distance, key: `f:${fh.face.start}:${fh.face.axis}`, name: "face", hover: { face: { ...fh.face, point: fh.point } } });
+  const within = paneFilter();
+  for (const name of Object.keys(PLANES)) {
+    const hit = pickPlane(o.toArray(), d.toArray(), { only: name, minCos: G.grazeMinCos, maxDist: view.dist * A.farFactor, within });
+    if (hit) faces.push({ t: hit.t, key: `p:${name}`, name: "plane", hover: { plane: name, point: hit.point } });
+  }
+  corners.sort((p, q) => p.d - q.d);
+  lines.sort((p, q) => p.d - q.d);
+  const rank = (c) => (c.key.startsWith("sf:") ? 0 : c.key.startsWith("f:") ? 1 : 2); // a sketch shape lying on a face comes before the face
+  faces.sort((p, q) => (Math.abs(p.t - q.t) < 1e-3 ? rank(p) - rank(q) : p.t - q.t));
+  return [...corners, ...lines, ...faces];
+}
+let cycleState = null; // the spot and the things at it, so a repeated click goes to the next one
+/** A click in the 3D view where several things overlap: the first click takes the first, each repeated click at the same spot the next (`in_088`). Returns true if it handled the click. */
+function cycleClick(ev) {
+  const cands = candidatesAt(ev.clientX, ev.clientY);
+  if (cands.length < 2) return (cycleState = null), false; // only one thing here: the usual click counting applies
+  const keys = cands.map((c) => c.key).join("|");
+  const same = cycleState && cycleState.keys === keys && Math.hypot(ev.clientX - cycleState.x, ev.clientY - cycleState.y) <= S.input.cyclePx;
+  const i = same ? (cycleState.i + 1) % cands.length : 0;
+  cycleState = { keys, x: ev.clientX, y: ev.clientY, i };
+  setHover(cands[i].hover);
+  selectFromHover();
+  flashMessage(`${cands[i].name}: ${i + 1} of ${cands.length} here, click again for the next`);
+  return true;
 }
 /** The corner or line of the body nearest the cursor within a few pixels (corners first), if it is not hidden behind the body. */
 function pickNearest(clientX, clientY) {
@@ -2342,6 +2367,7 @@ function onPointerUp(ev) {
   if (was.kind === "click" && !was.moved && !selected) {
     setHover(hoverAt(ev.clientX, ev.clientY));
     if (ev.shiftKey && (hoveredEdge || hoveredVertex)) return void shiftSelect(); // Shift + click adds lines to the selection (round or bevel them together)
+    if (!ev.shiftKey && cycleClick(ev)) return; // several things overlap here: a repeated click goes to the next one
     // one click selects (a face, line, corner, plane or sketch shape: never a whole object); two look straight at the plane clicked; three select the whole object (`in_070`, swapped in `in_083`)
     const now = performance.now();
     clickCount = now - lastClickAt < (ev.touch ? S.input.multiTapMs : S.input.multiClickMs) && Math.hypot(ev.clientX - lastClickXY[0], ev.clientY - lastClickXY[1]) < (ev.touch ? S.input.multiTapPx : S.input.multiClickPx) ? clickCount + 1 : 1;
@@ -2442,8 +2468,6 @@ $("menuBtn").addEventListener("click", () => {
   const r = $("menuBtn").getBoundingClientRect();
   showMenu(r.left, r.bottom + 6, false);
 });
-$("exitBtn").addEventListener("click", () => exitSketch(true));
-$("originBtn").addEventListener("click", () => returnToOrigin());
 addEventListener("pointerdown", (ev) => {
   if (menuOpen() && !menuEl.contains(ev.target)) hideMenu();
 });
@@ -2506,7 +2530,6 @@ window.__ui = {
   session,
   store,
   inSketchView: () => inSketchView(),
-  originInfo: () => (applyCamera(), originInfo()),
   menuOpen: () => menuOpen(),
   state: () => ({ selected, hovered, tool: session.tool, draft: session.draft && session.draft.pts.length, selectedEntity: session.selectedId, a: view.a, e: view.e, dist: view.dist, target: view.target.toArray(), normal: selected ? isNormal(view, selected, V.normalToleranceRad) : null, animating: !!anim }),
   settings: S,

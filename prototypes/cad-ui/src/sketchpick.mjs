@@ -14,6 +14,26 @@ const distToSegment = (p, a, b) => {
  * The part of a sketch under a point (mm), within tol: a corner or centre ("point"), a line ("seg") or a circle's outline ("circle"), in that order of priority.
  * Returns { kind, ref, shape } or null. (Clicking inside a shape, away from its outline, is handled by the caller.)
  */
+/** Every corner, circle and line of a sketch within `tol` of a point (not just the nearest): corners first, then circles, then lines, each nearest first. For picking among things that overlap (`in_088`). */
+export function elementsAt(p, entities, tol) {
+  const m = modelOf(entities);
+  const shapeOf = (ref) => ref.slice(0, ref.lastIndexOf("."));
+  const out = [];
+  for (const [ref, q] of Object.entries(m.points)) {
+    const d = dist(p, q);
+    if (d <= tol) out.push({ kind: "point", ref, shape: shapeOf(ref), d, rank: 0 });
+  }
+  for (const e of entities) {
+    if (e.type !== "circle") continue;
+    const d = Math.abs(dist(p, [e.cx, e.cy]) - e.r);
+    if (d <= tol) out.push({ kind: "circle", ref: `${e.id}.r`, shape: e.id, d, rank: 1 });
+  }
+  for (const [ref, [a, b]] of Object.entries(m.segments)) {
+    const d = distToSegment(p, m.points[a], m.points[b]);
+    if (d <= tol) out.push({ kind: "seg", ref, shape: shapeOf(ref), d, rank: 2 });
+  }
+  return out.sort((x, y) => x.rank - y.rank || x.d - y.d).map(({ d, rank, ...el }) => el);
+}
 export function elementAt(p, entities, tol) {
   const m = modelOf(entities);
   let best = null;

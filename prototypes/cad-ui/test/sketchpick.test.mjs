@@ -33,3 +33,18 @@ test("glyphs: where each constraint is drawn and what it says", () => {
   assert.deepEqual(g.map((x) => [x.id, x.text]), [["c1", "H"], ["c2", "40"], ["c3", "R5"]]);
   assert.deepEqual(g[0].pos, [20, 0]);
 });
+
+test("elementsAt lists everything near a spot: corners first, then circles, then lines (`in_088`)", async () => {
+  const { elementsAt } = await import("../src/sketchpick.mjs");
+  const ents = [
+    { id: "a", type: "poly", points: [[0, 0], [10, 0], [10, 10]], closed: true },
+    { id: "b", type: "poly", points: [[0, 0], [-10, 0], [-10, -10]], closed: true }, // its first corner is exactly on a's
+    { id: "c", type: "circle", cx: 0, cy: 5, r: 5 }, // passes through (0, 0)
+  ];
+  const at = elementsAt([0, 0], ents, 0.5).map((e) => `${e.kind}:${e.ref}`);
+  assert.deepEqual(at.slice(0, 2).sort(), ["point:a.p0", "point:b.p0"]);
+  assert.equal(at[2], "circle:c.r");
+  assert.ok(at.slice(3).every((x) => x.startsWith("seg:")), "then the lines that pass here");
+  assert.ok(at.length >= 5);
+  assert.deepEqual(elementsAt([50, 50], ents, 0.5), []);
+});
