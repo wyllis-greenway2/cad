@@ -460,3 +460,8 @@ Normal should always be orthographic; the little compass should go back and fort
 Use the app as a user would and look for bugs; a first bug: rectangle cannot be used on the panes of the starter xyz, circle works but behaves oddly and the cursor does not look normal.
 
 > Okay now why don't you try to use it as a user would and check for bugs and things. One bug I noticed is that I can't seem to use rectangle on the panes of the starter xyz thing. I can use circle, but even that behaves oddly, the cursor doesn't look normal.
+
+## in_072 — 2026-11-05 — directive
+Replace the three panes on the large xyz thing with something like a touch shadow (something added to the face it touches that fades), and make the grid lines lighter grey.
+
+> Can we get rid of the 3 panes on the large xyz thing, and instead can we have something like a touch shadow? So it adds a something to the face it touches and fades. Also can we make the grid lines lighter grey

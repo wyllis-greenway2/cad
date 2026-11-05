@@ -568,3 +568,8 @@ Browser: hover XY pane; one click selected it (sel plane, camera unchanged); thr
 5. A stale "S sketch on surface" in the face hint was removed.
 88 tests; browser journeys show no console errors.
 **Still to look at:** drawing on a sliver of a plane at a grazing angle gives tiny snapped sizes (snap grid is in mm, not pixels at oblique views); the default view is close to the 100 mm grid scale so a 40 mm box fills the screen; no scripted journeys are in the repo yet.
+
+## Handoff 059 — 2026-11-05
+**State:** `in_072`: panes removed; the plane shader draws a touch shadow along the two axes in each plane (`uPane` = half-width, `uAxisLen` = tip fade; `panes.shadowWidth/opacity/hoverOpacity`), picking uses the same strips (`paneFilter`, `axisLength()`); grid colour `themes.pencil.gridLine` lighter [0.62, 0.63, 0.67]; shadow colour `themes.pencil.sheet` darker; default status text shortened (it wrapped under the new max width). Removed pane settings (`size`, `offset`, `radius`, `edgeAlpha`, `hoverEdgeAlpha`) and uniforms. 88 tests.
+Browser: screenshots of the shadows at the start view and with the XY shadow hovered (blue); hover hit XY and XZ beside the axes and nothing far from them; a triple click on a shadow looked straight at XY (ortho, light grey grid); no console errors.
+**Not yet:** the shadow does not react to the model; the hit area is only the strips (a plane can no longer be picked anywhere else); width and darkness are for the human to tune.

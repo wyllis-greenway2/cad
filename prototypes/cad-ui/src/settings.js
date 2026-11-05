@@ -144,7 +144,7 @@ export const settings = {
     pencil: {
       background: 0xffffff, text: "#2b2b2d",
       axisX: [0.17, 0.17, 0.19], axisY: [0.17, 0.17, 0.19], axisZ: [0.17, 0.17, 0.19], // charcoal, like a pencil
-      sheet: [0.5, 0.51, 0.54], gridLine: [0.18, 0.19, 0.22], // a pane's fill, and the sketch grid
+      sheet: [0.3, 0.31, 0.35], gridLine: [0.62, 0.63, 0.67], // the touch shadow's colour, and the sketch grid (light grey, `in_072`)
       blueSurface: [0.3, 0.5, 0.95], blueLine: [0.15, 0.35, 0.85], blueInk: [0.05, 0.12, 0.32], blueHalo: [0.82, 0.9, 1.0], // selected things lean blue
       bodyColor: 0xcdcdd0, bodyEdge: 0x2a2a2d, addColor: 0x5fbf7a, cutColor: 0xe0645c, handleColor: 0xf2c14e, // the model is grey
       sketchInk: [0.0, 0.0, 0.0], sketchHalo: [0.95, 0.93, 0.9],
@@ -152,10 +152,9 @@ export const settings = {
   },
   // The helper panes at the origin and the compass they turn into (`in_064` to `in_070`).
   panes: {
-    size: 0.13, offset: 0.05, radius: 0.16, // a pane is a rounded square this many view-distances wide, floating this far out from the axes' corner
-    opacity: 0.16, hoverOpacity: 0.38, // the pane fill
-    edgeAlpha: 0.55, hoverEdgeAlpha: 1, // its outline
-    hoverBlue: 0.45, // how much a hovered or selected pane leans blue
+    shadowWidth: 0.07, // the touch shadow an axis leaves on the planes it touches reaches this far to each side, in view-distances; it fades out with distance and toward the tip
+    opacity: 0.34, hoverOpacity: 0.6, // how dark it is, and when pointed at or selected
+    hoverBlue: 0.45, // how much a hovered or selected shadow leans blue
     gridAlpha: 1, sketchGrid: 1, fine: 0.5, lodDivisor: 30, // the grid on the plane you look straight at (shown only then, `in_066`), its finest level, and how fine it is
     cornerSeconds: 0.7, // the axes take this long to move into the corner compass (and back)
     fadeRadius: 1.15, fadeEase: 0.22, // the grid fades out this many view-distances from the view centre; it fades in over a few frames

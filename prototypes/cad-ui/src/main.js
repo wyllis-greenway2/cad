@@ -87,7 +87,7 @@ uniform vec3 uLineCol;
 uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul; uniform float uMinCellPx;
 uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar; uniform float uFogK;
 uniform float uAxisW;
-uniform float uPane; uniform float uPaneOff; uniform float uPaneR; uniform float uAxisLen; uniform float uEdgeA; uniform vec3 uFadeC; uniform float uFadeR;
+uniform float uPane; uniform float uAxisLen; uniform vec3 uFadeC; uniform float uFadeR;
 varying vec3 vPos;
 
 float gridLine(vec2 c, float s) {
@@ -113,17 +113,16 @@ void main() {
   float grid = max(max(gridLine(c, s0) * w0, gridLine(c, s0 * 10.0) * w1), gridLine(c, s0 * 100.0) * w2);
 
   // panes style: the plane is only a small square (0..uPane in its own axes) with an outline; the axis lines are never cut
+  // Touch shadow: where an axis touches this plane it leaves a soft shadow on both sides of the line that fades with distance from the axis and toward its tip.
+  // uPane = how wide the shadow reaches (0 = no shadow: the plane is only a grid, or nothing); it is also what can be pointed at.
   float paneIn = 1.0;
-  float edge = 0.0;
   if (uPane > 0.0) {
-    // a rounded square from uPaneOff to uPaneOff + uPane in the plane's own axes (signed distance to its outline: negative inside)
-    float hf = uPane * 0.5;
-    float r = min(uPaneR * uPane, hf);
-    vec2 pc = abs(c - vec2(uPaneOff + hf)) - vec2(hf - r);
-    float d = length(max(pc, 0.0)) + min(max(pc.x, pc.y), 0.0) - r;
-    float fw = max(length(fwidth(c)), 1e-6);
-    paneIn = 1.0 - smoothstep(-0.5 * fw, 0.5 * fw, d);
-    edge = (1.0 - clamp(-d / (fw * 1.3), 0.0, 1.0)) * paneIn;
+    float tipFade = max(uAxisLen, 1e-6);
+    float sU = smoothstep(uPane, 0.0, abs(c.y)); // beside the axis that runs along u (v = 0)
+    float sV = smoothstep(uPane, 0.0, abs(c.x)); // beside the axis that runs along v (u = 0)
+    float alongU = smoothstep(-0.5 * uPane, 0.0, c.x) * (1.0 - smoothstep(0.35 * tipFade, tipFade, c.x));
+    float alongV = smoothstep(-0.5 * uPane, 0.0, c.y) * (1.0 - smoothstep(0.35 * tipFade, tipFade, c.y));
+    paneIn = max(sU * sU * alongU, sV * sV * alongV);
   }
   // the sketch grid fades out away from the view centre (uFadeR > 0)
   float gridFade = uFadeR > 0.0 ? 1.0 - smoothstep(0.35 * uFadeR, uFadeR, distance(vPos, uFadeC)) : 1.0;
@@ -149,7 +148,7 @@ void main() {
   // Paint layer: a pane's fill.
   gl_FragColor = vec4(uCol, uOpacity * fog * paneIn);
 #else
-  float a = max(grid * uLineA * fog, edge * uEdgeA);                  // grid lines and the pane outline
+  float a = grid * uLineA * fog;                                      // grid lines
   float ax = max(axU, axV) * uAxisA * axFog;                          // world axis lines
   vec3 col = mix(uLineCol, mix(uColU, uColV, step(axU, axV)), step(a, ax)); // an axis line wins where it is stronger
   gl_FragColor = vec4(col, max(a, ax));
@@ -175,7 +174,7 @@ for (const [name, def] of Object.entries(PLANES)) {
       uLineCol: { value: new THREE.Vector3() },
       uFogNear: { value: A.nearFactor }, uFogFar: { value: A.farFactor }, uAxisFogFar: { value: A.axisFarFactor }, uFogK: { value: A.sharpness },
       uAxisW: { value: G.axisWidthPx },
-      uPane: { value: 0 }, uPaneOff: { value: 0 }, uPaneR: { value: 0 }, uAxisLen: { value: 0 }, uEdgeA: { value: 0 }, uFadeC: { value: new THREE.Vector3() }, uFadeR: { value: 0 },
+      uPane: { value: 0 }, uAxisLen: { value: 0 }, uFadeC: { value: new THREE.Vector3() }, uFadeR: { value: 0 },
     },
   });
   const geo = new THREE.PlaneGeometry(1, 1);
@@ -193,6 +192,8 @@ for (const [name, def] of Object.entries(PLANES)) {
 /** Keep each plane's quad centered on the target (projected onto the plane) and sized to the view, so it looks
  *  infinite and vertex positions stay small (float precision). Grid lines are in world coordinates. */
 const mix3 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+/** How long the axes are (they stop at their arrows). */
+const axisLength = () => S.axisArrow.lengthFactor * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2));
 const baseOf = (id) => (id ? planeDef(id).base ?? id : null);
 const selPlane = () => (sel?.kind === "plane" ? sel.plane : null); // a selected world plane (not sketching on it)
 /** The plane that N, X, Y and Z act on: the sketch plane, else a selected plane, or the plane of a selected face or sketch shape. */
@@ -212,7 +213,7 @@ function updatePlanes() {
   const PN = S.panes;
   stepCorner();
   const cornerK = 1 - cornerT; // the world axes and panes fade as the compass moves to the corner
-  const axisLen = S.axisArrow.lengthFactor * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2)); // the axes stop at their arrows
+  const axisLen = axisLength(); // the axes stop at their arrows
   const actP = selected ?? selPlane(); // the plane being sketched on or selected
   const faceOnAct = !!actP && isNormal(view, actP, V.normalToleranceRad);
   const want = faceOnAct ? 1 : 0; // the grid shows only while you look straight at the plane
@@ -226,14 +227,12 @@ function updatePlanes() {
    let opacity = 0;
    let fine = 0;
    let paneSize = 0;
-   let edgeA = 0;
    let fadeR = 0;
    if (faceOnAct) {
      if (mine) (line = PN.gridAlpha * paneFade), (fine = PN.fine), (fadeR = view.dist * PN.fadeRadius);
    } else {
      opacity = (hot ? PN.hoverOpacity : PN.opacity) * cornerK;
-     paneSize = cornerK > 0 ? view.dist * PN.size : 0;
-     edgeA = (hot ? PN.hoverEdgeAlpha : PN.edgeAlpha) * cornerK;
+     paneSize = cornerK > 0 ? view.dist * PN.shadowWidth : 0;
    }
    const blue = hot ? PN.hoverBlue : 0;
    const sheet = mix3(th.sheet, th.blueSurface, blue);
@@ -266,10 +265,7 @@ function updatePlanes() {
     u.uLineA.value = line;
     u.uFineMul.value = fine;
     u.uPane.value = paneSize;
-    u.uPaneOff.value = view.dist * PN.offset;
-    u.uPaneR.value = PN.radius;
     u.uAxisLen.value = axisLen;
-    u.uEdgeA.value = edgeA;
     u.uFadeC.value.copy(center);
     u.uFadeR.value = fadeR;
     u.uOpacity.value = mesh === pair.paint ? opacity : 0;
@@ -1143,7 +1139,7 @@ function selectionHint(t) {
   return "double-click selects the whole body";
 }
 function updateStatus() {
-  let text = "3D view   click selects, double-click the object, triple-click looks straight at the plane   L R C then click a surface to draw   right-click for the menu";
+  let text = "Click selects   double-click: object   triple-click: look straight   L R C then a surface: draw   right-click: menu";
   if (flash) text = flash;
   else if (xform) text = xform.sess.prompt();
   else if (extrude) text = `${extrude.ref ? "Move face" : `Extrude on ${extrude.plane}`}   ${extrude.sess.prompt()}`;
@@ -1291,17 +1287,17 @@ function selectFromHover() {
   armedTool = null;
   applySel();
 }
-/** Only the small panes can be pointed at (not the whole infinite plane); none while the compass is in the corner. `always`: also while sketching. */
+/** Only the touch shadows beside the axes can be pointed at (not the whole infinite plane); none while the compass is in the corner. `always`: also while sketching. */
 function paneFilter(always = false) {
   if (inSketchView() && !always) return null;
   if (cornerT > 0) return () => false;
   return (name, p) => {
     const [u, v] = planeDef(name).basis;
-    const s = view.dist * S.panes.size;
-    const o = view.dist * S.panes.offset;
+    const w = view.dist * S.panes.shadowWidth;
+    const L = axisLength();
     const a = p[0] * u[0] + p[1] * u[1] + p[2] * u[2];
     const b = p[0] * v[0] + p[1] * v[1] + p[2] * v[2];
-    return a >= o && a <= o + s && b >= o && b <= o + s;
+    return (a >= 0 && a <= L && Math.abs(b) <= w) || (b >= 0 && b <= L && Math.abs(a) <= w);
   };
 }
 function pickAt(clientX, clientY) {
