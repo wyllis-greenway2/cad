@@ -1,5 +1,5 @@
 // The menu (a right click, a long press, the two-finger click): a short list at the pointer. It displays what the actions service says and reports which row was chosen.
-export interface Row { id: string; label: string; enabled: boolean; why: string | null }
+export interface Row { id: string; label: string; enabled: boolean; why: string | null; group?: string }
 
 export function createMenu(host: HTMLElement, onChoose: (id: string) => void) {
   const el = document.createElement("div");
@@ -12,7 +12,7 @@ export function createMenu(host: HTMLElement, onChoose: (id: string) => void) {
       rows = [...list, ...extra];
       el.replaceChildren();
       for (const [i, r] of rows.entries()) {
-        if (i === list.length && list.length) { const hr = document.createElement("div"); hr.style.cssText = "height:1px;background:#e4e5e8;margin:4px 6px"; el.appendChild(hr); }
+        if (i > 0 && (i === list.length || (rows[i - 1]!.group ?? "") !== (r.group ?? ""))) { const hr = document.createElement("div"); hr.style.cssText = "height:1px;background:#e4e5e8;margin:4px 6px"; el.appendChild(hr); }
         const b = document.createElement("div");
         b.textContent = r.label;
         if (!r.enabled && r.why) b.title = r.why;

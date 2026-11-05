@@ -165,7 +165,8 @@ test("the menu: a right click selects what is under it and lists what applies; r
   assert.deepEqual(selection(st.session), [a.circle, b.circle]);
   const [x, y] = px(st, [63, 0, 0]);
   st = reduce(st, { type: "menu", x, y }, env);
-  assert.deepEqual(st.menu!.items.map((i) => i.label), ["Equal radius", "Delete"]);
+  assert.deepEqual(st.menu!.items.filter((i) => i.group === "action").map((i) => i.label), ["Equal radius", "Delete"]);
+  assert.deepEqual(st.menu!.items.filter((i) => i.group === "tool").map((i) => i.label), ["Rectangle", "Circle", "Line"]);
   const radiusBefore = (scene(st.session).parts[b.circle] as { radius: number }).radius;
   assert.equal(radiusBefore, 3);
   st = reduce(st, { type: "runAction", id: "equalRadius" }, env);

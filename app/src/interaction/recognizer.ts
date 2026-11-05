@@ -64,12 +64,16 @@ export function createRecognizer(opts: { input?: S } = {}) {
         if (e.key === " ") { space = e.down; return []; }
         if (!e.down) return [];
         const a = keyAction(e.key, e.mods, I.keys);
+        const typing = !e.mods.ctrl && !e.mods.alt && /^([0-9.\-]|Backspace|Tab|Enter|ArrowUp|ArrowDown)$/.test(e.key);
+        if (typing) return [...(e.key === "Backspace" && a === "delete" ? [{ type: "delete" } as Intent] : []), { type: "typed", key: e.key, shift: e.mods.shift }];
         if (a === "undo" || a === "redo" || a === "home" || a === "delete") return [{ type: a }];
         if (a === "cancel") return [{ type: "escape" }];
         if (a === "lookX") return [{ type: "look", plane: "X" }];
         if (a === "lookY") return [{ type: "look", plane: "Y" }];
         if (a === "lookZ") return [{ type: "look", plane: "Z" }];
         if (a === "lookN") return [{ type: "look", plane: "N" }];
+        const begin = { toolRect: "rect", toolCircle: "circle", toolLine: "line", extrude: "extrude", round: "round", bevel: "bevel", move: "move", rotate: "rotate", scale: "scale" } as const;
+        if (a && a in begin) return [{ type: "begin", name: begin[a as keyof typeof begin] }];
         return [];
       }
       case "wheel": {

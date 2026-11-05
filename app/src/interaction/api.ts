@@ -10,3 +10,5 @@ export { drawRectangle, drawCircle } from "../operation/build.ts";
 export { settings } from "../shared/settings.ts";
 export { kernel, initKernelWeb } from "../compiler/kernel/web.ts";
 export { cornerName } from "../compiler/body.ts";
+export { entryOf, previewFor } from "./entry.ts";
+export type { Entry } from "./entry.ts";

@@ -15,12 +15,19 @@ import { scene as sceneOf, selection as selectionOf, clickOn, hoverOn, clearSele
 import { initialClick } from "./selection.ts";
 import { candidatesAt } from "./picking.ts";
 import { actionsFor } from "./actions.ts";
+import type { Tool, ToolKind } from "./tools.ts";
+import { armTool, snapOnPlane, typeKey, finish, planeForDrawing, lineNext } from "./tools.ts";
+import type { Op, OpKind } from "./operations.ts";
+import { startOp, typeOp, valueOf, opCommand, distanceFromPointer, OP_LABEL } from "./operations.ts";
 import type { Camera } from "./camera.ts";
 import { homeCamera, orbit, pan, zoomAt, lookStraight, lookAlternating, blend, easeInOut, projector, offsetOf } from "./camera.ts";
 import { dot } from "../math/vec.ts";
+import { pivotOf, planeOf, objectOf } from "./objects.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
+import { dist } from "../math/vec.ts";
+export { pivotOf, planeOf, objectOf };
 
-export interface MenuItem { id: string; label: string; enabled: boolean; why: string | null }
+export interface MenuItem { id: string; label: string; enabled: boolean; why: string | null; group: "action" | "op" | "tool" }
 export interface AppState {
   session: Session;
   cam: Camera;
@@ -30,35 +37,16 @@ export interface AppState {
   /** the point under the pointer on the hovered surface (for the ring) */
   hoverPoint: Vec3 | null;
   menu: { x: number; y: number; items: MenuItem[] } | null;
+  /** the drawing tool being used (null = normal selection) */
+  tool: Tool | null;
+  /** the operation being set up (extrude, round, bevel, move, rotate, scale) */
+  op: Op | null;
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null });
+export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, tool: null, op: null });
 
 const pickOpts = () => ({ pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx });
-
-/** The middle of the model: the body's bounding box (a single body for now). */
-export function pivotOf(s: Session): Vec3 | undefined {
-  const b = s.outcome.kernel?.bbox;
-  return b ? [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2] : undefined;
-}
-/** The plane a part lies on or is: a pane or flat face is its own plane, a face or a drawn part has the plane it is drawn on. Null for a body and for loose parts. */
-export function planeOf(get: Lookup, ref: Ref): Plane | null {
-  const p = get(ref);
-  if (!p) return null;
-  if (p.kind === "plane") return p;
-  const pl = p.plane ? get(p.plane) : undefined;
-  return pl && pl.kind === "plane" ? pl : null;
-}
-/** The whole object a part belongs to: the body for a body part, the closed shape's face for a drawn part (else the part itself). */
-export function objectOf(sc: Scene, ref: Ref): Ref {
-  const p = sc.parts[ref];
-  if (!p) return ref;
-  if (p.origin === "body" || p.kind === "body") return BODY_OBJECT in sc.parts ? BODY_OBJECT : ref;
-  const faces = Object.values(sc.parts).filter((f): f is Extract<Part, { kind: "face" }> => f.kind === "face");
-  const f = faces.find((x) => x.loop.includes(ref) || x.corners.includes(ref) || x.disk === ref || (p.kind === "circle" && x.disk === p.ref));
-  return f ? f.ref : ref;
-}
 
 const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });
 const stop = (s: AppState): AppState => (s.anim ? { ...s, anim: null } : s);
@@ -73,9 +61,57 @@ const animateTo = (s: AppState, to: Camera, now: number): AppState => ({ ...s, a
 
 const WORLD_PLANE = { X: "YZ", Y: "XZ", Z: "XY" } as const; // X looks along the X axis: at the plane across it
 
+const TOOL_LABEL: Record<ToolKind, string> = { rect: "Rectangle", circle: "Circle", line: "Line" };
+const OPS: OpKind[] = ["extrude", "round", "bevel", "move", "rotate", "scale"];
+
+/** The menu: what applies to the selection (relations, delete), the operations that can start from it, and the drawing tools. */
 function menuFor(session: Session, x: number, y: number): AppState["menu"] {
-  const items = actionsFor(sceneOf(session), selectionOf(session)).map((a) => ({ id: a.id, label: a.label, enabled: a.enabled, why: a.why }));
-  return items.length ? { x, y, items } : null;
+  const sc = sceneOf(session);
+  const sel = selectionOf(session);
+  const items: MenuItem[] = actionsFor(sc, sel).map((a) => ({ id: a.id, label: a.label, enabled: a.enabled, why: a.why, group: "action" as const }));
+  for (const k of OPS) {
+    const r = startOp(sc, sel, k);
+    if (r.ok) items.push({ id: `op:${k}`, label: OP_LABEL[k], enabled: true, why: null, group: "op" });
+  }
+  for (const k of ["rect", "circle", "line"] as const) items.push({ id: `tool:${k}`, label: TOOL_LABEL[k], enabled: true, why: null, group: "tool" });
+  return { x, y, items };
+}
+
+/** The surface under a click that a figure can be drawn on: its plane, as the scene's own (a face of the body becomes a drawn plane copy). */
+function drawingPlane(sc: Scene, refs: Ref[]): Ref | null {
+  const get = lookup(sc);
+  for (const r of refs) {
+    const pl = planeOf(get, r);
+    if (pl) return pl.ref;
+  }
+  return null;
+}
+
+function beginTool(s: AppState, kind: ToolKind): AppState {
+  if (s.tool?.kind === kind && !s.tool.plane) return { ...s, tool: null }; // pressing it again puts it away
+  return { ...s, tool: armTool(kind), op: null, menu: null };
+}
+function beginOp(s: AppState, kind: OpKind): AppState {
+  const r = startOp(sceneOf(s.session), selectionOf(s.session), kind);
+  if (!r.ok) return { ...s, session: { ...s.session, message: r.why }, menu: null };
+  return { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: null } };
+}
+/** Put a finished figure into the scene and hand back to normal selection with the figure selected. */
+function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppState {
+  if (!fin) return s;
+  const next = run(s.session, fin.command);
+  if (next.message) return { ...s, session: next };
+  const sel = fin.select.filter((r) => r in sceneOf(next).parts);
+  return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: null, spread: null };
+}
+function commitOp(s: AppState): AppState {
+  if (!s.op) return s;
+  const cmd = opCommand(sceneOf(s.session), s.op);
+  if (!cmd) return s;
+  const next = run(s.session, cmd);
+  if (next.message) return { ...s, session: next };
+  const object = BODY_OBJECT in sceneOf(next).parts ? [BODY_OBJECT] : [];
+  return { ...s, session: { ...next, click: { ...next.click, selection: object } }, op: null };
 }
 
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
@@ -88,7 +124,16 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
       const pv = pr().view(i.x, i.y);
       const c = candidatesAt(sc, pv, pickOpts())[0];
       const point = c && c.rank === 2 ? surfacePoint(pv, c.score) : null;
-      return { ...withSession(s, hoverOn(sess, c?.ref)), hoverPoint: point };
+      let next: AppState = { ...withSession(s, hoverOn(sess, c?.ref)), hoverPoint: point };
+      if (s.tool?.plane) {
+        const pl = sc.parts[s.tool.plane];
+        const at = pl && pl.kind === "plane" ? snapOnPlane(sc, pv, pl) : null;
+        if (at) next = { ...next, tool: { ...s.tool, cursor: at } };
+      } else if (s.op && s.op.kind === "extrude" && s.op.typed === "") {
+        const v = distanceFromPointer(s.op, pv);
+        if (v !== null) next = { ...next, op: { ...s.op, value: v } };
+      }
+      return next;
     }
     case "hoverEnd":
       return { ...withSession(s, hoverOn(sess, undefined)), hoverPoint: null };
@@ -97,6 +142,31 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
       const cands = candidatesAt(sc, pv, pickOpts());
       const refs = cands.map((c) => c.ref);
       const base: AppState = { ...s, menu: null };
+      if (s.op) return commitOp(base);
+      if (s.tool) {
+        const t = s.tool;
+        if (!t.plane) {
+          // the first click: the surface under it takes the drawing, from wherever the camera is
+          const planeRef = drawingPlane(sc, refs);
+          const pl = planeRef ? (get(planeRef) as Plane) : null;
+          const at = pl ? snapOnPlane(sc, pv, pl) : null;
+          if (!pl || !at) return { ...base, session: { ...sess, message: "click on a surface to draw on" } };
+          const { plane, command } = planeForDrawing(sc, pl.ref);
+          let session = sess;
+          if (command) session = run(session, command);
+          return { ...base, session: { ...session, message: null }, tool: { ...t, plane, points: [at], cursor: at } };
+        }
+        const pl = sc.parts[t.plane] as Plane;
+        const at = snapOnPlane(sc, pv, pl);
+        if (!at) return base;
+        if (t.kind === "line") {
+          const last = t.points[t.points.length - 1]!;
+          if (t.points.length >= 3 && dist(at, t.points[0]!) < 1e-6) return commitFigure(base, finish(sc, t, true)); // back on the first corner: closed
+          if (dist(at, last) < 1e-6) return i.count >= 2 && t.points.length >= 2 ? commitFigure(base, finish(sc, t)) : base; // a double click ends the line
+          return { ...base, tool: { ...t, points: [...t.points, at], cursor: at, typed: ["", ""] } };
+        }
+        return commitFigure(base, finish(sc, { ...t, cursor: at }));
+      }
       if (refs.length <= 1 && i.count === 2) {
         // two clicks: look straight at the plane clicked, from the side you are on; the selection stays as the first click left it
         const pl = refs[0] ? planeOf(get, refs[0]) : null;
@@ -123,11 +193,14 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
       return { ...withSession(s, session), menu: menuFor(session, i.x, i.y) };
     }
     case "runAction": {
+      if (i.id.startsWith("tool:")) return beginTool({ ...s, menu: null }, i.id.slice(5) as ToolKind);
+      if (i.id.startsWith("op:")) return beginOp({ ...s, menu: null }, i.id.slice(3) as OpKind);
       const a = actionsFor(sc, selectionOf(sess)).find((x) => x.id === i.id);
       if (!a || !a.enabled) return { ...s, menu: null };
       return { ...withSession(s, run(sess, a.run())), menu: null };
     }
     case "delete": {
+      if (s.tool || s.op) return s;
       const a = actionsFor(sc, selectionOf(sess)).find((x) => x.id === "delete");
       return a ? { ...withSession(s, run(sess, a.run())), menu: null } : s;
     }
@@ -147,6 +220,7 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
       return { ...stop(s), cam: zoomAt(s.cam, i.factor, anchor) };
     }
     case "look": {
+      if (s.op && (s.op.kind === "move" || s.op.kind === "rotate") && i.plane !== "N") return { ...s, op: { ...s.op, axis: ({ X: 0, Y: 1, Z: 2 } as const)[i.plane] } };
       if (i.plane === "N") {
         const pl = selectionOf(sess).map((r) => planeOf(get, r)).find((p) => p);
         return pl ? animateTo(s, planeView(s.cam, pl, true), env.now) : withSession(s, { ...sess, message: "select something on a plane first" });
@@ -163,7 +237,30 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
     case "undo": return { ...withSession(s, undoLast(sess)), menu: null };
     case "redo": return { ...withSession(s, redoLast(sess)), menu: null };
     case "escape":
-      return s.menu ? { ...s, menu: null } : withSession(s, clearSelection(sess));
+      if (s.menu) return { ...s, menu: null };
+      if (s.tool || s.op) return { ...s, tool: null, op: null };
+      return withSession(s, clearSelection(sess));
+    case "begin": {
+      if (i.name === "rect" || i.name === "circle" || i.name === "line") return beginTool(s, i.name);
+      return beginOp(s, i.name);
+    }
+    case "typed": {
+      if (s.op) {
+        if (i.key === "Enter") return commitOp(s);
+        return { ...s, op: typeOp(s.op, i.key) };
+      }
+      const t = s.tool;
+      if (!t || !t.plane) return s;
+      if (i.key === "Enter") {
+        if (t.kind === "line") {
+          const nx = t.typed[0] !== "" ? lineNext(t) : null;
+          if (nx) return { ...s, tool: { ...t, points: [...t.points, nx], typed: ["", ""] } };
+          return commitFigure(s, finish(sc, t));
+        }
+        return commitFigure(s, finish(sc, t));
+      }
+      return { ...s, tool: typeKey(t, i.key) };
+    }
   }
 }
 

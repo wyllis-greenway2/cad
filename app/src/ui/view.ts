@@ -37,7 +37,8 @@ export function createView(host: HTMLElement) {
 
   const content = new THREE.Group();
   const overlay = new THREE.Group();
-  scene3.add(content, overlay);
+  const preview = new THREE.Group();
+  scene3.add(content, overlay, preview);
   let lastScene: Scene | null = null;
   let lastMesh: { vertices: Float32Array; triangles: Uint32Array } | null = null;
   let size = { w: 1, h: 1 };
@@ -184,6 +185,14 @@ export function createView(host: HTMLElement) {
     if (h.hover && !h.selection.includes(h.hover)) mark(h.hover, "hover");
   }
 
+  /** The figure being drawn, or the prism an extrude would make (lines; not part of the scene). */
+  function setPreview(p: { segments: [Vec3, Vec3][]; circle: { center: Vec3; radius: number; normal: Vec3 } | null } | null) {
+    dispose(preview);
+    if (!p) return;
+    for (const [a, b] of p.segments) preview.add(fatLine([...a, ...b], tealHex, 2, false));
+    if (p.circle) preview.add(fatLine(ringOf(p.circle.center, p.circle.radius, p.circle.normal), tealHex, 2, false));
+  }
+
   function resize() {
     const w = host.clientWidth || 1;
     const h = host.clientHeight || 1;
@@ -216,5 +225,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { setScene, setHighlight, render, resize, size: () => size, canvas: renderer.domElement };
+  return { setScene, setHighlight, setPreview, render, resize, size: () => size, canvas: renderer.domElement };
 }

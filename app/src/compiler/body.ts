@@ -47,8 +47,8 @@ export function bodyParts(result: KernelResult): Part[] {
   for (const f of result.faces ?? []) {
     if (!f.n || f.d === undefined) continue; // full round faces come later
     const n = f.n as Vec3;
-    const helper: Vec3 = Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
-    const u = normalize(cross(helper, n));
+    // the plane's first axis: along the world X on floors and ceilings, along the world Z-cross-normal on walls (so a face reads like the world plane it is parallel to)
+    const u: Vec3 = Math.abs(n[2]) > 0.9 ? normalize([1 - n[0] * n[0], -n[0] * n[1], -n[0] * n[2]]) : normalize(cross([0, 0, 1], n));
     const v = cross(n, u);
     const mesh: number[] = [];
     const m = result.mesh;

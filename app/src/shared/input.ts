@@ -27,4 +27,8 @@ export type Intent =
   | { type: "redo" }
   | { type: "delete" }
   | { type: "escape" }
-  | { type: "runAction"; id: string };
+  | { type: "runAction"; id: string }
+  /** start a drawing tool or an operation (a key or the menu) */
+  | { type: "begin"; name: "rect" | "circle" | "line" | "extrude" | "round" | "bevel" | "move" | "rotate" | "scale" }
+  /** a key for the number being typed (digits, ".", "-", Backspace, Tab, Enter, the arrows) */
+  | { type: "typed"; key: string; shift: boolean };

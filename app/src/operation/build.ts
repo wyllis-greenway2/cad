@@ -4,6 +4,7 @@ import { drawnRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "./scene.ts";
 import { nextId } from "./scene.ts";
+import { formatId } from "../shared/ref.ts";
 import type { Command } from "./commands.ts";
 
 /** A line chain through points on a plane: corners d/e_N.p0.. and lines d/e_N.s0.. (closed adds the last line back to the first corner). Returns the command and the refs. */
@@ -41,4 +42,16 @@ export function drawCircle(s: Scene, plane: Ref, centre: Vec3, radius: number): 
     centre: centreRef,
     circle,
   };
+}
+
+/**
+ * A rectangle as it is drawn by hand: four corners and lines kept level with the plane's axes (horizontal on the two sides along u, vertical on the two along v),
+ * so moving a corner or typing a size keeps it a rectangle. The relation ids follow the scene's counter.
+ */
+export function drawSquaredRectangle(s: Scene, plane: Ref, a: Vec3, b: Vec3, u: Vec3, v: Vec3) {
+  const r = drawRectangle(s, plane, a, b, u, v);
+  const base = s.counter + 1 + 8; // after the eight parts of the shape the counter is at least this
+  const kinds = ["horizontal", "vertical", "horizontal", "vertical"] as const;
+  const rels: Command[] = r.lines.map((line, i): Command => ({ type: "addRelation", relation: { id: formatId("r", base + i), kind: kinds[i]!, parts: [line] } }));
+  return { ...r, command: { type: "batch", commands: [r.command, ...rels] } as Command };
 }

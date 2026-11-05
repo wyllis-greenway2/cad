@@ -636,3 +636,8 @@ Asks whether right click can already add rectangles and circles, or whether phas
 Chooses to do phase 5 (the input layer) before the minimal draw menu.
 
 > phase 5 first
+
+## in_107 — 2026-11-05 — directive
+Tells the AI to go ahead with phase 6 of the clean engine (drawing and operations).
+
+> continue with phase 6

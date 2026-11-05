@@ -61,7 +61,7 @@ export function attachInput(el: HTMLElement, bus: InputBus): () => void {
   const key = (down: boolean) => (e: KeyboardEvent) => {
     const t = e.target as HTMLElement | null;
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-    if (e.key === " ") e.preventDefault(); // Space + drag pans; it must not scroll the page
+    if (e.key === " " || e.key === "Tab" || e.key === "Backspace" || e.key.startsWith("Arrow")) e.preventDefault(); // Space + drag pans, Tab moves between typed fields: the page must not scroll, change focus or go back
     bus.emit("input", { kind: "key", key: e.key, down, mods: modsOf(e), t: now() });
   };
   on<KeyboardEvent>(window, "keydown", key(true));

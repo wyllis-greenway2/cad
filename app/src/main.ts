@@ -15,10 +15,14 @@ import { kernel, initKernelWeb, drawRectangle, nextId } from "./interaction/api.
 import type { Ref, Command } from "./interaction/api.ts";
 import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
+import { createChip } from "./ui/chip.ts";
+import { entryOf, previewFor } from "./interaction/api.ts";
 
 const host = document.getElementById("view")!;
 const statusEl = document.getElementById("status")!;
 const view = createView(host);
+const chip = createChip(document.body);
+let pointer: [number, number] = [0, 0]; // where the pointer is, for placing the number chip
 const bus = createBus<{ input: RawInput }>();
 const recognizer = createRecognizer();
 let state: AppState;
@@ -52,7 +56,10 @@ function dispatch(i: Intent) {
   else if (menu.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) menu.hide(); // pointing around does not close the menu; any other intent does
   dirty = true;
 }
-bus.on("input", (raw) => { for (const i of recognizer.feed(raw)) dispatch(i); });
+bus.on("input", (raw) => {
+  if (raw.kind === "move" || raw.kind === "down") { const r = host.getBoundingClientRect(); pointer = [raw.x + r.left, raw.y + r.top]; }
+  for (const i of recognizer.feed(raw)) dispatch(i);
+});
 attachInput(host, bus);
 
 async function boot() {
@@ -83,6 +90,10 @@ function frame(now: number) {
     const o = state.session.outcome;
     view.setScene(scene(state.session), o.kernel?.mesh ?? null);
     view.setHighlight({ hover: state.session.hover, hoverPoint: state.hoverPoint, selection: selection(state.session), spread: state.spread }, state.cam, now);
+    view.setPreview(previewFor(scene(state.session), state.tool, state.op));
+    const en = entryOf(scene(state.session), state.tool, state.op);
+    chip.update(en?.fields ?? null, en?.unit ?? "mm", pointer[0], pointer[1]);
+    host.style.cursor = state.tool ? "crosshair" : "";
     view.render(state.cam);
     statusEl.textContent = state.session.message ?? Object.values(o.errors)[0] ?? "";
     dirty = false;

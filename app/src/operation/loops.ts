@@ -23,6 +23,10 @@ export function loopOf(get: Lookup, lines: readonly Ref[]): { ok: true; corners:
 }
 
 
+/** The names a derived face gets (so a tool can select the figure it just drew). */
+export const loopFaceRef = (lines: readonly Ref[]): Ref => mkRef(`d/loop@${[...lines].sort()[0]!.slice(2)}`);
+export const diskFaceRef = (circle: Ref): Ref => mkRef(`d/disk@${circle.slice(2)}`);
+
 /** The faces of a scene's drawn lines and circles: each closed loop of lines on a plane, and each circle as a disk. Derived: not saved, rebuilt after any change. */
 export function derivedFaces(s: Scene): Face[] {
   const get: Lookup = (r) => s.parts[r];
@@ -46,12 +50,11 @@ export function derivedFaces(s: Scene): Face[] {
       }
       const loop = loopOf(get, group.map((l) => l.ref));
       if (!loop.ok || group.length < 3) continue;
-      const name = [...group.map((l) => l.ref)].sort()[0]!.slice(2);
-      out.push({ ...base, ref: mkRef(`d/loop@${name}`), kind: "face", plane, loop: group.map((l) => l.ref), corners: loop.corners });
+      out.push({ ...base, ref: loopFaceRef(group.map((l) => l.ref)), kind: "face", plane, loop: group.map((l) => l.ref), corners: loop.corners });
     }
   }
   for (const p of Object.values(s.parts)) {
-    if (p.kind === "circle" && p.origin === "drawn" && p.plane) out.push({ ...base, ref: mkRef(`d/disk@${p.ref.slice(2)}`), kind: "face", plane: p.plane, loop: [], corners: [p.center], disk: p.ref });
+    if (p.kind === "circle" && p.origin === "drawn" && p.plane) out.push({ ...base, ref: diskFaceRef(p.ref), kind: "face", plane: p.plane, loop: [], corners: [p.center], disk: p.ref });
   }
   return out;
 }

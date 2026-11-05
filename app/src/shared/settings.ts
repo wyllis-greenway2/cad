@@ -28,8 +28,11 @@ export const settings = {
     keys: {
       undo: ["mod+z"], redo: ["mod+shift+z", "mod+y"], lookX: ["x"], lookY: ["y"], lookZ: ["z"], lookN: ["n"], home: ["h"],
       cancel: ["escape"], delete: ["delete", "backspace"],
+      toolRect: ["r"], toolCircle: ["c"], toolLine: ["l"], extrude: ["e"], round: ["f"], bevel: ["b"], move: ["m"], rotate: ["t"], scale: ["k"],
     } as Record<string, string[]>,
   },
+  sketch: { snapPx: 12, roundMm: 0.01 }, // drawing: a point within this many pixels of a corner snaps to it; free points are rounded to this so sizes read 40.00
+  op: { defaultSize: 1, sizeStep: 0.1, distanceStep: 0.1 }, // round and bevel start at this size (mm); the arrow keys change it by sizeStep
   pick: { pointPx: 10, linePx: 8 }, // pointing within this many pixels of a corner / a line picks it (the prototype used 10 and 6 to 8)
   orb: {
     radius: 0.025, // the hover ring's radius, in view-distances (`in_075`)
