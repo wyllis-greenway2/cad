@@ -222,17 +222,25 @@ const mix3 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a
 let lastPlane = "XY"; // exactly one sheet shows at any time: the one being sketched on, else the one pointed at, else the last one that showed
 const baseOf = (id) => (id ? planeDef(id).base ?? id : null);
 function shownPlane() {
-  const now = selected ? baseOf(selected) : baseOf(hovered ?? hoveredSketch?.plane ?? null) ?? (pinnedHover || null);
+  const now = selected ? baseOf(selected) : selPlane() ? baseOf(selPlane()) : baseOf(hovered ?? hoveredSketch?.plane ?? null) ?? (pinnedHover || null);
   if (now) lastPlane = now; // pointing at another plane drops the old one; pointing at nothing keeps it
   return lastPlane;
+}
+const selPlane = () => (sel?.kind === "plane" ? sel.plane : null); // a selected world plane (not sketching on it)
+/** The plane that N, X, Y and Z act on: the sketch plane, else a selected plane, or the plane of a selected face or sketch shape. */
+function actingPlane() {
+  if (selected) return selected;
+  if (!sel) return null;
+  if (sel.kind === "plane") return sel.plane;
+  return ["face", "sketch"].includes(sel.kind) ? planeOfTarget(sel) ?? null : null;
 }
 function stateOf(name) {
   const states = T().states;
   if (name !== shownPlane()) return states.base;
-  return selected ? states.selected : pinnedHover === name ? states[pinnedStyle] : states.hover;
+  return selected || selPlane() ? states.selected : pinnedHover === name ? states[pinnedStyle] : states.hover;
 }
 /** Is this plane the one being sketched on or pointed at? (Its surface and lines lean blue.) */
-const hotOf = (plane) => plane === selected || plane === hovered || hoveredSketch?.plane === plane || (sel?.kind === "sketch" && sel.plane === plane) || (!!pinnedHover && !selected && plane === pinnedHover);
+const hotOf = (plane) => plane === selected || plane === selPlane() || plane === hovered || hoveredSketch?.plane === plane || (sel?.kind === "sketch" && sel.plane === plane) || (!!pinnedHover && !selected && plane === pinnedHover);
 function updatePlanes() {
   scene.fog.near = view.dist * F.nearFactor;
   scene.fog.far = view.dist * F.farFactor;
@@ -244,7 +252,9 @@ function updatePlanes() {
   const cornerK = styleMode === "compass" ? 1 - cornerT : 1; // the world axes and panes fade as the compass moves to the corner
   const panes = styleMode === "panes" || styleMode === "compass";
   const axisLen = ST.shortAxes ? S.axisArrow.lengthFactor * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2)) : 0; // axes that stop at their arrows
-  const want = panes && selected && (!PN.orthoGridOnly || isFaceOn()) ? 1 : 0;
+  const actP = selected ?? selPlane(); // the plane being sketched on or selected
+  const faceOnAct = !!actP && isNormal(view, actP, V.normalToleranceRad);
+  const want = panes && faceOnAct ? 1 : 0;
   paneFade += (want - paneFade) * PN.fadeEase;
   if (Math.abs(want - paneFade) < 0.01) paneFade = want;
   else requestRender(); // keep fading
@@ -256,13 +266,13 @@ function updatePlanes() {
    let blue = state.blue;
    if (panes) {
      // blank world: three small panes at the origin (hover to preview, click to sketch); while sketching, only a faint grid on that plane
-     const mine = selected && baseOf(selected) === name;
-     const hot = !selected && (hovered === name || pinnedHover === name);
-     if (selected) {
+     const mine = actP && baseOf(actP) === name;
+     const hot = !faceOnAct && (hovered === name || pinnedHover === name || mine); // the selected plane's pane is blue; looking straight at it, the pane gives way to the grid
+     if (faceOnAct) {
        state = mine ? { line: (ST.gridAlpha ?? PN.sketchGrid) * paneFade, bright: 0, opacity: 0, fine: PN.fine, blue: 0 } : { line: 0, bright: 0, opacity: 0, fine: 0, blue: 0 };
        fadeR = mine ? view.dist * PN.fadeRadius : 0;
      } else {
-       state = { line: 0, bright: 0, opacity: (hot ? PN.hoverOpacity : PN.opacity) * cornerK, fine: 0, blue: hot ? ST.hoverBlue ?? PN.hoverBlue : 0 };
+       state = { line: 0, bright: 0, opacity: (hot ? PN.hoverOpacity : PN.opacity) * cornerK, fine: 0, blue: hot ? (mine ? PN.hoverBlue : ST.hoverBlue ?? PN.hoverBlue) : 0 };
        paneSize = cornerK > 0 ? view.dist * (ST.paneSize ?? PN.size) : 0;
        edgeA = (hot ? PN.hoverEdgeAlpha : PN.edgeAlpha) * cornerK;
      }
@@ -387,7 +397,7 @@ function applyTheme() {
 }
 
 // ---------------------------------------------------------------- the compass and X Y Z buttons (compass style, `in_067`, `in_068`)
-// Until the first sketch exists the world shows the short axes and the helper panes at the origin. When you go to 3D after the first sketch, the axes
+// Until the first object (an extrusion) exists the world shows the short axes and the helper panes at the origin. When the first object exists, the axes
 // shrink and slide into the bottom-right corner, where they live as a compass with X, Y and Z buttons (and the X, Y, Z keys do the same).
 let compassHome = false; // the first sketch has been made and you are back in 3D: the compass lives in the corner
 let cornerT = 0; // 0 = at the origin, 1 = in the corner
@@ -398,9 +408,7 @@ function stepCorner() {
     compassHome = false;
     return;
   }
-  const hasSketch = store.features.length > 0 || Object.values(store.sketches).some((a) => a.length > 0);
-  if (!hasSketch) compassHome = false;
-  else if (!selected) compassHome = true;
+  compassHome = store.features.length > 0; // the first object (an extrusion) exists: the compass moves to its corner (`in_069`)
   const now = performance.now();
   const dt = Math.min(0.1, (now - cornerLast) / 1000);
   cornerLast = now;
@@ -415,7 +423,7 @@ const AXIS_PLANES = ["YZ", "XZ", "XY"]; // looking along an axis = square to the
 /** Which end of the axis the camera is on while looking straight at that axis's plane: +1, -1, or 0 when not looking along it. */
 function lookSign(ax) {
   const plane = AXIS_PLANES[ax];
-  if (selected !== plane) return 0;
+  if (selected !== plane && selPlane() !== plane) return 0;
   return normalSide(view, plane, V.normalToleranceRad) * Math.sign(planeDef(plane).n[ax]);
 }
 /** X, Y, Z (keys or buttons): look straight along that axis from its + end; again, from its - end; and so on (`in_068`). */
@@ -424,13 +432,12 @@ function lookAlong(ax) {
   const plane = AXIS_PLANES[ax];
   const want = lookSign(ax) > 0 ? -1 : 1; // the end of the axis to look from
   const side = want * Math.sign(planeDef(plane).n[ax]); // +1 = the plane's front side
-  if (selected === plane) {
+  if (selected && selected !== plane) {
+    enterSketch(plane, "select", side); // while sketching, another plane takes over the sketch
     goNormal(plane, side);
   } else {
-    sel = null;
-    applySel();
-    enterSketch(plane, "select", side);
-    goNormal(plane, side); // enterSketch only keeps the camera for drawing tools
+    if (!selected) (sel = { kind: "plane", plane }), applySel(); // otherwise just select that plane (blue) and look along it
+    goNormal(plane, side);
   }
 }
 const compassEl = $("compass");
@@ -443,6 +450,14 @@ AXIS_NAMES.forEach((label, ax) => {
   b.onclick = () => lookAlong(ax);
   compassEl.querySelector(".cbtns").appendChild(b);
 });
+{
+  const n = document.createElement("button"); // N: normal to the plane
+  n.id = "compassN";
+  n.textContent = "N";
+  withTip(n, { label: "Normal", key: "N", help: "Look straight at the selected plane or the plane being sketched on. Again: from its back. Again: from its front." });
+  n.onclick = () => normalAction();
+  compassEl.querySelector(".cbtns").appendChild(n);
+}
 function updateCompass() {
   const on = styleMode === "compass" && cornerT > 0;
   compassEl.style.display = on ? "block" : "none";
@@ -485,10 +500,11 @@ function updateCompass() {
   btns.style.opacity = String(t * t);
   btns.style.pointerEvents = t > 0.6 ? "auto" : "none";
   for (const b of btns.children) {
+    if (b.dataset.ax === undefined) continue; // the N button
     const ax = Number(b.dataset.ax);
     const s = lookSign(ax);
     b.textContent = (s < 0 ? "\u2212" : "") + AXIS_NAMES[ax];
-    b.classList.toggle("on", selected === AXIS_PLANES[ax]);
+    b.classList.toggle("on", selected === AXIS_PLANES[ax] || selPlane() === AXIS_PLANES[ax]);
   }
 }
 
@@ -1214,7 +1230,7 @@ function selectionHint(t) {
   return "double-click selects the whole body";
 }
 function updateStatus() {
-  let text = styleMode === "compass" && compassHome ? "3D view   X Y Z (bottom right, or the keys) look along an axis; again for the other end   right-click for the menu" : "3D view   hover a plane or a face and click it to sketch   right-click for the menu";
+  let text = styleMode === "compass" && compassHome ? "3D view   click to select   L R C then click a surface to draw   X Y Z N look straight at it   right-click for the menu" : "3D view   click to select   L R C then click a surface to draw   N looks straight at the selection   right-click for the menu";
   if (flash) text = flash;
   else if (xform) text = xform.sess.prompt();
   else if (extrude) text = `${extrude.ref ? "Move face" : `Extrude on ${extrude.plane}`}   ${extrude.sess.prompt()}`;
@@ -1354,27 +1370,42 @@ function applySel() {
 }
 /** A single click selects what is on the model. A click on a world plane squares the view to it, unless it is exiting something: with a selection it deselects, and during an operation it applies it (that is handled before this). */
 function selectFromHover() {
-  const t = hoverAsSel();
-  if (t?.kind === "plane" && !sel) {
-    // a click on a world plane with nothing to exit: sketch on it, square to it (`in_060`)
-    return enterSketch(t.plane);
-  }
-  sel = t?.kind === "plane" ? null : t; // with something selected, the same click only lets go of it (a click that exits a state does not also move the camera)
+  // planes are just planes (`in_069`): a click selects what is under the pointer (blue), or lets go when there is nothing; it never moves the camera
+  sel = hoverAsSel();
+  armedTool = null;
   applySel();
+}
+/** In the panes styles only the small panes can be pointed at; null = every (infinite) plane counts. `always`: also while sketching. */
+function paneFilter(always = false) {
+  if (styleMode === "compass" && cornerT > 0 && !inSketchView() && !always) return () => false;
+  if ((styleMode === "panes" || styleMode === "compass") && (!inSketchView() || always)) {
+    return (name, p) => {
+      const [u, v] = planeDef(name).basis;
+      const st = S.styles[S.styleName];
+      const s = view.dist * (st.paneSize ?? S.panes.size);
+      const o = view.dist * (st.paneOffset ?? 0);
+      const a = p[0] * u[0] + p[1] * u[1] + p[2] * u[2];
+      const b = p[0] * v[0] + p[1] * v[1] + p[2] * v[2];
+      return a >= o && a <= o + s && b >= o && b <= o + s;
+    };
+  }
+  return null;
 }
 function pickAt(clientX, clientY) {
   setRay(clientX, clientY);
-  const paneOnly = styleMode === "compass" && cornerT > 0 && !inSketchView() ? () => false : (styleMode === "panes" || styleMode === "compass") && !inSketchView() ? (name, p) => {
-    // panes style: only the small panes can be pointed at
-    const [u, v] = planeDef(name).basis;
-    const st = S.styles[S.styleName];
-    const s = view.dist * (st.paneSize ?? S.panes.size);
-    const o = view.dist * (st.paneOffset ?? 0);
-    const a = p[0] * u[0] + p[1] * u[1] + p[2] * u[2];
-    const b = p[0] * v[0] + p[1] * v[1] + p[2] * v[2];
-    return a >= o && a <= o + s && b >= o && b <= o + s;
-  } : null;
-  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * A.farFactor, minCos: G.grazeMinCos, only: inSketchView() ? selected : null, within: paneOnly });
+  return pickPlane(raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray(), { maxDist: view.dist * A.farFactor, minCos: G.grazeMinCos, only: inSketchView() ? selected : null, within: paneFilter() });
+}
+/** The plane of the surface under the pointer (a body face, a closed sketch shape, or a pane): what a drawing tool sketches on (`in_069`). Null if none. */
+function surfaceUnder(clientX, clientY) {
+  setRay(clientX, clientY);
+  const o = raycaster.ray.origin;
+  const d = raycaster.ray.direction;
+  const faceHit = body.pick(o, d);
+  const sk = pickSketchFace(o, d, Math.min(faceHit ? faceHit.distance : Infinity, view.dist * A.farFactor));
+  if (sk) return sk.plane;
+  if (faceHit) return faceHit.face.type === "cyl" ? null : planeOfTarget({ kind: "face", face: { ...faceHit.face, point: faceHit.point } });
+  if (selected && styleMode === "sheets") return null; // the sheets are infinite: while sketching, a plane behind the cursor must not take over
+  return pickPlane(o.toArray(), d.toArray(), { maxDist: view.dist * A.farFactor, minCos: G.grazeMinCos, within: paneFilter(true) })?.plane ?? null;
 }
 /** The point under the cursor on the sketch plane, in local (u, v) mm. */
 function localPoint(clientX, clientY) {
@@ -1386,6 +1417,7 @@ function localPoint(clientX, clientY) {
 }
 
 // ---------------------------------------------------------------- actions (shared by hotkeys and the right-click menu)
+let armedTool = null; // a drawing tool chosen in 3D with nothing to draw on yet: the next click on a surface starts the sketch there (`in_069`)
 let prePose = null; // the 3D camera pose to return to when leaving the sketch
 function enterSketch(plane, tool = "select", side = 1) {
   sel = null;
@@ -1436,6 +1468,9 @@ function setTool(tool) {
     sel = null;
     applySel();
     enterSketch(planeOfTarget(t), tool); // a sketch tool key acts on the selection: sketch on it // hotkey while hovering a plane in the 3D view: start sketching on it with that tool
+  } else if (!selected && ["line", "rect", "circle"].includes(tool)) {
+    armedTool = tool; // nothing under the pointer yet: the next click on a surface starts drawing there
+    flashMessage(`${{ line: "Line", rect: "Rectangle", circle: "Circle" }[tool]}: click a plane, a face or a sketch to draw on it.`);
   } else return false;
   updateStatus();
   updateReadout();
@@ -1459,6 +1494,7 @@ function doEscape() {
   if (menuOpen()) return hideMenu();
   if (extrude) return cancelExtrude();
   if (xform) return cancelTransform();
+  if (armedTool) return void (armedTool = null);
   if (!inSketchView()) return selected ? exitSketch(true) : sel ? ((sel = null), applySel()) : undefined;
   if (!session.escape()) exitSketch(true);
   updateStatus();
@@ -1530,13 +1566,20 @@ function goSquare() {
   goNormal(selected, cameraSide(selected)); // squares up from the side you are already on
 }
 /** Back to the 3D angle the sketch was seen from (or a standard oblique one). */
+/** N (`in_069`): normal to the selected / sketched plane: from the front; again from the back; again from the front. */
+function normalAction() {
+  if (extrude || xform) return;
+  const plane = actingPlane();
+  if (!plane) return flashMessage("Select a plane or a face first (or start sketching); then N looks straight at it.");
+  goNormal(plane, normalSide(view, plane, V.normalToleranceRad) > 0 ? -1 : 1);
+}
 function goOblique() {
   const back = obliquePose ?? { a: V.homeAzimuth, e: V.homeElevation };
   animateTo({ a: back.a, e: back.e, target: view.target.clone() }, V.transitionMs);
 }
 const ACTIONS = {
   lookX: () => lookAlong(0), lookY: () => lookAlong(1), lookZ: () => lookAlong(2),
-  faceOn: () => (selected && !extrude && !xform ? (isFaceOn() ? goOblique() : goSquare()) : undefined), // N: back and forth between looking straight at the sketch plane and the 3D angle
+  faceOn: () => normalAction(), // N: look straight at the plane (selected or being sketched on); again, from its back; again, from its front
   consH: () => constraintKey(["Horizontal"]),
   consV: () => constraintKey(["Vertical"]),
   consE: () => constraintKey(["Equal length", "Equal radius"]),
@@ -1826,7 +1869,26 @@ canvas.addEventListener("pointerdown", (ev) => {
     return;
   }
   if (selected && anim) return; // gliding to the plane: ignore clicks until it arrives
+  if (armedTool && !inSketchView()) {
+    // a drawing tool is chosen: a click on a surface starts the sketch right there, no mode to enter (`in_069`)
+    const pl = surfaceUnder(ev.clientX, ev.clientY);
+    if (!pl) return void (g = { kind: "click", ...base });
+    const tool = armedTool;
+    armedTool = null;
+    sel = null;
+    applySel();
+    enterSketch(pl, tool);
+    if (anim) return;
+  }
   if (!inSketchView()) return void (g = { kind: "click", ...base }); // a click picks something in the 3D view; a drag orbits
+  if (["line", "rect", "circle"].includes(session.tool) && !session.draft) {
+    // freely sketch: a click on another surface moves the sketch to that surface
+    const pl = surfaceUnder(ev.clientX, ev.clientY);
+    if (pl && pl !== selected) {
+      enterSketch(pl, session.tool);
+      if (anim) return;
+    }
+  }
   const p = localPoint(ev.clientX, ev.clientY);
   if (!p) return;
   session.scale = pxPerMm(p);

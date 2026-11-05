@@ -2,8 +2,8 @@
 export const settings = {
   view: {
     fovDeg: 35,
-    homeAzimuth: -Math.PI / 4, // radians around Z (0 = looking from +X, -PI/2 = from -Y)
-    homeElevation: 0.6, // radians above the XY plane
+    homeAzimuth: Math.PI / 4, // radians around Z (0 = looking from +X, -PI/2 = from -Y); PI/4 = from the +X +Y corner, as in the human's picture (`in_069`)
+    homeElevation: 0.5, // radians above the XY plane
     homeDistance: 120, // mm from the target
     orbitRadPerPx: 0.006,
     zoomPerWheel: 0.003,
@@ -181,8 +181,8 @@ settings.styles = {
   panesDark: { label: "Panes, dark", theme: "panesDark", mode: "panes" },
   panesLight: { label: "Panes, light", theme: "panesLight", mode: "panes" },
   blueprint: { label: "Panes, blueprint", theme: "blueprint", mode: "panes" },
-  compass: { label: "Compass (home, then corner)", theme: "pencil", mode: "compass", shortAxes: true, paneSize: 0.13, paneOffset: 0.05, paneRadius: 0.16, hoverBlue: 0, lodDivisor: 30, gridAlpha: 1 }, // the pencil look until the first sketch, then the axes live in a corner compass with X Y Z buttons (`in_067`, `in_068`)
-  pencil: { label: "Pencil (white)", theme: "pencil", mode: "panes", shortAxes: true, paneSize: 0.13, paneOffset: 0.05, paneRadius: 0.16, hoverBlue: 0, lodDivisor: 30, gridAlpha: 1 }, // white world, short charcoal axes, floating rounded grey panes
+  compass: { label: "Compass (home, then corner)", theme: "pencil", mode: "compass", shortAxes: true, paneSize: 0.13, paneOffset: 0.05, paneRadius: 0.16, lodDivisor: 30, gridAlpha: 1 }, // the pencil look until the first sketch, then the axes live in a corner compass with X Y Z buttons (`in_067`, `in_068`)
+  pencil: { label: "Pencil (white)", theme: "pencil", mode: "panes", shortAxes: true, paneSize: 0.13, paneOffset: 0.05, paneRadius: 0.16, lodDivisor: 30, gridAlpha: 1 }, // white world, short charcoal axes, floating rounded grey panes
 };
 settings.styleName = "current";
 settings.panes = {
@@ -213,6 +213,6 @@ settings.themes.blueprint = {
 settings.themes.pencil = {
   ...base, background: 0xffffff, text: "#2b2b2d",
   axisX: [0.17, 0.17, 0.19], axisY: [0.17, 0.17, 0.19], axisZ: [0.17, 0.17, 0.19], // charcoal, like a pencil
-  sheet: [0.5, 0.51, 0.54], gridLine: [0.18, 0.19, 0.22], blueSurface: [0.5, 0.51, 0.54], blueLine: [0.3, 0.3, 0.33],
+  sheet: [0.5, 0.51, 0.54], gridLine: [0.18, 0.19, 0.22], blueSurface: [0.3, 0.5, 0.95], blueLine: [0.15, 0.35, 0.85],
   bodyColor: 0xcdcdd0, bodyEdge: 0x2a2a2d,
 };

@@ -24,7 +24,7 @@ const ICON = {
   Coincident: "coincident", "Same height": "sameHeight", "Same position across": "sameAcross",
   "Move face": "moveFace", "Tilt face": "tilt", "Sketch on surface": "sketchOn", "Sketch on it": "sketchOn", "Change radius": "radius", Taper: "taper", Fillet: "fillet", Chamfer: "chamfer",
   Move: "move", Rotate: "rotate", Scale: "scale", Delete: "trash", "Delete step": "trash", "Home view": "home", "Return to origin": "origin", Undo: "undo", Redo: "redo",
-  Apply: "check", Cancel: "cross", "Exit sketch": "view3d", "Look straight at the sketch": "viewNormal", "3D angle": "viewOblique",
+  Apply: "check", Cancel: "cross", "Exit sketch": "view3d", "Normal to the plane": "viewNormal",
 };
 const HELP = {
   Select: "Pick lines, corners, circles or whole shapes. Shift-click adds. Drag to move.", Line: "Draw connected lines. Click the first point again to close the shape.",
@@ -37,7 +37,7 @@ const HELP = {
   "Sketch on it": "Start a sketch on this shape's plane.", "Change radius": "Change the radius of this round face.", Taper: "Give this round face a taper angle.", Fillet: "Round this edge.", Chamfer: "Bevel this edge.",
   Move: "Move the whole body along X, Y or Z.", Rotate: "Rotate the whole body about X, Y or Z.", Scale: "Scale the whole body.", Delete: "Delete the selection.", "Delete step": "Delete this step from the history.",
   "Home view": "Return to the standard 3D view.", "Return to origin": "Bring the world origin back into view.", Undo: "Undo the last change.", Redo: "Redo what was undone.",
-  Apply: "Apply this change.", Cancel: "Cancel this change.", "Exit sketch": "Leave the sketch (you can sketch from any camera angle, so orbiting does not leave it).", "Look straight at the sketch": "Turn the view to face the sketch plane squarely (clicking the empty plane does this too).", "3D angle": "Go back to the 3D angle you were looking from.",
+  Apply: "Apply this change.", Cancel: "Cancel this change.", "Exit sketch": "Leave the sketch (you can sketch from any camera angle, so orbiting does not leave it).", "Normal to the plane": "Look straight at the plane. Again: from its back. Again: from its front.",
 };
 
 export function barItems(ctx) {
@@ -56,7 +56,7 @@ export function barItems(ctx) {
     // The bar follows what is picked (`in_056`): lines, corners or circles picked -> only what can be done with them; a whole closed shape -> extrude, dimension, delete;
     // nothing picked, or a drawing tool in use -> the sketching tools. Drawing tools never show while something is picked.
     const del = item("act:delete", "Delete", "delete");
-    const look = [item("act:faceOn", ctx.faceOn ? "3D angle" : "Look straight at the sketch", "faceOn")]; // you can sketch from any angle; one button goes back and forth
+    const look = [item("act:faceOn", "Normal to the plane", "faceOn")]; // you can sketch from any angle; one button goes back and forth
     if (ctx.tool === "select" && ctx.pickParts) {
       groups.push({ id: "constraints", items: ctx.offers.map((o, i) => item(`cons:${i}`, o.label, CONS_KEY[o.label], { enabled: o.enabled, reason: o.reason, active: !!o.active })) });
       groups.push({ id: "edit", items: [del, ...edit.items, ...look] });
@@ -89,6 +89,7 @@ export function barItems(ctx) {
   } else if (sel.kind === "body") {
     acts.push(item("act:move", "Move", "move"), item("act:rotate", "Rotate", "rotate"), item("act:scale", "Scale", "scale"), item("act:delete", "Delete", "delete"));
   }
+  if (sel && ["plane", "face", "sketch"].includes(sel.kind)) acts.push(item("act:faceOn", "Normal to the plane", "faceOn"));
   if (acts.length) groups.push({ id: "selection", items: acts });
   groups.push({ id: "view", items: [...(sel ? [item("act:home", "Home view", "home")] : []), ...edit.items] });
   return groups;

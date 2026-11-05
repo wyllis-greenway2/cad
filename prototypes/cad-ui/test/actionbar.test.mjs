@@ -17,11 +17,11 @@ test("key labels read the way they are typed", () => {
 });
 
 test("3D view: the bar follows the selection and shows the hotkey of each action", () => {
-  assert.deepEqual(labels(barItems({ ...base, sel: { kind: "face" } }), "selection"), ["Move face (M)", "Tilt face (R)", "Sketch on surface (S)"]);
-  assert.deepEqual(labels(barItems({ ...base, sel: { kind: "face", round: true } }), "selection"), ["Change radius (M)", "Taper (R)"]);
+  assert.deepEqual(labels(barItems({ ...base, sel: { kind: "face" } }), "selection"), ["Move face (M)", "Tilt face (R)", "Sketch on surface (S)", "Normal to the plane (N)"]);
+  assert.deepEqual(labels(barItems({ ...base, sel: { kind: "face", round: true } }), "selection"), ["Change radius (M)", "Taper (R)", "Normal to the plane (N)"]);
   assert.deepEqual(labels(barItems({ ...base, sel: { kind: "edge" } }), "selection"), ["Fillet (F)", "Chamfer (B)"]);
   assert.deepEqual(labels(barItems({ ...base, sel: { kind: "body" } }), "selection"), ["Move (M)", "Rotate (R)", "Scale (K)", "Delete (Del)"]);
-  assert.deepEqual(labels(barItems({ ...base, sel: { kind: "sketch" } }), "selection"), ["Extrude (E)", "Sketch on it (S)", "Delete (Del)"]);
+  assert.deepEqual(labels(barItems({ ...base, sel: { kind: "sketch" } }), "selection"), ["Extrude (E)", "Sketch on it (S)", "Delete (Del)", "Normal to the plane (N)"]);
   assert.deepEqual(labels(barItems(base), "selection"), ["Home view (H)", "Return to origin (O)"]); // nothing selected
   const undo = barItems(base).find((g) => g.id === "view").items.find((i) => i.label === "Undo");
   assert.equal(undo.enabled, true);
@@ -36,8 +36,7 @@ test("sketch view: nothing picked shows the sketching tools; picking lines shows
   assert.equal(none.find((x) => x.id === "tools").items[0].active, true);
   assert.ok(!JSON.stringify(none).includes("Extrude")); // extrusion needs a closed shape selected
   assert.ok(labels(none, "edit").includes("Exit sketch (Esc)"));
-  assert.ok(labels(none, "edit").includes("Look straight at the sketch (N)")); // not face-on: offered
-  assert.ok(labels(barItems({ ...sketch, faceOn: true }), "edit").includes("3D angle (N)")); // face-on: the same button goes back to the 3D angle
+  assert.ok(labels(none, "edit").includes("Normal to the plane (N)")); // not face-on: offered
   // a line picked: only its constraints and delete; no drawing tools, no extrude, no rectangle
   const offers = [{ label: "Horizontal", enabled: true, active: true }, { label: "Vertical", enabled: false, reason: "it would shrink a line to nothing", active: false }];
   const line = barItems({ ...sketch, offers, pickParts: true, faceOn: true });
@@ -46,7 +45,7 @@ test("sketch view: nothing picked shows the sketching tools; picking lines shows
   const c = line.find((x) => x.id === "constraints").items;
   assert.deepEqual(c.map((i) => [i.label, i.key, i.enabled, i.active]), [["Horizontal", "Shift+H", true, true], ["Vertical", "Shift+V", false, false]]);
   assert.equal(c[1].reason, "it would shrink a line to nothing");
-  assert.deepEqual(labels(line, "edit"), ["Delete (Del)", "Undo (Ctrl+Z)", "Redo (Ctrl+Shift+Z)", "3D angle (N)"]);
+  assert.deepEqual(labels(line, "edit"), ["Delete (Del)", "Undo (Ctrl+Z)", "Redo (Ctrl+Shift+Z)", "Normal to the plane (N)"]);
   // a whole closed shape picked: extrude, dimension, delete
   assert.deepEqual(labels(barItems({ ...sketch, faceOn: true, pickShape: true, pickShapeClosed: true }), "shape"), ["Extrude (E)", "Dimension (D)", "Delete (Del)"]);
   assert.deepEqual(labels(barItems({ ...sketch, faceOn: true, pickShape: true, pickShapeClosed: false }), "shape"), ["Dimension (D)", "Delete (Del)"]); // an open line: nothing to extrude
