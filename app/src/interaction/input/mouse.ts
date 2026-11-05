@@ -28,10 +28,11 @@ export function createMouse(countClick: ClickCounter, spaceHeld: () => boolean) 
       const [dx, dy] = [e.x - g.x, e.y - g.y];
       g.x = e.x;
       g.y = e.y;
-      return [{ type: g.action === "pan" ? "pan" : "orbit", dx, dy }];
+      return [g.action === "pan" ? { type: "pan", dx, dy } : { type: "orbit", dx, dy, x: e.x, y: e.y }];
     }
     const cur = g;
     g = null;
+    if (cur?.moved && cur.action !== "pan") return [{ type: "dragEnd" }]; // the drag (of the camera or of a handle) is over
     if (e.kind === "cancel" || !cur || cur.moved) return [];
     if (cur.action === "menu") return [{ type: "menu", x: e.x, y: e.y }];
     if (cur.action === "click") return [{ type: "click", x: e.x, y: e.y, count: countClick(e.x, e.y, e.t, false), shift: cur.shift }];

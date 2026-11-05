@@ -29,3 +29,13 @@ export function objectOf(sc: Scene, ref: Ref): Ref {
   return f ? f.ref : ref;
 }
 
+
+/** The middle of the body from its corners (the box that holds them), or null with no body. Rotating and moving handles start here. */
+export function bodyCentre(sc: Scene): Vec3 | null {
+  const pts = Object.values(sc.parts).filter((p): p is Extract<Part, { kind: "corner" }> => p.kind === "corner" && p.origin === "body").map((p) => p.at);
+  if (!pts.length) return null;
+  const lo: [number, number, number] = [Infinity, Infinity, Infinity];
+  const hi: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+  for (const p of pts) for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i]!, p[i]!); hi[i] = Math.max(hi[i]!, p[i]!); }
+  return [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
+}

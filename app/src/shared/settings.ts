@@ -28,11 +28,12 @@ export const settings = {
     keys: {
       undo: ["mod+z"], redo: ["mod+shift+z", "mod+y"], lookX: ["x"], lookY: ["y"], lookZ: ["z"], lookN: ["n"], home: ["h"],
       cancel: ["escape"], save: ["mod+s"], open: ["mod+o"], delete: ["delete", "backspace"],
-      toolRect: ["r"], toolCircle: ["c"], toolLine: ["l"], extrude: ["e"], round: ["f"], bevel: ["b"], move: ["m"], rotate: ["t"], scale: ["k"], dimension: ["d"],
+      toolRect: ["r"], toolCircle: ["c"], toolLine: ["l"], extrude: ["e"], edge: ["f", "b"], move: ["m"], rotate: ["t"], scale: ["k"], dimension: ["d"],
     } as Record<string, string[]>,
   },
   sketch: { snapPx: 12, roundMm: 0.01 }, // drawing: a point within this many pixels of a corner snaps to it; free points are rounded to this so sizes read 40.00
-  op: { defaultSize: 1, sizeStep: 0.1, distanceStep: 0.1 }, // round and bevel start at this size (mm); the arrow keys change it by sizeStep
+  op: { sizeStep: 0.1, distanceStep: 0.1 }, // the arrow keys change a fillet or chamfer size by sizeStep, other distances by distanceStep
+  gizmo: { sizeOfView: 0.17, hitPx: 12, angleStep: 0.5 }, // the helper handles: their length as a fraction of the view distance, how near the pointer must be, rotation snaps to this many degrees
   pick: { pointPx: 10, linePx: 8, edgeWidthPx: 2.4, edgeHoverWidthPx: 1.8, vertexScale: 0.0042, vertexSelectScale: 1.25 }, // a picked line is this wide; a picked corner is a ball this big (in view distances), as in the prototype // pointing within this many pixels of a corner / a line picks it (the prototype used 10 and 6 to 8)
   orb: {
     radius: 0.025, // the hover ring's radius, in view-distances (`in_075`)
@@ -52,7 +53,7 @@ export const settings = {
     bodyEdge: 0x2a2a2d,
   },
   panes: { opacity: 0.05, hoverOpacity: 0.14, edgeAlpha: 0.35, hoverEdgeAlpha: 0.8, size: 16, offset: 6, radius: 0.16 }, // the helper panes at the origin: rounded squares floating out from the axes (`in_064` to `in_070`), in mm at the home distance
-  grid: { divisions: 30, minorAlpha: 0.35, majorAlpha: 0.7, color: [0.62, 0.63, 0.67] as [number, number, number] },
+  grid: { show: false, divisions: 30, minorAlpha: 0.35, majorAlpha: 0.7, color: [0.62, 0.63, 0.67] as [number, number, number] },
   compass: { sizePx: 92, marginPx: 18, seconds: 0.7, buttonPx: 34, gapPx: 10 }, // the small axes in the corner once there is a body (`in_068`)
   light: { key: 1.7, fill: 0.12, ambient: 0.42, roughness: 0.5, sheen: 0.3, sheenRoughness: 0.45, reflect: 0.35 }, // lights ride with the camera; the body has a slight clear-coat sheen and a soft studio reflected in it
   extrude: { edgeAngleDeg: 30 }, // outline edges are drawn where faces meet at more than this angle

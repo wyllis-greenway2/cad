@@ -101,13 +101,14 @@ async function boot() {
     size: () => view.size(),
     project: (p: [number, number, number]) => projector(state.cam, view.size().w, view.size().h).project(p),
     candidatesAt: (x: number, y: number) => candidatesAt(scene(state.session), projector(state.cam, view.size().w, view.size().h).view(x, y), { pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx }),
+    frame: () => frameOf(state, view.size()),
     dispatch, run: (c: Command) => { state = { ...state, session: run(state.session, c) }; dirty = true; },
   };
   requestAnimationFrame(frame);
 }
 let moving = false;
 function frame(now: number) {
-  if (state.anim) { state = advance(state, now); dirty = true; }
+  if (state.anim || state.pendingLook) { state = advance(state, now); dirty = true; }
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading) {
     const size = view.size();
@@ -116,6 +117,7 @@ function frame(now: number) {
     view.setScene(f.scene, f.mesh);
     view.setHighlight(f.highlight, state.cam, now);
     view.setPreview(f.preview, state.cam);
+    view.setGizmo(f.gizmo, state.cam);
     badges.update(f.badges, f.suggestion, f.badgeAt ? [f.badgeAt[0] + page.left, f.badgeAt[1] + page.top] : null);
     chip.update(f.entry?.fields ?? null, f.entry?.unit ?? "mm", pointer[0], pointer[1]);
     host.style.cursor = f.cursor;

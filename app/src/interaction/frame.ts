@@ -13,12 +13,18 @@ import type { AppState } from "./control/state.ts";
 import { gridPlaneOf } from "./control/viewing.ts";
 import { projector } from "./camera.ts";
 import { gridFor } from "./grid.ts";
+import { settings } from "../shared/settings.ts";
 import type { Grid } from "./grid.ts";
 import { badgesFor, focusParts, suggestMeasure, anchorOf } from "./badges.ts";
 import type { Badge, Suggestion } from "./badges.ts";
 import { entryOf, previewFor } from "./entry.ts";
 import type { Entry } from "./entry.ts";
 import type { Preview } from "./tools.ts";
+import { gizmoOf } from "./control/handles.ts";
+import { hasGizmo } from "./gizmo.ts";
+import type { Handle } from "./gizmo.ts";
+
+export interface GizmoFrame { handles: Handle[]; hover: string | null; active: string | null }
 
 export interface Frame {
   scene: Scene;
@@ -32,7 +38,9 @@ export interface Frame {
   badgeAt: [number, number] | null;
   world: { big: boolean; panes: boolean; lit: Ref[]; corner: boolean };
   grid: Grid | null;
-  cursor: "crosshair" | "";
+  /** the helper handles of the running operation (arrows, a double arrow, curved arrows), or null */
+  gizmo: GizmoFrame | null;
+  cursor: "crosshair" | "grab" | "";
   /** the message to show: a refusal, or the first step that failed to build */
   message: string;
 }
@@ -62,15 +70,17 @@ export function frameOf(s: AppState, size: { w: number; h: number }): Frame {
   return {
     scene: sc,
     mesh: outcome.kernel?.mesh ?? null,
-    highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel, amber: focusParts(sc, sel, s.focus), spread: s.spread },
+    highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: s.op && hasGizmo(s.op.kind) ? sel.filter((r) => s.session.history.scene.parts[r]?.kind !== "body") : sel, // the handles show what is being worked on: the body is not tinted while they are up
+    amber: focusParts(sc, sel, s.focus), spread: s.spread },
     preview: previewFor(sc, s.tool),
     entry: entryOf(sc, s.tool, s.op),
     badges: busy ? [] : badgesFor(sc, sel, s.focus),
     suggestion: busy ? null : suggestMeasure(sc, sel),
     badgeAt: anchor ? projector(s.cam, size.w, size.h).project(anchor) : null,
     world: { big: !hasBody || s.axesBig, panes: !hasBody, lit: [...(s.session.hover ? [s.session.hover] : []), ...sel], corner: hasBody },
-    grid: gp ? gridFor(s.cam, gp, size.w, size.h) : null,
-    cursor: s.tool ? "crosshair" : "",
+    grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // off by default (`in_117`)
+    gizmo: ((g) => (g ? { handles: g.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null } : null))(gizmoOf(s)),
+    cursor: s.tool ? "crosshair" : s.gizmoHover ? "grab" : "",
     message: s.session.message ?? Object.values(outcome.errors)[0] ?? "",
   };
 }

@@ -19,7 +19,10 @@ export type Intent =
   | { type: "click"; x: number; y: number; count: number; shift: boolean }
   | { type: "menu"; x: number; y: number; /** from the menu button: act on the selection, ignore what is under the point */ button?: boolean }
   | { type: "compass" }
-  | { type: "orbit"; dx: number; dy: number }
+  /** a drag that orbits (or drags a handle): the movement since the last event and where the pointer is now; the drag began at (x - total dx, y - total dy) */
+  | { type: "orbit"; dx: number; dy: number; x: number; y: number }
+  /** the pointer went up after a drag */
+  | { type: "dragEnd" }
   | { type: "pan"; dx: number; dy: number }
   | { type: "zoom"; factor: number; x: number; y: number }
   | { type: "look"; plane: LookPlane }
@@ -32,7 +35,7 @@ export type Intent =
   | { type: "open" }
   | { type: "runAction"; id: string }
   /** start a drawing tool or an operation (a key or the menu) */
-  | { type: "begin"; name: "rect" | "circle" | "line" | "extrude" | "round" | "bevel" | "move" | "rotate" | "scale" | "dimension" }
+  | { type: "begin"; name: "rect" | "circle" | "line" | "extrude" | "edge" | "move" | "rotate" | "scale" | "dimension" }
   /** a badge on the selection: focus it (its other parts show in amber), remove it, lock or unlock its number, edit its number */
   | { type: "relation"; act: "focus" | "remove" | "lock" | "edit"; id: string | null }
   /** a key for the number being typed (digits, ".", "-", Backspace, Tab, Enter, the arrows) */

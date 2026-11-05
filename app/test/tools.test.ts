@@ -190,7 +190,7 @@ test("extrude: the pointer pulls the distance along the normal; a negative dista
   near(volume(st), 16000 - 10 * 10 * 5, 0.5);
 });
 
-test("round and bevel: lines of the body, a size, Enter; the default size is shown first and arrows change it", () => {
+test("fillet or chamfer in one operation: lines of the body, a size (a minus makes a chamfer), Enter", () => {
   let st = top();
   st = drawBox(st, 20);
   st = { ...st, cam: homeCamera() };
@@ -202,12 +202,16 @@ test("round and bevel: lines of the body, a size, Enter; the default size is sho
     sel = reduce(sel, { type: "click", x, y, count: 1, shift: i > 0 }, env);
   }
   assert.equal(selection(sel.session).length, 3);
-  st = reduce(sel, { type: "begin", name: "round" }, env);
-  assert.equal(st.op!.kind, "round");
-  assert.equal(entryOf(scene(st.session), null, st.op)!.fields[0]!.value, "1");
+  st = reduce(sel, { type: "begin", name: "edge" }, env);
+  assert.equal(st.op!.kind, "edge");
+  assert.equal(entryOf(scene(st.session), null, st.op)!.fields[0]!.value, "", "no size yet: drag the double arrow or type one");
   st = key(st, "ArrowUp");
-  assert.equal(entryOf(scene(st.session), null, st.op)!.fields[0]!.value, "1.1");
+  assert.equal(entryOf(scene(st.session), null, st.op)!.fields[0]!.value, "0.1");
   st = typeText(st, "3");
+  assert.deepEqual(entryOf(scene(st.session), null, st.op)!.fields[0]!.label, "Fillet");
+  const chamfer = reduce({ ...st, op: { ...st.op!, typed: "-2" } }, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(entryOf(scene(st.session), null, { ...st.op!, typed: "-2" })!.fields[0]!.label, "Chamfer");
+  near(volume(chamfer), 16000 - 3 * 0.5 * 4 * 20, 0.5); // a minus makes it a chamfer of that size
   st = key(st, "Enter");
   assert.equal(st.session.message, null);
   near(volume(st), 16000 - 3 * (1 - Math.PI / 4) * 9 * 20, 0.5);
@@ -240,7 +244,7 @@ test("an operation that cannot start says why and starts nothing", () => {
   st = reduce(st, { type: "begin", name: "extrude" }, env);
   assert.match(st.session.message ?? "", /select a closed figure/);
   assert.equal(st.op, null);
-  st = reduce(st, { type: "begin", name: "round" }, env);
+  st = reduce(st, { type: "begin", name: "edge" }, env);
   assert.match(st.session.message ?? "", /lines of the body/);
   st = reduce(st, { type: "begin", name: "move" }, env);
   assert.match(st.session.message ?? "", /select the body/);
@@ -253,8 +257,8 @@ test("keys: R C L start the tools, digits and Enter are typed, F B E M T K start
   assert.deepEqual(k("c"), [{ type: "begin", name: "circle" }]);
   assert.deepEqual(k("l"), [{ type: "begin", name: "line" }]);
   assert.deepEqual(k("e"), [{ type: "begin", name: "extrude" }]);
-  assert.deepEqual(k("f"), [{ type: "begin", name: "round" }]);
-  assert.deepEqual(k("b"), [{ type: "begin", name: "bevel" }]);
+  assert.deepEqual(k("f"), [{ type: "begin", name: "edge" }]);
+  assert.deepEqual(k("b"), [{ type: "begin", name: "edge" }], "fillet and chamfer are one operation");
   assert.deepEqual(k("m"), [{ type: "begin", name: "move" }]);
   assert.deepEqual(k("t"), [{ type: "begin", name: "rotate" }]);
   assert.deepEqual(k("k"), [{ type: "begin", name: "scale" }]);

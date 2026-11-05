@@ -14,13 +14,16 @@ import { snapOnPlane, finish, planeForDrawing } from "../tools.ts";
 import type { OpKind } from "../operations.ts";
 import { startOp, distanceFromPointer, OP_LABEL } from "../operations.ts";
 import { projector } from "../camera.ts";
+import { settings } from "../../shared/settings.ts";
 import { planeOf, objectOf } from "../objects.ts";
 import type { AppState, Env, MenuItem } from "./state.ts";
 import { pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { commitFigure, commitOp } from "./modal.ts";
+import { doGizmoHover } from "./handles.ts";
+import { hasGizmo } from "../gizmo.ts";
 
 const TOOL_LABEL: Record<ToolKind, string> = { rect: "Rectangle", circle: "Circle", line: "Line" };
-const OPS: OpKind[] = ["extrude", "round", "bevel", "move", "rotate", "scale", "dimension"];
+const OPS: OpKind[] = ["extrude", "edge", "move", "rotate", "scale", "dimension"];
 
 /** The menu: what applies to the selection (relations, delete), the operations that can start from it, and the drawing tools. */
 function menuFor(session: Session, x: number, y: number): AppState["menu"] {
@@ -56,7 +59,7 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
     const v = distanceFromPointer(s.op, pv);
     if (v !== null) next = { ...next, op: { ...s.op, value: v } };
   }
-  return next;
+  return doGizmoHover(next, i.x, i.y, env);
 }
 
 /** A click while a tool is armed: the first sets the plane and the first point, later ones place corners or finish the figure. */
@@ -90,19 +93,20 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
   const cands = candidatesAt(sc, pv, pickOpts());
   const refs = cands.map((c) => c.ref);
-  const base: AppState = { ...s, menu: null, focus: null };
+  const base: AppState = { ...s, menu: null, focus: null, pendingLook: i.count >= 2 ? s.pendingLook : null };
+  if (s.op && hasGizmo(s.op.kind)) return base; // the handles are dragged; a click does not finish the operation
   if (s.op) return commitOp(base);
   if (s.tool) return clickWithTool(base, i, env, refs);
   const get = lookup(sc);
   if (refs.length <= 1 && i.count === 2) {
     // two clicks: look straight at the plane clicked, from the side you are on; the selection stays as the first click left it
     const pl = refs[0] ? planeOf(get, refs[0]) : null;
-    return pl ? animateTo(base, planeView(s.cam, pl, false), env.now) : base;
+    return pl ? { ...base, pendingLook: { plane: pl, due: env.now + settings.input.multiClickMs } } : base; // waits to see whether a third click comes
   }
   if (refs.length <= 1 && i.count >= 3) {
     // three: the whole object
     const o = refs[0] ? objectOf(sc, refs[0]) : undefined;
-    return o ? withSession(base, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base;
+    return o ? withSession({ ...base, pendingLook: null }, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base; // and the view does not turn
   }
   const next = clickOn(sess, refs, i.shift);
   const top = selectionOf(next).at(-1);

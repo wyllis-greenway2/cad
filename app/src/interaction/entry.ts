@@ -17,7 +17,10 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
   if (op) {
     const v = valueOf(op);
     const axis = op.kind === "move" || op.kind === "rotate" ? ` ${"XYZ"[op.axis]}` : "";
-    return { fields: [{ label: (op.field ?? OP_FIELD[op.kind]) + axis, value: op.typed !== "" ? op.typed : v === null ? "" : fmt(v), active: true, typed: op.typed !== "" }], unit: op.unit ?? OP_UNIT[op.kind] };
+    // an edge is a fillet one way and a chamfer the other
+    const label = op.kind === "edge" ? (v !== null && v < 0 ? "Chamfer" : "Fillet") : (op.field ?? OP_FIELD[op.kind]) + axis;
+    const shown = op.kind === "edge" && v !== null ? Math.abs(v) : v;
+    return { fields: [{ label, value: op.typed !== "" ? op.typed.replace(/^-/, "") : shown === null ? "" : fmt(shown), active: true, typed: op.typed !== "" }], unit: op.unit ?? OP_UNIT[op.kind] };
   }
   if (!tool || !tool.plane || !tool.points.length) return null;
   const pl = scene.parts[tool.plane] as Plane | undefined;

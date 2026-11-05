@@ -13,6 +13,8 @@ import { createPen, clearGroup, ringOf, sphereAt } from "./view/pen.ts";
 import { buildContent } from "./view/content.ts";
 import type { BodyMesh } from "./view/content.ts";
 import { buildHighlight, TEAL } from "./view/highlight.ts";
+import { buildGizmo } from "./view/gizmo.ts";
+import type { GizmoView } from "./view/gizmo.ts";
 import type { Highlight } from "./view/highlight.ts";
 
 export type { Highlight };
@@ -35,7 +37,8 @@ export function createView(host: HTMLElement) {
   const content = new THREE.Group();
   const overlay = new THREE.Group();
   const preview = new THREE.Group();
-  scene3.add(content, overlay, preview);
+  const gizmo = new THREE.Group();
+  scene3.add(content, overlay, preview, gizmo);
   const world = createWorld(renderer, scene3, host);
   const pen = createPen();
   const envMap = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture; // a soft studio, only reflected in the body
@@ -59,6 +62,8 @@ export function createView(host: HTMLElement) {
     for (const [a, b] of p.segments) preview.add(pen.line([...a, ...b], TEAL, 2, false));
     if (p.circle) preview.add(pen.line(ringOf(p.circle.center, p.circle.radius, p.circle.normal), TEAL, 2, false));
   }
+
+  const setGizmo = (g: GizmoView | null, cam: Camera) => buildGizmo(gizmo, g, cam.distance, pen);
 
   function resize() {
     const w = host.clientWidth || 1;
@@ -96,5 +101,5 @@ export function createView(host: HTMLElement) {
     return animating;
   }
   resize();
-  return { setScene, setHighlight, setPreview, render, cornerRect: world.cornerRect, resize, size: () => size, canvas: renderer.domElement };
+  return { setScene, setHighlight, setPreview, setGizmo, render, cornerRect: world.cornerRect, resize, size: () => size, canvas: renderer.domElement };
 }

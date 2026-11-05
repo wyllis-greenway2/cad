@@ -52,6 +52,9 @@ test("two clicks look straight at the plane clicked, from the side you are on, o
   let st = boxState();
   st = click(st, SIDE, 1);
   st = click(st, SIDE, 2);
+  assert.equal(st.anim, null, "not yet: a third click may be coming");
+  assert.ok(st.pendingLook);
+  st = advance(st, 10_000); // no third click: the camera starts to turn
   assert.ok(st.anim, "the camera turns smoothly");
   st = settle(st);
   assert.equal(st.cam.straight, true);
@@ -59,13 +62,17 @@ test("two clicks look straight at the plane clicked, from the side you are on, o
   assert.deepEqual(selection(st.session), [faceName([1, 0, 0], 20)]);
 });
 
-test("three clicks select the whole object", () => {
+test("three clicks select the whole object and the view never turns (no flash of the straight-on view on the way)", () => {
   let st = boxState();
   st = click(st, SIDE, 1);
-  st = click(st, SIDE, 2);
-  st = settle(st);
-  st = click(st, SIDE, 3);
+  st = click(st, SIDE, 2, false, 100);
+  st = click(st, SIDE, 3, false, 200);
   assert.deepEqual(selection(st.session), [BODY_OBJECT]);
+  assert.equal(st.pendingLook, null, "the waiting turn is cancelled");
+  assert.equal(st.anim, null);
+  st = advance(st, 10_000);
+  assert.equal(st.anim, null, "and it does not come later");
+  assert.equal(st.cam.straight, false);
 });
 
 test("where things overlap, repeated clicks cycle with 'i of n' instead of looking or selecting the object", () => {
@@ -105,7 +112,7 @@ test("orbit keeps the model where it is on the screen; drag pan moves the pictur
   st = reduce(st, { type: "pan", dx: 120, dy: -60 }, env);
   const c = pivotOf(st.session)!;
   const before = px(st, c);
-  for (const [dx, dy] of [[30, 10], [-80, 25], [150, -40]] as const) st = reduce(st, { type: "orbit", dx, dy }, env);
+  for (const [dx, dy] of [[30, 10], [-80, 25], [150, -40]] as const) st = reduce(st, { type: "orbit", dx, dy, x: 0, y: 0 }, env);
   nearV(px(st, c), before, 1e-6);
   st = reduce(st, { type: "zoom", factor: 1e-9, x: 400, y: 300 }, env);
   assert.ok(st.cam.distance >= 3);

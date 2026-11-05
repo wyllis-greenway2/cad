@@ -37,7 +37,7 @@ export function createTouch(I: typeof settings.input, countClick: ClickCounter) 
           const [dx, dy] = [e.x - g.x, e.y - g.y];
           g.x = e.x;
           g.y = e.y;
-          return g.long ? [] : [{ type: "orbit", dx, dy }];
+          return g.long ? [] : [{ type: "orbit", dx, dy, x: e.x, y: e.y }];
         }
         if (g.mode === "two" && touches.size === 2) {
           const n = two();
@@ -52,6 +52,7 @@ export function createTouch(I: typeof settings.input, countClick: ClickCounter) 
       const cur = g;
       if (touches.size === 0) g = null;
       else if (cur?.mode === "two") g = { mode: "done" };
+      if (cur?.mode === "one" && cur.moved && !cur.long && cur.id === e.id) return [{ type: "dragEnd" }];
       if (e.kind === "cancel" || !cur || cur.mode !== "one" || cur.moved || cur.long || cur.id !== e.id) return [];
       return [{ type: "click", x: e.x, y: e.y, count: countClick(e.x, e.y, e.t, true), shift: false }];
     },

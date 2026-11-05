@@ -66,7 +66,8 @@ export function buildGraph(scene: Scene): GraphResult {
       }
       case "move": case "rotate": case "scale": {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
-        ops.push({ id: xid, type: "transform", target: prev, mode: st.type, axis: Number(st.params.axis ?? 0), value: Number(st.params.value ?? 0) });
+        const pivot = st.params.px !== undefined ? [Number(st.params.px), Number(st.params.py), Number(st.params.pz)] : undefined; // rotate about this point (default: the middle of the body)
+        ops.push({ id: xid, type: "transform", target: prev, mode: st.type, axis: Number(st.params.axis ?? 0), value: Number(st.params.value ?? 0), ...(pivot ? { pivot } : {}) });
         prev = xid;
         break;
       }

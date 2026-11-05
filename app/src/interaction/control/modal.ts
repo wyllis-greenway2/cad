@@ -56,7 +56,7 @@ export function doTyped(s: AppState, key: string): AppState {
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
   if (s.focus && !s.tool && !s.op) return { ...s, focus: null };
-  if (s.tool || s.op) return { ...s, tool: null, op: null };
+  if (s.tool || s.op) return { ...s, tool: null, op: null, drag: null, gizmoHover: null };
   return withSession(s, clearSelection(s.session));
 }
 

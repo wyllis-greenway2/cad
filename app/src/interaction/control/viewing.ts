@@ -52,6 +52,7 @@ export const doHome = (s: AppState, env: Env): AppState => animateTo(s, { ...hom
 
 /** Advance the camera animation to time `now`. */
 export function advance(s: AppState, now: number): AppState {
+  if (s.pendingLook && now >= s.pendingLook.due) return animateTo({ ...s, pendingLook: null }, planeView(s.cam, s.pendingLook.plane, false), now); // no third click came: turn to the plane
   if (!s.anim) return s;
   const k = Math.min(1, (now - s.anim.t0) / settings.view.transitionMs);
   if (k >= 1) return { ...s, cam: s.anim.to, anim: null };

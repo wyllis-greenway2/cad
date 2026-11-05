@@ -34,8 +34,8 @@ test("mouse: dragging on empty space orbits; right-drag orbits; Alt + left-drag 
   for (const [button, mods] of [[0, none], [2, none], [0, m({ alt: true })]] as const) {
     const r = createRecognizer();
     const out = run(r, [ev("down", 100, 100, { button, mods }), ev("move", 110, 100, { button }), ev("move", 130, 90, { button }), ev("up", 130, 90, { button })]);
-    assert.deepEqual(types(out), ["orbit", "orbit"]);
-    assert.deepEqual(out.map((o) => (o as { dx: number }).dx), [10, 20]);
+    assert.deepEqual(types(out), ["orbit", "orbit", "dragEnd"]);
+    assert.deepEqual(out.filter((o) => o.type === "orbit").map((o) => (o as { dx: number }).dx), [10, 20]);
   }
 });
 
@@ -53,7 +53,7 @@ test("mouse: right click is the menu; middle-drag, Shift + right-drag, Alt + Shi
 
 test("a drag is never also a click, and a cancel gives nothing", () => {
   const r = createRecognizer();
-  assert.deepEqual(types(run(r, [ev("down", 0, 0), ev("move", 30, 0), ev("up", 30, 0)])), ["orbit"]);
+  assert.deepEqual(types(run(r, [ev("down", 0, 0), ev("move", 30, 0), ev("up", 30, 0)])), ["orbit", "dragEnd"]);
   assert.deepEqual(run(r, [ev("down", 0, 0), ev("cancel", 0, 0)]), []);
 });
 
@@ -99,7 +99,7 @@ test("finger: a tap is a click; taps in a row count; a drag orbits; a long press
   assert.equal((tap(10, 20)[0] as { count: number }).count, 1);
   assert.equal((tap(25, 200)[0] as { count: number }).count, 2, "a finger is less exact: 28 px counts as the same place");
   const d = run(createRecognizer(), [ev("down", 0, 0, { device: "touch" }), ev("move", 5, 0, { device: "touch" }), ev("move", 40, 0, { device: "touch" }), ev("up", 40, 0, { device: "touch" })]);
-  assert.deepEqual(types(d), ["orbit"]);
+  assert.deepEqual(types(d), ["orbit", "dragEnd"]);
   assert.equal((d[0] as { dx: number }).dx, 40 - 0, "the first move past the slop carries the whole distance so far");
   const lp = createRecognizer();
   const out: Intent[] = [];

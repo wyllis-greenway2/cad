@@ -4,7 +4,8 @@
 import type { Intent } from "../shared/input.ts";
 import type { AppState, Env } from "./control/state.ts";
 import { doHover, doClick, doMenu } from "./control/pointer.ts";
-import { doOrbit, doPan, doZoom, doLook, doHome } from "./control/viewing.ts";
+import { doPan, doZoom, doLook, doHome } from "./control/viewing.ts";
+import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doBegin, doTyped, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn } from "./session.ts";
 
@@ -19,7 +20,8 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
     case "hoverEnd": return { ...s, session: hoverOn(s.session, undefined), hoverPoint: null };
     case "click": return doClick(s, i, env);
     case "menu": return doMenu(s, i, env);
-    case "orbit": return doOrbit(s, i);
+    case "orbit": return doDragMove(s, i, env);
+    case "dragEnd": return doDragEnd(s);
     case "pan": return doPan(s, i, env);
     case "zoom": return doZoom(s, i, env);
     case "look": return doLook(s, i, env);

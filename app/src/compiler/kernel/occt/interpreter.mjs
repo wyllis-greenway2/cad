@@ -313,7 +313,7 @@ const OPS = {
     return { kind: "solid", shape: add ? t.fuse(wedge) : t.cut(wedge) };
   },
 
-  /** Move, rotate or scale the whole target. mode "move" (mm along axis), "rotate" (degrees about the axis through the box centre), "scale" (factor about the box centre). */
+  /** Move, rotate or scale the whole target. mode "move" (mm along axis), "rotate" (degrees about the axis through `pivot`, default the box centre), "scale" (factor about the box centre). */
   transform(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;
     const v = resolve(op.value, ctx.params);
@@ -323,7 +323,7 @@ const OPS = {
     const axis = [0, 0, 0];
     axis[op.axis] = 1;
     if (op.mode === "move") return { kind: "solid", shape: t.translate(axis.map((a) => a * v)) };
-    if (op.mode === "rotate") return { kind: "solid", shape: t.rotate(v, c, axis) };
+    if (op.mode === "rotate") return { kind: "solid", shape: t.rotate(v, op.pivot ?? c, axis) };
     if (op.mode === "scale") {
       if (!(v > 1e-6)) throw new Error("scale must be positive");
       return { kind: "solid", shape: t.scale(v, c) };
