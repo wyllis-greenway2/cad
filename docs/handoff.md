@@ -535,3 +535,7 @@ Browser runs: menu with nothing picked, on a line (Horizontal/Delete/Undo...), o
 ## Handoff 052 — 2026-11-05
 **State:** `in_065`: a fifth style "Pencil (white)": `themes.pencil`, `styles.pencil` (`shortAxes`, `paneSize`, `paneOffset`, `paneRadius`, `hoverBlue`); shader got `uPaneOff`, `uPaneR` (rounded-square signed-distance pane) and `uAxisLen` (axes only 0..arrow length). Pane picking honours the offset. Browser: hover lights one pane, a drawn and extruded box showed grey; screenshots checked; no console errors; 87 tests.
 **Not yet:** selection blue is still blue in this style; the sketch grid in this style is untested by eye.
+
+## Handoff 053 — 2026-11-05
+**State:** `in_066`: sketch grid fades in only when `isFaceOn()` (`panes.orthoGridOnly`); Pencil grid finer (`lodDivisor` 30) and darker; axis lines/arrows hidden behind objects in panes styles (`panes.axisBehind` 0); pane picking checked from four camera angles above and below (all three panes hit) and a real click from below entered the sketch. Browser screenshots of the face-on grid and the 3D view (grid gone) checked; 87 tests; no console errors.
+**Open:** "select from either side" - I could not reproduce a pick failure; the one difference I found is that clicking from below turns the view to the plane's standard front side (e.g. from above for XY), not to the side you were on. Asked the human what they see.

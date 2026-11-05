@@ -242,7 +242,7 @@ function updatePlanes() {
   const ST = S.styles[S.styleName];
   const panes = styleMode === "panes";
   const axisLen = ST.shortAxes ? S.axisArrow.lengthFactor * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2)) : 0; // axes that stop at their arrows
-  const want = panes && selected ? 1 : 0;
+  const want = panes && selected && (!PN.orthoGridOnly || isFaceOn()) ? 1 : 0;
   paneFade += (want - paneFade) * PN.fadeEase;
   if (Math.abs(want - paneFade) < 0.01) paneFade = want;
   else requestRender(); // keep fading
@@ -257,7 +257,7 @@ function updatePlanes() {
      const mine = selected && baseOf(selected) === name;
      const hot = !selected && (hovered === name || pinnedHover === name);
      if (selected) {
-       state = mine ? { line: PN.sketchGrid * paneFade, bright: 0, opacity: 0, fine: PN.fine, blue: 0 } : { line: 0, bright: 0, opacity: 0, fine: 0, blue: 0 };
+       state = mine ? { line: (ST.gridAlpha ?? PN.sketchGrid) * paneFade, bright: 0, opacity: 0, fine: PN.fine, blue: 0 } : { line: 0, bright: 0, opacity: 0, fine: 0, blue: 0 };
        fadeR = mine ? view.dist * PN.fadeRadius : 0;
      } else {
        state = { line: 0, bright: 0, opacity: hot ? PN.hoverOpacity : PN.opacity, fine: 0, blue: hot ? ST.hoverBlue ?? PN.hoverBlue : 0 };
@@ -287,7 +287,7 @@ function updatePlanes() {
     u.uV.value.set(...def.basis[1]);
     u.uCam.value.copy(camera.position);
     u.uDist.value = view.dist;
-    u.uLodDiv.value = G.lodDivisor;
+    u.uLodDiv.value = panes ? ST.lodDivisor ?? G.lodDivisor : G.lodDivisor;
     u.uStyleMin.value = G.fineLineStrength;
     u.uMinCellPx.value = G.minCellPx;
     u.uAxisW.value = G.axisWidthPx;
@@ -299,7 +299,7 @@ function updatePlanes() {
     u.uCol.value.set(...sheet);
     u.uLineCol.value.set(...lineCol);
     u.uLineA.value = state.line;
-    u.uGhost.value = G.axisGhost;
+    u.uGhost.value = panes ? PN.axisBehind : G.axisGhost;
     u.uFineMul.value = state.fine; // the densest grid level is only shown on the sketch plane
     u.uPane.value = paneSize;
     u.uPaneOff.value = view.dist * (ST.paneOffset ?? 0);
@@ -350,7 +350,7 @@ function updateAxisArrows() {
     const hide = Math.abs(d.dot(viewDir)) > A.hideCos || len < 1e-3;
     poly.style.display = label.style.display = hide ? "none" : "block";
     if (hide) return;
-    const faint = body.blocked(camera.position, p0) ? S.axisArrow.faintOpacity : 1; // behind an object: only faintly visible
+    const faint = body.blocked(camera.position, p0) ? (styleMode === "panes" ? S.panes.axisBehind : S.axisArrow.faintOpacity) : 1; // behind an object: only faintly visible
     poly.style.opacity = label.style.opacity = String(faint);
     const ux = (x1 - x0) / len; // screen direction of the axis
     const uy = (y1 - y0) / len;

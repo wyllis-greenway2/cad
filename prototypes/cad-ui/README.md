@@ -156,6 +156,8 @@ A **style switcher** (top right, to be removed) tries looks: *Current (sheets)*,
 
 **Pencil (white) style (`in_065`):** a white world; the XYZ lines are charcoal, short (+ half only) and stop at their arrows (`styles.pencil.shortAxes`); the three panes float a little out from the corners of the axes (`paneOffset`), with rounded corners (`paneRadius`), grey; the model and planes are grey; nothing else is drawn. Per-style overrides live in `settings.styles`.
 
+**Refinements (`in_066`):** in the panes styles the sketch grid shows **only while you look straight at the plane** and fades away in 3D (`panes.orthoGridOnly`); the Pencil grid is darker and finer (`styles.pencil.lodDivisor`, `gridAlpha`, `themes.pencil.gridLine`); axis lines and arrows are **not seen through objects** (`panes.axisBehind`); the panes can be pointed at and clicked from either side (a ray hits them from any direction; a click from the far side still turns the view to the plane's standard front side).
+
 ## Constraints and sketch editing (`in_051`, `in_052`, `in_054`)
 A sketch is **corners and lines** (and circles). A **rectangle is a shortcut**: four lines with real horizontal and vertical constraints. Click a **line**: its **length** shows and you type a number to set it. A **circle's outline**: its radius.
 Shift-click a second line: if they **share a corner** their **angle** shows (type 1° to 179°; the first line stays, the second turns and keeps its length); if not, Parallel / Perpendicular / Equal length are offered. Corners: Fix in place (one),

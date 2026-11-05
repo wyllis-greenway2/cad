@@ -180,7 +180,7 @@ settings.styles = {
   panesDark: { label: "Panes, dark", theme: "panesDark", mode: "panes" },
   panesLight: { label: "Panes, light", theme: "panesLight", mode: "panes" },
   blueprint: { label: "Panes, blueprint", theme: "blueprint", mode: "panes" },
-  pencil: { label: "Pencil (white)", theme: "pencil", mode: "panes", shortAxes: true, paneSize: 0.13, paneOffset: 0.05, paneRadius: 0.16, hoverBlue: 0 }, // white world, short charcoal axes, floating rounded grey panes
+  pencil: { label: "Pencil (white)", theme: "pencil", mode: "panes", shortAxes: true, paneSize: 0.13, paneOffset: 0.05, paneRadius: 0.16, hoverBlue: 0, lodDivisor: 30, gridAlpha: 1 }, // white world, short charcoal axes, floating rounded grey panes
 };
 settings.styleName = "current";
 settings.panes = {
@@ -188,6 +188,8 @@ settings.panes = {
   opacity: 0.16, hoverOpacity: 0.38, // the pane fill
   edgeAlpha: 0.55, hoverEdgeAlpha: 1, // its outline
   hoverBlue: 0.45, // how much a hovered pane leans blue
+  orthoGridOnly: true, // the sketch grid shows only while you look straight at the plane, and fades away in 3D (`in_066`)
+  axisBehind: 0, // axis lines and arrows are not seen through objects (0 = hidden; the sheets style shows them faintly)
   sketchGrid: 0.42, fine: 0.5, // the faint grid on the plane being sketched on, and its finest level
   fadeRadius: 1.15, fadeEase: 0.22, // the grid fades out this many view-distances from the view centre; it fades in over a few frames
 };
@@ -208,6 +210,6 @@ settings.themes.blueprint = {
 settings.themes.pencil = {
   ...base, background: 0xffffff, text: "#2b2b2d",
   axisX: [0.17, 0.17, 0.19], axisY: [0.17, 0.17, 0.19], axisZ: [0.17, 0.17, 0.19], // charcoal, like a pencil
-  sheet: [0.5, 0.51, 0.54], gridLine: [0.58, 0.59, 0.62], blueSurface: [0.5, 0.51, 0.54], blueLine: [0.3, 0.3, 0.33],
+  sheet: [0.5, 0.51, 0.54], gridLine: [0.18, 0.19, 0.22], blueSurface: [0.5, 0.51, 0.54], blueLine: [0.3, 0.3, 0.33],
   bodyColor: 0xcdcdd0, bodyEdge: 0x2a2a2d,
 };

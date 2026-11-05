@@ -430,3 +430,8 @@ Try different visual styles with a temporary style switcher; the first new style
 Another style to try: all white, charcoal pencil-colored short xyz lines that stop at the arrows, small floating rounded panes out from the corners of the xyz lines, and everything else white except the model and planes, which are grey.
 
 > okay lets try something totally different. Lets make one that is totally white. Lets have a dark charcoal pencil colored xyz, but it doesn't go throughout the whole world, it is small and stops at the arrows. It should have a little xyz pane that but they are floating a bit out of the corners of the xyz lines and also have slightly rounded corners. Everything else is white except the model and planes themselves are grey.
+
+## in_066 — 2026-11-05 — directive
+Refinements to the style being tried: grid lines a little smaller and darker, shown only when orthographic to a plane (fading away in 3D), xyz lines hidden behind objects, and the little translucent panes selectable from either side.
+
+> okay lets try this. So lets have it so that the gridlines are a little smaller and darker. lets have it so that the gridlines only show up when you are orthographic to a plane, if you go back into 3d then the grids fade away again. Lets have it so that you cannot see the xyz lines through objects. Lets have it so that you can select the little translucent xyz panes from either side. Right now you can only click them from one surface.
