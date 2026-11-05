@@ -18,8 +18,8 @@ planned licensing review).
 
 | Package | Version | License | Used in | Notes |
 |---|---|---|---|---|
-| replicad | 1.2.0 | MIT | `prototypes/kernel-slice`, `prototypes/sketch-extrude`, `prototypes/cad-ui` | Friendly API over OCCT. Prototype only; we may call OCCT directly instead. |
-| replicad-opencascadejs | 1.1.0 | **LGPL-2.1-only** | `prototypes/kernel-slice`, `prototypes/sketch-extrude`, `prototypes/cad-ui` | OCCT compiled to WASM (about 23 MB, 7 MB gzipped). The LGPL obligations below apply. |
+| replicad | 1.2.0 | MIT | `prototypes/kernel-slice`, `prototypes/sketch-extrude`, `prototypes/cad-ui`, `app/` | Friendly API over OCCT. Prototype only; we may call OCCT directly instead. |
+| replicad-opencascadejs | 1.1.0 | **LGPL-2.1-only** | `prototypes/kernel-slice`, `prototypes/sketch-extrude`, `prototypes/cad-ui`, `app/` | OCCT compiled to WASM (about 23 MB, 7 MB gzipped). The LGPL obligations below apply. |
 | three | 0.187.0 | MIT | `prototypes/kernel-slice`, `prototypes/sketch-extrude`, `prototypes/cad-ui`, `prototypes/cad-ui` | Rendering. |
 | vite | 8.3.5 | MIT | `prototypes/kernel-slice`, `prototypes/sketch-extrude`, `prototypes/cad-ui`, `prototypes/cad-ui` | Dev server and bundler; build time only. |
 | typescript | 5.x (dev only) | Apache-2.0 | `app/` | Type checking only (`tsc --noEmit`); nothing of it ships. Tests run TypeScript directly with Node's built-in type stripping, so no other tool is needed. Added 2026-11-05 (`in_099`). |

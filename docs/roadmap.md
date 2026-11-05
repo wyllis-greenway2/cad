@@ -5,7 +5,7 @@ Update it at the end of each session.
 
 ## Now
 - **Building the clean engine in `app/`** under `dec_clean_engine_design` (accepted, `in_099`); the behaviours to reproduce are `dec_interaction_spec` (still to be confirmed by the human), the relations rules `dec_relations_standard` (provisional except the mover rule), no sketch isolation `dec_no_sketch_isolation`, ownership `dec_constraint_ownership`.
-- The scaffold and **phase 1 (core, no screen) are done** (27 tests): parts, scene, commands and history, ownership, selection, the actions table. **Next: phase 2, the compiler** (solver per plane with virtual fixed parts, then the kernel graph); see Handoff 082.
+- **Phases 1 and 2 are done** (53 tests): the core (parts, scene, commands and history, ownership, selection, actions table) and the compiler (solver per plane with virtual fixed parts, kernel graph, body parts with position names). **Next: phase 3, the picking contract** (`candidatesAt`, faces and planes); see Handoff 083.
 - `prototypes/cad-ui` is the reference until phase 4 runs, then frozen (its README says what it taught).
 
 ## Done

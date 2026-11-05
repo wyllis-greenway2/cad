@@ -17,7 +17,7 @@ interface Base {
   movable: boolean;
 }
 export interface Corner extends Base { kind: "corner"; at: Vec3 }
-export interface Line extends Base { kind: "line"; a: Ref; b: Ref }
+export interface Line extends Base { kind: "line"; a: Ref; b: Ref; /** a point halfway along a curved edge (body edges only; straight lines omit it) */ mid?: Vec3 }
 export interface Circle extends Base { kind: "circle"; center: Ref; radius: number }
 export interface Face extends Base { kind: "face"; loop: Ref[] }
 export interface Plane extends Base { kind: "plane"; at: Vec3; u: Vec3; v: Vec3 }

@@ -4,12 +4,16 @@
   "type": "module",
   "description": "The clean engine and app (dec_clean_engine_design). Production code: every piece needs an accepted decision behind it.",
   "scripts": {
-    "test": "node --test \"test/**/*.test.ts\"",
+    "test": "node --test \"test/**/*.test.ts\" \"test/**/*.test.mjs\"",
     "typecheck": "tsc --noEmit",
     "layers": "python3 ../tools/check_layers.py"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
     "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "replicad": "^1.2.0",
+    "replicad-opencascadejs": "^1.1.0"
   }
 }

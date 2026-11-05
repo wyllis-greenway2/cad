@@ -91,3 +91,11 @@ export function fromJSON(j: SceneJson): Scene {
   for (const p of j.parts) parts[p.ref] = p;
   return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter };
 }
+
+/** The scene with its body parts replaced by these (derived from the kernel result; never saved). */
+export function withBody(s: Scene, body: readonly Part[]): Scene {
+  const parts: Record<string, Part> = {};
+  for (const p of Object.values(s.parts)) if (p.origin !== "body") parts[p.ref] = p;
+  for (const p of body) parts[p.ref] = p;
+  return { ...s, parts };
+}
