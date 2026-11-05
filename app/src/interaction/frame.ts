@@ -75,12 +75,12 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     mesh: outcome.kernel?.mesh ?? null,
     highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel,
     amber: focusParts(sc, sel, s.focus), red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
-    preview: s.tool?.placed && !(s.drag && "sketch" in s.drag) ? null : previewFor(sc, s.tool), // a placed figure is in the scene; while its ball is dragged the preview stands in
+    preview: previewFor(sc, s.tool),
     entry: entryOf(sc, s.tool, s.op),
-    annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash), ...modesFor(sc, sel, s.sketching)],
+    annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash), ...modesFor(sc, sel, s.sketching, s.spot)],
     flash,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // off by default (`in_117`)
-    gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : s.drag && "sketch" in s.drag ? "sketch" : null } : null,
+    gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null } : null,
     cursor: s.tool ? "crosshair" : s.gizmoHover ? "grab" : "",
     message: s.session.message ?? Object.values(outcome.errors)[0] ?? "",
   };

@@ -27,20 +27,9 @@ export interface Tool {
   /** typed sizes: rectangle width and height; circle diameter (field 0); line length (field 0) */
   typed: [string, string];
   field: 0 | 1;
-  /** the figure has been made at the first click and is in the scene; its other defining point (`cursor`) is the ball you drag to size it (`dec_sketch_place_then_drag`) */
-  placed: boolean;
 }
-/** A tool that waits for the first click; with a plane it waits for it on that plane (chosen from the pencil bubble). */
-export const armTool = (kind: ToolKind, plane: Ref | null = null): Tool => ({ kind, plane, points: [], cursor: null, typed: ["", ""], field: 0, placed: false });
-
-/** The tool with its figure made at `at` on the plane: the other defining point is a little way along the plane's own directions. */
-export function placeAt(t: Tool, pl: Plane, at: Vec3): Tool {
-  const d = settings.sketch.defaultMm;
-  const end = t.kind === "circle" ? add(at, scale(pl.u, d / 2)) : t.kind === "line" ? add(at, scale(pl.u, d)) : add(at, add(scale(pl.u, d), scale(pl.v, d)));
-  return { ...t, plane: pl.ref, points: [at], cursor: end, typed: ["", ""], placed: true };
-}
-/** A placed tool as the tool `finish` and `previewOf` understand (a line is its origin and its end). */
-export const figureTool = (t: Tool): Tool => (t.kind === "line" && t.cursor ? { ...t, points: [t.points[0]!, t.cursor] } : t);
+/** A tool that waits for its first click; given a plane (chosen from the pencil bubble) the click is taken on that plane. */
+export const armTool = (kind: ToolKind, plane: Ref | null = null): Tool => ({ kind, plane, points: [], cursor: null, typed: ["", ""], field: 0 });
 
 export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"] };
 
@@ -129,18 +118,6 @@ export function lineNext(t: Tool): Vec3 | null {
   return l < 1e-9 ? null : add(a, scale(d, Math.abs(len) / l));
 }
 
-/** Where the ball that sizes a placed figure sits: the opposite corner, the point of the circle towards the pointer, the end of the line (typed sizes included). */
-export function endOf(pl: Plane, t: Tool): Vec3 | null {
-  const a = t.points[0];
-  if (!a || !t.cursor) return null;
-  if (t.kind === "rect") return rectEnd(pl, t);
-  if (t.kind === "line") return lineNext({ ...t, points: [a] });
-  const d = sub(t.cursor, a);
-  const l = Math.hypot(...d);
-  const r = circleRadius(pl, t);
-  return l < 1e-9 ? add(a, scale(pl.u, r)) : add(a, scale(d, r / l));
-}
-
 /** What to draw while a figure is being made (the view draws it; it is not part of the scene). */
 export interface Preview {
   segments: [Vec3, Vec3][];
@@ -152,7 +129,6 @@ export function previewOf(scene: Scene, t: Tool): Preview | null {
   const pl = t.plane ? (scene.parts[t.plane] as Plane | undefined) : undefined;
   if (!pl || pl.kind !== "plane" || !t.points.length) return null;
   const n = normalOfPlane(pl);
-  if (t.placed && t.kind === "line") t = figureTool(t);
   if (t.kind === "rect") {
     const a = t.points[0]!;
     const e = rectEnd(pl, t);

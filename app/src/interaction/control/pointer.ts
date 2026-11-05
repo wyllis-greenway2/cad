@@ -1,7 +1,7 @@
 // The pointer intents: hover, click (selecting, or drawing when a tool is armed, or finishing an operation) and the menu.
 import type { Intent } from "../../shared/input.ts";
 import type { Ref } from "../../shared/ref.ts";
-import type { Vec3 } from "../../math/vec.ts";
+import { dist } from "../../math/vec.ts";
 import type { Plane } from "../../operation/part.ts";
 import { lookup } from "../../operation/scene.ts";
 import type { Scene } from "../../operation/scene.ts";
@@ -9,8 +9,8 @@ import { scene as sceneOf, selection as selectionOf, clickOn, hoverOn, run } fro
 import type { Session } from "../session.ts";
 import { candidatesAt } from "../picking.ts";
 import { actionsFor } from "../actions.ts";
-import type { ToolKind, Tool } from "../tools.ts";
-import { snapOnPlane, finish, planeForDrawing, placeAt, figureTool } from "../tools.ts";
+import type { ToolKind } from "../tools.ts";
+import { snapOnPlane, finish, planeForDrawing } from "../tools.ts";
 import type { OpKind } from "../operations.ts";
 import { startOp, OP_LABEL } from "../operations.ts";
 import { projector } from "../camera.ts";
@@ -18,7 +18,7 @@ import { settings } from "../../shared/settings.ts";
 import { planeOf, objectOf } from "../objects.ts";
 import type { AppState, Env, MenuItem } from "./state.ts";
 import { pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
-import { commitOp } from "./modal.ts";
+import { commitFigure, commitOp } from "./modal.ts";
 import { doGizmoHover, gizmoOf } from "./handles.ts";
 import { hasGizmo, hitHandle } from "../gizmo.ts";
 
@@ -51,7 +51,7 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   const c = candidatesAt(sc, pv, pickOpts())[0];
   const point = c && c.rank === 2 ? surfacePoint(pv, c.score) : null;
   let next: AppState = { ...withSession(s, hoverOn(s.session, c?.ref)), hoverPoint: point };
-  if (s.tool?.plane && !s.tool.placed) {
+  if (s.tool?.plane) {
     const pl = sc.parts[s.tool.plane];
     const at = pl && pl.kind === "plane" ? snapOnPlane(sc, pv, pl) : null;
     if (at) next = { ...next, tool: { ...s.tool, cursor: at } };
@@ -59,32 +59,29 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   return doGizmoHover(next, i.x, i.y, env);
 }
 
-/** The figure is made where the first click lands, at a small size, and stays selected; the ball on its other defining point sizes it (`dec_sketch_place_then_drag`). */
-function placeFigure(base: AppState, t: Tool, plane: Ref, at: Vec3): AppState {
-  const sc = sceneOf(base.session);
-  const pl = sc.parts[plane] as Plane;
-  const placed = placeAt(t, pl, at);
-  const fin = finish(sc, figureTool(placed));
-  if (!fin) return base;
-  const next = run(base.session, fin.command);
-  if (next.message) return { ...base, session: next };
-  const sel = fin.select.filter((r) => r in sceneOf(next).parts);
-  return { ...base, session: { ...next, click: { ...next.click, selection: sel }, message: null }, tool: placed, spread: null };
-}
-
-/** A click while a tool is armed: on a surface it makes the figure there (the plane chosen from the pencil bubble, else the surface under the click, else the selected plane). */
+/** A click while a tool is armed: the first sets the plane and the first point, later ones place corners or finish the figure. */
 function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, env: Env, refs: Ref[]): AppState {
   const t = base.tool!;
   const sess = base.session;
   const sc = sceneOf(sess);
   const pv = projector(base.cam, env.w, env.h).view(i.x, i.y);
-  const planeRef = t.plane ?? drawingPlane(sc, refs) ?? drawingPlane(sc, selectionOf(sess));
-  const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
-  const at = pl ? snapOnPlane(sc, pv, pl) : null;
-  if (!pl || !at) return { ...base, session: { ...sess, message: "click on a surface to draw on" } };
-  const { plane, command } = planeForDrawing(sc, pl.ref);
-  const session = command ? run(sess, command) : sess;
-  return placeFigure({ ...base, session }, t, plane, at);
+  if (!t.points.length) {
+    // the plane chosen from the pencil bubble, else the surface under the click takes the drawing, from wherever the camera is; with none under it, the selected plane does
+    const planeRef = t.plane ?? drawingPlane(sc, refs) ?? drawingPlane(sc, selectionOf(sess));
+    const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
+    const at = pl ? snapOnPlane(sc, pv, pl) : null;
+    if (!pl || !at) return { ...base, session: { ...sess, message: "click on a surface to draw on" } };
+    const { plane, command } = planeForDrawing(sc, pl.ref);
+    const session = command ? run(sess, command) : sess;
+    return { ...base, session: { ...session, message: null }, tool: { ...t, plane, points: [at], cursor: at } };
+  }
+  const at = snapOnPlane(sc, pv, sc.parts[t.plane!] as Plane);
+  if (!at) return base;
+  if (t.kind !== "line") return commitFigure(base, finish(sc, { ...t, cursor: at }));
+  const last = t.points[t.points.length - 1]!;
+  if (t.points.length >= 3 && dist(at, t.points[0]!) < 1e-6) return commitFigure(base, finish(sc, t, true)); // back on the first corner: closed
+  if (dist(at, last) < 1e-6) return i.count >= 2 && t.points.length >= 2 ? commitFigure(base, finish(sc, t)) : base; // a double click ends the line
+  return { ...base, tool: { ...t, points: [...t.points, at], cursor: at, typed: ["", ""] } };
 }
 
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {
@@ -92,14 +89,8 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
   const cands = candidatesAt(sc, pv, pickOpts());
   const refs = cands.map((c) => c.ref);
-  const base: AppState = { ...s, menu: null, focus: null, pendingLook: i.count >= 2 ? s.pendingLook : null };
-  if (s.tool && !s.tool.placed) return clickWithTool(base, i, env, refs);
-  if (s.tool) {
-    // the figure is made: a click on its ball does nothing (it is dragged), a click anywhere else ends the drawing and then acts as a normal click
-    const g = gizmoOf(s);
-    if (g && hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y)) return base;
-    return doClickSelect({ ...base, tool: null }, i, env, cands, refs, pv);
-  }
+  const base: AppState = { ...s, menu: null, focus: null, spot: null, pendingLook: i.count >= 2 ? s.pendingLook : null };
+  if (s.tool) return clickWithTool(base, i, env, refs);
   if (s.op && !hasGizmo(s.op.kind)) return commitOp(base); // the dimension number chip: a click finishes it
   // the handles are dragged, so a click on one does nothing (it must not reselect what is under it)
   const g = gizmoOf(s);
@@ -129,7 +120,10 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const top = selectionOf(next).at(-1);
   const hit = cands.find((c) => c.ref === top);
   const point = hit && hit.rank === 2 ? surfacePoint(pv, hit.score) : null;
-  return { ...withSession(base, next), spread: hit && point ? { ref: hit.ref, point, startMs: env.now } : null };
+  // a single click on a world plane selects nothing, but offers the pencil where it landed
+  const world = i.count === 1 && !selectable.length ? cands.find((c) => sc.parts[c.ref]?.origin === "world" && sc.parts[c.ref]?.kind === "plane") : undefined;
+  const wp = world ? surfacePoint(pv, world.score) : null;
+  return { ...withSession(base, next), spread: hit && point ? { ref: hit.ref, point, startMs: env.now } : null, spot: world && wp ? { plane: world.ref, at: wp } : null };
 }
 
 export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: Env): AppState {

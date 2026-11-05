@@ -844,3 +844,9 @@ Do not touch `compiler/` or `ui/` in phase 1. Keep porting honest: copy pure cod
 **Face:** a flat body face shows a push / pull bubble (and the pencil); clicking it shows the double arrow. A drawn figure still shows its extrude arrow by itself (tell me if that should be a bubble too).
 **Value box:** a real input box fixed at the bottom centre replaces the chip that followed the pointer: it shows the operation's number (or a figure's sizes) and the live value while an arrow is dragged; click it and type an exact number, Enter applies, Esc cancels (`ui/chip.ts`, intent `entry`). Typing on the keyboard without clicking it still works. It also works on a phone (a real input).
 **Not done:** a push on a face made of several faces or a curved face; the value box for Dimension edits.
+
+## Handoff 105 — 2026-11-05 (sketching back to clicking points, pencil on world planes, larger axes)
+**State:** `in_125`. 166 tests pass, checks clean.
+**Sketching is back to clicking the points:** the first click on a surface sets the plane and the first point, the next click finishes a rectangle or circle, a line takes corners and closes on the first (or double click ends it), typed sizes and Enter as before. The place-then-drag experiment (`dec_sketch_place_then_drag`) is retired: its entry is deleted and its code removed. What stayed: the pencil, and the plane chosen from it takes the first click.
+**Pencil on a world plane:** a single click on a world plane still selects nothing, but a pencil bubble appears where the click landed (`AppState.spot`); clicking it offers rectangle, circle and line there; Esc or any other click clears it.
+**Axes:** `settings.world.axisLengthMm` 12 (was 8.4); still a real size in the world, so they zoom with the model.

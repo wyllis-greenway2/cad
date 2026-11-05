@@ -31,7 +31,7 @@ export const settings = {
       toolRect: ["r"], toolCircle: ["c"], toolLine: ["l"], extrude: ["e"], edge: ["f", "b"], move: ["m"], rotate: ["t"], scale: ["k"], dimension: ["d"],
     } as Record<string, string[]>,
   },
-  sketch: { snapPx: 12, roundMm: 0.01, defaultMm: 10 }, // drawing: a point within this many pixels of a corner snaps to it; free points are rounded to this so sizes read 40.00; a figure is first made this big (`dec_sketch_place_then_drag`)
+  sketch: { snapPx: 12, roundMm: 0.01 }, // drawing: a point within this many pixels of a corner snaps to it; free points are rounded to this so sizes read 40.00
   op: { sizeStep: 0.1, distanceStep: 0.1 }, // the arrow keys change a fillet or chamfer size by sizeStep, other distances by distanceStep
   gizmo: { sizeOfView: 0.17, hitPx: 12, angleStep: 0.5 }, // the helper handles: their length as a fraction of the view distance, how near the pointer must be, rotation snaps to this many degrees
   pick: { pointPx: 10, linePx: 8, edgeWidthPx: 2.4, edgeHoverWidthPx: 1.8, vertexScale: 0.0042, vertexSelectScale: 1.25 }, // a picked line is this wide; a picked corner is a ball this big (in view distances), as in the prototype // pointing within this many pixels of a corner / a line picks it (the prototype used 10 and 6 to 8)
@@ -54,7 +54,7 @@ export const settings = {
   },
   grid: { show: false, divisions: 30, minorAlpha: 0.35, majorAlpha: 0.7, color: [0.62, 0.63, 0.67] as [number, number, number] },
   flash: { ms: 1100, shakeMs: 450 }, // a refused change: the broken constraints flash red and fade over this long; the one that tried shakes for the first part of it
-  world: { axisLengthMm: 8.4, axisWidthPx: 1.6, axisOpacity: 1 }, // the small charcoal axes at the origin: their real length in mm (so they zoom with the model: 8.4 is what 0.07 of the home view distance of 120 was), line width, opacity
+  world: { axisLengthMm: 12, axisWidthPx: 1.6, axisOpacity: 1 }, // the small charcoal axes at the origin: their real length in mm (so they zoom with the model: was 8.4), line width, opacity
   buttons: { marginPx: 18, sizePx: 34 }, // the X Y Z buttons at the right edge, lower right
   light: { key: 1.7, fill: 0.12, ambient: 0.42, roughness: 0.5, sheen: 0.3, sheenRoughness: 0.45, reflect: 0.35 }, // lights ride with the camera; the body has a slight clear-coat sheen and a soft studio reflected in it
   extrude: { edgeAngleDeg: 30 }, // outline edges are drawn where faces meet at more than this angle

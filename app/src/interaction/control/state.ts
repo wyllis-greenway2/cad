@@ -22,7 +22,9 @@ export interface AppState {
   /** the point under the pointer on the hovered surface (for the ring) */
   hoverPoint: Vec3 | null;
   menu: { x: number; y: number; items: MenuItem[] } | null;
-  /** the plane whose pencil bubble was clicked: the shapes to draw on it are on offer (`dec_sketch_place_then_drag`) */
+  /** where a click landed on a world plane (which selects nothing): the pencil is offered there */
+  spot: { plane: Ref; at: Vec3 } | null;
+  /** the plane whose pencil bubble was clicked: the shapes to draw on it are on offer */
   sketching: Ref | null;
   /** the drawing tool being used (null = normal selection) */
   tool: Tool | null;
@@ -33,7 +35,7 @@ export interface AppState {
   /** a double click turns the view to the plane, but only once the window for a third click has passed: a triple click selects the object and leaves the view alone */
   pendingLook: { plane: Plane; due: number } | null;
   /** a drag in progress: of the camera, or of a helper handle (`gizmo.ts`) */
-  drag: { camera: true } | { handle: Drag } | { sketch: true } | null;
+  drag: { camera: true } | { handle: Drag } | null;
   /** the helper handle under the pointer */
   gizmoHover: string | null;
   /** a command was refused because it could not be done without breaking constraints: they flash red and fade, and the one that tried shakes (`in_120`) */
@@ -41,7 +43,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, sketching: null, tool: null, op: null, focus: null, pendingLook: null, drag: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, spot: null, sketching: null, tool: null, op: null, focus: null, pendingLook: null, drag: null, gizmoHover: null, flash: null });
 
 export const pickOpts = () => ({ pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx });
 export const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });
