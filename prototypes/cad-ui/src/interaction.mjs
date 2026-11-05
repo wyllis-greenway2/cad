@@ -283,8 +283,13 @@ export class SketchSession {
   }
   /** Pick one of the constraint icons shown with the selection (Delete then removes it). The selection itself stays. */
   pickConstraint(id) {
-    this.pickedConstraint = id;
+    this.pickedConstraint = this.pickedConstraint === id ? null : id; // clicking it again lets go of it
     this.pickEdit = null;
+  }
+  /** What the clicked constraint relates: its corners, lines and circles ("e_001.s0", "e_001.p2", "e_002.r"). Empty when none is clicked. */
+  relatedRefs() {
+    const c = this.pickedConstraint && this.store.constraintsOf(this.key).find((x) => x.id === this.pickedConstraint);
+    return c ? refsOf(c) : [];
   }
   startPickEdit() {
     if (this.valueChip() && !this.pickEdit) this.pickEdit = { text: "" };

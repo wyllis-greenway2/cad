@@ -53,6 +53,7 @@ export const settings = {
     dragFinishPx: 8, // press-and-drag creates a rectangle or circle if you release farther than this
     pickWidthPx: 2.2, // a picked line or circle in the sketch view, in blue
     pickHoverWidthPx: 1.7, // ...and the one under the cursor
+    relatedColor: 0xe8962e, // what a clicked constraint relates to (the other line, corner or circle)
     pickPointScale: 1.25, // a picked corner's dot, relative to the normal corner marker
     lineWidthPx: 1.0, // sketch lines: thin and black (`in_037`)
     haloWidthPx: 0, // a light line traced along them (0 = none); used to be 3.2

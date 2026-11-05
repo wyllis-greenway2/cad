@@ -347,7 +347,6 @@ function requestRender() {
     updateOriginPill();
     updateDims();
     updateConstraintUI();
-    updateBar();
     syncBody();
     updateExtrudeViz();
     updateXformViz();
@@ -569,6 +568,20 @@ function buildSketchViz() {
       else if (pk.kind === "circle") {
         const c = session.viewEntities().find((e) => e.id === pk.shape);
         if (c) sketchGroup.add(stroke(circlePolygon(c.cx, c.cy, c.r, 96).map((q) => toWorld(session.plane, q)), { color: blueC, width: S.sketch.pickWidthPx, closed: true, order: 8 }));
+      }
+    }
+  }
+  if (inSketchView() && session.tool === "select" && session.relatedRefs().length) {
+    // the clicked constraint's relationship: everything it ties together, in amber
+    const model = modelOf(session.viewEntities());
+    const relC = S.sketch.relatedColor;
+    const kk = 1 / pxPerMm();
+    for (const ref of session.relatedRefs()) {
+      if (model.points[ref]) sketchGroup.add(disc(session.plane, model.points[ref], S.sketch.markerPx * S.sketch.pickPointScale * kk, relC, 10));
+      else if (model.segments[ref]) sketchGroup.add(stroke(model.segments[ref].map((id) => toWorld(session.plane, model.points[id])), { color: relC, width: S.sketch.pickWidthPx * 1.5, order: 10 }));
+      else if (ref.endsWith(".r")) {
+        const c = session.viewEntities().find((e) => e.id === ref.slice(0, -2));
+        if (c) sketchGroup.add(stroke(circlePolygon(c.cx, c.cy, c.r, 96).map((q) => toWorld(session.plane, q)), { color: relC, width: S.sketch.pickWidthPx * 1.5, closed: true, order: 10 }));
       }
     }
   }
@@ -1412,9 +1425,21 @@ function updateConstraintUI() {
       const b = document.createElement("button");
       b.className = `ico${ic.picked ? " picked" : ""}`;
       b.innerHTML = iconSvg(ic.key);
-      withTip(b, { label: iconTitle(ic.key), help: ic.picked ? "Selected: press Delete to remove this constraint." : "A constraint on this selection. Click to select it." });
+      withTip(b, { label: iconTitle(ic.key), help: ic.picked ? "Click again to let go. The amber parts are what it relates." : "A constraint on this selection. Click to see what it relates." });
       b.onclick = () => (session.pickConstraint(ic.id), refreshUI());
-      pill.appendChild(b);
+      if (ic.picked) {
+        // clicked: opens up in width with an x that deletes it; the things it ties together show in amber
+        const grp = document.createElement("span");
+        grp.className = "icogrp";
+        b.className = "ico picked";
+        const x = document.createElement("button");
+        x.className = "ico x";
+        x.innerHTML = iconSvg("cross");
+        withTip(x, { label: "Remove", help: `Delete this ${iconTitle(ic.key).toLowerCase()} constraint.` });
+        x.onclick = () => (session.deleteConstraint(ic.id), refreshUI());
+        grp.append(b, x);
+        pill.appendChild(grp);
+      } else pill.appendChild(b);
     }
     if (w.value) {
       if (w.icons.length) pill.appendChild(Object.assign(document.createElement("span"), { className: "sepv" }));
@@ -1441,10 +1466,7 @@ function updateConstraintUI() {
   widgetEl.style.top = `${nl ? sy : sy - 20}px`;
 }
 
-// ---------------------------------------------------------------- the context action bar (full width, bottom): what can be done now, with hotkeys
-const barEl = $("abar");
-let barSig = "";
-let barMap = new Map();
+// ---------------------------------------------------------------- what can be done now (offered by the right-click menu), with hotkeys
 /** Run what a bar button stands for. */
 function runBar(id) {
   const [kind, name] = id.split(":");
@@ -1471,31 +1493,6 @@ function barContext() {
     sel: sel ? { kind: sel.kind, round: sel.kind === "face" && sel.face?.type === "cyl" } : null,
   };
 }
-function updateBar() {
-  const ctx = barContext();
-  const groups = barItems(ctx);
-  const hint = barHint(ctx);
-  const sig = JSON.stringify([groups, hint]);
-  if (sig === barSig) return;
-  barSig = sig;
-  barEl.replaceChildren();
-  groups.forEach((g, gi) => {
-    if (gi) barEl.appendChild(Object.assign(document.createElement("span"), { className: "sep" }));
-    for (const it of g.items) {
-      const b = document.createElement("button");
-      b.className = it.active ? "on" : "";
-      b.disabled = !it.enabled;
-      b.innerHTML = iconSvg(it.icon);
-      if (it.key) b.appendChild(Object.assign(document.createElement("kbd"), { textContent: keyShort(it.key) }));
-      b.onclick = () => runBar(it.id);
-      withTip(b, { label: it.label, help: it.help, key: it.key, reason: it.enabled ? "" : it.reason });
-      barEl.appendChild(b);
-    }
-  });
-  if (hint) barEl.appendChild(Object.assign(document.createElement("span"), { className: "hint", textContent: hint }));
-  document.documentElement.style.setProperty("--abar-h", `${barEl.offsetHeight}px`); // the status line sits just above the bar, however tall it wraps
-}
-
 // ---------------------------------------------------------------- dimension numbers (shown by the dimension tool)
 const dimsEl = $("dims");
 function updateDims() {
@@ -1547,51 +1544,47 @@ const menuOpen = () => menuEl.style.display === "block";
 function hideMenu() {
   menuEl.style.display = "none";
 }
-function menuItems() {
-  const K = S.input.keys;
-  const key = (a) => [].concat(K[a])[0].replace("mod", "Ctrl").replace(/\b\w/g, (c) => c.toUpperCase()).replace("Escape", "Esc");
-  const items = [];
+/** Right-click: first pick what is under the pointer (unless it is already picked), so the menu offers what can be done with it. */
+function pickUnderPointer(x, y) {
+  if (extrude || xform) return;
   if (inSketchView()) {
-    for (const [label, a] of [["Select", "select"], ["Line", "line"], ["Rectangle", "rect"], ["Circle", "circle"], ["Dimension", "dimension"], ["Extrude", "extrude"]]) items.push({ label, hint: key(a), run: ACTIONS[a], on: session.tool === a });
-    items.push("sep");
-  } else if (!selected && currentTarget()) {
-    const t = currentTarget();
-    if (["plane", "face", "sketch"].includes(t.kind) && planeOfTarget(t)) {
-      const plane = planeOfTarget(t);
-      items.push({ label: t.kind === "face" ? "Sketch on surface" : `Sketch on this ${targetName(t)}`, hint: key("sketch"), run: () => (sel = null, applySel(), enterSketch(plane)) });
+    if (session.tool !== "select") return;
+    const p = localPoint(x, y);
+    if (!p) return;
+    session.scale = pxPerMm(p);
+    const el = elementAt(p, session.entities(), S.sketch.selectTolPx / pxPerMm(p));
+    if (el && !session.picks.some((k) => k.ref === el.ref && k.kind === el.kind)) {
+      session.click(p, { shift: false });
+      refreshUI();
     }
-    if (t.kind === "face" && t.face.type === "cyl") items.push({ label: "Change radius", hint: key("move"), run: () => startCylinder("cylRadius", t.face) }, { label: "Taper", hint: key("rotate"), run: () => startCylinder("cylDraft", t.face) });
-    else if (t.kind === "face") items.push({ label: "Move face", hint: key("move"), run: () => startFaceExtrude(t.face) }, { label: "Tilt face", hint: key("rotate"), run: () => startFaceTilt(t.face) });
-    if (t.kind === "edge") items.push({ label: "Fillet (round)", hint: key("fillet"), run: () => startEdgeMod("fillet", t.edge) }, { label: "Chamfer (bevel)", hint: key("chamfer"), run: () => startEdgeMod("chamfer", t.edge) });
-    if (t.kind === "sketch") items.push({ label: "Extrude", hint: key("extrude"), run: () => (sel = t, ACTIONS.extrude()) });
-    if (t.kind === "body") for (const [label, mode] of [["Move", "move"], ["Rotate", "rotate"], ["Scale", "scale"]]) items.push({ label, hint: key(mode), run: () => startTransform(mode) });
-    items.push("sep");
+    return;
   }
-  items.push({ label: "Undo", hint: key("undo"), run: ACTIONS.undo, off: !store.canUndo() }, { label: "Redo", hint: key("redo"), run: ACTIONS.redo, off: !store.canRedo() }, "sep");
-  items.push({ label: "Return to origin", hint: key("origin"), run: ACTIONS.origin }, { label: "Home view", hint: key("home"), run: ACTIONS.home });
-  if (selected) items.push({ label: "Back to 3D view", hint: key("cancel"), run: () => exitSketch(true) });
-  return items;
+  setHover(hoverAt(x, y));
+  const t = hoverAsSel();
+  if (t && t.kind !== "plane" && !(sel && t.kind === sel.kind && t.id === sel.id && t.plane === sel.plane && t.face === sel.face)) (sel = t), applySel();
 }
 function showMenu(x, y) {
+  pickUnderPointer(x, y);
   menuEl.replaceChildren();
-  for (const it of menuItems()) {
-    if (it === "sep") {
-      menuEl.appendChild(Object.assign(document.createElement("hr")));
-      continue;
+  const groups = barItems(barContext()).filter((g) => g.items.length);
+  groups.forEach((g, gi) => {
+    if (gi) menuEl.appendChild(document.createElement("hr"));
+    for (const it of g.items) {
+      const b = document.createElement("button");
+      b.className = it.active ? "on" : "";
+      b.disabled = !it.enabled;
+      b.title = it.enabled ? it.help : `Not possible: ${it.reason}`;
+      b.innerHTML = `${iconSvg(it.icon)}<span></span><kbd></kbd>`;
+      b.querySelector("span").textContent = it.label;
+      b.querySelector("kbd").textContent = it.key ?? "";
+      b.addEventListener("click", () => (hideMenu(), runBar(it.id)));
+      menuEl.appendChild(b);
     }
-    const b = document.createElement("button");
-    b.className = it.on ? "on" : "";
-    b.disabled = !!it.off;
-    b.innerHTML = `<span></span><kbd></kbd>`;
-    b.firstChild.textContent = it.label;
-    b.lastChild.textContent = it.hint ?? "";
-    b.addEventListener("click", () => (hideMenu(), it.run()));
-    menuEl.appendChild(b);
-  }
+  });
   menuEl.style.display = "block";
   const r = menuEl.getBoundingClientRect();
-  menuEl.style.left = `${Math.min(x, innerWidth - r.width - 8)}px`;
-  menuEl.style.top = `${Math.min(y, innerHeight - r.height - 8)}px`;
+  menuEl.style.left = `${Math.max(8, Math.min(x, innerWidth - r.width - 8))}px`;
+  menuEl.style.top = `${Math.max(8, Math.min(y, innerHeight - r.height - 8))}px`;
 }
 
 // ---------------------------------------------------------------- mouse input

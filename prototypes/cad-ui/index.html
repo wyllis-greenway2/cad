@@ -11,7 +11,7 @@
     #status #scaleText { margin-left:14px; opacity:.6; font-variant-numeric:tabular-nums; }
     #status #originBtn { display:none; margin-left:12px; pointer-events:auto; background:#5a4a2a; color:#fff2d6; border:1px solid #8a7440; border-radius:6px; padding:2px 9px; font:inherit; cursor:pointer; }
     #status #exitBtn { display:none; margin-left:12px; pointer-events:auto; background:#3a3e44; color:#e8eaec; border:1px solid #5a5f66; border-radius:6px; padding:2px 9px; font:inherit; cursor:pointer; }
-    #status { position:fixed; left:14px; bottom:calc(var(--abar-h, 44px) + 14px); pointer-events:none; padding:5px 11px; border-radius:7px; background:rgba(34,36,39,.82); color:#e4e6e8; }
+    #status { position:fixed; left:14px; bottom:14px; pointer-events:none; padding:5px 11px; border-radius:7px; background:rgba(34,36,39,.82); color:#e4e6e8; }
     #readout { position:fixed; display:none; pointer-events:none; background:rgba(26,28,31,.92); color:#e8eaec; border:1px solid #4a4f56; border-radius:7px; padding:4px 9px; font:13px/1.3 ui-monospace,Menlo,monospace; white-space:nowrap; z-index:5; }
     #readout .f { margin-right:10px; opacity:.8; } #readout .f b { opacity:.65; margin-right:3px; }
     #readout .f.typed { opacity:1; } #readout .f.act { border-bottom:2px solid #e8eaec; opacity:1; } #readout .f.bad { color:#eb524d; }
@@ -23,15 +23,9 @@
     #history ol button { display:block; width:100%; text-align:left; background:none; border:0; color:#e4e6e8; padding:5px 9px; border-radius:6px; font:13px ui-monospace,Menlo,monospace; cursor:pointer; white-space:pre; }
     #history ol li { display:flex; gap:4px; align-items:center; } #history ol li button.sk { width:auto; flex:none; font:11px system-ui,sans-serif; opacity:.75; padding:3px 8px; border:1px solid #4a4f56; }
     #history ol button:hover { background:#3a3e44; } #history ol button.err { color:#eb524d; }
-    #abar { position:fixed; left:0; right:0; bottom:0; min-height:44px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:5px 12px; background:rgba(30,32,35,.95); border-top:1px solid #484d54; z-index:8; font:13px system-ui,sans-serif; }
-    #abar button { position:relative; display:grid; place-items:center; width:42px; height:38px; padding:0; background:#3a3e44; color:#e4e6e8; border:1px solid #5a5f66; border-radius:7px; cursor:pointer; }
-    #abar button svg { width:19px; height:19px; margin-bottom:6px; }
-    #abar button:hover:not(:disabled) { background:#4a4f56; } #abar button.on { background:#2f4f86; border-color:#7fa8ff; } #abar button:disabled { opacity:.4; cursor:not-allowed; }
-    #abar kbd { position:absolute; right:3px; bottom:2px; font:600 8px ui-monospace,Menlo,monospace; color:#aab1ba; background:none; padding:0; line-height:1; }
     #tip { position:fixed; z-index:30; max-width:260px; padding:7px 10px; background:rgba(14,15,17,.96); border:1px solid rgba(255,255,255,.18); border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.5); color:#e8eaec; font:12px/1.4 system-ui,sans-serif; pointer-events:none; }
     #tip .tl { font-weight:600; display:flex; align-items:center; gap:8px; } #tip kbd { font:600 10px ui-monospace,Menlo,monospace; background:rgba(255,255,255,.12); border-radius:4px; padding:0 5px; }
     #tip .th { color:#aeb4bc; margin-top:2px; } #tip .tr { color:#ffb070; margin-top:4px; }
-    #abar .sep { width:1px; height:20px; background:#484d54; margin:0 6px; } #abar .hint { color:#9aa0a8; margin-left:4px; }
     #status #exitBtn { display:none !important; }
     #cbar { position:fixed; left:50%; bottom:58px; transform:translateX(-50%); display:none; gap:6px; padding:5px; background:rgba(34,36,39,.92); border:1px solid #484d54; border-radius:9px; z-index:7; }
     #cbar button { background:#3a3e44; color:#e4e6e8; border:1px solid #5a5f66; border-radius:6px; padding:4px 10px; font:13px system-ui,sans-serif; cursor:pointer; } #cbar button:hover { background:#4a4f56; }
@@ -41,15 +35,18 @@
     #pickw .pill { pointer-events:auto; display:flex; align-items:center; gap:2px; padding:3px; background:rgba(22,24,27,.93); border:1px solid rgba(255,255,255,.16); border-radius:999px; box-shadow:0 3px 10px rgba(0,0,0,.4); white-space:nowrap; }
     #pickw .ico { width:24px; height:24px; display:grid; place-items:center; padding:0; color:#d3d8de; background:transparent; border:0; border-radius:50%; cursor:pointer; }
     #pickw .ico:hover { background:rgba(255,255,255,.12); } #pickw .ico.picked { background:#2f4f86; color:#fff; box-shadow:0 0 0 1px #7fa8ff; }
+    #pickw .icogrp { display:flex; align-items:center; background:#2f4f86; border-radius:999px; box-shadow:0 0 0 1px #7fa8ff; overflow:hidden; animation:openw .16s ease-out; }
+    #pickw .icogrp .ico.picked { box-shadow:none; background:transparent; } #pickw .icogrp .x { width:22px; color:#ffd9d9; } #pickw .icogrp .x:hover { background:rgba(220,70,70,.7); }
+    @keyframes openw { from { max-width:24px; } to { max-width:60px; } }
     #pickw .sepv { width:1px; height:18px; background:rgba(255,255,255,.18); margin:0 4px; }
     #pickw .val { display:flex; align-items:center; gap:7px; padding:2px 11px 2px 8px; border-radius:999px; color:#fff; font:600 13px ui-monospace,Menlo,monospace; cursor:text; }
     #pickw .val b { font:600 9.5px system-ui,sans-serif; letter-spacing:.09em; color:#8fa6c9; }
     #pickw .val:hover { background:rgba(255,255,255,.08); } #pickw .val.act { background:rgba(127,168,255,.2); box-shadow:inset 0 0 0 1px #7fa8ff; }
     #pickw .val .lock { display:grid; color:#8fa6c9; } #pickw .val .lock svg { width:12px; height:12px; }
     #menu { position:fixed; display:none; min-width:210px; padding:5px; background:rgba(34,36,39,.97); border:1px solid #484d54; border-radius:9px; box-shadow:0 8px 24px rgba(0,0,0,.45); z-index:20; }
-    #menu button { display:flex; justify-content:space-between; gap:24px; width:100%; background:none; border:0; color:#e4e6e8; padding:6px 10px; border-radius:6px; font:13px system-ui,sans-serif; cursor:pointer; text-align:left; }
+    #menu button { display:flex; align-items:center; gap:10px; width:100%; background:none; border:0; color:#e4e6e8; padding:6px 10px; border-radius:6px; font:13px system-ui,sans-serif; cursor:pointer; text-align:left; }
     #menu button:hover:not(:disabled) { background:#3a3e44; } #menu button:disabled { opacity:.4; cursor:default; } #menu button.on span { font-weight:700; }
-    #menu kbd { opacity:.55; font:11px ui-monospace,Menlo,monospace; } #menu hr { border:0; border-top:1px solid #444; margin:4px 2px; }
+    #menu svg { width:17px; height:17px; flex:none; } #menu button span { flex:1; margin-right:14px; } #menu kbd { opacity:.55; font:11px ui-monospace,Menlo,monospace; } #menu hr { border:0; border-top:1px solid #444; margin:4px 2px; }
     .axl { position:fixed; font-weight:700; font-size:13px; pointer-events:none; transform:translate(-50%,-50%); left:-100px; top:-100px; text-shadow:0 0 2px rgba(30,32,35,.9), 0 0 4px rgba(30,32,35,.7); }
   </style>
 </head>
@@ -60,7 +57,6 @@
   <div id="readout"></div>
   <div id="dims"></div>
   <div id="pickw" style="display:none"></div>
-  <div id="abar"></div>
   <div id="tip" style="display:none"></div>
   <div id="history"><button id="histBtn">History</button><ol id="histList"></ol></div>
   <div id="menu"></div>
