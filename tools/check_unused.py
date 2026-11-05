@@ -44,7 +44,7 @@ def main() -> int:
             problems.append(f"{rel}: no file imports it")
     # the UI's window onto the lower layers (interaction/api.ts): every name in it must be used by the UI or the root
     api = (SRC / "interaction" / "api.ts").read_text()
-    ui_text = "\n".join(t for p, t in texts.items() if p.parts[-2] == "ui" or p.name == "main.ts")
+    ui_text = "\n".join(t for p, t in texts.items() if "ui" in p.parts or p.name == "main.ts")
     for group in re.findall(r"^export\s+(?:type\s+)?\{([^}]*)\}", api, re.M):
         for n in (x.strip() for x in group.split(",") if x.strip()):
             if not re.search(rf"\b{re.escape(n)}\b", ui_text):

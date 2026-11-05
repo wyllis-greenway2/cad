@@ -161,3 +161,30 @@ test("what an extrude has used up is neither drawn nor picked; undo and deleting
   st = { ...st, session: undoLast(st.session) };
   assert.equal(consumed(scene(st.session)).size, 0, "without the step it is a plain figure again");
 });
+
+import { frameOf } from "../src/interaction/frame.ts";
+import { appRows, nextScrollMode, isScrollMode } from "../src/interaction/appmenu.ts";
+
+test("the frame says what to draw: starter panes and big axes before a body, compass and no panes after; badges give way to a tool", () => {
+  const empty = frameOf(createState(createSession(kernel)), { w: 800, h: 600 });
+  assert.deepEqual(empty.world, { big: true, panes: true, hover: undefined, corner: false });
+  assert.equal(empty.mesh, null);
+  assert.equal(empty.cursor, "");
+  let st = withBody();
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.deepEqual([f.world.big, f.world.panes, f.world.corner], [false, false, true]);
+  assert.ok(f.mesh);
+  st = reduce(st, { type: "compass" }, env);
+  assert.equal(frameOf(st, { w: 800, h: 600 }).world.big, true, "the compass click brings the big axes back");
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  assert.equal(frameOf(st, { w: 800, h: 600 }).cursor, "crosshair");
+  const sel = select(withBody(), [XY]);
+  assert.deepEqual(frameOf(sel, { w: 800, h: 600 }).highlight.selection, [XY]);
+});
+
+test("the menu always ends with save, open and the scroll mode, which cycles", () => {
+  assert.deepEqual(appRows("auto").map((r) => r.id), ["save", "open", "scrollMode"]);
+  assert.match(appRows("pan")[2]!.label, /always pans/);
+  assert.deepEqual(["auto", "pan", "zoom"].map((m) => nextScrollMode(m as never)), ["pan", "zoom", "auto"]);
+  assert.ok(isScrollMode("zoom") && !isScrollMode("x") && !isScrollMode(null));
+});

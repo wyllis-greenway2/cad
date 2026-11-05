@@ -671,3 +671,8 @@ Asks whether the new app is less bloated and better coded than the old one.
 Approves the offered focused cleanup.
 
 > Yes lets do a focused cleanup.
+
+## in_114 — 2026-11-05 — directive
+Asks the AI to do the rest of the cleanup.
+
+> Lets do the rest of the cleanup

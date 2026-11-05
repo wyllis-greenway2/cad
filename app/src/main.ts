@@ -10,6 +10,8 @@ import { createSession, openSession, saveText, run, scene, selection } from "./i
 import type { Session } from "./interaction/session.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
 import { createState, reduce, advance } from "./interaction/controller.ts";
+import { frameOf } from "./interaction/frame.ts";
+import { appRows, nextScrollMode, isScrollMode } from "./interaction/appmenu.ts";
 import type { AppState } from "./interaction/controller.ts";
 import { projector } from "./interaction/camera.ts";
 import { candidatesAt } from "./interaction/picking.ts";
@@ -19,11 +21,7 @@ import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
 import { createChip } from "./ui/chip.ts";
 import { createControls } from "./ui/controls.ts";
-import { gridPlaneOf } from "./interaction/controller.ts";
-import { gridFor } from "./interaction/api.ts";
 import { createBadges } from "./ui/badges.ts";
-import { badgesFor, focusParts, suggestMeasure, anchorOf } from "./interaction/api.ts";
-import { entryOf, previewFor } from "./interaction/api.ts";
 
 const host = document.getElementById("view")!;
 const statusEl = document.getElementById("status")!;
@@ -44,24 +42,17 @@ let dirty = true;
 
 const SCROLL_KEY = "cad.scrollMode";
 const savedScroll = webStore.get(SCROLL_KEY);
-if (savedScroll === "auto" || savedScroll === "pan" || savedScroll === "zoom") recognizer.setScrollMode(savedScroll);
-const SCROLL_NEXT = { auto: "pan", pan: "zoom", zoom: "auto" } as const;
-const SCROLL_LABEL = { auto: "Scroll: trackpad pans, wheel zooms", pan: "Scroll: always pans", zoom: "Scroll: always zooms" } as const;
+if (isScrollMode(savedScroll)) recognizer.setScrollMode(savedScroll);
 
 const menu = createMenu(document.body, (id) => {
+  menu.hide();
   if (id === "scrollMode") {
-    const next = SCROLL_NEXT[recognizer.scrollMode];
+    const next = nextScrollMode(recognizer.scrollMode);
     recognizer.setScrollMode(next);
     webStore.set(SCROLL_KEY, next);
-    menu.hide();
-    return;
-  }
-  if (id === "save" || id === "open") { dispatch({ type: id }); menu.hide(); return; }
-  dispatch({ type: "runAction", id });
-  menu.hide();
+  } else if (id === "save" || id === "open") dispatch({ type: id });
+  else dispatch({ type: "runAction", id });
 });
-const fileRows = () => [{ id: "save", label: "Save", enabled: true, why: null }, { id: "open", label: "Open…", enabled: true, why: null }];
-const scrollRow = () => ({ id: "scrollMode", label: SCROLL_LABEL[recognizer.scrollMode], enabled: true, why: null });
 
 const controls = createControls(document.body, {
   menu: (x, y) => dispatch({ type: "menu", x, y, button: true }),
@@ -83,7 +74,7 @@ function dispatch(i: Intent) {
     return;
   }
   state = reduce(state, i, env());
-  if (i.type === "menu") menu.show(i.x, i.y, state.menu?.items ?? [], [...fileRows(), scrollRow()]);
+  if (i.type === "menu") menu.show(i.x, i.y, state.menu?.items ?? [], appRows(recognizer.scrollMode));
   else if (menu.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) menu.hide(); // pointing around does not close the menu; any other intent does
   dirty = true;
 }
@@ -119,28 +110,19 @@ function frame(now: number) {
   if (state.anim) { state = advance(state, now); dirty = true; }
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading) {
-    const o = state.session.outcome;
-    view.setScene(scene(state.session), o.kernel?.mesh ?? null);
-    const sc = scene(state.session);
-    const sel = selection(state.session);
-    view.setHighlight({ hover: state.session.hover, hoverPoint: state.hoverPoint, selection: sel, amber: focusParts(sc, sel, state.focus), spread: state.spread }, state.cam, now);
-    const anchor = anchorOf(sc, sel);
-    const px = anchor ? projector(state.cam, view.size().w, view.size().h).project(anchor) : null;
-    const r = host.getBoundingClientRect();
-    badges.update(state.tool || state.op ? [] : badgesFor(sc, sel, state.focus), state.tool || state.op ? null : suggestMeasure(sc, sel), px ? [px[0] + r.left, px[1] + r.top] : null);
-    view.setPreview(previewFor(scene(state.session), state.tool, state.op));
-    const en = entryOf(scene(state.session), state.tool, state.op);
-    chip.update(en?.fields ?? null, en?.unit ?? "mm", pointer[0], pointer[1]);
-    host.style.cursor = state.tool ? "crosshair" : "";
-    const hasBody = Object.values(sc.parts).some((p) => p.kind === "body");
-    const big = !hasBody || state.axesBig;
-    const gp = gridPlaneOf(state);
-    const grid = gp ? gridFor(state.cam, gp, view.size().w, view.size().h) : null;
-    moving = view.render(state.cam, { big, panes: !hasBody, hover: state.session.hover, corner: hasBody }, grid, now);
-    const cr = view.cornerRect(view.size());
-    const r2 = host.getBoundingClientRect();
-    controls.update(hasBody, window.innerWidth, window.innerHeight, { cx: cr.cx + r2.left, cy: cr.cy + r2.top, size: cr.size }, settings.compass.marginPx, settings.compass.buttonPx);
-    statusEl.textContent = state.session.message ?? Object.values(o.errors)[0] ?? "";
+    const size = view.size();
+    const f = frameOf(state, size);
+    const page = host.getBoundingClientRect();
+    view.setScene(f.scene, f.mesh);
+    view.setHighlight(f.highlight, state.cam, now);
+    view.setPreview(f.preview);
+    badges.update(f.badges, f.suggestion, f.badgeAt ? [f.badgeAt[0] + page.left, f.badgeAt[1] + page.top] : null);
+    chip.update(f.entry?.fields ?? null, f.entry?.unit ?? "mm", pointer[0], pointer[1]);
+    host.style.cursor = f.cursor;
+    moving = view.render(state.cam, f.world, f.grid, now);
+    const cr = view.cornerRect(size);
+    controls.update(f.world.corner, window.innerWidth, window.innerHeight, { cx: cr.cx + page.left, cy: cr.cy + page.top, size: cr.size }, settings.compass.marginPx, settings.compass.buttonPx);
+    statusEl.textContent = f.message;
     dirty = moving; // keep drawing while the axes are moving into the compass
   }
   requestAnimationFrame(frame);
