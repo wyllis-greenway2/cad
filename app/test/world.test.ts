@@ -189,15 +189,15 @@ test("the menu always ends with save, open and the scroll mode, which cycles", (
   assert.ok(isScrollMode("zoom") && !isScrollMode("x") && !isScrollMode(null));
 });
 
-import { suggestMeasure } from "../src/interaction/badges.ts";
+import { annotationsFor } from "../src/interaction/annotations.ts";
 test("a line of the body shows its length as a measurement you cannot lock; a world pane picked anywhere is not filled", () => {
   const st = withBody();
   const sc = scene(st.session);
   const line = Object.values(sc.parts).find((p) => p.kind === "line" && p.origin === "body")!;
-  const sug = suggestMeasure(sc, [line.ref])!;
+  const sug = annotationsFor(sc, [line.ref], null).find((x) => x.id === "measure")!;
   assert.equal(sug.label, "Length");
   assert.equal(sug.readOnly, true);
-  assert.ok(sug.value > 9);
+  assert.ok(sug.value! > 9);
   // before a body: a click anywhere on the infinite plane selects it, and an empty-space click lands on a plane
   let e = createState(createSession(kernel));
   e = { ...e, cam: lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]) };

@@ -69,7 +69,7 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
   if (!pa || !pb || pa.kind !== "corner" || pb.kind !== "corner") return null;
   const m = scale(add(pa.at, pb.at), 0.5);
   const d = edgeDirection(scene, pa.at, pb.at);
-  return { centre: m, handles: [{ id: "edge", kind: "double", axis: null, points: [add(m, scale(d, -L * 0.55)), add(m, scale(d, L * 0.55))] }] };
+  return { centre: m, handles: [{ id: "edge", kind: "double", axis: null, points: [add(m, scale(d, -L * 0.3)), add(m, scale(d, L * 0.3))] }] };
 }
 
 // ---- which handle is under the pointer ----

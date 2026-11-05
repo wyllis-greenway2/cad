@@ -11,12 +11,11 @@ import type { Command } from "../operation/commands.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
 import type { AppState } from "./control/state.ts";
 import { gridPlaneOf } from "./control/viewing.ts";
-import { projector } from "./camera.ts";
 import { gridFor } from "./grid.ts";
 import { settings } from "../shared/settings.ts";
 import type { Grid } from "./grid.ts";
-import { badgesFor, focusParts, suggestMeasure, anchorOf } from "./badges.ts";
-import type { Badge, Suggestion } from "./badges.ts";
+import { annotationsFor, focusParts } from "./annotations.ts";
+import type { Annotation } from "./annotations.ts";
 import { entryOf, previewFor } from "./entry.ts";
 import type { Entry } from "./entry.ts";
 import type { Preview } from "./tools.ts";
@@ -32,10 +31,8 @@ export interface Frame {
   highlight: { hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; spread: AppState["spread"] };
   preview: Preview | null;
   entry: Entry | null;
-  badges: Badge[];
-  suggestion: Suggestion | null;
-  /** where the badges go on the screen (pixels in the view), or null for the corner of the page */
-  badgeAt: [number, number] | null;
+  /** the constraints of the selected parts, each with the spot it is shown at (on the line, at the vertex, between the lines, at the angle) */
+  annotations: Annotation[];
   world: { big: boolean; panes: boolean; lit: Ref[]; corner: boolean };
   grid: Grid | null;
   /** the helper handles of the running operation (arrows, a double arrow, curved arrows), or null */
@@ -64,8 +61,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }): Frame {
   const sel = selectionOf(s.session);
   const outcome = shown?.outcome ?? s.session.outcome;
   const hasBody = Object.values(sc.parts).some((p) => p.kind === "body");
-  const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the badges
-  const anchor = anchorOf(sc, sel);
+  const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
   const gp = gridPlaneOf(s);
   return {
     scene: sc,
@@ -74,9 +70,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }): Frame {
     amber: focusParts(sc, sel, s.focus), spread: s.spread },
     preview: previewFor(sc, s.tool),
     entry: entryOf(sc, s.tool, s.op),
-    badges: busy ? [] : badgesFor(sc, sel, s.focus),
-    suggestion: busy ? null : suggestMeasure(sc, sel),
-    badgeAt: anchor ? projector(s.cam, size.w, size.h).project(anchor) : null,
+    annotations: busy ? [] : annotationsFor(sc, sel, s.focus),
     world: { big: !hasBody || s.axesBig, panes: !hasBody, lit: [...(s.session.hover ? [s.session.hover] : []), ...sel], corner: hasBody },
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // off by default (`in_117`)
     gizmo: ((g) => (g ? { handles: g.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null } : null))(gizmoOf(s)),

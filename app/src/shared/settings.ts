@@ -52,7 +52,7 @@ export const settings = {
     bodyColor: 0xc9c9cd,
     bodyEdge: 0x2a2a2d,
   },
-  panes: { opacity: 0.05, hoverOpacity: 0.14, edgeAlpha: 0.35, hoverEdgeAlpha: 0.8, size: 16, offset: 6, radius: 0.16 }, // the helper panes at the origin: rounded squares floating out from the axes (`in_064` to `in_070`), in mm at the home distance
+  panes: { opacity: 0.035, hoverOpacity: 0.09 }, // the world planes: infinite and transparent sheets (`in_116`); a little brighter under the pointer or when picked
   grid: { show: false, divisions: 30, minorAlpha: 0.35, majorAlpha: 0.7, color: [0.62, 0.63, 0.67] as [number, number, number] },
   compass: { sizePx: 92, marginPx: 18, seconds: 0.7, buttonPx: 34, gapPx: 10 }, // the small axes in the corner once there is a body (`in_068`)
   light: { key: 1.7, fill: 0.12, ambient: 0.42, roughness: 0.5, sheen: 0.3, sheenRoughness: 0.45, reflect: 0.35 }, // lights ride with the camera; the body has a slight clear-coat sheen and a soft studio reflected in it

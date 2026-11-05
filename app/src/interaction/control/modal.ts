@@ -5,7 +5,7 @@ import { actionsFor } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
 import { armTool, typeKey, finish, lineNext } from "../tools.ts";
 import type { OpKind } from "../operations.ts";
-import { startOp, startEdit, typeOp, opCommand } from "../operations.ts";
+import { startOp, typeOp, opCommand } from "../operations.ts";
 import type { AppState } from "./state.ts";
 import { withSession } from "./state.ts";
 
@@ -36,7 +36,7 @@ export function commitOp(s: AppState): AppState {
   if (!cmd) return s;
   const next = run(s.session, cmd);
   if (next.message) return { ...s, session: next };
-  if (s.op.kind === "dimension" || s.op.kind === "edit") return { ...s, session: next, op: null }; // a number on a relation: the selection stays, so its badge shows
+  if (s.op.kind === "dimension") return { ...s, session: next, op: null }; // a number on a relation: the selection stays, so its badge shows
   const settled = { spread: null, hoverPoint: null }; // what was under the pointer before the step is not what is under it now
   // an extrude leaves nothing selected (the new body shows as itself); the other steps keep what was selected so they can go on (move, then rotate)
   return { ...s, ...settled, session: s.op.kind === "extrude" ? { ...next, hover: undefined, click: { ...next.click, selection: [] } } : next, op: null };
@@ -75,19 +75,20 @@ export function doDelete(s: AppState): AppState {
 export const doUndo = (s: AppState): AppState => ({ ...withSession(s, undoLast(s.session)), menu: null });
 export const doRedo = (s: AppState): AppState => ({ ...withSession(s, redoLast(s.session)), menu: null });
 
-/** A badge on the selection: open it, delete it, lock or unlock its number, or edit its number. */
+/** A constraint shown on a selected part: open or close it, delete it, lock or unlock its number, give it a new number, or lock the measure of the selection. */
 export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>): AppState {
   const sc = sceneOf(s.session);
+  if (i.act === "focus") return { ...s, focus: i.id === s.focus ? null : i.id }; // a second click closes it again
+  if (i.act === "measure") {
+    const a = actionsFor(sc, selectionOf(s.session)).find((x) => x.dimensional && x.enabled);
+    return a && i.value !== undefined && i.value > 0 ? withSession(s, run(s.session, a.run(i.value))) : s;
+  }
   const rel = i.id ? sc.relations.find((r) => r.id === i.id) : undefined;
-  if (i.act === "focus") return { ...s, focus: i.id === s.focus ? null : i.id };
   if (!rel) return s;
   if (i.act === "remove") return { ...withSession(s, run(s.session, { type: "removeRelation", id: rel.id })), focus: null };
-  if (i.act === "lock") {
-    if (rel.value === undefined) return s;
-    const action = actionsFor(sc, rel.parts).find((a) => a.id === rel.kind && a.dimensional);
-    const value = rel.locked === false ? (action?.measure() ?? rel.value) : rel.value; // locking takes the value it measures now
-    return withSession(s, run(s.session, { type: "setRelationValue", id: rel.id, value, locked: rel.locked === false }));
-  }
-  const r = startEdit(sc, rel.id);
-  return r.ok ? { ...s, op: r.op, tool: null, menu: null } : s;
+  if (i.act === "set") return rel.value !== undefined && i.value !== undefined && i.value > 0 ? withSession(s, run(s.session, { type: "setRelationValue", id: rel.id, value: i.value, locked: true })) : s;
+  if (rel.value === undefined) return s;
+  const action = actionsFor(sc, rel.parts).find((x) => x.id === rel.kind && x.dimensional);
+  const value = rel.locked === false ? (action?.measure() ?? rel.value) : rel.value; // locking takes the value it measures now
+  return withSession(s, run(s.session, { type: "setRelationValue", id: rel.id, value, locked: rel.locked === false }));
 }

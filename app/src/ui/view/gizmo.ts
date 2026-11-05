@@ -11,8 +11,8 @@ import { TEAL } from "./highlight.ts";
 export interface GizmoView { handles: Handle[]; hover: string | null; active: string | null }
 
 const cone = (tip: Vec3, dir: Vec3, unit: number, color: number): THREE.Mesh => {
-  const h = unit * 0.034;
-  const m = new THREE.Mesh(new THREE.ConeGeometry(unit * 0.0095, h, 16), new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true }));
+  const h = unit * 0.02;
+  const m = new THREE.Mesh(new THREE.ConeGeometry(unit * 0.0055, h, 16), new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true }));
   m.position.set(tip[0] - dir[0] * h / 2, tip[1] - dir[1] * h / 2, tip[2] - dir[2] * h / 2); // the tip is at the end of the handle
   m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...dir).normalize());
   m.renderOrder = 6;
@@ -32,7 +32,7 @@ export function buildGizmo(group: THREE.Group, g: GizmoView | null, unit: number
     const hot = h.id === g.hover || h.id === g.active;
     const col = hot ? TEAL : ink;
     const pts = h.points;
-    if (h.kind === "ball") { group.add(sphereAt(pts[0]!, unit * 0.014, col)); continue; }
+    if (h.kind === "ball") { group.add(sphereAt(pts[0]!, unit * 0.01, col)); continue; }
     const line = pen.line(pts.flat(), col, hot ? 4 : 3, false);
     line.renderOrder = 6;
     group.add(line);

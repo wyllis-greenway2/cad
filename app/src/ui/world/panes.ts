@@ -1,47 +1,44 @@
-// The three helper panes at the origin (`in_064`): rounded squares floating out from the axes, brighter under the pointer.
+// The three world planes as the sheets they are (`in_064`, `in_116`): infinite and transparent. Each is a huge faint sheet through the origin that fades out with distance
+// from where you are looking, so it reads as going on for ever. A plane under the pointer or picked is a little brighter, never blue.
 import * as THREE from "three";
 import type { Ref, Vec3 } from "../../interaction/api.ts";
 import { settings } from "../../interaction/api.ts";
 import { srgb } from "./parts.ts";
 
 const PLANES: { ref: string; u: Vec3; v: Vec3 }[] = [{ ref: "w/XY", u: [1, 0, 0], v: [0, 1, 0] }, { ref: "w/XZ", u: [1, 0, 0], v: [0, 0, 1] }, { ref: "w/YZ", u: [0, 1, 0], v: [0, 0, 1] }];
+const SIZE = 40000; // mm: far past anything you will look at
 
-function roundedSquare(size: number, radius: number): THREE.Shape {
-  const r = size * radius;
-  const s = size;
-  const shape = new THREE.Shape();
-  shape.moveTo(r, 0); shape.lineTo(s - r, 0); shape.quadraticCurveTo(s, 0, s, r); shape.lineTo(s, s - r); shape.quadraticCurveTo(s, s, s - r, s);
-  shape.lineTo(r, s); shape.quadraticCurveTo(0, s, 0, s - r); shape.lineTo(0, r); shape.quadraticCurveTo(0, 0, r, 0);
-  return shape;
-}
+const material = (color: THREE.Color) => new THREE.ShaderMaterial({
+  uniforms: { uColor: { value: new THREE.Vector3(color.r, color.g, color.b) }, uOpacity: { value: 0 }, uReach: { value: 200 } },
+  vertexShader: "varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }",
+  fragmentShader: "uniform vec3 uColor; uniform float uOpacity; uniform float uReach; varying vec3 vW; void main() { float f = 1.0 - smoothstep(0.25 * uReach, uReach, length(vW)); gl_FragColor = vec4(uColor, uOpacity * f); }",
+  transparent: true, depthWrite: false, side: THREE.DoubleSide,
+});
 
 export function createPanes() {
   const P = settings.panes;
   const group = new THREE.Group();
-  const mats = new Map<string, { fill: THREE.MeshBasicMaterial; edge: THREE.LineBasicMaterial }>();
+  const mats = new Map<string, THREE.ShaderMaterial>();
   const sheet = srgb(settings.theme.sheet);
-  const shape = roundedSquare(P.size, P.radius);
   for (const pl of PLANES) {
-    const fill = new THREE.MeshBasicMaterial({ color: sheet, side: THREE.DoubleSide, depthWrite: false, transparent: true });
-    const edge = new THREE.LineBasicMaterial({ color: sheet.clone().multiplyScalar(0.8), transparent: true });
+    const mat = material(sheet);
     const u = new THREE.Vector3(...pl.u);
     const v = new THREE.Vector3(...pl.v);
-    const m4 = new THREE.Matrix4().makeBasis(u, v, u.clone().cross(v));
-    m4.setPosition(u.clone().multiplyScalar(P.offset).add(v.clone().multiplyScalar(P.offset)));
-    const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape, 12), fill);
-    const outline = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(shape.getPoints(12).map((p) => new THREE.Vector3(p.x, p.y, 0))), edge);
-    for (const o of [mesh, outline]) { o.matrixAutoUpdate = false; o.matrix.copy(m4); group.add(o); }
-    mats.set(pl.ref, { fill, edge });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(SIZE, SIZE), mat);
+    mesh.matrixAutoUpdate = false;
+    mesh.matrix.makeBasis(u, v, u.clone().cross(v));
+    mesh.renderOrder = -1;
+    group.add(mesh);
+    mats.set(pl.ref, mat);
   }
   return {
     group,
-    /** `e`: how much of the big world is shown (0 to 1); a pane under the pointer or selected is a little brighter (never blue). */
-    apply(visible: boolean, lit: readonly Ref[], e: number) {
+    /** `e`: how much of the big world is shown (0 to 1); `distance`: how far the camera is, which sets how far the sheets reach. */
+    apply(visible: boolean, lit: readonly Ref[], e: number, distance: number) {
       group.visible = visible;
       for (const [ref, m] of mats) {
-        const hot = lit.includes(ref as Ref);
-        m.fill.opacity = (hot ? P.hoverOpacity : P.opacity) * e;
-        m.edge.opacity = (hot ? P.hoverEdgeAlpha : P.edgeAlpha) * e;
+        m.uniforms.uOpacity!.value = (lit.includes(ref as Ref) ? P.hoverOpacity : P.opacity) * e;
+        m.uniforms.uReach!.value = distance * 2.4;
       }
     },
   };

@@ -5,10 +5,11 @@ export type ScrollMode = "auto" | "pan" | "zoom";
 const NEXT: Record<ScrollMode, ScrollMode> = { auto: "pan", pan: "zoom", zoom: "auto" };
 const LABEL: Record<ScrollMode, string> = { auto: "Scroll: trackpad pans, wheel zooms", pan: "Scroll: always pans", zoom: "Scroll: always zooms" };
 
-export const appRows = (mode: ScrollMode): AppRow[] => [
+export const appRows = (mode: ScrollMode, build = ""): AppRow[] => [
   { id: "save", label: "Save", enabled: true, why: null },
   { id: "open", label: "Open…", enabled: true, why: null },
   { id: "scrollMode", label: LABEL[mode], enabled: true, why: null },
+  ...(build ? [{ id: "build", label: `Build ${build}`, enabled: false, why: "which version of the app this page is running" }] : []),
 ];
 export const nextScrollMode = (mode: ScrollMode): ScrollMode => NEXT[mode];
 export const isScrollMode = (s: string | null): s is ScrollMode => s === "auto" || s === "pan" || s === "zoom";

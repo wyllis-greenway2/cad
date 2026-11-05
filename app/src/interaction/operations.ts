@@ -13,7 +13,7 @@ import { BODY_OBJECT } from "../compiler/body.ts";
 import { objectOf, bodyCentre } from "./objects.ts";
 import { settings } from "../shared/settings.ts";
 
-export type OpKind = "extrude" | "edge" | "move" | "rotate" | "scale" | "dimension" | "edit";
+export type OpKind = "extrude" | "edge" | "move" | "rotate" | "scale" | "dimension";
 export interface Op {
   kind: OpKind;
   /** the parts it works on: the lines or circle of a figure, the lines of the body, or the body */
@@ -29,15 +29,14 @@ export interface Op {
   normal: Vec3 | null;
   /** rotate: the point it turns about (the rotator's centre; you can move it) */
   pivot: Vec3 | null;
-  /** dimension and edit: what the number is called and its unit; edit: the relation being changed */
+  /** dimension: what the number is called and its unit */
   field?: string;
   unit?: string;
-  relationId?: string;
 }
 
-export const OP_LABEL: Record<OpKind, string> = { extrude: "Extrude", edge: "Fillet / chamfer", move: "Move", rotate: "Rotate", scale: "Scale", dimension: "Dimension", edit: "Edit" };
-export const OP_UNIT: Record<OpKind, string> = { extrude: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm", edit: "mm" };
-export const OP_FIELD: Record<OpKind, string> = { extrude: "Distance", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", dimension: "Value", edit: "Value" };
+export const OP_LABEL: Record<OpKind, string> = { extrude: "Extrude", edge: "Fillet / chamfer", move: "Move", rotate: "Rotate", scale: "Scale", dimension: "Dimension" };
+export const OP_UNIT: Record<OpKind, string> = { extrude: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm" };
+export const OP_FIELD: Record<OpKind, string> = { extrude: "Distance", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", dimension: "Value" };
 
 export type StartResult = { ok: true; op: Op } | { ok: false; why: string };
 
@@ -68,7 +67,6 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     if (!a || !a.unit) return { ok: false, why: "select two parts that can be measured (two corners, a corner and a line, two lines)" };
     return { ok: true, op: { ...base, parts: a.parts, value: a.measure(), field: a.label, unit: a.unit } };
   }
-  if (kind === "edit") return { ok: false, why: "use the number on the relation" };
   // move, rotate, scale: the whole body
   const body = parts.some((p) => p.kind === "body" || p.origin === "body");
   if (!body) return { ok: false, why: "select the body first (click it three times)" };
@@ -80,13 +78,6 @@ const num = (s: string): number | null => {
   return s !== "" && s !== "-" && s !== "." && Number.isFinite(v) ? v : null;
 };
 /** The number the operation will use: what was typed, else the pointer's or default value. */
-/** Start changing the number of a relation that already exists. */
-export function startEdit(scene: Scene, relationId: string): StartResult {
-  const rel = scene.relations.find((r) => r.id === relationId);
-  if (!rel || rel.value === undefined) return { ok: false, why: "that relation has no number" };
-  const a = actionsFor(scene, rel.parts).find((x) => x.id === rel.kind && x.dimensional);
-  return { ok: true, op: { kind: "edit", parts: rel.parts, typed: "", value: rel.value, axis: 0, origin: null, normal: null, pivot: null, field: a?.label ?? "Value", unit: a?.unit ?? "mm", relationId } };
-}
 export const valueOf = (op: Op): number | null => num(op.typed) ?? op.value;
 
 export function typeOp(op: Op, key: string): Op {
@@ -126,7 +117,6 @@ export function opCommand(scene: Scene, op: Op): Command | null {
     const a = actionsFor(scene, op.parts).find((x) => x.dimensional && x.enabled);
     return a && v > 0 ? a.run(v) : null;
   }
-  if (op.kind === "edit") return op.relationId && v > 0 ? { type: "setRelationValue", id: op.relationId, value: v, locked: true } : null;
   if (op.kind === "extrude") return v === 0 ? null : { type: "addStep", step: { id, type: "extrude", parts: op.parts, params: { depth: v } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
   if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v) } } };

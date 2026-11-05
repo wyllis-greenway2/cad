@@ -38,7 +38,8 @@ export function createView(host: HTMLElement) {
   const overlay = new THREE.Group();
   const preview = new THREE.Group();
   const gizmo = new THREE.Group();
-  scene3.add(content, overlay, preview, gizmo);
+  const notes = new THREE.Group();
+  scene3.add(content, overlay, preview, gizmo, notes);
   const world = createWorld(renderer, scene3, host);
   const pen = createPen();
   const envMap = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture; // a soft studio, only reflected in the body
@@ -63,6 +64,15 @@ export function createView(host: HTMLElement) {
     if (p.circle) preview.add(pen.line(ringOf(p.circle.center, p.circle.radius, p.circle.normal), TEAL, 2, false));
   }
 
+  /** The lines that go with constraints: the arc of an angle, the segment a distance measures. */
+  function setNotes(lines: Vec3[][]) {
+    clearGroup(notes);
+    for (const l of lines) {
+      const m = pen.line(l.flat(), 0x55575c, 1.6, false);
+      m.renderOrder = 4;
+      notes.add(m);
+    }
+  }
   const setGizmo = (g: GizmoView | null, cam: Camera) => buildGizmo(gizmo, g, cam.distance, pen);
 
   function resize() {
@@ -101,5 +111,5 @@ export function createView(host: HTMLElement) {
     return animating;
   }
   resize();
-  return { setScene, setHighlight, setPreview, setGizmo, render, cornerRect: world.cornerRect, resize, size: () => size, canvas: renderer.domElement };
+  return { setScene, setHighlight, setPreview, setGizmo, setNotes, render, cornerRect: world.cornerRect, resize, size: () => size, canvas: renderer.domElement };
 }

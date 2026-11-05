@@ -21,18 +21,18 @@ import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
 import { createChip } from "./ui/chip.ts";
 import { createControls } from "./ui/controls.ts";
-import { createBadges } from "./ui/badges.ts";
+import { createBubbles } from "./ui/bubbles.ts";
 
 const host = document.getElementById("view")!;
 const statusEl = document.getElementById("status")!;
 const view = createView(host);
 const chip = createChip(document.body);
-const badges = createBadges(document.body, {
+const bubbles = createBubbles(document.body, {
   focus: (id) => dispatch({ type: "relation", act: "focus", id }),
   remove: (id) => dispatch({ type: "relation", act: "remove", id }),
   lock: (id) => dispatch({ type: "relation", act: "lock", id }),
-  edit: (id) => dispatch({ type: "relation", act: "edit", id }),
-  measure: () => dispatch({ type: "begin", name: "dimension" }),
+  set: (id, value) => dispatch({ type: "relation", act: "set", id, value }),
+  measure: (value) => dispatch({ type: "relation", act: "measure", id: null, value }),
 });
 let pointer: [number, number] = [0, 0]; // where the pointer is, for placing the number chip
 const bus = createBus<{ input: RawInput }>();
@@ -74,7 +74,7 @@ function dispatch(i: Intent) {
     return;
   }
   state = reduce(state, i, env());
-  if (i.type === "menu") menu.show(i.x, i.y, state.menu?.items ?? [], appRows(recognizer.scrollMode));
+  if (i.type === "menu") menu.show(i.x, i.y, state.menu?.items ?? [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : ""));
   else if (menu.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) menu.hide(); // pointing around does not close the menu; any other intent does
   dirty = true;
 }
@@ -118,7 +118,9 @@ function frame(now: number) {
     view.setHighlight(f.highlight, state.cam, now);
     view.setPreview(f.preview, state.cam);
     view.setGizmo(f.gizmo, state.cam);
-    badges.update(f.badges, f.suggestion, f.badgeAt ? [f.badgeAt[0] + page.left, f.badgeAt[1] + page.top] : null);
+    const project = projector(state.cam, size.w, size.h).project;
+    bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; });
+    view.setNotes(f.annotations.flatMap((a) => a.lines));
     chip.update(f.entry?.fields ?? null, f.entry?.unit ?? "mm", pointer[0], pointer[1]);
     host.style.cursor = f.cursor;
     moving = view.render(state.cam, f.world, f.grid, now);
