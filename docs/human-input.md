@@ -515,3 +515,8 @@ Orbiting around large objects or parts far from the origin feels odd because the
 The orbit around the model feels like it adds an auto-pan that re-centres the object; wants the camera to pivot around the object while the object stays where it is on screen if it was panned to the side.
 
 > Okay that is much better, but it does feel slightly odd that it always centers the object in the screen when rotating. Can we have it so that if you pan the object to the side, the camrea will still pivot around the object, but not necessarily reposition it back in center? I realize that since it is pivoting around the object that enough pivot would bring it roughly back in the center, but now it feels almost like there is some amount of auto pan added to the rotation to put back in center?
+
+## in_083 — 2026-11-05 — directive
+Swap the click counts (one click selects, two look straight at the clicked plane, three select the body), and make a sketch's lines and vertices as easy to select as a body's, so they can be worked on and constrained.
+
+> Excellent that is pretty good. Now lets make a small change, lets have one click select as it does, two clicks normal to that selected plane (as it currently does on 3 clicks) and three clicks select the body (a it currently does on 2 clicks). Also after you add a sketch, it is really hard to select its lines or vertices to work on, add constraints etc. It doesn't seem to be that hard to select body lines or vertices

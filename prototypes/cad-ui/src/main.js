@@ -647,19 +647,20 @@ let sketchDirty = true;
 const markSketch = () => ((sketchDirty = true), requestRender());
 /** Pixels per mm on the sketch plane. Face-on (and for anything that is not about the sketch plane) it is the same everywhere; seen at an angle it
  *  changes across the plane, so give the point (local u, v) you care about; with none it is measured where the camera looks. */
-function pxPerMm(uv) {
+function pxPerMm(uv, onPlane = null) {
+  const pl = onPlane ?? selected;
   const faceOn = canvas.clientHeight / (2 * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2)));
-  if (!selected || extrude || xform) return faceOn;
-  if (isNormal(view, selected, V.normalToleranceRad)) return faceOn;
+  if (!pl || extrude || xform) return faceOn;
+  if (isNormal(view, pl, V.normalToleranceRad)) return faceOn;
   applyCamera();
   let at = uv;
   if (!at) {
-    const [U, W] = basisOf(selected);
-    const c = projectOnto(selected, view.target.toArray());
+    const [U, W] = basisOf(pl);
+    const c = projectOnto(pl, view.target.toArray());
     at = [c[0] * U[0] + c[1] * U[1] + c[2] * U[2], c[0] * W[0] + c[1] * W[1] + c[2] * W[2]];
   }
   const px = (q) => {
-    const v = toWorld(selected, q).project(camera);
+    const v = toWorld(pl, q).project(camera);
     return [((v.x + 1) / 2) * canvas.clientWidth, ((1 - v.y) / 2) * canvas.clientHeight];
   };
   const o = px(at);
@@ -762,15 +763,21 @@ function buildSketchViz() {
       sketchGroup.add(stroke(pts, { color: inkC, width: SK.lineWidthPx * (skSel ? 1.7 : 1), closed: o.closed, order: 5 }));
     }
   }
-  if (inSketchView() && session.tool === "select" && hoverEl && !session.picks.some((k) => k.ref === hoverEl.ref)) {
-    const model = modelOf(session.viewEntities());
+  const hovInSketch = inSketchView() && session.tool === "select" && hoverEl && !session.picks.some((k) => k.ref === hoverEl.ref);
+  const hovIn3D = !inSketchView() && !!hoveredSkEl;
+  if (hovInSketch || hovIn3D) {
+    // the corner, line or circle under the cursor lights up: in the sketch view, and in 3D too (`in_083`)
+    const he = hovIn3D ? hoveredSkEl.el : hoverEl;
+    const pl = hovIn3D ? hoveredSkEl.plane : session.plane;
+    const ents = hovIn3D ? store.entities(pl) : session.viewEntities();
+    const model = modelOf(ents);
     const lightC = toHex(th.blueSurface);
-    const kk = 1 / pxPerMm();
-    if (hoverEl.kind === "point" && model.points[hoverEl.ref]) sketchGroup.add(disc(session.plane, model.points[hoverEl.ref], S.sketch.markerPx * (S.sketch.pickPointScale * 0.8) * kk, lightC, 9));
-    else if (hoverEl.kind === "seg" && model.segments[hoverEl.ref]) sketchGroup.add(stroke(model.segments[hoverEl.ref].map((id) => toWorld(session.plane, model.points[id])), { color: lightC, width: S.sketch.pickHoverWidthPx, order: 8, alpha: 0.7 }));
-    else if (hoverEl.kind === "circle") {
-      const c = session.viewEntities().find((e) => e.id === hoverEl.shape);
-      if (c) sketchGroup.add(stroke(circlePolygon(c.cx, c.cy, c.r, 96).map((q) => toWorld(session.plane, q)), { color: lightC, width: S.sketch.pickHoverWidthPx, closed: true, order: 8, alpha: 0.7 }));
+    const kk = 1 / pxPerMm(null, pl);
+    if (he.kind === "point" && model.points[he.ref]) sketchGroup.add(disc(pl, model.points[he.ref], S.sketch.markerPx * (S.sketch.pickPointScale * 0.8) * kk, lightC, 9));
+    else if (he.kind === "seg" && model.segments[he.ref]) sketchGroup.add(stroke(model.segments[he.ref].map((id) => toWorld(pl, model.points[id])), { color: lightC, width: S.sketch.pickHoverWidthPx, order: 8, alpha: 0.7 }));
+    else if (he.kind === "circle") {
+      const c = ents.find((e) => e.id === he.shape);
+      if (c) sketchGroup.add(stroke(circlePolygon(c.cx, c.cy, c.r, 96).map((q) => toWorld(pl, q)), { color: lightC, width: S.sketch.pickHoverWidthPx, closed: true, order: 8, alpha: 0.7 }));
     }
   }
   if (inSketchView() && session.tool === "select" && session.picks.length) {
@@ -1228,8 +1235,8 @@ function selectionHint(t) {
   if (t.kind === "face") return t.face.type === "cyl" ? "M radius   R taper" : "M move   R tilt";
   if (t.kind === "sketch") return "E extrude   L R C draw on it   N look straight";
   if (t.kind === "plane") return "L R C draw on it   N look straight";
-  if (t.kind === "edge") return "F fillet   B chamfer   double-click selects the whole body";
-  return "double-click selects the whole body";
+  if (t.kind === "edge") return "F fillet   B chamfer   triple-click selects the whole body";
+  return "triple-click selects the whole body";
 }
 /** A drawing tool just added its one figure: leave the sketch (normal interaction is back: faces and the rest can be clicked) and select the figure if it is closed (`in_080`). */
 function settleFinished(fin) {
@@ -1242,7 +1249,7 @@ function settleFinished(fin) {
 function updateStatus() {
   const fin = session.takeFinished();
   if (fin) settleFinished(fin);
-  let text = (matchMedia("(pointer: coarse)").matches ? "Tap selects   double-tap: object   triple-tap: look straight   long-press or the ⋯ button: menu   drag: orbit   two fingers: pan and zoom" : "Click selects   double-click: object   triple-click: look straight   L R C then a surface: draw   right-click: menu");
+  let text = (matchMedia("(pointer: coarse)").matches ? "Tap selects   double-tap: look straight   triple-tap: object   long-press or the ⋯ button: menu   drag: orbit   two fingers: pan and zoom" : "Click selects   double-click: look straight   triple-click: object   L R C then a surface: draw   right-click: menu");
   if (flash) text = flash;
   else if (xform) text = xform.sess.prompt();
   else if (extrude) text = `${extrude.ref ? "Move face" : `Extrude on ${extrude.plane}`}   ${extrude.sess.prompt()}`;
@@ -1277,6 +1284,7 @@ function setRay(clientX, clientY) {
   raycaster.setFromCamera(ndc, camera);
 }
 let hoveredFace = null; // a flat face of the body under the cursor (3D view only): { start, count, axis, sign, offset, point }
+let hoveredSkEl = null; // a line, corner or circle of an unextruded sketch under the cursor (3D view): { plane, el, p }
 let hoveredSketch = null; // an unextruded closed sketch shape under the cursor: { plane, id }
 let hoveredEdge = null; // a line of the body under the cursor: { type, pts (flat xyz), a, b (end points) }
 let hoveredVertex = null; // a corner of the body under the cursor: [x, y, z]
@@ -1298,6 +1306,24 @@ function pickSketchFace(o, d, limit) {
     const [U, W] = def.basis;
     const hit = hitRegion([p[0] * U[0] + p[1] * U[1] + p[2] * U[2], p[0] * W[0] + p[1] * W[1] + p[2] * W[2]], regions);
     if (hit) best = { plane, id: hit.id, t, point: p };
+  }
+  return best;
+}
+/** A line, corner or circle of an unextruded sketch under the cursor, in the 3D view: { plane, el, p, t } (nearest along the ray), or null. Sketch lines and corners are as easy to pick as the body's (`in_083`). */
+function pickSketchElement(clientX, clientY) {
+  setRay(clientX, clientY);
+  const o = raycaster.ray.origin.toArray();
+  const d = raycaster.ray.direction.toArray();
+  let best = null;
+  for (const plane of Object.keys(store.sketches)) {
+    const ents = store.entities(plane).filter((e) => !isExtruded(plane, e));
+    if (!ents.length) continue;
+    const hit = pickPlane(o, d, { only: plane, minCos: 0.05, maxDist: view.dist * A.farFactor });
+    if (!hit) continue;
+    const [U, W] = basisOf(plane);
+    const p = [hit.point[0] * U[0] + hit.point[1] * U[1] + hit.point[2] * U[2], hit.point[0] * W[0] + hit.point[1] * W[1] + hit.point[2] * W[2]];
+    const el = elementAt(p, ents, S.sketch.selectTolPx / pxPerMm(p, plane));
+    if (el && (!best || hit.t < best.t)) best = { plane, el, p, t: hit.t };
   }
   return best;
 }
@@ -1349,27 +1375,31 @@ function hoverAt(clientX, clientY) {
   const o = raycaster.ray.origin;
   const d = raycaster.ray.direction;
   const faceHit = body.pick(o, d);
+  const skel = pickSketchElement(clientX, clientY);
+  if (skel && (!faceHit || skel.t < faceHit.distance + 1e-3)) return { plane: null, face: null, sketch: null, skel, point: null }; // a sketch's line or corner before its face
   const sk = pickSketchFace(o, d, Math.min(faceHit ? faceHit.distance : Infinity, view.dist * A.farFactor));
   if (sk) return { plane: null, face: null, sketch: { plane: sk.plane, id: sk.id }, point: sk.point };
   if (faceHit) return { plane: null, face: { ...faceHit.face, point: faceHit.point }, sketch: null }; // a body face wins over the see-through planes
   return { plane: planeHit?.plane ?? null, face: null, sketch: null, point: planeHit?.point ?? null };
 }
 let hoverPoint = null; // where on the surface under the cursor (world): the hover orb sits here
-function setHover({ plane = null, face = null, sketch = null, edge = null, vertex = null, point = null }) {
+function setHover({ plane = null, face = null, sketch = null, edge = null, vertex = null, point = null, skel = null }) {
   hoverPoint = point ?? face?.point ?? null;
-  if (plane === hovered && face?.start === hoveredFace?.start && face?.axis === hoveredFace?.axis && sketch?.id === hoveredSketch?.id && sketch?.plane === hoveredSketch?.plane && edge?.pts === hoveredEdge?.pts && vertex?.join() === hoveredVertex?.join()) return false;
+  if (skel?.el?.ref === hoveredSkEl?.el?.ref && skel?.plane === hoveredSkEl?.plane && plane === hovered && face?.start === hoveredFace?.start && face?.axis === hoveredFace?.axis && sketch?.id === hoveredSketch?.id && sketch?.plane === hoveredSketch?.plane && edge?.pts === hoveredEdge?.pts && vertex?.join() === hoveredVertex?.join()) return false;
+  hoveredSkEl = skel;
   hovered = plane;
   hoveredFace = face;
   hoveredSketch = sketch;
   hoveredEdge = edge;
   hoveredVertex = vertex;
   body.setHighlight(face);
-  canvas.style.cursor = armedTool ? "crosshair" : plane || face || sketch || edge || vertex ? "pointer" : "default";
+  canvas.style.cursor = armedTool ? "crosshair" : plane || face || sketch || edge || vertex || skel ? "pointer" : "default";
   markSketch();
   return true;
 }
 const hoverAsSel = () =>
-  hoveredVertex ? { kind: "vertex", v: hoveredVertex }
+  hoveredSkEl ? { kind: "skel", ...hoveredSkEl }
+  : hoveredVertex ? { kind: "vertex", v: hoveredVertex }
   : hoveredEdge ? { kind: "edge", edge: hoveredEdge }
   : hoveredSketch ? { kind: "sketch", ...hoveredSketch }
   : hoveredFace ? { kind: "face", ref: hoveredFace.type === "cyl" ? { kind: "cyl", axis: hoveredFace.axis, center: hoveredFace.center, radius: hoveredFace.radius, lo: hoveredFace.lo, hi: hoveredFace.hi } : { n: hoveredFace.n, d: hoveredFace.d, point: hoveredFace.point }, face: hoveredFace }
@@ -1387,6 +1417,18 @@ function applySel() {
 }
 /** A single click selects what is on the model (a plane, face, line, corner or sketch shape), never a whole object and never moving the camera; a click on nothing lets go. */
 function selectFromHover() {
+  const t0 = hoverAsSel();
+  if (t0?.kind === "skel") {
+    // a click on a sketch's line, corner or circle opens that sketch for editing with the element picked (constraints, lengths...); the camera stays where it is (`in_083`)
+    sel = null;
+    armedTool = null;
+    applySel();
+    enterSketch(t0.plane, "select", 1, true);
+    session.scale = pxPerMm(t0.p);
+    session.click(t0.p, { shift: false });
+    refreshUI();
+    return;
+  }
   // planes are just planes (`in_069`): a click selects what is under the pointer (blue), or lets go when there is nothing; it never moves the camera
   sel = hoverAsSel();
   armedTool = null;
@@ -1433,7 +1475,7 @@ function localPoint(clientX, clientY) {
 // ---------------------------------------------------------------- actions (shared by hotkeys and the right-click menu)
 let armedTool = null; // a drawing tool chosen in 3D with nothing to draw on yet: the next click on a surface starts the sketch there (`in_069`)
 let prePose = null; // the 3D camera pose to return to when leaving the sketch
-function enterSketch(plane, tool = "select", side = 1) {
+function enterSketch(plane, tool = "select", side = 1, keepCamera = false) {
   sel = null;
   body.setSelected(null);
   if (!selected) prePose = { a: view.a, e: view.e, dist: view.dist, target: view.target.clone() };
@@ -1444,7 +1486,7 @@ function enterSketch(plane, tool = "select", side = 1) {
   const drawing = ["line", "rect", "circle"].includes(tool);
   const toCam = camera.position.clone().sub(view.target).normalize();
   const n = planeDef(plane).n;
-  if (!drawing || Math.abs(toCam.x * n[0] + toCam.y * n[1] + toCam.z * n[2]) < V.drawMinFacing) goNormal(plane, side);
+  if (!keepCamera && (!drawing || Math.abs(toCam.x * n[0] + toCam.y * n[1] + toCam.z * n[2]) < V.drawMinFacing)) goNormal(plane, side);
   setHover({ plane: null, face: null });
   updateStatus();
   markSketch();
@@ -1908,7 +1950,7 @@ let spaceDown = false; // Space held: a plain drag pans
 let clickCount = 0;
 let lastClickAt = 0;
 let lastClickXY = [0, 0];
-/** Double-click: the whole object under the pointer. */
+/** Triple-click: the whole object under the pointer. */
 function selectObjectFromHover() {
   if (hoveredSketch && !hoveredFace) {
     // a double-click on a sketch shape opens it for editing (its lines, corners and constraints); Esc leaves
@@ -1923,7 +1965,7 @@ function selectObjectFromHover() {
   applySel();
   startSelectOrb();
 }
-/** Triple-click: look straight at the plane that was clicked (a pane, a face, a closed sketch), from the side you are on. */
+/** Double-click: look straight at the plane that was clicked (a pane, a face, a closed sketch), from the side you are on. */
 function normalToClicked() {
   const t = hoverAsSel();
   if (!t || !["plane", "face", "sketch"].includes(t.kind)) return;
@@ -2200,13 +2242,13 @@ function onPointerUp(ev) {
   }
   if (was.kind === "click" && !was.moved && !selected) {
     setHover(hoverAt(ev.clientX, ev.clientY));
-    // one click selects (a face, line, corner, plane or sketch shape: never a whole object); two select the whole object; three look straight at the plane clicked (`in_070`)
+    // one click selects (a face, line, corner, plane or sketch shape: never a whole object); two look straight at the plane clicked; three select the whole object (`in_070`, swapped in `in_083`)
     const now = performance.now();
     clickCount = now - lastClickAt < (ev.touch ? S.input.multiTapMs : S.input.multiClickMs) && Math.hypot(ev.clientX - lastClickXY[0], ev.clientY - lastClickXY[1]) < (ev.touch ? S.input.multiTapPx : S.input.multiClickPx) ? clickCount + 1 : 1;
     lastClickAt = now;
     lastClickXY = [ev.clientX, ev.clientY];
-    if (clickCount === 2) return void selectObjectFromHover();
-    if (clickCount >= 3) return void normalToClicked();
+    if (clickCount === 2) return void normalToClicked();
+    if (clickCount >= 3) return void selectObjectFromHover();
     selectFromHover();
   }
 }
