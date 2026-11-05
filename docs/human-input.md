@@ -580,3 +580,8 @@ In a clean rebuild, do not lose the xyz ideas (axes, compass, panes), the idea o
 Asks for the design of the clean engine to be written.
 
 > yes, write the design
+
+## in_096 — 2026-11-05 — question
+Asks, before proceeding, whether anything should be considered now for turning this into a real Android, Linux, Mac or Windows app one day, for example a language that could be easily converted to produce the exact same app for another operating system.
+
+> Okay before we proceed to much further, I was wondering if we ever wanted to turn this into a real android, linux, mac, or windows app, would we want to consider anything now? perhaps a language that could be easily converted to produce the exact same app for another operating system?

@@ -3,7 +3,7 @@ id: dec_clean_engine_design
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_093, in_094, in_095
+human_input: in_093, in_094, in_095, in_096
 date: 2026-11-05
 depends_on:
   - inv_layer_adjacency: the engine is laid out in the human's layers (UI, Interaction, Operation, Geometry Compiler, Platform) and nothing reaches across them
@@ -98,9 +98,25 @@ A rewrite takes longer than it looks and tempts adding features. Limits: the kee
 ## 12. Open questions for the human
 
 1. Where does the new code live? Proposed: a new top-level `app/` (production code, gated by this decision), the prototype untouched under `prototypes/cad-ui`.
-2. Language: keep JavaScript with the same test runner, or move to TypeScript now? Proposed: keep JavaScript (types as JSDoc) for the rebuild, decide TypeScript later.
+2. Language: **TypeScript now** (changed from my first proposal, after the human asked about real apps on other systems, `in_096`: see section 13). It compiles to the same JavaScript that runs in every shell, and the part, platform and intent interfaces become checked contracts. Keep the same test runner.
 3. Freeze the prototype the day phase 4 runs, or keep fixing bugs in it until the cut-over? Proposed: freeze at phase 4 (bug fixes only for blockers).
 4. The ghosts list in section 9 (what is dropped): anything you want to keep?
+
+## 13. Real apps on other systems (`in_096`)
+
+The "same app on every system" is already the plan in `dec_platform_web_portable`: one web-technology codebase, wrapped. No second language is needed.
+- **Desktop (Windows, Mac, Linux):** wrap the web app with Tauri (small, uses the system web view) or Electron (bigger, the same browser everywhere). Same code.
+- **Android and iOS:** a wrapper such as Capacitor (or Tauri mobile), or first an installable web app (PWA) that works on the phone today. Same code, a touch input profile (already built into the interaction layer).
+- **Why not another language:** a native UI per system (Kotlin, Swift, C#) means rewriting the view and the input for each, and losing three.js and the geometry kernel compiled to WASM. Rust or C++ compiled to WASM is worth it only for the parts where speed will matter (the kernel, maybe the solver), behind the interfaces we already have.
+
+What to do now so this stays easy (all of it is cheap now and expensive later):
+1. **TypeScript** for the rebuild (above).
+2. **Keep the core free of the browser:** the Operation, Interaction and Geometry layers import no DOM, no `window`, no Node-only API (the layer rule already says so; add an import check).
+3. **Write the Platform interface in phase 1** (files, storage, clipboard, license, pointer/key events, share) with one web implementation; later shells add theirs. Do not call the browser File System Access API outside it (Safari and the mobile web views lack it).
+4. **Keep the kernel in a worker behind the adapter** (it is already), so a native kernel can replace the WASM one for desktop later.
+5. **Test on a phone web view early** (a real Android and an iPhone): memory limits for WASM (the OCCT file is large) and WebGL behaviour differ there; phase 4 should include that check.
+6. **Licenses:** OCCT is LGPL, which needs the packaging care in `docs/licenses.md` once the app is distributed in a store or as a binary (relinking must be possible).
+Known limits: the WASM kernel is slower than native and capped in memory (more so on phones), the app stores charge fees, and a wrapped web app feels less native than a hand-built one.
 
 ## Rationale
 
