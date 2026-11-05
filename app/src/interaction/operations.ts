@@ -1,6 +1,8 @@
 // The operations that take a number (`dec_interaction_spec`): extrude a closed figure, fillet or chamfer lines of the body (one operation: one way is a fillet, the other a chamfer), move, rotate or scale the body.
 // An operation starts from the selection (the menu or a key), shows its number, and is finished by Enter or a click: that adds ONE step to the scene, so it undoes in one go.
 import type { Ref } from "../shared/ref.ts";
+import type { Mat3, Angles } from "../math/rotation.ts";
+import { IDENTITY, about, then, anglesOf, stepsBetween } from "../math/rotation.ts";
 import type { Curved } from "../operation/part.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot } from "../math/vec.ts";
@@ -28,6 +30,8 @@ export interface Op {
   /** extrude and push / pull: the figure's or face's middle and the direction along which the distance is measured */
   origin: Vec3 | null;
   normal: Vec3 | null;
+  /** rotate the body: the three angles typed so far (X, Y, Z) as the body is to be turned (empty = as it is now) */
+  rot: [string, string, string];
   /** push / pull of a round face: the face (the radius changes by the distance) */
   curved?: Curved;
   /** rotate: the point it turns about (the rotator's centre; you can move it) */
@@ -62,7 +66,7 @@ function drawnFace(scene: Scene, parts: Part[]): Extract<Part, { kind: "face" }>
 export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): StartResult {
   const get = lookup(scene);
   const parts = selection.map((r) => get(r)).filter((p): p is Part => !!p);
-  const base: Omit<Op, "parts"> = { kind, typed: "", value: null, axis: kind === "rotate" ? 2 : 0, origin: null, normal: null, pivot: null, target: "body", plane: null, auto: false };
+  const base: Omit<Op, "parts"> = { kind, typed: "", value: null, axis: kind === "rotate" ? 2 : 0, origin: null, normal: null, pivot: null, target: "body", plane: null, auto: false, rot: ["", "", ""] };
   if (kind === "extrude") {
     const face = drawnFace(scene, parts);
     if (!face) return { ok: false, why: "select a closed figure first" };
@@ -159,7 +163,29 @@ const faceParams = (op: Op): Record<string, number> => {
   return n && p ? { nx: n[0], ny: n[1], nz: n[2], fd: n[0] * p[0] + n[1] * p[1] + n[2] * p[2], px: p[0], py: p[1], pz: p[2] } : {};
 };
 
+/** How the body is turned now: every rotate step so far, one after another (a move or a push does not change it). */
+function bodyTurn(scene: Scene): Mat3 {
+  let m: Mat3 = IDENTITY;
+  for (const st of scene.steps) if (st.type === "rotate") m = then(m, about(Number(st.params.axis ?? 0) as 0 | 1 | 2, Number(st.params.value ?? 0)));
+  return m;
+}
+/** The three angles of the body's turn, with the turn being dragged or typed on top of it (what the bubble shows and sets). */
+export function turnAngles(scene: Scene, op: Op): Angles {
+  const live = valueOf(op);
+  const now = bodyTurn(scene);
+  return anglesOf(live !== null && op.target === "body" ? then(now, about(op.axis, live)) : now);
+}
+const rotTarget = (scene: Scene, op: Op): Angles => { const cur = turnAngles(scene, op); return cur.map((c, i) => (num(op.rot[i]!) ?? c)) as Angles; };
+
 export function opCommand(scene: Scene, op: Op): Command | null {
+  if (op.kind === "rotate" && op.target === "body" && op.rot.some((t) => num(t) !== null)) {
+    // angles typed in the bubble: the body is turned to exactly those (as three turns about X, Y, Z that go from how it is turned now), one command
+    const id = nextId(scene, "s");
+    const pivot: Record<string, number> = op.pivot ? { px: op.pivot[0], py: op.pivot[1], pz: op.pivot[2] } : {};
+    const steps = stepsBetween(bodyTurn(scene), rotTarget(scene, { ...op, value: null, typed: "" }));
+    if (!steps.length) return null;
+    return { type: "batch", commands: steps.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: op.parts, params: { axis: t.axis, value: t.angle, ...pivot } } })) };
+  }
   const v = valueOf(op);
   if (v === null) return null;
   const id = nextId(scene, "s");

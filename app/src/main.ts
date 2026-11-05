@@ -16,7 +16,7 @@ import type { AppState } from "./interaction/controller.ts";
 import { projector } from "./interaction/camera.ts";
 import { candidatesAt } from "./interaction/picking.ts";
 import { kernel, initKernelWeb, drawRectangle, nextId } from "./interaction/api.ts";
-import type { Ref, Command } from "./interaction/api.ts";
+import type { Ref, Command, Vec3 } from "./interaction/api.ts";
 import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
 import { createChip } from "./ui/chip.ts";
@@ -122,7 +122,8 @@ function frame(now: number) {
     const project = projector(state.cam, size.w, size.h).project;
     bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash);
     view.setNotes(f.annotations.flatMap((a) => a.lines));
-    chip.update(f.entry?.fields ?? null, f.entry?.unit ?? "mm", f.entry?.at ? ((q) => [q[0] + page.left, q[1] + page.top] as [number, number])(project(f.entry.at)) : null);
+    const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
+    chip.update(f.entry?.fields ?? null, f.entry?.unit ?? "mm", onPage(f.entry?.at), onPage(f.entry?.from));
     host.style.cursor = f.cursor;
     view.render(state.cam, f.grid);
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);

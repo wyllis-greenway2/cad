@@ -5,16 +5,21 @@ import type { Plane } from "../operation/part.ts";
 import type { Tool, Preview } from "./tools.ts";
 import { FIELDS, previewOf, rectEnd, circleRadius, lineNext, localOf } from "./tools.ts";
 import type { Op } from "./operations.ts";
-import { OP_FIELD, OP_UNIT, valueOf } from "./operations.ts";
+import { OP_FIELD, OP_UNIT, valueOf, turnAngles } from "./operations.ts";
 
-export interface EntryField { label: string; value: string; active: boolean; typed: boolean }
+export interface EntryField { label: string; value: string; active: boolean; typed: boolean; /** a short name shown in front of the number when there are several (X Y Z) */ short?: string }
 /** `at`: where in the scene the bubble sits (null: no place to attach it to) */
-export interface Entry { fields: EntryField[]; unit: string; at?: Vec3 | null }
+export interface Entry { fields: EntryField[]; unit: string; at?: Vec3 | null; /** the other end of the arrow the bubble is at the tip of: the bubble stands out past the tip, away from it, so it does not cover the arrow */ from?: Vec3 | null }
 
 const fmt = (v: number) => String(Math.round(v * 100) / 100);
 
 /** The number chip: for a tool, its fields (what is typed, else the live size); for an operation, its one number. Null when there is nothing to show yet. */
 export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry | null {
+  if (op && op.kind === "rotate" && op.target === "body") {
+    // three angles, how the body is turned about X, Y and Z (what is typed in one of them is how it is to be turned about that axis)
+    const now = turnAngles(scene, op);
+    return { fields: (["X", "Y", "Z"] as const).map((label, i) => ({ label, short: label, value: op.rot[i] !== "" ? op.rot[i]! : fmt(now[i]!), active: op.axis === i, typed: op.rot[i] !== "" })), unit: "deg" };
+  }
   if (op) {
     const v = valueOf(op);
     const axis = op.kind === "move" || op.kind === "rotate" ? ` ${"XYZ"[op.axis]}` : "";

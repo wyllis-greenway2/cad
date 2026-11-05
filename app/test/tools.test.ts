@@ -313,19 +313,19 @@ test("after an extrude nothing is selected and nothing is hovered or spreading f
   assert.equal(st.spread, null);
 });
 
-test("the pencil: a selected plane offers it, it offers the shapes, and the shape's first click lands on that plane (then the corners are clicked as usual)", () => {
+test("the pencil: a selected face offers it (a world plane does not), it offers the shapes, and the shape's first click lands on that face (then the corners are clicked as usual)", () => {
   let st = top();
-  st = reduce(st, { type: "look", plane: "Z" }, env); // the compass button selects the XY plane
-  st = { ...st, anim: null, cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 15, 0] } };
+  st = reduce(st, { type: "look", plane: "Z" }, env); // the compass button selects the XY world plane
+  assert.deepEqual(frameOf(st, { w: 800, h: 600 }).annotations.filter((a) => a.mode), [], "no pencil on a world plane");
+  st = drawBox(top(), 20);
+  st = reduce(st, { type: "escape" }, env);
+  const topFace = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20)!;
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [topFace.ref] } } };
   const modes = (s: AppState) => frameOf(s, { w: 800, h: 600 }).annotations.filter((a) => a.mode).map((a) => a.mode);
-  assert.deepEqual(modes(st), ["sketch"]);
+  assert.deepEqual(modes(st), ["pushpull", "sketch"]);
   st = reduce(st, { type: "begin", name: "sketch" }, env);
   assert.deepEqual(modes(st), ["rect", "circle", "line"]);
   st = reduce(st, { type: "begin", name: "circle" }, env);
-  assert.equal(st.tool!.plane, XY);
-  st = click(st, [30, 12, 0]);
-  assert.deepEqual(st.tool!.points, [[30, 12, 0]]);
-  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "circle").length, 0, "nothing is added until you click the second point");
-  st = click(st, [36, 12, 0]);
-  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "circle").length, 1);
+  assert.equal(st.tool!.plane, topFace.ref);
+  assert.equal(st.sketching, null);
 });

@@ -188,7 +188,7 @@ export function focusParts(scene: Scene, selection: readonly Ref[], focus: strin
 /** The bubbles that offer a mode for what is selected: lines of the body offer fillet / chamfer (the handle appears once you choose it). */
 export function modesFor(scene: Scene, selection: readonly Ref[], sketching: Ref | null = null): Annotation[] {
   const only = selection.length === 1 ? scene.parts[selection[0]!] : undefined;
-  if (only && (only.kind === "plane" || only.kind === "face")) {
+  if (only && (only.kind === "plane" || only.kind === "face") && only.origin !== "world") { // (a world plane has no bubbles: you start a drawing there with R C L or the menu)
     // a plane or a face offers the pencil; once it is clicked, the shapes to draw on it
     const pl = planeOf(lookup(scene), only.ref);
     if (!pl) return only.kind === "plane" && only.curved ? [{ id: "mode:pushpull", relationId: null, kind: "pushpull", label: "Push / pull", at: centreOf(scene, only), value: null, unit: null, locked: false, editable: false, readOnly: false, broken: false, open: false, others: [], lines: [], mode: "pushpull" }] : [];

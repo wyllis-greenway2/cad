@@ -50,7 +50,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
   if (!("handle" in s.drag!) || !s.op) return doOrbit(s, i);
   const r = dragTo(s.drag.handle, pr.ray(i.x, i.y));
   if (!r) return s;
-  if ("value" in r) return { ...s, op: { ...s.op, value: r.value, typed: "", ...(s.drag.handle.axis !== null ? { axis: s.drag.handle.axis } : {}) } };
+  if ("value" in r) return { ...s, op: { ...s.op, value: r.value, typed: "", rot: ["", "", ""] as [string, string, string], ...(s.drag.handle.axis !== null ? { axis: s.drag.handle.axis } : {}) } };
   return { ...s, op: { ...s.op, pivot: snapPivot(s, r.pivot, i.x, i.y, env) } };
 }
 

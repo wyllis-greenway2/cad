@@ -104,9 +104,12 @@ function flashOf(s: AppState, sc: Scene, now: number): FlashFrame | null {
 function entryWhere(e: Entry | null, s: AppState, g: Gizmo | null): Entry | null {
   if (!e) return null;
   let at: Vec3 | null = null;
+  let from: Vec3 | null = null;
   if (s.op && g) {
     const k = s.op.kind;
-    at = k === "extrude" || k === "pushpull" || k === "edge" ? g.handles[0]?.points.at(-1) ?? g.centre : g.centre;
+    const arrow = k === "extrude" || k === "pushpull" || k === "edge" ? g.handles[0] : undefined;
+    at = arrow ? arrow.points.at(-1) ?? g.centre : g.centre;
+    from = arrow ? arrow.points[0] ?? null : null;
   } else if (s.tool) at = s.tool.cursor ?? s.tool.points.at(-1) ?? null;
-  return { ...e, at };
+  return { ...e, at, from };
 }
