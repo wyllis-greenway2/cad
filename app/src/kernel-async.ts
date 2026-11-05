@@ -11,8 +11,11 @@ export interface AsyncKernel extends Kernel {
   readonly pending: boolean;
 }
 
-export function createAsyncKernel(onChange: () => void): AsyncKernel {
-  const worker = new Worker(new URL("./kernel-worker.ts", import.meta.url), { type: "module" });
+/** The part of a worker this needs (so a test can stand in for it). */
+export interface WorkerLike { postMessage(m: unknown): void; addEventListener(type: "message" | "error", f: (e: any) => void): void } // eslint-disable-line @typescript-eslint/no-explicit-any
+const spawn = (): WorkerLike => new Worker(new URL("./kernel-worker.ts", import.meta.url), { type: "module" });
+
+export function createAsyncKernel(onChange: () => void, worker: WorkerLike = spawn()): AsyncKernel {
   const cache = new Map<string, KernelResult>();
   let last: KernelResult = EMPTY;
   let busy: { id: number; key: string } | null = null;
@@ -41,7 +44,7 @@ export function createAsyncKernel(onChange: () => void): AsyncKernel {
       }
       pump();
     });
-    worker.addEventListener("error", (e) => reject(new Error(e.message || "the kernel's thread failed")));
+    worker.addEventListener("error", (e: ErrorEvent) => reject(new Error(e.message || "the kernel's thread failed")));
   });
   return {
     name: "occt (worker)",
@@ -51,7 +54,7 @@ export function createAsyncKernel(onChange: () => void): AsyncKernel {
     evaluate(graph: KernelGraph): KernelResult {
       const key = JSON.stringify(graph);
       const hit = cache.get(key);
-      if (hit) { cache.delete(key); cache.set(key, hit); last = hit; return hit; }
+      if (hit) { cache.delete(key); cache.set(key, hit); return hit; } // (`last` is only what the worker finished last: a hit on an old graph must not make the picture jump back to it)
       if (busy?.key === key) return last; // already being worked out
       queued = { key, graph }; // only the newest request is kept: what was asked before it is no longer wanted
       pump();

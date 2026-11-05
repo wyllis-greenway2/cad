@@ -771,3 +771,8 @@ Asks for a body list (all bodies and their names) and the history panel under th
 Asks for a left click to offer only constraints and dimensions (the pencil and extrude bubbles go), operations to be on the right click as a set of little constraint-style bubbles laid around the click point (all the operations), and the ⋯ icon in the upper right to become other settings and options (save, open, the trackpad option, the build number).
 
 > Lets change it slightly. Lets have it so that constraints and dimensions are available on left click as is usually the case now. (except pencil and extrude on left click, lets remove those) Lets have it so that operations are right click.Lets have it so that menu is more like the left click menu made out of the little constraint style bubbles. Lets have right click offer a set of oerations. The offer should be originated around the click point. It should offer bubbles inline of all our operations. Lets turn the ... icon in the upper right into other settings and options lets put the save open trackpad options and build number in there.
+
+## in_134 — 2026-11-05 — directive
+Asks me to try the new menus and reports that the operations are very shaky: move and rotate shake a lot when dragged.
+
+> Okay can you try it? the operations are very shaky, the move and rotate things shake a lot when you try to do it
