@@ -395,3 +395,8 @@ Fixes and a new look for the value boxes: the length box overlaps the constraint
 Direction to use icons for every operation, with text reserved for tooltips.
 
 > lets try to make icons for everything, and go light on text. It will make it compact, We can have tooltips that help on hover. For example the rectangle, circle, extrude, etc, Basically every operation can have an icon and maybe a keyboard key but we will reserve text for the tooltip.
+
+## in_059 — 2026-11-05 — directive
+Request to keep sketching when the view is not straight-on to the sketch plane.
+
+> Can we have it so you can keep on sketching even if it is not in normal ortho view? you should be able to sketch in 3d view on the sketch plane as well right?

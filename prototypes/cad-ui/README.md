@@ -131,6 +131,11 @@ keeps a copy of its shape (editing the sketch later does not change it). Look va
 Selected and hovered blue lines are thinner (`settings.sketch.pickWidthPx`, `pickHoverWidthPx`, `pickPointScale`; `settings.pick.edgeWidthPx`, `edgeHoverWidthPx`, `vertexScale`). Objects are a little lighter (`themes.world.bodyColor`, `light.ambient`), the world planes a little
 darker (`themes.world.sheet`), and objects less glossy but still reflective in a diffuse way (`light.roughness` 0.6, `sheen` 0.22 and `sheenRoughness` 0.55 for a broad soft highlight, `reflect` 0.3 for the studio reflection). Measured on a box: faces 3 to 13 levels lighter, the plane 13 darker.
 
+## Sketch from any camera angle (`in_059`)
+Once a plane is chosen you stay in the sketch **whatever the camera does**: orbit (right mouse), zoom and pan freely and keep drawing, picking, dragging, constraining and dimensioning on the plane in the ordinary 3D (perspective) view. Orbiting no longer leaves the sketch;
+leave with **Esc** or the **Exit sketch** button. Looking straight at the plane (orthographic) is a convenience: entering a sketch squares the view up, and the **Look straight at the sketch** button (**N**) does it again. Snap and pick distances use the screen scale at the pointer, so
+they feel the same at any angle. Looking very nearly edge-on makes drawing imprecise (the plane is hardly visible), so square up when you need precision.
+
 ## Icons everywhere, text only in tooltips (`in_058`)
 Every operation has an icon (`src/icons.mjs`) and the bar is **icons with a tiny hotkey badge** (⇧ = Shift, ^ = Ctrl); the words (the name, one line of help, the full hotkey, and why a button is unavailable) appear in a **tooltip on hover**. The same goes for the constraint icons next to a
 selection and for the number. The status line no longer repeats what the bar offers (it says what is selected, or prompts while you draw). A test checks that every action in every context has an icon and a help line.

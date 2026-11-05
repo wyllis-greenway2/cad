@@ -445,7 +445,29 @@ body.request({ params: {}, ops: [] }); // warms the geometry kernel up (it is a 
 scene.add(sketchGroup);
 let sketchDirty = true;
 const markSketch = () => ((sketchDirty = true), requestRender());
-const pxPerMm = () => canvas.clientHeight / (2 * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2))); // face-on to the plane
+/** Pixels per mm on the sketch plane. Face-on (and for anything that is not about the sketch plane) it is the same everywhere; seen at an angle it
+ *  changes across the plane, so give the point (local u, v) you care about; with none it is measured where the camera looks. */
+function pxPerMm(uv) {
+  const faceOn = canvas.clientHeight / (2 * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2)));
+  if (!selected || extrude || xform) return faceOn;
+  if (isNormal(view, selected, V.normalToleranceRad)) return faceOn;
+  applyCamera();
+  let at = uv;
+  if (!at) {
+    const [U, W] = basisOf(selected);
+    const c = projectOnto(selected, view.target.toArray());
+    at = [c[0] * U[0] + c[1] * U[1] + c[2] * U[2], c[0] * W[0] + c[1] * W[1] + c[2] * W[2]];
+  }
+  const px = (q) => {
+    const v = toWorld(selected, q).project(camera);
+    return [((v.x + 1) / 2) * canvas.clientWidth, ((1 - v.y) / 2) * canvas.clientHeight];
+  };
+  const o = px(at);
+  const du = px([at[0] + 1, at[1]]);
+  const dv = px([at[0], at[1] + 1]);
+  const k = (Math.hypot(du[0] - o[0], du[1] - o[1]) + Math.hypot(dv[0] - o[0], dv[1] - o[1])) / 2;
+  return Math.min(1e4, Math.max(0.05, k));
+}
 
 function stroke(pts3, { color, width, closed = false, order = 5, alpha = 1, dashed = false }) {
   const flat = [];
@@ -676,7 +698,7 @@ function updateExtrudeViz() {
  *  otherwise the camera is left alone. */
 function startExtrude(init) {
   const { origin, normal, fromSketch = false, ...rest } = init;
-  const flat = inSketchView();
+  const flat = isFaceOn();
   extrude = { ...rest, origin, normal, fromSketch, sess: new ExtrudeSession(S, { plane: rest.plane ?? null, shape: rest.shape ?? null, distance: rest.distance ?? 0, featureId: rest.featureId ?? null, hasBody: rest.hasBody }) };
   session.setTool("select");
   sel = null;
@@ -1008,7 +1030,9 @@ function updateStatus() {
 
 // ---------------------------------------------------------------- picking
 /** Looking straight at the selected plane = sketch view. Anything else (orbited away, or nothing selected) = 3D view. */
-const inSketchView = () => !!selected && isNormal(view, selected, V.normalToleranceRad);
+/** Sketching: a plane is chosen and no operation is running. The camera can be at any angle (`in_059`); looking straight at the plane is a convenience (orthographic), not a requirement. */
+const inSketchView = () => !!selected && !extrude && !xform;
+const isFaceOn = () => !!selected && isNormal(view, selected, V.normalToleranceRad);
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 function setRay(clientX, clientY) {
@@ -1137,7 +1161,7 @@ function pickAt(clientX, clientY) {
 /** The point under the cursor on the sketch plane, in local (u, v) mm. */
 function localPoint(clientX, clientY) {
   if (!selected) return null;
-  const hit = pickPlane(...((setRay(clientX, clientY), [raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray()])), { minCos: 1e-3, only: selected });
+  const hit = pickPlane(...((setRay(clientX, clientY), [raycaster.ray.origin.toArray(), raycaster.ray.direction.toArray()])), { minCos: 1e-3, maxDist: view.dist * A.farFactor, only: selected });
   if (!hit) return null;
   const [U, W] = basisOf(selected);
   return [hit.point[0] * U[0] + hit.point[1] * U[1] + hit.point[2] * U[2], hit.point[0] * W[0] + hit.point[1] * W[1] + hit.point[2] * W[2]];
@@ -1271,6 +1295,7 @@ function constraintKey(labels) {
   refreshUI();
 }
 const ACTIONS = {
+  faceOn: () => (selected && !extrude && !xform ? goNormal(selected) : undefined), // look straight at the sketch plane
   consH: () => constraintKey(["Horizontal"]),
   consV: () => constraintKey(["Vertical"]),
   consE: () => constraintKey(["Equal length", "Equal radius"]),
@@ -1426,6 +1451,7 @@ function barContext() {
     pickShape: session.picks.some((k) => k.kind === "entity"),
     pickShapeClosed: session.picks.some((k) => k.kind === "entity" && regionsOf(session.entities()).some((r) => r.id === k.shape)),
     editingStepSketch: !!session.editKey,
+    faceOn: isFaceOn(),
     sel: sel ? { kind: sel.kind, round: sel.kind === "face" && sel.face?.type === "cyl" } : null,
   };
 }
@@ -1573,14 +1599,14 @@ canvas.addEventListener("pointerdown", (ev) => {
     g = { kind: "xdrag", t0: sess.mode === "move" ? moveParam(ev.clientX, ev.clientY) : 0, v0: xformValue(), ...base };
     return;
   }
-  if (selected && !inSketchView()) return; // gliding to the plane: ignore clicks until it is face-on
-  if (!inSketchView()) return void (g = { kind: "click", ...base }); // a click picks a plane; a drag orbits
+  if (selected && anim) return; // gliding to the plane: ignore clicks until it arrives
+  if (!inSketchView()) return void (g = { kind: "click", ...base }); // a click picks something in the 3D view; a drag orbits
   const p = localPoint(ev.clientX, ev.clientY);
   if (!p) return;
-  session.scale = pxPerMm();
+  session.scale = pxPerMm(p);
   if (session.tool === "select") {
     // pressing on a corner, line or circle: dragging it moves it (constraints stay true); a click picks it. Elsewhere a click selects and a drag orbits.
-    const el = ev.shiftKey ? null : elementAt(p, session.entities(), S.sketch.selectTolPx / pxPerMm());
+    const el = ev.shiftKey ? null : elementAt(p, session.entities(), S.sketch.selectTolPx / pxPerMm(p));
     return void (g = el ? { kind: "skdrag", el, p, started: false, ...base } : { kind: "selectclick", p, shift: ev.shiftKey, ...base });
   }
   const had = !!session.draft;
@@ -1601,7 +1627,7 @@ canvas.addEventListener("pointermove", (ev) => {
     if (!g.started && Math.hypot(ev.clientX - g.x0, ev.clientY - g.y0) < V.clickMovePx) return; // still a click
     if (!g.started) (g.started = true), (g.moved = true), session.dragStart(g.el, g.p);
     const q = localPoint(ev.clientX, ev.clientY);
-    if (q) (session.scale = pxPerMm()), session.dragMove(q);
+    if (q) (session.scale = pxPerMm(q)), session.dragMove(q);
     refreshUI();
     return;
   }
@@ -1648,7 +1674,6 @@ canvas.addEventListener("pointermove", (ev) => {
     } else {
       view.a -= dx * V.orbitRadPerPx;
       view.e = clamp(view.e + dy * V.orbitRadPerPx, -Math.PI / 2, Math.PI / 2);
-      if (selected && !extrude && !isNormal(view, selected, V.normalToleranceRad)) exitSketch(false); // orbiting out of the face-on view = back to the 3D view
     }
     updateStatus();
     markSketch();
@@ -1658,14 +1683,14 @@ canvas.addEventListener("pointermove", (ev) => {
   if (inSketchView()) {
     const p = localPoint(ev.clientX, ev.clientY);
     if (p && session.tool !== "select") {
-      session.scale = pxPerMm();
+      session.scale = pxPerMm(p);
       session.move(p, { shift: ev.shiftKey });
       updateReadout();
       markSketch();
     }
     if (p && session.tool === "select" && !g) {
       // a corner, line or circle under the cursor lights up (you can drag it)
-      const el = elementAt(p, session.entities(), S.sketch.selectTolPx / pxPerMm());
+      const el = elementAt(p, session.entities(), S.sketch.selectTolPx / pxPerMm(p));
       if ((el?.ref ?? null) !== (hoverEl?.ref ?? null)) (hoverEl = el), markSketch();
     } else if (hoverEl && session.tool !== "select") (hoverEl = null), markSketch();
     canvas.style.cursor = session.tool === "select" && hoverEl ? "pointer" : session.tool === "select" || session.tool === "dimension" ? "default" : "crosshair";
@@ -1690,7 +1715,7 @@ canvas.addEventListener("pointerup", (ev) => {
   if (was.kind === "draw" && session.draft && Math.hypot(ev.clientX - was.x0, ev.clientY - was.y0) >= S.sketch.dragFinishPx) {
     const p = localPoint(ev.clientX, ev.clientY);
     if (p) {
-      session.scale = pxPerMm();
+      session.scale = pxPerMm(p);
       session.click(p, { shift: ev.shiftKey });
       updateStatus();
       updateReadout();
@@ -1702,7 +1727,7 @@ canvas.addEventListener("pointerup", (ev) => {
     if (was.started) {
       session.dragEnd();
     } else {
-      session.scale = pxPerMm();
+      session.scale = pxPerMm(was.p);
       session.click(was.p, { shift: false });
     }
     refreshUI();

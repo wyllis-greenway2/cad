@@ -36,7 +36,7 @@ export const settings = {
     pinchZoomPerWheel: 0.01, // trackpad pinch (a wheel event with ctrl held) is more sensitive than a wheel notch
     keys: {
       // constraint hotkeys (sketch select tool): Shift + the first letter of the constraint
-      select: "v", line: "l", rect: "r", circle: "c", extrude: "e", sketch: "s", move: "m", rotate: "r", scale: "k", fillet: "f", chamfer: "b", consH: "shift+h", consV: "shift+v", consE: "shift+e", consL: "shift+l", consP: "shift+p", consF: "shift+f", consC: "shift+c", dimension: "d", home: "h",
+      select: "v", line: "l", rect: "r", circle: "c", extrude: "e", sketch: "s", move: "m", rotate: "r", scale: "k", faceOn: "n", fillet: "f", chamfer: "b", consH: "shift+h", consV: "shift+v", consE: "shift+e", consL: "shift+l", consP: "shift+p", consF: "shift+f", consC: "shift+c", dimension: "d", home: "h",
       undo: "mod+z", redo: ["mod+shift+z", "mod+y"],
       origin: "o", cancel: "escape", confirm: "enter", nextField: "tab", prevField: "shift+tab", delete: ["delete", "backspace"],
     },

@@ -24,7 +24,7 @@ const ICON = {
   Coincident: "coincident", "Same height": "sameHeight", "Same position across": "sameAcross",
   "Move face": "moveFace", "Tilt face": "tilt", "Sketch on surface": "sketchOn", "Sketch on it": "sketchOn", "Change radius": "radius", Taper: "taper", Fillet: "fillet", Chamfer: "chamfer",
   Move: "move", Rotate: "rotate", Scale: "scale", Delete: "trash", "Delete step": "trash", "Home view": "home", "Return to origin": "origin", Undo: "undo", Redo: "redo",
-  Apply: "check", Cancel: "cross", "3D view": "view3d",
+  Apply: "check", Cancel: "cross", "Exit sketch": "view3d", "Look straight at the sketch": "viewNormal",
 };
 const HELP = {
   Select: "Pick lines, corners, circles or whole shapes. Shift-click adds. Drag to move.", Line: "Draw connected lines. Click the first point again to close the shape.",
@@ -37,7 +37,7 @@ const HELP = {
   "Sketch on it": "Start a sketch on this shape's plane.", "Change radius": "Change the radius of this round face.", Taper: "Give this round face a taper angle.", Fillet: "Round this edge.", Chamfer: "Bevel this edge.",
   Move: "Move the whole body along X, Y or Z.", Rotate: "Rotate the whole body about X, Y or Z.", Scale: "Scale the whole body.", Delete: "Delete the selection.", "Delete step": "Delete this step from the history.",
   "Home view": "Return to the standard 3D view.", "Return to origin": "Bring the world origin back into view.", Undo: "Undo the last change.", Redo: "Redo what was undone.",
-  Apply: "Apply this change.", Cancel: "Cancel this change.", "3D view": "Leave the sketch and return to the 3D view.",
+  Apply: "Apply this change.", Cancel: "Cancel this change.", "Exit sketch": "Leave the sketch (you can sketch from any camera angle, so orbiting does not leave it).", "Look straight at the sketch": "Turn the view to face the sketch plane squarely.",
 };
 
 export function barItems(ctx) {
@@ -56,19 +56,20 @@ export function barItems(ctx) {
     // The bar follows what is picked (`in_056`): lines, corners or circles picked -> only what can be done with them; a whole closed shape -> extrude, dimension, delete;
     // nothing picked, or a drawing tool in use -> the sketching tools. Drawing tools never show while something is picked.
     const del = item("act:delete", "Delete", "delete");
+    const look = ctx.faceOn ? [] : [item("act:faceOn", "Look straight at the sketch", "faceOn")]; // you can sketch from any angle; this squares the view up
     if (ctx.tool === "select" && ctx.pickParts) {
       groups.push({ id: "constraints", items: ctx.offers.map((o, i) => item(`cons:${i}`, o.label, CONS_KEY[o.label], { enabled: o.enabled, reason: o.reason, active: !!o.active })) });
-      groups.push({ id: "edit", items: [del, ...edit.items] });
+      groups.push({ id: "edit", items: [del, ...edit.items, ...look] });
       return groups;
     }
     if (ctx.tool === "select" && ctx.pickShape) {
       groups.push({ id: "shape", items: [...(ctx.pickShapeClosed && !ctx.editingStepSketch ? [item("tool:extrude", "Extrude", "extrude")] : []), item("tool:dimension", "Dimension", "dimension"), del] });
-      groups.push({ id: "edit", items: edit.items });
+      groups.push({ id: "edit", items: [...edit.items, ...look] });
       return groups;
     }
     const tools = [["select", "Select"], ["line", "Line"], ["rect", "Rectangle"], ["circle", "Circle"], ["dimension", "Dimension"]];
     groups.push({ id: "tools", items: tools.map(([t, label]) => item(`tool:${t}`, label, t, { active: ctx.tool === t, enabled: !(ctx.editingStepSketch && ["line", "rect", "circle"].includes(t)), reason: ctx.editingStepSketch ? "this sketch belongs to its step: resize it with Dimension" : null })) });
-    groups.push({ id: "edit", items: [...edit.items, item("act:cancel", "3D view", "cancel")] });
+    groups.push({ id: "edit", items: [...edit.items, ...look, item("act:cancel", "Exit sketch", "cancel")] });
     return groups;
   }
 

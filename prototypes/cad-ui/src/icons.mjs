@@ -39,6 +39,7 @@ Object.assign(ICONS, {
   check: svg('<path d="M3 8.6l3.3 3.3L13 5"/>'),
   cross: svg('<path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>'),
   view3d: svg('<path d="M8 1.8l5.6 3.1v6.2L8 14.2 2.4 11.1V4.9z"/><path d="M8 8v6.2M2.4 4.9L8 8l5.6-3.1"/>'),
+  viewNormal: svg('<rect x="2.5" y="2.5" width="11" height="11" rx="1"/><path d="M8 5.2v5.6M5.2 8h5.6"/>'),
   sameHeight: svg('<circle cx="3.6" cy="8" r="1.5"/><circle cx="12.4" cy="8" r="1.5"/><path d="M5.5 8h5" stroke-dasharray="1.4 1.6"/>'),
   sameAcross: svg('<circle cx="8" cy="3.6" r="1.5"/><circle cx="8" cy="12.4" r="1.5"/><path d="M8 5.5v5" stroke-dasharray="1.4 1.6"/>'),
 });
