@@ -1470,6 +1470,7 @@ function updateConstraintUI() {
 /** Run what a bar button stands for. */
 function runBar(id) {
   const [kind, name] = id.split(":");
+  if (kind === "surf") return menuSurface ? (sel = null, applySel(), enterSketch(menuSurface, name)) : undefined; // sketch on the surface that was right-clicked
   if (kind === "tool" || kind === "act") return void ACTIONS[name]?.();
   if (kind === "cons") {
     const msg = session.applyOffer(Number(name));
@@ -1490,6 +1491,7 @@ function barContext() {
     pickShapeClosed: session.picks.some((k) => k.kind === "entity" && regionsOf(session.entities()).some((r) => r.id === k.shape)),
     editingStepSketch: !!session.editKey,
     faceOn: isFaceOn(),
+    surface: mode === "3d" && !!menuSurface,
     sel: sel ? { kind: sel.kind, round: sel.kind === "face" && sel.face?.type === "cyl" } : null,
   };
 }
@@ -1563,8 +1565,11 @@ function pickUnderPointer(x, y) {
   const t = hoverAsSel();
   if (t && t.kind !== "plane" && !(sel && t.kind === sel.kind && t.id === sel.id && t.plane === sel.plane && t.face === sel.face)) (sel = t), applySel();
 }
+let menuSurface = null; // the plane or flat face under the right-click: Line, Rectangle and Circle sketch on it
 function showMenu(x, y) {
   pickUnderPointer(x, y);
+  const tg = !selected && !extrude && !xform ? currentTarget() : null;
+  menuSurface = tg && ["plane", "face", "sketch"].includes(tg.kind) ? planeOfTarget(tg) ?? null : null;
   menuEl.replaceChildren();
   const groups = barItems(barContext()).filter((g) => g.items.length);
   groups.forEach((g, gi) => {

@@ -19,6 +19,8 @@ that a thing's constraints show only while it is selected (`in_054`, tentatively
 - Constraint marks show only for the picked line, corner or circle (or for the whole shape when the whole shape is selected).
 - A rectangle's four length dimensions are now four line lengths (there is no separate W and H).
 
+**Open lines and sketching anywhere (`in_062`, the human's words: "We should have it so that you can add lines even if they dont complete a closed sketch. We should just have it so that it needs a closed sketch to extrude. Also its not clear what enters sketch mode or not, can we have it so that you can just add sketches to any valid surface?"):** lines you have drawn stay as an open line when you stop (Esc, another tool, leaving); only a closed shape can be extruded. Right-clicking any plane or flat face offers Line, Rectangle and Circle directly on it (the same as pressing L, R or C while pointing at it), so no separate "enter sketch" step is needed. AI's reading; the sketch view itself (square-on, constraints) is still how you work once you start.
+
 ## Rationale
 
 Built-in invisible rules made a rectangle impossible to adjust or to lock explicitly (the human could not set a line horizontal or lock its right angle). Making the rules ordinary constraints makes them visible,

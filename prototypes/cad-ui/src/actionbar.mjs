@@ -76,6 +76,7 @@ export function barItems(ctx) {
   // the 3D view: actions for the selection
   const sel = ctx.sel;
   const acts = [];
+  if (ctx.surface) groups.push({ id: "sketchon", items: [["line", "Line"], ["rect", "Rectangle"], ["circle", "Circle"]].map(([t, label]) => item(`surf:${t}`, label, t, { help: "Start sketching on this surface with this tool." })) });
   if (!sel) {
     acts.push(item("act:home", "Home view", "home"), item("act:origin", "Return to origin", "origin"));
   } else if (sel.kind === "sketch") {

@@ -81,3 +81,10 @@ test("every action in every context has an icon and a help line (text is only fo
   assert.equal(keyShort("Shift+H"), "⇧H");
   assert.equal(keyShort("Ctrl+Shift+Z"), "⇧^Z");
 });
+
+test("a right-clicked plane or flat face offers Line, Rectangle and Circle on it (`in_062`)", () => {
+  const g = barItems({ ...base, surface: true });
+  assert.deepEqual(labels(g, "sketchon"), ["Line (L)", "Rectangle (R)", "Circle (C)"]);
+  assert.ok(g.find((x) => x.id === "sketchon").items.every((i) => i.id.startsWith("surf:") && hasIcon(i.icon)));
+  assert.equal(barItems(base).some((x) => x.id === "sketchon"), false);
+});

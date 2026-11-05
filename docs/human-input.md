@@ -410,3 +410,8 @@ Click behavior for world planes, and going back and forth between the 3D angle a
 Remove the bottom toolbar and work from mouse clicks: right click for operations, left click to select, selected things show what is applied to them; constraint icons expand to show an x to delete, and clicking one highlights its relationship.
 
 > Lets get rid of our tool bar at the bottom and see if we can do everything just from mouse clicks. The right click should offer operations. The left click should select. Slected things should show you what is applied to them. Lets make the little icons have it so that you can click the constraint icons and they open up in width to show a little x icon next to them to delete them, also that click should highlight the relationship. Like for example if something has a parallel constraint, then clicking it shows the line it is parallel to.
+
+## in_062 — 2026-11-05 — directive
+Allow open lines (only extruding needs a closed sketch), and make sketching less modal: add sketches to any valid surface.
+
+> We should have it so that you can add lines even if they dont complete a closed sketch. We should just have it so that it needs a closed sketch to extrude. Also its not clear what enters sketch mode or not, can we have it so that you can just add sketches to any valid surface?

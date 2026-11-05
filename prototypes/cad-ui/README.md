@@ -146,6 +146,9 @@ selection and for the number. The status line no longer repeats what the bar off
 circles picked** only what can be done with them (the constraints that fit, Delete, Undo, Redo); with a **whole closed shape picked** Extrude E, Dimension D, Delete. Drawing tools never show while something is picked. In the 3D view it follows the selection: face (Move M, Tilt R, Sketch on surface S), round face (Radius M, Taper R), line (Fillet F, Chamfer B), body
 (Move M, Rotate R, Scale K, Delete), sketch shape (Extrude E, Sketch S, Delete), nothing selected (Home H, Origin O). While an operation runs: Apply (Enter), Cancel (Esc). A button that cannot be used is greyed with the reason on hover.
 
+## Open lines, sketching anywhere (`in_062`)
+Lines you draw stay as an **open line** when you press Esc, pick another tool or leave the sketch (one lone point is dropped); only a **closed** shape can be extruded. **Right-click any plane or flat face** to get Line, Rectangle and Circle on it straight away (same as L, R or C while pointing at it).
+
 ## Constraints and sketch editing (`in_051`, `in_052`, `in_054`)
 A sketch is **corners and lines** (and circles). A **rectangle is a shortcut**: four lines with real horizontal and vertical constraints. Click a **line**: its **length** shows and you type a number to set it. A **circle's outline**: its radius.
 Shift-click a second line: if they **share a corner** their **angle** shows (type 1° to 179°; the first line stays, the second turns and keeps its length); if not, Parallel / Perpendicular / Equal length are offered. Corners: Fix in place (one),

@@ -70,7 +70,12 @@ export class SketchSession {
     this.snapInfo = null;
   }
 
+  /** Lines drawn so far stay as an open line when you stop (Esc, another tool, leaving the sketch); only extruding needs a closed shape (`in_062`). */
+  keepOpenLine() {
+    if (this.tool === "line" && this.draft && this.draft.pts.length >= 2) this.#addPoly(false);
+  }
   setTool(tool) {
+    this.keepOpenLine();
     this.draft = null;
     this.entry = null;
     this.dimEdit = null;
@@ -602,6 +607,7 @@ export class SketchSession {
       return true;
     }
     if (this.draft) {
+      this.keepOpenLine();
       this.draft = null;
       return true;
     }

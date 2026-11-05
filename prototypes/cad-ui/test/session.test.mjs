@@ -145,3 +145,26 @@ test("snapping to an existing corner within the pixel threshold; entities are pe
   assert.equal(s.entities().length, 0, "another plane has its own sketch");
   assert.equal(store.entities("XY").length, 1);
 });
+
+test("an open line is kept when you stop drawing it (Esc, or another tool); a single point is not (`in_062`)", () => {
+  const { store, s } = make();
+  s.setTool("line");
+  s.click([0, 0], SH);
+  s.click([10, 0], SH);
+  s.click([10, 8], SH);
+  assert.equal(store.entities("XY").length, 0); // still being drawn
+  s.escape();
+  const e = store.entities("XY");
+  assert.equal(e.length, 1);
+  assert.equal(e[0].closed, false);
+  assert.equal(e[0].points.length, 3);
+  s.click([30, 30], SH); // one lonely point
+  s.escape();
+  s.setTool("rect");
+  assert.equal(store.entities("XY").length, 1);
+  s.setTool("line");
+  s.click([0, 20], SH);
+  s.click([5, 20], SH);
+  s.setTool("select"); // switching tools keeps it too
+  assert.equal(store.entities("XY").length, 2);
+});
