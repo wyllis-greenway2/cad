@@ -14,6 +14,7 @@ export type Command =
   | { type: "addPart"; part: Part }
   | { type: "movePart"; ref: Ref; to: Vec3 }
   | { type: "deletePart"; ref: Ref }
+  | { type: "deleteParts"; refs: Ref[] }
   | { type: "addRelation"; relation: Relation }
   | { type: "removeRelation"; id: string }
   | { type: "setRelationValue"; id: string; value: number; locked?: boolean }
@@ -63,6 +64,19 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       const parts = Object.fromEntries(Object.entries(s.parts).filter(([k]) => !gone.has(k as Ref)));
       const relations = s.relations.filter((r) => !r.parts.some((x) => gone.has(x)));
       return ok({ ...s, parts, relations });
+    }
+    case "deleteParts": {
+      // several at once: everything built on any of them goes too (a part that an earlier one already took is not an error)
+      const gone = new Set<Ref>();
+      for (const r of c.refs) {
+        const p = s.parts[r];
+        if (!p) continue;
+        if (!p.movable) return err(`${r} is a reference and cannot be deleted`);
+        for (const d of dependentParts(s, r)) gone.add(d);
+      }
+      if (!gone.size) return err("nothing to delete");
+      const parts = Object.fromEntries(Object.entries(s.parts).filter(([k]) => !gone.has(k as Ref)));
+      return ok({ ...s, parts, relations: s.relations.filter((r) => !r.parts.some((x) => gone.has(x))) });
     }
     case "addRelation": {
       if (s.relations.some((r) => r.id === c.relation.id)) return err(`relation ${c.relation.id} already exists`);

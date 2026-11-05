@@ -33,7 +33,7 @@ export const settings = {
   },
   sketch: { snapPx: 12, roundMm: 0.01 }, // drawing: a point within this many pixels of a corner snaps to it; free points are rounded to this so sizes read 40.00
   op: { defaultSize: 1, sizeStep: 0.1, distanceStep: 0.1 }, // round and bevel start at this size (mm); the arrow keys change it by sizeStep
-  pick: { pointPx: 10, linePx: 8 }, // pointing within this many pixels of a corner / a line picks it (the prototype used 10 and 6 to 8)
+  pick: { pointPx: 10, linePx: 8, edgeWidthPx: 2.4, edgeHoverWidthPx: 1.8, vertexScale: 0.0042, vertexSelectScale: 1.25 }, // a picked line is this wide; a picked corner is a ball this big (in view distances), as in the prototype // pointing within this many pixels of a corner / a line picks it (the prototype used 10 and 6 to 8)
   orb: {
     radius: 0.025, // the hover ring's radius, in view-distances (`in_075`)
     ringPx: 1.6,
@@ -54,6 +54,7 @@ export const settings = {
   },
   panes: { opacity: 0.16, hoverOpacity: 0.38, edgeAlpha: 0.55, hoverEdgeAlpha: 1, size: 16, offset: 6, radius: 0.16 }, // the helper panes at the origin: rounded squares floating out from the axes (`in_064` to `in_070`), in mm at the home distance
   grid: { divisions: 30, minorAlpha: 0.35, majorAlpha: 0.7, color: [0.62, 0.63, 0.67] as [number, number, number] },
-  compass: { sizePx: 92, marginPx: 18, seconds: 0.7 }, // the small axes in the corner once there is a body (`in_068`)
-  light: { key: 1.7, fill: 0.12, ambient: 0.42 },
+  compass: { sizePx: 92, marginPx: 18, seconds: 0.7, buttonPx: 34, gapPx: 10 }, // the small axes in the corner once there is a body (`in_068`)
+  light: { key: 1.7, fill: 0.12, ambient: 0.42, roughness: 0.6, sheen: 0.22, sheenRoughness: 0.55, reflect: 0.3 }, // lights ride with the camera; the body has a slight clear-coat sheen and a soft studio reflected in it
+  extrude: { edgeAngleDeg: 30 }, // outline edges are drawn where faces meet at more than this angle
 };

@@ -8,7 +8,7 @@ import { attachInput } from "./platform/dom-input.ts";
 import { createRecognizer } from "./interaction/recognizer.ts";
 import { createSession, openSession, saveText, run, scene, selection } from "./interaction/session.ts";
 import type { Session } from "./interaction/session.ts";
-import { webFiles, webStore } from "./platform/web-files.ts";
+import { webFiles } from "./platform/web-files.ts";
 import { createState, reduce, advance } from "./interaction/controller.ts";
 import type { AppState } from "./interaction/controller.ts";
 import { projector } from "./interaction/camera.ts";
@@ -41,9 +41,6 @@ const bus = createBus<{ input: RawInput }>();
 const recognizer = createRecognizer();
 let state: AppState;
 let dirty = true;
-let saveTimer: ReturnType<typeof setTimeout> | null = null;
-let lastSaved: unknown = null;
-let autosave = true; // off for the demo, so trying it never overwrites your own work
 
 const SCROLL_KEY = "cad.scrollMode";
 try {
@@ -74,7 +71,6 @@ const controls = createControls(document.body, {
   look: (plane) => dispatch({ type: "look", plane }),
 });
 const env = () => ({ w: view.size().w, h: view.size().h, now: performance.now() });
-const AUTOSAVE_KEY = "cad.autosave";
 const FILE_NAME = "model.cad.json";
 function adopt(session: Session) { state = { ...createState(session), cam: state.cam }; menu.hide(); dirty = true; }
 function dispatch(i: Intent) {
@@ -104,14 +100,7 @@ async function boot() {
   await initKernelWeb();
   statusEl.textContent = "";
   let session = createSession(kernel);
-  const demo = new URLSearchParams(location.search).get("demo") === "box";
-  autosave = !demo;
-  const saved = demo ? null : webStore.get(AUTOSAVE_KEY);
-  if (saved) {
-    const r = openSession(kernel, saved);
-    if (r.ok) session = r.value;
-  }
-  if (demo) {
+  if (new URLSearchParams(location.search).get("demo") === "box") {
     const r = drawRectangle(scene(session), "w/XY" as Ref, [-20, -10, 0], [20, 10, 0], [1, 0, 0], [0, 1, 0]);
     session = run(session, r.command);
     session = run(session, { type: "addStep", step: { id: nextId(scene(session), "s"), type: "extrude", parts: r.lines, params: { depth: 20 } } });
@@ -132,12 +121,6 @@ function frame(now: number) {
   if (state.anim) { state = advance(state, now); dirty = true; }
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading) {
-    if (autosave && state.session.history !== lastSaved) {
-      lastSaved = state.session.history;
-      if (saveTimer) clearTimeout(saveTimer);
-      const h = state.session;
-      saveTimer = setTimeout(() => webStore.set(AUTOSAVE_KEY, saveText(h)), 600); // the autosave: what you were doing is back after a refresh
-    }
     const o = state.session.outcome;
     view.setScene(scene(state.session), o.kernel?.mesh ?? null);
     const sc = scene(state.session);
@@ -156,7 +139,9 @@ function frame(now: number) {
     const gp = gridPlaneOf(state);
     const grid = gp ? gridFor(state.cam, gp, view.size().w, view.size().h) : null;
     moving = view.render(state.cam, { big, panes: !hasBody, hover: state.session.hover, corner: hasBody }, grid, now);
-    controls.update(hasBody, window.innerWidth, window.innerHeight, view.compassRect(view.size().w));
+    const cr = view.cornerRect(view.size());
+    const r2 = host.getBoundingClientRect();
+    controls.update(hasBody, window.innerWidth, window.innerHeight, { cx: cr.cx + r2.left, cy: cr.cy + r2.top, size: cr.size }, settings.compass.marginPx, settings.compass.buttonPx);
     statusEl.textContent = state.session.message ?? Object.values(o.errors)[0] ?? "";
     dirty = moving; // keep drawing while the axes are moving into the compass
   }

@@ -28,18 +28,17 @@ export function createControls(host: HTMLElement, h: ControlHandlers) {
   });
 
   return {
-    /** Place the compass area and the buttons (corner mode only). `rect`: where the compass is drawn, in page pixels from the left, and its size and margin. */
-    update(corner: boolean, pageW: number, pageH: number, rect: { x: number; size: number; margin: number }) {
+    /** Place the compass click area and the buttons (corner mode only). The buttons stand at the viewport edge, the compass to their left. `c`: the compass rectangle (centre, size); `edge`/`bottom`: the margin and the button size. */
+    update(corner: boolean, pageW: number, pageH: number, c: { cx: number; cy: number; size: number }, margin: number, button: number) {
       compass.style.display = corner ? "block" : "none";
-      compass.style.left = `${rect.x}px`;
-      compass.style.top = `${pageH - rect.margin - rect.size}px`;
-      compass.style.width = compass.style.height = `${rect.size}px`;
+      compass.style.left = `${c.cx - c.size / 2}px`;
+      compass.style.top = `${c.cy - c.size / 2}px`;
+      compass.style.width = compass.style.height = `${c.size}px`;
       buttons.forEach((b, i) => {
         b.style.display = corner ? "block" : "none";
-        b.style.left = `${rect.x - 44}px`;
-        b.style.top = `${pageH - rect.margin - 3 * 38 + i * 38}px`;
+        b.style.left = `${pageW - margin - button}px`;
+        b.style.top = `${pageH - margin - 3 * 38 + 4 + i * 38}px`;
       });
-      void pageW;
     },
   };
 }

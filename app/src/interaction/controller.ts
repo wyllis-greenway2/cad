@@ -23,7 +23,6 @@ import type { Camera } from "./camera.ts";
 import { homeCamera, orbit, pan, zoomAt, lookStraight, lookAlternating, blend, easeInOut, projector, offsetOf, sideOf } from "./camera.ts";
 import { dot } from "../math/vec.ts";
 import { pivotOf, planeOf, objectOf } from "./objects.ts";
-import { BODY_OBJECT } from "../compiler/body.ts";
 import { dist } from "../math/vec.ts";
 export { pivotOf, planeOf, objectOf };
 
@@ -115,8 +114,8 @@ function commitOp(s: AppState): AppState {
   const next = run(s.session, cmd);
   if (next.message) return { ...s, session: next };
   if (s.op.kind === "dimension" || s.op.kind === "edit") return { ...s, session: next, op: null }; // a number on a relation: the selection stays, so its badge shows
-  const object = BODY_OBJECT in sceneOf(next).parts ? [BODY_OBJECT] : [];
-  return { ...s, session: { ...next, click: { ...next.click, selection: object } }, op: null };
+  // an extrude leaves nothing selected (the new body shows as itself); the other steps keep what was selected so they can go on (move, then rotate)
+  return { ...s, session: s.op.kind === "extrude" ? { ...next, click: { ...next.click, selection: [] } } : next, op: null };
 }
 
 export function reduce(s: AppState, i: Intent, env: Env): AppState {

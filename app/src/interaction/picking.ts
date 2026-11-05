@@ -9,6 +9,7 @@ import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { lookup } from "../operation/scene.ts";
+import { consumed } from "../operation/ownership.ts";
 
 export interface Candidate { ref: Ref; kind: Kind; rank: number; /** pixels (points, lines) or distance along the ray (surfaces) */ score: number }
 export interface PickOptions {
@@ -35,7 +36,8 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
   const get = lookup(scene);
   const hasBody = Object.values(scene.parts).some((p) => p.kind === "body");
   // the starter panes at the origin are for choosing a plane before there is any body; after that the compass buttons and the keys do it
-  const parts = Object.values(scene.parts).filter((p) => !(hasBody && p.origin === "world" && p.kind === "plane"));
+  const used = consumed(scene); // what an extrude has used up is neither drawn nor picked
+  const parts = Object.values(scene.parts).filter((p) => !(hasBody && p.origin === "world" && p.kind === "plane") && !used.has(p.ref));
   // surfaces first: only the nearest one counts, plus anything flush with it (a shape drawn on a face, a pane lying in a face); things behind it are hidden
   const surfaces: { p: Part; t: number }[] = [];
   for (const p of parts) {

@@ -52,3 +52,21 @@ export function deletionEffect(s: Scene, ref: Ref): { parts: Ref[]; relations: s
 
 /** Relations and steps that refer to something that is gone. */
 export const broken = (map: OwnershipMap): OwnedItem[] => [...map.items.values()].filter((i) => i.broken);
+
+/**
+ * The drawn parts an extrude has used up: its lines or circle, their corners, and the closed figure's face. They stay in the scene (undo and deleting the step bring them
+ * back, and relations on them still hold) but are not drawn or picked while the step uses them, as in the prototype.
+ */
+export function consumed(s: Scene): Set<Ref> {
+  const out = new Set<Ref>();
+  for (const st of s.steps) {
+    if (st.type !== "extrude") continue;
+    for (const r of st.parts) {
+      out.add(r);
+      const p = s.parts[r];
+      if (p) for (const a of anchorsOf(p)) out.add(a);
+    }
+  }
+  if (out.size) for (const p of Object.values(s.parts)) if (p.kind === "face" && (p.loop.some((l) => out.has(l)) || (p.disk && out.has(p.disk)))) out.add(p.ref);
+  return out;
+}

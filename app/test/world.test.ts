@@ -91,3 +91,72 @@ test("the menu button acts on the selection, whatever is under it", () => {
   assert.deepEqual(selection(st.session), [XY], "the selection did not change");
   assert.ok(st.menu!.items.some((i) => i.id === "tool:rect"));
 });
+
+import { BODY_OBJECT } from "../src/compiler/body.ts";
+import { undoLast } from "../src/interaction/session.ts";
+import { drawCircle } from "../src/operation/build.ts";
+
+const drawnParts = (st: AppState) => Object.values(scene(st.session).parts).filter((p) => p.origin === "drawn" && p.kind !== "face").length;
+const select = (st: AppState, refs: string[]): AppState => ({ ...st, session: { ...st.session, click: { ...st.session.click, selection: refs as never } } });
+
+test("delete a drawn figure: select it (its face), press Delete: the shape, its corners and its relations all go; one undo brings them back", () => {
+  let st = withBody();
+  // a second, separate figure to delete
+  const c = drawCircle(scene(st.session), XY, [60, 60, 0], 5);
+  st = { ...st, session: run(st.session, c.command) };
+  const before = drawnParts(st);
+  const disk = Object.values(scene(st.session).parts).find((p) => p.kind === "face" && p.disk)!.ref;
+  st = select(st, [disk]);
+  st = reduce(st, { type: "delete" }, env);
+  assert.equal(drawnParts(st), before - 2, "the circle and its centre");
+  st = { ...st, session: undoLast(st.session) };
+  assert.equal(drawnParts(st), before);
+});
+
+test("delete a rectangle by its face: nothing is left behind, and its relations go", () => {
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [30, 20, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  let st = createState(s);
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref;
+  st = select(st, [face]);
+  st = reduce(st, { type: "delete" }, env);
+  assert.equal(drawnParts(st), 0);
+  assert.equal(scene(st.session).relations.length, 0);
+});
+
+test("delete the body: select the object, Delete: the body goes as one step you can undo; the drawn figure it came from stays", () => {
+  let st = withBody();
+  assert.ok(st.session.outcome.kernel);
+  st = select(st, [BODY_OBJECT]);
+  const labels = (reduce(st, { type: "menu", x: 5, y: 5, button: true }, env).menu!.items).filter((i) => i.group === "action").map((i) => i.label);
+  assert.deepEqual(labels, ["Delete"]);
+  st = reduce(st, { type: "delete" }, env);
+  assert.ok(!Object.values(scene(st.session).parts).some((p) => p.kind === "body"), "no body any more");
+  assert.ok(drawnParts(st) > 0, "the rectangle is still there");
+  st = { ...st, session: undoLast(st.session) };
+  assert.ok(Object.values(scene(st.session).parts).some((p) => p.kind === "body"), "undo brings the body back");
+});
+
+test("deleting a corner together with a line on it is not an error", () => {
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [30, 20, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  let st = select(createState(s), [r.corners[0]!, r.lines[0]!]);
+  st = reduce(st, { type: "delete" }, env);
+  assert.equal(st.session.message, null);
+  assert.equal(scene(st.session).parts[r.corners[0]!], undefined);
+});
+
+import { consumed } from "../src/operation/ownership.ts";
+test("what an extrude has used up is neither drawn nor picked; undo and deleting the step bring it back", () => {
+  let st = withBody();
+  const used = consumed(scene(st.session));
+  assert.ok(used.size >= 9, "the four lines, four corners and the face");
+  assert.ok([...used].every((r) => r in scene(st.session).parts));
+  const pv = projector({ ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [15, 10, 0] }, 800, 600);
+  const [x, y] = pv.project([0, 0, 0] as Vec3); // the figure's corner
+  assert.ok(!candidatesAt(scene(st.session), pv.view(x + 1, y + 1)).some((c) => used.has(c.ref)));
+  st = { ...st, session: undoLast(st.session) };
+  assert.equal(consumed(scene(st.session)).size, 0, "without the step it is a plain figure again");
+});

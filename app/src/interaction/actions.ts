@@ -231,14 +231,27 @@ export function actionsFor(scene: Scene, selection: readonly Ref[]): Action[] {
     });
   }
 
-  // operations that apply to any selection of drawn parts
-  const drawn = sel.filter((r) => get(r)?.movable);
-  if (drawn.length) {
+  // delete: drawn parts (a closed figure goes with its corners, so nothing is left behind), or the whole body (one step, so it undoes)
+  const whole = sel.filter((r) => get(r)?.kind === "body");
+  if (whole.length) {
     out.push({
-      id: "delete", label: "Delete", group: "operation", dimensional: false, unit: null, parts: drawn,
+      id: "delete", label: "Delete", group: "operation", dimensional: false, unit: null, parts: whole,
       enabled: true, why: null, measure: () => null, spot: () => null,
-      run: () => ({ type: "batch", commands: drawn.map((ref): Command => ({ type: "deletePart", ref })) }),
+      run: () => ({ type: "addStep", step: { id: nextId(scene, "s"), type: "delete", parts: whole, params: {} } }),
     });
+  } else {
+    const drawn = sel.filter((r) => get(r)?.movable);
+    const targets = drawn.flatMap((r): Ref[] => {
+      const p = get(r);
+      return p?.kind === "face" ? p.corners : [r]; // a face's corners (a disk's centre): everything built on them goes too
+    });
+    if (targets.length) {
+      out.push({
+        id: "delete", label: "Delete", group: "operation", dimensional: false, unit: null, parts: drawn,
+        enabled: true, why: null, measure: () => null, spot: () => null,
+        run: (): Command => ({ type: "deleteParts", refs: targets }),
+      });
+    }
   }
   return out;
 }

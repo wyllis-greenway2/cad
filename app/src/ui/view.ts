@@ -1,10 +1,11 @@
 // The three.js view (`dec_clean_engine_design` section 8): it reads the scene, the selection and the camera, and draws. It never changes them.
 import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import type { Scene, Part, Ref, Vec3 } from "../interaction/api.ts";
-import { outlineOf, lookup, settings } from "../interaction/api.ts";
+import { outlineOf, lookup, settings, consumed } from "../interaction/api.ts";
 import type { Camera } from "../interaction/camera.ts";
 import { basis, position, projector } from "../interaction/camera.ts";
 import { surfaceTriangles } from "../interaction/surfaces.ts";
@@ -45,6 +46,7 @@ export function createView(host: HTMLElement) {
   const preview = new THREE.Group();
   scene3.add(content, overlay, preview);
   const world = createWorld(renderer, scene3, host);
+  const envMap = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture; // a soft studio, only reflected in the body
   let lastScene: Scene | null = null;
   let lastMesh: { vertices: Float32Array; triangles: Uint32Array } | null = null;
   let size = { w: 1, h: 1 };
@@ -101,21 +103,25 @@ export function createView(host: HTMLElement) {
     const ink = settings.theme.sketchInk;
     const axis = rgb(settings.theme.axis);
     const paneRgb = settings.theme.sheet;
+    const used = consumed(s);
     for (const p of Object.values(s.parts)) {
+      if (used.has(p.ref)) continue; // an extrude has used it up
       if (p.origin === "world") continue; // the world is drawn by ui/world.ts
       if (p.kind === "face" && p.origin === "drawn") {
         const tris = surfaceTriangles(get, p);
         if (tris) content.add(trisMesh(tris, new THREE.MeshBasicMaterial({ color: rgb(paneRgb), transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })));
         continue;
       }
-      drawOutline(p, p.origin === "body" ? settings.theme.bodyEdge : ink, get);
+      if (p.origin === "body") continue; // the body's own outline comes from its mesh
+      drawOutline(p, ink, get);
     }
     if (mesh) {
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.BufferAttribute(mesh.vertices, 3));
       g.setAttribute("normal", new THREE.BufferAttribute(mesh.normals, 3));
       g.setIndex(new THREE.BufferAttribute(mesh.triangles, 1));
-      content.add(new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: settings.theme.bodyColor, roughness: 0.6, metalness: 0, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })));
+      content.add(new THREE.LineSegments(new THREE.EdgesGeometry(g, settings.extrude.edgeAngleDeg), new THREE.LineBasicMaterial({ color: settings.theme.bodyEdge }))); // the outline, where faces meet at more than 30 degrees
+      content.add(new THREE.Mesh(g, new THREE.MeshPhysicalMaterial({ color: settings.theme.bodyColor, roughness: settings.light.roughness, metalness: 0, clearcoat: settings.light.sheen, clearcoatRoughness: settings.light.sheenRoughness, envMap, envMapIntensity: settings.light.reflect, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })));
     }
   }
   function drawOutline(p: Part, color: number, get: ReturnType<typeof lookup>) {
@@ -175,9 +181,15 @@ export function createView(host: HTMLElement) {
         return;
       }
       const o = outlineOf(get, p);
-      const w = kind === "select" ? 3.4 : 2.6;
+      const w = kind === "select" ? settings.pick.edgeWidthPx : settings.pick.edgeHoverWidthPx;
       const col = kind === "amber" ? AMBER : tealHex;
-      if (o.shape === "point") overlay.add(dot(o.at, col, kind === "select" ? 11 : 9));
+      if (o.shape === "point") {
+        const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), new THREE.MeshBasicMaterial({ color: col, depthTest: false, transparent: true, opacity: 0.95 }));
+        ball.position.set(...o.at);
+        ball.scale.setScalar(unit * settings.pick.vertexScale * (kind === "select" ? settings.pick.vertexSelectScale : 1));
+        ball.renderOrder = 5;
+        overlay.add(ball);
+      }
       else if (o.shape === "segment") overlay.add(fatLine([...o.a, ...o.b], col, w, false));
       else if (o.shape === "circle") overlay.add(fatLine(ringOf(o.center, o.radius, o.normal), col, w, false));
       else if (p.kind === "axis") overlay.add(fatLine([...p.at, ...[0, 1, 2].map((i) => p.at[i]! + p.dir[i]! * AXIS_LEN)], col, w, false));
@@ -232,5 +244,5 @@ export function createView(host: HTMLElement) {
     return animating;
   }
   resize();
-  return { setScene, setHighlight, setPreview, render, compassRect: world.compassRect, resize, size: () => size, canvas: renderer.domElement };
+  return { setScene, setHighlight, setPreview, render, cornerRect: world.cornerRect, resize, size: () => size, canvas: renderer.domElement };
 }

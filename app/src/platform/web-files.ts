@@ -1,4 +1,4 @@
-// The web implementation of files and storage (`dec_platform_web_portable`): a download for saving, a file picker for opening, and the browser's local storage for the autosave.
+// The web implementation of files and storage (`dec_platform_web_portable`): a download for saving, a file picker for opening, and the browser's local storage (used for small settings such as the scroll mode; a project is never kept there, every load starts fresh).
 // The File System Access API is not used (Safari and mobile web views lack it). A desktop or mobile wrapper provides its own version of these two services.
 export interface FileService {
   /** Offer `text` to the user as a file called `name`. */

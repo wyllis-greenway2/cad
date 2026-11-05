@@ -16,3 +16,4 @@ export { badgesFor, focusParts, suggestMeasure, anchorOf } from "./badges.ts";
 export type { Badge, Suggestion } from "./badges.ts";
 export { gridFor } from "./grid.ts";
 export type { Grid } from "./grid.ts";
+export { consumed } from "../operation/ownership.ts";

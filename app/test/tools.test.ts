@@ -161,7 +161,7 @@ test("extrude: pick a closed figure, type a distance, Enter: one step, the body 
   st = key(st, "Enter");
   assert.equal(st.op, null);
   near(volume(st), 40 * 20 * 15, 0.1);
-  assert.deepEqual(selection(st.session), [BODY_OBJECT]);
+  assert.deepEqual(selection(st.session), [], "an extrude leaves nothing selected: the new body shows as itself");
   assert.equal(scene(st.session).steps.length, 1);
   st = { ...st, session: undoLast(st.session) };
   assert.equal(st.session.outcome.kernel, null);
@@ -216,7 +216,7 @@ test("move, rotate and scale the whole body: pick the body (three clicks), an ax
   let st = top();
   st = drawBox(st, 20);
   st = { ...st, cam: homeCamera() };
-  assert.deepEqual(selection(st.session), [BODY_OBJECT]);
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [BODY_OBJECT] } } };
   st = reduce(st, { type: "begin", name: "move" }, env);
   st = reduce(st, { type: "look", plane: "Y" }, env);
   st = typeText(st, "10");

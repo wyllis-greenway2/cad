@@ -656,3 +656,8 @@ Tells the AI to go ahead with phase 8 of the clean engine (the cut over).
 Asks for the new app to look more like the old one, and asks why there is no way to set line lengths or to delete constraints like the old one.
 
 > Okay can we make it look more like the old one? Also why is there no ability for me to set line lengths, or delete the constraints like the old one?
+
+## in_111 — 2026-11-05 — directive
+Asks for the app to start fresh on every load (it was restoring the saved state), asks how to delete objects, asks for the model, lines and vertices to look like the old one, asks for the compass animation back, and says the compass buttons look good but wants them by the viewport edge in the lower right with the compass to their left.
+
+> Lets work on having it start fresh each time I load, right now it saves the mode. Can we delete objects? I dont see how to do that. Can we make the model and lines and verticies look a little like the old one? lets add the compas animation back. your compas buttons look good, lets just swap the position in the lower right corner. The buttons should be by the viewport edge, with the compass to the left of them.

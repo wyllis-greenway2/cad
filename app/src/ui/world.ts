@@ -8,11 +8,11 @@ import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import type { Ref, Vec3 } from "../interaction/api.ts";
 import { settings } from "../interaction/api.ts";
 import type { Camera } from "../interaction/camera.ts";
-import { basis, offsetOf, projector } from "../interaction/camera.ts";
+import { basis, offsetOf, projector, position, worldPerPixel } from "../interaction/camera.ts";
 import type { Grid } from "../interaction/grid.ts";
 
 const AXIS_LEN = 30; // mm: each axis stops at its arrow
-const HEAD = 2.6; // arrowhead length
+const HEAD = 3.2; // arrowhead length
 const AXES: { name: "X" | "Y" | "Z"; dir: Vec3 }[] = [{ name: "X", dir: [1, 0, 0] }, { name: "Y", dir: [0, 1, 0] }, { name: "Z", dir: [0, 0, 1] }];
 const PLANES: { ref: string; u: Vec3; v: Vec3 }[] = [{ ref: "w/XY", u: [1, 0, 0], v: [0, 1, 0] }, { ref: "w/XZ", u: [1, 0, 0], v: [0, 0, 1] }, { ref: "w/YZ", u: [0, 1, 0], v: [0, 0, 1] }];
 
@@ -90,7 +90,7 @@ export function createWorld(renderer: THREE.WebGLRenderer, scene3: THREE.Scene, 
 
   // ---- the compass in the corner ----
   const compassScene = new THREE.Scene();
-  const compassAxes = axisGroup(1, 2, 0.28, axisCol);
+  const compassAxes = axisGroup(1, 2, 0.15, axisCol);
   compassScene.add(compassAxes.group);
   lineMats.push(...compassAxes.mats);
   const compassCam = new THREE.OrthographicCamera(-1.5, 1.5, 1.5, -1.5, 0.1, 20);
@@ -122,16 +122,21 @@ export function createWorld(renderer: THREE.WebGLRenderer, scene3: THREE.Scene, 
   let lastT = 0;
   let animating = false;
   let corner = false;
+  let flyingNow = false;
+  let first = true;
 
   function update(state: WorldState, cam: Camera, size: { w: number; h: number }, nowMs: number): boolean {
     const dt = lastT ? Math.min(0.1, (nowMs - lastT) / 1000) : 0;
     lastT = nowMs;
     corner = state.corner;
     const target = state.big ? 1 : 0;
+    if (first) { k = target; first = false; } // the first frame is where it should be: nothing flies at load
     if (k !== target) k = k < target ? Math.min(target, k + dt / settings.compass.seconds) : Math.max(target, k - dt / settings.compass.seconds);
     animating = k !== target;
+    flyingNow = corner && k !== 0 && k !== 1;
     const e = k * k * (3 - 2 * k); // eased
-    big.visible = e > 0.01;
+    const flying = corner && e > 0.01 && e < 0.99; // moving between the origin and the corner: one copy of the axes flies, drawn by the compass
+    big.visible = e > 0.01 && !flying;
     panes.visible = state.panes;
     for (const f of fadeMats) f.mat.opacity = f.base * e;
     for (const [ref, m] of paneMats) {
@@ -154,11 +159,16 @@ export function createWorld(renderer: THREE.WebGLRenderer, scene3: THREE.Scene, 
     return animating;
   }
 
-  /** Draw the compass over the finished frame (call after the main render). */
-  function renderCompass(cam: Camera, size: { w: number; h: number }) {
+  /** Where the compass sits: in the lower right corner, to the left of the X Y Z buttons that stand at the viewport edge. */
+  const cornerRect = (size: { w: number; h: number }) => {
     const C = settings.compass;
+    return { cx: size.w - C.marginPx - C.buttonPx - C.gapPx - C.sizePx / 2, cy: size.h - C.marginPx - C.sizePx / 2, size: C.sizePx };
+  };
+
+  /** Draw the compass over the finished frame (call after the main render). While the axes move between the origin and the corner, the compass draws the flying copy. */
+  function renderCompass(cam: Camera, size: { w: number; h: number }) {
     const e = k * k * (3 - 2 * k);
-    const a = corner ? 0.3 + 0.7 * (1 - e) : 0; // a faint copy stays in the corner while the big axes are out
+    const a = corner ? (flyingNow ? 1 : 0.3 + 0.7 * (1 - e)) : 0; // a faint copy stays in the corner while the big axes are out
     compassAxes.group.visible = a > 0.01;
     compassAxes.mats.forEach((m) => { m.opacity = a; m.transparent = true; });
     compassAxes.group.traverse((o) => { const m = (o as THREE.Mesh).material as THREE.MeshBasicMaterial | undefined; if (m && !(m instanceof LineMaterial)) { m.transparent = true; m.opacity = a; } });
@@ -168,12 +178,24 @@ export function createWorld(renderer: THREE.WebGLRenderer, scene3: THREE.Scene, 
     compassCam.up.set(...b.up);
     compassCam.lookAt(0, 0, 0);
     compassCam.updateMatrixWorld();
-    const x = size.w - C.sizePx - C.marginPx;
-    const y = C.marginPx; // from the bottom
+    // the rectangle the compass is drawn in: the corner, or (flying) between the big axes' own place and the corner
+    let { cx, cy, size: sz } = cornerRect(size);
+    if (flyingNow) {
+      const origin = projector(cam, size.w, size.h).project([0, 0, 0]);
+      const eye = position(cam);
+      const wpp = cam.straight ? worldPerPixel(cam, size.h) : worldPerPixel({ ...cam, distance: Math.hypot(eye[0], eye[1], eye[2]) }, size.h);
+      const bigSize = (3 * AXIS_LEN) / wpp; // the compass scene shows three units across and the axes are one unit long
+      cx = origin[0] + (cx - origin[0]) * (1 - e);
+      cy = origin[1] + (cy - origin[1]) * (1 - e);
+      sz = bigSize + (sz - bigSize) * (1 - e);
+    }
+    const x = cx - sz / 2;
+    const yTop = cy - sz / 2;
     if (a > 0.01) {
+      const yGl = size.h - (yTop + sz);
       renderer.autoClear = false;
-      renderer.setViewport(x, y, C.sizePx, C.sizePx);
-      renderer.setScissor(x, y, C.sizePx, C.sizePx);
+      renderer.setViewport(x, yGl, sz, sz);
+      renderer.setScissor(Math.max(0, x), Math.max(0, yGl), Math.min(size.w, x + sz) - Math.max(0, x), Math.min(size.h, yGl + sz) - Math.max(0, yGl));
       renderer.setScissorTest(true);
       renderer.clearDepth();
       renderer.render(compassScene, compassCam);
@@ -185,8 +207,8 @@ export function createWorld(renderer: THREE.WebGLRenderer, scene3: THREE.Scene, 
       const v = new THREE.Vector3(...AXES[i]!.dir).multiplyScalar(1.2).project(compassCam);
       d.style.display = a > 0.01 ? "block" : "none";
       d.style.opacity = String(a);
-      d.style.left = `${x + ((v.x + 1) / 2) * C.sizePx}px`;
-      d.style.top = `${size.h - (y + ((v.y + 1) / 2) * C.sizePx)}px`;
+      d.style.left = `${x + ((v.x + 1) / 2) * sz}px`;
+      d.style.top = `${yTop + ((1 - v.y) / 2) * sz}px`;
     });
   }
 
@@ -196,5 +218,5 @@ export function createWorld(renderer: THREE.WebGLRenderer, scene3: THREE.Scene, 
     gridGroup.add(segs(g.minor, gridMinor), segs(g.major, gridMajor));
   }
 
-  return { update, renderCompass, setGrid, compassRect: (w: number) => ({ x: w - settings.compass.sizePx - settings.compass.marginPx, size: settings.compass.sizePx, margin: settings.compass.marginPx }) };
+  return { update, renderCompass, setGrid, cornerRect };
 }
