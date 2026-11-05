@@ -585,3 +585,8 @@ Asks for the design of the clean engine to be written.
 Asks, before proceeding, whether anything should be considered now for turning this into a real Android, Linux, Mac or Windows app one day, for example a language that could be easily converted to produce the exact same app for another operating system.
 
 > Okay before we proceed to much further, I was wondering if we ever wanted to turn this into a real android, linux, mac, or windows app, would we want to consider anything now? perhaps a language that could be easily converted to produce the exact same app for another operating system?
+
+## in_097 — 2026-11-05 — question
+Asks whether building this way means it will work the same for web but be slightly under-performing on phone or operating system because it was designed for web and runs in a wrapper.
+
+> Okay so if we build this way it will work the same for web, but will be slightly under performing on phone or operating system since it was originally designed for web and will be in a wrapper?
