@@ -523,3 +523,7 @@ Browser runs: menu with nothing picked, on a line (Horizontal/Delete/Undo...), o
 ## Handoff 049 — 2026-11-05
 **State:** `in_062`: (1) `SketchSession.keepOpenLine()` commits a line in progress (2+ points) as an open polyline on Esc, tool change; (2) right-click on a plane or flat face (3D) adds Line / Rectangle / Circle (`surf:<tool>` items in `barItems`, `menuSurface` in `main.js`) that enter the sketch on that surface with the tool. 87 tests (2 new). Browser: right-click on a plane listed the tools, Line entered the sketch square-on with the line tool, three clicks and Esc left one open 3-point poly; no console errors.
 **Not yet:** while a line is being drawn the segments are not committed until you stop; the exit-sketch route (Esc twice) keeps it via the first Esc; sketching still needs the square-on sketch view after starting (no mode-free drawing in the 3D view); a face tool on curved faces is not offered.
+
+## Handoff 050 — 2026-11-05
+**State:** `in_063`: `enterSketch` skips `goNormal` when the tool is line/rect/circle and the surface faces the camera by at least `view.drawMinFacing` (0.3). Browser: pointing at the XZ plane and pressing R kept the camera (e 0.6, a -0.79, normal false), two clicks drew a rectangle on the plane, screenshot checked, no console errors. 87 tests.
+**Not yet:** no unit test for the camera rule (it lives in main.js); snapping and typed sizes at steep angles are only approximate (`in_059` limits).

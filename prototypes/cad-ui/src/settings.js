@@ -10,6 +10,7 @@ export const settings = {
     minDistance: 3, // mm from the target; closer than this is just a blur
     maxDistance: 5000,
     transitionMs: 450, // camera move to a plane's normal view
+    drawMinFacing: 0.3, // choosing a drawing tool on a surface keeps the camera where it is, unless the surface is seen more edge-on than this (0 = edge-on, 1 = square on)
     normalToleranceRad: 0.02, // within this of the plane's normal view counts as "normal"
     clickMovePx: 4, // pointer movement below this is a click, not a drag
     nearFactor: 0.02, // camera near plane as a fraction of distance

@@ -149,6 +149,8 @@ circles picked** only what can be done with them (the constraints that fit, Dele
 ## Open lines, sketching anywhere (`in_062`)
 Lines you draw stay as an **open line** when you press Esc, pick another tool or leave the sketch (one lone point is dropped); only a **closed** shape can be extruded. **Right-click any plane or flat face** to get Line, Rectangle and Circle on it straight away (same as L, R or C while pointing at it).
 
+**Draw in 3D (`in_063`):** a drawing tool chosen on a surface does not turn the camera; you draw on the surface from where you are (`view.drawMinFacing` = how edge-on is too edge-on). N or the view button still squares up.
+
 ## Constraints and sketch editing (`in_051`, `in_052`, `in_054`)
 A sketch is **corners and lines** (and circles). A **rectangle is a shortcut**: four lines with real horizontal and vertical constraints. Click a **line**: its **length** shows and you type a number to set it. A **circle's outline**: its radius.
 Shift-click a second line: if they **share a corner** their **angle** shows (type 1° to 179°; the first line stays, the second turns and keeps its length); if not, Parallel / Perpendicular / Equal length are offered. Corners: Fix in place (one),

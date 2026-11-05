@@ -415,3 +415,8 @@ Remove the bottom toolbar and work from mouse clicks: right click for operations
 Allow open lines (only extruding needs a closed sketch), and make sketching less modal: add sketches to any valid surface.
 
 > We should have it so that you can add lines even if they dont complete a closed sketch. We should just have it so that it needs a closed sketch to extrude. Also its not clear what enters sketch mode or not, can we have it so that you can just add sketches to any valid surface?
+
+## in_063 — 2026-11-05 — approval
+Approval to draw directly on a surface in the 3D view, without the camera turning square to it.
+
+> yes, let me draw directly on a surface in 3D

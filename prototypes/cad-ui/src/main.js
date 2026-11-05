@@ -1193,7 +1193,11 @@ function enterSketch(plane, tool = "select") {
   selected = plane;
   session.setPlane(plane);
   session.setTool(tool);
-  goNormal(plane);
+  // choosing a drawing tool on a surface starts drawing right there, in 3D (`in_063`); the camera only turns if the surface is nearly edge-on
+  const drawing = ["line", "rect", "circle"].includes(tool);
+  const toCam = camera.position.clone().sub(view.target).normalize();
+  const n = planeDef(plane).n;
+  if (!drawing || Math.abs(toCam.x * n[0] + toCam.y * n[1] + toCam.z * n[2]) < V.drawMinFacing) goNormal(plane);
   setHover({ plane: null, face: null });
   updateStatus();
   markSketch();

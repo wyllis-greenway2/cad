@@ -21,6 +21,8 @@ that a thing's constraints show only while it is selected (`in_054`, tentatively
 
 **Open lines and sketching anywhere (`in_062`, the human's words: "We should have it so that you can add lines even if they dont complete a closed sketch. We should just have it so that it needs a closed sketch to extrude. Also its not clear what enters sketch mode or not, can we have it so that you can just add sketches to any valid surface?"):** lines you have drawn stay as an open line when you stop (Esc, another tool, leaving); only a closed shape can be extruded. Right-clicking any plane or flat face offers Line, Rectangle and Circle directly on it (the same as pressing L, R or C while pointing at it), so no separate "enter sketch" step is needed. AI's reading; the sketch view itself (square-on, constraints) is still how you work once you start.
 
+**Draw directly in 3D (`in_063`, the human's words: "yes, let me draw directly on a surface in 3D"):** choosing Line, Rectangle or Circle on a surface (L, R or C while pointing at it, or from the right-click menu) starts drawing right there and the camera does not turn; it turns square only if the surface is seen nearly edge-on (`view.drawMinFacing`). Choosing Select on a surface, a plain click on a world plane, and "Sketch on surface" still turn square to it.
+
 ## Rationale
 
 Built-in invisible rules made a rectangle impossible to adjust or to lock explicitly (the human could not set a line horizontal or lock its right angle). Making the rules ordinary constraints makes them visible,
