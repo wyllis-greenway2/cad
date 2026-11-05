@@ -1385,7 +1385,9 @@ function barContext() {
     mode, keys: S.input.keys, tool: session.tool, canUndo: store.canUndo(), canRedo: store.canRedo(),
     op: extrude ? { editing: !!extrude.sess.featureId } : xform ? { editing: !!xform.sess.featureId } : null,
     offers: mode === "sketch" ? session.offers() : [],
-    sketchHasSelection: !!(session.picks.length || session.pickedConstraint),
+    pickParts: !!(session.pickedConstraint || session.picks.some((k) => k.kind !== "entity")),
+    pickShape: session.picks.some((k) => k.kind === "entity"),
+    pickShapeClosed: session.picks.some((k) => k.kind === "entity" && regionsOf(session.entities()).some((r) => r.id === k.shape)),
     editingStepSketch: !!session.editKey,
     sel: sel ? { kind: sel.kind, round: sel.kind === "face" && sel.face?.type === "cyl" } : null,
   };

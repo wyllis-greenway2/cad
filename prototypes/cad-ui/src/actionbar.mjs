@@ -30,13 +30,22 @@ export function barItems(ctx) {
   }
 
   if (ctx.mode === "sketch") {
-    const tools = [["select", "Select"], ["line", "Line"], ["rect", "Rectangle"], ["circle", "Circle"], ["dimension", "Dimension"], ["extrude", "Extrude"]];
-    groups.push({ id: "tools", items: tools.map(([t, label]) => item(`tool:${t}`, label, t, { active: ctx.tool === t, enabled: !(ctx.editingStepSketch && ["line", "rect", "circle", "extrude"].includes(t)), reason: ctx.editingStepSketch ? "this sketch belongs to its step: resize it with Dimension" : null })) });
-    if (ctx.tool === "select" && ctx.offers.length) {
+    // The bar follows what is picked (`in_056`): lines, corners or circles picked -> only what can be done with them; a whole closed shape -> extrude, dimension, delete;
+    // nothing picked, or a drawing tool in use -> the sketching tools. Drawing tools never show while something is picked.
+    const del = item("act:delete", "Delete", "delete");
+    if (ctx.tool === "select" && ctx.pickParts) {
       groups.push({ id: "constraints", items: ctx.offers.map((o, i) => item(`cons:${i}`, o.label, CONS_KEY[o.label], { enabled: o.enabled, reason: o.reason, active: !!o.active })) });
+      groups.push({ id: "edit", items: [del, ...edit.items] });
+      return groups;
     }
-    const del = ctx.sketchHasSelection ? [item("act:delete", "Delete", "delete")] : [];
-    groups.push({ id: "edit", items: [...del, ...edit.items, item("act:cancel", "3D view", "cancel")] });
+    if (ctx.tool === "select" && ctx.pickShape) {
+      groups.push({ id: "shape", items: [...(ctx.pickShapeClosed && !ctx.editingStepSketch ? [item("tool:extrude", "Extrude", "extrude")] : []), item("tool:dimension", "Dimension", "dimension"), del] });
+      groups.push({ id: "edit", items: edit.items });
+      return groups;
+    }
+    const tools = [["select", "Select"], ["line", "Line"], ["rect", "Rectangle"], ["circle", "Circle"], ["dimension", "Dimension"]];
+    groups.push({ id: "tools", items: tools.map(([t, label]) => item(`tool:${t}`, label, t, { active: ctx.tool === t, enabled: !(ctx.editingStepSketch && ["line", "rect", "circle"].includes(t)), reason: ctx.editingStepSketch ? "this sketch belongs to its step: resize it with Dimension" : null })) });
+    groups.push({ id: "edit", items: [...edit.items, item("act:cancel", "3D view", "cancel")] });
     return groups;
   }
 

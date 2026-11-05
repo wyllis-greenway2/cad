@@ -487,3 +487,8 @@ marks only for the picked line, screenshots checked; regression runs (extrude a 
 **State:** `in_055` look tuning in `prototypes/cad-ui` (all in `settings.js`): blue pick lines thinner (sketch 4 to 2.2 px, hover 3 to 1.7; 3D line 4.5 to 2.4, hover 3 to 1.8; corner dots smaller); `bodyColor` 0xf9f6ee, `ambient` 0.42, `key` 1.7; `sheet` darker (0.80, 0.78, 0.72);
 gloss down and diffuse (`roughness` 0.6, `sheen` 0.22, `sheenRoughness` 0.55, `reflect` 0.3). Measured before and after on a box (top 237 to 240, left face 163 to 167, right face 147 to 160, plane 150 to 137) and checked screenshots. My first try blew the top face out to white (key 2.1
 with a lighter color), so I raised ambient instead of the key light. 82 tests pass.
+
+## Handoff 043 — 2026-11-05
+**State:** `in_056`: the action bar is now trimmed to the selection. Sketch view: nothing picked or a drawing tool in use = the sketching tools (no Extrude); lines, corners or circles picked = only their constraints, Delete, Undo, Redo; a whole closed shape picked = Extrude, Dimension, Delete;
+an open line has no Extrude. 3D view unchanged (it already followed the selection; Extrude appears for a selected closed sketch shape only; a body face offers Move, Tilt, Sketch on surface). Updated `src/actionbar.mjs`, `main.js` (`barContext`), tests (82 pass). Browser run read the bar after each selection (rectangle tool, nothing picked, a line, the whole shape,
+deselected) and a screenshot confirmed the line case; no console errors.

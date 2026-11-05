@@ -132,8 +132,8 @@ Selected and hovered blue lines are thinner (`settings.sketch.pickWidthPx`, `pic
 darker (`themes.world.sheet`), and objects less glossy but still reflective in a diffuse way (`light.roughness` 0.6, `sheen` 0.22 and `sheenRoughness` 0.55 for a broad soft highlight, `reflect` 0.3 for the studio reflection). Measured on a box: faces 3 to 13 levels lighter, the plane 13 darker.
 
 ## The context action bar (`in_054`)
-A **full-width bar at the bottom** shows what can be done now, with the **hotkey on each button**. In the sketch view: the tools (Select V, Line L, Rectangle R, Circle C, Dimension D, Extrude E; the active one lit), then the
-**constraints that fit what is picked**, then Delete, Undo, Redo and 3D view. In the 3D view it follows the selection: face (Move M, Tilt R, Sketch on surface S), round face (Radius M, Taper R), line (Fillet F, Chamfer B), body
+A **full-width bar at the bottom** shows what can be done now, with the **hotkey on each button**. **It stays trimmed to what is selected.** In the sketch view: with **nothing picked** (or a drawing tool in use) the sketching tools (Select V, Line L, Rectangle R, Circle C, Dimension D; the active one lit), Undo, Redo, 3D view; with **lines, corners or
+circles picked** only what can be done with them (the constraints that fit, Delete, Undo, Redo); with a **whole closed shape picked** Extrude E, Dimension D, Delete. Drawing tools never show while something is picked. In the 3D view it follows the selection: face (Move M, Tilt R, Sketch on surface S), round face (Radius M, Taper R), line (Fillet F, Chamfer B), body
 (Move M, Rotate R, Scale K, Delete), sketch shape (Extrude E, Sketch S, Delete), nothing selected (Home H, Origin O). While an operation runs: Apply (Enter), Cancel (Esc). A button that cannot be used is greyed with the reason on hover.
 
 ## Constraints and sketch editing (`in_051`, `in_052`, `in_054`)

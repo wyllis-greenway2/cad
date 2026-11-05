@@ -28,16 +28,28 @@ test("3D view: the bar follows the selection and shows the hotkey of each action
   assert.match(barHint(base), /double-click the body/);
 });
 
-test("sketch view: tools with the active one marked, then constraint buttons with their state and reasons", () => {
+test("sketch view: nothing picked shows the sketching tools; picking lines shows only what can be done with them", () => {
+  const sketch = { ...base, mode: "sketch", tool: "select", offers: [] };
+  const none = barItems(sketch);
+  assert.deepEqual(labels(none, "tools"), ["Select (V)", "Line (L)", "Rectangle (R)", "Circle (C)", "Dimension (D)"]);
+  assert.equal(none.find((x) => x.id === "tools").items[0].active, true);
+  assert.ok(!JSON.stringify(none).includes("Extrude")); // extrusion needs a closed shape selected
+  assert.ok(labels(none, "edit").includes("3D view (Esc)"));
+  // a line picked: only its constraints and delete; no drawing tools, no extrude, no rectangle
   const offers = [{ label: "Horizontal", enabled: true, active: true }, { label: "Vertical", enabled: false, reason: "it would shrink a line to nothing", active: false }];
-  const g = barItems({ ...base, mode: "sketch", tool: "select", offers, sketchHasSelection: true });
-  assert.deepEqual(labels(g, "tools"), ["Select (V)", "Line (L)", "Rectangle (R)", "Circle (C)", "Dimension (D)", "Extrude (E)"]);
-  assert.equal(g.find((x) => x.id === "tools").items[0].active, true);
-  const c = g.find((x) => x.id === "constraints").items;
+  const line = barItems({ ...sketch, offers, pickParts: true });
+  const flat = JSON.stringify(line);
+  assert.ok(!flat.includes("Rectangle") && !flat.includes("Extrude") && !flat.includes("Line (") && !flat.includes("Circle") && !flat.includes("3D view"));
+  const c = line.find((x) => x.id === "constraints").items;
   assert.deepEqual(c.map((i) => [i.label, i.key, i.enabled, i.active]), [["Horizontal", "Shift+H", true, true], ["Vertical", "Shift+V", false, false]]);
   assert.equal(c[1].reason, "it would shrink a line to nothing");
-  assert.ok(labels(g, "edit").includes("Delete (Del)"));
-  assert.ok(labels(g, "edit").includes("3D view (Esc)"));
+  assert.deepEqual(labels(line, "edit"), ["Delete (Del)", "Undo (Ctrl+Z)", "Redo (Ctrl+Shift+Z)"]);
+  // a whole closed shape picked: extrude, dimension, delete
+  assert.deepEqual(labels(barItems({ ...sketch, pickShape: true, pickShapeClosed: true }), "shape"), ["Extrude (E)", "Dimension (D)", "Delete (Del)"]);
+  assert.deepEqual(labels(barItems({ ...sketch, pickShape: true, pickShapeClosed: false }), "shape"), ["Dimension (D)", "Delete (Del)"]); // an open line: nothing to extrude
+  // a drawing tool in use: the tools, with it lit
+  const drawing = barItems({ ...sketch, tool: "rect" });
+  assert.equal(drawing.find((x) => x.id === "tools").items.find((i) => i.label === "Rectangle").active, true);
 });
 
 test("drawing tools are not offered while editing a step's own sketch; an operation in progress shows Apply and Cancel", () => {

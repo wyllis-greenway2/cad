@@ -380,3 +380,8 @@ Direction for a system-wide context action bar, for fixing constraints that cann
 Visual tuning: thinner blue selection, lighter faces, darker world planes, less glossy but diffusely reflective objects.
 
 > Also lets make the selected blue items smaller, they are really thick lines right now. Also lets make the object faces a little lighter, and lets make the world planes a little darker. lets make the objects a little less glossy then they currently are, so they are reflective, but in a diffused way. Can we do that?
+
+## in_056 — 2026-11-05 — directive
+Directive to keep the action bar trimmed to the current selection.
+
+> Okay the menu needs to stay trimmed and clean. if I have a line selected, then I am in the context of that line. I should see the things I can do with that line or set of selected lines. The menu shows extrusion and rectangle and all kinds of things. Extrusion should be available if I have a face selected, rectangle and other sketching options should be available if I am on the sketching plane.

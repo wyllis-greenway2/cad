@@ -14,6 +14,9 @@ A full-width bar toward the bottom of the screen presents the actions available 
 (tools, then the constraints that fit what is picked, with their state) and in the 3D view (the actions for a selected face, line, body or sketch shape, plus view and undo), and while an operation is running
 (Apply and Cancel). A button that cannot be used is greyed out and says why on hover. The hotkey on a button is read from the keymap that handles the key press, so they cannot disagree.
 
+**Trimmed to the selection (`in_056`, the human's words):** if a line is selected the bar shows only what can be done with that line or set of lines; sketching tools (rectangle, line, circle...) show only on the sketch plane with nothing picked or a drawing tool in use;
+extrusion shows when a closed shape (a face) is selected, not otherwise.
+
 Built in `prototypes/cad-ui` (`src/actionbar.mjs` pure, tests in `test/actionbar.test.mjs`).
 
 ## Rationale
