@@ -1841,9 +1841,9 @@ function updateConstraintUI() {
       if (w.icons.length) pill.appendChild(Object.assign(document.createElement("span"), { className: "sepv" }));
       const v = document.createElement("div");
       v.className = `val${w.value.editing !== null ? " act" : ""}`;
-      withTip(v, { label: w.value.kind === "length" ? "Length" : w.value.kind === "radius" ? "Radius" : "Angle", help: `Click, then type a number${w.value.locked ? ". It is locked: a new number replaces it" : ""}.` });
+      withTip(v, { label: w.value.kind === "length" ? "Length" : w.value.kind === "radius" ? "Radius" : w.value.kind === "distance" ? "Distance" : "Angle", help: `Click, then type a number${w.value.locked ? ". It is locked: a new number replaces it" : ""}.` });
       const lab = document.createElement("b");
-      lab.textContent = w.value.kind === "length" ? "LEN" : w.value.kind === "radius" ? "RAD" : "ANG";
+      lab.textContent = w.value.kind === "length" ? "LEN" : w.value.kind === "radius" ? "RAD" : w.value.kind === "distance" ? "DIST" : "ANG";
       v.append(lab, w.value.editing !== null ? w.value.editing || "_" : w.value.text);
       if (w.value.locked) v.insertAdjacentHTML("beforeend", `<span class="lock" title="${iconTitle("lock")}">${iconSvg("lock")}</span>`);
       v.onclick = () => (session.startPickEdit(), refreshUI());

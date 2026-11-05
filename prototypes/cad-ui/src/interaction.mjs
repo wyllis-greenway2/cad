@@ -247,9 +247,12 @@ export class SketchSession {
     const model = modelOf(ents);
     return this.#allOffers().map((o) => {
       if (o.blocked) return { label: o.label, enabled: false, active: false, reason: o.blocked };
+      const why = o.relation?.unavailable(model);
+      if (why) return { label: o.label, enabled: false, active: false, reason: why };
       const spec = o.make(model);
       const replace = spec.type === "anchor" ? (c) => c.type === "anchor" && c.p === spec.p : spec.type === "extDir" ? (c) => c.type === "extDir" && c.seg === spec.seg : null; // a new pin or direction for the same corner or line replaces the earlier one
-      const on = cons.find((c) => (spec.type === "anchor" || spec.type === "extDir" ? this.#sameAnchor(c, spec) : sameConstraint(c, spec)));
+      const dim = o.relation?.dimensional;
+      const on = cons.find((c) => (dim ? sameDimension(c, spec) : spec.type === "anchor" || spec.type === "extDir" ? this.#sameAnchor(c, spec) : sameConstraint(c, spec)));
       if (on) return { label: o.label, enabled: true, active: true, reason: null, id: on.id };
       const t = this.#tryWithSoft(ents, cons, spec, { newId: "c_try", watch: this.#watch(), replace, soft: o.soft ? o.soft(model) : [] });
       return { label: o.label, enabled: t.ok, active: false, reason: t.ok ? null : this.#reason(t), redundant: !!t.redundant };
@@ -261,9 +264,11 @@ export class SketchSession {
     if (!offer) return "Nothing to apply.";
     if (offer.blocked) return `That cannot be set: ${offer.blocked}.`;
     const ents = this.entities();
+    const why = offer.relation?.unavailable(modelOf(ents));
+    if (why) return `That cannot be set: ${why}.`;
     const cons = this.store.constraintsOf(this.key);
     const spec = offer.make(modelOf(ents));
-    const on = cons.find((c) => (spec.type === "anchor" || spec.type === "extDir" ? this.#sameAnchor(c, spec) : sameConstraint(c, spec)));
+    const on = cons.find((c) => (offer.relation?.dimensional ? sameDimension(c, spec) : spec.type === "anchor" || spec.type === "extDir" ? this.#sameAnchor(c, spec) : sameConstraint(c, spec)));
     if (on) return this.deleteConstraint(on.id) ? null : "Could not remove it."; // asking for what is already set turns it off
     const replace = spec.type === "anchor" ? (c) => c.type === "anchor" && c.p === spec.p : spec.type === "extDir" ? (c) => c.type === "extDir" && c.seg === spec.seg : null;
     const t = this.#tryWithSoft(ents, cons, spec, { newId: this.store.newConstraintId(), watch: this.#watch(), replace, soft: offer.soft ? offer.soft(modelOf(ents)) : [] });
@@ -286,6 +291,7 @@ export class SketchSession {
       const spec = lengthSpec(ents, v.segs[0], v.value);
       locked = !!spec && cons.some((c) => sameDimension(c, spec));
     } else if (v.kind === "radius") locked = cons.some((c) => c.type === "radius" && c.r === `${v.circle}.r`);
+    else if (v.kind === "distance") locked = cons.some((c) => sameDimension(c, v.rel.make(modelOf(ents), v.value)));
     else {
       const sp = angleSpec(ents, v.segs[0], v.segs[1], 90);
       locked = !!sp && cons.some((c) => c.type === "angle" && c.a === sp.a && ((c.b === sp.b && c.d === sp.d) || (c.b === sp.d && c.d === sp.b)));
@@ -316,6 +322,15 @@ export class SketchSession {
       spec = { type: "radius", r: `${chip.circle}.r`, value: v };
       replace = (c) => sameDimension(c, spec);
       soft = anchorsOf(ents.find((x) => x.id === chip.circle), "d");
+    } else if (chip.kind === "distance") {
+      // a distance from the table of relations: the first picked part moves, the second is the reference (`in_090`)
+      const model = modelOf(ents);
+      spec = chip.rel.make(model, v);
+      replace = (c) => sameDimension(c, spec);
+      const parts = this.picks.filter((k) => k.kind !== "entity");
+      const second = parts[1];
+      const ids = second.kind === "point" ? [second.ref] : model.segments[second.ref] ?? [];
+      soft = ids.filter((id) => model.points[id]).map((id) => ({ p: id, at: model.points[id].slice(), w: 0.5 }));
     } else {
       if (v < 1 || v > 179) return "The angle must be between 1° and 179°.";
       spec = angleSpec(ents, chip.segs[0], chip.segs[1], v);
@@ -385,7 +400,7 @@ export class SketchSession {
       parts.add(k.ref);
       if (k.kind === "seg" && model.segments[k.ref]) model.segments[k.ref].forEach((id) => parts.add(id));
     }
-    const DIM = new Set(["distance", "hdist", "vdist", "radius", "angle"]);
+    const DIM = new Set(["distance", "hdist", "vdist", "radius", "angle", "ptLineDist", "lineGap"]);
     const icons = this.store.constraintsOf(this.key)
       .filter((c) => refsOf(c).some((r) => parts.has(r) || wholeShapes.has(shapeOfRef(r))))
       .filter((c) => wholeShapes.size || !DIM.has(c.type)) // a dimension shows as the lock on the number

@@ -8,6 +8,7 @@
 //   equalLength {a, b, c, d} |ab| = |cd|                 parallel {a, b, c, d}    ab || cd      perpendicular {a, b, c, d}  ab _|_ cd
 //   radius {r, value}        scalar r = value            equalRadius {r, s}       r = s
 //   angle {a, b, c, d, value} the angle from ab to cd (signed, radians) equals value
+//   ptLineDist {p, a, b, d, side}  a corner is d from the line ab    lineGap {a, b, c, d, dist, side}  the line cd is dist from the line ab
 //   parallelDir / perpDir {a, b, dir}  the line ab is parallel / perpendicular to a fixed direction dir = [dx, dy] (a line of the body, seen on the sketch plane)
 // The solver moves everything the least it can to satisfy the constraints (Levenberg-Marquardt from the current positions).
 // Result: { status: "ok" | "conflict", points, scalars, dof, redundant: [ids], conflicts: [ids], residual, iterations }
@@ -70,6 +71,22 @@ function residualsOf(c, x, index) {
       const u = dir(c.a, c.b);
       const v = dir(c.c, c.d);
       return [((u[0] * v[0] + u[1] * v[1]) / (u[2] * v[2])) * w];
+    }
+    case "ptLineDist": {
+      // a corner's signed distance from the line ab equals d (side: +1 or -1, the side it was on when the relation was made, so it does not flip over)
+      const p = P(c.p);
+      const a = P(c.a);
+      const b = P(c.b);
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]) + 1e-12;
+      return [(c.side * (((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])) / len) - c.d) * w];
+    }
+    case "lineGap": {
+      // the gap between two parallel lines ab and cd: c and d are each dist from the line ab (which also keeps the lines parallel)
+      const a = P(c.a);
+      const b = P(c.b);
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]) + 1e-12;
+      const sd = (q) => ((b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0])) / len;
+      return [(c.side * sd(P(c.c)) - c.dist) * w, (c.side * sd(P(c.d)) - c.dist) * w]; // both ends of the second line are that far: so the lines are parallel too
     }
     case "parallelDir": {
       const u = dir(c.a, c.b); // the line ab is parallel to the fixed direction c.dir = [dx, dy] (unit)

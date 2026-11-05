@@ -560,3 +560,8 @@ Sets the rule that the first selected thing is the mover and the second selected
 Asks what the relations table is for: to make the code work without bugs, or only for the UI, since the constraint UI has not been decided yet.
 
 > is this table for the code to work non buggy or only for UI? because I haven't decided how I want the constraints UI yet.
+
+## in_092 — 2026-11-05 — approval
+Approves building the relations table, starting with distance between two corners and between two parallel lines.
+
+> yes, start with that

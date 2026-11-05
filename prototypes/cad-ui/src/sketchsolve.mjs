@@ -62,6 +62,15 @@ export function expand(c, model) {
     case "angle": return hasP(c.a) && hasP(c.b) && hasP(c.c) && hasP(c.d) ? { id: c.id, type: "angle", a: c.a, b: c.b, c: c.c, d: c.d, value: (c.deg * Math.PI) / 180 } : null;
     case "coincident": return hasP(c.a) && hasP(c.b) ? { id: c.id, type: "coincident", a: c.a, b: c.b } : null;
     case "fixed": return hasP(c.p) ? { id: c.id, type: "fixed", p: c.p, at: c.at } : null;
+    case "ptLineDist": {
+      const s = seg(c.seg);
+      return s && hasP(c.p) ? { id: c.id, type: "ptLineDist", p: c.p, a: s[0], b: s[1], d: c.d, side: c.side } : null;
+    }
+    case "lineGap": {
+      const s1 = seg(c.seg1);
+      const s2 = seg(c.seg2);
+      return s1 && s2 ? { id: c.id, type: "lineGap", a: s1[0], b: s1[1], c: s2[0], d: s2[1], dist: c.d, side: c.side } : null;
+    }
     case "extDir": return seg(c.seg) && !c.ext?.lost ? { id: c.id, type: c.perp ? "perpDir" : "parallelDir", a: seg(c.seg)[0], b: seg(c.seg)[1], dir: c.dir } : null; // a sketch line kept parallel or perpendicular to a line of the body
     case "anchor": return hasP(c.p) && !c.ext?.lost ? { id: c.id, type: "fixed", p: c.p, at: c.at } : null; // a sketch corner pinned to a corner of the body: where that corner lands on this sketch's plane (`dec_no_sketch_isolation`)
     case "radius": return hasS(c.r) ? { id: c.id, type: "radius", r: c.r, value: c.value } : null;
@@ -138,7 +147,7 @@ export function dimensionConstraint(e, key, value) {
   return null;
 }
 /** Do these two describe the same dimension (same kind, same elements), whatever their values? */
-export const sameDimension = (c, spec) => !!spec && c.type === spec.type && ["a", "b", "r", "seg"].every((k) => c[k] === spec[k]);
+export const sameDimension = (c, spec) => !!spec && c.type === spec.type && ["a", "b", "r", "seg", "p", "seg1", "seg2"].every((k) => c[k] === spec[k]);
 /** The points to keep roughly in place while a shape is resized: its first corner, its centre, or the start of the segment. */
 export function anchorsOf(e, key) {
   if (e.type === "rect") return [{ p: `${e.id}.a`, at: [e.x0, e.y0], w: 0.5 }];

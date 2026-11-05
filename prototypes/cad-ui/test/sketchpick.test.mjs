@@ -17,11 +17,12 @@ test("picking: corners first, then lines and circle outlines", () => {
 test("offers depend on what is picked", () => {
   const seg = (ref) => ({ kind: "seg", ref });
   assert.deepEqual(offersFor([seg("e_1.s0")]).map((o) => o.label), ["Horizontal", "Vertical"]);
-  assert.deepEqual(offersFor([seg("e_1.s0"), seg("e_1.s1")]).map((o) => o.label), ["Equal length", "Parallel", "Perpendicular"]);
+  assert.deepEqual(offersFor([seg("e_1.s0"), seg("e_1.s1")]).map((o) => o.label), ["Equal length", "Parallel", "Perpendicular", "Distance"]);
   assert.deepEqual(offersFor([{ kind: "point", ref: "e_1.a" }]).map((o) => o.label), ["Fix in place"]);
-  assert.deepEqual(offersFor([{ kind: "point", ref: "e_1.a" }, { kind: "point", ref: "e_2.c" }]).map((o) => o.label), ["Coincident", "Same height", "Same position across"]);
+  assert.deepEqual(offersFor([{ kind: "point", ref: "e_1.a" }, { kind: "point", ref: "e_2.c" }]).map((o) => o.label), ["Coincident", "Same height", "Same position across", "Distance"]);
   assert.deepEqual(offersFor([{ kind: "circle", ref: "a.r" }, { kind: "circle", ref: "b.r" }]).map((o) => o.label), ["Equal radius"]);
-  assert.deepEqual(offersFor([seg("e_1.s0"), { kind: "point", ref: "e_1.a" }]), []); // mixed picks: nothing
+  assert.deepEqual(offersFor([seg("e_1.s0"), { kind: "point", ref: "e_1.a" }]).map((o) => o.label), ["Distance"]); // a corner and a line: the distance from the corner to the line
+  assert.deepEqual(offersFor([seg("e_1.s0"), { kind: "circle", ref: "a.r" }]), []); // nothing is defined for a line and a circle yet
   assert.equal(offersFor([{ kind: "point", ref: "e_1.a" }])[0].make({ points: { "e_1.a": [3, 4] } }).at[1], 4);
 });
 

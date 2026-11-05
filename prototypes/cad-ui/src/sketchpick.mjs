@@ -1,4 +1,5 @@
 // Picking parts of a sketch (corners, lines, circles) and what constraints can be put on a pick. Pure (no DOM, no three.js, no kernel).
+import { relationsFor, dimensionalFor } from "./relations.mjs";
 import { modelOf, sharedVertex, angleBetween, lengthOf } from "./sketchsolve.mjs";
 
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -56,32 +57,7 @@ export function elementAt(p, entities, tol) {
 
 /** The constraints that make sense for a set of picks: [{ label, make() -> constraint without an id }]. */
 export function offersFor(picks) {
-  if (!picks.length) return [];
-  const kind = picks[0].kind;
-  if (!picks.every((k) => k.kind === kind)) return [];
-  const refs = picks.map((k) => k.ref);
-  if (kind === "seg") {
-    if (picks.length === 1) return [{ label: "Horizontal", make: () => ({ type: "horizontal", seg: refs[0] }) }, { label: "Vertical", make: () => ({ type: "vertical", seg: refs[0] }) }];
-    if (picks.length === 2) {
-      return [
-        { label: "Equal length", make: () => ({ type: "equalLength", seg1: refs[0], seg2: refs[1] }) },
-        { label: "Parallel", make: () => ({ type: "parallel", seg1: refs[0], seg2: refs[1] }) },
-        { label: "Perpendicular", make: () => ({ type: "perpendicular", seg1: refs[0], seg2: refs[1] }) },
-      ];
-    }
-  }
-  if (kind === "point") {
-    if (picks.length === 1) return [{ label: "Fix in place", make: (model) => ({ type: "fixed", p: refs[0], at: model.points[refs[0]].slice() }) }];
-    if (picks.length === 2) {
-      return [
-        { label: "Coincident", make: () => ({ type: "coincident", a: refs[0], b: refs[1] }) },
-        { label: "Same height", make: () => ({ type: "horizontal", a: refs[0], b: refs[1] }) },
-        { label: "Same position across", make: () => ({ type: "vertical", a: refs[0], b: refs[1] }) },
-      ];
-    }
-  }
-  if (kind === "circle" && picks.length === 2) return [{ label: "Equal radius", make: () => ({ type: "equalRadius", r: refs[0], s: refs[1] }) }];
-  return [];
+  return relationsFor(picks).map((r) => ({ label: r.label, relation: r, make: (model) => r.make(model) })); // the table of relations (`relations.mjs`) is the one place that says what exists for which parts
 }
 
 const SYMBOL = { angle: "∠", horizontal: "H", vertical: "V", equalLength: "=", equalRadius: "=", parallel: "∥", perpendicular: "⊥", coincident: "●", fixed: "fix" };
@@ -106,13 +82,20 @@ export function glyphsFor(entities, constraints) {
       const e = entities.find((x) => x.id === c.r.slice(0, -2));
       if (e) pos = [e.cx, e.cy];
     }
-    if (c.type === "distance" || c.type === "hdist" || c.type === "vdist") text = `${round(Math.abs(c.d))}`;
+    if (c.type === "distance" || c.type === "hdist" || c.type === "vdist" || c.type === "ptLineDist" || c.type === "lineGap") text = `${round(Math.abs(c.d))}`;
     if (c.type === "radius") text = `R${round(c.value)}`;
     if (c.type === "angle") text = `∠${round(Math.abs(c.deg))}°`;
     if (c.type === "equalRadius") text = "=";
     if (pos && text) out.push({ id: c.id, text, pos, dimension: ["distance", "hdist", "vdist", "radius"].includes(c.type) });
   }
   return out;
+}
+
+/** A chip for a distance (a dimensional relation of the table): its value now and where it goes. */
+function distanceChip(rel, m) {
+  const value = rel.measure(m);
+  const spot = rel.spot(m);
+  return { kind: "distance", value, text: String(round(value)), pos: spot.pos, normal: spot.normal, rel };
 }
 
 /**
@@ -135,6 +118,16 @@ export function valueFor(picks, entities) {
   if (live.length === 1 && live[0].kind === "circle") {
     const e = entities.find((x) => x.id === live[0].shape);
     return e ? { kind: "radius", value: e.r, text: String(round(e.r)), pos: [e.cx, e.cy], normal: [0, 0], circle: e.id } : null;
+  }
+  if (live.length === 2 && live.every((k) => k.kind === "seg") && sharedVertex(m, live[0].ref, live[1].ref) === null) {
+    // two lines that do not meet: the gap between them, when they are parallel
+    const rel = dimensionalFor(live);
+    if (rel && !rel.unavailable(m)) return distanceChip(rel, m);
+    return null;
+  }
+  if (live.length === 2 && live.some((k) => k.kind === "point")) {
+    const rel = dimensionalFor(live); // two corners, or a corner and a line: the distance
+    return rel ? distanceChip(rel, m) : null;
   }
   if (live.length === 2 && live.every((k) => k.kind === "seg")) {
     const sh = sharedVertex(m, live[0].ref, live[1].ref);

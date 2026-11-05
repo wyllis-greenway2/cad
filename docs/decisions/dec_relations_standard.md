@@ -3,7 +3,7 @@ id: dec_relations_standard
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_089, in_090
+human_input: in_089, in_090, in_092
 date: 2026-11-05
 depends_on:
   - dec_no_sketch_isolation: any part can be selected with any other, so every pair needs a defined relation
@@ -52,3 +52,10 @@ The rule for which part moves is decided (`in_090`); the rest of this entry is s
 ## Rationale
 
 A single table makes the interface predictable: the same pair of selections always offers the same relations in the same way, and there is one place to add a relation. Treating body parts as fixed virtual parts of the sketch reuses the 2D solver we have and is what the two body relations already do. Measuring first, then locking, matches the length and angle chips that exist today.
+
+## Built so far (`in_092`, "yes, start with that")
+`src/relations.mjs` is the table as pure data and functions (no UI): `ROWS`, `relationsFor(picks)`, `dimensionalFor(picks)`, `partKindOf`. It already holds every relation the sketch offered before (horizontal, vertical, fix, coincident, same height, same position across, equal length, parallel, perpendicular, equal radius), and `sketchpick.offersFor` now just asks it. New in it, each with how it is measured, made and when it is unavailable:
+- **Distance between two corners** (straight distance; `distance` constraint);
+- **Distance from a corner to a line** (perpendicular, to the infinite line the segment lies on; `ptLineDist`, with the side it was on kept so it cannot flip over);
+- **Distance between two parallel lines** (the perpendicular gap between their carriers; `lineGap`, which fixes both ends of the second line at that gap so the lines stay parallel; unavailable, with the reason, when the lines are not parallel: "make them parallel first").
+Measure then lock: the selection pill shows the current value as `DIST` and typing a number locks it (the first part picked moves, the second is the reference); the menu's "Distance" item locks the current value; the same request again unlocks it. Solver types `ptLineDist` and `lineGap`. Not yet in the table: the angle between any two lines (only the existing angle between lines that share a corner), body parts as fixed virtual parts (the body pins still use `anchor` and `extDir`), the 3D-only relations, tangent, midpoint, on-line, collinear, concentric, parts of different sketches.
