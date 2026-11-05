@@ -623,3 +623,80 @@ test("the length of a line of the body can be set like a sketch line's: the face
   near(st.session.outcome.kernel!.volume!, 30 * 20 * 20, 0.5);
   near(bbox(st).max[0]! - bbox(st).min[0]!, 30);
 });
+
+// ---- a model with a bore, a cross hole and rounded edges (found by the human, `in_136`) ----
+import { readFileSync } from "node:fs";
+import { startOp, opCommand } from "../src/interaction/operations.ts";
+import type { Op } from "../src/interaction/operations.ts";
+import { openSession } from "../src/interaction/session.ts";
+import { projector as proj, position } from "../src/interaction/camera.ts";
+import { outlineOf } from "../src/operation/part.ts";
+import { lookup } from "../src/operation/scene.ts";
+const channel = () => { const r = openSession(kernel, readFileSync(new URL("./fixtures/channel-block.cad.json", import.meta.url), "utf8")); assert.ok(r.ok); return r.value; };
+
+test("every face of the body is a part: two separate faces in one plane (an end cut in two by a hole) are both there and both selectable", () => {
+  const s = channel();
+  const mesh = s.outcome.kernel!.mesh!;
+  const inParts = Object.values(scene(s).parts).filter((p) => p.kind === "plane" && p.origin === "body").reduce((n, p) => n + ((p as { mesh?: number[] }).mesh?.length ?? 0) / 9, 0);
+  assert.equal(inParts, mesh.triangles.length / 3, "no face is left out (one used to hide another with the same plane)");
+  const ends = Object.values(scene(s).parts).filter((p) => p.kind === "plane" && p.origin === "body" && Math.abs(dot(p.at, [1, 0, 0]) - 13.5) < 1e-6);
+  assert.equal(ends.length, 2, "the end at x = 13.5 is two faces");
+  assert.equal(new Set(ends.map((p) => p.ref)).size, 2, "with two names");
+});
+
+test("a round face pushed or pulled leaves no paper-thin sheet of its old wall (the hole of the model grows clean)", () => {
+  let s = channel();
+  const cyl = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.curved)!;
+  const st = startOp(scene(s), [cyl.ref], "pushpull");
+  assert.ok(st.ok);
+  s = run(s, opCommand(scene(s), { ...(st as { op: Op }).op, value: -1.2 })!);
+  assert.deepEqual(s.outcome.errors, {});
+  const old = (s.outcome.kernel!.faces ?? []).filter((f) => f.type === "cyl" && Math.abs((f.radius as number) - 0.6851) < 0.01);
+  assert.equal(old.length, 0, "the old wall is gone");
+  const wide = (s.outcome.kernel!.faces ?? []).filter((f) => f.type === "cyl" && Math.abs((f.radius as number) - 1.8851) < 0.01);
+  assert.equal(wide.length, 1, "the hole is now 1.2 wider all round");
+});
+
+test("a line behind the body is not picked through it", () => {
+  const s = channel();
+  const sc = scene(s);
+  const get = lookup(sc);
+  const m = s.outcome.kernel!.mesh!;
+  const blocked = (o: Vec3, d: Vec3, tmax: number) => {
+    for (let i = 0; i < m.triangles.length; i += 3) {
+      const [a, b, c] = [0, 1, 2].map((k) => { const ix = m.triangles[i + k]!; return [m.vertices[ix * 3]!, m.vertices[ix * 3 + 1]!, m.vertices[ix * 3 + 2]!] as Vec3; }) as [Vec3, Vec3, Vec3];
+      const e1 = sub(b, a); const e2 = sub(c, a);
+      const p = [d[1] * e2[2] - d[2] * e2[1], d[2] * e2[0] - d[0] * e2[2], d[0] * e2[1] - d[1] * e2[0]] as Vec3;
+      const det = dot(e1, p);
+      if (Math.abs(det) < 1e-12) continue;
+      const t0 = sub(o, a);
+      const u = dot(t0, p) / det;
+      if (u < 0 || u > 1) continue;
+      const q = [t0[1] * e1[2] - t0[2] * e1[1], t0[2] * e1[0] - t0[0] * e1[2], t0[0] * e1[1] - t0[1] * e1[0]] as Vec3;
+      const v = dot(d, q) / det;
+      if (v < 0 || u + v > 1) continue;
+      const t = dot(e2, q) / det;
+      if (t > 1e-3 && t < tmax - 0.02) return true;
+    }
+    return false;
+  };
+  let bad = 0;
+  for (const az of [0.3, 1.2, 2.5, 4, 5.2]) for (const el of [0.2, 0.6, 1.1, -0.5]) {
+    const cam = { ...homeCamera(), target: [6.7, 12, 11] as Vec3, azimuth: az, elevation: el, distance: 45, straight: false };
+    const pr = proj(cam, 800, 600);
+    const eye = position(cam);
+    for (const p of Object.values(sc.parts)) {
+      if (p.kind !== "line" || p.origin !== "body") continue;
+      const o = outlineOf(get, p);
+      const q = o.shape === "segment" ? ([(o.a[0] + o.b[0]) / 2, (o.a[1] + o.b[1]) / 2, (o.a[2] + o.b[2]) / 2] as Vec3) : o.shape === "polyline" ? o.pts[Math.floor(o.pts.length / 2)]! : null;
+      if (!q) continue;
+      const [x, y] = pr.project(q);
+      const hit = candidatesAt(sc, pr.view(x, y)).find((c) => c.kind === "line");
+      if (!hit || hit.ref !== p.ref) continue;
+      const d = sub(q, eye);
+      const L = Math.hypot(...d);
+      if (blocked(eye, scale(d, 1 / L), L)) bad++;
+    }
+  }
+  assert.equal(bad, 0, "no line was picked while the body hid it");
+});

@@ -145,7 +145,8 @@ function findCylinder(shape, ref) {
     const pt = f.pointOnSurface(0.25, 0.5);
     const n = f.normalAt(pt);
     const radial = [pt.x - (ref.axis === 0 ? pt.x : ref.center[0]), pt.y - (ref.axis === 1 ? pt.y : ref.center[1]), pt.z - (ref.axis === 2 ? pt.z : ref.center[2])];
-    return { face: f, convex: n.x * radial[0] + n.y * radial[1] + n.z * radial[2] > 0 };
+    // the face's own numbers, not the rounded ones of the reference: a radius or an end that is off by a hair leaves a paper-thin sheet when the ring is cut or fused
+    return { face: f, convex: n.x * radial[0] + n.y * radial[1] + n.z * radial[2] > 0, exact: { radius: cyl.Radius(), center: l, lo: lo[ref.axis], hi: hi[ref.axis] } };
   }
   throw new Error("round face not found (the model changed since this step was made)");
 }
@@ -296,16 +297,19 @@ const OPS = {
   /** Change the radius of a full round face: material is added or removed in a ring (outside it for a post, inside it for a hole). */
   cylRadius(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;
-    const { face, convex } = findCylinder(t, op.ref);
-    const R = op.ref.radius;
+    const { convex, exact } = findCylinder(t, op.ref);
+    const R = exact.radius;
     // `delta`: how far the face moves along its own outward normal (a post grows, a hole shrinks): positive adds material either way
     const R2 = op.delta !== undefined ? (convex ? R + resolve(op.delta, ctx.params) : R - resolve(op.delta, ctx.params)) : resolve(op.radius, ctx.params);
     if (!(R2 > 1e-6)) throw new Error("the radius must be positive");
     if (Math.abs(R2 - R) < 1e-9) return { kind: "solid", shape: t };
-    const h = op.ref.hi - op.ref.lo;
-    const at = [...op.ref.center];
-    at[op.ref.axis] = op.ref.lo;
-    const ring = revolved([[Math.min(R, R2), 0], [Math.max(R, R2), 0], [Math.max(R, R2), h], [Math.min(R, R2), h]], op.ref.axis, at);
+    const h = exact.hi - exact.lo;
+    const at = [...exact.center];
+    at[op.ref.axis] = exact.lo;
+    // the ring runs from the old wall to the new one, and reaches a hair past the old wall on the side where the old wall is, so no paper-thin sheet of the old wall is left behind
+    const eps = 1e-3;
+    const [inner, outer] = R2 > R ? [R - eps, R2] : [R2, R + eps];
+    const ring = revolved([[inner, 0], [outer, 0], [outer, h], [inner, h]], op.ref.axis, at);
     const add = convex ? R2 > R : R2 < R;
     return { kind: "solid", shape: add ? t.fuse(ring) : t.cut(ring) };
   },

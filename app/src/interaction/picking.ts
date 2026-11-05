@@ -30,6 +30,13 @@ function closestOnSegment(o: Vec3, d: Vec3, a: Vec3, b: Vec3): Vec3 {
   const s = den < 1e-12 ? 0 : Math.min(1, Math.max(0, (ud * dw - dd * uw) / den));
   return add(a, scale(u, s));
 }
+/** The point of a curve that is nearest the pointer on the screen (the one to ask whether the body hides). */
+function nearestOnScreen(pts: Vec3[], pv: PointerView): Vec3 {
+  let best = pts[0]!;
+  let bd = Infinity;
+  for (const p of pts) { const [x, y] = pv.project(p); const d = Math.hypot(x - pv.x, y - pv.y); if (d < bd) { bd = d; best = p; } }
+  return best;
+}
 const ORIGIN_ORDER = { drawn: 0, body: 1, world: 2 } as const;
 
 export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = DEFAULT_PICK): Candidate[] {
@@ -73,7 +80,7 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
     if (d === null || d > (rank === 0 ? opts.pointTol : opts.lineTol)) continue;
     if (pv.ray) {
       const o = outlineOf(get, p);
-      const at = o.shape === "point" ? o.at : o.shape === "segment" ? closestOnSegment(pv.ray.o, pv.ray.d, o.a, o.b) : o.shape === "polyline" ? o.pts[Math.floor(o.pts.length / 2)]! : o.shape === "circle" ? o.center : null;
+      const at = o.shape === "point" ? o.at : o.shape === "segment" ? closestOnSegment(pv.ray.o, pv.ray.d, o.a, o.b) : o.shape === "polyline" ? nearestOnScreen(o.pts, pv) : o.shape === "circle" ? o.center : null;
       if (at && !visible(at)) continue;
     }
     out.push({ ref: p.ref, kind: p.kind, rank, score: d });

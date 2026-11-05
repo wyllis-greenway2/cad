@@ -33,8 +33,8 @@ export const ringOf = (center: Vec3, radius: number, normal: Vec3): number[] => 
   }
   return out;
 };
-export const sphereAt = (p: Vec3, radius: number, color: number): THREE.Mesh => {
-  const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.95 }));
+export const sphereAt = (p: Vec3, radius: number, color: number, depthTest = false): THREE.Mesh => {
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), new THREE.MeshBasicMaterial({ color, depthTest, transparent: true, opacity: 0.95, ...(depthTest ? { polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 } : {}) }));
   ball.position.set(...p);
   ball.scale.setScalar(radius);
   ball.renderOrder = 5;
@@ -49,7 +49,8 @@ export function createPen() {
     line(pts: number[], color: number | THREE.Color, widthPx: number, depthTest = true): Line2 {
       const geo = new LineGeometry();
       geo.setPositions(pts);
-      const mat = new LineMaterial({ color: color as number, linewidth: widthPx, depthTest, worldUnits: false });
+      // a line that is depth tested sits a little in front of the surface it lies on, so it does not flicker with it, and is hidden by whatever is nearer
+      const mat = new LineMaterial({ color: color as number, linewidth: widthPx, depthTest, worldUnits: false, ...(depthTest ? { polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 } : {}) });
       mat.resolution.set(size.w, size.h);
       mats.push(mat);
       return new Line2(geo, mat);

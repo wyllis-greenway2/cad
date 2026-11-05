@@ -17,7 +17,7 @@ export const BODY_OBJECT: Ref = bodyRef("body", "o");
 export const cornerName = (p: Vec3): Ref => bodyRef("body", `v@${key(p)}`);
 const edgeName = (a: Vec3, b: Vec3, m: Vec3): Ref => bodyRef("body", `e@${key(a)}~${key(b)}~${key(m)}`);
 const cylName = (c: { axis: number; center: Vec3; radius: number; lo: number; hi: number }): Ref => bodyRef("body", `c@${key([c.axis, ...c.center, c.radius, c.lo, c.hi])}`);
-export const faceName = (n: Vec3, d: number): Ref => bodyRef("body", `f@${key([...n, d])}`);
+export const faceName = (n: Vec3, d: number, at?: Vec3): Ref => bodyRef("body", `f@${key([...n, d])}${at ? `~${key(at)}` : ""}`);
 
 const vec = (s: string): Vec3 => s.split(",").map(Number) as unknown as Vec3;
 
@@ -29,7 +29,7 @@ export function decodeEdge(r: Ref): { a: Vec3; b: Vec3; mid: Vec3 } | null {
 
 /** The unit normal and offset of a flat face of the body, read from its name alone. */
 export function decodeFace(r: Ref): { n: Vec3; d: number } | null {
-  const m = /^b\/body\/f@([^,]+),([^,]+),([^,]+),(.+)$/.exec(r);
+  const m = /^b\/body\/f@([^,]+),([^,]+),([^,]+),([^~]+)(?:~.*)?$/.exec(r);
   return m ? { n: [Number(m[1]), Number(m[2]), Number(m[3])], d: Number(m[4]) } : null;
 }
 
@@ -51,6 +51,7 @@ export function bodyParts(result: KernelResult): Part[] {
     const straight = e.type === "LINE";
     out.push({ ...base, ref: edgeName(e.a, e.b, e.mid), kind: "line", a: corner(e.a), b: corner(e.b), ...(straight ? {} : { mid: e.mid }) });
   }
+  const flats: { n: Vec3; d: number; u: Vec3; v: Vec3; mesh: number[] }[] = [];
   for (const f of result.faces ?? []) {
     if (f.type === "cyl") {
       // a full round face along a world axis: a part you can select and push / pull (its radius changes)
@@ -90,7 +91,20 @@ export function bodyParts(result: KernelResult): Part[] {
         mesh.push(m.vertices[ix * 3]!, m.vertices[ix * 3 + 1]!, m.vertices[ix * 3 + 2]!);
       }
     }
-    out.push({ ...base, ref: faceName(n, f.d), kind: "plane", at: [n[0] * f.d, n[1] * f.d, n[2] * f.d], u, v, ...(mesh.length ? { mesh } : {}) });
+    flats.push({ n, d: f.d, u, v, mesh });
+  }
+  // two separate faces in one plane (a block's end cut in two by a hole) must not share a name, or one hides the other: the ones that share are named by where they are as well
+  const same = new Map<string, number>();
+  for (const f of flats) same.set(faceName(f.n, f.d), (same.get(faceName(f.n, f.d)) ?? 0) + 1);
+  for (const f of flats) {
+    let ref = faceName(f.n, f.d);
+    if ((same.get(ref) ?? 0) > 1 && f.mesh.length) {
+      const k = f.mesh.length / 3;
+      let [x, y, z] = [0, 0, 0];
+      for (let i = 0; i < f.mesh.length; i += 3) { x += f.mesh[i]!; y += f.mesh[i + 1]!; z += f.mesh[i + 2]!; }
+      ref = faceName(f.n, f.d, [x / k, y / k, z / k]);
+    }
+    out.push({ ...base, ref, kind: "plane", at: [f.n[0] * f.d, f.n[1] * f.d, f.n[2] * f.d], u: f.u, v: f.v, ...(f.mesh.length ? { mesh: f.mesh } : {}) });
   }
   return out;
 }
