@@ -36,6 +36,7 @@ Object.assign(ICONS, {
   undo: svg('<path d="M3 6.5h6.2a3.6 3.6 0 0 1 0 7.2H5"/><path d="M5.6 3.8L3 6.5l2.6 2.7"/>'),
   redo: svg('<path d="M13 6.5H6.8a3.6 3.6 0 0 0 0 7.2H11"/><path d="M10.4 3.8L13 6.5l-2.6 2.7"/>'),
   check: svg('<path d="M3 8.6l3.3 3.3L13 5"/>'),
+  pan: svg('<path d="M8 1.8v12.4M1.8 8h12.4M8 1.8l-1.9 1.9M8 1.8l1.9 1.9M8 14.2l-1.9-1.9M8 14.2l1.9-1.9M1.8 8l1.9-1.9M1.8 8l1.9 1.9M14.2 8l-1.9-1.9M14.2 8l-1.9 1.9"/>'),
   cross: svg('<path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>'),
   view3d: svg('<path d="M8 1.8l5.6 3.1v6.2L8 14.2 2.4 11.1V4.9z"/><path d="M8 8v6.2M2.4 4.9L8 8l5.6-3.1"/>'),
   viewNormal: svg('<rect x="2.5" y="2.5" width="11" height="11" rx="1"/><path d="M8 5.2v5.6M5.2 8h5.6"/>'),

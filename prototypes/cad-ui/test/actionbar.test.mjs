@@ -83,7 +83,7 @@ test("every action in every context has an icon and a help line (text is only fo
 
 test("the 3D menu offers the drawing tools with nothing selected or with a plane, face or sketch shape selected (`in_062`, `in_070`)", () => {
   assert.deepEqual(labels(barItems(base), "draw"), ["Line (L)", "Rectangle (R)", "Circle (C)"]);
-  assert.deepEqual(labels(barItems({ ...base, sel: { kind: "face" } }), "draw"), ["Line (L)", "Rectangle (R)", "Circle (C)"]);
+  assert.deepEqual(labels(barItems({ ...base, sel: { kind: "face" } }), "draw"), ["Line (L)", "Rectangle", "Circle (C)"]); // R tilts a selected face, so no key is shown for Rectangle there
   assert.equal(barItems({ ...base, sel: { kind: "body" } }).some((x) => x.id === "draw"), false);
   assert.ok(barItems(base).find((x) => x.id === "draw").items.every((i) => i.id.startsWith("tool:") && hasIcon(i.icon)));
 });

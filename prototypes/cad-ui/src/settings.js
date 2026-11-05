@@ -31,6 +31,7 @@ export const settings = {
       solidworks: { orbit: [{ button: 1 }], pan: [{ button: 1, ctrl: true }] },
       blender: { orbit: [{ button: 1 }], pan: [{ button: 1, shift: true }] },
     },
+    longPressMs: 450, touchSlopPx: 10, multiTapPx: 28, multiTapMs: 550, // touch: a press this long without moving is a right click; a finger must move this far to drag; taps this close count as a double or triple tap (`in_078`)
     multiClickMs: 400, multiClickPx: 6, // clicks this close in time and place count as a double or triple click (`in_070`)
     zoomToCursor: true, // zoom IN toward the point under the cursor; zoom OUT is about the view center (no runaway)
     zoomAnchorMaxFactor: 1.5, // zoom toward plane points within this many view-distances of the target; farther ones use the camera-facing plane

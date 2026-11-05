@@ -76,7 +76,7 @@ export function barItems(ctx) {
   // the 3D view: actions for the selection
   const sel = ctx.sel;
   const acts = [];
-  if (!ctx.sel || ["plane", "face", "sketch"].includes(ctx.sel.kind)) groups.push({ id: "draw", items: [["line", "Line"], ["rect", "Rectangle"], ["circle", "Circle"]].map(([tl, label]) => item(`tool:${tl}`, label, tl, { help: "Then click a plane, a face or a sketch to draw on it." })) });
+  if (!ctx.sel || ["plane", "face", "sketch"].includes(ctx.sel.kind)) groups.push({ id: "draw", items: [["line", "Line"], ["rect", "Rectangle"], ["circle", "Circle"]].map(([tl, label]) => item(`tool:${tl}`, label, tl, { help: "Then click a plane, a face or a sketch to draw on it.", ...(tl === "rect" && ctx.sel?.kind === "face" ? { key: "" } : {}) })) }); // R tilts a selected face, so no key is shown for Rectangle there
   if (!sel) {
     acts.push(item("act:home", "Home view", "home"), item("act:origin", "Return to origin", "origin"));
   } else if (sel.kind === "sketch") {

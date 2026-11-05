@@ -163,6 +163,19 @@ Lines you draw stay as an **open line** when you press Esc, pick another tool or
 **Normal.** **N** (and the N button) looks straight at the selected or sketched plane from its front; again from its back; again from its front. **X, Y, Z** (keys or buttons) select that axis's plane and look along it (+, then -, and so on). **Looking straight at a plane is always orthographic**; the faint sketch grid shows only then and fades away in 3D.
 **Sketching.** There is no sketch mode to enter or leave. Press **L, R or C** (or pick the tool from the right-click menu), then click any surface (a pane, a body face, a closed sketch): that surface's plane becomes the sketch plane, from wherever the camera is; clicking another surface while drawing moves the sketch there. With a surface already selected, the tool key starts on it at once. Lines you stop drawing stay as an open line; only a closed shape can be extruded (`in_062`). Esc lets go. Closed sketch shapes are surfaces too: you can select them, draw on them and extrude them (**moving and rotating them is not built yet**).
 
+## Controls by device (`in_077`, `in_078`; `prin_input_agnostic`)
+| | Mouse | Trackpad | Finger (phone, tablet) | Pen (when you have one) |
+|---|---|---|---|---|
+| Select | click | click or tap | tap | tip |
+| Whole object / look straight at a plane | double / triple click | double / triple tap | double / triple tap | double / triple tap |
+| Menu (the right click) | right click | two-finger click, or the **⋯ button** | **long press**, or the **⋯ button** | barrel button, or the **⋯ button** |
+| Orbit | right-drag (or Alt + left-drag, or drag on empty space) | Alt + drag, or drag on empty space | **one-finger drag** | drag on empty space |
+| **Pan** | middle-drag, Shift + right-drag, **Shift + scroll**, **Space + drag** | **two-finger scroll** (turn on "Trackpad: scroll pans" in the menu), Shift + scroll, **Space + drag** | **two-finger drag** | Space + drag, or two fingers |
+| Zoom | scroll wheel | pinch (or scroll, when scroll does not pan) | **pinch** | pinch |
+| Draw | L R C, click points | same | tap points (a drag orbits) | tap points |
+| Type a number | keyboard | keyboard | not yet (needs an on-screen number pad) | not yet |
+The menu's last item switches a trackpad's two-finger scroll between panning and zooming (kept in this browser). While an operation runs (extrude, move, rotate) a finger drag pulls it like a mouse drag; pressing a sketch point with the select tool drags the point. Pen input uses the mouse path today (no pen-specific hover or barrel handling beyond what the browser reports as a right click).
+
 ## Constraints and sketch editing (`in_051`, `in_052`, `in_054`)
 A sketch is **corners and lines** (and circles). A **rectangle is a shortcut**: four lines with real horizontal and vertical constraints. Click a **line**: its **length** shows and you type a number to set it. A **circle's outline**: its radius.
 Shift-click a second line: if they **share a corner** their **angle** shows (type 1° to 179°; the first line stays, the second turns and keeps its length); if not, Parallel / Perpendicular / Equal length are offered. Corners: Fix in place (one),

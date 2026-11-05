@@ -490,3 +490,8 @@ Asks whether it makes sense to build the modeler so it can be used on mobile or 
 Design for mouse, trackpad and phone touch from the beginning, keeping a stylus in mind, so the design does not paint itself into a corner; and asks how to preview on the phone (USB cable, or a small server to deploy to).
 
 > okay well I kind of want to think about multi device use from the beginning because I dont want to design into a corner and later find out that it is really hard to offer interactions for something on a different device. So I have a mouse, a track-pad, and a mobile phone. Lets design for all those three, and keep stylus in mind as well so our design decisions can hopefully capture all four whenever I get a stylus. So how can I preview this on my phone? I have a USB data cable I can plug into my laptop, or alternatively I could setup a real little server where we can deploy the code and I could try from whatever device
+
+## in_078 — 2026-11-05 — directive
+Clean up contradictions and bugs left from earlier work (the menu says R is rectangle but clicking it rotates); asks how to right-click on mobile, notes there is no pan on mobile, and asks how to pan on a trackpad.
+
+> okay perfect that works. Now lets clean stuff up, there are still a few contradictions and bugs from all the prior work to our current work. Like for example the menu says R is rectangle but when I click it, then it goes into rotation. Also there is no right click for mobile. How do I do that? Also there is no pan for mobile. Also how do I pan on track-pad?

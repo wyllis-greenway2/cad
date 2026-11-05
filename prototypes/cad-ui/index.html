@@ -49,6 +49,7 @@
     #compass .cbtns { position:absolute; right:16px; bottom:16px; display:flex; flex-direction:column; gap:5px; }
     #compass button { width:28px; height:28px; border-radius:50%; border:1.5px solid var(--fg,#2b2b2d); background:transparent; color:var(--fg,#2b2b2d); font:700 12px system-ui,sans-serif; cursor:pointer; padding:0; }
     #compass button:hover { background:rgba(127,127,127,.18); } #compass button.on { background:var(--fg,#2b2b2d); color:var(--bg,#fff); }
+    #menuBtn { position:fixed; right:14px; top:12px; z-index:9; width:40px; height:40px; border-radius:50%; border:1px solid #5a5f66; background:rgba(34,36,39,.9); color:#e4e6e8; font:700 20px/1 system-ui,sans-serif; cursor:pointer; padding:0; }
     #menu { position:fixed; display:none; min-width:210px; padding:5px; background:rgba(34,36,39,.97); border:1px solid #484d54; border-radius:9px; box-shadow:0 8px 24px rgba(0,0,0,.45); z-index:20; }
     #menu button { display:flex; align-items:center; gap:10px; width:100%; background:none; border:0; color:#e4e6e8; padding:6px 10px; border-radius:6px; font:13px system-ui,sans-serif; cursor:pointer; text-align:left; }
     #menu button:hover:not(:disabled) { background:#3a3e44; } #menu button:disabled { opacity:.4; cursor:default; } #menu button.on span { font-weight:700; }
@@ -66,13 +67,8 @@
   <div id="tip" style="display:none"></div>
   <div id="history"><button id="histBtn">History</button><ol id="histList"></ol></div>
   <div id="menu"></div>
+  <button id="menuBtn" title="Menu (the same as a right click, or a long press on a touch screen)" aria-label="Menu">⋯</button>
   <div id="compass"><svg id="compassSvg"></svg><div id="compassHit" title="Click: bring the axes back to the origin, or send them to the corner"></div><div class="cbtns"></div></div>
-  <div id="readout"></div>
-  <div id="dims"></div>
-  <div id="pickw" style="display:none"></div>
-  <div id="tip" style="display:none"></div>
-  <div id="history"><button id="histBtn">History</button><ol id="histList"></ol></div>
-  <div id="menu"></div>
   <span class="axl" id="lx">X</span><span class="axl" id="ly">Y</span><span class="axl" id="lz">Z</span>
   <script type="module" src="/src/main.js"></script>
 </body>

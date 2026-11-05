@@ -1252,13 +1252,13 @@ function flashMessage(text) {
 function selectionHint(t) {
   if (t.kind === "body") return "M move   R rotate   K scale";
   if (t.kind === "face") return t.face.type === "cyl" ? "M radius   R taper" : "M move   R tilt";
-  if (t.kind === "sketch") return "E extrude   S sketch on it";
-  if (t.kind === "plane") return "S sketch on it (R C L too)";
+  if (t.kind === "sketch") return "E extrude   L R C draw on it   N look straight";
+  if (t.kind === "plane") return "L R C draw on it   N look straight";
   if (t.kind === "edge") return "F fillet   B chamfer   double-click selects the whole body";
   return "double-click selects the whole body";
 }
 function updateStatus() {
-  let text = "Click selects   double-click: object   triple-click: look straight   L R C then a surface: draw   right-click: menu";
+  let text = (matchMedia("(pointer: coarse)").matches ? "Tap selects   double-tap: object   triple-tap: look straight   long-press or the ⋯ button: menu   drag: orbit   two fingers: pan and zoom" : "Click selects   double-click: object   triple-click: look straight   L R C then a surface: draw   right-click: menu");
   if (flash) text = flash;
   else if (xform) text = xform.sess.prompt();
   else if (extrude) text = `${extrude.ref ? "Move face" : `Extrude on ${extrude.plane}`}   ${extrude.sess.prompt()}`;
@@ -1401,7 +1401,7 @@ function applySel() {
   updateStatus();
   markSketch();
 }
-/** A single click selects what is on the model. A click on a world plane squares the view to it, unless it is exiting something: with a selection it deselects, and during an operation it applies it (that is handled before this). */
+/** A single click selects what is on the model (a plane, face, line, corner or sketch shape), never a whole object and never moving the camera; a click on nothing lets go. */
 function selectFromHover() {
   // planes are just planes (`in_069`): a click selects what is under the pointer (blue), or lets go when there is nothing; it never moves the camera
   sel = hoverAsSel();
@@ -1629,7 +1629,7 @@ const ACTIONS = {
       return r ? startExtrudeFromRegion(r) : setTool("extrude"); // a closed shape is selected: pull it; otherwise pick one
     }
     const t = currentTarget();
-    if (t?.kind === "face") return flashMessage("E extrudes sketch shapes. To move a face press M; to extrude from a face, S sketches on it first.");
+    if (t?.kind === "face") return flashMessage("E extrudes sketch shapes. To move a face press M; to extrude from a face, draw a shape on it first (L, R or C), then extrude that.");
     if (t?.kind === "sketch") {
       const r = regionsOf(store.entities(t.plane)).find((x) => x.id === t.id);
       return r ? startExtrudeFromRegion(r, t.plane) : undefined;
@@ -1736,6 +1736,7 @@ function updateConstraintUI() {
 /** Run what a bar button stands for. */
 function runBar(id) {
   const [kind, name] = id.split(":");
+  if (kind === "tool" && ["select", "line", "rect", "circle", "dimension"].includes(name)) return void setTool(name); // the menu item means the tool: the R key rotates a selected face, so it must not be used here
   if (kind === "tool" || kind === "act") return void ACTIONS[name]?.();
   if (kind === "cons") {
     const msg = session.applyOffer(Number(name));
@@ -1829,8 +1830,8 @@ function pickUnderPointer(x, y) {
   const t = hoverAsSel();
   if (t && t.kind !== "plane" && !(sel && t.kind === sel.kind && t.id === sel.id && t.plane === sel.plane && t.face === sel.face)) (sel = t), applySel();
 }
-function showMenu(x, y) {
-  pickUnderPointer(x, y);
+function showMenu(x, y, pick = true) {
+  if (pick) pickUnderPointer(x, y);
   menuEl.replaceChildren();
   const groups = barItems(barContext()).filter((g) => g.items.length);
   groups.forEach((g, gi) => {
@@ -1847,6 +1848,21 @@ function showMenu(x, y) {
       menuEl.appendChild(b);
     }
   });
+  menuEl.appendChild(document.createElement("hr"));
+  const nav = document.createElement("button"); // how a two-finger scroll on a trackpad behaves
+  nav.innerHTML = `${iconSvg("pan")}<span></span><kbd></kbd>`;
+  nav.querySelector("span").textContent = scrollPans ? "Trackpad: scroll pans (on)" : "Trackpad: scroll pans (off)";
+  nav.querySelector("kbd").textContent = scrollPans ? "pinch zooms" : "scroll zooms";
+  nav.title = "On a trackpad, a two-finger scroll pans the view and a pinch zooms. Off: scrolling zooms, as with a mouse wheel. Shift + scroll and Space + drag always pan.";
+  nav.addEventListener("click", () => {
+    hideMenu();
+    scrollPans = !scrollPans;
+    try {
+      localStorage.setItem("cad.scrollPans", scrollPans ? "1" : "0");
+    } catch {}
+    flashMessage(scrollPans ? "Two-finger scroll now pans; pinch zooms." : "Scrolling now zooms.");
+  });
+  menuEl.appendChild(nav);
   menuEl.style.display = "block";
   const r = menuEl.getBoundingClientRect();
   menuEl.style.left = `${Math.max(8, Math.min(x, innerWidth - r.width - 8))}px`;
@@ -1855,6 +1871,23 @@ function showMenu(x, y) {
 
 // ---------------------------------------------------------------- mouse input
 const preset = () => S.input.navPresets[S.input.navPreset];
+/** Move the view by a drag of dx, dy screen pixels (the scene follows the pointer). */
+function panBy(dx, dy) {
+  const k = (2 * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2))) / canvas.clientHeight;
+  const m = camera.matrixWorld.elements;
+  view.target.x += -m[0] * dx * k + m[4] * dy * k;
+  view.target.y += -m[1] * dx * k + m[5] * dy * k;
+  view.target.z += -m[2] * dx * k + m[6] * dy * k;
+  updateStatus();
+  markSketch();
+}
+function orbitBy(dx, dy) {
+  view.a -= dx * V.orbitRadPerPx;
+  view.e = clamp(view.e + dy * V.orbitRadPerPx, -Math.PI / 2, Math.PI / 2);
+  updateStatus();
+  markSketch();
+}
+let spaceDown = false; // Space held: a plain drag pans
 let clickCount = 0;
 let lastClickAt = 0;
 let lastClickXY = [0, 0];
@@ -1879,10 +1912,99 @@ function normalToClicked() {
 }
 let g = null; // the gesture in progress: { kind: "orbit" | "pan" | "draw" | "click", x, y, x0, y0, button, moved }
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
-canvas.addEventListener("pointerdown", (ev) => {
+// ---------------------------------------------------------------- touch (`in_078`, `prin_input_agnostic`)
+// A finger drag orbits, two fingers pan and pinch to zoom, a tap selects or places a point, a long press opens the menu (the right click). While an operation runs
+// (extrude, move...) or a sketch point is under the finger, the finger works like the mouse (drag to pull, move or drag the point). A pen and a mouse use the mouse path.
+const touches = new Map(); // pointerId -> { id, x, y }
+let tg = null; // the touch gesture: { mode: "one" | "two" | "mouse" | "done", ... }
+const touchEv = (t) => ({ clientX: t.x, clientY: t.y, button: 0, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, pointerId: t.id, pointerType: "touch", touch: true });
+function touchWantsMouse(x, y) {
+  if (extrude || xform) return true;
+  if (inSketchView() && session.tool === "select") {
+    const p = localPoint(x, y);
+    if (p) return !!elementAt(p, session.entities(), S.sketch.selectTolPx / pxPerMm(p));
+  }
+  return false;
+}
+const twoState = () => {
+  const [a, b] = [...touches.values()];
+  return { cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) };
+};
+function touchDown(ev) {
+  touches.set(ev.pointerId, { id: ev.pointerId, x: ev.clientX, y: ev.clientY });
+  try {
+    canvas.setPointerCapture(ev.pointerId);
+  } catch {}
   hideMenu();
-  canvas.setPointerCapture(ev.pointerId);
-  const nav = navAction(ev, preset());
+  if (touches.size === 1) {
+    if (touchWantsMouse(ev.clientX, ev.clientY)) {
+      tg = { mode: "mouse", id: ev.pointerId };
+      return void onPointerDown(touchEv(touches.get(ev.pointerId)));
+    }
+    tg = { mode: "one", id: ev.pointerId, x0: ev.clientX, y0: ev.clientY, x: ev.clientX, y: ev.clientY, moved: false, long: false };
+    tg.timer = setTimeout(() => {
+      if (tg && tg.mode === "one" && !tg.moved) (tg.long = true), showMenu(tg.x, tg.y); // long press = right click
+    }, S.input.longPressMs);
+  } else if (touches.size === 2 && tg && (tg.mode === "one" || tg.mode === "done")) {
+    clearTimeout(tg.timer);
+    Object.assign(tg, { mode: "two", moved: true }, twoState());
+  }
+}
+function touchMove(ev) {
+  const t = touches.get(ev.pointerId);
+  if (!t) return;
+  t.x = ev.clientX;
+  t.y = ev.clientY;
+  if (!tg) return;
+  if (tg.mode === "mouse") return void onPointerMove(touchEv(t));
+  if (tg.mode === "one") {
+    if (!tg.moved && Math.hypot(t.x - tg.x0, t.y - tg.y0) < S.input.touchSlopPx) return;
+    tg.moved = true;
+    clearTimeout(tg.timer);
+    anim = null;
+    orbitBy(t.x - tg.x, t.y - tg.y);
+    tg.x = t.x;
+    tg.y = t.y;
+  } else if (tg.mode === "two" && touches.size >= 2) {
+    const s2 = twoState();
+    anim = null;
+    panBy(s2.cx - tg.cx, s2.cy - tg.cy);
+    if (tg.d > 0 && s2.d > 0) view.dist = clamp((view.dist * tg.d) / s2.d, V.minDistance, V.maxDistance);
+    Object.assign(tg, s2);
+    updateStatus();
+    markSketch();
+  }
+}
+function touchUp(ev) {
+  const t = touches.get(ev.pointerId) ?? { id: ev.pointerId, x: ev.clientX, y: ev.clientY };
+  touches.delete(ev.pointerId);
+  if (!tg) return;
+  clearTimeout(tg.timer);
+  if (tg.mode === "mouse") (onPointerUp(touchEv(t)), (tg = null));
+  else if (tg.mode === "one" && !tg.moved && !tg.long) {
+    // a tap: hover, press and release at that spot, as a mouse click would
+    const f = touchEv(t);
+    onPointerMove(f);
+    onPointerDown(f);
+    onPointerUp(f);
+  }
+  if (!touches.size) tg = null;
+  else if (tg) tg.mode = "done"; // one finger left after a pinch: ignore it until all are lifted
+}
+function touchCancel(ev) {
+  touches.delete(ev.pointerId);
+  if (tg) clearTimeout(tg.timer);
+  if (tg?.mode === "mouse") onPointerUp(touchEv({ id: ev.pointerId, x: ev.clientX, y: ev.clientY }));
+  if (!touches.size) tg = null;
+}
+
+function onPointerDown(ev) {
+  hideMenu();
+  try {
+    canvas.setPointerCapture(ev.pointerId);
+  } catch {} // a synthesized tap has no live pointer to capture
+  const spaceNav = spaceDown && ev.button === 0 ? "pan" : null; // Space + drag pans: the way for a trackpad or a single-button device
+  const nav = spaceNav ?? navAction(ev, preset());
   const base = { x: ev.clientX, y: ev.clientY, x0: ev.clientX, y0: ev.clientY, button: ev.button, moved: false };
   if (nav) return void (g = { kind: nav, ...base });
   if (ev.button !== 0) return;
@@ -1935,8 +2057,8 @@ canvas.addEventListener("pointerdown", (ev) => {
   updateStatus();
   updateReadout();
   markSketch();
-});
-canvas.addEventListener("pointermove", (ev) => {
+}
+function onPointerMove(ev) {
   lastPointer = { x: ev.clientX, y: ev.clientY };
   pointerSeen = true;
   if (g && g.kind === "skdrag") {
@@ -1981,18 +2103,8 @@ canvas.addEventListener("pointermove", (ev) => {
     const dy = ev.clientY - g.y;
     g.x = ev.clientX;
     g.y = ev.clientY;
-    if (g.kind === "pan") {
-      const k = (2 * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2))) / canvas.clientHeight;
-      const m = camera.matrixWorld.elements;
-      view.target.x += -m[0] * dx * k + m[4] * dy * k;
-      view.target.y += -m[1] * dx * k + m[5] * dy * k;
-      view.target.z += -m[2] * dx * k + m[6] * dy * k;
-    } else {
-      view.a -= dx * V.orbitRadPerPx;
-      view.e = clamp(view.e + dy * V.orbitRadPerPx, -Math.PI / 2, Math.PI / 2);
-    }
-    updateStatus();
-    markSketch();
+    if (g.kind === "pan") panBy(dx, dy);
+    else orbitBy(dx, dy);
     return;
   }
   if (extrude || xform) return;
@@ -2017,8 +2129,8 @@ canvas.addEventListener("pointermove", (ev) => {
     setHover(hoverAt(ev.clientX, ev.clientY));
     requestRender(); // the orb follows the cursor even while the surface under it stays the same
   }
-});
-canvas.addEventListener("pointerup", (ev) => {
+}
+function onPointerUp(ev) {
   const was = g;
   g = null;
   if (!was) return;
@@ -2062,23 +2174,38 @@ canvas.addEventListener("pointerup", (ev) => {
     setHover(hoverAt(ev.clientX, ev.clientY));
     // one click selects (a face, line, corner, plane or sketch shape: never a whole object); two select the whole object; three look straight at the plane clicked (`in_070`)
     const now = performance.now();
-    clickCount = now - lastClickAt < S.input.multiClickMs && Math.hypot(ev.clientX - lastClickXY[0], ev.clientY - lastClickXY[1]) < S.input.multiClickPx ? clickCount + 1 : 1;
+    clickCount = now - lastClickAt < (ev.touch ? S.input.multiTapMs : S.input.multiClickMs) && Math.hypot(ev.clientX - lastClickXY[0], ev.clientY - lastClickXY[1]) < (ev.touch ? S.input.multiTapPx : S.input.multiClickPx) ? clickCount + 1 : 1;
     lastClickAt = now;
     lastClickXY = [ev.clientX, ev.clientY];
     if (clickCount === 2) return void selectObjectFromHover();
     if (clickCount >= 3) return void normalToClicked();
     selectFromHover();
   }
-});
+}
+canvas.addEventListener("pointerdown", (ev) => (ev.pointerType === "touch" ? touchDown(ev) : onPointerDown(ev)));
+canvas.addEventListener("pointermove", (ev) => (ev.pointerType === "touch" ? touchMove(ev) : onPointerMove(ev)));
+canvas.addEventListener("pointerup", (ev) => (ev.pointerType === "touch" ? touchUp(ev) : onPointerUp(ev)));
+canvas.addEventListener("pointercancel", (ev) => (ev.pointerType === "touch" ? touchCancel(ev) : onPointerUp(ev)));
 canvas.addEventListener("pointerleave", () => {
   pointerSeen = false;
   if (hovered || hoveredFace) setHover({ plane: null, face: null });
 });
 let lastWheelAt = 0;
+let scrollPans = false; // trackpad mode: a two-finger scroll pans (a pinch still zooms); off: scrolling zooms like a mouse wheel
+try {
+  scrollPans = localStorage.getItem("cad.scrollPans") === "1";
+} catch {}
 canvas.addEventListener(
   "wheel",
   (e) => {
     e.preventDefault();
+    if (!e.ctrlKey && (e.shiftKey || scrollPans)) {
+      // Shift + scroll, or (trackpad mode) a two-finger scroll: pan the view
+      const px = e.shiftKey ? e.deltaX || e.deltaY : e.deltaX;
+      const py = e.shiftKey ? 0 : e.deltaY;
+      anim = null;
+      return void panBy(-px, -py);
+    }
     const oldDist = view.dist;
     // A trackpad flick (with its inertia) or a free-spinning wheel sends hundreds of events. Limit the zoom SPEED, not just the range,
     // so a single gesture can never fling the view to the limits.
@@ -2115,6 +2242,11 @@ canvas.addEventListener(
   },
   { passive: false },
 );
+$("menuBtn").addEventListener("click", () => {
+  // the menu without a right click: for touch screens and trackpads (the same menu a right click or a long press opens)
+  const r = $("menuBtn").getBoundingClientRect();
+  showMenu(r.left, r.bottom + 6, false);
+});
 $("exitBtn").addEventListener("click", () => exitSketch(true));
 $("originBtn").addEventListener("click", () => returnToOrigin());
 addEventListener("pointerdown", (ev) => {
@@ -2129,6 +2261,7 @@ addEventListener("keydown", (e) => {
     return;
   }
   if (el instanceof HTMLElement && el !== document.body && !(el instanceof HTMLCanvasElement)) el.blur?.(); // sliders, colors and buttons never keep the keyboard
+  if (e.code === "Space" && !e.ctrlKey && !e.metaKey) return (spaceDown = true), e.preventDefault(); // hold Space and drag to pan
   // while moving, rotating or scaling a body: digits, Enter, Backspace, X Y Z (axis) and M T K (mode)
   if (xform && !e.ctrlKey && !e.metaKey) {
     if (e.key === "Enter") return e.preventDefault(), commitTransform();
@@ -2163,6 +2296,11 @@ addEventListener("keydown", (e) => {
   if (action === "cancel" || action === "undo" || action === "redo" || action === "home" || action === "origin" || action === "delete") e.preventDefault();
   ACTIONS[action]?.();
 });
+
+addEventListener("keyup", (e) => {
+  if (e.code === "Space") spaceDown = false;
+});
+addEventListener("blur", () => (spaceDown = false));
 
 // ---------------------------------------------------------------- boot
 applyTheme();
