@@ -100,7 +100,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
 
 /**
  * The operation whose handle shows up by itself for this selection, so the common things need no menu: a closed figure shows its arrow to pull it out, a flat face of the body
- * the arrow to push or pull it, lines of the body the double arrow of a fillet or chamfer, the whole body its X Y Z arrows. Null for anything else.
+ * the arrow to push or pull it, the whole body its X Y Z arrows (lines of the body offer fillet / chamfer as a bubble instead, see `modesFor`). Null for anything else.
  */
 export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
   if (!selection.length) return null;
@@ -109,7 +109,6 @@ export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
   const kind: OpKind | null =
     parts.length === 1 && drawnFace(scene, parts) ? "extrude"
     : parts.length === 1 && parts[0]!.kind === "plane" && parts[0]!.origin === "body" ? "pushpull"
-    : parts.every((p) => p.kind === "line" && p.origin === "body") ? "edge"
     : parts.length === 1 && parts[0]!.kind === "body" ? "move"
     : null;
   if (!kind) return null;

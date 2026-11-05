@@ -36,6 +36,8 @@ export interface Annotation {
   others: Ref[];
   /** polylines drawn with it: the arc of an angle, the segment a distance measures */
   lines: Vec3[][];
+  /** not a constraint: a bubble that enters this mode when clicked (an operation name) */
+  mode?: string;
 }
 
 const labelOf = (kind: string): string => ROWS.find((r) => r.id === kind)?.label ?? kind;
@@ -179,4 +181,15 @@ function measureOf(scene: Scene, selection: readonly Ref[]): Annotation | null {
 export function focusParts(scene: Scene, selection: readonly Ref[], focus: string | null): Ref[] {
   const rel = focus ? scene.relations.find((r) => r.id === focus) : undefined;
   return rel ? rel.parts.filter((p) => !selection.includes(p) && p in scene.parts) : [];
+}
+
+/** The bubbles that offer a mode for what is selected: lines of the body offer fillet / chamfer (the handle appears once you choose it). */
+export function modesFor(scene: Scene, selection: readonly Ref[]): Annotation[] {
+  const lines = selection.map((r) => scene.parts[r]);
+  if (!lines.length || !lines.every((p) => p?.kind === "line" && p.origin === "body")) return [];
+  const last = lines[lines.length - 1]!;
+  if (last.kind !== "line") return [];
+  const [a, b] = [scene.parts[last.a], scene.parts[last.b]];
+  if (!a || !b || a.kind !== "corner" || b.kind !== "corner") return [];
+  return [{ id: "mode:edge", relationId: null, kind: "edge", label: "Fillet / chamfer", at: mid(a.at, b.at), value: null, unit: null, locked: false, editable: false, readOnly: false, broken: false, open: false, others: [], lines: [], mode: "edge" }];
 }

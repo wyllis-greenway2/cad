@@ -19,7 +19,7 @@ Update it at the end of each session.
 From the human's requests and my own handoffs; each has a handoff entry that says more.
 - **Scale for a drawn figure** (a circle's radius has no command yet); **push / pull for a curved face**; a handle for several faces at once.
 - **Handles on a real phone:** touch uses the same intents as the mouse but a drag on a handle has not been tried on a device. **The kernel's memory on real phones** (Android and iPhone) is untested.
-- **Arrowhead size** on the handles looks small at some angles: the human to say the size wanted.
+- **Arrow size:** all handles now share one size (my guess); the human to tune. **Push / pull slivers** (zero-thickness planes after a face push) not reproduced in the kernel; need the exact steps.
 - **History panel** (the history exists and undoes; nothing shows it); **kernel in a worker** so a heavy model does not freeze dragging; **named stable references** for body parts (`dec_stable_references`); **curved body edges** pickable along their curve (`Line.pts`).
 - **Constraints:** relations between parts on different planes have no special placement; bubbles do not avoid overlapping geometry; the step that uses a deleted figure is reported broken but not shown; the conflict flash names constraints found by leaving each out, not a minimal set.
 - **Drawing:** press-drag-release to draw; inference lines (horizontal or vertical alignment with existing points); more than one body (one body is assumed).

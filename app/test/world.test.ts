@@ -54,13 +54,13 @@ function withBody(): AppState {
   return createState(s);
 }
 
-test("the starter panes can be picked until there is a body; after that only the compass buttons and keys choose a world plane", () => {
+test("the world panes stay as the backdrop after there is a body", () => {
   const before = createSession(kernel);
   const pv = projector({ ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [10, 10, 0] }, 800, 600).view(400, 300);
   assert.ok(candidatesAt(scene(before), pv).some((c) => c.ref === XY));
   const st = withBody();
   const pv2 = projector({ ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [-15, 10, 0] }, 800, 600).view(400, 300);
-  assert.ok(!candidatesAt(scene(st.session), pv2).some((c) => c.ref.startsWith("w/") && c.ref.length === 4));
+  assert.ok(candidatesAt(scene(st.session), pv2).some((c) => c.ref.startsWith("w/") && c.ref.length === 4), "the pane is still there to land the ring on");
 });
 
 test("with a plane selected by the compass buttons, a tool draws on it without clicking a surface", () => {

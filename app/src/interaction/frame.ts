@@ -14,7 +14,7 @@ import { gridPlaneOf } from "./control/viewing.ts";
 import { gridFor } from "./grid.ts";
 import { settings } from "../shared/settings.ts";
 import type { Grid } from "./grid.ts";
-import { annotationsFor, annotationsOf, focusParts } from "./annotations.ts";
+import { annotationsFor, annotationsOf, focusParts, modesFor } from "./annotations.ts";
 import type { Annotation } from "./annotations.ts";
 import { entryOf, previewFor } from "./entry.ts";
 import type { Entry } from "./entry.ts";
@@ -73,11 +73,11 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   return {
     scene: sc,
     mesh: outcome.kernel?.mesh ?? null,
-    highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: gizmo ? sel.filter((r) => s.session.history.scene.parts[r]?.kind !== "body") : sel, // the handles show what is being worked on: the body is not tinted while they are up
+    highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel,
     amber: focusParts(sc, sel, s.focus), red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
     preview: previewFor(sc, s.tool),
     entry: entryOf(sc, s.tool, s.op),
-    annotations: busy ? [] : withFlashed(annotationsFor(sc, sel, s.focus), sc, flash),
+    annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash), ...modesFor(sc, sel)],
     flash,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // off by default (`in_117`)
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null } : null,

@@ -115,4 +115,8 @@ test("push and pull a flat face of the body: out adds material, in cuts it (the 
   assert.deepEqual(out.errors, {});
   near(out.kernel!.volume!, 40 * 20 * 30);
   near(run(-5).kernel!.volume!, 40 * 20 * 15);
+  const through = run(-20); // all the way through the body: refused, never a body of paper-thin leftovers
+  assert.ok(Object.keys(through.errors).length > 0, "a push through the body is an error");
+  near(through.kernel!.volume!, 16000);
+  near(run(-19).kernel!.volume!, 40 * 20 * 1);
 });

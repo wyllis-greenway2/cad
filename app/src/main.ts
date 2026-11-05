@@ -33,6 +33,7 @@ const bubbles = createBubbles(document.body, {
   lock: (id) => dispatch({ type: "relation", act: "lock", id }),
   set: (id, value) => dispatch({ type: "relation", act: "set", id, value }),
   measure: (value) => dispatch({ type: "relation", act: "measure", id: null, value }),
+  mode: (name) => dispatch({ type: "begin", name: name as "edge" }),
 });
 let pointer: [number, number] = [0, 0]; // where the pointer is, for placing the number chip
 const bus = createBus<{ input: RawInput }>();

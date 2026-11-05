@@ -28,6 +28,8 @@ export interface Gizmo { handles: Handle[]; centre: Vec3 }
 export const hasGizmo = (kind: Op["kind"]): boolean => kind !== "dimension";
 const AXES: Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 const RING = 48;
+/** One size for every arrow: a double arrow reaches this far each way from its middle (times the gizmo length), a single arrow is the same overall length. */
+const HALF = 0.3;
 
 /** The direction that is "out" of an edge of the body: the two faces that meet there, added. Dragging along it makes a fillet, against it a chamfer. */
 export function edgeDirection(scene: Scene, a: Vec3, b: Vec3): Vec3 {
@@ -73,8 +75,8 @@ function bodyBox(scene: Scene): { lo: Vec3; hi: Vec3 } | null {
 export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
   const L = cam.distance * settings.gizmo.sizeOfView;
   if ((op.kind === "extrude" || op.kind === "pushpull") && op.origin && op.normal) {
-    // the arrow normal to the figure or the face: drag it out to pull, in to push
-    return { centre: op.origin, handles: [{ id: "pull", kind: "arrow", axis: null, points: [op.origin, add(op.origin, scale(op.normal, L))] }] };
+    // the arrow normal to the figure or the face, pointing both ways: drag it out to pull, in to push
+    return { centre: op.origin, handles: [{ id: "pull", kind: "double", axis: null, points: [add(op.origin, scale(op.normal, -HALF * L)), add(op.origin, scale(op.normal, HALF * L))] }] };
   }
   if (op.kind === "edge") {
     // a double arrow on each selected edge, through its middle, along the way out of the corner; the size you drag applies to all of them
@@ -86,7 +88,7 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
       if (!pa || !pb || pa.kind !== "corner" || pb.kind !== "corner") return;
       const m = scale(add(pa.at, pb.at), 0.5);
       const d = edgeDirection(scene, pa.at, pb.at);
-      handles.push({ id: `edge:${i}`, kind: "double", axis: null, points: [add(m, scale(d, -L * 0.3)), add(m, scale(d, L * 0.3))] });
+      handles.push({ id: `edge:${i}`, kind: "double", axis: null, points: [add(m, scale(d, -HALF * L)), add(m, scale(d, HALF * L))] });
     });
     return handles.length ? { centre: scale(add(handles[0]!.points[0]!, handles[0]!.points[1]!), 0.5), handles } : null;
   }
@@ -95,13 +97,13 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
     const pts = cornersOf(scene, op.parts);
     if (!pl || pl.kind !== "plane" || !pts.length) return null;
     const centre = op.kind === "rotate" ? (op.pivot ?? middle(pts)) : middle(pts);
-    if (op.kind === "move") return { centre, handles: [pl.u, pl.v].map((d, i): Handle => ({ id: `move:${"uv"[i]}`, kind: "arrow", axis: i as 0 | 1, points: [centre, add(centre, scale(d, L))] })) };
+    if (op.kind === "move") return { centre, handles: [pl.u, pl.v].map((d, i): Handle => ({ id: `move:${"uv"[i]}`, kind: "arrow", axis: i as 0 | 1, points: [centre, add(centre, scale(d, 2 * HALF * L))] })) };
     return { centre, handles: [ring("rot:n", centre, normalOfPlane(pl), L * 0.8, null), { id: "pivot", kind: "ball", axis: null, points: [centre] }] };
   }
   const box = bodyBox(scene);
   if (!box) return null;
   const centre = op.kind === "rotate" ? (op.pivot ?? bodyCentre(scene) ?? scale(add(box.lo, box.hi), 0.5)) : scale(add(box.lo, box.hi), 0.5);
-  if (op.kind === "move") return { centre, handles: AXES.map((d, i): Handle => ({ id: `move:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, L))] })) };
+  if (op.kind === "move") return { centre, handles: AXES.map((d, i): Handle => ({ id: `move:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, 2 * HALF * L))] })) };
   if (op.kind === "rotate") return { centre, handles: [...AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, centre, d, L * 0.8, i as 0 | 1 | 2)), { id: "pivot", kind: "ball", axis: null, points: [centre] }] };
   if (op.kind === "scale") return { centre, handles: [{ id: "scale", kind: "scale", axis: null, points: [centre, box.hi] }] };
   return null;

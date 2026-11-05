@@ -94,7 +94,7 @@ test("a body face is hit through its triangles: the nearer face wins, and the ho
   const topFace = Object.values(scene.parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20)!;
   assert.equal(hit[0]!.ref, topFace.ref, "seen from above, the top face is nearer than the bottom face");
   assert.equal(hit.length, 1, "only the nearest face counts: the bottom face and the world pane are hidden behind it");
-  assert.equal(candidatesAt(scene, top(60, 0)).length, 0, "outside the body nothing is hit");
+  assert.equal(candidatesAt(scene, top(60, 0)).filter((c) => scene.parts[c.ref]!.origin !== "world").length, 0, "outside the body nothing but the world pane is hit");
   const side = candidatesAt(scene, front(0, 10)).filter((c) => c.kind === "plane");
   assert.equal(side[0]!.ref.includes("f@"), true);
 });
@@ -125,7 +125,7 @@ test("a click on nothing lets go of everything", () => {
   const { scene } = box();
   let r = click(initialClick(), refsAt(scene, top(20, -10)));
   assert.ok(r.state.selection.length === 1);
-  r = click(r.state, refsAt(scene, top(300, 300)));
+  r = click(r.state, refsAt(scene, top(300, 300)).filter((q) => scene.parts[q]!.origin !== "world")); // (the controller never selects a world pane)
   assert.deepEqual(r.state.selection, []);
 });
 

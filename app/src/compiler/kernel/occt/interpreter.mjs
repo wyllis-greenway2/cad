@@ -201,6 +201,18 @@ const OPS = {
     const { n } = refPlane(op.ref);
     const dist = resolve(op.distance, ctx.params);
     const best = findFace(t, op.ref);
+    if (!Number.isFinite(dist)) throw new Error("bad distance");
+    if (Math.abs(dist) < 1e-6) return { kind: "solid", shape: t }; // nothing to push
+    if (dist < 0) {
+      // pushing in: the body must be deeper than the push, else the cut leaves paper-thin leftovers (or nothing)
+      const b = bounds(t);
+      const c = best.center;
+      let deepest = 0;
+      for (const x of [b.min[0], b.max[0]]) for (const y of [b.min[1], b.max[1]]) for (const z of [b.min[2], b.max[2]]) {
+        deepest = Math.max(deepest, -((x - c.x) * n[0] + (y - c.y) * n[1] + (z - c.z) * n[2]));
+      }
+      if (-dist >= deepest - 1e-6) throw new Error("the push goes through the body");
+    }
     const prism = basicFaceExtrusion(best, new Vector(n.map((v) => v * dist)));
     return { kind: "solid", shape: dist >= 0 ? t.fuse(prism) : t.cut(prism) };
   },

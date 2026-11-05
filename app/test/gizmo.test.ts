@@ -224,7 +224,8 @@ test("a closed figure shows the arrow to pull it out; the same arrow on a flat f
   st = select(st, [face]);
   const h = frame(st).gizmo!.handles;
   assert.deepEqual(h.map((q) => q.id), ["pull"]);
-  nearV(h[0]!.points[0]!, [20, 10, 0]);
+  nearV(scale(add(h[0]!.points[0]!, h[0]!.points[1]!), 0.5), [20, 10, 0]);
+  assert.equal(h[0]!.kind, "double", "the arrow points both ways: out to pull, in to push");
   nearV(sub(h[0]!.points[1]!, h[0]!.points[0]!).map((v, i) => (i < 2 ? Math.abs(v) : v / Math.abs(v || 1))), [0, 0, 1], 1e-6);
   const mid = scale(add(h[0]!.points[0]!, h[0]!.points[1]!), 0.5);
   st = drag(st, mid, add(mid, [0, 0, 12]));
@@ -248,10 +249,13 @@ test("a closed figure shows the arrow to pull it out; the same arrow on a flat f
 
 const typeText = (st: AppState, text: string) => [...text].reduce((a, c) => reduce(a, { type: "typed", key: c, shift: false }, env), st);
 
-test("a line of the body shows the fillet / chamfer double arrow by itself; several lines each show one, and the size dragged on any applies to all", () => {
+test("a line of the body offers a fillet / chamfer bubble, which shows the double arrow; several lines each show one, and the size dragged on any applies to all", () => {
   let st = box();
   const vertical = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "body" && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] !== (scene(st.session).parts[p.b] as { at: Vec3 }).at[2]);
   st = select(st, vertical.map((p) => p.ref));
+  assert.equal(gizmoOf(st), null, "no arrow until you choose the mode");
+  assert.deepEqual(frame(st).annotations.filter((a) => a.mode).map((a) => a.mode), ["edge"]);
+  st = reduce(st, { type: "begin", name: "edge" }, env); // what a click on the bubble does
   const g = gizmoOf(st)!;
   assert.equal(g.handles.length, 4);
   assert.ok(g.handles.every((h) => h.kind === "double"));
@@ -263,7 +267,6 @@ test("a line of the body shows the fillet / chamfer double arrow by itself; seve
   assert.deepEqual(scene(done.session).steps.at(-1)!.params, { mode: "fillet", value: 2 });
   assert.equal(scene(done.session).steps.at(-1)!.parts.length, 4, "all four edges at once");
   near(done.session.outcome.kernel!.volume!, 16000 - 4 * (1 - Math.PI / 4) * 4 * 20, 0.2);
-  assert.equal(done.op, null);
 });
 
 test("Scale has a handle: pull the ball at the corner out to make the body bigger", () => {

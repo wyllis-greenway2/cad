@@ -84,7 +84,7 @@ export function createView(host: HTMLElement) {
   /** Draw the frame. */
   function render(cam: Camera, grid: Grid | null) {
     world.setGrid(grid);
-    world.update(cam, size);
+    world.update(cam, size, content);
     const b = basis(cam);
     const eye = position(cam);
     const active = cam.straight ? ortho : persp;
