@@ -13,6 +13,7 @@ import { bumpCounter } from "./scene.ts";
 export type Command =
   | { type: "addPart"; part: Part }
   | { type: "movePart"; ref: Ref; to: Vec3 }
+  | { type: "setRadius"; ref: Ref; radius: number }
   | { type: "deletePart"; ref: Ref }
   | { type: "deleteParts"; refs: Ref[] }
   | { type: "addRelation"; relation: Relation }
@@ -55,6 +56,13 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       if (!p.movable) return err(`${c.ref} is a reference and cannot move`);
       if (p.kind !== "corner") return err("only corners move directly; move their corners");
       return ok({ ...s, parts: { ...s.parts, [c.ref]: { ...p, at: c.to } } });
+    }
+    case "setRadius": {
+      const p = s.parts[c.ref];
+      if (!p || p.kind !== "circle") return err(`${c.ref} is not a circle`);
+      if (!p.movable) return err(`${c.ref} is a reference and cannot change`);
+      if (!(c.radius > 0)) return err("the radius must be positive");
+      return ok({ ...s, parts: { ...s.parts, [c.ref]: { ...p, radius: c.radius } } });
     }
     case "deletePart": {
       const p = s.parts[c.ref];

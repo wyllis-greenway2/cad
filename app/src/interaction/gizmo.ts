@@ -83,6 +83,13 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
     const handles: Handle[] = (op.edges ?? []).map((e, i): Handle => ({ id: `edge:${i}`, kind: "double", axis: null, points: [add(e.mid, scale(e.dir, -HALF * L)), add(e.mid, scale(e.dir, HALF * L))] }));
     return handles.length ? { centre: scale(add(handles[0]!.points[0]!, handles[0]!.points[1]!), 0.5), handles } : null;
   }
+  if (op.target === "shape" && op.kind === "scale" && op.pivot) {
+    // the ball on the figure's far corner (a circle: on its rim) pulled out for bigger
+    const first = op.parts[0] ? scene.parts[op.parts[0]] : undefined;
+    const pl = op.plane ? scene.parts[op.plane] : undefined;
+    const far = first?.kind === "corner" ? first.at : first?.kind === "circle" && pl?.kind === "plane" ? add(op.pivot, scale(pl.u, first.radius)) : null;
+    return far ? { centre: op.pivot, handles: [{ id: "scale", kind: "scale", axis: null, points: [op.pivot, far] }] } : null;
+  }
   if (op.target === "shape") {
     const pl = op.plane ? scene.parts[op.plane] : undefined;
     const pts = cornersOf(scene, op.parts);

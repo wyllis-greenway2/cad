@@ -120,7 +120,15 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
   const body = parts.some((p) => p.kind === "body" || p.origin === "body");
   if (body) return { ok: true, op: { ...base, parts: [BODY_OBJECT], pivot: kind === "rotate" ? bodyCentre(scene) : null } };
   const face = drawnFace(scene, parts);
-  if (face && kind !== "scale") {
+  if (face && kind === "scale") {
+    // a drawn figure is made bigger or smaller about its middle: its corners go in or out, a circle's radius changes
+    const pl = face.plane ? get(face.plane) : undefined;
+    if (!pl || pl.kind !== "plane") return { ok: false, why: "the figure is not on a plane" };
+    const circle = face.disk ? get(face.disk) : undefined;
+    const centre = circle?.kind === "circle" ? pointOf(get, circle.center) : centroid(face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p));
+    return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.corners, target: "shape", plane: face.plane, pivot: centre } };
+  }
+  if (face) {
     const pts = face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
     return { ok: true, op: { ...base, parts: face.corners, target: "shape", plane: face.plane, axis: kind === "rotate" ? 2 : 0, pivot: kind === "rotate" ? centroid(pts) : null } };
   }
@@ -207,10 +215,29 @@ export function opCommand(scene: Scene, op: Op): Command | null {
   if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
   if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v) } } };
+  if (op.kind === "scale" && op.target === "shape") return v <= 0 ? null : scaleShapeCommand(scene, op, v);
   if (op.kind === "scale") return v <= 0 ? null : { type: "addStep", step: { id, type: "scale", parts: op.parts, params: { axis: 0, value: v } } };
   if (op.target === "shape") return v === 0 ? null : shapeCommand(scene, op, v);
   const pivot: Record<string, number> = op.kind === "rotate" && op.pivot ? { px: op.pivot[0], py: op.pivot[1], pz: op.pivot[2] } : {};
   return v === 0 ? null : { type: "addStep", step: { id, type: op.kind, parts: op.parts, params: { axis: op.axis, value: v, ...pivot } } };
+}
+
+/** Scaling a drawn figure by a factor about its middle: corners move to scaled places, a circle gets a scaled radius. What fixes a size (fixed corners, lengths, diameters) is let go, as for moving. */
+function scaleShapeCommand(scene: Scene, op: Op, f: number): Command | null {
+  const centre = op.pivot;
+  if (!centre) return null;
+  const commands: Command[] = [];
+  const held = new Set<string>(op.parts);
+  for (const ref of op.parts) {
+    const p = scene.parts[ref];
+    if (p?.kind === "corner") commands.push({ type: "movePart", ref, to: add(centre, scale(sub(p.at, centre), f)) });
+    else if (p?.kind === "circle") { commands.push({ type: "setRadius", ref, radius: Math.round(p.radius * f * 1e6) / 1e6 }); held.add(p.center); }
+  }
+  if (!commands.length) return null;
+  const sides = new Set(Object.values(scene.parts).filter((p) => p.kind === "line" && held.has(p.a) && held.has(p.b)).map((p) => p.ref));
+  const sizes = ["fixed", "length", "distance", "diameter", "equalRadius", "angle"];
+  const released = scene.relations.filter((r) => sizes.includes(r.kind) && r.parts.every((q) => held.has(q) || sides.has(q)));
+  return { type: "batch", commands: [...released.map((r): Command => ({ type: "removeRelation", id: r.id })), ...commands] };
 }
 
 /** Moving or turning a drawn figure: its corners go to their new places (one command, so one undo). The solver keeps the relations that still hold. */

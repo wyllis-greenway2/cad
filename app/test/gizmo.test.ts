@@ -473,3 +473,32 @@ test("rotation has three angles X Y Z: they show how the body is turned now, and
   const ring = gizmoOf(st)!.handles.find((h) => h.id === "rot:z")!;
   assert.ok(ring);
 });
+
+test("a drawn figure can be scaled about its middle: corners go out, a circle's radius changes", () => {
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [40, 20, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  let st: AppState = { ...createState(s), cam: homeCamera() };
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref;
+  st = select(st, [face]);
+  st = reduce(st, { type: "begin", name: "scale" }, env);
+  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.kind), ["scale"]);
+  st = reduce(st, { type: "entry", field: 0, text: "2" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  const xs = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner").map((p) => (p as { at: Vec3 }).at[0]);
+  const ys = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner").map((p) => (p as { at: Vec3 }).at[1]);
+  near(Math.max(...xs) - Math.min(...xs), 80, 0.01);
+  near(Math.max(...ys) - Math.min(...ys), 40, 0.01);
+  // a circle
+  let c = createSession(kernel);
+  const circ = drawCircle(scene(c), XY, [5, 5, 0], 10);
+  c = run(c, circ.command);
+  let cs: AppState = { ...createState(c), cam: homeCamera() };
+  cs = select(cs, [Object.values(scene(cs.session).parts).find((p) => p.kind === "face")!.ref]);
+  cs = reduce(cs, { type: "begin", name: "scale" }, env);
+  cs = reduce(cs, { type: "entry", field: 0, text: "1.5" }, env);
+  cs = reduce(cs, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(cs.session.message, null);
+  near((Object.values(scene(cs.session).parts).find((p) => p.kind === "circle") as { radius: number }).radius, 15, 1e-6);
+});

@@ -11,8 +11,8 @@ import { TEAL } from "./highlight.ts";
 export interface GizmoView { handles: Handle[]; hover: string | null; active: string | null }
 
 const cone = (tip: Vec3, dir: Vec3, unit: number, color: number): THREE.Mesh => {
-  const h = unit * 0.02;
-  const m = new THREE.Mesh(new THREE.ConeGeometry(unit * 0.0055, h, 16), new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true }));
+  const h = unit * 0.02 * settings.gizmo.headScale;
+  const m = new THREE.Mesh(new THREE.ConeGeometry(unit * 0.0055 * settings.gizmo.headScale, h, 16), new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: settings.gizmo.opacity }));
   m.position.set(tip[0] - dir[0] * h / 2, tip[1] - dir[1] * h / 2, tip[2] - dir[2] * h / 2); // the tip is at the end of the handle
   m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...dir).normalize());
   m.renderOrder = 6;
@@ -32,12 +32,14 @@ export function buildGizmo(group: THREE.Group, g: GizmoView | null, unit: number
     const hot = h.id === g.hover || h.id === g.active;
     const col = hot ? TEAL : ink;
     const pts = h.points;
-    if (h.kind === "ball") { group.add(sphereAt(pts[0]!, unit * 0.01, col)); continue; }
-    const line = pen.line(pts.flat(), col, hot ? 4 : 3, false);
+    if (h.kind === "ball") { group.add(sphereAt(pts[0]!, unit * 0.01 * settings.gizmo.headScale, col)); continue; }
+    const line = pen.line(pts.flat(), col, hot ? settings.gizmo.widthPx + 1 : settings.gizmo.widthPx, false);
+    (line.material as { transparent: boolean; opacity: number }).transparent = true;
+    (line.material as { opacity: number }).opacity = hot ? 1 : settings.gizmo.opacity;
     line.renderOrder = 6;
     group.add(line);
     const n = pts.length;
-    if (h.kind === "scale") { group.add(sphereAt(pts[1]!, unit * 0.014, col)); continue; } // pull the ball at the corner out to make it bigger
+    if (h.kind === "scale") { group.add(sphereAt(pts[1]!, unit * 0.014 * settings.gizmo.headScale, col)); continue; } // pull the ball at the corner out to make it bigger
     if (h.kind === "arc") {
       // a full circle, so the plane it turns in is plain; one arrowhead says which way
       const k = h.head ?? 6;

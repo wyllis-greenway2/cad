@@ -250,18 +250,10 @@ test("an operation that cannot start says why and starts nothing", () => {
   assert.match(st.session.message ?? "", /select the body/);
 });
 
-test("keys: R C L start the tools, digits and Enter are typed, F B E M T K start operations", () => {
+test("keys: no letter starts anything for now (in_131); digits and Enter are typed", () => {
   const r = createRecognizer();
   const k = (key: string): Intent[] => r.feed({ kind: "key", key, down: true, mods: { shift: false, ctrl: false, alt: false }, t: 1 });
-  assert.deepEqual(k("r"), [{ type: "begin", name: "rect" }]);
-  assert.deepEqual(k("c"), [{ type: "begin", name: "circle" }]);
-  assert.deepEqual(k("l"), [{ type: "begin", name: "line" }]);
-  assert.deepEqual(k("e"), [{ type: "begin", name: "extrude" }]);
-  assert.deepEqual(k("f"), [{ type: "begin", name: "edge" }]);
-  assert.deepEqual(k("b"), [{ type: "begin", name: "edge" }], "fillet and chamfer are one operation");
-  assert.deepEqual(k("m"), [{ type: "begin", name: "move" }]);
-  assert.deepEqual(k("t"), [{ type: "begin", name: "rotate" }]);
-  assert.deepEqual(k("k"), [{ type: "begin", name: "scale" }]);
+  for (const letter of ["r", "c", "l", "e", "f", "b", "m", "t", "k", "d", "h", "x", "y", "z", "n"]) assert.deepEqual(k(letter), [], letter);
   assert.deepEqual(k("7"), [{ type: "typed", key: "7", shift: false }]);
   assert.deepEqual(k("Enter"), [{ type: "typed", key: "Enter", shift: false }]);
   assert.deepEqual(k("Backspace"), [{ type: "delete" }, { type: "typed", key: "Backspace", shift: false }]);

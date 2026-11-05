@@ -133,8 +133,8 @@ test("keys: the keymap turns presses into intents; Ctrl+Z undoes, Ctrl+Shift+Z r
   const key = (k: string, mods: Mods = none): RawInput => ({ kind: "key", key: k, down: true, mods, t: 1 });
   assert.deepEqual(r.feed(key("z", m({ ctrl: true }))), [{ type: "undo" }]);
   assert.deepEqual(r.feed(key("Z", m({ ctrl: true, shift: true }))), [{ type: "redo" }]);
-  assert.deepEqual(r.feed(key("z")), [{ type: "look", plane: "Z" }]);
-  assert.deepEqual(r.feed(key("n")), [{ type: "look", plane: "N" }]);
+  assert.deepEqual(r.feed(key("z")), [], "letter keys are not assigned for now (in_131)");
+  assert.deepEqual(r.feed(key("n")), []);
   assert.deepEqual(r.feed(key("Escape")), [{ type: "escape" }]);
   assert.deepEqual(r.feed(key("Delete")), [{ type: "delete" }]);
   assert.equal(keyAction("q", none, settings.input.keys), null);

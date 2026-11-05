@@ -26,14 +26,14 @@ export const settings = {
     pinchZoomPerWheel: 0.01, // a trackpad pinch (a wheel event with ctrl held) is more sensitive than a wheel notch
     scrollNotchMs: 160, // a scroll gesture keeps its kind while its events keep arriving within this
     keys: {
-      undo: ["mod+z"], redo: ["mod+shift+z", "mod+y"], lookX: ["x"], lookY: ["y"], lookZ: ["z"], lookN: ["n"], home: ["h"],
+      // only the standard ones for now: the letter keys for the tools, the operations and the views are to be chosen later (`in_131`)
+      undo: ["mod+z"], redo: ["mod+shift+z", "mod+y"],
       cancel: ["escape"], save: ["mod+s"], open: ["mod+o"], delete: ["delete", "backspace"],
-      toolRect: ["r"], toolCircle: ["c"], toolLine: ["l"], extrude: ["e"], edge: ["f", "b"], move: ["m"], rotate: ["t"], scale: ["k"], dimension: ["d"],
     } as Record<string, string[]>,
   },
   sketch: { snapPx: 12, roundMm: 0.01 }, // drawing: a point within this many pixels of a corner snaps to it; free points are rounded to this so sizes read 40.00
   op: { sizeStep: 0.1, distanceStep: 0.1 }, // the arrow keys change a fillet or chamfer size by sizeStep, other distances by distanceStep
-  gizmo: { sizeOfView: 0.17, hitPx: 12, angleStep: 0.5 }, // the helper handles: their length as a fraction of the view distance, how near the pointer must be, rotation snaps to this many degrees
+  gizmo: { sizeOfView: 0.11, hitPx: 12, angleStep: 0.5, opacity: 0.6, widthPx: 2.2, headScale: 0.7 }, // the helper handles: their length as a fraction of the view distance, how see-through they are, their line width, the size of their heads and balls (1 = the old size), how near the pointer must be, rotation snaps to this many degrees
   pick: { pointPx: 10, linePx: 8, edgeWidthPx: 2.4, edgeHoverWidthPx: 1.8, vertexScale: 0.0042, vertexSelectScale: 1.25 }, // a picked line is this wide; a picked corner is a ball this big (in view distances), as in the prototype // pointing within this many pixels of a corner / a line picks it (the prototype used 10 and 6 to 8)
   orb: {
     radius: 0.025, // the hover ring's radius, in view-distances (`in_075`)
