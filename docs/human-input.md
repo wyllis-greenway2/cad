@@ -555,3 +555,8 @@ Asks what constraints should be offered between all kinds of parts (corners, lin
 Sets the rule that the first selected thing is the mover and the second selected thing is the reference; reports bugs: selecting a sketch corner then a cube corner works but the other order deselects the cube corner (shift should just allow selecting multiple things), and clicking in nowhere after selecting both deselects the sketch corner but leaves the cube corner selected with no way to deselect it.
 
 > I think as a general rule, the first selected thing, is the mover, and the second selected thing is the reference. Selecting multiple things seems kind of buggy. If I select the verticy of a square on a cube, then select the verticy of the corner of the cube, I can select both, but If I try the other way around, it auto deselects the cube corner. I think shift should just allow you to select multiple things. Also if I select the square corner, then the cube corner, then click out in nowhere, it deselects the square corner, but the cube corner stays selected and I cant figure out how to un-select it.
+
+## in_091 — 2026-11-05 — question
+Asks what the relations table is for: to make the code work without bugs, or only for the UI, since the constraint UI has not been decided yet.
+
+> is this table for the code to work non buggy or only for UI? because I haven't decided how I want the constraints UI yet.
