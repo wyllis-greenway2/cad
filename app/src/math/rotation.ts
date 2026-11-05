@@ -23,7 +23,7 @@ export function then(a: Mat3, b: Mat3): Mat3 {
 const transpose = (m: Mat3): Mat3 => [m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]];
 
 /** The turn of three angles: X first, then Y, then Z. */
-export const fromAngles = ([x, y, z]: Angles): Mat3 => then(then(about(0, x), about(1, y)), about(2, z));
+const fromAngles = ([x, y, z]: Angles): Mat3 => then(then(about(0, x), about(1, y)), about(2, z));
 
 /** The three angles (X first, then Y, then Z) of a turn; zero for none. A turn that stands the Y axis on end (gimbal lock) is given with Z as 0. */
 export function anglesOf(m: Mat3): Angles {
