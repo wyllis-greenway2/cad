@@ -2,6 +2,8 @@
 export const settings = {
   view: {
     fovDeg: 35,
+    orbitAroundObject: true, // when you orbit with the model in view, the view eases toward the middle of the model so big or far-off models turn about their own centre (`in_081`)
+    orbitEase: 0.2, // how much of the way to the model's middle the view goes with each step of the drag
     homeAzimuth: Math.PI / 4, // radians around Z (0 = looking from +X, -PI/2 = from -Y); PI/4 = from the +X +Y corner, as in the human's picture (`in_069`)
     homeElevation: 0.5, // radians above the XY plane
     homeDistance: 120, // mm from the target

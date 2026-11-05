@@ -1865,7 +1865,27 @@ function panBy(dx, dy) {
   updateStatus();
   markSketch();
 }
+let orbitPivot = null; // while orbiting: the middle of the model if it is in view, which the view eases toward so the model turns about its own centre (`in_081`)
+/** Start of an orbit: if the model is in view, remember its middle as the pivot. The view then eases toward it a little with every step of the drag (a pan and a change of
+ *  distance, so the model does not jump and keeps about the same size), instead of turning about wherever the origin or the last pan left the target. */
+function repivotOrbit() {
+  orbitPivot = null;
+  const info = body.info;
+  if (!V.orbitAroundObject || camera === ortho || !body.ready() || !info.bbox) return;
+  const { min, max } = info.bbox;
+  const c = new THREE.Vector3((min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2);
+  const ndc = c.clone().project(camera);
+  if (Math.abs(ndc.x) > 1 || Math.abs(ndc.y) > 1 || ndc.z < -1 || ndc.z > 1) return; // the model is not in view: keep the current pivot
+  const d = c.distanceTo(camera.position);
+  if (!(d > V.minDistance && d < V.maxDistance)) return;
+  orbitPivot = { c, d };
+}
 function orbitBy(dx, dy) {
+  if (orbitPivot) {
+    // ease the view toward the model's middle while turning (not a jump)
+    view.target.lerp(orbitPivot.c, V.orbitEase);
+    view.dist += (orbitPivot.d - view.dist) * V.orbitEase;
+  }
   view.a -= dx * V.orbitRadPerPx;
   view.e = clamp(view.e + dy * V.orbitRadPerPx, -Math.PI / 2, Math.PI / 2);
   updateStatus();
@@ -1950,6 +1970,7 @@ function touchMove(ev) {
   if (tg.mode === "mouse") return void onPointerMove(touchEv(t));
   if (tg.mode === "one") {
     if (!tg.moved && Math.hypot(t.x - tg.x0, t.y - tg.y0) < S.input.touchSlopPx) return;
+    repivotOrbit();
     tg.moved = true;
     clearTimeout(tg.timer);
     anim = null;
@@ -1967,6 +1988,7 @@ function touchMove(ev) {
   }
 }
 function touchUp(ev) {
+  orbitPivot = null;
   const t = touches.get(ev.pointerId) ?? { id: ev.pointerId, x: ev.clientX, y: ev.clientY };
   touches.delete(ev.pointerId);
   if (!tg) return;
@@ -2088,6 +2110,7 @@ function onPointerMove(ev) {
   if (g && (g.kind === "orbit" || g.kind === "pan" || g.kind === "click" || g.kind === "selectclick")) {
     if (!g.moved && Math.hypot(ev.clientX - g.x0, ev.clientY - g.y0) < V.clickMovePx) return;
     if (g.kind === "click" || g.kind === "selectclick") g.kind = "orbit"; // dragging with the left button and no tool action: orbit
+    if (!g.moved && g.kind === "orbit") repivotOrbit();
     g.moved = true;
     anim = null; // the user took over the camera
     const dx = ev.clientX - g.x;
@@ -2124,6 +2147,7 @@ function onPointerMove(ev) {
 function onPointerUp(ev) {
   const was = g;
   g = null;
+  orbitPivot = null;
   if (!was) return;
   if ((was.kind === "xdrag" || was.kind === "extdrag") && !was.moved) {
     // a click in the world, not a drag: apply the operation and let go of the selection

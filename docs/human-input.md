@@ -505,3 +505,8 @@ World planes should not turn blue (object planes do); the trackpad should pan an
 Bug report: after adding a circle the app is stuck in a not-normal mode (cannot click faces or other things until Esc); and on the phone the whole screen flashes blue when clicking a line or vertex but not a face.
 
 > Okay after I add a circle or something, I seem to get stuck in a non normal mode, I cannot click on faces any things anymore until I hit escape. What is that? Also the whole mobile screen flashes blue whenever I click on a line or vertice but not a face.
+
+## in_081 — 2026-11-05 — question
+Orbiting around large objects or parts far from the origin feels odd because the camera orbits the origin; asks whether the camera can instead rotate around the centre of the object nearest the camera within the view, or whether that could get buggy.
+
+> okay now I noticed that when trying to rotate around objects it can be kinda weird. I think it is because the object is always rotating around origin, or the camera is relative to origin. This gets more and more weird the bigger your models are or if parts are far a way from origin. Can we make it so that the camera just rotates around the center of the object closest to the camera within the camera view area? Or do you think that could get buggy?
