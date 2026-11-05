@@ -91,6 +91,7 @@ function solvePlane(scene: Scene, get: Lookup, plane: Plane, rels: Relation[]) {
   const kindOf = (r: Ref) => get(r)?.kind;
   let softN = 0;
   for (const rel of rels) {
+    if (rel.locked === false) continue; // an unlocked number is a measurement only (`dec_relations_standard`: measure, then lock)
     const parts = rel.parts;
     const ids = (k: "corner" | "line") => parts.filter((p) => kindOf(p) === k);
     const [c1, c2] = ids("corner");

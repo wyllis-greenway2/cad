@@ -18,6 +18,8 @@ export interface Highlight {
   /** the point under the pointer on the hovered surface, for the ring */
   hoverPoint: Vec3 | null;
   selection: readonly Ref[];
+  /** the parts a focused relation ties the selection to */
+  amber?: readonly Ref[];
   /** the last selected surface spreads its colour from where it was clicked */
   spread: { ref: Ref; point: Vec3; startMs: number } | null;
 }
@@ -136,10 +138,11 @@ export function createView(host: HTMLElement) {
     if (!lastScene) return;
     const get = lookup(lastScene);
     const unit = cam.distance;
-    const mark = (ref: Ref, kind: "select" | "hover") => {
+    const AMBER = 0xf2c14e;
+    const mark = (ref: Ref, kind: "select" | "hover" | "amber") => {
       const p = get(ref);
       if (!p) return;
-      let tris = surfaceTriangles(get, p);
+      let tris = kind === "amber" ? null : surfaceTriangles(get, p);
       if (p.kind === "body" && lastMesh) {
         tris = [];
         for (const ix of lastMesh.triangles) tris.push(lastMesh.vertices[ix * 3]!, lastMesh.vertices[ix * 3 + 1]!, lastMesh.vertices[ix * 3 + 2]!);
@@ -176,11 +179,13 @@ export function createView(host: HTMLElement) {
       }
       const o = outlineOf(get, p);
       const w = kind === "select" ? 3.4 : 2.6;
-      if (o.shape === "point") overlay.add(dot(o.at, tealHex, kind === "select" ? 11 : 9));
-      else if (o.shape === "segment") overlay.add(fatLine([...o.a, ...o.b], tealHex, w, false));
-      else if (o.shape === "circle") overlay.add(fatLine(ringOf(o.center, o.radius, o.normal), tealHex, w, false));
-      else if (p.kind === "axis") overlay.add(fatLine([...p.at, ...[0, 1, 2].map((i) => p.at[i]! + p.dir[i]! * AXIS_LEN)], tealHex, w, false));
+      const col = kind === "amber" ? AMBER : tealHex;
+      if (o.shape === "point") overlay.add(dot(o.at, col, kind === "select" ? 11 : 9));
+      else if (o.shape === "segment") overlay.add(fatLine([...o.a, ...o.b], col, w, false));
+      else if (o.shape === "circle") overlay.add(fatLine(ringOf(o.center, o.radius, o.normal), col, w, false));
+      else if (p.kind === "axis") overlay.add(fatLine([...p.at, ...[0, 1, 2].map((i) => p.at[i]! + p.dir[i]! * AXIS_LEN)], col, w, false));
     };
+    for (const r of h.amber ?? []) mark(r, "amber");
     for (const r of h.selection) mark(r, "select");
     if (h.hover && !h.selection.includes(h.hover)) mark(h.hover, "hover");
   }

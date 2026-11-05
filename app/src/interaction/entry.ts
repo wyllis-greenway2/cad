@@ -21,7 +21,7 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
   if (op) {
     const v = valueOf(op);
     const axis = op.kind === "move" || op.kind === "rotate" ? ` ${"XYZ"[op.axis]}` : "";
-    return { fields: [{ label: OP_FIELD[op.kind] + axis, value: op.typed !== "" ? op.typed : v === null ? "" : fmt(v), active: true, typed: op.typed !== "" }], unit: OP_UNIT[op.kind] };
+    return { fields: [{ label: (op.field ?? OP_FIELD[op.kind]) + axis, value: op.typed !== "" ? op.typed : v === null ? "" : fmt(v), active: true, typed: op.typed !== "" }], unit: op.unit ?? OP_UNIT[op.kind] };
   }
   if (!tool || !tool.plane || !tool.points.length) return null;
   const pl = scene.parts[tool.plane] as Plane | undefined;

@@ -18,7 +18,7 @@ import { actionsFor } from "./actions.ts";
 import type { Tool, ToolKind } from "./tools.ts";
 import { armTool, snapOnPlane, typeKey, finish, planeForDrawing, lineNext } from "./tools.ts";
 import type { Op, OpKind } from "./operations.ts";
-import { startOp, typeOp, valueOf, opCommand, distanceFromPointer, OP_LABEL } from "./operations.ts";
+import { startOp, startEdit, typeOp, valueOf, opCommand, distanceFromPointer, OP_LABEL } from "./operations.ts";
 import type { Camera } from "./camera.ts";
 import { homeCamera, orbit, pan, zoomAt, lookStraight, lookAlternating, blend, easeInOut, projector, offsetOf } from "./camera.ts";
 import { dot } from "../math/vec.ts";
@@ -39,12 +39,14 @@ export interface AppState {
   menu: { x: number; y: number; items: MenuItem[] } | null;
   /** the drawing tool being used (null = normal selection) */
   tool: Tool | null;
-  /** the operation being set up (extrude, round, bevel, move, rotate, scale) */
+  /** the operation being set up (extrude, round, bevel, move, rotate, scale, dimension, edit) */
   op: Op | null;
+  /** the relation whose badge is open: the other parts it ties show in amber */
+  focus: string | null;
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, tool: null, op: null });
+export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, tool: null, op: null, focus: null });
 
 const pickOpts = () => ({ pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx });
 
@@ -62,7 +64,7 @@ const animateTo = (s: AppState, to: Camera, now: number): AppState => ({ ...s, a
 const WORLD_PLANE = { X: "YZ", Y: "XZ", Z: "XY" } as const; // X looks along the X axis: at the plane across it
 
 const TOOL_LABEL: Record<ToolKind, string> = { rect: "Rectangle", circle: "Circle", line: "Line" };
-const OPS: OpKind[] = ["extrude", "round", "bevel", "move", "rotate", "scale"];
+const OPS: OpKind[] = ["extrude", "round", "bevel", "move", "rotate", "scale", "dimension"];
 
 /** The menu: what applies to the selection (relations, delete), the operations that can start from it, and the drawing tools. */
 function menuFor(session: Session, x: number, y: number): AppState["menu"] {
@@ -110,6 +112,7 @@ function commitOp(s: AppState): AppState {
   if (!cmd) return s;
   const next = run(s.session, cmd);
   if (next.message) return { ...s, session: next };
+  if (s.op.kind === "dimension" || s.op.kind === "edit") return { ...s, session: next, op: null }; // a number on a relation: the selection stays, so its badge shows
   const object = BODY_OBJECT in sceneOf(next).parts ? [BODY_OBJECT] : [];
   return { ...s, session: { ...next, click: { ...next.click, selection: object } }, op: null };
 }
@@ -141,7 +144,7 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
       const pv = pr().view(i.x, i.y);
       const cands = candidatesAt(sc, pv, pickOpts());
       const refs = cands.map((c) => c.ref);
-      const base: AppState = { ...s, menu: null };
+      const base: AppState = { ...s, menu: null, focus: null };
       if (s.op) return commitOp(base);
       if (s.tool) {
         const t = s.tool;
@@ -238,8 +241,23 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
     case "redo": return { ...withSession(s, redoLast(sess)), menu: null };
     case "escape":
       if (s.menu) return { ...s, menu: null };
+      if (s.focus && !s.tool && !s.op) return { ...s, focus: null };
       if (s.tool || s.op) return { ...s, tool: null, op: null };
       return withSession(s, clearSelection(sess));
+    case "relation": {
+      const rel = i.id ? sc.relations.find((r) => r.id === i.id) : undefined;
+      if (i.act === "focus") return { ...s, focus: i.id === s.focus ? null : i.id };
+      if (!rel) return s;
+      if (i.act === "remove") return { ...withSession(s, run(sess, { type: "removeRelation", id: rel.id })), focus: null };
+      if (i.act === "lock") {
+        if (rel.value === undefined) return s;
+        const action = actionsFor(sc, rel.parts).find((a) => a.id === rel.kind && a.dimensional);
+        const value = rel.locked === false ? (action?.measure() ?? rel.value) : rel.value; // locking takes the value it measures now
+        return withSession(s, run(sess, { type: "setRelationValue", id: rel.id, value, locked: rel.locked === false }));
+      }
+      const r = startEdit(sc, rel.id);
+      return r.ok ? { ...s, op: r.op, tool: null, menu: null } : s;
+    }
     case "begin": {
       if (i.name === "rect" || i.name === "circle" || i.name === "line") return beginTool(s, i.name);
       return beginOp(s, i.name);

@@ -12,3 +12,5 @@ export { kernel, initKernelWeb } from "../compiler/kernel/web.ts";
 export { cornerName } from "../compiler/body.ts";
 export { entryOf, previewFor } from "./entry.ts";
 export type { Entry } from "./entry.ts";
+export { badgesFor, focusParts, suggestMeasure, anchorOf } from "./badges.ts";
+export type { Badge, Suggestion } from "./badges.ts";

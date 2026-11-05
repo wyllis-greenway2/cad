@@ -641,3 +641,8 @@ Chooses to do phase 5 (the input layer) before the minimal draw menu.
 Tells the AI to go ahead with phase 6 of the clean engine (drawing and operations).
 
 > continue with phase 6
+
+## in_108 — 2026-11-05 — directive
+Tells the AI to go ahead with phase 7 of the clean engine (the relations UI).
+
+> continue with phase 7

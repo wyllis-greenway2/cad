@@ -72,7 +72,7 @@ export function createRecognizer(opts: { input?: S } = {}) {
         if (a === "lookY") return [{ type: "look", plane: "Y" }];
         if (a === "lookZ") return [{ type: "look", plane: "Z" }];
         if (a === "lookN") return [{ type: "look", plane: "N" }];
-        const begin = { toolRect: "rect", toolCircle: "circle", toolLine: "line", extrude: "extrude", round: "round", bevel: "bevel", move: "move", rotate: "rotate", scale: "scale" } as const;
+        const begin = { toolRect: "rect", toolCircle: "circle", toolLine: "line", extrude: "extrude", round: "round", bevel: "bevel", move: "move", rotate: "rotate", scale: "scale", dimension: "dimension" } as const;
         if (a && a in begin) return [{ type: "begin", name: begin[a as keyof typeof begin] }];
         return [];
       }

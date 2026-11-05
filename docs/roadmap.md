@@ -5,7 +5,7 @@ Update it at the end of each session.
 
 ## Now
 - **Building the clean engine in `app/`** under `dec_clean_engine_design` (accepted, `in_099`); the behaviours to reproduce are `dec_interaction_spec` (still to be confirmed by the human), the relations rules `dec_relations_standard` (provisional except the mover rule), no sketch isolation `dec_no_sketch_isolation`, ownership `dec_constraint_ownership`.
-- **Phases 1 to 6 are done** (112 tests): core, compiler, picking, view, input, and drawing and operations (rectangle, circle, line, extrude, round, bevel, move, rotate, scale, all typed and undoable). Run it: `LAN=1 bash tools/preview.sh`. **Next: phase 7, the relations UI**: needs the human's choice of constraints UI first (see Handoff 088).
+- **Phases 1 to 7 are done** (119 tests): core, compiler, picking, view, input, drawing and operations, and the relations UI (badges with icons, measure then lock, edit, unlock, delete, amber for what a relation ties; D for a dimension). Run it: `LAN=1 bash tools/preview.sh`. **Next: phase 8, cut over** (save and load, kernel conformance tests, README, phone check); see Handoff 089. The badge placement is provisional until the human reacts.
 - `prototypes/cad-ui` is frozen (its README says what it taught); `tools/preview.sh` still runs it until the cut-over (phase 8).
 
 ## Done

@@ -28,7 +28,7 @@ export const settings = {
     keys: {
       undo: ["mod+z"], redo: ["mod+shift+z", "mod+y"], lookX: ["x"], lookY: ["y"], lookZ: ["z"], lookN: ["n"], home: ["h"],
       cancel: ["escape"], delete: ["delete", "backspace"],
-      toolRect: ["r"], toolCircle: ["c"], toolLine: ["l"], extrude: ["e"], round: ["f"], bevel: ["b"], move: ["m"], rotate: ["t"], scale: ["k"],
+      toolRect: ["r"], toolCircle: ["c"], toolLine: ["l"], extrude: ["e"], round: ["f"], bevel: ["b"], move: ["m"], rotate: ["t"], scale: ["k"], dimension: ["d"],
     } as Record<string, string[]>,
   },
   sketch: { snapPx: 12, roundMm: 0.01 }, // drawing: a point within this many pixels of a corner snaps to it; free points are rounded to this so sizes read 40.00

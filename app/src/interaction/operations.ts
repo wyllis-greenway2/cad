@@ -9,10 +9,11 @@ import type { Part, Plane, PointerView } from "../operation/part.ts";
 import { normalOfPlane, pointOf } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
 import { objectOf } from "./objects.ts";
+import { actionsFor } from "./actions.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { settings } from "../shared/settings.ts";
 
-export type OpKind = "extrude" | "round" | "bevel" | "move" | "rotate" | "scale";
+export type OpKind = "extrude" | "round" | "bevel" | "move" | "rotate" | "scale" | "dimension" | "edit";
 export interface Op {
   kind: OpKind;
   /** the parts it works on: the lines or circle of a figure, the lines of the body, or the body */
@@ -26,11 +27,15 @@ export interface Op {
   /** extrude: the figure's middle and the direction along which the distance is measured */
   origin: Vec3 | null;
   normal: Vec3 | null;
+  /** dimension and edit: what the number is called and its unit; edit: the relation being changed */
+  field?: string;
+  unit?: string;
+  relationId?: string;
 }
 
-export const OP_LABEL: Record<OpKind, string> = { extrude: "Extrude", round: "Round", bevel: "Bevel", move: "Move", rotate: "Rotate", scale: "Scale" };
-export const OP_UNIT: Record<OpKind, string> = { extrude: "mm", round: "mm", bevel: "mm", move: "mm", rotate: "deg", scale: "x" };
-export const OP_FIELD: Record<OpKind, string> = { extrude: "Distance", round: "Size", bevel: "Size", move: "Move", rotate: "Angle", scale: "Factor" };
+export const OP_LABEL: Record<OpKind, string> = { extrude: "Extrude", round: "Round", bevel: "Bevel", move: "Move", rotate: "Rotate", scale: "Scale", dimension: "Dimension", edit: "Edit" };
+export const OP_UNIT: Record<OpKind, string> = { extrude: "mm", round: "mm", bevel: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm", edit: "mm" };
+export const OP_FIELD: Record<OpKind, string> = { extrude: "Distance", round: "Size", bevel: "Size", move: "Move", rotate: "Angle", scale: "Factor", dimension: "Value", edit: "Value" };
 
 export type StartResult = { ok: true; op: Op } | { ok: false; why: string };
 
@@ -55,6 +60,13 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     if (!lines.length || lines.length !== parts.length) return { ok: false, why: "select lines of the body first" };
     return { ok: true, op: { ...base, parts: lines.map((p) => p.ref), value: settings.op.defaultSize } };
   }
+  if (kind === "dimension") {
+    // measure, then lock: the chip shows the current value of the pair; typing a number locks it (`dec_relations_standard`)
+    const a = actionsFor(scene, selection).find((x) => x.dimensional && x.enabled);
+    if (!a || !a.unit) return { ok: false, why: "select two parts that can be measured (two corners, a corner and a line, two lines)" };
+    return { ok: true, op: { ...base, parts: a.parts, value: a.measure(), field: a.label, unit: a.unit } };
+  }
+  if (kind === "edit") return { ok: false, why: "use the number on the relation" };
   // move, rotate, scale: the whole body
   const body = parts.some((p) => p.kind === "body" || p.origin === "body");
   if (!body) return { ok: false, why: "select the body first (click it three times)" };
@@ -66,6 +78,13 @@ const num = (s: string): number | null => {
   return s !== "" && s !== "-" && s !== "." && Number.isFinite(v) ? v : null;
 };
 /** The number the operation will use: what was typed, else the pointer's or default value. */
+/** Start changing the number of a relation that already exists. */
+export function startEdit(scene: Scene, relationId: string): StartResult {
+  const rel = scene.relations.find((r) => r.id === relationId);
+  if (!rel || rel.value === undefined) return { ok: false, why: "that relation has no number" };
+  const a = actionsFor(scene, rel.parts).find((x) => x.id === rel.kind && x.dimensional);
+  return { ok: true, op: { kind: "edit", parts: rel.parts, typed: "", value: rel.value, axis: 0, origin: null, normal: null, field: a?.label ?? "Value", unit: a?.unit ?? "mm", relationId } };
+}
 export const valueOf = (op: Op): number | null => num(op.typed) ?? op.value;
 
 export function typeOp(op: Op, key: string): Op {
@@ -102,6 +121,11 @@ export function opCommand(scene: Scene, op: Op): Command | null {
   const v = valueOf(op);
   if (v === null) return null;
   const id = nextId(scene, "s");
+  if (op.kind === "dimension") {
+    const a = actionsFor(scene, op.parts).find((x) => x.dimensional && x.enabled);
+    return a && v > 0 ? a.run(v) : null;
+  }
+  if (op.kind === "edit") return op.relationId && v > 0 ? { type: "setRelationValue", id: op.relationId, value: v, locked: true } : null;
   if (op.kind === "extrude") return v === 0 ? null : { type: "addStep", step: { id, type: "extrude", parts: op.parts, params: { depth: v } } };
   if (op.kind === "round" || op.kind === "bevel") return v <= 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: op.kind === "round" ? "fillet" : "chamfer", value: v } } };
   if (op.kind === "scale") return v <= 0 ? null : { type: "addStep", step: { id, type: "scale", parts: op.parts, params: { axis: 0, value: v } } };

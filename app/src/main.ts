@@ -16,12 +16,21 @@ import type { Ref, Command } from "./interaction/api.ts";
 import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
 import { createChip } from "./ui/chip.ts";
+import { createBadges } from "./ui/badges.ts";
+import { badgesFor, focusParts, suggestMeasure, anchorOf } from "./interaction/api.ts";
 import { entryOf, previewFor } from "./interaction/api.ts";
 
 const host = document.getElementById("view")!;
 const statusEl = document.getElementById("status")!;
 const view = createView(host);
 const chip = createChip(document.body);
+const badges = createBadges(document.body, {
+  focus: (id) => dispatch({ type: "relation", act: "focus", id }),
+  remove: (id) => dispatch({ type: "relation", act: "remove", id }),
+  lock: (id) => dispatch({ type: "relation", act: "lock", id }),
+  edit: (id) => dispatch({ type: "relation", act: "edit", id }),
+  measure: () => dispatch({ type: "begin", name: "dimension" }),
+});
 let pointer: [number, number] = [0, 0]; // where the pointer is, for placing the number chip
 const bus = createBus<{ input: RawInput }>();
 const recognizer = createRecognizer();
@@ -89,7 +98,13 @@ function frame(now: number) {
   if (dirty || spreading) {
     const o = state.session.outcome;
     view.setScene(scene(state.session), o.kernel?.mesh ?? null);
-    view.setHighlight({ hover: state.session.hover, hoverPoint: state.hoverPoint, selection: selection(state.session), spread: state.spread }, state.cam, now);
+    const sc = scene(state.session);
+    const sel = selection(state.session);
+    view.setHighlight({ hover: state.session.hover, hoverPoint: state.hoverPoint, selection: sel, amber: focusParts(sc, sel, state.focus), spread: state.spread }, state.cam, now);
+    const anchor = anchorOf(sc, sel);
+    const px = anchor ? projector(state.cam, view.size().w, view.size().h).project(anchor) : null;
+    const r = host.getBoundingClientRect();
+    badges.update(state.tool || state.op ? [] : badgesFor(sc, sel, state.focus), state.tool || state.op ? null : suggestMeasure(sc, sel), px ? [px[0] + r.left, px[1] + r.top] : null);
     view.setPreview(previewFor(scene(state.session), state.tool, state.op));
     const en = entryOf(scene(state.session), state.tool, state.op);
     chip.update(en?.fields ?? null, en?.unit ?? "mm", pointer[0], pointer[1]);
