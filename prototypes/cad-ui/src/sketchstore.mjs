@@ -131,6 +131,11 @@ export class SketchStore {
       const i = list.findIndex((e) => e.id === cmd.entity.id);
       if (i >= 0) list.splice(i, 1);
     }
+    if (cmd.type === "remove" && cmd.consRemoved?.length) {
+      const ids = new Set(cmd.consRemoved.map((c) => c.id));
+      const cur = (this.cons[cmd.plane] ??= []).filter((c) => !ids.has(c.id));
+      this.cons[cmd.plane] = adding ? [...cur, ...cmd.consRemoved.map((c) => ({ ...c }))] : cur; // undoing the removal puts the constraints back
+    }
     if (cmd.type === "add" && cmd.consAdd?.length) {
       const ids = new Set(cmd.consAdd.map((c) => c.id));
       const cur = (this.cons[cmd.plane] ??= []).filter((c) => !ids.has(c.id));
@@ -151,11 +156,15 @@ export class SketchStore {
     return e;
   }
 
+  /** The constraints of a sketch that use any part of this shape (what deleting it would take with it). */
+  dependentsOf(key, shapeId) {
+    return this.constraintsOf(key).filter((c) => refsOf(c).some((r) => shapeOfRef(r) === shapeId));
+  }
   remove(plane, id) {
     if (this.isFeatureKey(plane)) return false;
     const entity = this.entities(plane).find((e) => e.id === id);
     if (!entity) return false;
-    const cmd = { type: "remove", plane, entity };
+    const cmd = { type: "remove", plane, entity, consRemoved: this.dependentsOf(plane, id).map((c) => ({ ...c })) }; // the constraints that used it go with it (and come back on undo)
     this.#apply(cmd, true);
     this.past.push(cmd);
     this.future = [];

@@ -1,9 +1,9 @@
 ---
 id: dec_no_sketch_isolation
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_084
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_084, in_085
 date: 2026-11-05
 depends_on:
   - dec_stable_references: a constraint to a corner of the body has to find that corner again when the body changes
@@ -13,8 +13,8 @@ depends_on:
 
 The human's model (`in_084`): there is no mode that isolates one sketch. The scene is sets of lines, planes and objects. Any of them can be clicked at any time, and constraints can be set on any of them at any time, including between a sketch and the body: for example draw a square, extrude a cube, draw a small square on the cube's face, select one corner of the new square and one corner of the cube, and make them coincident.
 
-AI's proposed way to build it, in stages (not approved yet):
-1. **No mode.** Sketch lines, corners and circles of every sketch are hoverable and selectable in the 3D view at all times (done in part in `in_083`); a selection can mix sketches and body parts (shift-click); the pill, menu and constraint offers work from whatever is selected. Leaving "sketch" would only mean that drawing tools are armed.
+The way to build it, in stages (the human said "yes, start with stage 1", `in_085`; stage 1 is built, stages 2 and 3 are confirmed one at a time as they are reached):
+1. **No mode.** Sketch lines, corners and circles of every sketch are hoverable and selectable in the 3D view at all times (`in_083`, `in_085`: done, except mixing a sketch part and a body part in one selection, which comes with stage 2 because it is only useful for constraints to the body); a selection can mix sketches and body parts (shift-click); the pill, menu and constraint offers work from whatever is selected. Leaving "sketch" would only mean that drawing tools are armed.
 2. **Constraints to the body.** A body corner (or line) picked together with a sketch corner becomes an *external anchor* for that sketch: its 3D position, projected onto the sketch's plane, is a fixed point in the sketch's own 2D solve. "Coincident" with a body corner then pins the sketch corner there; distances, horizontal and vertical to a body corner work the same way. The anchor is remembered by its construction name where there is one, and by position otherwise (`dec_stable_references`), and is refused if it would depend on something built after the sketch (a cycle).
 3. **Constraints between two sketches** on different planes: only through their projected points at first, no full 3D solve.
 
@@ -23,3 +23,6 @@ Risks: external references can break when the body changes (they need the stable
 ## Rationale
 
 It is the human's stated direction, and it removes the mode confusion that the single-click, tool and N changes have been circling. The staged plan keeps the solver and the kernel boundary as they are and adds only a new kind of fixed point.
+
+## Stage 1 as built (`in_085`)
+With the select tool, nothing is isolated any more: hovering and clicking work on every sketch's lines, corners and circles, on faces, planes, body corners and lines, whatever sketch is being edited. Clicking another sketch's part makes that sketch the one being edited with the part picked; clicking a face, plane, body corner or line leaves the edited sketch and selects it. Only the drawing tools still belong to one plane (the surface you start on). Not done: picking a sketch part together with a body part (stage 2).

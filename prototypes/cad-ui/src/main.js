@@ -487,7 +487,7 @@ function startSelectOrb() {
 }
 function updateOrbs() {
   const O = S.orb;
-  const hovering = !selected && !extrude && !xform && !!hoverPoint && !!(hoveredFace || hoveredSketch); // objects only: a world plane gets no ring
+  const hovering = (!selected || session.tool === "select") && !extrude && !xform && !!hoverPoint && !!(hoveredFace || hoveredSketch); // objects only: a world plane gets no ring
   hoverOrb.uOrbA.value = 0; // pointing at a surface draws only a thin ring, no fill
   hoverOrb.uOrbRingA.value = hovering ? O.ringOpacity : 0;
   if (hoverPoint) hoverOrb.uOrbC.value.set(...hoverPoint);
@@ -764,7 +764,7 @@ function buildSketchViz() {
     }
   }
   const hovInSketch = inSketchView() && session.tool === "select" && hoverEl && !session.picks.some((k) => k.ref === hoverEl.ref);
-  const hovIn3D = !inSketchView() && !!hoveredSkEl;
+  const hovIn3D = !!hoveredSkEl && (!inSketchView() || hoveredSkEl.plane !== session.plane);
   if (hovInSketch || hovIn3D) {
     // the corner, line or circle under the cursor lights up: in the sketch view, and in 3D too (`in_083`)
     const he = hovIn3D ? hoveredSkEl.el : hoverEl;
@@ -1623,6 +1623,11 @@ function normalAction() {
   if (!plane) return flashMessage("Select a plane or a face first (or start sketching); then N looks straight at it.");
   goNormal(plane, normalSide(view, plane, V.normalToleranceRad) > 0 ? -1 : 1, sel?.kind === "face" && !selected ? body.faceCenter(sel.face).toArray() : null);
 }
+/** After deleting in the sketch: say how many constraints went with the shape (`in_085`). */
+function noteDeletion() {
+  const n = session.takeNote();
+  if (n) flashMessage(n);
+}
 const ACTIONS = {
   lookX: () => lookAlong(0), lookY: () => lookAlong(1), lookZ: () => lookAlong(2),
   faceOn: () => normalAction(), // N: look straight at the plane (selected or being sketched on); again, from its back; again, from its front
@@ -1644,7 +1649,7 @@ const ACTIONS = {
   undo: () => doUndo(),
   redo: () => doRedo(),
   cancel: () => doEscape(),
-  delete: () => (xform ? deleteTransformBeingEdited() : extrude ? deleteFeatureBeingEdited() : inSketchView() ? (session.deleteSelected() ? (updateStatus(), markSketch()) : false) : deleteSelection()),
+  delete: () => (xform ? deleteTransformBeingEdited() : extrude ? deleteFeatureBeingEdited() : inSketchView() ? (session.deleteSelected() ? (updateStatus(), markSketch(), noteDeletion()) : false) : deleteSelection()),
   move: () => bodyTransform("move"),
   rotate: () => bodyTransform("rotate"),
   scale: () => bodyTransform("scale"),
@@ -2066,6 +2071,15 @@ function touchCancel(ev) {
   if (!touches.size) tg = null;
 }
 
+/** In the sketch view with the select tool: what else is under the pointer besides the sketch being worked on (another sketch's line or corner, a face, a plane, ...), or null.
+ *  There is no isolation (`dec_no_sketch_isolation`, `in_084`): all of it can be clicked at any time. */
+function otherTargetAt(x, y) {
+  const h = hoverAt(x, y);
+  if (h.skel?.plane === selected) h.skel = null;
+  if (h.sketch?.plane === selected) h.sketch = null; // the sketch's own shapes are handled by the sketch
+  if (h.plane === selected) h.plane = null;
+  return h.face || h.edge || h.vertex || h.skel || h.sketch || h.plane ? h : null;
+}
 function onPointerDown(ev) {
   hideMenu();
   try {
@@ -2113,7 +2127,7 @@ function onPointerDown(ev) {
   if (session.tool === "select") {
     // pressing on a corner, line or circle: dragging it moves it (constraints stay true); a click picks it. Elsewhere a click selects and a drag orbits.
     const el = ev.shiftKey ? null : elementAt(p, session.entities(), S.sketch.selectTolPx / pxPerMm(p));
-    return void (g = el ? { kind: "skdrag", el, p, started: false, ...base } : { kind: "selectclick", p, shift: ev.shiftKey, ...base });
+    return void (g = el ? { kind: "skdrag", el, p, started: false, ...base } : { kind: "selectclick", p, shift: ev.shiftKey, target: ev.shiftKey ? null : otherTargetAt(ev.clientX, ev.clientY), ...base });
   }
   const had = !!session.draft;
   const msg = session.click(p, { shift: ev.shiftKey });
@@ -2189,8 +2203,9 @@ function onPointerMove(ev) {
       // a corner, line or circle under the cursor lights up (you can drag it)
       const el = elementAt(p, session.entities(), S.sketch.selectTolPx / pxPerMm(p));
       if ((el?.ref ?? null) !== (hoverEl?.ref ?? null)) (hoverEl = el), markSketch();
+      setHover(el ? {} : otherTargetAt(ev.clientX, ev.clientY) ?? {}); // anything else under the cursor lights up too: no isolation
     } else if (hoverEl && session.tool !== "select") (hoverEl = null), markSketch();
-    canvas.style.cursor = session.tool === "select" && hoverEl ? "pointer" : session.tool === "select" || session.tool === "dimension" ? "default" : "crosshair";
+    canvas.style.cursor = session.tool === "select" && (hoverEl || hoveredFace || hoveredSketch || hoveredEdge || hoveredVertex || hoveredSkEl || hovered) ? "pointer" : session.tool === "select" || session.tool === "dimension" ? "default" : "crosshair";
     return;
   }
   if (g) return;
@@ -2232,6 +2247,22 @@ function onPointerUp(ev) {
       session.click(was.p, { shift: false });
     }
     refreshUI();
+    return;
+  }
+  if (was.kind === "selectclick" && !was.moved && was.target) {
+    const t = was.target;
+    if (t.skel) {
+      // a line or corner of another sketch: that sketch takes over, with the element picked
+      enterSketch(t.skel.plane, "select", 1, true);
+      session.scale = pxPerMm(t.skel.p, t.skel.plane);
+      session.click(t.skel.p, { shift: false });
+      refreshUI();
+    } else {
+      // a face, a plane or another sketch's shape: leave the sketch being worked on and select that
+      exitSketch(false);
+      setHover(t);
+      selectFromHover();
+    }
     return;
   }
   if (was.kind === "selectclick" && !was.moved) {
@@ -2414,6 +2445,7 @@ window.__ui = {
   selInfo: () => (sel ? { kind: sel.kind, plane: sel.plane, id: sel.id } : null),
   hoverInfo: () => ({ hovered, face: hoveredFace }),
   cameraType: () => (camera === ortho ? "ortho" : "persp"),
+  planeWorld: (pl, q) => toWorld(pl, q).toArray(),
   orb: () => ({ R: selectOrb.uOrbR.value, fill: selectOrb.uOrbFill.value, A: selectOrb.uOrbA.value, hover: hoverOrb.uOrbA.value }),
   cornerT: () => cornerT,
   enterSketch: (pl, tool) => enterSketch(pl, tool),

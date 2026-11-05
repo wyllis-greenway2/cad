@@ -3,6 +3,7 @@
 import { snap, dist, hitEntity, regionsOf, hitRegion } from "./sketch.mjs";
 import { evalExpr } from "./expr.mjs";
 import { dimensionsOf } from "./dimensions.mjs";
+import { buildMap, constraintsOn } from "./constraintmap.mjs";
 import { refsOf, shapeOfRef, solveSketch, dimensionConstraint, sameDimension, sameConstraint, anchorsOf, modelOf, tryConstraint, lengthSpec, angleSpec } from "./sketchsolve.mjs";
 import { elementAt, offersFor, glyphsFor, valueFor } from "./sketchpick.mjs";
 import { iconKey } from "./icons.mjs";
@@ -642,10 +643,25 @@ export class SketchSession {
     return false;
   }
 
+  /** The constraints that touch what is picked, with what each ties it to: [{ id, type, others }]. For showing them when something is clicked (the UI comes later, `in_085`). */
+  constraintsOnPicks() {
+    const map = buildMap([{ key: this.key, entities: this.viewEntities(), constraints: this.store.constraintsOf(this.key) }]);
+    const seen = new Map();
+    for (const k of this.picks) for (const c of constraintsOn(map, this.key, k.kind === "entity" ? k.shape : k.ref)) seen.set(c.id, c);
+    return [...seen.values()];
+  }
+  /** A note about the last deletion (how many constraints went with it), once. */
+  takeNote() {
+    const n = this.note ?? null;
+    this.note = null;
+    return n;
+  }
   deleteSelected() {
     if (this.pickedConstraint) return this.deleteConstraint(this.pickedConstraint);
     if (!this.selectedId) return false;
+    const used = this.store.dependentsOf(this.key, this.selectedId).length;
     const ok = this.store.remove(this.key, this.selectedId);
+    if (ok && used) this.note = `${used} constraint${used === 1 ? "" : "s"} that used it ${used === 1 ? "was" : "were"} removed with it.`;
     this.selectedId = null;
     return ok;
   }
