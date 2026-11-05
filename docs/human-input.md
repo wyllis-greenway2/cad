@@ -400,3 +400,8 @@ Direction to use icons for every operation, with text reserved for tooltips.
 Request to keep sketching when the view is not straight-on to the sketch plane.
 
 > Can we have it so you can keep on sketching even if it is not in normal ortho view? you should be able to sketch in 3d view on the sketch plane as well right?
+
+## in_060 — 2026-11-05 — directive
+Click behavior for world planes, and going back and forth between the 3D angle and the straight-on view while sketching.
+
+> Okay lets make it so single click on world plane normals to that plane. Unless of course it is a click exiting another state. For example a click exiting a rectangle or surface select etc. Also When you are in sketch mode, you should be able to go back and forth from 3d to normal, so if you click the plane again it should go back to normal to the plane

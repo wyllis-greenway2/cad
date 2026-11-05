@@ -37,7 +37,7 @@ test("sketch view: nothing picked shows the sketching tools; picking lines shows
   assert.ok(!JSON.stringify(none).includes("Extrude")); // extrusion needs a closed shape selected
   assert.ok(labels(none, "edit").includes("Exit sketch (Esc)"));
   assert.ok(labels(none, "edit").includes("Look straight at the sketch (N)")); // not face-on: offered
-  assert.ok(!labels(barItems({ ...sketch, faceOn: true }), "edit").some((l) => l.startsWith("Look straight")));
+  assert.ok(labels(barItems({ ...sketch, faceOn: true }), "edit").includes("3D angle (N)")); // face-on: the same button goes back to the 3D angle
   // a line picked: only its constraints and delete; no drawing tools, no extrude, no rectangle
   const offers = [{ label: "Horizontal", enabled: true, active: true }, { label: "Vertical", enabled: false, reason: "it would shrink a line to nothing", active: false }];
   const line = barItems({ ...sketch, offers, pickParts: true, faceOn: true });
@@ -46,7 +46,7 @@ test("sketch view: nothing picked shows the sketching tools; picking lines shows
   const c = line.find((x) => x.id === "constraints").items;
   assert.deepEqual(c.map((i) => [i.label, i.key, i.enabled, i.active]), [["Horizontal", "Shift+H", true, true], ["Vertical", "Shift+V", false, false]]);
   assert.equal(c[1].reason, "it would shrink a line to nothing");
-  assert.deepEqual(labels(line, "edit"), ["Delete (Del)", "Undo (Ctrl+Z)", "Redo (Ctrl+Shift+Z)"]);
+  assert.deepEqual(labels(line, "edit"), ["Delete (Del)", "Undo (Ctrl+Z)", "Redo (Ctrl+Shift+Z)", "3D angle (N)"]);
   // a whole closed shape picked: extrude, dimension, delete
   assert.deepEqual(labels(barItems({ ...sketch, faceOn: true, pickShape: true, pickShapeClosed: true }), "shape"), ["Extrude (E)", "Dimension (D)", "Delete (Del)"]);
   assert.deepEqual(labels(barItems({ ...sketch, faceOn: true, pickShape: true, pickShapeClosed: false }), "shape"), ["Dimension (D)", "Delete (Del)"]); // an open line: nothing to extrude

@@ -1148,10 +1148,14 @@ function applySel() {
   updateStatus();
   markSketch();
 }
-/** A single click selects what is on the model; a click on a world plane or on nothing deselects (and, during an operation, applies it). */
+/** A single click selects what is on the model. A click on a world plane squares the view to it, unless it is exiting something: with a selection it deselects, and during an operation it applies it (that is handled before this). */
 function selectFromHover() {
   const t = hoverAsSel();
-  sel = t?.kind === "plane" ? null : t; // a click on a world plane (or on nothing) deselects; orienting to a world plane is a double-click
+  if (t?.kind === "plane" && !sel) {
+    // a click on a world plane with nothing to exit: sketch on it, square to it (`in_060`)
+    return enterSketch(t.plane);
+  }
+  sel = t?.kind === "plane" ? null : t; // with something selected, the same click only lets go of it (a click that exits a state does not also move the camera)
   applySel();
 }
 function pickAt(clientX, clientY) {
@@ -1294,8 +1298,20 @@ function constraintKey(labels) {
   if (msg) flashMessage(msg);
   refreshUI();
 }
+/** Square the camera to the sketch plane, remembering the angle it had so it can go back. */
+let obliquePose = null;
+function goSquare() {
+  if (!selected) return;
+  if (!isFaceOn()) obliquePose = { a: view.a, e: view.e };
+  goNormal(selected);
+}
+/** Back to the 3D angle the sketch was seen from (or a standard oblique one). */
+function goOblique() {
+  const back = obliquePose ?? { a: V.homeAzimuth, e: V.homeElevation };
+  animateTo({ a: back.a, e: back.e, target: view.target.clone() }, V.transitionMs);
+}
 const ACTIONS = {
-  faceOn: () => (selected && !extrude && !xform ? goNormal(selected) : undefined), // look straight at the sketch plane
+  faceOn: () => (selected && !extrude && !xform ? (isFaceOn() ? goOblique() : goSquare()) : undefined), // N: back and forth between looking straight at the sketch plane and the 3D angle
   consH: () => constraintKey(["Horizontal"]),
   consV: () => constraintKey(["Vertical"]),
   consE: () => constraintKey(["Equal length", "Equal radius"]),
@@ -1734,7 +1750,10 @@ canvas.addEventListener("pointerup", (ev) => {
     return;
   }
   if (was.kind === "selectclick" && !was.moved) {
+    const hadPicks = !!(session.picks.length || session.pickedConstraint || session.pickEdit);
     session.click(was.p, { shift: was.shift });
+    // clicking the sketch plane again (nothing under the cursor, nothing to let go of) goes back to looking straight at it
+    if (!hadPicks && !session.picks.length && !isFaceOn() && !anim) goSquare();
     updateStatus();
     markSketch();
     return;

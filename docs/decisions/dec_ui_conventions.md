@@ -94,3 +94,5 @@ The human asked for navigation, a few hotkeys plus undo and redo, the sketch-fin
 list, and typing a number to be done right, and said Shapr3D (their only well-liked program) is a reference but
 not to be copied (`in_027`). Following Fusion/Onshape-style letter keys and offering navigation presets lets new
 users keep the hands they already have, and the clutter and extrusion preferences come directly from the human.
+
+**World-plane clicks (`in_060`, the human's words; supersede `in_039`/`in_040` where they differ):** a **single click on a world plane** (nothing selected, no operation running) enters sketch view, square to that plane. A click that is exiting a state (a selection, a running extrude/move/rotate, a picked line or corner) only exits it and never moves the camera. While sketching, clicking the empty sketch plane (nothing picked) squares the view when it is at an angle, and **N** (or the bar's view button) toggles between the square view and the remembered 3D angle. The double-click-to-orient handler is now redundant. AI's reading of "exiting another state"; not yet reviewed by the human.

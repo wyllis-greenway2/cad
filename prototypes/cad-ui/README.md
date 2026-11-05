@@ -84,6 +84,7 @@ fill, the body has a clear-coat sheen and a soft studio reflection (`settings.li
 behind an object show only faintly (`grid.axisGhost`, `axisArrow.faintOpacity`).
 
 ## Modify (`in_038`)
+A single click on a world plane (with nothing selected) sketches on it, square to the plane; while sketching, clicking the empty plane squares an angled view, and **N** toggles square / 3D angle (`in_060`).
 Single click selects a **corner**, **line** (within a few pixels), **face**, unextruded **sketch shape** or **plane**; **double-click selects the whole body**.
 Body selected: **M** move, **R** rotate, **K** scale (X / Y / Z picks the axis, drag or type a number, Enter or a click in the world applies; rotate and scale are about the body's box
 centre; each is a step in the History list you can click to change). Face selected: **E** push/pull, **S** sketch from this face. Lines and corners are only
