@@ -89,7 +89,7 @@ uniform vec3 uLineCol;
 uniform float uLodDiv; uniform float uStyleMin; uniform float uFineMul; uniform float uMinCellPx;
 uniform float uFogNear; uniform float uFogFar; uniform float uAxisFogFar; uniform float uFogK;
 uniform float uAxisW;
-uniform vec3 uOrbCol; uniform vec3 uHC; uniform float uHR; uniform float uHA; uniform vec3 uSC; uniform float uSR; uniform float uSA; uniform float uSFill;
+uniform vec3 uOrbCol; uniform vec3 uHC; uniform float uHR; uniform float uHRing; uniform vec3 uSC; uniform float uSR; uniform float uSA; uniform float uSRing; uniform float uSSoft; uniform float uSFill; uniform float uRingPx;
 uniform float uPane; uniform float uPaneOff; uniform float uPaneR; uniform float uAxisLen; uniform float uEdgeA; uniform vec3 uFadeC; uniform float uFadeR;
 varying vec3 vPos;
 
@@ -152,8 +152,8 @@ void main() {
   // Paint layer: a pane's fill.
   // the pane's own fill, plus the orb highlights lying on it (the hover orb at the cursor, the selection orb spreading from the click)
   float baseA = uOpacity * fog * paneIn;
-  float hA = uHA * orbProfile(vPos, uHC, uHR, 0.0) * paneIn;
-  float sA = uSA * orbProfile(vPos, uSC, uSR, uSFill) * paneIn;
+  float hA = orbAlpha(vPos, uHC, uHR, 0.0, 0.0, uHRing, 1.0, uRingPx) * paneIn;
+  float sA = orbAlpha(vPos, uSC, uSR, uSA, uSFill, uSRing, uSSoft, uRingPx) * paneIn;
   float orbA = 1.0 - (1.0 - hA) * (1.0 - sA);
   float tot = 1.0 - (1.0 - baseA) * (1.0 - orbA);
   gl_FragColor = vec4(mix(uCol, uOrbCol, orbA / max(tot, 1e-4)), tot);
@@ -184,7 +184,7 @@ for (const [name, def] of Object.entries(PLANES)) {
       uLineCol: { value: new THREE.Vector3() },
       uFogNear: { value: A.nearFactor }, uFogFar: { value: A.farFactor }, uAxisFogFar: { value: A.axisFarFactor }, uFogK: { value: A.sharpness },
       uAxisW: { value: G.axisWidthPx },
-      uOrbCol: { value: new THREE.Vector3(...T().blueSurface) }, uHC: { value: new THREE.Vector3() }, uHR: { value: 1 }, uHA: { value: 0 }, uSC: { value: new THREE.Vector3() }, uSR: { value: 1 }, uSA: { value: 0 }, uSFill: { value: 0 },
+      uOrbCol: { value: new THREE.Vector3(...S.orb.color) }, uHC: { value: new THREE.Vector3() }, uHR: { value: 1 }, uHRing: { value: 0 }, uSC: { value: new THREE.Vector3() }, uSR: { value: 1 }, uSA: { value: 0 }, uSRing: { value: 0 }, uSSoft: { value: 2 }, uSFill: { value: 0 }, uRingPx: { value: 1.6 },
       uPane: { value: 0 }, uPaneOff: { value: 0 }, uPaneR: { value: 0 }, uAxisLen: { value: 0 }, uEdgeA: { value: 0 }, uFadeC: { value: new THREE.Vector3() }, uFadeR: { value: 0 },
     },
   });
@@ -283,16 +283,19 @@ function updatePlanes() {
     u.uFadeR.value = fadeR;
     u.uOpacity.value = mesh === pair.paint ? opacity : 0;
     // the orbs on this pane: the hover orb if the cursor is on it, the selection orb if it is the selected plane (or the plane being sketched on, flat)
-    const hovHere = hovered === name && !selected && hoverOrb.uOrbA.value > 0;
+    const hovHere = hovered === name && !selected && hoverOrb.uOrbRingA.value > 0;
     const selHere = !!actP && baseOf(actP) === name;
-    u.uHA.value = hovHere ? hoverOrb.uOrbA.value : 0;
+    u.uHRing.value = hovHere ? hoverOrb.uOrbRingA.value : 0;
     u.uHC.value.copy(hoverOrb.uOrbC.value);
     u.uHR.value = hoverOrb.uOrbR.value;
-    u.uSA.value = selHere ? (selPlane() ? selectOrb.uOrbA.value : S.light.faceSelectOpacity) : 0;
+    u.uSA.value = selHere ? (selPlane() ? selectOrb.uOrbA.value : S.orb.selectOpacity) : 0;
+    u.uSRing.value = selHere && selPlane() ? selectOrb.uOrbRingA.value : 0;
+    u.uSSoft.value = selectOrb.uOrbSoft.value;
+    u.uRingPx.value = S.orb.ringPx;
     u.uSC.value.copy(selectOrb.uOrbC.value);
     u.uSR.value = selectOrb.uOrbR.value;
     u.uSFill.value = selPlane() ? selectOrb.uOrbFill.value : 1;
-    u.uOrbCol.value.set(...th.blueSurface);
+    u.uOrbCol.value.set(...S.orb.color);
    }
   }
 }
@@ -505,11 +508,17 @@ function startSelectOrb() {
 function updateOrbs() {
   const O = S.orb;
   const hovering = !selected && !extrude && !xform && !!hoverPoint && !!(hoveredFace || hoveredSketch || hovered);
-  hoverOrb.uOrbA.value = hovering ? O.hoverOpacity : 0;
+  hoverOrb.uOrbA.value = 0; // pointing at a surface draws only a thin ring, no fill
+  hoverOrb.uOrbRingA.value = hovering ? O.ringOpacity : 0;
   if (hoverPoint) hoverOrb.uOrbC.value.set(...hoverPoint);
   hoverOrb.uOrbR.value = view.dist * O.radius;
+  hoverOrb.uRingPx.value = O.ringPx;
+  fullOrb.uOrbA.value = O.selectOpacity;
   const surface = !!sel && ["face", "body", "sketch", "plane"].includes(sel.kind);
-  selectOrb.uOrbA.value = surface ? S.light.faceSelectOpacity : 0;
+  selectOrb.uOrbA.value = surface ? O.selectOpacity : 0;
+  selectOrb.uOrbSoft.value = O.softFactor;
+  selectOrb.uRingPx.value = O.ringPx;
+  selectOrb.uOrbRingA.value = 0;
   if (sel !== orbSel) {
     // selected some other way (no click to spread from): lit all over at once
     orbSel = sel;
@@ -525,9 +534,11 @@ function updateOrbs() {
       selectOrb.uOrbFill.value = 1;
     } else {
       const e = 1 - (1 - k) ** 3;
+      const f = clamp((k - 0.55) / 0.45, 0, 1);
       selectOrb.uOrbC.value.set(...selOrbAnim.c);
-      selectOrb.uOrbR.value = selOrbAnim.R0 + (selOrbAnim.R1 - selOrbAnim.R0) * e;
-      selectOrb.uOrbFill.value = clamp((k - 0.55) / 0.45, 0, 1) ** 2 * (3 - 2 * clamp((k - 0.55) / 0.45, 0, 1));
+      selectOrb.uOrbR.value = selOrbAnim.R0 + (selOrbAnim.R1 - selOrbAnim.R0) * e; // the ring expands to the surface's edges...
+      selectOrb.uOrbFill.value = f * f * (3 - 2 * f); // ...while the colour fills it
+      selectOrb.uOrbRingA.value = O.ringOpacity;
       requestRender(); // keep spreading
     }
   }
@@ -700,7 +711,7 @@ function disc(plane, p, radiusMm, color, order, alpha = 1) {
 }
 /** An orb of blue lying on a flat shape (`in_073`): the same soft highlight as on body faces and panes. */
 function orbShape(plane, polygon, orb) {
-  const mesh = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(polygon.map((p) => new THREE.Vector2(p[0], p[1])))), orbMaterial(T().blueSurface, orb));
+  const mesh = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(polygon.map((p) => new THREE.Vector2(p[0], p[1])))), orbMaterial(S.orb.color, orb));
   mesh.matrixAutoUpdate = false;
   mesh.matrix.copy(basisMatrix(plane));
   mesh.renderOrder = 3.5;

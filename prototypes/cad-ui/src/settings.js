@@ -127,7 +127,6 @@ export const settings = {
     sheen: 0.22, // clear-coat strength: the sheen (0 = matt)
     sheenRoughness: 0.55, // lower = a tighter, shinier highlight; higher = a broad, soft one
     reflect: 0.3, // how strongly a soft studio environment is reflected in the surface (0 = none)
-    faceSelectOpacity: 0.6, // blue on the selected surface (the orb has filled it)
   },
   grid: {
     lodDivisor: 8, // grid spacing is chosen so about this many major cells span the view
@@ -139,11 +138,15 @@ export const settings = {
     extentFactor: 60, // size of the quad that carries a plane, in view-distances (fog hides its edge)
   },
   orb: {
-    // The orb highlight (`in_073`): a soft circle on the surface under the cursor; a click makes it radiate over the whole surface.
-    radius: 0.1, // the hover orb's radius, in view-distances (it fades smoothly to nothing at its edge)
-    hoverOpacity: 0.5, // its strength at the centre
+    // The orb highlight (`in_073`, `in_074`): a thin line ring on the surface under the cursor; a click fills the surface with colour while the ring expands to its edges.
+    radius: 0.09, // the hover ring's radius, in view-distances
+    ringPx: 1.6, // the ring is a line this many pixels wide
+    ringOpacity: 0.95, // not faded: a crisp line
+    selectOpacity: 0.3, // the colour that fills the clicked surface: more transparent than before
+    color: [0.1, 0.72, 0.7], // teal
     fillMs: 520, // how long the colour takes to spread over the whole clicked surface
-    reachFactor: 2.6, // the spreading orb grows to this many times the surface's reach before it flattens into a full tint
+    reachFactor: 1.04, // the ring grows to this many times the surface's reach (a little past its far edge)
+    softFactor: 2.2, // while spreading, the soft colour reaches this many times the ring's radius
   },
   themeName: "pencil", // the look: a white world, charcoal pencil axes, grey panes and model (the earlier sheet and dark styles were dropped, `in_070`)
   themes: {

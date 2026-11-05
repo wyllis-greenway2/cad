@@ -106,7 +106,7 @@ export function createBody(scene, S, colors, renderer) {
     current.face = face;
     for (const c of [...group.children]) (c.geometry.dispose(), c.material.dispose(), group.remove(c));
     if (!face || !bodyMesh) return;
-    const m = new THREE.Mesh(faceGeometry(face), orbMaterial(colors().blueSurface, orb, { offset: -2 })); // an orb of blue on the face, not a tint over all of it (`in_073`)
+    const m = new THREE.Mesh(faceGeometry(face), orbMaterial(S.orb.color, orb, { offset: -2 })); // a ring on the face, and a teal fill when clicked (`in_073`, `in_074`)
     m.renderOrder = 6;
     group.add(m);
   }

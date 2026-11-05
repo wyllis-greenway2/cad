@@ -470,3 +470,8 @@ Replace the three panes on the large xyz thing with something like a touch shado
 Undo the touch shadow; instead try an orb-like hover highlight on the surface under the cursor (a semi-transparent circle on the surface that fades smoothly to nothing, no hard edges) and on click let the orb colour radiate to fill the whole clicked surface.
 
 > No lets undo that. Lets try something else. Can we have it so that there is like a hover highlight? So as apposed to a whole surface highlighting on hover, a circle of it highlights where the cursor is. The circle is actually on the surface so you can see the surface as it traces over it. The circle should be semi transparent and smoothly gradient into nothing, like an orb, with no hard edges. On click, it should radiate that orb color to fill the whole surface that was clicked.
+
+## in_074 — 2026-11-05 — directive
+Change the orb to a thin line ring on the face under the cursor; on click the face fills with colour as it does now while the ring expands to the edges; the colour should be more transparent and teal.
+
+> okay can we make the orb just be a circle that goes on the face of an object under the cursor hover? The circle can be a thin line ring, not faded, just a line. When click happens, the face should filly with color kind of like it already does but with the ring expanding to the edges at the same time. the blue color should be more transparent and teal.
