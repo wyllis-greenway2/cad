@@ -8,10 +8,13 @@ import { outlineOf, lookup, settings } from "../interaction/api.ts";
 import type { Camera } from "../interaction/camera.ts";
 import { basis, position, projector } from "../interaction/camera.ts";
 import { surfaceTriangles } from "../interaction/surfaces.ts";
+import { createWorld } from "./world.ts";
+import type { WorldState } from "./world.ts";
+import type { Grid } from "../interaction/grid.ts";
 import { hoverOrb, selectOrb, fullOrb, orbMaterial, selectedLook } from "./orb.ts";
 
 const AXIS_LEN = 30; // mm: the short pencil axes, each ending at its arrow
-const rgb = (c: [number, number, number]) => new THREE.Color(c[0], c[1], c[2]);
+const rgb = (c: [number, number, number]) => new THREE.Color().setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
 
 export interface Highlight {
   hover: Ref | undefined;
@@ -41,6 +44,7 @@ export function createView(host: HTMLElement) {
   const overlay = new THREE.Group();
   const preview = new THREE.Group();
   scene3.add(content, overlay, preview);
+  const world = createWorld(renderer, scene3, host);
   let lastScene: Scene | null = null;
   let lastMesh: { vertices: Float32Array; triangles: Uint32Array } | null = null;
   let size = { w: 1, h: 1 };
@@ -95,17 +99,10 @@ export function createView(host: HTMLElement) {
     lineMats.length = 0;
     const get = lookup(s);
     const ink = settings.theme.sketchInk;
-    const axis = new THREE.Color(...settings.theme.axis);
+    const axis = rgb(settings.theme.axis);
     const paneRgb = settings.theme.sheet;
     for (const p of Object.values(s.parts)) {
-      if (p.origin === "world") {
-        if (p.kind === "axis") content.add(fatLine([...p.at, ...[0, 1, 2].map((i) => p.at[i]! + p.dir[i]! * AXIS_LEN)], axis, 2.2));
-        else if (p.kind === "plane") {
-          const tris = surfaceTriangles(get, p)!;
-          content.add(trisMesh(tris, new THREE.MeshBasicMaterial({ color: rgb(paneRgb), transparent: true, opacity: settings.panes.opacity, side: THREE.DoubleSide, depthWrite: false })));
-        }
-        continue;
-      }
+      if (p.origin === "world") continue; // the world is drawn by ui/world.ts
       if (p.kind === "face" && p.origin === "drawn") {
         const tris = surfaceTriangles(get, p);
         if (tris) content.add(trisMesh(tris, new THREE.MeshBasicMaterial({ color: rgb(paneRgb), transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })));
@@ -132,7 +129,7 @@ export function createView(host: HTMLElement) {
   const teal = settings.orb.color;
   const surface: [number, number, number] = [0.8, 0.8, 0.82];
   const ringRgb = selectedLook(teal, settings.orb.selectOpacity, surface);
-  const tealHex = new THREE.Color(teal[0], teal[1], teal[2]).getHex();
+  const tealHex = rgb(teal).getHex();
   function setHighlight(h: Highlight, cam: Camera, nowMs: number) {
     dispose(overlay);
     if (!lastScene) return;
@@ -205,7 +202,10 @@ export function createView(host: HTMLElement) {
     renderer.setSize(w, h);
     for (const m of lineMats) m.resolution.set(w, h);
   }
-  function render(cam: Camera) {
+  /** Draw the frame. Returns true while the world is still animating (the axes moving into the compass), so the caller keeps drawing. */
+  function render(cam: Camera, ws: WorldState, grid: Grid | null, nowMs: number): boolean {
+    world.setGrid(grid);
+    const animating = world.update(ws, cam, size, nowMs);
     const pr = projector(cam, size.w, size.h);
     const b = basis(cam);
     const eye = position(cam);
@@ -228,7 +228,9 @@ export function createView(host: HTMLElement) {
     fill.position.set(...eye);
     for (const m of lineMats) m.resolution.set(size.w, size.h);
     renderer.render(scene3, active);
+    world.renderCompass(cam, size);
+    return animating;
   }
   resize();
-  return { setScene, setHighlight, setPreview, render, resize, size: () => size, canvas: renderer.domElement };
+  return { setScene, setHighlight, setPreview, render, compassRect: world.compassRect, resize, size: () => size, canvas: renderer.domElement };
 }

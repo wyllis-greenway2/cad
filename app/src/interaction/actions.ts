@@ -8,7 +8,7 @@ import { sub, dot, cross, length, dist, mid, normalize } from "../math/vec.ts";
 import type { Scene, Relation } from "../operation/scene.ts";
 import { lookup, nextId } from "../operation/scene.ts";
 import type { Kind, Lookup } from "../operation/part.ts";
-import { pointOf, segmentOf, normalOfPlane, planeOfParts } from "../operation/part.ts";
+import { pointOf, segmentOf, circleOf, normalOfPlane, planeOfParts } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
 import { ordered } from "./selection.ts";
 
@@ -60,7 +60,28 @@ const sideOf = (v: number) => (v >= 0 ? 1 : -1);
 export const ROWS: Row[] = [
   { id: "horizontal", label: "Horizontal", pair: ["line"] },
   { id: "vertical", label: "Vertical", pair: ["line"] },
+  {
+    // the length of a line (the distance between its two corners)
+    id: "length", label: "Length", pair: ["line"], unit: "mm",
+    measure: (c, r) => {
+      const [s] = segs(c, r);
+      return s ? dist(s[0], s[1]) : null;
+    },
+    spot: (c, r) => {
+      const [s] = segs(c, r);
+      return s ? mid(s[0], s[1]) : null;
+    },
+  },
   { id: "fixed", label: "Fix in place", pair: ["corner"] },
+  {
+    // the diameter of a circle
+    id: "diameter", label: "Diameter", pair: ["circle"], unit: "mm",
+    measure: (c, r) => {
+      const k = circleOf(c.get, r[0]!);
+      return k ? k.radius * 2 : null;
+    },
+    spot: (c, r) => circleOf(c.get, r[0]!)?.center ?? null,
+  },
 
   { id: "coincident", label: "Coincident", pair: ["corner", "corner"] },
   { id: "sameHeight", label: "Same height", pair: ["corner", "corner"] },

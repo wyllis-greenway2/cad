@@ -4,6 +4,7 @@ import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot } from "../math/vec.ts";
 import type { Lookup, Part } from "../operation/part.ts";
 import { pointOf, circleOf } from "../operation/part.ts";
+import { settings } from "../shared/settings.ts";
 
 /** Ear clipping of a simple polygon given in 2D; returns triangle index triples. */
 export function triangulate(poly: [number, number][]): number[] {
@@ -39,7 +40,8 @@ export function surfaceTriangles(get: Lookup, p: Part): number[] | null {
     if (p.mesh) return [...p.mesh];
     const e = p.extent;
     if (e === undefined) return null;
-    const c = (x: number, y: number): Vec3 => add(p.at, add(scale(p.u, x * e), scale(p.v, y * e)));
+    const from = p.origin === "world" ? settings.panes.offset : 0; // a world pane floats out from the axes
+    const c = (x: number, y: number): Vec3 => add(p.at, add(scale(p.u, from + x * (e - from)), scale(p.v, from + y * (e - from))));
     return [c(0, 0), c(1, 0), c(1, 1), c(0, 0), c(1, 1), c(0, 1)].flat();
   }
   if (p.kind !== "face") return null;

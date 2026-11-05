@@ -33,7 +33,8 @@ test("the table: which relations exist for which kinds of parts (the whole matri
   const { h, a, b, k1, k2 } = world();
   const [a0, b0] = [a.corners[0]!, b.corners[0]!];
   const [la, lb] = [a.lines[0]!, b.lines[0]!];
-  assert.deepEqual(labels(h, [la]), ["Horizontal", "Vertical"]);
+  assert.deepEqual(labels(h, [la]), ["Horizontal", "Vertical", "Length"]);
+  assert.deepEqual(labels(h, [k1.circle]), ["Diameter"]);
   assert.deepEqual(labels(h, [a0]), ["Fix in place"]);
   assert.deepEqual(labels(h, [a0, b0]), ["Coincident", "Same height", "Same position across", "Distance"]);
   assert.deepEqual(labels(h, [la, lb]), ["Equal length", "Parallel", "Perpendicular", "Distance", "Angle"]);

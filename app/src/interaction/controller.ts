@@ -20,7 +20,7 @@ import { armTool, snapOnPlane, typeKey, finish, planeForDrawing, lineNext } from
 import type { Op, OpKind } from "./operations.ts";
 import { startOp, startEdit, typeOp, valueOf, opCommand, distanceFromPointer, OP_LABEL } from "./operations.ts";
 import type { Camera } from "./camera.ts";
-import { homeCamera, orbit, pan, zoomAt, lookStraight, lookAlternating, blend, easeInOut, projector, offsetOf } from "./camera.ts";
+import { homeCamera, orbit, pan, zoomAt, lookStraight, lookAlternating, blend, easeInOut, projector, offsetOf, sideOf } from "./camera.ts";
 import { dot } from "../math/vec.ts";
 import { pivotOf, planeOf, objectOf } from "./objects.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
@@ -43,10 +43,12 @@ export interface AppState {
   op: Op | null;
   /** the relation whose badge is open: the other parts it ties show in amber */
   focus: string | null;
+  /** the big axes at the origin are kept on even though there is a body (a click on the compass toggles it) */
+  axesBig: boolean;
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, tool: null, op: null, focus: null });
+export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, tool: null, op: null, focus: null, axesBig: false });
 
 const pickOpts = () => ({ pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx });
 
@@ -150,7 +152,7 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
         const t = s.tool;
         if (!t.plane) {
           // the first click: the surface under it takes the drawing, from wherever the camera is
-          const planeRef = drawingPlane(sc, refs);
+          const planeRef = drawingPlane(sc, refs) ?? drawingPlane(sc, selectionOf(sess) as Ref[]); // no surface under the click: the selected plane takes the drawing
           const pl = planeRef ? (get(planeRef) as Plane) : null;
           const at = pl ? snapOnPlane(sc, pv, pl) : null;
           if (!pl || !at) return { ...base, session: { ...sess, message: "click on a surface to draw on" } };
@@ -189,7 +191,7 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
     }
     case "menu": {
       const pv = pr().view(i.x, i.y);
-      const cands = candidatesAt(sc, pv, pickOpts());
+      const cands = i.button ? [] : candidatesAt(sc, pv, pickOpts()); // the menu button works on the selection, not on what is under it
       let session = sess;
       const first = cands[0]?.ref;
       if (first && !selectionOf(sess).includes(first)) session = clickOn(sess, [first], false); // a right click on something selects it, as usual
@@ -244,6 +246,8 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
       if (s.focus && !s.tool && !s.op) return { ...s, focus: null };
       if (s.tool || s.op) return { ...s, tool: null, op: null };
       return withSession(s, clearSelection(sess));
+    case "compass":
+      return { ...s, axesBig: !s.axesBig };
     case "save":
     case "open":
       return s; // files are the platform's business: the composition root handles these
@@ -291,4 +295,20 @@ export function advance(s: AppState, now: number): AppState {
   const k = Math.min(1, (now - s.anim.t0) / settings.view.transitionMs);
   if (k >= 1) return { ...s, cam: s.anim.to, anim: null };
   return { ...s, cam: blend(s.anim.from, s.anim.to, easeInOut(k)) };
+}
+
+/** The plane whose grid is shown: when looking straight at a plane, the selected plane (or a part on it) if it faces the camera, else the world plane that does. */
+export function gridPlaneOf(s: AppState): Plane | null {
+  if (!s.cam.straight) return null;
+  const get = lookup(sceneOf(s.session));
+  const facing = (pl: Plane) => sideOf(s.cam, normalOfPlane(pl)) !== 0;
+  for (const r of selectionOf(s.session)) {
+    const pl = planeOf(get, r);
+    if (pl && facing(pl)) return pl;
+  }
+  for (const n of ["XY", "XZ", "YZ"]) {
+    const pl = get(worldRef(n)) as Plane;
+    if (facing(pl)) return pl;
+  }
+  return null;
 }

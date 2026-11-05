@@ -17,7 +17,8 @@ export type Intent =
   | { type: "hover"; x: number; y: number }
   | { type: "hoverEnd" }
   | { type: "click"; x: number; y: number; count: number; shift: boolean }
-  | { type: "menu"; x: number; y: number }
+  | { type: "menu"; x: number; y: number; /** from the menu button: act on the selection, ignore what is under the point */ button?: boolean }
+  | { type: "compass" }
   | { type: "orbit"; dx: number; dy: number }
   | { type: "pan"; dx: number; dy: number }
   | { type: "zoom"; factor: number; x: number; y: number }

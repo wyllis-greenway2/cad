@@ -651,3 +651,8 @@ Tells the AI to go ahead with phase 7 of the clean engine (the relations UI).
 Tells the AI to go ahead with phase 8 of the clean engine (the cut over).
 
 > continue with phase 8
+
+## in_110 — 2026-11-05 — preference
+Asks for the new app to look more like the old one, and asks why there is no way to set line lengths or to delete constraints like the old one.
+
+> Okay can we make it look more like the old one? Also why is there no ability for me to set line lengths, or delete the constraints like the old one?

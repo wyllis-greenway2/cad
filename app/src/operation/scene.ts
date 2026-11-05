@@ -36,7 +36,7 @@ const Y: Vec3 = [0, 1, 0];
 const Z: Vec3 = [0, 0, 1];
 const O: Vec3 = [0, 0, 0];
 /** The side of a world plane's pane (mm), from the origin along its two axes: the little squares you select a world plane by. */
-export const PANE = 20;
+export const PANE = 22;
 
 /** The world: the three planes, the three axes and the origin. Always references (origin "world", not movable). */
 export function worldParts(): Part[] {

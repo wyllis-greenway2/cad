@@ -106,6 +106,15 @@ function solvePlane(scene: Scene, get: Lookup, plane: Plane, rels: Relation[]) {
       case "horizontal": case "vertical":
         if (L1) add1({ type: rel.kind, a: L1[0], b: L1[1] });
         break;
+      case "length":
+        if (L1 && v !== undefined) add1({ type: "distance", a: L1[0], b: L1[1], d: v });
+        break;
+      case "diameter": {
+        const circle = parts.find((x) => kindOf(x) === "circle");
+        const r = circle ? radiusId(circle) : null;
+        if (r && v !== undefined) add1({ type: "radius", r, value: v / 2 });
+        break;
+      }
       case "fixed": {
         const c = c1 ? cornerId(c1) : null;
         if (c) add1({ type: "fixed", p: c, at: points[c] });

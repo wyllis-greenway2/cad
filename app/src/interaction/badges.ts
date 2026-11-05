@@ -34,7 +34,9 @@ function mineOf(scene: Scene, selection: readonly Ref[]): Set<Ref> {
   const m = new Set<Ref>(selection);
   for (const r of selection) {
     const p = scene.parts[r];
-    if (p) for (const a of anchorsOf(p)) m.add(a);
+    if (!p) continue;
+    for (const a of anchorsOf(p)) m.add(a);
+    if (p.kind === "face") for (const l of [...p.loop, ...(p.disk ? [p.disk] : [])]) { m.add(l); const lp = scene.parts[l]; if (lp) for (const a of anchorsOf(lp)) m.add(a); }
   }
   return m;
 }
@@ -43,7 +45,9 @@ export function badgesFor(scene: Scene, selection: readonly Ref[], focus: string
   const map = buildMap(scene);
   const mine = mineOf(scene, selection);
   const out = new Map<string, Badge>();
-  for (const ref of selection) {
+  // a selected closed figure shows the relations of its lines too
+  const refs = selection.flatMap((r) => { const p = scene.parts[r]; return p && p.kind === "face" ? [r, ...p.loop, ...(p.disk ? [p.disk] : [])] : [r]; });
+  for (const ref of refs) {
     for (const t of touching(scene, map, ref)) {
       if (t.type !== "relation" || out.has(t.id)) continue;
       const rel = scene.relations.find((r) => r.id === t.id)!;
@@ -94,5 +98,6 @@ export function anchorOf(scene: Scene, selection: readonly Ref[]): Vec3 | null {
   if (o.shape === "point") return o.at;
   if (o.shape === "segment") return mid(o.a, o.b);
   if (o.shape === "circle") return o.center;
+  if (p.kind === "face") { const pts = p.corners.map((c) => scene.parts[c]).filter((q): q is Extract<typeof q, { kind: "corner" }> => q?.kind === "corner").map((q) => q.at); if (pts.length) return pts.reduce((a, q) => [a[0] + q[0] / pts.length, a[1] + q[1] / pts.length, a[2] + q[2] / pts.length] as Vec3, [0, 0, 0] as Vec3); }
   return null;
 }

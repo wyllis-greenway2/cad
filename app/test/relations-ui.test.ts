@@ -8,7 +8,7 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, scene, selection, run, undoLast } from "../src/interaction/session.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
 import type { AppState } from "../src/interaction/controller.ts";
-import { drawChain } from "../src/operation/build.ts";
+import { drawChain, drawCircle, drawSquaredRectangle } from "../src/operation/build.ts";
 import { lookup } from "../src/operation/scene.ts";
 import { pointOf } from "../src/operation/part.ts";
 import { badgesFor, focusParts, suggestMeasure, anchorOf } from "../src/interaction/badges.ts";
@@ -148,4 +148,30 @@ test("a relation whose part was deleted is a broken badge", () => {
   const broken = { ...scene(st.session), relations: [...scene(st.session).relations, { id: "r_999", kind: "horizontal", parts: ["d/e_099.s0" as Ref] }] };
   assert.equal(badgesFor(broken, [a.lines[0]!], null).length, 1);
   assert.equal(badgesFor({ ...broken, relations: broken.relations.map((r) => (r.id === rel.id ? { ...r, parts: [...r.parts, "d/e_098.p0" as Ref] } : r)) }, [a.lines[0]!], null)[0]!.broken, true);
+});
+
+test("a single line has a length you can set; a circle has a diameter; a selected closed figure shows the badges of its lines", () => {
+  const { st: st0, a } = pair();
+  let st = select(st0, [a.lines[0]!]);
+  const sug = suggestMeasure(scene(st.session), selection(st.session))!;
+  assert.deepEqual([sug.label, sug.value, sug.unit], ["Length", 10, "mm"]);
+  st = reduce(st, { type: "begin", name: "dimension" }, env);
+  st = key(typeText(st, "25"), "Enter");
+  near(dist(at(st, a.corners[0]!), at(st, a.corners[1]!)), 25);
+  assert.equal(badgesFor(scene(st.session), [a.lines[0]!], null)[0]!.label, "Length");
+  // diameter
+  let c = createState(createSession(kernel));
+  const circ = drawCircle(scene(c.session), XY, [0, 0, 0], 4);
+  c = { ...c, session: run(c.session, circ.command) };
+  c = select(c, [circ.circle]);
+  c = reduce(c, { type: "begin", name: "dimension" }, env);
+  assert.equal(entryOf(scene(c.session), null, c.op)!.fields[0]!.value, "8");
+  c = key(typeText(c, "30"), "Enter");
+  near((scene(c.session).parts[circ.circle] as { radius: number }).radius, 15);
+  // a drawn rectangle selected as a figure shows its sides' relations
+  let r = createState(createSession(kernel));
+  const sq = drawSquaredRectangle(scene(r.session), XY, [0, 0, 0], [10, 6, 0], [1, 0, 0], [0, 1, 0]);
+  r = { ...r, session: run(r.session, sq.command) };
+  const face = Object.values(scene(r.session).parts).find((p) => p.kind === "face")!.ref;
+  assert.equal(badgesFor(scene(r.session), [face], null).length, 4, "horizontal, vertical, horizontal, vertical");
 });

@@ -18,6 +18,9 @@ import type { Ref, Command } from "./interaction/api.ts";
 import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
 import { createChip } from "./ui/chip.ts";
+import { createControls } from "./ui/controls.ts";
+import { gridPlaneOf } from "./interaction/controller.ts";
+import { gridFor } from "./interaction/api.ts";
 import { createBadges } from "./ui/badges.ts";
 import { badgesFor, focusParts, suggestMeasure, anchorOf } from "./interaction/api.ts";
 import { entryOf, previewFor } from "./interaction/api.ts";
@@ -65,6 +68,11 @@ const menu = createMenu(document.body, (id) => {
 const fileRows = () => [{ id: "save", label: "Save", enabled: true, why: null }, { id: "open", label: "Open…", enabled: true, why: null }];
 const scrollRow = () => ({ id: "scrollMode", label: SCROLL_LABEL[recognizer.scrollMode], enabled: true, why: null });
 
+const controls = createControls(document.body, {
+  menu: (x, y) => dispatch({ type: "menu", x, y, button: true }),
+  compass: () => dispatch({ type: "compass" }),
+  look: (plane) => dispatch({ type: "look", plane }),
+});
 const env = () => ({ w: view.size().w, h: view.size().h, now: performance.now() });
 const AUTOSAVE_KEY = "cad.autosave";
 const FILE_NAME = "model.cad.json";
@@ -119,6 +127,7 @@ async function boot() {
   };
   requestAnimationFrame(frame);
 }
+let moving = false;
 function frame(now: number) {
   if (state.anim) { state = advance(state, now); dirty = true; }
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
@@ -142,9 +151,14 @@ function frame(now: number) {
     const en = entryOf(scene(state.session), state.tool, state.op);
     chip.update(en?.fields ?? null, en?.unit ?? "mm", pointer[0], pointer[1]);
     host.style.cursor = state.tool ? "crosshair" : "";
-    view.render(state.cam);
+    const hasBody = Object.values(sc.parts).some((p) => p.kind === "body");
+    const big = !hasBody || state.axesBig;
+    const gp = gridPlaneOf(state);
+    const grid = gp ? gridFor(state.cam, gp, view.size().w, view.size().h) : null;
+    moving = view.render(state.cam, { big, panes: !hasBody, hover: state.session.hover, corner: hasBody }, grid, now);
+    controls.update(hasBody, window.innerWidth, window.innerHeight, view.compassRect(view.size().w));
     statusEl.textContent = state.session.message ?? Object.values(o.errors)[0] ?? "";
-    dirty = false;
+    dirty = moving; // keep drawing while the axes are moving into the compass
   }
   requestAnimationFrame(frame);
 }
