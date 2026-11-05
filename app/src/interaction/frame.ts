@@ -22,7 +22,8 @@ import type { Annotation } from "./annotations.ts";
 import { entryOf, previewFor } from "./entry.ts";
 import type { Entry } from "./entry.ts";
 import type { Preview } from "./tools.ts";
-import { gizmoOf } from "./control/handles.ts";
+import { gizmoOf, activeOp } from "./control/handles.ts";
+import type { Op } from "./operations.ts";
 import { followed } from "./gizmo.ts";
 import type { Handle } from "./gizmo.ts";
 
@@ -74,6 +75,9 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   const raw = gizmoOf(s);
   const live = s.op?.kind === "pushpull" || s.op?.kind === "extrude"; // (their arrows follow inside `gizmoOf`)
   const gizmo = raw && !live ? followed(raw, s.drag && "handle" in s.drag ? s.drag.handle : null, s.op?.value ?? null) : raw;
+  // the arrow of a push / pull, an extrude or a fillet / chamfer that showed up by itself has its bubble too, ready for a typed size
+  const auto = s.op ? null : activeOp(s);
+  const shownOp = s.op ?? (auto && (auto.kind === "pushpull" || auto.kind === "extrude" || auto.kind === "edge") ? auto : null);
   const flash = flashOf(s, sc, now);
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
   const gp = gridPlaneOf(s);
@@ -83,7 +87,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel,
     amber: focusParts(sc, sel, s.focus), red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
     preview: previewFor(sc, s.tool),
-    entry: entryWhere(entryOf(sc, s.tool, s.op), s, gizmo),
+    entry: entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
     panel: panelOf(s.panel, sceneOf(s.session), sel),
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash)],
     flash,
@@ -108,12 +112,12 @@ function flashOf(s: AppState, sc: Scene, now: number): FlashFrame | null {
 }
 
 /** Where the value bubble sits: at the tip of the arrow for a push / pull or an extrude and at the edge for a fillet or chamfer (so it is by what it sets), else at the middle of the handles, or by the figure being drawn. */
-function entryWhere(e: Entry | null, s: AppState, g: Gizmo | null): Entry | null {
+function entryWhere(e: Entry | null, s: AppState, g: Gizmo | null, op: Op | null): Entry | null {
   if (!e) return null;
   let at: Vec3 | null = null;
   let from: Vec3 | null = null;
-  if (s.op && g) {
-    const k = s.op.kind;
+  if (op && g) {
+    const k = op.kind;
     const arrow = k === "extrude" || k === "pushpull" || k === "edge" ? g.handles[0] : undefined;
     at = arrow ? arrow.points.at(-1) ?? g.centre : g.centre;
     from = arrow ? arrow.points[0] ?? null : null;

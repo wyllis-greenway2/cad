@@ -20,7 +20,7 @@ import type { AppState, Env } from "./state.ts";
 import { pickOpts } from "./state.ts";
 
 /** The operation whose handles are up: the one you started (menu or key), else the one the selection brings up by itself (a figure's pull arrow, a face's push / pull, an edge's double arrow, the body's move arrows). */
-function activeOp(s: AppState): Op | null {
+export function activeOp(s: AppState): Op | null {
   if (s.op) return hasGizmo(s.op.kind) ? s.op : null;
   return autoOp(sceneOf(s.session), selectionOf(s.session));
 }
@@ -51,7 +51,10 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const h = hitHandle(g, pr.project, i.x - i.dx, i.y - i.dy);
     const d = h ? startDrag(g, h, pr.ray(i.x - i.dx, i.y - i.dy), s.cam) : null;
     if (!d) return orbitOrCorner(s, i, env); // not on a handle: this drag turns the camera (or drags a corner of a drawing)
-    s = { ...s, op: s.op ?? activeOp(s), drag: { handle: d, base: isLive(s.op ?? activeOp(s)!) ? (s.op ?? activeOp(s)!).value ?? 0 : 0 }, gizmoHover: h!.id }; // a handle that showed up by itself becomes the operation being worked
+    // an operation whose arrow showed up by itself stays up after the drag (like one you started): push / pull, extrude, fillet / chamfer go on until you click away; a body's move arrows end with the drag
+    const started = s.op ?? activeOp(s)!;
+    const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" ? { ...started, auto: false } : started;
+    s = { ...s, op, drag: { handle: d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // a handle that showed up by itself becomes the operation being worked
   }
   if ("corner" in s.drag!) return moveCorner(s, i, env);
   if (!("handle" in s.drag!) || !s.op) return doOrbit(s, i);

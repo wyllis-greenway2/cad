@@ -1,8 +1,9 @@
 // The pointer intents: hover, click (selecting, or drawing when a tool is armed, or finishing an operation) and the menu.
 import type { Intent } from "../../shared/input.ts";
 import type { Ref } from "../../shared/ref.ts";
-import { dist } from "../../math/vec.ts";
+import { dist, dot, sub } from "../../math/vec.ts";
 import type { Plane } from "../../operation/part.ts";
+import { normalOfPlane } from "../../operation/part.ts";
 import { lookup } from "../../operation/scene.ts";
 import type { Scene } from "../../operation/scene.ts";
 import { scene as sceneOf, selection as selectionOf, clickOn, hoverOn, run } from "../session.ts";
@@ -115,14 +116,17 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const sess = base.session;
   const sc = sceneOf(sess);
   const get = lookup(sc);
-  if (refs.length <= 1 && i.count === 2) {
+  // a sketch drawn on a face of the body lies in the same plane as that face: the two are one surface for looking at it and for selecting the whole object
+  const planes = refs.map((r) => planeOf(get, r));
+  const onePlane = refs.length <= 1 || (planes.every((q) => !!q) && planes.every((q) => Math.abs(dot(normalOfPlane(q!), normalOfPlane(planes[0]!)) - 1) < 1e-6 && Math.abs(dot(normalOfPlane(q!), sub(q!.at, planes[0]!.at))) < 1e-3));
+  if (onePlane && i.count === 2) {
     // two clicks: look straight at the plane clicked, from the side you are on; the selection stays as the first click left it
     const pl = refs[0] ? planeOf(get, refs[0]) : null;
     return pl ? { ...base, pendingLook: { plane: pl, due: env.now + settings.input.multiClickMs } } : base; // waits to see whether a third click comes
   }
   // the infinite world planes are only a surface for the ring to land on and for a tool to draw on: a click on one selects nothing (like a click on empty space)
   const selectable = refs.filter((r) => !(sc.parts[r]?.origin === "world" && sc.parts[r]?.kind === "plane"));
-  if (refs.length <= 1 && i.count >= 3) {
+  if (onePlane && i.count >= 3) {
     // three: the whole object
     const o = selectable[0] ? objectOf(sc, selectable[0]) : undefined;
     return o ? withSession({ ...base, pendingLook: null }, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base; // and the view does not turn

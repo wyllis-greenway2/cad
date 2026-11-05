@@ -136,3 +136,12 @@ test("the pane of a world plane can be hit from either side", () => {
   const below = candidatesAt(scene, { x: 15, y: -15, project: (p) => [p[0], -p[1]], ray: { o: [15, 15, -500], d: [0, 0, 1] } });
   assert.equal(below[0]!.ref, XY);
 });
+
+test("a world plane between the eye and a model is only the background: the model under the pointer is picked", () => {
+  const { scene } = box();
+  // from the side, low: the XY world plane passes between the eye and the near side of the box, but the pointer is on the box
+  const pr = projector({ ...homeCamera(), elevation: 0.15, target: [0, 0, 10] }, 800, 600);
+  const [x, y] = pr.project([20, 0, 10]); // the middle of the +x side face
+  const c = candidatesAt(scene, pr.view(x, y)).filter((q) => q.kind === "plane");
+  assert.equal(scene.parts[c[0]!.ref]!.origin, "body", "the model, not a world plane");
+});

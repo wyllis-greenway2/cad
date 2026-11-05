@@ -43,11 +43,16 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
     const t = depthOf(get, p, pv);
     if (t !== null) surfaces.push({ p, t });
   }
-  const tmin = surfaces.reduce((m, x) => Math.min(m, x.t), Infinity);
+  // an infinite world plane is only the background, whatever lies in front of what: it is what a click lands on only when there is no other surface under the pointer, even if the
+  // plane is between the eye and a model (so a figure drawn on it is not always "overlapping" it, and a model seen through a plane is clicked, not the plane)
+  const isBackground = (p: Part) => p.origin === "world" && p.kind === "plane" && !!p.infinite;
+  const real = surfaces.filter((x) => !isBackground(x.p));
+  const tmin = real.reduce((m, x) => Math.min(m, x.t), Infinity);
   const flush = (t: number) => t <= tmin + 1e-3 + 1e-6 * tmin;
-  // an infinite world plane is the background: it is what a click lands on only when nothing else is there (so a figure drawn on it is not always "overlapping" it)
-  const out: Candidate[] = surfaces.filter((x) => flush(x.t) && !(x.p.origin === "world" && x.p.kind === "plane" && x.p.infinite)).map((x) => ({ ref: x.p.ref, kind: x.p.kind, rank: 2, score: x.t }));
-  const background = surfaces.filter((x) => flush(x.t) && x.p.origin === "world" && x.p.kind === "plane" && x.p.infinite).map((x) => ({ ref: x.p.ref, kind: x.p.kind, rank: 2, score: x.t }));
+  const out: Candidate[] = real.filter((x) => flush(x.t)).map((x) => ({ ref: x.p.ref, kind: x.p.kind, rank: 2, score: x.t }));
+  const bgs = surfaces.filter((x) => isBackground(x.p));
+  const bmin = bgs.reduce((m, x) => Math.min(m, x.t), Infinity);
+  const background = bgs.filter((x) => x.t <= bmin + 1e-3 + 1e-6 * bmin).map((x) => ({ ref: x.p.ref, kind: x.p.kind, rank: 2, score: x.t }));
   // corners and lines are hidden when a face of the body is in front of them
   const occluders = parts.filter((p) => p.kind === "plane" && p.origin === "body");
   const visible = (point: Vec3): boolean => {

@@ -335,3 +335,15 @@ test("while drawing, the pointer lines up with a corner that is level or upright
   near(st.tool!.cursor![1], 22.03, 0.02);
   assert.ok(previewFor(scene(st.session), st.tool)!.segments.some(([a]) => a[0] === 25 && a[1] === 15), "a guide from the corner it lines up with");
 });
+
+test("a double click on a sketch drawn on a face of a block turns to it, like a sketch in free space", () => {
+  let st = drawBox(top(), 20); // 40 x 20 block from (3,3)
+  st = { ...st, cam: homeCamera() };
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  st = click(st, [10, 8, 20]);
+  st = click(st, [30, 18, 20]);
+  const fig = Object.values(scene(st.session).parts).find((p) => p.kind === "face" && p.origin === "drawn")!;
+  assert.ok(fig);
+  st = click({ ...st, tool: null }, [12, 9.5, 20], 2); // (away from the arrow that shows by itself at the middle)
+  assert.ok(st.pendingLook, "the view is about to turn to the plane");
+});

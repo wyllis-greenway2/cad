@@ -9,6 +9,7 @@ import { startOp, typeOp, opCommand, autoOp } from "../operations.ts";
 import { lookup } from "../../operation/scene.ts";
 import { planeOf } from "../objects.ts";
 import type { AppState } from "./state.ts";
+import { activeOp } from "./handles.ts";
 import { withSession } from "./state.ts";
 
 function beginTool(s: AppState, kind: ToolKind): AppState {
@@ -50,7 +51,7 @@ export function doTyped(s: AppState, key: string): AppState {
   if (!s.op && !s.tool && /^[0-9.\-]$/.test(key)) {
     // a handle is showing for the selection: typing a number is the same as dragging it that far
     const a = autoOp(sceneOf(s.session), selectionOf(s.session));
-    if (a) return { ...s, op: typeOp(a, key) };
+    if (a) return { ...s, op: typeOp(a.kind === "move" ? a : { ...a, auto: false }, key) };
   }
   if (s.op && s.op.kind === "rotate" && s.op.target === "body" && key !== "Enter") {
     // typing turns the body to that angle about the axis in use (the one whose ring was dragged, X to begin with)
@@ -77,6 +78,8 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     if (field >= 0 && field < 3) rot[field] = text;
     return { ...s, op: { ...s.op, rot, axis: (field as 0 | 1 | 2), value: null, typed: "" } };
   }
+  const auto = s.op ? null : activeOp(s);
+  if (auto && (auto.kind === "pushpull" || auto.kind === "extrude" || auto.kind === "edge")) return { ...s, op: { ...auto, auto: false, typed: text } }; // typing in the bubble of an arrow that showed up by itself
   if (s.op) return { ...s, op: { ...s.op, typed: text } };
   const t = s.tool;
   if (!t || !t.plane || !t.points.length) return s;

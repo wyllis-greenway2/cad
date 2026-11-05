@@ -33,6 +33,8 @@ export interface Op {
   normal: Vec3 | null;
   /** push / pull, extrude, fillet / chamfer: a step has been made for this operation (more drags and typed numbers replace it, so the value is the total since the operation began) */
   made: boolean;
+  /** push / pull and extrude: the size the bubble shows and takes is `base + scale * value` (the thickness of the body along the face and typing the size you want; a round face shows its diameter) */
+  dim?: { base: number; scale: number };
   /** push / pull of several flat faces at once: each face's own direction and middle (the first is `normal` and `origin`) */
   faces?: { normal: Vec3; origin: Vec3 }[];
   /** fillet / chamfer: where each edge's arrow stands (the edges themselves are gone once the step is made) */
@@ -79,7 +81,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     const pl = face.plane ? get(face.plane) : undefined;
     if (!pl || pl.kind !== "plane") return { ok: false, why: "the figure is not on a plane" };
     const pts = face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
-    return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, origin: centroid(pts), normal: normalOfPlane(pl) } };
+    return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, origin: centroid(pts), normal: normalOfPlane(pl), dim: { base: 0, scale: 1 } } };
   }
   if (kind === "pushpull" && drawnFace(scene, parts)) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
   if (kind === "pushpull" && parts.length > 1) {
@@ -107,12 +109,16 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
       const at: [number, number, number] = [...c.center];
       at[c.axis] = (c.lo + c.hi) / 2;
       at[e[0]!] = at[e[0]!]! + c.radius; // the surface point on the +e side; the arrow points out of it for a post and into the hole's axis for a hole
-      return { ok: true, op: { ...base, parts: [f.ref], origin: at, normal: radial, curved: c } };
+      return { ok: true, op: { ...base, parts: [f.ref], origin: at, normal: radial, curved: c, dim: { base: 2 * c.radius, scale: c.convex ? 2 : -2 } } };
     }
     const m = f.mesh;
     const pts: Vec3[] = [];
     for (let i = 0; i + 2 < m.length; i += 3) pts.push([m[i]!, m[i + 1]!, m[i + 2]!]);
-    return { ok: true, op: { ...base, parts: [f.ref], origin: centroid(pts), normal: normalOfPlane(f) } };
+    const n = normalOfPlane(f);
+    // the size across the body along the face's normal: from its far side to this face (typing 20 makes a 20 mm block however far the face is now)
+    const along = Object.values(scene.parts).filter((p) => p.kind === "corner" && p.origin === "body").map((p) => dot(n, (p as { at: Vec3 }).at));
+    const thickness = along.length ? Math.max(...along) - Math.min(...along) : 0;
+    return { ok: true, op: { ...base, parts: [f.ref], origin: centroid(pts), normal: n, dim: { base: Math.round(thickness * 1e6) / 1e6, scale: 1 } } };
   }
   if (kind === "edge") {
     const lines = parts.filter((p) => p.kind === "line" && p.origin === "body");
@@ -120,7 +126,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     const edges = lines.flatMap((l) => {
       if (l.kind !== "line") return [];
       const [pa, pb] = [get(l.a), get(l.b)];
-      return pa?.kind === "corner" && pb?.kind === "corner" ? [{ mid: scale(add(pa.at, pb.at), 0.5), dir: edgeDirection(scene, pa.at, pb.at) }] : [];
+      return pa?.kind === "corner" && pb?.kind === "corner" ? [{ mid: add(pa.at, scale(sub(pb.at, pa.at), 0.25)), dir: edgeDirection(scene, pa.at, pb.at) }] : [];
     });
     return { ok: true, op: { ...base, parts: lines.map((p) => p.ref), edges } }; // no size yet: drag the double arrow, or type one
   }
@@ -150,15 +156,19 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
 }
 
 /**
- * The operation whose handle shows up by itself for this selection, so the common things need no menu: a closed figure shows its arrow to pull it out, a flat face of the body
- * the arrow to push or pull it, the whole body its X Y Z arrows (lines of the body offer fillet / chamfer as a bubble instead, see `modesFor`). Null for anything else.
+ * The operation whose handle shows up by itself for this selection, so the common things need no menu (`in_135`): a closed figure shows its arrow to pull it out, a face of the body
+ * the arrow to push or pull it, lines of the body the double arrow of a fillet or chamfer, the whole body its X Y Z arrows. Null for anything else.
  */
 export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
   if (!selection.length) return null;
   const parts = selection.map((r) => scene.parts[r]).filter((p): p is Part => !!p);
   if (parts.length !== selection.length) return null;
+  const flatBody = parts.every((p) => p.kind === "plane" && p.origin === "body" && !p.rounded);
   const kind: OpKind | null =
-    parts.length === 1 && parts[0]!.kind === "body" ? "move"
+    parts.length === 1 && drawnFace(scene, parts) ? "extrude"
+    : flatBody ? "pushpull"
+    : parts.every((p) => p.kind === "line" && p.origin === "body") ? "edge"
+    : parts.length === 1 && parts[0]!.kind === "body" ? "move"
     : null;
   if (!kind) return null;
   const r = startOp(scene, selection, kind);
@@ -170,7 +180,13 @@ const num = (s: string): number | null => {
   return s !== "" && s !== "-" && s !== "." && Number.isFinite(v) ? v : null;
 };
 /** The number the operation will use: what was typed, else the pointer's or default value. */
-export const valueOf = (op: Op): number | null => num(op.typed) ?? op.value;
+export const valueOf = (op: Op): number | null => {
+  const t = num(op.typed);
+  // a typed size is the size you want: how far to move is what is missing from the size now
+  return t !== null && op.dim ? (t - op.dim.base) / op.dim.scale : t ?? op.value;
+};
+/** The size the bubble shows for a push / pull or an extrude: what the body measures now along the face (or the diameter), with the distance so far. */
+export const sizeShown = (op: Op): number | null => (op.dim ? op.dim.base + op.dim.scale * (valueOf(op) ?? 0) : null);
 
 export function typeOp(op: Op, key: string): Op {
   let t = op.typed;

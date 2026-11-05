@@ -117,7 +117,8 @@ test("Fillet / chamfer is one operation with a double arrow on the edge: drag ou
   let st = reduce(st0, { type: "begin", name: "edge" }, env);
   const g = gizmoOf(st)!;
   assert.deepEqual(g.handles.map((h) => [h.id, h.kind]), [["edge:0", "double"]]);
-  nearV(g.centre, [20, 0, 20]);
+  near(g.centre[0], 10);
+  near(g.centre[2], 20); // a quarter of the way along the edge, so the arrow is not under the length bubble at its middle
   const h = g.handles[0]!;
   const centre = scale(add(h.points[0]!, h.points[1]!), 0.5);
   // out by 2 mm: a fillet of 2
@@ -226,8 +227,8 @@ test("a closed figure shows the arrow to pull it out; the same arrow on a flat f
   let st = { ...createState(s), cam: homeCamera() };
   const face = Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref;
   st = select(st, [face]);
-  assert.equal(frame(st).gizmo, null, "a sketch plane offers the push / pull bubble like any plane, not the arrow");
-  assert.ok(ringOps(st).includes("op:pushpull"), "the right-click ring offers push / pull for it");
+  assert.ok(frame(st).gizmo, "a sketch plane shows the pull arrow by itself");
+  assert.ok(ringOps(st).includes("op:pushpull"), "and the right-click ring offers push / pull for it");
   st = reduce(st, { type: "begin", name: "pushpull" }, env);
   assert.equal(st.op!.kind, "extrude", "the same operation");
   const h = frame(st).gizmo!.handles;
@@ -243,9 +244,9 @@ test("a closed figure shows the arrow to pull it out; the same arrow on a flat f
   // the top face of the new body: push it in 5 (cut) and pull it out 3 (add)
   const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 12)!;
   st = select(st, [top.ref]);
-  assert.equal(frame(st).gizmo, null, "a face offers the push / pull bubble, not the arrow");
-  assert.ok(ringOps(st).includes("op:pushpull"), "push / pull is in the right-click ring, not a bubble on the left click");
-  st = reduce(st, { type: "begin", name: "pushpull" }, env); // what a click on the bubble does
+  assert.ok(frame(st).gizmo, "a face shows the push / pull arrow by itself");
+  assert.ok(ringOps(st).includes("op:pushpull"), "push / pull is in the right-click ring too");
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
   assert.deepEqual(frame(st).gizmo!.handles.map((q) => q.id), ["pull"]);
   const pg = gizmoOf(st)!.handles[0]!;
   const pm = scale(add(pg.points[0]!, pg.points[1]!), 0.5);
@@ -255,20 +256,18 @@ test("a closed figure shows the arrow to pull it out; the same arrow on a flat f
   const pushed = drag(st, pm, add(pm, [0, 0, -5]));
   near(pushed.session.outcome.kernel!.volume!, 40 * 20 * 7, 0.5);
   // typing a number does the same as dragging it that far
-  const typed = reduce(typeText(st, "4"), { type: "typed", key: "Enter", shift: false }, env);
+  const typed = reduce(typeText(st, "16"), { type: "typed", key: "Enter", shift: false }, env); // the size you want: 16 thick
   near(typed.session.outcome.kernel!.volume!, 40 * 20 * 16, 0.5);
 });
 
 const typeText = (st: AppState, text: string) => [...text].reduce((a, c) => reduce(a, { type: "typed", key: c, shift: false }, env), st);
 
-test("a line of the body offers a fillet / chamfer bubble, which shows the double arrow; several lines each show one, and the size dragged on any applies to all", () => {
+test("a line of the body shows the fillet / chamfer double arrow by itself; several lines each show one, and the size dragged on any applies to all", () => {
   let st = box();
   const vertical = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "body" && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] !== (scene(st.session).parts[p.b] as { at: Vec3 }).at[2]);
   st = select(st, vertical.map((p) => p.ref));
-  assert.equal(gizmoOf(st), null, "no arrow until you choose the mode");
-  assert.ok(ringOps(st).includes("op:edge"), "fillet / chamfer is in the right-click ring");
-  st = reduce(st, { type: "begin", name: "edge" }, env); // what a click on the bubble does
-  const g = gizmoOf(st)!;
+  assert.ok(ringOps(st).includes("op:edge"), "fillet / chamfer is in the right-click ring too");
+  const g = gizmoOf(st)!; // and the arrows show up by themselves
   assert.equal(g.handles.length, 4);
   assert.ok(g.handles.every((h) => h.kind === "double"));
   const h = g.handles[1]!;
@@ -335,7 +334,7 @@ function push(st: AppState, n: Vec3, off: number, d: number): AppState {
   assert.ok(face, `a face with normal ${n} at ${off}`);
   st = select(st, [face.ref]);
   st = reduce(st, { type: "begin", name: "pushpull" }, env);
-  st = reduce(st, { type: "entry", field: 0, text: String(d) }, env);
+  st = reduce(st, { type: "entry", field: 0, text: String(st.op!.dim!.base + d) }, env); // the bubble takes the size you want: how thick the body is now plus the push
   return reduce(st, { type: "typed", key: "Enter", shift: false }, env);
 }
 const normalOf = (p: { u: Vec3; v: Vec3 }): Vec3 => { const [a, b] = [p.u, p.v]; return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; };
@@ -365,7 +364,7 @@ test("push a face after the body was rotated", () => {
   const face = top.find((p) => normalOf(p as never)[0] > 0.99)!; // whichever face now points along +x
   st = select(st, [face.ref]);
   st = reduce(st, { type: "begin", name: "pushpull" }, env);
-  st = reduce(st, { type: "entry", field: 0, text: "3" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: String(st.op!.dim!.base + 3) }, env);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   assert.deepEqual(st.session.outcome.errors, {});
   assert.ok(st.session.outcome.kernel!.volume! > before + 1, `volume grew from ${before} (bbox ${JSON.stringify(bb)})`);
@@ -381,7 +380,7 @@ test("push a face of a body turned by an angle that is not a right angle", () =>
   const face = faces.find((p) => Math.abs(normalOf(p as never)[2]) > 0.5 && Math.abs(normalOf(p as never)[2]) < 0.99) ?? faces[0]!;
   st = select(st, [face.ref]);
   st = reduce(st, { type: "begin", name: "pushpull" }, env);
-  st = reduce(st, { type: "entry", field: 0, text: "2" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: String(st.op!.dim!.base + 2) }, env);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   assert.deepEqual(st.session.outcome.errors, {});
   assert.ok(st.session.outcome.kernel!.volume! > before + 1);
@@ -392,7 +391,7 @@ test("after a pull the arrow stays on the new face and the value stays (the whol
   const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20)!;
   st = select(st, [top.ref]);
   st = reduce(st, { type: "begin", name: "pushpull" }, env);
-  assert.equal(frame(st).entry!.fields[0]!.value, "0", "no value yet: 0, not blank");
+  assert.equal(frame(st).entry!.fields[0]!.value, "20", "the bubble shows the size: the block is 20 thick");
   const g0 = gizmoOf(st)!.handles[0]!;
   const mid0 = scale(add(g0.points[0]!, g0.points[1]!), 0.5);
   st = drag(st, mid0, add(mid0, [0, 0, 4]));
@@ -400,16 +399,16 @@ test("after a pull the arrow stays on the new face and the value stays (the whol
   const g1 = gizmoOf(st)!.handles[0]!;
   const mid1 = scale(add(g1.points[0]!, g1.points[1]!), 0.5);
   nearV(mid1, [20, 10, 24]);
-  assert.equal(frame(st).entry!.fields[0]!.value, "4", "the value stays after you let go");
+  assert.equal(frame(st).entry!.fields[0]!.value, "24", "the size stays after you let go");
   st = drag(st, mid1, add(mid1, [0, 0, 2])); // 2 more: 6 in all
   near(st.session.outcome.kernel!.volume!, 40 * 20 * 26, 0.5);
-  assert.equal(frame(st).entry!.fields[0]!.value, "6");
+  assert.equal(frame(st).entry!.fields[0]!.value, "26");
   assert.equal(scene(st.session).steps.length, 2, "the box and one push / pull, however many drags");
   const mid2 = scale(add(gizmoOf(st)!.handles[0]!.points[0]!, gizmoOf(st)!.handles[0]!.points[1]!), 0.5);
   st = drag(st, mid2, add(mid2, [0, 0, -3])); // back by 3: 3 in all
   near(st.session.outcome.kernel!.volume!, 40 * 20 * 23, 0.5);
-  // a number typed in the bubble is the total
-  st = reduce(st, { type: "entry", field: 0, text: "10" }, env);
+  // a number typed in the bubble is the size you want
+  st = reduce(st, { type: "entry", field: 0, text: "30" }, env);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   near(st.session.outcome.kernel!.volume!, 40 * 20 * 30, 0.5);
   assert.equal(scene(st.session).steps.length, 2);
@@ -448,7 +447,7 @@ test("a round face can be selected, and push / pull changes its radius (a post g
   st = select(st, [round.ref]);
   assert.ok(ringOps(st).includes("op:pushpull"), "it offers push / pull");
   st = reduce(st, { type: "begin", name: "pushpull" }, env);
-  st = reduce(st, { type: "entry", field: 0, text: "2" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: "24" }, env); // a diameter of 24: the radius goes from 10 to 12
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   assert.deepEqual(st.session.outcome.errors, {});
   near(st.session.outcome.kernel!.volume!, Math.PI * 144 * 20, 2);
@@ -578,4 +577,18 @@ test("the ⋯ menu opens a list of the bodies with their names and a list of the
   st = reduce(st, { type: "panelRow", id: frame(st).panel!.rows[0]!.id, act: "remove" }, env);
   assert.equal(st.session.outcome.kernel, null, "taking the step out takes the body away");
   assert.deepEqual(frame(st).panel!.rows, []);
+});
+
+test("the arrow of a selected face has its size bubble at once; typing a size makes the block exactly that: a 40 x 20 x 20 block becomes a 20 mm cube", () => {
+  let st = box();
+  const faceAt = (n: Vec3, off: number) => Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && Math.abs(dot(normalOf(p), n) - 1) < 1e-6 && Math.abs(dot(p.at, n) - off) < 1e-3)!.ref;
+  st = select(st, [faceAt([1, 0, 0], 40)]);
+  assert.ok(frame(st).gizmo, "the arrow shows by itself");
+  assert.equal(frame(st).entry!.fields[0]!.value, "40", "and the bubble says how thick the block is across that face");
+  st = reduce(st, { type: "entry", field: 0, text: "20" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.deepEqual(st.session.outcome.errors, {});
+  near(st.session.outcome.kernel!.volume!, 20 * 20 * 20, 0.5);
+  const b = bbox(st);
+  near(b.max[0]! - b.min[0]!, 20); near(b.max[1]! - b.min[1]!, 20); near(b.max[2]! - b.min[2]!, 20);
 });
