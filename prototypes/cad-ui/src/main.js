@@ -240,7 +240,8 @@ function updatePlanes() {
   const th = T();
   const PN = S.panes;
   const ST = S.styles[S.styleName];
-  const panes = styleMode === "panes";
+  const compassOnly = styleMode === "compass"; // nothing in the world: no axes, no panes (the corner compass and its buttons do the work)
+  const panes = styleMode === "panes" || compassOnly;
   const axisLen = ST.shortAxes ? S.axisArrow.lengthFactor * view.dist * Math.tan(THREE.MathUtils.degToRad(V.fovDeg / 2)) : 0; // axes that stop at their arrows
   const want = panes && selected && (!PN.orthoGridOnly || isFaceOn()) ? 1 : 0;
   paneFade += (want - paneFade) * PN.fadeEase;
@@ -260,9 +261,11 @@ function updatePlanes() {
        state = mine ? { line: (ST.gridAlpha ?? PN.sketchGrid) * paneFade, bright: 0, opacity: 0, fine: PN.fine, blue: 0 } : { line: 0, bright: 0, opacity: 0, fine: 0, blue: 0 };
        fadeR = mine ? view.dist * PN.fadeRadius : 0;
      } else {
-       state = { line: 0, bright: 0, opacity: hot ? PN.hoverOpacity : PN.opacity, fine: 0, blue: hot ? ST.hoverBlue ?? PN.hoverBlue : 0 };
-       paneSize = view.dist * (ST.paneSize ?? PN.size);
-       edgeA = hot ? PN.hoverEdgeAlpha : PN.edgeAlpha;
+       if (!compassOnly) {
+         state = { line: 0, bright: 0, opacity: hot ? PN.hoverOpacity : PN.opacity, fine: 0, blue: hot ? ST.hoverBlue ?? PN.hoverBlue : 0 };
+         paneSize = view.dist * (ST.paneSize ?? PN.size);
+         edgeA = hot ? PN.hoverEdgeAlpha : PN.edgeAlpha;
+       } else state = { line: 0, bright: 0, opacity: 0, fine: 0, blue: 0 };
      }
      blue = state.blue;
    }
@@ -291,7 +294,7 @@ function updatePlanes() {
     u.uStyleMin.value = G.fineLineStrength;
     u.uMinCellPx.value = G.minCellPx;
     u.uAxisW.value = G.axisWidthPx;
-    u.uAxisA.value = G.axisAlpha;
+    u.uAxisA.value = compassOnly ? 0 : G.axisAlpha;
     u.uFogNear.value = A.nearFactor;
     u.uFogFar.value = A.farFactor;
     u.uAxisFogFar.value = A.axisFarFactor;
@@ -347,7 +350,7 @@ function updateAxisArrows() {
     const [x0, y0] = toScreen(p0);
     const [x1, y1] = toScreen(p0.clone().addScaledVector(d, L * 0.05));
     const len = Math.hypot(x1 - x0, y1 - y0);
-    const hide = Math.abs(d.dot(viewDir)) > A.hideCos || len < 1e-3;
+    const hide = styleMode === "compass" || Math.abs(d.dot(viewDir)) > A.hideCos || len < 1e-3;
     poly.style.display = label.style.display = hide ? "none" : "block";
     if (hide) return;
     const faint = body.blocked(camera.position, p0) ? (styleMode === "panes" ? S.panes.axisBehind : S.axisArrow.faintOpacity) : 1; // behind an object: only faintly visible
@@ -382,6 +385,50 @@ function applyTheme() {
   arrowHeads.forEach((p, i) => p.setAttribute("fill", `#${toHex(axes[i]).toString(16).padStart(6, "0")}`));
   axisLabels.forEach((l, i) => (l.style.color = `#${toHex(axes[i]).toString(16).padStart(6, "0")}`));
   requestRender();
+}
+
+// ---------------------------------------------------------------- the corner compass and X Y Z buttons (compass style, `in_067`)
+const compassEl = $("compass");
+const compassSvg = compassEl.querySelector("svg");
+const COMPASS_BUTTONS = [["X", "YZ"], ["Y", "XZ"], ["Z", "XY"]]; // looking along an axis = square to the plane across it
+for (const [label, plane] of COMPASS_BUTTONS) {
+  const b = document.createElement("button");
+  b.textContent = label;
+  b.dataset.plane = plane;
+  withTip(b, { label: `Look along ${label}`, help: `Sketch on the ${plane} plane, looking straight at it.` });
+  b.onclick = () => (extrude || xform ? undefined : (sel = null, applySel(), enterSketch(plane)));
+  compassEl.querySelector(".cbtns").appendChild(b);
+}
+function updateCompass() {
+  const on = styleMode === "compass";
+  compassEl.style.display = on ? "flex" : "none";
+  if (!on) return;
+  const m = camera.matrixWorld.elements;
+  const right = [m[0], m[1], m[2]];
+  const up = [m[4], m[5], m[6]];
+  const fwd = [-m[8], -m[9], -m[10]];
+  const T3 = T();
+  const cols = [T3.axisX, T3.axisY, T3.axisZ].map((c) => `rgb(${c.map((v) => Math.round(v * 255)).join(",")})`);
+  const R = 30;
+  const items = [[1, 0, 0, "X"], [0, 1, 0, "Y"], [0, 0, 1, "Z"]].map(([x, y, z, name], i) => {
+    const dot = (a) => x * a[0] + y * a[1] + z * a[2];
+    return { name, sx: 42 + dot(right) * R, sy: 42 - dot(up) * R, depth: dot(fwd), col: cols[i] };
+  }).sort((a, b) => b.depth - a.depth); // far ones first, near ones on top
+  compassSvg.replaceChildren();
+  const ns = "http://www.w3.org/2000/svg";
+  for (const it of items) {
+    const near = it.depth < 0;
+    const g = document.createElementNS(ns, "g");
+    g.setAttribute("opacity", near ? "1" : "0.5");
+    const line = document.createElementNS(ns, "line");
+    for (const [k, v] of [["x1", 42], ["y1", 42], ["x2", it.sx], ["y2", it.sy], ["stroke", it.col], ["stroke-width", 2.2], ["stroke-linecap", "round"]]) line.setAttribute(k, v);
+    const tx = document.createElementNS(ns, "text");
+    for (const [k, v] of [["x", 42 + (it.sx - 42) * 1.28], ["y", 42 + (it.sy - 42) * 1.28 + 4], ["text-anchor", "middle"], ["fill", it.col], ["font-size", 12], ["font-weight", 700], ["font-family", "system-ui,sans-serif"]]) tx.setAttribute(k, v);
+    tx.textContent = it.name;
+    g.append(line, tx);
+    compassSvg.appendChild(g);
+  }
+  for (const b of compassEl.querySelectorAll("button")) b.classList.toggle("on", !!selected && baseOf(selected) === b.dataset.plane);
 }
 
 /** TEMPORARY (`in_064`): switch between the visual styles. */
@@ -425,6 +472,7 @@ function requestRender() {
       renderer.clearDepth();
     }
     updateAxisArrows();
+    updateCompass();
     updateOriginPill();
     updateDims();
     updateConstraintUI();
@@ -1104,7 +1152,7 @@ function selectionHint(t) {
   return "double-click selects the whole body";
 }
 function updateStatus() {
-  let text = "3D view   hover a plane or a face and click it to sketch   right-click for the menu";
+  let text = styleMode === "compass" ? "3D view   X Y Z (bottom right) look along an axis and sketch   right-click for the menu" : "3D view   hover a plane or a face and click it to sketch   right-click for the menu";
   if (flash) text = flash;
   else if (xform) text = xform.sess.prompt();
   else if (extrude) text = `${extrude.ref ? "Move face" : `Extrude on ${extrude.plane}`}   ${extrude.sess.prompt()}`;
@@ -1254,7 +1302,7 @@ function selectFromHover() {
 }
 function pickAt(clientX, clientY) {
   setRay(clientX, clientY);
-  const paneOnly = styleMode === "panes" && !inSketchView() ? (name, p) => {
+  const paneOnly = styleMode === "compass" && !inSketchView() ? () => false : styleMode === "panes" && !inSketchView() ? (name, p) => {
     // panes style: only the small panes can be pointed at
     const [u, v] = planeDef(name).basis;
     const st = S.styles[S.styleName];

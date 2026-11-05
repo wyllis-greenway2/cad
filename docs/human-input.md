@@ -435,3 +435,8 @@ Another style to try: all white, charcoal pencil-colored short xyz lines that st
 Refinements to the style being tried: grid lines a little smaller and darker, shown only when orthographic to a plane (fading away in 3D), xyz lines hidden behind objects, and the little translucent panes selectable from either side.
 
 > okay lets try this. So lets have it so that the gridlines are a little smaller and darker. lets have it so that the gridlines only show up when you are orthographic to a plane, if you go back into 3d then the grids fade away again. Lets have it so that you cannot see the xyz lines through objects. Lets have it so that you can select the little translucent xyz panes from either side. Right now you can only click them from one surface.
+
+## in_067 — 2026-11-05 — directive
+Another style: a blank world with only a small xyz compass showing orientation and little x, y, z buttons next to it that orient to those planes.
+
+> I killed it and the preview is running now. Okay so I have an idea, how about we just have a little xyz compas thing that shows orientation, and a little x y z button next to it, and other then that the world is totally blank, hitting z y or z button should orient to those planes.

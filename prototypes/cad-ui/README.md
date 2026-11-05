@@ -158,6 +158,8 @@ A **style switcher** (top right, to be removed) tries looks: *Current (sheets)*,
 
 **Refinements (`in_066`):** in the panes styles the sketch grid shows **only while you look straight at the plane** and fades away in 3D (`panes.orthoGridOnly`); the Pencil grid is darker and finer (`styles.pencil.lodDivisor`, `gridAlpha`, `themes.pencil.gridLine`); axis lines and arrows are **not seen through objects** (`panes.axisBehind`); the panes can be pointed at and clicked from either side (a ray hits them from any direction; a click from the far side still turns the view to the plane's standard front side).
 
+**Compass style (`in_067`):** the world is blank (no axes, no panes, nothing to point at except faces). A small **XYZ compass** (bottom right) turns with the camera, and three round **X, Y, Z buttons** beside it look along that axis and start a sketch on the plane across it (X = YZ, Y = XZ, Z = XY). The faint grid still fades in when you look straight at the sketch plane. `styles.compass` in `settings.js`.
+
 ## Constraints and sketch editing (`in_051`, `in_052`, `in_054`)
 A sketch is **corners and lines** (and circles). A **rectangle is a shortcut**: four lines with real horizontal and vertical constraints. Click a **line**: its **length** shows and you type a number to set it. A **circle's outline**: its radius.
 Shift-click a second line: if they **share a corner** their **angle** shows (type 1° to 179°; the first line stays, the second turns and keeps its length); if not, Parallel / Perpendicular / Equal length are offered. Corners: Fix in place (one),

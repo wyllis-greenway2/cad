@@ -180,6 +180,7 @@ settings.styles = {
   panesDark: { label: "Panes, dark", theme: "panesDark", mode: "panes" },
   panesLight: { label: "Panes, light", theme: "panesLight", mode: "panes" },
   blueprint: { label: "Panes, blueprint", theme: "blueprint", mode: "panes" },
+  compass: { label: "Compass (blank)", theme: "pencil", mode: "compass", lodDivisor: 30, gridAlpha: 1 }, // nothing in the world; a corner compass and X Y Z buttons (`in_067`)
   pencil: { label: "Pencil (white)", theme: "pencil", mode: "panes", shortAxes: true, paneSize: 0.13, paneOffset: 0.05, paneRadius: 0.16, hoverBlue: 0, lodDivisor: 30, gridAlpha: 1 }, // white world, short charcoal axes, floating rounded grey panes
 };
 settings.styleName = "current";
