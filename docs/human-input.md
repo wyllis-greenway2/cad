@@ -455,3 +455,8 @@ New rules for planes, sketching and the N key; start roughly in the pictured vie
 Normal should always be orthographic; the little compass should go back and forth between the corner and the big spot when clicked; drop the old styles and the old ways of switching planes and normal and keep the pencil style with the compass; single click selects (except whole objects), double click selects objects, triple click goes normal to the plane clicked.
 
 > okay I feel like the normal should also always be orthographic. Also the little compass doesn't go back to the big spot back and forth when clicked. Also lets clean up our old stuff, lets move forward with this new style with the pencil and little compass etc. lets toss our old styles. And lets toss our old interaction methods of switching planes and normal etc and use these new ones we just defined. I think single click should select something except entire objects, double click should select objects, and triple click should normal to plane clicked on.
+
+## in_071 — 2026-11-05 — directive
+Use the app as a user would and look for bugs; a first bug: rectangle cannot be used on the panes of the starter xyz, circle works but behaves oddly and the cursor does not look normal.
+
+> Okay now why don't you try to use it as a user would and check for bugs and things. One bug I noticed is that I can't seem to use rectangle on the panes of the starter xyz thing. I can use circle, but even that behaves oddly, the cursor doesn't look normal.

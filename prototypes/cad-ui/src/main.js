@@ -510,11 +510,11 @@ function animateTo({ a, e, target, dist }, ms) {
   requestAnimationFrame(step);
 }
 
-function goNormal(plane, side = 1) {
+function goNormal(plane, side = 1, at = null) {
   normalFor = plane;
   const def = planeDef(plane);
   const t = side < 0 ? flippedView(def.view) : def.view; // from the back when asked (`in_068`)
-  animateTo({ a: t.a, e: t.e, target: new THREE.Vector3(...projectOnto(plane, view.target.toArray())) }, V.transitionMs);
+  animateTo({ a: t.a, e: t.e, target: new THREE.Vector3(...projectOnto(plane, at ?? view.target.toArray())) }, V.transitionMs); // centred on `at` (the clicked point), else on what the camera was looking at
 }
 /** Return to the origin: the camera target glides back to (0, 0, 0), keeping the viewing direction (so a sketch stays face-on),
  *  and the distance is brought into a sensible range. */
@@ -1136,7 +1136,7 @@ function flashMessage(text) {
 /** What can be done with a selection (for the status line). */
 function selectionHint(t) {
   if (t.kind === "body") return "M move   R rotate   K scale";
-  if (t.kind === "face") return t.face.type === "cyl" ? "M radius   R taper" : "M move   R tilt   S sketch on surface";
+  if (t.kind === "face") return t.face.type === "cyl" ? "M radius   R taper" : "M move   R tilt";
   if (t.kind === "sketch") return "E extrude   S sketch on it";
   if (t.kind === "plane") return "S sketch on it (R C L too)";
   if (t.kind === "edge") return "F fillet   B chamfer   double-click selects the whole body";
@@ -1147,6 +1147,7 @@ function updateStatus() {
   if (flash) text = flash;
   else if (xform) text = xform.sess.prompt();
   else if (extrude) text = `${extrude.ref ? "Move face" : `Extrude on ${extrude.plane}`}   ${extrude.sess.prompt()}`;
+  else if (armedTool && !selected) text = `${{ line: "Line", rect: "Rectangle", circle: "Circle" }[armedTool]}: click a plane, a face or a sketch to draw on it   Esc to cancel`;
   else if (!selected && sel) text = `Selected: ${targetName(sel)}`; // what you can do is in the bar (icons and tooltips), not repeated here
   else if (session.editKey && inSketchView()) text = `Editing the sketch of step ${store.features.findIndex((f) => `feat:${f.id}` === session.editKey) + 1}   ${session.prompt()}   Esc to finish`;
   else if (selected) text = inSketchView() ? `Sketching on ${selected}   ${session.prompt()}` : `Going to ${selected}...`;
@@ -1155,6 +1156,8 @@ function updateStatus() {
     if (info.count) text += info.status === "conflict" ? "   [constraints conflict]" : info.dof === 0 ? "   [fully constrained]" : `   [${info.dof} free]`;
   }
   if (!body.ready() && (store.features.length || extrude)) text += "   (loading the geometry kernel...)";
+  if (armedTool && !selected) canvas.style.cursor = "crosshair";
+  else if (inSketchView() && !extrude && !xform && !hoverEl) canvas.style.cursor = session.tool === "select" || session.tool === "dimension" ? "default" : "crosshair"; // the cursor follows the tool even before the mouse moves
   else if (body.info.error) text += `   [kernel: ${body.info.error}]`;
   $("statusText").textContent = text;
   $("scaleText").textContent = `grid ${gridScaleText()}`;
@@ -1260,7 +1263,7 @@ function setHover({ plane = null, face = null, sketch = null, edge = null, verte
   hoveredEdge = edge;
   hoveredVertex = vertex;
   body.setHighlight(face);
-  canvas.style.cursor = plane || face || sketch || edge || vertex ? "pointer" : "default";
+  canvas.style.cursor = armedTool ? "crosshair" : plane || face || sketch || edge || vertex ? "pointer" : "default";
   markSketch();
   return true;
 }
@@ -1379,7 +1382,7 @@ function setTool(tool) {
     enterSketch(pl, tool); // a selected surface: draw on it right away
   } else if (!selected && ["line", "rect", "circle"].includes(tool)) {
     armedTool = tool; // nothing selected yet: the next click on a surface starts drawing there
-    flashMessage(`${{ line: "Line", rect: "Rectangle", circle: "Circle" }[tool]}: click a plane, a face or a sketch to draw on it.`);
+    canvas.style.cursor = "crosshair";
   } else return false;
   updateStatus();
   updateReadout();
@@ -1403,7 +1406,7 @@ function doEscape() {
   if (menuOpen()) return hideMenu();
   if (extrude) return cancelExtrude();
   if (xform) return cancelTransform();
-  if (armedTool) return void (armedTool = null);
+  if (armedTool) return void ((armedTool = null), (canvas.style.cursor = "default"));
   if (!inSketchView()) return selected ? exitSketch(true) : sel ? ((sel = null), applySel()) : undefined;
   if (!session.escape()) exitSketch(true);
   updateStatus();
@@ -1474,7 +1477,7 @@ function normalAction() {
   if (extrude || xform) return;
   const plane = actingPlane();
   if (!plane) return flashMessage("Select a plane or a face first (or start sketching); then N looks straight at it.");
-  goNormal(plane, normalSide(view, plane, V.normalToleranceRad) > 0 ? -1 : 1);
+  goNormal(plane, normalSide(view, plane, V.normalToleranceRad) > 0 ? -1 : 1, sel?.kind === "face" && !selected ? body.faceCenter(sel.face).toArray() : null);
 }
 const ACTIONS = {
   lookX: () => lookAlong(0), lookY: () => lookAlong(1), lookZ: () => lookAlong(2),
@@ -1490,7 +1493,7 @@ const ACTIONS = {
   chamfer: () => edgeAction("chamfer"),
   select: () => setTool("select"),
   line: () => setTool("line"),
-  rect: () => ((xform || (!inSketchView() && !selected && sel)) ? ACTIONS.rotate() : setTool("rect")), // R rotates what is selected (or switches to rotate while modifying); with nothing selected it is the rectangle tool
+  rect: () => ((xform || (!inSketchView() && !selected && sel && ["face", "body"].includes(sel.kind))) ? ACTIONS.rotate() : setTool("rect")), // R rotates a selected face or body (or switches to rotate while modifying); with anything else selected (a plane, a sketch shape) or nothing, it is the rectangle tool
   circle: () => setTool("circle"),
   home: () => goHome(),
   origin: () => returnToOrigin(),
@@ -1752,7 +1755,7 @@ function normalToClicked() {
   if (!plane) return;
   sel = t;
   applySel();
-  goNormal(plane, cameraSide(plane));
+  goNormal(plane, cameraSide(plane), t.kind === "face" ? body.faceCenter(t.face).toArray() : null); // a face is centred in the view
 }
 let g = null; // the gesture in progress: { kind: "orbit" | "pan" | "draw" | "click", x, y, x0, y0, button, moved }
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
@@ -1777,7 +1780,7 @@ canvas.addEventListener("pointerdown", (ev) => {
   if (armedTool && !inSketchView()) {
     // a drawing tool is chosen: a click on a surface starts the sketch right there, no mode to enter (`in_069`)
     const pl = surfaceUnder(ev.clientX, ev.clientY);
-    if (!pl) return void (g = { kind: "click", ...base });
+    if (!pl) return; // nothing to draw on there: the tool stays armed until Esc
     const tool = armedTool;
     armedTool = null;
     sel = null;
