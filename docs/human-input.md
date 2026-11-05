@@ -480,3 +480,8 @@ Change the orb to a thin line ring on the face under the cursor; on click the fa
 Make the hover ring much smaller and the exact same colour as the selected face colour (a good teal to keep for use elsewhere).
 
 > Okay lets make the ring much smaller, land lets try making it the exact same color as the selected face color. (which is a good teal lets make sure we keep that color for use elsewhere)
+
+## in_076 — 2026-11-05 — question
+Asks whether it makes sense to build the modeler so it can be used on mobile or touch devices, and whether anyone really does CAD on touch devices.
+
+> Okay now does it make sense to build this cad modeler so it could be used on mobile or touch devices? does anyone really do cad on touch devices?
