@@ -176,7 +176,7 @@ test("the menu always ends with save, open and the scroll mode, which cycles", (
 });
 
 import { annotationsFor } from "../src/interaction/annotations.ts";
-test("a line of the body shows its length as a measurement you cannot lock; a world pane picked anywhere is not filled", () => {
+test("a line of the body shows its length as a measurement you cannot lock; a world plane is only a surface for the ring, never selected", () => {
   const st = withBody();
   const sc = scene(st.session);
   const line = Object.values(sc.parts).find((p) => p.kind === "line" && p.origin === "body")!;
@@ -188,6 +188,12 @@ test("a line of the body shows its length as a measurement you cannot lock; a wo
   let e = createState(createSession(kernel));
   e = { ...e, cam: lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]) };
   const [x, y] = projector(e.cam, 800, 600).project([300, 200, 0] as Vec3);
+  e = reduce(e, { type: "hover", x, y }, env);
+  assert.equal(e.session.hover, XY, "the ring lands on the plane anywhere on it");
+  assert.ok(e.hoverPoint);
   e = reduce(e, { type: "click", x, y, count: 1, shift: false }, env);
-  assert.deepEqual(selection(e.session), [XY]);
+  assert.deepEqual(selection(e.session), [], "but the world plane is not selectable: a click on it selects nothing");
+  e = reduce(e, { type: "click", x, y, count: 3, shift: false }, env);
+  assert.deepEqual(selection(e.session), [], "not even with three clicks");
+  assert.equal(e.session.hover, XY, "and the ring stays");
 });

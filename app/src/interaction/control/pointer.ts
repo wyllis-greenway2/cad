@@ -109,12 +109,14 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
     const pl = refs[0] ? planeOf(get, refs[0]) : null;
     return pl ? { ...base, pendingLook: { plane: pl, due: env.now + settings.input.multiClickMs } } : base; // waits to see whether a third click comes
   }
+  // the infinite world planes are only a surface for the ring to land on and for a tool to draw on: a click on one selects nothing (like a click on empty space)
+  const selectable = refs.filter((r) => !(sc.parts[r]?.origin === "world" && sc.parts[r]?.kind === "plane"));
   if (refs.length <= 1 && i.count >= 3) {
     // three: the whole object
-    const o = refs[0] ? objectOf(sc, refs[0]) : undefined;
+    const o = selectable[0] ? objectOf(sc, selectable[0]) : undefined;
     return o ? withSession({ ...base, pendingLook: null }, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base; // and the view does not turn
   }
-  const next = clickOn(sess, refs, i.shift);
+  const next = clickOn(sess, selectable, i.shift);
   const top = selectionOf(next).at(-1);
   const hit = cands.find((c) => c.ref === top);
   const point = hit && hit.rank === 2 ? surfacePoint(pv, hit.score) : null;

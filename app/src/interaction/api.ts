@@ -3,7 +3,7 @@ export type { Scene } from "../operation/scene.ts";
 export type { Ref } from "../shared/ref.ts";
 export type { Vec3 } from "../math/vec.ts";
 export type { Command } from "../operation/commands.ts";
-export { outlineOf } from "../operation/part.ts";
+export { outlineOf, normalOfPlane } from "../operation/part.ts";
 export { lookup, nextId } from "../operation/scene.ts";
 export { drawRectangle } from "../operation/build.ts";
 export { settings } from "../shared/settings.ts";

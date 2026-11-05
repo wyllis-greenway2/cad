@@ -2,7 +2,7 @@
 // balls for picked lines and corners, amber for what a relation ties the selection to.
 import * as THREE from "three";
 import type { Scene, Ref, Vec3 } from "../../interaction/api.ts";
-import { outlineOf, lookup, settings } from "../../interaction/api.ts";
+import { outlineOf, lookup, settings, normalOfPlane } from "../../interaction/api.ts";
 import type { Camera } from "../../interaction/camera.ts";
 import { surfaceTriangles } from "../../interaction/surfaces.ts";
 import { hoverOrb, selectOrb, fullOrb, orbMaterial, selectedLook } from "../orb.ts";
@@ -83,6 +83,11 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
   const mark = (ref: Ref, kind: Kind) => {
     const p = get(ref);
     if (!p) return;
+    if (kind === "hover" && p.kind === "plane" && p.origin === "world") {
+      // an infinite world plane has nothing to fill: the ring alone, drawn as a plain thin circle so it cannot smear over a plane seen at a shallow angle
+      if (h.hoverPoint) overlay.add(pen.line(ringOf(h.hoverPoint, settings.orb.radius * unit, normalOfPlane(p)), rgb(ringRgb).getHex(), settings.orb.ringPx + 0.6, false));
+      return;
+    }
     const tris = kind === "amber" || kind === "red" ? null : fillTriangles(s, ref, kind, body);
     if (!tris && p.origin === "world" && p.kind === "plane") return; // nothing to draw for a picked world plane
     if (tris) return void overlay.add(surfaceOrb(kind, ref, tris, h, unit, nowMs));
