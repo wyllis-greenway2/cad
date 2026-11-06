@@ -960,3 +960,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_182 — 2026-11-06 — approval
 > yes go ahead with the true-arc fix
+
+## in_183 — 2026-11-06 — approval
+> yes build the general split into regions feature

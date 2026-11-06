@@ -16,7 +16,7 @@ interface Base {
   /** True for drawn parts only: body and world parts are always references. */
   movable: boolean;
 }
-export interface Corner extends Base { kind: "corner"; at: Vec3 }
+export interface Corner extends Base { kind: "corner"; at: Vec3; /** a place where drawn curves cross (made when the faces are, never saved, not picked) */ derived?: boolean }
 export interface Line extends Base { kind: "line"; a: Ref; b: Ref; /** a point halfway along a curved edge (body edges only; straight lines omit it) */ mid?: Vec3;
   /** a drawn arc: how far its middle is out from the chord, as a fraction of the chord's length (positive towards the plane's normal crossed with the chord's direction); a straight line omits it */ bulge?: number;
   /** a drawn arc about a centre point (a corner, so it can be positioned with constraints): the arc runs from `a` to `b` round `center`, counter-clockwise (seen from the plane's normal) or not; its radius is the distance from the centre to `a` */
