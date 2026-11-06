@@ -240,7 +240,11 @@ const OPS = {
   extrude(op, ctx) {
     const sk = ctx.get(op.profile, "sketch");
     const dist = resolve(op.distance, ctx.params);
-    const solid = sk.drawing.sketchOnPlane(sk.plane, sk.origin).extrude(dist);
+    let solid = sk.drawing.sketchOnPlane(sk.plane, sk.origin).extrude(dist);
+    for (const h of op.holes ?? []) { // figures drawn inside this one are holes in it
+      const hs = ctx.get(h, "sketch");
+      solid = solid.cut(hs.drawing.sketchOnPlane(hs.plane, hs.origin).extrude(dist));
+    }
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
     if (op.mode === "cutOrAdd") {

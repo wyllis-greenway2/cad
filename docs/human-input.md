@@ -935,3 +935,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_177 — 2026-11-06 — directive
 > We need a concentric constraint and a concentric helper suggested constraint when drawing circles around other circles. Basically I think if a circle center is close to another circle center. Can we also build the ability to sketch an offset? so that would take an edge or line, and project the same shape inward or outward. Can we make it so that if you click on a chamffered or fillet edge you can get the same arrow back you original used to make it? that would allow you to adjust the chamfer or radius amount, or pull it back to 0 no chamfer or radius.
+
+## in_178 — 2026-11-06 — directive
+> If I have separate complete closed sketches on a plane, shouldn't I be able to select each closed section individually and extrude? Its only letting me select the whole surface with all the sketches on it

@@ -157,3 +157,19 @@ test("the model with a broken history: the steps that could not be made are show
   assert.deepEqual(s.outcome.errors, {});
   assert.ok(s.outcome.kernel!.volume! > 1000);
 });
+
+test("figures drawn inside another on one plane are regions: the inner disk and the ring are separate, and extruding the ring leaves a hole", () => {
+  const r = openSession(kernel, readFileSync(new URL("./fixtures/nested-circles.cad.json", import.meta.url), "utf8"));
+  assert.ok(r.ok);
+  let s = r.value;
+  const faces = Object.values(scene(s).parts).filter((p) => p.kind === "face");
+  const rings = faces.filter((f) => f.holes?.length);
+  assert.equal(faces.length, 3);
+  assert.equal(rings.length, 2); // the outer figure has the middle one as a hole, the middle one the inner
+  const outer = rings.find((f) => f.disk === "d/e_001.k")!;
+  assert.deepEqual(outer.holes, [faces.find((f) => f.disk === "d/e_003.k")!.ref]);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [outer.disk!], params: { depth: 10, holes: "d/e_003.k" } } });
+  assert.deepEqual(s.outcome.errors, {});
+  const r1 = 11.430699891082787, r2 = 9.930699891082787;
+  assert.ok(Math.abs(s.outcome.kernel!.volume! - Math.PI * (r1 * r1 - r2 * r2) * 10) < 1);
+});

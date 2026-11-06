@@ -34,6 +34,8 @@ export interface Op {
   value: number | null;
   /** move and rotate: 0 = X, 1 = Y, 2 = Z (for a drawn shape: 0 = along the plane's first axis, 1 = along its second) */
   axis: 0 | 1 | 2;
+  /** extrude: the figures drawn inside the one extruded (holes in it), as `refs;refs` */
+  holes?: string;
   /** extrude and push / pull: the figure's or face's middle and the direction along which the distance is measured */
   origin: Vec3 | null;
   normal: Vec3 | null;
@@ -117,7 +119,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     const pl = face.plane ? get(face.plane) : undefined;
     if (!pl || pl.kind !== "plane") return { ok: false, why: "the figure is not on a plane" };
     const pts = face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
-    return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, origin: centroid(pts), normal: normalOfPlane(pl), dim: { base: 0, scale: 1 } } };
+    return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, holes: holesOf(scene, face), origin: centroid(pts), normal: normalOfPlane(pl), dim: { base: 0, scale: 1 } } };
   }
   if (kind === "pushpull" && drawnFace(scene, parts)) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
   if (kind === "pushpull" && parts.length > 1) {
@@ -362,7 +364,7 @@ export function opCommand(scene: Scene, op: Op): Command | null {
     const a = actionsFor(scene, op.parts).find((x) => x.dimensional && x.enabled);
     return a && v > 0 ? a.run(v) : null;
   }
-  if (op.kind === "extrude") return v === 0 ? null : { type: "addStep", step: { id, type: "extrude", parts: op.parts, params: { depth: v } } };
+  if (op.kind === "extrude") return v === 0 ? null : { type: "addStep", step: { id, type: "extrude", parts: op.parts, params: op.holes ? { depth: v, holes: op.holes } : { depth: v } } };
   if (op.kind === "pushpull" && op.faces && op.faces.length > 1) {
     if (v === 0) return null;
     return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }) } } })) };
@@ -401,3 +403,8 @@ function scaleShapeCommand(scene: Scene, op: Op, f: number): Command | null {
 
 /** Operations that make one step and then change it as you drag or type again, until you click away: the value is the total since the operation began. */
 export const isLive = (op: Op): boolean => !op.auto && (op.kind === "extrude" || op.kind === "pushpull" || op.kind === "edge" || op.kind === "offset");
+
+/** The figures drawn inside a face, as the refs of each one's sides (or circle) joined: `a,b,c;d`. */
+function holesOf(scene: Scene, face: Extract<Part, { kind: "face" }>): string {
+  return (face.holes ?? []).flatMap((h) => { const f = scene.parts[h]; return f?.kind === "face" ? [(f.disk ? [f.disk] : f.loop).join(",")] : []; }).join(";");
+}

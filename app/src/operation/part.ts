@@ -27,7 +27,7 @@ export interface Line extends Base { kind: "line"; a: Ref; b: Ref; /** a point h
   twin?: Ref }
 export interface Circle extends Base { kind: "circle"; center: Ref; radius: number }
 /** A derived face of drawn lines: a closed loop (its lines and, in order, its corners), or a disk (a circle). Rebuilt from the lines; never saved. */
-export interface Face extends Base { kind: "face"; loop: Ref[]; corners: Ref[]; disk?: Ref }
+export interface Face extends Base { kind: "face"; loop: Ref[]; corners: Ref[]; disk?: Ref; /** closed figures drawn inside this one (the nearest ones): the region is this figure without them, so each figure and each ring between them is picked and extruded by itself */ holes?: Ref[] }
 /** A plane you can look at, select and draw on. `infinite`: a world plane, hit anywhere on it (`in_116`). `extent`: a square pane from `at` to `at + extent` along u and v. `mesh`: a flat face of the body, as triangles (flat xyz). */
 export interface Plane extends Base { kind: "plane"; at: Vec3; u: Vec3; v: Vec3; extent?: number; infinite?: boolean; mesh?: readonly number[]; curved?: Curved; /** a curved face of the body that is not a full round post or hole (a cone, a sphere, a fillet, a turned post): it can be selected and looked at, nothing more yet; the name of its surface type */ rounded?: string; /** its radius, when it is part of a cylinder or a sphere */ radius?: number }
 /** A full round face of the body (a post or a hole) that stands along a world axis: it is selected and pushed / pulled like a face, which changes its radius. Its `at` is where its axis starts, `u` and `v` the other two directions. */
@@ -262,7 +262,7 @@ const rayPlane = (pv: PointerView, at: Vec3, n: Vec3): number | null => {
   return t > 0 ? t : null;
 };
 const pointAt = (pv: PointerView, t: number): Vec3 => add(pv.ray!.o, scale(pv.ray!.d, t));
-const inPolygon = (q: [number, number], poly: [number, number][]): boolean => {
+export const inPolygon = (q: [number, number], poly: [number, number][]): boolean => {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
     const [a, b] = [poly[i]!, poly[j]!];
@@ -326,14 +326,20 @@ const faceOps: KindOps<Face> = {
     if (t === null) return null;
     const d = sub(pointAt(pv, t), pl.at);
     const q: [number, number] = [dot(d, pl.u), dot(d, pl.v)];
-    if (part.disk) {
-      const c = circleOf(get, part.disk);
-      if (!c) return null;
-      const cd = sub(c.center, pl.at);
-      return Math.hypot(q[0] - dot(cd, pl.u), q[1] - dot(cd, pl.v)) <= c.radius ? t : null;
-    }
-    const poly = loopPoints(get, part.loop, part.corners).map((p): [number, number] => [dot(sub(p, pl.at), pl.u), dot(sub(p, pl.at), pl.v)]);
-    return poly.length >= 3 && inPolygon(q, poly) ? t : null;
+    const within = (f: Face): boolean => {
+      if (f.disk) {
+        const c = circleOf(get, f.disk);
+        if (!c) return false;
+        const cd = sub(c.center, pl.at);
+        return Math.hypot(q[0] - dot(cd, pl.u), q[1] - dot(cd, pl.v)) <= c.radius;
+      }
+      const poly = loopPoints(get, f.loop, f.corners).map((p): [number, number] => [dot(sub(p, pl.at), pl.u), dot(sub(p, pl.at), pl.v)]);
+      return poly.length >= 3 && inPolygon(q, poly);
+    };
+    if (!within(part)) return null;
+    // a figure drawn inside this one is not part of its region: the point must not be in any of them
+    for (const h of part.holes ?? []) { const hf = get(h); if (hf?.kind === "face" && within(hf)) return null; }
+    return t;
   },
   outline: () => ({ shape: "none" }),
   anchors: (part) => part.corners,

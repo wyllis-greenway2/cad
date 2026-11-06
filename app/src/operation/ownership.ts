@@ -61,7 +61,7 @@ export function consumed(s: Scene): Set<Ref> {
   const out = new Set<Ref>();
   for (const st of s.steps) {
     if (st.type !== "extrude") continue;
-    for (const r of st.parts) {
+    for (const r of [...st.parts, ...(String(st.params.holes ?? "").split(/[;,]/).filter(Boolean) as Ref[])]) {
       out.add(r);
       const p = s.parts[r];
       if (p) for (const a of anchorsOf(p)) out.add(a);

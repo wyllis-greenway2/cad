@@ -29,21 +29,21 @@ export function buildGraph(scene: Scene): GraphResult {
   // consecutive fillets (or chamfers) of one kind: the body before the first of them and all of them so far, so that a fillet that cannot be made on its own (next to ones already made) can be tried together with them
   let chain: { base: string | null; mode: string; mods: { ref: unknown; value: number }[] } | null = null;
 
-  const profile = (st: Step): KernelOp | string => {
-    const first = get(st.parts[0]!);
+  const profile = (st: Step, refs: readonly Ref[] = st.parts, sid = `s_${st.id}`): KernelOp | string => {
+    const first = get(refs[0]!);
     if (!first) return "a part of this step is gone";
     const plane = first.plane ? get(first.plane) : undefined;
     if (!plane || plane.kind !== "plane") return "the shape is not on a plane";
-    const id = `s_${st.id}`;
+    const id = sid;
     if (first.kind === "circle") {
       const c = pointOf(get, first.center);
       if (!c) return "the circle's centre is gone";
       return { id, type: "sketch", shape: "circle", radius: r6(first.radius), at: to2d(plane, c), plane: "XY", origin: 0, frame: frameOf(plane) };
     }
-    const loop = loopOf(get, st.parts);
+    const loop = loopOf(get, refs);
     if (!loop.ok) return loop.error;
     if (loop.corners.some((c) => !pointOf(get, c))) return "a corner of the shape is gone";
-    const pts = loopPoints(get, st.parts, loop.corners); // (the points of any arcs between the corners are in it)
+    const pts = loopPoints(get, refs, loop.corners); // (the points of any arcs between the corners are in it)
     return { id, type: "sketch", shape: "polygon", points: pts.map((p) => to2d(plane, p)), plane: "XY", origin: 0, frame: frameOf(plane) };
   };
 
@@ -54,7 +54,14 @@ export function buildGraph(scene: Scene): GraphResult {
         const sk = profile(st);
         if (typeof sk === "string") { errors[st.id] = sk; break; }
         const distance = Number(st.params.depth ?? 0);
-        ops.push(sk, { id: xid, type: "extrude", profile: sk.id, distance, ...(prev ? { target: prev } : {}), mode: distance < 0 && prev ? "cutOrAdd" : "add" }); // (pulled backwards onto a body: a pocket if it meets the body, else a new piece)
+        const holeIds: string[] = [];
+        let bad = "";
+        String(st.params.holes ?? "").split(";").filter(Boolean).forEach((h, i) => {
+          const hs = profile(st, h.split(",") as Ref[], `s_${st.id}_h${i}`);
+          if (typeof hs === "string") bad = hs; else { ops.push(hs); holeIds.push(hs.id); }
+        });
+        if (bad) { errors[st.id] = bad; break; }
+        ops.push(sk, { id: xid, type: "extrude", profile: sk.id, ...(holeIds.length ? { holes: holeIds } : {}), distance, ...(prev ? { target: prev } : {}), mode: distance < 0 && prev ? "cutOrAdd" : "add" }); // (pulled backwards onto a body: a pocket if it meets the body, else a new piece)
         prev = xid;
         break;
       }
