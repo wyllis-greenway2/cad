@@ -11,7 +11,14 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
   const cmd = opCommand(sceneOf(sess), op);
   if (!cmd) return null;
   if (!op.edit || op.noEdit) return { session: run(sess, cmd), cmd };
-  const edited = run(sess, cmd, { watchAll: true });
+  const prism0 = opCommand(sceneOf(sess), { ...op, noEdit: true });
+  let edited = run(sess, cmd, { watchAll: true, ...(prism0 ? { fallback: prism0 } : {}) });
+  // moving the side of a sketch: the constraints may have put the corners back (a locked length); that is not an edit
+  if (!edited.message && cmd.type === "batch") {
+    const after = sceneOf(edited).parts;
+    const held = cmd.commands.every((c) => { if (c.type !== "movePart") return true; const q = after[c.ref]; return q?.kind === "corner" && Math.hypot(q.at[0] - c.to[0], q.at[1] - c.to[1], q.at[2] - c.to[2]) < 1e-6; });
+    if (!held) edited = { ...sess, message: "the constraints on the sketch would put it back" };
+  }
   if (!edited.message) return { session: edited, cmd };
   const prism = opCommand(sceneOf(sess), { ...op, noEdit: true });
   if (!prism) return { session: edited, cmd };

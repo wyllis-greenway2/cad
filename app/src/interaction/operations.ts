@@ -9,7 +9,7 @@ import type { Curved } from "../operation/part.ts";
 import type { FaceEdit } from "./faceedit.ts";
 import { faceEdit, editCommand } from "./faceedit.ts";
 import type { Vec3 } from "../math/vec.ts";
-import { add, scale, sub, dot, normalize } from "../math/vec.ts";
+import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { lookup, nextId } from "../operation/scene.ts";
 import type { Part, Plane, PointerView } from "../operation/part.ts";
@@ -124,7 +124,29 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
   if (kind === "pushpull") {
     const f = parts.length === 1 ? parts[0] : undefined;
     if (!f || f.kind !== "plane" || f.origin !== "body" || !f.mesh || f.mesh.length < 9) return { ok: false, why: "select a flat face of the body first" };
-    if (f.rounded) return { ok: false, why: "this curved face can be selected but not pushed or pulled yet (only round posts and holes along an axis)" };
+    if (f.rounded) {
+      // a fillet or chamfer face: pulling it (out, towards the sharp corner) makes the rounding smaller, pushing it makes it bigger: the size of the step that made it
+      const edit = faceEdit(scene, f.ref);
+      if (!edit || edit.kind !== "edgeSize") return { ok: false, why: "this curved face can be selected but not pushed or pulled yet (only round posts and holes along an axis, and fillets and chamfers)" };
+      const m = f.mesh;
+      const pts: Vec3[] = [];
+      for (let i = 0; i + 2 < m.length; i += 3) pts.push([m[i]!, m[i + 1]!, m[i + 2]!]);
+      const at = centroid(pts);
+      const body = Object.values(scene.parts).filter((p): p is Extract<Part, { kind: "corner" }> => p.kind === "corner" && p.origin === "body").map((p) => p.at);
+      const middle = body.length ? centroid(body) : ([0, 0, 0] as Vec3);
+      // the face's own direction, out of the body: the average of its triangles' normals, turned to point away from the middle of the body
+      let nsum: Vec3 = [0, 0, 0];
+      for (let i = 0; i + 8 < m.length; i += 9) {
+        const a: Vec3 = [m[i]!, m[i + 1]!, m[i + 2]!];
+        const b: Vec3 = [m[i + 3]!, m[i + 4]!, m[i + 5]!];
+        const c: Vec3 = [m[i + 6]!, m[i + 7]!, m[i + 8]!];
+        const t = cross(sub(b, a), sub(c, a));
+        nsum = add(nsum, dot(t, sub(add(add(a, b), c), scale(middle, 3))) < 0 ? scale(t, -1) : t);
+      }
+      const len = Math.hypot(...nsum);
+      if (len < 1e-12) return { ok: false, why: "this curved face has no direction to push along" };
+      return { ok: true, op: { ...base, parts: [f.ref], origin: at, normal: scale(nsum, 1 / len), edit, dim: { base: edit.value, scale: -1 } } };
+    }
     if (f.curved) {
       // a round face: the arrow stands out of its surface (a post) or into the hole, in the middle of its height; pulling adds material, which changes the radius
       const c = f.curved;
@@ -140,10 +162,11 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     const pts: Vec3[] = [];
     for (let i = 0; i + 2 < m.length; i += 3) pts.push([m[i]!, m[i + 1]!, m[i + 2]!]);
     const n = normalOfPlane(f);
+    const edit = faceEdit(scene, f.ref) ?? undefined;
     // the size across the body along the face's normal: from its far side to this face (typing 20 makes a 20 mm block however far the face is now)
     const along = Object.values(scene.parts).filter((p) => p.kind === "corner" && p.origin === "body").map((p) => dot(n, (p as { at: Vec3 }).at));
     const thickness = along.length ? Math.max(...along) - Math.min(...along) : 0;
-    return { ok: true, op: { ...base, parts: [f.ref], origin: centroid(pts), normal: n, edit: faceEdit(scene, f.ref) ?? undefined, dim: { base: Math.round(thickness * 1e6) / 1e6, scale: 1 } } };
+    return { ok: true, op: { ...base, parts: [f.ref], origin: centroid(pts), normal: n, edit, dim: edit?.kind === "edgeSize" ? { base: edit.value, scale: -1 } : { base: Math.round(thickness * 1e6) / 1e6, scale: 1 } } };
   }
   if (kind === "edge") {
     const lines = parts.filter((p) => p.kind === "line" && p.origin === "body");
@@ -332,7 +355,7 @@ export function opCommand(scene: Scene, op: Op): Command | null {
     if (v === 0) return null;
     return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }) } } })) };
   }
-  if (op.kind === "pushpull" && op.edit && !op.noEdit) return v === 0 ? null : editCommand(op.edit, v);
+  if (op.kind === "pushpull" && op.edit && !op.noEdit) return v === 0 ? null : editCommand(scene, op.edit, v);
   if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
   if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v) } } };

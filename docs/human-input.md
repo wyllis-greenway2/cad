@@ -919,3 +919,6 @@ Sent a picture (a cylinder whose top rim is selected; the chamfer arrow collapse
 
 ## in_173 — 2026-11-06 — approval
 > okay I will take your recommendation
+
+## in_174 — 2026-11-06 — directive
+> okay build the not yet built parts please

@@ -1,3 +1,4 @@
+import { actionsFor } from "../src/interaction/actions.ts";
 import test from "node:test";
 import { flat } from "./helpers/menu.ts";
 import assert from "node:assert/strict";
@@ -580,8 +581,14 @@ test("other curved faces (a fillet, a cone, a turned post) can be selected too, 
   const round = Object.values(scene(st.session).parts).filter((p) => p.kind === "plane" && p.origin === "body" && (p.rounded || p.curved));
   assert.ok(round.length >= 1, "the fillet's surface is a part");
   st = select(st, [round[0]!.ref]);
-  assert.ok(!ringOps(st).includes("op:pushpull"), "a fillet face cannot be pushed or pulled yet");
   assert.ok(frame(st).highlight.selection.includes(round[0]!.ref));
+  // a fillet face can be pulled: it changes the fillet's size (3 mm) and adds no step
+  assert.ok(ringOps(st).includes("op:pushpull"), "a fillet face can be pushed or pulled: the size of the fillet");
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  st = typeText(st, "2");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  assert.deepEqual(scene(st.session).steps.map((x) => x.type + ":" + (x.params.value ?? x.params.depth)), ["extrude:20", "edgeMod:2"]);
 });
 
 test("the ⋯ menu opens a list of the bodies with their names and a list of the history steps; a step can be taken out", () => {
@@ -1174,4 +1181,70 @@ test("a hole's wall: its diameter is the cutting circle's", () => {
   let st = select({ ...createState(s), cam: homeCamera() }, [wall.ref]);
   st = reduce(st, { type: "begin", name: "pushpull" }, env);
   assert.equal(st.op!.edit?.kind, "radius");
+});
+
+test("pulling the side of an extruded rectangle moves that side of the sketch: no step is added and the body is a bigger block", () => {
+  let st = box(); // 40 x 20 x 20 from the origin
+  const side = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && Math.abs(p.at[0] - 40) < 1e-6 && p.u[0] === 0 && p.v[0] === 0)!;
+  st = select(st, [side.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  assert.equal(st.op!.edit?.kind, "side");
+  st = typeNumber(st, "50"); // 50 wide: typing the size you want
+  assert.equal(st.session.message, null);
+  assert.deepEqual(scene(st.session).steps.map((x) => x.type), ["extrude"], "no push / pull step");
+  const bb = st.session.outcome.kernel!.bbox!;
+  near(bb.max[0] - bb.min[0], 50);
+  near(bb.max[1] - bb.min[1], 20);
+  near(st.session.outcome.kernel!.volume!, 50 * 20 * 20, 0.5);
+});
+
+test("a rectangle with a locked width cannot be stretched from its side: the side is pushed and pulled the old way instead", () => {
+  let st = box();
+  // lock the width: the two vertical lines' distance
+  const lines = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn");
+  assert.ok(lines.length >= 4);
+  const bottom = lines.find((l) => { if (l.kind !== "line") return false; const [a, b] = [scene(st.session).parts[l.a] as { at: Vec3 }, scene(st.session).parts[l.b] as { at: Vec3 }]; return a.at[1] === 0 && b.at[1] === 0; })!;
+  const act = actionsFor(scene(st.session), [bottom.ref]).find((x) => x.id === "length")!;
+  st = { ...st, session: run(st.session, act.run(40)) };
+  const side = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && Math.abs(p.at[0] - 40) < 1e-6 && p.u[0] === 0 && p.v[0] === 0)!;
+  st = select(st, [side.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  st = typeNumber(st, "50");
+  near(st.session.outcome.kernel!.volume!, 50 * 20 * 20, 0.5);
+  assert.deepEqual(scene(st.session).steps.map((x) => x.type), ["extrude", "pushPull"], "the length is locked at 40: a prism was added");
+});
+
+test("a chamfer face of a box edge: pulling it out makes the chamfer smaller, as the step that made it; the end of an earlier prism push is its depth", () => {
+  let st = box();
+  const vertical = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "body" && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] !== (scene(st.session).parts[p.b] as { at: Vec3 }).at[2])!;
+  st = select(st, [vertical.ref]);
+  st = reduce(st, { type: "begin", name: "edge" }, env);
+  st = typeNumber(st, "-4"); // a chamfer of 4
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && p.mesh && p.u && !(Math.abs(p.at[0]) < 1e-6) && false);
+  void face;
+  const cham = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.rounded && !p.curved && [...p.u, ...p.v].some((v) => Math.abs(Math.abs(v) - Math.SQRT1_2) < 1e-3));
+  assert.ok(cham, "the chamfer is a diagonal face");
+  st = select(st, [cham!.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  assert.equal(st.op!.edit?.kind, "edgeSize");
+  st = typeNumber(st, "2");
+  assert.deepEqual(scene(st.session).steps.map((x) => x.type + ":" + (x.params.value ?? x.params.depth)), ["extrude:20", "edgeMod:2"]);
+});
+
+test("the end made by a push / pull step (a prism, as made before) is edited through that step's depth", () => {
+  let st = box();
+  // make a prism step the old way, by hand
+  const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && p.at[2] === 20 && p.u[2] === 0 && p.v[2] === 0)!;
+  st = select(st, [top.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  st = { ...st, op: { ...st.op!, noEdit: true } };
+  st = typeNumber(st, "30");
+  assert.deepEqual(scene(st.session).steps.map((x) => x.type), ["extrude", "pushPull"]);
+  const top2 = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && p.at[2] === 30 && p.u[2] === 0 && p.v[2] === 0)!;
+  st = select({ ...st, op: null }, [top2.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  assert.equal(st.op!.edit?.kind, "stepDepth");
+  st = typeNumber(st, "35");
+  assert.deepEqual(scene(st.session).steps.map((x) => x.type), ["extrude", "pushPull"], "still one prism step, its depth changed");
+  near(st.session.outcome.kernel!.volume!, 40 * 20 * 35, 0.5);
 });

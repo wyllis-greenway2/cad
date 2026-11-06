@@ -30,6 +30,8 @@ export interface Session {
   readonly lagging: boolean;
   /** steps just made while the kernel's answer was still to come: when it comes and one of them could not be made, it is taken back */
   readonly checkSteps?: string[];
+  /** what to do instead if one of those steps could not be made (an edit of the step that made a face, refused late: the prism the old way) */
+  readonly fallback?: Command;
   /** the last command that was refused because it could not be done without breaking constraints: who tried (`culprits`: relation ids) and what it would have broken (`victims`) */
   readonly conflict: { culprits: string[]; victims: string[] } | null;
 }
@@ -83,7 +85,7 @@ const conflictsOf = (o: CompileOutcome): { planes: string[]; ids: string[] } => 
 /** The ids of the steps a command adds. */
 const stepsOf = (c: Command): string[] => (c.type === "addStep" ? [c.step.id] : c.type === "batch" ? c.commands.flatMap(stepsOf) : []);
 
-export function run(s: Session, c: Command, opts: { watchAll?: boolean } = {}): Session {
+export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback?: Command } = {}): Session {
   // `watchAll`: the command changes a step already in the history, so any step after it may stop working: those that worked before are watched too
   const steps = opts.watchAll ? s.history.scene.steps.map((x) => x.id).filter((id) => !s.outcome.errors[id]) : stepsOf(c);
   // a step is built on what is shown: while the kernel is still answering for the last change what is shown is the older model, and a step made now could mean something else (`in_142`)
@@ -102,7 +104,8 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean } = {}): 
     const victims = after.ids.filter((id) => !culprits.includes(id) && !before.ids.includes(id));
     return { ...s, message: "that cannot be done without breaking other constraints", conflict: { culprits, victims } };
   }
-  return { ...next, conflict: null, checkSteps: next.outcome.kernel?.stale && steps.length ? steps : undefined };
+  const late = !!next.outcome.kernel?.stale && steps.length > 0;
+  return { ...next, conflict: null, checkSteps: late ? steps : undefined, fallback: late ? opts.fallback : undefined };
 }
 /** The same history compiled again (the kernel's worker has an answer that was not there when the history was last compiled). */
 export function refresh(s: Session): Session {
@@ -114,10 +117,14 @@ export function refresh(s: Session): Session {
   // the answer for the last step has come and it could not be made: it is taken back (it was shown before the answer came), and the reason says why
   const failed = !now.outcome.kernel?.stale ? (s.checkSteps ?? []).find((id) => now.outcome.errors[id]) : undefined;
   if (failed) {
-    const back = withHistory(s, undo(h));
-    return { ...refresh({ ...back, checkSteps: undefined }), message: now.outcome.errors[failed] ?? "that could not be made" };
+    const back = refresh({ ...withHistory(s, undo(h)), checkSteps: undefined, fallback: undefined });
+    if (s.fallback) {
+      const made = run(back, s.fallback);
+      if (!made.message) return { ...made, message: "the step that made this face could not take that size: a push / pull was added instead" };
+    }
+    return { ...back, message: now.outcome.errors[failed] ?? "that could not be made" };
   }
-  return { ...now, checkSteps: now.outcome.kernel?.stale ? s.checkSteps : undefined };
+  return { ...now, checkSteps: now.outcome.kernel?.stale ? s.checkSteps : undefined, fallback: now.outcome.kernel?.stale ? s.fallback : undefined };
 }
 export const undoLast = (s: Session): Session => { const n = withHistory(s, undo(s.history)); return s.lagging ? refresh(n) : n; };
 export const redoLast = (s: Session): Session => { const n = withHistory(s, redo(s.history)); return s.lagging ? refresh(n) : n; };
