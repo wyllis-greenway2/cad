@@ -859,3 +859,6 @@ Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a 
 
 ## in_155 — 2026-11-06 — directive
 > Okay lets get rid of the texture on the gray, it looks really weird, also I noticed that sketch planes don't seem to have the same reflective properties that body planes do, is that true?
+
+## in_156 — 2026-11-06 — directive
+> if I am trying to do a continuous sketch, I type the length on a line and press enter, then I want to click immediately on the verticy to draw the next line, but it appears that the enter input on the length dropped the mode?

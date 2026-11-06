@@ -14,7 +14,7 @@ export type { AppState } from "./control/state.ts";
 export { advance, gridPlaneOf } from "./control/viewing.ts";
 export { pivotOf, planeOf, objectOf } from "./objects.ts";
 
-const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit", "pan", "zoom", "dragEnd", "look"]);
+const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit", "pan", "zoom", "dragEnd", "look", "typed", "entry"]);
 
 /** Apply one intent. A command that was refused for breaking constraints starts the flash. */
 export function reduce(s: AppState, i: Intent, env: Env): AppState {

@@ -462,3 +462,16 @@ test("a line from the centre of a circle to its edge ends exactly on the circle 
   assert.ok([...seen].some((r) => r.startsWith("d/") && scene(st.session).parts[r]?.kind === "circle"), "the circle edge can be selected");
   assert.ok([...seen].some((r) => scene(st.session).parts[r]?.kind === "corner"), "and the corner");
 });
+
+test("a line finished by typing its length and Enter keeps sketching going: the next click on a vertex starts the next line", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [5, 5, 0]);
+  st = move(st, [20, 5, 0]);
+  st = typeText(st, "12");
+  st = key(st, "Enter");
+  assert.equal(st.tool, null);
+  assert.equal(st.resume, "line");
+  st = click(st, [17, 5, 0]); // the vertex just made
+  assert.ok(st.tool && st.tool.points.length === 1);
+});

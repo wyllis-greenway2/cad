@@ -1061,3 +1061,7 @@ Do not touch `compiler/` or `ui/` in phase 1. Keep porting honest: copy pure cod
 **State:** `in_155`. 214 tests pass, checks clean.
 **Grain:** removed completely (`ui/view/grain.ts`, the bump map, the settings).
 **Sheets vs body:** it was true: a sketch's grey pane was a flat see-through fill with no lighting at all (so no shine and no reflection), while the body had a clear-coat and the reflected room. Since the grain change (`in_153`) panes were lit but with their own values. Now the pane uses the body's own values (`settings.light.roughness`, `sheen`, `sheenRoughness`, `reflect`) and stays see-through (25 %), so its shine is the body's shine, faded by that. Not checked by eye beyond the page loading without errors; if it looks too faint or too bright, say which.
+
+## Handoff 136 — 2026-11-06 (typed length keeps sketching going)
+**State:** `in_156`. 215 tests pass, checks clean.
+**Cause:** the "keep sketching while you click on vertices" memory (`AppState.resume`) was dropped by any intent that was not a click or a view move, and typing the length and pressing Enter is such an intent (`typed`). Now typing (`typed`, `entry`) keeps it: after Enter, the next click on the vertex starts the next line. Anything else (a menu, undo, Escape, a click elsewhere) still drops it.
