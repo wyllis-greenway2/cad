@@ -913,3 +913,6 @@ Sent a picture (a cylinder whose top rim is selected; the chamfer arrow collapse
 
 ## in_171 — 2026-11-06 — directive
 > Lets hide the little eyeball that shows up all the time on selection, instead lets just put it in the right click menu. Yes I noticed that push pulls can do odd things because they literally extrude things from that surface, I think we should do things differently. Can we have it such that a fresh sketch just started to extrude really does to a pure extrusion or cutout along its path. or a bodies face being pulled to collide with another body could work the same way to cutout on collision. However when you grab an already existing face of a body, I think pulling or pushing should form it, not strict cut. IS that something we can do? So for example if you had a chamfered cylinder, then reducing its diameter reduces the whole body including the chamfered part, not jsut cut away at the chamfer start. I am not sure what exactly this means in principle and for all edge cases, but I think it would mean that current geometry gets extended to keep its relationships on edge connection and not invent new faces? Do you know what I am trying to get at? I believe shapr3d does this pretty good so maybe we can look at how they do it.
+
+## in_172 — 2026-11-06 — question
+> I don't know, what do you recommend?

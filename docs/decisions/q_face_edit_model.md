@@ -21,6 +21,8 @@ The human wants two different behaviours for the pull / push arrow: (1) a fresh 
 
 **My proposal, not decided:** build A first for the common cases (the end of an extrusion, the wall of an extruded circle or rectangle's side, a hole, a fillet or chamfer face), keep today's prism for fresh sketches and for faces pulled into another body (as the human asks), and show the user which one is happening (for instance a different arrow colour). Then see how much B is still needed, and look into how other programs do B (I cannot see inside them; reading their published descriptions or trying them is the way).
 
+**My recommendation (asked for in `in_172`; the human has not yet approved it, so this stays open):** A, with today's prism as the fallback. Reasons: it gives exactly the result the human described for the chamfered cylinder; it keeps relationships by construction, where B has to be built from scratch on a kernel that has no ready tool for it and can fail in odd ways on awkward faces; and it fits how the app already works (the history of steps is the truth). When the app cannot tell which step made a face, or the steps after it cannot find their edges again, fall back to today's prism and say so. For a wall made of pieces from several steps, change the step that made the part the pointer is on. First cases to build: the end of an extrusion, the wall of an extruded circle, a hole's wall, a fillet or chamfer face.
+
 **Asked of the human:** (1) is "the whole body gets narrower, chamfer included" (A) what is wanted, or "the faces around it are extended and trimmed" (B)? (2) is it acceptable that a face made by several steps (a wall pulled taller) asks which part to change, or edits the latest step?
 
 ## Rationale
