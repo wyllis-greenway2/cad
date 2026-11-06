@@ -28,6 +28,10 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
   let edges = null;
   let vertices = null;
   if (fin) {
+    // the finer the part, the finer the mesh: the deflection allowed is a small part of the part's own size (a 2 mm post must not be a 20-sided prism: `in_165`), never coarser than `tess.tolerance`
+    const [lo, hi] = fin.shape.boundingBox.bounds;
+    const diag = Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
+    tess = { tolerance: Math.min(tess.tolerance, Math.max(0.002, diag * 0.002)), angular: Math.min(tess.angular, 0.2) };
     const m = fin.shape.mesh({ tolerance: tess.tolerance, angularTolerance: tess.angular });
     mesh = { vertices: new Float32Array(m.vertices), normals: new Float32Array(m.normals), triangles: new Uint32Array(m.triangles) };
     vol = volume(fin.shape);

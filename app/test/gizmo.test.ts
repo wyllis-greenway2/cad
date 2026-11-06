@@ -979,3 +979,25 @@ test("fillet / chamfer on the rim of a cylinder: the arrow stands on the rim, in
   const d = sub(h.points[1]!, h.points[0]!);
   assert.ok(d[2] > 0 && Math.hypot(d[0] - 0, d[1]) > 0, "out and up");
 });
+
+test("while the arrow of a round face is dragged, the size the pointer is at shows at once as rings (the body catches up); a small post is meshed finely", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 2);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 10 } } });
+  const tris = (s.outcome.kernel!.mesh!.triangles.length) / 3;
+  assert.ok(tris >= 150, `a 4 mm wide post has many facets (${tris} triangles)`);
+  const round = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.curved)!;
+  let st = select({ ...createState(s), cam: homeCamera() }, [round.ref]);
+  assert.equal(frame(st).preview, null, "nothing extra when not dragging");
+  const h = frame(st).gizmo!.handles[0]!;
+  const [a, b] = [px(st, h.points[0]!), px(st, h.points[1]!)];
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const [x, y] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  st = reduce(st, { type: "hover", x, y }, env);
+  st = reduce(st, { type: "orbit", dx: ((b[0] - a[0]) / len) * 8, dy: ((b[1] - a[1]) / len) * 8, x: x + ((b[0] - a[0]) / len) * 8, y: y + ((b[1] - a[1]) / len) * 8 }, env);
+  const f = frame(st);
+  assert.ok(f.preview && f.preview.segments.length > 100, "rings and lines for the size now");
+  const radii = f.preview!.segments.slice(0, 64).map(([p]) => Math.hypot(p[0], p[1]));
+  near(radii[0]!, 2 + st.op!.value!, 1e-6);
+});

@@ -888,3 +888,6 @@ Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a 
 Sent a model (kept as `app/test/fixtures/cyl-fillet.cad.json`: a 4.2 mm tall disc with a 0.5 fillet on its top rim) and a picture (the fillet / chamfer arrow in the middle of the top face, black triangle-shaped lines along the rim).
 
 > The chamfer fillet arrow doesn't position normally on the edge of a cylinder like it does on the edge of a block. Also the radius fillet on a cylinder edge gets really weird in some spots and renders chunky triangle black lines. See the screen shot and this example model.
+
+## in_165 — 2026-11-06 — directive
+> The cylinder diameter change is still really pretty chunky, especially at smaller diameters. Do we have  chunkiness problem in general because of graphics compute available to us? Should we think about creative ways to keep things lean and cheap but still look okay? Maybe things in motion can simplify a little just to show smooth rapid motion, then settle into a finer tuned object once motion stops?

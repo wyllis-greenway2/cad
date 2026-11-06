@@ -110,7 +110,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     mesh: outcome.kernel?.mesh ?? null,
     highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel,
     amber: [...focusParts(sc, sel, s.focus), ...(s.tool?.hints ?? []).flatMap((h) => h.ref ? [h.ref] : [])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
-    preview: previewFor(sc, s.tool),
+    preview: withGhost(previewFor(sc, s.tool), s),
     entry: entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
     entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam) : [],
     bar: !!s.repeat,
@@ -195,4 +195,22 @@ function eyeBubble(sc: Scene, sel: readonly Ref[], s: AppState): Annotation[] {
   if (!l.eye || !l.plane) return [];
   const at = s.spread && s.spread.ref === sel[0] ? s.spread.point : l.plane.at;
   return [{ id: "look", relationId: null, kind: "eye", label: "Look straight at it (press again for the back)", at, value: null, unit: null, locked: false, editable: false, readOnly: true, broken: false, open: false, others: [], lines: [] }];
+}
+
+/**
+ * While the arrow of a round face (a post or a hole) is being dragged the kernel takes a moment to build each size, so the picture of the body lags the pointer in jumps. This shows the size
+ * the pointer is at right now, at once, as thin rings at the two ends of the round face and a few lines between them; the body catches up (`in_165`).
+ */
+function withGhost(base: Preview | null, s: AppState): Preview | null {
+  const op = s.op;
+  const c = op?.curved;
+  if (!op || !c || !s.drag || !("handle" in s.drag) || op.value === null || op.value === undefined) return base;
+  const r = Math.max(0.01, c.radius + (c.convex ? op.value : -op.value));
+  const [u, v] = [0, 1, 2].filter((i) => i !== c.axis) as [number, number, number];
+  const at = (t: number, h: number): Vec3 => { const p = [0, 0, 0]; p[u] = c.center[u]! + Math.cos(t) * r; p[v] = c.center[v]! + Math.sin(t) * r; p[c.axis] = h; return p as unknown as Vec3; };
+  const segments: [Vec3, Vec3][] = [];
+  const N = 64;
+  for (let k = 0; k < N; k++) for (const h of [c.lo, c.hi]) segments.push([at((k / N) * Math.PI * 2, h), at(((k + 1) / N) * Math.PI * 2, h)]);
+  for (let k = 0; k < 12; k++) segments.push([at((k / 12) * Math.PI * 2, c.lo), at((k / 12) * Math.PI * 2, c.hi)]);
+  return { segments: [...(base?.segments ?? []), ...segments], circle: base?.circle ?? null, cursor: base?.cursor ?? null };
 }
