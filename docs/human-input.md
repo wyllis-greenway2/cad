@@ -835,3 +835,6 @@ Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a 
 
 ## in_147 — 2026-11-06 — directive
 > okay the "Can we try a sketching method where it doesn't actually deselect the sketch tool every time." idea was bad, lets put that back to how it was before
+
+## in_148 — 2026-11-06 — directive
+> Okay can we also all of our options available from right click also available in the ... menu

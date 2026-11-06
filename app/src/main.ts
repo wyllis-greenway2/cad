@@ -21,6 +21,8 @@ import { kernel, initKernelWeb, drawRectangle, nextId } from "./interaction/api.
 import type { Ref, Command, Vec3 } from "./interaction/api.ts";
 import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
+import type { Row } from "./ui/menu.ts";
+import type { MenuItem } from "./interaction/control/state.ts";
 import { createRing } from "./ui/ring.ts";
 import { createChip } from "./ui/chip.ts";
 import { createPanel } from "./ui/panel.ts";
@@ -73,6 +75,9 @@ const menu = createMenu(document.body, (id) => {
   else dispatch({ type: "runAction", id });
 });
 
+/** The ring's items as rows of the ⋯ list: each category's items under it, one group each. */
+const rowsOf = (items: MenuItem[], group = ""): Row[] => items.flatMap((it) => it.children ? rowsOf(it.children, it.id) : [{ id: it.id, label: it.label, enabled: it.enabled, why: it.why, group: group || it.id }]);
+
 const ring = createRing(document.body, (id) => {
   ring.hide();
   dispatch({ type: "runAction", id });
@@ -102,7 +107,8 @@ function dispatch(i: Intent) {
   recognizer.setDrawing(!!state.tool);
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length })); }
+    // (the ⋯ list holds the same operations as the ring, in groups, above the settings: `in_148`)
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, rowsOf(state.menu?.items ?? []), appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length })); }
     else { menu.hide(); ring.show(i.x, i.y, state.menu?.items ?? []); }
   } else {
     // pointing around does not close a menu; any other intent does

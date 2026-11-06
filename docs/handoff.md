@@ -1017,3 +1017,6 @@ Do not touch `compiler/` or `ui/` in phase 1. Keep porting honest: copy pure cod
 
 ## Handoff 127 — 2026-11-06 (sketching modes taken back out)
 **State:** `in_147`. 207 tests pass, checks clean. The sketching tools are one-shot again: finishing a figure puts the tool away, Escape ends it, a line is one segment. Also removed with it: the mode icon at the pointer, the ring that shows the tools and a ✕ while in a mode, the `exit` action. Kept from Handoff 126: the right button only turns the view, and deleting a body takes its sketches with it.
+
+## Handoff 128 — 2026-11-06 (the right-click options in the ⋯ menu)
+**State:** `in_148`. 207 tests pass, checks clean. Browser: ⋯ lists Rectangle, Circle, Line, Curve; the constraints that fit the selection (or a dimmed "Constraints" with the reason); Push / pull, Fillet / chamfer, Scale; Move, Rotate, Copy, Linear repeat, Circular repeat; Delete; then Undo, Redo, Bodies, History, Save, Open, Scroll, Build. The same items and the same dimming as the ring (it is the same list, flattened into groups: `rowsOf` in `main.ts`), worked out for the current selection when the button is pressed. The list scrolls if the window is short.

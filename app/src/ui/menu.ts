@@ -3,7 +3,7 @@ export interface Row { id: string; label: string; enabled: boolean; why: string 
 
 export function createMenu(host: HTMLElement, onChoose: (id: string) => void) {
   const el = document.createElement("div");
-  el.style.cssText = "position:fixed;display:none;min-width:180px;background:#fff;border:1px solid #cfd0d4;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.14);padding:4px;font:14px system-ui,sans-serif;color:#2b2b2d;z-index:10;user-select:none;-webkit-user-select:none";
+  el.style.cssText = "position:fixed;display:none;min-width:180px;background:#fff;border:1px solid #cfd0d4;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.14);padding:4px;font:14px system-ui,sans-serif;color:#2b2b2d;z-index:10;max-height:calc(100vh - 16px);overflow-y:auto;user-select:none;-webkit-user-select:none";
   host.appendChild(el);
   el.addEventListener("contextmenu", (e) => e.preventDefault());
   let rows: Row[] = [];
