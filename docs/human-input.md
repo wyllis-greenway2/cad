@@ -856,3 +856,6 @@ Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a 
 
 ## in_154 — 2026-11-06 — directive
 > Okay I am having trouble, if I draw a circle, then add a line from center to the edge, the circle edge highlights when I get very close which to me inidcates that the verticy will be positioned coincident on the line, but then it isnt. Also when I go to select the virticy to put a coincident constraint on it myself, then the circle ring becomes entirely un selectable at all. it is really hard to get it to work again. I am not really sure what it takes but some random operations later and I can seem to select the circle edge again, it is really buggy trying to select the circle edge. Even if I can select the circle edge, there is no ability to add a coincident constraint when selecting the circle edge and a vertex
+
+## in_155 — 2026-11-06 — directive
+> Okay lets get rid of the texture on the gray, it looks really weird, also I noticed that sketch planes don't seem to have the same reflective properties that body planes do, is that true?
