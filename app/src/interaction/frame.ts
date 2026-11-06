@@ -10,6 +10,9 @@ import type { Scene } from "../operation/scene.ts";
 import { lookup } from "../operation/scene.ts";
 import { normalOfPlane } from "../operation/part.ts";
 import { planeOf } from "./objects.ts";
+import type { Camera } from "./camera.ts";
+import { offsetOf, sideOf } from "./camera.ts";
+import { dot } from "../math/vec.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
@@ -46,8 +49,8 @@ export interface Frame {
   entries: Entry[];
   /** the Apply and Cancel buttons are up (a repeat is being set up) */
   bar: boolean;
-  /** the world axis the selected plane or face lies across (so its X Y Z button is lit), and whether the eye button (look straight at it) shows */
-  lookHint: "X" | "Y" | "Z" | null;
+  /** the world axis the selected plane or face lies across and which end of it the camera must be at to see it (so that X Y Z button is lit, as + or −), and whether the eye button (look straight at it) is available: not while already looking straight at it */
+  lookHint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null;
   eye: boolean;
   /** the open list (bodies, history) */
   panel: Panel | null;
@@ -103,7 +106,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     entry: entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
     entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam) : [],
     bar: !!s.repeat,
-    ...lookOf(sc, sel),
+    ...lookOf(sc, sel, s.cam),
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors),
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash)],
     flash,
@@ -142,11 +145,12 @@ function entryWhere(e: Entry | null, s: AppState, g: Gizmo | null, op: Op | null
   return { ...e, at, from };
 }
 
-/** A single selected plane or face: the eye button shows, and if it lies across a world axis, that axis's button is lit. */
-function lookOf(sc: Scene, sel: readonly Ref[]): { lookHint: "X" | "Y" | "Z" | null; eye: boolean } {
+/** A single selected plane or face: if it lies across a world axis, that axis's button is lit, + or − by the end the camera is at (the side that shows the face); the eye is available unless the camera is already straight at it. */
+function lookOf(sc: Scene, sel: readonly Ref[], cam: Camera): { lookHint: Frame["lookHint"]; eye: boolean } {
   const pl = sel.length === 1 ? planeOf(lookup(sc), sel[0]!) : null;
   if (!pl) return { lookHint: null, eye: false };
   const n = normalOfPlane(pl);
-  const axis = ([0, 1, 2] as const).find((k) => Math.abs(Math.abs(n[k]) - 1) < 1e-6);
-  return { lookHint: axis === undefined ? null : (["X", "Y", "Z"] as const)[axis], eye: true };
+  const k = ([0, 1, 2] as const).find((i) => Math.abs(Math.abs(n[i]) - 1) < 1e-6);
+  const sign = dot(offsetOf(cam), n) >= 0 ? 1 : -1;
+  return { lookHint: k === undefined ? null : { axis: (["X", "Y", "Z"] as const)[k], sign: n[k]! * sign > 0 ? 1 : -1 }, eye: sideOf(cam, n) === 0 };
 }

@@ -81,7 +81,8 @@ export function sideOf(c: Camera, normal: Vec3, tol = settings.view.normalTolera
 }
 /** N, X, Y, Z pressed: look straight at the plane; if already looking straight from the front, from the back (and back again). */
 export function lookAlternating(c: Camera, normal: Vec3, u: Vec3): Camera {
-  return lookStraight(c, normal, u, sideOf(c, normal) === 1 ? -1 : 1);
+  const here = sideOf(c, normal);
+  return lookStraight(c, normal, u, here === 1 ? -1 : here === -1 ? 1 : dot(offsetOf(c), normalize(normal)) >= 0 ? 1 : -1); // (not yet straight on: from the side you are on, the one that shows the face)
 }
 
 /** The two cameras blended: k from 0 to 1 (eased by the caller). Angles turn the short way round. */

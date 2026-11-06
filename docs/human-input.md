@@ -826,3 +826,6 @@ Plane/axis button highlight, click grammar change, eye button, centre vertex on 
 Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a block with a push / pull arrow and a number bubble 10.37 on its side face, a teal ring on its top).
 
 > Somehow this got into a buggy state where the face will no longer pull or push. It happened when adjusting the pull push arrow with the right mouse button instead of left. I couldn't click on anything else either. The only way to get out of it was to right click again then select a drawing type.
+
+## in_145 — 2026-11-06 — directive
+> Lets have the normal eye icon go down with the XYZ buttons. lets have it fade out when you are normal, and come back in when you can be normal to a plane again, lets have the highlighted xyz that shows up be positive or negative depending on which way would allow the camera to see the selected face.

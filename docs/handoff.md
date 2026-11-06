@@ -1001,3 +1001,9 @@ Do not touch `compiler/` or `ui/` in phase 1. Keep porting honest: copy pure cod
 **State:** `in_144`. 206 tests pass, checks clean. Your file is a fixture (`right-drag.cad.json`).
 **What I found:** a right-button drag of the push / pull arrow works in a real browser (the face is pulled, the arrow stays, the next click works), so I could not make it stick. What your description fits (every later pointer move acting as a drag, nothing clickable, a fresh right click clearing it) is a button release the page never saw, so the drag it began carried on. Fixes: a mouse move with no button down ends the drag (`platform/dom-input.ts`); a window losing focus cancels any press; a new press while a drag is still open ends it first (`input/mouse.ts`, with a test). 
 **Know:** this is the likely cause, not a confirmed one. If it happens again, tell me what the screen showed just before (a menu or the browser's own menu open? a trackpad two-finger press?).
+
+## Handoff 125 — 2026-11-06 (eye under the axis buttons, signed axis highlight)
+**State:** `in_145`. 206 tests pass, checks clean. Browser: selecting a top face lights `+Z` and fades the eye in under it; looking straight at the face fades the eye out.
+**Eye:** now the fourth round button under Z (lower right). It fades out (0.25 s) while nothing flat is selected or the camera is already straight at the selection, and fades in when you can be.
+**Lit button:** shows `+X` / `−X` etc.: the end of the axis the camera must be at to see the selected face (the side it is on now). Pressing X Y Z or the eye from an oblique view now goes to that same side (before, from an oblique view it went to the front, which could show the face from behind); pressed again it goes to the back.
+**Know:** X Y Z still select the world plane of that axis, not the face; the lit state therefore goes with the selection you had before the press.

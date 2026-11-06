@@ -22,31 +22,33 @@ export function createControls(host: HTMLElement, h: ControlHandlers) {
     return b;
   });
 
-  // the eye: look straight at the selected plane or face (shown at the top while one is selected or sketched on)
+  // the eye, under the Z button: look straight at the selected plane or face. It fades away while you are already looking straight at it (or nothing is selected to look at) and comes back when you can be again.
   const eye = document.createElement("div");
   eye.innerHTML = iconSvg("eye");
   eye.title = "Look straight at it (press again for the back)";
-  eye.style.cssText = css + "display:none;left:calc(50% - 90px);top:14px;width:40px;height:40px;box-sizing:border-box;border-radius:50%;align-items:center;justify-content:center;background:#fff;border:2px solid #34363b;color:#34363b;box-shadow:0 2px 10px rgba(0,0,0,.16);cursor:pointer";
+  eye.style.cssText = css + "display:none;width:34px;height:34px;box-sizing:border-box;border-radius:17px;align-items:center;justify-content:center;background:#fff;border:1px solid #cfd0d4;color:#2b2b2d;box-shadow:0 2px 8px rgba(0,0,0,.10);cursor:pointer;opacity:0;pointer-events:none;transition:opacity .25s";
   eye.addEventListener("click", (e) => { e.stopPropagation(); h.look("N"); });
   host.appendChild(eye);
 
   return {
-    /** Light the button of the axis the selected plane lies across; show the eye while a plane or face is selected. */
-    hint(axis: "X" | "Y" | "Z" | null, showEye: boolean) {
+    /** Light the button of the axis the selected plane lies across (+ or −); fade the eye in or out. */
+    hint(hint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null, showEye: boolean) {
       buttons.forEach((b, i) => {
-        const on = axis === "XYZ"[i];
+        const on = hint?.axis === "XYZ"[i];
+        b.textContent = on ? `${hint!.sign > 0 ? "+" : "−"}${"XYZ"[i]}` : "XYZ"[i]!;
         b.style.background = on ? "#1ab8b3" : "#fff";
         b.style.color = on ? "#fff" : "#2b2b2d";
         b.style.borderColor = on ? "#1ab8b3" : "#cfd0d4";
       });
-      eye.style.display = showEye ? "flex" : "none";
+      eye.style.opacity = showEye ? "1" : "0";
+      eye.style.pointerEvents = showEye ? "auto" : "none";
     },
     /** Place the buttons at the right edge, lower right, one above the other (X on top). */
     update(pageW: number, pageH: number, margin: number, button: number) {
-      buttons.forEach((b, i) => {
-        b.style.display = "block";
+      [...buttons, eye].forEach((b, i) => {
+        b.style.display = i < 3 ? "block" : "flex";
         b.style.left = `${pageW - margin - button}px`;
-        b.style.top = `${pageH - margin - 3 * 38 + 4 + i * 38}px`;
+        b.style.top = `${pageH - margin - 4 * 38 + 4 + i * 38}px`;
       });
     },
   };
