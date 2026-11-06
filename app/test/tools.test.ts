@@ -382,7 +382,8 @@ test("a triple click on a sketch drawn on a face of a block turns to it, like a 
   st = click(st, [30, 18, 20]);
   const fig = Object.values(scene(st.session).parts).find((p) => p.kind === "face" && p.origin === "drawn")!;
   assert.ok(fig);
-  st = click({ ...st, tool: null, resume: null }, [16, 15.5, 20], 3); // (away from the arrow that shows by itself at the middle)
+  st = click({ ...st, tool: null, resume: null }, [16, 15.5, 20], 1);
+  st = click(st, [16, 15.5, 20], 3); // (away from the arrow that shows by itself at the middle)
   assert.ok(st.anim, "the view is turning to the plane");
 });
 
@@ -474,4 +475,20 @@ test("a line finished by typing its length and Enter keeps sketching going: the 
   assert.equal(st.resume, "line");
   st = click(st, [17, 5, 0]); // the vertex just made
   assert.ok(st.tool && st.tool.points.length === 1);
+});
+
+test("picking a vertex and then, quickly, the circle's edge beside it, or Shift-clicking it, is two selections: it never counts as a double click that takes the whole object", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  st = click(st, [20, 20, 0]);
+  st = click(st, [30, 20, 0]);
+  const centre: Vec3 = [20, 20, 0];
+  const edge: Vec3 = [30, 20, 0];
+  st = click(st, centre, 1);
+  assert.equal(scene(st.session).parts[selection(st.session)[0]!]?.kind, "corner");
+  st = click(st, edge, 2); // a different spot, quickly: counted as a double click by time and place only
+  assert.equal(scene(st.session).parts[selection(st.session)[0]!]?.kind, "circle", "the circle edge, not the object");
+  st = click(st, centre, 1);
+  st = reduce(st, { type: "click", x: px(st, edge)[0], y: px(st, edge)[1], count: 2, shift: true }, env);
+  assert.deepEqual(selection(st.session).map((r) => scene(st.session).parts[r]?.kind), ["corner", "circle"], "Shift adds the edge to the vertex");
 });

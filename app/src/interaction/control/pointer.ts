@@ -143,7 +143,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   // sketching goes on while you keep clicking on vertices (`in_150`): a figure finished on an existing vertex leaves the same tool ready (a line starts its next segment from that vertex); finished anywhere else, the tool is put away
   const vertex = refs.map((r) => sc.parts[r]).find((p) => p?.kind === "corner" && p.origin === "drawn");
   if (!vertex || vertex.kind !== "corner" || done === base || done.tool || done.session.message) return done;
-  return { ...done, tool: t.kind === "line" ? { ...armTool("line"), plane: t.plane, points: [vertex.at], cursor: vertex.at } : armTool(t.kind) };
+  return t.kind === "line" ? { ...done, tool: { ...armTool("line"), plane: t.plane, points: [vertex.at], cursor: vertex.at } } : done;
 }
 
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {
@@ -181,17 +181,20 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const onePlane = refs.length <= 1 || (surfaces && planes.every((q) => !!q) && planes.every((q) => Math.abs(dot(normalOfPlane(q!), normalOfPlane(planes[0]!)) - 1) < 1e-6 && Math.abs(dot(normalOfPlane(q!), sub(q!.at, planes[0]!.at))) < 1e-3));
   // the infinite world planes are only a surface for the ring to land on and for a tool to draw on: a click on one selects nothing (like a click on empty space)
   const selectable = refs.filter((r) => !(sc.parts[r]?.origin === "world" && sc.parts[r]?.kind === "plane"));
-  if (i.count >= 2 && refs[0] && !selectable.length && isWorldPlane(sc, refs[0])) {
+  // a quick second click only counts as a double (or triple) click when it is on the same things as the click before and without Shift: picking a vertex and then, quickly, the circle's edge next to it
+  // is two selections, not a double click that takes the whole object (`in_162`)
+  const count = !i.shift && [...selectable].sort().join("|") === sess.click.spot ? i.count : 1;
+  if (count >= 2 && refs[0] && !selectable.length && isWorldPlane(sc, refs[0])) {
     // a world plane under the clicks and nothing else: it is selected and the view turns straight to it, from the side you are on (`in_159`)
     const pl = planeOf(get, refs[0]);
     if (pl) return animateTo(withSession(base, { ...sess, click: { selection: [refs[0]], spot: sess.click.spot }, message: null }), planeView(base.cam, pl, false), env.now);
   }
-  if (onePlane && i.count === 2) {
+  if (onePlane && count === 2) {
     // two: the whole object (the view does not turn)
     const o = selectable[0] ? objectOf(sc, selectable[0]) : undefined;
     return o ? withSession(base, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base;
   }
-  if (onePlane && i.count >= 3) {
+  if (onePlane && count >= 3) {
     // three: only the face (the second click had taken the whole object), and the view turns straight to it from the side you are on
     const pl = refs[0] ? planeOf(get, refs[0]) : null;
     if (!pl) return base;

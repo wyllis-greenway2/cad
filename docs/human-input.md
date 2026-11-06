@@ -877,3 +877,6 @@ Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a 
 
 ## in_161 — 2026-11-06 — directive
 > Lets put the world view back to how it was before, just three lines positive x y z, lets have it not highlight or fade the panes. Lets also add a new thing where you where it only selects the panes to hover the blue circle on or select from the positive surface, which are the 3 surfaces facing us on page load. Also the zoom works pretty good in orthographic view, but not so good when close up in 3d view, it seems to get very sluggish and kinda stuck far away, you cant really zoom in 3d to see fine detailed work.
+
+## in_162 — 2026-11-06 — directive
+> I think the 3d zoom may have been better prior to this most recent edit, can you put it back and I can try again, also I have having lots of trouble selecting the edges of circles.

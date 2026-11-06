@@ -30,9 +30,7 @@ export function doZoom(s: AppState, i: Extract<Intent, { type: "zoom" }>, env: E
     const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
     const c = candidatesAt(sceneOf(s.session), pv, pickOpts()).find((x) => x.rank === 2);
     const p = c ? surfacePoint(pv, c.score) : null;
-    const part = c ? sceneOf(s.session).parts[c.ref] : undefined;
-    const background = !!part && part.origin === "world" && part.kind === "plane";
-    if (p && Math.hypot(...sub(p, s.cam.target)) <= (background ? settings.input.zoomAnchorMaxFactor : settings.input.zoomAnchorSurfaceFactor) * s.cam.distance) anchor = p;
+    if (p && Math.hypot(...sub(p, s.cam.target)) <= settings.input.zoomAnchorMaxFactor * s.cam.distance) anchor = p;
   }
   return { ...stop(s), cam: zoomAt(s.cam, i.factor, anchor) };
 }
