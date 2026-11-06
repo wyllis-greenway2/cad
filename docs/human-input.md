@@ -949,3 +949,11 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_180 — 2026-11-06 — question
 > I would expect these to be two valid sketch portions each of which could be extruded. Shouldn't I be able to extrude 3/4 of the circle, or 1/4 of the circle with the way this is drawn?
 (with the model file `aa3db412-model.cad_8.json`: a circle with two radii to points on it, one up and one to the right)
+
+## in_181 — 2026-11-06 — question
+> What should we do about these things? "Not handled yet:
+>
+> The curved wall of an extruded piece is made of flat facets, as every arc is today. Push/pull on that wall adds a prism.
+> A line from a point on the circle to a point off it is ignored.
+> Lines that cross inside the circle are not handled.
+> "
