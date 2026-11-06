@@ -21,13 +21,14 @@ export interface Line extends Base { kind: "line"; a: Ref; b: Ref; /** a point h
   /** a drawn arc: how far its middle is out from the chord, as a fraction of the chord's length (positive towards the plane's normal crossed with the chord's direction); a straight line omits it */ bulge?: number;
   /** a drawn arc about a centre point (a corner, so it can be positioned with constraints): the arc runs from `a` to `b` round `center`, counter-clockwise (seen from the plane's normal) or not; its radius is the distance from the centre to `a` */
   center?: Ref; ccw?: boolean;
+  /** an arc of a circle that lines drawn across it cut into pieces (made when the faces are, never saved, not picked) */ derived?: boolean;
   /** a body edge that is (part of) a circle: the circle it lies on; the rim of a post or a hole */
   circle?: { center: Vec3; normal: Vec3; radius: number };
   /** a rim made of two half circles: the other half (picking one picks both) */
   twin?: Ref }
 export interface Circle extends Base { kind: "circle"; center: Ref; radius: number }
 /** A derived face of drawn lines: a closed loop (its lines and, in order, its corners), or a disk (a circle). Rebuilt from the lines; never saved. */
-export interface Face extends Base { kind: "face"; loop: Ref[]; corners: Ref[]; disk?: Ref; /** closed figures drawn inside this one (the nearest ones): the region is this figure without them, so each figure and each ring between them is picked and extruded by itself */ holes?: Ref[] }
+export interface Face extends Base { kind: "face"; loop: Ref[]; corners: Ref[]; disk?: Ref; /** closed figures drawn inside this one (the nearest ones): the region is this figure without them, so each figure and each ring between them is picked and extruded by itself */ holes?: Ref[]; /** one of the pieces a circle is cut into by lines drawn across it */ pieces?: boolean }
 /** A plane you can look at, select and draw on. `infinite`: a world plane, hit anywhere on it (`in_116`). `extent`: a square pane from `at` to `at + extent` along u and v. `mesh`: a flat face of the body, as triangles (flat xyz). */
 export interface Plane extends Base { kind: "plane"; at: Vec3; u: Vec3; v: Vec3; extent?: number; infinite?: boolean; mesh?: readonly number[]; curved?: Curved; /** a curved face of the body that is not a full round post or hole (a cone, a sphere, a fillet, a turned post): it can be selected and looked at, nothing more yet; the name of its surface type */ rounded?: string; /** its radius, when it is part of a cylinder or a sphere */ radius?: number }
 /** A full round face of the body (a post or a hole) that stands along a world axis: it is selected and pushed / pulled like a face, which changes its radius. Its `at` is where its axis starts, `u` and `v` the other two directions. */
@@ -185,7 +186,7 @@ export function loopPoints(get: Lookup, loop: readonly Ref[], corners: readonly 
     const mid = line ? curveMid(get, line) : null;
     const [pa, pb] = [pointOf(get, c), pointOf(get, next)];
     if (line && mid && pa && pb) {
-      const arc = arcPoints(line.a === c ? pa : pb, mid, line.a === c ? pb : pa, 24);
+      const arc = arcPoints(line.a === c ? pa : pb, mid, line.a === c ? pb : pa, 64);
       const walk = line.a === c ? arc : [...arc].reverse();
       out.push(...walk.slice(1, -1));
     }

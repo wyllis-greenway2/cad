@@ -70,3 +70,29 @@ test("the wall of the hole of an extruded ring can be pushed and pulled: the hol
   const outerWall = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.curved?.convex && Math.abs(p.curved.radius - 20) < 1e-6)!;
   assert.equal(faceEdit(scene(s), outerWall.ref)?.kind, "radius");
 });
+
+import { readFileSync } from "node:fs";
+import { openSession } from "../src/interaction/session.ts";
+
+test("a circle cut by two radii is two pieces, a quarter and three quarters, and each extrudes on its own", () => {
+  const r = openSession(kernel, readFileSync(new URL("./fixtures/pie-cuts.cad.json", import.meta.url), "utf8"));
+  assert.ok(r.ok);
+  let s = r.value;
+  const faces = facesOf(s);
+  assert.equal(faces.length, 2, "no whole disk, two pieces");
+  const R = 10.622264353705381;
+  const area = (Math.PI * R * R);
+  const first = faces.find((f) => f.loop.length === 3)!;
+  s = extrude(s, [first.ref], "10");
+  assert.deepEqual(s.outcome.errors, {});
+  const v1 = s.outcome.kernel!.volume!;
+  const share = v1 / (area * 10);
+  assert.ok(Math.abs(share - 0.25) < 0.01 || Math.abs(share - 0.75) < 0.01, `a quarter or three quarters of the disk (${share})`);
+  // the other piece is still there to pick and extrude
+  const rest = facesOf(s).filter((f) => f.ref !== first.ref);
+  assert.equal(rest.length, 1);
+  assert.ok(!consumed(scene(s)).has(rest[0]!.ref));
+  s = extrude(s, [rest[0]!.ref], "10");
+  assert.deepEqual(s.outcome.errors, {});
+  assert.ok(Math.abs(s.outcome.kernel!.volume! - area * 10) < area * 10 * 0.01, `${s.outcome.kernel!.volume} vs ${area * 10}`);
+});

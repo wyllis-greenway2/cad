@@ -67,6 +67,12 @@ export function consumed(s: Scene): Set<Ref> {
       if (p) for (const a of anchorsOf(p)) out.add(a);
     }
   }
-  if (out.size) for (const p of Object.values(s.parts)) if (p.kind === "face" && (p.loop.some((l) => out.has(l)) || (p.disk && out.has(p.disk)))) out.add(p.ref);
+  if (!out.size) return out;
+  // a figure is used up when its own sides are; a piece of a circle that shares a side with a piece that was extruded is not (the shared side is shown again for it)
+  const faces = Object.values(s.parts).filter((p): p is Extract<typeof p, { kind: "face" }> => p.kind === "face");
+  const used = (f: (typeof faces)[number]) => (!!f.disk && out.has(f.disk)) || (f.loop.length > 0 && !f.pieces && f.loop.some((l) => out.has(l))) || (!!f.pieces && f.loop.every((l) => out.has(l)));
+  const usedFaces = faces.filter(used);
+  for (const f of faces) if (f.pieces && !usedFaces.includes(f)) for (const l of f.loop) { out.delete(l); const p = s.parts[l]; if (p) for (const a of anchorsOf(p)) out.delete(a); }
+  for (const f of usedFaces) out.add(f.ref);
   return out;
 }

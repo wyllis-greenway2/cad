@@ -945,3 +945,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > Pushing or pulling the side wall of an extruded ring’s hole isn’t handled specially.
 > Extruding two sibling regions together still takes one extrude each.
 > A hole whose outline includes arcs is untested.' also when I make a cylinder, then chamfer, then deselect, then select the chamfer again to modify it, then the chamfer arrows dont go in the chamfer they go in the middle of the cylinder. Also there appears to be an issue where deleted items leave ghost suggested constraints behind. If I add a circle, then delete it, then start drawing with lines, it startes suggesting constraints to the deleted drawing.
+
+## in_180 — 2026-11-06 — question
+> I would expect these to be two valid sketch portions each of which could be extruded. Shouldn't I be able to extrude 3/4 of the circle, or 1/4 of the circle with the way this is drawn?
+(with the model file `aa3db412-model.cad_8.json`: a circle with two radii to points on it, one up and one to the right)

@@ -125,7 +125,9 @@ export function withBody(s: Scene, body: readonly Part[]): Scene {
 /** The scene with its derived faces (closed loops, disks) rebuilt. */
 export function withDerived(s: Scene): Scene {
   const parts: Record<string, Part> = {};
-  for (const p of Object.values(s.parts)) if (p.kind !== "face") parts[p.ref] = p;
-  for (const f of derivedFaces({ ...s, parts })) parts[f.ref] = f;
+  for (const p of Object.values(s.parts)) if (p.kind !== "face" && !(p.kind === "line" && p.derived)) parts[p.ref] = p;
+  const { faces, arcs } = derivedFaces({ ...s, parts });
+  for (const a of arcs) parts[a.ref] = a;
+  for (const f of faces) parts[f.ref] = f;
   return { ...s, parts };
 }
