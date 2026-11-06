@@ -23,34 +23,51 @@ import { commitFigure, commitOp, setRepeatAxis } from "./modal.ts";
 import { doGizmoHover, gizmoOf } from "./handles.ts";
 import { hasGizmo, hitHandle } from "../gizmo.ts";
 
-/** The operations a right click offers (`in_133`): the drawing tools, push / pull (an extrude, for a drawn figure), fillet / chamfer, move, rotate, scale and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
-const RING: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind }[] = [
+/** The operations a right click offers (`in_133`), in categories (`in_143`): sketching, constraints, shape, moving and repeating, and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
+const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind }[] = [
   { id: "tool:rect", label: "Rectangle", icon: "rect", tool: "rect" },
   { id: "tool:circle", label: "Circle", icon: "circle", tool: "circle" },
   { id: "tool:line", label: "Line", icon: "line", tool: "line" },
   { id: "tool:arc", label: "Curve", icon: "arc", tool: "arc" },
   { id: "op:pushpull", label: "Push / pull", icon: "pushpull", op: "pushpull" },
   { id: "op:edge", label: "Fillet / chamfer", icon: "edge", op: "edge" },
+  { id: "op:scale", label: "Scale", icon: "scale", op: "scale" },
   { id: "op:move", label: "Move", icon: "move", op: "move" },
   { id: "op:rotate", label: "Rotate", icon: "rotate", op: "rotate" },
-  { id: "op:scale", label: "Scale", icon: "scale", op: "scale" },
   { id: "op:copy", label: "Copy", icon: "copy", op: "copy" },
   { id: "op:linear", label: "Linear repeat", icon: "linear", op: "linear" },
   { id: "op:circular", label: "Circular repeat", icon: "circular", op: "circular" },
-  { id: "delete", label: "Delete", icon: "trash" },
 ];
-/** While a repeat is open only drawing, Move and Rotate are offered (the rest could change what is being repeated or the pivot's parts). */
+const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[] = [
+  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc"] },
+  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:scale"] },
+  { id: "place", label: "Move and repeat", icon: "move", items: ["op:move", "op:rotate", "op:copy", "op:linear", "op:circular"] },
+];
+/** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
 const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "op:move", "op:rotate"]);
+const category = (id: string, label: string, icon: string, kids: MenuItem[]): MenuItem => {
+  const first = kids.find((k) => k.enabled);
+  return { id, label, icon, enabled: !!first, why: first ? null : kids[0]?.why ?? "nothing here applies", children: kids };
+};
 function menuFor(session: Session, x: number, y: number, repeating = false): AppState["menu"] {
   const sc = sceneOf(session);
   const sel = selectionOf(session);
-  const items: MenuItem[] = RING.map((r) => {
-    if (repeating && !IN_REPEAT.has(r.id)) return { id: r.id, label: r.label, icon: r.icon, enabled: false, why: "apply or cancel the repeat that is open first" };
-    if (r.tool) return { id: r.id, label: r.label, icon: r.icon, enabled: true, why: null };
-    if (r.op) { const st = startOp(sc, sel, r.op); return { id: r.id, label: r.label, icon: r.icon, enabled: st.ok, why: st.ok ? null : st.why }; }
-    const del = actionsFor(sc, sel).find((a) => a.id === "delete");
-    return { id: r.id, label: r.label, icon: r.icon, enabled: !!del?.enabled, why: del?.why ?? "select something to delete" };
-  });
+  const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
+    const base = { id: r.id, label: r.label, icon: r.icon };
+    if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
+    if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
+    const st = startOp(sc, sel, r.op!);
+    return [r.id, { ...base, enabled: st.ok, why: st.ok ? null : st.why }];
+  }));
+  const acts = actionsFor(sc, sel);
+  const rels: MenuItem[] = acts.filter((a) => a.group === "relation" && a.enabled).map((a) => ({ id: a.id, label: a.label, icon: a.id, enabled: true, why: null }));
+  const del = acts.find((a) => a.id === "delete");
+  const items: MenuItem[] = [
+    ...CATEGORIES.slice(0, 1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
+    category("constraints", "Constraints", "constraint", rels.length ? rels : [{ id: "none", label: "Constraints", icon: "constraint", enabled: false, why: "select the parts to constrain (a line, a corner, two lines …)" }]),
+    ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
+    { id: "delete", label: "Delete", icon: "trash", enabled: !!del?.enabled, why: del?.why ?? "select something to delete" },
+  ];
   return { x, y, items };
 }
 

@@ -1,4 +1,5 @@
 import test from "node:test";
+import { flat } from "./helpers/menu.ts";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";
 import type { Vec3 } from "../src/math/vec.ts";
@@ -349,8 +350,8 @@ test("the right-click ring offers all the operations around the click; nothing o
   st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [topFace.ref] } } };
   const f = frameOf(st, { w: 800, h: 600 });
   assert.ok(!f.annotations.some((a) => ["pushpull", "sketch", "edge", "rect"].includes(a.kind)), "a left click shows constraints and dimensions only");
-  const ring = reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items;
-  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "tool:arc", "op:pushpull", "op:edge", "op:move", "op:rotate", "op:scale", "op:copy", "op:linear", "op:circular", "delete"]);
+  const ring = flat(reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items);
+  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "tool:arc", "op:pushpull", "op:edge", "op:scale", "op:move", "op:rotate", "op:copy", "op:linear", "op:circular", "delete"]);
   assert.deepEqual(ring.filter((i) => !i.enabled).map((i) => i.id), ["op:edge", "delete"], "fillet / chamfer needs lines of the body; a face cannot be deleted");
   assert.ok(ring.every((i) => i.icon));
   const drawing = reduce(st, { type: "runAction", id: "tool:circle" }, env);

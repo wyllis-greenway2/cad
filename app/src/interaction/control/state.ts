@@ -13,7 +13,7 @@ import type { Camera } from "../camera.ts";
 import type { Drag } from "../gizmo.ts";
 import { homeCamera, lookStraight, lookAlternating, offsetOf } from "../camera.ts";
 
-export interface MenuItem { id: string; label: string; /** the name of its icon */ icon: string; enabled: boolean; why: string | null }
+export interface MenuItem { id: string; label: string; /** the name of its icon */ icon: string; enabled: boolean; why: string | null; /** a category: choosing it opens these as the next ring */ children?: MenuItem[] }
 export interface AppState {
   session: Session;
   cam: Camera;

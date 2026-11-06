@@ -1,4 +1,5 @@
 import test from "node:test";
+import { flat } from "./helpers/menu.ts";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";
 import type { Vec3 } from "../src/math/vec.ts";
@@ -52,7 +53,7 @@ function drag(st: AppState, from: Vec3, to: Vec3, steps = 4): AppState {
   return reduce(st, { type: "dragEnd" }, env);
 }
 /** The operations the right-click ring offers for what is selected (the ones that can start). */
-const ringOps = (st: AppState): string[] => reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.filter((i) => i.enabled).map((i) => i.id);
+const ringOps = (st: AppState): string[] => flat(reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items).filter((i) => i.enabled).map((i) => i.id);
 const bbox = (st: AppState) => st.session.outcome.kernel!.bbox!;
 
 test("Move offers X Y Z arrows at the body; dragging one moves the body that way as one step, and the move stays open for another drag", () => {
@@ -848,7 +849,7 @@ test("a circular repeat: the pivot is a vertex joined to the middle by a line, t
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   near((scene(st.session).parts[point] as { at: Vec3 }).at[0], before[0] + 5, 1e-6);
   // some operations are not offered meanwhile
-  const ringItems = reduce(st, { type: "menu", x: 100, y: 100 }, env).menu!.items;
+  const ringItems = flat(reduce(st, { type: "menu", x: 100, y: 100 }, env).menu!.items);
   assert.equal(ringItems.find((i) => i.id === "op:pushpull")!.enabled, false);
   assert.equal(ringItems.find((i) => i.id === "op:move")!.enabled, true);
   assert.equal(ringItems.find((i) => i.id === "tool:rect")!.enabled, true);

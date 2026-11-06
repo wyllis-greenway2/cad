@@ -1,4 +1,6 @@
 import test from "node:test";
+import { frameOf } from "../src/interaction/frame.ts";
+import { flat } from "./helpers/menu.ts";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";
 import type { Vec3 } from "../src/math/vec.ts";
@@ -58,6 +60,17 @@ test("three clicks look straight at the plane clicked, from the side you are on,
   assert.equal(st.cam.straight, true);
   nearV(basis(st.cam).forward, [-1, 0, 0], 1e-6);
   assert.deepEqual(selection(st.session), [BODY_OBJECT], "the second click chose the whole object");
+});
+
+test("a selected face across a world axis lights that axis's button, and the eye button shows for a face", () => {
+  let st = boxState();
+  assert.equal(frameOf(st, { w: 800, h: 600 }).eye, false, "nothing selected: no eye");
+  st = click(st, SIDE, 1);
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.equal(f.eye, true);
+  assert.equal(f.lookHint, "X", "the face lies across the X axis");
+  st = click(st, SIDE, 2);
+  assert.equal(frameOf(st, { w: 800, h: 600 }).eye, false, "the whole object is not a plane");
 });
 
 test("two clicks select the whole object and the view does not turn", () => {
@@ -168,8 +181,9 @@ test("the menu: a right click offers the operations on what is selected and does
   assert.deepEqual(selection(st.session), [a.circle, b.circle]);
   const [x, y] = px(st, [63, 0, 0]);
   st = reduce(st, { type: "menu", x, y }, env);
-  assert.deepEqual(st.menu!.items.map((i) => i.label), ["Rectangle", "Circle", "Line", "Curve", "Push / pull", "Fillet / chamfer", "Move", "Rotate", "Scale", "Copy", "Linear repeat", "Circular repeat", "Delete"], "the right click offers the operations (constraints are on the left click)");
+  assert.deepEqual(st.menu!.items.map((i) => i.label), ["Sketch", "Constraints", "Shape", "Move and repeat", "Delete"], "the right click offers the operations (constraints are on the left click)");
   assert.ok(st.menu!.items.find((i) => i.id === "delete")!.enabled);
+  assert.deepEqual(flat(st.menu!.items).map((i) => i.label).slice(0, 4), ["Rectangle", "Circle", "Line", "Curve"], "and the categories hold the tools");
   const radiusBefore = (scene(st.session).parts[b.circle] as { radius: number }).radius;
   assert.equal(radiusBefore, 3);
   st = reduce(st, { type: "runAction", id: "equalRadius" }, env);

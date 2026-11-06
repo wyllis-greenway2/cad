@@ -107,8 +107,8 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
           const entry: Entry = { el: document.createElement("div"), sig: "", editing: false, a, tinted: false };
           // listeners on the bubble itself are added once (the contents are rebuilt when it changes, the bubble is not), and read the current annotation
           entry.el.addEventListener("click", () => { if (entry.a.relationId) h.focus(entry.a.relationId); }); // click the bubble: open it; click again: close it
-          entry.el.addEventListener("pointerenter", () => { const x = entry.el.querySelector<HTMLElement>("[data-x]"); if (x) x.style.display = "inline-flex"; });
-          entry.el.addEventListener("pointerleave", () => { const x = entry.el.querySelector<HTMLElement>("[data-x]"); if (x && !entry.a.open) x.style.display = "none"; });
+          entry.el.addEventListener("pointerenter", () => { entry.el.style.zIndex = "2"; const x = entry.el.querySelector<HTMLElement>("[data-x]"); if (x) x.style.display = "inline-flex"; }); // (raised, so the ✕ it grows is not covered by a neighbouring bubble)
+          entry.el.addEventListener("pointerleave", () => { entry.el.style.zIndex = ""; const x = entry.el.querySelector<HTMLElement>("[data-x]"); if (x && !entry.a.open) x.style.display = "none"; });
           root.appendChild(entry.el);
           entries.set(a.id, entry);
           e = entry;

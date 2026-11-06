@@ -29,3 +29,5 @@ Waiting for a decision or a bigger piece of work (each has a handoff entry that 
 - **Confirm `dec_interaction_spec`** (still provisional; parts of it are older than the current look, for example the compass).
 - **Blueprint, later:** STEP export, assemblies, threads, AI generation (`docs/origin/CAD_Blueprint.original.md`).
 
+
+Done (`in_143`): double click selects the object, triple click looks at the plane, lit axis button and eye button, centre vertex of a selected curve, layered ring menu (Sketch, Constraints, Shape, Move and repeat, Delete), new push / pull icon. Not done: remember the open category; show inapplicable constraints dimmed with the reason; check the animation on a phone.

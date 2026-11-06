@@ -1,4 +1,5 @@
 import test from "node:test";
+import { flat } from "./helpers/menu.ts";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";
 import type { Vec3 } from "../src/math/vec.ts";
@@ -80,7 +81,7 @@ test("the menu button acts on the selection, whatever is under it", () => {
   st = reduce(st, { type: "menu", x: 5, y: 5, button: true }, env);
   assert.ok(st.menu);
   assert.deepEqual(selection(st.session), [XY], "the selection did not change");
-  assert.ok(st.menu!.items.some((i) => i.id === "tool:rect"));
+  assert.ok(flat(st.menu!.items).some((i) => i.id === "tool:rect"));
 });
 
 import { BODY_OBJECT } from "../src/compiler/body.ts";
