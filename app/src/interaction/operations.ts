@@ -19,7 +19,7 @@ import { drawnRef } from "../shared/ref.ts";
 import { objectOf, bodyCentre, figurePartsOf } from "./objects.ts";
 import { settings } from "../shared/settings.ts";
 
-export type OpKind = "extrude" | "pushpull" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular";
+export type OpKind = "extrude" | "pushpull" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular" | "copy";
 export interface Op {
   kind: OpKind;
   /** the parts it works on: the lines or circle of a figure, a face of the body, the lines of the body, the body, or the corners of a drawn figure */
@@ -60,8 +60,8 @@ export interface Op {
   unit?: string;
 }
 
-export const OP_UNIT: Record<OpKind, string> = { extrude: "mm", pushpull: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm", linear: "mm", circular: "mm" };
-export const OP_FIELD: Record<OpKind, string> = { extrude: "Distance", pushpull: "Distance", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", linear: "Repeat", circular: "Repeat", dimension: "Value" };
+export const OP_UNIT: Record<OpKind, string> = { extrude: "mm", pushpull: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm", linear: "mm", circular: "mm", copy: "mm" };
+export const OP_FIELD: Record<OpKind, string> = { extrude: "Distance", pushpull: "Distance", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", linear: "Repeat", circular: "Repeat", copy: "Repeat", dimension: "Value" };
 
 export type StartResult = { ok: true; op: Op } | { ok: false; why: string };
 
@@ -73,6 +73,20 @@ function drawnFace(scene: Scene, parts: Part[]): Extract<Part, { kind: "face" }>
   if (!first || parts.length !== 1) return null;
   const f = first.kind === "face" ? first : scene.parts[objectOf(scene, first.ref)];
   return f?.kind === "face" && f.origin === "drawn" ? f : null;
+}
+
+/** Whatever drawn things are selected, as the parts that move and repeat together: a figure's corners, lines and circle, a selected line with its ends (and an arc's centre), a circle with its centre, a corner. Empty if anything selected is not drawn. */
+function drawnFigure(scene: Scene, parts: Part[]): Ref[] {
+  const out = new Set<Ref>();
+  for (const p of parts) {
+    if (p.origin !== "drawn") return [];
+    if (p.kind === "face") figurePartsOf(scene, p).forEach((r) => out.add(r));
+    else if (p.kind === "line") { out.add(p.ref); out.add(p.a); out.add(p.b); if (p.center) out.add(p.center); }
+    else if (p.kind === "circle") { out.add(p.ref); out.add(p.center); }
+    else if (p.kind === "corner") out.add(p.ref);
+    else return [];
+  }
+  return [...out].filter((r) => scene.parts[r]);
 }
 
 /** Can this operation start from this selection? Returns the operation, or why not. */
@@ -135,14 +149,22 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     });
     return { ok: true, op: { ...base, parts: lines.map((p) => p.ref), edges } }; // no size yet: drag the double arrow, or type one
   }
+  if (kind === "copy") {
+    // a copy is a repeat of two (the thing and one more beside it): the same arrows and numbers, to place the copy
+    const r = startOp(scene, selection, "linear");
+    if (!r.ok || !r.op.patStart) return r;
+    const start = [2, ...r.op.patStart.slice(1)];
+    return { ok: true, op: { ...r.op, patStart: start, pat: start.map(() => "") } };
+  }
   if (kind === "linear" || kind === "circular") {
     // what is selected is repeated: a drawn figure (its parts and the plane's), else the body; the numbers start as a first try and the result shows at once
-    const face = drawnFace(scene, parts);
-    const circle = face?.disk ? get(face.disk) : undefined;
-    const figure: Ref[] | null = face ? figurePartsOf(scene, face) : null;
+    const drawn = drawnFigure(scene, parts);
+    const figure: Ref[] | null = drawn.length ? drawn : null;
+    const planes = new Set(drawn.map((r) => scene.parts[r]?.plane).filter(Boolean));
+    if (planes.size > 1) return { ok: false, why: "select things that lie on one plane" };
     const st = patternStart(scene, kind, figure);
-    if (!st) return { ok: false, why: "select the body or a closed figure first" };
-    return { ok: true, op: { ...base, parts: st.parts, target: st.target, plane: face?.plane ?? null, patStart: st.start, pat: st.start.map(() => "") } };
+    if (!st) return { ok: false, why: "select the body or something drawn first" };
+    return { ok: true, op: { ...base, parts: st.parts, target: st.target, plane: [...planes][0] ?? null, patStart: st.start, pat: st.start.map(() => "") } };
   }
   if (kind === "dimension") {
     // measure, then lock: the chip shows the current value of the pair; typing a number locks it (`dec_relations_standard`)
@@ -162,12 +184,11 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     const centre = circle?.kind === "circle" ? pointOf(get, circle.center) : centroid(face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p));
     return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.corners, target: "shape", plane: face.plane, pivot: centre } };
   }
-  if (face) {
-    // a drawn figure moves and turns like an object (`in_135`): X Y Z arrows, X Y Z rings, with its plane (the figure's parts and the plane they lie on)
-    const circle = face.disk ? get(face.disk) : undefined;
-    const figure: Ref[] = figurePartsOf(scene, face);
+  const figure = drawnFigure(scene, parts);
+  if (figure.length) {
+    // drawn things move and turn like an object (`in_135`): X Y Z arrows, X Y Z rings, with their planes; several selected together move and turn together about their common middle
     const pts = figure.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
-    return { ok: true, op: { ...base, parts: figure, target: "plane", plane: face.plane, axis: kind === "rotate" ? 2 : 0, pivot: kind === "rotate" ? centroid(pts) : null } };
+    return { ok: true, op: { ...base, parts: figure, target: "plane", plane: scene.parts[figure[0]!]?.plane ?? null, axis: kind === "rotate" ? 2 : 0, pivot: kind === "rotate" ? centroid(pts) : null } };
   }
   return { ok: false, why: kind === "scale" ? "select the body first (click it three times): scale works on the body" : "select the body or a closed figure first" };
 }
@@ -250,12 +271,20 @@ function planeTurn(scene: Scene, op: Op): Mat3 {
 }
 /** Moving or turning a drawn figure with its plane: `transformFigure`, and the corners it pinned in place let go (one command, so one undo). */
 function figureCommand(scene: Scene, op: Op, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3): Command | null {
-  const first = op.parts.map((r) => scene.parts[r]).find((p) => p?.kind === "corner");
-  if (!first?.plane) return null;
   const corners = new Set(op.parts.filter((r) => scene.parts[r]?.kind === "corner"));
-  const pivot = op.pivot ?? centroid(op.parts.map((r) => scene.parts[r]).filter((p): p is Extract<Part, { kind: "corner" }> => p?.kind === "corner").map((p) => p.at));
+  const pts = op.parts.map((r) => scene.parts[r]).filter((p): p is Extract<Part, { kind: "corner" }> => p?.kind === "corner").map((p) => p.at);
+  if (!pts.length) return null;
+  const pivot = op.pivot ?? centroid(pts);
   const released = scene.relations.filter((r) => r.kind === "fixed" && r.parts.every((q) => corners.has(q)));
-  return { type: "batch", commands: [...released.map((r): Command => ({ type: "removeRelation", id: r.id })), { type: "transformFigure", parts: op.parts, plane: first.plane, newPlane: drawnRef(nextId(scene, "p")), turns, pivot, translate }] };
+  // the figures may lie on different planes: each plane's figures are moved with that plane (all with the same turn about the same point)
+  const byPlane = new Map<Ref, Ref[]>();
+  for (const r of op.parts) {
+    const p = scene.parts[r];
+    if (p?.plane) byPlane.set(p.plane, [...(byPlane.get(p.plane) ?? []), r]);
+  }
+  const base = nextId(scene, "p");
+  const moves = [...byPlane.entries()].map(([plane, parts], k): Command => ({ type: "transformFigure", parts, plane, newPlane: drawnRef(`${base}.c${k}`), turns, pivot, translate }));
+  return { type: "batch", commands: [...released.map((r): Command => ({ type: "removeRelation", id: r.id })), ...moves] };
 }
 const rotTarget = (scene: Scene, op: Op): Angles => { const cur = turnAngles(scene, op); return cur.map((c, i) => (num(op.rot[i]!) ?? c)) as Angles; };
 
@@ -296,7 +325,7 @@ export function opCommand(scene: Scene, op: Op): Command | null {
     return op.kind === "rotate" ? figureCommand(scene, op, [{ axis: op.axis, angle: v }], [0, 0, 0]) : figureCommand(scene, op, [], scale(([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Vec3[])[op.axis]!, v));
   }
   const pivot: Record<string, number> = op.kind === "rotate" && op.pivot ? { px: op.pivot[0], py: op.pivot[1], pz: op.pivot[2] } : {};
-  return v === 0 ? null : { type: "addStep", step: { id, type: op.kind, parts: op.parts, params: { axis: op.axis, value: v, ...pivot } } };
+  return v === 0 ? null : { type: "addStep", step: { id, type: op.kind as "move" | "rotate", parts: op.parts, params: { axis: op.axis, value: v, ...pivot } } };
 }
 
 /** Scaling a drawn figure by a factor about its middle: corners move to scaled places, a circle gets a scaled radius. What fixes a size (fixed corners, lengths, diameters) is let go, as for moving. */

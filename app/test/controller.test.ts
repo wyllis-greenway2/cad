@@ -159,7 +159,7 @@ test("N looks straight at the plane of the selection (a closed shape, a face), f
   nearV(basis(st.cam).forward, [1, 0, 0]);
 });
 
-test("the menu: a right click selects what is under it and offers the operations; running an item does it; undo undoes it", () => {
+test("the menu: a right click offers the operations on what is selected and does not change the selection; running an item does it; undo undoes it", () => {
   let s = createSession(kernel);
   const a = drawCircle(scene(s), XY, [30, 0, 0], 3);
   s = run(s, a.command);
@@ -172,7 +172,7 @@ test("the menu: a right click selects what is under it and offers the operations
   assert.deepEqual(selection(st.session), [a.circle, b.circle]);
   const [x, y] = px(st, [63, 0, 0]);
   st = reduce(st, { type: "menu", x, y }, env);
-  assert.deepEqual(st.menu!.items.map((i) => i.label), ["Rectangle", "Circle", "Line", "Curve", "Push / pull", "Fillet / chamfer", "Move", "Rotate", "Scale", "Linear repeat", "Circular repeat", "Delete"], "the right click offers the operations (constraints are on the left click)");
+  assert.deepEqual(st.menu!.items.map((i) => i.label), ["Rectangle", "Circle", "Line", "Curve", "Push / pull", "Fillet / chamfer", "Move", "Rotate", "Scale", "Copy", "Linear repeat", "Circular repeat", "Delete"], "the right click offers the operations (constraints are on the left click)");
   assert.ok(st.menu!.items.find((i) => i.id === "delete")!.enabled);
   const radiusBefore = (scene(st.session).parts[b.circle] as { radius: number }).radius;
   assert.equal(radiusBefore, 3);

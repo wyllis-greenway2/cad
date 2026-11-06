@@ -93,3 +93,25 @@ test("a line can be made tangent to a circle, and to an arc", () => {
   const ll = Math.hypot(tb[0] - ta[0], tb[1] - ta[1]);
   near(Math.abs(((tb[0] - ta[0]) * (cc[1] - ta[1]) - (tb[1] - ta[1]) * (cc[0] - ta[0])) / ll), rad, 1e-3);
 });
+
+import { createState, reduce } from "../src/interaction/controller.ts";
+import { homeCamera } from "../src/interaction/camera.ts";
+
+test("an open line or an arc can be copied, moved and repeated too (not only closed figures)", () => {
+  const a = arc();
+  let st = { ...createState(a.s), cam: homeCamera() };
+  const env = { w: 800, h: 600, now: 0 };
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [a.line] } } };
+  st = reduce(st, { type: "runAction", id: "op:copy" }, env);
+  assert.equal(st.op!.kind, "linear");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  const arcs = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && (p as { center?: Ref }).center);
+  assert.equal(arcs.length, 2, "the arc and its copy, each with a centre of its own");
+  const centres = new Set(arcs.map((p) => (p as { center: Ref }).center));
+  assert.equal(centres.size, 2);
+  // move the original: X arrow
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [a.line] } } };
+  st = reduce(st, { type: "runAction", id: "op:move" }, env);
+  assert.equal(st.op!.kind, "move");
+});

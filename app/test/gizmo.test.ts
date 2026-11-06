@@ -895,3 +895,40 @@ test("a drawn figure can be repeated too: copies of its corners, lines and relat
   const ys = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as { at: Vec3 }).at[1]);
   assert.ok(Math.min(...ys) < -20 && Math.max(...ys) > 20, "the copies are spread round the point");
 });
+
+test("a right click changes nothing about the selection; several figures selected together move together; Copy makes one more beside it", () => {
+  let s = createSession(kernel);
+  const r1 = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [10, 5, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r1.command);
+  const r2 = drawSquaredRectangle(scene(s), XY, [30, 0, 0], [40, 5, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r2.command);
+  let st: AppState = { ...createState(s), cam: homeCamera() };
+  const faces = Object.values(scene(st.session).parts).filter((p) => p.kind === "face").map((p) => p.ref);
+  assert.equal(faces.length, 2);
+  st = select(st, faces);
+  // a right click far from both, and one on a thing that is not selected: the selection stays
+  const [x, y] = px(st, [100, 100, 0]);
+  const after = reduce(st, { type: "menu", x, y }, env);
+  assert.deepEqual(selection(after.session), faces);
+  assert.ok(after.menu);
+  // both figures move together
+  st = reduce(st, { type: "runAction", id: "op:move" }, env);
+  assert.equal(st.op!.kind, "move");
+  st = reduce({ ...st, op: { ...st.op!, axis: 0 } }, { type: "typed", key: "5", shift: false }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  const xs = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as { at: Vec3 }).at[0]);
+  near(Math.min(...xs), 5, 1e-6);
+  near(Math.max(...xs), 45, 1e-6);
+  // Copy of one of them: it is a repeat of two, the same arrows and numbers
+  st = select({ ...st, op: null }, [faces[0]!]);
+  st = reduce(st, { type: "runAction", id: "op:copy" }, env);
+  assert.equal(frame(st).entry!.fields[0]!.value, "2");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length, 3);
+  // and a body
+  let b = select(box(), [BODY_OBJECT]);
+  b = reduce(b, { type: "runAction", id: "op:copy" }, env);
+  b = reduce(b, { type: "typed", key: "Enter", shift: false }, env);
+  near(b.session.outcome.kernel!.volume!, 2 * 16000, 5);
+});
