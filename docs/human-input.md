@@ -832,3 +832,6 @@ Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a 
 
 ## in_146 — 2026-11-06 — directive
 > Can we have it so that the right click doesn't do what the left click does, it doesn't select things or drag things. Can we have it so that sketches that get extruded into objects become part of the object? so when you delete the object you delete the sketches too? Can we try a sketching method where it doesn't actually deselect the sketch tool every time. Instead for example if you had a line, then one click starts, the next finishes, and then the next starts again. Maybe we try this like a generic thing. So if you right click, then it shows options, if you select one, then you are in that mode, the icon of the mode you are in should follow somewhat close to your cursor so you know. If you right click again, you are already in the level of that mode and it shows the X to get back out of it.
+
+## in_147 — 2026-11-06 — directive
+> okay the "Can we try a sketching method where it doesn't actually deselect the sketch tool every time." idea was bad, lets put that back to how it was before

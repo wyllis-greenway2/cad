@@ -30,22 +30,7 @@ export function createControls(host: HTMLElement, h: ControlHandlers) {
   eye.addEventListener("click", (e) => { e.stopPropagation(); h.look("N"); });
   host.appendChild(eye);
 
-  // the icon of the mode you are in follows the pointer, a little to the lower right of it
-  const mode = document.createElement("div");
-  mode.style.cssText = css + "display:none;z-index:6;pointer-events:none;width:26px;height:26px;border-radius:13px;background:#fff;border:1px solid #1ab8b3;color:#2b2b2d;align-items:center;justify-content:center;box-shadow:0 1px 6px rgba(0,0,0,.18)";
-  host.appendChild(mode);
-  let shownMode: string | null = null;
-  let at = [-100, -100];
-  addEventListener("pointermove", (e) => { at = [e.clientX, e.clientY]; mode.style.left = `${at[0]! + 14}px`; mode.style.top = `${at[1]! + 14}px`; });
-
   return {
-    /** Show the icon of the mode (null: none) beside the pointer. */
-    mode(icon: string | null) {
-      if (icon === shownMode) return;
-      shownMode = icon;
-      mode.style.display = icon ? "flex" : "none";
-      if (icon) { mode.innerHTML = iconSvg(icon); mode.style.left = `${at[0]! + 14}px`; mode.style.top = `${at[1]! + 14}px`; }
-    },
     /** Light the button of the axis the selected plane lies across (+ or −); fade the eye in or out. */
     hint(hint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null, showEye: boolean) {
       buttons.forEach((b, i) => {

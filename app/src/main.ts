@@ -173,7 +173,6 @@ function frame(now: number) {
     for (let i = valueBubbles.length; i < chips.length; i++) chips[i]!.update(null, "mm", null);
     applyBar.update(f.bar);
     controls.hint(f.lookHint, f.eye);
-    controls.mode(f.mode);
     host.style.cursor = f.cursor;
     view.render(state.cam, f.grid);
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);

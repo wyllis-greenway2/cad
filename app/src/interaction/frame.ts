@@ -52,8 +52,6 @@ export interface Frame {
   /** the world axis the selected plane or face lies across and which end of it the camera must be at to see it (so that X Y Z button is lit, as + or −), and whether the eye button (look straight at it) is available: not while already looking straight at it */
   lookHint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null;
   eye: boolean;
-  /** the icon of the mode you are in (a sketching tool), shown beside the pointer */
-  mode: string | null;
   /** the open list (bodies, history) */
   panel: Panel | null;
   /** the constraints of the selected parts, each with the spot it is shown at (on the line, at the vertex, between the lines, at the angle) */
@@ -109,7 +107,6 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam) : [],
     bar: !!s.repeat,
     ...lookOf(sc, sel, s.cam),
-    mode: s.tool ? s.tool.kind : null,
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors),
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash)],
     flash,
