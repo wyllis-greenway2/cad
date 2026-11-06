@@ -1001,3 +1001,31 @@ test("while the arrow of a round face is dragged, the size the pointer is at sho
   const radii = f.preview!.segments.slice(0, 64).map(([p]) => Math.hypot(p[0], p[1]));
   near(radii[0]!, 2 + st.op!.value!, 1e-6);
 });
+
+test("a post pulled taller is still one round wall: selecting it and changing the diameter changes the whole of it, not only the first part", () => {
+  let st = box();
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 5);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 10 } } });
+  st = { ...createState(s), cam: homeCamera() };
+  // pull the top face up to 16 thick
+  const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && p.at[2] === 10)!;
+  st = select(st, [top.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  st = typeText(st, "16"); // (the number typed is how thick it is)
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.outcome.kernel!.bbox!.max[2], 16);
+  const walls = Object.values(scene(st.session).parts).filter((p) => p.kind === "plane" && p.origin === "body" && !!p.curved);
+  assert.equal(walls.length, 1, "one round wall, 0 to 16, not a wall of 10 and a wall of 6");
+  const wall = walls[0] as Extract<(typeof walls)[number], { kind: "plane" }>;
+  assert.equal(wall.curved!.hi - wall.curved!.lo, 16);
+  st = select(st, [walls[0]!.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  st = typeText(st, "14"); // (a diameter)
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  const bb = st.session.outcome.kernel!.bbox!;
+  near(bb.max[0] - bb.min[0], 14);
+  near(bb.max[2], 16);
+  near(st.session.outcome.kernel!.volume!, Math.PI * 49 * 16, 20);
+});

@@ -894,3 +894,8 @@ Sent a model (kept as `app/test/fixtures/cyl-fillet.cad.json`: a 4.2 mm tall dis
 
 ## in_166 — 2026-11-06 — directive
 > it is still virtually impossible to select circle edges
+
+## in_167 — 2026-11-06 — directive
+Sent a model (kept as `app/test/fixtures/two-pieces.cad.json`).
+
+> somehow just pulling this pulling this surface to make the cylinder taller turned it into two seperate pieces, but it selects as one body?

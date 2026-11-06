@@ -80,7 +80,14 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
       faces.push({ start: g.start, count: g.count, n: nv, d, ...(axis >= 0 ? { axis, sign: Math.sign(nv[axis]), offset: Math.round([c.x, c.y, c.z][axis] * 1e4) / 1e4 } : {}) });
     }
     for (const c of round.values()) if (Math.abs(c.turn - 2 * Math.PI) >= 1e-6) other.push(...c.faces); // part of a round face (a fillet): selectable like any other curved face
-    for (const c of round.values()) if (Math.abs(c.turn - 2 * Math.PI) < 1e-6) faces.push({ type: "cyl", convex: c.convex, start: c.ranges[0].start, count: c.ranges[0].count, ranges: c.ranges, axis: c.axis, center: c.center, radius: c.radius, lo: c.lo, hi: c.hi });
+    // full round faces; ones of the same radius on the same axis that touch end to end (a post pulled taller adds a face above the old one) are one wall
+    const walls = [...round.values()].filter((c) => Math.abs(c.turn - 2 * Math.PI) < 1e-6).sort((x, y) => x.lo - y.lo);
+    const merged = [];
+    for (const c of walls) {
+      const into = merged.find((m) => m.axis === c.axis && m.radius === c.radius && m.convex === c.convex && m.center.every((v, i) => i === c.axis || v === c.center[i]) && Math.abs(m.hi - c.lo) < 1e-3);
+      if (into) { into.ranges.push(...c.ranges); into.hi = c.hi; } else merged.push({ ...c, ranges: [...c.ranges] });
+    }
+    for (const c of merged) faces.push({ type: "cyl", convex: c.convex, start: c.ranges[0].start, count: c.ranges[0].count, ranges: c.ranges, axis: c.axis, center: c.center, radius: c.radius, lo: c.lo, hi: c.hi });
     for (const f of other) {
       const g = ranges.get(f.hashCode);
       const [lo, hi] = f.boundingBox.bounds;

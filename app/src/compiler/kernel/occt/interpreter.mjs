@@ -145,8 +145,13 @@ function findCylinder(shape, ref) {
     const exactly = Math.abs(cyl.Radius() - ref.radius) <= tol && Math.abs(lo[ref.axis] - ref.lo) <= tol && Math.abs(hi[ref.axis] - ref.hi) <= tol;
     found.push({ f, cyl, l, lo: lo[ref.axis], hi: hi[ref.axis], exactly, off: Math.abs(cyl.Radius() - ref.radius) });
   }
-  // the one the step means; else the hole or post on the same axis whose size is not what the step remembers (an earlier step changed it), the nearest in size
-  const best = found.find((c) => c.exactly) ?? found.sort((x, y) => x.off - y.off)[0];
+  // the one the step means; else a wall that is made of several faces one above another (a pull of the top of a post adds a new face of the same radius): all of them that lie within the step's
+  // range, if they cover it; else the hole or post on the same axis whose size is not what the step remembers (an earlier step changed it), the nearest in size
+  const whole = found.find((c) => c.exactly);
+  const stacked = whole ? [] : found.filter((c) => Math.abs(c.cyl.Radius() - ref.radius) <= tol && c.lo >= ref.lo - tol && c.hi <= ref.hi + tol).sort((x, y) => x.lo - y.lo);
+  const covers = stacked.length > 1 && Math.abs(stacked[0].lo - ref.lo) <= tol && Math.abs(stacked.at(-1).hi - ref.hi) <= tol && stacked.every((c, k) => k === 0 || Math.abs(c.lo - stacked[k - 1].hi) <= tol);
+  const best = whole ?? (covers ? stacked[0] : found.sort((x, y) => x.off - y.off)[0]);
+  if (covers) best.lo = stacked[0].lo, best.hi = stacked.at(-1).hi;
   if (!best) throw new Error("round face not found (the model changed since this step was made)");
   const pt = best.f.pointOnSurface(0.25, 0.5);
   const n = best.f.normalAt(pt);
