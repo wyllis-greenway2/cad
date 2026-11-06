@@ -64,15 +64,16 @@ test("three clicks select only the face and look straight at it, from the side y
 
 test("a selected face across a world axis lights that axis's button, and the eye button shows for a face", () => {
   let st = boxState();
-  assert.equal(frameOf(st, { w: 800, h: 600 }).eye, false, "nothing selected: no eye");
+  const eye = (x: AppState) => frameOf(x, { w: 800, h: 600 }).annotations.some((a) => a.kind === "eye");
+  assert.equal(eye(st), false, "nothing selected: no eye");
   st = click(st, SIDE, 1);
   const f = frameOf(st, { w: 800, h: 600 });
-  assert.equal(f.eye, true);
+  assert.equal(eye(st), true, "the eye is among the bubbles of the left click");
   assert.equal(f.lookHint?.axis, "X", "the face lies across the X axis");
   assert.equal(f.lookHint?.sign, 1, "and the camera sees it from the + end");
-  assert.equal(f.eye, true, "not straight at it yet: the eye is available");
+  assert.equal(eye(st), true, "not straight at it yet: the eye is available");
   st = settle(click(click(st, SIDE, 2, false, 100), SIDE, 3, false, 200));
-  assert.equal(frameOf(st, { w: 800, h: 600 }).eye, false, "the whole object is not a plane, and the view is straight anyway");
+  assert.equal(eye(st), false, "the whole object is not a plane, and the view is straight anyway");
 });
 
 test("two clicks select the whole object and the view does not turn", () => {
