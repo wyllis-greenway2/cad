@@ -962,3 +962,20 @@ test("pulling the arrow of a round face is smooth: a fine step, and an arrow see
     assert.ok(Math.abs(Math.round(last * 50) - last * 50) < 1e-6, "in steps of 0.02");
   }
 });
+
+test("fillet / chamfer on the rim of a cylinder: the arrow stands on the rim, in the middle of the curve, and points out across it", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { openSession, undoLast } = await import("../src/interaction/session.ts");
+  const opened = openSession(kernel, readFileSync(new URL("./fixtures/cyl-fillet.cad.json", import.meta.url), "utf8"));
+  assert.ok(opened.ok);
+  const s = undoLast((opened as { ok: true; value: ReturnType<typeof createSession> }).value); // before the fillet
+  const top = Object.values(scene(s).parts).find((p) => p.kind === "line" && p.origin === "body" && (scene(s).parts[p.a] as { at: Vec3 }).at[2] > 4)!;
+  let st = select({ ...createState(s), cam: homeCamera() }, [top.ref]);
+  st = reduce(st, { type: "begin", name: "edge" }, env);
+  const h = gizmoOf(st)!.handles[0]!;
+  const mid = scale(add(h.points[0]!, h.points[1]!), 0.5);
+  near(Math.hypot(mid[0] - 11.93, mid[1] - 13.83), 9.060971, 1e-3); // on the rim, not inside the face
+  near(mid[2], 4.2, 1e-3);
+  const d = sub(h.points[1]!, h.points[0]!);
+  assert.ok(d[2] > 0 && Math.hypot(d[0] - 0, d[1]) > 0, "out and up");
+});

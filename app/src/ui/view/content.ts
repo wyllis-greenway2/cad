@@ -5,6 +5,7 @@ import { outlineOf, lookup, settings, consumed } from "../../interaction/api.ts"
 import { surfaceTriangles } from "../../interaction/surfaces.ts";
 import type { Pen } from "./pen.ts";
 import { clearGroup, trisMesh, ringOf, rgb } from "./pen.ts";
+import { cornerEdges } from "./edges.ts";
 
 export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array }
 
@@ -56,6 +57,11 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
   g.setAttribute("position", new THREE.BufferAttribute(mesh.vertices, 3));
   g.setAttribute("normal", new THREE.BufferAttribute(mesh.normals, 3));
   g.setIndex(new THREE.BufferAttribute(mesh.triangles, 1));
-  content.add(new THREE.LineSegments(new THREE.EdgesGeometry(g, settings.extrude.edgeAngleDeg), edge)); // where faces meet at more than 30 degrees
+  const corners = cornerEdges(mesh.vertices, mesh.normals, mesh.triangles, settings.extrude.edgeAngleDeg); // where the surface turns by more than 30 degrees
+  if (corners.length) {
+    const eg = new THREE.BufferGeometry();
+    eg.setAttribute("position", new THREE.Float32BufferAttribute(corners, 3));
+    content.add(new THREE.LineSegments(eg, edge));
+  }
   content.add(new THREE.Mesh(g, new THREE.MeshPhysicalMaterial({ color: settings.theme.bodyColor, roughness: settings.light.roughness, metalness: 0, clearcoat: settings.light.sheen, clearcoatRoughness: settings.light.sheenRoughness, envMap, envMapIntensity: settings.light.reflect, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })));
 }

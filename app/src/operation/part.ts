@@ -141,7 +141,7 @@ export function arcPoints(a: Vec3, m: Vec3, b: Vec3, steps = 40): Vec3[] {
   return out;
 }
 /** The point halfway along a curved line (a body's curved edge, or a drawn arc), or null for a straight one. */
-function curveMid(get: Lookup, part: Line): Vec3 | null {
+export function curveMid(get: Lookup, part: Line): Vec3 | null {
   if (part.mid) return part.mid;
   if (part.center) {
     // an arc about a centre: from a to b round it, the way `ccw` says; its middle is half way round

@@ -33,7 +33,7 @@ const RING = 48;
 const HALF = 0.3;
 
 /** The direction that is "out" of an edge of the body: the two faces that meet there, added. Dragging along it makes a fillet, against it a chamfer. */
-export function edgeDirection(scene: Scene, a: Vec3, b: Vec3): Vec3 {
+export function edgeDirection(scene: Scene, a: Vec3, b: Vec3, radial?: Vec3): Vec3 {
   const normals: Vec3[] = [];
   for (const p of Object.values(scene.parts)) {
     if (p.kind !== "plane" || p.origin !== "body" || p.curved || p.rounded) continue;
@@ -42,6 +42,11 @@ export function edgeDirection(scene: Scene, a: Vec3, b: Vec3): Vec3 {
   }
   if (normals.length >= 2) {
     const d = add(normals[0]!, normals[1]!);
+    if (Math.hypot(...d) > 1e-6) return normalize(d);
+  }
+  // a curved edge (the rim of a post): out of the flat face and out from the middle of the curve
+  if (radial) {
+    const d = normals.length ? add(normals[0]!, radial) : radial;
     if (Math.hypot(...d) > 1e-6) return normalize(d);
   }
   const along = normalize(sub(b, a));

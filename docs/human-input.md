@@ -883,3 +883,8 @@ Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a 
 
 ## in_163 — 2026-11-06 — directive
 > If you make a cylinder, then click its round surface and try to adjust the diameter with the pull push arrow, it can be very chunky, and shoot between different sizes. It does roughly go where you want it. Can we make this smoother?
+
+## in_164 — 2026-11-06 — directive
+Sent a model (kept as `app/test/fixtures/cyl-fillet.cad.json`: a 4.2 mm tall disc with a 0.5 fillet on its top rim) and a picture (the fillet / chamfer arrow in the middle of the top face, black triangle-shaped lines along the rim).
+
+> The chamfer fillet arrow doesn't position normally on the edge of a cylinder like it does on the edge of a block. Also the radius fillet on a cylinder edge gets really weird in some spots and renders chunky triangle black lines. See the screen shot and this example model.

@@ -7,11 +7,11 @@ import type { Mat3, Angles } from "../math/rotation.ts";
 import { IDENTITY, about, then, anglesOf, stepsBetween } from "../math/rotation.ts";
 import type { Curved } from "../operation/part.ts";
 import type { Vec3 } from "../math/vec.ts";
-import { add, scale, sub, dot } from "../math/vec.ts";
+import { add, scale, sub, dot, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { lookup, nextId } from "../operation/scene.ts";
 import type { Part, Plane, PointerView } from "../operation/part.ts";
-import { normalOfPlane, pointOf } from "../operation/part.ts";
+import { normalOfPlane, pointOf, curveMid, circumcentre } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
 import { actionsFor } from "./actions.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
@@ -145,7 +145,12 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     const edges = lines.flatMap((l) => {
       if (l.kind !== "line") return [];
       const [pa, pb] = [get(l.a), get(l.b)];
-      return pa?.kind === "corner" && pb?.kind === "corner" ? [{ mid: add(pa.at, scale(sub(pb.at, pa.at), 0.25)), dir: edgeDirection(scene, pa.at, pb.at) }] : [];
+      if (pa?.kind !== "corner" || pb?.kind !== "corner") return [];
+      // a curved edge (the rim of a post or a hole): the arrow stands on the curve, in the middle of it, and points out across it; a straight one is a quarter of the way along
+      const m = curveMid(get, l);
+      const centre = m ? circumcentre(pa.at, m, pb.at) : null;
+      if (m && centre) return [{ mid: m, dir: edgeDirection(scene, pa.at, pb.at, normalize(sub(m, centre))) }];
+      return [{ mid: add(pa.at, scale(sub(pb.at, pa.at), 0.25)), dir: edgeDirection(scene, pa.at, pb.at) }];
     });
     return { ok: true, op: { ...base, parts: lines.map((p) => p.ref), edges } }; // no size yet: drag the double arrow, or type one
   }
