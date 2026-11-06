@@ -71,7 +71,14 @@ export const ROWS: Row[] = [
   {
     // a corner slides on a line (the line goes on past its ends): it stays on it wherever it is moved to
     id: "onLine", label: "On line", pair: ["corner", "line"], anyOrder: true,
+    hidden: (c, r) => r.some((x) => !!arcOf(c, x)), // (on an arc it is "on circle")
     unavailable: (c, r) => (c.get(r[0]!)?.kind === "corner" && segmentOf(c.get, r[1]!) ? null : c.get(r[1]!)?.kind === "corner" && segmentOf(c.get, r[0]!) ? null : "a corner and a line"),
+  },
+  { id: "onCircle", label: "On circle", pair: ["corner", "circle"], anyOrder: true }, // a corner slides round a circle
+  {
+    // a corner slides round an arc (its whole circle)
+    id: "onCircle", label: "On circle", pair: ["corner", "line"], anyOrder: true,
+    hidden: (c, r) => !r.some((x) => !!arcOf(c, x)),
   },
   {
     // the diameter of a circle

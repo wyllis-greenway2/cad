@@ -115,3 +115,24 @@ test("an open line or an arc can be copied, moved and repeated too (not only clo
   st = reduce(st, { type: "runAction", id: "op:move" }, env);
   assert.equal(st.op!.kind, "move");
 });
+
+test("a corner can be put on a circle and on an arc: it stays at that distance from the centre", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 5);
+  s = run(s, c.command);
+  const l = drawChain(scene(s), XY, [[-10, 2, 0], [4.2, 2.5, 0]]);
+  s = run(s, l.command);
+  s = relate(s, [l.corners[1]!, c.circle], "onCircle");
+  const p = at(s, l.corners[1]!);
+  near(Math.hypot(p[0], p[1]), 5, 1e-3);
+  // and an arc: its own list says "on circle" and not "on line"
+  const a = arc();
+  let t = a.s;
+  const m = drawChain(scene(t), XY, [[-20, 4, 0], [9, 6, 0]]);
+  t = run(t, m.command);
+  const ids = actionsFor(scene(t), [m.corners[1]!, a.line]).map((x) => x.id);
+  assert.ok(ids.includes("onCircle") && !ids.includes("onLine"));
+  t = relate(t, [m.corners[1]!, a.line], "onCircle");
+  const q = at(t, m.corners[1]!);
+  near(Math.hypot(q[0], q[1]), 10, 1e-3);
+});

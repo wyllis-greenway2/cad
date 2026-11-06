@@ -7,8 +7,8 @@ export const settings = {
     homeDistance: 120, // mm from the target
     orbitRadPerPx: 0.006,
     zoomPerWheel: 0.003,
-    minDistance: 3,
-    minSurfaceMm: 1.5, // zooming in toward a surface under the cursor stops when it is this close to the camera (it must not go through it: `in_151`)
+    minDistance: 0.3, // (a very small part can be zoomed on: `in_153`)
+    minSurfaceMm: 0.3, // zooming in toward a surface under the cursor stops when it is this close to the camera (it must not go through it: `in_151`)
     maxDistance: 5000,
     transitionMs: 450, // camera move to a plane's normal view
     normalToleranceRad: 0.02,
@@ -58,6 +58,6 @@ export const settings = {
   flash: { ms: 1100, shakeMs: 450 }, // a refused change: the broken constraints flash red and fade over this long; the one that tried shakes for the first part of it
   world: { axisLengthMm: 24, axisWidthPx: 1.6, axisOpacity: 1 }, // the small charcoal axes at the origin: their real length in mm (so they zoom with the model: was 8.4), line width, opacity
   buttons: { marginPx: 18, sizePx: 34 }, // the X Y Z buttons at the right edge, lower right
-  light: { key: 1.7, fill: 0.12, ambient: 0.42, roughness: 0.4, sheen: 0.55, sheenRoughness: 0.25, reflect: 0.5 }, // lights ride with the camera; the body has a slight clear-coat sheen and a soft studio reflected in it
+  light: { key: 1.7, fill: 0.12, ambient: 0.42, roughness: 0.4, sheen: 0.55, sheenRoughness: 0.25, reflect: 0.5, grain: 0.14, grainTileMm: 3 }, // lights ride with the camera; the body has a slight clear-coat sheen and a soft studio reflected in it; a fine grain (bump strength `grain`, one tile of the texture over `grainTileMm`) breaks up the light
   extrude: { edgeAngleDeg: 30 }, // outline edges are drawn where faces meet at more than this angle
 };

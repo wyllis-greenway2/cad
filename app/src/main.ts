@@ -172,7 +172,7 @@ function frame(now: number) {
     view.setPreview(f.preview, state.cam);
     view.setGizmo(f.gizmo, state.cam);
     const project = projector(state.cam, size.w, size.h).project;
-    bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash);
+    bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid);
     view.setNotes(f.annotations.flatMap((a) => a.lines));
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };

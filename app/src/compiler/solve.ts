@@ -158,6 +158,15 @@ function constraintFor(m: Model, rel: Relation): Omit<SolverConstraint, "id"> | 
       const p = c1 ? m.cornerId(c1) : null;
       return p && L1 ? { type: "ptOnLine", p, a: L1[0], b: L1[1] } : null;
     }
+    case "onCircle": {
+      const p = c1 ? m.cornerId(c1) : null;
+      if (!p) return null;
+      if (k1) { const r = m.radiusId(k1); const cen = m.cornerId((m.get(k1) as { center: Ref }).center); return r && cen ? { type: "ptOnCircle", p, c: cen, r } : null; }
+      const ar = l1 ? m.get(l1) : null;
+      const cen = ar && ar.kind === "line" && ar.center ? m.cornerId(ar.center) : null;
+      const e = ar && ar.kind === "line" && cen ? m.cornerId(ar.a) : null;
+      return cen && e ? { type: "ptOnCircle", p, c: cen, e } : null;
+    }
     case "tangent": {
       // a line touches a circle, or an arc
       if (L1 && k1) { const r = m.radiusId(k1); const cen = m.cornerId((m.get(k1) as { center: Ref }).center); return r && cen ? { type: "tangentCircle", a: L1[0], b: L1[1], c: cen, r } : null; }

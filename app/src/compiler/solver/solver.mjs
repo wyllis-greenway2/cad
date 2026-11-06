@@ -120,6 +120,12 @@ function residualsOf(c, x, index) {
       const d = ((b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0])) / len;
       return [(Math.abs(d) - (c.type === "tangentCircle" ? S(c.r) : dir(c.c, c.p)[2])) * w];
     }
+    case "ptOnCircle": {
+      // a corner lies on a circle (the radius is the circle's value) or on an arc (the distance from its centre c to its start e): it slides round it
+      const q = P(c.c);
+      const p = P(c.p);
+      return [(Math.hypot(p[0] - q[0], p[1] - q[1]) - (c.r !== undefined ? S(c.r) : dir(c.c, c.e)[2])) * w];
+    }
     case "radius": return [(S(c.r) - c.value) * w];
     case "equalRadius": return [(S(c.r) - S(c.s)) * w];
     default: throw new Error(`unknown constraint ${c.type}`);

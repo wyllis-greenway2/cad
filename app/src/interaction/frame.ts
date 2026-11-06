@@ -12,7 +12,8 @@ import { normalOfPlane } from "../operation/part.ts";
 import { planeOf } from "./objects.ts";
 import type { Camera } from "./camera.ts";
 import { offsetOf, sideOf } from "./camera.ts";
-import { dot } from "../math/vec.ts";
+import { dot, cross, normalize } from "../math/vec.ts";
+import { outlineOf } from "../operation/part.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
@@ -52,6 +53,8 @@ export interface Frame {
   /** the world axis the selected plane or face lies across and which end of it the camera must be at to see it (so that X Y Z button is lit, as + or −), and whether the eye button (look straight at it) is available: not while already looking straight at it */
   lookHint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null;
   eye: boolean;
+  /** what the constraint bubbles keep off: the drawn lines and curves (as line pieces) and corners */
+  avoid: { segs: [Vec3, Vec3][]; pts: Vec3[] };
   /** the constraints the end of the line being drawn is close to, and where it is */
   hint: { kinds: string[]; at: Vec3 } | null;
   /** the open list (bodies, history) */
@@ -109,6 +112,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam) : [],
     bar: !!s.repeat,
     ...lookOf(sc, sel, s.cam),
+    avoid: avoidOf(sc),
     hint: s.tool?.hints?.length && s.tool.cursor ? { kinds: s.tool.hints.map((h) => h.kind), at: s.tool.cursor } : null,
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors),
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash)],
@@ -156,4 +160,27 @@ function lookOf(sc: Scene, sel: readonly Ref[], cam: Camera): { lookHint: Frame[
   const k = ([0, 1, 2] as const).find((i) => Math.abs(Math.abs(n[i]) - 1) < 1e-6);
   const sign = dot(offsetOf(cam), n) >= 0 ? 1 : -1;
   return { lookHint: k === undefined ? null : { axis: (["X", "Y", "Z"] as const)[k], sign: n[k]! * sign > 0 ? 1 : -1 }, eye: sideOf(cam, n) === 0 };
+}
+
+/** The drawn lines, arcs and circles as short straight pieces, and the drawn corners: the places a bubble should not sit on. */
+function avoidOf(sc: Scene): Frame["avoid"] {
+  const get = lookup(sc);
+  const segs: [Vec3, Vec3][] = [];
+  const pts: Vec3[] = [];
+  for (const p of Object.values(sc.parts)) {
+    if (p.origin !== "drawn") continue;
+    if (p.kind === "corner") { pts.push(p.at); continue; }
+    if (p.kind !== "line" && p.kind !== "circle") continue;
+    const o = outlineOf(get, p);
+    if (o.shape === "segment") segs.push([o.a, o.b]);
+    else if (o.shape === "polyline") for (let i = 0; i + 1 < o.pts.length; i++) segs.push([o.pts[i]!, o.pts[i + 1]!]);
+    else if (o.shape === "circle") {
+      const n = o.normal;
+      const u = normalize(cross(n, Math.abs(n[2]) > 0.9 ? [1, 0, 0] : [0, 0, 1]));
+      const v = cross(n, u);
+      const ring = Array.from({ length: 25 }, (_, k): Vec3 => { const t = (k / 24) * Math.PI * 2; return [0, 1, 2].map((i) => o.center[i]! + (u[i]! * Math.cos(t) + v[i]! * Math.sin(t)) * o.radius) as unknown as Vec3; });
+      for (let i = 0; i < 24; i++) segs.push([ring[i]!, ring[i + 1]!]);
+    }
+  }
+  return { segs, pts };
 }

@@ -53,7 +53,7 @@ test("pan: the scene follows the pointer", () => {
 });
 
 test("zoom is bounded", () => {
-  assert.ok(zoom(homeCamera(), 1e-9).distance >= 3);
+  assert.ok(zoom(homeCamera(), 1e-9).distance >= settings.view.minDistance);
   assert.ok(zoom(homeCamera(), 1e9).distance <= 5000);
 });
 

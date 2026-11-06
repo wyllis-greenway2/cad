@@ -850,3 +850,6 @@ Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a 
 
 ## in_152 — 2026-11-06 — directive
 > okay lets do the constraint hints
+
+## in_153 — 2026-11-06 — directive
+> When I draw a line in a circle toward the edge, then I select the verticy and the circle edge, I dont have the option to make a constraint to make the verticiy go to the circle line. Also can we have it so you can zoom in a little further? what if you are working on a very small part? also I am still having trouble with bubbles covering things I am trying to work on. Also can we add a slight fine texture to the gray plane surfaces or bodies so that they work with lighting slightly differently and look slightly reflective with that fine texture?

@@ -99,7 +99,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
 
   return {
     /** `project`: a point of the scene to a point on the page, in pixels. Called every frame the view changes. */
-    update(list: Annotation[], project: (p: Vec3) => [number, number], flash: Flash | null = null) {
+    update(list: Annotation[], project: (p: Vec3) => [number, number], flash: Flash | null = null, avoid: { segs: [Vec3, Vec3][]; pts: Vec3[] } = { segs: [], pts: [] }) {
       const seen = new Set<string>();
       const placed: { a: Annotation; e: Entry; x: number; y: number }[] = [];
       for (const a of list) {
@@ -123,6 +123,21 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
       for (const [id, e] of entries) if (!seen.has(id) && !e.editing) { e.el.remove(); entries.delete(id); }
       // bubbles on top of each other are laid side by side around their common spot
       const used = new Set<number>();
+      // what a bubble keeps off, in page pixels: the drawn lines and corners, and the bubbles already put down
+      const lines = avoid.segs.map(([p, q]) => [project(p), project(q)] as [[number, number], [number, number]]);
+      const dots = avoid.pts.map((p) => project(p));
+      const taken: [number, number, number, number][] = [];
+      const hits = (r: [number, number, number, number]) => {
+        let n = 0;
+        for (const [x, y] of dots) if (x > r[0] - 4 && x < r[2] + 4 && y > r[1] - 4 && y < r[3] + 4) n += 2;
+        for (const [a, c] of lines) {
+          const len = Math.hypot(c[0] - a[0], c[1] - a[1]);
+          const steps = Math.max(1, Math.ceil(len / 6));
+          for (let k = 0; k <= steps; k++) { const x = a[0] + ((c[0] - a[0]) * k) / steps; const y = a[1] + ((c[1] - a[1]) * k) / steps; if (x > r[0] - 3 && x < r[2] + 3 && y > r[1] - 3 && y < r[3] + 3) { n++; break; } }
+        }
+        for (const t of taken) if (r[0] < t[2] + 3 && r[2] > t[0] - 3 && r[1] < t[3] + 3 && r[3] > t[1] - 3) n += 3;
+        return n;
+      };
       placed.forEach((p, i) => {
         if (used.has(i)) return;
         const group = [i];
@@ -132,6 +147,21 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
         const total = widths.reduce((s, w) => s + w, 0) + GAP * (group.length - 1);
         const cx = group.reduce((s, j) => s + placed[j]!.x, 0) / group.length;
         const cy = group.reduce((s, j) => s + placed[j]!.y, 0) / group.length;
+        // the spot beside the bubbles' own that touches the least: up and to the right first, then round, then further out
+        let [ox, oy] = [OFF_X, -OFF_Y - 13];
+        let worst = Infinity;
+        search: for (const R of [OFF_Y + 4, 48, 72]) {
+          for (const deg of [45, 135, 0, 90, 315, 225, 180, 270]) {
+            const x = Math.round(Math.cos((deg * Math.PI) / 180) * R);
+            const y = -Math.round(Math.sin((deg * Math.PI) / 180) * R);
+            const left0 = cx - total / 2 + x;
+            const rect: [number, number, number, number] = [left0, cy + y - 13, left0 + total, cy + y + 13];
+            const n = hits(rect);
+            if (n < worst) { worst = n; [ox, oy] = [x, y - 13]; }
+            if (n === 0) break search;
+          }
+        }
+        taken.push([cx - total / 2 + ox, cy + oy, cx - total / 2 + ox + total, cy + oy + 26]);
         let left = cx - total / 2;
         group.forEach((j, k) => {
           const q = placed[j]!;
@@ -141,7 +171,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
           if (flash && flash.victims.includes(q.a.id)) { const k = 1 - flash.t; e.el.style.background = `rgb(255, ${Math.round(255 - 110 * k)}, ${Math.round(255 - 110 * k)})`; e.el.style.borderColor = `rgba(220, 70, 70, ${k})`; e.tinted = true; }
           else if (e.tinted) { e.el.style.background = "#fff"; e.el.style.borderColor = q.a.open ? "#e0a82e" : "#d6d7db"; e.tinted = false; }
           if (flash && flash.culprits.includes(q.a.id)) { const phase = (flash.t * settings.flash.ms) / settings.flash.shakeMs; if (phase < 1) dx = Math.sin(phase * Math.PI * 6) * 7 * (1 - phase); }
-          q.e.el.style.transform = `translate(${Math.round(left + dx + OFF_X)}px, ${Math.round(cy - 13 - OFF_Y)}px)`;
+          q.e.el.style.transform = `translate(${Math.round(left + dx + ox)}px, ${Math.round(cy + oy)}px)`;
           left += widths[k]! + GAP;
         });
       });

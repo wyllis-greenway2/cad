@@ -5,6 +5,7 @@ import { outlineOf, lookup, settings, consumed } from "../../interaction/api.ts"
 import { surfaceTriangles } from "../../interaction/surfaces.ts";
 import type { Pen } from "./pen.ts";
 import { clearGroup, trisMesh, ringOf, rgb } from "./pen.ts";
+import { grainTexture, grainCoordinates } from "./grain.ts";
 
 export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array }
 
@@ -44,13 +45,20 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
   for (const p of Object.values(s.parts)) {
     if (p.kind !== "face" || p.origin !== "drawn" || used.has(p.ref)) continue;
     const tris = surfaceTriangles(get, p);
-    if (tris) content.add(trisMesh(tris, new THREE.MeshBasicMaterial({ color: rgb(settings.theme.sheet), transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })));
+    if (tris) {
+      // a pane: the same grey, see-through, with the fine grain so the light and the room in it break up across it a little
+      const m = trisMesh(tris, new THREE.MeshPhysicalMaterial({ color: rgb(settings.theme.sheet), emissive: rgb(settings.theme.sheet), emissiveIntensity: 0.55, transparent: true, opacity: 0.25, roughness: 0.55, metalness: 0, normalMap: grainTexture(), normalScale: new THREE.Vector2(settings.light.grain, settings.light.grain), envMap, envMapIntensity: 0.3, clearcoat: 0.3, clearcoatRoughness: 0.35, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
+      m.geometry.computeVertexNormals();
+      grainCoordinates(m.geometry);
+      content.add(m);
+    }
   }
   if (!mesh) return;
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.BufferAttribute(mesh.vertices, 3));
   g.setAttribute("normal", new THREE.BufferAttribute(mesh.normals, 3));
   g.setIndex(new THREE.BufferAttribute(mesh.triangles, 1));
+  grainCoordinates(g);
   content.add(new THREE.LineSegments(new THREE.EdgesGeometry(g, settings.extrude.edgeAngleDeg), edge)); // where faces meet at more than 30 degrees
-  content.add(new THREE.Mesh(g, new THREE.MeshPhysicalMaterial({ color: settings.theme.bodyColor, roughness: settings.light.roughness, metalness: 0, clearcoat: settings.light.sheen, clearcoatRoughness: settings.light.sheenRoughness, envMap, envMapIntensity: settings.light.reflect, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })));
+  content.add(new THREE.Mesh(g, new THREE.MeshPhysicalMaterial({ color: settings.theme.bodyColor, roughness: settings.light.roughness, metalness: 0, normalMap: grainTexture(), normalScale: new THREE.Vector2(settings.light.grain, settings.light.grain), clearcoat: settings.light.sheen, clearcoatRoughness: settings.light.sheenRoughness, envMap, envMapIntensity: settings.light.reflect, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })));
 }
