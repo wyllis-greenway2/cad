@@ -1084,3 +1084,19 @@ test("a sketch tool chosen from the ring turns to the one selected plane, or, wi
   const one = start([sideRight.ref], [20, 10, 20]);
   assert.ok(Math.abs(elevation(one)) < 0.2, "turns to the selected side (looking along X)");
 });
+
+test("fillet / chamfer on the rim of a hole: its arrow points out of the corner into the air, which is towards the hole's axis", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { openSession } = await import("../src/interaction/session.ts");
+  const opened = openSession(kernel, readFileSync(new URL("./fixtures/hole-edits.cad.json", import.meta.url), "utf8"));
+  assert.ok(opened.ok);
+  const s = (opened as { ok: true; value: ReturnType<typeof createSession> }).value;
+  const rim = Object.values(scene(s).parts).find((p) => p.kind === "line" && p.origin === "body" && !!p.circle && Math.abs(p.circle.radius - 1.6405) < 1e-3)!;
+  let st = select({ ...createState(s), cam: homeCamera() }, [rim.ref]);
+  st = reduce(st, { type: "begin", name: "edge" }, env);
+  const h = gizmoOf(st)!.handles[0]!;
+  const d = sub(h.points[1]!, h.points[0]!);
+  const m = scale(add(h.points[0]!, h.points[1]!), 0.5);
+  const c = (rim as { circle: { center: Vec3 } }).circle.center;
+  assert.ok(d[0] * (c[0] - m[0]) + d[1] * (c[1] - m[1]) + d[2] * (c[2] - m[2]) > 1, "towards the axis");
+});

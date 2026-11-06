@@ -905,3 +905,8 @@ Sent a model (kept as `app/test/fixtures/two-pieces.cad.json`).
 
 ## in_169 — 2026-11-06 — directive
 > can we have it so that when you right click to and click pencil to sketch then select a sketch option, that it goes orthographic to either sketch on the selected plane, or if there is no selected plane,, or many selected planes, then it goes orthographic to sketch on the plane of the target of the right click.
+
+## in_170 — 2026-11-06 — directive
+Sent a picture (a cylinder whose top rim is selected; the chamfer arrow collapsed to a small point beside a "0" bubble).
+
+> If you add a circle, extrude to cylinder, then the edge is selectable and chamferable as normal, if you push or pull one of the endes, then the edge is now selectable, but not chamferable, the chamfer arrow is collapsed weirdly, and you cannot apply chamfer., I am finding lots of little bugs like this. Can you use the app normally as a user would, and go bug hunting?
