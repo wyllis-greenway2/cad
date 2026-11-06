@@ -154,9 +154,11 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
     return o ? withSession(base, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base;
   }
   if (onePlane && i.count >= 3) {
-    // three: look straight at the plane clicked, from the side you are on; the selection stays as the clicks left it
+    // three: only the face (the second click had taken the whole object), and the view turns straight to it from the side you are on
     const pl = refs[0] ? planeOf(get, refs[0]) : null;
-    return pl ? animateTo(base, planeView(base.cam, pl, false), env.now) : base;
+    if (!pl) return base;
+    const only = selectable[0] ? withSession(base, { ...sess, click: { selection: [selectable[0]], spot: sess.click.spot }, message: null }) : base;
+    return animateTo(only, planeView(base.cam, pl, false), env.now);
   }
   const next = clickOn(sess, selectable, i.shift);
   const top = selectionOf(next).at(-1);

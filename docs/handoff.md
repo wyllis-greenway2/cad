@@ -1020,3 +1020,8 @@ Do not touch `compiler/` or `ui/` in phase 1. Keep porting honest: copy pure cod
 
 ## Handoff 128 — 2026-11-06 (the right-click options in the ⋯ menu)
 **State:** `in_148`. 207 tests pass, checks clean. Browser: ⋯ lists Rectangle, Circle, Line, Curve; the constraints that fit the selection (or a dimmed "Constraints" with the reason); Push / pull, Fillet / chamfer, Scale; Move, Rotate, Copy, Linear repeat, Circular repeat; Delete; then Undo, Redo, Bodies, History, Save, Open, Scroll, Build. The same items and the same dimming as the ring (it is the same list, flattened into groups: `rowsOf` in `main.ts`), worked out for the current selection when the button is pressed. The list scrolls if the window is short.
+
+## Handoff 129 — 2026-11-06 (triple click selects only the face; a sketch tool turns the view to the face)
+**State:** `in_149`. 208 tests pass, checks clean.
+**Triple click:** selects only the face clicked (the double click had taken the whole object) and turns the view straight to it from the side you are on.
+**Sketching:** choosing Rectangle, Circle, Line or Curve (ring, ⋯ list, or the keys) while a face or plane is selected turns the view straight to it (orthographic) and arms the tool; with nothing flat selected the view stays. The selection stays the face. Know: a tool pressed again to put it away does not turn the view back.

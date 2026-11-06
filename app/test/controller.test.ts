@@ -50,7 +50,7 @@ test("a click selects, a click on nothing lets go, Shift adds, Esc lets go", () 
   assert.deepEqual(selection(st.session), []);
 });
 
-test("three clicks look straight at the plane clicked, from the side you are on, orthographic; the selection stays", () => {
+test("three clicks select only the face and look straight at it, from the side you are on, orthographic", () => {
   let st = boxState();
   st = click(st, SIDE, 1);
   st = click(st, SIDE, 2, false, 100);
@@ -59,7 +59,7 @@ test("three clicks look straight at the plane clicked, from the side you are on,
   st = settle(st);
   assert.equal(st.cam.straight, true);
   nearV(basis(st.cam).forward, [-1, 0, 0], 1e-6);
-  assert.deepEqual(selection(st.session), [BODY_OBJECT], "the second click chose the whole object");
+  assert.deepEqual(selection(st.session), [faceName([1, 0, 0], 20)], "only the face, not the whole object the second click chose");
 });
 
 test("a selected face across a world axis lights that axis's button, and the eye button shows for a face", () => {
@@ -226,4 +226,15 @@ test("hover finds the surface point for the ring; hover end clears it", () => {
   st = reduce(st, { type: "hoverEnd" }, env);
   assert.equal(st.session.hover, undefined);
   assert.equal(st.hoverPoint, null);
+});
+
+test("choosing a sketch tool with a face selected turns the view straight to it", () => {
+  let st = boxState();
+  st = click(st, SIDE, 1);
+  st = reduce(st, { type: "runAction", id: "tool:rect" }, env);
+  assert.ok(st.tool);
+  assert.ok(st.anim, "the camera turns");
+  st = settle(st);
+  assert.equal(st.cam.straight, true);
+  nearV(basis(st.cam).forward, [-1, 0, 0], 1e-6);
 });

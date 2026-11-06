@@ -33,12 +33,12 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "zoom": return doZoom(s, i, env);
     case "look": return doLook(s, i, env);
     case "home": return doHome(s, env);
-    case "runAction": return doRunAction(s, i.id);
+    case "runAction": return doRunAction(s, i.id, env.now);
     case "delete": return doDelete(s);
     case "undo": return doUndo(s);
     case "redo": return doRedo(s);
     case "escape": return doEscape(s);
-    case "begin": return doBegin(s, i.name);
+    case "begin": return doBegin(s, i.name, env.now);
     case "typed": return doTyped(s, i.key);
     case "entry": return doEntry(s, i.field, i.text);
     case "repeatApply": return doRepeatApply(s);

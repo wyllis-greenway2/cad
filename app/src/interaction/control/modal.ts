@@ -12,19 +12,23 @@ import type { AppState } from "./state.ts";
 import { activeOp } from "./handles.ts";
 import { pivotCommands, repeatApply, repeatCancel } from "../pattern.ts";
 import { setLineLength } from "../lengths.ts";
-import { withSession } from "./state.ts";
+import { withSession, animateTo, planeView } from "./state.ts";
 
-function beginTool(s: AppState, kind: ToolKind): AppState {
+function beginTool(s: AppState, kind: ToolKind, now: number): AppState {
   if (s.tool?.kind === kind && !s.tool.plane) return { ...s, tool: null }; // pressing it again puts it away
-  return { ...s, tool: armTool(kind), op: null, menu: null };
+  const armed: AppState = { ...s, tool: armTool(kind), op: null, menu: null };
+  // sketching on a selected face or plane: the view turns straight to it, from the side you are on (`in_149`)
+  const get = lookup(sceneOf(s.session));
+  const pl = selectionOf(s.session).map((r) => planeOf(get, r)).find((p) => p);
+  return pl ? animateTo(armed, planeView(s.cam, pl, false), now) : armed;
 }
 function beginOp(s: AppState, kind: OpKind): AppState {
   const r = startOp(sceneOf(s.session), selectionOf(s.session), kind);
   if (!r.ok) return { ...s, session: { ...s.session, message: r.why }, menu: null };
   return { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: null } };
 }
-export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["name"]): AppState {
-  if (name === "rect" || name === "circle" || name === "line" || name === "arc") return beginTool(s, name);
+export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["name"], now = 0): AppState {
+  if (name === "rect" || name === "circle" || name === "line" || name === "arc") return beginTool(s, name, now);
   return beginOp(s, name);
 }
 
@@ -103,9 +107,9 @@ export function doEscape(s: AppState): AppState {
   return withSession(s, clearSelection(s.session));
 }
 
-export function doRunAction(s: AppState, id: string): AppState {
+export function doRunAction(s: AppState, id: string, now = 0): AppState {
   const closed = { ...s, menu: null };
-  if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind);
+  if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now);
   if (id === "op:linear" || id === "op:circular" || id === "op:copy") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular" | "copy");
   if (id.startsWith("op:")) return beginOp(closed, id.slice(3) as OpKind);
   const a = actionsFor(sceneOf(s.session), selectionOf(s.session)).find((x) => x.id === id);

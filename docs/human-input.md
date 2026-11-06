@@ -838,3 +838,6 @@ Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a 
 
 ## in_148 — 2026-11-06 — directive
 > Okay can we also all of our options available from right click also available in the ... menu
+
+## in_149 — 2026-11-06 — directive
+> Okay on triple click, can we go back to assuming that is selecting only the face as it goes into orthographic mode. Can we try it so that when you click the pencil icon to sketch then it goes orthographic to the face that was clicked on?
