@@ -74,10 +74,10 @@ export const ROWS: Row[] = [
     hidden: (c, r) => r.some((x) => !!arcOf(c, x)), // (on an arc it is "on circle")
     unavailable: (c, r) => (c.get(r[0]!)?.kind === "corner" && segmentOf(c.get, r[1]!) ? null : c.get(r[1]!)?.kind === "corner" && segmentOf(c.get, r[0]!) ? null : "a corner and a line"),
   },
-  { id: "onCircle", label: "On circle", pair: ["corner", "circle"], anyOrder: true }, // a corner slides round a circle
+  { id: "onCircle", label: "Coincident with circle", pair: ["corner", "circle"], anyOrder: true }, // a corner slides round a circle
   {
     // a corner slides round an arc (its whole circle)
-    id: "onCircle", label: "On circle", pair: ["corner", "line"], anyOrder: true,
+    id: "onCircle", label: "Coincident with circle", pair: ["corner", "line"], anyOrder: true,
     hidden: (c, r) => !r.some((x) => !!arcOf(c, x)),
   },
   {

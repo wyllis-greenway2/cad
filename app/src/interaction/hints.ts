@@ -11,7 +11,7 @@ import type { Command } from "../operation/commands.ts";
 import { settings } from "../shared/settings.ts";
 import { localOf } from "./tools.ts";
 
-export interface Hint { kind: "horizontal" | "vertical" | "parallel" | "perpendicular" | "onLine" | "tangent" | "equalLength"; ref?: Ref }
+export interface Hint { kind: "horizontal" | "vertical" | "parallel" | "perpendicular" | "onLine" | "onCircle" | "tangent" | "equalLength"; ref?: Ref }
 type V2 = [number, number];
 
 const lift = (pl: Plane, [x, y]: V2): Vec3 => add(pl.at, add(scale(pl.u, x), scale(pl.v, y)));
@@ -49,6 +49,22 @@ export function lineHint(scene: Scene, pl: Plane, start: Vec3, pv: PointerView, 
     if (px2 <= settings.sketch.snapPx && (!best || px2 < best.px)) best = { at: c, ref: l.ref, px: px2 };
   }
   if (best) return { at: lift(pl, best.at), hints: [{ kind: "onLine", ref: best.ref }] };
+  // on a circle: the end is at the edge of a circle (a line from its centre to its edge ends exactly on it)
+  let onCircle: { at: V2; ref: Ref; px: number } | null = null;
+  for (const c of Object.values(scene.parts)) {
+    if (c.kind !== "circle") continue;
+    const ci = circleOf(get, c.ref);
+    if (!ci || !onPlane(ci.center)) continue;
+    const m = localOf(pl, ci.center);
+    const w: V2 = [e[0] - m[0], e[1] - m[1]];
+    const D = lenOf(w);
+    if (D < 1e-9) continue;
+    const q: V2 = [m[0] + (w[0] / D) * ci.radius, m[1] + (w[1] / D) * ci.radius];
+    const [px, py] = pv.project(lift(pl, q));
+    const px2 = Math.hypot(px - pv.x, py - pv.y);
+    if (px2 <= settings.sketch.snapPx && (!onCircle || px2 < onCircle.px)) onCircle = { at: q, ref: c.ref, px: px2 };
+  }
+  if (onCircle) return { at: lift(pl, onCircle.at), hints: [{ kind: "onCircle", ref: onCircle.ref }] };
 
   // directions the end could take: level, upright, parallel or square to a line, tangent to a circle; the nearest one inside the tolerance wins
   const cands: { dir: V2; err: number; hint: Hint }[] = [];
@@ -99,6 +115,6 @@ export function lineHint(scene: Scene, pl: Plane, start: Vec3, pv: PointerView, 
 
 /** The constraint to add once the line is made, for one hint: `line` is the new line, `corner` its end corner. */
 export function hintCommand(scene: Scene, line: Ref, corner: Ref, h: Hint): Command {
-  const parts = h.kind === "horizontal" || h.kind === "vertical" ? [line] : h.kind === "onLine" ? [corner, h.ref!] : [line, h.ref!];
+  const parts = h.kind === "horizontal" || h.kind === "vertical" ? [line] : h.kind === "onLine" || h.kind === "onCircle" ? [corner, h.ref!] : [line, h.ref!];
   return { type: "addRelation", relation: { id: nextId(scene, "r"), kind: h.kind, parts } };
 }

@@ -382,7 +382,7 @@ test("a triple click on a sketch drawn on a face of a block turns to it, like a 
   st = click(st, [30, 18, 20]);
   const fig = Object.values(scene(st.session).parts).find((p) => p.kind === "face" && p.origin === "drawn")!;
   assert.ok(fig);
-  st = click({ ...st, tool: null, resume: null }, [12, 9.5, 20], 3); // (away from the arrow that shows by itself at the middle)
+  st = click({ ...st, tool: null, resume: null }, [16, 15.5, 20], 3); // (away from the arrow that shows by itself at the middle)
   assert.ok(st.anim, "the view is turning to the plane");
 });
 
@@ -440,4 +440,25 @@ test("hints while drawing a line: close to level it becomes level with a horizon
   assert.ok(rels().includes("onLine"));
   sc = scene(st.session);
   assert.ok(Object.values(sc.parts).some((p) => p.kind === "corner" && Math.abs(p.at[0] - 14) < 1e-6 && Math.abs(p.at[1] - 5) < 1e-6), "its end is exactly on the first line");
+});
+
+test("a line from the centre of a circle to its edge ends exactly on the circle with an 'on circle' constraint; at that spot repeated clicks cycle between the corner and the circle, and both can be constrained", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  st = click(st, [20, 20, 0]);
+  st = click(st, [30, 20, 0]);
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [20, 20, 0]);
+  st = click(st, [29.8, 20.3, 0]); // near the edge, not on it
+  assert.ok(scene(st.session).relations.some((r) => r.kind === "onCircle"));
+  const ends = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as { at: Vec3 }).at);
+  assert.ok(ends.some((p) => Math.abs(Math.hypot(p[0] - 20, p[1] - 20) - 10) < 1e-6), "the end is exactly on the circle");
+  // clicking where the corner and the circle are one on the other: the first click, then the next cycle through them; it never selects the whole object
+  const edge: Vec3 = ends.find((p) => Math.abs(Math.hypot(p[0] - 20, p[1] - 20) - 10) < 1e-6)!;
+  st = reduce(st, { type: "escape" }, env); // (the next click on a vertex would start another line)
+  st = click(st, [80, 80, 0]); // nothing
+  const seen = new Set<string>();
+  for (let n = 1; n <= 3; n++) { st = click(st, edge, n); for (const r of selection(st.session)) seen.add(r); assert.ok(!selection(st.session).includes(BODY_OBJECT)); }
+  assert.ok([...seen].some((r) => r.startsWith("d/") && scene(st.session).parts[r]?.kind === "circle"), "the circle edge can be selected");
+  assert.ok([...seen].some((r) => scene(st.session).parts[r]?.kind === "corner"), "and the corner");
 });

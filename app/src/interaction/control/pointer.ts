@@ -173,7 +173,9 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const get = lookup(sc);
   // a sketch drawn on a face of the body lies in the same plane as that face: the two are one surface for looking at it and for selecting the whole object
   const planes = refs.map((r) => planeOf(get, r));
-  const onePlane = refs.length <= 1 || (planes.every((q) => !!q) && planes.every((q) => Math.abs(dot(normalOfPlane(q!), normalOfPlane(planes[0]!)) - 1) < 1e-6 && Math.abs(dot(normalOfPlane(q!), sub(q!.at, planes[0]!.at))) < 1e-3));
+  // (a point, line or circle edge under the click with something else: repeated clicks cycle through them, they do not select the object or turn the view)
+  const surfaces = refs.every((r) => { const k = sc.parts[r]?.kind; return k === "plane" || k === "face" || k === "body"; });
+  const onePlane = refs.length <= 1 || (surfaces && planes.every((q) => !!q) && planes.every((q) => Math.abs(dot(normalOfPlane(q!), normalOfPlane(planes[0]!)) - 1) < 1e-6 && Math.abs(dot(normalOfPlane(q!), sub(q!.at, planes[0]!.at))) < 1e-3));
   // the infinite world planes are only a surface for the ring to land on and for a tool to draw on: a click on one selects nothing (like a click on empty space)
   const selectable = refs.filter((r) => !(sc.parts[r]?.origin === "world" && sc.parts[r]?.kind === "plane"));
   if (onePlane && i.count === 2) {
