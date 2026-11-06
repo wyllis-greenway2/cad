@@ -1060,3 +1060,24 @@ test("the rim of a cylinder is one edge: picking a half picks both halves, and a
   assert.equal(st.session.message, null);
   assert.ok(st.session.outcome.kernel!.volume! < before - 1, "the whole rim is rounded");
 });
+
+test("a sketch tool chosen from the ring turns to the one selected plane, or, with none or several selected, to the plane of what the right click was on", () => {
+  const start = (sel: string[], over: Vec3) => {
+    let st = select(box(), sel);
+    const [x, y] = px(st, over);
+    st = reduce(st, { type: "hover", x, y }, env);
+    st = reduce(st, { type: "menu", x, y }, env);
+    return reduce(st, { type: "runAction", id: "tool:rect" }, env);
+  };
+  const faces = Object.values(scene(box().session).parts).filter((p) => p.kind === "plane" && p.origin === "body" && !p.curved);
+  const elevation = (st: AppState) => st.anim!.to.elevation;
+  // nothing selected: the top face under the click
+  near(Math.abs(elevation(start([], [20, 10, 20]))), Math.PI / 2, 1e-3);
+  // two faces selected: the one under the click (a side), not either selected
+  const sideRight = faces.find((p) => p.kind === "plane" && Math.abs(p.at[0] - 40) < 1e-6)!;
+  const sideBack = faces.find((p) => p.kind === "plane" && Math.abs(p.at[1] - 20) < 1e-6)!;
+  assert.ok(Math.abs(elevation(start([sideRight.ref, sideBack.ref], [20, 10, 20]))) > 1.5, "turns to the top, under the click");
+  // one face selected (the side): the view goes to it, whatever the click was on
+  const one = start([sideRight.ref], [20, 10, 20]);
+  assert.ok(Math.abs(elevation(one)) < 0.2, "turns to the selected side (looking along X)");
+});

@@ -22,7 +22,9 @@ function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = 
   const armed: AppState = { ...s, tool: armTool(kind), op: null, menu: null };
   // sketching on a selected face or plane: the view turns straight to it, from the side you are on (`in_149`)
   const get = lookup(sceneOf(s.session));
-  const pl = selectionOf(s.session).map((r) => planeOf(get, r)).find((p) => p) ?? (over ? planeOf(get, over) : null); // (else the world plane the ring was opened over)
+  // exactly one plane selected: that one; none, or several: the plane of what the right click was on (`in_169`)
+  const selected = [...new Map(selectionOf(s.session).flatMap((r) => { const p = planeOf(get, r); return p ? [[p.ref, p] as const] : []; })).values()];
+  const pl = selected.length === 1 ? selected[0]! : over ? planeOf(get, over) : null;
   return pl && sideOf(s.cam, normalOfPlane(pl)) === 0 ? animateTo(armed, planeView(s.cam, pl, false), now) : armed; // (not when already looking straight at it)
 }
 function beginOp(s: AppState, kind: OpKind): AppState {

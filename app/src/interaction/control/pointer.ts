@@ -69,8 +69,9 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
     { id: "delete", label: "Delete", icon: "trash", enabled: !!del?.enabled, why: del?.why ?? "select something to delete" },
   ];
-  const w = over ? sc.parts[over] : undefined;
-  return { x, y, items, plane: w && w.origin === "world" && w.kind === "plane" ? over : null };
+  // the surface the right click was on (a face, a sketch's plane, a world plane): a sketch tool chosen from the ring turns to it when the selection does not say which plane
+  const target = over ? planeOf(lookup(sc), over) : null;
+  return { x, y, items, plane: target ? target.ref : null };
 }
 
 /** The first of these parts that has a plane (a surface a figure can be drawn on). */

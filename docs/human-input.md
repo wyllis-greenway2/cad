@@ -902,3 +902,6 @@ Sent a model (kept as `app/test/fixtures/two-pieces.cad.json`).
 
 ## in_168 — 2026-11-06 — directive
 > If you add a circle, then extrude into cylinder, then the edges can be selected, if you push or pull one of the cylinder ends, then the edges of the circle can no longer be selected. Also they select in half circles.
+
+## in_169 — 2026-11-06 — directive
+> can we have it so that when you right click to and click pencil to sketch then select a sketch option, that it goes orthographic to either sketch on the selected plane, or if there is no selected plane,, or many selected planes, then it goes orthographic to sketch on the plane of the target of the right click.
