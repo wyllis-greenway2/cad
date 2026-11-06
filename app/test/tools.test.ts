@@ -353,8 +353,8 @@ test("the right-click ring offers all the operations around the click; nothing o
   const f = frameOf(st, { w: 800, h: 600 });
   assert.ok(!f.annotations.some((a) => ["pushpull", "sketch", "edge", "rect"].includes(a.kind)), "a left click shows constraints and dimensions only");
   const ring = flat(reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items);
-  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "tool:arc", "op:pushpull", "op:edge", "op:scale", "op:move", "op:rotate", "op:copy", "op:linear", "op:circular", "look", "delete"]);
-  assert.deepEqual(ring.filter((i) => !i.enabled).map((i) => i.id), ["op:edge", "delete"], "fillet / chamfer needs lines of the body; a face cannot be deleted");
+  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "tool:arc", "op:offset", "op:pushpull", "op:edge", "op:scale", "op:move", "op:rotate", "op:copy", "op:linear", "op:circular", "look", "delete"]);
+  assert.deepEqual(ring.filter((i) => !i.enabled).map((i) => i.id), ["op:offset", "op:edge", "delete"], "fillet / chamfer needs lines of the body; a face cannot be deleted");
   assert.ok(ring.every((i) => i.icon));
   const drawing = reduce(st, { type: "runAction", id: "tool:circle" }, env);
   assert.equal(drawing.tool!.kind, "circle");
@@ -535,4 +535,45 @@ test("a circle drawn about another circle's centre: a concentric hint shows, and
   s = run(s, act.run());
   const moved = (scene(s).parts[(scene(s).parts[b.circle] as { center: string }).center] as { at: Vec3 }).at;
   near(Math.hypot(moved[0], moved[1]), 0, 1e-6);
+});
+
+test("offset: a rectangle gets a bigger or smaller one drawn about it, a circle a concentric one, a line a parallel one; an inward offset past the middle makes nothing", () => {
+  const offset = (st: AppState, text: string) => { let s = reduce(st, { type: "runAction", id: "op:offset" }, env); s = typeText(s, text); return key(s, "Enter"); };
+  const drawnCorners = (st: AppState) => corners(st);
+  // a rectangle 20 x 10
+  let st = top();
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  st = click(st, [10, 10, 0]);
+  st = click(st, [30, 20, 0]);
+  const rect = st;
+  let out = offset(rect, "2");
+  assert.equal(out.session.message, null);
+  const xs = drawnCorners(out).map((c) => c[0]);
+  const ys = drawnCorners(out).map((c) => c[1]);
+  assert.equal(drawnCorners(out).length, 8, "the old four and the new four");
+  near(Math.min(...xs), 8); near(Math.max(...xs), 32); near(Math.min(...ys), 8); near(Math.max(...ys), 22);
+  const inner = offset(rect, "-3");
+  const ix = drawnCorners(inner).map((c) => c[0]).sort((a, b) => a - b);
+  near(ix[2]!, 13); near(ix[5]!, 27); // the new corners: 3 in from 10 and 30
+  assert.equal(drawnCorners(offset(rect, "-6")).length, 4, "past the middle (the short side is 10): nothing is made");
+  // a circle
+  let c = top();
+  c = reduce(c, { type: "begin", name: "circle" }, env);
+  c = click(c, [20, 15, 0]);
+  c = click(c, [26, 15, 0]);
+  const cout = offset(c, "4");
+  const radii = Object.values(scene(cout.session).parts).filter((p) => p.kind === "circle" && p.origin === "drawn").map((p) => (p as { radius: number }).radius).sort((a, b) => a - b);
+  near(radii[0]!, 6); near(radii[1]!, 10);
+  assert.deepEqual(scene(cout.session).relations.map((r) => r.kind), ["concentric"]);
+  // a line
+  let l = top();
+  l = reduce(l, { type: "begin", name: "line" }, env);
+  l = click(l, [10, 10, 0]);
+  l = click(l, [30, 10, 0]);
+  const line = Object.values(scene(l.session).parts).find((p) => p.kind === "line" && p.origin === "drawn")!;
+  l = { ...l, session: { ...l.session, click: { selection: [line.ref], spot: "" } } };
+  const lout = offset(l, "5");
+  const ly = [...new Set(corners(lout).map((p) => Math.round(p[1] * 100) / 100))].sort((a, b) => a - b);
+  assert.equal(ly.length, 2, "the new line is parallel at 5");
+  near(Math.abs(ly[1]! - ly[0]!), 5);
 });

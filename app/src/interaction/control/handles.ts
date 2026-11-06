@@ -37,7 +37,7 @@ export function gizmoOf(s: AppState): Gizmo | null {
   if (op && s.cam.straight && (op.kind === "pushpull" || op.kind === "extrude")) return null;
   const g = op ? gizmoFor(sceneOf(s.session), op, s.cam) : null;
   // the arrow of a push / pull or an extrude stands where the face is now: out by the value so far (it stays there when you let go, until the operation ends)
-  return g && op && op.normal && (op.kind === "pushpull" || op.kind === "extrude") ? followed(g, { dir: op.normal, kind: "double", id: "pull" }, op.value) : g;
+  return g && op && op.normal && (op.kind === "pushpull" || op.kind === "extrude" || op.kind === "offset") ? followed(g, { dir: op.normal, kind: "double", id: "pull" }, op.value) : g;
 }
 
 export function doGizmoHover(s: AppState, x: number, y: number, env: Env): AppState {
@@ -66,7 +66,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
       return { ...s, drag: { handle: d, base: patternBase(s.repeat.op, h!.id), repeat: true }, gizmoHover: h!.id };
     }
     const started = s.op ?? activeOp(s)!;
-    const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" ? { ...started, auto: false } : started;
+    const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" ? { ...started, auto: false } : started;
     s = { ...s, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
   }
   if ("corner" in s.drag!) return moveCorner(s, i, env);

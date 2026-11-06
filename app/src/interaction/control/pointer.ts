@@ -31,6 +31,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:circle", label: "Circle", icon: "circle", tool: "circle" },
   { id: "tool:line", label: "Line", icon: "line", tool: "line" },
   { id: "tool:arc", label: "Curve", icon: "arc", tool: "arc" },
+  { id: "op:offset", label: "Offset", icon: "offset", op: "offset" },
   { id: "op:pushpull", label: "Push / pull", icon: "pushpull", op: "pushpull" },
   { id: "op:edge", label: "Fillet / chamfer", icon: "edge", op: "edge" },
   { id: "op:scale", label: "Scale", icon: "scale", op: "scale" },
@@ -41,7 +42,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:circular", label: "Circular repeat", icon: "circular", op: "circular" },
 ];
 const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[] = [
-  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc"] },
+  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:scale"] },
   { id: "place", label: "Move and repeat", icon: "move", items: ["op:move", "op:rotate", "op:copy", "op:linear", "op:circular"] },
 ];

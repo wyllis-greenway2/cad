@@ -7,6 +7,8 @@ import type { Mat3, Angles } from "../math/rotation.ts";
 import { IDENTITY, about, then, anglesOf, stepsBetween } from "../math/rotation.ts";
 import type { Curved } from "../operation/part.ts";
 import type { FaceEdit } from "./faceedit.ts";
+import type { OffsetSource } from "./offset.ts";
+import { offsetSource, offsetCommand } from "./offset.ts";
 import { faceEdit, editCommand } from "./faceedit.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
@@ -21,7 +23,7 @@ import { drawnRef } from "../shared/ref.ts";
 import { objectOf, bodyCentre, figurePartsOf } from "./objects.ts";
 import { settings } from "../shared/settings.ts";
 
-export type OpKind = "extrude" | "pushpull" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular" | "copy";
+export type OpKind = "extrude" | "pushpull" | "offset" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular" | "copy";
 export interface Op {
   kind: OpKind;
   /** the parts it works on: the lines or circle of a figure, a face of the body, the lines of the body, the body, or the corners of a drawn figure */
@@ -50,6 +52,8 @@ export interface Op {
   rot: [string, string, string];
   /** push / pull of a round face: the face (the radius changes by the distance) */
   curved?: Curved;
+  /** offset: the drawn figure the copy is made from */
+  off?: OffsetSource;
   /** push / pull of a face the body already has: the step to change instead of adding a prism (`faceedit.ts`) */
   edit?: FaceEdit;
   /** a fillet or chamfer face: there is no prism to fall back on */
@@ -68,8 +72,8 @@ export interface Op {
   unit?: string;
 }
 
-export const OP_UNIT: Record<OpKind, string> = { extrude: "mm", pushpull: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm", linear: "mm", circular: "mm", copy: "mm" };
-export const OP_FIELD: Record<OpKind, string> = { extrude: "Distance", pushpull: "Distance", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", linear: "Repeat", circular: "Repeat", copy: "Repeat", dimension: "Value" };
+export const OP_UNIT: Record<OpKind, string> = { extrude: "mm", pushpull: "mm", offset: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm", linear: "mm", circular: "mm", copy: "mm" };
+export const OP_FIELD: Record<OpKind, string> = { extrude: "Distance", pushpull: "Distance", offset: "Offset", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", linear: "Repeat", circular: "Repeat", copy: "Repeat", dimension: "Value" };
 
 export type StartResult = { ok: true; op: Op } | { ok: false; why: string };
 
@@ -102,6 +106,11 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
   const get = lookup(scene);
   const parts = selection.map((r) => get(r)).filter((p): p is Part => !!p);
   const base: Omit<Op, "parts"> = { kind, typed: "", value: null, axis: kind === "rotate" ? 2 : 0, origin: null, normal: null, pivot: null, target: "body", plane: null, auto: false, made: false, rot: ["", "", ""], pat: [] };
+  if (kind === "offset") {
+    const off = offsetSource(scene, parts);
+    if (!off) return { ok: false, why: "select a closed figure of straight sides, a circle or a line to offset" };
+    return { ok: true, op: { ...base, parts: parts.map((p) => p.ref), origin: off.origin, normal: off.normal, off } };
+  }
   if (kind === "extrude") {
     const face = drawnFace(scene, parts);
     if (!face) return { ok: false, why: "select a closed figure first" };
@@ -347,6 +356,7 @@ export function opCommand(scene: Scene, op: Op): Command | null {
   }
   const v = valueOf(op);
   if (v === null) return null;
+  if (op.kind === "offset") return op.off ? offsetCommand(scene, op.off, v) : null;
   const id = nextId(scene, "s");
   if (op.kind === "dimension") {
     const a = actionsFor(scene, op.parts).find((x) => x.dimensional && x.enabled);
@@ -390,4 +400,4 @@ function scaleShapeCommand(scene: Scene, op: Op, f: number): Command | null {
 }
 
 /** Operations that make one step and then change it as you drag or type again, until you click away: the value is the total since the operation began. */
-export const isLive = (op: Op): boolean => !op.auto && (op.kind === "extrude" || op.kind === "pushpull" || op.kind === "edge");
+export const isLive = (op: Op): boolean => !op.auto && (op.kind === "extrude" || op.kind === "pushpull" || op.kind === "edge" || op.kind === "offset");
