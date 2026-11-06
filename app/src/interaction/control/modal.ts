@@ -114,6 +114,13 @@ export function doEscape(s: AppState): AppState {
 
 export function doRunAction(s: AppState, id: string, now = 0): AppState {
   const closed = { ...s, menu: null };
+  if (id === "look") {
+    const get = lookup(sceneOf(s.session));
+    const planes = [...new Map(selectionOf(s.session).flatMap((r) => { const p = planeOf(get, r); return p ? [[p.ref, p] as const] : []; })).values()];
+    const pl = planes.length === 1 ? planes[0]! : s.menu?.plane ? planeOf(get, s.menu.plane) : null;
+    if (!pl) return { ...closed, session: { ...closed.session, message: "select a plane or a face first" } };
+    return animateTo(closed, planeView(s.cam, pl, true), now); // (pressed again: the back)
+  }
   if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now, s.menu?.plane ?? null);
   if (id === "op:linear" || id === "op:circular" || id === "op:copy") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular" | "copy");
   if (id.startsWith("op:")) return beginOp(closed, id.slice(3) as OpKind);

@@ -63,15 +63,24 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   const acts = actionsFor(sc, sel);
   const rels: MenuItem[] = acts.filter((a) => a.group === "relation" && a.enabled).map((a) => ({ id: a.id, label: a.label, icon: a.id, enabled: true, why: null }));
   const del = acts.find((a) => a.id === "delete");
+  // looking straight at the selected plane or face, or at the one the click was on (`in_171`: the eye lives here, not on the screen)
+  const clicked = over ? planeOf(lookup(sc), over) : null; // (the surface the right click was on: a face, a sketch's plane, a world plane; a sketch tool chosen from the ring turns to it when the selection does not say which plane)
+  const target = lookTarget(sc, sel, over);
   const items: MenuItem[] = [
     ...CATEGORIES.slice(0, 1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
     category("constraints", "Constraints", "constraint", rels.length ? rels : [{ id: "none", label: "Constraints", icon: "constraint", enabled: false, why: "select the parts to constrain (a line, a corner, two lines …)" }]),
     ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
+    { id: "look", label: "Look straight at it", icon: "eye", enabled: !!target, why: target ? null : "select a plane or a face, or right-click on one" },
     { id: "delete", label: "Delete", icon: "trash", enabled: !!del?.enabled, why: del?.why ?? "select something to delete" },
   ];
-  // the surface the right click was on (a face, a sketch's plane, a world plane): a sketch tool chosen from the ring turns to it when the selection does not say which plane
-  const target = over ? planeOf(lookup(sc), over) : null;
-  return { x, y, items, plane: target ? target.ref : null };
+  return { x, y, items, plane: clicked ? clicked.ref : null };
+}
+
+/** The plane "Look straight at it" turns to: the one selected plane, else the plane under the right click. */
+function lookTarget(sc: Scene, sel: readonly Ref[], over: Ref | null | undefined): Plane | null {
+  const get = lookup(sc);
+  const planes = [...new Map(sel.flatMap((r) => { const p = planeOf(get, r); return p ? [[p.ref, p] as const] : []; })).values()];
+  return planes.length === 1 ? planes[0]! : over ? planeOf(get, over) : null;
 }
 
 /** The first of these parts that has a plane (a surface a figure can be drawn on). */

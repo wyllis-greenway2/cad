@@ -119,7 +119,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     avoid: busy || !annotationsPresent ? { segs: [], pts: [] } : avoidOf(sc),
     hint: s.tool?.hints?.length && s.tool.cursor ? { kinds: s.tool.hints.map((h) => h.kind), at: s.tool.cursor } : null,
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors),
-    annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash), ...eyeBubble(sc, sel, s)],
+    annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash)],
     flash,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // off by default (`in_117`)
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null } : null,
@@ -156,14 +156,14 @@ function entryWhere(e: Entry | null, s: AppState, g: Gizmo | null, op: Op | null
   return { ...e, at, from };
 }
 
-/** A single selected plane or face: if it lies across a world axis, that axis's button is lit, + or − by the end the camera is at (the side that shows the face); the eye is available unless the camera is already straight at it. */
-function lookOf(sc: Scene, sel: readonly Ref[], cam: Camera): { lookHint: Frame["lookHint"]; eye: boolean; plane: Plane | null } {
+/** A single selected plane or face: if it lies across a world axis, that axis's button is lit, + or − by the end the camera is at (the side that shows the face). */
+function lookOf(sc: Scene, sel: readonly Ref[], cam: Camera): { lookHint: Frame["lookHint"] } {
   const pl = sel.length === 1 ? planeOf(lookup(sc), sel[0]!) : null;
-  if (!pl) return { lookHint: null, eye: false, plane: null };
+  if (!pl) return { lookHint: null };
   const n = normalOfPlane(pl);
   const k = ([0, 1, 2] as const).find((i) => Math.abs(Math.abs(n[i]) - 1) < 1e-6);
   const sign = dot(offsetOf(cam), n) >= 0 ? 1 : -1;
-  return { lookHint: k === undefined ? null : { axis: (["X", "Y", "Z"] as const)[k], sign: n[k]! * sign > 0 ? 1 : -1 }, eye: sideOf(cam, n) === 0, plane: pl };
+  return { lookHint: k === undefined ? null : { axis: (["X", "Y", "Z"] as const)[k], sign: n[k]! * sign > 0 ? 1 : -1 } };
 }
 
 /** The drawn lines, arcs and circles as short straight pieces, and the drawn corners: the places a bubble should not sit on. */
@@ -187,14 +187,6 @@ function avoidOf(sc: Scene): Frame["avoid"] {
     }
   }
   return { segs, pts };
-}
-
-/** The eye: a bubble among the ones of the left click, beside where the face was clicked, that looks straight at the selected plane or face. It is not there while the view is already straight at it. */
-function eyeBubble(sc: Scene, sel: readonly Ref[], s: AppState): Annotation[] {
-  const l = lookOf(sc, sel, s.cam);
-  if (!l.eye || !l.plane) return [];
-  const at = s.spread && s.spread.ref === sel[0] ? s.spread.point : l.plane.at;
-  return [{ id: "look", relationId: null, kind: "eye", label: "Look straight at it (press again for the back)", at, value: null, unit: null, locked: false, editable: false, readOnly: true, broken: false, open: false, others: [], lines: [] }];
 }
 
 /**

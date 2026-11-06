@@ -9,8 +9,6 @@ import { settings } from "../shared/settings.ts";
 export interface BubbleHandlers {
   focus(id: string): void;
   remove(id: string): void;
-  /** the eye bubble: look straight at the selected plane or face */
-  look(): void;
   lock(id: string): void;
   /** a new number for a constraint */
   set(id: string, value: number): void;
@@ -111,11 +109,10 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
         if (!e) {
           const entry: Entry = { el: document.createElement("div"), sig: "", editing: false, a, tinted: false };
           // listeners on the bubble itself are added once (the contents are rebuilt when it changes, the bubble is not), and read the current annotation
-          entry.el.addEventListener("click", () => { if (entry.a.kind === "eye") h.look(); else if (entry.a.relationId) h.focus(entry.a.relationId); }); // click the bubble: open it; click again: close it
+          entry.el.addEventListener("click", () => { if (entry.a.relationId) h.focus(entry.a.relationId); }); // click the bubble: open it; click again: close it
           entry.el.addEventListener("pointerenter", () => { entry.el.style.zIndex = "2"; const x = entry.el.querySelector<HTMLElement>("[data-x]"); if (x) x.style.display = "inline-flex"; }); // (raised, so the ✕ it grows is not covered by a neighbouring bubble)
           entry.el.addEventListener("pointerleave", () => { entry.el.style.zIndex = ""; const x = entry.el.querySelector<HTMLElement>("[data-x]"); if (x && !entry.a.open) x.style.display = "none"; });
           root.appendChild(entry.el);
-          if (a.kind === "eye") { entry.el.style.opacity = "0"; entry.el.style.transition = "opacity .25s"; requestAnimationFrame(() => requestAnimationFrame(() => { entry.el.style.opacity = "1"; })); } // (the eye fades in and out)
           entries.set(a.id, entry);
           e = entry;
         }
@@ -123,11 +120,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
         const [x, y] = project(a.at);
         placed.push({ a, e, x, y });
       }
-      for (const [id, e] of entries) {
-        if (seen.has(id) || e.editing) continue;
-        entries.delete(id);
-        if (e.a.kind === "eye") { e.el.style.opacity = "0"; e.el.style.pointerEvents = "none"; setTimeout(() => e.el.remove(), 260); } else e.el.remove();
-      }
+      for (const [id, e] of entries) if (!seen.has(id) && !e.editing) { e.el.remove(); entries.delete(id); }
       // bubbles on top of each other are laid side by side around their common spot
       const used = new Set<number>();
       // what a bubble keeps off, in page pixels: the drawn lines and corners, and the bubbles already put down

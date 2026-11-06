@@ -45,7 +45,6 @@ const chipAt = (i: number) => (chips[i] ??= createChip(document.body, chipHandle
 const bubbles = createBubbles(document.body, {
   focus: (id) => dispatch({ type: "relation", act: "focus", id }),
   remove: (id) => dispatch({ type: "relation", act: "remove", id }),
-  look: () => dispatch({ type: "look", plane: "N" }),
   lock: (id) => dispatch({ type: "relation", act: "lock", id }),
   set: (id, value) => dispatch({ type: "relation", act: "set", id, value }),
   measure: (value) => dispatch({ type: "relation", act: "measure", id: null, value }),

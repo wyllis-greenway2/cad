@@ -62,18 +62,20 @@ test("three clicks select only the face and look straight at it, from the side y
   assert.deepEqual(selection(st.session), [faceName([1, 0, 0], 20)], "only the face, not the whole object the second click chose");
 });
 
-test("a selected face across a world axis lights that axis's button, and the eye button shows for a face", () => {
+test("a selected face across a world axis lights that axis's button; the eye is not on the screen but in the right-click menu", () => {
   let st = boxState();
-  const eye = (x: AppState) => frameOf(x, { w: 800, h: 600 }).annotations.some((a) => a.kind === "eye");
-  assert.equal(eye(st), false, "nothing selected: no eye");
+  const look = (x: AppState) => reduce(x, { type: "menu", x: 400, y: 300 }, env).menu!.items.find((i) => i.id === "look")!;
+  assert.equal(look(st).enabled, false, "nothing selected: nothing to look at");
   st = click(st, SIDE, 1);
   const f = frameOf(st, { w: 800, h: 600 });
-  assert.equal(eye(st), true, "the eye is among the bubbles of the left click");
   assert.equal(f.lookHint?.axis, "X", "the face lies across the X axis");
   assert.equal(f.lookHint?.sign, 1, "and the camera sees it from the + end");
-  assert.equal(eye(st), true, "not straight at it yet: the eye is available");
-  st = settle(click(click(st, SIDE, 2, false, 100), SIDE, 3, false, 200));
-  assert.equal(eye(st), false, "the whole object is not a plane, and the view is straight anyway");
+  assert.ok(!f.annotations.some((a) => a.kind === "eye"), "no eye bubble on the screen");
+  assert.equal(look(st).enabled, true, "the menu offers it for the selected face");
+  const turned = reduce(st, { type: "runAction", id: "look" }, env);
+  assert.ok(turned.anim, "and it turns the view");
+  st = settle(turned);
+  assert.equal(st.cam.straight, true);
 });
 
 test("two clicks select the whole object and the view does not turn", () => {
@@ -184,7 +186,7 @@ test("the menu: a right click offers the operations on what is selected and does
   assert.deepEqual(selection(st.session), [a.circle, b.circle]);
   const [x, y] = px(st, [63, 0, 0]);
   st = reduce(st, { type: "menu", x, y }, env);
-  assert.deepEqual(st.menu!.items.map((i) => i.label), ["Sketch", "Constraints", "Shape", "Move and repeat", "Delete"], "the right click offers the operations (constraints are on the left click)");
+  assert.deepEqual(st.menu!.items.map((i) => i.label), ["Sketch", "Constraints", "Shape", "Move and repeat", "Look straight at it", "Delete"], "the right click offers the operations (constraints are on the left click)");
   assert.ok(st.menu!.items.find((i) => i.id === "delete")!.enabled);
   assert.deepEqual(flat(st.menu!.items).map((i) => i.label).slice(0, 4), ["Rectangle", "Circle", "Line", "Curve"], "and the categories hold the tools");
   const radiusBefore = (scene(st.session).parts[b.circle] as { radius: number }).radius;
