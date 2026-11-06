@@ -95,3 +95,17 @@ test("angle: two lines from a shared corner at a set angle (signed), nearest to 
   const neg = solve(sys, [...hold, { id: "ang", type: "angle", a: "o", b: "a", c: "o", d: "b", value: -Math.PI / 3 }]);
   assert.ok(neg.points.b[1] < 0); // a negative angle puts it on the other side
 });
+
+test("independent groups are solved apart and the result is the same as one big solve: positions, and the free directions count what no constraint touches", () => {
+  const sys = { points: { a: [0, 0], b: [3, 0], c: [10, 10], d: [14, 10], e: [50, 50] } };
+  const cons = [{ id: "d1", type: "distance", a: "a", b: "b", d: 5 }, { id: "d2", type: "distance", a: "c", b: "d", d: 6 }];
+  const r = solve(sys, cons);
+  assert.equal(r.status, "ok");
+  assert.ok(Math.abs(Math.hypot(r.points.b[0] - r.points.a[0], r.points.b[1] - r.points.a[1]) - 5) < 1e-6);
+  assert.ok(Math.abs(Math.hypot(r.points.d[0] - r.points.c[0], r.points.d[1] - r.points.c[1]) - 6) < 1e-6);
+  assert.deepEqual(r.points.e, [50, 50], "a point nothing touches stays");
+  assert.equal(r.dof, 10 - 2, "ten numbers, two distances");
+  const bad = solve(sys, [...cons, { id: "d3", type: "distance", a: "a", b: "b", d: 7 }]);
+  assert.equal(bad.status, "conflict");
+  assert.ok(bad.conflicts.length >= 1);
+});

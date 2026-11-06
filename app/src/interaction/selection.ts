@@ -24,9 +24,12 @@ export interface ClickState {
   selection: Selection;
   /** the candidate list of the previous click, as a signature ("" for none) */
   spot: string;
+  /** the order the first click at this spot found them in, which the clicks after it keep going through (the order by distance can change with a pixel of movement) */
+  order?: readonly Ref[];
 }
 export const initialClick = (): ClickState => ({ selection: [], spot: "" });
-const signature = (c: readonly Ref[]) => c.join("|");
+/** The same set of candidates is the same spot, whatever order the pointer's exact distances put them in. */
+const signature = (c: readonly Ref[]) => [...c].sort().join("|");
 
 /**
  * One click. `candidates` is the ordered list at the pointer (corners, then lines, then faces and planes). Returns the new state and, when the click
@@ -36,21 +39,22 @@ export function click(state: ClickState, candidates: readonly Ref[], opts: { shi
   if (!candidates.length) return { state: { selection: clear(), spot: "" } }; // a click on nothing lets go of everything
   const sig = signature(candidates);
   const repeated = sig === state.spot && candidates.length > 1;
+  const order = repeated && state.order ? state.order : candidates;
   const sel = state.selection;
   if (!opts.shift) {
-    const pick = repeated ? cycle(candidates, sel[0]) : candidates[0]!;
-    return { state: { selection: select(sel, pick!), spot: sig }, ...(repeated ? { cycled: { index: candidates.indexOf(pick!) + 1, of: candidates.length } } : {}) };
+    const pick = repeated ? cycle(order, sel[0]) : candidates[0]!;
+    return { state: { selection: select(sel, pick!), spot: sig, order }, ...(repeated ? { cycled: { index: order.indexOf(pick!) + 1, of: order.length } } : {}) };
   }
   if (repeated) {
     // Shift on the same spot again: the part added by the last click is swapped for the next candidate
     const last = sel[sel.length - 1];
     const rest = sel.slice(0, -1);
-    const pick = cycle(candidates, last)!;
+    const pick = cycle(order, last)!;
     const next = rest.includes(pick) ? sel : [...rest, pick];
-    return { state: { selection: next, spot: sig }, cycled: { index: candidates.indexOf(pick) + 1, of: candidates.length } };
+    return { state: { selection: next, spot: sig, order }, cycled: { index: order.indexOf(pick) + 1, of: order.length } };
   }
   const first = candidates[0]!;
-  return { state: { selection: toggle(sel, first), spot: sig } };
+  return { state: { selection: toggle(sel, first), spot: sig, order }, };
 }
 
 /** The selection in the order that matters for relations: parts that can move come first (stable), so a body part is always the reference (`in_090`). */

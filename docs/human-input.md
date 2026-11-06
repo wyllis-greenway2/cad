@@ -865,3 +865,6 @@ Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a 
 
 ## in_157 — 2026-11-06 — directive
 > Would it be possible to add a light source (we already have) and a dark source so that the reflectivity of the material looks more dynamic? Also can we trying making a very slight highlight when a world plane is hovered and or selected to help make orientation obvious? Also can we have the teal blue color be ever so slightly more transparent
+
+## in_158 — 2026-11-06 — directive
+> Okay I had the Cad thing freeze my browser tab now, also the circle edge is still really hard to select sometimes. Why don't you play around with it and go bug hunting.

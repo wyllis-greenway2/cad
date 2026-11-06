@@ -102,6 +102,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   const flash = flashOf(s, sc, now);
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
   const gp = gridPlaneOf(s);
+  const annotationsPresent = !busy; // (the bubbles are the only user of `avoid`: none are shown while a tool or operation runs)
   return {
     scene: sc,
     mesh: outcome.kernel?.mesh ?? null,
@@ -112,7 +113,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam) : [],
     bar: !!s.repeat,
     ...lookOf(sc, sel, s.cam),
-    avoid: avoidOf(sc),
+    avoid: busy || !annotationsPresent ? { segs: [], pts: [] } : avoidOf(sc),
     hint: s.tool?.hints?.length && s.tool.cursor ? { kinds: s.tool.hints.map((h) => h.kind), at: s.tool.cursor } : null,
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors),
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash)],

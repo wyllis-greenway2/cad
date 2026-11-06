@@ -92,3 +92,16 @@ test("the first selected is the mover, the second the reference, and a part that
   assert.deepEqual(ordered([world, p1], get), [p1, world], "the world origin goes second although selected first");
   assert.equal(mover([world], get), undefined);
 });
+
+test("repeated clicks at a spot keep cycling even when a pixel of movement changes which candidate is nearest (the same set, another order)", () => {
+  const [A, B, C] = [ref("d/a"), ref("d/b"), ref("d/c")];
+  let c = initialClick();
+  c = click(c, [A, B, C]).state;
+  assert.deepEqual(c.selection, [A]);
+  c = click(c, [B, A, C]).state; // moved a little: the order by distance changed
+  assert.deepEqual(c.selection, [B], "the next in the first order, not the first of the new one");
+  c = click(c, [C, B, A]).state;
+  assert.deepEqual(c.selection, [C]);
+  c = click(c, [A, C, B]).state;
+  assert.deepEqual(c.selection, [A], "and round again");
+});

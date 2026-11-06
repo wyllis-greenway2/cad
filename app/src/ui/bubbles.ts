@@ -127,13 +127,26 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
       const lines = avoid.segs.map(([p, q]) => [project(p), project(q)] as [[number, number], [number, number]]);
       const dots = avoid.pts.map((p) => project(p));
       const taken: [number, number, number, number][] = [];
+      const boxes = lines.map(([a, c]) => [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[0], c[0]), Math.max(a[1], c[1])] as [number, number, number, number]);
+      /** Does the segment a-c pass through the rectangle (Liang-Barsky clipping)? */
+      const crosses = (a: [number, number], c: [number, number], r: [number, number, number, number]): boolean => {
+        let [t0, t1] = [0, 1];
+        const [dx, dy] = [c[0] - a[0], c[1] - a[1]];
+        for (const [p, q] of [[-dx, a[0] - r[0]], [dx, r[2] - a[0]], [-dy, a[1] - r[1]], [dy, r[3] - a[1]]] as const) {
+          if (p === 0) { if (q < 0) return false; continue; }
+          const t = q / p;
+          if (p < 0) { if (t > t1) return false; if (t > t0) t0 = t; } else { if (t < t0) return false; if (t < t1) t1 = t; }
+        }
+        return true;
+      };
       const hits = (r: [number, number, number, number]) => {
         let n = 0;
         for (const [x, y] of dots) if (x > r[0] - 4 && x < r[2] + 4 && y > r[1] - 4 && y < r[3] + 4) n += 2;
-        for (const [a, c] of lines) {
-          const len = Math.hypot(c[0] - a[0], c[1] - a[1]);
-          const steps = Math.max(1, Math.ceil(len / 6));
-          for (let k = 0; k <= steps; k++) { const x = a[0] + ((c[0] - a[0]) * k) / steps; const y = a[1] + ((c[1] - a[1]) * k) / steps; if (x > r[0] - 3 && x < r[2] + 3 && y > r[1] - 3 && y < r[3] + 3) { n++; break; } }
+        const big: [number, number, number, number] = [r[0] - 3, r[1] - 3, r[2] + 3, r[3] + 3];
+        for (let k = 0; k < lines.length; k++) {
+          const bx = boxes[k]!;
+          if (bx[2] < big[0] || bx[0] > big[2] || bx[3] < big[1] || bx[1] > big[3]) continue; // (nowhere near)
+          if (crosses(lines[k]![0], lines[k]![1], big)) n++;
         }
         for (const t of taken) if (r[0] < t[2] + 3 && r[2] > t[0] - 3 && r[1] < t[3] + 3 && r[3] > t[1] - 3) n += 3;
         return n;

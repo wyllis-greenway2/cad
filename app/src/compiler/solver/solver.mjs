@@ -16,6 +16,7 @@
 
 const TOL = 1e-9; // converged when every residual is below this
 const FD = 1e-6; // finite-difference step
+const CONFLICT_SEARCH_MS = 400; // how long to spend looking for which constraint breaks the others
 
 function layout(system) {
   const index = new Map();
@@ -249,6 +250,60 @@ function analyse(cons, x, index, nvars) {
  * Never throws for bad geometry: a conflict is a result.
  */
 export function solve(system, constraints, opts = {}) {
+  const parts = split(system, constraints);
+  if (parts) return joinResults(parts.map(([sys, cons]) => solveOne(sys, cons)), system);
+  return solveOne(system, constraints);
+}
+
+/**
+ * Independent groups: constraints that share no point or number with each other are solved apart, so a drawing of many separate shapes costs the sum of the shapes, not the cube of the whole
+ * (the solver is dense). Returns the groups as [system, constraints], or null if everything is one group.
+ */
+function split(system, constraints) {
+  const scalars = system.scalars ?? {};
+  const owner = new Map(); // variable key -> group id (union-find)
+  const parent = [];
+  const find = (a) => { while (parent[a] !== a) (parent[a] = parent[parent[a]], (a = parent[a])); return a; };
+  const keysOf = (c) => Object.entries(c).filter(([k, v]) => k !== "id" && k !== "type" && typeof v === "string" && (v in system.points || v in scalars)).map(([, v]) => (v in system.points ? `p:${v}` : `s:${v}`));
+  const withKeys = constraints.map((c) => [c, keysOf(c)]);
+  for (const [, keys] of withKeys) {
+    let g = -1;
+    for (const k of keys) {
+      if (!owner.has(k)) { parent.push(parent.length); owner.set(k, parent.length - 1); }
+      const r = find(owner.get(k));
+      if (g < 0) g = r; else if (r !== g) parent[r] = g;
+    }
+  }
+  const groups = new Map();
+  for (const [c, keys] of withKeys) {
+    const g = keys.length ? find(owner.get(keys[0])) : -1;
+    if (!groups.has(g)) groups.set(g, { cons: [], points: {}, scalars: {} });
+    const grp = groups.get(g);
+    grp.cons.push(c);
+    for (const k of keys) { if (k.startsWith("p:")) grp.points[k.slice(2)] = system.points[k.slice(2)]; else grp.scalars[k.slice(2)] = scalars[k.slice(2)]; }
+  }
+  if (groups.size < 2) return null;
+  return [...groups.values()].map((g) => [{ ...system, points: g.points, scalars: g.scalars }, g.cons]);
+}
+
+function joinResults(results, system) {
+  const total = 2 * Object.keys(system.points).length + Object.keys(system.scalars ?? {}).length;
+  const grouped = results.reduce((a, r) => a + 2 * Object.keys(r.points).length + Object.keys(r.scalars).length, 0);
+  const out = { status: "ok", points: { ...system.points }, scalars: { ...(system.scalars ?? {}) }, dof: total - grouped, redundant: [], conflicts: [], residual: 0, iterations: 0 }; // (what no constraint touches is free)
+  for (const r of results) {
+    Object.assign(out.points, r.points);
+    Object.assign(out.scalars, r.scalars);
+    if (r.status !== "ok") out.status = r.status;
+    out.dof = out.dof === null || r.dof === null ? null : out.dof + r.dof;
+    out.redundant.push(...r.redundant);
+    out.conflicts.push(...r.conflicts);
+    out.residual = Math.max(out.residual, r.residual);
+    out.iterations = Math.max(out.iterations, r.iterations);
+  }
+  return out;
+}
+
+function solveOne(system, constraints) {
   const { index, x: x0, n } = layout(system);
   const toResult = (x) => {
     const points = {};
@@ -275,7 +330,9 @@ export function solve(system, constraints, opts = {}) {
     // conflict: find which single constraint, once left out, lets the rest be satisfied
     const conflicts = [];
     if (hard.length <= 80) {
+      const started = Date.now();
       for (const c of hard) {
+        if (Date.now() - started > CONFLICT_SEARCH_MS) break; // (a big conflicting sketch: name what was found in the time, not freeze the page while trying every one)
         const r = lm(hard.filter((k) => k !== c), x0, index, 80);
         if (maxAbs(residuals(hard.filter((k) => k !== c), r.x, index)) <= 1e-6) conflicts.push(c.id);
       }
