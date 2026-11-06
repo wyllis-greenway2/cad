@@ -39,6 +39,13 @@ test("mouse: dragging on empty space orbits; right-drag orbits; Alt + left-drag 
   }
 });
 
+test("mouse: a right-drag only turns the view (it is marked, so it never drags a handle or a corner); a left drag is not", () => {
+  const right = run(createRecognizer(), [ev("down", 100, 100, { button: 2 }), ev("move", 120, 100, { button: 2 })]);
+  assert.equal((right[0] as { view?: boolean }).view, true);
+  const left = run(createRecognizer(), [ev("down", 100, 100), ev("move", 120, 100)]);
+  assert.equal((left[0] as { view?: boolean }).view, undefined);
+});
+
 test("mouse: a press whose release never came ends that drag when the next press begins, and a cancel ends a drag", () => {
   const r = createRecognizer();
   const out = run(r, [ev("down", 100, 100, { button: 2 }), ev("move", 120, 100, { button: 2 }), ev("down", 50, 50)]);

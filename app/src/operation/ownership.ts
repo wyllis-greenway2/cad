@@ -60,7 +60,6 @@ export const broken = (map: OwnershipMap): OwnedItem[] => [...map.items.values()
 export function consumed(s: Scene): Set<Ref> {
   const out = new Set<Ref>();
   for (const st of s.steps) {
-    if (st.type === "delete") out.clear(); // the body they built is gone: the figures show again
     if (st.type !== "extrude") continue;
     for (const r of st.parts) {
       out.add(r);

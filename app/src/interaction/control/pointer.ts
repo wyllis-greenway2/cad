@@ -71,6 +71,12 @@ function menuFor(session: Session, x: number, y: number, repeating = false): App
   return { x, y, items };
 }
 
+/** The ring while a sketching mode is on (`in_146`): the tools of that level, and a ✕ that leaves the mode. */
+function modeMenu(x: number, y: number): AppState["menu"] {
+  const items: MenuItem[] = CATEGORIES[0]!.items.map((i) => ({ ...LEAVES.find((l) => l.id === i)!, enabled: true, why: null }));
+  return { x, y, items: [...items, { id: "exit", label: "Leave sketching", icon: "cross", enabled: true, why: null }] };
+}
+
 /** The first of these parts that has a plane (a surface a figure can be drawn on). */
 function drawingPlane(sc: Scene, refs: readonly Ref[]): Ref | null {
   const get = lookup(sc);
@@ -167,5 +173,5 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
 
 /** A right click opens the ring of operations on what is selected and changes nothing about the selection (`in_140`): select first (one click, a triple click, Shift for several), then right click. */
 export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>): AppState {
-  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat) };
+  return { ...s, menu: s.tool ? modeMenu(i.x, i.y) : menuFor(s.session, i.x, i.y, !!s.repeat) };
 }

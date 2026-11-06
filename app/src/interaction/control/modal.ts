@@ -34,7 +34,7 @@ export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppSt
   const next = run(s.session, fin.command);
   if (next.message) return { ...s, session: next };
   const sel = fin.select.filter((r) => r in sceneOf(next).parts);
-  return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: null, spread: null };
+  return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: s.tool ? armTool(s.tool.kind) : null, spread: null }; // the mode goes on: the next click starts the next figure
 }
 export function commitOp(s: AppState): AppState {
   if (!s.op) return s;
@@ -99,13 +99,15 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
   if (s.focus && !s.tool && !s.op) return { ...s, focus: null };
+  if (s.tool?.points.length) return { ...s, tool: armTool(s.tool.kind) }; // the figure being drawn is dropped, the mode stays
   if (s.tool || s.op) return { ...s, tool: null, op: null, drag: null, gizmoHover: null };
   return withSession(s, clearSelection(s.session));
 }
 
 export function doRunAction(s: AppState, id: string): AppState {
   const closed = { ...s, menu: null };
-  if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind);
+  if (id === "exit") return { ...closed, tool: null };
+  if (id.startsWith("tool:")) return { ...closed, tool: armTool(id.slice(5) as ToolKind), op: null }; // (from the menu: choosing the mode you are in keeps it)
   if (id === "op:linear" || id === "op:circular" || id === "op:copy") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular" | "copy");
   if (id.startsWith("op:")) return beginOp(closed, id.slice(3) as OpKind);
   const a = actionsFor(sceneOf(s.session), selectionOf(s.session)).find((x) => x.id === id);

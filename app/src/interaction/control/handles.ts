@@ -48,6 +48,7 @@ export function doGizmoHover(s: AppState, x: number, y: number, env: Env): AppSt
 /** The pointer moves while the button is down: it works a handle if the drag began on one, else it turns the camera. */
 export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): AppState {
   const pr = projector(s.cam, env.w, env.h);
+  if (i.view && !s.drag) return doOrbit({ ...s, drag: { camera: true } }, i); // the right button only turns the view
   if (!s.drag) {
     const g = gizmoOf(s);
     if (!g) return orbitOrCorner(s, i, env);

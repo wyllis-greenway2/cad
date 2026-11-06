@@ -29,7 +29,7 @@ export function createMouse(countClick: ClickCounter, spaceHeld: () => boolean, 
       const [dx, dy] = [e.x - g.x, e.y - g.y];
       g.x = e.x;
       g.y = e.y;
-      return [g.action === "pan" ? { type: "pan", dx, dy } : { type: "orbit", dx, dy, x: e.x, y: e.y }];
+      return [g.action === "pan" ? { type: "pan", dx, dy } : { type: "orbit", dx, dy, x: e.x, y: e.y, ...(g.button === 2 ? { view: true } : {}) }];
     }
     const cur = g;
     g = null;

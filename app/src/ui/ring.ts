@@ -30,10 +30,10 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
     b.title = it.enabled || !it.why ? it.label : `${it.label}: ${it.why}`;
     const live = it.enabled;
     const start = from ?? at;
-    b.style.cssText = `position:absolute;left:${start.left}px;top:${start.top}px;width:${SIZE}px;height:${SIZE}px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#fff;border:1px solid ${it.id === "back" ? "#c0392b" : "#d6d7db"};color:${it.id === "back" ? "#c0392b" : "inherit"};box-shadow:0 1px 6px rgba(0,0,0,.14);cursor:${live ? "pointer" : "default"};opacity:${from ? 0 : live ? 1 : 0.38};transform:scale(${from ? 0.4 : 1})`;
+    b.style.cssText = `position:absolute;left:${start.left}px;top:${start.top}px;width:${SIZE}px;height:${SIZE}px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#fff;border:1px solid ${(it.id === "back" || it.id === "exit") ? "#c0392b" : "#d6d7db"};color:${(it.id === "back" || it.id === "exit") ? "#c0392b" : "inherit"};box-shadow:0 1px 6px rgba(0,0,0,.14);cursor:${live ? "pointer" : "default"};opacity:${from ? 0 : live ? 1 : 0.38};transform:scale(${from ? 0.4 : 1})`;
     if (live) {
       b.addEventListener("pointerenter", () => { if (it.id !== "back") b.style.borderColor = "#1ab8b3"; });
-      b.addEventListener("pointerleave", () => { b.style.borderColor = it.id === "back" ? "#c0392b" : "#d6d7db"; });
+      b.addEventListener("pointerleave", () => { b.style.borderColor = (it.id === "back" || it.id === "exit") ? "#c0392b" : "#d6d7db"; });
       b.addEventListener("pointerup", (e) => { e.stopPropagation(); go(); });
     }
     root.appendChild(b);
@@ -55,7 +55,7 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
     shown = slots.map((it, k) => {
       const a = start + (k / slots.length) * Math.PI * 2;
       const go = () => {
-        if (it.id === "back") { const at = pos(start); path.length = depth; draw(depth - 1, at); return; }
+        if ((it.id === "back" || it.id === "exit")) { const at = pos(start); path.length = depth; draw(depth - 1, at); return; }
         if (it.children) {
           const idx = slots.indexOf(it);
           path.length = depth + 1;

@@ -37,7 +37,7 @@ test("rectangle: arm, click a surface, click again: one rectangle kept level, se
   assert.equal(previewFor(scene(st.session), st.tool)!.segments.length, 4);
   assert.deepEqual(entryOf(scene(st.session), st.tool, null)!.fields.map((f) => f.value), ["20", "10"]);
   st = click(st, [25, 15, 0]);
-  assert.equal(st.tool, null);
+  assert.ok(st.tool && !st.tool.plane && !st.tool.points.length, "the mode goes on, ready for the next figure");
   assert.deepEqual(corners(st).map((c) => c.map((v) => Math.round(v * 100) / 100)).sort(), [[5, 5, 0], [5, 15, 0], [25, 5, 0], [25, 15, 0]].sort());
   assert.equal(scene(st.session).relations.length, 4);
   assert.match(selection(st.session)[0]!, /^d\/loop@/);
@@ -70,7 +70,7 @@ test("typed sizes: width, Tab, height, Enter makes exactly that rectangle, on th
   st = typeText(st, "2.5");
   assert.deepEqual(entryOf(scene(st.session), st.tool, null)!.fields.map((f) => [f.value, f.active]), [["40", false], ["2.5", true]]);
   st = key(st, "Enter");
-  assert.equal(st.tool, null);
+  assert.ok(st.tool && !st.tool.plane && !st.tool.points.length, "the mode goes on, ready for the next figure");
   const xs = corners(st).map((c) => c[0]);
   const ys = corners(st).map((c) => c[1]);
   near(Math.min(...xs), -30);
@@ -87,39 +87,35 @@ test("circle: centre then radius by click; or a typed diameter with Enter", () =
   const circles = Object.values(scene(st.session).parts).filter((p) => p.kind === "circle") as { radius: number }[];
   near(circles[0]!.radius, 6);
   assert.match(selection(st.session)[0]!, /^d\/disk@/);
-  st = reduce(st, { type: "begin", name: "circle" }, env);
-  st = click(st, [20, 20, 0]);
+  st = click(st, [20, 20, 0]); // (the mode goes on)
   st = typeText(st, "9");
   st = key(st, "Enter");
   const radii = (Object.values(scene(st.session).parts).filter((p) => p.kind === "circle") as { radius: number }[]).map((c) => c.radius).sort();
   near(radii[0]!, 4.5);
 });
 
-test("line: two clicks make one segment and the tool is put away; an open line is fine; lines that meet at corners make a shape", () => {
+test("line: two clicks make one segment and the mode goes on; an open line is fine; lines that meet at corners make a shape", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "line" }, env);
   st = click(st, [5, 5, 0]);
   assert.ok(st.tool, "waiting for the end");
   st = click(st, [25, 5, 0]);
-  assert.equal(st.tool, null, "the line is made and the tool is gone: it does not go on adding lines");
+  assert.ok(st.tool && !st.tool.plane && !st.tool.points.length, "the mode goes on, ready for the next figure");
   assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn").length, 1);
   assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length, 0, "an open sketch is just a line");
   // two more lines, each starting at a corner that is already there: a triangle, which is a shape
-  st = reduce(st, { type: "begin", name: "line" }, env);
   st = click(st, [25, 5, 0]);
   st = click(st, [25, 15, 0]);
-  st = reduce(st, { type: "begin", name: "line" }, env);
   st = click(st, [25, 15, 0]);
   st = click(st, [5, 5, 0]);
   assert.equal(corners(st).length, 3, "the lines share their corners");
   assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length, 1, "the closed loop is a face");
   // a typed length
-  st = reduce(st, { type: "begin", name: "line" }, env);
   st = click(st, [12, 2, 0]);
   st = move(st, [18, 2, 0]);
   st = typeText(st, "4");
   st = key(st, "Enter");
-  assert.equal(st.tool, null);
+  assert.ok(st.tool && !st.tool.plane && !st.tool.points.length, "the mode goes on, ready for the next figure");
   near(Math.max(...corners(st).filter((c) => c[1] < 4 && c[0] > 10).map((c) => c[0])), 16);
 });
 
@@ -133,7 +129,7 @@ test("curve: two clicks for the ends, a third for how far it bows out; it is an 
   assert.ok(previewFor(scene(st.session), st.tool)!.segments.length > 10, "the arc is previewed");
   assert.equal(entryOf(scene(st.session), st.tool, null)!.fields[0]!.value, "7", "the height of the bow");
   st = click(st, [15, 12, 0]);
-  assert.equal(st.tool, null);
+  assert.ok(st.tool && !st.tool.plane && !st.tool.points.length, "the mode goes on, ready for the next figure");
   const arc = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "drawn") as { center: string; ccw: boolean };
   assert.ok(arc.center, "an arc has a centre point of its own");
   const c = (scene(st.session).parts[arc.center as never] as { at: Vec3 }).at;
@@ -384,4 +380,22 @@ test("a triple click on a sketch drawn on a face of a block turns to it, like a 
   assert.ok(fig);
   st = click({ ...st, tool: null }, [12, 9.5, 20], 3); // (away from the arrow that shows by itself at the middle)
   assert.ok(st.anim, "the view is turning to the plane");
+});
+
+test("a sketching mode stays on: the ring in it offers the tools and a way out; Escape drops the figure being drawn, then leaves the mode", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [5, 5, 0]);
+  st = click(st, [25, 5, 0]);
+  st = click(st, [25, 15, 0]);
+  assert.equal(st.tool!.points.length, 1, "the next line has started");
+  const ids = reduce(st, { type: "menu", x: 400, y: 300 }, env).menu!.items.map((i) => i.id);
+  assert.deepEqual(ids, ["tool:rect", "tool:circle", "tool:line", "tool:arc", "exit"]);
+  st = reduce(st, { type: "escape" }, env);
+  assert.ok(st.tool && !st.tool.points.length, "the figure being drawn is dropped, the mode stays");
+  assert.equal(frameOf(st, { w: 800, h: 600 }).mode, "line");
+  st = reduce(st, { type: "runAction", id: "tool:circle" }, env);
+  assert.equal(st.tool!.kind, "circle");
+  st = reduce(st, { type: "runAction", id: "exit" }, env);
+  assert.equal(st.tool, null);
 });
