@@ -15,6 +15,13 @@ const fmt = (v: number) => String(Math.round(v * 100) / 100);
 
 /** The number chip: for a tool, its fields (what is typed, else the live size); for an operation, its one number. Null when there is nothing to show yet. */
 export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry | null {
+  if (op && (op.kind === "linear" || op.kind === "circular") && op.patStart) {
+    // a repeat has all its numbers in the bubble at once: how many and how far apart along each axis, or how many, over how many degrees, about which axis and which point
+    const names = op.kind === "linear"
+      ? [["nX", "Copies along X"], ["dX", "Distance between along X"], ["nY", "Copies along Y"], ["dY", "Distance between along Y"], ["nZ", "Copies along Z"], ["dZ", "Distance between along Z"]]
+      : [["n", "Number of copies"], ["°", "Degrees to spread them over (360: all the way round)"], ["axis", "Turn about: 0 X, 1 Y, 2 Z"], ["x", "The point they turn about: X"], ["y", "The point they turn about: Y"], ["z", "The point they turn about: Z"]];
+    return { fields: names.map(([short, label], i) => ({ label: label!, short: short!, value: op.pat[i] !== "" ? op.pat[i]! : fmt(op.patStart![i]!), active: op.axis === i, typed: op.pat[i] !== "" })), unit: "" };
+  }
   if (op && op.kind === "rotate" && (op.target === "body" || op.target === "plane")) {
     // three angles, how the body is turned about X, Y and Z (what is typed in one of them is how it is to be turned about that axis)
     const now = turnAngles(scene, op);

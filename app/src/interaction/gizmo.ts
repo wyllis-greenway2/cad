@@ -25,7 +25,7 @@ export interface Handle {
 }
 export interface Gizmo { handles: Handle[]; centre: Vec3 }
 
-export const hasGizmo = (kind: Op["kind"]): boolean => kind !== "dimension";
+export const hasGizmo = (kind: Op["kind"]): boolean => kind !== "dimension" && kind !== "linear" && kind !== "circular";
 const AXES: Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 const RING = 48;
 /** One size for every arrow: a double arrow reaches this far each way from its middle (times the gizmo length), a single arrow is the same overall length. */

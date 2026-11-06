@@ -34,6 +34,8 @@ const RING: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolK
   { id: "op:move", label: "Move", icon: "move", op: "move" },
   { id: "op:rotate", label: "Rotate", icon: "rotate", op: "rotate" },
   { id: "op:scale", label: "Scale", icon: "scale", op: "scale" },
+  { id: "op:linear", label: "Linear repeat", icon: "linear", op: "linear" },
+  { id: "op:circular", label: "Circular repeat", icon: "circular", op: "circular" },
   { id: "delete", label: "Delete", icon: "trash" },
 ];
 function menuFor(session: Session, x: number, y: number): AppState["menu"] {

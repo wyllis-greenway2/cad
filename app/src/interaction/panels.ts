@@ -17,6 +17,7 @@ function stepLabel(st: Step): string {
     case "rotate": return `Rotate ${"XYZ"[Number(p.axis ?? 0)]} ${n(p.value)}°`;
     case "move": return `Move ${"XYZ"[Number(p.axis ?? 0)]} ${n(p.value)} mm`;
     case "scale": return `Scale ×${n(p.value)}`;
+    case "pattern": return p.mode === "circular" ? `Circular repeat ${n(p.count)}` : `Linear repeat ${n(p.nx)} × ${n(p.ny)} × ${n(p.nz)}`;
     default: return st.type;
   }
 }

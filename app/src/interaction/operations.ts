@@ -18,7 +18,7 @@ import { drawnRef } from "../shared/ref.ts";
 import { objectOf, bodyCentre } from "./objects.ts";
 import { settings } from "../shared/settings.ts";
 
-export type OpKind = "extrude" | "pushpull" | "edge" | "move" | "rotate" | "scale" | "dimension";
+export type OpKind = "extrude" | "pushpull" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular";
 export interface Op {
   kind: OpKind;
   /** the parts it works on: the lines or circle of a figure, a face of the body, the lines of the body, the body, or the corners of a drawn figure */
@@ -40,6 +40,9 @@ export interface Op {
   faces?: { normal: Vec3; origin: Vec3 }[];
   /** fillet / chamfer: where each edge's arrow stands (the edges themselves are gone once the step is made) */
   edges?: { mid: Vec3; dir: Vec3 }[];
+  /** linear and circular repeat: what each field starts as, and what has been typed in it (empty = as it starts); `axis` is the field typing goes to */
+  pat: string[];
+  patStart?: number[];
   /** rotate the body: the three angles typed so far (X, Y, Z) as the body is to be turned (empty = as it is now) */
   rot: [string, string, string];
   /** push / pull of a round face: the face (the radius changes by the distance) */
@@ -56,8 +59,8 @@ export interface Op {
   unit?: string;
 }
 
-export const OP_UNIT: Record<OpKind, string> = { extrude: "mm", pushpull: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm" };
-export const OP_FIELD: Record<OpKind, string> = { extrude: "Distance", pushpull: "Distance", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", dimension: "Value" };
+export const OP_UNIT: Record<OpKind, string> = { extrude: "mm", pushpull: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm", linear: "mm", circular: "mm" };
+export const OP_FIELD: Record<OpKind, string> = { extrude: "Distance", pushpull: "Distance", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", linear: "Repeat", circular: "Repeat", dimension: "Value" };
 
 export type StartResult = { ok: true; op: Op } | { ok: false; why: string };
 
@@ -75,7 +78,7 @@ function drawnFace(scene: Scene, parts: Part[]): Extract<Part, { kind: "face" }>
 export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): StartResult {
   const get = lookup(scene);
   const parts = selection.map((r) => get(r)).filter((p): p is Part => !!p);
-  const base: Omit<Op, "parts"> = { kind, typed: "", value: null, axis: kind === "rotate" ? 2 : 0, origin: null, normal: null, pivot: null, target: "body", plane: null, auto: false, made: false, rot: ["", "", ""] };
+  const base: Omit<Op, "parts"> = { kind, typed: "", value: null, axis: kind === "rotate" ? 2 : 0, origin: null, normal: null, pivot: null, target: "body", plane: null, auto: false, made: false, rot: ["", "", ""], pat: [] };
   if (kind === "extrude") {
     const face = drawnFace(scene, parts);
     if (!face) return { ok: false, why: "select a closed figure first" };
@@ -130,6 +133,17 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
       return pa?.kind === "corner" && pb?.kind === "corner" ? [{ mid: add(pa.at, scale(sub(pb.at, pa.at), 0.25)), dir: edgeDirection(scene, pa.at, pb.at) }] : [];
     });
     return { ok: true, op: { ...base, parts: lines.map((p) => p.ref), edges } }; // no size yet: drag the double arrow, or type one
+  }
+  if (kind === "linear" || kind === "circular") {
+    // the body is repeated (a line, a grid or a block of copies; or copies turned about a point): the numbers start as a sensible first try and the result shows at once
+    const corners = Object.values(scene.parts).filter((p) => p.kind === "corner" && p.origin === "body").map((p) => (p as { at: Vec3 }).at);
+    if (!corners.length) return { ok: false, why: "select the body first" };
+    const lo = [0, 1, 2].map((i) => Math.min(...corners.map((c) => c[i]!)));
+    const hi = [0, 1, 2].map((i) => Math.max(...corners.map((c) => c[i]!)));
+    const ext = hi.map((h, i) => Math.round((h - lo[i]!) * 1e3) / 1e3);
+    const mid = hi.map((h, i) => (h + lo[i]!) / 2);
+    const start = kind === "linear" ? [3, ext[0]! * 1.5, 1, ext[1]! * 1.5, 1, ext[2]! * 1.5] : [4, 360, 2, Math.round((mid[0]! + ext[0]! * 1.5) * 1e3) / 1e3, Math.round(mid[1]! * 1e3) / 1e3, Math.round(mid[2]! * 1e3) / 1e3];
+    return { ok: true, op: { ...base, parts: [BODY_OBJECT], patStart: start, pat: start.map(() => "") } };
   }
   if (kind === "dimension") {
     // measure, then lock: the chip shows the current value of the pair; typing a number locks it (`dec_relations_standard`)
@@ -246,7 +260,24 @@ function figureCommand(scene: Scene, op: Op, turns: { axis: 0 | 1 | 2; angle: nu
 }
 const rotTarget = (scene: Scene, op: Op): Angles => { const cur = turnAngles(scene, op); return cur.map((c, i) => (num(op.rot[i]!) ?? c)) as Angles; };
 
+/** The numbers of a repeat: each field as typed, else as it started. */
+const patternValues = (op: Op): number[] => (op.patStart ?? []).map((v, i) => num(op.pat[i] ?? "") ?? v);
+
 export function opCommand(scene: Scene, op: Op): Command | null {
+  if (op.kind === "linear" || op.kind === "circular") {
+    const v = patternValues(op);
+    if (v.length < 6) return null;
+    const id = nextId(scene, "s");
+    const nx = Math.max(1, Math.round(v[0]!));
+    const ny = Math.max(1, Math.round(v[2]!));
+    const nz = Math.max(1, Math.round(v[4]!));
+    if (op.kind === "linear" && nx * ny * nz <= 1) return null; // one copy is no repeat
+    if (op.kind === "circular" && nx <= 1) return null;
+    const params: Record<string, number | string> = op.kind === "linear"
+      ? { mode: "linear", nx, dx: v[1]!, ny, dy: v[3]!, nz, dz: v[5]! }
+      : { mode: "circular", count: nx, angle: v[1]!, axis: Math.min(2, Math.max(0, Math.round(v[2]!))), px: v[3]!, py: v[4]!, pz: v[5]! };
+    return { type: "addStep", step: { id, type: "pattern", parts: op.parts, params } };
+  }
   if (op.kind === "rotate" && op.target === "plane" && op.rot.some((t) => num(t) !== null)) {
     // angles typed for a figure: it is turned to exactly those, about its pivot
     const steps = stepsBetween(planeTurn(scene, op), rotTarget(scene, { ...op, value: null, typed: "" }));

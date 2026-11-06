@@ -712,3 +712,47 @@ test("looking straight at a plane (orthographic) the push / pull arrow and its b
   st = { ...st, cam: { ...st.cam, straight: false } };
   assert.ok(frame(st).gizmo);
 });
+
+test("linear repeat: the body is copied along X, Y and Z (a line, a grid, a block); the result shows at once and the numbers are in the bubble", () => {
+  let st = select(box(), [BODY_OBJECT]); // 40 x 20 x 20
+  st = reduce(st, { type: "runAction", id: "op:linear" }, env);
+  assert.equal(st.op!.kind, "linear");
+  assert.deepEqual(frame(st).entry!.fields.map((f) => f.short), ["nX", "dX", "nY", "dY", "nZ", "dZ"]);
+  assert.deepEqual(frame(st).entry!.fields.map((f) => f.value), ["3", "60", "1", "30", "1", "30"], "a first try: three along X, spaced one and a half sizes");
+  near(frame(st).mesh!.vertices.reduce((m, v, i) => (i % 3 === 0 ? Math.max(m, v) : m), -1e9), 40 + 2 * 60, 0.01); // the preview is the real result
+  // a grid of 2 x 2 with a gap of 50: four blocks
+  const set = (i: number, text: string) => { st = reduce(st, { type: "entry", field: i, text }, env); };
+  set(0, "2"); set(1, "50"); set(2, "2"); set(3, "50");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  assert.deepEqual(st.session.outcome.errors, {});
+  near(st.session.outcome.kernel!.volume!, 4 * 16000, 1);
+  assert.equal(scene(st.session).steps.at(-1)!.type, "pattern");
+  // undo is one step
+  st = { ...st, session: undoLast(st.session) };
+  near(st.session.outcome.kernel!.volume!, 16000, 1);
+});
+
+test("circular repeat: copies turned about a point; N copies over 360 degrees share the turn evenly", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  st = reduce(st, { type: "runAction", id: "op:circular" }, env);
+  assert.deepEqual(frame(st).entry!.fields.map((f) => f.short), ["n", "°", "axis", "x", "y", "z"]);
+  const set = (i: number, text: string) => { st = reduce(st, { type: "entry", field: i, text }, env); };
+  set(0, "4"); set(3, "100"); set(4, "0"); set(5, "10"); // about the Z axis through (100, 0): far enough that the copies do not touch the box or each other
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.deepEqual(st.session.outcome.errors, {});
+  near(st.session.outcome.kernel!.volume!, 4 * 16000, 5);
+  const b = bbox(st);
+  assert.ok(b.max[0]! > 150 && b.min[1]! < -60 && b.max[1]! > 60, "the copies are spread round the point");
+});
+
+test("a repeat needs the body, and clicking away in the picture applies what is shown", () => {
+  const st = reduce(createState(createSession(kernel)), { type: "runAction", id: "op:linear" }, env);
+  assert.equal(st.op, null);
+  assert.match(st.session.message ?? "", /body/);
+  let b = select(box(), [BODY_OBJECT]);
+  b = reduce(b, { type: "runAction", id: "op:linear" }, env);
+  b = reduce(b, { type: "click", x: 20, y: 20, count: 1, shift: false }, env);
+  assert.equal(b.op, null);
+  near(b.session.outcome.kernel!.volume!, 3 * 16000, 1);
+});

@@ -129,7 +129,7 @@ export function arcPoints(a: Vec3, m: Vec3, b: Vec3, steps = 40): Vec3[] {
   return out;
 }
 /** The point halfway along a curved line (a body's curved edge, or a drawn arc), or null for a straight one. */
-export function curveMid(get: Lookup, part: Line): Vec3 | null {
+function curveMid(get: Lookup, part: Line): Vec3 | null {
   if (part.mid) return part.mid;
   if (!part.bulge) return null;
   const s = segmentOf(get, part.ref);

@@ -89,6 +89,15 @@ export function buildGraph(scene: Scene): GraphResult {
         prev = xid;
         break;
       }
+      case "pattern": {
+        if (!prev) { errors[st.id] = "there is no body yet"; break; }
+        const p = st.params;
+        ops.push(p.mode === "circular"
+          ? { id: xid, type: "pattern", target: prev, mode: "circular", count: Number(p.count), angle: Number(p.angle), axis: Number(p.axis), pivot: [Number(p.px), Number(p.py), Number(p.pz)] }
+          : { id: xid, type: "pattern", target: prev, mode: "linear", nx: Number(p.nx), ny: Number(p.ny), nz: Number(p.nz), dx: Number(p.dx), dy: Number(p.dy), dz: Number(p.dz) });
+        prev = xid;
+        break;
+      }
       case "move": case "rotate": case "scale": {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const pivot = st.params.px !== undefined ? [Number(st.params.px), Number(st.params.py), Number(st.params.pz)] : undefined; // rotate about this point (default: the middle of the body)
