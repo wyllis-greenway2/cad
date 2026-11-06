@@ -847,3 +847,6 @@ Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a 
 
 ## in_151 — 2026-11-06 — directive
 > Okay it doesn't seem to work. When I select line, then draw line start and stop, then immediately click on the verticy to draw the next line, it appears to have already dropped the mode. Also it can be kind of annoying when the bubbles are right on the line because they can cover things I am trying to work on. Also I am having a problem where I can't zoom in to much because the last few clicks of the scroll wheel go right through the surface before it fills the screen with a large zoomed up version. Also it is kinda hard to see when a line clicks into vertical or horizontal or online with the next line its close to. Can we make helpful constraint clicks for things that become close? If so what ones do you think we should offer? parallel, tangent, perpendicular horizontal virtical etc?
+
+## in_152 — 2026-11-06 — directive
+> okay lets do the constraint hints

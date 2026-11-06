@@ -52,6 +52,8 @@ export interface Frame {
   /** the world axis the selected plane or face lies across and which end of it the camera must be at to see it (so that X Y Z button is lit, as + or −), and whether the eye button (look straight at it) is available: not while already looking straight at it */
   lookHint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null;
   eye: boolean;
+  /** the constraints the end of the line being drawn is close to, and where it is */
+  hint: { kinds: string[]; at: Vec3 } | null;
   /** the open list (bodies, history) */
   panel: Panel | null;
   /** the constraints of the selected parts, each with the spot it is shown at (on the line, at the vertex, between the lines, at the angle) */
@@ -101,12 +103,13 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     scene: sc,
     mesh: outcome.kernel?.mesh ?? null,
     highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel,
-    amber: focusParts(sc, sel, s.focus), red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
+    amber: [...focusParts(sc, sel, s.focus), ...(s.tool?.hints ?? []).flatMap((h) => h.ref ? [h.ref] : [])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
     preview: previewFor(sc, s.tool),
     entry: entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
     entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam) : [],
     bar: !!s.repeat,
     ...lookOf(sc, sel, s.cam),
+    hint: s.tool?.hints?.length && s.tool.cursor ? { kinds: s.tool.hints.map((h) => h.kind), at: s.tool.cursor } : null,
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors),
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash)],
     flash,

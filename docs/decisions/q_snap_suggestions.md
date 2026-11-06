@@ -3,7 +3,7 @@ id: q_snap_suggestions
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_151
+human_input: in_152
 date: 2026-11-06
 depends_on:
 alternative_to:
@@ -19,7 +19,7 @@ While a line is being drawn, show a small hint (and a click to accept) when the 
 5. **Equal length** to a nearby line, and **same height / same position across** as a nearby corner (guide lines to it).
 6. Not offered while drawing: distances, angles, radius, diameter (numbers: typed after).
 
-How they would work: a hint shows while the pointer is within a threshold (a few degrees, a few pixels); clicking while it shows adds the constraint with the click. Holding a modifier (Alt) turns hints off. This is a proposal, not yet decided.
+How they would work: a hint shows while the pointer is within a threshold (a few degrees, a few pixels); clicking while it shows adds the constraint with the click. Holding a modifier (Alt) turns hints off. This is a proposal; built as a first version (`in_152`: "okay lets do the constraint hints"), which approves the idea but not the exact list, thresholds or how a click accepts: those stay provisional until tried.
 
 ## Rationale
 

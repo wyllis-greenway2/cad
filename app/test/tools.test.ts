@@ -417,3 +417,27 @@ test("sketching goes on right after a figure: a click on a vertex starts the nex
   assert.equal(st.resume, null);
   assert.equal(st.tool, null);
 });
+
+test("hints while drawing a line: close to level it becomes level with a horizontal constraint; close to square to a line it becomes perpendicular; on another line it is put on it", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [5, 5, 0]);
+  st = click(st, [25, 5.4, 0]); // nearly level
+  let sc = scene(st.session);
+  const rels = () => scene(st.session).relations.map((r) => r.kind);
+  assert.deepEqual(rels(), ["horizontal"]);
+  const ys = Object.values(sc.parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as { at: Vec3 }).at[1]);
+  assert.deepEqual(ys, [5, 5], "both ends at the same height: it is exactly level");
+  // an upright line from its end: square to the first, so it is vertical too and perpendicular
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [25, 5, 0]);
+  st = click(st, [25.5, 20, 0]);
+  assert.ok(rels().includes("vertical") && rels().includes("perpendicular"));
+  // a line ending on the middle of the first
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [40, 30, 0]);
+  st = click(st, [14, 5.1, 0]);
+  assert.ok(rels().includes("onLine"));
+  sc = scene(st.session);
+  assert.ok(Object.values(sc.parts).some((p) => p.kind === "corner" && Math.abs(p.at[0] - 14) < 1e-6 && Math.abs(p.at[1] - 5) < 1e-6), "its end is exactly on the first line");
+});

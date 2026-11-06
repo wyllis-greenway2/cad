@@ -14,6 +14,7 @@ import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt } from "./picking.ts";
 import { settings } from "../shared/settings.ts";
 import { drawnRef } from "../shared/ref.ts";
+import type { Hint } from "./hints.ts";
 
 export type ToolKind = "rect" | "circle" | "line" | "arc";
 export interface Tool {
@@ -27,6 +28,8 @@ export interface Tool {
   /** typed sizes: rectangle width and height; circle diameter (field 0); line length (field 0) */
   typed: [string, string];
   field: 0 | 1;
+  /** the constraints the end of the line being drawn is close to (and has taken): a click makes the line with them */
+  hints?: Hint[];
 }
 /** A tool that waits for its first click on a surface. */
 export const armTool = (kind: ToolKind): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0 });

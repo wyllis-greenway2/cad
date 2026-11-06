@@ -8,6 +8,8 @@ import type { OpKind } from "../operations.ts";
 import { startOp, typeOp, opCommand, autoOp } from "../operations.ts";
 import { lookup } from "../../operation/scene.ts";
 import { planeOf } from "../objects.ts";
+import { sideOf } from "../camera.ts";
+import { normalOfPlane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
 import { activeOp } from "./handles.ts";
 import { pivotCommands, repeatApply, repeatCancel } from "../pattern.ts";
@@ -20,7 +22,7 @@ function beginTool(s: AppState, kind: ToolKind, now: number): AppState {
   // sketching on a selected face or plane: the view turns straight to it, from the side you are on (`in_149`)
   const get = lookup(sceneOf(s.session));
   const pl = selectionOf(s.session).map((r) => planeOf(get, r)).find((p) => p);
-  return pl ? animateTo(armed, planeView(s.cam, pl, false), now) : armed;
+  return pl && sideOf(s.cam, normalOfPlane(pl)) === 0 ? animateTo(armed, planeView(s.cam, pl, false), now) : armed; // (not when already looking straight at it)
 }
 function beginOp(s: AppState, kind: OpKind): AppState {
   const r = startOp(sceneOf(s.session), selectionOf(s.session), kind);

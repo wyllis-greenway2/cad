@@ -11,6 +11,7 @@ import type { Session } from "../session.ts";
 import { candidatesAt } from "../picking.ts";
 import { actionsFor } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
+import { lineHint, hintCommand } from "../hints.ts";
 import { snapOnPlane, finish, planeForDrawing, armTool } from "../tools.ts";
 import type { OpKind } from "../operations.ts";
 import { startOp } from "../operations.ts";
@@ -89,8 +90,9 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   let next: AppState = { ...withSession(s, hoverOn(s.session, c?.ref)), hoverPoint: point };
   if (s.tool?.plane) {
     const pl = sc.parts[s.tool.plane];
-    const at = pl && pl.kind === "plane" ? snapOnPlane(sc, pv, pl) : null;
-    if (at) next = { ...next, tool: { ...s.tool, cursor: at } };
+    const raw = pl && pl.kind === "plane" ? snapOnPlane(sc, pv, pl) : null;
+    const h = raw && pl && pl.kind === "plane" && s.tool.kind === "line" && s.tool.points.length ? lineHint(sc, pl, s.tool.points[0]!, pv, raw) : null; // (the end of a line takes a constraint it is close to)
+    if (raw) next = { ...next, tool: { ...s.tool, cursor: h ? h.at : raw, hints: h?.hints ?? [] } };
   }
   return doGizmoHover(next, i.x, i.y, env);
 }
@@ -111,14 +113,30 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     const session = command ? run(sess, command) : sess;
     return { ...base, session: { ...session, message: null }, tool: { ...t, plane, points: [at], cursor: at } };
   }
-  const at = snapOnPlane(sc, pv, sc.parts[t.plane!] as Plane);
+  const plane = sc.parts[t.plane!] as Plane;
+  const flat = snapOnPlane(sc, pv, plane);
+  const hint = flat && t.kind === "line" && t.points.length ? lineHint(sc, plane, t.points[0]!, pv, flat) : null;
+  const at = hint ? hint.at : flat;
   if (!at) return base;
   if (t.kind === "arc" && t.points.length < 2) {
     // an arc: the second click is its other end, the third sets how far it bows out (the pointer's distance from the chord)
     return dist(at, t.points[0]!) < 1e-6 ? base : { ...base, tool: { ...t, points: [...t.points, at], cursor: at, typed: ["", ""] } };
   }
   // a rectangle, a circle, a line: the second click finishes it and the tool is put away (a line is one segment: leave it open, or draw the next to close a shape)
-  const done = t.kind === "line" ? (dist(at, t.points[0]!) < 1e-6 ? base : commitFigure(base, finish(sc, { ...t, points: [t.points[0]!, at], cursor: at }))) : commitFigure(base, finish(sc, { ...t, cursor: at }));
+  const fin = t.kind === "line" ? (dist(at, t.points[0]!) < 1e-6 ? null : finish(sc, { ...t, points: [t.points[0]!, at], cursor: at })) : finish(sc, { ...t, cursor: at });
+  let done = t.kind === "line" && !fin ? base : commitFigure(base, fin);
+  // the line made with the constraints it was close to
+  const line = fin?.select[0];
+  if (hint?.hints.length && line && done !== base && !done.tool && !done.session.message) {
+    let session = done.session;
+    for (const h of hint.hints) {
+      const part = sceneOf(session).parts[line];
+      if (part?.kind !== "line") break;
+      session = run(session, hintCommand(sceneOf(session), line, part.b, h));
+      if (session.message) break;
+    }
+    done = { ...done, session };
+  }
   // sketching goes on while you keep clicking on vertices (`in_150`): a figure finished on an existing vertex leaves the same tool ready (a line starts its next segment from that vertex); finished anywhere else, the tool is put away
   const vertex = refs.map((r) => sc.parts[r]).find((p) => p?.kind === "corner" && p.origin === "drawn");
   if (!vertex || vertex.kind !== "corner" || done === base || done.tool || done.session.message) return done;
