@@ -996,3 +996,8 @@ Do not touch `compiler/` or `ui/` in phase 1. Keep porting honest: copy pure cod
 **Menu tree:** `MenuItem.children`; `ui/ring.ts` keeps the path, all rings the same size and centre, unfolding animation from the clicked bubble, ✕ in its slot. Constraint leaves are ids of the relation actions (`doRunAction`). Allowed during a repeat: sketching tools, Move, Rotate and constraints.
 **Icons:** new push / pull (a sheet with an arrow through it), eye, sketch, constraint, body.
 **Not done:** the menu does not remember the open category between right clicks; Constraints lists only the ones that apply (no dimmed ones with reasons); the ring animation is not checked on a phone.
+
+## Handoff 124 — 2026-11-06 (stuck after dragging an arrow with the right button)
+**State:** `in_144`. 206 tests pass, checks clean. Your file is a fixture (`right-drag.cad.json`).
+**What I found:** a right-button drag of the push / pull arrow works in a real browser (the face is pulled, the arrow stays, the next click works), so I could not make it stick. What your description fits (every later pointer move acting as a drag, nothing clickable, a fresh right click clearing it) is a button release the page never saw, so the drag it began carried on. Fixes: a mouse move with no button down ends the drag (`platform/dom-input.ts`); a window losing focus cancels any press; a new press while a drag is still open ends it first (`input/mouse.ts`, with a test). 
+**Know:** this is the likely cause, not a confirmed one. If it happens again, tell me what the screen showed just before (a menu or the browser's own menu open? a trackpad two-finger press?).

@@ -39,6 +39,14 @@ test("mouse: dragging on empty space orbits; right-drag orbits; Alt + left-drag 
   }
 });
 
+test("mouse: a press whose release never came ends that drag when the next press begins, and a cancel ends a drag", () => {
+  const r = createRecognizer();
+  const out = run(r, [ev("down", 100, 100, { button: 2 }), ev("move", 120, 100, { button: 2 }), ev("down", 50, 50)]);
+  assert.deepEqual(types(out), ["orbit", "dragEnd"]);
+  const r2 = createRecognizer();
+  assert.deepEqual(types(run(r2, [ev("down", 100, 100, { button: 2 }), ev("move", 120, 100, { button: 2 }), ev("cancel", 120, 100)])), ["orbit", "dragEnd"]);
+});
+
 test("mouse: right click is the menu; middle-drag, Shift + right-drag, Alt + Shift + left-drag and Space + drag pan", () => {
   const r = createRecognizer();
   assert.deepEqual(run(r, [ev("down", 50, 60, { button: 2 }), ev("up", 50, 60, { button: 2 })]), [{ type: "menu", x: 50, y: 60 }]);

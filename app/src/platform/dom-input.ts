@@ -30,6 +30,11 @@ export function attachInput(el: HTMLElement, bus: InputBus): () => void {
 
   const pointer = (kind: "down" | "move" | "up" | "cancel") => (e: PointerEvent) => {
     const [x, y] = at(e);
+    // a mouse button released where the page could not see it (over the menu, a context menu, another window): the drag it began is over, not carried on by every later move (`in_144`)
+    if (kind === "move" && e.pointerType === "mouse" && e.buttons === 0 && down.has(e.pointerId)) {
+      down.delete(e.pointerId);
+      bus.emit("input", { kind: "cancel", id: e.pointerId, device: "mouse", x, y, button: 0, mods: modsOf(e), t: now() });
+    }
     if (kind === "down") {
       try { el.setPointerCapture(e.pointerId); } catch { /* a synthetic event has nothing to capture */ }
       down.add(e.pointerId);
@@ -43,6 +48,7 @@ export function attachInput(el: HTMLElement, bus: InputBus): () => void {
   on<PointerEvent>(el, "pointercancel", pointer("cancel"));
   on<PointerEvent>(el, "pointerleave", (e) => { if (!down.has(e.pointerId)) bus.emit("input", { kind: "leave", t: now() }); });
   on<Event>(el, "contextmenu", (e) => e.preventDefault());
+  on<Event>(window, "blur", () => { for (const id of down) bus.emit("input", { kind: "cancel", id, device: "mouse", x: 0, y: 0, button: 0, mods: { shift: false, ctrl: false, alt: false }, t: now() }); down.clear(); ticking(); });
   on<WheelEvent>(el, "wheel", (e) => {
     e.preventDefault();
     const [x, y] = at(e);

@@ -18,8 +18,9 @@ export function createMouse(countClick: ClickCounter, spaceHeld: () => boolean, 
   };
   return (e: Pointer): Intent[] => {
     if (e.kind === "down") {
+      const lost = g?.moved && g.action !== "pan" ? [{ type: "dragEnd" } as Intent] : []; // a press while one is still down: the release of the first never came
       g = { button: e.button, x0: e.x, y0: e.y, x: e.x, y: e.y, moved: false, action: actionOf(e.button, e.mods), shift: e.mods.shift };
-      return [];
+      return lost;
     }
     if (e.kind === "move") {
       if (!g) return [{ type: "hover", x: e.x, y: e.y }];
