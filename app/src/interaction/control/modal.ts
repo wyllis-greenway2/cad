@@ -23,7 +23,7 @@ function beginOp(s: AppState, kind: OpKind): AppState {
   return { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: null } };
 }
 export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["name"]): AppState {
-  if (name === "rect" || name === "circle" || name === "line") return beginTool(s, name);
+  if (name === "rect" || name === "circle" || name === "line" || name === "arc") return beginTool(s, name);
   return beginOp(s, name);
 }
 
@@ -66,9 +66,8 @@ export function doTyped(s: AppState, key: string): AppState {
   const t = s.tool;
   if (!t || !t.plane || !t.points.length) return s;
   if (key !== "Enter") return { ...s, tool: typeKey(t, key) };
-  const next = t.kind === "line" && t.typed[0] !== "" ? lineNext(t) : null; // a typed length places the next corner and the line goes on
-  if (next) return { ...s, tool: { ...t, points: [...t.points, next], typed: ["", ""] } };
-  return commitFigure(s, finish(sceneOf(s.session), t));
+  const next = t.kind === "line" && t.typed[0] !== "" ? lineNext(t) : null; // a typed length gives the line's end
+  return commitFigure(s, finish(sceneOf(s.session), next ? { ...t, points: [t.points[0]!, next] } : t));
 }
 
 /** The text of a field of the value box changed: the operation's number, or a size of the figure being drawn. */

@@ -3,7 +3,7 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Plane } from "../operation/part.ts";
 import type { Tool, Preview } from "./tools.ts";
-import { FIELDS, previewOf, rectEnd, circleRadius, lineNext, localOf } from "./tools.ts";
+import { FIELDS, previewOf, rectEnd, circleRadius, lineNext, localOf, arcOf } from "./tools.ts";
 import type { Op } from "./operations.ts";
 import { OP_FIELD, OP_UNIT, valueOf, turnAngles, sizeShown } from "./operations.ts";
 
@@ -42,7 +42,11 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
       live.push(Math.abs(ex - ax), Math.abs(ey - ay));
     }
   } else if (tool.kind === "circle") live.push(circleRadius(pl, tool) * 2);
-  else {
+  else if (tool.kind === "arc") {
+    if (tool.points.length < 2) return null; // nothing to size until the arc has its two ends
+    const arc = arcOf(pl, tool);
+    if (arc) live.push(Math.abs(arc.bulge) * Math.hypot(arc.b[0] - arc.a[0], arc.b[1] - arc.a[1], arc.b[2] - arc.a[2]));
+  } else {
     const n = lineNext(tool);
     const a = tool.points[tool.points.length - 1]!;
     if (n) live.push(Math.hypot(n[0] - a[0], n[1] - a[1], n[2] - a[2]));

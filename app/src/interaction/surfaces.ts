@@ -3,7 +3,7 @@
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot } from "../math/vec.ts";
 import type { Lookup, Part } from "../operation/part.ts";
-import { pointOf, circleOf } from "../operation/part.ts";
+import { circleOf, loopPoints } from "../operation/part.ts";
 
 /** Ear clipping of a simple polygon given in 2D; returns triangle index triples. */
 export function triangulate(poly: [number, number][]): number[] {
@@ -58,7 +58,7 @@ export function surfaceTriangles(get: Lookup, p: Part): number[] | null {
     const [cx, cy] = flat2d(c.center);
     poly = Array.from({ length: 64 }, (_, i) => [cx + Math.cos((i / 64) * Math.PI * 2) * c.radius, cy + Math.sin((i / 64) * Math.PI * 2) * c.radius]);
   } else {
-    poly = p.corners.map((r) => pointOf(get, r)).filter((q): q is Vec3 => !!q).map(flat2d);
+    poly = loopPoints(get, p.loop, p.corners).map(flat2d);
   }
   return triangulate(poly).flatMap((i) => [...lift(poly[i]![0], poly[i]![1])]);
 }

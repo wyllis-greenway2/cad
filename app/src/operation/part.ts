@@ -17,7 +17,8 @@ interface Base {
   movable: boolean;
 }
 export interface Corner extends Base { kind: "corner"; at: Vec3 }
-export interface Line extends Base { kind: "line"; a: Ref; b: Ref; /** a point halfway along a curved edge (body edges only; straight lines omit it) */ mid?: Vec3 }
+export interface Line extends Base { kind: "line"; a: Ref; b: Ref; /** a point halfway along a curved edge (body edges only; straight lines omit it) */ mid?: Vec3;
+  /** a drawn arc: how far its middle is out from the chord, as a fraction of the chord's length (positive towards the plane's normal crossed with the chord's direction); a straight line omits it */ bulge?: number }
 export interface Circle extends Base { kind: "circle"; center: Ref; radius: number }
 /** A derived face of drawn lines: a closed loop (its lines and, in order, its corners), or a disk (a circle). Rebuilt from the lines; never saved. */
 export interface Face extends Base { kind: "face"; loop: Ref[]; corners: Ref[]; disk?: Ref }
@@ -104,7 +105,7 @@ const cornerOps: KindOps<Corner> = {
   anchors: (part) => [part.ref],
 };
 /** Points along the circular arc from `a` through `m` to `b` (a curved edge of the body), or just the two ends if they are in a line. */
-function arcPoints(a: Vec3, m: Vec3, b: Vec3, steps = 40): Vec3[] {
+export function arcPoints(a: Vec3, m: Vec3, b: Vec3, steps = 40): Vec3[] {
   const [ab, ac] = [sub(b, a), sub(m, a)];
   const n = cross(ab, ac);
   const nn = dot(n, n);
@@ -127,13 +128,49 @@ function arcPoints(a: Vec3, m: Vec3, b: Vec3, steps = 40): Vec3[] {
   }
   return out;
 }
+/** The point halfway along a curved line (a body's curved edge, or a drawn arc), or null for a straight one. */
+export function curveMid(get: Lookup, part: Line): Vec3 | null {
+  if (part.mid) return part.mid;
+  if (!part.bulge) return null;
+  const s = segmentOf(get, part.ref);
+  const pl = part.plane ? get(part.plane) : undefined;
+  if (!s || !pl || pl.kind !== "plane") return null;
+  const chord = sub(s[1], s[0]);
+  const len = length(chord);
+  if (len < 1e-12) return null;
+  const perp = cross(normalOfPlane(pl), scale(chord, 1 / len));
+  return add(scale(add(s[0], s[1]), 0.5), scale(perp, part.bulge * len));
+}
+/** The corners of a closed drawn shape in order, with the points of any arcs between them (so the outline, the fill and the extrude follow the curves). */
+export function loopPoints(get: Lookup, loop: readonly Ref[], corners: readonly Ref[]): Vec3[] {
+  const out: Vec3[] = [];
+  const lines = loop.map((r) => get(r)).filter((p): p is Line => p?.kind === "line");
+  const used = new Set<Ref>(); // (an arc and its chord join the same two corners: each line is walked once)
+  corners.forEach((c, i) => {
+    const here = pointOf(get, c);
+    if (!here) return;
+    out.push(here);
+    const next = corners[(i + 1) % corners.length]!;
+    const line = lines.find((l) => !used.has(l.ref) && ((l.a === c && l.b === next) || (l.b === c && l.a === next)));
+    if (line) used.add(line.ref);
+    const mid = line ? curveMid(get, line) : null;
+    const [pa, pb] = [pointOf(get, c), pointOf(get, next)];
+    if (line && mid && pa && pb) {
+      const arc = arcPoints(line.a === c ? pa : pb, mid, line.a === c ? pb : pa, 24);
+      const walk = line.a === c ? arc : [...arc].reverse();
+      out.push(...walk.slice(1, -1));
+    }
+  });
+  return out;
+}
 const lineOps: KindOps<Line> = {
   hit: (get, part, pv) => {
     const s = segmentOf(get, part.ref);
     if (!s) return null;
-    if (part.mid) {
-      // a curved edge: the nearest of the pieces of its arc
-      const q = arcPoints(s[0], part.mid, s[1]).map((p) => px(pv, p));
+    const cm = curveMid(get, part);
+    if (cm) {
+      // a curved line: the nearest of the pieces of its arc
+      const q = arcPoints(s[0], cm, s[1]).map((p) => px(pv, p));
       let best = Infinity;
       for (let i = 0; i + 1 < q.length; i++) best = Math.min(best, distToSegment2d([pv.x, pv.y], q[i]!, q[i + 1]!));
       return best;
@@ -143,7 +180,8 @@ const lineOps: KindOps<Line> = {
   outline: (get, part) => {
     const s = segmentOf(get, part.ref);
     if (!s) return { shape: "none" };
-    return part.mid ? { shape: "polyline", pts: arcPoints(s[0], part.mid, s[1]) } : { shape: "segment", a: s[0], b: s[1] };
+    const cm = curveMid(get, part);
+    return cm ? { shape: "polyline", pts: arcPoints(s[0], cm, s[1]) } : { shape: "segment", a: s[0], b: s[1] };
   },
   anchors: (part) => [part.a, part.b],
 };
@@ -244,7 +282,7 @@ const faceOps: KindOps<Face> = {
       const cd = sub(c.center, pl.at);
       return Math.hypot(q[0] - dot(cd, pl.u), q[1] - dot(cd, pl.v)) <= c.radius ? t : null;
     }
-    const poly = part.corners.map((r) => pointOf(get, r)).filter((p): p is Vec3 => !!p).map((p): [number, number] => [dot(sub(p, pl.at), pl.u), dot(sub(p, pl.at), pl.v)]);
+    const poly = loopPoints(get, part.loop, part.corners).map((p): [number, number] => [dot(sub(p, pl.at), pl.u), dot(sub(p, pl.at), pl.v)]);
     return poly.length >= 3 && inPolygon(q, poly) ? t : null;
   },
   outline: () => ({ shape: "none" }),

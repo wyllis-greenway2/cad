@@ -172,7 +172,7 @@ test("the menu: a right click selects what is under it and offers the operations
   assert.deepEqual(selection(st.session), [a.circle, b.circle]);
   const [x, y] = px(st, [63, 0, 0]);
   st = reduce(st, { type: "menu", x, y }, env);
-  assert.deepEqual(st.menu!.items.map((i) => i.label), ["Rectangle", "Circle", "Line", "Push / pull", "Fillet / chamfer", "Move", "Rotate", "Scale", "Delete"], "the right click offers the operations (constraints are on the left click)");
+  assert.deepEqual(st.menu!.items.map((i) => i.label), ["Rectangle", "Circle", "Line", "Curve", "Push / pull", "Fillet / chamfer", "Move", "Rotate", "Scale", "Delete"], "the right click offers the operations (constraints are on the left click)");
   assert.ok(st.menu!.items.find((i) => i.id === "delete")!.enabled);
   const radiusBefore = (scene(st.session).parts[b.circle] as { radius: number }).radius;
   assert.equal(radiusBefore, 3);

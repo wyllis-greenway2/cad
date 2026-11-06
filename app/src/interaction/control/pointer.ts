@@ -28,6 +28,7 @@ const RING: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolK
   { id: "tool:rect", label: "Rectangle", icon: "rect", tool: "rect" },
   { id: "tool:circle", label: "Circle", icon: "circle", tool: "circle" },
   { id: "tool:line", label: "Line", icon: "line", tool: "line" },
+  { id: "tool:arc", label: "Curve", icon: "arc", tool: "arc" },
   { id: "op:pushpull", label: "Push / pull", icon: "pushpull", op: "pushpull" },
   { id: "op:edge", label: "Fillet / chamfer", icon: "edge", op: "edge" },
   { id: "op:move", label: "Move", icon: "move", op: "move" },
@@ -89,11 +90,13 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   }
   const at = snapOnPlane(sc, pv, sc.parts[t.plane!] as Plane);
   if (!at) return base;
-  if (t.kind !== "line") return commitFigure(base, finish(sc, { ...t, cursor: at }));
-  const last = t.points[t.points.length - 1]!;
-  if (t.points.length >= 3 && dist(at, t.points[0]!) < 1e-6) return commitFigure(base, finish(sc, t, true)); // back on the first corner: closed
-  if (dist(at, last) < 1e-6) return i.count >= 2 && t.points.length >= 2 ? commitFigure(base, finish(sc, t)) : base; // a double click ends the line
-  return { ...base, tool: { ...t, points: [...t.points, at], cursor: at, typed: ["", ""] } };
+  if (t.kind === "arc" && t.points.length < 2) {
+    // an arc: the second click is its other end, the third sets how far it bows out (the pointer's distance from the chord)
+    return dist(at, t.points[0]!) < 1e-6 ? base : { ...base, tool: { ...t, points: [...t.points, at], cursor: at, typed: ["", ""] } };
+  }
+  // a rectangle, a circle, a line: the second click finishes it and the tool is put away (a line is one segment: leave it open, or draw the next to close a shape)
+  if (t.kind === "line") return dist(at, t.points[0]!) < 1e-6 ? base : commitFigure(base, finish(sc, { ...t, points: [t.points[0]!, at], cursor: at }));
+  return commitFigure(base, finish(sc, { ...t, cursor: at }));
 }
 
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {

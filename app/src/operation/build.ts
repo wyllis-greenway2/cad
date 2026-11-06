@@ -8,15 +8,22 @@ import { formatId } from "../shared/ref.ts";
 import type { Command } from "./commands.ts";
 
 /** A line chain through points on a plane: corners d/e_N.p0.. and lines d/e_N.s0.. (closed adds the last line back to the first corner). Returns the command and the refs. */
-export function drawChain(s: Scene, plane: Ref, points: Vec3[], closed = false): { command: Command; corners: Ref[]; lines: Ref[] } {
+export function drawChain(s: Scene, plane: Ref, points: Vec3[], closed = false, opts: { bulges?: number[]; reuse?: boolean } = {}): { command: Command; corners: Ref[]; lines: Ref[] } {
   const id = nextId(s, "e");
-  const corners = points.map((_, i) => drawnRef(`${id}.p${i}`));
+  // with `reuse`, a point where a drawn corner already is on this plane is that corner (lines that meet share it, so a loop of them is a shape)
+  const have = (at: Vec3): Ref | null => {
+    if (!opts.reuse) return null;
+    const c = Object.values(s.parts).find((p) => p.kind === "corner" && p.origin === "drawn" && p.plane === plane && Math.hypot(p.at[0] - at[0], p.at[1] - at[1], p.at[2] - at[2]) < 1e-6);
+    return c?.ref ?? null;
+  };
+  const existing = points.map(have);
+  const corners = points.map((_, i) => existing[i] ?? drawnRef(`${id}.p${i}`));
   const n = closed ? points.length : points.length - 1;
   const lines = Array.from({ length: n }, (_, i) => drawnRef(`${id}.s${i}`));
   const base = { origin: "drawn" as const, plane, movable: true };
   const commands: Command[] = [
-    ...points.map((at, i): Command => ({ type: "addPart", part: { ...base, ref: corners[i]!, kind: "corner", at } })),
-    ...lines.map((ref, i): Command => ({ type: "addPart", part: { ...base, ref, kind: "line", a: corners[i]!, b: corners[(i + 1) % points.length]! } })),
+    ...points.flatMap((at, i): Command[] => (existing[i] ? [] : [{ type: "addPart", part: { ...base, ref: corners[i]!, kind: "corner", at } }])),
+    ...lines.map((ref, i): Command => ({ type: "addPart", part: { ...base, ref, kind: "line", a: corners[i]!, b: corners[(i + 1) % points.length]!, ...(opts.bulges?.[i] ? { bulge: opts.bulges[i] } : {}) } })),
   ];
   return { command: { type: "batch", commands }, corners, lines };
 }

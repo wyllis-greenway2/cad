@@ -3,9 +3,9 @@
 // to normal selection. Pure: the controller feeds it points and keys; it returns the new tool state and, when a figure is done, the command and what to select.
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
-import { add, scale, sub, dot, dist } from "../math/vec.ts";
+import { add, scale, sub, dot, dist, cross } from "../math/vec.ts";
 import type { PointerView, Plane } from "../operation/part.ts";
-import { normalOfPlane, pointOf } from "../operation/part.ts";
+import { normalOfPlane, pointOf, arcPoints } from "../operation/part.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
@@ -15,7 +15,7 @@ import { candidatesAt } from "./picking.ts";
 import { settings } from "../shared/settings.ts";
 import { drawnRef } from "../shared/ref.ts";
 
-export type ToolKind = "rect" | "circle" | "line";
+export type ToolKind = "rect" | "circle" | "line" | "arc";
 export interface Tool {
   kind: ToolKind;
   /** null while armed (waiting for the first click on a surface) */
@@ -31,7 +31,7 @@ export interface Tool {
 /** A tool that waits for its first click on a surface. */
 export const armTool = (kind: ToolKind): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0 });
 
-export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"] };
+export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"] };
 
 // ---- points on a plane ----
 function pointOnPlane(pv: PointerView, pl: Plane): Vec3 | null {
@@ -167,15 +167,37 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
     return { segments: c.map((p, i): [Vec3, Vec3] => [p, c[(i + 1) % 4]!]), circle: null, cursor: t.cursor };
   }
   if (t.kind === "circle") return { segments: [], circle: { center: t.points[0]!, radius: circleRadius(pl, t), normal: n }, cursor: t.cursor };
+  if (t.kind === "arc") {
+    const arc = t.points.length >= 2 ? arcOf(pl, t) : null;
+    if (arc) { const pts = arcPoints(arc.a, arc.mid, arc.b); return { segments: pts.slice(1).map((p, i): [Vec3, Vec3] => [pts[i]!, p]), circle: null, cursor: t.cursor }; }
+    const [a, b] = [t.points[0]!, t.points[1] ?? t.cursor];
+    return { segments: b ? [[a, b]] : [], circle: null, cursor: t.cursor };
+  }
   const pts = [...t.points];
   const nx = lineNext(t);
   if (nx) pts.push(nx);
   return { segments: pts.slice(1).map((p, i): [Vec3, Vec3] => [pts[i]!, p]), circle: null, cursor: t.cursor };
 }
 
+/** An arc by its two ends and how far its middle stands out from the chord (the pointer's distance from the chord, or the typed height on the side the pointer is). Null while there are not two ends. */
+export function arcOf(pl: Plane, t: Tool): { a: Vec3; b: Vec3; mid: Vec3; bulge: number } | null {
+  const [a, b] = [t.points[0], t.points[1]];
+  const c = t.cursor;
+  if (!a || !b || !c) return null;
+  const chord = sub(b, a);
+  const len = Math.hypot(...chord);
+  if (len < 1e-9) return null;
+  const perp = cross(normalOfPlane(pl), scale(chord, 1 / len));
+  const m = scale(add(a, b), 0.5);
+  const side = dot(sub(c, m), perp);
+  const typed = num(t.typed[0]);
+  const h = typed !== null ? Math.abs(typed) * (side < 0 ? -1 : 1) : side;
+  return Math.abs(h) < 1e-9 ? null : { a, b, mid: add(m, scale(perp, h)), bulge: h / len };
+}
+
 export interface Finished { command: Command; select: Ref[] }
 /** The figure as a command (and what to select afterwards), or null if it is not a figure yet (zero size). */
-export function finish(scene: Scene, t: Tool, closeLine = false): Finished | null {
+export function finish(scene: Scene, t: Tool): Finished | null {
   const pl = t.plane ? (scene.parts[t.plane] as Plane | undefined) : undefined;
   if (!pl || pl.kind !== "plane" || !t.points.length) return null;
   if (t.kind === "rect") {
@@ -194,10 +216,16 @@ export function finish(scene: Scene, t: Tool, closeLine = false): Finished | nul
     const c = drawCircle(scene, pl.ref, t.points[0]!, radius);
     return { command: c.command, select: [diskFaceRef(c.circle)] };
   }
+  if (t.kind === "arc") {
+    const arc = arcOf(pl, t);
+    if (!arc) return null;
+    const d = drawChain(scene, pl.ref, [arc.a, arc.b], false, { bulges: [arc.bulge], reuse: true });
+    return { command: d.command, select: d.lines };
+  }
   const pts = [...t.points];
   if (pts.length < 2) return null;
-  const d = drawChain(scene, pl.ref, pts, closeLine && pts.length >= 3);
-  return { command: d.command, select: closeLine && pts.length >= 3 ? [loopFaceRef(d.lines)] : d.lines };
+  const d = drawChain(scene, pl.ref, pts, false, { reuse: true }); // a line: it ends at an existing corner when it is drawn to one (so lines meeting in a loop make a shape)
+  return { command: d.command, select: d.lines };
 }
 
 /** A drawn copy of a plane that is a face of the body (or any plane that is not already drawn or world), so a sketch on it does not depend on the body's name staying the same. */

@@ -77,7 +77,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   const gizmo = raw && !live ? followed(raw, s.drag && "handle" in s.drag ? s.drag.handle : null, s.op?.value ?? null) : raw;
   // the arrow of a push / pull, an extrude or a fillet / chamfer that showed up by itself has its bubble too, ready for a typed size
   const auto = s.op ? null : activeOp(s);
-  const shownOp = s.op ?? (auto && (auto.kind === "pushpull" || auto.kind === "extrude" || auto.kind === "edge") ? auto : null);
+  const shownOp = s.op ?? (auto && !(s.cam.straight && auto.kind !== "edge") && (auto.kind === "pushpull" || auto.kind === "extrude" || auto.kind === "edge") ? auto : null);
   const flash = flashOf(s, sc, now);
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
   const gp = gridPlaneOf(s);

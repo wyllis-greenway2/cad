@@ -28,6 +28,8 @@ export function activeOp(s: AppState): Op | null {
 /** The handles to show and work, or null. */
 export function gizmoOf(s: AppState): Gizmo | null {
   const op = activeOp(s);
+  // looking straight at a plane (orthographic) the push / pull arrow points at you: it goes away (`in_137`)
+  if (op && s.cam.straight && (op.kind === "pushpull" || op.kind === "extrude")) return null;
   const g = op ? gizmoFor(sceneOf(s.session), op, s.cam) : null;
   // the arrow of a push / pull or an extrude stands where the face is now: out by the value so far (it stays there when you let go, until the operation ends)
   return g && op && op.normal && (op.kind === "pushpull" || op.kind === "extrude") ? followed(g, { dir: op.normal, kind: "double", id: "pull" }, op.value) : g;

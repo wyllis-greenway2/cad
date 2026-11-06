@@ -700,3 +700,15 @@ test("a line behind the body is not picked through it", () => {
   }
   assert.equal(bad, 0, "no line was picked while the body hid it");
 });
+
+test("looking straight at a plane (orthographic) the push / pull arrow and its bubble are not shown", () => {
+  let st = box();
+  const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20)!;
+  st = select(st, [top.ref]);
+  assert.ok(frame(st).gizmo, "in perspective it shows");
+  st = { ...st, cam: { ...st.cam, straight: true } };
+  assert.equal(frame(st).gizmo, null, "straight on it goes away");
+  assert.equal(frame(st).entry, null);
+  st = { ...st, cam: { ...st.cam, straight: false } };
+  assert.ok(frame(st).gizmo);
+});

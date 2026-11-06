@@ -66,6 +66,7 @@ const menu = createMenu(document.body, (id) => {
     webStore.set(SCROLL_KEY, next);
   } else if (id === "save" || id === "open") dispatch({ type: id });
   else if (id === "bodies" || id === "history") dispatch({ type: "panel", name: id });
+  else if (id === "undo" || id === "redo") dispatch({ type: id });
   else dispatch({ type: "runAction", id });
 });
 
@@ -95,7 +96,7 @@ function dispatch(i: Intent) {
   state = reduce(state, i, env());
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "")); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length })); }
     else { menu.hide(); ring.show(i.x, i.y, state.menu?.items ?? []); }
   } else {
     // pointing around does not close a menu; any other intent does

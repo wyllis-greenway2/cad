@@ -5,7 +5,9 @@ export type ScrollMode = "auto" | "pan" | "zoom";
 const NEXT: Record<ScrollMode, ScrollMode> = { auto: "pan", pan: "zoom", zoom: "auto" };
 const LABEL: Record<ScrollMode, string> = { auto: "Scroll: trackpad pans, wheel zooms", pan: "Scroll: always pans", zoom: "Scroll: always zooms" };
 
-export const appRows = (mode: ScrollMode, build = ""): AppRow[] => [
+export const appRows = (mode: ScrollMode, build = "", can: { undo: boolean; redo: boolean } = { undo: true, redo: true }): AppRow[] => [
+  { id: "undo", label: "Undo", enabled: can.undo, why: "nothing to undo" },
+  { id: "redo", label: "Redo", enabled: can.redo, why: "nothing to redo" },
   { id: "bodies", label: "Bodies", enabled: true, why: null },
   { id: "history", label: "History", enabled: true, why: null },
   { id: "save", label: "Save", enabled: true, why: null },

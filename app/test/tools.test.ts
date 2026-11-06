@@ -94,26 +94,59 @@ test("circle: centre then radius by click; or a typed diameter with Enter", () =
   near(radii[0]!, 4.5);
 });
 
-test("line: clicks add corners; clicking the first corner again closes it into a figure; Enter ends an open line; a typed length places the next corner", () => {
+test("line: two clicks make one segment and the tool is put away; an open line is fine; lines that meet at corners make a shape", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "line" }, env);
-  for (const p of [[5, 5, 0], [25, 5, 0], [25, 15, 0]] as Vec3[]) st = click(st, p);
   st = click(st, [5, 5, 0]);
-  assert.equal(st.tool, null);
-  assert.match(selection(st.session)[0]!, /^d\/loop@/);
-  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn").length, 3);
-  // open line by Enter, with a typed length
+  assert.ok(st.tool, "waiting for the end");
+  st = click(st, [25, 5, 0]);
+  assert.equal(st.tool, null, "the line is made and the tool is gone: it does not go on adding lines");
+  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn").length, 1);
+  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length, 0, "an open sketch is just a line");
+  // two more lines, each starting at a corner that is already there: a triangle, which is a shape
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [25, 5, 0]);
+  st = click(st, [25, 15, 0]);
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [25, 15, 0]);
+  st = click(st, [5, 5, 0]);
+  assert.equal(corners(st).length, 3, "the lines share their corners");
+  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length, 1, "the closed loop is a face");
+  // a typed length
   st = reduce(st, { type: "begin", name: "line" }, env);
   st = click(st, [12, 2, 0]);
   st = move(st, [18, 2, 0]);
   st = typeText(st, "4");
   st = key(st, "Enter");
-  assert.ok(st.tool, "a typed length places a corner and the line goes on");
-  st = key(st, "Enter");
   assert.equal(st.tool, null);
-  const pts = corners(st).filter((c) => c[1] < 4);
-  assert.equal(pts.length, 2);
-  near(Math.max(...pts.map((c) => c[0])), 16);
+  near(Math.max(...corners(st).filter((c) => c[1] < 4 && c[0] > 10).map((c) => c[0])), 16);
+});
+
+test("curve: two clicks for the ends, a third for how far it bows out; it is a line with a bulge, it can close a shape, and the shape extrudes round", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "arc" }, env);
+  st = click(st, [5, 5, 0]);
+  st = click(st, [25, 5, 0]);
+  assert.ok(st.tool && st.tool.points.length === 2, "the ends are down, the bow is next");
+  st = move(st, [15, 12, 0]);
+  assert.ok(previewFor(scene(st.session), st.tool)!.segments.length > 10, "the arc is previewed");
+  assert.equal(entryOf(scene(st.session), st.tool, null)!.fields[0]!.value, "7", "the height of the bow");
+  st = click(st, [15, 12, 0]);
+  assert.equal(st.tool, null);
+  const arc = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "drawn") as { bulge: number };
+  near(Math.abs(arc.bulge), 7 / 20, 1e-6);
+  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length, 0, "open");
+  // close it with a straight line: a half-moon shape, extruded 10: more than a triangle, less than a rectangle
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [25, 5, 0]);
+  st = click(st, [5, 5, 0]);
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "face")!;
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [face.ref] } } };
+  st = reduce(st, { type: "begin", name: "extrude" }, env);
+  st = key(typeText(st, "10"), "Enter");
+  assert.equal(st.session.message, null);
+  const v = st.session.outcome.kernel!.volume!;
+  assert.ok(v > 20 * 7 * 10 * 0.6 && v < 20 * 7 * 10, `the volume of an arched shape (${v})`);
 });
 
 test("a tool is armed again to put it away; Esc cancels a figure half drawn; a click on nothing says where to click", () => {
@@ -313,7 +346,7 @@ test("the right-click ring offers all the operations around the click; nothing o
   const f = frameOf(st, { w: 800, h: 600 });
   assert.ok(!f.annotations.some((a) => ["pushpull", "sketch", "edge", "rect"].includes(a.kind)), "a left click shows constraints and dimensions only");
   const ring = reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items;
-  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "op:pushpull", "op:edge", "op:move", "op:rotate", "op:scale", "delete"]);
+  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "tool:arc", "op:pushpull", "op:edge", "op:move", "op:rotate", "op:scale", "delete"]);
   assert.deepEqual(ring.filter((i) => !i.enabled).map((i) => i.id), ["op:edge", "delete"], "fillet / chamfer needs lines of the body; a face cannot be deleted");
   assert.ok(ring.every((i) => i.icon));
   const drawing = reduce(st, { type: "runAction", id: "tool:circle" }, env);
