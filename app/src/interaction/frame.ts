@@ -3,7 +3,7 @@
 import type { Ref } from "../shared/ref.ts";
 import type { Gizmo } from "./gizmo.ts";
 import { panelOf } from "./panels.ts";
-import { patternCentre } from "./pattern.ts";
+import { patternCentre, liveRepeat } from "./pattern.ts";
 import type { Panel } from "./panels.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
@@ -20,7 +20,7 @@ import { settings } from "../shared/settings.ts";
 import type { Grid } from "./grid.ts";
 import { annotationsFor, annotationsOf, focusParts } from "./annotations.ts";
 import type { Annotation } from "./annotations.ts";
-import { entryOf, previewFor } from "./entry.ts";
+import { entryOf, previewFor, repeatEntries } from "./entry.ts";
 import type { Entry } from "./entry.ts";
 import type { Preview } from "./tools.ts";
 import { gizmoOf, activeOp } from "./control/handles.ts";
@@ -39,6 +39,10 @@ export interface Frame {
   highlight: { hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; /** the parts of constraints a refused change would have broken, and how red they still are */ red: { refs: readonly Ref[]; alpha: number }; spread: AppState["spread"] };
   preview: Preview | null;
   entry: Entry | null;
+  /** the several value bubbles of a repeat being set up (one on each axis, or one by the rings) */
+  entries: Entry[];
+  /** the Apply and Cancel buttons are up (a repeat is being set up) */
+  bar: boolean;
   /** the open list (bodies, history) */
   panel: Panel | null;
   /** the constraints of the selected parts, each with the spot it is shown at (on the line, at the vertex, between the lines, at the angle) */
@@ -55,11 +59,13 @@ export interface Frame {
 /** While an operation's number is being set, the scene as it would be after it: the real result (a gray body, a cut, a round) and not a sketch of it. Remembered for the same command. */
 let memo: { history: Session["history"]; outcome: Session["outcome"]; key: string; value: { scene: Scene; outcome: CompileOutcome } | null } | null = null;
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
-  if (!s.op) return null;
-  const base = s.op.made ? undoLast(s.session) : s.session; // a step already made for this operation is replaced by what is being dragged
-  const cmd: Command | null = opCommand(sceneOf(base), s.op);
+  // the operation being set up, else the repeat being set up (what it would make shows while its numbers are set)
+  const op = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
+  if (!op) return null;
+  const base = op.made ? undoLast(s.session) : s.session; // a step already made for this operation is replaced by what is being dragged
+  const cmd: Command | null = opCommand(sceneOf(base), op);
   if (!cmd) return null;
-  const key = JSON.stringify([cmd, s.op.made]);
+  const key = JSON.stringify([cmd, op.made]);
   if (memo && memo.history === s.session.history && memo.outcome === s.session.outcome && memo.key === key) return memo.value;
   const value = previewCommand(base, cmd);
   memo = { history: s.session.history, outcome: s.session.outcome, key, value };
@@ -89,6 +95,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     amber: focusParts(sc, sel, s.focus), red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
     preview: previewFor(sc, s.tool),
     entry: entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
+    entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam) : [],
+    bar: !!s.repeat,
     panel: panelOf(s.panel, sceneOf(s.session), sel),
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash)],
     flash,

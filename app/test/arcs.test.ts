@@ -103,8 +103,8 @@ test("an open line or an arc can be copied, moved and repeated too (not only clo
   const env = { w: 800, h: 600, now: 0 };
   st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [a.line] } } };
   st = reduce(st, { type: "runAction", id: "op:copy" }, env);
-  assert.equal(st.op!.kind, "linear");
-  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.repeat!.op.kind, "linear");
+  st = reduce(st, { type: "repeatApply" }, env);
   assert.equal(st.session.message, null);
   const arcs = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && (p as { center?: Ref }).center);
   assert.equal(arcs.length, 2, "the arc and its copy, each with a centre of its own");

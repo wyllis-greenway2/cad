@@ -175,3 +175,54 @@ export function dragPattern(op: Op, id: string, r: { value: number } | { pivot: 
   }
   return { ...op, pat, axis: (i >= 0 ? i : op.axis) as 0 | 1 | 2 };
 }
+
+// ---- the repeat edit mode (`in_141`) ----
+/** The parts a circular repeat is built around: a point at the middle of what is repeated, the pivot point it turns about, and the line between them. They are ordinary drawn parts, so the pivot can be moved with Move, given a length, constrained like any vertex. */
+export interface PivotParts { centre: Ref; point: Ref; line: Ref }
+/** A repeat that is being set up: its numbers, and for a circular one the pivot parts. It goes on until Apply or Cancel (you can work in the world meanwhile). */
+export interface Repeat { op: Op; pivot: PivotParts | null }
+
+/** The commands that make the pivot parts of a circular repeat at the point its numbers start with. */
+export function pivotCommands(scene: Scene, op: Op): { command: Command; parts: PivotParts } {
+  const v = patternValues(op);
+  const centreAt = patternCentre(scene, op);
+  const pivotAt: Vec3 = [v[3]!, v[4]!, v[5]!];
+  const e = nextId(scene, "e");
+  const parts: PivotParts = { centre: drawnRef(`${e}.rc`), point: drawnRef(`${e}.rp`), line: drawnRef(`${e}.rl`) };
+  const commands: Command[] = [];
+  let plane = op.plane;
+  if (!plane) {
+    // the body: the point needs a plane to be a vertex on; one through it, parallel to the ground
+    plane = drawnRef(nextId(scene, "p"));
+    commands.push({ type: "addPart", part: { ref: plane, kind: "plane", origin: "drawn", plane: null, movable: false, at: [0, 0, pivotAt[2]], u: [1, 0, 0], v: [0, 1, 0] } });
+  }
+  const base = { origin: "drawn" as const, plane, movable: true };
+  commands.push({ type: "addPart", part: { ...base, ref: parts.centre, kind: "corner", at: centreAt } });
+  commands.push({ type: "addPart", part: { ...base, ref: parts.point, kind: "corner", at: pivotAt } });
+  commands.push({ type: "addPart", part: { ...base, ref: parts.line, kind: "line", a: parts.centre, b: parts.point } });
+  commands.push({ type: "addRelation", relation: { id: nextId(scene, "r"), kind: "fixed", parts: [parts.centre] } });
+  return { command: { type: "batch", commands }, parts };
+}
+
+/** The repeat with its pivot read from where the pivot point is now (it can have been moved, sized or constrained since). */
+export function liveRepeat(scene: Scene, r: Repeat): Op {
+  const p = r.pivot ? scene.parts[r.pivot.point] : undefined;
+  if (!p || p.kind !== "corner" || !r.op.patStart) return r.op;
+  const start = [...r.op.patStart];
+  start[3] = Math.round(p.at[0] * 1e3) / 1e3; start[4] = Math.round(p.at[1] * 1e3) / 1e3; start[5] = Math.round(p.at[2] * 1e3) / 1e3;
+  const pat = [...r.op.pat];
+  pat[3] = ""; pat[4] = ""; pat[5] = "";
+  return { ...r.op, patStart: start, pat };
+}
+
+const dropPivot = (r: Repeat, scene: Scene): Command[] => (r.pivot ? [{ type: "deleteParts", refs: [r.pivot.centre, r.pivot.point, r.pivot.line].filter((x) => x in scene.parts) }] : []);
+/** The command that applies a repeat (the pivot parts go, the copies come), or null while it would make nothing. */
+export function repeatApply(scene: Scene, r: Repeat): Command | null {
+  const main = patternCommand(scene, liveRepeat(scene, r));
+  return main ? { type: "batch", commands: [...dropPivot(r, scene), main] } : null;
+}
+/** The command that gives a repeat up (the pivot parts go), or null if there is nothing to take away. */
+export function repeatCancel(scene: Scene, r: Repeat): Command | null {
+  const drop = dropPivot(r, scene);
+  return drop.length && (drop[0] as { refs: Ref[] }).refs.length ? drop[0]! : null;
+}

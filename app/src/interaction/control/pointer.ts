@@ -19,7 +19,7 @@ import { settings } from "../../shared/settings.ts";
 import { planeOf, objectOf } from "../objects.ts";
 import type { AppState, Env, MenuItem } from "./state.ts";
 import { pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
-import { commitFigure, commitOp } from "./modal.ts";
+import { commitFigure, commitOp, setRepeatAxis } from "./modal.ts";
 import { doGizmoHover, gizmoOf } from "./handles.ts";
 import { hasGizmo, hitHandle } from "../gizmo.ts";
 
@@ -39,10 +39,13 @@ const RING: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolK
   { id: "op:circular", label: "Circular repeat", icon: "circular", op: "circular" },
   { id: "delete", label: "Delete", icon: "trash" },
 ];
-function menuFor(session: Session, x: number, y: number): AppState["menu"] {
+/** While a repeat is open only drawing, Move and Rotate are offered (the rest could change what is being repeated or the pivot's parts). */
+const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "op:move", "op:rotate"]);
+function menuFor(session: Session, x: number, y: number, repeating = false): AppState["menu"] {
   const sc = sceneOf(session);
   const sel = selectionOf(session);
   const items: MenuItem[] = RING.map((r) => {
+    if (repeating && !IN_REPEAT.has(r.id)) return { id: r.id, label: r.label, icon: r.icon, enabled: false, why: "apply or cancel the repeat that is open first" };
     if (r.tool) return { id: r.id, label: r.label, icon: r.icon, enabled: true, why: null };
     if (r.op) { const st = startOp(sc, sel, r.op); return { id: r.id, label: r.label, icon: r.icon, enabled: st.ok, why: st.ok ? null : st.why }; }
     const del = actionsFor(sc, sel).find((a) => a.id === "delete");
@@ -112,8 +115,8 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   if (s.op && !hasGizmo(s.op.kind)) return commitOp(base); // the dimension number chip: a click finishes it
   // the handles are dragged, so a click on one does nothing (it must not reselect what is under it)
   const g = gizmoOf(s);
-  if (g && hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y)) return base;
-  if (s.op?.patStart) return commitOp(base); // a click in the picture applies the repeat that is shown
+  const hit = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y) : null;
+  if (hit) return s.repeat && !s.op && hit.id.startsWith("rot:") ? setRepeatAxis(base, "xyz".indexOf(hit.id[4]!)) : base; // (a click on a ring of a repeat makes that the axis)
   // a click anywhere else, blank space too, leaves an operation you started, and then acts as a normal click
   return doClickSelect(s.op ? { ...base, op: null, drag: null, gizmoHover: null } : base, i, env, cands, refs, pv);
 }
@@ -147,5 +150,5 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
 
 /** A right click opens the ring of operations on what is selected and changes nothing about the selection (`in_140`): select first (one click, a triple click, Shift for several), then right click. */
 export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>): AppState {
-  return { ...s, menu: menuFor(s.session, i.x, i.y) };
+  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat) };
 }

@@ -24,17 +24,20 @@ import { createMenu } from "./ui/menu.ts";
 import { createRing } from "./ui/ring.ts";
 import { createChip } from "./ui/chip.ts";
 import { createPanel } from "./ui/panel.ts";
+import { createApplyBar } from "./ui/applybar.ts";
 import { createControls } from "./ui/controls.ts";
 import { createBubbles } from "./ui/bubbles.ts";
 
 const host = document.getElementById("view")!;
 const statusEl = document.getElementById("status")!;
 const view = createView(host);
-const chip = createChip(document.body, {
-  entry: (field, text) => dispatch({ type: "entry", field, text }),
+const chipHandlers = {
+  entry: (field: number, text: string) => dispatch({ type: "entry", field, text }),
   enter: () => dispatch({ type: "typed", key: "Enter", shift: false }),
   cancel: () => dispatch({ type: "escape" }),
-});
+};
+const chips: ReturnType<typeof createChip>[] = []; // one value bubble, or several (a linear repeat has one on each axis)
+const chipAt = (i: number) => (chips[i] ??= createChip(document.body, chipHandlers));
 const bubbles = createBubbles(document.body, {
   focus: (id) => dispatch({ type: "relation", act: "focus", id }),
   remove: (id) => dispatch({ type: "relation", act: "remove", id }),
@@ -74,6 +77,8 @@ const ring = createRing(document.body, (id) => {
   ring.hide();
   dispatch({ type: "runAction", id });
 });
+
+const applyBar = createApplyBar(document.body, { apply: () => dispatch({ type: "repeatApply" }), cancel: () => dispatch({ type: "repeatCancel" }) });
 
 const controls = createControls(document.body, {
   menu: (x, y) => dispatch({ type: "menu", x, y, button: true }),
@@ -157,7 +162,10 @@ function frame(now: number) {
     view.setNotes(f.annotations.flatMap((a) => a.lines));
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
-    chip.update(f.entry?.fields ?? null, f.entry?.unit ?? "mm", onPage(f.entry?.at), onPage(f.entry?.from));
+    const valueBubbles = f.entries.length ? f.entries : f.entry ? [f.entry] : [];
+    valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from)));
+    for (let i = valueBubbles.length; i < chips.length; i++) chips[i]!.update(null, "mm", null);
+    applyBar.update(f.bar);
     host.style.cursor = f.cursor;
     view.render(state.cam, f.grid);
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);

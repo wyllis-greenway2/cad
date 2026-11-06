@@ -90,7 +90,7 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
     if (op.kind === "circular") {
       // the same rings and ball as a rotation: the ring you take sets the axis, the ball is the point the copies turn about
       const pivot: Vec3 = [v[3]!, v[4]!, v[5]!];
-      return { centre: pivot, handles: [...AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, pivot, d, L * 0.8, i as 0 | 1 | 2)), { id: "pivot", kind: "ball", axis: null, points: [pivot] }] };
+      return { centre: pivot, handles: AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, pivot, d, L * 0.8, i as 0 | 1 | 2)) }; // (the point itself is a vertex in the scene: move it with Move)
     }
     // an arrow along each axis whose end is where the next copy goes (pull it for the distance between them), and a short arrow past the last copy (pull it for how many)
     const c = patternCentre(scene, op);
@@ -101,7 +101,8 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
       if (Math.abs(sp) < 1e-9) return;
       const sgn = sp < 0 ? -1 : 1;
       handles.push({ id: `lin:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [c, add(c, scale(d, sp))] });
-      const slot = add(c, scale(d, sp * n));
+      // the stub for how many starts a good way past the last copy (and so well clear of the spacing arrow, which ends at the first), and stays close to the copies once there are some
+      const slot = add(c, scale(d, sp * n + sgn * L * (n > 1 ? 0.35 : 0.9)));
       handles.push({ id: `cnt:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [slot, add(slot, scale(d, sgn * L * 0.3))] });
     });
     return { centre: c, handles };

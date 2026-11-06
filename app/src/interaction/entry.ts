@@ -5,9 +5,14 @@ import type { Plane } from "../operation/part.ts";
 import type { Tool, Preview } from "./tools.ts";
 import { FIELDS, previewOf, rectEnd, circleRadius, lineNext, localOf, arcOf } from "./tools.ts";
 import type { Op } from "./operations.ts";
+import type { Gizmo } from "./gizmo.ts";
+import type { Camera } from "./camera.ts";
+import { basis } from "./camera.ts";
+import { settings } from "../shared/settings.ts";
+import { add, scale } from "../math/vec.ts";
 import { OP_FIELD, OP_UNIT, valueOf, turnAngles, sizeShown } from "./operations.ts";
 
-export interface EntryField { label: string; value: string; active: boolean; typed: boolean; /** a short name shown in front of the number when there are several (X Y Z) */ short?: string }
+export interface EntryField { label: string; value: string; active: boolean; typed: boolean; /** a short name shown in front of the number when there are several (X Y Z) */ short?: string; /** which numbered field of its operation it is, when the operation has several bubbles */ index?: number }
 /** `at`: where in the scene the bubble sits (null: no place to attach it to) */
 export interface Entry { fields: EntryField[]; unit: string; at?: Vec3 | null; /** the other end of the arrow the bubble is at the tip of: the bubble stands out past the tip, away from it, so it does not cover the arrow */ from?: Vec3 | null }
 
@@ -15,13 +20,6 @@ const fmt = (v: number) => String(Math.round(v * 100) / 100);
 
 /** The number chip: for a tool, its fields (what is typed, else the live size); for an operation, its one number. Null when there is nothing to show yet. */
 export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry | null {
-  if (op && (op.kind === "linear" || op.kind === "circular") && op.patStart) {
-    // a repeat has all its numbers in the bubble at once: how many and how far apart along each axis, or how many, over how many degrees, about which axis and which point
-    const names = op.kind === "linear"
-      ? [["nX", "Copies along X"], ["dX", "Distance between along X"], ["nY", "Copies along Y"], ["dY", "Distance between along Y"], ["nZ", "Copies along Z"], ["dZ", "Distance between along Z"]]
-      : [["n", "Number of copies"], ["°", "Degrees to spread them over (360: all the way round)"], ["axis", "Turn about: 0 X, 1 Y, 2 Z"], ["x", "The point they turn about: X"], ["y", "The point they turn about: Y"], ["z", "The point they turn about: Z"]];
-    return { fields: names.map(([short, label], i) => ({ label: label!, short: short!, value: op.pat[i] !== "" ? op.pat[i]! : fmt(op.patStart![i]!), active: op.axis === i, typed: op.pat[i] !== "" })), unit: "" };
-  }
   if (op && op.kind === "rotate" && (op.target === "body" || op.target === "plane")) {
     // three angles, how the body is turned about X, Y and Z (what is typed in one of them is how it is to be turned about that axis)
     const now = turnAngles(scene, op);
@@ -64,4 +62,40 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
 /** The figure being drawn (an extrude and the other operations show their real result instead, see `frame.ts`). */
 export function previewFor(scene: Scene, tool: Tool | null): Preview | null {
   return tool ? previewOf(scene, tool) : null;
+}
+
+/**
+ * The bubbles of a repeat being set up: a linear one has one on each axis, at the end of that axis's spacing arrow (how many, and how far apart); a circular one has one, to the side
+ * of the rings (how many copies, over how many degrees), so it never covers the arcs. `index` is the number's place in the repeat.
+ */
+export function repeatEntries(op: Op, g: Gizmo | null, cam: Camera): Entry[] {
+  const v = op.patStart;
+  if (!g || !v) return [];
+  const show = (i: number) => (op.pat[i] !== "" ? op.pat[i]! : fmt(v[i]!));
+  const typed = (i: number) => op.pat[i] !== "";
+  if (op.kind === "circular") {
+    const L = cam.distance * settings.gizmo.sizeOfView;
+    const right = basis(cam).right;
+    return [{
+      fields: [
+        { label: "Number of copies", short: "n", value: show(0), active: false, typed: typed(0), index: 0 },
+        { label: "Degrees to spread them over (360: all the way round)", short: "°", value: show(1), active: false, typed: typed(1), index: 1 },
+      ],
+      unit: "", at: add(g.centre, scale(right, L * 1.35)),
+    }];
+  }
+  const out: Entry[] = [];
+  for (let i = 0; i < 3; i++) {
+    const arrow = g.handles.find((h) => h.id === `lin:${"xyz"[i]}`);
+    if (!arrow) continue;
+    const X = "XYZ"[i]!;
+    out.push({
+      fields: [
+        { label: `Copies along ${X}`, short: `${X}×`, value: show(2 * i), active: false, typed: typed(2 * i), index: 2 * i },
+        { label: `Distance between copies along ${X}`, short: "Δ", value: show(2 * i + 1), active: false, typed: typed(2 * i + 1), index: 2 * i + 1 },
+      ],
+      unit: "", at: arrow.points[1]!, from: g.centre,
+    });
+  }
+  return out;
 }

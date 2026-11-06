@@ -10,6 +10,7 @@ import { lookup } from "../../operation/scene.ts";
 import { planeOf } from "../objects.ts";
 import type { AppState } from "./state.ts";
 import { activeOp } from "./handles.ts";
+import { pivotCommands, repeatApply, repeatCancel } from "../pattern.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession } from "./state.ts";
 
@@ -54,7 +55,7 @@ export function doTyped(s: AppState, key: string): AppState {
     const a = autoOp(sceneOf(s.session), selectionOf(s.session));
     if (a) return { ...s, op: typeOp(a.kind === "move" ? a : { ...a, auto: false }, key) };
   }
-  if (s.op && s.op.patStart && key !== "Enter") return s; // (a repeat takes its numbers in its bubble)
+  if (s.repeat && !s.op) return s; // (a repeat takes its numbers in its bubbles; Enter there only leaves the box: it is applied with the button)
   if (s.op && s.op.kind === "rotate" && (s.op.target === "body" || s.op.target === "plane") && key !== "Enter") {
     // typing turns the body to that angle about the axis in use (the one whose ring was dragged, X to begin with)
     const i = s.op.axis;
@@ -74,15 +75,16 @@ export function doTyped(s: AppState, key: string): AppState {
 /** The text of a field of the value box changed: the operation's number, or a size of the figure being drawn. */
 export function doEntry(s: AppState, field: number, text: string): AppState {
   if (!/^-?\d*\.?\d*$/.test(text)) return s;
-  if (s.op && s.op.patStart) {
-    const pat = [...s.op.pat];
-    if (field >= 0 && field < pat.length) pat[field] = text;
-    return { ...s, op: { ...s.op, pat, axis: Math.min(2, Math.max(0, field)) as 0 | 1 | 2 } };
-  }
   if (s.op && s.op.kind === "rotate" && (s.op.target === "body" || s.op.target === "plane")) {
     const rot = [...s.op.rot] as [string, string, string];
     if (field >= 0 && field < 3) rot[field] = text;
     return { ...s, op: { ...s.op, rot, axis: (field as 0 | 1 | 2), value: null, typed: "" } };
+  }
+  if (s.repeat && !s.op) {
+    // a number of the repeat that is open (the count and the spacing, or the count and the degrees)
+    const pat = [...s.repeat.op.pat];
+    if (field >= 0 && field < pat.length) pat[field] = text;
+    return { ...s, repeat: { ...s.repeat, op: { ...s.repeat.op, pat } } };
   }
   const auto = s.op ? null : activeOp(s);
   if (auto && (auto.kind === "pushpull" || auto.kind === "extrude" || auto.kind === "edge")) return { ...s, op: { ...auto, auto: false, typed: text } }; // typing in the bubble of an arrow that showed up by itself
@@ -104,17 +106,18 @@ export function doEscape(s: AppState): AppState {
 export function doRunAction(s: AppState, id: string): AppState {
   const closed = { ...s, menu: null };
   if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind);
+  if (id === "op:linear" || id === "op:circular" || id === "op:copy") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular" | "copy");
   if (id.startsWith("op:")) return beginOp(closed, id.slice(3) as OpKind);
   const a = actionsFor(sceneOf(s.session), selectionOf(s.session)).find((x) => x.id === id);
   return a && a.enabled ? { ...withSession(s, run(s.session, a.run())), menu: null } : closed;
 }
 export function doDelete(s: AppState): AppState {
-  if (s.tool || s.op) return s;
+  if (s.tool || s.op || s.repeat) return s;
   const a = actionsFor(sceneOf(s.session), selectionOf(s.session)).find((x) => x.id === "delete");
   return a ? { ...withSession(s, run(s.session, a.run())), menu: null } : s;
 }
-export const doUndo = (s: AppState): AppState => ({ ...withSession(s, undoLast(s.session)), menu: null, op: s.op?.made ? null : s.op });
-export const doRedo = (s: AppState): AppState => ({ ...withSession(s, redoLast(s.session)), menu: null, op: s.op?.made ? null : s.op });
+export const doUndo = (s: AppState): AppState => s.repeat ? { ...s, menu: null, session: { ...s.session, message: "apply or cancel the repeat that is open first" } } : ({ ...withSession(s, undoLast(s.session)), menu: null, op: s.op?.made ? null : s.op });
+export const doRedo = (s: AppState): AppState => s.repeat ? { ...s, menu: null, session: { ...s.session, message: "apply or cancel the repeat that is open first" } } : ({ ...withSession(s, redoLast(s.session)), menu: null, op: s.op?.made ? null : s.op });
 
 /** A constraint shown on a selected part: open or close it, delete it, lock or unlock its number, give it a new number, or lock the measure of the selection. */
 export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>): AppState {
@@ -144,4 +147,44 @@ export const doPanel = (s: AppState, name: "bodies" | "history"): AppState => ({
 export function doPanelRow(s: AppState, id: string, act: "select" | "remove"): AppState {
   if (act === "select") return id in sceneOf(s.session).parts ? withSession(s, { ...s.session, click: { ...s.session.click, selection: [id as never] } }) : s;
   return withSession({ ...s, op: null }, run(s.session, { type: "removeStep", id }));
+}
+
+// ---- a repeat being set up (`in_141`): it is its own state, not an operation, so Move and the rest can still be used while it is up ----
+/** Start a repeat of what is selected (a copy is a repeat of two). A circular one gets its pivot parts: a point, a point at the middle of what is repeated, a line between. */
+function doRepeatBegin(s: AppState, kind: "linear" | "circular" | "copy"): AppState {
+  const say = (message: string): AppState => ({ ...s, menu: null, session: { ...s.session, message } });
+  if (s.repeat) return say("apply or cancel the repeat that is open first");
+  const r = startOp(sceneOf(s.session), selectionOf(s.session), kind);
+  if (!r.ok) return say(r.why);
+  let session = s.session;
+  let pivot = null;
+  if (r.op.kind === "circular") {
+    const made = pivotCommands(sceneOf(session), r.op);
+    const next = run(session, made.command);
+    if (next.message) return say(next.message);
+    session = next;
+    pivot = made.parts;
+  }
+  return { ...s, menu: null, op: null, tool: null, session: { ...session, message: null }, repeat: { op: r.op, pivot } };
+}
+export function doRepeatApply(s: AppState): AppState {
+  if (!s.repeat) return s;
+  const cmd = repeatApply(sceneOf(s.session), s.repeat);
+  if (!cmd) return { ...s, session: { ...s.session, message: "there is nothing to repeat yet: more than one copy" } };
+  const next = run(s.session, cmd);
+  if (next.message) return { ...s, session: next };
+  return { ...s, session: { ...next, click: { ...next.click, selection: [] } }, repeat: null, op: null, spread: null, hoverPoint: null };
+}
+export function doRepeatCancel(s: AppState): AppState {
+  if (!s.repeat) return s;
+  const cmd = repeatCancel(sceneOf(s.session), s.repeat);
+  const next = cmd ? run(s.session, cmd) : s.session;
+  return { ...s, session: { ...next, message: null }, repeat: null, op: null };
+}
+/** A click on a ring of a circular repeat makes that axis the one the copies turn about (it does not need to be dragged). */
+export function setRepeatAxis(s: AppState, axis: number): AppState {
+  if (!s.repeat) return s;
+  const pat = [...s.repeat.op.pat];
+  pat[2] = String(axis);
+  return { ...s, repeat: { ...s.repeat, op: { ...s.repeat.op, pat } } };
 }
