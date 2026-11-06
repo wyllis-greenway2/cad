@@ -6,6 +6,8 @@ import { scene as sceneOf, selection as selectionOf, run, undoLast } from "../se
 import type { Session } from "../session.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { Ref } from "../../shared/ref.ts";
+import { settings } from "../../shared/settings.ts";
+import type { Drag, Handle } from "../gizmo.ts";
 import { snapOnPlane } from "../tools.ts";
 import { opCommand, autoOp, isLive } from "../operations.ts";
 import { patternBase, dragPattern, liveRepeat } from "../pattern.ts";
@@ -54,7 +56,8 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     if (!g) return orbitOrCorner(s, i, env);
     // the first move of a drag: where did it begin? (the pointer is at (x, y) now and has moved (dx, dy) since the press)
     const h = hitHandle(g, pr.project, i.x - i.dx, i.y - i.dy);
-    const d = h ? startDrag(g, h, pr.ray(i.x - i.dx, i.y - i.dy), s.cam) : null;
+    const d0 = h ? startDrag(g, h, pr.ray(i.x - i.dx, i.y - i.dy), s.cam) : null;
+    const d = d0 && h ? withScreen(d0, h, pr, i.x - i.dx, i.y - i.dy, env.h) : d0;
     if (!d) return orbitOrCorner(s, i, env); // not on a handle: this drag turns the camera (or drags a corner of a drawing)
     // an operation whose arrow showed up by itself stays up after the drag (like one you started): push / pull, extrude, fillet / chamfer go on until you click away; a body's move arrows end with the drag
     if (!s.op && s.repeat) {
@@ -63,18 +66,30 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     }
     const started = s.op ?? activeOp(s)!;
     const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" ? { ...started, auto: false } : started;
-    s = { ...s, op, drag: { handle: d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // a handle that showed up by itself becomes the operation being worked
+    s = { ...s, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
   }
   if ("corner" in s.drag!) return moveCorner(s, i, env);
   if ("handle" in s.drag! && s.drag.repeat && s.repeat) {
-    const r = dragTo(s.drag.handle, pr.ray(i.x, i.y));
+    const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
     return r && "value" in r ? { ...s, repeat: { ...s.repeat, op: dragPattern(s.repeat.op, s.drag.handle.id, r, s.drag.base) } } : s;
   }
   if (!("handle" in s.drag!) || !s.op) return doOrbit(s, i);
-  const r = dragTo(s.drag.handle, pr.ray(i.x, i.y));
+  const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
   if (!r) return s;
   if ("value" in r) return { ...s, op: { ...s.op, value: Math.round((s.drag.base + r.value) * 1e6) / 1e6, typed: "", rot: ["", "", ""] as [string, string, string], ...(s.drag.handle.axis !== null ? { axis: s.drag.handle.axis } : {}) } };
   return { ...s, op: { ...s.op, pivot: snapPivot(s, r.pivot, i.x, i.y, env) } };
+}
+
+/** An arrow seen nearly end-on moves its value a lot for a little pointer movement (the pointer's ray meets its line a long way along it): such a drag follows the pointer across the screen at a steady rate instead. */
+function withScreen(d: Drag, h: Handle, pr: ReturnType<typeof projector>, x0: number, y0: number, heightPx: number): Drag {
+  if (h.kind !== "arrow" && h.kind !== "double") return d;
+  const [a, b] = [pr.project(h.points[0]!), pr.project(h.points[1]!)];
+  const world = Math.hypot(h.points[1]![0] - h.points[0]![0], h.points[1]![1] - h.points[0]![1], h.points[1]![2] - h.points[0]![2]);
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const steady = settings.gizmo.steadyPxPerMmFactor * (heightPx / (2 * pr.halfH)); // pixels per mm of the view at the target, times a factor
+  if (world < 1e-9 || len / world >= steady) return d;
+  const [ux, uy] = len > 1 ? [(b[0] - a[0]) / len, (b[1] - a[1]) / len] : [1, 0];
+  return { ...d, screen: { x0, y0, ux, uy, pxPerMm: steady } };
 }
 
 /** A drag that starts on a corner of a drawing drags the corner (the solver keeps the relations: a rectangle stays a rectangle); anywhere else it turns the camera. */

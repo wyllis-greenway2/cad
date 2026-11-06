@@ -436,7 +436,10 @@ test("after a pull the arrow stays on the new face and the value stays (the whol
 test("the fillet / chamfer arrows stay after a drag, and the size is the total, until you click away", () => {
   let st = box();
   const vertical = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "body" && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] !== (scene(st.session).parts[p.b] as { at: Vec3 }).at[2]);
-  st = select(st, [vertical[0]!.ref]);
+  // (an edge whose arrow is seen across the screen: one seen end-on follows the pointer at a steady rate instead of along its own line)
+  const seen = (ref: string) => { const g = gizmoOf(reduce(select(st, [ref]), { type: "begin", name: "edge" }, env))!.handles[0]!; const [a, b] = [px(st, g.points[0]!), px(st, g.points[1]!)]; return Math.hypot(b[0] - a[0], b[1] - a[1]); };
+  const edge = vertical.map((p) => p.ref).sort((a, b) => seen(b) - seen(a))[0]!;
+  st = select(st, [edge]);
   st = reduce(st, { type: "begin", name: "edge" }, env);
   let h = gizmoOf(st)!.handles[0]!;
   const dirOf = (q: typeof h) => { const d = sub(q.points[1]!, q.points[0]!); return scale(d, 1 / Math.hypot(...d)); };
@@ -929,4 +932,33 @@ test("a right click changes nothing about the selection; several figures selecte
   b = reduce(b, { type: "runAction", id: "op:copy" }, env);
   b = apply(b);
   near(b.session.outcome.kernel!.volume!, 2 * 16000, 5);
+});
+
+test("pulling the arrow of a round face is smooth: a fine step, and an arrow seen nearly end-on does not shoot between sizes", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 10);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 20 } } });
+  const round = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.curved)!;
+  for (const cam of [{ ...homeCamera(), target: [0, 0, 10] as Vec3, distance: 80 }, { ...homeCamera(), azimuth: 0.15, elevation: 0.1, target: [0, 0, 10] as Vec3, distance: 80 }]) {
+    let st = select({ ...createState(s), cam }, [round.ref]);
+    const h = frame(st).gizmo!.handles[0]!;
+    const [a, b] = [px(st, h.points[0]!), px(st, h.points[1]!)];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const u = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+    let [x, y] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    st = reduce(st, { type: "hover", x, y }, env);
+    let last = 0;
+    let biggest = 0;
+    for (let k = 0; k < 10; k++) {
+      x += u[0]! * 3;
+      y += u[1]! * 3;
+      st = reduce(st, { type: "orbit", dx: u[0]! * 3, dy: u[1]! * 3, x, y }, env);
+      const v = st.op!.value!;
+      biggest = Math.max(biggest, Math.abs(v - last));
+      last = v;
+    }
+    assert.ok(biggest <= 0.75, `3 px of the pointer changes the radius by at most 0.75 mm (it was ${biggest})`);
+    assert.ok(Math.abs(Math.round(last * 50) - last * 50) < 1e-6, "in steps of 0.02");
+  }
 });

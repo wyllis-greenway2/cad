@@ -184,6 +184,10 @@ export interface Drag {
   /** the parameter, angle (radians) or offset at the start */
   start: number;
   offset: Vec3 | null;
+  /** an arrow seen nearly end-on: a small move of the pointer would be a big move along it, so the value follows the pointer across the screen instead, at a steady rate (`in_163`) */
+  screen?: { x0: number; y0: number; ux: number; uy: number; pxPerMm: number };
+  /** the rounding of the value, when it is not the usual distance step */
+  step?: number;
 }
 
 /** Begin dragging a handle with the pointer ray at the press. Null if the ray cannot be turned into a drag (the view is along the line). */
@@ -220,10 +224,12 @@ const snap = (v: number, step: number) => Math.round(v / step) * step;
 const clean = (v: number) => Math.round(v * 1e6) / 1e6 + 0;
 
 /** The value a drag has reached: a distance along a line (arrows, the edge), degrees for a turn, or the new position of the ball. */
-export function dragTo(d: Drag, ray: Ray): { value: number } | { pivot: Vec3 } | null {
+export function dragTo(d: Drag, ray: Ray, pointer?: readonly [number, number]): { value: number } | { pivot: Vec3 } | null {
   if (d.kind === "arrow" || d.kind === "double") {
+    const step = d.step ?? settings.op.distanceStep;
+    if (d.screen && pointer) return { value: clean(snap(((pointer[0] - d.screen.x0) * d.screen.ux + (pointer[1] - d.screen.y0) * d.screen.uy) / d.screen.pxPerMm, step)) };
     const t = paramOnLine(d.origin, d.dir, ray);
-    return t === null ? null : { value: clean(snap(t - d.start, settings.op.distanceStep)) };
+    return t === null ? null : { value: clean(snap(t - d.start, step)) };
   }
   if (d.kind === "arc") {
     const p = hitPlane(ray, d.origin, d.dir);

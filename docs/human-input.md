@@ -880,3 +880,6 @@ Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a 
 
 ## in_162 — 2026-11-06 — directive
 > I think the 3d zoom may have been better prior to this most recent edit, can you put it back and I can try again, also I have having lots of trouble selecting the edges of circles.
+
+## in_163 — 2026-11-06 — directive
+> If you make a cylinder, then click its round surface and try to adjust the diameter with the pull push arrow, it can be very chunky, and shoot between different sizes. It does roughly go where you want it. Can we make this smoother?
