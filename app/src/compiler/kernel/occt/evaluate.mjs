@@ -81,7 +81,13 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
       const g = ranges.get(f.hashCode);
       const [lo, hi] = f.boundingBox.bounds;
       const r4s = (v) => Math.round(v * 1e3) / 1e3;
-      faces.push({ type: "surf", surface: String(f.geomType), start: g.start, count: g.count, lo: lo.map(r4s), hi: hi.map(r4s) });
+      // a cylinder or a sphere also says how round it is (the radius is shown when it is selected)
+      let radius;
+      try {
+        if (f.geomType === "CYLINDRE") radius = f._geomAdaptor().Cylinder().Radius();
+        else if (f.geomType === "SPHERE") radius = f._geomAdaptor().Sphere().Radius();
+      } catch { radius = undefined; }
+      faces.push({ type: "surf", surface: String(f.geomType), start: g.start, count: g.count, lo: lo.map(r4s), hi: hi.map(r4s), ...(radius ? { radius: Math.round(radius * 1e4) / 1e4 } : {}) });
     }
     // edges as polylines, and their end points as vertices (for selecting lines and corners)
     const em = fin.shape.meshEdges({ tolerance: tess.tolerance, angularTolerance: tess.angular });

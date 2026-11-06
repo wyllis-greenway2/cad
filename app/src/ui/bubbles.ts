@@ -37,6 +37,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
     el.style.cssText = `position:absolute;left:0;top:0;display:flex;align-items:center;gap:3px;height:26px;box-sizing:border-box;padding:0 7px;border-radius:13px;background:#fff;border:1px solid ${a.broken ? "#d33" : a.open ? "#e0a82e" : "#d6d7db"};box-shadow:0 1px 6px rgba(0,0,0,.12);cursor:${a.relationId ? "pointer" : "default"};white-space:nowrap`;
     const relation = a.relationId;
     if (a.value !== null) {
+      if (a.symbol) { const sym = document.createElement("span"); sym.textContent = a.symbol; sym.style.cssText = "font-weight:600;opacity:.6"; el.appendChild(sym); } // Ø or R: what the number is the size of
       const num = document.createElement("span");
       num.textContent = fmt(a.value);
       num.style.cssText = `font-weight:600;${a.editable ? "cursor:text;" : ""}`;
@@ -101,7 +102,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
       for (const a of list) {
         seen.add(a.id);
         let e = entries.get(a.id);
-        const sig = JSON.stringify([a.kind, a.value, a.unit, a.locked, a.editable, a.readOnly, a.broken, a.open]);
+        const sig = JSON.stringify([a.kind, a.value, a.unit, a.locked, a.editable, a.readOnly, a.broken, a.open, a.symbol]);
         if (!e) {
           const entry: Entry = { el: document.createElement("div"), sig: "", editing: false, a, tinted: false };
           // listeners on the bubble itself are added once (the contents are rebuilt when it changes, the bubble is not), and read the current annotation

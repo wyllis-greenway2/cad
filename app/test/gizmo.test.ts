@@ -13,6 +13,7 @@ import { projector, homeCamera } from "../src/interaction/camera.ts";
 import { gizmoOf } from "../src/interaction/control/handles.ts";
 import { edgeDirection, paramOnLine, hitHandle } from "../src/interaction/gizmo.ts";
 import { frameOf } from "../src/interaction/frame.ts";
+import { annotationsFor } from "../src/interaction/annotations.ts";
 import { candidatesAt } from "../src/interaction/picking.ts";
 import { BODY_OBJECT, cornerName } from "../src/compiler/body.ts";
 import { entryOf } from "../src/interaction/entry.ts";
@@ -627,6 +628,7 @@ test("the length of a line of the body can be set like a sketch line's: the face
 // ---- a model with a bore, a cross hole and rounded edges (found by the human, `in_136`) ----
 import { readFileSync } from "node:fs";
 import { startOp, opCommand } from "../src/interaction/operations.ts";
+import { planeForDrawing } from "../src/interaction/tools.ts";
 import type { Op } from "../src/interaction/operations.ts";
 import { openSession } from "../src/interaction/session.ts";
 import { projector as proj, position } from "../src/interaction/camera.ts";
@@ -755,4 +757,60 @@ test("a repeat needs the body, and clicking away in the picture applies what is 
   b = reduce(b, { type: "click", x: 20, y: 20, count: 1, shift: false }, env);
   assert.equal(b.op, null);
   near(b.session.outcome.kernel!.volume!, 3 * 16000, 1);
+});
+
+test("a figure drawn in the open (on a world plane, away from the body) and pulled backwards makes a new piece, not a cut that does nothing", () => {
+  let st = box(); // 40 x 20 x 20 at the origin
+  const XZ = worldRef("XZ");
+  const r = drawSquaredRectangle(scene(st.session), XZ, [100, 0, 100], [110, 0, 110], [1, 0, 0], [0, 0, 1]);
+  let s = run(st.session, r.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: r.lines, params: { depth: -10 } } });
+  assert.deepEqual(s.outcome.errors, {});
+  near(s.outcome.kernel!.volume!, 16000 + 10 * 10 * 10, 1);
+  // and a pocket into the body (a figure drawn on its top face and pushed in) is still a pocket
+  const top = Object.values(scene(s).parts).find((q) => q.kind === "plane" && q.origin === "body" && q.at[2] === 20)!;
+  const pf = planeForDrawing(scene(s), top.ref);
+  s = run(s, pf.command!);
+  const pl = scene(s).parts[pf.plane] as { u: Vec3; v: Vec3 };
+  const p = drawSquaredRectangle(scene(s), pf.plane, [10, 5, 20], [20, 10, 20], pl.u, pl.v);
+  s = run(s, p.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: p.lines, params: { depth: -5 } } });
+  near(s.outcome.kernel!.volume!, 16000 + 1000 - 10 * 5 * 5, 1);
+});
+
+test("the two-body model: both later extrudes add their piece", () => {
+  const r = openSession(kernel, readFileSync(new URL("./fixtures/two-bodies.cad.json", import.meta.url), "utf8"));
+  assert.ok(r.ok);
+  assert.deepEqual(r.value.outcome.errors, {});
+  const steps = scene(r.value).steps;
+  assert.equal(steps.at(-1)!.id, "s_056");
+  assert.ok(r.value.outcome.kernel!.volume! > 3000, `the new pieces are there (${r.value.outcome.kernel!.volume})`);
+});
+
+test("a curved surface says what its number is: Ø for the diameter of a round post or hole, R for the radius of a fillet", () => {
+  const s = channel();
+  const sc = scene(s);
+  const fillet = Object.values(sc.parts).find((p) => p.kind === "plane" && p.origin === "body" && p.rounded === "CYLINDRE" && Math.abs((p.radius ?? 0) - 1.9) < 1e-3)!;
+  const r = annotationsFor(sc, [fillet.ref], null).find((a) => a.id === "radius")!;
+  assert.ok(r);
+  assert.equal(r.symbol, "R");
+  near(r.value!, 1.9, 1e-3);
+  assert.equal(r.readOnly, true);
+  // the bore (a full round hole): its push / pull bubble is the diameter, Ø
+  const bore = Object.values(sc.parts).find((p) => p.kind === "plane" && p.curved)!;
+  let st: AppState = { ...createState(s), cam: homeCamera() };
+  st = select(st, [bore.ref]);
+  const f = frame(st).entry!.fields[0]!;
+  assert.equal(f.short, "Ø");
+  assert.equal(f.label, "Diameter");
+  near(Number(f.value), 2 * 0.6851, 0.01);
+});
+
+test("a circle's diameter bubble carries Ø", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 5);
+  s = run(s, c.command);
+  s = run(s, { type: "addRelation", relation: { id: "r_900", kind: "diameter", parts: [c.circle], value: 10, locked: true } });
+  const a = annotationsFor(scene(s), [c.circle], null).find((x) => x.kind === "diameter")!;
+  assert.equal(a.symbol, "Ø");
 });

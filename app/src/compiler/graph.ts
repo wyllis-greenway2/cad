@@ -52,7 +52,7 @@ export function buildGraph(scene: Scene): GraphResult {
         const sk = profile(st);
         if (typeof sk === "string") { errors[st.id] = sk; break; }
         const distance = Number(st.params.depth ?? 0);
-        ops.push(sk, { id: xid, type: "extrude", profile: sk.id, distance, ...(prev ? { target: prev } : {}), mode: distance < 0 && prev ? "cut" : "add" });
+        ops.push(sk, { id: xid, type: "extrude", profile: sk.id, distance, ...(prev ? { target: prev } : {}), mode: distance < 0 && prev ? "cutOrAdd" : "add" }); // (pulled backwards onto a body: a pocket if it meets the body, else a new piece)
         prev = xid;
         break;
       }

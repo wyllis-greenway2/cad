@@ -34,7 +34,7 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     const label = op.kind === "edge" ? (v !== null && v < 0 ? "Chamfer" : "Fillet") : op.dim ? (op.curved ? "Diameter" : op.kind === "pushpull" ? "Size" : "Distance") : (op.field ?? OP_FIELD[op.kind]) + axis;
     const size = sizeShown(op); // a push / pull or an extrude shows the size (the thickness, the diameter) you are making, and a typed size is that size
     const shown = size !== null ? size : op.kind === "edge" && v !== null ? Math.abs(v) : v;
-    return { fields: [{ label, value: op.typed !== "" ? op.typed.replace(/^-/, "") : shown === null ? "0" : fmt(shown), active: true, typed: op.typed !== "" }], unit: op.unit ?? OP_UNIT[op.kind] };
+    return { fields: [{ label, ...(op.curved ? { short: "Ø" } : {}), value: op.typed !== "" ? op.typed.replace(/^-/, "") : shown === null ? "0" : fmt(shown), active: true, typed: op.typed !== "" }], unit: op.unit ?? OP_UNIT[op.kind] };
   }
   if (!tool || !tool.plane || !tool.points.length) return null;
   const pl = scene.parts[tool.plane] as Plane | undefined;

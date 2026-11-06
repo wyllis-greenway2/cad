@@ -190,6 +190,17 @@ const OPS = {
     const solid = sk.drawing.sketchOnPlane(sk.plane, sk.origin).extrude(dist);
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
+    if (op.mode === "cutOrAdd") {
+      // a figure pulled backwards: a pocket when it meets the body (drawn on a face and pushed in); drawn out in the open it is a new piece, not a cut that does nothing
+      const [tb, sb] = [bounds(target), bounds(solid)];
+      const meets = [0, 1, 2].every((i) => sb.min[i] < tb.max[i] - 1e-6 && sb.max[i] > tb.min[i] + 1e-6);
+      if (meets) {
+        const before = measureVolume(target);
+        const cut = target.clone().cut(solid.clone());
+        if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut };
+      }
+      return { kind: "solid", shape: target.fuse(solid) };
+    }
     return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
   },
 
@@ -424,10 +435,23 @@ function describeError(e) {
   return "OCCT kernel exception (opaque, no message available from the WASM build)";
 }
 
+/**
+ * What was worked out before, by what it was worked out from: an op is the same op if its description and everything it is built on are the same. A move at the end of a long
+ * model therefore only redoes the move. Kept: the newest ones. (Booleans use up what they are given, so an op is handed a copy of its input, never the kept one.)
+ */
+const KEEP = 96;
+const memo = new Map(); // key -> { value, ms }
+const remember = (key, entry) => {
+  memo.delete(key);
+  memo.set(key, entry);
+  while (memo.size > KEEP) memo.delete(memo.keys().next().value);
+};
+
 /** Compile the whole graph. Returns per-op results; never throws for op-level failures. */
 export function compile(graph) {
   const params = graph.params ?? {};
   const results = new Map(); // id -> {value?, error?, ms}
+  const keys = new Map(); // id -> what it was worked out from
   const ctx = {
     params,
     get(id, kind) {
@@ -435,16 +459,27 @@ export function compile(graph) {
       if (!r) throw new Error(`${id} not found (ops must be ordered after their dependencies)`);
       if (r.error) throw new Error(`upstream ${id} failed`);
       if (kind && r.value.kind !== kind) throw new Error(`${id} is a ${r.value.kind}, expected ${kind}`);
-      return r.value;
+      return r.value.kind === "solid" ? { ...r.value, shape: r.value.shape.clone() } : r.value; // a copy: what an op does to it must not touch the kept one
     },
   };
+  const pj = JSON.stringify(params);
   for (const op of graph.ops) {
     const t0 = performance.now();
+    const key = JSON.stringify([op, pj, [op.target, op.profile].map((d) => (d ? keys.get(d) ?? null : null))]);
+    keys.set(op.id, key);
+    const kept = memo.get(key);
+    if (kept) {
+      remember(key, kept);
+      results.set(op.id, { value: kept.value, ms: 0 });
+      continue;
+    }
     try {
       if (!OPS[op.type]) throw new Error(`unknown op type ${op.type}`);
       const value = OPS[op.type](op, ctx);
-      if (value.kind === "solid" && !isValidSolid(value.shape)) throw new Error("kernel returned an invalid solid");
+      const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
+      if (value.kind === "solid" && !rigid && !isValidSolid(value.shape)) throw new Error("kernel returned an invalid solid");
       results.set(op.id, { value, ms: performance.now() - t0 });
+      remember(key, { value });
     } catch (e) {
       results.set(op.id, { error: describeError(e), ms: performance.now() - t0 });
     }

@@ -14,6 +14,7 @@ import type { Lookup } from "../operation/part.ts";
 import { pointOf, segmentOf, circleOf } from "../operation/part.ts";
 import { actionsFor } from "./actions.ts";
 import { lengthEditable } from "./lengths.ts";
+import { surfaceTriangles } from "./surfaces.ts";
 import { ROWS, REFERENCES_ONLY } from "./rows.ts";
 
 export interface Annotation {
@@ -34,6 +35,8 @@ export interface Annotation {
   readOnly: boolean;
   broken: boolean;
   open: boolean;
+  /** a mark shown before the number: Ø for a diameter, R for a radius */
+  symbol?: string;
   /** the parts it ties the selection to (shown amber while it is open) */
   others: Ref[];
   /** polylines drawn with it: the arc of an angle, the segment a distance measures */
@@ -138,7 +141,7 @@ function annotationOf(scene: Scene, rel: Scene["relations"][number], sel: readon
   const measured = action ? action.measure() : null;
   const locked = rel.value !== undefined && rel.locked !== false;
   return {
-    id: rel.id, relationId: rel.id, kind: rel.kind, label: labelOf(rel.kind), at: placed.at,
+    id: rel.id, relationId: rel.id, kind: rel.kind, label: labelOf(rel.kind), at: placed.at, ...(rel.kind === "diameter" ? { symbol: "Ø" } : {}),
     value: rel.value === undefined ? null : locked ? rel.value : measured ?? rel.value,
     unit: rel.value === undefined ? null : action?.unit ?? (rel.kind === "angle" ? "deg" : "mm"),
     locked, editable: rel.value !== undefined, readOnly: false,
@@ -153,7 +156,8 @@ export function annotationsFor(scene: Scene, selection: readonly Ref[], focus: s
   const map = buildMap(scene);
   const out = scene.relations.filter((rel) => rel.parts.some((p) => sel.includes(p))).map((rel) => annotationOf(scene, rel, sel, focus, map)).filter((a): a is Annotation => !!a);
   const m = measureOf(scene, selection);
-  return m ? [...out, m] : out;
+  const r = radiusOf(scene, selection);
+  return [...out, ...(m ? [m] : []), ...(r ? [r] : [])];
 }
 
 /** The annotations of these relations whether or not their parts are selected (to show what a refused change would have broken). */
@@ -176,11 +180,23 @@ function measureOf(scene: Scene, selection: readonly Ref[]): Annotation | null {
   const placed = place(lookup(scene), a.id, a.parts);
   const at = placed?.at ?? a.spot();
   if (!at) return null;
-  return { id: "measure", relationId: null, kind: a.id, label: a.label, at, value: v, unit: a.unit, locked: false, editable: a.enabled || bodyLine, readOnly: !a.enabled && !bodyLine, broken: false, open: false, others: [], lines: placed?.lines ?? [] };
+  return { id: "measure", relationId: null, kind: a.id, label: a.label, at, ...(a.id === "diameter" ? { symbol: "Ø" } : {}), value: v, unit: a.unit, locked: false, editable: a.enabled || bodyLine, readOnly: !a.enabled && !bodyLine, broken: false, open: false, others: [], lines: placed?.lines ?? [] };
 }
 
 /** The parts to show in amber: what the open constraint ties the selection to. */
 export function focusParts(scene: Scene, selection: readonly Ref[], focus: string | null): Ref[] {
   const rel = focus ? scene.relations.find((r) => r.id === focus) : undefined;
   return rel ? rel.parts.filter((p) => !selection.includes(p) && p in scene.parts) : [];
+}
+
+/** A curved face of the body that is part of a cylinder or a sphere (a fillet, a rounded edge) says its radius when it is selected: R and the number, read only. (A full round post or hole shows its diameter, Ø, with its push / pull arrow.) */
+function radiusOf(scene: Scene, selection: readonly Ref[]): Annotation | null {
+  const p = selection.length === 1 ? scene.parts[selection[0]!] : undefined;
+  if (!p || p.kind !== "plane" || p.origin !== "body" || !p.rounded || !p.radius) return null;
+  const tris = surfaceTriangles(lookup(scene), p);
+  if (!tris || tris.length < 9) return null;
+  let [x, y, z] = [0, 0, 0];
+  for (let i = 0; i + 2 < tris.length; i += 3) { x += tris[i]!; y += tris[i + 1]!; z += tris[i + 2]!; }
+  const n = tris.length / 3;
+  return { id: "radius", relationId: null, kind: "radius", label: "Radius", at: [x / n, y / n, z / n], symbol: "R", value: p.radius, unit: "mm", locked: false, editable: false, readOnly: true, broken: false, open: false, others: [], lines: [] };
 }
