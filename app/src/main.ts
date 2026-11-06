@@ -167,7 +167,7 @@ async function boot() {
   requestAnimationFrame(frame);
 }
 function frame(now: number) {
-  if (state.anim || state.flash || state.worldPulse) { state = advance(state, now); dirty = true; }
+  if (state.anim || state.flash) { state = advance(state, now); dirty = true; }
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
     const size = view.size();

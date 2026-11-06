@@ -91,7 +91,6 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   const c = candidatesAt(sc, pv, pickOpts())[0];
   const point = c && c.rank === 2 ? surfacePoint(pv, c.score) : null;
   let next: AppState = { ...withSession(s, hoverOn(s.session, c?.ref)), hoverPoint: point };
-  if (c && c.ref !== s.session.hover && isWorldPlane(sc, c.ref)) next = { ...next, worldPulse: { ref: c.ref, at: env.now } }; // (pointed at a world plane: it lights up faintly and fades)
   if (s.tool?.plane) {
     const pl = sc.parts[s.tool.plane];
     const raw = pl && pl.kind === "plane" ? snapOnPlane(sc, pv, pl) : null;
@@ -185,7 +184,7 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
   if (i.count >= 2 && refs[0] && !selectable.length && isWorldPlane(sc, refs[0])) {
     // a world plane under the clicks and nothing else: it is selected and the view turns straight to it, from the side you are on (`in_159`)
     const pl = planeOf(get, refs[0]);
-    if (pl) return animateTo({ ...withSession(base, { ...sess, click: { selection: [refs[0]], spot: sess.click.spot }, message: null }), worldPulse: { ref: refs[0], at: env.now } }, planeView(base.cam, pl, false), env.now);
+    if (pl) return animateTo(withSession(base, { ...sess, click: { selection: [refs[0]], spot: sess.click.spot }, message: null }), planeView(base.cam, pl, false), env.now);
   }
   if (onePlane && i.count === 2) {
     // two: the whole object (the view does not turn)
@@ -200,11 +199,10 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
     return animateTo(only, planeView(base.cam, pl, false), env.now);
   }
   const next = clickOn(sess, selectable, i.shift);
-  const pulsed: AppState = refs[0] && !selectable.length && isWorldPlane(sc, refs[0]) ? { ...base, worldPulse: { ref: refs[0], at: env.now } } : base;
   const top = selectionOf(next).at(-1);
   const hit = cands.find((c) => c.ref === top);
   const point = hit && hit.rank === 2 ? surfacePoint(pv, hit.score) : null;
-  return { ...withSession(pulsed, next), spread: hit && point ? { ref: hit.ref, point, startMs: env.now } : null };
+  return { ...withSession(base, next), spread: hit && point ? { ref: hit.ref, point, startMs: env.now } : null };
 }
 
 /** A right click opens the ring of operations on what is selected and changes nothing about the selection (`in_140`): select first (one click, a triple click, Shift for several), then right click. */

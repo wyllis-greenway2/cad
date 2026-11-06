@@ -20,8 +20,6 @@ export interface Highlight {
   red?: { refs: readonly Ref[]; alpha: number };
   /** the last selected surface spreads its colour from where it was clicked */
   spread: { ref: Ref; point: Vec3; startMs: number } | null;
-  /** a world plane lighting up for a moment (it fades: `left` goes from 1 to 0) */
-  world?: { ref: Ref; left: number } | null;
 }
 type Kind = "select" | "hover" | "amber" | "red";
 
@@ -104,15 +102,6 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
     else if (o.shape === "circle") overlay.add(fade(pen.line(ringOf(o.center, o.radius, o.normal), col, kind === "red" ? 3.4 : w, true)));
     else if (p.kind === "axis") overlay.add(pen.line([...p.at, ...[0, 1, 2].map((i) => p.at[i]! + p.dir[i]! * AXIS_LEN)], col, w, false));
   };
-  // a world plane pointed at, clicked or looked at: a very faint teal disc, as big as the world axes (so it scales with them as you zoom), fading away
-  const wp = h.world ? get(h.world.ref) : undefined;
-  if (wp && wp.kind === "plane" && h.world!.left > 0) {
-    const R = settings.world.axisLengthMm;
-    const at = (a: number): number[] => [0, 1, 2].map((i) => wp.at[i]! + (wp.u[i]! * Math.cos(a) + wp.v[i]! * Math.sin(a)) * R);
-    const fan: number[] = [];
-    for (let k = 0; k < 64; k++) fan.push(...wp.at, ...at((k / 64) * Math.PI * 2), ...at(((k + 1) / 64) * Math.PI * 2));
-    overlay.add(trisMesh(fan, new THREE.MeshBasicMaterial({ color: rgb(ringRgb), transparent: true, opacity: settings.orb.worldPlaneOpacity * h.world!.left, side: THREE.DoubleSide, depthWrite: false })));
-  }
   // the middle of a circle or an arc is always shown: a small dot, so it can be picked to line the curve up with other things (`in_159`)
   const dots = new Set<Ref>();
   for (const p of Object.values(s.parts)) if (p.origin === "drawn" && ((p.kind === "circle") || (p.kind === "line" && p.center)) && p.center && !consumed(s).has(p.ref)) dots.add(p.center);

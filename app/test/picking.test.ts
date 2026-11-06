@@ -4,10 +4,11 @@ import { worldRef } from "../src/shared/ref.ts";
 import type { Ref } from "../src/shared/ref.ts";
 import type { Vec3 } from "../src/math/vec.ts";
 import type { PointerView } from "../src/operation/part.ts";
+import { depthOf } from "../src/operation/part.ts";
 import { newHistory, exec } from "../src/operation/history.ts";
 import type { History } from "../src/operation/history.ts";
 import { drawRectangle, drawCircle } from "../src/operation/build.ts";
-import { nextId, toJSON, withDerived } from "../src/operation/scene.ts";
+import { nextId, toJSON, withDerived, lookup } from "../src/operation/scene.ts";
 import type { Scene } from "../src/operation/scene.ts";
 import { candidatesAt, refsAt, hoverAt } from "../src/interaction/picking.ts";
 import { click, initialClick } from "../src/interaction/selection.ts";
@@ -144,4 +145,15 @@ test("a world plane between the eye and a model is only the background: the mode
   const [x, y] = pr.project([20, 0, 10]); // the middle of the +x side face
   const c = candidatesAt(scene, pr.view(x, y)).filter((q) => q.kind === "plane");
   assert.equal(scene.parts[c[0]!.ref]!.origin, "body", "the model, not a world plane");
+});
+
+test("a world plane is only there to point at on its positive side (the three faces that face you on opening); looking straight at it, all of it", () => {
+  const sc = withDerived(newHistory().scene);
+  const xy = sc.parts[worldRef("XY")]!;
+  const ray = (x: number, y: number) => ({ o: [x, y, 50] as Vec3, d: [0, 0, -1] as Vec3 });
+  const pv = (x: number, y: number, straight: boolean) => ({ x: 0, y: 0, project: () => [0, 0] as [number, number], ray: ray(x, y), straight });
+  assert.notEqual(depthOf(lookup(sc), xy, pv(20, 15, false)), null, "the positive side is hit");
+  assert.equal(depthOf(lookup(sc), xy, pv(-20, 15, false)), null, "the negative side is not");
+  assert.equal(depthOf(lookup(sc), xy, pv(20, -15, false)), null);
+  assert.notEqual(depthOf(lookup(sc), xy, pv(-20, -15, true)), null, "straight at it: everywhere");
 });

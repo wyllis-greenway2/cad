@@ -196,7 +196,6 @@ test("a line of the body shows its length (a block edge can be set, others are m
   e = reduce(e, { type: "click", x, y, count: 2, shift: false }, env);
   assert.deepEqual(selection(e.session), [XY], "but a double click selects it and turns the view straight to it");
   assert.ok(e.anim || e.cam.straight);
-  assert.ok(e.worldPulse, "and it lights up for a moment");
   assert.equal(e.session.hover, XY, "and the ring stays");
 });
 
@@ -211,5 +210,4 @@ test("a sketch tool chosen from the ring opened over a world plane turns the vie
   e = reduce(e, { type: "runAction", id: "tool:rect" }, env);
   assert.ok(e.tool);
   assert.ok(e.anim, "the view turns");
-  assert.ok(e.worldPulse === null || e.worldPulse, "(no error)");
 });

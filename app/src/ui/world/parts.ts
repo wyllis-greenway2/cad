@@ -19,18 +19,15 @@ export function axisSet(len: number, width: number, head: number, color: THREE.C
   const heads: THREE.Mesh[] = [];
   for (const a of AXES) {
     const geo = new LineGeometry();
-    const reach = len - head * 0.6;
-    geo.setPositions([...a.dir.map((v) => -v * reach), ...a.dir.map((v) => v * reach)]); // a star: each axis goes as far the other way, with its own arrow (`in_159`)
+    geo.setPositions([0, 0, 0, ...a.dir.map((v) => v * (len - head * 0.6))]);
     const mat = new LineMaterial({ color: color.getHex(), linewidth: width, worldUnits: false });
     lines.push(mat);
     group.add(new Line2(geo, mat));
-    for (const sign of [1, -1]) {
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(head * 0.3, head, 14), new THREE.MeshBasicMaterial({ color }));
-      cone.position.set(sign * a.dir[0] * (len - head / 2), sign * a.dir[1] * (len - head / 2), sign * a.dir[2] * (len - head / 2));
-      cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(sign * a.dir[0], sign * a.dir[1], sign * a.dir[2]));
-      group.add(cone);
-      heads.push(cone); // (the two heads of axis k are 2k and 2k + 1)
-    }
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(head * 0.3, head, 14), new THREE.MeshBasicMaterial({ color }));
+    cone.position.set(a.dir[0] * (len - head / 2), a.dir[1] * (len - head / 2), a.dir[2] * (len - head / 2));
+    cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...a.dir));
+    group.add(cone);
+    heads.push(cone);
   }
   return { group, lines, heads };
 }

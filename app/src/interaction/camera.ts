@@ -125,7 +125,7 @@ export function projector(c: Camera, widthPx: number, heightPx: number) {
     if (ortho) return { o: add(eye, add(scale(right, nx * halfH), scale(up, ny * halfH))), d: forward };
     return { o: eye, d: normalize(add(forward, add(scale(right, nx / f), scale(up, ny / f)))) };
   };
-  const view = (px: number, py: number): PointerView => ({ x: px, y: py, project, ray: ray(px, py), rayAt: ray });
+  const view = (px: number, py: number): PointerView => ({ x: px, y: py, project, ray: ray(px, py), rayAt: ray, straight: c.straight });
   return { project, ray, view, eye, forward, right, up, ortho, halfH };
 }
 

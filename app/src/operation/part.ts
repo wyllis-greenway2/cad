@@ -69,6 +69,8 @@ export interface PointerView {
   project: (p: Vec3) => [number, number];
   /** The ray under the pointer (origin and unit direction), for surfaces. */
   ray?: { o: Vec3; d: Vec3 };
+  /** looking straight at a plane (orthographic): a world plane is then hit anywhere on it */
+  straight?: boolean;
   /** The ray under any other pixel (to ask whether a point is hidden behind a surface). */
   rayAt?: (x: number, y: number) => { o: Vec3; d: Vec3 };
 }
@@ -279,7 +281,13 @@ const planeOps: KindOps<Plane> = {
       }
       return best;
     }
-    if (part.infinite) return rayPlane(pv, part.at, normalOfPlane(part)); // anywhere on it
+    if (part.infinite) {
+      // a world plane: only its positive side is there to point at and pick (the three faces that face you on opening); looking straight at it, all of it is
+      const t = rayPlane(pv, part.at, normalOfPlane(part));
+      if (t === null || pv.straight) return t;
+      const p = pointAt(pv, t);
+      return p[0] >= -1e-9 && p[1] >= -1e-9 && p[2] >= -1e-9 ? t : null;
+    }
     if (part.extent === undefined) return null;
     const t = rayPlane(pv, part.at, normalOfPlane(part));
     if (t === null) return null;

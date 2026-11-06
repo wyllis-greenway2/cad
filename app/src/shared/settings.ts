@@ -23,8 +23,9 @@ export const settings = {
     multiClickPx: 6, multiClickMs: 400, // clicks this close count as a double or triple click (`in_070`)
     scrollMode: "auto" as "auto" | "pan" | "zoom", // what a scroll does: auto = a trackpad's two-finger scroll pans and a wheel zooms (a pinch always zooms) (`in_079`)
     zoomToCursor: true, // zoom IN toward the point under the cursor; zoom OUT is about the view centre (no runaway)
-    zoomAnchorMaxFactor: 1.5, // zoom toward surface points within this many view-distances of the target
-    maxZoomFactorPerSecond: 5, // one gesture can never zoom faster than this
+    zoomAnchorMaxFactor: 1.5, // zoom toward the infinite world planes only within this many view-distances of the target (they can be hit far away at a shallow angle)
+    zoomAnchorSurfaceFactor: 8, // and toward the surfaces of the model and sketches within this many (a small part far from the view centre is still zoomed into)
+    maxZoomFactorPerSecond: 30, // one gesture can never zoom faster than this (it was 5, which made a single slow notch zoom only a fifth: sluggish close up, `in_161`)
     pinchZoomPerWheel: 0.01, // a trackpad pinch (a wheel event with ctrl held) is more sensitive than a wheel notch
     scrollNotchMs: 160, // a scroll gesture keeps its kind while its events keep arriving within this
     keys: {
@@ -41,8 +42,6 @@ export const settings = {
     radius: 0.025, // the hover ring's radius, in view-distances (`in_075`)
     ringPx: 1.6,
     ringOpacity: 0.88,
-    worldPlaneOpacity: 0.07, // the faint tint of a world plane that is pointed at, clicked or looked at: a disc as big as the world axes, fading over worldPulseMs
-    worldPulseMs: 1500,
     selectOpacity: 0.25, // (the teal fill; a touch more see-through: `in_157`)
     color: [0.1, 0.72, 0.7] as [number, number, number], // THE teal: kept for use elsewhere (`in_075`)
     fillMs: 520,

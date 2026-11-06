@@ -30,7 +30,9 @@ export function doZoom(s: AppState, i: Extract<Intent, { type: "zoom" }>, env: E
     const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
     const c = candidatesAt(sceneOf(s.session), pv, pickOpts()).find((x) => x.rank === 2);
     const p = c ? surfacePoint(pv, c.score) : null;
-    if (p && Math.hypot(...sub(p, s.cam.target)) <= settings.input.zoomAnchorMaxFactor * s.cam.distance) anchor = p;
+    const part = c ? sceneOf(s.session).parts[c.ref] : undefined;
+    const background = !!part && part.origin === "world" && part.kind === "plane";
+    if (p && Math.hypot(...sub(p, s.cam.target)) <= (background ? settings.input.zoomAnchorMaxFactor : settings.input.zoomAnchorSurfaceFactor) * s.cam.distance) anchor = p;
   }
   return { ...stop(s), cam: zoomAt(s.cam, i.factor, anchor) };
 }
@@ -45,7 +47,7 @@ export function doLook(s: AppState, i: Extract<Intent, { type: "look" }>, env: E
   }
   const ref = worldRef(WORLD_PLANE[i.plane]);
   const selected: Session = { ...s.session, click: { ...initialClick(), selection: [ref] }, message: null };
-  return animateTo({ ...withSession(s, selected), worldPulse: { ref, at: env.now } }, planeView(s.cam, get(ref) as Plane, true), env.now);
+  return animateTo(withSession(s, selected), planeView(s.cam, get(ref) as Plane, true), env.now);
 }
 
 export const doHome = (s: AppState, env: Env): AppState => animateTo(s, { ...homeCamera(), target: pivotOf(s.session) ?? [0, 0, 0] }, env.now);
@@ -53,7 +55,6 @@ export const doHome = (s: AppState, env: Env): AppState => animateTo(s, { ...hom
 /** Advance the camera animation to time `now`. */
 export function advance(s: AppState, now: number): AppState {
   if (s.flash && now - s.flash.at >= settings.flash.ms) s = { ...s, flash: null }; // the flash has faded
-  if (s.worldPulse && now - s.worldPulse.at >= settings.orb.worldPulseMs) s = { ...s, worldPulse: null };
   if (!s.anim) return s;
   const k = Math.min(1, (now - s.anim.t0) / settings.view.transitionMs);
   if (k >= 1) return { ...s, cam: s.anim.to, anim: null };
