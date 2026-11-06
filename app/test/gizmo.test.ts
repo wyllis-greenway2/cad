@@ -1321,3 +1321,23 @@ test("a fillet or chamfer face has its arrow back: it shows by itself, changes t
   assert.deepEqual(scene(none.session).steps.map((x) => x.type), ["extrude"]);
   near(none.session.outcome.kernel!.volume!, plain, 0.5);
 });
+
+test("the arrow of a chamfer round a post stands on the chamfer, not in the air on the axis", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 10);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 20 } } });
+  let st: AppState = { ...createState(s), cam: { ...homeCamera(), target: [0, 0, 10], distance: 80 } };
+  const rim = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "body" && p.circle && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] === 20);
+  st = select(st, rim.map((r) => r.ref));
+  st = reduce(st, { type: "begin", name: "edge" }, env);
+  st = typeNumber(st, "-2");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.rounded)!;
+  st = select({ ...st, op: null }, [face.ref]);
+  const h = gizmoOf(st)!.handles[0]!;
+  const mid = scale(add(h.points[0]!, h.points[1]!), 0.5);
+  assert.ok(Math.hypot(mid[0], mid[1]) > 7, `on the rim, not on the axis (${mid})`);
+  near(mid[2], 19, 1.5);
+});

@@ -938,3 +938,10 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_178 — 2026-11-06 — directive
 > If I have separate complete closed sketches on a plane, shouldn't I be able to select each closed section individually and extrude? Its only letting me select the whole surface with all the sketches on it
+
+## in_179 — 2026-11-06 — directive
+> Lets fix all these problems "Not done yet:
+>
+> Pushing or pulling the side wall of an extruded ring’s hole isn’t handled specially.
+> Extruding two sibling regions together still takes one extrude each.
+> A hole whose outline includes arcs is untested.' also when I make a cylinder, then chamfer, then deselect, then select the chamfer again to modify it, then the chamfer arrows dont go in the chamfer they go in the middle of the cylinder. Also there appears to be an issue where deleted items leave ghost suggested constraints behind. If I add a circle, then delete it, then start drawing with lines, it startes suggesting constraints to the deleted drawing.

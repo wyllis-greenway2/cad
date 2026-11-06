@@ -81,9 +81,13 @@ export function actionsFor(scene: Scene, selection: readonly Ref[]): Action[] {
     });
   } else {
     const drawn = sel.filter((r) => get(r)?.movable);
+    const picked = new Set<Ref>(drawn);
+    const used = (corner: Ref) => Object.values(scene.parts).some((q) => !picked.has(q.ref) && ((q.kind === "circle" && q.center === corner) || (q.kind === "line" && (q.a === corner || q.b === corner || q.center === corner)))); // another part still stands on this corner
     const targets = drawn.flatMap((r): Ref[] => {
       const p = get(r);
-      return p?.kind === "face" ? [...p.corners, ...p.loop.flatMap((l) => { const x = get(l); return x?.kind === "line" && x.center ? [x.center] : []; })] : [r]; // a face's corners (a disk's centre, the centres of its arcs): everything built on them goes too
+      if (p?.kind === "face") return [...p.corners, ...p.loop.flatMap((l) => { const x = get(l); return x?.kind === "line" && x.center ? [x.center] : []; })]; // a face's corners (a disk's centre, the centres of its arcs): everything built on them goes too
+      // a circle goes with its centre, unless something else stands on it (a line's points are real points and stay): no centre is left behind to snap to or suggest constraints to
+      return p?.kind === "circle" && get(p.center)?.movable && !used(p.center) ? [r, p.center] : [r];
     });
     if (targets.length) {
       out.push({

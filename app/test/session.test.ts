@@ -173,3 +173,11 @@ test("figures drawn inside another on one plane are regions: the inner disk and 
   const r1 = 11.430699891082787, r2 = 9.930699891082787;
   assert.ok(Math.abs(s.outcome.kernel!.volume! - Math.PI * (r1 * r1 - r2 * r2) * 10) < 1);
 });
+
+test("deleting a circle takes its centre with it, so no point is left behind to suggest constraints to", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 5);
+  s = run(s, c.command);
+  const del = (s0: typeof s, refs: any[]) => run(s0, actionsFor(scene(s0), refs).find((a) => a.id === "delete")!.run() as any);
+  assert.deepEqual(Object.keys(scene(del(s, [c.circle])).parts).filter((k) => k.startsWith("d/")), []);
+});

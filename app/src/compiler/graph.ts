@@ -4,7 +4,7 @@ import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { normalize, sub } from "../math/vec.ts";
 import type { Scene, Step } from "../operation/scene.ts";
-import { lookup } from "../operation/scene.ts";
+import { lookup, figuresOf } from "../operation/scene.ts";
 import type { Plane } from "../operation/part.ts";
 import { normalOfPlane, pointOf, loopPoints } from "../operation/part.ts";
 import type { KernelGraph, KernelOp } from "./kernel/adapter.ts";
@@ -51,17 +51,25 @@ export function buildGraph(scene: Scene): GraphResult {
     const xid = `x_${st.id}`;
     switch (st.type) {
       case "extrude": {
-        const sk = profile(st);
-        if (typeof sk === "string") { errors[st.id] = sk; break; }
         const distance = Number(st.params.depth ?? 0);
-        const holeIds: string[] = [];
+        // each figure (the first, then siblings extruded together) is a sketch, and the figures drawn inside it are sketches that are cut out of it
+        const made: { profile: string; holes: string[] }[] = [];
         let bad = "";
-        String(st.params.holes ?? "").split(";").filter(Boolean).forEach((h, i) => {
-          const hs = profile(st, h.split(",") as Ref[], `s_${st.id}_h${i}`);
-          if (typeof hs === "string") bad = hs; else { ops.push(hs); holeIds.push(hs.id); }
+        figuresOf(st).forEach((fig, n) => {
+          if (bad) return;
+          const sk = profile(st, fig.outer, n ? `s_${st.id}_f${n}` : `s_${st.id}`);
+          if (typeof sk === "string") { bad = sk; return; }
+          const holes: string[] = [];
+          fig.holes.forEach((h, i) => {
+            const hs = profile(st, h, `s_${st.id}_f${n}h${i}`);
+            if (typeof hs === "string") bad = hs; else { ops.push(hs); holes.push(hs.id); }
+          });
+          ops.push(sk);
+          made.push({ profile: sk.id, holes });
         });
         if (bad) { errors[st.id] = bad; break; }
-        ops.push(sk, { id: xid, type: "extrude", profile: sk.id, ...(holeIds.length ? { holes: holeIds } : {}), distance, ...(prev ? { target: prev } : {}), mode: distance < 0 && prev ? "cutOrAdd" : "add" }); // (pulled backwards onto a body: a pocket if it meets the body, else a new piece)
+        const [first, ...more] = made;
+        ops.push({ id: xid, type: "extrude", profile: first!.profile, ...(first!.holes.length ? { holes: first!.holes } : {}), ...(more.length ? { also: more } : {}), distance, ...(prev ? { target: prev } : {}), mode: distance < 0 && prev ? "cutOrAdd" : "add" }); // (pulled backwards onto a body: a pocket if it meets the body, else a new piece)
         prev = xid;
         break;
       }

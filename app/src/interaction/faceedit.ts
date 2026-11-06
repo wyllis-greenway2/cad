@@ -5,6 +5,7 @@ import type { Ref } from "../shared/ref.ts";
 import { dot } from "../math/vec.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
+import { figureRefs } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
 import type { Plane, Curved } from "../operation/part.ts";
 import { normalOfPlane } from "../operation/part.ts";
@@ -45,7 +46,7 @@ function wallOfCircle(scene: Scene, c: Curved): FaceEdit | null {
   const found: FaceEdit[] = [];
   for (const st of scene.steps) {
     if (st.type !== "extrude") continue;
-    for (const ref of st.parts) {
+    for (const ref of figureRefs(st)) {
       const part = scene.parts[ref];
       if (part?.kind !== "circle") continue;
       const pl = part.plane ? scene.parts[part.plane] : undefined;
@@ -86,7 +87,7 @@ function sideOfSketch(scene: Scene, face: Plane): FaceEdit | null {
   const corners = new Set<Ref>();
   for (const st of scene.steps) {
     if (st.type !== "extrude") continue;
-    for (const ref of st.parts) {
+    for (const ref of figureRefs(st)) {
       const l = scene.parts[ref];
       if (l?.kind !== "line" || l.center || l.bulge) continue;
       const [a, b] = [scene.parts[l.a], scene.parts[l.b]];

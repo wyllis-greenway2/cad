@@ -2,7 +2,7 @@
 // what relations touch this part (so they can be shown when it is clicked), what a deletion would take with it, and which relations or steps point at something gone.
 import type { Ref } from "../shared/ref.ts";
 import type { Scene } from "./scene.ts";
-import { hasPart } from "./scene.ts";
+import { hasPart, figureRefs } from "./scene.ts";
 import { anchorsOf } from "./part.ts";
 import { dependentParts } from "./commands.ts";
 
@@ -61,7 +61,7 @@ export function consumed(s: Scene): Set<Ref> {
   const out = new Set<Ref>();
   for (const st of s.steps) {
     if (st.type !== "extrude") continue;
-    for (const r of [...st.parts, ...(String(st.params.holes ?? "").split(/[;,]/).filter(Boolean) as Ref[])]) {
+    for (const r of figureRefs(st)) {
       out.add(r);
       const p = s.parts[r];
       if (p) for (const a of anchorsOf(p)) out.add(a);

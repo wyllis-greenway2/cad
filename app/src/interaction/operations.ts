@@ -13,7 +13,8 @@ import { faceEdit, editCommand } from "./faceedit.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
-import { lookup, nextId } from "../operation/scene.ts";
+import { lookup, nextId, figureParams } from "../operation/scene.ts";
+import type { Figure } from "../operation/scene.ts";
 import type { Part, Plane, PointerView } from "../operation/part.ts";
 import { normalOfPlane, pointOf, curveMid, circumcentre } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
@@ -34,8 +35,8 @@ export interface Op {
   value: number | null;
   /** move and rotate: 0 = X, 1 = Y, 2 = Z (for a drawn shape: 0 = along the plane's first axis, 1 = along its second) */
   axis: 0 | 1 | 2;
-  /** extrude: the figures drawn inside the one extruded (holes in it), as `refs;refs` */
-  holes?: string;
+  /** extrude: the step's params for the figures drawn inside the one extruded (holes in it) and for sibling figures extruded with it */
+  figs?: Record<string, string>;
   /** extrude and push / pull: the figure's or face's middle and the direction along which the distance is measured */
   origin: Vec3 | null;
   normal: Vec3 | null;
@@ -82,6 +83,13 @@ export type StartResult = { ok: true; op: Op } | { ok: false; why: string };
 const centroid = (pts: Vec3[]): Vec3 => scale(pts.reduce((a, p) => add(a, p), [0, 0, 0] as Vec3), 1 / Math.max(1, pts.length));
 
 /** The drawn closed figure in this selection (its face), if the selection is exactly that. */
+/** The drawn closed figures selected, when they are all on one plane (a sibling figure, or one inside another, is extruded together with it). */
+function drawnFaces(scene: Scene, parts: Part[]): Extract<Part, { kind: "face" }>[] {
+  const faces = parts.map((p) => drawnFace(scene, [p]));
+  const all = faces.filter((f): f is Extract<Part, { kind: "face" }> => !!f);
+  return all.length === parts.length && all.length > 0 && all.every((f) => f.plane === all[0]!.plane) ? all : [];
+}
+
 function drawnFace(scene: Scene, parts: Part[]): Extract<Part, { kind: "face" }> | null {
   const first = parts[0];
   if (!first || parts.length !== 1) return null;
@@ -114,14 +122,15 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     return { ok: true, op: { ...base, parts: parts.map((p) => p.ref), origin: off.origin, normal: off.normal, off } };
   }
   if (kind === "extrude") {
-    const face = drawnFace(scene, parts);
+    const faces = drawnFaces(scene, parts);
+    const face = faces[0];
     if (!face) return { ok: false, why: "select a closed figure first" };
     const pl = face.plane ? get(face.plane) : undefined;
     if (!pl || pl.kind !== "plane") return { ok: false, why: "the figure is not on a plane" };
     const pts = face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
-    return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, holes: holesOf(scene, face), origin: centroid(pts), normal: normalOfPlane(pl), dim: { base: 0, scale: 1 } } };
+    return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, figs: figureParams(faces.map((f) => figureOf(scene, f))), origin: centroid(pts), normal: normalOfPlane(pl), dim: { base: 0, scale: 1 } } };
   }
-  if (kind === "pushpull" && drawnFace(scene, parts)) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
+  if (kind === "pushpull" && drawnFaces(scene, parts).length) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
   if (kind === "pushpull" && parts.length > 1) {
     // several flat faces of the body: each moves along its own normal by the same distance
     const flat = parts.filter((p): p is Extract<Part, { kind: "plane" }> => p.kind === "plane" && p.origin === "body" && !p.curved && !p.rounded && !!p.mesh && p.mesh.length >= 9);
@@ -144,20 +153,24 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
       const m = f.mesh;
       const pts: Vec3[] = [];
       for (let i = 0; i + 2 < m.length; i += 3) pts.push([m[i]!, m[i + 1]!, m[i + 2]!]);
-      const at = centroid(pts);
+      const mid = centroid(pts);
       const body = Object.values(scene.parts).filter((p): p is Extract<Part, { kind: "corner" }> => p.kind === "corner" && p.origin === "body").map((p) => p.at);
       const middle = body.length ? centroid(body) : ([0, 0, 0] as Vec3);
-      // the face's own direction, out of the body: the average of its triangles' normals, turned to point away from the middle of the body
-      let nsum: Vec3 = [0, 0, 0];
+      // the arrow stands ON the face (the middle of a ring-shaped chamfer round a post is in the air, on the axis): at the triangle nearest the face's middle, pointing along that triangle's normal, turned away from the middle of the body
+      let best: { at: Vec3; n: Vec3; d: number } | null = null;
       for (let i = 0; i + 8 < m.length; i += 9) {
         const a: Vec3 = [m[i]!, m[i + 1]!, m[i + 2]!];
         const b: Vec3 = [m[i + 3]!, m[i + 4]!, m[i + 5]!];
         const c: Vec3 = [m[i + 6]!, m[i + 7]!, m[i + 8]!];
         const t = cross(sub(b, a), sub(c, a));
-        nsum = add(nsum, dot(t, sub(add(add(a, b), c), scale(middle, 3))) < 0 ? scale(t, -1) : t);
+        const g = scale(add(add(a, b), c), 1 / 3);
+        const d = Math.hypot(...sub(g, mid));
+        if (Math.hypot(...t) < 1e-12 || (best && d >= best.d)) continue;
+        best = { at: g, n: dot(t, sub(g, middle)) < 0 ? scale(t, -1) : t, d };
       }
+      if (!best) return { ok: false, why: "this curved face has no direction to push along" };
+      const at = best.at, nsum = best.n;
       const len = Math.hypot(...nsum);
-      if (len < 1e-12) return { ok: false, why: "this curved face has no direction to push along" };
       return { ok: true, op: { ...base, parts: [f.ref], origin: at, normal: scale(nsum, 1 / len), edit, rounded: true, dim: { base: edit.value, scale: -1 } } };
     }
     if (f.curved) {
@@ -256,7 +269,7 @@ export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
   if (parts.length !== selection.length) return null;
   const flatBody = parts.every((p) => p.kind === "plane" && p.origin === "body" && (!p.rounded || faceEdit(scene, p.ref)?.kind === "edgeSize")); // (a fillet or chamfer face gets its arrow back: its size)
   const kind: OpKind | null =
-    parts.length === 1 && drawnFace(scene, parts) ? "extrude"
+    drawnFaces(scene, parts).length ? "extrude"
     : flatBody ? "pushpull"
     : parts.every((p) => p.kind === "line" && p.origin === "body") ? "edge"
     : parts.length === 1 && parts[0]!.kind === "body" ? "move"
@@ -364,7 +377,7 @@ export function opCommand(scene: Scene, op: Op): Command | null {
     const a = actionsFor(scene, op.parts).find((x) => x.dimensional && x.enabled);
     return a && v > 0 ? a.run(v) : null;
   }
-  if (op.kind === "extrude") return v === 0 ? null : { type: "addStep", step: { id, type: "extrude", parts: op.parts, params: op.holes ? { depth: v, holes: op.holes } : { depth: v } } };
+  if (op.kind === "extrude") return v === 0 ? null : { type: "addStep", step: { id, type: "extrude", parts: op.parts, params: { depth: v, ...(op.figs ?? {}) } } };
   if (op.kind === "pushpull" && op.faces && op.faces.length > 1) {
     if (v === 0) return null;
     return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }) } } })) };
@@ -404,7 +417,8 @@ function scaleShapeCommand(scene: Scene, op: Op, f: number): Command | null {
 /** Operations that make one step and then change it as you drag or type again, until you click away: the value is the total since the operation began. */
 export const isLive = (op: Op): boolean => !op.auto && (op.kind === "extrude" || op.kind === "pushpull" || op.kind === "edge" || op.kind === "offset");
 
-/** The figures drawn inside a face, as the refs of each one's sides (or circle) joined: `a,b,c;d`. */
-function holesOf(scene: Scene, face: Extract<Part, { kind: "face" }>): string {
-  return (face.holes ?? []).flatMap((h) => { const f = scene.parts[h]; return f?.kind === "face" ? [(f.disk ? [f.disk] : f.loop).join(",")] : []; }).join(";");
+/** A face as the figure an extrude uses: its sides (or circle) and those of each figure drawn inside it. */
+function figureOf(scene: Scene, face: Extract<Part, { kind: "face" }>): Figure {
+  const refs = (f: Extract<Part, { kind: "face" }>): Ref[] => (f.disk ? [f.disk] : f.loop);
+  return { outer: refs(face), holes: (face.holes ?? []).flatMap((h) => { const f = scene.parts[h]; return f?.kind === "face" ? [refs(f)] : []; }) };
 }

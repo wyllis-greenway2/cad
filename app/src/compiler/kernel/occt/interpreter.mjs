@@ -238,13 +238,18 @@ const OPS = {
   },
 
   extrude(op, ctx) {
-    const sk = ctx.get(op.profile, "sketch");
     const dist = resolve(op.distance, ctx.params);
-    let solid = sk.drawing.sketchOnPlane(sk.plane, sk.origin).extrude(dist);
-    for (const h of op.holes ?? []) { // figures drawn inside this one are holes in it
-      const hs = ctx.get(h, "sketch");
-      solid = solid.cut(hs.drawing.sketchOnPlane(hs.plane, hs.origin).extrude(dist));
-    }
+    const prism = (profile, holes) => {
+      const p = ctx.get(profile, "sketch");
+      let solid = p.drawing.sketchOnPlane(p.plane, p.origin).extrude(dist);
+      for (const h of holes ?? []) { // figures drawn inside this one are holes in it
+        const hs = ctx.get(h, "sketch");
+        solid = solid.cut(hs.drawing.sketchOnPlane(hs.plane, hs.origin).extrude(dist));
+      }
+      return solid;
+    };
+    let solid = prism(op.profile, op.holes);
+    for (const f of op.also ?? []) solid = solid.fuse(prism(f.profile, f.holes)); // siblings extruded together
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
     if (op.mode === "cutOrAdd") {
@@ -543,7 +548,7 @@ export function compile(graph) {
   const pj = JSON.stringify(params);
   for (const op of graph.ops) {
     const t0 = performance.now();
-    const key = JSON.stringify([op, pj, [op.target, op.profile].map((d) => (d ? keys.get(d) ?? null : null))]);
+    const key = JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes])].map((d) => (d ? keys.get(d) ?? null : null))]);
     keys.set(op.id, key);
     const kept = memo.get(key);
     if (kept) {

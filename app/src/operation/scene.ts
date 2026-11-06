@@ -23,6 +23,28 @@ export interface Step {
   parts: Ref[];
   params: Record<string, number | string>;
 }
+/** A figure an extrude uses: the refs of its sides (or its circle), and those of each figure drawn inside it, which are holes. */
+export interface Figure { outer: Ref[]; holes: Ref[][] }
+const group = (t: unknown, sep: string): string[][] => String(t ?? "").split(sep).filter(Boolean).map((g) => g.split(",").filter(Boolean));
+/** The figures an extrude step uses: `parts` with its `holes` (`a,b;c`), then each of `also` (figures joined by `|`, each `outer>hole;hole`): sibling figures extruded together. */
+export function figuresOf(st: Step): Figure[] {
+  const out: Figure[] = [{ outer: st.parts, holes: group(st.params.holes, ";") as Ref[][] }];
+  for (const f of String(st.params.also ?? "").split("|").filter(Boolean)) {
+    const [o, h] = f.split(">");
+    out.push({ outer: (o ?? "").split(",").filter(Boolean) as Ref[], holes: group(h, ";") as Ref[][] });
+  }
+  return out;
+}
+/** The step's figures as its two params (`holes` for the first, `also` for the rest). */
+export function figureParams(figs: Figure[]): Record<string, string> {
+  const enc = (f: Figure) => f.holes.map((h) => h.join(",")).join(";");
+  const out: Record<string, string> = {};
+  if (figs[0] && figs[0].holes.length) out.holes = enc(figs[0]);
+  if (figs.length > 1) out.also = figs.slice(1).map((f) => f.outer.join(",") + (f.holes.length ? ">" + enc(f) : "")).join("|");
+  return out;
+}
+/** Every ref an extrude step stands on: its figures' sides and circles, holes and siblings too. */
+export const figureRefs = (st: Step): Ref[] => figuresOf(st).flatMap((f) => [...f.outer, ...f.holes.flat()]);
 export interface Scene {
   parts: Readonly<Record<string, Part>>;
   relations: readonly Relation[];
