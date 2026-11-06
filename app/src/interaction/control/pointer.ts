@@ -83,6 +83,15 @@ function drawingPlane(sc: Scene, refs: readonly Ref[]): Ref | null {
   return null;
 }
 
+/** A rim made of two half circles is one edge to the person: picking a half picks both, letting go of one lets go of both. */
+function withTwins(sc: Scene, before: readonly Ref[], now: readonly Ref[]): Ref[] {
+  const twinOf = (r: Ref): Ref | undefined => { const p = sc.parts[r]; return p?.kind === "line" ? p.twin : undefined; };
+  const out = [...now];
+  for (const r of before) { const t = twinOf(r); if (!now.includes(r) && t) { const k = out.indexOf(t); if (k >= 0) out.splice(k, 1); } }
+  for (const r of now) { const t = twinOf(r); if (t && !out.includes(t) && t in sc.parts) out.splice(out.indexOf(r) + 1, 0, t); }
+  return out;
+}
+
 const isWorldPlane = (sc: Scene, r: Ref): boolean => { const p = sc.parts[r]; return !!p && p.origin === "world" && p.kind === "plane"; };
 
 export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env: Env): AppState {
@@ -201,7 +210,8 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
     const only = selectable[0] ? withSession(base, { ...sess, click: { selection: [selectable[0]], spot: sess.click.spot }, message: null }) : base;
     return animateTo(only, planeView(base.cam, pl, false), env.now);
   }
-  const next = clickOn(sess, selectable, i.shift);
+  const picked = clickOn(sess, selectable, i.shift);
+  const next: Session = { ...picked, click: { ...picked.click, selection: withTwins(sc, selectionOf(sess), selectionOf(picked)) } };
   const top = selectionOf(next).at(-1);
   const hit = cands.find((c) => c.ref === top);
   const point = hit && hit.rank === 2 ? surfacePoint(pv, hit.score) : null;

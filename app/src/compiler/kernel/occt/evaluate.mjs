@@ -112,7 +112,16 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
       const a = e.startPoint;
       const z = e.endPoint;
       const mid = e.pointAt(0.5);
-      edges.push({ type: e.geomType, pts, a: [r4(a.x), r4(a.y), r4(a.z)], b: [r4(z.x), r4(z.y), r4(z.z)], mid: [r4(mid.x), r4(mid.y), r4(mid.z)] });
+      // an edge that is part of a circle (the rim of a post or a hole): its circle, so a whole rim can be picked, drawn and told from its halves
+      let circle;
+      if (e.geomType === "CIRCLE") {
+        try {
+          const ci = e._geomAdaptor().Circle();
+          const [lc, ax] = [ci.Location(), ci.Axis().Direction()];
+          circle = { center: [r4(lc.X()), r4(lc.Y()), r4(lc.Z())], normal: [r4(ax.X()), r4(ax.Y()), r4(ax.Z())], radius: r4(ci.Radius()) };
+        } catch { circle = undefined; }
+      }
+      edges.push({ type: e.geomType, pts, a: [r4(a.x), r4(a.y), r4(a.z)], b: [r4(z.x), r4(z.y), r4(z.z)], mid: [r4(mid.x), r4(mid.y), r4(mid.z)], ...(circle ? { circle } : {}) });
       for (const v of [a, z]) seen.set(`${r4(v.x)},${r4(v.y)},${r4(v.z)}`, [r4(v.x), r4(v.y), r4(v.z)]);
     }
     vertices = [...seen.values()];

@@ -144,6 +144,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     if (!lines.length || lines.length !== parts.length) return { ok: false, why: "select lines of the body first" };
     const edges = lines.flatMap((l) => {
       if (l.kind !== "line") return [];
+      if (l.twin && l.ref > l.twin && lines.some((x) => x.ref === l.twin)) return []; // (one arrow for a rim of two halves)
       const [pa, pb] = [get(l.a), get(l.b)];
       if (pa?.kind !== "corner" || pb?.kind !== "corner") return [];
       // a curved edge (the rim of a post or a hole): the arrow stands on the curve, in the middle of it, and points out across it; a straight one is a quarter of the way along

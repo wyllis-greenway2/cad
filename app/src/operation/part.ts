@@ -3,7 +3,7 @@
 // never ask where a part came from.
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
-import { length, add, scale, sub, dot, cross } from "../math/vec.ts";
+import { length, add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 
 export type Kind = "corner" | "line" | "circle" | "face" | "plane" | "axis" | "body";
 export type Origin = "drawn" | "body" | "world";
@@ -20,7 +20,11 @@ export interface Corner extends Base { kind: "corner"; at: Vec3 }
 export interface Line extends Base { kind: "line"; a: Ref; b: Ref; /** a point halfway along a curved edge (body edges only; straight lines omit it) */ mid?: Vec3;
   /** a drawn arc: how far its middle is out from the chord, as a fraction of the chord's length (positive towards the plane's normal crossed with the chord's direction); a straight line omits it */ bulge?: number;
   /** a drawn arc about a centre point (a corner, so it can be positioned with constraints): the arc runs from `a` to `b` round `center`, counter-clockwise (seen from the plane's normal) or not; its radius is the distance from the centre to `a` */
-  center?: Ref; ccw?: boolean }
+  center?: Ref; ccw?: boolean;
+  /** a body edge that is (part of) a circle: the circle it lies on; the rim of a post or a hole */
+  circle?: { center: Vec3; normal: Vec3; radius: number };
+  /** a rim made of two half circles: the other half (picking one picks both) */
+  twin?: Ref }
 export interface Circle extends Base { kind: "circle"; center: Ref; radius: number }
 /** A derived face of drawn lines: a closed loop (its lines and, in order, its corners), or a disk (a circle). Rebuilt from the lines; never saved. */
 export interface Face extends Base { kind: "face"; loop: Ref[]; corners: Ref[]; disk?: Ref }
@@ -188,8 +192,22 @@ export function loopPoints(get: Lookup, loop: readonly Ref[], corners: readonly 
   });
   return out;
 }
+/** The points round a circle of a body edge. */
+const ringPoints = (c: NonNullable<Line["circle"]>, n = 96): Vec3[] => {
+  const nu = normalize(c.normal);
+  const u = normalize(cross(nu, Math.abs(nu[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]));
+  const v = cross(nu, u);
+  return Array.from({ length: n + 1 }, (_, i): Vec3 => { const t = (i / n) * Math.PI * 2; return add(c.center, add(scale(u, Math.cos(t) * c.radius), scale(v, Math.sin(t) * c.radius))); });
+};
 const lineOps: KindOps<Line> = {
   hit: (get, part, pv) => {
+    if (part.circle && part.a === part.b) {
+      // a whole rim in one edge: the nearest of the pieces of its ring
+      const q = ringPoints(part.circle).map((p) => px(pv, p));
+      let best = Infinity;
+      for (let i = 0; i + 1 < q.length; i++) best = Math.min(best, distToSegment2d([pv.x, pv.y], q[i]!, q[i + 1]!));
+      return best;
+    }
     const s = segmentOf(get, part.ref);
     if (!s) return null;
     const cm = curveMid(get, part);
@@ -203,6 +221,7 @@ const lineOps: KindOps<Line> = {
     return distToSegment2d([pv.x, pv.y], px(pv, s[0]), px(pv, s[1]));
   },
   outline: (get, part) => {
+    if (part.circle && part.a === part.b) return { shape: "polyline", pts: ringPoints(part.circle) };
     const s = segmentOf(get, part.ref);
     if (!s) return { shape: "none" };
     const cm = curveMid(get, part);

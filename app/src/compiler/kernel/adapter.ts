@@ -5,7 +5,7 @@ export type Vec = [number, number, number];
 export interface KernelOp { id: string; type: string; [key: string]: unknown }
 export interface KernelGraph { params: Record<string, number>; ops: KernelOp[] }
 
-export interface KernelEdge { type: string; pts: Float32Array; a: Vec; b: Vec; mid: Vec }
+export interface KernelEdge { type: string; pts: Float32Array; a: Vec; b: Vec; mid: Vec; /** an edge that is (part of) a circle: its circle */ circle?: { center: Vec; normal: Vec; radius: number } }
 export interface KernelFace { start: number; count: number; type?: string; n?: Vec; d?: number; axis?: number; [key: string]: unknown }
 export interface KernelResult {
   ops: { id: string; type: string; error: string | null; ms: number }[];

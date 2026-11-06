@@ -899,3 +899,6 @@ Sent a model (kept as `app/test/fixtures/cyl-fillet.cad.json`: a 4.2 mm tall dis
 Sent a model (kept as `app/test/fixtures/two-pieces.cad.json`).
 
 > somehow just pulling this pulling this surface to make the cylinder taller turned it into two seperate pieces, but it selects as one body?
+
+## in_168 — 2026-11-06 — directive
+> If you add a circle, then extrude into cylinder, then the edges can be selected, if you push or pull one of the cylinder ends, then the edges of the circle can no longer be selected. Also they select in half circles.

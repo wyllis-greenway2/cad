@@ -7,7 +7,7 @@ import { bodyRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { cross, normalize } from "../math/vec.ts";
 import type { Part } from "../operation/part.ts";
-import type { KernelResult } from "./kernel/adapter.ts";
+import type { KernelResult, KernelEdge } from "./kernel/adapter.ts";
 
 const r4 = (v: number) => Math.round(v * 1e4) / 1e4;
 const key = (p: readonly number[]) => p.map((v) => String(r4(v) + 0)).join(",");
@@ -47,9 +47,16 @@ export function bodyParts(result: KernelResult): Part[] {
   };
   if (result.mesh) out.push({ ...base, ref: BODY_OBJECT, kind: "body" }); // the whole object: selected by the third click
   for (const v of result.vertices ?? []) corner(v);
+  // a rim that the kernel made of two half circles: each half knows the other, so picking one picks both
+  const halves = new Map<string, Ref[]>();
+  const circleKey = (c: NonNullable<KernelEdge["circle"]>) => `${c.center.map((v) => Math.round(v * 100)).join(",")}|${Math.round(c.radius * 100)}|${c.normal.map((v) => Math.abs(Math.round(v * 100))).join(",")}`;
+  for (const e of result.edges ?? []) if (e.circle && e.a.some((v, i) => v !== e.b[i])) halves.set(circleKey(e.circle), [...(halves.get(circleKey(e.circle)) ?? []), edgeName(e.a, e.b, e.mid)]);
   for (const e of result.edges ?? []) {
     const straight = e.type === "LINE";
-    out.push({ ...base, ref: edgeName(e.a, e.b, e.mid), kind: "line", a: corner(e.a), b: corner(e.b), ...(straight ? {} : { mid: e.mid }) });
+    const name = edgeName(e.a, e.b, e.mid);
+    const pair = e.circle ? halves.get(circleKey(e.circle)) : undefined;
+    const twin = pair && pair.length === 2 ? pair.find((r) => r !== name) : undefined;
+    out.push({ ...base, ref: name, kind: "line", a: corner(e.a), b: corner(e.b), ...(straight ? {} : { mid: e.mid }), ...(e.circle ? { circle: e.circle as { center: Vec3; normal: Vec3; radius: number } } : {}), ...(twin ? { twin } : {}) });
   }
   const flats: { n: Vec3; d: number; u: Vec3; v: Vec3; mesh: number[] }[] = [];
   for (const f of result.faces ?? []) {

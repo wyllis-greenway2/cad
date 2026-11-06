@@ -111,5 +111,9 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
   for (const r of h.selection) mark(r, "select");
   // a selected arc or circle shows its centre vertex too, so it can be picked to line the curve up with other things (`in_143`)
   for (const r of h.selection) { const p = get(r); if (p && (p.kind === "circle" || (p.kind === "line" && p.center)) && p.center && !h.selection.includes(p.center)) mark(p.center, "hover"); }
-  if (h.hover && !h.selection.includes(h.hover)) mark(h.hover, "hover");
+  if (h.hover && !h.selection.includes(h.hover)) {
+    mark(h.hover, "hover");
+    const hp = get(h.hover);
+    if (hp && hp.kind === "line" && hp.twin && !h.selection.includes(hp.twin)) mark(hp.twin, "hover"); // (the other half of a rim)
+  }
 }

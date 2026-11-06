@@ -1029,3 +1029,34 @@ test("a post pulled taller is still one round wall: selecting it and changing th
   near(bb.max[2], 16);
   near(st.session.outcome.kernel!.volume!, Math.PI * 49 * 16, 20);
 });
+
+test("the rim of a cylinder is one edge: picking a half picks both halves, and after an end is pushed or pulled (the rim is then one closed edge) it can still be picked", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 10);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 20 } } });
+  let st: AppState = { ...createState(s), cam: { ...homeCamera(), target: [0, 0, 10], distance: 80 } };
+  const rimAt = (z: number, a: number): Vec3 => [10 * Math.cos(a), 10 * Math.sin(a), z];
+  const pick = (a: number, z: number) => { const [x, y] = px(st, rimAt(z, a)); st = reduce(reduce(st, { type: "escape" }, env), { type: "click", x, y, count: 1, shift: false }, env); return selection(st.session).map((r) => scene(st.session).parts[r]).filter((p) => p?.kind === "line"); };
+  const half = pick(1, 20);
+  assert.equal(half.length, 2, "both halves of the top rim are picked together");
+  // pull the top up to 30
+  const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && p.at[2] === 20)!;
+  st = select(st, [top.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  st = typeText(st, "30");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.outcome.kernel!.bbox!.max[2], 30);
+  for (const a of [0.4, 1.5, 2.8, 4, 5.5]) {
+    const rim = pick(a, 30);
+    assert.ok(rim.length >= 1, `the new top rim can be picked at ${a}`);
+  }
+  // and it is one edge, so it can be filleted whole
+  st = reduce(st, { type: "begin", name: "edge" }, env);
+  assert.ok(st.op, "fillet / chamfer starts on the rim");
+  const before = st.session.outcome.kernel!.volume!;
+  st = typeText(st, "1");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  assert.ok(st.session.outcome.kernel!.volume! < before - 1, "the whole rim is rounded");
+});

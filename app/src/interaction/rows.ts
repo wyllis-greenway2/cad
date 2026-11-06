@@ -51,6 +51,7 @@ export const ROWS: Row[] = [
   {
     // the length of a line (the distance between its two corners)
     id: "length", label: "Length", pair: ["line"], unit: "mm",
+    hidden: (c, r) => { const l = c.get(r[0]!); return l?.kind === "line" && !!l.circle; }, // (the rim of a post or a hole has no length between its ends: they are one point, or the two halves' chords)
     measure: (c, r) => {
       const [s] = segs(c, r);
       return s ? dist(s[0], s[1]) : null;
