@@ -177,6 +177,11 @@ function constraintFor(m: Model, rel: Relation): Omit<SolverConstraint, "id"> | 
       const arcEnd = arc ? m.cornerId(arc.a) : null;
       return straight && cen && arcEnd ? { type: "tangentArc", a: straight[0], b: straight[1], c: cen, p: arcEnd } : null;
     }
+    case "concentric": {
+      const a = k1 ? m.cornerId((m.get(k1) as { center: Ref }).center) : null;
+      const b = k2 ? m.cornerId((m.get(k2) as { center: Ref }).center) : null;
+      return a && b ? { type: "coincident", a, b } : null;
+    }
     case "equalRadius": {
       const r = k1 ? m.radiusId(k1) : null;
       const q = k2 ? m.radiusId(k2) : null;

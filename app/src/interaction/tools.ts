@@ -30,6 +30,8 @@ export interface Tool {
   field: 0 | 1;
   /** the constraints the end of the line being drawn is close to (and has taken): a click makes the line with them */
   hints?: Hint[];
+  /** a circle being drawn about the centre of another circle: that circle (the new one is made concentric with it) */
+  concentric?: Ref;
 }
 /** A tool that waits for its first click on a surface. */
 export const armTool = (kind: ToolKind): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0 });

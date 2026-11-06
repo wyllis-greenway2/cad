@@ -136,7 +136,8 @@ export function editCommand(scene: Scene, edit: FaceEdit, v: number): Command | 
   }
   if (edit.kind === "edgeSize") {
     const value = Math.round((edit.value - v) * 1e6) / 1e6;
-    return value > 1e-6 ? { type: "setStepParams", id: edit.step, params: { value } } : null;
+    // pulled all the way back to nothing: there is no fillet or chamfer any more, the step that made it goes
+    return value > 1e-6 ? { type: "setStepParams", id: edit.step, params: { value } } : { type: "removeStep", id: edit.step };
   }
   if (edit.kind === "side") {
     const nf = edit.normal;

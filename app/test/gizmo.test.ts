@@ -1286,10 +1286,38 @@ test("three fillets one after another at one corner: the third cannot be made al
   const s0 = box();
   const sc = scene(s0.session);
   const corner = [40, 20, 20];
-  const edges = Object.values(sc.parts).filter((p) => p.kind === "line" && p.origin === "body" && [(sc.parts[p.a] as { at: Vec3 }).at, (sc.parts[p.b] as { at: Vec3 }).at].some((q) => Math.hypot(q[0] - corner[0], q[1] - corner[1], q[2] - corner[2]) < 1e-3));
+  const edges = Object.values(sc.parts).filter((p) => p.kind === "line" && p.origin === "body" && [(sc.parts[p.a] as { at: Vec3 }).at, (sc.parts[p.b] as { at: Vec3 }).at].some((q) => Math.hypot(q[0] - corner[0]!, q[1] - corner[1]!, q[2] - corner[2]!) < 1e-3));
   assert.equal(edges.length, 3);
   let s = s0.session;
   edges.forEach((e, k) => { s = run(s, { type: "addStep", step: { id: `s_30${k}`, type: "edgeMod", parts: [e.ref], params: { mode: "fillet", value: 3 } } }); assert.equal(s.message, null, `fillet ${k + 1} of 3`); });
   assert.deepEqual(s.outcome.errors, {});
   assert.ok(s.outcome.kernel!.volume! < 16000, "all three are rounded");
+});
+
+test("a fillet or chamfer face has its arrow back: it shows by itself, changes the size, and pulled back to nothing removes the fillet", () => {
+  let st = box();
+  const vertical = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "body" && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] !== (scene(st.session).parts[p.b] as { at: Vec3 }).at[2])!;
+  st = select(st, [vertical.ref]);
+  st = reduce(st, { type: "begin", name: "edge" }, env);
+  st = typeNumber(st, "3");
+  const plain = 40 * 20 * 20;
+  const rounded = st.session.outcome.kernel!.volume!;
+  assert.ok(rounded < plain);
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.rounded)!;
+  st = select({ ...st, op: null }, [face.ref]);
+  assert.deepEqual(frame(st).gizmo?.handles.map((h) => h.id), ["pull"], "the arrow shows by itself");
+  // drag it: the fillet gets smaller
+  const h = gizmoOf(st)!.handles[0]!;
+  const mid = scale(add(h.points[0]!, h.points[1]!), 0.5);
+  const unit = scale(sub(h.points[1]!, h.points[0]!), 1 / Math.hypot(...sub(h.points[1]!, h.points[0]!)));
+  const smaller = drag(st, mid, add(mid, scale(unit, 1)));
+  const nv = Number(scene(smaller.session).steps.at(-1)!.params.value);
+  assert.ok(nv < 3 && nv > 1.5, `smaller (${nv})`);
+  assert.ok(smaller.session.outcome.kernel!.volume! > rounded);
+  // typing 0 takes it away
+  let none = reduce(st, { type: "begin", name: "pushpull" }, env);
+  none = typeNumber(none, "0");
+  assert.equal(none.session.message, null);
+  assert.deepEqual(scene(none.session).steps.map((x) => x.type), ["extrude"]);
+  near(none.session.outcome.kernel!.volume!, plain, 0.5);
 });

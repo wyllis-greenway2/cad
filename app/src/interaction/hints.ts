@@ -11,7 +11,7 @@ import type { Command } from "../operation/commands.ts";
 import { settings } from "../shared/settings.ts";
 import { localOf } from "./tools.ts";
 
-export interface Hint { kind: "horizontal" | "vertical" | "parallel" | "perpendicular" | "onLine" | "onCircle" | "tangent" | "equalLength"; ref?: Ref }
+export interface Hint { kind: "horizontal" | "vertical" | "parallel" | "perpendicular" | "onLine" | "onCircle" | "concentric" | "tangent" | "equalLength"; ref?: Ref }
 type V2 = [number, number];
 
 const lift = (pl: Plane, [x, y]: V2): Vec3 => add(pl.at, add(scale(pl.u, x), scale(pl.v, y)));
@@ -117,4 +117,14 @@ export function lineHint(scene: Scene, pl: Plane, start: Vec3, pv: PointerView, 
 export function hintCommand(scene: Scene, line: Ref, corner: Ref, h: Hint): Command {
   const parts = h.kind === "horizontal" || h.kind === "vertical" ? [line] : h.kind === "onLine" || h.kind === "onCircle" ? [corner, h.ref!] : [line, h.ref!];
   return { type: "addRelation", relation: { id: nextId(scene, "r"), kind: h.kind, parts } };
+}
+
+/** The circle whose centre is exactly here, on this plane: drawing a circle's centre on it asks to make them concentric. */
+export function circleCentredAt(scene: Scene, pl: Plane, at: Vec3): Ref | null {
+  for (const c of Object.values(scene.parts)) {
+    if (c.kind !== "circle" || c.origin !== "drawn" || c.plane !== pl.ref) continue;
+    const centre = scene.parts[c.center];
+    if (centre?.kind === "corner" && dist(centre.at, at) < 1e-6) return c.ref;
+  }
+  return null;
 }

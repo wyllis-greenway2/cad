@@ -243,7 +243,7 @@ export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
   if (!selection.length) return null;
   const parts = selection.map((r) => scene.parts[r]).filter((p): p is Part => !!p);
   if (parts.length !== selection.length) return null;
-  const flatBody = parts.every((p) => p.kind === "plane" && p.origin === "body" && !p.rounded);
+  const flatBody = parts.every((p) => p.kind === "plane" && p.origin === "body" && (!p.rounded || faceEdit(scene, p.ref)?.kind === "edgeSize")); // (a fillet or chamfer face gets its arrow back: its size)
   const kind: OpKind | null =
     parts.length === 1 && drawnFace(scene, parts) ? "extrude"
     : flatBody ? "pushpull"

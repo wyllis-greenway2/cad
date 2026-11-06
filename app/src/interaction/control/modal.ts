@@ -7,7 +7,7 @@ import { armTool, typeKey, finish, lineNext } from "../tools.ts";
 import type { OpKind } from "../operations.ts";
 import { startOp, typeOp, autoOp } from "../operations.ts";
 import { runOp } from "../runop.ts";
-import { lookup } from "../../operation/scene.ts";
+import { lookup, nextId } from "../../operation/scene.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { planeOf } from "../objects.ts";
 import { sideOf } from "../camera.ts";
@@ -44,6 +44,12 @@ export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppSt
   const next = run(s.session, fin.command);
   if (next.message) return { ...s, session: next };
   const sel = fin.select.filter((r) => r in sceneOf(next).parts);
+  // a circle drawn about another circle's centre is concentric with it
+  const circle = fin.select[0]?.startsWith("d/disk@") ? (`d/${fin.select[0].slice(7)}` as Ref) : null;
+  if (s.tool?.kind === "circle" && s.tool.concentric && circle && circle in sceneOf(next).parts) {
+    const rel = run(next, { type: "addRelation", relation: { id: nextId(sceneOf(next), "r"), kind: "concentric", parts: [circle, s.tool.concentric] } });
+    if (!rel.message) return { ...s, session: { ...rel, click: { ...rel.click, selection: sel } }, tool: null, resume: null, spread: null };
+  }
   return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: null, resume: s.tool?.kind === "line" ? "line" : null, spread: null }; // (only a line goes on: a circle, rectangle or curve finished must not start another when its vertex is clicked to select it, `in_162`)
 }
 export function commitOp(s: AppState): AppState {

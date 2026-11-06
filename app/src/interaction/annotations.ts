@@ -98,6 +98,10 @@ function place(get: Lookup, kind: string, parts: readonly Ref[]): Placed | null 
       const c = circles[0] ? circleOf(get, circles[0]) : null;
       return c ? { at: c.center, lines: [] } : null;
     }
+    case "concentric": {
+      const c = circles[0] ? circleOf(get, circles[0]) : null;
+      return c ? { at: c.center, lines: [] } : null;
+    }
     case "equalRadius": {
       const [a, b] = circles.map((r) => circleOf(get, r));
       return a && b ? { at: mid(a.center, b.center), lines: [] } : null;

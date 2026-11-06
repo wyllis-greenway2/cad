@@ -1,3 +1,5 @@
+import { drawCircle } from "../src/operation/build.ts";
+import { actionsFor } from "../src/interaction/actions.ts";
 import test from "node:test";
 import { flat } from "./helpers/menu.ts";
 import assert from "node:assert/strict";
@@ -505,4 +507,32 @@ test("a small circle: pointing at its edge a few pixels from its centre point pi
   assert.equal(kind(onEdge), "circle", "on the edge: the edge");
   const onCentre = click(reduce(st, { type: "escape" }, env), [20, 20, 0]);
   assert.equal(kind(onCentre), "corner", "on the centre: the centre point");
+});
+
+test("a circle drawn about another circle's centre: a concentric hint shows, and the new circle is made concentric; two circles can be made concentric by hand", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  st = click(st, [20, 20, 0]);
+  st = click(st, [30, 20, 0]);
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  st = move(st, [20.1, 20.05, 0]); // near the centre: it snaps to it
+  assert.deepEqual(st.tool!.hints?.map((h) => h.kind), ["concentric"], "the hint shows while the centre is on the other centre");
+  st = click(st, [20.1, 20.05, 0]);
+  st = click(st, [25, 20, 0]);
+  const circles = Object.values(scene(st.session).parts).filter((p) => p.kind === "circle" && p.origin === "drawn");
+  assert.equal(circles.length, 2);
+  assert.deepEqual(scene(st.session).relations.map((r) => r.kind), ["concentric"]);
+  const centres = circles.map((c) => (scene(st.session).parts[(c as { center: string }).center] as { at: Vec3 }).at);
+  assert.ok(Math.hypot(centres[0]![0] - centres[1]![0], centres[0]![1] - centres[1]![1]) < 1e-9, "the same centre");
+  // by hand: two circles with different centres, then Concentric from the right-click list
+  let s = createSession(kernel);
+  const a = drawCircle(scene(s), XY, [0, 0, 0], 5);
+  s = run(s, a.command);
+  const b = drawCircle(scene(s), XY, [10, 4, 0], 3);
+  s = run(s, b.command);
+  const act = actionsFor(scene(s), [b.circle, a.circle]).find((x) => x.id === "concentric")!;
+  assert.ok(act && act.enabled);
+  s = run(s, act.run());
+  const moved = (scene(s).parts[(scene(s).parts[b.circle] as { center: string }).center] as { at: Vec3 }).at;
+  near(Math.hypot(moved[0], moved[1]), 0, 1e-6);
 });

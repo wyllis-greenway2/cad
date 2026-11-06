@@ -158,6 +158,7 @@ export const ROWS: Row[] = [
   },
 
   { id: "equalRadius", label: "Equal radius", pair: ["circle", "circle"] },
+  { id: "concentric", label: "Concentric", pair: ["circle", "circle"] }, // the two centres are one point
 
   {
     // the perpendicular distance from a corner to the infinite line a segment lies on

@@ -932,3 +932,6 @@ Sent a model (kept as `app/test/fixtures/face-edits.cad.json`: a block edited wi
 Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that failed is not in it, since a refused step is not kept).
 
 > There is an inner corner here that cannot receive a fillet. I understand it is a tight corner, but wouldn't there be a valid way to fillet? Should we make our rules a little more intelligent or is this getting too deep into the OCCT engine? Also when you select multiple edges to chamfer, it only needs to show the latest chamfer arrow and bubble because they all chamfer together and only need one interface.
+
+## in_177 — 2026-11-06 — directive
+> We need a concentric constraint and a concentric helper suggested constraint when drawing circles around other circles. Basically I think if a circle center is close to another circle center. Can we also build the ability to sketch an offset? so that would take an edge or line, and project the same shape inward or outward. Can we make it so that if you click on a chamffered or fillet edge you can get the same arrow back you original used to make it? that would allow you to adjust the chamfer or radius amount, or pull it back to 0 no chamfer or radius.
