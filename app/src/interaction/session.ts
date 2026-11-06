@@ -83,10 +83,11 @@ const conflictsOf = (o: CompileOutcome): { planes: string[]; ids: string[] } => 
 /** The ids of the steps a command adds. */
 const stepsOf = (c: Command): string[] => (c.type === "addStep" ? [c.step.id] : c.type === "batch" ? c.commands.flatMap(stepsOf) : []);
 
-export function run(s: Session, c: Command): Session {
-  const steps = stepsOf(c);
+export function run(s: Session, c: Command, opts: { watchAll?: boolean } = {}): Session {
+  // `watchAll`: the command changes a step already in the history, so any step after it may stop working: those that worked before are watched too
+  const steps = opts.watchAll ? s.history.scene.steps.map((x) => x.id).filter((id) => !s.outcome.errors[id]) : stepsOf(c);
   // a step is built on what is shown: while the kernel is still answering for the last change what is shown is the older model, and a step made now could mean something else (`in_142`)
-  if (steps.length && s.outcome.kernel?.stale) return { ...s, message: "the model is still being worked out: try again in a moment" };
+  if (steps.length && !opts.watchAll && s.outcome.kernel?.stale) return { ...s, message: "the model is still being worked out: try again in a moment" };
   const r = exec(s.history, c);
   if (!r.ok) return { ...s, message: r.error };
   const next = withHistory(s, r.value);

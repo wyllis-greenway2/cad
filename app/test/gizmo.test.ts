@@ -254,7 +254,9 @@ test("a closed figure shows the arrow to pull it out; the same arrow on a flat f
   const pm = scale(add(pg.points[0]!, pg.points[1]!), 0.5);
   const pulled = drag(st, pm, add(pm, [0, 0, 3]));
   near(pulled.session.outcome.kernel!.volume!, 40 * 20 * 15, 0.5);
-  assert.equal(scene(pulled.session).steps.at(-1)!.type, "pushPull");
+  assert.equal(scene(pulled.session).steps.at(-1)!.type, "extrude", "the end of the extrusion is pulled: its depth changes, no step is added");
+  assert.equal(scene(pulled.session).steps.at(-1)!.params.depth, 15);
+  assert.equal(scene(pulled.session).steps.length, 1);
   const pushed = drag(st, pm, add(pm, [0, 0, -5]));
   near(pushed.session.outcome.kernel!.volume!, 40 * 20 * 7, 0.5);
   // typing a number does the same as dragging it that far
@@ -421,7 +423,7 @@ test("after a pull the arrow stays on the new face and the value stays (the whol
   st = drag(st, mid1, add(mid1, [0, 0, 2])); // 2 more: 6 in all
   near(st.session.outcome.kernel!.volume!, 40 * 20 * 26, 0.5);
   assert.equal(frame(st).entry!.fields[0]!.value, "26");
-  assert.equal(scene(st.session).steps.length, 2, "the box and one push / pull, however many drags");
+  assert.equal(scene(st.session).steps.length, 1, "just the box, its depth changed, however many drags");
   const mid2 = scale(add(gizmoOf(st)!.handles[0]!.points[0]!, gizmoOf(st)!.handles[0]!.points[1]!), 0.5);
   st = drag(st, mid2, add(mid2, [0, 0, -3])); // back by 3: 3 in all
   near(st.session.outcome.kernel!.volume!, 40 * 20 * 23, 0.5);
@@ -429,7 +431,7 @@ test("after a pull the arrow stays on the new face and the value stays (the whol
   st = reduce(st, { type: "entry", field: 0, text: "30" }, env);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   near(st.session.outcome.kernel!.volume!, 40 * 20 * 30, 0.5);
-  assert.equal(scene(st.session).steps.length, 2);
+  assert.equal(scene(st.session).steps.length, 1);
   assert.equal(st.op, null);
 });
 
@@ -1110,4 +1112,66 @@ test("a fillet too big for its edge is refused with a reason that says what it w
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   assert.match(st.session.message ?? "", /fillet of that size|too big|smaller/i);
   assert.equal(scene(st.session).steps.length, 1, "nothing was added");
+});
+
+/** A cylinder of radius 10 and height 20 from a circle on the XY plane. */
+function cylinder(): ReturnType<typeof createSession> & { circle: string } {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 10);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 20 } } });
+  return Object.assign(s, { circle: c.circle as string });
+}
+const typeNumber = (st: AppState, text: string) => reduce(typeText(st, text), { type: "typed", key: "Enter", shift: false }, env);
+
+test("pulling a face the body already has changes the step that made it: the wall of a chamfered cylinder made narrower takes its chamfer with it, and no step is added", () => {
+  const s0 = cylinder();
+  let st = select({ ...createState(s0), cam: homeCamera() }, Object.values(scene(s0).parts).filter((p) => p.kind === "line" && p.origin === "body" && (scene(s0).parts[p.a] as { at: Vec3 }).at[2] === 20).map((p) => p.ref));
+  st = reduce(st, { type: "begin", name: "edge" }, env);
+  st = typeNumber(st, "-2"); // a chamfer of 2
+  const volumeBefore = st.session.outcome.kernel!.volume!;
+  const wall = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.curved)!;
+  st = select(st, [wall.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  assert.equal(st.op!.edit?.kind, "radius", "the app knows the circle this wall comes from");
+  st = typeNumber(st, "14"); // a diameter of 14
+  assert.equal(st.session.message, null);
+  assert.deepEqual(scene(st.session).steps.map((x) => x.type), ["extrude", "edgeMod"], "no push / pull step was added");
+  const bb = st.session.outcome.kernel!.bbox!;
+  near(bb.max[0] - bb.min[0], 14);
+  near(bb.max[2], 20);
+  assert.deepEqual(st.session.outcome.errors, {});
+  assert.equal((scene(st.session).parts[(s0 as unknown as { circle: string }).circle] as { radius: number }).radius, 7);
+  // the chamfer is still there: the volume is that of a 7 post with the corner cut, not a plain one
+  near(st.session.outcome.kernel!.volume!, (volumeBefore * 49) / 100, 40);
+  assert.ok(st.session.outcome.kernel!.volume! < Math.PI * 49 * 20 - 50, "less than the plain cylinder: the chamfer went with the wall");
+});
+
+test("a wall that is no longer the extruded circle's (an earlier push / pull changed it) is edited the old way, with a prism", () => {
+  const s0 = cylinder();
+  let st = select({ ...createState(s0), cam: homeCamera() }, [Object.values(scene(s0).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.curved)!.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  st = { ...st, op: { ...st.op!, noEdit: true } };
+  st = typeNumber(st, "30"); // a prism step: the wall is now radius 15 and no longer the circle's
+  assert.deepEqual(scene(st.session).steps.map((x) => x.type), ["extrude", "pushPull"]);
+  const wall = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.curved)!;
+  st = select({ ...st, op: null }, [wall.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  assert.equal(st.op!.edit, undefined, "the circle is radius 10, the wall 15: no step to change");
+});
+
+test("a hole's wall: its diameter is the cutting circle's", () => {
+  // a block with a round hole cut into it from the XY plane: the circle is extruded backwards through the block
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), XY, [-20, -20, 0], [20, 20, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: r.lines, params: { depth: 10 } } });
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 5);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 10 } } });
+  const wall = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.curved);
+  if (!wall) return; // (a circle pulled the same way as the block adds a post: not a hole)
+  let st = select({ ...createState(s), cam: homeCamera() }, [wall.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  assert.equal(st.op!.edit?.kind, "radius");
 });

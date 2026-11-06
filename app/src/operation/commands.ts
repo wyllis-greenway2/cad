@@ -23,6 +23,8 @@ export type Command =
   | { type: "setRelationValue"; id: string; value: number; locked?: boolean }
   | { type: "addStep"; step: Step }
   | { type: "removeStep"; id: string }
+  /** change numbers of a step that is already in the history (pulling a face the body has changes the step that made it: `in_173`) */
+  | { type: "setStepParams"; id: string; params: Record<string, number | string> }
   /** Move or turn a drawn figure in space like an object (`in_135`): its corners (and circles, lines) with the plane they lie on. `turns` are about the world axes through `pivot`, in order, then `translate`.
    *  If the plane is shared with other drawings (a world plane, a face of the body) the figure gets a new drawn plane, named `newPlane`. */
   | { type: "transformFigure"; parts: Ref[]; plane: Ref; newPlane: Ref; turns: { axis: 0 | 1 | 2; angle: number }[]; pivot: Vec3; translate: Vec3 }
@@ -131,6 +133,11 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     case "addStep":
       if (s.steps.some((x) => x.id === c.step.id)) return err(`step ${c.step.id} already exists`);
       return ok(bumpCounter({ ...s, steps: [...s.steps, c.step] }, c.step.id));
+    case "setStepParams": {
+      const st = s.steps.find((x) => x.id === c.id);
+      if (!st) return err(`step ${c.id} does not exist`);
+      return ok({ ...s, steps: s.steps.map((x) => (x.id === c.id ? { ...x, params: { ...x.params, ...c.params } } : x)) });
+    }
     case "removeStep":
       if (!s.steps.some((x) => x.id === c.id)) return err(`step ${c.id} does not exist`);
       return ok({ ...s, steps: s.steps.filter((x) => x.id !== c.id) });

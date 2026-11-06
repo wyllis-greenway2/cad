@@ -9,7 +9,8 @@ import type { Ref } from "../../shared/ref.ts";
 import { settings } from "../../shared/settings.ts";
 import type { Drag, Handle } from "../gizmo.ts";
 import { snapOnPlane } from "../tools.ts";
-import { opCommand, autoOp, isLive } from "../operations.ts";
+import { autoOp, isLive } from "../operations.ts";
+import { runOp } from "../runop.ts";
 import { patternBase, dragPattern, liveRepeat } from "../pattern.ts";
 import type { Op } from "../operations.ts";
 import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed } from "../gizmo.ts";
@@ -141,15 +142,15 @@ export function doDragEnd(s: AppState): AppState {
   if (isLive(s.op)) {
     // one step for the whole operation: what was made before is taken out and made again with the total value (so the number does not start over between drags)
     const sess = s.op.made ? undoLast(s.session) : s.session;
-    const cmd = opCommand(sceneOf(sess), s.op);
-    if (!cmd) return { ...cleared, session: sess, op: { ...s.op, made: false } };
-    const next = run(sess, cmd);
-    if (next.message) return { ...cleared, session: next, op: { ...s.op, made: false } };
+    const made = runOp(sess, s.op);
+    if (!made) return { ...cleared, session: sess, op: { ...s.op, made: false } };
+    const next = made.session;
+    if (next.message && next.history === sess.history) return { ...cleared, session: next, op: { ...s.op, made: false } };
     return { ...cleared, session: { ...next, hover: undefined, click: { ...next.click, selection: [] } }, op: { ...s.op, made: true }, spread: null, hoverPoint: null };
   }
-  const cmd = opCommand(sceneOf(s.session), s.op);
-  if (!cmd) return s.op.auto ? { ...cleared, op: null } : cleared;
-  const next = run(s.session, cmd);
-  if (next.message) return { ...cleared, session: next, op: s.op.auto ? null : s.op };
+  const once = runOp(s.session, s.op);
+  if (!once) return s.op.auto ? { ...cleared, op: null } : cleared;
+  const next = once.session;
+  if (next.message && next.history === s.session.history) return { ...cleared, session: next, op: s.op.auto ? null : s.op };
   return { ...cleared, session: next, op: s.op.auto ? null : { ...s.op, value: null, typed: "" }, spread: null, hoverPoint: null };
 }

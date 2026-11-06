@@ -5,7 +5,8 @@ import { actionsFor } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
 import { armTool, typeKey, finish, lineNext } from "../tools.ts";
 import type { OpKind } from "../operations.ts";
-import { startOp, typeOp, opCommand, autoOp } from "../operations.ts";
+import { startOp, typeOp, autoOp } from "../operations.ts";
+import { runOp } from "../runop.ts";
 import { lookup } from "../../operation/scene.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { planeOf } from "../objects.ts";
@@ -48,10 +49,10 @@ export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppSt
 export function commitOp(s: AppState): AppState {
   if (!s.op) return s;
   const sess = s.op.made ? undoLast(s.session) : s.session; // a step made by dragging is replaced by the typed number
-  const cmd = opCommand(sceneOf(sess), s.op);
-  if (!cmd) return s;
-  const next = run(sess, cmd);
-  if (next.message) return { ...s, session: next };
+  const made = runOp(sess, s.op);
+  if (!made) return s;
+  const next = made.session;
+  if (next.message && next.history === sess.history) return { ...s, session: next };
   if (s.op.kind === "dimension") return { ...s, session: next, op: null }; // a number on a relation: the selection stays, so its badge shows
   const settled = { spread: null, hoverPoint: null }; // what was under the pointer before the step is not what is under it now
   // an extrude leaves nothing selected (the new body shows as itself); the other steps keep what was selected so they can go on (move, then rotate)

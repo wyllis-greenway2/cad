@@ -170,6 +170,31 @@ const edgeMatches = (e, ref) => {
   return (d(a, ref.a) < 1e-3 && d(b, ref.b) < 1e-3) || (d(a, ref.b) < 1e-3 && d(b, ref.a) < 1e-3);
 };
 
+/**
+ * The edges of the body that `refs` mean: those that match exactly; for a ref that matches none (an earlier step changed the size of the model, so the edge is not where it was), the edge that
+ * is nearest to where it was, if it is clearly the nearest (a step then still finds its edge after the sketch under it is resized: `in_173`). Returns the hash codes, or null if one cannot be found.
+ */
+function resolveEdges(t, refs) {
+  const edges = t.edges;
+  const box = t.boundingBox.bounds;
+  const diag = Math.hypot(box[1][0] - box[0][0], box[1][1] - box[0][1], box[1][2] - box[0][2]);
+  const out = new Set();
+  for (const r of refs) {
+    const exact = edges.filter((e) => edgeMatches(e, r));
+    if (exact.length) { exact.forEach((e) => out.add(e.hashCode)); continue; }
+    const d = (p, q) => Math.hypot(p.x - q[0], p.y - q[1], p.z - q[2]);
+    const scored = edges.map((e) => {
+      const [a, b, m] = [e.startPoint, e.endPoint, e.pointAt(0.5)];
+      const ends = Math.min(d(a, r.a) + d(b, r.b), d(a, r.b) + d(b, r.a));
+      return { e, score: (ends + 2 * d(m, r.mid)) / 4 };
+    }).sort((x, y) => x.score - y.score);
+    const [best, next] = scored;
+    if (!best || best.score > 0.35 * diag || (next && next.score < best.score * 1.5)) return null;
+    out.add(best.e.hashCode);
+  }
+  return out;
+}
+
 const OPS = {
   sketch(op, ctx) {
     const p = (k) => resolve(op[k], ctx.params);
@@ -309,8 +334,9 @@ const OPS = {
     const v = resolve(op.value, ctx.params);
     if (!(v > 1e-6)) throw new Error("the size must be positive");
     const refs = [].concat(op.ref);
-    if (!refs.length || !refs.every((r) => t.edges.some((e) => edgeMatches(e, r)))) throw new Error("line not found (the model changed since this step was made)");
-    const pick = (ef) => ef.when(({ element }) => refs.some((r) => edgeMatches(element, r)));
+    const found = refs.length ? resolveEdges(t, refs) : null;
+    if (!found) throw new Error("line not found (the model changed since this step was made)");
+    const pick = (ef) => ef.when(({ element }) => found.has(element.hashCode));
     return { kind: "solid", shape: op.mode === "chamfer" ? t.chamfer(v, pick) : t.fillet(v, pick) };
   },
 

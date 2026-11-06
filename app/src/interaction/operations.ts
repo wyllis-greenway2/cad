@@ -6,6 +6,8 @@ import { patternStart, patternCommand } from "./pattern.ts";
 import type { Mat3, Angles } from "../math/rotation.ts";
 import { IDENTITY, about, then, anglesOf, stepsBetween } from "../math/rotation.ts";
 import type { Curved } from "../operation/part.ts";
+import type { FaceEdit } from "./faceedit.ts";
+import { faceEdit, editCommand } from "./faceedit.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
@@ -48,6 +50,10 @@ export interface Op {
   rot: [string, string, string];
   /** push / pull of a round face: the face (the radius changes by the distance) */
   curved?: Curved;
+  /** push / pull of a face the body already has: the step to change instead of adding a prism (`faceedit.ts`) */
+  edit?: FaceEdit;
+  /** this time make the prism instead (the step that made the face could not take the size) */
+  noEdit?: boolean;
   /** rotate: the point it turns about (the rotator's centre; you can move it) */
   pivot: Vec3 | null;
   /** move and rotate: the body, or a drawn shape (its corners are `parts`, its plane is `plane`) */
@@ -128,7 +134,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
       const at: [number, number, number] = [...c.center];
       at[c.axis] = (c.lo + c.hi) / 2;
       at[e[0]!] = at[e[0]!]! + c.radius; // the surface point on the +e side; the arrow points out of it for a post and into the hole's axis for a hole
-      return { ok: true, op: { ...base, parts: [f.ref], origin: at, normal: radial, curved: c, dim: { base: 2 * c.radius, scale: c.convex ? 2 : -2 } } };
+      return { ok: true, op: { ...base, parts: [f.ref], origin: at, normal: radial, curved: c, edit: faceEdit(scene, f.ref) ?? undefined, dim: { base: 2 * c.radius, scale: c.convex ? 2 : -2 } } };
     }
     const m = f.mesh;
     const pts: Vec3[] = [];
@@ -137,7 +143,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     // the size across the body along the face's normal: from its far side to this face (typing 20 makes a 20 mm block however far the face is now)
     const along = Object.values(scene.parts).filter((p) => p.kind === "corner" && p.origin === "body").map((p) => dot(n, (p as { at: Vec3 }).at));
     const thickness = along.length ? Math.max(...along) - Math.min(...along) : 0;
-    return { ok: true, op: { ...base, parts: [f.ref], origin: centroid(pts), normal: n, dim: { base: Math.round(thickness * 1e6) / 1e6, scale: 1 } } };
+    return { ok: true, op: { ...base, parts: [f.ref], origin: centroid(pts), normal: n, edit: faceEdit(scene, f.ref) ?? undefined, dim: { base: Math.round(thickness * 1e6) / 1e6, scale: 1 } } };
   }
   if (kind === "edge") {
     const lines = parts.filter((p) => p.kind === "line" && p.origin === "body");
@@ -326,6 +332,7 @@ export function opCommand(scene: Scene, op: Op): Command | null {
     if (v === 0) return null;
     return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }) } } })) };
   }
+  if (op.kind === "pushpull" && op.edit && !op.noEdit) return v === 0 ? null : editCommand(op.edit, v);
   if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
   if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v) } } };

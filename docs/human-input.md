@@ -916,3 +916,6 @@ Sent a picture (a cylinder whose top rim is selected; the chamfer arrow collapse
 
 ## in_172 — 2026-11-06 — question
 > I don't know, what do you recommend?
+
+## in_173 — 2026-11-06 — approval
+> okay I will take your recommendation
