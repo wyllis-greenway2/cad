@@ -126,8 +126,7 @@ export function faceEdit(scene: Scene, ref: Ref): FaceEdit | null {
   const f = faceOf(scene, ref);
   if (!f || f.origin !== "body") return null;
   if (f.curved) return wallOfCircle(scene, f.curved);
-  if (f.round && f.radius) return wallOfCircle(scene, { ...f.round, radius: f.radius, lo: 0, hi: 0 });
-  if (f.rounded) return edgeStep(scene, f);
+  if (f.rounded) return (f.round && f.radius ? wallOfCircle(scene, { ...f.round, radius: f.radius, lo: 0, hi: 0 }) : null) ?? edgeStep(scene, f); // (a piece of a round wall, else a fillet or chamfer)
   if (!f.mesh) return null;
   const n = normalOfPlane(f);
   const diagonal = n.every((v) => Math.abs(v) < 0.9999);

@@ -146,7 +146,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
   if (kind === "pushpull") {
     const f = parts.length === 1 ? parts[0] : undefined;
     if (!f || f.kind !== "plane" || f.origin !== "body" || !f.mesh || f.mesh.length < 9) return { ok: false, why: "select a flat face of the body first" };
-    if (f.rounded && f.round && f.radius) {
+    if (f.rounded && f.round && f.radius && faceEdit(scene, f.ref)?.kind === "radius") {
       // a piece of a round wall (cut from a circle): the arrow stands on it, out of a post or into a hole, and pulling changes the circle's radius
       const m = f.mesh;
       const tris: Vec3[] = [];
@@ -154,8 +154,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
       const mid = centroid(tris);
       const radial = (q: Vec3): Vec3 => { const d: [number, number, number] = [...sub(q, f.round!.center)]; d[f.round!.axis] = 0; const l = Math.hypot(...d); return l < 1e-9 ? [1, 0, 0] : scale(d, (f.round!.convex ? 1 : -1) / l); };
       const at = tris.reduce((b, q) => (Math.hypot(...sub(q, mid)) < Math.hypot(...sub(b, mid)) ? q : b), tris[0]!);
-      const edit = faceEdit(scene, f.ref);
-      if (!edit || edit.kind !== "radius") return { ok: false, why: "this curved face can be selected but not pushed or pulled yet (only round posts and holes along an axis, and fillets and chamfers)" };
+      const edit = faceEdit(scene, f.ref)!;
       return { ok: true, op: { ...base, parts: [f.ref], origin: at, normal: radial(at), curved: { axis: f.round.axis, center: f.round.center, radius: f.radius, lo: 0, hi: 0, convex: f.round.convex }, edit, dim: { base: 2 * f.radius, scale: f.round.convex ? 2 : -2 } } };
     }
     if (f.rounded) {
