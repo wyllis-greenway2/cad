@@ -957,3 +957,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > A line from a point on the circle to a point off it is ignored.
 > Lines that cross inside the circle are not handled.
 > "
+
+## in_182 — 2026-11-06 — approval
+> yes go ahead with the true-arc fix

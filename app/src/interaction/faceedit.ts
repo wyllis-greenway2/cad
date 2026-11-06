@@ -46,7 +46,11 @@ function wallOfCircle(scene: Scene, c: Curved): FaceEdit | null {
   const found: FaceEdit[] = [];
   for (const st of scene.steps) {
     if (st.type !== "extrude") continue;
-    for (const ref of figureRefs(st)) {
+    for (const r0 of figureRefs(st)) {
+      // a circle, or an arc of one that lines have cut into pieces (the wall of a piece is the circle's wall)
+      const arc = scene.parts[r0];
+      const ref = arc?.kind === "line" && arc.derived && arc.center ? Object.values(scene.parts).find((q) => q.kind === "circle" && q.center === arc.center && near(q.radius, c.radius))?.ref ?? r0 : r0;
+      if (found.some((x) => x.kind === "radius" && x.circle === ref)) continue;
       const part = scene.parts[ref];
       if (part?.kind !== "circle") continue;
       const pl = part.plane ? scene.parts[part.plane] : undefined;
@@ -122,6 +126,7 @@ export function faceEdit(scene: Scene, ref: Ref): FaceEdit | null {
   const f = faceOf(scene, ref);
   if (!f || f.origin !== "body") return null;
   if (f.curved) return wallOfCircle(scene, f.curved);
+  if (f.round && f.radius) return wallOfCircle(scene, { ...f.round, radius: f.radius, lo: 0, hi: 0 });
   if (f.rounded) return edgeStep(scene, f);
   if (!f.mesh) return null;
   const n = normalOfPlane(f);

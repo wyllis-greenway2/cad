@@ -40,6 +40,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     const ranges = new Map(m.faceGroups.map((g) => [g.faceId, g]));
     faces = [];
     const round = new Map();
+    const partOf = new Map(); // hash code of a round face -> where its axis is (a piece of a cylinder keeps it, so its wall can be pushed and pulled as the radius of the circle it comes from)
     const other = [];
     for (const f of fin.shape.faces) {
       const g = ranges.get(f.hashCode);
@@ -63,6 +64,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
           const have = round.get(key) ?? { type: "cyl", convex, ranges: [], faces: [], turn: 0, axis, center, radius, lo: Math.round(lo[axis] * 1e4) / 1e4, hi: Math.round(hi[axis] * 1e4) / 1e4 };
           have.ranges.push({ start: g.start, count: g.count });
           have.faces.push(f);
+          partOf.set(f.hashCode, { axis, center, convex });
           have.turn += uv.uMax - uv.uMin;
           round.set(key, have);
         }
@@ -98,7 +100,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
         if (f.geomType === "CYLINDRE") radius = f._geomAdaptor().Cylinder().Radius();
         else if (f.geomType === "SPHERE") radius = f._geomAdaptor().Sphere().Radius();
       } catch { radius = undefined; }
-      faces.push({ type: "surf", surface: String(f.geomType), start: g.start, count: g.count, lo: lo.map(r4s), hi: hi.map(r4s), ...(radius ? { radius: Math.round(radius * 1e4) / 1e4 } : {}) });
+      faces.push({ type: "surf", surface: String(f.geomType), start: g.start, count: g.count, lo: lo.map(r4s), hi: hi.map(r4s), ...(radius ? { radius: Math.round(radius * 1e4) / 1e4 } : {}), ...(partOf.has(f.hashCode) ? { axisOf: partOf.get(f.hashCode) } : {}) });
     }
     // edges as polylines, and their end points as vertices (for selecting lines and corners)
     const em = fin.shape.meshEdges({ tolerance: tess.tolerance, angularTolerance: tess.angular });

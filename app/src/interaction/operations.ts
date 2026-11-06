@@ -146,6 +146,18 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
   if (kind === "pushpull") {
     const f = parts.length === 1 ? parts[0] : undefined;
     if (!f || f.kind !== "plane" || f.origin !== "body" || !f.mesh || f.mesh.length < 9) return { ok: false, why: "select a flat face of the body first" };
+    if (f.rounded && f.round && f.radius) {
+      // a piece of a round wall (cut from a circle): the arrow stands on it, out of a post or into a hole, and pulling changes the circle's radius
+      const m = f.mesh;
+      const tris: Vec3[] = [];
+      for (let i = 0; i + 8 < m.length; i += 9) tris.push(scale(add(add([m[i]!, m[i + 1]!, m[i + 2]!], [m[i + 3]!, m[i + 4]!, m[i + 5]!]), [m[i + 6]!, m[i + 7]!, m[i + 8]!]), 1 / 3));
+      const mid = centroid(tris);
+      const radial = (q: Vec3): Vec3 => { const d: [number, number, number] = [...sub(q, f.round!.center)]; d[f.round!.axis] = 0; const l = Math.hypot(...d); return l < 1e-9 ? [1, 0, 0] : scale(d, (f.round!.convex ? 1 : -1) / l); };
+      const at = tris.reduce((b, q) => (Math.hypot(...sub(q, mid)) < Math.hypot(...sub(b, mid)) ? q : b), tris[0]!);
+      const edit = faceEdit(scene, f.ref);
+      if (!edit || edit.kind !== "radius") return { ok: false, why: "this curved face can be selected but not pushed or pulled yet (only round posts and holes along an axis, and fillets and chamfers)" };
+      return { ok: true, op: { ...base, parts: [f.ref], origin: at, normal: radial(at), curved: { axis: f.round.axis, center: f.round.center, radius: f.radius, lo: 0, hi: 0, convex: f.round.convex }, edit, dim: { base: 2 * f.radius, scale: f.round.convex ? 2 : -2 } } };
+    }
     if (f.rounded) {
       // a fillet or chamfer face: pulling it (out, towards the sharp corner) makes the rounding smaller, pushing it makes it bigger: the size of the step that made it
       const edit = faceEdit(scene, f.ref);
@@ -267,7 +279,7 @@ export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
   if (!selection.length) return null;
   const parts = selection.map((r) => scene.parts[r]).filter((p): p is Part => !!p);
   if (parts.length !== selection.length) return null;
-  const flatBody = parts.every((p) => p.kind === "plane" && p.origin === "body" && (!p.rounded || faceEdit(scene, p.ref)?.kind === "edgeSize")); // (a fillet or chamfer face gets its arrow back: its size)
+  const flatBody = parts.every((p) => p.kind === "plane" && p.origin === "body" && (!p.rounded || faceEdit(scene, p.ref)?.kind === "edgeSize" || (!!p.round && faceEdit(scene, p.ref)?.kind === "radius"))); // (a fillet or chamfer face gets its arrow back: its size)
   const kind: OpKind | null =
     drawnFaces(scene, parts).length ? "extrude"
     : flatBody ? "pushpull"

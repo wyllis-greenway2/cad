@@ -87,12 +87,33 @@ test("a circle cut by two radii is two pieces, a quarter and three quarters, and
   assert.deepEqual(s.outcome.errors, {});
   const v1 = s.outcome.kernel!.volume!;
   const share = v1 / (area * 10);
-  assert.ok(Math.abs(share - 0.25) < 0.01 || Math.abs(share - 0.75) < 0.01, `a quarter or three quarters of the disk (${share})`);
+  assert.ok(Math.abs(share - 0.25) < 0.0005 || Math.abs(share - 0.75) < 0.0005, `a quarter or three quarters of the disk (${share})`);
   // the other piece is still there to pick and extrude
   const rest = facesOf(s).filter((f) => f.ref !== first.ref);
   assert.equal(rest.length, 1);
   assert.ok(!consumed(scene(s)).has(rest[0]!.ref));
   s = extrude(s, [rest[0]!.ref], "10");
   assert.deepEqual(s.outcome.errors, {});
-  assert.ok(Math.abs(s.outcome.kernel!.volume! - area * 10) < area * 10 * 0.01, `${s.outcome.kernel!.volume} vs ${area * 10}`);
+  assert.ok(Math.abs(s.outcome.kernel!.volume! - area * 10) < area * 10 * 0.0005, `${s.outcome.kernel!.volume} vs ${area * 10}`);
+});
+
+test("the curved wall of a piece of a circle is a real cylinder wall that can be pulled: the circle's radius changes and the other piece follows", () => {
+  const r = openSession(kernel, readFileSync(new URL("./fixtures/pie-cuts.cad.json", import.meta.url), "utf8"));
+  assert.ok(r.ok);
+  let s = r.value;
+  const first = facesOf(s).find((f) => f.loop.length === 3)!;
+  s = extrude(s, [first.ref], "10");
+  const wall = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.rounded === "CYLINDRE")!;
+  assert.ok(wall, "the wall is a cylinder");
+  const edit = faceEdit(scene(s), wall.ref);
+  assert.equal(edit?.kind, "radius");
+  const op = startOp(scene(s), [wall.ref], "pushpull");
+  assert.ok(op.ok, op.ok ? "" : op.why);
+  const R = 10.622264353705381;
+  const before = s.outcome.kernel!.volume!;
+  s = run(s, editCommand(scene(s), edit!, 2)!);
+  assert.deepEqual(s.outcome.errors, {});
+  const share = before / (Math.PI * R * R * 10);
+  const after = s.outcome.kernel!.volume!;
+  assert.ok(Math.abs(after - share * Math.PI * (R + 2) * (R + 2) * 10) < 0.002 * after, `${after} vs ${share * Math.PI * (R + 2) ** 2 * 10}`);
 });

@@ -6,7 +6,7 @@ import { normalize, sub } from "../math/vec.ts";
 import type { Scene, Step } from "../operation/scene.ts";
 import { lookup, figuresOf } from "../operation/scene.ts";
 import type { Plane } from "../operation/part.ts";
-import { normalOfPlane, pointOf, loopPoints } from "../operation/part.ts";
+import { normalOfPlane, pointOf, loopSteps } from "../operation/part.ts";
 import type { KernelGraph, KernelOp } from "./kernel/adapter.ts";
 import { decodeEdge, decodeFace } from "./body.ts";
 import { loopOf } from "../operation/loops.ts";
@@ -43,8 +43,8 @@ export function buildGraph(scene: Scene): GraphResult {
     const loop = loopOf(get, refs);
     if (!loop.ok) return loop.error;
     if (loop.corners.some((c) => !pointOf(get, c))) return "a corner of the shape is gone";
-    const pts = loopPoints(get, refs, loop.corners); // (the points of any arcs between the corners are in it)
-    return { id, type: "sketch", shape: "polygon", points: pts.map((p) => to2d(plane, p)), plane: "XY", origin: 0, frame: frameOf(plane) };
+    const steps = loopSteps(get, refs, loop.corners); // (a side that is an arc has its middle point: the kernel draws a true arc through the two corners and it)
+    return { id, type: "sketch", shape: "polygon", points: steps.map((p) => to2d(plane, p.at)), ...(steps.some((p) => p.mid) ? { mids: steps.map((p) => (p.mid ? to2d(plane, p.mid) : null)) } : {}), plane: "XY", origin: 0, frame: frameOf(plane) };
   };
 
   for (const st of scene.steps) {

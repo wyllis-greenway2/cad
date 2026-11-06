@@ -223,9 +223,15 @@ const OPS = {
     else if (op.shape === "circle") drawing = drawCircle(p("radius"));
     else if (op.shape === "polygon") {
       const pts = resolve(op.points, ctx.params);
+      const mids = op.mids; // a side that is an arc: its middle point, so it is drawn as a true arc (a curved wall), not as short straight sides
+      const side = (pen, i) => {
+        const end = pts[(i + 1) % pts.length];
+        return mids && mids[i] ? pen.threePointsArcTo(end, mids[i]) : pen.lineTo(end);
+      };
       let pen = draw(pts[0]);
-      for (let i = 1; i < pts.length; i++) pen = pen.lineTo(pts[i]);
-      drawing = pen.close();
+      for (let i = 0; i < pts.length - 1; i++) pen = side(pen, i);
+      const last = pts.length - 1;
+      drawing = mids && mids[last] ? side(pen, last).close() : pen.close();
     }
     else throw new Error(`unknown sketch shape ${op.shape}`);
     if (op.at) {
