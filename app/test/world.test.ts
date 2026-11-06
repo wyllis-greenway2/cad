@@ -193,7 +193,23 @@ test("a line of the body shows its length (a block edge can be set, others are m
   assert.ok(e.hoverPoint);
   e = reduce(e, { type: "click", x, y, count: 1, shift: false }, env);
   assert.deepEqual(selection(e.session), [], "but the world plane is not selectable: a click on it selects nothing");
-  e = reduce(e, { type: "click", x, y, count: 3, shift: false }, env);
-  assert.deepEqual(selection(e.session), [], "not even with three clicks");
+  e = reduce(e, { type: "click", x, y, count: 2, shift: false }, env);
+  assert.deepEqual(selection(e.session), [XY], "but a double click selects it and turns the view straight to it");
+  assert.ok(e.anim || e.cam.straight);
+  assert.ok(e.worldPulse, "and it lights up for a moment");
   assert.equal(e.session.hover, XY, "and the ring stays");
+});
+
+test("a sketch tool chosen from the ring opened over a world plane turns the view straight to that plane", () => {
+  let e = createState(createSession(kernel));
+  e = { ...e, cam: homeCamera() };
+  const [x, y] = projector(e.cam, 800, 600).project([30, 20, 0] as Vec3);
+  e = reduce(e, { type: "hover", x, y }, env);
+  assert.equal(e.session.hover, XY);
+  e = reduce(e, { type: "menu", x, y }, env);
+  assert.equal(e.menu!.plane, XY);
+  e = reduce(e, { type: "runAction", id: "tool:rect" }, env);
+  assert.ok(e.tool);
+  assert.ok(e.anim, "the view turns");
+  assert.ok(e.worldPulse === null || e.worldPulse, "(no error)");
 });

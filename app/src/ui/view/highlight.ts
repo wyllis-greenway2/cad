@@ -2,7 +2,7 @@
 // balls for picked lines and corners, amber for what a relation ties the selection to.
 import * as THREE from "three";
 import type { Scene, Ref, Vec3, Plane } from "../../interaction/api.ts";
-import { outlineOf, lookup, settings, normalOfPlane } from "../../interaction/api.ts";
+import { outlineOf, lookup, settings, normalOfPlane, consumed } from "../../interaction/api.ts";
 import type { Camera } from "../../interaction/camera.ts";
 import { surfaceTriangles } from "../../interaction/surfaces.ts";
 import { hoverOrb, selectOrb, fullOrb, orbMaterial, selectedLook } from "../orb.ts";
@@ -20,6 +20,8 @@ export interface Highlight {
   red?: { refs: readonly Ref[]; alpha: number };
   /** the last selected surface spreads its colour from where it was clicked */
   spread: { ref: Ref; point: Vec3; startMs: number } | null;
+  /** a world plane lighting up for a moment (it fades: `left` goes from 1 to 0) */
+  world?: { ref: Ref; left: number } | null;
 }
 type Kind = "select" | "hover" | "amber" | "red";
 
@@ -80,24 +82,16 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
   if (!s) return;
   const get = lookup(s);
   const unit = cam.distance;
-  /** A very faint teal square about the origin in a world plane that is pointed at or picked, so which way it lies is obvious (`in_157`). */
-  const worldSheet = (p: Plane) => {
-    const S = unit * 0.32;
-    const at = (a: number, b: number): number[] => [0, 1, 2].map((i) => p.at[i]! + p.u[i]! * a + p.v[i]! * b);
-    const quad = [...at(-S, -S), ...at(S, -S), ...at(S, S), ...at(-S, -S), ...at(S, S), ...at(-S, S)];
-    overlay.add(trisMesh(quad, new THREE.MeshBasicMaterial({ color: rgb(ringRgb), transparent: true, opacity: settings.orb.worldPlaneOpacity, side: THREE.DoubleSide, depthWrite: false })));
-  };
   const mark = (ref: Ref, kind: Kind) => {
     const p = get(ref);
     if (!p) return;
     if (kind === "hover" && p.kind === "plane" && p.origin === "world") {
       // an infinite world plane has nothing to fill: the ring alone, drawn as a plain thin circle so it cannot smear over a plane seen at a shallow angle
       if (h.hoverPoint) overlay.add(pen.line(ringOf(h.hoverPoint, settings.orb.radius * unit, normalOfPlane(p)), rgb(ringRgb).getHex(), settings.orb.ringPx + 0.6, false));
-      worldSheet(p);
       return;
     }
     const tris = kind === "amber" || kind === "red" ? null : fillTriangles(s, ref, kind, body);
-    if (!tris && p.origin === "world" && p.kind === "plane") return worldSheet(p); // a picked world plane: a very faint tint round the origin, no more
+    if (!tris && p.origin === "world" && p.kind === "plane") return; // nothing to draw for a picked world plane (its tint is the pulse below)
     if (tris) return void overlay.add(surfaceOrb(kind, ref, tris, h, unit, nowMs));
     const o = outlineOf(get, p);
     const w = kind === "select" ? settings.pick.edgeWidthPx : settings.pick.edgeHoverWidthPx;
@@ -110,6 +104,19 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
     else if (o.shape === "circle") overlay.add(fade(pen.line(ringOf(o.center, o.radius, o.normal), col, kind === "red" ? 3.4 : w, true)));
     else if (p.kind === "axis") overlay.add(pen.line([...p.at, ...[0, 1, 2].map((i) => p.at[i]! + p.dir[i]! * AXIS_LEN)], col, w, false));
   };
+  // a world plane pointed at, clicked or looked at: a very faint teal disc, as big as the world axes (so it scales with them as you zoom), fading away
+  const wp = h.world ? get(h.world.ref) : undefined;
+  if (wp && wp.kind === "plane" && h.world!.left > 0) {
+    const R = settings.world.axisLengthMm;
+    const at = (a: number): number[] => [0, 1, 2].map((i) => wp.at[i]! + (wp.u[i]! * Math.cos(a) + wp.v[i]! * Math.sin(a)) * R);
+    const fan: number[] = [];
+    for (let k = 0; k < 64; k++) fan.push(...wp.at, ...at((k / 64) * Math.PI * 2), ...at(((k + 1) / 64) * Math.PI * 2));
+    overlay.add(trisMesh(fan, new THREE.MeshBasicMaterial({ color: rgb(ringRgb), transparent: true, opacity: settings.orb.worldPlaneOpacity * h.world!.left, side: THREE.DoubleSide, depthWrite: false })));
+  }
+  // the middle of a circle or an arc is always shown: a small dot, so it can be picked to line the curve up with other things (`in_159`)
+  const dots = new Set<Ref>();
+  for (const p of Object.values(s.parts)) if (p.origin === "drawn" && ((p.kind === "circle") || (p.kind === "line" && p.center)) && p.center && !consumed(s).has(p.ref)) dots.add(p.center);
+  for (const c of dots) { const q = get(c); if (q && q.kind === "corner") overlay.add(sphereAt(q.at, unit * settings.pick.vertexScale * 0.7, 0x2b2b2d, true)); }
   for (const r of h.amber ?? []) mark(r, "amber");
   for (const r of h.red?.refs ?? []) mark(r, "red");
   for (const r of h.selection) mark(r, "select");

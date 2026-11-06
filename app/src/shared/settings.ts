@@ -41,7 +41,8 @@ export const settings = {
     radius: 0.025, // the hover ring's radius, in view-distances (`in_075`)
     ringPx: 1.6,
     ringOpacity: 0.88,
-    worldPlaneOpacity: 0.07, // the faint tint on a world plane that is pointed at or selected
+    worldPlaneOpacity: 0.07, // the faint tint of a world plane that is pointed at, clicked or looked at: a disc as big as the world axes, fading over worldPulseMs
+    worldPulseMs: 1500,
     selectOpacity: 0.25, // (the teal fill; a touch more see-through: `in_157`)
     color: [0.1, 0.72, 0.7] as [number, number, number], // THE teal: kept for use elsewhere (`in_075`)
     fillMs: 520,

@@ -7,6 +7,7 @@ import { armTool, typeKey, finish, lineNext } from "../tools.ts";
 import type { OpKind } from "../operations.ts";
 import { startOp, typeOp, opCommand, autoOp } from "../operations.ts";
 import { lookup } from "../../operation/scene.ts";
+import type { Ref } from "../../shared/ref.ts";
 import { planeOf } from "../objects.ts";
 import { sideOf } from "../camera.ts";
 import { normalOfPlane } from "../../operation/part.ts";
@@ -16,12 +17,12 @@ import { pivotCommands, repeatApply, repeatCancel } from "../pattern.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
 
-function beginTool(s: AppState, kind: ToolKind, now: number): AppState {
+function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = null): AppState {
   if (s.tool?.kind === kind && !s.tool.plane) return { ...s, tool: null }; // pressing it again puts it away
   const armed: AppState = { ...s, tool: armTool(kind), op: null, menu: null };
   // sketching on a selected face or plane: the view turns straight to it, from the side you are on (`in_149`)
   const get = lookup(sceneOf(s.session));
-  const pl = selectionOf(s.session).map((r) => planeOf(get, r)).find((p) => p);
+  const pl = selectionOf(s.session).map((r) => planeOf(get, r)).find((p) => p) ?? (over ? planeOf(get, over) : null); // (else the world plane the ring was opened over)
   return pl && sideOf(s.cam, normalOfPlane(pl)) === 0 ? animateTo(armed, planeView(s.cam, pl, false), now) : armed; // (not when already looking straight at it)
 }
 function beginOp(s: AppState, kind: OpKind): AppState {
@@ -111,7 +112,7 @@ export function doEscape(s: AppState): AppState {
 
 export function doRunAction(s: AppState, id: string, now = 0): AppState {
   const closed = { ...s, menu: null };
-  if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now);
+  if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now, s.menu?.plane ?? null);
   if (id === "op:linear" || id === "op:circular" || id === "op:copy") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular" | "copy");
   if (id.startsWith("op:")) return beginOp(closed, id.slice(3) as OpKind);
   const a = actionsFor(sceneOf(s.session), selectionOf(s.session)).find((x) => x.id === id);

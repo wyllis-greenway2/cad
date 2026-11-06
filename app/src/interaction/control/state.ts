@@ -22,7 +22,7 @@ export interface AppState {
   spread: { ref: Ref; point: Vec3; startMs: number } | null;
   /** the point under the pointer on the hovered surface (for the ring) */
   hoverPoint: Vec3 | null;
-  menu: { x: number; y: number; items: MenuItem[] } | null;
+  menu: { x: number; y: number; items: MenuItem[]; /** the world plane the pointer was over when it opened: a sketch tool chosen from it turns to that plane */ plane?: Ref | null } | null;
   /** the list open from the ⋯ menu (`in_132`) */
   panel: "bodies" | "history" | null;
   /** a repeat being set up: it goes on until Apply or Cancel, and you can work in the world meanwhile (`in_141`) */
@@ -42,10 +42,12 @@ export interface AppState {
   gizmoHover: string | null;
   /** a command was refused because it could not be done without breaking constraints: they flash red and fade, and the one that tried shakes (`in_120`) */
   flash: { culprits: string[]; victims: string[]; at: number } | null;
+  /** a world plane that was pointed at, clicked or looked at lights up faintly for a moment and fades (`in_159`) */
+  worldPulse: { ref: Ref; at: number } | null;
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, drag: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, drag: null, gizmoHover: null, flash: null, worldPulse: null });
 
 export const pickOpts = () => ({ pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx });
 export const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });

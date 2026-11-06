@@ -43,7 +43,7 @@ export interface GizmoFrame { handles: Handle[]; hover: string | null; active: s
 export interface Frame {
   scene: Scene;
   mesh: KernelResult["mesh"];
-  highlight: { hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; /** the parts of constraints a refused change would have broken, and how red they still are */ red: { refs: readonly Ref[]; alpha: number }; spread: AppState["spread"] };
+  highlight: { hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; /** the parts of constraints a refused change would have broken, and how red they still are */ red: { refs: readonly Ref[]; alpha: number }; spread: AppState["spread"]; /** a world plane lighting up for a moment: which, and how much of it is left (1 to 0) */ world: { ref: Ref; left: number } | null };
   preview: Preview | null;
   entry: Entry | null;
   /** the several value bubbles of a repeat being set up (one on each axis, or one by the rings) */
@@ -107,6 +107,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     scene: sc,
     mesh: outcome.kernel?.mesh ?? null,
     highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel,
+    world: s.worldPulse ? { ref: s.worldPulse.ref, left: Math.max(0, 1 - (now - s.worldPulse.at) / settings.orb.worldPulseMs) } : null,
     amber: [...focusParts(sc, sel, s.focus), ...(s.tool?.hints ?? []).flatMap((h) => h.ref ? [h.ref] : [])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
     preview: previewFor(sc, s.tool),
     entry: entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),

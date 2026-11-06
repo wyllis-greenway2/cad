@@ -868,3 +868,6 @@ Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a 
 
 ## in_158 — 2026-11-06 — directive
 > Okay I had the Cad thing freeze my browser tab now, also the circle edge is still really hard to select sometimes. Why don't you play around with it and go bug hunting.
+
+## in_159 — 2026-11-06 — directive
+> Okay can we make the zyx thing be a star where each axis goes in the negative direction the same amount and has an arrow that way too.  Can we have it so that the world planes too so that a double click will orient to them. Can we have the very transparent highlight be circular? Also if you click the pencil to sketch on them then they should orient just like it does on any plane. Can we make those transparent circular highlights  be scale just like the world xyz so that zooming in or out works on them. Can we make the center of curves show a persistent verticy? I just produced the freeze again, I am running on the version before your most recent bug hunt though. I produced it by making a 16 circle, drawing a line from center up to coincident then a line right 0.5 also coincident, then a line up 0.5, then left. 1,then down coincident 0.5, then rotating into 3d view and it freezes. Lets make the world highlight happen on hover and click, and then fade away.

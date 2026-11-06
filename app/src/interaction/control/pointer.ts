@@ -50,7 +50,7 @@ const category = (id: string, label: string, icon: string, kids: MenuItem[]): Me
   const first = kids.find((k) => k.enabled);
   return { id, label, icon, enabled: !!first, why: first ? null : kids[0]?.why ?? "nothing here applies", children: kids };
 };
-function menuFor(session: Session, x: number, y: number, repeating = false): AppState["menu"] {
+function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null): AppState["menu"] {
   const sc = sceneOf(session);
   const sel = selectionOf(session);
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
@@ -69,7 +69,8 @@ function menuFor(session: Session, x: number, y: number, repeating = false): App
     ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
     { id: "delete", label: "Delete", icon: "trash", enabled: !!del?.enabled, why: del?.why ?? "select something to delete" },
   ];
-  return { x, y, items };
+  const w = over ? sc.parts[over] : undefined;
+  return { x, y, items, plane: w && w.origin === "world" && w.kind === "plane" ? over : null };
 }
 
 /** The first of these parts that has a plane (a surface a figure can be drawn on). */
@@ -82,12 +83,15 @@ function drawingPlane(sc: Scene, refs: readonly Ref[]): Ref | null {
   return null;
 }
 
+const isWorldPlane = (sc: Scene, r: Ref): boolean => { const p = sc.parts[r]; return !!p && p.origin === "world" && p.kind === "plane"; };
+
 export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env: Env): AppState {
   const sc = sceneOf(s.session);
   const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
   const c = candidatesAt(sc, pv, pickOpts())[0];
   const point = c && c.rank === 2 ? surfacePoint(pv, c.score) : null;
   let next: AppState = { ...withSession(s, hoverOn(s.session, c?.ref)), hoverPoint: point };
+  if (c && c.ref !== s.session.hover && isWorldPlane(sc, c.ref)) next = { ...next, worldPulse: { ref: c.ref, at: env.now } }; // (pointed at a world plane: it lights up faintly and fades)
   if (s.tool?.plane) {
     const pl = sc.parts[s.tool.plane];
     const raw = pl && pl.kind === "plane" ? snapOnPlane(sc, pv, pl) : null;
@@ -178,6 +182,11 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const onePlane = refs.length <= 1 || (surfaces && planes.every((q) => !!q) && planes.every((q) => Math.abs(dot(normalOfPlane(q!), normalOfPlane(planes[0]!)) - 1) < 1e-6 && Math.abs(dot(normalOfPlane(q!), sub(q!.at, planes[0]!.at))) < 1e-3));
   // the infinite world planes are only a surface for the ring to land on and for a tool to draw on: a click on one selects nothing (like a click on empty space)
   const selectable = refs.filter((r) => !(sc.parts[r]?.origin === "world" && sc.parts[r]?.kind === "plane"));
+  if (i.count >= 2 && refs[0] && !selectable.length && isWorldPlane(sc, refs[0])) {
+    // a world plane under the clicks and nothing else: it is selected and the view turns straight to it, from the side you are on (`in_159`)
+    const pl = planeOf(get, refs[0]);
+    if (pl) return animateTo({ ...withSession(base, { ...sess, click: { selection: [refs[0]], spot: sess.click.spot }, message: null }), worldPulse: { ref: refs[0], at: env.now } }, planeView(base.cam, pl, false), env.now);
+  }
   if (onePlane && i.count === 2) {
     // two: the whole object (the view does not turn)
     const o = selectable[0] ? objectOf(sc, selectable[0]) : undefined;
@@ -191,13 +200,14 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
     return animateTo(only, planeView(base.cam, pl, false), env.now);
   }
   const next = clickOn(sess, selectable, i.shift);
+  const pulsed: AppState = refs[0] && !selectable.length && isWorldPlane(sc, refs[0]) ? { ...base, worldPulse: { ref: refs[0], at: env.now } } : base;
   const top = selectionOf(next).at(-1);
   const hit = cands.find((c) => c.ref === top);
   const point = hit && hit.rank === 2 ? surfacePoint(pv, hit.score) : null;
-  return { ...withSession(base, next), spread: hit && point ? { ref: hit.ref, point, startMs: env.now } : null };
+  return { ...withSession(pulsed, next), spread: hit && point ? { ref: hit.ref, point, startMs: env.now } : null };
 }
 
 /** A right click opens the ring of operations on what is selected and changes nothing about the selection (`in_140`): select first (one click, a triple click, Shift for several), then right click. */
 export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>): AppState {
-  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat) };
+  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, i.button ? null : s.session.hover) };
 }

@@ -38,7 +38,7 @@ export function createWorld(scene3: THREE.Scene, host: HTMLElement) {
     const pr = projector(cam, size.w, size.h);
     const fwd = basis(cam).forward;
     const facing = AXES.map((a) => Math.abs(a.dir[0] * fwd[0] + a.dir[1] * fwd[1] + a.dir[2] * fwd[2]) > 0.98); // seen end-on: no arrowhead, no label
-    axes.heads.forEach((c, i) => (c.visible = !facing[i]));
+    axes.heads.forEach((c, i) => (c.visible = !facing[i >> 1]!));
     labels.forEach((d, i) => {
       const at = AXES[i]!.dir.map((v) => v * AXIS_LEN * k * 1.18) as unknown as Vec3;
       const p = pr.project(at);
