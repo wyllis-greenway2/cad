@@ -505,7 +505,7 @@ test("a drawn figure can be scaled about its middle: corners go out, a circle's 
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   assert.equal(st.session.message, null);
   const xs = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner").map((p) => (p as { at: Vec3 }).at[0]);
-  const ys = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner").map((p) => (p as { at: Vec3 }).at[1]);
+  const ys = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as { at: Vec3 }).at[1]);
   near(Math.max(...xs) - Math.min(...xs), 80, 0.01);
   near(Math.max(...ys) - Math.min(...ys), 40, 0.01);
   // a circle
@@ -813,4 +813,85 @@ test("a circle's diameter bubble carries Ø", () => {
   s = run(s, { type: "addRelation", relation: { id: "r_900", kind: "diameter", parts: [c.circle], value: 10, locked: true } });
   const a = annotationsFor(scene(s), [c.circle], null).find((x) => x.kind === "diameter")!;
   assert.equal(a.symbol, "Ø");
+});
+
+test("a linear repeat has arrows: pull the arrow along an axis for how far apart the copies are, the short arrow past the last copy for how many", () => {
+  let st = select(box(), [BODY_OBJECT]); // 40 x 20 x 20
+  st = reduce(st, { type: "runAction", id: "op:linear" }, env);
+  const g = gizmoOf(st)!;
+  assert.deepEqual(g.handles.map((h) => h.id), ["lin:x", "cnt:x", "lin:y", "cnt:y", "lin:z", "cnt:z"]);
+  const mid = (id: string) => { const h = gizmoOf(st)!.handles.find((q) => q.id === id)!; return scale(add(h.points[0]!, h.points[1]!), 0.5); };
+  const values = () => frame(st).entry!.fields.map((f) => f.value);
+  assert.deepEqual(values(), ["3", "60", "1", "30", "1", "30"]);
+  // the arrow along X: 10 mm further apart
+  let m = mid("lin:x");
+  st = drag(st, m, add(m, [10, 0, 0]));
+  assert.equal(values()[1], "70");
+  assert.ok(st.op, "nothing is made by the drag");
+  assert.equal(scene(st.session).steps.length, 1, "the box only");
+  // the short arrow along Y: a copy more
+  m = mid("cnt:y");
+  st = drag(st, m, add(m, [0, 40, 0]));
+  assert.equal(values()[2], "2", "two along Y now");
+  // the handles follow the numbers
+  nearV(gizmoOf(st)!.handles.find((h) => h.id === "lin:x")!.points[1]!, [20 + 70, 10, 10], 0.3);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.deepEqual(st.session.outcome.errors, {});
+  near(st.session.outcome.kernel!.volume!, 6 * 16000, 5); // 3 x 2
+});
+
+test("a circular repeat reuses the rotation rings and the ball: a ring picks the axis and the degrees, the ball the point they turn about", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  st = reduce(st, { type: "runAction", id: "op:circular" }, env);
+  const g = gizmoOf(st)!;
+  assert.deepEqual(g.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot"]);
+  const values = () => frame(st).entry!.fields.map((f) => f.value);
+  // the ball to a new place: the point they turn about
+  const ball = g.handles.find((h) => h.id === "pivot")!.points[0]!;
+  st = drag(st, ball, add(ball, [0, 60, 0]));
+  near(Number(values()[4]), 10 + 60, 8);
+  // take the Z ring and turn it a quarter: the total is cut from 360 to ... 360 + 90 as set by the drag
+  const ring = gizmoOf(st)!.handles.find((h) => h.id === "rot:z")!;
+  const c = gizmoOf(st)!.centre;
+  const p = ring.points[12]!;
+  const rr = sub(p, c);
+  const taken = hitHandle(gizmoOf(st)!, projector(st.cam, env.w, env.h).project, px(st, p)[0], px(st, p)[1])!;
+  st = drag(st, p, add(c, [-rr[1], rr[0], 0]), 6);
+  assert.equal(values()[2], String("xyz".indexOf(taken.id[4]!)), "the axis is that of the ring that was taken");
+  assert.notEqual(values()[1], "360", "the degrees changed with the drag");
+  st = reduce(st, { type: "entry", field: 1, text: "360" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: "4" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.deepEqual(st.session.outcome.errors, {});
+  near(st.session.outcome.kernel!.volume!, 4 * 16000, 5);
+});
+
+test("a drawn figure can be repeated too: copies of its corners, lines and relations, a rectangle stays a rectangle; in a line or round a point", () => {
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [10, 5, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  let st: AppState = { ...createState(s), cam: homeCamera() };
+  const faces = () => Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length;
+  st = select(st, [Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref]);
+  st = reduce(st, { type: "runAction", id: "op:linear" }, env);
+  assert.deepEqual(frame(st).entry!.fields.map((f) => f.value), ["3", "15", "1", "7.5", "1", "15"], "three along the figure's own direction, spaced one and a half sizes (a flat one has no size across, so the biggest is used there)");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  assert.equal(faces(), 3, "three rectangles");
+  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").length, 12);
+  assert.equal(scene(st.session).relations.length, 12, "each copy keeps its four relations");
+  assert.equal(st.op, null);
+  st = { ...st, session: undoLast(st.session) };
+  assert.equal(faces(), 1, "one undo takes the copies away");
+  // round a point
+  st = select(st, [Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref]);
+  st = reduce(st, { type: "runAction", id: "op:circular" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: "4" }, env);
+  st = reduce(st, { type: "entry", field: 3, text: "30" }, env);
+  st = reduce(st, { type: "entry", field: 4, text: "0" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  assert.equal(faces(), 4);
+  const ys = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as { at: Vec3 }).at[1]);
+  assert.ok(Math.min(...ys) < -20 && Math.max(...ys) > 20, "the copies are spread round the point");
 });

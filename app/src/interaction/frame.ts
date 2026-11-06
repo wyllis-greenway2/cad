@@ -3,7 +3,7 @@
 import type { Ref } from "../shared/ref.ts";
 import type { Gizmo } from "./gizmo.ts";
 import { panelOf } from "./panels.ts";
-import { bodyCentre } from "./objects.ts";
+import { patternCentre } from "./pattern.ts";
 import type { Panel } from "./panels.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
@@ -122,7 +122,7 @@ function entryWhere(e: Entry | null, s: AppState, g: Gizmo | null, op: Op | null
     const arrow = k === "extrude" || k === "pushpull" || k === "edge" ? g.handles[0] : undefined;
     at = arrow ? arrow.points.at(-1) ?? g.centre : g.centre;
     from = arrow ? arrow.points[0] ?? null : null;
-  } else if (op && (op.kind === "linear" || op.kind === "circular")) at = bodyCentre(s.session.history.scene);
+  } else if (op && (op.kind === "linear" || op.kind === "circular")) at = patternCentre(s.session.history.scene, op);
   else if (s.tool) at = s.tool.cursor ?? s.tool.points.at(-1) ?? null;
   return { ...e, at, from };
 }

@@ -139,3 +139,14 @@ test("keys: the keymap turns presses into intents; Ctrl+Z undoes, Ctrl+Shift+Z r
   assert.deepEqual(r.feed(key("Delete")), [{ type: "delete" }]);
   assert.equal(keyAction("q", none, settings.input.keys), null);
 });
+
+test("while a drawing tool is armed a click may wander further before it counts as turning the view (the first point of a shape is not lost)", () => {
+  const r = createRecognizer();
+  const wander = () => run(r, [ev("down", 100, 100, { dt: 1000 }), ev("move", 108, 106), ev("up", 108, 106)]); // 10 px away
+  assert.ok(types(wander()).includes("orbit"), "normally that is a turn of the view");
+  r.setDrawing(true);
+  assert.deepEqual(wander(), [{ type: "click", x: 108, y: 106, count: 1, shift: false }], "with a tool armed it is a click");
+  assert.ok(types(run(r, [ev("down", 100, 100, { dt: 1000 }), ev("move", 140, 130), ev("up", 140, 130)])).includes("orbit"), "a real drag still turns the view");
+  r.setDrawing(false);
+  assert.ok(types(wander()).includes("orbit"));
+});

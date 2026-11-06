@@ -2,6 +2,7 @@
 // An operation starts from the selection (the menu or a key), shows its number, and is finished by Enter or a click: that adds ONE step to the scene, so it undoes in one go.
 import type { Ref } from "../shared/ref.ts";
 import { edgeDirection } from "./gizmo.ts";
+import { patternStart, patternCommand } from "./pattern.ts";
 import type { Mat3, Angles } from "../math/rotation.ts";
 import { IDENTITY, about, then, anglesOf, stepsBetween } from "../math/rotation.ts";
 import type { Curved } from "../operation/part.ts";
@@ -135,15 +136,13 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     return { ok: true, op: { ...base, parts: lines.map((p) => p.ref), edges } }; // no size yet: drag the double arrow, or type one
   }
   if (kind === "linear" || kind === "circular") {
-    // the body is repeated (a line, a grid or a block of copies; or copies turned about a point): the numbers start as a sensible first try and the result shows at once
-    const corners = Object.values(scene.parts).filter((p) => p.kind === "corner" && p.origin === "body").map((p) => (p as { at: Vec3 }).at);
-    if (!corners.length) return { ok: false, why: "select the body first" };
-    const lo = [0, 1, 2].map((i) => Math.min(...corners.map((c) => c[i]!)));
-    const hi = [0, 1, 2].map((i) => Math.max(...corners.map((c) => c[i]!)));
-    const ext = hi.map((h, i) => Math.round((h - lo[i]!) * 1e3) / 1e3);
-    const mid = hi.map((h, i) => (h + lo[i]!) / 2);
-    const start = kind === "linear" ? [3, ext[0]! * 1.5, 1, ext[1]! * 1.5, 1, ext[2]! * 1.5] : [4, 360, 2, Math.round((mid[0]! + ext[0]! * 1.5) * 1e3) / 1e3, Math.round(mid[1]! * 1e3) / 1e3, Math.round(mid[2]! * 1e3) / 1e3];
-    return { ok: true, op: { ...base, parts: [BODY_OBJECT], patStart: start, pat: start.map(() => "") } };
+    // what is selected is repeated: a drawn figure (its parts and the plane's), else the body; the numbers start as a first try and the result shows at once
+    const face = drawnFace(scene, parts);
+    const circle = face?.disk ? get(face.disk) : undefined;
+    const figure: Ref[] | null = face ? (circle?.kind === "circle" ? [circle.ref, circle.center] : [...face.corners, ...face.loop]) : null;
+    const st = patternStart(scene, kind, figure);
+    if (!st) return { ok: false, why: "select the body or a closed figure first" };
+    return { ok: true, op: { ...base, parts: st.parts, target: st.target, plane: face?.plane ?? null, patStart: st.start, pat: st.start.map(() => "") } };
   }
   if (kind === "dimension") {
     // measure, then lock: the chip shows the current value of the pair; typing a number locks it (`dec_relations_standard`)
@@ -260,24 +259,8 @@ function figureCommand(scene: Scene, op: Op, turns: { axis: 0 | 1 | 2; angle: nu
 }
 const rotTarget = (scene: Scene, op: Op): Angles => { const cur = turnAngles(scene, op); return cur.map((c, i) => (num(op.rot[i]!) ?? c)) as Angles; };
 
-/** The numbers of a repeat: each field as typed, else as it started. */
-const patternValues = (op: Op): number[] => (op.patStart ?? []).map((v, i) => num(op.pat[i] ?? "") ?? v);
-
 export function opCommand(scene: Scene, op: Op): Command | null {
-  if (op.kind === "linear" || op.kind === "circular") {
-    const v = patternValues(op);
-    if (v.length < 6) return null;
-    const id = nextId(scene, "s");
-    const nx = Math.max(1, Math.round(v[0]!));
-    const ny = Math.max(1, Math.round(v[2]!));
-    const nz = Math.max(1, Math.round(v[4]!));
-    if (op.kind === "linear" && nx * ny * nz <= 1) return null; // one copy is no repeat
-    if (op.kind === "circular" && nx <= 1) return null;
-    const params: Record<string, number | string> = op.kind === "linear"
-      ? { mode: "linear", nx, dx: v[1]!, ny, dy: v[3]!, nz, dz: v[5]! }
-      : { mode: "circular", count: nx, angle: v[1]!, axis: Math.min(2, Math.max(0, Math.round(v[2]!))), px: v[3]!, py: v[4]!, pz: v[5]! };
-    return { type: "addStep", step: { id, type: "pattern", parts: op.parts, params } };
-  }
+  if (op.kind === "linear" || op.kind === "circular") return patternCommand(scene, op);
   if (op.kind === "rotate" && op.target === "plane" && op.rot.some((t) => num(t) !== null)) {
     // angles typed for a figure: it is turned to exactly those, about its pivot
     const steps = stepsBetween(planeTurn(scene, op), rotTarget(scene, { ...op, value: null, typed: "" }));

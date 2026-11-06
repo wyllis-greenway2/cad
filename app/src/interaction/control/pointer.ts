@@ -112,6 +112,7 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   // the handles are dragged, so a click on one does nothing (it must not reselect what is under it)
   const g = gizmoOf(s);
   if (g && hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y)) return base;
+  if (s.op?.patStart) return commitOp(base); // a click in the picture applies the repeat that is shown
   // a click anywhere else, blank space too, leaves an operation you started, and then acts as a normal click
   return doClickSelect(s.op ? { ...base, op: null, drag: null, gizmoHover: null } : base, i, env, cands, refs, pv);
 }

@@ -12,11 +12,12 @@ export const settings = {
     transitionMs: 450, // camera move to a plane's normal view
     normalToleranceRad: 0.02,
     clickMovePx: 4, // pointer movement below this is a click, not a drag
+    drawClickMovePx: 14, // and while a drawing tool is armed: a click that wanders this little is still a click (so the first point of a shape is not lost to turning the view)
     nearFactor: 0.02,
     farFactor: 120,
   },
   input: {
-    longPressMs: 450, touchSlopPx: 10, // touch: a press this long without moving is a right click; a finger must move this far to drag
+    longPressMs: 450, touchSlopPx: 10, drawTouchSlopPx: 22, // touch: a press this long without moving is a right click; a finger must move this far to drag
     multiTapPx: 28, multiTapMs: 550, // taps this close in space and time count as a double or triple tap (`in_078`)
     multiClickPx: 6, multiClickMs: 400, // clicks this close count as a double or triple click (`in_070`)
     scrollMode: "auto" as "auto" | "pan" | "zoom", // what a scroll does: auto = a trackpad's two-finger scroll pans and a wheel zooms (a pinch always zooms) (`in_079`)

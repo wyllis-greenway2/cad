@@ -24,7 +24,7 @@ Waiting for a decision or a bigger piece of work (each has a handoff entry that 
 - **Curved faces:** every curved face is selectable; only round posts and holes along a world axis can be pushed / pulled (diameter), and no curved face can be sketched on.
 - **Constraints:** bubbles do not avoid overlapping geometry; relations between parts on different planes have no special placement; the step that uses a deleted figure is reported broken but not shown; the conflict flash names constraints found by leaving each out, not a minimal set.
 - **Rotation angles** are one fixed order (X then Y then Z); a body turned about several axes has other equal ways to say it. Rotate, move and scale still make one step per drag (push / pull, extrude and fillet / chamfer are one step per operation).
-- **Repeats** (linear and circular) work on the body only; a drawn figure cannot be repeated yet; the circular axis and point are numbers, not handles. **Arcs** have no constraints of their own yet (length is the chord's).
+- **Arcs** have no constraints of their own yet (length is the chord's).
 - **Keys:** none for now (`in_131`); to be chosen later (tools, operations, views).
 - **Confirm `dec_interaction_spec`** (still provisional; parts of it are older than the current look, for example the compass).
 - **Blueprint, later:** STEP export, assemblies, threads, AI generation (`docs/origin/CAD_Blueprint.original.md`).

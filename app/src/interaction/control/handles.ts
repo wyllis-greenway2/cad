@@ -8,6 +8,7 @@ import type { Command } from "../../operation/commands.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { snapOnPlane } from "../tools.ts";
 import { opCommand, autoOp, isLive } from "../operations.ts";
+import { patternBase, dragPattern } from "../pattern.ts";
 import type { Op } from "../operations.ts";
 import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed } from "../gizmo.ts";
 import type { Gizmo } from "../gizmo.ts";
@@ -56,12 +57,17 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     // an operation whose arrow showed up by itself stays up after the drag (like one you started): push / pull, extrude, fillet / chamfer go on until you click away; a body's move arrows end with the drag
     const started = s.op ?? activeOp(s)!;
     const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" ? { ...started, auto: false } : started;
-    s = { ...s, op, drag: { handle: d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // a handle that showed up by itself becomes the operation being worked
+    s = { ...s, op, drag: { handle: d, base: op.patStart ? patternBase(op, h!.id) : isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // a handle that showed up by itself becomes the operation being worked
   }
   if ("corner" in s.drag!) return moveCorner(s, i, env);
   if (!("handle" in s.drag!) || !s.op) return doOrbit(s, i);
   const r = dragTo(s.drag.handle, pr.ray(i.x, i.y));
   if (!r) return s;
+  if (s.op.patStart) {
+    // a repeat: the handles set its numbers (the bubble shows them), nothing is made until it is applied
+    const moved = "pivot" in r ? { pivot: snapPivot(s, r.pivot, i.x, i.y, env) } : r;
+    return { ...s, op: dragPattern(s.op, s.drag.handle.id, moved, s.drag.base) };
+  }
   if ("value" in r) return { ...s, op: { ...s.op, value: Math.round((s.drag.base + r.value) * 1e6) / 1e6, typed: "", rot: ["", "", ""] as [string, string, string], ...(s.drag.handle.axis !== null ? { axis: s.drag.handle.axis } : {}) } };
   return { ...s, op: { ...s.op, pivot: snapPivot(s, r.pivot, i.x, i.y, env) } };
 }
@@ -111,6 +117,7 @@ export function doDragEnd(s: AppState): AppState {
   const d = s.drag;
   const cleared: AppState = { ...s, drag: null };
   if (!d || !("handle" in d) || !s.op) return cleared;
+  if (s.op.patStart) return cleared; // (a repeat is applied by Enter or a click, not by a drag)
   if (d.handle.kind === "ball") return s.op.auto ? { ...cleared, op: null } : cleared;
   if (isLive(s.op)) {
     // one step for the whole operation: what was made before is taken out and made again with the total value (so the number does not start over between drags)

@@ -7,7 +7,7 @@ type Pointer = Extract<RawInput, { kind: "down" | "move" | "up" | "cancel" }>;
 type Action = "orbit" | "pan" | "click" | "menu";
 interface Drag { button: number; x0: number; y0: number; x: number; y: number; moved: boolean; action: Action; shift: boolean }
 
-export function createMouse(countClick: ClickCounter, spaceHeld: () => boolean) {
+export function createMouse(countClick: ClickCounter, spaceHeld: () => boolean, slopPx: () => number = () => settings.view.clickMovePx) {
   let g: Drag | null = null;
   const actionOf = (button: number, m: Mods): Action => {
     if (button === 1) return "pan";
@@ -23,7 +23,7 @@ export function createMouse(countClick: ClickCounter, spaceHeld: () => boolean) 
     }
     if (e.kind === "move") {
       if (!g) return [{ type: "hover", x: e.x, y: e.y }];
-      if (!g.moved && Math.hypot(e.x - g.x0, e.y - g.y0) < settings.view.clickMovePx) return [];
+      if (!g.moved && Math.hypot(e.x - g.x0, e.y - g.y0) < slopPx()) return [];
       g.moved = true;
       const [dx, dy] = [e.x - g.x, e.y - g.y];
       g.x = e.x;

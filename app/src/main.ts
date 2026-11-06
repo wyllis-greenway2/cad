@@ -94,6 +94,7 @@ function dispatch(i: Intent) {
     return;
   }
   state = reduce(state, i, env());
+  recognizer.setDrawing(!!state.tool);
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length })); }

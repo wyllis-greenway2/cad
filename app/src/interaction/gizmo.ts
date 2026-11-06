@@ -7,6 +7,7 @@ import type { Scene } from "../operation/scene.ts";
 import { normalOfPlane } from "../operation/part.ts";
 import type { Op } from "./operations.ts";
 import { bodyCentre } from "./objects.ts";
+import { patternValues, patternCentre } from "./pattern.ts";
 import type { Camera } from "./camera.ts";
 import { basis } from "./camera.ts";
 import { settings } from "../shared/settings.ts";
@@ -25,7 +26,7 @@ export interface Handle {
 }
 export interface Gizmo { handles: Handle[]; centre: Vec3 }
 
-export const hasGizmo = (kind: Op["kind"]): boolean => kind !== "dimension" && kind !== "linear" && kind !== "circular";
+export const hasGizmo = (kind: Op["kind"]): boolean => kind !== "dimension";
 const AXES: Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 const RING = 48;
 /** One size for every arrow: a double arrow reaches this far each way from its middle (times the gizmo length), a single arrow is the same overall length. */
@@ -82,6 +83,28 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
     // a double arrow on each selected edge, through its middle, along the way out of the corner; the size you drag applies to all of them
     const handles: Handle[] = (op.edges ?? []).map((e, i): Handle => ({ id: `edge:${i}`, kind: "double", axis: null, points: [add(e.mid, scale(e.dir, -HALF * L)), add(e.mid, scale(e.dir, HALF * L))] }));
     return handles.length ? { centre: scale(add(handles[0]!.points[0]!, handles[0]!.points[1]!), 0.5), handles } : null;
+  }
+  if (op.kind === "linear" || op.kind === "circular") {
+    const v = patternValues(op);
+    if (v.length < 6) return null;
+    if (op.kind === "circular") {
+      // the same rings and ball as a rotation: the ring you take sets the axis, the ball is the point the copies turn about
+      const pivot: Vec3 = [v[3]!, v[4]!, v[5]!];
+      return { centre: pivot, handles: [...AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, pivot, d, L * 0.8, i as 0 | 1 | 2)), { id: "pivot", kind: "ball", axis: null, points: [pivot] }] };
+    }
+    // an arrow along each axis whose end is where the next copy goes (pull it for the distance between them), and a short arrow past the last copy (pull it for how many)
+    const c = patternCentre(scene, op);
+    const handles: Handle[] = [];
+    AXES.forEach((d, i) => {
+      const sp = v[2 * i + 1]!;
+      const n = Math.max(1, Math.round(v[2 * i]!));
+      if (Math.abs(sp) < 1e-9) return;
+      const sgn = sp < 0 ? -1 : 1;
+      handles.push({ id: `lin:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [c, add(c, scale(d, sp))] });
+      const slot = add(c, scale(d, sp * n));
+      handles.push({ id: `cnt:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [slot, add(slot, scale(d, sgn * L * 0.3))] });
+    });
+    return { centre: c, handles };
   }
   if (op.target === "shape" && op.kind === "scale" && op.pivot) {
     // the ball on the figure's far corner (a circle: on its rim) pulled out for bigger

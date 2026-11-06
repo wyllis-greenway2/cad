@@ -14,9 +14,10 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   const I = opts.input ?? settings.input;
   const countClick = createClickCounter(I);
   const scroll = createScroll(I);
-  const touch = createTouch(I, countClick);
+  let drawing = false; // a drawing tool is armed: a click may wander more before it counts as turning the view
+  const touch = createTouch(I, countClick, () => (drawing ? I.drawTouchSlopPx : I.touchSlopPx));
   let space = false;
-  const mouse = createMouse(countClick, () => space);
+  const mouse = createMouse(countClick, () => space, () => (drawing ? settings.view.drawClickMovePx : settings.view.clickMovePx));
 
   function feed(e: RawInput): Intent[] {
     switch (e.kind) {
@@ -30,5 +31,5 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
       default: return e.device === "touch" ? touch.pointer(e) : mouse(e);
     }
   }
-  return { feed, setScrollMode: scroll.setMode, get scrollMode() { return scroll.mode; } };
+  return { feed, setDrawing: (on: boolean) => { drawing = on; }, setScrollMode: scroll.setMode, get scrollMode() { return scroll.mode; } };
 }

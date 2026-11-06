@@ -10,7 +10,7 @@ type Gesture =
   | { mode: "two"; cx: number; cy: number; d: number }
   | { mode: "done" }; // two fingers were down: nothing more until all are lifted
 
-export function createTouch(I: typeof settings.input, countClick: ClickCounter) {
+export function createTouch(I: typeof settings.input, countClick: ClickCounter, slopPx: () => number = () => I.touchSlopPx) {
   let g: Gesture | null = null;
   const touches = new Map<number, Pt>();
   const two = () => {
@@ -32,7 +32,7 @@ export function createTouch(I: typeof settings.input, countClick: ClickCounter) 
         t.x = e.x;
         t.y = e.y;
         if (g.mode === "one") {
-          if (!g.moved && Math.hypot(e.x - g.x0, e.y - g.y0) < I.touchSlopPx) return [];
+          if (!g.moved && Math.hypot(e.x - g.x0, e.y - g.y0) < slopPx()) return [];
           g.moved = true;
           const [dx, dy] = [e.x - g.x, e.y - g.y];
           g.x = e.x;
