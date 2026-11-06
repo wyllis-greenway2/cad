@@ -85,8 +85,8 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
     return { centre: op.origin, handles: [{ id: "pull", kind: "double", axis: null, points: [add(op.origin, scale(op.normal, -HALF * L)), add(op.origin, scale(op.normal, HALF * L))] }] };
   }
   if (op.kind === "edge") {
-    // a double arrow on each selected edge, through its middle, along the way out of the corner; the size you drag applies to all of them
-    const handles: Handle[] = (op.edges ?? []).map((e, i): Handle => ({ id: `edge:${i}`, kind: "double", axis: null, points: [add(e.mid, scale(e.dir, -HALF * L)), add(e.mid, scale(e.dir, HALF * L))] }));
+    // one double arrow, on the edge selected last, through its middle, along the way out of the corner; the size you drag applies to all the selected edges, so one arrow and one bubble are all there is to work with
+    const handles: Handle[] = (op.edges ?? []).slice(-1).map((e, i): Handle => ({ id: `edge:${i}`, kind: "double", axis: null, points: [add(e.mid, scale(e.dir, -HALF * L)), add(e.mid, scale(e.dir, HALF * L))] }));
     return handles.length ? { centre: scale(add(handles[0]!.points[0]!, handles[0]!.points[1]!), 0.5), handles } : null;
   }
   if (op.kind === "linear" || op.kind === "circular") {

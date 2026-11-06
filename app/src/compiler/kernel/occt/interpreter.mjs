@@ -354,9 +354,26 @@ const OPS = {
     if (!(v > 1e-6)) throw new Error("the size must be positive");
     const refs = [].concat(op.ref);
     const found = refs.length ? resolveEdges(t, refs) : null;
-    if (!found) throw new Error("line not found (the model changed since this step was made)");
     const pick = (ef) => ef.when(({ element }) => found.has(element.hashCode));
-    return { kind: "solid", shape: op.mode === "chamfer" ? t.chamfer(v, pick) : t.fillet(v, pick) };
+    try {
+      if (!found) throw new Error("line not found (the model changed since this step was made)");
+      return { kind: "solid", shape: op.mode === "chamfer" ? t.chamfer(v, pick) : t.fillet(v, pick) };
+    } catch (e) {
+      // on its own it cannot be made (next to fillets already made, a corner where three meet): the kernel can blend a corner when the edges that meet there are rounded in the same operation, so
+      // this one is tried together with the ones just before it (each with its own size), from the body before them (`in_176`)
+      if (!op.together?.base && op.together?.base !== null) throw e;
+      const base = op.together.base ? ctx.get(op.together.base, "solid").shape : null;
+      if (!base || op.together.mods.length < 2) throw e;
+      const sizes = new Map();
+      for (const m of op.together.mods) {
+        const list = [].concat(m.ref);
+        const hit = resolveEdges(base, list);
+        if (!hit) throw e;
+        for (const h of hit) sizes.set(h, resolve(m.value, ctx.params));
+      }
+      const by = (el) => sizes.get(el.hashCode) ?? null;
+      return { kind: "solid", shape: op.mode === "chamfer" ? base.chamfer(by) : base.fillet(by) };
+    }
   },
 
   /** Change the radius of a full round face: material is added or removed in a ring (outside it for a post, inside it for a hole). */

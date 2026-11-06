@@ -268,15 +268,15 @@ test("a closed figure shows the arrow to pull it out; the same arrow on a flat f
 
 const typeText = (st: AppState, text: string) => [...text].reduce((a, c) => reduce(a, { type: "typed", key: c, shift: false }, env), st);
 
-test("a line of the body shows the fillet / chamfer double arrow by itself; several lines each show one, and the size dragged on any applies to all", () => {
+test("a line of the body shows the fillet / chamfer double arrow by itself; several lines show only one, on the last selected, and the size dragged applies to all", () => {
   let st = box();
   const vertical = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "body" && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] !== (scene(st.session).parts[p.b] as { at: Vec3 }).at[2]);
   st = select(st, vertical.map((p) => p.ref));
   assert.ok(ringOps(st).includes("op:edge"), "fillet / chamfer is in the right-click ring too");
   const g = gizmoOf(st)!; // and the arrows show up by themselves
-  assert.equal(g.handles.length, 4);
+  assert.equal(g.handles.length, 1, "one arrow for all the edges");
   assert.ok(g.handles.every((h) => h.kind === "double"));
-  const h = g.handles[1]!;
+  const h = g.handles[0]!;
   const centre = scale(add(h.points[0]!, h.points[1]!), 0.5);
   const d = sub(h.points[1]!, h.points[0]!);
   const unit = scale(d, 1 / Math.hypot(...d));
@@ -1280,4 +1280,16 @@ test("pulling a side of an extruded hexagon extends and cuts its neighbours: the
   // the neighbours lean towards each other, so moved out by 2 the side gets shorter: 10 - 2 x 2 / tan(60 degrees); the area grows by 2 x (10 + that) / 2
   const side2 = 10 - (2 * 2) / Math.tan(Math.PI / 3);
   near(st.session.outcome.kernel!.volume!, (3 * Math.sqrt(3) / 2) * R * R * 5 + ((10 + side2) / 2) * 2 * 5, 0.5);
+});
+
+test("three fillets one after another at one corner: the third cannot be made alone, so it is made together with the ones before it (the kernel blends a corner when its edges are rounded together)", () => {
+  const s0 = box();
+  const sc = scene(s0.session);
+  const corner = [40, 20, 20];
+  const edges = Object.values(sc.parts).filter((p) => p.kind === "line" && p.origin === "body" && [(sc.parts[p.a] as { at: Vec3 }).at, (sc.parts[p.b] as { at: Vec3 }).at].some((q) => Math.hypot(q[0] - corner[0], q[1] - corner[1], q[2] - corner[2]) < 1e-3));
+  assert.equal(edges.length, 3);
+  let s = s0.session;
+  edges.forEach((e, k) => { s = run(s, { type: "addStep", step: { id: `s_30${k}`, type: "edgeMod", parts: [e.ref], params: { mode: "fillet", value: 3 } } }); assert.equal(s.message, null, `fillet ${k + 1} of 3`); });
+  assert.deepEqual(s.outcome.errors, {});
+  assert.ok(s.outcome.kernel!.volume! < 16000, "all three are rounded");
 });

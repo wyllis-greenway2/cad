@@ -26,6 +26,8 @@ export function buildGraph(scene: Scene): GraphResult {
   const ops: KernelOp[] = [];
   const errors: Record<string, string> = {};
   let prev: string | null = null;
+  // consecutive fillets (or chamfers) of one kind: the body before the first of them and all of them so far, so that a fillet that cannot be made on its own (next to ones already made) can be tried together with them
+  let chain: { base: string | null; mode: string; mods: { ref: unknown; value: number }[] } | null = null;
 
   const profile = (st: Step): KernelOp | string => {
     const first = get(st.parts[0]!);
@@ -85,7 +87,13 @@ export function buildGraph(scene: Scene): GraphResult {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const refs = st.parts.map((r) => decodeEdge(r));
         if (refs.some((r) => !r)) { errors[st.id] = "select lines of the body"; break; }
-        ops.push({ id: xid, type: "edgeMod", target: prev, ref: refs, mode: String(st.params.mode ?? "fillet"), value: Number(st.params.value ?? 0) });
+        const mode = String(st.params.mode ?? "fillet");
+        const value = Number(st.params.value ?? 0);
+        const last = ops[ops.length - 1];
+        const continues: boolean = !!chain && last?.type === "edgeMod" && last.id === prev && chain.mode === mode;
+        const here = { ref: refs, value };
+        chain = continues ? { ...chain!, mods: [...chain!.mods, here] } : { base: prev, mode, mods: [here] };
+        ops.push({ id: xid, type: "edgeMod", target: prev, ref: refs, mode, value, ...(chain.mods.length > 1 ? { together: { base: chain.base, mods: chain.mods } } : {}) });
         prev = xid;
         break;
       }

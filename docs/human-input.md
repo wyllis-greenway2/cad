@@ -927,3 +927,8 @@ Sent a picture (a cylinder whose top rim is selected; the chamfer arrow collapse
 Sent a model (kept as `app/test/fixtures/face-edits.cad.json`: a block edited with the new face editing, plus a deleted chamfered cylinder).
 
 > Okay now why dont you play with it a bunch and see if it would work as most users would expect, or if it has bugs. Try your own stuff. And also play with this model.
+
+## in_176 — 2026-11-06 — directive
+Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that failed is not in it, since a refused step is not kept).
+
+> There is an inner corner here that cannot receive a fillet. I understand it is a tight corner, but wouldn't there be a valid way to fillet? Should we make our rules a little more intelligent or is this getting too deep into the OCCT engine? Also when you select multiple edges to chamfer, it only needs to show the latest chamfer arrow and bubble because they all chamfer together and only need one interface.
