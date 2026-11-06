@@ -52,6 +52,8 @@ export interface Op {
   curved?: Curved;
   /** push / pull of a face the body already has: the step to change instead of adding a prism (`faceedit.ts`) */
   edit?: FaceEdit;
+  /** a fillet or chamfer face: there is no prism to fall back on */
+  rounded?: boolean;
   /** this time make the prism instead (the step that made the face could not take the size) */
   noEdit?: boolean;
   /** rotate: the point it turns about (the rotator's centre; you can move it) */
@@ -145,7 +147,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
       }
       const len = Math.hypot(...nsum);
       if (len < 1e-12) return { ok: false, why: "this curved face has no direction to push along" };
-      return { ok: true, op: { ...base, parts: [f.ref], origin: at, normal: scale(nsum, 1 / len), edit, dim: { base: edit.value, scale: -1 } } };
+      return { ok: true, op: { ...base, parts: [f.ref], origin: at, normal: scale(nsum, 1 / len), edit, rounded: true, dim: { base: edit.value, scale: -1 } } };
     }
     if (f.curved) {
       // a round face: the arrow stands out of its surface (a post) or into the hole, in the middle of its height; pulling adds material, which changes the radius
@@ -166,7 +168,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     // the size across the body along the face's normal: from its far side to this face (typing 20 makes a 20 mm block however far the face is now)
     const along = Object.values(scene.parts).filter((p) => p.kind === "corner" && p.origin === "body").map((p) => dot(n, (p as { at: Vec3 }).at));
     const thickness = along.length ? Math.max(...along) - Math.min(...along) : 0;
-    return { ok: true, op: { ...base, parts: [f.ref], origin: centroid(pts), normal: n, edit, dim: edit?.kind === "edgeSize" ? { base: edit.value, scale: -1 } : { base: Math.round(thickness * 1e6) / 1e6, scale: 1 } } };
+    return { ok: true, op: { ...base, parts: [f.ref], origin: centroid(pts), normal: n, edit, ...(edit?.kind === "edgeSize" ? { rounded: true } : {}), dim: edit?.kind === "edgeSize" ? { base: edit.value, scale: -1 } : { base: Math.round(thickness * 1e6) / 1e6, scale: 1 } } };
   }
   if (kind === "edge") {
     const lines = parts.filter((p) => p.kind === "line" && p.origin === "body");

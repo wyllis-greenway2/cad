@@ -139,9 +139,26 @@ export function editCommand(scene: Scene, edit: FaceEdit, v: number): Command | 
     return value > 1e-6 ? { type: "setStepParams", id: edit.step, params: { value } } : null;
   }
   if (edit.kind === "side") {
+    const nf = edit.normal;
+    const moved = new Set(edit.corners);
     const moves = edit.corners.flatMap((ref): Command[] => {
       const c = scene.parts[ref];
-      return c?.kind === "corner" ? [{ type: "movePart", ref, to: [c.at[0] + edit.normal[0] * v, c.at[1] + edit.normal[1] * v, c.at[2] + edit.normal[2] * v] }] : [];
+      if (c?.kind !== "corner") return [];
+      // the side keeps the sides next to it and they are extended or cut to meet it (a hexagon stays a hexagon, only bigger): the new corner is where the next side's line meets the moved side. If there is no single straight
+      // side to go along (an arc, a corner of three lines) the corner just moves along the face's normal
+      const others = Object.values(scene.parts).filter((p): p is Extract<typeof p, { kind: "line" }> => p.kind === "line" && p.origin === "drawn" && (p.a === ref || p.b === ref) && !(moved.has(p.a) && moved.has(p.b)));
+      const o = others.length === 1 && !others[0]!.center && !others[0]!.bulge ? others[0]! : null;
+      const far = o ? scene.parts[o.a === ref ? o.b : o.a] : null;
+      if (o && far?.kind === "corner") {
+        const dir: Vec3 = [far.at[0] - c.at[0], far.at[1] - c.at[1], far.at[2] - c.at[2]];
+        const along = dot(nf, dir);
+        const len = Math.hypot(...dir);
+        if (len > 1e-9 && Math.abs(along) / len > 1e-3) {
+          const t = v / along; // c + t * dir is where the line from this corner to the next one is cut by the moved side
+          return [{ type: "movePart", ref, to: [c.at[0] + dir[0] * t, c.at[1] + dir[1] * t, c.at[2] + dir[2] * t] }];
+        }
+      }
+      return [{ type: "movePart", ref, to: [c.at[0] + nf[0] * v, c.at[1] + nf[1] * v, c.at[2] + nf[2] * v] }];
     });
     return moves.length ? { type: "batch", commands: moves } : null;
   }

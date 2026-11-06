@@ -114,8 +114,27 @@ function findFace(shape, ref) {
     const area = (hi[0] - lo[0] + 1e-6) * (hi[1] - lo[1] + 1e-6) * (hi[2] - lo[2] + 1e-6);
     if (!best || area < best.area) best = { f, area };
   }
-  if (!best) throw new Error("face not found (the model changed since this step was made)");
-  return best.f;
+  if (best) return best.f;
+  // not where it was: an earlier step (a sketch resized, a face pulled) moved it. The face facing the same way that is nearest to where it was and under the point it was found by,
+  // if clearly the nearest, is the same face (`in_175`)
+  const bb = shape.boundingBox.bounds;
+  const diag = Math.hypot(bb[1][0] - bb[0][0], bb[1][1] - bb[0][1], bb[1][2] - bb[0][2]);
+  const cands = [];
+  for (const f of shape.faces) {
+    if (f.geomType !== "PLANE") continue;
+    const fn = f.normalAt();
+    const l = Math.hypot(fn.x, fn.y, fn.z);
+    if ((fn.x * n[0] + fn.y * n[1] + fn.z * n[2]) / l < 1 - 1e-5) continue;
+    const c = f.center;
+    const off = n[0] * c.x + n[1] * c.y + n[2] * c.z - d; // how far it is from where it was, along its normal
+    const p = ref.point.map((v, k) => v + n[k] * off); // the point carried along with it
+    const [lo, hi] = f.boundingBox.bounds;
+    if (p.some((v, k) => v < lo[k] - 0.05 * diag - 1e-3 || v > hi[k] + 0.05 * diag + 1e-3)) continue;
+    cands.push({ f, dist: Math.abs(off) });
+  }
+  cands.sort((x, y) => x.dist - y.dist);
+  if (!cands.length || cands[0].dist > 0.35 * diag || (cands[1] && cands[1].dist < cands[0].dist * 1.5)) throw new Error("face not found (the model changed since this step was made)");
+  return cands[0].f;
 }
 
 /** A profile (points in the XZ plane: x = distance from the axis, y = height) revolved once about Z, then put on an axis (0 X, 1 Y, 2 Z) starting at `at`. */

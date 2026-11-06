@@ -922,3 +922,8 @@ Sent a picture (a cylinder whose top rim is selected; the chamfer arrow collapse
 
 ## in_174 — 2026-11-06 — directive
 > okay build the not yet built parts please
+
+## in_175 — 2026-11-06 — directive
+Sent a model (kept as `app/test/fixtures/face-edits.cad.json`: a block edited with the new face editing, plus a deleted chamfered cylinder).
+
+> Okay now why dont you play with it a bunch and see if it would work as most users would expect, or if it has bugs. Try your own stuff. And also play with this model.

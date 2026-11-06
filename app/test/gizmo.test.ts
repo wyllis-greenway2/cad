@@ -1,3 +1,4 @@
+import { normalOfPlane } from "../src/operation/part.ts";
 import { actionsFor } from "../src/interaction/actions.ts";
 import test from "node:test";
 import { flat } from "./helpers/menu.ts";
@@ -9,7 +10,7 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, run, scene, selection, undoLast } from "../src/interaction/session.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
 import type { AppState } from "../src/interaction/controller.ts";
-import { drawSquaredRectangle, drawCircle } from "../src/operation/build.ts";
+import { drawSquaredRectangle, drawCircle, drawChain } from "../src/operation/build.ts";
 import { nextId } from "../src/operation/scene.ts";
 import { projector, homeCamera } from "../src/interaction/camera.ts";
 import { gizmoOf } from "../src/interaction/control/handles.ts";
@@ -1247,4 +1248,36 @@ test("the end made by a push / pull step (a prism, as made before) is edited thr
   st = typeNumber(st, "35");
   assert.deepEqual(scene(st.session).steps.map((x) => x.type), ["extrude", "pushPull"], "still one prism step, its depth changed");
   near(st.session.outcome.kernel!.volume!, 40 * 20 * 35, 0.5);
+});
+
+test("pulling a side of an extruded hexagon extends and cuts its neighbours: the other sides keep their directions (they are extended or cut to meet it)", () => {
+  let s = createSession(kernel);
+  const R = 10;
+  const pts: Vec3[] = Array.from({ length: 6 }, (_, k) => [R * Math.cos((k * Math.PI) / 3), R * Math.sin((k * Math.PI) / 3), 0]);
+  const h = drawChain(scene(s), XY, pts, true);
+  s = run(s, h.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: h.lines, params: { depth: 5 } } });
+  // the side on the right: from the corner at 300 degrees to the one at 0 and 60... pick the face whose normal points along +x with the largest area, i.e. the one at the corner pair (0, 60 degrees) is not flat on x: use the face facing +30 degrees
+  const faces = Object.values(scene(s).parts).filter((p) => p.kind === "plane" && p.origin === "body" && !p.curved && p.mesh && Math.abs(normalOfPlane(p)[2]) < 1e-6);
+  const face = faces.find((p) => { if (p.kind !== "plane") return false; const n = normalOfPlane(p); return Math.abs(n[0] - Math.cos(Math.PI / 6)) < 1e-3 && Math.abs(n[1] - Math.sin(Math.PI / 6)) < 1e-3; })!;
+  assert.ok(face, "a side facing 30 degrees");
+  let st = select({ ...createState(s), cam: homeCamera() }, [face.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  assert.equal(st.op!.edit?.kind, "side");
+  const before = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as { at: Vec3 }).at);
+  st = typeNumber(st, String(st.op!.dim!.base + 2)); // 2 mm out
+  assert.equal(st.session.message, null);
+  const after = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as { at: Vec3 }).at);
+  // the two corners of that side moved along their neighbours: the lines from them to the next corners keep their direction
+  const moved = after.filter((a) => !before.some((b) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-6));
+  assert.equal(moved.length, 2);
+  for (const m of moved) {
+    const old = before.find((b) => Math.abs(Math.hypot(b[0], b[1]) - R) < 1e-6 && Math.hypot(b[0] - m[0], b[1] - m[1]) < 5)!;
+    const d = [m[0] - old[0], m[1] - old[1]] as [number, number];
+    // along the neighbouring side, which points from the corner at 0 / 60 degrees to 300 / 120 degrees: not along the face normal
+    assert.ok(Math.abs(d[0] * Math.sin(Math.PI / 6) - d[1] * Math.cos(Math.PI / 6)) > 0.5, "moved along the neighbour, not straight out");
+  }
+  // the neighbours lean towards each other, so moved out by 2 the side gets shorter: 10 - 2 x 2 / tan(60 degrees); the area grows by 2 x (10 + that) / 2
+  const side2 = 10 - (2 * 2) / Math.tan(Math.PI / 3);
+  near(st.session.outcome.kernel!.volume!, (3 * Math.sqrt(3) / 2) * R * R * 5 + ((10 + side2) / 2) * 2 * 5, 0.5);
 });

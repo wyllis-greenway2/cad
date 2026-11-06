@@ -4,12 +4,16 @@ import type { Session } from "./session.ts";
 import { scene as sceneOf, run } from "./session.ts";
 import type { Command } from "../operation/commands.ts";
 import type { Op } from "./operations.ts";
-import { opCommand } from "./operations.ts";
+import { opCommand, valueOf } from "./operations.ts";
 
 /** Run the step of `op` on `sess`. Returns the new session and whether it fell back to a prism; null when the operation has no step yet. */
 export function runOp(sess: Session, op: Op): { session: Session; cmd: Command } | null {
   const cmd = opCommand(sceneOf(sess), op);
-  if (!cmd) return null;
+  if (!cmd) {
+    // a size that is nothing, or less (a radius of zero, a fillet of nothing): said, not ignored
+    const v = valueOf(op);
+    return op.edit && v !== null && v !== 0 ? { session: { ...sess, message: "that size is not possible: it would be zero or less" }, cmd: { type: "batch", commands: [] } } : null;
+  }
   if (!op.edit || op.noEdit) return { session: run(sess, cmd), cmd };
   const prism0 = opCommand(sceneOf(sess), { ...op, noEdit: true });
   let edited = run(sess, cmd, { watchAll: true, ...(prism0 ? { fallback: prism0 } : {}) });
@@ -20,6 +24,7 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
     if (!held) edited = { ...sess, message: "the constraints on the sketch would put it back" };
   }
   if (!edited.message) return { session: edited, cmd };
+  if (op.rounded) return { session: { ...edited, message: `that size cannot be made: ${edited.message}` }, cmd }; // (a fillet or chamfer face has no prism to fall back on)
   const prism = opCommand(sceneOf(sess), { ...op, noEdit: true });
   if (!prism) return { session: edited, cmd };
   const made = run(sess, prism);

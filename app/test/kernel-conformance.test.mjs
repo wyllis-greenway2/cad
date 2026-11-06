@@ -101,8 +101,10 @@ test("a tilted face can be found again, moved along its own normal, and tilted f
   assert.deepEqual(moved.errors, []);
   // moving a sloped face out by 5 along its normal adds a prism of (face area) x 5 on the high side only: here the face area is 40/cos(10deg) x 20
   near(volume(moved), 16000 + (40 / Math.cos(rad)) * 20 * 5, 0.5);
-  const missing = build([base, tilted, { id: "f_3", kind: "face", ref: { ...ref, d: ref.d + 3 }, distance: 5 }]);
+  const missing = build([base, tilted, { id: "f_3", kind: "face", ref: { ...ref, d: ref.d + 60 }, distance: 5 }]); // (a face a little off is found as the nearest one facing the same way; one far off is not)
   assert.match(missing.errors[0], /face not found/);
+  const nudged = build([base, tilted, { id: "f_3", kind: "face", ref: { ...ref, d: ref.d + 3 }, distance: 5 }]);
+  assert.deepEqual(nudged.errors, [], "a face that moved by 3 is still found");
   const again = build([base, tilted, { id: "f_3", kind: "faceTilt", ref, axis: 0, distance: 5 }]);
   assert.deepEqual(again.errors, []);
 });
