@@ -86,8 +86,9 @@ export function actionsFor(scene: Scene, selection: readonly Ref[]): Action[] {
     const targets = drawn.flatMap((r): Ref[] => {
       const p = get(r);
       if (p?.kind === "face") return [...p.corners, ...p.loop.flatMap((l) => { const x = get(l); return x?.kind === "line" && x.center ? [x.center] : []; })]; // a face's corners (a disk's centre, the centres of its arcs): everything built on them goes too
-      // a circle goes with its centre, unless something else stands on it (a line's points are real points and stay): no centre is left behind to snap to or suggest constraints to
-      return p?.kind === "circle" && get(p.center)?.movable && !used(p.center) ? [r, p.center] : [r];
+      // a circle or a line goes with its points, unless something else stands on them: no point is left behind to snap to or suggest constraints to
+      const own = p?.kind === "circle" ? [p.center] : p?.kind === "line" ? [p.a, p.b, ...(p.center ? [p.center] : [])] : [];
+      return [r, ...own.filter((c) => get(c)?.movable && !used(c))];
     });
     if (targets.length) {
       out.push({

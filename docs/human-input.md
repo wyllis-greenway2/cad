@@ -966,3 +966,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_184 — 2026-11-06 — directive
 > play with it and go bug hunting
+
+## in_185 — 2026-11-06 — approval
+> yes, remove the leftover points when nothing else uses them

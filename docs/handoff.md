@@ -1250,3 +1250,7 @@ Do not touch `compiler/` or `ui/` in phase 1. Keep porting honest: copy pure cod
 2. **A line drawn over the side of a shape cost the shape its face** (two curves on the same piece gave two edges between the same points: zero-area faces and a broken walk). Identical pieces are now taken once. Test added.
 **Seen, not a bug:** after selecting a face its extrude arrow takes the click if you click near it, so a click on the next piece looks ignored; Escape first.
 **Know / not done:** with about 40 curves on one plane a command takes about 0.1 s (the faces are derived twice per step and the point lookup is linear); fine for now, would need a grid for hundreds of curves. Pulling a flat wall cut along a line adds a prism (it does not move the line). A deleted line still leaves its two points (asked before: say if they should go).
+
+## Handoff 165 — 2026-11-06 (deleting a line takes its free points)
+**State:** `in_185`. 259 tests pass, checks clean.
+Deleting a line now also deletes its end points (and an arc's centre) when no other part (line, arc, circle) stands on them; a corner another line starts from stays, so deleting one side of a chain leaves the rest connected. Relations that were only on the removed points go with them. This changes the earlier rule "a line's points stay" (the old test was changed to say the opposite). Tests: lone lines, and a chain. Not done: a deleted point that had a deliberate constraint to something else (e.g. a distance to another point) loses that constraint with it.

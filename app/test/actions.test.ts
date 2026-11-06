@@ -111,7 +111,20 @@ test("deleting several selected parts is one step", () => {
   assert.equal(h.commands.length, h0.commands.length + 1);
   assert.equal(h.scene.parts[a.lines[0]!], undefined);
   assert.equal(h.scene.parts[b.lines[0]!], undefined);
-  assert.ok(h.scene.parts[a.corners[0]!], "the corners stay");
+  assert.equal(h.scene.parts[a.corners[0]!], undefined, "the points nothing else stands on go with the line");
+  assert.equal(h.scene.parts[b.corners[1]!], undefined);
+});
+
+test("deleting a line takes the points nothing else uses; a point another line starts from stays", () => {
+  let h = newHistory();
+  const chain = drawChain(h.scene, XY, [[0, 0, 0], [10, 0, 0], [10, 10, 0]]);
+  h = must(exec(h, chain.command));
+  const del = actionsFor(h.scene, [chain.lines[0]!]).find((x) => x.id === "delete")!;
+  h = must(exec(h, del.run()));
+  assert.equal(h.scene.parts[chain.lines[0]!], undefined);
+  assert.equal(h.scene.parts[chain.corners[0]!], undefined, "the free end goes");
+  assert.ok(h.scene.parts[chain.corners[1]!], "the corner the next line starts from stays");
+  assert.ok(h.scene.parts[chain.lines[1]!]);
 });
 
 test("a side is remembered so a gap does not flip over", () => {
