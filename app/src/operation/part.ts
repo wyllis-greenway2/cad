@@ -18,7 +18,9 @@ interface Base {
 }
 export interface Corner extends Base { kind: "corner"; at: Vec3 }
 export interface Line extends Base { kind: "line"; a: Ref; b: Ref; /** a point halfway along a curved edge (body edges only; straight lines omit it) */ mid?: Vec3;
-  /** a drawn arc: how far its middle is out from the chord, as a fraction of the chord's length (positive towards the plane's normal crossed with the chord's direction); a straight line omits it */ bulge?: number }
+  /** a drawn arc: how far its middle is out from the chord, as a fraction of the chord's length (positive towards the plane's normal crossed with the chord's direction); a straight line omits it */ bulge?: number;
+  /** a drawn arc about a centre point (a corner, so it can be positioned with constraints): the arc runs from `a` to `b` round `center`, counter-clockwise (seen from the plane's normal) or not; its radius is the distance from the centre to `a` */
+  center?: Ref; ccw?: boolean }
 export interface Circle extends Base { kind: "circle"; center: Ref; radius: number }
 /** A derived face of drawn lines: a closed loop (its lines and, in order, its corners), or a disk (a circle). Rebuilt from the lines; never saved. */
 export interface Face extends Base { kind: "face"; loop: Ref[]; corners: Ref[]; disk?: Ref }
@@ -105,6 +107,14 @@ const cornerOps: KindOps<Corner> = {
   anchors: (part) => [part.ref],
 };
 /** Points along the circular arc from `a` through `m` to `b` (a curved edge of the body), or just the two ends if they are in a line. */
+/** The centre of the circle through three points (an arc's two ends and a point on it). Null if they are in a line. */
+export function circumcentre(a: Vec3, m: Vec3, b: Vec3): Vec3 | null {
+  const [ab, ac] = [sub(b, a), sub(m, a)];
+  const n = cross(ab, ac);
+  const nn = dot(n, n);
+  if (nn < 1e-12) return null;
+  return add(a, scale(add(scale(cross(n, ab), dot(ac, ac)), scale(cross(ac, n), dot(ab, ab))), 1 / (2 * nn)));
+}
 export function arcPoints(a: Vec3, m: Vec3, b: Vec3, steps = 40): Vec3[] {
   const [ab, ac] = [sub(b, a), sub(m, a)];
   const n = cross(ab, ac);
@@ -131,6 +141,19 @@ export function arcPoints(a: Vec3, m: Vec3, b: Vec3, steps = 40): Vec3[] {
 /** The point halfway along a curved line (a body's curved edge, or a drawn arc), or null for a straight one. */
 function curveMid(get: Lookup, part: Line): Vec3 | null {
   if (part.mid) return part.mid;
+  if (part.center) {
+    // an arc about a centre: from a to b round it, the way `ccw` says; its middle is half way round
+    const [c, a, b] = [pointOf(get, part.center), pointOf(get, part.a), pointOf(get, part.b)];
+    const pl = part.plane ? get(part.plane) : undefined;
+    if (!c || !a || !b || !pl || pl.kind !== "plane") return null;
+    const n = normalOfPlane(pl);
+    const [ra, rb] = [sub(a, c), sub(b, c)];
+    const theta = Math.atan2(dot(cross(ra, rb), n), dot(ra, rb)); // from a to b, counter-clockwise, in (-pi, pi]
+    const sweep = part.ccw === false ? (theta > 0 ? theta - 2 * Math.PI : theta) : theta > 0 ? theta : theta + 2 * Math.PI;
+    const h = sweep / 2;
+    const [cs, sn] = [Math.cos(h), Math.sin(h)];
+    return add(c, add(add(scale(ra, cs), scale(cross(n, ra), sn)), scale(n, dot(n, ra) * (1 - cs))));
+  }
   if (!part.bulge) return null;
   const s = segmentOf(get, part.ref);
   const pl = part.plane ? get(part.plane) : undefined;
@@ -183,7 +206,7 @@ const lineOps: KindOps<Line> = {
     const cm = curveMid(get, part);
     return cm ? { shape: "polyline", pts: arcPoints(s[0], cm, s[1]) } : { shape: "segment", a: s[0], b: s[1] };
   },
-  anchors: (part) => [part.a, part.b],
+  anchors: (part) => (part.center ? [part.a, part.b, part.center] : [part.a, part.b]),
 };
 const circleOps: KindOps<Circle> = {
   hit: (get, part, pv) => {

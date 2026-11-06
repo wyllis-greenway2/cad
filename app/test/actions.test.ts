@@ -38,10 +38,10 @@ test("the table: which relations exist for which kinds of parts (the whole matri
   assert.deepEqual(labels(h, [a0]), ["Fix in place"]);
   assert.deepEqual(labels(h, [a0, b0]), ["Coincident", "Same height", "Same position across", "Distance"]);
   assert.deepEqual(labels(h, [la, lb]), ["Equal length", "Parallel", "Perpendicular", "Distance", "Angle"]);
-  assert.deepEqual(labels(h, [a0, lb]), ["Distance"]);
-  assert.deepEqual(labels(h, [lb, a0]), ["Distance"], "a corner and a line in either order");
+  assert.deepEqual(labels(h, [a0, lb]), ["On line", "Distance"]);
+  assert.deepEqual(labels(h, [lb, a0]), ["On line", "Distance"], "a corner and a line in either order");
   assert.deepEqual(labels(h, [k1.circle, k2.circle]), ["Equal radius"]);
-  assert.deepEqual(labels(h, [la, k1.circle]), []);
+  assert.deepEqual(labels(h, [la, k1.circle]), ["Tangent"]);
   assert.deepEqual(labels(h, []), []);
 });
 

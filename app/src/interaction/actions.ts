@@ -43,6 +43,7 @@ export function actionsFor(scene: Scene, selection: readonly Ref[]): Action[] {
   for (const row of ROWS) {
     if (row.pair.length !== sel.length) continue;
     if (!(same(row.pair, kinds) || (row.anyOrder && same(row.pair, [...kinds].reverse())))) continue;
+    if (row.hidden?.(ctx, sel)) continue;
     const why = !movable ? REFERENCES_ONLY : (row.unavailable?.(ctx, sel) ?? null);
     const dimensional = !!row.measure;
     out.push({
@@ -82,7 +83,7 @@ export function actionsFor(scene: Scene, selection: readonly Ref[]): Action[] {
     const drawn = sel.filter((r) => get(r)?.movable);
     const targets = drawn.flatMap((r): Ref[] => {
       const p = get(r);
-      return p?.kind === "face" ? p.corners : [r]; // a face's corners (a disk's centre): everything built on them goes too
+      return p?.kind === "face" ? [...p.corners, ...p.loop.flatMap((l) => { const x = get(l); return x?.kind === "line" && x.center ? [x.center] : []; })] : [r]; // a face's corners (a disk's centre, the centres of its arcs): everything built on them goes too
     });
     if (targets.length) {
       out.push({

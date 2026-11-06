@@ -9,7 +9,7 @@ import { normalOfPlane, pointOf, arcPoints } from "../operation/part.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
-import { drawSquaredRectangle, drawCircle, drawChain } from "../operation/build.ts";
+import { drawSquaredRectangle, drawCircle, drawChain, drawArc } from "../operation/build.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt } from "./picking.ts";
 import { settings } from "../shared/settings.ts";
@@ -219,8 +219,8 @@ export function finish(scene: Scene, t: Tool): Finished | null {
   if (t.kind === "arc") {
     const arc = arcOf(pl, t);
     if (!arc) return null;
-    const d = drawChain(scene, pl.ref, [arc.a, arc.b], false, { bulges: [arc.bulge], reuse: true });
-    return { command: d.command, select: d.lines };
+    const d = drawArc(scene, pl.ref, arc.a, arc.mid, arc.b, normalOfPlane(pl));
+    return d ? { command: d.command, select: [d.line] } : null;
   }
   const pts = [...t.points];
   if (pts.length < 2) return null;

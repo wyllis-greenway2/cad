@@ -26,7 +26,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "hover": return doHover(s, i, env);
     case "hoverEnd": return { ...s, session: hoverOn(s.session, undefined), hoverPoint: null };
     case "click": return doClick(s, i, env);
-    case "menu": return doMenu(s, i, env);
+    case "menu": return doMenu(s, i);
     case "orbit": return doDragMove(s, i, env);
     case "dragEnd": return doDragEnd(s);
     case "pan": return doPan(s, i, env);

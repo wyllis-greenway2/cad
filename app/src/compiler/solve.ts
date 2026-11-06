@@ -142,6 +142,32 @@ function constraintFor(m: Model, rel: Relation): Omit<SolverConstraint, "id"> | 
       if (!shared) return null;
       return { type: "angle", a: shared, b: L1.find((x) => x !== shared)!, c: shared, d: L2.find((x) => x !== shared)!, value: (side * v * Math.PI) / 180 };
     }
+    case "arcEnds": {
+      // the two ends of an arc are the same distance from its centre
+      const ar = l1 ? m.get(l1) : null;
+      const cen = c1 ? m.cornerId(c1) : null;
+      return ar && cen && L1 ? { type: "equalLength", a: L1[0], b: cen, c: L1[1], d: cen } : null;
+    }
+    case "radius": {
+      // the radius of an arc: the distance from its centre to its start
+      const ar = l1 ? m.get(l1) : null;
+      const cen = ar && ar.kind === "line" && ar.center ? m.cornerId(ar.center) : null;
+      return L1 && cen && v !== undefined ? { type: "distance", a: L1[0], b: cen, d: v } : null;
+    }
+    case "onLine": {
+      const p = c1 ? m.cornerId(c1) : null;
+      return p && L1 ? { type: "ptOnLine", p, a: L1[0], b: L1[1] } : null;
+    }
+    case "tangent": {
+      // a line touches a circle, or an arc
+      if (L1 && k1) { const r = m.radiusId(k1); const cen = m.cornerId((m.get(k1) as { center: Ref }).center); return r && cen ? { type: "tangentCircle", a: L1[0], b: L1[1], c: cen, r } : null; }
+      const [x1, x2] = [l1 ? m.get(l1) : null, l2 ? m.get(l2) : null];
+      const arc = x1?.kind === "line" && x1.center ? x1 : x2?.kind === "line" && x2.center ? x2 : null;
+      const straight = arc && arc === x1 ? L2 : L1;
+      const cen = arc ? m.cornerId(arc.center!) : null;
+      const arcEnd = arc ? m.cornerId(arc.a) : null;
+      return straight && cen && arcEnd ? { type: "tangentArc", a: straight[0], b: straight[1], c: cen, p: arcEnd } : null;
+    }
     case "equalRadius": {
       const r = k1 ? m.radiusId(k1) : null;
       const q = k2 ? m.radiusId(k2) : null;
@@ -163,10 +189,14 @@ function solvePlane(get: Lookup, plane: Plane, rels: Relation[]) {
     // the second part is the reference: held softly where it is, so the first part moves
     for (const refPart of rel.parts.slice(1)) {
       const kind = get(refPart)?.kind;
-      const pts = kind === "corner" ? [m.cornerId(refPart)] : kind === "line" ? (m.lineIds(refPart) ?? []) : [];
+      const refLine = kind === "line" ? m.get(refPart) : null;
+      const arcCentre = refLine?.kind === "line" && refLine.center ? m.cornerId(refLine.center) : null; // (an arc held softly holds its centre too)
+      const pts = kind === "corner" ? [m.cornerId(refPart)] : kind === "line" ? [...(m.lineIds(refPart) ?? []), ...(arcCentre ? [arcCentre] : [])] : kind === "circle" ? [m.cornerId((get(refPart) as { center: Ref }).center)] : [];
       for (const p of pts) if (p && m.variable.has(p as Ref)) m.cons.push({ id: `~soft${soft++}`, type: "fixed", p, at: m.points[p]!, w: REFERENCE_WEIGHT });
     }
   }
+  // a circle keeps its size unless a relation says otherwise (a weak hold: any relation that sets or ties a radius wins)
+  for (const [id, radius] of Object.entries(m.scalars)) m.cons.push({ id: `~size:${id}`, type: "radius", r: id, value: radius, w: 0.3 });
   return { f: m.frame, result: solve({ points: m.points, scalars: m.scalars }, m.cons), variable: m.variable };
 }
 

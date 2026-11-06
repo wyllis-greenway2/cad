@@ -144,11 +144,7 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
   return { ...withSession(base, next), spread: hit && point ? { ref: hit.ref, point, startMs: env.now } : null };
 }
 
-export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: Env): AppState {
-  const sc = sceneOf(s.session);
-  const cands = i.button ? [] : candidatesAt(sc, projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts()); // the menu button works on the selection, not on what is under it
-  let session = s.session;
-  const first = cands.find((c) => !(sc.parts[c.ref]?.origin === "world" && sc.parts[c.ref]?.kind === "plane"))?.ref; // (a world plane is never selected)
-  if (first && !selectionOf(session).includes(first)) session = clickOn(session, [first], false); // a right click on something selects it, as usual
-  return { ...withSession(s, session), menu: menuFor(session, i.x, i.y) };
+/** A right click opens the ring of operations on what is selected and changes nothing about the selection (`in_140`): select first (one click, a triple click, Shift for several), then right click. */
+export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>): AppState {
+  return { ...s, menu: menuFor(s.session, i.x, i.y) };
 }

@@ -16,6 +16,7 @@ function linePairs(s: Scene, skip: Set<Ref>): number[] {
     if (skip.has(p.ref) || p.origin === "world" || p.origin === "body") continue; // the world is drawn by ui/world.ts; the body's lines come from its mesh
     const o = outlineOf(get, p);
     if (o.shape === "segment") out.push(...o.a, ...o.b);
+    else if (o.shape === "polyline") for (let i = 0; i + 1 < o.pts.length; i++) out.push(...o.pts[i]!, ...o.pts[i + 1]!); // a drawn arc: the same black line as the others
     else if (o.shape === "circle") {
       const ring = ringOf(o.center, o.radius, o.normal);
       for (let i = 0; i + 5 < ring.length; i += 3) out.push(ring[i]!, ring[i + 1]!, ring[i + 2]!, ring[i + 3]!, ring[i + 4]!, ring[i + 5]!);

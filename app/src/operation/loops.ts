@@ -49,7 +49,7 @@ export function derivedFaces(s: Scene): Face[] {
         for (const o of ls) if (left.has(o.ref) && (o.a === cur.a || o.a === cur.b || o.b === cur.a || o.b === cur.b)) (left.delete(o.ref), queue.push(o));
       }
       const loop = loopOf(get, group.map((l) => l.ref));
-      if (!loop.ok || (group.length < 3 && !group.some((l) => l.bulge))) continue; // (an arc and its chord are a shape of two lines)
+      if (!loop.ok || (group.length < 3 && !group.some((l) => l.bulge || l.center))) continue; // (an arc and its chord are a shape of two lines)
       out.push({ ...base, ref: loopFaceRef(group.map((l) => l.ref)), kind: "face", plane, loop: group.map((l) => l.ref), corners: loop.corners });
     }
   }

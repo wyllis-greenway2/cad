@@ -133,7 +133,7 @@ export function patternCommand(scene: Scene, op: Op): Command | null {
     }
     for (const r of op.parts) {
       const p = scene.parts[r];
-      if (p?.kind === "line") commands.push({ type: "addPart", part: { ...base, ref: name(r), kind: "line", a: name(p.a), b: name(p.b), ...(p.bulge ? { bulge: p.bulge } : {}) } });
+      if (p?.kind === "line") commands.push({ type: "addPart", part: { ...base, ref: name(r), kind: "line", a: name(p.a), b: name(p.b), ...(p.bulge ? { bulge: p.bulge } : {}), ...(p.center ? { center: name(p.center), ccw: p.ccw } : {}) } });
       else if (p?.kind === "circle") commands.push({ type: "addPart", part: { ...base, ref: name(r), kind: "circle", center: name(p.center), radius: p.radius } });
     }
     scene.relations.filter((rel) => rel.parts.every((q) => figure.has(q))).forEach((rel, j) => {

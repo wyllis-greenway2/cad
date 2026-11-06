@@ -39,3 +39,10 @@ export function bodyCentre(sc: Scene): Vec3 | null {
   for (const p of pts) for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i]!, p[i]!); hi[i] = Math.max(hi[i]!, p[i]!); }
   return [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
 }
+
+/** The parts of a drawn closed figure that move with it: its corners and lines, the centres of its arcs; a circle and its centre. */
+export function figurePartsOf(scene: Scene, face: Extract<Part, { kind: "face" }>): Ref[] {
+  if (face.disk) { const c = scene.parts[face.disk]; return c?.kind === "circle" ? [c.ref, c.center] : []; }
+  const centres = face.loop.map((r) => scene.parts[r]).flatMap((l) => (l?.kind === "line" && l.center ? [l.center] : []));
+  return [...new Set([...face.corners, ...centres, ...face.loop])];
+}

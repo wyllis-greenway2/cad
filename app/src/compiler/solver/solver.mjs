@@ -103,6 +103,23 @@ function residualsOf(c, x, index) {
       diff = Math.atan2(Math.sin(diff), Math.cos(diff)); // wrap into (-pi, pi]
       return [diff * w];
     }
+    case "ptOnLine": {
+      // a corner lies on the (infinite) line through a and b: it slides along it
+      const p = P(c.p);
+      const a = P(c.a);
+      const b = P(c.b);
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]) + 1e-12;
+      return [(((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])) / len) * w];
+    }
+    case "tangentCircle": case "tangentArc": {
+      // the line ab touches the circle (or arc) about the corner c: its distance from c is the radius (a circle's value, or an arc's distance from c to its end p)
+      const q = P(c.c);
+      const a = P(c.a);
+      const b = P(c.b);
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]) + 1e-12;
+      const d = ((b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0])) / len;
+      return [(Math.abs(d) - (c.type === "tangentCircle" ? S(c.r) : dir(c.c, c.p)[2])) * w];
+    }
     case "radius": return [(S(c.r) - c.value) * w];
     case "equalRadius": return [(S(c.r) - S(c.s)) * w];
     default: throw new Error(`unknown constraint ${c.type}`);

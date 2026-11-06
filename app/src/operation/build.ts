@@ -2,6 +2,8 @@
 import type { Ref } from "../shared/ref.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
+import { sub, dot, cross } from "../math/vec.ts";
+import { circumcentre } from "./part.ts";
 import type { Scene } from "./scene.ts";
 import { nextId } from "./scene.ts";
 import { formatId } from "../shared/ref.ts";
@@ -61,4 +63,23 @@ export function drawSquaredRectangle(s: Scene, plane: Ref, a: Vec3, b: Vec3, u: 
   const kinds = ["horizontal", "vertical", "horizontal", "vertical"] as const;
   const rels: Command[] = r.lines.map((line, i): Command => ({ type: "addRelation", relation: { id: formatId("r", base + i), kind: kinds[i]!, parts: [line] } }));
   return { ...r, command: { type: "batch", commands: [r.command, ...rels] } as Command };
+}
+
+/** An arc through two ends and a point on it, made as an arc about a centre point (a corner of its own, so it can be positioned and sized with constraints), with the relation that keeps both ends the same distance from the centre. */
+export function drawArc(s: Scene, plane: Ref, a: Vec3, m: Vec3, b: Vec3, normal: Vec3): { command: Command; line: Ref; centre: Ref } | null {
+  const c = circumcentre(a, m, b);
+  if (!c) return null;
+  const ccw = dot(cross(sub(a, c), sub(m, c)), normal) > 0; // the middle is counter-clockwise from the start: the arc goes that way round
+  const d = drawChain(s, plane, [a, b], false, { reuse: true });
+  const id = nextId(s, "e");
+  const centre = drawnRef(`${id}.c`);
+  const line = d.lines[0]!;
+  const commands: Command[] = [];
+  for (const c2 of (d.command as { type: "batch"; commands: Command[] }).commands) {
+    if (c2.type === "addPart" && c2.part.kind === "line") commands.push({ type: "addPart", part: { ...c2.part, center: centre, ccw } }); // the chain's line becomes the arc
+    else commands.push(c2);
+  }
+  commands.unshift({ type: "addPart", part: { origin: "drawn", plane, movable: true, ref: centre, kind: "corner", at: c } });
+  commands.push({ type: "addRelation", relation: { id: nextId(s, "r"), kind: "arcEnds", parts: [line, centre] } });
+  return { command: { type: "batch", commands }, line, centre };
 }

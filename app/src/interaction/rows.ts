@@ -19,12 +19,21 @@ export interface Row {
   pair: Kind[];
   anyOrder?: boolean;
   unit?: "mm" | "deg";
+  /** the row is not offered at all for these parts (it only makes sense for some of the parts of its kind, an arc among lines) */
+  hidden?: (c: Ctx, r: Ref[]) => boolean;
   unavailable?: (c: Ctx, r: Ref[]) => string | null;
   measure?: (c: Ctx, r: Ref[]) => number | null;
   params?: (c: Ctx, r: Ref[]) => Record<string, number>;
   spot?: (c: Ctx, r: Ref[]) => Vec3 | null;
 }
 
+/** An arc about a centre: its centre and its start, or null for a straight line. */
+function arcOf(c: Ctx, ref: Ref): { centre: Vec3; start: Vec3 } | null {
+  const l = c.get(ref);
+  if (!l || l.kind !== "line" || !l.center) return null;
+  const [centre, start] = [pointOf(c.get, l.center), pointOf(c.get, l.a)];
+  return centre && start ? { centre, start } : null;
+}
 const segs = (c: Ctx, r: Ref[]): [Vec3, Vec3][] => r.map((x) => segmentOf(c.get, x)).filter((s): s is [Vec3, Vec3] => !!s);
 const dir = (s: [Vec3, Vec3]): Vec3 => normalize(sub(s[1], s[0]));
 const normalFor = (c: Ctx, r: Ref[]): Vec3 => {
@@ -51,7 +60,19 @@ export const ROWS: Row[] = [
       return s ? mid(s[0], s[1]) : null;
     },
   },
+  {
+    // the radius of an arc (the distance from its centre to its start)
+    id: "radius", label: "Radius", pair: ["line"], unit: "mm",
+    hidden: (c, r) => !arcOf(c, r[0]!),
+    measure: (c, r) => { const a = arcOf(c, r[0]!); return a ? dist(a.centre, a.start) : null; },
+    spot: (c, r) => { const a = arcOf(c, r[0]!); return a ? a.centre : null; },
+  },
   { id: "fixed", label: "Fix in place", pair: ["corner"] },
+  {
+    // a corner slides on a line (the line goes on past its ends): it stays on it wherever it is moved to
+    id: "onLine", label: "On line", pair: ["corner", "line"], anyOrder: true,
+    unavailable: (c, r) => (c.get(r[0]!)?.kind === "corner" && segmentOf(c.get, r[1]!) ? null : c.get(r[1]!)?.kind === "corner" && segmentOf(c.get, r[0]!) ? null : "a corner and a line"),
+  },
   {
     // the diameter of a circle
     id: "diameter", label: "Diameter", pair: ["circle"], unit: "mm",
@@ -77,6 +98,13 @@ export const ROWS: Row[] = [
     },
   },
 
+  { id: "tangent", label: "Tangent", pair: ["line", "circle"], anyOrder: true },
+  {
+    // a straight line touches an arc
+    id: "tangent", label: "Tangent", pair: ["line", "line"],
+    hidden: (c, r) => !r.some((x) => !!arcOf(c, x)),
+    unavailable: (c, r) => { const arcs = r.filter((x) => !!arcOf(c, x)).length; return arcs === 1 ? null : arcs === 0 ? "one of the lines must be an arc" : "one line must be straight, the other an arc"; },
+  },
   { id: "equalLength", label: "Equal length", pair: ["line", "line"] },
   { id: "parallel", label: "Parallel", pair: ["line", "line"] },
   { id: "perpendicular", label: "Perpendicular", pair: ["line", "line"] },

@@ -16,7 +16,7 @@ import type { Command } from "../operation/commands.ts";
 import { actionsFor } from "./actions.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { drawnRef } from "../shared/ref.ts";
-import { objectOf, bodyCentre } from "./objects.ts";
+import { objectOf, bodyCentre, figurePartsOf } from "./objects.ts";
 import { settings } from "../shared/settings.ts";
 
 export type OpKind = "extrude" | "pushpull" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular";
@@ -139,7 +139,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     // what is selected is repeated: a drawn figure (its parts and the plane's), else the body; the numbers start as a first try and the result shows at once
     const face = drawnFace(scene, parts);
     const circle = face?.disk ? get(face.disk) : undefined;
-    const figure: Ref[] | null = face ? (circle?.kind === "circle" ? [circle.ref, circle.center] : [...face.corners, ...face.loop]) : null;
+    const figure: Ref[] | null = face ? figurePartsOf(scene, face) : null;
     const st = patternStart(scene, kind, figure);
     if (!st) return { ok: false, why: "select the body or a closed figure first" };
     return { ok: true, op: { ...base, parts: st.parts, target: st.target, plane: face?.plane ?? null, patStart: st.start, pat: st.start.map(() => "") } };
@@ -165,7 +165,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
   if (face) {
     // a drawn figure moves and turns like an object (`in_135`): X Y Z arrows, X Y Z rings, with its plane (the figure's parts and the plane they lie on)
     const circle = face.disk ? get(face.disk) : undefined;
-    const figure: Ref[] = circle?.kind === "circle" ? [circle.ref, circle.center] : [...face.corners, ...face.loop];
+    const figure: Ref[] = figurePartsOf(scene, face);
     const pts = figure.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
     return { ok: true, op: { ...base, parts: figure, target: "plane", plane: face.plane, axis: kind === "rotate" ? 2 : 0, pivot: kind === "rotate" ? centroid(pts) : null } };
   }

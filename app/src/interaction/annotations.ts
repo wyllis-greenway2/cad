@@ -141,7 +141,7 @@ function annotationOf(scene: Scene, rel: Scene["relations"][number], sel: readon
   const measured = action ? action.measure() : null;
   const locked = rel.value !== undefined && rel.locked !== false;
   return {
-    id: rel.id, relationId: rel.id, kind: rel.kind, label: labelOf(rel.kind), at: placed.at, ...(rel.kind === "diameter" ? { symbol: "Ø" } : {}),
+    id: rel.id, relationId: rel.id, kind: rel.kind, label: labelOf(rel.kind), at: placed.at, ...(rel.kind === "diameter" ? { symbol: "Ø" } : rel.kind === "radius" ? { symbol: "R" } : {}),
     value: rel.value === undefined ? null : locked ? rel.value : measured ?? rel.value,
     unit: rel.value === undefined ? null : action?.unit ?? (rel.kind === "angle" ? "deg" : "mm"),
     locked, editable: rel.value !== undefined, readOnly: false,
@@ -154,7 +154,7 @@ function annotationOf(scene: Scene, rel: Scene["relations"][number], sel: readon
 export function annotationsFor(scene: Scene, selection: readonly Ref[], focus: string | null): Annotation[] {
   const sel = selection.filter((r) => isPart(scene, r)); // planes, faces and the body have no constraints of their own
   const map = buildMap(scene);
-  const out = scene.relations.filter((rel) => rel.parts.some((p) => sel.includes(p))).map((rel) => annotationOf(scene, rel, sel, focus, map)).filter((a): a is Annotation => !!a);
+  const out = scene.relations.filter((rel) => rel.kind !== "arcEnds" && rel.parts.some((p) => sel.includes(p))).map((rel) => annotationOf(scene, rel, sel, focus, map)).filter((a): a is Annotation => !!a);
   const m = measureOf(scene, selection);
   const r = radiusOf(scene, selection);
   return [...out, ...(m ? [m] : []), ...(r ? [r] : [])];
@@ -180,7 +180,7 @@ function measureOf(scene: Scene, selection: readonly Ref[]): Annotation | null {
   const placed = place(lookup(scene), a.id, a.parts);
   const at = placed?.at ?? a.spot();
   if (!at) return null;
-  return { id: "measure", relationId: null, kind: a.id, label: a.label, at, ...(a.id === "diameter" ? { symbol: "Ø" } : {}), value: v, unit: a.unit, locked: false, editable: a.enabled || bodyLine, readOnly: !a.enabled && !bodyLine, broken: false, open: false, others: [], lines: placed?.lines ?? [] };
+  return { id: "measure", relationId: null, kind: a.id, label: a.label, at, ...(a.id === "diameter" ? { symbol: "Ø" } : a.id === "radius" ? { symbol: "R" } : {}), value: v, unit: a.unit, locked: false, editable: a.enabled || bodyLine, readOnly: !a.enabled && !bodyLine, broken: false, open: false, others: [], lines: placed?.lines ?? [] };
 }
 
 /** The parts to show in amber: what the open constraint ties the selection to. */

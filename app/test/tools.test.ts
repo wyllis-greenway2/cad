@@ -122,7 +122,7 @@ test("line: two clicks make one segment and the tool is put away; an open line i
   near(Math.max(...corners(st).filter((c) => c[1] < 4 && c[0] > 10).map((c) => c[0])), 16);
 });
 
-test("curve: two clicks for the ends, a third for how far it bows out; it is a line with a bulge, it can close a shape, and the shape extrudes round", () => {
+test("curve: two clicks for the ends, a third for how far it bows out; it is an arc about a centre point, it can close a shape, and the shape extrudes round", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "arc" }, env);
   st = click(st, [5, 5, 0]);
@@ -133,8 +133,12 @@ test("curve: two clicks for the ends, a third for how far it bows out; it is a l
   assert.equal(entryOf(scene(st.session), st.tool, null)!.fields[0]!.value, "7", "the height of the bow");
   st = click(st, [15, 12, 0]);
   assert.equal(st.tool, null);
-  const arc = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "drawn") as { bulge: number };
-  near(Math.abs(arc.bulge), 7 / 20, 1e-6);
+  const arc = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "drawn") as { center: string; ccw: boolean };
+  assert.ok(arc.center, "an arc has a centre point of its own");
+  const c = (scene(st.session).parts[arc.center as never] as { at: Vec3 }).at;
+  near(c[0], 15, 1e-6); // on the middle line between the ends
+  const radius = Math.hypot(c[0] - 5, c[1] - 5);
+  assert.ok(radius > 7, "the radius: a circle through the ends and 7 out");
   assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length, 0, "open");
   // close it with a straight line: a half-moon shape, extruded 10: more than a triangle, less than a rectangle
   st = reduce(st, { type: "begin", name: "line" }, env);

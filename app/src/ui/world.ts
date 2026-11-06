@@ -9,7 +9,7 @@ import { basis, position, projector } from "../interaction/camera.ts";
 import { AXES, AXIS_LEN, axisSet, fadable, makeLabel, srgb } from "./world/parts.ts";
 import { createGrid } from "./world/grid.ts";
 
-const HEAD = 3.2; // arrowhead length at the axes' own size
+const HEAD = 1.1; // arrowhead length at the axes' own size (small: `in_140`)
 
 export function createWorld(scene3: THREE.Scene, host: HTMLElement) {
   const axes = axisSet(AXIS_LEN, settings.world.axisWidthPx, HEAD, srgb(settings.theme.axis));

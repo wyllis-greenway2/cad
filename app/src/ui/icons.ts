@@ -18,6 +18,8 @@ const ICONS: Record<string, string> = {
 Object.assign(ICONS, {
   edge: svg('<path d="M3 13V6.5C3 4.6 4.6 3 6.5 3H13"/><path d="M5.5 13.5L13.5 5.5"/>'),
   arc: svg('<path d="M3 12.5C3 6 8 2.5 13.5 3.5"/><circle cx="3" cy="12.5" r="1"/><circle cx="13.5" cy="3.5" r="1"/>'),
+  onLine: svg('<path d="M2 12.5L14 3.5"/><circle cx="8" cy="8" r="1.7"/>'),
+  tangent: svg('<circle cx="8" cy="10" r="4"/><path d="M1.5 6h13"/>'),
   rect: svg('<rect x="2.5" y="4" width="11" height="8" rx="0.6"/>'),
   circle: svg('<circle cx="8" cy="8" r="5.5"/>'),
   line: svg('<path d="M3 13L13 3"/><circle cx="3" cy="13" r="1" /><circle cx="13" cy="3" r="1"/>'),
