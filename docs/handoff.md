@@ -1065,3 +1065,9 @@ Do not touch `compiler/` or `ui/` in phase 1. Keep porting honest: copy pure cod
 ## Handoff 136 — 2026-11-06 (typed length keeps sketching going)
 **State:** `in_156`. 215 tests pass, checks clean.
 **Cause:** the "keep sketching while you click on vertices" memory (`AppState.resume`) was dropped by any intent that was not a click or a view move, and typing the length and pressing Enter is such an intent (`typed`). Now typing (`typed`, `entry`) keeps it: after Enter, the next click on the vertex starts the next line. Anything else (a menu, undo, Escape, a click elsewhere) still drops it.
+
+## Handoff 137 — 2026-11-06 (dark sources in the reflection, world plane tint, teal a little more see-through)
+**State:** `in_157`. 215 tests pass, checks clean. Browser: the page loads without errors; the faint plane tint shows on hover.
+**Dark source:** the room reflected in the body and panes (`ui/view/studio.ts`) now has three black panels standing round it (left, right, back) beside the existing bright studio lights, so a face reflects dark as well as light, and the mix moves as the view turns. Only the reflection changes (not the scene lighting). Subtle on a light grey body: if you want more contrast, `settings.light.reflect` (reflection strength) up, or the panels bigger; say which.
+**World plane tint:** a world plane that is pointed at or selected (the X Y Z buttons select one) gets a very faint teal square about the origin (`settings.orb.worldPlaneOpacity` 0.07, half-size 0.32 of the view distance) besides the ring.
+**Teal:** the selection fill 0.3 → 0.25 and the hover ring 1 → 0.88 (`settings.orb.selectOpacity`, `ringOpacity`). Selected lines and corners are unchanged.

@@ -862,3 +862,6 @@ Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a 
 
 ## in_156 — 2026-11-06 — directive
 > if I am trying to do a continuous sketch, I type the length on a line and press enter, then I want to click immediately on the verticy to draw the next line, but it appears that the enter input on the length dropped the mode?
+
+## in_157 — 2026-11-06 — directive
+> Would it be possible to add a light source (we already have) and a dark source so that the reflectivity of the material looks more dynamic? Also can we trying making a very slight highlight when a world plane is hovered and or selected to help make orientation obvious? Also can we have the teal blue color be ever so slightly more transparent

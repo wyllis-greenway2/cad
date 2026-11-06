@@ -1,7 +1,7 @@
 // The three.js view (`dec_clean_engine_design` section 8): it reads the scene, the selection and the camera, and draws. It never changes them.
 // The pieces are in `view/`: `content` (the scene), `highlight` (ring, teal, amber), `pen` (thick lines and shapes); the world dressing is `world.ts`.
 import * as THREE from "three";
-import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { studio } from "./view/studio.ts";
 import type { Scene, Vec3 } from "../interaction/api.ts";
 import { settings } from "../interaction/api.ts";
 import type { Camera } from "../interaction/camera.ts";
@@ -41,7 +41,7 @@ export function createView(host: HTMLElement) {
   scene3.add(content, overlay, preview, gizmo, notes);
   const world = createWorld(scene3, host);
   const pen = createPen();
-  const envMap = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture; // a soft studio, only reflected in the body
+  const envMap = new THREE.PMREMGenerator(renderer).fromScene(studio(), 0.04).texture; // a soft studio, only reflected in the body
   let lastScene: Scene | null = null;
   let lastMesh: BodyMesh | null = null;
   let size = { w: 1, h: 1 };

@@ -1,7 +1,7 @@
 // The highlight (`in_073` to `in_075`): a thin ring on the surface under the pointer, the teal that spreads over a clicked surface from where it was clicked, teal lines and
 // balls for picked lines and corners, amber for what a relation ties the selection to.
 import * as THREE from "three";
-import type { Scene, Ref, Vec3 } from "../../interaction/api.ts";
+import type { Scene, Ref, Vec3, Plane } from "../../interaction/api.ts";
 import { outlineOf, lookup, settings, normalOfPlane } from "../../interaction/api.ts";
 import type { Camera } from "../../interaction/camera.ts";
 import { surfaceTriangles } from "../../interaction/surfaces.ts";
@@ -80,16 +80,24 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
   if (!s) return;
   const get = lookup(s);
   const unit = cam.distance;
+  /** A very faint teal square about the origin in a world plane that is pointed at or picked, so which way it lies is obvious (`in_157`). */
+  const worldSheet = (p: Plane) => {
+    const S = unit * 0.32;
+    const at = (a: number, b: number): number[] => [0, 1, 2].map((i) => p.at[i]! + p.u[i]! * a + p.v[i]! * b);
+    const quad = [...at(-S, -S), ...at(S, -S), ...at(S, S), ...at(-S, -S), ...at(S, S), ...at(-S, S)];
+    overlay.add(trisMesh(quad, new THREE.MeshBasicMaterial({ color: rgb(ringRgb), transparent: true, opacity: settings.orb.worldPlaneOpacity, side: THREE.DoubleSide, depthWrite: false })));
+  };
   const mark = (ref: Ref, kind: Kind) => {
     const p = get(ref);
     if (!p) return;
     if (kind === "hover" && p.kind === "plane" && p.origin === "world") {
       // an infinite world plane has nothing to fill: the ring alone, drawn as a plain thin circle so it cannot smear over a plane seen at a shallow angle
       if (h.hoverPoint) overlay.add(pen.line(ringOf(h.hoverPoint, settings.orb.radius * unit, normalOfPlane(p)), rgb(ringRgb).getHex(), settings.orb.ringPx + 0.6, false));
+      worldSheet(p);
       return;
     }
     const tris = kind === "amber" || kind === "red" ? null : fillTriangles(s, ref, kind, body);
-    if (!tris && p.origin === "world" && p.kind === "plane") return; // nothing to draw for a picked world plane
+    if (!tris && p.origin === "world" && p.kind === "plane") return worldSheet(p); // a picked world plane: a very faint tint round the origin, no more
     if (tris) return void overlay.add(surfaceOrb(kind, ref, tris, h, unit, nowMs));
     const o = outlineOf(get, p);
     const w = kind === "select" ? settings.pick.edgeWidthPx : settings.pick.edgeHoverWidthPx;

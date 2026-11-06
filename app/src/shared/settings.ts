@@ -40,8 +40,9 @@ export const settings = {
   orb: {
     radius: 0.025, // the hover ring's radius, in view-distances (`in_075`)
     ringPx: 1.6,
-    ringOpacity: 1,
-    selectOpacity: 0.3,
+    ringOpacity: 0.88,
+    worldPlaneOpacity: 0.07, // the faint tint on a world plane that is pointed at or selected
+    selectOpacity: 0.25, // (the teal fill; a touch more see-through: `in_157`)
     color: [0.1, 0.72, 0.7] as [number, number, number], // THE teal: kept for use elsewhere (`in_075`)
     fillMs: 520,
     reachFactor: 1.04,
