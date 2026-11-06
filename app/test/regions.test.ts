@@ -185,3 +185,43 @@ test("after one region is extruded the others next to it can still be picked and
   assert.deepEqual(s.outcome.errors, {});
   near(s.outcome.kernel!.volume!, Math.PI * 100 * 5, 1);
 });
+
+test("a line drawn over a side of a shape does not cost the shape its face; a line that only touches a circle cuts nothing", () => {
+  let s = createSession(kernel);
+  s = draw(s, drawChain(scene(s), XY, [[0, 0, 0], [10, 0, 0], [10, 10, 0], [0, 10, 0]], true));
+  s = line(s, [-5, 0, 0], [5, 0, 0]);
+  s = line(s, [3, 0, 0], [15, 0, 0]);
+  assert.equal(facesOf(s).length, 1);
+  near(areaOf(s), 100);
+  let t = createSession(kernel);
+  t = draw(t, drawCircle(scene(t), XY, [0, 0, 0], 10));
+  t = line(t, [-15, 10, 0], [15, 10, 0]);
+  assert.equal(facesOf(t).length, 1);
+  assert.ok(facesOf(t)[0]!.disk);
+});
+
+test("a circle with lines across two circles that share a centre: the ring and the inner circle are cut together", () => {
+  let s = createSession(kernel);
+  s = draw(s, drawCircle(scene(s), XY, [0, 0, 0], 10));
+  s = draw(s, drawCircle(scene(s), XY, [0, 0, 0], 5));
+  s = line(s, [-15, 1, 0], [15, 1, 0]);
+  assert.equal(facesOf(s).length, 4);
+  near(areaOf(s), Math.PI * 100, 0.5);
+});
+
+test("an extruded region follows its drawing: moving a cut line or changing the circle changes the body (the crossing points are made again from the solved drawing)", () => {
+  let s = createSession(kernel);
+  s = draw(s, drawCircle(scene(s), XY, [0, 0, 0], 10));
+  s = line(s, [-15, 3, 0], [15, 3, 0]);
+  s = line(s, [2, -15, 0], [2, 15, 0]);
+  const fs = facesOf(s);
+  s = extrude(s, [fs[0]!.ref], "6");
+  const before = s.outcome.kernel!.volume!;
+  const circle = Object.values(scene(s).parts).find((p) => p.kind === "circle")!;
+  const bigger = run(s, { type: "setRadius", ref: circle.ref, radius: 13 });
+  assert.deepEqual(bigger.outcome.errors, {});
+  assert.ok(bigger.outcome.kernel!.volume! > before * 1.3, `${bigger.outcome.kernel!.volume} vs ${before}`);
+  const corner = Object.values(scene(s).parts).find((p) => p.kind === "corner" && p.movable && !p.derived && Math.abs(p.at[0] - 15) < 1e-6)!;
+  const moved = run(s, { type: "movePart", ref: corner.ref, to: [15, 8, 0] });
+  assert.notEqual(moved.outcome.kernel!.volume, before);
+});

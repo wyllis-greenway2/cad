@@ -963,3 +963,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_183 — 2026-11-06 — approval
 > yes build the general split into regions feature
+
+## in_184 — 2026-11-06 — directive
+> play with it and go bug hunting

@@ -158,8 +158,19 @@ export function regionsOf(s: Scene): Regions {
         pieces.push({ curve: cu, from: e.ref, to: nx.ref, ref: whole ? cu.ref : mkRef(`d/${arc ? "arc" : "seg"}@${cu.ref.slice(2)}@${e.ref.slice(2)}@${nx.ref.slice(2)}`), arc, ccw: cu.k === "arc" ? cu.sweep > 0 : true, whole });
       }
     }
+    // two curves drawn one over the other make the same piece twice: one of them is enough
+    const seenPiece = new Set<string>();
+    const unique = pieces.filter((p) => {
+      const cu = p.curve;
+      const [x, y] = p.from < p.to ? [p.from, p.to] : [p.to, p.from];
+      const shape = cu.k === "seg" ? "s" : `a${cu.c[0].toFixed(3)},${cu.c[1].toFixed(3)},${cu.r.toFixed(3)},${(p.from < p.to) === p.ccw ? "+" : "-"}`; // (an arc is the same arc if it has the same circle and runs the same way between the same two points)
+      const key = `${x}|${y}|${shape}`;
+      if (seenPiece.has(key)) return false;
+      seenPiece.add(key);
+      return true;
+    });
     // a piece that leads nowhere cuts nothing: take away the pieces with an end that nothing else touches
-    let live = pieces.filter((p) => p.from !== p.to);
+    let live = unique.filter((p) => p.from !== p.to);
     for (let changed = true; changed;) {
       const deg = new Map<Ref, number>();
       for (const p of live) for (const r of [p.from, p.to]) deg.set(r, (deg.get(r) ?? 0) + 1);

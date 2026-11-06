@@ -20,7 +20,7 @@ export interface CompileOutcome {
 
 export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
   const solved = solveScene(scene);
-  const { graph, errors } = buildGraph(solved.scene);
+  const { graph, errors } = buildGraph(withDerived(solved.scene)); // (a step may name a piece of a cut figure, which exists only once the faces are derived from the solved drawing)
   if (!graph.ops.length) return { scene: withDerived(withBody(solved.scene, [])), solve: solved, kernel: null, errors };
   const result = kernel.evaluate(graph);
   for (const op of result.ops) {
