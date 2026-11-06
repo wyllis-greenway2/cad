@@ -1054,6 +1054,9 @@ test("the rim of a cylinder is one edge: picking a half picks both halves, and a
   // and it is one edge, so it can be filleted whole
   st = reduce(st, { type: "begin", name: "edge" }, env);
   assert.ok(st.op, "fillet / chamfer starts on the rim");
+  const arrow = gizmoOf(st)!.handles[0]!;
+  assert.ok(Math.hypot(...sub(arrow.points[1]!, arrow.points[0]!)) > 1, "its arrow is a real arrow, not collapsed to a point");
+  near(Math.hypot(...sub(scale(add(arrow.points[0]!, arrow.points[1]!), 0.5), [0, 0, 30])) , 0, 11); // (near the rim: a circle of 10 about the axis)
   const before = st.session.outcome.kernel!.volume!;
   st = typeText(st, "1");
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);

@@ -149,7 +149,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
       if (pa?.kind !== "corner" || pb?.kind !== "corner") return [];
       // a curved edge (the rim of a post or a hole): the arrow stands on the curve, in the middle of it, and points out across it; a straight one is a quarter of the way along
       const m = curveMid(get, l);
-      const centre = m ? circumcentre(pa.at, m, pb.at) : null;
+      const centre = l.circle ? l.circle.center : m ? circumcentre(pa.at, m, pb.at) : null; // (a whole rim is one closed edge: its ends are the same point, so the circle itself says where the middle is)
       if (m && centre) return [{ mid: m, dir: edgeDirection(scene, pa.at, pb.at, normalize(sub(m, centre))) }];
       return [{ mid: add(pa.at, scale(sub(pb.at, pa.at), 0.25)), dir: edgeDirection(scene, pa.at, pb.at) }];
     });
