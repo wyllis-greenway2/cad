@@ -14,9 +14,12 @@ export type { AppState } from "./control/state.ts";
 export { advance, gridPlaneOf } from "./control/viewing.ts";
 export { pivotOf, planeOf, objectOf } from "./objects.ts";
 
+const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit", "pan", "zoom", "dragEnd", "look"]);
+
 /** Apply one intent. A command that was refused for breaking constraints starts the flash. */
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
-  const next = apply(s, i, env);
+  let next = apply(s, i, env);
+  if (next.resume && !RESUMING.has(i.type)) next = { ...next, resume: null }; // only a click, or moving the view, keeps "sketching goes on" waiting for a vertex
   const c = next.session.conflict;
   return c && c !== s.session.conflict ? { ...next, flash: { ...c, at: env.now } } : next;
 }

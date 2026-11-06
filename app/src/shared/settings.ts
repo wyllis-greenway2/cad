@@ -8,6 +8,7 @@ export const settings = {
     orbitRadPerPx: 0.006,
     zoomPerWheel: 0.003,
     minDistance: 3,
+    minSurfaceMm: 1.5, // zooming in toward a surface under the cursor stops when it is this close to the camera (it must not go through it: `in_151`)
     maxDistance: 5000,
     transitionMs: 450, // camera move to a plane's normal view
     normalToleranceRad: 0.02,

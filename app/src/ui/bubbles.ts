@@ -23,6 +23,9 @@ interface Entry { el: HTMLElement; sig: string; editing: boolean; a: Annotation;
 /** A refused change while it flashes: how far through it is, what it would have broken (red, fading) and what tried it (it shakes). */
 export interface Flash { t: number; victims: readonly string[]; culprits: readonly string[] }
 
+/** Bubbles sit up and to the right of the spot they belong to, so they are not right on the line they describe and cover what is being worked on (`in_151`). */
+const OFF_X = 14;
+const OFF_Y = 24;
 export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
   const root = document.createElement("div");
   root.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;z-index:8;font:13px system-ui,sans-serif;color:#2b2b2d;user-select:none;-webkit-user-select:none";
@@ -138,7 +141,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
           if (flash && flash.victims.includes(q.a.id)) { const k = 1 - flash.t; e.el.style.background = `rgb(255, ${Math.round(255 - 110 * k)}, ${Math.round(255 - 110 * k)})`; e.el.style.borderColor = `rgba(220, 70, 70, ${k})`; e.tinted = true; }
           else if (e.tinted) { e.el.style.background = "#fff"; e.el.style.borderColor = q.a.open ? "#e0a82e" : "#d6d7db"; e.tinted = false; }
           if (flash && flash.culprits.includes(q.a.id)) { const phase = (flash.t * settings.flash.ms) / settings.flash.shakeMs; if (phase < 1) dx = Math.sin(phase * Math.PI * 6) * 7 * (1 - phase); }
-          q.e.el.style.transform = `translate(${Math.round(left + dx)}px, ${Math.round(cy - 13)}px)`;
+          q.e.el.style.transform = `translate(${Math.round(left + dx + OFF_X)}px, ${Math.round(cy - 13 - OFF_Y)}px)`;
           left += widths[k]! + GAP;
         });
       });

@@ -130,8 +130,15 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
   const cands = candidatesAt(sc, pv, pickOpts());
   const refs = cands.map((c) => c.ref);
-  const base: AppState = { ...s, menu: null, focus: null };
+  const base: AppState = { ...s, menu: null, focus: null, resume: null };
   if (s.tool) return clickWithTool(base, i, env, refs);
+  // sketching goes on while you click on vertices: the click right after a figure, on a vertex, starts the next one from it; any other click drops the mode
+  const vertex = s.resume && !s.op ? refs.map((r) => sc.parts[r]).find((p) => p?.kind === "corner" && p.origin === "drawn" && p.plane) : undefined;
+  if (vertex && vertex.kind === "corner" && vertex.plane && s.resume) {
+    const { plane, command } = planeForDrawing(sc, vertex.plane);
+    const session = command ? run(base.session, command) : base.session;
+    return { ...base, session: { ...session, message: null }, tool: { ...armTool(s.resume), plane, points: [vertex.at], cursor: vertex.at } };
+  }
   if (s.op && !hasGizmo(s.op.kind)) return commitOp(base); // the dimension number chip: a click finishes it
   // the handles are dragged, so a click on one does nothing (it must not reselect what is under it)
   const g = gizmoOf(s);

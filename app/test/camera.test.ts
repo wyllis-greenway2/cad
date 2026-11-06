@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { settings } from "../src/shared/settings.ts";
 import type { Vec3 } from "../src/math/vec.ts";
 import { sub, dot, length, cross } from "../src/math/vec.ts";
-import { homeCamera, orbit, pan, zoom, lookStraight, lookAlternating, sideOf, blend, basis, projector, frame, shortest } from "../src/interaction/camera.ts";
+import { homeCamera, orbit, pan, zoom, zoomAt, lookStraight, lookAlternating, sideOf, blend, basis, projector, frame, shortest } from "../src/interaction/camera.ts";
 
 const near = (a: number, b: number, tol = 1e-6) => assert.ok(Math.abs(a - b) <= tol, `${a} vs ${b}`);
 const nearV = (a: readonly number[], b: readonly number[], tol = 1e-6) => a.forEach((x, i) => near(x, b[i]!, tol));
@@ -101,4 +102,14 @@ test("blend turns the short way round, and frame fits a model in view", () => {
   const f = frame(homeCamera(), [100, 0, 0], 50);
   nearV(f.target, [100, 0, 0]);
   assert.ok(f.distance > 50);
+});
+
+test("zooming in toward a surface close in front of the target stops before the camera reaches it", () => {
+  let c = { ...homeCamera(), distance: 10, straight: false };
+  const b = basis(c);
+  const anchor: Vec3 = [c.target[0] - b.forward[0] * 6, c.target[1] - b.forward[1] * 6, c.target[2] - b.forward[2] * 6]; // 6 mm nearer than the target
+  for (let k = 0; k < 40; k++) c = zoomAt(c, 0.7, anchor);
+  const rel = [anchor[0] - c.target[0], anchor[1] - c.target[1], anchor[2] - c.target[2]];
+  const ahead = rel[0]! * basis(c).forward[0] + rel[1]! * basis(c).forward[1] + rel[2]! * basis(c).forward[2];
+  assert.ok(c.distance + ahead >= settings.view.minSurfaceMm - 1e-6, "the surface is still in front of the camera");
 });

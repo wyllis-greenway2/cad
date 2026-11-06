@@ -134,11 +134,17 @@ export function projector(c: Camera, widthPx: number, heightPx: number) {
  * The anchor's offsets from the target (right, up) scale with the new view size, and its depth offset is kept, so it does not move on screen.
  */
 export function zoomAt(c: Camera, factor: number, anchor?: Vec3): Camera {
-  const next = zoom(c, factor);
+  let next = zoom(c, factor);
   if (!anchor || next.distance === c.distance) return next;
   const b = basis(c);
   const rel = sub(anchor, c.target);
   const [a, u, f] = [dot(rel, b.right), dot(rel, b.up), dot(rel, b.forward)];
+  if (!c.straight && factor < 1) {
+    // the surface under the cursor is `c.distance + f` from the camera: it keeps that fraction of the way and never reaches the camera
+    const want = Math.max((c.distance + f) * factor, settings.view.minSurfaceMm);
+    next = { ...c, distance: clamp(want - f, settings.view.minDistance, settings.view.maxDistance) };
+    if (next.distance + f < settings.view.minSurfaceMm - 1e-9) return c;
+  }
   const k = c.straight ? next.distance / c.distance : (next.distance + f) / (c.distance + f);
   const target = sub(anchor, add(add(scale(b.right, a * k), scale(b.up, u * k)), scale(b.forward, f)));
   return { ...next, target };

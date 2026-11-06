@@ -6,7 +6,7 @@ import { settings } from "../../shared/settings.ts";
 import type { Plane } from "../../operation/part.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import type { Session } from "../session.ts";
-import type { Tool } from "../tools.ts";
+import type { Tool, ToolKind } from "../tools.ts";
 import type { Repeat } from "../pattern.ts";
 import type { Op } from "../operations.ts";
 import type { Camera } from "../camera.ts";
@@ -27,6 +27,8 @@ export interface AppState {
   panel: "bodies" | "history" | null;
   /** a repeat being set up: it goes on until Apply or Cancel, and you can work in the world meanwhile (`in_141`) */
   repeat: Repeat | null;
+  /** the sketching tool a figure was just finished with: a click on a vertex right after starts the next figure from it, any other click drops it (`in_150`) */
+  resume: ToolKind | null;
   /** the drawing tool being used (null = normal selection) */
   tool: Tool | null;
   /** the operation being set up (extrude, round, bevel, move, rotate, scale, dimension, edit) */
@@ -43,7 +45,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, panel: null, repeat: null, tool: null, op: null, focus: null, drag: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, drag: null, gizmoHover: null, flash: null });
 
 export const pickOpts = () => ({ pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx });
 export const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });

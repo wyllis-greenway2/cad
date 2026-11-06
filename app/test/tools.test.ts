@@ -382,7 +382,7 @@ test("a triple click on a sketch drawn on a face of a block turns to it, like a 
   st = click(st, [30, 18, 20]);
   const fig = Object.values(scene(st.session).parts).find((p) => p.kind === "face" && p.origin === "drawn")!;
   assert.ok(fig);
-  st = click({ ...st, tool: null }, [12, 9.5, 20], 3); // (away from the arrow that shows by itself at the middle)
+  st = click({ ...st, tool: null, resume: null }, [12, 9.5, 20], 3); // (away from the arrow that shows by itself at the middle)
   assert.ok(st.anim, "the view is turning to the plane");
 });
 
@@ -398,5 +398,22 @@ test("sketching goes on while you click on vertices: a line ending on an existin
   assert.ok(st.tool && st.tool.points.length === 1, "the next segment has started at that corner");
   assert.deepEqual(st.tool!.points[0], [25, 5, 0]);
   st = click(st, [25, 15, 0]); // empty space: the segment is made, the tool is put away
+  assert.equal(st.tool, null);
+});
+
+test("sketching goes on right after a figure: a click on a vertex starts the next from it; any other click drops it", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [5, 5, 0]);
+  st = click(st, [25, 5, 0]); // empty space: the line is made, the tool is put away but waits for a vertex
+  assert.equal(st.tool, null);
+  assert.equal(st.resume, "line");
+  st = click(st, [25, 5, 0]); // the vertex just made: the next line starts from it
+  assert.ok(st.tool && st.tool.points.length === 1);
+  assert.deepEqual(st.tool!.points[0], [25, 5, 0]);
+  st = click(st, [25, 15, 0]);
+  assert.equal(st.resume, "line");
+  st = click(st, [60, 60, 0]); // not a vertex: the mode is dropped
+  assert.equal(st.resume, null);
   assert.equal(st.tool, null);
 });

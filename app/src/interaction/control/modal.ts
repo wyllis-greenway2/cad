@@ -38,7 +38,7 @@ export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppSt
   const next = run(s.session, fin.command);
   if (next.message) return { ...s, session: next };
   const sel = fin.select.filter((r) => r in sceneOf(next).parts);
-  return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: null, spread: null };
+  return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: null, resume: s.tool?.kind ?? null, spread: null };
 }
 export function commitOp(s: AppState): AppState {
   if (!s.op) return s;
