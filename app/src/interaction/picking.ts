@@ -2,6 +2,7 @@
 // Order: corners, then lines (and circles), then faces and planes (a shape before the face under it); inside a class nearest first
 // (pixels for points and lines, along the ray for surfaces). Hover is the first candidate; repeated clicks cycle (`selection.click`).
 // Drawn, body and world parts are treated alike: nothing here asks where a part came from (`in_088`).
+import { settings } from "../shared/settings.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Kind, Part, PointerView } from "../operation/part.ts";
 import { hitPart, depthOf, outlineOf } from "../operation/part.ts";
@@ -87,7 +88,10 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
   }
   if (!out.length) out.push(...background);
   const order = (c: Candidate) => ORIGIN_ORDER[scene.parts[c.ref]!.origin];
-  return out.sort((a, b) => a.rank - b.rank || (a.rank === 2 ? order(a) - order(b) || a.score - b.score : a.score - b.score) || (a.ref < b.ref ? -1 : 1));
+  // corners and lines are ordered by how near the pointer is, a corner with a little advantage (you aim at a corner on purpose), not corners first however far they are: pointing at a circle's edge
+  // a few pixels from its centre point picks the edge, not the point (`in_166`)
+  const near = (c: Candidate) => c.score - (c.rank === 0 ? settings.pick.cornerBonusPx : 0);
+  return out.sort((a, b) => (a.rank === 2 || b.rank === 2 ? a.rank - b.rank : 0) || (a.rank === 2 ? order(a) - order(b) || a.score - b.score : near(a) - near(b) || a.rank - b.rank) || (a.ref < b.ref ? -1 : 1));
 }
 export const refsAt = (scene: Scene, pv: PointerView, opts?: PickOptions): Ref[] => candidatesAt(scene, pv, opts).map((c) => c.ref);
 /** The part to highlight on hover. */

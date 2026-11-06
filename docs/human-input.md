@@ -891,3 +891,6 @@ Sent a model (kept as `app/test/fixtures/cyl-fillet.cad.json`: a 4.2 mm tall dis
 
 ## in_165 — 2026-11-06 — directive
 > The cylinder diameter change is still really pretty chunky, especially at smaller diameters. Do we have  chunkiness problem in general because of graphics compute available to us? Should we think about creative ways to keep things lean and cheap but still look okay? Maybe things in motion can simplify a little just to show smooth rapid motion, then settle into a finer tuned object once motion stops?
+
+## in_166 — 2026-11-06 — directive
+> it is still virtually impossible to select circle edges

@@ -492,3 +492,17 @@ test("picking a vertex and then, quickly, the circle's edge beside it, or Shift-
   st = reduce(st, { type: "click", x: px(st, edge)[0], y: px(st, edge)[1], count: 2, shift: true }, env);
   assert.deepEqual(selection(st.session).map((r) => scene(st.session).parts[r]?.kind), ["corner", "circle"], "Shift adds the edge to the vertex");
 });
+
+test("a small circle: pointing at its edge a few pixels from its centre point picks the edge, the centre point still picks itself when you point at it", () => {
+  let st = top();
+  const perMm = Math.hypot(...([0, 1] as const).map((k) => px(st, [k, 0, 0])[0] - px(st, [0, 0, 0])[0]));
+  const r = 9 / perMm; // a circle 9 px in radius: its edge is within the corner's pick distance of its centre
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  st = click(st, [20, 20, 0]);
+  st = click(st, [20 + r, 20, 0]);
+  const kind = (s: AppState) => scene(s.session).parts[selection(s.session)[0]!]?.kind;
+  const onEdge = click(reduce(st, { type: "escape" }, env), [20 + r, 20, 0]);
+  assert.equal(kind(onEdge), "circle", "on the edge: the edge");
+  const onCentre = click(reduce(st, { type: "escape" }, env), [20, 20, 0]);
+  assert.equal(kind(onCentre), "corner", "on the centre: the centre point");
+});
