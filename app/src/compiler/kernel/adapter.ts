@@ -17,6 +17,8 @@ export interface KernelResult {
   edges: KernelEdge[] | null;
   vertices: Vec[] | null;
   totalMs: number;
+  /** the kernel works on its own thread and has not answered this question yet: this is the last answer it gave, for an older model */
+  stale?: boolean;
 }
 export interface Kernel {
   name: string;

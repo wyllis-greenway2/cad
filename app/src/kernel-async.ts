@@ -35,7 +35,10 @@ export function createAsyncKernel(onChange: () => void, worker: WorkerLike = spa
       if (m.id === undefined) return void reject(new Error(m.failed ?? "the kernel could not start"));
       const job = busy;
       busy = null;
-      if (m.failed) console.error("the kernel's thread failed on a job:", m.failed);
+      if (m.failed) {
+        console.error("the kernel's thread failed on a job:", m.failed);
+        if (job && job.id === m.id) { cache.set(job.key, { ...EMPTY, ops: [{ id: "kernel", type: "kernel", error: m.failed, ms: 0 }] }); onChange(); } // (an answer, so what waits for it is not held up for ever)
+      }
       if (job && job.id === m.id && m.result) {
         cache.set(job.key, m.result);
         if (cache.size > KEEP) cache.delete(cache.keys().next().value as string);
@@ -55,10 +58,10 @@ export function createAsyncKernel(onChange: () => void, worker: WorkerLike = spa
       const key = JSON.stringify(graph);
       const hit = cache.get(key);
       if (hit) { cache.delete(key); cache.set(key, hit); return hit; } // (`last` is only what the worker finished last: a hit on an old graph must not make the picture jump back to it)
-      if (busy?.key === key) return last; // already being worked out
+      if (busy?.key === key) return { ...last, stale: true }; // already being worked out
       queued = { key, graph }; // only the newest request is kept: what was asked before it is no longer wanted
       pump();
-      return last;
+      return { ...last, stale: true }; // (what is shown meanwhile is marked, so nothing is built on it)
     },
   };
 }

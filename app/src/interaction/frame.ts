@@ -97,7 +97,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     entry: entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
     entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam) : [],
     bar: !!s.repeat,
-    panel: panelOf(s.panel, sceneOf(s.session), sel),
+    panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors),
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash)],
     flash,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // off by default (`in_117`)

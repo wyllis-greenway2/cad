@@ -1,7 +1,7 @@
 // The list card opened from the ⋯ menu (`in_132`): the bodies with their names, or the history of steps. It displays what the interaction layer says and reports which row was chosen.
 import { iconSvg } from "./icons.ts";
 
-export interface PanelData { kind: string; title: string; rows: { id: string; label: string; active: boolean; removable: boolean }[] }
+export interface PanelData { kind: string; title: string; rows: { id: string; label: string; active: boolean; removable: boolean; error?: string }[] }
 export interface PanelHandlers { row(id: string, act: "select" | "remove"): void; undo(): void; redo(): void; close(): void }
 
 export function createPanel(host: HTMLElement, h: PanelHandlers) {
@@ -41,6 +41,7 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
         const label = document.createElement("span");
         label.textContent = r.label;
         label.style.flex = "1";
+        if (r.error) { label.style.color = "#c0392b"; row.title = r.error; label.textContent = `${r.label} ✕`; } // a step that could not be made: red, the reason on hover
         row.appendChild(label);
         if (r.removable) row.appendChild(btn(iconSvg("cross"), "Take this step out", () => h.row(r.id, "remove")));
         if (p.kind === "bodies") row.addEventListener("click", () => h.row(r.id, "select"));

@@ -131,6 +131,7 @@ function revolved(points, axis, at) {
 /** A full round (cylindrical) face described by ref = { axis, center (on the axis, at its low end), radius, lo, hi }; returns { face, convex }. */
 function findCylinder(shape, ref) {
   const tol = 1e-3;
+  const found = [];
   for (const f of shape.faces) {
     if (f.geomType !== "CYLINDRE") continue;
     const cyl = f._geomAdaptor().Cylinder();
@@ -138,17 +139,20 @@ function findCylinder(shape, ref) {
     const dir = cyl.Axis().Direction();
     const d = [dir.X(), dir.Y(), dir.Z()];
     const l = [loc.X(), loc.Y(), loc.Z()];
-    if (Math.abs(Math.abs(d[ref.axis]) - 1) > 1e-6 || Math.abs(cyl.Radius() - ref.radius) > tol) continue;
+    if (Math.abs(Math.abs(d[ref.axis]) - 1) > 1e-6) continue;
     if ([0, 1, 2].some((i) => i !== ref.axis && Math.abs(l[i] - ref.center[i]) > tol)) continue;
     const [lo, hi] = f.boundingBox.bounds;
-    if (Math.abs(lo[ref.axis] - ref.lo) > tol || Math.abs(hi[ref.axis] - ref.hi) > tol) continue;
-    const pt = f.pointOnSurface(0.25, 0.5);
-    const n = f.normalAt(pt);
-    const radial = [pt.x - (ref.axis === 0 ? pt.x : ref.center[0]), pt.y - (ref.axis === 1 ? pt.y : ref.center[1]), pt.z - (ref.axis === 2 ? pt.z : ref.center[2])];
-    // the face's own numbers, not the rounded ones of the reference: a radius or an end that is off by a hair leaves a paper-thin sheet when the ring is cut or fused
-    return { face: f, convex: n.x * radial[0] + n.y * radial[1] + n.z * radial[2] > 0, exact: { radius: cyl.Radius(), center: l, lo: lo[ref.axis], hi: hi[ref.axis] } };
+    const exactly = Math.abs(cyl.Radius() - ref.radius) <= tol && Math.abs(lo[ref.axis] - ref.lo) <= tol && Math.abs(hi[ref.axis] - ref.hi) <= tol;
+    found.push({ f, cyl, l, lo: lo[ref.axis], hi: hi[ref.axis], exactly, off: Math.abs(cyl.Radius() - ref.radius) });
   }
-  throw new Error("round face not found (the model changed since this step was made)");
+  // the one the step means; else the hole or post on the same axis whose size is not what the step remembers (an earlier step changed it), the nearest in size
+  const best = found.find((c) => c.exactly) ?? found.sort((x, y) => x.off - y.off)[0];
+  if (!best) throw new Error("round face not found (the model changed since this step was made)");
+  const pt = best.f.pointOnSurface(0.25, 0.5);
+  const n = best.f.normalAt(pt);
+  const radial = [pt.x - (ref.axis === 0 ? pt.x : ref.center[0]), pt.y - (ref.axis === 1 ? pt.y : ref.center[1]), pt.z - (ref.axis === 2 ? pt.z : ref.center[2])];
+  // the face's own numbers, not the rounded ones of the reference: a radius or an end that is off by a hair leaves a paper-thin sheet when the ring is cut or fused
+  return { face: best.f, convex: n.x * radial[0] + n.y * radial[1] + n.z * radial[2] > 0, exact: { radius: best.cyl.Radius(), center: best.l, lo: best.lo, hi: best.hi } };
 }
 
 /** Does this edge match ref = { a, b, mid } (its end points and its middle)? */

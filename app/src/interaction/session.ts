@@ -28,6 +28,8 @@ export interface Session {
   readonly outcomeOf: (h: History) => CompileOutcome;
   /** the kernel answers later than it is asked (its own thread): what is shown is made again when the answer comes, and after an undo or redo */
   readonly lagging: boolean;
+  /** steps just made while the kernel's answer was still to come: when it comes and one of them could not be made, it is taken back */
+  readonly checkSteps?: string[];
   /** the last command that was refused because it could not be done without breaking constraints: who tried (`culprits`: relation ids) and what it would have broken (`victims`) */
   readonly conflict: { culprits: string[]; victims: string[] } | null;
 }
@@ -78,10 +80,19 @@ const conflictsOf = (o: CompileOutcome): { planes: string[]; ids: string[] } => 
  * Do a command. A command that cannot be done is refused and changes nothing: its reason is in `message`; and one that cannot be done without breaking constraints that were
  * holding says which (`conflict`): the ones it tried to change, and the ones it would have broken, so the view can show them.
  */
+/** The ids of the steps a command adds. */
+const stepsOf = (c: Command): string[] => (c.type === "addStep" ? [c.step.id] : c.type === "batch" ? c.commands.flatMap(stepsOf) : []);
+
 export function run(s: Session, c: Command): Session {
+  const steps = stepsOf(c);
+  // a step is built on what is shown: while the kernel is still answering for the last change what is shown is the older model, and a step made now could mean something else (`in_142`)
+  if (steps.length && s.outcome.kernel?.stale) return { ...s, message: "the model is still being worked out: try again in a moment" };
   const r = exec(s.history, c);
   if (!r.ok) return { ...s, message: r.error };
   const next = withHistory(s, r.value);
+  // a step the kernel cannot make is refused, not kept to break the steps after it
+  const failed = next.outcome.kernel?.stale ? undefined : steps.find((id) => next.outcome.errors[id]);
+  if (failed) return { ...s, message: next.outcome.errors[failed] ?? "that could not be made" };
   const before = conflictsOf(s.outcome);
   const after = conflictsOf(next.outcome);
   const fresh = after.planes.filter((p) => !before.planes.includes(p));
@@ -90,7 +101,7 @@ export function run(s: Session, c: Command): Session {
     const victims = after.ids.filter((id) => !culprits.includes(id) && !before.ids.includes(id));
     return { ...s, message: "that cannot be done without breaking other constraints", conflict: { culprits, victims } };
   }
-  return { ...next, conflict: null };
+  return { ...next, conflict: null, checkSteps: next.outcome.kernel?.stale && steps.length ? steps : undefined };
 }
 /** The same history compiled again (the kernel's worker has an answer that was not there when the history was last compiled). */
 export function refresh(s: Session): Session {
@@ -98,7 +109,14 @@ export function refresh(s: Session): Session {
   const scene = h.derive(h.scene); // the same scene derived again: the body parts come from the kernel's newest answer
   const snapshots = [...h.snapshots];
   snapshots[h.cursor] = scene;
-  return withHistory(s, { ...h, scene, snapshots }, s.message);
+  const now = withHistory(s, { ...h, scene, snapshots }, s.message);
+  // the answer for the last step has come and it could not be made: it is taken back (it was shown before the answer came), and the reason says why
+  const failed = !now.outcome.kernel?.stale ? (s.checkSteps ?? []).find((id) => now.outcome.errors[id]) : undefined;
+  if (failed) {
+    const back = withHistory(s, undo(h));
+    return { ...refresh({ ...back, checkSteps: undefined }), message: now.outcome.errors[failed] ?? "that could not be made" };
+  }
+  return { ...now, checkSteps: now.outcome.kernel?.stale ? s.checkSteps : undefined };
 }
 export const undoLast = (s: Session): Session => { const n = withHistory(s, undo(s.history)); return s.lagging ? refresh(n) : n; };
 export const redoLast = (s: Session): Session => { const n = withHistory(s, redo(s.history)); return s.lagging ? refresh(n) : n; };

@@ -120,7 +120,13 @@ async function boot() {
   statusEl.textContent = "loading the geometry kernel…";
   // the kernel works on its own thread so a heavy model does not freeze the page; if that cannot start, it runs here instead
   try {
-    const worked = createAsyncKernel(() => { state = { ...state, session: refresh(state.session) }; dirty = true; });
+    const worked = createAsyncKernel(() => {
+      const before = state.session.history.cursor;
+      const session = refresh(state.session);
+      // the answer for the last step was an error and it was taken back: what was being worked on is over
+      state = { ...state, session, ...(session.history.cursor < before ? { op: null, drag: null } : {}) };
+      dirty = true;
+    });
     await worked.init();
     engine = worked;
   } catch {
