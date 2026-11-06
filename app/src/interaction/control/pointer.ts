@@ -11,7 +11,7 @@ import type { Session } from "../session.ts";
 import { candidatesAt } from "../picking.ts";
 import { actionsFor } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
-import { snapOnPlane, finish, planeForDrawing } from "../tools.ts";
+import { snapOnPlane, finish, planeForDrawing, armTool } from "../tools.ts";
 import type { OpKind } from "../operations.ts";
 import { startOp } from "../operations.ts";
 import { projector } from "../camera.ts";
@@ -118,8 +118,11 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     return dist(at, t.points[0]!) < 1e-6 ? base : { ...base, tool: { ...t, points: [...t.points, at], cursor: at, typed: ["", ""] } };
   }
   // a rectangle, a circle, a line: the second click finishes it and the tool is put away (a line is one segment: leave it open, or draw the next to close a shape)
-  if (t.kind === "line") return dist(at, t.points[0]!) < 1e-6 ? base : commitFigure(base, finish(sc, { ...t, points: [t.points[0]!, at], cursor: at }));
-  return commitFigure(base, finish(sc, { ...t, cursor: at }));
+  const done = t.kind === "line" ? (dist(at, t.points[0]!) < 1e-6 ? base : commitFigure(base, finish(sc, { ...t, points: [t.points[0]!, at], cursor: at }))) : commitFigure(base, finish(sc, { ...t, cursor: at }));
+  // sketching goes on while you keep clicking on vertices (`in_150`): a figure finished on an existing vertex leaves the same tool ready (a line starts its next segment from that vertex); finished anywhere else, the tool is put away
+  const vertex = refs.map((r) => sc.parts[r]).find((p) => p?.kind === "corner" && p.origin === "drawn");
+  if (!vertex || vertex.kind !== "corner" || done === base || done.tool || done.session.message) return done;
+  return { ...done, tool: t.kind === "line" ? { ...armTool("line"), plane: t.plane, points: [vertex.at], cursor: vertex.at } : armTool(t.kind) };
 }
 
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {

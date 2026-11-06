@@ -841,3 +841,6 @@ Sent a model (kept as `app/test/fixtures/right-drag.cad.json`) and a picture (a 
 
 ## in_149 — 2026-11-06 — directive
 > Okay on triple click, can we go back to assuming that is selecting only the face as it goes into orthographic mode. Can we try it so that when you click the pencil icon to sketch then it goes orthographic to the face that was clicked on?
+
+## in_150 — 2026-11-06 — directive
+> Okay lets try something slightly different with the sketching, how about we try a hybrid of the persistent sketching mode. So its for sketching only, not for other modes, and the way it works is as long as you continually click on vertices then it presumes that you are intending to keep sketching other wise it drops the mode. Lets try that.

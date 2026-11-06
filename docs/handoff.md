@@ -1025,3 +1025,8 @@ Do not touch `compiler/` or `ui/` in phase 1. Keep porting honest: copy pure cod
 **State:** `in_149`. 208 tests pass, checks clean.
 **Triple click:** selects only the face clicked (the double click had taken the whole object) and turns the view straight to it from the side you are on.
 **Sketching:** choosing Rectangle, Circle, Line or Curve (ring, ⋯ list, or the keys) while a face or plane is selected turns the view straight to it (orthographic) and arms the tool; with nothing flat selected the view stays. The selection stays the face. Know: a tool pressed again to put it away does not turn the view back.
+
+## Handoff 130 — 2026-11-06 (sketching goes on while you click on vertices)
+**State:** `in_150`. 209 tests pass, checks clean (not tried in a browser).
+**How it works:** for the sketching tools only. A figure finished by a click that lands on an existing drawn corner leaves the tool on: a line's next segment starts from that corner (so click, click on a corner, click on a corner … is a chain); a rectangle, circle or curve is ready for its next first click. A figure finished anywhere else (empty space, a typed number with Enter) puts the tool away as before. Escape ends it.
+**I read it as:** the *finishing* click being on a vertex is what keeps the mode. If you meant the first click as well (starting on a vertex also keeps it), say so. Not done: nothing shows that the mode is on (no pointer icon, as that was taken out with the earlier mode).

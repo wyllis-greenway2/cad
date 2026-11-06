@@ -385,3 +385,18 @@ test("a triple click on a sketch drawn on a face of a block turns to it, like a 
   st = click({ ...st, tool: null }, [12, 9.5, 20], 3); // (away from the arrow that shows by itself at the middle)
   assert.ok(st.anim, "the view is turning to the plane");
 });
+
+test("sketching goes on while you click on vertices: a line ending on an existing corner starts the next from it; ending anywhere else puts the tool away", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [5, 5, 0]);
+  st = click(st, [25, 5, 0]);
+  assert.equal(st.tool, null, "ended in empty space: the tool is put away");
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [5, 5, 0]); // on the first corner
+  st = click(st, [25, 5, 0]); // on a corner: goes on
+  assert.ok(st.tool && st.tool.points.length === 1, "the next segment has started at that corner");
+  assert.deepEqual(st.tool!.points[0], [25, 5, 0]);
+  st = click(st, [25, 15, 0]); // empty space: the segment is made, the tool is put away
+  assert.equal(st.tool, null);
+});
