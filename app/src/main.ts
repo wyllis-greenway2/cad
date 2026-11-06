@@ -153,7 +153,7 @@ async function boot() {
   requestAnimationFrame(frame);
 }
 function frame(now: number) {
-  if (state.anim || state.pendingLook || state.flash) { state = advance(state, now); dirty = true; }
+  if (state.anim || state.flash) { state = advance(state, now); dirty = true; }
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
     const size = view.size();
@@ -172,6 +172,7 @@ function frame(now: number) {
     valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from)));
     for (let i = valueBubbles.length; i < chips.length; i++) chips[i]!.update(null, "mm", null);
     applyBar.update(f.bar);
+    controls.hint(f.lookHint, f.eye);
     host.style.cursor = f.cursor;
     view.render(state.cam, f.grid);
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);

@@ -7,6 +7,9 @@ import { patternCentre, liveRepeat } from "./pattern.ts";
 import type { Panel } from "./panels.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
+import { lookup } from "../operation/scene.ts";
+import { normalOfPlane } from "../operation/part.ts";
+import { planeOf } from "./objects.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
@@ -43,6 +46,9 @@ export interface Frame {
   entries: Entry[];
   /** the Apply and Cancel buttons are up (a repeat is being set up) */
   bar: boolean;
+  /** the world axis the selected plane or face lies across (so its X Y Z button is lit), and whether the eye button (look straight at it) shows */
+  lookHint: "X" | "Y" | "Z" | null;
+  eye: boolean;
   /** the open list (bodies, history) */
   panel: Panel | null;
   /** the constraints of the selected parts, each with the spot it is shown at (on the line, at the vertex, between the lines, at the angle) */
@@ -97,6 +103,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     entry: entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
     entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam) : [],
     bar: !!s.repeat,
+    ...lookOf(sc, sel),
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors),
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash)],
     flash,
@@ -133,4 +140,13 @@ function entryWhere(e: Entry | null, s: AppState, g: Gizmo | null, op: Op | null
   } else if (op && (op.kind === "linear" || op.kind === "circular")) at = patternCentre(s.session.history.scene, op);
   else if (s.tool) at = s.tool.cursor ?? s.tool.points.at(-1) ?? null;
   return { ...e, at, from };
+}
+
+/** A single selected plane or face: the eye button shows, and if it lies across a world axis, that axis's button is lit. */
+function lookOf(sc: Scene, sel: readonly Ref[]): { lookHint: "X" | "Y" | "Z" | null; eye: boolean } {
+  const pl = sel.length === 1 ? planeOf(lookup(sc), sel[0]!) : null;
+  if (!pl) return { lookHint: null, eye: false };
+  const n = normalOfPlane(pl);
+  const axis = ([0, 1, 2] as const).find((k) => Math.abs(Math.abs(n[k]) - 1) < 1e-6);
+  return { lookHint: axis === undefined ? null : (["X", "Y", "Z"] as const)[axis], eye: true };
 }

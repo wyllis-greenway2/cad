@@ -34,7 +34,6 @@ export interface AppState {
   /** the relation whose badge is open: the other parts it ties show in amber */
   focus: string | null;
   /** a double click turns the view to the plane, but only once the window for a third click has passed: a triple click selects the object and leaves the view alone */
-  pendingLook: { plane: Plane; due: number } | null;
   /** a drag in progress: of the camera, or of a helper handle (`gizmo.ts`) */
   drag: { camera: true } | { handle: Drag; /** the operation's value when the drag began (the drag adds to it) */ base: number; /** the handle sets the numbers of the repeat being set up */ repeat?: true } | { corner: Ref; base: Session } | null;
   /** the helper handle under the pointer */
@@ -44,7 +43,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, panel: null, repeat: null, tool: null, op: null, focus: null, pendingLook: null, drag: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, panel: null, repeat: null, tool: null, op: null, focus: null, drag: null, gizmoHover: null, flash: null });
 
 export const pickOpts = () => ({ pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx });
 export const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });

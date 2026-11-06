@@ -110,7 +110,7 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
   const cands = candidatesAt(sc, pv, pickOpts());
   const refs = cands.map((c) => c.ref);
-  const base: AppState = { ...s, menu: null, focus: null, pendingLook: i.count >= 2 ? s.pendingLook : null };
+  const base: AppState = { ...s, menu: null, focus: null };
   if (s.tool) return clickWithTool(base, i, env, refs);
   if (s.op && !hasGizmo(s.op.kind)) return commitOp(base); // the dimension number chip: a click finishes it
   // the handles are dragged, so a click on one does nothing (it must not reselect what is under it)
@@ -121,7 +121,7 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   return doClickSelect(s.op ? { ...base, op: null, drag: null, gizmoHover: null } : base, i, env, cands, refs, pv);
 }
 
-/** A normal click: select what is under it (cycling where things overlap), two clicks look straight at the plane, three select the whole object. */
+/** A normal click: select what is under it (cycling where things overlap), two select the whole object, three look straight at the plane. */
 function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, env: Env, cands: ReturnType<typeof candidatesAt>, refs: Ref[], pv: ReturnType<ReturnType<typeof projector>["view"]>): AppState {
   const sess = base.session;
   const sc = sceneOf(sess);
@@ -129,17 +129,17 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
   // a sketch drawn on a face of the body lies in the same plane as that face: the two are one surface for looking at it and for selecting the whole object
   const planes = refs.map((r) => planeOf(get, r));
   const onePlane = refs.length <= 1 || (planes.every((q) => !!q) && planes.every((q) => Math.abs(dot(normalOfPlane(q!), normalOfPlane(planes[0]!)) - 1) < 1e-6 && Math.abs(dot(normalOfPlane(q!), sub(q!.at, planes[0]!.at))) < 1e-3));
-  if (onePlane && i.count === 2) {
-    // two clicks: look straight at the plane clicked, from the side you are on; the selection stays as the first click left it
-    const pl = refs[0] ? planeOf(get, refs[0]) : null;
-    return pl ? { ...base, pendingLook: { plane: pl, due: env.now + settings.input.multiClickMs } } : base; // waits to see whether a third click comes
-  }
   // the infinite world planes are only a surface for the ring to land on and for a tool to draw on: a click on one selects nothing (like a click on empty space)
   const selectable = refs.filter((r) => !(sc.parts[r]?.origin === "world" && sc.parts[r]?.kind === "plane"));
-  if (onePlane && i.count >= 3) {
-    // three: the whole object
+  if (onePlane && i.count === 2) {
+    // two: the whole object (the view does not turn)
     const o = selectable[0] ? objectOf(sc, selectable[0]) : undefined;
-    return o ? withSession({ ...base, pendingLook: null }, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base; // and the view does not turn
+    return o ? withSession(base, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base;
+  }
+  if (onePlane && i.count >= 3) {
+    // three: look straight at the plane clicked, from the side you are on; the selection stays as the clicks left it
+    const pl = refs[0] ? planeOf(get, refs[0]) : null;
+    return pl ? animateTo(base, planeView(base.cam, pl, false), env.now) : base;
   }
   const next = clickOn(sess, selectable, i.shift);
   const top = selectionOf(next).at(-1);

@@ -1,6 +1,7 @@
+import { iconSvg } from "./icons.ts";
 // The small controls on the page: the ⋯ menu button (for a phone, where there is no right click) and the X Y Z buttons at the right edge, lower right (`in_068`).
 // They report what was pressed; the interaction layer decides what it means.
-export interface ControlHandlers { menu(x: number, y: number): void; look(plane: "X" | "Y" | "Z"): void }
+export interface ControlHandlers { menu(x: number, y: number): void; look(plane: "X" | "Y" | "Z" | "N"): void }
 
 export function createControls(host: HTMLElement, h: ControlHandlers) {
   const css = "position:fixed;z-index:7;user-select:none;-webkit-user-select:none;touch-action:manipulation;";
@@ -21,7 +22,25 @@ export function createControls(host: HTMLElement, h: ControlHandlers) {
     return b;
   });
 
+  // the eye: look straight at the selected plane or face (shown at the top while one is selected or sketched on)
+  const eye = document.createElement("div");
+  eye.innerHTML = iconSvg("eye");
+  eye.title = "Look straight at it (press again for the back)";
+  eye.style.cssText = css + "display:none;left:calc(50% - 90px);top:14px;width:40px;height:40px;box-sizing:border-box;border-radius:50%;align-items:center;justify-content:center;background:#fff;border:2px solid #34363b;color:#34363b;box-shadow:0 2px 10px rgba(0,0,0,.16);cursor:pointer";
+  eye.addEventListener("click", (e) => { e.stopPropagation(); h.look("N"); });
+  host.appendChild(eye);
+
   return {
+    /** Light the button of the axis the selected plane lies across; show the eye while a plane or face is selected. */
+    hint(axis: "X" | "Y" | "Z" | null, showEye: boolean) {
+      buttons.forEach((b, i) => {
+        const on = axis === "XYZ"[i];
+        b.style.background = on ? "#1ab8b3" : "#fff";
+        b.style.color = on ? "#fff" : "#2b2b2d";
+        b.style.borderColor = on ? "#1ab8b3" : "#cfd0d4";
+      });
+      eye.style.display = showEye ? "flex" : "none";
+    },
     /** Place the buttons at the right edge, lower right, one above the other (X on top). */
     update(pageW: number, pageH: number, margin: number, button: number) {
       buttons.forEach((b, i) => {
