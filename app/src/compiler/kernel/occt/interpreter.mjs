@@ -438,10 +438,13 @@ const OPS = {
 };
 
 /** OCCT in WASM can throw opaque WebAssembly.Exception objects with no message; say so plainly. */
-function describeError(e) {
+function describeError(e, op) {
   if (e instanceof Error) return e.message;
   if (typeof e === "string") return e;
-  return "OCCT kernel exception (opaque, no message available from the WASM build)";
+  // the kernel says nothing when it cannot build a shape: say what was being done, and the usual reason
+  if (op?.type === "edgeMod") return `the kernel could not make a ${op.mode === "chamfer" ? "chamfer" : "fillet"} of that size on this edge: it is probably too big for the faces beside it (try a smaller size)`;
+  if (op?.type === "cylRadius" || op?.type === "faceExtrude") return "the kernel could not make that size (it may be too small, too big, or run into another part of the model)";
+  return "the kernel could not make this step (it gave no reason)";
 }
 
 /**
@@ -490,7 +493,7 @@ export function compile(graph) {
       results.set(op.id, { value, ms: performance.now() - t0 });
       remember(key, { value });
     } catch (e) {
-      results.set(op.id, { error: describeError(e), ms: performance.now() - t0 });
+      results.set(op.id, { error: describeError(e, op), ms: performance.now() - t0 });
     }
   }
   return results;

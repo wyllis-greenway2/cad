@@ -1100,3 +1100,14 @@ test("fillet / chamfer on the rim of a hole: its arrow points out of the corner 
   const c = (rim as { circle: { center: Vec3 } }).circle.center;
   assert.ok(d[0] * (c[0] - m[0]) + d[1] * (c[1] - m[1]) + d[2] * (c[2] - m[2]) > 1, "towards the axis");
 });
+
+test("a fillet too big for its edge is refused with a reason that says what it was (the kernel itself says nothing)", () => {
+  let st = box();
+  const vertical = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "body" && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] !== (scene(st.session).parts[p.b] as { at: Vec3 }).at[2])!;
+  st = select(st, [vertical.ref]);
+  st = reduce(st, { type: "begin", name: "edge" }, env);
+  st = typeText(st, "30");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.match(st.session.message ?? "", /fillet of that size|too big|smaller/i);
+  assert.equal(scene(st.session).steps.length, 1, "nothing was added");
+});
