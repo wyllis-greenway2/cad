@@ -6,6 +6,8 @@ import { patternStart, patternCommand } from "./pattern.ts";
 import type { Mat3, Angles } from "../math/rotation.ts";
 import { IDENTITY, about, then, anglesOf, stepsBetween } from "../math/rotation.ts";
 import { motionOf } from "../operation/frames.ts";
+import { sharpOfPoints, smoothChain, roundingFaces } from "../operation/roundings.ts";
+import type { Sharp, SharpEdge } from "../operation/roundings.ts";
 import type { Rigid } from "../operation/frames.ts";
 import type { Curved } from "../operation/part.ts";
 import type { FaceEdit } from "./faceedit.ts";
@@ -529,25 +531,34 @@ export function sideDrag(scene: Scene, op: Op): { face: Ref; axis: Vec3; items: 
 }
 
 /**
- * A fillet or chamfer made smaller or bigger while it is the last step and rounds one straight edge (`in_220`): its cross-section is the same shape at any size, only scaled about the sharp edge (the line the
- * two faces would meet in), so the points of the rounding (and where it meets the faces beside it) move by that scale, and it can be drawn at once without the kernel. `point` and `dir` are the sharp edge, `k` the
- * scale. Null for anything else (a curved edge, several edges that meet, a step that comes after it).
+ * A fillet or chamfer made smaller or bigger while it is the last step (`in_220`, `in_222`): its cross-section is the same shape at any size, only scaled about the sharp edge (a line, or a circle), so the
+ * points of the rounding (and where it meets the faces beside it) move by that scale, and it can be drawn at once without the kernel. The edges are read from the names the step keeps, and may be several if they
+ * meet smoothly (no corner: a corner has a patch of its own that does not scale this way). `groups` are the rounding faces, each with its sharp edge, `k` the scale. Null for anything else (a whole circle, whose
+ * plane the name does not say, a corner, a step that comes after it).
  */
-export function edgeDrag(scene: Scene, op: Op): { face: Ref; point: Vec3; dir: Vec3; k: number; step: string; value: number } | null {
+export function edgeDrag(scene: Scene, op: Op): { face: Ref; groups: { face: Ref; sharp: Sharp }[]; k: number; step: string; value: number } | null {
   const e = op.edit;
   if (op.kind !== "pushpull" || op.noEdit || !e || e.kind !== "edgeSize" || op.parts.length !== 1) return null;
   const st = scene.steps.at(-1);
-  if (st?.type !== "edgeMod" || st.id !== e.step || st.parts.length !== 1) return null;
+  if (st?.type !== "edgeMod" || st.id !== e.step) return null;
   const v = valueOf(op);
   if (v === null || v === 0) return null;
   const value = e.value - v;
   if (!(value > 1e-3)) return null;
-  const pts = String(st.parts[0]).split("@")[1]?.split("~").map((t) => t.split(",").map(Number));
-  if (!pts || pts.length !== 3 || pts.some((q) => q.length !== 3 || q.some((x) => !Number.isFinite(x)))) return null;
-  const [a, b, m] = pts as unknown as [Vec3, Vec3, Vec3];
-  const dir = normalize(sub(b, a));
-  if (Math.hypot(...sub(m, scale(add(a, b), 0.5))) > 1e-3 * Math.max(1, Math.hypot(...sub(b, a)))) return null; // (a curved edge: a circle is not scaled about a line)
-  return { face: op.parts[0]!, point: a, dir, k: value / e.value, step: e.step, value };
+  const edges: SharpEdge[] = [];
+  for (const r of st.parts) {
+    const pts = String(r).split("@")[1]?.split("~").map((t) => t.split(",").map(Number));
+    if (!pts || pts.length !== 3 || pts.some((q) => q.length !== 3 || q.some((x) => !Number.isFinite(x)))) return null;
+    const [a, b, m] = pts as unknown as [Vec3, Vec3, Vec3];
+    if (Math.hypot(...sub(a, b)) < 1e-6) return null; // (a whole circle: the name does not say which way it faces)
+    const se = sharpOfPoints(a, b, m);
+    if (!se) return null;
+    edges.push(se);
+  }
+  if (!smoothChain(edges)) return null;
+  const faces = roundingFaces(scene, edges, 3 * e.value);
+  if (!faces.some((f) => f.face === op.parts[0])) return null;
+  return { face: op.parts[0]!, groups: faces.map((f) => ({ face: f.face, sharp: edges[f.edge]!.sharp })), k: value / e.value, step: e.step, value };
 }
 
 /** A command as it is without carrying the sketches: only the steps, and not marked `follow`. */

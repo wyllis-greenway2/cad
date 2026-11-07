@@ -649,6 +649,7 @@ import { startOp, opCommand } from "../src/interaction/operations.ts";
 import { planeForDrawing } from "../src/interaction/tools.ts";
 import type { Op } from "../src/interaction/operations.ts";
 import { openSession } from "../src/interaction/session.ts";
+import { faceEdit } from "../src/interaction/faceedit.ts";
 import { projector as proj, position } from "../src/interaction/camera.ts";
 import { outlineOf } from "../src/operation/part.ts";
 import { lookup } from "../src/operation/scene.ts";
@@ -1484,11 +1485,12 @@ test("making a fillet or a chamfer smaller is drawn at once without the kernel: 
     const size = Number(typed.replace("-", ""));
     st = { ...st, op: { ...st.op!, value: 1 } }; // one smaller
     const f = frameOf(st, { w: 800, h: 600 });
-    assert.ok(f.faceShift?.scaled, `${label}: a scaled shift`);
-    near(f.faceShift!.scaled!.k, (size - 1) / size, 1e-6);
+    assert.ok(f.faceShift?.rounds, `${label}: a scaled shift`);
+    near(f.faceShift!.rounds!.k, (size - 1) / size, 1e-6);
     assert.equal(f.mesh, base.mesh, `${label}: the mesh is the one already there`);
     // the points of the rounding at the two ends of the edge, scaled about the sharp edge, are vertices of the real result
-    const { point, dir, k } = f.faceShift!.scaled!;
+    const { k } = f.faceShift!.rounds!;
+    const { point, dir } = f.faceShift!.rounds!.groups[0]!.sharp as { point: Vec3; dir: Vec3 };
     const m = (part as unknown as { mesh: number[] }).mesh;
     const moved: Vec3[] = [];
     for (let i = 0; i + 2 < m.length; i += 3) { const p: Vec3 = [m[i]!, m[i + 1]!, m[i + 2]!]; const d = sub(p, point); const perp = sub(d, scale(dir, dot(d, dir))); if (p[2] === 0 || p[2] === 20) moved.push(add(p, scale(perp, k - 1))); }
@@ -1508,16 +1510,17 @@ test("a new fillet or chamfer on one straight edge is made once by the kernel (t
     const base = st.session.outcome.kernel!;
     st = { ...st, op: { ...st.op!, value: sign * 2 } };
     const f1 = frameOf(st, { w: 800, h: 600 });
-    assert.ok(f1.faceShift?.scaled, `${label}: scaled shift`);
-    near(f1.faceShift!.scaled!.k, 1, 1e-9);
+    assert.ok(f1.faceShift?.rounds, `${label}: scaled shift`);
+    near(f1.faceShift!.rounds!.k, 1, 1e-9);
     assert.notEqual(f1.mesh, base.mesh, `${label}: the reference is the kernel's own result with the rounding in it`);
     const refMesh = f1.mesh;
     st = { ...st, op: { ...st.op!, value: sign * 3 } };
     const f2 = frameOf(st, { w: 800, h: 600 });
-    near(f2.faceShift!.scaled!.k, 1.5, 1e-9);
+    near(f2.faceShift!.rounds!.k, 1.5, 1e-9);
     assert.equal(f2.mesh, refMesh, `${label}: no new kernel result for another size`);
     // the scaled end points of the rounding are vertices of what the kernel really makes at that size
-    const { point, dir, k } = f2.faceShift!.scaled!;
+    const { k } = f2.faceShift!.rounds!;
+    const { point, dir } = f2.faceShift!.rounds!.groups[0]!.sharp as { point: Vec3; dir: Vec3 };
     const part = f2.scene.parts[f2.faceShift!.face] as unknown as { mesh: number[] };
     const moved: Vec3[] = [];
     for (let i = 0; i + 2 < part.mesh.length; i += 3) { const p: Vec3 = [part.mesh[i]!, part.mesh[i + 1]!, part.mesh[i + 2]!]; const d = sub(p, point); const perp = sub(d, scale(dir, dot(d, dir))); if (p[2] === 0 || p[2] === 20) moved.push(add(p, scale(perp, k - 1))); }
@@ -1526,4 +1529,68 @@ test("a new fillet or chamfer on one straight edge is made once by the kernel (t
     const real = done.session.outcome.kernel!.mesh!.vertices;
     for (const p of moved) assert.ok(Array.from({ length: real.length / 3 }, (_, i) => Math.hypot(real[3 * i]! - p[0], real[3 * i + 1]! - p[1], real[3 * i + 2]! - p[2])).some((d) => d < 1e-2), `${label}: ${JSON.stringify(p)}`);
   }
+});
+
+test("a new fillet round a cylinder's rim is made once and scaled about the circle; one round a chain of edges that meet smoothly is scaled edge by edge; a chain with corners goes to the kernel (`in_222`)", () => {
+  // the rim of a post: a plane across a coaxial cylinder
+  const s0 = cylinder();
+  const rim = Object.values(scene(s0).parts).find((p) => p.kind === "line" && p.origin === "body" && !!p.circle && p.circle.center[2] === 20)!;
+  let st = reduce(select({ ...createState(s0), cam: homeCamera() }, [rim.ref]), { type: "begin", name: "edge" }, env);
+  st = { ...st, op: { ...st.op!, value: 2 } };
+  frameOf(st, { w: 800, h: 600 });
+  st = { ...st, op: { ...st.op!, value: 3 } };
+  const f = frameOf(st, { w: 800, h: 600 });
+  const g = f.faceShift?.rounds?.groups;
+  assert.ok((g?.length ?? 0) >= 1, "its rounding faces (the kernel may make the round in halves)");
+  assert.ok(g!.every((x) => x.sharp.kind === "circle"));
+  near(f.faceShift!.rounds!.k, 1.5, 1e-9);
+  // every point of the scaled rounding lies on the real one: 3 mm from the middle of its cross-section (7 from the axis, 17 up)
+  const c = g![0]!.sharp as { kind: "circle"; center: Vec3; axis: Vec3; radius: number };
+  let worst = 0;
+  for (const gr of g!) for (let part = f.scene.parts[gr.face] as unknown as { mesh: number[] }, i = 0; i + 2 < part.mesh.length; i += 3) {
+    const p: Vec3 = [part.mesh[i]!, part.mesh[i + 1]!, part.mesh[i + 2]!];
+    const d = sub(p, c.center);
+    const z = dot(d, c.axis);
+    const rho = Math.hypot(...sub(d, scale(c.axis, z)));
+    const [rho2, z2] = [c.radius + 1.5 * (rho - c.radius), 1.5 * z];
+    worst = Math.max(worst, Math.abs(Math.hypot(rho2 - 7, Math.abs(z2) - 3) - 3));
+  }
+  assert.ok(worst < 1e-2, `off by ${worst}`);
+  // edges that meet smoothly (lines and arcs round a stadium): edge by edge
+  const sb = openSession(kernel, readFileSync(new URL("./fixtures/chain-body.cad.json", import.meta.url), "utf8")) as { ok: true; value: ReturnType<typeof createSession> };
+  const sc = scene(sb.value);
+  const topZ = Math.max(...Object.values(sc.parts).filter((p) => p.kind === "corner" && p.origin === "body").map((p) => (p as unknown as { at: Vec3 }).at[2]));
+  const edgesAtTop = Object.values(sc.parts).filter((p) => p.kind === "line" && p.origin === "body" && (sc.parts[p.a] as unknown as { at: Vec3 }).at[2] === topZ && (sc.parts[p.b] as unknown as { at: Vec3 }).at[2] === topZ).map((p) => p.ref);
+  assert.ok(edgesAtTop.length >= 3);
+  let sd = reduce(select({ ...createState(sb.value), cam: homeCamera() }, edgesAtTop), { type: "begin", name: "edge" }, env);
+  sd = { ...sd, op: { ...sd.op!, value: 1 } };
+  const fs = frameOf(sd, { w: 800, h: 600 });
+  assert.ok((fs.faceShift?.rounds?.groups.length ?? 0) >= 3, "a rounding face per edge");
+  assert.ok(new Set(fs.faceShift!.rounds!.groups.map((x) => x.sharp.kind)).size === 2, "lines and circles");
+  // the four edges of a box top meet in corners: the kernel
+  const bx = box();
+  const top = Object.values(scene(bx.session).parts).filter((p) => p.kind === "line" && p.origin === "body" && (scene(bx.session).parts[p.a] as unknown as { at: Vec3 }).at[2] === 20 && (scene(bx.session).parts[p.b] as unknown as { at: Vec3 }).at[2] === 20).map((p) => p.ref);
+  assert.equal(top.length, 4);
+  let sx = reduce(select(bx, top), { type: "begin", name: "edge" }, env);
+  sx = { ...sx, op: { ...sx.op!, value: 2 } };
+  assert.equal(frameOf(sx, { w: 800, h: 600 }).faceShift, null);
+});
+
+test("a fillet that rounds a smooth chain of edges (lines and arcs) is made smaller or bigger edge by edge without the kernel (`in_222`)", () => {
+  const sb = openSession(kernel, readFileSync(new URL("./fixtures/chain-body.cad.json", import.meta.url), "utf8")) as { ok: true; value: ReturnType<typeof createSession> };
+  const sc = scene(sb.value);
+  const at = (r: string) => (sc.parts[r] as unknown as { at: Vec3 }).at;
+  const topZ = Math.max(...Object.values(sc.parts).filter((p) => p.kind === "corner" && p.origin === "body").map((p) => at(p.ref)[2]));
+  const edges = Object.values(sc.parts).filter((p) => p.kind === "line" && p.origin === "body" && at(p.a)[2] === topZ && at(p.b)[2] === topZ).map((p) => p.ref);
+  let st = reduce(select({ ...createState(sb.value), cam: homeCamera() }, edges), { type: "begin", name: "edge" }, env);
+  st = typeNumber(st, "2");
+  const rounded = Object.values(scene(st.session).parts).filter((p) => p.kind === "plane" && p.origin === "body" && !!p.rounded && (p.rounded === "TORUS" || p.rounded === "CYLINDRE" && !p.round?.convex));
+  assert.ok(rounded.length >= 1);
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.rounded === "CYLINDRE" && (p.mesh?.length ?? 0) > 0 && faceEdit(scene(st.session), p.ref)?.kind === "edgeSize");
+  assert.ok(face, "a rounding face that finds its step");
+  st = reduce(select(st, [face!.ref]), { type: "begin", name: "pushpull" }, env);
+  st = { ...st, op: { ...st.op!, value: 0.5 } };
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok((f.faceShift?.rounds?.groups.length ?? 0) >= 3, "every rounding face of the chain");
+  near(f.faceShift!.rounds!.k, 1.5 / 2, 1e-9);
 });

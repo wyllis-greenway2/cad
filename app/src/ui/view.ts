@@ -10,7 +10,7 @@ import type { Grid } from "../interaction/api.ts";
 import { createWorld } from "./world.ts";
 import { createPen, clearGroup, ringOf, sphereAt } from "./view/pen.ts";
 import { buildContent } from "./view/content.ts";
-import type { BodyMesh, Shift } from "./view/content.ts";
+import type { BodyMesh, Shift, SharpShape } from "./view/content.ts";
 import { buildHighlight, TEAL } from "./view/highlight.ts";
 import { buildGizmo } from "./view/gizmo.ts";
 import type { GizmoView } from "./view/gizmo.ts";
@@ -57,6 +57,8 @@ export function createView(host: HTMLElement) {
     shifter = built ? built.shift : null;
     shiftedFace = null;
     faceKeys = null;
+    roundSig = null;
+    roundGroups = null;
     if (bodyGroup) { bodyGroup.matrix.fromArray(bodyMatrix ?? IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
     applyFade();
   }
@@ -66,17 +68,34 @@ export function createView(host: HTMLElement) {
   let shifter: ((keys: Set<string> | null, how: Shift) => void) | null = null;
   let shiftedFace: string | null = null;
   let faceKeys: Set<string> | null = null;
+  let roundSig: string | null = null;
+  let roundGroups: { keys: Set<string>; sharp: SharpShape }[] | null = null;
   const IDENTITY = new Array<number>(16).fill(0).map((_, i) => (i % 5 === 0 ? 1 : 0));
   overlay.matrixAutoUpdate = false;
   /** The body (and, when what is selected is the body, its highlight) drawn moved by a matrix: a body being dragged is not worked out again by the kernel for every move of the pointer (`in_216`). */
   /** A face of the body pulled or pushed along its normal, drawn at once (`in_217`): the points that lie where the face's do move by `by`, and what is selected (the face) with them. */
-  function setFaceShift(f: { face: string; by?: [number, number, number]; radial?: { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }; scaled?: { point: readonly number[]; dir: readonly number[]; k: number }; columns?: { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[]; edge: { a: readonly number[]; da: readonly number[]; b: readonly number[]; db: readonly number[] } | null }; withOverlay: boolean } | null) {
+  function setFaceShift(f: { face: string; by?: [number, number, number]; radial?: { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }; rounds?: { k: number; groups: { face: string; sharp: SharpShape }[] }; columns?: { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[]; edge: { a: readonly number[]; da: readonly number[]; b: readonly number[]; db: readonly number[] } | null }; withOverlay: boolean } | null) {
     if (!shifter) return;
-    if (!f) { if (shiftedFace !== null) { shifter(null, { by: [0, 0, 0] }); shiftedFace = null; } return; }
+    if (!f) { overlay.visible = true; if (shiftedFace !== null) { shifter(null, { by: [0, 0, 0] }); shiftedFace = null; } return; }
+    overlay.visible = true;
     const p = lastScene?.parts[f.face as never] as { mesh?: readonly number[] } | undefined;
     if (!p?.mesh) return;
     if (shiftedFace !== f.face || !faceKeys) { faceKeys = new Set<string>(); for (let i = 0; i + 2 < p.mesh.length; i += 3) faceKeys.add(`${Math.round(p.mesh[i]! * 1e3)},${Math.round(p.mesh[i + 1]! * 1e3)},${Math.round(p.mesh[i + 2]! * 1e3)}`); }
-    const how: Shift | null = f.by ? { by: f.by } : f.radial ?? (f.scaled ? f.scaled : f.columns ? { axis: f.columns.axis, items: f.columns.items } : null);
+    let how: Shift | null = f.by ? { by: f.by } : f.radial ?? (f.columns ? { axis: f.columns.axis, items: f.columns.items } : null);
+    if (f.rounds) {
+      // each rounding face with its sharp edge (found once for the faces, not on every move)
+      const sig = f.rounds.groups.map((g) => g.face).join("|");
+      if (roundSig !== sig || !roundGroups) {
+        roundSig = sig;
+        roundGroups = f.rounds.groups.map((g) => {
+          const q = lastScene?.parts[g.face as never] as { mesh?: readonly number[] } | undefined;
+          const keys = new Set<string>();
+          for (let i = 0; q?.mesh && i + 2 < q.mesh.length; i += 3) keys.add(`${Math.round(q.mesh[i]! * 1e3)},${Math.round(q.mesh[i + 1]! * 1e3)},${Math.round(q.mesh[i + 2]! * 1e3)}`);
+          return { keys, sharp: g.sharp };
+        });
+      }
+      how = { k: f.rounds.k, groups: roundGroups };
+    }
     if (!how) return;
     shifter(faceKeys, how);
     shiftedFace = f.face;
@@ -88,9 +107,12 @@ export function createView(host: HTMLElement) {
       overlay.matrix.makeTranslation(c[0]!, c[1]!, c[2]!).multiply(new THREE.Matrix4().makeScale(sc[0]!, sc[1]!, sc[2]!)).multiply(new THREE.Matrix4().makeTranslation(-c[0]!, -c[1]!, -c[2]!));
       overlay.matrixWorldNeedsUpdate = true;
     }
-    if (f.withOverlay && f.scaled) {
+    const mine = f.rounds?.groups.find((g) => g.face === f.face)?.sharp;
+    if (f.withOverlay && f.rounds && mine?.kind === "circle") overlay.visible = false; // (a stretch about a circle is not one matrix: what is selected is not drawn while it is dragged)
+    if (f.withOverlay && f.rounds && mine?.kind === "line") {
       // what is selected (the rounding) is scaled the same way: across the sharp edge, about it
-      const { point: c, dir: u, k } = f.scaled;
+      const { point: c, dir: u } = mine;
+      const k = f.rounds.k;
       const U = new THREE.Vector3(u[0]!, u[1]!, u[2]!);
       const lin = new THREE.Matrix4().set(
         1 + (k - 1) * (1 - U.x * U.x), -(k - 1) * U.x * U.y, -(k - 1) * U.x * U.z, 0,

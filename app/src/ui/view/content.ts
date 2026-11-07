@@ -13,8 +13,9 @@ export type Shift =
   | { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }
   /** the points that stand over moved corners of a sketch (in a line along `axis` through the corner) move with them (`in_219`) */
   | { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[] }
-  /** the points are scaled by `k` across a line (a fillet or chamfer of another size is the same cross-section, scaled about the sharp edge, `in_220`) */
-  | { point: readonly number[]; dir: readonly number[]; k: number };
+  /** a fillet or chamfer of another size is the same cross-section scaled by `k` about its sharp edge (a line, or a circle), edge by edge (`in_220`, `in_222`) */
+  | { k: number; groups: { keys: Set<string>; sharp: SharpShape }[] };
+export type SharpShape = { kind: "line"; point: readonly number[]; dir: readonly number[] } | { kind: "circle"; center: readonly number[]; axis: readonly number[]; radius: number };
 
 export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array }
 
@@ -85,16 +86,45 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
   let live: THREE.BufferAttribute | null = null;
   const at = (a: ArrayLike<number>, i: number) => `${Math.round(a[i]! * 1e3)},${Math.round(a[i + 1]! * 1e3)},${Math.round(a[i + 2]! * 1e3)}`;
   let seen: Set<string> | null = null;
+  let seenGroups: unknown = null;
+  let groupOf = new Int16Array(0);
+  let groupOfEdge = new Int16Array(0);
   let vertexHits: Uint8Array = new Uint8Array(0);
   let edgeHits: Uint8Array = new Uint8Array(0);
   const hitsOf = (keys: Set<string>, from: ArrayLike<number>): Uint8Array => { const h = new Uint8Array(from.length / 3); for (let i = 0; i < h.length; i++) h[i] = keys.has(at(from, 3 * i)) ? 1 : 0; return h; };
   const shift = (keys: Set<string> | null, how: Shift) => {
     if (!live) { if (!keys) return; live = new THREE.BufferAttribute(Float32Array.from(orig), 3); g.setAttribute("position", live); }
+    if ("groups" in how && keys && how.groups !== seenGroups) {
+      seenGroups = how.groups;
+      groupOf = new Int16Array(orig.length / 3).fill(-1);
+      how.groups.forEach((g, gi) => { for (let i = 0; i < groupOf.length; i++) if (groupOf[i]! < 0 && g.keys.has(at(orig, 3 * i))) groupOf[i] = gi; });
+      groupOfEdge = new Int16Array(edgeOrig.length / 3).fill(-1);
+      how.groups.forEach((g, gi) => { for (let i = 0; i < groupOfEdge.length; i++) if (groupOfEdge[i]! < 0 && g.keys.has(at(edgeOrig, 3 * i))) groupOfEdge[i] = gi; });
+    }
     if (keys && keys !== seen) { seen = keys; vertexHits = hitsOf(keys, orig); edgeHits = hitsOf(keys, edgeOrig); } // (found once for the face, not on every move)
-    const move = (target: Float32Array, from: ArrayLike<number>, hits: Uint8Array) => {
+    const move = (target: Float32Array, from: ArrayLike<number>, hits: Uint8Array, groupOf: Int16Array) => {
       for (let i = 0; i < hits.length; i++) {
         let [dx, dy, dz] = [0, 0, 0];
-        if (keys && "items" in how) {
+        if (keys && "groups" in how) {
+          const g = groupOf[i]! >= 0 ? how.groups[groupOf[i]!]! : null;
+          if (g) {
+            const [x, y, z] = [from[3 * i]!, from[3 * i + 1]!, from[3 * i + 2]!];
+            if (g.sharp.kind === "line") {
+              const [px, py, pz] = [x - g.sharp.point[0]!, y - g.sharp.point[1]!, z - g.sharp.point[2]!];
+              const along = px * g.sharp.dir[0]! + py * g.sharp.dir[1]! + pz * g.sharp.dir[2]!;
+              [dx, dy, dz] = [(how.k - 1) * (px - along * g.sharp.dir[0]!), (how.k - 1) * (py - along * g.sharp.dir[1]!), (how.k - 1) * (pz - along * g.sharp.dir[2]!)];
+            } else {
+              // about a circle: in the plane through the axis and the point, the point is scaled about where the circle is
+              const c = g.sharp;
+              const [px, py, pz] = [x - c.center[0]!, y - c.center[1]!, z - c.center[2]!];
+              const zz = px * c.axis[0]! + py * c.axis[1]! + pz * c.axis[2]!;
+              const [rx, ry, rz] = [px - zz * c.axis[0]!, py - zz * c.axis[1]!, pz - zz * c.axis[2]!];
+              const rho = Math.hypot(rx, ry, rz) || 1e-9;
+              const rho2 = c.radius + how.k * (rho - c.radius);
+              [dx, dy, dz] = [(rx / rho) * (rho2 - rho) + c.axis[0]! * (how.k - 1) * zz, (ry / rho) * (rho2 - rho) + c.axis[1]! * (how.k - 1) * zz, (rz / rho) * (rho2 - rho) + c.axis[2]! * (how.k - 1) * zz];
+            }
+          }
+        } else if (keys && "items" in how) {
           const [ax, ay, az] = [how.axis[0]!, how.axis[1]!, how.axis[2]!];
           const [x, y, z] = [from[3 * i]!, from[3 * i + 1]!, from[3 * i + 2]!];
           const k = x * ax + y * ay + z * az;
@@ -104,11 +134,7 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
           }
         } else if (keys && hits[i]) {
           if ("by" in how) [dx, dy, dz] = how.by;
-          else if ("k" in how) {
-            const [px, py, pz] = [from[3 * i]! - how.point[0]!, from[3 * i + 1]! - how.point[1]!, from[3 * i + 2]! - how.point[2]!];
-            const along = px * how.dir[0]! + py * how.dir[1]! + pz * how.dir[2]!;
-            [dx, dy, dz] = [(how.k - 1) * (px - along * how.dir[0]!), (how.k - 1) * (py - along * how.dir[1]!), (how.k - 1) * (pz - along * how.dir[2]!)];
-          }
+
           else if ("center" in how) {
             // out from the axis (a round wall made wider): the way from the axis to the point, across it
             const [px, py, pz] = [from[3 * i]! - how.center[0]!, from[3 * i + 1]! - how.center[1]!, from[3 * i + 2]! - how.center[2]!];
@@ -122,9 +148,9 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
       }
     };
     if (!keys) { vertexHits = new Uint8Array(orig.length / 3); edgeHits = new Uint8Array(edgeOrig.length / 3); seen = null; }
-    move(live.array as Float32Array, orig, vertexHits);
+    move(live.array as Float32Array, orig, vertexHits, groupOf);
     live.needsUpdate = true;
-    if (edgePos) { move(edgePos.array as Float32Array, edgeOrig, edgeHits); edgePos.needsUpdate = true; }
+    if (edgePos) { move(edgePos.array as Float32Array, edgeOrig, edgeHits, groupOfEdge); edgePos.needsUpdate = true; }
   };
   return { material, body, shift };
 }

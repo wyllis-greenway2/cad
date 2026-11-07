@@ -20,6 +20,8 @@ import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } 
 import type { Session } from "./session.ts";
 import { opCommand, bodyMotion, faceDrag, radiusDrag, sideDrag, edgeDrag, valueOf } from "./operations.ts";
 import { matrixOf } from "../operation/frames.ts";
+import { sharpOfPoints, smoothChain, adjacentOk, roundingFaces } from "../operation/roundings.ts";
+import type { Sharp, SharpEdge } from "../operation/roundings.ts";
 import type { Command } from "../operation/commands.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
 import type { AppState } from "./control/state.ts";
@@ -100,21 +102,29 @@ let gpuBase: { history: Session["history"]; outcome: Session["outcome"]; made: b
 /** The step the last drag of a whole-body motion was (its matrix and how many steps came before it): while the kernel is still working its result out, that is what the stale picture is moved by (`in_216`). */
 let lastDrag: { matrix: number[] | null; face: FaceShift | null; step: string | null; depth: number; param: "depth" | "value"; circle: { ref: Ref; radius: number } | null; corners: { ref: Ref; to: Vec3 }[] | null; steps: number } | null = null;
 /** A face drawn moved: the whole face by `by`, or a round wall's points out from (in towards) its axis by `radial.dr` (`in_217`, `in_218`). */
-export type FaceShift = { face: Ref; by?: Vec3; radial?: { center: Vec3; axis: Vec3; dr: number; r0: number }; /** the body's points that stand over moved corners of the sketch (along `axis`) move with them (`in_219`); `edge` is the face's own edge, to move what is selected with it */ scaled?: { point: Vec3; dir: Vec3; k: number }; columns?: { axis: Vec3; items: { at: Vec3; by: Vec3 }[]; edge: { a: Vec3; da: Vec3; b: Vec3; db: Vec3 } | null } };
+export type FaceShift = { face: Ref; by?: Vec3; radial?: { center: Vec3; axis: Vec3; dr: number; r0: number }; /** the body's points that stand over moved corners of the sketch (along `axis`) move with them (`in_219`); `edge` is the face's own edge, to move what is selected with it */ rounds?: { k: number; groups: { face: Ref; sharp: Sharp }[] }; columns?: { axis: Vec3; items: { at: Vec3; by: Vec3 }[]; edge: { a: Vec3; da: Vec3; b: Vec3; db: Vec3 } | null } };
 /**
  * A new fillet or chamfer on one straight edge (`in_221`): its cross-section is the same shape at every size, scaled about the sharp edge, so the kernel makes it once at a size (the reference) and
  * every size the pointer goes to after that is that result scaled, on the graphics card. Asked again for a new reference only when the size has grown a lot (so the arc keeps enough points).
  */
-let edgeRef: { key: string; want: number; ready: { R0: number; res: { scene: Scene; outcome: CompileOutcome }; face: Ref } | null; failed: number | null } | null = null;
+let edgeRef: { key: string; want: number; ready: { R0: number; res: { scene: Scene; outcome: CompileOutcome }; groups: { face: Ref; sharp: Sharp }[] } | null; failed: number | null } | null = null;
 let refMemo: { history: Session["history"]; outcome: Session["outcome"]; key: string; value: { scene: Scene; outcome: CompileOutcome } | null } | null = null;
 function edgeNew(s: AppState, op: Op, base: Session): { wait: true } | { face: FaceShift; shown: { scene: Scene; outcome: CompileOutcome } } | null {
   const sc = sceneOf(base);
-  const line = op.kind === "edge" && op.parts.length === 1 ? sc.parts[op.parts[0]!] : undefined;
   const v = op.kind === "edge" ? valueOf(op) : null;
-  if (line?.kind !== "line" || line.origin !== "body" || line.circle || line.a === line.b || v === null || v === 0) return null;
-  const [pa, pb] = [sc.parts[line.a], sc.parts[line.b]];
-  if (pa?.kind !== "corner" || pb?.kind !== "corner") return null;
-  if (line.mid) return null; // (a curved edge has its middle given: not scaled about a line)
+  if (op.kind !== "edge" || v === null || v === 0 || !op.parts.length) return null;
+  // the sharp edges: lines and circles of the body, that meet smoothly if they meet, between faces for which the rounding is the same shape at any size (`in_222`)
+  const edges: SharpEdge[] = [];
+  for (const r of op.parts) {
+    const l = sc.parts[r];
+    if (l?.kind !== "line" || l.origin !== "body") return null;
+    const [pa, pb] = [sc.parts[l.a], sc.parts[l.b]];
+    if (pa?.kind !== "corner" || pb?.kind !== "corner") return null;
+    const e = sharpOfPoints(pa.at, pb.at, l.mid ?? null, l.circle);
+    if (!e || !adjacentOk(sc, e, l.mid ?? null)) return null;
+    edges.push(e);
+  }
+  if (!smoothChain(edges)) return null;
   const key = JSON.stringify([op.parts, op.ranks ?? null, op.sigs ?? null, v > 0]);
   if (!edgeRef || edgeRef.key !== key) edgeRef = { key, want: Math.abs(v), ready: null, failed: null };
   if (edgeRef.ready && Math.abs(v) > 1.6 * edgeRef.ready.R0 && edgeRef.want !== Math.abs(v)) edgeRef.want = Math.abs(v); // (grown a lot: a new reference, the old one stands in until it is there)
@@ -129,13 +139,15 @@ function edgeNew(s: AppState, op: Op, base: Session): { wait: true } | { face: F
   if (res && !res.outcome.kernel?.stale) {
     if (Object.keys(res.outcome.errors).length) { edgeRef.failed = R; if (!edgeRef.ready) return null; }
     else if (!edgeRef.ready || edgeRef.ready.R0 !== R) {
-      const fresh = Object.values(res.scene.parts).filter((p) => p.kind === "plane" && p.origin === "body" && !(p.ref in sc.parts));
-      if (fresh.length !== 1) { edgeRef.failed = R; if (!edgeRef.ready) return null; }
-      else edgeRef.ready = { R0: R, res, face: fresh[0]!.ref };
+      // the faces the rounding made are small ones the body did not have (a wall that was cut shorter has a new name too, but it runs on far past the rounding); each is the rounding of the nearest edge, and
+      // every edge has one (else something else was made)
+      const faces = roundingFaces(res.scene, edges, 3 * R, (r) => r in sc.parts);
+      if (!edges.every((_, i) => faces.some((f) => f.edge === i))) { edgeRef.failed = R; if (!edgeRef.ready) return null; }
+      else edgeRef.ready = { R0: R, res, groups: faces.map((f) => ({ face: f.face, sharp: edges[f.edge]!.sharp })) };
     }
   }
   if (!edgeRef.ready) return { wait: true };
-  return { face: { face: edgeRef.ready.face, scaled: { point: pa.at, dir: normalize(sub(pb.at, pa.at)), k: Math.abs(v) / edgeRef.ready.R0 } }, shown: edgeRef.ready.res };
+  return { face: { face: edgeRef.ready.groups[0]!.face, rounds: { k: Math.abs(v) / edgeRef.ready.R0, groups: edgeRef.ready.groups } }, shown: edgeRef.ready.res };
 }
 
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
@@ -158,7 +170,7 @@ function gpuMotion(s: AppState): { matrix: number[] | null; face: FaceShift | nu
   if (!m && !fd && !rd && !sd && !ed) return null;
   if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
   const matrix = m ? matrixOf(m) : null;
-  const face: FaceShift | null = fd ? { face: fd.face, by: fd.by } : rd ? { face: rd.face, radial: rd.radial } : ed ? { face: ed.face, scaled: { point: ed.point, dir: ed.dir, k: ed.k } } : sd ? { face: sd.face, columns: { axis: sd.axis, items: sd.items.map((i) => ({ at: i.at, by: i.by })), edge: sd.edge } } : null;
+  const face: FaceShift | null = fd ? { face: fd.face, by: fd.by } : rd ? { face: rd.face, radial: rd.radial } : ed ? { face: ed.face, rounds: { k: ed.k, groups: ed.groups } } : sd ? { face: sd.face, columns: { axis: sd.axis, items: sd.items.map((i) => ({ at: i.at, by: i.by })), edge: sd.edge } } : null;
   lastDrag = { matrix, face, step: fd?.step ?? ed?.step ?? null, depth: fd?.depth ?? ed?.value ?? 0, param: ed ? "value" : "depth", circle: rd ? { ref: rd.circle, radius: rd.radius } : null, corners: sd ? sd.items.map((i) => ({ ref: i.ref, to: add(i.at, i.by) })) : null, steps: sceneOf(base).steps.length };
   return { matrix, face, shown: gpuBase.value };
 }
