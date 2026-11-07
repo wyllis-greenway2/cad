@@ -1081,3 +1081,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_212 — 2026-11-07 — question
 > When you say a new drawing join the extrusion profile, what does that really mean? like if you modify a drawing after extrusion then it extrudes as if it existed during extrusion? I am not sure we want to do this, I was thinking more like everything is always additive. So if you Modify the original lines or edges then yes, because those edges are literally part of the body, but if you add new lines or enclosed sketches then they could be extruded individually at that time after you draw them. What do you think?
+
+## in_213 — 2026-11-07 — approval
+> yes, record that as the decision
+(approves the additive rule proposed in reply to in_212)
