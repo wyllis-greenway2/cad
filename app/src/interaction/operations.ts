@@ -15,6 +15,7 @@ import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { lookup, nextId, figureParams } from "../operation/scene.ts";
 import { rimRanks, edgeSignatures } from "../operation/rims.ts";
+import { consumed } from "../operation/ownership.ts";
 import type { Figure } from "../operation/scene.ts";
 import type { Part, Plane, PointerView } from "../operation/part.ts";
 import { normalOfPlane, pointOf, curveMid, circumcentre } from "../operation/part.ts";
@@ -385,7 +386,8 @@ export function opCommand(scene: Scene, op: Op): Command | null {
     const pivot: Record<string, number> = op.pivot ? { px: op.pivot[0], py: op.pivot[1], pz: op.pivot[2] } : {};
     const steps = stepsBetween(bodyTurn(scene), rotTarget(scene, { ...op, value: null, typed: "" }));
     if (!steps.length) return null;
-    return { type: "batch", commands: steps.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: op.parts, params: { axis: t.axis, value: t.angle, ...pivot } } })) };
+    const follow: Record<string, number> = op.pivot ? { follow: 1 } : {};
+    return { type: "batch", commands: [...steps.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: op.parts, params: { axis: t.axis, value: t.angle, ...pivot, ...follow } } })), ...(op.pivot ? carrySketches(scene, steps.map((t) => ({ axis: t.axis, angle: t.angle })), [0, 0, 0], op.pivot) : [])] };
   }
   const v = valueOf(op);
   if (v === null) return null;
@@ -411,7 +413,31 @@ export function opCommand(scene: Scene, op: Op): Command | null {
     return op.kind === "rotate" ? figureCommand(scene, op, [{ axis: op.axis, angle: v }], [0, 0, 0]) : figureCommand(scene, op, [], scale(([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Vec3[])[op.axis]!, v));
   }
   const pivot: Record<string, number> = op.kind === "rotate" && op.pivot ? { px: op.pivot[0], py: op.pivot[1], pz: op.pivot[2] } : {};
-  return v === 0 ? null : { type: "addStep", step: { id, type: op.kind as "move" | "rotate", parts: op.parts, params: { axis: op.axis, value: v, ...pivot } } };
+  if (v === 0) return null;
+  // the whole body: the step, and the sketches that made it carried along with it (`in_204`)
+  const carried = op.kind === "move" || (op.kind === "rotate" && !!op.pivot);
+  const step: Command = { type: "addStep", step: { id, type: op.kind as "move" | "rotate", parts: op.parts, params: { axis: op.axis, value: v, ...pivot, ...(carried ? { follow: 1 } : {}) } as Record<string, number> } };
+  if (!carried || op.target !== "body") return step;
+  const carry = op.kind === "move" ? carrySketches(scene, [], scale(([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Vec3[])[op.axis]!, v), [0, 0, 0]) : carrySketches(scene, [{ axis: op.axis, angle: v }], [0, 0, 0], op.pivot!);
+  return carry.length ? { type: "batch", commands: [step, ...carry] } : step;
+}
+
+/**
+ * The sketches that made the body go with it when it is moved or turned (`in_204`): every drawn part an extrude used is moved or turned the same way with its plane (`transformFigure`), so they stay attached to the body
+ * as a continuation of the recipe, and the extrude reads them back through the step (`compiler/graph.ts`). A constraint that ties one of them to something that is not carried (a free drawing, the world, the body) cannot hold
+ * after a motion of only one side: it is let go, with the corners pinned in place.
+ */
+function carrySketches(scene: Scene, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3, pivot: Vec3): Command[] {
+  const used = consumed(scene);
+  const parts = [...used].filter((r) => { const p = scene.parts[r]; return p && p.origin === "drawn" && p.movable && (p.kind === "corner" || p.kind === "line" || p.kind === "circle") && !("derived" in p && p.derived) && !!p.plane; });
+  if (!parts.length) return [];
+  const carried = new Set<Ref>(parts);
+  const released = scene.relations.filter((r) => r.parts.some((q) => carried.has(q)) && (r.kind === "fixed" || r.parts.some((q) => !carried.has(q))));
+  const byPlane = new Map<Ref, Ref[]>();
+  for (const r of parts) { const pl = scene.parts[r]!.plane!; byPlane.set(pl, [...(byPlane.get(pl) ?? []), r]); }
+  const base = nextId(scene, "p");
+  const moves = [...byPlane.entries()].map(([plane, ps], k): Command => ({ type: "transformFigure", parts: ps, plane, newPlane: drawnRef(`${base}.k${k}`), turns, pivot, translate }));
+  return [...released.map((r): Command => ({ type: "removeRelation", id: r.id })), ...moves];
 }
 
 /** Scaling a drawn figure by a factor about its middle: corners move to scaled places, a circle gets a scaled radius. What fixes a size (fixed corners, lengths, diameters) is let go, as for moving. */

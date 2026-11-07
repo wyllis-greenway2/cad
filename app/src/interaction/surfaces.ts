@@ -81,7 +81,7 @@ export function surfaceTriangles(get: Lookup, p: Part): number[] | null {
 }
 
 /** A polygon with holes as one polygon: each hole is joined to the outside by a bridge (two coincident edges) from its nearest vertex to the nearest outer vertex that can be seen from it. */
-export function withHoles2d(outer: [number, number][], holes: [number, number][][]): [number, number][] {
+function withHoles2d(outer: [number, number][], holes: [number, number][][]): [number, number][] {
   const orient = (p: [number, number][]) => p.reduce((s, a, i) => s + (p[(i + 1) % p.length]![0] - a[0]) * (p[(i + 1) % p.length]![1] + a[1]), 0); // > 0: clockwise
   let ring = orient(outer) > 0 ? [...outer].reverse() : [...outer]; // counter-clockwise
   const crosses = (a: [number, number], b: [number, number], c: [number, number], d: [number, number]) => {

@@ -10,7 +10,7 @@ import { pickOpts } from "./control/state.ts";
 import { projector, eyeDistance, mixOf } from "./camera.ts";
 
 const r4 = (v: number) => Math.round(v * 1e4) / 1e4;
-export const camSummary = (c: AppState["cam"]) => ({ target: c.target.map(r4), distance: r4(c.distance), azimuth: r4(c.azimuth), elevation: r4(c.elevation), straight: c.straight, mix: c.mix === undefined ? 1 : r4(c.mix), eyeDistance: r4(eyeDistance(c)), perspective: r4(mixOf(c)) });
+const camSummary = (c: AppState["cam"]) => ({ target: c.target.map(r4), distance: r4(c.distance), azimuth: r4(c.azimuth), elevation: r4(c.elevation), straight: c.straight, mix: c.mix === undefined ? 1 : r4(c.mix), eyeDistance: r4(eyeDistance(c)), perspective: r4(mixOf(c)) });
 
 /** One line of the log of what the human did: the intent, shortened (and the camera after it, for the intents that move the view). */
 export function logEntry(i: Intent, s: AppState, t: number): Record<string, unknown> {
@@ -18,7 +18,7 @@ export function logEntry(i: Intent, s: AppState, t: number): Record<string, unkn
   return { t: Math.round(t), ...Object.fromEntries(Object.entries(i).map(([k, v]) => [k, typeof v === "number" ? r4(v) : v])), ...(move ? { cam: camSummary(s.cam) } : {}) };
 }
 
-export interface Extras { intents: unknown[]; window: { w: number; h: number; dpr: number }; device: string; userAgent: string; build: string; scrollMode: string; at: string; pointer: { x: number; y: number } | null }
+export interface Extras { intents: unknown[]; viewport: { w: number; h: number; dpr: number }; device: string; userAgent: string; build: string; scrollMode: string; at: string; pointer: { x: number; y: number } | null }
 
 export function snapshotOf(s: AppState, extras: Extras): Record<string, unknown> {
   const sc = sceneOf(s.session);
@@ -26,10 +26,10 @@ export function snapshotOf(s: AppState, extras: Extras): Record<string, unknown>
   const kinds: Record<string, number> = {};
   for (const p of Object.values(sc.parts)) { const k = `${p.origin}/${p.kind}`; kinds[k] = (kinds[k] ?? 0) + 1; }
   const k = outcome.kernel;
-  const under = extras.pointer ? candidatesAt(sc, projector(s.cam, extras.window.w, extras.window.h).view(extras.pointer.x, extras.pointer.y), pickOpts(s)).slice(0, 8).map((c) => `${c.kind}:${c.ref}`) : [];
+  const under = extras.pointer ? candidatesAt(sc, projector(s.cam, extras.viewport.w, extras.viewport.h).view(extras.pointer.x, extras.pointer.y), pickOpts(s)).slice(0, 8).map((c) => `${c.kind}:${c.ref}`) : [];
   return {
     what: "cad state snapshot (in_200): open `project` as a file to get the model back",
-    at: extras.at, build: extras.build, window: extras.window, device: extras.device, userAgent: extras.userAgent, scrollMode: extras.scrollMode,
+    at: extras.at, build: extras.build, viewport: extras.viewport, device: extras.device, userAgent: extras.userAgent, scrollMode: extras.scrollMode,
     camera: camSummary(s.cam),
     selection: [...selectionOf(s.session)],
     hover: s.session.hover ?? null,

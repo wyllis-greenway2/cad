@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { worldRef } from "../src/shared/ref.ts";
 import { kernel } from "../src/compiler/kernel/index.ts";
-import { createSession, run, scene, openSession } from "../src/interaction/session.ts";
+import { createSession, run, scene, openSession, undoLast } from "../src/interaction/session.ts";
 import { drawCircle, drawChain, drawRectangle } from "../src/operation/build.ts";
 import { startOp, opCommand, typeOp } from "../src/interaction/operations.ts";
 import { actionsFor } from "../src/interaction/actions.ts";
@@ -205,4 +205,59 @@ test("nothing of an extruded shape is left visible where the body was: the arcs 
   assert.equal(left.length, 1);
   assert.ok(!consumedOf(scene(q)).has(left[0]!.ref), "the other piece is not used up");
   assert.ok(!consumedOf(scene(q)).has(parts(q).find((p) => p.kind === "circle")!.ref), "the circle is still there for the other piece");
+});
+
+// ---- the sketch follows the body (`in_204`) ----
+test("moving or turning the body carries the sketches that made it, and the body is the same as a plain move: the sketch stays attached as a continuation of the recipe", () => {
+  const make = () => {
+    let s = createSession(kernel);
+    const c = drawCircle(scene(s), XY, [5, 5, 0], 8);
+    s = run(s, c.command);
+    s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: [c.circle], params: { depth: 10 } } });
+    return { s, c };
+  };
+  const { s, c } = make();
+  const before = s.outcome.kernel!;
+  const st = startOp(scene(s), ["b/body/o" as never], "move") as { ok: true; op: Parameters<typeof typeOp>[0] };
+  const moved = run(s, opCommand(scene(s), { ...st.op, value: 30 })!);
+  assert.deepEqual(moved.outcome.errors, {});
+  const k = moved.outcome.kernel!;
+  assert.ok(Math.abs(k.volume! - before.volume!) < 1e-6);
+  assert.ok(Math.abs(k.bbox!.min[0] - (before.bbox!.min[0] + 30)) < 1e-6, "the body moved by 30");
+  const corner = scene(moved).parts[(scene(moved).parts[c.circle] as unknown as { center: string }).center] as unknown as { at: number[] };
+  assert.ok(Math.abs(corner.at[0]! - 35) < 1e-6 && Math.abs(corner.at[1]! - 5) < 1e-6, `the sketch's centre went with the body (${corner.at})`);
+  // a turn about Z by 90 degrees: the sketch turned with it
+  const r1 = startOp(scene(s), ["b/body/o" as never], "rotate") as { ok: true; op: Parameters<typeof typeOp>[0] };
+  const turned = run(s, opCommand(scene(s), { ...r1.op, axis: 2, value: 90 })!);
+  assert.deepEqual(turned.outcome.errors, {});
+  const c2 = scene(turned).parts[(scene(turned).parts[c.circle] as unknown as { center: string }).center] as unknown as { at: number[] };
+  const body = turned.outcome.kernel!.bbox!;
+  const mid = [(body.min[0] + body.max[0]) / 2, (body.min[1] + body.max[1]) / 2];
+  assert.ok(Math.hypot(c2.at[0]! - mid[0]!, c2.at[1]! - mid[1]!) < 1e-4, `the sketch's centre is at the middle of the turned body (${c2.at} vs ${mid})`);
+  // the sketch is at the body, so pulling the body's wall changes the circle that is there (the edit by step finds it after a move)
+  const wall = parts(moved).find((p) => p.kind === "plane" && p.origin === "body" && p.curved)!;
+  assert.equal(faceEdit(scene(moved), wall.ref)?.kind, "radius", "the wall is the circle of the carried sketch");
+  // a move made before this change (no follow mark) is not read back: files keep their meaning
+  const old = run(s, { type: "addStep", step: { id: "s_101", type: "move", parts: ["b/body/o" as never], params: { axis: 0, value: 30 } } });
+  assert.ok(Math.abs(old.outcome.kernel!.bbox!.min[0] - (before.bbox!.min[0] + 30)) < 1e-6);
+});
+
+test("the cut-shape file: moved and turned, the body is the same shape in a new place and every sketch part is still hidden with it", () => {
+  const r = openSession(kernel, readFileSync(new URL("./fixtures/stadium-move.cad.json", import.meta.url), "utf8"));
+  assert.ok(r.ok);
+  const s = r.value;
+  const v0 = s.outcome.kernel!.volume!;
+  const mv = startOp(scene(s), ["b/body/o" as never], "move") as { ok: true; op: Parameters<typeof typeOp>[0] };
+  const a = run(s, opCommand(scene(s), { ...mv.op, value: 30 })!);
+  assert.deepEqual(a.outcome.errors, {});
+  assert.ok(Math.abs(a.outcome.kernel!.volume! - v0) < 1e-3);
+  const ro = startOp(scene(a), ["b/body/o" as never], "rotate") as { ok: true; op: Parameters<typeof typeOp>[0] };
+  const b = run(a, opCommand(scene(a), { ...ro.op, axis: 2, value: 35 })!);
+  assert.deepEqual(b.outcome.errors, {});
+  assert.ok(Math.abs(b.outcome.kernel!.volume! - v0) < 1e-3, "a turned body is the same body");
+  const used = consumedOf(scene(b));
+  assert.deepEqual(parts(b).filter((p) => p.origin === "drawn" && p.movable && (p.kind === "line" || p.kind === "corner") && !used.has(p.ref)).map((p) => p.ref), []);
+  // undo takes the whole motion back, the sketch too
+  const back = undoLast(b);
+  assert.ok(Math.abs(back.outcome.kernel!.bbox!.min[0] - a.outcome.kernel!.bbox!.min[0]) < 1e-6);
 });

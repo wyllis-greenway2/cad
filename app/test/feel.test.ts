@@ -122,7 +122,7 @@ test("the state snapshot has what is needed to see what the human sees, can be w
   let st = createState(s);
   st = reduce(st, { type: "zoom", factor: 0.8, x: 400, y: 300 }, env);
   const log = [logEntry({ type: "zoom", factor: 0.8, x: 400, y: 300 }, st, 12.34)];
-  const snap = snapshotOf(st, { intents: log, window: { w: 800, h: 600, dpr: 2 }, device: "mouse", userAgent: "test", build: "x", scrollMode: "auto", at: "now", pointer: { x: 400, y: 300 } });
+  const snap = snapshotOf(st, { intents: log, viewport: { w: 800, h: 600, dpr: 2 }, device: "mouse", userAgent: "test", build: "x", scrollMode: "auto", at: "now", pointer: { x: 400, y: 300 } });
   const text = JSON.stringify(snap);
   const back = JSON.parse(text) as Record<string, unknown> & { camera: { distance: number }; kernel: { volume: number }; project: unknown; intents: { cam: unknown }[] };
   assert.ok(Math.abs(back.camera.distance - st.cam.distance) < 1e-3);
@@ -130,5 +130,5 @@ test("the state snapshot has what is needed to see what the human sees, can be w
   assert.ok(back.intents[0]!.cam, "a camera intent carries the camera after it");
   const reopened = openSession(kernel, JSON.stringify(back.project));
   assert.ok(reopened.ok, "the project in the snapshot opens again");
-  for (const key of ["selection", "tool", "op", "world", "message", "kernel", "scene", "history", "settings", "underPointer", "window"]) assert.ok(key in back, key);
+  for (const key of ["selection", "tool", "op", "world", "message", "kernel", "scene", "history", "settings", "underPointer", "viewport"]) assert.ok(key in back, key);
 });

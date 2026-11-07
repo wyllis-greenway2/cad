@@ -10,12 +10,14 @@ import { normalOfPlane, pointOf, loopSteps } from "../operation/part.ts";
 import type { KernelGraph, KernelOp } from "./kernel/adapter.ts";
 import { decodeEdge, decodeFace } from "./body.ts";
 import { loopOf } from "../operation/loops.ts";
+import { NONE, applyPoint, applyDir, inverse, laterMotion } from "../operation/frames.ts";
+import type { Rigid } from "../operation/frames.ts";
 export { loopOf };
 
 export interface GraphResult { graph: KernelGraph; errors: Record<string, string> }
 
 const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
-const frameOf = (pl: Plane) => ({ origin: [...pl.at], xDir: [...normalize(pl.u)], normal: [...normalOfPlane(pl)] });
+const frameOf = (pl: Plane, back: Rigid = NONE) => ({ origin: [...applyPoint(back, pl.at)], xDir: [...applyDir(back, normalize(pl.u))], normal: [...applyDir(back, normalOfPlane(pl))] });
 const to2d = (pl: Plane, p: Vec3): [number, number] => {
   const d = sub(p, pl.at);
   return [r6(d[0] * pl.u[0] + d[1] * pl.u[1] + d[2] * pl.u[2]), r6(d[0] * pl.v[0] + d[1] * pl.v[1] + d[2] * pl.v[2])];
@@ -32,19 +34,20 @@ export function buildGraph(scene: Scene): GraphResult {
   const profile = (st: Step, refs: readonly Ref[] = st.parts, sid = `s_${st.id}`): KernelOp | string => {
     const first = get(refs[0]!);
     if (!first) return "a part of this step is gone";
+    const back = inverse(laterMotion(scene.steps, scene.steps.indexOf(st))); // (the sketch is carried with the body; the extrude reads it back through the moves and turns that came after it, `in_204`)
     const plane = first.plane ? get(first.plane) : undefined;
     if (!plane || plane.kind !== "plane") return "the shape is not on a plane";
     const id = sid;
     if (first.kind === "circle") {
       const c = pointOf(get, first.center);
       if (!c) return "the circle's centre is gone";
-      return { id, type: "sketch", shape: "circle", radius: r6(first.radius), at: to2d(plane, c), plane: "XY", origin: 0, frame: frameOf(plane) };
+      return { id, type: "sketch", shape: "circle", radius: r6(first.radius), at: to2d(plane, c), plane: "XY", origin: 0, frame: frameOf(plane, back) };
     }
     const loop = loopOf(get, refs);
     if (!loop.ok) return loop.error;
     if (loop.corners.some((c) => !pointOf(get, c))) return "a corner of the shape is gone";
     const steps = loopSteps(get, refs, loop.corners); // (a side that is an arc has its middle point: the kernel draws a true arc through the two corners and it)
-    return { id, type: "sketch", shape: "polygon", points: steps.map((p) => to2d(plane, p.at)), ...(steps.some((p) => p.mid) ? { mids: steps.map((p) => (p.mid ? to2d(plane, p.mid) : null)) } : {}), plane: "XY", origin: 0, frame: frameOf(plane) };
+    return { id, type: "sketch", shape: "polygon", points: steps.map((p) => to2d(plane, p.at)), ...(steps.some((p) => p.mid) ? { mids: steps.map((p) => (p.mid ? to2d(plane, p.mid) : null)) } : {}), plane: "XY", origin: 0, frame: frameOf(plane, back) };
   };
 
   for (const st of scene.steps) {

@@ -118,7 +118,7 @@ function logIntent(i: Intent) {
 /** A file of everything about the state of the page, to send for a bug report (the project in it can be opened again). */
 function shareState() {
   const at = new Date();
-  const snap = snapshotOf(state, { intents: intentLog, window: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: typeof __BUILD__ === "string" ? __BUILD__ : "", scrollMode: recognizer.scrollMode, at: at.toISOString(), pointer });
+  const snap = snapshotOf(state, { intents: intentLog, viewport: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: typeof __BUILD__ === "string" ? __BUILD__ : "", scrollMode: recognizer.scrollMode, at: at.toISOString(), pointer });
   const name = `cad-state-${at.toISOString().replace(/[:.]/g, "-").slice(0, 19)}.json`;
   webFiles.save(name, JSON.stringify(snap, null, 1));
   state = { ...state, session: { ...state.session, message: `saved ${name}: send that file` } };
@@ -190,7 +190,7 @@ async function boot() {
     candidatesAt: (x: number, y: number) => candidatesAt(scene(state.session), projector(state.cam, view.size().w, view.size().h).view(x, y), { pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx }),
     frame: () => frameOf(state, view.size()),
     load: (text: string) => { const r = openSession(engine, text); if (r.ok) adopt(r.value); return r.ok },
-    snapshot: () => snapshotOf(state, { intents: intentLog, window: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: "", scrollMode: recognizer.scrollMode, at: new Date().toISOString(), pointer }),
+    snapshot: () => snapshotOf(state, { intents: intentLog, viewport: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: "", scrollMode: recognizer.scrollMode, at: new Date().toISOString(), pointer }),
     dispatch, run: (c: Command) => { state = { ...state, session: run(state.session, c) }; dirty = true; },
   };
   requestAnimationFrame(frame);

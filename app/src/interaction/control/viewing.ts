@@ -16,7 +16,7 @@ import { pivotOf, planeOf } from "../objects.ts";
 import type { AppState, Env } from "./state.ts";
 import { pickOpts, stop, surfacePoint, planeView, animateTo, withSession } from "./state.ts";
 
-export const WORLD_PLANE = { X: "YZ", Y: "XZ", Z: "XY" } as const; // X looks along the X axis: at the plane across it
+const WORLD_PLANE = { X: "YZ", Y: "XZ", Z: "XY" } as const; // X looks along the X axis: at the plane across it
 
 const withoutMix = (c: AppState["cam"]): AppState["cam"] => { const { mix: _unused, ...rest } = c; return rest; };
 

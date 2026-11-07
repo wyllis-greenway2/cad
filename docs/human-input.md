@@ -1042,3 +1042,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_203 — 2026-11-07 — question
 > Okay I think we may be agreeing though, so we agree that it is just a set of steps in a recipe, so at some point ever body originated from a sketch that declared one of its surfaces, all I am saying is that sketch can be modified via body modifications that change that face, and its location in space can change. But these are still all sets of steps like in a recipe right? The key is that we just don't split a copy of the sketch when the body moves away from it, we already have its existence recorded in history, so why not just let it continue being modified and fully attached to the body as a continuation of recipe steps?
+
+## in_204 — 2026-11-07 — approval
+> yes, build it

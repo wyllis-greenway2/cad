@@ -72,7 +72,7 @@ test("Move offers X Y Z arrows at the body; dragging one moves the body that way
   nearV(bbox(st).min, [10, 0, 0]);
   nearV(bbox(st).max, [50, 20, 20]);
   assert.equal(scene(st.session).steps.at(-1)!.type, "move");
-  assert.deepEqual(scene(st.session).steps.at(-1)!.params, { axis: 0, value: 10 });
+  assert.deepEqual(scene(st.session).steps.at(-1)!.params, { axis: 0, value: 10, follow: 1 });
   assert.ok(st.op, "still open: drag again");
   const g2 = gizmoOf(st)!;
   nearV(g2.centre, [30, 10, 10]);
