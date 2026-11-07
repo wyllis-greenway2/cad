@@ -10,8 +10,9 @@ import { add, scale, sub, dot, cross, normalize, mid, length } from "../math/vec
 import type { Scene } from "../operation/scene.ts";
 import { lookup } from "../operation/scene.ts";
 import { buildMap } from "../operation/ownership.ts";
+import { sketchOfEdge } from "../operation/edgesource.ts";
 import type { Lookup } from "../operation/part.ts";
-import { pointOf, segmentOf, circleOf } from "../operation/part.ts";
+import { pointOf, segmentOf, circleOf, curveMid } from "../operation/part.ts";
 import { actionsFor } from "./actions.ts";
 import { lengthEditable } from "./lengths.ts";
 import { surfaceTriangles } from "./surfaces.ts";
@@ -162,7 +163,23 @@ function annotationOf(scene: Scene, rel: Scene["relations"][number], sel: readon
 }
 
 /** What each selected part has applied, one annotation per constraint (a constraint between two selected parts is shown once), then the measure of the selection that could be locked. */
-export function annotationsFor(scene: Scene, selection: readonly Ref[], focus: string | null): Annotation[] {
+export function annotationsFor(scene: Scene, selection0: readonly Ref[], focus: string | null): Annotation[] {
+  // an edge of the body that lies where a sketch part was says what that part says (its radius, its constraints), and its numbers are shown on the edge (`in_209`)
+  const src = selection0.length === 1 ? sketchOfEdge(scene, selection0[0]!) : null;
+  const selection = src ? [src.ref] : selection0;
+  const out0 = [...annotationsOf0(scene, selection, focus), ...(src ? arcRadius(scene, src.ref) : [])];
+  return src ? out0.map((a) => ({ ...a, at: add(a.at, src.shift), lines: a.lines.map((ln) => ln.map((q) => add(q, src.shift))) })) : out0;
+}
+/** The radius of an arc of a sketch (a whole circle already has its radius and diameter among the actions): the number is shown, it cannot be typed over here. */
+function arcRadius(scene: Scene, ref: Ref): Annotation[] {
+  const l = scene.parts[ref];
+  if (l?.kind !== "line" || !l.center) return [];
+  const [c, a] = [scene.parts[l.center], scene.parts[l.a]];
+  const m = curveMid(lookup(scene), l);
+  if (c?.kind !== "corner" || a?.kind !== "corner" || !m) return [];
+  return [{ id: "radius", relationId: null, kind: "radius", label: "Radius", at: m, symbol: "R", value: Math.round(Math.hypot(...sub(a.at, c.at)) * 1e4) / 1e4, unit: "mm", locked: false, editable: false, readOnly: true, broken: false, open: false, others: [], lines: [] }];
+}
+function annotationsOf0(scene: Scene, selection: readonly Ref[], focus: string | null): Annotation[] {
   const sel = selection.filter((r) => isPart(scene, r)); // planes, faces and the body have no constraints of their own
   const map = buildMap(scene);
   // what a selected line or circle has applied includes what its end points and centre have (a coincident, a point on a circle): selecting the part always shows its constraints (`in_195`)

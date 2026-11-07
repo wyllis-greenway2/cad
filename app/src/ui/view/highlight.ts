@@ -2,7 +2,7 @@
 // balls for picked lines and corners, amber for what a relation ties the selection to.
 import * as THREE from "three";
 import type { Scene, Ref, Vec3, Plane } from "../../interaction/api.ts";
-import { outlineOf, lookup, settings, normalOfPlane, consumed, faceEdges } from "../../interaction/api.ts";
+import { outlineOf, lookup, settings, normalOfPlane, consumed, faceEdges, edgeCentre } from "../../interaction/api.ts";
 import type { Camera } from "../../interaction/camera.ts";
 import { surfaceTriangles } from "../../interaction/surfaces.ts";
 import { hoverOrb, selectOrb, fullOrb, orbMaterial, selectedLook } from "../orb.ts";
@@ -141,6 +141,8 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
   for (const r of h.selection) mark(r, "select");
   // a selected arc or circle shows its centre vertex too, so it can be picked to line the curve up with other things (`in_143`)
   for (const r of h.selection) { const p = get(r); if (p && (p.kind === "circle" || (p.kind === "line" && p.center)) && p.center && !h.selection.includes(p.center)) mark(p.center, "hover"); }
+  // a selected curved edge of the body shows its middle too, as the curve of a sketch does (`in_209`)
+  for (const r of h.selection) { const p = get(r); const c = p && p.kind === "line" && p.origin === "body" ? edgeCentre(s, p) : null; if (c) overlay.add(sphereAt(c, unit * settings.pick.vertexScale * 0.7, 0x2b2b2d, false)); }
   if (h.hover && !h.selection.includes(h.hover)) {
     mark(h.hover, "hover");
     const hp = get(h.hover);

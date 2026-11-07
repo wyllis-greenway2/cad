@@ -2,7 +2,7 @@
 // change the step that made the face, so the steps after it are worked out again and nothing new is made: the end of an extrusion changes the extrusion's depth; the wall of an extruded
 // circle (a post, or the wall of a hole) changes that circle's radius, so a chamfer on its rim goes with it. Where the step that made the face cannot be told, the old way (a prism) is used.
 import type { Ref } from "../shared/ref.ts";
-import { dot } from "../math/vec.ts";
+import { dot, sub, scale } from "../math/vec.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { figureRefs } from "../operation/scene.ts";
@@ -20,7 +20,7 @@ export type FaceEdit =
   | { kind: "side"; corners: Ref[]; normal: Vec3 }
   /** a fillet or chamfer face: the size of the step that rounded or bevelled the edge (pulling the face out towards the sharp corner makes it smaller) */
   | { kind: "edgeSize"; step: string; value: number }
-  | { kind: "radius"; circle: Ref; radius: number; convex: boolean; /** a locked diameter on the circle, which has to be the one changed */ diameter?: string };
+  | { kind: "radius"; circle: Ref; radius: number; convex: boolean; /** a locked diameter on the circle, which has to be the one changed */ diameter?: string; /** the circle was cut into arcs by lines and is gone: `circle` is the arc of the sketch this wall comes from, and its two ends move along the lines they are on */ arc?: true };
 
 const near = (a: number, b: number, tol = 1e-3) => Math.abs(a - b) <= tol;
 
@@ -53,18 +53,36 @@ function wallOfCircle(scene: Scene, c: Curved): FaceEdit | null {
       const ref = arc?.kind === "line" && arc.derived && arc.center ? Object.values(scene.parts).find((q) => q.kind === "circle" && q.center === arc.center && near(q.radius, c.radius))?.ref ?? r0 : r0;
       if (found.some((x) => x.kind === "radius" && x.circle === ref)) continue;
       const part = scene.parts[ref];
+      if (part?.kind === "line" && part.center && ref === r0) { const a = arcWall(scene, r0, c); if (a && !found.some((x) => x.kind === "radius" && x.circle === a.circle)) found.push(a); continue; }
       if (part?.kind !== "circle") continue;
       const pl = part.plane ? scene.parts[part.plane] : undefined;
       const centre = scene.parts[part.center];
       if (!pl || pl.kind !== "plane" || centre?.kind !== "corner") continue;
       const n = normalOfPlane(pl);
-      if (Math.abs(Math.abs(n[c.axis]!) - 1) > 1e-6 || !near(part.radius, c.radius)) continue;
-      if ([0, 1, 2].some((i) => i !== c.axis && !near(centre.at[i]!, c.center[i]!))) continue;
+      const axis: Vec3 = c.dir ?? (c.axis === 0 ? [1, 0, 0] : c.axis === 1 ? [0, 1, 0] : [0, 0, 1]); // (a turned body's wall has its axis as a direction, `in_209`)
+      if (Math.abs(Math.abs(dot(n, axis)) - 1) > 1e-5 || !near(part.radius, c.radius, c.dir ? 2e-3 : undefined)) continue;
+      const off = sub(centre.at, c.center);
+      if (Math.hypot(...sub(off, scale(axis, dot(off, axis)))) > 2e-3) continue;
       const rel = scene.relations.find((r) => r.kind === "diameter" && r.parts.length === 1 && r.parts[0] === ref && r.locked !== false);
       found.push({ kind: "radius", circle: ref, radius: part.radius, convex: c.convex, ...(rel ? { diameter: rel.id } : {}) });
     }
   }
   return found.length === 1 ? found[0]! : null;
+}
+
+/** The wall of an arc of an extruded sketch (its circle was cut into arcs by lines and is gone): the sketch's own arc this derived piece comes from, if it has the face's radius and axis. */
+function arcWall(scene: Scene, piece: Ref, c: Curved): Extract<FaceEdit, { kind: "radius" }> | null {
+  const own = scene.parts[piece];
+  const src = own?.kind === "line" && !own.derived ? own : scene.parts[`d/${piece.split("@")[1] ?? ""}`]; // (an arc of the sketch itself, or the piece of one that lines cut)
+  if (src?.kind !== "line" || !src.center || src.derived) return null;
+  const [a, ctr] = [scene.parts[src.a], scene.parts[src.center]];
+  const pl = src.plane ? scene.parts[src.plane] : undefined;
+  if (a?.kind !== "corner" || ctr?.kind !== "corner" || !pl || pl.kind !== "plane") return null;
+  const radius = Math.hypot(...sub(a.at, ctr.at));
+  const axis: Vec3 = c.dir ?? (c.axis === 0 ? [1, 0, 0] : c.axis === 1 ? [0, 1, 0] : [0, 0, 1]);
+  const off = sub(ctr.at, c.center);
+  if (!near(radius, c.radius, 2e-3) || Math.abs(Math.abs(dot(normalOfPlane(pl), axis)) - 1) > 1e-5 || Math.hypot(...sub(off, scale(axis, dot(off, axis)))) > 2e-3) return null;
+  return { kind: "radius", circle: src.ref, radius, convex: c.convex, arc: true };
 }
 
 const faceOf = (scene: Scene, ref: Ref): Plane | null => { const p = scene.parts[ref]; return p?.kind === "plane" ? p : null; };
@@ -177,5 +195,34 @@ export function editCommand(scene: Scene, edit: FaceEdit, v: number): Command | 
   }
   const radius = Math.round((edit.radius + (edit.convex ? v : -v)) * 1e6) / 1e6;
   if (!(radius > 1e-6)) return null;
+  if (edit.arc) return arcCommand(scene, edit.circle, radius);
   return edit.diameter ? { type: "setRelationValue", id: edit.diameter, value: 2 * radius, locked: true } : { type: "setRadius", ref: edit.circle, radius };
+}
+
+/** A new radius for an arc whose circle is gone: both ends slide along the lines they are on to the new radius about the same middle (the arc keeps its lines, `in_209`). Null if a line does not reach that radius. */
+function arcCommand(scene: Scene, arc: Ref, radius: number): Command | null {
+  const l = scene.parts[arc];
+  if (l?.kind !== "line" || !l.center) return null;
+  const ctr = scene.parts[l.center];
+  if (ctr?.kind !== "corner") return null;
+  const moves: Command[] = [];
+  for (const endRef of [l.a, l.b]) {
+    const end = scene.parts[endRef];
+    const rel = scene.relations.find((r) => r.kind === "onLine" && r.parts[0] === endRef);
+    // the line the end slides along: the one it is put on, or a straight side of the sketch that ends there
+    const line = rel ? scene.parts[rel.parts[1]!] : Object.values(scene.parts).find((q) => q.kind === "line" && q.origin === "drawn" && !q.center && !q.bulge && (q.a === endRef || q.b === endRef));
+    const [p, q] = line?.kind === "line" ? [scene.parts[line.a], scene.parts[line.b]] : [];
+    if (end?.kind !== "corner" || p?.kind !== "corner" || q?.kind !== "corner") return null;
+    const d = sub(q.at, p.at);
+    const f = sub(p.at, ctr.at);
+    const A = dot(d, d), B = 2 * dot(f, d), C = dot(f, f) - radius * radius;
+    const disc = B * B - 4 * A * C;
+    if (A < 1e-12 || disc < 0) return null;
+    const ts = [(-B - Math.sqrt(disc)) / (2 * A), (-B + Math.sqrt(disc)) / (2 * A)];
+    const at = ts.map((t): Vec3 => [p.at[0] + d[0] * t, p.at[1] + d[1] * t, p.at[2] + d[2] * t]);
+    const best = at.reduce((x, y) => (Math.hypot(...sub(y, end.at)) < Math.hypot(...sub(x, end.at)) ? y : x));
+    // the corners that sit on the same spot (the ends of the lines that meet the arc there) go with it, or the sketch would come apart
+    for (const q of Object.values(scene.parts)) if (q.kind === "corner" && q.origin === "drawn" && q.movable && Math.hypot(...sub(q.at, end.at)) < 1e-4) moves.push({ type: "movePart", ref: q.ref, to: best });
+  }
+  return { type: "batch", commands: moves };
 }

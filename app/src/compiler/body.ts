@@ -81,7 +81,7 @@ export function bodyParts(result: KernelResult): Part[] {
       const m = result.mesh;
       if (m) for (let i = f.start; i < f.start + f.count; i++) { const ix = m.triangles[i]!; mesh.push(m.vertices[ix * 3]!, m.vertices[ix * 3 + 1]!, m.vertices[ix * 3 + 2]!); }
       const mid: Vec3 = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
-      out.push({ ...base, ref: bodyRef("body", `s@${String(f.surface)},${key([...lo, ...hi])}`), kind: "plane", at: mid, u: [1, 0, 0], v: [0, 1, 0], rounded: String(f.surface), ...(typeof f.radius === "number" ? { radius: f.radius } : {}), ...(f.axisOf ? { round: f.axisOf as { axis: 0 | 1 | 2; center: Vec3; convex: boolean } } : {}), ...(mesh.length ? { mesh } : {}) });
+      out.push({ ...base, ref: bodyRef("body", `s@${String(f.surface)},${key([...lo, ...hi])}`), kind: "plane", at: mid, u: [1, 0, 0], v: [0, 1, 0], rounded: String(f.surface), ...(typeof f.radius === "number" ? { radius: f.radius } : {}), ...(f.axisOf ? { round: f.axisOf as { axis: 0 | 1 | 2; center: Vec3; convex: boolean; dir?: Vec3 } } : {}), ...(mesh.length ? { mesh } : {}) });
       continue;
     }
     if (!f.n || f.d === undefined) continue;

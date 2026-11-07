@@ -1066,3 +1066,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_208 — 2026-11-07 — directive
 > yes refuse it and flash the constraints instead of adding a prism, I will take your recommendations. Also before you go to far building that, I noticed your last fixes didn't really fix. The selections now look extremely crazy with lines everywhere. See screenshot. Also I still cant pull and push the chamfer like I used to on other objects, or the body surfaces. And now it is really buggy and pulling a flat surface still collapses it, and then leave behind weird blocky things. See the state and model files attached. Maybe your last fix was a bad approach?
 (with the model file `a5aec971-model.cad_15.json`, a state snapshot and a screenshot)
+
+## in_209 — 2026-11-07 — approval
+> yes go ahead and build both
+(approves building: arrows on the round walls of a turned body (cylinder axis as a vector from the kernel), and option (a) of `q_body_edges_as_sketch`: body edges show the hidden sketch part's info)

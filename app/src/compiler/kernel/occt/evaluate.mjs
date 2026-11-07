@@ -68,7 +68,17 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
           have.turn += uv.uMax - uv.uMin;
           round.set(key, have);
         }
-        else other.push(f); // a cylinder that is not along a world axis
+        else {
+          // a cylinder that is not along a world axis (a turned body): selectable, and it says where its axis is, so its wall can be pushed and pulled as the circle it comes from (`in_209`)
+          const pt = f.pointOnSurface(0.25, 0.5);
+          const nn = f.normalAt(pt);
+          const o = [loc.X(), loc.Y(), loc.Z()];
+          const along = (pt.x - o[0]) * d[0] + (pt.y - o[1]) * d[1] + (pt.z - o[2]) * d[2];
+          const rad = [pt.x - o[0] - d[0] * along, pt.y - o[1] - d[1] * along, pt.z - o[2] - d[2] * along];
+          const big = d.map(Math.abs).indexOf(Math.max(...d.map(Math.abs)));
+          partOf.set(f.hashCode, { axis: big, center: o.map((v) => Math.round(v * 1e4) / 1e4), convex: nn.x * rad[0] + nn.y * rad[1] + nn.z * rad[2] > 0, dir: d.map((v) => Math.round(v * 1e6) / 1e6) });
+          other.push(f);
+        }
         continue;
       }
       if (g && f.geomType !== "PLANE") { other.push(f); continue; } // a cone, a sphere, a fillet: shown as a curved face you can select

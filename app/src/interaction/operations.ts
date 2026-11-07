@@ -160,10 +160,12 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
       const tris: Vec3[] = [];
       for (let i = 0; i + 8 < m.length; i += 9) tris.push(scale(add(add([m[i]!, m[i + 1]!, m[i + 2]!], [m[i + 3]!, m[i + 4]!, m[i + 5]!]), [m[i + 6]!, m[i + 7]!, m[i + 8]!]), 1 / 3));
       const mid = centroid(tris);
-      const radial = (q: Vec3): Vec3 => { const d: [number, number, number] = [...sub(q, f.round!.center)]; d[f.round!.axis] = 0; const l = Math.hypot(...d); return l < 1e-9 ? [1, 0, 0] : scale(d, (f.round!.convex ? 1 : -1) / l); };
+      const rd = f.round!;
+      const axisDir: Vec3 = rd.dir ?? (rd.axis === 0 ? [1, 0, 0] : rd.axis === 1 ? [0, 1, 0] : [0, 0, 1]);
+      const radial = (q: Vec3): Vec3 => { const o = sub(q, rd.center); const d = sub(o, scale(axisDir, dot(o, axisDir))); const l = Math.hypot(...d); return l < 1e-9 ? [1, 0, 0] : scale(d, (rd.convex ? 1 : -1) / l); };
       const at = tris.reduce((b, q) => (Math.hypot(...sub(q, mid)) < Math.hypot(...sub(b, mid)) ? q : b), tris[0]!);
       const edit = faceEdit(scene, f.ref)!;
-      return { ok: true, op: { ...base, parts: [f.ref], origin: at, normal: radial(at), curved: { axis: f.round.axis, center: f.round.center, radius: f.radius, lo: 0, hi: 0, convex: f.round.convex }, edit, dim: { base: 2 * f.radius, scale: f.round.convex ? 2 : -2 } } };
+      return { ok: true, op: { ...base, parts: [f.ref], origin: at, normal: radial(at), ...(rd.dir ? { rounded: true } : { curved: { axis: rd.axis, center: rd.center, radius: f.radius, lo: 0, hi: 0, convex: rd.convex } }), edit, dim: { base: 2 * f.radius, scale: f.round.convex ? 2 : -2 } } };
     }
     if (f.rounded) {
       // a fillet or chamfer face: pulling it (out, towards the sharp corner) makes the rounding smaller, pushing it makes it bigger: the size of the step that made it

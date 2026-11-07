@@ -12,7 +12,8 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
   if (!cmd) {
     // a size that is nothing, or less (a radius of zero, a fillet of nothing): said, not ignored
     const v = valueOf(op);
-    return op.edit && v !== null && v !== 0 ? { session: { ...sess, message: "that size is not possible: it would be zero or less" }, cmd: { type: "batch", commands: [] } } : null;
+    const why = op.edit?.kind === "radius" && op.edit.arc ? "the lines on both ends of this arc do not reach that radius (they would have to move)" : "it would be zero or less";
+    return op.edit && v !== null && v !== 0 ? { session: { ...sess, message: `that size is not possible: ${why}` }, cmd: { type: "batch", commands: [] } } : null;
   }
   if (!op.edit || op.noEdit) return { session: run(sess, cmd), cmd };
   const prism0 = opCommand(sceneOf(sess), { ...op, noEdit: true });
