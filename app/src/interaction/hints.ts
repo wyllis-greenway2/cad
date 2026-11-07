@@ -7,6 +7,7 @@ import type { PointerView, Plane } from "../operation/part.ts";
 import { segmentOf, circleOf, normalOfPlane } from "../operation/part.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
+import { live } from "../operation/ownership.ts";
 import type { Command } from "../operation/commands.ts";
 import { settings } from "../shared/settings.ts";
 import { localOf } from "./tools.ts";
@@ -19,7 +20,8 @@ const lenOf = (v: V2) => Math.hypot(v[0], v[1]);
 const unit = (v: V2): V2 => { const l = lenOf(v) || 1; return [v[0] / l, v[1] / l]; };
 
 /** The end of a line from `start` that the pointer is at, `base` (already snapped to corners and the rounding), made to satisfy any constraint it is close to. */
-export function lineHint(scene: Scene, pl: Plane, start: Vec3, pv: PointerView, base: Vec3): { at: Vec3; hints: Hint[] } {
+export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, base: Vec3): { at: Vec3; hints: Hint[] } {
+  const scene = live(spent); // (what an extrude used up, or a deleted body took, is not there to suggest a constraint to)
   const none = { at: base, hints: [] as Hint[] };
   const n = normalOfPlane(pl);
   const onPlane = (p: Vec3) => Math.abs(dot(sub(p, pl.at), n)) < 1e-3;
@@ -120,7 +122,8 @@ export function hintCommand(scene: Scene, line: Ref, corner: Ref, h: Hint): Comm
 }
 
 /** The circle whose centre is exactly here, on this plane: drawing a circle's centre on it asks to make them concentric. */
-export function circleCentredAt(scene: Scene, pl: Plane, at: Vec3): Ref | null {
+export function circleCentredAt(spent: Scene, pl: Plane, at: Vec3): Ref | null {
+  const scene = live(spent);
   for (const c of Object.values(scene.parts)) {
     if (c.kind !== "circle" || c.origin !== "drawn" || c.plane !== pl.ref) continue;
     const centre = scene.parts[c.center];

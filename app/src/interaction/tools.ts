@@ -8,6 +8,7 @@ import type { PointerView, Plane } from "../operation/part.ts";
 import { normalOfPlane, pointOf, arcPoints } from "../operation/part.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
+import { live } from "../operation/ownership.ts";
 import type { Command } from "../operation/commands.ts";
 import { drawSquaredRectangle, drawCircle, drawChain, drawArc } from "../operation/build.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
@@ -55,7 +56,8 @@ const round = (v: number, step: number) => Math.round(v / step) * step;
  * The point to use for the pointer on a plane: a corner of the scene that is within the snap distance on the screen and on the plane, else the point rounded to
  * `roundMm` in the plane's own coordinates (so sizes read 40.00 and not 39.999999).
  */
-export function snapOnPlane(scene: Scene, pv: PointerView, pl: Plane, skip?: Ref): Vec3 | null {
+export function snapOnPlane(spent: Scene, pv: PointerView, pl: Plane, skip?: Ref): Vec3 | null {
+  const scene = live(spent); // (what is hidden is not snapped to)
   const raw = pointOnPlane(pv, pl);
   if (!raw) return null;
   for (const c of candidatesAt(scene, pv, { pointTol: settings.sketch.snapPx, lineTol: 0 })) {
@@ -142,8 +144,9 @@ export interface Preview {
   cursor: Vec3 | null;
 }
 /** Thin lines from the cursor to the corners it lines up with (level or upright), so you can see what it is aligned to. */
-function guidesOf(scene: Scene, pl: Plane, cursor: Vec3 | null): [Vec3, Vec3][] {
+function guidesOf(spent: Scene, pl: Plane, cursor: Vec3 | null): [Vec3, Vec3][] {
   if (!cursor) return [];
+  const scene = live(spent);
   const [cx, cy] = localOf(pl, cursor);
   const out: [Vec3, Vec3][] = [];
   for (const p of Object.values(scene.parts)) {

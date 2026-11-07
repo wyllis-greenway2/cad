@@ -153,3 +153,19 @@ test("a square with a diagonal: one triangle extruded, the other is still there 
   assert.deepEqual(s.outcome.errors, {});
   near(s.outcome.kernel!.volume!, 400 * 5, 0.5);
 });
+
+// ---- ghosts after a body is deleted (`in_191`) ----
+import { circleCentredAt } from "../src/interaction/hints.ts";
+
+test("nothing of a deleted body's sketches is suggested or snapped to: no concentric hint, no corner to snap to or join", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [3, 4, 0], 10);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: [c.circle], params: { depth: 5 } } });
+  s = run(s, { type: "addStep", step: { id: "s_101", type: "delete", parts: ["b/body/o" as never], params: {} } });
+  const xy = scene(s).parts[XY] as import("../src/operation/part.ts").Plane;
+  assert.equal(circleCentredAt(scene(s), xy, [3, 4, 0]), null, "the circle of the deleted cylinder is not offered as a concentric one");
+  assert.equal(parts(s).filter((p) => p.kind === "corner" && p.origin === "drawn").length, 1, "(the hidden corner is still in the scene: undo and the step list bring it back)");
+  const t = run(s, drawChain(scene(s), XY, [[3, 4, 0], [10, 4, 0]], false, { reuse: true }).command);
+  assert.equal(parts(t).filter((p) => p.kind === "corner" && p.origin === "drawn").length, 3, "a line started where the hidden corner is gets a corner of its own");
+});

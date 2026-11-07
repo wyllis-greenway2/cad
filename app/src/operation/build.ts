@@ -6,16 +6,18 @@ import { sub, dot, cross } from "../math/vec.ts";
 import { circumcentre } from "./part.ts";
 import type { Scene } from "./scene.ts";
 import { nextId } from "./scene.ts";
+import { live } from "./ownership.ts";
 import { formatId } from "../shared/ref.ts";
 import type { Command } from "./commands.ts";
 
 /** A line chain through points on a plane: corners d/e_N.p0.. and lines d/e_N.s0.. (closed adds the last line back to the first corner). Returns the command and the refs. */
 export function drawChain(s: Scene, plane: Ref, points: Vec3[], closed = false, opts: { bulges?: number[]; reuse?: boolean } = {}): { command: Command; corners: Ref[]; lines: Ref[] } {
   const id = nextId(s, "e");
+  const spent = live(s); // (a corner an extrude used up is not joined to)
   // with `reuse`, a point where a drawn corner already is on this plane is that corner (lines that meet share it, so a loop of them is a shape)
   const have = (at: Vec3): Ref | null => {
     if (!opts.reuse) return null;
-    const c = Object.values(s.parts).find((p) => p.kind === "corner" && p.origin === "drawn" && !p.derived && p.plane === plane && Math.hypot(p.at[0] - at[0], p.at[1] - at[1], p.at[2] - at[2]) < 1e-6);
+    const c = Object.values(spent.parts).find((p) => p.kind === "corner" && p.origin === "drawn" && !p.derived && p.plane === plane && Math.hypot(p.at[0] - at[0], p.at[1] - at[1], p.at[2] - at[2]) < 1e-6);
     return c?.ref ?? null;
   };
   const existing = points.map(have);

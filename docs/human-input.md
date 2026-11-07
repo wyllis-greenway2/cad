@@ -988,3 +988,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_190 — 2026-11-07 — directive
 > Also the world planes are kind of hard to select properly. Can we have it so that a world plane is always on and has a fine grid appearence, and can we make it so it is kind of deliberet to get on the wrong world plane. So What I am thinking is the floor grid is default on, and there are little semi transparent panes pulled slightly away from origin and in the xyz thing, and clicking those semi transparent panes should switch the world pane that is on and go orthographic to it. Only the pane that is on should have the mouse hover and the little blue circle fall on it. The xyz buttons should switch it as well.
+
+## in_191 — 2026-11-07 — directive
+> There still seems to be ghost things left behind after deleting a body. See this circle in this file was suggested to be concentric with a deleted cylinder.
+(with the model file `fac6e896-model.cad_10.json`)

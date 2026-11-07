@@ -57,6 +57,12 @@ export const broken = (map: OwnershipMap): OwnedItem[] => [...map.items.values()
  * The drawn parts an extrude has used up: its lines or circle, their corners, and the closed figure's face. They stay in the scene (undo and deleting the step bring them
  * back, and relations on them still hold) but are not drawn or picked while the step uses them, as in the prototype.
  */
+/** The scene without what an extrude has used up (and what a deleted body took with it): the drawing as it is to work on. Snapping, alignment and suggested constraints look here, so nothing hidden is suggested or snapped to. */
+export function live(s: Scene): Scene {
+  const used = consumed(s);
+  return used.size ? { ...s, parts: Object.fromEntries(Object.entries(s.parts).filter(([r]) => !used.has(r as Ref))) } : s;
+}
+
 export function consumed(s: Scene): Set<Ref> {
   const out = new Set<Ref>();
   for (const st of s.steps) {
