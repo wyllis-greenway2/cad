@@ -13,6 +13,8 @@ export type Shift =
   | { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }
   /** the points that stand over moved corners of a sketch (in a line along `axis` through the corner) move with them (`in_219`) */
   | { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[] }
+  /** the wall of an arc made wider (`in_225`): its points go out from the middle by `dr` and along the arc from where it began (`th0`, over `span`, turning `dir`) to where it begins now (`th0n`, over `spanN`); the points over moved corners move with them */
+  | { arcWall: { center: readonly number[]; axis: readonly number[]; u: readonly number[]; v: readonly number[]; th0: number; span: number; th0n: number; spanN: number; dir: 1 | -1; dr: number }; items: { at: readonly number[]; by: readonly number[] }[] }
   /** a fillet or chamfer of another size is the same cross-section scaled by `k` about its sharp edge (a line, or a circle), edge by edge (`in_220`, `in_222`) */
   | { k: number; groups: { keys: Set<string>; sharp: SharpShape }[] };
 export type SharpShape =
@@ -116,7 +118,34 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
     const move = (target: Float32Array, from: ArrayLike<number>, hits: Uint8Array, groupOf: Int16Array) => {
       for (let i = 0; i < hits.length; i++) {
         let [dx, dy, dz] = [0, 0, 0];
-        if (keys && "groups" in how) {
+        if (keys && "arcWall" in how) {
+          const [x, y, z] = [from[3 * i]!, from[3 * i + 1]!, from[3 * i + 2]!];
+          const a = how.arcWall;
+          if (hits[i]) {
+            const [px, py, pz] = [x - a.center[0]!, y - a.center[1]!, z - a.center[2]!];
+            const h = px * a.axis[0]! + py * a.axis[1]! + pz * a.axis[2]!;
+            const [qx, qy, qz] = [px - h * a.axis[0]!, py - h * a.axis[1]!, pz - h * a.axis[2]!];
+            const [cx, cy] = [qx * a.u[0]! + qy * a.u[1]! + qz * a.u[2]!, qx * a.v[0]! + qy * a.v[1]! + qz * a.v[2]!];
+            const rho = Math.hypot(cx, cy);
+            const TAU = 2 * Math.PI;
+            let f = ((a.dir * (Math.atan2(cy, cx) - a.th0)) % TAU + TAU) % TAU;
+            if (f > TAU - 1e-3) f = 0;
+            const s = Math.min(1, f / a.span);
+            const th = a.th0n + a.dir * s * a.spanN;
+            const rho2 = rho + a.dr;
+            [dx, dy, dz] = [
+              rho2 * (Math.cos(th) * a.u[0]! + Math.sin(th) * a.v[0]!) - (qx),
+              rho2 * (Math.cos(th) * a.u[1]! + Math.sin(th) * a.v[1]!) - (qy),
+              rho2 * (Math.cos(th) * a.u[2]! + Math.sin(th) * a.v[2]!) - (qz),
+            ];
+          } else {
+            const k = x * a.axis[0]! + y * a.axis[1]! + z * a.axis[2]!;
+            for (const it of how.items) {
+              const k0 = it.at[0]! * a.axis[0]! + it.at[1]! * a.axis[1]! + it.at[2]! * a.axis[2]!;
+              if (Math.hypot(x - k * a.axis[0]! - (it.at[0]! - k0 * a.axis[0]!), y - k * a.axis[1]! - (it.at[1]! - k0 * a.axis[1]!), z - k * a.axis[2]! - (it.at[2]! - k0 * a.axis[2]!)) < 2e-3) { [dx, dy, dz] = [it.by[0]!, it.by[1]!, it.by[2]!]; break; }
+            }
+          }
+        } else if (keys && "groups" in how) {
           const g = groupOf[i]! >= 0 ? how.groups[groupOf[i]!]! : null;
           if (g) {
             const [x, y, z] = [from[3 * i]!, from[3 * i + 1]!, from[3 * i + 2]!];
@@ -147,7 +176,7 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
               [dx, dy, dz] = [(rx / rho) * (rho2 - rho) + c.axis[0]! * (how.k - 1) * zz, (ry / rho) * (rho2 - rho) + c.axis[1]! * (how.k - 1) * zz, (rz / rho) * (rho2 - rho) + c.axis[2]! * (how.k - 1) * zz];
             }
           }
-        } else if (keys && "items" in how) {
+        } else if (keys && "items" in how && "axis" in how) {
           const [ax, ay, az] = [how.axis[0]!, how.axis[1]!, how.axis[2]!];
           const [x, y, z] = [from[3 * i]!, from[3 * i + 1]!, from[3 * i + 2]!];
           const k = x * ax + y * ay + z * az;

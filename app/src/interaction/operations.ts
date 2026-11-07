@@ -13,7 +13,7 @@ import type { Curved } from "../operation/part.ts";
 import type { FaceEdit } from "./faceedit.ts";
 import type { OffsetSource } from "./offset.ts";
 import { offsetSource, offsetCommand } from "./offset.ts";
-import { faceEdit, editCommand } from "./faceedit.ts";
+import { faceEdit, editCommand, arcCommand } from "./faceedit.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
@@ -497,6 +497,63 @@ export function radiusDrag(scene: Scene, op: Op): { face: Ref; radial: { center:
   if (!(e.radius + dr > 1e-3)) return null;
   const axis: Vec3 = "dir" in c && c.dir ? c.dir : c.axis === 0 ? [1, 0, 0] : c.axis === 1 ? [0, 1, 0] : [0, 0, 1];
   return { face: op.parts[0]!, radial: { center: c.center, axis, dr, r0: e.radius }, circle: e.circle, radius: e.radius + dr };
+}
+
+/**
+ * The wall of an arc of an extruded sketch (its circle was cut into arcs by lines and is gone) made wider or narrower (`in_225`): the arc keeps its middle, its two ends slide along their lines to the new radius (the
+ * same corners the edit moves, checked with the solver), so the wall's points go out from the middle by the change and along the arc to where its ends are now, and every point over a moved corner moves with it.
+ * Null for anything the kernel has to work out: a line that does not reach the new radius, a wall that is only part of the arc, a corner the solver will not move there.
+ */
+export function arcDrag(scene: Scene, op: Op): { face: Ref; arc: { center: Vec3; axis: Vec3; u: Vec3; v: Vec3; th0: number; span: number; th0n: number; spanN: number; dir: 1 | -1; dr: number }; items: { ref: Ref; at: Vec3; by: Vec3 }[] } | null {
+  const e = op.edit;
+  if (op.kind !== "pushpull" || op.noEdit || !e || e.kind !== "radius" || !e.arc || op.parts.length !== 1) return null;
+  const arc = scene.parts[e.circle];
+  if (arc?.kind !== "line" || !arc.center || !arc.plane) return null;
+  const at = extrudeIndexOf(scene, (r) => r === e.circle || (r.startsWith("d/arc@") && r.split("@")[1] === e.circle.slice(2)));
+  if (at < 0 || !motionsAfter(scene, at)) return null;
+  const v = valueOf(op);
+  if (v === null || v === 0) return null;
+  const dr = e.convex ? v : -v;
+  const radius = e.radius + dr;
+  if (!(radius > 1e-3)) return null;
+  // the wall is the whole arc: the piece the extrusion uses ends where the arc does
+  const piece = figureRefs(scene.steps[at]!).map((r) => scene.parts[r]).find((l) => l?.kind === "line" && l.derived && l.ref.split("@")[1] === e.circle.slice(2));
+  const [ca, cb] = [scene.parts[arc.a], scene.parts[arc.b]];
+  const [cc, pl] = [scene.parts[arc.center], scene.parts[arc.plane]];
+  if (ca?.kind !== "corner" || cb?.kind !== "corner" || cc?.kind !== "corner" || pl?.kind !== "plane") return null;
+  if (piece?.kind === "line") { const [pa, pb] = [scene.parts[piece.a], scene.parts[piece.b]]; if (pa?.kind !== "corner" || pb?.kind !== "corner") return null; const same = (x: Vec3, y: Vec3) => Math.hypot(...sub(x, y)) < 1e-3; if (!((same(pa.at, ca.at) && same(pb.at, cb.at)) || (same(pa.at, cb.at) && same(pb.at, ca.at)))) return null; }
+  const cmd = arcCommand(scene, e.circle, radius);
+  if (!cmd) return null;
+  const moved = apply(scene, cmd);
+  if (!moved.ok) return null;
+  const solved = solveScene(moved.value);
+  if (solved.planes.some((p) => p.status === "conflict")) return null;
+  const items: { ref: Ref; at: Vec3; by: Vec3 }[] = [];
+  for (const q of Object.values(scene.parts)) {
+    if (q.kind !== "corner" || q.origin !== "drawn" || q.plane !== arc.plane) continue;
+    const w = solved.scene.parts[q.ref];
+    if (w?.kind !== "corner") return null;
+    const by = sub(w.at, q.at);
+    if (Math.hypot(...by) > 1e-9) items.push({ ref: q.ref, at: q.at, by });
+  }
+  // the ends went where the edit wanted (a constraint that holds one would make the kernel decide)
+  const [na, nb] = [solved.scene.parts[arc.a], solved.scene.parts[arc.b]];
+  if (na?.kind !== "corner" || nb?.kind !== "corner") return null;
+  const want = (cmd.type === "batch" ? cmd.commands : [cmd]).filter((x): x is Extract<Command, { type: "movePart" }> => x.type === "movePart");
+  for (const m of want) { const got = solved.scene.parts[m.ref]; if (got?.kind === "corner" && Math.hypot(...sub(got.at, m.to)) > 1e-6) return null; }
+  const [u, w2] = [pl.u, pl.v];
+  const axis = normalOfPlane(pl);
+  const ang = (p: Vec3) => { const d = sub(p, cc.at); return Math.atan2(dot(d, w2), dot(d, u)); };
+  const mod = (x: number) => ((x % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  const mid = curveMid(lookup(scene), arc);
+  if (!mid) return null;
+  const [ta, tb, tm] = [ang(ca.at), ang(cb.at), ang(mid)];
+  const dir: 1 | -1 = mod(tm - ta) < mod(tb - ta) ? 1 : -1;
+  const span = dir === 1 ? mod(tb - ta) : mod(ta - tb);
+  const [tan, tbn] = [ang(na.at), ang(nb.at)];
+  const spanN = dir === 1 ? mod(tbn - tan) : mod(tan - tbn);
+  if (span < 1e-6 || spanN < 1e-6) return null;
+  return { face: op.parts[0]!, arc: { center: cc.at, axis, u, v: w2, th0: ta, span, th0n: tan, spanN, dir, dr }, items };
 }
 
 /**

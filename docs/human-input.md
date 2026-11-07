@@ -1121,3 +1121,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_224 — 2026-11-07 — approval
 > yes, do the remaining ones too
+
+## in_225 — 2026-11-07 — approval
+> yes, do the arc walls next

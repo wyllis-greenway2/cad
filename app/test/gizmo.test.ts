@@ -995,7 +995,7 @@ test("fillet / chamfer on the rim of a cylinder: the arrow stands on the rim, in
   assert.ok(d[2] > 0 && Math.hypot(d[0] - 0, d[1]) > 0, "out and up");
 });
 
-test("while the arrow of a round face is dragged, the size the pointer is at shows at once as rings (the body catches up); a small post is meshed finely", () => {
+test("while the arrow of a round face is dragged, the size the pointer is at shows at once (the wall itself is drawn wider, `in_218`; the thin rings that stood in for it, `in_165`, are no longer shown); a small post is meshed finely", () => {
   let s = createSession(kernel);
   const c = drawCircle(scene(s), XY, [0, 0, 0], 2);
   s = run(s, c.command);
@@ -1012,9 +1012,9 @@ test("while the arrow of a round face is dragged, the size the pointer is at sho
   st = reduce(st, { type: "hover", x, y }, env);
   st = reduce(st, { type: "orbit", dx: ((b[0] - a[0]) / len) * 8, dy: ((b[1] - a[1]) / len) * 8, x: x + ((b[0] - a[0]) / len) * 8, y: y + ((b[1] - a[1]) / len) * 8 }, env);
   const f = frame(st);
-  assert.ok(f.preview && f.preview.segments.length > 100, "rings and lines for the size now");
-  const radii = f.preview!.segments.slice(0, 64).map(([p]) => Math.hypot(p[0], p[1]));
-  near(radii[0]!, 2 + st.op!.value!, 1e-6);
+  assert.ok(f.faceShift?.radial, "the wall drawn at the size now");
+  near(f.faceShift!.radial!.dr, st.op!.value!, 1e-6);
+  assert.equal(f.preview, null, "no rings on top of it");
 });
 
 test("a post pulled taller is still one round wall: selecting it and changing the diameter changes the whole of it, not only the first part", () => {
@@ -1531,6 +1531,22 @@ test("a new fillet or chamfer on one straight edge is made once by the kernel (t
   }
 });
 
+/** How far a point is from the surface of a mesh (the nearest point of any of its triangles). */
+function meshDistance(real: { vertices: Float32Array; triangles: Uint32Array }, p: Vec3): number {
+  const tri = (i: number): Vec3[] => [0, 1, 2].map((c) => { const v = real.triangles[3 * i + c]!; return [real.vertices[3 * v]!, real.vertices[3 * v + 1]!, real.vertices[3 * v + 2]!] as Vec3; });
+  const dist = (q: Vec3, tr: Vec3[]): number => {
+    const [a, b, c] = tr as [Vec3, Vec3, Vec3];
+    const n = normalize(cross(sub(b, a), sub(c, a)));
+    const f = sub(q, scale(n, dot(sub(q, a), n)));
+    const inside = [[a, b], [b, c], [c, a]].every(([u, v]) => dot(cross(sub(v!, u!), sub(f, u!)), n) >= -1e-9);
+    if (inside) return Math.abs(dot(sub(q, a), n));
+    return Math.min(...[[a, b], [b, c], [c, a]].map(([u, v]) => { const e = sub(v!, u!); const t = Math.min(1, Math.max(0, dot(sub(q, u!), e) / dot(e, e))); return Math.hypot(...sub(q, add(u!, scale(e, t)))); }));
+  };
+  let best = Infinity;
+  for (let i = 0; i < real.triangles.length / 3; i++) best = Math.min(best, dist(p, tri(i)));
+  return best;
+}
+
 /** How far the points of a fillet's scaled rounding are from the surface the kernel really makes at that size (corners: scaled about the corner, strips: about their edge). */
 function scaledError(fx: ReturnType<typeof frameOf>, done: AppState): number {
   const groups = fx.faceShift?.rounds?.groups ?? [];
@@ -1558,21 +1574,10 @@ function scaledError(fx: ReturnType<typeof frameOf>, done: AppState): number {
     }
     return p;
   };
-  const tri = (i: number): Vec3[] => [0, 1, 2].map((c) => { const v = real.triangles[3 * i + c]!; return [real.vertices[3 * v]!, real.vertices[3 * v + 1]!, real.vertices[3 * v + 2]!] as Vec3; });
-  const dist = (p: Vec3, tr: Vec3[]): number => {
-    const [a, b, c] = tr as [Vec3, Vec3, Vec3];
-    // closest point of a triangle (the plane's foot if it is inside, else the nearest edge)
-    const n = normalize(cross(sub(b, a), sub(c, a)));
-    const f = sub(p, scale(n, dot(sub(p, a), n)));
-    const inside = [[a, b], [b, c], [c, a]].every(([u, v]) => dot(cross(sub(v!, u!), sub(f, u!)), n) >= -1e-9);
-    if (inside) return Math.abs(dot(sub(p, a), n));
-    return Math.min(...[[a, b], [b, c], [c, a]].map(([u, v]) => { const e = sub(v!, u!); const t = Math.min(1, Math.max(0, dot(sub(p, u!), e) / dot(e, e))); return Math.hypot(...sub(p, add(u!, scale(e, t)))); }));
-  };
-  const tris = Array.from({ length: real.triangles.length / 3 }, (_, i) => tri(i));
   let worstEdge = 0;
   for (const g of groups) {
     const m = (fx.scene.parts[g.face] as unknown as { mesh: number[] }).mesh;
-    for (let i = 0; i + 2 < m.length; i += 3) { const q = moved(g, [m[i]!, m[i + 1]!, m[i + 2]!]); worstEdge = Math.max(worstEdge, Math.min(...tris.map((t) => dist(q, t)))); }
+    for (let i = 0; i + 2 < m.length; i += 3) { const q = moved(g, [m[i]!, m[i + 1]!, m[i + 2]!]); worstEdge = Math.max(worstEdge, meshDistance(real, q)); }
   }
   return worstEdge;
 }
@@ -1800,4 +1805,41 @@ test("widening the round wall of a body that was turned about tilted axes is dra
   const realR = Array.from({ length: real.length / 3 }, (_, i) => dd([real[3 * i]!, real[3 * i + 1]!, real[3 * i + 2]!]));
   assert.ok(sample.every((p) => Math.abs(dd(p) - 12) < 1e-2), "12 from the axis");
   assert.ok(realR.some((r) => Math.abs(r - 12) < 1e-2), "and the real wall is 12 from it");
+});
+
+test("the wall of an arc whose circle is gone is made wider without the kernel: its points go out and along to the new ends, and the points over the moved corners with them; the scaled points lie on the real surface (`in_225`)", () => {
+  const sb = openSession(kernel, readFileSync(new URL("./fixtures/chain-body.cad.json", import.meta.url), "utf8")) as { ok: true; value: ReturnType<typeof createSession> };
+  const sc = scene(sb.value);
+  const walls = Object.values(sc.parts).filter((p) => p.kind === "plane" && p.origin === "body" && p.rounded === "CYLINDRE" && faceEdit(sc, p.ref)?.kind === "radius");
+  assert.ok(walls.length >= 2, "walls of the arcs");
+  const outer = walls.find((w) => { const e = faceEdit(sc, w.ref); return e?.kind === "radius" && e.convex; })!;
+  let st = reduce(select({ ...createState(sb.value), cam: homeCamera() }, [outer.ref]), { type: "begin", name: "pushpull" }, env);
+  st = { ...st, op: { ...st.op!, value: 0.6 } };
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok(f.faceShift?.arcs, "drawn without the kernel");
+  const { arcWall, items } = f.faceShift!.arcs!;
+  near(arcWall.dr, 0.6, 1e-9);
+  assert.ok(items.length >= 2, "the corners that move");
+  const done = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(done.session.message, null);
+  const real = done.session.outcome.kernel!.mesh!;
+  // every point of the wall, moved the way the picture moves it, is on the real surface
+  const part = f.scene.parts[f.faceShift!.face] as unknown as { mesh: number[] };
+  const TAU = 2 * Math.PI;
+  const mod = (x: number) => ((x % TAU) + TAU) % TAU;
+  let worst = 0;
+  for (let i = 0; i + 2 < part.mesh.length; i += 3) {
+    const p: Vec3 = [part.mesh[i]!, part.mesh[i + 1]!, part.mesh[i + 2]!];
+    const d = sub(p, arcWall.center);
+    const h = dot(d, arcWall.axis);
+    const q = sub(d, scale(arcWall.axis, h));
+    const [cx, cy] = [dot(q, arcWall.u), dot(q, arcWall.v)];
+    let fwd = mod(arcWall.dir * (Math.atan2(cy, cx) - arcWall.th0));
+    if (fwd > TAU - 1e-3) fwd = 0;
+    const th = arcWall.th0n + arcWall.dir * Math.min(1, fwd / arcWall.span) * arcWall.spanN;
+    const rho2 = Math.hypot(cx, cy) + arcWall.dr;
+    const moved = add(add(arcWall.center, scale(arcWall.axis, h)), add(scale(arcWall.u, rho2 * Math.cos(th)), scale(arcWall.v, rho2 * Math.sin(th))));
+    worst = Math.max(worst, meshDistance(real, moved));
+  }
+  assert.ok(worst < 2e-2, `a point of the wall is ${worst} from the real surface`);
 });

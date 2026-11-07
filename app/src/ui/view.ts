@@ -74,14 +74,14 @@ export function createView(host: HTMLElement) {
   overlay.matrixAutoUpdate = false;
   /** The body (and, when what is selected is the body, its highlight) drawn moved by a matrix: a body being dragged is not worked out again by the kernel for every move of the pointer (`in_216`). */
   /** A face of the body pulled or pushed along its normal, drawn at once (`in_217`): the points that lie where the face's do move by `by`, and what is selected (the face) with them. */
-  function setFaceShift(f: { face: string; by?: [number, number, number]; radial?: { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }; rounds?: { k: number; groups: { face: string; sharp: SharpShape }[] }; columns?: { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[]; edge: { a: readonly number[]; da: readonly number[]; b: readonly number[]; db: readonly number[] } | null }; withOverlay: boolean } | null) {
+  function setFaceShift(f: { face: string; by?: [number, number, number]; radial?: { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }; rounds?: { k: number; groups: { face: string; sharp: SharpShape }[] }; arcs?: { arcWall: { center: readonly number[]; axis: readonly number[]; u: readonly number[]; v: readonly number[]; th0: number; span: number; th0n: number; spanN: number; dir: 1 | -1; dr: number }; items: { at: readonly number[]; by: readonly number[] }[] }; columns?: { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[]; edge: { a: readonly number[]; da: readonly number[]; b: readonly number[]; db: readonly number[] } | null }; withOverlay: boolean } | null) {
     if (!shifter) return;
     if (!f) { overlay.visible = true; if (shiftedFace !== null) { shifter(null, { by: [0, 0, 0] }); shiftedFace = null; } return; }
     overlay.visible = true;
     const p = lastScene?.parts[f.face as never] as { mesh?: readonly number[] } | undefined;
     if (!p?.mesh) return;
     if (shiftedFace !== f.face || !faceKeys) { faceKeys = new Set<string>(); for (let i = 0; i + 2 < p.mesh.length; i += 3) faceKeys.add(`${Math.round(p.mesh[i]! * 1e3)},${Math.round(p.mesh[i + 1]! * 1e3)},${Math.round(p.mesh[i + 2]! * 1e3)}`); }
-    let how: Shift | null = f.by ? { by: f.by } : f.radial ?? (f.columns ? { axis: f.columns.axis, items: f.columns.items } : null);
+    let how: Shift | null = f.by ? { by: f.by } : f.arcs ? { arcWall: f.arcs.arcWall, items: f.arcs.items } : f.radial ?? (f.columns ? { axis: f.columns.axis, items: f.columns.items } : null);
     if (f.rounds) {
       // each rounding face with its sharp edge (found once for the faces, not on every move)
       const sig = f.rounds.groups.map((g) => g.face).join("|");
@@ -99,6 +99,7 @@ export function createView(host: HTMLElement) {
     if (!how) return;
     shifter(faceKeys, how);
     shiftedFace = f.face;
+    if (f.withOverlay && f.arcs) overlay.visible = false; // (a wall changing its span is not one matrix: what is selected is not drawn while it is dragged)
     if (f.withOverlay && f.radial) {
       // what is selected (the wall) widens with it: a stretch across the axis, about the axis
       const { center: c, axis: a, dr, r0 } = f.radial;
