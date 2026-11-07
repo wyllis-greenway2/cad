@@ -16,7 +16,7 @@ import { pivotOf, planeOf } from "../objects.ts";
 import type { AppState, Env } from "./state.ts";
 import { pickOpts, stop, surfacePoint, planeView, animateTo, withSession } from "./state.ts";
 
-const WORLD_PLANE = { X: "YZ", Y: "XZ", Z: "XY" } as const; // X looks along the X axis: at the plane across it
+export const WORLD_PLANE = { X: "YZ", Y: "XZ", Z: "XY" } as const; // X looks along the X axis: at the plane across it
 
 export const doOrbit = (s: AppState, i: Extract<Intent, { type: "orbit" }>): AppState =>
   ({ ...stop(s), cam: orbit(s.cam, -i.dx * settings.view.orbitRadPerPx, i.dy * settings.view.orbitRadPerPx, pivotOf(s.session)), menu: null });
@@ -28,7 +28,7 @@ export function doZoom(s: AppState, i: Extract<Intent, { type: "zoom" }>, env: E
   if (settings.input.zoomToCursor && i.factor < 1) {
     // zoom IN toward the surface under the cursor; zoom OUT is about the view centre (anchoring there would multiply the offset and lose the origin)
     const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
-    const c = candidatesAt(sceneOf(s.session), pv, pickOpts()).find((x) => x.rank === 2);
+    const c = candidatesAt(sceneOf(s.session), pv, pickOpts(s)).find((x) => x.rank === 2);
     const p = c ? surfacePoint(pv, c.score) : null;
     if (p && Math.hypot(...sub(p, s.cam.target)) <= settings.input.zoomAnchorMaxFactor * s.cam.distance) anchor = p;
   }
@@ -45,7 +45,7 @@ export function doLook(s: AppState, i: Extract<Intent, { type: "look" }>, env: E
   }
   const ref = worldRef(WORLD_PLANE[i.plane]);
   const selected: Session = { ...s.session, click: { ...initialClick(), selection: [ref] }, message: null };
-  return animateTo(withSession(s, selected), planeView(s.cam, get(ref) as Plane, true), env.now);
+  return animateTo({ ...withSession(s, selected), world: WORLD_PLANE[i.plane] }, planeView(s.cam, get(ref) as Plane, true), env.now); // (the plane that is on changes with it, `in_190`)
 }
 
 export const doHome = (s: AppState, env: Env): AppState => animateTo(s, { ...homeCamera(), target: pivotOf(s.session) ?? [0, 0, 0] }, env.now);
@@ -61,16 +61,13 @@ export function advance(s: AppState, now: number): AppState {
 
 /** The plane whose grid is shown: when looking straight at a plane, the selected plane (or a part on it) if it faces the camera, else the world plane that does. */
 export function gridPlaneOf(s: AppState): Plane | null {
-  if (!s.cam.straight) return null;
   const get = lookup(sceneOf(s.session));
   const facing = (pl: Plane) => sideOf(s.cam, normalOfPlane(pl)) !== 0;
-  for (const r of selectionOf(s.session)) {
-    const pl = planeOf(get, r);
-    if (pl && facing(pl)) return pl;
+  if (s.cam.straight) {
+    for (const r of selectionOf(s.session)) {
+      const pl = planeOf(get, r);
+      if (pl && facing(pl)) return pl;
+    }
   }
-  for (const n of ["XY", "XZ", "YZ"]) {
-    const pl = get(worldRef(n)) as Plane;
-    if (facing(pl)) return pl;
-  }
-  return null;
+  return (get(worldRef(s.world)) as Plane | undefined) ?? null; // (the world plane that is on always has its grid, `in_190`)
 }

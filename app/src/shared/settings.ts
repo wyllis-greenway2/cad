@@ -51,12 +51,14 @@ export const settings = {
     background: 0xffffff,
     axis: [0.17, 0.17, 0.19] as [number, number, number], // charcoal, like a pencil
     sheet: [0.5, 0.51, 0.54] as [number, number, number], // a pane's fill
+    pane: [0.55, 0.58, 0.64] as [number, number, number], // the little pane of a world plane that is off
+    paneOn: [0.25, 0.55, 0.85] as [number, number, number], // the one that is on
     bodyColor: 0xc9c9cd,
     bodyEdge: 0x2a2a2d,
   },
-  grid: { show: false, divisions: 30, minorAlpha: 0.35, majorAlpha: 0.7, color: [0.62, 0.63, 0.67] as [number, number, number] },
+  grid: { show: true, divisions: 30, minorAlpha: 0.35, majorAlpha: 0.7, color: [0.62, 0.63, 0.67] as [number, number, number] },
   flash: { ms: 1100, shakeMs: 450 }, // a refused change: the broken constraints flash red and fade over this long; the one that tried shakes for the first part of it
-  world: { axisLengthMm: 24, axisWidthPx: 1.6, axisOpacity: 1 }, // the small charcoal axes at the origin: their real length in mm (so they zoom with the model: was 8.4), line width, opacity
+  world: { axisLengthMm: 24, axisWidthPx: 1.6, axisOpacity: 1, paneGapMm: 3, paneMm: 8, paneOpacity: 0.18, paneActiveOpacity: 0.4 }, // (the three little panes of the world planes: how far from the origin, how big, how see-through) // the small charcoal axes at the origin: their real length in mm (so they zoom with the model: was 8.4), line width, opacity
   buttons: { marginPx: 18, sizePx: 34 }, // the X Y Z buttons at the right edge, lower right
   light: { key: 1.7, fill: 0.12, ambient: 0.42, roughness: 0.4, sheen: 0.55, sheenRoughness: 0.25, reflect: 0.5 }, // lights ride with the camera; the body has a slight clear-coat sheen and a soft studio reflected in it
   extrude: { edgeAngleDeg: 30 }, // outline edges are drawn where faces meet at more than this angle

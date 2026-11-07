@@ -17,6 +17,8 @@ export interface PickOptions {
   /** how close (pixels) a pointer must be to a corner / to a line or circle; the look and input values decide, not this file */
   pointTol: number;
   lineTol: number;
+  /** the world plane that is on: the other two are not there to point at (`in_190`) */
+  world?: Ref;
 }
 const DEFAULT_PICK: PickOptions = { pointTol: 10, lineTol: 8 };
 
@@ -43,7 +45,7 @@ const ORIGIN_ORDER = { drawn: 0, body: 1, world: 2 } as const;
 export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = DEFAULT_PICK): Candidate[] {
   const get = lookup(scene);
   const used = consumed(scene); // what an extrude has used up is neither drawn nor picked
-  const parts = Object.values(scene.parts).filter((p) => !used.has(p.ref) && !((p.kind === "line" || p.kind === "corner") && p.derived));
+  const parts = Object.values(scene.parts).filter((p) => !(opts.world && p.origin === "world" && p.kind === "plane" && p.infinite && p.ref !== opts.world) && !used.has(p.ref) && !((p.kind === "line" || p.kind === "corner") && p.derived));
   // surfaces first: only the nearest one counts, plus anything flush with it (a shape drawn on a face, a pane lying in a face); things behind it are hidden
   const surfaces: { p: Part; t: number }[] = [];
   for (const p of parts) {

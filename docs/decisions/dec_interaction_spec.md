@@ -17,7 +17,7 @@ The human does not want these ideas lost when the engine is rebuilt clean (`in_0
 - Three small rounded translucent grey panes floating out from the corners of the axes: pointing at one makes it a little greyer; a click selects it. **World planes never turn teal** (`in_079`).
 - The home view looks from the +X +Y corner at about 29 degrees up (`in_069`).
 - When the first object exists, the axes shrink and slide into the bottom-right corner as a small compass with X, Y, Z buttons; clicking the compass sends the axes back big to the origin (a faint copy stays in the corner), and again to return (`in_068`, `in_070`). Undoing back to nothing sends them home.
-- The faint sketch grid (light grey) shows only while looking straight at a plane and fades away in 3D (`in_066`, `in_072`).
+- The faint sketch grid (light grey) is always on, on the world plane that is on (the floor to begin with), seen from the side as a patch about the view's middle and from straight on as a full grid; it follows a selected plane when looking straight at one (`in_066`, `in_072`; always on and one world plane at a time since `in_190`). Three little semi-transparent panes beside the axes, and the X Y Z buttons, turn another world plane on and look straight at it; only the plane that is on is found by the pointer and carries the hover circle.
 - No helper text, no origin prompt, no grid-size text; a line appears only for a message about something refused or done, or a kernel error. The history panel is hidden until a place is chosen for it (`in_088`).
 
 ## Camera

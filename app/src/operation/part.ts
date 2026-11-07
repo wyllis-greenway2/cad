@@ -306,11 +306,8 @@ const planeOps: KindOps<Plane> = {
       return best;
     }
     if (part.infinite) {
-      // a world plane: only its positive side is there to point at and pick (the three faces that face you on opening); looking straight at it, all of it is
-      const t = rayPlane(pv, part.at, normalOfPlane(part));
-      if (t === null || pv.straight) return t;
-      const p = pointAt(pv, t);
-      return p[0] >= -1e-9 && p[1] >= -1e-9 && p[2] >= -1e-9 ? t : null;
+      // a world plane: all of it, from either side (the picking leaves out the two that are not on, `in_190`)
+      return rayPlane(pv, part.at, normalOfPlane(part));
     }
     if (part.extent === undefined) return null;
     const t = rayPlane(pv, part.at, normalOfPlane(part));

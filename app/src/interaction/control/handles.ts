@@ -98,7 +98,7 @@ function orbitOrCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: 
   if (!s.tool && !s.op) {
     const sc = sceneOf(s.session);
     const pv = projector(s.cam, env.w, env.h).view(i.x - i.dx, i.y - i.dy);
-    const c = candidatesAt(sc, pv, { ...pickOpts(), lineTol: 0 }).find((k) => k.kind === "corner" && sc.parts[k.ref]?.origin === "drawn" && sc.parts[k.ref]?.plane);
+    const c = candidatesAt(sc, pv, { ...pickOpts(s), lineTol: 0 }).find((k) => k.kind === "corner" && sc.parts[k.ref]?.origin === "drawn" && sc.parts[k.ref]?.plane);
     if (c) return { ...s, drag: { corner: c.ref, base: s.session }, hoverPoint: null };
   }
   return doOrbit({ ...s, drag: { camera: true } }, i);
@@ -129,7 +129,7 @@ function moveCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env
 function snapPivot(s: AppState, free: Vec3, x: number, y: number, env: Env): Vec3 {
   const sc = sceneOf(s.session);
   const pv = projector(s.cam, env.w, env.h).view(x, y);
-  const c = candidatesAt(sc, pv, { ...pickOpts(), lineTol: 0 }).find((k) => k.kind === "corner");
+  const c = candidatesAt(sc, pv, { ...pickOpts(s), lineTol: 0 }).find((k) => k.kind === "corner");
   return (c ? pointOf(lookup(sc), c.ref) : null) ?? free;
 }
 

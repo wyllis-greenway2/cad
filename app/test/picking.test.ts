@@ -147,13 +147,13 @@ test("a world plane between the eye and a model is only the background: the mode
   assert.equal(scene.parts[c[0]!.ref]!.origin, "body", "the model, not a world plane");
 });
 
-test("a world plane is only there to point at on its positive side (the three faces that face you on opening); looking straight at it, all of it", () => {
+test("a world plane that is on is there to point at everywhere, from either side; the ones that are off are not found at all (`in_190`)", () => {
   const sc = withDerived(newHistory().scene);
   const xy = sc.parts[worldRef("XY")]!;
   const ray = (x: number, y: number) => ({ o: [x, y, 50] as Vec3, d: [0, 0, -1] as Vec3 });
   const pv = (x: number, y: number, straight: boolean) => ({ x: 0, y: 0, project: () => [0, 0] as [number, number], ray: ray(x, y), straight });
-  assert.notEqual(depthOf(lookup(sc), xy, pv(20, 15, false)), null, "the positive side is hit");
-  assert.equal(depthOf(lookup(sc), xy, pv(-20, 15, false)), null, "the negative side is not");
-  assert.equal(depthOf(lookup(sc), xy, pv(20, -15, false)), null);
-  assert.notEqual(depthOf(lookup(sc), xy, pv(-20, -15, true)), null, "straight at it: everywhere");
+  for (const [x, y] of [[20, 15], [-20, 15], [20, -15], [-20, -15]] as const) assert.notEqual(depthOf(lookup(sc), xy, pv(x, y, false)), null, `${x},${y}`);
+  const found = (world: string) => candidatesAt(sc, { ...pv(5, 5, false), project: () => [999, 999] as [number, number] }, { pointTol: 10, lineTol: 8, world: worldRef(world as "XY") }).filter((c) => c.kind === "plane").map((c) => c.ref);
+  assert.deepEqual(found("XY"), [worldRef("XY")]);
+  assert.deepEqual(found("XZ"), [], "the ray from above meets the XZ plane only at a line, and it is off: nothing is found");
 });

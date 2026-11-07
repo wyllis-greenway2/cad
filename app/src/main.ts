@@ -176,6 +176,7 @@ function frame(now: number) {
     view.setHighlight(f.highlight, state.cam, now);
     view.setPreview(f.preview, state.cam);
     view.setGizmo(f.gizmo, state.cam);
+    view.setPanes(f.panes);
     const project = projector(state.cam, size.w, size.h).project;
     bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid);
     view.setNotes(f.annotations.flatMap((a) => a.lines));

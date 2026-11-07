@@ -8,6 +8,7 @@ import type { Camera } from "../interaction/camera.ts";
 import { basis, position, projector } from "../interaction/camera.ts";
 import { AXES, AXIS_LEN, axisSet, fadable, makeLabel, srgb } from "./world/parts.ts";
 import { createGrid } from "./world/grid.ts";
+import { createPanes } from "./world/panes.ts";
 
 const HEAD = 1.1; // arrowhead length at the axes' own size (small: `in_140`)
 
@@ -16,6 +17,7 @@ export function createWorld(scene3: THREE.Scene, host: HTMLElement) {
   for (const m of fadable(axes)) { m.transparent = true; m.opacity = settings.world.axisOpacity; }
   scene3.add(axes.group);
   const setGrid = createGrid(scene3);
+  const setPanes = createPanes(scene3);
   const labels = AXES.map((a) => makeLabel(host, a.name));
   for (const l of labels) { l.style.fontSize = "10px"; l.style.opacity = String(settings.world.axisOpacity); }
 
@@ -47,5 +49,5 @@ export function createWorld(scene3: THREE.Scene, host: HTMLElement) {
       d.style.top = `${p[1]}px`;
     });
   }
-  return { update, setGrid };
+  return { update, setGrid, setPanes };
 }

@@ -1,5 +1,6 @@
 // The state the controller works on, and the small helpers every handler uses.
 import type { Ref } from "../../shared/ref.ts";
+import { worldRef } from "../../shared/ref.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { add, scale, dot } from "../../math/vec.ts";
 import { settings } from "../../shared/settings.ts";
@@ -38,6 +39,10 @@ export interface AppState {
   /** a double click turns the view to the plane, but only once the window for a third click has passed: a triple click selects the object and leaves the view alone */
   /** a drag in progress: of the camera, or of a helper handle (`gizmo.ts`) */
   drag: { camera: true } | { handle: Drag; /** the operation's value when the drag began (the drag adds to it) */ base: number; /** the handle sets the numbers of the repeat being set up */ repeat?: true } | { corner: Ref; base: Session } | null;
+  /** the world plane that is on (`in_190`): it has the grid, is the one the pointer finds on empty space and the one a tool draws on; the little panes beside the axes and the X Y Z buttons change it */
+  world: "XY" | "XZ" | "YZ";
+  /** the little pane under the pointer (it lights up) */
+  paneHover: "XY" | "XZ" | "YZ" | null;
   /** the helper handle under the pointer */
   gizmoHover: string | null;
   /** a command was refused because it could not be done without breaking constraints: they flash red and fade, and the one that tried shakes (`in_120`) */
@@ -45,9 +50,9 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, drag: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, drag: null, world: "XY", paneHover: null, gizmoHover: null, flash: null });
 
-export const pickOpts = () => ({ pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx });
+export const pickOpts = (s?: AppState) => ({ pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx, ...(s ? { world: worldRef(s.world) } : {}) });
 export const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });
 export const stop = (s: AppState): AppState => (s.anim ? { ...s, anim: null } : s);
 export const surfacePoint = (pv: { ray?: { o: Vec3; d: Vec3 } }, t: number): Vec3 | null => (pv.ray ? add(pv.ray.o, scale(pv.ray.d, t)) : null);

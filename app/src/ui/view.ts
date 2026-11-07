@@ -72,6 +72,7 @@ export function createView(host: HTMLElement) {
       notes.add(m);
     }
   }
+  const setPanes = (p: Parameters<typeof world.setPanes>[0]) => world.setPanes(p);
   const setGizmo = (g: GizmoView | null, cam: Camera) => buildGizmo(gizmo, g, cam.distance, pen);
 
   function resize() {
@@ -108,5 +109,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { setScene, setHighlight, setPreview, setGizmo, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { setScene, setHighlight, setPreview, setGizmo, setPanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

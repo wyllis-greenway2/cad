@@ -20,7 +20,7 @@ export function niceStep(span: number, divisions: number): number {
 /** The grid of `plane` if the camera is looking straight at it (from either side), else null. Segments are flat xyz pairs; `major` every fifth line. */
 export function gridFor(cam: Camera, plane: Plane, widthPx: number, heightPx: number): Grid | null {
   const n = normalOfPlane(plane);
-  if (sideOf(cam, n) === 0) return null;
+  if (sideOf(cam, n) === 0) return patchFor(cam, plane);
   const pr = projector(cam, widthPx, heightPx);
   // the visible rectangle of the plane: where the rays through the four screen corners meet it
   const local: [number, number][] = [];
@@ -45,5 +45,21 @@ export function gridFor(cam: Camera, plane: Plane, widthPx: number, heightPx: nu
   };
   run(x0, x1, (x, m) => (m ? major : minor).push(...at(x, y0), ...at(x, y1)));
   run(y0, y1, (y, m) => (m ? major : minor).push(...at(x0, y), ...at(x1, y)));
+  return { minor, major, step };
+}
+
+/** Looked at from the side (not straight): a square patch of the plane about the point under the view's middle, as wide as the view is deep, so the grid is always there to be seen on. */
+function patchFor(cam: Camera, plane: Plane): Grid {
+  const n = normalOfPlane(plane);
+  const c = sub(cam.target, scale(n, dot(n, sub(cam.target, plane.at))));
+  const [cu, cv] = [dot(sub(c, plane.at), plane.u), dot(sub(c, plane.at), plane.v)];
+  const half = Math.max(cam.distance * 0.9, 10);
+  const step = niceStep(2 * half, settings.grid.divisions);
+  const [x0, x1, y0, y1] = [Math.floor((cu - half) / step) * step, Math.ceil((cu + half) / step) * step, Math.floor((cv - half) / step) * step, Math.ceil((cv + half) / step) * step];
+  const at = (x: number, y: number): Vec3 => add(plane.at, add(scale(plane.u, x), scale(plane.v, y)));
+  const minor: number[] = [];
+  const major: number[] = [];
+  for (let i = Math.round(x0 / step); i * step <= x1 + 1e-9; i++) (i % 5 === 0 ? major : minor).push(...at(i * step, y0), ...at(i * step, y1));
+  for (let i = Math.round(y0 / step); i * step <= y1 + 1e-9; i++) (i % 5 === 0 ? major : minor).push(...at(x0, i * step), ...at(x1, i * step));
   return { minor, major, step };
 }

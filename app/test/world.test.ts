@@ -10,6 +10,7 @@ import type { AppState } from "../src/interaction/controller.ts";
 import { projector, lookStraight, homeCamera } from "../src/interaction/camera.ts";
 import { gridFor, niceStep } from "../src/interaction/grid.ts";
 import { candidatesAt } from "../src/interaction/picking.ts";
+import { paneCorners } from "../src/interaction/panes.ts";
 import { drawSquaredRectangle } from "../src/operation/build.ts";
 import { nextId, lookup } from "../src/operation/scene.ts";
 import type { Plane } from "../src/operation/part.ts";
@@ -25,9 +26,10 @@ test("grid steps are round numbers that put about thirty lines across the view",
   assert.equal(niceStep(3000, 30), 100);
 });
 
-test("the grid exists only when looking straight at the plane, and covers the view with every fifth line heavier", () => {
+test("the grid covers the view with every fifth line heavier when looking straight; seen from the side it is a patch of the plane about the view's middle (`in_190`)", () => {
   const xy = lookup(createSession(kernel).history.scene)(XY) as Plane;
-  assert.equal(gridFor(homeCamera(), xy, 800, 600), null, "not in 3D");
+  const side = gridFor(homeCamera(), xy, 800, 600)!;
+  assert.ok(side && side.minor.length > 0 && side.major.length > 0, "there in 3D too");
   const g = gridFor(lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), xy, 800, 600)!;
   assert.ok(g.minor.length > 0 && g.major.length > 0);
   assert.ok(g.minor.length > g.major.length * 2);
@@ -35,17 +37,38 @@ test("the grid exists only when looking straight at the plane, and covers the vi
   const back = gridFor(lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0], -1), xy, 800, 600);
   assert.ok(back, "also from behind");
   const xz = lookup(createSession(kernel).history.scene)(worldRef("XZ")) as Plane;
-  assert.equal(gridFor(lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), xz, 800, 600), null, "a plane seen edge-on has none");
+  assert.equal(gridFor(lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), xz, 800, 600)!.minor.length > 0, true, "a plane seen edge-on still gets its patch (it is a line then)");
 });
 
-test("the grid plane is the selected plane when it faces the camera, else the world plane that does", () => {
+test("the grid plane is the selected plane when it faces the camera while looking straight, else the world plane that is on", () => {
   let st = createState(createSession(kernel));
-  assert.equal(gridPlaneOf(st), null);
-  st = { ...st, cam: lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]) };
-  assert.equal(gridPlaneOf(st)!.ref, XY);
+  assert.equal(gridPlaneOf(st)!.ref, XY, "the floor is on to begin with, seen from the side too");
   st = { ...st, cam: lookStraight(homeCamera(), [1, 0, 0], [0, 1, 0]) };
-  assert.equal(gridPlaneOf(st)!.ref, worldRef("YZ"));
+  assert.equal(gridPlaneOf(st)!.ref, XY, "looking along X without choosing that plane changes nothing");
+  st = reduce(st, { type: "look", plane: "X" }, env);
+  assert.equal(gridPlaneOf(st)!.ref, worldRef("YZ"), "the X button turns the YZ plane on");
+  assert.equal(st.world, "YZ");
 });
+
+test("the little panes: one in each world plane, apart from the origin; clicking one turns that plane on and looks straight at it; only the plane that is on is found by the pointer", () => {
+  let st = createState(createSession(kernel));
+  assert.deepEqual(frameOf(st, { w: 800, h: 600 }).panes.map((p) => [p.name, p.active]), [["XY", true], ["XZ", false], ["YZ", false]]);
+  const pr = projector(st.cam, 800, 600);
+  const centre = (name: "XY" | "XZ" | "YZ") => { const q = paneCorners(name).map((p) => pr.project(p)); return [q.reduce((a, b) => a + b[0]!, 0) / 4, q.reduce((a, b) => a + b[1]!, 0) / 4] as const; };
+  for (const name of ["XZ", "YZ"] as const) {
+    const [x, y] = centre(name);
+    const hovered = reduce(st, { type: "hover", x, y }, env);
+    assert.equal(hovered.paneHover, name, `${name} lights up`);
+    assert.equal(hovered.session.hover, undefined, "nothing behind it is hovered");
+    const clicked = reduce(st, { type: "click", x, y, count: 1, shift: false }, env);
+    assert.equal(clicked.world, name);
+    assert.ok(clicked.anim, "the view turns straight to it");
+  }
+  // the pane of the plane that is on is a pane too (it only lights): clicking it keeps it on
+  const [x, y] = centre("XY");
+  assert.equal(reduce(st, { type: "click", x, y, count: 1, shift: false }, env).world, "XY");
+});
+
 
 function withBody(): AppState {
   let s = createSession(kernel);

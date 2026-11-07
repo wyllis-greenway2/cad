@@ -24,6 +24,8 @@ import type { CompileOutcome } from "../compiler/compile.ts";
 import type { AppState } from "./control/state.ts";
 import { gridPlaneOf } from "./control/viewing.ts";
 import { gridFor } from "./grid.ts";
+import { WORLD_NAMES, paneCorners } from "./panes.ts";
+import type { WorldName } from "./panes.ts";
 import { settings } from "../shared/settings.ts";
 import type { Grid } from "./grid.ts";
 import { annotationsFor, annotationsOf, focusParts } from "./annotations.ts";
@@ -65,6 +67,8 @@ export interface Frame {
   annotations: Annotation[];
   flash: FlashFrame | null;
   grid: Grid | null;
+  /** the little panes of the world planes beside the axes (`in_190`) */
+  panes: { name: WorldName; corners: Vec3[]; active: boolean; hover: boolean }[];
   /** the helper handles of the running operation (arrows, a double arrow, curved arrows), or null */
   gizmo: GizmoFrame | null;
   cursor: "crosshair" | "grab" | "";
@@ -121,7 +125,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors),
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash)],
     flash,
-    grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // off by default (`in_117`)
+    grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // on: the world plane that is on always has its grid (`in_190`)
+    panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null } : null,
     cursor: s.tool ? "crosshair" : s.gizmoHover ? "grab" : "",
     message: s.session.message ?? Object.values(outcome.errors)[0] ?? "",

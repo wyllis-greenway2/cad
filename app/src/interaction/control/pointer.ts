@@ -20,6 +20,9 @@ import { projector } from "../camera.ts";
 import { settings } from "../../shared/settings.ts";
 import { planeOf, objectOf } from "../objects.ts";
 import type { AppState, Env, MenuItem } from "./state.ts";
+import { paneAt } from "../panes.ts";
+import type { WorldName } from "../panes.ts";
+import { doLook } from "./viewing.ts";
 import { pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { commitFigure, commitOp, setRepeatAxis } from "./modal.ts";
 import { doGizmoHover, gizmoOf } from "./handles.ts";
@@ -104,14 +107,18 @@ function withTwins(sc: Scene, before: readonly Ref[], now: readonly Ref[]): Ref[
   return out;
 }
 
+const PANE_BUTTON: Record<WorldName, "X" | "Y" | "Z"> = { YZ: "X", XZ: "Y", XY: "Z" }; // (the button that looks at a plane: X at the plane across it)
 const isWorldPlane = (sc: Scene, r: Ref): boolean => { const p = sc.parts[r]; return !!p && p.origin === "world" && p.kind === "plane"; };
 
 export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env: Env): AppState {
   const sc = sceneOf(s.session);
   const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
-  const c = candidatesAt(sc, pv, pickOpts())[0];
+  // a little pane of another world plane under the pointer lights up and takes the pointer: nothing else is hovered through it (`in_190`)
+  const pane = !s.tool && !s.op && !s.drag ? paneAt(s.cam, env.w, env.h, i.x, i.y) : null;
+  if (pane) return { ...withSession(s, hoverOn(s.session, undefined)), hoverPoint: null, paneHover: pane };
+  const c = candidatesAt(sc, pv, pickOpts(s))[0];
   const point = c && c.rank === 2 ? surfacePoint(pv, c.score) : null;
-  let next: AppState = { ...withSession(s, hoverOn(s.session, c?.ref)), hoverPoint: point };
+  let next: AppState = { ...withSession(s, hoverOn(s.session, c?.ref)), hoverPoint: point, paneHover: null };
   if (s.tool?.plane) {
     const pl = sc.parts[s.tool.plane];
     const raw = pl && pl.kind === "plane" ? snapOnPlane(sc, pv, pl) : null;
@@ -123,7 +130,7 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   }
   // a circle tool still armed (no plane yet): where the centre would go, and whether it is on another circle's centre
   if (s.tool && !s.tool.plane && s.tool.kind === "circle") {
-    const planeRef = drawingPlane(sc, candidatesAt(sc, pv, pickOpts()).map((k) => k.ref)) ?? drawingPlane(sc, selectionOf(s.session));
+    const planeRef = drawingPlane(sc, candidatesAt(sc, pv, pickOpts(s)).map((k) => k.ref)) ?? drawingPlane(sc, selectionOf(s.session));
     const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
     const at = pl ? snapOnPlane(sc, pv, pl) : null;
     const about = at && pl ? circleCentredAt(sc, pl, at) : null;
@@ -181,8 +188,11 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
 
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {
   const sc = sceneOf(s.session);
+  // a click on a little pane turns that world plane on and looks straight at it (the same as its X Y Z button, `in_190`)
+  const pane = !s.tool && !s.op ? paneAt(s.cam, env.w, env.h, i.x, i.y) : null;
+  if (pane) return doLook({ ...s, menu: null, focus: null, resume: null }, { type: "look", plane: PANE_BUTTON[pane] }, env);
   const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
-  const cands = candidatesAt(sc, pv, pickOpts());
+  const cands = candidatesAt(sc, pv, pickOpts(s));
   const refs = cands.map((c) => c.ref);
   const base: AppState = { ...s, menu: null, focus: null, resume: null };
   if (s.tool) return clickWithTool(base, i, env, refs);
