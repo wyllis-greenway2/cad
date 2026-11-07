@@ -13,12 +13,12 @@ import { planeOf } from "./objects.ts";
 import type { Plane } from "../operation/part.ts";
 import type { Camera } from "./camera.ts";
 import { offsetOf, sideOf } from "./camera.ts";
-import { dot, cross, normalize, add } from "../math/vec.ts";
+import { dot, cross, normalize, add, sub } from "../math/vec.ts";
 import { outlineOf } from "../operation/part.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
-import { opCommand, bodyMotion, faceDrag, radiusDrag, sideDrag, edgeDrag } from "./operations.ts";
+import { opCommand, bodyMotion, faceDrag, radiusDrag, sideDrag, edgeDrag, valueOf } from "./operations.ts";
 import { matrixOf } from "../operation/frames.ts";
 import type { Command } from "../operation/commands.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
@@ -101,11 +101,55 @@ let gpuBase: { history: Session["history"]; outcome: Session["outcome"]; made: b
 let lastDrag: { matrix: number[] | null; face: FaceShift | null; step: string | null; depth: number; param: "depth" | "value"; circle: { ref: Ref; radius: number } | null; corners: { ref: Ref; to: Vec3 }[] | null; steps: number } | null = null;
 /** A face drawn moved: the whole face by `by`, or a round wall's points out from (in towards) its axis by `radial.dr` (`in_217`, `in_218`). */
 export type FaceShift = { face: Ref; by?: Vec3; radial?: { center: Vec3; axis: Vec3; dr: number; r0: number }; /** the body's points that stand over moved corners of the sketch (along `axis`) move with them (`in_219`); `edge` is the face's own edge, to move what is selected with it */ scaled?: { point: Vec3; dir: Vec3; k: number }; columns?: { axis: Vec3; items: { at: Vec3; by: Vec3 }[]; edge: { a: Vec3; da: Vec3; b: Vec3; db: Vec3 } | null } };
+/**
+ * A new fillet or chamfer on one straight edge (`in_221`): its cross-section is the same shape at every size, scaled about the sharp edge, so the kernel makes it once at a size (the reference) and
+ * every size the pointer goes to after that is that result scaled, on the graphics card. Asked again for a new reference only when the size has grown a lot (so the arc keeps enough points).
+ */
+let edgeRef: { key: string; want: number; ready: { R0: number; res: { scene: Scene; outcome: CompileOutcome }; face: Ref } | null; failed: number | null } | null = null;
+let refMemo: { history: Session["history"]; outcome: Session["outcome"]; key: string; value: { scene: Scene; outcome: CompileOutcome } | null } | null = null;
+function edgeNew(s: AppState, op: Op, base: Session): { wait: true } | { face: FaceShift; shown: { scene: Scene; outcome: CompileOutcome } } | null {
+  const sc = sceneOf(base);
+  const line = op.kind === "edge" && op.parts.length === 1 ? sc.parts[op.parts[0]!] : undefined;
+  const v = op.kind === "edge" ? valueOf(op) : null;
+  if (line?.kind !== "line" || line.origin !== "body" || line.circle || line.a === line.b || v === null || v === 0) return null;
+  const [pa, pb] = [sc.parts[line.a], sc.parts[line.b]];
+  if (pa?.kind !== "corner" || pb?.kind !== "corner") return null;
+  if (line.mid) return null; // (a curved edge has its middle given: not scaled about a line)
+  const key = JSON.stringify([op.parts, op.ranks ?? null, op.sigs ?? null, v > 0]);
+  if (!edgeRef || edgeRef.key !== key) edgeRef = { key, want: Math.abs(v), ready: null, failed: null };
+  if (edgeRef.ready && Math.abs(v) > 1.6 * edgeRef.ready.R0 && edgeRef.want !== Math.abs(v)) edgeRef.want = Math.abs(v); // (grown a lot: a new reference, the old one stands in until it is there)
+  if (edgeRef.failed === edgeRef.want && !edgeRef.ready) return null;
+  const R = edgeRef.want;
+  const cmd = opCommand(sc, { ...op, typed: "", value: v > 0 ? R : -R }, { preview: true });
+  if (!cmd) return null;
+  const mk = JSON.stringify([cmd, op.made]);
+  let res: { scene: Scene; outcome: CompileOutcome } | null;
+  if (refMemo && refMemo.history === s.session.history && refMemo.outcome === s.session.outcome && refMemo.key === mk) res = refMemo.value;
+  else { res = previewCommand(base, cmd); refMemo = { history: s.session.history, outcome: s.session.outcome, key: mk, value: res }; }
+  if (res && !res.outcome.kernel?.stale) {
+    if (Object.keys(res.outcome.errors).length) { edgeRef.failed = R; if (!edgeRef.ready) return null; }
+    else if (!edgeRef.ready || edgeRef.ready.R0 !== R) {
+      const fresh = Object.values(res.scene.parts).filter((p) => p.kind === "plane" && p.origin === "body" && !(p.ref in sc.parts));
+      if (fresh.length !== 1) { edgeRef.failed = R; if (!edgeRef.ready) return null; }
+      else edgeRef.ready = { R0: R, res, face: fresh[0]!.ref };
+    }
+  }
+  if (!edgeRef.ready) return { wait: true };
+  return { face: { face: edgeRef.ready.face, scaled: { point: pa.at, dir: normalize(sub(pb.at, pa.at)), k: Math.abs(v) / edgeRef.ready.R0 } }, shown: edgeRef.ready.res };
+}
+
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
 function gpuMotion(s: AppState): { matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome } } | null {
   const op = s.op;
   if (!op) return null;
   const base = op.made ? undoLast(s.session) : s.session;
+  const en = edgeNew(s, op, base);
+  if (en) {
+    if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
+    if ("wait" in en) return { matrix: null, face: null, shown: gpuBase.value };
+    lastDrag = { matrix: null, face: en.face, step: "__last__", depth: Math.abs(valueOf(op) ?? 0), param: "value", circle: null, corners: null, steps: sceneOf(base).steps.length };
+    return { matrix: null, face: en.face, shown: en.shown };
+  }
   const m = bodyMotion(sceneOf(base), op);
   const fd = m ? null : faceDrag(sceneOf(base), op);
   const rd = m || fd ? null : radiusDrag(sceneOf(base), op);
@@ -140,7 +184,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   const sel = selectionOf(s.session);
   const outcome = shown?.outcome ?? s.session.outcome;
   // a whole-body drag is drawn by a matrix; when it is let go the picture stays moved until the kernel's answer for the new step comes (it would jump back otherwise)
-  const faceStep = lastDrag?.step ? sc.steps.find((x) => x.id === lastDrag!.step) : undefined;
+  const faceStep = lastDrag?.step === "__last__" ? (sc.steps.length === lastDrag.steps + 1 && sc.steps.at(-1)?.type === "edgeMod" ? sc.steps.at(-1) : undefined) : lastDrag?.step ? sc.steps.find((x) => x.id === lastDrag!.step) : undefined;
   const settling = !gpu && !!outcome.kernel?.stale && !!lastDrag && (lastDrag.matrix ? sc.steps.length === lastDrag.steps + 1 : lastDrag.corners ? lastDrag.corners.every((c) => { const q = sc.parts[c.ref]; return q?.kind === "corner" && Math.hypot(q.at[0] - c.to[0], q.at[1] - c.to[1], q.at[2] - c.to[2]) < 1e-6; }) : lastDrag.circle ? (sc.parts[lastDrag.circle.ref] as { radius?: number } | undefined)?.radius !== undefined && Math.abs((sc.parts[lastDrag.circle.ref] as { radius: number }).radius - lastDrag.circle.radius) < 1e-6 : !!faceStep && Math.abs(Number(faceStep.params[lastDrag.param]) - lastDrag.depth) < 1e-6);
   if (!gpu && !settling && !outcome.kernel?.stale) lastDrag = null;
   const bodyMatrix = gpu ? gpu.matrix : settling ? lastDrag!.matrix : null;

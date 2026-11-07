@@ -205,7 +205,7 @@ function frame(now: number) {
   if (dirty || spreading || state.flash) {
     const size = view.size();
     const tFrame = performance.now();
-    engine.draft = !!(state.drag && state.op); // (a rough mesh while a size is dragged, the fine one when it is let go, `in_216`)
+    engine.draft = !!(state.drag && state.op && state.op.kind !== "edge"); // (a new fillet is made once, fine, and scaled) // (a rough mesh while a size is dragged, the fine one when it is let go, `in_216`)
     const f = frameOf(state, size, now);
     engine.draft = false;
     const tMade = performance.now();

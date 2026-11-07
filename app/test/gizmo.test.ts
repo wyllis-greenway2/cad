@@ -1498,3 +1498,32 @@ test("making a fillet or a chamfer smaller is drawn at once without the kernel: 
     for (const p of moved) assert.ok(Array.from({ length: real.length / 3 }, (_, i) => Math.hypot(real[3 * i]! - p[0], real[3 * i + 1]! - p[1], real[3 * i + 2]! - p[2])).some((d) => d < 1e-2), `${label}: ${JSON.stringify(p)} is a vertex of the real result`);
   }
 });
+
+test("a new fillet or chamfer on one straight edge is made once by the kernel (the reference) and every size after it is that result scaled about the sharp edge on the graphics card (`in_221`)", () => {
+  for (const [sign, label] of [[1, "fillet"], [-1, "chamfer"]] as const) {
+    let st = box();
+    const at = (r: string) => (scene(st.session).parts[r] as unknown as { at: Vec3 }).at;
+    const vertical = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "body" && at(p.a)[2] !== at(p.b)[2] && at(p.a)[0] === 40 && at(p.a)[1] === 20)!;
+    st = reduce(select(st, [vertical.ref]), { type: "begin", name: "edge" }, env);
+    const base = st.session.outcome.kernel!;
+    st = { ...st, op: { ...st.op!, value: sign * 2 } };
+    const f1 = frameOf(st, { w: 800, h: 600 });
+    assert.ok(f1.faceShift?.scaled, `${label}: scaled shift`);
+    near(f1.faceShift!.scaled!.k, 1, 1e-9);
+    assert.notEqual(f1.mesh, base.mesh, `${label}: the reference is the kernel's own result with the rounding in it`);
+    const refMesh = f1.mesh;
+    st = { ...st, op: { ...st.op!, value: sign * 3 } };
+    const f2 = frameOf(st, { w: 800, h: 600 });
+    near(f2.faceShift!.scaled!.k, 1.5, 1e-9);
+    assert.equal(f2.mesh, refMesh, `${label}: no new kernel result for another size`);
+    // the scaled end points of the rounding are vertices of what the kernel really makes at that size
+    const { point, dir, k } = f2.faceShift!.scaled!;
+    const part = f2.scene.parts[f2.faceShift!.face] as unknown as { mesh: number[] };
+    const moved: Vec3[] = [];
+    for (let i = 0; i + 2 < part.mesh.length; i += 3) { const p: Vec3 = [part.mesh[i]!, part.mesh[i + 1]!, part.mesh[i + 2]!]; const d = sub(p, point); const perp = sub(d, scale(dir, dot(d, dir))); if (p[2] === 0 || p[2] === 20) moved.push(add(p, scale(perp, k - 1))); }
+    assert.ok(moved.length >= 4);
+    const done = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+    const real = done.session.outcome.kernel!.mesh!.vertices;
+    for (const p of moved) assert.ok(Array.from({ length: real.length / 3 }, (_, i) => Math.hypot(real[3 * i]! - p[0], real[3 * i + 1]! - p[1], real[3 * i + 2]! - p[2])).some((d) => d < 1e-2), `${label}: ${JSON.stringify(p)}`);
+  }
+});

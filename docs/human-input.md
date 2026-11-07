@@ -1109,3 +1109,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_220 — 2026-11-07 — approval
 > yes, do the fillet and chamfer ones too
+
+## in_221 — 2026-11-07 — approval
+> yes, do the new fillet from selected edges too
