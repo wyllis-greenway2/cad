@@ -111,3 +111,24 @@ test("a closed sketch under a little pane near the origin is hovered, not the pa
   assert.equal(hovered.paneHover, null);
   assert.match(hovered.session.hover ?? "", /^d\/loop@/, "the closed sketch is what the pointer is on");
 });
+
+test("the state snapshot has what is needed to see what the human sees, can be written as JSON, and its project opens again (`in_200`)", async () => {
+  const { snapshotOf, logEntry } = await import("../src/interaction/snapshot.ts");
+  const { openSession } = await import("../src/interaction/session.ts");
+  let s = createSession(kernel);
+  const r = drawRectangle(scene(s), XY, [0, 0, 0], [20, 10, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: r.lines, params: { depth: 5 } } });
+  let st = createState(s);
+  st = reduce(st, { type: "zoom", factor: 0.8, x: 400, y: 300 }, env);
+  const log = [logEntry({ type: "zoom", factor: 0.8, x: 400, y: 300 }, st, 12.34)];
+  const snap = snapshotOf(st, { intents: log, window: { w: 800, h: 600, dpr: 2 }, device: "mouse", userAgent: "test", build: "x", scrollMode: "auto", at: "now", pointer: { x: 400, y: 300 } });
+  const text = JSON.stringify(snap);
+  const back = JSON.parse(text) as Record<string, unknown> & { camera: { distance: number }; kernel: { volume: number }; project: unknown; intents: { cam: unknown }[] };
+  assert.ok(Math.abs(back.camera.distance - st.cam.distance) < 1e-3);
+  assert.ok(Math.abs(back.kernel.volume - 1000) < 0.01);
+  assert.ok(back.intents[0]!.cam, "a camera intent carries the camera after it");
+  const reopened = openSession(kernel, JSON.stringify(back.project));
+  assert.ok(reopened.ok, "the project in the snapshot opens again");
+  for (const key of ["selection", "tool", "op", "world", "message", "kernel", "scene", "history", "settings", "underPointer", "window"]) assert.ok(key in back, key);
+});

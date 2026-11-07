@@ -150,8 +150,9 @@ export function zoomAt(c: Camera, factor: number, anchor?: Vec3): Camera {
   const b = basis(c);
   const rel = sub(anchor, c.target);
   const [a, u, f] = [dot(rel, b.right), dot(rel, b.up), dot(rel, b.forward)];
-  if (!c.straight && factor < 1) {
-    // the surface under the cursor is `c.distance + f` from the camera: it keeps that fraction of the way and never reaches the camera
+  if (!c.straight) {
+    // the surface under the cursor is `c.distance + f` from the camera: its distance is multiplied by the factor, going in or out, so a zoom in and the same zoom out are one the inverse of the other (`in_200`; before, going out
+    // multiplied the distance to the target, which after going in on a surface is much shorter than the surface's: the same clicks out took the view several times farther than it began)
     const want = Math.max((c.distance + f) * factor, settings.view.minSurfaceMm);
     next = { ...c, distance: clamp(want - f, settings.view.minDistance, settings.view.maxDistance) };
     if (next.distance + f < settings.view.minSurfaceMm - 1e-9) return c;

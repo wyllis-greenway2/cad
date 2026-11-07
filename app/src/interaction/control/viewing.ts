@@ -36,10 +36,11 @@ export const doPan = (s: AppState, i: Extract<Intent, { type: "pan" }>, env: Env
 
 export function doZoom(s: AppState, i: Extract<Intent, { type: "zoom" }>, env: Env): AppState {
   let anchor: Vec3 | undefined;
-  if (settings.input.zoomToCursor && i.factor < 1) {
-    // zoom IN toward the surface under the cursor; zoom OUT is about the view centre (anchoring there would multiply the offset and lose the origin)
+  if (settings.input.zoomToCursor) {
+    // zoom toward (and away from) the surface under the cursor, so that the same number of clicks back returns the view to where it was (`in_200`); with none under it, about the view centre
     const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
-    const c = candidatesAt(sceneOf(s.session), pv, pickOpts(s)).find((x) => x.rank === 2);
+    const sc = sceneOf(s.session);
+    const c = candidatesAt(sc, pv, pickOpts(s)).find((x) => x.rank === 2 && sc.parts[x.ref]?.origin !== "world"); // (the floor is under every pointer: zooming toward it walked the view across the floor with every wheel click, `in_200`)
     const p = c ? surfacePoint(pv, c.score) : null;
     if (p && Math.hypot(...sub(p, s.cam.target)) <= settings.input.zoomAnchorMaxFactor * s.cam.distance) anchor = p;
   }

@@ -12,6 +12,7 @@ export const appRows = (mode: ScrollMode, build = "", can: { undo: boolean; redo
   { id: "history", label: "History", enabled: true, why: null },
   { id: "save", label: "Save", enabled: true, why: null },
   { id: "open", label: "Open…", enabled: true, why: null },
+  { id: "share", label: "Share state (a file to send for a bug report)", enabled: true, why: null },
   { id: "scrollMode", label: LABEL[mode], enabled: true, why: null },
   ...(build ? [{ id: "build", label: `Build ${build}`, enabled: false, why: "which version of the app this page is running" }] : []),
 ];

@@ -129,18 +129,28 @@ test("orbit keeps the model where it is on the screen; drag pan moves the pictur
   for (const [dx, dy] of [[30, 10], [-80, 25], [150, -40]] as const) st = reduce(st, { type: "orbit", dx, dy, x: 0, y: 0 }, env);
   nearV(px(st, c), before, 1e-6);
   st = reduce(st, { type: "zoom", factor: 1e-9, x: 400, y: 300 }, env);
-  assert.ok(st.cam.distance >= 3);
+  assert.ok(st.cam.distance >= 0.3 - 1e-12 && Number.isFinite(st.cam.distance), "bounded by the nearest the view may be (the floor is no longer a surface to stop at, `in_200`)");
 });
 
-test("zoom in toward the cursor keeps the point under it fixed; zoom out is about the view centre", () => {
+test("zoom toward the cursor keeps the point under it fixed, and zooming out the same number of clicks at the same place is the exact inverse (`in_200`)", () => {
   let st = boxState();
   const p: Vec3 = [20, 3, 7]; // a point on the +X face
   const [x, y] = px(st, p);
-  const out = reduce(st, { type: "zoom", factor: 0.5, x, y }, env);
-  nearV(px(out, p), [x, y], 1e-5);
-  assert.ok(out.cam.distance < st.cam.distance);
-  const back = reduce(st, { type: "zoom", factor: 2, x, y }, env);
+  const inn = reduce(st, { type: "zoom", factor: 0.5, x, y }, env);
+  nearV(px(inn, p), [x, y], 1e-5);
+  assert.ok(inn.cam.distance < st.cam.distance);
+  const back = reduce(inn, { type: "zoom", factor: 2, x, y }, env);
   nearV(back.cam.target, st.cam.target);
+  near(back.cam.distance, st.cam.distance, 1e-6);
+  // a few clicks on a surface and as many back: the view is where it was (until the surface is as near as the view may go, going in stops and going out does not)
+  let z = st;
+  for (let i = 0; i < 6; i++) z = reduce(z, { type: "zoom", factor: 0.85, x, y }, env);
+  for (let i = 0; i < 6; i++) z = reduce(z, { type: "zoom", factor: 1 / 0.85, x, y }, env);
+  nearV(z.cam.target, st.cam.target, 1e-6);
+  near(z.cam.distance, st.cam.distance, 1e-6);
+  // and the floor is not a surface to zoom toward: a pointer over empty floor zooms about the middle of the view
+  const empty = reduce(st, { type: "zoom", factor: 0.5, x: 30, y: 30 }, env);
+  nearV(empty.cam.target, st.cam.target);
 });
 
 test("X, Y, Z select that axis's plane and look along it, front then back then front", () => {

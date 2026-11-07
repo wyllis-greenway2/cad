@@ -12,6 +12,7 @@ import { webFiles, webStore } from "./platform/web-files.ts";
 import { createState, reduce, advance } from "./interaction/controller.ts";
 import { frameOf } from "./interaction/frame.ts";
 import { appRows, nextScrollMode, isScrollMode } from "./interaction/appmenu.ts";
+import { snapshotOf, logEntry } from "./interaction/snapshot.ts";
 import type { AppState } from "./interaction/controller.ts";
 import { projector } from "./interaction/camera.ts";
 import { candidatesAt } from "./interaction/picking.ts";
@@ -74,7 +75,8 @@ const menu = createMenu(document.body, (id) => {
     const next = nextScrollMode(recognizer.scrollMode);
     recognizer.setScrollMode(next);
     webStore.set(SCROLL_KEY, next);
-  } else if (id === "save" || id === "open") dispatch({ type: id });
+  } else if (id === "share") shareState();
+  else if (id === "save" || id === "open") dispatch({ type: id });
   else if (id === "bodies" || id === "history") dispatch({ type: "panel", name: id });
   else if (id === "undo" || id === "redo") dispatch({ type: id });
   else dispatch({ type: "runAction", id });
@@ -102,7 +104,28 @@ const controls = createControls(document.body, {
 const env = () => ({ w: view.size().w, h: view.size().h, now: performance.now() });
 const FILE_NAME = "model.cad.json";
 function adopt(session: Session) { state = { ...createState(session), cam: state.cam }; menu.hide(); ring.hide(); dirty = true; }
+// the last things done, kept so that a snapshot can show them (`in_200`): hovering is only kept as its last position
+const intentLog: unknown[] = [];
+let pointer: { x: number; y: number } | null = null;
+function logIntent(i: Intent) {
+  if (i.type === "hover") pointer = { x: i.x, y: i.y };
+  const entry = logEntry(i, state, performance.now());
+  const last = intentLog[intentLog.length - 1] as { type?: string } | undefined;
+  if (i.type === "hover" && last?.type === "hover") intentLog[intentLog.length - 1] = entry;
+  else intentLog.push(entry);
+  if (intentLog.length > 400) intentLog.shift();
+}
+/** A file of everything about the state of the page, to send for a bug report (the project in it can be opened again). */
+function shareState() {
+  const at = new Date();
+  const snap = snapshotOf(state, { intents: intentLog, window: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: typeof __BUILD__ === "string" ? __BUILD__ : "", scrollMode: recognizer.scrollMode, at: at.toISOString(), pointer });
+  const name = `cad-state-${at.toISOString().replace(/[:.]/g, "-").slice(0, 19)}.json`;
+  webFiles.save(name, JSON.stringify(snap, null, 1));
+  state = { ...state, session: { ...state.session, message: `saved ${name}: send that file` } };
+  dirty = true;
+}
 function dispatch(i: Intent) {
+  logIntent(i);
   if (i.type === "save") { webFiles.save(FILE_NAME, saveText(state.session)); return; }
   if (i.type === "open") {
     void webFiles.open().then((text) => {
@@ -167,6 +190,7 @@ async function boot() {
     candidatesAt: (x: number, y: number) => candidatesAt(scene(state.session), projector(state.cam, view.size().w, view.size().h).view(x, y), { pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx }),
     frame: () => frameOf(state, view.size()),
     load: (text: string) => { const r = openSession(engine, text); if (r.ok) adopt(r.value); return r.ok },
+    snapshot: () => snapshotOf(state, { intents: intentLog, window: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: "", scrollMode: recognizer.scrollMode, at: new Date().toISOString(), pointer }),
     dispatch, run: (c: Command) => { state = { ...state, session: run(state.session, c) }; dirty = true; },
   };
   requestAnimationFrame(frame);

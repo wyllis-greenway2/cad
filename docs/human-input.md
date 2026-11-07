@@ -1029,3 +1029,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_199 — 2026-11-07 — directive
 > In this file, there is this weird phantom dark line that shows up near the length bubble when I go to the bottom of this part and select a straight line and a curved one. Also I can't see to use the sketch inset tool? Why not? When I select any or all of these bottom edges, I cant inset them inward? Also can we have it so that when you select a face, it also default selects its edges too? So that you could select a face and it would also allow you to just chamfer all the edges of the face, or inset all the edges etc. Do you think this is a good idea or bad?
 (with the model file `ec7334a7-model.cad_13.json`)
+
+## in_200 — 2026-11-07 — directive
+> Also the zoom can get in a really weird state still. Can you play with it and see if you can find out what makes it weird? moving parts further away and back to origin and zooming in distant pane areas and back around origin seem to have something to do with it. Also can you make it so that I can export or share the state of the system with you so that when I run into these issues I can just directly share what I am experiencing so you can see it in the data? Maybe like a state save or something?
