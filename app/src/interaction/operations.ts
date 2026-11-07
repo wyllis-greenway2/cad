@@ -452,6 +452,20 @@ export function bodyMotion(scene: Scene, op: Op): Rigid | null {
   return motionOf({ id: "s_x", type: op.kind, parts: op.parts, params: { axis: op.kind === "scale" ? 0 : op.axis, value: v, px: pivot[0], py: pivot[1], pz: pivot[2] } });
 }
 
+/**
+ * A face pulled or pushed along its normal that only changes the depth of the last step (the end of an extrusion, or of a push / pull): the face just moves, and the walls beside it stretch, so it can be drawn
+ * at once without the kernel while it is dragged (`in_217`). `depth` is what the step's depth will be. Null for anything the kernel has to work out (a step that comes after it would change too).
+ */
+export function faceDrag(scene: Scene, op: Op): { face: Ref; by: Vec3; step: string; depth: number } | null {
+  if (op.kind !== "pushpull" || op.noEdit || !op.edit || op.parts.length !== 1 || !op.normal) return null;
+  const e = op.edit;
+  if (e.kind !== "depth" && e.kind !== "stepDepth") return null;
+  if (scene.steps.at(-1)?.id !== e.step) return null;
+  const v = valueOf(op);
+  if (v === null || v === 0) return null;
+  return { face: op.parts[0]!, by: scale(op.normal, v), step: e.step, depth: e.depth + v * (e.kind === "depth" ? e.along : 1) };
+}
+
 /** A command as it is without carrying the sketches: only the steps, and not marked `follow`. */
 function stripFollow(c: Command | null): Command | null {
   if (!c) return null;

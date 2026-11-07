@@ -1407,3 +1407,25 @@ test("a whole-body move or turn being dragged is only drawn moved by a matrix (t
   }
 });
 const commitFromOp = (st: AppState): AppState => reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+
+test("pulling the end face of an extrusion is drawn at once without the kernel, as the face moved along its normal, and stays so until the kernel's answer (`in_217`)", () => {
+  let st = box();
+  const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20)!;
+  st = select(st, [top.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  assert.equal(st.op!.edit?.kind, "depth", "the end of the extrusion changes its depth");
+  const base = st.session.outcome.kernel!;
+  st = { ...st, op: { ...st.op!, value: 7 } };
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok(f.faceShift, "a face shift");
+  assert.equal(f.faceShift!.face, top.ref);
+  nearV(f.faceShift!.by, [0, 0, 7]);
+  assert.equal(f.mesh, base.mesh, "the mesh is the one already there");
+  // a step that comes after the end it changes would change too: the kernel is asked then
+  let s2 = box();
+  s2 = { ...s2, session: run(s2.session, { type: "addStep", step: { id: nextId(scene(s2.session), "s"), type: "move", parts: [BODY_OBJECT], params: { axis: 0, value: 3 } } }) };
+  const top2 = Object.values(scene(s2.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20)!;
+  s2 = reduce(select(s2, [top2.ref]), { type: "begin", name: "pushpull" }, env);
+  s2 = { ...s2, op: { ...s2.op!, value: 7 } };
+  assert.equal(frameOf(s2, { w: 800, h: 600 }).faceShift, null);
+});

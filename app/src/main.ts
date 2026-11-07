@@ -212,6 +212,7 @@ function frame(now: number) {
     const page = host.getBoundingClientRect();
     view.setScene(f.scene, f.mesh);
     view.setBodyMatrix(f.bodyMatrix, f.selectionMoves);
+    view.setFaceShift(f.faceShift ? { face: f.faceShift.face, by: [...f.faceShift.by] as [number, number, number], withOverlay: f.highlight.selection.length === 1 && f.highlight.selection[0] === f.faceShift.face } : null);
     view.setHighlight(f.highlight, state.cam, now);
     view.setPreview(f.preview, state.cam);
     view.setGizmo(f.gizmo, state.cam);

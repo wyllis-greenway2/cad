@@ -1097,3 +1097,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_216 — 2026-11-07 — approval
 > yes, build all of that
 (approves: GPU-matrix preview for whole-body move/turn/scale drags, a timing readout in the shared state, coarse mesh while dragging fillets / push-pull, cancelling stale kernel requests, keeping the old mesh on screen)
+
+## in_217 — 2026-11-07 — approval
+> yes, build the push/pull graphics card preview too

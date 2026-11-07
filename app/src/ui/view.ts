@@ -54,15 +54,32 @@ export function createView(host: HTMLElement) {
     const built = buildContent(content, s, mesh, pen, envMap);
     bodyMat = built ? built.material : null;
     bodyGroup = built ? built.body : null;
+    shifter = built ? built.shift : null;
+    shiftedFace = null;
+    faceKeys = null;
     if (bodyGroup) { bodyGroup.matrix.fromArray(bodyMatrix ?? IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
     applyFade();
   }
   let bodyMat: import("three").MeshPhysicalMaterial | null = null;
   let bodyGroup: import("three").Group | null = null;
   let bodyMatrix: number[] | null = null;
+  let shifter: ((keys: Set<string> | null, by: [number, number, number]) => void) | null = null;
+  let shiftedFace: string | null = null;
+  let faceKeys: Set<string> | null = null;
   const IDENTITY = new Array<number>(16).fill(0).map((_, i) => (i % 5 === 0 ? 1 : 0));
   overlay.matrixAutoUpdate = false;
   /** The body (and, when what is selected is the body, its highlight) drawn moved by a matrix: a body being dragged is not worked out again by the kernel for every move of the pointer (`in_216`). */
+  /** A face of the body pulled or pushed along its normal, drawn at once (`in_217`): the points that lie where the face's do move by `by`, and what is selected (the face) with them. */
+  function setFaceShift(f: { face: string; by: [number, number, number]; withOverlay: boolean } | null) {
+    if (!shifter) return;
+    if (!f) { if (shiftedFace !== null) { shifter(null, [0, 0, 0]); shiftedFace = null; } return; }
+    const p = lastScene?.parts[f.face as never] as { mesh?: readonly number[] } | undefined;
+    if (!p?.mesh) return;
+    if (shiftedFace !== f.face || !faceKeys) { faceKeys = new Set<string>(); for (let i = 0; i + 2 < p.mesh.length; i += 3) faceKeys.add(`${Math.round(p.mesh[i]! * 1e3)},${Math.round(p.mesh[i + 1]! * 1e3)},${Math.round(p.mesh[i + 2]! * 1e3)}`); }
+    shifter(faceKeys, f.by);
+    shiftedFace = f.face;
+    if (f.withOverlay) { overlay.matrix.makeTranslation(f.by[0], f.by[1], f.by[2]); overlay.matrixWorldNeedsUpdate = true; }
+  }
   function setBodyMatrix(m: number[] | null, withOverlay: boolean) {
     bodyMatrix = m;
     if (bodyGroup) { bodyGroup.matrix.fromArray(m ?? IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
@@ -141,5 +158,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { setScene, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { setScene, setBodyMatrix, setFaceShift, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

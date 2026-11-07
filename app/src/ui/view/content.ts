@@ -30,7 +30,7 @@ function linePairs(s: Scene, skip: Set<Ref>): number[] {
  * One look for every line (`in_115`): drawn lines and the body's outline are the same thin charcoal line, from the same material. Corners are not dotted anywhere:
  * a corner shows as a ball when you point at it or pick it, whatever it belongs to.
  */
-export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group } | null {
+export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group; shift: (keys: Set<string> | null, by: [number, number, number]) => void } | null {
   clearGroup(content);
   pen.reset();
   const get = lookup(s);
@@ -60,12 +60,33 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
   g.setAttribute("normal", new THREE.BufferAttribute(mesh.normals, 3));
   g.setIndex(new THREE.BufferAttribute(mesh.triangles, 1));
   const corners = cornerEdges(mesh.vertices, mesh.normals, mesh.triangles, settings.extrude.edgeAngleDeg); // where the surface turns by more than 30 degrees
+  let edgePos: THREE.BufferAttribute | null = null;
+  const edgeOrig = Float32Array.from(corners);
   if (corners.length) {
     const eg = new THREE.BufferGeometry();
-    eg.setAttribute("position", new THREE.Float32BufferAttribute(corners, 3));
+    edgePos = new THREE.Float32BufferAttribute(Float32Array.from(corners), 3);
+    eg.setAttribute("position", edgePos);
     body.add(new THREE.LineSegments(eg, edge));
   }
   const material = new THREE.MeshPhysicalMaterial({ color: settings.theme.bodyColor, roughness: settings.light.roughness, metalness: 0, clearcoat: settings.light.sheen, clearcoatRoughness: settings.light.sheenRoughness, envMap, envMapIntensity: settings.light.reflect, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
   body.add(new THREE.Mesh(g, material));
-  return { material, body };
+  // A face pulled or pushed along its normal, drawn at once without the kernel (`in_217`): every point of the surface (and of its outline) that lies where the face's points are moves by `by`; the walls beside it
+  // stretch, as a prism's do. With `keys` null everything goes back. The mesh the kernel gave is not changed: the moved points live in a copy.
+  const orig = mesh.vertices;
+  let live: THREE.BufferAttribute | null = null;
+  const at = (a: ArrayLike<number>, i: number) => `${Math.round(a[i]! * 1e3)},${Math.round(a[i + 1]! * 1e3)},${Math.round(a[i + 2]! * 1e3)}`;
+  let seen: Set<string> | null = null;
+  let vertexHits: Uint8Array = new Uint8Array(0);
+  let edgeHits: Uint8Array = new Uint8Array(0);
+  const hitsOf = (keys: Set<string>, from: ArrayLike<number>): Uint8Array => { const h = new Uint8Array(from.length / 3); for (let i = 0; i < h.length; i++) h[i] = keys.has(at(from, 3 * i)) ? 1 : 0; return h; };
+  const shift = (keys: Set<string> | null, by: [number, number, number]) => {
+    if (!live) { if (!keys) return; live = new THREE.BufferAttribute(Float32Array.from(orig), 3); g.setAttribute("position", live); }
+    if (keys && keys !== seen) { seen = keys; vertexHits = hitsOf(keys, orig); edgeHits = hitsOf(keys, edgeOrig); } // (found once for the face, not on every move)
+    const move = (target: Float32Array, from: ArrayLike<number>, hits: Uint8Array) => { for (let i = 0; i < hits.length; i++) { const d = keys && hits[i] ? 1 : 0; target[3 * i] = from[3 * i]! + d * by[0]; target[3 * i + 1] = from[3 * i + 1]! + d * by[1]; target[3 * i + 2] = from[3 * i + 2]! + d * by[2]; } };
+    if (!keys) { vertexHits = new Uint8Array(orig.length / 3); edgeHits = new Uint8Array(edgeOrig.length / 3); seen = null; }
+    move(live.array as Float32Array, orig, vertexHits);
+    live.needsUpdate = true;
+    if (edgePos) { move(edgePos.array as Float32Array, edgeOrig, edgeHits); edgePos.needsUpdate = true; }
+  };
+  return { material, body, shift };
 }
