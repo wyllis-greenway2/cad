@@ -3,7 +3,7 @@ import type { Ref } from "../shared/ref.ts";
 import type { Scene, Step } from "../operation/scene.ts";
 
 export type PanelKind = "bodies" | "history";
-export interface PanelRow { id: string; label: string; /** selected (a body) */ active: boolean; /** can be taken out (a step) */ removable: boolean; /** why this step could not be made, when it could not (it is shown in red) */ error?: string }
+export interface PanelRow { id: string; label: string; /** selected (a body) */ active: boolean; /** can be taken out (a step) */ removable: boolean; /** why this step could not be made, when it could not (it is shown in red) */ error?: string; /** an extrusion: its hidden sketch can be shown (`in_228`); true while it is shown */ sketch?: boolean }
 export interface Panel { kind: PanelKind; title: string; rows: PanelRow[] }
 
 const n = (v: unknown): string => String(Math.round(Number(v) * 100) / 100);
@@ -28,6 +28,6 @@ function bodiesPanel(scene: Scene, selection: readonly Ref[]): Panel {
   return { kind: "bodies", title: "Bodies", rows: bodies.map((b, i) => ({ id: b.ref, label: `Body ${i + 1}`, active: selection.includes(b.ref), removable: false })) };
 }
 /** The steps of building, oldest first. */
-const historyPanel = (scene: Scene, errors: Record<string, string>): Panel => ({ kind: "history", title: "History", rows: scene.steps.map((s) => ({ id: s.id, label: stepLabel(s), active: false, removable: true, ...(errors[s.id] ? { error: errors[s.id] } : {}) })) });
-export const panelOf = (kind: PanelKind | null, scene: Scene, selection: readonly Ref[], errors: Record<string, string> = {}): Panel | null => (kind === "bodies" ? bodiesPanel(scene, selection) : kind === "history" ? historyPanel(scene, errors) : null);
+const historyPanel = (scene: Scene, errors: Record<string, string>, shown: string | null): Panel => ({ kind: "history", title: "History", rows: scene.steps.map((s) => ({ id: s.id, label: stepLabel(s), active: false, removable: true, ...(s.type === "extrude" ? { sketch: shown === s.id } : {}), ...(errors[s.id] ? { error: errors[s.id] } : {}) })) });
+export const panelOf = (kind: PanelKind | null, scene: Scene, selection: readonly Ref[], errors: Record<string, string> = {}, shownSketch: string | null = null): Panel | null => (kind === "bodies" ? bodiesPanel(scene, selection) : kind === "history" ? historyPanel(scene, errors, shownSketch) : null);
 

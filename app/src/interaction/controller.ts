@@ -2,6 +2,8 @@
 // functions (`inv_no_logic_in_ui`): the UI only draws the state and the platform only reports devices. The work is in `control/`, one file per concern:
 // `viewing` (camera), `pointer` (hover, click, menu), `modal` (tools, operations, typing, edits).
 import type { Intent } from "../shared/input.ts";
+import { figureRefs } from "../operation/scene.ts";
+import type { Ref } from "../shared/ref.ts";
 import type { AppState, Env } from "./control/state.ts";
 import { doHover, doClick, doMenu } from "./control/pointer.ts";
 import { doPan, doZoom, doLook, doHome } from "./control/viewing.ts";
@@ -21,7 +23,9 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   let next = apply(s, i, env);
   if (next.resume && !RESUMING.has(i.type)) next = { ...next, resume: null }; // only a click, or moving the view, keeps "sketching goes on" waiting for a vertex
   // the hidden sketch of a plane is shown while a tool begun on the edge of a body sketches in it (`in_211`)
-  const reveal = next.tool?.reveal ? next.tool.plane : null;
+  const shownStep = next.showSketch ? next.session.history.scene.steps.find((x) => x.id === next.showSketch) : undefined;
+  const shownPlane = shownStep ? (next.session.history.scene.parts[figureRefs(shownStep)[0] ?? ""] as { plane?: Ref | null } | undefined)?.plane ?? null : null; // (the plane the extrusion's sketch is on, now: it may have been carried with the body)
+  const reveal = next.tool?.reveal ? next.tool.plane : shownPlane;
   if ((next.session.reveal ?? null) !== reveal) next = { ...next, session: { ...next.session, reveal } };
   const c = next.session.conflict;
   return c && c !== s.session.conflict ? { ...next, flash: { ...c, at: env.now } } : next;

@@ -181,7 +181,8 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
 /** The ⋯ menu's lists: choosing one opens it, choosing it again closes it. */
 export const doPanel = (s: AppState, name: "bodies" | "history"): AppState => ({ ...s, panel: s.panel === name ? null : name, menu: null });
 /** A row of the open list: a body is selected, a step is taken out of the history. */
-export function doPanelRow(s: AppState, id: string, act: "select" | "remove"): AppState {
+export function doPanelRow(s: AppState, id: string, act: "select" | "remove" | "sketch"): AppState {
+  if (act === "sketch") return { ...s, showSketch: s.showSketch === id ? null : id }; // (the sketch of an extrusion shown, or put away again)
   if (act === "select") return id in sceneOf(s.session).parts ? withSession(s, { ...s.session, click: { ...s.session.click, selection: [id as never] } }) : s;
   return withSession({ ...s, op: null }, run(s.session, { type: "removeStep", id }));
 }

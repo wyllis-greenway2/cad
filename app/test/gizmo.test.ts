@@ -1,3 +1,4 @@
+import { consumed } from "../src/operation/ownership.ts";
 import { normalOfPlane } from "../src/operation/part.ts";
 import { actionsFor } from "../src/interaction/actions.ts";
 import test from "node:test";
@@ -2001,4 +2002,19 @@ test("several faces pulled together (each along its own normal by the same dista
     const m = (f.scene.parts[g.face] as unknown as { mesh: number[] }).mesh;
     for (let i = 0; i + 2 < m.length; i += 3) { const p: Vec3 = [m[i]!, m[i + 1]!, m[i + 2]!]; const q = add(p, scale(sh.normal, (k - 1) * dot(sub(p, sh.point), sh.normal))); assert.ok(meshDistance(real, q) < 1e-2, `${JSON.stringify(q)} is on the real body`); }
   }
+});
+
+test("the history list has a button on each extrusion that shows the sketch it was made from (and puts it away again), picked and snapped to like any sketch (`in_228`)", () => {
+  let st = box();
+  const row = (s: AppState) => frameOf(s, { w: 800, h: 600 }).panel?.rows.find((r) => r.id === scene(s.session).steps[0]!.id);
+  st = { ...st, panel: "history" };
+  assert.equal(row(st)?.sketch, false, "the button is there, off");
+  st = reduce(st, { type: "panelRow", id: scene(st.session).steps[0]!.id, act: "sketch" }, env);
+  assert.equal(row(st)?.sketch, true, "on");
+  const lines = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn");
+  assert.ok(lines.length >= 4);
+  assert.ok(lines.every((l) => !consumed(scene(st.session)).has(l.ref)), "the sketch's lines are shown");
+  assert.ok(lines.every((l) => consumed(scene({ ...st.session, reveal: null })).has(l.ref)), "and hidden again without the button");
+  st = reduce(st, { type: "panelRow", id: scene(st.session).steps[0]!.id, act: "sketch" }, env);
+  assert.equal(st.session.reveal ?? null, null, "put away");
 });

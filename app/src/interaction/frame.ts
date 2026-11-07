@@ -278,7 +278,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     touchCursor: s.tool && s.tool.points.length && s.tool.cursor ? s.tool.cursor : null,
     avoid: busy || !annotationsPresent ? { segs: [], pts: [] } : avoidOf(sc),
     hint: s.tool?.hints?.length && s.tool.cursor ? { kinds: s.tool.hints.map((h) => h.kind), at: s.tool.cursor } : null,
-    panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors),
+    panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors, s.showSketch),
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash)],
     flash,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // on: the world plane that is on always has its grid (`in_190`)

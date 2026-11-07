@@ -1,8 +1,8 @@
 // The list card opened from the ⋯ menu (`in_132`): the bodies with their names, or the history of steps. It displays what the interaction layer says and reports which row was chosen.
 import { iconSvg } from "./icons.ts";
 
-export interface PanelData { kind: string; title: string; rows: { id: string; label: string; active: boolean; removable: boolean; error?: string }[] }
-export interface PanelHandlers { row(id: string, act: "select" | "remove"): void; undo(): void; redo(): void; close(): void }
+export interface PanelData { kind: string; title: string; rows: { id: string; label: string; active: boolean; removable: boolean; error?: string; sketch?: boolean }[] }
+export interface PanelHandlers { row(id: string, act: "select" | "remove" | "sketch"): void; undo(): void; redo(): void; close(): void }
 
 export function createPanel(host: HTMLElement, h: PanelHandlers) {
   const el = document.createElement("div");
@@ -43,6 +43,7 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
         label.style.flex = "1";
         if (r.error) { label.style.color = "#c0392b"; row.title = r.error; label.textContent = `${r.label} ✕`; } // a step that could not be made: red, the reason on hover
         row.appendChild(label);
+        if (r.sketch !== undefined) { const b = btn(iconSvg("sketch"), r.sketch ? "Put the sketch away" : "Show the sketch this extrusion was made from", () => h.row(r.id, "sketch")); if (r.sketch) b.style.background = "#dff1f0"; row.appendChild(b); }
         if (r.removable) row.appendChild(btn(iconSvg("cross"), "Take this step out", () => h.row(r.id, "remove")));
         if (p.kind === "bodies") row.addEventListener("click", () => h.row(r.id, "select"));
         el.appendChild(row);
