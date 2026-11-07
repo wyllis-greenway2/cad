@@ -17,7 +17,7 @@ export type Curve =
   | { k: "circle"; ref: Ref; centre: Ref; c: V2; r: number };
 interface Node { ref: Ref; at: V2; part?: Corner }
 interface Piece { curve: Curve; from: Ref; to: Ref; ref: Ref; arc: boolean; ccw: boolean; whole: boolean }
-interface Half { from: Ref; to: Ref; piece: Piece; dir: number; twin: number }
+interface Half { from: Ref; to: Ref; piece: Piece; dir: number; twin: number; /** which way it curves as it leaves (1/radius turning left, minus turning right, 0 straight): told apart when two leave a point the same way, as a line does where it is tangent to a circle */ curv: number }
 
 const TOL = 1e-4;
 export const TAU = 2 * Math.PI;
@@ -228,11 +228,15 @@ export function regionsOf(s: Scene): Regions {
       const out = p.arc ? arcDir(a, true) : Math.atan2(b[1] - a[1], b[0] - a[0]);
       const back = p.arc ? arcDir(b, false) : Math.atan2(a[1] - b[1], a[0] - b[0]);
       const i = halves.length;
-      halves.push({ from: p.from, to: p.to, piece: p, dir: out, twin: i + 1 }, { from: p.to, to: p.from, piece: p, dir: back, twin: i });
+      const k = p.arc ? (p.ccw ? 1 : -1) / (cu as Exclude<Curve, { k: "seg" }>).r : 0;
+      halves.push({ from: p.from, to: p.to, piece: p, dir: out, twin: i + 1, curv: k }, { from: p.to, to: p.from, piece: p, dir: back, twin: i, curv: -k });
     }
     const around = new Map<Ref, number[]>();
     halves.forEach((h, i) => around.set(h.from, [...(around.get(h.from) ?? []), i]));
-    for (const l of around.values()) l.sort((u, v) => mod(halves[u]!.dir) - mod(halves[v]!.dir));
+    for (const l of around.values()) l.sort((u, v) => {
+      const d = mod(halves[u]!.dir) - mod(halves[v]!.dir);
+      return Math.abs(d) < 1e-7 || Math.abs(Math.abs(d) - TAU) < 1e-7 ? halves[u]!.curv - halves[v]!.curv : d; // (leaving the same way: the one that curves further left is the later one round the point)
+    });
     const next = (i: number): number => {
       const l = around.get(halves[i]!.to)!;
       return l[(l.indexOf(halves[i]!.twin) - 1 + l.length) % l.length]!; // the first one clockwise from the way back: the face stays on its left

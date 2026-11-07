@@ -1018,3 +1018,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_196 — 2026-11-07 — directive
 > Flip it so the first selected is stationary
+
+## in_197 — 2026-11-07 — question
+> Isn't this a closed sketch? Why cant I extrude it?
+(with the model file `347c8394-model.cad_12.json`)

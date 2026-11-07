@@ -11,6 +11,7 @@ import { drawCircle, drawChain } from "../src/operation/build.ts";
 import { annotationsFor } from "../src/interaction/annotations.ts";
 import { suggestionsFor } from "../src/interaction/suggest.ts";
 import { trimAt } from "../src/operation/trim.ts";
+import { startOp, opCommand } from "../src/interaction/operations.ts";
 import type { Part } from "../src/operation/part.ts";
 import type { Vec3 } from "../src/math/vec.ts";
 
@@ -100,4 +101,17 @@ test("the trim tool: it is in the right-click list, stays on, and a click cuts t
   const done = reduce(hovered, { type: "click", x, y, count: 1, shift: false }, env);
   assert.ok(done.tool && done.tool.kind === "trim", "the tool stays on");
   assert.equal(parts(done.session).filter((p) => p.kind === "line" && p.origin === "drawn").length, 2, "the part right of the crossing is gone, the left piece and the cutting line stay");
+});
+
+test("two circles joined by two lines that leave them tangentially (a belt): the two disks and the belt between are closed sketches, and the belt extrudes (`in_197`)", () => {
+  const r = openSession(kernel, readFileSync(new URL("./fixtures/belt.cad.json", import.meta.url), "utf8"));
+  assert.ok(r.ok);
+  const s = r.value;
+  const faces = parts(s).filter((p) => p.kind === "face");
+  assert.equal(faces.length, 3);
+  const belt = faces.find((f) => f.kind === "face" && f.loop.length === 4)!;
+  const st = startOp(scene(s), [belt.ref], "extrude") as { ok: true; op: Parameters<typeof opCommand>[1] };
+  const t = run(s, opCommand(scene(s), { ...st.op, value: 5 })!);
+  assert.deepEqual(t.outcome.errors, {});
+  assert.ok(t.outcome.kernel!.volume! > 100, `${t.outcome.kernel!.volume}`);
 });
