@@ -20,12 +20,12 @@ export interface TrimPlan {
 /** The plan for trimming `ref` where `at` is (a point on its plane near the pointer), or null if it cannot be trimmed there (not a line or circle of the drawing, or nothing crosses it). */
 export function trimAt(s: Scene, ref: Ref, at: Vec3): TrimPlan | null {
   const part = s.parts[ref];
-  if (!part || part.origin !== "drawn" || !part.movable || !part.plane || (part.kind !== "line" && part.kind !== "circle") || (part.kind === "line" && (part.center || part.derived))) return null;
+  if (!part || part.origin !== "drawn" || !part.movable || !part.plane || (part.kind !== "line" && part.kind !== "circle") || (part.kind === "line" && part.derived)) return null;
   const built = curvesOn(s, part.plane, consumed(s));
   if (!built) return null;
   const { curves, pl, flat } = built;
   const target = curves.find((c) => c.ref === ref);
-  if (!target || target.k === "arc") return null;
+  if (!target) return null;
   const lift = (q: V2): Vec3 => add(pl.at, add(scale(pl.u, q[0]), scale(pl.v, q[1])));
   const click = flat(at);
   // where along the curve the pointer is, and where it is cut by the other curves (each cut remembers what made it)
@@ -38,6 +38,7 @@ export function trimAt(s: Scene, ref: Ref, at: Vec3): TrimPlan | null {
     }
   }
   if (part.kind === "line" && target.k === "seg") return trimSide(s, part, target, lift, click, cuts);
+  if (part.kind === "line" && target.k === "arc") return trimArc(s, part, target, lift, click, cuts);
   if (part.kind === "circle" && target.k === "circle") return trimCircle(s, part, target, lift, click, cuts);
   return null;
 }
@@ -86,6 +87,48 @@ function trimSide(s: Scene, part: Extract<Scene["parts"][string], { kind: "line"
   const orphans = [part.a, part.b].filter((r) => !used.has(r) && s.parts[r]?.movable && !Object.values(s.parts).some((q) => q.ref !== part.ref && ((q.kind === "line" && (q.a === r || q.b === r || q.center === r)) || (q.kind === "circle" && q.center === r))));
   if (orphans.length) commands.push({ type: "deleteParts", refs: orphans });
   return { span: [lift(pointAtParam(c, lo.t)), lift(pointAtParam(c, hi.t))], command: { type: "batch", commands } };
+}
+
+/** An arc: the part between two cuts (or a cut and an end) goes; what is left are the arcs on either side, about the same middle, each ending on what cut it (`in_228`). */
+function trimArc(s: Scene, part: Extract<Scene["parts"][string], { kind: "line" }>, c: Extract<Curve, { k: "arc" }>, lift: (q: V2) => Vec3, click: V2, cuts: { t: number; by: Curve }[]): TrimPlan | null {
+  const total = Math.abs(c.sweep);
+  const turn = c.sweep > 0 ? mod(ang(c.c, click) - c.a0) : mod(c.a0 - ang(c.c, click));
+  const tc = turn <= total ? turn / total : turn - total < TAU - turn ? 1 : 0; // (the pointer is off the end of the arc: the nearer end)
+  const inner = cuts.filter((k) => k.t > 1e-9 && k.t < 1 - 1e-9).sort((x, y) => x.t - y.t);
+  const bounds = [{ t: 0, by: null as Curve | null }, ...inner, { t: 1, by: null as Curve | null }];
+  let i = 0;
+  while (i + 1 < bounds.length - 1 && bounds[i + 1]!.t <= tc) i++;
+  const [lo, hi] = [bounds[i]!, bounds[i + 1]!];
+  const pointAt = (t: number): V2 => { const th = c.a0 + c.sweep * t; return [c.c[0] + Math.cos(th) * c.r, c.c[1] + Math.sin(th) * c.r]; };
+  const id = newIds(s);
+  const base = { origin: "drawn" as const, plane: part.plane, movable: true };
+  const commands: Command[] = [];
+  const rid = relIds(s);
+  let n = 0;
+  const cornerAt = (b: { t: number; by: Curve | null }): Ref => {
+    if (b.t <= 1e-9) return part.a;
+    if (b.t >= 1 - 1e-9) return part.b;
+    const r = drawnRef(`${id}.p${n++}`);
+    commands.push({ type: "addPart", part: { ...base, ref: r, kind: "corner", at: lift(pointAt(b.t)) } });
+    if (b.by && (b.by.k === "seg" || b.by.k === "circle")) commands.push({ type: "addRelation", relation: { id: rid(), kind: b.by.k === "seg" ? "onLine" : "onCircle", parts: [r, b.by.ref] } as Relation });
+    return r;
+  };
+  const keep: { a: { t: number; by: Curve | null }; b: { t: number; by: Curve | null } }[] = [];
+  if (lo.t > 1e-9) keep.push({ a: bounds[0]!, b: lo });
+  if (hi.t < 1 - 1e-9) keep.push({ a: hi, b: bounds[bounds.length - 1]! });
+  keep.forEach((k, j) => {
+    const [a, b] = [cornerAt(k.a), cornerAt(k.b)];
+    const arc = drawnRef(`${id}.s${j}`);
+    commands.push({ type: "addPart", part: { ...base, ref: arc, kind: "line", a, b, center: part.center!, ...(part.ccw === undefined ? {} : { ccw: part.ccw }) } });
+    commands.push({ type: "addRelation", relation: { id: rid(), kind: "arcEnds", parts: [arc, part.center!] } as Relation });
+  });
+  commands.push({ type: "deleteParts", refs: [part.ref] });
+  // an end that nothing else stands on goes with the piece it was the end of (the middle stays: the arcs are about it)
+  const used = new Set<Ref>([...(lo.t > 1e-9 ? [part.a] : []), ...(hi.t < 1 - 1e-9 ? [part.b] : [])]);
+  const orphans = [part.a, part.b].filter((r) => !used.has(r) && s.parts[r]?.movable && !Object.values(s.parts).some((q) => q.ref !== part.ref && ((q.kind === "line" && (q.a === r || q.b === r || q.center === r)) || (q.kind === "circle" && q.center === r))));
+  if (orphans.length) commands.push({ type: "deleteParts", refs: orphans });
+  const sweep = (hi.t - lo.t) * c.sweep;
+  return { span: Array.from({ length: 33 }, (_, q) => lift(pointAt(lo.t + ((hi.t - lo.t) * q) / 32))).filter(() => Math.abs(sweep) > 0), command: { type: "batch", commands } };
 }
 
 function trimCircle(s: Scene, part: Extract<Scene["parts"][string], { kind: "circle" }>, c: Extract<Curve, { k: "circle" }>, lift: (q: V2) => Vec3, click: V2, cuts: { t: number; by: Curve }[]): TrimPlan | null {

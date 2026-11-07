@@ -48,7 +48,7 @@ const onBoundaryEdge = (scene: Scene, l: Line, on: (p: Vec3, tol?: number) => bo
 };
 
 /** The outline a selection of body edges (or one flat face) gives, or null if it is not edges of one flat face that make one chain. */
-export function bodyOutline(scene: Scene, parts: Part[]): Outline | null {
+export function bodyOutline(scene: Scene, parts: Part[], ins?: (p: V2) => boolean): Outline | null {
   const get = (r: Ref) => scene.parts[r];
   let face: Extract<Part, { kind: "plane" }> | null = null;
   let refs: Ref[];
@@ -74,8 +74,9 @@ export function bodyOutline(scene: Scene, parts: Part[]): Outline | null {
     const c = local(pl, edges[0]!.circle!.center);
     const r = edges[0]!.circle!.radius;
     const p: V2 = [c[0] + r, c[1]];
-    const inside = Math.hypot(mid[0] - c[0], mid[1] - c[1]) < r;
-    return { kind: "outline", plane: pl.ref, edges: [{ k: "arc", c, r, p, q: p, ccw: true }], closed: true, side: inside ? 1 : -1, origin: lift(pl, p), normal: pl.u };
+    // (a hole of a face with holes: the face's middle says nothing, a point just inside the circle is asked whether it is in the face, `in_228`)
+    const within = ins ? ins([c[0] + r - 0.1 * r, c[1]]) : Math.hypot(mid[0] - c[0], mid[1] - c[1]) < r;
+    return { kind: "outline", plane: pl.ref, edges: [{ k: "arc", c, r, p, q: p, ccw: true }], closed: true, side: within ? 1 : -1, origin: lift(pl, p), normal: pl.u };
   }
   if (edges.some((l) => l.a === l.b)) return null;
   // the chain: edges joined end to end at shared corners
@@ -113,7 +114,15 @@ export function bodyOutline(scene: Scene, parts: Part[]): Outline | null {
     vote += Math.sign((mid[0] - mp[0]) * left[0] + (mid[1] - mp[1]) * left[1]);
   }
   if (closed && out.length) { /* a closed chain: the same count says it */ }
-  const side: 1 | -1 = vote >= 0 ? 1 : -1;
+  // a loop of a face with holes: the middle of the face says nothing about a hole's side, so a point just to the left of the first edge is asked whether it is in the face (`in_228`)
+  let side: 1 | -1 = vote >= 0 ? 1 : -1;
+  if (ins) {
+    const e0 = out[0]!;
+    const m0 = pointAt(e0, 0.5);
+    const t0 = tangent(e0, 0.5);
+    const depth = Math.max(1e-3, 0.02 * Math.hypot(e0.q[0] - e0.p[0], e0.q[1] - e0.p[1])); // (the triangles of a curve are chords: deep enough to be past them)
+    side = ins([m0[0] - t0[1] * depth, m0[1] + t0[0] * depth]) ? 1 : -1;
+  }
   const first = out[0]!;
   const fm: V2 = [(first.p[0] + first.q[0]) / 2, (first.p[1] + first.q[1]) / 2];
   const t0 = tangent(first, 0.5);
@@ -261,4 +270,28 @@ export function outlineCommand(scene: Scene, src: Outline, v: number): Command |
     commands.push({ type: "addRelation", relation: { id: formatId("r", ++rid), kind: "arcEnds", parts: [line, centre] } });
   });
   return { type: "batch", commands };
+}
+
+/** The outlines of every loop of a flat face of the body, outer and holes, each with the side the material is on, so offsetting the face moves all of them (`in_228`). Null unless the selection is one flat face with more than one loop. */
+export function bodyOutlines(scene: Scene, parts: Part[]): { loops: Outline[] } | null {
+  const only = parts.length === 1 ? parts[0]! : null;
+  if (only?.kind !== "plane" || only.origin !== "body" || only.curved || only.rounded || !only.mesh) return null;
+  const refs = faceEdges(scene, only);
+  const lines = refs.map((r) => scene.parts[r]).filter((l): l is Line => l?.kind === "line");
+  // the loops: edges joined at shared corners
+  const parent: number[] = lines.map((_, i) => i);
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i]!)));
+  const at = new Map<Ref, number>();
+  lines.forEach((l, i) => { for (const c of [l.a, l.b]) { const j = at.get(c); if (j === undefined) at.set(c, i); else parent[find(i)] = find(j); } });
+  const groups = new Map<number, Line[]>();
+  lines.forEach((l, i) => groups.set(find(i), [...(groups.get(find(i)) ?? []), l]));
+  if (groups.size < 2) return null;
+  const pl = only;
+  const tris: [V2, V2, V2][] = [];
+  const m = only.mesh;
+  for (let i = 0; i + 8 < m.length; i += 9) tris.push([local(pl, [m[i]!, m[i + 1]!, m[i + 2]!]), local(pl, [m[i + 3]!, m[i + 4]!, m[i + 5]!]), local(pl, [m[i + 6]!, m[i + 7]!, m[i + 8]!])]);
+  const inside = (p: V2): boolean => tris.some(([a, b, c]) => { const d = (u: V2, v: V2, w: V2) => (u[0] - w[0]) * (v[1] - w[1]) - (v[0] - w[0]) * (u[1] - w[1]); const [d1, d2, d3] = [d(p, a, b), d(p, b, c), d(p, c, a)]; return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0)); });
+  const loops: Outline[] = [];
+  for (const g of groups.values()) { const o = bodyOutline(scene, g, inside); if (!o) return null; loops.push(o); }
+  return { loops };
 }

@@ -7,7 +7,7 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, run, scene, openSession } from "../src/interaction/session.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
 import { homeCamera, lookStraight, projector } from "../src/interaction/camera.ts";
-import { drawCircle, drawChain } from "../src/operation/build.ts";
+import { drawCircle, drawChain, drawArc } from "../src/operation/build.ts";
 import { annotationsFor } from "../src/interaction/annotations.ts";
 import { suggestionsFor } from "../src/interaction/suggest.ts";
 import { trimAt } from "../src/operation/trim.ts";
@@ -152,4 +152,29 @@ test("the bottom edges of the body can be inset into a sketch: all four (lines a
   // outwards instead (the other way): bigger arcs
   const out = inset(edges.map((l) => l.ref), 1.5);
   assert.equal(out.message, null);
+});
+
+test("trim cuts an arc where lines cross it (`in_228`): the part under the pointer goes, the arcs on either side stay about the same middle and end on what cut them", () => {
+  let s = createSession(kernel);
+  // a half circle about the origin from (10, 0) round through (0, 10) to (-10, 0), crossed by two vertical lines
+  const arc = drawArc(scene(s), XY, [10, 0, 0], [0, 10, 0], [-10, 0, 0], [0, 0, 1])!;
+  s = run(s, arc.command);
+  for (const x of [5, -5]) s = run(s, drawChain(scene(s), XY, [[x, -2, 0], [x, 14, 0]], false, { reuse: true }).command);
+  const plan = trimAt(scene(s), arc.line, [0, 10, 0])!;
+  assert.ok(plan, "can be trimmed between the two lines");
+  assert.ok(plan.span.length > 2, "and shows what goes");
+  const done = run(s, plan.command);
+  const arcs = Object.values(scene(done).parts).filter((p) => p.kind === "line" && p.origin === "drawn" && !!p.center);
+  assert.equal(arcs.length, 2, "an arc on each side");
+  assert.ok(!(arc.line in scene(done).parts), "the old arc is gone");
+  for (const a of arcs) {
+    if (a.kind !== "line") continue;
+    assert.equal(a.center, arc.centre, "about the same middle");
+    for (const e of [a.a, a.b]) { const q = (scene(done).parts[e] as { at: Vec3 }).at; assert.ok(Math.abs(Math.hypot(q[0], q[1]) - 10) < 1e-3); }
+  }
+  // a click on the part beyond the first line (towards (10,0)) cuts from the end to the first line
+  const end = trimAt(scene(s), arc.line, [9, 4, 0])!;
+  assert.ok(end);
+  const doneEnd = run(s, end.command);
+  assert.equal(Object.values(scene(doneEnd).parts).filter((p) => p.kind === "line" && p.origin === "drawn" && !!p.center).length, 1, "one arc is left");
 });

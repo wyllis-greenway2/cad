@@ -22,11 +22,12 @@ The kernel takes about 100 ms to answer for a model (most of it meshing the body
 - a straight side of an extruded sketch: its corners moved as the solver would move them, with the points over them (arcs in the sketch are mapped from the old arc to the new one, only if the arc keeps equal-distance ends);
 - the wall of an arc whose circle is gone: out from the middle and along the arc to where its ends slide to on their lines;
 - a fillet or chamfer of any size: the same cross-section scaled about the sharp edge (a line, or a circle), edge by edge, and about the corner where straight edges meet in a corner between flat faces; for a **new** one the kernel makes it once at a reference size and every size after is that result scaled;
-- a new extrusion or new push / pull prism (adding or cutting, not right through): made once at a reference depth and stretched along the normal about the plane it stands on.
+- a new extrusion or new push / pull prism (adding or cutting, not right through): made once at a reference depth and stretched along the normal about the plane it stands on; several flat faces pulled together each stretch about their own plane (`in_228`);
+- angles typed for the turn axes: one turn about the middle of the body, or several about a set pivot, as one matrix (`in_228`).
 
 **Rules that keep it honest:** the solver is asked (not guessed) where sketch corners go, and a move it would not make is left to the kernel, which refuses it as before; every case has a test that checks the moved points against the surface the kernel really makes at that size; "Share state" carries the kernel's and the frame's timings so a slow drag is measured.
 
-**Not drawn this way (the kernel, rough mesh):** a corner with a curved edge, a plane-to-cone rim, steps after the edit that are not moves or turns, pieces of an arc cut by lines, a cut right through, several faces moved together, angles typed for three axes at once.
+**Not drawn this way (the kernel, rough mesh), and why it cannot be exact:** a corner with a curved edge (the curved faces there are not scaled about the corner); a rim between a plane and a cone (the kernel's WASM build cannot say where a cone's or torus's axis is); steps after the edit that depend on the shape being edited (a rounding of the top rim, a cut, a scale: what they make has to be worked out again); pieces of an arc cut by lines into several walls (the crossings move along the cutting lines too); a cut right through the body (the cut stops changing once it is through, so it is not a stretch); several turns about the middle of the body when no pivot is set (the middle of its box moves after the first turn).
 
 ## Rationale
 

@@ -9,14 +9,17 @@ import type { Command } from "../operation/commands.ts";
 import type { Part, Plane } from "../operation/part.ts";
 import { pointOf, normalOfPlane } from "../operation/part.ts";
 import { drawChain, drawCircle } from "../operation/build.ts";
-import { bodyOutline, outlineCommand } from "./offsetbody.ts";
+import { bodyOutline, bodyOutlines, outlineCommand } from "./offsetbody.ts";
+import { apply } from "../operation/commands.ts";
 import type { Outline } from "./offsetbody.ts";
 
 export type OffsetSource =
   | { kind: "loop"; plane: Ref; pts: Vec3[]; origin: Vec3; normal: Vec3 }
   | { kind: "circle"; plane: Ref; circle: Ref; centre: Vec3; radius: number; origin: Vec3; normal: Vec3 }
   | { kind: "line"; plane: Ref; a: Vec3; b: Vec3; origin: Vec3; normal: Vec3 }
-  | Outline;
+  | Outline
+  /** a flat face of the body with holes: every loop of it, the outer one first; they are offset together (`in_228`) */
+  | { kind: "outlines"; plane: Ref; origin: Vec3; normal: Vec3; loops: Outline[] };
 
 type V2 = [number, number];
 const local = (pl: Plane, p: Vec3): V2 => [dot(sub(p, pl.at), pl.u), dot(sub(p, pl.at), pl.v)];
@@ -27,7 +30,16 @@ const area2 = (p: V2[]): number => p.reduce((s, a, i) => { const b = p[(i + 1) %
 export function offsetSource(scene: Scene, parts: Part[]): OffsetSource | null {
   const get = lookup(scene);
   const first = parts[0];
-  if (parts.length && parts.every((p) => p.origin === "body")) return bodyOutline(scene, parts); // the edges of a face of the body, or a face (`in_199`)
+  if (parts.length && parts.every((p) => p.origin === "body")) {
+    // a face with holes: all its loops, the one that reaches furthest (the outer one) first, which gives the arrow its place; else the edges of a face, or a face (`in_199`)
+    const multi = bodyOutlines(scene, parts);
+    if (multi) {
+      const reach = (o: Outline) => Math.max(...o.edges.flatMap((e) => [Math.hypot(e.p[0], e.p[1]), Math.hypot(e.q[0], e.q[1])]));
+      const loops = [...multi.loops].sort((a, b) => reach(b) - reach(a));
+      return { kind: "outlines", plane: loops[0]!.plane, origin: loops[0]!.origin, normal: loops[0]!.normal, loops };
+    }
+    return bodyOutline(scene, parts);
+  }
   if (!first || parts.length !== 1 || first.origin !== "drawn") return null;
   const face = first.kind === "face" ? first : null;
   const circle = first.kind === "circle" ? first : face?.disk ? get(face.disk) : null;
@@ -66,6 +78,20 @@ export function offsetCommand(scene: Scene, src: OffsetSource, v: number): Comma
   const pl = lookup(scene)(src.plane);
   if (!pl || pl.kind !== "plane" || Math.abs(v) < 1e-9) return null;
   if (src.kind === "outline") return outlineCommand(scene, src, v);
+  if (src.kind === "outlines") {
+    // every loop, one after another (each is made on the scene the one before left, so the names do not collide)
+    let sc = scene;
+    const commands: Command[] = [];
+    for (const loop of src.loops) {
+      const c = outlineCommand(sc, loop, v);
+      if (!c) return null;
+      const next = apply(sc, c);
+      if (!next.ok) return null;
+      commands.push(c);
+      sc = next.value;
+    }
+    return { type: "batch", commands };
+  }
   if (src.kind === "circle") {
     const r = src.radius + v;
     if (!(r > 1e-6)) return null;

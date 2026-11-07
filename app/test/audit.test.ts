@@ -320,3 +320,24 @@ test("scaling the body carries the sketch too (made as many times bigger, its lo
   const bb = t.outcome.kernel!.bbox!;
   assert.ok(Math.hypot(cc.at[0]! - (bb.min[0] + bb.max[0]) / 2, cc.at[1]! - (bb.min[1] + bb.max[1]) / 2) < 1e-3, "the sketch's centre is at the middle of the body");
 });
+
+test("offsetting a flat face of the body that has a hole moves every loop of it: in is the outer edge in and the hole out, as material is what is offset into (`in_228`)", async () => {
+  const { offsetSource, offsetCommand } = await import("../src/interaction/offset.ts");
+  let s = createSession(kernel);
+  s = run(s, drawCircle(scene(s), XY, [0, 0, 0], 20).command);
+  s = run(s, drawCircle(scene(s), XY, [0, 0, 0], 10).command);
+  const ring = parts(s).find((p) => p.kind === "face" && p.holes?.length)!;
+  const st = startOp(scene(s), [ring.ref], "extrude") as { ok: true; op: Parameters<typeof typeOp>[0] };
+  s = run(s, opCommand(scene(s), { ...st.op, value: 10 })!);
+  const top = parts(s).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && !p.rounded && p.at[2] === 10)!;
+  const src = offsetSource(scene(s), [top]);
+  assert.equal(src?.kind, "outlines", "both loops of the face");
+  assert.equal((src as { loops: unknown[] }).loops.length, 2);
+  for (const [v, outer, inner] of [[-2, 18, 12], [3, 23, 7]] as const) {
+    const cmd = offsetCommand(scene(s), src!, v);
+    assert.ok(cmd, `offset ${v}`);
+    const t = run(s, cmd!);
+    const radii = parts(t).filter((p) => p.kind === "circle" && p.origin === "drawn" && p.plane !== undefined && Math.abs(atOf((scene(t).parts[p.center] as unknown as { at: [number, number, number] }))[2] - 10) < 1e-6).map((p) => (p.kind === "circle" ? p.radius : 0)).sort((a, b) => a - b);
+    assert.deepEqual(radii.map((r) => Math.round(r * 1e3) / 1e3), [inner, outer].sort((a, b) => a - b), `offset ${v}: the outer edge ${outer} and the hole ${inner}`);
+  }
+});
