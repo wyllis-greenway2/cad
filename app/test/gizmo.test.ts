@@ -1489,7 +1489,7 @@ test("making a fillet or a chamfer smaller is drawn at once without the kernel: 
     assert.equal(f.mesh, base.mesh, `${label}: the mesh is the one already there`);
     // the points of the rounding at the two ends of the edge, scaled about the sharp edge, are vertices of the real result
     const { point, dir, k } = f.faceShift!.scaled!;
-    const m = (part as { mesh: number[] }).mesh;
+    const m = (part as unknown as { mesh: number[] }).mesh;
     const moved: Vec3[] = [];
     for (let i = 0; i + 2 < m.length; i += 3) { const p: Vec3 = [m[i]!, m[i + 1]!, m[i + 2]!]; const d = sub(p, point); const perp = sub(d, scale(dir, dot(d, dir))); if (p[2] === 0 || p[2] === 20) moved.push(add(p, scale(perp, k - 1))); }
     assert.ok(moved.length >= 4, `${label}: end points`);
