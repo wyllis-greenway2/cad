@@ -13,7 +13,12 @@ type EdgeSharp =
   /** a line from `a` to `b`; an end that is a corner (another rounding meets it there) is scaled about that corner, since near it everything is scaled about the corner */
   | { kind: "line"; point: Vec3; dir: Vec3; a: Vec3; b: Vec3; cornerA: boolean; cornerB: boolean }
   | { kind: "circle"; center: Vec3; axis: Vec3; radius: number };
-export type Sharp = EdgeSharp | /** the patch where roundings meet at a corner: scaled about the corner */ { kind: "point"; center: Vec3 };
+export type Sharp =
+  | EdgeSharp
+  /** the patch where roundings meet at a corner: scaled about the corner */
+  | { kind: "point"; center: Vec3 }
+  /** a prism (an extrusion or a push / pull that adds or cuts one) of another depth: the same shape stretched along its normal about the plane it stands on (`in_224`) */
+  | { kind: "plane"; point: Vec3; normal: Vec3 };
 export interface SharpEdge { sharp: EdgeSharp; a: Vec3; b: Vec3; /** a whole circle: its ends are one point and it has no tangent there to meet another edge at */ whole: boolean }
 
 /** The sharp edge through these points of an edge of the body (its ends and its middle, and its circle if the kernel says it is one); null if it is neither a line nor a circle. */
@@ -43,9 +48,9 @@ const keyOf = (p: Vec3) => p.map((v) => Math.round(v * 1e3)).join(",");
 /**
  * Edges that meet end to end: where two meet smoothly nothing is special (each rounding is its own, and the points where two meet are the same either way); where they meet in a corner (two that turn, or three or
  * more) everything near the corner is the same shape at every size, scaled about the corner, as long as the edges are straight (the faces there are planes). Returns the edges with their corner ends marked and the
- * corners, or null if some junction is neither (a curved edge in a corner) or an edge between corners is too short for the roundings not to run into each other (`size` the biggest rounding that will be shown).
+ * corners, or null if some junction is neither (a curved edge in a corner) or an edge between corners is shorter than `ratio` times the biggest rounding that will be shown (`size`): a fillet needs about twice its size at each end, a chamfer's flat patch at a corner is told from its strips by distance, so it needs more.
  */
-export function chainOf(edges: SharpEdge[], size: number): { edges: SharpEdge[]; corners: Vec3[] } | null {
+export function chainOf(edges: SharpEdge[], size: number, ratio = 4): { edges: SharpEdge[]; corners: Vec3[] } | null {
   const at = new Map<string, { e: SharpEdge; end: Vec3 }[]>();
   for (const e of edges) {
     if (e.whole) continue;
@@ -63,7 +68,7 @@ export function chainOf(edges: SharpEdge[], size: number): { edges: SharpEdge[];
   const marked = edges.map((e): SharpEdge => {
     if (e.sharp.kind !== "line") return e;
     const [cA, cB] = [corners.has(keyOf(e.a)), corners.has(keyOf(e.b))];
-    if ((cA || cB) && Math.hypot(...sub(e.b, e.a)) < 4 * size) tooShort = true;
+    if ((cA || cB) && Math.hypot(...sub(e.b, e.a)) < ratio * size) tooShort = true;
     return { ...e, sharp: { ...e.sharp, cornerA: cA, cornerB: cB } };
   });
   if (tooShort) return null;
@@ -103,6 +108,7 @@ export function adjacentOk(scene: Scene, e: SharpEdge, mid: Vec3 | null): boolea
 /** How far a point is from the sharp edge. */
 function distanceTo(s: Sharp, p: Vec3): number {
   if (s.kind === "point") return Math.hypot(...sub(p, s.center));
+  if (s.kind === "plane") return Math.abs(dot(sub(p, s.point), s.normal));
   if (s.kind === "line") { const d = sub(p, s.point); return Math.hypot(...sub(d, scale(s.dir, dot(d, s.dir)))); }
   const d = sub(p, s.center);
   const z = dot(d, s.axis);
@@ -116,7 +122,16 @@ export function roundingFaces(scene: Scene, edges: SharpEdge[], reach: number, s
     if (p.kind !== "plane" || p.origin !== "body" || !p.mesh || p.mesh.length < 9 || skip(p.ref)) continue;
     if (p.rounded && !["CYLINDRE", "TORUS", "CONE", "SPHERE"].includes(p.rounded)) continue;
     // the patch at a corner lies close round the corner; a strip along an edge runs on much further (the edges are longer than that: `chainOf`)
-    const near = corners.find((v) => { for (let k = 0; k + 2 < p.mesh!.length; k += 3) if (Math.hypot(...sub([p.mesh![k]!, p.mesh![k + 1]!, p.mesh![k + 2]!], v)) > 2.2 * (reach / 3)) return false; return true; });
+    // a fillet's patch where three meet is a sphere, told by its kind; a chamfer's is as flat as its strips, told by lying close round the corner
+    const sphere = p.rounded === "SPHERE" && corners.length > 0;
+    if (sphere) {
+      let [cx, cy, cz, n] = [0, 0, 0, 0];
+      for (let k = 0; k + 2 < p.mesh.length; k += 3) { cx += p.mesh[k]!; cy += p.mesh[k + 1]!; cz += p.mesh[k + 2]!; n++; }
+      const mid: Vec3 = [cx / n, cy / n, cz / n];
+      out.push({ face: p.ref, edge: -1, corner: corners.reduce((a, b) => (Math.hypot(...sub(b, mid)) < Math.hypot(...sub(a, mid)) ? b : a)) });
+      continue;
+    }
+    const near = p.rounded ? undefined : corners.find((v) => { for (let k = 0; k + 2 < p.mesh!.length; k += 3) if (Math.hypot(...sub([p.mesh![k]!, p.mesh![k + 1]!, p.mesh![k + 2]!], v)) > 2.2 * (reach / 3)) return false; return true; });
     if (near) { out.push({ face: p.ref, edge: -1, corner: near }); continue; }
     let best = -1;
     let bestMean = Infinity;
@@ -130,4 +145,16 @@ export function roundingFaces(scene: Scene, edges: SharpEdge[], reach: number, s
     if (best >= 0) out.push({ face: p.ref, edge: best });
   }
   return out;
+}
+
+/**
+ * The circle a whole-circle rim was, from the name its step keeps (its start and the point opposite it, so the middle and the radius) and the one flat face of the body that has both points in it: the circle lies
+ * across the axis, in the plane of the face the rounding was cut from (the name does not say which way the circle faces). Null if no flat face, or more than one, has both points.
+ */
+export function circleOfRim(scene: Scene, a: Vec3, opposite: Vec3): SharpEdge | null {
+  const center = scale(add(a, opposite), 0.5);
+  const radius = Math.hypot(...sub(a, opposite)) / 2;
+  const flats = flatFaces(scene).filter((f) => onFace(f, [a, opposite]));
+  if (flats.length !== 1) return null;
+  return { sharp: { kind: "circle", center, axis: normalOfPlane(flats[0]!), radius }, a, b: a, whole: true };
 }

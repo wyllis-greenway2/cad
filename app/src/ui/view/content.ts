@@ -18,7 +18,8 @@ export type Shift =
 export type SharpShape =
   | { kind: "line"; point: readonly number[]; dir: readonly number[]; a: readonly number[]; b: readonly number[]; cornerA: boolean; cornerB: boolean }
   | { kind: "circle"; center: readonly number[]; axis: readonly number[]; radius: number }
-  | { kind: "point"; center: readonly number[] };
+  | { kind: "point"; center: readonly number[] }
+  | { kind: "plane"; point: readonly number[]; normal: readonly number[] };
 
 /** Which end of a straight sharp edge a point is nearer along it: 0 the start, 1 the end. */
 const nearer = (l: { a: readonly number[]; b: readonly number[]; dir: readonly number[] }, x: number, y: number, z: number): 0 | 1 => {
@@ -119,7 +120,12 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
           const g = groupOf[i]! >= 0 ? how.groups[groupOf[i]!]! : null;
           if (g) {
             const [x, y, z] = [from[3 * i]!, from[3 * i + 1]!, from[3 * i + 2]!];
-            if (g.sharp.kind === "point") {
+            if (g.sharp.kind === "plane") {
+              // a prism of another depth: stretched along its normal about the plane it stands on
+              const n = g.sharp.normal;
+              const t = (x - g.sharp.point[0]!) * n[0]! + (y - g.sharp.point[1]!) * n[1]! + (z - g.sharp.point[2]!) * n[2]!;
+              [dx, dy, dz] = [(how.k - 1) * t * n[0]!, (how.k - 1) * t * n[1]!, (how.k - 1) * t * n[2]!];
+            } else if (g.sharp.kind === "point") {
               // the patch at a corner: scaled about the corner
               [dx, dy, dz] = [(how.k - 1) * (x - g.sharp.center[0]!), (how.k - 1) * (y - g.sharp.center[1]!), (how.k - 1) * (z - g.sharp.center[2]!)];
             } else if (g.sharp.kind === "line" && ((g.sharp.cornerA && nearer(g.sharp, x, y, z) === 0) || (g.sharp.cornerB && nearer(g.sharp, x, y, z) === 1))) {

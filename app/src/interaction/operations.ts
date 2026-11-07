@@ -5,8 +5,8 @@ import { edgeDirection } from "./gizmo.ts";
 import { patternStart, patternCommand } from "./pattern.ts";
 import type { Mat3, Angles } from "../math/rotation.ts";
 import { IDENTITY, about, then, anglesOf, stepsBetween } from "../math/rotation.ts";
-import { motionOf } from "../operation/frames.ts";
-import { sharpOfPoints, chainOf, roundingFaces } from "../operation/roundings.ts";
+import { motionOf, laterMotion, applyPoint } from "../operation/frames.ts";
+import { sharpOfPoints, chainOf, roundingFaces, circleOfRim } from "../operation/roundings.ts";
 import type { Sharp, SharpEdge } from "../operation/roundings.ts";
 import type { Rigid } from "../operation/frames.ts";
 import type { Curved } from "../operation/part.ts";
@@ -67,6 +67,8 @@ export interface Op {
   rot: [string, string, string];
   /** push / pull of a round face: the face (the radius changes by the distance) */
   curved?: Curved;
+  /** a round wall turned about a tilted axis (a turned body): where the axis is (`in_224`) */
+  roundAxis?: { center: Vec3; dir: Vec3 };
   /** offset: the drawn figure the copy is made from */
   off?: OffsetSource;
   /** push / pull of a face the body already has: the step to change instead of adding a prism (`faceedit.ts`) */
@@ -171,7 +173,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
       const radial = (q: Vec3): Vec3 => { const o = sub(q, rd.center); const d = sub(o, scale(axisDir, dot(o, axisDir))); const l = Math.hypot(...d); return l < 1e-9 ? [1, 0, 0] : scale(d, (rd.convex ? 1 : -1) / l); };
       const at = tris.reduce((b, q) => (Math.hypot(...sub(q, mid)) < Math.hypot(...sub(b, mid)) ? q : b), tris[0]!);
       const edit = faceEdit(scene, f.ref)!;
-      return { ok: true, op: { ...base, parts: [f.ref], origin: at, normal: radial(at), ...(rd.dir ? { rounded: true } : { curved: { axis: rd.axis, center: rd.center, radius: f.radius, lo: 0, hi: 0, convex: rd.convex } }), edit, dim: { base: 2 * f.radius, scale: f.round.convex ? 2 : -2 } } };
+      return { ok: true, op: { ...base, parts: [f.ref], origin: at, normal: radial(at), ...(rd.dir ? { rounded: true, roundAxis: { center: rd.center, dir: rd.dir } } : { curved: { axis: rd.axis, center: rd.center, radius: f.radius, lo: 0, hi: 0, convex: rd.convex } }), edit, dim: { base: 2 * f.radius, scale: f.round.convex ? 2 : -2 } } };
     }
     if (f.rounded) {
       // a fillet or chamfer face: pulling it (out, towards the sharp corner) makes the rounding smaller, pushing it makes it bigger: the size of the step that made it
@@ -456,6 +458,14 @@ export function bodyMotion(scene: Scene, op: Op): Rigid | null {
   return motionOf({ id: "s_x", type: op.kind, parts: op.parts, params: { axis: op.kind === "scale" ? 0 : op.axis, value: v, px: pivot[0], py: pivot[1], pz: pivot[2] } });
 }
 
+/** What the steps after step number `index` do to the body, if they are all moves or turns of the whole body (the picture of such an edit is the same shape, moved): their motion; null if any is something else. (`in_224`) */
+function motionsAfter(scene: Scene, index: number): Rigid | null {
+  for (let i = index + 1; i < scene.steps.length; i++) { const st = scene.steps[i]!; if (st.type === "scale" || Number(st.params.follow) !== 1 || !motionOf(st)) return null; }
+  return laterMotion(scene.steps, index);
+}
+/** The index of the last step that is an extrusion with one of these lines or circles. */
+const extrudeIndexOf = (scene: Scene, uses: (r: Ref) => boolean): number => { for (let i = scene.steps.length - 1; i >= 0; i--) { const st = scene.steps[i]!; if (st.type === "extrude" && figureRefs(st).some(uses)) return i; } return -1; };
+
 /**
  * A face pulled or pushed along its normal that only changes the depth of the last step (the end of an extrusion, or of a push / pull): the face just moves, and the walls beside it stretch, so it can be drawn
  * at once without the kernel while it is dragged (`in_217`). `depth` is what the step's depth will be. Null for anything the kernel has to work out (a step that comes after it would change too).
@@ -464,7 +474,8 @@ export function faceDrag(scene: Scene, op: Op): { face: Ref; by: Vec3; step: str
   if (op.kind !== "pushpull" || op.noEdit || !op.edit || op.parts.length !== 1 || !op.normal) return null;
   const e = op.edit;
   if (e.kind !== "depth" && e.kind !== "stepDepth") return null;
-  if (scene.steps.at(-1)?.id !== e.step) return null;
+  const at = scene.steps.findIndex((x) => x.id === e.step);
+  if (at < 0 || !motionsAfter(scene, at)) return null; // (only moves and turns come after it: the same edit of the same shape, moved)
   const v = valueOf(op);
   if (v === null || v === 0) return null;
   return { face: op.parts[0]!, by: scale(op.normal, v), step: e.step, depth: e.depth + v * (e.kind === "depth" ? e.along : 1) };
@@ -476,15 +487,15 @@ export function faceDrag(scene: Scene, op: Op): { face: Ref; by: Vec3; step: str
  */
 export function radiusDrag(scene: Scene, op: Op): { face: Ref; radial: { center: Vec3; axis: Vec3; dr: number; r0: number }; circle: Ref; radius: number } | null {
   const e = op.edit;
-  const c = op.curved;
+  const c = op.curved ?? (op.roundAxis ? { axis: 2 as const, center: op.roundAxis.center, dir: op.roundAxis.dir } : null);
   if (op.kind !== "pushpull" || op.noEdit || !e || e.kind !== "radius" || e.arc || !c || op.parts.length !== 1) return null;
-  const last = scene.steps.at(-1);
-  if (last?.type !== "extrude" || !figureRefs(last).includes(e.circle)) return null;
+  const at = extrudeIndexOf(scene, (r) => r === e.circle);
+  if (at < 0 || !motionsAfter(scene, at)) return null;
   const v = valueOf(op);
   if (v === null || v === 0) return null;
   const dr = e.convex ? v : -v;
   if (!(e.radius + dr > 1e-3)) return null;
-  const axis: Vec3 = c.axis === 0 ? [1, 0, 0] : c.axis === 1 ? [0, 1, 0] : [0, 0, 1];
+  const axis: Vec3 = "dir" in c && c.dir ? c.dir : c.axis === 0 ? [1, 0, 0] : c.axis === 1 ? [0, 1, 0] : [0, 0, 1];
   return { face: op.parts[0]!, radial: { center: c.center, axis, dr, r0: e.radius }, circle: e.circle, radius: e.radius + dr };
 }
 
@@ -496,8 +507,10 @@ export function radiusDrag(scene: Scene, op: Op): { face: Ref; radial: { center:
 export function sideDrag(scene: Scene, op: Op): { face: Ref; axis: Vec3; items: { ref: Ref; at: Vec3; by: Vec3 }[]; edge: { a: Vec3; da: Vec3; b: Vec3; db: Vec3 } | null } | null {
   const e = op.edit;
   if (op.kind !== "pushpull" || op.noEdit || !e || e.kind !== "side" || op.parts.length !== 1) return null;
-  const last = scene.steps.at(-1);
-  if (last?.type !== "extrude") return null;
+  const corners = new Set<Ref>(e.corners);
+  const at = extrudeIndexOf(scene, (r) => { const l = scene.parts[r]; return l?.kind === "line" && (corners.has(l.a) || corners.has(l.b)); });
+  if (at < 0 || !motionsAfter(scene, at)) return null;
+  const last = scene.steps[at]!;
   const v = valueOf(op);
   if (v === null || v === 0) return null;
   // every line of the extrusion is straight, and the edited corners are its own
@@ -539,8 +552,10 @@ export function sideDrag(scene: Scene, op: Op): { face: Ref; axis: Vec3; items: 
 export function edgeDrag(scene: Scene, op: Op): { face: Ref; groups: { face: Ref; sharp: Sharp }[]; k: number; step: string; value: number } | null {
   const e = op.edit;
   if (op.kind !== "pushpull" || op.noEdit || !e || e.kind !== "edgeSize" || op.parts.length !== 1) return null;
-  const st = scene.steps.at(-1);
-  if (st?.type !== "edgeMod" || st.id !== e.step) return null;
+  const at = scene.steps.findIndex((x) => x.id === e.step);
+  const st = scene.steps[at];
+  const later = at >= 0 ? motionsAfter(scene, at) : null;
+  if (st?.type !== "edgeMod" || !later) return null;
   const v = valueOf(op);
   if (v === null || v === 0) return null;
   const value = e.value - v;
@@ -549,13 +564,14 @@ export function edgeDrag(scene: Scene, op: Op): { face: Ref; groups: { face: Ref
   for (const r of st.parts) {
     const pts = String(r).split("@")[1]?.split("~").map((t) => t.split(",").map(Number));
     if (!pts || pts.length !== 3 || pts.some((q) => q.length !== 3 || q.some((x) => !Number.isFinite(x)))) return null;
-    const [a, b, m] = pts as unknown as [Vec3, Vec3, Vec3];
-    if (Math.hypot(...sub(a, b)) < 1e-6) return null; // (a whole circle: the name does not say which way it faces)
-    const se = sharpOfPoints(a, b, m);
+    const [a0, b0, m0] = pts as unknown as [Vec3, Vec3, Vec3];
+    const [a, b, m] = [applyPoint(later, a0), applyPoint(later, b0), applyPoint(later, m0)]; // (the names are from when the step was made: where the body has been moved or turned since)
+    // a whole circle: the name does not say which way it faces; a torus or a cone about it does
+    const se = Math.hypot(...sub(a, b)) < 1e-6 ? circleOfRim(scene, a, m) : sharpOfPoints(a, b, m);
     if (!se) return null;
     edges.push(se);
   }
-  const chain = chainOf(edges, Math.max(e.value, value));
+  const chain = chainOf(edges, Math.max(e.value, value), st.params.mode === "chamfer" ? 4 : 2.2);
   if (!chain) return null;
   const faces = roundingFaces(scene, chain.edges, 3 * e.value, () => false, chain.corners);
   if (!faces.some((f) => f.face === op.parts[0])) return null;

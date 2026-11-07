@@ -125,7 +125,7 @@ function edgeNew(s: AppState, op: Op, base: Session): { wait: true } | { face: F
     edges.push(e);
   }
   // edges that meet smoothly, or in corners of straight edges between flat faces; the edges between corners longer than the roundings (`in_223`)
-  const chain = chainOf(edges, Math.max(Math.abs(v), edgeRef?.want ?? 0));
+  const chain = chainOf(edges, Math.max(Math.abs(v), edgeRef?.want ?? 0), v > 0 ? 2.2 : 4);
   if (!chain || !chain.corners.every((c) => cornerOk(sc, c))) return null;
   const key = JSON.stringify([op.parts, op.ranks ?? null, op.sigs ?? null, v > 0]);
   if (!edgeRef || edgeRef.key !== key) edgeRef = { key, want: Math.abs(v), ready: null, failed: null };
@@ -152,16 +152,54 @@ function edgeNew(s: AppState, op: Op, base: Session): { wait: true } | { face: F
   return { face: { face: edgeRef.ready.groups[0]!.face, rounds: { k: Math.abs(v) / edgeRef.ready.R0, groups: edgeRef.ready.groups } }, shown: edgeRef.ready.res };
 }
 
+/**
+ * A new prism (an extrusion, or a push / pull that adds or cuts one) (`in_224`): the same shape at every depth, stretched along its normal about the plane it stands on. The kernel makes it once at a depth (the
+ * reference) and every depth after is that result stretched. Only a prism that ends inside what it is made in (a cap at the depth, walls between it and the plane): a cut that goes right through is the kernel's.
+ */
+let prismRef: { key: string; ready: { D0: number; res: { scene: Scene; outcome: CompileOutcome }; faces: Ref[] } | null; failed: boolean } | null = null;
+function prismNew(s: AppState, op: Op, base: Session): { wait: true } | { face: FaceShift; shown: { scene: Scene; outcome: CompileOutcome } } | null {
+  const sc = sceneOf(base);
+  const v = valueOf(op);
+  const single = op.kind === "extrude" || (op.kind === "pushpull" && (!op.edit || op.noEdit) && !op.faces);
+  if (!single || v === null || Math.abs(v) < 1e-6 || !op.normal || !op.origin) return null;
+  const n = normalize(op.normal);
+  const sign = v > 0 ? 1 : -1;
+  const key = JSON.stringify([op.kind, op.parts, op.figs ?? null, op.origin, sign, op.made]);
+  if (!prismRef || prismRef.key !== key) prismRef = { key, ready: null, failed: false };
+  if (prismRef.failed) return null;
+  const D0 = prismRef.ready ? prismRef.ready.D0 : Math.abs(v);
+  const cmd = opCommand(sc, { ...op, typed: "", value: sign * D0, dim: undefined }, { preview: true });
+  if (!cmd) return null;
+  const mk = JSON.stringify([cmd, op.made]);
+  let res: { scene: Scene; outcome: CompileOutcome } | null;
+  if (refMemo && refMemo.history === s.session.history && refMemo.outcome === s.session.outcome && refMemo.key === mk) res = refMemo.value;
+  else { res = previewCommand(base, cmd); refMemo = { history: s.session.history, outcome: s.session.outcome, key: mk, value: res }; }
+  if (res && !res.outcome.kernel?.stale && !prismRef.ready) {
+    if (Object.keys(res.outcome.errors).length) { prismRef.failed = true; return null; }
+    // the faces that are new: a cap at the depth, walls between it and the plane; nothing outside that (a cut through leaves a face on the far side)
+    const fresh = Object.values(res.scene.parts).filter((p): p is Plane => p.kind === "plane" && p.origin === "body" && !(p.ref in sc.parts) && !!p.mesh);
+    const offsets = (f: Plane) => { const o: number[] = []; for (let i = 0; i + 2 < f.mesh!.length; i += 3) o.push(sign * dot(sub([f.mesh![i]!, f.mesh![i + 1]!, f.mesh![i + 2]!], op.origin as Vec3), n)); return o; };
+    const eps = 2e-3 * Math.max(1, D0);
+    const ok = fresh.length > 0 && fresh.every((f) => offsets(f).every((t) => t > -eps && t < D0 + eps)) && fresh.some((f) => offsets(f).every((t) => Math.abs(t - D0) < eps));
+    if (!ok) { prismRef.failed = true; return null; }
+    prismRef.ready = { D0, res, faces: fresh.map((f) => f.ref) };
+  }
+  if (!prismRef.ready) return { wait: true };
+  const k = Math.abs(v) / prismRef.ready.D0;
+  const sharp = { kind: "plane" as const, point: op.origin as Vec3, normal: n };
+  return { face: { face: prismRef.ready.faces[0]!, rounds: { k, groups: prismRef.ready.faces.map((f) => ({ face: f, sharp })) } }, shown: prismRef.ready.res };
+}
+
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
 function gpuMotion(s: AppState): { matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome } } | null {
   const op = s.op;
   if (!op) return null;
   const base = op.made ? undoLast(s.session) : s.session;
-  const en = edgeNew(s, op, base);
+  const en = edgeNew(s, op, base) ?? prismNew(s, op, base);
   if (en) {
     if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
     if ("wait" in en) return { matrix: null, face: null, shown: gpuBase.value };
-    lastDrag = { matrix: null, face: en.face, step: "__last__", depth: Math.abs(valueOf(op) ?? 0), param: "value", circle: null, corners: null, steps: sceneOf(base).steps.length };
+    lastDrag = { matrix: null, face: en.face, step: "__last__", depth: op.kind === "edge" ? Math.abs(valueOf(op) ?? 0) : valueOf(op) ?? 0, param: op.kind === "edge" ? "value" : "depth", circle: null, corners: null, steps: sceneOf(base).steps.length };
     return { matrix: null, face: en.face, shown: en.shown };
   }
   const m = bodyMotion(sceneOf(base), op);
@@ -198,7 +236,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   const sel = selectionOf(s.session);
   const outcome = shown?.outcome ?? s.session.outcome;
   // a whole-body drag is drawn by a matrix; when it is let go the picture stays moved until the kernel's answer for the new step comes (it would jump back otherwise)
-  const faceStep = lastDrag?.step === "__last__" ? (sc.steps.length === lastDrag.steps + 1 && sc.steps.at(-1)?.type === "edgeMod" ? sc.steps.at(-1) : undefined) : lastDrag?.step ? sc.steps.find((x) => x.id === lastDrag!.step) : undefined;
+  const faceStep = lastDrag?.step === "__last__" ? (sc.steps.length === lastDrag.steps + 1 ? sc.steps.at(-1) : undefined) : lastDrag?.step ? sc.steps.find((x) => x.id === lastDrag!.step) : undefined;
   const settling = !gpu && !!outcome.kernel?.stale && !!lastDrag && (lastDrag.matrix ? sc.steps.length === lastDrag.steps + 1 : lastDrag.corners ? lastDrag.corners.every((c) => { const q = sc.parts[c.ref]; return q?.kind === "corner" && Math.hypot(q.at[0] - c.to[0], q.at[1] - c.to[1], q.at[2] - c.to[2]) < 1e-6; }) : lastDrag.circle ? (sc.parts[lastDrag.circle.ref] as { radius?: number } | undefined)?.radius !== undefined && Math.abs((sc.parts[lastDrag.circle.ref] as { radius: number }).radius - lastDrag.circle.radius) < 1e-6 : !!faceStep && Math.abs(Number(faceStep.params[lastDrag.param]) - lastDrag.depth) < 1e-6);
   if (!gpu && !settling && !outcome.kernel?.stale) lastDrag = null;
   const bodyMatrix = gpu ? gpu.matrix : settling ? lastDrag!.matrix : null;

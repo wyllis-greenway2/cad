@@ -103,8 +103,13 @@ export function createView(host: HTMLElement) {
       // what is selected (the wall) widens with it: a stretch across the axis, about the axis
       const { center: c, axis: a, dr, r0 } = f.radial;
       const k = (r0 + dr) / r0;
-      const sc = [0, 1, 2].map((i) => (Math.abs(a[i]!) > 0.5 ? 1 : k));
-      overlay.matrix.makeTranslation(c[0]!, c[1]!, c[2]!).multiply(new THREE.Matrix4().makeScale(sc[0]!, sc[1]!, sc[2]!)).multiply(new THREE.Matrix4().makeTranslation(-c[0]!, -c[1]!, -c[2]!));
+      const U = new THREE.Vector3(a[0]!, a[1]!, a[2]!).normalize();
+      const lin = new THREE.Matrix4().set( // (across the axis, whatever way it points: 1 + (k - 1) (1 - a a^T))
+        1 + (k - 1) * (1 - U.x * U.x), -(k - 1) * U.x * U.y, -(k - 1) * U.x * U.z, 0,
+        -(k - 1) * U.x * U.y, 1 + (k - 1) * (1 - U.y * U.y), -(k - 1) * U.y * U.z, 0,
+        -(k - 1) * U.x * U.z, -(k - 1) * U.y * U.z, 1 + (k - 1) * (1 - U.z * U.z), 0,
+        0, 0, 0, 1);
+      overlay.matrix.makeTranslation(c[0]!, c[1]!, c[2]!).multiply(lin).multiply(new THREE.Matrix4().makeTranslation(-c[0]!, -c[1]!, -c[2]!));
       overlay.matrixWorldNeedsUpdate = true;
     }
     const mine = f.rounds?.groups.find((g) => g.face === f.face)?.sharp;

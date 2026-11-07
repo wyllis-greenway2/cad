@@ -1118,3 +1118,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_223 — 2026-11-07 — approval
 > yes, do the corner ones too
+
+## in_224 — 2026-11-07 — approval
+> yes, do the remaining ones too

@@ -1548,6 +1548,14 @@ function scaledError(fx: ReturnType<typeof frameOf>, done: AppState): number {
       const d = sub(p, sh.point);
       return add(p, scale(sub(d, scale(sh.dir, dot(d, sh.dir))), k - 1));
     }
+    const d = sub(p, sh.kind === "circle" ? sh.center : p);
+    if (sh.kind === "circle") {
+      const z = dot(d, sh.axis);
+      const rv = sub(d, scale(sh.axis, z));
+      const rho = Math.hypot(...rv) || 1e-9;
+      const rho2 = sh.radius + k * (rho - sh.radius);
+      return add(add(sh.center, scale(sh.axis, k * z)), scale(rv, rho2 / rho));
+    }
     return p;
   };
   const tri = (i: number): Vec3[] => [0, 1, 2].map((c) => { const v = real.triangles[3 * i + c]!; return [real.vertices[3 * v]!, real.vertices[3 * v + 1]!, real.vertices[3 * v + 2]!] as Vec3; });
@@ -1663,4 +1671,133 @@ test("a fillet that rounds the four edges of a box top (corners) is made smaller
   assert.ok((f.faceShift?.rounds?.groups.length ?? 0) >= 4, "a strip per edge");
   near(f.faceShift!.rounds!.k, 5 / 3, 1e-9);
   assert.ok(scaledError(f, reduce(st, { type: "typed", key: "Enter", shift: false }, env)) < 2e-2);
+});
+
+test("edits of a body that has only been moved or turned since are drawn without the kernel too: the same edit of the same shape, moved (`in_224`)", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  st = reduce(st, { type: "begin", name: "move" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: "5" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(scene(st.session).steps.at(-1)!.type, "move");
+  st = reduce(st, { type: "escape" }, env);
+  const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20 && p.u[2] === 0 && p.v[2] === 0)!;
+  st = reduce(select(st, [top.ref]), { type: "begin", name: "pushpull" }, env);
+  st = { ...st, op: { ...st.op!, value: 7 } };
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok(f.faceShift?.by, "drawn at once although a move comes after the extrusion");
+  nearV(f.faceShift!.by!, [0, 0, 7]);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  near(st.session.outcome.kernel!.bbox!.max[2], 27, 1e-2);
+  // a side of the sketch too (its corners were carried with the body)
+  let s2 = select(box(), [BODY_OBJECT]);
+  s2 = reduce(s2, { type: "begin", name: "move" }, env);
+  s2 = reduce(s2, { type: "entry", field: 0, text: "5" }, env);
+  s2 = reduce(s2, { type: "typed", key: "Enter", shift: false }, env);
+  s2 = reduce(s2, { type: "escape" }, env);
+  const side = Object.values(scene(s2.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && Math.abs(p.at[0] - 45) < 1e-6 && p.u[0] === 0 && p.v[0] === 0)!;
+  s2 = reduce(select(s2, [side.ref]), { type: "begin", name: "pushpull" }, env);
+  s2 = { ...s2, op: { ...s2.op!, value: 4 } };
+  const fs = frameOf(s2, { w: 800, h: 600 });
+  assert.ok(fs.faceShift?.columns, "the side of a moved body's sketch");
+  s2 = reduce(s2, { type: "typed", key: "Enter", shift: false }, env);
+  near(s2.session.outcome.kernel!.bbox!.max[0], 49, 1e-2);
+});
+
+test("a new extrusion, and a new push / pull prism that adds or cuts, are made once and stretched along their normal on the graphics card; `in_224`", () => {
+  const vertexSet = (done: AppState) => { const v = done.session.outcome.kernel!.mesh!.vertices; return Array.from({ length: v.length / 3 }, (_, i) => [v[3 * i]!, v[3 * i + 1]!, v[3 * i + 2]!] as Vec3); };
+  const check = (st: AppState, label: string, value2: number) => {
+    const f2 = frameOf({ ...st, op: { ...st.op!, value: value2 } }, { w: 800, h: 600 });
+    assert.ok(f2.faceShift?.rounds, `${label}: stretched`);
+    const { k, groups } = f2.faceShift!.rounds!;
+    const sh = groups[0]!.sharp as { kind: "plane"; point: Vec3; normal: Vec3 };
+    assert.equal(sh.kind, "plane");
+    const done = reduce({ ...st, op: { ...st.op!, value: value2 } }, { type: "typed", key: "Enter", shift: false }, env);
+    const real = vertexSet(done);
+    for (const g of groups) {
+      const m = (f2.scene.parts[g.face] as unknown as { mesh: number[] }).mesh;
+      for (let i = 0; i + 2 < m.length; i += 3) {
+        const p: Vec3 = [m[i]!, m[i + 1]!, m[i + 2]!];
+        const q = add(p, scale(sh.normal, (k - 1) * dot(sub(p, sh.point), sh.normal)));
+        assert.ok(real.some((r) => Math.hypot(...sub(r, q)) < 1e-2), `${label}: ${JSON.stringify(q)} is a vertex of the real result`);
+      }
+    }
+  };
+  // a new extrusion of a closed sketch
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [40, 20, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  let st = { ...createState(s), cam: homeCamera() };
+  st = reduce(select(st, [Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref]), { type: "begin", name: "pushpull" }, env);
+  assert.equal(st.op!.kind, "extrude");
+  frameOf({ ...st, op: { ...st.op!, value: 6 } }, { w: 800, h: 600 }); // (the reference)
+  const f1 = frameOf({ ...st, op: { ...st.op!, value: 6 } }, { w: 800, h: 600 });
+  assert.ok(f1.faceShift?.rounds);
+  check(st, "extrude", 12);
+  // a new push / pull prism cut into the top of a box (not through)
+  let bx = box();
+  const top = Object.values(scene(bx.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20 && p.u[2] === 0 && p.v[2] === 0)!;
+  bx = reduce(select(bx, [top.ref]), { type: "begin", name: "pushpull" }, env);
+  bx = { ...bx, op: { ...bx.op!, noEdit: true } };
+  frameOf({ ...bx, op: { ...bx.op!, value: -4 } }, { w: 800, h: 600 });
+  check(bx, "cut", -8);
+});
+
+test("a fillet needs only about twice its size of edge between corners: rounding the top of a 20 mm wide box by 8 is still drawn without the kernel and lies on the real surface (`in_224`)", () => {
+  const bx = box();
+  const at = (r: string) => (scene(bx.session).parts[r] as unknown as { at: Vec3 }).at;
+  const top = Object.values(scene(bx.session).parts).filter((p) => p.kind === "line" && p.origin === "body" && at(p.a)[2] === 20 && at(p.b)[2] === 20).map((p) => p.ref);
+  let st = reduce(select(bx, top), { type: "begin", name: "edge" }, env);
+  st = { ...st, op: { ...st.op!, value: 6 } };
+  frameOf(st, { w: 800, h: 600 });
+  st = { ...st, op: { ...st.op!, value: 8 } };
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok(f.faceShift?.rounds, "scaled");
+  assert.ok(scaledError(f, reduce(st, { type: "typed", key: "Enter", shift: false }, env)) < 2e-2);
+});
+
+test("an existing fillet round the rim of a post (a whole circle) is made bigger without the kernel: the flat face the rounding was cut from says which way the circle faces, and the scaled points lie on the real surface (`in_224`)", () => {
+  const s0 = cylinder();
+  const rim = Object.values(scene(s0).parts).find((p) => p.kind === "line" && p.origin === "body" && !!p.circle && p.circle.center[2] === 20)!;
+  let st = reduce(select({ ...createState(s0), cam: homeCamera() }, [rim.ref]), { type: "begin", name: "edge" }, env);
+  st = typeNumber(st, "2");
+  const torus = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.rounded === "TORUS" && faceEdit(scene(st.session), p.ref)?.kind === "edgeSize");
+  assert.ok(torus, "a torus that finds its step");
+  st = reduce(select(st, [torus!.ref]), { type: "begin", name: "pushpull" }, env);
+  st = { ...st, op: { ...st.op!, value: -1.5 } }; // 2 -> 3.5
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok((f.faceShift?.rounds?.groups.length ?? 0) >= 1, "drawn without the kernel");
+  assert.equal(f.faceShift!.rounds!.groups[0]!.sharp.kind, "circle");
+  near(f.faceShift!.rounds!.k, 3.5 / 2, 1e-9);
+  assert.ok(scaledError(f, reduce(st, { type: "typed", key: "Enter", shift: false }, env)) < 2e-2);
+});
+
+test("widening the round wall of a body that was turned about tilted axes is drawn without the kernel too (the wall says where its axis points) (`in_224`)", () => {
+  const s0 = cylinder();
+  let st = select({ ...createState(s0), cam: homeCamera() }, [BODY_OBJECT]);
+  for (const [field, deg] of [[0, "30"], [1, "20"]] as const) {
+    st = reduce(st, { type: "begin", name: "rotate" }, env);
+    st = reduce(st, { type: "entry", field, text: deg }, env);
+    st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+    st = reduce(st, { type: "escape" }, env);
+    st = select(st, [BODY_OBJECT]);
+  }
+  assert.equal(scene(st.session).steps.filter((x) => x.type === "rotate").length >= 2, true);
+  const wall = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.rounded === "CYLINDRE" && !!p.round?.dir && faceEdit(scene(st.session), p.ref)?.kind === "radius");
+  assert.ok(wall, "a tilted wall that finds its circle");
+  st = reduce(select(st, [wall!.ref]), { type: "begin", name: "pushpull" }, env);
+  st = { ...st, op: { ...st.op!, value: 2 } };
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok(f.faceShift?.radial, "drawn without the kernel");
+  near(f.faceShift!.radial!.dr, 2, 1e-9);
+  // the wall's points move out from the axis by 2: they are 12 from it afterwards, as in the real result
+  const part = f.scene.parts[f.faceShift!.face] as unknown as { mesh: number[] };
+  const { center, axis, dr } = f.faceShift!.radial!;
+  const sample: Vec3[] = [];
+  for (let i = 0; i + 2 < part.mesh.length; i += 3) { const p: Vec3 = [part.mesh[i]!, part.mesh[i + 1]!, part.mesh[i + 2]!]; const d = sub(p, center); const perp = sub(d, scale(axis, dot(d, axis))); sample.push(add(p, scale(perp, dr / Math.hypot(...perp)))); }
+  const done = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  const real = done.session.outcome.kernel!.mesh!.vertices;
+  const dd = (p: Vec3) => { const d = sub(p, center); return Math.hypot(...sub(d, scale(axis, dot(d, axis)))); };
+  const realR = Array.from({ length: real.length / 3 }, (_, i) => dd([real[3 * i]!, real[3 * i + 1]!, real[3 * i + 2]!]));
+  assert.ok(sample.every((p) => Math.abs(dd(p) - 12) < 1e-2), "12 from the axis");
+  assert.ok(realR.some((r) => Math.abs(r - 12) < 1e-2), "and the real wall is 12 from it");
 });
