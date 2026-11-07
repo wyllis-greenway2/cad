@@ -5,7 +5,7 @@ import { studio } from "./view/studio.ts";
 import type { Scene, Vec3 } from "../interaction/api.ts";
 import { settings } from "../interaction/api.ts";
 import type { Camera } from "../interaction/camera.ts";
-import { basis, position, projector } from "../interaction/camera.ts";
+import { basis, position, projector, mixOf, eyeDistance, ORTHO_MIX } from "../interaction/camera.ts";
 import type { Grid } from "../interaction/api.ts";
 import { createWorld } from "./world.ts";
 import { createPen, clearGroup, ringOf, sphereAt } from "./view/pen.ts";
@@ -88,16 +88,22 @@ export function createView(host: HTMLElement) {
     world.update(cam, size, content);
     const b = basis(cam);
     const eye = position(cam);
-    const active = cam.straight ? ortho : persp;
-    if (cam.straight) {
+    const m = mixOf(cam);
+    const flat = m <= ORTHO_MIX;
+    const active = flat ? ortho : persp;
+    if (flat) {
       const hh = projector(cam, size.w, size.h).halfH;
       ortho.left = -hh * (size.w / size.h);
       ortho.right = hh * (size.w / size.h);
       ortho.top = hh;
       ortho.bottom = -hh;
-    } else persp.aspect = size.w / size.h;
-    active.near = cam.distance * settings.view.nearFactor;
-    active.far = cam.distance * settings.view.farFactor;
+    } else {
+      persp.aspect = size.w / size.h;
+      persp.fov = (2 * Math.atan(Math.tan((settings.view.fovDeg * Math.PI) / 360) * m) * 180) / Math.PI; // (while the view goes between flat and perspective the lens is narrowed and the eye is back: the target keeps its size)
+    }
+    const away = eyeDistance(cam);
+    active.near = away * settings.view.nearFactor;
+    active.far = away * settings.view.farFactor + (away - cam.distance);
     active.position.set(...eye);
     active.up.set(...b.up);
     active.lookAt(...cam.target);

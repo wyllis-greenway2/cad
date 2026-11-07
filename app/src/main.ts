@@ -28,6 +28,7 @@ import { createChip } from "./ui/chip.ts";
 import { createPanel } from "./ui/panel.ts";
 import { createApplyBar } from "./ui/applybar.ts";
 import { createControls } from "./ui/controls.ts";
+import { createToolChip } from "./ui/toolchip.ts";
 import { createHints } from "./ui/hint.ts";
 import { createTouchCursor } from "./ui/touchcursor.ts";
 import { createBubbles } from "./ui/bubbles.ts";
@@ -89,6 +90,7 @@ const hintIcons = createHints(document.body);
 const touchHandle = createTouchCursor(document.body);
 const applyBar = createApplyBar(document.body, { apply: () => dispatch({ type: "repeatApply" }), cancel: () => dispatch({ type: "repeatCancel" }) });
 
+const toolChip = createToolChip(document.body, () => dispatch({ type: "escape" }));
 const controls = createControls(document.body, {
   menu: (x, y) => dispatch({ type: "menu", x, y, button: true }),
   look: (plane) => dispatch({ type: "look", plane }),
@@ -166,7 +168,7 @@ async function boot() {
   requestAnimationFrame(frame);
 }
 function frame(now: number) {
-  if (state.anim || state.flash) { state = advance(state, now); dirty = true; }
+  if (state.anim || state.flash || state.mixT0 !== null) { state = advance(state, now); dirty = true; }
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
     const size = view.size();
@@ -177,6 +179,7 @@ function frame(now: number) {
     view.setPreview(f.preview, state.cam);
     view.setGizmo(f.gizmo, state.cam);
     view.setPanes(f.panes);
+    toolChip.update(f.tool);
     const project = projector(state.cam, size.w, size.h).project;
     bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid);
     view.setNotes(f.annotations.flatMap((a) => a.lines));

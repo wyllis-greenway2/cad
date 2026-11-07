@@ -7,7 +7,7 @@ import type { Camera } from "./camera.ts";
 import { projector, sideOf } from "./camera.ts";
 import { settings } from "../shared/settings.ts";
 
-export interface Grid { minor: number[]; major: number[]; step: number }
+export interface Grid { minor: number[]; major: number[]; step: number; /** seen from the side the grid is a patch that fades out towards its edge: about this point, gone at this far (its lines are cut into short pieces so that the fade can follow them) */ fade?: { center: Vec3; radius: number } }
 
 /** A round step (1, 2 or 5 times a power of ten) so that about `divisions` lines span the view. */
 export function niceStep(span: number, divisions: number): number {
@@ -59,7 +59,9 @@ function patchFor(cam: Camera, plane: Plane): Grid {
   const at = (x: number, y: number): Vec3 => add(plane.at, add(scale(plane.u, x), scale(plane.v, y)));
   const minor: number[] = [];
   const major: number[] = [];
-  for (let i = Math.round(x0 / step); i * step <= x1 + 1e-9; i++) (i % 5 === 0 ? major : minor).push(...at(i * step, y0), ...at(i * step, y1));
-  for (let i = Math.round(y0 / step); i * step <= y1 + 1e-9; i++) (i % 5 === 0 ? major : minor).push(...at(x0, i * step), ...at(x1, i * step));
-  return { minor, major, step };
+  const PIECES = 24;
+  const cut = (out: number[], a: [number, number], b: [number, number]) => { for (let k = 0; k < PIECES; k++) out.push(...at(a[0] + ((b[0] - a[0]) * k) / PIECES, a[1] + ((b[1] - a[1]) * k) / PIECES), ...at(a[0] + ((b[0] - a[0]) * (k + 1)) / PIECES, a[1] + ((b[1] - a[1]) * (k + 1)) / PIECES)); };
+  for (let i = Math.round(x0 / step); i * step <= x1 + 1e-9; i++) cut(i % 5 === 0 ? major : minor, [i * step, y0], [i * step, y1]);
+  for (let i = Math.round(y0 / step); i * step <= y1 + 1e-9; i++) cut(i % 5 === 0 ? major : minor, [x0, i * step], [x1, i * step]);
+  return { minor, major, step, fade: { center: c, radius: half } };
 }

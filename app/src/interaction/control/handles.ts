@@ -136,7 +136,7 @@ function snapPivot(s: AppState, free: Vec3, x: number, y: number, env: Env): Vec
 /** The pointer went up after a drag: a handle drag that made a value is done as one step and the operation stays open; moving the rotator's centre is not a step. */
 export function doDragEnd(s: AppState): AppState {
   const d = s.drag;
-  const cleared: AppState = { ...s, drag: null };
+  const cleared: AppState = { ...s, drag: null, orthoDebt: 0 };
   if (!d || !("handle" in d) || !s.op) return cleared; // (a handle of a repeat being set up only set its numbers)
   if (d.handle.kind === "ball") return s.op.auto ? { ...cleared, op: null } : cleared;
   if (isLive(s.op)) {

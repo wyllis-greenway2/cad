@@ -12,7 +12,14 @@ export interface Camera {
   distance: number; // mm from the target
   /** True while looking straight at a plane: drawn orthographic. Any orbit clears it. */
   straight: boolean;
+  /** How much perspective (1 = all, the default; 0 = none, which is looking straight): between, the eye is dollied back and the lens narrowed so that what is at the target keeps its size, so the view goes smoothly between orthographic and perspective (`in_193`) */
+  mix?: number;
 }
+/** Below this much perspective the view is drawn orthographic (it is the same picture to the eye). */
+export const ORTHO_MIX = 0.02;
+export const mixOf = (c: Camera): number => (c.straight ? 0 : c.mix ?? 1);
+/** How far the eye is from the target: the distance, dollied back while the lens is narrowed. */
+export const eyeDistance = (c: Camera): number => { const m = mixOf(c); return m <= ORTHO_MIX ? c.distance : c.distance / m; };
 
 const HALF_PI = Math.PI / 2;
 const TWO_PI = Math.PI * 2;
@@ -29,7 +36,7 @@ export function shortest(from: number, to: number): number {
 export const homeCamera = (): Camera => ({ target: [0, 0, 0], azimuth: settings.view.homeAzimuth, elevation: settings.view.homeElevation, distance: settings.view.homeDistance, straight: false });
 
 export const offsetOf = (c: Camera): Vec3 => [Math.cos(c.elevation) * Math.cos(c.azimuth), Math.cos(c.elevation) * Math.sin(c.azimuth), Math.sin(c.elevation)];
-export const position = (c: Camera): Vec3 => add(c.target, scale(offsetOf(c), c.distance));
+export const position = (c: Camera): Vec3 => add(c.target, scale(offsetOf(c), eyeDistance(c)));
 /** The camera's own axes in the world: forward (into the screen), right and up (on the screen). */
 export function basis(c: Camera): { forward: Vec3; right: Vec3; up: Vec3 } {
   const forward = scale(offsetOf(c), -1);
@@ -94,6 +101,8 @@ export function blend(a: Camera, b: Camera, k: number): Camera {
     elevation: lerp(a.elevation, b.elevation),
     distance: lerp(a.distance, b.distance),
     straight: k >= 1 ? b.straight : false,
+    // going to a straight view the perspective is taken out as the camera arrives, and coming from one it is put in: no jump at either end
+    ...(a.straight !== b.straight || (a.mix ?? 1) !== (b.mix ?? 1) ? { mix: Math.max(0, lerp(mixOf(a), mixOf(b))) } : b.mix !== undefined ? { mix: b.mix } : {}),
   };
 }
 
@@ -110,22 +119,24 @@ export function projector(c: Camera, widthPx: number, heightPx: number) {
   const { forward, right, up } = basis(c);
   const eye = position(c);
   const f = 1 / Math.tan((settings.view.fovDeg * Math.PI) / 360); // screen half-height = 1 / f at depth 1
-  const ortho = c.straight;
+  const m = mixOf(c);
+  const ortho = m <= ORTHO_MIX;
+  const fe = ortho ? f : f / m; // (a narrowed lens, with the eye dollied back: what is at the target keeps its size)
   const halfH = c.distance / f; // world half-height at the target distance
   const project = (p: Vec3): [number, number] => {
     const rel = sub(p, eye);
     const [x, y, z] = [dot(rel, right), dot(rel, up), dot(rel, forward)];
     if (ortho) return [widthPx / 2 + (x / halfH) * (heightPx / 2), heightPx / 2 - (y / halfH) * (heightPx / 2)];
-    const k = f / Math.max(z, 1e-6);
+    const k = fe / Math.max(z, 1e-6);
     return [widthPx / 2 + x * k * (heightPx / 2), heightPx / 2 - y * k * (heightPx / 2)];
   };
   const ray = (px: number, py: number): { o: Vec3; d: Vec3 } => {
     const nx = ((px - widthPx / 2) / (heightPx / 2));
     const ny = -((py - heightPx / 2) / (heightPx / 2));
     if (ortho) return { o: add(eye, add(scale(right, nx * halfH), scale(up, ny * halfH))), d: forward };
-    return { o: eye, d: normalize(add(forward, add(scale(right, nx / f), scale(up, ny / f)))) };
+    return { o: eye, d: normalize(add(forward, add(scale(right, nx / fe), scale(up, ny / fe)))) };
   };
-  const view = (px: number, py: number): PointerView => ({ x: px, y: py, project, ray: ray(px, py), rayAt: ray, straight: c.straight });
+  const view = (px: number, py: number): PointerView => ({ x: px, y: py, project, ray: ray(px, py), rayAt: ray, straight: c.straight || ortho });
   return { project, ray, view, eye, forward, right, up, ortho, halfH };
 }
 

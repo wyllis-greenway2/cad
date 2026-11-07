@@ -41,6 +41,10 @@ export interface AppState {
   drag: { camera: true } | { handle: Drag; /** the operation's value when the drag began (the drag adds to it) */ base: number; /** the handle sets the numbers of the repeat being set up */ repeat?: true } | { corner: Ref; base: Session } | null;
   /** the world plane that is on (`in_190`): it has the grid, is the one the pointer finds on empty space and the one a tool draws on; the little panes beside the axes and the X Y Z buttons change it */
   world: "XY" | "XZ" | "YZ";
+  /** looking straight at a plane is a little hard to leave (`in_193`): the drag so far, in pixels, that has been kept from the camera; past `settings.view.leaveStraightPx` the view turns, and goes smoothly into perspective */
+  orthoDebt: number;
+  /** when the perspective began to come in after leaving a straight view (-1: at the next frame), null when it is all in */
+  mixT0: number | null;
   /** the little pane under the pointer (it lights up) */
   paneHover: "XY" | "XZ" | "YZ" | null;
   /** the helper handle under the pointer */
@@ -50,7 +54,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, drag: null, world: "XY", paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
 
 export const pickOpts = (s?: AppState) => ({ pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx, ...(s ? { world: worldRef(s.world) } : {}) });
 export const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });

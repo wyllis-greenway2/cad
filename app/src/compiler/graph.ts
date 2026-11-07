@@ -69,7 +69,7 @@ export function buildGraph(scene: Scene): GraphResult {
         });
         if (bad) { errors[st.id] = bad; break; }
         const [first, ...more] = made;
-        ops.push({ id: xid, type: "extrude", profile: first!.profile, ...(first!.holes.length ? { holes: first!.holes } : {}), ...(more.length ? { also: more } : {}), distance, ...(prev ? { target: prev } : {}), mode: distance < 0 && prev ? "cutOrAdd" : "add" }); // (pulled backwards onto a body: a pocket if it meets the body, else a new piece)
+        ops.push({ id: xid, type: "extrude", profile: first!.profile, ...(first!.holes.length ? { holes: first!.holes } : {}), ...(more.length ? { also: more } : {}), distance, ...(prev ? { target: prev } : {}), mode: prev ? "cutOrAdd" : "add" }); // (onto a body: a new piece while it only touches the body or stands apart, a cut as soon as it goes into it: `in_193`)
         prev = xid;
         break;
       }

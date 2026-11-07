@@ -39,6 +39,9 @@ export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["n
 }
 
 /** Put a finished figure into the scene and hand back to normal selection with the figure selected. */
+/** The tool stays on after a figure is made, ready on the same plane for the next, until a right click or the cancel icon at the top puts it away (`in_193`). */
+const stays = (t: AppState["tool"]): AppState["tool"] => (t ? { ...armTool(t.kind), plane: t.plane } : null);
+
 export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppState {
   if (!fin) return s;
   const next = run(s.session, fin.command);
@@ -48,9 +51,9 @@ export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppSt
   const circle = fin.select[0]?.startsWith("d/disk@") ? (`d/${fin.select[0].slice(7)}` as Ref) : null;
   if (s.tool?.kind === "circle" && s.tool.concentric && circle && circle in sceneOf(next).parts) {
     const rel = run(next, { type: "addRelation", relation: { id: nextId(sceneOf(next), "r"), kind: "concentric", parts: [circle, s.tool.concentric] } });
-    if (!rel.message) return { ...s, session: { ...rel, click: { ...rel.click, selection: sel } }, tool: null, resume: null, spread: null };
+    if (!rel.message) return { ...s, session: { ...rel, click: { ...rel.click, selection: sel } }, tool: stays(s.tool), resume: null, spread: null };
   }
-  return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: null, resume: s.tool?.kind === "line" ? "line" : null, spread: null }; // (only a line goes on: a circle, rectangle or curve finished must not start another when its vertex is clicked to select it, `in_162`)
+  return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: stays(s.tool), resume: null, spread: null }; // (only a line goes on: a circle, rectangle or curve finished must not start another when its vertex is clicked to select it, `in_162`)
 }
 export function commitOp(s: AppState): AppState {
   if (!s.op) return s;

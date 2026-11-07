@@ -18,8 +18,19 @@ import { pickOpts, stop, surfacePoint, planeView, animateTo, withSession } from 
 
 export const WORLD_PLANE = { X: "YZ", Y: "XZ", Z: "XY" } as const; // X looks along the X axis: at the plane across it
 
-export const doOrbit = (s: AppState, i: Extract<Intent, { type: "orbit" }>): AppState =>
-  ({ ...stop(s), cam: orbit(s.cam, -i.dx * settings.view.orbitRadPerPx, i.dy * settings.view.orbitRadPerPx, pivotOf(s.session)), menu: null });
+const withoutMix = (c: AppState["cam"]): AppState["cam"] => { const { mix: _unused, ...rest } = c; return rest; };
+
+export function doOrbit(s: AppState, i: Extract<Intent, { type: "orbit" }>): AppState {
+  if (s.cam.straight && !s.anim) {
+    // a straight view holds on: the drag is kept back until it is a little way (the perspective is not let in by accident), and then the view turns on from there
+    const debt = s.orthoDebt + Math.hypot(i.dx, i.dy);
+    if (debt < settings.view.leaveStraightPx) return { ...s, orthoDebt: debt, menu: null };
+    const k = Math.min(1, (debt - settings.view.leaveStraightPx) / Math.max(1e-9, Math.hypot(i.dx, i.dy))); // (only what is past the hold turns the view)
+    const cam = orbit(s.cam, -i.dx * k * settings.view.orbitRadPerPx, i.dy * k * settings.view.orbitRadPerPx, pivotOf(s.session));
+    return { ...stop(s), cam: { ...cam, mix: 0.03 }, orthoDebt: 0, mixT0: -1, menu: null };
+  }
+  return { ...stop(s), cam: orbit(s.cam, -i.dx * settings.view.orbitRadPerPx, i.dy * settings.view.orbitRadPerPx, pivotOf(s.session)), orthoDebt: 0, menu: null };
+}
 
 export const doPan = (s: AppState, i: Extract<Intent, { type: "pan" }>, env: Env): AppState => ({ ...stop(s), cam: pan(s.cam, i.dx, i.dy, env.h), menu: null });
 
@@ -53,6 +64,12 @@ export const doHome = (s: AppState, env: Env): AppState => animateTo(s, { ...hom
 /** Advance the camera animation to time `now`. */
 export function advance(s: AppState, now: number): AppState {
   if (s.flash && now - s.flash.at >= settings.flash.ms) s = { ...s, flash: null }; // the flash has faded
+  if (s.mixT0 !== null) {
+    // the perspective coming in after a straight view was left
+    const t0 = s.mixT0 < 0 ? now : s.mixT0;
+    const k = Math.min(1, (now - t0) / settings.view.perspectiveMs);
+    s = k >= 1 ? { ...s, mixT0: null, cam: withoutMix(s.cam) } : { ...s, mixT0: t0, cam: { ...s.cam, mix: 0.03 + (1 - 0.03) * easeInOut(k) } };
+  }
   if (!s.anim) return s;
   const k = Math.min(1, (now - s.anim.t0) / settings.view.transitionMs);
   if (k >= 1) return { ...s, cam: s.anim.to, anim: null };

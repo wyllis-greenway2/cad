@@ -170,7 +170,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   let done = t.kind === "line" && !fin ? base : commitFigure(base, fin);
   // the line made with the constraints it was close to
   const line = fin?.select[0];
-  if (hint?.hints.length && line && done !== base && !done.tool && !done.session.message) {
+  if (hint?.hints.length && line && done !== base && !(done.tool && done.tool.points.length) && !done.session.message) {
     let session = done.session;
     for (const h of hint.hints) {
       const part = sceneOf(session).parts[line];
@@ -182,7 +182,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   }
   // sketching goes on while you keep clicking on vertices (`in_150`): a figure finished on an existing vertex leaves the same tool ready (a line starts its next segment from that vertex); finished anywhere else, the tool is put away
   const vertex = refs.map((r) => sc.parts[r]).find((p) => p?.kind === "corner" && p.origin === "drawn");
-  if (!vertex || vertex.kind !== "corner" || done === base || done.tool || done.session.message) return done;
+  if (!vertex || vertex.kind !== "corner" || done === base || (done.tool && done.tool.points.length) || done.session.message) return done;
   return t.kind === "line" ? { ...done, tool: { ...armTool("line"), plane: t.plane, points: [vertex.at], cursor: vertex.at } } : done;
 }
 
@@ -257,5 +257,7 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
 
 /** A right click opens the ring of operations on what is selected and changes nothing about the selection (`in_140`): select first (one click, a triple click, Shift for several), then right click. */
 export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>): AppState {
+  // while a sketching tool is on, a right click puts it away (the ⋯ button still opens the menu): the tool stays on until then or the cancel icon (`in_193`)
+  if (s.tool && !i.button) return { ...s, tool: null, resume: null, menu: null };
   return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, i.button ? null : s.session.hover) };
 }

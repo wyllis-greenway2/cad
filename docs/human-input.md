@@ -995,3 +995,12 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_192 — 2026-11-07 — directive
 > remove the hidden sketches when a body is deleted
+
+## in_193 — 2026-11-07 — directive
+> lets make it so that it is a little bit hard to exit orthographic view. lets have it so that you need to rotate a bit into 3d before it snaps out of ortho and back into 3d. It should be a smooth transition though when it happens, not jump the camera. 
+>
+> Lets make the semi transparent panes around xyz have slightly rounded corners. Lets have the edges of the gride fade out in the distance
+>
+> Also can we try one more thing for the sketching? Lets try so that when you select a sketch item, then there is a little icon on the top of the screen with an x next to it to indicate that you are in that sketching mode. Lets have it so that it stays in that sketch tool untill you right click, or hit the cancel icon at the top for it.
+>
+> I think we should have bodies turn into negative operations on collision. So for example if I extrude a square, then if I extrude another, it should stay positive, untill it contacts the other square, then I would be extruding it as a cut out of the first square.

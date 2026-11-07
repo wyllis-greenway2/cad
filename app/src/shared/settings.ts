@@ -11,6 +11,8 @@ export const settings = {
     minSurfaceMm: 0.3, // zooming in toward a surface under the cursor stops when it is this close to the camera (it must not go through it: `in_151`)
     maxDistance: 5000,
     transitionMs: 450, // camera move to a plane's normal view
+    leaveStraightPx: 60, // how far you have to drag to leave a straight (orthographic) view: a little hard, so it is not left by accident (`in_193`)
+    perspectiveMs: 350, // and how long the perspective takes to come in then
     normalToleranceRad: 0.02,
     clickMovePx: 4, // pointer movement below this is a click, not a drag
     drawClickMovePx: 14, // and while a drawing tool is armed: a click that wanders this little is still a click (so the first point of a shape is not lost to turning the view)
@@ -58,7 +60,7 @@ export const settings = {
   },
   grid: { show: true, divisions: 30, minorAlpha: 0.35, majorAlpha: 0.7, color: [0.62, 0.63, 0.67] as [number, number, number] },
   flash: { ms: 1100, shakeMs: 450 }, // a refused change: the broken constraints flash red and fade over this long; the one that tried shakes for the first part of it
-  world: { axisLengthMm: 24, axisWidthPx: 1.6, axisOpacity: 1, paneGapMm: 3, paneMm: 8, paneOpacity: 0.18, paneActiveOpacity: 0.4 }, // (the three little panes of the world planes: how far from the origin, how big, how see-through) // the small charcoal axes at the origin: their real length in mm (so they zoom with the model: was 8.4), line width, opacity
+  world: { axisLengthMm: 24, axisWidthPx: 1.6, axisOpacity: 1, paneGapMm: 3, paneMm: 8, paneRound: 0.18, paneOpacity: 0.18, paneActiveOpacity: 0.4 }, // (the three little panes of the world planes: how far from the origin, how big, how see-through) // the small charcoal axes at the origin: their real length in mm (so they zoom with the model: was 8.4), line width, opacity
   buttons: { marginPx: 18, sizePx: 34 }, // the X Y Z buttons at the right edge, lower right
   light: { key: 1.7, fill: 0.12, ambient: 0.42, roughness: 0.4, sheen: 0.55, sheenRoughness: 0.25, reflect: 0.5 }, // lights ride with the camera; the body has a slight clear-coat sheen and a soft studio reflected in it
   extrude: { edgeAngleDeg: 30 }, // outline edges are drawn where faces meet at more than this angle

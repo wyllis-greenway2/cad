@@ -67,6 +67,8 @@ export interface Frame {
   annotations: Annotation[];
   flash: FlashFrame | null;
   grid: Grid | null;
+  /** the sketching tool that is on, for the pill at the top (`in_193`) */
+  tool: { kind: "rect" | "circle" | "line" | "arc"; label: string } | null;
   /** the little panes of the world planes beside the axes (`in_190`) */
   panes: { name: WorldName; corners: Vec3[]; active: boolean; hover: boolean }[];
   /** the helper handles of the running operation (arrows, a double arrow, curved arrows), or null */
@@ -126,6 +128,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash)],
     flash,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // on: the world plane that is on always has its grid (`in_190`)
+    tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve" } as const)[s.tool.kind] } : null,
     panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null } : null,
     cursor: s.tool ? "crosshair" : s.gizmoHover ? "grab" : "",

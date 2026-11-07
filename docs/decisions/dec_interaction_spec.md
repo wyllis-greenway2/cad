@@ -38,6 +38,7 @@ The human does not want these ideas lost when the engine is rebuilt clean (`in_0
 ## Drawing and relations
 - Press L, R or C (or choose it from the menu), then click any surface (pane, face, closed shape): that surface's plane takes the drawing, from wherever the camera is. A tool draws one figure and hands back to select, leaves the sketch and selects the new closed figure (`in_069`, `in_079`, `in_080`). Typing a size while drawing works. Lines left unfinished stay as an open line; only a closed shape extrudes (`in_062`).
 - There is no sketch mode and no isolation: every sketch's parts, faces, planes and body corners and lines can be hovered, clicked and related at any time (`in_084`, `in_085`).
+- A sketching tool, once chosen, stays on after each figure (on the same plane) until a right click or the cross in the pill at the top of the page puts it away; this is a trial (`in_193`, after `in_147` took an earlier sticky mode out). While it is on, a right click cancels it instead of opening the menu (the ⋯ button still does).
 - Relations come from one table by kind of part (`dec_relations_standard`): geometric ones and numeric ones that are measured, then locked; distances between two corners, a corner and a line, two parallel lines; pins and parallel or perpendicular to body parts follow the body when it is rebuilt. Deleting a shape removes the constraints that used it and undo restores both (`in_085`).
 
 ## Devices (the same intents on every device, `in_077`, `in_078`, `in_079`)

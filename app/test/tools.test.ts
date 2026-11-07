@@ -27,6 +27,13 @@ const move = (st: AppState, p: Vec3) => reduce(st, { type: "hover", x: px(st, p)
 const key = (st: AppState, k: string) => reduce(st, { type: "typed", key: k, shift: false }, env);
 const typeText = (st: AppState, text: string) => [...text].reduce((s, c) => key(s, c), st);
 const corners = (st: AppState) => Object.values(scene(st.session).parts).filter((p) => p.origin === "drawn" && p.kind === "corner").map((p) => (p as { at: Vec3 }).at);
+/** A figure is made and the tool stays on, ready on the same plane for the next (`in_193`); a right click puts it away. */
+const stays = (st: AppState): AppState => {
+  assert.ok(st.tool && st.tool.plane && st.tool.points.length === 0, "the tool is still on, ready for the next figure");
+  const off = reduce(st, { type: "menu", x: 5, y: 5, button: false }, env);
+  assert.equal(off.tool, null, "a right click puts it away");
+  return off;
+};
 const volume = (st: AppState) => st.session.outcome.kernel?.volume ?? 0;
 
 test("rectangle: arm, click a surface, click again: one rectangle kept level, selected as a closed figure, tool put away; one undo removes it all", () => {
@@ -39,7 +46,7 @@ test("rectangle: arm, click a surface, click again: one rectangle kept level, se
   assert.equal(previewFor(scene(st.session), st.tool)!.segments.length, 4);
   assert.deepEqual(entryOf(scene(st.session), st.tool, null)!.fields.map((f) => f.value), ["20", "10"]);
   st = click(st, [25, 15, 0]);
-  assert.equal(st.tool, null);
+  st = stays(st);
   assert.deepEqual(corners(st).map((c) => c.map((v) => Math.round(v * 100) / 100)).sort(), [[5, 5, 0], [5, 15, 0], [25, 5, 0], [25, 15, 0]].sort());
   assert.equal(scene(st.session).relations.length, 4);
   assert.match(selection(st.session)[0]!, /^d\/loop@/);
@@ -72,7 +79,7 @@ test("typed sizes: width, Tab, height, Enter makes exactly that rectangle, on th
   st = typeText(st, "2.5");
   assert.deepEqual(entryOf(scene(st.session), st.tool, null)!.fields.map((f) => [f.value, f.active]), [["40", false], ["2.5", true]]);
   st = key(st, "Enter");
-  assert.equal(st.tool, null);
+  st = stays(st);
   const xs = corners(st).map((c) => c[0]);
   const ys = corners(st).map((c) => c[1]);
   near(Math.min(...xs), -30);
@@ -103,7 +110,7 @@ test("line: two clicks make one segment and the tool is put away; an open line i
   st = click(st, [5, 5, 0]);
   assert.ok(st.tool, "waiting for the end");
   st = click(st, [25, 5, 0]);
-  assert.equal(st.tool, null, "the line is made and the tool is gone: it does not go on adding lines");
+  st = stays(st);
   assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn").length, 1);
   assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length, 0, "an open sketch is just a line");
   // two more lines, each starting at a corner that is already there: a triangle, which is a shape
@@ -121,7 +128,7 @@ test("line: two clicks make one segment and the tool is put away; an open line i
   st = move(st, [18, 2, 0]);
   st = typeText(st, "4");
   st = key(st, "Enter");
-  assert.equal(st.tool, null);
+  st = stays(st);
   near(Math.max(...corners(st).filter((c) => c[1] < 4 && c[0] > 10).map((c) => c[0])), 16);
 });
 
@@ -135,7 +142,7 @@ test("curve: two clicks for the ends, a third for how far it bows out; it is an 
   assert.ok(previewFor(scene(st.session), st.tool)!.segments.length > 10, "the arc is previewed");
   assert.equal(entryOf(scene(st.session), st.tool, null)!.fields[0]!.value, "7", "the height of the bow");
   st = click(st, [15, 12, 0]);
-  assert.equal(st.tool, null);
+  st = stays(st);
   const arc = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "drawn") as { center: string; ccw: boolean };
   assert.ok(arc.center, "an arc has a centre point of its own");
   const c = (scene(st.session).parts[arc.center as never] as { at: Vec3 }).at;
@@ -394,32 +401,36 @@ test("sketching goes on while you click on vertices: a line ending on an existin
   st = reduce(st, { type: "begin", name: "line" }, env);
   st = click(st, [5, 5, 0]);
   st = click(st, [25, 5, 0]);
-  assert.equal(st.tool, null, "ended in empty space: the tool is put away");
+  st = stays(st);
   st = reduce(st, { type: "begin", name: "line" }, env);
   st = click(st, [5, 5, 0]); // on the first corner
   st = click(st, [25, 5, 0]); // on a corner: goes on
   assert.ok(st.tool && st.tool.points.length === 1, "the next segment has started at that corner");
   assert.deepEqual(st.tool!.points[0], [25, 5, 0]);
   st = click(st, [25, 15, 0]); // empty space: the segment is made, the tool is put away
-  assert.equal(st.tool, null);
+  st = stays(st);
 });
 
-test("sketching goes on right after a figure: a click on a vertex starts the next from it; any other click drops it", () => {
+test("the tool stays on after a figure, ready on the same plane for the next one, until a right click or the cancel icon (Escape) puts it away (`in_193`); a right click with no tool opens the menu", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "line" }, env);
   st = click(st, [5, 5, 0]);
-  st = click(st, [25, 5, 0]); // empty space: the line is made, the tool is put away but waits for a vertex
-  assert.equal(st.tool, null);
-  assert.equal(st.resume, "line");
-  st = click(st, [25, 5, 0]); // the vertex just made: the next line starts from it
-  assert.ok(st.tool && st.tool.points.length === 1);
-  assert.deepEqual(st.tool!.points[0], [25, 5, 0]);
+  st = click(st, [25, 5, 0]);
+  assert.ok(st.tool && st.tool.kind === "line" && st.tool.plane === XY && st.tool.points.length === 0, "still the line tool, on the same plane, nothing started");
+  st = click(st, [5, 15, 0]);
   st = click(st, [25, 15, 0]);
-  assert.equal(st.resume, "line");
-  st = click(st, [60, 60, 0]); // not a vertex: the mode is dropped
-  assert.equal(st.resume, null);
+  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn").length, 2, "a second line without choosing the tool again");
+  assert.ok(st.tool);
+  st = reduce(st, { type: "menu", x: 5, y: 5, button: false }, env); // a right click
   assert.equal(st.tool, null);
+  assert.equal(st.menu, null, "it puts the tool away, it does not open the menu");
+  assert.ok(reduce(st, { type: "menu", x: 5, y: 5, button: false }, env).menu, "with no tool, a right click opens the menu");
+  let c = reduce(top(), { type: "begin", name: "circle" }, env);
+  c = click(click(c, [20, 20, 0]), [30, 20, 0]);
+  assert.ok(c.tool && c.tool.kind === "circle" && c.tool.plane);
+  assert.equal(reduce(c, { type: "escape" }, env).tool, null, "the cancel icon at the top is Escape");
 });
+
 
 test("hints while drawing a line: close to level it becomes level with a horizontal constraint; close to square to a line it becomes perpendicular; on another line it is put on it", () => {
   let st = top();
@@ -466,24 +477,25 @@ test("a line from the centre of a circle to its edge ends exactly on the circle 
   assert.ok([...seen].some((r) => scene(st.session).parts[r]?.kind === "corner"), "and the corner");
 });
 
-test("a line finished by typing its length and Enter keeps sketching going: the next click on a vertex starts the next line", () => {
+test("a line finished by typing its length and Enter leaves the tool on: the next click starts the next line", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "line" }, env);
   st = click(st, [5, 5, 0]);
   st = move(st, [20, 5, 0]);
   st = typeText(st, "12");
   st = key(st, "Enter");
-  assert.equal(st.tool, null);
-  assert.equal(st.resume, "line");
+  assert.ok(st.tool && st.tool.points.length === 0);
   st = click(st, [17, 5, 0]); // the vertex just made
   assert.ok(st.tool && st.tool.points.length === 1);
 });
+
 
 test("picking a vertex and then, quickly, the circle's edge beside it, or Shift-clicking it, is two selections: it never counts as a double click that takes the whole object", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "circle" }, env);
   st = click(st, [20, 20, 0]);
   st = click(st, [30, 20, 0]);
+  st = reduce(st, { type: "menu", x: 5, y: 5, button: false }, env); // (a right click puts the tool away)
   const centre: Vec3 = [20, 20, 0];
   const edge: Vec3 = [30, 20, 0];
   st = click(st, centre, 1);
