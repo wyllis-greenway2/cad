@@ -1379,3 +1379,31 @@ test("the move arrows keep a number bubble on each axis, before, during and afte
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   nearV(bbox(st).min, [10, 7, 0]);
 });
+
+test("a whole-body move or turn being dragged is only drawn moved by a matrix (the kernel is not asked), and the matrix puts the body where the finished step does (`in_216`)", () => {
+  for (const [kind, axis, value] of [["move", 0, 10], ["rotate", 2, 35], ["scale", 0, 1.5]] as const) {
+    let st = select(box(), [BODY_OBJECT]);
+    st = reduce(st, { type: "begin", name: kind }, env);
+    const base = st.session.outcome.kernel!;
+    st = { ...st, op: { ...st.op!, axis: axis as 0 | 1 | 2, value } };
+    const f = frameOf(st, { w: 800, h: 600 });
+    assert.ok(f.bodyMatrix, `${kind}: a matrix`);
+    assert.equal(f.mesh, base.mesh, `${kind}: the mesh is the one already there, not a new one from the kernel`);
+    // the corners of the mesh's box, moved by the matrix, are the corners of the box the kernel makes for the finished step
+    const m = f.bodyMatrix!;
+    const [lo, hi] = [base.bbox!.min, base.bbox!.max];
+    const pts: Vec3[] = [];
+    for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) { const g = (i: number) => m[i]!; pts.push([g(0) * x + g(4) * y + g(8) * z + g(12), g(1) * x + g(5) * y + g(9) * z + g(13), g(2) * x + g(6) * y + g(10) * z + g(14)]); }
+    const done = commitFromOp(st);
+    const real = done.session.outcome.kernel!.mesh!.vertices;
+    const box2 = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < real.length; i += 3) for (let k = 0; k < 3; k++) { box2[k] = Math.min(box2[k]!, real[i + k]!); box2[k + 3] = Math.max(box2[k + 3]!, real[i + k]!); }
+    for (const k of [0, 1, 2]) {
+      if (kind === "rotate") continue; // (a turned box's own box is bigger than the turned corners: the corners are compared below)
+      near(Math.min(...pts.map((p) => p[k]!)), box2[k]!, 1e-2);
+      near(Math.max(...pts.map((p) => p[k]!)), box2[k + 3]!, 1e-2);
+    }
+    if (kind === "rotate") for (const p of pts) assert.ok(Array.from({ length: real.length / 3 }, (_, i) => Math.hypot(real[3 * i]! - p[0], real[3 * i + 1]! - p[1], real[3 * i + 2]! - p[2])).some((d) => d < 1e-2), "every corner is where a vertex of the real body is");
+  }
+});
+const commitFromOp = (st: AppState): AppState => reduce(st, { type: "typed", key: "Enter", shift: false }, env);

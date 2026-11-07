@@ -18,7 +18,8 @@ import { outlineOf } from "../operation/part.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
-import { opCommand } from "./operations.ts";
+import { opCommand, bodyMotion } from "./operations.ts";
+import { matrixOf } from "../operation/frames.ts";
 import type { Command } from "../operation/commands.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
 import type { AppState } from "./control/state.ts";
@@ -49,6 +50,10 @@ export interface GizmoFrame { handles: Handle[]; hover: string | null; active: s
 export interface Frame {
   scene: Scene;
   mesh: KernelResult["mesh"];
+  /** the body is drawn moved by this matrix (16 numbers, column by column) while its move, turn or scale is dragged or waits for the kernel (`in_216`) */
+  bodyMatrix: number[] | null;
+  /** what is selected is the body, so its highlight is moved by the same matrix */
+  selectionMoves: boolean;
   highlight: { hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; /** the parts of constraints a refused change would have broken, and how red they still are */ red: { refs: readonly Ref[]; alpha: number }; spread: AppState["spread"]; };
   preview: Preview | null;
   entry: Entry | null;
@@ -89,6 +94,22 @@ export interface Frame {
 
 /** While an operation's number is being set, the scene as it would be after it: the real result (a gray body, a cut, a round) and not a sketch of it. Remembered for the same command. */
 let memo: { history: Session["history"]; outcome: Session["outcome"]; key: string; value: { scene: Scene; outcome: CompileOutcome } | null } | null = null;
+let gpuBase: { history: Session["history"]; outcome: Session["outcome"]; made: boolean; value: { scene: Scene; outcome: CompileOutcome } } | null = null;
+/** The step the last drag of a whole-body motion was (its matrix and how many steps came before it): while the kernel is still working its result out, that is what the stale picture is moved by (`in_216`). */
+let lastDrag: { matrix: number[]; steps: number } | null = null;
+/** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
+function gpuMotion(s: AppState): { matrix: number[]; shown: { scene: Scene; outcome: CompileOutcome } } | null {
+  const op = s.op;
+  if (!op) return null;
+  const base = op.made ? undoLast(s.session) : s.session;
+  const m = bodyMotion(sceneOf(base), op);
+  if (!m) return null;
+  if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
+  const matrix = matrixOf(m);
+  lastDrag = { matrix, steps: sceneOf(base).steps.length };
+  return { matrix, shown: gpuBase.value };
+}
+
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
   // the operation being set up, else the repeat being set up (what it would make shows while its numbers are set)
   const op = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
@@ -104,10 +125,15 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
 }
 
 export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): Frame {
-  const shown = operationResult(s);
+  const gpu = gpuMotion(s);
+  const shown = gpu ? gpu.shown : operationResult(s);
   const sc = shown?.scene ?? sceneOf(s.session);
   const sel = selectionOf(s.session);
   const outcome = shown?.outcome ?? s.session.outcome;
+  // a whole-body drag is drawn by a matrix; when it is let go the picture stays moved until the kernel's answer for the new step comes (it would jump back otherwise)
+  const settling = !gpu && !!outcome.kernel?.stale && !!lastDrag && sc.steps.length === lastDrag.steps + 1;
+  if (!gpu && !settling && !outcome.kernel?.stale) lastDrag = null;
+  const bodyMatrix = gpu ? gpu.matrix : settling ? lastDrag!.matrix : null;
   const hasBody = Object.values(sc.parts).some((p) => p.kind === "body");
   // the handles follow what they drag, live (a body being moved takes its arrows with it)
   const raw = gizmoOf(s);
@@ -126,6 +152,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   return {
     scene: sc,
     mesh: outcome.kernel?.mesh ?? null,
+    bodyMatrix,
+    selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
     highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel,
     amber: [...focusParts(sc, sel, s.focus), ...(s.tool?.hints ?? []).flatMap((h) => h.ref ? [h.ref] : [])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
     preview: withGhost(previewFor(sc, s.tool), s),

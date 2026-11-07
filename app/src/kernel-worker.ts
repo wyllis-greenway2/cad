@@ -17,8 +17,9 @@ initWeb().then(
   () => post({ ready: true }),
   (e: unknown) => post({ failed: String(e) }),
 );
-self.onmessage = (e: MessageEvent<{ id: number; graph: KernelGraph }>) => {
+self.onmessage = (e: MessageEvent<{ id: number; graph: KernelGraph; draft?: boolean }>) => {
   try {
+    kernel.draft = !!e.data.draft;
     const result = kernel.evaluate(e.data.graph);
     post({ id: e.data.id, result }, buffers(result));
   } catch (err) {

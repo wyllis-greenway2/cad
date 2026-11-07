@@ -19,7 +19,12 @@ export const inverse = (r: Rigid): Rigid => { const t = transpose(r.turn); const
 
 /** The motion one step of the whole body makes, when the sketches were carried along with it (`follow`), else null (older steps, and anything that is not a move or a turn). */
 function stepMotion(st: Step): Rigid | null {
-  if ((st.type !== "move" && st.type !== "rotate" && st.type !== "scale") || Number(st.params.follow) !== 1) return null;
+  return Number(st.params.follow) === 1 ? motionOf(st) : null;
+}
+
+/** The motion a move, turn or scale step of the whole body makes, whatever else it does (null if it is none of those, or a turn / scale about a point that was not recorded). */
+export function motionOf(st: Step): Rigid | null {
+  if (st.type !== "move" && st.type !== "rotate" && st.type !== "scale") return null;
   const axis = Number(st.params.axis ?? 0) as 0 | 1 | 2;
   const v = Number(st.params.value ?? 0);
   if (st.type === "move") { const d: [number, number, number] = [0, 0, 0]; d[axis] = v; return { turn: NONE.turn, shift: d, k: 1 }; }
@@ -36,4 +41,10 @@ export function laterMotion(steps: readonly Step[], index: number): Rigid {
   let m = NONE;
   for (let i = index + 1; i < steps.length; i++) { const s = stepMotion(steps[i]!); if (s) m = compose(m, s); }
   return m;
+}
+
+/** A motion as a 4 x 4 matrix, column by column (what a graphics card takes): a point goes to `k * turn * point + shift`. */
+export function matrixOf(r: Rigid): number[] {
+  const t = r.turn;
+  return [r.k * t[0], r.k * t[3], r.k * t[6], 0, r.k * t[1], r.k * t[4], r.k * t[7], 0, r.k * t[2], r.k * t[5], r.k * t[8], 0, r.shift[0], r.shift[1], r.shift[2], 1];
 }

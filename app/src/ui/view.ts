@@ -51,10 +51,24 @@ export function createView(host: HTMLElement) {
     if (s === lastScene) return;
     lastScene = s;
     lastMesh = mesh;
-    bodyMat = buildContent(content, s, mesh, pen, envMap);
+    const built = buildContent(content, s, mesh, pen, envMap);
+    bodyMat = built ? built.material : null;
+    bodyGroup = built ? built.body : null;
+    if (bodyGroup) { bodyGroup.matrix.fromArray(bodyMatrix ?? IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
     applyFade();
   }
   let bodyMat: import("three").MeshPhysicalMaterial | null = null;
+  let bodyGroup: import("three").Group | null = null;
+  let bodyMatrix: number[] | null = null;
+  const IDENTITY = new Array<number>(16).fill(0).map((_, i) => (i % 5 === 0 ? 1 : 0));
+  overlay.matrixAutoUpdate = false;
+  /** The body (and, when what is selected is the body, its highlight) drawn moved by a matrix: a body being dragged is not worked out again by the kernel for every move of the pointer (`in_216`). */
+  function setBodyMatrix(m: number[] | null, withOverlay: boolean) {
+    bodyMatrix = m;
+    if (bodyGroup) { bodyGroup.matrix.fromArray(m ?? IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
+    overlay.matrix.fromArray(m && withOverlay ? m : IDENTITY);
+    overlay.matrixWorldNeedsUpdate = true;
+  }
   let fade = false;
   /** The body see-through (the sketch plane is looked at straight and the body is between it and the camera) or as it was (`in_194`). */
   function applyFade() {
@@ -127,5 +141,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { setScene, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { setScene, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

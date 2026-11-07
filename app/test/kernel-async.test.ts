@@ -41,3 +41,20 @@ test("a kernel on its own thread: answers at once from the cache, else with the 
   assert.equal(k.evaluate(graph(1)).volume, 10);
   assert.equal(k.evaluate(graph(4)).volume, 30, "a new graph shows the newest finished result (30), not the old one that was just read from the cache (10)");
 });
+
+test("a draft (a rough mesh while a size is dragged) is asked for apart from the fine one, and the fine one is asked for again when the draft is over (`in_216`)", async () => {
+  const f = fake();
+  const k = createAsyncKernel(() => {}, f.w);
+  f.say({ ready: true });
+  await k.init();
+  k.draft = true;
+  k.evaluate(graph(1));
+  assert.equal((f.sent[0] as unknown as { draft: boolean }).draft, true);
+  f.answer(0, 10);
+  assert.equal(k.evaluate(graph(1)).volume, 10, "the draft answers the draft");
+  k.draft = false;
+  const fine = k.evaluate(graph(1));
+  assert.equal(fine.stale, true, "the fine mesh of the same graph is not known yet: the draft stands in until it comes");
+  assert.equal(f.sent.length, 2);
+  assert.equal((f.sent[1] as unknown as { draft: boolean }).draft, false);
+});

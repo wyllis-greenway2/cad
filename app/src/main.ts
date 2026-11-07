@@ -13,6 +13,7 @@ import { createState, reduce, advance } from "./interaction/controller.ts";
 import { frameOf } from "./interaction/frame.ts";
 import { appRows, nextScrollMode, isScrollMode } from "./interaction/appmenu.ts";
 import { snapshotOf, logEntry } from "./interaction/snapshot.ts";
+import { createTiming } from "./interaction/timing.ts";
 import type { AppState } from "./interaction/controller.ts";
 import { projector } from "./interaction/camera.ts";
 import { candidatesAt } from "./interaction/picking.ts";
@@ -63,6 +64,7 @@ const panel = createPanel(document.body, {
   close: () => dispatch({ type: "panel", name: state.panel ?? "bodies" }),
 });
 let state: AppState;
+const timing = createTiming();
 let engine: Kernel = kernel; // the kernel in use: on its own thread when that could start (`boot`), else the one in this page
 let dirty = true;
 
@@ -120,7 +122,7 @@ function logIntent(i: Intent) {
 /** A file of everything about the state of the page, to send for a bug report (the project in it can be opened again). */
 function shareState() {
   const at = new Date();
-  const snap = snapshotOf(state, { intents: intentLog, viewport: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: typeof __BUILD__ === "string" ? __BUILD__ : "", scrollMode: recognizer.scrollMode, at: at.toISOString(), pointer });
+  const snap = snapshotOf(state, { intents: intentLog, viewport: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: typeof __BUILD__ === "string" ? __BUILD__ : "", scrollMode: recognizer.scrollMode, timing: timing.summary(), at: at.toISOString(), pointer });
   const name = `cad-state-${at.toISOString().replace(/[:.]/g, "-").slice(0, 19)}.json`;
   webFiles.save(name, JSON.stringify(snap, null, 1));
   state = { ...state, session: { ...state.session, message: `saved ${name}: send that file` } };
@@ -192,7 +194,7 @@ async function boot() {
     candidatesAt: (x: number, y: number) => candidatesAt(scene(state.session), projector(state.cam, view.size().w, view.size().h).view(x, y), { pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx }),
     frame: () => frameOf(state, view.size()),
     load: (text: string) => { const r = openSession(engine, text); if (r.ok) adopt(r.value); return r.ok },
-    snapshot: () => snapshotOf(state, { intents: intentLog, viewport: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: "", scrollMode: recognizer.scrollMode, at: new Date().toISOString(), pointer }),
+    snapshot: () => snapshotOf(state, { intents: intentLog, viewport: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: "", scrollMode: recognizer.scrollMode, timing: timing.summary(), at: new Date().toISOString(), pointer }),
     dispatch, run: (c: Command) => { state = { ...state, session: run(state.session, c) }; dirty = true; },
   };
   requestAnimationFrame(frame);
@@ -202,9 +204,14 @@ function frame(now: number) {
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
     const size = view.size();
+    const tFrame = performance.now();
+    engine.draft = !!(state.drag && state.op); // (a rough mesh while a size is dragged, the fine one when it is let go, `in_216`)
     const f = frameOf(state, size, now);
+    engine.draft = false;
+    const tMade = performance.now();
     const page = host.getBoundingClientRect();
     view.setScene(f.scene, f.mesh);
+    view.setBodyMatrix(f.bodyMatrix, f.selectionMoves);
     view.setHighlight(f.highlight, state.cam, now);
     view.setPreview(f.preview, state.cam);
     view.setGizmo(f.gizmo, state.cam);
@@ -233,7 +240,13 @@ function frame(now: number) {
     recognizer.setTouchCursor(tc && handle ? { cursor: [tc[0], tc[1]], handle } : null);
     touchHandle.update(handle ? [handle[0] + page.left, handle[1] + page.top] : null);
     host.style.cursor = f.cursor;
+    const tBuilt = performance.now();
     view.render(state.cam, f.grid);
+    const tEnd = performance.now();
+    timing.add("frame: work out (frameOf)", tMade - tFrame);
+    timing.add("frame: build what is drawn", tBuilt - tMade);
+    timing.add("frame: draw (render)", tEnd - tBuilt);
+    timing.add("frame: all", tEnd - tFrame);
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);
     statusEl.textContent = f.message;
     dirty = !!f.flash; // keep drawing while a refused change flashes

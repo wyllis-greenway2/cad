@@ -5,6 +5,8 @@ import { edgeDirection } from "./gizmo.ts";
 import { patternStart, patternCommand } from "./pattern.ts";
 import type { Mat3, Angles } from "../math/rotation.ts";
 import { IDENTITY, about, then, anglesOf, stepsBetween } from "../math/rotation.ts";
+import { motionOf } from "../operation/frames.ts";
+import type { Rigid } from "../operation/frames.ts";
 import type { Curved } from "../operation/part.ts";
 import type { FaceEdit } from "./faceedit.ts";
 import type { OffsetSource } from "./offset.ts";
@@ -432,6 +434,22 @@ export function opCommand(scene: Scene, op: Op, opts: { preview?: boolean } = {}
   if (!carried || op.target !== "body") return step;
   const carry = op.kind === "move" ? carrySketches(scene, [], scale(([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Vec3[])[op.axis]!, v), [0, 0, 0]) : carrySketches(scene, [{ axis: op.axis, angle: v }], [0, 0, 0], op.pivot!);
   return carry.length ? { type: "batch", commands: [step, ...carry] } : step;
+}
+
+/**
+ * The motion of the whole body that this move, turn or scale makes, as numbers (`in_216`): while it is dragged the body is only drawn moved (a matrix on the graphics card), the kernel works it out
+ * once when it is let go. Null when the operation is not one of those, has nothing to show yet, or is one the kernel has to work out (angles typed for the three axes).
+ */
+export function bodyMotion(scene: Scene, op: Op): Rigid | null {
+  if (op.target !== "body" || (op.kind !== "move" && op.kind !== "rotate" && op.kind !== "scale")) return null;
+  if (op.kind === "rotate" && op.rot.some((t) => num(t) !== null)) return null;
+  const v = valueOf(op);
+  if (v === null) return null;
+  if (op.kind === "scale" && v <= 0) return null;
+  if (op.kind === "move") return motionOf({ id: "s_x", type: "move", parts: op.parts, params: { axis: op.axis, value: v } });
+  const pivot = op.pivot ?? bodyCentre(scene);
+  if (!pivot) return null;
+  return motionOf({ id: "s_x", type: op.kind, parts: op.parts, params: { axis: op.kind === "scale" ? 0 : op.axis, value: v, px: pivot[0], py: pivot[1], pz: pivot[2] } });
 }
 
 /** A command as it is without carrying the sketches: only the steps, and not marked `follow`. */

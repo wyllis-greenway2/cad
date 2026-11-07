@@ -7,6 +7,7 @@ const EMPTY: KernelResult = { ops: [], finalId: null, volume: null, bbox: null, 
 const KEEP = 24; // results kept, newest last
 
 export interface AsyncKernel extends Kernel {
+  draft: boolean;
   /** is the worker still working something out */
   readonly pending: boolean;
 }
@@ -19,14 +20,14 @@ export function createAsyncKernel(onChange: () => void, worker: WorkerLike = spa
   const cache = new Map<string, KernelResult>();
   let last: KernelResult = EMPTY;
   let busy: { id: number; key: string } | null = null;
-  let queued: { key: string; graph: KernelGraph } | null = null;
+  let queued: { key: string; graph: KernelGraph; draft: boolean } | null = null;
   let counter = 0;
   const pump = () => {
     if (busy || !queued) return;
-    const { key, graph } = queued;
+    const { key, graph, draft } = queued;
     queued = null;
     busy = { id: ++counter, key };
-    worker.postMessage({ id: busy.id, graph });
+    worker.postMessage({ id: busy.id, graph, draft });
   };
   const ready = new Promise<void>((resolve, reject) => {
     worker.addEventListener("message", (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; result?: KernelResult }>) => {
@@ -49,19 +50,22 @@ export function createAsyncKernel(onChange: () => void, worker: WorkerLike = spa
     });
     worker.addEventListener("error", (e: ErrorEvent) => reject(new Error(e.message || "the kernel's thread failed")));
   });
-  return {
+  const self: AsyncKernel = {
     name: "occt (worker)",
     lagging: true,
+    draft: false,
     init: () => ready,
     get pending() { return busy !== null || queued !== null; },
     evaluate(graph: KernelGraph): KernelResult {
-      const key = JSON.stringify(graph);
+      const draft = self.draft; // (a rough mesh while a size is dragged, `in_216`: asked for and kept apart from the fine one)
+      const key = (draft ? "draft:" : "") + JSON.stringify(graph);
       const hit = cache.get(key);
       if (hit) { cache.delete(key); cache.set(key, hit); return hit; } // (`last` is only what the worker finished last: a hit on an old graph must not make the picture jump back to it)
       if (busy?.key === key) return { ...last, stale: true }; // already being worked out
-      queued = { key, graph }; // only the newest request is kept: what was asked before it is no longer wanted
+      queued = { key, graph, draft }; // only the newest request is kept: what was asked before it is no longer wanted
       pump();
       return { ...last, stale: true }; // (what is shown meanwhile is marked, so nothing is built on it)
     },
   };
+  return self;
 }

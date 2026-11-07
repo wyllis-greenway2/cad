@@ -17,6 +17,8 @@ export interface KernelResult {
   edges: KernelEdge[] | null;
   vertices: Vec[] | null;
   totalMs: number;
+  /** where the time went (ms): working the operations out, meshing the body, classifying its faces, its edges (`in_216`) */
+  perf?: { ops: number; mesh: number; faces: number; edges: number };
   /** the kernel works on its own thread and has not answered this question yet: this is the last answer it gave, for an older model */
   stale?: boolean;
 }
@@ -25,5 +27,7 @@ export interface Kernel {
   /** the answer may come later than the question (the kernel works on its own thread): `evaluate` then gives the last result until the new one is ready */
   lagging?: boolean;
   init(options?: object): Promise<unknown>;
-  evaluate(graph: KernelGraph, tess?: { tolerance: number; angular: number }): KernelResult;
+  evaluate(graph: KernelGraph, tess?: { tolerance: number; angular: number; /** a rough mesh, quickly (while a size is being dragged) */ draft?: boolean }): KernelResult;
+  /** ask for rough meshes (set while a size is being dragged, cleared when it is let go); a kernel that does not know it ignores it */
+  draft?: boolean;
 }

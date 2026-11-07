@@ -18,7 +18,7 @@ export function logEntry(i: Intent, s: AppState, t: number): Record<string, unkn
   return { t: Math.round(t), ...Object.fromEntries(Object.entries(i).map(([k, v]) => [k, typeof v === "number" ? r4(v) : v])), ...(move ? { cam: camSummary(s.cam) } : {}) };
 }
 
-export interface Extras { intents: unknown[]; viewport: { w: number; h: number; dpr: number }; device: string; userAgent: string; build: string; scrollMode: string; at: string; pointer: { x: number; y: number } | null }
+export interface Extras { intents: unknown[]; viewport: { w: number; h: number; dpr: number }; device: string; userAgent: string; build: string; scrollMode: string; at: string; pointer: { x: number; y: number } | null; /** where the time went (`in_216`) */ timing?: Record<string, unknown> }
 
 export function snapshotOf(s: AppState, extras: Extras): Record<string, unknown> {
   const sc = sceneOf(s.session);
@@ -39,7 +39,8 @@ export function snapshotOf(s: AppState, extras: Extras): Record<string, unknown>
     op: s.op ? { kind: s.op.kind, typed: s.op.typed, value: s.op.value, axis: s.op.axis, parts: s.op.parts, made: s.op.made, auto: s.op.auto } : null,
     repeat: !!s.repeat, panel: s.panel, menuOpen: !!s.menu, animating: !!s.anim, resume: s.resume, focus: s.focus,
     message: s.session.message, conflict: s.session.conflict, lagging: s.session.lagging,
-    kernel: { errors: outcome.errors, volume: k?.volume ?? null, bbox: k?.bbox ?? null, faces: k?.faces?.length ?? null, edges: k?.edges?.length ?? null, totalMs: k ? Math.round(k.totalMs) : null },
+    kernel: { errors: outcome.errors, volume: k?.volume ?? null, bbox: k?.bbox ?? null, faces: k?.faces?.length ?? null, edges: k?.edges?.length ?? null, totalMs: k ? Math.round(k.totalMs) : null, perf: k?.perf ? Object.fromEntries(Object.entries(k.perf).map(([n, v]) => [n, Math.round(v)])) : null },
+    timing: extras.timing ?? null,
     scene: { partsByKind: kinds, relations: sc.relations.length, steps: sc.steps.map((st) => `${st.id}:${st.type}`), counter: sc.counter },
     history: { commands: s.session.history.commands.length, cursor: s.session.history.cursor },
     settings: { view: settings.view, input: settings.input, pick: settings.pick, sketch: settings.sketch },

@@ -30,7 +30,7 @@ function linePairs(s: Scene, skip: Set<Ref>): number[] {
  * One look for every line (`in_115`): drawn lines and the body's outline are the same thin charcoal line, from the same material. Corners are not dotted anywhere:
  * a corner shows as a ball when you point at it or pick it, whatever it belongs to.
  */
-export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): THREE.MeshPhysicalMaterial | null {
+export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group } | null {
   clearGroup(content);
   pen.reset();
   const get = lookup(s);
@@ -52,6 +52,9 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
     }
   }
   if (!mesh) return null;
+  const body = new THREE.Group(); // (the body on its own, so a matrix can move it on the graphics card, `in_216`)
+  body.matrixAutoUpdate = false;
+  content.add(body);
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.BufferAttribute(mesh.vertices, 3));
   g.setAttribute("normal", new THREE.BufferAttribute(mesh.normals, 3));
@@ -60,9 +63,9 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
   if (corners.length) {
     const eg = new THREE.BufferGeometry();
     eg.setAttribute("position", new THREE.Float32BufferAttribute(corners, 3));
-    content.add(new THREE.LineSegments(eg, edge));
+    body.add(new THREE.LineSegments(eg, edge));
   }
   const material = new THREE.MeshPhysicalMaterial({ color: settings.theme.bodyColor, roughness: settings.light.roughness, metalness: 0, clearcoat: settings.light.sheen, clearcoatRoughness: settings.light.sheenRoughness, envMap, envMapIntensity: settings.light.reflect, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
-  content.add(new THREE.Mesh(g, material));
-  return material;
+  body.add(new THREE.Mesh(g, material));
+  return { material, body };
 }
