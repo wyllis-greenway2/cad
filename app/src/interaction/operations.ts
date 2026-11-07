@@ -6,7 +6,7 @@ import { patternStart, patternCommand } from "./pattern.ts";
 import type { Mat3, Angles } from "../math/rotation.ts";
 import { IDENTITY, about, then, anglesOf, stepsBetween } from "../math/rotation.ts";
 import { motionOf } from "../operation/frames.ts";
-import { sharpOfPoints, smoothChain, roundingFaces } from "../operation/roundings.ts";
+import { sharpOfPoints, chainOf, roundingFaces } from "../operation/roundings.ts";
 import type { Sharp, SharpEdge } from "../operation/roundings.ts";
 import type { Rigid } from "../operation/frames.ts";
 import type { Curved } from "../operation/part.ts";
@@ -555,10 +555,11 @@ export function edgeDrag(scene: Scene, op: Op): { face: Ref; groups: { face: Ref
     if (!se) return null;
     edges.push(se);
   }
-  if (!smoothChain(edges)) return null;
-  const faces = roundingFaces(scene, edges, 3 * e.value);
+  const chain = chainOf(edges, Math.max(e.value, value));
+  if (!chain) return null;
+  const faces = roundingFaces(scene, chain.edges, 3 * e.value, () => false, chain.corners);
   if (!faces.some((f) => f.face === op.parts[0])) return null;
-  return { face: op.parts[0]!, groups: faces.map((f) => ({ face: f.face, sharp: edges[f.edge]!.sharp })), k: value / e.value, step: e.step, value };
+  return { face: op.parts[0]!, groups: faces.map((f) => ({ face: f.face, sharp: f.corner ? { kind: "point" as const, center: f.corner } : chain.edges[f.edge]!.sharp })), k: value / e.value, step: e.step, value };
 }
 
 /** A command as it is without carrying the sketches: only the steps, and not marked `follow`. */

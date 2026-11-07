@@ -20,7 +20,7 @@ import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } 
 import type { Session } from "./session.ts";
 import { opCommand, bodyMotion, faceDrag, radiusDrag, sideDrag, edgeDrag, valueOf } from "./operations.ts";
 import { matrixOf } from "../operation/frames.ts";
-import { sharpOfPoints, smoothChain, adjacentOk, roundingFaces } from "../operation/roundings.ts";
+import { sharpOfPoints, chainOf, cornerOk, adjacentOk, roundingFaces } from "../operation/roundings.ts";
 import type { Sharp, SharpEdge } from "../operation/roundings.ts";
 import type { Command } from "../operation/commands.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
@@ -124,7 +124,9 @@ function edgeNew(s: AppState, op: Op, base: Session): { wait: true } | { face: F
     if (!e || !adjacentOk(sc, e, l.mid ?? null)) return null;
     edges.push(e);
   }
-  if (!smoothChain(edges)) return null;
+  // edges that meet smoothly, or in corners of straight edges between flat faces; the edges between corners longer than the roundings (`in_223`)
+  const chain = chainOf(edges, Math.max(Math.abs(v), edgeRef?.want ?? 0));
+  if (!chain || !chain.corners.every((c) => cornerOk(sc, c))) return null;
   const key = JSON.stringify([op.parts, op.ranks ?? null, op.sigs ?? null, v > 0]);
   if (!edgeRef || edgeRef.key !== key) edgeRef = { key, want: Math.abs(v), ready: null, failed: null };
   if (edgeRef.ready && Math.abs(v) > 1.6 * edgeRef.ready.R0 && edgeRef.want !== Math.abs(v)) edgeRef.want = Math.abs(v); // (grown a lot: a new reference, the old one stands in until it is there)
@@ -141,9 +143,9 @@ function edgeNew(s: AppState, op: Op, base: Session): { wait: true } | { face: F
     else if (!edgeRef.ready || edgeRef.ready.R0 !== R) {
       // the faces the rounding made are small ones the body did not have (a wall that was cut shorter has a new name too, but it runs on far past the rounding); each is the rounding of the nearest edge, and
       // every edge has one (else something else was made)
-      const faces = roundingFaces(res.scene, edges, 3 * R, (r) => r in sc.parts);
-      if (!edges.every((_, i) => faces.some((f) => f.edge === i))) { edgeRef.failed = R; if (!edgeRef.ready) return null; }
-      else edgeRef.ready = { R0: R, res, groups: faces.map((f) => ({ face: f.face, sharp: edges[f.edge]!.sharp })) };
+      const faces = roundingFaces(res.scene, chain.edges, 3 * R, (r) => r in sc.parts, chain.corners);
+      if (!chain.edges.every((_, i) => faces.some((f) => f.edge === i))) { edgeRef.failed = R; if (!edgeRef.ready) return null; }
+      else edgeRef.ready = { R0: R, res, groups: faces.map((f) => ({ face: f.face, sharp: f.corner ? { kind: "point" as const, center: f.corner } : chain.edges[f.edge]!.sharp })) };
     }
   }
   if (!edgeRef.ready) return { wait: true };

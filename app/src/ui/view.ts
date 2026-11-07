@@ -108,8 +108,8 @@ export function createView(host: HTMLElement) {
       overlay.matrixWorldNeedsUpdate = true;
     }
     const mine = f.rounds?.groups.find((g) => g.face === f.face)?.sharp;
-    if (f.withOverlay && f.rounds && mine?.kind === "circle") overlay.visible = false; // (a stretch about a circle is not one matrix: what is selected is not drawn while it is dragged)
-    if (f.withOverlay && f.rounds && mine?.kind === "line") {
+    if (f.withOverlay && f.rounds && (mine?.kind === "circle" || mine?.kind === "point" || (mine?.kind === "line" && (mine.cornerA || mine.cornerB)))) overlay.visible = false; // (a stretch about a circle is not one matrix: what is selected is not drawn while it is dragged)
+    if (f.withOverlay && f.rounds && mine?.kind === "line" && !mine.cornerA && !mine.cornerB) {
       // what is selected (the rounding) is scaled the same way: across the sharp edge, about it
       const { point: c, dir: u } = mine;
       const k = f.rounds.k;

@@ -9,15 +9,19 @@ import type { Plane } from "./part.ts";
 import { circumcentre, normalOfPlane } from "./part.ts";
 
 /** Where the two faces would meet: a line, or a circle (about `axis` through `center`). */
-export type Sharp = { kind: "line"; point: Vec3; dir: Vec3 } | { kind: "circle"; center: Vec3; axis: Vec3; radius: number };
-export interface SharpEdge { sharp: Sharp; a: Vec3; b: Vec3; /** a whole circle: its ends are one point and it has no tangent there to meet another edge at */ whole: boolean }
+type EdgeSharp =
+  /** a line from `a` to `b`; an end that is a corner (another rounding meets it there) is scaled about that corner, since near it everything is scaled about the corner */
+  | { kind: "line"; point: Vec3; dir: Vec3; a: Vec3; b: Vec3; cornerA: boolean; cornerB: boolean }
+  | { kind: "circle"; center: Vec3; axis: Vec3; radius: number };
+export type Sharp = EdgeSharp | /** the patch where roundings meet at a corner: scaled about the corner */ { kind: "point"; center: Vec3 };
+export interface SharpEdge { sharp: EdgeSharp; a: Vec3; b: Vec3; /** a whole circle: its ends are one point and it has no tangent there to meet another edge at */ whole: boolean }
 
 /** The sharp edge through these points of an edge of the body (its ends and its middle, and its circle if the kernel says it is one); null if it is neither a line nor a circle. */
 export function sharpOfPoints(a: Vec3, b: Vec3, mid: Vec3 | null, circle?: { center: Vec3; normal: Vec3; radius: number }): SharpEdge | null {
   if (circle) return { sharp: { kind: "circle", center: circle.center, axis: normalize(circle.normal), radius: circle.radius }, a, b, whole: Math.hypot(...sub(a, b)) < 1e-6 };
   const len = Math.hypot(...sub(b, a));
   if (len < 1e-9) return null;
-  if (!mid || Math.hypot(...sub(mid, scale(add(a, b), 0.5))) < 1e-3 * Math.max(1, len)) return { sharp: { kind: "line", point: a, dir: normalize(sub(b, a)) }, a, b, whole: false };
+  if (!mid || Math.hypot(...sub(mid, scale(add(a, b), 0.5))) < 1e-3 * Math.max(1, len)) return { sharp: { kind: "line", point: a, dir: normalize(sub(b, a)), a, b, cornerA: false, cornerB: false }, a, b, whole: false };
   const c = circumcentre(a, mid, b);
   if (!c) return null;
   const axis = normalize(cross(sub(b, a), sub(mid, a)));
@@ -34,19 +38,46 @@ function tangentAt(e: SharpEdge, end: Vec3): Vec3 {
   return t;
 }
 
-/** Edges that meet only end to end and smoothly (no corner between two of them, no end shared by three): then each rounding is its own, and the points where two meet are the same either way. */
-export function smoothChain(edges: SharpEdge[]): boolean {
+const keyOf = (p: Vec3) => p.map((v) => Math.round(v * 1e3)).join(",");
+
+/**
+ * Edges that meet end to end: where two meet smoothly nothing is special (each rounding is its own, and the points where two meet are the same either way); where they meet in a corner (two that turn, or three or
+ * more) everything near the corner is the same shape at every size, scaled about the corner, as long as the edges are straight (the faces there are planes). Returns the edges with their corner ends marked and the
+ * corners, or null if some junction is neither (a curved edge in a corner) or an edge between corners is too short for the roundings not to run into each other (`size` the biggest rounding that will be shown).
+ */
+export function chainOf(edges: SharpEdge[], size: number): { edges: SharpEdge[]; corners: Vec3[] } | null {
   const at = new Map<string, { e: SharpEdge; end: Vec3 }[]>();
-  const key = (p: Vec3) => p.map((v) => Math.round(v * 1e3)).join(",");
   for (const e of edges) {
     if (e.whole) continue;
-    for (const end of [e.a, e.b]) at.set(key(end), [...(at.get(key(end)) ?? []), { e, end }]);
+    for (const end of [e.a, e.b]) at.set(keyOf(end), [...(at.get(keyOf(end)) ?? []), { e, end }]);
   }
-  for (const list of at.values()) {
-    if (list.length > 2) return false;
-    if (list.length === 2) { const [p, q] = [tangentAt(list[0]!.e, list[0]!.end), tangentAt(list[1]!.e, list[1]!.end)]; if (Math.abs(dot(p, q)) < 0.9995) return false; }
+  const corners = new Map<string, Vec3>();
+  for (const [k, list] of at) {
+    if (list.length === 1) continue;
+    const smooth = list.length === 2 && Math.abs(dot(tangentAt(list[0]!.e, list[0]!.end), tangentAt(list[1]!.e, list[1]!.end))) >= 0.9995;
+    if (smooth) continue;
+    if (list.some((x) => x.e.sharp.kind !== "line")) return null;
+    corners.set(k, list[0]!.end);
   }
-  return true;
+  let tooShort = false;
+  const marked = edges.map((e): SharpEdge => {
+    if (e.sharp.kind !== "line") return e;
+    const [cA, cB] = [corners.has(keyOf(e.a)), corners.has(keyOf(e.b))];
+    if ((cA || cB) && Math.hypot(...sub(e.b, e.a)) < 4 * size) tooShort = true;
+    return { ...e, sharp: { ...e.sharp, cornerA: cA, cornerB: cB } };
+  });
+  if (tooShort) return null;
+  return { edges: marked, corners: [...corners.values()] };
+}
+
+/** At a corner the faces are all planes (so everything there scales about it): every edge of the body that ends there is straight and there are as many flat faces through it as edges. */
+export function cornerOk(scene: Scene, v: Vec3): boolean {
+  const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && p.origin === "body").filter((l) => {
+    const [a, b] = [scene.parts[l.kind === "line" ? l.a : ""], scene.parts[l.kind === "line" ? l.b : ""]];
+    return [a, b].some((c) => c?.kind === "corner" && Math.hypot(...sub(c.at, v)) < 2e-3);
+  });
+  if (!lines.length || lines.some((l) => l.kind !== "line" || l.mid || l.circle)) return false;
+  return flatFaces(scene).filter((f) => Math.abs(dot(normalOfPlane(f), sub(v, f.at))) < 1e-3).length === lines.length;
 }
 
 const flatFaces = (scene: Scene): Plane[] => Object.values(scene.parts).filter((p): p is Plane => p.kind === "plane" && p.origin === "body" && !p.curved && !p.rounded);
@@ -71,6 +102,7 @@ export function adjacentOk(scene: Scene, e: SharpEdge, mid: Vec3 | null): boolea
 
 /** How far a point is from the sharp edge. */
 function distanceTo(s: Sharp, p: Vec3): number {
+  if (s.kind === "point") return Math.hypot(...sub(p, s.center));
   if (s.kind === "line") { const d = sub(p, s.point); return Math.hypot(...sub(d, scale(s.dir, dot(d, s.dir)))); }
   const d = sub(p, s.center);
   const z = dot(d, s.axis);
@@ -78,11 +110,14 @@ function distanceTo(s: Sharp, p: Vec3): number {
 }
 
 /** Which of the body's faces are the rounding of which edge: the faces whose points all lie within `reach` of one edge (the faces beside it run on much further), each given to the nearest edge. */
-export function roundingFaces(scene: Scene, edges: SharpEdge[], reach: number, skip: (r: Ref) => boolean = () => false): { face: Ref; edge: number }[] {
-  const out: { face: Ref; edge: number }[] = [];
+export function roundingFaces(scene: Scene, edges: SharpEdge[], reach: number, skip: (r: Ref) => boolean = () => false, corners: Vec3[] = []): { face: Ref; edge: number; corner?: Vec3 }[] {
+  const out: { face: Ref; edge: number; corner?: Vec3 }[] = [];
   for (const p of Object.values(scene.parts)) {
     if (p.kind !== "plane" || p.origin !== "body" || !p.mesh || p.mesh.length < 9 || skip(p.ref)) continue;
-    if (p.rounded && !["CYLINDRE", "TORUS", "CONE"].includes(p.rounded)) continue;
+    if (p.rounded && !["CYLINDRE", "TORUS", "CONE", "SPHERE"].includes(p.rounded)) continue;
+    // the patch at a corner lies close round the corner; a strip along an edge runs on much further (the edges are longer than that: `chainOf`)
+    const near = corners.find((v) => { for (let k = 0; k + 2 < p.mesh!.length; k += 3) if (Math.hypot(...sub([p.mesh![k]!, p.mesh![k + 1]!, p.mesh![k + 2]!], v)) > 2.2 * (reach / 3)) return false; return true; });
+    if (near) { out.push({ face: p.ref, edge: -1, corner: near }); continue; }
     let best = -1;
     let bestMean = Infinity;
     edges.forEach((e, i) => {

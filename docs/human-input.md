@@ -1115,3 +1115,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_222 — 2026-11-07 — approval
 > yes, do the multiple-edge and curved-edge ones too
+
+## in_223 — 2026-11-07 — approval
+> yes, do the corner ones too

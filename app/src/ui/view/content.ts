@@ -15,7 +15,17 @@ export type Shift =
   | { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[] }
   /** a fillet or chamfer of another size is the same cross-section scaled by `k` about its sharp edge (a line, or a circle), edge by edge (`in_220`, `in_222`) */
   | { k: number; groups: { keys: Set<string>; sharp: SharpShape }[] };
-export type SharpShape = { kind: "line"; point: readonly number[]; dir: readonly number[] } | { kind: "circle"; center: readonly number[]; axis: readonly number[]; radius: number };
+export type SharpShape =
+  | { kind: "line"; point: readonly number[]; dir: readonly number[]; a: readonly number[]; b: readonly number[]; cornerA: boolean; cornerB: boolean }
+  | { kind: "circle"; center: readonly number[]; axis: readonly number[]; radius: number }
+  | { kind: "point"; center: readonly number[] };
+
+/** Which end of a straight sharp edge a point is nearer along it: 0 the start, 1 the end. */
+const nearer = (l: { a: readonly number[]; b: readonly number[]; dir: readonly number[] }, x: number, y: number, z: number): 0 | 1 => {
+  const s = (x - l.a[0]!) * l.dir[0]! + (y - l.a[1]!) * l.dir[1]! + (z - l.a[2]!) * l.dir[2]!;
+  const len = Math.hypot(l.b[0]! - l.a[0]!, l.b[1]! - l.a[1]!, l.b[2]! - l.a[2]!);
+  return s < len / 2 ? 0 : 1;
+};
 
 export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array }
 
@@ -109,7 +119,14 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
           const g = groupOf[i]! >= 0 ? how.groups[groupOf[i]!]! : null;
           if (g) {
             const [x, y, z] = [from[3 * i]!, from[3 * i + 1]!, from[3 * i + 2]!];
-            if (g.sharp.kind === "line") {
+            if (g.sharp.kind === "point") {
+              // the patch at a corner: scaled about the corner
+              [dx, dy, dz] = [(how.k - 1) * (x - g.sharp.center[0]!), (how.k - 1) * (y - g.sharp.center[1]!), (how.k - 1) * (z - g.sharp.center[2]!)];
+            } else if (g.sharp.kind === "line" && ((g.sharp.cornerA && nearer(g.sharp, x, y, z) === 0) || (g.sharp.cornerB && nearer(g.sharp, x, y, z) === 1))) {
+              // near a corner everything is scaled about the corner
+              const v = nearer(g.sharp, x, y, z) === 0 ? g.sharp.a : g.sharp.b;
+              [dx, dy, dz] = [(how.k - 1) * (x - v[0]!), (how.k - 1) * (y - v[1]!), (how.k - 1) * (z - v[2]!)];
+            } else if (g.sharp.kind === "line") {
               const [px, py, pz] = [x - g.sharp.point[0]!, y - g.sharp.point[1]!, z - g.sharp.point[2]!];
               const along = px * g.sharp.dir[0]! + py * g.sharp.dir[1]! + pz * g.sharp.dir[2]!;
               [dx, dy, dz] = [(how.k - 1) * (px - along * g.sharp.dir[0]!), (how.k - 1) * (py - along * g.sharp.dir[1]!), (how.k - 1) * (pz - along * g.sharp.dir[2]!)];

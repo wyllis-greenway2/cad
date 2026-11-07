@@ -5,7 +5,7 @@ import { flat } from "./helpers/menu.ts";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";
 import type { Vec3 } from "../src/math/vec.ts";
-import { add, scale, dot, sub } from "../src/math/vec.ts";
+import { add, scale, dot, sub, cross, normalize } from "../src/math/vec.ts";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, run, scene, selection, undoLast } from "../src/interaction/session.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
@@ -1531,6 +1531,44 @@ test("a new fillet or chamfer on one straight edge is made once by the kernel (t
   }
 });
 
+/** How far the points of a fillet's scaled rounding are from the surface the kernel really makes at that size (corners: scaled about the corner, strips: about their edge). */
+function scaledError(fx: ReturnType<typeof frameOf>, done: AppState): number {
+  const groups = fx.faceShift?.rounds?.groups ?? [];
+  const real = done.session.outcome.kernel!.mesh!;
+  const k = fx.faceShift!.rounds!.k;
+  const moved = (g: (typeof groups)[number], p: Vec3): Vec3 => {
+    const sh = g.sharp;
+    const about = (v: Vec3): Vec3 => add(p, scale(sub(p, v), k - 1));
+    if (sh.kind === "point") return about(sh.center);
+    if (sh.kind === "line") {
+      const len = Math.hypot(...sub(sh.b, sh.a));
+      const along = dot(sub(p, sh.a), sh.dir);
+      if (sh.cornerA && along < len / 2) return about(sh.a);
+      if (sh.cornerB && along >= len / 2) return about(sh.b);
+      const d = sub(p, sh.point);
+      return add(p, scale(sub(d, scale(sh.dir, dot(d, sh.dir))), k - 1));
+    }
+    return p;
+  };
+  const tri = (i: number): Vec3[] => [0, 1, 2].map((c) => { const v = real.triangles[3 * i + c]!; return [real.vertices[3 * v]!, real.vertices[3 * v + 1]!, real.vertices[3 * v + 2]!] as Vec3; });
+  const dist = (p: Vec3, tr: Vec3[]): number => {
+    const [a, b, c] = tr as [Vec3, Vec3, Vec3];
+    // closest point of a triangle (the plane's foot if it is inside, else the nearest edge)
+    const n = normalize(cross(sub(b, a), sub(c, a)));
+    const f = sub(p, scale(n, dot(sub(p, a), n)));
+    const inside = [[a, b], [b, c], [c, a]].every(([u, v]) => dot(cross(sub(v!, u!), sub(f, u!)), n) >= -1e-9);
+    if (inside) return Math.abs(dot(sub(p, a), n));
+    return Math.min(...[[a, b], [b, c], [c, a]].map(([u, v]) => { const e = sub(v!, u!); const t = Math.min(1, Math.max(0, dot(sub(p, u!), e) / dot(e, e))); return Math.hypot(...sub(p, add(u!, scale(e, t)))); }));
+  };
+  const tris = Array.from({ length: real.triangles.length / 3 }, (_, i) => tri(i));
+  let worstEdge = 0;
+  for (const g of groups) {
+    const m = (fx.scene.parts[g.face] as unknown as { mesh: number[] }).mesh;
+    for (let i = 0; i + 2 < m.length; i += 3) { const q = moved(g, [m[i]!, m[i + 1]!, m[i + 2]!]); worstEdge = Math.max(worstEdge, Math.min(...tris.map((t) => dist(q, t)))); }
+  }
+  return worstEdge;
+}
+
 test("a new fillet round a cylinder's rim is made once and scaled about the circle; one round a chain of edges that meet smoothly is scaled edge by edge; a chain with corners goes to the kernel (`in_222`)", () => {
   // the rim of a post: a plane across a coaxial cylinder
   const s0 = cylinder();
@@ -1567,13 +1605,29 @@ test("a new fillet round a cylinder's rim is made once and scaled about the circ
   const fs = frameOf(sd, { w: 800, h: 600 });
   assert.ok((fs.faceShift?.rounds?.groups.length ?? 0) >= 3, "a rounding face per edge");
   assert.ok(new Set(fs.faceShift!.rounds!.groups.map((x) => x.sharp.kind)).size === 2, "lines and circles");
-  // the four edges of a box top meet in corners: the kernel
+  // the four edges of a box top meet in corners (flat faces, straight edges): scaled about the corners, and the scaled points lie on the surface the kernel really makes
   const bx = box();
   const top = Object.values(scene(bx.session).parts).filter((p) => p.kind === "line" && p.origin === "body" && (scene(bx.session).parts[p.a] as unknown as { at: Vec3 }).at[2] === 20 && (scene(bx.session).parts[p.b] as unknown as { at: Vec3 }).at[2] === 20).map((p) => p.ref);
   assert.equal(top.length, 4);
   let sx = reduce(select(bx, top), { type: "begin", name: "edge" }, env);
   sx = { ...sx, op: { ...sx.op!, value: 2 } };
-  assert.equal(frameOf(sx, { w: 800, h: 600 }).faceShift, null);
+  frameOf(sx, { w: 800, h: 600 });
+  sx = { ...sx, op: { ...sx.op!, value: 3 } };
+  const fx = frameOf(sx, { w: 800, h: 600 });
+  const groups = fx.faceShift?.rounds?.groups ?? [];
+  assert.ok(groups.filter((x) => x.sharp.kind === "line").length >= 4, "a strip per edge");
+  assert.ok(scaledError(fx, reduce(sx, { type: "typed", key: "Enter", shift: false }, env)) < 2e-2, "the scaled corner roundings lie on the real surface");
+  // three edges at one corner: a patch of its own, scaled about the corner
+  const at3 = (r: string) => (scene(bx.session).parts[r] as unknown as { at: Vec3 }).at;
+  const three = Object.values(scene(bx.session).parts).filter((p) => p.kind === "line" && p.origin === "body" && [p.a, p.b].some((c) => { const q = at3(c); return q[0] === 40 && q[1] === 20 && q[2] === 20; })).map((p) => p.ref);
+  assert.equal(three.length, 3);
+  let s3 = reduce(select(bx, three), { type: "begin", name: "edge" }, env);
+  s3 = { ...s3, op: { ...s3.op!, value: 2 } };
+  frameOf(s3, { w: 800, h: 600 });
+  s3 = { ...s3, op: { ...s3.op!, value: 3 } };
+  const f3 = frameOf(s3, { w: 800, h: 600 });
+  assert.ok(f3.faceShift?.rounds?.groups.some((x) => x.sharp.kind === "point"), "the patch at the corner");
+  assert.ok(scaledError(f3, reduce(s3, { type: "typed", key: "Enter", shift: false }, env)) < 2e-2, "and everything lies on the real surface");
 });
 
 test("a fillet that rounds a smooth chain of edges (lines and arcs) is made smaller or bigger edge by edge without the kernel (`in_222`)", () => {
@@ -1593,4 +1647,20 @@ test("a fillet that rounds a smooth chain of edges (lines and arcs) is made smal
   const f = frameOf(st, { w: 800, h: 600 });
   assert.ok((f.faceShift?.rounds?.groups.length ?? 0) >= 3, "every rounding face of the chain");
   near(f.faceShift!.rounds!.k, 1.5 / 2, 1e-9);
+});
+
+test("a fillet that rounds the four edges of a box top (corners) is made smaller or bigger without the kernel too, and the scaled points are on the real surface (`in_223`)", () => {
+  let st = box();
+  const at = (r: string) => (scene(st.session).parts[r] as unknown as { at: Vec3 }).at;
+  const top = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "body" && at(p.a)[2] === 20 && at(p.b)[2] === 20).map((p) => p.ref);
+  st = reduce(select(st, top), { type: "begin", name: "edge" }, env);
+  st = typeNumber(st, "3");
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.rounded === "CYLINDRE" && faceEdit(scene(st.session), p.ref)?.kind === "edgeSize");
+  assert.ok(face, "a rounding face that finds its step");
+  st = reduce(select(st, [face!.ref]), { type: "begin", name: "pushpull" }, env);
+  st = { ...st, op: { ...st.op!, value: -2 } }; // bigger: 3 -> 5
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok((f.faceShift?.rounds?.groups.length ?? 0) >= 4, "a strip per edge");
+  near(f.faceShift!.rounds!.k, 5 / 3, 1e-9);
+  assert.ok(scaledError(f, reduce(st, { type: "typed", key: "Enter", shift: false }, env)) < 2e-2);
 });
