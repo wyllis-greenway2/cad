@@ -184,5 +184,3 @@ test("deleting the body removes the sketches it was made from; a drawing that wa
   assert.equal(parts(t).filter((p) => p.kind === "line" && p.origin === "drawn").length, 1, "the free line stays, with its points");
   assert.equal(parts(t).filter((p) => p.kind === "corner" && p.origin === "drawn").length, 2);
 });
-  assert.ok(gone);
-});
