@@ -13,12 +13,12 @@ import { planeOf } from "./objects.ts";
 import type { Plane } from "../operation/part.ts";
 import type { Camera } from "./camera.ts";
 import { offsetOf, sideOf } from "./camera.ts";
-import { dot, cross, normalize } from "../math/vec.ts";
+import { dot, cross, normalize, add } from "../math/vec.ts";
 import { outlineOf } from "../operation/part.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
-import { opCommand, bodyMotion, faceDrag, radiusDrag } from "./operations.ts";
+import { opCommand, bodyMotion, faceDrag, radiusDrag, sideDrag } from "./operations.ts";
 import { matrixOf } from "../operation/frames.ts";
 import type { Command } from "../operation/commands.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
@@ -98,9 +98,9 @@ export interface Frame {
 let memo: { history: Session["history"]; outcome: Session["outcome"]; key: string; value: { scene: Scene; outcome: CompileOutcome } | null } | null = null;
 let gpuBase: { history: Session["history"]; outcome: Session["outcome"]; made: boolean; value: { scene: Scene; outcome: CompileOutcome } } | null = null;
 /** The step the last drag of a whole-body motion was (its matrix and how many steps came before it): while the kernel is still working its result out, that is what the stale picture is moved by (`in_216`). */
-let lastDrag: { matrix: number[] | null; face: FaceShift | null; step: string | null; depth: number; circle: { ref: Ref; radius: number } | null; steps: number } | null = null;
+let lastDrag: { matrix: number[] | null; face: FaceShift | null; step: string | null; depth: number; circle: { ref: Ref; radius: number } | null; corners: { ref: Ref; to: Vec3 }[] | null; steps: number } | null = null;
 /** A face drawn moved: the whole face by `by`, or a round wall's points out from (in towards) its axis by `radial.dr` (`in_217`, `in_218`). */
-export type FaceShift = { face: Ref; by?: Vec3; radial?: { center: Vec3; axis: Vec3; dr: number; r0: number } };
+export type FaceShift = { face: Ref; by?: Vec3; radial?: { center: Vec3; axis: Vec3; dr: number; r0: number }; /** the body's points that stand over moved corners of the sketch (along `axis`) move with them (`in_219`); `edge` is the face's own edge, to move what is selected with it */ columns?: { axis: Vec3; items: { at: Vec3; by: Vec3 }[]; edge: { a: Vec3; da: Vec3; b: Vec3; db: Vec3 } | null } };
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
 function gpuMotion(s: AppState): { matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome } } | null {
   const op = s.op;
@@ -109,11 +109,12 @@ function gpuMotion(s: AppState): { matrix: number[] | null; face: FaceShift | nu
   const m = bodyMotion(sceneOf(base), op);
   const fd = m ? null : faceDrag(sceneOf(base), op);
   const rd = m || fd ? null : radiusDrag(sceneOf(base), op);
-  if (!m && !fd && !rd) return null;
+  const sd = m || fd || rd ? null : sideDrag(sceneOf(base), op);
+  if (!m && !fd && !rd && !sd) return null;
   if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
   const matrix = m ? matrixOf(m) : null;
-  const face: FaceShift | null = fd ? { face: fd.face, by: fd.by } : rd ? { face: rd.face, radial: rd.radial } : null;
-  lastDrag = { matrix, face, step: fd?.step ?? null, depth: fd?.depth ?? 0, circle: rd ? { ref: rd.circle, radius: rd.radius } : null, steps: sceneOf(base).steps.length };
+  const face: FaceShift | null = fd ? { face: fd.face, by: fd.by } : rd ? { face: rd.face, radial: rd.radial } : sd ? { face: sd.face, columns: { axis: sd.axis, items: sd.items.map((i) => ({ at: i.at, by: i.by })), edge: sd.edge } } : null;
+  lastDrag = { matrix, face, step: fd?.step ?? null, depth: fd?.depth ?? 0, circle: rd ? { ref: rd.circle, radius: rd.radius } : null, corners: sd ? sd.items.map((i) => ({ ref: i.ref, to: add(i.at, i.by) })) : null, steps: sceneOf(base).steps.length };
   return { matrix, face, shown: gpuBase.value };
 }
 
@@ -139,7 +140,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   const outcome = shown?.outcome ?? s.session.outcome;
   // a whole-body drag is drawn by a matrix; when it is let go the picture stays moved until the kernel's answer for the new step comes (it would jump back otherwise)
   const faceStep = lastDrag?.step ? sc.steps.find((x) => x.id === lastDrag!.step) : undefined;
-  const settling = !gpu && !!outcome.kernel?.stale && !!lastDrag && (lastDrag.matrix ? sc.steps.length === lastDrag.steps + 1 : lastDrag.circle ? (sc.parts[lastDrag.circle.ref] as { radius?: number } | undefined)?.radius !== undefined && Math.abs((sc.parts[lastDrag.circle.ref] as { radius: number }).radius - lastDrag.circle.radius) < 1e-6 : !!faceStep && Math.abs(Number(faceStep.params.depth) - lastDrag.depth) < 1e-6);
+  const settling = !gpu && !!outcome.kernel?.stale && !!lastDrag && (lastDrag.matrix ? sc.steps.length === lastDrag.steps + 1 : lastDrag.corners ? lastDrag.corners.every((c) => { const q = sc.parts[c.ref]; return q?.kind === "corner" && Math.hypot(q.at[0] - c.to[0], q.at[1] - c.to[1], q.at[2] - c.to[2]) < 1e-6; }) : lastDrag.circle ? (sc.parts[lastDrag.circle.ref] as { radius?: number } | undefined)?.radius !== undefined && Math.abs((sc.parts[lastDrag.circle.ref] as { radius: number }).radius - lastDrag.circle.radius) < 1e-6 : !!faceStep && Math.abs(Number(faceStep.params.depth) - lastDrag.depth) < 1e-6);
   if (!gpu && !settling && !outcome.kernel?.stale) lastDrag = null;
   const bodyMatrix = gpu ? gpu.matrix : settling ? lastDrag!.matrix : null;
   const faceShift = gpu ? gpu.face : settling ? lastDrag!.face : null; // (a face pulled or pushed, drawn at once: `in_217`)

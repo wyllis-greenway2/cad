@@ -1445,3 +1445,28 @@ test("widening a round wall is drawn at once without the kernel: its points move
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   near(st.session.outcome.kernel!.bbox!.max[0], 13, 1e-2);
 });
+
+test("pulling a side of an extruded sketch is drawn at once without the kernel: the points over the moved corners move with them; with a locked length holding it, the kernel is asked and refuses (`in_219`)", () => {
+  let st = box();
+  const side = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && Math.abs(p.at[0] - 40) < 1e-6 && p.u[0] === 0 && p.v[0] === 0)!;
+  st = reduce(select(st, [side.ref]), { type: "begin", name: "pushpull" }, env);
+  assert.equal(st.op!.edit?.kind, "side");
+  const base = st.session.outcome.kernel!;
+  st = { ...st, op: { ...st.op!, value: 5 } };
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok(f.faceShift?.columns, "columns");
+  assert.equal(f.faceShift!.columns!.items.length, 2, "the two corners of that side");
+  for (const i of f.faceShift!.columns!.items) nearV(i.by, [5, 0, 0]);
+  assert.equal(f.mesh, base.mesh, "the mesh is the one already there");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  near(st.session.outcome.kernel!.bbox!.max[0], 45, 1e-2);
+  // a locked width: the kernel is asked (and the edit is refused when it is let go)
+  let s2 = box();
+  const lines = Object.values(scene(s2.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn");
+  const bottom = lines.find((l) => { if (l.kind !== "line") return false; const [a, b] = [scene(s2.session).parts[l.a] as { at: Vec3 }, scene(s2.session).parts[l.b] as { at: Vec3 }]; return a.at[1] === 0 && b.at[1] === 0; })!;
+  s2 = { ...s2, session: run(s2.session, actionsFor(scene(s2.session), [bottom.ref]).find((x) => x.id === "length")!.run(40)) };
+  const side2 = Object.values(scene(s2.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && Math.abs(p.at[0] - 40) < 1e-6 && p.u[0] === 0 && p.v[0] === 0)!;
+  s2 = reduce(select(s2, [side2.ref]), { type: "begin", name: "pushpull" }, env);
+  s2 = { ...s2, op: { ...s2.op!, value: 5 } };
+  assert.equal(frameOf(s2, { w: 800, h: 600 }).faceShift, null);
+});

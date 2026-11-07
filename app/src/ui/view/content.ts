@@ -8,7 +8,11 @@ import { clearGroup, trisMesh, ringOf, rgb } from "./pen.ts";
 import { cornerEdges } from "./edges.ts";
 
 /** How a face's points move (`in_217`, `in_218`): all by the same step, or out from (in towards) an axis by `dr`. */
-export type Shift = { by: [number, number, number] } | { center: readonly number[]; axis: readonly number[]; dr: number; r0: number };
+export type Shift =
+  | { by: [number, number, number] }
+  | { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }
+  /** the points that stand over moved corners of a sketch (in a line along `axis` through the corner) move with them (`in_219`) */
+  | { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[] };
 
 export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array }
 
@@ -88,9 +92,17 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
     const move = (target: Float32Array, from: ArrayLike<number>, hits: Uint8Array) => {
       for (let i = 0; i < hits.length; i++) {
         let [dx, dy, dz] = [0, 0, 0];
-        if (keys && hits[i]) {
+        if (keys && "items" in how) {
+          const [ax, ay, az] = [how.axis[0]!, how.axis[1]!, how.axis[2]!];
+          const [x, y, z] = [from[3 * i]!, from[3 * i + 1]!, from[3 * i + 2]!];
+          const k = x * ax + y * ay + z * az;
+          for (const it of how.items) {
+            const k0 = it.at[0]! * ax + it.at[1]! * ay + it.at[2]! * az;
+            if (Math.hypot(x - k * ax - (it.at[0]! - k0 * ax), y - k * ay - (it.at[1]! - k0 * ay), z - k * az - (it.at[2]! - k0 * az)) < 2e-3) { [dx, dy, dz] = [it.by[0]!, it.by[1]!, it.by[2]!]; break; }
+          }
+        } else if (keys && hits[i]) {
           if ("by" in how) [dx, dy, dz] = how.by;
-          else {
+          else if ("center" in how) {
             // out from the axis (a round wall made wider): the way from the axis to the point, across it
             const [px, py, pz] = [from[3 * i]! - how.center[0]!, from[3 * i + 1]! - how.center[1]!, from[3 * i + 2]! - how.center[2]!];
             const along = px * how.axis[0]! + py * how.axis[1]! + pz * how.axis[2]!;

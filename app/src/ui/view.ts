@@ -70,13 +70,13 @@ export function createView(host: HTMLElement) {
   overlay.matrixAutoUpdate = false;
   /** The body (and, when what is selected is the body, its highlight) drawn moved by a matrix: a body being dragged is not worked out again by the kernel for every move of the pointer (`in_216`). */
   /** A face of the body pulled or pushed along its normal, drawn at once (`in_217`): the points that lie where the face's do move by `by`, and what is selected (the face) with them. */
-  function setFaceShift(f: { face: string; by?: [number, number, number]; radial?: { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }; withOverlay: boolean } | null) {
+  function setFaceShift(f: { face: string; by?: [number, number, number]; radial?: { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }; columns?: { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[]; edge: { a: readonly number[]; da: readonly number[]; b: readonly number[]; db: readonly number[] } | null }; withOverlay: boolean } | null) {
     if (!shifter) return;
     if (!f) { if (shiftedFace !== null) { shifter(null, { by: [0, 0, 0] }); shiftedFace = null; } return; }
     const p = lastScene?.parts[f.face as never] as { mesh?: readonly number[] } | undefined;
     if (!p?.mesh) return;
     if (shiftedFace !== f.face || !faceKeys) { faceKeys = new Set<string>(); for (let i = 0; i + 2 < p.mesh.length; i += 3) faceKeys.add(`${Math.round(p.mesh[i]! * 1e3)},${Math.round(p.mesh[i + 1]! * 1e3)},${Math.round(p.mesh[i + 2]! * 1e3)}`); }
-    const how: Shift | null = f.by ? { by: f.by } : f.radial ?? null;
+    const how: Shift | null = f.by ? { by: f.by } : f.radial ?? (f.columns ? { axis: f.columns.axis, items: f.columns.items } : null);
     if (!how) return;
     shifter(faceKeys, how);
     shiftedFace = f.face;
@@ -87,6 +87,23 @@ export function createView(host: HTMLElement) {
       const sc = [0, 1, 2].map((i) => (Math.abs(a[i]!) > 0.5 ? 1 : k));
       overlay.matrix.makeTranslation(c[0]!, c[1]!, c[2]!).multiply(new THREE.Matrix4().makeScale(sc[0]!, sc[1]!, sc[2]!)).multiply(new THREE.Matrix4().makeTranslation(-c[0]!, -c[1]!, -c[2]!));
       overlay.matrixWorldNeedsUpdate = true;
+    }
+    if (f.withOverlay && f.columns?.edge) {
+      // what is selected (the side) goes where its two corners go: its own edge is carried, the way the sketch was extruded stays
+      const { a, da, b, db } = f.columns.edge;
+      const [ax, ay, az] = f.columns.axis;
+      const V = (u: readonly number[]) => new THREE.Vector3(u[0]!, u[1]!, u[2]!);
+      const t = V(b).sub(V(a));
+      const t2 = V(b).add(V(db)).sub(V(a).add(V(da)));
+      const e = new THREE.Vector3(ax!, ay!, az!);
+      const w = new THREE.Vector3().crossVectors(t, e);
+      if (w.lengthSq() > 1e-12) {
+        const before = new THREE.Matrix4().makeBasis(t, e, w);
+        const after = new THREE.Matrix4().makeBasis(t2, e, w);
+        const to = V(a).add(V(da));
+        overlay.matrix.makeTranslation(to.x, to.y, to.z).multiply(after).multiply(before.invert()).multiply(new THREE.Matrix4().makeTranslation(-a[0]!, -a[1]!, -a[2]!));
+        overlay.matrixWorldNeedsUpdate = true;
+      }
     }
     if (f.withOverlay && f.by) { overlay.matrix.makeTranslation(f.by[0], f.by[1], f.by[2]); overlay.matrixWorldNeedsUpdate = true; }
   }

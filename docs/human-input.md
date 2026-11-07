@@ -1103,3 +1103,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_218 — 2026-11-07 — approval
 > yes, do the radius edit too
+
+## in_219 — 2026-11-07 — approval
+> yes, do the side faces of a sketch too

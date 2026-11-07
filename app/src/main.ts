@@ -212,7 +212,7 @@ function frame(now: number) {
     const page = host.getBoundingClientRect();
     view.setScene(f.scene, f.mesh);
     view.setBodyMatrix(f.bodyMatrix, f.selectionMoves);
-    view.setFaceShift(f.faceShift ? { face: f.faceShift.face, ...(f.faceShift.by ? { by: [...f.faceShift.by] as [number, number, number] } : {}), ...(f.faceShift.radial ? { radial: f.faceShift.radial } : {}), withOverlay: f.highlight.selection.length === 1 && f.highlight.selection[0] === f.faceShift.face } : null);
+    view.setFaceShift(f.faceShift ? { face: f.faceShift.face, ...(f.faceShift.by ? { by: [...f.faceShift.by] as [number, number, number] } : {}), ...(f.faceShift.radial ? { radial: f.faceShift.radial } : {}), ...(f.faceShift.columns ? { columns: f.faceShift.columns } : {}), withOverlay: f.highlight.selection.length === 1 && f.highlight.selection[0] === f.faceShift.face } : null);
     view.setHighlight(f.highlight, state.cam, now);
     view.setPreview(f.preview, state.cam);
     view.setGizmo(f.gizmo, state.cam);

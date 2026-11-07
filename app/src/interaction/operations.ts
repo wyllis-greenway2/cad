@@ -22,6 +22,8 @@ import type { Figure } from "../operation/scene.ts";
 import type { Part, Plane, PointerView } from "../operation/part.ts";
 import { normalOfPlane, pointOf, curveMid, circumcentre } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
+import { apply } from "../operation/commands.ts";
+import { solveScene } from "../compiler/solve.ts";
 import { actionsFor } from "./actions.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { drawnRef } from "../shared/ref.ts";
@@ -482,6 +484,48 @@ export function radiusDrag(scene: Scene, op: Op): { face: Ref; radial: { center:
   if (!(e.radius + dr > 1e-3)) return null;
   const axis: Vec3 = c.axis === 0 ? [1, 0, 0] : c.axis === 1 ? [0, 1, 0] : [0, 0, 1];
   return { face: op.parts[0]!, radial: { center: c.center, axis, dr, r0: e.radius }, circle: e.circle, radius: e.radius + dr };
+}
+
+/**
+ * A side of an extruded sketch pulled or pushed while that extrusion is the last step (`in_219`): the sketch's corners move (found with the solver, so what constraints do is in it) and every point of the
+ * body that stands over a moved corner moves with it, so it can be drawn at once without the kernel. Null for anything the kernel has to work out: a sketch with arcs, a corner that cannot go where the edit
+ * wants it, corners on different planes. `items` are the moved corners (where they are and how far they go), `axis` the way the sketch was extruded.
+ */
+export function sideDrag(scene: Scene, op: Op): { face: Ref; axis: Vec3; items: { ref: Ref; at: Vec3; by: Vec3 }[]; edge: { a: Vec3; da: Vec3; b: Vec3; db: Vec3 } | null } | null {
+  const e = op.edit;
+  if (op.kind !== "pushpull" || op.noEdit || !e || e.kind !== "side" || op.parts.length !== 1) return null;
+  const last = scene.steps.at(-1);
+  if (last?.type !== "extrude") return null;
+  const v = valueOf(op);
+  if (v === null || v === 0) return null;
+  // every line of the extrusion is straight, and the edited corners are its own
+  const lines = figureRefs(last).map((r) => scene.parts[r]);
+  if (lines.some((l) => l?.kind !== "line" || l.center || l.bulge)) return null;
+  const own = new Set<Ref>(lines.flatMap((l) => (l?.kind === "line" ? [l.a, l.b] : [])));
+  if (!e.corners.every((c) => own.has(c))) return null;
+  const cmd = editCommand(scene, e, v);
+  if (!cmd) return null;
+  const moved = apply(scene, cmd);
+  if (!moved.ok) return null;
+  const solved = solveScene(moved.value);
+  if (solved.planes.some((p) => p.status === "conflict")) return null;
+  const items: { ref: Ref; at: Vec3; by: Vec3 }[] = [];
+  const plane = (scene.parts[e.corners[0]!] as { plane?: Ref | null }).plane;
+  for (const c of own) {
+    const [a, b] = [scene.parts[c], solved.scene.parts[c]];
+    if (a?.kind !== "corner" || b?.kind !== "corner") return null;
+    const by = sub(b.at, a.at);
+    if (Math.hypot(...by) < 1e-9) continue;
+    if (a.plane !== plane) return null;
+    items.push({ ref: c, at: a.at, by });
+  }
+  // the edit must have gone where it wanted to (a locked length would put the corner back)
+  for (const c of e.corners) { const w = (cmd.type === "batch" ? cmd.commands : [cmd]).find((x) => x.type === "movePart" && x.ref === c); const got = solved.scene.parts[c]; if (w?.type === "movePart" && got?.kind === "corner" && Math.hypot(...sub(got.at, w.to)) > 1e-6) return null; }
+  const pl = plane ? scene.parts[plane] : undefined;
+  if (!items.length || pl?.kind !== "plane") return null;
+  // the two ends of the face's own edge, to move what is selected exactly with it
+  const ends = e.corners.length === 2 ? e.corners.map((c) => ({ at: (scene.parts[c] as { at: Vec3 }).at, by: items.find((i) => i.ref === c)?.by ?? ([0, 0, 0] as Vec3) })) : null;
+  return { face: op.parts[0]!, axis: normalOfPlane(pl), items, edge: ends ? { a: ends[0]!.at, da: ends[0]!.by, b: ends[1]!.at, db: ends[1]!.by } : null };
 }
 
 /** A command as it is without carrying the sketches: only the steps, and not marked `follow`. */
