@@ -260,7 +260,7 @@ function arcCommand(scene: Scene, arc: Ref, radius: number): Command | null {
  * lines turn to stay tangent and the other arcs and circles they touch change size, as when a tangent line is moved. Else, or if the solver cannot, the ends slide along their lines (`arcCommand`).
  */
 export function arcRadiusCommand(scene: Scene, arc: Ref, radius: number): Command | null {
-  if (scene.relations.some((r) => r.kind === "tangent" && r.parts.includes(arc))) {
+  if (isTangentArc(scene, arc)) {
     const added = apply(scene, { type: "addRelation", relation: { id: nextId(scene, "r"), kind: "radius", parts: [arc], value: radius, locked: true } });
     if (added.ok) {
       const solved = solveScene(added.value);
@@ -275,6 +275,10 @@ export function arcRadiusCommand(scene: Scene, arc: Ref, radius: number): Comman
         if (moves.length) return { type: "batch", commands: moves };
       }
     }
+    return null; // (the lines cannot stay tangent at that radius: the arc is not changed in a way that lets go of them)
   }
   return arcCommand(scene, arc, radius);
 }
+
+/** Whether a line is tangent to this arc (or circle): its radius is then changed by the solver, so the lines stay tangent (`in_229`). */
+export const isTangentArc = (scene: Scene, arc: Ref): boolean => scene.relations.some((r) => r.kind === "tangent" && r.parts.includes(arc));

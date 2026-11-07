@@ -5,6 +5,7 @@ import { scene as sceneOf, run } from "./session.ts";
 import type { Command } from "../operation/commands.ts";
 import type { Op } from "./operations.ts";
 import { opCommand, valueOf } from "./operations.ts";
+import { isTangentArc } from "./faceedit.ts";
 
 /** Run the step of `op` on `sess`. Returns the new session and whether it fell back to a prism; null when the operation has no step yet. */
 export function runOp(sess: Session, op: Op): { session: Session; cmd: Command } | null {
@@ -12,7 +13,7 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
   if (!cmd) {
     // a size that is nothing, or less (a radius of zero, a fillet of nothing): said, not ignored
     const v = valueOf(op);
-    const why = op.edit?.kind === "radius" && op.edit.arc ? "the lines on both ends of this arc do not reach that radius (they would have to move)" : "it would be zero or less";
+    const why = op.edit?.kind === "radius" && op.edit.arc ? (isTangentArc(sceneOf(sess), op.edit.circle) ? "the lines tangent to this arc cannot stay tangent at that radius (a locked size or angle holds them)" : "the lines on both ends of this arc do not reach that radius (they would have to move)") : "it would be zero or less";
     return op.edit && v !== null && v !== 0 ? { session: { ...sess, message: `that size is not possible: ${why}` }, cmd: { type: "batch", commands: [] } } : null;
   }
   if (!op.edit || op.noEdit) return { session: run(sess, cmd), cmd };

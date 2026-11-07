@@ -186,3 +186,14 @@ test("an arc's radius changed while lines are tangent to it: the lines turn to s
   for (const [line, arc] of [["d/e_012.s0", "d/e_013.s0"], ["d/e_012.s0", "d/e_016.s0"], ["d/e_011.s0", "d/e_013.s0"], ["d/e_011.s0", "d/e_016.s0"]] as const) { const d = dist(sc2, line, arc); assert.ok(Math.abs(d[0] - d[1]) < 0.05, `${line} stays tangent to ${arc} (${d})`); }
   assert.ok(Math.abs(dist(sc2, "d/e_012.s0", "d/e_013.s0")[1] - (before[1] + 1.5)) < 0.05, "the arc has the radius asked for");
 });
+
+test("an arc's radius that its tangent lines cannot follow is refused, with the reason, and the sketch stays as it was (`in_229`)", () => {
+  const r = openSession(kernel, readFileSync(new URL("./fixtures/tangent-trimmed.cad.json", import.meta.url), "utf8")) as unknown as { value: Session };
+  let s = r.value;
+  for (const [i, parts] of [["r_t1", ["d/e_012.s0", "d/e_013.s0"]], ["r_t2", ["d/e_012.s0", "d/e_016.s0"]], ["r_t3", ["d/e_011.s0", "d/e_013.s0"]], ["r_t4", ["d/e_011.s0", "d/e_016.s0"]]] as const) s = run(s, { type: "addRelation", relation: { id: i, kind: "tangent", parts: [...parts] as never } });
+  // the other arc and the two lines' ends are held, so the first arc cannot change size and stay tangent to both
+  s = run(s, { type: "addRelation", relation: { id: "r_h1", kind: "radius", parts: ["d/e_016.s0"] as never, value: 3.5, locked: true } });
+  s = run(s, { type: "addRelation", relation: { id: "r_h2", kind: "radius", parts: ["d/e_013.s0"] as never, value: 11.4, locked: true } });
+  const sc = scene(s);
+  assert.equal(arcRadiusCommand(sc, "d/e_013.s0" as never, 5), null, "no command that lets go of the tangents");
+});
