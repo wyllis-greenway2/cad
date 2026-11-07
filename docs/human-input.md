@@ -1089,7 +1089,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_214 — 2026-11-07 — directive
 > make the middle dot on the body edge pickable
 
-## in_215 — 2026-11-07 — directive and question
+## in_215 — 2026-11-07 — directive
 > when using the xyz move tool, the movement amount bubble vanishes immedietly after movement, it should be persistent on each axis like the bubbles on the rotate, so you can hand type in a value. Also the switch to rotate and switch back to move xyz icons are kind of in the way, can we try moving them to the upper left of the tool?
 > 
 > I noticed that rotating the object is still pretty laggy. Should we think about compute efficiency in general now? Maybe it would make sense to have all movement operations in wireframe only, and redraw only on drag end or mouse up etc? Maybe we shuold do this for all body operations? not just movement? ie fillets, face push pull etc? I dont really want this, I would prefer seeing the actualy object and surfaces move, but we need it to not be laggy. So if there are other ways to achieve non laggyness then I am all ears. What are some other things we should do for efficiency?
