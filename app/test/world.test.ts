@@ -140,7 +140,7 @@ test("delete a rectangle by its face: nothing is left behind, and its relations 
   assert.equal(scene(st.session).relations.length, 0);
 });
 
-test("delete the body: select the object, Delete: the body goes as one step you can undo, and the sketches it was made from go with it", () => {
+test("delete the body: select the object, Delete: the body goes as one step you can undo, with its steps and the sketches it was made from (`in_192`)", () => {
   let st = withBody();
   assert.ok(st.session.outcome.kernel);
   st = select(st, [BODY_OBJECT]);
@@ -148,9 +148,12 @@ test("delete the body: select the object, Delete: the body goes as one step you 
   assert.ok(items.find((i) => i.id === "delete")!.enabled);
   st = reduce(st, { type: "delete" }, env);
   assert.ok(!Object.values(scene(st.session).parts).some((p) => p.kind === "body"), "no body any more");
-  assert.ok(consumed(scene(st.session)).size > 0, "the rectangle it was made from stays hidden: it is part of the body, so it went with it");
+  assert.equal(consumed(scene(st.session)).size, 0, "nothing hidden is left behind");
+  assert.deepEqual(Object.values(scene(st.session).parts).filter((p) => p.origin === "drawn" && p.kind !== "face"), [], "the rectangle it was made from is gone");
+  assert.deepEqual(scene(st.session).steps, [], "and the steps that made the body");
   st = { ...st, session: undoLast(st.session) };
-  assert.ok(Object.values(scene(st.session).parts).some((p) => p.kind === "body"), "undo brings the body back");
+  assert.ok(Object.values(scene(st.session).parts).some((p) => p.kind === "body"), "undo brings the body back, with its sketch and steps");
+  assert.equal(scene(st.session).steps.length, 1);
 });
 
 test("deleting a corner together with a line on it is not an error", () => {

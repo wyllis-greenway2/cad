@@ -992,3 +992,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_191 — 2026-11-07 — directive
 > There still seems to be ghost things left behind after deleting a body. See this circle in this file was suggested to be concentric with a deleted cylinder.
 (with the model file `fac6e896-model.cad_10.json`)
+
+## in_192 — 2026-11-07 — directive
+> remove the hidden sketches when a body is deleted

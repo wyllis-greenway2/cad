@@ -5,7 +5,7 @@
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene, Relation } from "../operation/scene.ts";
-import { lookup, nextId } from "../operation/scene.ts";
+import { lookup, nextId, figureRefs } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
 import { ordered } from "./selection.ts";
 import { ROWS, REFERENCES_ONLY, same } from "./rows.ts";
@@ -77,7 +77,19 @@ export function actionsFor(scene: Scene, selection: readonly Ref[]): Action[] {
     out.push({
       id: "delete", label: "Delete", group: "operation", dimensional: false, unit: null, parts: whole,
       enabled: true, why: null, measure: () => null, spot: () => null,
-      run: () => ({ type: "addStep", step: { id: nextId(scene, "s"), type: "delete", parts: whole, params: {} } }),
+      run: (): Command => {
+        // the body is gone, and so is all that made it: its steps (they would make a body that is deleted again at once) and the sketches they used, which were only hidden (`in_192`). What is not used up stays: a corner another drawing stands on, the circle that a piece of was extruded
+        const gone = new Set<Ref>();
+        for (const st of scene.steps) {
+          if (st.type !== "extrude") continue;
+          const cut = st.params.cut !== undefined || figureRefs(st).some((r) => r.includes("@")); // (a piece of a cut shape: the sides stay with the other pieces)
+          for (const r of figureRefs(st)) { const p = get(r); if (p?.movable && !r.includes("@") && (!cut || p.kind === "circle")) gone.add(r); }
+        }
+        const corners = [...gone].flatMap((r): Ref[] => { const p = get(r); return p?.kind === "circle" ? [p.center] : p?.kind === "line" ? [p.a, p.b, ...(p.center ? [p.center] : [])] : []; });
+        const alone = (c: Ref) => !!get(c)?.movable && !Object.values(scene.parts).some((q) => !gone.has(q.ref) && ((q.kind === "circle" && q.center === c) || (q.kind === "line" && (q.a === c || q.b === c || q.center === c))));
+        const refs = [...gone, ...new Set(corners.filter(alone))].filter((r) => r in scene.parts);
+        return { type: "batch", commands: [...[...scene.steps].reverse().map((st): Command => ({ type: "removeStep", id: st.id })), ...(refs.length ? [{ type: "deleteParts", refs } as Command] : [])] };
+      },
     });
   } else {
     const drawn = sel.filter((r) => get(r)?.movable);

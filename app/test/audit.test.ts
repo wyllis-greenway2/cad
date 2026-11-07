@@ -169,3 +169,20 @@ test("nothing of a deleted body's sketches is suggested or snapped to: no concen
   const t = run(s, drawChain(scene(s), XY, [[3, 4, 0], [10, 4, 0]], false, { reuse: true }).command);
   assert.equal(parts(t).filter((p) => p.kind === "corner" && p.origin === "drawn").length, 3, "a line started where the hidden corner is gets a corner of its own");
 });
+
+test("deleting the body removes the sketches it was made from; a drawing that was not used stays", () => {
+  let s = createSession(kernel);
+  const a = drawCircle(scene(s), XY, [0, 0, 0], 10);
+  s = run(s, a.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: [a.circle], params: { depth: 5 } } });
+  const free = drawChain(scene(s), XY, [[30, 30, 0], [40, 40, 0]]);
+  s = run(s, free.command); // (a drawing that was not extruded)
+  const del = actionsFor(scene(s), ["b/body/o" as never]).find((x) => x.id === "delete")!;
+  const t = run(s, del.run());
+  assert.deepEqual(scene(t).steps, []);
+  assert.equal(parts(t).some((p) => p.kind === "circle"), false, "the circle and its centre are gone");
+  assert.equal(parts(t).filter((p) => p.kind === "line" && p.origin === "drawn").length, 1, "the free line stays, with its points");
+  assert.equal(parts(t).filter((p) => p.kind === "corner" && p.origin === "drawn").length, 2);
+});
+  assert.ok(gone);
+});
