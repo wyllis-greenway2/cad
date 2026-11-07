@@ -1022,3 +1022,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_197 — 2026-11-07 — question
 > Isn't this a closed sketch? Why cant I extrude it?
 (with the model file `347c8394-model.cad_12.json`)
+
+## in_198 — 2026-11-07 — directive
+> Can we have it so that whatever sketch tool you have in hand has a little copy of its icon follow around the cursor to make it extra clear you are in that sketch mode

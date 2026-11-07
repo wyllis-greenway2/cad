@@ -29,6 +29,7 @@ import { createPanel } from "./ui/panel.ts";
 import { createApplyBar } from "./ui/applybar.ts";
 import { createControls } from "./ui/controls.ts";
 import { createToolChip } from "./ui/toolchip.ts";
+import { createToolCursor } from "./ui/toolcursor.ts";
 import { createSuggest } from "./ui/suggest.ts";
 import { createHints } from "./ui/hint.ts";
 import { createTouchCursor } from "./ui/touchcursor.ts";
@@ -92,6 +93,7 @@ const touchHandle = createTouchCursor(document.body);
 const applyBar = createApplyBar(document.body, { apply: () => dispatch({ type: "repeatApply" }), cancel: () => dispatch({ type: "repeatCancel" }) });
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
+const toolCursor = createToolCursor(document.body);
 const toolChip = createToolChip(document.body, () => dispatch({ type: "escape" }));
 const controls = createControls(document.body, {
   menu: (x, y) => dispatch({ type: "menu", x, y, button: true }),
@@ -183,6 +185,7 @@ function frame(now: number) {
     view.setPanes(f.panes);
     view.setBodyFade(f.fadeBody);
     toolChip.update(f.tool);
+    toolCursor.update(f.tool ? f.tool.kind : null);
     const project = projector(state.cam, size.w, size.h).project;
     bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid);
     view.setNotes(f.annotations.flatMap((a) => a.lines));
