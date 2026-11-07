@@ -1,5 +1,5 @@
 // Suggested constraints (`in_195`): with one or two parts of a drawing selected, the constraints that could be put on them (and are not on them yet) are offered as little buttons by the selection; a click applies one.
-// The first selected part is the mover and the second the reference, as for the same constraint from the menu (`in_090`).
+// The first selected part stays and the one selected after it moves, as for the same constraint from the menu (`in_196`).
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Ref } from "../shared/ref.ts";

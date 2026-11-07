@@ -17,7 +17,7 @@ export interface Action {
   group: "relation" | "operation";
   dimensional: boolean;
   unit: "mm" | "deg" | null;
-  /** The parts, mover first. */
+  /** The parts, mover first: the one selected last (the first selected stays, `in_196`), then the others in the order selected, then any that cannot move. */
   parts: Ref[];
   enabled: boolean;
   /** Why it cannot be done now (when not enabled). */

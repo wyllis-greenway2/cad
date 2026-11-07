@@ -14,7 +14,7 @@ const N: Vec3 = [0, 0, 1];
 const near = (a: number, b: number, tol = 1e-4) => assert.ok(Math.abs(a - b) <= tol, `${a} vs ${b}`);
 const at = (s: ReturnType<typeof createSession>, r: Ref): Vec3 => (scene(s).parts[r] as { at: Vec3 }).at;
 const relate = (s: ReturnType<typeof createSession>, parts: Ref[], id: string, value?: number) => {
-  const a = actionsFor(scene(s), parts).find((x) => x.id === id);
+  const a = actionsFor(scene(s), [...parts].reverse()).find((x) => x.id === id); // (the parts are listed mover first; the one selected last is the mover, `in_196`)
   assert.ok(a, `${id} is offered`);
   assert.equal(a!.enabled, true, a!.why ?? "");
   return run(s, a!.run(value));

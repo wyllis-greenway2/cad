@@ -1015,3 +1015,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_195 — 2026-11-07 — directive
 > When you select things in sketch, can we have it just auto suggest constraints you could click on to apply? Also I thought we had a rule that when constraints interact, the first selected thing is the stationary one, and the second moves to constrain with the first? That doesn't seem to always be the case. I just noticed with lines constrained tangent to cirlces. Also can we add a trim sketching tool? It should have scissor icons, and trim lines. Also if constraints exist on items, then shouldn't selecting those items always show the constraints? When I click on the lines in this file, that have concident constraints, they dont show up. Also isn't this file technically offering closed sketches? Why do they not behave like closed sketches? am I missing something? Also there is something broken here where you can pan further and further into the fog till it is basically pure fog, also the zoom gets really weird closer to the fog.
 (with the model file `1101fca9-model.cad_11.json`)
+
+## in_196 — 2026-11-07 — directive
+> Flip it so the first selected is stationary

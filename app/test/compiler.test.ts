@@ -20,7 +20,7 @@ const near = (a: number, b: number, tol = 1e-5) => assert.ok(Math.abs(a - b) <= 
 const at = (h: History, r: Ref): Vec3 => pointOf(lookup(h.scene), r)!;
 /** Run the action `id` for the selection and then solve, as the app will. */
 function relate(h: History, sel: Ref[], id: string, value?: number): History {
-  const a = actionsFor(h.scene, sel).find((x) => x.id === id);
+  const a = actionsFor(h.scene, [...sel].reverse()).find((x) => x.id === id); // (the parts are listed mover first; the one selected last is the mover, `in_196`)
   assert.ok(a && a.enabled, `${id} is not available`);
   let n = must(exec(h, a.run(value)));
   const out = solveScene(n.scene);
@@ -40,7 +40,7 @@ test("horizontal makes a slanted line level and moves the corners the least", ()
   near(at(h, corners[0]!)[1], 1.5);
 });
 
-test("the first picked moves, the second stays: coincident of two drawn corners", () => {
+test("the one picked last moves, the first stays: coincident of two drawn corners (listed mover first here)", () => {
   let { h, corners: a } = chain(newHistory(), [[0, 0, 0]]);
   const b = chain(h, [[7, 4, 0]]);
   h = relate(b.h, [a[0]!, b.corners[0]!], "coincident");

@@ -78,7 +78,7 @@ test("Shift on the same spot again swaps the part added last for the next candid
   assert.deepEqual(r.cycled, { index: 2, of: 2 });
 });
 
-test("the first selected is the mover, the second the reference, and a part that cannot move is always the reference", () => {
+test("the first selected stays and the one selected after it moves (`in_196`), and a part that cannot move always stays", () => {
   const h0 = newHistory();
   const d = drawRectangle(h0.scene, worldRef("XY"), [0, 0, 0], [5, 5, 0], [1, 0, 0], [0, 1, 0]);
   const h = exec(h0, d.command);
@@ -87,8 +87,8 @@ test("the first selected is the mover, the second the reference, and a part that
   const get = lookup(h.value.scene);
   const world = worldRef("O");
   const [p0, p1] = d.corners as [typeof a, typeof a];
-  assert.equal(mover([p0, p1], get), p0);
-  assert.equal(reference([p0, p1], get), p1);
+  assert.equal(mover([p0, p1], get), p1);
+  assert.equal(reference([p0, p1], get), p0);
   assert.deepEqual(ordered([world, p1], get), [p1, world], "the world origin goes second although selected first");
   assert.equal(mover([world], get), undefined);
 });

@@ -10,7 +10,7 @@ depends_on:
   - prin_graph_is_truth: the saved thing is the graph of parts, relations and steps; geometry and body parts are derived
   - dec_interaction_spec: the behaviours any rebuild must reproduce; it is the acceptance list
   - dec_no_sketch_isolation: no sketch mode: every part can be selected and related at any time
-  - dec_relations_standard: one table of relations by kind of part, the first selected moves and the second is the reference
+  - dec_relations_standard: one table of relations by kind of part, the first selected stays and the one selected after it moves (`in_196`)
   - dec_constraint_ownership: every relation is owned by one place and names the parts it uses
   - dec_stable_references: parts of the body are found again by name, with position as the fallback
   - dec_kernel_hybrid: the engine talks to the geometry kernel only through the adapter that already exists

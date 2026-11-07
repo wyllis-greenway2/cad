@@ -542,7 +542,7 @@ test("a circle drawn about another circle's centre: a concentric hint shows, and
   s = run(s, a.command);
   const b = drawCircle(scene(s), XY, [10, 4, 0], 3);
   s = run(s, b.command);
-  const act = actionsFor(scene(s), [b.circle, a.circle]).find((x) => x.id === "concentric")!;
+  const act = actionsFor(scene(s), [a.circle, b.circle]).find((x) => x.id === "concentric")!; // (a is picked first and stays; b moves to it)
   assert.ok(act && act.enabled);
   s = run(s, act.run());
   const moved = (scene(s).parts[(scene(s).parts[b.circle] as { center: string }).center] as { at: Vec3 }).at;

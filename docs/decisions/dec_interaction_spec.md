@@ -32,7 +32,7 @@ The human does not want these ideas lost when the engine is rebuilt clean (`in_0
 - **Two clicks look straight at the plane clicked** (from the side you are on); **three select the whole object** (`in_083`).
 - **Where several things overlap at the spot, repeated clicks cycle through them** instead (corners, then lines, then faces and planes; a shape before the face under it), with a short message "i of n here" (`in_088`).
 - **Shift + click adds to the selection**, across kinds and in any order (body parts and sketch parts); Shift + click on a selected line takes it out. Several lines can be rounded or bevelled together as one step (`in_087`, `in_090`).
-- A click on nothing lets go of everything; Esc lets go in two steps. The selection is ordered: **the first selected is the mover, the second the reference**; a part that cannot move (the body, an earlier step) is always a reference (`in_090`).
+- A click on nothing lets go of everything; Esc lets go in two steps. The selection is ordered: **the first selected stays and the one selected after it moves to meet it** (`in_196`, reversing `in_090`); a part that cannot move (the body, an earlier step) always stays.
 - Pointing at an object surface shows a small crisp ring at the cursor on the surface, in the colour a selected face shows; a click fills the surface with the transparent teal (`[0.1, 0.72, 0.7]` at 0.3) while the ring expands to the edges (`in_073` to `in_075`).
 
 ## Drawing and relations

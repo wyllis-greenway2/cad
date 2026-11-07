@@ -1,6 +1,6 @@
 // Solving relations into positions (`dec_clean_engine_design` section 7). For each plane: the drawn corners on it become variables; every other part a
 // relation refers to (body corners and lines, world parts, parts on other planes) becomes a fixed virtual part at its projection on this plane.
-// The second part of a relation is held softly, so the first moves (`in_090`). The result is a list of movePart commands, so history records it.
+// The parts of a relation after the first are held softly, so the first moves (a relation lists the part selected last first, `in_196`). The result is a list of movePart commands, so history records it.
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { sub, dot, add, scale } from "../math/vec.ts";
@@ -200,7 +200,7 @@ function solvePlane(get: Lookup, plane: Plane, rels: Relation[]) {
     if (rel.locked === false) continue; // an unlocked number is a measurement only (`dec_relations_standard`: measure, then lock)
     const c = constraintFor(m, rel);
     if (c) m.cons.push({ id: rel.id, ...c } as SolverConstraint);
-    // the second part is the reference: held softly where it is, so the first part moves
+    // the parts after the first are the references: held softly where they are, so the first part (the one selected last) moves
     for (const refPart of rel.parts.slice(1)) {
       const kind = get(refPart)?.kind;
       const refLine = kind === "line" ? m.get(refPart) : null;

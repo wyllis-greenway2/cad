@@ -52,7 +52,7 @@ test("distance: two corners, a corner and a line, two parallel lines: measured a
   assert.equal(cc.unit, "mm");
   const cmd = cc.run(12);
   assert.equal(cmd.type, "addRelation");
-  if (cmd.type === "addRelation") assert.deepEqual([cmd.relation.kind, cmd.relation.value, cmd.relation.locked, cmd.relation.parts], ["distance", 12, true, [a.corners[0], b.corners[0]]]);
+  if (cmd.type === "addRelation") assert.deepEqual([cmd.relation.kind, cmd.relation.value, cmd.relation.locked, cmd.relation.parts], ["distance", 12, true, [b.corners[0], a.corners[0]]]);
 
   const cl = dimensionalFor(h.scene, [b.corners[0]!, a.lines[0]!])!;
   assert.equal(cl.measure(), 4, "the corner to the infinite line the other lies on");
@@ -79,12 +79,12 @@ test("angle between lines that share a corner; not available for lines that do n
   assert.match(none.why ?? "", /share a corner/);
 });
 
-test("the first picked is the mover and the second the reference; a body or world part is always second", () => {
+test("the first picked stays and the one picked after it moves (listed mover first); a body or world part is always second (`in_196`)", () => {
   const { h, a, b } = world();
   const ab = actionsFor(h.scene, [a.corners[0]!, b.corners[0]!]).find((x) => x.id === "coincident")!;
-  assert.deepEqual(ab.parts, [a.corners[0], b.corners[0]]);
+  assert.deepEqual(ab.parts, [b.corners[0], a.corners[0]], "b is picked after a: b moves to a");
   const ba = actionsFor(h.scene, [b.corners[0]!, a.corners[0]!]).find((x) => x.id === "coincident")!;
-  assert.deepEqual(ba.parts, [b.corners[0], a.corners[0]]);
+  assert.deepEqual(ba.parts, [a.corners[0], b.corners[0]]);
   const wo = actionsFor(h.scene, [worldRef("O"), a.corners[0]!]).find((x) => x.id === "coincident")!;
   assert.deepEqual(wo.parts, [a.corners[0], worldRef("O")], "the drawn corner moves to the origin, not the other way");
   const refsOnly = actionsFor(h.scene, [worldRef("O"), worldRef("O")]);
@@ -132,7 +132,7 @@ test("a side is remembered so a gap does not flip over", () => {
   const cmd = dimensionalFor(h.scene, [a.lines[0]!, b.lines[0]!])!.run();
   const flipped = dimensionalFor(h.scene, [b.lines[0]!, a.lines[0]!])!.run();
   if (cmd.type === "addRelation" && flipped.type === "addRelation") {
-    assert.equal(cmd.relation.params?.side, 1);
-    assert.equal(flipped.relation.params?.side, -1);
+    assert.equal(cmd.relation.params?.side, -1);
+    assert.equal(flipped.relation.params?.side, 1);
   }
 });

@@ -34,7 +34,7 @@ test("selecting a line or a circle shows the constraints it has, tangent and poi
   assert.ok(kinds(["d/e_002.k"]).includes("tangent"), "the circle shows the tangents on it");
 });
 
-test("with one or two parts selected, the constraints that could go on them are offered, not the ones already there; applying one makes the first selected the mover", () => {
+test("with one or two parts selected, the constraints that could go on them are offered, not the ones already there; applying one: the first selected stays and the one after it moves (`in_196`)", () => {
   let s = createSession(kernel);
   const a = drawChain(scene(s), XY, [[0, 0, 0], [20, 3, 0]]); s = run(s, a.command);
   const c = drawCircle(scene(s), XY, [10, 12, 0], 4); s = run(s, c.command);
@@ -42,11 +42,11 @@ test("with one or two parts selected, the constraints that could go on them are 
   assert.ok(offered([a.lines[0]!]).includes("horizontal"));
   assert.ok(offered([a.lines[0]!, c.circle]).includes("tangent"));
   assert.equal(suggestionsFor(scene(s), []), null);
-  const st0 = { ...createState(s), session: { ...s, click: { ...s.click, selection: [a.lines[0]!, c.circle] } } };
+  const st0 = { ...createState(s), session: { ...s, click: { ...s.click, selection: [c.circle, a.lines[0]!] } } }; // (the circle is picked first and stays; the line moves to it)
   const st = reduce(st0, { type: "runAction", id: "tangent" }, env);
   assert.deepEqual(scene(st.session).relations.map((r) => r.kind), ["tangent"]);
   assert.ok(!(suggestionsFor(scene(st.session), [a.lines[0]!, c.circle])?.items.map((i) => i.id) ?? []).includes("tangent"), "no longer offered once it holds");
-  // the first selected moved: the line, not the circle
+  // the first selected (the circle) stayed
   const circleAfter = scene(st.session).parts[c.circle] as { center: string };
   assert.deepEqual((scene(st.session).parts[circleAfter.center] as unknown as { at: Vec3 }).at, [10, 12, 0]);
 });
