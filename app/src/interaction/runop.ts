@@ -28,5 +28,15 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
   const prism = opCommand(sceneOf(sess), { ...op, noEdit: true });
   if (!prism) return { session: edited, cmd };
   const made = run(sess, prism);
-  return { session: made.message ? edited : { ...made, message: "the step that made this face could not take that size: a push / pull was added instead" }, cmd: prism };
+  // a side of a sketch that would not move: the constraints that hold it flash, so it is clear why a push / pull was made instead (`in_207`)
+  const why = op.edit.kind === "side" ? { conflict: { culprits: holdingSide(sceneOf(sess), op.edit.corners), victims: [] } } : {};
+  return { session: made.message ? edited : { ...made, ...why, message: "the step that made this face could not take that size: a push / pull was added instead" }, cmd: prism };
+}
+
+/** The constraints that tie the corners of a sketch side to the rest of the sketch. */
+function holdingSide(scene: ReturnType<typeof sceneOf>, corners: readonly string[]): string[] {
+  const own = new Set<string>(corners);
+  const near = new Set<string>(own);
+  for (const q of Object.values(scene.parts)) if (q.kind === "line" && (own.has(q.a) || own.has(q.b))) near.add(q.ref);
+  return scene.relations.filter((r) => r.locked !== false && r.parts.some((x) => near.has(x))).map((r) => r.id);
 }

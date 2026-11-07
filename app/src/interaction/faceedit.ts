@@ -7,6 +7,7 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { figureRefs } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
+import { applyPoint, inverse, laterMotion } from "../operation/frames.ts";
 import type { Plane, Curved } from "../operation/part.ts";
 import { normalOfPlane } from "../operation/part.ts";
 
@@ -108,13 +109,15 @@ function sideOfSketch(scene: Scene, face: Plane): FaceEdit | null {
 function edgeStep(scene: Scene, face: Plane): FaceEdit | null {
   const m = face.mesh;
   if (!m || m.length < 9) return null;
-  const lo = [Infinity, Infinity, Infinity];
-  const hi = [-Infinity, -Infinity, -Infinity];
-  for (let i = 0; i + 2 < m.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k]!, m[i + k]!); hi[k] = Math.max(hi[k]!, m[i + k]!); }
-  const size = Math.min(...[0, 1, 2].map((k) => hi[k]! - lo[k]!));
   const found: FaceEdit[] = [];
   for (const st of scene.steps) {
     if (st.type !== "edgeMod") continue;
+    // the face is measured where the step made it: the body may have been moved or turned since (`in_207`), which would otherwise stretch its box
+    const back = inverse(laterMotion(scene.steps, scene.steps.indexOf(st)));
+    const lo = [Infinity, Infinity, Infinity];
+    const hi = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i + 2 < m.length; i += 3) { const q = applyPoint(back, [m[i]!, m[i + 1]!, m[i + 2]!]); for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k]!, q[k]!); hi[k] = Math.max(hi[k]!, q[k]!); } }
+    const size = Math.min(...[0, 1, 2].map((k) => hi[k]! - lo[k]!));
     const value = Number(st.params.value);
     if (Number.isFinite(value) && near(value, size, 2e-3)) found.push({ kind: "edgeSize", step: st.id, value });
   }
