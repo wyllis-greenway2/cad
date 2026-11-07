@@ -18,6 +18,7 @@ import { outlineOf } from "../operation/part.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
+import type { ArcMap } from "./operations.ts";
 import { opCommand, bodyMotion, faceDrag, radiusDrag, sideDrag, edgeDrag, arcDrag, valueOf } from "./operations.ts";
 import { matrixOf } from "../operation/frames.ts";
 import { sharpOfPoints, chainOf, cornerOk, adjacentOk, roundingFaces } from "../operation/roundings.ts";
@@ -102,7 +103,7 @@ let gpuBase: { history: Session["history"]; outcome: Session["outcome"]; made: b
 /** The step the last drag of a whole-body motion was (its matrix and how many steps came before it): while the kernel is still working its result out, that is what the stale picture is moved by (`in_216`). */
 let lastDrag: { matrix: number[] | null; face: FaceShift | null; step: string | null; depth: number; param: "depth" | "value"; circle: { ref: Ref; radius: number } | null; corners: { ref: Ref; to: Vec3 }[] | null; steps: number } | null = null;
 /** A face drawn moved: the whole face by `by`, or a round wall's points out from (in towards) its axis by `radial.dr` (`in_217`, `in_218`). */
-export type FaceShift = { face: Ref; by?: Vec3; radial?: { center: Vec3; axis: Vec3; dr: number; r0: number }; /** the body's points that stand over moved corners of the sketch (along `axis`) move with them (`in_219`); `edge` is the face's own edge, to move what is selected with it */ arcs?: { arcWall: { center: Vec3; axis: Vec3; u: Vec3; v: Vec3; th0: number; span: number; th0n: number; spanN: number; dir: 1 | -1; dr: number }; items: { at: Vec3; by: Vec3 }[] }; rounds?: { k: number; groups: { face: Ref; sharp: Sharp }[] }; columns?: { axis: Vec3; items: { at: Vec3; by: Vec3 }[]; edge: { a: Vec3; da: Vec3; b: Vec3; db: Vec3 } | null } };
+export type FaceShift = { face: Ref; by?: Vec3; radial?: { center: Vec3; axis: Vec3; dr: number; r0: number }; /** the body's points that stand over moved corners of the sketch (along `axis`) move with them (`in_219`); `edge` is the face's own edge, to move what is selected with it */ arcs?: { arcWall: ArcMap; items: { at: Vec3; by: Vec3 }[] }; rounds?: { k: number; groups: { face: Ref; sharp: Sharp }[] }; columns?: { axis: Vec3; items: { at: Vec3; by: Vec3 }[]; arcWalls: { face: Ref; arc: ArcMap }[]; edge: { a: Vec3; da: Vec3; b: Vec3; db: Vec3 } | null } };
 /**
  * A new fillet or chamfer on one straight edge (`in_221`): its cross-section is the same shape at every size, scaled about the sharp edge, so the kernel makes it once at a size (the reference) and
  * every size the pointer goes to after that is that result scaled, on the graphics card. Asked again for a new reference only when the size has grown a lot (so the arc keeps enough points).
@@ -211,7 +212,7 @@ function gpuMotion(s: AppState): { matrix: number[] | null; face: FaceShift | nu
   if (!m && !fd && !rd && !sd && !ed && !ad) return null;
   if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
   const matrix = m ? matrixOf(m) : null;
-  const face: FaceShift | null = fd ? { face: fd.face, by: fd.by } : rd ? { face: rd.face, radial: rd.radial } : ad ? { face: ad.face, arcs: { arcWall: ad.arc, items: ad.items.map((i) => ({ at: i.at, by: i.by })) } } : ed ? { face: ed.face, rounds: { k: ed.k, groups: ed.groups } } : sd ? { face: sd.face, columns: { axis: sd.axis, items: sd.items.map((i) => ({ at: i.at, by: i.by })), edge: sd.edge } } : null;
+  const face: FaceShift | null = fd ? { face: fd.face, by: fd.by } : rd ? { face: rd.face, radial: rd.radial } : ad ? { face: ad.face, arcs: { arcWall: ad.arc, items: ad.items.map((i) => ({ at: i.at, by: i.by })) } } : ed ? { face: ed.face, rounds: { k: ed.k, groups: ed.groups } } : sd ? { face: sd.face, columns: { axis: sd.axis, items: sd.items.map((i) => ({ at: i.at, by: i.by })), arcWalls: sd.arcWalls, edge: sd.edge } } : null;
   lastDrag = { matrix, face, step: fd?.step ?? ed?.step ?? null, depth: fd?.depth ?? ed?.value ?? 0, param: ed ? "value" : "depth", circle: rd ? { ref: rd.circle, radius: rd.radius } : null, corners: sd ? sd.items.map((i) => ({ ref: i.ref, to: add(i.at, i.by) })) : ad ? ad.items.map((i) => ({ ref: i.ref, to: add(i.at, i.by) })) : null, steps: sceneOf(base).steps.length };
   return { matrix, face, shown: gpuBase.value };
 }

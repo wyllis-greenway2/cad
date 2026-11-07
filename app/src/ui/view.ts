@@ -10,7 +10,7 @@ import type { Grid } from "../interaction/api.ts";
 import { createWorld } from "./world.ts";
 import { createPen, clearGroup, ringOf, sphereAt } from "./view/pen.ts";
 import { buildContent } from "./view/content.ts";
-import type { BodyMesh, Shift, SharpShape } from "./view/content.ts";
+import type { BodyMesh, Shift, SharpShape, ArcShape } from "./view/content.ts";
 import { buildHighlight, TEAL } from "./view/highlight.ts";
 import { buildGizmo } from "./view/gizmo.ts";
 import type { GizmoView } from "./view/gizmo.ts";
@@ -57,6 +57,7 @@ export function createView(host: HTMLElement) {
     shifter = built ? built.shift : null;
     shiftedFace = null;
     faceKeys = null;
+    wallSig = "";
     roundSig = null;
     roundGroups = null;
     if (bodyGroup) { bodyGroup.matrix.fromArray(bodyMatrix ?? IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
@@ -74,14 +75,14 @@ export function createView(host: HTMLElement) {
   overlay.matrixAutoUpdate = false;
   /** The body (and, when what is selected is the body, its highlight) drawn moved by a matrix: a body being dragged is not worked out again by the kernel for every move of the pointer (`in_216`). */
   /** A face of the body pulled or pushed along its normal, drawn at once (`in_217`): the points that lie where the face's do move by `by`, and what is selected (the face) with them. */
-  function setFaceShift(f: { face: string; by?: [number, number, number]; radial?: { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }; rounds?: { k: number; groups: { face: string; sharp: SharpShape }[] }; arcs?: { arcWall: { center: readonly number[]; axis: readonly number[]; u: readonly number[]; v: readonly number[]; th0: number; span: number; th0n: number; spanN: number; dir: 1 | -1; dr: number }; items: { at: readonly number[]; by: readonly number[] }[] }; columns?: { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[]; edge: { a: readonly number[]; da: readonly number[]; b: readonly number[]; db: readonly number[] } | null }; withOverlay: boolean } | null) {
+  function setFaceShift(f: { face: string; by?: [number, number, number]; radial?: { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }; rounds?: { k: number; groups: { face: string; sharp: SharpShape }[] }; arcs?: { arcWall: ArcShape; items: { at: readonly number[]; by: readonly number[] }[] }; columns?: { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[]; arcWalls: { face: string; arc: ArcShape }[]; edge: { a: readonly number[]; da: readonly number[]; b: readonly number[]; db: readonly number[] } | null }; withOverlay: boolean } | null) {
     if (!shifter) return;
     if (!f) { overlay.visible = true; if (shiftedFace !== null) { shifter(null, { by: [0, 0, 0] }); shiftedFace = null; } return; }
     overlay.visible = true;
     const p = lastScene?.parts[f.face as never] as { mesh?: readonly number[] } | undefined;
     if (!p?.mesh) return;
     if (shiftedFace !== f.face || !faceKeys) { faceKeys = new Set<string>(); for (let i = 0; i + 2 < p.mesh.length; i += 3) faceKeys.add(`${Math.round(p.mesh[i]! * 1e3)},${Math.round(p.mesh[i + 1]! * 1e3)},${Math.round(p.mesh[i + 2]! * 1e3)}`); }
-    let how: Shift | null = f.by ? { by: f.by } : f.arcs ? { arcWall: f.arcs.arcWall, items: f.arcs.items } : f.radial ?? (f.columns ? { axis: f.columns.axis, items: f.columns.items } : null);
+    let how: Shift | null = f.by ? { by: f.by } : f.arcs ? { arcWall: f.arcs.arcWall, items: f.arcs.items } : f.radial ?? (f.columns ? { axis: f.columns.axis, items: f.columns.items, arcWalls: columnWalls(f.columns.arcWalls) } : null);
     if (f.rounds) {
       // each rounding face with its sharp edge (found once for the faces, not on every move)
       const sig = f.rounds.groups.map((g) => g.face).join("|");
@@ -146,6 +147,22 @@ export function createView(host: HTMLElement) {
       }
     }
     if (f.withOverlay && f.by) { overlay.matrix.makeTranslation(f.by[0], f.by[1], f.by[2]); overlay.matrixWorldNeedsUpdate = true; }
+  }
+  /** The walls of the arcs that change with a pulled side: each with the points of its face (found once, kept while the same faces stay). */
+  let wallSig = "";
+  let wallKeys: { keys: Set<string>; arc: ArcShape }[] = [];
+  function columnWalls(walls: { face: string; arc: ArcShape }[]): { keys: Set<string>; arc: ArcShape }[] {
+    const sig = walls.map((w) => w.face).join("|");
+    if (sig !== wallSig) {
+      wallSig = sig;
+      wallKeys = walls.map((w) => {
+        const q = lastScene?.parts[w.face as never] as { mesh?: readonly number[] } | undefined;
+        const keys = new Set<string>();
+        for (let i = 0; q?.mesh && i + 2 < q.mesh.length; i += 3) keys.add(`${Math.round(q.mesh[i]! * 1e3)},${Math.round(q.mesh[i + 1]! * 1e3)},${Math.round(q.mesh[i + 2]! * 1e3)}`);
+        return { keys, arc: w.arc };
+      });
+    }
+    return wallKeys.map((w, i) => ({ keys: w.keys, arc: walls[i]!.arc })); // (the faces are found once; the maps change with the pointer)
   }
   function setBodyMatrix(m: number[] | null, withOverlay: boolean) {
     bodyMatrix = m;

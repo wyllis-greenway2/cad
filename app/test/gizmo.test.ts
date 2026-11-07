@@ -1843,3 +1843,54 @@ test("the wall of an arc whose circle is gone is made wider without the kernel: 
   }
   assert.ok(worst < 2e-2, `a point of the wall is ${worst} from the real surface`);
 });
+
+test("pulling a side of a sketch that has an arc is drawn without the kernel: the arc's wall follows the arc to where the solver puts it, and the points over the moved corners with them (`in_226`)", () => {
+  // a half disc: an arc from A round to B about C, and the straight side from B back to A; pulling that side moves both ends of the arc
+  const P = [[0, -10, 0], [0, 10, 0]];
+  const parts: object[] = [];
+  P.forEach((at, i) => parts.push({ type: "addPart", part: { origin: "drawn", plane: "w/XY", movable: true, ref: `d/e_001.p${i}`, kind: "corner", at } }));
+  parts.push({ type: "addPart", part: { origin: "drawn", plane: "w/XY", movable: true, ref: "d/e_001.c", kind: "corner", at: [0, 0, 0] } });
+  parts.push({ type: "addPart", part: { origin: "drawn", plane: "w/XY", movable: true, ref: "d/e_001.s0", kind: "line", a: "d/e_001.p0", b: "d/e_001.p1", center: "d/e_001.c", ccw: true } });
+  parts.push({ type: "addPart", part: { origin: "drawn", plane: "w/XY", movable: true, ref: "d/e_001.s1", kind: "line", a: "d/e_001.p1", b: "d/e_001.p0" } });
+  const proj = { format: "cad-project", version: 1, base: { version: 1, counter: 0, parts: [], relations: [], steps: [] }, commands: [{ type: "batch", commands: parts }, { type: "addRelation", relation: { id: "r_001", kind: "arcEnds", parts: ["d/e_001.s0", "d/e_001.c"] } }, { type: "addStep", step: { id: "s_002", type: "extrude", parts: ["d/e_001.s0", "d/e_001.s1"], params: { depth: 15 } } }], cursor: 3 };
+  const r = openSession(kernel, JSON.stringify(proj)) as { ok: true; value: ReturnType<typeof createSession> };
+  assert.ok(r.ok);
+  const sc = scene(r.value);
+  assert.equal(r.value.outcome.errors["s_002"], undefined);
+  const sides = Object.values(sc.parts).filter((p) => p.kind === "plane" && p.origin === "body" && !p.rounded && faceEdit(sc, p.ref)?.kind === "side");
+  assert.ok(sides.length >= 1, "the straight side");
+  let any = 0;
+  let arcsSeen = 0;
+  for (const side of sides) {
+    let st = reduce(select({ ...createState(r.value), cam: homeCamera() }, [side.ref]), { type: "begin", name: "pushpull" }, env);
+    st = { ...st, op: { ...st.op!, value: 3 } };
+    const f = frameOf(st, { w: 800, h: 600 });
+    const done = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+    if (done.session.message) { assert.equal(f.faceShift, null, `a refused edit (${done.session.message}) is not drawn`); continue; }
+    assert.ok(f.faceShift?.columns, "drawn without the kernel");
+    any++;
+    const real = done.session.outcome.kernel!.mesh!;
+    for (const i of f.faceShift!.columns!.items) for (const z of [0, 15]) {
+      const q: Vec3 = [i.at[0] + i.by[0], i.at[1] + i.by[1], z];
+      assert.ok(meshDistance(real, q) < 1e-2, `the corner column ${JSON.stringify(q)} is on the real body`);
+    }
+    arcsSeen += f.faceShift!.columns!.arcWalls.length;
+    for (const w of f.faceShift!.columns!.arcWalls) {
+      const part = f.scene.parts[w.face] as unknown as { mesh: number[] };
+      const a = w.arc;
+      const TAU = 2 * Math.PI;
+      for (let i = 0; i + 2 < part.mesh.length; i += 3) {
+        const p: Vec3 = [part.mesh[i]!, part.mesh[i + 1]!, part.mesh[i + 2]!];
+        const d = sub(p, a.center); const h = dot(d, a.axis); const q = sub(d, scale(a.axis, h));
+        const [cx, cy] = [dot(q, a.u), dot(q, a.v)];
+        let fwd = (((a.dir * (Math.atan2(cy, cx) - a.th0)) % TAU) + TAU) % TAU; if (fwd > TAU - 1e-3) fwd = 0;
+        const th = a.th0n + a.dir * Math.min(1, fwd / a.span) * a.spanN;
+        const rho2 = Math.hypot(cx, cy) + a.dr;
+        const moved = add(add(a.centerN, scale(a.axis, h)), add(scale(a.u, rho2 * Math.cos(th)), scale(a.v, rho2 * Math.sin(th))));
+        assert.ok(meshDistance(real, moved) < 2e-2, "a point of the arc wall is on the real surface");
+      }
+    }
+  }
+  assert.ok(any >= 1, "the side could be drawn without the kernel");
+  assert.ok(arcsSeen >= 1, "and the arc's wall was mapped");
+});

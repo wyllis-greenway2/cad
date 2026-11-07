@@ -12,9 +12,9 @@ export type Shift =
   | { by: [number, number, number] }
   | { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }
   /** the points that stand over moved corners of a sketch (in a line along `axis` through the corner) move with them (`in_219`) */
-  | { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[] }
+  | { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[]; /** the walls of arcs of the sketch that change with it (`in_226`) */ arcWalls?: { keys: Set<string>; arc: ArcShape }[] }
   /** the wall of an arc made wider (`in_225`): its points go out from the middle by `dr` and along the arc from where it began (`th0`, over `span`, turning `dir`) to where it begins now (`th0n`, over `spanN`); the points over moved corners move with them */
-  | { arcWall: { center: readonly number[]; axis: readonly number[]; u: readonly number[]; v: readonly number[]; th0: number; span: number; th0n: number; spanN: number; dir: 1 | -1; dr: number }; items: { at: readonly number[]; by: readonly number[] }[] }
+  | { arcWall: ArcShape; items: { at: readonly number[]; by: readonly number[] }[] }
   /** a fillet or chamfer of another size is the same cross-section scaled by `k` about its sharp edge (a line, or a circle), edge by edge (`in_220`, `in_222`) */
   | { k: number; groups: { keys: Set<string>; sharp: SharpShape }[] };
 export type SharpShape =
@@ -22,6 +22,23 @@ export type SharpShape =
   | { kind: "circle"; center: readonly number[]; axis: readonly number[]; radius: number }
   | { kind: "point"; center: readonly number[] }
   | { kind: "plane"; point: readonly number[]; normal: readonly number[] };
+
+export type ArcShape = { center: readonly number[]; centerN: readonly number[]; axis: readonly number[]; u: readonly number[]; v: readonly number[]; th0: number; span: number; th0n: number; spanN: number; dir: 1 | -1; dr: number };
+
+/** How far a point of an arc's wall goes when the arc becomes another (`in_225`, `in_226`): along the arc from where it began to where it begins now, out from the middle by `dr`, about the new middle. */
+function arcDelta(a: ArcShape, x: number, y: number, z: number): [number, number, number] {
+  const [px, py, pz] = [x - a.center[0]!, y - a.center[1]!, z - a.center[2]!];
+  const h = px * a.axis[0]! + py * a.axis[1]! + pz * a.axis[2]!;
+  const [qx, qy, qz] = [px - h * a.axis[0]!, py - h * a.axis[1]!, pz - h * a.axis[2]!];
+  const [cx, cy] = [qx * a.u[0]! + qy * a.u[1]! + qz * a.u[2]!, qx * a.v[0]! + qy * a.v[1]! + qz * a.v[2]!];
+  const TAU = 2 * Math.PI;
+  let f = ((a.dir * (Math.atan2(cy, cx) - a.th0)) % TAU + TAU) % TAU;
+  if (f > TAU - 1e-3) f = 0;
+  const th = a.th0n + a.dir * Math.min(1, f / a.span) * a.spanN;
+  const rho2 = Math.hypot(cx, cy) + a.dr;
+  const [ex, ey, ez] = [a.centerN[0]! + h * a.axis[0]! + rho2 * (Math.cos(th) * a.u[0]! + Math.sin(th) * a.v[0]!), a.centerN[1]! + h * a.axis[1]! + rho2 * (Math.cos(th) * a.u[1]! + Math.sin(th) * a.v[1]!), a.centerN[2]! + h * a.axis[2]! + rho2 * (Math.cos(th) * a.u[2]! + Math.sin(th) * a.v[2]!)];
+  return [ex - x, ey - y, ez - z];
+}
 
 /** Which end of a straight sharp edge a point is nearer along it: 0 the start, 1 the end. */
 const nearer = (l: { a: readonly number[]; b: readonly number[]; dir: readonly number[] }, x: number, y: number, z: number): 0 | 1 => {
@@ -121,24 +138,8 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
         if (keys && "arcWall" in how) {
           const [x, y, z] = [from[3 * i]!, from[3 * i + 1]!, from[3 * i + 2]!];
           const a = how.arcWall;
-          if (hits[i]) {
-            const [px, py, pz] = [x - a.center[0]!, y - a.center[1]!, z - a.center[2]!];
-            const h = px * a.axis[0]! + py * a.axis[1]! + pz * a.axis[2]!;
-            const [qx, qy, qz] = [px - h * a.axis[0]!, py - h * a.axis[1]!, pz - h * a.axis[2]!];
-            const [cx, cy] = [qx * a.u[0]! + qy * a.u[1]! + qz * a.u[2]!, qx * a.v[0]! + qy * a.v[1]! + qz * a.v[2]!];
-            const rho = Math.hypot(cx, cy);
-            const TAU = 2 * Math.PI;
-            let f = ((a.dir * (Math.atan2(cy, cx) - a.th0)) % TAU + TAU) % TAU;
-            if (f > TAU - 1e-3) f = 0;
-            const s = Math.min(1, f / a.span);
-            const th = a.th0n + a.dir * s * a.spanN;
-            const rho2 = rho + a.dr;
-            [dx, dy, dz] = [
-              rho2 * (Math.cos(th) * a.u[0]! + Math.sin(th) * a.v[0]!) - (qx),
-              rho2 * (Math.cos(th) * a.u[1]! + Math.sin(th) * a.v[1]!) - (qy),
-              rho2 * (Math.cos(th) * a.u[2]! + Math.sin(th) * a.v[2]!) - (qz),
-            ];
-          } else {
+          if (hits[i]) [dx, dy, dz] = arcDelta(a, x, y, z);
+          else {
             const k = x * a.axis[0]! + y * a.axis[1]! + z * a.axis[2]!;
             for (const it of how.items) {
               const k0 = it.at[0]! * a.axis[0]! + it.at[1]! * a.axis[1]! + it.at[2]! * a.axis[2]!;
@@ -179,10 +180,14 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
         } else if (keys && "items" in how && "axis" in how) {
           const [ax, ay, az] = [how.axis[0]!, how.axis[1]!, how.axis[2]!];
           const [x, y, z] = [from[3 * i]!, from[3 * i + 1]!, from[3 * i + 2]!];
-          const k = x * ax + y * ay + z * az;
-          for (const it of how.items) {
-            const k0 = it.at[0]! * ax + it.at[1]! * ay + it.at[2]! * az;
-            if (Math.hypot(x - k * ax - (it.at[0]! - k0 * ax), y - k * ay - (it.at[1]! - k0 * ay), z - k * az - (it.at[2]! - k0 * az)) < 2e-3) { [dx, dy, dz] = [it.by[0]!, it.by[1]!, it.by[2]!]; break; }
+          const wi = how.arcWalls ? how.arcWalls.findIndex((w) => w.keys.has(at(from, 3 * i))) : -1;
+          if (wi >= 0) [dx, dy, dz] = arcDelta(how.arcWalls![wi]!.arc, x, y, z);
+          else {
+            const k = x * ax + y * ay + z * az;
+            for (const it of how.items) {
+              const k0 = it.at[0]! * ax + it.at[1]! * ay + it.at[2]! * az;
+              if (Math.hypot(x - k * ax - (it.at[0]! - k0 * ax), y - k * ay - (it.at[1]! - k0 * ay), z - k * az - (it.at[2]! - k0 * az)) < 2e-3) { [dx, dy, dz] = [it.by[0]!, it.by[1]!, it.by[2]!]; break; }
+            }
           }
         } else if (keys && hits[i]) {
           if ("by" in how) [dx, dy, dz] = how.by;

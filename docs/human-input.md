@@ -1124,3 +1124,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_225 — 2026-11-07 — approval
 > yes, do the arc walls next
+
+## in_226 — 2026-11-07 — approval
+> yes, do the side faces with arcs too
