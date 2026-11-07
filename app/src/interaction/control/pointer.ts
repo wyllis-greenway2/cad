@@ -23,7 +23,7 @@ import type { AppState, Env, MenuItem } from "./state.ts";
 import { paneAt } from "../panes.ts";
 import type { WorldName } from "../panes.ts";
 import { doLook } from "./viewing.ts";
-import { pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
+import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { commitFigure, commitOp, setRepeatAxis } from "./modal.ts";
 import { doGizmoHover, gizmoOf } from "./handles.ts";
 import { hasGizmo, hitHandle } from "../gizmo.ts";
@@ -107,6 +107,15 @@ function withTwins(sc: Scene, before: readonly Ref[], now: readonly Ref[]): Ref[
   return out;
 }
 
+/** The little pane under the pointer, unless something of the drawing or the body is there too (a sketch near the origin is not blocked by the panes beside the axes). */
+function paneUnder(s: AppState, x: number, y: number, env: Env): ReturnType<typeof paneAt> {
+  const pane = paneAt(s.cam, env.w, env.h, x, y);
+  if (!pane) return null;
+  const sc = sceneOf(s.session);
+  const there = candidatesAt(sc, projector(s.cam, env.w, env.h).view(x, y), pickOpts(s));
+  return there.some((c) => sc.parts[c.ref]?.origin !== "world") ? null : pane;
+}
+
 const PANE_BUTTON: Record<WorldName, "X" | "Y" | "Z"> = { YZ: "X", XZ: "Y", XY: "Z" }; // (the button that looks at a plane: X at the plane across it)
 const isWorldPlane = (sc: Scene, r: Ref): boolean => { const p = sc.parts[r]; return !!p && p.origin === "world" && p.kind === "plane"; };
 
@@ -114,7 +123,7 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   const sc = sceneOf(s.session);
   const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
   // a little pane of another world plane under the pointer lights up and takes the pointer: nothing else is hovered through it (`in_190`)
-  const pane = !s.tool && !s.op && !s.drag ? paneAt(s.cam, env.w, env.h, i.x, i.y) : null;
+  const pane = !s.tool && !s.op && !s.drag ? paneUnder(s, i.x, i.y, env) : null;
   if (pane) return { ...withSession(s, hoverOn(s.session, undefined)), hoverPoint: null, paneHover: pane };
   const c = candidatesAt(sc, pv, pickOpts(s))[0];
   const point = c && c.rank === 2 ? surfacePoint(pv, c.score) : null;
@@ -147,7 +156,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const pv = projector(base.cam, env.w, env.h).view(i.x, i.y);
   if (!t.points.length) {
     // the plane chosen from the pencil bubble, else the surface under the click takes the drawing, from wherever the camera is; with none under it, the selected plane does
-    const planeRef = drawingPlane(sc, refs) ?? drawingPlane(sc, selectionOf(sess));
+    const planeRef = t.plane ?? sketchPlaneOf(base)?.ref ?? drawingPlane(sc, refs) ?? drawingPlane(sc, selectionOf(sess)); // (the plane the tool is already on, else the one being looked at straight, else what is under the click: a block in front of the plane does not take the drawing, `in_194`)
     const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
     const at = pl ? snapOnPlane(sc, pv, pl) : null;
     if (!pl || !at) return { ...base, session: { ...sess, message: "click on a surface to draw on" } };
@@ -189,7 +198,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {
   const sc = sceneOf(s.session);
   // a click on a little pane turns that world plane on and looks straight at it (the same as its X Y Z button, `in_190`)
-  const pane = !s.tool && !s.op ? paneAt(s.cam, env.w, env.h, i.x, i.y) : null;
+  const pane = !s.tool && !s.op ? paneUnder(s, i.x, i.y, env) : null;
   if (pane) return doLook({ ...s, menu: null, focus: null, resume: null }, { type: "look", plane: PANE_BUTTON[pane] }, env);
   const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
   const cands = candidatesAt(sc, pv, pickOpts(s));

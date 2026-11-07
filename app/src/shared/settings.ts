@@ -52,6 +52,9 @@ export const settings = {
   theme: {
     background: 0xffffff,
     axis: [0.17, 0.17, 0.19] as [number, number, number], // charcoal, like a pencil
+    bodyFadeOpacity: 0.22, // the body while a plane is sketched on behind it (`in_194`)
+    sketchFillOpacity: 0.06, // a closed sketch's see-through tint (`in_194`)
+    sketchHoverOpacity: 0.28, // and its teal when the pointer is over it
     sheet: [0.5, 0.51, 0.54] as [number, number, number], // a pane's fill
     pane: [0.55, 0.58, 0.64] as [number, number, number], // the little pane of a world plane that is off
     paneOn: [0.25, 0.55, 0.85] as [number, number, number], // the one that is on

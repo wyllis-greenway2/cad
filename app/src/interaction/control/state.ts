@@ -12,7 +12,10 @@ import type { Repeat } from "../pattern.ts";
 import type { Op } from "../operations.ts";
 import type { Camera } from "../camera.ts";
 import type { Drag } from "../gizmo.ts";
-import { homeCamera, lookStraight, lookAlternating, offsetOf } from "../camera.ts";
+import { homeCamera, lookStraight, lookAlternating, offsetOf, sideOf } from "../camera.ts";
+import { lookup } from "../../operation/scene.ts";
+import { planeOf } from "../objects.ts";
+import { scene as sceneOf, selection as selectionOf } from "../session.ts";
 
 export interface MenuItem { id: string; label: string; /** the name of its icon */ icon: string; enabled: boolean; why: string | null; /** a category: choosing it opens these as the next ring */ children?: MenuItem[] }
 export interface AppState {
@@ -56,7 +59,22 @@ export interface Env { w: number; h: number; now: number }
 
 export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
 
-export const pickOpts = (s?: AppState) => ({ pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx, ...(s ? { world: worldRef(s.world) } : {}) });
+/**
+ * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.
+ * What lies between the camera and it must not take the drawing, so it is not picked and the body goes see-through.
+ */
+export function sketchPlaneOf(s: AppState): Plane | null {
+  if (!s.tool || !s.cam.straight) return null;
+  const get = lookup(sceneOf(s.session));
+  if (s.tool.plane) { const p = get(s.tool.plane); return p?.kind === "plane" ? p : null; }
+  const planes = [...new Map(selectionOf(s.session).flatMap((r) => { const p = planeOf(get, r); return p ? [[p.ref, p] as const] : []; })).values()];
+  return planes.length === 1 && sideOf(s.cam, normalOfPlane(planes[0]!)) !== 0 ? planes[0]! : null;
+}
+
+export const pickOpts = (s?: AppState) => {
+  const behind = s ? sketchPlaneOf(s) : null;
+  return { pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx, ...(s ? { world: worldRef(s.world) } : {}), ...(behind && s ? { inFront: { at: behind.at, n: normalOfPlane(behind), side: sideOf(s.cam, normalOfPlane(behind)) as 1 | -1 } } : {}) };
+};
 export const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });
 export const stop = (s: AppState): AppState => (s.anim ? { ...s, anim: null } : s);
 export const surfacePoint = (pv: { ray?: { o: Vec3; d: Vec3 } }, t: number): Vec3 | null => (pv.ray ? add(pv.ray.o, scale(pv.ray.d, t)) : null);

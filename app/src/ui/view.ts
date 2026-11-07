@@ -51,8 +51,20 @@ export function createView(host: HTMLElement) {
     if (s === lastScene) return;
     lastScene = s;
     lastMesh = mesh;
-    buildContent(content, s, mesh, pen, envMap);
+    bodyMat = buildContent(content, s, mesh, pen, envMap);
+    applyFade();
   }
+  let bodyMat: import("three").MeshPhysicalMaterial | null = null;
+  let fade = false;
+  /** The body see-through (the sketch plane is looked at straight and the body is between it and the camera) or as it was (`in_194`). */
+  function applyFade() {
+    if (!bodyMat) return;
+    bodyMat.transparent = fade;
+    bodyMat.opacity = fade ? settings.theme.bodyFadeOpacity : 1;
+    bodyMat.depthWrite = !fade;
+    bodyMat.needsUpdate = true;
+  }
+  const setBodyFade = (on: boolean) => { if (on !== fade) { fade = on; applyFade(); } };
   const setHighlight = (h: Highlight, cam: Camera, nowMs: number) => buildHighlight(overlay, lastScene, lastMesh, h, cam, pen, nowMs);
   /** The figure being drawn, or the prism an extrude would make (lines; not part of the scene). */
   function setPreview(p: Preview | null, cam: Camera) {
@@ -115,5 +127,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { setScene, setHighlight, setPreview, setGizmo, setPanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { setScene, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

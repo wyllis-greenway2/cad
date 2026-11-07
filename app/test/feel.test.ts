@@ -5,6 +5,7 @@ import { worldRef } from "../src/shared/ref.ts";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, run, scene } from "../src/interaction/session.ts";
 import { createState, reduce, advance } from "../src/interaction/controller.ts";
+import { frameOf } from "../src/interaction/frame.ts";
 import { projector, lookStraight, homeCamera, basis } from "../src/interaction/camera.ts";
 import { gridFor } from "../src/interaction/grid.ts";
 import { drawRectangle } from "../src/operation/build.ts";
@@ -79,4 +80,34 @@ test("a second extrusion stays a new piece while it only touches or stands apart
   // the same drawing pulled down into the body: a pocket
   const down = extrudeSquare(first(), [5, 5, 10], [10, 10, 10], topFace.ref, -5);
   assert.ok(Math.abs(down.outcome.kernel!.volume! - (4000 - 125)) < 1, `${down.outcome.kernel!.volume}`);
+});
+
+test("sketching on a plane with a block between it and the camera: the block does not take the drawing, and goes see-through; in 3D it is all as it was (`in_194`)", () => {
+  let s = createSession(kernel);
+  const r = drawRectangle(scene(s), XY, [5, 0, 0], [25, 20, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: r.lines, params: { depth: 10 } } });
+  let st = createState(s);
+  st = reduce(st, { type: "look", plane: "X" }, env); // the YZ plane is selected and looked at straight, from +X: the block is between the camera and it
+  st = advance({ ...st, anim: st.anim ? { ...st.anim, t0: -1e6 } : null }, 1e6);
+  assert.equal(st.cam.straight, true);
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  assert.equal(frameOf(st, { w: 800, h: 600 }).fadeBody, true, "the body is see-through");
+  const [x, y] = projector(st.cam, 800, 600).project([0, 10, 5]);
+  const clicked = reduce(st, { type: "click", x, y, count: 1, shift: false }, env);
+  assert.equal(clicked.tool!.plane, worldRef("YZ"), "the drawing is on the plane that was chosen, not on the face of the block in front of it");
+  assert.ok(Math.abs(clicked.tool!.points[0]![0]) < 1e-6);
+  // in 3D the body is as it was
+  const free = reduce(clicked, { type: "orbit", x: 400, y: 300, dx: 200, dy: 100 }, env);
+  assert.equal(frameOf(free, { w: 800, h: 600 }).fadeBody, false);
+});
+
+test("a closed sketch under a little pane near the origin is hovered, not the pane (the panes do not block drawings)", () => {
+  let s = createSession(kernel);
+  s = run(s, drawRectangle(scene(s), XY, [0, 0, 0], [30, 30, 0], [1, 0, 0], [0, 1, 0]).command);
+  const st = createState(s);
+  const [x, y] = projector(st.cam, 800, 600).project([6, 6, 0]); // (inside the XY pane, inside the rectangle)
+  const hovered = reduce(st, { type: "hover", x, y }, env);
+  assert.equal(hovered.paneHover, null);
+  assert.match(hovered.session.hover ?? "", /^d\/loop@/, "the closed sketch is what the pointer is on");
 });

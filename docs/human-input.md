@@ -1004,3 +1004,10 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > Also can we try one more thing for the sketching? Lets try so that when you select a sketch item, then there is a little icon on the top of the screen with an x next to it to indicate that you are in that sketching mode. Lets have it so that it stays in that sketch tool untill you right click, or hit the cancel icon at the top for it.
 >
 > I think we should have bodies turn into negative operations on collision. So for example if I extrude a square, then if I extrude another, it should stay positive, untill it contacts the other square, then I would be extruding it as a cut out of the first square.
+
+## in_194 — 2026-11-07 — directive
+> when you go to rotate a body, lets make the interface simpler. Right now it shows xyz rotation values all the time, lets have it just show the degrees per axis selected. Lets have it so one axis is always default selected
+>
+> I think when you go orthographic to a plane to sketch on it, that things between the camera and the plane you are sketching on shouldn't interfere with the sketch. So right now, if I place a block in front of a plane, then I click on that plane to sketch on it, then any of the sketches that fall on the block between the camera and the plane have the sketch actually on that block surface not the plane I was sketching on. I think objects between the sketch surface and the camera should turn semi transparent when in orthographic view to a plane behind it, I think they should go back to normal on 3d. 
+>
+> Also I think we should have it so that closed sketches of 0 thickness dont actually show up like planar gray surfaces as they would on a body, instead I think they should be semi transparent and show color on on hover indicating that they are closed and can be selected to extrude.

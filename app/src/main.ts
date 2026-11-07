@@ -179,6 +179,7 @@ function frame(now: number) {
     view.setPreview(f.preview, state.cam);
     view.setGizmo(f.gizmo, state.cam);
     view.setPanes(f.panes);
+    view.setBodyFade(f.fadeBody);
     toolChip.update(f.tool);
     const project = projector(state.cam, size.w, size.h).project;
     bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid);

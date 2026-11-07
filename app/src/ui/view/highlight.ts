@@ -90,6 +90,12 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
     }
     const tris = kind === "amber" || kind === "red" ? null : fillTriangles(s, ref, kind, body);
     if (!tris && p.origin === "world" && p.kind === "plane") return; // nothing to draw for a picked world plane (its tint is the pulse below)
+    if (tris && kind === "hover" && p.kind === "face" && p.origin === "drawn") {
+      // a closed sketch under the pointer fills with teal all over: it is closed and can be extruded (`in_194`); the ring still follows the pointer on it
+      const fill = trisMesh(tris, new THREE.MeshBasicMaterial({ color: tealHex, transparent: true, opacity: settings.theme.sketchHoverOpacity, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+      overlay.add(fill, surfaceOrb(kind, ref, tris, h, unit, nowMs));
+      return;
+    }
     if (tris) return void overlay.add(surfaceOrb(kind, ref, tris, h, unit, nowMs));
     const o = outlineOf(get, p);
     const w = kind === "select" ? settings.pick.edgeWidthPx : settings.pick.edgeHoverWidthPx;

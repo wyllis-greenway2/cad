@@ -331,7 +331,7 @@ test("a drawn figure moves and turns like an object: X Y Z arrows, X Y Z rings a
   st = select(st, [faceRef()]);
   st = reduce(st, { type: "begin", name: "rotate" }, env);
   assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot"]);
-  assert.deepEqual(frame(st).entry!.fields.map((f) => [f.label, f.value]), [["X", "0"], ["Y", "0"], ["Z", "0"]]);
+  assert.deepEqual(frame(st).entry!.fields.map((f) => [f.label, f.value]), [["Z", "0"]], "only the axis that is chosen shows, Z to begin with (`in_194`)");
   st = reduce(st, { type: "entry", field: 2, text: "90" }, env);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   assert.equal(st.session.message, null);
@@ -341,7 +341,7 @@ test("a drawn figure moves and turns like an object: X Y Z arrows, X Y Z rings a
   near(Math.max(...ys) - Math.min(...ys), 40, 0.01);
   st = select({ ...st, op: null }, [faceRef()]);
   st = reduce(st, { type: "begin", name: "rotate" }, env);
-  assert.deepEqual(frame(st).entry!.fields.map((f) => [f.label, f.value]), [["X", "0"], ["Y", "0"], ["Z", "90"]], "it shows how the figure is turned now");
+  assert.deepEqual(frame(st).entry!.fields.map((f) => [f.label, f.value]), [["Z", "90"]], "it shows how the figure is turned now about the chosen axis");
   // turn it up on its edge about X: it stands on end, its plane turns with it
   st = reduce(st, { type: "entry", field: 0, text: "90" }, env);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
@@ -478,27 +478,31 @@ test("a round face can be selected, and push / pull changes its radius (a post g
   near(st.session.outcome.kernel!.volume!, Math.PI * 144 * 20, 2);
 });
 
-test("rotation has three angles X Y Z: they show how the body is turned now, and each can be set on its own", () => {
+test("rotation shows only the angle about the chosen axis (Z to begin with; the X Y Z buttons choose another): how the body is turned now, and each can be set on its own", () => {
   let st = select(box(), [BODY_OBJECT]);
   st = reduce(st, { type: "begin", name: "rotate" }, env);
   const fields = (s: AppState) => frame(s).entry!.fields.map((f) => [f.label, f.value]);
-  assert.deepEqual(fields(st), [["X", "0"], ["Y", "0"], ["Z", "0"]]);
+  assert.deepEqual(fields(st), [["Z", "0"]]);
   // turn it 90 degrees about Z by typing it in the Z field
   st = reduce(st, { type: "entry", field: 2, text: "90" }, env);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   near(bbox(st).max[0]! - bbox(st).min[0]!, 20, 0.05);
   near(bbox(st).max[1]! - bbox(st).min[1]!, 40, 0.05);
   st = reduce(st, { type: "begin", name: "rotate" }, env);
-  assert.deepEqual(fields(st), [["X", "0"], ["Y", "0"], ["Z", "90"]], "it shows how it is turned now");
-  // set X on its own to 30: Z stays 90
+  assert.deepEqual(fields(st), [["Z", "90"]], "it shows how it is turned now");
+  // choose X and set it on its own to 30: Z stays 90
+  st = reduce(st, { type: "look", plane: "X" }, env);
+  assert.deepEqual(fields(st), [["X", "0"]]);
   st = reduce(st, { type: "entry", field: 0, text: "30" }, env);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   st = reduce(st, { type: "begin", name: "rotate" }, env);
-  assert.deepEqual(fields(st), [["X", "30"], ["Y", "0"], ["Z", "90"]]);
-  // and a drag of a ring is shown live in the three
+  assert.deepEqual(fields(st), [["Z", "90"]]);
+  st = reduce(st, { type: "look", plane: "X" }, env);
+  assert.deepEqual(fields(st), [["X", "30"]]);
   const ring = gizmoOf(st)!.handles.find((h) => h.id === "rot:z")!;
   assert.ok(ring);
 });
+
 
 test("a drawn figure can be scaled about its middle: corners go out, a circle's radius changes", () => {
   let s = createSession(kernel);

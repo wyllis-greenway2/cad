@@ -30,7 +30,7 @@ function linePairs(s: Scene, skip: Set<Ref>): number[] {
  * One look for every line (`in_115`): drawn lines and the body's outline are the same thin charcoal line, from the same material. Corners are not dotted anywhere:
  * a corner shows as a ball when you point at it or pick it, whatever it belongs to.
  */
-export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture) {
+export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): THREE.MeshPhysicalMaterial | null {
   clearGroup(content);
   pen.reset();
   const get = lookup(s);
@@ -46,13 +46,12 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
     if (p.kind !== "face" || p.origin !== "drawn" || used.has(p.ref)) continue;
     const tris = surfaceTriangles(get, p);
     if (tris) {
-      // a pane: the same grey and the same shine as the body (clear-coat and the reflected room), but see-through
-      const m = trisMesh(tris, new THREE.MeshPhysicalMaterial({ color: rgb(settings.theme.sheet), emissive: rgb(settings.theme.sheet), emissiveIntensity: 0.55, transparent: true, opacity: 0.25, roughness: settings.light.roughness, metalness: 0, envMap, envMapIntensity: settings.light.reflect, clearcoat: settings.light.sheen, clearcoatRoughness: settings.light.sheenRoughness, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
-      m.geometry.computeVertexNormals();
+      // a closed sketch has no thickness: it is not a grey surface like a body's face, only a faint see-through tint that lights up teal when the pointer is over it (`in_194`)
+      const m = trisMesh(tris, new THREE.MeshBasicMaterial({ color: rgb(settings.theme.sheet), transparent: true, opacity: settings.theme.sketchFillOpacity, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
       content.add(m);
     }
   }
-  if (!mesh) return;
+  if (!mesh) return null;
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.BufferAttribute(mesh.vertices, 3));
   g.setAttribute("normal", new THREE.BufferAttribute(mesh.normals, 3));
@@ -63,5 +62,7 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
     eg.setAttribute("position", new THREE.Float32BufferAttribute(corners, 3));
     content.add(new THREE.LineSegments(eg, edge));
   }
-  content.add(new THREE.Mesh(g, new THREE.MeshPhysicalMaterial({ color: settings.theme.bodyColor, roughness: settings.light.roughness, metalness: 0, clearcoat: settings.light.sheen, clearcoatRoughness: settings.light.sheenRoughness, envMap, envMapIntensity: settings.light.reflect, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })));
+  const material = new THREE.MeshPhysicalMaterial({ color: settings.theme.bodyColor, roughness: settings.light.roughness, metalness: 0, clearcoat: settings.light.sheen, clearcoatRoughness: settings.light.sheenRoughness, envMap, envMapIntensity: settings.light.reflect, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+  content.add(new THREE.Mesh(g, material));
+  return material;
 }

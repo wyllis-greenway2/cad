@@ -22,6 +22,7 @@ import { opCommand } from "./operations.ts";
 import type { Command } from "../operation/commands.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
 import type { AppState } from "./control/state.ts";
+import { sketchPlaneOf } from "./control/state.ts";
 import { gridPlaneOf } from "./control/viewing.ts";
 import { gridFor } from "./grid.ts";
 import { WORLD_NAMES, paneCorners } from "./panes.ts";
@@ -67,6 +68,8 @@ export interface Frame {
   annotations: Annotation[];
   flash: FlashFrame | null;
   grid: Grid | null;
+  /** the body goes see-through while a plane is sketched on, looked at straight, and the body lies between it and the camera (`in_194`) */
+  fadeBody: boolean;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
   tool: { kind: "rect" | "circle" | "line" | "arc"; label: string } | null;
   /** the little panes of the world planes beside the axes (`in_190`) */
@@ -129,6 +132,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     flash,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // on: the world plane that is on always has its grid (`in_190`)
     tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve" } as const)[s.tool.kind] } : null,
+    fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null } : null,
     cursor: s.tool ? "crosshair" : s.gizmoHover ? "grab" : "",
@@ -213,4 +217,15 @@ function withGhost(base: Preview | null, s: AppState): Preview | null {
   for (let k = 0; k < N; k++) for (const h of [c.lo, c.hi]) segments.push([at((k / N) * Math.PI * 2, h), at(((k + 1) / N) * Math.PI * 2, h)]);
   for (let k = 0; k < 12; k++) segments.push([at((k / 12) * Math.PI * 2, c.lo), at((k / 12) * Math.PI * 2, c.hi)]);
   return { segments: [...(base?.segments ?? []), ...segments], circle: base?.circle ?? null, cursor: base?.cursor ?? null };
+}
+
+/** Does any of the body lie between the camera and the plane being sketched on? (Only when looking straight at that plane: in 3D it is all as it was.) */
+function fadeBodyOf(s: AppState, mesh: { vertices: Float32Array } | null): boolean {
+  const pl = sketchPlaneOf(s);
+  if (!pl || !mesh) return false;
+  const n = normalOfPlane(pl);
+  const side = sideOf(s.cam, n);
+  if (!side) return false;
+  for (let i = 0; i + 2 < mesh.vertices.length; i += 3) if (((mesh.vertices[i]! - pl.at[0]) * n[0] + (mesh.vertices[i + 1]! - pl.at[1]) * n[1] + (mesh.vertices[i + 2]! - pl.at[2]) * n[2]) * side > 1e-3) return true;
+  return false;
 }
