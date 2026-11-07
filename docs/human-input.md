@@ -1025,3 +1025,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_198 — 2026-11-07 — directive
 > Can we have it so that whatever sketch tool you have in hand has a little copy of its icon follow around the cursor to make it extra clear you are in that sketch mode
+
+## in_199 — 2026-11-07 — directive
+> In this file, there is this weird phantom dark line that shows up near the length bubble when I go to the bottom of this part and select a straight line and a curved one. Also I can't see to use the sketch inset tool? Why not? When I select any or all of these bottom edges, I cant inset them inward? Also can we have it so that when you select a face, it also default selects its edges too? So that you could select a face and it would also allow you to just chamfer all the edges of the face, or inset all the edges etc. Do you think this is a good idea or bad?
+(with the model file `ec7334a7-model.cad_13.json`)

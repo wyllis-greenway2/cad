@@ -125,7 +125,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
   const base: Omit<Op, "parts"> = { kind, typed: "", value: null, axis: kind === "rotate" ? 2 : 0, origin: null, normal: null, pivot: null, target: "body", plane: null, auto: false, made: false, rot: ["", "", ""], pat: [] };
   if (kind === "offset") {
     const off = offsetSource(scene, parts);
-    if (!off) return { ok: false, why: "select a closed figure of straight sides, a circle or a line to offset" };
+    if (!off) return { ok: false, why: "select a closed figure of straight sides, a circle or a line, or the edges (or the face) of a flat face of the body, to offset" };
     return { ok: true, op: { ...base, parts: parts.map((p) => p.ref), origin: off.origin, normal: off.normal, off } };
   }
   if (kind === "extrude") {

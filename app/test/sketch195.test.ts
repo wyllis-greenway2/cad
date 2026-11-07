@@ -115,3 +115,41 @@ test("two circles joined by two lines that leave them tangentially (a belt): the
   assert.deepEqual(t.outcome.errors, {});
   assert.ok(t.outcome.kernel!.volume! > 100, `${t.outcome.kernel!.volume}`);
 });
+
+// ---- inset of the edges of the body, the phantom line (`in_199`) ----
+const stadium = () => { const r = openSession(kernel, readFileSync(new URL("./fixtures/stadium-body.cad.json", import.meta.url), "utf8")); assert.ok(r.ok); return r.value; };
+const bottomEdges = (s: ReturnType<typeof stadium>) => (parts(s) as Part[]).filter((p) => p.kind === "line" && p.origin === "body" && (scene(s).parts[p.a] as unknown as { at: number[] }).at[2] === 0 && (scene(s).parts[p.b] as unknown as { at: number[] }).at[2] === 0);
+
+test("a straight edge and a curved one selected together show no distance bubble and no line (the distance between a line and an arc is not one number)", () => {
+  const s = stadium();
+  const e = bottomEdges(s);
+  const sel = [e.find((l) => l.kind === "line" && !l.mid)!.ref, e.find((l) => l.kind === "line" && l.mid)!.ref];
+  assert.deepEqual(annotationsFor(scene(s), sel, null).filter((a) => a.kind === "distance"), []);
+});
+
+test("the bottom edges of the body can be inset into a sketch: all four (lines and arcs, tangent where they meet), the bottom face selected whole, or just a line and an arc", () => {
+  const s = stadium();
+  const faces0 = parts(s).filter((p) => p.kind === "face").length;
+  const edges = bottomEdges(s);
+  const inset = (sel: string[], v = -1.5) => { const st = startOp(scene(s), sel as never, "offset"); assert.ok(st.ok, st.ok ? "" : st.why); const cmd = opCommand(scene(s), { ...(st as { ok: true; op: Parameters<typeof opCommand>[1] }).op, value: v }); assert.ok(cmd); return run(s, cmd!); };
+  const all = inset(edges.map((l) => l.ref));
+  assert.equal(all.message, null);
+  const arcs = parts(all).filter((p) => p.kind === "line" && p.origin === "drawn" && p.center && !p.derived);
+  const lines = parts(all).filter((p) => p.kind === "line" && p.origin === "drawn" && !p.center);
+  assert.ok(arcs.length >= 2 + 2 && lines.length >= 2 + 2, "two lines and two arcs were made (besides the extruded sketch's own)");
+  assert.ok(parts(all).filter((p) => p.kind === "face").length > faces0, "the inset outline is a closed sketch");
+  // the arcs are smaller (inward) about the same centres
+  const radii = arcs.map((a) => (a.kind === "line" ? Math.hypot(...(["x", "y"] as const).map((_, i) => ((scene(all).parts[a.a] as unknown as { at: number[] }).at[i]! - (scene(all).parts[a.center!] as unknown as { at: number[] }).at[i]!)) ) : 0));
+  assert.ok(radii.some((r) => Math.abs(r - (7.825375 - 1.5)) < 0.01) && radii.some((r) => Math.abs(r - (4.14035 - 1.5)) < 0.01), `${radii}`);
+  // the face selected whole: the same
+  const bottom = parts(s).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.startsWith("b/body/f@0,0,-1,0"))!;
+  const whole = inset([bottom.ref]);
+  assert.equal(whole.message, null);
+  assert.ok(parts(whole).filter((p) => p.kind === "face").length > faces0);
+  // a line and an arc: an open chain of two
+  const two = inset([edges.find((l) => l.kind === "line" && !l.mid)!.ref, edges.find((l) => l.kind === "line" && l.mid)!.ref]);
+  assert.equal(two.message, null);
+  // outwards instead (the other way): bigger arcs
+  const out = inset(edges.map((l) => l.ref), 1.5);
+  assert.equal(out.message, null);
+});

@@ -9,11 +9,14 @@ import type { Command } from "../operation/commands.ts";
 import type { Part, Plane } from "../operation/part.ts";
 import { pointOf, normalOfPlane } from "../operation/part.ts";
 import { drawChain, drawCircle } from "../operation/build.ts";
+import { bodyOutline, outlineCommand } from "./offsetbody.ts";
+import type { Outline } from "./offsetbody.ts";
 
 export type OffsetSource =
   | { kind: "loop"; plane: Ref; pts: Vec3[]; origin: Vec3; normal: Vec3 }
   | { kind: "circle"; plane: Ref; circle: Ref; centre: Vec3; radius: number; origin: Vec3; normal: Vec3 }
-  | { kind: "line"; plane: Ref; a: Vec3; b: Vec3; origin: Vec3; normal: Vec3 };
+  | { kind: "line"; plane: Ref; a: Vec3; b: Vec3; origin: Vec3; normal: Vec3 }
+  | Outline;
 
 type V2 = [number, number];
 const local = (pl: Plane, p: Vec3): V2 => [dot(sub(p, pl.at), pl.u), dot(sub(p, pl.at), pl.v)];
@@ -24,6 +27,7 @@ const area2 = (p: V2[]): number => p.reduce((s, a, i) => { const b = p[(i + 1) %
 export function offsetSource(scene: Scene, parts: Part[]): OffsetSource | null {
   const get = lookup(scene);
   const first = parts[0];
+  if (parts.length && parts.every((p) => p.origin === "body")) return bodyOutline(scene, parts); // the edges of a face of the body, or a face (`in_199`)
   if (!first || parts.length !== 1 || first.origin !== "drawn") return null;
   const face = first.kind === "face" ? first : null;
   const circle = first.kind === "circle" ? first : face?.disk ? get(face.disk) : null;
@@ -61,6 +65,7 @@ export function offsetSource(scene: Scene, parts: Part[]): OffsetSource | null {
 export function offsetCommand(scene: Scene, src: OffsetSource, v: number): Command | null {
   const pl = lookup(scene)(src.plane);
   if (!pl || pl.kind !== "plane" || Math.abs(v) < 1e-9) return null;
+  if (src.kind === "outline") return outlineCommand(scene, src, v);
   if (src.kind === "circle") {
     const r = src.radius + v;
     if (!(r > 1e-6)) return null;

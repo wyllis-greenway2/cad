@@ -190,6 +190,8 @@ function measureOf(scene: Scene, selection: readonly Ref[]): Annotation | null {
   // a number that only references have (a line of the body, two body corners) is shown as a measurement too, but cannot be locked
   const a = actionsFor(scene, selection).find((x) => x.dimensional && (x.enabled || x.why === REFERENCES_ONLY));
   if (!a || !a.unit) return null;
+  // the distance between a straight edge and a curved one is no one number (the chord of an arc is not where it is): nothing is measured, no line is drawn
+  if (a.id === "distance" && selection.some((r) => { const p = scene.parts[r]; return p?.kind === "line" && (p.mid || p.circle || p.center); })) return null;
   // the length of a block's edge can be set too: the face at its end is pushed or pulled (`lengths.ts`)
   const bodyLine = a.id === "length" && selection.length === 1 && !a.enabled && lengthEditable(scene, selection[0]!);
   const v = a.measure();
