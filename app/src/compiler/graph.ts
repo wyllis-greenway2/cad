@@ -79,7 +79,7 @@ export function buildGraph(scene: Scene): GraphResult {
         const p = st.params;
         if (p.cax !== undefined) {
           // a round face: its radius changes by the distance (the kernel knows whether it is a post or a hole)
-          ops.push({ id: xid, type: "cylRadius", target: prev, ref: { axis: Number(p.cax), center: [Number(p.ccx), Number(p.ccy), Number(p.ccz)], radius: Number(p.cr), lo: Number(p.clo), hi: Number(p.chi) }, delta: Number(p.depth ?? 0) });
+          ops.push({ id: xid, type: "cylRadius", target: prev, ref: { axis: Number(p.cax), center: [Number(p.ccx), Number(p.ccy), Number(p.ccz)], radius: Number(p.cr), lo: Number(p.clo), hi: Number(p.chi), ...(p.cconvex !== undefined ? { convex: Number(p.cconvex) === 1 } : {}) }, delta: Number(p.depth ?? 0) });
           prev = xid;
           break;
         }
@@ -101,7 +101,8 @@ export function buildGraph(scene: Scene): GraphResult {
       case "edgeMod": {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const ranks = String(st.params.ranks ?? "").split(",");
-        const refs = st.parts.map((r, i) => { const e = decodeEdge(r); return e && ranks[i] && ranks[i] !== "-" ? { ...e, rank: ranks[i] } : e; });
+        const sigs = String(st.params.sigs ?? "").split("|");
+        const refs = st.parts.map((r, i) => { const e = decodeEdge(r); return e ? { ...e, ...(ranks[i] && ranks[i] !== "-" ? { rank: ranks[i] } : {}), ...(sigs[i] ? { sig: sigs[i] } : {}) } : e; });
         if (refs.some((r) => !r)) { errors[st.id] = "select lines of the body"; break; }
         const mode = String(st.params.mode ?? "fillet");
         const value = Number(st.params.value ?? 0);

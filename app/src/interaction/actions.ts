@@ -85,6 +85,13 @@ export function actionsFor(scene: Scene, selection: readonly Ref[]): Action[] {
     const used = (corner: Ref) => Object.values(scene.parts).some((q) => !picked.has(q.ref) && ((q.kind === "circle" && q.center === corner) || (q.kind === "line" && (q.a === corner || q.b === corner || q.center === corner)))); // another part still stands on this corner
     const targets = drawn.flatMap((r): Ref[] => {
       const p = get(r);
+      if (p?.kind === "face" && p.pieces) {
+        // a piece of a figure cut by lines: only the sides nothing else borders go (a side another piece shares, an arc of a circle, a crossing point stay): deleting one piece must not take the whole drawing
+        const mine = p.loop.filter((l) => { const x = get(l); return x?.kind === "line" && !x.derived && !Object.values(scene.parts).some((f) => f.kind === "face" && f.ref !== p.ref && f.loop.includes(l)); });
+        const gone = new Set<Ref>(mine);
+        const alone = (c: Ref) => get(c)?.movable && !Object.values(scene.parts).some((q) => !gone.has(q.ref) && ((q.kind === "circle" && q.center === c) || (q.kind === "line" && (q.a === c || q.b === c || q.center === c))));
+        return [...mine, ...mine.flatMap((l) => { const x = get(l); return x?.kind === "line" ? [x.a, x.b].filter(alone) : []; })];
+      }
       if (p?.kind === "face") return [...p.corners, ...p.loop.flatMap((l) => { const x = get(l); return x?.kind === "line" && x.center ? [x.center] : []; })]; // a face's corners (a disk's centre, the centres of its arcs): everything built on them goes too
       // a circle or a line goes with its points, unless something else stands on them: no point is left behind to snap to or suggest constraints to
       const own = p?.kind === "circle" ? [p.center] : p?.kind === "line" ? [p.a, p.b, ...(p.center ? [p.center] : [])] : [];

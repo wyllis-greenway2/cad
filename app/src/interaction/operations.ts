@@ -14,7 +14,7 @@ import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { lookup, nextId, figureParams } from "../operation/scene.ts";
-import { rimRanks } from "../operation/rims.ts";
+import { rimRanks, edgeSignatures } from "../operation/rims.ts";
 import type { Figure } from "../operation/scene.ts";
 import type { Part, Plane, PointerView } from "../operation/part.ts";
 import { normalOfPlane, pointOf, curveMid, circumcentre } from "../operation/part.ts";
@@ -38,6 +38,8 @@ export interface Op {
   axis: 0 | 1 | 2;
   /** fillet / chamfer: which of the round rims sharing a centre each edge is (`rimRanks`), so that the step finds it again when sizes change */
   ranks?: string;
+  /** fillet / chamfer: the two flat faces each straight edge lies between (`edgeSignatures`) */
+  sigs?: string;
   /** extrude: the step's params for the figures drawn inside the one extruded (holes in it) and for sibling figures extruded with it */
   figs?: Record<string, string>;
   /** extrude and push / pull: the figure's or face's middle and the direction along which the distance is measured */
@@ -118,6 +120,8 @@ function drawnFigure(scene: Scene, parts: Part[]): Ref[] {
 export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): StartResult {
   const get = lookup(scene);
   const parts = selection.map((r) => get(r)).filter((p): p is Part => !!p);
+  // a piece of a figure that lines cut up shares its sides with the other pieces: it can be extruded (or offset nowhere), but moved, turned, scaled or repeated only by selecting the lines and points themselves
+  if (["move", "rotate", "scale", "linear", "circular", "copy", "offset"].includes(kind) && parts.some((p) => p.kind === "face" && p.pieces)) return { ok: false, why: "this is one piece of a shape cut by lines, and it shares its sides with the other pieces: select the lines and points to move, turn, scale or repeat them (or extrude the piece)" };
   const base: Omit<Op, "parts"> = { kind, typed: "", value: null, axis: kind === "rotate" ? 2 : 0, origin: null, normal: null, pivot: null, target: "body", plane: null, auto: false, made: false, rot: ["", "", ""], pat: [] };
   if (kind === "offset") {
     const off = offsetSource(scene, parts);
@@ -227,7 +231,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
       }
       return [{ mid: add(pa.at, scale(sub(pb.at, pa.at), 0.25)), dir: edgeDirection(scene, pa.at, pb.at) }];
     });
-    return { ok: true, op: { ...base, parts: lines.map((p) => p.ref), edges, ranks: rimRanks(scene, lines.map((p) => p.ref)) } }; // no size yet: drag the double arrow, or type one
+    return { ok: true, op: { ...base, parts: lines.map((p) => p.ref), edges, ranks: rimRanks(scene, lines.map((p) => p.ref)), sigs: edgeSignatures(scene, lines.map((p) => p.ref)) } }; // no size yet: drag the double arrow, or type one
   }
   if (kind === "copy") {
     // a copy is a repeat of two (the thing and one more beside it): the same arrows and numbers, to place the copy
@@ -399,7 +403,7 @@ export function opCommand(scene: Scene, op: Op): Command | null {
   if (op.kind === "pushpull" && op.edit && !op.noEdit) return v === 0 ? null : editCommand(scene, op.edit, v);
   if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
-  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(op.ranks ? { ranks: op.ranks } : {}) } } };
+  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
   if (op.kind === "scale" && op.target === "shape") return v <= 0 ? null : scaleShapeCommand(scene, op, v);
   if (op.kind === "scale") return v <= 0 ? null : { type: "addStep", step: { id, type: "scale", parts: op.parts, params: { axis: 0, value: v } } };
   if (op.target === "plane") {

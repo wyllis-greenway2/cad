@@ -162,14 +162,21 @@ function findCylinder(shape, ref) {
     if ([0, 1, 2].some((i) => i !== ref.axis && Math.abs(l[i] - ref.center[i]) > tol)) continue;
     const [lo, hi] = f.boundingBox.bounds;
     const exactly = Math.abs(cyl.Radius() - ref.radius) <= tol && Math.abs(lo[ref.axis] - ref.lo) <= tol && Math.abs(hi[ref.axis] - ref.hi) <= tol;
-    found.push({ f, cyl, l, lo: lo[ref.axis], hi: hi[ref.axis], exactly, off: Math.abs(cyl.Radius() - ref.radius) });
+    const pt = f.pointOnSurface(0.25, 0.5);
+    const nn = f.normalAt(pt);
+    const rad = [pt.x - (ref.axis === 0 ? pt.x : l[0]), pt.y - (ref.axis === 1 ? pt.y : l[1]), pt.z - (ref.axis === 2 ? pt.z : l[2])];
+    found.push({ f, cyl, l, lo: lo[ref.axis], hi: hi[ref.axis], exactly, off: Math.abs(cyl.Radius() - ref.radius), convex: nn.x * rad[0] + nn.y * rad[1] + nn.z * rad[2] > 0 });
   }
+  // a post stays a post and a hole a hole: a wall that grew past its neighbour's size is not taken for the neighbour (a ring's outer wall for its bore)
+  if (ref.convex !== undefined && found.some((c) => c.convex === ref.convex)) for (let i = found.length - 1; i >= 0; i--) if (found[i].convex !== ref.convex) found.splice(i, 1);
   // the one the step means; else a wall that is made of several faces one above another (a pull of the top of a post adds a new face of the same radius): all of them that lie within the step's
   // range, if they cover it; else the hole or post on the same axis whose size is not what the step remembers (an earlier step changed it), the nearest in size
   const whole = found.find((c) => c.exactly);
   const stacked = whole ? [] : found.filter((c) => Math.abs(c.cyl.Radius() - ref.radius) <= tol && c.lo >= ref.lo - tol && c.hi <= ref.hi + tol).sort((x, y) => x.lo - y.lo);
   const covers = stacked.length > 1 && Math.abs(stacked[0].lo - ref.lo) <= tol && Math.abs(stacked.at(-1).hi - ref.hi) <= tol && stacked.every((c, k) => k === 0 || Math.abs(c.lo - stacked[k - 1].hi) <= tol);
-  const best = whole ?? (covers ? stacked[0] : found.sort((x, y) => x.off - y.off)[0]);
+  const byNearness = found.sort((x, y) => x.off - y.off);
+  if (!whole && !covers && byNearness.length > 1 && byNearness[1].off < byNearness[0].off * 1.5) throw new Error("round face not found (two walls are about as near to where it was: the model changed since this step was made)"); // (better no answer than the wrong wall)
+  const best = whole ?? (covers ? stacked[0] : byNearness[0]);
   if (covers) best.lo = stacked[0].lo, best.hi = stacked.at(-1).hi;
   if (!best) throw new Error("round face not found (the model changed since this step was made)");
   const pt = best.f.pointOnSurface(0.25, 0.5);
@@ -188,6 +195,39 @@ const edgeMatches = (e, ref) => {
   const d = (p, q) => Math.hypot(p.x - q[0], p.y - q[1], p.z - q[2]);
   return (d(a, ref.a) < 1e-3 && d(b, ref.b) < 1e-3) || (d(a, ref.b) < 1e-3 && d(b, ref.a) < 1e-3);
 };
+
+/** The signature of each edge of a body (`rims.ts` `edgeSignatures`): the outward normals of the two flat faces it lies between, sorted. */
+function signaturesOf(shape) {
+  const by = new Map();
+  for (const f of shape.faces) {
+    if (f.geomType !== "PLANE") continue;
+    const n = f.normalAt();
+    const l = Math.hypot(n.x, n.y, n.z) || 1;
+    const key = [n.x / l, n.y / l, n.z / l].map((v) => (Math.round(v * 1e3) / 1e3 || 0).toString()).join(":");
+    for (const e of f.edges) by.set(e.hashCode, [...(by.get(e.hashCode) ?? []), key]);
+  }
+  return new Map([...by].map(([h, ns]) => [h, ns.length === 2 ? ns.sort().join("/") : ""]));
+}
+
+/** A straight edge that a step meant, told by the two flat faces it lies between (and its direction): the one such edge of the body now, or, of several, the one nearest to where it was if clearly so. Null if that cannot be told. */
+function edgeBySignature(shape, edges, ref) {
+  const sigs = signaturesOf(shape);
+  const dir = [ref.b[0] - ref.a[0], ref.b[1] - ref.a[1], ref.b[2] - ref.a[2]];
+  const dl = Math.hypot(...dir);
+  if (dl < 1e-9) return null;
+  const same = edges.filter((e) => {
+    if (sigs.get(e.hashCode) !== ref.sig) return false;
+    const [a, z] = [e.startPoint, e.endPoint];
+    const d = [z.x - a.x, z.y - a.y, z.z - a.z];
+    const l = Math.hypot(...d);
+    return l > 1e-9 && Math.abs((d[0] * dir[0] + d[1] * dir[1] + d[2] * dir[2]) / (l * dl)) > 0.999;
+  });
+  if (same.length === 1) return same[0];
+  if (same.length < 2) return null;
+  const score = (e) => { const m = e.pointAt(0.5); return Math.hypot(m.x - ref.mid[0], m.y - ref.mid[1], m.z - ref.mid[2]); };
+  same.sort((x, y) => score(x) - score(y));
+  return score(same[1]) >= score(same[0]) * 1.5 ? same[0] : null;
+}
 
 /** A round edge: its centre, axis and radius. */
 function circleOfEdge(e) {
@@ -247,6 +287,8 @@ function resolveEdges(t, refs) {
     const d = (p, q) => Math.hypot(p.x - q[0], p.y - q[1], p.z - q[2]);
     const byRank = r.rank ? edgeByRank(edges, r) : null;
     if (byRank) { out.add(byRank.hashCode); continue; }
+    const bySig = r.sig ? edgeBySignature(t, edges, r) : null;
+    if (bySig) { out.add(bySig.hashCode); continue; }
     const scored = edges.map((e) => {
       const [a, b, m] = [e.startPoint, e.endPoint, e.pointAt(0.5)];
       const ends = Math.min(d(a, r.a) + d(b, r.b), d(a, r.b) + d(b, r.a));

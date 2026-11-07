@@ -978,3 +978,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_187 — 2026-11-07 — question
 > Do any of these findings so far indicate things we might find broken elsewhere if we looked?
+
+## in_188 — 2026-11-07 — approval
+> yes do the audit

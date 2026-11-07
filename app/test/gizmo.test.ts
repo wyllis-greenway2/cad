@@ -127,11 +127,11 @@ test("Fillet / chamfer is one operation with a double arrow on the edge: drag ou
   const centre = scale(add(h.points[0]!, h.points[1]!), 0.5);
   // out by 2 mm: a fillet of 2
   const out = drag(st, centre, add(centre, scale(d, 2)));
-  assert.deepEqual(scene(out.session).steps.at(-1)!.params, { mode: "fillet", value: 2 });
+  assert.deepEqual({ mode: scene(out.session).steps.at(-1)!.params.mode, value: scene(out.session).steps.at(-1)!.params.value }, { mode: "fillet", value: 2 }); // (the step also remembers which edge: ranks, sigs)
   near(out.session.outcome.kernel!.volume!, 16000 - (1 - Math.PI / 4) * 4 * 40, 0.1);
   // in by 2 mm: a chamfer of 2
   const inn = drag(st, centre, add(centre, scale(d, -2)));
-  assert.deepEqual(scene(inn.session).steps.at(-1)!.params, { mode: "chamfer", value: 2 });
+  assert.deepEqual({ mode: scene(inn.session).steps.at(-1)!.params.mode, value: scene(inn.session).steps.at(-1)!.params.value }, { mode: "chamfer", value: 2 }); // (the step also remembers which edge: ranks, sigs)
   near(inn.session.outcome.kernel!.volume!, 16000 - 0.5 * 4 * 40, 0.1);
   // while dragging the chip says which
   const mid = reduce(st, { type: "orbit", dx: 5, dy: 0, x: px(st, centre)[0] + 5, y: px(st, centre)[1] }, env);
@@ -281,7 +281,7 @@ test("a line of the body shows the fillet / chamfer double arrow by itself; seve
   const d = sub(h.points[1]!, h.points[0]!);
   const unit = scale(d, 1 / Math.hypot(...d));
   const done = drag(st, centre, add(centre, scale(unit, 2)));
-  assert.deepEqual(scene(done.session).steps.at(-1)!.params, { mode: "fillet", value: 2 });
+  assert.deepEqual({ mode: scene(done.session).steps.at(-1)!.params.mode, value: scene(done.session).steps.at(-1)!.params.value }, { mode: "fillet", value: 2 }); // (the step also remembers which edge: ranks, sigs)
   assert.equal(scene(done.session).steps.at(-1)!.parts.length, 4, "all four edges at once");
   near(done.session.outcome.kernel!.volume!, 16000 - 4 * (1 - Math.PI / 4) * 4 * 20, 0.2);
 });
@@ -454,7 +454,7 @@ test("the fillet / chamfer arrows stay after a drag, and the size is the total, 
   assert.equal(frame(st).entry!.fields[0]!.value, "1");
   st = drag(st, centre(h), add(centre(h), scale(dirOf(h), 1))); // another 1: 2 in all
   assert.equal(frame(st).entry!.fields[0]!.value, "2");
-  assert.deepEqual(scene(st.session).steps.at(-1)!.params, { mode: "fillet", value: 2 });
+  assert.deepEqual({ mode: scene(st.session).steps.at(-1)!.params.mode, value: scene(st.session).steps.at(-1)!.params.value }, { mode: "fillet", value: 2 }); // (the step also remembers which edge: ranks, sigs)
   assert.equal(scene(st.session).steps.length, 2, "one step however many drags");
   st = click(st, 700, 560);
   assert.equal(st.op, null, "a click in blank space ends the operation");

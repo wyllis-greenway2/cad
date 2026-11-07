@@ -15,7 +15,7 @@ export function drawChain(s: Scene, plane: Ref, points: Vec3[], closed = false, 
   // with `reuse`, a point where a drawn corner already is on this plane is that corner (lines that meet share it, so a loop of them is a shape)
   const have = (at: Vec3): Ref | null => {
     if (!opts.reuse) return null;
-    const c = Object.values(s.parts).find((p) => p.kind === "corner" && p.origin === "drawn" && p.plane === plane && Math.hypot(p.at[0] - at[0], p.at[1] - at[1], p.at[2] - at[2]) < 1e-6);
+    const c = Object.values(s.parts).find((p) => p.kind === "corner" && p.origin === "drawn" && !p.derived && p.plane === plane && Math.hypot(p.at[0] - at[0], p.at[1] - at[1], p.at[2] - at[2]) < 1e-6);
     return c?.ref ?? null;
   };
   const existing = points.map(have);
