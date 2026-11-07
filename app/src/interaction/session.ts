@@ -73,6 +73,13 @@ function relationsOf(c: Command): string[] {
   if (c.type === "batch") return c.commands.flatMap(relationsOf);
   return [];
 }
+/** The parts a command changes or ties together. */
+function partsOf(c: Command): string[] {
+  if (c.type === "movePart" || c.type === "setRadius") return [c.ref];
+  if (c.type === "addRelation") return [...c.relation.parts];
+  if (c.type === "batch") return c.commands.flatMap(partsOf);
+  return [];
+}
 const conflictsOf = (o: CompileOutcome): { planes: string[]; ids: string[] } => ({
   planes: o.solve.planes.filter((p) => p.status === "conflict").map((p) => p.plane),
   ids: o.solve.planes.flatMap((p) => p.conflicts),
@@ -95,7 +102,14 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   const next = withHistory(s, r.value);
   // a step the kernel cannot make is refused, not kept to break the steps after it
   const failed = next.outcome.kernel?.stale ? undefined : steps.find((id) => next.outcome.errors[id]);
-  if (failed) return { ...s, message: next.outcome.errors[failed] ?? "that could not be made" };
+  if (failed) {
+    // the steps could not take it: the constraints that hold the parts it changes are shown, as for any other change that is refused (`in_210`)
+    const changed = new Set(partsOf(c));
+    for (const q of [...changed]) { const l = s.history.scene.parts[q]; if (l?.kind === "line") [l.a, l.b, ...(l.center ? [l.center] : [])].forEach((e) => changed.add(e)); } // (a line is held by what holds its ends)
+    const own = relationsOf(c);
+    const culprits = s.history.scene.relations.filter((rel) => !own.includes(rel.id) && rel.locked !== false && rel.kind !== "arcEnds" && rel.parts.some((q) => changed.has(q))).map((rel) => rel.id);
+    return { ...s, message: opts.watchAll ? `that would break a step made from it (${next.outcome.errors[failed] ?? "it could not be made"})` : next.outcome.errors[failed] ?? "that could not be made", conflict: culprits.length ? { culprits, victims: [] } : s.conflict };
+  }
   const before = conflictsOf(s.outcome);
   const after = conflictsOf(next.outcome);
   const fresh = after.planes.filter((p) => !before.planes.includes(p));

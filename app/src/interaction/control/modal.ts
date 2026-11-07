@@ -1,7 +1,7 @@
 // Tools and operations that take typing: starting them, typed keys, finishing, cancelling; and the edits that do not depend on the pointer (delete, undo, relations).
 import type { Intent } from "../../shared/input.ts";
 import { scene as sceneOf, selection as selectionOf, run, undoLast, redoLast, clearSelection } from "../session.ts";
-import { actionsFor } from "../actions.ts";
+import { actionsFor, measureAction } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
 import { armTool, typeKey, finish, lineNext } from "../tools.ts";
 import type { OpKind } from "../operations.ts";
@@ -10,6 +10,7 @@ import { runOp } from "../runop.ts";
 import { lookup, nextId } from "../../operation/scene.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { planeOf } from "../objects.ts";
+import { sketchOfEdge } from "../../operation/edgesource.ts";
 import { sideOf } from "../camera.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
@@ -24,8 +25,12 @@ function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = 
   // sketching on a selected face or plane: the view turns straight to it, from the side you are on (`in_149`)
   const get = lookup(sceneOf(s.session));
   // exactly one plane selected: that one; none, or several: the plane of what the right click was on (`in_169`)
-  const selected = [...new Map(selectionOf(s.session).flatMap((r) => { const p = planeOf(get, r); return p ? [[p.ref, p] as const] : []; })).values()];
+  // an edge of the body that lies where a sketch part was: sketching goes on in that sketch's own plane, so what is drawn can be tied to it by constraints (`in_210`)
+  const sc = sceneOf(s.session);
+  const selected = [...new Map(selectionOf(s.session).flatMap((r) => { const p = planeOf(get, sketchOfEdge(sc, r)?.ref ?? r); return p ? [[p.ref, p] as const] : []; })).values()];
   const pl = selected.length === 1 ? selected[0]! : over ? planeOf(get, over) : null;
+  const onSketch = selected.length === 1 && selectionOf(s.session).some((r) => sketchOfEdge(sc, r));
+  if (pl && onSketch) return animateTo({ ...armed, tool: { ...armTool(kind), plane: pl.ref } }, planeView(s.cam, pl, false), now);
   return pl && sideOf(s.cam, normalOfPlane(pl)) === 0 ? animateTo(armed, planeView(s.cam, pl, false), now) : armed; // (not when already looking straight at it)
 }
 function beginOp(s: AppState, kind: OpKind): AppState {
@@ -151,8 +156,8 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
   if (i.act === "focus") return { ...s, focus: i.id === s.focus ? null : i.id }; // a second click closes it again
   if (i.act === "measure") {
     const sel = selectionOf(s.session);
-    const a = actionsFor(sc, sel).find((x) => x.dimensional && x.enabled);
-    if (a) return i.value !== undefined && i.value > 0 ? withSession(s, run(s.session, a.run(i.value))) : s;
+    const a = measureAction(actionsFor(sc, sel), (x) => x.enabled);
+    if (a) return i.value !== undefined && i.value > 0 ? withSession(s, run(s.session, a.run(i.value), { watchAll: true })) : s; // (a sketch the body was made from: a size the steps cannot take is refused)
     // a line of the body: its length is made by pushing or pulling the face at its end
     const cmd = sel.length === 1 && i.value !== undefined ? setLineLength(sc, sel[0]!, i.value) : null;
     return cmd ? withSession({ ...s, op: null }, run(s.session, cmd)) : s;
@@ -160,7 +165,7 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
   const rel = i.id ? sc.relations.find((r) => r.id === i.id) : undefined;
   if (!rel) return s;
   if (i.act === "remove") return { ...withSession(s, run(s.session, { type: "removeRelation", id: rel.id })), focus: null };
-  if (i.act === "set") return rel.value !== undefined && i.value !== undefined && i.value > 0 ? withSession(s, run(s.session, { type: "setRelationValue", id: rel.id, value: i.value, locked: true })) : s;
+  if (i.act === "set") return rel.value !== undefined && i.value !== undefined && i.value > 0 ? withSession(s, run(s.session, { type: "setRelationValue", id: rel.id, value: i.value, locked: true }, { watchAll: true })) : s;
   if (rel.value === undefined) return s;
   const action = actionsFor(sc, rel.parts).find((x) => x.id === rel.kind && x.dimensional);
   const value = rel.locked === false ? (action?.measure() ?? rel.value) : rel.value; // locking takes the value it measures now

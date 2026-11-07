@@ -200,7 +200,7 @@ export function editCommand(scene: Scene, edit: FaceEdit, v: number): Command | 
 }
 
 /** A new radius for an arc whose circle is gone: both ends slide along the lines they are on to the new radius about the same middle (the arc keeps its lines, `in_209`). Null if a line does not reach that radius. */
-function arcCommand(scene: Scene, arc: Ref, radius: number): Command | null {
+export function arcCommand(scene: Scene, arc: Ref, radius: number): Command | null {
   const l = scene.parts[arc];
   if (l?.kind !== "line" || !l.center) return null;
   const ctr = scene.parts[l.center];

@@ -13,7 +13,7 @@ import { buildMap } from "../operation/ownership.ts";
 import { sketchOfEdge } from "../operation/edgesource.ts";
 import type { Lookup } from "../operation/part.ts";
 import { pointOf, segmentOf, circleOf, curveMid } from "../operation/part.ts";
-import { actionsFor } from "./actions.ts";
+import { actionsFor, measureAction } from "./actions.ts";
 import { lengthEditable } from "./lengths.ts";
 import { surfaceTriangles } from "./surfaces.ts";
 import { ROWS, REFERENCES_ONLY } from "./rows.ts";
@@ -167,7 +167,8 @@ export function annotationsFor(scene: Scene, selection0: readonly Ref[], focus: 
   // an edge of the body that lies where a sketch part was says what that part says (its radius, its constraints), and its numbers are shown on the edge (`in_209`)
   const src = selection0.length === 1 ? sketchOfEdge(scene, selection0[0]!) : null;
   const selection = src ? [src.ref] : selection0;
-  const out0 = [...annotationsOf0(scene, selection, focus), ...(src ? arcRadius(scene, src.ref) : [])];
+  const base = annotationsOf0(scene, selection, focus);
+  const out0 = [...base, ...(src && !base.some((a) => a.kind === "radius") ? arcRadius(scene, src.ref) : [])];
   return src ? out0.map((a) => ({ ...a, at: add(a.at, src.shift), lines: a.lines.map((ln) => ln.map((q) => add(q, src.shift))) })) : out0;
 }
 /** The radius of an arc of a sketch (a whole circle already has its radius and diameter among the actions): the number is shown, it cannot be typed over here. */
@@ -205,7 +206,7 @@ export function annotationsOf(scene: Scene, ids: readonly string[]): Annotation[
 function measureOf(scene: Scene, selection: readonly Ref[]): Annotation | null {
   if (selection.length < 1 || selection.length > 2 || !selection.every((r) => isPart(scene, r))) return null;
   // a number that only references have (a line of the body, two body corners) is shown as a measurement too, but cannot be locked
-  const a = actionsFor(scene, selection).find((x) => x.dimensional && (x.enabled || x.why === REFERENCES_ONLY));
+  const a = measureAction(actionsFor(scene, selection), (x) => x.enabled || x.why === REFERENCES_ONLY);
   if (!a || !a.unit) return null;
   // the distance between a straight edge and a curved one is no one number (the chord of an arc is not where it is): nothing is measured, no line is drawn
   if (a.id === "distance" && selection.some((r) => { const p = scene.parts[r]; return p?.kind === "line" && (p.mid || p.circle || p.center); })) return null;

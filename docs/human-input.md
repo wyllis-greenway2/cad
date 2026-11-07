@@ -1070,3 +1070,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_209 — 2026-11-07 — approval
 > yes go ahead and build both
 (approves building: arrows on the round walls of a turned body (cylinder axis as a vector from the kernel), and option (a) of `q_body_edges_as_sketch`: body edges show the hidden sketch part's info)
+
+## in_210 — 2026-11-07 — approval
+> yes, build the sketch-on-body option too
+(approves option (b) of `dec_body_edges_show_sketch`: sketching on the body as a regular sketch)

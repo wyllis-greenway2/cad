@@ -7,6 +7,10 @@ import { openSession, scene } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { faceEdit } from "../src/interaction/faceedit.ts";
 import { sketchOfEdge } from "../src/operation/edgesource.ts";
+import { actionsFor } from "../src/interaction/actions.ts";
+import { run } from "../src/interaction/session.ts";
+import { createState, reduce } from "../src/interaction/controller.ts";
+import { homeCamera } from "../src/interaction/camera.ts";
 import { annotationsFor } from "../src/interaction/annotations.ts";
 import { faceEdges } from "../src/interaction/offsetbody.ts";
 import { startOp, valueOf } from "../src/interaction/operations.ts";
@@ -70,4 +74,34 @@ test("an edge of the body that lies where a sketch part was shows its radius and
   assert.ok(notes.some((a) => a.relationId === "r_016" || a.relationId === "r_017"), "the points on lines it carries");
   const straight = (Object.values(sc.parts) as Part[]).filter((p) => p.kind === "line" && p.origin === "body" && !p.mid && !p.circle && sketchOfEdge(sc, p.ref));
   assert.ok(straight.length >= 2, `${straight.length} straight edges with a sketch behind them`);
+});
+
+test("the sketch behind a body edge stays a regular sketch (`in_210`): its radius can be set through the edge, a size the steps cannot take is refused and the holding constraints flash, and a sketch tool starts on its plane", () => {
+  const s = open();
+  const sc = scene(s);
+  const edge = (src: string) => (Object.values(sc.parts) as Part[]).find((p) => p.kind === "line" && p.origin === "body" && p.mid && sketchOfEdge(sc, p.ref)?.ref === src)!;
+  const outer = edge("d/e_015.s0");
+  const radius = actionsFor(sc, [outer.ref]).find((a) => a.id === "radius")!;
+  assert.ok(radius.enabled, "the radius of the sketch's arc can be set from the body's edge");
+  const bigger = run(s, radius.run(radius.measure()! + 1), { watchAll: true });
+  assert.ok(!bigger.message, String(bigger.message));
+  assert.ok((bigger.outcome.kernel?.volume ?? 0) > (s.outcome.kernel?.volume ?? 0), "the body grew");
+  const smaller = run(s, radius.run(radius.measure()! - 1), { watchAll: true });
+  assert.ok(smaller.message, "the lines tangent to the arc cannot follow a smaller radius: refused");
+  assert.deepEqual(smaller.conflict?.culprits.sort(), ["r_016", "r_017"], "the constraints that hold the arc flash");
+  assert.equal(scene(smaller).parts["d/e_015.s0"]?.kind, "line");
+  // a sketch tool, with that edge selected, starts on the sketch's own plane
+  const st = { ...createState({ ...s, click: { ...s.click, selection: [outer.ref] as never } }), cam: homeCamera() };
+  const t = reduce(st, { type: "begin", name: "line" }, { w: 800, h: 600, now: 0 });
+  const plane = (scene(s).parts["d/e_015.s0"] as { plane: string }).plane;
+  assert.equal(t.tool?.plane, plane);
+});
+
+test("an arc edge of the body offers its radius as the number to type over (not the chord's length)", () => {
+  const s = open();
+  const sc = scene(s);
+  const e = (Object.values(sc.parts) as Part[]).find((p) => p.kind === "line" && p.origin === "body" && p.mid && sketchOfEdge(sc, p.ref)?.ref === "d/e_015.s0")!;
+  const m = annotationsFor(sc, [e.ref], null).find((a) => a.id === "measure");
+  assert.equal(m?.kind, "radius");
+  assert.equal(m?.editable, true);
 });

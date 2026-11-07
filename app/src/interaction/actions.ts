@@ -2,6 +2,8 @@
 // whether it is enabled (or why not), a measure when it has a number, and `run -> command`. The menu, the number chip, the keyboard and the touch
 // long-press all ask this one function. Generalises the prototype's relations table (`relations.mjs`) from sketch parts to any parts.
 // Geometry is read in 3D from the scene, so no plane or sketch is involved in measuring.
+import { arcCommand } from "./faceedit.ts";
+import { sketchOfEdge } from "../operation/edgesource.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene, Relation } from "../operation/scene.ts";
@@ -31,7 +33,9 @@ export interface Action {
 }
 
 /** Every relation and operation that applies to the selection, relations first, in the order of the table. */
-export function actionsFor(scene: Scene, selection: readonly Ref[]): Action[] {
+export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
+  // an edge of the body that lies where a sketch part was is that sketch part: the sketch belongs to the body but is still a regular sketch (`in_210`); a change it cannot take is refused and flashes
+  const selection = [...new Set(selection0.map((r) => sketchOfEdge(scene, r)?.ref ?? r))]; // (the two ends of one extrusion are one sketch part)
   const get = lookup(scene);
   const sel = ordered(selection, get).filter((r) => get(r));
   if (!sel.length) return [];
@@ -66,7 +70,9 @@ export function actionsFor(scene: Scene, selection: readonly Ref[]): Action[] {
           ...(dimensional ? { value: v, locked: true } : {}),
           ...(row.params ? { params: row.params(ctx, sel) } : {}),
         };
-        return { type: "addRelation", relation: rel };
+        // the radius of an arc of a sketch that was cut from a circle: its ends (and the lines' ends that sit there) go to the new radius first, or the extrusion would lose its sides (`in_210`)
+        const moves = row.id === "radius" && v !== undefined && v > 0 && scene.parts[sel[0]!]?.kind === "line" ? arcCommand(scene, sel[0]!, v) : null;
+        return moves ? { type: "batch", commands: [moves, { type: "addRelation", relation: rel }] } : { type: "addRelation", relation: rel };
       },
     });
   }
@@ -121,3 +127,9 @@ export function actionsFor(scene: Scene, selection: readonly Ref[]): Action[] {
 }
 
 export const dimensionalFor = (scene: Scene, selection: readonly Ref[]): Action | null => actionsFor(scene, selection).find((a) => a.dimensional) ?? null;
+
+/** The number a selection offers to be typed over: the first dimension that can be set, but for an arc its radius before the length of its chord (an arc of a sketch, or an edge of the body that lies on one: `in_210`). */
+export function measureAction(actions: readonly Action[], pick: (a: Action) => boolean): Action | undefined {
+  const r = actions.find((a) => a.id === "radius" && a.dimensional && pick(a));
+  return r ?? actions.find((a) => a.dimensional && pick(a));
+}
