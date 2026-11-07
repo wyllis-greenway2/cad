@@ -70,7 +70,7 @@ export function adjacentOk(scene: Scene, e: SharpEdge, mid: Vec3 | null): boolea
 }
 
 /** How far a point is from the sharp edge. */
-export function distanceTo(s: Sharp, p: Vec3): number {
+function distanceTo(s: Sharp, p: Vec3): number {
   if (s.kind === "line") { const d = sub(p, s.point); return Math.hypot(...sub(d, scale(s.dir, dot(d, s.dir)))); }
   const d = sub(p, s.center);
   const z = dot(d, s.axis);
