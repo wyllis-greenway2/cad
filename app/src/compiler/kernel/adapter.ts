@@ -18,7 +18,7 @@ export interface KernelResult {
   vertices: Vec[] | null;
   totalMs: number;
   /** where the time went (ms): working the operations out, meshing the body, classifying its faces, its edges (`in_216`) */
-  perf?: { ops: number; mesh: number; faces: number; edges: number };
+  perf?: { ops: number; box?: number; mesh: number; faces: number; edges: number };
   /** the kernel works on its own thread and has not answered this question yet: this is the last answer it gave, for an older model */
   stale?: boolean;
 }

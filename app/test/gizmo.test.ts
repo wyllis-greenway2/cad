@@ -1894,3 +1894,70 @@ test("pulling a side of a sketch that has an arc is drawn without the kernel: th
   assert.ok(any >= 1, "the side could be drawn without the kernel");
   assert.ok(arcsSeen >= 1, "and the arc's wall was mapped");
 });
+
+test("pulling the top of an extrusion that has a fillet on a vertical edge is drawn without the kernel too: the rounding is a prism, it stretches with the end (`in_227`)", () => {
+  let st = box();
+  const at = (r: string) => (scene(st.session).parts[r] as unknown as { at: Vec3 }).at;
+  const vertical = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "body" && at(p.a)[2] !== at(p.b)[2] && at(p.a)[0] === 40 && at(p.a)[1] === 20)!;
+  st = reduce(select(st, [vertical.ref]), { type: "begin", name: "edge" }, env);
+  st = typeNumber(st, "3");
+  const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20 && p.u[2] === 0 && p.v[2] === 0)!;
+  st = reduce(select(st, [top.ref]), { type: "begin", name: "pushpull" }, env);
+  assert.equal(st.op!.edit?.kind, "depth");
+  st = { ...st, op: { ...st.op!, value: 5 } };
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok(f.faceShift?.by, "drawn although a fillet comes after the extrusion");
+  const done = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  const real = done.session.outcome.kernel!.mesh!;
+  // every vertex of the rounding, stretched with the end, is on the real surface
+  const rounded = Object.values(f.scene.parts).filter((p) => p.kind === "plane" && p.origin === "body" && p.rounded === "CYLINDRE");
+  assert.ok(rounded.length >= 1);
+  for (const r of rounded) {
+    const m = (r as unknown as { mesh: number[] }).mesh;
+    for (let i = 0; i + 2 < m.length; i += 3) {
+      const p: Vec3 = [m[i]!, m[i + 1]!, m[i + 2]!];
+      const q: Vec3 = p[2] > 19.99 ? [p[0], p[1], p[2] + 5] : p;
+      assert.ok(meshDistance(real, q) < 1e-2, `${JSON.stringify(q)} is on the real surface`);
+    }
+  }
+});
+
+test("a side next to an arc can be pulled: the arc's middle goes to the nearest point on the middle line of its new chord, so the arc changes size and span instead of the sketch pushing the corner back (`in_227`)", () => {
+  const P = [[0, 0, 0], [30, 0, 0], [30, 20, 0], [0, 20, 0]];
+  const parts: object[] = [];
+  P.forEach((at, i) => parts.push({ type: "addPart", part: { origin: "drawn", plane: "w/XY", movable: true, ref: `d/e_001.p${i}`, kind: "corner", at } }));
+  parts.push({ type: "addPart", part: { origin: "drawn", plane: "w/XY", movable: true, ref: "d/e_001.c", kind: "corner", at: [30, 10, 0] } });
+  P.forEach((_, i) => parts.push({ type: "addPart", part: { origin: "drawn", plane: "w/XY", movable: true, ref: `d/e_001.s${i}`, kind: "line", a: `d/e_001.p${i}`, b: `d/e_001.p${(i + 1) % 4}`, ...(i === 1 ? { center: "d/e_001.c", ccw: true } : {}) } }));
+  const proj = { format: "cad-project", version: 1, base: { version: 1, counter: 0, parts: [], relations: [], steps: [] }, commands: [{ type: "batch", commands: parts }, { type: "addRelation", relation: { id: "r_001", kind: "arcEnds", parts: ["d/e_001.s1", "d/e_001.c"] } }, { type: "addStep", step: { id: "s_002", type: "extrude", parts: [0, 1, 2, 3].map((i) => `d/e_001.s${i}`), params: { depth: 15 } } }], cursor: 3 };
+  const r = openSession(kernel, JSON.stringify(proj)) as { ok: true; value: ReturnType<typeof createSession> };
+  const sc = scene(r.value);
+  const sides = Object.values(sc.parts).filter((p) => p.kind === "plane" && p.origin === "body" && !p.rounded && faceEdit(sc, p.ref)?.kind === "side");
+  assert.equal(sides.length, 3);
+  let drawnArcs = 0;
+  for (const side of sides) {
+    let st = reduce(select({ ...createState(r.value), cam: homeCamera() }, [side.ref]), { type: "begin", name: "pushpull" }, env);
+    st = { ...st, op: { ...st.op!, value: 3 } };
+    const f = frameOf(st, { w: 800, h: 600 });
+    const done = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+    assert.equal(done.session.message, null, `pulling ${side.ref}: not refused`);
+    assert.equal(done.session.history.scene.steps.length, 1, "no prism added");
+    assert.ok(f.faceShift?.columns, "drawn without the kernel");
+    drawnArcs += f.faceShift!.columns!.arcWalls.length;
+    const real = done.session.outcome.kernel!.mesh!;
+    for (const w of f.faceShift!.columns!.arcWalls) {
+      const part = f.scene.parts[w.face] as unknown as { mesh: number[] };
+      const a = w.arc;
+      const TAU = 2 * Math.PI;
+      for (let i = 0; i + 2 < part.mesh.length; i += 3) {
+        const p: Vec3 = [part.mesh[i]!, part.mesh[i + 1]!, part.mesh[i + 2]!];
+        const d = sub(p, a.center); const h = dot(d, a.axis); const q = sub(d, scale(a.axis, h));
+        const [cx, cy] = [dot(q, a.u), dot(q, a.v)];
+        let fwd = (((a.dir * (Math.atan2(cy, cx) - a.th0)) % TAU) + TAU) % TAU; if (fwd > TAU - 1e-3) fwd = 0;
+        const th = a.th0n + a.dir * Math.min(1, fwd / a.span) * a.spanN;
+        const rho2 = Math.hypot(cx, cy) + a.dr;
+        assert.ok(meshDistance(real, add(add(a.centerN, scale(a.axis, h)), add(scale(a.u, rho2 * Math.cos(th)), scale(a.v, rho2 * Math.sin(th))))) < 2e-2, "a point of the arc wall is on the real surface");
+      }
+    }
+  }
+  assert.ok(drawnArcs >= 2, "the top and the bottom sides change the arc, and its wall was mapped");
+});

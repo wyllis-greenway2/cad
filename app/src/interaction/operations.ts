@@ -463,6 +463,27 @@ function motionsAfter(scene: Scene, index: number): Rigid | null {
   for (let i = index + 1; i < scene.steps.length; i++) { const st = scene.steps[i]!; if (st.type === "scale" || Number(st.params.follow) !== 1 || !motionOf(st)) return null; }
   return laterMotion(scene.steps, index);
 }
+/**
+ * For pulling an end of a prism along `n`: the steps after the edited one may also round edges that run the same way (a fillet or chamfer of a vertical edge of an extrusion): the rounding is a prism too, so it
+ * stretches with the end (`in_227`). True if every step after `index` is a move or turn, or such a rounding (its edges, from the names the step keeps, mapped through the motions after it, are parallel to `n`).
+ */
+function prismaticAfter(scene: Scene, index: number, n: Vec3): boolean {
+  for (let i = index + 1; i < scene.steps.length; i++) {
+    const st = scene.steps[i]!;
+    if (st.type !== "scale" && Number(st.params.follow) === 1 && motionOf(st)) continue;
+    if (st.type !== "edgeMod" || !st.parts.length) return false;
+    const later = laterMotion(scene.steps, i);
+    for (const r of st.parts) {
+      const pts = String(r).split("@")[1]?.split("~").map((t) => t.split(",").map(Number));
+      if (!pts || pts.length !== 3 || pts.some((q) => q.length !== 3 || q.some((x) => !Number.isFinite(x)))) return false;
+      const [a, b, m] = pts as unknown as [Vec3, Vec3, Vec3];
+      if (Math.hypot(...sub(m, scale(add(a, b), 0.5))) > 1e-3 * Math.max(1, Math.hypot(...sub(b, a)))) return false; // (a curved edge is not a vertical one)
+      const d = normalize(sub(applyPoint(later, b), applyPoint(later, a)));
+      if (Math.abs(Math.abs(dot(d, n)) - 1) > 1e-4) return false;
+    }
+  }
+  return true;
+}
 /** The index of the last step that is an extrusion with one of these lines or circles. */
 const extrudeIndexOf = (scene: Scene, uses: (r: Ref) => boolean): number => { for (let i = scene.steps.length - 1; i >= 0; i--) { const st = scene.steps[i]!; if (st.type === "extrude" && figureRefs(st).some(uses)) return i; } return -1; };
 
@@ -475,7 +496,7 @@ export function faceDrag(scene: Scene, op: Op): { face: Ref; by: Vec3; step: str
   const e = op.edit;
   if (e.kind !== "depth" && e.kind !== "stepDepth") return null;
   const at = scene.steps.findIndex((x) => x.id === e.step);
-  if (at < 0 || !motionsAfter(scene, at)) return null; // (only moves and turns come after it: the same edit of the same shape, moved)
+  if (at < 0 || !prismaticAfter(scene, at, normalize(op.normal))) return null; // (only moves and turns, or roundings of edges that run the same way, come after it: the same edit of the same shape)
   const v = valueOf(op);
   if (v === null || v === 0) return null;
   return { face: op.parts[0]!, by: scale(op.normal, v), step: e.step, depth: e.depth + v * (e.kind === "depth" ? e.along : 1) };

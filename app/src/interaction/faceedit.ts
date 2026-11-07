@@ -2,7 +2,7 @@
 // change the step that made the face, so the steps after it are worked out again and nothing new is made: the end of an extrusion changes the extrusion's depth; the wall of an extruded
 // circle (a post, or the wall of a hole) changes that circle's radius, so a chamfer on its rim goes with it. Where the step that made the face cannot be told, the old way (a prism) is used.
 import type { Ref } from "../shared/ref.ts";
-import { dot, sub, scale } from "../math/vec.ts";
+import { dot, sub, scale, cross, normalize } from "../math/vec.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { figureRefs } from "../operation/scene.ts";
@@ -187,6 +187,24 @@ export function editCommand(scene: Scene, edit: FaceEdit, v: number): Command | 
       }
       return [{ type: "movePart", ref, to: [c.at[0] + nf[0] * v, c.at[1] + nf[1] * v, c.at[2] + nf[2] * v] }];
     });
+    // an arc next to the moved side keeps its two ends the same distance from its middle (that is what an arc is): its middle goes to the nearest point on the middle line of its new chord, so the arc just
+    // changes size and span instead of the sketch pushing the corner back (`in_227`)
+    const to = new Map<Ref, Vec3>(moves.flatMap((m) => (m.type === "movePart" ? [[m.ref, m.to] as const] : [])));
+    const centres = new Map<Ref, Vec3>();
+    for (const l of Object.values(scene.parts)) {
+      if (l.kind !== "line" || l.origin !== "drawn" || !l.center || l.bulge || (!to.has(l.a) && !to.has(l.b)) || to.has(l.center) || centres.has(l.center)) continue;
+      const [ca, cb, cc, pl] = [scene.parts[l.a], scene.parts[l.b], scene.parts[l.center], l.plane ? scene.parts[l.plane] : undefined];
+      if (ca?.kind !== "corner" || cb?.kind !== "corner" || cc?.kind !== "corner" || pl?.kind !== "plane" || !cc.movable) continue;
+      const [a, b] = [to.get(l.a) ?? ca.at, to.get(l.b) ?? cb.at];
+      const chord = sub(b, a);
+      if (Math.hypot(...chord) < 1e-9) continue;
+      const bis = normalize(cross(normalOfPlane(pl), chord)); // (across the chord, in the sketch's plane)
+      const mid: Vec3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+      const t = dot(sub(cc.at, mid), bis);
+      const at: Vec3 = [mid[0] + bis[0] * t, mid[1] + bis[1] * t, mid[2] + bis[2] * t];
+      if (Math.hypot(...sub(at, cc.at)) > 1e-9) centres.set(l.center, at);
+    }
+    for (const [ref, at] of centres) moves.push({ type: "movePart", ref, to: at });
     return moves.length ? { type: "batch", commands: moves } : null;
   }
   if (edit.kind === "depth") {

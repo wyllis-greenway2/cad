@@ -1,7 +1,7 @@
 // The OCCT implementation of the kernel interface (see ../README.md): an operation graph in, a plain-data result out.
 // Nothing outside src/kernel/occt/ may import OCCT or replicad (inv_kernel_boundary).
 import { loadOC } from "./oc.mjs";
-import { compile, finalSolid, volume, bounds } from "./interpreter.mjs";
+import { compile, finalSolid, volume } from "./interpreter.mjs";
 
 export const KERNEL_NAME = "occt (replicad)";
 
@@ -19,6 +19,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
   const tCompile = performance.now();
   let tMesh = tCompile;
   let tFaces = tCompile;
+  let tBox = 0;
   const ops = graph.ops.map((o) => {
     const r = results.get(o.id);
     return { id: o.id, type: o.type, error: r.error ?? null, ms: r.ms };
@@ -32,14 +33,16 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
   let vertices = null;
   if (fin) {
     // the finer the part, the finer the mesh: the deflection allowed is a small part of the part's own size (a 2 mm post must not be a 20-sided prism: `in_165`), never coarser than `tess.tolerance`
-    const [lo, hi] = fin.shape.boundingBox.bounds;
+    const tBox0 = performance.now();
+    const [lo, hi] = fin.shape.boundingBox.bounds; // (the exact box takes about 20 ms: asked for once and kept, `in_227`)
+    tBox = performance.now() - tBox0;
     const diag = Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
     // a draft (while a size is dragged, `in_216`): a rough mesh, quickly; the fine one is made when the pointer is let go
     tess = tess.draft ? { tolerance: Math.max(0.1, diag * 0.01), angular: 0.5 } : { tolerance: Math.min(tess.tolerance, Math.max(0.002, diag * 0.002)), angular: Math.min(tess.angular, 0.2) };
     const m = fin.shape.mesh({ tolerance: tess.tolerance, angularTolerance: tess.angular });
     mesh = { vertices: new Float32Array(m.vertices), normals: new Float32Array(m.normals), triangles: new Uint32Array(m.triangles) };
     vol = volume(fin.shape);
-    bbox = bounds(fin.shape);
+    bbox = { min: lo, max: hi };
     tMesh = performance.now();
     // flat faces at any angle, and full round faces: these can be hovered, selected and sketched on (start/count are index ranges into `triangles`)
     const ranges = new Map(m.faceGroups.map((g) => [g.faceId, g]));
@@ -144,5 +147,5 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     }
     vertices = [...seen.values()];
   }
-  return { ops, finalId: fin?.id ?? null, volume: vol, bbox, faces, edges, vertices, totalMs: performance.now() - t0, mesh, perf: { ops: tCompile - t0, mesh: tMesh - tCompile, faces: tFaces - tMesh, edges: performance.now() - tFaces } };
+  return { ops, finalId: fin?.id ?? null, volume: vol, bbox, faces, edges, vertices, totalMs: performance.now() - t0, mesh, perf: { ops: tCompile - t0, box: tBox, mesh: tMesh - tCompile - tBox, faces: tFaces - tMesh, edges: performance.now() - tFaces } };
 }

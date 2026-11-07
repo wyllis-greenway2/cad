@@ -1127,3 +1127,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_226 — 2026-11-07 — approval
 > yes, do the side faces with arcs too
+
+## in_227 — 2026-11-07 — approval
+> yes, do your suggested order
+(approves, in order: record the drag-preview design as a decision; real-app poking of the untested drag cases and stale state; the kernel's per-face mesh reuse; drag previews for edits with later steps; the side-next-to-arc refusal)
