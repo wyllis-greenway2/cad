@@ -20,7 +20,7 @@ const near = (a: number, b: number, tol = 1e-5) => assert.ok(Math.abs(a - b) <= 
 const at = (h: History, r: Ref): Vec3 => pointOf(lookup(h.scene), r)!;
 /** Run the action `id` for the selection and then solve, as the app will. */
 function relate(h: History, sel: Ref[], id: string, value?: number): History {
-  const a = actionsFor(h.scene, [...sel].reverse()).find((x) => x.id === id); // (the parts are listed mover first; the one selected last is the mover, `in_196`)
+  const a = actionsFor(h.scene, sel).find((x) => x.id === id); // (the parts are listed mover first; the one selected first is the mover, `in_229`)
   assert.ok(a && a.enabled, `${id} is not available`);
   let n = must(exec(h, a.run(value)));
   const out = solveScene(n.scene);

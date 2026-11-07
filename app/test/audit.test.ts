@@ -281,7 +281,7 @@ test("a constraint tying the body's sketch to something else stays a constraint 
   t = run(t, a.command);
   const b = drawCircle(scene(t), XY, [20, 0, 0], 3);
   t = run(t, b.command);
-  t = run(t, actionsFor(scene(t), [a.circle, b.circle]).find((x) => x.id === "concentric")!.run()); // (b moves to a: the first selected stays)
+  t = run(t, actionsFor(scene(t), [b.circle, a.circle]).find((x) => x.id === "concentric")!.run()); // (b moves to a: the first selected moves, `in_229`)
   t = run(t, { type: "addStep", step: { id: "s_100", type: "extrude", parts: [a.circle], params: { depth: 10 } } });
   const mv2 = startOp(scene(t), ["b/body/o" as never], "move") as { ok: true; op: Parameters<typeof typeOp>[0] };
   const moved = run(t, opCommand(scene(t), { ...mv2.op, value: 25 })!);

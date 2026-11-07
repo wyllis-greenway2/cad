@@ -1,3 +1,4 @@
+import { actionsFor } from "../src/interaction/actions.ts";
 // `in_195`: tangent lines make closed regions, constraints show when their parts are selected, suggested constraints, and the trim tool.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -35,7 +36,7 @@ test("selecting a line or a circle shows the constraints it has, tangent and poi
   assert.ok(kinds(["d/e_002.k"]).includes("tangent"), "the circle shows the tangents on it");
 });
 
-test("with one or two parts selected, the constraints that could go on them are offered, not the ones already there; applying one: the first selected stays and the one after it moves (`in_196`)", () => {
+test("with one or two parts selected, the constraints that could go on them are offered, not the ones already there; applying one: the first selected moves to the one after it (`in_229`)", () => {
   let s = createSession(kernel);
   const a = drawChain(scene(s), XY, [[0, 0, 0], [20, 3, 0]]); s = run(s, a.command);
   const c = drawCircle(scene(s), XY, [10, 12, 0], 4); s = run(s, c.command);
@@ -43,11 +44,11 @@ test("with one or two parts selected, the constraints that could go on them are 
   assert.ok(offered([a.lines[0]!]).includes("horizontal"));
   assert.ok(offered([a.lines[0]!, c.circle]).includes("tangent"));
   assert.equal(suggestionsFor(scene(s), []), null);
-  const st0 = { ...createState(s), session: { ...s, click: { ...s.click, selection: [c.circle, a.lines[0]!] } } }; // (the circle is picked first and stays; the line moves to it)
+  const st0 = { ...createState(s), session: { ...s, click: { ...s.click, selection: [a.lines[0]!, c.circle] } } }; // (the line is picked first and moves to the circle, `in_229`)
   const st = reduce(st0, { type: "runAction", id: "tangent" }, env);
   assert.deepEqual(scene(st.session).relations.map((r) => r.kind), ["tangent"]);
   assert.ok(!(suggestionsFor(scene(st.session), [a.lines[0]!, c.circle])?.items.map((i) => i.id) ?? []).includes("tangent"), "no longer offered once it holds");
-  // the first selected (the circle) stayed
+  // the second selected (the circle) stayed
   const circleAfter = scene(st.session).parts[c.circle] as { center: string };
   assert.deepEqual((scene(st.session).parts[circleAfter.center] as unknown as { at: Vec3 }).at, [10, 12, 0]);
 });
@@ -177,4 +178,26 @@ test("trim cuts an arc where lines cross it (`in_228`): the part under the point
   assert.ok(end);
   const doneEnd = run(s, end.command);
   assert.equal(Object.values(scene(doneEnd).parts).filter((p) => p.kind === "line" && p.origin === "drawn" && !!p.center).length, 1, "one arc is left");
+});
+
+test("trim keeps the constraints that made the sketch what it is (`in_229`): a line made tangent to two circles stays tangent to them on the piece that is left, and a circle that becomes an arc keeps its tangent lines (and its size as a radius)", () => {
+  let s = createSession(kernel);
+  const a = drawCircle(scene(s), XY, [0, 0, 0], 10); s = run(s, a.command);
+  const b = drawCircle(scene(s), XY, [40, 0, 0], 4); s = run(s, b.command);
+  const l = drawChain(scene(s), XY, [[-12, 14, 0], [52, 6, 0]]); s = run(s, l.command);
+  const tangent = (x: string, y: string) => { const act = actionsFor(scene(s), [x as never, y as never]).find((q) => q.id === "tangent")!; assert.ok(act?.enabled, "tangent offered"); s = run(s, act.run()); };
+  tangent(l.lines[0]!, a.circle); tangent(l.lines[0]!, b.circle);
+  // the line touches each circle once: cut it where it touches, by a line across at each end
+  s = run(s, drawChain(scene(s), XY, [[-6, 0, 0], [-6, 20, 0]], false, { reuse: true }).command);
+  const tangents = () => scene(s).relations.filter((r) => r.kind === "tangent");
+  assert.equal(tangents().length, 2);
+  const lineBefore = l.lines[0]!;
+  const plan = trimAt(scene(s), lineBefore, [-10, 14, 0]);
+  assert.ok(plan, "the end beyond the crossing line can be trimmed");
+  s = run(s, plan!.command);
+  const pieces = Object.values(scene(s).parts).filter((p) => p.kind === "line" && p.origin === "drawn" && !p.center && tangents().some((r) => r.parts.includes(p.ref)));
+  assert.equal(pieces.length >= 1, true, "a piece that is left is still tangent");
+  const touched = new Set(tangents().flatMap((r) => r.parts));
+  assert.ok(touched.has(a.circle) && touched.has(b.circle), "to both circles");
+  assert.ok(!tangents().some((r) => r.parts.includes(lineBefore)), "none on the line that went");
 });

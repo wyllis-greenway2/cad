@@ -3,7 +3,7 @@ id: dec_interaction_spec
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_040, in_064, in_065, in_066, in_067, in_068, in_069, in_070, in_073, in_074, in_075, in_077, in_078, in_079, in_080, in_081, in_082, in_083, in_085, in_088, in_090, in_094
+human_input: in_040, in_064, in_065, in_066, in_067, in_068, in_069, in_070, in_073, in_074, in_075, in_077, in_078, in_079, in_080, in_081, in_082, in_083, in_085, in_088, in_090, in_094, in_196, in_229
 date: 2026-11-05
 depends_on:
   - prin_input_agnostic: the device behaviours below are the mapping from each device to the same intents
@@ -26,13 +26,14 @@ The human does not want these ideas lost when the engine is rebuilt clean (`in_0
 - Pan, zoom to the cursor with a speed limit, return to origin (O), home (H).
 - N looks straight at the selected or sketched plane from its front; again from its back; again from its front. X, Y, Z select that axis's plane and look along it, + then -, alternating each press (`in_068`, `in_069`). From the back the drawing is seen mirrored.
 - A triple-click or double-click turns the view to a plane and centres on a clicked face (see the click grammar).
+- **The sketch group** (`in_229`: "they should be added to the sketch group and that group should have rules, one of them being the normal to plane on selection rule"): the tools that draw on a plane (rectangle, circle, line, arc, trim) and the operations that work in one (offset) are one group, in `interaction/control/modal.ts`. Its rule: starting any of them turns the view straight to the plane of the one plane, face or sketch line selected (or of what the right click was on), from the side you are on. The group is written as records over every tool and operation kind, so adding a kind without saying whether it is in the group does not compile.
 
 ## Selecting: one grammar for every part
 - **One click selects** what is under the pointer (pane, face, line, corner, closed shape, sketch part), never a whole object, never moving the camera (`in_069`, `in_070`).
 - **Two clicks look straight at the plane clicked** (from the side you are on); **three select the whole object** (`in_083`).
 - **Where several things overlap at the spot, repeated clicks cycle through them** instead (corners, then lines, then faces and planes; a shape before the face under it), with a short message "i of n here" (`in_088`).
 - **Shift + click adds to the selection**, across kinds and in any order (body parts and sketch parts); Shift + click on a selected line takes it out. Several lines can be rounded or bevelled together as one step (`in_087`, `in_090`).
-- A click on nothing lets go of everything; Esc lets go in two steps. The selection is ordered: **the first selected stays and the one selected after it moves to meet it** (`in_196`, reversing `in_090`); a part that cannot move (the body, an earlier step) always stays.
+- A click on nothing lets go of everything; Esc lets go in two steps. The selection is ordered: **the first selected moves to meet the one selected after it** (`in_229`, reversing `in_196`, which had reversed `in_090`); a part that cannot move (the body, an earlier step) always stays.
 - Pointing at an object surface shows a small crisp ring at the cursor on the surface, in the colour a selected face shows; a click fills the surface with the transparent teal (`[0.1, 0.72, 0.7]` at 0.3) while the ring expands to the edges (`in_073` to `in_075`).
 
 ## Drawing and relations

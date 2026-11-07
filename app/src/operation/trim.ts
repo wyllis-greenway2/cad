@@ -44,6 +44,19 @@ export function trimAt(s: Scene, ref: Ref, at: Vec3): TrimPlan | null {
 }
 
 const newIds = (s: Scene) => nextId(s, "e");
+/**
+ * What a trim keeps of a part's constraints (`in_229`): the tangent to a circle or an arc stays on every piece that is left (the line was made tangent on purpose, and a smaller circle later must still be touched by it),
+ * a point on a circle stays on the arc the circle became, and the size of a circle goes to the arc as its radius. Anything else (equal lengths, a length, a direction held by another line) belonged to the whole part and goes.
+ */
+function carried(s: Scene, old: Ref, now: Ref, rid: () => string, opts: { circleToArc?: boolean } = {}): Relation[] {
+  const out: Relation[] = [];
+  for (const r of s.relations) {
+    if (!r.parts.includes(old)) continue;
+    if ((r.kind === "tangent" || r.kind === "onCircle") && r.parts.length === 2) out.push({ ...r, id: rid(), parts: r.parts.map((p) => (p === old ? now : p)) } as Relation);
+    else if (opts.circleToArc && r.kind === "diameter" && r.parts.length === 1 && r.value !== undefined) out.push({ id: rid(), kind: "radius", parts: [now], value: r.value / 2, ...(r.locked === false ? { locked: false } : { locked: true }) } as Relation);
+  }
+  return out;
+}
 /** Relation ids one after another from the next free one (a trim makes several at once). */
 const relIds = (s: Scene) => { let n = s.counter; return () => formatId("r", ++n); };
 
@@ -80,6 +93,7 @@ function trimSide(s: Scene, part: Extract<Scene["parts"][string], { kind: "line"
     const line = drawnRef(`${id}.s${j}`);
     commands.push({ type: "addPart", part: { ...base, ref: line, kind: "line", a, b } });
     own.forEach((r, m) => commands.push({ type: "addRelation", relation: { id: rid(), kind: r.kind, parts: [line] } as Relation }));
+    for (const r of carried(s, part.ref, line, rid)) commands.push({ type: "addRelation", relation: r });
   });
   commands.push({ type: "deleteParts", refs: [part.ref] });
   // an end that nothing else stands on goes with the piece it was the end of
@@ -121,6 +135,7 @@ function trimArc(s: Scene, part: Extract<Scene["parts"][string], { kind: "line" 
     const arc = drawnRef(`${id}.s${j}`);
     commands.push({ type: "addPart", part: { ...base, ref: arc, kind: "line", a, b, center: part.center!, ...(part.ccw === undefined ? {} : { ccw: part.ccw }) } });
     commands.push({ type: "addRelation", relation: { id: rid(), kind: "arcEnds", parts: [arc, part.center!] } as Relation });
+    for (const r of carried(s, part.ref, arc, rid)) commands.push({ type: "addRelation", relation: r });
   });
   commands.push({ type: "deleteParts", refs: [part.ref] });
   // an end that nothing else stands on goes with the piece it was the end of (the middle stays: the arcs are about it)
@@ -156,6 +171,7 @@ function trimCircle(s: Scene, part: Extract<Scene["parts"][string], { kind: "cir
     const by = (k2 as typeof hi).by;
     if (by.k === "seg" || by.k === "circle") commands.push({ type: "addRelation", relation: { id: rid(), kind: by.k === "seg" ? "onLine" : "onCircle", parts: [r as Ref, by.ref] } as Relation });
   });
+  for (const r of carried(s, part.ref, arc, rid, { circleToArc: true })) commands.push({ type: "addRelation", relation: r });
   commands.push({ type: "deleteParts", refs: [part.ref] }); // (the circle's centre stays: the arc is about it)
   return { span: arcPoints(lo.t, hi.t), command: { type: "batch", commands } };
 }

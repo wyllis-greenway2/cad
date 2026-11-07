@@ -6,7 +6,7 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Part, Lookup } from "./part.ts";
 import { derivedFaces } from "./loops.ts";
 
-/** A relation between parts. `parts` are listed mover first, then the references (held in place): the part selected LAST moves and the ones selected before it stay (`in_196`, which reversed `in_090`). `kind` is a row id of the actions table. */
+/** A relation between parts. `parts` are listed mover first, then the references (held in place): the part selected FIRST moves and the ones selected before it stay (`in_196`, which reversed `in_090`). `kind` is a row id of the actions table. */
 export interface Relation {
   id: string;
   kind: string;

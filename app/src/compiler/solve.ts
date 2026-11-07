@@ -1,6 +1,6 @@
 // Solving relations into positions (`dec_clean_engine_design` section 7). For each plane: the drawn corners on it become variables; every other part a
 // relation refers to (body corners and lines, world parts, parts on other planes) becomes a fixed virtual part at its projection on this plane.
-// The parts of a relation after the first are held softly, so the first moves (a relation lists the part selected last first, `in_196`). The result is a list of movePart commands, so history records it.
+// The parts of a relation after the first are held softly, so the first moves (a relation lists the part selected first first, `in_229`). The result is a list of movePart commands, so history records it.
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { sub, dot, add, scale } from "../math/vec.ts";

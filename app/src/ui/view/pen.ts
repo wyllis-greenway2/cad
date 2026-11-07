@@ -3,6 +3,8 @@ import * as THREE from "three";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import type { Vec3 } from "../../interaction/api.ts";
 
 export const rgb = (c: readonly [number, number, number]): THREE.Color => new THREE.Color().setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
@@ -54,6 +56,15 @@ export function createPen() {
       mat.resolution.set(size.w, size.h);
       mats.push(mat);
       return new Line2(geo, mat);
+    },
+    /** Separate thick segments: flat pairs of points (a, b, a, b, ...), with nothing drawn between one pair and the next (a line strip would join them). */
+    segments(pairs: number[], color: number | THREE.Color, widthPx: number, depthTest = true): LineSegments2 {
+      const geo = new LineSegmentsGeometry();
+      geo.setPositions(pairs);
+      const mat = new LineMaterial({ color: color as number, linewidth: widthPx, depthTest, worldUnits: false, ...(depthTest ? { polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 } : {}) });
+      mat.resolution.set(size.w, size.h);
+      mats.push(mat);
+      return new LineSegments2(geo, mat);
     },
     setSize(w: number, h: number) {
       size = { w, h };

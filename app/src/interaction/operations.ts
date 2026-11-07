@@ -13,7 +13,7 @@ import type { Curved } from "../operation/part.ts";
 import type { FaceEdit } from "./faceedit.ts";
 import type { OffsetSource } from "./offset.ts";
 import { offsetSource, offsetCommand } from "./offset.ts";
-import { faceEdit, editCommand, arcCommand } from "./faceedit.ts";
+import { faceEdit, editCommand, arcRadiusCommand } from "./faceedit.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
@@ -577,7 +577,7 @@ export function arcDrag(scene: Scene, op: Op): { face: Ref; arc: ArcMap; items: 
   const [cc, pl] = [scene.parts[arc.center], scene.parts[arc.plane]];
   if (ca?.kind !== "corner" || cb?.kind !== "corner" || cc?.kind !== "corner" || pl?.kind !== "plane") return null;
   if (piece?.kind === "line") { const [pa, pb] = [scene.parts[piece.a], scene.parts[piece.b]]; if (pa?.kind !== "corner" || pb?.kind !== "corner") return null; const same = (x: Vec3, y: Vec3) => Math.hypot(...sub(x, y)) < 1e-3; if (!((same(pa.at, ca.at) && same(pb.at, cb.at)) || (same(pa.at, cb.at) && same(pb.at, ca.at)))) return null; }
-  const cmd = arcCommand(scene, e.circle, radius);
+  const cmd = arcRadiusCommand(scene, e.circle, radius);
   if (!cmd) return null;
   const moved = apply(scene, cmd);
   if (!moved.ok) return null;

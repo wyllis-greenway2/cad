@@ -1,4 +1,4 @@
-// The one ordered selection (`dec_clean_engine_design` section 4, `dec_interaction_spec`): a list of refs, the first stays and the one selected after it moves (`in_196`).
+// The one ordered selection (`dec_clean_engine_design` section 4, `dec_interaction_spec`): a list of refs, the first selected moves to meet the one selected after it (`in_229`, which reversed `in_196`).
 // Pure functions; nothing else holds selection state.
 import type { Ref } from "../shared/ref.ts";
 import type { Lookup } from "../operation/part.ts";
@@ -58,14 +58,14 @@ export function click(state: ClickState, candidates: readonly Ref[], opts: { shi
 }
 
 /**
- * The selection in the order that matters for relations: the part that moves comes first and the ones that stay come after it. The FIRST selected part is stationary and the one selected after it moves to meet it
- * (`in_196`, which reversed `in_090`); with more than two, all the earlier ones stay and the last moves. A part that cannot move (the body, an earlier step) always stays.
+ * The selection in the order that matters for relations: the part that moves comes first and the ones that stay come after it. The FIRST selected part moves to meet the one selected after it (`in_229`,
+ * which reversed `in_196`, which reversed `in_090`); with more than two, the first moves and all the later ones stay. A part that cannot move (the body, an earlier step) always stays.
  */
 export function ordered(sel: Selection, get: Lookup): Selection {
-  const movable = sel.filter((r) => get(r)?.movable).reverse(); // (the last selected moves first)
+  const movable = sel.filter((r) => get(r)?.movable); // (the first selected moves, the ones after it stay)
   const fixed = sel.filter((r) => !get(r)?.movable);
   return [...movable, ...fixed];
 }
-/** The part that moves: the last selected part that can. Undefined if nothing selected can move. */
-export const mover = (sel: Selection, get: Lookup): Ref | undefined => [...sel].reverse().find((r) => get(r)?.movable);
+/** The part that moves: the first selected part that can. Undefined if nothing selected can move. */
+export const mover = (sel: Selection, get: Lookup): Ref | undefined => sel.find((r) => get(r)?.movable);
 export const reference = (sel: Selection, get: Lookup): Ref | undefined => ordered(sel, get)[1];

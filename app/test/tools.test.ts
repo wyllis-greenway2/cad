@@ -542,7 +542,7 @@ test("a circle drawn about another circle's centre: a concentric hint shows, and
   s = run(s, a.command);
   const b = drawCircle(scene(s), XY, [10, 4, 0], 3);
   s = run(s, b.command);
-  const act = actionsFor(scene(s), [a.circle, b.circle]).find((x) => x.id === "concentric")!; // (a is picked first and stays; b moves to it)
+  const act = actionsFor(scene(s), [b.circle, a.circle]).find((x) => x.id === "concentric")!; // (b is picked first and moves to a, `in_229`)
   assert.ok(act && act.enabled);
   s = run(s, act.run());
   const moved = (scene(s).parts[(scene(s).parts[b.circle] as { center: string }).center] as { at: Vec3 }).at;
@@ -588,4 +588,26 @@ test("offset: a rectangle gets a bigger or smaller one drawn about it, a circle 
   const ly = [...new Set(corners(lout).map((p) => Math.round(p[1] * 100) / 100))].sort((a, b) => a - b);
   assert.equal(ly.length, 2, "the new line is parallel at 5");
   near(Math.abs(ly[1]! - ly[0]!), 5);
+});
+
+test("every sketch tool, and the offset, turns the view straight to a selected plane, a face or a sketch line (the sketch group's rule, `in_229`)", () => {
+  let base = drawBox(top(), 20); // a block with a face on top
+  base = { ...base, cam: homeCamera(), tool: null, resume: null };
+  const sc = scene(base.session);
+  const top0 = Object.values(sc.parts).find((p) => p.kind === "plane" && p.origin === "body" && Math.abs(p.at[2] - 20) < 1e-6);
+  assert.ok(top0, "the top face of the block");
+  const names = ["rect", "circle", "line", "arc", "trim", "offset"] as const;
+  for (const name of names) {
+    const st: AppState = { ...base, session: { ...base.session, click: { ...base.session.click, selection: [top0!.ref] } } };
+    if (name !== "offset") assert.ok(reduce(st, { type: "begin", name }, env).anim, `${name}: the view turns to the selected face`);
+    const viaMenu = reduce({ ...st, menu: { x: 10, y: 10, plane: null, items: [] } as never }, { type: "runAction", id: name === "offset" ? "op:offset" : `tool:${name}` }, env);
+    assert.ok(viaMenu.anim, `${name}: and so from the menu`);
+  }
+  // a line of a sketch that is selected: its plane is the one
+  const fig = Object.values(sc.parts).find((p) => p.kind === "line" && p.origin === "drawn");
+  assert.ok(fig);
+  for (const id of ["tool:trim", "tool:line", "op:offset"]) {
+    const st: AppState = { ...base, session: { ...base.session, click: { ...base.session.click, selection: [fig!.ref] } } };
+    assert.ok(reduce(st, { type: "runAction", id }, env).anim, `${id}: the view turns to the plane of the selected sketch line`);
+  }
 });

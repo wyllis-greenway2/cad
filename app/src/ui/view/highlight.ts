@@ -123,7 +123,7 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
       // a selected face has its edges in the selected blue too
       // (a body's face: its own edges, since the triangles of a curved face can be split unevenly and their sides would show all over it)
       const edge = p.kind === "plane" && p.origin === "body" ? faceEdges(s, p).flatMap((r) => { const l = get(r); const o = l ? outlineOf(get, l) : null; return o?.shape === "polyline" ? o.pts.slice(1).flatMap((q, i) => [...o.pts[i]!, ...q]) : o?.shape === "segment" ? [...o.a, ...o.b] : o?.shape === "circle" ? ringPairs(o) : []; }) : outlineOfTriangles(tris);
-      if (edge.length) { const line = pen.line(edge, tealHex, settings.pick.edgeWidthPx, true); line.renderOrder = 5; overlay.add(line); }
+      if (edge.length) { const line = pen.segments(edge, tealHex, settings.pick.edgeWidthPx, true); line.renderOrder = 5; overlay.add(line); }
     }
     if (tris) return void overlay.add(surfaceOrb(kind, ref, tris, h, unit, nowMs));
     const o = outlineOf(get, p);

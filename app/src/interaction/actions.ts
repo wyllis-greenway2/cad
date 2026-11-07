@@ -2,7 +2,7 @@
 // whether it is enabled (or why not), a measure when it has a number, and `run -> command`. The menu, the number chip, the keyboard and the touch
 // long-press all ask this one function. Generalises the prototype's relations table (`relations.mjs`) from sketch parts to any parts.
 // Geometry is read in 3D from the scene, so no plane or sketch is involved in measuring.
-import { arcCommand } from "./faceedit.ts";
+import { arcRadiusCommand } from "./faceedit.ts";
 import { sketchOfEdge } from "../operation/edgesource.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
@@ -19,7 +19,7 @@ export interface Action {
   group: "relation" | "operation";
   dimensional: boolean;
   unit: "mm" | "deg" | null;
-  /** The parts, mover first: the one selected last (the first selected stays, `in_196`), then the others in the order selected, then any that cannot move. */
+  /** The parts, mover first: the one selected first (the first selected moves to meet the next, `in_229`), then the others in the order selected, then any that cannot move. */
   parts: Ref[];
   enabled: boolean;
   /** Why it cannot be done now (when not enabled). */
@@ -71,7 +71,7 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
           ...(row.params ? { params: row.params(ctx, sel) } : {}),
         };
         // the radius of an arc of a sketch that was cut from a circle: its ends (and the lines' ends that sit there) go to the new radius first, or the extrusion would lose its sides (`in_210`)
-        const moves = row.id === "radius" && v !== undefined && v > 0 && scene.parts[sel[0]!]?.kind === "line" ? arcCommand(scene, sel[0]!, v) : null;
+        const moves = row.id === "radius" && v !== undefined && v > 0 && scene.parts[sel[0]!]?.kind === "line" ? arcRadiusCommand(scene, sel[0]!, v) : null;
         return moves ? { type: "batch", commands: [moves, { type: "addRelation", relation: rel }] } : { type: "addRelation", relation: rel };
       },
     });

@@ -98,6 +98,7 @@ export interface Frame {
 }
 
 /** While an operation's number is being set, the scene as it would be after it: the real result (a gray body, a cut, a round) and not a sketch of it. Remembered for the same command. */
+let previewProblem: string | null = null;
 let memo: { history: Session["history"]; outcome: Session["outcome"]; key: string; value: { scene: Scene; outcome: CompileOutcome } | null } | null = null;
 let gpuBase: { history: Session["history"]; outcome: Session["outcome"]; made: boolean; value: { scene: Scene; outcome: CompileOutcome } } | null = null;
 /** The step the last drag of a whole-body motion was (its matrix and how many steps came before it): while the kernel is still working its result out, that is what the stale picture is moved by (`in_216`). */
@@ -230,7 +231,10 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
   if (!cmd) return null;
   const key = JSON.stringify([cmd, op.made]);
   if (memo && memo.history === s.session.history && memo.outcome === s.session.outcome && memo.key === key) return memo.value;
-  const value = previewCommand(base, cmd);
+  let value = previewCommand(base, cmd);
+  // a size that breaks a step is not shown as the broken body (it collapses into a weird shape): what is there stays, and why it cannot be made is said (`in_229`)
+  const bad = value && !value.outcome.kernel?.stale ? Object.entries(value.outcome.errors).find(([id]) => !(id in base.outcome.errors)) : undefined;
+  if (bad) { previewProblem = bad[1]; value = null; } else previewProblem = null;
   memo = { history: s.session.history, outcome: s.session.outcome, key, value };
   return value;
 }
@@ -289,7 +293,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : null } : null,
     modeSwitch: gizmo && !s.repeat ? modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : null,
     cursor: s.tool ? "crosshair" : s.gizmoHover ? "grab" : "",
-    message: s.session.message ?? Object.values(outcome.errors)[0] ?? "",
+    message: s.session.message ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? "",
   };
 }
 

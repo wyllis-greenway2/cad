@@ -7,6 +7,9 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { figureRefs } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
+import { apply } from "../operation/commands.ts";
+import { solveScene } from "../compiler/solve.ts";
+import { nextId } from "../operation/scene.ts";
 import { applyPoint, inverse, laterMotion } from "../operation/frames.ts";
 import type { Plane, Curved } from "../operation/part.ts";
 import { normalOfPlane } from "../operation/part.ts";
@@ -189,6 +192,13 @@ export function editCommand(scene: Scene, edit: FaceEdit, v: number): Command | 
     });
     // an arc next to the moved side keeps its two ends the same distance from its middle (that is what an arc is): its middle goes to the nearest point on the middle line of its new chord, so the arc just
     // changes size and span instead of the sketch pushing the corner back (`in_227`)
+    // the corners that sit on the same spot as a moved one (the end of an arc, of another line, that meets it there: nothing joins them but where they are) go with it, or the sketch would come apart (`in_229`)
+    for (const m of [...moves]) {
+      if (m.type !== "movePart") continue;
+      const here = scene.parts[m.ref];
+      if (here?.kind !== "corner") continue;
+      for (const q of Object.values(scene.parts)) if (q.kind === "corner" && q.origin === "drawn" && q.movable && q.ref !== m.ref && q.plane === here.plane && !moved.has(q.ref) && Math.hypot(q.at[0] - here.at[0], q.at[1] - here.at[1], q.at[2] - here.at[2]) < 1e-4 && !moves.some((x) => x.type === "movePart" && x.ref === q.ref)) moves.push({ type: "movePart", ref: q.ref, to: m.to });
+    }
     const to = new Map<Ref, Vec3>(moves.flatMap((m) => (m.type === "movePart" ? [[m.ref, m.to] as const] : [])));
     const centres = new Map<Ref, Vec3>();
     for (const l of Object.values(scene.parts)) {
@@ -213,12 +223,12 @@ export function editCommand(scene: Scene, edit: FaceEdit, v: number): Command | 
   }
   const radius = Math.round((edit.radius + (edit.convex ? v : -v)) * 1e6) / 1e6;
   if (!(radius > 1e-6)) return null;
-  if (edit.arc) return arcCommand(scene, edit.circle, radius);
+  if (edit.arc) return arcRadiusCommand(scene, edit.circle, radius);
   return edit.diameter ? { type: "setRelationValue", id: edit.diameter, value: 2 * radius, locked: true } : { type: "setRadius", ref: edit.circle, radius };
 }
 
 /** A new radius for an arc whose circle is gone: both ends slide along the lines they are on to the new radius about the same middle (the arc keeps its lines, `in_209`). Null if a line does not reach that radius. */
-export function arcCommand(scene: Scene, arc: Ref, radius: number): Command | null {
+function arcCommand(scene: Scene, arc: Ref, radius: number): Command | null {
   const l = scene.parts[arc];
   if (l?.kind !== "line" || !l.center) return null;
   const ctr = scene.parts[l.center];
@@ -243,4 +253,28 @@ export function arcCommand(scene: Scene, arc: Ref, radius: number): Command | nu
     for (const q of Object.values(scene.parts)) if (q.kind === "corner" && q.origin === "drawn" && q.movable && Math.hypot(...sub(q.at, end.at)) < 1e-4) moves.push({ type: "movePart", ref: q.ref, to: best });
   }
   return { type: "batch", commands: moves };
+}
+
+/**
+ * A new radius for an arc whose circle is gone (`in_229`). If lines are tangent to the arc the radius is asked of the solver (with a radius that is not kept afterwards), and what it moves is moved: the
+ * lines turn to stay tangent and the other arcs and circles they touch change size, as when a tangent line is moved. Else, or if the solver cannot, the ends slide along their lines (`arcCommand`).
+ */
+export function arcRadiusCommand(scene: Scene, arc: Ref, radius: number): Command | null {
+  if (scene.relations.some((r) => r.kind === "tangent" && r.parts.includes(arc))) {
+    const added = apply(scene, { type: "addRelation", relation: { id: nextId(scene, "r"), kind: "radius", parts: [arc], value: radius, locked: true } });
+    if (added.ok) {
+      const solved = solveScene(added.value);
+      if (!solved.planes.some((p) => p.status === "conflict")) {
+        const moves: Command[] = [];
+        for (const q of Object.values(scene.parts)) {
+          if (q.origin !== "drawn" || !q.movable) continue;
+          const w = solved.scene.parts[q.ref];
+          if (q.kind === "corner" && w?.kind === "corner" && Math.hypot(...sub(w.at, q.at)) > 1e-9) moves.push({ type: "movePart", ref: q.ref, to: w.at });
+          else if (q.kind === "circle" && w?.kind === "circle" && Math.abs(w.radius - q.radius) > 1e-9) moves.push({ type: "setRadius", ref: q.ref, radius: w.radius });
+        }
+        if (moves.length) return { type: "batch", commands: moves };
+      }
+    }
+  }
+  return arcCommand(scene, arc, radius);
 }

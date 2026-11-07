@@ -13,34 +13,49 @@ import { planeOf } from "../objects.ts";
 import { sketchOfEdge } from "../../operation/edgesource.ts";
 import { sideOf } from "../camera.ts";
 import { normalOfPlane } from "../../operation/part.ts";
+import type { Plane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
 import { activeOp } from "./handles.ts";
 import { pivotCommands, repeatApply, repeatCancel } from "../pattern.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
 
+/** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
+const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, line: true, arc: true, trim: true };
+const IS_SKETCH_OP: Record<OpKind, boolean> = { offset: true, extrude: false, pushpull: false, edge: false, move: false, rotate: false, scale: false, dimension: false, linear: false, circular: false, copy: false };
+const isSketchTool = (name: string): name is ToolKind => name in IS_SKETCH_TOOL;
+
+/** The plane a sketch tool or operation starts on: exactly one plane selected (a face, a plane, or what a sketch line or the body's edge lies in), or none, or several: the plane of what the right click was on (`in_169`). */
+function sketchPlane(s: AppState, over: Ref | null): { plane: Plane | null; onSketch: boolean } {
+  const get = lookup(sceneOf(s.session));
+  const sc = sceneOf(s.session);
+  // an edge of the body that lies where a sketch part was: sketching goes on in that sketch's own plane, so what is drawn can be tied to it by constraints (`in_210`)
+  const selected = [...new Map(selectionOf(s.session).flatMap((r) => { const p = planeOf(get, sketchOfEdge(sc, r)?.ref ?? r); return p ? [[p.ref, p] as const] : []; })).values()];
+  const plane = selected.length === 1 ? selected[0]! : over ? planeOf(get, over) : null;
+  return { plane, onSketch: selected.length === 1 && selectionOf(s.session).some((r) => sketchOfEdge(sc, r)) };
+}
+
+/** The group's rule that applies to all of them: the view turns straight to the plane of what is selected, from the side you are on (`in_149`, `in_229`); not when it already looks straight at it. */
+function facePlane(s: AppState, over: Ref | null, now: number): AppState {
+  const { plane } = sketchPlane(s, over);
+  return plane && sideOf(s.cam, normalOfPlane(plane)) === 0 ? animateTo(s, planeView(s.cam, plane, false), now) : s;
+}
+
 function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = null): AppState {
   if (s.tool?.kind === kind && !s.tool.plane) return { ...s, tool: null }; // pressing it again puts it away
   const armed: AppState = { ...s, tool: armTool(kind), op: null, menu: null };
-  // sketching on a selected face or plane: the view turns straight to it, from the side you are on (`in_149`)
-  const get = lookup(sceneOf(s.session));
-  // exactly one plane selected: that one; none, or several: the plane of what the right click was on (`in_169`)
-  // an edge of the body that lies where a sketch part was: sketching goes on in that sketch's own plane, so what is drawn can be tied to it by constraints (`in_210`)
-  const sc = sceneOf(s.session);
-  const selected = [...new Map(selectionOf(s.session).flatMap((r) => { const p = planeOf(get, sketchOfEdge(sc, r)?.ref ?? r); return p ? [[p.ref, p] as const] : []; })).values()];
-  const pl = selected.length === 1 ? selected[0]! : over ? planeOf(get, over) : null;
-  const onSketch = selected.length === 1 && selectionOf(s.session).some((r) => sketchOfEdge(sc, r));
-  if (pl && onSketch) return animateTo({ ...armed, tool: { ...armTool(kind), plane: pl.ref, reveal: true } }, planeView(s.cam, pl, false), now);
-  return pl && sideOf(s.cam, normalOfPlane(pl)) === 0 ? animateTo(armed, planeView(s.cam, pl, false), now) : armed; // (not when already looking straight at it)
+  const { plane, onSketch } = sketchPlane(s, over);
+  if (plane && onSketch) return animateTo({ ...armed, tool: { ...armTool(kind), plane: plane.ref, reveal: true } }, planeView(s.cam, plane, false), now);
+  return facePlane(armed, over, now);
 }
-function beginOp(s: AppState, kind: OpKind): AppState {
+function beginOp(s: AppState, kind: OpKind, now = 0, over: Ref | null = null): AppState {
   const r = startOp(sceneOf(s.session), selectionOf(s.session), kind);
   if (!r.ok) return { ...s, session: { ...s.session, message: r.why }, menu: null };
-  return { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: null } };
+  const started: AppState = { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: null } };
+  return IS_SKETCH_OP[kind] ? facePlane(started, over, now) : started;
 }
 export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["name"], now = 0): AppState {
-  if (name === "rect" || name === "circle" || name === "line" || name === "arc" || name === "trim") return beginTool(s, name, now);
-  return beginOp(s, name);
+  return isSketchTool(name) ? beginTool(s, name, now) : beginOp(s, name, now);
 }
 
 /** Put a finished figure into the scene and hand back to normal selection with the figure selected. */
@@ -144,7 +159,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   }
   if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now, s.menu?.plane ?? null);
   if (id === "op:linear" || id === "op:circular" || id === "op:copy") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular" | "copy");
-  if (id.startsWith("op:")) return beginOp(closed, id.slice(3) as OpKind);
+  if (id.startsWith("op:")) return beginOp(closed, id.slice(3) as OpKind, now, s.menu?.plane ?? null);
   const a = actionsFor(sceneOf(s.session), selectionOf(s.session)).find((x) => x.id === id);
   return a && a.enabled ? { ...withSession(s, run(s.session, a.run())), menu: null } : closed;
 }
@@ -153,7 +168,12 @@ export function doDelete(s: AppState): AppState {
   const a = actionsFor(sceneOf(s.session), selectionOf(s.session)).find((x) => x.id === "delete");
   return a ? { ...withSession(s, run(s.session, a.run())), menu: null } : s;
 }
-export const doUndo = (s: AppState): AppState => s.repeat ? { ...s, menu: null, session: { ...s.session, message: "apply or cancel the repeat that is open first" } } : ({ ...withSession(s, undoLast(s.session)), menu: null, op: s.op?.made ? null : s.op });
+export const doUndo = (s: AppState): AppState => {
+  if (s.repeat) return { ...s, menu: null, session: { ...s.session, message: "apply or cancel the repeat that is open first" } };
+  // an operation that is open and has made nothing yet (an arrow was dragged, nothing was applied, or it was refused) is not on the history: the first undo puts it away, it does not undo the step before (`in_229`)
+  if (s.op && !s.op.made && !s.op.auto) return { ...s, menu: null, op: null, drag: null, gizmoHover: null, session: { ...s.session, message: null, conflict: null } };
+  return { ...withSession(s, undoLast(s.session)), menu: null, op: s.op?.made ? null : s.op };
+};
 export const doRedo = (s: AppState): AppState => s.repeat ? { ...s, menu: null, session: { ...s.session, message: "apply or cancel the repeat that is open first" } } : ({ ...withSession(s, redoLast(s.session)), menu: null, op: s.op?.made ? null : s.op });
 
 /** A constraint shown on a selected part: open or close it, delete it, lock or unlock its number, give it a new number, or lock the measure of the selection. */
