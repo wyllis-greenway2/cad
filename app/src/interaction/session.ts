@@ -34,8 +34,18 @@ export interface Session {
   readonly fallback?: Command;
   /** the last command that was refused because it could not be done without breaking constraints: who tried (`culprits`: relation ids) and what it would have broken (`victims`) */
   readonly conflict: { culprits: string[]; victims: string[] } | null;
+  /** the sketch plane whose hidden sketch is shown while a tool sketches in it (`in_211`) */
+  readonly reveal?: Ref | null;
 }
-export const scene = (s: Session): Scene => s.history.scene;
+const revealed = new WeakMap<Scene, Map<string, Scene>>();
+/** The scene as it is worked on: with the hidden sketch of the plane being sketched in shown (`in_211`). One object for the same model and plane, so what is kept by scene stays kept. */
+export function scene(s: Session): Scene {
+  const base = s.history.scene;
+  if (!s.reveal) return base;
+  const m = revealed.get(base) ?? new Map<string, Scene>();
+  revealed.set(base, m);
+  return m.get(s.reveal) ?? (m.set(s.reveal, { ...base, reveal: s.reveal }), m.get(s.reveal)!);
+}
 export const selection = (s: Session): Selection => s.click.selection;
 
 /** The compile step and its cache: the outcome of the latest derive of each scene is kept beside the history, so the view shows errors and the kernel result without compiling twice. */

@@ -1074,3 +1074,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_210 — 2026-11-07 — approval
 > yes, build the sketch-on-body option too
 (approves option (b) of `dec_body_edges_show_sketch`: sketching on the body as a regular sketch)
+
+## in_211 — 2026-11-07 — approval
+> yes, build the snapping and showing of the hidden sketch too
+(approves: show the hidden sketch and snap to it while sketching in its plane; the middle point of a curve picked)

@@ -22,6 +22,8 @@ export interface Tool {
   kind: ToolKind;
   /** null while armed (waiting for the first click on a surface) */
   plane: Ref | null;
+  /** begun on the edge of a body: the hidden sketch behind it is shown and snapped to while this tool is on (`in_211`) */
+  reveal?: true;
   /** placed points on the plane (the first corner, the line's corners so far) */
   points: Vec3[];
   /** where the pointer is on the plane, snapped */

@@ -6,11 +6,13 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { openSession, scene } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { faceEdit } from "../src/interaction/faceedit.ts";
+import { consumed } from "../src/operation/ownership.ts";
 import { sketchOfEdge } from "../src/operation/edgesource.ts";
 import { actionsFor } from "../src/interaction/actions.ts";
 import { run } from "../src/interaction/session.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
-import { homeCamera } from "../src/interaction/camera.ts";
+import { homeCamera, projector } from "../src/interaction/camera.ts";
+import { snapOnPlane } from "../src/interaction/tools.ts";
 import { annotationsFor } from "../src/interaction/annotations.ts";
 import { faceEdges } from "../src/interaction/offsetbody.ts";
 import { startOp, valueOf } from "../src/interaction/operations.ts";
@@ -95,6 +97,20 @@ test("the sketch behind a body edge stays a regular sketch (`in_210`): its radiu
   const t = reduce(st, { type: "begin", name: "line" }, { w: 800, h: 600, now: 0 });
   const plane = (scene(s).parts["d/e_015.s0"] as { plane: string }).plane;
   assert.equal(t.tool?.plane, plane);
+  // the hidden sketch of that plane is shown and can be picked and snapped to while the tool is on (`in_211`), and hidden again when it is put away
+  assert.equal(t.session.reveal, plane);
+  const shown = scene(t.session);
+  assert.ok(!consumed(shown).has("d/e_015.s0" as never) && !consumed(shown).has("d/e_015.p0" as never), "the arc and its ends are not hidden");
+  assert.ok(consumed(scene(s)).has("d/e_015.s0" as never), "but still hidden otherwise");
+  // snapping: near the end of the hidden arc, the pointer takes its place
+  const pl = shown.parts[plane as never] as never;
+  const end = (shown.parts["d/e_015.p0" as never] as unknown as { at: [number, number, number] }).at;
+  const pj = projector(t.cam, 800, 600);
+  const q = pj.project(end);
+  const snapped = q ? snapOnPlane(shown, pj.view(q[0] + 2, q[1] + 1), pl) : null;
+  assert.ok(snapped && Math.hypot(snapped[0] - end[0], snapped[1] - end[1], snapped[2] - end[2]) < 1e-6, `snapped to ${JSON.stringify(snapped)}`);
+  const centre = "d/e_001.c" as never;
+  assert.ok(!consumed(shown).has(centre), "the centre of the arc can be picked");
 });
 
 test("an arc edge of the body offers its radius as the number to type over (not the chord's length)", () => {

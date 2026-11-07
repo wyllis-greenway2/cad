@@ -20,6 +20,9 @@ const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit",
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
   let next = apply(s, i, env);
   if (next.resume && !RESUMING.has(i.type)) next = { ...next, resume: null }; // only a click, or moving the view, keeps "sketching goes on" waiting for a vertex
+  // the hidden sketch of a plane is shown while a tool begun on the edge of a body sketches in it (`in_211`)
+  const reveal = next.tool?.reveal ? next.tool.plane : null;
+  if ((next.session.reveal ?? null) !== reveal) next = { ...next, session: { ...next.session, reveal } };
   const c = next.session.conflict;
   return c && c !== s.session.conflict ? { ...next, flash: { ...c, at: env.now } } : next;
 }

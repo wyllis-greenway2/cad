@@ -49,6 +49,8 @@ export interface Scene {
   parts: Readonly<Record<string, Part>>;
   relations: readonly Relation[];
   steps: readonly Step[];
+  /** the plane whose hidden sketch (what extrusions used up) is shown and snapped to while sketching in it (not part of the model, only of how it is looked at, `in_211`) */
+  reveal?: Ref;
   /** Id counter: ids are never reused, so replaying a command list gives the same names. */
   counter: number;
 }

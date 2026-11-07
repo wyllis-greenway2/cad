@@ -30,7 +30,7 @@ function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = 
   const selected = [...new Map(selectionOf(s.session).flatMap((r) => { const p = planeOf(get, sketchOfEdge(sc, r)?.ref ?? r); return p ? [[p.ref, p] as const] : []; })).values()];
   const pl = selected.length === 1 ? selected[0]! : over ? planeOf(get, over) : null;
   const onSketch = selected.length === 1 && selectionOf(s.session).some((r) => sketchOfEdge(sc, r));
-  if (pl && onSketch) return animateTo({ ...armed, tool: { ...armTool(kind), plane: pl.ref } }, planeView(s.cam, pl, false), now);
+  if (pl && onSketch) return animateTo({ ...armed, tool: { ...armTool(kind), plane: pl.ref, reveal: true } }, planeView(s.cam, pl, false), now);
   return pl && sideOf(s.cam, normalOfPlane(pl)) === 0 ? animateTo(armed, planeView(s.cam, pl, false), now) : armed; // (not when already looking straight at it)
 }
 function beginOp(s: AppState, kind: OpKind): AppState {
@@ -45,7 +45,7 @@ export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["n
 
 /** Put a finished figure into the scene and hand back to normal selection with the figure selected. */
 /** The tool stays on after a figure is made, ready on the same plane for the next, until a right click or the cancel icon at the top puts it away (`in_193`). */
-const stays = (t: AppState["tool"]): AppState["tool"] => (t ? { ...armTool(t.kind), plane: t.plane } : null);
+const stays = (t: AppState["tool"]): AppState["tool"] => (t ? { ...armTool(t.kind), plane: t.plane, ...(t.reveal ? { reveal: true as const } : {}) } : null);
 
 export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppState {
   if (!fin) return s;

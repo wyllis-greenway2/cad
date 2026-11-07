@@ -217,7 +217,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   // sketching goes on while you keep clicking on vertices (`in_150`): a figure finished on an existing vertex leaves the same tool ready (a line starts its next segment from that vertex); finished anywhere else, the tool is put away
   const vertex = refs.map((r) => sc.parts[r]).find((p) => p?.kind === "corner" && p.origin === "drawn");
   if (!vertex || vertex.kind !== "corner" || done === base || (done.tool && done.tool.points.length) || done.session.message) return done;
-  return t.kind === "line" ? { ...done, tool: { ...armTool("line"), plane: t.plane, points: [vertex.at], cursor: vertex.at } } : done;
+  return t.kind === "line" ? { ...done, tool: { ...armTool("line"), plane: t.plane, ...(t.reveal ? { reveal: true as const } : {}), points: [vertex.at], cursor: vertex.at } } : done;
 }
 
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {

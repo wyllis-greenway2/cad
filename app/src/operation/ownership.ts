@@ -63,7 +63,22 @@ export function live(s: Scene): Scene {
   return used.size ? { ...s, parts: Object.fromEntries(Object.entries(s.parts).filter(([r]) => !used.has(r as Ref))) } : s;
 }
 
+/** The hidden parts of the sketch plane being sketched in (`in_211`): what the caller must not count as used up. */
+function revealedOn(s: Scene): (r: Ref) => boolean {
+  const plane = s.reveal;
+  return (r) => !!plane && (s.parts[r] as { plane?: Ref | null } | undefined)?.plane === plane;
+}
+
+
 export function consumed(s: Scene): Set<Ref> {
+  const all = consumedAll(s);
+  if (!s.reveal) return all;
+  const hide = revealedOn(s);
+  for (const r of [...all]) if (hide(r)) all.delete(r);
+  return all;
+}
+
+function consumedAll(s: Scene): Set<Ref> {
   const out = new Set<Ref>();
   for (const st of s.steps) {
     if (st.type !== "extrude") continue;
