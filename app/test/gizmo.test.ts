@@ -1363,3 +1363,19 @@ test("the lower edge of a chamfer inside a bore can be picked (it lies between t
   }
   assert.ok(hits >= 3, `the lower chamfer edge was picked at ${hits} of 4 places on the far side`);
 });
+
+test("the move arrows keep a number bubble on each axis, before, during and after a drag, and a distance typed in one moves the body that way (`in_215`)", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  const bubbles = (s: AppState) => frameOf(s, { w: 800, h: 600 }).entries.map((e) => `${e.fields[0]!.short}=${e.fields[0]!.value}`);
+  assert.deepEqual(bubbles(st), ["X=0", "Y=0", "Z=0"], "there at once, with the arrows that stand up by themselves");
+  st = reduce(st, { type: "begin", name: "move" }, env);
+  const g = gizmoOf(st)!;
+  const mid = scale(add(g.handles[0]!.points[0]!, g.handles[0]!.points[1]!), 0.5);
+  st = drag(st, mid, add(mid, [10, 0, 0]));
+  assert.equal(frameOf(st, { w: 800, h: 600 }).entries.length, 3, "still there after the drag");
+  st = reduce(st, { type: "entry", field: 1, text: "7" }, env);
+  assert.equal(bubbles(st)[1], "Y=7");
+  assert.equal(frameOf(st, { w: 800, h: 600 }).entries[1]!.fields[0]!.typed, true);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  nearV(bbox(st).min, [10, 7, 0]);
+});

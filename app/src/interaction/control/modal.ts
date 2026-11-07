@@ -104,6 +104,12 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     if (field >= 0 && field < 3) rot[field] = text;
     return { ...s, op: { ...s.op, rot, axis: (field as 0 | 1 | 2), value: null, typed: "" } };
   }
+  const mover = s.op ?? activeOp(s);
+  if (mover && mover.kind === "move" && (mover.target === "body" || mover.target === "plane") && !s.repeat && !s.tool && field >= 0 && field < 3) {
+    // the bubble on one of the move arrows (`in_215`): a distance typed along that axis; another axis starts again
+    const same = mover.axis === field;
+    return { ...s, op: { ...mover, auto: false, axis: field as 0 | 1 | 2, typed: text, ...(same ? {} : { value: null }) } };
+  }
   if (s.repeat && !s.op) {
     // a number of the repeat that is open (the count and the spacing, or the count and the degrees)
     const pat = [...s.repeat.op.pat];

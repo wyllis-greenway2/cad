@@ -33,7 +33,7 @@ import { annotationsFor, annotationsOf, focusParts } from "./annotations.ts";
 import { suggestionsFor } from "./suggest.ts";
 import type { Suggestions } from "./suggest.ts";
 import type { Annotation } from "./annotations.ts";
-import { entryOf, previewFor, repeatEntries } from "./entry.ts";
+import { entryOf, previewFor, repeatEntries, moveEntries } from "./entry.ts";
 import type { Entry } from "./entry.ts";
 import type { Preview } from "./tools.ts";
 import { gizmoOf, activeOp } from "./control/handles.ts";
@@ -75,7 +75,7 @@ export interface Frame {
   /** the constraints that could be put on the selected parts, as buttons by them (`in_195`) */
   suggest: Suggestions | null;
   /** a little icon by the move arrows of a body (or a drawn figure) that switches to turning it, and by its rings one that switches back (`in_206`) */
-  modeSwitch: { at: Vec3; to: "move" | "rotate"; label: string } | null;
+  modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate"; label: string } | null;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
   tool: { kind: "rect" | "circle" | "line" | "arc" | "trim"; label: string } | null;
   /** the little panes of the world planes beside the axes (`in_190`) */
@@ -116,6 +116,9 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   // the arrow of a push / pull, an extrude or a fillet / chamfer that showed up by itself has its bubble too, ready for a typed size
   const auto = s.op ? null : activeOp(s);
   const shownOp = s.op ?? (auto && !(s.cam.straight && auto.kind !== "edge") && (auto.kind === "pushpull" || auto.kind === "extrude" || auto.kind === "edge") ? auto : null);
+  // the arrows of a move have a number bubble on each, there as long as the arrows are (`in_215`)
+  const mo = !s.tool && !s.repeat ? (s.op ?? auto) : null;
+  const movingOp = mo && mo.kind === "move" && (mo.target === "body" || mo.target === "plane") ? mo : null;
   const flash = flashOf(s, sc, now);
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
   const gp = gridPlaneOf(s);
@@ -126,8 +129,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel,
     amber: [...focusParts(sc, sel, s.focus), ...(s.tool?.hints ?? []).flatMap((h) => h.ref ? [h.ref] : [])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
     preview: withGhost(previewFor(sc, s.tool), s),
-    entry: entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
-    entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam) : [],
+    entry: movingOp ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
+    entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam) : movingOp ? moveEntries(movingOp, gizmo, !!s.op) : [],
     bar: !!s.repeat,
     lookHint: lookOf(sc, sel, s.cam).lookHint,
     touchCursor: s.tool && s.tool.points.length && s.tool.cursor ? s.tool.cursor : null,
@@ -142,7 +145,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : null } : null,
-    modeSwitch: gizmo && !s.repeat ? modeSwitchOf(s.op ?? activeOp(s), gizmo.centre) : null,
+    modeSwitch: gizmo && !s.repeat ? modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : null,
     cursor: s.tool ? "crosshair" : s.gizmoHover ? "grab" : "",
     message: s.session.message ?? Object.values(outcome.errors)[0] ?? "",
   };
@@ -239,9 +242,9 @@ function fadeBodyOf(s: AppState, mesh: { vertices: Float32Array } | null): boole
 }
 
 /** Which way the switch by the handles of a move or a turn goes: to turning from moving, to moving from turning. */
-function modeSwitchOf(op: AppState["op"], at: Vec3): Frame["modeSwitch"] {
+function modeSwitchOf(op: AppState["op"], at: Vec3, pts: Vec3[]): Frame["modeSwitch"] {
   if (!op || (op.target !== "body" && op.target !== "plane")) return null;
-  if (op.kind === "move") return { at, to: "rotate", label: "Rotate" };
-  if (op.kind === "rotate") return { at, to: "move", label: "Move" };
+  if (op.kind === "move") return { at, pts, to: "rotate", label: "Rotate" };
+  if (op.kind === "rotate") return { at, pts, to: "move", label: "Move" };
   return null;
 }

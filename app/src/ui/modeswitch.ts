@@ -11,13 +11,13 @@ export function createModeSwitch(host: HTMLElement, go: (to: "move" | "rotate") 
   el.addEventListener("click", (e) => { e.stopPropagation(); go(to); });
   host.appendChild(el);
   return {
-    /** What the switch goes to (null: hide), and the page position of the handles' middle. */
+    /** What the switch goes to (null: hide), and the page position of the upper left corner of the handles. */
     update(what: { to: "move" | "rotate"; label: string } | null, at: [number, number] | null) {
       if (!what || !at) { el.style.display = "none"; return; }
       to = what.to;
       if (shown !== what.to) { shown = what.to; el.innerHTML = iconSvg(what.to); el.title = what.label; }
       el.style.display = "block";
-      el.style.transform = `translate(${Math.round(at[0] + 40)}px, ${Math.round(at[1] - 46)}px)`;
+      el.style.transform = `translate(${Math.round(at[0] - 38)}px, ${Math.round(at[1] - 38)}px)`;
     },
   };
 }

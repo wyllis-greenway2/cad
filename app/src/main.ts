@@ -217,7 +217,9 @@ function frame(now: number) {
     view.setNotes(f.annotations.flatMap((a) => a.lines));
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
-    modeSwitch.update(f.modeSwitch, onPage(f.modeSwitch?.at));
+    // the icon stands at the upper left of the handles, out of the way of the arrows and rings (`in_215`)
+    const corner = f.modeSwitch ? f.modeSwitch.pts.map((p) => onPage(p)!).reduce<[number, number]>((c, q) => [Math.min(c[0], q[0]), Math.min(c[1], q[1])], [Infinity, Infinity]) : null;
+    modeSwitch.update(f.modeSwitch, corner && Number.isFinite(corner[0]) ? corner : null);
     suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null);
     const valueBubbles = f.entries.length ? f.entries : f.entry ? [f.entry] : [];
     valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool));
