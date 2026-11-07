@@ -12,7 +12,9 @@ export type Shift =
   | { by: [number, number, number] }
   | { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }
   /** the points that stand over moved corners of a sketch (in a line along `axis` through the corner) move with them (`in_219`) */
-  | { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[] };
+  | { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[] }
+  /** the points are scaled by `k` across a line (a fillet or chamfer of another size is the same cross-section, scaled about the sharp edge, `in_220`) */
+  | { point: readonly number[]; dir: readonly number[]; k: number };
 
 export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array }
 
@@ -102,6 +104,11 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
           }
         } else if (keys && hits[i]) {
           if ("by" in how) [dx, dy, dz] = how.by;
+          else if ("k" in how) {
+            const [px, py, pz] = [from[3 * i]! - how.point[0]!, from[3 * i + 1]! - how.point[1]!, from[3 * i + 2]! - how.point[2]!];
+            const along = px * how.dir[0]! + py * how.dir[1]! + pz * how.dir[2]!;
+            [dx, dy, dz] = [(how.k - 1) * (px - along * how.dir[0]!), (how.k - 1) * (py - along * how.dir[1]!), (how.k - 1) * (pz - along * how.dir[2]!)];
+          }
           else if ("center" in how) {
             // out from the axis (a round wall made wider): the way from the axis to the point, across it
             const [px, py, pz] = [from[3 * i]! - how.center[0]!, from[3 * i + 1]! - how.center[1]!, from[3 * i + 2]! - how.center[2]!];

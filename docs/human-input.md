@@ -1106,3 +1106,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_219 — 2026-11-07 — approval
 > yes, do the side faces of a sketch too
+
+## in_220 — 2026-11-07 — approval
+> yes, do the fillet and chamfer ones too

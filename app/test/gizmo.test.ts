@@ -1470,3 +1470,31 @@ test("pulling a side of an extruded sketch is drawn at once without the kernel: 
   s2 = { ...s2, op: { ...s2.op!, value: 5 } };
   assert.equal(frameOf(s2, { w: 800, h: 600 }).faceShift, null);
 });
+
+test("making a fillet or a chamfer smaller is drawn at once without the kernel: the rounding is the same cross-section scaled about the sharp edge, and the scaled end points are where the kernel puts them (`in_220`)", () => {
+  for (const [typed, label] of [["3", "fillet"], ["-4", "chamfer"]] as const) {
+    let st = box();
+    const vertical = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "body" && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] !== (scene(st.session).parts[p.b] as { at: Vec3 }).at[2] && (scene(st.session).parts[p.a] as { at: Vec3 }).at[0] === 40 && (scene(st.session).parts[p.a] as { at: Vec3 }).at[1] === 20)!;
+    st = reduce(select(st, [vertical.ref]), { type: "begin", name: "edge" }, env);
+    st = typeNumber(st, typed);
+    const part = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && (label === "fillet" ? !!p.rounded : !p.rounded && !p.curved && [...p.u, ...p.v].some((v) => Math.abs(Math.abs(v) - Math.SQRT1_2) < 0.02)))!;
+    st = reduce(select(st, [part.ref]), { type: "begin", name: "pushpull" }, env);
+    assert.equal(st.op!.edit?.kind, "edgeSize", label);
+    const base = st.session.outcome.kernel!;
+    const size = Number(typed.replace("-", ""));
+    st = { ...st, op: { ...st.op!, value: 1 } }; // one smaller
+    const f = frameOf(st, { w: 800, h: 600 });
+    assert.ok(f.faceShift?.scaled, `${label}: a scaled shift`);
+    near(f.faceShift!.scaled!.k, (size - 1) / size, 1e-6);
+    assert.equal(f.mesh, base.mesh, `${label}: the mesh is the one already there`);
+    // the points of the rounding at the two ends of the edge, scaled about the sharp edge, are vertices of the real result
+    const { point, dir, k } = f.faceShift!.scaled!;
+    const m = (part as { mesh: number[] }).mesh;
+    const moved: Vec3[] = [];
+    for (let i = 0; i + 2 < m.length; i += 3) { const p: Vec3 = [m[i]!, m[i + 1]!, m[i + 2]!]; const d = sub(p, point); const perp = sub(d, scale(dir, dot(d, dir))); if (p[2] === 0 || p[2] === 20) moved.push(add(p, scale(perp, k - 1))); }
+    assert.ok(moved.length >= 4, `${label}: end points`);
+    const done = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+    const real = done.session.outcome.kernel!.mesh!.vertices;
+    for (const p of moved) assert.ok(Array.from({ length: real.length / 3 }, (_, i) => Math.hypot(real[3 * i]! - p[0], real[3 * i + 1]! - p[1], real[3 * i + 2]! - p[2])).some((d) => d < 1e-2), `${label}: ${JSON.stringify(p)} is a vertex of the real result`);
+  }
+});

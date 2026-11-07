@@ -70,13 +70,13 @@ export function createView(host: HTMLElement) {
   overlay.matrixAutoUpdate = false;
   /** The body (and, when what is selected is the body, its highlight) drawn moved by a matrix: a body being dragged is not worked out again by the kernel for every move of the pointer (`in_216`). */
   /** A face of the body pulled or pushed along its normal, drawn at once (`in_217`): the points that lie where the face's do move by `by`, and what is selected (the face) with them. */
-  function setFaceShift(f: { face: string; by?: [number, number, number]; radial?: { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }; columns?: { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[]; edge: { a: readonly number[]; da: readonly number[]; b: readonly number[]; db: readonly number[] } | null }; withOverlay: boolean } | null) {
+  function setFaceShift(f: { face: string; by?: [number, number, number]; radial?: { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }; scaled?: { point: readonly number[]; dir: readonly number[]; k: number }; columns?: { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[]; edge: { a: readonly number[]; da: readonly number[]; b: readonly number[]; db: readonly number[] } | null }; withOverlay: boolean } | null) {
     if (!shifter) return;
     if (!f) { if (shiftedFace !== null) { shifter(null, { by: [0, 0, 0] }); shiftedFace = null; } return; }
     const p = lastScene?.parts[f.face as never] as { mesh?: readonly number[] } | undefined;
     if (!p?.mesh) return;
     if (shiftedFace !== f.face || !faceKeys) { faceKeys = new Set<string>(); for (let i = 0; i + 2 < p.mesh.length; i += 3) faceKeys.add(`${Math.round(p.mesh[i]! * 1e3)},${Math.round(p.mesh[i + 1]! * 1e3)},${Math.round(p.mesh[i + 2]! * 1e3)}`); }
-    const how: Shift | null = f.by ? { by: f.by } : f.radial ?? (f.columns ? { axis: f.columns.axis, items: f.columns.items } : null);
+    const how: Shift | null = f.by ? { by: f.by } : f.radial ?? (f.scaled ? f.scaled : f.columns ? { axis: f.columns.axis, items: f.columns.items } : null);
     if (!how) return;
     shifter(faceKeys, how);
     shiftedFace = f.face;
@@ -86,6 +86,18 @@ export function createView(host: HTMLElement) {
       const k = (r0 + dr) / r0;
       const sc = [0, 1, 2].map((i) => (Math.abs(a[i]!) > 0.5 ? 1 : k));
       overlay.matrix.makeTranslation(c[0]!, c[1]!, c[2]!).multiply(new THREE.Matrix4().makeScale(sc[0]!, sc[1]!, sc[2]!)).multiply(new THREE.Matrix4().makeTranslation(-c[0]!, -c[1]!, -c[2]!));
+      overlay.matrixWorldNeedsUpdate = true;
+    }
+    if (f.withOverlay && f.scaled) {
+      // what is selected (the rounding) is scaled the same way: across the sharp edge, about it
+      const { point: c, dir: u, k } = f.scaled;
+      const U = new THREE.Vector3(u[0]!, u[1]!, u[2]!);
+      const lin = new THREE.Matrix4().set(
+        1 + (k - 1) * (1 - U.x * U.x), -(k - 1) * U.x * U.y, -(k - 1) * U.x * U.z, 0,
+        -(k - 1) * U.x * U.y, 1 + (k - 1) * (1 - U.y * U.y), -(k - 1) * U.y * U.z, 0,
+        -(k - 1) * U.x * U.z, -(k - 1) * U.y * U.z, 1 + (k - 1) * (1 - U.z * U.z), 0,
+        0, 0, 0, 1);
+      overlay.matrix.makeTranslation(c[0]!, c[1]!, c[2]!).multiply(lin).multiply(new THREE.Matrix4().makeTranslation(-c[0]!, -c[1]!, -c[2]!));
       overlay.matrixWorldNeedsUpdate = true;
     }
     if (f.withOverlay && f.columns?.edge) {
