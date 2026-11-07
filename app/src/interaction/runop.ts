@@ -16,7 +16,7 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
   }
   if (!op.edit || op.noEdit) return { session: run(sess, cmd), cmd };
   const prism0 = opCommand(sceneOf(sess), { ...op, noEdit: true });
-  let edited = run(sess, cmd, { watchAll: true, ...(prism0 ? { fallback: prism0 } : {}) });
+  let edited = run(sess, cmd, { watchAll: true, ...(prism0 && op.edit.kind !== "side" ? { fallback: prism0 } : {}) });
   // moving the side of a sketch: the constraints may have put the corners back (a locked length); that is not an edit
   if (!edited.message && cmd.type === "batch") {
     const after = sceneOf(edited).parts;
@@ -24,13 +24,13 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
     if (!held) edited = { ...sess, message: "the constraints on the sketch would put it back" };
   }
   if (!edited.message) return { session: edited, cmd };
+  // the side of a sketch that cannot move: no prism is added in its place (`in_208`); the constraints that hold it flash and the sketch stays as it was
+  if (op.edit.kind === "side") return { session: { ...sess, message: `that side cannot move: ${edited.message}`, conflict: { culprits: holdingSide(sceneOf(sess), op.edit.corners), victims: [] } }, cmd };
   if (op.rounded) return { session: { ...edited, message: `that size cannot be made: ${edited.message}` }, cmd }; // (a fillet or chamfer face has no prism to fall back on)
   const prism = opCommand(sceneOf(sess), { ...op, noEdit: true });
   if (!prism) return { session: edited, cmd };
   const made = run(sess, prism);
-  // a side of a sketch that would not move: the constraints that hold it flash, so it is clear why a push / pull was made instead (`in_207`)
-  const why = op.edit.kind === "side" ? { conflict: { culprits: holdingSide(sceneOf(sess), op.edit.corners), victims: [] } } : {};
-  return { session: made.message ? edited : { ...made, ...why, message: "the step that made this face could not take that size: a push / pull was added instead" }, cmd: prism };
+  return { session: made.message ? edited : { ...made, message: "the step that made this face could not take that size: a push / pull was added instead" }, cmd: prism };
 }
 
 /** The constraints that tie the corners of a sketch side to the rest of the sketch. */

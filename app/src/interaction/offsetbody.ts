@@ -23,7 +23,7 @@ const near2 = (a: V2, b: V2, t = 1e-6) => Math.hypot(a[0] - b[0], a[1] - b[1]) <
 const norm2 = (v: V2): V2 => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
 
 /** The edges of a flat face of the body: the lines that lie on the boundary of its triangles. */
-function faceEdges(scene: Scene, face: Extract<Part, { kind: "plane" }>): Ref[] {
+export function faceEdges(scene: Scene, face: Extract<Part, { kind: "plane" }>): Ref[] {
   const m = face.mesh;
   if (!m) return [];
   const key = (i: number) => `${Math.round(m[i]! * 1e3)},${Math.round(m[i + 1]! * 1e3)},${Math.round(m[i + 2]! * 1e3)}`;

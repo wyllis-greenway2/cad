@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { openSession, scene } from "../src/interaction/session.ts";
 import { faceEdit } from "../src/interaction/faceedit.ts";
+import { faceEdges } from "../src/interaction/offsetbody.ts";
 import { startOp, valueOf } from "../src/interaction/operations.ts";
 import { runOp } from "../src/interaction/runop.ts";
 import type { Part } from "../src/operation/part.ts";
@@ -20,13 +21,21 @@ test("the fillets of a body that has been turned still find their step (the face
   for (const f of fillets) assert.equal(faceEdit(sc, f.ref)?.kind, "edgeSize", f.ref);
 });
 
-test("a side whose neighbours are tangent circles cannot move: a push / pull is made instead, and the constraints holding the side are named (flashed)", () => {
+test("a side whose neighbours are tangent circles cannot move: nothing is added (`in_208`), the constraints holding the side flash", () => {
   const s = open();
   const sc = scene(s);
   const outer = (Object.values(sc.parts) as Part[]).find((p) => p.kind === "plane" && p.origin === "body" && faceEdit(sc, p.ref)?.kind === "side" && (faceEdit(sc, p.ref) as { corners: string[] }).corners.some((c) => c.startsWith("d/e_013")))!;
   const st = startOp(sc, [outer.ref], "pushpull") as { ok: true; op: Parameters<typeof valueOf>[0] };
   const r = runOp(s, { ...st.op, value: 2 } as typeof st.op)!;
-  assert.equal(scene(r.session).steps.at(-1)?.type, "pushPull");
-  assert.ok(r.session.message?.includes("push / pull was added"), String(r.session.message));
+  assert.equal(scene(r.session).steps.length, sc.steps.length, "no prism step was added");
+  assert.ok(r.session.message?.includes("cannot move"), String(r.session.message));
   assert.ok((r.session.conflict?.culprits.length ?? 0) > 0, "the constraints are shown");
+});
+
+test("a selected curved face of the body is outlined by its own edges, a few, not by the sides of its triangles (`in_208`)", () => {
+  const s = open();
+  const sc = scene(s);
+  const wall = (Object.values(sc.parts) as Part[]).find((p) => p.kind === "plane" && p.origin === "body" && p.rounded === "CYLINDRE" && (p.mesh?.length ?? 0) > 300)!;
+  const edges = faceEdges(sc, wall as Extract<Part, { kind: "plane" }>);
+  assert.ok(edges.length >= 3 && edges.length <= 12, `${edges.length} edges`);
 });

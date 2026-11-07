@@ -2,7 +2,7 @@
 // balls for picked lines and corners, amber for what a relation ties the selection to.
 import * as THREE from "three";
 import type { Scene, Ref, Vec3, Plane } from "../../interaction/api.ts";
-import { outlineOf, lookup, settings, normalOfPlane, consumed } from "../../interaction/api.ts";
+import { outlineOf, lookup, settings, normalOfPlane, consumed, faceEdges } from "../../interaction/api.ts";
 import type { Camera } from "../../interaction/camera.ts";
 import { surfaceTriangles } from "../../interaction/surfaces.ts";
 import { hoverOrb, selectOrb, fullOrb, orbMaterial, selectedLook } from "../orb.ts";
@@ -74,6 +74,8 @@ function surfaceOrb(kind: Kind, ref: Ref, tris: number[], h: Highlight, unit: nu
   return trisMesh(tris, orbMaterial(teal, ringRgb, orb, { offset: -2 }));
 }
 
+const ringPairs = (o: { center: Vec3; radius: number; normal: Vec3 }): number[] => { const pts = ringOf(o.center, o.radius, o.normal); const out: number[] = []; for (let i = 0; i + 5 < pts.length; i += 3) out.push(pts[i]!, pts[i + 1]!, pts[i + 2]!, pts[i + 3]!, pts[i + 4]!, pts[i + 5]!); return out; };
+
 /** The outline of a filled surface: the sides of its triangles that only one triangle has (so the edges of a selected face are blue too, as the rest of what is selected, `in_206`). Flat pairs of points. */
 function outlineOfTriangles(tris: number[]): number[] {
   const key = (i: number) => `${Math.round(tris[i]! * 1e3)},${Math.round(tris[i + 1]! * 1e3)},${Math.round(tris[i + 2]! * 1e3)}`;
@@ -114,7 +116,8 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
     }
     if (tris && kind === "select" && (p.kind === "face" || (p.kind === "plane" && p.origin !== "world"))) {
       // a selected face has its edges in the selected blue too
-      const edge = outlineOfTriangles(tris);
+      // (a body's face: its own edges, since the triangles of a curved face can be split unevenly and their sides would show all over it)
+      const edge = p.kind === "plane" && p.origin === "body" ? faceEdges(s, p).flatMap((r) => { const l = get(r); const o = l ? outlineOf(get, l) : null; return o?.shape === "polyline" ? o.pts.slice(1).flatMap((q, i) => [...o.pts[i]!, ...q]) : o?.shape === "segment" ? [...o.a, ...o.b] : o?.shape === "circle" ? ringPairs(o) : []; }) : outlineOfTriangles(tris);
       if (edge.length) { const line = pen.line(edge, tealHex, settings.pick.edgeWidthPx, true); line.renderOrder = 5; overlay.add(line); }
     }
     if (tris) return void overlay.add(surfaceOrb(kind, ref, tris, h, unit, nowMs));

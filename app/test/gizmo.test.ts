@@ -1203,7 +1203,7 @@ test("pulling the side of an extruded rectangle moves that side of the sketch: n
   near(st.session.outcome.kernel!.volume!, 50 * 20 * 20, 0.5);
 });
 
-test("a rectangle with a locked width cannot be stretched from its side: the side is pushed and pulled the old way instead", () => {
+test("a rectangle with a locked width cannot be stretched from its side: it is refused and the constraints flash, no prism is added (`in_208`)", () => {
   let st = box();
   // lock the width: the two vertical lines' distance
   const lines = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn");
@@ -1215,8 +1215,8 @@ test("a rectangle with a locked width cannot be stretched from its side: the sid
   st = select(st, [side.ref]);
   st = reduce(st, { type: "begin", name: "pushpull" }, env);
   st = typeNumber(st, "50");
-  near(st.session.outcome.kernel!.volume!, 50 * 20 * 20, 0.5);
-  assert.deepEqual(scene(st.session).steps.map((x) => x.type), ["extrude", "pushPull"], "the length is locked at 40: a prism was added");
+  assert.deepEqual(scene(st.session).steps.map((x) => x.type), ["extrude"], "the length is locked at 40: nothing was added");
+  assert.ok(st.session.conflict && st.session.conflict.culprits.length > 0, "the constraint that holds it flashes");
 });
 
 test("a chamfer face of a box edge: pulling it out makes the chamfer smaller, as the step that made it; the end of an earlier prism push is its depth", () => {
