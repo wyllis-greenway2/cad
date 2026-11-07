@@ -184,3 +184,25 @@ test("deleting the body removes the sketches it was made from; a drawing that wa
   assert.equal(parts(t).filter((p) => p.kind === "line" && p.origin === "drawn").length, 1, "the free line stays, with its points");
   assert.equal(parts(t).filter((p) => p.kind === "corner" && p.origin === "drawn").length, 2);
 });
+
+// ---- the sources of an extruded cut shape go with the body (`in_201`) ----
+import { consumed as consumedOf } from "../src/operation/ownership.ts";
+test("nothing of an extruded shape is left visible where the body was: the arcs and lines its pieces were cut from are the body's too", () => {
+  const r = openSession(kernel, readFileSync(new URL("./fixtures/stadium-move.cad.json", import.meta.url), "utf8"));
+  assert.ok(r.ok);
+  const s = r.value;
+  const used = consumedOf(scene(s));
+  const visible = parts(s).filter((p) => p.origin === "drawn" && p.movable && (p.kind === "line" || p.kind === "corner" || p.kind === "circle") && !used.has(p.ref));
+  assert.deepEqual(visible.map((p) => p.ref), [], "no sketch line or point is left showing");
+  // and the two pieces of a circle cut by a line: the one extruded goes, the other is still there to extrude
+  let q = createSession(kernel);
+  q = run(q, drawCircle(scene(q), XY, [0, 0, 0], 10).command);
+  q = run(q, drawChain(scene(q), XY, [[-15, 3, 0], [15, 3, 0]]).command);
+  const faces = parts(q).filter((p) => p.kind === "face");
+  const st = startOp(scene(q), [faces[0]!.ref], "extrude") as { ok: true; op: Parameters<typeof opCommand>[1] };
+  q = run(q, opCommand(scene(q), { ...st.op, value: 5 })!);
+  const left = parts(q).filter((p) => p.kind === "face" && p.ref !== faces[0]!.ref);
+  assert.equal(left.length, 1);
+  assert.ok(!consumedOf(scene(q)).has(left[0]!.ref), "the other piece is not used up");
+  assert.ok(!consumedOf(scene(q)).has(parts(q).find((p) => p.kind === "circle")!.ref), "the circle is still there for the other piece");
+});

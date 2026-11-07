@@ -80,5 +80,16 @@ export function consumed(s: Scene): Set<Ref> {
   const usedFaces = faces.filter(used);
   for (const f of faces) if (f.pieces && !usedFaces.includes(f)) for (const l of f.loop) { out.delete(l); const p = s.parts[l]; if (p) for (const a of anchorsOf(p)) out.delete(a); }
   for (const f of usedFaces) out.add(f.ref);
+  // the curve a used piece was cut from (an arc, a line, a circle that other curves cross or end on) is the body's too, unless a piece of it still belongs to a region that was not extruded: it goes with the body, it is not left behind (`in_201`)
+  const sourceOf = (r: Ref): Ref | null => { const m = /^d\/(?:arc|seg)@([^@]+)@/.exec(r); return m ? (`d/${m[1]}` as Ref) : null; };
+  const stillNeeded = new Set<Ref>();
+  for (const f of faces) if (f.pieces && !usedFaces.includes(f)) for (const l of f.loop) { const src = sourceOf(l); if (src) stillNeeded.add(src); stillNeeded.add(l); }
+  for (const r of [...out]) {
+    const src = sourceOf(r);
+    const part = src ? s.parts[src] : undefined;
+    if (!src || !part || stillNeeded.has(src) || out.has(src)) continue;
+    out.add(src);
+    for (const a of anchorsOf(part)) if (!Object.values(s.parts).some((q) => q.kind === "face" && q.pieces && !usedFaces.includes(q) && q.corners.includes(a))) out.add(a);
+  }
   return out;
 }
