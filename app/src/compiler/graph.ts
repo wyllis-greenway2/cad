@@ -100,7 +100,8 @@ export function buildGraph(scene: Scene): GraphResult {
       }
       case "edgeMod": {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
-        const refs = st.parts.map((r) => decodeEdge(r));
+        const ranks = String(st.params.ranks ?? "").split(",");
+        const refs = st.parts.map((r, i) => { const e = decodeEdge(r); return e && ranks[i] && ranks[i] !== "-" ? { ...e, rank: ranks[i] } : e; });
         if (refs.some((r) => !r)) { errors[st.id] = "select lines of the body"; break; }
         const mode = String(st.params.mode ?? "fillet");
         const value = Number(st.params.value ?? 0);

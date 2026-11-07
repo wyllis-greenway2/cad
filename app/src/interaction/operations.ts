@@ -14,6 +14,7 @@ import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { lookup, nextId, figureParams } from "../operation/scene.ts";
+import { rimRanks } from "../operation/rims.ts";
 import type { Figure } from "../operation/scene.ts";
 import type { Part, Plane, PointerView } from "../operation/part.ts";
 import { normalOfPlane, pointOf, curveMid, circumcentre } from "../operation/part.ts";
@@ -35,6 +36,8 @@ export interface Op {
   value: number | null;
   /** move and rotate: 0 = X, 1 = Y, 2 = Z (for a drawn shape: 0 = along the plane's first axis, 1 = along its second) */
   axis: 0 | 1 | 2;
+  /** fillet / chamfer: which of the round rims sharing a centre each edge is (`rimRanks`), so that the step finds it again when sizes change */
+  ranks?: string;
   /** extrude: the step's params for the figures drawn inside the one extruded (holes in it) and for sibling figures extruded with it */
   figs?: Record<string, string>;
   /** extrude and push / pull: the figure's or face's middle and the direction along which the distance is measured */
@@ -224,7 +227,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
       }
       return [{ mid: add(pa.at, scale(sub(pb.at, pa.at), 0.25)), dir: edgeDirection(scene, pa.at, pb.at) }];
     });
-    return { ok: true, op: { ...base, parts: lines.map((p) => p.ref), edges } }; // no size yet: drag the double arrow, or type one
+    return { ok: true, op: { ...base, parts: lines.map((p) => p.ref), edges, ranks: rimRanks(scene, lines.map((p) => p.ref)) } }; // no size yet: drag the double arrow, or type one
   }
   if (kind === "copy") {
     // a copy is a repeat of two (the thing and one more beside it): the same arrows and numbers, to place the copy
@@ -396,7 +399,7 @@ export function opCommand(scene: Scene, op: Op): Command | null {
   if (op.kind === "pushpull" && op.edit && !op.noEdit) return v === 0 ? null : editCommand(scene, op.edit, v);
   if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
-  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v) } } };
+  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(op.ranks ? { ranks: op.ranks } : {}) } } };
   if (op.kind === "scale" && op.target === "shape") return v <= 0 ? null : scaleShapeCommand(scene, op, v);
   if (op.kind === "scale") return v <= 0 ? null : { type: "addStep", step: { id, type: "scale", parts: op.parts, params: { axis: 0, value: v } } };
   if (op.target === "plane") {

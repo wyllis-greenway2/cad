@@ -969,3 +969,9 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_185 — 2026-11-06 — approval
 > yes, remove the leftover points when nothing else uses them
+
+## in_186 — 2026-11-07 — directive
+> There seems to be some strange relationships and unneccisarry restrictions on some models. Maybe this is some buggy occt engine stuff? When I increase the outer diameter of this model, at some point the inner diameter geometry dissapears and the inner diameter gets bigger. 
+> Also the inner bottom edge of the chamfer is not selectable. The inner ring part was made by reducing the diamter of a regular ring that had a chamfer already on it. This projected a flat disc inward rather than progressing inward with the chamfer progressing as well. I am not sure if this operated as it should, and since it produced this new face (flat instead of chamfered extended) then maybe that is part of the reason why the inner chamfer edge is not selectable? since that edge became the new edge of the smaller inner ring part?
+>
+> Also letes make it so if you double click on any part of a body, line, verticy, face, it selects the body. Right now only a double click specifically on a face will select the body.

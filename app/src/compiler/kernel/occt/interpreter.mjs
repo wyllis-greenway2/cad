@@ -189,6 +189,49 @@ const edgeMatches = (e, ref) => {
   return (d(a, ref.a) < 1e-3 && d(b, ref.b) < 1e-3) || (d(a, ref.b) < 1e-3 && d(b, ref.a) < 1e-3);
 };
 
+/** A round edge: its centre, axis and radius. */
+function circleOfEdge(e) {
+  if (e.geomType !== "CIRCLE") return null;
+  try {
+    const ci = e._geomAdaptor().Circle();
+    const [lc, ax] = [ci.Location(), ci.Axis().Direction()];
+    return { c: [lc.X(), lc.Y(), lc.Z()], n: [ax.X(), ax.Y(), ax.Z()], r: ci.Radius() };
+  } catch { return null; }
+}
+
+/**
+ * A round rim that a step meant (ref.rank = "k/n": the k-th smallest of n rims that share a centre and an axis, when the step was made): after sizes changed it is the k-th smallest of the rims that
+ * share that centre now, if there are still n of them, whatever the rims have grown or shrunk to. Null if that cannot be told (then the nearest edge is looked for).
+ */
+function edgeByRank(edges, ref) {
+  const [k, n] = ref.rank.split("/").map(Number);
+  if (!(n > 1)) return null;
+  // the centre of the circle the ref lies on: a whole rim has one point for both ends, the middle is across from it; a half rim is found from three points
+  const closed = Math.hypot(ref.a[0] - ref.b[0], ref.a[1] - ref.b[1], ref.a[2] - ref.b[2]) < 1e-6;
+  const centre = closed ? ref.a.map((v, i) => (v + ref.mid[i]) / 2) : circumcentre3(ref.a, ref.mid, ref.b);
+  if (!centre) return null;
+  const rim = edges.map((e) => ({ e, ci: circleOfEdge(e) })).filter((x) => x.ci && Math.hypot(x.ci.c[0] - centre[0], x.ci.c[1] - centre[1], x.ci.c[2] - centre[2]) < 1e-3 && Math.abs(x.ci.n[0] * (ref.mid[0] - centre[0]) + x.ci.n[1] * (ref.mid[1] - centre[1]) + x.ci.n[2] * (ref.mid[2] - centre[2])) < 1e-3);
+  const radii = [...new Set(rim.map((x) => Math.round(x.ci.r * 1e3) / 1e3))].sort((a, b) => a - b);
+  if (radii.length !== n || k >= n) return null;
+  const rt = radii[k];
+  const rr = Math.hypot(ref.mid[0] - centre[0], ref.mid[1] - centre[1], ref.mid[2] - centre[2]) * (closed ? 1 : 1);
+  const want = centre.map((v, i) => v + ((ref.mid[i] - v) * rt) / (rr || 1)); // where the middle of the edge is, carried along as the rim grew
+  const here = rim.filter((x) => Math.abs(Math.round(x.ci.r * 1e3) / 1e3 - rt) < 2e-3);
+  here.sort((x, y) => { const m = (e) => { const p = e.pointAt(0.5); return Math.hypot(p.x - want[0], p.y - want[1], p.z - want[2]); }; return m(x.e) - m(y.e); });
+  return here[0]?.e ?? null;
+}
+function circumcentre3(a, b, c) {
+  const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+  const ac = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+  const n = [ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2], ab[0] * ac[1] - ab[1] * ac[0]];
+  const nn = n[0] * n[0] + n[1] * n[1] + n[2] * n[2];
+  if (nn < 1e-12) return null;
+  const cr = (u, v) => [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+  const t1 = cr(cr(ab, ac), ab), t2 = cr(ac, cr(ab, ac)); // (n x ab) and (ac x n)
+  const ab2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2], ac2 = ac[0] * ac[0] + ac[1] * ac[1] + ac[2] * ac[2];
+  return [0, 1, 2].map((i) => a[i] + (t1[i] * ac2 + t2[i] * ab2) / (2 * nn));
+}
+
 /**
  * The edges of the body that `refs` mean: those that match exactly; for a ref that matches none (an earlier step changed the size of the model, so the edge is not where it was), the edge that
  * is nearest to where it was, if it is clearly the nearest (a step then still finds its edge after the sketch under it is resized: `in_173`). Returns the hash codes, or null if one cannot be found.
@@ -202,6 +245,8 @@ function resolveEdges(t, refs) {
     const exact = edges.filter((e) => edgeMatches(e, r));
     if (exact.length) { exact.forEach((e) => out.add(e.hashCode)); continue; }
     const d = (p, q) => Math.hypot(p.x - q[0], p.y - q[1], p.z - q[2]);
+    const byRank = r.rank ? edgeByRank(edges, r) : null;
+    if (byRank) { out.add(byRank.hashCode); continue; }
     const scored = edges.map((e) => {
       const [a, b, m] = [e.startPoint, e.endPoint, e.pointAt(0.5)];
       const ends = Math.min(d(a, r.a) + d(b, r.b), d(a, r.b) + d(b, r.a));

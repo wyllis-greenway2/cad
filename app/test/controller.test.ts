@@ -241,3 +241,23 @@ test("choosing a sketch tool with a face selected turns the view straight to it"
   assert.equal(st.cam.straight, true);
   nearV(basis(st.cam).forward, [-1, 0, 0], 1e-6);
 });
+
+test("a double click on any part of the body, a point or a line as well as a face, selects the whole body; a third click is only that part again", () => {
+  let st = boxState();
+  const sc = scene(st.session);
+  const vertex = Object.values(sc.parts).find((p) => p.kind === "corner" && p.origin === "body")! as { at: Vec3 };
+  st = click(st, vertex.at, 1);
+  assert.ok(!selection(st.session).includes(BODY_OBJECT));
+  st = click(st, vertex.at, 2);
+  assert.deepEqual(selection(st.session), [BODY_OBJECT], "the point's double click takes the body");
+  st = click(st, vertex.at, 3);
+  assert.equal(selection(st.session).length, 1);
+  assert.ok(!selection(st.session).includes(BODY_OBJECT));
+  const edge = Object.values(sc.parts).find((p) => p.kind === "line" && p.origin === "body")! as { a: string; b: string };
+  const [pa, pb] = [sc.parts[edge.a]!, sc.parts[edge.b]!] as { at: Vec3 }[];
+  const mid: Vec3 = [(pa!.at[0] + pb!.at[0]) / 2, (pa!.at[1] + pb!.at[1]) / 2, (pa!.at[2] + pb!.at[2]) / 2];
+  let t = boxState();
+  t = click(t, mid, 1);
+  t = click(t, mid, 2);
+  assert.deepEqual(selection(t.session), [BODY_OBJECT], "the line's double click takes the body");
+});

@@ -225,3 +225,25 @@ test("an extruded region follows its drawing: moving a cut line or changing the 
   const moved = run(s, { type: "movePart", ref: corner.ref, to: [15, 8, 0] });
   assert.notEqual(moved.outcome.kernel!.volume, before);
 });
+
+test("a chamfer on one rim of a ring stays on that rim when the outer size grows past the inner one's old size", () => {
+  let s = createSession(kernel);
+  s = draw(s, drawCircle(scene(s), XY, [0, 0, 0], 20));
+  s = draw(s, drawCircle(scene(s), XY, [0, 0, 0], 10));
+  s = extrude(s, [facesOf(s).find((f) => f.holes?.length)!.ref], "10");
+  for (const radius of [20, 10]) {
+    const rims = Object.values(scene(s).parts).filter((p) => p.kind === "line" && p.origin === "body" && p.circle && Math.abs(p.circle.center[2] - 10) < 1e-6 && Math.abs(p.circle.radius - radius) < 1e-3).map((p) => p.ref);
+    const e = startOp(scene(s), rims, "edge");
+    assert.ok(e.ok);
+    s = run(s, opCommand(scene(s), { ...(e as { ok: true; op: Parameters<typeof typeOp>[0] }).op, value: -1.5 })!);
+    assert.equal(s.message, null);
+  }
+  const outer = Object.values(scene(s).parts).find((p) => p.kind === "circle" && p.radius === 20)!;
+  for (const ro of [25, 30, 40, 60]) {
+    const t = run(s, { type: "setRadius", ref: outer.ref, radius: ro });
+    assert.deepEqual(t.outcome.errors, {}, `outer ${ro}`);
+    const plain = Math.PI * (ro * ro - 100) * 10;
+    // both chamfers are still made: 1.125 mm² turned round at the outer rim and at the inner one
+    near(plain - t.outcome.kernel!.volume!, 1.125 * 2 * Math.PI * (ro - 0.5 + 10.5), 3);
+  }
+});

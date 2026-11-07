@@ -222,11 +222,14 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
     const pl = planeOf(get, refs[0]);
     if (pl) return animateTo(withSession(base, { ...sess, click: { selection: [refs[0]], spot: sess.click.spot }, message: null }), planeView(base.cam, pl, false), env.now);
   }
-  if (onePlane && count === 2) {
+  // (a point or a line of the body under the double click is a part of the body too: two clicks take the whole object from any part of it, `in_186`)
+  const bodyFirst = selectable.length > 0 && selectable.every((r) => sc.parts[r]?.origin === "body"); // (all of them: where a drawn thing lies on the same spot, repeated clicks cycle through them instead)
+  if ((onePlane || bodyFirst) && count === 2) {
     // two: the whole object (the view does not turn)
     const o = selectable[0] ? objectOf(sc, selectable[0]) : undefined;
     return o ? withSession(base, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base;
   }
+  if (!onePlane && bodyFirst && count >= 3) return withSession(base, { ...sess, click: { selection: [selectable[0]!], spot: sess.click.spot }, message: null }); // three on a point or a line: only that part again (the second click had taken the object)
   if (onePlane && count >= 3) {
     // three: only the face (the second click had taken the whole object), and the view turns straight to it from the side you are on
     const pl = refs[0] ? planeOf(get, refs[0]) : null;

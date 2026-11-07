@@ -70,7 +70,7 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
     const tp = dot(sub(point, ray.o), ray.d);
     for (const o of occluders) {
       const t = depthOf(get, o, { ...pv, ray });
-      if (t !== null && t < tp - 1e-3 - 1e-6 * tp) return false;
+      if (t !== null && t < tp - 1e-3 - 1.5e-3 * tp) return false; // (the mesh of a curved face lies a hair inside the true surface, so an edge between two curved faces must not be taken for hidden behind them)
     }
     return true;
   };

@@ -1341,3 +1341,21 @@ test("the arrow of a chamfer round a post stands on the chamfer, not in the air 
   assert.ok(Math.hypot(mid[0], mid[1]) > 7, `on the rim, not on the axis (${mid})`);
   near(mid[2], 19, 1.5);
 });
+
+test("the lower edge of a chamfer inside a bore can be picked (it lies between two curved faces, whose mesh is a hair off the true surface)", () => {
+  let s = createSession(kernel);
+  s = run(s, drawCircle(scene(s), XY, [0, 0, 0], 20).command);
+  s = run(s, drawCircle(scene(s), XY, [0, 0, 0], 10).command);
+  const ring = Object.values(scene(s).parts).find((p) => p.kind === "face" && p.holes?.length)!;
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [(ring as { disk?: string }).disk as never], params: { depth: 10, holes: Object.values(scene(s).parts).find((p) => p.kind === "circle" && p.radius === 10)!.ref } } });
+  const inner = Object.values(scene(s).parts).filter((p) => p.kind === "line" && p.origin === "body" && p.circle && p.circle.center[2] === 10 && Math.abs(p.circle.radius - 10) < 1e-3).map((p) => p.ref);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "edgeMod", parts: inner, params: { mode: "chamfer", value: 2 } } });
+  let st: AppState = { ...createState(s), cam: { ...homeCamera(), target: [0, 0, 5], distance: 90 } };
+  let hits = 0;
+  for (const a of [2.3, 3.3, 4.3, 5.3]) {
+    const [x, y] = px(st, [10 * Math.cos(a), 10 * Math.sin(a), 8]);
+    st = reduce(reduce(st, { type: "escape" }, env), { type: "click", x, y, count: 1, shift: false }, env);
+    if (selection(st.session).some((r) => { const p = scene(st.session).parts[r]; return p?.kind === "line" && p.circle && Math.abs(p.circle.radius - 10) < 1e-3 && p.circle.center[2] === 8; })) hits++;
+  }
+  assert.ok(hits >= 3, `the lower chamfer edge was picked at ${hits} of 4 places on the far side`);
+});
