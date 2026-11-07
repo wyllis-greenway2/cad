@@ -132,6 +132,13 @@ function place(get: Lookup, kind: string, parts: readonly Ref[]): Placed | null 
       if (s1 && s2) { const m = mid(s1[0], s1[1]); const f = footOn(m, s2[0], s2[1]); return { at: mid(m, f), lines: [[m, f]] }; }
       return null;
     }
+    case "tangent": {
+      // where the line touches the circle: the foot of the circle's centre on the line
+      const c = circles[0] ? circleOf(get, circles[0]) : null;
+      return s1 && c ? { at: footOn(c.center, s1[0], s1[1]), lines: [] } : null;
+    }
+    case "onCircle": case "onLine":
+      return c1 ? { at: c1, lines: [] } : null;
     default:
       return null;
   }
@@ -158,7 +165,14 @@ function annotationOf(scene: Scene, rel: Scene["relations"][number], sel: readon
 export function annotationsFor(scene: Scene, selection: readonly Ref[], focus: string | null): Annotation[] {
   const sel = selection.filter((r) => isPart(scene, r)); // planes, faces and the body have no constraints of their own
   const map = buildMap(scene);
-  const out = scene.relations.filter((rel) => rel.kind !== "arcEnds" && rel.parts.some((p) => sel.includes(p))).map((rel) => annotationOf(scene, rel, sel, focus, map)).filter((a): a is Annotation => !!a);
+  // what a selected line or circle has applied includes what its end points and centre have (a coincident, a point on a circle): selecting the part always shows its constraints (`in_195`)
+  const scope = new Set<Ref>(sel);
+  for (const r of sel) {
+    const p = scene.parts[r];
+    if (p?.kind === "line") [p.a, p.b, ...(p.center ? [p.center] : [])].forEach((c) => scope.add(c));
+    else if (p?.kind === "circle") scope.add(p.center);
+  }
+  const out = scene.relations.filter((rel) => rel.kind !== "arcEnds" && rel.parts.some((p) => scope.has(p))).map((rel) => annotationOf(scene, rel, sel, focus, map)).filter((a): a is Annotation => !!a);
   const m = measureOf(scene, selection);
   const r = radiusOf(scene, selection);
   return [...out, ...(m ? [m] : []), ...(r ? [r] : [])];

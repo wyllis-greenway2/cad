@@ -1,10 +1,10 @@
 // The grid on the plane you look straight at (`in_066`: shown only when looking straight, faint, finer as you zoom in). Pure: the visible part of the plane as line segments.
 import type { Vec3 } from "../math/vec.ts";
-import { add, scale, sub, dot } from "../math/vec.ts";
+import { add, scale, sub, dot, normalize } from "../math/vec.ts";
 import type { Plane } from "../operation/part.ts";
 import { normalOfPlane } from "../operation/part.ts";
 import type { Camera } from "./camera.ts";
-import { projector, sideOf } from "./camera.ts";
+import { projector, sideOf, position } from "./camera.ts";
 import { settings } from "../shared/settings.ts";
 
 export interface Grid { minor: number[]; major: number[]; step: number; /** seen from the side the grid is a patch that fades out towards its edge: about this point, gone at this far (its lines are cut into short pieces so that the fade can follow them) */ fade?: { center: Vec3; radius: number } }
@@ -51,9 +51,16 @@ export function gridFor(cam: Camera, plane: Plane, widthPx: number, heightPx: nu
 /** Looked at from the side (not straight): a square patch of the plane about the point under the view's middle, as wide as the view is deep, so the grid is always there to be seen on. */
 function patchFor(cam: Camera, plane: Plane): Grid {
   const n = normalOfPlane(plane);
-  const c = sub(cam.target, scale(n, dot(n, sub(cam.target, plane.at))));
+  // about where the view's middle meets the plane (so that panning, up or away from the plane, keeps the grid under the view and not left behind); when it does not meet it, about the target's foot
+  const eye = position(cam);
+  const dir = normalize(sub(cam.target, eye));
+  const den = dot(n, dir);
+  const t = Math.abs(den) < 1e-6 ? null : dot(n, sub(plane.at, eye)) / den;
+  const hit = t !== null && t > 0 && t < cam.distance * 60 ? add(eye, scale(dir, t)) : null;
+  const c = hit ?? sub(cam.target, scale(n, dot(n, sub(cam.target, plane.at))));
   const [cu, cv] = [dot(sub(c, plane.at), plane.u), dot(sub(c, plane.at), plane.v)];
-  const half = Math.max(cam.distance * 0.9, 10);
+  const reach = hit && t !== null ? t : cam.distance; // the patch is as wide as the view is deep where it meets the plane
+  const half = Math.max(reach * 0.9, 10);
   const step = niceStep(2 * half, settings.grid.divisions);
   const [x0, x1, y0, y1] = [Math.floor((cu - half) / step) * step, Math.ceil((cu + half) / step) * step, Math.floor((cv - half) / step) * step, Math.ceil((cv + half) / step) * step];
   const at = (x: number, y: number): Vec3 => add(plane.at, add(scale(plane.u, x), scale(plane.v, y)));

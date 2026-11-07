@@ -34,7 +34,7 @@ function beginOp(s: AppState, kind: OpKind): AppState {
   return { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: null } };
 }
 export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["name"], now = 0): AppState {
-  if (name === "rect" || name === "circle" || name === "line" || name === "arc") return beginTool(s, name, now);
+  if (name === "rect" || name === "circle" || name === "line" || name === "arc" || name === "trim") return beginTool(s, name, now);
   return beginOp(s, name);
 }
 

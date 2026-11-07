@@ -17,7 +17,7 @@ import { settings } from "../shared/settings.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Hint } from "./hints.ts";
 
-export type ToolKind = "rect" | "circle" | "line" | "arc";
+export type ToolKind = "rect" | "circle" | "line" | "arc" | "trim";
 export interface Tool {
   kind: ToolKind;
   /** null while armed (waiting for the first click on a surface) */
@@ -33,14 +33,16 @@ export interface Tool {
   hints?: Hint[];
   /** a circle being drawn about the centre of another circle: that circle (the new one is made concentric with it) */
   concentric?: Ref;
+  /** trim: the part of a line or circle under the pointer that a click would cut off (shown as it is) */
+  trimming?: { ref: Ref; span: Vec3[] };
 }
 /** A tool that waits for its first click on a surface. */
 export const armTool = (kind: ToolKind): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0 });
 
-export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"] };
+export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], trim: [] };
 
 // ---- points on a plane ----
-function pointOnPlane(pv: PointerView, pl: Plane): Vec3 | null {
+export function pointOnPlane(pv: PointerView, pl: Plane): Vec3 | null {
   if (!pv.ray) return null;
   const n = normalOfPlane(pl);
   const den = dot(n, pv.ray.d);
@@ -158,6 +160,7 @@ function guidesOf(spent: Scene, pl: Plane, cursor: Vec3 | null): [Vec3, Vec3][] 
   return out;
 }
 export function previewOf(scene: Scene, t: Tool): Preview | null {
+  if (t.kind === "trim") return t.trimming ? { segments: t.trimming.span.slice(1).map((p, i): [Vec3, Vec3] => [t.trimming!.span[i]!, p]), circle: null, cursor: null } : null; // the part that would be cut off
   const pl = t.plane ? (scene.parts[t.plane] as Plane | undefined) : undefined;
   if (!pl || pl.kind !== "plane" || !t.points.length) return null;
   const p = previewShape(scene, t, pl);

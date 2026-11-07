@@ -360,7 +360,7 @@ test("the right-click ring offers all the operations around the click; nothing o
   const f = frameOf(st, { w: 800, h: 600 });
   assert.ok(!f.annotations.some((a) => ["pushpull", "sketch", "edge", "rect"].includes(a.kind)), "a left click shows constraints and dimensions only");
   const ring = flat(reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items);
-  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "tool:arc", "op:offset", "op:pushpull", "op:edge", "op:scale", "op:move", "op:rotate", "op:copy", "op:linear", "op:circular", "look", "delete"]);
+  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:offset", "op:pushpull", "op:edge", "op:scale", "op:move", "op:rotate", "op:copy", "op:linear", "op:circular", "look", "delete"]);
   assert.deepEqual(ring.filter((i) => !i.enabled).map((i) => i.id), ["op:offset", "op:edge", "delete"], "fillet / chamfer needs lines of the body; a face cannot be deleted");
   assert.ok(ring.every((i) => i.icon));
   const drawing = reduce(st, { type: "runAction", id: "tool:circle" }, env);

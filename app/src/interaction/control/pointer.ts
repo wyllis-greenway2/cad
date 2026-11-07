@@ -6,6 +6,7 @@ import type { Plane } from "../../operation/part.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import { lookup } from "../../operation/scene.ts";
 import type { Scene } from "../../operation/scene.ts";
+import type { Vec3 } from "../../math/vec.ts";
 import { scene as sceneOf, selection as selectionOf, clickOn, hoverOn, run } from "../session.ts";
 import type { Session } from "../session.ts";
 import { candidatesAt } from "../picking.ts";
@@ -13,7 +14,9 @@ import { actionsFor } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
 import { lineHint, hintCommand, circleCentredAt } from "../hints.ts";
 import type { Hint } from "../hints.ts";
-import { snapOnPlane, finish, planeForDrawing, armTool } from "../tools.ts";
+import { snapOnPlane, finish, planeForDrawing, armTool, pointOnPlane } from "../tools.ts";
+import { trimAt } from "../../operation/trim.ts";
+import type { Command } from "../../operation/commands.ts";
 import type { OpKind } from "../operations.ts";
 import { startOp } from "../operations.ts";
 import { projector } from "../camera.ts";
@@ -34,6 +37,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:circle", label: "Circle", icon: "circle", tool: "circle" },
   { id: "tool:line", label: "Line", icon: "line", tool: "line" },
   { id: "tool:arc", label: "Curve", icon: "arc", tool: "arc" },
+  { id: "tool:trim", label: "Trim", icon: "scissors", tool: "trim" },
   { id: "op:offset", label: "Offset", icon: "offset", op: "offset" },
   { id: "op:pushpull", label: "Push / pull", icon: "pushpull", op: "pushpull" },
   { id: "op:edge", label: "Fillet / chamfer", icon: "edge", op: "edge" },
@@ -45,12 +49,12 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:circular", label: "Circular repeat", icon: "circular", op: "circular" },
 ];
 const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[] = [
-  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "op:offset"] },
+  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:scale"] },
   { id: "place", label: "Move and repeat", icon: "move", items: ["op:move", "op:rotate", "op:copy", "op:linear", "op:circular"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
-const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "op:move", "op:rotate"]);
+const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:move", "op:rotate"]);
 const category = (id: string, label: string, icon: string, kids: MenuItem[]): MenuItem => {
   const first = kids.find((k) => k.enabled);
   return { id, label, icon, enabled: !!first, why: first ? null : kids[0]?.why ?? "nothing here applies", children: kids };
@@ -137,6 +141,8 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
     const hints: Hint[] = h ? h.hints : about ? [{ kind: "concentric", ref: about }] : [];
     if (raw) next = { ...next, tool: { ...s.tool, cursor: h ? h.at : raw, hints } };
   }
+  // trim: the part of the line or circle under the pointer that a click would cut off
+  if (s.tool?.kind === "trim") next = { ...next, tool: { ...s.tool, trimming: trimUnder(sc, pv) } };
   // a circle tool still armed (no plane yet): where the centre would go, and whether it is on another circle's centre
   if (s.tool && !s.tool.plane && s.tool.kind === "circle") {
     const planeRef = drawingPlane(sc, candidatesAt(sc, pv, pickOpts(s)).map((k) => k.ref)) ?? drawingPlane(sc, selectionOf(s.session));
@@ -148,12 +154,30 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   return doGizmoHover(next, i.x, i.y, env);
 }
 
+/** The line or circle of the drawing under the pointer and what trimming it there would take off, if anything crosses it. */
+function trimUnder(sc: Scene, pv: ReturnType<ReturnType<typeof projector>["view"]>): { ref: Ref; span: Vec3[]; command: Command } | undefined {
+  const cand = candidatesAt(sc, pv, { pointTol: 0, lineTol: settings.pick.linePx }).find((c) => (c.kind === "line" || c.kind === "circle") && sc.parts[c.ref]?.origin === "drawn");
+  const part = cand ? sc.parts[cand.ref] : undefined;
+  const pl = part?.plane ? sc.parts[part.plane] : undefined;
+  if (!cand || !pl || pl.kind !== "plane") return undefined;
+  const at = pointOnPlane(pv, pl);
+  const plan = at ? trimAt(sc, cand.ref, at) : null;
+  return plan ? { ref: cand.ref, span: plan.span, command: plan.command } : undefined;
+}
+
 /** A click while a tool is armed: the first sets the plane and the first point, later ones place corners or finish the figure. */
 function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, env: Env, refs: Ref[]): AppState {
   const t = base.tool!;
   const sess = base.session;
   const sc = sceneOf(sess);
   const pv = projector(base.cam, env.w, env.h).view(i.x, i.y);
+  if (t.kind === "trim") {
+    // the scissors: the part under the click, between the places where other curves cross it, is cut off; the tool stays on
+    const plan = trimUnder(sc, pv);
+    if (!plan) return { ...base, session: { ...sess, message: "click a line or circle where another crosses it" } };
+    const next = run(sess, plan.command);
+    return { ...base, session: next.message ? next : { ...next, message: null, click: { ...next.click, selection: [] } }, tool: { ...t, trimming: undefined } };
+  }
   if (!t.points.length) {
     // the plane chosen from the pencil bubble, else the surface under the click takes the drawing, from wherever the camera is; with none under it, the selected plane does
     const planeRef = t.plane ?? sketchPlaneOf(base)?.ref ?? drawingPlane(sc, refs) ?? drawingPlane(sc, selectionOf(sess)); // (the plane the tool is already on, else the one being looked at straight, else what is under the click: a block in front of the plane does not take the drawing, `in_194`)

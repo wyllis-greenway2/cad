@@ -30,6 +30,8 @@ import type { WorldName } from "./panes.ts";
 import { settings } from "../shared/settings.ts";
 import type { Grid } from "./grid.ts";
 import { annotationsFor, annotationsOf, focusParts } from "./annotations.ts";
+import { suggestionsFor } from "./suggest.ts";
+import type { Suggestions } from "./suggest.ts";
 import type { Annotation } from "./annotations.ts";
 import { entryOf, previewFor, repeatEntries } from "./entry.ts";
 import type { Entry } from "./entry.ts";
@@ -70,8 +72,10 @@ export interface Frame {
   grid: Grid | null;
   /** the body goes see-through while a plane is sketched on, looked at straight, and the body lies between it and the camera (`in_194`) */
   fadeBody: boolean;
+  /** the constraints that could be put on the selected parts, as buttons by them (`in_195`) */
+  suggest: Suggestions | null;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
-  tool: { kind: "rect" | "circle" | "line" | "arc"; label: string } | null;
+  tool: { kind: "rect" | "circle" | "line" | "arc" | "trim"; label: string } | null;
   /** the little panes of the world planes beside the axes (`in_190`) */
   panes: { name: WorldName; corners: Vec3[]; active: boolean; hover: boolean }[];
   /** the helper handles of the running operation (arrows, a double arrow, curved arrows), or null */
@@ -131,7 +135,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus), sc, flash)],
     flash,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // on: the world plane that is on always has its grid (`in_190`)
-    tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve" } as const)[s.tool.kind] } : null,
+    suggest: busy ? null : suggestionsFor(sc, sel),
+    tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", trim: "Trim" } as const)[s.tool.kind] } : null,
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null } : null,

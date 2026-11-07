@@ -5,13 +5,13 @@ import type { Ref } from "../shared/ref.ts";
 import { ref as mkRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { sub, dot } from "../math/vec.ts";
-import type { Lookup, Face, Part, Line, Corner } from "./part.ts";
+import type { Lookup, Face, Part, Line, Corner, Plane } from "./part.ts";
 import { pointOf, normalOfPlane, loopPoints } from "./part.ts";
 import type { Scene } from "./scene.ts";
 import { figureRefs } from "./scene.ts";
 
-type V2 = [number, number];
-type Curve =
+export type V2 = [number, number];
+export type Curve =
   | { k: "seg"; ref: Ref; a: Ref; b: Ref; p: V2; q: V2 }
   | { k: "arc"; ref: Ref; a: Ref; b: Ref; centre: Ref; c: V2; r: number; a0: number; sweep: number; p: V2; q: V2 }
   | { k: "circle"; ref: Ref; centre: Ref; c: V2; r: number };
@@ -20,13 +20,13 @@ interface Piece { curve: Curve; from: Ref; to: Ref; ref: Ref; arc: boolean; ccw:
 interface Half { from: Ref; to: Ref; piece: Piece; dir: number; twin: number }
 
 const TOL = 1e-4;
-const TAU = 2 * Math.PI;
-const mod = (x: number) => ((x % TAU) + TAU) % TAU;
-const dist = (a: V2, b: V2) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-const ang = (c: V2, p: V2) => Math.atan2(p[1] - c[1], p[0] - c[0]);
+export const TAU = 2 * Math.PI;
+export const mod = (x: number) => ((x % TAU) + TAU) % TAU;
+export const dist = (a: V2, b: V2) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+export const ang = (c: V2, p: V2) => Math.atan2(p[1] - c[1], p[0] - c[0]);
 
 /** Where along the curve a point is (0 to 1 for a side or an arc, the angle for a circle), or null if it is not on it. */
-function along(cu: Curve, pt: V2): number | null {
+export function along(cu: Curve, pt: V2): number | null {
   if (cu.k === "seg") {
     const d: V2 = [cu.q[0] - cu.p[0], cu.q[1] - cu.p[1]];
     const len2 = d[0] * d[0] + d[1] * d[1];
@@ -46,7 +46,7 @@ function along(cu: Curve, pt: V2): number | null {
 }
 
 /** The points where two curves meet (as whole lines and circles; `along` then says which of them are on the real curves). */
-function meet(x: Curve, y: Curve): V2[] {
+export function meet(x: Curve, y: Curve): V2[] {
   const line = (c: Curve): c is Extract<Curve, { k: "seg" }> => c.k === "seg";
   if (line(x) && line(y)) {
     const d1: V2 = [x.q[0] - x.p[0], x.q[1] - x.p[1]];
@@ -60,15 +60,16 @@ function meet(x: Curve, y: Curve): V2[] {
     const s = (line(x) ? x : y) as Extract<Curve, { k: "seg" }>;
     const c = (line(x) ? y : x) as Exclude<Curve, { k: "seg" }>;
     const d: V2 = [s.q[0] - s.p[0], s.q[1] - s.p[1]];
-    const f: V2 = [s.p[0] - c.c[0], s.p[1] - c.c[1]];
-    const A = d[0] * d[0] + d[1] * d[1];
-    const B = 2 * (f[0] * d[0] + f[1] * d[1]);
-    const C = f[0] * f[0] + f[1] * f[1] - c.r * c.r;
-    const disc = B * B - 4 * A * C;
-    if (A < 1e-18 || disc < -1e-9) return [];
-    const root = Math.sqrt(Math.max(0, disc));
-    const ts = disc < 1e-12 ? [-B / (2 * A)] : [(-B - root) / (2 * A), (-B + root) / (2 * A)];
-    return ts.map((t): V2 => [s.p[0] + d[0] * t, s.p[1] + d[1] * t]);
+    const len = Math.hypot(d[0], d[1]);
+    if (len < 1e-9) return [];
+    // by distances, not by the discriminant: a line made tangent by the solver is a hair off exactly tangent, and must still touch (it is tangent within the tolerance, not "no intersection")
+    const t0 = ((c.c[0] - s.p[0]) * d[0] + (c.c[1] - s.p[1]) * d[1]) / (len * len); // the foot of the centre on the line
+    const foot: V2 = [s.p[0] + d[0] * t0, s.p[1] + d[1] * t0];
+    const h = Math.hypot(foot[0] - c.c[0], foot[1] - c.c[1]);
+    if (h > c.r + TOL) return [];
+    if (h >= c.r - TOL) return [foot];
+    const half = Math.sqrt(c.r * c.r - h * h) / len;
+    return [[foot[0] - d[0] * half, foot[1] - d[1] * half], [foot[0] + d[0] * half, foot[1] + d[1] * half]];
   }
   const [a, b] = [x as Exclude<Curve, { k: "seg" }>, y as Exclude<Curve, { k: "seg" }>];
   const D = dist(a.c, b.c);
@@ -78,6 +79,37 @@ function meet(x: Curve, y: Curve): V2[] {
   const m: V2 = [a.c[0] + ((b.c[0] - a.c[0]) * l) / D, a.c[1] + ((b.c[1] - a.c[1]) * l) / D];
   const n: V2 = [-(b.c[1] - a.c[1]) / D, (b.c[0] - a.c[0]) / D];
   return h < 1e-9 ? [m] : [[m[0] + n[0] * h, m[1] + n[1] * h], [m[0] - n[0] * h, m[1] - n[1] * h]];
+}
+
+/** The curves drawn on a plane (sides, arcs, circles), in the plane's own coordinates; what is in `spent` is left out. */
+export function curvesOn(s: Scene, plRef: Ref, spent: ReadonlySet<Ref> = new Set()): { curves: Curve[]; pl: Plane; flat: (q: Vec3) => V2 } | null {
+  const get: Lookup = (r) => s.parts[r];
+  const pl = get(plRef);
+  if (!pl || pl.kind !== "plane") return null;
+  const n = normalOfPlane(pl);
+  const flat = (q: Vec3): V2 => [dot(sub(q, pl.at), pl.u), dot(sub(q, pl.at), pl.v)];
+  const pos = (r: Ref): V2 | null => { const q = pointOf(get, r); return q && Math.abs(dot(sub(q, pl.at), n)) < 1e-6 ? flat(q) : null; };
+  // the curves
+  const curves: Curve[] = [];
+  for (const p of Object.values(s.parts)) {
+    if (p.origin !== "drawn" || p.plane !== plRef || spent.has(p.ref)) continue;
+    if (p.kind === "circle") {
+      const c = pos(p.center);
+      if (c && p.radius > TOL) curves.push({ k: "circle", ref: p.ref, centre: p.center, c, r: p.radius });
+    } else if (p.kind === "line" && !p.derived && !p.bulge) {
+      const [a, b] = [pos(p.a), pos(p.b)];
+      if (!a || !b || p.a === p.b) continue;
+      if (!p.center) { curves.push({ k: "seg", ref: p.ref, a: p.a, b: p.b, p: a, q: b }); continue; }
+      const c = pos(p.center);
+      if (!c) continue;
+      const [a0, a1] = [ang(c, a), ang(c, b)];
+      const sweep = p.ccw === false ? -mod(a0 - a1) : mod(a1 - a0);
+      if (Math.abs(sweep) < 1e-9) continue;
+      curves.push({ k: "arc", ref: p.ref, a: p.a, b: p.b, centre: p.center, c, r: dist(c, a), a0, sweep, p: a, q: b });
+    }
+  }
+  curves.sort((x, y) => (x.ref < y.ref ? -1 : 1));
+  return { curves, pl, flat };
 }
 
 export interface Regions { faces: Face[]; parts: Part[]; taken: Set<Ref> }
@@ -97,32 +129,10 @@ export function regionsOf(s: Scene): Regions {
   const planes = new Set<Ref>();
   for (const p of Object.values(s.parts)) if ((p.kind === "line" || p.kind === "circle") && p.origin === "drawn" && p.plane && !(p.kind === "line" && p.derived)) planes.add(p.plane);
   for (const plRef of planes) {
-    const pl = get(plRef);
-    if (!pl || pl.kind !== "plane") continue;
-    const n = normalOfPlane(pl);
-    const flat = (q: Vec3): V2 => [dot(sub(q, pl.at), pl.u), dot(sub(q, pl.at), pl.v)];
-    const pos = (r: Ref): V2 | null => { const q = pointOf(get, r); return q && Math.abs(dot(sub(q, pl.at), n)) < 1e-6 ? flat(q) : null; };
-    // the curves
-    const curves: Curve[] = [];
-    for (const p of Object.values(s.parts)) {
-      if (p.origin !== "drawn" || p.plane !== plRef || spent.has(p.ref)) continue;
-      if (p.kind === "circle") {
-        const c = pos(p.center);
-        if (c && p.radius > TOL) curves.push({ k: "circle", ref: p.ref, centre: p.center, c, r: p.radius });
-      } else if (p.kind === "line" && !p.derived && !p.bulge) {
-        const [a, b] = [pos(p.a), pos(p.b)];
-        if (!a || !b || p.a === p.b) continue;
-        if (!p.center) { curves.push({ k: "seg", ref: p.ref, a: p.a, b: p.b, p: a, q: b }); continue; }
-        const c = pos(p.center);
-        if (!c) continue;
-        const [a0, a1] = [ang(c, a), ang(c, b)];
-        const sweep = p.ccw === false ? -mod(a0 - a1) : mod(a1 - a0);
-        if (Math.abs(sweep) < 1e-9) continue;
-        curves.push({ k: "arc", ref: p.ref, a: p.a, b: p.b, centre: p.center, c, r: dist(c, a), a0, sweep, p: a, q: b });
-      }
-    }
+    const built = curvesOn(s, plRef, spent);
+    if (!built) continue;
+    const { curves, flat, pl } = built;
     if (curves.length < 2) continue;
-    curves.sort((x, y) => (x.ref < y.ref ? -1 : 1));
     // the nodes: the ends of the curves, the places where curves cross, and the places where an end of one lies on another
     const nodes: Node[] = [];
     const nodeAt = (pt: V2, ref?: Ref, make?: () => Corner): Node => {
