@@ -15,7 +15,7 @@ import { faceEdit, editCommand } from "./faceedit.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
-import { lookup, nextId, figureParams } from "../operation/scene.ts";
+import { lookup, nextId, figureParams, figureRefs } from "../operation/scene.ts";
 import { rimRanks, edgeSignatures } from "../operation/rims.ts";
 import { consumed } from "../operation/ownership.ts";
 import type { Figure } from "../operation/scene.ts";
@@ -464,6 +464,24 @@ export function faceDrag(scene: Scene, op: Op): { face: Ref; by: Vec3; step: str
   const v = valueOf(op);
   if (v === null || v === 0) return null;
   return { face: op.parts[0]!, by: scale(op.normal, v), step: e.step, depth: e.depth + v * (e.kind === "depth" ? e.along : 1) };
+}
+
+/**
+ * The wall of an extruded circle made wider or narrower while the last step is the one that extruded it: the wall's points just move out from (or in towards) the axis, so it can be drawn at once without the
+ * kernel (`in_218`). `circle` is the sketch circle and `radius` what its radius will be. Null for anything else (an arc whose circle is gone, a wall turned about a tilted axis, a later step).
+ */
+export function radiusDrag(scene: Scene, op: Op): { face: Ref; radial: { center: Vec3; axis: Vec3; dr: number; r0: number }; circle: Ref; radius: number } | null {
+  const e = op.edit;
+  const c = op.curved;
+  if (op.kind !== "pushpull" || op.noEdit || !e || e.kind !== "radius" || e.arc || !c || op.parts.length !== 1) return null;
+  const last = scene.steps.at(-1);
+  if (last?.type !== "extrude" || !figureRefs(last).includes(e.circle)) return null;
+  const v = valueOf(op);
+  if (v === null || v === 0) return null;
+  const dr = e.convex ? v : -v;
+  if (!(e.radius + dr > 1e-3)) return null;
+  const axis: Vec3 = c.axis === 0 ? [1, 0, 0] : c.axis === 1 ? [0, 1, 0] : [0, 0, 1];
+  return { face: op.parts[0]!, radial: { center: c.center, axis, dr, r0: e.radius }, circle: e.circle, radius: e.radius + dr };
 }
 
 /** A command as it is without carrying the sketches: only the steps, and not marked `follow`. */

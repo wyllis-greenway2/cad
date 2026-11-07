@@ -10,7 +10,7 @@ import type { Grid } from "../interaction/api.ts";
 import { createWorld } from "./world.ts";
 import { createPen, clearGroup, ringOf, sphereAt } from "./view/pen.ts";
 import { buildContent } from "./view/content.ts";
-import type { BodyMesh } from "./view/content.ts";
+import type { BodyMesh, Shift } from "./view/content.ts";
 import { buildHighlight, TEAL } from "./view/highlight.ts";
 import { buildGizmo } from "./view/gizmo.ts";
 import type { GizmoView } from "./view/gizmo.ts";
@@ -63,22 +63,32 @@ export function createView(host: HTMLElement) {
   let bodyMat: import("three").MeshPhysicalMaterial | null = null;
   let bodyGroup: import("three").Group | null = null;
   let bodyMatrix: number[] | null = null;
-  let shifter: ((keys: Set<string> | null, by: [number, number, number]) => void) | null = null;
+  let shifter: ((keys: Set<string> | null, how: Shift) => void) | null = null;
   let shiftedFace: string | null = null;
   let faceKeys: Set<string> | null = null;
   const IDENTITY = new Array<number>(16).fill(0).map((_, i) => (i % 5 === 0 ? 1 : 0));
   overlay.matrixAutoUpdate = false;
   /** The body (and, when what is selected is the body, its highlight) drawn moved by a matrix: a body being dragged is not worked out again by the kernel for every move of the pointer (`in_216`). */
   /** A face of the body pulled or pushed along its normal, drawn at once (`in_217`): the points that lie where the face's do move by `by`, and what is selected (the face) with them. */
-  function setFaceShift(f: { face: string; by: [number, number, number]; withOverlay: boolean } | null) {
+  function setFaceShift(f: { face: string; by?: [number, number, number]; radial?: { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }; withOverlay: boolean } | null) {
     if (!shifter) return;
-    if (!f) { if (shiftedFace !== null) { shifter(null, [0, 0, 0]); shiftedFace = null; } return; }
+    if (!f) { if (shiftedFace !== null) { shifter(null, { by: [0, 0, 0] }); shiftedFace = null; } return; }
     const p = lastScene?.parts[f.face as never] as { mesh?: readonly number[] } | undefined;
     if (!p?.mesh) return;
     if (shiftedFace !== f.face || !faceKeys) { faceKeys = new Set<string>(); for (let i = 0; i + 2 < p.mesh.length; i += 3) faceKeys.add(`${Math.round(p.mesh[i]! * 1e3)},${Math.round(p.mesh[i + 1]! * 1e3)},${Math.round(p.mesh[i + 2]! * 1e3)}`); }
-    shifter(faceKeys, f.by);
+    const how: Shift | null = f.by ? { by: f.by } : f.radial ?? null;
+    if (!how) return;
+    shifter(faceKeys, how);
     shiftedFace = f.face;
-    if (f.withOverlay) { overlay.matrix.makeTranslation(f.by[0], f.by[1], f.by[2]); overlay.matrixWorldNeedsUpdate = true; }
+    if (f.withOverlay && f.radial) {
+      // what is selected (the wall) widens with it: a stretch across the axis, about the axis
+      const { center: c, axis: a, dr, r0 } = f.radial;
+      const k = (r0 + dr) / r0;
+      const sc = [0, 1, 2].map((i) => (Math.abs(a[i]!) > 0.5 ? 1 : k));
+      overlay.matrix.makeTranslation(c[0]!, c[1]!, c[2]!).multiply(new THREE.Matrix4().makeScale(sc[0]!, sc[1]!, sc[2]!)).multiply(new THREE.Matrix4().makeTranslation(-c[0]!, -c[1]!, -c[2]!));
+      overlay.matrixWorldNeedsUpdate = true;
+    }
+    if (f.withOverlay && f.by) { overlay.matrix.makeTranslation(f.by[0], f.by[1], f.by[2]); overlay.matrixWorldNeedsUpdate = true; }
   }
   function setBodyMatrix(m: number[] | null, withOverlay: boolean) {
     bodyMatrix = m;

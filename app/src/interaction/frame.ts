@@ -18,7 +18,7 @@ import { outlineOf } from "../operation/part.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
-import { opCommand, bodyMotion, faceDrag } from "./operations.ts";
+import { opCommand, bodyMotion, faceDrag, radiusDrag } from "./operations.ts";
 import { matrixOf } from "../operation/frames.ts";
 import type { Command } from "../operation/commands.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
@@ -53,7 +53,7 @@ export interface Frame {
   /** the body is drawn moved by this matrix (16 numbers, column by column) while its move, turn or scale is dragged or waits for the kernel (`in_216`) */
   bodyMatrix: number[] | null;
   /** the face (with the walls beside it) drawn moved by this much while it is dragged or waits for the kernel (`in_217`) */
-  faceShift: { face: Ref; by: Vec3 } | null;
+  faceShift: FaceShift | null;
   /** what is selected is the body, so its highlight is moved by the same matrix */
   selectionMoves: boolean;
   highlight: { hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; /** the parts of constraints a refused change would have broken, and how red they still are */ red: { refs: readonly Ref[]; alpha: number }; spread: AppState["spread"]; };
@@ -98,8 +98,9 @@ export interface Frame {
 let memo: { history: Session["history"]; outcome: Session["outcome"]; key: string; value: { scene: Scene; outcome: CompileOutcome } | null } | null = null;
 let gpuBase: { history: Session["history"]; outcome: Session["outcome"]; made: boolean; value: { scene: Scene; outcome: CompileOutcome } } | null = null;
 /** The step the last drag of a whole-body motion was (its matrix and how many steps came before it): while the kernel is still working its result out, that is what the stale picture is moved by (`in_216`). */
-let lastDrag: { matrix: number[] | null; face: FaceShift | null; step: string | null; depth: number; steps: number } | null = null;
-type FaceShift = { face: Ref; by: Vec3 };
+let lastDrag: { matrix: number[] | null; face: FaceShift | null; step: string | null; depth: number; circle: { ref: Ref; radius: number } | null; steps: number } | null = null;
+/** A face drawn moved: the whole face by `by`, or a round wall's points out from (in towards) its axis by `radial.dr` (`in_217`, `in_218`). */
+export type FaceShift = { face: Ref; by?: Vec3; radial?: { center: Vec3; axis: Vec3; dr: number; r0: number } };
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
 function gpuMotion(s: AppState): { matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome } } | null {
   const op = s.op;
@@ -107,11 +108,12 @@ function gpuMotion(s: AppState): { matrix: number[] | null; face: FaceShift | nu
   const base = op.made ? undoLast(s.session) : s.session;
   const m = bodyMotion(sceneOf(base), op);
   const fd = m ? null : faceDrag(sceneOf(base), op);
-  if (!m && !fd) return null;
+  const rd = m || fd ? null : radiusDrag(sceneOf(base), op);
+  if (!m && !fd && !rd) return null;
   if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
   const matrix = m ? matrixOf(m) : null;
-  const face = fd ? { face: fd.face, by: fd.by } : null;
-  lastDrag = { matrix, face, step: fd?.step ?? null, depth: fd?.depth ?? 0, steps: sceneOf(base).steps.length };
+  const face: FaceShift | null = fd ? { face: fd.face, by: fd.by } : rd ? { face: rd.face, radial: rd.radial } : null;
+  lastDrag = { matrix, face, step: fd?.step ?? null, depth: fd?.depth ?? 0, circle: rd ? { ref: rd.circle, radius: rd.radius } : null, steps: sceneOf(base).steps.length };
   return { matrix, face, shown: gpuBase.value };
 }
 
@@ -137,7 +139,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   const outcome = shown?.outcome ?? s.session.outcome;
   // a whole-body drag is drawn by a matrix; when it is let go the picture stays moved until the kernel's answer for the new step comes (it would jump back otherwise)
   const faceStep = lastDrag?.step ? sc.steps.find((x) => x.id === lastDrag!.step) : undefined;
-  const settling = !gpu && !!outcome.kernel?.stale && !!lastDrag && (lastDrag.matrix ? sc.steps.length === lastDrag.steps + 1 : !!faceStep && Math.abs(Number(faceStep.params.depth) - lastDrag.depth) < 1e-6);
+  const settling = !gpu && !!outcome.kernel?.stale && !!lastDrag && (lastDrag.matrix ? sc.steps.length === lastDrag.steps + 1 : lastDrag.circle ? (sc.parts[lastDrag.circle.ref] as { radius?: number } | undefined)?.radius !== undefined && Math.abs((sc.parts[lastDrag.circle.ref] as { radius: number }).radius - lastDrag.circle.radius) < 1e-6 : !!faceStep && Math.abs(Number(faceStep.params.depth) - lastDrag.depth) < 1e-6);
   if (!gpu && !settling && !outcome.kernel?.stale) lastDrag = null;
   const bodyMatrix = gpu ? gpu.matrix : settling ? lastDrag!.matrix : null;
   const faceShift = gpu ? gpu.face : settling ? lastDrag!.face : null; // (a face pulled or pushed, drawn at once: `in_217`)

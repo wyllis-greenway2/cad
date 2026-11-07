@@ -1100,3 +1100,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_217 — 2026-11-07 — approval
 > yes, build the push/pull graphics card preview too
+
+## in_218 — 2026-11-07 — approval
+> yes, do the radius edit too

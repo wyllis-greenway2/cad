@@ -7,6 +7,9 @@ import type { Pen } from "./pen.ts";
 import { clearGroup, trisMesh, ringOf, rgb } from "./pen.ts";
 import { cornerEdges } from "./edges.ts";
 
+/** How a face's points move (`in_217`, `in_218`): all by the same step, or out from (in towards) an axis by `dr`. */
+export type Shift = { by: [number, number, number] } | { center: readonly number[]; axis: readonly number[]; dr: number; r0: number };
+
 export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array }
 
 /** Every straight line and circle of the scene, whatever its origin, as flat pairs of points: the one list that all the lines are drawn from. */
@@ -30,7 +33,7 @@ function linePairs(s: Scene, skip: Set<Ref>): number[] {
  * One look for every line (`in_115`): drawn lines and the body's outline are the same thin charcoal line, from the same material. Corners are not dotted anywhere:
  * a corner shows as a ball when you point at it or pick it, whatever it belongs to.
  */
-export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group; shift: (keys: Set<string> | null, by: [number, number, number]) => void } | null {
+export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group; shift: (keys: Set<string> | null, how: Shift) => void } | null {
   clearGroup(content);
   pen.reset();
   const get = lookup(s);
@@ -79,10 +82,26 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
   let vertexHits: Uint8Array = new Uint8Array(0);
   let edgeHits: Uint8Array = new Uint8Array(0);
   const hitsOf = (keys: Set<string>, from: ArrayLike<number>): Uint8Array => { const h = new Uint8Array(from.length / 3); for (let i = 0; i < h.length; i++) h[i] = keys.has(at(from, 3 * i)) ? 1 : 0; return h; };
-  const shift = (keys: Set<string> | null, by: [number, number, number]) => {
+  const shift = (keys: Set<string> | null, how: Shift) => {
     if (!live) { if (!keys) return; live = new THREE.BufferAttribute(Float32Array.from(orig), 3); g.setAttribute("position", live); }
     if (keys && keys !== seen) { seen = keys; vertexHits = hitsOf(keys, orig); edgeHits = hitsOf(keys, edgeOrig); } // (found once for the face, not on every move)
-    const move = (target: Float32Array, from: ArrayLike<number>, hits: Uint8Array) => { for (let i = 0; i < hits.length; i++) { const d = keys && hits[i] ? 1 : 0; target[3 * i] = from[3 * i]! + d * by[0]; target[3 * i + 1] = from[3 * i + 1]! + d * by[1]; target[3 * i + 2] = from[3 * i + 2]! + d * by[2]; } };
+    const move = (target: Float32Array, from: ArrayLike<number>, hits: Uint8Array) => {
+      for (let i = 0; i < hits.length; i++) {
+        let [dx, dy, dz] = [0, 0, 0];
+        if (keys && hits[i]) {
+          if ("by" in how) [dx, dy, dz] = how.by;
+          else {
+            // out from the axis (a round wall made wider): the way from the axis to the point, across it
+            const [px, py, pz] = [from[3 * i]! - how.center[0]!, from[3 * i + 1]! - how.center[1]!, from[3 * i + 2]! - how.center[2]!];
+            const along = px * how.axis[0]! + py * how.axis[1]! + pz * how.axis[2]!;
+            const [rx, ry, rz] = [px - along * how.axis[0]!, py - along * how.axis[1]!, pz - along * how.axis[2]!];
+            const len = Math.hypot(rx, ry, rz) || 1;
+            [dx, dy, dz] = [(rx / len) * how.dr, (ry / len) * how.dr, (rz / len) * how.dr];
+          }
+        }
+        target[3 * i] = from[3 * i]! + dx; target[3 * i + 1] = from[3 * i + 1]! + dy; target[3 * i + 2] = from[3 * i + 2]! + dz;
+      }
+    };
     if (!keys) { vertexHits = new Uint8Array(orig.length / 3); edgeHits = new Uint8Array(edgeOrig.length / 3); seen = null; }
     move(live.array as Float32Array, orig, vertexHits);
     live.needsUpdate = true;

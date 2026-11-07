@@ -1419,7 +1419,7 @@ test("pulling the end face of an extrusion is drawn at once without the kernel, 
   const f = frameOf(st, { w: 800, h: 600 });
   assert.ok(f.faceShift, "a face shift");
   assert.equal(f.faceShift!.face, top.ref);
-  nearV(f.faceShift!.by, [0, 0, 7]);
+  nearV(f.faceShift!.by!, [0, 0, 7]);
   assert.equal(f.mesh, base.mesh, "the mesh is the one already there");
   // a step that comes after the end it changes would change too: the kernel is asked then
   let s2 = box();
@@ -1428,4 +1428,20 @@ test("pulling the end face of an extrusion is drawn at once without the kernel, 
   s2 = reduce(select(s2, [top2.ref]), { type: "begin", name: "pushpull" }, env);
   s2 = { ...s2, op: { ...s2.op!, value: 7 } };
   assert.equal(frameOf(s2, { w: 800, h: 600 }).faceShift, null);
+});
+
+test("widening a round wall is drawn at once without the kernel: its points move out from the axis, and the finished step makes that radius (`in_218`)", () => {
+  const s0 = cylinder();
+  let st = select({ ...createState(s0), cam: homeCamera() }, [Object.values(scene(s0).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.curved && p.curved.convex)!.ref]);
+  st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  assert.equal(st.op!.edit?.kind, "radius");
+  const base = st.session.outcome.kernel!;
+  st = { ...st, op: { ...st.op!, value: 3 } };
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok(f.faceShift?.radial, "a radial shift");
+  near(f.faceShift!.radial!.dr, 3);
+  near(f.faceShift!.radial!.r0, 10);
+  assert.equal(f.mesh, base.mesh, "the mesh is the one already there");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  near(st.session.outcome.kernel!.bbox!.max[0], 13, 1e-2);
 });
