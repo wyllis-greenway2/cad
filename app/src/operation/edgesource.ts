@@ -15,6 +15,8 @@ export interface EdgeSource {
   shift: Vec3;
   /** the middle of the curve, where the edge is (a curved edge only) */
   centre: Vec3 | null;
+  /** the sketch's own middle point (a corner), for a curved edge */
+  centreRef: Ref | null;
 }
 
 const near = (a: number, b: number, t = 2e-3) => Math.abs(a - b) <= t;
@@ -48,7 +50,7 @@ export function sketchOfEdge(scene: Scene, edge: Ref): EdgeSource | null {
       const edgeR = l.circle?.radius ?? Math.hypot(...sub(a.at, centre));
       const off = sub(centre, cs.at);
       const along = dot(off, n);
-      if (near(edgeR, radius) && Math.hypot(...sub(off, scale(n, along))) < 2e-3 && Math.abs(dot(l.circle?.normal ?? n, n)) > 1 - 1e-5) return { ref, shift: scale(n, along), centre };
+      if (near(edgeR, radius) && Math.hypot(...sub(off, scale(n, along))) < 2e-3 && Math.abs(dot(l.circle?.normal ?? n, n)) > 1 - 1e-5) return { ref, shift: scale(n, along), centre, centreRef: s.center! };
     } else if (!centre && s.kind === "line" && !s.center) {
       const [sa, sb] = [scene.parts[s.a], scene.parts[s.b]];
       if (sa?.kind !== "corner" || sb?.kind !== "corner") continue;
@@ -60,7 +62,7 @@ export function sketchOfEdge(scene: Scene, edge: Ref): EdgeSource | null {
       const [fa, fb] = [flat(a.at), flat(b.at)];
       if (Math.hypot(...fa.off) > 2e-3 || Math.hypot(...fb.off) > 2e-3 || Math.abs(dot(sub(b.at, a.at), n)) > 1e-3 || Math.hypot(...sub(b.at, a.at)) < 1e-6) continue;
       if (Math.min(fa.t, fb.t) < -2e-3 || Math.max(fa.t, fb.t) > len + 2e-3) continue; // (a whole side or a piece of it)
-      return { ref, shift: scale(n, dot(sub(a.at, sa.at), n)), centre: null };
+      return { ref, shift: scale(n, dot(sub(a.at, sa.at), n)), centre: null, centreRef: null };
     }
   }
   return null;

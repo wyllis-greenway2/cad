@@ -2,7 +2,7 @@
 // balls for picked lines and corners, amber for what a relation ties the selection to.
 import * as THREE from "three";
 import type { Scene, Ref, Vec3, Plane } from "../../interaction/api.ts";
-import { outlineOf, lookup, settings, normalOfPlane, consumed, faceEdges, edgeCentre } from "../../interaction/api.ts";
+import { outlineOf, lookup, settings, normalOfPlane, consumed, faceEdges, edgeCentre, sketchOfEdge } from "../../interaction/api.ts";
 import type { Camera } from "../../interaction/camera.ts";
 import { surfaceTriangles } from "../../interaction/surfaces.ts";
 import { hoverOrb, selectOrb, fullOrb, orbMaterial, selectedLook } from "../orb.ts";
@@ -98,9 +98,14 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
   if (!s) return;
   const get = lookup(s);
   const unit = cam.distance;
+  // the middle point of a selected curved edge of the body is drawn on the edge: pointed at, it lights there (`in_214`)
+  const centreAt = new Map<Ref, Vec3>();
+  for (const r of h.selection) { const e = sketchOfEdge(s, r); if (e?.centre && e.centreRef) centreAt.set(e.centreRef, e.centre); }
   const mark = (ref: Ref, kind: Kind) => {
     const p = get(ref);
     if (!p) return;
+    const onEdge = centreAt.get(ref);
+    if (onEdge && kind === "hover" && p.kind === "corner") { overlay.add(sphereAt(onEdge, unit * settings.pick.vertexScale * 1.0, tealHex, false)); return; }
     if (kind === "hover" && p.kind === "plane" && p.origin === "world") {
       // an infinite world plane has nothing to fill: the ring alone, drawn as a plain thin circle so it cannot smear over a plane seen at a shallow angle
       if (h.hoverPoint) overlay.add(pen.line(ringOf(h.hoverPoint, settings.orb.radius * unit, normalOfPlane(p)), rgb(ringRgb).getHex(), settings.orb.ringPx + 0.6, false));

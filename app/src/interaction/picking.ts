@@ -21,6 +21,8 @@ export interface PickOptions {
   world?: Ref;
   /** a plane being sketched on, looked at straight: whatever lies between it and the camera is not there to point at (`in_194`). `side` is the side of the plane the camera is on (+1 along its normal) */
   inFront?: { at: Vec3; n: Vec3; side: 1 | -1 };
+  /** the middle points shown on selected curved edges of the body: where they are drawn, and the corner of the sketch each is (`in_214`) */
+  centres?: { at: Vec3; ref: Ref }[];
 }
 const DEFAULT_PICK: PickOptions = { pointTol: 10, lineTol: 8 };
 
@@ -99,6 +101,11 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
       if (at && !visible(at)) continue;
     }
     out.push({ ref: p.ref, kind: p.kind, rank, score: d });
+  }
+  for (const c of opts.centres ?? []) {
+    const [x, y] = pv.project(c.at);
+    const d = Math.hypot(x - pv.x, y - pv.y);
+    if (d <= opts.pointTol && scene.parts[c.ref]) out.push({ ref: c.ref, kind: "corner", rank: 0, score: d });
   }
   if (!out.length) out.push(...background);
   const order = (c: Candidate) => ORIGIN_ORDER[scene.parts[c.ref]!.origin];

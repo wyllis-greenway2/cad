@@ -12,4 +12,4 @@ export { kernel, initKernelWeb } from "../compiler/kernel/web.ts";
 export type { Grid } from "./grid.ts";
 export { consumed } from "../operation/ownership.ts";
 export { faceEdges } from "./offsetbody.ts";
-export { edgeCentre } from "../operation/edgesource.ts";
+export { edgeCentre, sketchOfEdge } from "../operation/edgesource.ts";

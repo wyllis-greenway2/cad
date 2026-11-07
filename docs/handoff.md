@@ -1418,3 +1418,6 @@ Tests: a zoom in and out at the same place is the inverse, the floor does not pu
 
 ## Handoff 189 — 2026-11-07 (decision: everything is additive)
 `in_212`, `in_213`. No code. `dec_body_edges_show_sketch` now states the rule: new drawings are never folded into old extrusion steps; they are their own sketch and get their own step; original edges are the body's and editing them changes the old step; new drawings follow the original sketch only through ordinary constraints. The "separate sketch" item is no longer listed as a gap.
+
+## Handoff 190 — 2026-11-07 (the middle dot on a body edge is pickable)
+`in_214`. 305 tests pass; `npm run check` clean; checked in the browser (clicking the dot of your outer arc selected `d/e_001.c`). With a curved body edge selected, its middle dot (drawn on the edge) can be clicked: it selects the sketch's middle point, found by `PickOptions.centres` set in `pickOpts` from the selection; pointed at, it lights on the edge. **Know:** after the click the selected corner is shown where the sketch is (the extrusion's start), not on the far-end edge, and the edge is no longer selected so its dot goes away.

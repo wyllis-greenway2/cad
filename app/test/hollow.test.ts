@@ -12,6 +12,8 @@ import { actionsFor } from "../src/interaction/actions.ts";
 import { run } from "../src/interaction/session.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
 import { homeCamera, projector } from "../src/interaction/camera.ts";
+import { pickOpts } from "../src/interaction/control/state.ts";
+import { candidatesAt } from "../src/interaction/picking.ts";
 import { snapOnPlane } from "../src/interaction/tools.ts";
 import { annotationsFor } from "../src/interaction/annotations.ts";
 import { faceEdges } from "../src/interaction/offsetbody.ts";
@@ -120,4 +122,19 @@ test("an arc edge of the body offers its radius as the number to type over (not 
   const m = annotationsFor(sc, [e.ref], null).find((a) => a.id === "measure");
   assert.equal(m?.kind, "radius");
   assert.equal(m?.editable, true);
+});
+
+test("the middle point drawn on a selected curved edge of the body can be picked: it is the sketch's middle point (`in_214`)", () => {
+  const s = open();
+  const sc = scene(s);
+  const e = (Object.values(sc.parts) as Part[]).find((p) => p.kind === "line" && p.origin === "body" && p.mid && sketchOfEdge(sc, p.ref)?.ref === "d/e_015.s0")!;
+  const st = { ...createState({ ...s, click: { ...s.click, selection: [e.ref] as never } }), cam: homeCamera() };
+  const src = sketchOfEdge(sc, e.ref)!;
+  const pj = projector(st.cam, 800, 600);
+  const q = pj.project(src.centre!);
+  const opts = pickOpts(st);
+  assert.equal(opts.centres?.length, 1);
+  const found = candidatesAt(sc, pj.view(q[0] + 3, q[1] - 2), opts);
+  assert.equal(found[0]?.ref, src.centreRef, "the middle point is under the pointer");
+  assert.equal(candidatesAt(sc, pj.view(q[0] + 3, q[1] - 2), { ...opts, centres: [] }).some((c) => c.ref === src.centreRef), false, "and only while its edge is selected");
 });

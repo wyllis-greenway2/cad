@@ -16,6 +16,7 @@ import { homeCamera, lookStraight, lookAlternating, offsetOf, sideOf } from "../
 import { lookup } from "../../operation/scene.ts";
 import { planeOf } from "../objects.ts";
 import { scene as sceneOf, selection as selectionOf } from "../session.ts";
+import { sketchOfEdge } from "../../operation/edgesource.ts";
 
 export interface MenuItem { id: string; label: string; /** the name of its icon */ icon: string; enabled: boolean; why: string | null; /** a category: choosing it opens these as the next ring */ children?: MenuItem[] }
 export interface AppState {
@@ -73,7 +74,9 @@ export function sketchPlaneOf(s: AppState): Plane | null {
 
 export const pickOpts = (s?: AppState) => {
   const behind = s ? sketchPlaneOf(s) : null;
-  return { pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx, ...(s ? { world: worldRef(s.world) } : {}), ...(behind && s ? { inFront: { at: behind.at, n: normalOfPlane(behind), side: sideOf(s.cam, normalOfPlane(behind)) as 1 | -1 } } : {}) };
+  // the middle point drawn on a selected curved edge of the body can be picked: it is the middle point of the sketch behind the edge (`in_214`)
+  const centres = s ? selectionOf(s.session).flatMap((r) => { const e = sketchOfEdge(sceneOf(s.session), r); return e?.centre && e.centreRef ? [{ at: e.centre, ref: e.centreRef }] : []; }) : [];
+  return { ...(centres.length ? { centres } : {}), pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx, ...(s ? { world: worldRef(s.world) } : {}), ...(behind && s ? { inFront: { at: behind.at, n: normalOfPlane(behind), side: sideOf(s.cam, normalOfPlane(behind)) as 1 | -1 } } : {}) };
 };
 export const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });
 export const stop = (s: AppState): AppState => (s.anim ? { ...s, anim: null } : s);

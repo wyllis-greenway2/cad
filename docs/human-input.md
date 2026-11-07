@@ -1085,3 +1085,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_213 — 2026-11-07 — approval
 > yes, record that as the decision
 (approves the additive rule proposed in reply to in_212)
+
+## in_214 — 2026-11-07 — directive
+> make the middle dot on the body edge pickable
