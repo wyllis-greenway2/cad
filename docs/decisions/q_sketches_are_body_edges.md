@@ -3,7 +3,7 @@ id: q_sketches_are_body_edges
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_201, in_202
+human_input: in_201, in_202, in_203
 date: 2026-11-07
 depends_on:
   - dec_sketch_belongs_to_step: the proposal would change point 2 of it (the sketch is a hidden recipe, the body is the result)
@@ -28,6 +28,12 @@ My answer, still not a decision:
 - **Not a sync problem as built:** the body is derived from the recipe (`prin_graph_is_truth`, human-authored: the graph of operations is the source of truth and geometry is output, like source and binary), so there is one truth, not two copies to keep equal; what was wrong was *presentation* (recipe parts shown or snapped in the world after the body moved), which is fixed by treating them as the body's.
 - **The real fork:** edges-as-truth is direct modelling (B-rep is the data, constraints are on it, each edit produces a new B-rep). That drops what the human's blueprint asks for (rebuild from an early change, the editable history for the AI, stable names by operation) and needs a solver that edits a solid from constraints on its edges, which has no general answer for a corner or an edge that reshapes its neighbours (`dec_direct_modification`). Things built because the recipe exists (face edit by step, edges found again by sigs and ranks, regions) would be rebuilt around the B-rep. It would reverse `prin_graph_is_truth`, so it is the human's call, not a refinement.
 - **Middle way offered:** keep the recipe as the truth and make it behave as the body's own: a body's frame (the moves and turns of the whole body) applies to everything that built it, wherever it is shown; edges of the body can be offered every sketch tool and dimension that makes sense.
+
+## After `in_203` (converging, not yet approved)
+
+The human clarified: they agree it is a recipe of steps; the point is only that the sketch is not left as a separate copy where the body used to be: the later steps that change the body's place, and the ones that change the face the sketch made, should carry on acting on the sketch, so it stays attached to the body as a continuation of the recipe.
+
+That fits the recipe model. My proposed reading, for the human to confirm: (1) the recipe stays the truth; (2) the sketch's *current* place is its recipe place carried through the later steps that move or turn the whole body (a body move or turn is a step after the extrude, so the sketch's current frame is the extrude's own frame with those steps applied), so wherever the sketch is shown, snapped to, picked or edited it is in the body's frame, and an edit made there is carried back into the recipe frame; (3) steps that change the face (a radius pulled, a side moved) already edit the sketch (`dec_face_edit_by_step`); (4) steps that change only the body's edges (a fillet, a cut) do not change the sketch, which stays the recipe's profile; (5) deleting the body deletes its sketches and constraints (built). Not built yet: (2) for sketches that are shown again; they are hidden by default so nothing shows apart today.
 
 ## Rationale
 

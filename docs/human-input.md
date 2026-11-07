@@ -1039,3 +1039,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_202 — 2026-11-07 — question
 > Okay but wouldn't it actually be a cleaner data model? because if the sketch was edges, then the constraints would follow it around, and still either be true or invalid based off modifications. If you have a separate data model that isn't actually following the body, then don't you have a sync problem? Also we don't need to make multiple bodies from a sketch, that is what we have copy for.
+
+## in_203 — 2026-11-07 — question
+> Okay I think we may be agreeing though, so we agree that it is just a set of steps in a recipe, so at some point ever body originated from a sketch that declared one of its surfaces, all I am saying is that sketch can be modified via body modifications that change that face, and its location in space can change. But these are still all sets of steps like in a recipe right? The key is that we just don't split a copy of the sketch when the body moves away from it, we already have its existence recorded in history, so why not just let it continue being modified and fully attached to the body as a continuation of recipe steps?
