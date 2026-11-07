@@ -142,7 +142,8 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
     if (raw) next = { ...next, tool: { ...s.tool, cursor: h ? h.at : raw, hints } };
   }
   // trim: the part of the line or circle under the pointer that a click would cut off
-  if (s.tool?.kind === "trim") next = { ...next, tool: { ...s.tool, trimming: trimUnder(sc, pv) } };
+  // (and the line or circle itself is not lit as a whole: only the part that would go is, in the selected blue, and nothing at all where nothing crosses; `in_206`)
+  if (s.tool?.kind === "trim") next = { ...withSession(next, hoverOn(next.session, undefined)), hoverPoint: null, tool: { ...s.tool, trimming: trimUnder(sc, pv) } };
   // a circle tool still armed (no plane yet): where the centre would go, and whether it is on another circle's centre
   if (s.tool && !s.tool.plane && s.tool.kind === "circle") {
     const planeRef = drawingPlane(sc, candidatesAt(sc, pv, pickOpts(s)).map((k) => k.ref)) ?? drawingPlane(sc, selectionOf(s.session));
@@ -240,7 +241,9 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   // the handles are dragged, so a click on one does nothing (it must not reselect what is under it)
   const g = gizmoOf(s);
   const hit = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y) : null;
-  if (hit) return s.repeat && !s.op && hit.id.startsWith("rot:") ? setRepeatAxis(base, "xyz".indexOf(hit.id[4]!)) : base; // (a click on a ring of a repeat makes that the axis)
+  // a click on a ring of a repeat, or of the turn being set up, makes that the axis, with no drag needed (`in_206`)
+  if (hit && hit.id.startsWith("rot:") && s.op?.kind === "rotate") return { ...base, op: { ...s.op, axis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2, typed: "" }, gizmoHover: hit.id };
+  if (hit) return s.repeat && !s.op && hit.id.startsWith("rot:") ? setRepeatAxis(base, "xyz".indexOf(hit.id[4]!)) : base;
   // a click anywhere else, blank space too, leaves an operation you started, and then acts as a normal click
   return doClickSelect(s.op ? { ...base, op: null, drag: null, gizmoHover: null } : base, i, env, cands, refs, pv);
 }

@@ -373,7 +373,9 @@ function figureCommand(scene: Scene, op: Op, turns: { axis: 0 | 1 | 2; angle: nu
 }
 const rotTarget = (scene: Scene, op: Op): Angles => { const cur = turnAngles(scene, op); return cur.map((c, i) => (num(op.rot[i]!) ?? c)) as Angles; };
 
-export function opCommand(scene: Scene, op: Op): Command | null {
+export function opCommand(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Command | null {
+  // a preview (what is shown while a number is dragged) is only the step: the sketches are carried when it is made for good. Carrying them changes what the earlier steps read, so every step would be made again at every move of the pointer (`in_206`)
+  if (opts.preview && op.target === "body" && (op.kind === "move" || op.kind === "rotate" || op.kind === "scale")) return stripFollow(opCommand(scene, op));
   if (op.kind === "linear" || op.kind === "circular") return patternCommand(scene, op);
   if (op.kind === "rotate" && op.target === "plane" && op.rot.some((t) => num(t) !== null)) {
     // angles typed for a figure: it is turned to exactly those, about its pivot
@@ -428,6 +430,14 @@ export function opCommand(scene: Scene, op: Op): Command | null {
   if (!carried || op.target !== "body") return step;
   const carry = op.kind === "move" ? carrySketches(scene, [], scale(([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Vec3[])[op.axis]!, v), [0, 0, 0]) : carrySketches(scene, [{ axis: op.axis, angle: v }], [0, 0, 0], op.pivot!);
   return carry.length ? { type: "batch", commands: [step, ...carry] } : step;
+}
+
+/** A command as it is without carrying the sketches: only the steps, and not marked `follow`. */
+function stripFollow(c: Command | null): Command | null {
+  if (!c) return null;
+  if (c.type === "batch") { const keep = c.commands.filter((x) => x.type !== "transformFigure" && x.type !== "setRelationValue" && x.type !== "removeRelation"); return { type: "batch", commands: keep.map((x) => stripFollow(x)!) }; }
+  if (c.type === "addStep" && c.step.params.follow !== undefined) { const { follow: _f, ...rest } = c.step.params; return { type: "addStep", step: { ...c.step, params: rest } }; }
+  return c;
 }
 
 /**

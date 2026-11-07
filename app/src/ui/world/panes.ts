@@ -48,7 +48,7 @@ export function createPanes(scene3: THREE.Scene) {
         o = { fill, edge };
         shown.set(p.name, o);
       }
-      const rgb = p.active ? settings.theme.paneOn : settings.theme.pane;
+      const rgb = p.active ? settings.orb.color : settings.theme.pane; // (the plane that is on is in the one selected blue, `in_206`)
       colour.setRGB(rgb[0], rgb[1], rgb[2], THREE.SRGBColorSpace);
       const fill = o.fill.material as THREE.MeshBasicMaterial;
       fill.color.copy(colour);

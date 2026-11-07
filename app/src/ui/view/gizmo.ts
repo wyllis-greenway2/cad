@@ -8,7 +8,7 @@ import type { Pen } from "./pen.ts";
 import { clearGroup, sphereAt, rgb } from "./pen.ts";
 import { TEAL } from "./highlight.ts";
 
-export interface GizmoView { handles: Handle[]; hover: string | null; active: string | null }
+export interface GizmoView { handles: Handle[]; hover: string | null; active: string | null; /** the ring of the axis a turn is set up about: shown in the selected blue before anything is dragged */ chosen?: string | null }
 
 const cone = (tip: Vec3, dir: Vec3, unit: number, color: number): THREE.Mesh => {
   const h = unit * 0.02 * settings.gizmo.headScale;
@@ -29,7 +29,7 @@ export function buildGizmo(group: THREE.Group, g: GizmoView | null, unit: number
   if (!g) return;
   const ink = rgb(settings.theme.axis).getHex();
   for (const h of g.handles) {
-    const hot = h.id === g.hover || h.id === g.active;
+    const hot = h.id === g.hover || h.id === g.active || h.id === g.chosen;
     const col = hot ? TEAL : ink;
     const pts = h.points;
     if (h.kind === "ball") { group.add(sphereAt(pts[0]!, unit * 0.01 * settings.gizmo.headScale, col)); continue; }

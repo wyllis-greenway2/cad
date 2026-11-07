@@ -1048,3 +1048,13 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_205 — 2026-11-07 — question
 > why does this need to be let go? "What gets let go: A pinned corner, or a constraint tying a carried sketch part to something that isn’t carried, can’t hold when only one side moves. Those are released. This includes constraints to a free drawing, the world or the body." doesn't that just mean it would be a constraint that the whole body has to something external? or basically the same sketch that had the constraint as a sketch, would have it when it housed a body, and if you tried to move the body, you could as long as it doesn't violate the constraint, just the same as you could move the sketch, as long as it didn't violate its external constraint? And if it did, then it could flash the constraint red like we already do to make it obvious. Is this right? or am I thinking wrong? Okay should we get the rest of the things not carried yet?
+
+## in_206 — 2026-11-07 — directive
+> The trim tool seems to select things it wont actually trim. It should help tell you what it will trim by selecting the part that will be trimed on hover when you have the trim tool in hand. When you select a face, it seems to select the edges of the face, but somehow the edges arent actually blue? we need a systemwide standard that selected things are blue when selected.
+>
+> The world planes little semi transparent sheets are a different color of blue when selected. Lets only have our one main selected blue color we already use elsewhere. 
+>
+> When you select a body it shows the xyz move arrows, can we have a little icon appear next to it that looks like rotate, if clicked it switches to rotate movement, the rotate one offers the icon for the xyz movement, so they can switch back and forth. 
+>
+> The rotate body arrows tool does not work intuitivly. It only switches to a rotate axis mode when you actually start rotating it. It should allow you to just click on a ring of arrows, and switch to x y or z, and show you the current rotated values before you have to rotate to find out. Also the rotate animation of the body is extremely slow and laggy with midly complex parts, see model. Can we fix that?
+(with the model file `7f8e6b63-model.cad_14.json`)

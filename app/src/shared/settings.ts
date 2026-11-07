@@ -57,7 +57,6 @@ export const settings = {
     sketchHoverOpacity: 0.28, // and its teal when the pointer is over it
     sheet: [0.5, 0.51, 0.54] as [number, number, number], // a pane's fill
     pane: [0.55, 0.58, 0.64] as [number, number, number], // the little pane of a world plane that is off
-    paneOn: [0.25, 0.55, 0.85] as [number, number, number], // the one that is on
     bodyColor: 0xc9c9cd,
     bodyEdge: 0x2a2a2d,
   },

@@ -31,6 +31,7 @@ import { createApplyBar } from "./ui/applybar.ts";
 import { createControls } from "./ui/controls.ts";
 import { createToolChip } from "./ui/toolchip.ts";
 import { createToolCursor } from "./ui/toolcursor.ts";
+import { createModeSwitch } from "./ui/modeswitch.ts";
 import { createSuggest } from "./ui/suggest.ts";
 import { createHints } from "./ui/hint.ts";
 import { createTouchCursor } from "./ui/touchcursor.ts";
@@ -95,6 +96,7 @@ const touchHandle = createTouchCursor(document.body);
 const applyBar = createApplyBar(document.body, { apply: () => dispatch({ type: "repeatApply" }), cancel: () => dispatch({ type: "repeatCancel" }) });
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
+const modeSwitch = createModeSwitch(document.body, (to) => dispatch({ type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
 const toolChip = createToolChip(document.body, () => dispatch({ type: "escape" }));
 const controls = createControls(document.body, {
@@ -215,6 +217,7 @@ function frame(now: number) {
     view.setNotes(f.annotations.flatMap((a) => a.lines));
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
+    modeSwitch.update(f.modeSwitch, onPage(f.modeSwitch?.at));
     suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null);
     const valueBubbles = f.entries.length ? f.entries : f.entry ? [f.entry] : [];
     valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool));

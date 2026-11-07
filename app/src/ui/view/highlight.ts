@@ -74,6 +74,22 @@ function surfaceOrb(kind: Kind, ref: Ref, tris: number[], h: Highlight, unit: nu
   return trisMesh(tris, orbMaterial(teal, ringRgb, orb, { offset: -2 }));
 }
 
+/** The outline of a filled surface: the sides of its triangles that only one triangle has (so the edges of a selected face are blue too, as the rest of what is selected, `in_206`). Flat pairs of points. */
+function outlineOfTriangles(tris: number[]): number[] {
+  const key = (i: number) => `${Math.round(tris[i]! * 1e3)},${Math.round(tris[i + 1]! * 1e3)},${Math.round(tris[i + 2]! * 1e3)}`;
+  const seen = new Map<string, { n: number; seg: number[] }>();
+  for (let i = 0; i + 8 < tris.length; i += 9) {
+    for (const [a, b] of [[0, 3], [3, 6], [6, 0]] as const) {
+      const [ka, kb] = [key(i + a), key(i + b)];
+      const k = ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+      const e = seen.get(k) ?? { n: 0, seg: [tris[i + a]!, tris[i + a + 1]!, tris[i + a + 2]!, tris[i + b]!, tris[i + b + 1]!, tris[i + b + 2]!] };
+      e.n++;
+      seen.set(k, e);
+    }
+  }
+  return [...seen.values()].filter((e) => e.n === 1).flatMap((e) => e.seg);
+}
+
 /** Rebuild the highlight group: amber first, then the selection, then what the pointer is over (unless it is selected). */
 export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { vertices: Float32Array; triangles: Uint32Array } | null, h: Highlight, cam: Camera, pen: Pen, nowMs: number) {
   clearGroup(overlay);
@@ -95,6 +111,11 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
       const fill = trisMesh(tris, new THREE.MeshBasicMaterial({ color: tealHex, transparent: true, opacity: settings.theme.sketchHoverOpacity, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
       overlay.add(fill, surfaceOrb(kind, ref, tris, h, unit, nowMs));
       return;
+    }
+    if (tris && kind === "select" && (p.kind === "face" || (p.kind === "plane" && p.origin !== "world"))) {
+      // a selected face has its edges in the selected blue too
+      const edge = outlineOfTriangles(tris);
+      if (edge.length) { const line = pen.line(edge, tealHex, settings.pick.edgeWidthPx, true); line.renderOrder = 5; overlay.add(line); }
     }
     if (tris) return void overlay.add(surfaceOrb(kind, ref, tris, h, unit, nowMs));
     const o = outlineOf(get, p);

@@ -44,7 +44,7 @@ import type { Handle } from "./gizmo.ts";
 /** A refused change, while it flashes: how far through it is (0 to 1), the constraints it would have broken (red, fading), the ones that tried (they shake), and the parts of the broken ones. */
 export interface FlashFrame { t: number; victims: string[]; culprits: string[]; parts: Ref[] }
 
-export interface GizmoFrame { handles: Handle[]; hover: string | null; active: string | null }
+export interface GizmoFrame { handles: Handle[]; hover: string | null; active: string | null; chosen?: string | null }
 
 export interface Frame {
   scene: Scene;
@@ -74,6 +74,8 @@ export interface Frame {
   fadeBody: boolean;
   /** the constraints that could be put on the selected parts, as buttons by them (`in_195`) */
   suggest: Suggestions | null;
+  /** a little icon by the move arrows of a body (or a drawn figure) that switches to turning it, and by its rings one that switches back (`in_206`) */
+  modeSwitch: { at: Vec3; to: "move" | "rotate"; label: string } | null;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
   tool: { kind: "rect" | "circle" | "line" | "arc" | "trim"; label: string } | null;
   /** the little panes of the world planes beside the axes (`in_190`) */
@@ -92,7 +94,7 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
   const op = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
   if (!op) return null;
   const base = op.made ? undoLast(s.session) : s.session; // a step already made for this operation is replaced by what is being dragged
-  const cmd: Command | null = opCommand(sceneOf(base), op);
+  const cmd: Command | null = opCommand(sceneOf(base), op, { preview: true });
   if (!cmd) return null;
   const key = JSON.stringify([cmd, op.made]);
   if (memo && memo.history === s.session.history && memo.outcome === s.session.outcome && memo.key === key) return memo.value;
@@ -139,7 +141,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", trim: "Trim" } as const)[s.tool.kind] } : null,
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
-    gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null } : null,
+    gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : null } : null,
+    modeSwitch: gizmo && !s.repeat ? modeSwitchOf(s.op ?? activeOp(s), gizmo.centre) : null,
     cursor: s.tool ? "crosshair" : s.gizmoHover ? "grab" : "",
     message: s.session.message ?? Object.values(outcome.errors)[0] ?? "",
   };
@@ -233,4 +236,12 @@ function fadeBodyOf(s: AppState, mesh: { vertices: Float32Array } | null): boole
   if (!side) return false;
   for (let i = 0; i + 2 < mesh.vertices.length; i += 3) if (((mesh.vertices[i]! - pl.at[0]) * n[0] + (mesh.vertices[i + 1]! - pl.at[1]) * n[1] + (mesh.vertices[i + 2]! - pl.at[2]) * n[2]) * side > 1e-3) return true;
   return false;
+}
+
+/** Which way the switch by the handles of a move or a turn goes: to turning from moving, to moving from turning. */
+function modeSwitchOf(op: AppState["op"], at: Vec3): Frame["modeSwitch"] {
+  if (!op || (op.target !== "body" && op.target !== "plane")) return null;
+  if (op.kind === "move") return { at, to: "rotate", label: "Rotate" };
+  if (op.kind === "rotate") return { at, to: "move", label: "Move" };
+  return null;
 }

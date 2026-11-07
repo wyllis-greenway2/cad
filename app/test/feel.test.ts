@@ -8,7 +8,7 @@ import { createState, reduce, advance } from "../src/interaction/controller.ts";
 import { frameOf } from "../src/interaction/frame.ts";
 import { projector, lookStraight, homeCamera, basis } from "../src/interaction/camera.ts";
 import { gridFor } from "../src/interaction/grid.ts";
-import { drawRectangle } from "../src/operation/build.ts";
+import { drawRectangle, drawChain, drawCircle } from "../src/operation/build.ts";
 import { startOp, opCommand } from "../src/interaction/operations.ts";
 import { settings } from "../src/shared/settings.ts";
 import type { Plane } from "../src/operation/part.ts";
@@ -131,4 +131,52 @@ test("the state snapshot has what is needed to see what the human sees, can be w
   const reopened = openSession(kernel, JSON.stringify(back.project));
   assert.ok(reopened.ok, "the project in the snapshot opens again");
   for (const key of ["selection", "tool", "op", "world", "message", "kernel", "scene", "history", "settings", "underPointer", "viewport"]) assert.ok(key in back, key);
+});
+
+test("body: a switch icon by the move arrows goes to turning and by the rings back; a click on a ring chooses its axis before anything is dragged and its ring is lit; a preview while dragging does not carry the sketches (`in_206`)", () => {
+  let s = createSession(kernel);
+  const r = drawRectangle(scene(s), XY, [0, 0, 0], [20, 10, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: r.lines, params: { depth: 5 } } });
+  let st = createState(s);
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: ["b/body/o" as never] } } };
+  const f1 = frameOf(st, { w: 800, h: 600 });
+  assert.equal(f1.modeSwitch?.to, "rotate", "by the move arrows: a way to turning");
+  st = reduce(st, { type: "begin", name: "rotate" }, env);
+  const f2 = frameOf(st, { w: 800, h: 600 });
+  assert.equal(f2.modeSwitch?.to, "move", "by the rings: a way back to moving");
+  assert.equal(f2.entry!.fields[0]!.label, "Z", "Z is chosen to begin with and its angle is shown before anything is dragged");
+  assert.equal(f2.gizmo!.chosen, "rot:z");
+  // a click on the X ring chooses X
+  const pr = projector(st.cam, 800, 600);
+  const ring = f2.gizmo!.handles.find((h) => h.id === "rot:x")!;
+  const [x, y] = pr.project(ring.points[Math.floor(ring.points.length / 3)]!);
+  const clicked = reduce(st, { type: "click", x, y, count: 1, shift: false }, env);
+  assert.equal(clicked.op?.kind, "rotate", "the turn stays set up");
+  assert.equal(clicked.op!.axis, 0);
+  assert.equal(frameOf(clicked, { w: 800, h: 600 }).entry!.fields[0]!.label, "X");
+  assert.equal(frameOf(clicked, { w: 800, h: 600 }).gizmo!.chosen, "rot:x");
+  // the preview is only the step; the command made for good also carries the sketches
+  const full = opCommand(scene(clicked.session), { ...clicked.op!, value: 30 })!;
+  const preview = opCommand(scene(clicked.session), { ...clicked.op!, value: 30 }, { preview: true })!;
+  const kinds = (c: typeof full): string[] => (c.type === "batch" ? c.commands.map((x) => x.type) : [c.type]);
+  assert.ok(kinds(full).includes("transformFigure"));
+  assert.deepEqual(kinds(preview), ["addStep"]);
+});
+
+test("the trim tool lights only what a click would cut, in the selected blue, and nothing where a click would cut nothing", () => {
+  let s = createSession(kernel);
+  s = run(s, drawChain(scene(s), XY, [[0, 0, 0], [40, 0, 0]]).command);
+  s = run(s, drawChain(scene(s), XY, [[10, -10, 0], [10, 10, 0]]).command);
+  s = run(s, drawCircle(scene(s), XY, [20, 40, 0], 6).command);
+  s = run(s, drawChain(scene(s), XY, [[26, 40, 0], [40, 40, 0]], false, { reuse: true }).command); // (touches the circle once: it cannot be trimmed there)
+  let st = { ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 20, 0] as Vec3 } };
+  st = reduce(st, { type: "begin", name: "trim" }, env);
+  const at = (p: Vec3) => projector(st.cam, 800, 600).project(p);
+  const over = reduce(st, { type: "hover", x: at([25, 0, 0])[0], y: at([25, 0, 0])[1] }, env);
+  assert.ok(over.tool!.trimming, "what would be cut is shown");
+  assert.equal(over.session.hover, undefined, "the whole line is not lit");
+  const away = reduce(st, { type: "hover", x: at([20, 46, 0])[0], y: at([20, 46, 0])[1] }, env);
+  assert.equal(away.tool!.trimming, undefined, "a circle with one cut cannot be trimmed: nothing is lit");
+  assert.equal(away.session.hover, undefined);
 });
