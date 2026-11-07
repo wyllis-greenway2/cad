@@ -45,7 +45,7 @@ export function bodyParts(result: KernelResult): Part[] {
     }
     return ref;
   };
-  if (result.mesh) out.push({ ...base, ref: BODY_OBJECT, kind: "body" }); // the whole object: selected by the third click
+  if (result.mesh) out.push({ ...base, ref: BODY_OBJECT, kind: "body", ...(result.bbox ? { bbox: { min: result.bbox.min as Vec3, max: result.bbox.max as Vec3 } } : {}) }); // the whole object: selected by the third click
   for (const v of result.vertices ?? []) corner(v);
   // a rim that the kernel made of two half circles: each half knows the other, so picking one picks both
   const halves = new Map<string, Ref[]>();

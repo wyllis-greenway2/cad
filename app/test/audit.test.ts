@@ -261,3 +261,62 @@ test("the cut-shape file: moved and turned, the body is the same shape in a new 
   const back = undoLast(b);
   assert.ok(Math.abs(back.outcome.kernel!.bbox!.min[0] - a.outcome.kernel!.bbox!.min[0]) < 1e-6);
 });
+
+test("a constraint tying the body's sketch to something else stays a constraint of the whole body: a move that would break it is refused and the constraint flashes; one that keeps it holds, and a free drawing tied to it goes along", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 8);
+  s = run(s, c.command);
+  const act = actionsFor(scene(s), [worldRef("O"), c.centre]).find((a) => a.id === "coincident")!; // (the circle's centre on the world origin)
+  s = run(s, act.run());
+  assert.equal(scene(s).relations.length, 1);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: [c.circle], params: { depth: 10 } } });
+  const mv = startOp(scene(s), ["b/body/o" as never], "move") as { ok: true; op: Parameters<typeof typeOp>[0] };
+  const refused = run(s, opCommand(scene(s), { ...mv.op, value: 30 })!);
+  assert.match(refused.message ?? "", /cannot be done without breaking/, "the body cannot leave the origin it is tied to");
+  assert.ok(refused.conflict && refused.conflict.culprits.length + refused.conflict.victims.length > 0, "the constraint is named, so it can flash");
+  assert.equal(scene(refused).steps.length, 1, "nothing was changed");
+  // a free circle tied concentric to the body's circle goes along with the body
+  let t = createSession(kernel);
+  const a = drawCircle(scene(t), XY, [0, 0, 0], 8);
+  t = run(t, a.command);
+  const b = drawCircle(scene(t), XY, [20, 0, 0], 3);
+  t = run(t, b.command);
+  t = run(t, actionsFor(scene(t), [a.circle, b.circle]).find((x) => x.id === "concentric")!.run()); // (b moves to a: the first selected stays)
+  t = run(t, { type: "addStep", step: { id: "s_100", type: "extrude", parts: [a.circle], params: { depth: 10 } } });
+  const mv2 = startOp(scene(t), ["b/body/o" as never], "move") as { ok: true; op: Parameters<typeof typeOp>[0] };
+  const moved = run(t, opCommand(scene(t), { ...mv2.op, value: 25 })!);
+  assert.equal(moved.message, null);
+  const bc = scene(moved).parts[(scene(moved).parts[b.circle] as unknown as { center: string }).center] as unknown as { at: number[] };
+  assert.ok(Math.abs(bc.at[0]! - 25) < 1e-4, `the free circle went with the body (${bc.at})`);
+});
+
+test("scaling the body carries the sketch too (made as many times bigger, its locked sizes too) and the body is the same as a plain scale", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [5, 5, 0], 8);
+  s = run(s, c.command);
+  s = run(s, actionsFor(scene(s), [c.circle]).find((a) => a.id === "diameter")!.run(16)); // (a locked diameter of 16)
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: [c.circle], params: { depth: 10 } } });
+  const v0 = s.outcome.kernel!.volume!;
+  const st = startOp(scene(s), ["b/body/o" as never], "scale") as { ok: true; op: Parameters<typeof typeOp>[0] };
+  const big = run(s, opCommand(scene(s), { ...st.op, value: 2 })!);
+  assert.deepEqual(big.outcome.errors, {});
+  assert.equal(big.message, null);
+  assert.ok(Math.abs(big.outcome.kernel!.volume! - 8 * v0) < 1e-3, `${big.outcome.kernel!.volume} vs ${8 * v0}`);
+  const circle = scene(big).parts[c.circle] as unknown as { radius: number; center: string };
+  assert.ok(Math.abs(circle.radius - 16) < 1e-6, "the sketch's circle is twice as big");
+  assert.equal(scene(big).relations.find((r) => r.kind === "diameter")!.value, 32, "and its locked diameter");
+  // the same body as a scale made before this change (no follow: the sketch is left)
+  const old = run(s, { type: "addStep", step: { id: "s_101", type: "scale", parts: ["b/body/o" as never], params: { axis: 0, value: 2 } } });
+  assert.ok(Math.abs(old.outcome.kernel!.volume! - 8 * v0) < 1e-3);
+  // moved then scaled then turned: still one body, the sketch is where the body is
+  let t = big;
+  const mv = startOp(scene(t), ["b/body/o" as never], "move") as { ok: true; op: Parameters<typeof typeOp>[0] };
+  t = run(t, opCommand(scene(t), { ...mv.op, value: 7 })!);
+  const ro = startOp(scene(t), ["b/body/o" as never], "rotate") as { ok: true; op: Parameters<typeof typeOp>[0] };
+  t = run(t, opCommand(scene(t), { ...ro.op, axis: 2, value: 40 })!);
+  assert.deepEqual(t.outcome.errors, {});
+  assert.ok(Math.abs(t.outcome.kernel!.volume! - 8 * v0) < 1e-3);
+  const cc = scene(t).parts[(scene(t).parts[c.circle] as unknown as { center: string }).center] as unknown as { at: number[] };
+  const bb = t.outcome.kernel!.bbox!;
+  assert.ok(Math.hypot(cc.at[0]! - (bb.min[0] + bb.max[0]) / 2, cc.at[1]! - (bb.min[1] + bb.max[1]) / 2) < 1e-3, "the sketch's centre is at the middle of the body");
+});

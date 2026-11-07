@@ -407,7 +407,15 @@ export function opCommand(scene: Scene, op: Op): Command | null {
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
   if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
   if (op.kind === "scale" && op.target === "shape") return v <= 0 ? null : scaleShapeCommand(scene, op, v);
-  if (op.kind === "scale") return v <= 0 ? null : { type: "addStep", step: { id, type: "scale", parts: op.parts, params: { axis: 0, value: v } } };
+  if (op.kind === "scale") {
+    if (v <= 0) return null;
+    // the whole body: about the middle of its box, and the sketches that made it carried along, made as many times bigger (`in_204`, `in_205`)
+    const pivot = op.pivot ?? bodyCentre(scene);
+    if (!pivot) return { type: "addStep", step: { id, type: "scale", parts: op.parts, params: { axis: 0, value: v } } };
+    const step: Command = { type: "addStep", step: { id, type: "scale", parts: op.parts, params: { axis: 0, value: v, px: pivot[0], py: pivot[1], pz: pivot[2], follow: 1 } } };
+    const carry = carrySketches(scene, [], [0, 0, 0], pivot, v);
+    return carry.length ? { type: "batch", commands: [step, ...carry] } : step;
+  }
   if (op.target === "plane") {
     if (v === 0) return null;
     return op.kind === "rotate" ? figureCommand(scene, op, [{ axis: op.axis, angle: v }], [0, 0, 0]) : figureCommand(scene, op, [], scale(([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Vec3[])[op.axis]!, v));
@@ -424,20 +432,21 @@ export function opCommand(scene: Scene, op: Op): Command | null {
 
 /**
  * The sketches that made the body go with it when it is moved or turned (`in_204`): every drawn part an extrude used is moved or turned the same way with its plane (`transformFigure`), so they stay attached to the body
- * as a continuation of the recipe, and the extrude reads them back through the step (`compiler/graph.ts`). A constraint that ties one of them to something that is not carried (a free drawing, the world, the body) cannot hold
- * after a motion of only one side: it is let go, with the corners pinned in place.
+ * as a continuation of the recipe, and the extrude reads them back through the step (`compiler/graph.ts`). A constraint that ties one of them to something that is not carried (a free drawing, the world, the body) stays: it is
+ * a constraint of the whole body to that thing, and the solver holds the body's sketch (`compiler/solve.ts`), so a move that would break it is refused and the constraint flashes (`in_205`).
  */
-function carrySketches(scene: Scene, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3, pivot: Vec3): Command[] {
+function carrySketches(scene: Scene, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3, pivot: Vec3, bigger = 1): Command[] {
   const used = consumed(scene);
   const parts = [...used].filter((r) => { const p = scene.parts[r]; return p && p.origin === "drawn" && p.movable && (p.kind === "corner" || p.kind === "line" || p.kind === "circle") && !("derived" in p && p.derived) && !!p.plane; });
   if (!parts.length) return [];
-  const carried = new Set<Ref>(parts);
-  const released = scene.relations.filter((r) => r.parts.some((q) => carried.has(q)) && (r.kind === "fixed" || r.parts.some((q) => !carried.has(q))));
   const byPlane = new Map<Ref, Ref[]>();
   for (const r of parts) { const pl = scene.parts[r]!.plane!; byPlane.set(pl, [...(byPlane.get(pl) ?? []), r]); }
   const base = nextId(scene, "p");
-  const moves = [...byPlane.entries()].map(([plane, ps], k): Command => ({ type: "transformFigure", parts: ps, plane, newPlane: drawnRef(`${base}.k${k}`), turns, pivot, translate }));
-  return [...released.map((r): Command => ({ type: "removeRelation", id: r.id })), ...moves];
+  const moves = [...byPlane.entries()].map(([plane, ps], k): Command => ({ type: "transformFigure", parts: ps, plane, newPlane: drawnRef(`${base}.k${k}`), turns, pivot, translate, ...(bigger !== 1 ? { scale: bigger } : {}) }));
+  // a scale makes the numbers locked on the carried sketch (a length, a distance, a diameter, a radius) as many times bigger too, or they would hold the sketch at its old size
+  const carried = new Set<Ref>(parts);
+  const sized = bigger === 1 ? [] : scene.relations.filter((r) => r.value !== undefined && ["length", "distance", "diameter", "radius"].includes(r.kind) && r.parts.every((q) => carried.has(q) || (scene.parts[q]?.kind === "line" && carried.has((scene.parts[q] as { a: Ref }).a))));
+  return [...moves, ...sized.map((r): Command => ({ type: "setRelationValue", id: r.id, value: r.value! * bigger, ...(r.locked !== undefined ? { locked: r.locked } : {}) }))];
 }
 
 /** Scaling a drawn figure by a factor about its middle: corners move to scaled places, a circle gets a scaled radius. What fixes a size (fixed corners, lengths, diameters) is let go, as for moving. */

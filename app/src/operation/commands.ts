@@ -27,7 +27,7 @@ export type Command =
   | { type: "setStepParams"; id: string; params: Record<string, number | string> }
   /** Move or turn a drawn figure in space like an object (`in_135`): its corners (and circles, lines) with the plane they lie on. `turns` are about the world axes through `pivot`, in order, then `translate`.
    *  If the plane is shared with other drawings (a world plane, a face of the body) the figure gets a new drawn plane, named `newPlane`. */
-  | { type: "transformFigure"; parts: Ref[]; plane: Ref; newPlane: Ref; turns: { axis: 0 | 1 | 2; angle: number }[]; pivot: Vec3; translate: Vec3 }
+  | { type: "transformFigure"; parts: Ref[]; plane: Ref; newPlane: Ref; turns: { axis: 0 | 1 | 2; angle: number }[]; pivot: Vec3; translate: Vec3; /** made this many times bigger about `pivot`, after the turns (the same all ways; circles too) */ scale?: number }
   | { type: "batch"; commands: Command[] };
 
 const idOf = (full: string): string => full.slice(full.indexOf("/") + 1).split(/[./]/)[0] ?? full;
@@ -77,7 +77,8 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       const figure = new Set<Ref>(c.parts);
       const mats = c.turns.map((t) => about(t.axis, t.angle));
       const turn = (v: Vec3): Vec3 => mats.reduce((q, m) => [m[0] * q[0] + m[1] * q[1] + m[2] * q[2], m[3] * q[0] + m[4] * q[1] + m[5] * q[2], m[6] * q[0] + m[7] * q[1] + m[8] * q[2]] as Vec3, v);
-      const move = (p: Vec3): Vec3 => add(add(c.pivot, turn(sub(p, c.pivot))), c.translate);
+      const kf = c.scale ?? 1;
+      const move = (p: Vec3): Vec3 => { const q = turn(sub(p, c.pivot)); return add(add(c.pivot, [q[0] * kf, q[1] * kf, q[2] * kf]), c.translate); };
       const others = Object.values(s.parts).some((p) => p.origin === "drawn" && p.plane === c.plane && p.kind !== "face" && !figure.has(p.ref));
       const inPlace = pl.origin === "drawn" && !others;
       const target: Ref = inPlace ? pl.ref : c.newPlane;
@@ -91,7 +92,8 @@ export function apply(s: Scene, c: Command): Result<Scene> {
         const p = s.parts[ref];
         if (!p || p.origin !== "drawn") return err(`${ref} is not a drawn part`);
         if (p.kind === "corner") parts[ref] = { ...p, at: move(p.at), plane: target };
-        else if (p.kind === "line" || p.kind === "circle") parts[ref] = { ...p, plane: target };
+        else if (p.kind === "circle") parts[ref] = { ...p, plane: target, radius: p.radius * kf };
+        else if (p.kind === "line") parts[ref] = { ...p, plane: target };
       }
       return ok(inPlace ? { ...s, parts } : bumpCounter({ ...s, parts }, idOf(c.newPlane)));
     }

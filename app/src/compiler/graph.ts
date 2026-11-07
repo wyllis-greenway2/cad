@@ -18,9 +18,9 @@ export interface GraphResult { graph: KernelGraph; errors: Record<string, string
 
 const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
 const frameOf = (pl: Plane, back: Rigid = NONE) => ({ origin: [...applyPoint(back, pl.at)], xDir: [...applyDir(back, normalize(pl.u))], normal: [...applyDir(back, normalOfPlane(pl))] });
-const to2d = (pl: Plane, p: Vec3): [number, number] => {
+const to2d = (pl: Plane, p: Vec3, k = 1): [number, number] => {
   const d = sub(p, pl.at);
-  return [r6(d[0] * pl.u[0] + d[1] * pl.u[1] + d[2] * pl.u[2]), r6(d[0] * pl.v[0] + d[1] * pl.v[1] + d[2] * pl.v[2])];
+  return [r6(k * (d[0] * pl.u[0] + d[1] * pl.u[1] + d[2] * pl.u[2])), r6(k * (d[0] * pl.v[0] + d[1] * pl.v[1] + d[2] * pl.v[2]))];
 };
 
 export function buildGraph(scene: Scene): GraphResult {
@@ -41,13 +41,13 @@ export function buildGraph(scene: Scene): GraphResult {
     if (first.kind === "circle") {
       const c = pointOf(get, first.center);
       if (!c) return "the circle's centre is gone";
-      return { id, type: "sketch", shape: "circle", radius: r6(first.radius), at: to2d(plane, c), plane: "XY", origin: 0, frame: frameOf(plane, back) };
+      return { id, type: "sketch", shape: "circle", radius: r6(first.radius * back.k), at: to2d(plane, c, back.k), plane: "XY", origin: 0, frame: frameOf(plane, back) };
     }
     const loop = loopOf(get, refs);
     if (!loop.ok) return loop.error;
     if (loop.corners.some((c) => !pointOf(get, c))) return "a corner of the shape is gone";
     const steps = loopSteps(get, refs, loop.corners); // (a side that is an arc has its middle point: the kernel draws a true arc through the two corners and it)
-    return { id, type: "sketch", shape: "polygon", points: steps.map((p) => to2d(plane, p.at)), ...(steps.some((p) => p.mid) ? { mids: steps.map((p) => (p.mid ? to2d(plane, p.mid) : null)) } : {}), plane: "XY", origin: 0, frame: frameOf(plane, back) };
+    return { id, type: "sketch", shape: "polygon", points: steps.map((p) => to2d(plane, p.at, back.k)), ...(steps.some((p) => p.mid) ? { mids: steps.map((p) => (p.mid ? to2d(plane, p.mid, back.k) : null)) } : {}), plane: "XY", origin: 0, frame: frameOf(plane, back) };
   };
 
   for (const st of scene.steps) {

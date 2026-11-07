@@ -1045,3 +1045,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_204 — 2026-11-07 — approval
 > yes, build it
+
+## in_205 — 2026-11-07 — question
+> why does this need to be let go? "What gets let go: A pinned corner, or a constraint tying a carried sketch part to something that isn’t carried, can’t hold when only one side moves. Those are released. This includes constraints to a free drawing, the world or the body." doesn't that just mean it would be a constraint that the whole body has to something external? or basically the same sketch that had the constraint as a sketch, would have it when it housed a body, and if you tried to move the body, you could as long as it doesn't violate the constraint, just the same as you could move the sketch, as long as it didn't violate its external constraint? And if it did, then it could flash the constraint red like we already do to make it obvious. Is this right? or am I thinking wrong? Okay should we get the rest of the things not carried yet?

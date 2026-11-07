@@ -10,6 +10,7 @@ import type { Plane, Lookup } from "../operation/part.ts";
 import { planeOfParts, pointOf } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
+import { consumed } from "../operation/ownership.ts";
 import { solve } from "./solver/solver.mjs";
 import type { SolverConstraint } from "./solver/solver.mjs";
 
@@ -193,13 +194,26 @@ function constraintFor(m: Model, rel: Relation): Omit<SolverConstraint, "id"> | 
 }
 
 /** Build and solve the system of one plane. Returns the solver's result and which corners were free to move. */
-function solvePlane(get: Lookup, plane: Plane, rels: Relation[]) {
+function solvePlane(get: Lookup, plane: Plane, rels: Relation[], used: ReadonlySet<Ref>) {
   const m = newModel(get, plane);
   let soft = 0;
+  let hold = 0;
   for (const rel of rels) {
     if (rel.locked === false) continue; // an unlocked number is a measurement only (`dec_relations_standard`: measure, then lock)
     const c = constraintFor(m, rel);
     if (c) m.cons.push({ id: rel.id, ...c } as SolverConstraint);
+    // a constraint between what built the body and something else (a free drawing, the world, the body) is a constraint of the whole body to that thing: the body's sketch is held where it is, so a move of the body
+    // that would break it is refused and the constraint flashes, instead of the sketch being pulled back out of the body (`in_205`)
+    if (rel.parts.some((q) => used.has(q)) && rel.parts.some((q) => !used.has(q))) {
+      for (const part of rel.parts.filter((q) => used.has(q))) {
+        const kind = get(part)?.kind;
+        const line = kind === "line" ? m.get(part) : null;
+        const centre = line?.kind === "line" && line.center ? m.cornerId(line.center) : null;
+        const pts = kind === "corner" ? [m.cornerId(part)] : kind === "line" ? [...(m.lineIds(part) ?? []), ...(centre ? [centre] : [])] : kind === "circle" ? [m.cornerId((get(part) as { center: Ref }).center)] : [];
+        for (const p of pts) if (p && m.variable.has(p as Ref)) m.cons.push({ id: `~hold${hold++}`, type: "fixed", p, at: m.points[p]! });
+        if (kind === "circle" && part in m.scalars) m.cons.push({ id: `~hold${hold++}`, type: "radius", r: part, value: m.scalars[part]! });
+      }
+    }
     // the parts after the first are the references: held softly where they are, so the first part (the one selected last) moves
     for (const refPart of rel.parts.slice(1)) {
       const kind = get(refPart)?.kind;
@@ -226,10 +240,11 @@ export function solveScene(scene: Scene): SolveOutcome {
   }
   const reports: PlaneReport[] = [];
   const moves: Command[] = [];
+  const used = consumed(scene);
   let cur = scene;
   for (const [planeRef, rels] of byPlane) {
     const plane = get(planeRef) as Plane;
-    const { f, result, variable } = solvePlane(get, plane, rels);
+    const { f, result, variable } = solvePlane(get, plane, rels, used);
     const clean = (ids: string[]) => ids.filter((i) => !i.startsWith("~"));
     reports.push({ plane: planeRef, status: result.status, dof: result.dof, conflicts: clean(result.conflicts), redundant: clean(result.redundant) });
     if (result.status !== "ok") continue;

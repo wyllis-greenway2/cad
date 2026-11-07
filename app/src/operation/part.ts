@@ -34,7 +34,7 @@ export interface Plane extends Base { kind: "plane"; at: Vec3; u: Vec3; v: Vec3;
 /** A full round face of the body (a post or a hole) that stands along a world axis: it is selected and pushed / pulled like a face, which changes its radius. Its `at` is where its axis starts, `u` and `v` the other two directions. */
 export interface Curved { axis: 0 | 1 | 2; center: Vec3; radius: number; lo: number; hi: number; /** a post (the surface faces away from its axis) or a hole */ convex: boolean }
 export interface Axis extends Base { kind: "axis"; at: Vec3; dir: Vec3 }
-export interface Body extends Base { kind: "body" }
+export interface Body extends Base { kind: "body"; /** the box round the whole body, as the kernel measures it (the middle of it is what a turn or a scale is about) */ bbox?: { min: Vec3; max: Vec3 } }
 export type Part = Corner | Line | Circle | Face | Plane | Axis | Body;
 
 /** Finds a part by name (the scene provides it). */

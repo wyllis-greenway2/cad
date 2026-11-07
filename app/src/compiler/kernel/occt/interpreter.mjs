@@ -599,7 +599,7 @@ const OPS = {
     if (op.mode === "rotate") return { kind: "solid", shape: t.rotate(v, op.pivot ?? c, axis) };
     if (op.mode === "scale") {
       if (!(v > 1e-6)) throw new Error("scale must be positive");
-      return { kind: "solid", shape: t.scale(v, c) };
+      return { kind: "solid", shape: t.scale(v, op.pivot ?? c) };
     }
     throw new Error(`unknown transform ${op.mode}`);
   },
