@@ -157,15 +157,16 @@ function edgeNew(s: AppState, op: Op, base: Session): { wait: true } | { face: F
  * A new prism (an extrusion, or a push / pull that adds or cuts one) (`in_224`): the same shape at every depth, stretched along its normal about the plane it stands on. The kernel makes it once at a depth (the
  * reference) and every depth after is that result stretched. Only a prism that ends inside what it is made in (a cap at the depth, walls between it and the plane): a cut that goes right through is the kernel's.
  */
-let prismRef: { key: string; ready: { D0: number; res: { scene: Scene; outcome: CompileOutcome }; faces: Ref[] } | null; failed: boolean } | null = null;
+let prismRef: { key: string; ready: { D0: number; res: { scene: Scene; outcome: CompileOutcome }; faces: { face: Ref; plane: { origin: Vec3; normal: Vec3 } }[] } | null; failed: boolean } | null = null;
 function prismNew(s: AppState, op: Op, base: Session): { wait: true } | { face: FaceShift; shown: { scene: Scene; outcome: CompileOutcome } } | null {
   const sc = sceneOf(base);
   const v = valueOf(op);
-  const single = op.kind === "extrude" || (op.kind === "pushpull" && (!op.edit || op.noEdit) && !op.faces);
-  if (!single || v === null || Math.abs(v) < 1e-6 || !op.normal || !op.origin) return null;
-  const n = normalize(op.normal);
+  // one face (or one sketch), or several flat faces of the body that each move along their own normal by the same distance (`in_228`)
+  const planes: { origin: Vec3; normal: Vec3 }[] = op.kind === "pushpull" && op.faces && op.faces.length > 1 && !op.edit ? op.faces.map((f) => ({ origin: f.origin, normal: normalize(f.normal) })) : op.normal && op.origin ? [{ origin: op.origin, normal: normalize(op.normal) }] : [];
+  const single = op.kind === "extrude" || (op.kind === "pushpull" && (!op.edit || op.noEdit));
+  if (!single || v === null || Math.abs(v) < 1e-6 || !planes.length) return null;
   const sign = v > 0 ? 1 : -1;
-  const key = JSON.stringify([op.kind, op.parts, op.figs ?? null, op.origin, sign, op.made]);
+  const key = JSON.stringify([op.kind, op.parts, op.figs ?? null, planes, sign, op.made]);
   if (!prismRef || prismRef.key !== key) prismRef = { key, ready: null, failed: false };
   if (prismRef.failed) return null;
   const D0 = prismRef.ready ? prismRef.ready.D0 : Math.abs(v);
@@ -177,18 +178,21 @@ function prismNew(s: AppState, op: Op, base: Session): { wait: true } | { face: 
   else { res = previewCommand(base, cmd); refMemo = { history: s.session.history, outcome: s.session.outcome, key: mk, value: res }; }
   if (res && !res.outcome.kernel?.stale && !prismRef.ready) {
     if (Object.keys(res.outcome.errors).length) { prismRef.failed = true; return null; }
-    // the faces that are new: a cap at the depth, walls between it and the plane; nothing outside that (a cut through leaves a face on the far side)
+    // the faces that are new: a cap at the depth, walls between it and the plane it stands on; nothing outside that (a cut right through leaves a face on the far side, and stops changing once it is through).
+    // With several faces each new face belongs to exactly one of them (all its points between that plane and the depth).
     const fresh = Object.values(res.scene.parts).filter((p): p is Plane => p.kind === "plane" && p.origin === "body" && !(p.ref in sc.parts) && !!p.mesh);
-    const offsets = (f: Plane) => { const o: number[] = []; for (let i = 0; i + 2 < f.mesh!.length; i += 3) o.push(sign * dot(sub([f.mesh![i]!, f.mesh![i + 1]!, f.mesh![i + 2]!], op.origin as Vec3), n)); return o; };
     const eps = 2e-3 * Math.max(1, D0);
-    const ok = fresh.length > 0 && fresh.every((f) => offsets(f).every((t) => t > -eps && t < D0 + eps)) && fresh.some((f) => offsets(f).every((t) => Math.abs(t - D0) < eps));
-    if (!ok) { prismRef.failed = true; return null; }
-    prismRef.ready = { D0, res, faces: fresh.map((f) => f.ref) };
+    const offsets = (f: Plane, pl: { origin: Vec3; normal: Vec3 }) => { const o: number[] = []; for (let i = 0; i + 2 < f.mesh!.length; i += 3) o.push(sign * dot(sub([f.mesh![i]!, f.mesh![i + 1]!, f.mesh![i + 2]!], pl.origin), pl.normal)); return o; };
+    const owner = fresh.map((f) => planes.findIndex((pl) => { const o = offsets(f, pl); return o.every((t) => t > -eps && t < D0 + eps) && (o.some((t) => Math.abs(t) < eps) || o.every((t) => Math.abs(t - D0) < eps)); }));
+    // (a face that fits two planes is told by being at the depth on one and on the plane on the other: first fit is kept, a cap must be a cap of its own)
+    const caps = planes.map((pl, i) => fresh.some((f, j) => owner[j] === i && offsets(f, pl).every((t) => Math.abs(t - D0) < eps)));
+    if (!fresh.length || owner.some((o) => o < 0) || !caps.every(Boolean)) { prismRef.failed = true; return null; }
+    prismRef.ready = { D0, res, faces: fresh.map((f, j) => ({ face: f.ref, plane: planes[owner[j]!]! })) };
   }
   if (!prismRef.ready) return { wait: true };
   const k = Math.abs(v) / prismRef.ready.D0;
-  const sharp = { kind: "plane" as const, point: op.origin as Vec3, normal: n };
-  return { face: { face: prismRef.ready.faces[0]!, rounds: { k, groups: prismRef.ready.faces.map((f) => ({ face: f, sharp })) } }, shown: prismRef.ready.res };
+  const groups = prismRef.ready.faces.map((f) => ({ face: f.face, sharp: { kind: "plane" as const, point: f.plane.origin, normal: f.plane.normal } }));
+  return { face: { face: groups[0]!.face, rounds: { k, groups } }, shown: prismRef.ready.res };
 }
 
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */

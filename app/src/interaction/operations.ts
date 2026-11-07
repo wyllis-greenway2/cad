@@ -448,7 +448,15 @@ export function opCommand(scene: Scene, op: Op, opts: { preview?: boolean } = {}
  */
 export function bodyMotion(scene: Scene, op: Op): Rigid | null {
   if (op.target !== "body" || (op.kind !== "move" && op.kind !== "rotate" && op.kind !== "scale")) return null;
-  if (op.kind === "rotate" && op.rot.some((t) => num(t) !== null)) return null;
+  if (op.kind === "rotate" && op.rot.some((t) => num(t) !== null)) {
+    // angles typed for the axes: the body is turned to exactly those, as up to three turns one after another about the same point; about the middle of the body that is only known for one turn (after it the middle
+    // of its box is somewhere else), so several turns need a pivot set, else the kernel works them out (`in_228`)
+    const cmd = opCommand(scene, op, { preview: true });
+    const adds = (cmd?.type === "batch" ? cmd.commands : cmd ? [cmd] : []).filter((c): c is Extract<Command, { type: "addStep" }> => c.type === "addStep" && c.step.type === "rotate");
+    const pivot0 = op.pivot ?? bodyCentre(scene);
+    if (!adds.length || !pivot0 || (adds.length > 1 && !op.pivot)) return null;
+    return laterMotion(adds.map((a) => ({ ...a.step, params: { ...a.step.params, follow: 1, px: pivot0[0], py: pivot0[1], pz: pivot0[2] } })), -1);
+  }
   const v = valueOf(op);
   if (v === null) return null;
   if (op.kind === "scale" && v <= 0) return null;

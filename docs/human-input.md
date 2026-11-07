@@ -1131,3 +1131,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_227 — 2026-11-07 — approval
 > yes, do your suggested order
 (approves, in order: record the drag-preview design as a decision; real-app poking of the untested drag cases and stale state; the kernel's per-face mesh reuse; drag previews for edits with later steps; the side-next-to-arc refusal)
+
+## in_228 — 2026-11-07 — approval
+> yes, do the remaining ones too
+(approves doing what is left: angles typed for three axes, several faces moved together, a cut right through, the History sketch button, trim for arcs, body-edge offset of faces with holes, pieces of an arc; and, where they can be done exactly, the corner with a curved edge, the plane-to-cone rim and later steps that depend on the shape)

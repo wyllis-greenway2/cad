@@ -1961,3 +1961,44 @@ test("a side next to an arc can be pulled: the arc's middle goes to the nearest 
   }
   assert.ok(drawnArcs >= 2, "the top and the bottom sides change the arc, and its wall was mapped");
 });
+
+test("angles typed for the axes are drawn as a matrix too: one turn about the middle, or several about a set pivot, and the matrix puts the body where the kernel does (`in_228`)", () => {
+  for (const [rot, pivotSet] of [[["", "", "35"], false], [["20", "", "35"], true]] as const) {
+    let st = select(box(), [BODY_OBJECT]);
+    st = reduce(st, { type: "begin", name: "rotate" }, env);
+    const pivot: Vec3 = pivotSet ? [10, 5, 3] : (st.op!.pivot ?? [20, 10, 10]);
+    st = { ...st, op: { ...st.op!, rot: [...rot] as [string, string, string], ...(pivotSet ? { pivot } : {}) } };
+    const f = frameOf(st, { w: 800, h: 600 });
+    assert.ok(f.bodyMatrix, `${rot.join("/")}: a matrix`);
+    const base = st.session.outcome.kernel!.mesh!;
+    const m = f.bodyMatrix!;
+    const g = (i: number) => m[i]!;
+    const moved: Vec3[] = [];
+    for (let i = 0; i < base.vertices.length; i += 3) { const [x, y, z] = [base.vertices[i]!, base.vertices[i + 1]!, base.vertices[i + 2]!]; moved.push([g(0) * x + g(4) * y + g(8) * z + g(12), g(1) * x + g(5) * y + g(9) * z + g(13), g(2) * x + g(6) * y + g(10) * z + g(14)]); }
+    const done = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+    const real = done.session.outcome.kernel!.mesh!;
+    for (const p of moved.filter((_, i) => i % 7 === 0)) assert.ok(meshDistance(real, p) < 1e-2, `${rot.join("/")}: ${JSON.stringify(p)} is on the turned body`);
+  }
+});
+
+test("several faces pulled together (each along its own normal by the same distance) are made once and stretched about their own planes (`in_228`)", () => {
+  let st = box();
+  const parts = Object.values(scene(st.session).parts);
+  const top = parts.find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20 && p.u[2] === 0 && p.v[2] === 0)!;
+  const side = parts.find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && Math.abs(p.at[0] - 40) < 1e-6 && p.u[0] === 0 && p.v[0] === 0)!;
+  st = reduce(select(st, [top.ref, side.ref]), { type: "begin", name: "pushpull" }, env);
+  assert.equal(st.op!.faces?.length, 2);
+  frameOf({ ...st, op: { ...st.op!, value: 3 } }, { w: 800, h: 600 });
+  st = { ...st, op: { ...st.op!, value: 5 } };
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok(f.faceShift?.rounds, "stretched");
+  assert.equal(new Set(f.faceShift!.rounds!.groups.map((g) => JSON.stringify((g.sharp as { normal: Vec3 }).normal))).size, 2, "about two different planes");
+  const { k, groups } = f.faceShift!.rounds!;
+  const done = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  const real = done.session.outcome.kernel!.mesh!;
+  for (const g of groups) {
+    const sh = g.sharp as { kind: "plane"; point: Vec3; normal: Vec3 };
+    const m = (f.scene.parts[g.face] as unknown as { mesh: number[] }).mesh;
+    for (let i = 0; i + 2 < m.length; i += 3) { const p: Vec3 = [m[i]!, m[i + 1]!, m[i + 2]!]; const q = add(p, scale(sh.normal, (k - 1) * dot(sub(p, sh.point), sh.normal))); assert.ok(meshDistance(real, q) < 1e-2, `${JSON.stringify(q)} is on the real body`); }
+  }
+});
