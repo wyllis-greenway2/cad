@@ -8,6 +8,7 @@ import { sub, dot } from "../math/vec.ts";
 import type { Lookup, Face, Part, Line, Corner } from "./part.ts";
 import { pointOf, normalOfPlane, loopPoints } from "./part.ts";
 import type { Scene } from "./scene.ts";
+import { figureRefs } from "./scene.ts";
 
 type V2 = [number, number];
 type Curve =
@@ -85,6 +86,14 @@ export interface Regions { faces: Face[]; parts: Part[]; taken: Set<Ref> }
 export function regionsOf(s: Scene): Regions {
   const res: Regions = { faces: [], parts: [], taken: new Set() };
   const get: Lookup = (r) => s.parts[r];
+  // what an extrude has used up is out of the drawing: a new circle drawn over a circle that was extruded is not cut by it
+  // (a piece of a cut shape is made of sides that other pieces still use: such a step says `cut`, or names derived parts; its circles are still used up)
+  const spent = new Set<Ref>(s.steps.flatMap((st) => {
+    if (st.type !== "extrude") return [];
+    const refs = figureRefs(st);
+    const cut = st.params.cut !== undefined || refs.some((r) => r.includes("@"));
+    return cut ? refs.filter((r) => s.parts[r]?.kind === "circle") : refs;
+  }));
   const planes = new Set<Ref>();
   for (const p of Object.values(s.parts)) if ((p.kind === "line" || p.kind === "circle") && p.origin === "drawn" && p.plane && !(p.kind === "line" && p.derived)) planes.add(p.plane);
   for (const plRef of planes) {
@@ -96,7 +105,7 @@ export function regionsOf(s: Scene): Regions {
     // the curves
     const curves: Curve[] = [];
     for (const p of Object.values(s.parts)) {
-      if (p.origin !== "drawn" || p.plane !== plRef) continue;
+      if (p.origin !== "drawn" || p.plane !== plRef || spent.has(p.ref)) continue;
       if (p.kind === "circle") {
         const c = pos(p.center);
         if (c && p.radius > TOL) curves.push({ k: "circle", ref: p.ref, centre: p.center, c, r: p.radius });

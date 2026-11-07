@@ -981,3 +981,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_188 — 2026-11-07 — approval
 > yes do the audit
+
+## in_189 — 2026-11-07 — bug report
+> Some weird stuff happened with in this model. I was trying to pull the rod taller after adding fillet, and it did normally, then it dropped back down and left the smaller rod as an extrusion of the face instead of dragging the whole rod taller. I tried adding a circle on the bottom, and for some reason when I drew one it drew three?
+(with the model file `81bcdd29-model.cad_9.json`)

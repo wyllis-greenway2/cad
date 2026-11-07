@@ -91,3 +91,65 @@ test("a piece of a cut shape cannot be moved, turned, scaled or repeated as one 
   }
   assert.equal(startOp(scene(r.value), [piece.ref], "extrude").ok, true);
 });
+
+// ---- the rod model (`in_189`) ----
+import { faceEdit, editCommand } from "../src/interaction/faceedit.ts";
+import { consumed } from "../src/operation/ownership.ts";
+const rod = () => { const r = openSession(kernel, readFileSync(new URL("./fixtures/rod-fillet.cad.json", import.meta.url), "utf8")); assert.ok(r.ok); return r.value; };
+
+test("the rod model has no failing step (a wall made of two halves is one wall for the step that pulled it, not two rivals)", () => {
+  assert.deepEqual(rod().outcome.errors, {});
+});
+
+test("the rod pulled taller after a fillet on its top: the length changes and the fillet goes up with the top (a rim of the same size on the same axis is the same rim)", () => {
+  let s = rod();
+  s = run(s, { type: "removeStep", id: "s_014" }); // (the prism the app made instead)
+  const top = parts(s).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && !p.rounded && faceEdit(scene(s), p.ref)?.kind === "depth")!;
+  const t = run(s, editCommand(scene(s), faceEdit(scene(s), top.ref)!, 22.5)!);
+  assert.deepEqual(t.outcome.errors, {});
+  assert.ok(Math.abs(t.outcome.kernel!.bbox!.max[2] - (41.5 + 22.5)) < 1e-6, `${t.outcome.kernel!.bbox!.max[2]}`);
+  assert.ok(parts(t).some((p) => p.kind === "plane" && p.origin === "body" && p.rounded === "TORUS"), "the fillet is still there");
+});
+
+test("a chamfer made now on the top rim of a post goes up with the top when the post is made taller, and the post's other rim is not taken for it", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 10);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: [c.circle], params: { depth: 20 } } });
+  const top = parts(s).filter((p) => p.kind === "line" && p.origin === "body" && p.circle && p.circle.center[2] === 20).map((p) => p.ref);
+  const e = startOp(scene(s), top, "edge") as { ok: true; op: Parameters<typeof typeOp>[0] };
+  s = run(s, opCommand(scene(s), { ...e.op, value: -2 })!);
+  for (const h of [8, 40, 200]) {
+    const t = run(s, { type: "setStepParams", id: "s_100", params: { depth: h } });
+    assert.deepEqual(t.outcome.errors, {}, `height ${h}`);
+    near(Math.PI * 100 * h - t.outcome.kernel!.volume!, 2 * Math.PI * (10 - 2 / 3) * 2, 0.5);
+  }
+});
+
+test("a circle drawn over a circle that has been extruded is one disk, not cut by the old one", () => {
+  const s = rod();
+  const faces = parts(s).filter((p) => p.kind === "face" && !consumed(scene(s)).has(p.ref));
+  assert.equal(faces.length, 1);
+  assert.ok(faces[0]!.kind === "face" && faces[0]!.disk, "the new circle's disk");
+});
+
+function near(a: number, b: number, tol = 1e-6) { assert.ok(Math.abs(a - b) <= tol, `${a} vs ${b}`); }
+
+test("a square with a diagonal: one triangle extruded, the other is still there to extrude (the diagonal is not used up with the first)", () => {
+  let s = createSession(kernel);
+  const r = drawRectangle(scene(s), XY, [0, 0, 0], [20, 20, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  const at = (x: number, y: number) => parts(s).find((p) => p.kind === "corner" && p.origin === "drawn" && Math.hypot(atOf(p)[0] - x, atOf(p)[1] - y) < 1e-6)!.ref;
+  s = run(s, { type: "addPart", part: { origin: "drawn", plane: XY, movable: true, ref: "d/e_900.s0" as never, kind: "line", a: at(0, 0), b: at(20, 20) } });
+  const faces = parts(s).filter((p) => p.kind === "face");
+  assert.equal(faces.length, 2);
+  const one = startOp(scene(s), [faces[0]!.ref], "extrude") as { ok: true; op: Parameters<typeof typeOp>[0] };
+  s = run(s, opCommand(scene(s), { ...one.op, value: 5 })!);
+  const left = parts(s).filter((p) => p.kind === "face" && p.ref !== faces[0]!.ref);
+  assert.equal(left.length, 1);
+  assert.ok(!consumed(scene(s)).has(left[0]!.ref));
+  const two = startOp(scene(s), [left[0]!.ref], "extrude") as { ok: true; op: Parameters<typeof typeOp>[0] };
+  s = run(s, opCommand(scene(s), { ...two.op, value: 5 })!);
+  assert.deepEqual(s.outcome.errors, {});
+  near(s.outcome.kernel!.volume!, 400 * 5, 0.5);
+});

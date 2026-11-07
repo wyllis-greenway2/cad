@@ -175,7 +175,8 @@ function findCylinder(shape, ref) {
   const stacked = whole ? [] : found.filter((c) => Math.abs(c.cyl.Radius() - ref.radius) <= tol && c.lo >= ref.lo - tol && c.hi <= ref.hi + tol).sort((x, y) => x.lo - y.lo);
   const covers = stacked.length > 1 && Math.abs(stacked[0].lo - ref.lo) <= tol && Math.abs(stacked.at(-1).hi - ref.hi) <= tol && stacked.every((c, k) => k === 0 || Math.abs(c.lo - stacked[k - 1].hi) <= tol);
   const byNearness = found.sort((x, y) => x.off - y.off);
-  if (!whole && !covers && byNearness.length > 1 && byNearness[1].off < byNearness[0].off * 1.5) throw new Error("round face not found (two walls are about as near to where it was: the model changed since this step was made)"); // (better no answer than the wrong wall)
+  const other = byNearness.find((c) => Math.abs(c.cyl.Radius() - byNearness[0].cyl.Radius()) > 1e-4); // (the two halves of one wall are one wall: only a wall of another size can be the rival)
+  if (!whole && !covers && other && other.off < byNearness[0].off * 1.5) throw new Error("round face not found (two walls are about as near to where it was: the model changed since this step was made)"); // (better no answer than the wrong wall)
   const best = whole ?? (covers ? stacked[0] : byNearness[0]);
   if (covers) best.lo = stacked[0].lo, best.hi = stacked.at(-1).hi;
   if (!best) throw new Error("round face not found (the model changed since this step was made)");
@@ -240,25 +241,62 @@ function circleOfEdge(e) {
 }
 
 /**
- * A round rim that a step meant (ref.rank = "k/n": the k-th smallest of n rims that share a centre and an axis, when the step was made): after sizes changed it is the k-th smallest of the rims that
- * share that centre now, if there are still n of them, whatever the rims have grown or shrunk to. Null if that cannot be told (then the nearest edge is looked for).
+ * A round rim that a step meant (ref.rank = "k/n": the k-th of n rims on one axis line, lowest first and, at one height, smallest first, when the step was made): after sizes changed it is the k-th of the
+ * rims on that axis line now, if there are still n of them, whatever they have grown, shrunk or moved up to. Null if that cannot be told (then the nearest edge is looked for).
  */
 function edgeByRank(edges, ref) {
   const [k, n] = ref.rank.split("/").map(Number);
-  if (!(n > 1)) return null;
+  if (!(n >= 1)) return null;
   // the centre of the circle the ref lies on: a whole rim has one point for both ends, the middle is across from it; a half rim is found from three points
   const closed = Math.hypot(ref.a[0] - ref.b[0], ref.a[1] - ref.b[1], ref.a[2] - ref.b[2]) < 1e-6;
   const centre = closed ? ref.a.map((v, i) => (v + ref.mid[i]) / 2) : circumcentre3(ref.a, ref.mid, ref.b);
   if (!centre) return null;
-  const rim = edges.map((e) => ({ e, ci: circleOfEdge(e) })).filter((x) => x.ci && Math.hypot(x.ci.c[0] - centre[0], x.ci.c[1] - centre[1], x.ci.c[2] - centre[2]) < 1e-3 && Math.abs(x.ci.n[0] * (ref.mid[0] - centre[0]) + x.ci.n[1] * (ref.mid[1] - centre[1]) + x.ci.n[2] * (ref.mid[2] - centre[2])) < 1e-3);
-  const radii = [...new Set(rim.map((x) => Math.round(x.ci.r * 1e3) / 1e3))].sort((a, b) => a - b);
-  if (radii.length !== n || k >= n) return null;
-  const rt = radii[k];
-  const rr = Math.hypot(ref.mid[0] - centre[0], ref.mid[1] - centre[1], ref.mid[2] - centre[2]) * (closed ? 1 : 1);
-  const want = centre.map((v, i) => v + ((ref.mid[i] - v) * rt) / (rr || 1)); // where the middle of the edge is, carried along as the rim grew
-  const here = rim.filter((x) => Math.abs(Math.round(x.ci.r * 1e3) / 1e3 - rt) < 2e-3);
+  const all = edges.map((e) => ({ e, ci: circleOfEdge(e) })).filter((x) => x.ci);
+  // the axis the rims share: a candidate's axis line passes through the centre the ref had (up to a slide along the axis)
+  const onAxis = (x) => { const d = [centre[0] - x.ci.c[0], centre[1] - x.ci.c[1], centre[2] - x.ci.c[2]]; const t = d[0] * x.ci.n[0] + d[1] * x.ci.n[1] + d[2] * x.ci.n[2]; return Math.hypot(d[0] - t * x.ci.n[0], d[1] - t * x.ci.n[1], d[2] - t * x.ci.n[2]) < 1e-3; };
+  const rim = all.filter(onAxis);
+  if (!rim.length) return null;
+  const ax = rim[0].ci.n.map(Math.abs).indexOf(Math.max(...rim[0].ci.n.map(Math.abs)));
+  const same = rim.filter((x) => x.ci.n.map(Math.abs).indexOf(Math.max(...x.ci.n.map(Math.abs))) === ax && Math.abs(Math.abs(x.ci.n[ax]) - 1) < 1e-6);
+  const slot = (x) => `${Math.round(x.ci.c[ax] * 1e3)}/${Math.round(x.ci.r * 1e3)}`;
+  const places = [...new Map(same.map((x) => [slot(x), x])).values()].sort((a, b) => a.ci.c[ax] - b.ci.c[ax] || a.ci.r - b.ci.r);
+  if (places.length !== n || k >= n) return null;
+  const at = places[k];
+  const rr = Math.hypot(ref.mid[0] - centre[0], ref.mid[1] - centre[1], ref.mid[2] - centre[2]);
+  const want = at.ci.c.map((v, i) => v + ((ref.mid[i] - centre[i]) * at.ci.r) / (rr || 1)); // where the middle of the edge is, carried along as the rim grew and moved
+  const here = same.filter((x) => slot(x) === slot(at));
   here.sort((x, y) => { const m = (e) => { const p = e.pointAt(0.5); return Math.hypot(p.x - want[0], p.y - want[1], p.z - want[2]); }; return m(x.e) - m(y.e); });
   return here[0]?.e ?? null;
+}
+/**
+ * A round rim of a step made before ranks were kept, found again after the part was made taller or shorter: the rim of the same size on the same axis line, the nearest one along it if it is clearly the nearest.
+ * Null if the rim is not a circle, or two are about as near.
+ */
+function edgeSlid(edges, ref) {
+  const closed = Math.hypot(ref.a[0] - ref.b[0], ref.a[1] - ref.b[1], ref.a[2] - ref.b[2]) < 1e-6;
+  const centre = closed ? ref.a.map((v, i) => (v + ref.mid[i]) / 2) : circumcentre3(ref.a, ref.mid, ref.b);
+  if (!centre) return null;
+  const radius = Math.hypot(ref.mid[0] - centre[0], ref.mid[1] - centre[1], ref.mid[2] - centre[2]);
+  const found = [];
+  for (const e of edges) {
+    const ci = circleOfEdge(e);
+    if (!ci || Math.abs(ci.r - radius) > 1e-3) continue;
+    const d = [centre[0] - ci.c[0], centre[1] - ci.c[1], centre[2] - ci.c[2]];
+    const t = d[0] * ci.n[0] + d[1] * ci.n[1] + d[2] * ci.n[2];
+    if (Math.hypot(d[0] - t * ci.n[0], d[1] - t * ci.n[1], d[2] - t * ci.n[2]) > 1e-3) continue;
+    // the ref's middle point must lie in a plane across the axis (it is a rim of that axis, not a circle of another direction)
+    const m = [ref.mid[0] - centre[0], ref.mid[1] - centre[1], ref.mid[2] - centre[2]];
+    if (Math.abs(m[0] * ci.n[0] + m[1] * ci.n[1] + m[2] * ci.n[2]) > 1e-3) continue;
+    const p = e.pointAt(0.5);
+    const want = [ci.c[0] + m[0], ci.c[1] + m[1], ci.c[2] + m[2]];
+    found.push({ e, slide: Math.abs(t), off: Math.hypot(p.x - want[0], p.y - want[1], p.z - want[2]) });
+  }
+  if (!found.length) return null;
+  found.sort((x, y) => x.off - y.off || x.slide - y.slide);
+  const best = found[0];
+  if (best.off > 1e-3) return null; // (a half rim: the half that is where the ref's half was)
+  const rival = found.find((x) => x !== best && x.off <= 1e-3);
+  return rival && rival.slide < best.slide * 1.5 ? null : best.e;
 }
 function circumcentre3(a, b, c) {
   const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
@@ -287,6 +325,8 @@ function resolveEdges(t, refs) {
     const d = (p, q) => Math.hypot(p.x - q[0], p.y - q[1], p.z - q[2]);
     const byRank = r.rank ? edgeByRank(edges, r) : null;
     if (byRank) { out.add(byRank.hashCode); continue; }
+    const slid = r.rank ? null : edgeSlid(edges, r);
+    if (slid) { out.add(slid.hashCode); continue; }
     const bySig = r.sig ? edgeBySignature(t, edges, r) : null;
     if (bySig) { out.add(bySig.hashCode); continue; }
     const scored = edges.map((e) => {

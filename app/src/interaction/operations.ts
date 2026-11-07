@@ -135,7 +135,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): 
     const pl = face.plane ? get(face.plane) : undefined;
     if (!pl || pl.kind !== "plane") return { ok: false, why: "the figure is not on a plane" };
     const pts = face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
-    return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, figs: figureParams(faces.map((f) => figureOf(scene, f))), origin: centroid(pts), normal: normalOfPlane(pl), dim: { base: 0, scale: 1 } } };
+    return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, figs: { ...figureParams(faces.map((f) => figureOf(scene, f))), ...(faces.some((f) => f.pieces) ? { cut: "1" } : {}) }, origin: centroid(pts), normal: normalOfPlane(pl), dim: { base: 0, scale: 1 } } };
   }
   if (kind === "pushpull" && drawnFaces(scene, parts).length) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
   if (kind === "pushpull" && parts.length > 1) {
