@@ -86,7 +86,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       if (inPlace) parts[pl.ref] = { ...pl, at: move(pl.at), u: turn(pl.u), v: turn(pl.v) };
       else {
         if (c.newPlane in s.parts) return err(`${c.newPlane} already exists`);
-        parts[c.newPlane] = { ref: c.newPlane, kind: "plane", origin: "drawn", plane: null, movable: false, at: move(pl.at), u: turn(pl.u), v: turn(pl.v) };
+        parts[c.newPlane] = { ref: c.newPlane, kind: "plane", origin: "drawn", plane: null, movable: false, at: move(pl.at), u: turn(pl.u), v: turn(pl.v), ...(pl.onBody ? { onBody: true as const } : {}) };
       }
       for (const ref of c.parts) {
         const p = s.parts[ref];

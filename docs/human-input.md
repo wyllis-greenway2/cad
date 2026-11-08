@@ -1163,3 +1163,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_233 — 2026-11-08 — directive
 > Check out this, when you make the chamfer really big but don't settle it by clicking to deselect the arrow. Also see in this file, if you inset the bottom edge, then rotate the body, the inset edge you made on the bottom face doesn't move with the body. I feel like sketches on faces should belong to the faces and move with them, what do you think?
 (with a screenshot of the tilted body with a chamfer of 13.5 drawn as a spike of grey cone surfaces, the state file `dbb76001-cad-state-2026-11-08T02-03-16` and the model `3d5e92ad-model.cad_22`, from build 01b0158)
+
+## in_234 — 2026-11-08 — approval
+> Yes please build it that way. Also in the same file, look, the inset drawing when it was flat could be extruded as a negative cutaway upward into the part, but now that it is rotated, and then I make a new inset and push into the part, it doesn't seem to cut away anymore. it does seem maybe it pushes the plane into the part though.
+(approves `q_sketch_on_face_follows_body` as recommended: the link is recorded when the sketch is drawn on a face, whole-body moves, turns and scales carry it, face pushes and pulls are not part of the first version; and reports that on the rotated body of `3d5e92ad-model.cad_22`, an inset made afterwards and pushed into the part does not cut)

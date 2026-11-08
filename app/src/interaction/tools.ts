@@ -248,5 +248,5 @@ export function planeForDrawing(scene: Scene, planeRef: Ref): { plane: Ref; comm
   const same = Object.values(scene.parts).find((p) => p.kind === "plane" && p.origin === "drawn" && dist(p.at, pl.at) < 1e-6 && dist(p.u, pl.u) < 1e-6 && dist(p.v, pl.v) < 1e-6);
   if (same) return { plane: same.ref, command: null };
   const ref = drawnRef(nextId(scene, "p"));
-  return { plane: ref, command: { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: pl.at, u: pl.u, v: pl.v } } };
+  return { plane: ref, command: { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: pl.at, u: pl.u, v: pl.v, onBody: true } } };
 }

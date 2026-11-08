@@ -729,7 +729,9 @@ function stripFollow(c: Command | null): Command | null {
  */
 function carrySketches(scene: Scene, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3, pivot: Vec3, bigger = 1): Command[] {
   const used = consumed(scene);
-  const parts = [...used].filter((r) => { const p = scene.parts[r]; return p && p.origin === "drawn" && p.movable && (p.kind === "corner" || p.kind === "line" || p.kind === "circle") && !("derived" in p && p.derived) && !!p.plane; });
+  // what is drawn on a face of the body belongs to the body too and goes with it (`in_234`); what merely lies where a face is does not (it has no link)
+  const onFace = Object.values(scene.parts).filter((p) => p.origin === "drawn" && !!p.plane && (scene.parts[p.plane] as { onBody?: boolean } | undefined)?.onBody === true).map((p) => p.ref);
+  const parts = [...new Set([...used, ...onFace])].filter((r) => { const p = scene.parts[r]; return p && p.origin === "drawn" && p.movable && (p.kind === "corner" || p.kind === "line" || p.kind === "circle") && !("derived" in p && p.derived) && !!p.plane; });
   if (!parts.length) return [];
   const byPlane = new Map<Ref, Ref[]>();
   for (const r of parts) { const pl = scene.parts[r]!.plane!; byPlane.set(pl, [...(byPlane.get(pl) ?? []), r]); }

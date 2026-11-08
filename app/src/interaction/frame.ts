@@ -14,6 +14,7 @@ import type { Plane } from "../operation/part.ts";
 import type { Camera } from "./camera.ts";
 import { offsetOf, sideOf } from "./camera.ts";
 import { dot, cross, normalize, add, sub } from "../math/vec.ts";
+import { apply } from "../operation/commands.ts";
 import { outlineOf } from "../operation/part.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
@@ -228,7 +229,14 @@ function gpuMotion(s: AppState): { matrix: number[] | null; face: FaceShift | nu
   const matrix = m ? matrixOf(m) : null;
   const face: FaceShift | null = fd ? { face: fd.face, by: fd.by } : rd ? { face: rd.face, radial: rd.radial } : ad ? { face: ad.face, arcs: { arcWall: ad.arc, items: ad.items.map((i) => ({ at: i.at, by: i.by })) } } : ed ? { face: ed.face, rounds: { k: ed.k, groups: ed.groups } } : sd ? { face: sd.face, columns: { axis: sd.axis, items: sd.items.map((i) => ({ at: i.at, by: i.by })), arcWalls: sd.arcWalls, edge: sd.edge } } : null;
   lastDrag = { matrix, face, step: fd?.step ?? ed?.step ?? null, depth: fd?.depth ?? ed?.value ?? 0, param: ed ? "value" : "depth", circle: rd ? { ref: rd.circle, radius: rd.radius } : null, corners: sd ? sd.items.map((i) => ({ ref: i.ref, to: add(i.at, i.by) })) : ad ? ad.items.map((i) => ({ ref: i.ref, to: add(i.at, i.by) })) : null, steps: sceneOf(base).steps.length };
-  return { matrix, face, shown: gpuBase.value };
+  // what is drawn on a face of the body goes with it while it is dragged (it is carried when it is let go): the picture of the sketches is moved by the same numbers, no kernel (`in_234`)
+  let shown = gpuBase.value;
+  if (m) {
+    const full = opCommand(sceneOf(base), op);
+    const carry = full?.type === "batch" ? full.commands.filter((c) => c.type !== "addStep") : [];
+    if (carry.length) { const moved = apply(sceneOf(base), { type: "batch", commands: carry }); if (moved.ok) shown = { scene: moved.value, outcome: gpuBase.value.outcome }; }
+  }
+  return { matrix, face, shown };
 }
 
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
