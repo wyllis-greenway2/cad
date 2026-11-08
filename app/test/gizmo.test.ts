@@ -805,10 +805,10 @@ test("a linear repeat of the body: one copy to begin with, a helper bubble on th
   assert.equal(scene(st.session).steps.length, 1);
   // the handles: the spacing arrows and the count stubs, the stubs well clear of the arrows at first
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id), ["lin:x", "cnt:x", "lin:y", "cnt:y", "lin:z", "cnt:z"]);
-  const tipY = g.handles.find((h) => h.id === "lin:y")!.points[1]!;
-  const stubY = g.handles.find((h) => h.id === "cnt:y")!.points[0]!;
-  assert.ok(Math.hypot(...sub(stubY, tipY)) > 4, "the count arrow does not touch the spacing arrow when it first shows");
+  assert.deepEqual(g.handles.map((h) => h.id), ["lin:x", "cnt:x"], "only the helped direction's arrows until it has been used (`in_237`)");
+  const tipX = g.handles.find((h) => h.id === "lin:x")!.points[1]!;
+  const stubX = g.handles.find((h) => h.id === "cnt:x")!.points[0]!;
+  assert.ok(Math.hypot(...sub(stubX, tipX)) > 4, "the count arrow does not touch the spacing arrow when it first shows");
   const tipOf = (id: string) => gizmoOf(st)!.handles.find((q) => q.id === id)!.points.at(-1)!;
   assert.deepEqual(frame(st).helper!.at, tipOf("cnt:x"), "the bubble stands on the arrow past the last copy");
   const mid = (id: string) => { const h = gizmoOf(st)!.handles.find((q) => q.id === id)!; return scale(add(h.points[0]!, h.points[1]!), 0.5); };
@@ -825,6 +825,7 @@ test("a linear repeat of the body: one copy to begin with, a helper bubble on th
   st = drag(st, m, add(m, [10, 0, 0]));
   assert.deepEqual(bubbles(st), [["70"]]);
   assert.equal(frame(st).helper, null, "each helper shows once");
+  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["lin:x", "cnt:x", "lin:y", "cnt:y", "lin:z", "cnt:z"], "used: the other directions come");
   assert.ok(st.repeat, "a drag does not end it");
   st = drag(st, mid("cnt:x"), add(mid("cnt:x"), [0, 0, 0]));
   assert.equal(frame(st).helper, null, "and does not come back");

@@ -1176,3 +1176,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_236 — 2026-11-08 — directive
 > This grid of objects took an extremely long time to produce, I thought the system was broken. Is there any way we can make it faster? Also can we try making it so that the right click exits and applies the linear pattern or circular pattern repeat or copy (all the same kind of thing) and lets drop the little check-mark and x icons at the top to apply or cancel. Also can we have it so that only the selected arrow shows its information? just like how we handle the other arrows. Lets also give the second arrow a little bubble that says "pull to copy" and it disappears after a copy comes into existence. Then a bubble should pop up on the other arrow that says "pull to separate" Which again should disappear after you separate a bit. The bubble helpers should only show up Once in each tool use. The horizontal and virtical icons for the constraints are kinda confusing, becuase they have perpendicular ends. Lets just have them be straight lines.
+
+## in_237 — 2026-11-08 — approval
+> Yes, only show the helped direction's arrows until it's used
+(approves showing only the helped direction's arrows of a linear repeat until it has been used)
