@@ -113,3 +113,17 @@ test("zooming in toward a surface close in front of the target stops before the 
   const ahead = rel[0]! * basis(c).forward[0] + rel[1]! * basis(c).forward[1] + rel[2]! * basis(c).forward[2];
   assert.ok(c.distance + ahead >= settings.view.minSurfaceMm - 1e-6, "the surface is still in front of the camera");
 });
+
+test("zooming in toward a surface far behind the target still goes on when the target is already at the shortest distance (it was stuck there: the hover ring went tiny and the wheel did nothing, `in_230`)", () => {
+  let c = { ...homeCamera(), distance: settings.view.minDistance, straight: false };
+  const b = basis(c);
+  const anchor: Vec3 = [c.target[0] + b.forward[0] * 50, c.target[1] + b.forward[1] * 50, c.target[2] + b.forward[2] * 50]; // 50 mm past the target
+  const depth = (cam: typeof c) => { const r = sub(anchor, cam.target); return cam.distance + dot(r, basis(cam).forward); };
+  const before = depth(c);
+  for (let k = 0; k < 10; k++) c = zoomAt(c, 0.8, anchor);
+  assert.ok(depth(c) < before * 0.5, `the surface is much nearer now (${before} -> ${depth(c)})`);
+  assert.ok(c.distance >= settings.view.minDistance - 1e-9);
+  // and out again the same way: the same number of clicks takes it back
+  for (let k = 0; k < 10; k++) c = zoomAt(c, 1 / 0.8, anchor);
+  near(depth(c), before, 1e-6);
+});

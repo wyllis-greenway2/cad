@@ -28,6 +28,8 @@ export interface AppState {
   /** the point under the pointer on the hovered surface (for the ring) */
   hoverPoint: Vec3 | null;
   menu: { x: number; y: number; items: MenuItem[]; /** the world plane the pointer was over when it opened: a sketch tool chosen from it turns to that plane */ plane?: Ref | null } | null;
+  /** the rectangle of a right-button drag select that is being drawn (`in_230`) */
+  box: { x0: number; y0: number; x: number; y: number } | null;
   /** the list open from the ⋯ menu (`in_132`) */
   panel: "bodies" | "history" | null;
   /** a repeat being set up: it goes on until Apply or Cancel, and you can work in the world meanwhile (`in_141`) */
@@ -60,7 +62,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.

@@ -19,7 +19,9 @@ export type Intent =
   | { type: "click"; x: number; y: number; count: number; shift: boolean }
   | { type: "menu"; x: number; y: number; /** from the menu button: act on the selection, ignore what is under the point */ button?: boolean }
   /** a drag that orbits (or drags a handle): the movement since the last event and where the pointer is now; the drag began at (x - total dx, y - total dy) */
-  | { type: "orbit"; dx: number; dy: number; x: number; y: number; /** made with the right button: it only turns the view, it never drags a handle or a corner (`in_146`) */ view?: boolean }
+  | { type: "orbit"; dx: number; dy: number; x: number; y: number }
+  /** a drag with the right button draws a rectangle from where it began (x0, y0) to the pointer (x, y); `done` when it is let go: what is in it is selected (`in_230`) */
+  | { type: "box"; x0: number; y0: number; x: number; y: number; done: boolean; shift: boolean }
   /** the pointer went up after a drag */
   | { type: "dragEnd" }
   | { type: "pan"; dx: number; dy: number }

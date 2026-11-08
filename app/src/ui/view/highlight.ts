@@ -148,7 +148,8 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
   for (const r of h.selection) { const p = get(r); if (p && (p.kind === "circle" || (p.kind === "line" && p.center)) && p.center && !h.selection.includes(p.center)) mark(p.center, "hover"); }
   // a selected curved edge of the body shows its middle too, as the curve of a sketch does (`in_209`)
   for (const r of h.selection) { const p = get(r); const c = p && p.kind === "line" && p.origin === "body" ? edgeCentre(s, p) : null; if (c) overlay.add(sphereAt(c, unit * settings.pick.vertexScale * 0.7, 0x2b2b2d, false)); }
-  if (h.hover && !h.selection.includes(h.hover)) {
+  // (a part a hint is about stays in the hint's amber: the hover blue would be drawn over it, and the circle or arc the line is tangent to would not look lit, `in_230`)
+  if (h.hover && !h.selection.includes(h.hover) && !(h.amber ?? []).includes(h.hover)) {
     mark(h.hover, "hover");
     const hp = get(h.hover);
     if (hp && hp.kind === "line" && hp.twin && !h.selection.includes(hp.twin)) mark(hp.twin, "hover"); // (the other half of a rim)

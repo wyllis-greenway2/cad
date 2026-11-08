@@ -319,8 +319,8 @@ test("a drawn figure moves and turns like an object: X Y Z arrows, X Y Z rings a
   near(Math.min(...cornersOf().map((c) => c[0])), 7, 0.15);
   near(Math.max(...cornersOf().map((c) => c[0])), 47, 0.15);
   // up out of the world plane: the figure takes a plane of its own at the new height
-  st = reduce(st, { type: "entry", field: 0, text: "5" }, env);
-  st = reduce({ ...st, op: { ...st.op!, axis: 2 } }, { type: "typed", key: "Enter", shift: false }, env);
+  st = reduce(st, { type: "entry", field: 2, text: "5" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   assert.equal(st.session.message, null);
   near(Math.min(...cornersOf().map((c) => c[2])), 5, 1e-6);
   const pl = scene(st.session).parts[Object.values(scene(st.session).parts).find((p) => p.kind === "corner" && p.origin === "drawn")!.plane!];
@@ -1366,20 +1366,35 @@ test("the lower edge of a chamfer inside a bore can be picked (it lies between t
   assert.ok(hits >= 3, `the lower chamfer edge was picked at ${hits} of 4 places on the far side`);
 });
 
-test("the move arrows keep a number bubble on each axis, before, during and after a drag, and a distance typed in one moves the body that way (`in_215`)", () => {
+test("the move arrows show one number bubble, on the chosen axis, with how far the move has taken the body since it began: 0 to begin with, kept on across drags, and a number typed in it is that position (`in_230`)", () => {
   let st = select(box(), [BODY_OBJECT]);
   const bubbles = (s: AppState) => frameOf(s, { w: 800, h: 600 }).entries.map((e) => `${e.fields[0]!.short}=${e.fields[0]!.value}`);
-  assert.deepEqual(bubbles(st), ["X=0", "Y=0", "Z=0"], "there at once, with the arrows that stand up by themselves");
+  assert.deepEqual(bubbles(st), ["X=0"], "one bubble, there at once, with the arrows that stand up by themselves");
   st = reduce(st, { type: "begin", name: "move" }, env);
-  const g = gizmoOf(st)!;
-  const mid = scale(add(g.handles[0]!.points[0]!, g.handles[0]!.points[1]!), 0.5);
-  st = drag(st, mid, add(mid, [10, 0, 0]));
-  assert.equal(frameOf(st, { w: 800, h: 600 }).entries.length, 3, "still there after the drag");
+  assert.deepEqual(bubbles(st), ["X=0"], "0 as the move begins");
+  const pull = (s: AppState, i: number, by: number): AppState => {
+    const g = gizmoOf(s)!;
+    const h = g.handles[i]!;
+    const mid = scale(add(h.points[0]!, h.points[1]!), 0.5);
+    const d = [0, 0, 0] as number[]; d[i] = by;
+    return drag(s, mid, add(mid, d as unknown as Vec3));
+  };
+  st = pull(st, 0, 10);
+  assert.deepEqual(bubbles(st), ["X=10"], "the position it has reached, after the drag");
+  const c1 = gizmoOf(st)!.centre;
+  st = pull(st, 0, 5);
+  assert.deepEqual(bubbles(st), ["X=15"], "and on from there with the next drag (it does not start again at 0)");
+  near(gizmoOf(st)!.centre[0] - c1[0], 5, 1e-6);
+  // the arrows are where the steps put the body at once, whatever the kernel's box says
+  const lagging = { ...st, session: { ...st.session, outcome: { ...st.session.outcome, kernel: { ...st.session.outcome.kernel!, stale: true } } } };
+  near(gizmoOf(lagging)!.centre[0] - c1[0], 5, 1e-6);
+  st = pull(st, 1, 3);
+  assert.deepEqual(bubbles(st), ["Y=3"], "another axis: its own number, from where the move began");
   st = reduce(st, { type: "entry", field: 1, text: "7" }, env);
-  assert.equal(bubbles(st)[1], "Y=7");
-  assert.equal(frameOf(st, { w: 800, h: 600 }).entries[1]!.fields[0]!.typed, true);
+  assert.deepEqual(bubbles(st), ["Y=7"]);
+  assert.equal(frameOf(st, { w: 800, h: 600 }).entries[0]!.fields[0]!.typed, true);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
-  nearV(bbox(st).min, [10, 7, 0]);
+  nearV(bbox(st).min, [15, 7, 0]);
 });
 
 test("a whole-body move or turn being dragged is only drawn moved by a matrix (the kernel is not asked), and the matrix puts the body where the finished step does (`in_216`)", () => {

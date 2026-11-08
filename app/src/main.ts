@@ -35,6 +35,7 @@ import { createToolCursor } from "./ui/toolcursor.ts";
 import { createModeSwitch } from "./ui/modeswitch.ts";
 import { createSuggest } from "./ui/suggest.ts";
 import { createHints } from "./ui/hint.ts";
+import { createBoxView } from "./ui/boxview.ts";
 import { createTouchCursor } from "./ui/touchcursor.ts";
 import { createBubbles } from "./ui/bubbles.ts";
 
@@ -95,6 +96,7 @@ const ring = createRing(document.body, (id) => {
 
 const hintIcons = createHints(document.body);
 const touchHandle = createTouchCursor(document.body);
+const boxView = createBoxView(document.body);
 const applyBar = createApplyBar(document.body, { apply: () => dispatch({ type: "repeatApply" }), cancel: () => dispatch({ type: "repeatCancel" }) });
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
@@ -240,6 +242,7 @@ function frame(now: number) {
     const handle: [number, number] | null = tc ? [Math.max(30, Math.min(size.w - 30, tc[0] + 66)), Math.max(30, Math.min(size.h - 30, tc[1] + 66))] : null;
     recognizer.setTouchCursor(tc && handle ? { cursor: [tc[0], tc[1]], handle } : null);
     touchHandle.update(handle ? [handle[0] + page.left, handle[1] + page.top] : null);
+    boxView.update(f.box, page.left, page.top);
     host.style.cursor = f.cursor;
     const tBuilt = performance.now();
     view.render(state.cam, f.grid);

@@ -611,3 +611,19 @@ test("every sketch tool, and the offset, turns the view straight to a selected p
     assert.ok(reduce(st, { type: "runAction", id }, env).anim, `${id}: the view turns to the plane of the selected sketch line`);
   }
 });
+
+test("a line being drawn takes its end onto an arc, or tangent to it, as it does for a circle, and says which arc (`in_230`)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { openSession } = await import("../src/interaction/session.ts");
+  const opened = openSession(kernel, readFileSync(new URL("./fixtures/circle-diameter-locked.cad.json", import.meta.url), "utf8")) as unknown as { value: import("../src/interaction/session.ts").Session };
+  let st: AppState = { ...createState(opened.value), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [22, 14, 0] } };
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [5, 28, 0]);
+  // near the right-hand arc (centre 35.67, 15.09; radius 3.5): the end is on it
+  st = move(st, [35.67 + 3.51 + 0.1, 15.09 + 0.3, 0]);
+  assert.equal(st.tool!.hints?.[0]?.kind, "onCircle");
+  assert.equal(st.tool!.hints?.[0]?.ref, "d/e_015.s0", "the arc itself, not the piece an extrusion cut from it");
+  // beyond the end of the arc's span there is nothing to be on
+  st = move(st, [35.67 - 3.5 + 0.05, 15.09, 0]);
+  assert.ok(!st.tool!.hints?.some((h) => h.ref === "d/e_015.s0" && h.kind === "onCircle"), "the part of the circle where the arc is not");
+});

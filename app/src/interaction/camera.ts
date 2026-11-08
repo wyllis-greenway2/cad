@@ -146,18 +146,24 @@ export function projector(c: Camera, widthPx: number, heightPx: number) {
  */
 export function zoomAt(c: Camera, factor: number, anchor?: Vec3): Camera {
   let next = zoom(c, factor);
-  if (!anchor || next.distance === c.distance) return next;
+  if (!anchor) return next;
+  if (c.straight && next.distance === c.distance) return next;
   const b = basis(c);
   const rel = sub(anchor, c.target);
   const [a, u, f] = [dot(rel, b.right), dot(rel, b.up), dot(rel, b.forward)];
-  if (!c.straight) {
-    // the surface under the cursor is `c.distance + f` from the camera: its distance is multiplied by the factor, going in or out, so a zoom in and the same zoom out are one the inverse of the other (`in_200`; before, going out
-    // multiplied the distance to the target, which after going in on a surface is much shorter than the surface's: the same clicks out took the view several times farther than it began)
-    const want = Math.max((c.distance + f) * factor, settings.view.minSurfaceMm);
-    next = { ...c, distance: clamp(want - f, settings.view.minDistance, settings.view.maxDistance) };
-    if (next.distance + f < settings.view.minSurfaceMm - 1e-9) return c;
+  if (c.straight) {
+    const k = next.distance / c.distance;
+    return { ...next, target: sub(anchor, add(add(scale(b.right, a * k), scale(b.up, u * k)), scale(b.forward, f))) };
   }
-  const k = c.straight ? next.distance / c.distance : (next.distance + f) / (c.distance + f);
-  const target = sub(anchor, add(add(scale(b.right, a * k), scale(b.up, u * k)), scale(b.forward, f)));
-  return { ...next, target };
+  // the surface under the cursor is `c.distance + f` from the camera: its distance is multiplied by the factor, going in or out, so a zoom in and the same zoom out are one the inverse of the other (`in_200`; before, going out
+  // multiplied the distance to the target, which after going in on a surface is much shorter than the surface's: the same clicks out took the view several times farther than it began)
+  const depth = c.distance + f;
+  if (factor < 1 && depth <= settings.view.minSurfaceMm + 1e-9) return c; // (already as close to it as it may be)
+  const want = Math.max(depth * factor, settings.view.minSurfaceMm);
+  // the target stands where the surface's depth leaves it: when the distance to the target is already as short as it may be (it is only the centre of the view), the target moves instead, along the view,
+  // so that the surface is still brought to the depth asked for (before, the zoom did nothing there and the view stayed stuck far from the surface, `in_230`)
+  const distance = clamp(want - f, settings.view.minDistance, settings.view.maxDistance);
+  const fNew = want - distance;
+  const k = want / depth;
+  return { ...c, distance, target: sub(anchor, add(add(scale(b.right, a * k), scale(b.up, u * k)), scale(b.forward, fNew))) };
 }

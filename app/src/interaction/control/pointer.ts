@@ -29,6 +29,7 @@ import { doLook } from "./viewing.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { commitFigure, commitOp, setRepeatAxis } from "./modal.ts";
 import { doGizmoHover, gizmoOf } from "./handles.ts";
+import { boxSelect } from "../boxselect.ts";
 import { hasGizmo, hitHandle } from "../gizmo.ts";
 
 /** The operations a right click offers (`in_133`), in categories (`in_143`): sketching, constraints, shape, moving and repeating, and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
@@ -296,4 +297,16 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>): AppSt
   // while a sketching tool is on, a right click puts it away (the ⋯ button still opens the menu): the tool stays on until then or the cancel icon (`in_193`)
   if (s.tool && !i.button) return { ...s, tool: null, resume: null, menu: null };
   return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, i.button ? null : s.session.hover) };
+}
+
+/** A drag with the right button (`in_230`): the rectangle is drawn while it goes; let go, what is in it is selected (Shift adds it to what is selected; none of the tools or operations takes it: they have the pointer). */
+export function doBox(s: AppState, i: Extract<Intent, { type: "box" }>, env: Env): AppState {
+  if (s.tool || s.op || s.repeat) return { ...s, box: null };
+  const box = { x0: i.x0, y0: i.y0, x: i.x, y: i.y };
+  if (!i.done) return { ...s, box, menu: null };
+  if (Math.hypot(i.x - i.x0, i.y - i.y0) < settings.view.clickMovePx) return { ...s, box: null };
+  const pr = projector(s.cam, env.w, env.h);
+  const found = boxSelect(sceneOf(s.session), box, pr.project, pr.view);
+  const sel = i.shift ? [...selectionOf(s.session), ...found.filter((r) => !selectionOf(s.session).includes(r))] : found;
+  return { ...s, box: null, menu: null, spread: null, session: { ...s.session, hover: undefined, click: { ...s.session.click, selection: sel }, message: null } };
 }

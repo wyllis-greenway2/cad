@@ -12,6 +12,7 @@ import type { Ref } from "../../shared/ref.ts";
 import { planeOf } from "../objects.ts";
 import { sketchOfEdge } from "../../operation/edgesource.ts";
 import { sideOf } from "../camera.ts";
+import { moveOffset } from "../gizmo.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
@@ -103,7 +104,12 @@ export function doTyped(s: AppState, key: string): AppState {
     rot[i] = typed.typed;
     return { ...s, op: { ...s.op, rot, value: null, typed: "" } };
   }
-  if (s.op) return key === "Enter" ? commitOp(s) : { ...s, op: typeOp(s.op, key) };
+  if (s.op) {
+    if (key === "Enter") return commitOp(s);
+    const typed = typeOp(s.op, key);
+    // a number typed for a move is the position along the axis since the move began: the step is what is missing (`in_230`)
+    return { ...s, op: s.op.kind === "move" && s.op.typed === "" && typed.typed !== "" ? { ...typed, typedBase: moveOffset(sceneOf(s.session), s.op)[s.op.axis]! } : typed };
+  }
   const t = s.tool;
   if (!t || !t.plane || !t.points.length) return s;
   if (key !== "Enter") return { ...s, tool: typeKey(t, key) };
@@ -123,7 +129,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
   if (mover && mover.kind === "move" && (mover.target === "body" || mover.target === "plane") && !s.repeat && !s.tool && field >= 0 && field < 3) {
     // the bubble on one of the move arrows (`in_215`): a distance typed along that axis; another axis starts again
     const same = mover.axis === field;
-    return { ...s, op: { ...mover, auto: false, axis: field as 0 | 1 | 2, typed: text, ...(same ? {} : { value: null }) } };
+    return { ...s, op: { ...mover, auto: false, axis: field as 0 | 1 | 2, typed: text, typedBase: moveOffset(sceneOf(s.session), mover)[field]!, ...(same ? {} : { value: null }) } };
   }
   if (s.repeat && !s.op) {
     // a number of the repeat that is open (the count and the spacing, or the count and the degrees)

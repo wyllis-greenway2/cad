@@ -42,7 +42,8 @@ import type { Entry } from "./entry.ts";
 import type { Preview } from "./tools.ts";
 import { gizmoOf, activeOp } from "./control/handles.ts";
 import type { Op } from "./operations.ts";
-import { followed } from "./gizmo.ts";
+import { followed, moveOffset } from "./gizmo.ts";
+import { crossing } from "./boxselect.ts";
 import type { Handle } from "./gizmo.ts";
 
 /** A refused change, while it flashes: how far through it is (0 to 1), the constraints it would have broken (red, fading), the ones that tried (they shake), and the parts of the broken ones. */
@@ -70,6 +71,8 @@ export interface Frame {
   lookHint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null;
   /** where the cursor of a figure being drawn is (a finger uses it: it has a handle to drag it) */
   touchCursor: Vec3 | null;
+  /** the rectangle of a drag select being drawn, in pixels (`in_230`); `touching`: it was dragged from the right, so what it only touches is picked too */
+  box: { x0: number; y0: number; x: number; y: number; touching: boolean } | null;
   /** what the constraint bubbles keep off: the drawn lines and curves (as line pieces) and corners */
   avoid: { segs: [Vec3, Vec3][]; pts: Vec3[] };
   /** the constraints the end of the line being drawn is close to, and where it is */
@@ -255,7 +258,10 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   // the handles follow what they drag, live (a body being moved takes its arrows with it)
   const raw = gizmoOf(s);
   const live = s.op?.kind === "pushpull" || s.op?.kind === "extrude"; // (their arrows follow inside `gizmoOf`)
-  const gizmo = raw && !live ? followed(raw, s.drag && "handle" in s.drag ? s.drag.handle : null, s.op?.value ?? null) : raw;
+  const followedGizmo = raw && !live ? followed(raw, s.drag && "handle" in s.drag ? s.drag.handle : null, s.op?.value ?? null) : raw;
+  // the arrows of a body's move that stood up by themselves come back at the kernel's box, which is still the old one for a moment after the drag: they stay where the body was drawn (`in_230`)
+  const m = settling && !s.op && lastDrag?.matrix && activeOp(s)?.kind === "move" ? lastDrag.matrix : null;
+  const gizmo = followedGizmo && m ? { centre: add(followedGizmo.centre, [m[12]!, m[13]!, m[14]!]), handles: followedGizmo.handles.map((h) => ({ ...h, points: h.points.map((q) => add(q, [m[12]!, m[13]!, m[14]!])) })) } : followedGizmo;
   // the arrow of a push / pull, an extrude or a fillet / chamfer that showed up by itself has its bubble too, ready for a typed size
   const auto = s.op ? null : activeOp(s);
   const shownOp = s.op ?? (auto && !(s.cam.straight && auto.kind !== "edge") && (auto.kind === "pushpull" || auto.kind === "extrude" || auto.kind === "edge") ? auto : null);
@@ -276,10 +282,11 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     amber: [...focusParts(sc, sel, s.focus), ...(s.tool?.hints ?? []).flatMap((h) => h.ref ? [h.ref] : [])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
     preview: faceShift ? previewFor(sc, s.tool) : withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
     entry: movingOp ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
-    entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam) : movingOp ? moveEntries(movingOp, gizmo, !!s.op) : [],
+    entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam) : movingOp ? moveEntries(movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
     bar: !!s.repeat,
     lookHint: lookOf(sc, sel, s.cam).lookHint,
     touchCursor: s.tool && s.tool.points.length && s.tool.cursor ? s.tool.cursor : null,
+    box: s.box ? { ...s.box, touching: crossing(s.box) } : null,
     avoid: busy || !annotationsPresent ? { segs: [], pts: [] } : avoidOf(sc),
     hint: s.tool?.hints?.length && s.tool.cursor ? { kinds: s.tool.hints.map((h) => h.kind), at: s.tool.cursor } : null,
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors, s.showSketch),
@@ -290,7 +297,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", trim: "Trim" } as const)[s.tool.kind] } : null,
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
-    gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : null } : null,
+    gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" ? `move:${"xyz"[s.op.axis]}` : null } : null,
     modeSwitch: gizmo && !s.repeat ? modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : null,
     cursor: s.tool ? "crosshair" : s.gizmoHover ? "grab" : "",
     message: s.session.message ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? "",

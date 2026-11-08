@@ -4,7 +4,7 @@ import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, dist } from "../math/vec.ts";
 import type { PointerView, Plane } from "../operation/part.ts";
-import { segmentOf, circleOf, normalOfPlane } from "../operation/part.ts";
+import { segmentOf, circleOf, pointOf, normalOfPlane } from "../operation/part.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
@@ -18,6 +18,32 @@ type V2 = [number, number];
 const lift = (pl: Plane, [x, y]: V2): Vec3 => add(pl.at, add(scale(pl.u, x), scale(pl.v, y)));
 const lenOf = (v: V2) => Math.hypot(v[0], v[1]);
 const unit = (v: V2): V2 => { const l = lenOf(v) || 1; return [v[0] / l, v[1] / l]; };
+
+/** A circle or an arc: what a line can end on or be tangent to. An arc's ends say which part of its circle is there (`in_230`: an arc is a circle too, and lit when it is the one the end is on). */
+interface Round { ref: Ref; center: Vec3; radius: number; arc?: { a: Vec3; b: Vec3; ccw: boolean } }
+function roundsOf(scene: Scene, get: (r: Ref) => Scene["parts"][string] | undefined): Round[] {
+  const out: Round[] = [];
+  for (const c of Object.values(scene.parts)) {
+    if (c.kind === "circle") { const ci = circleOf(get, c.ref); if (ci) out.push({ ref: c.ref, ...ci }); continue; }
+    if (c.kind === "line" && c.origin === "drawn" && c.center && !c.derived) { // (a piece an extrusion cut from the arc is not the arc: the arc is what constraints name)
+      const [m, a, b] = [pointOf(get, c.center), pointOf(get, c.a), pointOf(get, c.b)];
+      if (m && a && b) out.push({ ref: c.ref, center: m, radius: dist(m, a), arc: { a, b, ccw: c.ccw !== false } });
+    }
+  }
+  return out;
+}
+/** Is this point (in the plane's own numbers) on the part of the circle the arc covers? */
+function withinArc(pl: Plane, r: Round, p: V2): boolean {
+  if (!r.arc) return true;
+  const m = localOf(pl, r.center);
+  const ang = (q: V2) => Math.atan2(q[1] - m[1], q[0] - m[0]);
+  const TAU = Math.PI * 2;
+  const wrap = (x: number) => ((x % TAU) + TAU) % TAU;
+  const [a, b] = [ang(localOf(pl, r.arc.a)), ang(localOf(pl, r.arc.b))];
+  const span = r.arc.ccw ? wrap(b - a) : wrap(a - b);
+  const at = r.arc.ccw ? wrap(ang(p) - a) : wrap(a - ang(p));
+  return at <= span + 1e-6;
+}
 
 /** The end of a line from `start` that the pointer is at, `base` (already snapped to corners and the rounding), made to satisfy any constraint it is close to. */
 export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, base: Vec3): { at: Vec3; hints: Hint[] } {
@@ -53,15 +79,14 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
   if (best) return { at: lift(pl, best.at), hints: [{ kind: "onLine", ref: best.ref }] };
   // on a circle: the end is at the edge of a circle (a line from its centre to its edge ends exactly on it)
   let onCircle: { at: V2; ref: Ref; px: number } | null = null;
-  for (const c of Object.values(scene.parts)) {
-    if (c.kind !== "circle") continue;
-    const ci = circleOf(get, c.ref);
-    if (!ci || !onPlane(ci.center)) continue;
-    const m = localOf(pl, ci.center);
+  const rounds = roundsOf(scene, get).filter((r) => onPlane(r.center));
+  for (const c of rounds) {
+    const m = localOf(pl, c.center);
     const w: V2 = [e[0] - m[0], e[1] - m[1]];
     const D = lenOf(w);
     if (D < 1e-9) continue;
-    const q: V2 = [m[0] + (w[0] / D) * ci.radius, m[1] + (w[1] / D) * ci.radius];
+    const q: V2 = [m[0] + (w[0] / D) * c.radius, m[1] + (w[1] / D) * c.radius];
+    if (!withinArc(pl, c, q)) continue;
     const [px, py] = pv.project(lift(pl, q));
     const px2 = Math.hypot(px - pv.x, py - pv.y);
     if (px2 <= settings.sketch.snapPx && (!onCircle || px2 < onCircle.px)) onCircle = { at: q, ref: c.ref, px: px2 };
@@ -80,15 +105,12 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
     const perp: V2 = [-ld[1], ld[0]];
     cands.push({ dir: perp, err: angleTo(perp), hint: { kind: "perpendicular", ref: l.ref } });
   }
-  for (const c of Object.values(scene.parts)) {
-    if (c.kind !== "circle") continue;
-    const ci = circleOf(get, c.ref);
-    if (!ci || !onPlane(ci.center)) continue;
-    const w: V2 = [localOf(pl, ci.center)[0] - s[0], localOf(pl, ci.center)[1] - s[1]];
+  for (const c of rounds) {
+    const w: V2 = [localOf(pl, c.center)[0] - s[0], localOf(pl, c.center)[1] - s[1]];
     const D = lenOf(w);
-    if (D <= ci.radius * 1.001) continue;
+    if (D <= c.radius * 1.001) continue;
     const a0 = Math.atan2(w[1], w[0]);
-    const off = Math.asin(ci.radius / D);
+    const off = Math.asin(c.radius / D);
     for (const sgn of [-1, 1]) {
       const dir: V2 = [Math.cos(a0 + sgn * off), Math.sin(a0 + sgn * off)];
       cands.push({ dir, err: Math.acos(Math.max(-1, Math.min(1, dot([d[0], d[1], 0], [dir[0], dir[1], 0]) / len))), hint: { kind: "tangent", ref: c.ref } }); // (the signed direction: a tangent is one way only)

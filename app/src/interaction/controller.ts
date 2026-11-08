@@ -5,7 +5,7 @@ import type { Intent } from "../shared/input.ts";
 import { figureRefs } from "../operation/scene.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { AppState, Env } from "./control/state.ts";
-import { doHover, doClick, doMenu } from "./control/pointer.ts";
+import { doHover, doClick, doMenu, doBox } from "./control/pointer.ts";
 import { doPan, doZoom, doLook, doHome } from "./control/viewing.ts";
 import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
@@ -37,6 +37,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "hoverEnd": return { ...s, session: hoverOn(s.session, undefined), hoverPoint: null };
     case "click": return doClick(s, i, env);
     case "menu": return doMenu(s, i);
+    case "box": return doBox(s, i, env);
     case "orbit": return doDragMove(s, i, env);
     case "dragEnd": return doDragEnd(s);
     case "pan": return doPan(s, i, env);

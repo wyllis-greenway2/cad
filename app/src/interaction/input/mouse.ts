@@ -1,4 +1,4 @@
-// A mouse or a pen: click, right click = menu, right-drag or Alt + left-drag orbit, middle-drag or Shift + right-drag or Space + drag pan, left-drag on empty space orbits.
+// A mouse or a pen: click, right click = menu, right-drag draws a selection rectangle (`in_230`), Alt + left-drag orbits, middle-drag or Shift + right-drag or Space + drag pan, left-drag on empty space orbits.
 import type { Intent, RawInput, Mods } from "../../shared/input.ts";
 import { settings } from "../../shared/settings.ts";
 import type { ClickCounter } from "./clicks.ts";
@@ -11,14 +11,15 @@ export function createMouse(countClick: ClickCounter, spaceHeld: () => boolean, 
   let g: Drag | null = null;
   const actionOf = (button: number, m: Mods): Action => {
     if (button === 1) return "pan";
-    if (button === 2) return m.shift ? "pan" : "menu"; // a right click without moving is the menu; dragging orbits (decided on move)
+    if (button === 2) return m.shift ? "pan" : "menu"; // a right click without moving is the menu; dragging orbits (decided on move: it draws the rectangle)
     if (spaceHeld() || (m.alt && m.shift)) return "pan";
     if (m.alt) return "orbit";
     return "click"; // a plain left press: a click if it does not move, else orbit
   };
   return (e: Pointer): Intent[] => {
     if (e.kind === "down") {
-      const lost = g?.moved && g.action !== "pan" ? [{ type: "dragEnd" } as Intent] : []; // a press while one is still down: the release of the first never came
+      // a press while one is still down: the release of the first never came (a rectangle being drawn is let go empty)
+      const lost: Intent[] = g?.moved && g.action === "menu" ? [{ type: "box", x0: g.x0, y0: g.y0, x: g.x0, y: g.y0, done: true, shift: false }] : g?.moved && g.action !== "pan" ? [{ type: "dragEnd" }] : [];
       g = { button: e.button, x0: e.x, y0: e.y, x: e.x, y: e.y, moved: false, action: actionOf(e.button, e.mods), shift: e.mods.shift };
       return lost;
     }
@@ -29,10 +30,12 @@ export function createMouse(countClick: ClickCounter, spaceHeld: () => boolean, 
       const [dx, dy] = [e.x - g.x, e.y - g.y];
       g.x = e.x;
       g.y = e.y;
-      return [g.action === "pan" ? { type: "pan", dx, dy } : { type: "orbit", dx, dy, x: e.x, y: e.y, ...(g.button === 2 ? { view: true } : {}) }];
+      if (g.action === "menu") return [{ type: "box", x0: g.x0, y0: g.y0, x: e.x, y: e.y, done: false, shift: g.shift }]; // (a right press that moves is a drag select, not an orbit)
+      return [g.action === "pan" ? { type: "pan", dx, dy } : { type: "orbit", dx, dy, x: e.x, y: e.y }];
     }
     const cur = g;
     g = null;
+    if (cur?.moved && cur.action === "menu") return [{ type: "box", x0: cur.x0, y0: cur.y0, x: e.kind === "cancel" ? cur.x0 : e.x, y: e.kind === "cancel" ? cur.y0 : e.y, done: true, shift: cur.shift }]; // (a drag that is cancelled picks nothing)
     if (cur?.moved && cur.action !== "pan") return [{ type: "dragEnd" }]; // the drag (of the camera or of a handle) is over
     if (e.kind === "cancel" || !cur || cur.moved) return [];
     if (cur.action === "menu") return [{ type: "menu", x: e.x, y: e.y }];

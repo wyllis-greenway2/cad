@@ -77,6 +77,24 @@ function bodyBox(scene: Scene): { lo: Vec3; hi: Vec3 } | null {
   return { lo, hi };
 }
 
+/** Where the arrows of a move stand as it begins: the middle of the body's box, or of the corners of the drawn figure. Null with nothing to move. */
+export function moveCentre(scene: Scene, op: Op): Vec3 | null {
+  if (op.target === "plane") { const pts = cornersOf(scene, op.parts); return pts.length ? middle(pts) : null; }
+  const box = bodyBox(scene);
+  return box ? scale(add(box.lo, box.hi), 0.5) : null;
+}
+/**
+ * How far a move has taken what it moves since the move began (`in_230`): the position the bubbles show, starting at 0 and keeping on across drags until the move is put away. A body: the move
+ * steps made since (so it is there the moment the step is, not when the kernel has answered); a drawn figure: where its middle is now against where it began.
+ */
+export function moveOffset(scene: Scene, op: Op): Vec3 {
+  if (op.kind !== "move" || !op.from) return [0, 0, 0];
+  if (op.target === "plane") { const c = moveCentre(scene, op); return c ? sub(c, op.from) : [0, 0, 0]; }
+  const out: [number, number, number] = [0, 0, 0];
+  for (const st of scene.steps.slice(op.stepsAt ?? scene.steps.length)) if (st.type === "move" && st.parts[0] === op.parts[0]) out[Number(st.params.axis ?? 0)]! += Number(st.params.value ?? 0);
+  return out;
+}
+
 /** The handles for the operation that is being set up (or whose handle shows up by itself), sized to the view (about a sixth of the view distance). */
 export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
   const L = cam.distance * settings.gizmo.sizeOfView;
@@ -129,7 +147,8 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
   }
   const box = bodyBox(scene);
   if (!box) return null;
-  const centre = op.kind === "rotate" ? (op.pivot ?? bodyCentre(scene) ?? scale(add(box.lo, box.hi), 0.5)) : scale(add(box.lo, box.hi), 0.5);
+  // a move that has begun keeps its arrows where the body is by the steps made (the kernel's box lags behind them: the arrows would jump back for a moment, `in_230`)
+  const centre = op.kind === "rotate" ? (op.pivot ?? bodyCentre(scene) ?? scale(add(box.lo, box.hi), 0.5)) : op.kind === "move" && op.from ? add(op.from, moveOffset(scene, op)) : scale(add(box.lo, box.hi), 0.5);
   if (op.kind === "move") return { centre, handles: AXES.map((d, i): Handle => ({ id: `move:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, 2 * HALF * L))] })) };
   if (op.kind === "rotate") return { centre, handles: [...AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, centre, d, L * 0.8, i as 0 | 1 | 2)), { id: "pivot", kind: "ball", axis: null, points: [centre] }] };
   if (op.kind === "scale") return { centre, handles: [{ id: "scale", kind: "scale", axis: null, points: [centre, box.hi] }] };

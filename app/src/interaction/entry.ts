@@ -102,21 +102,17 @@ export function repeatEntries(op: Op, g: Gizmo | null, cam: Camera): Entry[] {
 }
 
 /**
- * The number bubbles of the move arrows (`in_215`): one at the tip of each arrow, always there while the arrows are, so a distance can be typed on any axis. The axis being dragged or typed shows its
- * distance, the others 0. `op` is the move being made (or the one that stands up by itself).
+ * The number bubble of the move arrows (`in_215`, changed by `in_230`): only on the arrow of the chosen axis, as the rotator shows one ring's number. It shows where the move has taken the body along
+ * that axis since it began (`offset`: 0 to begin with, and on across drags until the move is put away), and a typed number is that position.
  */
-export function moveEntries(op: Op, g: Gizmo | null, running: boolean): Entry[] {
+export function moveEntries(op: Op, g: Gizmo | null, offset: Vec3): Entry[] {
   if (!g || op.kind !== "move") return [];
-  const out: Entry[] = [];
-  for (let i = 0; i < 3; i++) {
-    const arrow = g.handles.find((h) => h.id === `move:${"xyz"[i]}`);
-    if (!arrow) continue;
-    const mine = running && op.axis === i;
-    const v = mine ? valueOf(op) : null;
-    out.push({
-      fields: [{ label: `Move along ${"XYZ"[i]}`, short: "XYZ"[i]!, value: mine && op.typed !== "" ? op.typed : fmt(v ?? 0), active: mine, typed: mine && op.typed !== "", index: i }],
-      unit: "mm", at: arrow.points.at(-1)!, from: g.centre,
-    });
-  }
-  return out;
+  const i = op.axis;
+  const arrow = g.handles.find((h) => h.id === `move:${"xyz"[i]}`);
+  if (!arrow) return [];
+  const typed = op.typed !== "";
+  return [{
+    fields: [{ label: `Move along ${"XYZ"[i]}`, short: "XYZ"[i]!, value: typed ? op.typed : fmt(offset[i]! + (valueOf(op) ?? 0)), active: true, typed, index: i }],
+    unit: "mm", at: arrow.points.at(-1)!, from: g.centre,
+  }];
 }

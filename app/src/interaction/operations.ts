@@ -1,7 +1,7 @@
 // The operations that take a number (`dec_interaction_spec`): extrude a closed figure, fillet or chamfer lines of the body (one operation: one way is a fillet, the other a chamfer), move, rotate or scale the body.
 // An operation starts from the selection (the menu or a key), shows its number, and is finished by Enter or a click: that adds ONE step to the scene, so it undoes in one go.
 import type { Ref } from "../shared/ref.ts";
-import { edgeDirection } from "./gizmo.ts";
+import { edgeDirection, moveCentre, moveOffset } from "./gizmo.ts";
 import { patternStart, patternCommand } from "./pattern.ts";
 import type { Mat3, Angles } from "../math/rotation.ts";
 import { IDENTITY, about, then, anglesOf, stepsBetween } from "../math/rotation.ts";
@@ -41,6 +41,11 @@ export interface Op {
   typed: string;
   /** the value from a handle that is being dragged */
   value: number | null;
+  /** move: where the arrows stood as it began, and how many steps there were (`moveOffset`): the position the bubble shows is how far it has gone since, over all its drags (`in_230`) */
+  from?: Vec3;
+  stepsAt?: number;
+  /** move: how far it had gone along the axis when a number began to be typed (what is typed is the position, so the step is what is missing) */
+  typedBase?: number;
   /** move and rotate: 0 = X, 1 = Y, 2 = Z (for a drawn shape: 0 = along the plane's first axis, 1 = along its second) */
   axis: 0 | 1 | 2;
   /** fillet / chamfer: which of the round rims sharing a centre each edge is (`rimRanks`), so that the step finds it again when sizes change */
@@ -127,6 +132,12 @@ function drawnFigure(scene: Scene, parts: Part[]): Ref[] {
 
 /** Can this operation start from this selection? Returns the operation, or why not. */
 export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): StartResult {
+  const r = startOpBare(scene, selection, kind);
+  if (!r.ok || r.op.kind !== "move" || (r.op.target !== "body" && r.op.target !== "plane")) return r;
+  const from = moveCentre(scene, r.op);
+  return from ? { ...r, op: { ...r.op, from, stepsAt: scene.steps.length } } : r;
+}
+function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind): StartResult {
   const get = lookup(scene);
   const parts = selection.map((r) => get(r)).filter((p): p is Part => !!p);
   // a piece of a figure that lines cut up shares its sides with the other pieces: it can be extruded (or offset nowhere), but moved, turned, scaled or repeated only by selecting the lines and points themselves
@@ -315,6 +326,7 @@ const num = (s: string): number | null => {
 /** The number the operation will use: what was typed, else the pointer's or default value. */
 export const valueOf = (op: Op): number | null => {
   const t = num(op.typed);
+  if (t !== null && op.kind === "move" && op.typedBase !== undefined) return t - op.typedBase; // (a typed position along the axis: the step is how far that is from where it is)
   // a typed size is the size you want: how far to move is what is missing from the size now
   return t !== null && op.dim ? (t - op.dim.base) / op.dim.scale : t ?? op.value;
 };
