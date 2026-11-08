@@ -22,7 +22,7 @@ const num = (s: string): number | null => {
 const middle = (pts: Vec3[]): Vec3 => scale(pts.reduce((a, p) => add(a, p), [0, 0, 0] as Vec3), 1 / Math.max(1, pts.length));
 
 /** The numbers a repeat starts with, and the middle of what is repeated: a first try that shows the idea (three along a line, four round a point). Null if there is nothing to repeat. */
-export function patternStart(scene: Scene, kind: "linear" | "circular", figure: readonly Ref[] | null): { parts: Ref[]; start: number[]; target: "body" | "plane" } | null {
+export function patternStart(scene: Scene, kind: "linear" | "circular", figure: readonly Ref[] | null): { parts: Ref[]; start: number[]; target: "body" | "plane"; /** the direction the helper bubbles stand on: the first one the thing has any size in */ along: 0 | 1 | 2 } | null {
   let pts: Vec3[];
   let parts: Ref[];
   let radius = 0;
@@ -45,14 +45,14 @@ export function patternStart(scene: Scene, kind: "linear" | "circular", figure: 
   const mid = hi.map((h, i) => (h + lo[i]!) / 2);
   const biggest = Math.max(...ext, 1);
   if (kind === "linear") {
-    // three along the first direction the thing has any size in, spaced one and a half sizes; one along the others
-    const along = figure ? ext.findIndex((e, i) => e > 1e-6 && i !== normalAxis) : 0;
-    const start = [1, 0, 1, 0, 1, 0].map((v, k) => (k % 2 === 0 ? (k / 2 === along ? 3 : 1) : r3((ext[k >> 1]! > 1e-6 ? ext[k >> 1]! : biggest) * 1.5)));
-    return { parts, start, target: figure ? "plane" : "body" };
+    // one to begin with (no copy yet: the arrow past it is pulled to make one, `in_236`), spaced one and a half sizes
+    const along = Math.max(0, figure ? ext.findIndex((e, i) => e > 1e-6 && i !== normalAxis) : 0) as 0 | 1 | 2;
+    const start = [1, 0, 1, 0, 1, 0].map((v, k) => (k % 2 === 0 ? 1 : r3((ext[k >> 1]! > 1e-6 ? ext[k >> 1]! : biggest) * 1.5)));
+    return { parts, start, target: figure ? "plane" : "body", along };
   }
   const axis = figure ? normalAxis : 2;
   const c = [r3(mid[0]! + ext[0]! * 1.5), r3(mid[1]!), r3(mid[2]!)];
-  return { parts, start: [4, 360, axis, c[0]!, c[1]!, c[2]!], target: figure ? "plane" : "body" };
+  return { parts, start: [4, 360, axis, c[0]!, c[1]!, c[2]!], target: figure ? "plane" : "body", along: 0 };
 }
 
 /** The numbers of a repeat: each field as typed, else as it started. */
@@ -180,7 +180,36 @@ export function dragPattern(op: Op, id: string, r: { value: number } | { pivot: 
 /** The parts a circular repeat is built around: a point at the middle of what is repeated, the pivot point it turns about, and the line between them. They are ordinary drawn parts, so the pivot can be moved with Move, given a length, constrained like any vertex. */
 export interface PivotParts { centre: Ref; point: Ref; line: Ref }
 /** A repeat that is being set up: its numbers, and for a circular one the pivot parts. It goes on until Apply or Cancel (you can work in the world meanwhile). */
-export interface Repeat { op: Op; pivot: PivotParts | null }
+export interface Repeat {
+  op: Op;
+  pivot: PivotParts | null;
+  /** the arrow that was taken last (dragged, or its number typed): only that arrow shows its number, as only the chosen ring of a turn does (`in_236`) */
+  chosen?: string | null;
+  /** the helper bubbles of a linear repeat, once in each use of the tool: "pull to copy" on the arrow past the last copy until a copy exists, then "pull to separate" on the other arrow until the copies have been moved apart a little */
+  help?: { phase: "copy" | "separate" | "done"; sep0: number } | null;
+}
+
+/** Where the helper bubbles are in their one use of the tool: they only go forward (`in_236`). */
+export function advanceHelp(r: Repeat): Repeat {
+  const h = r.help;
+  if (!h || h.phase === "done") return r;
+  const v = patternValues(r.op);
+  const a = r.op.along ?? 0;
+  const [count, spacing] = [Math.round(v[2 * a] ?? 1), v[2 * a + 1] ?? 0];
+  if (h.phase === "copy" && count >= 2) return { ...r, help: { phase: "separate", sep0: spacing } };
+  if (h.phase === "separate" && Math.abs(spacing - h.sep0) > Math.max(0.5, 0.1 * Math.abs(h.sep0))) return { ...r, help: { ...h, phase: "done" } };
+  return r;
+}
+
+/** The helper bubble to show now, and the handle it stands on, if any. */
+export function helperOf(r: Repeat): { text: string; handle: string } | null {
+  const h = r.help;
+  if (!h || r.op.kind === "circular") return null;
+  const a = "xyz"[r.op.along ?? 0]!;
+  if (h.phase === "copy") return { text: "pull to copy", handle: `cnt:${a}` };
+  if (h.phase === "separate") return { text: "pull to separate", handle: `lin:${a}` };
+  return null;
+}
 
 /** The commands that make the pivot parts of a circular repeat at the point its numbers start with. */
 export function pivotCommands(scene: Scene, op: Op): { command: Command; parts: PivotParts } {

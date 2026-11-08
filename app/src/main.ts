@@ -28,7 +28,8 @@ import type { MenuItem } from "./interaction/control/state.ts";
 import { createRing } from "./ui/ring.ts";
 import { createChip } from "./ui/chip.ts";
 import { createPanel } from "./ui/panel.ts";
-import { createApplyBar } from "./ui/applybar.ts";
+import { createHelper } from "./ui/helper.ts";
+import { createBusy } from "./ui/busy.ts";
 import { createControls } from "./ui/controls.ts";
 import { createToolChip } from "./ui/toolchip.ts";
 import { createToolCursor } from "./ui/toolcursor.ts";
@@ -97,7 +98,8 @@ const ring = createRing(document.body, (id) => {
 const hintIcons = createHints(document.body);
 const touchHandle = createTouchCursor(document.body);
 const boxView = createBoxView(document.body);
-const applyBar = createApplyBar(document.body, { apply: () => dispatch({ type: "repeatApply" }), cancel: () => dispatch({ type: "repeatCancel" }) });
+const helper = createHelper(document.body);
+const busySign = createBusy(document.body);
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch({ type: "begin", name: to }));
@@ -234,7 +236,8 @@ function frame(now: number) {
     valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool));
     for (let i = valueBubbles.length; i < chips.length; i++) chips[i]!.update(null, "mm", null);
     modeSwitch.update(f.modeSwitch, corner && Number.isFinite(corner[0]) ? corner : null, chips.flatMap((c) => c.rect() ?? [])); // (after the bubbles: it keeps off them, `in_231`)
-    applyBar.update(f.bar);
+    helper.update(f.helper ? f.helper.text : null, f.helper ? onPage(f.helper.at) : null);
+    const working = busySign.update(f.busy, now);
     controls.hint(f.lookHint);
     hintIcons.update(f.hint?.kinds ?? [], onPage(f.hint?.at));
     // a finger has no hover: while it draws there is a cursor with a handle to drag it (the handle sits down and to the right of the cursor, kept on the screen)
@@ -253,7 +256,7 @@ function frame(now: number) {
     timing.add("frame: all", tEnd - tFrame);
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);
     statusEl.textContent = f.message;
-    dirty = !!f.flash; // keep drawing while a refused change flashes
+    dirty = !!f.flash || working; // keep drawing while a refused change flashes, or the "working" sign turns
   }
   requestAnimationFrame(frame);
 }

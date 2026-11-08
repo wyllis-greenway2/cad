@@ -39,6 +39,7 @@ import { suggestionsFor } from "./suggest.ts";
 import type { Suggestions } from "./suggest.ts";
 import type { Annotation } from "./annotations.ts";
 import { entryOf, previewFor, repeatEntries, moveEntries } from "./entry.ts";
+import { helperOf } from "./pattern.ts";
 import type { Entry } from "./entry.ts";
 import type { Preview } from "./tools.ts";
 import { gizmoOf, activeOp } from "./control/handles.ts";
@@ -66,8 +67,10 @@ export interface Frame {
   entry: Entry | null;
   /** the several value bubbles of a repeat being set up (one on each axis, or one by the rings) */
   entries: Entry[];
-  /** the Apply and Cancel buttons are up (a repeat is being set up) */
-  bar: boolean;
+  /** a little bubble of help on an arrow (`in_236`) */
+  helper: { at: Vec3; text: string } | null;
+  /** the kernel is still working the model out (a picture of it may be a moment old): a "working" sign shows if it takes a while */
+  busy: boolean;
   /** the world axis the selected plane or face lies across and which end of it the camera must be at to see it (so that X Y Z button is lit, as + or −) */
   lookHint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null;
   /** where the cursor of a figure being drawn is (a finger uses it: it has a handle to drag it) */
@@ -256,6 +259,13 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
   return value;
 }
 
+function helperAt(s: AppState, g: { handles: Handle[] } | null): { at: Vec3; text: string } | null {
+  if (!s.repeat || s.op || !g) return null;
+  const h = helperOf(s.repeat);
+  const arrow = h ? g.handles.find((x) => x.id === h.handle) : undefined;
+  return h && arrow ? { at: arrow.points.at(-1)!, text: h.text } : null;
+}
+
 export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): Frame {
   const gpu = gpuMotion(s);
   const shown = gpu ? gpu.shown : operationResult(s);
@@ -296,8 +306,9 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     amber: [...focusParts(sc, sel, s.focus), ...(s.tool?.hints ?? []).flatMap((h) => h.ref ? [h.ref] : [])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
     preview: faceShift ? previewFor(sc, s.tool) : withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
     entry: movingOp ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
-    entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam) : movingOp ? moveEntries(movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
-    bar: !!s.repeat,
+    entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp ? moveEntries(movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
+    helper: helperAt(s, gizmo),
+    busy: !!s.session.outcome.kernel?.stale,
     lookHint: lookOf(sc, sel, s.cam).lookHint,
     touchCursor: s.tool && s.tool.points.length && s.tool.cursor ? s.tool.cursor : null,
     box: s.box ? { ...s.box, touching: crossing(s.box) } : null,

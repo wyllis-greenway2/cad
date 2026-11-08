@@ -69,7 +69,7 @@ export function previewFor(scene: Scene, tool: Tool | null): Preview | null {
  * The bubbles of a repeat being set up: a linear one has one on each axis, at the end of that axis's spacing arrow (how many, and how far apart); a circular one has one, to the side
  * of the rings (how many copies, over how many degrees), so it never covers the arcs. `index` is the number's place in the repeat.
  */
-export function repeatEntries(op: Op, g: Gizmo | null, cam: Camera): Entry[] {
+export function repeatEntries(op: Op, g: Gizmo | null, cam: Camera, chosen: string | null = null): Entry[] {
   const v = op.patStart;
   if (!g || !v) return [];
   const show = (i: number) => (op.pat[i] !== "" ? op.pat[i]! : fmt(v[i]!));
@@ -85,20 +85,20 @@ export function repeatEntries(op: Op, g: Gizmo | null, cam: Camera): Entry[] {
       unit: "", at: add(g.centre, scale(right, L * 1.35)),
     }];
   }
-  const out: Entry[] = [];
-  for (let i = 0; i < 3; i++) {
-    const arrow = g.handles.find((h) => h.id === `lin:${"xyz"[i]}`);
-    if (!arrow) continue;
-    const X = "XYZ"[i]!;
-    out.push({
-      fields: [
-        { label: `Copies along ${X}`, short: `${X}×`, value: show(2 * i), active: false, typed: typed(2 * i), index: 2 * i },
-        { label: `Distance between copies along ${X}`, short: "Δ", value: show(2 * i + 1), active: false, typed: typed(2 * i + 1), index: 2 * i + 1 },
-      ],
-      unit: "", at: arrow.points[1]!, from: g.centre,
-    });
-  }
-  return out;
+  // only the arrow that was taken last shows its number, as only the chosen ring of a turn does (`in_236`): the stub past the last copy its count, the other arrow the distance between copies
+  if (!chosen) return [];
+  const i = "xyz".indexOf(chosen.slice(4, 5));
+  const arrow = g.handles.find((h) => h.id === chosen);
+  if (i < 0 || !arrow) return [];
+  const X = "XYZ"[i]!;
+  const count = chosen.startsWith("cnt:");
+  const field = count ? 2 * i : 2 * i + 1;
+  return [{
+    fields: [count
+      ? { label: `Copies along ${X}`, short: `${X}×`, value: show(field), active: false, typed: typed(field), index: field }
+      : { label: `Distance between copies along ${X}`, short: "Δ", value: show(field), active: false, typed: typed(field), index: field }],
+    unit: count ? "" : "mm", at: arrow.points.at(-1)!, from: g.centre,
+  }];
 }
 
 /**

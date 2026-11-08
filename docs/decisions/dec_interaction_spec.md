@@ -3,7 +3,7 @@ id: dec_interaction_spec
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_235, in_232, in_231, in_040, in_064, in_065, in_066, in_067, in_068, in_069, in_070, in_073, in_074, in_075, in_077, in_078, in_079, in_080, in_081, in_082, in_083, in_085, in_088, in_090, in_094, in_196, in_229
+human_input: in_236, in_235, in_232, in_231, in_040, in_064, in_065, in_066, in_067, in_068, in_069, in_070, in_073, in_074, in_075, in_077, in_078, in_079, in_080, in_081, in_082, in_083, in_085, in_088, in_090, in_094, in_196, in_229
 date: 2026-11-05
 depends_on:
   - prin_input_agnostic: the device behaviours below are the mapping from each device to the same intents
@@ -50,6 +50,8 @@ The human does not want these ideas lost when the engine is rebuilt clean (`in_0
 - **Inset / offset of a drawn figure** (`in_232`): works on a closed figure with arcs as well as straight sides (straight sides move parallel, arcs keep their centre and change radius, new ends where neighbours meet), on a chain of lines and arcs picked by its sides, and on a piece of a figure that lines cut up (it only reads the outline and draws a new figure). What a click on a face picks (the face, its sides and corners) is one figure. An inset that goes past the middle of a figure draws nothing.
 - **Double click on a sketch** (`in_235`): a drawn figure with no body under it is selected and the view turns straight to it (there is no body for the double click to take); with a body under it (a sketch on a face) the double click still takes the whole object.
 - **Typing with something selected** is one standard, `dec_typing_standard` (`in_235`).
+- **Repeat** (linear, circular, copy; `in_236`, replacing the pill with the tick and the cross of `in_141`): it stays open while you work; **a right click leaves it and makes the copies** (with none to make it just leaves), Esc gives it up. A linear repeat starts with **one** (no copy yet) and a helper bubble on the arrow past it, "pull to copy"; once a copy exists that bubble goes and "pull to separate" stands on the spacing arrow until the copies are moved apart a little. Each helper shows once in each use of the tool. **Only the arrow that was taken last** (dragged, or its number typed) shows its number, as only the chosen ring of a turn does. A copy starts with its one copy, so only "pull to separate" shows.
+- **A busy kernel** (`in_236`): when the model is not worked out yet, a small "Working…" sign shows after a third of a second, so a big job does not look like a broken app. Repeats join their copies in pairs, and copies that stand apart are one compound without joining at all (a hundred copies: 4 s became 0.8 s).
 - **Hints for arcs** (`in_230`): a line being drawn ends on an arc, or is tangent to it, as it does for a circle, and the arc lights amber as the circle does (the hover blue is not drawn over it).
 - **Trackpad:** two-finger scroll pans and a pinch zooms, like a phone screen, in an automatic mode that tells a trackpad from a wheel (a menu item forces pan or zoom); Alt + drag or drag on empty space orbits; two-finger click or the menu button opens the menu.
 - **Finger:** one-finger drag orbits, two fingers pan and pinch zooms, tap, double tap, triple tap as the clicks, long press = the menu (also the menu button); while an operation runs or a sketch point is under the finger the finger works like the mouse.

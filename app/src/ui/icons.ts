@@ -2,8 +2,8 @@
 const svg = (inner: string): string => `<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 
 const ICONS: Record<string, string> = {
-  horizontal: svg('<path d="M2 8h12"/><path d="M2 5v6M14 5v6"/>'),
-  vertical: svg('<path d="M8 2v12"/><path d="M5 2h6M5 14h6"/>'),
+  horizontal: svg('<path d="M2 8h12"/>'),
+  vertical: svg('<path d="M8 2v12"/>'),
   perpendicular: svg('<path d="M3 13V3"/><path d="M3 13h10"/><path d="M3 9h4v4"/>'),
   parallel: svg('<path d="M5 14L8.5 2"/><path d="M10 14L13.5 2"/>'),
   equal: svg('<path d="M3 6h10"/><path d="M3 10h10"/>'),

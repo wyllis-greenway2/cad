@@ -17,7 +17,7 @@ import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
 import { activeOp } from "./handles.ts";
-import { pivotCommands, repeatApply, repeatCancel } from "../pattern.ts";
+import { pivotCommands, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
 
@@ -143,7 +143,8 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     // a number of the repeat that is open (the count and the spacing, or the count and the degrees)
     const pat = [...s.repeat.op.pat];
     if (field >= 0 && field < pat.length) pat[field] = text;
-    return { ...s, repeat: { ...s.repeat, op: { ...s.repeat.op, pat } } };
+    const chosen = s.repeat.op.kind === "circular" ? null : field >= 0 && field < 6 ? `${field % 2 === 0 ? "cnt" : "lin"}:${"xyz"[field >> 1]}` : s.repeat.chosen ?? null; // (the arrow whose number it is)
+    return { ...s, repeat: advanceHelp({ ...s.repeat, chosen, op: { ...s.repeat.op, pat } }) };
   }
   const auto = s.op ? null : activeOp(s);
   if (auto && (auto.kind === "pushpull" || auto.kind === "extrude" || auto.kind === "edge")) return { ...s, op: { ...auto, auto: false, typed: text } }; // typing in the bubble of an arrow that showed up by itself
@@ -159,6 +160,7 @@ export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
   if (s.focus && !s.tool && !s.op) return { ...s, focus: null };
   if (s.box) return { ...s, box: null };
+  if (s.repeat && !s.op) return doRepeatCancel(s); // (the repeat that is open is given up, as the pill's cross used to)
   if (s.tool || s.op) return { ...s, tool: null, op: null, drag: null, gizmoHover: null };
   return withSession(s, clearSelection(s.session));
 }
@@ -238,7 +240,7 @@ function doRepeatBegin(s: AppState, kind: "linear" | "circular" | "copy"): AppSt
     session = next;
     pivot = made.parts;
   }
-  return { ...s, menu: null, op: null, tool: null, session: { ...session, message: null }, repeat: { op: r.op, pivot } };
+  return { ...s, menu: null, op: null, tool: null, session: { ...session, message: null }, repeat: { op: r.op, pivot, chosen: null, help: kind === "linear" ? { phase: "copy", sep0: 0 } : kind === "copy" ? advanceHelp({ op: r.op, pivot, help: { phase: "copy", sep0: 0 } }).help! : null } };
 }
 export function doRepeatApply(s: AppState): AppState {
   if (!s.repeat) return s;

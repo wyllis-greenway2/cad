@@ -68,6 +68,8 @@ export interface Op {
   /** linear and circular repeat: what each field starts as, and what has been typed in it (empty = as it starts); `axis` is the field typing goes to */
   pat: string[];
   patStart?: number[];
+  /** linear repeat: the direction the helper bubbles stand on (`in_236`) */
+  along?: 0 | 1 | 2;
   /** rotate the body: the three angles typed so far (X, Y, Z) as the body is to be turned (empty = as it is now) */
   rot: [string, string, string];
   /** push / pull of a round face: the face (the radius changes by the distance) */
@@ -260,7 +262,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind): Sta
     // a copy is a repeat of two (the thing and one more beside it): the same arrows and numbers, to place the copy
     const r = startOp(scene, selection, "linear");
     if (!r.ok || !r.op.patStart) return r;
-    const start = [2, ...r.op.patStart.slice(1)];
+    const start = r.op.patStart.map((v, i) => (i === 2 * (r.op.along ?? 0) ? 2 : v));
     return { ok: true, op: { ...r.op, patStart: start, pat: start.map(() => "") } };
   }
   if (kind === "linear" || kind === "circular") {
@@ -271,7 +273,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind): Sta
     if (planes.size > 1) return { ok: false, why: "select things that lie on one plane" };
     const st = patternStart(scene, kind, figure);
     if (!st) return { ok: false, why: "select the body or something drawn first" };
-    return { ok: true, op: { ...base, parts: st.parts, target: st.target, plane: [...planes][0] ?? null, patStart: st.start, pat: st.start.map(() => "") } };
+    return { ok: true, op: { ...base, parts: st.parts, target: st.target, plane: [...planes][0] ?? null, patStart: st.start, pat: st.start.map(() => ""), along: st.along } };
   }
   if (kind === "dimension") {
     // measure, then lock: the chip shows the current value of the pair; typing a number locks it (`dec_relations_standard`)

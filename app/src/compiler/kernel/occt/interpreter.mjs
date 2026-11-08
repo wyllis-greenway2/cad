@@ -8,6 +8,7 @@ import {
   draw,
   makeCylinder,
   makeBox,
+  makeCompound,
   EdgeFinder,
   FaceFinder,
   measureVolume,
@@ -561,17 +562,29 @@ const OPS = {
    * mode "circular": `count` copies turned about the axis `axis` through `pivot`, spread over `angle` degrees (a full turn is shared out evenly, less is from the first to the last).
    */
   pattern(op, ctx) {
+    const fuseTree = (parts) => { let level = parts; while (level.length > 1) { const next = []; for (let i = 0; i < level.length; i += 2) next.push(i + 1 < level.length ? level[i].fuse(level[i + 1]) : level[i]); level = next; } return level[0]; };
     const t = ctx.get(op.target, "solid").shape;
     let out = t.clone(); // (a boolean uses up what it is given, so the body is copied for every copy that is joined)
     if (op.mode === "linear") {
       const n = [op.nx, op.ny, op.nz].map((v) => Math.max(1, Math.round(resolve(v, ctx.params))));
       const d = [op.dx, op.dy, op.dz].map((v) => resolve(v, ctx.params));
       if (n[0] * n[1] * n[2] > 200) throw new Error("that is more than 200 copies");
-      for (let i = 0; i < n[0]; i++) for (let j = 0; j < n[1]; j++) for (let k = 0; k < n[2]; k++) {
-        if (i === 0 && j === 0 && k === 0) continue;
-        out = out.fuse(t.clone().translate([i * d[0], j * d[1], k * d[2]]));
+      // joined in pairs, then pairs of pairs (a row, then a grid of rows): each join is between pieces of the same size, so the work grows with the number of copies and not with its square
+      const along = (axis, count, base) => {
+        const parts = [];
+        for (let i = 0; i < count; i++) { const v = [0, 0, 0]; v[axis] = i * d[axis]; parts.push(i === 0 ? base : base.clone().translate(v)); }
+        return fuseTree(parts);
+      };
+      // copies that stand apart (every direction they are repeated in, they are further apart than the body is wide) do not touch, so there is nothing to join: they are one compound at once
+      const size = (() => { const b = bounds(t); return [0, 1, 2].map((i) => b.max[i] - b.min[i]); })();
+      if ([0, 1, 2].every((i) => n[i] === 1 || Math.abs(d[i]) > size[i] + 1e-6)) {
+        const copies = [];
+        for (let i = 0; i < n[0]; i++) for (let j = 0; j < n[1]; j++) for (let k = 0; k < n[2]; k++) copies.push(i + j + k === 0 ? t.clone() : t.clone().translate([i * d[0], j * d[1], k * d[2]]));
+        return { kind: "solid", shape: copies.length === 1 ? copies[0] : makeCompound(copies) };
       }
-      return { kind: "solid", shape: out };
+      let row = along(0, n[0], t.clone());
+      let plane = along(1, n[1], row);
+      return { kind: "solid", shape: along(2, n[2], plane) };
     }
     if (op.mode === "circular") {
       const count = Math.max(1, Math.round(resolve(op.count, ctx.params)));
@@ -580,8 +593,9 @@ const OPS = {
       const axis = [0, 0, 0];
       axis[Math.round(resolve(op.axis, ctx.params))] = 1;
       const step = Math.abs(angle) >= 360 ? angle / count : count > 1 ? angle / (count - 1) : 0;
-      for (let i = 1; i < count; i++) out = out.fuse(t.clone().rotate(step * i, op.pivot, axis));
-      return { kind: "solid", shape: out };
+      const copies = [out];
+      for (let i = 1; i < count; i++) copies.push(t.clone().rotate(step * i, op.pivot, axis));
+      return { kind: "solid", shape: fuseTree(copies) };
     }
     throw new Error(`unknown repeat ${op.mode}`);
   },
