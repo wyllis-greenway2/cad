@@ -9,7 +9,8 @@ import type { Command } from "../operation/commands.ts";
 import type { Part, Plane } from "../operation/part.ts";
 import { pointOf, normalOfPlane } from "../operation/part.ts";
 import { drawChain, drawCircle } from "../operation/build.ts";
-import { bodyOutline, bodyOutlines, outlineCommand } from "./offsetbody.ts";
+import { bodyOutline, bodyOutlines, outlineCommand, drawnOutline } from "./offsetbody.ts";
+import type { Line } from "../operation/part.ts";
 import { apply } from "../operation/commands.ts";
 import type { Outline } from "./offsetbody.ts";
 
@@ -26,7 +27,7 @@ const local = (pl: Plane, p: Vec3): V2 => [dot(sub(p, pl.at), pl.u), dot(sub(p, 
 const lift = (pl: Plane, q: V2): Vec3 => add(pl.at, add(scale(pl.u, q[0]), scale(pl.v, q[1])));
 const area2 = (p: V2[]): number => p.reduce((s, a, i) => { const b = p[(i + 1) % p.length]!; return s + (a[0] * b[1] - b[0] * a[1]); }, 0);
 
-/** What a selection can be offset from: one drawn closed figure of straight sides, one circle, one straight line. */
+/** What a selection can be offset from: a drawn closed figure (straight sides, or with arcs), a chain of sides, one circle, one straight line, the edges or the face of a flat face of the body. */
 export function offsetSource(scene: Scene, parts: Part[]): OffsetSource | null {
   const get = lookup(scene);
   const first = parts[0];
@@ -39,6 +40,20 @@ export function offsetSource(scene: Scene, parts: Part[]): OffsetSource | null {
       return { kind: "outlines", plane: loops[0]!.plane, origin: loops[0]!.origin, normal: loops[0]!.normal, loops };
     }
     return bodyOutline(scene, parts);
+  }
+  // what is picked of a drawn figure is often more than one part: a face is picked with its sides and corners, or a few sides, or a chain of lines and arcs. They are one outline (`in_232`)
+  if (parts.length && parts.every((p) => p.origin === "drawn")) {
+    const faces = parts.filter((p) => p.kind === "face");
+    const face = faces.length === 1 ? (faces[0] as Extract<Part, { kind: "face" }>) : null;
+    const lineRefs = face && !face.disk && face.loop.length && parts.every((p) => p === face || ((p.kind === "line" || p.kind === "corner") && p.plane === face.plane)) ? face.loop : null; // (its own sides and corners, or the whole lines the pieces were cut from)
+    const chain = !faces.length ? parts.filter((p): p is Line => p.kind === "line") : [];
+    const picked = lineRefs ? lineRefs.map((r) => get(r)).filter((l): l is Line => l?.kind === "line") : chain;
+    const rest = !faces.length && parts.every((p) => p.kind === "line" || (p.kind === "corner" && chain.some((l) => l.a === p.ref || l.b === p.ref)));
+    const curvy = picked.some((l) => l.center);
+    const usable = picked.length > 0 && (lineRefs || rest) && !picked.some((l) => l.bulge);
+    if (usable && curvy) return drawnOutline(scene, picked); // arcs in it
+    if (usable && !lineRefs && picked.length > 1) return drawnOutline(scene, picked); // a chain of straight sides picked by its sides
+    if (usable && lineRefs && parts.length > 1) return offsetSource(scene, [face!]); // a closed figure of straight sides picked with its sides and corners: as the face alone
   }
   if (!first || parts.length !== 1 || first.origin !== "drawn") return null;
   const face = first.kind === "face" ? first : null;

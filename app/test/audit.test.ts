@@ -85,11 +85,13 @@ test("a piece of a cut shape cannot be moved, turned, scaled or repeated as one 
   const r = openSession(kernel, readFileSync(new URL("./fixtures/pie-cuts.cad.json", import.meta.url), "utf8"));
   assert.ok(r.ok);
   const piece = parts(r.value).find((p) => p.kind === "face")!;
-  for (const k of ["move", "rotate", "scale", "linear", "circular", "offset"] as const) {
+  for (const k of ["move", "rotate", "scale", "linear", "circular"] as const) {
     const st = startOp(scene(r.value), [piece.ref], k);
     assert.equal(st.ok, false, k);
   }
   assert.equal(startOp(scene(r.value), [piece.ref], "extrude").ok, true);
+  // an offset only reads the outline and draws a new figure, so a piece can be inset (`in_232`)
+  assert.equal(startOp(scene(r.value), [piece.ref], "offset").ok, true, "offset");
 });
 
 // ---- the rod model (`in_189`) ----

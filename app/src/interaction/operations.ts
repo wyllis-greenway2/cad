@@ -141,11 +141,12 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind): Sta
   const get = lookup(scene);
   const parts = selection.map((r) => get(r)).filter((p): p is Part => !!p);
   // a piece of a figure that lines cut up shares its sides with the other pieces: it can be extruded (or offset nowhere), but moved, turned, scaled or repeated only by selecting the lines and points themselves
-  if (["move", "rotate", "scale", "linear", "circular", "copy", "offset"].includes(kind) && parts.some((p) => p.kind === "face" && p.pieces)) return { ok: false, why: "this is one piece of a shape cut by lines, and it shares its sides with the other pieces: select the lines and points to move, turn, scale or repeat them (or extrude the piece)" };
+  // (an offset only reads the piece's outline and draws a new figure beside it, so a piece can be offset, `in_232`)
+  if (["move", "rotate", "scale", "linear", "circular", "copy"].includes(kind) && parts.some((p) => p.kind === "face" && p.pieces)) return { ok: false, why: "this is one piece of a shape cut by lines, and it shares its sides with the other pieces: select the lines and points to move, turn, scale or repeat them (or extrude the piece)" };
   const base: Omit<Op, "parts"> = { kind, typed: "", value: null, axis: kind === "rotate" ? 2 : 0, origin: null, normal: null, pivot: null, target: "body", plane: null, auto: false, made: false, rot: ["", "", ""], pat: [] };
   if (kind === "offset") {
     const off = offsetSource(scene, parts);
-    if (!off) return { ok: false, why: "select a closed figure of straight sides, a circle or a line, or the edges (or the face) of a flat face of the body, to offset" };
+    if (!off) return { ok: false, why: "select a closed figure (straight sides or arcs), a circle, a line or a chain of sides, or the edges (or the face) of a flat face of the body, to offset" };
     return { ok: true, op: { ...base, parts: parts.map((p) => p.ref), origin: off.origin, normal: off.normal, off } };
   }
   if (kind === "extrude") {

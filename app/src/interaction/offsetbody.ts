@@ -131,6 +131,59 @@ export function bodyOutline(scene: Scene, parts: Part[], ins?: (p: V2) => boolea
   return { kind: "outline", plane: pl.ref, edges: out, closed, side, origin: lift(pl, first.k === "seg" ? fm : first.p), normal: add(scale(pl.u, outward[0]), scale(pl.v, outward[1])) };
 }
 
+/**
+ * The outline of drawn lines and arcs (`in_232`): the sides of a closed figure, or a chain of lines and arcs joined end to end, on one plane. The same outline as for the edges of a face of the body, so it is
+ * offset the same way: straight sides moved parallel, arcs about their own centres with the radius made smaller or larger, and the new ends where neighbouring ones meet. A closed figure has its inside to the
+ * left of the way it runs when it turns counter-clockwise; an open chain has no inside (positive is out to the right of it).
+ */
+export function drawnOutline(scene: Scene, lines: Line[]): Outline | null {
+  const get = (r: Ref) => scene.parts[r];
+  if (!lines.length || lines.some((l) => !l.plane || l.plane !== lines[0]!.plane || l.a === l.b || l.bulge)) return null;
+  const pl = get(lines[0]!.plane!);
+  if (!pl || pl.kind !== "plane") return null;
+  const at = new Map<Ref, Line[]>();
+  for (const l of lines) for (const r of [l.a, l.b]) at.set(r, [...(at.get(r) ?? []), l]);
+  if ([...at.values()].some((v) => v.length > 2)) return null;
+  const start = [...at.entries()].find(([, v]) => v.length === 1)?.[0] ?? lines[0]!.a;
+  const order: { l: Line; from: Ref }[] = [];
+  const used = new Set<Ref>();
+  let cur = start;
+  for (let step = 0; step < lines.length; step++) {
+    const l = (at.get(cur) ?? []).find((x) => !used.has(x.ref));
+    if (!l) break;
+    used.add(l.ref);
+    order.push({ l, from: cur });
+    cur = l.a === cur ? l.b : l.a;
+  }
+  if (order.length !== lines.length) return null; // more than one chain
+  const closed = order.length > 1 && cur === start;
+  const edges: Edge2[] = [];
+  for (const { l, from } of order) {
+    const [pa, pb] = [pointOf(get, from), pointOf(get, l.a === from ? l.b : l.a)];
+    if (!pa || !pb) return null;
+    const [p, q] = [local(pl, pa), local(pl, pb)];
+    if (!l.center) { edges.push({ k: "seg", p, q }); continue; }
+    const cp = pointOf(get, l.center);
+    if (!cp) return null;
+    const c = local(pl, cp);
+    edges.push({ k: "arc", c, r: Math.hypot(p[0] - c[0], p[1] - c[1]), p, q, ccw: from === l.a ? l.ccw !== false : l.ccw === false });
+  }
+  // which side the inside is on: a closed figure that turns counter-clockwise has it to the left
+  let side: 1 | -1 = 1;
+  if (closed) {
+    const poly: V2[] = edges.flatMap((e) => Array.from({ length: e.k === "arc" ? 32 : 1 }, (_, i) => pointAt(e, i / (e.k === "arc" ? 32 : 1))));
+    const area = poly.reduce((sum, a, i) => { const b = poly[(i + 1) % poly.length]!; return sum + (a[0] * b[1] - b[0] * a[1]); }, 0);
+    side = area >= 0 ? 1 : -1;
+  } else side = 1; // (an open chain: out is to its right, as the arrow of a line points)
+  const first = edges[0]!;
+  const fm: V2 = [(first.p[0] + first.q[0]) / 2, (first.p[1] + first.q[1]) / 2];
+  const t0 = tangent(first, 0.5);
+  const left: V2 = [-t0[1], t0[0]];
+  const outward: V2 = [-side * left[0], -side * left[1]];
+  const ori = first.k === "seg" ? fm : pointAt(first, 0.5);
+  return { kind: "outline", plane: pl.ref, edges, closed, side, origin: lift(pl, ori), normal: add(scale(pl.u, outward[0]), scale(pl.v, outward[1])) };
+}
+
 /** The direction an edge runs in at a fraction of the way along (0 the start, 1 the end). */
 function tangent(e: Edge2, t: number): V2 {
   if (e.k === "seg") return norm2([e.q[0] - e.p[0], e.q[1] - e.p[1]]);

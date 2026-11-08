@@ -3,7 +3,7 @@ id: dec_interaction_spec
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_231, in_040, in_064, in_065, in_066, in_067, in_068, in_069, in_070, in_073, in_074, in_075, in_077, in_078, in_079, in_080, in_081, in_082, in_083, in_085, in_088, in_090, in_094, in_196, in_229
+human_input: in_232, in_231, in_040, in_064, in_065, in_066, in_067, in_068, in_069, in_070, in_073, in_074, in_075, in_077, in_078, in_079, in_080, in_081, in_082, in_083, in_085, in_088, in_090, in_094, in_196, in_229
 date: 2026-11-05
 depends_on:
   - prin_input_agnostic: the device behaviours below are the mapping from each device to the same intents
@@ -47,6 +47,7 @@ The human does not want these ideas lost when the engine is rebuilt clean (`in_0
 - **Drag select** (`in_230`): let go, what is in the rectangle is selected (Shift adds to what is selected). Dragged from the left to the right it takes what is wholly inside (a solid outline); from the right to the left also what it touches (dashed). It picks edges (lines, arcs, circles) and, when there are none in it, corners; what a face of the body hides, what a step used up and the world planes are not picked. A tool or operation that is running has the pointer: nothing is picked then.
 - **The move's number** (`in_230`, replacing the three bubbles of `in_215`): one bubble, on the arrow of the chosen axis (as the rotator shows one ring's number). It shows how far the move has taken the body along that axis since the move began: 0 to begin with, kept on across drags until the move is put away; a number typed in it is that position. The arrows stay with the body when a drag is let go (not back where it began until the kernel answers).
 - **A fillet or chamfer from one edge** (`in_231`): the kernel rounds along the edges that run on smoothly from the chosen one (a rim of lines and arcs on one flat face), so the picture drawn while the size is dragged covers all of them, and the two halves of one rim are one circle. The number switch beside the move arrows or turning rings keeps off the number bubbles.
+- **Inset / offset of a drawn figure** (`in_232`): works on a closed figure with arcs as well as straight sides (straight sides move parallel, arcs keep their centre and change radius, new ends where neighbours meet), on a chain of lines and arcs picked by its sides, and on a piece of a figure that lines cut up (it only reads the outline and draws a new figure). What a click on a face picks (the face, its sides and corners) is one figure. An inset that goes past the middle of a figure draws nothing.
 - **Hints for arcs** (`in_230`): a line being drawn ends on an arc, or is tangent to it, as it does for a circle, and the arc lights amber as the circle does (the hover blue is not drawn over it).
 - **Trackpad:** two-finger scroll pans and a pinch zooms, like a phone screen, in an automatic mode that tells a trackpad from a wheel (a menu item forces pan or zoom); Alt + drag or drag on empty space orbits; two-finger click or the menu button opens the menu.
 - **Finger:** one-finger drag orbits, two fingers pan and pinch zooms, tap, double tap, triple tap as the clicks, long press = the menu (also the menu button); while an operation runs or a sketch point is under the finger the finger works like the mouse.

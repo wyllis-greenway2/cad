@@ -1155,3 +1155,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_231 — 2026-11-08 — directive
 > okay the kittle change from xyz to rotate icon can go sliding onder the z axis depending on how things are rotated. The bottom inset drawing on this thing doesnt face push or pull. If you push or pull the flat side of this rounded extrusion it doesn't stay. The chamfer animation is fast, but now it it has the primary selected edge update in way different sync then its connected edges.
 (with three screenshots (the move arrows with a Z and a Y number bubble and a white round icon half hidden under the Z bubble; the rounded body seen from below with the inset outline on its bottom face; the top of the tilted body with a chamfer of 0.3 whose selected edge and the edges next to it are cut differently), the state file `76dc079c-cad-state-2026-11-08T00-48-07` and the model `dd36decb-model.cad_20`, from build 2e84eae)
+
+## in_232 — 2026-11-08 — directive
+> the inset tool is almost never available. Look if I click on this plane which selects all its edges too. I still cant inset any part of the sketch.
+(with the model `9ac5bee8-model.cad_21`: a closed sketch of two circles with tangent lines, trimmed to a rounded shape, not extruded)
