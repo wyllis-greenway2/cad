@@ -158,3 +158,38 @@ export function circleOfRim(scene: Scene, a: Vec3, opposite: Vec3): SharpEdge | 
   if (flats.length !== 1) return null;
   return { sharp: { kind: "circle", center, axis: normalOfPlane(flats[0]!), radius }, a, b: a, whole: true };
 }
+
+/**
+ * The edges of the body the kernel rounds along with these (`in_231`): a fillet or chamfer goes on along the edges that meet the chosen one smoothly (a rim of lines and arcs on one flat face is rounded all
+ * the way round from one edge). Found the same way: edges that meet end to end where they run on into each other, and lie in a flat face together. The chosen ones come first.
+ */
+export function tangentChain(scene: Scene, start: readonly Ref[]): Ref[] {
+  const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && p.origin === "body");
+  const info = new Map<Ref, SharpEdge>();
+  for (const l of lines) {
+    if (l.kind !== "line") continue;
+    const [pa, pb] = [scene.parts[l.a], scene.parts[l.b]];
+    if (pa?.kind !== "corner" || pb?.kind !== "corner") continue;
+    const e = sharpOfPoints(pa.at, pb.at, l.mid ?? null, l.circle);
+    if (e) info.set(l.ref, e);
+  }
+  const flats = flatFaces(scene);
+  const out: Ref[] = [...start];
+  const seen = new Set<Ref>(start);
+  for (let i = 0; i < out.length; i++) {
+    const e = info.get(out[i]!);
+    if (!e || e.whole) continue;
+    for (const end of [e.a, e.b]) {
+      for (const [ref, o] of info) {
+        if (seen.has(ref) || o.whole) continue;
+        const touches = [o.a, o.b].find((q) => Math.hypot(...sub(q, end)) < 2e-3);
+        if (!touches) continue;
+        if (Math.abs(dot(tangentAt(e, end), tangentAt(o, touches))) < 0.9995) continue;
+        if (!flats.some((f) => onFace(f, [e.a, e.b, o.a, o.b]))) continue;
+        seen.add(ref);
+        out.push(ref);
+      }
+    }
+  }
+  return out;
+}

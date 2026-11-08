@@ -21,7 +21,7 @@ import type { Session } from "./session.ts";
 import type { ArcMap } from "./operations.ts";
 import { opCommand, bodyMotion, faceDrag, radiusDrag, sideDrag, edgeDrag, arcDrag, valueOf } from "./operations.ts";
 import { matrixOf } from "../operation/frames.ts";
-import { sharpOfPoints, chainOf, cornerOk, adjacentOk, roundingFaces } from "../operation/roundings.ts";
+import { sharpOfPoints, chainOf, cornerOk, adjacentOk, roundingFaces, tangentChain } from "../operation/roundings.ts";
 import type { Sharp, SharpEdge } from "../operation/roundings.ts";
 import type { Command } from "../operation/commands.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
@@ -120,13 +120,17 @@ function edgeNew(s: AppState, op: Op, base: Session): { wait: true } | { face: F
   if (op.kind !== "edge" || v === null || v === 0 || !op.parts.length) return null;
   // the sharp edges: lines and circles of the body, that meet smoothly if they meet, between faces for which the rounding is the same shape at any size (`in_222`)
   const edges: SharpEdge[] = [];
-  for (const r of op.parts) {
+  // (the kernel rounds along the edges that run on smoothly from the chosen one: they are drawn with it, or they would stay as they were while it changes, `in_231`)
+  for (const r of tangentChain(sc, op.parts)) {
     const l = sc.parts[r];
     if (l?.kind !== "line" || l.origin !== "body") return null;
     const [pa, pb] = [sc.parts[l.a], sc.parts[l.b]];
     if (pa?.kind !== "corner" || pb?.kind !== "corner") return null;
     const e = sharpOfPoints(pa.at, pb.at, l.mid ?? null, l.circle);
     if (!e || !adjacentOk(sc, e, l.mid ?? null)) return null;
+    // (the two halves of one rim are one circle: it is rounded once)
+    const [c, d] = [e.sharp, edges.find((o) => o.sharp.kind === "circle" && e.sharp.kind === "circle" && Math.hypot(...sub(o.sharp.center, e.sharp.center)) < 1e-6 && Math.abs(o.sharp.radius - e.sharp.radius) < 1e-6)];
+    if (c.kind === "circle" && d) continue;
     edges.push(e);
   }
   // edges that meet smoothly, or in corners of straight edges between flat faces; the edges between corners longer than the roundings (`in_223`)

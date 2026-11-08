@@ -16,6 +16,8 @@ export function createChip(host: HTMLElement, h: ChipHandlers) {
   let sig = "";
   let inputs: HTMLInputElement[] = [];
   return {
+    /** Where the bubble is on the page now (null while it is hidden): the switch beside the handles keeps off it. */
+    rect(): DOMRect | null { return el.style.display === "none" ? null : el.getBoundingClientRect(); },
     /** `at`: what the bubble is by, in pixels (null: the bottom middle); `from`: the other end of the arrow `at` is the tip of, so the bubble stands out past the tip */
     update(fields: ChipField[] | null, unit: string, at: [number, number] | null, from: [number, number] | null = null, through = false) {
       el.style.pointerEvents = through ? "none" : ""; // while a figure is being drawn its size is typed on the keyboard: the pointer passes over the bubble, so it cannot swallow the moves and clicks of drawing

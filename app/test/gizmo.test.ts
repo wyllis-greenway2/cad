@@ -2033,3 +2033,21 @@ test("the history list has a button on each extrusion that shows the sketch it w
   st = reduce(st, { type: "panelRow", id: scene(st.session).steps[0]!.id, act: "sketch" }, env);
   assert.equal(st.session.reveal ?? null, null, "put away");
 });
+
+test("a fillet or chamfer made from ONE edge of a smooth rim is drawn along the whole rim without the kernel, as the kernel makes it (the edges that run on from it were left behind, `in_231`)", () => {
+  const sb = openSession(kernel, readFileSync(new URL("./fixtures/chain-body.cad.json", import.meta.url), "utf8")) as { ok: true; value: ReturnType<typeof createSession> };
+  const sc = scene(sb.value);
+  const at = (r: string) => (sc.parts[r] as unknown as { at: Vec3 }).at;
+  const topZ = Math.max(...Object.values(sc.parts).filter((p) => p.kind === "corner" && p.origin === "body").map((p) => at(p.ref)[2]));
+  const rim = Object.values(sc.parts).filter((p) => p.kind === "line" && p.origin === "body" && at(p.a)[2] === topZ && at(p.b)[2] === topZ).map((p) => p.ref);
+  assert.ok(rim.length >= 3);
+  for (const mode of [1, -1]) {
+    let st = reduce(select({ ...createState(sb.value), cam: homeCamera() }, [rim[0]!]), { type: "begin", name: "edge" }, env);
+    st = { ...st, op: { ...st.op!, value: 1 * mode } };
+    frameOf(st, { w: 800, h: 600 });
+    st = { ...st, op: { ...st.op!, value: 2 * mode } };
+    const f = frameOf(st, { w: 800, h: 600 });
+    assert.ok((f.faceShift?.rounds?.groups.length ?? 0) >= rim.length, `${mode > 0 ? "fillet" : "chamfer"}: a rounding face for every edge of the rim, not only the chosen one`);
+    assert.ok(scaledError(f, reduce(st, { type: "typed", key: "Enter", shift: false }, env)) < 2e-2, "and what is drawn lies on what the kernel makes");
+  }
+});

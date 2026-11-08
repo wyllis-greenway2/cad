@@ -215,6 +215,23 @@ export function editCommand(scene: Scene, edit: FaceEdit, v: number): Command | 
       if (Math.hypot(...sub(at, cc.at)) > 1e-9) centres.set(l.center, at);
     }
     for (const [ref, at] of centres) moves.push({ type: "movePart", ref, to: at });
+    // the face's normal is the kernel's, a few digits only: what it moves a corner by must not take it off the sketch's plane (a corner a micrometre off it is not in the drawing any more, and a step made from it
+    // loses its shape: "select lines to extrude", `in_231`)
+    for (const m of moves) {
+      if (m.type !== "movePart") continue;
+      const c = scene.parts[m.ref];
+      const pl = c?.kind === "corner" && c.plane ? scene.parts[c.plane] : undefined;
+      if (pl?.kind !== "plane") continue;
+      const n = normalOfPlane(pl);
+      const off = dot(sub(m.to, pl.at), n);
+      m.to = [m.to[0] - n[0] * off, m.to[1] - n[1] * off, m.to[2] - n[2] * off];
+    }
+    // lines tangent to arcs: the arcs' sizes follow the side, as the solver finds them, and the figure is left exactly closed (it is the solver's answer, not the guess above, which stays when the solver finds none)
+    if (moves.length && scene.relations.some((r) => r.kind === "tangent")) {
+      const first = apply(scene, { type: "batch", commands: moves });
+      const settled = first.ok ? solvedMoves(scene, first.value) : null;
+      if (settled?.length) return { type: "batch", commands: settled };
+    }
     return moves.length ? { type: "batch", commands: moves } : null;
   }
   if (edit.kind === "depth") {
@@ -225,6 +242,47 @@ export function editCommand(scene: Scene, edit: FaceEdit, v: number): Command | 
   if (!(radius > 1e-6)) return null;
   if (edit.arc) return arcRadiusCommand(scene, edit.circle, radius);
   return edit.diameter ? { type: "setRelationValue", id: edit.diameter, value: 2 * radius, locked: true } : { type: "setRadius", ref: edit.circle, radius };
+}
+
+/**
+ * The corners of drawn figures that sit on the same spot (the end of a line and the end of an arc that meet there: nothing but where they are joins them). A line tangent to an arc touches it at one point, and
+ * "on the line" and "on the circle" at once is a double root for the solver: it leaves such a pair a hair apart (2e-5), which is enough for a step made from the sketch to lose its shape. They are put back on
+ * one spot after solving (`in_231`).
+ */
+function partnerGroups(scene: Scene): Ref[][] {
+  const cs = Object.values(scene.parts).filter((p): p is Extract<typeof p, { kind: "corner" }> => p.kind === "corner" && p.origin === "drawn" && p.movable && !!p.plane);
+  const out: Ref[][] = [];
+  const seen = new Set<Ref>();
+  for (const c of cs) {
+    if (seen.has(c.ref)) continue;
+    const g = cs.filter((q) => !seen.has(q.ref) && q.plane === c.plane && Math.hypot(...sub(q.at, c.at)) < 1e-4).map((q) => q.ref);
+    for (const r of g) seen.add(r);
+    if (g.length > 1) out.push(g);
+  }
+  return out;
+}
+/** The moves that take `scene` to what the solver makes of `start` (a scene with the edit made): the partners kept together, and settled by solving again. Null if the solver finds a conflict. */
+function solvedMoves(scene: Scene, start: Scene): Command[] | null {
+  const groups = partnerGroups(scene);
+  let cur = start;
+  for (let i = 0; i < 3; i++) {
+    const sv = solveScene(cur);
+    if (sv.planes.some((p) => p.status === "conflict")) return null;
+    cur = sv.scene;
+    for (const g of groups) {
+      const first = cur.parts[g[0]!];
+      if (first?.kind !== "corner") continue;
+      for (const r of g.slice(1)) { const q = cur.parts[r]; if (q?.kind === "corner" && Math.hypot(...sub(q.at, first.at)) > 0) { const m = apply(cur, { type: "movePart", ref: r, to: first.at }); if (m.ok) cur = m.value; } }
+    }
+  }
+  const moves: Command[] = [];
+  for (const q of Object.values(scene.parts)) {
+    if (q.origin !== "drawn" || !q.movable) continue;
+    const w = cur.parts[q.ref];
+    if (q.kind === "corner" && w?.kind === "corner" && Math.hypot(...sub(w.at, q.at)) > 1e-12) moves.push({ type: "movePart", ref: q.ref, to: w.at });
+    else if (q.kind === "circle" && w?.kind === "circle" && Math.abs(w.radius - q.radius) > 1e-12) moves.push({ type: "setRadius", ref: q.ref, radius: w.radius });
+  }
+  return moves;
 }
 
 /** A new radius for an arc whose circle is gone: both ends slide along the lines they are on to the new radius about the same middle (the arc keeps its lines, `in_209`). Null if a line does not reach that radius. */
@@ -263,17 +321,8 @@ export function arcRadiusCommand(scene: Scene, arc: Ref, radius: number): Comman
   if (isTangentArc(scene, arc)) {
     const added = apply(scene, { type: "addRelation", relation: { id: nextId(scene, "r"), kind: "radius", parts: [arc], value: radius, locked: true } });
     if (added.ok) {
-      const solved = solveScene(added.value);
-      if (!solved.planes.some((p) => p.status === "conflict")) {
-        const moves: Command[] = [];
-        for (const q of Object.values(scene.parts)) {
-          if (q.origin !== "drawn" || !q.movable) continue;
-          const w = solved.scene.parts[q.ref];
-          if (q.kind === "corner" && w?.kind === "corner" && Math.hypot(...sub(w.at, q.at)) > 1e-9) moves.push({ type: "movePart", ref: q.ref, to: w.at });
-          else if (q.kind === "circle" && w?.kind === "circle" && Math.abs(w.radius - q.radius) > 1e-9) moves.push({ type: "setRadius", ref: q.ref, radius: w.radius });
-        }
-        if (moves.length) return { type: "batch", commands: moves };
-      }
+      const moves = solvedMoves(scene, added.value);
+      if (moves?.length) return { type: "batch", commands: moves };
     }
     return null; // (the lines cannot stay tangent at that radius: the arc is not changed in a way that lets go of them)
   }

@@ -1151,3 +1151,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > 
 > Also look at this thing, it got into a really weird state after rotate.
 (with the files `8846fd8a-really_weird_state_after_rotate2.json` and `90430183-really_weird_state_after_rotate.json` (state and model), and `eddfa975-annoying_flashy_circle_size_input.json` and `f793aeb5-annoying_flashy_circle_size_input_flashes_on_hover.json` (model and state; no words about these two beyond their names), all from build 1994e52)
+
+## in_231 — 2026-11-08 — directive
+> okay the kittle change from xyz to rotate icon can go sliding onder the z axis depending on how things are rotated. The bottom inset drawing on this thing doesnt face push or pull. If you push or pull the flat side of this rounded extrusion it doesn't stay. The chamfer animation is fast, but now it it has the primary selected edge update in way different sync then its connected edges.
+(with three screenshots (the move arrows with a Z and a Y number bubble and a white round icon half hidden under the Z bubble; the rounded body seen from below with the inset outline on its bottom face; the top of the tilted body with a chamfer of 0.3 whose selected edge and the edges next to it are cut differently), the state file `76dc079c-cad-state-2026-11-08T00-48-07` and the model `dd36decb-model.cad_20`, from build 2e84eae)

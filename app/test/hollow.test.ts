@@ -21,6 +21,8 @@ import { faceEdges } from "../src/interaction/offsetbody.ts";
 import { startOp, valueOf } from "../src/interaction/operations.ts";
 import { runOp } from "../src/interaction/runop.ts";
 import type { Part } from "../src/operation/part.ts";
+import { normalOfPlane } from "../src/operation/part.ts";
+import { dot, sub } from "../src/math/vec.ts";
 
 await kernel.init();
 const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/hollow-rotated.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
@@ -196,4 +198,28 @@ test("an arc's radius that its tangent lines cannot follow is refused, with the 
   s = run(s, { type: "addRelation", relation: { id: "r_h2", kind: "radius", parts: ["d/e_013.s0"] as never, value: 11.4, locked: true } });
   const sc = scene(s);
   assert.equal(arcRadiusCommand(sc, "d/e_013.s0" as never, 5), null, "no command that lets go of the tangents");
+});
+
+test("a flat side of an extrusion whose walls are tangent to arcs, in a body that has been turned, can be pulled: the arcs change size, the sketch stays closed and the step keeps its shape (`in_231`)", () => {
+  const r = openSession(kernel, readFileSync(new URL("./fixtures/inset-chamfer.cad.json", import.meta.url), "utf8")) as unknown as { value: Session };
+  const s = r.value;
+  const sc = scene(s);
+  const side = Object.values(sc.parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.rounded && startOp(sc, [p.ref], "pushpull").ok && (startOp(sc, [p.ref], "pushpull") as { op: { edit?: { kind: string } } }).op.edit?.kind === "side" && Math.abs(p.at[0]) > 0 && p.ref.includes("f@-0.1761"))!;
+  assert.ok(side, "the flat wall of the rounded extrusion");
+  const op = startOp(sc, [side.ref], "pushpull");
+  assert.ok(op.ok);
+  const made = runOp(s, { ...op.op, value: 3 })!;
+  assert.equal(made.session.message, null, "it moves");
+  assert.deepEqual(made.session.outcome.errors, {}, "no step lost its shape");
+  const after = scene(made.session);
+  for (const ref of sc.steps[0]!.parts) assert.ok(after.parts[ref as never], `${ref} is still there`);
+  assert.ok(made.session.outcome.kernel!.volume! > s.outcome.kernel!.volume!, "the body is bigger");
+  // the sketch's corners stayed in its plane and its tangent relations hold (the solver found them, nothing was left a hair off)
+  for (const q of Object.values(after.parts)) {
+    if (q.kind !== "corner" || q.origin !== "drawn" || !q.plane) continue;
+    const pl = after.parts[q.plane];
+    if (pl?.kind !== "plane") continue;
+    const n = normalOfPlane(pl);
+    assert.ok(Math.abs(dot(sub(q.at, pl.at), n)) < 1e-7, `${q.ref} is in its plane`);
+  }
 });
