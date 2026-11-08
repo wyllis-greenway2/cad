@@ -1159,3 +1159,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_232 — 2026-11-08 — directive
 > the inset tool is almost never available. Look if I click on this plane which selects all its edges too. I still cant inset any part of the sketch.
 (with the model `9ac5bee8-model.cad_21`: a closed sketch of two circles with tangent lines, trimmed to a rounded shape, not extruded)
+
+## in_233 — 2026-11-08 — directive
+> Check out this, when you make the chamfer really big but don't settle it by clicking to deselect the arrow. Also see in this file, if you inset the bottom edge, then rotate the body, the inset edge you made on the bottom face doesn't move with the body. I feel like sketches on faces should belong to the faces and move with them, what do you think?
+(with a screenshot of the tilted body with a chamfer of 13.5 drawn as a spike of grey cone surfaces, the state file `dbb76001-cad-state-2026-11-08T02-03-16` and the model `3d5e92ad-model.cad_22`, from build 01b0158)

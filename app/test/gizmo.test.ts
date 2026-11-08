@@ -2051,3 +2051,16 @@ test("a fillet or chamfer made from ONE edge of a smooth rim is drawn along the 
     assert.ok(scaledError(f, reduce(st, { type: "typed", key: "Enter", shift: false }, env)) < 2e-2, "and what is drawn lies on what the kernel makes");
   }
 });
+
+test("a chamfer dragged to a size the kernel cannot make is not drawn by stretching a smaller one (it folded into a spike): the kernel's answer is shown, and a size it can make still is drawn at once (`in_233`)", () => {
+  const sb = openSession(kernel, readFileSync(new URL("./fixtures/big-chamfer.cad.json", import.meta.url), "utf8")) as { ok: true; value: ReturnType<typeof createSession> };
+  const edge = Object.values(scene(sb.value).parts).find((p) => p.kind === "line" && p.origin === "body" && p.ref.startsWith("b/body/e@12.318,27.6637,1.9374~29.0749,39.277"))!;
+  assert.ok(edge);
+  let st = reduce(select({ ...createState(sb.value), cam: homeCamera() }, [edge.ref]), { type: "begin", name: "edge" }, env);
+  st = { ...st, op: { ...st.op!, value: -2 } };
+  assert.ok(frameOf(st, { w: 800, h: 600 }).faceShift?.rounds, "a size it can make: drawn without the kernel");
+  st = { ...st, op: { ...st.op!, value: -13.5 } };
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.equal(f.faceShift, null, "13.5: the kernel cannot make it, so no stretched picture");
+  assert.ok(/cannot be made|could not make/.test(f.message), `the reason is said: ${f.message}`);
+});

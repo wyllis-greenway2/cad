@@ -148,15 +148,17 @@ function edgeNew(s: AppState, op: Op, base: Session): { wait: true } | { face: F
   if (refMemo && refMemo.history === s.session.history && refMemo.outcome === s.session.outcome && refMemo.key === mk) res = refMemo.value;
   else { res = previewCommand(base, cmd); refMemo = { history: s.session.history, outcome: s.session.outcome, key: mk, value: res }; }
   if (res && !res.outcome.kernel?.stale) {
-    if (Object.keys(res.outcome.errors).length) { edgeRef.failed = R; if (!edgeRef.ready) return null; }
+    if (Object.keys(res.outcome.errors).length) { edgeRef.failed = Math.min(edgeRef.failed ?? Infinity, R); if (!edgeRef.ready) return null; }
     else if (!edgeRef.ready || edgeRef.ready.R0 !== R) {
       // the faces the rounding made are small ones the body did not have (a wall that was cut shorter has a new name too, but it runs on far past the rounding); each is the rounding of the nearest edge, and
       // every edge has one (else something else was made)
       const faces = roundingFaces(res.scene, chain.edges, 3 * R, (r) => r in sc.parts, chain.corners);
-      if (!chain.edges.every((_, i) => faces.some((f) => f.edge === i))) { edgeRef.failed = R; if (!edgeRef.ready) return null; }
+      if (!chain.edges.every((_, i) => faces.some((f) => f.edge === i))) { edgeRef.failed = Math.min(edgeRef.failed ?? Infinity, R); if (!edgeRef.ready) return null; }
       else edgeRef.ready = { R0: R, res, groups: faces.map((f) => ({ face: f.face, sharp: f.corner ? { kind: "point" as const, center: f.corner } : chain.edges[f.edge]!.sharp })) };
     }
   }
+  // a size the kernel could not make is not drawn by stretching a smaller one: the faces would cross and fold into a spike. The kernel's own answer (its message, the body as it was) is shown instead (`in_233`)
+  if (edgeRef.failed !== null && Math.abs(v) >= edgeRef.failed - 1e-9) return null;
   if (!edgeRef.ready) return { wait: true };
   return { face: { face: edgeRef.ready.groups[0]!.face, rounds: { k: Math.abs(v) / edgeRef.ready.R0, groups: edgeRef.ready.groups } }, shown: edgeRef.ready.res };
 }
