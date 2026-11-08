@@ -26,7 +26,7 @@ import { normalOfPlane, pointOf, curveMid, circumcentre } from "../operation/par
 import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
 import { solveScene } from "../compiler/solve.ts";
-import { actionsFor } from "./actions.ts";
+import { actionsFor, measureAction } from "./actions.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { drawnRef } from "../shared/ref.ts";
 import { objectOf, bodyCentre, figurePartsOf } from "./objects.ts";
@@ -275,7 +275,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind): Sta
   }
   if (kind === "dimension") {
     // measure, then lock: the chip shows the current value of the pair; typing a number locks it (`dec_relations_standard`)
-    const a = actionsFor(scene, selection).find((x) => x.dimensional && x.enabled);
+    const a = measureAction(actionsFor(scene, selection), (x) => x.enabled); // (the same number the bubble offers: an arc's radius before its chord, `in_235`)
     if (!a || !a.unit) return { ok: false, why: "select two parts that can be measured (two corners, a corner and a line, two lines)" };
     return { ok: true, op: { ...base, parts: a.parts, value: a.measure(), field: a.label, unit: a.unit } };
   }
@@ -310,7 +310,7 @@ export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
   if (parts.length !== selection.length) return null;
   const flatBody = parts.every((p) => p.kind === "plane" && p.origin === "body" && (!p.rounded || faceEdit(scene, p.ref)?.kind === "edgeSize" || (!!p.round && faceEdit(scene, p.ref)?.kind === "radius"))); // (a fillet or chamfer face gets its arrow back: its size)
   const kind: OpKind | null =
-    drawnFaces(scene, parts).length ? "extrude"
+    parts.every((p) => p.kind === "face") && drawnFaces(scene, parts).length ? "extrude" // (the figure itself, not a side or a corner of it: those have numbers of their own, `in_235`)
     : flatBody ? "pushpull"
     : parts.every((p) => p.kind === "line" && p.origin === "body") ? "edge"
     : parts.length === 1 && parts[0]!.kind === "body" ? "move"
@@ -419,7 +419,7 @@ export function opCommand(scene: Scene, op: Op, opts: { preview?: boolean } = {}
   if (op.kind === "offset") return op.off ? offsetCommand(scene, op.off, v) : null;
   const id = nextId(scene, "s");
   if (op.kind === "dimension") {
-    const a = actionsFor(scene, op.parts).find((x) => x.dimensional && x.enabled);
+    const a = measureAction(actionsFor(scene, op.parts), (x) => x.enabled);
     return a && v > 0 ? a.run(v) : null;
   }
   if (op.kind === "extrude") return v === 0 ? null : { type: "addStep", step: { id, type: "extrude", parts: op.parts, params: { depth: v, ...(op.figs ?? {}) } } };

@@ -20,6 +20,7 @@ import { projector } from "../camera.ts";
 import { lookup } from "../../operation/scene.ts";
 import { pointOf } from "../../operation/part.ts";
 import { doOrbit } from "./viewing.ts";
+import { finishBox } from "./box.ts";
 import type { AppState, Env } from "./state.ts";
 import { pickOpts } from "./state.ts";
 
@@ -51,7 +52,9 @@ export function doGizmoHover(s: AppState, x: number, y: number, env: Env): AppSt
 
 /** The pointer moves while the button is down: it works a handle if the drag began on one, else it turns the camera. */
 export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): AppState {
+  if (s.box) return { ...s, box: { ...s.box, x: i.x, y: i.y } }; // the rectangle of a drag select (`in_235`)
   const pr = projector(s.cam, env.w, env.h);
+  if (i.view && !s.drag) return doOrbit({ ...s, drag: { camera: true } }, i); // the right button only turns the view
   if (!s.drag) {
     const g = gizmoOf(s);
     if (!g) return orbitOrCorner(s, i, env);
@@ -134,7 +137,8 @@ function snapPivot(s: AppState, free: Vec3, x: number, y: number, env: Env): Vec
 }
 
 /** The pointer went up after a drag: a handle drag that made a value is done as one step and the operation stays open; moving the rotator's centre is not a step. */
-export function doDragEnd(s: AppState): AppState {
+export function doDragEnd(s: AppState, env?: Env): AppState {
+  if (s.box) return env ? finishBox(s, env) : { ...s, box: null };
   const d = s.drag;
   const cleared: AppState = { ...s, drag: null, orthoDebt: 0 };
   if (!d || !("handle" in d) || !s.op) return cleared; // (a handle of a repeat being set up only set its numbers)

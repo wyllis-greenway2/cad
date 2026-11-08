@@ -29,7 +29,6 @@ import { doLook } from "./viewing.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { commitFigure, commitOp, setRepeatAxis } from "./modal.ts";
 import { doGizmoHover, gizmoOf } from "./handles.ts";
-import { boxSelect } from "../boxselect.ts";
 import { hasGizmo, hitHandle } from "../gizmo.ts";
 
 /** The operations a right click offers (`in_133`), in categories (`in_143`): sketching, constraints, shape, moving and repeating, and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
@@ -222,6 +221,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
 }
 
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {
+  if (s.box) s = { ...s, box: null }; // (held, but never moved: an ordinary click)
   const sc = sceneOf(s.session);
   // a click on a little pane turns that world plane on and looks straight at it (the same as its X Y Z button, `in_190`)
   const pane = !s.tool && !s.op ? paneUnder(s, i.x, i.y, env) : null;
@@ -271,6 +271,11 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
   }
   // (a point or a line of the body under the double click is a part of the body too: two clicks take the whole object from any part of it, `in_186`)
   const bodyFirst = selectable.length > 0 && selectable.every((r) => sc.parts[r]?.origin === "body"); // (all of them: where a drawn thing lies on the same spot, repeated clicks cycle through them instead)
+  // a sketch on its own (a drawn closed figure with no body under it): there is no body for a double click to take, so it goes straight to it, as for a world plane (`in_235`)
+  if (count === 2 && onePlane && selectable.length > 0 && selectable.every((r) => sc.parts[r]?.origin === "drawn" && sc.parts[r]?.kind === "face")) {
+    const pl = planeOf(get, selectable[0]!);
+    if (pl) return animateTo(withSession(base, { ...sess, click: { selection: [selectable[0]!], spot: sess.click.spot }, message: null }), planeView(base.cam, pl, false), env.now);
+  }
   if ((onePlane || bodyFirst) && count === 2) {
     // two: the whole object (the view does not turn)
     const o = selectable[0] ? objectOf(sc, selectable[0]) : undefined;
@@ -299,14 +304,13 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>): AppSt
   return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, i.button ? null : s.session.hover) };
 }
 
-/** A drag with the right button (`in_230`): the rectangle is drawn while it goes; let go, what is in it is selected (Shift adds it to what is selected; none of the tools or operations takes it: they have the pointer). */
-export function doBox(s: AppState, i: Extract<Intent, { type: "box" }>, env: Env): AppState {
-  if (s.tool || s.op || s.repeat) return { ...s, box: null };
-  const box = { x0: i.x0, y0: i.y0, x: i.x, y: i.y };
-  if (!i.done) return { ...s, box, menu: null };
-  if (Math.hypot(i.x - i.x0, i.y - i.y0) < settings.view.clickMovePx) return { ...s, box: null };
-  const pr = projector(s.cam, env.w, env.h);
-  const found = boxSelect(sceneOf(s.session), box, pr.project, pr.view);
-  const sel = i.shift ? [...selectionOf(s.session), ...found.filter((r) => !selectionOf(s.session).includes(r))] : found;
-  return { ...s, box: null, menu: null, spread: null, session: { ...s.session, hover: undefined, click: { ...s.session.click, selection: sel }, message: null } };
+/**
+ * The left button held still for a while (`in_235`): the cursor changes, and the drag that follows without letting up draws a rectangle (`handles.doDragMove`); let go, what is in it is selected (`box.finishBox`).
+ * Not while a tool or an operation is running, nor on a handle (a drag from there is the handle's).
+ */
+export function doHold(s: AppState, i: Extract<Intent, { type: "hold" }>, env: Env): AppState {
+  if (s.tool || s.op || s.repeat || s.drag) return s;
+  const g = gizmoOf(s);
+  if (g && hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y)) return s;
+  return { ...s, box: { x0: i.x, y0: i.y, x: i.x, y: i.y, shift: i.shift }, menu: null };
 }

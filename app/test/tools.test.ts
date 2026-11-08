@@ -1,4 +1,4 @@
-import { drawCircle } from "../src/operation/build.ts";
+import { drawCircle, drawChain } from "../src/operation/build.ts";
 import { actionsFor } from "../src/interaction/actions.ts";
 import test from "node:test";
 import { flat } from "./helpers/menu.ts";
@@ -626,4 +626,111 @@ test("a line being drawn takes its end onto an arc, or tangent to it, as it does
   // beyond the end of the arc's span there is nothing to be on
   st = move(st, [35.67 - 3.5 + 0.05, 15.09, 0]);
   assert.ok(!st.tool!.hints?.some((h) => h.ref === "d/e_015.s0" && h.kind === "onCircle"), "the part of the circle where the arc is not");
+});
+
+test("a double click on a sketch on its own (no body under it) turns the view straight to it: there is no body for a double click to take (`in_235`)", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  st = click(st, [5, 5, 0]);
+  st = click(st, [25, 25, 0]);
+  st = { ...st, tool: null, resume: null, cam: homeCamera() };
+  st = click(st, [22, 8, 0], 1); // (away from the arrow that shows by itself at the middle)
+  assert.equal(st.anim, null);
+  st = click(st, [22, 8, 0], 2);
+  assert.ok(st.anim, "the view is turning to the sketch");
+  assert.equal(selection(st.session).length, 1);
+  assert.equal(scene(st.session).parts[selection(st.session)[0]!]!.kind, "face");
+});
+
+test("typing with a side of a sketch selected sets its length (and Enter locks it); the figure itself still extrudes (`dec_typing_standard`, `in_235`)", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  st = click(st, [5, 5, 0]);
+  st = click(st, [25, 25, 0]); // 20 x 20
+  st = reduce(st, { type: "escape" }, env);
+  const sc0 = scene(st.session);
+  const side = Object.values(sc0.parts).find((p) => p.kind === "line" && p.origin === "drawn" && !p.derived)!;
+  // the figure itself is selected: typing extrudes
+  assert.equal(reduce(st, { type: "typed", key: "1", shift: false }, env).op?.kind, "extrude");
+  // a side of it
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [side.ref] } } };
+  const typing = typeText(st, "10");
+  assert.equal(typing.op?.kind, "dimension", "typing sets the side's number, it does not extrude the figure");
+  assert.equal(entryOf(scene(typing.session), null, typing.op)!.fields[0]!.value, "10");
+  const done = key(typing, "Enter");
+  assert.equal(done.op, null);
+  assert.equal(scene(done.session).steps.length, 0, "no extrusion");
+  assert.equal(scene(done.session).relations.filter((r) => r.kind === "length").length, 1, "a locked length");
+  const len = (s: AppState) => { const l = scene(s.session).parts[side.ref]! as unknown as { a: never; b: never }; const [a, b] = [scene(s.session).parts[l.a] as unknown as { at: Vec3 }, scene(s.session).parts[l.b] as unknown as { at: Vec3 }]; return Math.hypot(a.at[0] - b.at[0], a.at[1] - b.at[1], a.at[2] - b.at[2]); };
+  near(len(done), 10, 1e-6);
+  // and one undo takes back the length, not the figure
+  const back = reduce(done, { type: "undo" }, env);
+  assert.equal(scene(back.session).relations.filter((r) => r.kind === "length").length, 0);
+  near(len(back), 20, 1e-6);
+  assert.ok(Object.values(scene(back.session).parts).some((p) => p.kind === "line" && p.origin === "drawn"), "the figure is still there");
+});
+
+test("one number for each kind of selection: a circle takes a diameter, an arc a radius, two sides an angle, a corner and a corner a distance", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [10, 10, 0], 4);
+  s = run(s, c.command);
+  const withSel = (refs: string[]): AppState => ({ ...createState(s), session: { ...s, click: { ...s.click, selection: refs as never } } });
+  const circleSel = typeText(withSel([c.circle]), "6");
+  assert.equal(circleSel.op?.kind, "dimension");
+  assert.equal(entryOf(scene(circleSel.session), null, circleSel.op)!.fields[0]!.label.toLowerCase().includes("diam"), true, "a circle: its diameter");
+  // a corner alone has no number: typing does nothing (it does not extrude the figure it belongs to)
+  const centre = (scene(s).parts[c.circle] as unknown as { center: string }).center;
+  assert.equal(typeText(withSel([centre]), "6").op, null);
+});
+
+test("typing standard, the rest of the table: an arc takes a radius, two sides that meet an angle, two corners a distance; a body's edge still takes a fillet size and a body's face a push (`dec_typing_standard`)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { openSession } = await import("../src/interaction/session.ts");
+  const opened = (openSession(kernel, readFileSync(new URL("./fixtures/circle-diameter-locked.cad.json", import.meta.url), "utf8")) as unknown as { value: import("../src/interaction/session.ts").Session }).value;
+  const sc = scene(opened);
+  const withSel = (refs: string[]): AppState => ({ ...createState(opened), session: { ...opened, click: { ...opened.click, selection: refs as never } } });
+  const label = (st: AppState) => entryOf(scene(st.session), null, st.op)?.fields[0]?.label ?? null;
+  const arc = Object.values(sc.parts).find((p) => p.kind === "line" && p.origin === "drawn" && !p.derived && !!p.center)!;
+  assert.match(label(typeText(withSel([arc.ref]), "3"))!, /radius/i, "an arc: its radius");
+  const arcDone = key(typeText(withSel([arc.ref]), "3"), "Enter");
+  assert.ok(scene(arcDone.session).relations.some((r) => r.kind === "radius" && r.parts.includes(arc.ref) && r.value === 3), "and Enter locks that radius, not the length of its chord");
+  // two sides that meet
+  let b = createSession(kernel);
+  const ch = drawChain(scene(b), XY, [[0, 0, 0], [20, 0, 0], [20, 15, 0]]);
+  b = run(b, ch.command);
+  const bsel: AppState = { ...createState(b), session: { ...b, click: { ...b.click, selection: ch.lines as never } } };
+  const two = typeText(bsel, "5");
+  assert.equal(two.op?.kind, "dimension", "two sides: a number between them (their angle)");
+  assert.match(label(two) ?? "", /angle/i);
+  // a corner and a corner
+  const corners = Object.values(sc.parts).filter((p) => p.kind === "corner" && p.origin === "drawn" && !p.derived && p.movable).slice(0, 2);
+  assert.match(label(typeText(withSel(corners.map((c) => c.ref)), "5")) ?? "", /distance/i, "two corners: the distance");
+});
+
+test("draw a square, type 10, Enter, then undo: one undo takes back the extrusion and the square is still there; a second takes the square (`in_235`)", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  st = click(st, [5, 5, 0]);
+  st = click(st, [25, 25, 0]);
+  st = reduce(st, { type: "escape" }, env);
+  st = key(typeText(st, "10"), "Enter");
+  assert.equal(scene(st.session).steps.length, 1);
+  const squares = (s: AppState) => Object.values(scene(s.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn" && !p.derived).length;
+  assert.equal(squares(st), 4);
+  st = reduce(st, { type: "undo" }, env);
+  assert.equal(scene(st.session).steps.length, 0, "the extrusion is gone");
+  assert.equal(squares(st), 4, "the square is still there");
+  st = reduce(st, { type: "undo" }, env);
+  assert.equal(squares(st), 0, "the next undo takes the square");
+  // typing without Enter and undoing: the pending number goes first, nothing is lost
+  let t = top();
+  t = reduce(t, { type: "begin", name: "rect" }, env);
+  t = click(t, [5, 5, 0]);
+  t = click(t, [25, 25, 0]);
+  t = reduce(t, { type: "escape" }, env);
+  t = typeText(t, "10");
+  assert.equal(t.op?.kind, "extrude");
+  t = reduce(t, { type: "undo" }, env);
+  assert.equal(t.op, null);
+  assert.equal(squares(t), 4, "the square is still there");
 });

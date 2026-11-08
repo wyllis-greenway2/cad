@@ -28,8 +28,8 @@ export interface AppState {
   /** the point under the pointer on the hovered surface (for the ring) */
   hoverPoint: Vec3 | null;
   menu: { x: number; y: number; items: MenuItem[]; /** the world plane the pointer was over when it opened: a sketch tool chosen from it turns to that plane */ plane?: Ref | null } | null;
-  /** the rectangle of a right-button drag select that is being drawn (`in_230`) */
-  box: { x0: number; y0: number; x: number; y: number } | null;
+  /** the rectangle of a drag select (`in_230`, `in_235`): the left button was held still, then dragged without letting up */
+  box: { x0: number; y0: number; x: number; y: number; shift: boolean } | null;
   /** the list open from the ⋯ menu (`in_132`) */
   panel: "bodies" | "history" | null;
   /** a repeat being set up: it goes on until Apply or Cancel, and you can work in the world meanwhile (`in_141`) */

@@ -91,6 +91,14 @@ export function commitOp(s: AppState): AppState {
 
 export function doTyped(s: AppState, key: string): AppState {
   if (!s.op && !s.tool && /^[0-9.\-]$/.test(key)) {
+    // one standard for typing with something selected (`dec_typing_standard`, `in_235`): a drawn part that has a number of its own (a side: its length; a circle: its diameter; an arc: its radius; two
+    // sides: the angle; a corner and another corner or a side: the distance) takes what is typed as that number, and Enter locks it; the figure itself, a face or the body has its handle (extrude, push
+    // pull, move), and typing is the same as dragging it that far
+    const sc = sceneOf(s.session);
+    const sel = selectionOf(s.session);
+    const ownNumber = sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return p && p.origin === "drawn" && (p.kind === "corner" || p.kind === "line" || p.kind === "circle"); });
+    const dim = ownNumber ? startOp(sc, sel, "dimension") : null;
+    if (dim?.ok) return { ...s, op: typeOp(dim.op, key) };
     // a handle is showing for the selection: typing a number is the same as dragging it that far
     const a = autoOp(sceneOf(s.session), selectionOf(s.session));
     if (a) return { ...s, op: typeOp(a.kind === "move" ? a : { ...a, auto: false }, key) };
@@ -150,6 +158,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
   if (s.focus && !s.tool && !s.op) return { ...s, focus: null };
+  if (s.box) return { ...s, box: null };
   if (s.tool || s.op) return { ...s, tool: null, op: null, drag: null, gizmoHover: null };
   return withSession(s, clearSelection(s.session));
 }

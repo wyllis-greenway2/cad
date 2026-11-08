@@ -313,7 +313,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" ? `move:${"xyz"[s.op.axis]}` : null } : null,
     modeSwitch: gizmo && !s.repeat ? modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : null,
-    cursor: s.tool ? "crosshair" : s.gizmoHover ? "grab" : "",
+    cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
     message: s.session.message ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? "",
   };
 }

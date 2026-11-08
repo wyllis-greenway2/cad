@@ -30,8 +30,8 @@ test("mouse: double and triple click are counted by time and place; far apart or
   assert.equal((click(60, 100)[0] as { count: number }).count, 1, "too far");
 });
 
-test("mouse: dragging on empty space orbits; Alt + left-drag orbits; the deltas add up", () => {
-  for (const [button, mods] of [[0, none], [0, m({ alt: true })]] as const) {
+test("mouse: dragging on empty space orbits; right-drag orbits; Alt + left-drag orbits; the deltas add up", () => {
+  for (const [button, mods] of [[0, none], [2, none], [0, m({ alt: true })]] as const) {
     const r = createRecognizer();
     const out = run(r, [ev("down", 100, 100, { button, mods }), ev("move", 110, 100, { button }), ev("move", 130, 90, { button }), ev("up", 130, 90, { button })]);
     assert.deepEqual(types(out), ["orbit", "orbit", "dragEnd"]);
@@ -39,27 +39,37 @@ test("mouse: dragging on empty space orbits; Alt + left-drag orbits; the deltas 
   }
 });
 
-test("mouse: a right-drag draws a selection rectangle from where it began, and lets go of it when the button comes up (`in_230`); Shift is kept for adding", () => {
-  const out = run(createRecognizer(), [ev("down", 100, 100, { button: 2 }), ev("move", 110, 100, { button: 2 }), ev("move", 130, 90, { button: 2 }), ev("up", 130, 90, { button: 2 })]);
-  assert.deepEqual(out, [
-    { type: "box", x0: 100, y0: 100, x: 110, y: 100, done: false, shift: false },
-    { type: "box", x0: 100, y0: 100, x: 130, y: 90, done: false, shift: false },
-    { type: "box", x0: 100, y0: 100, x: 130, y: 90, done: true, shift: false },
-  ]);
+test("mouse: a right-drag only turns the view (it is marked, so it never drags a handle or a corner); a left drag is not", () => {
+  const right = run(createRecognizer(), [ev("down", 100, 100, { button: 2 }), ev("move", 120, 100, { button: 2 })]);
+  assert.equal((right[0] as { view?: boolean }).view, true);
   const left = run(createRecognizer(), [ev("down", 100, 100), ev("move", 120, 100)]);
-  assert.equal(left[0]!.type, "orbit", "a left drag still turns the view");
-  const cancelled = run(createRecognizer(), [ev("down", 100, 100, { button: 2 }), ev("move", 120, 100, { button: 2 }), ev("cancel", 120, 100)]);
-  assert.deepEqual(cancelled[1], { type: "box", x0: 100, y0: 100, x: 100, y: 100, done: true, shift: false }, "cancelled: an empty rectangle, nothing picked");
+  assert.equal((left[0] as { view?: boolean }).view, undefined);
+});
+
+test("mouse: the left button held still for a while is a hold (the cursor changes, a drag from there draws a rectangle, `in_235`); moving or letting up first, or another button, is not", () => {
+  const tick = (t: number): RawInput => ({ kind: "tick", t });
+  const down = (o: { button?: number } = {}) => { const e = ev("down", 100, 100, o); return { e, t0: (e as { t: number }).t }; };
+  const H = settings.input.boxHoldMs;
+  const held = createRecognizer();
+  const d = down();
+  const out = run(held, [d.e, tick(d.t0 + 200), tick(d.t0 + H + 10), tick(d.t0 + H + 50)]);
+  assert.deepEqual(out, [{ type: "hold", x: 100, y: 100, shift: false }], "once");
+  assert.deepEqual(types(run(held, [ev("move", 160, 100), ev("up", 160, 100)])), ["orbit", "dragEnd"], "what follows are the ordinary drag intents: the controller makes the rectangle of them");
+  const d2 = down();
+  const moved = run(createRecognizer(), [d2.e, ev("move", 140, 100), tick(d2.t0 + H + 10)]);
+  assert.ok(!moved.some((o) => o.type === "hold"), "moved before the time: an orbit, not a hold");
+  const d3 = down({ button: 2 });
+  assert.ok(!run(createRecognizer(), [d3.e, tick(d3.t0 + H + 10)]).some((o) => o.type === "hold"), "the right button does not");
+  const d4 = down();
+  assert.ok(!run(createRecognizer(), [d4.e, ev("up", 100, 100, { dt: 100 }), tick(d4.t0 + H + 10)]).some((o) => o.type === "hold"), "let up in time: a click");
 });
 
 test("mouse: a press whose release never came ends that drag when the next press begins, and a cancel ends a drag", () => {
   const r = createRecognizer();
-  const out = run(r, [ev("down", 100, 100), ev("move", 120, 100), ev("down", 50, 50)]);
+  const out = run(r, [ev("down", 100, 100, { button: 2 }), ev("move", 120, 100, { button: 2 }), ev("down", 50, 50)]);
   assert.deepEqual(types(out), ["orbit", "dragEnd"]);
   const r2 = createRecognizer();
-  assert.deepEqual(types(run(r2, [ev("down", 100, 100), ev("move", 120, 100), ev("cancel", 120, 100)])), ["orbit", "dragEnd"]);
-  const r3 = run(createRecognizer(), [ev("down", 100, 100, { button: 2 }), ev("move", 120, 100, { button: 2 }), ev("down", 50, 50)]);
-  assert.deepEqual(types(r3), ["box", "box"], "a rectangle that lost its release is let go empty");
+  assert.deepEqual(types(run(r2, [ev("down", 100, 100, { button: 2 }), ev("move", 120, 100, { button: 2 }), ev("cancel", 120, 100)])), ["orbit", "dragEnd"]);
 });
 
 test("mouse: right click is the menu; middle-drag, Shift + right-drag, Alt + Shift + left-drag and Space + drag pan", () => {

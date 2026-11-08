@@ -20,6 +20,7 @@ export const settings = {
     farFactor: 120,
   },
   input: {
+    boxHoldMs: 400, // the left button held still this long (mouse): the cursor changes and a drag from there draws a selection rectangle (`in_235`)
     longPressMs: 450, touchSlopPx: 10, drawTouchSlopPx: 22, // touch: a press this long without moving is a right click; a finger must move this far to drag
     multiTapPx: 28, multiTapMs: 550, // taps this close in space and time count as a double or triple tap (`in_078`)
     multiClickPx: 6, multiClickMs: 400, // clicks this close count as a double or triple click (`in_070`)
