@@ -135,10 +135,21 @@ export function regionsOf(s: Scene): Regions {
     if (curves.length < 2) continue;
     // the nodes: the ends of the curves, the places where curves cross, and the places where an end of one lies on another
     const nodes: Node[] = [];
+    // (a node is found by the grid cell it is in and the ones round it, not by looking at them all: the first one made that is near enough is the one, as before)
+    const grid = new Map<number, number[]>();
+    const keyOf = (cx: number, cy: number) => (cx + 16777216) * 134217728 + (cy + 16777216); // (a cell of the grid as one number)
     const nodeAt = (pt: V2, ref?: Ref, make?: () => Corner): Node => {
-      const have = nodes.find((m) => dist(m.at, pt) <= TOL);
-      if (have) return have;
+      const [cx, cy] = [Math.floor(pt[0] / TOL), Math.floor(pt[1] / TOL)];
+      let have = -1;
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+        const here = grid.get(keyOf(cx + dx, cy + dy));
+        if (here) for (const k of here) if ((have < 0 || k < have) && dist(nodes[k]!.at, pt) <= TOL) have = k;
+      }
+      if (have >= 0) return nodes[have]!;
       const node: Node = { ref: ref!, at: pt, ...(make ? { part: make() } : {}) };
+      const key = keyOf(cx, cy);
+      const list = grid.get(key);
+      if (list) list.push(nodes.length); else grid.set(key, [nodes.length]);
       nodes.push(node);
       return node;
     };
@@ -148,8 +159,41 @@ export function regionsOf(s: Scene): Regions {
     const cuts = new Map<Ref, Map<Ref, number>>(); // curve -> node -> where along it
     const cutAt = (cu: Curve, node: Node, t: number) => { const m = cuts.get(cu.ref) ?? new Map<Ref, number>(); if (!m.has(node.ref)) m.set(node.ref, t); cuts.set(cu.ref, m); };
     for (const c of curves) if (c.k !== "circle") { cutAt(c, nodeAt(c.p), 0); cutAt(c, nodeAt(c.q), 1); }
-    for (const nd of [...nodes]) for (const c of curves) { const t = along(c, nd.at); if (t !== null) cutAt(c, nd, t); }
-    for (let i = 0; i < curves.length; i++) for (let j = i + 1; j < curves.length; j++) {
+    // where each curve lies (its box, a little wider than the tolerance): only curves that can reach a node, or each other, are looked at closely
+    const box = curves.map((c): [number, number, number, number] => c.k === "seg" ? [Math.min(c.p[0], c.q[0]) - 2 * TOL, Math.min(c.p[1], c.q[1]) - 2 * TOL, Math.max(c.p[0], c.q[0]) + 2 * TOL, Math.max(c.p[1], c.q[1]) + 2 * TOL] : [c.c[0] - c.r - 2 * TOL, c.c[1] - c.r - 2 * TOL, c.c[0] + c.r + 2 * TOL, c.c[1] + c.r + 2 * TOL]);
+    // (a grid of the curves' boxes: a node looks only at the curves whose box covers its cell, and the few big ones)
+    const size = Math.max(1e-3, 2 * (box.reduce((a, b) => a + Math.max(b[2] - b[0], b[3] - b[1]), 0) / box.length));
+    const cells = new Map<number, number[]>();
+    const big: number[] = [];
+    box.forEach((b, ci) => {
+      const [x0, y0, x1, y1] = [Math.floor(b[0] / size), Math.floor(b[1] / size), Math.floor(b[2] / size), Math.floor(b[3] / size)];
+      if ((x1 - x0 + 1) * (y1 - y0 + 1) > 64) { big.push(ci); return; }
+      for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) { const k = keyOf(x, y); const l = cells.get(k); if (l) l.push(ci); else cells.set(k, [ci]); }
+    });
+    for (const nd of [...nodes]) {
+      for (const ci of [...(cells.get(keyOf(Math.floor(nd.at[0] / size), Math.floor(nd.at[1] / size))) ?? []), ...big]) {
+        const b = box[ci]!;
+        if (nd.at[0] < b[0] || nd.at[0] > b[2] || nd.at[1] < b[1] || nd.at[1] > b[3]) continue;
+        const c = curves[ci]!;
+        const t = along(c, nd.at);
+        if (t !== null) cutAt(c, nd, t);
+      }
+    }
+    // the pairs of curves that could meet (their boxes overlap), found by sweeping along x, then taken in the order they always were
+    const order = curves.map((_, i) => i).sort((a, b) => box[a]![0] - box[b]![0]);
+    const pairs: number[] = [];
+    for (let oi = 0; oi < order.length; oi++) {
+      const i = order[oi]!;
+      for (let oj = oi + 1; oj < order.length; oj++) {
+        const j = order[oj]!;
+        if (box[j]![0] > box[i]![2]) break;
+        if (box[j]![1] > box[i]![3] || box[j]![3] < box[i]![1]) continue;
+        pairs.push(Math.min(i, j) * curves.length + Math.max(i, j));
+      }
+    }
+    pairs.sort((a, b) => a - b);
+    for (const pr of pairs) {
+      const [i, j] = [Math.floor(pr / curves.length), pr % curves.length];
       const [x, y] = [curves[i]!, curves[j]!];
       const pts = meet(x, y).filter((q) => along(x, q) !== null && along(y, q) !== null).sort((u, v) => u[0] - v[0] || u[1] - v[1]);
       pts.forEach((q, k) => {

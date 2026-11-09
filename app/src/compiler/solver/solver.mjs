@@ -280,12 +280,15 @@ function lm(cons, x0, index, maxIter = 200) {
   let lambda = 1e-3;
   let it = 0;
   const n = x.length;
-  const colLists = cons.map((k) => columnsOf(k, index));
-  const st = structureOf(n, colLists);
-  const places = colLists.map((cols) => placesOf(st, cols));
-  const V = new Float64Array(st.size);
-  const mult = new Float64Array(st.size);
+  let colLists, st, places, V, mult;
   for (; it < maxIter && maxAbs(f) > TOL; it++) {
+    if (!st) { // (made when the first step is needed: a system that already holds is not looked at)
+      colLists = cons.map((k) => columnsOf(k, index));
+      st = structureOf(n, colLists);
+      places = colLists.map((cols) => placesOf(st, cols));
+      V = new Float64Array(st.size);
+      mult = new Float64Array(st.size);
+    }
     const rows = jacobianRows(cons, x, index, colLists);
     V.fill(0);
     const g = new Float64Array(n);

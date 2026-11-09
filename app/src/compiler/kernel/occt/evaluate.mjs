@@ -2,6 +2,7 @@
 // Nothing outside src/kernel/occt/ may import OCCT or replicad (inv_kernel_boundary).
 import { loadOC } from "./oc.mjs";
 import { compile, finalSolid, volume } from "./interpreter.mjs";
+import { facesOf, edgesOf } from "./topo.mjs";
 
 export const KERNEL_NAME = "occt (replicad)";
 
@@ -50,7 +51,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     const round = new Map();
     const partOf = new Map(); // hash code of a round face -> where its axis is (a piece of a cylinder keeps it, so its wall can be pushed and pulled as the radius of the circle it comes from)
     const other = [];
-    for (const f of fin.shape.faces) {
+    for (const f of facesOf(fin.shape)) {
       const g = ranges.get(f.hashCode);
       if (g && f.geomType === "CYLINDRE") {
         // a round face (post or hole) along a world axis; a circle is often made of two halves, so the halves with the same axis, radius and height are gathered
@@ -123,7 +124,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     tFaces = performance.now();
     // edges as polylines, and their end points as vertices (for selecting lines and corners)
     const em = fin.shape.meshEdges({ tolerance: tess.tolerance, angularTolerance: tess.angular });
-    const byHash = new Map(fin.shape.edges.map((e) => [e.hashCode, e]));
+    const byHash = new Map(edgesOf(fin.shape).map((e) => [e.hashCode, e]));
     const r4 = (v) => Math.round(v * 1e4) / 1e4;
     const seen = new Map();
     edges = [];

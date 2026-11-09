@@ -1226,3 +1226,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_249 — 2026-11-09 — approval
 > yes, do the sparse solve. How much would the last few decimal places come back to bite us? maybe we should sparse solve only for animation and full solve on tool de-select or something? What do you think?
 (answers the AI's offer to make the solver's linear algebra sparse; asks for the AI's view on the rounding and on a two-tier scheme)
+
+## in_250 — 2026-11-09 — directive
+> since we are already in the weeds on the speed work, why don't we just continue with that first holistically? Then lets do a correctness hunt.
+(answers the AI's list of suggestions: finish the speed work first, then the correctness hunt)

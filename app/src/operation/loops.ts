@@ -38,21 +38,26 @@ export function derivedFaces(s: Scene): { faces: Face[]; parts: Part[] } {
   const get: Lookup = (r) => madeMap.get(r) ?? s.parts[r];
   const lines = Object.values(s.parts).filter((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "drawn" && !!p.plane && !cut.taken.has(p.ref));
   const byPlane = new Map<Ref, typeof lines>();
-  for (const l of lines) byPlane.set(l.plane!, [...(byPlane.get(l.plane!) ?? []), l]);
+  for (const l of lines) { const list = byPlane.get(l.plane!); if (list) list.push(l); else byPlane.set(l.plane!, [l]); }
   const out: Face[] = [];
   const base = { origin: "drawn" as const, movable: true };
   for (const [plane, ls] of byPlane) {
-    // connected groups of lines (by shared corners)
+    // connected groups of lines (by shared corners); the lines at each corner are known, so a line's neighbours are not looked for among all the lines
+    const at = new Map<Ref, number[]>();
+    ls.forEach((l, i) => { for (const c of l.a === l.b ? [l.a] : [l.a, l.b]) { const list = at.get(c); if (list) list.push(i); else at.set(c, [i]); } });
     const left = new Set(ls.map((l) => l.ref));
+    let from = 0;
     while (left.size) {
       const group: typeof lines = [];
-      const first = ls.find((l) => left.has(l.ref))!;
+      while (!left.has(ls[from]!.ref)) from++;
+      const first = ls[from]!;
       const queue = [first];
       left.delete(first.ref);
       while (queue.length) {
         const cur = queue.pop()!;
         group.push(cur);
-        for (const o of ls) if (left.has(o.ref) && (o.a === cur.a || o.a === cur.b || o.b === cur.a || o.b === cur.b)) (left.delete(o.ref), queue.push(o));
+        const near = [...new Set([...(at.get(cur.a) ?? []), ...(at.get(cur.b) ?? [])])].sort((x, y) => x - y); // (in the order of the lines, as before)
+        for (const i of near) { const o = ls[i]!; if (left.has(o.ref)) (left.delete(o.ref), queue.push(o)); }
       }
       const loop = loopOf(get, group.map((l) => l.ref));
       if (!loop.ok || (group.length < 3 && !group.some((l) => l.bulge || l.center))) continue; // (an arc and its chord are a shape of two lines)
@@ -79,9 +84,10 @@ function withHoles(get: Lookup, faces: Face[]): Face[] {
       poly = Array.from({ length: 48 }, (_, i): [number, number] => [cx + Math.cos((i / 48) * Math.PI * 2) * c.radius, cy + Math.sin((i / 48) * Math.PI * 2) * c.radius]);
     } else poly = loopPoints(get, f.loop, f.corners).map(flat);
     const area = Math.abs(poly.reduce((a, p, i) => a + (poly[(i + 1) % poly.length]![0] - p[0]) * (poly[(i + 1) % poly.length]![1] + p[1]), 0)) / 2;
-    return { poly, area, plane: f.plane };
+    const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
+    return { poly, area, plane: f.plane, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] as [number, number, number, number] };
   });
-  const inside = (b: number, a: number) => shapes[a] && shapes[b] && shapes[a]!.plane === shapes[b]!.plane && shapes[b]!.area < shapes[a]!.area - 1e-9 && shapes[b]!.poly.every((p) => inPolygon(p, shapes[a]!.poly));
+  const inside = (b: number, a: number) => shapes[a] && shapes[b] && shapes[a]!.plane === shapes[b]!.plane && shapes[b]!.area < shapes[a]!.area - 1e-9 && shapes[b]!.box[0] >= shapes[a]!.box[0] - 1e-9 && shapes[b]!.box[1] >= shapes[a]!.box[1] - 1e-9 && shapes[b]!.box[2] <= shapes[a]!.box[2] + 1e-9 && shapes[b]!.box[3] <= shapes[a]!.box[3] + 1e-9 && shapes[b]!.poly.every((p) => inPolygon(p, shapes[a]!.poly));
   return faces.map((f, a) => {
     const within = faces.map((_, b) => b).filter((b) => b !== a && inside(b, a));
     const direct = within.filter((b) => !within.some((c) => c !== b && inside(b, c)));

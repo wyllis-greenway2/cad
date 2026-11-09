@@ -17,6 +17,7 @@ import {
   Vector,
   basicFaceExtrusion,
 } from "replicad";
+import { facesOf, edgesOf } from "./topo.mjs";
 
 /** OCCT's own topology/geometry check. Operations can return garbage without throwing. */
 export function isValidSolid(shape) {
@@ -103,7 +104,7 @@ function findFace(shape, ref) {
   const { n, d } = refPlane(ref);
   const tol = 1e-3;
   let best = null;
-  for (const f of shape.faces) {
+  for (const f of facesOf(shape)) {
     if (f.geomType !== "PLANE") continue;
     const fn = f.normalAt();
     const l = Math.hypot(fn.x, fn.y, fn.z);
@@ -121,7 +122,7 @@ function findFace(shape, ref) {
   const bb = shape.boundingBox.bounds;
   const diag = Math.hypot(bb[1][0] - bb[0][0], bb[1][1] - bb[0][1], bb[1][2] - bb[0][2]);
   const cands = [];
-  for (const f of shape.faces) {
+  for (const f of facesOf(shape)) {
     if (f.geomType !== "PLANE") continue;
     const fn = f.normalAt();
     const l = Math.hypot(fn.x, fn.y, fn.z);
@@ -152,7 +153,7 @@ function revolved(points, axis, at) {
 function findCylinder(shape, ref) {
   const tol = 1e-3;
   const found = [];
-  for (const f of shape.faces) {
+  for (const f of facesOf(shape)) {
     if (f.geomType !== "CYLINDRE") continue;
     const cyl = f._geomAdaptor().Cylinder();
     const loc = cyl.Axis().Location();
@@ -201,7 +202,7 @@ const edgeMatches = (e, ref) => {
 /** The signature of each edge of a body (`rims.ts` `edgeSignatures`): the outward normals of the two flat faces it lies between, sorted. */
 function signaturesOf(shape) {
   const by = new Map();
-  for (const f of shape.faces) {
+  for (const f of facesOf(shape)) {
     if (f.geomType !== "PLANE") continue;
     const n = f.normalAt();
     const l = Math.hypot(n.x, n.y, n.z) || 1;
@@ -316,7 +317,7 @@ function circumcentre3(a, b, c) {
  * is nearest to where it was, if it is clearly the nearest (a step then still finds its edge after the sketch under it is resized: `in_173`). Returns the hash codes, or null if one cannot be found.
  */
 function resolveEdges(t, refs) {
-  const edges = t.edges;
+  const edges = edgesOf(t);
   const box = t.boundingBox.bounds;
   const diag = Math.hypot(box[1][0] - box[0][0], box[1][1] - box[0][1], box[1][2] - box[0][2]);
   const out = new Set();
