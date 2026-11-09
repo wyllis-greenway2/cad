@@ -22,20 +22,22 @@ function layout(system) {
   const index = new Map();
   let n = 0;
   const x = [];
-  for (const id of Object.keys(system.points).sort()) (index.set(`p:${id}`, n), x.push(...system.points[id]), (n += 2));
-  for (const id of Object.keys(system.scalars ?? {}).sort()) (index.set(`s:${id}`, n), x.push(system.scalars[id]), (n += 1));
+  index.P = new Map(); // (the same places by the bare name, so working out a constraint does not build a key each time it looks a point up)
+  index.S = new Map();
+  for (const id of Object.keys(system.points).sort()) (index.set(`p:${id}`, n), index.P.set(id, n), x.push(...system.points[id]), (n += 2));
+  for (const id of Object.keys(system.scalars ?? {}).sort()) (index.set(`s:${id}`, n), index.S.set(id, n), x.push(system.scalars[id]), (n += 1));
   return { index, x, n };
 }
 
 /** The residuals (what must be zero) of one constraint at the variables x. */
 function residualsOf(c, x, index) {
   const P = (id) => {
-    const i = index.get(`p:${id}`);
+    const i = index.P.get(id);
     if (i === undefined) throw new Error(`unknown point ${id}`);
     return [x[i], x[i + 1]];
   };
   const S = (id) => {
-    const i = index.get(`s:${id}`);
+    const i = index.S.get(id);
     if (i === undefined) throw new Error(`unknown value ${id}`);
     return x[i];
   };
@@ -142,9 +144,9 @@ function columnsOf(c, index) {
   const cols = new Set();
   for (const [k, v] of Object.entries(c)) {
     if (k === "id" || k === "type" || typeof v !== "string") continue;
-    const p = index.get(`p:${v}`);
+    const p = index.P.get(v);
     if (p !== undefined) { cols.add(p); cols.add(p + 1); continue; }
-    const q = index.get(`s:${v}`);
+    const q = index.S.get(v);
     if (q !== undefined) cols.add(q);
   }
   return [...cols].sort((a, b) => a - b);
@@ -155,10 +157,11 @@ function columnsOf(c, index) {
  * a constraint is moved by the same step as before and only that constraint is worked out again (`in_248`: moving all of the variables and working out every constraint each time took seconds on a
  * sketch of a hundred constraints). Rows are { cols, vals }, in the order of the residuals; the numbers are the ones the dense version gave (what is left out is exactly zero there).
  */
-function jacobianRows(cons, x, index) {
+function jacobianRows(cons, x, index, colLists) {
   const rows = [];
-  for (const c of cons) {
-    const cols = columnsOf(c, index);
+  for (let ci = 0; ci < cons.length; ci++) {
+    const c = cons[ci];
+    const cols = colLists ? colLists[ci] : columnsOf(c, index);
     const m = residualsOf(c, x, index).length;
     const vals = Array.from({ length: m }, () => new Array(cols.length).fill(0));
     cols.forEach((j, k) => {
@@ -171,7 +174,7 @@ function jacobianRows(cons, x, index) {
       x[j] = was;
       for (let i = 0; i < m; i++) vals[i][k] = (fp[i] - fm[i]) / (2 * h);
     });
-    for (let i = 0; i < m; i++) rows.push({ cols, vals: vals[i] });
+    for (let i = 0; i < m; i++) rows.push({ cols, vals: vals[i], ci });
   }
   return rows;
 }
@@ -185,30 +188,87 @@ function jacobian(cons, x, index) {
   });
 }
 
-/** Solve A d = b (A square, n x n in a flat array, symmetric positive definite after damping) by Gaussian elimination with pivoting. A and b are used up. */
-function linsolve(A, b, n) {
-  const w = n + 1;
-  const M = new Float64Array(n * w);
-  for (let i = 0; i < n; i++) { M.set(A.subarray(i * n, i * n + n), i * w); M[i * w + n] = b[i]; }
-  for (let c = 0; c < n; c++) {
-    let p = c;
-    for (let r = c + 1; r < n; r++) if (Math.abs(M[r * w + c]) > Math.abs(M[p * w + c])) p = r;
-    if (Math.abs(M[p * w + c]) < 1e-18) return null;
-    if (p !== c) for (let q = 0; q < w; q++) { const t = M[c * w + q]; M[c * w + q] = M[p * w + q]; M[p * w + q] = t; }
-    const piv = M[c * w + c];
-    for (let r = c + 1; r < n; r++) {
-      const e = M[r * w + c];
-      if (e === 0) continue; // (a row with nothing under this pivot is left as it is: most of the matrix is empty)
-      const k = e / piv;
-      for (let q = c; q <= n; q++) M[r * w + q] -= k * M[c * w + q];
+/**
+ * The shape of the normal equations (J^T J, plus damping), worked out once per solve: which variables are tied to which by a constraint (a constraint ties the few it is made of), an order of
+ * elimination that keeps new non-zeros few (always the variable with the fewest ties next), and where every number lives, so each step is plain arithmetic on a short list (`in_248`: the matrix of a
+ * sketch of a hundred constraints is nearly empty, and the dense elimination spent its time on zeros). Entries are in one array: the n diagonal ones by rank, then the ones above it.
+ */
+function structureOf(n, colLists) {
+  const adj = Array.from({ length: n }, () => new Set());
+  for (const cols of colLists) for (let a = 0; a < cols.length; a++) for (let b = a + 1; b < cols.length; b++) (adj[cols[a]].add(cols[b]), adj[cols[b]].add(cols[a]));
+  const done = new Array(n).fill(false);
+  const order = [];
+  const ties = [];
+  for (let step = 0; step < n; step++) {
+    let v = -1;
+    let best = Infinity;
+    for (let u = 0; u < n; u++) if (!done[u] && adj[u].size < best) (best = adj[u].size, (v = u));
+    done[v] = true;
+    order.push(v);
+    const nb = [...adj[v]];
+    ties.push(nb);
+    for (const a of nb) {
+      adj[a].delete(v);
+      for (const b of nb) if (a !== b) adj[a].add(b);
     }
   }
-  const d = new Array(n).fill(0);
-  for (let r = n - 1; r >= 0; r--) {
-    let s = M[r * w + n];
-    for (let q = r + 1; q < n; q++) s -= M[r * w + q] * d[q];
-    d[r] = s / M[r * w + r];
+  const pos = new Array(n);
+  order.forEach((v, k) => (pos[v] = k));
+  const L = ties.map((nb) => nb.map((u) => pos[u]).sort((a, b) => a - b));
+  const at = new Map(); // (row, column) with row < column -> place in the array
+  let size = n;
+  L.forEach((cols, k) => cols.forEach((a) => at.set(k * n + a, size++)));
+  const lists = L.map((cols, k) => ({
+    cols: Int32Array.from(cols),
+    where: Int32Array.from(cols.map((a) => at.get(k * n + a))),
+    // where the update of the pair (a, b) of this pivot's ties goes
+    to: Int32Array.from(cols.flatMap((a, ia) => cols.slice(ia + 1).map((b) => at.get(a * n + b)))),
+  }));
+  return { n, order, pos, at, size, lists };
+}
+
+/** Where the products of one constraint's slopes go in the entries of the matrix: for its variables a, b (a before b) the place of their pair, the diagonal's place when they are the same. */
+function placesOf(st, cols) {
+  const k = cols.length;
+  const out = new Int32Array(k * k);
+  for (let a = 0; a < k; a++) for (let b = a; b < k; b++) {
+    const [ra, rb] = [st.pos[cols[a]], st.pos[cols[b]]];
+    out[a * k + b] = a === b ? ra : st.at.get(Math.min(ra, rb) * st.n + Math.max(ra, rb));
   }
+  return out;
+}
+
+/** Solve A d = b where A is the matrix held in V (changed, and its multipliers left in `mult`): Gaussian elimination without pivoting in the order of the structure (A is symmetric positive definite after damping). Null if a pivot is too small. */
+function sparseSolve(st, V, mult, b) {
+  const { n, order, lists } = st;
+  for (let k = 0; k < n; k++) {
+    const d = V[k];
+    if (!(Math.abs(d) >= 1e-18)) return null;
+    const { cols, where, to } = lists[k];
+    let t = 0;
+    for (let i = 0; i < cols.length; i++) {
+      const u = V[where[i]];
+      const l = u / d;
+      mult[where[i]] = l;
+      V[cols[i]] -= l * u;
+      for (let j = i + 1; j < cols.length; j++) V[to[t++]] -= l * V[where[j]];
+    }
+  }
+  const y = new Float64Array(n);
+  for (let k = 0; k < n; k++) y[k] = b[order[k]];
+  for (let k = 0; k < n; k++) {
+    const { cols, where } = lists[k];
+    for (let i = 0; i < cols.length; i++) y[cols[i]] -= mult[where[i]] * y[k];
+  }
+  const x = new Float64Array(n);
+  for (let k = n - 1; k >= 0; k--) {
+    const { cols, where } = lists[k];
+    let s = y[k];
+    for (let i = 0; i < cols.length; i++) s -= V[where[i]] * x[cols[i]];
+    x[k] = s / V[k];
+  }
+  const d = new Array(n);
+  for (let k = 0; k < n; k++) d[order[k]] = x[k];
   return d;
 }
 
@@ -220,28 +280,35 @@ function lm(cons, x0, index, maxIter = 200) {
   let lambda = 1e-3;
   let it = 0;
   const n = x.length;
+  const colLists = cons.map((k) => columnsOf(k, index));
+  const st = structureOf(n, colLists);
+  const places = colLists.map((cols) => placesOf(st, cols));
+  const V = new Float64Array(st.size);
+  const mult = new Float64Array(st.size);
   for (; it < maxIter && maxAbs(f) > TOL; it++) {
-    const rows = jacobianRows(cons, x, index);
-    const H = new Float64Array(n * n);
+    const rows = jacobianRows(cons, x, index, colLists);
+    V.fill(0);
     const g = new Float64Array(n);
     for (let i = 0; i < rows.length; i++) {
-      const { cols, vals } = rows[i];
-      for (let a = 0; a < cols.length; a++) {
+      const { cols, vals, ci } = rows[i];
+      const pl = places[ci];
+      const k = cols.length;
+      for (let a = 0; a < k; a++) {
         const va = vals[a];
         if (va === 0) continue;
         g[cols[a]] += va * f[i];
-        for (let b = 0; b < cols.length; b++) H[cols[a] * n + cols[b]] += va * vals[b];
       }
+      for (let a = 0; a < k; a++) for (let b = a; b < k; b++) V[pl[a * k + b]] += vals[a] * vals[b];
     }
     let dmax = 1e-9;
-    for (let i = 0; i < n; i++) if (H[i * n + i] > dmax) dmax = H[i * n + i]; // the same damping for every variable (not scaled by each one's own sensitivity), so a step that has freedom moves things the least, not the ones the constraints hold
+    for (let i = 0; i < n; i++) if (V[i] > dmax) dmax = V[i]; // the same damping for every variable (not scaled by each one's own sensitivity), so a step that has freedom moves things the least, not the ones the constraints hold
     const minusG = new Float64Array(n);
     for (let i = 0; i < n; i++) minusG[i] = -g[i];
     let accepted = false;
     for (let tries = 0; tries < 12 && !accepted; tries++) {
-      const A = H.slice();
-      for (let i = 0; i < n; i++) A[i * n + i] += lambda * dmax;
-      const d = linsolve(A, minusG, n);
+      const A = V.slice();
+      for (let i = 0; i < n; i++) A[i] += lambda * dmax;
+      const d = sparseSolve(st, A, mult, minusG);
       if (d) {
         const xn = x.map((v, i) => v + d[i]);
         const fn = residuals(cons, xn, index);
