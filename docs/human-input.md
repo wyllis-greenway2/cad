@@ -1190,3 +1190,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_239 — 2026-11-09 — approval
 > yes, build the structural constraint hiding that way
 (approves `q_hide_structural_constraints` as recommended)
+
+## in_240 — 2026-11-09 — directive
+> add the coincident relation for trimmed partner corners

@@ -8,6 +8,7 @@ import type { Scene, Relation } from "./scene.ts";
 import { nextId } from "./scene.ts";
 import type { Command } from "./commands.ts";
 import { consumed } from "./ownership.ts";
+import { pointOf } from "./part.ts";
 import { curvesOn, meet, along, TAU, ang, mod } from "./regions.ts";
 import type { Curve, V2 } from "./regions.ts";
 
@@ -60,6 +61,23 @@ function carried(s: Scene, old: Ref, now: Ref, rid: () => string, opts: { circle
 /** Relation ids one after another from the next free one (a trim makes several at once). */
 const relIds = (s: Scene) => { let n = s.counter; return () => formatId("r", ++n); };
 
+/**
+ * A corner a trim makes sits where another corner already is (the end of a piece the other curve was cut to, a vertex the cutter ends on): the two are one point, so they are joined by a coincident relation
+ * (`dec_hide_structural_constraints`), not left as two that happen to be at the same spot (a solve can pull those apart).
+ */
+function partnersOf(s: Scene, corner: Ref, at: Vec3, plane: Ref, skip: ReadonlySet<Ref>, rid: () => string): Command[] {
+  const get = (r: Ref) => s.parts[r];
+  const out: Command[] = [];
+  for (const p of Object.values(s.parts)) {
+    if (p.kind !== "corner" || p.derived || p.plane !== plane || p.origin !== "drawn" || skip.has(p.ref)) continue; // (a crossing the faces made is not a corner to join)
+    const q = pointOf(get, p.ref);
+    if (!q || Math.hypot(q[0] - at[0], q[1] - at[1], q[2] - at[2]) > 1e-6) continue;
+    if (s.relations.some((r) => r.kind === "coincident" && r.parts.includes(p.ref) && r.parts.includes(corner))) continue;
+    out.push({ type: "addRelation", relation: { id: rid(), kind: "coincident", parts: [corner, p.ref] } as Relation });
+  }
+  return out;
+}
+
 function pointAtParam(c: Extract<Curve, { k: "seg" }>, t: number): V2 { return [c.p[0] + (c.q[0] - c.p[0]) * t, c.p[1] + (c.q[1] - c.p[1]) * t]; }
 
 function trimSide(s: Scene, part: Extract<Scene["parts"][string], { kind: "line" }>, c: Extract<Curve, { k: "seg" }>, lift: (q: V2) => Vec3, click: V2, cuts: { t: number; by: Curve }[]): TrimPlan | null {
@@ -80,8 +98,10 @@ function trimSide(s: Scene, part: Extract<Scene["parts"][string], { kind: "line"
     if (b.t <= 1e-9) return part.a;
     if (b.t >= 1 - 1e-9) return part.b;
     const r = drawnRef(`${id}.p${n++}`);
-    commands.push({ type: "addPart", part: { ...base, ref: r, kind: "corner", at: lift(pointAtParam(c, b.t)) } });
+    const where = lift(pointAtParam(c, b.t));
+    commands.push({ type: "addPart", part: { ...base, ref: r, kind: "corner", at: where } });
     if (b.by && (b.by.k === "seg" || b.by.k === "circle")) commands.push({ type: "addRelation", relation: { id: rid(), kind: b.by.k === "seg" ? "onLine" : "onCircle", parts: [r, b.by.ref] } as Relation });
+    commands.push(...partnersOf(s, r, where, part.plane!, new Set([part.a, part.b]), rid));
     return r;
   };
   const keep: { a: { t: number; by: Curve | null }; b: { t: number; by: Curve | null } }[] = [];
@@ -123,8 +143,10 @@ function trimArc(s: Scene, part: Extract<Scene["parts"][string], { kind: "line" 
     if (b.t <= 1e-9) return part.a;
     if (b.t >= 1 - 1e-9) return part.b;
     const r = drawnRef(`${id}.p${n++}`);
-    commands.push({ type: "addPart", part: { ...base, ref: r, kind: "corner", at: lift(pointAt(b.t)) } });
+    const where = lift(pointAt(b.t));
+    commands.push({ type: "addPart", part: { ...base, ref: r, kind: "corner", at: where } });
     if (b.by && (b.by.k === "seg" || b.by.k === "circle")) commands.push({ type: "addRelation", relation: { id: rid(), kind: b.by.k === "seg" ? "onLine" : "onCircle", parts: [r, b.by.ref] } as Relation });
+    commands.push(...partnersOf(s, r, where, part.plane!, new Set([part.a, part.b]), rid));
     return r;
   };
   const keep: { a: { t: number; by: Curve | null }; b: { t: number; by: Curve | null } }[] = [];
@@ -164,6 +186,7 @@ function trimCircle(s: Scene, part: Extract<Scene["parts"][string], { kind: "cir
   const [pa, pb] = [drawnRef(`${id}.p0`), drawnRef(`${id}.p1`)];
   commands.push({ type: "addPart", part: { ...base, ref: pa, kind: "corner", at: lift(at(hi.t)) } });
   commands.push({ type: "addPart", part: { ...base, ref: pb, kind: "corner", at: lift(at(lo.t)) } });
+  commands.push(...partnersOf(s, pa, lift(at(hi.t)), part.plane!, new Set([part.center]), rid), ...partnersOf(s, pb, lift(at(lo.t)), part.plane!, new Set([part.center]), rid));
   const arc = drawnRef(`${id}.s0`);
   commands.push({ type: "addPart", part: { ...base, ref: arc, kind: "line", a: pa, b: pb, center: part.center, ccw: true } });
   commands.push({ type: "addRelation", relation: { id: rid(), kind: "arcEnds", parts: [arc, part.center] } as Relation });

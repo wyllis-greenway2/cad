@@ -3,7 +3,7 @@ id: dec_hide_structural_constraints
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_238, in_239
+human_input: in_238, in_239, in_240
 date: 2026-11-09
 depends_on:
   - dec_sketch_follows_body: the sketch of a body stays the recipe, so what is shown of its constraints is a question about the recipe
@@ -20,7 +20,7 @@ The human, `in_238`, asked for a universal rule that hides the constraints that 
 5. **Show all:** the "Constraints" row of the ⋯ list toggles `AppState.showAllConstraints`; the History sketch button shows everything too.
 6. A figure cut into pieces is structural for any step's profile.
 
-**Not built (said so in the handoff):** giving partner corners left by trimming a coincident relation, so what is hidden is really there; a mechanical drop-and-move test for a tangent that is the only join. Relations made by the human after the extrusion have a higher id number and so show, which relies on that counter.
+**Partner corners (`in_240`):** a trim that makes a corner where another corner of the drawing already is (not a crossing the faces derived) adds a `coincident` relation between them, so what is hidden is really there (`partnersOf` in `operation/trim.ts`, tests in `test/trimpartners.test.ts`). **Not built:** the drop-and-move test for a tangent that is the only join; partner corners of drawings made before this (nothing adds them to old files). Relations made by the human after the extrusion have a higher id number and so show, which relies on that counter.
 
 Code: `structuralRelations` in `operation/ownership.ts`; `annotationsFor(..., all)` in `interaction/annotations.ts`; tests in `test/hidejoins.test.ts`. Line-to-arc tangents are now placed (they had no annotation before, so were never visible).
 
