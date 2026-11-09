@@ -44,7 +44,7 @@ import type { Entry } from "./entry.ts";
 import type { Preview } from "./tools.ts";
 import { gizmoOf, activeOp } from "./control/handles.ts";
 import type { Op } from "./operations.ts";
-import { followed, moveOffset } from "./gizmo.ts";
+import { followed, moveOffset, hasGizmo } from "./gizmo.ts";
 import { crossing } from "./boxselect.ts";
 import type { Handle } from "./gizmo.ts";
 
@@ -292,6 +292,10 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   // the arrows of a move have a number bubble on each, there as long as the arrows are (`in_215`)
   const mo = !s.tool && !s.repeat ? (s.op ?? auto) : null;
   const movingOp = mo && mo.kind === "move" && (mo.target === "body" || mo.target === "plane") ? mo : null;
+  // the number of an operation's arrow shows only when that arrow is selected (clicked or taken), or a number is being typed for it: the arrows alone stay clean (`in_238`)
+  const armed = !!s.handleSel && !!gizmo && gizmo.handles.some((h) => h.id === s.handleSel);
+  const typing = !!shownOp && (shownOp.typed !== "" || shownOp.rot.some((t) => t !== ""));
+  const numberShown = armed || typing || !!(s.drag && "handle" in s.drag);
   const flash = flashOf(s, sc, now);
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
   const gp = gridPlaneOf(s);
@@ -305,8 +309,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel,
     amber: [...focusParts(sc, sel, s.focus), ...(s.tool?.hints ?? []).flatMap((h) => h.ref ? [h.ref] : [])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, spread: s.spread },
     preview: faceShift ? previewFor(sc, s.tool) : withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
-    entry: movingOp ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
-    entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp ? moveEntries(movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
+    entry: movingOp || (shownOp && !s.tool && hasGizmo(shownOp.kind) && !numberShown) ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
+    entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
     helper: helperAt(s, gizmo),
     busy: !!s.session.outcome.kernel?.stale,
     lookHint: lookOf(sc, sel, s.cam).lookHint,
@@ -322,7 +326,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", trim: "Trim" } as const)[s.tool.kind] } : null,
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
-    gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" ? `move:${"xyz"[s.op.axis]}` : null } : null,
+    gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" ? `move:${"xyz"[s.op.axis]}` : null } : null,
     modeSwitch: gizmo && !s.repeat ? modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : null,
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
     message: s.session.message ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? "",

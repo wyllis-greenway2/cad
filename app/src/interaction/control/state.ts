@@ -28,6 +28,8 @@ export interface AppState {
   /** the point under the pointer on the hovered surface (for the ring) */
   hoverPoint: Vec3 | null;
   menu: { x: number; y: number; items: MenuItem[]; /** the world plane the pointer was over when it opened: a sketch tool chosen from it turns to that plane */ plane?: Ref | null } | null;
+  /** the arrow (or ring) of an operation that is selected (`in_238`): a click on it or taking it; only a selected arrow shows its number, so the arrows alone stay clean */
+  handleSel: string | null;
   /** the rectangle of a drag select (`in_230`, `in_235`): the left button was held still, then dragged without letting up */
   box: { x0: number; y0: number; x: number; y: number; shift: boolean } | null;
   /** the list open from the ⋯ menu (`in_132`) */
@@ -62,7 +64,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, handleSel: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.

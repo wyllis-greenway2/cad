@@ -69,11 +69,11 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     // an operation whose arrow showed up by itself stays up after the drag (like one you started): push / pull, extrude, fillet / chamfer go on until you click away; a body's move arrows end with the drag
     if (!s.op && s.repeat) {
       // a handle of the repeat being set up: it sets the repeat's numbers, nothing is made by the drag
-      return { ...s, repeat: { ...s.repeat, chosen: h!.id }, drag: { handle: d, base: patternBase(s.repeat.op, h!.id), repeat: true }, gizmoHover: h!.id };
+      return { ...s, handleSel: h!.id, repeat: { ...s.repeat, chosen: h!.id }, drag: { handle: d, base: patternBase(s.repeat.op, h!.id), repeat: true }, gizmoHover: h!.id };
     }
     const started = s.op ?? activeOp(s)!;
     const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" ? { ...started, auto: false } : started;
-    s = { ...s, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
+    s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
   }
   if ("corner" in s.drag!) return moveCorner(s, i, env);
   if ("handle" in s.drag! && s.drag.repeat && s.repeat) {

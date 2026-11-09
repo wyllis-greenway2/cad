@@ -145,7 +145,7 @@ test("body: a switch icon by the move arrows goes to turning and by the rings ba
   st = reduce(st, { type: "begin", name: "rotate" }, env);
   const f2 = frameOf(st, { w: 800, h: 600 });
   assert.equal(f2.modeSwitch?.to, "move", "by the rings: a way back to moving");
-  assert.equal(f2.entry!.fields[0]!.label, "Z", "Z is chosen to begin with and its angle is shown before anything is dragged");
+  assert.equal(f2.entry, null, "no angle is shown until a ring is selected (`in_238`)");
   assert.equal(f2.gizmo!.chosen, "rot:z");
   // a click on the X ring chooses X
   const pr = projector(st.cam, 800, 600);

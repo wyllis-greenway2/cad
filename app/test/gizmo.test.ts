@@ -40,6 +40,18 @@ const select = (st: AppState, refs: string[]): AppState => ({ ...st, session: { 
 const click = (st: AppState, x: number, y: number) => reduce(st, { type: "click", x, y, count: 1, shift: false }, env);
 const px = (st: AppState, p: Vec3) => projector(st.cam, env.w, env.h).project(p);
 /** Press at `from` (a 3D point), move to `to`, let go: what a drag of a handle looks like to the controller. */
+/** A click on an arrow (or a ring) of the operation's handles: it is selected and shows its number (`in_238`). */
+function pickArrow(st: AppState, id?: string): AppState {
+  const hs = gizmoOf(st)!.handles;
+  const h = hs.find((x) => !id || x.id === id)!;
+  // the spot of it furthest from the other handles (the rings cross one another)
+  const others = hs.filter((x) => x !== h).flatMap((x) => x.points.map((q) => px(st, q)));
+  const spots = h.kind === "arc" ? h.points : [scale(add(h.points[0]!, h.points.at(-1)!), 0.5)];
+  const far = (q: Vec3) => Math.min(...others.map((o) => Math.hypot(o[0] - px(st, q)[0], o[1] - px(st, q)[1])), 1e9);
+  const at = spots.reduce((b, q) => (far(q) > far(b) ? q : b));
+  const [x, y] = px(st, at);
+  return reduce(st, { type: "click", x, y, count: 1, shift: false }, env);
+}
 function drag(st: AppState, from: Vec3, to: Vec3, steps = 4): AppState {
   const [x0, y0] = px(st, from);
   const [x1, y1] = px(st, to);
@@ -332,6 +344,8 @@ test("a drawn figure moves and turns like an object: X Y Z arrows, X Y Z rings a
   st = select(st, [faceRef()]);
   st = reduce(st, { type: "begin", name: "rotate" }, env);
   assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot"]);
+  assert.equal(frame(st).entry, null, "no number until a ring is selected");
+  st = pickArrow(st, "rot:z");
   assert.deepEqual(frame(st).entry!.fields.map((f) => [f.label, f.value]), [["Z", "0"]], "only the axis that is chosen shows, Z to begin with (`in_194`)");
   st = reduce(st, { type: "entry", field: 2, text: "90" }, env);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
@@ -342,6 +356,7 @@ test("a drawn figure moves and turns like an object: X Y Z arrows, X Y Z rings a
   near(Math.max(...ys) - Math.min(...ys), 40, 0.01);
   st = select({ ...st, op: null }, [faceRef()]);
   st = reduce(st, { type: "begin", name: "rotate" }, env);
+  st = pickArrow(st, "rot:z");
   assert.deepEqual(frame(st).entry!.fields.map((f) => [f.label, f.value]), [["Z", "90"]], "it shows how the figure is turned now about the chosen axis");
   // turn it up on its edge about X: it stands on end, its plane turns with it
   st = reduce(st, { type: "entry", field: 0, text: "90" }, env);
@@ -414,6 +429,8 @@ test("after a pull the arrow stays on the new face and the value stays (the whol
   const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20)!;
   st = select(st, [top.ref]);
   st = reduce(st, { type: "begin", name: "pushpull" }, env);
+  assert.equal(frame(st).entry, null, "no number until the arrow is selected");
+  st = pickArrow(st);
   assert.equal(frame(st).entry!.fields[0]!.value, "20", "the bubble shows the size: the block is 20 thick");
   const g0 = gizmoOf(st)!.handles[0]!;
   const mid0 = scale(add(g0.points[0]!, g0.points[1]!), 0.5);
@@ -483,6 +500,8 @@ test("rotation shows only the angle about the chosen axis (Z to begin with; the 
   let st = select(box(), [BODY_OBJECT]);
   st = reduce(st, { type: "begin", name: "rotate" }, env);
   const fields = (s: AppState) => frame(s).entry!.fields.map((f) => [f.label, f.value]);
+  assert.equal(frame(st).entry, null, "no number until a ring is selected");
+  st = pickArrow(st, "rot:z");
   assert.deepEqual(fields(st), [["Z", "0"]]);
   // turn it 90 degrees about Z by typing it in the Z field
   st = reduce(st, { type: "entry", field: 2, text: "90" }, env);
@@ -490,6 +509,7 @@ test("rotation shows only the angle about the chosen axis (Z to begin with; the 
   near(bbox(st).max[0]! - bbox(st).min[0]!, 20, 0.05);
   near(bbox(st).max[1]! - bbox(st).min[1]!, 40, 0.05);
   st = reduce(st, { type: "begin", name: "rotate" }, env);
+  st = pickArrow(st, "rot:z");
   assert.deepEqual(fields(st), [["Z", "90"]], "it shows how it is turned now");
   // choose X and set it on its own to 30: Z stays 90
   st = reduce(st, { type: "look", plane: "X" }, env);
@@ -497,6 +517,7 @@ test("rotation shows only the angle about the chosen axis (Z to begin with; the 
   st = reduce(st, { type: "entry", field: 0, text: "30" }, env);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   st = reduce(st, { type: "begin", name: "rotate" }, env);
+  st = pickArrow(st, "rot:z");
   assert.deepEqual(fields(st), [["Z", "90"]]);
   st = reduce(st, { type: "look", plane: "X" }, env);
   assert.deepEqual(fields(st), [["X", "30"]]);
@@ -620,6 +641,8 @@ test("the arrow of a selected face has its size bubble at once; typing a size ma
   const faceAt = (n: Vec3, off: number) => Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && Math.abs(dot(normalOf(p), n) - 1) < 1e-6 && Math.abs(dot(p.at, n) - off) < 1e-3)!.ref;
   st = select(st, [faceAt([1, 0, 0], 40)]);
   assert.ok(frame(st).gizmo, "the arrow shows by itself");
+  assert.equal(frame(st).entry, null, "without a number until it is selected (`in_238`)");
+  st = pickArrow(st);
   assert.equal(frame(st).entry!.fields[0]!.value, "40", "and the bubble says how thick the block is across that face");
   st = reduce(st, { type: "entry", field: 0, text: "20" }, env);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
@@ -776,6 +799,7 @@ test("a curved surface says what its number is: Ø for the diameter of a round p
   const bore = Object.values(sc.parts).find((p) => p.kind === "plane" && p.curved)!;
   let st: AppState = { ...createState(s), cam: homeCamera() };
   st = select(st, [bore.ref]);
+  st = pickArrow(st);
   const f = frame(st).entry!.fields[0]!;
   assert.equal(f.short, "Ø");
   assert.equal(f.label, "Diameter");
@@ -1389,8 +1413,12 @@ test("the lower edge of a chamfer inside a bore can be picked (it lies between t
 test("the move arrows show one number bubble, on the chosen axis, with how far the move has taken the body since it began: 0 to begin with, kept on across drags, and a number typed in it is that position (`in_230`)", () => {
   let st = select(box(), [BODY_OBJECT]);
   const bubbles = (s: AppState) => frameOf(s, { w: 800, h: 600 }).entries.map((e) => `${e.fields[0]!.short}=${e.fields[0]!.value}`);
-  assert.deepEqual(bubbles(st), ["X=0"], "one bubble, there at once, with the arrows that stand up by themselves");
+  assert.deepEqual(bubbles(st), [], "no number until an arrow is selected (`in_238`)");
+  st = pickArrow(st, "move:x");
+  assert.deepEqual(bubbles(st), ["X=0"], "one bubble, on the arrow that was selected");
   st = reduce(st, { type: "begin", name: "move" }, env);
+  assert.deepEqual(bubbles(st), [], "a move begun: the arrows alone");
+  st = pickArrow(st, "move:x");
   assert.deepEqual(bubbles(st), ["X=0"], "0 as the move begins");
   const pull = (s: AppState, i: number, by: number): AppState => {
     const g = gizmoOf(s)!;

@@ -27,6 +27,9 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   const shownPlane = shownStep ? (next.session.history.scene.parts[figureRefs(shownStep)[0] ?? ""] as { plane?: Ref | null } | undefined)?.plane ?? null : null; // (the plane the extrusion's sketch is on, now: it may have been carried with the body)
   const reveal = next.tool?.reveal ? next.tool.plane : shownPlane;
   if ((next.session.reveal ?? null) !== reveal) next = { ...next, session: { ...next.session, reveal } };
+  if (next.handleSel && (i.type === "begin" || i.type === "runAction")) next = { ...next, handleSel: null }; // (a new operation starts with its arrows alone)
+  // a selected arrow stays selected while what it belongs to does: not when the selection changes or the operation ends (`in_238`)
+  if (next.handleSel && (!next.op && !next.repeat && next.session.click.selection.join("|") !== s.session.click.selection.join("|") || (s.op && !next.op && !next.repeat) || (s.repeat && !next.repeat))) next = { ...next, handleSel: null };
   const c = next.session.conflict;
   return c && c !== s.session.conflict ? { ...next, flash: { ...c, at: env.now } } : next;
 }
