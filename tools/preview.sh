@@ -3,7 +3,7 @@
 # Usage:  bash ~/Documents/cad/tools/preview.sh [app|prototype]     default: app
 #         LAN=1 bash ~/Documents/cad/tools/preview.sh          also reachable from a phone on the same Wi-Fi
 #         app (the clean engine, default), or a prototype: cad-ui (frozen), sketch-extrude, kernel-slice
-#         DEMO=0 starts the app empty (default: with the demo box)
+#         DEMO=1 starts the app with the demo box (default: empty)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 arg="${1:-app}"
@@ -20,7 +20,7 @@ open_path="/"
 dir="prototypes/$proto"
 if [ "$arg" = "app" ]; then
   dir="app"
-  [ "${DEMO:-1}" = "0" ] || open_path="/?demo=box"
+  if [ "${DEMO:-0}" = "1" ]; then open_path="/?demo=box"; fi
 fi
 
 echo "Preview: $arg  |  commit $(git log -1 --format='%h %s')"

@@ -50,7 +50,7 @@ const nearer = (l: { a: readonly number[]; b: readonly number[]; dir: readonly n
 export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array }
 
 /** Every straight line and circle of the scene, whatever its origin, as flat pairs of points: the one list that all the lines are drawn from. */
-function linePairs(s: Scene, skip: Set<Ref>): number[] {
+function linePairs(s: Scene, skip: ReadonlySet<Ref>): number[] {
   const get = lookup(s);
   const out: number[] = [];
   for (const p of Object.values(s.parts)) {

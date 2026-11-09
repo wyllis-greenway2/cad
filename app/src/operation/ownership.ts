@@ -70,15 +70,33 @@ function revealedOn(s: Scene): (r: Ref) => boolean {
 }
 
 
-export function consumed(s: Scene): Set<Ref> {
+/**
+ * What the extrusions have used up. Worked out once for a scene (a scene is never changed, a change makes a new one) and shared: it is asked for many times in one picture, by what is drawn,
+ * what is picked, what is suggested, and working it out walks every face (`in_246`: it was 60 % of the time of a frame on a sketch with a few dozen curves). Callers must not change the set.
+ */
+export function consumed(s: Scene): ReadonlySet<Ref> {
   const all = consumedAll(s);
   if (!s.reveal) return all;
   const hide = revealedOn(s);
-  for (const r of [...all]) if (hide(r)) all.delete(r);
-  return all;
+  const shown = revealedMemo.get(s);
+  if (shown) return shown;
+  const some = new Set(all);
+  for (const r of all) if (hide(r)) some.delete(r);
+  revealedMemo.set(s, some);
+  return some;
 }
+const consumedMemo = new WeakMap<Scene, Set<Ref>>();
+const revealedMemo = new WeakMap<Scene, Set<Ref>>();
 
 function consumedAll(s: Scene): Set<Ref> {
+  const known = consumedMemo.get(s);
+  if (known) return known;
+  const made = consumedFresh(s);
+  consumedMemo.set(s, made);
+  return made;
+}
+
+function consumedFresh(s: Scene): Set<Ref> {
   const out = new Set<Ref>();
   for (const st of s.steps) {
     if (st.type !== "extrude") continue;

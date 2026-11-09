@@ -1212,3 +1212,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_245 — 2026-11-09 — directive
 > okay excellent. now one other thing I noticed, whas it is displaying the highlighted enclosed sketch really oddly in this model
 (with the model `578b9def-model.cad_26.json`, the state snapshot `22c5b11d-cad-state-2026-11-09T21-55-06.json` and a screenshot: the teal fill of an enclosed sketch between two arcs has a white wedge cut out of it)
+
+## in_246 — 2026-11-09 — directive
+> yes, make it start empty by default. Okay it is really laggy with this model. Can you see why? and see if there is anything we can do to make it run smoother? Is it just hardware limitation? or is our code too graphics hungry?
+(with the model `859d804d-model.cad_27.json` and the state snapshot `f6647d0a-cad-state-2026-11-09T22-59-23.json`; answers "yes" to starting empty by default instead of with the demo box, `tools/preview.sh`)

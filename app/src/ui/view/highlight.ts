@@ -142,7 +142,8 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
   };
   // the middle of a circle or an arc is always shown: a small dot, so it can be picked to line the curve up with other things (`in_159`)
   const dots = new Set<Ref>();
-  for (const p of Object.values(s.parts)) if (p.origin === "drawn" && ((p.kind === "circle") || (p.kind === "line" && p.center)) && p.center && !consumed(s).has(p.ref)) dots.add(p.center);
+  const spent = consumed(s);
+  for (const p of Object.values(s.parts)) if (p.origin === "drawn" && ((p.kind === "circle") || (p.kind === "line" && p.center)) && p.center && !spent.has(p.ref)) dots.add(p.center);
   for (const c of dots) { const q = get(c); if (q && q.kind === "corner") overlay.add(sphereAt(q.at, unit * settings.pick.vertexScale * 0.7, 0x2b2b2d, true)); }
   for (const r of h.amber ?? []) mark(r, "amber");
   for (const r of h.red?.refs ?? []) mark(r, "red");
