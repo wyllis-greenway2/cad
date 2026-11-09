@@ -108,6 +108,16 @@ export interface Frame {
 
 /** While an operation's number is being set, the scene as it would be after it: the real result (a gray body, a cut, a round) and not a sketch of it. Remembered for the same command. */
 let previewProblem: string | null = null;
+/**
+ * The session as it was before the step the open operation made (the operation's value is the whole of what it did, so it is shown on that). Taking the step back can mean solving the sketch's constraints again,
+ * so it is done once for a session and not once for every picture while the view is turned with the arrow still open (`in_247`: 100 ms a picture on a sketch of a hundred constraints).
+ */
+const undoneMemo = new WeakMap<Session, Session>();
+function undone(session: Session): Session {
+  let u = undoneMemo.get(session);
+  if (!u) { u = undoLast(session); undoneMemo.set(session, u); }
+  return u;
+}
 let memo: { history: Session["history"]; outcome: Session["outcome"]; key: string; value: { scene: Scene; outcome: CompileOutcome } | null } | null = null;
 let gpuBase: { history: Session["history"]; outcome: Session["outcome"]; made: boolean; value: { scene: Scene; outcome: CompileOutcome } } | null = null;
 /** The step the last drag of a whole-body motion was (its matrix and how many steps came before it): while the kernel is still working its result out, that is what the stale picture is moved by (`in_216`). */
@@ -215,7 +225,7 @@ function prismNew(s: AppState, op: Op, base: Session): { wait: true } | { face: 
 function gpuMotion(s: AppState): { matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome } } | null {
   const op = s.op;
   if (!op) return null;
-  const base = op.made ? undoLast(s.session) : s.session;
+  const base = op.made ? undone(s.session) : s.session;
   const en = edgeNew(s, op, base) ?? prismNew(s, op, base);
   if (en) {
     if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
@@ -248,7 +258,7 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
   // the operation being set up, else the repeat being set up (what it would make shows while its numbers are set)
   const op = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
   if (!op) return null;
-  const base = op.made ? undoLast(s.session) : s.session; // a step already made for this operation is replaced by what is being dragged
+  const base = op.made ? undone(s.session) : s.session; // a step already made for this operation is replaced by what is being dragged
   const cmd: Command | null = opCommand(sceneOf(base), op, { preview: true });
   if (!cmd) return null;
   const key = JSON.stringify([cmd, op.made]);

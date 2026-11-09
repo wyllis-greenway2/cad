@@ -1216,3 +1216,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_246 — 2026-11-09 — directive
 > yes, make it start empty by default. Okay it is really laggy with this model. Can you see why? and see if there is anything we can do to make it run smoother? Is it just hardware limitation? or is our code too graphics hungry?
 (with the model `859d804d-model.cad_27.json` and the state snapshot `f6647d0a-cad-state-2026-11-09T22-59-23.json`; answers "yes" to starting empty by default instead of with the demo box, `tools/preview.sh`)
+
+## in_247 — 2026-11-09 — directive
+> it feels much smoother now, except if you pull the face up, then keep the arrow active and not click out, and rotate around it is really laggy again.
