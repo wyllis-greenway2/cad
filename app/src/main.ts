@@ -80,7 +80,8 @@ const menu = createMenu(document.body, (id) => {
     const next = nextScrollMode(recognizer.scrollMode);
     recognizer.setScrollMode(next);
     webStore.set(SCROLL_KEY, next);
-  } else if (id === "share") shareState();
+  } else if (id === "constraints") dispatch({ type: "runAction", id: "constraints" });
+  else if (id === "share") shareState();
   else if (id === "save" || id === "open") dispatch({ type: id });
   else if (id === "bodies" || id === "history") dispatch({ type: "panel", name: id });
   else if (id === "undo" || id === "redo") dispatch({ type: id });
@@ -149,7 +150,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds the same operations as the ring, in groups, above the settings: `in_148`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, rowsOf(state.menu?.items ?? []), appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length })); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, rowsOf(state.menu?.items ?? []), appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length }, state.showAllConstraints)); }
     else { menu.hide(); ring.show(i.x, i.y, state.menu?.items ?? []); }
   } else {
     // pointing around does not close a menu; any other intent does

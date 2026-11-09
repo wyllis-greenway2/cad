@@ -9,7 +9,7 @@ import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize, mid, length } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { lookup } from "../operation/scene.ts";
-import { buildMap } from "../operation/ownership.ts";
+import { buildMap, structuralRelations } from "../operation/ownership.ts";
 import { sketchOfEdge } from "../operation/edgesource.ts";
 import type { Lookup } from "../operation/part.ts";
 import { pointOf, segmentOf, circleOf, curveMid } from "../operation/part.ts";
@@ -134,9 +134,14 @@ function place(get: Lookup, kind: string, parts: readonly Ref[]): Placed | null 
       return null;
     }
     case "tangent": {
-      // where the line touches the circle: the foot of the circle's centre on the line
+      // where the line touches the circle or the arc: the foot of its centre on the line (an arc is a line part that has a centre: the straight one is the other)
       const c = circles[0] ? circleOf(get, circles[0]) : null;
-      return s1 && c ? { at: footOn(c.center, s1[0], s1[1]), lines: [] } : null;
+      const isArc = (r: Ref) => { const l = get(r); return l?.kind === "line" && !!l.center; };
+      const arc = lines.map((r) => get(r)).find((l) => l?.kind === "line" && !!l.center);
+      const arcCentre = arc?.kind === "line" && arc.center ? pt(arc.center) : null;
+      const straight = seg(lines.find((r) => !isArc(r)));
+      const centre = c ? c.center : arcCentre;
+      return straight && centre ? { at: footOn(centre, straight[0], straight[1]), lines: [] } : null;
     }
     case "onCircle": case "onLine":
       return c1 ? { at: c1, lines: [] } : null;
@@ -163,11 +168,11 @@ function annotationOf(scene: Scene, rel: Scene["relations"][number], sel: readon
 }
 
 /** What each selected part has applied, one annotation per constraint (a constraint between two selected parts is shown once), then the measure of the selection that could be locked. */
-export function annotationsFor(scene: Scene, selection0: readonly Ref[], focus: string | null): Annotation[] {
+export function annotationsFor(scene: Scene, selection0: readonly Ref[], focus: string | null, all = false): Annotation[] {
   // an edge of the body that lies where a sketch part was says what that part says (its radius, its constraints), and its numbers are shown on the edge (`in_209`)
   const src = selection0.length === 1 ? sketchOfEdge(scene, selection0[0]!) : null;
   const selection = src ? [src.ref] : selection0;
-  const base = annotationsOf0(scene, selection, focus);
+  const base = annotationsOf0(scene, selection, focus, all);
   const out0 = [...base, ...(src && !base.some((a) => a.kind === "radius") ? arcRadius(scene, src.ref) : [])];
   return src ? out0.map((a) => ({ ...a, at: add(a.at, src.shift), lines: a.lines.map((ln) => ln.map((q) => add(q, src.shift))) })) : out0;
 }
@@ -180,7 +185,8 @@ function arcRadius(scene: Scene, ref: Ref): Annotation[] {
   if (c?.kind !== "corner" || a?.kind !== "corner" || !m) return [];
   return [{ id: "radius", relationId: null, kind: "radius", label: "Radius", at: m, symbol: "R", value: Math.round(Math.hypot(...sub(a.at, c.at)) * 1e4) / 1e4, unit: "mm", locked: false, editable: false, readOnly: true, broken: false, open: false, others: [], lines: [] }];
 }
-function annotationsOf0(scene: Scene, selection: readonly Ref[], focus: string | null): Annotation[] {
+function annotationsOf0(scene: Scene, selection: readonly Ref[], focus: string | null, all: boolean): Annotation[] {
+  const hidden = all ? new Set<string>() : structuralRelations(scene); // (the joins of a body's outline are not shown unless all are asked for, `in_239`)
   const sel = selection.filter((r) => isPart(scene, r)); // planes, faces and the body have no constraints of their own
   const map = buildMap(scene);
   // what a selected line or circle has applied includes what its end points and centre have (a coincident, a point on a circle): selecting the part always shows its constraints (`in_195`)
@@ -190,7 +196,7 @@ function annotationsOf0(scene: Scene, selection: readonly Ref[], focus: string |
     if (p?.kind === "line") [p.a, p.b, ...(p.center ? [p.center] : [])].forEach((c) => scope.add(c));
     else if (p?.kind === "circle") scope.add(p.center);
   }
-  const out = scene.relations.filter((rel) => rel.kind !== "arcEnds" && rel.parts.some((p) => scope.has(p))).map((rel) => annotationOf(scene, rel, sel, focus, map)).filter((a): a is Annotation => !!a);
+  const out = scene.relations.filter((rel) => rel.kind !== "arcEnds" && !hidden.has(rel.id) && rel.parts.some((p) => scope.has(p))).map((rel) => annotationOf(scene, rel, sel, focus, map)).filter((a): a is Annotation => !!a);
   const m = measureOf(scene, selection);
   const r = radiusOf(scene, selection);
   return [...out, ...(m ? [m] : []), ...(r ? [r] : [])];

@@ -195,8 +195,8 @@ test("the frame says what to draw: the cursor, the body, the selection; the smal
 });
 
 test("the menu always ends with the lists, save, open, share state and the scroll mode, which cycles", () => {
-  assert.deepEqual(appRows("auto").map((r) => r.id), ["undo", "redo", "bodies", "history", "save", "open", "share", "scrollMode"]);
-  assert.match(appRows("pan")[7]!.label, /always pans/);
+  assert.deepEqual(appRows("auto").map((r) => r.id), ["undo", "redo", "bodies", "history", "save", "open", "share", "constraints", "scrollMode"]);
+  assert.match(appRows("pan")[8]!.label, /always pans/);
   assert.deepEqual(["auto", "pan", "zoom"].map((m) => nextScrollMode(m as never)), ["pan", "zoom", "auto"]);
   assert.ok(isScrollMode("zoom") && !isScrollMode("x") && !isScrollMode(null));
 });

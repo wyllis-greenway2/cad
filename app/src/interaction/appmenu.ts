@@ -5,7 +5,7 @@ export type ScrollMode = "auto" | "pan" | "zoom";
 const NEXT: Record<ScrollMode, ScrollMode> = { auto: "pan", pan: "zoom", zoom: "auto" };
 const LABEL: Record<ScrollMode, string> = { auto: "Scroll: trackpad pans, wheel zooms", pan: "Scroll: always pans", zoom: "Scroll: always zooms" };
 
-export const appRows = (mode: ScrollMode, build = "", can: { undo: boolean; redo: boolean } = { undo: true, redo: true }): AppRow[] => [
+export const appRows = (mode: ScrollMode, build = "", can: { undo: boolean; redo: boolean } = { undo: true, redo: true }, allConstraints = false): AppRow[] => [
   { id: "undo", label: "Undo", enabled: can.undo, why: "nothing to undo" },
   { id: "redo", label: "Redo", enabled: can.redo, why: "nothing to redo" },
   { id: "bodies", label: "Bodies", enabled: true, why: null },
@@ -13,6 +13,7 @@ export const appRows = (mode: ScrollMode, build = "", can: { undo: boolean; redo
   { id: "save", label: "Save", enabled: true, why: null },
   { id: "open", label: "Open…", enabled: true, why: null },
   { id: "share", label: "Share state (a file to send for a bug report)", enabled: true, why: null },
+  { id: "constraints", label: allConstraints ? "Constraints: all shown" : "Constraints: only the ones that can change the body", enabled: true, why: null },
   { id: "scrollMode", label: LABEL[mode], enabled: true, why: null },
   ...(build ? [{ id: "build", label: `Build ${build}`, enabled: false, why: "which version of the app this page is running" }] : []),
 ];

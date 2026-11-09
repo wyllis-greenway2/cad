@@ -77,7 +77,8 @@ test("an edge of the body that lies where a sketch part was shows its radius and
   const outer = found.find((x) => x.src!.ref === "d/e_015.s0")!;
   const notes = annotationsFor(sc, [outer.e.ref], null);
   assert.ok(notes.some((a) => a.symbol === "R" || a.symbol === "Ø" || a.kind === "radius"), notes.map((a) => a.kind).join());
-  assert.ok(notes.some((a) => a.relationId === "r_016" || a.relationId === "r_017"), "the points on lines it carries");
+  assert.ok(!notes.some((a) => a.relationId === "r_016" || a.relationId === "r_017"), "the points on lines only join the outline: not shown (`in_239`)");
+  assert.ok(annotationsFor(sc, [outer.e.ref], null, true).some((a) => a.relationId === "r_016" || a.relationId === "r_017"), "but shown when all constraints are asked for");
   const straight = (Object.values(sc.parts) as Part[]).filter((p) => p.kind === "line" && p.origin === "body" && !p.mid && !p.circle && sketchOfEdge(sc, p.ref));
   assert.ok(straight.length >= 2, `${straight.length} straight edges with a sketch behind them`);
 });

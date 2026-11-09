@@ -108,3 +108,23 @@ function consumedAll(s: Scene): Set<Ref> {
   }
   return out;
 }
+
+const JOINS = new Set(["coincident", "onLine", "onCircle", "arcEnds"]);
+const numberOf = (id: string): number => { const m = /_(\d+)$/.exec(id); return m ? Number(m[1]) : -1; };
+/**
+ * The relations that only join the pieces of the outline of a sketch a body was made from (`in_238`, `in_239`, `dec_hide_structural_constraints`): a coincident, a corner on a line or a circle, an arc's ends
+ * about its centre, among parts of an extruded profile, made before the extrusion (while the outline was drawn). They hold, and the outline is not an outline without them, so they are not offered to be
+ * changed; the dimensions, the tangents and everything that ties the profile to something outside it are. Relations made on the sketch afterwards by the human are not here: they were put there on purpose.
+ */
+export function structuralRelations(s: Scene): Set<string> {
+  const profile = consumedAll(s);
+  const out = new Set<string>();
+  if (!profile.size) return out;
+  const firstStep = Math.min(...s.steps.filter((st) => st.type === "extrude").map((st) => numberOf(st.id)).filter((n) => n >= 0), Infinity);
+  for (const rel of s.relations) {
+    if (!JOINS.has(rel.kind) || !rel.parts.every((p) => profile.has(p))) continue;
+    const n = numberOf(rel.id);
+    if (n < 0 || n < firstStep) out.add(rel.id); // (a name with no number, as in a hand-made test, counts as made with the outline)
+  }
+  return out;
+}

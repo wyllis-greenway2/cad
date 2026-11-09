@@ -1186,3 +1186,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > 
 > Also how about constraints? I think there are a bunch of constraint types that are basically no longer available to change once a sketch is a body right? Like for example look at this body. When you select the srtaight edges it says the they are conincident and on line with the circles edges. If this werent true, then it wouldn't be a valid body at all. Is there some universal always true rule we could apply so that you can still modify and see constraints that could modify the body but in true ways, and just hide constraints that must be true and are basically not optional (once in a body only because a sketch or 0 thickness non extruded body can be in an open state, it just isn't extrudable. But once it is extruded, I think that tells us something about what would should display for editable constraints. What do you think? Are there edge cases or scenarios where this isn't true and it could come back to bite us?
 (with the model `f44b455e-model.cad_24`: a rounded shape made of three circles and the lines tangent to them, extruded 26.5, then moved)
+
+## in_239 — 2026-11-09 — approval
+> yes, build the structural constraint hiding that way
+(approves `q_hide_structural_constraints` as recommended)
