@@ -45,6 +45,19 @@ export function basis(c: Camera): { forward: Vec3; right: Vec3; up: Vec3 } {
 }
 
 /**
+ * The world axes a straight (orthographic) view is looking along (`normal`, the one pointing at the eye) and the one that runs across the screen (`right`); null when the view is not square on to an axis.
+ * What an operation starts with, so that it works in the plane being looked at and not towards the camera (`in_244`).
+ */
+export function viewAxes(c: Camera): { normal: 0 | 1 | 2; right: 0 | 1 | 2 } | null {
+  if (!c.straight) return null;
+  const { forward, right } = basis(c);
+  const big = (v: Vec3, skip = -1): 0 | 1 | 2 => { let m = -1; for (let i = 0; i < 3; i++) if (i !== skip && (m === -1 || Math.abs(v[i]!) > Math.abs(v[m]!))) m = i; return m as 0 | 1 | 2; };
+  const normal = big(forward);
+  if (Math.abs(forward[normal]!) < 0.99) return null;
+  return { normal, right: big(right, normal) };
+}
+
+/**
  * Orbit by (dAz, dEl). With a pivot (the middle of the model in view) the camera turns about the pivot and the pivot stays exactly where it is on the screen:
  * its position in the camera's frame is kept, so there is no auto re-centring (`in_081`, `in_082`).
  */

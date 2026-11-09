@@ -13,7 +13,7 @@ import { createState, reduce } from "../src/interaction/controller.ts";
 import type { AppState } from "../src/interaction/controller.ts";
 import { drawSquaredRectangle, drawCircle, drawChain } from "../src/operation/build.ts";
 import { nextId } from "../src/operation/scene.ts";
-import { projector, homeCamera } from "../src/interaction/camera.ts";
+import { projector, homeCamera, lookStraight } from "../src/interaction/camera.ts";
 import { gizmoOf } from "../src/interaction/control/handles.ts";
 import { edgeDirection, paramOnLine, hitHandle } from "../src/interaction/gizmo.ts";
 import { frameOf } from "../src/interaction/frame.ts";
@@ -25,6 +25,8 @@ import { entryOf } from "../src/interaction/entry.ts";
 await kernel.init();
 const XY = worldRef("XY");
 const env = { w: 800, h: 600, now: 0 };
+/** Leave the operation that is open, keeping what it made (Enter applies, `in_244`; Esc would take it back), or clear the selection with none open. */
+const leave = (st: AppState): AppState => reduce(st, st.op || st.repeat ? { type: "typed", key: "Enter", shift: false } : { type: "escape" }, env);
 const near = (a: number, b: number, tol = 1e-3) => assert.ok(Math.abs(a - b) <= tol, `${a} vs ${b}`);
 const nearV = (a: readonly number[], b: readonly number[], tol = 1e-3) => a.forEach((x, i) => near(x, b[i]!, tol));
 
@@ -115,7 +117,7 @@ test("a drag that does not start on a handle turns the camera; a click on a hand
   assert.deepEqual(selection(st.session), [], "and lets go of the selection like any click on nothing");
   st = select(box(), [BODY_OBJECT]);
   st = reduce(st, { type: "begin", name: "move" }, env);
-  st = reduce(st, { type: "escape" }, env);
+  st = leave(st);
   assert.equal(st.op, null, "Esc does too");
 });
 
@@ -257,7 +259,7 @@ test("a closed figure shows the arrow to pull it out; the same arrow on a flat f
   st = drag(st, mid, add(mid, [0, 0, 12]));
   near(st.session.outcome.kernel!.volume!, 40 * 20 * 12, 0.5);
   assert.deepEqual(selection(st.session), [], "after an extrude nothing is selected");
-  st = reduce(st, { type: "escape" }, env); // leave the extrude
+  st = leave(st); // leave the extrude
   // the top face of the new body: push it in 5 (cut) and pull it out 3 (add)
   const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 12)!;
   st = select(st, [top.ref]);
@@ -857,10 +859,13 @@ test("a linear repeat of the body: one copy to begin with, a helper bubble on th
   assert.deepEqual(bubbles(st), [["2"]], "typing a number takes that arrow: its number only");
   st = reduce(st, { type: "entry", field: 3, text: "50" }, env);
   assert.equal(scene(st.session).steps.length, 1, "nothing is made yet");
-  // stray things do not end it: a click on nothing, Enter in a bubble
+  // a stray click on nothing does not end it
   st = reduce(st, { type: "click", x: 5, y: 5, count: 1, shift: false }, env);
-  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   assert.ok(st.repeat, "still open");
+  // Enter makes the copies and leaves it, as a right click does (`in_244`)
+  const byEnter = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(byEnter.repeat, null);
+  assert.equal(scene(byEnter.session).steps.at(-1)!.type, "pattern");
   // a right click makes the copies and leaves it
   const done = reduce(st, { type: "menu", x: 400, y: 300 }, env);
   assert.equal(done.repeat, null);
@@ -1097,7 +1102,7 @@ test("the rim of a cylinder is one edge: picking a half picks both halves, and a
   s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 20 } } });
   let st: AppState = { ...createState(s), cam: { ...homeCamera(), target: [0, 0, 10], distance: 80 } };
   const rimAt = (z: number, a: number): Vec3 => [10 * Math.cos(a), 10 * Math.sin(a), z];
-  const pick = (a: number, z: number) => { const [x, y] = px(st, rimAt(z, a)); st = reduce(reduce(st, { type: "escape" }, env), { type: "click", x, y, count: 1, shift: false }, env); return selection(st.session).map((r) => scene(st.session).parts[r]).filter((p) => p?.kind === "line"); };
+  const pick = (a: number, z: number) => { const [x, y] = px(st, rimAt(z, a)); st = reduce(leave(st), { type: "click", x, y, count: 1, shift: false }, env); return selection(st.session).map((r) => scene(st.session).parts[r]).filter((p) => p?.kind === "line"); };
   const half = pick(1, 20);
   assert.equal(half.length, 2, "both halves of the top rim are picked together");
   // pull the top up to 30
@@ -1404,7 +1409,7 @@ test("the lower edge of a chamfer inside a bore can be picked (it lies between t
   let hits = 0;
   for (const a of [2.3, 3.3, 4.3, 5.3]) {
     const [x, y] = px(st, [10 * Math.cos(a), 10 * Math.sin(a), 8]);
-    st = reduce(reduce(st, { type: "escape" }, env), { type: "click", x, y, count: 1, shift: false }, env);
+    st = reduce(leave(st), { type: "click", x, y, count: 1, shift: false }, env);
     if (selection(st.session).some((r) => { const p = scene(st.session).parts[r]; return p?.kind === "line" && p.circle && Math.abs(p.circle.radius - 10) < 1e-3 && p.circle.center[2] === 8; })) hits++;
   }
   assert.ok(hits >= 3, `the lower chamfer edge was picked at ${hits} of 4 places on the far side`);
@@ -1748,7 +1753,7 @@ test("edits of a body that has only been moved or turned since are drawn without
   st = reduce(st, { type: "entry", field: 0, text: "5" }, env);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   assert.equal(scene(st.session).steps.at(-1)!.type, "move");
-  st = reduce(st, { type: "escape" }, env);
+  st = leave(st);
   const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.at[2] === 20 && p.u[2] === 0 && p.v[2] === 0)!;
   st = reduce(select(st, [top.ref]), { type: "begin", name: "pushpull" }, env);
   st = { ...st, op: { ...st.op!, value: 7 } };
@@ -1762,7 +1767,7 @@ test("edits of a body that has only been moved or turned since are drawn without
   s2 = reduce(s2, { type: "begin", name: "move" }, env);
   s2 = reduce(s2, { type: "entry", field: 0, text: "5" }, env);
   s2 = reduce(s2, { type: "typed", key: "Enter", shift: false }, env);
-  s2 = reduce(s2, { type: "escape" }, env);
+  s2 = leave(s2);
   const side = Object.values(scene(s2.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && Math.abs(p.at[0] - 45) < 1e-6 && p.u[0] === 0 && p.v[0] === 0)!;
   s2 = reduce(select(s2, [side.ref]), { type: "begin", name: "pushpull" }, env);
   s2 = { ...s2, op: { ...s2.op!, value: 4 } };
@@ -1847,7 +1852,7 @@ test("widening the round wall of a body that was turned about tilted axes is dra
     st = reduce(st, { type: "begin", name: "rotate" }, env);
     st = reduce(st, { type: "entry", field, text: deg }, env);
     st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
-    st = reduce(st, { type: "escape" }, env);
+    st = leave(st);
     st = select(st, [BODY_OBJECT]);
   }
   assert.equal(scene(st.session).steps.filter((x) => x.type === "rotate").length >= 2, true);
@@ -2111,4 +2116,98 @@ test("a chamfer dragged to a size the kernel cannot make is not drawn by stretch
   const f = frameOf(st, { w: 800, h: 600 });
   assert.equal(f.faceShift, null, "13.5: the kernel cannot make it, so no stretched picture");
   assert.ok(/cannot be made|could not make/.test(f.message), `the reason is said: ${f.message}`);
+});
+
+test("Enter or a right click accepts the operation that is open and leaves it, what it made stays; Esc takes back everything it made since it began (`in_244`)", () => {
+  const moved = (): AppState => {
+    let st = select(box(), [BODY_OBJECT]);
+    st = reduce(st, { type: "begin", name: "move" }, env);
+    const g = gizmoOf(st)!;
+    const mid = scale(add(g.handles[0]!.points[0]!, g.handles[0]!.points[1]!), 0.5);
+    st = drag(st, mid, add(mid, [10, 0, 0]));
+    const g2 = gizmoOf(st)!;
+    const z = g2.handles[2]!;
+    const zmid = scale(add(z.points[0]!, z.points[1]!), 0.5);
+    st = drag(st, zmid, add(zmid, [0, 0, -4]));
+    nearV(bbox(st).min, [10, 0, -4]);
+    assert.ok(st.op);
+    assert.equal(frame(st).confirm?.kind, "move", "the tick and the cross are shown for it");
+    return st;
+  };
+  for (const apply of [{ type: "typed", key: "Enter", shift: false }, { type: "menu", x: 400, y: 300, button: false }] as const) {
+    const st = reduce(moved(), apply, env);
+    assert.equal(st.op, null, "left");
+    assert.equal(st.menu, null, "no ring opened");
+    nearV(bbox(st).min, [10, 0, -4]);
+    assert.equal(frame(st).confirm, null);
+  }
+  const back = reduce(moved(), { type: "escape" }, env);
+  assert.equal(back.op, null);
+  nearV(bbox(back).min, [0, 0, 0]);
+  assert.equal(scene(back.session).steps.length, 1, "both moves are taken back, the body's own step is all that is left");
+  // a repeat shows the tick and the cross too
+  const rep = reduce(select(box(), [BODY_OBJECT]), { type: "runAction", id: "op:linear" }, env);
+  assert.equal(frame(rep).confirm?.kind, "linear");
+});
+
+test("the copies a repeat of a drawn figure would make are marked as temporary (they pulse), and only while it is open (`in_244`)", () => {
+  let s = createSession(kernel);
+  const line = drawChain(scene(s), XY, [[0, 0, 0], [10, 0, 0]]); s = run(s, line.command);
+  let st = select({ ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [10, 0, 0] } }, line.lines);
+  assert.deepEqual(frame(st).highlight.temp, [], "nothing before a repeat is open");
+  st = reduce(st, { type: "runAction", id: "op:linear" }, env);
+  assert.ok(st.repeat);
+  st = reduce(st, { type: "entry", field: 0, text: "3" }, env); // three along X
+  st = reduce(st, { type: "entry", field: 1, text: "20" }, env);
+  const temp = frame(st).highlight.temp;
+  assert.ok(temp.length > 0, "the copies are marked");
+  assert.ok(temp.every((r) => !scene(st.session).parts[r]), "none of them is in the drawing yet");
+  assert.ok(!temp.includes(line.lines[0]!), "the original is not");
+  st = reduce(st, { type: "escape" }, env);
+  assert.deepEqual(frame(st).highlight.temp, [], "and nothing is marked once it is put away");
+});
+
+test("looking straight at a plane, a body's operations start in that plane: move across the screen, turn and circular repeat about the line of sight like a clock, a linear repeat across the screen (`in_244`)", () => {
+  const look = (normal: Vec3, u: Vec3): AppState => ({ ...select(box(), [BODY_OBJECT]), cam: lookStraight(homeCamera(), normal, u) });
+  // looking straight down on the XY plane (X across the screen): Z is the line of sight
+  let st = look([0, 0, 1], [1, 0, 0]);
+  assert.equal(reduce(st, { type: "begin", name: "move" }, env).op!.axis, 0, "across: X");
+  assert.equal(reduce(st, { type: "begin", name: "rotate" }, env).op!.axis, 2, "about Z");
+  assert.equal(reduce(st, { type: "runAction", id: "op:circular" }, env).repeat!.op.patStart![2], 2);
+  // looking at the front (along Y, X across): turn and circular repeat about Y, move and repeat across it along X
+  st = look([0, -1, 0], [1, 0, 0]);
+  assert.equal(reduce(st, { type: "begin", name: "rotate" }, env).op!.axis, 1);
+  assert.equal(reduce(st, { type: "runAction", id: "op:circular" }, env).repeat!.op.patStart![2], 1);
+  assert.equal(reduce(st, { type: "begin", name: "move" }, env).op!.axis, 0);
+  // from the side (along X, Y across the screen): a move and a linear repeat start along Y
+  st = look([1, 0, 0], [0, 1, 0]);
+  assert.equal(reduce(st, { type: "begin", name: "rotate" }, env).op!.axis, 0);
+  assert.equal(reduce(st, { type: "begin", name: "move" }, env).op!.axis, 1);
+  assert.equal(reduce(st, { type: "runAction", id: "op:linear" }, env).repeat!.op.along, 1);
+  assert.equal(reduce(st, { type: "runAction", id: "op:copy" }, env).repeat!.op.along, 1);
+  // not straight on: as before
+  const tilted = { ...st, cam: homeCamera() };
+  assert.equal(reduce(tilted, { type: "begin", name: "move" }, env).op!.axis, 0);
+  assert.equal(reduce(tilted, { type: "begin", name: "rotate" }, env).op!.axis, 2);
+});
+
+test("an offset begins with its arrow on the outline where the pointer was when it was chosen, so it is in sight when the view is zoomed in (`in_244`)", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 30); s = run(s, c.command);
+  const look = (target: Vec3): AppState => ({ ...select(createState(s), [c.circle]), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target, distance: 6 } });
+  // zoomed into the far left of a big circle: the arrow stands there, not at its right side (30, 0)
+  let st = look([-30, 0, 0]);
+  const [mx, my] = projector(st.cam, env.w, env.h).project([-29.5, 1.5, 0]);
+  st = reduce({ ...st, menu: { x: mx, y: my, items: [] } }, { type: "runAction", id: "op:offset" }, env);
+  assert.equal(st.op?.kind, "offset");
+  const at = st.op!.origin!;
+  assert.ok(Math.abs(Math.hypot(at[0], at[1]) - 30) < 1e-6 && Math.hypot(at[0] + 29.5, at[1] - 1.5) < 0.6, `on the circle, by the pointer: ${at}`);
+  assert.ok(st.op!.normal![0] < -0.99, "pointing out of the circle there");
+  // and the distance still offsets the circle: out is bigger
+  const out = reduce(reduce(st, { type: "typed", key: "2", shift: false }, env), { type: "typed", key: "Enter", shift: false }, env);
+  const rs = Object.values(scene(out.session).parts).filter((p) => p.kind === "circle").map((p) => (p as { radius: number }).radius).sort((a, b) => a - b);
+  assert.deepEqual(rs.map((r) => Math.round(r * 100) / 100), [30, 32]);
+  // chosen by key (no pointer): at the middle of the view, which is on the circle here
+  const keyed = reduce(look([-30, 0, 0]), { type: "runAction", id: "op:offset" }, env);
+  nearV(keyed.op!.origin!, [-30, 0, 0]);
 });

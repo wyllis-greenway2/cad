@@ -9,7 +9,7 @@ import type { Command } from "../operation/commands.ts";
 import type { Part, Plane } from "../operation/part.ts";
 import { pointOf, normalOfPlane } from "../operation/part.ts";
 import { drawChain, drawCircle } from "../operation/build.ts";
-import { bodyOutline, bodyOutlines, outlineCommand, drawnOutline } from "./offsetbody.ts";
+import { bodyOutline, bodyOutlines, outlineCommand, drawnOutline, outlineNear } from "./offsetbody.ts";
 import type { Line } from "../operation/part.ts";
 import { apply } from "../operation/commands.ts";
 import type { Outline } from "./offsetbody.ts";
@@ -137,4 +137,51 @@ export function offsetCommand(scene: Scene, src: OffsetSource, v: number): Comma
   const a = area2(corners);
   if (Math.abs(a) < 1e-6 || Math.sign(a) !== s) return null; // gone past the middle
   return drawChain(scene, src.plane, corners.map((c) => lift(pl, c)), true).command;
+}
+
+/**
+ * The offset with its arrow moved to the point of the outline nearest to `p` (where the pointer was when the operation was chosen, or the middle of the view), so it is where you are looking and not on
+ * the far side of a figure you are zoomed into (`in_244`). The distance is the same wherever the arrow stands; only where it is drawn, and the way out there, change.
+ */
+export function offsetNear(scene: Scene, src: OffsetSource, p: Vec3): OffsetSource {
+  const pl = scene.parts[src.plane];
+  if (!pl || pl.kind !== "plane") return src;
+  const n = normalOfPlane(pl);
+  const q = sub(p, scale(n, dot(sub(p, pl.at), n))); // (the pointer's place, on the plane)
+  if (src.kind === "circle") {
+    const w = sub(q, src.centre);
+    const l = Math.hypot(w[0], w[1], w[2]);
+    if (l < 1e-9) return src;
+    const dir = scale(w, 1 / l);
+    return { ...src, origin: add(src.centre, scale(dir, src.radius)), normal: dir };
+  }
+  if (src.kind === "line") {
+    const d = sub(src.b, src.a);
+    const t = Math.min(1, Math.max(0, dot(sub(q, src.a), d) / (dot(d, d) || 1)));
+    return { ...src, origin: add(src.a, scale(d, t)) };
+  }
+  if (src.kind === "loop") {
+    const P = src.pts;
+    const s = area2(P.map((x) => local(pl, x))) > 0 ? 1 : -1;
+    let best: { at: Vec3; out: Vec3; d: number } | null = null;
+    for (let i = 0; i < P.length; i++) {
+      const [a, b] = [P[i]!, P[(i + 1) % P.length]!];
+      const d = sub(b, a);
+      const t = Math.min(1, Math.max(0, dot(sub(q, a), d) / (dot(d, d) || 1)));
+      const at = add(a, scale(d, t));
+      const dist = Math.hypot(...sub(at, q));
+      if (best && dist >= best.d) continue;
+      const len = Math.hypot(...d) || 1;
+      const dl: V2 = [dot(d, pl.u) / len, dot(d, pl.v) / len];
+      best = { at, d: dist, out: add(scale(pl.u, s * dl[1]), scale(pl.v, -s * dl[0])) };
+    }
+    return best ? { ...src, origin: best.at, normal: best.out } : src;
+  }
+  if (src.kind === "outline") {
+    const r = outlineNear(scene, src, q);
+    return r ? { ...src, origin: r.origin, normal: r.normal } : src;
+  }
+  // a face with holes: the arrow goes to the nearest of its loops' edges (the loops themselves are offset together, whichever it stands on)
+  const near = src.loops.map((l) => outlineNear(scene, l, q)).filter((r): r is NonNullable<typeof r> => !!r).sort((a, b) => a.dist - b.dist)[0];
+  return near ? { ...src, origin: near.origin, normal: near.normal } : src;
 }

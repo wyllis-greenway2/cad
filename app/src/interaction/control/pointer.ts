@@ -27,7 +27,7 @@ import { paneAt } from "../panes.ts";
 import type { WorldName } from "../panes.ts";
 import { doLook } from "./viewing.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
-import { commitFigure, commitOp, setRepeatAxis, doRepeatApply, doRepeatCancel } from "./modal.ts";
+import { commitFigure, commitOp, setRepeatAxis, doApply } from "./modal.ts";
 import { doGizmoHover, gizmoOf } from "./handles.ts";
 import { hasGizmo, hitHandle } from "../gizmo.ts";
 
@@ -301,7 +301,9 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
 /** A right click opens the ring of operations on what is selected and changes nothing about the selection (`in_140`): select first (one click, a triple click, Shift for several), then right click. */
 export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>): AppState {
   // a repeat that is open (linear, circular or a copy): a right click leaves it and makes the copies; with none to make it just leaves (`in_236`)
-  if (s.repeat && !s.op && !i.button) { const made = doRepeatApply(s); return made.repeat ? doRepeatCancel(made) : made; }
+  if (!i.button && (s.repeat && !s.op)) return doApply(s);
+  // an operation that is open: a right click accepts it and leaves it, as Enter does (`in_244`)
+  if (!i.button && s.op) return doApply(s);
   // while a sketching tool is on, a right click puts it away (the ⋯ button still opens the menu): the tool stays on until then or the cancel icon (`in_193`)
   if (s.tool && !i.button) return { ...s, tool: null, resume: null, menu: null };
   return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, i.button ? null : s.session.hover) };

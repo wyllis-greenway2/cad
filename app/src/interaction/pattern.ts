@@ -22,7 +22,7 @@ const num = (s: string): number | null => {
 const middle = (pts: Vec3[]): Vec3 => scale(pts.reduce((a, p) => add(a, p), [0, 0, 0] as Vec3), 1 / Math.max(1, pts.length));
 
 /** The numbers a repeat starts with, and the middle of what is repeated: a first try that shows the idea (three along a line, four round a point). Null if there is nothing to repeat. */
-export function patternStart(scene: Scene, kind: "linear" | "circular", figure: readonly Ref[] | null): { parts: Ref[]; start: number[]; target: "body" | "plane"; /** the direction the helper bubbles stand on: the first one the thing has any size in */ along: 0 | 1 | 2 } | null {
+export function patternStart(scene: Scene, kind: "linear" | "circular", figure: readonly Ref[] | null, view: { normal: 0 | 1 | 2; right: 0 | 1 | 2 } | null = null): { parts: Ref[]; start: number[]; target: "body" | "plane"; /** the direction the helper bubbles stand on: the first one the thing has any size in */ along: 0 | 1 | 2 } | null {
   let pts: Vec3[];
   let parts: Ref[];
   let radius = 0;
@@ -46,11 +46,12 @@ export function patternStart(scene: Scene, kind: "linear" | "circular", figure: 
   const biggest = Math.max(...ext, 1);
   if (kind === "linear") {
     // one to begin with (no copy yet: the arrow past it is pulled to make one, `in_236`), spaced one and a half sizes
-    const along = Math.max(0, figure ? ext.findIndex((e, i) => e > 1e-6 && i !== normalAxis) : 0) as 0 | 1 | 2;
+    // (a body is repeated across the screen when the view is straight on to a plane, not towards the eye, `in_244`)
+    const along = (figure ? Math.max(0, ext.findIndex((e, i) => e > 1e-6 && i !== normalAxis)) : view?.right ?? 0) as 0 | 1 | 2;
     const start = [1, 0, 1, 0, 1, 0].map((v, k) => (k % 2 === 0 ? 1 : r3((ext[k >> 1]! > 1e-6 ? ext[k >> 1]! : biggest) * 1.5)));
     return { parts, start, target: figure ? "plane" : "body", along };
   }
-  const axis = figure ? normalAxis : 2;
+  const axis = figure ? normalAxis : view?.normal ?? 2; // (like a clock face seen from where you look, `in_244`)
   const c = [r3(mid[0]! + ext[0]! * 1.5), r3(mid[1]!), r3(mid[2]!)];
   return { parts, start: [4, 360, axis, c[0]!, c[1]!, c[2]!], target: figure ? "plane" : "body", along: 0 };
 }

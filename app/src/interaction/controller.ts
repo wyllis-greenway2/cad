@@ -9,7 +9,11 @@ import { doHover, doClick, doMenu, doHold } from "./control/pointer.ts";
 import { doPan, doZoom, doLook, doHome } from "./control/viewing.ts";
 import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
-import { hoverOn } from "./session.ts";
+import { hoverOn, scene as sceneOf } from "./session.ts";
+import { projector } from "./camera.ts";
+import { offsetNear } from "./offset.ts";
+import { normalOfPlane } from "../operation/part.ts";
+import { add, sub, scale, dot } from "../math/vec.ts";
 
 export { createState } from "./control/state.ts";
 export type { AppState } from "./control/state.ts";
@@ -30,8 +34,27 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (next.handleSel && (i.type === "begin" || i.type === "runAction")) next = { ...next, handleSel: null }; // (a new operation starts with its arrows alone)
   // a selected arrow stays selected while what it belongs to does: not when the selection changes or the operation ends (`in_238`)
   if (next.handleSel && (!next.op && !next.repeat && next.session.click.selection.join("|") !== s.session.click.selection.join("|") || (s.op && !next.op && !next.repeat) || (s.repeat && !next.repeat))) next = { ...next, handleSel: null };
+  // an offset starts with its arrow on the outline where you were pointing when you chose it (or at the middle of the view), not wherever the figure's own first side is: zoomed in, that could be out of sight (`in_244`)
+  if (next.op?.kind === "offset" && !s.op && next.op.off) next = { ...next, op: anchoredOffset(next, s.menu, env) };
+  // the operation that is open remembers where the history stood, so Esc can cancel what it made (`in_244`)
+  if (next.op && !s.op) next = { ...next, opBase: s.session.history.cursor };
+  else if (!next.op && next.opBase !== null) next = { ...next, opBase: null };
   const c = next.session.conflict;
   return c && c !== s.session.conflict ? { ...next, flash: { ...c, at: env.now } } : next;
+}
+
+function anchoredOffset(s: AppState, menu: AppState["menu"], env: Env): NonNullable<AppState["op"]> {
+  const op = s.op!;
+  const sc = sceneOf(s.session);
+  const pl = op.off ? sc.parts[op.off.plane] : undefined;
+  if (!op.off || !pl || pl.kind !== "plane") return op;
+  const n = normalOfPlane(pl);
+  const { o, d } = projector(s.cam, env.w, env.h).ray(menu ? menu.x : env.w / 2, menu ? menu.y : env.h / 2);
+  const den = dot(d, n);
+  if (Math.abs(den) < 1e-6) return op; // (looking along the plane: no place on it to point at)
+  const p = add(o, scale(d, dot(sub(pl.at, o), n) / den));
+  const off = offsetNear(sc, op.off, p);
+  return { ...op, off, origin: off.origin, normal: off.normal };
 }
 
 function apply(s: AppState, i: Intent, env: Env): AppState {

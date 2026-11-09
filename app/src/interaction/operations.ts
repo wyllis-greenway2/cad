@@ -133,19 +133,21 @@ function drawnFigure(scene: Scene, parts: Part[]): Ref[] {
 }
 
 /** Can this operation start from this selection? Returns the operation, or why not. */
-export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind): StartResult {
-  const r = startOpBare(scene, selection, kind);
+/** The axes the view is straight along and across (`viewAxes`): a body's move starts along the one across the screen, its turn and a circular repeat about the one at the eye, a linear repeat along the one across (`in_244`). */
+export interface ViewAxes { normal: 0 | 1 | 2; right: 0 | 1 | 2 }
+export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind, view: ViewAxes | null = null): StartResult {
+  const r = startOpBare(scene, selection, kind, view);
   if (!r.ok || r.op.kind !== "move" || (r.op.target !== "body" && r.op.target !== "plane")) return r;
   const from = moveCentre(scene, r.op);
   return from ? { ...r, op: { ...r.op, from, stepsAt: scene.steps.length } } : r;
 }
-function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind): StartResult {
+function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view: ViewAxes | null): StartResult {
   const get = lookup(scene);
   const parts = selection.map((r) => get(r)).filter((p): p is Part => !!p);
   // a piece of a figure that lines cut up shares its sides with the other pieces: it can be extruded (or offset nowhere), but moved, turned, scaled or repeated only by selecting the lines and points themselves
   // (an offset only reads the piece's outline and draws a new figure beside it, so a piece can be offset, `in_232`)
   if (["move", "rotate", "scale", "linear", "circular", "copy"].includes(kind) && parts.some((p) => p.kind === "face" && p.pieces)) return { ok: false, why: "this is one piece of a shape cut by lines, and it shares its sides with the other pieces: select the lines and points to move, turn, scale or repeat them (or extrude the piece)" };
-  const base: Omit<Op, "parts"> = { kind, typed: "", value: null, axis: kind === "rotate" ? 2 : 0, origin: null, normal: null, pivot: null, target: "body", plane: null, auto: false, made: false, rot: ["", "", ""], pat: [] };
+  const base: Omit<Op, "parts"> = { kind, typed: "", value: null, axis: kind === "rotate" ? view?.normal ?? 2 : kind === "move" ? view?.right ?? 0 : 0, origin: null, normal: null, pivot: null, target: "body", plane: null, auto: false, made: false, rot: ["", "", ""], pat: [] };
   if (kind === "offset") {
     const off = offsetSource(scene, parts);
     if (!off) return { ok: false, why: "select a closed figure (straight sides or arcs), a circle, a line or a chain of sides, or the edges (or the face) of a flat face of the body, to offset" };
@@ -260,7 +262,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind): Sta
   }
   if (kind === "copy") {
     // a copy is a repeat of two (the thing and one more beside it): the same arrows and numbers, to place the copy
-    const r = startOp(scene, selection, "linear");
+    const r = startOp(scene, selection, "linear", view);
     if (!r.ok || !r.op.patStart) return r;
     const start = r.op.patStart.map((v, i) => (i === 2 * (r.op.along ?? 0) ? 2 : v));
     return { ok: true, op: { ...r.op, patStart: start, pat: start.map(() => "") } };
@@ -271,7 +273,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind): Sta
     const figure: Ref[] | null = drawn.length ? drawn : null;
     const planes = new Set(drawn.map((r) => scene.parts[r]?.plane).filter(Boolean));
     if (planes.size > 1) return { ok: false, why: "select things that lie on one plane" };
-    const st = patternStart(scene, kind, figure);
+    const st = patternStart(scene, kind, figure, view);
     if (!st) return { ok: false, why: "select the body or something drawn first" };
     return { ok: true, op: { ...base, parts: st.parts, target: st.target, plane: [...planes][0] ?? null, patStart: st.start, pat: st.start.map(() => ""), along: st.along } };
   }

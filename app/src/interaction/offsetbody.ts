@@ -348,3 +348,35 @@ export function bodyOutlines(scene: Scene, parts: Part[]): { loops: Outline[] } 
   for (const g of groups.values()) { const o = bodyOutline(scene, g, inside); if (!o) return null; loops.push(o); }
   return { loops };
 }
+
+/** Where on the outline the arrow stands when the pointer was at `p` (a point on the plane): the nearest point of the nearest edge, and the way out there (`in_244`). */
+export function outlineNear(scene: Scene, o: Outline, p: Vec3): { origin: Vec3; normal: Vec3; dist: number } | null {
+  const pl = scene.parts[o.plane];
+  if (!pl || pl.kind !== "plane") return null;
+  const q = local(pl, p);
+  let best: { at: V2; t: number; e: Edge2; d: number } | null = null;
+  for (const e of o.edges) {
+    let t: number;
+    if (e.k === "seg") {
+      const d: V2 = [e.q[0] - e.p[0], e.q[1] - e.p[1]];
+      t = Math.min(1, Math.max(0, ((q[0] - e.p[0]) * d[0] + (q[1] - e.p[1]) * d[1]) / (d[0] * d[0] + d[1] * d[1] || 1)));
+    } else {
+      // along the arc: the angle of the pointer from the centre, as a fraction of the sweep (clamped to the arc's ends)
+      const a0 = Math.atan2(e.p[1] - e.c[1], e.p[0] - e.c[0]);
+      const a1 = Math.atan2(e.q[1] - e.c[1], e.q[0] - e.c[0]);
+      let sweep = e.ccw ? (a1 - a0 + 4 * Math.PI) % (2 * Math.PI) : -((a0 - a1 + 4 * Math.PI) % (2 * Math.PI));
+      if (Math.abs(sweep) < 1e-9) sweep = e.ccw ? 2 * Math.PI : -2 * Math.PI;
+      const ap = Math.atan2(q[1] - e.c[1], q[0] - e.c[0]);
+      const k = e.ccw ? (ap - a0 + 4 * Math.PI) % (2 * Math.PI) : (a0 - ap + 4 * Math.PI) % (2 * Math.PI);
+      t = k / Math.abs(sweep);
+      if (t > 1) t = k - Math.abs(sweep) < 2 * Math.PI - k ? 1 : 0;
+    }
+    const at = pointAt(e, t);
+    const d = Math.hypot(at[0] - q[0], at[1] - q[1]);
+    if (!best || d < best.d) best = { at, t, e, d };
+  }
+  if (!best) return null;
+  const left: V2 = [-tangent(best.e, best.t)[1], tangent(best.e, best.t)[0]];
+  const outward: V2 = [-o.side * left[0], -o.side * left[1]];
+  return { origin: lift(pl, best.at), normal: add(scale(pl.u, outward[0]), scale(pl.v, outward[1])), dist: best.d };
+}

@@ -1,6 +1,7 @@
 // Tools and operations that take typing: starting them, typed keys, finishing, cancelling; and the edits that do not depend on the pointer (delete, undo, relations).
 import type { Intent } from "../../shared/input.ts";
 import { scene as sceneOf, selection as selectionOf, run, undoLast, redoLast, clearSelection } from "../session.ts";
+import { nearCommand } from "../suggest.ts";
 import { actionsFor, measureAction } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
 import { armTool, typeKey, finish, lineNext } from "../tools.ts";
@@ -11,7 +12,7 @@ import { lookup, nextId } from "../../operation/scene.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { planeOf } from "../objects.ts";
 import { sketchOfEdge } from "../../operation/edgesource.ts";
-import { sideOf } from "../camera.ts";
+import { sideOf, viewAxes } from "../camera.ts";
 import { moveOffset } from "../gizmo.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
@@ -50,7 +51,7 @@ function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = 
   return facePlane(armed, over, now);
 }
 function beginOp(s: AppState, kind: OpKind, now = 0, over: Ref | null = null): AppState {
-  const r = startOp(sceneOf(s.session), selectionOf(s.session), kind);
+  const r = startOp(sceneOf(s.session), selectionOf(s.session), kind, viewAxes(s.cam));
   if (!r.ok) return { ...s, session: { ...s.session, message: r.why }, menu: null };
   const started: AppState = { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: null } };
   return IS_SKETCH_OP[kind] ? facePlane(started, over, now) : started;
@@ -103,7 +104,7 @@ export function doTyped(s: AppState, key: string): AppState {
     const a = autoOp(sceneOf(s.session), selectionOf(s.session));
     if (a) return { ...s, op: typeOp(a.kind === "move" ? a : { ...a, auto: false }, key) };
   }
-  if (s.repeat && !s.op) return s; // (a repeat takes its numbers in its bubbles; Enter there only leaves the box: it is applied with the button)
+  if (s.repeat && !s.op) return key === "Enter" ? doApply(s) : s; // (a repeat takes its numbers in its bubbles; Enter applies it, `in_244`)
   if (s.op && s.op.kind === "rotate" && (s.op.target === "body" || s.op.target === "plane") && key !== "Enter") {
     // typing turns the body to that angle about the axis in use (the one whose ring was dragged, X to begin with)
     const i = s.op.axis;
@@ -113,7 +114,7 @@ export function doTyped(s: AppState, key: string): AppState {
     return { ...s, op: { ...s.op, rot, value: null, typed: "" } };
   }
   if (s.op) {
-    if (key === "Enter") return commitOp(s);
+    if (key === "Enter") return doApply(s);
     const typed = typeOp(s.op, key);
     // a number typed for a move is the position along the axis since the move began: the step is what is missing (`in_230`)
     return { ...s, op: s.op.kind === "move" && s.op.typed === "" && typed.typed !== "" ? { ...typed, typedBase: moveOffset(sceneOf(s.session), s.op)[s.op.axis]! } : typed };
@@ -161,8 +162,31 @@ export function doEscape(s: AppState): AppState {
   if (s.focus && !s.tool && !s.op) return { ...s, focus: null };
   if (s.box) return { ...s, box: null };
   if (s.repeat && !s.op) return doRepeatCancel(s); // (the repeat that is open is given up, as the pill's cross used to)
-  if (s.tool || s.op) return { ...s, tool: null, op: null, drag: null, gizmoHover: null };
+  if (s.op) return cancelOp(s);
+  if (s.tool) return { ...s, tool: null, op: null, drag: null, gizmoHover: null };
   return withSession(s, clearSelection(s.session));
+}
+
+/** Esc on an operation that is open: what it made since it began (its steps) is taken back, and it is put away (`in_244`). */
+function cancelOp(s: AppState): AppState {
+  let session = s.session;
+  for (let n = 0; s.opBase !== null && session.history.cursor > s.opBase && n < 1000; n++) session = undoLast(session);
+  return { ...s, session: { ...session, message: null, conflict: null }, op: null, opBase: null, drag: null, gizmoHover: null, handleSel: null, spread: null, hoverPoint: null };
+}
+
+/**
+ * Enter, a right click, or the tick: accept what is open and leave it (`in_244`). A repeat makes its copies (with none to make it just leaves); an operation takes the number typed for it or, with none, leaves
+ * what its drags made as it is; a tool that has a figure under way makes it, else it is put away.
+ */
+export function doApply(s: AppState): AppState {
+  if (s.repeat && !s.op) { const made = doRepeatApply(s); return made.repeat ? doRepeatCancel(made) : made; }
+  if (s.op) {
+    const c = commitOp(s); // (what was typed or dragged is made; a refusal keeps the operation open with its reason; with nothing to make, it only leaves)
+    if (c !== s) return c;
+    return { ...s, op: null, drag: null, gizmoHover: null, handleSel: null };
+  }
+  if (s.tool) return s.tool.plane && s.tool.points.length ? doTyped(s, "Enter") : { ...s, tool: null, resume: null, menu: null };
+  return s;
 }
 
 export function doRunAction(s: AppState, id: string, now = 0): AppState {
@@ -178,6 +202,10 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now, s.menu?.plane ?? null);
   if (id === "op:linear" || id === "op:circular" || id === "op:copy") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular" | "copy");
   if (id.startsWith("op:")) return beginOp(closed, id.slice(3) as OpKind, now, s.menu?.plane ?? null);
+  if (id.startsWith("near:")) {
+    const cmd = nearCommand(sceneOf(s.session), selectionOf(s.session), id);
+    return cmd ? { ...withSession(s, run(s.session, cmd)), menu: null } : closed;
+  }
   const a = actionsFor(sceneOf(s.session), selectionOf(s.session)).find((x) => x.id === id);
   return a && a.enabled ? { ...withSession(s, run(s.session, a.run())), menu: null } : closed;
 }
@@ -230,7 +258,7 @@ export function doPanelRow(s: AppState, id: string, act: "select" | "remove" | "
 function doRepeatBegin(s: AppState, kind: "linear" | "circular" | "copy"): AppState {
   const say = (message: string): AppState => ({ ...s, menu: null, session: { ...s.session, message } });
   if (s.repeat) return say("apply or cancel the repeat that is open first");
-  const r = startOp(sceneOf(s.session), selectionOf(s.session), kind);
+  const r = startOp(sceneOf(s.session), selectionOf(s.session), kind, viewAxes(s.cam));
   if (!r.ok) return say(r.why);
   let session = s.session;
   let pivot = null;

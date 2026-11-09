@@ -105,7 +105,7 @@ const busySign = createBusy(document.body);
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch({ type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
-const toolChip = createToolChip(document.body, () => dispatch({ type: "escape" }));
+const toolChip = createToolChip(document.body, () => dispatch({ type: "escape" }), () => dispatch({ type: "typed", key: "Enter", shift: false }));
 const controls = createControls(document.body, {
   menu: (x, y) => dispatch({ type: "menu", x, y, button: true }),
   look: (plane) => dispatch({ type: "look", plane }),
@@ -223,7 +223,7 @@ function frame(now: number) {
     view.setGizmo(f.gizmo, state.cam);
     view.setPanes(f.panes);
     view.setBodyFade(f.fadeBody);
-    toolChip.update(f.tool);
+    toolChip.update(f.tool, f.confirm);
     toolCursor.update(f.tool ? f.tool.kind : null);
     const project = projector(state.cam, size.w, size.h).project;
     bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid);
@@ -257,7 +257,7 @@ function frame(now: number) {
     timing.add("frame: all", tEnd - tFrame);
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);
     statusEl.textContent = f.message;
-    dirty = !!f.flash || working; // keep drawing while a refused change flashes, or the "working" sign turns
+    dirty = !!f.flash || working || !!f.highlight.temp?.length; // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
   }
   requestAnimationFrame(frame);
 }
