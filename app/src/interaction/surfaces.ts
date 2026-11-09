@@ -65,7 +65,7 @@ export function surfaceTriangles(get: Lookup, p: Part): number[] | null {
   if (holes.length) {
     const outer = shape(p);
     if (!outer) return null;
-    const merged = withHoles2d(outer, holes);
+    const merged = withHoles2d(outer, joinTouching(holes));
     return triangulate(merged).flatMap((i) => [...lift(merged[i]![0], merged[i]![1])]);
   }
   let poly: [number, number][];
@@ -78,6 +78,45 @@ export function surfaceTriangles(get: Lookup, p: Part): number[] | null {
     poly = loopPoints(get, p.loop, p.corners).map(flat2d);
   }
   return triangulate(poly).flatMap((i) => [...lift(poly[i]![0], poly[i]![1])]);
+}
+
+/**
+ * Holes that touch along a side are one hole: the pieces a circle was cut into by lines, which lie inside a bigger figure, share the sides the lines made. Joining them to the outside one by one would bridge
+ * along those shared sides and leave a sliver out of the fill (`in_245`); taking the shared sides away first leaves the outline of their union, which has nothing in it to bridge across. If the edges do not
+ * pair up cleanly the holes are left as they were.
+ */
+export function joinTouching(holes: [number, number][][]): [number, number][][] {
+  if (holes.length < 2) return holes;
+  const key = (p: [number, number]) => `${Math.round(p[0] * 1e6)},${Math.round(p[1] * 1e6)}`;
+  const ccw = (p: [number, number][]) => (p.reduce((s, a, i) => s + (p[(i + 1) % p.length]![0] - a[0]) * (p[(i + 1) % p.length]![1] + a[1]), 0) > 0 ? [...p].reverse() : p);
+  const edges = new Map<string, { a: [number, number]; b: [number, number] }>();
+  for (const h of holes.map(ccw)) for (let i = 0; i < h.length; i++) {
+    const [a, b] = [h[i]!, h[(i + 1) % h.length]!];
+    if (key(a) === key(b)) continue;
+    const back = `${key(b)}>${key(a)}`;
+    if (edges.has(back)) edges.delete(back); // (the same side walked the other way by the hole beside it: it is inside the union)
+    else edges.set(`${key(a)}>${key(b)}`, { a, b });
+  }
+  if (edges.size === [...holes].reduce((n, h) => n + h.length, 0)) return holes; // (nothing shared)
+  const from = new Map<string, { a: [number, number]; b: [number, number] }[]>();
+  for (const e of edges.values()) from.set(key(e.a), [...(from.get(key(e.a)) ?? []), e]);
+  const loops: [number, number][][] = [];
+  for (const start of [...edges.values()]) {
+    if (!from.get(key(start.a))?.includes(start)) continue; // (already walked)
+    const loop: [number, number][] = [];
+    let e: typeof start | undefined = start;
+    while (e) {
+      loop.push(e.a);
+      const list = from.get(key(e.a))!;
+      list.splice(list.indexOf(e), 1);
+      e = from.get(key(e.b))?.[0];
+      if (e === start) break;
+    }
+    if (loop.length < 3) return holes;
+    loops.push(loop);
+  }
+  const left = [...from.values()].reduce((n, l) => n + l.length, 0);
+  return left === 0 && loops.length ? loops : holes;
 }
 
 /** A polygon with holes as one polygon: each hole is joined to the outside by a bridge (two coincident edges) from its nearest vertex to the nearest outer vertex that can be seen from it. */
