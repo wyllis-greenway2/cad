@@ -35,3 +35,19 @@ test("holes that share a side are joined into one hole; holes apart are left alo
   const far: [number, number][] = [[10, 0], [12, 0], [12, 2], [10, 2]];
   assert.equal(joinTouching([left, far]).length, 2);
 });
+
+test("the triangles of a concave polygon of a few hundred points cover exactly its area, and are made quickly (`in_248`)", async () => {
+  const { triangulate } = await import("../src/interaction/surfaces.ts");
+  // a star: the radius swings between 10 and 6 all round
+  const n = 400;
+  const star: [number, number][] = Array.from({ length: n }, (_, i) => { const a = (i / n) * 2 * Math.PI; const r = 8 + 2 * Math.sin(a * 11); return [r * Math.cos(a), r * Math.sin(a)]; });
+  const t0 = performance.now();
+  const idx = triangulate(star);
+  const ms = performance.now() - t0;
+  let area = 0;
+  for (let i = 0; i < idx.length; i += 3) { const [a, b, c] = [star[idx[i]!]!, star[idx[i + 1]!]!, star[idx[i + 2]!]!]; area += Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])) / 2; }
+  assert.equal(idx.length, (n - 2) * 3, "n - 2 triangles");
+  assert.ok(Math.abs(area - shoelace(star)) < 1e-6 * shoelace(star), `${area} against ${shoelace(star)}`);
+  assert.ok(ms < 100, `${ms.toFixed(1)} ms for ${n} points`);
+  assert.equal(triangulate(star), idx, "the same polygon again is not worked out again");
+});

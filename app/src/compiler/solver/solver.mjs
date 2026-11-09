@@ -137,42 +137,77 @@ const residuals = (cons, x, index) => cons.flatMap((c) => residualsOf(c, x, inde
 const maxAbs = (v) => v.reduce((m, a) => Math.max(m, Math.abs(a)), 0);
 const cost = (f) => f.reduce((s, a) => s + a * a, 0) / 2;
 
-/** The Jacobian (rows = residuals, columns = variables) by central differences. */
-function jacobian(cons, x, index) {
-  const m = residuals(cons, x, index).length;
-  const J = Array.from({ length: m }, () => new Array(x.length).fill(0));
-  for (let j = 0; j < x.length; j++) {
-    const h = FD * Math.max(1, Math.abs(x[j]));
-    const xp = x.slice();
-    const xm = x.slice();
-    xp[j] += h;
-    xm[j] -= h;
-    const fp = residuals(cons, xp, index);
-    const fm = residuals(cons, xm, index);
-    for (let i = 0; i < m; i++) J[i][j] = (fp[i] - fm[i]) / (2 * h);
+/** The variables (columns of x) a constraint is made of: its points and numbers, as named in its fields. */
+function columnsOf(c, index) {
+  const cols = new Set();
+  for (const [k, v] of Object.entries(c)) {
+    if (k === "id" || k === "type" || typeof v !== "string") continue;
+    const p = index.get(`p:${v}`);
+    if (p !== undefined) { cols.add(p); cols.add(p + 1); continue; }
+    const q = index.get(`s:${v}`);
+    if (q !== undefined) cols.add(q);
   }
-  return J;
+  return [...cols].sort((a, b) => a - b);
 }
 
-/** Solve A d = b (A square, symmetric positive definite after damping) by Gaussian elimination with pivoting. */
-function linsolve(A, b) {
-  const n = b.length;
-  const M = A.map((row, i) => [...row, b[i]]);
+/**
+ * The Jacobian by central differences, kept sparse: a constraint is made of a few points, so each of its residuals depends on a handful of the variables and the rest of its row is zero. Each variable of
+ * a constraint is moved by the same step as before and only that constraint is worked out again (`in_248`: moving all of the variables and working out every constraint each time took seconds on a
+ * sketch of a hundred constraints). Rows are { cols, vals }, in the order of the residuals; the numbers are the ones the dense version gave (what is left out is exactly zero there).
+ */
+function jacobianRows(cons, x, index) {
+  const rows = [];
+  for (const c of cons) {
+    const cols = columnsOf(c, index);
+    const m = residualsOf(c, x, index).length;
+    const vals = Array.from({ length: m }, () => new Array(cols.length).fill(0));
+    cols.forEach((j, k) => {
+      const h = FD * Math.max(1, Math.abs(x[j]));
+      const was = x[j];
+      x[j] = was + h;
+      const fp = residualsOf(c, x, index);
+      x[j] = was - h;
+      const fm = residualsOf(c, x, index);
+      x[j] = was;
+      for (let i = 0; i < m; i++) vals[i][k] = (fp[i] - fm[i]) / (2 * h);
+    });
+    for (let i = 0; i < m; i++) rows.push({ cols, vals: vals[i] });
+  }
+  return rows;
+}
+
+/** The Jacobian as full rows (for `analyse`, which eliminates over them). */
+function jacobian(cons, x, index) {
+  return jacobianRows(cons, x, index).map(({ cols, vals }) => {
+    const row = new Array(x.length).fill(0);
+    cols.forEach((j, k) => { row[j] = vals[k]; });
+    return row;
+  });
+}
+
+/** Solve A d = b (A square, n x n in a flat array, symmetric positive definite after damping) by Gaussian elimination with pivoting. A and b are used up. */
+function linsolve(A, b, n) {
+  const w = n + 1;
+  const M = new Float64Array(n * w);
+  for (let i = 0; i < n; i++) { M.set(A.subarray(i * n, i * n + n), i * w); M[i * w + n] = b[i]; }
   for (let c = 0; c < n; c++) {
     let p = c;
-    for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
-    if (Math.abs(M[p][c]) < 1e-18) return null;
-    [M[c], M[p]] = [M[p], M[c]];
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r * w + c]) > Math.abs(M[p * w + c])) p = r;
+    if (Math.abs(M[p * w + c]) < 1e-18) return null;
+    if (p !== c) for (let q = 0; q < w; q++) { const t = M[c * w + q]; M[c * w + q] = M[p * w + q]; M[p * w + q] = t; }
+    const piv = M[c * w + c];
     for (let r = c + 1; r < n; r++) {
-      const k = M[r][c] / M[c][c];
-      for (let q = c; q <= n; q++) M[r][q] -= k * M[c][q];
+      const e = M[r * w + c];
+      if (e === 0) continue; // (a row with nothing under this pivot is left as it is: most of the matrix is empty)
+      const k = e / piv;
+      for (let q = c; q <= n; q++) M[r * w + q] -= k * M[c * w + q];
     }
   }
   const d = new Array(n).fill(0);
   for (let r = n - 1; r >= 0; r--) {
-    let s = M[r][n];
-    for (let q = r + 1; q < n; q++) s -= M[r][q] * d[q];
-    d[r] = s / M[r][r];
+    let s = M[r * w + n];
+    for (let q = r + 1; q < n; q++) s -= M[r * w + q] * d[q];
+    d[r] = s / M[r * w + r];
   }
   return d;
 }
@@ -184,23 +219,29 @@ function lm(cons, x0, index, maxIter = 200) {
   let c = cost(f);
   let lambda = 1e-3;
   let it = 0;
+  const n = x.length;
   for (; it < maxIter && maxAbs(f) > TOL; it++) {
-    const J = jacobian(cons, x, index);
-    const n = x.length;
-    const H = Array.from({ length: n }, () => new Array(n).fill(0));
-    const g = new Array(n).fill(0);
-    for (let i = 0; i < J.length; i++) {
-      for (let a = 0; a < n; a++) {
-        if (J[i][a] === 0) continue;
-        g[a] += J[i][a] * f[i];
-        for (let b = 0; b < n; b++) H[a][b] += J[i][a] * J[i][b];
+    const rows = jacobianRows(cons, x, index);
+    const H = new Float64Array(n * n);
+    const g = new Float64Array(n);
+    for (let i = 0; i < rows.length; i++) {
+      const { cols, vals } = rows[i];
+      for (let a = 0; a < cols.length; a++) {
+        const va = vals[a];
+        if (va === 0) continue;
+        g[cols[a]] += va * f[i];
+        for (let b = 0; b < cols.length; b++) H[cols[a] * n + cols[b]] += va * vals[b];
       }
     }
+    let dmax = 1e-9;
+    for (let i = 0; i < n; i++) if (H[i * n + i] > dmax) dmax = H[i * n + i]; // the same damping for every variable (not scaled by each one's own sensitivity), so a step that has freedom moves things the least, not the ones the constraints hold
+    const minusG = new Float64Array(n);
+    for (let i = 0; i < n; i++) minusG[i] = -g[i];
     let accepted = false;
     for (let tries = 0; tries < 12 && !accepted; tries++) {
-      const dmax = Math.max(1e-9, ...H.map((row, i) => row[i])); // the same damping for every variable (not scaled by each one's own sensitivity), so a step that has freedom moves things the least, not the ones the constraint hardly touches
-      const A = H.map((row, i) => row.map((v, j) => (i === j ? v + lambda * dmax : v)));
-      const d = linsolve(A, g.map((v) => -v));
+      const A = H.slice();
+      for (let i = 0; i < n; i++) A[i * n + i] += lambda * dmax;
+      const d = linsolve(A, minusG, n);
       if (d) {
         const xn = x.map((v, i) => v + d[i]);
         const fn = residuals(cons, xn, index);

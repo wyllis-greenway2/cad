@@ -5,8 +5,22 @@ import { add, scale, sub, dot } from "../math/vec.ts";
 import type { Lookup, Part } from "../operation/part.ts";
 import { circleOf, loopPoints } from "../operation/part.ts";
 
-/** Ear clipping of a simple polygon given in 2D; returns triangle index triples. */
+const triangulated = new Map<string, number[]>();
+/**
+ * Ear clipping of a simple polygon given in 2D; returns triangle index triples. The answer for a polygon is kept (by its numbers), since the same face is filled again and again while the pointer
+ * moves over it or the view is turned, and clipping a polygon of a few hundred points takes milliseconds (`in_248`).
+ */
 export function triangulate(poly: [number, number][]): number[] {
+  const key = poly.map((p) => `${p[0]},${p[1]}`).join(";");
+  const known = triangulated.get(key);
+  if (known) return known;
+  const made = clip(poly);
+  if (triangulated.size >= 200) triangulated.delete(triangulated.keys().next().value!);
+  triangulated.set(key, made);
+  return made;
+}
+
+function clip(poly: [number, number][]): number[] {
   const n = poly.length;
   if (n < 3) return [];
   const area = poly.reduce((s, p, i) => s + (poly[(i + 1) % n]![0] - p[0]) * (poly[(i + 1) % n]![1] + p[1]), 0);
@@ -16,19 +30,33 @@ export function triangulate(poly: [number, number][]): number[] {
   const cross = (a: number, b: number, c: number) => (poly[b]![0] - poly[a]![0]) * (poly[c]![1] - poly[a]![1]) - (poly[b]![1] - poly[a]![1]) * (poly[c]![0] - poly[a]![0]);
   const same = (p: number, q: number) => Math.abs(poly[p]![0] - poly[q]![0]) < 1e-12 && Math.abs(poly[p]![1] - poly[q]![1]) < 1e-12;
   const inside = (p: number, a: number, b: number, c: number) => !same(p, a) && !same(p, b) && !same(p, c) && cross(a, b, p) >= 0 && cross(b, c, p) >= 0 && cross(c, a, p) >= 0; // (a point repeated by a bridge to a hole is not in the way of itself)
-  let guard = 0;
-  while (idx.length > 3 && guard++ < 10000) {
-    let clipped = false;
-    for (let i = 0; i < idx.length; i++) {
-      const [a, b, c] = [idx[(i + idx.length - 1) % idx.length]!, idx[i]!, idx[(i + 1) % idx.length]!];
-      if (cross(a, b, c) <= 1e-12) continue;
-      if (idx.some((p) => p !== a && p !== b && p !== c && inside(p, a, b, c))) continue;
+  // one pass round the polygon, cutting each ear as it is found and going on from there (not starting again from the first corner after every cut, which made the work grow with the cube of the points)
+  let i = 0;
+  let idle = 0;
+  while (idx.length > 3 && idle <= idx.length) {
+    i %= idx.length;
+    const m = idx.length;
+    const [a, b, c] = [idx[(i + m - 1) % m]!, idx[i]!, idx[(i + 1) % m]!];
+    let ear = cross(a, b, c) > 1e-12;
+    if (ear) {
+      const [x0, x1] = [Math.min(poly[a]![0], poly[b]![0], poly[c]![0]), Math.max(poly[a]![0], poly[b]![0], poly[c]![0])];
+      const [y0, y1] = [Math.min(poly[a]![1], poly[b]![1], poly[c]![1]), Math.max(poly[a]![1], poly[b]![1], poly[c]![1])];
+      for (const p of idx) {
+        if (p === a || p === b || p === c) continue;
+        const [px, py] = poly[p]!;
+        if (px < x0 || px > x1 || py < y0 || py > y1) continue; // (outside the triangle's box: outside it)
+        if (inside(p, a, b, c)) { ear = false; break; }
+      }
+    }
+    if (ear) {
       out.push(a, b, c);
       idx.splice(i, 1);
-      clipped = true;
-      break;
+      i = Math.max(0, i - 1);
+      idle = 0;
+    } else {
+      i++;
+      idle++;
     }
-    if (!clipped) break;
   }
   if (idx.length === 3) out.push(idx[0]!, idx[1]!, idx[2]!);
   return out;

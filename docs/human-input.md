@@ -1219,3 +1219,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_247 — 2026-11-09 — directive
 > it feels much smoother now, except if you pull the face up, then keep the arrow active and not click out, and rotate around it is really laggy again.
+
+## in_248 — 2026-11-09 — directive
+> can you go hunting for other bugs like this? I am sure there are some I haven't found yet.
