@@ -1,7 +1,7 @@
 // Who uses whom (`dec_constraint_ownership`): derived from the scene, never stored. Answers without a screen:
 // what relations touch this part (so they can be shown when it is clicked), what a deletion would take with it, and which relations or steps point at something gone.
 import type { Ref } from "../shared/ref.ts";
-import type { Scene } from "./scene.ts";
+import type { Scene, Relation } from "./scene.ts";
 import { hasPart, figureRefs } from "./scene.ts";
 import { anchorsOf } from "./part.ts";
 import { dependentParts } from "./commands.ts";
@@ -122,9 +122,31 @@ export function structuralRelations(s: Scene): Set<string> {
   if (!profile.size) return out;
   const firstStep = Math.min(...s.steps.filter((st) => st.type === "extrude").map((st) => numberOf(st.id)).filter((n) => n >= 0), Infinity);
   for (const rel of s.relations) {
-    if (!JOINS.has(rel.kind) || !rel.parts.every((p) => profile.has(p))) continue;
+    if (!rel.parts.every((p) => profile.has(p))) continue;
+    if (!JOINS.has(rel.kind) && !(rel.kind === "tangent" && onlyJoin(s, rel))) continue;
     const n = numberOf(rel.id);
     if (n < 0 || n < firstStep) out.add(rel.id); // (a name with no number, as in a hand-made test, counts as made with the outline)
   }
   return out;
+}
+
+/**
+ * Is this tangent the only thing that keeps a line and a circle (or arc) of the outline touching? The test is: drop the relation and move one of the two a little; if the join of the outline is still held
+ * by something else the touch stays, and if not the outline would come apart. Done on the relations rather than by solving (the answer is the same, and this runs for every picture): the join is held when
+ * the two share an end, an end of one is made coincident with an end of the other, or an end of one (or a corner made coincident with it) is on the other (`onLine`, `onCircle`). Corners made coincident are one.
+ */
+function onlyJoin(s: Scene, tangent: Relation): boolean {
+  if (tangent.parts.length !== 2) return false;
+  const [a, b] = tangent.parts as [Ref, Ref];
+  const [pa, pb] = [s.parts[a], s.parts[b]];
+  if (!pa || !pb) return false;
+  // corners that are one: a shared end, or made coincident
+  const same = new Map<Ref, Ref>();
+  const root = (r: Ref): Ref => { let x = r; while (same.has(x)) x = same.get(x)!; return x; };
+  for (const r of s.relations) if (r.kind === "coincident" && r.parts.length === 2) { const [x, y] = [root(r.parts[0]!), root(r.parts[1]!)]; if (x !== y) same.set(x, y); }
+  const ends = (p: typeof pa): Ref[] => (p.kind === "line" ? [p.a, p.b] : []);
+  const [ea, eb] = [ends(pa).map(root), ends(pb).map(root)];
+  if (ea.some((e) => eb.includes(e))) return false;
+  const holds = (corners: Ref[], curve: Ref) => s.relations.some((r) => (r.kind === "onLine" || r.kind === "onCircle") && r.id !== tangent.id && r.parts.length === 2 && r.parts[1] === curve && corners.includes(root(r.parts[0]!)));
+  return !(holds(ea, b) || holds(eb, a));
 }

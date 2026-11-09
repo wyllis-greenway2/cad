@@ -1193,3 +1193,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_240 — 2026-11-09 — directive
 > add the coincident relation for trimmed partner corners
+
+## in_241 — 2026-11-09 — directive
+> do the drop-and-move test for tangent too

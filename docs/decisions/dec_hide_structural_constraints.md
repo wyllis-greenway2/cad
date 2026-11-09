@@ -3,7 +3,7 @@ id: dec_hide_structural_constraints
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_238, in_239, in_240
+human_input: in_238, in_239, in_240, in_241
 date: 2026-11-09
 depends_on:
   - dec_sketch_follows_body: the sketch of a body stays the recipe, so what is shown of its constraints is a question about the recipe
@@ -20,7 +20,7 @@ The human, `in_238`, asked for a universal rule that hides the constraints that 
 5. **Show all:** the "Constraints" row of the ⋯ list toggles `AppState.showAllConstraints`; the History sketch button shows everything too.
 6. A figure cut into pieces is structural for any step's profile.
 
-**Partner corners (`in_240`):** a trim that makes a corner where another corner of the drawing already is (not a crossing the faces derived) adds a `coincident` relation between them, so what is hidden is really there (`partnersOf` in `operation/trim.ts`, tests in `test/trimpartners.test.ts`). **Not built:** the drop-and-move test for a tangent that is the only join; partner corners of drawings made before this (nothing adds them to old files). Relations made by the human after the extrusion have a higher id number and so show, which relies on that counter.
+**Partner corners (`in_240`):** a trim that makes a corner where another corner of the drawing already is (not a crossing the faces derived) adds a `coincident` relation between them, so what is hidden is really there (`partnersOf` in `operation/trim.ts`, tests in `test/trimpartners.test.ts`). **A tangent that is the only join (`in_241`):** a tangent between a straight side and a circle or arc of the profile counts as structural (hidden) when nothing else holds their touch: no shared end, no coincident ends, no end of one (or a corner coincident with it) on the other. This is the drop-and-move test, decided from the relations (`onlyJoin` in `operation/ownership.ts`) so it can run for every picture; `test/hidejoins.test.ts` does the real thing with the solver (drop the tangent, drag the touching end: with its joins the end stays on the curve, without them it comes off). In the example model all six tangents have other joins and stay shown. **Not built:** partner corners of drawings made before this (nothing adds them to old files). Relations made by the human after the extrusion have a higher id number and so show, which relies on that counter.
 
 Code: `structuralRelations` in `operation/ownership.ts`; `annotationsFor(..., all)` in `interaction/annotations.ts`; tests in `test/hidejoins.test.ts`. Line-to-arc tangents are now placed (they had no annotation before, so were never visible).
 

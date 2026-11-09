@@ -58,3 +58,72 @@ test("the switch in the ⋯ list shows all constraints, and the History sketch b
   const many = frameOf(withSel(st), { w: 800, h: 600 }).annotations.length;
   assert.ok(many > few, `${few} -> ${many}`);
 });
+
+// The drop-and-move test (`in_241`): drop a tangent, move one of the two a little, and see whether the outline stays joined at that touch. A tangent that is the only join lets the line come off.
+import type { Scene } from "../src/operation/scene.ts";
+import type { Part } from "../src/operation/part.ts";
+import type { Ref } from "../src/shared/ref.ts";
+import { pointOf } from "../src/operation/part.ts";
+
+const shape = (sc: Scene, tangent: { parts: Ref[] }) => {
+  const [p, q] = tangent.parts.map((r) => sc.parts[r]!) as [Part, Part];
+  const isArc = (x: Part) => x.kind === "circle" || (x.kind === "line" && !!x.center);
+  const [line, curve] = isArc(p) ? [q, p] : [p, q];
+  assert.ok(line.kind === "line" && !line.center, "a straight side");
+  const centreRef = curve.kind === "circle" ? curve.center : curve.kind === "line" ? curve.center! : (null as never);
+  return { line, curve, centreRef };
+};
+/** How far the end of the straight side that touches the curve is from it: 0 while it still touches there. `end` says which end (the one that touched before). */
+const gapOf = (sc: Scene, tangent: { parts: Ref[] }, end: Ref): number => {
+  const { curve, centreRef } = shape(sc, tangent);
+  const get = (r: Ref) => sc.parts[r];
+  const c = pointOf(get, centreRef)!;
+  const dist = (e: Ref) => { const q = pointOf(get, e)!; return Math.hypot(q[0] - c[0], q[1] - c[1], q[2] - c[2]); };
+  const r = curve.kind === "circle" ? curve.radius : dist((curve as { a: Ref }).a);
+  return Math.abs(dist(end) - r);
+};
+/** The end of the straight side that lies on the curve (the nearer one). */
+const touching = (sc: Scene, tangent: { parts: Ref[] }): Ref => {
+  const { line } = shape(sc, tangent);
+  const ends = [(line as { a: Ref }).a, (line as { b: Ref }).b];
+  return ends.reduce((x, y) => (gapOf(sc, tangent, x) <= gapOf(sc, tangent, y) ? x : y));
+};
+/** Drop the tangent, then drag the end of the line that touches a little way off; the scene afterwards. */
+const dropAndMove = (s: ReturnType<typeof open>, id: string) => {
+  const sc = scene(s);
+  const tangent = sc.relations.find((r) => r.id === id)!;
+  const end = touching(sc, tangent);
+  const at = pointOf((r) => sc.parts[r], end)!;
+  const t = run(s, { type: "batch", commands: [{ type: "removeRelation", id }, { type: "movePart", ref: end, to: [at[0] + 1.5, at[1] + 1, at[2]] }] });
+  return { t, tangent, end };
+};
+
+test("drop and move: in the body's sketch every tangent leaves the outline joined (its touch is held by corners on the curves), so none is hidden", () => {
+  const s = open();
+  const tangents = scene(s).relations.filter((r) => r.kind === "tangent");
+  assert.equal(tangents.length, 6);
+  for (const tg of tangents) {
+    const { t, tangent, end } = dropAndMove(s, tg.id);
+    assert.equal(t.message, null, `${tg.id} moves`);
+    assert.ok(gapOf(scene(t), tangent, end) < 1e-6, `${tg.id}: still touching after the move (${gapOf(scene(t), tangent, end)})`);
+  }
+  assert.ok(!structuralRelations(scene(s)).has(tangents[0]!.id));
+});
+
+test("drop and move: where the corner joins of a line and its circle are taken away, the tangent is the only join, the line comes off when it is dropped, and it counts as structural", () => {
+  const s = open();
+  const sc = scene(s);
+  const tg = sc.relations.find((r) => r.kind === "tangent")!;
+  const { line, curve } = shape(sc, tg);
+  const ends = new Set<Ref>([(line as { a: Ref }).a, (line as { b: Ref }).b]);
+  // the joins between this pair: a corner of the line on the curve (the curve's own relation names the circle or the arc)
+  const joins = sc.relations.filter((r) => (r.kind === "onCircle" || r.kind === "onLine") && r.parts.length === 2 && ((ends.has(r.parts[0]!) && r.parts[1] === curve.ref) || (r.parts[1] === line.ref && !ends.has(r.parts[0]!))));
+  const bare = { ...sc, relations: sc.relations.filter((r) => !joins.includes(r)) };
+  assert.ok(structuralRelations(bare).has(tg.id), `the tangent ${tg.id} is the only join (${joins.length} others taken away)`);
+  assert.ok(!structuralRelations(sc).has(tg.id), "with its joins it is intent");
+  // and the real thing: with those joins gone, dropping the tangent and moving the circle takes the line off it; with them, it stays on
+  const bareSession = { ...s, history: { ...s.history, scene: bare } } as typeof s;
+  const { t, tangent, end } = dropAndMove(bareSession, tg.id);
+  assert.equal(t.message, null);
+  assert.ok(gapOf(scene(t), tangent, end) > 0.1, `the line came off (${gapOf(scene(t), tangent, end)})`);
+});
