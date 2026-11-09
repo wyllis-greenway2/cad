@@ -1196,3 +1196,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_241 — 2026-11-09 — directive
 > do the drop-and-move test for tangent too
+
+## in_242 — 2026-11-09 — approval
+> yes, make tangents always show
+(answers the AI's suggestion to undo the hiding of a tangent that is the only join)

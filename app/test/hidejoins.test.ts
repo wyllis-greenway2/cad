@@ -98,7 +98,7 @@ const dropAndMove = (s: ReturnType<typeof open>, id: string) => {
   return { t, tangent, end };
 };
 
-test("drop and move: in the body's sketch every tangent leaves the outline joined (its touch is held by corners on the curves), so none is hidden", () => {
+test("drop and move: in the body's sketch every tangent leaves the outline joined (its touch is held by corners on the curves)", () => {
   const s = open();
   const tangents = scene(s).relations.filter((r) => r.kind === "tangent");
   assert.equal(tangents.length, 6);
@@ -110,17 +110,16 @@ test("drop and move: in the body's sketch every tangent leaves the outline joine
   assert.ok(!structuralRelations(scene(s)).has(tangents[0]!.id));
 });
 
-test("drop and move: where the corner joins of a line and its circle are taken away, the tangent is the only join, the line comes off when it is dropped, and it counts as structural", () => {
+test("a tangent that is the only join of a line and its circle is still shown (`in_242`): it is the control of that contact, and without it the line comes off", () => {
   const s = open();
   const sc = scene(s);
   const tg = sc.relations.find((r) => r.kind === "tangent")!;
   const { line, curve } = shape(sc, tg);
   const ends = new Set<Ref>([(line as { a: Ref }).a, (line as { b: Ref }).b]);
-  // the joins between this pair: a corner of the line on the curve (the curve's own relation names the circle or the arc)
+  // the joins between this pair: a corner of the line on the curve, a corner of the curve on the line
   const joins = sc.relations.filter((r) => (r.kind === "onCircle" || r.kind === "onLine") && r.parts.length === 2 && ((ends.has(r.parts[0]!) && r.parts[1] === curve.ref) || (r.parts[1] === line.ref && !ends.has(r.parts[0]!))));
   const bare = { ...sc, relations: sc.relations.filter((r) => !joins.includes(r)) };
-  assert.ok(structuralRelations(bare).has(tg.id), `the tangent ${tg.id} is the only join (${joins.length} others taken away)`);
-  assert.ok(!structuralRelations(sc).has(tg.id), "with its joins it is intent");
+  assert.ok(!structuralRelations(bare).has(tg.id) && !structuralRelations(sc).has(tg.id), "shown with its joins and without them");
   // and the real thing: with those joins gone, dropping the tangent and moving the circle takes the line off it; with them, it stays on
   const bareSession = { ...s, history: { ...s.history, scene: bare } } as typeof s;
   const { t, tangent, end } = dropAndMove(bareSession, tg.id);
