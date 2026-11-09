@@ -85,3 +85,29 @@ export function drawArc(s: Scene, plane: Ref, a: Vec3, m: Vec3, b: Vec3, normal:
   commands.push({ type: "addRelation", relation: { id: nextId(s, "r"), kind: "arcEnds", parts: [line, centre] } });
   return { command: { type: "batch", commands }, line, centre };
 }
+
+/**
+ * A figure drawn with a corner on a spot where another corner of the drawing already is (its start snapped to the end of a line, a circle centred on a corner) has that corner joined to the other by a coincident
+ * relation, so the two stay one point (`in_240`, `in_243`). Lines drawn to a corner share it instead (`reuse`). Two circle centres on one spot are left alone: that is the concentric case, asked about when it is drawn.
+ */
+export function joinedAtCorners(s: Scene, plane: Ref, command: Command): Command {
+  const flatten = (c: Command): Command[] => (c.type === "batch" ? c.commands.flatMap(flatten) : [c]);
+  const list = flatten(command);
+  const fresh = list.flatMap((c) => (c.type === "addPart" && c.part.kind === "corner" && c.part.origin === "drawn" && c.part.plane === plane ? [c.part] : []));
+  if (!fresh.length) return command;
+  const centreOfNew = new Set(list.flatMap((c) => (c.type === "addPart" && c.part.kind === "circle" ? [c.part.center] : [])));
+  const spent = live(s);
+  const circleCentres = new Set(Object.values(spent.parts).flatMap((p) => (p.kind === "circle" ? [p.center] : [])));
+  const taken = [...list.flatMap((c) => (c.type === "addPart" ? [c.part.ref] : c.type === "addRelation" ? [c.relation.id] : [])), formatId("e", s.counter)].map((id) => Number(/_(\d+)/.exec(id)?.[1] ?? 0));
+  let n = Math.max(s.counter, ...taken);
+  const out: Command[] = [];
+  for (const c of fresh) {
+    for (const p of Object.values(spent.parts)) {
+      if (p.kind !== "corner" || p.origin !== "drawn" || p.derived || p.plane !== plane) continue;
+      if (Math.hypot(p.at[0] - c.at[0], p.at[1] - c.at[1], p.at[2] - c.at[2]) > 1e-6) continue;
+      if (centreOfNew.has(c.ref) && circleCentres.has(p.ref)) continue;
+      out.push({ type: "addRelation", relation: { id: formatId("r", ++n), kind: "coincident", parts: [c.ref, p.ref] } });
+    }
+  }
+  return out.length ? { type: "batch", commands: [command, ...out] } : command;
+}

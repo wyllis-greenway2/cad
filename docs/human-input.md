@@ -1200,3 +1200,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_242 — 2026-11-09 — approval
 > yes, make tangents always show
 (answers the AI's suggestion to undo the hiding of a tangent that is the only join)
+
+## in_243 — 2026-11-09 — directive
+> yes, run the audit
+(of the tools that make corners, for corners left on the same spot with no relation between them)

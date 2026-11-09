@@ -3,7 +3,7 @@ id: dec_hide_structural_constraints
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_238, in_239, in_240, in_241, in_242
+human_input: in_238, in_239, in_240, in_241, in_242, in_243
 date: 2026-11-09
 depends_on:
   - dec_sketch_follows_body: the sketch of a body stays the recipe, so what is shown of its constraints is a question about the recipe
@@ -20,7 +20,9 @@ The human, `in_238`, asked for a universal rule that hides the constraints that 
 5. **Show all:** the "Constraints" row of the ⋯ list toggles `AppState.showAllConstraints`; the History sketch button shows everything too.
 6. A figure cut into pieces is structural for any step's profile.
 
-**Partner corners (`in_240`):** a trim that makes a corner where another corner of the drawing already is (not a crossing the faces derived) adds a `coincident` relation between them, so what is hidden is really there (`partnersOf` in `operation/trim.ts`, tests in `test/trimpartners.test.ts`). **Tangents always show (`in_242`):** a tangent is the control of a contact (smoothness), so it shows even where it is the only thing keeping a line and a circle touching; a wrongly hidden control costs more than a wrongly shown icon, and the check that decided it would work from the relations, not by solving. `test/hidejoins.test.ts` keeps the drop-and-move test with the solver (drop the tangent and drag the touching end: with its joins the end stays on the curve, without them it comes off) as the reason, and checks the tangent shows either way. **Not built:** partner corners of drawings made before this (nothing adds them to old files). Relations made by the human after the extrusion have a higher id number and so show, which relies on that counter.
+**Partner corners (`in_240`):** a trim that makes a corner where another corner of the drawing already is (not a crossing the faces derived) adds a `coincident` relation between them, so what is hidden is really there (`partnersOf` in `operation/trim.ts`, tests in `test/trimpartners.test.ts`). **Audit of what makes corners (`in_243`):** besides a trim, a rectangle drawn from the corner of another figure and a circle centred on a corner left two corners on one spot with no relation; both now get a coincident (`joinedAtCorners` in `operation/build.ts`, used by the sketch tools in `interaction/tools.ts`). Lines and arc ends drawn to a corner already share it. Two circle centres on one spot are left to the concentric question. Checked and clean: lines, arcs (ends and centre), offsets (new corners are away from the old), insets and repeats of faces. Not joined, by choice: copies of a repeat that land corner to corner, and a figure moved so a corner lands on another's (their position is the human's placement, no tool made a pair). Test: `test/partners.test.ts`.
+
+**Tangents always show (`in_242`):** a tangent is the control of a contact (smoothness), so it shows even where it is the only thing keeping a line and a circle touching; a wrongly hidden control costs more than a wrongly shown icon, and the check that decided it would work from the relations, not by solving. `test/hidejoins.test.ts` keeps the drop-and-move test with the solver (drop the tangent and drag the touching end: with its joins the end stays on the curve, without them it comes off) as the reason, and checks the tangent shows either way. **Not built:** partner corners of drawings made before this (nothing adds them to old files). Relations made by the human after the extrusion have a higher id number and so show, which relies on that counter.
 
 Code: `structuralRelations` in `operation/ownership.ts`; `annotationsFor(..., all)` in `interaction/annotations.ts`; tests in `test/hidejoins.test.ts`. Line-to-arc tangents are now placed (they had no annotation before, so were never visible).
 

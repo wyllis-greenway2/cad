@@ -10,7 +10,7 @@ import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
 import type { Command } from "../operation/commands.ts";
-import { drawSquaredRectangle, drawCircle, drawChain, drawArc } from "../operation/build.ts";
+import { drawSquaredRectangle, drawCircle, drawChain, drawArc, joinedAtCorners } from "../operation/build.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt } from "./picking.ts";
 import { settings } from "../shared/settings.ts";
@@ -221,19 +221,19 @@ export function finish(scene: Scene, t: Tool): Finished | null {
     const [ex, ey] = localOf(pl, e);
     if (Math.abs(ex - ax) < 1e-6 || Math.abs(ey - ay) < 1e-6) return null;
     const r = drawSquaredRectangle(scene, pl.ref, a, e, pl.u, pl.v);
-    return { command: r.command, select: [loopFaceRef(r.lines)] };
+    return { command: joinedAtCorners(scene, pl.ref, r.command), select: [loopFaceRef(r.lines)] };
   }
   if (t.kind === "circle") {
     const radius = circleRadius(pl, t);
     if (radius < 1e-6) return null;
     const c = drawCircle(scene, pl.ref, t.points[0]!, radius);
-    return { command: c.command, select: [diskFaceRef(c.circle)] };
+    return { command: joinedAtCorners(scene, pl.ref, c.command), select: [diskFaceRef(c.circle)] };
   }
   if (t.kind === "arc") {
     const arc = arcOf(pl, t);
     if (!arc) return null;
     const d = drawArc(scene, pl.ref, arc.a, arc.mid, arc.b, normalOfPlane(pl));
-    return d ? { command: d.command, select: [d.line] } : null;
+    return d ? { command: joinedAtCorners(scene, pl.ref, d.command), select: [d.line] } : null;
   }
   const pts = [...t.points];
   if (pts.length < 2) return null;

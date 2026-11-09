@@ -1559,3 +1559,10 @@ Follow-up to Handoff 205 ("yes, do the arc fallback case too if you recommend it
 
 ## Handoff 219 — 2026-11-09 (tangents always show)
 `in_242`. All four checks read and clean (366 tests). The hiding of a tangent that is the only join (Handoff 218) is taken out: tangents always show, as a control of the contact. `onlyJoin` is gone from `operation/ownership.ts`; the drop-and-move tests stay and now check the tangent shows with its joins and without them, and that the line comes off the circle when the tangent is dropped and the joins are gone (why it must stay visible). Nothing changes in your `three-circles` model.
+
+## Handoff 220 — 2026-11-09 (the audit of corners left on one spot)
+`in_243`. All four checks read and clean (372 tests).
+**Found, with the tools driven by real clicks (`test/partners.test.ts`):** a **rectangle** started on the corner of another figure and a **circle** centred on a corner each left a second corner on the same spot with no relation (so a solve could pull them apart, and the join was not hidden after extruding). Lines and arc ends drawn to a corner already share it; an arc about a corner, a line ended close to an arc end and the reverse are clean.
+**Fixed:** `joinedAtCorners` adds a `coincident` for each new corner that lands on an existing drawn corner of the plane (not a derived crossing; two circle centres are left to the concentric question). Used for rectangle, circle and arc in `finish`.
+**Checked in the saved fixtures too:** the pairs there (line end and arc end, e.g. the stadium and chain bodies) are what the old trim left; the trim fix covers them for new work.
+**Not done, by choice:** repeat copies landing corner to corner and a figure moved so its corner lands on another's are the human's placement, not joined. Say if you want a coincident offered there.
