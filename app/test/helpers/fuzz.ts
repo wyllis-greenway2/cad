@@ -139,7 +139,7 @@ function between(a: AppState, b: AppState, i: Intent): void {
   }
   // a change that was refused names the relations it tried to add (`conflict.culprits`): they are not in the model (one gesture can make several changes, and some of them be refused)
   const cul = b.session.conflict?.culprits ?? [];
-  const there = cul.filter((id) => scene(b.session).relations.some((r) => r.id === id));
+  const there = cul.filter((id) => scene(b.session).relations.some((r) => r.id === id) && !scene(a.session).relations.some((r) => r.id === id)); // (a relation that was there before and whose number was refused is still there)
   if (b.session.conflict && there.length && b.session.conflict !== a.session.conflict) fail(`a change that was refused (${b.session.message}) is in the model: ${there.join(",")}`);
 }
 
