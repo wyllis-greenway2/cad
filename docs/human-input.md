@@ -1330,3 +1330,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > look at it in the browser
 (asks for a browser look at the independent bodies work of `in_270` and `in_271`)
 
+## in_273 — 2026-11-10 — directive
+> build the smooth single-body drag preview
+(asks for the graphics-card drag of one body of several that `in_271` left to the kernel)
+

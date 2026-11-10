@@ -55,18 +55,25 @@ export function createView(host: HTMLElement) {
     bodyMat = built ? built.material : null;
     bodyGroup = built ? built.body : null;
     shifter = built ? built.shift : null;
+    splitter = built ? built.split : null;
+    moverGroup = built ? built.mover : null;
+    splitNow = null;
     shiftedFace = null;
     faceKeys = null;
     wallSig = "";
     roundSig = null;
     roundGroups = null;
     if (bodyGroup) { bodyGroup.matrix.fromArray(bodyMatrix ?? IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
+    if (moverGroup) moverGroup.matrix.fromArray(IDENTITY);
     applyFade();
   }
   let bodyMat: import("three").MeshPhysicalMaterial | null = null;
   let bodyGroup: import("three").Group | null = null;
   let bodyMatrix: number[] | null = null;
   let shifter: ((keys: Set<string> | null, how: Shift) => void) | null = null;
+  let splitter: ((tris: [number, number][] | null, box: { min: readonly number[]; max: readonly number[] } | null) => void) | null = null;
+  let moverGroup: import("three").Group | null = null;
+  let splitNow: { tris: [number, number][]; box: { min: readonly number[]; max: readonly number[] } } | null = null;
   let shiftedFace: string | null = null;
   let faceKeys: Set<string> | null = null;
   let roundSig: string | null = null;
@@ -164,9 +171,13 @@ export function createView(host: HTMLElement) {
     }
     return wallKeys.map((w, i) => ({ keys: w.keys, arc: walls[i]!.arc })); // (the faces are found once; the maps change with the pointer)
   }
-  function setBodyMatrix(m: number[] | null, withOverlay: boolean) {
+  function setBodyMatrix(m: number[] | null, withOverlay: boolean, only: { tris: [number, number][]; box: { min: readonly number[]; max: readonly number[] } } | null = null) {
     bodyMatrix = m;
-    if (bodyGroup) { bodyGroup.matrix.fromArray(m ?? IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
+    // one body of several: only its triangles and outline move (`in_273`); else the whole body does
+    splitNow = m && only ? only : null;
+    splitter?.(splitNow?.tris ?? null, splitNow?.box ?? null);
+    if (bodyGroup) { bodyGroup.matrix.fromArray(m && !splitNow ? m : IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
+    if (moverGroup) { moverGroup.matrix.fromArray(m && splitNow ? m : IDENTITY); moverGroup.matrixWorldNeedsUpdate = true; }
     overlay.matrix.fromArray(m && withOverlay ? m : IDENTITY);
     overlay.matrixWorldNeedsUpdate = true;
   }

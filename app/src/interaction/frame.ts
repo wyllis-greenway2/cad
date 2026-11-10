@@ -19,6 +19,7 @@ import { outlineOf } from "../operation/part.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
+import { BODY_OBJECT } from "../compiler/body.ts";
 import { SIMILAR_RULES } from "./similar.ts";
 import type { ArcMap } from "./operations.ts";
 import { opCommand, bodyMotion, faceDrag, radiusDrag, sideDrag, edgeDrag, arcDrag, valueOf } from "./operations.ts";
@@ -59,6 +60,8 @@ export interface Frame {
   mesh: KernelResult["mesh"];
   /** the body is drawn moved by this matrix (16 numbers, column by column) while its move, turn or scale is dragged or waits for the kernel (`in_216`) */
   bodyMatrix: number[] | null;
+  /** when the matrix moves one body of several: the triangles (ranges of the mesh's index list) and the box of that body, so only it is moved (`in_273`) */
+  bodySplit: { tris: [number, number][]; box: { min: Vec3; max: Vec3 } } | null;
   /** the face (with the walls beside it) drawn moved by this much while it is dragged or waits for the kernel (`in_217`) */
   faceShift: FaceShift | null;
   /** what is selected is the body, so its highlight is moved by the same matrix */
@@ -124,7 +127,7 @@ function undone(session: Session): Session {
 let memo: { history: Session["history"]; outcome: Session["outcome"]; key: string; value: { scene: Scene; outcome: CompileOutcome } | null } | null = null;
 let gpuBase: { history: Session["history"]; outcome: Session["outcome"]; made: boolean; value: { scene: Scene; outcome: CompileOutcome } } | null = null;
 /** The step the last drag of a whole-body motion was (its matrix and how many steps came before it): while the kernel is still working its result out, that is what the stale picture is moved by (`in_216`). */
-let lastDrag: { matrix: number[] | null; face: FaceShift | null; step: string | null; depth: number; param: "depth" | "value"; circle: { ref: Ref; radius: number } | null; corners: { ref: Ref; to: Vec3 }[] | null; steps: number } | null = null;
+let lastDrag: { split?: Frame["bodySplit"]; matrix: number[] | null; face: FaceShift | null; step: string | null; depth: number; param: "depth" | "value"; circle: { ref: Ref; radius: number } | null; corners: { ref: Ref; to: Vec3 }[] | null; steps: number } | null = null;
 /** A face drawn moved: the whole face by `by`, or a round wall's points out from (in towards) its axis by `radial.dr` (`in_217`, `in_218`). */
 export type FaceShift = { face: Ref; by?: Vec3; radial?: { center: Vec3; axis: Vec3; dr: number; r0: number }; /** the body's points that stand over moved corners of the sketch (along `axis`) move with them (`in_219`); `edge` is the face's own edge, to move what is selected with it */ arcs?: { arcWall: ArcMap; items: { at: Vec3; by: Vec3 }[] }; rounds?: { k: number; groups: { face: Ref; sharp: Sharp }[] }; columns?: { axis: Vec3; items: { at: Vec3; by: Vec3 }[]; arcWalls: { face: Ref; arc: ArcMap }[]; edge: { a: Vec3; da: Vec3; b: Vec3; db: Vec3 } | null } };
 /**
@@ -225,7 +228,7 @@ function prismNew(s: AppState, op: Op, base: Session): { wait: true } | { face: 
 }
 
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
-function gpuMotion(s: AppState): { matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome } } | null {
+function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome } } | null {
   const op = s.op;
   if (!op) return null;
   const base = op.made ? undone(s.session) : s.session;
@@ -246,7 +249,7 @@ function gpuMotion(s: AppState): { matrix: number[] | null; face: FaceShift | nu
   if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
   const matrix = m ? matrixOf(m) : null;
   const face: FaceShift | null = fd ? { face: fd.face, by: fd.by } : rd ? { face: rd.face, radial: rd.radial } : ad ? { face: ad.face, arcs: { arcWall: ad.arc, items: ad.items.map((i) => ({ at: i.at, by: i.by })) } } : ed ? { face: ed.face, rounds: { k: ed.k, groups: ed.groups } } : sd ? { face: sd.face, columns: { axis: sd.axis, items: sd.items.map((i) => ({ at: i.at, by: i.by })), arcWalls: sd.arcWalls, edge: sd.edge } } : null;
-  lastDrag = { matrix, face, step: fd?.step ?? ed?.step ?? null, depth: fd?.depth ?? ed?.value ?? 0, param: ed ? "value" : "depth", circle: rd ? { ref: rd.circle, radius: rd.radius } : null, corners: sd ? sd.items.map((i) => ({ ref: i.ref, to: add(i.at, i.by) })) : ad ? ad.items.map((i) => ({ ref: i.ref, to: add(i.at, i.by) })) : null, steps: sceneOf(base).steps.length };
+  lastDrag = { split: m ? bodySplitOf(sceneOf(base), gpuBase.value.outcome, op) : null, matrix, face, step: fd?.step ?? ed?.step ?? null, depth: fd?.depth ?? ed?.value ?? 0, param: ed ? "value" : "depth", circle: rd ? { ref: rd.circle, radius: rd.radius } : null, corners: sd ? sd.items.map((i) => ({ ref: i.ref, to: add(i.at, i.by) })) : ad ? ad.items.map((i) => ({ ref: i.ref, to: add(i.at, i.by) })) : null, steps: sceneOf(base).steps.length };
   // what is drawn on a face of the body goes with it while it is dragged (it is carried when it is let go): the picture of the sketches is moved by the same numbers, no kernel (`in_234`)
   let shown = gpuBase.value;
   if (m) {
@@ -254,7 +257,7 @@ function gpuMotion(s: AppState): { matrix: number[] | null; face: FaceShift | nu
     const carry = full?.type === "batch" ? full.commands.filter((c) => c.type !== "addStep") : [];
     if (carry.length) { const moved = apply(sceneOf(base), { type: "batch", commands: carry }); if (moved.ok) shown = { scene: moved.value, outcome: gpuBase.value.outcome }; }
   }
-  return { matrix, face, shown };
+  return { matrix, face, shown, split: lastDrag.split };
 }
 
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
@@ -292,6 +295,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   const settling = !gpu && !!outcome.kernel?.stale && !!lastDrag && (lastDrag.matrix ? sc.steps.length === lastDrag.steps + 1 : lastDrag.corners ? lastDrag.corners.every((c) => { const q = sc.parts[c.ref]; return q?.kind === "corner" && Math.hypot(q.at[0] - c.to[0], q.at[1] - c.to[1], q.at[2] - c.to[2]) < 1e-6; }) : lastDrag.circle ? (sc.parts[lastDrag.circle.ref] as { radius?: number } | undefined)?.radius !== undefined && Math.abs((sc.parts[lastDrag.circle.ref] as { radius: number }).radius - lastDrag.circle.radius) < 1e-6 : !!faceStep && Math.abs(Number(faceStep.params[lastDrag.param]) - lastDrag.depth) < 1e-6);
   if (!gpu && !settling && !outcome.kernel?.stale) lastDrag = null;
   const bodyMatrix = gpu ? gpu.matrix : settling ? lastDrag!.matrix : null;
+  const bodySplit = bodyMatrix ? (gpu ? gpu.split ?? null : lastDrag?.split ?? null) : null;
   const faceShift = gpu ? gpu.face : settling ? lastDrag!.face : null; // (a face pulled or pushed, drawn at once: `in_217`)
   const hasBody = Object.values(sc.parts).some((p) => p.kind === "body");
   // the handles follow what they drag, live (a body being moved takes its arrows with it)
@@ -319,6 +323,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     scene: sc,
     mesh: outcome.kernel?.mesh ?? null,
     bodyMatrix,
+    bodySplit,
     faceShift,
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
     highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel,
@@ -459,4 +464,20 @@ function similarChip(s: AppState): Frame["similar"] {
   const sel = selectionOf(s.session);
   if (sel.length !== sim.refs.length || !sim.refs.every((r) => sel.includes(r))) return null;
   return { rules: SIMILAR_RULES.map((r) => ({ ...r, on: sim.rules.includes(r.id) })), count: sim.refs.length, noun: sim.noun };
+}
+
+/** The part of the mesh that is one body of several, for a move, turn or scale of that body (null for the whole body): its triangles, from the faces the kernel says are its, and its box (`in_273`). */
+function bodySplitOf(sc: Scene, outcome: CompileOutcome, op: Op): Frame["bodySplit"] {
+  const body = sc.parts[op.parts[0]!];
+  const k = outcome.kernel;
+  if (body?.kind !== "body" || body.ref === BODY_OBJECT || !body.id || !body.bbox || !k?.bodies || k.bodies.length < 2) return null;
+  const index = k.bodies.findIndex((b) => b.id === body.id);
+  if (index < 0) return null;
+  const tris: [number, number][] = [];
+  for (const f of k.faces ?? []) {
+    if (f.body !== index) continue;
+    const ranges = (f.ranges as { start: number; count: number }[] | undefined) ?? [{ start: f.start, count: f.count }];
+    for (const r of ranges) tris.push([r.start, r.count]);
+  }
+  return tris.length ? { tris, box: { min: body.bbox.min, max: body.bbox.max } } : null;
 }

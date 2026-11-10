@@ -497,8 +497,6 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
  */
 export function bodyMotion(scene: Scene, op: Op): Rigid | null {
   if (op.target !== "body" || (op.kind !== "move" && op.kind !== "rotate" && op.kind !== "scale")) return null;
-  // one body of several: the picture is not one mesh moved by a matrix on the graphics card (the mesh is all the bodies), so the kernel works out what is shown while it is dragged (`in_271`)
-  if (op.parts[0] !== BODY_OBJECT && scene.parts[op.parts[0]!]?.kind === "body") return null;
   if (op.kind === "rotate" && op.rot.some((t) => num(t) !== null)) {
     // angles typed for the axes: the body is turned to exactly those, as up to three turns one after another about the same point; about the middle of the body that is only known for one turn (after it the middle
     // of its box is somewhere else), so several turns need a pivot set, else the kernel works them out (`in_228`)

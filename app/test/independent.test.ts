@@ -142,17 +142,28 @@ test("the sketches of a body that is moved alone go with it, and the other body'
 });
 
 import { bodyMotion } from "../src/interaction/operations.ts";
-test("a drag of one body of several is not moved on the graphics card as a whole mesh: the kernel shows it; a single body still is (`in_271`)", () => {
+test("a drag of one body of several is moved on the graphics card alone: the frame says which triangles and which box are its, and the two bodies' triangles are all of the mesh (`in_273`)", () => {
   const two = box(box(createSession(kernel), 0, 0), 40, 0);
-  const [, b] = bodies(two);
-  const st = startOp(scene(two), [b!.ref], "move");
-  if (!st.ok) return assert.fail("no move");
-  assert.equal(bodyMotion(scene(two), { ...st.op, axis: 0, value: 5 }), null);
+  const [a, b] = bodies(two);
+  let st: AppState = pick({ ...createState(two), cam: homeCamera() }, [b!.ref]);
+  st = reduce(st, { type: "runAction", id: "op:move" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: "5" }, env);
+  const f = frameOf(st, env);
+  assert.ok(f.bodyMatrix, "drawn by a matrix");
+  assert.ok(f.bodySplit, "of one body");
+  assert.deepEqual(f.bodySplit!.box.min, b!.bbox!.min);
+  const count = f.bodySplit!.tris.reduce((n, [, c]) => n + c, 0);
+  const all = two.outcome.kernel!.mesh!.triangles.length;
+  assert.equal(count, all / 2, "b is half of the mesh (two boxes of the same size)");
+  const starts = f.bodySplit!.tris.map(([s0]) => s0);
+  assert.ok(starts.every((x) => x >= 0 && x < all));
+  // a single body is moved whole
   const one = box(createSession(kernel), 0, 0);
-  const st1 = startOp(scene(one), [bodies(one)[0]!.ref], "move");
-  if (!st1.ok) return assert.fail("no move");
-  assert.ok(bodyMotion(scene(one), { ...st1.op, axis: 0, value: 5 }));
-  // and the picture the kernel gives for the dragged body is the other one left alone
-  const shown = opCommand(scene(two), { ...st.op, axis: 1, value: 30 });
-  assert.ok(shown);
+  let st1: AppState = pick({ ...createState(one), cam: homeCamera() }, [bodies(one)[0]!.ref]);
+  st1 = reduce(st1, { type: "runAction", id: "op:move" }, env);
+  st1 = reduce(st1, { type: "entry", field: 0, text: "5" }, env);
+  const f1 = frameOf(st1, env);
+  assert.ok(f1.bodyMatrix);
+  assert.equal(f1.bodySplit, null);
+  void a;
 });
