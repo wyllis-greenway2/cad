@@ -1314,3 +1314,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > The little line that goes to a bubble needs to go behind the bubble not over it, because it clips some of the text in the bubble. Can we make the select similar available as a helpful bubble when you select something that has select similar options?
 (with a picture of the "R 13.8" bubble with the thin line back to its spot drawn over its text; two requests: the line behind the bubble, and select similar offered as a suggestion bubble)
 
+## in_269 — 2026-11-10 — question
+> Can we have a model for independent bodies? right now when I make to disconnected bodies, if I select one then it selects both, because there appears to be only a universal body model right now. I am not sure what the rule should be for what makes a body independent. What do you think? I think seperated bodies for sure should be independent. Although they could be put in a group select. Also I think the group select helper that shows options also should have the option to ungroup. Also can we offer boolean add and subtract?
+(a question about what makes a body independent, with three requests: independent bodies, an Ungroup option in the suggestion bubble of a group, and boolean add and subtract)
+

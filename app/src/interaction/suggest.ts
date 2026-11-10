@@ -10,16 +10,38 @@ import { settings } from "../shared/settings.ts";
 import { formatId } from "../shared/ref.ts";
 import { actionsFor } from "./actions.ts";
 import { similarTo } from "./similar.ts";
+import { breakable } from "../operation/groups.ts";
 
 export interface Suggestions { at: Vec3; items: { id: string; label: string }[] }
 
 /** What could be applied to this selection: geometric constraints only (a number is asked for where it is shown), those not already holding, and where to put the buttons. Null for nothing to offer. */
 export function suggestionsFor(scene: Scene, selection: readonly Ref[]): Suggestions | null {
   const constraints = constraintsFor(scene, selection);
-  const similar = similarOffer(scene, selection);
-  if (!similar) return constraints;
-  // "select similar" is offered when there are more like what is selected (`in_268`), after the constraints
-  return constraints ? { at: constraints.at, items: [...constraints.items, similar.item] } : { at: similar.at, items: [similar.item] };
+  // "select similar" is offered when there are more like what is selected (`in_268`), and "ungroup" when a whole group is selected (`in_269`), after the constraints
+  const more = [similarOffer(scene, selection), ungroupOffer(scene, selection)].filter((o): o is { at: Vec3; item: { id: string; label: string } } => !!o);
+  if (!more.length) return constraints;
+  const items = [...(constraints?.items ?? []), ...more.map((o) => o.item)];
+  return { at: constraints?.at ?? more[0]!.at, items };
+}
+
+/** The middle of what is selected, where the buttons stand. */
+function spotOf(scene: Scene, selection: readonly Ref[]): Vec3 | null {
+  const get = lookup(scene);
+  const spots = selection.slice(0, 60).map((r): Vec3 | null => {
+    const p = scene.parts[r];
+    if (p?.kind === "corner") return pointOf(get, r);
+    if (p?.kind === "line") { const s = segmentOf(get, r); return s ? [(s[0][0] + s[1][0]) / 2, (s[0][1] + s[1][1]) / 2, (s[0][2] + s[1][2]) / 2] : null; }
+    if (p?.kind === "circle") return circleOf(get, r)?.center ?? null;
+    if (p?.kind === "plane" && p.mesh && p.mesh.length >= 9) { let x = 0, y = 0, z = 0, n = 0; for (let i = 0; i + 2 < p.mesh.length; i += 3) { x += p.mesh[i]!; y += p.mesh[i + 1]!; z += p.mesh[i + 2]!; n++; } return [x / n, y / n, z / n]; }
+    return null;
+  }).filter((q): q is Vec3 => !!q);
+  if (!spots.length) return null;
+  return [spots.reduce((a, q) => a + q[0], 0) / spots.length, spots.reduce((a, q) => a + q[1], 0) / spots.length, spots.reduce((a, q) => a + q[2], 0) / spots.length];
+}
+function ungroupOffer(scene: Scene, selection: readonly Ref[]): { at: Vec3; item: { id: string; label: string } } | null {
+  if (!breakable(scene, selection).length) return null;
+  const at = spotOf(scene, selection);
+  return at ? { at, item: { id: "select:ungroup", label: "Ungroup" } } : null;
 }
 
 const offers = new WeakMap<Scene, Map<string, { count: number } | null>>();
@@ -35,17 +57,8 @@ function similarOffer(scene: Scene, selection: readonly Ref[]): { at: Vec3; item
     memo.set(key, found);
   }
   if (!found) return null;
-  const get = lookup(scene);
-  const spots = selection.map((r): Vec3 | null => {
-    const p = scene.parts[r];
-    if (p?.kind === "corner") return pointOf(get, r);
-    if (p?.kind === "line") { const s = segmentOf(get, r); return s ? [(s[0][0] + s[1][0]) / 2, (s[0][1] + s[1][1]) / 2, (s[0][2] + s[1][2]) / 2] : null; }
-    if (p?.kind === "circle") return circleOf(get, r)?.center ?? null;
-    if (p?.kind === "plane" && p.mesh && p.mesh.length >= 9) { let x = 0, y = 0, z = 0, n = 0; for (let i = 0; i + 2 < p.mesh.length; i += 3) { x += p.mesh[i]!; y += p.mesh[i + 1]!; z += p.mesh[i + 2]!; n++; } return [x / n, y / n, z / n]; }
-    return null;
-  }).filter((q): q is Vec3 => !!q);
-  if (!spots.length) return null;
-  const at: Vec3 = [spots.reduce((a, q) => a + q[0], 0) / spots.length, spots.reduce((a, q) => a + q[1], 0) / spots.length, spots.reduce((a, q) => a + q[2], 0) / spots.length];
+  const at = spotOf(scene, selection);
+  if (!at) return null;
   return { at, item: { id: "select:similar", label: `Select similar (${found.count} more)` } };
 }
 

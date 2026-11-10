@@ -140,3 +140,12 @@ test("a drag rectangle that touches part of a group takes the whole group", () =
   st = reduce(st, { type: "dragEnd" }, env);
   assert.ok(selection(st.session).includes(a) && selection(st.session).includes(b), "the corner in the rectangle brings the one it is grouped with");
 });
+
+import { suggestionsFor } from "../src/interaction/suggest.ts";
+test("a selected group offers Ungroup in the suggestion bubble (`in_269`)", () => {
+  const { s, c } = sketch();
+  const g = run(s, { type: "group", id: "g_1", items: [c[0]!, c[1]!] });
+  const offer = suggestionsFor(scene(g), [c[0]!, c[1]!]);
+  assert.ok(offer?.items.some((i) => i.id === "select:ungroup"));
+  assert.ok(!suggestionsFor(scene(s), [c[0]!, c[1]!])?.items.some((i) => i.id === "select:ungroup"), "no group: no Ungroup");
+});
