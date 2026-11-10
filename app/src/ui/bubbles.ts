@@ -19,7 +19,7 @@ export interface BubbleHandlers {
 }
 const fmt = (v: number) => String(Math.round(v * 100) / 100);
 
-interface Entry { el: HTMLElement; sig: string; editing: boolean; a: Annotation; tinted: boolean; /** where it is from the spot it belongs to, on its way to where it should stand */ off?: [number, number] }
+interface Entry { el: HTMLElement; sig: string; editing: boolean; a: Annotation; tinted: boolean; /** the thin line back to its spot, once it has moved far */ leader?: HTMLElement; /** where it is from the spot it belongs to, on its way to where it should stand */ off?: [number, number] }
 /** A refused change while it flashes: how far through it is, what it would have broken (red, fading) and what tried it (it shakes). */
 export interface Flash { t: number; victims: readonly string[]; culprits: readonly string[] }
 
@@ -119,7 +119,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
         const [x, y] = project(a.at);
         placed.push({ a, e, x, y });
       }
-      for (const [id, e] of entries) if (!seen.has(id) && !e.editing) { e.el.remove(); entries.delete(id); }
+      for (const [id, e] of entries) if (!seen.has(id) && !e.editing) { e.el.remove(); e.leader?.remove(); entries.delete(id); }
       // where each stands (`bubbleplace.ts`: clear of lines, corners and what comes first; keeps its place while that is clear), and the way there is eased, so a bubble that has to give way slides
       const put = placeBubbles(
         placed.map((p) => ({ id: p.a.id, x: p.x, y: p.y, w: p.e.el.offsetWidth || 40 })),
@@ -141,6 +141,22 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
         else if (e.tinted) { e.el.style.background = "#fff"; e.el.style.borderColor = q.a.open ? "#e0a82e" : "#d6d7db"; e.tinted = false; }
         if (flash && flash.culprits.includes(q.a.id)) { const phase = (flash.t * settings.flash.ms) / settings.flash.shakeMs; if (phase < 1) dx = Math.sin(phase * Math.PI * 6) * 7 * (1 - phase); }
         e.el.style.transform = `translate(${Math.round(q.x + next[0] + dx)}px, ${Math.round(q.y + next[1])}px)`;
+        // under something that comes first with no room to go: faint, and clicks go through (`in_260`)
+        e.el.style.opacity = to.faded ? "0.3" : "";
+        e.el.style.pointerEvents = to.faded ? "none" : "";
+        // moved far from its spot: a thin line back to it, so it is still clear what it belongs to
+        const far = Math.hypot(next[0], next[1]) > 44;
+        if (far && !e.leader) { e.leader = document.createElement("div"); e.leader.style.cssText = "position:fixed;left:0;top:0;height:1px;background:rgba(80,84,92,.55);transform-origin:0 0;pointer-events:none"; root.appendChild(e.leader); }
+        if (e.leader) {
+          if (!far) e.leader.style.display = "none";
+          else {
+            const [bx, by] = [q.x + next[0] + dx + (e.el.offsetWidth || 40) / 2, q.y + next[1] + 13];
+            const len = Math.hypot(bx - q.x, by - q.y);
+            e.leader.style.display = "block";
+            e.leader.style.width = `${Math.round(len)}px`;
+            e.leader.style.transform = `translate(${Math.round(q.x)}px, ${Math.round(q.y)}px) rotate(${Math.atan2(by - q.y, bx - q.x)}rad)`;
+          }
+        }
       });
       return moving;
     },

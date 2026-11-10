@@ -80,6 +80,14 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
       draw(0, null);
       root.style.display = "block";
     },
+    /** The box round all the bubbles of the ring while it is open (what the bubbles of constraints give way to, `in_260`). */
+    rect(): DOMRect | null {
+      if (root.style.display === "none" || !root.children.length) return null;
+      const rs = Array.from(root.children).map((c) => c.getBoundingClientRect()).filter((r) => r.width > 0);
+      if (!rs.length) return null;
+      const [l, t] = [Math.min(...rs.map((r) => r.left)), Math.min(...rs.map((r) => r.top))];
+      return new DOMRect(l, t, Math.max(...rs.map((r) => r.right)) - l, Math.max(...rs.map((r) => r.bottom)) - t);
+    },
     hide() { root.style.display = "none"; },
     get open() { return root.style.display !== "none"; },
   };

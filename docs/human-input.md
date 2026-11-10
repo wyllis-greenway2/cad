@@ -1278,3 +1278,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > Can we try to handle bubble collisions? There are lots of scenarios where bubbles fall on top of other bubbles. How should we solve this? make them move out of the way? or the behind one goes transparent?
 (with a picture of a selected tooth arc whose menu bubbles overlap each other, and the model `d29b43a3-model.cad_28.json`; a bug report on the radius bubble's position, and a question asking which way to resolve overlapping bubbles)
 
+## in_260 — 2026-11-10 — approval
+> Yes, take your recommendations on all three
+(approves `dec_bubble_layout` as drafted: move first and fade only when there is no room, the ring in front of everything, a line back to the spot for a bubble that moved far)
+

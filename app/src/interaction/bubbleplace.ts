@@ -18,7 +18,8 @@ export interface Obstacles {
 }
 /** Where each bubble went last time: its offset from where it belongs. */
 export type Memory = Map<string, [number, number]>;
-export interface Put { id: string; left: number; top: number }
+/** `faded`: no clear place within reach, and it is still under something that comes first (it is shown faint and takes no clicks until a place clears, `in_260`) */
+export interface Put { id: string; left: number; top: number; faded: boolean }
 
 /** Does the segment a-c pass through the rectangle (Liang-Barsky clipping)? */
 function crosses(a: [number, number], c: [number, number], r: [number, number, number, number]): boolean {
@@ -79,13 +80,14 @@ export function placeBubbles(want: readonly Want[], obs: Obstacles, memory: Memo
       }
     }
     const r = rectAt(ox, oy);
+    const faded = (obs.rects ?? []).some((t) => r[0] < t[2] + 3 && r[2] > t[0] - 3 && r[1] < t[3] + 3 && r[3] > t[1] - 3);
     taken.push(r);
     let left = cx - total / 2;
     group.forEach((j) => {
       const q = want[j]!;
       memory.set(q.id, [ox, oy]);
       seen.add(q.id);
-      out.push({ id: q.id, left: left + ox, top: cy + oy - 13 });
+      out.push({ id: q.id, left: left + ox, top: cy + oy - 13, faded });
       left += q.w + GAP;
     });
   });

@@ -1,16 +1,16 @@
 ---
 id: dec_bubble_layout
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_259
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_259, in_260
 date: 2026-11-10
 depends_on:
   - dec_interaction_spec: the bubbles it lists (constraint and number bubbles, the ring, the helper bubbles) are the ones this entry ranks; a change to what they are changes who gives way to whom
 ---
-# When bubbles fall on top of each other: the one behind gives way, by moving first, by fading only if it cannot (draft, for the human to answer)
+# When bubbles fall on top of each other: the one behind gives way, by moving first, by fading only if it cannot
 
-**Status: a draft written from `in_259`; the stability fix below is built, the rest is not.** Rule 3 of `CLAUDE.md`: it stays `provisional` until the human answers.
+**Status: accepted** (`in_260`: "take your recommendations on all three"). The stability fix and the rest are built; see the end.
 
 ## The two things in `in_259`
 
@@ -26,7 +26,7 @@ depends_on:
 - **Bubbles of the same rank** side by side as now (they already are, when they share a spot).
 - Not proposed: moving the ring (it would feel unstable), or fading the front one.
 
-## Questions for the human
+## Questions that were asked (answered by taking the recommendation, `in_260`)
 
 1. Move first, fade only when there is no room (as above), or fade first?
 2. The ring in front of everything, as above? (It is transient, so what it covers comes back when it closes.)
@@ -35,3 +35,7 @@ depends_on:
 ## Rationale
 
 The jump was a bug and is fixed on its own. How overlapping is resolved is a rule that every bubble family (constraints, numbers, ring, hints) would follow, so it is drafted for an answer before being built.
+
+## Built (`in_260`)
+`placeBubbles` takes the boxes of what is in front as obstacles; `main.ts` feeds it the ring (`ring.rect()`) and the number bubbles (as they stood on the last frame). A constraint bubble under them slides to the nearest clear place; if none is within reach it is faded to 0.3 and takes no clicks; once it has moved more than about 44 px from its spot a thin line joins it to the spot. Tested for the placement and the fade (`test/bubbleplace.test.ts`); the helper bubbles ("pull to copy") and the hint chips are not yet fed in as things in front.
+

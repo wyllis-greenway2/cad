@@ -240,7 +240,9 @@ function frame(now: number) {
     similarChip.update(f.similar);
     toolCursor.update(f.tool ? f.tool.kind : null);
     const project = projector(state.cam, size.w, size.h).project;
-    if (bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid)) dirty = true; // (a bubble still sliding to its place: another frame)
+    // what comes before the constraint bubbles: the ring, and the number bubbles (as they stood on the last frame)
+    const inFront = [ring.rect(), ...chips.map((c) => c.rect())].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : []));
+    if (bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid, inFront)) dirty = true; // (a bubble still sliding to its place: another frame)
     view.setNotes(f.annotations.flatMap((a) => a.lines));
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };

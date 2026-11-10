@@ -67,3 +67,11 @@ test("bubbles on one spot are laid side by side, and each remembers the same pla
   placeBubbles([{ id: "a", x: 100, y: 100, w: 40 }], none, memory);
   assert.equal(memory.has("b"), false, "a bubble that is gone forgets");
 });
+
+test("with no clear place within reach under what comes first, a bubble is faded; with room it moves and is not (`in_260`)", () => {
+  const big: [number, number, number, number] = [-1000, -1000, 1000, 1000];
+  assert.equal(one(100, 100, { ...none, rects: [big] }, new Map()).faded, true, "covered everywhere: faded");
+  const ring: [number, number, number, number] = [60, 40, 160, 110];
+  const moved = one(100, 100, { ...none, rects: [ring] }, new Map());
+  assert.equal(moved.faded, false, "it found room beside the box");
+});
