@@ -45,7 +45,14 @@ export function bodyParts(result: KernelResult): Part[] {
     }
     return ref;
   };
-  if (result.mesh) out.push({ ...base, ref: BODY_OBJECT, kind: "body", ...(result.bbox ? { bbox: { min: result.bbox.min as Vec3, max: result.bbox.max as Vec3 } } : {}) }); // the whole object: selected by the third click
+  // the bodies: one (the whole object, selected by the third click), or one for each solid that stands alone (`dec_independent_bodies`): a single body is always `BODY_OBJECT`, several are named by the step that made each
+  const bodies = result.bodies ?? [];
+  const many = bodies.length > 1;
+  const bodyPart = (i: number): Ref => (many ? bodyRef(bodies[i]!.id, "o") : BODY_OBJECT);
+  if (result.mesh) {
+    if (many) bodies.forEach((b, i) => out.push({ ...base, ref: bodyPart(i), kind: "body", id: b.id, volume: b.volume, bbox: { min: b.min as Vec3, max: b.max as Vec3 } }));
+    else out.push({ ...base, ref: BODY_OBJECT, kind: "body", ...(bodies[0] ? { id: bodies[0].id, volume: bodies[0].volume } : {}), ...(result.bbox ? { bbox: { min: result.bbox.min as Vec3, max: result.bbox.max as Vec3 } } : {}) });
+  }
   for (const v of result.vertices ?? []) corner(v);
   // a rim that the kernel made of two half circles: each half knows the other, so picking one picks both
   // (two arcs of one circle that do not meet at both ends, such as the tips of two teeth, are not halves of a rim)
@@ -58,9 +65,9 @@ export function bodyParts(result: KernelResult): Part[] {
     const name = edgeName(e.a, e.b, e.mid);
     const pair = e.circle ? halves.get(circleKey(e.circle)) : undefined;
     const twin = pair && pair.length === 2 && ends.get(pair[0]!) === ends.get(pair[1]!) ? pair.find((r) => r !== name) : undefined;
-    out.push({ ...base, ref: name, kind: "line", a: corner(e.a), b: corner(e.b), ...(straight ? {} : { mid: e.mid }), ...(e.circle ? { circle: e.circle as { center: Vec3; normal: Vec3; radius: number } } : {}), ...(twin ? { twin } : {}) });
+    out.push({ ...base, ref: name, kind: "line", a: corner(e.a), b: corner(e.b), ...(straight ? {} : { mid: e.mid }), ...(e.circle ? { circle: e.circle as { center: Vec3; normal: Vec3; radius: number } } : {}), ...(twin ? { twin } : {}), ...(many && e.body !== undefined ? { of: bodyPart(e.body) } : {}) });
   }
-  const flats: { n: Vec3; d: number; u: Vec3; v: Vec3; mesh: number[] }[] = [];
+  const flats: { n: Vec3; d: number; u: Vec3; v: Vec3; mesh: number[]; body?: number }[] = [];
   for (const f of result.faces ?? []) {
     if (f.type === "cyl") {
       // a full round face along a world axis: a part you can select and push / pull (its radius changes)
@@ -72,7 +79,7 @@ export function bodyParts(result: KernelResult): Part[] {
       const m = result.mesh;
       if (m) for (const r of (f.ranges as { start: number; count: number }[] | undefined) ?? [{ start: f.start, count: f.count }]) for (let i = r.start; i < r.start + r.count; i++) { const ix = m.triangles[i]!; mesh.push(m.vertices[ix * 3]!, m.vertices[ix * 3 + 1]!, m.vertices[ix * 3 + 2]!); }
       const curved = { axis, center, radius: f.radius as number, lo: f.lo as number, hi: f.hi as number, convex: f.convex !== false };
-      out.push({ ...base, ref: cylName(curved), kind: "plane", at: center, u: dirs[0]!, v: dirs[1]!, curved, ...(mesh.length ? { mesh } : {}) });
+      out.push({ ...base, ref: cylName(curved), kind: "plane", at: center, u: dirs[0]!, v: dirs[1]!, curved, ...(mesh.length ? { mesh } : {}), ...(many && f.body !== undefined ? { of: bodyPart(f.body as number) } : {}) });
       continue;
     }
     if (f.type === "surf") {
@@ -83,7 +90,7 @@ export function bodyParts(result: KernelResult): Part[] {
       const m = result.mesh;
       if (m) for (let i = f.start; i < f.start + f.count; i++) { const ix = m.triangles[i]!; mesh.push(m.vertices[ix * 3]!, m.vertices[ix * 3 + 1]!, m.vertices[ix * 3 + 2]!); }
       const mid: Vec3 = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
-      out.push({ ...base, ref: bodyRef("body", `s@${String(f.surface)},${key([...lo, ...hi])}`), kind: "plane", at: mid, u: [1, 0, 0], v: [0, 1, 0], rounded: String(f.surface), ...(typeof f.radius === "number" ? { radius: f.radius } : {}), ...(f.axisOf ? { round: f.axisOf as { axis: 0 | 1 | 2; center: Vec3; convex: boolean; dir?: Vec3 } } : {}), ...(mesh.length ? { mesh } : {}) });
+      out.push({ ...base, ref: bodyRef("body", `s@${String(f.surface)},${key([...lo, ...hi])}`), kind: "plane", at: mid, u: [1, 0, 0], v: [0, 1, 0], rounded: String(f.surface), ...(typeof f.radius === "number" ? { radius: f.radius } : {}), ...(f.axisOf ? { round: f.axisOf as { axis: 0 | 1 | 2; center: Vec3; convex: boolean; dir?: Vec3 } } : {}), ...(mesh.length ? { mesh } : {}), ...(many && f.body !== undefined ? { of: bodyPart(f.body) } : {}) });
       continue;
     }
     if (!f.n || f.d === undefined) continue;
@@ -100,7 +107,7 @@ export function bodyParts(result: KernelResult): Part[] {
         mesh.push(m.vertices[ix * 3]!, m.vertices[ix * 3 + 1]!, m.vertices[ix * 3 + 2]!);
       }
     }
-    flats.push({ n, d: f.d, u, v, mesh });
+    flats.push({ n, d: f.d, u, v, mesh, ...(many && f.body !== undefined ? { body: f.body } : {}) });
   }
   // two separate faces in one plane (a block's end cut in two by a hole) must not share a name, or one hides the other: the ones that share are named by where they are as well
   const same = new Map<string, number>();
@@ -113,7 +120,7 @@ export function bodyParts(result: KernelResult): Part[] {
       for (let i = 0; i < f.mesh.length; i += 3) { x += f.mesh[i]!; y += f.mesh[i + 1]!; z += f.mesh[i + 2]!; }
       ref = faceName(f.n, f.d, [x / k, y / k, z / k]);
     }
-    out.push({ ...base, ref, kind: "plane", at: [f.n[0] * f.d, f.n[1] * f.d, f.n[2] * f.d], u: f.u, v: f.v, ...(f.mesh.length ? { mesh: f.mesh } : {}) });
+    out.push({ ...base, ref, kind: "plane", at: [f.n[0] * f.d, f.n[1] * f.d, f.n[2] * f.d], u: f.u, v: f.v, ...(f.mesh.length ? { mesh: f.mesh } : {}), ...(f.body !== undefined ? { of: bodyPart(f.body) } : {}) });
   }
   return out;
 }

@@ -131,7 +131,16 @@ export function buildGraph(scene: Scene): GraphResult {
       case "move": case "rotate": case "scale": {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const pivot = st.params.px !== undefined ? [Number(st.params.px), Number(st.params.py), Number(st.params.pz)] : undefined; // rotate about this point (default: the middle of the body)
-        ops.push({ id: xid, type: "transform", target: prev, mode: st.type, axis: Number(st.params.axis ?? 0), value: Number(st.params.value ?? 0), ...(pivot ? { pivot } : {}) });
+        ops.push({ id: xid, type: "transform", target: prev, mode: st.type, axis: Number(st.params.axis ?? 0), value: Number(st.params.value ?? 0), ...(pivot ? { pivot } : {}), ...(st.params.body ? { body: String(st.params.body) } : {}) });
+        prev = xid;
+        break;
+      }
+      case "combine": {
+        // add or subtract bodies (`in_270`): the first body named stays; the bodies are named by the step that made each (`b/<name>/o`)
+        if (!prev) { errors[st.id] = "there is no body yet"; break; }
+        const names = st.parts.map((r) => (r.startsWith("b/") ? r.split("/")[1]! : ""));
+        if (names.length < 2 || names.some((n) => !n || n === "body")) { errors[st.id] = "select two or more bodies"; break; }
+        ops.push({ id: xid, type: "combine", target: prev, mode: String(st.params.mode ?? "add"), bodies: names });
         prev = xid;
         break;
       }

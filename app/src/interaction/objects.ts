@@ -23,7 +23,8 @@ export function planeOf(get: Lookup, ref: Ref): Plane | null {
 export function objectOf(sc: Scene, ref: Ref): Ref {
   const p = sc.parts[ref];
   if (!p) return ref;
-  if (p.origin === "body" || p.kind === "body") return BODY_OBJECT in sc.parts ? BODY_OBJECT : ref;
+  if (p.kind === "body") return ref;
+  if (p.origin === "body") return p.of && p.of in sc.parts ? p.of : BODY_OBJECT in sc.parts ? BODY_OBJECT : ref; // (the body it is in: one of several, `dec_independent_bodies`)
   const faces = Object.values(sc.parts).filter((f): f is Extract<Part, { kind: "face" }> => f.kind === "face");
   const f = faces.find((x) => x.loop.includes(ref) || x.corners.includes(ref) || x.disk === ref || (p.kind === "circle" && x.disk === p.ref));
   return f ? f.ref : ref;
@@ -31,8 +32,8 @@ export function objectOf(sc: Scene, ref: Ref): Ref {
 
 
 /** The middle of the body from its corners (the box that holds them), or null with no body. Rotating and moving handles start here. */
-export function bodyCentre(sc: Scene): Vec3 | null {
-  const body = sc.parts[BODY_OBJECT];
+export function bodyCentre(sc: Scene, ref: Ref = BODY_OBJECT): Vec3 | null {
+  const body = sc.parts[ref];
   if (body?.kind === "body" && body.bbox) return [(body.bbox.min[0] + body.bbox.max[0]) / 2, (body.bbox.min[1] + body.bbox.max[1]) / 2, (body.bbox.min[2] + body.bbox.max[2]) / 2]; // (the kernel's own box: a round body's corners do not reach its sides)
   const pts = Object.values(sc.parts).filter((p): p is Extract<Part, { kind: "corner" }> => p.kind === "corner" && p.origin === "body").map((p) => p.at);
   if (!pts.length) return null;

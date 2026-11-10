@@ -3,6 +3,7 @@
 import { loadOC } from "./oc.mjs";
 import { compile, finalSolid, volume } from "./interpreter.mjs";
 import { facesOf, edgesOf } from "./topo.mjs";
+import { lumpsOf } from "./bodies.mjs";
 
 const described = new Map();
 const copyOf = (d) => ({
@@ -11,6 +12,7 @@ const copyOf = (d) => ({
   faces: d.faces && structuredClone(d.faces),
   edges: d.edges && d.edges.map((e) => ({ ...e, pts: e.pts.slice() })),
   vertices: d.vertices && structuredClone(d.vertices),
+  bodies: d.bodies && structuredClone(d.bodies),
   mesh: d.mesh && { vertices: d.mesh.vertices.slice(), normals: d.mesh.normals.slice(), triangles: d.mesh.triangles.slice() },
 });
 
@@ -42,6 +44,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
   let faces = null;
   let edges = null;
   let vertices = null;
+  let bodies = null;
   // what the final body looks like (its mesh, faces, edges, corners) is kept for the last few bodies, by what the body was worked out from: a change that leaves the body as it is (a sketch beside it, a
   // constraint, undo and redo, the kernel's answer taken in again) takes the description from here instead of making it again, which is most of the time of a body of a few hundred faces (`in_252`).
   // What goes back out is a copy: the worker hands the mesh over to the page, which empties it here.
@@ -58,7 +61,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
   if (known) {
     described.delete(dkey);
     described.set(dkey, known);
-    ({ vol, bbox, faces, edges, vertices, mesh } = copyOf(known));
+    ({ vol, bbox, faces, edges, vertices, mesh, bodies } = copyOf(known));
   } else if (present) {
     // the finer the part, the finer the mesh: the deflection allowed is a small part of the part's own size (a 2 mm post must not be a 20-sided prism: `in_165`), never coarser than `tess.tolerance`
     const tBox0 = performance.now();
@@ -148,6 +151,20 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
       } catch { radius = undefined; }
       faces.push({ type: "surf", surface: String(f.geomType), start: g.start, count: g.count, lo: lo.map(r4s), hi: hi.map(r4s), ...(radius ? { radius: Math.round(radius * 1e4) / 1e4 } : {}), ...(partOf.has(f.hashCode) ? { axisOf: partOf.get(f.hashCode) } : {}) });
     }
+    // the bodies of the shape (a compound of solids that stand alone), each with its name, box and volume, and which faces and edges are its (`in_270`)
+    const lumps = lumpsOf(fin.shape);
+    const markers = fin.markers ?? [];
+    bodies = markers.map((m) => { const l = lumps[m.lump]; const bb = l.boundingBox.bounds; return { id: m.id, min: [...bb[0]], max: [...bb[1]], volume: lumps.length > 1 ? volume(l) : vol }; });
+    let bodyOfEdge = null;
+    if (lumps.length > 1) {
+      const startBody = new Map();
+      bodyOfEdge = new Map();
+      markers.forEach((m, bi) => {
+        for (const f of facesOf(lumps[m.lump])) { const g = ranges.get(f.hashCode); if (g) startBody.set(g.start, bi); }
+        for (const e of edgesOf(lumps[m.lump])) bodyOfEdge.set(e.hashCode, bi);
+      });
+      for (const f of faces) if (startBody.has(f.start)) f.body = startBody.get(f.start);
+    }
     tFaces = performance.now();
     // edges as polylines, and their end points as vertices (for selecting lines and corners)
     const em = fin.shape.meshEdges({ tolerance: tess.tolerance, angularTolerance: tess.angular });
@@ -170,16 +187,16 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
           circle = { center: [r4(lc.X()), r4(lc.Y()), r4(lc.Z())], normal: [r4(ax.X()), r4(ax.Y()), r4(ax.Z())], radius: r4(ci.Radius()) };
         } catch { circle = undefined; }
       }
-      edges.push({ type: e.geomType, pts, a: [r4(a.x), r4(a.y), r4(a.z)], b: [r4(z.x), r4(z.y), r4(z.z)], mid: [r4(mid.x), r4(mid.y), r4(mid.z)], ...(circle ? { circle } : {}) });
+      edges.push({ type: e.geomType, pts, a: [r4(a.x), r4(a.y), r4(a.z)], b: [r4(z.x), r4(z.y), r4(z.z)], mid: [r4(mid.x), r4(mid.y), r4(mid.z)], ...(circle ? { circle } : {}), ...(bodyOfEdge?.has(g.edgeId) ? { body: bodyOfEdge.get(g.edgeId) } : {}) });
       for (const v of [a, z]) seen.set(`${r4(v.x)},${r4(v.y)},${r4(v.z)}`, [r4(v.x), r4(v.y), r4(v.z)]);
     }
     vertices = [...seen.values()];
     if (dkey) {
-      described.set(dkey, copyOf({ vol, bbox, faces, edges, vertices, mesh }));
+      described.set(dkey, copyOf({ vol, bbox, faces, edges, vertices, mesh, bodies }));
       while (described.size > 6) described.delete(described.keys().next().value);
     }
   }
-  return { ops, finalId: present?.id ?? null, volume: vol, bbox, faces, edges, vertices, totalMs: performance.now() - t0, mesh, perf: { ops: tCompile - t0, box: tBox, mesh: tMesh - tCompile - tBox, faces: tFaces - tMesh, edges: performance.now() - tFaces } };
+  return { ops, finalId: present?.id ?? null, volume: vol, bbox, bodies, faces, edges, vertices, totalMs: performance.now() - t0, mesh, perf: { ops: tCompile - t0, box: tBox, mesh: tMesh - tCompile - tBox, faces: tFaces - tMesh, edges: performance.now() - tFaces } };
 }
 
 /**

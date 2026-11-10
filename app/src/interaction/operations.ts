@@ -295,8 +295,12 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     return { ok: true, op: { ...base, parts: a.parts, value: a.measure(), field: a.label, unit: a.unit } };
   }
   // move, rotate, scale: the whole body, or (move and rotate) a drawn closed figure
-  const body = parts.some((p) => p.kind === "body" || p.origin === "body");
-  if (body) return { ok: true, op: { ...base, parts: [BODY_OBJECT], pivot: kind === "rotate" ? bodyCentre(scene) : null } };
+  const body = parts.find((p) => p.kind === "body" || p.origin === "body");
+  if (body) {
+    const which = objectOf(scene, body.ref); // (the body it is, or the body the face or edge is in: one of several, `dec_independent_bodies`)
+    const mine = scene.parts[which]?.kind === "body" ? which : BODY_OBJECT;
+    return { ok: true, op: { ...base, parts: [mine], pivot: kind === "rotate" ? bodyCentre(scene, mine) : null } };
+  }
   const face = drawnFace(scene, parts);
   if (face && kind === "scale") {
     // a drawn figure is made bigger or smaller about its middle: its corners go in or out, a circle's radius changes
@@ -411,7 +415,20 @@ function figureCommand(scene: Scene, op: Op, turns: { axis: 0 | 1 | 2; angle: nu
 }
 const rotTarget = (scene: Scene, op: Op): Angles => { const cur = turnAngles(scene, op); return cur.map((c, i) => (num(op.rot[i]!) ?? c)) as Angles; };
 
+/** A step of the move, turn or scale of one body of several: it names the body (`body`), and the drawn sketches are not carried along (they stay where they were drawn). */
+function forBody(cmd: Command | null, id: string): Command | null {
+  if (!cmd) return cmd;
+  if (cmd.type === "batch") { const steps = cmd.commands.filter((c) => c.type === "addStep").map((c) => forBody(c, id)!); return steps.length ? { type: "batch", commands: steps } : null; }
+  if (cmd.type !== "addStep") return cmd;
+  const { follow: _f, ...rest } = cmd.step.params;
+  return { ...cmd, step: { ...cmd.step, params: { ...rest, body: id } } };
+}
 export function opCommand(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Command | null {
+  const which = op.target === "body" && (op.kind === "move" || op.kind === "rotate" || op.kind === "scale") ? scene.parts[op.parts[0]!] : undefined;
+  const cmd = opCommandOf(scene, op, opts);
+  return which?.kind === "body" && which.ref !== BODY_OBJECT && which.id ? forBody(cmd, which.id) : cmd;
+}
+function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Command | null {
   // a preview (what is shown while a number is dragged) is only the step: the sketches are carried when it is made for good. Carrying them changes what the earlier steps read, so every step would be made again at every move of the pointer (`in_206`)
   if (opts.preview && op.target === "body" && (op.kind === "move" || op.kind === "rotate" || op.kind === "scale")) return stripFollow(opCommand(scene, op));
   if (op.kind === "linear" || op.kind === "circular") return patternCommand(scene, op);
@@ -450,7 +467,7 @@ export function opCommand(scene: Scene, op: Op, opts: { preview?: boolean } = {}
   if (op.kind === "scale") {
     if (v <= 0) return null;
     // the whole body: about the middle of its box, and the sketches that made it carried along, made as many times bigger (`in_204`, `in_205`)
-    const pivot = op.pivot ?? bodyCentre(scene);
+    const pivot = op.pivot ?? bodyCentre(scene, op.parts[0]);
     if (!pivot) return { type: "addStep", step: { id, type: "scale", parts: op.parts, params: { axis: 0, value: v } } };
     const step: Command = { type: "addStep", step: { id, type: "scale", parts: op.parts, params: { axis: 0, value: v, px: pivot[0], py: pivot[1], pz: pivot[2], follow: 1 } } };
     const carry = carrySketches(scene, [], [0, 0, 0], pivot, v);
@@ -481,7 +498,7 @@ export function bodyMotion(scene: Scene, op: Op): Rigid | null {
     // of its box is somewhere else), so several turns need a pivot set, else the kernel works them out (`in_228`)
     const cmd = opCommand(scene, op, { preview: true });
     const adds = (cmd?.type === "batch" ? cmd.commands : cmd ? [cmd] : []).filter((c): c is Extract<Command, { type: "addStep" }> => c.type === "addStep" && c.step.type === "rotate");
-    const pivot0 = op.pivot ?? bodyCentre(scene);
+    const pivot0 = op.pivot ?? bodyCentre(scene, op.parts[0]);
     if (!adds.length || !pivot0 || (adds.length > 1 && !op.pivot)) return null;
     return laterMotion(adds.map((a) => ({ ...a.step, params: { ...a.step.params, follow: 1, px: pivot0[0], py: pivot0[1], pz: pivot0[2] } })), -1);
   }
@@ -489,7 +506,7 @@ export function bodyMotion(scene: Scene, op: Op): Rigid | null {
   if (v === null) return null;
   if (op.kind === "scale" && v <= 0) return null;
   if (op.kind === "move") return motionOf({ id: "s_x", type: "move", parts: op.parts, params: { axis: op.axis, value: v } });
-  const pivot = op.pivot ?? bodyCentre(scene);
+  const pivot = op.pivot ?? bodyCentre(scene, op.parts[0]);
   if (!pivot) return null;
   return motionOf({ id: "s_x", type: op.kind, parts: op.parts, params: { axis: op.kind === "scale" ? 0 : op.axis, value: v, px: pivot[0], py: pivot[1], pz: pivot[2] } });
 }

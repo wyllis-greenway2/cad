@@ -56,3 +56,20 @@ export function doUngroup(s: AppState): AppState {
   const next = run(s.session, gs.length === 1 ? { type: "ungroup", id: gs[0]!.id } : { type: "batch", commands: gs.map((g) => ({ type: "ungroup" as const, id: g.id })) });
   return next.message ? say({ ...s, menu: null }, next.message) : { ...withSession(s, { ...next, message: gs.length === 1 ? "group broken" : `${gs.length} groups broken` }), menu: null };
 }
+
+/** Why the selection cannot be added or subtracted: two or more bodies are needed (`in_270`). */
+export function whyNotCombine(session: Session): string | null {
+  const sc = sceneOf(session);
+  const bodies = selectionOf(session).filter((r) => sc.parts[r]?.kind === "body");
+  return bodies.length >= 2 ? null : "select two or more bodies (click a body three times, or choose it in the Bodies list)";
+}
+/** Add the selected bodies into the first one selected, or take the others away from it (they are used up). */
+export function doCombine(s: AppState, mode: "add" | "subtract"): AppState {
+  const why = whyNotCombine(s.session);
+  if (why) return say({ ...s, menu: null }, why);
+  const sc = sceneOf(s.session);
+  const bodies = selectionOf(s.session).filter((r) => sc.parts[r]?.kind === "body");
+  const next = run(s.session, { type: "addStep", step: { id: nextId(sc, "s"), type: "combine", parts: bodies, params: { mode } } });
+  if (next.message) return say({ ...s, menu: null, session: next }, next.message);
+  return { ...withSession(s, { ...next, click: { ...next.click, selection: [bodies[0]!].filter((r) => r in sceneOf(next).parts) }, message: mode === "add" ? "bodies added together" : "bodies subtracted" }), menu: null };
+}

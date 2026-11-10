@@ -18,6 +18,7 @@ import {
   basicFaceExtrusion,
 } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
+import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers } from "./bodies.mjs";
 
 /** OCCT's own topology/geometry check. Operations can return garbage without throwing. */
 export function isValidSolid(shape) {
@@ -617,22 +618,47 @@ const OPS = {
 
   /** Move, rotate or scale the whole target. mode "move" (mm along axis), "rotate" (degrees about the axis through `pivot`, default the box centre), "scale" (factor about the box centre). */
   transform(op, ctx) {
-    const t = ctx.get(op.target, "solid").shape;
+    const target = ctx.get(op.target, "solid");
+    const markers = target.markers ?? [];
+    // one body of several: only that solid is moved, turned or scaled (`op.body`: the body's name); a step with no body does the whole shape, as before (`in_270`)
+    const one = op.body && markers.length > 1 ? lumpOf(target.shape, markers, op.body) : null;
+    if (op.body && markers.length > 1 && !one) throw new Error("that body is not there any more");
+    const t = one ? one.lump : target.shape;
     const v = resolve(op.value, ctx.params);
     if (!Number.isFinite(v)) throw new Error("bad number");
     // the middle of the body's box is only asked for when there is no pivot to turn or scale about: finding a box takes as long as the move itself (`in_251`: it was most of the time of a history of moves)
     const middle = () => { const b = bounds(t); return [0, 1, 2].map((i) => (b.min[i] + b.max[i]) / 2); };
     const axis = [0, 0, 0];
     axis[op.axis] = 1;
-    if (op.mode === "move") return { kind: "solid", shape: t.translate(axis.map((a) => a * v)) };
-    if (op.mode === "rotate") return { kind: "solid", shape: t.rotate(v, op.pivot ?? middle(), axis) };
+    const again = (moved) => (one ? makeCompound([...one.rest, moved]) : moved);
+    const only = one ? op.body : null;
+    if (op.mode === "move") return { kind: "solid", shape: again(t.translate(axis.map((a) => a * v))), tf: { mode: "move", axis: op.axis, v, only } };
+    if (op.mode === "rotate") { const pivot = op.pivot ?? middle(); return { kind: "solid", shape: again(t.rotate(v, pivot, axis)), tf: { mode: "rotate", axis: op.axis, v, pivot, only } }; }
     if (op.mode === "scale") {
       if (!(v > 1e-6)) throw new Error("scale must be positive");
       // (a body made a hundred metres long or more is a slip of the keys, and the kernel does not come back from meshing it: `in_255`)
       if (v > 100) { const b = bounds(t); if (Math.max(...[0, 1, 2].map((i) => b.max[i] - b.min[i])) * v > 1e5) throw new Error("that scale would make the body more than 100 metres long"); }
-      return { kind: "solid", shape: t.scale(v, op.pivot ?? middle()) };
+      const pivot = op.pivot ?? middle();
+      return { kind: "solid", shape: again(t.scale(v, pivot)), tf: { mode: "scale", axis: 0, v, pivot, only } };
     }
     throw new Error(`unknown transform ${op.mode}`);
+  },
+
+  /**
+   * Add or subtract bodies (`in_270`): `bodies` are the names of the bodies, the first is the one that stays. Add joins them all into the first (they must touch or overlap, or they could not be one solid);
+   * Subtract takes the others away from the first, and they are used up. The other bodies of the model are left as they are.
+   */
+  combine(op, ctx) {
+    const t = ctx.get(op.target, "solid");
+    const found = lumpsByName(t.shape, t.markers ?? [], op.bodies);
+    if (!found || found.picked.length < 2) throw new Error("select two or more bodies (one of them is not there any more)");
+    const [first, ...others] = found.picked;
+    let made = first;
+    for (const o of others) made = op.mode === "subtract" ? made.cut(o) : made.fuse(o);
+    const parts = lumpsOf(made);
+    if (!parts.length) throw new Error("nothing would be left of the body");
+    if (op.mode !== "subtract" && parts.length > 1) throw new Error("those bodies do not touch or overlap, so they cannot become one body");
+    return { kind: "solid", shape: makeCompound([...found.rest, ...parts]), first: op.bodies[0] };
   },
 
   /** Cylindrical hole cut from the top of the target, at (x, y). depth omitted = through. */
@@ -732,6 +758,29 @@ function fingerprint(text) {
   return `${(a >>> 0).toString(36)}${(b >>> 0).toString(36)}:${text.length}`;
 }
 
+/** Operations that change a face, an edge or a round wall of one body: with several bodies they work on the body that holds it and leave the others alone, even when what is pulled goes into another body (`in_270`). */
+const LOCAL = {
+  faceExtrude: (op) => [op.ref?.point],
+  faceTilt: (op) => [op.ref?.point],
+  cylRadius: (op) => [op.ref?.center],
+  cylDraft: (op) => [op.ref?.center],
+  edgeMod: (op) => [].concat(op.ref ?? []).map((r) => r.mid),
+};
+function run(op, ctx, results) {
+  const probes = (LOCAL[op.type]?.(op) ?? []).filter(Boolean);
+  const from = op.target ? results.get(op.target)?.value : null;
+  if (probes.length && from?.kind === "solid" && (from.markers?.length ?? 0) > 1) {
+    const here = lumpAt(from.shape, probes[0]);
+    // (only when everything the step names is in that one body: edges of two bodies are rounded together, on the whole shape)
+    if (here && probes.every((p) => lumpAt(from.shape, p)?.lump.hashCode === here.lump.hashCode)) {
+      const only = { ...ctx, get: (id, kind) => (id === op.target ? { kind: "solid", shape: here.lump.clone(), markers: [] } : ctx.get(id, kind)) };
+      const value = OPS[op.type](op.together ? { ...op, together: undefined } : op, only);
+      return value.kind === "solid" ? { ...value, shape: makeCompound([...here.rest.map((l) => l.clone()), ...lumpsOf(value.shape)]) } : value;
+    }
+  }
+  return OPS[op.type](op, ctx);
+}
+
 /** Compile the whole graph. Returns per-op results; never throws for op-level failures. */
 export function compile(graph) {
   const params = graph.params ?? {};
@@ -760,7 +809,14 @@ export function compile(graph) {
     }
     try {
       if (!OPS[op.type]) throw new Error(`unknown op type ${op.type}`);
-      const value = OPS[op.type](op, ctx);
+      const value = run(op, ctx, results);
+      if (value.kind === "solid") {
+        // which bodies the result has, by the markers of the body it was made from (moved with it if this was a move)
+        const from = op.target ? results.get(op.target)?.value : null;
+        let prev = value.tf ? moveMarkers(from?.markers ?? [], value.tf) : from?.markers ?? [];
+        if (value.first) prev = [...prev.filter((m) => m.id === value.first), ...prev.filter((m) => m.id !== value.first)]; // (the body that stays keeps its name when bodies are combined)
+        value.markers = trackBodies(prev, value.shape, op.id);
+      }
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
       if (value.kind === "solid" && !rigid && !isValidSolid(value.shape)) throw new Error("kernel returned an invalid solid");
       results.set(op.id, { value, ms: performance.now() - t0, key });
@@ -777,7 +833,7 @@ export function finalSolid(graph, results) {
   for (let i = graph.ops.length - 1; i >= 0; i--) {
     const r = results.get(graph.ops[i].id);
     if (r && !r.error && r.value.kind === "empty") return null; // the body was deleted
-    if (r && !r.error && r.value.kind === "solid") return { id: graph.ops[i].id, shape: r.value.shape, key: r.key };
+    if (r && !r.error && r.value.kind === "solid") return { id: graph.ops[i].id, shape: r.value.shape, key: r.key, markers: r.value.markers ?? [] };
   }
   return null;
 }

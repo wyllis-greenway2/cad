@@ -39,6 +39,11 @@ function fillTriangles(s: Scene, ref: Ref, kind: Kind, body: { vertices: Float32
   const p = s.parts[ref];
   if (!p) return null;
   if (p.origin === "world" && kind === "select") return null; // a world plane is never filled blue when picked (`in_116`); the hover ring still shows
+  if (p.kind === "body") {
+    // one body of several: its own faces (`dec_independent_bodies`)
+    const own = Object.values(s.parts).filter((q) => q.kind === "plane" && q.of === ref && q.mesh);
+    if (own.length) return own.flatMap((q) => (q.kind === "plane" && q.mesh ? [...q.mesh] : []));
+  }
   if (p.kind === "body" && body) {
     const tris: number[] = [];
     for (const ix of body.triangles) tris.push(body.vertices[ix * 3]!, body.vertices[ix * 3 + 1]!, body.vertices[ix * 3 + 2]!);

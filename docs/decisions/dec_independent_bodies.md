@@ -1,17 +1,17 @@
 ---
 id: dec_independent_bodies
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_269
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_269, in_270
 date: 2026-11-10
 depends_on:
   - dec_stable_references: a body needs a name that stays when the model is edited, and its faces and edges are named under it; a change to how references are named changes how bodies are named
   - dec_export_stl: the export takes the final body today; with several bodies it needs to say which (that entry's question 5 was left open for this)
 ---
-# Independent bodies, and Add and Subtract (draft, for the human to answer)
+# Independent bodies, and Add and Subtract
 
-**Status: a draft written from `in_269`; nothing here is built (the Ungroup button in the suggestion bubble, asked in the same message, is built, Handoff 254).** Rule 3 of `CLAUDE.md`: it stays `provisional` until the human answers.
+**Status: accepted** (`in_270`: "take your recommendations on all five", with the refinement below). Steps (1) to (3) of the order below are built; see the end.
 
 ## What is true today
 
@@ -39,7 +39,7 @@ The model has **one body**: the final solid of the history. All of it is one obj
 
 (1) bodies as named solids that are selected one at a time (separated ones only: no overlap yet); (2) Move, Turn, Scale, Copy on the selected body; (3) Add and Subtract; (4) export of all or one body; (5) Intersect and "keep the tool".
 
-## Questions for the human
+## Questions that were asked (answered by taking the recommendation, `in_270`)
 
 1. Identity (recommended) or shape (connected solid) as the rule?
 2. An extrusion that touches a body joins it, one that does not makes a new one: right?
@@ -50,3 +50,12 @@ The model has **one body**: the final solid of the history. All of it is one obj
 ## Rationale
 
 The human found that two separated bodies cannot be selected apart (`in_269`). That follows from the model having one body, so the fix is a different model, not a selection tweak; it touches the kernel interface, the file and every operation on the body, so it is drafted for an answer before it is built.
+
+
+## Refinement by the human (`in_270`)
+Joining or cutting another body happens **only on the first drag of a sketch into an extrusion** (the initial extrusion: it joins a body it touches and cuts a body it goes into, as before). **Later drags and face pulls change that body alone**, even if what is pulled goes into another body: they never join or cut it. Adding and subtracting bodies is done only by the boolean **Add** and **Subtract**.
+
+## Built (`in_270`)
+- **Kernel** (`compiler/kernel/occt/bodies.mjs`, `interpreter.mjs`, `evaluate.mjs`): a body is a solid of the final compound; each keeps a name through the history by a **marker** (a point inside it, the middle of its box, kept up to date; moved with it by a move, turn or scale): the solid that holds a body's marker is that body, a solid with none is a new body named by the operation that made it, a marker with no solid of its own is gone. `KernelResult.bodies` (name, box, volume), and each face and edge says which body it is in (`body`). Move, Turn and Scale take a `body` name and move only that solid (the others stay; overlapping bodies are allowed). Face and edge operations (`faceExtrude`, `faceTilt`, `cylRadius`, `cylDraft`, `edgeMod`) run on the body that holds what they name and leave the others alone. `combine` (Add: joins into the first, refused if they do not touch or overlap; Subtract: the first minus the others, which are used up).
+- **App:** a body part for each body (a single body is still `b/body/o`; several are `b/<name>/o`, with `id`, `volume`, `bbox`), faces and edges say which body they are in (`of`); the third click and the Bodies list take one body; Move, Turn and Scale of a selected body make steps that name it (`params.body`; the drawn sketches are **not** carried along); **Add bodies** and **Subtract bodies** in the Shape group of the ring and the ⋯ list (two or more bodies selected; the first selected stays), the step `combine`. `test/bodies.test.ts`, `test/independent.test.ts`.
+- **Not built yet:** Copy and the repeats of one body (they take the whole shape); sketches of a moved body staying with it; the live drag preview of a body's move on the graphics card is the whole-body one; Intersect and "keep the tool"; export of one body only (all bodies go in one file, as decided).

@@ -16,6 +16,7 @@ function stepLabel(st: Step): string {
     case "extrude": return `Extrude ${n(p.depth)} mm`;
     case "pushPull": return `Push / pull ${n(p.depth)} mm`;
     case "edgeMod": return `${p.mode === "chamfer" ? "Chamfer" : "Fillet"} ${n(p.value)} mm`;
+    case "combine": return p.mode === "subtract" ? "Subtract bodies" : "Add bodies";
     case "rotate": return `Rotate ${"XYZ"[Number(p.axis ?? 0)]} ${n(p.value)}°`;
     case "move": return `Move ${"XYZ"[Number(p.axis ?? 0)]} ${n(p.value)} mm`;
     case "scale": return `Scale ×${n(p.value)}`;
