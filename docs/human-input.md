@@ -1253,3 +1253,18 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_256 — 2026-11-10 — approval
 > yes, build the STL export as drafted
 (approves `dec_export_stl` as drafted: its proposals are taken as the answers to the questions it asked, except which of 3MF and STEP comes next and how several bodies export, which are not needed yet)
+
+## in_257 — 2026-11-10 — directive
+> Didn't we have the ability before where you could select a face and apply chamfer to all edges on that face? This gear face top and bottom selects all edges in bulk and I would want to easily apply a chamfer to all without individually selecting each edge. The face already selects the edges I care about.
+>
+> Lets make it so that you can select or delect things additively. I am not sure if it should work with shift or ctrl or else, but the idea would be that you can select many objects, faces, lines, etc, and deselect some without deselecting all.
+>
+> Lets introduce the idea of selection groups. So the idea would be that whatever you select, you can group, in which case when you select any member in the future, it selects all. I think that groups should be layered. So if you make a group, then that group becomes a sub selection of a larger group, then when you break the larger group, then the sub group doesn't break, you would need to click that group individually and break it. So the idea is you can bind groups, and group breaking only breaks the top level of whatever group selection you have.
+>
+> I have an idea but I am not sure if it is a good idea or not. I am thinking of offering something called "Select Similar" which would select all the same kinds of things in a body. I am thinking of situations with a model like this. A gear with the side faces where selecting a face doesn't select all the edges I care about because in this perspective each tooth has its own face. that has many many edges that repeat. For example if you wanted to chamfer a specific edge on every gear tooth, it would be so helpful to be able to select one edge, and then select similar would select all of them. Maybe we should only offer this if the edge was generated from a sketch repeat operation? Or maybe we should offer generically but with rules? like it selects things that are the exact same in some value, same length, same curvature, on same plane, oriented in at least one axis the same etc? What do you think?
+>
+> Also why do the curved surfaces of this gear tooth not have an arrow to push pull the surface?
+>
+> Pattern handling. I am thinking that things produced via a pattern repeat, should have the option to modify the repeat perameters? I am unsure of how this should be presented in the UI UX. We probably also need to think about how modifying a repeat could break a valid body if the repeat is a sketch repeat.
+(attached `model.cad_26.json`, a gear sketch: a 25 mm circle with a tooth outline built from lines and arcs, not yet extruded in the saved file; this is a mix of a question about an existing ability, directives for additive selection and selection groups, a request for an opinion on "Select Similar", a question about missing push/pull arrows, and an open design question about editing repeat parameters)
+

@@ -1,0 +1,22 @@
+---
+id: q_arc_wall_pushpull
+kind: question
+status: open
+origin: ai-unreviewed
+human_input: in_257
+date: 2026-11-10
+depends_on:
+  - dec_face_edit_by_step: pushing a face changes the step or the drawing that made it; what an arc wall's push means is another case of that rule
+alternative_to:
+---
+# Why does a curved side of an extruded sketch (a gear tooth's flank) have no push / pull arrow, and what should it do?
+
+**Why (from the code, `faceedit.ts`):** a curved face of the body gets a push / pull arrow only if the face is (a) the wall of a **whole circle** extruded (a post or a hole, along a world axis; pushing it changes that circle's radius), or (b) a fillet or chamfer face (its size). A wall that comes from an **arc** that is one side of an outline (a tooth's flank or tip) is neither: `sideOfSketch` skips every side that has a centre or a bulge, so no edit is found and the message says "this curved face can be selected but not pushed or pulled yet". It is a gap, not a decision. (The file attached to `in_257` holds the drawing only, with no extrusion in it, so I reasoned from the code and not from your body; a file with the extrusion would let me check which faces.)
+
+**What it could do (proposal):** pushing an arc wall changes the **radius of that arc**, the way pushing a post's wall changes the radius of its circle: if the arc has a radius dimension, the number is changed (the tip arc of the gear, 14.5, becomes 15); the ends of the arc follow along the lines they sit on, which is what the sketch's own relations already say. If it has no dimension, the arc is made bigger or smaller with its two end corners kept, so it only bulges more or less. A flank that is a straight line already works (`sideOfSketch`). A side held by relations that forbid the change is refused with the constraints shown, as any change to a drawing is.
+
+**Questions:** is "push = change the arc's radius, ends staying on their lines" what you would expect on a tooth tip and a flank? Should an arc whose centre is another part's centre (concentric) keep that centre (yes, in this proposal)? (Separate gap, not asked here: round faces that are not along a world axis, after a body is turned by an angle.)
+
+## Rationale
+
+Open until answered; nothing depends on it. It changes which faces can be edited and what a push means for an arc, which `dec_face_edit_by_step` leaves to cases.
