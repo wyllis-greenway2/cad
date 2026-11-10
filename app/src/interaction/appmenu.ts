@@ -10,6 +10,7 @@ export const appRows = (mode: ScrollMode, build = "", can: { undo: boolean; redo
   { id: "redo", label: "Redo", enabled: can.redo, why: "nothing to redo" },
   { id: "bodies", label: "Bodies", enabled: true, why: null },
   { id: "history", label: "History", enabled: true, why: null },
+  { id: "groups", label: "Groups", enabled: true, why: null },
   { id: "save", label: "Save", enabled: true, why: null },
   { id: "open", label: "Open…", enabled: true, why: null },
   { id: "exportStl", label: "Export STL…", enabled: can.exportStl ?? true, why: "nothing to export yet: make a body" },

@@ -14,6 +14,7 @@ import { ok } from "../shared/result.ts";
 import { fromText, toText } from "../operation/file.ts";
 import { emptyScene } from "../operation/scene.ts";
 import type { Selection } from "./selection.ts";
+import { goIn, afterClick } from "./groupsel.ts";
 import { click as clickGrammar, initialClick } from "./selection.ts";
 import type { ClickState } from "./selection.ts";
 
@@ -155,8 +156,13 @@ export const redoLast = (s: Session): Session => { const n = withHistory(s, redo
 
 /** A click on the candidates under the pointer (see `picking.refsAt`). */
 export function clickOn(s: Session, candidates: readonly Ref[], shift = false): Session {
+  const sc = s.history.scene;
+  // a click on a member of a group that is selected goes one level in (`in_257`)
+  const first = candidates[0];
+  const inner = !shift && first ? goIn(sc, s.click.selection, first) : null;
+  if (inner) return { ...s, click: { ...s.click, selection: inner, spot: "" }, message: null };
   const r = clickGrammar(s.click, candidates, { shift });
-  return { ...s, click: r.state, message: r.cycled ? `${r.cycled.index} of ${r.cycled.of} here` : null };
+  return { ...s, click: { ...r.state, selection: afterClick(sc, s.click.selection, r.state.selection) }, message: r.cycled ? `${r.cycled.index} of ${r.cycled.of} here` : null };
 }
 export const hoverOn = (s: Session, ref: Ref | undefined): Session => (s.hover === ref ? s : { ...s, hover: ref });
 export const clearSelection = (s: Session): Session => ({ ...s, click: initialClick(), message: null });

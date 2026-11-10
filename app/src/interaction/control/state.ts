@@ -36,7 +36,7 @@ export interface AppState {
   /** the rectangle of a drag select (`in_230`, `in_235`): the left button was held still, then dragged without letting up */
   box: { x0: number; y0: number; x: number; y: number; shift: boolean; remove?: boolean } | null;
   /** the list open from the ⋯ menu (`in_132`) */
-  panel: "bodies" | "history" | null;
+  panel: "bodies" | "history" | "groups" | null;
   /** a repeat being set up: it goes on until Apply or Cancel, and you can work in the world meanwhile (`in_141`) */
   repeat: Repeat | null;
   /** the last "select similar": the parts it began from, the rules in force, and what it selected (the chip shows only while the selection is still that) */

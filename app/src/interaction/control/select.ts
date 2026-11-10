@@ -1,8 +1,12 @@
 // Selecting by what a selection is like (`in_257`, `dec_selection_tools`): "Select similar" selects everything like the selected parts by a few rules, and the chip that follows loosens or tightens one rule at a time.
-import { scene as sceneOf, selection as selectionOf } from "../session.ts";
+import { scene as sceneOf, selection as selectionOf, run } from "../session.ts";
+import { nextId } from "../../operation/scene.ts";
+import { topItems, breakable } from "../../operation/groups.ts";
+import { withSession } from "./state.ts";
 import { similarTo, DEFAULT_RULES, SIMILAR_RULES } from "../similar.ts";
 import type { SimilarRule } from "../similar.ts";
 import type { AppState } from "./state.ts";
+import type { Session } from "../session.ts";
 
 const say = (s: AppState, message: string): AppState => ({ ...s, session: { ...s.session, message } });
 const plural = (n: number, noun: string) => `${n} similar ${noun}${n === 1 ? "" : "s"}`;
@@ -24,4 +28,31 @@ export function doSimilarRule(s: AppState, rule: SimilarRule): AppState {
   if (!s.similar || !SIMILAR_RULES.some((r) => r.id === rule)) return s;
   const rules = s.similar.rules.includes(rule) ? s.similar.rules.filter((r) => r !== rule) : [...s.similar.rules, rule];
   return apply(s, s.similar.base, rules);
+}
+
+/** Why the selection cannot be grouped, or null: two or more things (a group counts as one thing), none of them part of the world. */
+export function whyNotGroup(session: Session): string | null {
+  const sc = sceneOf(session);
+  const sel = selectionOf(session);
+  if (sel.some((r) => sc.parts[r]?.origin === "world")) return "the world's planes and axes cannot be grouped";
+  return topItems(sc, sel).length >= 2 ? null : "select two or more things to group";
+}
+export const whyNotUngroup = (session: Session): string | null => (breakable(sceneOf(session), selectionOf(session)).length ? null : "select a whole group to break it");
+
+/** Group what is selected (`in_257`): the selection stays as it is, and from now on selecting any of it selects all of it. */
+export function doGroup(s: AppState): AppState {
+  const why = whyNotGroup(s.session);
+  if (why) return say({ ...s, menu: null }, why);
+  const sc = sceneOf(s.session);
+  const items = topItems(sc, selectionOf(s.session));
+  const next = run(s.session, { type: "group", id: nextId(sc, "g"), items });
+  return next.message ? say({ ...s, menu: null }, next.message) : { ...withSession(s, { ...next, message: `grouped ${items.length} things` }), menu: null };
+}
+/** Break the outermost group of the selection (one level: what was grouped inside it stays a group). */
+export function doUngroup(s: AppState): AppState {
+  const why = whyNotUngroup(s.session);
+  if (why) return say({ ...s, menu: null }, why);
+  const gs = breakable(sceneOf(s.session), selectionOf(s.session));
+  const next = run(s.session, gs.length === 1 ? { type: "ungroup", id: gs[0]!.id } : { type: "batch", commands: gs.map((g) => ({ type: "ungroup" as const, id: g.id })) });
+  return next.message ? say({ ...s, menu: null }, next.message) : { ...withSession(s, { ...next, message: gs.length === 1 ? "group broken" : `${gs.length} groups broken` }), menu: null };
 }

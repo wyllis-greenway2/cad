@@ -86,7 +86,7 @@ const menu = createMenu(document.body, (id) => {
   else if (id === "share") shareState();
   else if (id === "exportStl") void exportModel();
   else if (id === "save" || id === "open") dispatch({ type: id });
-  else if (id === "bodies" || id === "history") dispatch({ type: "panel", name: id });
+  else if (id === "bodies" || id === "history" || id === "groups") dispatch({ type: "panel", name: id });
   else if (id === "undo" || id === "redo") dispatch({ type: id });
   else dispatch({ type: "runAction", id });
 });

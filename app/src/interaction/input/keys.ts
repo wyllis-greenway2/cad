@@ -5,7 +5,7 @@ import { keyAction } from "../keymap.ts";
 
 type Key = Extract<RawInput, { kind: "key" }>;
 const BEGIN = { toolRect: "rect", toolCircle: "circle", toolLine: "line", extrude: "extrude", edge: "edge", move: "move", rotate: "rotate", scale: "scale", dimension: "dimension" } as const;
-const PLAIN = new Set(["undo", "redo", "home", "delete", "save", "open"]);
+const PLAIN = new Set(["undo", "redo", "home", "delete", "save", "open", "group", "ungroup"]);
 const LOOK = { lookX: "X", lookY: "Y", lookZ: "Z", lookN: "N" } as const;
 
 /** The intents for a key going down (a release or Space is the caller's business). */

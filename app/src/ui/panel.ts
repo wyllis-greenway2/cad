@@ -37,15 +37,15 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
       el.appendChild(head);
       for (const r of p.rows) {
         const row = document.createElement("div");
-        row.style.cssText = `display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;cursor:${p.kind === "bodies" ? "pointer" : "default"};background:${r.active ? "#dff1f0" : ""}`;
+        row.style.cssText = `display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;cursor:${p.kind === "bodies" || p.kind === "groups" ? "pointer" : "default"};background:${r.active ? "#dff1f0" : ""}`;
         const label = document.createElement("span");
         label.textContent = r.label;
         label.style.flex = "1";
         if (r.error) { label.style.color = "#c0392b"; row.title = r.error; label.textContent = `${r.label} ✕`; } // a step that could not be made: red, the reason on hover
         row.appendChild(label);
         if (r.sketch !== undefined) { const b = btn(iconSvg("sketch"), r.sketch ? "Put the sketch away" : "Show the sketch this extrusion was made from", () => h.row(r.id, "sketch")); if (r.sketch) b.style.background = "#dff1f0"; row.appendChild(b); }
-        if (r.removable) row.appendChild(btn(iconSvg("cross"), "Take this step out", () => h.row(r.id, "remove")));
-        if (p.kind === "bodies") row.addEventListener("click", () => h.row(r.id, "select"));
+        if (r.removable) row.appendChild(btn(iconSvg("cross"), p.kind === "groups" ? "Break this group (what is inside it stays grouped)" : "Take this step out", () => h.row(r.id, "remove")));
+        if (p.kind === "bodies" || p.kind === "groups") row.addEventListener("click", () => h.row(r.id, "select"));
         el.appendChild(row);
       }
       if (!p.rows.length) { const none = document.createElement("div"); none.textContent = "—"; none.style.cssText = "padding:6px 8px;opacity:.5"; el.appendChild(none); }

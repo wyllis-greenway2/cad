@@ -5,6 +5,7 @@ import { worldRef, formatId } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Part, Lookup } from "./part.ts";
 import { derivedFaces } from "./loops.ts";
+import type { Group } from "./groups.ts";
 
 /** A relation between parts. `parts` are listed mover first, then the references (held in place): the part selected FIRST moves and the ones selected before it stay (`in_196`, which reversed `in_090`). `kind` is a row id of the actions table. */
 export interface Relation {
@@ -49,6 +50,8 @@ export interface Scene {
   parts: Readonly<Record<string, Part>>;
   relations: readonly Relation[];
   steps: readonly Step[];
+  /** selection groups, layered (`in_257`, `groups.ts`); absent when there are none */
+  groups?: readonly Group[];
   /** the plane whose hidden sketch (what extrusions used up) is shown and snapped to while sketching in it (not part of the model, only of how it is looked at, `in_211`) */
   reveal?: Ref;
   /** Id counter: ids are never reused, so replaying a command list gives the same names. */
@@ -98,6 +101,7 @@ export interface SceneJson {
   parts: Part[]; // drawn parts only
   relations: Relation[];
   steps: Step[];
+  groups?: Group[];
 }
 export function toJSON(s: Scene): SceneJson {
   return {
@@ -106,6 +110,7 @@ export function toJSON(s: Scene): SceneJson {
     parts: Object.values(s.parts).filter((p) => p.origin === "drawn" && p.kind !== "face"), // faces are derived
     relations: [...s.relations],
     steps: [...s.steps],
+    ...(s.groups?.length ? { groups: s.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}),
   };
 }
 export function fromJSON(j: SceneJson): Scene {
@@ -113,7 +118,7 @@ export function fromJSON(j: SceneJson): Scene {
   const s = emptyScene();
   const parts: Record<string, Part> = { ...s.parts };
   for (const p of j.parts) parts[p.ref] = p;
-  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter };
+  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter, ...(j.groups?.length ? { groups: j.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}) };
 }
 
 /** The scene with its body parts replaced by these (derived from the kernel result; never saved). */

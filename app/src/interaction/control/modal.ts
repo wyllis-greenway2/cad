@@ -21,7 +21,8 @@ import { activeOp } from "./handles.ts";
 import { pivotCommands, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
-import { doSimilar } from "./select.ts";
+import { doSimilar, doGroup, doUngroup } from "./select.ts";
+import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
 const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, line: true, arc: true, trim: true };
@@ -200,6 +201,8 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     return animateTo(closed, planeView(s.cam, pl, true), now); // (pressed again: the back)
   }
   if (id === "select:similar") return doSimilar(closed);
+  if (id === "select:group") return doGroup(closed);
+  if (id === "select:ungroup") return doUngroup(closed);
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now, s.menu?.plane ?? null);
   if (id === "op:linear" || id === "op:circular" || id === "op:copy") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular" | "copy");
@@ -247,10 +250,15 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
 }
 
 /** The ⋯ menu's lists: choosing one opens it, choosing it again closes it. */
-export const doPanel = (s: AppState, name: "bodies" | "history"): AppState => ({ ...s, panel: s.panel === name ? null : name, menu: null });
+export const doPanel = (s: AppState, name: "bodies" | "history" | "groups"): AppState => ({ ...s, panel: s.panel === name ? null : name, menu: null });
 /** A row of the open list: a body is selected, a step is taken out of the history. */
 export function doPanelRow(s: AppState, id: string, act: "select" | "remove" | "sketch"): AppState {
   if (act === "sketch") return { ...s, showSketch: s.showSketch === id ? null : id }; // (the sketch of an extrusion shown, or put away again)
+  if (groupsOf(sceneOf(s.session)).some((g) => g.id === id)) {
+    // a row of the Groups list: select what is in it, or break it
+    if (act === "select") return withSession(s, { ...s.session, click: { ...s.session.click, selection: membersOf(sceneOf(s.session), id) }, message: null });
+    return withSession(s, run(s.session, { type: "ungroup", id }));
+  }
   if (act === "select") return id in sceneOf(s.session).parts ? withSession(s, { ...s.session, click: { ...s.session.click, selection: [id as never] } }) : s;
   return withSession({ ...s, op: null }, run(s.session, { type: "removeStep", id }));
 }

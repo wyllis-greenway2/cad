@@ -33,7 +33,7 @@ export const settings = {
     keys: {
       // only the standard ones for now: the letter keys for the tools, the operations and the views are to be chosen later (`in_131`)
       undo: ["mod+z"], redo: ["mod+shift+z", "mod+y"],
-      cancel: ["escape"], save: ["mod+s"], open: ["mod+o"], delete: ["delete", "backspace"],
+      cancel: ["escape"], save: ["mod+s"], open: ["mod+o"], delete: ["delete", "backspace"], group: ["mod+g"], ungroup: ["mod+shift+g"],
     } as Record<string, string[]>,
   },
   sketch: { snapPx: 12, alignPx: 6, roundMm: 0.01, hintDeg: 4, nearFrac: 0.08 }, // (nearFrac: a corner within this fraction of a circle's radius (or of a line's length) of it, but not on it, is offered "coincident" / "on line" when the circle or line is selected, `in_244`) // (hintDeg: a line being drawn within this many degrees of level, upright, parallel, square or tangent takes it and offers the constraint) // drawing: a point within this many pixels of a corner snaps to it; free points are rounded to this so sizes read 40.00; within alignPx of the line through a corner, level or upright, a point lines up with it

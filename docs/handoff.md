@@ -1730,3 +1730,8 @@ All four checks clean (420 tests). **Select similar** (section 4 of `dec_selecti
 **Not checked in a real browser yet** (the chip and the ring item are tested at the state level only).
 **Next:** groups (commands, file, selection, Ctrl + G, the Groups panel), then repeats that keep their numbers.
 
+## Handoff 242 — 2026-11-10 (in_258: layered selection groups)
+All four checks clean (427 tests). **Groups** (section 3 of `dec_selection_tools`): `operation/groups.ts` (pure: add, remove one group, who is in what, members at any depth), `Scene.groups` and the file (optional field: older files open as before), the commands `group` and `ungroup` (undoable), `interaction/groupsel.ts` (click selects the outermost group, a click on a member of a selected group goes one level in, Shift takes a whole group in or out, a drag rectangle takes whole groups), Ctrl / Cmd + G and + Shift + G, Group and Ungroup in the Select group of the ring and the ⋯ list, a Groups list (tree) in the ⋯ menu. Ungroup breaks only the outermost group; deleting a part takes it out of its groups and a group left with one thing is dissolved. `test/groups.test.ts` (7 tests).
+**Not built:** renaming a group; the touch way of adding to a selection; a browser look at the Groups list and the shortcut (tested at the state level only).
+**Next:** repeats that keep their numbers (`q_repeat_parameters`): the plan is a repeat record in the scene, with the copies derived from it at compile time under names that stay valid, locked while derived, "Edit repeat" reopening the helper, "Break the repeat" freeing them, and a change refused (naming the step) if a later step uses a copy that would go.
+

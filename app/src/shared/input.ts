@@ -37,6 +37,9 @@ export type Intent =
   | { type: "runAction"; id: string }
   /** start a drawing tool or an operation (a key or the menu) */
   /** a box of the select similar chip: that rule on or off (`in_257`) */
+  /** Ctrl + G and Ctrl + Shift + G (`in_257`) */
+  | { type: "group" }
+  | { type: "ungroup" }
   | { type: "similarRule"; rule: "kind" | "size" | "angle" | "direction" }
   | { type: "begin"; name: "pushpull" | "rect" | "circle" | "line" | "arc" | "trim" | "extrude" | "edge" | "move" | "rotate" | "scale" | "dimension" }
   /** a constraint shown on a selected part: open or close it (its other parts show amber), delete it, lock or unlock its number, give it a new number (`set`), or lock the measure of the selection at a number (`measure`) */
@@ -44,7 +47,7 @@ export type Intent =
   /** a key for the number being typed (digits, ".", "-", Backspace, Tab, Enter, the arrows) */
   | { type: "typed"; key: string; shift: boolean }
   /** open or close a list from the ⋯ menu (the bodies, the history) */
-  | { type: "panel"; name: "bodies" | "history" }
+  | { type: "panel"; name: "bodies" | "history" | "groups" }
   /** a row of the open list: select it (a body) or take it out (a step) */
   | { type: "panelRow"; id: string; act: "select" | "remove" | "sketch" }
   /** the text of a field of the value box changed (a tool's field, or the operation's one number) */
