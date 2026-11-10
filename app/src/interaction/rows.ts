@@ -46,8 +46,9 @@ const sideOf = (v: number) => (v >= 0 ? 1 : -1);
 
 /** Rows in the order of the table (the prototype's order). */
 export const ROWS: Row[] = [
-  { id: "horizontal", label: "Horizontal", pair: ["line"] },
-  { id: "vertical", label: "Vertical", pair: ["line"] },
+  // (a side cannot be level and upright at once: it would have no length, `in_254`)
+  { id: "horizontal", label: "Horizontal", pair: ["line"], unavailable: (c, r) => (c.scene.relations.some((x) => x.kind === "vertical" && x.parts.includes(r[0]!)) ? "it is held upright already: it would have no length" : null) },
+  { id: "vertical", label: "Vertical", pair: ["line"], unavailable: (c, r) => (c.scene.relations.some((x) => x.kind === "horizontal" && x.parts.includes(r[0]!)) ? "it is held level already: it would have no length" : null) },
   {
     // the length of a line (the distance between its two corners)
     id: "length", label: "Length", pair: ["line"], unit: "mm",

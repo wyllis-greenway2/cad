@@ -246,6 +246,20 @@ export function solveScene(scene: Scene): SolveOutcome {
     const plane = get(planeRef) as Plane;
     const { f, result, variable } = solvePlane(get, plane, rels, used);
     const clean = (ids: string[]) => ids.filter((i) => !i.startsWith("~"));
+    // a side that the constraints would shrink to nothing (a side held level and upright at once, or two sides held parallel and square: "solved" by a side of no length) is a conflict, not an answer: the
+    // sketch stays as it is and the relations that meet at that side are named (`in_254`: it left a rectangle whose extrusion the kernel reported as "this object has been deleted")
+    const collapsed = result.status === "ok" ? Object.values(scene.parts).filter((l): l is Extract<typeof l, { kind: "line" }> => {
+      if (l.kind !== "line" || l.origin !== "drawn" || l.derived || l.center || l.bulge || l.plane !== planeRef) return false;
+      const [a, b, a0, b0] = [result.points[l.a], result.points[l.b], pointOf(get, l.a), pointOf(get, l.b)];
+      if (!a || !b || !a0 || !b0) return false;
+      const [p0, q0] = [f.to2d(a0), f.to2d(b0)];
+      return Math.hypot(p0[0] - q0[0], p0[1] - q0[1]) > 1e-6 && Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-6;
+    }) : [];
+    if (collapsed.length) {
+      const involved = rels.filter((r) => collapsed.some((l) => r.parts.includes(l.ref) || r.parts.includes(l.a) || r.parts.includes(l.b))).map((r) => r.id);
+      reports.push({ plane: planeRef, status: "conflict", dof: null, conflicts: involved, redundant: [] });
+      continue;
+    }
     reports.push({ plane: planeRef, status: result.status, dof: result.dof, conflicts: clean(result.conflicts), redundant: clean(result.redundant) });
     if (result.status !== "ok") continue;
     for (const ref of variable) {

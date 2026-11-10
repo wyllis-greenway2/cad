@@ -235,6 +235,7 @@ function gesture(st: AppState, r: ReturnType<typeof rng>): Intent[] {
  * and hands the answer back, which calls `onChange` (in the app: the session is made again from the answer, `refresh`).
  */
 export const failures: { error: string; graph: KernelGraph }[] = []; // (what the kernel threw, in a run with it answering later)
+export const answered: { graph: KernelGraph; draft: boolean; errors: string[] }[] = []; // (the last graphs the kernel was given, with what it said was wrong)
 function laggingKernel(onChange: () => void) {
   let job: { id: number; graph: KernelGraph; draft?: boolean } | null = null;
   const listeners: ((e: { data: unknown }) => void)[] = [];
@@ -255,6 +256,8 @@ function laggingKernel(onChange: () => void) {
       // (as the worker does: an answer that is an exception is passed on as a failure, `kernel-worker.ts`; the first one is kept to look at)
       let result;
       try { result = kernel.evaluate(j.graph); } catch (err) { failures.push({ error: String(err), graph: j.graph }); for (const f of listeners) f({ data: { id: j.id, failed: String(err) } }); return true; }
+      answered.push({ graph: j.graph, draft: !!j.draft, errors: (result?.ops ?? []).filter((o: { error: string | null }) => o.error).map((o: { id: string; error: string | null }) => `${o.id}: ${o.error}`) });
+      if (answered.length > 12) answered.shift();
       for (const f of listeners) f({ data: { id: j.id, result } });
       return true;
     },

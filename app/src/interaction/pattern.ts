@@ -4,7 +4,7 @@
 import type { Ref } from "../shared/ref.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
-import { add, scale, sub, dot } from "../math/vec.ts";
+import { add, scale, sub, dot, cross } from "../math/vec.ts";
 import { about } from "../math/rotation.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
@@ -137,8 +137,15 @@ export function patternCommand(scene: Scene, op: Op): Command | null {
       if (p?.kind === "line") commands.push({ type: "addPart", part: { ...base, ref: name(r), kind: "line", a: name(p.a), b: name(p.b), ...(p.bulge ? { bulge: p.bulge } : {}), ...(p.center ? { center: name(p.center), ccw: p.ccw } : {}) } });
       else if (p?.kind === "circle") commands.push({ type: "addPart", part: { ...base, ref: name(r), kind: "circle", center: name(p.center), radius: p.radius } });
     }
-    scene.relations.filter((rel) => rel.parts.every((q) => figure.has(q))).forEach((rel, j) => {
-      commands.push({ type: "addRelation", relation: { ...rel, id: `${rBase}.c${k}_${j}`, parts: rel.parts.map(name) } });
+    // level and upright (and the same height or position across of two corners) are about the plane's own axes. A copy turned a quarter on the same plane has them the other way round, and a copy turned
+    // by any other angle cannot keep them at all: held level, its sides would be pulled out of shape, or to no length (`in_254`)
+    const quarter = same && c.turn ? Math.atan2(dot(cross(plane.u, u2), n0), dot(plane.u, u2)) / (Math.PI / 2) : 0;
+    const whole = Math.abs(quarter - Math.round(quarter)) < 1e-6;
+    const swap = whole && Math.abs(Math.round(quarter)) % 2 === 1;
+    const aligned = new Set(["horizontal", "vertical", "sameHeight", "sameAcross"]);
+    const turned: Record<string, string> = { horizontal: "vertical", vertical: "horizontal", sameHeight: "sameAcross", sameAcross: "sameHeight" };
+    scene.relations.filter((rel) => rel.parts.every((q) => figure.has(q)) && (whole || !aligned.has(rel.kind))).forEach((rel, j) => {
+      commands.push({ type: "addRelation", relation: { ...rel, kind: swap && aligned.has(rel.kind) ? (turned[rel.kind] as typeof rel.kind) : rel.kind, id: `${rBase}.c${k}_${j}`, parts: rel.parts.map(name) } });
     });
   });
   return { type: "batch", commands };

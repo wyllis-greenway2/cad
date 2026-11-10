@@ -2211,3 +2211,23 @@ test("an offset begins with its arrow on the outline where the pointer was when 
   const keyed = reduce(look([-30, 0, 0]), { type: "runAction", id: "op:offset" }, env);
   nearV(keyed.op!.origin!, [-30, 0, 0]);
 });
+
+test("a drawn figure repeated round a point keeps its size: a copy turned a quarter has level and upright the other way round, a copy turned by any other angle has neither, and none is pulled out of shape (`in_254`)", () => {
+  for (const count of [4, 3, 5]) {
+    let s = createSession(kernel);
+    const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [10, 5, 0], [1, 0, 0], [0, 1, 0]);
+    s = run(s, r.command);
+    let st: AppState = { ...createState(s), cam: homeCamera() };
+    st = select(st, [Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref]);
+    st = reduce(st, { type: "runAction", id: "op:circular" }, env);
+    st = reduce(st, { type: "entry", field: 0, text: String(count) }, env);
+    st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+    assert.equal(st.session.message, null, `${count} copies: nothing refused`);
+    const sc = scene(st.session);
+    const sides = Object.values(sc.parts).filter((p) => p.kind === "line" && p.origin === "drawn" && !p.derived).map((p) => { const a = sc.parts[(p as { a: string }).a] as { at: Vec3 }, b = sc.parts[(p as { b: string }).b] as { at: Vec3 }; return Math.round(Math.hypot(a.at[0] - b.at[0], a.at[1] - b.at[1]) * 1e3) / 1e3; }).sort((x, y) => x - y);
+    assert.deepEqual(sides, Array.from({ length: count }, () => [5, 5, 10, 10]).flat().sort((x, y) => x - y), `${count} copies: every side has its length`);
+    const level = sc.relations.filter((q) => q.kind === "horizontal").length, upright = sc.relations.filter((q) => q.kind === "vertical").length;
+    if (count === 4) assert.deepEqual([level, upright], [8, 8], "a quarter turn swaps them: two and two on every copy");
+    else assert.equal(level + upright, 4, "the original keeps its four; the copies turned by other angles have none of these");
+  }
+});
