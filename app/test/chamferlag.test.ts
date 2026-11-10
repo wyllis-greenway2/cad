@@ -37,7 +37,7 @@ test("chamfer all edges of a face of the gear, the kernel answering later: steps
   st = { ...createState(redoLast(o.value)), cam: homeCamera() };
   flush();
   assert.equal(scene(st.session).steps.length, 1, "the gear is extruded");
-  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!(p as { mesh?: unknown }).mesh && !(p as { rounded?: string }).rounded && !(p as { curved?: unknown }).curved && Math.abs((p as { at: number[] }).at[2]! - 3) < 1e-6)!;
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!(p as { mesh?: unknown }).mesh && !(p as { rounded?: string }).rounded && !(p as { curved?: unknown }).curved && Math.abs((p as unknown as { at: number[] }).at[2]! - 3) < 1e-6)!;
   const trace: string[] = [];
   let seed = 7;
   const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
