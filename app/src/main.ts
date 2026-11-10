@@ -188,7 +188,8 @@ async function boot() {
       const before = state.session.history.cursor;
       const session = refresh(state.session);
       // the answer for the last step was an error and it was taken back: what was being worked on is over
-      state = { ...state, session, ...(session.history.cursor < before ? { op: null, drag: null } : {}) };
+      const c = session.conflict;
+      state = { ...state, session, ...(session.history.cursor < before ? { op: null, drag: null } : {}), ...(c && c !== state.session.conflict ? { flash: { ...c, at: performance.now() } } : {}) }; // (a step taken back with its reason: what is the problem flashes red, `in_266`)
       dirty = true;
     });
     await worked.init();

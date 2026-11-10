@@ -34,7 +34,7 @@ export interface Session {
   /** what to do instead if one of those steps could not be made (an edit of the step that made a face, refused late: the prism the old way) */
   readonly fallback?: Command;
   /** the last command that was refused because it could not be done without breaking constraints: who tried (`culprits`: relation ids) and what it would have broken (`victims`) */
-  readonly conflict: { culprits: string[]; victims: string[] } | null;
+  readonly conflict: { culprits: string[]; victims: string[]; /** parts of a refused step that are the problem (the edges that cannot take a fillet or chamfer of that size): they flash red (`in_266`) */ parts?: string[] } | null;
   /** the sketch plane whose hidden sketch is shown while a tool sketches in it (`in_211`) */
   readonly reveal?: Ref | null;
 }
@@ -103,6 +103,13 @@ const conflictsOf = (o: CompileOutcome): { planes: string[]; ids: string[] } => 
 /** The ids of the steps a command adds. */
 const stepsOf = (c: Command): string[] => (c.type === "addStep" ? [c.step.id] : c.type === "batch" ? c.commands.flatMap(stepsOf) : []);
 
+/** What flashes red when a step is refused and no constraint is to blame: the parts of the step the kernel found cannot take it (the edges of a fillet or chamfer), else all of its parts (`in_266`). */
+function stepProblem(before: Session, after: Session, stepId: string): { culprits: string[]; victims: string[]; parts: string[] } | null {
+  const st = after.history.scene.steps.find((x) => x.id === stepId) ?? before.history.scene.steps.find((x) => x.id === stepId);
+  if (st?.type !== "edgeMod") return null;
+  const parts = after.outcome.problems?.[stepId] ?? st.parts;
+  return parts.length ? { culprits: [], victims: [], parts: [...parts] } : null;
+}
 export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback?: Command } = {}): Session {
   // `watchAll`: the command changes a step already in the history, so any step after it may stop working: those that worked before are watched too
   const steps = opts.watchAll ? s.history.scene.steps.map((x) => x.id).filter((id) => !s.outcome.errors[id]) : stepsOf(c);
@@ -119,7 +126,7 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
     for (const q of [...changed]) { const l = s.history.scene.parts[q]; if (l?.kind === "line") [l.a, l.b, ...(l.center ? [l.center] : [])].forEach((e) => changed.add(e)); } // (a line is held by what holds its ends)
     const own = relationsOf(c);
     const culprits = s.history.scene.relations.filter((rel) => !own.includes(rel.id) && rel.locked !== false && rel.kind !== "arcEnds" && rel.parts.some((q) => changed.has(q))).map((rel) => rel.id);
-    return { ...s, message: opts.watchAll ? `that would break a step made from it (${next.outcome.errors[failed] ?? "it could not be made"})` : next.outcome.errors[failed] ?? "that could not be made", conflict: culprits.length ? { culprits, victims: [] } : s.conflict };
+    return { ...s, message: opts.watchAll ? `that would break a step made from it (${next.outcome.errors[failed] ?? "it could not be made"})` : next.outcome.errors[failed] ?? "that could not be made", conflict: culprits.length ? { culprits, victims: [] } : stepProblem(s, next, failed) ?? s.conflict };
   }
   const before = conflictsOf(s.outcome);
   const after = conflictsOf(next.outcome);
@@ -147,7 +154,7 @@ export function refresh(s: Session): Session {
       const made = run(back, s.fallback);
       if (!made.message) return { ...made, message: "the step that made this face could not take that size: a push / pull was added instead" };
     }
-    return { ...back, message: now.outcome.errors[failed] ?? "that could not be made" };
+    return { ...back, message: now.outcome.errors[failed] ?? "that could not be made", conflict: stepProblem(back, now, failed) ?? back.conflict };
   }
   return { ...now, checkSteps: now.outcome.kernel?.stale ? s.checkSteps : undefined, fallback: now.outcome.kernel?.stale ? s.fallback : undefined };
 }

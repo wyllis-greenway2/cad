@@ -1302,3 +1302,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > Excellent thank you. Also your select similar is awesome! Thank you for that. When I pull the tooth on this model, at some point it makes this ring around all the teeth, that is unexpected. What do you think is going on here?
 (with the state snapshot `ab4d738d-cad-state-2026-11-10T05-56-07.json` and the model `41d166e6-model.cad_30.json`; a question about a ring appearing round all the teeth when a tooth is pulled)
 
+## in_266 — 2026-11-10 — directive
+> Slecting an inner edge on the gear tooth seems to have the arrow at the wrong angle for a chamfer? Also these inner corners don't seem to be chamferable? Why not? it seems like there should be a valid way or am I wrong? it looks like it might be caused by the chamfer on the top surface of the gear not interfacing properly with this chamfer? Can we see if this really is valid or invalid and either way can we offer better failure states that maybe flash the part red that is the problem or maybe give a helpful message?
+(with a picture of a selected vertical inner edge of a tooth, its chamfer arrow and a bubble "1.2", and the model `9ca5e796-model.cad_31.json`)
+

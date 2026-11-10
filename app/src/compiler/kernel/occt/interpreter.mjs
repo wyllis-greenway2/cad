@@ -498,25 +498,39 @@ const OPS = {
     if (!(v > 1e-6)) throw new Error("the size must be positive");
     const refs = [].concat(op.ref);
     const found = refs.length ? resolveEdges(t, refs) : null;
-    const pick = (ef) => ef.when(({ element }) => found.has(element.hashCode));
-    try {
-      if (!found) throw new Error("line not found (the model changed since this step was made)");
-      return { kind: "solid", shape: op.mode === "chamfer" ? t.chamfer(v, pick) : t.fillet(v, pick) };
-    } catch (e) {
-      // on its own it cannot be made (next to fillets already made, a corner where three meet): the kernel can blend a corner when the edges that meet there are rounded in the same operation, so
-      // this one is tried together with the ones just before it (each with its own size), from the body before them (`in_176`)
-      if (!op.together?.base && op.together?.base !== null) throw e;
-      const base = op.together.base ? ctx.get(op.together.base, "solid").shape : null;
-      if (!base || op.together.mods.length < 2) throw e;
-      const sizes = new Map();
-      for (const m of op.together.mods) {
-        const list = [].concat(m.ref);
-        const hit = resolveEdges(base, list);
-        if (!hit) throw e;
-        for (const h of hit) sizes.set(h, resolve(m.value, ctx.params));
+    const base = op.together && op.together.base ? ctx.get(op.together.base, "solid").shape : null;
+    /** The body with this step's edges (`list`, refs) rounded or bevelled by `size`: on their own, else together with the steps just before it (`in_176`), else it throws. */
+    const make = (size, list) => {
+      const set = resolveEdges(t, list);
+      const pick = (ef) => ef.when(({ element }) => set.has(element.hashCode));
+      try {
+        if (!set) throw new Error("line not found (the model changed since this step was made)");
+        const made = op.mode === "chamfer" ? t.chamfer(size, pick) : t.fillet(size, pick);
+        if (!isValidSolid(made)) throw new Error("kernel returned an invalid solid"); // (a size the faces cannot take can come out as a broken solid, not an exception)
+        return made;
+      } catch (e) {
+        // on its own it cannot be made (next to fillets already made, a corner where three meet): the kernel can blend a corner when the edges that meet there are rounded in the same operation, so
+        // this one is tried together with the ones just before it (each with its own size), from the body before them
+        if (!base || op.together.mods.length < 2) throw e;
+        const sizes = new Map();
+        op.together.mods.forEach((m, i) => {
+          const last = i === op.together.mods.length - 1; // (this step's own edges and size: the ones being tried)
+          const hit = resolveEdges(base, last ? list : [].concat(m.ref));
+          if (!hit) throw e;
+          for (const h of hit) sizes.set(h, last ? size : resolve(m.value, ctx.params));
+        });
+        const by = (el) => sizes.get(el.hashCode) ?? null;
+        const made = op.mode === "chamfer" ? base.chamfer(by) : base.fillet(by);
+        if (!isValidSolid(made)) throw e;
+        return made;
       }
-      const by = (el) => sizes.get(el.hashCode) ?? null;
-      return { kind: "solid", shape: op.mode === "chamfer" ? base.chamfer(by) : base.fillet(by) };
+    };
+    try {
+      return { kind: "solid", shape: make(v, refs) };
+    } catch (e) {
+      // on failing for good: which of the edges cannot take the size on their own, and the most they can take, so the step can say (and the page can flash the ones that are the problem, `in_266`)
+      if (found && found.size) e.detail = diagnose(make, refs, found.size, v);
+      throw e;
     }
   },
 
@@ -658,8 +672,29 @@ const OPS = {
   },
 };
 
+/** Why a fillet or chamfer failed: the edges (their numbers in `refs`) that cannot take the size even alone, and the largest size the edges together can take (about; a few tries). Only for a few edges: each try costs a fillet. */
+function diagnose(make, refs, count, v) {
+  const takes = (size, list) => { try { make(size, list); return true; } catch { return false; } };
+  let culprits = null;
+  if (refs.length > 1 && refs.length <= 12) culprits = refs.flatMap((r, i) => (takes(v, [r]) ? [] : [i]));
+  let largest = null;
+  if (count <= 8) {
+    let [lo, hi] = [0, v];
+    for (let i = 0; i < 6; i++) { const mid = (lo + hi) / 2; if (takes(mid, refs)) lo = mid; else hi = mid; }
+    if (lo >= 0.02) largest = Math.floor(lo * 20) / 20; // (a size that was seen to work, to 0.05)
+  }
+  return { culprits, largest, total: refs.length, size: v };
+}
+
 /** OCCT in WASM can throw opaque WebAssembly.Exception objects with no message; say so plainly. */
 function describeError(e, op) {
+  if (e?.detail && op?.type === "edgeMod") {
+    const d = e.detail;
+    const what = op.mode === "chamfer" ? "chamfer" : "fillet";
+    const where = d.culprits && d.culprits.length && d.culprits.length < d.total ? `on ${d.culprits.length} of the ${d.total} edges (they flash red)` : d.total === 1 ? "on this edge" : "on these edges";
+    const most = d.largest ? `; the most that works here is about ${d.largest} mm` : "";
+    return `a ${what} of ${Math.round(d.size * 100) / 100} mm cannot be made ${where}${most}: the faces beside it are too small for that size, or a fillet or chamfer made earlier meets it`;
+  }
   if (e instanceof Error) return e.message;
   if (typeof e === "string") return e;
   // the kernel says nothing when it cannot build a shape: say what was being done, and the usual reason
@@ -731,7 +766,7 @@ export function compile(graph) {
       results.set(op.id, { value, ms: performance.now() - t0, key });
       remember(key, { value });
     } catch (e) {
-      results.set(op.id, { error: describeError(e, op), ms: performance.now() - t0 });
+      results.set(op.id, { error: describeError(e, op), ms: performance.now() - t0, ...(e?.detail?.culprits?.length ? { culprits: e.detail.culprits } : {}) });
     }
   }
   return results;

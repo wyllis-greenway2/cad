@@ -33,7 +33,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
   let tBox = 0;
   const ops = graph.ops.map((o) => {
     const r = results.get(o.id);
-    return { id: o.id, type: o.type, error: r.error ?? null, ms: r.ms };
+    return { id: o.id, type: o.type, error: r.error ?? null, ms: r.ms, ...(r.culprits ? { culprits: r.culprits } : {}) };
   });
   const fin = finalSolid(graph, results);
   let mesh = null;

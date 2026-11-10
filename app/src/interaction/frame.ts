@@ -364,7 +364,7 @@ function flashOf(s: AppState, sc: Scene, now: number): FlashFrame | null {
   if (!s.flash) return null;
   const t = (now - s.flash.at) / settings.flash.ms;
   if (t < 0 || t >= 1) return null;
-  const parts = sc.relations.filter((r) => s.flash!.victims.includes(r.id)).flatMap((r) => r.parts);
+  const parts = [...sc.relations.filter((r) => s.flash!.victims.includes(r.id)).flatMap((r) => r.parts), ...((s.flash.parts ?? []) as Ref[])];
   return { t, victims: s.flash.victims, culprits: s.flash.culprits, parts };
 }
 

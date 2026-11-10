@@ -1174,7 +1174,7 @@ test("a fillet too big for its edge is refused with a reason that says what it w
   st = reduce(st, { type: "begin", name: "edge" }, env);
   st = typeText(st, "30");
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
-  assert.match(st.session.message ?? "", /fillet of that size|too big|smaller/i);
+  assert.match(st.session.message ?? "", /fillet of that size|cannot be made|too big|smaller/i);
   assert.equal(scene(st.session).steps.length, 1, "nothing was added");
 });
 

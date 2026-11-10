@@ -32,13 +32,34 @@ const RING = 48;
 /** One size for every arrow: a double arrow reaches this far each way from its middle (times the gizmo length), a single arrow is the same overall length. */
 const HALF = 0.3;
 
+/** Does this mesh (triangles, x y z for each corner) have a corner at `p`? */
+function hasCorner(m: readonly number[], p: Vec3): boolean {
+  for (let i = 0; i + 2 < m.length; i += 3) if (Math.abs(m[i]! - p[0]) < 2e-3 && Math.abs(m[i + 1]! - p[1]) < 2e-3 && Math.abs(m[i + 2]! - p[2]) < 2e-3) return true;
+  return false;
+}
+
 /** The direction that is "out" of an edge of the body: the two faces that meet there, added. Dragging along it makes a fillet, against it a chamfer. */
 export function edgeDirection(scene: Scene, a: Vec3, b: Vec3, radial?: Vec3): Vec3 {
   const normals: Vec3[] = [];
   for (const p of Object.values(scene.parts)) {
     if (p.kind !== "plane" || p.origin !== "body" || p.curved || p.rounded) continue;
     const n = normalOfPlane(p);
-    if (Math.abs(dot(n, sub(a, p.at))) < 1e-3 && Math.abs(dot(n, sub(b, p.at))) < 1e-3) normals.push(n);
+    if (Math.abs(dot(n, sub(a, p.at))) < 1e-3 && Math.abs(dot(n, sub(b, p.at))) < 1e-3 && (!p.mesh || (hasCorner(p.mesh, a) && hasCorner(p.mesh, b)))) normals.push(n); // (in the plane is not enough: the other side of the gear has faces in the same plane, `in_266`)
+  }
+  if (normals.length < 2 && !radial) {
+    // a flat face and a curved one (a tooth's flank and the round bottom between teeth): the curved face's outward normal where it touches the edge, from its triangles (`in_266`: the arrow stood at a made-up angle)
+    for (const p of Object.values(scene.parts)) {
+      if (normals.length >= 2) break;
+      if (p.kind !== "plane" || p.origin !== "body" || !(p.curved || p.rounded) || !p.mesh) continue;
+      const m = p.mesh;
+      let n: Vec3 = [0, 0, 0];
+      for (let i = 0; i + 8 < m.length; i += 9) {
+        const t = [0, 3, 6].map((o) => [m[i + o]!, m[i + o + 1]!, m[i + o + 2]!] as Vec3);
+        if (!t.some((q) => Math.hypot(...sub(q, a)) < 2e-3) || !t.some((q) => Math.hypot(...sub(q, b)) < 2e-3 || Math.hypot(...sub(q, a)) > 2e-3)) continue;
+        n = add(n, cross(sub(t[1]!, t[0]!), sub(t[2]!, t[0]!)));
+      }
+      if (Math.hypot(...n) > 1e-9) normals.push(normalize(n));
+    }
   }
   if (normals.length >= 2) {
     const d = add(normals[0]!, normals[1]!);

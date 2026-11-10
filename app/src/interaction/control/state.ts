@@ -67,7 +67,7 @@ export interface AppState {
   /** the helper handle under the pointer */
   gizmoHover: string | null;
   /** a command was refused because it could not be done without breaking constraints: they flash red and fade, and the one that tried shakes (`in_120`) */
-  flash: { culprits: string[]; victims: string[]; at: number } | null;
+  flash: { culprits: string[]; victims: string[]; parts?: string[]; at: number } | null;
 }
 export interface Env { w: number; h: number; now: number }
 
