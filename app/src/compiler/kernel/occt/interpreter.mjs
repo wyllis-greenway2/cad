@@ -678,6 +678,23 @@ const remember = (key, entry) => {
   while (memo.size > KEEP) memo.delete(memo.keys().next().value);
 };
 
+/**
+ * A short name for a long text (two 32-bit hashes together). What an operation was worked out from includes what the operations it uses were worked out from, so written out in full a key is as long as
+ * the chain behind it, and the keys of a chain of a hundred operations are the square of that (`in_252`: most of the time of a history of moves was spent writing and comparing them).
+ */
+function fingerprint(text) {
+  let a = 0xdeadbeef;
+  let b = 0x41c6ce57;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    a = Math.imul(a ^ c, 2654435761);
+    b = Math.imul(b ^ c, 1597334677);
+  }
+  a = Math.imul(a ^ (a >>> 16), 2246822507) ^ Math.imul(b ^ (b >>> 13), 3266489909);
+  b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909);
+  return `${(a >>> 0).toString(36)}${(b >>> 0).toString(36)}:${text.length}`;
+}
+
 /** Compile the whole graph. Returns per-op results; never throws for op-level failures. */
 export function compile(graph) {
   const params = graph.params ?? {};
@@ -696,12 +713,12 @@ export function compile(graph) {
   const pj = JSON.stringify(params);
   for (const op of graph.ops) {
     const t0 = performance.now();
-    const key = JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes])].map((d) => (d ? keys.get(d) ?? null : null))]);
+    const key = fingerprint(JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes])].map((d) => (d ? keys.get(d) ?? null : null))]));
     keys.set(op.id, key);
     const kept = memo.get(key);
     if (kept) {
       remember(key, kept);
-      results.set(op.id, { value: kept.value, ms: 0 });
+      results.set(op.id, { value: kept.value, ms: 0, key });
       continue;
     }
     try {
@@ -709,7 +726,7 @@ export function compile(graph) {
       const value = OPS[op.type](op, ctx);
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
       if (value.kind === "solid" && !rigid && !isValidSolid(value.shape)) throw new Error("kernel returned an invalid solid");
-      results.set(op.id, { value, ms: performance.now() - t0 });
+      results.set(op.id, { value, ms: performance.now() - t0, key });
       remember(key, { value });
     } catch (e) {
       results.set(op.id, { error: describeError(e, op), ms: performance.now() - t0 });
@@ -723,7 +740,7 @@ export function finalSolid(graph, results) {
   for (let i = graph.ops.length - 1; i >= 0; i--) {
     const r = results.get(graph.ops[i].id);
     if (r && !r.error && r.value.kind === "empty") return null; // the body was deleted
-    if (r && !r.error && r.value.kind === "solid") return { id: graph.ops[i].id, shape: r.value.shape };
+    if (r && !r.error && r.value.kind === "solid") return { id: graph.ops[i].id, shape: r.value.shape, key: r.key };
   }
   return null;
 }

@@ -38,3 +38,23 @@ test("a body of 144 posts (864 faces, 1728 edges) is made and opened in well und
   assert.equal(r.value.outcome.kernel!.edges!.length, 1728);
   assert.ok(ms < 1000, `${ms.toFixed(0)} ms to open (it was 1270, and is about 350 on a quiet machine)`);
 });
+
+test("turning or moving the whole body does not change its volume, after any step of a long history (`in_252`): the sketches carried with the body are read back through the moves to where they were drawn, and the same numbers come back every time", () => {
+  for (const f of ["hollow-pushed", "rotate-weird", "rotate-slow", "hollow-rotated", "two-bodies"]) {
+    const r = openSession(kernel, readFileSync(new URL(`./fixtures/${f}.cad.json`, import.meta.url), "utf8"));
+    assert.ok(r.ok);
+    const s = r.value;
+    const h = s.history;
+    let checked = 0;
+    for (let i = 1; i <= h.cursor; i++) {
+      const [a, b] = [h.snapshots[i - 1]!, h.snapshots[i]!];
+      const added = b.steps.slice(a.steps.length);
+      if (b.steps.length !== a.steps.length + 1 || !added.every((st) => st.type === "move" || st.type === "rotate")) continue;
+      const [va, vb] = [s.outcomeOf({ ...h, scene: a }).kernel?.volume, s.outcomeOf({ ...h, scene: b }).kernel?.volume];
+      if (va == null || vb == null) continue;
+      checked++;
+      assert.ok(Math.abs(va - vb) < 1e-5 * va, `${f}: a ${added[0]!.type} changed the volume from ${va} to ${vb} (command ${i})`);
+    }
+    assert.ok(checked > 0, `${f} has moves or turns to check`);
+  }
+});

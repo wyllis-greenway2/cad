@@ -17,7 +17,9 @@ export { loopOf };
 export interface GraphResult { graph: KernelGraph; errors: Record<string, string> }
 
 const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
-const frameOf = (pl: Plane, back: Rigid = NONE) => ({ origin: [...applyPoint(back, pl.at)], xDir: [...applyDir(back, normalize(pl.u))], normal: [...applyDir(back, normalOfPlane(pl))] });
+// (the frame is read back through the moves that came after it, which gives the same numbers to about 1e-14 whichever moves they are: rounded, so that the kernel's memory of what it made from it can tell it is the same sketch, `in_252`)
+const r9 = (v: number) => Math.round(v * 1e9) / 1e9 + 0;
+const frameOf = (pl: Plane, back: Rigid = NONE) => ({ origin: [...applyPoint(back, pl.at)].map(r9), xDir: [...applyDir(back, normalize(pl.u))].map(r9), normal: [...applyDir(back, normalOfPlane(pl))].map(r9) });
 const to2d = (pl: Plane, p: Vec3, k = 1): [number, number] => {
   const d = sub(p, pl.at);
   return [r6(k * (d[0] * pl.u[0] + d[1] * pl.u[1] + d[2] * pl.u[2])), r6(k * (d[0] * pl.v[0] + d[1] * pl.v[1] + d[2] * pl.v[2]))];

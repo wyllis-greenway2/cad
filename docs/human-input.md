@@ -1234,3 +1234,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_251 — 2026-11-09 — approval
 > yes, start the correctness hunt
 (approves the AI's offer to start the correctness hunt: a randomized test of operations with undo and redo mixed in)
+
+## in_252 — 2026-11-10 — approval
+> yes, do the long-history re-work first
+(approves the AI's offer to fix the re-work in long histories of moves; the other offer, the kernel's memory growth, comes after)
