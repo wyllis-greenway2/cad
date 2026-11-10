@@ -165,3 +165,18 @@ test("every outer edge of the gear's teeth is similar to one of them: corners th
   assert.ok(r.ok);
   if (r.ok) assert.equal(r.refs.length, 30, "the thirty outer tooth edges");
 });
+
+import { suggestionsFor } from "../src/interaction/suggest.ts";
+test("select similar is offered as a suggestion button when there are others like what is selected, and not when there are none or all are already selected (`in_268`)", () => {
+  const s = box();
+  const longX = bodyLines(s).find((l) => { const [a, b] = ends(s, l); return a && b && Math.abs(Math.abs(a[0] - b[0]) - 40) < 1e-6; })!;
+  const offer = suggestionsFor(scene(s), [longX.ref]);
+  assert.ok(offer);
+  assert.deepEqual(offer!.items.map((i) => i.id), ["select:similar"]);
+  assert.match(offer!.items[0]!.label, /3 more/);
+  const all = similarTo(scene(s), [longX.ref]);
+  assert.ok(all.ok);
+  if (all.ok) assert.equal(suggestionsFor(scene(s), all.refs), null, "all four are selected: nothing more to select");
+  const top = Object.values(scene(s).parts).find((p): p is Extract<Part, { kind: "plane" }> => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.every((_, i) => i % 3 !== 2 || Math.abs(p.mesh![i]! - 20) < 1e-6))!;
+  assert.equal(suggestionsFor(scene(s), [top.ref])?.items[0]?.id, "select:similar", "a face too (the bottom is like it)");
+});

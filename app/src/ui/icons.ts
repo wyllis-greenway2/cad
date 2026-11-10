@@ -50,5 +50,5 @@ Object.assign(ICONS, {
 });
 
 /** Which icon a relation uses: the table's kinds share icons (equal length and equal radius are both "equal"; every number is a "dimension" or an "angle"). */
-export const iconKey = (kind: string): string => ({ equalLength: "equal", equalRadius: "equal", distance: "dimension", length: "dimension", diameter: "radius" }[kind as "equalLength"] ?? kind);
+export const iconKey = (kind: string): string => ({ equalLength: "equal", equalRadius: "equal", distance: "dimension", length: "dimension", diameter: "radius", "select:similar": "similar" }[kind as "equalLength"] ?? kind);
 export const iconSvg = (key: string): string => ICONS[key] ?? ICONS.dimension!;

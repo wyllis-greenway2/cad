@@ -9,11 +9,47 @@ import type { Command } from "../operation/commands.ts";
 import { settings } from "../shared/settings.ts";
 import { formatId } from "../shared/ref.ts";
 import { actionsFor } from "./actions.ts";
+import { similarTo } from "./similar.ts";
 
 export interface Suggestions { at: Vec3; items: { id: string; label: string }[] }
 
 /** What could be applied to this selection: geometric constraints only (a number is asked for where it is shown), those not already holding, and where to put the buttons. Null for nothing to offer. */
 export function suggestionsFor(scene: Scene, selection: readonly Ref[]): Suggestions | null {
+  const constraints = constraintsFor(scene, selection);
+  const similar = similarOffer(scene, selection);
+  if (!similar) return constraints;
+  // "select similar" is offered when there are more like what is selected (`in_268`), after the constraints
+  return constraints ? { at: constraints.at, items: [...constraints.items, similar.item] } : { at: similar.at, items: [similar.item] };
+}
+
+const offers = new WeakMap<Scene, Map<string, { count: number } | null>>();
+/** Select similar as a button, when what is selected has others like it (the same body or sketch): where it stands (the middle of what is selected) and the button. */
+function similarOffer(scene: Scene, selection: readonly Ref[]): { at: Vec3; item: { id: string; label: string } } | null {
+  if (!selection.length || selection.length > 4) return null;
+  const memo = offers.get(scene) ?? offers.set(scene, new Map()).get(scene)!;
+  const key = selection.join("|");
+  let found = memo.get(key);
+  if (found === undefined) {
+    const r = similarTo(scene, selection);
+    found = r.ok && r.refs.length > selection.length ? { count: r.refs.length - selection.length } : null;
+    memo.set(key, found);
+  }
+  if (!found) return null;
+  const get = lookup(scene);
+  const spots = selection.map((r): Vec3 | null => {
+    const p = scene.parts[r];
+    if (p?.kind === "corner") return pointOf(get, r);
+    if (p?.kind === "line") { const s = segmentOf(get, r); return s ? [(s[0][0] + s[1][0]) / 2, (s[0][1] + s[1][1]) / 2, (s[0][2] + s[1][2]) / 2] : null; }
+    if (p?.kind === "circle") return circleOf(get, r)?.center ?? null;
+    if (p?.kind === "plane" && p.mesh && p.mesh.length >= 9) { let x = 0, y = 0, z = 0, n = 0; for (let i = 0; i + 2 < p.mesh.length; i += 3) { x += p.mesh[i]!; y += p.mesh[i + 1]!; z += p.mesh[i + 2]!; n++; } return [x / n, y / n, z / n]; }
+    return null;
+  }).filter((q): q is Vec3 => !!q);
+  if (!spots.length) return null;
+  const at: Vec3 = [spots.reduce((a, q) => a + q[0], 0) / spots.length, spots.reduce((a, q) => a + q[1], 0) / spots.length, spots.reduce((a, q) => a + q[2], 0) / spots.length];
+  return { at, item: { id: "select:similar", label: `Select similar (${found.count} more)` } };
+}
+
+function constraintsFor(scene: Scene, selection: readonly Ref[]): Suggestions | null {
   if (selection.length < 1 || selection.length > 2) return null;
   const get = lookup(scene);
   const parts = selection.map((r) => scene.parts[r]);

@@ -1310,3 +1310,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > I am noticing when I select similar on this outer tooth edge, it doesn't actually select all that are similar, it seems to leave two that are 180 degrees apart approximately?
 (with a picture of the gear's vertical outer tooth edges, some selected, and the model `6eb5ed8e-model.cad_32.json`; a bug report on select similar, `in_257`)
 
+## in_268 — 2026-11-10 — directive
+> The little line that goes to a bubble needs to go behind the bubble not over it, because it clips some of the text in the bubble. Can we make the select similar available as a helpful bubble when you select something that has select similar options?
+(with a picture of the "R 13.8" bubble with the thin line back to its spot drawn over its text; two requests: the line behind the bubble, and select similar offered as a suggestion bubble)
+

@@ -148,7 +148,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
         e.el.style.pointerEvents = to.faded ? "none" : "";
         // moved far from its spot: a thin line back to it, so it is still clear what it belongs to
         const far = Math.hypot(next[0], next[1]) > 44;
-        if (far && !e.leader) { e.leader = document.createElement("div"); e.leader.style.cssText = "position:fixed;left:0;top:0;height:1px;background:rgba(80,84,92,.55);transform-origin:0 0;pointer-events:none"; root.appendChild(e.leader); }
+        if (far && !e.leader) { e.leader = document.createElement("div"); e.leader.style.cssText = "position:fixed;left:0;top:0;height:1px;background:rgba(80,84,92,.55);transform-origin:0 0;pointer-events:none"; root.insertBefore(e.leader, e.el); }
         if (e.leader) {
           if (!far) e.leader.style.display = "none";
           else {
