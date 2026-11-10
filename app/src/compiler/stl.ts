@@ -29,12 +29,19 @@ export function stlBytes(vertices: ArrayLike<number>, triangles: ArrayLike<numbe
 
 /** How many edges of the mesh belong to other than two triangles (corners that are the same point count as one): 0 for a closed solid. */
 export function openEdges(vertices: ArrayLike<number>, triangles: ArrayLike<number>): number {
-  const ids = new Map<string, number>(); // (the faces of a body each have their own copies of the corners they share)
+  // corners that are the same point: found in the cells round their own (two of them can fall either side of the edge of a cell, `in_267`)
+  const cells = new Map<string, { p: [number, number, number]; id: number }[]>();
+  let count = 0;
   const id = (i: number): number => {
-    const key = [0, 1, 2].map((k) => Math.round((vertices[3 * i + k] as number) * 1e3)).join(",");
-    let v = ids.get(key);
-    if (v === undefined) { v = ids.size; ids.set(key, v); }
-    return v;
+    const p: [number, number, number] = [vertices[3 * i] as number, vertices[3 * i + 1] as number, vertices[3 * i + 2] as number];
+    const c = p.map((v) => Math.floor(v / 1e-3)) as [number, number, number];
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
+      for (const q of cells.get(`${c[0] + dx},${c[1] + dy},${c[2] + dz}`) ?? []) if (Math.hypot(q.p[0] - p[0], q.p[1] - p[1], q.p[2] - p[2]) < 5e-4) return q.id;
+    }
+    const made = { p, id: count++ };
+    const k = c.join(",");
+    cells.set(k, [...(cells.get(k) ?? []), made]);
+    return made.id;
   };
   const uses = new Map<string, number>();
   for (let t = 0; t + 2 < triangles.length; t += 3) {

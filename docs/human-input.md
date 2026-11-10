@@ -1306,3 +1306,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > Slecting an inner edge on the gear tooth seems to have the arrow at the wrong angle for a chamfer? Also these inner corners don't seem to be chamferable? Why not? it seems like there should be a valid way or am I wrong? it looks like it might be caused by the chamfer on the top surface of the gear not interfacing properly with this chamfer? Can we see if this really is valid or invalid and either way can we offer better failure states that maybe flash the part red that is the problem or maybe give a helpful message?
 (with a picture of a selected vertical inner edge of a tooth, its chamfer arrow and a bubble "1.2", and the model `9ca5e796-model.cad_31.json`)
 
+## in_267 — 2026-11-10 — directive
+> I am noticing when I select similar on this outer tooth edge, it doesn't actually select all that are similar, it seems to leave two that are 180 degrees apart approximately?
+(with a picture of the gear's vertical outer tooth edges, some selected, and the model `6eb5ed8e-model.cad_32.json`; a bug report on select similar, `in_257`)
+

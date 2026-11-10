@@ -21,7 +21,10 @@ type Face = Extract<Part, { kind: "plane" }>;
 interface Props { category: string; kind: string; size: number[]; angle: number | null; convex: boolean | null; dir: Vec3 | null; tol: number }
 
 const r = (v: number, d = 3) => Math.round(v * 10 ** d) / 10 ** d;
-const key = (m: readonly number[], i: number) => `${r(m[i]!)},${r(m[i + 1]!)},${r(m[i + 2]!)}`;
+/** The cell of a point on a grid of 2 mm thousandths: two corners that are the same point can fall either side of a cell's edge, so a corner is looked for in the cells round its own (`in_267`). */
+const CELL = 2e-3;
+const cellOf = (m: readonly number[], i: number): [number, number, number] => [Math.floor(m[i]! / CELL), Math.floor(m[i + 1]! / CELL), Math.floor(m[i + 2]! / CELL)];
+const key = (m: readonly number[], i: number) => cellOf(m, i).join(",");
 const angleOf = (a: Vec3, b: Vec3) => Math.atan2(Math.hypot(...cross(a, b)), dot(a, b));
 
 /** The body's faces with their corners looked up by position, so the faces an edge lies between are found by the two ends. */
@@ -70,8 +73,14 @@ function lineProps(scene: Scene, l: Line, faces: Faces): Props | null {
     }
   }
   // the two faces it lies between: the faces that have both its ends (a whole rim has one end: the faces that have it)
-  const fa = faces.byVertex.get(key([...a], 0)) ?? [];
-  const fb = closed ? fa : faces.byVertex.get(key([...b], 0)) ?? [];
+  const at = (p: Vec3): Face[] => {
+    const [cx, cy, cz] = cellOf(p, 0);
+    const out = new Set<Face>();
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (const f of faces.byVertex.get(`${cx + dx},${cy + dy},${cz + dz}`) ?? []) out.add(f);
+    return [...out];
+  };
+  const fa = at(a);
+  const fb = closed ? fa : at(b);
   const both = fa.filter((f) => fb.includes(f));
   let angle: number | null = null;
   let convex: boolean | null = null;

@@ -1,9 +1,10 @@
 // Select similar (`in_257`): the same kind, size and angle between faces; not direction unless asked.
 import test from "node:test";
+import fs from "node:fs";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { worldRef } from "../src/shared/ref.ts";
-import { createSession, run, scene } from "../src/interaction/session.ts";
+import { createSession, run, scene, openSession } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import type { Command } from "../src/operation/commands.ts";
 import type { Part } from "../src/operation/part.ts";
@@ -147,4 +148,20 @@ test("the menu item selects what is similar, the chip's boxes loosen a rule and 
   const empty = reduce(createState(s), { type: "menu", x: 100, y: 100, button: true }, env).menu!.items.flatMap((i) => i.children ?? [i]).find((i) => i.id === "select:similar")!;
   assert.equal(empty.enabled, false);
   assert.match(empty.why ?? "", /select an edge, a face/);
+});
+
+
+test("every outer edge of the gear's teeth is similar to one of them: corners that are the same point fall either side of a rounding boundary and must still be found (`in_267`)", { skip: !fs.existsSync("test/fixtures/gear-outer.cad.json") }, () => {
+  const o = openSession(kernel, fs.readFileSync("test/fixtures/gear-outer.cad.json", "utf8"));
+  assert.ok(o.ok);
+  if (!o.ok) return;
+  const sc = scene(o.value);
+  const seed = Object.values(sc.parts).find((p) => {
+    if (p.kind !== "line" || p.origin !== "body" || p.mid) return false;
+    const a = sc.parts[p.a];
+    return a?.kind === "corner" && Math.abs(a.at[0] - 20.04) < 0.01 && Math.abs(a.at[1] - 38.85) < 0.01;
+  })!;
+  const r = similarTo(sc, [seed.ref]);
+  assert.ok(r.ok);
+  if (r.ok) assert.equal(r.refs.length, 30, "the thirty outer tooth edges");
 });
