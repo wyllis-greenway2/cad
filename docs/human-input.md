@@ -1238,3 +1238,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_252 — 2026-11-10 — approval
 > yes, do the long-history re-work first
 (approves the AI's offer to fix the re-work in long histories of moves; the other offer, the kernel's memory growth, comes after)
+
+## in_253 — 2026-11-10 — approval
+> yes, start on the kernel memory growth
+(approves the AI's offer to look into the kernel's memory growth, the last item of the speed work)
