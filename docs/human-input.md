@@ -1286,3 +1286,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > feed the helper bubbles and hints in too
 (asks for the two things `dec_bubble_layout` lists as not yet in front: the helper bubbles and the hint chips)
 
+## in_262 — 2026-11-10 — directive
+> run the full check and look at it in the browser
+(asks for the full check and a browser look at the bubble layout: the ring, helper bubbles and hints in front of the constraint bubbles)
+

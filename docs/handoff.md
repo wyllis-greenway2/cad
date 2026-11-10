@@ -1752,3 +1752,6 @@ All four checks clean (427 tests). **Groups** (section 3 of `dec_selection_tools
 ## Handoff 246 — 2026-11-10 (in_261: helper bubbles and hints in front too)
 The helper bubble, the suggestion row and the hint icons each give their box (`rect()`) and `main.ts` passes them with the ring and the number bubbles, so constraint bubbles give way to them. Typecheck and unused clean; not looked at in a browser, no new test (the placement is the tested function; this is wiring).
 
+## Handoff 247 — 2026-11-10 (in_262: full check, and a look in the browser)
+Full check: 442 tests pass, typecheck, layers and unused clean. Browser (headless Chromium, the human's gear extruded, a curved body edge selected, the ring opened right on its radius bubble): the bubble went to opacity 0.3 with clicks passing through, behind the ring's items, as designed. **It faded rather than moved:** the ring's box is about 130 px across and the search only reaches about 70 px from the spot, so no clear place was found. Giving the search each ring item's own box (not one box round them all) and a reach past the ring's edge would let it slide out instead; not done, for the human to say. The helper bubble and hint icons were not looked at in the browser.
+
