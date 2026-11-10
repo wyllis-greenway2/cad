@@ -2,7 +2,7 @@
 // body back into the scene as parts. The result is a derived view; the saved thing stays the drawn parts, relations and steps.
 import type { Scene } from "../operation/scene.ts";
 import { withBody, withDerived } from "../operation/scene.ts";
-import type { Kernel, KernelResult } from "./kernel/adapter.ts";
+import type { Kernel, KernelGraph, KernelResult } from "./kernel/adapter.ts";
 import { solveScene } from "./solve.ts";
 import type { SolveOutcome } from "./solve.ts";
 import { buildGraph } from "./graph.ts";
@@ -40,4 +40,10 @@ export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
 function remembered(o: CompileOutcome): CompileOutcome {
   settled.set(o.scene, { ...o.solve, scene: o.scene, moves: [] });
   return o;
+}
+
+/** The graph the kernel is given for a scene (the same as `compile` builds): for asking it something else of the same model, such as a mesh for a file. */
+export function graphOf(scene: Scene): KernelGraph {
+  const known = settled.get(scene);
+  return buildGraph(withDerived((known ? { ...known, scene } : solveScene(scene)).scene)).graph;
 }

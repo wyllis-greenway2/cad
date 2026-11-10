@@ -3,6 +3,8 @@
 export interface FileService {
   /** Offer `text` to the user as a file called `name`. */
   save(name: string, text: string): void;
+  /** Offer `bytes` to the user as a file called `name` (`type`: its media type). */
+  saveBytes(name: string, bytes: Uint8Array, type: string): void;
   /** Let the user choose a file; resolves to its text, or null if they cancel. */
   open(): Promise<string | null>;
 }
@@ -11,17 +13,20 @@ export interface KeyValueStore {
   set(key: string, value: string): void;
 }
 
+const download = (name: string, blob: Blob) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
 export const webFiles: FileService = {
-  save(name, text) {
-    const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  },
+  save(name, text) { download(name, new Blob([text], { type: "application/json" })); },
+  saveBytes(name, bytes, type) { download(name, new Blob([bytes as BlobPart], { type })); },
   open() {
     return new Promise((resolve) => {
       const input = document.createElement("input");

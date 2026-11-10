@@ -88,3 +88,24 @@ test("a job the kernel does not come back from is given up after the limit: the 
   first.answer(0, 99);
   assert.equal(k.evaluate(graph(2)).volume, 7);
 });
+
+test("an export is asked of the worker apart from the screen's jobs, each is answered, and a worker that fails still answers it (`in_256`)", async () => {
+  const f = fake();
+  const k = createAsyncKernel(() => {}, f.w);
+  f.say({ ready: true });
+  await k.init();
+  k.evaluate(graph(1)); // the screen's job is being worked
+  const one = k.exportMesh(graph(1), { tolerance: 0.01, angular: 0.1 });
+  const two = k.exportMesh(graph(2), { tolerance: 0.01, angular: 0.1 });
+  assert.equal(k.pending, true);
+  assert.equal(f.sent.length, 1, "one job at a time: the export waits for the screen's job");
+  f.answer(0, 10);
+  assert.equal(f.sent.length, 2, "then the export goes");
+  assert.deepEqual((f.sent[1] as unknown as { export: unknown }).export, { tolerance: 0.01, angular: 0.1 });
+  const mesh = { ok: true, vertices: new Float32Array(9), triangles: new Uint32Array([0, 1, 2]), volume: 0, bbox: { min: [0, 0, 0], max: [1, 1, 1] } };
+  f.say({ id: f.sent[1]!.id, exported: mesh });
+  assert.equal(await one, mesh);
+  assert.equal(f.sent.length, 3, "the second export is not dropped for a newer one");
+  f.say({ id: f.sent[2]!.id, failed: "boom" });
+  assert.deepEqual(await two, { ok: false, error: "boom" });
+});

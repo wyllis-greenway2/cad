@@ -1,17 +1,17 @@
 ---
 id: dec_export_stl
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_255
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_255, in_256
 date: 2026-11-10
 depends_on:
   - inv_kernel_boundary: the mesh for export is made by the kernel, so it crosses the kernel interface as plain data like everything else; a change to that rule changes where export is made
   - dec_platform_web_portable: saving a file goes through the platform's file service, which today offers only text; export needs it to save bytes
 ---
-# Export the body as an STL file for printing (draft, for the human to answer)
+# Export the body as an STL file for printing
 
-**Status: a draft written at the human's request (`in_255`); nothing here is built or approved.** Rule 3 of `CLAUDE.md`: it stays `provisional` until the human answers the questions at the end.
+**Status: accepted and built** (`in_256`, "yes, build the STL export as drafted": drafted at the human's request, `in_255`). The proposals below are the answers to the questions at the end, except questions 4 and 5 (which format comes after STL, and how several bodies export), which are not needed yet and stay open for when they come.
 
 ## What
 
@@ -37,7 +37,7 @@ The same graph exported at the two qualities has more triangles at the finer one
 - **STEP first.** For manufacturing handoff (the blueprint's secondary user); OpenCASCADE writes it natively. Later: it is not what a printer needs.
 - **Export a mesh made in the browser's main thread.** Rejected: the kernel is on its own thread so the page does not freeze (`in_132`); a fine mesh of a big body takes seconds.
 
-## Questions for the human
+## Questions that were asked (answered by taking the proposal, `in_256`)
 
 1. **Quality:** is 0.01 mm / 0.1 rad the right default, or would you want a setting? (Finer is slower and makes bigger files; most printers resolve 0.05 to 0.1 mm.)
 2. **Orientation:** keep the model where it is in the world (proposed), or turn it so its largest flat face lies on the bed?

@@ -1249,3 +1249,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_255 — 2026-11-10 — approval
 > yes, do the fixtures run and draft the export decision
 (approves running the random user from the saved models, and asks for the export decision to be drafted: a draft, not an approval of the export itself)
+
+## in_256 — 2026-11-10 — approval
+> yes, build the STL export as drafted
+(approves `dec_export_stl` as drafted: its proposals are taken as the answers to the questions it asked, except which of 3MF and STEP comes next and how several bodies export, which are not needed yet)

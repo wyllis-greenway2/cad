@@ -181,3 +181,19 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
   }
   return { ops, finalId: present?.id ?? null, volume: vol, bbox, faces, edges, vertices, totalMs: performance.now() - t0, mesh, perf: { ops: tCompile - t0, box: tBox, mesh: tMesh - tCompile - tBox, faces: tFaces - tMesh, edges: performance.now() - tFaces } };
 }
+
+/**
+ * The final body of a graph as a mesh for a file (`dec_export_stl`): meshed at the quality asked for (not the screen's coarse one), as plain arrays.
+ * Answers { ok: false, error } when there is nothing to export (no body, a step that failed, or a body with nothing in it).
+ */
+export function exportMesh(graph, quality) {
+  const results = compile(graph);
+  const failed = graph.ops.map((o) => ({ id: o.id, error: results.get(o.id)?.error ?? null })).find((o) => o.error);
+  const fin = finalSolid(graph, results);
+  if (!fin) return { ok: false, error: failed ? failed.error : "nothing to export yet: make a body" };
+  let box = null;
+  try { box = fin.shape.boundingBox.bounds; } catch { box = null; }
+  if (!box) return { ok: false, error: "nothing to export: nothing is left of the body" };
+  const m = fin.shape.mesh({ tolerance: quality.tolerance, angularTolerance: quality.angular });
+  return { ok: true, vertices: new Float32Array(m.vertices), triangles: new Uint32Array(m.triangles), volume: volume(fin.shape), bbox: { min: [...box[0]], max: [...box[1]] } };
+}

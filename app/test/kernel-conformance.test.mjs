@@ -2,7 +2,7 @@
 // It only uses the kernel interface (an operation graph in, a plain-data result out), so a replacement kernel must pass it unchanged.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { init, evaluate, KERNEL_NAME } from "../src/compiler/kernel/occt/evaluate.mjs";
+import { init, evaluate, exportMesh, KERNEL_NAME } from "../src/compiler/kernel/occt/evaluate.mjs";
 import { buildGraph } from "./helpers/features.mjs";
 
 await init();
@@ -130,4 +130,16 @@ test("the result is plain data: mesh arrays, faces with normals, lines and corne
   assert.equal(r.vertices.length, 8);
   assert.doesNotThrow(() => structuredClone(r)); // it can cross a worker boundary
   near(r.bbox.max[2], 20);
+});
+
+test("exportMesh: a closed mesh of the final body at the quality asked for, as plain data; nothing to export is an answer, not a throw (`in_256`)", () => {
+  const g = buildGraph([base, { id: "f_2", kind: "edge", ref: { a: [-20, -10, 20], b: [20, -10, 20], mid: [0, -10, 20] }, mode: "fillet", distance: 2 }]);
+  const coarse = exportMesh(g, { tolerance: 0.5, angular: 0.5 });
+  const fine = exportMesh(g, { tolerance: 0.01, angular: 0.1 });
+  assert.ok(coarse.ok && fine.ok);
+  assert.ok(fine.triangles.length > coarse.triangles.length);
+  assert.ok(fine.vertices instanceof Float32Array && fine.triangles instanceof Uint32Array);
+  near(fine.volume, 16000 - (1 - Math.PI / 4) * 4 * 40, 0.05);
+  assert.deepEqual(fine.bbox.min.map(Math.round), [-20, -10, 0]);
+  assert.equal(exportMesh({ params: {}, ops: [] }, { tolerance: 0.01, angular: 0.1 }).ok, false);
 });

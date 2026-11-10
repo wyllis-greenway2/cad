@@ -1,7 +1,7 @@
 // The kernel as the app sees it, but worked out on its own thread (`in_132`). `evaluate` stays the same call: it answers at once with the result for this graph if it is known
 // (the cache), else with the last result there was (the picture lags a little) and asks the worker, newest request first, one at a time. When an answer comes `onChange` is called
 // so the app compiles again and picks the new result up from the cache. A heavy model therefore never freezes the page; it just takes a moment to appear.
-import type { Kernel, KernelGraph, KernelResult } from "./compiler/kernel/adapter.ts";
+import type { ExportQuality, ExportResult, Kernel, KernelGraph, KernelResult } from "./compiler/kernel/adapter.ts";
 
 const EMPTY: KernelResult = { ops: [], finalId: null, volume: null, bbox: null, mesh: null, faces: null, edges: null, vertices: null, totalMs: 0 };
 const KEEP = 24; // results kept, newest last
@@ -31,11 +31,22 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   let timer: ReturnType<typeof setTimeout> | null = null;
   const cache = new Map<string, KernelResult>();
   let last: KernelResult = EMPTY;
-  let busy: { id: number; key: string; graph: KernelGraph } | null = null;
+  let busy: { id: number; key: string; graph: KernelGraph; asked?: { resolve: (r: ExportResult) => void } } | null = null;
+  const exports: { graph: KernelGraph; quality: ExportQuality; resolve: (r: ExportResult) => void }[] = []; // (the exports waiting: each is answered, none is dropped for a newer one)
   let queued: { key: string; graph: KernelGraph; draft: boolean } | null = null;
   let counter = 0;
   const pump = () => {
-    if (busy || !queued || !up) return;
+    if (busy || !up) return;
+    const wanted = exports.shift();
+    if (wanted) {
+      const job = { id: ++counter, key: "", graph: wanted.graph, asked: { resolve: wanted.resolve } };
+      busy = job;
+      worker.postMessage({ id: job.id, graph: wanted.graph, export: wanted.quality });
+      timer = setTimeout(() => stuck(job.id), limit);
+      (timer as { unref?: () => void }).unref?.();
+      return;
+    }
+    if (!queued) return;
     const { key, graph, draft } = queued;
     queued = null;
     const job = { id: ++counter, key, graph };
@@ -51,6 +62,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     up = false;
     try { worker.terminate?.(); } catch { /* (already gone) */ }
     console.error(`the kernel's thread was stopped after ${Math.round(limit / 1000)} seconds on a job`);
+    if (job.asked) { job.asked.resolve({ ok: false, error: `the kernel was still working on the export after ${Math.round(limit / 1000)} seconds and was stopped` }); worker = respawn(); attach(worker); pump(); return; }
     cache.set(job.key, failedResult(job.graph, `the kernel was still working on that after ${Math.round(limit / 1000)} seconds and was stopped: it cannot be made (try something smaller)`, limit));
     worker = respawn();
     attach(worker);
@@ -59,7 +71,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   let resolveReady: () => void = () => {};
   let rejectReady: (e: Error) => void = () => {};
   const ready = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
-  const onMessage = (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; result?: KernelResult }>) => {
+  const onMessage = (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; result?: KernelResult; exported?: ExportResult }>) => {
     const m = e.data;
     if (m.ready) { up = true; resolveReady(); pump(); return; }
     if (m.id === undefined) return void rejectReady(new Error(m.failed ?? "the kernel could not start"));
@@ -67,6 +79,11 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     if (!job || job.id !== m.id) return; // (the answer to a job that was given up)
     busy = null;
     if (timer) clearTimeout(timer);
+    if (job.asked) {
+      job.asked.resolve(m.exported ?? { ok: false, error: m.failed ?? "the kernel could not make the mesh" });
+      pump();
+      return;
+    }
     if (m.failed) {
       console.error("the kernel's thread failed on a job:", m.failed);
       cache.set(job.key, failedResult(job.graph, m.failed)); // (an answer, so what waits for it is not held up for ever, and the step that asked is reported)
@@ -90,7 +107,10 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     lagging: true,
     draft: false,
     init: () => ready,
-    get pending() { return busy !== null || queued !== null; },
+    get pending() { return busy !== null || queued !== null || exports.length > 0; },
+    exportMesh(graph: KernelGraph, quality: ExportQuality): Promise<ExportResult> {
+      return new Promise((resolve) => { exports.push({ graph, quality, resolve }); pump(); });
+    },
     evaluate(graph: KernelGraph): KernelResult {
       const draft = self.draft; // (a rough mesh while a size is dragged, `in_216`: asked for and kept apart from the fine one)
       const key = (draft ? "draft:" : "") + JSON.stringify(graph);

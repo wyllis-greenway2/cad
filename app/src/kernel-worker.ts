@@ -2,7 +2,7 @@
 // answers with the result, and keeps nothing between jobs. `kernel-async.ts` is the other end.
 import { kernel } from "./compiler/kernel/index.ts";
 import { initWeb } from "./compiler/kernel/occt/web.mjs";
-import type { KernelGraph, KernelResult } from "./compiler/kernel/adapter.ts";
+import type { ExportQuality, KernelGraph, KernelResult } from "./compiler/kernel/adapter.ts";
 
 const post = (message: unknown, transfer: Transferable[] = []) => (self as unknown as { postMessage(m: unknown, t: Transferable[]): void }).postMessage(message, transfer);
 
@@ -17,8 +17,12 @@ initWeb().then(
   () => post({ ready: true }),
   (e: unknown) => post({ failed: String(e) }),
 );
-self.onmessage = (e: MessageEvent<{ id: number; graph: KernelGraph; draft?: boolean }>) => {
+self.onmessage = (e: MessageEvent<{ id: number; graph: KernelGraph; draft?: boolean; export?: ExportQuality }>) => {
   try {
+    if (e.data.export) {
+      void kernel.exportMesh(e.data.graph, e.data.export).then((exported) => post({ id: e.data.id, exported }, exported.ok ? [exported.vertices.buffer, exported.triangles.buffer] : []), (err: unknown) => post({ id: e.data.id, failed: String(err) }));
+      return;
+    }
     kernel.draft = !!e.data.draft;
     const result = kernel.evaluate(e.data.graph);
     post({ id: e.data.id, result }, buffers(result));
