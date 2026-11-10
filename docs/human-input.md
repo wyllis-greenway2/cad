@@ -1290,3 +1290,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > run the full check and look at it in the browser
 (asks for the full check and a browser look at the bubble layout: the ring, helper bubbles and hints in front of the constraint bubbles)
 
+## in_263 — 2026-11-10 — directive
+> The edge chamfer on all edges does weird stuff. Look at this gear, if you select the face to select all edges, then chamfer, then sometimes the chamfer just wont take even if it is valid, then other times it seems to make the whole model vanish back to a sketch? Ctrl y brings it back into existence.
+(with the state snapshot `7f53fe72-cad-state-2026-11-10T05-03-02.json` and the model `dfad9b28-model.cad_29.json`; a bug report on the new chamfer of a face's edges, `in_257`)
+
