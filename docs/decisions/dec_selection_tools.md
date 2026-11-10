@@ -57,7 +57,7 @@ Your idea of offering it only for things made by a repeat does not work well: a 
 
 ## 5. Not here
 
-The missing push / pull arrow on curved faces is `q_arc_wall_pushpull`; editing a repeat is `q_repeat_parameters`.
+The missing push / pull arrow on curved faces is `dec_arc_wall_pushpull`; editing a repeat is `dec_repeat_parameters`.
 
 ## Order I would build them in
 

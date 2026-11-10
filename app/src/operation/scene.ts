@@ -6,6 +6,8 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Part, Lookup } from "./part.ts";
 import { derivedFaces } from "./loops.ts";
 import type { Group } from "./groups.ts";
+import type { PatternRecord } from "./repeat.ts";
+import { withPatterns } from "./repeat.ts";
 
 /** A relation between parts. `parts` are listed mover first, then the references (held in place): the part selected FIRST moves and the ones selected before it stay (`in_196`, which reversed `in_090`). `kind` is a row id of the actions table. */
 export interface Relation {
@@ -52,6 +54,8 @@ export interface Scene {
   steps: readonly Step[];
   /** selection groups, layered (`in_257`, `groups.ts`); absent when there are none */
   groups?: readonly Group[];
+  /** repeats of drawn figures that keep their numbers: their copies are made from these (`repeat.ts`) */
+  patterns?: readonly PatternRecord[];
   /** the plane whose hidden sketch (what extrusions used up) is shown and snapped to while sketching in it (not part of the model, only of how it is looked at, `in_211`) */
   reveal?: Ref;
   /** Id counter: ids are never reused, so replaying a command list gives the same names. */
@@ -102,6 +106,7 @@ export interface SceneJson {
   relations: Relation[];
   steps: Step[];
   groups?: Group[];
+  patterns?: PatternRecord[];
 }
 export function toJSON(s: Scene): SceneJson {
   return {
@@ -111,6 +116,7 @@ export function toJSON(s: Scene): SceneJson {
     relations: [...s.relations],
     steps: [...s.steps],
     ...(s.groups?.length ? { groups: s.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}),
+    ...(s.patterns?.length ? { patterns: s.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}),
   };
 }
 export function fromJSON(j: SceneJson): Scene {
@@ -118,7 +124,7 @@ export function fromJSON(j: SceneJson): Scene {
   const s = emptyScene();
   const parts: Record<string, Part> = { ...s.parts };
   for (const p of j.parts) parts[p.ref] = p;
-  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter, ...(j.groups?.length ? { groups: j.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}) };
+  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter, ...(j.groups?.length ? { groups: j.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}), ...(j.patterns?.length ? { patterns: j.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}) };
 }
 
 /** The scene with its body parts replaced by these (derived from the kernel result; never saved). */
@@ -130,7 +136,8 @@ export function withBody(s: Scene, body: readonly Part[]): Scene {
 }
 
 /** The scene with its derived faces (closed loops, disks) rebuilt. */
-export function withDerived(s: Scene): Scene {
+export function withDerived(s0: Scene): Scene {
+  const s = withPatterns(s0); // (the copies of the repeats that keep their numbers, made from the originals as they are now)
   const parts: Record<string, Part> = {};
   for (const p of Object.values(s.parts)) if (p.kind !== "face" && !((p.kind === "line" || p.kind === "corner") && p.derived)) parts[p.ref] = p;
   const { faces, parts: made } = derivedFaces({ ...s, parts });

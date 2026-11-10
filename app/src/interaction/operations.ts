@@ -68,6 +68,9 @@ export interface Op {
   edges?: { mid: Vec3; dir: Vec3 }[];
   /** linear and circular repeat: what each field starts as, and what has been typed in it (empty = as it starts); `axis` is the field typing goes to */
   pat: string[];
+  /** a repeat reopened: the record (a repeat of a drawn figure) or the step (a repeat of the body) whose numbers it sets again (`in_257`) */
+  editPattern?: string;
+  editStep?: string;
   patStart?: number[];
   /** linear repeat: the direction the helper bubbles stand on (`in_236`) */
   along?: 0 | 1 | 2;

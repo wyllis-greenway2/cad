@@ -19,6 +19,10 @@ import type { Plane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
 import { activeOp } from "./handles.ts";
 import { pivotCommands, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
+import type { Repeat } from "../pattern.ts";
+import type { Op } from "../operations.ts";
+import { patternOfAll } from "../../operation/repeat.ts";
+import { BODY_OBJECT } from "../../compiler/body.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
 import { doSimilar, doGroup, doUngroup } from "./select.ts";
@@ -202,6 +206,8 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   }
   if (id === "select:similar") return doSimilar(closed);
   if (id === "select:group") return doGroup(closed);
+  if (id === "repeat:edit") return doRepeatEdit(closed);
+  if (id === "repeat:break") return doRepeatBreak(closed);
   if (id === "select:ungroup") return doUngroup(closed);
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now, s.menu?.plane ?? null);
@@ -252,7 +258,8 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
 /** The ⋯ menu's lists: choosing one opens it, choosing it again closes it. */
 export const doPanel = (s: AppState, name: "bodies" | "history" | "groups"): AppState => ({ ...s, panel: s.panel === name ? null : name, menu: null });
 /** A row of the open list: a body is selected, a step is taken out of the history. */
-export function doPanelRow(s: AppState, id: string, act: "select" | "remove" | "sketch"): AppState {
+export function doPanelRow(s: AppState, id: string, act: "select" | "remove" | "sketch" | "edit"): AppState {
+  if (act === "edit") return doRepeatEditStep(s, id); // (a step that is a repeat of the body: its numbers are set again, `in_257`)
   if (act === "sketch") return { ...s, showSketch: s.showSketch === id ? null : id }; // (the sketch of an extrusion shown, or put away again)
   if (groupsOf(sceneOf(s.session)).some((g) => g.id === id)) {
     // a row of the Groups list: select what is in it, or break it
@@ -280,6 +287,56 @@ function doRepeatBegin(s: AppState, kind: "linear" | "circular" | "copy"): AppSt
     pivot = made.parts;
   }
   return { ...s, menu: null, op: null, tool: null, session: { ...session, message: null }, repeat: { op: r.op, pivot, chosen: null, help: kind === "linear" ? { phase: "copy", sep0: 0 } : kind === "copy" ? advanceHelp({ op: r.op, pivot, help: { phase: "copy", sep0: 0 } }).help! : null } };
+}
+const NO_REPEAT = "select a copy of a repeat, or what was repeated (a step of the repeat of the body is reopened from the History list)";
+/** Open a repeat again to change its numbers (`in_257`): the same arrows and bubbles it was made with, with its numbers; Apply changes the copies, Cancel leaves them. */
+function doRepeatEdit(s: AppState): AppState {
+  const say = (message: string): AppState => ({ ...s, menu: null, session: { ...s.session, message } });
+  if (s.repeat) return say("apply or cancel the repeat that is open first");
+  const sc = sceneOf(s.session);
+  const rec = patternOfAll(sc, selectionOf(s.session));
+  if (!rec) return say(NO_REPEAT);
+  const r = startOp(sc, rec.parts, rec.kind, viewAxes(s.cam));
+  if (!r.ok) return say(r.why);
+  const along = [0, 1, 2].find((i) => (rec.params[2 * i] ?? 1) > 1) ?? r.op.along ?? 0;
+  return openRepeat(s, { ...r.op, parts: rec.parts, target: "plane", plane: rec.plane, patStart: [...rec.params], pat: rec.params.map(() => ""), along: along as 0 | 1 | 2, editPattern: rec.id });
+}
+/** Reopen the repeat of the body that is a step of the history (from its row in the History list). */
+function doRepeatEditStep(s: AppState, id: string): AppState {
+  const say = (message: string): AppState => ({ ...s, menu: null, session: { ...s.session, message } });
+  if (s.repeat) return say("apply or cancel the repeat that is open first");
+  const sc = sceneOf(s.session);
+  const st = sc.steps.find((x) => x.id === id && x.type === "pattern");
+  if (!st) return say("that step is not a repeat");
+  const kind = st.params.mode === "circular" ? "circular" : "linear";
+  const r = startOp(sc, [BODY_OBJECT], kind, viewAxes(s.cam));
+  if (!r.ok) return say(r.why);
+  const names = kind === "linear" ? ["nx", "dx", "ny", "dy", "nz", "dz"] : ["count", "angle", "axis", "px", "py", "pz"];
+  const start = names.map((n, i) => Number(st.params[n] ?? r.op.patStart?.[i] ?? 0));
+  const along = [0, 1, 2].find((i) => kind === "linear" && (start[2 * i] ?? 1) > 1) ?? r.op.along ?? 0;
+  return openRepeat({ ...s, panel: null }, { ...r.op, patStart: start, pat: start.map(() => ""), along: along as 0 | 1 | 2, editStep: id });
+}
+/** Break a repeat of a drawn figure: its copies stay, as ordinary parts. */
+function doRepeatBreak(s: AppState): AppState {
+  const closed = { ...s, menu: null };
+  const rec = patternOfAll(sceneOf(s.session), selectionOf(s.session));
+  if (!rec) return { ...closed, session: { ...s.session, message: NO_REPEAT } };
+  const next = run(s.session, { type: "breakPattern", id: rec.id });
+  return next.message ? { ...closed, session: next } : { ...withSession(closed, { ...next, message: "repeat broken: its copies are ordinary parts now" }) };
+}
+/** The repeat state for an operation that is already made (the circular one needs its pivot parts). */
+function openRepeat(s: AppState, op: Op): AppState {
+  let session = s.session;
+  let pivot = null;
+  if (op.kind === "circular") {
+    const made = pivotCommands(sceneOf(session), op);
+    const next = run(session, made.command);
+    if (next.message) return { ...s, menu: null, session: next };
+    session = next;
+    pivot = made.parts;
+  }
+  const r: Repeat = { op, pivot, chosen: null, help: null };
+  return { ...s, menu: null, op: null, tool: null, session: { ...session, message: null }, repeat: advanceHelp(r) };
 }
 export function doRepeatApply(s: AppState): AppState {
   if (!s.repeat) return s;

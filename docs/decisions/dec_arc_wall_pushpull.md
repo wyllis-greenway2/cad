@@ -1,15 +1,15 @@
 ---
-id: q_arc_wall_pushpull
-kind: question
-status: open
-origin: ai-unreviewed
-human_input: in_257
+id: dec_arc_wall_pushpull
+kind: decision
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_257, in_258
 date: 2026-11-10
 depends_on:
   - dec_face_edit_by_step: pushing a face changes the step or the drawing that made it; what an arc wall's push means is another case of that rule
 alternative_to:
 ---
-# Why does a curved side of an extruded sketch (a gear tooth's flank) have no push / pull arrow, and what should it do?
+# Pushing or pulling the wall of an arc of an extruded sketch changes that arc's radius (and which arc a wall belongs to is told by where it lies)
 
 **CORRECTION (later in the session, `in_258`): my first explanation below was wrong, and the gap is fixed.** Arcs of a sketch already had push / pull (`arcWall`): the radius of that arc changes. What was missing was a case like a gear: several arcs on one circle (all the tooth tips) match the same radius and axis, so `wallOfCircle` found more than one and gave up. It now chooses the arc whose span the face lies in (`test/arcwalls.test.ts`, which fails without it). Original text follows.
 
@@ -21,4 +21,4 @@ alternative_to:
 
 ## Rationale
 
-Open until answered; nothing depends on it. It changes which faces can be edited and what a push means for an arc, which `dec_face_edit_by_step` leaves to cases.
+Accepted, `in_258` ("I will take your recommendations on all"). What a push means for an arc is the proposal below, which was already how an arc wall behaved; the fix was to tell the arcs of one circle apart. `test/arcwalls.test.ts`.

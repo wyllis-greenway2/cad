@@ -49,7 +49,7 @@ export type Intent =
   /** open or close a list from the ⋯ menu (the bodies, the history) */
   | { type: "panel"; name: "bodies" | "history" | "groups" }
   /** a row of the open list: select it (a body) or take it out (a step) */
-  | { type: "panelRow"; id: string; act: "select" | "remove" | "sketch" }
+  | { type: "panelRow"; id: string; act: "select" | "remove" | "sketch" | "edit" }
   /** the text of a field of the value box changed (a tool's field, or the operation's one number) */
   | { type: "entry"; field: number; text: string }
   /** the Apply and Cancel buttons of a repeat being set up (`in_141`) */

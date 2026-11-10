@@ -1,17 +1,19 @@
 ---
-id: q_repeat_parameters
-kind: question
-status: open
-origin: ai-unreviewed
-human_input: in_257
+id: dec_repeat_parameters
+kind: decision
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_257, in_258
 date: 2026-11-10
 depends_on:
   - dec_stable_references: a later step that names one copy must still find it when the count or the spacing changes, so the copies need names that stay valid
 alternative_to:
 ---
-# Should a repeat keep its numbers so it can be edited later, and how is it shown?
+# A repeat keeps its numbers so it can be edited later
 
-**What happens now:**
+**Accepted and built** (`in_258`: "I will take your recommendations on all"). How it was built, which differs a little from the sketch below: a repeat of a drawn figure is a **record in the scene** (`Scene.patterns`: the parts repeated, their plane, the numbers; `operation/repeat.ts`) saved in the file and made by the commands `pattern`, `setPattern` and `breakPattern`; its copies are **made from the record each time the scene is derived** (`withDerived`), so they follow the original, are not saved as parts, and are **locked** (not movable or deletable) until the repeat is broken; copies are named by which copy of which part (`d/q_003.c2_e_001_p0`), so a constraint or step made from copy 2 still finds it when the count changes; copies carry no relations of their own (they are what the original is). **Edit repeat** and **Break repeat** are in the ring and the ⋯ list (Move and repeat); a repeat of the body (a step) is reopened from its row in the History list. Changing the numbers is refused, with the constraint or step named, if it would take away a copy that something uses (`setPattern`), and the repeat stays open to try another number. Old files, whose repeats are ordinary parts, open as before. `test/repeat.test.ts`. **Not built:** the pivot of a circular repeat is still made from parts while it is edited, as when it was made.
+
+**What happened before:**
 - A **repeat of the body** (linear or circular) is a step of the history with its numbers (`pattern`, `params`: counts, distances, angle, axis, point). It is editable in principle like any step; there is no way in the page to reopen it yet.
 - A **repeat of a drawn figure** is not a step: it makes new corners, lines and a circle that are copies, and the relations among them (`pattern.ts`). After that they are ordinary drawn parts with no memory that they were a repeat, so there are no numbers to edit; the only way to change the count is to delete copies or draw more.
 
@@ -24,8 +26,8 @@ alternative_to:
 
 **Cost:** it is a change to the file and the compiler (the derived copies and their names), the largest of the items in `in_257`. The first piece that needs no new concept is reopening a **body** repeat from its history row.
 
-**Questions:** is a derived (locked) copy acceptable, with "break the repeat" to free it? Should lowering the count be refused or should it delete the steps that used the removed copies (after asking)?
+**Questions that were asked:** is a derived (locked) copy acceptable, with "break the repeat" to free it? (yes) Should lowering the count be refused or should it delete the steps that used the removed copies (after asking)? (refused, `in_258`)
 
 ## Rationale
 
-Open until answered. It decides whether a repeat of a sketch is a thing the model keeps or only a way of drawing, which affects the file format and how the sketch is solved; it should not be settled by building.
+Decided, `in_258`. It decides whether a repeat of a sketch is a thing the model keeps or only a way of drawing, which affects the file format and how the sketch is solved; it should not be settled by building.

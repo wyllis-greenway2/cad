@@ -5,7 +5,7 @@ import type { Group } from "../operation/groups.ts";
 import { groupsOf, membersOf, parentOf } from "../operation/groups.ts";
 
 export type PanelKind = "bodies" | "history" | "groups";
-export interface PanelRow { id: string; label: string; /** selected (a body) */ active: boolean; /** can be taken out (a step) */ removable: boolean; /** why this step could not be made, when it could not (it is shown in red) */ error?: string; /** an extrusion: its hidden sketch can be shown (`in_228`); true while it is shown */ sketch?: boolean }
+export interface PanelRow { id: string; label: string; /** selected (a body) */ active: boolean; /** can be taken out (a step) */ removable: boolean; /** a repeat of the body: it can be opened again to change its numbers (`in_257`) */ edit?: boolean; /** why this step could not be made, when it could not (it is shown in red) */ error?: string; /** an extrusion: its hidden sketch can be shown (`in_228`); true while it is shown */ sketch?: boolean }
 export interface Panel { kind: PanelKind; title: string; rows: PanelRow[] }
 
 const n = (v: unknown): string => String(Math.round(Number(v) * 100) / 100);
@@ -42,6 +42,6 @@ function groupsPanel(scene: Scene, selection: readonly Ref[]): Panel {
   return { kind: "groups", title: "Groups", rows };
 }
 /** The steps of building, oldest first. */
-const historyPanel = (scene: Scene, errors: Record<string, string>, shown: string | null): Panel => ({ kind: "history", title: "History", rows: scene.steps.map((s) => ({ id: s.id, label: stepLabel(s), active: false, removable: true, ...(s.type === "extrude" ? { sketch: shown === s.id } : {}), ...(errors[s.id] ? { error: errors[s.id] } : {}) })) });
+const historyPanel = (scene: Scene, errors: Record<string, string>, shown: string | null): Panel => ({ kind: "history", title: "History", rows: scene.steps.map((s) => ({ id: s.id, label: stepLabel(s), active: false, removable: true, ...(s.type === "pattern" ? { edit: true } : {}), ...(s.type === "extrude" ? { sketch: shown === s.id } : {}), ...(errors[s.id] ? { error: errors[s.id] } : {}) })) });
 export const panelOf = (kind: PanelKind | null, scene: Scene, selection: readonly Ref[], errors: Record<string, string> = {}, shownSketch: string | null = null): Panel | null => (kind === "bodies" ? bodiesPanel(scene, selection) : kind === "history" ? historyPanel(scene, errors, shownSketch) : kind === "groups" ? groupsPanel(scene, selection) : null);
 

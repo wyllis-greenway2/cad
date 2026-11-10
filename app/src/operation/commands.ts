@@ -12,6 +12,7 @@ import { anchorsOf } from "./part.ts";
 import type { Scene, Relation, Step } from "./scene.ts";
 import { bumpCounter } from "./scene.ts";
 import { addGroup, removeGroup, withoutParts } from "./groups.ts";
+import { addPattern, setPattern, breakPattern, patternsWithout } from "./repeat.ts";
 
 export type Command =
   | { type: "addPart"; part: Part }
@@ -33,6 +34,10 @@ export type Command =
   | { type: "group"; id: string; items: string[] }
   /** break one group: what was in it stays, and a group inside it stays a group */
   | { type: "ungroup"; id: string }
+  /** repeat a drawn figure so that it keeps its numbers (`in_257`, `repeat.ts`): the copies are made from this record */
+  | { type: "pattern"; id: string; kind: "linear" | "circular"; parts: Ref[]; plane: Ref; params: number[] }
+  | { type: "setPattern"; id: string; params: number[] }
+  | { type: "breakPattern"; id: string }
   | { type: "batch"; commands: Command[] };
 
 const idOf = (full: string): string => full.slice(full.indexOf("/") + 1).split(/[./]/)[0] ?? full;
@@ -109,7 +114,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       const gone = new Set(dependentParts(s, c.ref));
       const parts = Object.fromEntries(Object.entries(s.parts).filter(([k]) => !gone.has(k as Ref)));
       const relations = s.relations.filter((r) => !r.parts.some((x) => gone.has(x)));
-      return ok(withoutParts({ ...s, parts, relations }, gone));
+      return ok(withoutParts(patternsWithout({ ...s, parts, relations }, gone), gone));
     }
     case "deleteParts": {
       // several at once: everything built on any of them goes too (a part that an earlier one already took is not an error)
@@ -122,7 +127,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       }
       if (!gone.size) return err("nothing to delete");
       const parts = Object.fromEntries(Object.entries(s.parts).filter(([k]) => !gone.has(k as Ref)));
-      return ok(withoutParts({ ...s, parts, relations: s.relations.filter((r) => !r.parts.some((x) => gone.has(x))) }, gone));
+      return ok(withoutParts(patternsWithout({ ...s, parts, relations: s.relations.filter((r) => !r.parts.some((x) => gone.has(x))) }, gone), gone));
     }
     case "addRelation": {
       if (s.relations.some((r) => r.id === c.relation.id)) return err(`relation ${c.relation.id} already exists`);
@@ -153,6 +158,9 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       return r.ok ? ok(bumpCounter(r.value, c.id)) : r;
     }
     case "ungroup": return removeGroup(s, c.id);
+    case "pattern": { const r = addPattern(s, { id: c.id, kind: c.kind, parts: c.parts, plane: c.plane, params: c.params }); return r.ok ? ok(bumpCounter(r.value, c.id)) : r; }
+    case "setPattern": return setPattern(s, c.id, c.params);
+    case "breakPattern": return breakPattern(s, c.id);
     case "batch": {
       let cur = s;
       for (const sub of c.commands) {

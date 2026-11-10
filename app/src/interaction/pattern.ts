@@ -5,13 +5,13 @@ import type { Ref } from "../shared/ref.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross } from "../math/vec.ts";
-import { about } from "../math/rotation.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
 import type { Part } from "../operation/part.ts";
 import { normalOfPlane } from "../operation/part.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
+import { placements } from "../operation/repeat.ts";
 import type { Op } from "./operations.ts";
 
 const r3 = (v: number) => Math.round(v * 1e3) / 1e3;
@@ -70,85 +70,27 @@ export function patternCentre(scene: Scene, op: Op): Vec3 {
   return op.target === "plane" ? middle(pts) : [(lo[0]! + hi[0]!) / 2, (lo[1]! + hi[1]!) / 2, (lo[2]! + hi[2]!) / 2];
 }
 
-/** The copies of a repeat as the places they go to: how far each is moved, or turned about the axis through the point (the original, the first, is not in the list). */
-function placements(op: Op): { move: Vec3; turn: { axis: 0 | 1 | 2; angle: number; pivot: Vec3 } | null }[] {
-  const v = patternValues(op);
-  if (v.length < 6) return [];
-  const out: { move: Vec3; turn: { axis: 0 | 1 | 2; angle: number; pivot: Vec3 } | null }[] = [];
-  if (op.kind === "linear") {
-    const [nx, ny, nz] = [Math.max(1, Math.round(v[0]!)), Math.max(1, Math.round(v[2]!)), Math.max(1, Math.round(v[4]!))];
-    if (nx * ny * nz > 200) return [];
-    for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) for (let k = 0; k < nz; k++) if (i || j || k) out.push({ move: [i * v[1]!, j * v[3]!, k * v[5]!], turn: null });
-    return out;
-  }
-  const count = Math.max(1, Math.round(v[0]!));
-  if (count > 200) return [];
-  const angle = v[1]!;
-  const step = Math.abs(angle) >= 360 ? angle / count : count > 1 ? angle / (count - 1) : 0;
-  const axis = Math.min(2, Math.max(0, Math.round(v[2]!))) as 0 | 1 | 2;
-  for (let i = 1; i < count; i++) out.push({ move: [0, 0, 0], turn: { axis, angle: step * i, pivot: [v[3]!, v[4]!, v[5]!] } });
-  return out;
-}
-
-const turnVec = (v: Vec3, axis: 0 | 1 | 2, angle: number): Vec3 => { const m = about(axis, angle); return [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2], m[6] * v[0] + m[7] * v[1] + m[8] * v[2]]; };
-
 /** The command that makes the repeat (null while it would make no copy, or too many). */
 export function patternCommand(scene: Scene, op: Op): Command | null {
-  const copies = placements(op);
-  if (!copies.length) return null;
+  const kind = op.kind === "circular" ? "circular" : "linear";
   const v = patternValues(op);
+  if (!placements(kind, v).length) return null;
+  const params = kind === "linear"
+    ? [Math.max(1, Math.round(v[0]!)), v[1]!, Math.max(1, Math.round(v[2]!)), v[3]!, Math.max(1, Math.round(v[4]!)), v[5]!]
+    : [Math.max(1, Math.round(v[0]!)), v[1]!, Math.min(2, Math.max(0, Math.round(v[2]!))), v[3]!, v[4]!, v[5]!];
   if (op.target !== "plane") {
-    const id = nextId(scene, "s");
-    const params: Record<string, number | string> = op.kind === "linear"
-      ? { mode: "linear", nx: Math.max(1, Math.round(v[0]!)), dx: v[1]!, ny: Math.max(1, Math.round(v[2]!)), dy: v[3]!, nz: Math.max(1, Math.round(v[4]!)), dz: v[5]! }
-      : { mode: "circular", count: Math.max(1, Math.round(v[0]!)), angle: v[1]!, axis: Math.min(2, Math.max(0, Math.round(v[2]!))), px: v[3]!, py: v[4]!, pz: v[5]! };
-    return { type: "addStep", step: { id, type: "pattern", parts: op.parts, params } };
+    // the body: a step of the history with the numbers (reopened from its row in the History list, `in_257`: the same numbers are set again)
+    const names = kind === "linear" ? ["nx", "dx", "ny", "dy", "nz", "dz"] : ["count", "angle", "axis", "px", "py", "pz"];
+    const numbers = Object.fromEntries(names.map((n, i) => [n, params[i]!]));
+    if (op.editStep) return { type: "setStepParams", id: op.editStep, params: numbers };
+    return { type: "addStep", step: { id: nextId(scene, "s"), type: "pattern", parts: op.parts, params: { mode: kind, ...numbers } } };
   }
-  // a drawn figure: new corners, lines and circles, with the relations among them (so a copied rectangle stays a rectangle), on the same plane or on a plane of the copy's own
-  const figure = new Set(op.parts);
+  // a drawn figure: a repeat that keeps its numbers, its copies made from it (`in_257`): changing the numbers later changes the copies, and the copies keep their names
+  if (op.editPattern) return { type: "setPattern", id: op.editPattern, params };
   const first = op.parts.map((r) => scene.parts[r]).find((p) => p?.kind === "corner");
   const plane = first?.plane ? scene.parts[first.plane] : undefined;
   if (!plane || plane.kind !== "plane") return null;
-  const eBase = nextId(scene, "e");
-  const pBase = nextId(scene, "p");
-  const rBase = nextId(scene, "r");
-  const n0 = normalOfPlane(plane);
-  const commands: Command[] = [];
-  copies.forEach((c, k) => {
-    const place = (p: Vec3): Vec3 => (c.turn ? add(c.turn.pivot, turnVec(sub(p, c.turn.pivot), c.turn.axis, c.turn.angle)) : add(p, c.move));
-    const at2 = place(plane.at);
-    const u2 = c.turn ? turnVec(plane.u, c.turn.axis, c.turn.angle) : plane.u;
-    const v2 = c.turn ? turnVec(plane.v, c.turn.axis, c.turn.angle) : plane.v;
-    const n2 = c.turn ? turnVec(n0, c.turn.axis, c.turn.angle) : n0;
-    const same = Math.abs(dot(n2, n0) - 1) < 1e-9 && Math.abs(dot(sub(at2, plane.at), n0)) < 1e-9;
-    let target: Ref = plane.ref;
-    if (!same) {
-      target = drawnRef(`${pBase}.c${k}`);
-      commands.push({ type: "addPart", part: { ref: target, kind: "plane", origin: "drawn", plane: null, movable: false, at: at2, u: u2, v: v2 } });
-    }
-    const name = (r: Ref): Ref => drawnRef(`${eBase}.c${k}_${r.slice(2).replace(/[./]/g, "_")}`);
-    const base = { origin: "drawn" as const, plane: target, movable: true };
-    for (const r of op.parts) {
-      const p = scene.parts[r];
-      if (p?.kind === "corner") commands.push({ type: "addPart", part: { ...base, ref: name(r), kind: "corner", at: place(p.at) } });
-    }
-    for (const r of op.parts) {
-      const p = scene.parts[r];
-      if (p?.kind === "line") commands.push({ type: "addPart", part: { ...base, ref: name(r), kind: "line", a: name(p.a), b: name(p.b), ...(p.bulge ? { bulge: p.bulge } : {}), ...(p.center ? { center: name(p.center), ccw: p.ccw } : {}) } });
-      else if (p?.kind === "circle") commands.push({ type: "addPart", part: { ...base, ref: name(r), kind: "circle", center: name(p.center), radius: p.radius } });
-    }
-    // level and upright (and the same height or position across of two corners) are about the plane's own axes. A copy turned a quarter on the same plane has them the other way round, and a copy turned
-    // by any other angle cannot keep them at all: held level, its sides would be pulled out of shape, or to no length (`in_254`)
-    const quarter = same && c.turn ? Math.atan2(dot(cross(plane.u, u2), n0), dot(plane.u, u2)) / (Math.PI / 2) : 0;
-    const whole = Math.abs(quarter - Math.round(quarter)) < 1e-6;
-    const swap = whole && Math.abs(Math.round(quarter)) % 2 === 1;
-    const aligned = new Set(["horizontal", "vertical", "sameHeight", "sameAcross"]);
-    const turned: Record<string, string> = { horizontal: "vertical", vertical: "horizontal", sameHeight: "sameAcross", sameAcross: "sameHeight" };
-    scene.relations.filter((rel) => rel.parts.every((q) => figure.has(q)) && (whole || !aligned.has(rel.kind))).forEach((rel, j) => {
-      commands.push({ type: "addRelation", relation: { ...rel, kind: swap && aligned.has(rel.kind) ? (turned[rel.kind] as typeof rel.kind) : rel.kind, id: `${rBase}.c${k}_${j}`, parts: rel.parts.map(name) } });
-    });
-  });
-  return { type: "batch", commands };
+  return { type: "pattern", id: nextId(scene, "q"), kind, parts: op.parts, plane: plane.ref, params };
 }
 
 const fmtN = (v: number) => String(Math.round(v * 1e3) / 1e3);

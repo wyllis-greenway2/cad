@@ -942,7 +942,8 @@ test("a drawn figure can be repeated too: copies of its corners, lines and relat
   assert.equal(st.session.message, null);
   assert.equal(faces(), 3, "three rectangles");
   assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").length, 12);
-  assert.equal(scene(st.session).relations.length, 12, "each copy keeps its four relations");
+  assert.equal(scene(st.session).relations.length, 4, "only the original has relations: its copies are made from it, so they stay what it is (`in_257`)");
+  assert.equal(scene(st.session).patterns?.length, 1, "and the repeat keeps its numbers");
   st = { ...st, session: undoLast(st.session) };
   assert.equal(faces(), 1, "one undo takes the copies away");
   // round a point: the pivot is a vertex on the figure's plane
@@ -2212,7 +2213,7 @@ test("an offset begins with its arrow on the outline where the pointer was when 
   nearV(keyed.op!.origin!, [-30, 0, 0]);
 });
 
-test("a drawn figure repeated round a point keeps its size: a copy turned a quarter has level and upright the other way round, a copy turned by any other angle has neither, and none is pulled out of shape (`in_254`)", () => {
+test("a drawn figure repeated round a point keeps its size: none is pulled out of shape, whatever the turn (`in_254`); the copies carry no relations of their own (`in_257`)", () => {
   for (const count of [4, 3, 5]) {
     let s = createSession(kernel);
     const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [10, 5, 0], [1, 0, 0], [0, 1, 0]);
@@ -2226,8 +2227,7 @@ test("a drawn figure repeated round a point keeps its size: a copy turned a quar
     const sc = scene(st.session);
     const sides = Object.values(sc.parts).filter((p) => p.kind === "line" && p.origin === "drawn" && !p.derived).map((p) => { const a = sc.parts[(p as { a: string }).a] as { at: Vec3 }, b = sc.parts[(p as { b: string }).b] as { at: Vec3 }; return Math.round(Math.hypot(a.at[0] - b.at[0], a.at[1] - b.at[1]) * 1e3) / 1e3; }).sort((x, y) => x - y);
     assert.deepEqual(sides, Array.from({ length: count }, () => [5, 5, 10, 10]).flat().sort((x, y) => x - y), `${count} copies: every side has its length`);
-    const level = sc.relations.filter((q) => q.kind === "horizontal").length, upright = sc.relations.filter((q) => q.kind === "vertical").length;
-    if (count === 4) assert.deepEqual([level, upright], [8, 8], "a quarter turn swaps them: two and two on every copy");
-    else assert.equal(level + upright, 4, "the original keeps its four; the copies turned by other angles have none of these");
+    // (the copies are made from the original and locked: they are what it is, so they carry no relations of their own, `in_257`; they used to be copied with theirs, and a copy turned by a quarter had to swap level and upright)
+    assert.equal(sc.relations.filter((q) => q.kind === "horizontal" || q.kind === "vertical").length, 4, `${count} copies: the original keeps its four`);
   }
 });

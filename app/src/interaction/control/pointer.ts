@@ -20,6 +20,7 @@ import type { Command } from "../../operation/commands.ts";
 import type { OpKind } from "../operations.ts";
 import { startOp } from "../operations.ts";
 import { similarTo } from "../similar.ts";
+import { patternOfAll } from "../../operation/repeat.ts";
 import { whyNotGroup, whyNotUngroup } from "./select.ts";
 import { projector } from "../camera.ts";
 import { settings } from "../../shared/settings.ts";
@@ -34,7 +35,7 @@ import { doGizmoHover, gizmoOf } from "./handles.ts";
 import { hasGizmo, hitHandle } from "../gizmo.ts";
 
 /** The operations a right click offers (`in_133`), in categories (`in_143`): sketching, constraints, shape, moving and repeating, and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
-const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" }[] = [
+const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" | "editRepeat" | "breakRepeat" }[] = [
   { id: "tool:rect", label: "Rectangle", icon: "rect", tool: "rect" },
   { id: "tool:circle", label: "Circle", icon: "circle", tool: "circle" },
   { id: "tool:line", label: "Line", icon: "line", tool: "line" },
@@ -49,6 +50,8 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:copy", label: "Copy", icon: "copy", op: "copy" },
   { id: "op:linear", label: "Linear repeat", icon: "linear", op: "linear" },
   { id: "op:circular", label: "Circular repeat", icon: "circular", op: "circular" },
+  { id: "repeat:edit", label: "Edit repeat", icon: "linear", select: "editRepeat" },
+  { id: "repeat:break", label: "Break repeat", icon: "unlink", select: "breakRepeat" },
   { id: "select:similar", label: "Select similar", icon: "similar", select: "similar" },
   { id: "select:group", label: "Group", icon: "group", select: "group" },
   { id: "select:ungroup", label: "Ungroup", icon: "ungroup", select: "ungroup" },
@@ -56,7 +59,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
 const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:scale"] },
-  { id: "place", label: "Move and repeat", icon: "move", items: ["op:move", "op:rotate", "op:copy", "op:linear", "op:circular"] },
+  { id: "place", label: "Move and repeat", icon: "move", items: ["op:move", "op:rotate", "op:copy", "op:linear", "op:circular", "repeat:edit", "repeat:break"] },
   { id: "select", label: "Select", icon: "similar", items: ["select:similar", "select:group", "select:ungroup"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
@@ -73,6 +76,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
+    if (r.select === "editRepeat" || r.select === "breakRepeat") { const rec = patternOfAll(sc, sel); return [r.id, { ...base, enabled: !!rec, why: rec ? null : "select a copy of a repeat, or what was repeated" }]; }
     if (r.select) { const why = r.select === "group" ? whyNotGroup(session) : whyNotUngroup(session); return [r.id, { ...base, enabled: !why, why }]; }
     const st = startOp(sc, sel, r.op!);
     return [r.id, { ...base, enabled: st.ok, why: st.ok ? null : st.why }];
