@@ -317,5 +317,5 @@ export function doHold(s: AppState, i: Extract<Intent, { type: "hold" }>, env: E
   if (s.tool || s.op || s.repeat || s.drag) return s;
   const g = gizmoOf(s);
   if (g && hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y)) return s;
-  return { ...s, box: { x0: i.x, y0: i.y, x: i.x, y: i.y, shift: i.shift }, menu: null };
+  return { ...s, box: { x0: i.x, y0: i.y, x: i.x, y: i.y, shift: i.shift, ...(i.remove ? { remove: true } : {}) }, menu: null };
 }

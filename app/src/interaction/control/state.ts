@@ -33,7 +33,7 @@ export interface AppState {
   /** the arrow (or ring) of an operation that is selected (`in_238`): a click on it or taking it; only a selected arrow shows its number, so the arrows alone stay clean */
   handleSel: string | null;
   /** the rectangle of a drag select (`in_230`, `in_235`): the left button was held still, then dragged without letting up */
-  box: { x0: number; y0: number; x: number; y: number; shift: boolean } | null;
+  box: { x0: number; y0: number; x: number; y: number; shift: boolean; remove?: boolean } | null;
   /** the list open from the ⋯ menu (`in_132`) */
   panel: "bodies" | "history" | null;
   /** a repeat being set up: it goes on until Apply or Cancel, and you can work in the world meanwhile (`in_141`) */

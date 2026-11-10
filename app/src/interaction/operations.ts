@@ -14,6 +14,7 @@ import type { FaceEdit } from "./faceedit.ts";
 import type { OffsetSource } from "./offset.ts";
 import { offsetSource, offsetCommand } from "./offset.ts";
 import { faceEdit, editCommand, arcRadiusCommand } from "./faceedit.ts";
+import { faceEdges } from "./offsetbody.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
@@ -240,8 +241,15 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     return { ok: true, op: { ...base, parts: [f.ref], origin: centroid(pts), normal: n, edit, ...(edit?.kind === "edgeSize" ? { rounded: true } : {}), dim: edit?.kind === "edgeSize" ? { base: edit.value, scale: -1 } : { base: Math.round(thickness * 1e6) / 1e6, scale: 1 } } };
   }
   if (kind === "edge") {
-    const lines = parts.filter((p) => p.kind === "line" && p.origin === "body");
-    if (!lines.length || lines.length !== parts.length) return { ok: false, why: "select lines of the body first" };
+    // faces of the body stand for their edges (`in_257`, `dec_selection_tools`): every edge on the boundary of a selected face is rounded or bevelled, as if the edges had been selected one by one
+    const faces = parts.filter((p): p is Extract<Part, { kind: "plane" }> => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.length >= 9 && !p.rounded);
+    const own = parts.filter((p) => p.kind === "line" && p.origin === "body");
+    if (!own.length && !faces.length) return { ok: false, why: "select lines or flat faces of the body first" };
+    if (own.length + faces.length !== parts.length) return { ok: false, why: "select lines or flat faces of the body first" };
+    const seen = new Set<Ref>(own.map((l) => l.ref));
+    const lines: Part[] = [...own];
+    for (const f of faces) for (const r of faceEdges(scene, f)) { const l = get(r); if (l && !seen.has(r)) { seen.add(r); lines.push(l); } }
+    if (!lines.length) return { ok: false, why: "that face has no edges to round or bevel" };
     const edges = lines.flatMap((l) => {
       if (l.kind !== "line") return [];
       if (l.twin && l.ref > l.twin && lines.some((x) => x.ref === l.twin)) return []; // (one arrow for a rim of two halves)

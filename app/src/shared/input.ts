@@ -21,7 +21,7 @@ export type Intent =
   /** a drag that orbits (or drags a handle): the movement since the last event and where the pointer is now; the drag began at (x - total dx, y - total dy) */
   | { type: "orbit"; dx: number; dy: number; x: number; y: number; /** made with the right button: it only turns the view, it never drags a handle or a corner (`in_146`) */ view?: boolean }
   /** the left button has been held down on one spot for a while (`in_235`): what follows, still without letting up, draws a selection rectangle; let go, it selects. `shift`: it adds to the selection */
-  | { type: "hold"; x: number; y: number; shift: boolean }
+  | { type: "hold"; x: number; y: number; shift: boolean; /** Ctrl (Cmd): what is in the rectangle is taken out of the selection (`in_257`) */ remove?: boolean }
   /** the pointer went up after a drag */
   | { type: "dragEnd" }
   | { type: "pan"; dx: number; dy: number }

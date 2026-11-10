@@ -1717,3 +1717,10 @@ So: no leak, and nothing to fix in the app. If a tab is ever reported as growing
 **Written:** `dec_selection_tools` (provisional: a face's edges for chamfer, additive/subtractive selection, layered groups, select similar with my recommendation and its rules, build order, five questions), `q_arc_wall_pushpull`, `q_repeat_parameters`. All `ai-unreviewed` and open for the human.
 **Next, if the human agrees:** sections 1 and 2 of `dec_selection_tools` (small), then select similar, then groups.
 
+## Handoff 240 — 2026-11-10 (in_258: face edges for chamfer, deselecting, the gear's curved walls)
+`in_258` ("Yes lets build it, I will take your recommendations on all"): `dec_selection_tools` accepted. Built so far (413 tests, all four checks clean):
+- **A face's edges for fillet / chamfer** (section 1): `startOp(..., "edge")` takes flat faces (and lines, mixed) and rounds every boundary edge in one step; the ring item, F and B all go through it. `test/facechamfer.test.ts`. Two old tests that said a face could not be chamfered were changed.
+- **Deselecting** (section 2 a, b, c): Shift or Ctrl / Cmd + click toggles the first thing under the pointer every time (the swap for the next candidate is gone); Ctrl + drag takes out what is in the rectangle. One change from the draft, written in the entry: only the first thing under the pointer is toggled.
+- **The gear's curved walls had no arrow: my explanation in Handoff 239 was wrong.** Arc walls already had push / pull (`arcWall`). What failed was a gear's case: the tips of all the teeth are arcs of one circle, so several arcs matched the face's radius and axis and `wallOfCircle` (which wants exactly one) gave up. I reproduced it with two tip arcs on one circle and fixed it by choosing the arc whose span the face lies in (`faceedit.ts`, `test/arcwalls.test.ts`, which fails without the fix). `q_arc_wall_pushpull` says so. I could not run the human's own body (the file holds the drawing only), so whether their flanks are fixed too is for them to see.
+**Next:** select similar, then groups (with the Groups panel), then the repeat as something that keeps its numbers.
+

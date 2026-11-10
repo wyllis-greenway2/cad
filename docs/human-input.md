@@ -1268,3 +1268,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > Pattern handling. I am thinking that things produced via a pattern repeat, should have the option to modify the repeat perameters? I am unsure of how this should be presented in the UI UX. We probably also need to think about how modifying a repeat could break a valid body if the repeat is a sketch repeat.
 (attached `model.cad_26.json`, a gear sketch: a 25 mm circle with a tooth outline built from lines and arcs, not yet extruded in the saved file; this is a mix of a question about an existing ability, directives for additive selection and selection groups, a request for an opinion on "Select Similar", a question about missing push/pull arrows, and an open design question about editing repeat parameters)
 
+## in_258 — 2026-11-10 — approval
+> Yes lets build it, I will take your recommendations on all
+(approves `dec_selection_tools` as drafted and takes my recommendation on each of the four questions I asked in the reply to `in_257`: section 1 as written, Shift or Ctrl click on a selected spot removes it, a click on a selected group's member goes one level in, the select similar edge rule with the loosen chip; and, by "all", the proposals of `q_arc_wall_pushpull` and `q_repeat_parameters` too, including refusing a lower repeat count when a later step uses a removed copy)
+

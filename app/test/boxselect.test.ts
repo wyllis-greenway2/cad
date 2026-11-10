@@ -21,9 +21,9 @@ function sketch(): AppState {
   s = run(s, drawSquaredRectangle(scene(s), XY, [10, 10, 0], [50, 30, 0], [1, 0, 0], [0, 1, 0]).command);
   return { ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [30, 20, 0] } };
 }
-const drag = (st: AppState, from: Vec3, to: Vec3, shift = false, shown = true): AppState => {
+const drag = (st: AppState, from: Vec3, to: Vec3, shift = false, shown = true, remove = false): AppState => {
   const [a, b] = [px(st, from), px(st, to)];
-  st = reduce(st, { type: "hold", x: a[0], y: a[1], shift }, env);
+  st = reduce(st, { type: "hold", x: a[0], y: a[1], shift, ...(remove ? { remove: true } : {}) }, env);
   st = reduce(st, { type: "orbit", dx: (b[0] - a[0]) / 2, dy: (b[1] - a[1]) / 2, x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 }, env);
   st = reduce(st, { type: "orbit", dx: (b[0] - a[0]) / 2, dy: (b[1] - a[1]) / 2, x: b[0], y: b[1] }, env);
   assert.equal(!!st.box, shown, "the rectangle is there while it is dragged");
@@ -60,4 +60,14 @@ test("Shift adds to what is selected, and a drag that goes nowhere or a tool bei
   assert.equal(reduce(held, { type: "click", x: 100, y: 100, count: 1, shift: false }, env).box, null, "a click after a hold is an ordinary click");
   const tooling = drag(reduce(sketch(), { type: "begin", name: "line" }, env), [0, 0, 0], [60, 40, 0], false, false);
   assert.equal(selection(tooling.session).length, 0);
+});
+
+test("Ctrl takes what is in the rectangle out of the selection, and leaves the rest (`in_257`)", () => {
+  let st = drag(sketch(), [0, 0, 0], [60, 40, 0]); // everything wholly inside
+  st = drag(st, [5, 5, 0], [12, 12, 0], true); // and the corner at (10, 10), added
+  const all = selection(st.session).length;
+  assert.ok(all >= 5, `${all}`);
+  st = drag(st, [5, 5, 0], [12, 12, 0], false, true, true); // taken out again
+  assert.equal(selection(st.session).length, all - 1);
+  assert.ok(!selection(st.session).some((r) => { const p = scene(st.session).parts[r]; return p?.kind === "corner" && p.at[0] === 10 && p.at[1] === 10; }));
 });

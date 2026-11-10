@@ -1,23 +1,25 @@
 ---
 id: dec_selection_tools
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_257
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_257, in_258
 date: 2026-11-10
 depends_on:
   - dec_stable_references: a group (and a "select similar") holds faces and edges of the body, which must be found again after the body is edited the way a fillet finds its edges; a change to how references are named changes how members are re-found
   - prin_input_agnostic: adding to and taking from a selection must be possible without a keyboard (touch), so the keys below are shortcuts for intents the page can also offer another way
 ---
-# Selecting more, selecting less, groups, select similar, and a face's edges as one chamfer (draft, for the human to answer)
+# Selecting more, selecting less, groups, select similar, and a face's edges as one chamfer 
 
-**Status: a draft written from `in_257`; nothing here is built.** Rule 3 of `CLAUDE.md`: it stays `provisional` until the human answers. Where `in_257` is a clear request the proposal says how it would be built; where it asked "what do you think?" the proposal is a recommendation.
+**Status: accepted** (`in_258`: "Yes lets build it, I will take your recommendations on all"; drafted from `in_257`). Built in the order given below; the entry says what is built as each part is.
 
 ## 1. A face as a way to choose all its edges for a fillet or chamfer
 
 What exists today: selecting a face of the body shows its edges in blue, and **Offset** works on a face's edges (`faceEdges`, `interaction/offsetbody.ts`); but **fillet / chamfer only takes lines (edges) of the body** (`autoOp` in `operations.ts`: a selection of faces gets the push / pull arrow, a selection of edges gets the fillet / chamfer arrow). I found no record of fillet or chamfer ever having worked from a face: older handoffs list "fillet/chamfer on selected faces or edges" under "Next" and only the edges was built (`in_087`, `in_090`). So this is new, not lost.
 
 Proposal: with one or more flat faces selected, **Fillet / chamfer (ring, F, B) rounds or bevels every edge on the boundary of the selected faces** in one step, exactly as if those edges had been selected one by one. The selection stays the faces (so the gear's top and bottom face selected together, with Shift, chamfer both outlines). One double arrow stands on the (first) face, not one per edge (a gear has dozens), and its number is the size for all. The step stores the same edges, found again by the same rules, that an edge-by-edge selection stores, so nothing new in the file. An edge that cannot take the size (the kernel refuses) makes the whole step refused with the reason, as now.
+
+**Built** (`operations.ts`, `test/facechamfer.test.ts`): the arrow stands on the last of the face's edges, as for an edge selection.
 
 ## 2. Selecting and deselecting additively
 
@@ -26,6 +28,8 @@ What exists (`dec_interaction_spec`): **Shift + click** adds the thing under the
 - A drag-select can only add, not remove.
 - There is no way to add or remove without a keyboard.
 Proposal: (a) **Ctrl (Cmd on a Mac) + click does the same as Shift + click** (the other key people reach for; two keys, one meaning). (b) A Shift or Ctrl click on a spot where something under the pointer is **already selected removes that one**; cycling by repeated click stays on the plain click (it is "2 of 3 here" today). (c) **Ctrl + drag-select removes** what is inside the rectangle, Shift + drag adds, as now. (d) For touch: a small "add to selection" toggle next to the pill: while on, every tap adds or removes. (d) is later; (a) to (c) are small.
+
+**Built** (a, b, c; d is later): Shift or Ctrl / Cmd + click toggles what is under the pointer every time (the swap is gone); Ctrl + drag takes out. `selection.ts`, `input/mouse.ts`, `control/box.ts`; `test/selection.test.ts`, `test/mouseadd.test.ts`, `test/boxselect.test.ts`. One change from the draft: a click on a spot toggles the **first** thing under the pointer only (it does not remove a lower selected one), so adding an edge of a selected face does not take the face out; a thing under the first one is reached by a plain click, which cycles.
 
 ## 3. Groups, layered
 
@@ -55,7 +59,7 @@ The missing push / pull arrow on curved faces is `q_arc_wall_pushpull`; editing 
 
 1 (a face's edges for chamfer: small), 2 (a), (b), (c) (small), 4 (select similar: medium), 3 (groups: new data in the file, commands, a panel: the biggest of these), 2 (d) (touch).
 
-## Questions for the human
+## Questions that were asked (answered by taking the recommendation, `in_258`)
 
 1. Section 1 as written (the faces stay selected; one arrow; one size for all)?
 2. Section 2: Shift or Ctrl click on an already selected spot removes it, and the Shift "swap for the next candidate" cycling goes (the plain click still cycles)?

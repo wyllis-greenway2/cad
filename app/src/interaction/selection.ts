@@ -45,16 +45,9 @@ export function click(state: ClickState, candidates: readonly Ref[], opts: { shi
     const pick = repeated ? cycle(order, sel[0]) : candidates[0]!;
     return { state: { selection: select(sel, pick!), spot: sig, order }, ...(repeated ? { cycled: { index: order.indexOf(pick!) + 1, of: order.length } } : {}) };
   }
-  if (repeated) {
-    // Shift on the same spot again: the part added by the last click is swapped for the next candidate
-    const last = sel[sel.length - 1];
-    const rest = sel.slice(0, -1);
-    const pick = cycle(order, last)!;
-    const next = rest.includes(pick) ? sel : [...rest, pick];
-    return { state: { selection: next, spot: sig, order }, cycled: { index: order.indexOf(pick) + 1, of: order.length } };
-  }
-  const first = candidates[0]!;
-  return { state: { selection: toggle(sel, first), spot: sig, order }, };
+  // Shift or Ctrl (Cmd): add what is under the pointer, or take it out if it is selected (`in_257`), every time, also on the same spot again (it used to be swapped for the next one under the pointer: a plain
+  // click cycles through those now). What lies under the first thing is taken out by moving the pointer to where the first thing is another one, or by a Ctrl + drag rectangle.
+  return { state: { selection: toggle(sel, candidates[0]!), spot: sig, order } };
 }
 
 /**

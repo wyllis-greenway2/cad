@@ -11,7 +11,7 @@ import { apply } from "../operation/commands.ts";
 import { solveScene } from "../compiler/solve.ts";
 import { nextId } from "../operation/scene.ts";
 import { applyPoint, inverse, laterMotion } from "../operation/frames.ts";
-import type { Plane, Curved } from "../operation/part.ts";
+import type { Plane, Curved, Part } from "../operation/part.ts";
 import { normalOfPlane } from "../operation/part.ts";
 
 /** What a face is the result of, and what to change to move it. */
@@ -46,7 +46,7 @@ function endOfExtrusion(scene: Scene, face: Extract<ReturnType<typeof faceOf>, o
 }
 
 /** The extruded circle whose wall this round face is, if exactly one is. */
-function wallOfCircle(scene: Scene, c: Curved): FaceEdit | null {
+function wallOfCircle(scene: Scene, c: Curved, where?: readonly Vec3[]): FaceEdit | null {
   const found: FaceEdit[] = [];
   for (const st of scene.steps) {
     if (st.type !== "extrude") continue;
@@ -56,7 +56,7 @@ function wallOfCircle(scene: Scene, c: Curved): FaceEdit | null {
       const ref = arc?.kind === "line" && arc.derived && arc.center ? Object.values(scene.parts).find((q) => q.kind === "circle" && q.center === arc.center && near(q.radius, c.radius))?.ref ?? r0 : r0;
       if (found.some((x) => x.kind === "radius" && x.circle === ref)) continue;
       const part = scene.parts[ref];
-      if (part?.kind === "line" && part.center && ref === r0) { const a = arcWall(scene, r0, c); if (a && !found.some((x) => x.kind === "radius" && x.circle === a.circle)) found.push(a); continue; }
+      if (part?.kind === "line" && part.center && ref === r0) { const a = arcWall(scene, r0, c, where); if (a && !found.some((x) => x.kind === "radius" && x.circle === a.circle)) found.push(a); continue; }
       if (part?.kind !== "circle") continue;
       const pl = part.plane ? scene.parts[part.plane] : undefined;
       const centre = scene.parts[part.center];
@@ -74,7 +74,7 @@ function wallOfCircle(scene: Scene, c: Curved): FaceEdit | null {
 }
 
 /** The wall of an arc of an extruded sketch (its circle was cut into arcs by lines and is gone): the sketch's own arc this derived piece comes from, if it has the face's radius and axis. */
-function arcWall(scene: Scene, piece: Ref, c: Curved): Extract<FaceEdit, { kind: "radius" }> | null {
+function arcWall(scene: Scene, piece: Ref, c: Curved, where?: readonly Vec3[]): Extract<FaceEdit, { kind: "radius" }> | null {
   const own = scene.parts[piece];
   const src = own?.kind === "line" && !own.derived ? own : scene.parts[`d/${piece.split("@")[1] ?? ""}`]; // (an arc of the sketch itself, or the piece of one that lines cut)
   if (src?.kind !== "line" || !src.center || src.derived) return null;
@@ -85,7 +85,21 @@ function arcWall(scene: Scene, piece: Ref, c: Curved): Extract<FaceEdit, { kind:
   const axis: Vec3 = c.dir ?? (c.axis === 0 ? [1, 0, 0] : c.axis === 1 ? [0, 1, 0] : [0, 0, 1]);
   const off = sub(ctr.at, c.center);
   if (!near(radius, c.radius, 2e-3) || Math.abs(Math.abs(dot(normalOfPlane(pl), axis)) - 1) > 1e-5 || Math.hypot(...sub(off, scale(axis, dot(off, axis)))) > 2e-3) return null;
+  // the arcs of one circle (the tips of a gear's teeth) all have this radius and axis: it is the one whose span the face lies in (`in_257`)
+  if (where && !where.every((q) => inSpan(src, a.at, ctr.at, normalOfPlane(pl), scene.parts[src.b], q))) return null;
   return { kind: "radius", circle: src.ref, radius, convex: c.convex, arc: true };
+}
+const TAU = 2 * Math.PI;
+const wrap = (t: number) => ((t % TAU) + TAU) % TAU;
+/** Whether the point `q` lies within the arc from corner `a` to its end, round `ctr` (seen along `n`): the angle it makes about the centre is within the arc's sweep. */
+function inSpan(arc: Extract<Part, { kind: "line" }>, a: Vec3, ctr: Vec3, n: Vec3, end: Part | undefined, q: Vec3): boolean {
+  if (end?.kind !== "corner") return true;
+  const angle = (p: Vec3) => { const u = sub(a, ctr); const d = sub(p, ctr); return Math.atan2(dot(n, cross(u, d)), dot(u, d)); };
+  const ccw = arc.ccw !== false;
+  const sweep = ccw ? wrap(angle(end.at)) : wrap(-angle(end.at));
+  if (sweep < 1e-9) return true; // (a whole circle)
+  const t = ccw ? wrap(angle(q)) : wrap(-angle(q));
+  return t <= sweep + 2e-3 || t >= TAU - 2e-3;
 }
 
 const faceOf = (scene: Scene, ref: Ref): Plane | null => { const p = scene.parts[ref]; return p?.kind === "plane" ? p : null; };
@@ -149,8 +163,9 @@ function edgeStep(scene: Scene, face: Plane): FaceEdit | null {
 export function faceEdit(scene: Scene, ref: Ref): FaceEdit | null {
   const f = faceOf(scene, ref);
   if (!f || f.origin !== "body") return null;
-  if (f.curved) return wallOfCircle(scene, f.curved);
-  if (f.rounded) return (f.round && f.radius ? wallOfCircle(scene, { ...f.round, radius: f.radius, lo: 0, hi: 0 }) : null) ?? edgeStep(scene, f); // (a piece of a round wall, else a fillet or chamfer)
+  const pts = (): Vec3[] => { const m = f.mesh ?? []; const out: Vec3[] = []; for (let i = 0; i + 2 < m.length; i += 3) out.push([m[i]!, m[i + 1]!, m[i + 2]!]); return out; };
+  if (f.curved) return wallOfCircle(scene, f.curved, f.mesh ? pts() : undefined);
+  if (f.rounded) return (f.round && f.radius ? wallOfCircle(scene, { ...f.round, radius: f.radius, lo: 0, hi: 0 }, f.mesh ? pts() : undefined) : null) ?? edgeStep(scene, f); // (a piece of a round wall, else a fillet or chamfer)
   if (!f.mesh) return null;
   const n = normalOfPlane(f);
   const diagonal = n.every((v) => Math.abs(v) < 0.9999);

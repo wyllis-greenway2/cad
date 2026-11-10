@@ -69,13 +69,19 @@ test("the corner selected after another stays selected whichever order (the bug 
   assert.deepEqual(r.state.selection, [], "clicking nowhere clears all, nothing is left over");
 });
 
-test("Shift on the same spot again swaps the part added last for the next candidate", () => {
+test("Shift (or Ctrl) on the same spot again takes out what it added; it no longer swaps for the next candidate (`in_257`)", () => {
   let r = click(initialClick(), [c]);
   r = click(r.state, [a, b], { shift: true });
   assert.deepEqual(r.state.selection, [c, a]);
   r = click(r.state, [a, b], { shift: true });
-  assert.deepEqual(r.state.selection, [c, b]);
-  assert.deepEqual(r.cycled, { index: 2, of: 2 });
+  assert.deepEqual(r.state.selection, [c], "the same spot again takes it out");
+  r = click(r.state, [a, b], { shift: true });
+  assert.deepEqual(r.state.selection, [c, a], "and adds it again");
+  assert.equal(r.cycled, undefined);
+  // a thing under the first one is reached by a plain click, which cycles
+  r = click(initialClick(), [a, b]);
+  r = click(r.state, [a, b]);
+  assert.deepEqual(r.state.selection, [b]);
 });
 
 test("the first selected moves to the one selected after it (`in_229`), and a part that cannot move always stays", () => {
