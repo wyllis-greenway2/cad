@@ -5,7 +5,7 @@ import { worldRef } from "../../src/shared/ref.ts";
 import type { Ref } from "../../src/shared/ref.ts";
 import type { Vec3 } from "../../src/math/vec.ts";
 import type { Intent } from "../../src/shared/input.ts";
-import { createSession, run, scene, saveText, openSession, undoLast, redoLast, selection } from "../../src/interaction/session.ts";
+import { createSession, run, scene, saveText, openSession, undoLast, redoLast, selection, refresh } from "../../src/interaction/session.ts";
 import type { Session } from "../../src/interaction/session.ts";
 import { createState, reduce, advance } from "../../src/interaction/controller.ts";
 import type { AppState } from "../../src/interaction/controller.ts";
@@ -17,8 +17,11 @@ import { nextId } from "../../src/operation/scene.ts";
 import type { Scene } from "../../src/operation/scene.ts";
 import { pointOf, segmentOf, circleOf, loopPoints } from "../../src/operation/part.ts";
 import { BODY_OBJECT } from "../../src/compiler/body.ts";
+import { createAsyncKernel } from "../../src/kernel-async.ts";
+import type { WorkerLike } from "../../src/kernel-async.ts";
+import type { Kernel, KernelGraph } from "../../src/compiler/kernel/adapter.ts";
 
-export interface Failure { seed: number; step: number; what: string; log: string[] }
+export interface Failure { seed: number; step: number; what: string; log: string[]; /** the state when it went wrong, to look at */ state?: AppState }
 const W = 900, H = 600;
 
 /** A small seeded generator (the same numbers for the same seed, on any machine). */
@@ -42,8 +45,8 @@ function anchor(sc: Scene, ref: Ref, kernelBox: { min: number[]; max: number[] }
 }
 
 /** A start: empty, or with a box, or with a circle and a rectangle (drawn, not extruded). */
-function start(r: ReturnType<typeof rng>): Session {
-  let s = createSession(kernel);
+function start(r: ReturnType<typeof rng>, k: Kernel = kernel): Session {
+  let s = createSession(k);
   const kind = r.pick([0, 1, 1, 1, 2, 3]); // (empty; a box; a rectangle and a circle drawn)
   if (kind >= 1) {
     const rect = drawSquaredRectangle(scene(s), worldRef("XY"), [0, 0, 0], [30, 20, 0], [1, 0, 0], [0, 1, 0]);
@@ -126,14 +129,18 @@ const VIEW_ONLY = new Set<Intent["type"]>(["hover", "hoverEnd", "zoom", "pan", "
 /** What one intent may and may not have done, by looking at the state before and after. */
 function between(a: AppState, b: AppState, i: Intent): void {
   const fail = (m: string): never => { throw new Error(`${m} (after ${JSON.stringify(i)})`); };
+  // a step is not made on an older model (`in_142`): while the kernel's answer for the last change is out, nothing that adds a step is accepted
+  if (a.session.outcome.kernel?.stale && b.session.history.cursor > a.session.history.cursor && b.session.history.scene.steps.length > a.session.history.scene.steps.length) fail("a step was made while the kernel's answer for the last change was still out");
   if (VIEW_ONLY.has(i.type) && b.session.history !== a.session.history) fail("a move of the pointer or the view changed the model");
   // Esc on an operation that is open takes back what it made (`in_244`)
   if (i.type === "escape" && a.op && a.opBase !== null && !a.menu && !a.focus && !a.box && !a.repeat) {
     if (b.op) fail("Esc did not put the open operation away");
     if (b.session.history.cursor !== a.opBase) fail(`Esc left the history at ${b.session.history.cursor}, where the operation began at ${a.opBase}`);
   }
-  // a change that was refused (it says so) leaves the model as it was
-  if (b.session.message && b.session.conflict && b.session.history !== a.session.history && b.session.history.cursor > a.session.history.cursor) fail("a change that was refused was made as well");
+  // a change that was refused names the relations it tried to add (`conflict.culprits`): they are not in the model (one gesture can make several changes, and some of them be refused)
+  const cul = b.session.conflict?.culprits ?? [];
+  const there = cul.filter((id) => scene(b.session).relations.some((r) => r.id === id));
+  if (b.session.conflict && there.length && b.session.conflict !== a.session.conflict) fail(`a change that was refused (${b.session.message}) is in the model: ${there.join(",")}`);
 }
 
 /** A gesture: the intents of one thing a person does. */
@@ -223,16 +230,68 @@ function gesture(st: AppState, r: ReturnType<typeof rng>): Intent[] {
   return [];
 }
 
+/**
+ * The kernel answering later, as it does in the page (`kernel-async.ts`, the real cache and the real queue) with a worker that is ours to turn: a job is kept until `deliver` works it out with the real kernel
+ * and hands the answer back, which calls `onChange` (in the app: the session is made again from the answer, `refresh`).
+ */
+export const failures: { error: string; graph: KernelGraph }[] = []; // (what the kernel threw, in a run with it answering later)
+function laggingKernel(onChange: () => void) {
+  let job: { id: number; graph: KernelGraph; draft?: boolean } | null = null;
+  const listeners: ((e: { data: unknown }) => void)[] = [];
+  const worker: WorkerLike = {
+    postMessage: (m) => { job = m as typeof job; },
+    addEventListener: (type, f) => { if (type === "message") { listeners.push(f); f({ data: { ready: true } }); } },
+  };
+  const k = createAsyncKernel(onChange, worker);
+  return {
+    kernel: k as Kernel,
+    pending: () => job !== null,
+    /** the worker finishes the job it has: the answer goes back */
+    deliver: (): boolean => {
+      if (!job) return false;
+      const j = job;
+      job = null;
+      kernel.draft = !!j.draft;
+      // (as the worker does: an answer that is an exception is passed on as a failure, `kernel-worker.ts`; the first one is kept to look at)
+      let result;
+      try { result = kernel.evaluate(j.graph); } catch (err) { failures.push({ error: String(err), graph: j.graph }); for (const f of listeners) f({ data: { id: j.id, failed: String(err) } }); return true; }
+      for (const f of listeners) f({ data: { id: j.id, result } });
+      return true;
+    },
+  };
+}
+
 /** One run: the same seed gives the same run. Returns null, or what went wrong. */
-export function fuzz(seed: number, steps: number, probe?: (st: AppState) => void): Failure | null {
+export function fuzz(seed: number, steps: number, probe?: (st: AppState) => void, opts: { lagging?: boolean } = {}): Failure | null {
   const r = rng(seed);
   const log: string[] = [];
-  let st: AppState = { ...createState(start(r)), cam: r.chance(0.5) ? homeCamera() : lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]) };
+  let st!: AppState;
+  // the app's own reaction to an answer (`main.ts`): the session is made again, and what was being worked on is over if the step was taken back
+  const answered = () => {
+    const before = st.session.history.cursor;
+    const session = refresh(st.session);
+    st = { ...st, session, ...(session.history.cursor < before ? { op: null, drag: null } : {}) };
+  };
+  const lag = opts.lagging ? laggingKernel(answered) : null;
+  const flush = () => { for (let i = 0; i < 60 && lag?.pending(); i++) lag.deliver(); };
+  st = { ...createState(start(r, lag?.kernel ?? kernel)), cam: r.chance(0.5) ? homeCamera() : lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]) };
+  if (lag) flush();
+  const patience = r.pick([0.04, 0.12, 0.4]); // how often the kernel's thread finishes a job: a run in which it hardly ever does has a long time of an older model
   let now = 0;
   const show = (i: Intent) => JSON.stringify(i);
   try {
     check(st, "the start");
     for (let step = 0; step < steps; step++) {
+      if (lag && r.chance(patience)) {
+        // the worker finishes: one answer, or everything it has
+        const all = r.chance(0.3);
+        log.push(all ? "(the kernel answers everything)" : "(the kernel answers)");
+        if (process.env.FUZZ_TRACE) process.stderr.write(log[log.length - 1] + "\n");
+        const before = st;
+        if (all) flush(); else lag.deliver();
+        check(st, "an answer from the kernel");
+        if (all && !lag.pending()) afterAnswers(st, before);
+      }
       for (const intent of gesture(st, r)) {
         now += 40;
         log.push(show(intent)); if (process.env.FUZZ_TRACE) process.stderr.write(show(intent) + "\n");
@@ -242,11 +301,21 @@ export function fuzz(seed: number, steps: number, probe?: (st: AppState) => void
         between(before, st, intent);
         probe?.(st);
       }
-      if (step % 4 === 3) checkDeep(st, `step ${step}`);
+      if (step % 4 === 3) { if (lag && r.chance(0.3)) flush(); if (!lag?.pending()) checkDeep(st, `step ${step}`); } // (the deep checks want the kernel's answers in: with some still out they wait)
       if (log.length > 60) log.splice(0, log.length - 60);
     }
+    if (lag) { flush(); afterAnswers(st, st); }
     return null;
   } catch (e) {
-    return { seed, step: log.length, what: (e as Error).stack?.split("\n").slice(0, 6).join(" | ") ?? String(e), log: log.slice(-14) };
+    return { seed, step: log.length, what: (e as Error).stack?.split("\n").slice(0, 6).join(" | ") ?? String(e), log: log.slice(-14), state: st };
   }
+}
+
+/** When the kernel has answered everything it was asked, what is shown is the answer for the model as it is: not an older one, and no step is left that it could not make. */
+function afterAnswers(st: AppState, _before: AppState): void {
+  const fail = (m: string): never => { throw new Error(`${m} (after the kernel answered everything)`); };
+  const o = st.session.outcome;
+  if (o.kernel?.stale) fail("what is shown is still marked as an older model");
+  const broken = Object.entries(o.errors).filter(([id]) => scene(st.session).steps.some((x) => x.id === id));
+  void broken; // (a step whose figure was deleted is reported broken, by design; the kernel's own refusals are taken back, which `run` and `refresh` do)
 }

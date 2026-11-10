@@ -4,6 +4,16 @@ import { loadOC } from "./oc.mjs";
 import { compile, finalSolid, volume } from "./interpreter.mjs";
 import { facesOf, edgesOf } from "./topo.mjs";
 
+const described = new Map();
+const copyOf = (d) => ({
+  vol: d.vol,
+  bbox: d.bbox && { min: [...d.bbox.min], max: [...d.bbox.max] },
+  faces: d.faces && structuredClone(d.faces),
+  edges: d.edges && d.edges.map((e) => ({ ...e, pts: e.pts.slice() })),
+  vertices: d.vertices && structuredClone(d.vertices),
+  mesh: d.mesh && { vertices: d.mesh.vertices.slice(), normals: d.mesh.normals.slice(), triangles: d.mesh.triangles.slice() },
+});
+
 export const KERNEL_NAME = "occt (replicad)";
 
 /** Load the kernel (once). `options` is passed to the WASM loader (e.g. where to find the .wasm file). */
@@ -32,10 +42,27 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
   let faces = null;
   let edges = null;
   let vertices = null;
-  if (fin) {
+  // what the final body looks like (its mesh, faces, edges, corners) is kept for the last few bodies, by what the body was worked out from: a change that leaves the body as it is (a sketch beside it, a
+  // constraint, undo and redo, the kernel's answer taken in again) takes the description from here instead of making it again, which is most of the time of a body of a few hundred faces (`in_252`).
+  // What goes back out is a copy: the worker hands the mesh over to the page, which empties it here.
+  // a body with nothing in it (a cut that takes all of the body away) has no box: the kernel throws when it is asked for one. That is an answer, not a failure of the kernel: the step that made it cannot be made (`in_254`)
+  let box = null;
+  if (fin) { try { box = fin.shape.boundingBox.bounds; } catch { box = null; } }
+  if (fin && !box) {
+    const o = ops.find((x) => x.id === fin.id);
+    if (o) o.error = "nothing would be left of the body (the cut takes all of it away)";
+  }
+  const present = fin && box ? fin : null;
+  const dkey = present?.key ? `${present.key}|${JSON.stringify(tess)}` : null;
+  const known = dkey ? described.get(dkey) : undefined;
+  if (known) {
+    described.delete(dkey);
+    described.set(dkey, known);
+    ({ vol, bbox, faces, edges, vertices, mesh } = copyOf(known));
+  } else if (present) {
     // the finer the part, the finer the mesh: the deflection allowed is a small part of the part's own size (a 2 mm post must not be a 20-sided prism: `in_165`), never coarser than `tess.tolerance`
     const tBox0 = performance.now();
-    const [lo, hi] = fin.shape.boundingBox.bounds; // (the exact box takes about 20 ms: asked for once and kept, `in_227`)
+    const [lo, hi] = box; // (the exact box takes about 20 ms: asked for once and kept, `in_227`)
     tBox = performance.now() - tBox0;
     const diag = Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
     // a draft (while a size is dragged, `in_216`): a rough mesh, quickly; the fine one is made when the pointer is let go
@@ -147,6 +174,10 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
       for (const v of [a, z]) seen.set(`${r4(v.x)},${r4(v.y)},${r4(v.z)}`, [r4(v.x), r4(v.y), r4(v.z)]);
     }
     vertices = [...seen.values()];
+    if (dkey) {
+      described.set(dkey, copyOf({ vol, bbox, faces, edges, vertices, mesh }));
+      while (described.size > 6) described.delete(described.keys().next().value);
+    }
   }
-  return { ops, finalId: fin?.id ?? null, volume: vol, bbox, faces, edges, vertices, totalMs: performance.now() - t0, mesh, perf: { ops: tCompile - t0, box: tBox, mesh: tMesh - tCompile - tBox, faces: tFaces - tMesh, edges: performance.now() - tFaces } };
+  return { ops, finalId: present?.id ?? null, volume: vol, bbox, faces, edges, vertices, totalMs: performance.now() - t0, mesh, perf: { ops: tCompile - t0, box: tBox, mesh: tMesh - tCompile - tBox, faces: tFaces - tMesh, edges: performance.now() - tFaces } };
 }

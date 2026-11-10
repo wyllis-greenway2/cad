@@ -17,3 +17,12 @@ test(`a random user, ${seeds} runs of ${steps} gestures, leaves the state sound 
   }
   assert.equal(failures.length, 0, failures.map((f) => `seed ${f.seed}: ${f.what}\n  last intents:\n    ${f.log.join("\n    ")}`).join("\n\n"));
 });
+
+test(`the same, with the kernel answering later as it does in the page: ${seeds} runs of ${steps} gestures, answers coming whenever the kernel's thread finishes`, () => {
+  const failures = [];
+  for (let seed = first; seed < first + seeds; seed++) {
+    const f = fuzz(seed, steps, undefined, { lagging: true });
+    if (f) failures.push(f);
+  }
+  assert.equal(failures.length, 0, failures.map((f) => `seed ${f.seed}: ${f.what}\n  last intents:\n    ${f.log.join("\n    ")}`).join("\n\n"));
+});

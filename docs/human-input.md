@@ -1242,3 +1242,6 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_253 — 2026-11-10 — approval
 > yes, start on the kernel memory growth
 (approves the AI's offer to look into the kernel's memory growth, the last item of the speed work)
+
+## in_254 — 2026-11-10 — directive
+> run the random user with the kernel answering later
