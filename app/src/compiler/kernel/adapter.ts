@@ -25,7 +25,7 @@ export interface KernelResult {
   stale?: boolean;
 }
 /** How fine an exported mesh is: the most a facet may be from the true surface (mm), and the most a curve may turn across one facet (radians). */
-export interface ExportQuality { tolerance: number; angular: number }
+export interface ExportQuality { tolerance: number; angular: number; /** only these bodies (their names, `KernelResult.bodies`); absent: all of them, which is what the export does unless it is told otherwise (`in_271`) */ bodies?: string[] }
 /** The body as a closed triangle mesh for a file (`dec_export_stl`): plain numbers, millimetres, in the world as modelled. */
 export type ExportResult =
   | { ok: true; vertices: Float32Array; triangles: Uint32Array; volume: number; bbox: { min: Vec; max: Vec } }

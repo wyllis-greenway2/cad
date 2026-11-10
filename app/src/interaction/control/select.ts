@@ -64,12 +64,12 @@ export function whyNotCombine(session: Session): string | null {
   return bodies.length >= 2 ? null : "select two or more bodies (click a body three times, or choose it in the Bodies list)";
 }
 /** Add the selected bodies into the first one selected, or take the others away from it (they are used up). */
-export function doCombine(s: AppState, mode: "add" | "subtract"): AppState {
+export function doCombine(s: AppState, mode: "add" | "subtract" | "intersect", keep = false): AppState {
   const why = whyNotCombine(s.session);
   if (why) return say({ ...s, menu: null }, why);
   const sc = sceneOf(s.session);
   const bodies = selectionOf(s.session).filter((r) => sc.parts[r]?.kind === "body");
-  const next = run(s.session, { type: "addStep", step: { id: nextId(sc, "s"), type: "combine", parts: bodies, params: { mode } } });
+  const next = run(s.session, { type: "addStep", step: { id: nextId(sc, "s"), type: "combine", parts: bodies, params: { mode, ...(keep ? { keep: 1 } : {}) } } });
   if (next.message) return say({ ...s, menu: null, session: next }, next.message);
-  return { ...withSession(s, { ...next, click: { ...next.click, selection: [bodies[0]!].filter((r) => r in sceneOf(next).parts) }, message: mode === "add" ? "bodies added together" : "bodies subtracted" }), menu: null };
+  return { ...withSession(s, { ...next, click: { ...next.click, selection: (keep ? bodies : [bodies[0]!]).filter((r) => r in sceneOf(next).parts) }, message: mode === "add" ? "bodies added together" : mode === "intersect" ? "what the bodies share is kept" : keep ? "bodies subtracted (the tools are kept)" : "bodies subtracted" }), menu: null };
 }

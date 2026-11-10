@@ -579,7 +579,12 @@ const OPS = {
    */
   pattern(op, ctx) {
     const fuseTree = (parts) => { let level = parts; while (level.length > 1) { const next = []; for (let i = 0; i < level.length; i += 2) next.push(i + 1 < level.length ? level[i].fuse(level[i + 1]) : level[i]); level = next; } return level[0]; };
-    const t = ctx.get(op.target, "solid").shape;
+    // one body of several (`op.body`): only it is repeated, the copies are bodies of their own, and the others stay (`in_271`)
+    const target = ctx.get(op.target, "solid");
+    const one = op.body && (target.markers?.length ?? 0) > 1 ? lumpOf(target.shape, target.markers, op.body) : null;
+    if (op.body && (target.markers?.length ?? 0) > 1 && !one) throw new Error("that body is not there any more");
+    const t = one ? one.lump : target.shape;
+    const again = (shape) => (one ? makeCompound([...one.rest, ...lumpsOf(shape)]) : shape);
     let out = t.clone(); // (a boolean uses up what it is given, so the body is copied for every copy that is joined)
     if (op.mode === "linear") {
       const n = [op.nx, op.ny, op.nz].map((v) => Math.max(1, Math.round(resolve(v, ctx.params))));
@@ -596,11 +601,11 @@ const OPS = {
       if ([0, 1, 2].every((i) => n[i] === 1 || Math.abs(d[i]) > size[i] + 1e-6)) {
         const copies = [];
         for (let i = 0; i < n[0]; i++) for (let j = 0; j < n[1]; j++) for (let k = 0; k < n[2]; k++) copies.push(i + j + k === 0 ? t.clone() : t.clone().translate([i * d[0], j * d[1], k * d[2]]));
-        return { kind: "solid", shape: copies.length === 1 ? copies[0] : makeCompound(copies) };
+        return { kind: "solid", shape: again(copies.length === 1 ? copies[0] : makeCompound(copies)) };
       }
       let row = along(0, n[0], t.clone());
       let plane = along(1, n[1], row);
-      return { kind: "solid", shape: along(2, n[2], plane) };
+      return { kind: "solid", shape: again(along(2, n[2], plane)) };
     }
     if (op.mode === "circular") {
       const count = Math.max(1, Math.round(resolve(op.count, ctx.params)));
@@ -611,7 +616,7 @@ const OPS = {
       const step = Math.abs(angle) >= 360 ? angle / count : count > 1 ? angle / (count - 1) : 0;
       const copies = [out];
       for (let i = 1; i < count; i++) copies.push(t.clone().rotate(step * i, op.pivot, axis));
-      return { kind: "solid", shape: fuseTree(copies) };
+      return { kind: "solid", shape: again(fuseTree(copies)) };
     }
     throw new Error(`unknown repeat ${op.mode}`);
   },
@@ -653,12 +658,13 @@ const OPS = {
     const found = lumpsByName(t.shape, t.markers ?? [], op.bodies);
     if (!found || found.picked.length < 2) throw new Error("select two or more bodies (one of them is not there any more)");
     const [first, ...others] = found.picked;
+    const kept = op.keep && op.mode !== "add" ? others.map((o) => o.clone()) : []; // (a boolean uses up what it is given: the tools that stay are copied first)
     let made = first;
-    for (const o of others) made = op.mode === "subtract" ? made.cut(o) : made.fuse(o);
+    for (const o of others) made = op.mode === "subtract" ? made.cut(o) : op.mode === "intersect" ? made.intersect(o) : made.fuse(o);
     const parts = lumpsOf(made);
-    if (!parts.length) throw new Error("nothing would be left of the body");
-    if (op.mode !== "subtract" && parts.length > 1) throw new Error("those bodies do not touch or overlap, so they cannot become one body");
-    return { kind: "solid", shape: makeCompound([...found.rest, ...parts]), first: op.bodies[0] };
+    if (!parts.length) throw new Error(op.mode === "intersect" ? "those bodies have nothing in common" : "nothing would be left of the body");
+    if (op.mode === "add" && parts.length > 1) throw new Error("those bodies do not touch or overlap, so they cannot become one body");
+    return { kind: "solid", shape: makeCompound([...found.rest, ...parts, ...kept]), first: op.bodies[0] };
   },
 
   /** Cylindrical hole cut from the top of the target, at (x, y). depth omitted = through. */

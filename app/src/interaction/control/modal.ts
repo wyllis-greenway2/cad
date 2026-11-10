@@ -208,6 +208,9 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "select:group") return doGroup(closed);
   if (id === "combine:add") return doCombine(closed, "add");
   if (id === "combine:subtract") return doCombine(closed, "subtract");
+  if (id === "combine:intersect") return doCombine(closed, "intersect");
+  if (id === "combine:subtract:keep") return doCombine(closed, "subtract", true);
+  if (id === "combine:intersect:keep") return doCombine(closed, "intersect", true);
   if (id === "repeat:edit") return doRepeatEdit(closed);
   if (id === "repeat:break") return doRepeatBreak(closed);
   if (id === "select:ungroup") return doUngroup(closed);
@@ -311,7 +314,7 @@ function doRepeatEditStep(s: AppState, id: string): AppState {
   const st = sc.steps.find((x) => x.id === id && x.type === "pattern");
   if (!st) return say("that step is not a repeat");
   const kind = st.params.mode === "circular" ? "circular" : "linear";
-  const r = startOp(sc, [BODY_OBJECT], kind, viewAxes(s.cam));
+  const r = startOp(sc, [st.parts[0] && sc.parts[st.parts[0]] ? st.parts[0] : BODY_OBJECT], kind, viewAxes(s.cam)); // (the body the repeat was made of, when it was one of several)
   if (!r.ok) return say(r.why);
   const names = kind === "linear" ? ["nx", "dx", "ny", "dy", "nz", "dz"] : ["count", "angle", "axis", "px", "py", "pz"];
   const start = names.map((n, i) => Number(st.params[n] ?? r.op.patStart?.[i] ?? 0));

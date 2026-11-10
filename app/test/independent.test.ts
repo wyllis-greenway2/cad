@@ -87,3 +87,72 @@ test("Add joins overlapping bodies into the first; Subtract takes the second out
   assert.match(no.session.message ?? "", /do not touch or overlap/);
   assert.equal(scene(no.session).steps.length, 2);
 });
+
+import { exportStl, selectedBodies } from "../src/interaction/exportstl.ts";
+test("the export has all bodies unless it is told which (`in_271`): all by default, one body when asked, and the choice is one argument", async () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const all = await exportStl(s, kernel);
+  assert.ok(all.ok);
+  if (all.ok) assert.equal(all.triangles, 24, "two boxes of twelve");
+  const [a, b] = bodies(s);
+  const picked = pick({ ...createState(s) }, [b!.ref]);
+  assert.deepEqual(selectedBodies(picked.session), [b!.id]);
+  const one = await exportStl(s, kernel, "b.stl", selectedBodies(picked.session));
+  assert.ok(one.ok);
+  if (one.ok) { assert.equal(one.triangles, 12); assert.ok(one.size[0] === 10); }
+  assert.deepEqual(selectedBodies(pick({ ...createState(createSession(kernel)) }, []).session), undefined);
+  void a;
+  const gone = await exportStl(s, kernel, "x.stl", ["nope"]);
+  assert.ok(!gone.ok);
+});
+
+test("Copy and the repeats take the selected body only: the copies are bodies of their own and the other body is left alone (`in_271`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 60, 0);
+  const [a] = bodies(s);
+  let st: AppState = pick({ ...createState(s), cam: homeCamera() }, [a!.ref]);
+  st = reduce(st, { type: "runAction", id: "op:linear" }, env);
+  assert.deepEqual(st.repeat?.op.parts, [a!.ref]);
+  st = reduce(st, { type: "entry", field: 0, text: "3" }, env);
+  st = reduce(st, { type: "repeatApply" }, env);
+  assert.equal(st.session.message, null);
+  const step = scene(st.session).steps.find((x) => x.type === "pattern")!;
+  assert.equal(step.params.body, a!.id);
+  const after = bodies(st.session);
+  assert.equal(after.length, 4, "a and its two copies (spaced apart), and the other body");
+  const far = after.find((b) => b.bbox!.min[0] > 55)!;
+  assert.ok(Math.abs(far.bbox!.max[0] - 70) < 1e-6, "the other body did not move or copy");
+});
+
+import { figureRefs } from "../src/operation/scene.ts";
+test("the sketches of a body that is moved alone go with it, and the other body's sketches stay (`in_271`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const steps = scene(s).steps;
+  const cornerOf = (sc: ReturnType<typeof scene>, st: (typeof steps)[number]) => { const l = sc.parts[figureRefs(st)[0]!]; const c = l?.kind === "line" ? sc.parts[l.a] : undefined; return c?.kind === "corner" ? c.at : null; };
+  const before = [cornerOf(scene(s), steps[0]!)!, cornerOf(scene(s), steps[1]!)!];
+  const st = startOp(scene(s), [b!.ref], "move");
+  if (!st.ok) return assert.fail("no move");
+  const moved = run(s, opCommand(scene(s), { ...st.op, axis: 1, value: 25 })!);
+  assert.equal(moved.message, null);
+  const after = [cornerOf(scene(moved), scene(moved).steps[0]!)!, cornerOf(scene(moved), scene(moved).steps[1]!)!];
+  assert.deepEqual(after[0], before[0], "a's sketch stays");
+  assert.ok(Math.abs(after[1]![1] - before[1]![1] - 25) < 1e-6, `b's sketch went with b: ${before[1]} to ${after[1]}`);
+  assert.equal(bodies(moved).find((x) => x.id === b!.id)!.bbox!.min[1], 25);
+  void a;
+});
+
+import { bodyMotion } from "../src/interaction/operations.ts";
+test("a drag of one body of several is not moved on the graphics card as a whole mesh: the kernel shows it; a single body still is (`in_271`)", () => {
+  const two = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [, b] = bodies(two);
+  const st = startOp(scene(two), [b!.ref], "move");
+  if (!st.ok) return assert.fail("no move");
+  assert.equal(bodyMotion(scene(two), { ...st.op, axis: 0, value: 5 }), null);
+  const one = box(createSession(kernel), 0, 0);
+  const st1 = startOp(scene(one), [bodies(one)[0]!.ref], "move");
+  if (!st1.ok) return assert.fail("no move");
+  assert.ok(bodyMotion(scene(one), { ...st1.op, axis: 0, value: 5 }));
+  // and the picture the kernel gives for the dragged body is the other one left alone
+  const shown = opCommand(scene(two), { ...st.op, axis: 1, value: 30 });
+  assert.ok(shown);
+});

@@ -122,9 +122,10 @@ export function buildGraph(scene: Scene): GraphResult {
       case "pattern": {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const p = st.params;
+        const one = p.body ? { body: String(p.body) } : {}; // (one body of several is repeated, `in_271`)
         ops.push(p.mode === "circular"
-          ? { id: xid, type: "pattern", target: prev, mode: "circular", count: Number(p.count), angle: Number(p.angle), axis: Number(p.axis), pivot: [Number(p.px), Number(p.py), Number(p.pz)] }
-          : { id: xid, type: "pattern", target: prev, mode: "linear", nx: Number(p.nx), ny: Number(p.ny), nz: Number(p.nz), dx: Number(p.dx), dy: Number(p.dy), dz: Number(p.dz) });
+          ? { id: xid, type: "pattern", target: prev, mode: "circular", count: Number(p.count), angle: Number(p.angle), axis: Number(p.axis), pivot: [Number(p.px), Number(p.py), Number(p.pz)], ...one }
+          : { id: xid, type: "pattern", target: prev, mode: "linear", nx: Number(p.nx), ny: Number(p.ny), nz: Number(p.nz), dx: Number(p.dx), dy: Number(p.dy), dz: Number(p.dz), ...one });
         prev = xid;
         break;
       }
@@ -140,7 +141,7 @@ export function buildGraph(scene: Scene): GraphResult {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const names = st.parts.map((r) => (r.startsWith("b/") ? r.split("/")[1]! : ""));
         if (names.length < 2 || names.some((n) => !n || n === "body")) { errors[st.id] = "select two or more bodies"; break; }
-        ops.push({ id: xid, type: "combine", target: prev, mode: String(st.params.mode ?? "add"), bodies: names });
+        ops.push({ id: xid, type: "combine", target: prev, mode: String(st.params.mode ?? "add"), bodies: names, ...(Number(st.params.keep) === 1 ? { keep: 1 } : {}) });
         prev = xid;
         break;
       }

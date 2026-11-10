@@ -18,9 +18,21 @@ export type ExportOutcome =
 
 const kb = (n: number) => (n < 1e6 ? `${(n / 1e3).toFixed(1)} KB` : `${(n / 1e6).toFixed(1)} MB`);
 
-export async function exportStl(s: Session, kernel: Kernel, name = EXPORT_NAME): Promise<ExportOutcome> {
+/**
+ * Which bodies a file has: the one place that says (`in_271`). Undefined is all of them, which is the rule for now; to change it (one file for each body, or for the selected ones) change what this returns, or call `exportStl` with the names.
+ */
+const exportScope = (_s: Session): string[] | undefined => undefined;
+/** The names of the bodies that are selected, when there are several bodies and some are selected (for exporting just those), else undefined. */
+export function selectedBodies(s: Session): string[] | undefined {
+  const parts = s.history.scene.parts;
+  if (Object.values(parts).filter((p) => p.kind === "body").length < 2) return undefined;
+  const ids = s.click.selection.flatMap((r) => { const p = parts[r]; return p?.kind === "body" && p.id ? [p.id] : []; });
+  return ids.length ? ids : undefined;
+}
+
+export async function exportStl(s: Session, kernel: Kernel, name = EXPORT_NAME, bodies: string[] | undefined = exportScope(s)): Promise<ExportOutcome> {
   if (!canExport(s)) return { ok: false, error: EXPORT_NOTHING };
-  const m = await kernel.exportMesh(graphOf(s.history.scene), EXPORT_QUALITY);
+  const m = await kernel.exportMesh(graphOf(s.history.scene), bodies ? { ...EXPORT_QUALITY, bodies } : EXPORT_QUALITY);
   if (!m.ok) return { ok: false, error: m.error };
   const triangles = m.triangles.length / 3;
   if (!triangles) return { ok: false, error: EXPORT_NOTHING };

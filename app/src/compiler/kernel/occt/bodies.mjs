@@ -37,8 +37,11 @@ export function trackBodies(prev, shape, opId) {
   const boxes = lumps.map(box);
   const claimed = new Set();
   const out = [];
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   for (const m of prev) {
-    const i = boxes.findIndex((b, k) => !claimed.has(k) && inside(b, m.at));
+    // the solid whose box holds the marker; of several (bodies that overlap), the one whose middle is nearest it
+    let i = -1;
+    boxes.forEach((b, k) => { if (!claimed.has(k) && inside(b, m.at) && (i < 0 || dist(centre(b), m.at) < dist(centre(boxes[i]), m.at))) i = k; });
     if (i >= 0) { claimed.add(i); out.push({ id: m.id, at: centre(boxes[i]), lump: i }); }
   }
   let born = 0;

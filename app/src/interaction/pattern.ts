@@ -22,7 +22,7 @@ const num = (s: string): number | null => {
 const middle = (pts: Vec3[]): Vec3 => scale(pts.reduce((a, p) => add(a, p), [0, 0, 0] as Vec3), 1 / Math.max(1, pts.length));
 
 /** The numbers a repeat starts with, and the middle of what is repeated: a first try that shows the idea (three along a line, four round a point). Null if there is nothing to repeat. */
-export function patternStart(scene: Scene, kind: "linear" | "circular", figure: readonly Ref[] | null, view: { normal: 0 | 1 | 2; right: 0 | 1 | 2 } | null = null): { parts: Ref[]; start: number[]; target: "body" | "plane"; /** the direction the helper bubbles stand on: the first one the thing has any size in */ along: 0 | 1 | 2 } | null {
+export function patternStart(scene: Scene, kind: "linear" | "circular", figure: readonly Ref[] | null, view: { normal: 0 | 1 | 2; right: 0 | 1 | 2 } | null = null, body: Ref | null = null): { parts: Ref[]; start: number[]; target: "body" | "plane"; /** the direction the helper bubbles stand on: the first one the thing has any size in */ along: 0 | 1 | 2 } | null {
   let pts: Vec3[];
   let parts: Ref[];
   let radius = 0;
@@ -35,8 +35,9 @@ export function patternStart(scene: Scene, kind: "linear" | "circular", figure: 
     const pl = pts.length && scene.parts[(scene.parts[figure.find((r) => scene.parts[r]?.kind === "corner")!] as Part).plane ?? ""];
     if (pl && pl.kind === "plane") { const n = normalOfPlane(pl); normalAxis = [0, 1, 2].reduce((m, i) => (Math.abs(n[i]!) > Math.abs(n[m]!) ? i : m), 0); }
   } else {
-    parts = [BODY_OBJECT];
-    pts = Object.values(scene.parts).filter((p) => p.kind === "corner" && p.origin === "body").map((p) => (p as { at: Vec3 }).at);
+    const one = body ? scene.parts[body] : undefined; // (one body of several: its own box)
+    parts = [one?.kind === "body" ? body! : BODY_OBJECT];
+    pts = one?.kind === "body" && one.bbox ? [one.bbox.min, one.bbox.max] : Object.values(scene.parts).filter((p) => p.kind === "corner" && p.origin === "body").map((p) => (p as { at: Vec3 }).at);
   }
   if (!pts.length) return null;
   const lo = [0, 1, 2].map((i) => Math.min(...pts.map((c) => c[i]!)) - radius);
@@ -83,7 +84,9 @@ export function patternCommand(scene: Scene, op: Op): Command | null {
     const names = kind === "linear" ? ["nx", "dx", "ny", "dy", "nz", "dz"] : ["count", "angle", "axis", "px", "py", "pz"];
     const numbers = Object.fromEntries(names.map((n, i) => [n, params[i]!]));
     if (op.editStep) return { type: "setStepParams", id: op.editStep, params: numbers };
-    return { type: "addStep", step: { id: nextId(scene, "s"), type: "pattern", parts: op.parts, params: { mode: kind, ...numbers } } };
+    const mine = scene.parts[op.parts[0]!];
+    const body: Record<string, string> = mine?.kind === "body" && mine.ref !== BODY_OBJECT && mine.id ? { body: mine.id } : {};
+    return { type: "addStep", step: { id: nextId(scene, "s"), type: "pattern", parts: op.parts, params: { mode: kind, ...numbers, ...body } } };
   }
   // a drawn figure: a repeat that keeps its numbers, its copies made from it (`in_257`): changing the numbers later changes the copies, and the copies keep their names
   if (op.editPattern) return { type: "setPattern", id: op.editPattern, params };

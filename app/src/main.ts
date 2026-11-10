@@ -8,7 +8,7 @@ import { attachInput } from "./platform/dom-input.ts";
 import { createRecognizer } from "./interaction/recognizer.ts";
 import { createSession, openSession, saveText, run, scene, selection, refresh } from "./interaction/session.ts";
 import type { Session } from "./interaction/session.ts";
-import { exportStl, canExport } from "./interaction/exportstl.ts";
+import { exportStl, canExport, selectedBodies } from "./interaction/exportstl.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
 import { createState, reduce, advance } from "./interaction/controller.ts";
 import { frameOf } from "./interaction/frame.ts";
@@ -85,6 +85,7 @@ const menu = createMenu(document.body, (id) => {
   } else if (id === "constraints") dispatch({ type: "runAction", id: "constraints" });
   else if (id === "share") shareState();
   else if (id === "exportStl") void exportModel();
+  else if (id === "exportBody") void exportModel(selectedBodies(state.session));
   else if (id === "save" || id === "open") dispatch({ type: id });
   else if (id === "bodies" || id === "history" || id === "groups") dispatch({ type: "panel", name: id });
   else if (id === "undo" || id === "redo") dispatch({ type: id });
@@ -138,10 +139,10 @@ function shareState() {
   dirty = true;
 }
 /** Save the body as an STL file (`dec_export_stl`): the kernel makes the fine mesh (on its thread when it has one), then it is offered as a download; the result line says what was made. */
-async function exportModel() {
+async function exportModel(only?: string[]) {
   const say = (message: string) => { state = { ...state, session: { ...state.session, message } }; dirty = true; };
   say("making the STL file…");
-  const r = await exportStl(state.session, engine);
+  const r = await exportStl(state.session, engine, only ? `model-${only.join("-")}.stl` : undefined, only);
   if (!r.ok) return say(r.error);
   webFiles.saveBytes(r.name, r.bytes, "model/stl");
   say(r.message);
@@ -163,7 +164,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds the same operations as the ring, in groups, above the settings: `in_148`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, rowsOf(state.menu?.items ?? []), appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session) }, state.showAllConstraints)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, rowsOf(state.menu?.items ?? []), appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session) }, state.showAllConstraints)); }
     else { menu.hide(); ring.show(i.x, i.y, state.menu?.items ?? []); }
   } else {
     // pointing around does not close a menu; any other intent does

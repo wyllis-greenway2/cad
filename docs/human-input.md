@@ -1322,3 +1322,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > Yes, take your recommendations on all five. I want subtractions and additions on bodies specified by boolean add or subtract. However pull or pushing faces in general should subtract on collision as I believe we already do. I think this rule should only be on the initial drag of a sketch into extrusion. I think subsequent drags and face pulls should just modify the body even if it protrudes into another body.
 (approves `dec_independent_bodies` as drafted: identity rule, an extrusion that touches a body joins it, Subtract consumes the tools, export all bodies in one file, start with named bodies selected one at a time; and refines the rule: joining or cutting another body happens only on the first drag of a sketch into an extrusion, later drags and face pulls change that body alone even if it goes into another; adding and subtracting bodies is done by the boolean Add and Subtract)
 
+## in_271 — 2026-11-10 — directive
+> Yes we want all bodies in the export file, but we may want to not do that in the future, so we shouldn't code it in a difficult to change way. Okay build the not yet built stuff next please
+(asks for what `dec_independent_bodies` lists as not built: Copy and repeats of one body, sketches that follow a body moved alone, the live drag preview of one body, Intersect and keeping the tool, and export of one body; with the export of all bodies kept easy to change)
+

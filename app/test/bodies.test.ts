@@ -69,3 +69,16 @@ test("Add joins bodies that touch or overlap into the first; apart they cannot; 
   const reversed = kernel.evaluate({ ...near, ops: [...near.ops, { id: "c", type: "combine", target: "m", mode: "subtract", bodies: ["x_b", "x_a"] }] } as never);
   assert.equal(reversed.bodies![0]!.id, "x_b", "the first stays, whichever it is");
 });
+
+test("Intersect keeps what the bodies share; keeping the tools leaves them as bodies of their own", () => {
+  const near = { params: {}, ops: [rect("a", 5, 5, 10, 10), add("a", null), rect("b", 35, 5, 10, 10), add("b", "x_a"), { id: "m", type: "transform", target: "x_b", mode: "move", axis: 0, value: -25, body: "x_b" }] } as unknown as KernelGraph; // b overlaps a over 5 x 10 x 10
+  const inter = kernel.evaluate({ ...near, ops: [...near.ops, { id: "c", type: "combine", target: "m", mode: "intersect", bodies: ["x_a", "x_b"] }] } as never);
+  assert.equal(inter.bodies!.length, 1);
+  assert.ok(Math.abs(inter.volume! - 500) < 1e-6, `${inter.volume}`);
+  const keep = kernel.evaluate({ ...near, ops: [...near.ops, { id: "c", type: "combine", target: "m", mode: "subtract", bodies: ["x_a", "x_b"], keep: 1 }] } as never);
+  assert.deepEqual(keep.bodies!.map((b) => b.id).sort(), ["x_a", "x_b"], "the tool is still a body");
+  assert.ok(Math.abs(keep.bodies!.find((b) => b.id === "x_a")!.volume - 500) < 1e-6, "a lost the shared half");
+  assert.ok(Math.abs(keep.bodies!.find((b) => b.id === "x_b")!.volume - 1000) < 1e-6, "b is whole");
+  const none = kernel.evaluate({ ...two(), ops: [...two().ops, { id: "c", type: "combine", target: "x_b", mode: "intersect", bodies: ["x_a", "x_b"] }] } as never);
+  assert.match(none.ops.find((o) => o.id === "c")!.error ?? "", /nothing in common/);
+});

@@ -2,8 +2,9 @@
 // Nothing outside src/kernel/occt/ may import OCCT or replicad (inv_kernel_boundary).
 import { loadOC } from "./oc.mjs";
 import { compile, finalSolid, volume } from "./interpreter.mjs";
+import { makeCompound } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
-import { lumpsOf } from "./bodies.mjs";
+import { lumpsOf, lumpsByName } from "./bodies.mjs";
 
 const described = new Map();
 const copyOf = (d) => ({
@@ -211,6 +212,14 @@ export function exportMesh(graph, quality) {
   let box = null;
   try { box = fin.shape.boundingBox.bounds; } catch { box = null; }
   if (!box) return { ok: false, error: "nothing to export: nothing is left of the body" };
-  const m = fin.shape.mesh({ tolerance: quality.tolerance, angularTolerance: quality.angular });
-  return { ok: true, vertices: new Float32Array(m.vertices), triangles: new Uint32Array(m.triangles), volume: volume(fin.shape), bbox: { min: [...box[0]], max: [...box[1]] } };
+  let shape = fin.shape;
+  if (quality.bodies?.length) {
+    // only some of the bodies: their solids, as one shape
+    const found = lumpsByName(shape, fin.markers ?? [], quality.bodies);
+    if (!found) return { ok: false, error: "that body is not there any more" };
+    shape = found.picked.length === 1 ? found.picked[0] : makeCompound(found.picked);
+    box = shape.boundingBox.bounds;
+  }
+  const m = shape.mesh({ tolerance: quality.tolerance, angularTolerance: quality.angular });
+  return { ok: true, vertices: new Float32Array(m.vertices), triangles: new Uint32Array(m.triangles), volume: volume(shape), bbox: { min: [...box[0]], max: [...box[1]] } };
 }

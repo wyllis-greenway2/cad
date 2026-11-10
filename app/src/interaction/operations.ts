@@ -70,6 +70,8 @@ export interface Op {
   pat: string[];
   /** a repeat reopened: the record (a repeat of a drawn figure) or the step (a repeat of the body) whose numbers it sets again (`in_257`) */
   editPattern?: string;
+  /** a move, turn or scale of one body of several: whose sketches go with it (its name; "-": none) */
+  carryOnly?: string;
   editStep?: string;
   patStart?: number[];
   /** linear repeat: the direction the helper bubbles stand on (`in_236`) */
@@ -284,7 +286,8 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     const figure: Ref[] | null = drawn.length ? drawn : null;
     const planes = new Set(drawn.map((r) => scene.parts[r]?.plane).filter(Boolean));
     if (planes.size > 1) return { ok: false, why: "select things that lie on one plane" };
-    const st = patternStart(scene, kind, figure, view);
+    const bodyPart = figure ? undefined : parts.find((p) => p.kind === "body" || p.origin === "body");
+    const st = patternStart(scene, kind, figure, view, bodyPart ? objectOf(scene, bodyPart.ref) : null); // (the body that is selected, or the one a selected face is in)
     if (!st) return { ok: false, why: "select the body or something drawn first" };
     return { ok: true, op: { ...base, parts: st.parts, target: st.target, plane: [...planes][0] ?? null, patStart: st.start, pat: st.start.map(() => ""), along: st.along } };
   }
@@ -415,18 +418,19 @@ function figureCommand(scene: Scene, op: Op, turns: { axis: 0 | 1 | 2; angle: nu
 }
 const rotTarget = (scene: Scene, op: Op): Angles => { const cur = turnAngles(scene, op); return cur.map((c, i) => (num(op.rot[i]!) ?? c)) as Angles; };
 
-/** A step of the move, turn or scale of one body of several: it names the body (`body`), and the drawn sketches are not carried along (they stay where they were drawn). */
-function forBody(cmd: Command | null, id: string): Command | null {
+/** A step of the move, turn or scale of one body of several: it names the body (`body`); the sketches of the step that made the body go with it (`carries`), the others stay. */
+function forBody(cmd: Command | null, id: string, carries: boolean): Command | null {
   if (!cmd) return cmd;
-  if (cmd.type === "batch") { const steps = cmd.commands.filter((c) => c.type === "addStep").map((c) => forBody(c, id)!); return steps.length ? { type: "batch", commands: steps } : null; }
+  if (cmd.type === "batch") { const kept = cmd.commands.filter((c) => carries || c.type === "addStep").map((c) => forBody(c, id, carries)!); return kept.length ? { type: "batch", commands: kept } : null; }
   if (cmd.type !== "addStep") return cmd;
   const { follow: _f, ...rest } = cmd.step.params;
-  return { ...cmd, step: { ...cmd.step, params: { ...rest, body: id } } };
+  return { ...cmd, step: { ...cmd.step, params: { ...rest, ...(carries && _f !== undefined ? { follow: _f } : {}), body: id } } };
 }
 export function opCommand(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Command | null {
   const which = op.target === "body" && (op.kind === "move" || op.kind === "rotate" || op.kind === "scale") ? scene.parts[op.parts[0]!] : undefined;
-  const cmd = opCommandOf(scene, op, opts);
-  return which?.kind === "body" && which.ref !== BODY_OBJECT && which.id ? forBody(cmd, which.id) : cmd;
+  if (which?.kind !== "body" || which.ref === BODY_OBJECT || !which.id) return opCommandOf(scene, op, opts);
+  const birth = scene.steps.some((st) => `x_${st.id}` === which.id); // (the sketches that made a body go with it; a body that no extrusion made has none)
+  return forBody(opCommandOf(scene, { ...op, carryOnly: birth ? which.id : "-" }, opts), which.id, birth);
 }
 function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Command | null {
   // a preview (what is shown while a number is dragged) is only the step: the sketches are carried when it is made for good. Carrying them changes what the earlier steps read, so every step would be made again at every move of the pointer (`in_206`)
@@ -470,7 +474,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
     const pivot = op.pivot ?? bodyCentre(scene, op.parts[0]);
     if (!pivot) return { type: "addStep", step: { id, type: "scale", parts: op.parts, params: { axis: 0, value: v } } };
     const step: Command = { type: "addStep", step: { id, type: "scale", parts: op.parts, params: { axis: 0, value: v, px: pivot[0], py: pivot[1], pz: pivot[2], follow: 1 } } };
-    const carry = carrySketches(scene, [], [0, 0, 0], pivot, v);
+    const carry = carrySketches(scene, [], [0, 0, 0], pivot, v, op.carryOnly);
     return carry.length ? { type: "batch", commands: [step, ...carry] } : step;
   }
   if (op.target === "plane") {
@@ -483,7 +487,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   const carried = op.kind === "move" || (op.kind === "rotate" && !!op.pivot);
   const step: Command = { type: "addStep", step: { id, type: op.kind as "move" | "rotate", parts: op.parts, params: { axis: op.axis, value: v, ...pivot, ...(carried ? { follow: 1 } : {}) } as Record<string, number> } };
   if (!carried || op.target !== "body") return step;
-  const carry = op.kind === "move" ? carrySketches(scene, [], scale(([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Vec3[])[op.axis]!, v), [0, 0, 0]) : carrySketches(scene, [{ axis: op.axis, angle: v }], [0, 0, 0], op.pivot!);
+  const carry = op.kind === "move" ? carrySketches(scene, [], scale(([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Vec3[])[op.axis]!, v), [0, 0, 0], 1, op.carryOnly) : carrySketches(scene, [{ axis: op.axis, angle: v }], [0, 0, 0], op.pivot!, 1, op.carryOnly);
   return carry.length ? { type: "batch", commands: [step, ...carry] } : step;
 }
 
@@ -493,6 +497,8 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
  */
 export function bodyMotion(scene: Scene, op: Op): Rigid | null {
   if (op.target !== "body" || (op.kind !== "move" && op.kind !== "rotate" && op.kind !== "scale")) return null;
+  // one body of several: the picture is not one mesh moved by a matrix on the graphics card (the mesh is all the bodies), so the kernel works out what is shown while it is dragged (`in_271`)
+  if (op.parts[0] !== BODY_OBJECT && scene.parts[op.parts[0]!]?.kind === "body") return null;
   if (op.kind === "rotate" && op.rot.some((t) => num(t) !== null)) {
     // angles typed for the axes: the body is turned to exactly those, as up to three turns one after another about the same point; about the middle of the body that is only known for one turn (after it the middle
     // of its box is somewhere else), so several turns need a pivot set, else the kernel works them out (`in_228`)
@@ -759,10 +765,15 @@ function stripFollow(c: Command | null): Command | null {
  * as a continuation of the recipe, and the extrude reads them back through the step (`compiler/graph.ts`). A constraint that ties one of them to something that is not carried (a free drawing, the world, the body) stays: it is
  * a constraint of the whole body to that thing, and the solver holds the body's sketch (`compiler/solve.ts`), so a move that would break it is refused and the constraint flashes (`in_205`).
  */
-function carrySketches(scene: Scene, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3, pivot: Vec3, bigger = 1): Command[] {
-  const used = consumed(scene);
+function carrySketches(scene: Scene, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3, pivot: Vec3, bigger = 1, only?: string): Command[] {
+  if (only === "-") return []; // (a body of several that no sketch made: nothing to carry)
+  // one body of several: the sketches of the step that made it (its sides and circles, and their corners), not the others' (`in_271`)
+  const birth = only ? scene.steps.find((st) => `x_${st.id}` === only) : undefined;
+  const own = new Set<Ref>();
+  if (birth) for (const r of figureRefs(birth)) { own.add(r); const l = scene.parts[r]; if (l?.kind === "line") { own.add(l.a); own.add(l.b); if (l.center) own.add(l.center); } else if (l?.kind === "circle") own.add(l.center); }
+  const used = birth ? own : consumed(scene);
   // what is drawn on a face of the body belongs to the body too and goes with it (`in_234`); what merely lies where a face is does not (it has no link)
-  const onFace = Object.values(scene.parts).filter((p) => p.origin === "drawn" && !!p.plane && (scene.parts[p.plane] as { onBody?: boolean } | undefined)?.onBody === true).map((p) => p.ref);
+  const onFace = birth ? [] : Object.values(scene.parts).filter((p) => p.origin === "drawn" && !!p.plane && (scene.parts[p.plane] as { onBody?: boolean } | undefined)?.onBody === true).map((p) => p.ref);
   const parts = [...new Set([...used, ...onFace])].filter((r) => { const p = scene.parts[r]; return p && p.origin === "drawn" && p.movable && (p.kind === "corner" || p.kind === "line" || p.kind === "circle") && !("derived" in p && p.derived) && !!p.plane; });
   if (!parts.length) return [];
   const byPlane = new Map<Ref, Ref[]>();
