@@ -1326,3 +1326,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > Yes we want all bodies in the export file, but we may want to not do that in the future, so we shouldn't code it in a difficult to change way. Okay build the not yet built stuff next please
 (asks for what `dec_independent_bodies` lists as not built: Copy and repeats of one body, sketches that follow a body moved alone, the live drag preview of one body, Intersect and keeping the tool, and export of one body; with the export of all bodies kept easy to change)
 
+## in_272 — 2026-11-10 — directive
+> look at it in the browser
+(asks for a browser look at the independent bodies work of `in_270` and `in_271`)
+
