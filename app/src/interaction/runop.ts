@@ -18,7 +18,9 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
   }
   if (!op.edit || op.noEdit) return { session: run(sess, cmd), cmd };
   const prism0 = opCommand(sceneOf(sess), { ...op, noEdit: true });
-  let edited = run(sess, cmd, { watchAll: true, ...(prism0 && op.edit.kind !== "side" ? { fallback: prism0 } : {}) });
+  const piece = sceneOf(sess).parts[op.parts[0]!];
+  const ofCircle = piece?.kind === "plane" && !!piece.round; // (the wall of one arc of a circle, a tooth of a gear: its circle's prism would be a ring round all the teeth, `in_265`)
+  let edited = run(sess, cmd, { watchAll: true, ...(prism0 && op.edit.kind !== "side" && !ofCircle && !op.rounded ? { fallback: prism0 } : {}) });
   // moving the side of a sketch: the constraints may have put the corners back (a locked length); that is not an edit
   if (!edited.message && cmd.type === "batch") {
     const after = sceneOf(edited).parts;
@@ -29,6 +31,8 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
   // the side of a sketch that cannot move: no prism is added in its place (`in_208`); the constraints that hold it flash and the sketch stays as it was
   if (op.edit.kind === "side") return { session: { ...sess, message: `that side cannot move: ${edited.message}`, conflict: { culprits: holdingSide(sceneOf(sess), op.edit.corners), victims: [] } }, cmd };
   if (op.rounded) return { session: { ...edited, message: `that size cannot be made: ${edited.message}` }, cmd }; // (a fillet or chamfer face has no prism to fall back on)
+  // the wall of one arc of a circle (a tooth of a gear): a prism of its circle would be a ring round the whole circle, all the teeth, not that wall (`in_265`)
+  if (ofCircle) return { session: { ...edited, message: `that size cannot be made: ${edited.message}` }, cmd };
   const prism = opCommand(sceneOf(sess), { ...op, noEdit: true });
   if (!prism) return { session: edited, cmd };
   const made = run(sess, prism);

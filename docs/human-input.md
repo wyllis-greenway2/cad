@@ -1298,3 +1298,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > Okay for the bubble problem, they should move back to where they were once there are no longer collisions. The suggested constraints thingy doesn't get out of the way or fade. Can you see in the model file and state file I gave you last time? if you load the file the model is already vanished and ctrl y brings it back
 (three things: bubbles that moved aside return to their own place once nothing is in the way; the suggested constraints row (`in_195`) should give way or fade too; and the chamfer vanishing: the saved file is already in the vanished state, cursor 38 of 40)
 
+## in_265 — 2026-11-10 — question
+> Excellent thank you. Also your select similar is awesome! Thank you for that. When I pull the tooth on this model, at some point it makes this ring around all the teeth, that is unexpected. What do you think is going on here?
+(with the state snapshot `ab4d738d-cad-state-2026-11-10T05-56-07.json` and the model `41d166e6-model.cad_30.json`; a question about a ring appearing round all the teeth when a tooth is pulled)
+
