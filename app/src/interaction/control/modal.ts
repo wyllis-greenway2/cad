@@ -21,6 +21,7 @@ import { activeOp } from "./handles.ts";
 import { pivotCommands, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
+import { doSimilar } from "./select.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
 const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, line: true, arc: true, trim: true };
@@ -198,6 +199,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     if (!pl) return { ...closed, session: { ...closed.session, message: "select a plane or a face first" } };
     return animateTo(closed, planeView(s.cam, pl, true), now); // (pressed again: the back)
   }
+  if (id === "select:similar") return doSimilar(closed);
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now, s.menu?.plane ?? null);
   if (id === "op:linear" || id === "op:circular" || id === "op:copy") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular" | "copy");

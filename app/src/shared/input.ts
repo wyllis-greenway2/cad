@@ -36,6 +36,8 @@ export type Intent =
   | { type: "open" }
   | { type: "runAction"; id: string }
   /** start a drawing tool or an operation (a key or the menu) */
+  /** a box of the select similar chip: that rule on or off (`in_257`) */
+  | { type: "similarRule"; rule: "kind" | "size" | "angle" | "direction" }
   | { type: "begin"; name: "pushpull" | "rect" | "circle" | "line" | "arc" | "trim" | "extrude" | "edge" | "move" | "rotate" | "scale" | "dimension" }
   /** a constraint shown on a selected part: open or close it (its other parts show amber), delete it, lock or unlock its number, give it a new number (`set`), or lock the measure of the selection at a number (`measure`) */
   | { type: "relation"; act: "focus" | "remove" | "lock" | "set" | "measure"; id: string | null; value?: number }

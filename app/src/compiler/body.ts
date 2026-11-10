@@ -48,14 +48,16 @@ export function bodyParts(result: KernelResult): Part[] {
   if (result.mesh) out.push({ ...base, ref: BODY_OBJECT, kind: "body", ...(result.bbox ? { bbox: { min: result.bbox.min as Vec3, max: result.bbox.max as Vec3 } } : {}) }); // the whole object: selected by the third click
   for (const v of result.vertices ?? []) corner(v);
   // a rim that the kernel made of two half circles: each half knows the other, so picking one picks both
+  // (two arcs of one circle that do not meet at both ends, such as the tips of two teeth, are not halves of a rim)
+  const ends = new Map<Ref, string>();
   const halves = new Map<string, Ref[]>();
   const circleKey = (c: NonNullable<KernelEdge["circle"]>) => `${c.center.map((v) => Math.round(v * 100)).join(",")}|${Math.round(c.radius * 100)}|${c.normal.map((v) => Math.abs(Math.round(v * 100))).join(",")}`;
-  for (const e of result.edges ?? []) if (e.circle && e.a.some((v, i) => v !== e.b[i])) halves.set(circleKey(e.circle), [...(halves.get(circleKey(e.circle)) ?? []), edgeName(e.a, e.b, e.mid)]);
+  for (const e of result.edges ?? []) if (e.circle && e.a.some((v, i) => v !== e.b[i])) { const n = edgeName(e.a, e.b, e.mid); ends.set(n, [e.a, e.b].map((p) => p.map((v) => Math.round(v * 1e3)).join(",")).sort().join("|")); halves.set(circleKey(e.circle), [...(halves.get(circleKey(e.circle)) ?? []), n]); }
   for (const e of result.edges ?? []) {
     const straight = e.type === "LINE";
     const name = edgeName(e.a, e.b, e.mid);
     const pair = e.circle ? halves.get(circleKey(e.circle)) : undefined;
-    const twin = pair && pair.length === 2 ? pair.find((r) => r !== name) : undefined;
+    const twin = pair && pair.length === 2 && ends.get(pair[0]!) === ends.get(pair[1]!) ? pair.find((r) => r !== name) : undefined;
     out.push({ ...base, ref: name, kind: "line", a: corner(e.a), b: corner(e.b), ...(straight ? {} : { mid: e.mid }), ...(e.circle ? { circle: e.circle as { center: Vec3; normal: Vec3; radius: number } } : {}), ...(twin ? { twin } : {}) });
   }
   const flats: { n: Vec3; d: number; u: Vec3; v: Vec3; mesh: number[] }[] = [];

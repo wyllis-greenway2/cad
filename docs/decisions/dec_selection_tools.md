@@ -51,6 +51,8 @@ Your idea of offering it only for things made by a repeat does not work well: a 
 - **How it feels:** with something selected, ring or menu "Select similar" selects all matches and says how many ("24 similar edges"). Shift + click takes a wrong one out (section 2). It then shows a small chip, one box per rule (kind, size, angle, direction), so one rule can be loosened (for example "same size" off, to take every straight tooth edge) and the selection updates. Strict rules first, loosen on request.
 - **Not proposed:** a match by position ("on the same plane", "oriented the same way") as a default: it would find the gear's top ring but not its teeth.
 
+**Built** (`interaction/similar.ts`, `control/select.ts`, `ui/similarchip.ts`; `test/similar.test.ts`): "Select similar" in the ring's and the ⋯ list's new Select group, with the rules above (edges: kind, size, angle between faces with convex / concave; faces: kind, area, radius; sketch parts: kind, length or radius; the same body or the same sketch); a chip with one box per rule follows it, and goes when the selection changes. Along the way: two arcs of one circle that are not halves of a rim (the tips of two teeth) were being treated as twins, so picking one picked both; fixed in `compiler/body.ts`. Tolerances: lengths 0.001 mm, areas 0.5 %, round areas 2 %, arc spans 0.1 degree.
+
 ## 5. Not here
 
 The missing push / pull arrow on curved faces is `q_arc_wall_pushpull`; editing a repeat is `q_repeat_parameters`.

@@ -8,6 +8,7 @@ import type { AppState, Env } from "./control/state.ts";
 import { doHover, doClick, doMenu, doHold } from "./control/pointer.ts";
 import { doPan, doZoom, doLook, doHome } from "./control/viewing.ts";
 import { doDragMove, doDragEnd } from "./control/handles.ts";
+import { doSimilarRule } from "./control/select.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn, scene as sceneOf } from "./session.ts";
 import { projector } from "./camera.ts";
@@ -78,6 +79,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "look": return doLook(s, i, env);
     case "home": return doHome(s, env);
     case "runAction": return doRunAction(s, i.id, env.now);
+    case "similarRule": return doSimilarRule(s, i.rule);
     case "delete": return doDelete(s);
     case "undo": return doUndo(s);
     case "redo": return doRedo(s);

@@ -19,6 +19,7 @@ import { outlineOf } from "../operation/part.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
+import { SIMILAR_RULES } from "./similar.ts";
 import type { ArcMap } from "./operations.ts";
 import { opCommand, bodyMotion, faceDrag, radiusDrag, sideDrag, edgeDrag, arcDrag, valueOf } from "./operations.ts";
 import { matrixOf } from "../operation/frames.ts";
@@ -92,6 +93,8 @@ export interface Frame {
   /** the constraints that could be put on the selected parts, as buttons by them (`in_195`) */
   suggest: Suggestions | null;
   /** a little icon by the move arrows of a body (or a drawn figure) that switches to turning it, and by its rings one that switches back (`in_206`) */
+  /** the chip that follows "select similar": its rules and how many were selected; there only while the selection is still what it chose (`in_257`) */
+  similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate"; label: string } | null;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
   tool: { kind: "rect" | "circle" | "line" | "arc" | "trim"; label: string } | null;
@@ -340,6 +343,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" ? `move:${"xyz"[s.op.axis]}` : null } : null,
+    similar: similarChip(s),
     modeSwitch: gizmo && !s.repeat ? modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : null,
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
     message: s.session.message ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? "",
@@ -447,4 +451,12 @@ function modeSwitchOf(op: AppState["op"], at: Vec3, pts: Vec3[]): Frame["modeSwi
   if (op.kind === "move") return { at, pts, to: "rotate", label: "Rotate" };
   if (op.kind === "rotate") return { at, pts, to: "move", label: "Move" };
   return null;
+}
+
+function similarChip(s: AppState): Frame["similar"] {
+  const sim = s.similar;
+  if (!sim) return null;
+  const sel = selectionOf(s.session);
+  if (sel.length !== sim.refs.length || !sim.refs.every((r) => sel.includes(r))) return null;
+  return { rules: SIMILAR_RULES.map((r) => ({ ...r, on: sim.rules.includes(r.id) })), count: sim.refs.length, noun: sim.noun };
 }

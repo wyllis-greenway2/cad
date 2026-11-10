@@ -34,6 +34,7 @@ import { createBusy } from "./ui/busy.ts";
 import { createControls } from "./ui/controls.ts";
 import { createToolChip } from "./ui/toolchip.ts";
 import { createToolCursor } from "./ui/toolcursor.ts";
+import { createSimilarChip } from "./ui/similarchip.ts";
 import { createModeSwitch } from "./ui/modeswitch.ts";
 import { createSuggest } from "./ui/suggest.ts";
 import { createHints } from "./ui/hint.ts";
@@ -105,6 +106,7 @@ const helper = createHelper(document.body);
 const busySign = createBusy(document.body);
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
+const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch({ type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
 const toolChip = createToolChip(document.body, () => dispatch({ type: "escape" }), () => dispatch({ type: "typed", key: "Enter", shift: false }));
@@ -235,6 +237,7 @@ function frame(now: number) {
     view.setPanes(f.panes);
     view.setBodyFade(f.fadeBody);
     toolChip.update(f.tool, f.confirm);
+    similarChip.update(f.similar);
     toolCursor.update(f.tool ? f.tool.kind : null);
     const project = projector(state.cam, size.w, size.h).project;
     bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid);
