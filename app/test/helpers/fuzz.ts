@@ -235,7 +235,7 @@ export function fuzz(seed: number, steps: number, probe?: (st: AppState) => void
     for (let step = 0; step < steps; step++) {
       for (const intent of gesture(st, r)) {
         now += 40;
-        log.push(show(intent));
+        log.push(show(intent)); if (process.env.FUZZ_TRACE) process.stderr.write(show(intent) + "\n");
         const before = st;
         st = advance(reduce(st, intent, { w: W, h: H, now }), now);
         check(st, show(intent));
