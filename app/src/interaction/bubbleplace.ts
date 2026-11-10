@@ -17,7 +17,10 @@ export interface Obstacles {
   rects?: [number, number, number, number][];
 }
 /** Where each bubble went last time: its offset from where it belongs. */
-export type Memory = Map<string, [number, number]>;
+/** [x, y, how many frames in a row its own place (up and to the right) has been clear while it stands elsewhere] */
+export type Memory = Map<string, [number, number, number]>;
+/** A bubble that gave way goes back to its own place once that has been clear for this many frames in a row (`in_264`): not at the first clear frame, or it would hop as a line sweeps past. */
+const BACK_AFTER = 10;
 /** `faded`: no clear place within reach, and it is still under something that comes first (it is shown faint and takes no clicks until a place clears, `in_260`) */
 export interface Put { id: string; left: number; top: number; faded: boolean }
 
@@ -64,9 +67,16 @@ export function placeBubbles(want: readonly Want[], obs: Obstacles, memory: Memo
     const cy = group.reduce((s, j) => s + want[j]!.y, 0) / group.length;
     const rectAt = (x: number, y: number): [number, number, number, number] => { const left0 = cx - total / 2 + x; return [left0, cy + y - 13, left0 + total, cy + y + 13]; };
     // the place it had last time (the first of the group that was somewhere), kept while it is still clear: it moves only when something comes to be in the way
+    const home: [number, number] = [Math.round(Math.cos(Math.PI / 4) * (OFF_Y + 4)), -Math.round(Math.sin(Math.PI / 4) * (OFF_Y + 4))];
     const before = group.map((j) => memory.get(want[j]!.id)).find((m) => !!m);
     let [ox, oy] = before ?? [OFF_X, -OFF_Y];
     let worst = before ? hits(rectAt(before[0], before[1])) : Infinity;
+    let clear = 0;
+    if (before && (before[0] !== home[0] || before[1] !== home[1])) {
+      // it is somewhere else because something was in the way: back to its own place once that is clear for a while
+      clear = hits(rectAt(home[0], home[1])) === 0 ? before[2] + 1 : 0;
+      if (clear >= BACK_AFTER) { [ox, oy] = home; worst = 0; clear = 0; }
+    }
     if (worst > 0) {
       // the spot beside the bubbles' own that touches the least: up and to the right first, then round, then further out (a candidate must be clearer than the place it has, to be moved to)
       search: for (const R of [OFF_Y + 4, 48, 72]) {
@@ -85,7 +95,7 @@ export function placeBubbles(want: readonly Want[], obs: Obstacles, memory: Memo
     let left = cx - total / 2;
     group.forEach((j) => {
       const q = want[j]!;
-      memory.set(q.id, [ox, oy]);
+      memory.set(q.id, [ox, oy, clear]);
       seen.add(q.id);
       out.push({ id: q.id, left: left + ox, top: cy + oy - 13, faded });
       left += q.w + GAP;

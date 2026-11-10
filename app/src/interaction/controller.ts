@@ -45,7 +45,9 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (next.repeat && [...next.repeat.op.parts, ...Object.values(next.repeat.pivot ?? {})].some((r) => typeof r === "string" && drawn(r as Ref) && !there(r as Ref))) next = { ...next, repeat: null, drag: null, gizmoHover: null, handleSel: null };
   if (next.tool?.plane && !there(next.tool.plane)) next = { ...next, tool: armTool(next.tool.kind) };
   // the operation that is open remembers where the history stood, so Esc can cancel what it made (`in_244`)
-  if (next.op && !s.op) next = { ...next, opBase: s.session.history.cursor };
+  // (an operation begun while another is still open, such as a chamfer started from the body an extrusion just made, is a new one: Esc takes back only what it made, `in_264`)
+  const fresh = !!next.op && (!s.op || next.op.kind !== s.op.kind || next.op.parts.join("|") !== s.op.parts.join("|"));
+  if (next.op && fresh) next = { ...next, opBase: s.session.history.cursor };
   else if (!next.op && next.opBase !== null) next = { ...next, opBase: null };
   const c = next.session.conflict;
   return c && c !== s.session.conflict ? { ...next, flash: { ...c, at: env.now } } : next;

@@ -17,7 +17,7 @@ test("it keeps the place it has while that is clear, even if a better one is fre
   const memory: Memory = new Map();
   const first = one(100, 100, none, memory);
   // a line through the usual place (up and right) that the place it has does not meet: nothing changes if it was elsewhere
-  memory.set("a", [-28, 0]); // it was left of its spot
+  memory.set("a", [-28, 0, 0]); // it was left of its spot
   const kept = one(100, 100, { lines: [[[100, 60], [160, 60]]], dots: [] }, memory);
   assert.deepEqual(offsetOf(100, 100, kept), [-28, 0], "the place it had");
   // now a line right through that place: it goes to a clear one
@@ -74,4 +74,22 @@ test("with no clear place within reach under what comes first, a bubble is faded
   const ring: [number, number, number, number] = [60, 40, 160, 110];
   const moved = one(100, 100, { ...none, rects: [ring] }, new Map());
   assert.equal(moved.faded, false, "it found room beside the box");
+});
+
+test("a bubble that gave way goes back to its own place once nothing has been in the way for a while, not at the first clear frame (`in_264`)", () => {
+  const memory: Memory = new Map();
+  const home = offsetOf(100, 100, one(100, 100, none, memory), 60);
+  const ring: [number, number, number, number] = [95, 60, 215, 90];
+  const away = offsetOf(100, 100, one(100, 100, { ...none, rects: [ring] }, memory), 60);
+  assert.notDeepEqual(away, home, "it gave way");
+  const frames: number[][] = [];
+  for (let i = 0; i < 14; i++) frames.push(offsetOf(100, 100, one(100, 100, none, memory), 60));
+  assert.deepEqual(frames[0], away, "still where it went on the first clear frame");
+  assert.deepEqual(frames[13], home, "home again");
+  // a single clear frame between blocked ones does not send it home
+  const m2: Memory = new Map();
+  one(100, 100, none, m2);
+  const a2 = offsetOf(100, 100, one(100, 100, { ...none, rects: [ring] }, m2), 60);
+  one(100, 100, none, m2);
+  assert.deepEqual(offsetOf(100, 100, one(100, 100, { ...none, rects: [ring] }, m2), 60), a2);
 });

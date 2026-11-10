@@ -96,6 +96,8 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
   };
 
   return {
+    /** The boxes of the bubbles that are shown and take clicks (what the suggestion row gives way to, `in_264`). */
+    rects(): DOMRect[] { return [...entries.values()].filter((e) => e.el.style.pointerEvents !== "none").map((e) => e.el.getBoundingClientRect()); },
     /** `project`: a point of the scene to a point on the page, in pixels. Called every frame the view changes. */
     /** Returns whether a bubble is still sliding to its place (the page should draw another frame). `before`: boxes of what comes before the bubbles, in page pixels. */
     update(list: Annotation[], project: (p: Vec3) => [number, number], flash: Flash | null = null, avoid: { segs: [Vec3, Vec3][]; pts: Vec3[] } = { segs: [], pts: [] }, before: [number, number, number, number][] = []): boolean {

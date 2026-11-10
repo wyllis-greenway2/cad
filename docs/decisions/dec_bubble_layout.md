@@ -39,3 +39,7 @@ The jump was a bug and is fixed on its own. How overlapping is resolved is a rul
 ## Built (`in_260`)
 `placeBubbles` takes the boxes of what is in front as obstacles; `main.ts` feeds it the ring (`ring.rect()`) and the number bubbles (as they stood on the last frame). A constraint bubble under them slides to the nearest clear place; if none is within reach it is faded to 0.3 and takes no clicks; once it has moved more than about 44 px from its spot a thin line joins it to the spot. Tested for the placement and the fade (`test/bubbleplace.test.ts`); the helper bubble ("pull to copy"), the suggestion row and the hint icons are fed in too (`in_261`), by the box each fills on the last frame.
 
+## Changed by `in_264`
+- A bubble that gave way **goes back to its own place** once that has been clear for 10 frames in a row (not at the first clear frame, or it would hop as a line sweeps past).
+- The **suggestion row** is behind the ring, the number bubbles, the helper bubble and the constraint bubbles (it was fed in as in front by `in_261`): it slides out of their way, or fades to 0.3 and takes no clicks when there is no room. The hint icons stay in front of the constraint bubbles.
+

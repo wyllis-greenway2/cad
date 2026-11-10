@@ -1,16 +1,18 @@
 // The suggested constraints (`in_195`): a little row of round buttons by the selected parts, each an icon with its name as a tooltip; a click applies that constraint.
 import { iconKey, iconSvg } from "./icons.ts";
+import { placeBubbles } from "../interaction/bubbleplace.ts";
+import type { Memory } from "../interaction/bubbleplace.ts";
 
 export function createSuggest(host: HTMLElement, run: (id: string) => void) {
   const row = document.createElement("div");
   row.style.cssText = "position:fixed;left:0;top:0;z-index:8;display:none;gap:5px;padding:4px;border-radius:18px;background:rgba(255,255,255,.92);border:1px dashed #1ab8b3;box-shadow:0 1px 6px rgba(0,0,0,.12);user-select:none;-webkit-user-select:none;touch-action:manipulation;transform:translate(-50%,0)";
   host.appendChild(row);
   let sig = "";
+  const memory: Memory = new Map();
   return {
-    /** The box it fills while shown (what the constraint bubbles give way to, `in_261`). */
-    rect(): DOMRect | null { return row.style.display === "none" ? null : row.getBoundingClientRect(); },
     /** The constraints on offer and where (a screen point) to put the row, or null to hide it. */
-    update(items: { id: string; label: string }[] | null, at: [number, number] | null) {
+    /** `inFront`: boxes of what comes before the row (the ring, the number bubbles, the constraint bubbles): it slides out of their way, or fades if there is no room (`in_264`). */
+    update(items: { id: string; label: string }[] | null, at: [number, number] | null, inFront: [number, number, number, number][] = []) {
       if (!items || !items.length || !at) { row.style.display = "none"; sig = ""; return; }
       const now = items.map((i) => i.id).join(",");
       if (now !== sig) {
@@ -27,8 +29,13 @@ export function createSuggest(host: HTMLElement, run: (id: string) => void) {
         }));
       }
       row.style.display = "flex";
-      row.style.left = `${at[0]}px`;
-      row.style.top = `${at[1] + 44}px`; // (below the number bubble that sits on the part)
+      // below the number bubble that sits on the part, unless something in front is there: placed like a bubble whose own place is that one
+      const w = row.offsetWidth || 40;
+      const p = placeBubbles([{ id: "row", x: at[0] + w / 2 - 20, y: at[1] + 77, w }], { lines: [], dots: [], rects: inFront }, memory)[0]!;
+      row.style.left = `${Math.round(p.left)}px`;
+      row.style.top = `${Math.round(p.top)}px`;
+      row.style.opacity = p.faded ? "0.3" : "";
+      row.style.pointerEvents = p.faded ? "none" : "";
     },
   };
 }
