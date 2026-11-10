@@ -265,7 +265,7 @@ function laggingKernel(onChange: () => void) {
 }
 
 /** One run: the same seed gives the same run. Returns null, or what went wrong. */
-export function fuzz(seed: number, steps: number, probe?: (st: AppState) => void, opts: { lagging?: boolean } = {}): Failure | null {
+export function fuzz(seed: number, steps: number, probe?: (st: AppState) => void, opts: { lagging?: boolean; /** the text of a saved model to start from, in place of an empty drawing or a box */ fixture?: string } = {}): Failure | null {
   const r = rng(seed);
   const log: string[] = [];
   let st!: AppState;
@@ -277,7 +277,13 @@ export function fuzz(seed: number, steps: number, probe?: (st: AppState) => void
   };
   const lag = opts.lagging ? laggingKernel(answered) : null;
   const flush = () => { for (let i = 0; i < 60 && lag?.pending(); i++) lag.deliver(); };
-  st = { ...createState(start(r, lag?.kernel ?? kernel)), cam: r.chance(0.5) ? homeCamera() : lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]) };
+  const begin = (): Session => {
+    if (opts.fixture === undefined) return start(r, lag?.kernel ?? kernel);
+    const o = openSession(lag?.kernel ?? kernel, opts.fixture);
+    if (!o.ok) throw new Error(`the model to start from cannot be opened: ${(o as { error: string }).error}`);
+    return o.value;
+  };
+  st = { ...createState(begin()), cam: r.chance(0.5) ? homeCamera() : lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]) };
   if (lag) flush();
   const patience = r.pick([0.04, 0.12, 0.4]); // how often the kernel's thread finishes a job: a run in which it hardly ever does has a long time of an older model
   let now = 0;

@@ -1245,3 +1245,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 
 ## in_254 — 2026-11-10 — directive
 > run the random user with the kernel answering later
+
+## in_255 — 2026-11-10 — approval
+> yes, do the fixtures run and draft the export decision
+(approves running the random user from the saved models, and asks for the export decision to be drafted: a draft, not an approval of the export itself)
