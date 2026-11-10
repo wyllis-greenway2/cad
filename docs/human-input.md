@@ -1272,3 +1272,9 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > Yes lets build it, I will take your recommendations on all
 (approves `dec_selection_tools` as drafted and takes my recommendation on each of the four questions I asked in the reply to `in_257`: section 1 as written, Shift or Ctrl click on a selected spot removes it, a click on a selected group's member goes one level in, the select similar edge rule with the loosen chip; and, by "all", the proposals of `q_arc_wall_pushpull` and `q_repeat_parameters` too, including refusing a lower repeat count when a later step uses a removed copy)
 
+## in_259 — 2026-11-10 — directive
+> If you select an curved edge of a gear tooth, it shows you the radius value, but that bubble jumps around a lot as you rotate the camera.
+>
+> Can we try to handle bubble collisions? There are lots of scenarios where bubbles fall on top of other bubbles. How should we solve this? make them move out of the way? or the behind one goes transparent?
+(with a picture of a selected tooth arc whose menu bubbles overlap each other, and the model `d29b43a3-model.cad_28.json`; a bug report on the radius bubble's position, and a question asking which way to resolve overlapping bubbles)
+

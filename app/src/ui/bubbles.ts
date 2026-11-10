@@ -5,6 +5,8 @@ import type { Vec3 } from "../interaction/api.ts";
 import type { Annotation } from "../interaction/annotations.ts";
 import { iconKey, iconSvg } from "./icons.ts";
 import { settings } from "../shared/settings.ts";
+import { placeBubbles } from "../interaction/bubbleplace.ts";
+import type { Memory } from "../interaction/bubbleplace.ts";
 
 export interface BubbleHandlers {
   focus(id: string): void;
@@ -16,21 +18,17 @@ export interface BubbleHandlers {
   measure(value: number): void;
 }
 const fmt = (v: number) => String(Math.round(v * 100) / 100);
-const GAP = 4;
-const CLUSTER_PX = 34; // bubbles closer than this on the screen are laid side by side
 
-interface Entry { el: HTMLElement; sig: string; editing: boolean; a: Annotation; tinted: boolean }
+interface Entry { el: HTMLElement; sig: string; editing: boolean; a: Annotation; tinted: boolean; /** where it is from the spot it belongs to, on its way to where it should stand */ off?: [number, number] }
 /** A refused change while it flashes: how far through it is, what it would have broken (red, fading) and what tried it (it shakes). */
 export interface Flash { t: number; victims: readonly string[]; culprits: readonly string[] }
 
-/** Bubbles sit up and to the right of the spot they belong to, so they are not right on the line they describe and cover what is being worked on (`in_151`). */
-const OFF_X = 14;
-const OFF_Y = 24;
 export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
   const root = document.createElement("div");
   root.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;z-index:8;font:13px system-ui,sans-serif;color:#2b2b2d;user-select:none;-webkit-user-select:none";
   host.appendChild(root);
   const entries = new Map<string, Entry>();
+  const memory: Memory = new Map(); // where each bubble stood last time
 
   const make = (a: Annotation, e: Entry) => {
     const el = e.el;
@@ -99,7 +97,8 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
 
   return {
     /** `project`: a point of the scene to a point on the page, in pixels. Called every frame the view changes. */
-    update(list: Annotation[], project: (p: Vec3) => [number, number], flash: Flash | null = null, avoid: { segs: [Vec3, Vec3][]; pts: Vec3[] } = { segs: [], pts: [] }) {
+    /** Returns whether a bubble is still sliding to its place (the page should draw another frame). `before`: boxes of what comes before the bubbles, in page pixels. */
+    update(list: Annotation[], project: (p: Vec3) => [number, number], flash: Flash | null = null, avoid: { segs: [Vec3, Vec3][]; pts: Vec3[] } = { segs: [], pts: [] }, before: [number, number, number, number][] = []): boolean {
       const seen = new Set<string>();
       const placed: { a: Annotation; e: Entry; x: number; y: number }[] = [];
       for (const a of list) {
@@ -121,73 +120,29 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
         placed.push({ a, e, x, y });
       }
       for (const [id, e] of entries) if (!seen.has(id) && !e.editing) { e.el.remove(); entries.delete(id); }
-      // bubbles on top of each other are laid side by side around their common spot
-      const used = new Set<number>();
-      // what a bubble keeps off, in page pixels: the drawn lines and corners, and the bubbles already put down
-      const lines = avoid.segs.map(([p, q]) => [project(p), project(q)] as [[number, number], [number, number]]);
-      const dots = avoid.pts.map((p) => project(p));
-      const taken: [number, number, number, number][] = [];
-      const boxes = lines.map(([a, c]) => [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[0], c[0]), Math.max(a[1], c[1])] as [number, number, number, number]);
-      /** Does the segment a-c pass through the rectangle (Liang-Barsky clipping)? */
-      const crosses = (a: [number, number], c: [number, number], r: [number, number, number, number]): boolean => {
-        let [t0, t1] = [0, 1];
-        const [dx, dy] = [c[0] - a[0], c[1] - a[1]];
-        for (const [p, q] of [[-dx, a[0] - r[0]], [dx, r[2] - a[0]], [-dy, a[1] - r[1]], [dy, r[3] - a[1]]] as const) {
-          if (p === 0) { if (q < 0) return false; continue; }
-          const t = q / p;
-          if (p < 0) { if (t > t1) return false; if (t > t0) t0 = t; } else { if (t < t0) return false; if (t < t1) t1 = t; }
-        }
-        return true;
-      };
-      const hits = (r: [number, number, number, number]) => {
-        let n = 0;
-        for (const [x, y] of dots) if (x > r[0] - 4 && x < r[2] + 4 && y > r[1] - 4 && y < r[3] + 4) n += 2;
-        const big: [number, number, number, number] = [r[0] - 3, r[1] - 3, r[2] + 3, r[3] + 3];
-        for (let k = 0; k < lines.length; k++) {
-          const bx = boxes[k]!;
-          if (bx[2] < big[0] || bx[0] > big[2] || bx[3] < big[1] || bx[1] > big[3]) continue; // (nowhere near)
-          if (crosses(lines[k]![0], lines[k]![1], big)) n++;
-        }
-        for (const t of taken) if (r[0] < t[2] + 3 && r[2] > t[0] - 3 && r[1] < t[3] + 3 && r[3] > t[1] - 3) n += 3;
-        return n;
-      };
-      placed.forEach((p, i) => {
-        if (used.has(i)) return;
-        const group = [i];
-        placed.forEach((q, j) => { if (j !== i && !used.has(j) && Math.hypot(q.x - p.x, q.y - p.y) < CLUSTER_PX) group.push(j); });
-        group.forEach((j) => used.add(j));
-        const widths = group.map((j) => placed[j]!.e.el.offsetWidth || 40);
-        const total = widths.reduce((s, w) => s + w, 0) + GAP * (group.length - 1);
-        const cx = group.reduce((s, j) => s + placed[j]!.x, 0) / group.length;
-        const cy = group.reduce((s, j) => s + placed[j]!.y, 0) / group.length;
-        // the spot beside the bubbles' own that touches the least: up and to the right first, then round, then further out
-        let [ox, oy] = [OFF_X, -OFF_Y - 13];
-        let worst = Infinity;
-        search: for (const R of [OFF_Y + 4, 48, 72]) {
-          for (const deg of [45, 135, 0, 90, 315, 225, 180, 270]) {
-            const x = Math.round(Math.cos((deg * Math.PI) / 180) * R);
-            const y = -Math.round(Math.sin((deg * Math.PI) / 180) * R);
-            const left0 = cx - total / 2 + x;
-            const rect: [number, number, number, number] = [left0, cy + y - 13, left0 + total, cy + y + 13];
-            const n = hits(rect);
-            if (n < worst) { worst = n; [ox, oy] = [x, y - 13]; }
-            if (n === 0) break search;
-          }
-        }
-        taken.push([cx - total / 2 + ox, cy + oy, cx - total / 2 + ox + total, cy + oy + 26]);
-        let left = cx - total / 2;
-        group.forEach((j, k) => {
-          const q = placed[j]!;
-          // a refused change: what it would have broken goes mild red and fades back; what tried it shakes for a moment
-          let dx = 0;
-          const e = q.e;
-          if (flash && flash.victims.includes(q.a.id)) { const k = 1 - flash.t; e.el.style.background = `rgb(255, ${Math.round(255 - 110 * k)}, ${Math.round(255 - 110 * k)})`; e.el.style.borderColor = `rgba(220, 70, 70, ${k})`; e.tinted = true; }
-          else if (e.tinted) { e.el.style.background = "#fff"; e.el.style.borderColor = q.a.open ? "#e0a82e" : "#d6d7db"; e.tinted = false; }
-          if (flash && flash.culprits.includes(q.a.id)) { const phase = (flash.t * settings.flash.ms) / settings.flash.shakeMs; if (phase < 1) dx = Math.sin(phase * Math.PI * 6) * 7 * (1 - phase); }
-          q.e.el.style.transform = `translate(${Math.round(left + dx + ox)}px, ${Math.round(cy + oy)}px)`;
-          left += widths[k]! + GAP;
-        });
+      // where each stands (`bubbleplace.ts`: clear of lines, corners and what comes first; keeps its place while that is clear), and the way there is eased, so a bubble that has to give way slides
+      const put = placeBubbles(
+        placed.map((p) => ({ id: p.a.id, x: p.x, y: p.y, w: p.e.el.offsetWidth || 40 })),
+        { lines: avoid.segs.map(([p, q]) => [project(p), project(q)] as [[number, number], [number, number]]), dots: avoid.pts.map((p) => project(p)), rects: before },
+        memory,
+      );
+      let moving = false;
+      placed.forEach((q) => {
+        const to = put.find((u) => u.id === q.a.id)!;
+        const target: [number, number] = [to.left - q.x, to.top - q.y];
+        const e = q.e;
+        const now = e.off ?? target;
+        const next: [number, number] = Math.hypot(target[0] - now[0], target[1] - now[1]) < 0.6 ? target : [now[0] + (target[0] - now[0]) * 0.4, now[1] + (target[1] - now[1]) * 0.4];
+        if (next !== target) moving = true;
+        e.off = next;
+        // a refused change: what it would have broken goes mild red and fades back; what tried it shakes for a moment
+        let dx = 0;
+        if (flash && flash.victims.includes(q.a.id)) { const k = 1 - flash.t; e.el.style.background = `rgb(255, ${Math.round(255 - 110 * k)}, ${Math.round(255 - 110 * k)})`; e.el.style.borderColor = `rgba(220, 70, 70, ${k})`; e.tinted = true; }
+        else if (e.tinted) { e.el.style.background = "#fff"; e.el.style.borderColor = q.a.open ? "#e0a82e" : "#d6d7db"; e.tinted = false; }
+        if (flash && flash.culprits.includes(q.a.id)) { const phase = (flash.t * settings.flash.ms) / settings.flash.shakeMs; if (phase < 1) dx = Math.sin(phase * Math.PI * 6) * 7 * (1 - phase); }
+        e.el.style.transform = `translate(${Math.round(q.x + next[0] + dx)}px, ${Math.round(q.y + next[1])}px)`;
       });
+      return moving;
     },
   };
 }
