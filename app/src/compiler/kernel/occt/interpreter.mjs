@@ -614,6 +614,8 @@ const OPS = {
     if (op.mode === "rotate") return { kind: "solid", shape: t.rotate(v, op.pivot ?? middle(), axis) };
     if (op.mode === "scale") {
       if (!(v > 1e-6)) throw new Error("scale must be positive");
+      // (a body made a hundred metres long or more is a slip of the keys, and the kernel does not come back from meshing it: `in_255`)
+      if (v > 100) { const b = bounds(t); if (Math.max(...[0, 1, 2].map((i) => b.max[i] - b.min[i])) * v > 1e5) throw new Error("that scale would make the body more than 100 metres long"); }
       return { kind: "solid", shape: t.scale(v, op.pivot ?? middle()) };
     }
     throw new Error(`unknown transform ${op.mode}`);

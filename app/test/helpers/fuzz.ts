@@ -1,5 +1,6 @@
 // A random user (`in_251`): drives the real controller with the intents the app gets (clicks, drags, keys, tools, operations, undo, redo, Esc, delete...) from a seeded random generator, and after every
 // intent checks what must always be true of the state. A failure names the seed and step and gives the intents that led to it, so it can be run again.
+import { writeFileSync } from "node:fs";
 import { kernel } from "../../src/compiler/kernel/index.ts";
 import { worldRef } from "../../src/shared/ref.ts";
 import type { Ref } from "../../src/shared/ref.ts";
@@ -253,6 +254,7 @@ function laggingKernel(onChange: () => void) {
       const j = job;
       job = null;
       kernel.draft = !!j.draft;
+      if (process.env.FUZZ_GRAPH) writeFileSync(process.env.FUZZ_GRAPH, JSON.stringify(j.graph)); // (the graph being worked on, to look at when the kernel does not come back)
       // (as the worker does: an answer that is an exception is passed on as a failure, `kernel-worker.ts`; the first one is kept to look at)
       let result;
       try { result = kernel.evaluate(j.graph); } catch (err) { failures.push({ error: String(err), graph: j.graph }); for (const f of listeners) f({ data: { id: j.id, failed: String(err) } }); return true; }

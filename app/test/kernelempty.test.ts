@@ -40,3 +40,21 @@ test("the kernel answers for a graph whose body is empty with an error on the st
   assert.equal(r.finalId, null, "no body to show");
   assert.match(r.ops.find((o) => o.id === "x_b")!.error ?? "", /nothing would be left/);
 });
+
+test("scaling a body to more than a hundred metres is refused with a reason instead of the kernel never coming back (`in_255`)", () => {
+  const graph = {
+    params: {},
+    ops: [
+      { id: "s_a", type: "sketch", shape: "circle", radius: 9.06, at: [0, 0], plane: "XY", origin: 0, frame: { origin: [0, 0, 0], xDir: [1, 0, 0], normal: [0, 0, 1] } },
+      { id: "x_a", type: "extrude", profile: "s_a", distance: 30, mode: "add" },
+      { id: "x_b", type: "transform", target: "x_a", mode: "scale", axis: 0, value: 556757.6, pivot: [12, 14, 15] },
+    ],
+  };
+  const t = performance.now();
+  const r = kernel.evaluate(graph as never);
+  assert.ok(performance.now() - t < 5000, "answered at once");
+  assert.match(r.ops.find((o) => o.id === "x_b")!.error ?? "", /more than 100 metres/);
+  graph.ops[2]!.value = 3; // a sensible scale still works
+  const ok = kernel.evaluate(graph as never);
+  assert.equal(ok.ops.find((o) => o.id === "x_b")!.error, null);
+});

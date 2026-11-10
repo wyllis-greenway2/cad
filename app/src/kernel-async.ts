@@ -13,43 +13,78 @@ export interface AsyncKernel extends Kernel {
 }
 
 /** The part of a worker this needs (so a test can stand in for it). */
-export interface WorkerLike { postMessage(m: unknown): void; addEventListener(type: "message" | "error", f: (e: any) => void): void } // eslint-disable-line @typescript-eslint/no-explicit-any
+export interface WorkerLike { postMessage(m: unknown): void; addEventListener(type: "message" | "error", f: (e: any) => void): void; /** stop it at once (a real worker can; a stand-in need not) */ terminate?(): void } // eslint-disable-line @typescript-eslint/no-explicit-any
 const spawn = (): WorkerLike => new Worker(new URL("./kernel-worker.ts", import.meta.url), { type: "module" });
 
-export function createAsyncKernel(onChange: () => void, worker: WorkerLike = spawn()): AsyncKernel {
+/** What the kernel says when a job cannot be answered: an error on the last operation of the graph, so the step that asked for it is the one that is reported (and is taken back). */
+const failedResult = (graph: KernelGraph, error: string, ms = 0): KernelResult => ({ ...EMPTY, ops: graph.ops.map((o, i) => ({ id: o.id, type: o.type, error: i === graph.ops.length - 1 ? error : null, ms: i === graph.ops.length - 1 ? ms : 0 })) });
+
+/**
+ * `limitMs`: how long a job may take (`in_255`: a body scaled to half a million times its size did not come back from the kernel, and with the worker stuck on it nothing after it was ever answered). A job that
+ * takes longer is given up: the worker is stopped and a new one started, and the job is answered as an error, so the step that asked for it is refused and the page works again.
+ */
+export function createAsyncKernel(onChange: () => void, first: WorkerLike = spawn(), opts: { limitMs?: number; respawn?: () => WorkerLike } = {}): AsyncKernel {
+  const limit = opts.limitMs ?? 60000;
+  const respawn = opts.respawn ?? spawn;
+  let worker = first;
+  let up = false; // (the current worker has said it is ready)
+  let timer: ReturnType<typeof setTimeout> | null = null;
   const cache = new Map<string, KernelResult>();
   let last: KernelResult = EMPTY;
-  let busy: { id: number; key: string } | null = null;
+  let busy: { id: number; key: string; graph: KernelGraph } | null = null;
   let queued: { key: string; graph: KernelGraph; draft: boolean } | null = null;
   let counter = 0;
   const pump = () => {
-    if (busy || !queued) return;
+    if (busy || !queued || !up) return;
     const { key, graph, draft } = queued;
     queued = null;
-    busy = { id: ++counter, key };
-    worker.postMessage({ id: busy.id, graph, draft });
+    const job = { id: ++counter, key, graph };
+    busy = job;
+    worker.postMessage({ id: job.id, graph, draft });
+    timer = setTimeout(() => stuck(job.id), limit);
+    (timer as { unref?: () => void }).unref?.(); // (a timer must not keep a process alive that has nothing else to do)
   };
-  const ready = new Promise<void>((resolve, reject) => {
-    worker.addEventListener("message", (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; result?: KernelResult }>) => {
-      const m = e.data;
-      if (m.ready) return void resolve();
-      if (m.id === undefined) return void reject(new Error(m.failed ?? "the kernel could not start"));
-      const job = busy;
-      busy = null;
-      if (m.failed) {
-        console.error("the kernel's thread failed on a job:", m.failed);
-        if (job && job.id === m.id) { cache.set(job.key, { ...EMPTY, ops: [{ id: "kernel", type: "kernel", error: m.failed, ms: 0 }] }); onChange(); } // (an answer, so what waits for it is not held up for ever)
-      }
-      if (job && job.id === m.id && m.result) {
-        cache.set(job.key, m.result);
-        if (cache.size > KEEP) cache.delete(cache.keys().next().value as string);
-        last = m.result;
-        onChange();
-      }
-      pump();
-    });
-    worker.addEventListener("error", (e: ErrorEvent) => reject(new Error(e.message || "the kernel's thread failed")));
-  });
+  const stuck = (id: number) => {
+    if (!busy || busy.id !== id) return;
+    const job = busy;
+    busy = null;
+    up = false;
+    try { worker.terminate?.(); } catch { /* (already gone) */ }
+    console.error(`the kernel's thread was stopped after ${Math.round(limit / 1000)} seconds on a job`);
+    cache.set(job.key, failedResult(job.graph, `the kernel was still working on that after ${Math.round(limit / 1000)} seconds and was stopped: it cannot be made (try something smaller)`, limit));
+    worker = respawn();
+    attach(worker);
+    onChange();
+  };
+  let resolveReady: () => void = () => {};
+  let rejectReady: (e: Error) => void = () => {};
+  const ready = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
+  const onMessage = (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; result?: KernelResult }>) => {
+    const m = e.data;
+    if (m.ready) { up = true; resolveReady(); pump(); return; }
+    if (m.id === undefined) return void rejectReady(new Error(m.failed ?? "the kernel could not start"));
+    const job = busy;
+    if (!job || job.id !== m.id) return; // (the answer to a job that was given up)
+    busy = null;
+    if (timer) clearTimeout(timer);
+    if (m.failed) {
+      console.error("the kernel's thread failed on a job:", m.failed);
+      cache.set(job.key, failedResult(job.graph, m.failed)); // (an answer, so what waits for it is not held up for ever, and the step that asked is reported)
+      onChange();
+    }
+    if (m.result) {
+      cache.set(job.key, m.result);
+      if (cache.size > KEEP) cache.delete(cache.keys().next().value as string);
+      last = m.result;
+      onChange();
+    }
+    pump();
+  };
+  const attach = (w: WorkerLike) => {
+    w.addEventListener("message", onMessage);
+    w.addEventListener("error", (e: ErrorEvent) => rejectReady(new Error(e.message || "the kernel's thread failed")));
+  };
+  attach(worker);
   const self: AsyncKernel = {
     name: "occt (worker)",
     lagging: true,

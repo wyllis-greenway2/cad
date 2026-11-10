@@ -58,3 +58,33 @@ test("a draft (a rough mesh while a size is dragged) is asked for apart from the
   assert.equal(f.sent.length, 2);
   assert.equal((f.sent[1] as unknown as { draft: boolean }).draft, false);
 });
+
+test("a job the kernel does not come back from is given up after the limit: the thread is stopped and a new one started, the job is answered as an error on its last operation, and what is asked next is worked on (`in_255`)", async () => {
+  const first = fake();
+  const second = fake();
+  let stopped = 0, changed = 0;
+  first.w.terminate = () => { stopped++; };
+  const k = createAsyncKernel(() => changed++, first.w, { limitMs: 30, respawn: () => second.w });
+  first.say({ ready: true });
+  await k.init();
+  const g1: KernelGraph = { params: {}, ops: [{ id: "a", type: "sketch" }, { id: "b", type: "transform" }] };
+  assert.equal(k.evaluate(g1).stale, true);
+  assert.equal(first.sent.length, 1, "the job is with the first thread");
+  k.evaluate(graph(2)); // asked meanwhile: waits behind it
+  await new Promise((r) => setTimeout(r, 90)); // the thread never answers
+  assert.equal(stopped, 1, "the thread was stopped");
+  assert.ok(changed >= 1, "the page is told");
+  const answer = k.evaluate(g1);
+  assert.equal(answer.stale, undefined, "the job has an answer now");
+  assert.equal(answer.ops[0]!.error, null);
+  assert.match(answer.ops[1]!.error ?? "", /was stopped: it cannot be made/);
+  // the new thread is not asked anything until it says it is ready, then it gets what was waiting
+  assert.equal(second.sent.length, 0);
+  second.say({ ready: true });
+  assert.equal(second.sent.length, 1, "what was asked next is now with the new thread");
+  second.answer(0, 7);
+  assert.equal(k.evaluate(graph(2)).volume, 7);
+  // an answer from the old thread that comes late is ignored
+  first.answer(0, 99);
+  assert.equal(k.evaluate(graph(2)).volume, 7);
+});
