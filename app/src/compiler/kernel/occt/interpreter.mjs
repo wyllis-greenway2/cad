@@ -606,15 +606,15 @@ const OPS = {
     const t = ctx.get(op.target, "solid").shape;
     const v = resolve(op.value, ctx.params);
     if (!Number.isFinite(v)) throw new Error("bad number");
-    const b = bounds(t);
-    const c = [0, 1, 2].map((i) => (b.min[i] + b.max[i]) / 2);
+    // the middle of the body's box is only asked for when there is no pivot to turn or scale about: finding a box takes as long as the move itself (`in_251`: it was most of the time of a history of moves)
+    const middle = () => { const b = bounds(t); return [0, 1, 2].map((i) => (b.min[i] + b.max[i]) / 2); };
     const axis = [0, 0, 0];
     axis[op.axis] = 1;
     if (op.mode === "move") return { kind: "solid", shape: t.translate(axis.map((a) => a * v)) };
-    if (op.mode === "rotate") return { kind: "solid", shape: t.rotate(v, op.pivot ?? c, axis) };
+    if (op.mode === "rotate") return { kind: "solid", shape: t.rotate(v, op.pivot ?? middle(), axis) };
     if (op.mode === "scale") {
       if (!(v > 1e-6)) throw new Error("scale must be positive");
-      return { kind: "solid", shape: t.scale(v, op.pivot ?? c) };
+      return { kind: "solid", shape: t.scale(v, op.pivot ?? middle()) };
     }
     throw new Error(`unknown transform ${op.mode}`);
   },
