@@ -1334,3 +1334,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > build the smooth single-body drag preview
 (asks for the graphics-card drag of one body of several that `in_271` left to the kernel)
 
+## in_274 — 2026-11-10 — directive
+> look at the turn and scale drags in the browser
+(asks for a browser look at the turn and scale drags of one body of several, the cases `in_273` left unchecked)
+
