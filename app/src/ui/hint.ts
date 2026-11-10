@@ -7,6 +7,8 @@ export function createHints(host: HTMLElement) {
   host.appendChild(el);
   let shown = "";
   return {
+    /** The box it fills while shown (what the constraint bubbles give way to, `in_261`). */
+    rect(): DOMRect | null { return el.style.display === "none" ? null : el.getBoundingClientRect(); },
     /** `kinds`: the constraints (none: hide); `at`: the page position of the end of the line. */
     update(kinds: string[], at: [number, number] | null) {
       if (!kinds.length || !at) { el.style.display = "none"; shown = ""; return; }

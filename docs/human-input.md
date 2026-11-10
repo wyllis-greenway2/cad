@@ -1282,3 +1282,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > Yes, take your recommendations on all three
 (approves `dec_bubble_layout` as drafted: move first and fade only when there is no room, the ring in front of everything, a line back to the spot for a bubble that moved far)
 
+## in_261 — 2026-11-10 — directive
+> feed the helper bubbles and hints in too
+(asks for the two things `dec_bubble_layout` lists as not yet in front: the helper bubbles and the hint chips)
+

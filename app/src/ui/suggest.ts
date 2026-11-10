@@ -7,6 +7,8 @@ export function createSuggest(host: HTMLElement, run: (id: string) => void) {
   host.appendChild(row);
   let sig = "";
   return {
+    /** The box it fills while shown (what the constraint bubbles give way to, `in_261`). */
+    rect(): DOMRect | null { return row.style.display === "none" ? null : row.getBoundingClientRect(); },
     /** The constraints on offer and where (a screen point) to put the row, or null to hide it. */
     update(items: { id: string; label: string }[] | null, at: [number, number] | null) {
       if (!items || !items.length || !at) { row.style.display = "none"; sig = ""; return; }

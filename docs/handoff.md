@@ -1749,3 +1749,6 @@ All four checks clean (427 tests). **Groups** (section 3 of `dec_selection_tools
 ## Handoff 245 — 2026-11-10 (in_260: bubbles give way to what is in front)
 `dec_bubble_layout` accepted and built as drafted: the ring and the number bubbles are in front; constraint bubbles slide out from under them, fade to 0.3 (no clicks) when there is no room, and get a thin line back to their spot when moved far. Not built: the helper bubbles and hint chips as things in front; not looked at in a browser (placement and fade tested as a function).
 
+## Handoff 246 — 2026-11-10 (in_261: helper bubbles and hints in front too)
+The helper bubble, the suggestion row and the hint icons each give their box (`rect()`) and `main.ts` passes them with the ring and the number bubbles, so constraint bubbles give way to them. Typecheck and unused clean; not looked at in a browser, no new test (the placement is the tested function; this is wiring).
+

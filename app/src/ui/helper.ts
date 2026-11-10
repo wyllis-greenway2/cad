@@ -5,6 +5,8 @@ export function createHelper(host: HTMLElement) {
   host.appendChild(el);
   let shown = "";
   return {
+    /** The box it fills while shown (what the constraint bubbles give way to, `in_261`). */
+    rect(): DOMRect | null { return el.style.display === "none" ? null : el.getBoundingClientRect(); },
     /** `text` and the page position of the arrow's tip (null: hide). */
     update(text: string | null, at: [number, number] | null) {
       if (!text || !at) { el.style.display = "none"; return; }
