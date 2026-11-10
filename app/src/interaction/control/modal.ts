@@ -147,7 +147,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     const chosen = s.repeat.op.kind === "circular" ? null : field >= 0 && field < 6 ? `${field % 2 === 0 ? "cnt" : "lin"}:${"xyz"[field >> 1]}` : s.repeat.chosen ?? null; // (the arrow whose number it is)
     return { ...s, repeat: advanceHelp({ ...s.repeat, chosen, op: { ...s.repeat.op, pat } }) };
   }
-  const auto = s.op ? null : activeOp(s);
+  const auto = s.op || s.tool ? null : activeOp(s); // (a tool that is on keeps its own fields: an arrow that shows for the selection does not take what is typed, `in_251`)
   if (auto && (auto.kind === "pushpull" || auto.kind === "extrude" || auto.kind === "edge")) return { ...s, op: { ...auto, auto: false, typed: text } }; // typing in the bubble of an arrow that showed up by itself
   if (s.op) return { ...s, op: { ...s.op, typed: text } };
   const t = s.tool;

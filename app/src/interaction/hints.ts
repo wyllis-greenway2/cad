@@ -59,7 +59,7 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
   if (len < 1e-6) return none;
   const get = (r: Ref) => scene.parts[r];
   const tol = (settings.sketch.hintDeg * Math.PI) / 180;
-  const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && p.origin === "drawn" && !p.center);
+  const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && p.origin === "drawn" && !p.center && !p.derived); // (a piece a crossing cut from a line is not the line: constraints name the line, and the piece goes when the crossing does, `in_251`)
   const seg = (ref: Ref): [V2, V2] | null => { const q = segmentOf(get, ref); return q && onPlane(q[0]) && onPlane(q[1]) ? [localOf(pl, q[0]), localOf(pl, q[1])] : null; };
   const touchesStart = (ref: Ref) => { const q = segmentOf(get, ref); return !!q && (dist(q[0], start) < 1e-6 || dist(q[1], start) < 1e-6); };
 

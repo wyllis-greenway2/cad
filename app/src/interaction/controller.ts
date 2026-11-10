@@ -12,6 +12,7 @@ import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeat
 import { hoverOn, scene as sceneOf } from "./session.ts";
 import { projector } from "./camera.ts";
 import { offsetNear } from "./offset.ts";
+import { armTool } from "./tools.ts";
 import { normalOfPlane } from "../operation/part.ts";
 import { add, sub, scale, dot } from "../math/vec.ts";
 
@@ -36,6 +37,12 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (next.handleSel && (!next.op && !next.repeat && next.session.click.selection.join("|") !== s.session.click.selection.join("|") || (s.op && !next.op && !next.repeat) || (s.repeat && !next.repeat))) next = { ...next, handleSel: null };
   // an offset starts with its arrow on the outline where you were pointing when you chose it (or at the middle of the view), not wherever the figure's own first side is: zoomed in, that could be out of sight (`in_244`)
   if (next.op?.kind === "offset" && !s.op && next.op.off) next = { ...next, op: anchoredOffset(next, s.menu, env) };
+  // what is open can only be about what is there (`in_251`): a part deleted or undone out from under an operation or a repeat ends it, and a tool whose plane is gone waits for its first click again
+  const there = (r: Ref) => r in sceneOf(next.session).parts;
+  const drawn = (r: Ref) => r.startsWith("d/") && !r.includes("@"); // (a part you drew has a name that stays; a piece cut by crossings or a body's face is named by where it is, and may be named differently after a step)
+  if (next.op && next.op.parts.some((r) => drawn(r) && !there(r))) next = { ...next, op: null, drag: null, gizmoHover: null, handleSel: null };
+  if (next.repeat && [...next.repeat.op.parts, ...Object.values(next.repeat.pivot ?? {})].some((r) => typeof r === "string" && drawn(r as Ref) && !there(r as Ref))) next = { ...next, repeat: null, drag: null, gizmoHover: null, handleSel: null };
+  if (next.tool?.plane && !there(next.tool.plane)) next = { ...next, tool: armTool(next.tool.kind) };
   // the operation that is open remembers where the history stood, so Esc can cancel what it made (`in_244`)
   if (next.op && !s.op) next = { ...next, opBase: s.session.history.cursor };
   else if (!next.op && next.opBase !== null) next = { ...next, opBase: null };

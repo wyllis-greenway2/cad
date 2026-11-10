@@ -1230,3 +1230,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_250 — 2026-11-09 — directive
 > since we are already in the weeds on the speed work, why don't we just continue with that first holistically? Then lets do a correctness hunt.
 (answers the AI's list of suggestions: finish the speed work first, then the correctness hunt)
+
+## in_251 — 2026-11-09 — approval
+> yes, start the correctness hunt
+(approves the AI's offer to start the correctness hunt: a randomized test of operations with undo and redo mixed in)

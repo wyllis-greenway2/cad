@@ -119,7 +119,12 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
       out.push({
         id: "delete", label: "Delete", group: "operation", dimensional: false, unit: null, parts: drawn,
         enabled: true, why: null, measure: () => null, spot: () => null,
-        run: (): Command => ({ type: "deleteParts", refs: targets }),
+        // a move, turn or scale step that was made on what is deleted goes with it (it has nothing left to work on, and would stay in the history naming parts that are gone); an extrusion is not taken out: it is reported broken, as before (`in_251`)
+        run: (): Command => {
+          const gone = new Set<Ref>(targets);
+          const orphans = scene.steps.filter((st) => st.type !== "extrude" && st.parts.some((q) => gone.has(q)));
+          return orphans.length ? { type: "batch", commands: [...[...orphans].reverse().map((st): Command => ({ type: "removeStep", id: st.id })), { type: "deleteParts", refs: targets }] } : { type: "deleteParts", refs: targets };
+        },
       });
     }
   }
