@@ -236,10 +236,17 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
     gm.setIndex(new THREE.BufferAttribute(Uint32Array.from(mine), 1));
     mover.add(new THREE.Mesh(gm, material));
     if (edgeLines && edgePos) {
-      const inBox = (i: number) => [0, 1, 2].every((k) => edgeOrig[3 * i + k]! >= box.min[k]! - 1e-3 && edgeOrig[3 * i + k]! <= box.max[k]! + 1e-3);
+      // an outline segment is the dragged body's when both its ends are corners of the dragged body's triangles and not both are corners of the others' (two bodies that overlap draw their own outlines, `in_275`)
+      const keysOf = (index: number[]): Set<string> => { const k = new Set<string>(); for (const i of index) k.add(at(orig, 3 * i)); return k; };
+      const mineKeys = keysOf(mine);
+      const restKeys = keysOf(rest);
       const stay: number[] = [];
       const go: number[] = [];
-      for (let i = 0; i + 1 < edgeOrig.length / 3; i += 2) (inBox(i) && inBox(i + 1) ? go : stay).push(...edgeOrig.subarray(3 * i, 3 * i + 6));
+      for (let i = 0; i + 1 < edgeOrig.length / 3; i += 2) {
+        const [ka, kb] = [at(edgeOrig, 3 * i), at(edgeOrig, 3 * (i + 1))];
+        const own = mineKeys.has(ka) && mineKeys.has(kb) && !(restKeys.has(ka) && restKeys.has(kb));
+        (own ? go : stay).push(...edgeOrig.subarray(3 * i, 3 * i + 6));
+      }
       edgeLines.geometry.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(stay), 3));
       const eg2 = new THREE.BufferGeometry();
       eg2.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(go), 3));

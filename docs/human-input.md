@@ -1338,3 +1338,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > look at the turn and scale drags in the browser
 (asks for a browser look at the turn and scale drags of one body of several, the cases `in_273` left unchecked)
 
+## in_275 — 2026-11-10 — directive
+> look at overlapping bodies being dragged in the browser
+(asks for a browser look at the case `in_274` left unchecked: bodies that overlap while one is dragged)
+
