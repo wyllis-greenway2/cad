@@ -448,7 +448,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
     const steps = stepsBetween(bodyTurn(scene), rotTarget(scene, { ...op, value: null, typed: "" }));
     if (!steps.length) return null;
     const follow: Record<string, number> = op.pivot ? { follow: 1 } : {};
-    return { type: "batch", commands: [...steps.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: op.parts, params: { axis: t.axis, value: t.angle, ...pivot, ...follow } } })), ...(op.pivot ? carrySketches(scene, steps.map((t) => ({ axis: t.axis, angle: t.angle })), [0, 0, 0], op.pivot) : [])] };
+    return { type: "batch", commands: [...steps.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: op.parts, params: { axis: t.axis, value: t.angle, ...pivot, ...follow } } })), ...(op.pivot ? carrySketches(scene, steps.map((t) => ({ axis: t.axis, angle: t.angle })), [0, 0, 0], op.pivot, 1, op.carryOnly) : [])] };
   }
   const v = valueOf(op);
   if (v === null) return null;

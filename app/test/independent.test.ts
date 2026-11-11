@@ -12,7 +12,7 @@ import { createState, reduce } from "../src/interaction/controller.ts";
 import type { AppState } from "../src/interaction/controller.ts";
 import { homeCamera } from "../src/interaction/camera.ts";
 import { startOp, opCommand } from "../src/interaction/operations.ts";
-import { objectOf } from "../src/interaction/objects.ts";
+import { objectOf, bodyCentre } from "../src/interaction/objects.ts";
 import { frameOf } from "../src/interaction/frame.ts";
 import type { Part } from "../src/operation/part.ts";
 
@@ -235,4 +235,61 @@ test("a sketch drawn on a face of a body goes with that body when it is moved al
   const bb = bodies(grown).find((x) => x.id === b!.id)!;
   assert.ok(Math.abs(bb.bbox!.min[1] - 20) < 1e-6 && bb.bbox!.max[2] >= 14 - 1e-6, `b is at its moved place and taller: ${bb.bbox!.min} ${bb.bbox!.max}`);
   assert.ok(Math.abs(bodies(grown).find((x) => x.id === a!.id)!.bbox!.min[1]) < 1e-6, "a is where it was");
+});
+
+test("a sketch on a face of a single body goes with it when it is moved whole (the old path), and with one of two bodies when it is turned or scaled alone (`in_278`)", () => {
+  const sketchOnTop = (s: Session, body: ReturnType<typeof bodies>[number], x: number): { s: Session; corner: Ref } => {
+    const face = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && (!p.of || p.of === body.ref) && p.mesh && Math.abs(p.at[2] - 10) < 1e-6 && Math.abs(p.mesh[2]! - 10) < 1e-6)!;
+    const pl = planeForDrawing(scene(s), face.ref);
+    if (pl.command) s = run(s, pl.command);
+    const r = drawSquaredRectangle(scene(s), pl.plane, [x, 2, 10], [x + 3, 5, 10], [1, 0, 0], [0, 1, 0]);
+    return { s: run(s, r.command), corner: (r.corners as Ref[])[0]! };
+  };
+  const at = (s: Session, ref: Ref) => { const p = scene(s).parts[ref]; return p?.kind === "corner" ? p.at : [NaN, NaN, NaN]; };
+  // one body, moved whole
+  let one = box(createSession(kernel), 0, 0);
+  const o1 = sketchOnTop(one, bodies(one)[0]!, 2);
+  one = o1.s;
+  const mv = startOp(scene(one), [bodies(one)[0]!.ref], "move");
+  if (!mv.ok) return assert.fail("no move");
+  const movedOne = run(one, opCommand(scene(one), { ...mv.op, axis: 1, value: 12 })!);
+  assert.equal(movedOne.message, null);
+  assert.ok(Math.abs(at(movedOne, o1.corner)[1]! - at(one, o1.corner)[1]! - 12) < 1e-6, "the sketch went with the single body");
+  // two bodies: turn one, then scale the other, each with a sketch on its top face
+  let two = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(two);
+  const sa = sketchOnTop(two, a!, 2); two = sa.s;
+  const sb = sketchOnTop(two, bodies(two)[1]!, 42); two = sb.s;
+  const turn = startOp(scene(two), [b!.ref], "rotate");
+  if (!turn.ok) return assert.fail("no rotate");
+  const turned = run(two, opCommand(scene(two), { ...turn.op, axis: 2, value: 90 })!);
+  assert.equal(turned.message, null);
+  const centre = turn.op.pivot!;
+  const q = at(two, sb.corner), q2 = at(turned, sb.corner);
+  // a quarter turn about the body's middle (z axis): (x, y) -> (cx - (y - cy), cy + (x - cx))
+  assert.ok(Math.abs(q2[0]! - (centre[0] - (q[1]! - centre[1]))) < 1e-4 && Math.abs(q2[1]! - (centre[1] + (q[0]! - centre[0]))) < 1e-4, `b's sketch turned with b: ${q} to ${q2} about ${centre}`);
+  assert.deepEqual(at(turned, sa.corner), at(two, sa.corner), "a's sketch stayed");
+  const grow = startOp(scene(two), [a!.ref], "scale");
+  if (!grow.ok) return assert.fail("no scale");
+  const grown = run(two, opCommand(scene(two), { ...grow.op, value: 2 })!);
+  assert.equal(grown.message, null);
+  const pc = bodyCentre(scene(two), a!.ref)!; // (a scale is about the middle of the body)
+  const p0 = at(two, sa.corner), p1 = at(grown, sa.corner);
+  assert.ok(Math.abs(p1[0]! - (pc[0] + 2 * (p0[0]! - pc[0]))) < 1e-4 && Math.abs(p1[1]! - (pc[1] + 2 * (p0[1]! - pc[1]))) < 1e-4, `a's sketch grew with a: ${p0} to ${p1}`);
+  assert.deepEqual(at(grown, sb.corner), at(two, sb.corner), "b's sketch stayed");
+});
+
+test("angles typed for a turn of one body of several (the typed way) leave the other body and its sketches where they are (`in_278`: the other body was turned with it)", () => {
+  let s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const turn = startOp(scene(s), [b!.ref], "rotate");
+  if (!turn.ok) return assert.fail("no rotate");
+  s = run(s, opCommand(scene(s), { ...turn.op, value: null, typed: "", rot: ["", "", "90"] })!);
+  assert.equal(s.message, null);
+  const after = bodies(s);
+  const A = after.find((x) => x.id === a!.id)!, B = after.find((x) => x.id === b!.id)!;
+  assert.deepEqual(A.bbox, a!.bbox, "a did not move");
+  assert.ok(Math.abs(B.bbox!.min[0] - b!.bbox!.min[0]) < 1e-6 && Math.abs(B.bbox!.max[1] - b!.bbox!.max[1]) < 1e-6, "b turned about its own middle (a square: the same box)");
+  const sketchA = Object.values(scene(s).parts).find((p) => p.kind === "corner" && p.origin === "drawn" && p.at[0] < 5)!;
+  assert.ok(sketchA.kind === "corner" && Math.abs(sketchA.at[0]) < 1e-6 && Math.abs(sketchA.at[1]) < 1e-6, "a's sketch stayed");
 });

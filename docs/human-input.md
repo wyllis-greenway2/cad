@@ -1350,3 +1350,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > look at sketches drawn on a body's face following a moved body
 (asks for a browser look at sketches drawn on a face of a body when that body is moved alone, the case `dec_independent_bodies` lists as not built)
 
+## in_278 — 2026-11-11 — question
+> do you think we should try to try moving a single body whole, which takes the old path? And try to turn or scale of a body with a sketch on its face?
+(a question whether the two cases left unlooked-at in Handoff 262 are worth checking)
+
