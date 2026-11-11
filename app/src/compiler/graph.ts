@@ -36,9 +36,10 @@ export function buildGraph(scene: Scene): GraphResult {
   const profile = (st: Step, refs: readonly Ref[] = st.parts, sid = `s_${st.id}`): KernelOp | string => {
     const first = get(refs[0]!);
     if (!first) return "a part of this step is gone";
-    const back = inverse(laterMotion(scene.steps, scene.steps.indexOf(st))); // (the sketch is carried with the body; the extrude reads it back through the moves and turns that came after it, `in_204`)
     const plane = first.plane ? get(first.plane) : undefined;
     if (!plane || plane.kind !== "plane") return "the shape is not on a plane";
+    // (the sketch is carried with the body; the extrude reads it back through the moves and turns that came after it, `in_204`; a move of one body of several counts for a sketch drawn on a face of that body, `in_277`)
+    const back = inverse(laterMotion(scene.steps, scene.steps.indexOf(st), (body) => plane.body === body));
     const id = sid;
     if (first.kind === "circle") {
       const c = pointOf(get, first.center);

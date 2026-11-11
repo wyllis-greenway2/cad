@@ -1346,3 +1346,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > look at turn and scale drags of overlapping bodies in the browser
 (asks for the browser look `in_275` left undone: turn and scale drags of bodies that overlap)
 
+## in_277 — 2026-11-11 — directive
+> look at sketches drawn on a body's face following a moved body
+(asks for a browser look at sketches drawn on a face of a body when that body is moved alone, the case `dec_independent_bodies` lists as not built)
+

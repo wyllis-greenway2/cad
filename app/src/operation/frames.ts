@@ -37,12 +37,12 @@ export function motionOf(st: Step): Rigid | null {
 }
 
 /** What the later steps of the whole body do to something made at step `index`: all their motions, one after another. */
-export function laterMotion(steps: readonly Step[], index: number): Rigid {
+export function laterMotion(steps: readonly Step[], index: number, belongs: (body: string) => boolean = () => false): Rigid {
   let m = NONE;
   for (let i = index + 1; i < steps.length; i++) {
     const st = steps[i]!;
     // a move of one body of several carries only the sketches of the step that made that body (`in_271`)
-    if (st.params.body && st.params.body !== `x_${steps[index]?.id}`) continue;
+    if (st.params.body && st.params.body !== `x_${steps[index]?.id}` && !belongs(String(st.params.body))) continue;
     const s = stepMotion(st);
     if (s) m = compose(m, s);
   }

@@ -245,8 +245,9 @@ export function finish(scene: Scene, t: Tool): Finished | null {
 export function planeForDrawing(scene: Scene, planeRef: Ref): { plane: Ref; command: Command | null } {
   const pl = scene.parts[planeRef];
   if (!pl || pl.kind !== "plane" || pl.origin !== "body") return { plane: planeRef, command: null };
-  const same = Object.values(scene.parts).find((p) => p.kind === "plane" && p.origin === "drawn" && dist(p.at, pl.at) < 1e-6 && dist(p.u, pl.u) < 1e-6 && dist(p.v, pl.v) < 1e-6);
+  const owner = pl.of && (scene.parts[pl.of] as { id?: string } | undefined)?.id; // (with several bodies, the body this face is of: bodies' faces can lie in one plane, and each body's sketches belong to it, `in_277`)
+  const same = Object.values(scene.parts).find((p) => p.kind === "plane" && p.origin === "drawn" && dist(p.at, pl.at) < 1e-6 && dist(p.u, pl.u) < 1e-6 && dist(p.v, pl.v) < 1e-6 && p.body === (owner || undefined));
   if (same) return { plane: same.ref, command: null };
   const ref = drawnRef(nextId(scene, "p"));
-  return { plane: ref, command: { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: pl.at, u: pl.u, v: pl.v, onBody: true } } };
+  return { plane: ref, command: { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: pl.at, u: pl.u, v: pl.v, onBody: true, ...(owner && scene.parts[pl.of!]?.kind === "body" ? { body: owner } : {}) } } };
 }

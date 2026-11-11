@@ -429,8 +429,8 @@ function forBody(cmd: Command | null, id: string, carries: boolean): Command | n
 export function opCommand(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Command | null {
   const which = op.target === "body" && (op.kind === "move" || op.kind === "rotate" || op.kind === "scale") ? scene.parts[op.parts[0]!] : undefined;
   if (which?.kind !== "body" || which.ref === BODY_OBJECT || !which.id) return opCommandOf(scene, op, opts);
-  const birth = scene.steps.some((st) => `x_${st.id}` === which.id); // (the sketches that made a body go with it; a body that no extrusion made has none)
-  return forBody(opCommandOf(scene, { ...op, carryOnly: birth ? which.id : "-" }, opts), which.id, birth);
+  // the sketches that made a body go with it, and what is drawn on its faces; the other bodies' stay
+  return forBody(opCommandOf(scene, { ...op, carryOnly: which.id }, opts), which.id, true);
 }
 function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Command | null {
   // a preview (what is shown while a number is dragged) is only the step: the sketches are carried when it is made for good. Carrying them changes what the earlier steps read, so every step would be made again at every move of the pointer (`in_206`)
@@ -764,14 +764,14 @@ function stripFollow(c: Command | null): Command | null {
  * a constraint of the whole body to that thing, and the solver holds the body's sketch (`compiler/solve.ts`), so a move that would break it is refused and the constraint flashes (`in_205`).
  */
 function carrySketches(scene: Scene, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3, pivot: Vec3, bigger = 1, only?: string): Command[] {
-  if (only === "-") return []; // (a body of several that no sketch made: nothing to carry)
   // one body of several: the sketches of the step that made it (its sides and circles, and their corners), not the others' (`in_271`)
   const birth = only ? scene.steps.find((st) => `x_${st.id}` === only) : undefined;
   const own = new Set<Ref>();
   if (birth) for (const r of figureRefs(birth)) { own.add(r); const l = scene.parts[r]; if (l?.kind === "line") { own.add(l.a); own.add(l.b); if (l.center) own.add(l.center); } else if (l?.kind === "circle") own.add(l.center); }
-  const used = birth ? own : consumed(scene);
+  const used = only ? own : consumed(scene);
   // what is drawn on a face of the body belongs to the body too and goes with it (`in_234`); what merely lies where a face is does not (it has no link)
-  const onFace = birth ? [] : Object.values(scene.parts).filter((p) => p.origin === "drawn" && !!p.plane && (scene.parts[p.plane] as { onBody?: boolean } | undefined)?.onBody === true).map((p) => p.ref);
+  // what is drawn on a face of the body goes with it; with one body of several, only what is drawn on a face of that body (`in_277`)
+  const onFace = Object.values(scene.parts).filter((p) => { const pl = p.origin === "drawn" && p.plane ? (scene.parts[p.plane] as { onBody?: boolean; body?: string } | undefined) : undefined; return pl?.onBody === true && (!only || pl.body === only); }).map((p) => p.ref);
   const parts = [...new Set([...used, ...onFace])].filter((r) => { const p = scene.parts[r]; return p && p.origin === "drawn" && p.movable && (p.kind === "corner" || p.kind === "line" || p.kind === "circle") && !("derived" in p && p.derived) && !!p.plane; });
   if (!parts.length) return [];
   const byPlane = new Map<Ref, Ref[]>();

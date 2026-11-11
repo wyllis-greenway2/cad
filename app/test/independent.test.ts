@@ -3,6 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { worldRef } from "../src/shared/ref.ts";
+import type { Ref } from "../src/shared/ref.ts";
 import { createSession, run, scene } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { drawSquaredRectangle } from "../src/operation/build.ts";
@@ -199,4 +200,39 @@ test("with two overlapping bodies, the outline of the dragged one moves and the 
   assert.ok(go.length >= 6 * 8, "the dragged body's own outline moves");
   assert.ok(inside(go, (x) => x >= 5 - 1e-3 && x <= 15 + 1e-3));
   void a2;
+});
+
+import { planeForDrawing } from "../src/interaction/tools.ts";
+test("a sketch drawn on a face of a body goes with that body when it is moved alone, and a sketch on the other body's face stays; the body that was extruded from it is where it was drawn (`in_277`)", () => {
+  let s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const topOf = (body: typeof a) => Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.of === body!.ref && p.mesh && p.mesh.every((_, i) => i % 3 !== 2 || Math.abs(p.mesh![i]! - 10) < 1e-6) && Math.abs(p.at[2] - 10) < 1e-6)!;
+  const sketchOn = (body: typeof a, x: number): Ref[] => {
+    const face = topOf(body);
+    const pl = planeForDrawing(scene(s), face.ref);
+    if (pl.command) s = run(s, pl.command);
+    const r = drawSquaredRectangle(scene(s), pl.plane, [x, 2, 10], [x + 3, 5, 10], [1, 0, 0], [0, 1, 0]);
+    s = run(s, r.command);
+    return r.corners as Ref[];
+  };
+  const onB = sketchOn(b!, 42);
+  const onA = sketchOn(a!, 2);
+  const at = (sc: ReturnType<typeof scene>, ref: Ref) => { const p = sc.parts[ref]; return p?.kind === "corner" ? p.at : null; };
+  const beforeB = at(scene(s), onB[0]!)!, beforeA = at(scene(s), onA[0]!)!;
+  const mv = startOp(scene(s), [bodies(s)[1]!.ref], "move");
+  if (!mv.ok) return assert.fail("no move");
+  const moved = run(s, opCommand(scene(s), { ...mv.op, axis: 1, value: 20 })!);
+  assert.equal(moved.message, null);
+  const afterB = at(scene(moved), onB[0]!)!, afterA = at(scene(moved), onA[0]!)!;
+  assert.ok(Math.abs(afterB[1] - beforeB[1] - 20) < 1e-6, `the sketch on b's face went with b: ${beforeB} to ${afterB}`);
+  assert.deepEqual(afterA, beforeA, "the sketch on a's face stayed");
+  // pulled out of b's face after the move: it is a body part at the moved place
+  const face2 = Object.values(scene(moved).parts).find((p) => p.kind === "face" && p.loop.includes(Object.values(scene(moved).parts).find((q) => q.kind === "line" && q.a === onB[0])?.ref as Ref))!;
+  const ex = startOp(scene(moved), [face2.ref], "extrude");
+  if (!ex.ok) return assert.fail(`no extrude: ${(ex as { why: string }).why}`);
+  const grown = run(moved, opCommand(scene(moved), { ...ex.op, value: 4 })!);
+  assert.equal(grown.message, null);
+  const bb = bodies(grown).find((x) => x.id === b!.id)!;
+  assert.ok(Math.abs(bb.bbox!.min[1] - 20) < 1e-6 && bb.bbox!.max[2] >= 14 - 1e-6, `b is at its moved place and taller: ${bb.bbox!.min} ${bb.bbox!.max}`);
+  assert.ok(Math.abs(bodies(grown).find((x) => x.id === a!.id)!.bbox!.min[1]) < 1e-6, "a is where it was");
 });
