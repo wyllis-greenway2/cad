@@ -167,3 +167,36 @@ test("a drag of one body of several is moved on the graphics card alone: the fra
   assert.equal(f1.bodySplit, null);
   void a;
 });
+
+import { cornerEdges } from "../src/ui/view/edges.ts";
+import { ownSegments } from "../src/ui/view/split.ts";
+import { settings } from "../src/shared/settings.ts";
+test("with two overlapping bodies, the outline of the dragged one moves and the other body's edges stay, even those that lie inside the dragged body's box (`in_275`)", () => {
+  let s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const b = bodies(s)[1]!;
+  const mv = startOp(scene(s), [b.ref], "move");
+  if (!mv.ok) return assert.fail("no move");
+  s = run(s, opCommand(scene(s), { ...mv.op, axis: 0, value: -35 })!); // b overlaps a by 5 mm
+  const k = s.outcome.kernel!;
+  const [a2, b2] = bodies(s);
+  const index = k.bodies!.findIndex((x) => x.id === b2!.id);
+  const mine: number[] = [];
+  const rest: number[] = [];
+  const total = k.mesh!.triangles;
+  const moving = new Uint8Array(total.length / 3);
+  for (const f of k.faces!) if (f.body === index) for (let t = Math.floor(f.start / 3); t < Math.ceil((f.start + f.count) / 3); t++) moving[t] = 1;
+  moving.forEach((m, t) => (m ? mine : rest).push(total[3 * t]!, total[3 * t + 1]!, total[3 * t + 2]!));
+  const edges = Float32Array.from(cornerEdges(k.mesh!.vertices, k.mesh!.normals, total, settings.extrude.edgeAngleDeg));
+  const { go, stay } = ownSegments(edges, k.mesh!.vertices, mine, rest);
+  const inside = (arr: number[], pred: (x: number) => boolean) => { for (let i = 0; i < arr.length; i += 3) if (!pred(arr[i]!)) return false; return true; };
+  // the dragged body is x 5 to 15, the other 0 to 10: the other body's edges at x = 10 (inside the dragged box) stay
+  const stayAt10 = [];
+  for (let i = 0; i + 5 < stay.length; i += 6) if (Math.abs(stay[i]! - 10) < 1e-3 && Math.abs(stay[i + 3]! - 10) < 1e-3) stayAt10.push(i);
+  assert.ok(stayAt10.length >= 4, `the other body's edges at x = 10 stay (${stayAt10.length})`);
+  const goAt10 = [];
+  for (let i = 0; i + 5 < go.length; i += 6) if (Math.abs(go[i]! - 10) < 1e-3 && Math.abs(go[i + 3]! - 10) < 1e-3) goAt10.push(i);
+  assert.equal(goAt10.length, 0, "none of them moves with the dragged body");
+  assert.ok(go.length >= 6 * 8, "the dragged body's own outline moves");
+  assert.ok(inside(go, (x) => x >= 5 - 1e-3 && x <= 15 + 1e-3));
+  void a2;
+});
