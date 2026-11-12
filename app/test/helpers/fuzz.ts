@@ -112,7 +112,8 @@ function check(st: AppState, label: string): void {
   for (const r of sc.relations) {
     if (ids.has(r.id)) fail(`two relations are called ${r.id}`);
     ids.add(r.id);
-    for (const q of r.parts) if (!has(q)) fail(`relation ${r.id} (${r.kind}) is about ${q}, which is not there`);
+    // (a body's corner or edge is named by where it is, `dec_stable_references`: a relation about one that moved is left inert, as a step is)
+    for (const q of r.parts) if (!has(q) && !(q.startsWith("b/") && q.includes("@"))) fail(`relation ${r.id} (${r.kind}) is about ${q}, which is not there`);
   }
   for (const stp of sc.steps) {
     const missing = stp.parts.filter((q) => !has(q) && q.startsWith("d/") && !q.includes("@")); // (a body's edge or face is named by where it is: a step that names one that moved is found another way)
