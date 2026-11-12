@@ -8,6 +8,7 @@ import type { Session } from "../src/interaction/session.ts";
 import { actionsFor } from "../src/interaction/actions.ts";
 import { nextId } from "../src/operation/scene.ts";
 import type { Part } from "../src/operation/part.ts";
+import type { Ref } from "../src/shared/ref.ts";
 
 await kernel.init();
 const open = (name: string): Session => (openSession(kernel, readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8")) as unknown as { value: Session }).value;
@@ -19,7 +20,7 @@ test("the large circle's own surface (the part no other surface shares edges wit
   const s = open("three-circles-in_285.cad.json");
   assert.equal(faces(s).length, 7);
   // the surface of the large circle outside both small ones: bounded by an arc of each of the three circles, the arc of the large circle being the outer one
-  const outer = "d/arc@e_003.k@x@e_001.k@e_003.k@1@x@e_002.k@e_003.k@1"; // (the arc of the large circle that no small circle covers)
+  const outer = "d/arc@e_003.k@x@e_001.k@e_003.k@1@x@e_002.k@e_003.k@1" as Ref; // (the arc of the large circle that no small circle covers)
   const big = faces(s).find((f) => f.loop.includes(outer));
   assert.ok(big, "found it");
   const del = actionsFor(scene(s), [big!.ref]).find((a) => a.id === "delete")!;
@@ -33,7 +34,7 @@ test("the large circle's own surface (the part no other surface shares edges wit
   assert.equal(arcs.length, 1, "it is left as one arc, the part that runs through the small circles");
   // the outer part is gone: every remaining piece of the arc lies inside one of the small circles
   const arc = arcs[0] as Extract<Part, { kind: "line" }>;
-  const at = (r: string) => (sc.parts[r as never] as { at: number[] }).at;
+  const at = (r: string) => (sc.parts[r as never] as unknown as { at: number[] }).at;
   const [c3, a, b] = [at(arc.center!), at(arc.a), at(arc.b)];
   assert.ok(Math.hypot(a[0]! - c3[0]!, a[1]! - c3[1]!) > 30, "it has the large circle's radius about its centre");
   assert.equal(drawnCurves(after).length, 3, "two circles and an arc");
@@ -64,12 +65,12 @@ test("a rectangle cut in two by a line: deleting the left surface takes the thre
   s = run(s, drawChain(scene(s), worldRef("XY"), [[20, -5, 0], [20, 25, 0]], false, { reuse: true }).command);
   const pieces = faces(s).filter((f) => f.pieces);
   assert.equal(pieces.length, 2, "two surfaces");
-  const left = pieces.find((f) => f.corners.every((c) => ((scene(s).parts[c] as { at: number[] }).at[0]!) <= 20.001))!;
+  const left = pieces.find((f) => f.corners.every((c) => ((scene(s).parts[c] as unknown as { at: number[] }).at[0]!) <= 20.001))!;
   const del = actionsFor(scene(s), [left.ref]).find((a) => a.id === "delete")!;
   assert.ok(del.enabled, String(del.why));
   const after = run(s, del.run());
   assert.equal(after.message, null);
   const rest = faces(after);
   assert.equal(rest.length, 1, "one surface is left");
-  assert.ok(rest[0]!.corners.every((c) => ((scene(after).parts[c] as { at: number[] }).at[0]!) >= 19.999), "the right-hand one");
+  assert.ok(rest[0]!.corners.every((c) => ((scene(after).parts[c] as unknown as { at: number[] }).at[0]!) >= 19.999), "the right-hand one");
 });
