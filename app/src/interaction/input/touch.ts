@@ -12,10 +12,10 @@ type Gesture =
   | { mode: "done" }; // two fingers were down: nothing more until all are lifted
 
 const HANDLE_PX = 34; // how near the finger must be to the drag icon of the touch helper
-const TAP_HANDLE_PX = 28; // how near a tap must be to an arrow or ring of an operation to select it (any other tap while the helper is up cancels)
+const TAP_HANDLE_PX = 28; // how near a tap must be to an arrow or ring of an operation to select it (any other tap while the helper is up is a right click: it applies, or puts the tool away)
 
 /** What a finger is offered (`in_283`, `in_284`), told by the screen each frame, in the view's own numbers. `cursor`: a figure is being drawn: the icon drags a cursor that stands in for hover. `handle`: an arrow or ring of an operation has been tapped: the icon drags it as a mouse would (`anchor` is a point on it). */
-export interface TouchHelper { kind: "cursor" | "handle"; /** the cursor, or a point on the handle: where the drag acts */ anchor: [number, number]; /** the drag icon */ icon: [number, number]; /** every handle of the operation, as screen polylines: a tap near one selects it */ handles: [number, number][][] }
+export interface TouchHelper { kind: "cursor" | "handle"; /** the cursor, or a point on the handle: where the drag acts */ anchor: [number, number]; /** the drag icon */ icon: [number, number]; /** every handle of the operation, as screen polylines: a tap near one selects it */ handles: [number, number][][]; /** something is open that a right click closes (a figure being drawn, an operation): a tap anywhere else is that right click; false: a tap anywhere else is an ordinary click */ closes: boolean }
 const nearLine = (p: readonly [number, number][], x: number, y: number): boolean => {
   for (let i = 0; i < Math.max(1, p.length - 1); i++) {
     const [a, b] = [p[i]!, p[Math.min(i + 1, p.length - 1)]!];
@@ -81,8 +81,8 @@ export function createTouch(I: typeof settings.input, countClick: ClickCounter, 
       if (cur?.mode === "handle" && cur.id === e.id) return cur.moved && helper?.kind === "handle" && e.kind !== "cancel" ? [{ type: "dragEnd" }] : []; // the icon only drags (the check beside it applies)
       if (cur?.mode === "one" && cur.moved && !cur.long && cur.id === e.id) return [{ type: "dragEnd" }];
       if (e.kind === "cancel" || !cur || cur.mode !== "one" || cur.moved || cur.long || cur.id !== e.id) return [];
-      // a tap while the helper is up: on an arrow or ring of the operation it selects that (a click); anywhere else it cancels what is being done, as a right click puts a tool away (`in_284`)
-      if (helper && !helper.handles.some((p) => nearLine(p, e.x, e.y))) return [{ type: "escape" }];
+      // a tap while the helper is up: on an arrow or ring of the operation it selects that (a click); anywhere else it is a right click: an operation is applied, a tool put away (`in_284`, corrected by `in_285`: apply, not cancel)
+      if (helper?.closes && !helper.handles.some((p) => nearLine(p, e.x, e.y))) return [{ type: "menu", x: e.x, y: e.y }];
       return [{ type: "click", x: e.x, y: e.y, count: countClick(e.x, e.y, e.t, true), shift: false }];
     },
     setHelper(h: TouchHelper | null) { helper = h; },

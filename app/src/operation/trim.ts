@@ -7,8 +7,9 @@ import { add, scale } from "../math/vec.ts";
 import type { Scene, Relation } from "./scene.ts";
 import { nextId } from "./scene.ts";
 import type { Command } from "./commands.ts";
+import { apply } from "./commands.ts";
 import { consumed } from "./ownership.ts";
-import { pointOf, liftOf } from "./part.ts";
+import { pointOf, liftOf, localOf } from "./part.ts";
 import { curvesOn, meet, along, TAU, ang, mod } from "./regions.ts";
 import type { Curve, V2 } from "./regions.ts";
 
@@ -197,4 +198,101 @@ function trimCircle(s: Scene, part: Extract<Scene["parts"][string], { kind: "cir
   for (const r of carried(s, part.ref, arc, rid, { circleToArc: true })) commands.push({ type: "addRelation", relation: r });
   commands.push({ type: "deleteParts", refs: [part.ref] }); // (the circle's centre stays: the arc is about it)
   return { span: arcPoints(lo.t, hi.t), command: { type: "batch", commands } };
+}
+
+// ---- delete a whole surface (`in_285`) ----
+
+/**
+ * Why a surface of a sketch cannot be deleted, or null when it can: one that is used by a step (a body is made from it: a body must stay valid, so its sketch is taken away with the step that made it, not by deleting a surface of it)
+ * or one whose every edge another surface shares (nothing of it is its own to take off).
+ */
+export function whyNotDeleteSurface(s: Scene, face: Ref): string | null {
+  const f = s.parts[face];
+  if (!f || f.kind !== "face" || !f.pieces) return "this is not a surface cut out of a drawing";
+  const used = new Set<Ref>(s.steps.flatMap((st) => st.parts));
+  if (used.has(face) || f.loop.some((l) => used.has(l) || used.has(parentOf(l)))) return "this surface is part of a body: take the body's step out first";
+  return ownPieces(s, f).length ? null : "every edge of this surface is shared with another surface, so there is nothing of it to take off";
+}
+
+/** The curve a piece was cut from (a piece's name says: `d/arc@e_003.k@x@...` was cut from `d/e_003.k`). */
+const parentOf = (piece: Ref): Ref => `d/${piece.split("@")[1] ?? ""}` as Ref;
+
+/** The edges of the surface no other surface has: its own. */
+function ownPieces(s: Scene, f: Extract<Scene["parts"][string], { kind: "face" }>): Ref[] {
+  const others = Object.values(s.parts).filter((g): g is typeof f => g.kind === "face" && g.ref !== f.ref && !!g.pieces);
+  return f.loop.filter((l) => s.parts[l]?.kind === "line" && !others.some((g) => g.loop.includes(l)));
+}
+
+/** A point in the middle of a piece (a straight side, or an arc of a circle). */
+function pieceMiddle(s: Scene, piece: Ref): { at: Vec3; plane: Ref } | null {
+  const p = s.parts[piece];
+  if (p?.kind !== "line" || !p.plane) return null;
+  const [a, b, pl] = [pointOf((r) => s.parts[r], p.a), pointOf((r) => s.parts[r], p.b), s.parts[p.plane]];
+  if (!a || !b || pl?.kind !== "plane") return null;
+  if (!p.center) return { at: scale(add(a, b), 0.5), plane: p.plane };
+  const c = pointOf((r) => s.parts[r], p.center);
+  if (!c) return null;
+  const [lc, la, lb] = [localOf(pl, c), localOf(pl, a), localOf(pl, b)];
+  const a0 = Math.atan2(la[1] - lc[1], la[0] - lc[0]);
+  const a1 = Math.atan2(lb[1] - lc[1], lb[0] - lc[0]);
+  const sweep = p.ccw !== false ? mod(a1 - a0) || TAU : -(mod(a0 - a1) || TAU);
+  const r = Math.hypot(la[0] - lc[0], la[1] - lc[1]);
+  const m = a0 + sweep / 2;
+  return { at: liftOf(pl, [lc[0] + Math.cos(m) * r, lc[1] + Math.sin(m) * r]), plane: p.plane };
+}
+
+/** The drawn line, arc or circle on this plane that passes through the point (what a piece was cut from, as it is now). */
+function curveThrough(s: Scene, plane: Ref, at: Vec3, prefer: Ref): Ref | null {
+  const pl = s.parts[plane];
+  if (pl?.kind !== "plane") return null;
+  const q = localOf(pl, at);
+  const near = (r: Ref): boolean => {
+    const p = s.parts[r];
+    if (!p || p.origin !== "drawn" || p.plane !== plane || (p.kind !== "line" && p.kind !== "circle") || (p.kind === "line" && p.derived)) return false;
+    const get = (x: Ref) => s.parts[x];
+    if (p.kind === "circle") { const c = pointOf(get, p.center); return !!c && Math.abs(Math.hypot(...[0, 1].map((i) => localOf(pl, c)[i]! - q[i]!) as [number, number]) - p.radius) < 1e-4; }
+    const [a, b] = [pointOf(get, p.a), pointOf(get, p.b)];
+    if (!a || !b) return false;
+    const [la, lb] = [localOf(pl, a), localOf(pl, b)];
+    if (!p.center) {
+      const d: V2 = [lb[0] - la[0], lb[1] - la[1]];
+      const t = Math.max(0, Math.min(1, ((q[0] - la[0]) * d[0] + (q[1] - la[1]) * d[1]) / (d[0] * d[0] + d[1] * d[1] || 1)));
+      return Math.hypot(la[0] + d[0] * t - q[0], la[1] + d[1] * t - q[1]) < 1e-4;
+    }
+    const c = pointOf(get, p.center);
+    if (!c) return false;
+    const lc = localOf(pl, c);
+    if (Math.abs(Math.hypot(q[0] - lc[0], q[1] - lc[1]) - Math.hypot(la[0] - lc[0], la[1] - lc[1])) > 1e-4) return false;
+    const a0 = Math.atan2(la[1] - lc[1], la[0] - lc[0]);
+    const span = p.ccw !== false ? mod(Math.atan2(lb[1] - lc[1], lb[0] - lc[0]) - a0) : mod(a0 - Math.atan2(lb[1] - lc[1], lb[0] - lc[0]));
+    const at2 = p.ccw !== false ? mod(Math.atan2(q[1] - lc[1], q[0] - lc[0]) - a0) : mod(a0 - Math.atan2(q[1] - lc[1], q[0] - lc[0]));
+    return at2 <= span + 1e-6;
+  };
+  if (near(prefer)) return prefer;
+  return Object.keys(s.parts).find((r) => near(r as Ref)) as Ref | undefined ?? null;
+}
+
+/**
+ * Delete a whole surface of a sketch (`in_285`): its own edges are trimmed off (each is the part of its line or circle between the places where other curves cross it, as the trim tool takes it), and the edges another surface
+ * shares stay, with everything else of the drawing: a circle with its outer arc trimmed off is left as the arc that runs through the circles over it. Null (with the reason) when the surface is part of a body.
+ */
+export function deleteSurface(s: Scene, face: Ref): { command: Command } | { why: string } {
+  const why = whyNotDeleteSurface(s, face);
+  if (why) return { why };
+  const f = s.parts[face] as Extract<Scene["parts"][string], { kind: "face" }>;
+  const own = ownPieces(s, f).map((l) => ({ piece: l, mid: pieceMiddle(s, l) }));
+  let cur = s;
+  const commands: Command[] = [];
+  for (const { piece, mid } of own) {
+    if (!mid) return { why: "an edge of this surface could not be found" };
+    const parent = curveThrough(cur, mid.plane, mid.at, parentOf(piece));
+    if (!parent) continue; // (already gone with an earlier trim)
+    const plan = trimAt(cur, parent, mid.at);
+    if (!plan) return { why: "an edge of this surface cannot be trimmed off (nothing crosses it)" };
+    const next = apply(cur, plan.command);
+    if (!next.ok) return { why: "an edge of this surface cannot be trimmed off" };
+    commands.push(plan.command);
+    cur = next.value;
+  }
+  return { command: { type: "batch", commands } };
 }

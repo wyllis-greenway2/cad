@@ -62,12 +62,22 @@ test("a line drawn from a crossing point of two curves starts on a real point, n
   assert.ok(line.kind === "line" && !line.a.includes("@"), `the line starts on ${line.kind === "line" ? line.a : ""}`);
 });
 
-test("deleting one piece of a cut shape takes only what nothing else borders; where that is nothing, there is nothing to delete", () => {
+test("deleting one piece of a cut shape takes only what nothing else borders (its arc is trimmed off the circle, its shared sides stay); where that is nothing, it says so", () => {
   const r = openSession(kernel, readFileSync(new URL("./fixtures/pie-cuts.cad.json", import.meta.url), "utf8"));
   assert.ok(r.ok);
   const s = r.value;
   const piece = parts(s).find((p) => p.kind === "face" && p.loop.length === 3)!;
-  assert.equal(actionsFor(scene(s), [piece.ref]).find((a) => a.id === "delete"), undefined, "the sides are shared with the other piece and the arc is part of the circle");
+  // a slice of a pie: its two straight sides are shared with its neighbours and stay; its arc is its own, and is trimmed off the circle (`in_285`: before, an arc of a circle was never taken)
+  const slice = actionsFor(scene(s), [piece.ref]).find((a) => a.id === "delete");
+  assert.equal(slice?.enabled, true);
+  const facesBefore = parts(s).filter((p) => p.kind === "face").length;
+  const gone = run(s, slice!.run());
+  assert.equal(gone.message, null);
+  assert.equal(parts(gone).filter((p) => p.kind === "face").length, facesBefore - 1, "the slice is no longer a surface: the others are");
+  // a surface every edge of which another surface shares has nothing of its own: Delete is offered and says why it cannot
+  const sc3 = parts(s).filter((p) => p.kind === "face");
+  const inner = sc3.find((f) => f.kind === "face" && f.loop.every((l) => sc3.some((g) => g !== f && g.kind === "face" && g.loop.includes(l))));
+  if (inner) assert.equal(actionsFor(scene(s), [inner.ref]).find((a) => a.id === "delete")?.enabled, false);
   // a square cut in two by a line: one half goes with the side only it has (and the corner points only it used)
   let q = createSession(kernel);
   q = run(q, drawChain(scene(q), XY, [[0, 0, 0], [20, 0, 0], [20, 20, 0], [0, 20, 0]], true).command);

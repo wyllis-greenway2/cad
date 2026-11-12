@@ -4,6 +4,7 @@
 // Geometry is read in 3D from the scene, so no plane or sketch is involved in measuring.
 import { arcRadiusCommand } from "./faceedit.ts";
 import { sketchOfEdge } from "../operation/edgesource.ts";
+import { whyNotDeleteSurface, deleteSurface } from "../operation/trim.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene, Relation } from "../operation/scene.ts";
@@ -100,16 +101,19 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
   } else {
     const drawn = sel.filter((r) => get(r)?.movable);
     const picked = new Set<Ref>(drawn);
+    // a whole surface of a sketch cut by crossing curves (`in_285`): its own edges are trimmed off, the edges another surface shares stay; the circles and lines it was cut from remain as far as they are not its own
+    const surfaces = drawn.filter((r) => { const p = get(r); return p?.kind === "face" && !!p.pieces; });
+    if (surfaces.length) {
+      const blocked = surfaces.length > 1 || drawn.length > surfaces.length ? "delete one surface at a time, with nothing else selected" : whyNotDeleteSurface(scene, surfaces[0]!);
+      out.push({
+        id: "delete", label: "Delete", group: "operation", dimensional: false, unit: null, parts: drawn,
+        enabled: !blocked, why: blocked, measure: () => null, spot: () => null,
+        run: (): Command => { const r = deleteSurface(scene, surfaces[0]!); return "command" in r ? r.command : { type: "batch", commands: [] }; },
+      });
+    }
     const used = (corner: Ref) => Object.values(scene.parts).some((q) => !picked.has(q.ref) && ((q.kind === "circle" && q.center === corner) || (q.kind === "line" && (q.a === corner || q.b === corner || q.center === corner)))); // another part still stands on this corner
-    const targets = drawn.flatMap((r): Ref[] => {
+    const targets = surfaces.length ? [] : drawn.flatMap((r): Ref[] => {
       const p = get(r);
-      if (p?.kind === "face" && p.pieces) {
-        // a piece of a figure cut by lines: only the sides nothing else borders go (a side another piece shares, an arc of a circle, a crossing point stay): deleting one piece must not take the whole drawing
-        const mine = p.loop.filter((l) => { const x = get(l); return x?.kind === "line" && !x.derived && !Object.values(scene.parts).some((f) => f.kind === "face" && f.ref !== p.ref && f.loop.includes(l)); });
-        const gone = new Set<Ref>(mine);
-        const alone = (c: Ref) => get(c)?.movable && !Object.values(scene.parts).some((q) => !gone.has(q.ref) && ((q.kind === "circle" && q.center === c) || (q.kind === "line" && (q.a === c || q.b === c || q.center === c))));
-        return [...mine, ...mine.flatMap((l) => { const x = get(l); return x?.kind === "line" ? [x.a, x.b].filter(alone) : []; })];
-      }
       if (p?.kind === "face") return [...p.corners, ...p.loop.flatMap((l) => { const x = get(l); return x?.kind === "line" && x.center ? [x.center] : []; })]; // a face's corners (a disk's centre, the centres of its arcs): everything built on them goes too
       // a circle or a line goes with its points, unless something else stands on them: no point is left behind to snap to or suggest constraints to
       const own = p?.kind === "circle" ? [p.center] : p?.kind === "line" ? [p.a, p.b, ...(p.center ? [p.center] : [])] : [];
