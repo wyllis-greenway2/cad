@@ -93,3 +93,56 @@ test("a height typed for the arc is not moved by a tangent", () => {
   st = move(st, [36, 27.2, 0]);
   assert.deepEqual(st.tool!.hints ?? [], []);
 });
+
+import { frameOf } from "../src/interaction/frame.ts";
+test("a straight line and an arc get their helpers from the same code: the circle lights the same way for the first end, the second end, and the line offers a tangent from a start on a circle (`in_281`)", () => {
+  let s = createSession(kernel);
+  s = run(s, drawCircle(scene(s), XY, [20, 15, 0], 10).command);
+  const circle = Object.values(scene(s).parts).find((p) => p.kind === "circle")!.ref;
+  for (const kind of ["line", "arc"] as const) {
+    let st = view(s);
+    st = reduce(st, { type: "begin", name: kind }, env);
+    // the first end near the circle's edge
+    st = move(st, [30.05, 15.1, 0]);
+    assert.deepEqual(frameOf(st, env).highlight.amber, [circle], `${kind}: the circle is lit for the first end`);
+    st = click(st, [30.05, 15.1, 0]);
+    near(st.tool!.points[0]![0], 30);
+    // the second end near it too
+    st = move(st, [20.1, 25.05, 0]);
+    assert.deepEqual(frameOf(st, env).highlight.amber, [circle], `${kind}: the circle is lit for the second end`);
+    assert.deepEqual(st.tool!.hints!.map((h) => h.kind), ["onCircle"]);
+    if (kind === "arc") {
+      // with the ends down and the bow being set, the circle an end is on stays lit
+      st = click(st, [20.1, 25.05, 0]);
+      st = move(st, [40, 20, 0]);
+      assert.deepEqual(frameOf(st, env).highlight.amber, [circle], "the circle both ends are on stays lit while the bow is set");
+    }
+  }
+});
+
+test("a straight line that starts on a circle snaps to the tangent there when its direction is close, and is made tangent with its start on the circle, and stays so when the circle changes", () => {
+  let s = createSession(kernel);
+  s = run(s, drawCircle(scene(s), XY, [20, 15, 0], 10).command);
+  let st = view(s);
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [30, 15, 0]);
+  st = move(st, [30.8, 30, 0]); // nearly straight up: the tangent at (30, 15) is exactly up
+  assert.deepEqual(st.tool!.hints!.map((h) => h.kind).sort(), ["tangent", "vertical"], "up is also upright: both are offered, as a line that is level and parallel gets both");
+  near(st.tool!.cursor![0], 30);
+  st = click(st, [30.8, 30, 0]);
+  assert.equal(st.session.message, null);
+  assert.equal(rel(st, "tangent").length, 1);
+  assert.equal(rel(st, "onCircle").length, 1, "the start is on the circle");
+  const circle = Object.values(scene(st.session).parts).find((p) => p.kind === "circle")! as { ref: string; center: string };
+  const line = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "drawn")! as { a: string; b: string };
+  let moved = run(st.session, { type: "setRadius", ref: circle.ref as never, radius: 12 });
+  moved = run(moved, { type: "movePart", ref: circle.center as never, to: [18, 17, 0] });
+  const p = (r: string) => (scene(moved).parts[r as never] as { at: Vec3 }).at;
+  const [A, B, K] = [p(line.a), p(line.b), p(circle.center)];
+  near(Math.hypot(A[0] - K[0], A[1] - K[1]), 12, 1e-3);
+  const dist = Math.abs((B[0] - A[0]) * (K[1] - A[1]) - (B[1] - A[1]) * (K[0] - A[0])) / Math.hypot(B[0] - A[0], B[1] - A[1]);
+  near(dist, 12, 1e-3); // (the line is still tangent)
+  // far from the tangent: no hint
+  const far = move(reduce(view(s), { type: "begin", name: "line" }, env), [30, 15, 0]);
+  assert.ok(far.tool);
+});

@@ -12,7 +12,7 @@ import type { Session } from "../session.ts";
 import { candidatesAt } from "../picking.ts";
 import { actionsFor } from "../actions.ts";
 import type { ToolKind, Tool } from "../tools.ts";
-import { lineHint, hintCommand, circleCentredAt, pointHint, arcBulgeHint, arcHintRelations } from "../hints.ts";
+import { lineHint, hintRelations, circleCentredAt, pointHint, arcBulgeHint } from "../hints.ts";
 import type { Hint } from "../hints.ts";
 import { snapOnPlane, finish, planeForDrawing, armTool, pointOnPlane } from "../tools.ts";
 import { trimAt } from "../../operation/trim.ts";
@@ -162,12 +162,12 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   // trim: the part of the line or circle under the pointer that a click would cut off
   // (and the line or circle itself is not lit as a whole: only the part that would go is, in the selected blue, and nothing at all where nothing crosses; `in_206`)
   if (s.tool?.kind === "trim") next = { ...withSession(next, hoverOn(next.session, undefined)), hoverPoint: null, tool: { ...s.tool, trimming: trimUnder(sc, pv) } };
-  // a circle tool still armed (no plane yet): where the centre would go, and whether it is on another circle's centre; an arc: whether its first end would be on a line or a circle
-  if (s.tool && !s.tool.plane && (s.tool.kind === "circle" || s.tool.kind === "arc")) {
+  // a circle tool still armed (no plane yet): where the centre would go, and whether it is on another circle's centre; a line or an arc: whether its first end would be on a line or a circle
+  if (s.tool && !s.tool.plane && (s.tool.kind === "circle" || s.tool.kind === "arc" || s.tool.kind === "line")) {
     const planeRef = drawingPlane(sc, candidatesAt(sc, pv, pickOpts(s)).map((k) => k.ref)) ?? drawingPlane(sc, selectionOf(s.session));
     const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
     const at = pl ? snapOnPlane(sc, pv, pl) : null;
-    if (s.tool.kind === "arc") {
+    if (s.tool.kind !== "circle") {
       const h = at && pl ? pointHint(sc, pl, pv, at) : null;
       next = { ...next, tool: { ...s.tool, hints: h?.hints ?? [], cursor: h?.hints.length ? h.at : null } };
     } else {
@@ -180,8 +180,9 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
 
 /** The constraint the pointer is close to for the tool being drawn with: the end of a line, an end of an arc, or the bow of an arc (a height typed in is not moved by one). */
 function hintFor(sc: Scene, t: Tool, pl: Plane, pv: ReturnType<ReturnType<typeof projector>["view"]>, raw: Vec3): { at: Vec3; hints: Hint[] } | null {
-  if (t.kind === "line" && t.points.length) return lineHint(sc, pl, t.points[0]!, pv, raw);
-  if (t.kind !== "arc") return null;
+  if (t.kind !== "line" && t.kind !== "arc") return null;
+  if (!t.points.length) return pointHint(sc, pl, pv, raw); // (a first end: on a line or a circle)
+  if (t.kind === "line") return lineHint(sc, pl, t.points[0]!, pv, raw);
   if (t.points.length < 2) return pointHint(sc, pl, pv, raw);
   return t.typed[0] === "" ? arcBulgeHint(sc, pl, t.points[0]!, t.points[1]!, raw) : null;
 }
@@ -219,7 +220,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     const { plane, command } = planeForDrawing(sc, pl.ref);
     const session = command ? run(sess, command) : sess;
     const about = t.kind === "circle" ? circleCentredAt(sceneOf(session), lookup(sceneOf(session))(plane) as Plane, at) : null;
-    const first = t.kind === "arc" ? pointHint(sc, pl, pv, at) : null; // (an arc's first end on a line or a circle says so, `in_280`)
+    const first = t.kind === "arc" || t.kind === "line" ? pointHint(sc, pl, pv, at) : null; // (the first end of a line or an arc on a line or a circle says so, `in_280`, `in_281`)
     const from = first ? first.at : at;
     return { ...base, session: { ...session, message: null }, tool: { ...t, plane, points: [from], cursor: from, ...(first ? { ends: [first.hints] } : {}), ...(about ? { concentric: about } : {}) } };
   }
@@ -235,23 +236,14 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   // a rectangle, a circle, a line: the second click finishes it and the tool is put away (a line is one segment: leave it open, or draw the next to close a shape)
   const fin = t.kind === "line" ? (dist(at, t.points[0]!) < 1e-6 ? null : finish(sc, { ...t, points: [t.points[0]!, at], cursor: at })) : finish(sc, { ...t, cursor: at });
   let done = t.kind === "line" && !fin ? base : commitFigure(base, fin);
-  // the line made with the constraints it was close to
-  const line = fin?.select[0];
-  if (t.kind === "line" && hint?.hints.length && line && done !== base && !(done.tool && done.tool.points.length) && !done.session.message) {
+  // the line or arc made with the constraints it was close to: its ends on a line or a circle, and the rest (level, upright, parallel, square, as long as, tangent): one way for both (`in_281`)
+  const curve = t.kind === "line" || t.kind === "arc" ? fin?.select[0] : undefined;
+  const isOn = (h: Hint) => h.kind === "onLine" || h.kind === "onCircle";
+  const ends: Hint[][] = t.kind === "arc" ? (t.ends ?? []) : [t.ends?.[0] ?? [], (hint?.hints ?? []).filter(isOn)];
+  const rest = (hint?.hints ?? []).filter((h) => t.kind === "line" ? !isOn(h) : true);
+  if (curve && done !== base && !(done.tool && done.tool.points.length) && !done.session.message && (ends.some((e) => e.length) || rest.length)) {
     let session = done.session;
-    for (const h of hint.hints) {
-      const part = sceneOf(session).parts[line];
-      if (part?.kind !== "line") break;
-      session = run(session, hintCommand(sceneOf(session), line, part.b, h));
-      if (session.message) break;
-    }
-    done = { ...done, session };
-  }
-  // the arc made with the constraints its ends and its bow were close to (`in_280`)
-  const arc = t.kind === "arc" ? fin?.select[0] : undefined;
-  if (arc && done !== base && !(done.tool && done.tool.points.length) && !done.session.message && (t.ends?.some((e) => e.length) || hint?.hints.length)) {
-    let session = done.session;
-    for (const r of arcHintRelations(sceneOf(session), arc, t.ends ?? [], hint?.hints ?? [])) {
+    for (const r of hintRelations(sceneOf(session), curve, ends, rest)) {
       session = run(session, { type: "addRelation", relation: { id: nextId(sceneOf(session), "r"), kind: r.kind, parts: r.parts } });
       if (session.message) break;
     }

@@ -32,6 +32,16 @@ function roundsOf(scene: Scene, get: (r: Ref) => Scene["parts"][string] | undefi
   }
   return out;
 }
+/** The circles and arcs whose edge this point (in the plane's own numbers) lies on: what a line or an arc that starts or ends there can meet smoothly. */
+function roundsThrough(scene: Scene, pl: Plane, P: V2): Round[] {
+  const n = normalOfPlane(pl);
+  const get = (r: Ref) => scene.parts[r];
+  return roundsOf(scene, get).filter((R) => {
+    if (Math.abs(dot(sub(R.center, pl.at), n)) > 1e-3) return false;
+    const Rc = localOf(pl, R.center);
+    return Math.abs(Math.hypot(P[0] - Rc[0], P[1] - Rc[1]) - R.radius) <= 1e-4 * Math.max(1, R.radius) && withinArc(pl, R, P);
+  });
+}
 /** Is this point (in the plane's own numbers) on the part of the circle the arc covers? */
 function withinArc(pl: Plane, r: Round, p: V2): boolean {
   if (!r.arc) return true;
@@ -130,6 +140,13 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
     const perp: V2 = [-ld[1], ld[0]];
     cands.push({ dir: perp, err: angleTo(perp), hint: { kind: "perpendicular", ref: l.ref } });
   }
+  // starting on a circle or an arc: the line along the edge there (tangent at its start, as an arc that ends on a circle can meet it smoothly)
+  for (const R of roundsThrough(scene, pl, s)) {
+    const Rc = localOf(pl, R.center);
+    const t0 = unit([-(s[1] - Rc[1]), s[0] - Rc[0]]);
+    const dir: V2 = dot([d[0], d[1], 0], [t0[0], t0[1], 0]) >= 0 ? t0 : [-t0[0], -t0[1]];
+    cands.push({ dir, err: angleTo(dir), hint: { kind: "tangent", ref: R.ref, end: 0 } });
+  }
   for (const c of rounds) {
     const w: V2 = [localOf(pl, c.center)[0] - s[0], localOf(pl, c.center)[1] - s[1]];
     const D = lenOf(w);
@@ -170,8 +187,6 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
 export function arcBulgeHint(spent: Scene, pl: Plane, a: Vec3, b: Vec3, cursor: Vec3): { at: Vec3; hints: Hint[] } {
   const scene = live(spent);
   const none = { at: cursor, hints: [] as Hint[] };
-  const get = (r: Ref) => scene.parts[r];
-  const n = normalOfPlane(pl);
   const A = localOf(pl, a), B = localOf(pl, b), q = localOf(pl, cursor);
   const chord: V2 = [B[0] - A[0], B[1] - A[1]];
   const L = lenOf(chord);
@@ -185,12 +200,10 @@ export function arcBulgeHint(spent: Scene, pl: Plane, a: Vec3, b: Vec3, cursor: 
   const cross = (p: V2, r: V2) => p[0] * r[1] - p[1] * r[0];
   const centreNow: V2 = ((): V2 => { const t = (h * h - (L / 2) * (L / 2)) / (2 * h); return [M[0] + perp[0] * t, M[1] + perp[1] * t]; })();
   let best: { err: number; h: number; hint: Hint } | null = null;
-  for (const R of roundsOf(scene, get)) {
-    if (Math.abs(dot(sub(R.center, pl.at), n)) > 1e-3) continue;
-    const Rc = localOf(pl, R.center);
-    for (const end of [0, 1] as const) {
-      const P = end === 0 ? A : B;
-      if (Math.abs(Math.hypot(P[0] - Rc[0], P[1] - Rc[1]) - R.radius) > 1e-4 * Math.max(1, R.radius) || !withinArc(pl, R, P)) continue; // (this end is not on that circle)
+  for (const end of [0, 1] as const) {
+    const P = end === 0 ? A : B;
+    for (const R of roundsThrough(scene, pl, P)) {
+      const Rc = localOf(pl, R.center);
       const dRc = unit([Rc[0] - P[0], Rc[1] - P[1]]);
       const den = cross(perp, dRc);
       if (Math.abs(den) < 1e-9) continue;
@@ -206,26 +219,23 @@ export function arcBulgeHint(spent: Scene, pl: Plane, a: Vec3, b: Vec3, cursor: 
   return best ? { at: lift(pl, [M[0] + perp[0] * best.h, M[1] + perp[1] * best.h]), hints: [best.hint] } : none;
 }
 
-/** The constraints (kind and parts) to add once an arc is made: for each end that was put on a line or a circle, and for a tangent (which also puts its end on that circle, if it was not already). */
-export function arcHintRelations(scene: Scene, arc: Ref, ends: readonly (readonly Hint[])[], bow: readonly Hint[]): { kind: Hint["kind"]; parts: Ref[] }[] {
-  const part = scene.parts[arc];
+/**
+ * The constraints (kind and parts) to add once a line or an arc is made with the hints it took (`in_280`, `in_281`: one function for both): `ends` are what each end was put on (an on-line or on-circle hint for the
+ * first and for the second end), `hints` the rest (level, upright, parallel, square, as long as, tangent). A tangent that is at an end also puts that end on the circle, if it was not already.
+ */
+export function hintRelations(scene: Scene, curve: Ref, ends: readonly (readonly Hint[])[], hints: readonly Hint[]): { kind: Hint["kind"]; parts: Ref[] }[] {
+  const part = scene.parts[curve];
   if (part?.kind !== "line") return [];
+  const corner = (i: number) => (i === 0 ? part.a : part.b);
   const out: { kind: Hint["kind"]; parts: Ref[] }[] = [];
-  const have = new Set<string>();
-  ends.forEach((hs, i) => { for (const h of hs) if (h.ref) { have.add(`${i}:${h.ref}`); out.push({ kind: h.kind, parts: [i === 0 ? part.a : part.b, h.ref] }); } });
-  for (const h of bow) {
-    if (h.kind !== "tangent" || !h.ref) continue;
-    const i = h.end ?? 0;
-    if (!have.has(`${i}:${h.ref}`)) out.push({ kind: "onCircle", parts: [i === 0 ? part.a : part.b, h.ref] });
-    out.push({ kind: "tangent", parts: [arc, h.ref] });
+  const on = new Set<string>();
+  ends.forEach((hs, i) => { for (const h of hs) if (h.ref && (h.kind === "onLine" || h.kind === "onCircle")) { on.add(`${i}:${h.ref}`); out.push({ kind: h.kind, parts: [corner(i), h.ref] }); } });
+  for (const h of hints) {
+    if (h.kind === "onLine" || h.kind === "onCircle") continue; // (an end's: they are in `ends`)
+    if (h.kind === "tangent" && h.ref && h.end !== undefined && !on.has(`${h.end}:${h.ref}`)) { on.add(`${h.end}:${h.ref}`); out.push({ kind: "onCircle", parts: [corner(h.end), h.ref] }); }
+    out.push({ kind: h.kind, parts: h.kind === "horizontal" || h.kind === "vertical" ? [curve] : [curve, h.ref!] });
   }
   return out;
-}
-
-/** The constraint to add once the line is made, for one hint: `line` is the new line, `corner` its end corner. */
-export function hintCommand(scene: Scene, line: Ref, corner: Ref, h: Hint): Command {
-  const parts = h.kind === "horizontal" || h.kind === "vertical" ? [line] : h.kind === "onLine" || h.kind === "onCircle" ? [corner, h.ref!] : [line, h.ref!];
-  return { type: "addRelation", relation: { id: nextId(scene, "r"), kind: h.kind, parts } };
 }
 
 /** The circle whose centre is exactly here, on this plane: drawing a circle's centre on it asks to make them concentric. */
