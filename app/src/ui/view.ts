@@ -16,6 +16,18 @@ import { buildGizmo } from "./view/gizmo.ts";
 import type { GizmoView } from "./view/gizmo.ts";
 import type { Highlight } from "./view/highlight.ts";
 
+/** Put the matrix on `obj` that stretches everything k times across an axis through `c` (along it nothing changes, whichever way it points): 1 + (k - 1)(1 - a aT), about `c`. One copy for the walls and the roundings (`in_282`). */
+function stretchAcross(obj: THREE.Object3D, c: readonly number[], axis: readonly number[], k: number): void {
+  const U = new THREE.Vector3(axis[0]!, axis[1]!, axis[2]!).normalize();
+  const lin = new THREE.Matrix4().set(
+    1 + (k - 1) * (1 - U.x * U.x), -(k - 1) * U.x * U.y, -(k - 1) * U.x * U.z, 0,
+    -(k - 1) * U.x * U.y, 1 + (k - 1) * (1 - U.y * U.y), -(k - 1) * U.y * U.z, 0,
+    -(k - 1) * U.x * U.z, -(k - 1) * U.y * U.z, 1 + (k - 1) * (1 - U.z * U.z), 0,
+    0, 0, 0, 1);
+  obj.matrix.makeTranslation(c[0]!, c[1]!, c[2]!).multiply(lin).multiply(new THREE.Matrix4().makeTranslation(-c[0]!, -c[1]!, -c[2]!));
+  obj.matrixWorldNeedsUpdate = true;
+}
+
 export type { Highlight };
 type Preview = { segments: [Vec3, Vec3][]; circle: { center: Vec3; radius: number; normal: Vec3 } | null; cursor: Vec3 | null };
 
@@ -112,14 +124,7 @@ export function createView(host: HTMLElement) {
       // what is selected (the wall) widens with it: a stretch across the axis, about the axis
       const { center: c, axis: a, dr, r0 } = f.radial;
       const k = (r0 + dr) / r0;
-      const U = new THREE.Vector3(a[0]!, a[1]!, a[2]!).normalize();
-      const lin = new THREE.Matrix4().set( // (across the axis, whatever way it points: 1 + (k - 1) (1 - a a^T))
-        1 + (k - 1) * (1 - U.x * U.x), -(k - 1) * U.x * U.y, -(k - 1) * U.x * U.z, 0,
-        -(k - 1) * U.x * U.y, 1 + (k - 1) * (1 - U.y * U.y), -(k - 1) * U.y * U.z, 0,
-        -(k - 1) * U.x * U.z, -(k - 1) * U.y * U.z, 1 + (k - 1) * (1 - U.z * U.z), 0,
-        0, 0, 0, 1);
-      overlay.matrix.makeTranslation(c[0]!, c[1]!, c[2]!).multiply(lin).multiply(new THREE.Matrix4().makeTranslation(-c[0]!, -c[1]!, -c[2]!));
-      overlay.matrixWorldNeedsUpdate = true;
+      stretchAcross(overlay, c, a, k);
     }
     const mine = f.rounds?.groups.find((g) => g.face === f.face)?.sharp;
     if (f.withOverlay && f.rounds && (mine?.kind === "circle" || mine?.kind === "point" || (mine?.kind === "line" && (mine.cornerA || mine.cornerB)))) overlay.visible = false; // (a stretch about a circle is not one matrix: what is selected is not drawn while it is dragged)
@@ -127,14 +132,7 @@ export function createView(host: HTMLElement) {
       // what is selected (the rounding) is scaled the same way: across the sharp edge, about it
       const { point: c, dir: u } = mine;
       const k = f.rounds.k;
-      const U = new THREE.Vector3(u[0]!, u[1]!, u[2]!);
-      const lin = new THREE.Matrix4().set(
-        1 + (k - 1) * (1 - U.x * U.x), -(k - 1) * U.x * U.y, -(k - 1) * U.x * U.z, 0,
-        -(k - 1) * U.x * U.y, 1 + (k - 1) * (1 - U.y * U.y), -(k - 1) * U.y * U.z, 0,
-        -(k - 1) * U.x * U.z, -(k - 1) * U.y * U.z, 1 + (k - 1) * (1 - U.z * U.z), 0,
-        0, 0, 0, 1);
-      overlay.matrix.makeTranslation(c[0]!, c[1]!, c[2]!).multiply(lin).multiply(new THREE.Matrix4().makeTranslation(-c[0]!, -c[1]!, -c[2]!));
-      overlay.matrixWorldNeedsUpdate = true;
+      stretchAcross(overlay, c, u, k);
     }
     if (f.withOverlay && f.columns?.edge) {
       // what is selected (the side) goes where its two corners go: its own edge is carried, the way the sketch was extruded stays

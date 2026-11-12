@@ -1,6 +1,7 @@
 // Pulling or pushing a face the body already has (`in_171`, `in_173`, `q_face_edit_model`): instead of adding a prism at that face (which invents new faces where the neighbours do not follow),
 // change the step that made the face, so the steps after it are worked out again and nothing new is made: the end of an extrusion changes the extrusion's depth; the wall of an extruded
 // circle (a post, or the wall of a hole) changes that circle's radius, so a chamfer on its rim goes with it. Where the step that made the face cannot be told, the old way (a prism) is used.
+import { TAU } from "../operation/regions.ts";
 import type { Ref } from "../shared/ref.ts";
 import { dot, sub, scale, cross, normalize } from "../math/vec.ts";
 import type { Vec3 } from "../math/vec.ts";
@@ -89,7 +90,6 @@ function arcWall(scene: Scene, piece: Ref, c: Curved, where?: readonly Vec3[]): 
   if (where && !where.every((q) => inSpan(src, a.at, ctr.at, normalOfPlane(pl), scene.parts[src.b], q))) return null;
   return { kind: "radius", circle: src.ref, radius, convex: c.convex, arc: true };
 }
-const TAU = 2 * Math.PI;
 const wrap = (t: number) => ((t % TAU) + TAU) % TAU;
 /** Whether the point `q` lies within the arc from corner `a` to its end, round `ctr` (seen along `n`): the angle it makes about the centre is within the arc's sweep. */
 function inSpan(arc: Extract<Part, { kind: "line" }>, a: Vec3, ctr: Vec3, n: Vec3, end: Part | undefined, q: Vec3): boolean {

@@ -52,14 +52,18 @@ const AXIS = { X: 0, Y: 1, Z: 2 };
  *   { inPlane: "XY", at: "max" | "min" }     edges lying in the top/bottom plane of the target's bbox
  *   { index: 4 }                             FRAGILE index form, kept only to demonstrate why not
  */
+/** A finder narrowed to the plane a query names (XY, XZ or YZ) at the top or the bottom of the shape's box: one copy for edges and for faces (`in_282`). */
+const inQueryPlane = (f, shape, query) => {
+  const b = bounds(shape);
+  const axis = { XY: 2, XZ: 1, YZ: 0 }[query.inPlane];
+  return f.inPlane(query.inPlane, query.at === "min" ? b.min[axis] : b.max[axis]);
+};
+
 /** Apply an edge query to a replicad EdgeFinder (so fillet/chamfer can use it as their filter). */
 export function edgeFinder(f, shape, query) {
   if (query.direction) f = f.inDirection(query.direction);
   if (query.inPlane) {
-    const b = bounds(shape);
-    const axis = { XY: 2, XZ: 1, YZ: 0 }[query.inPlane];
-    const at = query.at === "min" ? b.min[axis] : b.max[axis];
-    f = f.inPlane(query.inPlane, at);
+    f = inQueryPlane(f, shape, query);
   }
   if (query.within === "outer") {
     const b = bounds(shape);
@@ -84,10 +88,7 @@ export function selectFaces(shape, query) {
   let f = new FaceFinder();
   if (query.parallelTo) f = f.parallelTo(query.parallelTo);
   if (query.inPlane) {
-    const b = bounds(shape);
-    const axis = { XY: 2, XZ: 1, YZ: 0 }[query.inPlane];
-    const at = query.at === "min" ? b.min[axis] : b.max[axis];
-    f = f.inPlane(query.inPlane, at);
+    f = inQueryPlane(f, shape, query);
   }
   return f.find(shape);
 }
@@ -100,16 +101,20 @@ const refPlane = (ref) => {
   return { n, d: ref.sign * ref.offset };
 };
 
+/** The flat faces of `shape` that face along the unit normal n (turned by no more than a hair): one copy for both searches below (`in_282`). */
+const flatFacing = (shape, n) => facesOf(shape).filter((f) => {
+  if (f.geomType !== "PLANE") return false;
+  const fn = f.normalAt();
+  const l = Math.hypot(fn.x, fn.y, fn.z);
+  return (fn.x * n[0] + fn.y * n[1] + fn.z * n[2]) / l >= 1 - 1e-5;
+});
+
 /** The flat face of `shape` described by ref: facing along n, on the plane n . p = d, its box containing the point. */
 function findFace(shape, ref) {
   const { n, d } = refPlane(ref);
   const tol = 1e-3;
   let best = null;
-  for (const f of facesOf(shape)) {
-    if (f.geomType !== "PLANE") continue;
-    const fn = f.normalAt();
-    const l = Math.hypot(fn.x, fn.y, fn.z);
-    if ((fn.x * n[0] + fn.y * n[1] + fn.z * n[2]) / l < 1 - 1e-5) continue;
+  for (const f of flatFacing(shape, n)) {
     const c = f.center;
     if (Math.abs(n[0] * c.x + n[1] * c.y + n[2] * c.z - d) > tol) continue;
     const [lo, hi] = f.boundingBox.bounds;
@@ -123,11 +128,7 @@ function findFace(shape, ref) {
   const bb = shape.boundingBox.bounds;
   const diag = Math.hypot(bb[1][0] - bb[0][0], bb[1][1] - bb[0][1], bb[1][2] - bb[0][2]);
   const cands = [];
-  for (const f of facesOf(shape)) {
-    if (f.geomType !== "PLANE") continue;
-    const fn = f.normalAt();
-    const l = Math.hypot(fn.x, fn.y, fn.z);
-    if ((fn.x * n[0] + fn.y * n[1] + fn.z * n[2]) / l < 1 - 1e-5) continue;
+  for (const f of flatFacing(shape, n)) {
     const c = f.center;
     const off = n[0] * c.x + n[1] * c.y + n[2] * c.z - d; // how far it is from where it was, along its normal
     const p = ref.point.map((v, k) => v + n[k] * off); // the point carried along with it

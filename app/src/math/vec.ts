@@ -13,3 +13,6 @@ export const normalize = (a: Vec3): Vec3 => {
   const l = length(a);
   return l === 0 ? [0, 0, 0] : scale(a, 1 / l);
 };
+
+/** The average of some points (the origin for none). */
+export const centroid = (pts: readonly Vec3[]): Vec3 => scale(pts.reduce((a, p) => add(a, p), [0, 0, 0] as Vec3), 1 / Math.max(1, pts.length));

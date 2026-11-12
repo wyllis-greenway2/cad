@@ -1,9 +1,11 @@
 // What the view shows while a tool or an operation is running: the figure or prism being made and the number chip. Derived from the state; nothing here changes it.
+import { localOf } from "../operation/part.ts";
+import { roundedText } from "../shared/numbers.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Plane } from "../operation/part.ts";
 import type { Tool, Preview } from "./tools.ts";
-import { FIELDS, previewOf, rectEnd, circleRadius, lineNext, localOf, arcOf } from "./tools.ts";
+import { FIELDS, previewOf, rectEnd, circleRadius, lineNext, arcOf } from "./tools.ts";
 import type { Op } from "./operations.ts";
 import type { Gizmo } from "./gizmo.ts";
 import type { Camera } from "./camera.ts";
@@ -16,7 +18,6 @@ export interface EntryField { label: string; value: string; active: boolean; typ
 /** `at`: where in the scene the bubble sits (null: no place to attach it to) */
 export interface Entry { fields: EntryField[]; unit: string; at?: Vec3 | null; /** the other end of the arrow the bubble is at the tip of: the bubble stands out past the tip, away from it, so it does not cover the arrow */ from?: Vec3 | null }
 
-const fmt = (v: number) => String(Math.round(v * 100) / 100);
 
 /** The number chip: for a tool, its fields (what is typed, else the live size); for an operation, its one number. Null when there is nothing to show yet. */
 export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry | null {
@@ -24,7 +25,7 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     // only the axis that is chosen shows (one is always chosen: Z to begin with; the X Y Z buttons or a ring change it), with how the body is turned about it; what is typed is how it is to be turned about that axis (`in_194`)
     const now = turnAngles(scene, op);
     const i = op.axis;
-    return { fields: [{ label: "XYZ"[i]!, short: "XYZ"[i]!, value: op.rot[i] !== "" ? op.rot[i]! : fmt(now[i]!), active: true, typed: op.rot[i] !== "", index: i }], unit: "deg" };
+    return { fields: [{ label: "XYZ"[i]!, short: "XYZ"[i]!, value: op.rot[i] !== "" ? op.rot[i]! : roundedText(now[i]!), active: true, typed: op.rot[i] !== "", index: i }], unit: "deg" };
   }
   if (op) {
     const v = valueOf(op);
@@ -33,7 +34,7 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     const label = op.kind === "edge" ? (v !== null && v < 0 ? "Chamfer" : "Fillet") : op.dim ? (op.curved ? "Diameter" : op.kind === "pushpull" ? "Size" : "Distance") : (op.field ?? OP_FIELD[op.kind]) + axis;
     const size = sizeShown(op); // a push / pull or an extrude shows the size (the thickness, the diameter) you are making, and a typed size is that size
     const shown = size !== null ? size : op.kind === "edge" && v !== null ? Math.abs(v) : v;
-    return { fields: [{ label, ...(op.curved ? { short: "Ø" } : {}), value: op.typed !== "" ? op.typed.replace(/^-/, "") : shown === null ? "0" : fmt(shown), active: true, typed: op.typed !== "" }], unit: op.unit ?? OP_UNIT[op.kind] };
+    return { fields: [{ label, ...(op.curved ? { short: "Ø" } : {}), value: op.typed !== "" ? op.typed.replace(/^-/, "") : shown === null ? "0" : roundedText(shown), active: true, typed: op.typed !== "" }], unit: op.unit ?? OP_UNIT[op.kind] };
   }
   if (!tool || !tool.plane || !tool.points.length) return null;
   const pl = scene.parts[tool.plane] as Plane | undefined;
@@ -57,7 +58,7 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     const a = tool.points[tool.points.length - 1]!;
     if (n) live.push(Math.hypot(n[0] - a[0], n[1] - a[1], n[2] - a[2]));
   }
-  return { fields: labels.map((label, i) => ({ label, value: tool.typed[i as 0 | 1] !== "" ? tool.typed[i as 0 | 1] : live[i] != null ? fmt(live[i]!) : "", active: tool.field === i, typed: tool.typed[i as 0 | 1] !== "" })), unit: "mm" };
+  return { fields: labels.map((label, i) => ({ label, value: tool.typed[i as 0 | 1] !== "" ? tool.typed[i as 0 | 1] : live[i] != null ? roundedText(live[i]!) : "", active: tool.field === i, typed: tool.typed[i as 0 | 1] !== "" })), unit: "mm" };
 }
 
 /** The figure being drawn (an extrude and the other operations show their real result instead, see `frame.ts`). */
@@ -72,7 +73,7 @@ export function previewFor(scene: Scene, tool: Tool | null): Preview | null {
 export function repeatEntries(op: Op, g: Gizmo | null, cam: Camera, chosen: string | null = null): Entry[] {
   const v = op.patStart;
   if (!g || !v) return [];
-  const show = (i: number) => (op.pat[i] !== "" ? op.pat[i]! : fmt(v[i]!));
+  const show = (i: number) => (op.pat[i] !== "" ? op.pat[i]! : roundedText(v[i]!));
   const typed = (i: number) => op.pat[i] !== "";
   if (op.kind === "circular") {
     const L = cam.distance * settings.gizmo.sizeOfView;
@@ -112,7 +113,7 @@ export function moveEntries(op: Op, g: Gizmo | null, offset: Vec3): Entry[] {
   if (!arrow) return [];
   const typed = op.typed !== "";
   return [{
-    fields: [{ label: `Move along ${"XYZ"[i]}`, short: "XYZ"[i]!, value: typed ? op.typed : fmt(offset[i]! + (valueOf(op) ?? 0)), active: true, typed, index: i }],
+    fields: [{ label: `Move along ${"XYZ"[i]}`, short: "XYZ"[i]!, value: typed ? op.typed : roundedText(offset[i]! + (valueOf(op) ?? 0)), active: true, typed, index: i }],
     unit: "mm", at: arrow.points.at(-1)!, from: g.centre,
   }];
 }

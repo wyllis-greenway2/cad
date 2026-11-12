@@ -7,7 +7,7 @@ import type { Scene } from "../operation/scene.ts";
 import { nextId, lookup } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
 import type { Part, Plane } from "../operation/part.ts";
-import { pointOf, normalOfPlane } from "../operation/part.ts";
+import { pointOf, normalOfPlane, localOf, liftOf } from "../operation/part.ts";
 import { drawChain, drawCircle } from "../operation/build.ts";
 import { bodyOutline, bodyOutlines, outlineCommand, drawnOutline, outlineNear } from "./offsetbody.ts";
 import type { Line } from "../operation/part.ts";
@@ -23,8 +23,6 @@ export type OffsetSource =
   | { kind: "outlines"; plane: Ref; origin: Vec3; normal: Vec3; loops: Outline[] };
 
 type V2 = [number, number];
-const local = (pl: Plane, p: Vec3): V2 => [dot(sub(p, pl.at), pl.u), dot(sub(p, pl.at), pl.v)];
-const lift = (pl: Plane, q: V2): Vec3 => add(pl.at, add(scale(pl.u, q[0]), scale(pl.v, q[1])));
 const area2 = (p: V2[]): number => p.reduce((s, a, i) => { const b = p[(i + 1) % p.length]!; return s + (a[0] * b[1] - b[0] * a[1]); }, 0);
 
 /** What a selection can be offset from: a drawn closed figure (straight sides, or with arcs), a chain of sides, one circle, one straight line, the edges or the face of a flat face of the body. */
@@ -71,13 +69,13 @@ export function offsetSource(scene: Scene, parts: Part[]): OffsetSource | null {
     const pts = face.corners.map((c) => pointOf(get, c));
     if (pts.length < 3 || pts.some((p) => !p)) return null;
     const P = pts as Vec3[];
-    const q = P.map((p) => local(pl, p));
+    const q = P.map((p) => localOf(pl, p));
     const a0 = q[0]!, a1 = q[1]!;
     const d: V2 = [a1[0] - a0[0], a1[1] - a0[1]];
     const len = Math.hypot(...d) || 1;
     const s = area2(q) > 0 ? 1 : -1; // counter-clockwise: out is to the right of each side
     const out: V2 = [(s * d[1]) / len, (-s * d[0]) / len];
-    return { kind: "loop", plane: planeRef, pts: P, origin: lift(pl, [(a0[0] + a1[0]) / 2, (a0[1] + a1[1]) / 2]), normal: add(scale(pl.u, out[0]), scale(pl.v, out[1])) };
+    return { kind: "loop", plane: planeRef, pts: P, origin: liftOf(pl, [(a0[0] + a1[0]) / 2, (a0[1] + a1[1]) / 2]), normal: add(scale(pl.u, out[0]), scale(pl.v, out[1])) };
   }
   if (first.kind === "line" && !first.center && !first.bulge) {
     const [a, b] = [pointOf(get, first.a), pointOf(get, first.b)];
@@ -117,7 +115,7 @@ export function offsetCommand(scene: Scene, src: OffsetSource, v: number): Comma
     const shift = scale(src.normal, v);
     return drawChain(scene, src.plane, [add(src.a, shift), add(src.b, shift)]).command;
   }
-  const q = src.pts.map((p) => local(pl, p));
+  const q = src.pts.map((p) => localOf(pl, p));
   const s = area2(q) > 0 ? 1 : -1;
   const n = q.length;
   // the line of each side, moved out by v
@@ -136,7 +134,7 @@ export function offsetCommand(scene: Scene, src: OffsetSource, v: number): Comma
   });
   const a = area2(corners);
   if (Math.abs(a) < 1e-6 || Math.sign(a) !== s) return null; // gone past the middle
-  return drawChain(scene, src.plane, corners.map((c) => lift(pl, c)), true).command;
+  return drawChain(scene, src.plane, corners.map((c) => liftOf(pl, c)), true).command;
 }
 
 /**
@@ -162,7 +160,7 @@ export function offsetNear(scene: Scene, src: OffsetSource, p: Vec3): OffsetSour
   }
   if (src.kind === "loop") {
     const P = src.pts;
-    const s = area2(P.map((x) => local(pl, x))) > 0 ? 1 : -1;
+    const s = area2(P.map((x) => localOf(pl, x))) > 0 ? 1 : -1;
     let best: { at: Vec3; out: Vec3; d: number } | null = null;
     for (let i = 0; i < P.length; i++) {
       const [a, b] = [P[i]!, P[(i + 1) % P.length]!];

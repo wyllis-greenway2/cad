@@ -2,7 +2,7 @@
 // size); Rotate shows curved arrows round X Y Z at a centre you can move to the point you want to turn about. Pure geometry: where the handles are, which one is under the
 // pointer, and what a drag of one means. The view draws them; the controller applies the drag.
 import type { Vec3 } from "../math/vec.ts";
-import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
+import { add, scale, sub, dot, cross, normalize, centroid } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { normalOfPlane } from "../operation/part.ts";
 import type { Op } from "./operations.ts";
@@ -87,7 +87,6 @@ function ring(id: string, centre: Vec3, axis: Vec3, R: number, i: 0 | 1 | 2 | nu
   return { id, kind: "arc", axis: i, points, dir: axis, head: Math.round(RING / 8) };
 }
 const cornersOf = (scene: Scene, refs: readonly string[]): Vec3[] => refs.map((r) => scene.parts[r]).filter((p): p is Extract<NonNullable<Scene["parts"][string]>, { kind: "corner" }> => p?.kind === "corner").map((p) => p.at);
-const middle = (pts: Vec3[]): Vec3 => scale(pts.reduce((a, p) => add(a, p), [0, 0, 0] as Vec3), 1 / Math.max(1, pts.length));
 /** The box that holds the body's corners, or null with no body. */
 function bodyBox(scene: Scene): { lo: Vec3; hi: Vec3 } | null {
   const pts = Object.values(scene.parts).filter((p) => p.kind === "corner" && p.origin === "body").map((p) => (p as { at: Vec3 }).at);
@@ -100,7 +99,7 @@ function bodyBox(scene: Scene): { lo: Vec3; hi: Vec3 } | null {
 
 /** Where the arrows of a move stand as it begins: the middle of the body's box, or of the corners of the drawn figure. Null with nothing to move. */
 export function moveCentre(scene: Scene, op: Op): Vec3 | null {
-  if (op.target === "plane") { const pts = cornersOf(scene, op.parts); return pts.length ? middle(pts) : null; }
+  if (op.target === "plane") { const pts = cornersOf(scene, op.parts); return pts.length ? centroid(pts) : null; }
   const box = bodyBox(scene);
   return box ? scale(add(box.lo, box.hi), 0.5) : null;
 }
@@ -162,7 +161,7 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
     // a drawn figure: the same X Y Z arrows and rings as an object, at the figure's middle (the pivot of a turn can be moved)
     const pts = cornersOf(scene, op.parts);
     if (!pts.length) return null;
-    const centre = op.kind === "rotate" ? (op.pivot ?? middle(pts)) : middle(pts);
+    const centre = op.kind === "rotate" ? (op.pivot ?? centroid(pts)) : centroid(pts);
     if (op.kind === "move") return { centre, handles: AXES.map((d, i): Handle => ({ id: `move:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, 2 * HALF * L))] })) };
     return { centre, handles: [...AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, centre, d, L * 0.8, i as 0 | 1 | 2)), { id: "pivot", kind: "ball", axis: null, points: [centre] }] };
   }

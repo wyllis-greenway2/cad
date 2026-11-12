@@ -4,18 +4,16 @@ import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, dist } from "../math/vec.ts";
 import type { PointerView, Plane } from "../operation/part.ts";
-import { segmentOf, circleOf, pointOf, normalOfPlane } from "../operation/part.ts";
+import { segmentOf, circleOf, pointOf, normalOfPlane, localOf, liftOf } from "../operation/part.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
 import type { Command } from "../operation/commands.ts";
 import { settings } from "../shared/settings.ts";
-import { localOf } from "./tools.ts";
 
 export interface Hint { /** (an arc's tangent: which end of the arc touches the circle) */ end?: 0 | 1; kind: "horizontal" | "vertical" | "parallel" | "perpendicular" | "onLine" | "onCircle" | "concentric" | "tangent" | "equalLength"; ref?: Ref }
 type V2 = [number, number];
 
-const lift = (pl: Plane, [x, y]: V2): Vec3 => add(pl.at, add(scale(pl.u, x), scale(pl.v, y)));
 const lenOf = (v: V2) => Math.hypot(v[0], v[1]);
 const unit = (v: V2): V2 => { const l = lenOf(v) || 1; return [v[0] / l, v[1] / l]; };
 
@@ -75,7 +73,7 @@ function outlineSnap(scene: Scene, pl: Plane, pv: PointerView, e: V2, skip: (lin
     const t = Math.max(0, Math.min(1, ((e[0] - q[0][0]) * ab[0] + (e[1] - q[0][1]) * ab[1]) / (dot([ab[0], ab[1], 0], [ab[0], ab[1], 0]) || 1)));
     const c: V2 = [q[0][0] + ab[0] * t, q[0][1] + ab[1] * t];
     if (t < 0.02 || t > 0.98) continue; // at an end: that is a corner, not "on line"
-    const [px, py] = pv.project(lift(pl, c));
+    const [px, py] = pv.project(liftOf(pl, c));
     const px2 = Math.hypot(px - pv.x, py - pv.y);
     if (px2 <= settings.sketch.snapPx && (!best || px2 < best.px)) best = { at: c, ref: l.ref, px: px2 };
   }
@@ -89,7 +87,7 @@ function outlineSnap(scene: Scene, pl: Plane, pv: PointerView, e: V2, skip: (lin
     if (D < 1e-9) continue;
     const q: V2 = [m[0] + (w[0] / D) * c.radius, m[1] + (w[1] / D) * c.radius];
     if (!withinArc(pl, c, q)) continue;
-    const [px, py] = pv.project(lift(pl, q));
+    const [px, py] = pv.project(liftOf(pl, q));
     const px2 = Math.hypot(px - pv.x, py - pv.y);
     if (px2 <= settings.sketch.snapPx && (!onCircle || px2 < onCircle.px)) onCircle = { at: q, ref: c.ref, px: px2 };
   }
@@ -102,7 +100,7 @@ export function pointHint(spent: Scene, pl: Plane, pv: PointerView, base: Vec3):
   const n = normalOfPlane(pl);
   for (const p of Object.values(scene.parts)) if (p.kind === "corner" && Math.abs(dot(sub(p.at, pl.at), n)) < 1e-3 && dist(p.at, base) < 1e-6) return { at: base, hints: [] }; // (at a corner: that is its own constraint)
   const snapped = outlineSnap(scene, pl, pv, localOf(pl, base));
-  return snapped ? { at: lift(pl, snapped.at), hints: [snapped.hint] } : { at: base, hints: [] };
+  return snapped ? { at: liftOf(pl, snapped.at), hints: [snapped.hint] } : { at: base, hints: [] };
 }
 
 /** The end of a line from `start` that the pointer is at, `base` (already snapped to corners and the rounding), made to satisfy any constraint it is close to. */
@@ -125,7 +123,7 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
 
   // on a line, or on a circle or an arc: the end takes the nearest point on it
   const snapped = outlineSnap(scene, pl, pv, e, (ref) => touchesStart(ref));
-  if (snapped) return { at: lift(pl, snapped.at), hints: [snapped.hint] };
+  if (snapped) return { at: liftOf(pl, snapped.at), hints: [snapped.hint] };
   const rounds = roundsOf(scene, get).filter((r) => onPlane(r.center));
 
   // directions the end could take: level, upright, parallel or square to a line, tangent to a circle; the nearest one inside the tolerance wins
@@ -176,7 +174,7 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
     if (Math.abs(L - length) <= 0.02 * L) { length = L; hints.push({ kind: "equalLength", ref: l.ref }); break; }
   }
   if (!hints.length) return none;
-  return { at: lift(pl, [s[0] + dir[0] * length, s[1] + dir[1] * length]), hints };
+  return { at: liftOf(pl, [s[0] + dir[0] * length, s[1] + dir[1] * length]), hints };
 }
 
 
@@ -216,7 +214,7 @@ export function arcBulgeHint(spent: Scene, pl: Plane, a: Vec3, b: Vec3, cursor: 
       if (err <= tol && (!best || err < best.err)) best = { err, h: target, hint: { kind: "tangent", ref: R.ref, end } };
     }
   }
-  return best ? { at: lift(pl, [M[0] + perp[0] * best.h, M[1] + perp[1] * best.h]), hints: [best.hint] } : none;
+  return best ? { at: liftOf(pl, [M[0] + perp[0] * best.h, M[1] + perp[1] * best.h]), hints: [best.hint] } : none;
 }
 
 /**

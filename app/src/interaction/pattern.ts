@@ -1,10 +1,11 @@
 // Linear and circular repeat (`in_137`, `in_139`): the body or a drawn figure, repeated along X, Y and Z (a line, a grid, a block) or turned about a point (copies round it).
 // The numbers: linear is [nX, dX, nY, dY, nZ, dZ] (how many along each axis and how far apart), circular is [count, degrees, axis (0 X, 1 Y, 2 Z), x, y, z of the point].
 // A body is repeated by a step of the kernel (the copies are joined to it); a figure is repeated by new parts, copies of its corners, lines and circle with the relations among them.
+import { typedNumber } from "../shared/numbers.ts";
 import type { Ref } from "../shared/ref.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
-import { add, scale, sub, dot, cross } from "../math/vec.ts";
+import { add, scale, sub, dot, cross, centroid } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
@@ -15,11 +16,6 @@ import { placements } from "../operation/repeat.ts";
 import type { Op } from "./operations.ts";
 
 const r3 = (v: number) => Math.round(v * 1e3) / 1e3;
-const num = (s: string): number | null => {
-  const v = Number(s);
-  return s !== "" && s !== "-" && s !== "." && Number.isFinite(v) ? v : null;
-};
-const middle = (pts: Vec3[]): Vec3 => scale(pts.reduce((a, p) => add(a, p), [0, 0, 0] as Vec3), 1 / Math.max(1, pts.length));
 
 /** The numbers a repeat starts with, and the middle of what is repeated: a first try that shows the idea (three along a line, four round a point). Null if there is nothing to repeat. */
 export function patternStart(scene: Scene, kind: "linear" | "circular", figure: readonly Ref[] | null, view: { normal: 0 | 1 | 2; right: 0 | 1 | 2 } | null = null, body: Ref | null = null): { parts: Ref[]; start: number[]; target: "body" | "plane"; /** the direction the helper bubbles stand on: the first one the thing has any size in */ along: 0 | 1 | 2 } | null {
@@ -58,7 +54,7 @@ export function patternStart(scene: Scene, kind: "linear" | "circular", figure: 
 }
 
 /** The numbers of a repeat: each field as typed, else as it started. */
-export const patternValues = (op: Op): number[] => (op.patStart ?? []).map((v, i) => num(op.pat[i] ?? "") ?? v);
+export const patternValues = (op: Op): number[] => (op.patStart ?? []).map((v, i) => typedNumber(op.pat[i] ?? "") ?? v);
 
 /** The middle of what is repeated (where the arrows of a linear repeat start). */
 export function patternCentre(scene: Scene, op: Op): Vec3 {
@@ -68,7 +64,7 @@ export function patternCentre(scene: Scene, op: Op): Vec3 {
   if (!pts.length) return [0, 0, 0];
   const lo = [0, 1, 2].map((i) => Math.min(...pts.map((c) => c[i]!)));
   const hi = [0, 1, 2].map((i) => Math.max(...pts.map((c) => c[i]!)));
-  return op.target === "plane" ? middle(pts) : [(lo[0]! + hi[0]!) / 2, (lo[1]! + hi[1]!) / 2, (lo[2]! + hi[2]!) / 2];
+  return op.target === "plane" ? centroid(pts) : [(lo[0]! + hi[0]!) / 2, (lo[1]! + hi[1]!) / 2, (lo[2]! + hi[2]!) / 2];
 }
 
 /** The command that makes the repeat (null while it would make no copy, or too many). */

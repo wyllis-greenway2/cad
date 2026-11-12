@@ -1,6 +1,7 @@
 // The constraint bubbles (`in_058`..`in_061`, `in_118`): a small bubble sits ON the part it belongs to (the line, the vertex, between two lines, at the angle), not next to the
 // pointer. A dimension is just its number and a little lock; any other constraint is its icon. Click the number to type a new one, click the lock to lock or unlock it, click the
 // bubble to open it (an x to delete it appears; hovering also shows it) and click again to close it. Several constraints at one spot are laid side by side. The words are in tooltips.
+import { roundedText } from "../shared/numbers.ts";
 import type { Vec3 } from "../interaction/api.ts";
 import type { Annotation } from "../interaction/annotations.ts";
 import { iconKey, iconSvg } from "./icons.ts";
@@ -17,7 +18,6 @@ export interface BubbleHandlers {
   /** lock the measure of the selection at a number */
   measure(value: number): void;
 }
-const fmt = (v: number) => String(Math.round(v * 100) / 100);
 
 interface Entry { el: HTMLElement; sig: string; editing: boolean; a: Annotation; tinted: boolean; /** the thin line back to its spot, once it has moved far */ leader?: HTMLElement; /** where it is from the spot it belongs to, on its way to where it should stand */ off?: [number, number] }
 /** A refused change while it flashes: how far through it is, what it would have broken (red, fading) and what tried it (it shakes). */
@@ -34,13 +34,13 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
     const el = e.el;
     e.a = a;
     el.replaceChildren();
-    el.title = `${a.label}${a.value !== null ? ` ${fmt(a.value)} ${a.unit ?? ""}${a.locked ? " (locked)" : a.readOnly ? " (measured: it belongs to the body)" : " (measured: click the number to type one and lock it)"}` : ""}${a.broken ? ": a part it used is gone" : ""}`;
+    el.title = `${a.label}${a.value !== null ? ` ${roundedText(a.value)} ${a.unit ?? ""}${a.locked ? " (locked)" : a.readOnly ? " (measured: it belongs to the body)" : " (measured: click the number to type one and lock it)"}` : ""}${a.broken ? ": a part it used is gone" : ""}`;
     el.style.cssText = `position:absolute;left:0;top:0;display:flex;align-items:center;gap:3px;height:26px;box-sizing:border-box;padding:0 7px;border-radius:13px;background:#fff;border:1px solid ${a.broken ? "#d33" : a.open ? "#e0a82e" : "#d6d7db"};box-shadow:0 1px 6px rgba(0,0,0,.12);cursor:${a.relationId ? "pointer" : "default"};white-space:nowrap`;
     const relation = a.relationId;
     if (a.value !== null) {
       if (a.symbol) { const sym = document.createElement("span"); sym.textContent = a.symbol; sym.style.cssText = "font-weight:600;opacity:.6"; el.appendChild(sym); } // Ø or R: what the number is the size of
       const num = document.createElement("span");
-      num.textContent = fmt(a.value);
+      num.textContent = roundedText(a.value);
       num.style.cssText = `font-weight:600;${a.editable ? "cursor:text;" : ""}`;
       if (a.editable) {
         num.addEventListener("click", (ev) => { ev.stopPropagation(); edit(a, e, num); });

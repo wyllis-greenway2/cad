@@ -8,7 +8,7 @@ import { nextId } from "../operation/scene.ts";
 import { formatId, drawnRef } from "../shared/ref.ts";
 import type { Command } from "../operation/commands.ts";
 import type { Part, Plane, Line } from "../operation/part.ts";
-import { pointOf, normalOfPlane } from "../operation/part.ts";
+import { pointOf, normalOfPlane, localOf, liftOf } from "../operation/part.ts";
 import { planeForDrawing } from "./tools.ts";
 
 type V2 = [number, number];
@@ -17,8 +17,6 @@ export type Edge2 =
   | { k: "arc"; c: V2; r: number; p: V2; q: V2; ccw: boolean };
 export interface Outline { kind: "outline"; plane: Ref; edges: Edge2[]; closed: boolean; /** +1: the inside of the face is to the left of the way the chain runs, -1: to the right */ side: 1 | -1; origin: Vec3; normal: Vec3 }
 
-const local = (pl: Plane, p: Vec3): V2 => [dot(sub(p, pl.at), pl.u), dot(sub(p, pl.at), pl.v)];
-const lift = (pl: Plane, q: V2): Vec3 => add(pl.at, add(scale(pl.u, q[0]), scale(pl.v, q[1])));
 const near2 = (a: V2, b: V2, t = 1e-6) => Math.hypot(a[0] - b[0], a[1] - b[1]) < t;
 const norm2 = (v: V2): V2 => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
 
@@ -47,6 +45,26 @@ const onBoundaryEdge = (scene: Scene, l: Line, on: (p: Vec3, tol?: number) => bo
   return on(a) && on(b) && (l.mid ? on(l.mid, 0.2) /* (the triangles of a curve are chords: its middle is a little off them) */ : on([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]));
 };
 
+/** The lines joined end to end at their shared corners, in the order they are walked and where each leaves from, and whether the last comes back to the first; null when there is a branch or more than one chain. One walk for a face's edges and a drawn outline (`in_282`). */
+function walkChain(lines: readonly Line[]): { order: { l: Line; from: Ref }[]; closed: boolean } | null {
+  const at = new Map<Ref, Line[]>();
+  for (const l of lines) for (const r of [l.a, l.b]) at.set(r, [...(at.get(r) ?? []), l]);
+  if ([...at.values()].some((v) => v.length > 2)) return null;
+  const start = [...at.entries()].find(([, v]) => v.length === 1)?.[0] ?? lines[0]!.a;
+  const order: { l: Line; from: Ref }[] = [];
+  const used = new Set<Ref>();
+  let cur = start;
+  for (let step = 0; step < lines.length; step++) {
+    const l = (at.get(cur) ?? []).find((x) => !used.has(x.ref));
+    if (!l) break;
+    used.add(l.ref);
+    order.push({ l, from: cur });
+    cur = l.a === cur ? l.b : l.a;
+  }
+  if (order.length !== lines.length) return null;
+  return { order, closed: order.length > 1 && cur === start };
+}
+
 /** The outline a selection of body edges (or one flat face) gives, or null if it is not edges of one flat face that make one chain. */
 export function bodyOutline(scene: Scene, parts: Part[], ins?: (p: V2) => boolean): Outline | null {
   const get = (r: Ref) => scene.parts[r];
@@ -67,41 +85,28 @@ export function bodyOutline(scene: Scene, parts: Part[], ins?: (p: V2) => boolea
   // the middle of the face, to know which side is in
   const m = face.mesh!;
   let cx = 0, cy = 0, cn = 0;
-  for (let i = 0; i + 2 < m.length; i += 3) { const q = local(pl, [m[i]!, m[i + 1]!, m[i + 2]!]); cx += q[0]; cy += q[1]; cn++; }
+  for (let i = 0; i + 2 < m.length; i += 3) { const q = localOf(pl, [m[i]!, m[i + 1]!, m[i + 2]!]); cx += q[0]; cy += q[1]; cn++; }
   const mid: V2 = [cx / cn, cy / cn];
   // a whole rim on its own: a circle
   if (edges.length === 1 && edges[0]!.a === edges[0]!.b && edges[0]!.circle) {
-    const c = local(pl, edges[0]!.circle!.center);
+    const c = localOf(pl, edges[0]!.circle!.center);
     const r = edges[0]!.circle!.radius;
     const p: V2 = [c[0] + r, c[1]];
     // (a hole of a face with holes: the face's middle says nothing, a point just inside the circle is asked whether it is in the face, `in_228`)
     const within = ins ? ins([c[0] + r - 0.1 * r, c[1]]) : Math.hypot(mid[0] - c[0], mid[1] - c[1]) < r;
-    return { kind: "outline", plane: pl.ref, edges: [{ k: "arc", c, r, p, q: p, ccw: true }], closed: true, side: within ? 1 : -1, origin: lift(pl, p), normal: pl.u };
+    return { kind: "outline", plane: pl.ref, edges: [{ k: "arc", c, r, p, q: p, ccw: true }], closed: true, side: within ? 1 : -1, origin: liftOf(pl, p), normal: pl.u };
   }
   if (edges.some((l) => l.a === l.b)) return null;
   // the chain: edges joined end to end at shared corners
-  const at = new Map<Ref, Line[]>();
-  for (const l of edges) for (const r of [l.a, l.b]) at.set(r, [...(at.get(r) ?? []), l]);
-  if ([...at.values()].some((v) => v.length > 2)) return null;
-  const start = [...at.entries()].find(([, v]) => v.length === 1)?.[0] ?? edges[0]!.a;
-  const order: { l: Line; from: Ref }[] = [];
-  const used = new Set<Ref>();
-  let cur = start;
-  for (let step = 0; step < edges.length; step++) {
-    const l = (at.get(cur) ?? []).find((x) => !used.has(x.ref));
-    if (!l) break;
-    used.add(l.ref);
-    order.push({ l, from: cur });
-    cur = l.a === cur ? l.b : l.a;
-  }
-  if (order.length !== edges.length) return null; // more than one chain
-  const closed = order.length > 1 && cur === start;
+  const chain = walkChain(edges);
+  if (!chain) return null; // (branches, or more than one chain)
+  const { order, closed } = chain;
   const out: Edge2[] = order.map(({ l, from }): Edge2 => {
     const [pa, pb] = [pointOf(get, from), pointOf(get, l.a === from ? l.b : l.a)];
-    const [p, q] = [local(pl, pa!), local(pl, pb!)];
+    const [p, q] = [localOf(pl, pa!), localOf(pl, pb!)];
     if (!l.mid) return { k: "seg", p, q };
-    const c = local(pl, l.circle!.center);
-    const mm = local(pl, l.mid);
+    const c = localOf(pl, l.circle!.center);
+    const mm = localOf(pl, l.mid);
     const ccw = (p[0] - c[0]) * (mm[1] - c[1]) - (p[1] - c[1]) * (mm[0] - c[0]) > 0;
     return { k: "arc", c, r: l.circle!.radius, p, q, ccw };
   });
@@ -128,7 +133,7 @@ export function bodyOutline(scene: Scene, parts: Part[], ins?: (p: V2) => boolea
   const t0 = tangent(first, 0.5);
   const left: V2 = [-t0[1], t0[0]];
   const outward: V2 = [-side * left[0], -side * left[1]];
-  return { kind: "outline", plane: pl.ref, edges: out, closed, side, origin: lift(pl, first.k === "seg" ? fm : first.p), normal: add(scale(pl.u, outward[0]), scale(pl.v, outward[1])) };
+  return { kind: "outline", plane: pl.ref, edges: out, closed, side, origin: liftOf(pl, first.k === "seg" ? fm : first.p), normal: add(scale(pl.u, outward[0]), scale(pl.v, outward[1])) };
 }
 
 /**
@@ -141,31 +146,18 @@ export function drawnOutline(scene: Scene, lines: Line[]): Outline | null {
   if (!lines.length || lines.some((l) => !l.plane || l.plane !== lines[0]!.plane || l.a === l.b || l.bulge)) return null;
   const pl = get(lines[0]!.plane!);
   if (!pl || pl.kind !== "plane") return null;
-  const at = new Map<Ref, Line[]>();
-  for (const l of lines) for (const r of [l.a, l.b]) at.set(r, [...(at.get(r) ?? []), l]);
-  if ([...at.values()].some((v) => v.length > 2)) return null;
-  const start = [...at.entries()].find(([, v]) => v.length === 1)?.[0] ?? lines[0]!.a;
-  const order: { l: Line; from: Ref }[] = [];
-  const used = new Set<Ref>();
-  let cur = start;
-  for (let step = 0; step < lines.length; step++) {
-    const l = (at.get(cur) ?? []).find((x) => !used.has(x.ref));
-    if (!l) break;
-    used.add(l.ref);
-    order.push({ l, from: cur });
-    cur = l.a === cur ? l.b : l.a;
-  }
-  if (order.length !== lines.length) return null; // more than one chain
-  const closed = order.length > 1 && cur === start;
+  const chain = walkChain(lines);
+  if (!chain) return null; // (branches, or more than one chain)
+  const { order, closed } = chain;
   const edges: Edge2[] = [];
   for (const { l, from } of order) {
     const [pa, pb] = [pointOf(get, from), pointOf(get, l.a === from ? l.b : l.a)];
     if (!pa || !pb) return null;
-    const [p, q] = [local(pl, pa), local(pl, pb)];
+    const [p, q] = [localOf(pl, pa), localOf(pl, pb)];
     if (!l.center) { edges.push({ k: "seg", p, q }); continue; }
     const cp = pointOf(get, l.center);
     if (!cp) return null;
-    const c = local(pl, cp);
+    const c = localOf(pl, cp);
     edges.push({ k: "arc", c, r: Math.hypot(p[0] - c[0], p[1] - c[1]), p, q, ccw: from === l.a ? l.ccw !== false : l.ccw === false });
   }
   // which side the inside is on: a closed figure that turns counter-clockwise has it to the left
@@ -181,27 +173,27 @@ export function drawnOutline(scene: Scene, lines: Line[]): Outline | null {
   const left: V2 = [-t0[1], t0[0]];
   const outward: V2 = [-side * left[0], -side * left[1]];
   const ori = first.k === "seg" ? fm : pointAt(first, 0.5);
-  return { kind: "outline", plane: pl.ref, edges, closed, side, origin: lift(pl, ori), normal: add(scale(pl.u, outward[0]), scale(pl.v, outward[1])) };
+  return { kind: "outline", plane: pl.ref, edges, closed, side, origin: liftOf(pl, ori), normal: add(scale(pl.u, outward[0]), scale(pl.v, outward[1])) };
 }
 
-/** The direction an edge runs in at a fraction of the way along (0 the start, 1 the end). */
-function tangent(e: Edge2, t: number): V2 {
-  if (e.k === "seg") return norm2([e.q[0] - e.p[0], e.q[1] - e.p[1]]);
+/** The angle about its centre that an arc has reached at a fraction of the way along it (a whole circle sweeps all the way round). One working for the direction and the point (`in_282`). */
+function angleAt(e: Extract<Edge2, { k: "arc" }>, t: number): number {
   const a0 = Math.atan2(e.p[1] - e.c[1], e.p[0] - e.c[0]);
   const a1 = Math.atan2(e.q[1] - e.c[1], e.q[0] - e.c[0]);
   let sweep = e.ccw ? (a1 - a0 + 4 * Math.PI) % (2 * Math.PI) : -((a0 - a1 + 4 * Math.PI) % (2 * Math.PI));
   if (Math.abs(sweep) < 1e-9) sweep = e.ccw ? 2 * Math.PI : -2 * Math.PI;
-  const a = a0 + sweep * t;
+  return a0 + sweep * t;
+}
+/** The direction an edge runs in at a fraction of the way along (0 the start, 1 the end). */
+function tangent(e: Edge2, t: number): V2 {
+  if (e.k === "seg") return norm2([e.q[0] - e.p[0], e.q[1] - e.p[1]]);
+  const a = angleAt(e, t);
   return e.ccw ? [-Math.sin(a), Math.cos(a)] : [Math.sin(a), -Math.cos(a)];
 }
 /** The point at a fraction of the way along an edge. */
 function pointAt(e: Edge2, t: number): V2 {
   if (e.k === "seg") return [e.p[0] + (e.q[0] - e.p[0]) * t, e.p[1] + (e.q[1] - e.p[1]) * t];
-  const a0 = Math.atan2(e.p[1] - e.c[1], e.p[0] - e.c[0]);
-  const a1 = Math.atan2(e.q[1] - e.c[1], e.q[0] - e.c[0]);
-  let sweep = e.ccw ? (a1 - a0 + 4 * Math.PI) % (2 * Math.PI) : -((a0 - a1 + 4 * Math.PI) % (2 * Math.PI));
-  if (Math.abs(sweep) < 1e-9) sweep = e.ccw ? 2 * Math.PI : -2 * Math.PI;
-  const a = a0 + sweep * t;
+  const a = angleAt(e, t);
   return [e.c[0] + Math.cos(a) * e.r, e.c[1] + Math.sin(a) * e.r];
 }
 
@@ -265,7 +257,7 @@ export function outlineCommand(scene: Scene, src: Outline, v: number): Command |
     const id = nextId(scene, "e");
     const [cRef, kRef] = [drawnRef(`${id}.c`), drawnRef(`${id}.k`)];
     const base = { origin: "drawn" as const, plane: draw.plane, movable: true };
-    return { type: "batch", commands: [...(draw.command ? [draw.command] : []), { type: "addPart", part: { ...base, ref: cRef, kind: "corner", at: lift(pl, e.c) } }, { type: "addPart", part: { ...base, ref: kRef, kind: "circle", center: cRef, radius: r } }] };
+    return { type: "batch", commands: [...(draw.command ? [draw.command] : []), { type: "addPart", part: { ...base, ref: cRef, kind: "corner", at: liftOf(pl, e.c) } }, { type: "addPart", part: { ...base, ref: kRef, kind: "circle", center: cRef, radius: r } }] };
   }
   const mv = src.edges.map((e) => moved(e, inward, src.side));
   if (mv.some((m) => m.edge.k === "arc" && !(m.edge.r > 1e-6))) return null;
@@ -310,7 +302,7 @@ export function outlineCommand(scene: Scene, src: Outline, v: number): Command |
   const base = { origin: "drawn" as const, plane: draw.plane, movable: true };
   const commands: Command[] = draw.command ? [draw.command] : [];
   const corners = joints.map((_, i) => drawnRef(`${id}.p${i}`));
-  joints.forEach((j, i) => commands.push({ type: "addPart", part: { ...base, ref: corners[i]!, kind: "corner", at: lift(pl, j) } }));
+  joints.forEach((j, i) => commands.push({ type: "addPart", part: { ...base, ref: corners[i]!, kind: "corner", at: liftOf(pl, j) } }));
   let rid = scene.counter;
   src.edges.forEach((e, i) => {
     const [a, b] = [corners[i]!, corners[(i + 1) % corners.length]!];
@@ -318,7 +310,7 @@ export function outlineCommand(scene: Scene, src: Outline, v: number): Command |
     if (e.k === "seg") { commands.push({ type: "addPart", part: { ...base, ref: line, kind: "line", a, b } }); return; }
     const centre = drawnRef(`${id}.c${i}`);
     const m = mv[i]!.edge as Extract<Edge2, { k: "arc" }>;
-    commands.push({ type: "addPart", part: { ...base, ref: centre, kind: "corner", at: lift(pl, m.c) } });
+    commands.push({ type: "addPart", part: { ...base, ref: centre, kind: "corner", at: liftOf(pl, m.c) } });
     commands.push({ type: "addPart", part: { ...base, ref: line, kind: "line", a, b, center: centre, ccw: e.ccw } });
     commands.push({ type: "addRelation", relation: { id: formatId("r", ++rid), kind: "arcEnds", parts: [line, centre] } });
   });
@@ -342,7 +334,7 @@ export function bodyOutlines(scene: Scene, parts: Part[]): { loops: Outline[] } 
   const pl = only;
   const tris: [V2, V2, V2][] = [];
   const m = only.mesh;
-  for (let i = 0; i + 8 < m.length; i += 9) tris.push([local(pl, [m[i]!, m[i + 1]!, m[i + 2]!]), local(pl, [m[i + 3]!, m[i + 4]!, m[i + 5]!]), local(pl, [m[i + 6]!, m[i + 7]!, m[i + 8]!])]);
+  for (let i = 0; i + 8 < m.length; i += 9) tris.push([localOf(pl, [m[i]!, m[i + 1]!, m[i + 2]!]), localOf(pl, [m[i + 3]!, m[i + 4]!, m[i + 5]!]), localOf(pl, [m[i + 6]!, m[i + 7]!, m[i + 8]!])]);
   const inside = (p: V2): boolean => tris.some(([a, b, c]) => { const d = (u: V2, v: V2, w: V2) => (u[0] - w[0]) * (v[1] - w[1]) - (v[0] - w[0]) * (u[1] - w[1]); const [d1, d2, d3] = [d(p, a, b), d(p, b, c), d(p, c, a)]; return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0)); });
   const loops: Outline[] = [];
   for (const g of groups.values()) { const o = bodyOutline(scene, g, inside); if (!o) return null; loops.push(o); }
@@ -353,7 +345,7 @@ export function bodyOutlines(scene: Scene, parts: Part[]): { loops: Outline[] } 
 export function outlineNear(scene: Scene, o: Outline, p: Vec3): { origin: Vec3; normal: Vec3; dist: number } | null {
   const pl = scene.parts[o.plane];
   if (!pl || pl.kind !== "plane") return null;
-  const q = local(pl, p);
+  const q = localOf(pl, p);
   let best: { at: V2; t: number; e: Edge2; d: number } | null = null;
   for (const e of o.edges) {
     let t: number;
@@ -378,5 +370,5 @@ export function outlineNear(scene: Scene, o: Outline, p: Vec3): { origin: Vec3; 
   if (!best) return null;
   const left: V2 = [-tangent(best.e, best.t)[1], tangent(best.e, best.t)[0]];
   const outward: V2 = [-o.side * left[0], -o.side * left[1]];
-  return { origin: lift(pl, best.at), normal: add(scale(pl.u, outward[0]), scale(pl.v, outward[1])), dist: best.d };
+  return { origin: liftOf(pl, best.at), normal: add(scale(pl.u, outward[0]), scale(pl.v, outward[1])), dist: best.d };
 }

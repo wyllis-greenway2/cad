@@ -1,5 +1,6 @@
 // The operations that take a number (`dec_interaction_spec`): extrude a closed figure, fillet or chamfer lines of the body (one operation: one way is a fillet, the other a chamfer), move, rotate or scale the body.
 // An operation starts from the selection (the menu or a key), shows its number, and is finished by Enter or a click: that adds ONE step to the scene, so it undoes in one go.
+import { typedNumber } from "../shared/numbers.ts";
 import type { Ref } from "../shared/ref.ts";
 import { edgeDirection, moveCentre, moveOffset } from "./gizmo.ts";
 import { patternStart, patternCommand } from "./pattern.ts";
@@ -342,13 +343,9 @@ export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
   return r.ok ? { ...r.op, auto: true } : null;
 }
 
-const num = (s: string): number | null => {
-  const v = Number(s);
-  return s !== "" && s !== "-" && s !== "." && Number.isFinite(v) ? v : null;
-};
 /** The number the operation will use: what was typed, else the pointer's or default value. */
 export const valueOf = (op: Op): number | null => {
-  const t = num(op.typed);
+  const t = typedNumber(op.typed);
   if (t !== null && op.kind === "move" && op.typedBase !== undefined) return t - op.typedBase; // (a typed position along the axis: the step is how far that is from where it is)
   // a typed size is the size you want: how far to move is what is missing from the size now
   return t !== null && op.dim ? (t - op.dim.base) / op.dim.scale : t ?? op.value;
@@ -416,7 +413,7 @@ function figureCommand(scene: Scene, op: Op, turns: { axis: 0 | 1 | 2; angle: nu
   const moves = [...byPlane.entries()].map(([plane, parts], k): Command => ({ type: "transformFigure", parts, plane, newPlane: drawnRef(`${base}.c${k}`), turns, pivot, translate }));
   return { type: "batch", commands: [...released.map((r): Command => ({ type: "removeRelation", id: r.id })), ...moves] };
 }
-const rotTarget = (scene: Scene, op: Op): Angles => { const cur = turnAngles(scene, op); return cur.map((c, i) => (num(op.rot[i]!) ?? c)) as Angles; };
+const rotTarget = (scene: Scene, op: Op): Angles => { const cur = turnAngles(scene, op); return cur.map((c, i) => (typedNumber(op.rot[i]!) ?? c)) as Angles; };
 
 /** A step of the move, turn or scale of one body of several: it names the body (`body`); the sketches of the step that made the body go with it (`carries`), the others stay. */
 function forBody(cmd: Command | null, id: string, carries: boolean): Command | null {
@@ -436,12 +433,12 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   // a preview (what is shown while a number is dragged) is only the step: the sketches are carried when it is made for good. Carrying them changes what the earlier steps read, so every step would be made again at every move of the pointer (`in_206`)
   if (opts.preview && op.target === "body" && (op.kind === "move" || op.kind === "rotate" || op.kind === "scale")) return stripFollow(opCommand(scene, op));
   if (op.kind === "linear" || op.kind === "circular") return patternCommand(scene, op);
-  if (op.kind === "rotate" && op.target === "plane" && op.rot.some((t) => num(t) !== null)) {
+  if (op.kind === "rotate" && op.target === "plane" && op.rot.some((t) => typedNumber(t) !== null)) {
     // angles typed for a figure: it is turned to exactly those, about its pivot
     const steps = stepsBetween(planeTurn(scene, op), rotTarget(scene, { ...op, value: null, typed: "" }));
     return steps.length ? figureCommand(scene, op, steps.map((t) => ({ axis: t.axis, angle: t.angle })), [0, 0, 0]) : null;
   }
-  if (op.kind === "rotate" && op.target === "body" && op.rot.some((t) => num(t) !== null)) {
+  if (op.kind === "rotate" && op.target === "body" && op.rot.some((t) => typedNumber(t) !== null)) {
     // angles typed in the bubble: the body is turned to exactly those (as three turns about X, Y, Z that go from how it is turned now), one command
     const id = nextId(scene, "s");
     const pivot: Record<string, number> = op.pivot ? { px: op.pivot[0], py: op.pivot[1], pz: op.pivot[2] } : {};
@@ -497,7 +494,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
  */
 export function bodyMotion(scene: Scene, op: Op): Rigid | null {
   if (op.target !== "body" || (op.kind !== "move" && op.kind !== "rotate" && op.kind !== "scale")) return null;
-  if (op.kind === "rotate" && op.rot.some((t) => num(t) !== null)) {
+  if (op.kind === "rotate" && op.rot.some((t) => typedNumber(t) !== null)) {
     // angles typed for the axes: the body is turned to exactly those, as up to three turns one after another about the same point; about the middle of the body that is only known for one turn (after it the middle
     // of its box is somewhere else), so several turns need a pivot set, else the kernel works them out (`in_228`)
     const cmd = opCommand(scene, op, { preview: true });
@@ -603,6 +600,14 @@ function arcMapOf(scene: Scene, solved: Scene, arc: Extract<Part, { kind: "line"
   return { center: cc.at, centerN: nc.at, axis: normalOfPlane(pl), u: pl.u, v: pl.v, th0: ta, span, th0n: tan, spanN, dir, dr: Math.hypot(...sub(na.at, nc.at)) - Math.hypot(...sub(ca.at, cc.at)) };
 }
 
+/** The scene after a command, with its relations solved, or null when the command cannot be done or the solver finds a conflict: the first step of every drag that is drawn without the kernel (`in_282`: one copy). */
+function solvedAfter(scene: Scene, cmd: Command): ReturnType<typeof solveScene> | null {
+  const moved = apply(scene, cmd);
+  if (!moved.ok) return null;
+  const solved = solveScene(moved.value);
+  return solved.planes.some((p) => p.status === "conflict") ? null : solved;
+}
+
 /**
  * The wall of an arc of an extruded sketch (its circle was cut into arcs by lines and is gone) made wider or narrower (`in_225`): the arc keeps its middle, its two ends slide along their lines to the new radius (the
  * same corners the edit moves, checked with the solver), so the wall's points go out from the middle by the change and along the arc to where its ends are now, and every point over a moved corner moves with it.
@@ -628,10 +633,8 @@ export function arcDrag(scene: Scene, op: Op): { face: Ref; arc: ArcMap; items: 
   if (piece?.kind === "line") { const [pa, pb] = [scene.parts[piece.a], scene.parts[piece.b]]; if (pa?.kind !== "corner" || pb?.kind !== "corner") return null; const same = (x: Vec3, y: Vec3) => Math.hypot(...sub(x, y)) < 1e-3; if (!((same(pa.at, ca.at) && same(pb.at, cb.at)) || (same(pa.at, cb.at) && same(pb.at, ca.at)))) return null; }
   const cmd = arcRadiusCommand(scene, e.circle, radius);
   if (!cmd) return null;
-  const moved = apply(scene, cmd);
-  if (!moved.ok) return null;
-  const solved = solveScene(moved.value);
-  if (solved.planes.some((p) => p.status === "conflict")) return null;
+  const solved = solvedAfter(scene, cmd);
+  if (!solved) return null;
   const items: { ref: Ref; at: Vec3; by: Vec3 }[] = [];
   for (const q of Object.values(scene.parts)) {
     if (q.kind !== "corner" || q.origin !== "drawn" || q.plane !== arc.plane) continue;
@@ -671,10 +674,8 @@ export function sideDrag(scene: Scene, op: Op): { face: Ref; axis: Vec3; items: 
   if (!e.corners.every((c) => own.has(c))) return null;
   const cmd = editCommand(scene, e, v);
   if (!cmd) return null;
-  const moved = apply(scene, cmd);
-  if (!moved.ok) return null;
-  const solved = solveScene(moved.value);
-  if (solved.planes.some((p) => p.status === "conflict")) return null;
+  const solved = solvedAfter(scene, cmd);
+  if (!solved) return null;
   const items: { ref: Ref; at: Vec3; by: Vec3 }[] = [];
   const plane = (scene.parts[e.corners[0]!] as { plane?: Ref | null }).plane;
   for (const c of own) {

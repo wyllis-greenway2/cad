@@ -1,7 +1,7 @@
 // The body's frame (`in_204`): the moves and turns of the whole body are steps after the extrude that made it; the sketch that made it is carried along with each of them (so it stays attached to the body),
 // and the extrude reads the sketch back through the motions that came after it, since the step list moves the body again by itself. Pure: numbers in, numbers out.
 import type { Vec3 } from "../math/vec.ts";
-import { about, then } from "../math/rotation.ts";
+import { about, then, transpose } from "../math/rotation.ts";
 import type { Mat3 } from "../math/rotation.ts";
 import type { Step } from "./scene.ts";
 
@@ -10,7 +10,6 @@ export interface Rigid { turn: Mat3; shift: Vec3; /** the scale, 1 for a move or
 export const NONE: Rigid = { turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift: [0, 0, 0], k: 1 };
 
 const mul = (m: Mat3, v: Vec3): Vec3 => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2], m[6] * v[0] + m[7] * v[1] + m[8] * v[2]];
-const transpose = (m: Mat3): Mat3 => [m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]];
 export const applyPoint = (r: Rigid, p: Vec3): Vec3 => { const q = mul(r.turn, p); return [r.k * q[0] + r.shift[0], r.k * q[1] + r.shift[1], r.k * q[2] + r.shift[2]]; };
 export const applyDir = (r: Rigid, d: Vec3): Vec3 => mul(r.turn, d);
 /** a, then b. */

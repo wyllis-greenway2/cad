@@ -1,11 +1,12 @@
 // The drawing tools (`dec_interaction_spec`, "Drawing and relations"): rectangle, circle, line. A tool is armed (L, R, C or the menu), the first click on any surface
 // sets the plane and the first point, and the figure is finished by a second click or by typing sizes (Enter). A tool draws ONE figure, selects it, and hands back
 // to normal selection. Pure: the controller feeds it points and keys; it returns the new tool state and, when a figure is done, the command and what to select.
+import { typedNumber } from "../shared/numbers.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, dist, cross } from "../math/vec.ts";
 import type { PointerView, Plane } from "../operation/part.ts";
-import { normalOfPlane, pointOf, arcPoints } from "../operation/part.ts";
+import { normalOfPlane, pointOf, arcPoints, localOf, liftOf } from "../operation/part.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
@@ -54,8 +55,6 @@ export function pointOnPlane(pv: PointerView, pl: Plane): Vec3 | null {
   const t = dot(n, sub(pl.at, pv.ray.o)) / den;
   return t > 0 ? add(pv.ray.o, scale(pv.ray.d, t)) : null;
 }
-export const localOf = (pl: Plane, p: Vec3): [number, number] => [dot(sub(p, pl.at), pl.u), dot(sub(p, pl.at), pl.v)];
-const liftOf = (pl: Plane, [x, y]: readonly [number, number]): Vec3 => add(pl.at, add(scale(pl.u, x), scale(pl.v, y)));
 const round = (v: number, step: number) => Math.round(v / step) * step;
 
 /**
@@ -87,10 +86,6 @@ export function snapOnPlane(spent: Scene, pv: PointerView, pl: Plane, skip?: Ref
 }
 
 // ---- typing ----
-const num = (s: string): number | null => {
-  const v = Number(s);
-  return s !== "" && s !== "-" && s !== "." && Number.isFinite(v) ? v : null;
-};
 /** A key typed into the current field. Returns the new tool state; Tab changes field, Backspace deletes. Keys that are not numbers are ignored. */
 export function typeKey(t: Tool, key: string): Tool {
   const n = FIELDS[t.kind].length;
@@ -105,7 +100,7 @@ export function typeKey(t: Tool, key: string): Tool {
   const typed: [string, string] = t.field === 0 ? [next, t.typed[1]] : [t.typed[0], next];
   return { ...t, typed };
 }
-const typedValues = (t: Tool): [number | null, number | null] => [num(t.typed[0]), num(t.typed[1])];
+const typedValues = (t: Tool): [number | null, number | null] => [typedNumber(t.typed[0]), typedNumber(t.typed[1])];
 
 // ---- the figure being drawn ----
 /** The second corner of a rectangle from the first, the cursor and typed sizes (a typed size keeps the side the cursor is on). */
@@ -205,7 +200,7 @@ export function arcOf(pl: Plane, t: Tool): { a: Vec3; b: Vec3; mid: Vec3; bulge:
   const perp = cross(normalOfPlane(pl), scale(chord, 1 / len));
   const m = scale(add(a, b), 0.5);
   const side = dot(sub(c, m), perp);
-  const typed = num(t.typed[0]);
+  const typed = typedNumber(t.typed[0]);
   const h = typed !== null ? Math.abs(typed) * (side < 0 ? -1 : 1) : side;
   return Math.abs(h) < 1e-9 ? null : { a, b, mid: add(m, scale(perp, h)), bulge: h / len };
 }

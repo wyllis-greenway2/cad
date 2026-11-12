@@ -8,7 +8,7 @@ import type { Scene, Relation } from "./scene.ts";
 import { nextId } from "./scene.ts";
 import type { Command } from "./commands.ts";
 import { consumed } from "./ownership.ts";
-import { pointOf } from "./part.ts";
+import { pointOf, liftOf } from "./part.ts";
 import { curvesOn, meet, along, TAU, ang, mod } from "./regions.ts";
 import type { Curve, V2 } from "./regions.ts";
 
@@ -27,7 +27,7 @@ export function trimAt(s: Scene, ref: Ref, at: Vec3): TrimPlan | null {
   const { curves, pl, flat } = built;
   const target = curves.find((c) => c.ref === ref);
   if (!target) return null;
-  const lift = (q: V2): Vec3 => add(pl.at, add(scale(pl.u, q[0]), scale(pl.v, q[1])));
+  const lift = (q: V2): Vec3 => liftOf(pl, q);
   const click = flat(at);
   // where along the curve the pointer is, and where it is cut by the other curves (each cut remembers what made it)
   const cuts: { t: number; by: Curve }[] = [];

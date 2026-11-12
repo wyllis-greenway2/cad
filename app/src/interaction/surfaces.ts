@@ -3,7 +3,7 @@
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot } from "../math/vec.ts";
 import type { Lookup, Part } from "../operation/part.ts";
-import { circleOf, loopPoints } from "../operation/part.ts";
+import { circleOf, loopPoints, localOf, liftOf } from "../operation/part.ts";
 
 const triangulated = new Map<string, number[]>();
 /**
@@ -78,8 +78,8 @@ export function surfaceTriangles(get: Lookup, p: Part): number[] | null {
   if (p.kind !== "face") return null;
   const pl = p.plane ? get(p.plane) : undefined;
   if (!pl || pl.kind !== "plane") return null;
-  const flat2d = (q: Vec3): [number, number] => [dot(sub(q, pl.at), pl.u), dot(sub(q, pl.at), pl.v)];
-  const lift = (x: number, y: number): Vec3 => add(pl.at, add(scale(pl.u, x), scale(pl.v, y)));
+  const flat2d = (q: Vec3): [number, number] => localOf(pl, q);
+  const lift = (x: number, y: number): Vec3 => liftOf(pl, [x, y]);
   const shape = (f: Extract<Part, { kind: "face" }>): [number, number][] | null => {
     if (f.disk) {
       const c = circleOf(get, f.disk);

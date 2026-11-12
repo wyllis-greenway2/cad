@@ -375,3 +375,7 @@ export const planeOfParts = (get: Lookup, refs: Ref[]): Plane | null => {
   }
   return null;
 };
+
+/** A point in space as the plane's own numbers (along `u`, along `v`) and back: one pair for every part of the app that works on a plane (`in_282`). */
+export const localOf = (pl: Plane, p: Vec3): [number, number] => [dot(sub(p, pl.at), pl.u), dot(sub(p, pl.at), pl.v)];
+export const liftOf = (pl: Plane, [x, y]: readonly [number, number]): Vec3 => add(pl.at, add(scale(pl.u, x), scale(pl.v, y)));

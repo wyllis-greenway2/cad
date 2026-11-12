@@ -1366,3 +1366,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_281 — 2026-11-12 — directive
 > okay, when I use a straight like its helper turns the circle orange when it is offering to put on line, but the curved one doesn't. Do we have messy or duplicate code here? it should all behave the same and use the same code. Also lets have the straight lines offer a tangent just like the curved ones.
 (reports the arc's helper does not light the circle orange as the straight line's does; asks whether the line and arc helper code is duplicated and wants them to behave the same through the same code; asks the straight line to offer a tangent, as the arc does)
+
+## in_282 — 2026-11-12 — approval
+> Yes, take your recommendations on all of it
+(approves the duplicated-code cleanup proposed after the survey: shared plane coordinate helpers, the small repeated helpers, and the larger repeated blocks, as one behaviour-neutral cleanup)

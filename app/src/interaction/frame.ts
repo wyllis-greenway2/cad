@@ -130,6 +130,15 @@ let gpuBase: { history: Session["history"]; outcome: Session["outcome"]; made: b
 let lastDrag: { split?: Frame["bodySplit"]; matrix: number[] | null; face: FaceShift | null; step: string | null; depth: number; param: "depth" | "value"; circle: { ref: Ref; radius: number } | null; corners: { ref: Ref; to: Vec3 }[] | null; steps: number } | null = null;
 /** A face drawn moved: the whole face by `by`, or a round wall's points out from (in towards) its axis by `radial.dr` (`in_217`, `in_218`). */
 export type FaceShift = { face: Ref; by?: Vec3; radial?: { center: Vec3; axis: Vec3; dr: number; r0: number }; /** the body's points that stand over moved corners of the sketch (along `axis`) move with them (`in_219`); `edge` is the face's own edge, to move what is selected with it */ arcs?: { arcWall: ArcMap; items: { at: Vec3; by: Vec3 }[] }; rounds?: { k: number; groups: { face: Ref; sharp: Sharp }[] }; columns?: { axis: Vec3; items: { at: Vec3; by: Vec3 }[]; arcWalls: { face: Ref; arc: ArcMap }[]; edge: { a: Vec3; da: Vec3; b: Vec3; db: Vec3 } | null } };
+/** The preview of a command, kept while the model, the kernel's answer and the command stay the same (the reference a rounding or a cut is measured from is asked for once, not on every frame). One memo for both (`in_282`). */
+function memoPreview(s: AppState, base: Session, cmd: Command, made: unknown): { scene: Scene; outcome: CompileOutcome } | null {
+  const key = JSON.stringify([cmd, made]);
+  if (refMemo && refMemo.history === s.session.history && refMemo.outcome === s.session.outcome && refMemo.key === key) return refMemo.value;
+  const value = previewCommand(base, cmd);
+  refMemo = { history: s.session.history, outcome: s.session.outcome, key, value };
+  return value;
+}
+
 /**
  * A new fillet or chamfer on one straight edge (`in_221`): its cross-section is the same shape at every size, scaled about the sharp edge, so the kernel makes it once at a size (the reference) and
  * every size the pointer goes to after that is that result scaled, on the graphics card. Asked again for a new reference only when the size has grown a lot (so the arc keeps enough points).
@@ -165,10 +174,7 @@ function edgeNew(s: AppState, op: Op, base: Session): { wait: true } | { face: F
   const R = edgeRef.want;
   const cmd = opCommand(sc, { ...op, typed: "", value: v > 0 ? R : -R }, { preview: true });
   if (!cmd) return null;
-  const mk = JSON.stringify([cmd, op.made]);
-  let res: { scene: Scene; outcome: CompileOutcome } | null;
-  if (refMemo && refMemo.history === s.session.history && refMemo.outcome === s.session.outcome && refMemo.key === mk) res = refMemo.value;
-  else { res = previewCommand(base, cmd); refMemo = { history: s.session.history, outcome: s.session.outcome, key: mk, value: res }; }
+  const res = memoPreview(s, base, cmd, op.made);
   if (res && !res.outcome.kernel?.stale) {
     if (Object.keys(res.outcome.errors).length) { edgeRef.failed = Math.min(edgeRef.failed ?? Infinity, R); if (!edgeRef.ready) return null; }
     else if (!edgeRef.ready || edgeRef.ready.R0 !== R) {
@@ -204,10 +210,7 @@ function prismNew(s: AppState, op: Op, base: Session): { wait: true } | { face: 
   const D0 = prismRef.ready ? prismRef.ready.D0 : Math.abs(v);
   const cmd = opCommand(sc, { ...op, typed: "", value: sign * D0, dim: undefined }, { preview: true });
   if (!cmd) return null;
-  const mk = JSON.stringify([cmd, op.made]);
-  let res: { scene: Scene; outcome: CompileOutcome } | null;
-  if (refMemo && refMemo.history === s.session.history && refMemo.outcome === s.session.outcome && refMemo.key === mk) res = refMemo.value;
-  else { res = previewCommand(base, cmd); refMemo = { history: s.session.history, outcome: s.session.outcome, key: mk, value: res }; }
+  const res = memoPreview(s, base, cmd, op.made);
   if (res && !res.outcome.kernel?.stale && !prismRef.ready) {
     if (Object.keys(res.outcome.errors).length) { prismRef.failed = true; return null; }
     // the faces that are new: a cap at the depth, walls between it and the plane it stands on; nothing outside that (a cut right through leaves a face on the far side, and stops changing once it is through).
