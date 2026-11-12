@@ -184,15 +184,15 @@ test("while a drawing tool is armed a click may wander further before it counts 
   assert.ok(types(wander()).includes("orbit"));
 });
 
-test("finger while drawing: the cursor has a handle; dragging it moves the cursor like a hover; a tap on it sets the point; a tap elsewhere only moves the cursor; with no cursor a tap is a click", () => {
+test("finger while drawing: the cursor has a handle; dragging it moves the cursor like a hover and a tap on it does nothing; a tap anywhere else is a click that sets the point there, as it is with no cursor (`in_283`)", () => {
   const T = (kind: "down" | "move" | "up", x: number, y: number, id = 1) => ev(kind, x, y, { device: "touch", id });
   const r = createRecognizer();
   assert.deepEqual(types(run(r, [T("down", 300, 300), T("up", 300, 300)])), ["click"], "no cursor yet: the first tap is a click");
   r.setTouchCursor({ cursor: [200, 200], handle: [246, 246] });
   const drag = run(r, [T("down", 246, 246), T("move", 266, 256), T("move", 296, 276), T("up", 296, 276)]);
   assert.deepEqual(drag, [{ type: "hover", x: 220, y: 210 }, { type: "hover", x: 250, y: 230 }], "the cursor goes the way the finger goes");
-  assert.deepEqual(run(r, [T("down", 248, 244), T("up", 248, 244)]), [{ type: "click", x: 200, y: 200, count: 1, shift: false }], "a tap on the handle sets the point where the cursor is");
-  assert.deepEqual(run(r, [T("down", 400, 100), T("up", 400, 100)]), [{ type: "hover", x: 400, y: 100 }], "a tap elsewhere moves the cursor there");
+  assert.deepEqual(run(r, [T("down", 248, 244), T("up", 248, 244)]), [], "a tap on the handle does nothing: it only drags (the apply icon beside it sets the point)");
+  assert.deepEqual(types(run(r, [T("down", 400, 100), T("up", 400, 100)])), ["click"], "a tap elsewhere sets the point there");
   assert.deepEqual(types(run(r, [T("down", 400, 100), T("move", 440, 120), T("up", 440, 120)])), ["orbit", "dragEnd"], "a drag elsewhere still turns the view");
   r.setTouchCursor(null);
   assert.deepEqual(types(run(r, [T("down", 400, 100), T("up", 400, 100)])), ["click"]);

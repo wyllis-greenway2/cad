@@ -40,6 +40,7 @@ import { createSuggest } from "./ui/suggest.ts";
 import { createHints } from "./ui/hint.ts";
 import { createBoxView } from "./ui/boxview.ts";
 import { createTouchCursor } from "./ui/touchcursor.ts";
+import { createUndoBar } from "./ui/undobar.ts";
 import { createBubbles } from "./ui/bubbles.ts";
 
 const host = document.getElementById("view")!;
@@ -101,7 +102,8 @@ const ring = createRing(document.body, (id) => {
 });
 
 const hintIcons = createHints(document.body);
-const touchHandle = createTouchCursor(document.body);
+let touchCursorAt: [number, number] | null = null; // (where the touch cursor is, in the view's own numbers: the apply icon sets the point there)
+const touchHandle = createTouchCursor(document.body, () => { if (touchCursorAt) dispatch({ type: "click", x: touchCursorAt[0], y: touchCursorAt[1], count: 1, shift: false }); });
 const boxView = createBoxView(document.body);
 const helper = createHelper(document.body);
 const busySign = createBusy(document.body);
@@ -110,6 +112,7 @@ const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch({ type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
+const undoBar = createUndoBar(document.body, () => dispatch({ type: "undo" }), () => dispatch({ type: "redo" }));
 const toolChip = createToolChip(document.body, () => dispatch({ type: "escape" }), () => dispatch({ type: "typed", key: "Enter", shift: false }));
 const controls = createControls(document.body, {
   menu: (x, y) => dispatch({ type: "menu", x, y, button: true }),
@@ -239,6 +242,7 @@ function frame(now: number) {
     view.setPanes(f.panes);
     view.setBodyFade(f.fadeBody);
     toolChip.update(f.tool, f.confirm);
+    undoBar.update(lastDevice === "touch", f.undoRedo);
     similarChip.update(f.similar);
     toolCursor.update(f.tool ? f.tool.kind : null);
     const project = projector(state.cam, size.w, size.h).project;
@@ -263,7 +267,8 @@ function frame(now: number) {
     const tc = lastDevice === "touch" && f.touchCursor ? project(f.touchCursor) : null;
     const handle: [number, number] | null = tc ? [Math.max(30, Math.min(size.w - 30, tc[0] + 66)), Math.max(30, Math.min(size.h - 30, tc[1] + 66))] : null;
     recognizer.setTouchCursor(tc && handle ? { cursor: [tc[0], tc[1]], handle } : null);
-    touchHandle.update(handle ? [handle[0] + page.left, handle[1] + page.top] : null);
+    touchCursorAt = tc ? [tc[0], tc[1]] : null;
+    touchHandle.update(handle ? [handle[0] + page.left, handle[1] + page.top] : null, { left: !handle || handle[0] > 100 });
     boxView.update(f.box, page.left, page.top);
     host.style.cursor = f.cursor;
     const tBuilt = performance.now();

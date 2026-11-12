@@ -64,8 +64,9 @@ test("three clicks select only the face and look straight at it, from the side y
 
 test("a selected face across a world axis lights that axis's button; the eye is not on the screen but in the right-click menu", () => {
   let st = boxState();
-  const look = (x: AppState) => reduce(x, { type: "menu", x: 400, y: 300 }, env).menu!.items.find((i) => i.id === "look")!;
+  const look = (x: AppState, at: [number, number] = [400, 300], button = true) => reduce(x, { type: "menu", x: at[0], y: at[1], button }, env).menu!.items.find((i) => i.id === "look")!; // (the menu button: it acts on the selection and ignores what is under the point)
   assert.equal(look(st).enabled, false, "nothing selected: nothing to look at");
+  assert.equal(look(st, [400, 300], false).enabled, true, "a click on a face is enough, with a mouse (hover) or a finger (the point itself is looked at, `in_283`)");
   st = click(st, SIDE, 1);
   const f = frameOf(st, { w: 800, h: 600 });
   assert.equal(f.lookHint?.axis, "X", "the face lies across the X axis");

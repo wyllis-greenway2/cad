@@ -252,7 +252,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   // sketching goes on while you keep clicking on vertices (`in_150`): a figure finished on an existing vertex leaves the same tool ready (a line starts its next segment from that vertex); finished anywhere else, the tool is put away
   const vertex = refs.map((r) => sc.parts[r]).find((p) => p?.kind === "corner" && p.origin === "drawn");
   if (!vertex || vertex.kind !== "corner" || done === base || (done.tool && done.tool.points.length) || done.session.message) return done;
-  return t.kind === "line" ? { ...done, tool: { ...armTool("line"), plane: t.plane, ...(t.reveal ? { reveal: true as const } : {}), points: [vertex.at], cursor: vertex.at } } : done;
+  return t.kind === "line" ? { ...done, tool: { ...armTool("line"), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}), points: [vertex.at], cursor: vertex.at } } : done;
 }
 
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {
@@ -334,14 +334,16 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
 }
 
 /** A right click opens the ring of operations on what is selected and changes nothing about the selection (`in_140`): select first (one click, a triple click, Shift for several), then right click. */
-export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>): AppState {
+export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: Env): AppState {
   // a repeat that is open (linear, circular or a copy): a right click leaves it and makes the copies; with none to make it just leaves (`in_236`)
   if (!i.button && (s.repeat && !s.op)) return doApply(s);
   // an operation that is open: a right click accepts it and leaves it, as Enter does (`in_244`)
   if (!i.button && s.op) return doApply(s);
   // while a sketching tool is on, a right click puts it away (the ⋯ button still opens the menu): the tool stays on until then or the cancel icon (`in_193`)
   if (s.tool && !i.button) return { ...s, tool: null, resume: null, menu: null };
-  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, i.button ? null : s.session.hover) };
+  // what is under the point (a finger has no hover: a long press must be told what is under it the same way a right click is, or a tool chosen from the ring would not turn the view straight to the plane there, `in_283`)
+  const under = i.button ? null : candidatesAt(sceneOf(s.session), projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0]?.ref ?? null;
+  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined) };
 }
 
 /**

@@ -734,3 +734,13 @@ test("draw a square, type 10, Enter, then undo: one undo takes back the extrusio
   assert.equal(t.op, null);
   assert.equal(squares(t), 4, "the square is still there");
 });
+
+test("a long press on a face (a finger has no hover) opens the ring over it, and a sketch tool chosen there turns the view straight to it, as a right click does (`in_283`)", () => {
+  let base = drawBox(top(), 20);
+  base = { ...base, cam: homeCamera(), tool: null, resume: null, session: { ...base.session, hover: undefined, click: { ...base.session.click, selection: [] } } };
+  const p = px(base, [23, 8, 20]); // (the middle of the block's top face)
+  const long = reduce(base, { type: "menu", x: p[0], y: p[1] }, env);
+  assert.ok(long.menu, "the ring is open");
+  const chosen = reduce(long, { type: "runAction", id: "tool:rect" }, env);
+  assert.ok(chosen.anim, "the view turns to the face under the finger");
+});

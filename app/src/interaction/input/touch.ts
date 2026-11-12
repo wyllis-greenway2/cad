@@ -1,4 +1,4 @@
-// A finger: one-finger drag orbits, two fingers pan and pinch to zoom, tap, double tap and triple tap are the clicks, a long press is the menu.
+// A finger: one-finger drag orbits, two fingers pan and pinch to zoom, tap, double tap and triple tap are the clicks (while a figure is drawn too: the first tap starts it, the next completes it, as clicks do, `in_283`), a long press is the menu.
 import type { Intent, RawInput } from "../../shared/input.ts";
 import type { settings } from "../../shared/settings.ts";
 import type { ClickCounter } from "./clicks.ts";
@@ -15,7 +15,7 @@ const HANDLE_PX = 34; // how near the finger must be to the handle of the touch 
 
 export function createTouch(I: typeof settings.input, countClick: ClickCounter, slopPx: () => number = () => I.touchSlopPx) {
   let g: Gesture | null = null;
-  /** While a figure is being drawn with a finger there is a cursor, as a mouse has its pointer: where it is, and the handle that drags it (page coordinates of the view) */
+  /** While a figure is being drawn with a finger there is a cursor, as a mouse has its pointer: where it is, and the handle that drags it to place a point exactly (page coordinates of the view; a tap anywhere sets the point there) */
   let cursor: { cursor: [number, number]; handle: [number, number] } | null = null;
   const touches = new Map<number, Pt>();
   const two = () => {
@@ -63,10 +63,9 @@ export function createTouch(I: typeof settings.input, countClick: ClickCounter, 
       const cur = g;
       if (touches.size === 0) g = null;
       else if (cur?.mode === "two") g = { mode: "done" };
-      if (cur?.mode === "handle" && cur.id === e.id) return e.kind === "cancel" || cur.moved ? [] : [{ type: "click", x: cur.cx0, y: cur.cy0, count: 1, shift: false }]; // a tap on the handle sets the point where the cursor is
+      if (cur?.mode === "handle" && cur.id === e.id) return []; // the handle only drags the cursor (the apply icon beside it sets the point there)
       if (cur?.mode === "one" && cur.moved && !cur.long && cur.id === e.id) return [{ type: "dragEnd" }];
       if (e.kind === "cancel" || !cur || cur.mode !== "one" || cur.moved || cur.long || cur.id !== e.id) return [];
-      if (cursor) return [{ type: "hover", x: e.x, y: e.y }]; // a tap elsewhere moves the cursor there; the handle sets the point
       return [{ type: "click", x: e.x, y: e.y, count: countClick(e.x, e.y, e.t, true), shift: false }];
     },
     setCursor(c: { cursor: [number, number]; handle: [number, number] } | null) { cursor = c; },

@@ -1,4 +1,4 @@
-// The sketching tool that is on (`in_193`): a little pill at the top of the page with the tool's icon and a cross; the tool stays on until a right click or this cross puts it away.
+// The sketching tool that is on (`in_193`): a little pill at the top of the page with the tool's icon and a cross; the tool stays on until a right click or this cross puts it away. Once a figure has been made the cross becomes a check (the work is done, the check puts the tool away: it is not a cancel, `in_283`) and it flashes green, fading, at every figure and every operation that opens, to show it is there to press.
 import { iconSvg } from "./icons.ts";
 
 export function createToolChip(host: HTMLElement, cancel: () => void, apply: () => void) {
@@ -13,28 +13,47 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
   const tick = document.createElement("div");
   tick.style.cssText = x.style.cssText;
   tick.innerHTML = iconSvg("check");
-  tick.addEventListener("click", (e) => { e.stopPropagation(); apply(); });
+  tick.addEventListener("click", (e) => { e.stopPropagation(); if (tick.dataset.mode === "done") cancel(); else apply(); });
   chip.append(icon, tick, x);
   host.appendChild(chip);
+  const tickBase = tick.style.background;
+  /** green, fading out: "this is there to press" (`in_283`) */
+  const flash = () => {
+    tick.style.transition = "none";
+    tick.style.background = "#2fbf71";
+    void tick.offsetWidth; // (so the green is painted before it starts to fade)
+    tick.style.transition = "background 1.6s ease-out";
+    tick.style.background = tickBase;
+  };
   let shown = "";
+  let madeSeen = 0;
   return {
-    /** The tool that is on (its icon key and the words for the tooltip), or null. */
-    update(tool: { kind: string; label: string } | null, confirm: { kind: string; label: string } | null = null) {
+    /** The tool that is on (its icon key and the words for the tooltip; `made` figures so far, `drawing` one half drawn), or an operation open that is applied with the check; or null. */
+    update(tool: { kind: string; label: string; made?: number; drawing?: boolean; done?: boolean } | null, confirm: { kind: string; label: string } | null = null) {
       const on = confirm ?? tool;
       chip.style.display = on ? "flex" : "none";
-      tick.style.display = confirm ? "inline-flex" : "none";
-      if (!on) return;
-      const key = `${confirm ? "c" : "t"}:${on.kind}`;
+      if (!on) { madeSeen = 0; shown = ""; return; }
+      const done = !confirm && !!tool?.done; // (the interaction layer says: a figure is made and nothing is half drawn, so the tool can be put away with the check)
+      tick.style.display = confirm || done ? "inline-flex" : "none";
+      tick.dataset.mode = confirm ? "apply" : "done";
+      x.style.display = confirm || !done ? "inline-flex" : "none"; // (an operation: apply or cancel; a tool: the check once there is something done, else the cross)
+      if (!confirm && tool && (tool.made ?? 0) > madeSeen) flash();
+      madeSeen = tool ? tool.made ?? 0 : 0;
+      const key = `${confirm ? "c" : "t"}:${on.kind}:${done ? "done" : ""}`;
       if (key === shown) return;
+      if (confirm) flash();
       shown = key;
       icon.innerHTML = iconSvg(on.kind);
       if (confirm) {
         chip.title = `${confirm.label}: Enter or a right click applies, Esc cancels`;
         tick.title = "Apply (Enter or right click)";
         x.title = "Cancel (Esc)";
+      } else if (done) {
+        chip.title = `${on.label}: stays on until the check or a right click`;
+        tick.title = "Done: put the tool away (or right click)";
       } else {
         chip.title = `${on.label}: stays on until a right click or the cross`;
-        x.title = "Stop sketching (or right click)";
+        x.title = tool?.drawing ? "Cancel this figure (Esc)" : "Stop sketching (or right click)";
       }
     },
   };

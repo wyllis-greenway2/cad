@@ -1,18 +1,33 @@
-// The handle of the touch cursor (`in_160`): a finger has no hover, so while a figure is being drawn there is a cursor (the line follows it, with its guides and hints) and a round handle
-// beside it to drag it about; a tap on the handle sets the point. It only draws; the touches go to the page's input as usual (it lets them through).
+// The helpers of the touch cursor (`in_160`, `in_283`): a finger has no hover, so while a figure is being drawn there is a cursor (the line follows it, with its guides and hints), a round handle beside it
+// with a finger-drag icon that drags the cursor about to place a point exactly, and a green apply icon that sets the point where the cursor is. A tap anywhere else sets the point there, as a click does.
+// The handle only draws; the touches go to the page's input as usual (it lets them through). The apply icon is a button.
 import { iconSvg } from "./icons.ts";
 
-export function createTouchCursor(host: HTMLElement) {
-  const el = document.createElement("div");
-  el.innerHTML = iconSvg("move");
-  el.style.cssText = "position:fixed;left:0;top:0;display:none;width:44px;height:44px;box-sizing:border-box;border-radius:22px;background:#fff;border:2px solid #1ab8b3;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.2);pointer-events:none;z-index:6";
-  host.appendChild(el);
+const ROUND = "position:fixed;left:0;top:0;display:none;width:48px;height:48px;box-sizing:border-box;border-radius:24px;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.25);z-index:6";
+
+export function createTouchCursor(host: HTMLElement, apply: () => void) {
+  const drag = document.createElement("div");
+  drag.innerHTML = iconSvg("fingerdrag");
+  drag.style.cssText = `${ROUND};background:#fff;color:#1a8f8b;border:2px solid #1ab8b3;pointer-events:none`;
+  (drag.firstElementChild as SVGElement).setAttribute("width", "26");
+  (drag.firstElementChild as SVGElement).setAttribute("height", "26");
+  const ok = document.createElement("div");
+  ok.innerHTML = iconSvg("check");
+  ok.title = "Set the point here";
+  ok.style.cssText = `${ROUND};background:#2fbf71;color:#fff;border:2px solid #fff;cursor:pointer;touch-action:manipulation`;
+  (ok.firstElementChild as SVGElement).setAttribute("width", "26");
+  (ok.firstElementChild as SVGElement).setAttribute("height", "26");
+  ok.addEventListener("click", (e) => { e.stopPropagation(); apply(); });
+  ok.addEventListener("pointerdown", (e) => e.stopPropagation()); // (the page's input must not take the press as a tap or a drag of its own)
+  host.append(drag, ok);
   return {
-    /** `at`: the page position of the centre of the handle (null: hide). */
-    update(at: [number, number] | null) {
-      if (!at) { el.style.display = "none"; return; }
-      el.style.display = "flex";
-      el.style.transform = `translate(${Math.round(at[0] - 22)}px, ${Math.round(at[1] - 22)}px)`;
+    /** `at`: the page position of the centre of the drag handle (null: hide both). The apply icon stands beside it, on the side with room. */
+    update(at: [number, number] | null, room = { left: true }) {
+      if (!at) { drag.style.display = "none"; ok.style.display = "none"; return; }
+      drag.style.display = "flex";
+      ok.style.display = "flex";
+      drag.style.transform = `translate(${Math.round(at[0] - 24)}px, ${Math.round(at[1] - 24)}px)`;
+      ok.style.transform = `translate(${Math.round(at[0] + (room.left ? -62 : 62) - 24)}px, ${Math.round(at[1] - 24)}px)`;
     },
   };
 }
