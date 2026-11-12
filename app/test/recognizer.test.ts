@@ -184,18 +184,21 @@ test("while a drawing tool is armed a click may wander further before it counts 
   assert.ok(types(wander()).includes("orbit"));
 });
 
-test("finger while drawing: the cursor has a drag icon; dragging it moves the cursor like a hover and a tap on it does nothing; a tap anywhere else is a right click (the tool is put away); with no helper a tap is a click (`in_283`, `in_284`, `in_285`)", () => {
+test("finger while drawing: the cursor has a drag icon; dragging it moves the cursor like a hover and a tap on it does nothing; a tap anywhere else sets the point and holds the cursor for the next (`tapAim`); with no tool a tap is a click (`in_283`..`in_286`)", () => {
   const T = (kind: "down" | "move" | "up", x: number, y: number, id = 1) => ev(kind, x, y, { device: "touch", id });
   const r = createRecognizer();
   assert.deepEqual(types(run(r, [T("down", 300, 300), T("up", 300, 300)])), ["click"], "no cursor yet: the first tap is a click");
-  r.setTouchHelper({ kind: "cursor", anchor: [200, 200], icon: [246, 246], handles: [], closes: true });
+  r.setDrawing(true);
+  r.setTouchHelper({ kind: "cursor", anchor: [200, 200], icon: [246, 246], handles: [], closes: false });
   const drag = run(r, [T("down", 246, 246), T("move", 266, 256), T("move", 296, 276), T("up", 296, 276)]);
   assert.deepEqual(drag, [{ type: "hover", x: 220, y: 210 }, { type: "hover", x: 250, y: 230 }], "the cursor goes the way the finger goes");
   assert.deepEqual(run(r, [T("down", 248, 244), T("up", 248, 244)]), [], "a tap on the handle does nothing: it only drags (the apply icon beside it sets the point)");
-  assert.deepEqual(run(r, [T("down", 400, 100), T("up", 400, 100)]), [{ type: "menu", x: 400, y: 100 }], "a tap elsewhere is a right click (the check beside the icon is what sets the point)");
+  assert.deepEqual(run(r, [T("down", 400, 100), T("up", 400, 100)]), [{ type: "tapAim", x: 400, y: 100 }], "a tap elsewhere sets the point held and holds the cursor for the next one there (`in_286`)");
   assert.deepEqual(types(run(r, [T("down", 400, 100), T("move", 440, 120), T("up", 440, 120)])), ["orbit", "dragEnd"], "a drag elsewhere still turns the view");
   r.setTouchHelper(null);
-  assert.deepEqual(types(run(r, [T("down", 400, 100), T("up", 400, 100)])), ["click"]);
+  assert.deepEqual(run(r, [T("down", 400, 100), T("up", 400, 100)]), [{ type: "tapAim", x: 400, y: 100 }], "a tool armed, nothing held: the tap holds the cursor there");
+  r.setDrawing(false);
+  assert.deepEqual(types(run(r, [T("down", 400, 100), T("up", 400, 100)])), ["click"], "no tool: a tap is a click");
 });
 
 test("finger on an operation: the drag icon drags the arrow that was tapped as a mouse would (the drag begins on the arrow, wherever the finger is); a tap on an arrow selects it; a tap anywhere else is a right click: it applies (`in_284`, `in_285`)", () => {

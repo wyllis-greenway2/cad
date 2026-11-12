@@ -5,7 +5,7 @@ import type { Intent } from "../shared/input.ts";
 import { figureRefs } from "../operation/scene.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { AppState, Env } from "./control/state.ts";
-import { doHover, doClick, doMenu, doHold } from "./control/pointer.ts";
+import { doHover, doClick, doMenu, doHold, doTapAim } from "./control/pointer.ts";
 import { doPan, doZoom, doLook, doHome } from "./control/viewing.ts";
 import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
@@ -70,6 +70,7 @@ function anchoredOffset(s: AppState, menu: AppState["menu"], env: Env): NonNulla
 function apply(s: AppState, i: Intent, env: Env): AppState {
   switch (i.type) {
     case "hover": return doHover(s, i, env);
+    case "tapAim": return doTapAim(s, i, env);
     case "hoverEnd": return { ...s, session: hoverOn(s.session, undefined), hoverPoint: null };
     case "click": return doClick(s, i, env);
     case "menu": return doMenu(s, i, env);

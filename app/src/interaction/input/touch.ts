@@ -1,4 +1,4 @@
-// A finger: one-finger drag orbits, two fingers pan and pinch to zoom, tap, double tap and triple tap are the clicks (while a figure is drawn too: the first tap starts it, the next completes it, as clicks do, `in_283`), a long press is the menu.
+// A finger: one-finger drag orbits, two fingers pan and pinch to zoom, tap, double tap and triple tap are the clicks (while a figure is drawn a tap is `tapAim`: it sets the point held under the cursor and holds the cursor at the tap for the next, `in_286`), a long press is the menu.
 import type { Intent, RawInput } from "../../shared/input.ts";
 import type { settings } from "../../shared/settings.ts";
 import type { ClickCounter } from "./clicks.ts";
@@ -26,7 +26,7 @@ const nearLine = (p: readonly [number, number][], x: number, y: number): boolean
   return false;
 };
 
-export function createTouch(I: typeof settings.input, countClick: ClickCounter, slopPx: () => number = () => I.touchSlopPx) {
+export function createTouch(I: typeof settings.input, countClick: ClickCounter, slopPx: () => number = () => I.touchSlopPx, drawing: () => boolean = () => false) {
   let g: Gesture | null = null;
   /** While a figure is being drawn, or an arrow or ring of an operation has been tapped, a finger is offered a drag icon and a check (`TouchHelper`) */
   let helper: TouchHelper | null = null;
@@ -83,6 +83,8 @@ export function createTouch(I: typeof settings.input, countClick: ClickCounter, 
       if (e.kind === "cancel" || !cur || cur.mode !== "one" || cur.moved || cur.long || cur.id !== e.id) return [];
       // a tap while the helper is up: on an arrow or ring of the operation it selects that (a click); anywhere else it is a right click: an operation is applied, a tool put away (`in_284`, corrected by `in_285`: apply, not cancel)
       if (helper?.closes && !helper.handles.some((p) => nearLine(p, e.x, e.y))) return [{ type: "menu", x: e.x, y: e.y }];
+      // a sketch tool is on and a finger has no hover: a tap sets the point the cursor is held at and holds it for the next where the tap was (`in_286`)
+      if (drawing()) return [{ type: "tapAim", x: e.x, y: e.y }];
       return [{ type: "click", x: e.x, y: e.y, count: countClick(e.x, e.y, e.t, true), shift: false }];
     },
     setHelper(h: TouchHelper | null) { helper = h; },

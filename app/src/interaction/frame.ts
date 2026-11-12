@@ -238,7 +238,7 @@ function prismNew(s: AppState, op: Op, base: Session): { wait: true } | { face: 
 
 /** What a finger is offered now (see `Frame.touchHelper`). */
 function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame["touchHelper"] {
-  if (s.tool) return s.tool.points.length && s.tool.cursor ? { kind: "cursor", at: s.tool.cursor, handles: [], applies: true } : null;
+  if (s.tool) return s.tool.held && s.tool.cursor ? { kind: "cursor", at: s.tool.cursor, handles: [], applies: false } : null; // (a finger holds the cursor: it is moved with the drag icon, and the next tap sets the point there, `in_286`)
   if (!gizmo || (s.drag && !("handle" in s.drag))) return null;
   const chosen = s.handleSel ? gizmo.handles.find((h) => h.id === s.handleSel) : (s.op || s.repeat) && gizmo.handles.length === 1 ? gizmo.handles[0] : undefined;
   return chosen ? { kind: "handle", at: handleMiddle(chosen), handles: gizmo.handles.map((h) => h.points), applies: !!(s.op || s.repeat) } : null;

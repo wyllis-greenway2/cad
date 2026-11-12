@@ -63,3 +63,27 @@ test("a single arrow (push / pull of a face) offers the helper at once once the 
   const t = reduce({ ...createState(createSession(kernel)), cam: homeCamera() }, { type: "begin", name: "rect" }, env);
   assert.equal(frameOf(t, { w: env.w, h: env.h }).touchHelper, null, "a tool armed, no point down: nothing to drag yet");
 });
+
+import { projector as proj, lookStraight } from "../src/interaction/camera.ts";
+test("sketching with a finger (`in_286`): a tap holds the cursor, the next tap sets the point there and holds the cursor at the tap, the next sets the last point and the figure is made; the held cursor takes the hints a hover would; dragging the icon moves it", () => {
+  let st: AppState = { ...createState(createSession(kernel)), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 15, 0] } };
+  const px = (p: [number, number, number]) => proj(st.cam, env.w, env.h).project(p);
+  const tap = (p: [number, number, number]) => { const q = px(p); st = reduce(st, { type: "tapAim", x: q[0], y: q[1] }, env); };
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  assert.equal(frameOf(st, { w: env.w, h: env.h }).touchHelper, null, "nothing held yet");
+  tap([5, 5, 0]);
+  assert.equal(st.tool!.points.length, 0, "the first tap only holds the cursor");
+  assert.equal(frameOf(st, { w: env.w, h: env.h }).touchHelper?.kind, "cursor", "the drag icon is there");
+  // dragging the icon: the recogniser sends hovers
+  const d = px([6, 5, 0]);
+  st = reduce(st, { type: "hover", x: d[0], y: d[1] }, env);
+  assert.ok(st.tool!.held && st.tool!.cursor);
+  tap([25, 15, 0]); // sets the corner where the cursor is held, and holds the cursor at the tap
+  assert.equal(st.tool!.points.length, 1);
+  assert.ok(Math.abs(st.tool!.points[0]![0] - 6) < 0.3, `the first corner is where the icon moved the cursor: ${st.tool!.points[0]}`);
+  assert.ok(st.tool!.held, "the cursor is held for the second corner");
+  tap([30, 5, 0]); // sets the second corner where the cursor was held (25, 15): the figure is made
+  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length, 1, "one rectangle");
+  assert.ok(!st.tool?.held, "nothing is held after the last point: a tap after it only applies");
+  assert.equal(frameOf(st, { w: env.w, h: env.h }).touchHelper, null);
+});

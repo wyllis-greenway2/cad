@@ -16,6 +16,11 @@ export type LookPlane = "X" | "Y" | "Z" | "N";
 export type Intent =
   | { type: "hover"; x: number; y: number }
   | { type: "hoverEnd" }
+  /**
+   * A tap while a sketch tool is on, for a device with no hover (`in_286`): the point the cursor is held at is set (a click there), and the tap's own place becomes where the cursor is held next, to be moved with the drag
+   * icon and its hints; with no cursor held yet, the tap only holds it there. When the figure is complete nothing is held after it: a tap after the last point is what applies it.
+   */
+  | { type: "tapAim"; x: number; y: number }
   | { type: "click"; x: number; y: number; count: number; shift: boolean }
   | { type: "menu"; x: number; y: number; /** from the menu button: act on the selection, ignore what is under the point */ button?: boolean }
   /** a drag that orbits (or drags a handle): the movement since the last event and where the pointer is now; the drag began at (x - total dx, y - total dy) */

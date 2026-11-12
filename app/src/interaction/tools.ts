@@ -34,6 +34,8 @@ export interface Tool {
   field: 0 | 1;
   /** the constraints the end of the line being drawn is close to (and has taken): a click makes the line with them */
   hints?: Hint[];
+  /** a finger holds the cursor at `cursor` (it has no hover): the next tap sets the point there (`in_286`) */
+  held?: true;
   /** how many figures have been made while this tool has been on (`in_283`): after the first, the chip at the top shows a check (done) in place of the cross, and flashes green at each one */
   made?: number;
   /** an arc being drawn: what each end placed so far was put on (a line or a circle), made into constraints when the arc is (`in_280`) */

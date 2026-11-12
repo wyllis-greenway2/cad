@@ -15,7 +15,7 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   const countClick = createClickCounter(I);
   const scroll = createScroll(I);
   let drawing = false; // a drawing tool is armed: a click may wander more before it counts as turning the view
-  const touch = createTouch(I, countClick, () => (drawing ? I.drawTouchSlopPx : I.touchSlopPx));
+  const touch = createTouch(I, countClick, () => (drawing ? I.drawTouchSlopPx : I.touchSlopPx), () => drawing);
   let space = false;
   const mouse = createMouse(countClick, () => space, () => (drawing ? settings.view.drawClickMovePx : settings.view.clickMovePx));
 

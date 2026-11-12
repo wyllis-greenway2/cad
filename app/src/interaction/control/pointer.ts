@@ -163,16 +163,18 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   // (and the line or circle itself is not lit as a whole: only the part that would go is, in the selected blue, and nothing at all where nothing crosses; `in_206`)
   if (s.tool?.kind === "trim") next = { ...withSession(next, hoverOn(next.session, undefined)), hoverPoint: null, tool: { ...s.tool, trimming: trimUnder(sc, pv) } };
   // a circle tool still armed (no plane yet): where the centre would go, and whether it is on another circle's centre; a line or an arc: whether its first end would be on a line or a circle
-  if (s.tool && !s.tool.plane && (s.tool.kind === "circle" || s.tool.kind === "arc" || s.tool.kind === "line")) {
+  if (s.tool && !s.tool.plane && (s.tool.kind === "circle" || s.tool.kind === "arc" || s.tool.kind === "line" || s.tool.kind === "rect")) {
     const planeRef = drawingPlane(sc, candidatesAt(sc, pv, pickOpts(s)).map((k) => k.ref)) ?? drawingPlane(sc, selectionOf(s.session));
     const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
     const at = pl ? snapOnPlane(sc, pv, pl) : null;
-    if (s.tool.kind !== "circle") {
+    if (s.tool.kind === "rect") {
+      next = { ...next, tool: { ...s.tool, hints: [], cursor: s.tool.held ? at : null } };
+    } else if (s.tool.kind !== "circle") {
       const h = at && pl ? pointHint(sc, pl, pv, at) : null;
-      next = { ...next, tool: { ...s.tool, hints: h?.hints ?? [], cursor: h?.hints.length ? h.at : null } };
+      next = { ...next, tool: { ...s.tool, hints: h?.hints ?? [], cursor: h?.hints.length ? h.at : s.tool.held ? at : null } }; // (a finger holds the cursor where it is aimed, `in_286`)
     } else {
       const about = at && pl ? circleCentredAt(sc, pl, at) : null;
-      next = { ...next, tool: { ...s.tool, hints: about ? [{ kind: "concentric", ref: about }] : [], cursor: about ? at : null } };
+      next = { ...next, tool: { ...s.tool, hints: about ? [{ kind: "concentric", ref: about }] : [], cursor: about ? at : s.tool.held ? at : null } };
     }
   }
   return doGizmoHover(next, i.x, i.y, env);
@@ -196,6 +198,24 @@ function trimUnder(sc: Scene, pv: ReturnType<ReturnType<typeof projector>["view"
   const at = pointOnPlane(pv, pl);
   const plan = at ? trimAt(sc, cand.ref, at) : null;
   return plan ? { ref: cand.ref, span: plan.span, command: plan.command } : undefined;
+}
+
+/**
+ * A tap while a sketch tool is on, for a finger (`in_286`): it has no hover, so a point is held first and moved with the drag icon (its hints are the hover's), and the next tap sets it. The tap sets the point the cursor is held
+ * at, then holds the cursor where the tap was, for the next point; when that point finished the figure nothing is held, so a tap after the last point only applies it. The trim tool has one step: a tap is a click.
+ */
+export function doTapAim(s: AppState, i: Extract<Intent, { type: "tapAim" }>, env: Env): AppState {
+  if (!s.tool || s.tool.kind === "trim") return doClick(s, { type: "click", x: i.x, y: i.y, count: 1, shift: false }, env);
+  const aim = (st: AppState): AppState => {
+    const held = doHover({ ...st, tool: { ...st.tool!, held: true } }, { type: "hover", x: i.x, y: i.y }, env); // (held first, so a tool with no plane yet keeps the cursor where it is aimed)
+    return held.tool?.cursor ? held : { ...held, tool: { ...held.tool!, held: undefined } };
+  };
+  if (!s.tool.held || !s.tool.cursor) return aim(s);
+  // the point held is set: a click where the cursor is
+  const at = projector(s.cam, env.w, env.h).project(s.tool.cursor);
+  const set = doClick({ ...s, tool: { ...s.tool, held: undefined } }, { type: "click", x: at[0], y: at[1], count: 1, shift: false }, env);
+  if (!set.tool || !set.tool.points.length) return set.tool ? { ...set, tool: { ...set.tool, held: undefined } } : set; // (the figure is made, or the tool is gone: nothing is held)
+  return aim(set); // (more points to come: the cursor is held where the tap was)
 }
 
 /** A click while a tool is armed: the first sets the plane and the first point, later ones place corners or finish the figure. */

@@ -102,9 +102,8 @@ const ring = createRing(document.body, (id) => {
 });
 
 const hintIcons = createHints(document.body);
-let touchApply: (() => void) | null = null; // (what the check beside the drag icon does just now: set the point, or apply the operation)
 let lastIcon: [number, number] | null = null;
-const touchHandle = createTouchCursor(document.body, () => touchApply?.());
+const touchHandle = createTouchCursor(document.body);
 const boxView = createBoxView(document.body);
 const helper = createHelper(document.body);
 const busySign = createBusy(document.body);
@@ -275,9 +274,8 @@ function frame(now: number) {
       else { const below = clampTo([anchor[0], anchor[1] + 76]); icon = below[1] - anchor[1] < 40 ? clampTo([anchor[0], anchor[1] - 76]) : below; } // (below the arrow, or above it where there is no room)
     }
     lastIcon = icon;
-    recognizer.setTouchHelper(th && anchor && icon ? { kind: th.kind, anchor: [anchor[0], anchor[1]], icon, closes: th.kind === "cursor" || th.applies, handles: th.handles.map((p) => p.map((q) => { const r = project(q); return [r[0], r[1]] as [number, number]; })) } : null);
-    touchApply = th && anchor ? (th.kind === "cursor" ? () => dispatch({ type: "click", x: anchor[0], y: anchor[1], count: 1, shift: false }) : th.applies ? () => dispatch({ type: "typed", key: "Enter", shift: false }) : null) : null;
-    touchHandle.update(icon ? [icon[0] + page.left, icon[1] + page.top] : null, { left: !icon || icon[0] > 100 }, !!touchApply);
+    recognizer.setTouchHelper(th && anchor && icon ? { kind: th.kind, anchor: [anchor[0], anchor[1]], icon, closes: th.kind === "handle" && th.applies, handles: th.handles.map((p) => p.map((q) => { const r = project(q); return [r[0], r[1]] as [number, number]; })) } : null);
+    touchHandle.update(icon ? [icon[0] + page.left, icon[1] + page.top] : null);
     boxView.update(f.box, page.left, page.top);
     host.style.cursor = f.cursor;
     const tBuilt = performance.now();
