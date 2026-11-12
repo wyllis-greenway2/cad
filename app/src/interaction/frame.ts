@@ -46,7 +46,7 @@ import type { Entry } from "./entry.ts";
 import type { Preview } from "./tools.ts";
 import { gizmoOf, activeOp } from "./control/handles.ts";
 import type { Op } from "./operations.ts";
-import { followed, moveOffset, hasGizmo } from "./gizmo.ts";
+import { followed, moveOffset, hasGizmo, handleMiddle } from "./gizmo.ts";
 import { crossing } from "./boxselect.ts";
 import type { Handle } from "./gizmo.ts";
 
@@ -77,8 +77,12 @@ export interface Frame {
   busy: boolean;
   /** the world axis the selected plane or face lies across and which end of it the camera must be at to see it (so that X Y Z button is lit, as + or −) */
   lookHint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null;
-  /** where the cursor of a figure being drawn is (a finger uses it: it has a handle to drag it) */
-  touchCursor: Vec3 | null;
+  /**
+   * What a finger is offered (`in_283`, `in_284`): a finger has no hover and cannot press, drag and let go on small arrows, so there is a drag icon that does the dragging for it and a check that applies. `cursor`: a
+   * figure being drawn (the drag icon moves the cursor like a hover, the check is the click that sets the point). `handle`: an arrow or ring that has been tapped (or the only one there is) of an operation (the drag icon
+   * drags it, as the mouse would; the check applies the operation when one is open). `at` is where it is; `handles` every handle there (a tap on one selects it, a tap anywhere else cancels).
+   */
+  touchHelper: { kind: "cursor" | "handle"; at: Vec3; handles: Vec3[][]; applies: boolean } | null;
   /** whether there is something to undo / redo (the undo and redo buttons of a touch screen, `in_283`) */
   undoRedo: { undo: boolean; redo: boolean };
   /** the rectangle of a drag select being drawn, in pixels (`in_230`); `touching`: it was dragged from the right, so what it only touches is picked too */
@@ -232,6 +236,14 @@ function prismNew(s: AppState, op: Op, base: Session): { wait: true } | { face: 
   return { face: { face: groups[0]!.face, rounds: { k, groups } }, shown: prismRef.ready.res };
 }
 
+/** What a finger is offered now (see `Frame.touchHelper`). */
+function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame["touchHelper"] {
+  if (s.tool) return s.tool.points.length && s.tool.cursor ? { kind: "cursor", at: s.tool.cursor, handles: [], applies: true } : null;
+  if (!gizmo || (s.drag && !("handle" in s.drag))) return null;
+  const chosen = s.handleSel ? gizmo.handles.find((h) => h.id === s.handleSel) : (s.op || s.repeat) && gizmo.handles.length === 1 ? gizmo.handles[0] : undefined;
+  return chosen ? { kind: "handle", at: handleMiddle(chosen), handles: gizmo.handles.map((h) => h.points), applies: !!(s.op || s.repeat) } : null;
+}
+
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
 function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome } } | null {
   const op = s.op;
@@ -339,7 +351,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     helper: helperAt(s, gizmo),
     busy: !!s.session.outcome.kernel?.stale,
     lookHint: lookOf(sc, sel, s.cam).lookHint,
-    touchCursor: s.tool && s.tool.points.length && s.tool.cursor ? s.tool.cursor : null,
+    touchHelper: touchHelperOf(s, gizmo),
     undoRedo: { undo: s.session.history.cursor > 0, redo: s.session.history.cursor < s.session.history.commands.length },
     box: s.box ? { ...s.box, touching: crossing(s.box) } : null,
     avoid: busy || !annotationsPresent ? { segs: [], pts: [] } : avoidOf(sc),

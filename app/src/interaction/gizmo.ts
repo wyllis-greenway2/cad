@@ -26,6 +26,9 @@ export interface Handle {
 }
 export interface Gizmo { handles: Handle[]; centre: Vec3 }
 
+/** A point that lies on the handle itself (its middle: an arrow's, the point half way round a ring): a finger that cannot reach a small handle drags a proxy that starts from here (`in_284`). */
+export const handleMiddle = (h: Handle): Vec3 => h.points.length === 2 ? [(h.points[0]![0] + h.points[1]![0]) / 2, (h.points[0]![1] + h.points[1]![1]) / 2, (h.points[0]![2] + h.points[1]![2]) / 2] : h.points[h.points.length >> 1]!;
+
 export const hasGizmo = (kind: Op["kind"]): boolean => kind !== "dimension";
 const AXES: Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 const RING = 48;

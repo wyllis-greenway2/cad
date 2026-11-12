@@ -184,16 +184,27 @@ test("while a drawing tool is armed a click may wander further before it counts 
   assert.ok(types(wander()).includes("orbit"));
 });
 
-test("finger while drawing: the cursor has a handle; dragging it moves the cursor like a hover and a tap on it does nothing; a tap anywhere else is a click that sets the point there, as it is with no cursor (`in_283`)", () => {
+test("finger while drawing: the cursor has a drag icon; dragging it moves the cursor like a hover and a tap on it does nothing; a tap anywhere else cancels, as a right click puts the tool away; with no helper a tap is a click (`in_283`, `in_284`)", () => {
   const T = (kind: "down" | "move" | "up", x: number, y: number, id = 1) => ev(kind, x, y, { device: "touch", id });
   const r = createRecognizer();
   assert.deepEqual(types(run(r, [T("down", 300, 300), T("up", 300, 300)])), ["click"], "no cursor yet: the first tap is a click");
-  r.setTouchCursor({ cursor: [200, 200], handle: [246, 246] });
+  r.setTouchHelper({ kind: "cursor", anchor: [200, 200], icon: [246, 246], handles: [] });
   const drag = run(r, [T("down", 246, 246), T("move", 266, 256), T("move", 296, 276), T("up", 296, 276)]);
   assert.deepEqual(drag, [{ type: "hover", x: 220, y: 210 }, { type: "hover", x: 250, y: 230 }], "the cursor goes the way the finger goes");
   assert.deepEqual(run(r, [T("down", 248, 244), T("up", 248, 244)]), [], "a tap on the handle does nothing: it only drags (the apply icon beside it sets the point)");
-  assert.deepEqual(types(run(r, [T("down", 400, 100), T("up", 400, 100)])), ["click"], "a tap elsewhere sets the point there");
+  assert.deepEqual(run(r, [T("down", 400, 100), T("up", 400, 100)]), [{ type: "escape" }], "a tap elsewhere cancels (the check beside the icon is what sets the point)");
   assert.deepEqual(types(run(r, [T("down", 400, 100), T("move", 440, 120), T("up", 440, 120)])), ["orbit", "dragEnd"], "a drag elsewhere still turns the view");
-  r.setTouchCursor(null);
+  r.setTouchHelper(null);
   assert.deepEqual(types(run(r, [T("down", 400, 100), T("up", 400, 100)])), ["click"]);
+});
+
+test("finger on an operation: the drag icon drags the arrow that was tapped as a mouse would (the drag begins on the arrow, wherever the finger is); a tap on an arrow selects it; a tap anywhere else cancels (`in_284`)", () => {
+  const T = (kind: "down" | "move" | "up", x: number, y: number, id = 1) => ev(kind, x, y, { device: "touch", id });
+  const r = createRecognizer();
+  r.setTouchHelper({ kind: "handle", anchor: [200, 200], icon: [200, 276], handles: [[[150, 200], [250, 200]], [[300, 100], [300, 180]]] });
+  const drag = run(r, [T("down", 202, 278), T("move", 222, 278), T("move", 252, 268), T("up", 252, 268)]);
+  assert.deepEqual(drag, [{ type: "orbit", dx: 20, dy: 0, x: 220, y: 200 }, { type: "orbit", dx: 30, dy: -10, x: 250, y: 190 }, { type: "dragEnd" }], "the first move says it began at the arrow (x - dx, y - dy is the anchor), and the drag ends when the finger lifts");
+  assert.deepEqual(types(run(r, [T("down", 300, 140), T("up", 300, 140)])), ["click"], "a tap on another arrow selects it");
+  assert.deepEqual(run(r, [T("down", 100, 400), T("up", 100, 400)]), [{ type: "escape" }], "a tap anywhere else cancels");
+  assert.deepEqual(run(r, [T("down", 202, 278), T("up", 202, 278)]), [], "a tap on the icon does nothing");
 });

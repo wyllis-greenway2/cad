@@ -31,5 +31,5 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
       default: return e.device === "touch" ? touch.pointer(e) : mouse(e);
     }
   }
-  return { feed, setDrawing: (on: boolean) => { drawing = on; }, setTouchCursor: touch.setCursor, setScrollMode: scroll.setMode, get scrollMode() { return scroll.mode; } };
+  return { feed, setDrawing: (on: boolean) => { drawing = on; }, setTouchHelper: touch.setHelper, setScrollMode: scroll.setMode, get scrollMode() { return scroll.mode; } };
 }

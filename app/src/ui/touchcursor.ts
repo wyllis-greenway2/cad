@@ -21,11 +21,11 @@ export function createTouchCursor(host: HTMLElement, apply: () => void) {
   ok.addEventListener("pointerdown", (e) => e.stopPropagation()); // (the page's input must not take the press as a tap or a drag of its own)
   host.append(drag, ok);
   return {
-    /** `at`: the page position of the centre of the drag handle (null: hide both). The apply icon stands beside it, on the side with room. */
-    update(at: [number, number] | null, room = { left: true }) {
+    /** `at`: the page position of the centre of the drag icon (null: hide both). The check stands beside it, on the side with room; `withCheck` false: nothing is open to apply (an arrow has been tapped on a selection that has not started an operation). */
+    update(at: [number, number] | null, room = { left: true }, withCheck = true) {
       if (!at) { drag.style.display = "none"; ok.style.display = "none"; return; }
       drag.style.display = "flex";
-      ok.style.display = "flex";
+      ok.style.display = withCheck ? "flex" : "none";
       drag.style.transform = `translate(${Math.round(at[0] - 24)}px, ${Math.round(at[1] - 24)}px)`;
       ok.style.transform = `translate(${Math.round(at[0] + (room.left ? -62 : 62) - 24)}px, ${Math.round(at[1] - 24)}px)`;
     },

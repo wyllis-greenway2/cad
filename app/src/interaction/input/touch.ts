@@ -7,16 +7,29 @@ type Pointer = Extract<RawInput, { kind: "down" | "move" | "up" | "cancel" }>;
 interface Pt { id: number; x: number; y: number }
 type Gesture =
   | { mode: "one"; id: number; x0: number; y0: number; x: number; y: number; t0: number; moved: boolean; long: boolean }
-  | { mode: "handle"; id: number; x0: number; y0: number; cx0: number; cy0: number; moved: boolean } // the drag handle of the touch cursor
+  | { mode: "handle"; id: number; x0: number; y0: number; cx0: number; cy0: number; moved: boolean; lx: number; ly: number } // the drag icon of the touch helper
   | { mode: "two"; cx: number; cy: number; d: number }
   | { mode: "done" }; // two fingers were down: nothing more until all are lifted
 
-const HANDLE_PX = 34; // how near the finger must be to the handle of the touch cursor
+const HANDLE_PX = 34; // how near the finger must be to the drag icon of the touch helper
+const TAP_HANDLE_PX = 28; // how near a tap must be to an arrow or ring of an operation to select it (any other tap while the helper is up cancels)
+
+/** What a finger is offered (`in_283`, `in_284`), told by the screen each frame, in the view's own numbers. `cursor`: a figure is being drawn: the icon drags a cursor that stands in for hover. `handle`: an arrow or ring of an operation has been tapped: the icon drags it as a mouse would (`anchor` is a point on it). */
+export interface TouchHelper { kind: "cursor" | "handle"; /** the cursor, or a point on the handle: where the drag acts */ anchor: [number, number]; /** the drag icon */ icon: [number, number]; /** every handle of the operation, as screen polylines: a tap near one selects it */ handles: [number, number][][] }
+const nearLine = (p: readonly [number, number][], x: number, y: number): boolean => {
+  for (let i = 0; i < Math.max(1, p.length - 1); i++) {
+    const [a, b] = [p[i]!, p[Math.min(i + 1, p.length - 1)]!];
+    const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+    const t = dx || dy ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy))) : 0;
+    if (Math.hypot(x - (a[0] + dx * t), y - (a[1] + dy * t)) <= TAP_HANDLE_PX) return true;
+  }
+  return false;
+};
 
 export function createTouch(I: typeof settings.input, countClick: ClickCounter, slopPx: () => number = () => I.touchSlopPx) {
   let g: Gesture | null = null;
-  /** While a figure is being drawn with a finger there is a cursor, as a mouse has its pointer: where it is, and the handle that drags it to place a point exactly (page coordinates of the view; a tap anywhere sets the point there) */
-  let cursor: { cursor: [number, number]; handle: [number, number] } | null = null;
+  /** While a figure is being drawn, or an arrow or ring of an operation has been tapped, a finger is offered a drag icon and a check (`TouchHelper`) */
+  let helper: TouchHelper | null = null;
   const touches = new Map<number, Pt>();
   const two = () => {
     const [a, b] = [...touches.values()];
@@ -27,7 +40,7 @@ export function createTouch(I: typeof settings.input, countClick: ClickCounter, 
     pointer(e: Pointer): Intent[] {
       if (e.kind === "down") {
         touches.set(e.id, { id: e.id, x: e.x, y: e.y });
-        if (touches.size === 1 && cursor && Math.hypot(e.x - cursor.handle[0], e.y - cursor.handle[1]) <= HANDLE_PX) g = { mode: "handle", id: e.id, x0: e.x, y0: e.y, cx0: cursor.cursor[0], cy0: cursor.cursor[1], moved: false };
+        if (touches.size === 1 && helper && Math.hypot(e.x - helper.icon[0], e.y - helper.icon[1]) <= HANDLE_PX) g = { mode: "handle", id: e.id, x0: e.x, y0: e.y, cx0: helper.anchor[0], cy0: helper.anchor[1], moved: false, lx: e.x, ly: e.y };
         else if (touches.size === 1) g = { mode: "one", id: e.id, x0: e.x, y0: e.y, x: e.x, y: e.y, t0: e.t, moved: false, long: false };
         else if (touches.size === 2 && g && (g.mode === "one" || g.mode === "done" || g.mode === "handle")) g = { mode: "two", ...two() };
         return [];
@@ -40,7 +53,9 @@ export function createTouch(I: typeof settings.input, countClick: ClickCounter, 
         if (g.mode === "handle") {
           if (!g.moved && Math.hypot(e.x - g.x0, e.y - g.y0) < 3) return [];
           g.moved = true;
-          return [{ type: "hover", x: g.cx0 + e.x - g.x0, y: g.cy0 + e.y - g.y0 }]; // the cursor follows the handle, like a mouse's hover: the line, the guides and the hints follow it
+          const [x, y] = [g.cx0 + e.x - g.x0, g.cy0 + e.y - g.y0];
+          if (helper?.kind === "handle") { const dx = e.x - g.lx, dy = e.y - g.ly; g.lx = e.x; g.ly = e.y; return [{ type: "orbit", dx, dy, x, y }]; } // the drag of an arrow or ring, as the mouse would make it: it began on the handle (the first move says where it began: (x - dx, y - dy))
+          return [{ type: "hover", x, y }]; // the cursor follows the icon, like a mouse's hover: the line, the guides and the hints follow it
         }
         if (g.mode === "one") {
           if (!g.moved && Math.hypot(e.x - g.x0, e.y - g.y0) < slopPx()) return [];
@@ -63,12 +78,14 @@ export function createTouch(I: typeof settings.input, countClick: ClickCounter, 
       const cur = g;
       if (touches.size === 0) g = null;
       else if (cur?.mode === "two") g = { mode: "done" };
-      if (cur?.mode === "handle" && cur.id === e.id) return []; // the handle only drags the cursor (the apply icon beside it sets the point there)
+      if (cur?.mode === "handle" && cur.id === e.id) return cur.moved && helper?.kind === "handle" && e.kind !== "cancel" ? [{ type: "dragEnd" }] : []; // the icon only drags (the check beside it applies)
       if (cur?.mode === "one" && cur.moved && !cur.long && cur.id === e.id) return [{ type: "dragEnd" }];
       if (e.kind === "cancel" || !cur || cur.mode !== "one" || cur.moved || cur.long || cur.id !== e.id) return [];
+      // a tap while the helper is up: on an arrow or ring of the operation it selects that (a click); anywhere else it cancels what is being done, as a right click puts a tool away (`in_284`)
+      if (helper && !helper.handles.some((p) => nearLine(p, e.x, e.y))) return [{ type: "escape" }];
       return [{ type: "click", x: e.x, y: e.y, count: countClick(e.x, e.y, e.t, true), shift: false }];
     },
-    setCursor(c: { cursor: [number, number]; handle: [number, number] } | null) { cursor = c; },
+    setHelper(h: TouchHelper | null) { helper = h; },
     /** Time passing while a finger is down: a press that has not moved for long enough is the menu. */
     tick(t: number): Intent[] {
       if (g?.mode === "one" && !g.moved && !g.long && t - g.t0 >= I.longPressMs) {
