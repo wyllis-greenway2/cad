@@ -1358,3 +1358,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_279 — 2026-11-12 — approval
 > Yes, take your recommendations on 1 and 2. Also can you please give me the terminal command to run and also put the thing back on the network so I can test on my mobile phone?
 (approves refreshing the roadmap and closing the known gaps in independent bodies, with a fuzzer pass over multi-body edits; asks for the preview command with the phone on the network)
+
+## in_280 — 2026-11-12 — directive
+> See in this model, I am having trouble sketching a curved line with a circle. So first off, I would expect a curved line to have some of the constraint helpers that others do. For example if I try to do a straight line next to the circle, the verticy offers an on-line helper so the line starts on the circle line, the curved one doesn't do this, I cant set the verticy exactly somewhere on the circle line. Another thing is as I adjust the curvature of the curved line, I would expect a helper at some point to snap to tangent with the circle when it is close. it doesn't do this either.
+(with the model file `model.cad_34.json`: a circle, a vertical line and a curved line (arc) from the line's lower end to a point on the circle's outline; asks for the arc tool to offer the same on-line (on the circle's outline) helper for its points as the line tool does, and a tangent helper while the curvature is adjusted)

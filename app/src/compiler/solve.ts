@@ -169,6 +169,23 @@ function constraintFor(m: Model, rel: Relation): Omit<SolverConstraint, "id"> | 
       return cen && e ? { type: "ptOnCircle", p, c: cen, e } : null;
     }
     case "tangent": {
+      // two curves (a circle or an arc with a circle or an arc) meet smoothly at the end of the arc that is on the other (`in_280`)
+      const [r1, r2] = [l1 ? m.get(l1) : null, l2 ? m.get(l2) : null];
+      const arcA = r1?.kind === "line" && r1.center ? r1 : null;
+      const other = arcA ? (k1 ?? (r2?.kind === "line" && r2.center ? l2 : null)) : null;
+      if (arcA && other) {
+        const o = m.get(other);
+        const oc = o?.kind === "circle" ? o.center : o?.kind === "line" ? o.center : undefined;
+        const cen = m.cornerId(arcA.center!);
+        const cen2 = oc ? m.cornerId(oc) : null;
+        const [ea, eb] = [m.cornerId(arcA.a), m.cornerId(arcA.b)];
+        if (cen && cen2 && ea && eb) {
+          const radius2 = o?.kind === "circle" ? m.scalars[m.radiusId(other)!] : o?.kind === "line" && o.center ? Math.hypot(...[0, 1].map((i) => m.points[m.cornerId(o.a)!]![i]! - m.points[cen2]![i]!) as [number, number]) : 0;
+          const off = (e: string) => Math.abs(Math.hypot(m.points[e]![0] - m.points[cen2]![0], m.points[e]![1] - m.points[cen2]![1]) - (radius2 ?? 0));
+          return { type: "tangentRound", c: cen, o: cen2, p: off(ea) <= off(eb) ? ea : eb };
+        }
+        return null;
+      }
       // a line touches a circle, or an arc
       if (L1 && k1) { const r = m.radiusId(k1); const cen = m.cornerId((m.get(k1) as { center: Ref }).center); return r && cen ? { type: "tangentCircle", a: L1[0], b: L1[1], c: cen, r } : null; }
       const [x1, x2] = [l1 ? m.get(l1) : null, l2 ? m.get(l2) : null];

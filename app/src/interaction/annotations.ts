@@ -139,6 +139,14 @@ function place(get: Lookup, kind: string, parts: readonly Ref[]): Placed | null 
       const isArc = (r: Ref) => { const l = get(r); return l?.kind === "line" && !!l.center; };
       const arc = lines.map((r) => get(r)).find((l) => l?.kind === "line" && !!l.center);
       const arcCentre = arc?.kind === "line" && arc.center ? pt(arc.center) : null;
+      // an arc with a circle: they meet at the end of the arc that is on the circle (the end whose distance from the circle's centre is nearest its radius)
+      if (arc && arc.kind === "line" && (c || lines.filter(isArc).length === 2)) {
+        const [pa, pb] = [pt(arc.a), pt(arc.b)];
+        if (!pa || !pb) return null;
+        if (!c) return { at: pa, lines: [] };
+        const off = (p: Vec3) => Math.abs(Math.hypot(p[0] - c.center[0], p[1] - c.center[1], p[2] - c.center[2]) - c.radius);
+        return { at: off(pa) <= off(pb) ? pa : pb, lines: [] };
+      }
       const straight = seg(lines.find((r) => !isArc(r)));
       const centre = c ? c.center : arcCentre;
       return straight && centre ? { at: footOn(centre, straight[0], straight[1]), lines: [] } : null;

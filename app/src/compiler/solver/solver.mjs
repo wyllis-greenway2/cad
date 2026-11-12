@@ -9,6 +9,7 @@
 //   radius {r, value}        scalar r = value            equalRadius {r, s}       r = s
 //   angle {a, b, c, d, value} the angle from ab to cd (signed, radians) equals value
 //   ptLineDist {p, a, b, d, side}  a corner is d from the line ab    lineGap {a, b, c, d, dist, side}  the line cd is dist from the line ab
+//   tangentRound {c, o, p}  two circles or arcs about the points c and o meet smoothly at the point p (p on the line through c and o; p is on both: ptOnCircle says so)
 //   parallelDir / perpDir {a, b, dir}  the line ab is parallel / perpendicular to a fixed direction dir = [dx, dy] (a line of the body, seen on the sketch plane)
 // The solver moves everything the least it can to satisfy the constraints (Levenberg-Marquardt from the current positions).
 // Result: { status: "ok" | "conflict", points, scalars, dof, redundant: [ids], conflicts: [ids], residual, iterations }
@@ -122,6 +123,14 @@ function residualsOf(c, x, index) {
       const len = Math.hypot(b[0] - a[0], b[1] - a[1]) + 1e-12;
       const d = ((b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0])) / len;
       return [(Math.abs(d) - (c.type === "tangentCircle" ? S(c.r) : dir(c.c, c.p)[2])) * w];
+    }
+    case "tangentRound": {
+      // two circles (or arcs) with centres c and o touch at the point p they share: p lies on the line through both centres (its distance from that line is zero)
+      const q = P(c.c);
+      const o = P(c.o);
+      const p = P(c.p);
+      const len = Math.hypot(o[0] - q[0], o[1] - q[1]) + 1e-12;
+      return [(((o[0] - q[0]) * (p[1] - q[1]) - (o[1] - q[1]) * (p[0] - q[0])) / len) * w];
     }
     case "ptOnCircle": {
       // a corner lies on a circle (the radius is the circle's value) or on an arc (the distance from its centre c to its start e): it slides round it

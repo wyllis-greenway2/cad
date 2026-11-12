@@ -33,6 +33,8 @@ export interface Tool {
   field: 0 | 1;
   /** the constraints the end of the line being drawn is close to (and has taken): a click makes the line with them */
   hints?: Hint[];
+  /** an arc being drawn: what each end placed so far was put on (a line or a circle), made into constraints when the arc is (`in_280`) */
+  ends?: Hint[][];
   /** a circle being drawn about the centre of another circle: that circle (the new one is made concentric with it) */
   concentric?: Ref;
   /** trim: the part of a line or circle under the pointer that a click would cut off (shown as it is) */
