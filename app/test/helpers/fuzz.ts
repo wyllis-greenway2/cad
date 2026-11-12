@@ -10,6 +10,7 @@ import { createSession, run, scene, saveText, openSession, undoLast, redoLast, s
 import type { Session } from "../../src/interaction/session.ts";
 import { createState, reduce, advance } from "../../src/interaction/controller.ts";
 import type { AppState } from "../../src/interaction/controller.ts";
+import { planeForDrawing } from "../../src/interaction/tools.ts";
 import { frameOf } from "../../src/interaction/frame.ts";
 import { actionsFor } from "../../src/interaction/actions.ts";
 import { homeCamera, lookStraight, projector } from "../../src/interaction/camera.ts";
@@ -48,7 +49,21 @@ function anchor(sc: Scene, ref: Ref, kernelBox: { min: number[]; max: number[] }
 /** A start: empty, or with a box, or with a circle and a rectangle (drawn, not extruded). */
 function start(r: ReturnType<typeof rng>, k: Kernel = kernel): Session {
   let s = createSession(k);
-  const kind = r.pick([0, 1, 1, 1, 2, 3]); // (empty; a box; a rectangle and a circle drawn)
+  const kind = r.pick([0, 1, 1, 1, 2, 3, 4, 4, 5]); // (empty; a box; a rectangle and a circle drawn; two boxes apart; two boxes, one with a rectangle on its top)
+  if (kind >= 4) {
+    const box = (s0: Session, x: number, w: number, h: number): { s: Session; lines: Ref[] } => {
+      const rc = drawSquaredRectangle(scene(s0), worldRef("XY"), [x, 0, 0], [x + w, w, 0], [1, 0, 0], [0, 1, 0]);
+      const s1 = run(s0, rc.command);
+      return { s: run(s1, { type: "addStep", step: { id: nextId(scene(s1), "s"), type: "extrude", parts: rc.lines, params: { depth: h } } }), lines: rc.lines };
+    };
+    s = box(s, 0, 20, 10).s;
+    s = box(s, 45, 16, 14).s;
+    if (kind === 5) {
+      const top = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.of && p.mesh && p.mesh.length >= 9 && Math.abs(p.mesh[2]! - 10) < 1e-6 && Math.abs(p.mesh[5]! - 10) < 1e-6);
+      if (top) { const pd = planeForDrawing(scene(s), top.ref); if (pd.command) s = run(s, pd.command); s = run(s, drawSquaredRectangle(scene(s), pd.plane, [5, 5, 10], [12, 12, 10], [1, 0, 0], [0, 1, 0]).command); }
+    }
+    return s;
+  }
   if (kind >= 1) {
     const rect = drawSquaredRectangle(scene(s), worldRef("XY"), [0, 0, 0], [30, 20, 0], [1, 0, 0], [0, 1, 0]);
     s = run(s, rect.command);
@@ -71,6 +86,18 @@ function check(st: AppState, label: string): void {
   for (const p of Object.values(sc.parts)) {
     const nums = p.kind === "corner" ? p.at : p.kind === "circle" ? [p.radius] : [];
     if (nums.some((v) => !Number.isFinite(v))) fail(`a part has a number that is not finite: ${p.ref} ${JSON.stringify(nums)}`);
+  }
+  // the bodies the kernel made are real: each has a name of its own, a finite size and volume, and lies inside the whole
+  const kb = st.session.outcome.kernel;
+  if (kb?.bodies && !kb.stale) {
+    const seen = new Set<string>();
+    for (const b of kb.bodies) {
+      if (seen.has(b.id)) fail(`two bodies are called ${b.id}`);
+      seen.add(b.id);
+      if (![...b.min, ...b.max, b.volume].every(Number.isFinite)) fail(`body ${b.id} has a number that is not finite`);
+      if (!(b.volume > 0) || b.min.some((v, i) => v > b.max[i]! + 1e-6)) fail(`body ${b.id} has no size (volume ${b.volume})`);
+      if (kb.bbox && (b.min.some((v, i) => v < kb.bbox!.min[i]! - 1e-3) || b.max.some((v, i) => v > kb.bbox!.max[i]! + 1e-3))) fail(`body ${b.id} sticks out of the whole shape's box`);
+    }
   }
   const c = st.cam;
   if (![...c.target, c.distance, c.azimuth, c.elevation].every(Number.isFinite) || c.distance <= 0) fail(`the camera is broken: ${JSON.stringify(c)}`);
@@ -124,6 +151,9 @@ function checkDeep(st: AppState, label: string): void {
   if (o.value.history.cursor !== s.history.cursor) fail(`save then open changed the cursor: ${s.history.cursor} to ${o.value.history.cursor}`);
   const h = s.history;
   if (canon(h.derive(h.scene)) !== here) fail("deriving the scene again changed it");
+  // the bodies after saving and opening are the same bodies, in the same places (the model is rebuilt from its steps, so a body that depends on how it was got to would differ)
+  const bs = (x: Session) => (x.outcome.kernel?.bodies ?? []).map((b) => `${b.id}:${[...b.min, ...b.max, b.volume].map((v) => Math.round(v * 100) / 100).join(",")}`).sort().join(" ");
+  if (!s.lagging && !s.outcome.kernel?.stale && !o.value.outcome.kernel?.stale && bs(s) !== bs(o.value)) fail(`save then open gave other bodies: ${bs(s)} / ${bs(o.value)}`);
 }
 
 const VIEW_ONLY = new Set<Intent["type"]>(["hover", "hoverEnd", "zoom", "pan", "look", "home"]);

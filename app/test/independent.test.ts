@@ -14,6 +14,7 @@ import { homeCamera } from "../src/interaction/camera.ts";
 import { startOp, opCommand } from "../src/interaction/operations.ts";
 import { objectOf, bodyCentre } from "../src/interaction/objects.ts";
 import { frameOf } from "../src/interaction/frame.ts";
+import type { Vec3 } from "../src/math/vec.ts";
 import type { Part } from "../src/operation/part.ts";
 
 await kernel.init();
@@ -292,4 +293,22 @@ test("angles typed for a turn of one body of several (the typed way) leave the o
   assert.ok(Math.abs(B.bbox!.min[0] - b!.bbox!.min[0]) < 1e-6 && Math.abs(B.bbox!.max[1] - b!.bbox!.max[1]) < 1e-6, "b turned about its own middle (a square: the same box)");
   const sketchA = Object.values(scene(s).parts).find((p) => p.kind === "corner" && p.origin === "drawn" && p.at[0] < 5)!;
   assert.ok(sketchA.kind === "corner" && Math.abs(sketchA.at[0]) < 1e-6 && Math.abs(sketchA.at[1]) < 1e-6, "a's sketch stayed");
+});
+
+test("Copy of one body that has a sketch on its face: the copies are the solid, the sketch stays with the original, the other body and its sketch are untouched (as built, `in_279`)", () => {
+  let s = box(box(createSession(kernel), 0, 0), 60, 0);
+  const [a] = bodies(s);
+  const top = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.of === a!.ref && p.mesh && Math.abs(p.mesh[2]! - 10) < 1e-6 && Math.abs(p.mesh[5]! - 10) < 1e-6)!;
+  const pl = planeForDrawing(scene(s), top.ref);
+  if (pl.command) s = run(s, pl.command);
+  const r = drawSquaredRectangle(scene(s), pl.plane, [2, 2, 10], [5, 5, 10], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  const cornersBefore = JSON.stringify(r.corners.map((c) => (scene(s).parts[c as Ref] as { at: Vec3 }).at));
+  let st: AppState = pick({ ...createState(s), cam: homeCamera() }, [a!.ref]);
+  st = reduce(st, { type: "runAction", id: "op:copy" }, env);
+  st = reduce(st, { type: "repeatApply" }, env);
+  assert.equal(st.session.message, null);
+  assert.equal(bodies(st.session).length, 3, "the body, its copy, and the other body");
+  assert.equal(JSON.stringify(r.corners.map((c) => (scene(st.session).parts[c as Ref] as { at: Vec3 }).at)), cornersBefore, "the sketch stayed where it was drawn");
+  assert.ok(bodies(st.session).some((b) => Math.abs(b.bbox!.min[0] - 60) < 1e-6), "the other body did not move");
 });

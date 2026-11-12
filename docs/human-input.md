@@ -1354,3 +1354,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 > do you think we should try to try moving a single body whole, which takes the old path? And try to turn or scale of a body with a sketch on its face?
 (a question whether the two cases left unlooked-at in Handoff 262 are worth checking)
 
+
+## in_279 — 2026-11-12 — approval
+> Yes, take your recommendations on 1 and 2. Also can you please give me the terminal command to run and also put the thing back on the network so I can test on my mobile phone?
+(approves refreshing the roadmap and closing the known gaps in independent bodies, with a fuzzer pass over multi-body edits; asks for the preview command with the phone on the network)
