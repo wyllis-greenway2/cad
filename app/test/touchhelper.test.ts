@@ -110,3 +110,26 @@ test("an arc by touch: the first point set, the second held; setting it holds th
   st = reduce(st, { type: "tapAim", x: 10, y: 10 }, env); // sets the bow: the arc is made
   assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn" && p.center).length, 1, "an arc");
 });
+
+test("a circle by touch (`in_289`): the held point's icon sets the radius, the centre's icon moves the whole circle at that radius; a tap that sets it makes the circle and puts the tool away", () => {
+  let st: AppState = { ...createState(createSession(kernel)), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 15, 0] } };
+  const px = (p: [number, number, number]) => proj(st.cam, env.w, env.h).project(p);
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  const a = px([10, 10, 0]);
+  st = reduce(st, { type: "tapAim", x: a[0], y: a[1] }, env);
+  // the held point sets the radius: take it to 6 along x
+  const r = px([16, 10, 0]);
+  st = reduce(st, { type: "hover", x: r[0], y: r[1] }, env);
+  const radius = () => Math.hypot(st.tool!.cursor![0] - st.tool!.points[0]![0], st.tool!.cursor![1] - st.tool!.points[0]![1]);
+  assert.ok(Math.abs(radius() - 6) < 0.3, `radius ${radius()}`);
+  // the centre's icon moves the whole circle: the radius stays
+  const m = px([20, 18, 0]);
+  st = reduce(st, { type: "movePoint", index: 0, x: m[0], y: m[1] }, env);
+  assert.ok(Math.abs(st.tool!.points[0]![0] - 20) < 0.3 && Math.abs(st.tool!.points[0]![1] - 18) < 0.3, "the centre moved");
+  assert.ok(Math.abs(radius() - 6) < 0.3, `the radius is kept: ${radius()}`);
+  const far = px([0, 25, 0]);
+  st = reduce(st, { type: "tapAim", x: far[0], y: far[1] }, env);
+  const circle = Object.values(scene(st.session).parts).find((p) => p.kind === "circle") as { radius: number } | undefined;
+  assert.ok(circle && Math.abs(circle.radius - 6) < 0.3, "a circle of radius 6");
+  assert.equal(st.tool, null, "the tool is put away with the tap that applied it");
+});
