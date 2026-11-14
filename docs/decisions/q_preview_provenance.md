@@ -3,7 +3,7 @@ id: q_preview_provenance
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_323, in_324, in_325
+human_input: in_323, in_324, in_325, in_326
 date: 2026-11-14
 depends_on:
   - dec_drag_preview_without_kernel: the question is how to make that decision's stretched picture right by construction; a change to it (an exact preview) would end the question
@@ -22,6 +22,14 @@ alternative_to:
 **What it would not settle.** The history says which faces are new and which old faces changed; it does not say how the vertices of the others move when the size changes. The stretch still moves the neighbours' boundary vertices by a rule (found by position), which is a second guess. It would be narrower (only the faces the history says changed, only their vertices on the new faces), not gone.
 
 **Options.** (a) Provenance from the kernel for the face choice, as above. (b) Compare the stretched picture with the kernel's answer when it arrives and replace it if they differ (catches any wrong guess, not only this one). (c) Exact preview with the latest request winning, stretch only as a bridge. They can be combined; (a) and (b) are each small to medium work, (c) changes how slow models drag.
+
+## Measured: option (c), the kernel's own result for every size (`in_326`)
+
+Tried as an experiment (`settings.preview.stretch` off; on by default, nothing changed for users), with the human's two models, in Chromium (headless: software drawing, so only the comparison is fair, not the absolute rates) and with the kernel timed on its own.
+- **Kernel, one exact fillet or chamfer preview:** two blocks about 15 ms; the holed model about 90 ms (42 to 142), of which about 31 ms is the operation and about 55 ms the mesh of both bodies and the naming of faces and edges; the rough mesh did not help (101 ms).
+- **Frame on the main thread, stretch / exact (ms, average):** two blocks 4.2 / 3.7 at normal speed, 16.5 / 16.8 with the CPU four times slower; holed model 7.1 / 8.9 and 28.1 / 40.0. Exact fits the frame at normal speed on both; on the slow setting the holed model is over a frame either way, and exact costs about 40 % more, mostly (20 ms against 5) from rebuilding the drawn objects for every new kernel mesh, not from asking the kernel.
+- **Not measured:** how far the exact picture runs behind the pointer (the first measure read a value that is always current and was dropped). From the kernel times: about 15 to 30 ms on the blocks, 90 to 140 ms on the holed model, about 11 updates a second there.
+- **Cheaper exact, not built:** a preview pass that does not name faces and edges and meshes only the changed body (the 90 ms to perhaps 35 to 45), and reusing the drawn objects of a body that did not change.
 
 ## Rationale
 
