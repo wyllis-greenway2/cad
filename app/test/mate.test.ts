@@ -265,11 +265,12 @@ test("Mate: parallel faces only turns the first body until its face is parallel 
   const b1 = bodies(s).find((x) => x.id === b!.id)!;
   const faceB = Object.values(scene(s).parts).find((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && p.of === b1.ref && !!p.mesh && !p.curved && !p.round && Math.abs(normalOfPlane(p)[2]) < 1e-6 && Math.abs(normalOfPlane(p)[0]) > 0.5)!.ref;
   const act = actionsFor(scene(s), [faceB, faceOf(s, bodies(s).find((x) => x.id === a!.id)!, [1, 0, 0])]).find((x) => x.id === "mate:parallel")!;
-  assert.ok(act?.enabled && !act.dimensional, "offered, with no number");
+  assert.ok(act?.enabled && act.dimensional, "offered, with a number that is optional");
   const after = run(s, act.run());
   assert.ok(!after.message, `${after.message}`);
   assert.equal(mateStatus(scene(after))[0]!.state, "ok");
   assert.equal(mateStatus(scene(after))[0]!.mode, "parallel");
+  assert.equal(mateStatus(scene(after))[0]!.counts, false, "no distance was given: it is only the turn");
   const b2 = bodies(after).find((x) => x.id === b!.id)!;
   assert.ok(Math.abs(b2.volume! - b1.volume!) < 1e-3, "the same body, turned");
   // turning it again by hand makes the mate not true, and putting it back turns it again
@@ -359,7 +360,7 @@ test("an angle can be typed into the number over two selected faces, next to the
   let st = { ...createState(s), cam: homeCamera() };
   st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: pick } } };
   const notes = annotationsFor(scene(st.session), pick, null, false).filter((x) => x.measureId);
-  assert.deepEqual(notes.map((x) => [x.measureId, x.unit]).sort(), [["mate:angle", "deg"], ["mate:flush", "mm"]], "a gap and an angle");
+  assert.deepEqual(notes.map((x) => [x.measureId, x.unit]).sort(), [["mate:angle", "deg"], ["mate:flush", "mm"], ["mate:parallel", "mm"]], "a gap, a distance and an angle");
   const done = reduce(st, { type: "relation", act: "measure", id: "mate:angle", value: 45 }, env);
   assert.equal(mateStatus(scene(done.session))[0]!.gap, 45);
   assert.equal(mateStatus(scene(done.session))[0]!.mode, "angle");
@@ -369,4 +370,55 @@ test("an angle can be typed into the number over two selected faces, next to the
   assert.ok(axes.includes("mate:angleAxes") && axes.includes("mate:perpendicularAxes"), `for round faces: ${axes}`);
   const tilted = run(c, actionsFor(scene(c), [roundOfBody(c, c2!), roundOfBody(c, c1!)]).find((x) => x.id === "mate:angleAxes")!.run(40));
   assert.equal(mateStatus(scene(tilted))[0]!.state, "ok");
+});
+
+test("Mate: parallel faces with a distance typed turns the body and leaves the planes that far apart, on the side it is on; with none typed it only turns (`in_319`)", () => {
+  let s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  s = turned(s, b!, 30);
+  const b1 = bodies(s).find((x) => x.id === b!.id)!;
+  const faceB = Object.values(scene(s).parts).find((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && p.of === b1.ref && !!p.mesh && !p.curved && !p.round && Math.abs(normalOfPlane(p)[2]) < 1e-6 && Math.abs(normalOfPlane(p)[0]) > 0.5)!.ref;
+  const pick = [faceB, faceOf(s, bodies(s).find((x) => x.id === a!.id)!, [1, 0, 0])];
+  const act = actionsFor(scene(s), pick).find((x) => x.id === "mate:parallel")!;
+  assert.ok(act.measure()! > 5, `how far apart the planes are now: ${act.measure()}`);
+  const done = run(s, act.run(7));
+  assert.ok(!done.message, `${done.message}`);
+  const st = mateStatus(scene(done))[0]!;
+  assert.equal(st.state, "ok", `${st.residual}`);
+  assert.equal(st.counts, true);
+  assert.equal(st.gap, 7);
+  assert.ok(Math.abs(Math.abs((st.mover!.point[0] - st.other!.point[0]) * st.other!.dir[0] + (st.mover!.point[1] - st.other!.point[1]) * st.other!.dir[1] + (st.mover!.point[2] - st.other!.point[2]) * st.other!.dir[2]) - 7) < 1e-6, "7 mm between the planes");
+  // moved by hand so the distance is wrong but the faces are still parallel: off, in mm, and put back
+  const nudged = run(done, { type: "addStep", step: { id: nextId(scene(done), "s"), type: "move", parts: [bodies(done).find((x) => x.id === b!.id)!.ref], params: { axis: 0, value: 3, body: b!.id } } } as never);
+  const off = mateStatus(scene(nudged))[0]!;
+  assert.equal(off.state, "off");
+  assert.equal(off.unit, "mm");
+  assert.ok(Math.abs(off.residual! - 3) < 1e-6, `3 mm off: ${off.residual}`);
+  assert.equal(mateStatus(scene(run(nudged, putMatesBack(scene(nudged))!.command)))[0]!.state, "ok");
+});
+
+test("Mate: coaxial with a number leaves the axes that far apart, in the way the first one stands off now; 0 is one axis (`in_319`)", () => {
+  const s = cylinder(cylinder(createSession(kernel), 0, 0, 5), 30, 4, 3);
+  const [a, b] = bodies(s);
+  const pick = [roundOfBody(s, b!), roundOfBody(s, a!)];
+  const act = actionsFor(scene(s), pick).find((x) => x.id === "mate:coaxial")!;
+  assert.ok(act.dimensional && act.unit === "mm", "coaxial has a number");
+  assert.ok(Math.abs(act.measure()! - Math.hypot(30, 4)) < 1e-3, `the axes are ${act.measure()} apart now`);
+  const four = run(s, act.run(4));
+  assert.ok(!four.message, `${four.message}`);
+  const st = mateStatus(scene(four))[0]!;
+  assert.equal(st.state, "ok", `${st.residual}`);
+  assert.equal(st.gap, 4);
+  const b2 = bodies(four).find((x) => x.id === b!.id)!;
+  const c = [(b2.bbox!.min[0] + b2.bbox!.max[0]) / 2, (b2.bbox!.min[1] + b2.bbox!.max[1]) / 2];
+  assert.ok(Math.abs(Math.hypot(c[0]!, c[1]!) - 4) < 1e-2, `its axis is 4 from the other's: ${c}`);
+  assert.ok(Math.abs(c[1]! / c[0]! - 4 / 30) < 1e-2, "on the side it was on");
+  // typed again as 0: one axis, the same mate
+  const again = run(four, actionsFor(scene(four), [roundOfBody(four, b2), roundOfBody(four, bodies(four).find((x) => x.id === a!.id)!)]).find((x) => x.id === "mate:coaxial")!.run(0));
+  const b3 = bodies(again).find((x) => x.id === b!.id)!;
+  assert.ok(Math.hypot((b3.bbox!.min[0] + b3.bbox!.max[0]) / 2, (b3.bbox!.min[1] + b3.bbox!.max[1]) / 2) < 1e-2, "on one axis");
+  assert.equal(scene(again).relations.filter((r) => r.kind === "mate").length, 1, "one mate");
+  // the marks say it
+  const f = frameOf({ ...createState(four), cam: homeCamera() }, { w: 800, h: 600 });
+  assert.match(f.mates[0]!.text, /axes 4 mm apart/);
 });

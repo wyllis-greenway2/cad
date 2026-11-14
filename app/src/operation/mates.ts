@@ -41,8 +41,9 @@ const put = (o: Record<string, number>, prefix: string, f: { point: Vec3; dir: V
 const get = (p: Record<string, number>, prefix: string): { point: Vec3; dir: Vec3; radius: number } => ({ dir: KEYS.map((k) => p[`${prefix}d${k}`] ?? 0) as unknown as Vec3, point: KEYS.map((k) => p[`${prefix}p${k}`] ?? 0) as unknown as Vec3, radius: p[`${prefix}r`] ?? 0 });
 
 /** The relation that records a mate, with the faces as they stand when it is true. */
-export function mateRelation(id: string, mode: MateMode, gap: number, mover: MateFeature, other: MateFeature, whenTrue: { mover: { point: Vec3; dir: Vec3 }; other: { point: Vec3; dir: Vec3 } }): Relation {
-  const params: Record<string, number> = { mode: numberOfMode(mode), gap };
+export function mateRelation(id: string, mode: MateMode, gap: number, mover: MateFeature, other: MateFeature, whenTrue: { mover: { point: Vec3; dir: Vec3 }; other: { point: Vec3; dir: Vec3 } }, counts = true): Relation {
+  // `fix`: the number counts (a parallel mate that was given a distance; for the others it always does, `in_319`)
+  const params: Record<string, number> = { mode: numberOfMode(mode), gap, fix: counts ? 1 : 0 };
   put(params, "m", { ...whenTrue.mover, radius: mover.radius });
   put(params, "o", { ...whenTrue.other, radius: other.radius });
   return { id, kind: MATE_KIND, parts: [mover.body, other.body], params, locked: true };
@@ -71,6 +72,8 @@ export interface MateState {
   id: string;
   mode: MateMode;
   gap: number;
+  /** whether `gap` counts (always, except for a parallel mate that was not given a distance) */
+  counts?: boolean;
   /** ok: still true; off: the faces are there but no longer as mated; lost: a body or a face is gone */
   state: "ok" | "off" | "lost";
   /** the faces now (when found) */
@@ -96,21 +99,26 @@ export function mateStatus(scene: Scene): MateState[] {
     let residual: number;
     let ok: boolean;
     let unit: "mm" | "deg" = "mm";
+    const fixed = (rel.params.fix ?? 1) === 1; // (an older record, or one that has a number: it counts)
+    const turned = Math.min(angle(mover.dir, other.dir), Math.PI - angle(mover.dir, other.dir)); // (the angle between the two as lines)
+    const w = sub(mover.point, other.point);
+    const along = dot(w, other.dir);
+    const across = Math.hypot(w[0] - other.dir[0] * along, w[1] - other.dir[1] * along, w[2] - other.dir[2] * along); // (how far the mover's point is from the other's axis)
     if (mode === "flush") {
-      residual = Math.abs(dot(sub(mover.point, other.point), other.dir) - gap);
+      residual = Math.abs(dot(w, other.dir) - gap);
       ok = residual < 1e-3 && angle(mover.dir, [-other.dir[0], -other.dir[1], -other.dir[2]]) <= 1e-4;
-    } else if (mode === "coaxial") {
-      const w = sub(mover.point, other.point);
-      const along = dot(w, other.dir);
-      residual = Math.hypot(w[0] - other.dir[0] * along, w[1] - other.dir[1] * along, w[2] - other.dir[2] * along);
-      ok = residual < 1e-3 && Math.min(angle(mover.dir, other.dir), Math.PI - angle(mover.dir, other.dir)) <= 1e-4;
+    } else if (mode === "coaxial") { // axes parallel and `gap` apart (0: on one axis, `in_319`)
+      residual = Math.abs(across - gap);
+      ok = residual < 1e-3 && turned <= 1e-4;
+    } else if (mode === "parallel" && fixed && turned <= 1e-4) { // parallel faces with a distance: the planes `gap` apart
+      residual = Math.abs(Math.abs(along) - gap);
+      ok = residual < 1e-3;
     } else { // only turned: the angle between the two as lines, against the one it is to be
-      const a = Math.min(angle(mover.dir, other.dir), Math.PI - angle(mover.dir, other.dir));
-      residual = Math.abs((a * 180) / Math.PI - angleOfMode(mode, gap));
+      residual = Math.abs((turned * 180) / Math.PI - angleOfMode(mode, mode === "parallel" ? 0 : gap));
       unit = "deg";
       ok = residual <= 0.006;
     }
-    out.push({ ...base, state: ok ? "ok" : "off", mover, other, residual, unit });
+    out.push({ ...base, counts: mode !== "parallel" || (rel.params.fix ?? 1) === 1, state: ok ? "ok" : "off", mover, other, residual, unit });
   }
   return out;
 }

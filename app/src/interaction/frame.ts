@@ -551,7 +551,7 @@ function matesOn(sc: Scene): Frame["mates"] {
     const at = (m.mover ? faceMiddle(sc, m.mover.ref) : null) ?? (m.other ? faceMiddle(sc, m.other.ref) : null) ?? middle(mb) ?? middle(ob);
     if (!at) continue;
     const what = { flush: "flush faces", coaxial: "coaxial", parallel: "parallel faces", parallelAxes: "parallel axes", perpendicular: "perpendicular faces", perpendicularAxes: "perpendicular axes", angle: "angle between faces", angleAxes: "angle between axes" }[m.mode];
-    const gap = m.mode === "flush" && m.gap > 0 ? ` (${m.gap} mm apart)` : m.mode === "angle" || m.mode === "angleAxes" ? ` (${m.gap}°)` : "";
+    const gap = (m.mode === "flush" || (m.mode === "parallel" && m.counts)) && m.gap > 0 ? ` (${m.gap} mm apart)` : m.mode === "coaxial" && m.gap > 0 ? ` (axes ${m.gap} mm apart)` : m.mode === "angle" || m.mode === "angleAxes" ? ` (${m.gap}°)` : "";
     const text = m.state === "ok" ? `Mate: ${what}${gap}` : m.state === "off" ? `Mate: ${what}: no longer true (${(m.residual ?? 0).toFixed(2)} ${m.unit === "deg" ? "degrees" : "mm"} off): click to put it back` : `Mate: ${what}: a body or a face is gone`;
     out.push({ id: m.id, at, state: m.state, text });
   }

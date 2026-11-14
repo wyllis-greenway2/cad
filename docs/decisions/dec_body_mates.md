@@ -3,7 +3,7 @@ id: dec_body_mates
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_306, in_307, in_314, in_315, in_316, in_317, in_318
+human_input: in_306, in_307, in_314, in_315, in_316, in_317, in_318, in_319
 date: 2026-11-14
 depends_on:
   - dec_independent_bodies: the bodies that are mated are the independent bodies of one model, each named by the step that made it
@@ -27,11 +27,13 @@ The human approved (`in_314`, after `in_306` and `in_307`: an assembly is just a
 
 **Perpendicular and angle mates (`in_318`).** Four more mates that only turn the first body (it stays where it is): **perpendicular** (faces, and axes of round faces) turns it until it is at a right angle to the other, and **angle between faces / between axes** turns it until it is at the **typed angle** (degrees, 0 to 90, kept in the record's `gap`; 0 is parallel, 90 perpendicular). The angle is the one between the two **as lines** (the planes of the faces, or the axes): the turn is the smaller one, about the line across both, toward the other when the angle is to be less and away when more (`turnToAngle`); a face has no "right way round" for these. Checked by the angle off (degrees) and found again within forty-five degrees. Two selected faces show **both numbers** over them, the gap and the angle (`mateMeasures` in `annotations.ts`; `Annotation.measureId` says which action a typed value is for), each typed number makes that mate (the intent `relation measure` carries the action's id).
 
+**A number for coaxial, and a distance for parallel faces (`in_319`).** *Coaxial* has a number, how far apart the two axes are left (mm; 0, the default, is one axis): the axes are made parallel and moved across until they are that far apart, the way the first one stands off from the other's axis now (any way when it is on it), keeping its place along the axis; the number over two round faces shows the distance now. *Parallel faces* has an **optional** distance: the menu's row, with no number, only turns (as before); a distance typed turns the body and leaves the two planes that far apart on the side it is on now. The record keeps whether the number counts (`fix`: always, except a parallel mate that was given none); checked in mm (the planes' distance, or the axes') once the turn is right, else in degrees. *Parallel axes* stays turn-only: with a distance it would be the same as a coaxial one with a number.
+
 **Marked on the model (`in_316`).** Each mate has a small round mark on the model where the two bodies meet (the middle of the first face, `Frame.mates`; `ui/matemarks.ts`): **teal with a link** when it is true, **amber with a bang** when it is not (its title says how far off, and a click puts that mate back: `mate:reapply:<id>`), **grey with a query** when a body or a face is gone. A click on any other mark selects the mate's two bodies (`mate:select:<id>`). The title is also what a held press shows on a phone.
 
 **Found and fixed on the way (browser check):** a saved file with a relation to a part of the body could not be opened in the browser: the replay runs before the kernel's thread has answered, so the body is not there to be named, and `addRelation` refused it. A relation may now name a part of the body (`b/...`) that is not there yet, and the description of such a relation (the anchors, the mate's numbers) is put into the command when it is made (`describedCommand`, `session.run`), so the file carries it and the replay needs no geometry. This also holds for the relations to edges, corners and faces of `dec_anchor_geometry`, which would not have opened in the browser either.
 
-Not a standing constraint (bodies do not follow their mates by themselves): that is the open `q_mate_persistence` (option 3). Not built: a flush that also lines up an edge, a distance for a parallel mate, a gap for a coaxial one, an angle of more than 90 degrees (a face that must face the other way round), the angle between a flat face and an axis, pivots and slides (the mates that leave freedom), a body that is fixed in place, snapping suggestions while a body is dragged.
+Not a standing constraint (bodies do not follow their mates by themselves): that is the open `q_mate_persistence` (option 3). Not built: a flush that also lines up an edge, an angle of more than 90 degrees (a face that must face the other way round), the angle between a flat face and an axis, pivots and slides (the mates that leave freedom), a body that is fixed in place, snapping suggestions while a body is dragged.
 
 ## Rationale
 

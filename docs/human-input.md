@@ -1527,3 +1527,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_318 — 2026-11-14 — directive
 > Do the perpendicular and angle mates next
 (asks for perpendicular mates and for angle mates, an angle that can be typed, between two bodies)
+
+## in_319 — 2026-11-14 — directive
+> Do the gap for coaxial and distance for parallel mates next
+(asks for a typed offset for the coaxial mate and a typed distance for the parallel mate)

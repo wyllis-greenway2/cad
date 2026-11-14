@@ -90,8 +90,8 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
   // two faces of two bodies: they can be mated, the first one's body is moved to the second (`in_314`); flush has a gap that can be typed (`in_317`)
   if (sel.length === 2) {
     const kinds: [MateMode, string, "mm" | "deg" | null][] = [
-      ["flush", "Mate: flush faces", "mm"], ["parallel", "Mate: parallel faces", null], ["perpendicular", "Mate: perpendicular faces", null], ["angle", "Mate: angle between faces", "deg"],
-      ["coaxial", "Mate: coaxial", null], ["parallelAxes", "Mate: parallel axes", null], ["perpendicularAxes", "Mate: perpendicular axes", null], ["angleAxes", "Mate: angle between axes", "deg"],
+      ["flush", "Mate: flush faces", "mm"], ["parallel", "Mate: parallel faces", "mm"], ["perpendicular", "Mate: perpendicular faces", null], ["angle", "Mate: angle between faces", "deg"],
+      ["coaxial", "Mate: coaxial", "mm"], ["parallelAxes", "Mate: parallel axes", null], ["perpendicularAxes", "Mate: perpendicular axes", null], ["angleAxes", "Mate: angle between axes", "deg"],
     ];
     for (const [mode, label, unit] of kinds) {
       const why = whyNotMate(scene, mode, sel[0]!, sel[1]!);
@@ -99,19 +99,23 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
       const [fa, fb] = [featureOf(scene, sel[0]!, mode), featureOf(scene, sel[1]!, mode)];
       const degrees = unit === "deg";
       out.push({
-        id: `mate:${mode}`, label, group: "relation", dimensional: unit !== null, unit, parts: [...sel], enabled: why === null, why,
-        // (the gap now, or the angle now between the two as lines; typed, it is what the mate leaves, `in_317`, `in_318`)
+        id: `mate:${mode}`, label: mode === "coaxial" ? "Mate: coaxial (axes apart: type a number)" : label, group: "relation", dimensional: unit !== null, unit, parts: [...sel], enabled: why === null, why,
+        // (what it leaves now, as the number it would be typed as: the gap between flush faces, the distance between parallel faces, the distance between axes, the angle; `in_317`..`in_319`)
         measure: () => {
           if (!fa || !fb || unit === null) return null;
-          if (!degrees) return Math.round(dot(sub(fa.point, fb.point), fb.dir) * 1e6) / 1e6;
-          const c = Math.abs(dot(fa.dir, fb.dir)) / (Math.hypot(...fa.dir) * Math.hypot(...fb.dir));
-          return Math.round(((Math.acos(Math.min(1, c)) * 180) / Math.PI) * 1e4) / 1e4;
+          const w = sub(fa.point, fb.point);
+          const r = (x: number) => Math.round(x * 1e6) / 1e6;
+          if (degrees) { const c = Math.abs(dot(fa.dir, fb.dir)) / (Math.hypot(...fa.dir) * Math.hypot(...fb.dir)); return Math.round(((Math.acos(Math.min(1, c)) * 180) / Math.PI) * 1e4) / 1e4; }
+          if (mode === "flush") return r(dot(w, fb.dir));
+          if (mode === "parallel") return r(Math.abs(dot(w, fb.dir)));
+          const along = dot(w, fb.dir); // coaxial: how far the first axis is from the other's line
+          return r(Math.hypot(w[0] - fb.dir[0] * along, w[1] - fb.dir[1] * along, w[2] - fb.dir[2] * along));
         },
         spot: () => faceMiddle(scene, sel[0]!),
         run: (value?: number): Command => {
           const again = fa && fb ? existingMate(scene, mode, fa.body, fb.body) ?? undefined : undefined; // (a mate made again between the same bodies replaces the one there)
           const amount = unit === null ? 0 : degrees ? Math.min(90, Math.max(0, value ?? 0)) : Math.max(0, value ?? 0);
-          const r = mateCommand(scene, mode, sel[0]!, sel[1]!, amount, again);
+          const r = mateCommand(scene, mode, sel[0]!, sel[1]!, amount, again, mode !== "parallel" || value !== undefined); // (parallel faces are only turned unless a distance is typed)
           return "command" in r ? r.command : { type: "batch", commands: [] };
         },
       });

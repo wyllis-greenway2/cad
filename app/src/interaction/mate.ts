@@ -61,7 +61,7 @@ function eulerXYZ(m: Mat): { axis: 0 | 1 | 2; angle: number }[] {
  * The command that puts the first face's body against the second's: turns and a move, with the body's sketches carried, and the mate recorded as a relation (`in_315`); or why not. `gap`: how far apart the flat faces are left (mm).
  * `again`: the id of a mate that is made again after a change: the old record goes and the new one takes its id.
  */
-export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref, gap = 0, again?: string): { command: Command } | { why: string } {
+export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref, gap = 0, again?: string, counts = true): { command: Command } | { why: string } {
   const why = whyNotMate(scene, mode, mover, other);
   if (why) return { why };
   const [a, b] = [featureOf(scene, mover, mode)!, featureOf(scene, other, mode)!];
@@ -76,19 +76,28 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
     const s = dot(sub(a.point, b.point), b.dir);
     move = [b.dir[0] * (gap - s), b.dir[1] * (gap - s), b.dir[2] * (gap - s)];
     moverWhenTrue = [b.point[0] + b.dir[0] * gap, b.point[1] + b.dir[1] * gap, b.point[2] + b.dir[2] * gap];
-  } else if (mode === "coaxial") {
+  } else if (mode === "coaxial") { // the axes parallel and `gap` apart (0: one axis), keeping its place along the axis; the way it stands off is the way it does now (any way, from one axis)
     const w = sub(a.point, b.point);
     const along = dot(w, b.dir);
-    move = [-(w[0] - b.dir[0] * along), -(w[1] - b.dir[1] * along), -(w[2] - b.dir[2] * along)];
-    moverWhenTrue = [b.point[0] + b.dir[0] * along, b.point[1] + b.dir[1] * along, b.point[2] + b.dir[2] * along];
-  } else { // only turned until parallel: where it is stays (a point of the face or the axis does not move under the turn)
+    const perp: Vec3 = [w[0] - b.dir[0] * along, w[1] - b.dir[1] * along, w[2] - b.dir[2] * along];
+    const pl = length(perp);
+    const way: Vec3 = pl > 1e-9 ? [perp[0] / pl, perp[1] / pl, perp[2] / pl] : normalize(Math.abs(b.dir[0]) < 0.9 ? cross(b.dir, [1, 0, 0]) : cross(b.dir, [0, 1, 0]));
+    const to: Vec3 = [way[0] * gap, way[1] * gap, way[2] * gap];
+    move = [to[0] - perp[0], to[1] - perp[1], to[2] - perp[2]];
+    moverWhenTrue = [b.point[0] + b.dir[0] * along + to[0], b.point[1] + b.dir[1] * along + to[1], b.point[2] + b.dir[2] * along + to[2]];
+  } else if (mode === "parallel" && counts) { // the planes `gap` apart, on the side it is on now (the turn leaves the point of the face where it is)
+    const s = dot(sub(a.point, b.point), b.dir);
+    const target = (s >= 0 ? 1 : -1) * gap;
+    move = [b.dir[0] * (target - s), b.dir[1] * (target - s), b.dir[2] * (target - s)];
+    moverWhenTrue = [b.point[0] + b.dir[0] * target, b.point[1] + b.dir[1] * target, b.point[2] + b.dir[2] * target];
+  } else { // only turned: where it is stays (a point of the face or the axis does not move under the turn)
     move = [0, 0, 0];
     moverWhenTrue = a.point;
   }
   const r6 = (v: Vec3): Vec3 => v.map((x) => Math.round(x * 1e6) / 1e6) as unknown as Vec3;
   const turns = eulerXYZ(R);
   const translate = r6(move);
-  const record: Command = { type: "addRelation", relation: mateRelation(again ?? nextId(scene, "r"), mode, gap, a, b, { mover: { point: moverWhenTrue, dir: turnOnly(mode) ? rotate(R, a.dir) : want }, other: { point: b.point, dir: b.dir } }) };
+  const record: Command = { type: "addRelation", relation: mateRelation(again ?? nextId(scene, "r"), mode, gap, a, b, { mover: { point: moverWhenTrue, dir: turnOnly(mode) ? rotate(R, a.dir) : want }, other: { point: b.point, dir: b.dir } }, counts) };
   const forget: Command[] = again ? [{ type: "removeRelation", id: again }] : [];
   if (!turns.length && length(translate) < 1e-9) return { command: { type: "batch", commands: [...forget, record] } }; // (they meet already: only the mate is recorded)
   const id = nextId(scene, "s");
