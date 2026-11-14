@@ -3,7 +3,7 @@ id: dec_drag_preview_without_kernel
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_216, in_217, in_218, in_219, in_220, in_221, in_222, in_223, in_224, in_225, in_226, in_227, in_323, in_325
+human_input: in_216, in_217, in_218, in_219, in_220, in_221, in_222, in_223, in_224, in_225, in_226, in_227, in_323, in_325, in_326, in_327, in_328, in_326, in_327, in_328
 date: 2026-11-07
 depends_on:
   - dec_face_edit_by_step: the picture while dragging must be what the edit of the step makes; this only draws it sooner
@@ -34,6 +34,9 @@ The kernel takes about 100 ms to answer for a model (most of it meshing the body
 
 
 **The stretch is checked against the kernel (`in_325`, `q_preview_provenance`).** The rules for which faces move are guesses that can be wrong for a shape nobody tried. So, while the pointer is down, the kernel is asked now and then (at most every 150 ms; it keeps only the newest request) for the size the picture stands at, exactly; when it answers, the stretched mesh and the kernel's are compared (the volume to a hundredth, the box to 0.05 mm: both the same however finely a curve is cut). If they differ, the stretch is not used again for that operation and the kernel's own preview is shown (a warning is written to the console, and `previewChecks` in the state snapshot counts checks and differences, and keeps the last reason). This covers a new fillet or chamfer, one pulled in or out, and a prism pull (`frame.ts` `checkStretch`); it is not made for the other stretches (a face pulled, a wall made wider, a body moved). The numbers of the stretch are in one place, `interaction/stretch.ts`, used by the picture (`ui/view/content.ts`) and by the check, so what is checked is what is drawn. A wrong picture can still show for as long as the kernel takes to answer.
+
+
+**A fillet or chamfer is no longer stretched (`in_328`, after the measurements of `in_326` and `in_327`, `q_preview_provenance`).** While the size of a fillet or chamfer is dragged, new or one that is there already pulled in or out, the picture is the kernel's own result for every size, the newest request winning (the kernel keeps only the newest); the request is rough (a coarse mesh) and *lite* (the mesh, volume and box, no faces, edges or corners), about 40 ms on the holed model and 7 ms on two blocks (`kernel.lite`, `evaluate.mjs`), and the whole fine answer comes when the pointer is let go. This replaces the stretch for these two operations, `edgeNew` and `edgeDrag`, and its check against the kernel (`checkStretch` is made now for the prism pull only): the stretch could be wrong for a shape nobody tried (`in_323`) and the exact result cannot. The stretch is kept for the other previews (a prism pull, a face pulled, a wall made wider, a body moved) and for a fillet or chamfer when `settings.preview.exactRounding` is turned off. Costs: the mesh is rough while the pointer is down (the curve of a fillet shows facets), and on a large model the picture follows the pointer at the kernel's rate (about 25 updates a second on the holed model).
 
 ## Rationale
 

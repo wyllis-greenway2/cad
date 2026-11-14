@@ -1,4 +1,5 @@
 // The stretched picture is checked against the kernel's answer, and given up for the kernel's own when they differ (`in_325`, `q_preview_provenance`).
+import { settings } from "../src/shared/settings.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -12,6 +13,8 @@ import { frameOf, checkStretch, previewChecks } from "../src/interaction/frame.t
 import { roundingFaces, sharpOfPoints } from "../src/operation/roundings.ts";
 
 await kernel.init();
+// (these test the stretched picture of a fillet or chamfer, which is what the other previews use and what `settings.preview.exactRounding` off brings back; the default for a fillet or chamfer is the kernel's own result, `in_328`, tested in `exactpreview.test.ts`)
+settings.preview.exactRounding = false;
 const EDGE = "b/body/e@29.78,10.89,0~29.78,10.89,12.4~29.78,10.89,6.2";
 const open = (): Session => undoLast((openSession(kernel, readFileSync(new URL("./fixtures/two-blocks-in_319.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value);
 const dragging = (s: Session, op: unknown): AppState => ({ ...createState(s), session: { ...s, click: { ...s.click, selection: [EDGE as never] } }, op: op as never, drag: { handle: { id: "edge:0", dir: [1, 0, 0], kind: "edge" } } as never });

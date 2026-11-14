@@ -1,3 +1,4 @@
+import { settings } from "../src/shared/settings.ts";
 import { consumed } from "../src/operation/ownership.ts";
 import { normalOfPlane } from "../src/operation/part.ts";
 import { actionsFor } from "../src/interaction/actions.ts";
@@ -23,6 +24,8 @@ import { BODY_OBJECT, cornerName } from "../src/compiler/body.ts";
 import { entryOf } from "../src/interaction/entry.ts";
 
 await kernel.init();
+// (these test the stretched picture of a fillet or chamfer, which is what the other previews use and what `settings.preview.exactRounding` off brings back; the default for a fillet or chamfer is the kernel's own result, `in_328`, tested in `exactpreview.test.ts`)
+settings.preview.exactRounding = false;
 const XY = worldRef("XY");
 const env = { w: 800, h: 600, now: 0 };
 /** Leave the operation that is open, keeping what it made (Enter applies, `in_244`; Esc would take it back), or clear the selection with none open. */

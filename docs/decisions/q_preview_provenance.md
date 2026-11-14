@@ -3,13 +3,15 @@ id: q_preview_provenance
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_323, in_324, in_325, in_326, in_327
+human_input: in_323, in_324, in_325, in_326, in_327, in_328
 date: 2026-11-14
 depends_on:
   - dec_drag_preview_without_kernel: the question is how to make that decision's stretched picture right by construction; a change to it (an exact preview) would end the question
 alternative_to:
 ---
 # Should the kernel say which faces an operation made, so the preview does not have to guess
+
+**Status after `in_328`:** option (c) is now the default for a fillet or chamfer (`dec_drag_preview_without_kernel`), made lite and rough (`in_327`); the stretch, with its check (b), remains for the other previews, so (a), the kernel saying which faces it made, would matter only for those and is not started.
 
 **Status after `in_325`:** option (b) is built (`dec_drag_preview_without_kernel`): the stretched picture is checked against the kernel's answer and given up for the kernel's own preview when they differ. (a) and (c) are not started; what stays open here is whether (a) is still wanted once the check has shown, in real use, how often the stretch is wrong (`previewChecks` in the state snapshot says).
 
