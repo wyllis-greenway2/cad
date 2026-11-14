@@ -422,3 +422,13 @@ test("Mate: coaxial with a number leaves the axes that far apart, in the way the
   const f = frameOf({ ...createState(four), cam: homeCamera() }, { w: 800, h: 600 });
   assert.match(f.mates[0]!.text, /axes 4 mm apart/);
 });
+
+test("the numbers of a mate over two faces are told apart by a word and put one under the other (`in_320`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const pick: Ref[] = [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])];
+  const notes = annotationsFor(scene(s), pick, null, false).filter((x) => x.measureId);
+  assert.deepEqual(notes.map((x) => x.tag), ["gap", "distance", "angle"], "a word before each number");
+  assert.deepEqual(notes.map((x) => x.stack), [0, 1, 2], "a column, in order");
+  assert.ok(notes.every((x) => x.at[0] === notes[0]!.at[0] && x.at[2] === notes[0]!.at[2]), "all belong to one spot: the stack is on the screen, not in the model");
+});

@@ -40,6 +40,9 @@ export interface Annotation {
   symbol?: string;
   /** a number of the selection that is not a relation (a mate's gap or angle): the action a typed value is for (`in_318`) */
   measureId?: string;
+  /** a few words before the number (gap, distance, offset, angle) and a place in a column of such numbers: the numbers of a mate that stand over one spot are told apart and set one under the other (`in_320`) */
+  tag?: string;
+  stack?: number;
   /** the parts it ties the selection to (shown amber while it is open) */
   others: Ref[];
   /** polylines drawn with it: the arc of an angle, the segment a distance measures */
@@ -250,9 +253,10 @@ function measureOf(scene: Scene, selection: readonly Ref[]): Annotation | null {
 /** Two faces of two bodies show the numbers a mate can leave: the gap, the angle (`in_317`, `in_318`); each can be typed, and makes that mate. */
 function mateMeasures(scene: Scene, selection: readonly Ref[]): Annotation[] {
   if (selection.length !== 2 || !selection.every((r) => scene.parts[r]?.kind === "plane" && scene.parts[r]?.origin === "body")) return [];
+  const TAG: Record<string, string> = { "mate:flush": "gap", "mate:parallel": "distance", "mate:coaxial": "offset", "mate:angle": "angle", "mate:angleAxes": "angle" };
   return actionsFor(scene, selection).filter((a) => a.id.startsWith("mate:") && a.dimensional && a.enabled && a.unit && a.measure() !== null).map((a, k) => {
     const at = a.spot() ?? ([0, 0, 0] as Vec3);
-    return { id: `measure:${a.id}`, relationId: null, kind: a.id, label: a.label, at: [at[0], at[1], at[2] + 2 * k] as Vec3, value: a.measure(), unit: a.unit, locked: false, editable: true, readOnly: false, broken: false, open: false, others: [], lines: [], measureId: a.id };
+    return { id: `measure:${a.id}`, relationId: null, kind: a.id, label: a.label, at, value: a.measure(), unit: a.unit, locked: false, editable: true, readOnly: false, broken: false, open: false, others: [], lines: [], measureId: a.id, tag: TAG[a.id] ?? a.label, stack: k };
   });
 }
 

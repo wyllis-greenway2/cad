@@ -242,6 +242,7 @@ async function boot() {
     frame: () => frameOf(state, view.size()),
     load: (text: string) => { const r = openSession(engine, text); if (r.ok) adopt(r.value); return r.ok ? true : r.error },
     snapshot: () => snapshotOf(state, { intents: intentLog, viewport: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: "", scrollMode: recognizer.scrollMode, timing: timing.summary(), at: new Date().toISOString(), pointer }),
+    select: (refs: string[]) => { state = { ...state, session: { ...state.session, click: { ...state.session.click, selection: refs as never } } }; dirty = true; }, // (for scripted checks)
     dispatch, run: (c: Command) => { state = { ...state, session: run(state.session, c) }; dirty = true; },
   };
   requestAnimationFrame(frame);

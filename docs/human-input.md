@@ -1531,3 +1531,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_319 — 2026-11-14 — directive
 > Do the gap for coaxial and distance for parallel mates next
 (asks for a typed offset for the coaxial mate and a typed distance for the parallel mate)
+
+## in_320 — 2026-11-14 — directive
+> Separate the crowded number bubbles on screen next
+(asks for the number bubbles that stand close together over two selected faces, the gap, the distance and the angle of the mates, to be separated on the screen)

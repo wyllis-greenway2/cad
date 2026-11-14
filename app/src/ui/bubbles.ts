@@ -39,6 +39,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
     const relation = a.relationId;
     if (a.value !== null) {
       if (a.symbol) { const sym = document.createElement("span"); sym.textContent = a.symbol; sym.style.cssText = "font-weight:600;opacity:.6"; el.appendChild(sym); } // Ø or R: what the number is the size of
+      if (a.tag) { const tag = document.createElement("span"); tag.textContent = a.tag; tag.style.cssText = "font-size:11px;opacity:.65;margin-right:1px"; el.appendChild(tag); } // (gap, distance, offset, angle: which number of a mate this is, `in_320`)
       const num = document.createElement("span");
       num.textContent = roundedText(a.value);
       num.style.cssText = `font-weight:600;${a.editable ? "cursor:text;" : ""}`;
@@ -47,10 +48,11 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
         num.title = "Type a new number";
       }
       el.appendChild(num);
+      if (a.tag) { const unit = document.createElement("span"); unit.textContent = a.unit === "deg" ? "°" : a.unit ?? ""; unit.style.cssText = "font-size:11px;opacity:.65"; el.appendChild(unit); }
       const lock = document.createElement("span");
-      lock.innerHTML = iconSvg(a.locked ? "lock" : "unlock"); // (a closed padlock when locked, an open one when it is only a measurement, `in_290`)
+      lock.innerHTML = iconSvg(a.measureId ? "mate" : a.locked ? "lock" : "unlock"); // (a closed padlock when locked, an open one when it is only a measurement, `in_290`)
       lock.style.cssText = `display:inline-flex;padding:2px;cursor:${a.editable ? "pointer" : "default"};opacity:${a.locked ? 1 : 0.8};color:${a.locked ? "#1a8f8b" : "inherit"}`;
-      lock.title = a.locked ? "Locked: click to unlock (keep it as a measurement)" : a.readOnly ? "A measurement of the body: it cannot be locked" : "Measurement only: click to lock at this number";
+      lock.title = a.measureId ? "Make the mate at this number (type another to change it)" : a.locked ? "Locked: click to unlock (keep it as a measurement)" : a.readOnly ? "A measurement of the body: it cannot be locked" : "Measurement only: click to lock at this number";
       if (a.editable) lock.addEventListener("click", (ev) => { ev.stopPropagation(); relation ? h.lock(relation) : h.measure(a.value!, a.measureId); });
       el.appendChild(lock);
     } else {
@@ -106,7 +108,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
       for (const a of list) {
         seen.add(a.id);
         let e = entries.get(a.id);
-        const sig = JSON.stringify([a.kind, a.value, a.unit, a.locked, a.editable, a.readOnly, a.broken, a.open, a.symbol]);
+        const sig = JSON.stringify([a.kind, a.value, a.unit, a.locked, a.editable, a.readOnly, a.broken, a.open, a.symbol, a.tag]);
         if (!e) {
           const entry: Entry = { el: document.createElement("div"), sig: "", editing: false, a, tinted: false };
           // listeners on the bubble itself are added once (the contents are rebuilt when it changes, the bubble is not), and read the current annotation
@@ -124,7 +126,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
       for (const [id, e] of entries) if (!seen.has(id) && !e.editing) { e.el.remove(); e.leader?.remove(); entries.delete(id); }
       // where each stands (`bubbleplace.ts`: clear of lines, corners and what comes first; keeps its place while that is clear), and the way there is eased, so a bubble that has to give way slides
       const put = placeBubbles(
-        placed.map((p) => ({ id: p.a.id, x: p.x, y: p.y, w: p.e.el.offsetWidth || 40 })),
+        placed.map((p) => ({ id: p.a.id, x: p.x, y: p.y + (p.a.stack ?? 0) * 38, w: p.e.el.offsetWidth || 40 })), // (a column of numbers of one mate: each a step lower than the one before, so they are not laid side by side in a row, `in_320`)
         { lines: avoid.segs.map(([p, q]) => [project(p), project(q)] as [[number, number], [number, number]]), dots: avoid.pts.map((p) => project(p)), rects: before },
         memory,
       );
