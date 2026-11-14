@@ -35,6 +35,10 @@ export type Intent =
   /** the pointer went up after a drag */
   | { type: "dragEnd" }
   | { type: "pan"; dx: number; dy: number }
+  /** W A S D held (`in_300`): the view moves forward / back and left / right by `forward` and `right` (each -1, 0 or 1) for `dt` seconds */
+  | { type: "walk"; forward: number; right: number; dt: number }
+  /** the pointer moved while W A S D is held: the view turns about where the eye is, up / down / left / right */
+  | { type: "swivel"; dx: number; dy: number }
   | { type: "zoom"; factor: number; x: number; y: number }
   | { type: "look"; plane: LookPlane }
   | { type: "home" }

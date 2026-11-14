@@ -96,7 +96,8 @@ const wheel = (dx: number, dy: number, o: { unit?: 0 | 1 | 2; wheelDeltaY?: numb
 test("scroll: a wheel notch zooms, a trackpad's fine scroll pans like a phone, a pinch (ctrl) zooms, Shift + scroll pans", () => {
   const r = createRecognizer();
   assert.deepEqual(types(r.feed(wheel(0, 100, { wheelDeltaY: -120 }))), ["zoom"]);
-  assert.deepEqual(r.feed(wheel(3, 7)), [{ type: "pan", dx: -3, dy: -7 }]);
+  const k = settings.input.trackpadPanScale; // (a trackpad pans by a part of what it scrolls: less sensitive, `in_300`)
+  assert.deepEqual(r.feed(wheel(3, 7)), [{ type: "pan", dx: -3 * k, dy: -7 * k }]);
   assert.deepEqual(types(r.feed(wheel(0, 4, { mods: m({ ctrl: true }) }))), ["zoom"]);
   assert.deepEqual(types(r.feed(wheel(0, 100, { wheelDeltaY: -120, mods: m({ shift: true }) }))), ["pan"]);
   assert.deepEqual(types(r.feed(wheel(0, 3, { unit: 1 }))), ["zoom"], "counted in lines: a wheel");

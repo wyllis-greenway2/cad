@@ -212,6 +212,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "repeat:edit") return doRepeatEdit(closed);
   if (id === "repeat:break") return doRepeatBreak(closed);
   if (id === "select:ungroup") return doUngroup(closed);
+  if (id === "multiselect") return { ...closed, multiSelect: !s.multiSelect, session: { ...closed.session, message: s.multiSelect ? "select several is off" : "select several is on: a tap adds to the selection, a tap on what is selected takes it out" } };
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now, s.menu?.plane ?? null);
   if (id === "op:linear" || id === "op:circular" || id === "op:copy") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular" | "copy");

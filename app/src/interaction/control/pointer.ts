@@ -13,7 +13,7 @@ import { candidatesAt } from "../picking.ts";
 import { actionsFor } from "../actions.ts";
 import type { ToolKind, Tool } from "../tools.ts";
 import { diskFaceRef } from "../../operation/loops.ts";
-import { lineHint, hintRelations, circleCentredAt, pointHint, arcBulgeHint, circleRadiusHint } from "../hints.ts";
+import { lineHint, hintRelations, circleCentredAt, pointHint, arcBulgeHint, circleRadiusHint, tangentCentre } from "../hints.ts";
 import type { Hint } from "../hints.ts";
 import { snapOnPlane, finish, planeForDrawing, armTool, pointOnPlane } from "../tools.ts";
 import { trimAt } from "../../operation/trim.ts";
@@ -23,7 +23,7 @@ import { startOp } from "../operations.ts";
 import { similarTo } from "../similar.ts";
 import { patternOfAll } from "../../operation/repeat.ts";
 import { whyNotGroup, whyNotUngroup, whyNotCombine, applyCut } from "./select.ts";
-import { projector } from "../camera.ts";
+import { projector, nearTolMm } from "../camera.ts";
 import { settings } from "../../shared/settings.ts";
 import { planeOf, objectOf } from "../objects.ts";
 import type { AppState, Env, MenuItem } from "./state.ts";
@@ -243,7 +243,10 @@ export function doMovePoint(s: AppState, i: Extract<Intent, { type: "movePoint" 
   const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
   const raw = snapOnPlane(sc, pv, pl);
   if (!raw) return s;
-  const h = pointHint(sc, pl, pv, raw); // (any point of any figure, `in_294`)
+  const whole0 = t.kind === "circle" && i.index === 0 && !!t.cursor;
+  // the centre of a circle that is moved whole: where its edge would touch another circle it takes that place and says tangent (`in_300`)
+  const touching = whole0 ? tangentCentre(sc, pl, dist(t.points[0]!, t.cursor!), raw, nearTolMm(s.cam)) : null;
+  const h = touching ? { at: touching.at, hints: [{ kind: "tangent", ref: touching.ref } as Hint] } : pointHint(sc, pl, pv, raw); // (any point of any figure, `in_294`)
   const at = h?.hints.length ? h.at : raw;
   const by: Vec3 = [at[0] - t.points[i.index]![0], at[1] - t.points[i.index]![1], at[2] - t.points[i.index]![2]];
   // a circle has its size set by the held point (its icon) and the centre's icon moves the whole circle at that size; so has an arc once its bow is held: its ends' icons move the whole curve (`in_289`)
@@ -423,6 +426,12 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   if (!i.button && s.op) return doApply(s);
   // while a sketching tool is on, a right click puts it away (the ⋯ button still opens the menu): the tool stays on until then or the cancel icon (`in_193`)
   if (s.tool && !i.button) return { ...s, tool: null, resume: null, menu: null };
+  // a long press on a move arrow chooses the arrow with the others, as Shift does: a phone has no Shift (`in_300`)
+  if (!i.button && !s.op && !s.repeat) {
+    const g = gizmoOf(s);
+    const hit = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y) : null;
+    if (hit?.id.startsWith("move:")) return doClick(s, { type: "click", x: i.x, y: i.y, count: 1, shift: true }, env);
+  }
   // what is under the point (a finger has no hover: a long press must be told what is under it the same way a right click is, or a tool chosen from the ring would not turn the view straight to the plane there, `in_283`)
   const under = i.button ? null : candidatesAt(sceneOf(s.session), projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0]?.ref ?? null;
   return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined) };

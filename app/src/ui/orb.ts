@@ -9,7 +9,7 @@ import * as THREE from "three";
 
 type Rgb = [number, number, number];
 const make = () => ({
-  uOrbC: { value: new THREE.Vector3() }, uOrbR: { value: 1 }, uOrbA: { value: 0 }, uOrbRingA: { value: 0 }, uOrbSoft: { value: 2 }, uOrbFill: { value: 0 }, uRingPx: { value: 1.6 },
+  uOrbC: { value: new THREE.Vector3() }, uOrbR: { value: 1 }, uOrbA: { value: 0 }, uOrbRingA: { value: 0 }, uOrbSoft: { value: 2 }, uOrbFill: { value: 0 }, uRingPx: { value: 1.6 }, uOrbDisc: { value: 0 },
 });
 export const hoverOrb = make();
 export const selectOrb = make();
@@ -22,11 +22,12 @@ export const selectedLook = (teal: Rgb, opacity: number, surface: Rgb): Rgb => t
 
 /** One orb at world point p: x = the soft fill's alpha (smooth to nothing at soft * R; lifted to flat by `fill`), y = the crisp ring's alpha at radius R. */
 const ORB_GLSL = /* glsl */ `
-vec2 orbParts(vec3 p, vec3 c, float R, float fillA, float fill, float ringA, float soft, float px) {
+vec2 orbParts(vec3 p, vec3 c, float R, float fillA, float fill, float ringA, float soft, float px, float disc) {
   float d = distance(p, c);
   float k = 1.0 - smoothstep(0.0, max(R * soft, 1e-6), d);
   float w = max(fwidth(d), 1e-6) * px;
-  return vec2(fillA * mix(k * k, 1.0, fill), ringA * (1.0 - smoothstep(0.5 * w, w, abs(d - R))));
+  float solid = disc * (1.0 - smoothstep(R - w, R, d)); // (a flat disc of the radius R)
+  return vec2(max(fillA * mix(k * k, 1.0, fill), solid), ringA * (1.0 - smoothstep(0.5 * w, w, abs(d - R))));
 }`;
 
 /** A material that draws the orb on whatever geometry it is given (positions are world positions through the mesh's own matrix). */
@@ -34,9 +35,9 @@ export function orbMaterial(rgb: Rgb, ringRgb: Rgb, orb: ReturnType<typeof make>
   return new THREE.ShaderMaterial({
     uniforms: { uCol: { value: new THREE.Vector3(...rgb) }, uRingCol: { value: new THREE.Vector3(...ringRgb) }, ...orb },
     vertexShader: "varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }",
-    fragmentShader: `uniform vec3 uCol; uniform vec3 uRingCol; uniform vec3 uOrbC; uniform float uOrbR; uniform float uOrbA; uniform float uOrbRingA; uniform float uOrbSoft; uniform float uOrbFill; uniform float uRingPx; varying vec3 vW; ${ORB_GLSL}
+    fragmentShader: `uniform vec3 uCol; uniform vec3 uRingCol; uniform vec3 uOrbC; uniform float uOrbR; uniform float uOrbA; uniform float uOrbRingA; uniform float uOrbSoft; uniform float uOrbFill; uniform float uRingPx; uniform float uOrbDisc; varying vec3 vW; ${ORB_GLSL}
       void main() {
-        vec2 pr = orbParts(vW, uOrbC, uOrbR, uOrbA, uOrbFill, uOrbRingA, uOrbSoft, uRingPx);
+        vec2 pr = orbParts(vW, uOrbC, uOrbR, uOrbA, uOrbFill, uOrbRingA, uOrbSoft, uRingPx, uOrbDisc);
         float a = 1.0 - (1.0 - pr.x) * (1.0 - pr.y);
         gl_FragColor = vec4(mix(uCol, uRingCol, pr.y / max(a, 1e-4)), a); // the fill is the teal, the ring is the colour the selected face shows
       }`,

@@ -1,3 +1,4 @@
+import { PILL, choiceRow } from "./look.ts";
 // Cut (`in_294`): each part the selected bodies make has a round control with a plus (kept) or a minus (tossed) and its letter; one more says whether what is kept is joined where it touches or kept as separate bodies.
 // It only draws and reports clicks; which parts there are and what is kept is the interaction layer's.
 export function createCutParts(host: HTMLElement, toggle: (mask: number) => void, join: () => void) {
@@ -5,9 +6,12 @@ export function createCutParts(host: HTMLElement, toggle: (mask: number) => void
   root.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;z-index:7;font:600 13px system-ui,sans-serif";
   host.appendChild(root);
   const joinEl = document.createElement("div");
-  joinEl.style.cssText = "position:fixed;z-index:7;left:50%;transform:translateX(-50%);top:64px;display:none;height:38px;padding:0 18px;border-radius:8px;background:#fff;color:#2b2b2d;border:1px solid #b9bbc1;font:600 14px system-ui,sans-serif;align-items:center;gap:8px;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation;box-shadow:0 2px 8px rgba(0,0,0,.25)";
-  joinEl.addEventListener("pointerdown", (e) => e.stopPropagation());
-  joinEl.addEventListener("click", (e) => { e.stopPropagation(); join(); });
+  joinEl.style.cssText = PILL + ";left:50%;transform:translateX(-50%);top:64px"; // (the look of the Similar chip, `in_300`)
+  const joinLabel = document.createElement("span");
+  joinLabel.textContent = "Kept parts:";
+  const joinChoices = document.createElement("span");
+  joinChoices.style.cssText = "display:inline-flex;gap:6px";
+  joinEl.append(joinLabel, joinChoices);
   host.appendChild(joinEl);
   const els = new Map<number, HTMLElement>();
   return {
@@ -16,8 +20,10 @@ export function createCutParts(host: HTMLElement, toggle: (mask: number) => void
       if (!parts) { root.style.display = "none"; joinEl.style.display = "none"; return; }
       root.style.display = "block";
       joinEl.style.display = "flex";
-      joinEl.innerHTML = joined ? "<span>\u25A3</span><span>Joined: kept parts that touch become one body</span>" : "<span>\u25A1 \u25A1</span><span>Separate: every kept part stays its own body</span>";
-      joinEl.title = joined ? "Click to keep the parts as separate bodies" : "Click to join the parts that touch";
+      choiceRow(joinChoices, [
+        { id: "joined", text: `${joined ? "\u2713" : "\u25CB"} Joined`, title: "The kept parts that touch become one body", on: joined },
+        { id: "separate", text: `${joined ? "\u25CB" : "\u2713"} Separate`, title: "Every kept part stays a body of its own", on: !joined },
+      ], (id) => { if ((id === "joined") !== joined) join(); });
       for (const p of parts) {
         let el = els.get(p.mask);
         if (!el) {

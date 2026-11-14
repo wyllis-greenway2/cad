@@ -17,18 +17,34 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   let drawing = false; // a drawing tool is armed: a click may wander more before it counts as turning the view
   const touch = createTouch(I, countClick, () => (drawing ? I.drawTouchSlopPx : I.touchSlopPx), () => drawing);
   let space = false;
+  // W A S D (`in_300`): while any is held the view moves with them (time passes: a tick) and the pointer, with no button down, turns the view about the eye
+  const fly = new Set<string>();
+  let flyAt = 0;
+  let last: [number, number] | null = null;
+  let buttons = 0;
   const mouse = createMouse(countClick, () => space, () => (drawing ? settings.view.drawClickMovePx : settings.view.clickMovePx));
 
   function feed(e: RawInput): Intent[] {
     switch (e.kind) {
       case "key":
         if (e.key === " ") { space = e.down; return []; }
+        if (/^[wasd]$/i.test(e.key) && !e.mods.ctrl && !e.mods.alt) { const k = e.key.toLowerCase(); if (e.down) { if (!fly.size) flyAt = e.t; fly.add(k); } else fly.delete(k); return []; }
         return e.down ? keyIntents(e, I) : [];
       case "wheel": return scroll.wheel(e);
       case "gesture": return scroll.gesture(e);
       case "leave": return [{ type: "hoverEnd" }];
-      case "tick": return [...touch.tick(e.t), ...mouse.tick(e.t)];
-      default: return e.device === "touch" ? touch.pointer(e) : mouse(e);
+      case "tick": {
+        const walk: Intent[] = fly.size && e.t > flyAt ? [{ type: "walk", forward: (fly.has("w") ? 1 : 0) - (fly.has("s") ? 1 : 0), right: (fly.has("d") ? 1 : 0) - (fly.has("a") ? 1 : 0), dt: Math.min(0.1, (e.t - flyAt) / 1000) }] : [];
+        flyAt = e.t;
+        return [...walk.filter((w) => w.type === "walk" && (w.forward || w.right)), ...touch.tick(e.t), ...mouse.tick(e.t)];
+      }
+      default: {
+        if (e.device === "touch") return touch.pointer(e);
+        if (e.kind === "down") buttons++; else if ((e.kind === "up" || e.kind === "cancel") && buttons > 0) buttons--;
+        const turn: Intent[] = e.kind === "move" && fly.size && !buttons && last ? [{ type: "swivel", dx: e.x - last[0], dy: e.y - last[1] }] : [];
+        last = [e.x, e.y];
+        return turn.length ? turn : mouse(e);
+      }
     }
   }
   return { feed, setDrawing: (on: boolean) => { drawing = on; }, setTouchHelper: touch.setHelper, setScrollMode: scroll.setMode, get scrollMode() { return scroll.mode; } };

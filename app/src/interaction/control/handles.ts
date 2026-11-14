@@ -9,7 +9,7 @@ import type { Ref } from "../../shared/ref.ts";
 import { settings } from "../../shared/settings.ts";
 import type { Drag, Handle } from "../gizmo.ts";
 import { snapOnPlane, pointOnPlane } from "../tools.ts";
-import { lineHint, pointHint, hintRelations } from "../hints.ts";
+import { lineHint, pointHint, hintRelations, tangentCentre } from "../hints.ts";
 import type { Hint } from "../hints.ts";
 import type { Scene } from "../../operation/scene.ts";
 import { nextId } from "../../operation/scene.ts";
@@ -178,17 +178,9 @@ function moveCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env
   const own = Object.values(sc.parts).filter((q): q is Extract<typeof q, { kind: "circle" }> => q.kind === "circle" && q.center === d.corner);
   let at = hint.hints.length ? hint.at : snapped;
   if (!hint.hints.length && own.length === 1) {
-    let best = nearTolMm(s.cam);
-    for (const o of Object.values(sc.parts)) {
-      if (o.kind !== "circle" || o.ref === own[0]!.ref || o.origin !== "drawn" || o.plane !== own[0]!.plane) continue;
-      const oc = sc.parts[o.center];
-      if (oc?.kind !== "corner") continue;
-      const dc = Math.hypot(snapped[0] - oc.at[0], snapped[1] - oc.at[1], snapped[2] - oc.at[2]);
-      if (dc < 1e-9) continue;
-      for (const want of [own[0]!.radius + o.radius, Math.abs(own[0]!.radius - o.radius)]) {
-        if (Math.abs(dc - want) < best && want > 1e-6) { best = Math.abs(dc - want); at = [oc.at[0] + ((snapped[0] - oc.at[0]) / dc) * want, oc.at[1] + ((snapped[1] - oc.at[1]) / dc) * want, oc.at[2] + ((snapped[2] - oc.at[2]) / dc) * want]; hint = { at, hints: [{ kind: "tangent", ref: o.ref }] }; }
-      }
-    }
+    const pl = sc.parts[own[0]!.plane!];
+    const t = pl?.kind === "plane" ? tangentCentre(sc, pl, own[0]!.radius, snapped, nearTolMm(s.cam), own[0]!.ref) : null;
+    if (t) { at = t.at; hint = { at, hints: [{ kind: "tangent", ref: t.ref }] }; }
   }
   const line = lines.length === 1 ? lines[0]! : null;
   const moved = settledWith({ ...s, dragHint: hint.hints.length ? { hints: hint.hints, at } : null }, d.base, [{ ref: d.corner, to: at }], (after) => {

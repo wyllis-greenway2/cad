@@ -24,6 +24,7 @@ export const settings = {
     longPressMs: 450, touchSlopPx: 10, drawTouchSlopPx: 22, // touch: a press this long without moving is a right click; a finger must move this far to drag
     multiTapPx: 28, multiTapMs: 550, // taps this close in space and time count as a double or triple tap (`in_078`)
     multiClickPx: 6, multiClickMs: 400, // clicks this close count as a double or triple click (`in_070`)
+    trackpadPanScale: 0.5, // how much of a trackpad's two-finger scroll the view pans by: less than 1 is less sensitive (`in_300`)
     scrollMode: "auto" as "auto" | "pan" | "zoom", // what a scroll does: auto = a trackpad's two-finger scroll pans and a wheel zooms (a pinch always zooms) (`in_079`)
     zoomToCursor: true, // zoom IN toward the point under the cursor; zoom OUT is about the view centre (no runaway)
     zoomAnchorMaxFactor: 1.5, // zoom toward surface points within this many view-distances of the target
@@ -44,6 +45,7 @@ export const settings = {
     radius: 0.025, // the hover ring's radius, in view-distances (`in_075`)
     ringPx: 1.6,
     ringOpacity: 0.88,
+    hoverOpacity: 0.14, // the disc under the pointer: more see-through than the selection fill (`in_300`)
     selectOpacity: 0.25, // (the teal fill; a touch more see-through: `in_157`)
     color: [0.1, 0.72, 0.7] as [number, number, number], // THE teal: kept for use elsewhere (`in_075`)
     fillMs: 520,

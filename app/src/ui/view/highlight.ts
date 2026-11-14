@@ -60,7 +60,8 @@ function surfaceOrb(kind: Kind, ref: Ref, tris: number[], h: Highlight, unit: nu
     hoverOrb.uOrbC.value.set(...(h.hoverPoint ?? [0, 0, 0]));
     hoverOrb.uOrbR.value = settings.orb.radius * unit;
     hoverOrb.uOrbA.value = 0;
-    hoverOrb.uOrbRingA.value = settings.orb.ringOpacity;
+    hoverOrb.uOrbRingA.value = 0; // (a solid disc and no ring: a ring looked like a circle that a click would place, `in_300`)
+    hoverOrb.uOrbDisc.value = settings.orb.hoverOpacity;
     hoverOrb.uOrbFill.value = 0;
     hoverOrb.uRingPx.value = settings.orb.ringPx;
   } else if (spread && h.spread) {
@@ -116,7 +117,12 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
     if (onEdge && kind === "hover" && p.kind === "corner") { overlay.add(sphereAt(onEdge, unit * settings.pick.vertexScale * 1.0, tealHex, false)); return; }
     if (kind === "hover" && p.kind === "plane" && p.origin === "world") {
       // an infinite world plane has nothing to fill: the ring alone, drawn as a plain thin circle so it cannot smear over a plane seen at a shallow angle
-      if (h.hoverPoint) overlay.add(pen.line(ringOf(h.hoverPoint, settings.orb.radius * unit, normalOfPlane(p)), rgb(ringRgb).getHex(), settings.orb.ringPx + 0.6, false));
+      if (h.hoverPoint) { // (a flat disc, as on any other surface, `in_300`)
+        const ring = ringOf(h.hoverPoint, settings.orb.radius * unit, normalOfPlane(p));
+        const tris: number[] = [];
+        for (let i = 0; i + 5 < ring.length; i += 3) tris.push(...h.hoverPoint, ring[i]!, ring[i + 1]!, ring[i + 2]!, ring[i + 3]!, ring[i + 4]!, ring[i + 5]!);
+        overlay.add(trisMesh(tris, new THREE.MeshBasicMaterial({ color: tealHex, transparent: true, opacity: settings.orb.hoverOpacity, side: THREE.DoubleSide, depthWrite: false })));
+      }
       return;
     }
     const tris = kind === "amber" || kind === "red" || kind === "temp" ? null : fillTriangles(s, ref, kind, body);

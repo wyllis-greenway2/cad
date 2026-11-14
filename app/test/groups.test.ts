@@ -149,3 +149,28 @@ test("a selected group offers Ungroup in the suggestion bubble (`in_269`)", () =
   assert.ok(offer?.items.some((i) => i.id === "select:ungroup"));
   assert.ok(!suggestionsFor(scene(s), [c[0]!, c[1]!])?.items.some((i) => i.id === "select:ungroup"), "no group: no Ungroup");
 });
+
+test("a chip stands over the view while several things are selected and offers Group, then Ungroup once they are a group (`in_300`)", () => {
+  const { s, c } = sketch();
+  let st = select({ ...createState(s) }, [c[0]!, c[1]!]);
+  const chip = (x: AppState) => frameOf(x, env).selection;
+  assert.deepEqual(chip(st)?.actions.map((a) => a.id), ["select:group"]);
+  assert.equal(chip(st)?.count, 2);
+  st = reduce(st, { type: "runAction", id: "select:group" }, env);
+  assert.deepEqual(chip(st)?.actions.map((a) => a.id), ["select:ungroup"]);
+  assert.equal(chip(select(st, [c[0]!])), null, "one thing is not several");
+});
+
+test("select several (the ⋯ menu): every tap adds to the selection and a tap on what is selected takes it out, as Shift does (`in_300`)", () => {
+  const { s, c } = sketch();
+  let st = reduce({ ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 15, 0] } }, { type: "runAction", id: "multiselect" }, env);
+  assert.equal(st.multiSelect, true);
+  const mid = (ref: Ref): [number, number] => projector(st.cam, env.w, env.h).project((scene(st.session).parts[ref] as unknown as { at: [number, number, number] }).at) as [number, number];
+  for (const r of [c[0]!, c[1]!]) { const [x, y] = mid(r); st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env); }
+  assert.equal(selection(st.session).length, 2, "two taps: both selected");
+  const [x, y] = mid(c[0]!);
+  st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env);
+  assert.equal(selection(st.session).length, 1, "a tap on one that is selected takes it out");
+  st = reduce(st, { type: "runAction", id: "multiselect" }, env);
+  assert.equal(st.multiSelect, false);
+});

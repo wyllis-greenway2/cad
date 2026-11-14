@@ -1441,3 +1441,17 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_299 — 2026-11-14 — directive
 > Okay now the fading xyz indicators are good, but they go away when a plane is selected, and technically once you start working, a plane will always be selected, so basically it just wont help at all. Instead can we make it so that the selected plane puts a ring around the xyz icon that is selected, but the faded blue still operates regardless of which plane is selected? So the ring indicates the selected plane, and the fading color indicates the plane closest to orthographic to the camera? Also when free dragging, it seems to highlight the x arrow always? which is not accurate because it is freely moving in all axis. Also can we offer a feature where you can select multiple axis arrows with shift in order to free move but locked to only the selected axis?
 (asks: the axis buttons keep the fading colour always and the plane selected is shown as a ring round its button; the x arrow is wrongly lit during a free drag; shift-select several axis arrows to free-move constrained to those axes)
+
+## in_300 — 2026-11-14 — directive
+> I am not sure about shift on phone, I am thinking probably long press. There is still a gap on mobile. When you move a circle via grabbing its center, it still doesn't offer constraint when outer edges of circles touch. Can we try to have more standardized visuals? like the button for changing boolean operations from seperate or joined bodies. Can we have that button be more like the buttons in the similar select? Also what other visuals do you think we should standardize? We don't want the interface to look too patchy. The blue circle that goes around the cursor is helpful because it shows the surface hovered on well, but it is also kind of confusing because it looks like you are going to place a circle on click. Can we have it be a solid colored circle instead of just a ring and can we have it be more transparent then other blue surfaces?
+> 
+> Can we make a generic selection helper to group or ungroup when you have many things selected?
+> 
+> can we try video game controls to move the camera around? W is foward, S is back, A is pan left, D is pan right, and when you are pushing any of these keys the mouse or trackpad directly becomes camera swivel up down left right freely all together. 
+> 
+> Perhaps we should offer an alternative to shift select for mobile users. Maybe in the menu there could be a selection mode where it continually adds selections, clicking an already selected thing un adds it.
+> 
+> Can we make the pan on touch pad less sensitive?
+> 
+> we might need info bubbles on more things as alternatives to tool tips when on mobile? Because there is no hover to offer helpful tooltips on mobile, so we need some method to handle that.
+(a batch: long press chosen over Shift on a phone for choosing axes; circle centre dragged by touch should offer the tangent when outer edges touch; one look for buttons (the join / separate button like the Similar select buttons) and which other visuals to standardize; the hover ring becomes a solid, more transparent disc; a generic group / ungroup helper when many things are selected; W A S D camera movement with the pointer as free look while a key is down; a selection mode in the menu for phones that keeps adding, a tap on a selected thing takes it out; less sensitive touchpad pan; info bubbles as tooltips for phones)

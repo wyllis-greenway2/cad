@@ -493,3 +493,14 @@ test("Shift on move arrows chooses them for a free drag: the body then moves onl
   assert.deepEqual(done.lockAxes, [0, 2], "kept for the next drag");
   assert.deepEqual(reduce(done, { type: "escape" }, env).lockAxes, [], "dropped with the selection");
 });
+
+test("a long press (the menu intent of a finger) on a move arrow chooses it with the others, as Shift does (`in_300`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a] = bodies(s);
+  let st: AppState = pick({ ...createState(s), cam: { ...homeCamera(), target: [5, 5, 5] } }, [a!.ref]);
+  const h = frameOf(st, env).gizmo!.handles.find((q) => q.id === "move:x")!;
+  const p = projector(st.cam, env.w, env.h).project([(h.points[0]![0] + h.points[1]![0]) / 2, (h.points[0]![1] + h.points[1]![1]) / 2, (h.points[0]![2] + h.points[1]![2]) / 2]);
+  st = reduce(st, { type: "menu", x: p[0], y: p[1] }, env);
+  assert.deepEqual(st.lockAxes, [0]);
+  assert.equal(st.menu, null, "no menu opened over an arrow");
+});

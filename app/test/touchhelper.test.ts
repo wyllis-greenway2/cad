@@ -182,3 +182,23 @@ test("the scissors by touch: a tap over a part that can be cut cuts it; a tap in
   assert.ok(cut.tool, "the tool stays while it cuts");
   assert.ok(cut.session.history.cursor > st.session.history.cursor, "and something was cut");
 });
+
+test("a circle being drawn by touch, moved by its centre's icon to where its edge touches another circle, lands there, says tangent and is made tangent (`in_300`)", () => {
+  let s = createSession(kernel);
+  s = run(s, drawCircle(scene(s), worldRef("XY"), [30, 10, 0], 5).command);
+  let st: AppState = { ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 10, 0] } };
+  const px = (p: [number, number, number]) => proj(st.cam, env.w, env.h).project(p);
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  const a = px([5, 10, 0]);
+  st = reduce(st, { type: "tapAim", x: a[0], y: a[1] }, env);
+  const r = px([8, 10, 0]); // (radius 3)
+  st = reduce(st, { type: "hover", x: r[0], y: r[1] }, env);
+  // the centre's icon is taken to 8.05 from the other circle's centre: the edges (3 and 5) touch outside at 8
+  const m = px([22.05, 10, 0]);
+  st = reduce(st, { type: "movePoint", index: 0, x: m[0], y: m[1] }, env);
+  assert.deepEqual(st.tool!.hints!.map((h) => h.kind), ["tangent"]);
+  assert.ok(Math.abs(st.tool!.points[0]![0] - 22) < 1e-6, `the centre is exactly where the edges touch: ${st.tool!.points[0]}`);
+  const far = px([22, 30, 0]);
+  st = reduce(st, { type: "tapAim", x: far[0], y: far[1] }, env);
+  assert.equal(scene(st.session).relations.filter((r) => r.kind === "tangent").length, 1, "made tangent");
+});

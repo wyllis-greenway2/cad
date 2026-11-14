@@ -36,6 +36,19 @@ export function doOrbit(s: AppState, i: Extract<Intent, { type: "orbit" }>): App
   return { ...stop(s), cam: orbit(s.cam, -i.dx * settings.view.orbitRadPerPx, i.dy * settings.view.orbitRadPerPx, pivot), orthoDebt: 0, menu: null };
 }
 
+/** W A S D (`in_300`): the view moves along where it looks and across it; the faster the further out it is, so a small part and a big one both go at a pace that can be steered. */
+export function doWalk(s: AppState, i: Extract<Intent, { type: "walk" }>): AppState {
+  const { forward, right } = basis(s.cam);
+  const by = s.cam.distance * 0.9 * i.dt;
+  const at = (k: 0 | 1 | 2): number => s.cam.target[k] + (forward[k] * i.forward + right[k] * i.right) * by;
+  const target: Vec3 = [at(0), at(1), at(2)];
+  return { ...stop(s), cam: { ...s.cam, target, straight: false }, menu: null };
+}
+/** The view turns about where the eye is, as in a game: the pointer to the right turns it right, up turns it up. */
+export function doSwivel(s: AppState, i: Extract<Intent, { type: "swivel" }>): AppState {
+  const k = settings.view.orbitRadPerPx;
+  return { ...stop(s), cam: orbit(s.cam, -i.dx * k, i.dy * k, position(s.cam)), menu: null, orthoDebt: 0 };
+}
 export const doPan = (s: AppState, i: Extract<Intent, { type: "pan" }>, env: Env): AppState => ({ ...stop(s), cam: pan(s.cam, i.dx, i.dy, env.h), menu: null });
 
 export function doZoom(s: AppState, i: Extract<Intent, { type: "zoom" }>, env: Env): AppState {

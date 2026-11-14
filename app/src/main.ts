@@ -33,6 +33,7 @@ import { createControls } from "./ui/controls.ts";
 import { createToolChip } from "./ui/toolchip.ts";
 import { createToolCursor } from "./ui/toolcursor.ts";
 import { createSimilarChip } from "./ui/similarchip.ts";
+import { createSelectionChip } from "./ui/selectionchip.ts";
 import { createModeSwitch } from "./ui/modeswitch.ts";
 import { createSuggest } from "./ui/suggest.ts";
 import { createHints } from "./ui/hint.ts";
@@ -41,6 +42,7 @@ import { createTouchCursor } from "./ui/touchcursor.ts";
 import { createUndoBar } from "./ui/undobar.ts";
 import { createCutParts } from "./ui/cutparts.ts";
 import { createBubbles } from "./ui/bubbles.ts";
+import { installTouchTips } from "./ui/tips.ts";
 
 const host = document.getElementById("view")!;
 const statusEl = document.getElementById("status")!;
@@ -63,6 +65,7 @@ const bubbles = createBubbles(document.body, {
   set: (id, value) => dispatch({ type: "relation", act: "set", id, value }),
   measure: (value) => dispatch({ type: "relation", act: "measure", id: null, value }),
 });
+installTouchTips(); // (a held press shows the title of a button, for a finger has no hover, `in_300`)
 const bus = createBus<{ input: RawInput }>();
 const recognizer = createRecognizer();
 const panel = createPanel(document.body, {
@@ -112,6 +115,7 @@ const helper = createHelper(document.body);
 const busySign = createBusy(document.body);
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
+const selectionChip = createSelectionChip(document.body, (id) => dispatch({ type: "runAction", id }));
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch({ type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
@@ -173,7 +177,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session) }, state.showAllConstraints)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session) }, state.showAllConstraints, state.multiSelect)); }
     else { menu.hide(); ring.show(i.x, i.y, state.menu?.items ?? []); }
   } else {
     // pointing around does not close a menu; any other intent does
@@ -251,6 +255,7 @@ function frame(now: number) {
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
     undoBar.update(lastDevice === "touch", f.undoRedo);
     similarChip.update(f.similar);
+    selectionChip.update(f.selection);
     toolCursor.update(f.tool ? f.tool.kind : null);
     const project = projector(state.cam, size.w, size.h).project;
     // what comes before the constraint bubbles: the ring, and the number bubbles (and the helper bubble, the suggestions and the hint icons), as they stood on the last frame

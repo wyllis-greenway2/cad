@@ -7,7 +7,7 @@ import type { Ref } from "../shared/ref.ts";
 import type { AppState, Env } from "./control/state.ts";
 import { doHover, doClick, doMenu, doHold, doTapAim, doMovePoint } from "./control/pointer.ts";
 import { doCut } from "./control/select.ts";
-import { doPan, doZoom, doLook, doHome } from "./control/viewing.ts";
+import { doPan, doWalk, doSwivel, doZoom, doLook, doHome } from "./control/viewing.ts";
 import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
@@ -27,6 +27,7 @@ const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit",
 
 /** Apply one intent. A command that was refused for breaking constraints starts the flash. */
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
+  if (s.multiSelect && i.type === "click" && !i.shift && !s.tool && !s.op && !s.repeat && !s.cut) i = { ...i, shift: true }; // (select several: a tap is a Shift click, `in_300`)
   let next = apply(s, i, env);
   if (next.resume && !RESUMING.has(i.type)) next = { ...next, resume: null }; // only a click, or moving the view, keeps "sketching goes on" waiting for a vertex
   // the hidden sketch of a plane is shown while a tool begun on the edge of a body sketches in it (`in_211`)
@@ -84,6 +85,8 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "orbit": return doDragMove(s, i, env);
     case "dragEnd": return doDragEnd(s, env);
     case "pan": return doPan(s, i, env);
+    case "walk": return doWalk(s, i);
+    case "swivel": return doSwivel(s, i);
     case "zoom": return doZoom(s, i, env);
     case "look": return doLook(s, i, env);
     case "home": return doHome(s, env);

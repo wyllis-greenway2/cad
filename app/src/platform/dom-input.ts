@@ -17,10 +17,11 @@ export function attachInput(el: HTMLElement, bus: InputBus): () => void {
     return [e.clientX - r.left, e.clientY - r.top] as const;
   };
   const down = new Set<number>();
+  const flyKeys = new Set<string>(); // (W A S D held: time must pass for the view to move)
   let timer: ReturnType<typeof setInterval> | null = null;
   const ticking = () => {
-    if (down.size && !timer) timer = setInterval(() => bus.emit("input", { kind: "tick", t: now() }), TICK_MS);
-    if (!down.size && timer) (clearInterval(timer), (timer = null));
+    if ((down.size || flyKeys.size) && !timer) timer = setInterval(() => bus.emit("input", { kind: "tick", t: now() }), TICK_MS);
+    if (!down.size && !flyKeys.size && timer) (clearInterval(timer), (timer = null));
   };
   const listeners: [EventTarget, string, (e: never) => void, AddEventListenerOptions?][] = [];
   const on = <E extends Event>(t: EventTarget, type: string, fn: (e: E) => void, o?: AddEventListenerOptions) => {
@@ -48,7 +49,7 @@ export function attachInput(el: HTMLElement, bus: InputBus): () => void {
   on<PointerEvent>(el, "pointercancel", pointer("cancel"));
   on<PointerEvent>(el, "pointerleave", (e) => { if (!down.has(e.pointerId)) bus.emit("input", { kind: "leave", t: now() }); });
   on<Event>(el, "contextmenu", (e) => e.preventDefault());
-  on<Event>(window, "blur", () => { for (const id of down) bus.emit("input", { kind: "cancel", id, device: "mouse", x: 0, y: 0, button: 0, mods: { shift: false, ctrl: false, alt: false }, t: now() }); down.clear(); ticking(); });
+  on<Event>(window, "blur", () => { flyKeys.clear(); ticking(); for (const id of down) bus.emit("input", { kind: "cancel", id, device: "mouse", x: 0, y: 0, button: 0, mods: { shift: false, ctrl: false, alt: false }, t: now() }); down.clear(); ticking(); });
   on<WheelEvent>(el, "wheel", (e) => {
     e.preventDefault();
     const [x, y] = at(e);
@@ -69,6 +70,7 @@ export function attachInput(el: HTMLElement, bus: InputBus): () => void {
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
     if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "o" || e.key === "g")) e.preventDefault(); // save and open are ours, not the browser's
     if (e.key === " " || e.key === "Tab" || e.key === "Backspace" || e.key.startsWith("Arrow")) e.preventDefault(); // Space + drag pans, Tab moves between typed fields: the page must not scroll, change focus or go back
+    if (/^[wasd]$/i.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) { if (down) flyKeys.add(e.key.toLowerCase()); else flyKeys.delete(e.key.toLowerCase()); ticking(); }
     bus.emit("input", { kind: "key", key: e.key, down, mods: modsOf(e), t: now() });
   };
   on<KeyboardEvent>(window, "keydown", key(true));

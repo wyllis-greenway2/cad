@@ -31,8 +31,9 @@ export function createScroll(I: typeof settings.input) {
       const unit = e.unit === 1 ? 33 : 1;
       if (pans(e)) {
         // the view follows the fingers, like a phone screen
-        const px = (e.mods.shift ? e.dx || e.dy : e.dx) * unit;
-        const py = (e.mods.shift ? 0 : e.dy) * unit;
+        const k = e.unit === 1 ? 1 : I.trackpadPanScale; // (a wheel counted in lines is not a trackpad)
+        const px = (e.mods.shift ? e.dx || e.dy : e.dx) * unit * k;
+        const py = (e.mods.shift ? 0 : e.dy) * unit * k;
         return [{ type: "pan", dx: -px, dy: -py }];
       }
       // zoom, with a speed limit: a single gesture can never fling the view to the limits

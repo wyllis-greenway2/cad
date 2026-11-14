@@ -131,6 +131,28 @@ export function circleRadiusHint(spent: Scene, pl: Plane, center: Vec3, pv: Poin
   return best ? { at: best.at, hints: [{ kind: "tangent", ref: best.ref }] } : null;
 }
 
+/**
+ * The centre of a circle of `radius` taken to `at`: where that makes its edge touch another circle drawn on the plane (outside, or one inside the other) within `tolMm`, the centre goes exactly there and the circle is named (`in_294`, `in_300`:
+ * the same for a circle being moved as it is drawn and one already drawn). `skip`: the circle that is being moved.
+ */
+export function tangentCentre(spent: Scene, pl: Plane, radius: number, at: Vec3, tolMm: number, skip: Ref | null = null): { at: Vec3; ref: Ref } | null {
+  const scene = live(spent);
+  const n = normalOfPlane(pl);
+  let best = tolMm;
+  let out: { at: Vec3; ref: Ref } | null = null;
+  for (const o of Object.values(scene.parts)) {
+    if (o.kind !== "circle" || o.ref === skip || o.origin !== "drawn" || o.plane !== pl.ref) continue;
+    const oc = scene.parts[o.center];
+    if (oc?.kind !== "corner" || Math.abs(dot(sub(oc.at, pl.at), n)) > 1e-3) continue;
+    const dc = dist(at, oc.at);
+    if (dc < 1e-9) continue;
+    for (const want of [radius + o.radius, Math.abs(radius - o.radius)]) {
+      if (want > 1e-6 && Math.abs(dc - want) < best) { best = Math.abs(dc - want); out = { at: add(oc.at, scale(sub(at, oc.at), want / dc)), ref: o.ref }; }
+    }
+  }
+  return out;
+}
+
 /** The end of a line from `start` that the pointer is at, `base` (already snapped to corners and the rounding), made to satisfy any constraint it is close to. */
 export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, base: Vec3): { at: Vec3; hints: Hint[] } {
   const scene = live(spent); // (what an extrude used up, or a deleted body took, is not there to suggest a constraint to)
