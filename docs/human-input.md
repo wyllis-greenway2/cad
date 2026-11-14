@@ -1511,3 +1511,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_314 — 2026-11-14 — directive
 > Start on the body-to-body constraints next
 (approves starting the body-to-body part of `q_body_constraints`: constraints between bodies, the first of the assembly work, as discussed in `in_306` and `in_307`)
+
+## in_315 — 2026-11-14 — directive
+> Do option 2 next
+(chooses option 2 of `q_mate_persistence`: each mate is recorded, the compile says which mates are no longer true, and a button makes the corrective move and turn as new steps)

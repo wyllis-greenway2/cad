@@ -3,12 +3,14 @@ id: q_mate_persistence
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_314
+human_input: in_314, in_315
 date: 2026-11-14
 depends_on:
 alternative_to:
 ---
 # Should a mate stay true when a body changes, and how
+
+**Status after `in_315`:** option 2 (checked, put back on request) is built (`dec_body_mates`). What stays open here is option 3 only: bodies that follow their mates by themselves, and mates that leave freedom.
 
 `dec_body_mates` places two bodies once. The human's picture (`in_306`, `in_307`) is bodies "in constraint relationships": change the pin's diameter, move the plate, and the mated parts follow. Options, with what each costs:
 

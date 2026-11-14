@@ -14,6 +14,7 @@ import { planeOf } from "../objects.ts";
 import { sketchOfEdge } from "../../operation/edgesource.ts";
 import { sideOf, viewAxes, nearTolMm } from "../camera.ts";
 import { seenIn } from "../picking.ts";
+import { putMatesBack } from "../mate.ts";
 import { moveOffset } from "../gizmo.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
@@ -214,6 +215,20 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "repeat:break") return doRepeatBreak(closed);
   if (id === "select:ungroup") return doUngroup(closed);
   if (id === "multiselect") return { ...closed, multiSelect: !s.multiSelect, session: { ...closed.session, message: s.multiSelect ? "select several is off" : "select several is on: a tap adds to the selection, a tap on what is selected takes it out" } };
+  if (id === "mate:reapply") { // the mates that are no longer true are made again, one at a time (each may move what the next rests on, `in_315`)
+    let session = closed.session;
+    let made = 0;
+    for (let k = 0; k < 20; k++) {
+      const back = putMatesBack(sceneOf(session));
+      if (!back) break;
+      const next = run(session, back.command);
+      if (next.message && next === session) break;
+      if (next.message) return { ...closed, session: next };
+      session = next;
+      made++;
+    }
+    return { ...closed, session: { ...session, message: made ? `${made === 1 ? "the mate was" : `${made} mates were`} put back` : "every mate is true" } };
+  }
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now, s.menu?.plane ?? null);
   if (id === "op:linear" || id === "op:circular" || id === "op:copy") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular" | "copy");

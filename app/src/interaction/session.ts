@@ -1,6 +1,7 @@
 // A session: the history of the scene (every scene already compiled: solved, with body parts and derived faces), the selection, and what the pointer is over.
 // This is the one object the app holds. Commands are checked against the whole scene, so a relation to a body corner or a drawing on a body face is valid
 // (the gap noted in Handoff 084).
+import { mateStatus } from "../operation/mates.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Kernel } from "../compiler/kernel/adapter.ts";
 import { compile } from "../compiler/compile.ts";
@@ -139,6 +140,10 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   // a constraint to an edge of the body that the change took away, with no edge that looks like it: said, and the constraint flashes; the change stays (`in_309`)
   const lost = (next.outcome.lost ?? []).filter((id) => !(s.outcome.lost ?? []).includes(id));
   if (lost.length) return { ...next, message: `a constraint to an edge of the body has lost it (${lost.join(", ")}): no edge looks like it now; it holds nothing until the body is as it was`, conflict: { culprits: lost, victims: [] } };
+  // a mate (`in_315`) that was true and is not any more after this change: said, so it can be put back from the menu; the change stays
+  const wasOff = new Set(mateStatus(s.history.scene).filter((m) => m.state !== "ok").map((m) => m.id));
+  const nowOff = mateStatus(next.history.scene).filter((m) => m.state !== "ok" && !wasOff.has(m.id));
+  if (nowOff.length) return { ...next, conflict: null, message: `${nowOff.length === 1 ? "a mate is" : `${nowOff.length} mates are`} no longer true (${nowOff.map((m) => m.state === "lost" ? "a face is gone" : "the bodies have come apart").join(", ")}): "Put the mates back" in the ⋯ menu makes them again` };
   const late = !!next.outcome.kernel?.stale && steps.length > 0;
   return { ...next, conflict: null, checkSteps: late ? steps : undefined, fallback: late ? opts.fallback : undefined };
 }

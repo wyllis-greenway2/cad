@@ -8,26 +8,13 @@ import type { Vec3 } from "../math/vec.ts";
 import { sub, dot, cross, normalize, length } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
+import type { MateMode } from "../operation/mates.ts";
+import { featureOf, mateRelation, mateStatus } from "../operation/mates.ts";
 import type { Command } from "../operation/commands.ts";
-import { normalOfPlane, roundOf } from "../operation/part.ts";
-import { lookup } from "../operation/scene.ts";
 import { carrySketches } from "./operations.ts";
 
-export type MateMode = "flush" | "coaxial";
+export type { MateMode };
 type Mat = [Vec3, Vec3, Vec3]; // rows
-
-interface Feature { body: Ref; bodyId: string; point: Vec3; dir: Vec3 }
-
-/** A face of a body as something to mate: a flat face by a point on it and its outward normal; a round face by a point on its axis and the axis. */
-function featureOf(scene: Scene, ref: Ref, mode: MateMode): Feature | null {
-  const p = scene.parts[ref];
-  if (p?.kind !== "plane" || p.origin !== "body" || !p.of) return null;
-  const body = scene.parts[p.of];
-  if (body?.kind !== "body" || !body.id) return null;
-  if (mode === "flush") return p.curved || p.round || p.rounded ? null : { body: body.ref, bodyId: body.id, point: p.at, dir: normalOfPlane(p) };
-  const r = roundOf(lookup(scene), ref);
-  return r?.normal ? { body: body.ref, bodyId: body.id, point: r.center, dir: normalize(r.normal) } : null;
-}
 
 /** Why these two faces cannot be mated this way, or null. */
 export function whyNotMate(scene: Scene, mode: MateMode, mover: Ref, other: Ref): string | null {
@@ -58,8 +45,11 @@ function eulerXYZ(m: Mat): { axis: 0 | 1 | 2; angle: number }[] {
   return ([[0, deg(a)], [1, deg(b)], [2, deg(c)]] as [0 | 1 | 2, number][]).filter(([, angle]) => Math.abs(angle) > 1e-9).map(([axis, angle]) => ({ axis, angle }));
 }
 
-/** The command that puts the first face's body against the second's: turns and a move, with the body's sketches carried, or why not. `gap`: how far apart the flat faces are left (mm). */
-export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref, gap = 0): { command: Command } | { why: string } {
+/**
+ * The command that puts the first face's body against the second's: turns and a move, with the body's sketches carried, and the mate recorded as a relation (`in_315`); or why not. `gap`: how far apart the flat faces are left (mm).
+ * `again`: the id of a mate that is made again after a change: the old record goes and the new one takes its id.
+ */
+export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref, gap = 0, again?: string): { command: Command } | { why: string } {
   const why = whyNotMate(scene, mode, mover, other);
   if (why) return { why };
   const [a, b] = [featureOf(scene, mover, mode)!, featureOf(scene, other, mode)!];
@@ -69,21 +59,36 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
   const pivot = a.point; // (a point on the face or on the axis stays where it is under the turn)
   // the move: a flat face onto the other's plane (plus the gap, along the other's normal); an axis onto the other's axis, keeping its place along it
   let move: Vec3;
+  let moverWhenTrue: Vec3; // (a point of the mover's face or axis when the mate is true)
   if (mode === "flush") {
     const s = dot(sub(a.point, b.point), b.dir);
     move = [b.dir[0] * (gap - s), b.dir[1] * (gap - s), b.dir[2] * (gap - s)];
+    moverWhenTrue = [b.point[0] + b.dir[0] * gap, b.point[1] + b.dir[1] * gap, b.point[2] + b.dir[2] * gap];
   } else {
     const w = sub(a.point, b.point);
     const along = dot(w, b.dir);
     move = [-(w[0] - b.dir[0] * along), -(w[1] - b.dir[1] * along), -(w[2] - b.dir[2] * along)];
+    moverWhenTrue = [b.point[0] + b.dir[0] * along, b.point[1] + b.dir[1] * along, b.point[2] + b.dir[2] * along];
   }
   const r6 = (v: Vec3): Vec3 => v.map((x) => Math.round(x * 1e6) / 1e6) as unknown as Vec3;
   const turns = eulerXYZ(R);
   const translate = r6(move);
-  if (!turns.length && length(translate) < 1e-9) return { why: "they are mated already" };
+  const record: Command = { type: "addRelation", relation: mateRelation(again ?? nextId(scene, "r"), mode, gap, a, b, { mover: { point: moverWhenTrue, dir: want }, other: { point: b.point, dir: b.dir } }) };
+  const forget: Command[] = again ? [{ type: "removeRelation", id: again }] : [];
+  if (!turns.length && length(translate) < 1e-9) return again ? { command: { type: "batch", commands: [...forget, record] } } : { why: "they are mated already" };
   const id = nextId(scene, "s");
   const steps: Command[] = turns.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: [a.body], params: { axis: t.axis, value: t.angle, px: pivot[0], py: pivot[1], pz: pivot[2], follow: 1, body: a.bodyId } } }));
   if (length(translate) > 1e-9) steps.push({ type: "addStep", step: { id: `${id}m`, type: "move", parts: [a.body], params: { axis: 0, value: 0, vx: translate[0], vy: translate[1], vz: translate[2], follow: 1, body: a.bodyId } } });
   const carry = carrySketches(scene, turns, translate, pivot, 1, a.bodyId);
-  return { command: { type: "batch", commands: [...steps, ...carry] } };
+  return { command: { type: "batch", commands: [...forget, ...steps, ...carry, record] } };
+}
+
+/** The mates that are no longer true, and the command that puts the first of them back (the one after it is looked at again once this one is made, for it may have moved what it rests on); null when all are true. */
+export function putMatesBack(scene: Scene): { command: Command; id: string } | null {
+  for (const m of mateStatus(scene)) {
+    if (m.state !== "off" || !m.mover || !m.other) continue;
+    const r = mateCommand(scene, m.mode, m.mover.ref, m.other.ref, m.gap, m.id);
+    if ("command" in r) return { command: r.command, id: m.id };
+  }
+  return null;
 }

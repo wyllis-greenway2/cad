@@ -10,9 +10,10 @@ const PAN_LEVELS = [{ name: "low", scale: 0.15 }, { name: "medium", scale: 0.3 }
 export const nextPanScale = (scale: number): number => { const i = PAN_LEVELS.findIndex((l) => Math.abs(l.scale - scale) < 1e-9); return PAN_LEVELS[(i + 1) % PAN_LEVELS.length]!.scale; };
 const panName = (scale: number): string => PAN_LEVELS.reduce((a, l) => (Math.abs(l.scale - scale) < Math.abs(a.scale - scale) ? l : a)).name;
 
-export const appRows = (mode: ScrollMode, build = "", can: { undo: boolean; redo: boolean; exportStl?: boolean; exportBody?: boolean } = { undo: true, redo: true }, allConstraints = false, multiSelect = false, panScale = 0.3): AppRow[] => [
+export const appRows = (mode: ScrollMode, build = "", can: { undo: boolean; redo: boolean; exportStl?: boolean; exportBody?: boolean; /** how many mates are no longer true (`in_315`) */ matesOff?: number } = { undo: true, redo: true }, allConstraints = false, multiSelect = false, panScale = 0.3): AppRow[] => [
   { id: "undo", label: "Undo", enabled: can.undo, why: "nothing to undo" },
   { id: "redo", label: "Redo", enabled: can.redo, why: "nothing to redo" },
+  ...(can.matesOff ? [{ id: "mate:reapply", label: `Put the ${can.matesOff === 1 ? "mate" : `${can.matesOff} mates`} that ${can.matesOff === 1 ? "is" : "are"} no longer true back`, enabled: true, why: null }] : []),
   { id: "bodies", label: "Bodies", enabled: true, why: null },
   { id: "history", label: "History", enabled: true, why: null },
   { id: "groups", label: "Groups", enabled: true, why: null },

@@ -112,3 +112,69 @@ test("the menu offers the mates for two selected faces of two bodies, and choosi
   const done = reduce(st, { type: "runAction", id: "mate:flush" }, env);
   assert.ok(Math.abs(bodies(done.session).find((x) => x.id === b!.id)!.bbox!.min[0] - 10) < 1e-3, "choosing it moved B against A");
 });
+
+import { mateStatus } from "../src/operation/mates.ts";
+import { appRows } from "../src/interaction/appmenu.ts";
+import { putMatesBack } from "../src/interaction/mate.ts";
+
+let rightA: Ref[] = [];
+const matedBoxes = () => {
+  // (A's corners are kept: its right side is what is moved to make A wider)
+  const rA = drawSquaredRectangle(scene(createSession(kernel)), XY, [0, 0, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]);
+  const s = box(extrudeLast(run(createSession(kernel), rA.command), rA.lines, 10), 40, 0);
+  rightA = (rA.corners as Ref[]).filter((c) => (scene(s).parts[c] as unknown as { at: number[] }).at[0] === 10);
+  const [a, b] = bodies(s);
+  const done = run(s, actionsFor(scene(s), [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  return { s: done, a: a!, b: b!, rightA };
+};
+
+test("a mate is recorded, and is true until a body changes (`in_315`)", () => {
+  const { s } = matedBoxes();
+  const st = mateStatus(scene(s));
+  assert.equal(st.length, 1);
+  assert.equal(st[0]!.state, "ok", `true when made: ${st[0]!.residual}`);
+  assert.equal(st[0]!.mode, "flush");
+});
+
+test("a change that moves one of the bodies makes the mate not true, says so, and putting the mates back makes it again as new steps (`in_315`)", () => {
+  const { s, a, b } = matedBoxes();
+  // A is made wider: the two corners of its right side move from x = 10 to x = 14
+  let wider = s;
+  const said: string[] = [];
+  for (const ref of rightA) { const at = (scene(wider).parts[ref] as unknown as { at: number[] }).at; wider = run(wider, { type: "movePart", ref, to: [14, at[1]!, at[2]!] } as never); if (wider.message) said.push(wider.message); }
+  const off = mateStatus(scene(wider));
+  assert.equal(off[0]!.state, "off", `no longer true: ${off[0]!.state} ${off[0]!.residual}`);
+  assert.ok(off[0]!.residual! > 1, `apart by the widening: ${off[0]!.residual}`);
+  assert.ok(said.some((m) => /no longer true/.test(m)), `said when the change that broke it was made: ${said}`);
+  // put back: B moves to touch the wider A again
+  const back = putMatesBack(scene(wider));
+  assert.ok(back, "there is a mate to put back");
+  const after = run(wider, back!.command);
+  assert.ok(!after.message, `${after.message}`);
+  assert.equal(mateStatus(scene(after))[0]!.state, "ok");
+  const [a2, b2] = [bodies(after).find((x) => x.id === a.id)!, bodies(after).find((x) => x.id === b.id)!];
+  assert.ok(Math.abs(b2.bbox!.min[0] - a2.bbox!.max[0]) < 1e-3, `B touches A's new face: ${b2.bbox!.min[0]} and ${a2.bbox!.max[0]}`);
+  assert.equal(scene(after).relations.filter((r) => r.kind === "mate").length, 1, "one record, remade");
+  assert.equal(putMatesBack(scene(after)), null, "nothing more to put back");
+});
+
+test("the menu offers 'put the mates back' only when one is not true, and doing it from the menu works (`in_315`)", () => {
+  const { s, a } = matedBoxes();
+  const env = { w: 800, h: 600, now: 0 };
+  assert.ok(!appRows("auto", "", { undo: true, redo: true, matesOff: 0 }).some((r) => r.id === "mate:reapply"));
+  assert.ok(appRows("auto", "", { undo: true, redo: true, matesOff: 1 }).some((r) => r.id === "mate:reapply"));
+  let wider = s;
+  for (const ref of rightA) { const at = (scene(wider).parts[ref] as unknown as { at: number[] }).at; wider = run(wider, { type: "movePart", ref, to: [13, at[1]!, at[2]!] } as never); }
+  assert.equal(mateStatus(scene(wider))[0]!.state, "off");
+  const st = reduce({ ...createState(wider), cam: homeCamera() }, { type: "runAction", id: "mate:reapply" }, env);
+  assert.equal(mateStatus(scene(st.session))[0]!.state, "ok");
+  assert.match(st.session.message ?? "", /put back/);
+  void a;
+});
+
+test("deleting a mated body takes its mate with it; a mate whose body is gone is lost (`in_315`)", () => {
+  const { s, b } = matedBoxes();
+  const del = actionsFor(scene(s), [bodies(s).find((x) => x.id === b.id)!.ref]).find((x) => x.id === "delete")!;
+  const after = run(s, del.run());
+  assert.equal(scene(after).relations.filter((r) => r.kind === "mate").length, 0, "the mate went with the body");
+});

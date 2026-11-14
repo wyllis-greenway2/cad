@@ -120,7 +120,8 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
         const corners = [...gone].flatMap((r): Ref[] => { const p = get(r); return p?.kind === "circle" ? [p.center] : p?.kind === "line" ? [p.a, p.b, ...(p.center ? [p.center] : [])] : []; });
         const alone = (c: Ref) => !!get(c)?.movable && !Object.values(scene.parts).some((q) => !gone.has(q.ref) && ((q.kind === "circle" && q.center === c) || (q.kind === "line" && (q.a === c || q.b === c || q.center === c))));
         const refs = [...gone, ...new Set(corners.filter(alone))].filter((r) => r in scene.parts);
-        return { type: "batch", commands: [...[...steps].reverse().map((st): Command => ({ type: "removeStep", id: st.id })), ...(refs.length ? [{ type: "deleteParts", refs } as Command] : [])] };
+        const mates = scene.relations.filter((r) => r.kind === "mate" && r.parts.some((q) => whole.includes(q))).map((r): Command => ({ type: "removeRelation", id: r.id })); // (a mate of a body that is deleted goes with it, `in_315`)
+        return { type: "batch", commands: [...mates, ...[...steps].reverse().map((st): Command => ({ type: "removeStep", id: st.id })), ...(refs.length ? [{ type: "deleteParts", refs } as Command] : [])] };
       },
     });
   } else {
