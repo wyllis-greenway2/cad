@@ -73,6 +73,8 @@ export interface Frame {
   hiddenEdges: boolean;
   /** when the matrix moves one body of several: the triangles (ranges of the mesh's index list) and the box of that body, so only it is moved (`in_273`) */
   bodySplit: { tris: [number, number][]; box: { min: Vec3; max: Vec3 } } | null;
+  /** the bodies that move with the one being dragged, each by its own matrix, as its mates take them along (`in_341`) */
+  followers: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[];
   /** the face (with the walls beside it) drawn moved by this much while it is dragged or waits for the kernel (`in_217`) */
   faceShift: FaceShift | null;
   /** what is selected is the body, so its highlight is moved by the same matrix */
@@ -286,7 +288,7 @@ function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame[
 }
 
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
-function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome }; /** the mates that hold the dragged body back (`in_338`) */ blocked?: string[] } | null {
+function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome }; /** the mates that hold the dragged body back (`in_338`) */ blocked?: string[]; /** the bodies that follow it (`in_341`) */ followers?: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[] } | null {
   if (s.drag && "handle" in s.drag && s.drag.joint) { // a joint's handle dragged: the body is drawn turned or slid by the amount so far (`in_323`)
     const jd = s.drag.joint;
     const sc0 = sceneOf(s.session);
@@ -331,7 +333,9 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] 
     const carry = full?.type === "batch" ? full.commands.filter((c) => c.type !== "addStep") : [];
     if (carry.length) { const moved = apply(sceneOf(base), { type: "batch", commands: carry }); if (moved.ok) shown = { scene: moved.value, outcome: gpuBase.value.outcome }; }
   }
-  return { matrix, face, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked } : {}) };
+  // the bodies mated to this one go with it: each drawn moved by its own matrix, as the correction that comes with the release will put it (`in_341`)
+  const followers = held ? held.followers.flatMap((f) => { const fo = startOp(sceneOf(base), [f.body], "move", null); const split = fo.ok ? bodySplitOf(sceneOf(base), gpuBase!.value.outcome, fo.op) : null; return split ? [{ matrix: matrixOf(f.rigid), split }] : []; }) : [];
+  return { matrix, face, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked, followers } : {}) };
 }
 
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
@@ -410,6 +414,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     bodyMatrix,
     hiddenEdges: !!s.tool && hasBody,
     bodySplit,
+    followers: gpu?.followers ?? [],
     faceShift,
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
     highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel,

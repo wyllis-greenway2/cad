@@ -71,7 +71,7 @@ function linePairs(s: Scene, skip: ReadonlySet<Ref>): number[] {
  * One look for every line (`in_115`): drawn lines and the body's outline are the same thin charcoal line, from the same material. Corners are not dotted anywhere:
  * a corner shows as a ball when you point at it or pick it, whatever it belongs to.
  */
-export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group; /** the body's edges that lie behind a face, drawn faintly or not (`in_324`) */ ghost: (on: boolean) => void; shift: (keys: Set<string> | null, how: Shift) => void; split: (tris: [number, number][] | null, box: { min: readonly number[]; max: readonly number[] } | null) => void; mover: THREE.Group } | null {
+export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group; /** the body's edges that lie behind a face, drawn faintly or not (`in_324`) */ ghost: (on: boolean) => void; shift: (keys: Set<string> | null, how: Shift) => void; split: (items: { tris: [number, number][]; box: { min: readonly number[]; max: readonly number[] } }[] | null) => void; mover: THREE.Group; /** the group of each body that moves on its own, in the order of the items last given to `split` */ movers: () => THREE.Group[] } | null {
   clearGroup(content);
   pen.reset();
   const get = lookup(s);
@@ -220,34 +220,46 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
     live.needsUpdate = true;
     if (edgePos) { move(edgePos.array as Float32Array, edgeOrig, edgeHits, groupOfEdge); edgePos.needsUpdate = true; }
   };
-  // Split the mesh: the triangles in `tris` (ranges of the index list) and the outline segments inside `box` go to `mover`, the rest stay in `body`; null puts everything back.
+  // Split the mesh: each item is one body that moves on its own (`in_273`, `in_341`): its triangles (ranges of the index list) and the outline segments inside `box` go to a group of its own under `mover`, so a matrix can move each; the rest stay
+  // in `body`; null puts everything back.
   let splitSig = "";
   const fullIndex = mesh.triangles;
-  const split = (tris: [number, number][] | null, box: { min: readonly number[]; max: readonly number[] } | null) => {
-    const sig = tris && box ? JSON.stringify([tris, box]) : "";
+  const kids: THREE.Group[] = [];
+  const split = (items: { tris: [number, number][]; box: { min: readonly number[]; max: readonly number[] } }[] | null) => {
+    const sig = items && items.length ? JSON.stringify(items) : "";
     if (sig === splitSig) return;
     splitSig = sig;
     clearGroup(mover);
+    kids.length = 0;
     if (edgeLines && edgePos) edgeLines.geometry.setAttribute("position", edgePos);
-    if (!tris || !box) { g.setIndex(new THREE.BufferAttribute(fullIndex, 1)); return; }
-    const moving = new Uint8Array(Math.ceil(fullIndex.length / 3));
-    for (const [start, count] of tris) for (let t = Math.floor(start / 3); t < Math.ceil((start + count) / 3); t++) moving[t] = 1;
+    if (!items || !items.length) { g.setIndex(new THREE.BufferAttribute(fullIndex, 1)); return; }
+    const owner = new Int16Array(Math.ceil(fullIndex.length / 3)).fill(-1);
+    items.forEach((it, k) => { for (const [start, count] of it.tris) for (let t = Math.floor(start / 3); t < Math.ceil((start + count) / 3); t++) owner[t] = k; });
     const rest: number[] = [];
-    const mine: number[] = [];
-    for (let t = 0; t < moving.length; t++) (moving[t] ? mine : rest).push(fullIndex[3 * t]!, fullIndex[3 * t + 1]!, fullIndex[3 * t + 2]!);
+    const mine: number[][] = items.map(() => []);
+    for (let t = 0; t < owner.length; t++) (owner[t]! >= 0 ? mine[owner[t]!]! : rest).push(fullIndex[3 * t]!, fullIndex[3 * t + 1]!, fullIndex[3 * t + 2]!);
     g.setIndex(new THREE.BufferAttribute(Uint32Array.from(rest), 1));
-    const gm = new THREE.BufferGeometry();
-    gm.setAttribute("position", g.getAttribute("position")!);
-    gm.setAttribute("normal", g.getAttribute("normal")!);
-    gm.setIndex(new THREE.BufferAttribute(Uint32Array.from(mine), 1));
-    mover.add(new THREE.Mesh(gm, material));
-    if (edgeLines && edgePos) {
-      const { go, stay } = ownSegments(edgeOrig, orig, mine, rest);
-      edgeLines.geometry.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(stay), 3));
-      const eg2 = new THREE.BufferGeometry();
-      eg2.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(go), 3));
-      mover.add(new THREE.LineSegments(eg2, edge));
-    }
+    let remaining: number[] | Float32Array = edgeOrig;
+    items.forEach((_, k) => {
+      const kid = new THREE.Group();
+      kid.matrixAutoUpdate = false;
+      mover.add(kid);
+      kids.push(kid);
+      const gm = new THREE.BufferGeometry();
+      gm.setAttribute("position", g.getAttribute("position")!);
+      gm.setAttribute("normal", g.getAttribute("normal")!);
+      gm.setIndex(new THREE.BufferAttribute(Uint32Array.from(mine[k]!), 1));
+      kid.add(new THREE.Mesh(gm, material));
+      if (edgeLines && edgePos) {
+        const others = [...rest, ...mine.flatMap((m, q) => (q === k ? [] : m))];
+        const { go, stay } = ownSegments(remaining, orig, mine[k]!, others);
+        remaining = stay;
+        const eg2 = new THREE.BufferGeometry();
+        eg2.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(go), 3));
+        kid.add(new THREE.LineSegments(eg2, edge));
+      }
+    });
+    if (edgeLines && edgePos) edgeLines.geometry.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(remaining), 3));
   };
-  return { material, body, shift, split, mover, ghost: (on: boolean) => { if (ghostLines) ghostLines.visible = on; } };
+  return { material, body, shift, split, mover, movers: () => kids, ghost: (on: boolean) => { if (ghostLines) ghostLines.visible = on; } };
 }

@@ -69,6 +69,7 @@ export function createView(host: HTMLElement) {
     shifter = built ? built.shift : null;
     splitter = built ? built.split : null;
     moverGroup = built ? built.mover : null;
+    moversOf = built ? built.movers : null;
     ghoster = built ? built.ghost : null;
     ghoster?.(hiddenOn);
     splitNow = null;
@@ -89,9 +90,11 @@ export function createView(host: HTMLElement) {
   let bodyGroup: import("three").Group | null = null;
   let bodyMatrix: number[] | null = null;
   let shifter: ((keys: Set<string> | null, how: Shift) => void) | null = null;
-  let splitter: ((tris: [number, number][] | null, box: { min: readonly number[]; max: readonly number[] } | null) => void) | null = null;
+  type Part = { tris: [number, number][]; box: { min: readonly number[]; max: readonly number[] } };
+  let splitter: ((items: Part[] | null) => void) | null = null;
+  let moversOf: (() => import("three").Group[]) | null = null;
   let moverGroup: import("three").Group | null = null;
-  let splitNow: { tris: [number, number][]; box: { min: readonly number[]; max: readonly number[] } } | null = null;
+  let splitNow: Part[] | null = null;
   let shiftedFace: string | null = null;
   let faceKeys: Set<string> | null = null;
   let roundSig: string | null = null;
@@ -175,13 +178,15 @@ export function createView(host: HTMLElement) {
     }
     return wallKeys.map((w, i) => ({ keys: w.keys, arc: walls[i]!.arc })); // (the faces are found once; the maps change with the pointer)
   }
-  function setBodyMatrix(m: number[] | null, withOverlay: boolean, only: { tris: [number, number][]; box: { min: readonly number[]; max: readonly number[] } } | null = null) {
+  function setBodyMatrix(m: number[] | null, withOverlay: boolean, only: Part | null = null, followers: { matrix: number[]; only: Part }[] = []) {
     bodyMatrix = m;
-    // one body of several: only its triangles and outline move (`in_273`); else the whole body does
-    splitNow = m && only ? only : null;
-    splitter?.(splitNow?.tris ?? null, splitNow?.box ?? null);
+    // bodies of several that move on their own (the one dragged, and those that follow it, `in_341`): only their triangles and outline move, each by its own matrix; else the whole body does
+    splitNow = m && only ? [only, ...followers.map((f) => f.only)] : null;
+    splitter?.(splitNow);
     if (bodyGroup) { bodyGroup.matrix.fromArray(m && !splitNow ? m : IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
-    if (moverGroup) { moverGroup.matrix.fromArray(m && splitNow ? m : IDENTITY); moverGroup.matrixWorldNeedsUpdate = true; }
+    if (moverGroup) { moverGroup.matrix.fromArray(IDENTITY); moverGroup.matrixWorldNeedsUpdate = true; }
+    const matrices = [m, ...followers.map((f) => f.matrix)];
+    (moversOf?.() ?? []).forEach((kid, k) => { kid.matrix.fromArray(matrices[k] ?? IDENTITY); kid.matrixWorldNeedsUpdate = true; });
     overlay.matrix.fromArray(m && withOverlay ? m : IDENTITY);
     overlay.matrixWorldNeedsUpdate = true;
   }

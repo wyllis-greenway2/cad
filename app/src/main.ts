@@ -257,7 +257,7 @@ function frame(now: number) {
     const tMade = performance.now();
     const page = host.getBoundingClientRect();
     view.setScene(f.scene, f.mesh);
-    view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit);
+    view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit, f.followers.map((q) => ({ matrix: q.matrix, only: q.split })));
     view.setHiddenEdges(f.hiddenEdges);
     view.setFaceShift(f.faceShift ? { face: f.faceShift.face, ...(f.faceShift.by ? { by: [...f.faceShift.by] as [number, number, number] } : {}), ...(f.faceShift.radial ? { radial: f.faceShift.radial } : {}), ...(f.faceShift.columns ? { columns: f.faceShift.columns } : {}), ...(f.faceShift.rounds ? { rounds: f.faceShift.rounds } : {}), ...(f.faceShift.arcs ? { arcs: f.faceShift.arcs } : {}), withOverlay: f.highlight.selection.length === 1 && f.highlight.selection[0] === f.faceShift.face } : null);
     view.setHighlight(f.highlight, state.cam, now);

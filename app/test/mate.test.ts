@@ -735,3 +735,30 @@ test("releasing a drag of a body against its mate makes only the pose the mate l
   assert.match(stuck.session.message ?? "", /leave it nowhere to go/);
   assert.equal(stuck.session.history, s.history, "nothing was made");
 });
+
+test("the bodies mated to a dragged body move with it in the picture: the one dragged is held by what it is mated to and slides, and its followers go along (`in_341`)", () => {
+  const env = { w: 800, h: 600, now: 0 };
+  let s = box(box(box(createSession(kernel), 0, 0), 40, 0), 80, 0);
+  const [a, b, c] = bodies(s);
+  const face = (q: Session, id: string | undefined, n: [number, number, number]) => faceOf(q, bodies(q).find((x) => x.id === id)!, n);
+  s = run(s, actionsFor(scene(s), [face(s, b!.id, [-1, 0, 0]), face(s, a!.id, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run()); // B on A
+  s = run(s, actionsFor(scene(s), [face(s, c!.id, [-1, 0, 0]), face(s, b!.id, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run()); // C on B
+  const drag = (ref: Ref, free: [number, number, number]) => {
+    const op = startOp(scene(s), [ref], "move");
+    assert.ok(op.ok);
+    return frameOf({ ...createState(s), cam: homeCamera(), op: { ...(op as unknown as { op: object }).op, free } as never }, env);
+  };
+  // B dragged along the face of A and away from it: it slides and is held. C is flush against B, which leaves it free to stay where it is when B slides: it does
+  const pinB = bodies(s).find((x) => x.id === b!.id)!;
+  const f1 = drag(pinB.ref, [8, 4, 0]);
+  assert.ok(f1.bodyMatrix && Math.abs(f1.bodyMatrix[12]!) < 1e-3 && Math.abs(f1.bodyMatrix[13]! - 4) < 1e-3, `B held against A and slid: ${f1.bodyMatrix?.slice(12, 15)}`);
+  assert.equal(f1.followers.length, 0, `C stays (its mate with B only asks that they touch): ${JSON.stringify(f1.followers.map((f) => f.matrix.slice(12, 15)))}`);
+  assert.ok(f1.flash?.victims.length, "the mate that holds B back flashes");
+  // A, which the others are mated to, dragged along the normal: B follows (it must stay against A), and C follows B; nothing holds A back
+  const pinA = bodies(s).find((x) => x.id === a!.id)!;
+  const f2 = drag(pinA.ref, [5, 3, 0]);
+  assert.ok(f2.bodyMatrix && Math.abs(f2.bodyMatrix[12]! - 5) < 1e-3 && Math.abs(f2.bodyMatrix[13]! - 3) < 1e-3, `A goes where it is taken: ${f2.bodyMatrix?.slice(12, 15)}`);
+  assert.equal(f2.followers.length, 2, "B and C follow along the normal");
+  assert.ok(f2.followers.every((f) => Math.abs(f.matrix[12]! - 5) < 1e-3 && Math.abs(f.matrix[13]!) < 1e-2), `by 5 along x, and not sideways (the faces slide): ${f2.followers.map((f) => f.matrix.slice(12, 15))}`);
+  assert.equal(f2.flash, null);
+});

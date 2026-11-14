@@ -1615,3 +1615,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_340 — 2026-11-14 — directive
 > Do the release committing only the held pose next
 (asks that releasing a drag of a body with standing mates makes only the pose its mates hold, one step, not the raw move followed by a correction)
+
+## in_341 — 2026-11-14 — directive
+> Do the followers moving in the preview next
+(asks that bodies mated to the one being dragged are drawn moving with it during the drag, not only catching up on release)

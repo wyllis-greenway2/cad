@@ -142,20 +142,46 @@ export function rigidOfPose(p: Pose, pivot: Vec3): Rigid {
 }
 
 /**
- * One body dragged (`in_338`): the pose nearest to the one the pointer asks for at which every mate of the body holds, the other bodies where they are; so the body moves in the directions its mates leave free and not in the others.
- * `blockedBy`: the mates the asked-for pose would break (they are what held it back).
+ * One body dragged (`in_338`, `in_341`): where it can be taken, and where the bodies that follow it stand. `pose`: the pose nearest to the one the pointer asks for at which every mate holds, the bodies that are fixed (a body only mated to,
+ * and one of any set that only move each other) where they are; `followers`: the poses of the bodies that move with it (the first body of a mate to the dragged one, and so on); `blockedBy`: the mates that keep it from the pose asked for
+ * (those that cannot hold when it is taken there and the followers do what they can).
  */
-export function solveDriven(mates: readonly SolveMate[], bodies: readonly SolveBody[], drivenId: string, desired: Pose): { pose: Pose; blockedBy: string[] } {
-  const body = bodies.find((b) => b.id === drivenId);
-  if (!body) return { pose: desired, blockedBy: [] };
+/** The same with every other body held where it is (what it is when the followers cannot all go along: a body squeezed between two that stay): the pose of the dragged body alone. */
+function solveDrivenAlone(mates: readonly SolveMate[], bodies: readonly SolveBody[], drivenId: string, desired: Pose): { pose: Pose; blockedBy: string[] } {
   const mine = mates.filter((m) => m.mover === drivenId || m.other === drivenId);
   const pivot = new Map(bodies.map((b) => [b.id, b.pivot] as const));
   const asPose = (x: readonly number[]): Pose => ({ turn: [x[0]!, x[1]!, x[2]!], shift: [x[3]!, x[4]!, x[5]!] });
   const holds = (pose: Pose) => mine.flatMap((m) => residuals(m, posed(m.a, pivot.get(m.mover)!, m.mover === drivenId ? pose : undefined), posed(m.b, pivot.get(m.other)!, m.other === drivenId ? pose : undefined)));
   const xd = [...desired.turn, ...desired.shift];
-  const W = 100; // (the mates count far more than staying near what was asked)
-  const near = minimise((x) => [...holds(asPose(x)).map((v) => v * W), ...x.map((v, i) => v - xd[i]!)], xd);
-  const x = minimise((x) => holds(asPose(x)), near); // (then onto the mates exactly, by the smallest step: the weighted pull toward what was asked leaves a little off them)
+  const near = minimise((x) => [...holds(asPose(x)).map((v) => v * 100), ...x.map((v, i) => v - xd[i]!)], xd);
+  const x = minimise((x) => holds(asPose(x)), near);
   const blockedBy = mine.filter((m) => Math.hypot(...residuals(m, posed(m.a, pivot.get(m.mover)!, m.mover === drivenId ? desired : undefined), posed(m.b, pivot.get(m.other)!, m.other === drivenId ? desired : undefined))) > 1e-4).map((m) => m.id);
   return { pose: asPose(x), blockedBy };
+}
+
+export function solveDriven(mates: readonly SolveMate[], bodies: readonly SolveBody[], drivenId: string, desired: Pose): { pose: Pose; blockedBy: string[]; followers: Map<string, Pose> } {
+  const body = bodies.find((b) => b.id === drivenId);
+  if (!body || !mates.some((m) => m.mover === drivenId || m.other === drivenId)) return { pose: desired, blockedBy: [], followers: new Map() };
+  const free = new Set(freeBodies(mates, bodies));
+  free.add(drivenId);
+  const ids = [drivenId, ...[...free].filter((id) => id !== drivenId && bodies.some((b) => b.id === id))];
+  const pivot = new Map(bodies.map((b) => [b.id, b.pivot] as const));
+  const poseAt = (x: readonly number[], k: number): Pose => ({ turn: [x[6 * k]!, x[6 * k + 1]!, x[6 * k + 2]!], shift: [x[6 * k + 3]!, x[6 * k + 4]!, x[6 * k + 5]!] });
+  const posesOf = (x: readonly number[], fixedDriven?: Pose): Map<string, Pose> => new Map(ids.flatMap((id, k) => (k === 0 && fixedDriven ? [[id, fixedDriven] as const] : [[id, poseAt(x, fixedDriven ? k - 1 : k)] as const])));
+  const holds = (poses: Map<string, Pose>) => mates.flatMap((m) => residuals(m, posed(m.a, pivot.get(m.mover)!, poses.get(m.mover)), posed(m.b, pivot.get(m.other)!, poses.get(m.other))));
+  const xd = [...desired.turn, ...desired.shift];
+  const W = 100; // (the mates count far more than staying near what was asked)
+  const x0 = [...xd, ...new Array<number>((ids.length - 1) * 6).fill(0)];
+  const ease = 1e-3; // (the bodies that follow move no more than the mates ask: a little pull toward where they stand, so what the mates leave free is left alone, and an impossible drag does not send them wandering)
+  const near = minimise((x) => [...holds(posesOf(x)).map((v) => v * W), ...x.slice(0, 6).map((v, i) => v - xd[i]!), ...x.slice(6).map((v) => v * ease)], x0);
+  const x = minimise((x) => [...holds(posesOf(x)), ...x.map((v, i) => (v - near[i]!) * ease)], near);
+  const poses = posesOf(x);
+  // the bodies cannot all go along (one is squeezed between two that stay): the dragged body goes as far as its own mates let it, the others where they are
+  if (Math.max(0, ...holds(poses).map(Math.abs)) > 1e-5) return { ...solveDrivenAlone(mates, bodies, drivenId, desired), followers: new Map() };
+  // what keeps it from where it was asked to go: the mates that cannot hold with it taken there, the others doing what they can
+  const rest = minimise((y) => [...holds(posesOf(y, desired)), ...y.map((v, i) => (v - x[6 + i]!) * ease)], x.slice(6));
+  const withDesired = posesOf(rest, desired);
+  const blockedBy = mates.filter((m) => Math.hypot(...residuals(m, posed(m.a, pivot.get(m.mover)!, withDesired.get(m.mover)), posed(m.b, pivot.get(m.other)!, withDesired.get(m.other)))) > 1e-4).map((m) => m.id);
+  const followers = new Map([...poses].filter(([id]) => id !== drivenId));
+  return { pose: poses.get(drivenId)!, blockedBy, followers };
 }
