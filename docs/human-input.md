@@ -1600,6 +1600,6 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 > put the button next to the constraint bubble instead
 (refines `in_335`: the "Delete constraint to proceed" button stands beside the bubble of the constraint that stopped the change, not at the top centre)
 
-## in_337 — 2026-11-14 — bug report
+## in_337 — 2026-11-14 — directive
 > The zoom got into a really weird state here. I am not sure if the cad state export captured it though. When I load the saved file back into the cad program the zoom state is no longer there.
 (files `zoom_got_really_wierd_state.json` and `zoom_got_really_wierd.json`; the project file does not keep the view, so the state snapshot's intents are the record)
