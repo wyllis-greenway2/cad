@@ -13,7 +13,7 @@ import type { MateState } from "../operation/mates.ts";
 import { featureOf, mateRelation, mateStatus, isFlatMode, turnOnly, angleOfMode } from "../operation/mates.ts";
 import type { Command } from "../operation/commands.ts";
 import { carrySketches } from "./operations.ts";
-import type { SolveMate, SolveBody } from "../operation/matesolve.ts";
+import type { SolveMate, SolveBody, Pose } from "../operation/matesolve.ts";
 import { solvePoses, solveDriven, poseOfRigid, rigidOfPose } from "../operation/matesolve.ts";
 import type { Rigid } from "../operation/frames.ts";
 import { laterMotion } from "../operation/frames.ts";
@@ -219,6 +219,37 @@ function problemOf(scene: Scene, states: readonly MateState[]): { mates: SolveMa
   return { mates, bodies };
 }
 
+/** The steps that put a body at a pose (turns about its pivot, then a move), with its sketches carried; none when the pose is no change. `k` tells the bodies of one batch apart in the step ids. */
+function poseCommands(scene: Scene, ref: Ref, pivot: Vec3, pose: Pose, k: number): Command[] {
+  const part = scene.parts[ref];
+  if (part?.kind !== "body" || !part.id) return [];
+  let id = nextId(scene, "s");
+  while (scene.steps.some((st) => st.id.startsWith(id))) id = `${id}_`;
+  const angle = length(pose.turn);
+  const shift = pose.shift.map((v) => Math.round(v * 1e6) / 1e6) as unknown as Vec3;
+  const turns = angle > 1e-6 ? eulerXYZ(turnAbout(pose.turn, angle)) : []; // (less than a millionth of a radian, or ten nanometres, is no change: the solver's own rounding)
+  if (!turns.length && length(shift) < 1e-5) return [];
+  const tag = `${id}b${k}`;
+  return [
+    ...turns.map((t, j): Command => ({ type: "addStep", step: { id: `${tag}${"xyz"[t.axis]}${j}`, type: "rotate", parts: [ref], params: { axis: t.axis, value: t.angle, px: pivot[0], py: pivot[1], pz: pivot[2], follow: 1, body: part.id! } } })),
+    ...(length(shift) >= 1e-5 ? [{ type: "addStep", step: { id: `${tag}m`, type: "move", parts: [ref], params: { axis: 0, value: 0, vx: shift[0], vy: shift[1], vz: shift[2], follow: 1, body: part.id! } } } as Command] : []),
+    ...carrySketches(scene, turns, shift, pivot, 1, part.id),
+  ];
+}
+
+/**
+ * What releasing a drag of a body makes when its standing mates hold it back (`in_340`): only the pose they leave, as the turns and move that make it, not the move that was asked for and then a correction. Null when no mate holds it back (the
+ * move asked for is made as it is); an empty batch when they leave it nowhere to go.
+ */
+export function heldCommand(scene: Scene, body: Ref, asked: Rigid): Command | null {
+  const held = constrainedMotion(scene, body, asked);
+  if (!held) return null;
+  const b = scene.parts[body];
+  if (b?.kind !== "body" || !b.bbox) return null;
+  const pivot: Vec3 = [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2];
+  return { type: "batch", commands: poseCommands(scene, body, pivot, poseOfRigid(held.rigid, pivot), 0) };
+}
+
 /**
  * A body being dragged (`in_338`): the motion the mates allow that is nearest to the one asked for, and the mates that held it back (they flash). The other bodies stay where they are; null when the body has no standing mate that holds,
  * or the motion is not held back at all.
@@ -239,23 +270,7 @@ export function solveStanding(scene: Scene): { commands: Command[]; atOdds: stri
   const { mates, bodies } = problemOf(scene, states);
   const solved = solvePoses(mates, bodies);
   if (!solved.ok) return { commands: [], atOdds: solved.atOdds };
-  let id = nextId(scene, "s");
-  while (scene.steps.some((st) => st.id.startsWith(id))) id = `${id}_`;
-  const commands: Command[] = [];
-  let k = 0;
-  for (const [ref, pose] of solved.poses) {
-    const body = bodies.find((b) => b.id === ref);
-    const part = scene.parts[ref];
-    if (!body || part?.kind !== "body" || !part.id) continue;
-    const angle = length(pose.turn);
-    const shift = pose.shift.map((v) => Math.round(v * 1e6) / 1e6) as unknown as Vec3;
-    const turns = angle > 1e-9 ? eulerXYZ(turnAbout(pose.turn, angle)) : [];
-    if (!turns.length && length(shift) < 1e-9) continue;
-    const tag = `${id}b${k++}`;
-    commands.push(...turns.map((t, j): Command => ({ type: "addStep", step: { id: `${tag}${"xyz"[t.axis]}${j}`, type: "rotate", parts: [ref as Ref], params: { axis: t.axis, value: t.angle, px: body.pivot[0], py: body.pivot[1], pz: body.pivot[2], follow: 1, body: part.id! } } })));
-    if (length(shift) > 1e-9) commands.push({ type: "addStep", step: { id: `${tag}m`, type: "move", parts: [ref as Ref], params: { axis: 0, value: 0, vx: shift[0], vy: shift[1], vz: shift[2], follow: 1, body: part.id! } } });
-    commands.push(...carrySketches(scene, turns, shift, body.pivot, 1, part.id));
-  }
+  const commands = [...solved.poses].flatMap(([ref, pose], k) => { const body = bodies.find((b) => b.id === ref); return body ? poseCommands(scene, ref as Ref, body.pivot, pose, k) : []; });
   return { commands, atOdds: [] };
 }
 

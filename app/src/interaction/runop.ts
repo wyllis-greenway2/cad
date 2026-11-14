@@ -4,12 +4,17 @@ import type { Session } from "./session.ts";
 import { scene as sceneOf, run } from "./session.ts";
 import type { Command } from "../operation/commands.ts";
 import type { Op } from "./operations.ts";
-import { opCommand, valueOf } from "./operations.ts";
+import { opCommand, valueOf, bodyMotion } from "./operations.ts";
+import { heldCommand } from "./mate.ts";
 import { isTangentArc } from "./faceedit.ts";
 
 /** Run the step of `op` on `sess`. Returns the new session and whether it fell back to a prism; null when the operation has no step yet. */
 export function runOp(sess: Session, op: Op): { session: Session; cmd: Command } | null {
-  const cmd = opCommand(sceneOf(sess), op);
+  // a body that is moved or turned against its standing mates: what is made is the pose they leave it at, one step, not the move asked for and then their correction (`in_340`)
+  const asked = op.target === "body" && (op.kind === "move" || op.kind === "rotate") && op.parts[0] ? bodyMotion(sceneOf(sess), op) : null;
+  const held = asked ? heldCommand(sceneOf(sess), op.parts[0]!, asked) : null;
+  if (held && held.type === "batch" && !held.commands.length) return { session: { ...sess, message: "the mates of this body leave it nowhere to go that way" }, cmd: held };
+  const cmd = held ?? opCommand(sceneOf(sess), op);
   if (!cmd) {
     // a size that is nothing, or less (a radius of zero, a fillet of nothing): said, not ignored
     const v = valueOf(op);

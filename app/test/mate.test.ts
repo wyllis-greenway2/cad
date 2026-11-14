@@ -710,3 +710,28 @@ test("a body pulled 16 mm off its flush mate (a file of the human's) is still he
   assert.ok(!back.message, `${back.message}`);
   assert.equal(mateStatus(scene(back))[0]!.state, "ok", "back against the other body");
 });
+
+import { runOp } from "../src/interaction/runop.ts";
+test("releasing a drag of a body against its mate makes only the pose the mate leaves, as one step; a move that goes nowhere makes nothing and says why (`in_340`)", () => {
+  let s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  s = run(s, actionsFor(scene(s), [faceOf(s, bodies(s).find((x) => x.id === b!.id)!, [-1, 0, 0]), faceOf(s, bodies(s).find((x) => x.id === a!.id)!, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  const pin = bodies(s).find((x) => x.id === b!.id)!;
+  const op = startOp(scene(s), [pin.ref], "move");
+  assert.ok(op.ok);
+  const asked = (free: [number, number, number]) => ({ ...(op as unknown as { op: object }).op, free } as never);
+  const before = s.history.commands.length;
+  const made = runOp(s, asked([9, 4, 2]))!;
+  assert.ok(!made.session.message, `${made.session.message}`);
+  assert.equal(made.session.history.commands.length, before + 1, "one history entry: no move followed by a correction");
+  const ids = scene(made.session).steps.slice(scene(s).steps.length).map((x) => x.id);
+  assert.ok(ids.length >= 1 && ids.every((x) => /b0/.test(x)), `only the held pose's steps: ${ids}`);
+  const b2 = bodies(made.session).find((x) => x.id === b!.id)!;
+  assert.ok(Math.abs(b2.bbox!.min[0]! - pin.bbox!.min[0]!) < 1e-3, "not off along the normal");
+  assert.ok(Math.abs(b2.bbox!.min[1]! - pin.bbox!.min[1]! - 4) < 1e-3 && Math.abs(b2.bbox!.min[2]! - pin.bbox!.min[2]! - 2) < 1e-3, "slid along the face");
+  assert.equal(mateStatus(scene(made.session))[0]!.state, "ok");
+  // only away from the face: nowhere to go
+  const stuck = runOp(s, asked([9, 0, 0]))!;
+  assert.match(stuck.session.message ?? "", /leave it nowhere to go/);
+  assert.equal(stuck.session.history, s.history, "nothing was made");
+});

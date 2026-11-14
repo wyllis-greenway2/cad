@@ -1611,3 +1611,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_339 — 2026-11-14 — question
 > okay but why am I able to just pull a body off another body with a face constraint? see this file, if you ctr z, you will see I just pulled it off
 (a bug report on the mates holding during motion, with a state snapshot and a saved model; the model is kept as `app/test/fixtures/body-pulled-off-in_338.json`)
+
+## in_340 — 2026-11-14 — directive
+> Do the release committing only the held pose next
+(asks that releasing a drag of a body with standing mates makes only the pose its mates hold, one step, not the raw move followed by a correction)
