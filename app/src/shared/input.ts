@@ -5,7 +5,7 @@ export interface Mods { shift: boolean; ctrl: boolean; alt: boolean }
 export type Device = "mouse" | "touch" | "pen";
 
 export type RawInput =
-  | { kind: "down" | "move" | "up" | "cancel"; id: number; device: Device; x: number; y: number; button: number; mods: Mods; t: number }
+  | { kind: "down" | "move" | "up" | "cancel"; id: number; device: Device; x: number; y: number; /** with the pointer held at the screen's centre (game mode, `in_304`): how far the mouse moved, which the screen's edge cannot stop */ dx?: number; dy?: number; button: number; mods: Mods; t: number }
   | { kind: "wheel"; x: number; y: number; dx: number; dy: number; /** 0 pixels, 1 lines, 2 pages */ unit: 0 | 1 | 2; /** the legacy wheelDeltaY (multiples of 120 for a wheel notch) when the device reports it */ wheelDeltaY: number | null; mods: Mods; t: number }
   | { kind: "gesture"; phase: "start" | "change" | "end"; scale: number; x: number; y: number; t: number } // Safari's pinch
   | { kind: "key"; key: string; down: boolean; mods: Mods; t: number }

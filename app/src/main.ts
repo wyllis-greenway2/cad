@@ -35,6 +35,7 @@ import { createToolCursor } from "./ui/toolcursor.ts";
 import { createSimilarChip } from "./ui/similarchip.ts";
 import { createSelectionChip } from "./ui/selectionchip.ts";
 import { createResetView } from "./ui/resetview.ts";
+import { createCrosshair } from "./ui/crosshair.ts";
 import { createModeSwitch } from "./ui/modeswitch.ts";
 import { createSuggest } from "./ui/suggest.ts";
 import { createHints } from "./ui/hint.ts";
@@ -123,6 +124,7 @@ const helper = createHelper(document.body);
 const busySign = createBusy(document.body);
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
+const crosshair = createCrosshair(document.body);
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const selectionChip = createSelectionChip(document.body, (id) => dispatch({ type: "runAction", id }));
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
@@ -266,6 +268,7 @@ function frame(now: number) {
     similarChip.update(f.similar);
     selectionChip.update(f.selection);
     resetView.update(f.resetView);
+    { const pg = host.getBoundingClientRect(); crosshair.update(recognizer.game && document.pointerLockElement !== null, { x: pg.left + pg.width / 2, y: pg.top + pg.height / 2 }); }
     toolCursor.update(f.tool ? f.tool.kind : null);
     const project = projector(state.cam, size.w, size.h).project;
     // what comes before the constraint bubbles: the ring, and the number bubbles (and the helper bubble, the suggestions and the hint icons), as they stood on the last frame

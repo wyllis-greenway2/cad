@@ -1,6 +1,7 @@
 // Game mode (`in_300`, `in_302`): W A S D turn it on and it stays on until a mouse click; the keys move the view and the pointer, with no key held, turns it about the eye; both are smoothed over the ticks.
 import test from "node:test";
 import assert from "node:assert/strict";
+import { settings } from "../src/shared/settings.ts";
 import { createRecognizer } from "../src/interaction/recognizer.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
 import { createSession } from "../src/interaction/session.ts";
@@ -45,17 +46,34 @@ test("game mode stays on after the key is let go: the pointer goes on turning th
   const sw = swivels(turned);
   assert.ok(sw.length > 4, "the movement is let out over several ticks, not at once");
   assert.ok(sw[0]!.dx > sw[sw.length - 1]!.dx, "most of it first, then less and less");
-  assert.ok(Math.abs(sw.reduce((a, s) => a + s.dx, 0) - 80) < 5, "all of the pointer's movement comes out");
+  assert.ok(Math.abs(sw.reduce((a, s) => a + s.dx, 0) - 80 * settings.input.flyLookScale) < 3, "all of the pointer's movement comes out, less sensitive than 1:1");
   const st = apply(sw);
   const c0 = homeCamera();
   const [e0, e1] = [position(c0), position(st.cam)];
   assert.ok(Math.hypot(e0[0] - e1[0], e0[1] - e1[1], e0[2] - e1[2]) < 1e-6, "the eye did not move");
   const [f0, f1] = [basis(c0), basis(st.cam)];
   assert.ok(f1.forward[0] * f0.right[0] + f1.forward[1] * f0.right[1] + f1.forward[2] * f0.right[2] > 0.05, "turned to the right");
-  // a click ends it: the pointer only hovers again
-  const out = run(rec, [press("down", 400), press("up", 410), move(200, 100, 420), move(260, 100, 430)]);
-  assert.ok(out.some((i) => i.type === "hover"), "hover again");
-  assert.equal(swivels(run(rec, [move(300, 100, 440), ...ticks(440, 5)])).length, 0, "no more turning");
+  // a click does not end it
+  run(rec, [press("down", 400), press("up", 410)]);
+  assert.ok(swivels(run(rec, [move(300, 100, 420), ...ticks(420, 6)])).length > 0, "still turning after a click");
+});
+
+test("the pointer held at the middle: the mouse's movement (dx, dy) turns the view, with the hover at the middle; a click is a click at the middle; it fades out of the mode a moment after the last key (`in_304`)", () => {
+  const rec = createRecognizer();
+  const held = (dx: number, dy: number, t: number): RawInput => ({ kind: "move", device: "mouse", id: 1, x: 400, y: 300, dx, dy, button: 0, mods, t } as unknown as RawInput);
+  const a = run(rec, [key("w", true, 0), key("w", false, 100), held(0, 0, 101), held(60, 0, 110)]);
+  assert.ok(a.some((i) => i.type === "hover" && i.x === 400 && i.y === 300), "hovering at the middle");
+  const turned = swivels(run(rec, ticks(110, 10)));
+  assert.ok(Math.abs(turned.reduce((x, s) => x + s.dx, 0) - 60 * settings.input.flyLookScale) < 3, "the movement turns the view, however far the mouse went");
+  assert.ok(run(rec, ticks(280, 5)).some((i) => i.type === "hover" && i.x === 400), "the view moving under the pointer: it hovers again at the middle");
+  // the mode ends a moment after the last key
+  run(rec, [{ kind: "tick", t: 100 + settings.input.gameIdleMs + 20 } as RawInput]);
+  assert.equal(rec.game, false, "faded out of game mode");
+  assert.equal(swivels(run(rec, [held(50, 0, 3000), ...ticks(3000, 5)])).length, 0, "the mouse no longer turns the view");
+  // a key still down keeps it on
+  const rec2 = createRecognizer();
+  run(rec2, [key("a", true, 0), { kind: "tick", t: 5000 } as RawInput]);
+  assert.equal(rec2.game, true);
 });
 
 test("with no key pressed the pointer only hovers", () => {
@@ -64,7 +82,7 @@ test("with no key pressed the pointer only hovers", () => {
   assert.ok(intents.every((i) => i.type === "hover"));
 });
 
-test("Esc ends game mode", () => {
+test("Esc ends game mode at once", () => {
   const rec = createRecognizer();
   run(rec, [key("a", true, 0), key("a", false, 1), key("Escape", true, 2)]);
   assert.equal(swivels(run(rec, [move(100, 100, 3), move(160, 100, 4), ...ticks(4, 5)])).length, 0);

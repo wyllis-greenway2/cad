@@ -26,6 +26,8 @@ export const settings = {
     multiClickPx: 6, multiClickMs: 400, // clicks this close count as a double or triple click (`in_070`)
     flyEaseSec: 0.15, // game mode: how long the keys take to bring the view up to speed and to rest (`in_302`)
     flyLookSec: 0.06, // and how long the pointer's movement is let out over, so the turning is smooth
+    flyLookScale: 0.5, // game mode: how much of the mouse's movement turns the view (`in_304`: less sensitive)
+    gameIdleMs: 1200, // game mode ends this long after the last of W A S D is let go (`in_304`)
     flySpeed: 0.45, // game mode: view distances per second at full speed
     trackpadPanScale: 0.3, // how much of a trackpad's two-finger scroll the view pans by: less than 1 is less sensitive (`in_300`)
     scrollMode: "auto" as "auto" | "pan" | "zoom", // what a scroll does: auto = a trackpad's two-finger scroll pans and a wheel zooms (a pinch always zooms) (`in_079`)

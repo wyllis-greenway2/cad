@@ -21,6 +21,8 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   // Both are smoothed over the ticks (the keys ease up to speed and down again, the pointer's movement is let out over a few ticks), so neither is chunky.
   const fly = new Set<string>();
   let game = false;
+  let idleAt: number | null = null; // (game mode ends at this time, once no key is down)
+  let centre: [number, number] | null = null; // (where the pointer is held in game mode: the middle of the screen)
   let flyAt = 0;
   const vel = { f: 0, r: 0 };
   const pend = { x: 0, y: 0 };
@@ -33,14 +35,15 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
     switch (e.kind) {
       case "key":
         if (e.key === " ") { space = e.down; return []; }
-        if (/^[wasd]$/i.test(e.key) && !e.mods.ctrl && !e.mods.alt) { const k = e.key.toLowerCase(); if (e.down) { if (!game) { flyAt = e.t; pend.x = pend.y = 0; } game = true; fly.add(k); } else fly.delete(k); return []; }
-        if (game && e.down && e.key === "Escape") { game = false; fly.clear(); return []; }
+        if (/^[wasd]$/i.test(e.key) && !e.mods.ctrl && !e.mods.alt) { const k = e.key.toLowerCase(); if (e.down) { if (!game) { flyAt = e.t; pend.x = pend.y = 0; } game = true; idleAt = null; fly.add(k); } else { fly.delete(k); if (!fly.size) idleAt = e.t + I.gameIdleMs; } return []; }
+        if (game && e.down && e.key === "Escape") { game = false; fly.clear(); idleAt = null; return []; }
         return e.down ? keyIntents(e, I) : [];
       case "wheel": return scroll.wheel(e);
       case "gesture": return scroll.gesture(e);
       case "leave": return [{ type: "hoverEnd" }];
       case "tick": {
         const out: Intent[] = [];
+        if (game && !fly.size && idleAt !== null && e.t >= idleAt) { game = false; idleAt = null; pend.x = pend.y = 0; } // (a moment after the last key: it fades out of game mode, `in_304`)
         if (game || vel.f || vel.r) {
           const dt = Math.min(0.1, Math.max(0, (e.t - flyAt) / 1000));
           flyAt = e.t;
@@ -54,17 +57,23 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
           const [dx, dy] = [pend.x * m, pend.y * m];
           pend.x -= dx; pend.y -= dy;
           if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) out.push({ type: "swivel", dx, dy });
+          if (out.length && game && centre) out.push({ type: "hover", x: centre[0], y: centre[1] }); // (the view moved under the pointer that is held at the middle: what it is over changes)
         }
         return [...out, ...touch.tick(e.t), ...mouse.tick(e.t)];
       }
       default: {
         if (e.device === "touch") return touch.pointer(e);
-        if (e.kind === "down") { buttons++; if (game) { game = false; pend.x = pend.y = 0; } } else if ((e.kind === "up" || e.kind === "cancel") && buttons > 0) buttons--; // (a click ends game mode)
-        if (e.kind === "move" && game && !buttons && last) { pend.x += e.x - last[0]; pend.y += e.y - last[1]; last = [e.x, e.y]; return []; }
+        if (e.kind === "down") buttons++; else if ((e.kind === "up" || e.kind === "cancel") && buttons > 0) buttons--;
+        if (e.kind === "move" && game && e.dx !== undefined) { // (the pointer is held at the middle: the mouse's movement turns the view, with or without a button; a click is a click at the middle, `in_304`)
+          pend.x += e.dx * I.flyLookScale; pend.y += e.dy! * I.flyLookScale;
+          centre = [e.x, e.y];
+          return [{ type: "hover", x: e.x, y: e.y }];
+        }
+        if (e.kind === "move" && game && !buttons && last) { pend.x += (e.x - last[0]) * I.flyLookScale; pend.y += (e.y - last[1]) * I.flyLookScale; last = [e.x, e.y]; return []; }
         last = [e.x, e.y];
         return mouse(e);
       }
     }
   }
-  return { feed, setDrawing: (on: boolean) => { drawing = on; }, setTouchHelper: touch.setHelper, setScrollMode: scroll.setMode, get scrollMode() { return scroll.mode; } };
+  return { feed, get game() { return game; }, setDrawing: (on: boolean) => { drawing = on; }, setTouchHelper: touch.setHelper, setScrollMode: scroll.setMode, get scrollMode() { return scroll.mode; } };
 }
