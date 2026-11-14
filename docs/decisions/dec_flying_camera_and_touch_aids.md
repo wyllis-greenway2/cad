@@ -13,7 +13,7 @@ depends_on:
 
 The human asked for (`in_300`), and the app does:
 
-1. **W A S D** move the view forward, back, to the left and to the right while the key is down; with any of them down the pointer (no button) turns the view about the eye, up / down / left / right, as in a game. (Intents `walk` and `swivel`; `recognizer.ts`, `viewing.ts`.)
+1. **Game mode** (`in_300`, `in_302`): any of **W A S D** turns it on and it stays on until the mouse is clicked (or Esc). The keys move the view forward, back, left and right while they are down; the pointer, with no button and no key needed, turns the view about the eye up / down / left / right. Both ease: the keys come up to speed and down again (`input.flyEaseSec`), the pointer's movement is let out over a few ticks (`flyLookSec`), at about 60 ticks a second while in the mode; speed is `flySpeed` view distances a second. (Intents `walk` and `swivel`; `recognizer.ts`, `viewing.ts`, `dom-input.ts`.)
 2. **Select several** in the ⋯ menu: every tap adds to the selection, a tap on what is selected takes it out (what Shift does; a phone has no Shift). A long press on a move arrow chooses it with the others for a free drag (what Shift + click does).
 3. A trackpad's two-finger scroll pans by `settings.input.trackpadPanScale` of what it scrolls (less sensitive).
 4. A held press on a button shows its title in a bubble on a phone (no hover for the tooltip): `ui/tips.ts`.

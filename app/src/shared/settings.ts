@@ -24,6 +24,9 @@ export const settings = {
     longPressMs: 450, touchSlopPx: 10, drawTouchSlopPx: 22, // touch: a press this long without moving is a right click; a finger must move this far to drag
     multiTapPx: 28, multiTapMs: 550, // taps this close in space and time count as a double or triple tap (`in_078`)
     multiClickPx: 6, multiClickMs: 400, // clicks this close count as a double or triple click (`in_070`)
+    flyEaseSec: 0.15, // game mode: how long the keys take to bring the view up to speed and to rest (`in_302`)
+    flyLookSec: 0.06, // and how long the pointer's movement is let out over, so the turning is smooth
+    flySpeed: 0.45, // game mode: view distances per second at full speed
     trackpadPanScale: 0.5, // how much of a trackpad's two-finger scroll the view pans by: less than 1 is less sensitive (`in_300`)
     scrollMode: "auto" as "auto" | "pan" | "zoom", // what a scroll does: auto = a trackpad's two-finger scroll pans and a wheel zooms (a pinch always zooms) (`in_079`)
     zoomToCursor: true, // zoom IN toward the point under the cursor; zoom OUT is about the view centre (no runaway)

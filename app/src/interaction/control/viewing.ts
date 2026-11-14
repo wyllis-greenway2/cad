@@ -39,7 +39,7 @@ export function doOrbit(s: AppState, i: Extract<Intent, { type: "orbit" }>): App
 /** W A S D (`in_300`): the view moves along where it looks and across it; the faster the further out it is, so a small part and a big one both go at a pace that can be steered. */
 export function doWalk(s: AppState, i: Extract<Intent, { type: "walk" }>): AppState {
   const { forward, right } = basis(s.cam);
-  const by = s.cam.distance * 0.9 * i.dt;
+  const by = s.cam.distance * settings.input.flySpeed * i.dt;
   const at = (k: 0 | 1 | 2): number => s.cam.target[k] + (forward[k] * i.forward + right[k] * i.right) * by;
   const target: Vec3 = [at(0), at(1), at(2)];
   return { ...stop(s), cam: { ...s.cam, target, straight: false }, menu: null };

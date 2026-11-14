@@ -1,4 +1,4 @@
-// W A S D camera (`in_300`): the keys move the view while they are down, and the pointer with no button down turns it about the eye.
+// Game mode (`in_300`, `in_302`): W A S D turn it on and it stays on until a mouse click; the keys move the view and the pointer, with no key held, turns it about the eye; both are smoothed over the ticks.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createRecognizer } from "../src/interaction/recognizer.ts";
@@ -13,38 +13,59 @@ const env = { w: 800, h: 600, now: 0 };
 const mods = { shift: false, ctrl: false, alt: false };
 const key = (k: string, down: boolean, t: number): RawInput => ({ kind: "key", key: k, down, mods, t });
 const move = (x: number, y: number, t: number): RawInput => ({ kind: "move", device: "mouse", id: 1, x, y, button: 0, mods, t } as unknown as RawInput);
+const press = (kind: "down" | "up", t: number): RawInput => ({ kind, device: "mouse", id: 1, x: 100, y: 100, button: 0, mods, t } as unknown as RawInput);
+const ticks = (from: number, n: number): RawInput[] => Array.from({ length: n }, (_, i) => ({ kind: "tick", t: from + (i + 1) * 16 }) as RawInput);
 const run = (rec: ReturnType<typeof createRecognizer>, inputs: RawInput[]): Intent[] => inputs.flatMap((e) => rec.feed(e));
 const apply = (intents: Intent[]) => intents.reduce((st, i) => reduce(st, i, env), { ...createState(createSession(kernel)), cam: homeCamera() });
+const walks = (is: Intent[]) => is.filter((i): i is Extract<Intent, { type: "walk" }> => i.type === "walk");
+const swivels = (is: Intent[]) => is.filter((i): i is Extract<Intent, { type: "swivel" }> => i.type === "swivel");
 
-test("W moves the view forward, S back, D right and A left, while the key is down (`in_300`)", () => {
+test("W moves the view forward and eases up to speed, then eases down after it is let go; D goes right (`in_300`, `in_302`)", () => {
   const rec = createRecognizer();
-  const intents = run(rec, [key("w", true, 0), { kind: "tick", t: 50 }, { kind: "tick", t: 100 }, key("w", false, 120), { kind: "tick", t: 150 }]);
-  assert.equal(intents.filter((i) => i.type === "walk").length, 2, "one for each tick while it was down, none after");
-  const st = apply(intents);
+  const held = run(rec, [key("w", true, 0), ...ticks(0, 20)]);
+  const f = walks(held).map((w) => w.forward);
+  assert.ok(f.length > 10 && f[0]! < f[f.length - 1]! && f[0]! < 0.2, "it starts gently and gains speed");
+  assert.ok(f[f.length - 1]! > 0.8, "and nearly reaches full speed in a third of a second");
+  const after = run(rec, [key("w", false, 320), ...ticks(320, 30)]);
+  const g = walks(after).map((w) => w.forward);
+  assert.ok(g.length > 3 && g[0]! > g[g.length - 1]!, "it eases down rather than stopping dead");
+  const st = apply(held);
   const c0 = homeCamera();
-  const f = basis(c0).forward;
-  const d = [0, 1, 2].map((k) => st.cam.target[k]! - c0.target[k]!);
-  assert.ok(d[0]! * f[0]! + d[1]! * f[1]! + d[2]! * f[2]! > 1, "it went the way the view looks");
-  const right = apply(run(createRecognizer(), [key("d", true, 0), { kind: "tick", t: 50 }]));
+  const fw = basis(c0).forward;
+  assert.ok([0, 1, 2].reduce((a, k) => a + (st.cam.target[k]! - c0.target[k]!) * fw[k]!, 0) > 1, "it went the way the view looks");
+  const right = apply(run(createRecognizer(), [key("d", true, 0), ...ticks(0, 10)]));
   const r = basis(c0).right;
-  assert.ok([0, 1, 2].reduce((a, k) => a + (right.cam.target[k]! - c0.target[k]!) * r[k]!, 0) > 0.5, "D goes to the right");
+  assert.ok([0, 1, 2].reduce((a, k) => a + (right.cam.target[k]! - c0.target[k]!) * r[k]!, 0) > 0.3, "D goes to the right");
 });
 
-test("with a key held the pointer turns the view about the eye: the eye stays, the view turns the way the pointer goes (`in_300`)", () => {
+test("game mode stays on after the key is let go: the pointer goes on turning the view about the eye, smoothly, until a click (`in_302`)", () => {
   const rec = createRecognizer();
-  const intents = run(rec, [move(100, 100, 0), key("w", true, 1), move(140, 100, 2), move(180, 80, 3)]);
-  assert.deepEqual(intents.filter((i) => i.type === "swivel").map((i) => (i.type === "swivel" ? [i.dx, i.dy] : [])), [[40, 0], [40, -20]]);
+  run(rec, [move(100, 100, 0), key("w", true, 1), key("w", false, 2)]); // (a tap on W: game mode)
+  const turned = run(rec, [move(180, 100, 3), ...ticks(3, 12)]);
+  const sw = swivels(turned);
+  assert.ok(sw.length > 4, "the movement is let out over several ticks, not at once");
+  assert.ok(sw[0]!.dx > sw[sw.length - 1]!.dx, "most of it first, then less and less");
+  assert.ok(Math.abs(sw.reduce((a, s) => a + s.dx, 0) - 80) < 5, "all of the pointer's movement comes out");
+  const st = apply(sw);
   const c0 = homeCamera();
-  const st = apply(intents.filter((i) => i.type === "swivel"));
   const [e0, e1] = [position(c0), position(st.cam)];
   assert.ok(Math.hypot(e0[0] - e1[0], e0[1] - e1[1], e0[2] - e1[2]) < 1e-6, "the eye did not move");
   const [f0, f1] = [basis(c0), basis(st.cam)];
   assert.ok(f1.forward[0] * f0.right[0] + f1.forward[1] * f0.right[1] + f1.forward[2] * f0.right[2] > 0.05, "turned to the right");
-  assert.ok(f1.forward[0] * f0.up[0] + f1.forward[1] * f0.up[1] + f1.forward[2] * f0.up[2] > 0.01, "and up");
+  // a click ends it: the pointer only hovers again
+  const out = run(rec, [press("down", 400), press("up", 410), move(200, 100, 420), move(260, 100, 430)]);
+  assert.ok(out.some((i) => i.type === "hover"), "hover again");
+  assert.equal(swivels(run(rec, [move(300, 100, 440), ...ticks(440, 5)])).length, 0, "no more turning");
 });
 
-test("with no key held the pointer only hovers", () => {
+test("with no key pressed the pointer only hovers", () => {
   const rec = createRecognizer();
-  const intents = run(rec, [move(100, 100, 0), move(140, 100, 2)]);
+  const intents = run(rec, [move(100, 100, 0), move(140, 100, 2), ...ticks(2, 5)]);
   assert.ok(intents.every((i) => i.type === "hover"));
+});
+
+test("Esc ends game mode", () => {
+  const rec = createRecognizer();
+  run(rec, [key("a", true, 0), key("a", false, 1), key("Escape", true, 2)]);
+  assert.equal(swivels(run(rec, [move(100, 100, 3), move(160, 100, 4), ...ticks(4, 5)])).length, 0);
 });

@@ -8,6 +8,7 @@ export type InputBus = Bus<{ input: RawInput }>;
 const modsOf = (e: { shiftKey: boolean; ctrlKey: boolean; altKey: boolean; metaKey: boolean }): Mods => ({ shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey });
 const deviceOf = (t: string): Device => (t === "touch" ? "touch" : t === "pen" ? "pen" : "mouse");
 const TICK_MS = 50;
+const GAME_TICK_MS = 16;
 
 /** Report the device events of `el` (and the keyboard) on the bus. Returns a function that stops reporting. */
 export function attachInput(el: HTMLElement, bus: InputBus): () => void {
@@ -17,11 +18,12 @@ export function attachInput(el: HTMLElement, bus: InputBus): () => void {
     return [e.clientX - r.left, e.clientY - r.top] as const;
   };
   const down = new Set<number>();
-  const flyKeys = new Set<string>(); // (W A S D held: time must pass for the view to move)
+  let game = false; // (game mode, `in_302`: W A S D turn it on, a mouse click turns it off: time must pass for the view to move and turn, at a finer step)
   let timer: ReturnType<typeof setInterval> | null = null;
+  let tickMs = 0;
   const ticking = () => {
-    if ((down.size || flyKeys.size) && !timer) timer = setInterval(() => bus.emit("input", { kind: "tick", t: now() }), TICK_MS);
-    if (!down.size && !flyKeys.size && timer) (clearInterval(timer), (timer = null));
+    const want = game ? GAME_TICK_MS : down.size ? TICK_MS : 0;
+    if (want !== tickMs) { if (timer) clearInterval(timer); timer = want ? setInterval(() => bus.emit("input", { kind: "tick", t: now() }), want) : null; tickMs = want; }
   };
   const listeners: [EventTarget, string, (e: never) => void, AddEventListenerOptions?][] = [];
   const on = <E extends Event>(t: EventTarget, type: string, fn: (e: E) => void, o?: AddEventListenerOptions) => {
@@ -39,6 +41,7 @@ export function attachInput(el: HTMLElement, bus: InputBus): () => void {
     if (kind === "down") {
       try { el.setPointerCapture(e.pointerId); } catch { /* a synthetic event has nothing to capture */ }
       down.add(e.pointerId);
+      game = false; // (a click ends game mode)
     } else if (kind === "up" || kind === "cancel") down.delete(e.pointerId);
     ticking();
     bus.emit("input", { kind, id: e.pointerId, device: deviceOf(e.pointerType), x, y, button: e.button, mods: modsOf(e), t: now() });
@@ -49,7 +52,7 @@ export function attachInput(el: HTMLElement, bus: InputBus): () => void {
   on<PointerEvent>(el, "pointercancel", pointer("cancel"));
   on<PointerEvent>(el, "pointerleave", (e) => { if (!down.has(e.pointerId)) bus.emit("input", { kind: "leave", t: now() }); });
   on<Event>(el, "contextmenu", (e) => e.preventDefault());
-  on<Event>(window, "blur", () => { flyKeys.clear(); ticking(); for (const id of down) bus.emit("input", { kind: "cancel", id, device: "mouse", x: 0, y: 0, button: 0, mods: { shift: false, ctrl: false, alt: false }, t: now() }); down.clear(); ticking(); });
+  on<Event>(window, "blur", () => { game = false; ticking(); for (const id of down) bus.emit("input", { kind: "cancel", id, device: "mouse", x: 0, y: 0, button: 0, mods: { shift: false, ctrl: false, alt: false }, t: now() }); down.clear(); ticking(); });
   on<WheelEvent>(el, "wheel", (e) => {
     e.preventDefault();
     const [x, y] = at(e);
@@ -70,7 +73,8 @@ export function attachInput(el: HTMLElement, bus: InputBus): () => void {
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
     if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "o" || e.key === "g")) e.preventDefault(); // save and open are ours, not the browser's
     if (e.key === " " || e.key === "Tab" || e.key === "Backspace" || e.key.startsWith("Arrow")) e.preventDefault(); // Space + drag pans, Tab moves between typed fields: the page must not scroll, change focus or go back
-    if (/^[wasd]$/i.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) { if (down) flyKeys.add(e.key.toLowerCase()); else flyKeys.delete(e.key.toLowerCase()); ticking(); }
+    if (down && /^[wasd]$/i.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) { game = true; ticking(); }
+    if (down && e.key === "Escape" && game) { game = false; ticking(); }
     bus.emit("input", { kind: "key", key: e.key, down, mods: modsOf(e), t: now() });
   };
   on<KeyboardEvent>(window, "keydown", key(true));

@@ -17,33 +17,52 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   let drawing = false; // a drawing tool is armed: a click may wander more before it counts as turning the view
   const touch = createTouch(I, countClick, () => (drawing ? I.drawTouchSlopPx : I.touchSlopPx), () => drawing);
   let space = false;
-  // W A S D (`in_300`): while any is held the view moves with them (time passes: a tick) and the pointer, with no button down, turns the view about the eye
+  // Game mode (`in_300`, `in_302`): any of W A S D turns it on and it stays on until the mouse is clicked (or Esc): the view moves with the keys, and the pointer, with no key needed and no button down, turns the view about the eye.
+  // Both are smoothed over the ticks (the keys ease up to speed and down again, the pointer's movement is let out over a few ticks), so neither is chunky.
   const fly = new Set<string>();
+  let game = false;
   let flyAt = 0;
+  const vel = { f: 0, r: 0 };
+  const pend = { x: 0, y: 0 };
   let last: [number, number] | null = null;
   let buttons = 0;
+  const ease = (dt: number, tau: number) => 1 - Math.exp(-dt / tau);
   const mouse = createMouse(countClick, () => space, () => (drawing ? settings.view.drawClickMovePx : settings.view.clickMovePx));
 
   function feed(e: RawInput): Intent[] {
     switch (e.kind) {
       case "key":
         if (e.key === " ") { space = e.down; return []; }
-        if (/^[wasd]$/i.test(e.key) && !e.mods.ctrl && !e.mods.alt) { const k = e.key.toLowerCase(); if (e.down) { if (!fly.size) flyAt = e.t; fly.add(k); } else fly.delete(k); return []; }
+        if (/^[wasd]$/i.test(e.key) && !e.mods.ctrl && !e.mods.alt) { const k = e.key.toLowerCase(); if (e.down) { if (!game) { flyAt = e.t; pend.x = pend.y = 0; } game = true; fly.add(k); } else fly.delete(k); return []; }
+        if (game && e.down && e.key === "Escape") { game = false; fly.clear(); return []; }
         return e.down ? keyIntents(e, I) : [];
       case "wheel": return scroll.wheel(e);
       case "gesture": return scroll.gesture(e);
       case "leave": return [{ type: "hoverEnd" }];
       case "tick": {
-        const walk: Intent[] = fly.size && e.t > flyAt ? [{ type: "walk", forward: (fly.has("w") ? 1 : 0) - (fly.has("s") ? 1 : 0), right: (fly.has("d") ? 1 : 0) - (fly.has("a") ? 1 : 0), dt: Math.min(0.1, (e.t - flyAt) / 1000) }] : [];
-        flyAt = e.t;
-        return [...walk.filter((w) => w.type === "walk" && (w.forward || w.right)), ...touch.tick(e.t), ...mouse.tick(e.t)];
+        const out: Intent[] = [];
+        if (game || vel.f || vel.r) {
+          const dt = Math.min(0.1, Math.max(0, (e.t - flyAt) / 1000));
+          flyAt = e.t;
+          const k = ease(dt, settings.input.flyEaseSec);
+          vel.f += (((fly.has("w") ? 1 : 0) - (fly.has("s") ? 1 : 0)) - vel.f) * k;
+          vel.r += (((fly.has("d") ? 1 : 0) - (fly.has("a") ? 1 : 0)) - vel.r) * k;
+          if (Math.abs(vel.f) < 0.005) vel.f = 0;
+          if (Math.abs(vel.r) < 0.005) vel.r = 0;
+          if (vel.f || vel.r) out.push({ type: "walk", forward: vel.f, right: vel.r, dt });
+          const m = ease(dt, settings.input.flyLookSec);
+          const [dx, dy] = [pend.x * m, pend.y * m];
+          pend.x -= dx; pend.y -= dy;
+          if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) out.push({ type: "swivel", dx, dy });
+        }
+        return [...out, ...touch.tick(e.t), ...mouse.tick(e.t)];
       }
       default: {
         if (e.device === "touch") return touch.pointer(e);
-        if (e.kind === "down") buttons++; else if ((e.kind === "up" || e.kind === "cancel") && buttons > 0) buttons--;
-        const turn: Intent[] = e.kind === "move" && fly.size && !buttons && last ? [{ type: "swivel", dx: e.x - last[0], dy: e.y - last[1] }] : [];
+        if (e.kind === "down") { buttons++; if (game) { game = false; pend.x = pend.y = 0; } } else if ((e.kind === "up" || e.kind === "cancel") && buttons > 0) buttons--; // (a click ends game mode)
+        if (e.kind === "move" && game && !buttons && last) { pend.x += e.x - last[0]; pend.y += e.y - last[1]; last = [e.x, e.y]; return []; }
         last = [e.x, e.y];
-        return turn.length ? turn : mouse(e);
+        return mouse(e);
       }
     }
   }
