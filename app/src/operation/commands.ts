@@ -1,6 +1,7 @@
 // Every change to the scene is a command: plain data that can be saved, replayed and undone (`dec_clean_engine_design` section 6).
 // `apply` is pure: it returns a new scene or says why the command cannot apply. Deleting a part removes the relations that used it in the same command,
 // so undo restores both.
+import { withAnchors } from "./anchors.ts";
 import { about } from "../math/rotation.ts";
 import { add, sub } from "../math/vec.ts";
 import type { Ref } from "../shared/ref.ts";
@@ -132,7 +133,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     case "addRelation": {
       if (s.relations.some((r) => r.id === c.relation.id)) return err(`relation ${c.relation.id} already exists`);
       for (const r of c.relation.parts) if (!(r in s.parts)) return err(`relation uses ${r}, which does not exist`);
-      return ok(bumpCounter({ ...s, relations: [...s.relations, c.relation] }, c.relation.id));
+      return ok(bumpCounter({ ...s, relations: [...s.relations, withAnchors(s, c.relation)] }, c.relation.id)); // (a circular edge of the body it names is described, so it can be found again, `in_309`)
     }
     case "removeRelation": {
       if (!s.relations.some((r) => r.id === c.id)) return err(`relation ${c.id} does not exist`);

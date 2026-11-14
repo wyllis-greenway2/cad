@@ -136,6 +136,9 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
     const victims = after.ids.filter((id) => !culprits.includes(id) && !before.ids.includes(id));
     return { ...s, message: "that cannot be done without breaking other constraints", conflict: { culprits, victims } };
   }
+  // a constraint to an edge of the body that the change took away, with no edge that looks like it: said, and the constraint flashes; the change stays (`in_309`)
+  const lost = (next.outcome.lost ?? []).filter((id) => !(s.outcome.lost ?? []).includes(id));
+  if (lost.length) return { ...next, message: `a constraint to an edge of the body has lost it (${lost.join(", ")}): no edge looks like it now; it holds nothing until the body is as it was`, conflict: { culprits: lost, victims: [] } };
   const late = !!next.outcome.kernel?.stale && steps.length > 0;
   return { ...next, conflict: null, checkSteps: late ? steps : undefined, fallback: late ? opts.fallback : undefined };
 }

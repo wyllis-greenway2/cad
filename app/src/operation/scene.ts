@@ -10,6 +10,8 @@ import type { PatternRecord } from "./repeat.ts";
 import { withPatterns } from "./repeat.ts";
 
 /** A relation between parts. `parts` are listed mover first, then the references (held in place): the part selected FIRST moves and the ones selected before it stay (`in_196`, which reversed `in_090`). `kind` is a row id of the actions table. */
+/** How a circular edge of the body looked when a relation was made to it (`in_309`): its centre, radius and facing, and how far along its facing it stood in the body's box (0 bottom, 1 top). The relation names the edge by where it was; if the body changes and that edge is gone, the edge that looks most like this one now is taken (`anchors.ts`). */
+export interface EdgeAnchor { center: [number, number, number]; radius: number; normal: [number, number, number]; t: number }
 export interface Relation {
   id: string;
   kind: string;
@@ -18,6 +20,8 @@ export interface Relation {
   locked?: boolean;
   /** Small extra numbers a relation keeps (for example which side of a line, so a gap does not flip over). */
   params?: Record<string, number>;
+  /** for each part that is a circular edge of the body: how it looked when the relation was made, to find it again when the body changes (`in_309`) */
+  anchors?: Record<string, EdgeAnchor>;
 }
 /** A step of the history of building: extrude, round or bevel, move, rotate, scale, delete. It names the parts it uses by ref. */
 export interface Step {

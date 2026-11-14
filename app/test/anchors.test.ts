@@ -105,3 +105,52 @@ test("a selected circle whose centre is near the centre of the body's edge is of
   const c = centreOf(after, circle.center);
   assert.ok(Math.hypot(c[0]! - round.center[0], c[1]! - round.center[1]) < 1e-6, "the centres are one");
 });
+
+import { compile } from "../src/compiler/compile.ts";
+
+test("a constraint to an edge of the body follows the edge when the body changes: a deeper body, a bigger chamfer (`in_309`)", () => {
+  const s = open();
+  const { circle, edge, round } = setup(s);
+  const done = run(s, actionsFor(scene(s), [circle.ref, edge.ref]).find((a) => a.id === "concentric")!.run());
+  const rel0 = scene(done).relations.find((r) => r.kind === "concentric")!;
+  assert.ok(rel0.anchors?.[edge.ref], "the edge is described when the relation is made");
+  // a deeper body: the top edge is somewhere else now, and the relation still holds the circle's centre on its centre
+  const deeper = run(done, { type: "setStepParams", id: "s_028", params: { depth: 16 } } as never);
+  assert.ok(!deeper.message, `${deeper.message}`);
+  const rel1 = scene(deeper).relations.find((r) => r.kind === "concentric")!;
+  assert.notEqual(rel1.parts[1], edge.ref, "named by the edge it is now");
+  const top = roundOf(lookup(scene(deeper)), rel1.parts[1] as Ref)!;
+  assert.ok(Math.abs(top.center[2] - 16) < 1e-3, `the top edge, at ${top.center[2]}`);
+  const c = centreOf(deeper, circle.center);
+  assert.ok(Math.hypot(c[0]! - round.center[0], c[1]! - round.center[1]) < 1e-3, `still concentric: ${c} and ${round.center}`);
+  // a bigger chamfer: the rim is smaller or elsewhere; the relation follows
+  const chamfered = run(done, { type: "setStepParams", id: "s_029", params: { value: 3.4 } } as never);
+  assert.ok(!chamfered.message, `${chamfered.message}`);
+  const rel2 = scene(chamfered).relations.find((r) => r.kind === "concentric")!;
+  assert.ok(roundOf(lookup(scene(chamfered)), rel2.parts[1] as Ref), "it still names an edge that is there");
+  assert.ok(!chamfered.outcome.lost?.length, "nothing lost");
+});
+
+import { rebindAnchors } from "../src/operation/anchors.ts";
+test("when no edge looks like the one a relation named, or two look alike, it is listed as lost and left as it is, never attached to a guess (`in_309`)", () => {
+  const s = open();
+  const { circle, edge } = setup(s);
+  const done = scene(run(s, actionsFor(scene(s), [circle.ref, edge.ref]).find((a) => a.id === "concentric")!.run()));
+  const rel = done.relations.find((r) => r.kind === "concentric")!;
+  const gone = "b/body/e@1,2,3~4,5,6~7,8,9" as Ref;
+  const fake = (anchor: Partial<NonNullable<typeof rel.anchors>[string]>) => ({ ...done, relations: done.relations.map((r) => (r === rel ? { ...r, parts: [r.parts[0]!, gone], anchors: { [gone]: { ...rel.anchors![edge.ref]!, ...anchor } } } : r)) });
+  // facing a way no edge does: nothing to take
+  const none = rebindAnchors(fake({ normal: [1, 0, 0] }));
+  assert.deepEqual(none.lost, [rel.id]);
+  assert.equal(none.scene.relations.find((r) => r.id === rel.id)!.parts[1], gone, "left as it was");
+  // an edge that looks like the one that was there: taken
+  const some = rebindAnchors(fake({}));
+  assert.deepEqual(some.lost, []);
+  assert.equal(some.scene.relations.find((r) => r.id === rel.id)!.parts[1], edge.ref, "the edge that looks like it");
+  // the same description twice over (two rims alike): not a clear winner, so none
+  const twin = { ...done, parts: { ...done.parts } };
+  const copy = { ...(done.parts[edge.ref] as object), ref: "b/body/e@copy" } as never;
+  (twin.parts as Record<string, unknown>)["b/body/e@copy"] = copy;
+  const two = rebindAnchors({ ...twin, relations: fake({}).relations });
+  assert.deepEqual(two.lost, [rel.id], "two alike: not guessed");
+});

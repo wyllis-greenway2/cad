@@ -1487,3 +1487,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_308 — 2026-11-14 — approval
 > Yes, start on the anchors
 (approves building the anchor step of `q_body_constraints`: body geometry, first edges that come from a sketch, seen by the solver and the Constraints list as read-only references; and asked "Want me to start on the anchors?" in the same answer)
+
+## in_309 — 2026-11-14 — directive
+> Take the stable naming first
+(approves doing the stable naming of body edges that have no sketch source next, ahead of straight edges and corners)

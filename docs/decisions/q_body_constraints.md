@@ -3,14 +3,14 @@ id: q_body_constraints
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_293, in_305, in_306, in_307, in_308
+human_input: in_293, in_305, in_306, in_307, in_308, in_309
 date: 2026-11-14
 depends_on:
 alternative_to:
 ---
 # Constraints and suggestions between bodies, as there are between sketch parts
 
-**Status after `in_308`:** steps A and B for circular edges are built and accepted as `dec_anchor_geometry` (anchors in the table, the solver, the hints and the suggestions). What is left here is open: edges with no sketch source and straight edges and corners as anchors in the suggestions, a stable name for an edge, and body-to-body placement.
+**Status after `in_308`:** steps A and B for circular edges are built and accepted as `dec_anchor_geometry` (anchors in the table, the solver, the hints and the suggestions). Stable naming of a circular edge (by how it looks, with a clear-winner rule) is built too (`in_309`). What is left here is open: straight edges and corners as anchors in the suggestions, the same naming for them and for faces, and body-to-body placement.
 
 ## What the human asked next (`in_305`, model kept as `app/test/fixtures/circle-on-body-face-in_305.cad.json`) and my answer, still a proposal
 
