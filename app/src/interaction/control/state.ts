@@ -37,6 +37,8 @@ export interface AppState {
   handleSel: string | null;
   /** the selection mode of the ⋯ menu (`in_300`): every tap adds to the selection, and a tap on what is selected takes it out, as Shift does (a phone has no Shift) */
   multiSelect: boolean;
+  /** the tape measure is on (`in_338`): the selected faces say what they are to each other, read only */
+  tape: boolean;
   /** the body (or "sketch") that was last in view: "Reset camera" goes back to it (`in_303`) */
   lastSeen: string | null;
   /** the move arrows chosen with Shift (`in_299`): a body dragged free then moves only along those axes (one: along a line; two: across a plane); none: free in every direction */
@@ -83,7 +85,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, multiSelect: false, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, multiSelect: false, tape: false, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.

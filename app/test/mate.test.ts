@@ -630,3 +630,40 @@ test("a mate is shown like any constraint: a bubble with its own icon only while
   const gone = reduce(back, { type: "relation", act: "remove", id }, env);
   assert.equal(scene(gone.session).relations.filter((r) => r.kind === "mate").length, 0);
 });
+
+import { tapeAnnotations, readingsBetween, readingsOf } from "../src/interaction/tape.ts";
+test("the tape measure shows what two faces are to each other, read only, only when it is on (`in_338`)", () => {
+  const env = { w: 800, h: 600, now: 0 };
+  const s = box(box(createSession(kernel), 0, 0), 40, 5);
+  const [a, b] = bodies(s);
+  const pick = [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])];
+  // flat faces facing each other, 30 apart: parallel (0 degrees) and a distance
+  const r = readingsBetween(scene(s), pick[0]!, pick[1]!);
+  assert.deepEqual(r.map((x) => [x.tag, x.unit]), [["angle", "deg"], ["distance", "mm"]]);
+  assert.equal(r[0]!.value, 0);
+  assert.ok(Math.abs(r[1]!.value - 30) < 1e-6, `${r[1]!.value}`);
+  assert.deepEqual(tapeAnnotations(scene(s), pick).map((x) => [x.tag, x.editable, x.readOnly, x.kind]), [["angle", false, true, "tape"], ["distance", false, true, "tape"]]);
+  // a face on its own: its area
+  const area = readingsOf(scene(s), faceOf(s, a!, [0, 0, 1]))[0]!;
+  assert.deepEqual([area.tag, area.unit], ["area", "mm²"]);
+  assert.ok(Math.abs(area.value - 100) < 1e-3, `a 10 x 10 top: ${area.value}`);
+  // off: the selection shows no numbers; on (from the menu row): it does; Escape puts it away
+  let st: AppState = { ...createState(s), cam: homeCamera() };
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: pick } } };
+  assert.equal(frameOf(st, env).annotations.filter((x) => x.kind === "tape").length, 0, "off: nothing is shown over two faces");
+  st = reduce(st, { type: "runAction", id: "tape:measure" }, env);
+  assert.equal(st.tape, true);
+  assert.deepEqual(frameOf(st, env).annotations.filter((x) => x.kind === "tape").map((x) => x.tag), ["angle", "distance"]);
+  st = reduce(st, { type: "escape" }, env);
+  assert.equal(st.tape, false, "Escape puts it away first");
+  assert.ok(st.session.click.selection.length === 2, "and leaves the selection");
+});
+test("the tape measure for round faces: the radius and diameter of one, the offset and angle of two axes, an axis against a flat face (`in_338`)", () => {
+  const s = cylinder(cylinder(createSession(kernel), 0, 0, 5), 30, 4, 3);
+  const [c1, c2] = bodies(s);
+  const one = readingsOf(scene(s), roundOfBody(s, c1!));
+  assert.deepEqual(one.map((x) => [x.tag, x.value]), [["radius", 5], ["diameter", 10]]);
+  const two = readingsBetween(scene(s), roundOfBody(s, c2!), roundOfBody(s, c1!));
+  assert.deepEqual(two.map((x) => x.tag), ["angle", "offset"]);
+  assert.ok(Math.abs(two[1]!.value - Math.hypot(30, 4)) < 1e-3, `axes ${two[1]!.value} apart`);
+});

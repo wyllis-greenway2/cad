@@ -30,7 +30,7 @@ export interface Annotation {
   at: Vec3;
   /** the number shown: the locked value, or what the parts measure now */
   value: number | null;
-  unit: "mm" | "deg" | null;
+  unit: "mm" | "deg" | "mm²" | null;
   locked: boolean;
   /** a number you can type over */
   editable: boolean;

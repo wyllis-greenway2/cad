@@ -169,6 +169,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 /** Esc lets go in steps: the menu, then an open badge, then the tool or operation, then the selection. */
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
+  if (s.tape && !s.tool && !s.op && !s.repeat && !s.cut) return { ...s, tape: false, session: { ...s.session, message: null } }; // (the tape measure is put away first, `in_338`)
   if (s.cut) return { ...s, cut: null, session: { ...s.session, message: null } };
   if (s.focus && !s.tool && !s.op) return { ...s, focus: null };
   if (s.box) return { ...s, box: null };
@@ -215,6 +216,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "repeat:edit") return doRepeatEdit(closed);
   if (id === "repeat:break") return doRepeatBreak(closed);
   if (id === "select:ungroup") return doUngroup(closed);
+  if (id === "tape:measure") return { ...closed, tape: !s.tape, session: { ...closed.session, message: s.tape ? "tape measure off" : "tape measure on: select a face, or two (Shift adds the second), to see what they are to each other" } };
   if (id === "multiselect") return { ...closed, multiSelect: !s.multiSelect, session: { ...closed.session, message: s.multiSelect ? "select several is off" : "select several is on: a tap adds to the selection, a tap on what is selected takes it out" } };
   if (id.startsWith("mate:stand:")) { // a mate is made standing (it puts itself back after a change) or not (`in_321`)
     const rel = sceneOf(s.session).relations.find((r) => r.id === id.slice(11));
