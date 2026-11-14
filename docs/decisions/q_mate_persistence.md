@@ -3,14 +3,14 @@ id: q_mate_persistence
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_314, in_315, in_321, in_322, in_323
+human_input: in_314, in_315, in_321, in_322, in_323, in_329
 date: 2026-11-14
 depends_on:
 alternative_to:
 ---
 # Should a mate stay true when a body changes, and how
 
-**Status after `in_321`:** a first slice of option 3 is built as a provisional decision (`dec_standing_mates`: standing mates put back with the change, pivots and sliders from coaxial mates); limits and drive values are built (`in_322`); a pose solver stays open.
+**Status after `in_321`:** a first slice of option 3 is built as a provisional decision (`dec_standing_mates`: standing mates put back with the change, pivots and sliders from coaxial mates); limits and drive values are built (`in_322`); a pose solver for competing mates is built (`in_329`); what is left open is a priority between mates and the assembly questions of `q_body_constraints`.
 
 **Status after `in_315`:** option 2 (checked, put back on request) is built (`dec_body_mates`). What stays open here is option 3 only: bodies that follow their mates by themselves, and mates that leave freedom.
 

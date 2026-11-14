@@ -1567,3 +1567,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_328 — 2026-11-14 — directive
 > Do the browser pass over the recent slices next
 (asks for the recent mate slices to be looked at in a real browser)
+
+## in_329 — 2026-11-14 — directive
+> Do the competing mates solver next
+(asks for the pose solver that was left unbuilt in `dec_standing_mates`: several mates on the bodies solved together, and a clear answer when they are at odds)

@@ -12,6 +12,8 @@ import type { MateMode } from "../operation/mates.ts";
 import { featureOf, mateRelation, mateStatus, isFlatMode, turnOnly, angleOfMode } from "../operation/mates.ts";
 import type { Command } from "../operation/commands.ts";
 import { carrySketches } from "./operations.ts";
+import type { SolveMate, SolveBody } from "../operation/matesolve.ts";
+import { solvePoses } from "../operation/matesolve.ts";
 import type { Rigid } from "../operation/frames.ts";
 import { laterMotion } from "../operation/frames.ts";
 import type { Step } from "../operation/scene.ts";
@@ -198,4 +200,40 @@ export function jointRigid(scene: Scene, mateId: string, kind: "turn" | "slide",
 export function jointRoom(scene: Scene, mateId: string, kind: "turn" | "slide"): { down: number; up: number } {
   const j = jointOf(scene, mateId)?.[kind];
   return j ? { down: j.min !== undefined ? j.min - j.now : -Infinity, up: j.max !== undefined ? j.max - j.now : Infinity } : { down: 0, up: 0 };
+}
+
+/**
+ * The standing mates solved together (`in_329`): when some are not true, the poses of the bodies that make them all true at once (`operation/matesolve.ts`), as turns and moves with the sketches carried, in one batch.
+ * `atOdds`: the mates that cannot all hold (nothing is changed then). Empty commands and no mates at odds: nothing is off.
+ */
+export function solveStanding(scene: Scene): { commands: Command[]; atOdds: string[] } {
+  const states = mateStatus(scene).filter((m) => m.standing && m.state !== "lost" && m.mover && m.other);
+  if (!states.some((m) => m.state === "off")) return { commands: [], atOdds: [] };
+  const mates: SolveMate[] = states.map((m) => ({ id: m.id, mode: m.mode, gap: m.gap, counts: m.counts !== false, mover: m.mover!.body, other: m.other!.body, a: { point: m.mover!.point, dir: m.mover!.dir }, b: { point: m.other!.point, dir: m.other!.dir } }));
+  const bodies: SolveBody[] = [];
+  for (const ref of new Set(mates.flatMap((m) => [m.mover, m.other]))) {
+    const b = scene.parts[ref];
+    if (b?.kind !== "body" || !b.bbox) continue;
+    bodies.push({ id: ref, pivot: [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2], order: Number(String(b.id ?? "").replace(/\D/g, "")) || 0 });
+  }
+  const solved = solvePoses(mates, bodies);
+  if (!solved.ok) return { commands: [], atOdds: solved.atOdds };
+  let id = nextId(scene, "s");
+  while (scene.steps.some((st) => st.id.startsWith(id))) id = `${id}_`;
+  const commands: Command[] = [];
+  let k = 0;
+  for (const [ref, pose] of solved.poses) {
+    const body = bodies.find((b) => b.id === ref);
+    const part = scene.parts[ref];
+    if (!body || part?.kind !== "body" || !part.id) continue;
+    const angle = length(pose.turn);
+    const shift = pose.shift.map((v) => Math.round(v * 1e6) / 1e6) as unknown as Vec3;
+    const turns = angle > 1e-9 ? eulerXYZ(turnAbout(pose.turn, angle)) : [];
+    if (!turns.length && length(shift) < 1e-9) continue;
+    const tag = `${id}b${k++}`;
+    commands.push(...turns.map((t, j): Command => ({ type: "addStep", step: { id: `${tag}${"xyz"[t.axis]}${j}`, type: "rotate", parts: [ref as Ref], params: { axis: t.axis, value: t.angle, px: body.pivot[0], py: body.pivot[1], pz: body.pivot[2], follow: 1, body: part.id! } } })));
+    if (length(shift) > 1e-9) commands.push({ type: "addStep", step: { id: `${tag}m`, type: "move", parts: [ref as Ref], params: { axis: 0, value: 0, vx: shift[0], vy: shift[1], vz: shift[2], follow: 1, body: part.id! } } });
+    commands.push(...carrySketches(scene, turns, shift, body.pivot, 1, part.id));
+  }
+  return { commands, atOdds: [] };
 }

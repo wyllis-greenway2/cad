@@ -611,3 +611,37 @@ test("a mate whose face is gone still says whether it stands, so it can be repor
   assert.ok(mateStatus(scene(s)).every((m) => m.standing === true), "standing while true");
   assert.ok(mateStatus(scene(gone)).every((m) => m.standing === true) || mateStatus(scene(gone)).length === 0, "and when lost");
 });
+
+test("a chain of standing mates follows a change all at once: widening the first body moves the second and the third with it (`in_329`)", () => {
+  const rA = drawSquaredRectangle(scene(createSession(kernel)), XY, [0, 0, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]);
+  let s = box(box(extrudeLast(run(createSession(kernel), rA.command), rA.lines, 10), 40, 0), 80, 0);
+  const [a, b, c] = bodies(s);
+  const face = (q: Session, id: string | undefined, n: [number, number, number]) => faceOf(q, bodies(q).find((x) => x.id === id)!, n);
+  s = run(s, actionsFor(scene(s), [face(s, b!.id, [-1, 0, 0]), face(s, a!.id, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  s = run(s, actionsFor(scene(s), [face(s, c!.id, [-1, 0, 0]), face(s, b!.id, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  const at = (q: Session, id: string | undefined) => bodies(q).find((x) => x.id === id)!.bbox!;
+  assert.ok(Math.abs(at(s, b!.id).min[0] - 10) < 1e-3 && Math.abs(at(s, c!.id).min[0] - 20) < 1e-3, "chained: 10 and 20");
+  const rightA = (rA.corners as Ref[]).filter((q) => (scene(s).parts[q] as unknown as { at: number[] }).at[0] === 10);
+  const before = scene(s).steps.length;
+  let wider = s;
+  for (const ref of rightA) { const p = (scene(wider).parts[ref] as unknown as { at: number[] }).at; wider = run(wider, { type: "movePart", ref, to: [14, p[1]!, p[2]!] } as never); }
+  assert.ok(mateStatus(scene(wider)).every((m) => m.state === "ok"), "every mate holds again");
+  const grew = at(wider, a!.id).max[0]! - 10;
+  assert.ok(grew > 1, `A is wider by ${grew}`);
+  assert.ok(Math.abs(at(wider, b!.id).min[0] - (10 + grew)) < 1e-3, "B follows A");
+  assert.ok(Math.abs(at(wider, c!.id).min[0] - (20 + grew)) < 1e-3, "C follows B");
+  assert.ok(scene(wider).steps.length > before);
+});
+
+test("standing mates at odds are said, with which, and nothing is moved to please one of them (`in_329`)", () => {
+  // B is put against A's right face (x = 10 to 20); then its right face is mated against C's left face, at x = 25: no place holds both
+  let s = box(box(box(createSession(kernel), 0, 0), 40, 0), 25, 30);
+  const [a, b, c] = bodies(s);
+  const face = (q: Session, id: string | undefined, n: [number, number, number]) => faceOf(q, bodies(q).find((x) => x.id === id)!, n);
+  s = run(s, actionsFor(scene(s), [face(s, b!.id, [-1, 0, 0]), face(s, a!.id, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  const second = run(s, actionsFor(scene(s), [face(s, b!.id, [1, 0, 0]), face(s, c!.id, [-1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  assert.ok(second.message && /cannot all hold/.test(second.message), `said: ${second.message}`);
+  // the change itself stays (the second mate put B against C, x = 15 to 25), and nothing is added to please the first
+  assert.equal(scene(second).steps.length, scene(s).steps.length + 1, "only the second mate's own move");
+  assert.ok(Math.abs(bodies(second).find((x) => x.id === b!.id)!.bbox!.min[0]! - 15) < 1e-3, "B stands against C");
+});
