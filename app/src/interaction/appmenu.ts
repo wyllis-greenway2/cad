@@ -5,7 +5,12 @@ export type ScrollMode = "auto" | "pan" | "zoom";
 const NEXT: Record<ScrollMode, ScrollMode> = { auto: "pan", pan: "zoom", zoom: "auto" };
 const LABEL: Record<ScrollMode, string> = { auto: "Scroll: trackpad pans, wheel zooms", pan: "Scroll: always pans", zoom: "Scroll: always zooms" };
 
-export const appRows = (mode: ScrollMode, build = "", can: { undo: boolean; redo: boolean; exportStl?: boolean; exportBody?: boolean } = { undo: true, redo: true }, allConstraints = false, multiSelect = false): AppRow[] => [
+/** How much of a trackpad's scroll the view pans by (`in_303`): trackpads and their system settings differ a lot, so it is the user's choice. */
+const PAN_LEVELS = [{ name: "low", scale: 0.15 }, { name: "medium", scale: 0.3 }, { name: "high", scale: 0.5 }] as const;
+export const nextPanScale = (scale: number): number => { const i = PAN_LEVELS.findIndex((l) => Math.abs(l.scale - scale) < 1e-9); return PAN_LEVELS[(i + 1) % PAN_LEVELS.length]!.scale; };
+const panName = (scale: number): string => PAN_LEVELS.reduce((a, l) => (Math.abs(l.scale - scale) < Math.abs(a.scale - scale) ? l : a)).name;
+
+export const appRows = (mode: ScrollMode, build = "", can: { undo: boolean; redo: boolean; exportStl?: boolean; exportBody?: boolean } = { undo: true, redo: true }, allConstraints = false, multiSelect = false, panScale = 0.3): AppRow[] => [
   { id: "undo", label: "Undo", enabled: can.undo, why: "nothing to undo" },
   { id: "redo", label: "Redo", enabled: can.redo, why: "nothing to redo" },
   { id: "bodies", label: "Bodies", enabled: true, why: null },
@@ -18,6 +23,7 @@ export const appRows = (mode: ScrollMode, build = "", can: { undo: boolean; redo
   { id: "share", label: "Share state (a file to send for a bug report)", enabled: true, why: null },
   { id: "constraints", label: allConstraints ? "Constraints: all shown" : "Constraints: only the ones that can change the body", enabled: true, why: null },
   { id: "multiselect", label: multiSelect ? "Select several: on (a tap adds or takes out)" : "Select several: off", enabled: true, why: null },
+  { id: "panSpeed", label: `Trackpad pan: ${panName(panScale)} (tap to change)`, enabled: true, why: null },
   { id: "scrollMode", label: LABEL[mode], enabled: true, why: null },
   ...(build ? [{ id: "build", label: `Build ${build}`, enabled: false, why: "which version of the app this page is running" }] : []),
 ];

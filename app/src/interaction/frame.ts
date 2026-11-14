@@ -15,7 +15,7 @@ import { normalOfPlane } from "../operation/part.ts";
 import { planeOf } from "./objects.ts";
 import type { Plane } from "../operation/part.ts";
 import type { Camera } from "./camera.ts";
-import { offsetOf, sideOf, nearTolMm } from "./camera.ts";
+import { offsetOf, sideOf, nearTolMm, projector } from "./camera.ts";
 import { dot, cross, normalize, add, sub } from "../math/vec.ts";
 import { apply } from "../operation/commands.ts";
 import { outlineOf } from "../operation/part.ts";
@@ -35,6 +35,7 @@ import type { AppState } from "./control/state.ts";
 import { sketchPlaneOf } from "./control/state.ts";
 import { gridPlaneOf } from "./control/viewing.ts";
 import { whyNotGroup, whyNotUngroup } from "./control/select.ts";
+import { nothingInView } from "./lastseen.ts";
 import { gridFor } from "./grid.ts";
 import { WORLD_NAMES, paneCorners } from "./panes.ts";
 import type { WorldName } from "./panes.ts";
@@ -110,6 +111,8 @@ export interface Frame {
   /** a little icon by the move arrows of a body (or a drawn figure) that switches to turning it, and by its rings one that switches back (`in_206`) */
   /** the chip that follows "select similar": its rules and how many were selected; there only while the selection is still what it chose (`in_257`) */
   /** the chip over the view while several things are selected: what can be done with them as a set (`in_300`) */
+  /** nothing of the model is in view: the Reset camera button is offered (`in_303`) */
+  resetView: boolean;
   selection: { count: number; actions: { id: string; label: string; title: string }[] } | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate"; label: string } | null;
@@ -412,6 +415,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
     similar: similarChip(s),
     selection: selectionChip(s),
+    resetView: !s.anim && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
     modeSwitch: gizmo && !s.repeat ? modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : null,
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
     message: s.session.message ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? "",

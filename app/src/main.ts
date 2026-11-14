@@ -12,7 +12,7 @@ import { exportStl, canExport, selectedBodies } from "./interaction/exportstl.ts
 import { webFiles, webStore } from "./platform/web-files.ts";
 import { createState, reduce, advance } from "./interaction/controller.ts";
 import { frameOf } from "./interaction/frame.ts";
-import { appRows, nextScrollMode, isScrollMode } from "./interaction/appmenu.ts";
+import { appRows, nextScrollMode, isScrollMode, nextPanScale } from "./interaction/appmenu.ts";
 import { snapshotOf, logEntry } from "./interaction/snapshot.ts";
 import { createTiming } from "./interaction/timing.ts";
 import type { AppState } from "./interaction/controller.ts";
@@ -34,6 +34,7 @@ import { createToolChip } from "./ui/toolchip.ts";
 import { createToolCursor } from "./ui/toolcursor.ts";
 import { createSimilarChip } from "./ui/similarchip.ts";
 import { createSelectionChip } from "./ui/selectionchip.ts";
+import { createResetView } from "./ui/resetview.ts";
 import { createModeSwitch } from "./ui/modeswitch.ts";
 import { createSuggest } from "./ui/suggest.ts";
 import { createHints } from "./ui/hint.ts";
@@ -83,9 +84,16 @@ const SCROLL_KEY = "cad.scrollMode";
 const savedScroll = webStore.get(SCROLL_KEY);
 if (isScrollMode(savedScroll)) recognizer.setScrollMode(savedScroll);
 
+const PAN_KEY = "cad.panScale";
+const savedPan = Number(webStore.get(PAN_KEY));
+if (Number.isFinite(savedPan) && savedPan > 0) settings.input.trackpadPanScale = savedPan;
+
 const menu = createMenu(document.body, (id) => {
   menu.hide();
-  if (id === "scrollMode") {
+  if (id === "panSpeed") {
+    settings.input.trackpadPanScale = nextPanScale(settings.input.trackpadPanScale);
+    webStore.set(PAN_KEY, String(settings.input.trackpadPanScale));
+  } else if (id === "scrollMode") {
     const next = nextScrollMode(recognizer.scrollMode);
     recognizer.setScrollMode(next);
     webStore.set(SCROLL_KEY, next);
@@ -115,6 +123,7 @@ const helper = createHelper(document.body);
 const busySign = createBusy(document.body);
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
+const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const selectionChip = createSelectionChip(document.body, (id) => dispatch({ type: "runAction", id }));
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch({ type: "begin", name: to }));
@@ -177,7 +186,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session) }, state.showAllConstraints, state.multiSelect)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session) }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale)); }
     else { menu.hide(); ring.show(i.x, i.y, state.menu?.items ?? []); }
   } else {
     // pointing around does not close a menu; any other intent does
@@ -256,6 +265,7 @@ function frame(now: number) {
     undoBar.update(lastDevice === "touch", f.undoRedo);
     similarChip.update(f.similar);
     selectionChip.update(f.selection);
+    resetView.update(f.resetView);
     toolCursor.update(f.tool ? f.tool.kind : null);
     const project = projector(state.cam, size.w, size.h).project;
     // what comes before the constraint bubbles: the ring, and the number bubbles (and the helper bubble, the suggestions and the hint icons), as they stood on the last frame

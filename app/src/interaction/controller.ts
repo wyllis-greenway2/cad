@@ -7,12 +7,14 @@ import type { Ref } from "../shared/ref.ts";
 import type { AppState, Env } from "./control/state.ts";
 import { doHover, doClick, doMenu, doHold, doTapAim, doMovePoint } from "./control/pointer.ts";
 import { doCut } from "./control/select.ts";
-import { doPan, doWalk, doSwivel, doZoom, doLook, doHome } from "./control/viewing.ts";
+import { doPan, doWalk, doSwivel, doZoom, doLook, doHome, doResetView } from "./control/viewing.ts";
 import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn, scene as sceneOf } from "./session.ts";
 import { projector } from "./camera.ts";
+import { noteSeen } from "./lastseen.ts";
+import type { Vec3 } from "../math/vec.ts";
 import { offsetNear } from "./offset.ts";
 import { armTool } from "./tools.ts";
 import { normalOfPlane } from "../operation/part.ts";
@@ -29,6 +31,7 @@ const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit",
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (s.multiSelect && i.type === "click" && !i.shift && !s.tool && !s.op && !s.repeat && !s.cut) i = { ...i, shift: true }; // (select several: a tap is a Shift click, `in_300`)
   let next = apply(s, i, env);
+  if (next.cam !== s.cam || next.session.history.scene !== s.session.history.scene || next.lastSeen === null) next = noteSeen(next, env.w, env.h, projector(next.cam, env.w, env.h).project as (p: Vec3) => [number, number]); // (what was last in view, for Reset camera, `in_303`)
   if (next.resume && !RESUMING.has(i.type)) next = { ...next, resume: null }; // only a click, or moving the view, keeps "sketching goes on" waiting for a vertex
   // the hidden sketch of a plane is shown while a tool begun on the edge of a body sketches in it (`in_211`)
   const shownStep = next.showSketch ? next.session.history.scene.steps.find((x) => x.id === next.showSketch) : undefined;
@@ -85,6 +88,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "orbit": return doDragMove(s, i, env);
     case "dragEnd": return doDragEnd(s, env);
     case "pan": return doPan(s, i, env);
+    case "resetView": return doResetView(s, env);
     case "walk": return doWalk(s, i);
     case "swivel": return doSwivel(s, i);
     case "zoom": return doZoom(s, i, env);

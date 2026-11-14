@@ -11,9 +11,10 @@ import { scene as sceneOf, selection as selectionOf } from "../session.ts";
 import type { Session } from "../session.ts";
 import { initialClick } from "../selection.ts";
 import { candidatesAt } from "../picking.ts";
-import { homeCamera, position, basis, orbit, pan, zoomAt, blend, easeInOut, projector, sideOf } from "../camera.ts";
+import { homeCamera, position, basis, orbit, pan, zoomAt, frame, blend, easeInOut, projector, sideOf } from "../camera.ts";
 import { pivotOf, planeOf } from "../objects.ts";
 import type { AppState, Env } from "./state.ts";
+import { resetTarget } from "../lastseen.ts";
 import { pickOpts, stop, surfacePoint, planeView, animateTo, withSession } from "./state.ts";
 
 const WORLD_PLANE = { X: "YZ", Y: "XZ", Z: "XY" } as const; // X looks along the X axis: at the plane across it
@@ -77,6 +78,14 @@ export function doLook(s: AppState, i: Extract<Intent, { type: "look" }>, env: E
   return animateTo({ ...withSession(s, selected), world: WORLD_PLANE[i.plane] }, planeView(s.cam, get(ref) as Plane, true), env.now); // (the plane that is on changes with it, `in_190`)
 }
 
+/** The Reset camera button: the view goes to the thing that was last in view (else the last there is), looked at from the home direction (`in_303`). */
+export function doResetView(s: AppState, env: Env): AppState {
+  const t = resetTarget(s);
+  if (!t) return doHome(s, env);
+  const centre: Vec3 = [(t.lo[0] + t.hi[0]) / 2, (t.lo[1] + t.hi[1]) / 2, (t.lo[2] + t.hi[2]) / 2];
+  const radius = Math.max(1, Math.hypot(t.hi[0] - t.lo[0], t.hi[1] - t.lo[1], t.hi[2] - t.lo[2]) / 2);
+  return animateTo({ ...s, lastSeen: t.id }, frame(homeCamera(), centre, radius), env.now);
+}
 export const doHome = (s: AppState, env: Env): AppState => animateTo(s, { ...homeCamera(), target: pivotOf(s.session) ?? [0, 0, 0] }, env.now);
 
 /** Advance the camera animation to time `now`. */
