@@ -46,14 +46,43 @@ export function trimAt(s: Scene, ref: Ref, at: Vec3): TrimPlan | null {
 }
 
 const newIds = (s: Scene) => nextId(s, "e");
+/** The centre and radius of a circle or an arc of the drawing (3D), or null (a straight line, or nothing). */
+function roundOf(s: Scene, ref: Ref): { c: Vec3; r: number } | null {
+  const q = s.parts[ref];
+  const at = (e: Ref | undefined): Vec3 | null => { const p = e ? s.parts[e] : undefined; return p?.kind === "corner" ? p.at : null; };
+  const d = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  if (q?.kind === "circle") { const c = at(q.center); return c ? { c, r: q.radius } : null; }
+  if (q?.kind === "line" && q.center) { const [c, a] = [at(q.center), at(q.a)]; return c && a ? { c, r: d(c, a) } : null; }
+  return null;
+}
+/**
+ * Whether two round curves that are tangent touch at one of `ends`. The solver holds an arc tangent to another round curve at the end of the arc nearer to it (`solve.ts`, `tangentRound`): an arc that no longer ends where
+ * they touch (the piece with the touching end was trimmed off) cannot take that constraint, and it would only break the other constraints of the arc (`in_338`). A straight line (tangent anywhere on the arc) is not asked.
+ */
+function touchesAtEnd(s: Scene, old: Ref, other: Ref, ends: Vec3[]): boolean {
+  const [a, b] = [roundOf(s, old), roundOf(s, other)];
+  if (!a || !b) return true;
+  const d = Math.hypot(b.c[0] - a.c[0], b.c[1] - a.c[1], b.c[2] - a.c[2]);
+  if (d < 1e-9) return true;
+  const tol = 1e-4 * Math.max(1, a.r);
+  // the touching point is on the line through both centres, on the old curve and on the other one (outside or inside it)
+  for (const sign of [1, -1]) {
+    const p: Vec3 = [a.c[0] + (sign * (b.c[0] - a.c[0]) * a.r) / d, a.c[1] + (sign * (b.c[1] - a.c[1]) * a.r) / d, a.c[2] + (sign * (b.c[2] - a.c[2]) * a.r) / d];
+    if (Math.abs(Math.hypot(p[0] - b.c[0], p[1] - b.c[1], p[2] - b.c[2]) - b.r) > Math.max(tol, 1e-3 * Math.max(1, b.r))) continue;
+    return ends.some((e) => Math.hypot(e[0] - p[0], e[1] - p[1], e[2] - p[2]) <= Math.max(tol, 1e-3 * Math.max(1, a.r)));
+  }
+  return true; // (they do not touch as drawn: nothing to judge)
+}
+
 /**
  * What a trim keeps of a part's constraints (`in_229`): the tangent to a circle or an arc stays on every piece that is left (the line was made tangent on purpose, and a smaller circle later must still be touched by it),
  * a point on a circle stays on the arc the circle became, and the size of a circle goes to the arc as its radius. Anything else (equal lengths, a length, a direction held by another line) belonged to the whole part and goes.
  */
-function carried(s: Scene, old: Ref, now: Ref, rid: () => string, opts: { circleToArc?: boolean } = {}): Relation[] {
+function carried(s: Scene, old: Ref, now: Ref, rid: () => string, opts: { circleToArc?: boolean; /** where the arc that is left ends (3D): a tangent to another round curve is kept only if they touch at one of these */ ends?: Vec3[] } = {}): Relation[] {
   const out: Relation[] = [];
   for (const r of s.relations) {
     if (!r.parts.includes(old)) continue;
+    if (opts.ends && r.kind === "tangent" && r.parts.length === 2 && !touchesAtEnd(s, old, r.parts.find((p) => p !== old)!, opts.ends)) continue;
     if ((r.kind === "tangent" || r.kind === "onCircle") && r.parts.length === 2) out.push({ ...r, id: rid(), parts: r.parts.map((p) => (p === old ? now : p)) } as Relation);
     else if (opts.circleToArc && r.kind === "diameter" && r.parts.length === 1 && r.value !== undefined) out.push({ id: rid(), kind: "radius", parts: [now], value: r.value / 2, ...(r.locked === false ? { locked: false } : { locked: true }) } as Relation);
   }
@@ -155,7 +184,7 @@ function trimArc(s: Scene, part: Extract<Scene["parts"][string], { kind: "line" 
     const arc = drawnRef(`${id}.s${j}`);
     commands.push({ type: "addPart", part: { ...base, ref: arc, kind: "line", a, b, center: part.center!, ...(part.ccw === undefined ? {} : { ccw: part.ccw }) } });
     commands.push({ type: "addRelation", relation: { id: rid(), kind: "arcEnds", parts: [arc, part.center!] } as Relation });
-    for (const r of carried(s, part.ref, arc, rid)) commands.push({ type: "addRelation", relation: r });
+    for (const r of carried(s, part.ref, arc, rid, { ends: [lift(pointAt(k.a.t)), lift(pointAt(k.b.t))] })) commands.push({ type: "addRelation", relation: r });
   });
   commands.push({ type: "deleteParts", refs: [part.ref] });
   // (an end that nothing else stands on goes with the piece it was the end of: `deleteParts` takes it, `commands.ts` `strandedCorners`)
@@ -189,7 +218,7 @@ function trimCircle(s: Scene, part: Extract<Scene["parts"][string], { kind: "cir
     const by = (k2 as typeof hi).by;
     if (by.k === "seg" || by.k === "circle") commands.push({ type: "addRelation", relation: { id: rid(), kind: by.k === "seg" ? "onLine" : "onCircle", parts: [r as Ref, by.ref] } as Relation });
   });
-  for (const r of carried(s, part.ref, arc, rid, { circleToArc: true })) commands.push({ type: "addRelation", relation: r });
+  for (const r of carried(s, part.ref, arc, rid, { circleToArc: true, ends: [lift(at(hi.t)), lift(at(lo.t))] })) commands.push({ type: "addRelation", relation: r });
   commands.push({ type: "deleteParts", refs: [part.ref] }); // (the circle's centre stays: the arc is about it)
   return { span: arcPoints(lo.t, hi.t), command: { type: "batch", commands } };
 }

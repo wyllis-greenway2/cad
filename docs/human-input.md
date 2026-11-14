@@ -1603,3 +1603,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_337 — 2026-11-14 — directive
 > The zoom got into a really weird state here. I am not sure if the cad state export captured it though. When I load the saved file back into the cad program the zoom state is no longer there.
 (files `zoom_got_really_wierd_state.json` and `zoom_got_really_wierd.json`; the project file does not keep the view, so the state snapshot's intents are the record)
+
+## in_338 — 2026-11-14 — directive
+> There is this curved line in this sketch that seems to be un trimmable with the scissors
+(files `Cannot_delete_line.json` and `cad-state-2026-11-14T06-46-17.json`, a touch device; the trim tool was used with `tapAim`; the state's last refusal names the relations r_053 to r_061 as the ones that tried)
