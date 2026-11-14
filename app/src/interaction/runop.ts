@@ -12,7 +12,7 @@ import { isTangentArc } from "./faceedit.ts";
 export function runOp(sess: Session, op: Op): { session: Session; cmd: Command } | null {
   // a body that is moved or turned against its standing mates: what is made is the pose they leave it at, one step, not the move asked for and then their correction (`in_340`)
   const asked = op.target === "body" && (op.kind === "move" || op.kind === "rotate") && op.parts[0] ? bodyMotion(sceneOf(sess), op) : null;
-  const held = asked ? heldCommand(sceneOf(sess), op.parts[0]!, asked) : null;
+  const held = asked ? heldCommand(sceneOf(sess), op.parts.filter((r) => sceneOf(sess).parts[r]?.kind === "body"), asked) : null;
   if (held && held.type === "batch" && !held.commands.length) return { session: { ...sess, message: "the mates of this body leave it nowhere to go that way" }, cmd: held };
   const cmd = held ?? opCommand(sceneOf(sess), op);
   if (!cmd) {

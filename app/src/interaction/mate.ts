@@ -12,9 +12,10 @@ import type { MateMode } from "../operation/mates.ts";
 import type { MateState } from "../operation/mates.ts";
 import { featureOf, mateRelation, mateStatus, isFlatMode, turnOnly, angleOfMode } from "../operation/mates.ts";
 import type { Command } from "../operation/commands.ts";
+import { apply } from "../operation/commands.ts";
 import { carrySketches } from "./operations.ts";
 import type { SolveMate, SolveBody, Pose } from "../operation/matesolve.ts";
-import { solvePoses, solveDriven, poseOfRigid, rigidOfPose } from "../operation/matesolve.ts";
+import { solvePoses, solveDriven, poseOfRigid, rigidOfPose, poseForBody } from "../operation/matesolve.ts";
 import type { Rigid } from "../operation/frames.ts";
 import { laterMotion } from "../operation/frames.ts";
 import type { Step } from "../operation/scene.ts";
@@ -239,37 +240,49 @@ function poseCommands(scene: Scene, ref: Ref, pivot: Vec3, pose: Pose, k: number
 }
 
 /**
- * What releasing a drag of a body makes when its standing mates hold it back (`in_340`): only the pose they leave, as the turns and move that make it, not the move that was asked for and then a correction. Null when no mate holds it back (the
- * move asked for is made as it is); an empty batch when they leave it nowhere to go.
+ * What releasing a drag of bodies makes when their standing mates hold them back (`in_340`, `in_345`): only the pose the mates leave, as the turns and move of each body, not the move asked for and then a correction. Null when no mate holds
+ * them back (the move asked for is made as it is); an empty batch when the mates leave them nowhere to go that way.
  */
-export function heldCommand(scene: Scene, body: Ref, asked: Rigid): Command | null {
-  const held = constrainedMotion(scene, body, asked);
-  if (!held || !held.blocked.length) return null; // (nothing holds it back: the move asked for is made, and the bodies that follow it are put where they stand by the correction that comes with it)
-  const b = scene.parts[body];
-  if (b?.kind !== "body" || !b.bbox) return null;
-  const pivot: Vec3 = [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2];
-  const pose = poseOfRigid(held.rigid, pivot);
-  if (Math.hypot(...pose.shift) < 1e-2 && Math.hypot(...pose.turn) < 1e-4) return { type: "batch", commands: [] }; // (a hundredth of a millimetre: the mates leave it nowhere to go, and the solver's leftovers are not a move)
-  return { type: "batch", commands: poseCommands(scene, body, pivot, pose, 0) };
+export function heldCommand(scene: Scene, group: readonly Ref[], asked: Rigid): Command | null {
+  const held = constrainedMotion(scene, group, asked);
+  if (!held) return null;
+  const commands: Command[] = [];
+  let sc = scene;
+  let any = false;
+  held.rigids.forEach(({ body, rigid }, k) => {
+    const b = sc.parts[body];
+    if (b?.kind !== "body" || !b.bbox) return;
+    const pivot: Vec3 = [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2];
+    const pose = poseOfRigid(rigid, pivot);
+    if (Math.hypot(...pose.shift) < 1e-2 && Math.hypot(...pose.turn) < 1e-4) return; // (a hundredth of a millimetre: the mates leave it nowhere to go, and the solver's leftovers are not a move)
+    const made = poseCommands(sc, body, pivot, pose, k);
+    any = any || made.length > 0;
+    commands.push(...made);
+    const next = apply(sc, { type: "batch", commands: made });
+    if (next.ok) sc = next.value;
+  });
+  return { type: "batch", commands: any ? commands : [] };
 }
 
 /**
- * A body being dragged (`in_338`, `in_341`): the motion the mates allow that is nearest to the one asked for, the mates that held it back (they flash), and the bodies that move with it. The bodies that are fixed stay where
- * they are. Null when the body has no standing mate that holds.
+ * Bodies being dragged (`in_338`, `in_345`): the motion the mates allow that is nearest to the one asked for, and the mates that held it back (they flash). The bodies dragged (the ones selected) move as one; every other body stays where it
+ * is, even one that is mated to them. Null when no standing mate holds it back.
  */
-export function constrainedMotion(scene: Scene, body: Ref, asked: Rigid): { rigid: Rigid; blocked: string[]; followers: { body: Ref; rigid: Rigid }[] } | null {
-  const all = mateStatus(scene).filter((m) => m.standing && m.state === "ok" && m.mover && m.other);
-  // the mates that join this body to others, and those to theirs, and so on
-  const reach = new Set<string>([body]);
-  for (let grew = true; grew;) { grew = false; for (const m of all) { const [p, q] = [m.mover!.body, m.other!.body]; if (reach.has(p) !== reach.has(q)) { reach.add(p); reach.add(q); grew = true; } } }
-  const states = all.filter((m) => reach.has(m.mover!.body) && reach.has(m.other!.body));
+export function constrainedMotion(scene: Scene, group: readonly Ref[], asked: Rigid): { rigids: { body: Ref; rigid: Rigid }[]; blocked: string[] } | null {
+  const states = mateStatus(scene).filter((m) => m.standing && m.state === "ok" && m.mover && m.other && (group.includes(m.mover.body) !== group.includes(m.other.body)));
   if (!states.length) return null;
-  const { mates, bodies } = problemOf(scene, states);
-  const me = bodies.find((b) => b.id === body);
-  if (!me) return null;
-  const solved = solveDriven(mates, bodies, body, poseOfRigid(asked, me.pivot));
-  const followers = [...solved.followers].flatMap(([id, pose]) => { const b = bodies.find((q) => q.id === id); return b && Math.hypot(...pose.turn) * 100 + Math.hypot(...pose.shift) > 1e-3 ? [{ body: id as Ref, rigid: rigidOfPose(pose, b.pivot) }] : []; });
-  return solved.blockedBy.length || followers.length ? { rigid: rigidOfPose(solved.pose, me.pivot), blocked: solved.blockedBy, followers } : null;
+  const problem = problemOf(scene, states);
+  const mates = problem.mates;
+  // (every body dragged, also one that no mate joins to a body that stays: it moves with the others)
+  const middle = (b: Scene["parts"][string] | undefined): Vec3 | null => (b?.kind === "body" && b.bbox ? [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2] : null);
+  const extra: SolveBody[] = group.flatMap((g) => { const c = middle(scene.parts[g]); return c && !problem.bodies.some((q) => q.id === g) ? [{ id: g, pivot: c, order: 0 }] : []; });
+  const bodies = [...problem.bodies, ...extra];
+  const members = group.flatMap((g) => { const b = bodies.find((q) => q.id === g); return b ? [b] : []; });
+  if (!members.length) return null;
+  const at: Vec3 = [members.reduce((t, b) => t + b.pivot[0], 0) / members.length, members.reduce((t, b) => t + b.pivot[1], 0) / members.length, members.reduce((t, b) => t + b.pivot[2], 0) / members.length];
+  const solved = solveDriven(mates, bodies, group, poseOfRigid(asked, at));
+  if (!solved.blockedBy.length) return null;
+  return { rigids: members.map((b) => ({ body: b.id as Ref, rigid: rigidOfPose(poseForBody(solved.pose, solved.at, b.pivot), b.pivot) })), blocked: solved.blockedBy };
 }
 
 export function solveStanding(scene: Scene): { commands: Command[]; atOdds: string[] } {
@@ -297,17 +310,20 @@ export function setMateValue(scene: Scene, id: string, value: number): Command |
  * asked for are not made. Returns the command to make; null when the mates leave the body nowhere to go that way (nothing is made); the command itself when it moves no body, or no mate holds the move back.
  */
 export function projectOnMates(scene: Scene, c: Command): Command | null {
-  const list = c.type === "batch" ? c.commands : [c];
+  const flat = (x: Command): Command[] => (x.type === "batch" ? x.commands.flatMap(flat) : [x]);
+  const list = flat(c);
   if (list.some((x) => x.type === "addRelation" || x.type === "removeRelation")) return c; // (a mate being made or taken away is not a move)
   const motion = list.flatMap((x) => (x.type === "addStep" && (x.step.type === "move" || x.step.type === "rotate") && Number(x.step.params.follow) === 1 && x.step.params.body ? [x.step] : []));
-  const bodies = new Set(motion.map((st) => String(st.parts[0])));
-  if (!motion.length || bodies.size !== 1) return c;
-  // (the rest of the command is only what carries the sketches of the body along with it)
-  if (list.some((x) => x.type !== "addStep" && x.type !== "transformFigure" && x.type !== "batch")) return c;
-  const body = motion[0]!.parts[0]!;
-  if (scene.parts[body]?.kind !== "body") return c;
-  const rigid = laterMotion(motion, -1, () => true);
-  const held = heldCommand(scene, body, rigid);
+  if (!motion.length) return c;
+  // (the rest of the command is only what carries the sketches of the bodies along with them)
+  if (list.some((x) => x.type !== "addStep" && x.type !== "transformFigure")) return c;
+  const bodies = [...new Set(motion.map((st) => st.parts[0]!))];
+  if (bodies.some((b) => scene.parts[b]?.kind !== "body")) return c;
+  // each body's motion; bodies that are moved together are moved by the same (a drag of the selected bodies)
+  const rigids = bodies.map((b) => laterMotion(motion.filter((st) => st.parts[0] === b), -1, () => true));
+  const same = rigids.every((r) => r.turn.every((v, i) => Math.abs(v - rigids[0]!.turn[i]!) < 1e-9) && r.shift.every((v, i) => Math.abs(v - rigids[0]!.shift[i]!) < 1e-9));
+  if (!same) return c;
+  const held = heldCommand(scene, bodies, rigids[0]!);
   if (!held) return c;
   return held.type === "batch" && !held.commands.length ? null : held;
 }

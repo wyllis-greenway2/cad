@@ -159,10 +159,11 @@ function orbitOrCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: 
       const first = candidatesAt(sc, pv, pickOpts(s)).find((k) => sc.parts[k.ref]?.origin === "body" || sc.parts[k.ref]?.kind === "body");
       const body = first ? objectOf(sc, first.ref) : null;
       const sel = selectionOf(s.session);
-      if (body && sc.parts[body]?.kind === "body" && sel.length === 1 && sel[0] === body) {
+      // the bodies that are selected are dragged together (`in_345`): pressing on any of them takes them all
+      if (body && sc.parts[body]?.kind === "body" && sel.length >= 1 && sel.includes(body) && sel.every((r) => sc.parts[r]?.kind === "body")) {
         const centre = bodyCentre(sc, body);
         const start = centre ? onViewPlane(s.cam, centre, pr.ray(i.x - i.dx, i.y - i.dy)) : null;
-        const op = startOp(sc, [body], "move", viewAxes(s.cam));
+        const op = startOp(sc, sel, "move", viewAxes(s.cam));
         if (centre && start && op.ok) return { ...s, op: { ...op.op, free: [0, 0, 0] }, drag: { body, from: start, centre }, hoverPoint: null };
       }
     }

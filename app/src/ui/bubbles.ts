@@ -37,7 +37,10 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
     el.title = `${a.label}${a.value !== null ? ` ${roundedText(a.value)} ${a.unit ?? ""}${a.locked ? " (locked)" : a.readOnly ? " (measured: it belongs to the body)" : " (measured: click the number to type one and lock it)"}` : ""}${a.broken ? ": a part it used is gone" : ""}`;
     el.style.cssText = `position:absolute;left:0;top:0;display:flex;align-items:center;gap:3px;height:26px;box-sizing:border-box;padding:0 7px;border-radius:13px;background:#fff;border:1px solid ${a.broken ? "#d33" : a.open ? "#e0a82e" : "#d6d7db"};box-shadow:0 1px 6px rgba(0,0,0,.12);cursor:${a.relationId ? "pointer" : "default"};white-space:nowrap`;
     const relation = a.relationId;
-    if (a.value !== null) {
+    const isMate = a.kind.startsWith("mate:");
+    // a mate is only its icon until it is clicked; then it has its number (with the word for it, to type over) and the cross (`in_345`)
+    if (isMate && !a.open) { el.style.height = "22px"; el.style.padding = "0 4px"; el.style.gap = "0"; }
+    if (a.value !== null && !(isMate && !a.open)) {
       if (a.symbol) { const sym = document.createElement("span"); sym.textContent = a.symbol; sym.style.cssText = "font-weight:600;opacity:.6"; el.appendChild(sym); } // Ø or R: what the number is the size of
       if (a.tag) { const tag = document.createElement("span"); tag.textContent = a.tag; tag.style.cssText = "font-size:11px;opacity:.65;margin-right:1px"; el.appendChild(tag); } // (gap, distance, offset, angle: which number of a mate this is, `in_320`)
       const num = document.createElement("span");
@@ -48,7 +51,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
         num.title = "Type a new number";
       }
       el.appendChild(num);
-      if (a.tag) { const unit = document.createElement("span"); unit.textContent = a.unit === "deg" ? "°" : a.unit ?? ""; unit.style.cssText = "font-size:11px;opacity:.65"; el.appendChild(unit); }
+      if (a.tag && !isMate) { const unit = document.createElement("span"); unit.textContent = a.unit === "deg" ? "°" : a.unit ?? ""; unit.style.cssText = "font-size:11px;opacity:.65"; el.appendChild(unit); }
       const lock = document.createElement("span");
       lock.innerHTML = iconSvg(a.kind === "tape" ? "dimension" : a.kind.startsWith("mate:") ? iconKey(a.kind) : a.locked ? "lock" : "unlock"); // (the tape measure shows the measuring stick: it is the one place it belongs, `in_338`) // (a mate shows what it is, not a padlock, `in_338`) // (a closed padlock when locked, an open one when it is only a measurement, `in_290`)
       lock.style.cssText = `display:inline-flex;padding:2px;cursor:${a.editable ? "pointer" : "default"};opacity:${a.locked ? 1 : 0.8};color:${a.locked ? "#1a8f8b" : "inherit"}`;

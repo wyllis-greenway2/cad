@@ -303,6 +303,11 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
   // move, rotate, scale: the whole body, or (move and rotate) a drawn closed figure
   const body = parts.find((p) => p.kind === "body" || p.origin === "body");
   if (body) {
+    // several bodies selected move together (`in_345`): each is moved by the same
+    if (kind === "move") {
+      const all = [...new Set(parts.filter((p) => p.kind === "body" || p.origin === "body").map((p) => objectOf(scene, p.ref)).filter((r) => scene.parts[r]?.kind === "body" && r !== BODY_OBJECT))];
+      if (all.length > 1) return { ok: true, op: { ...base, parts: all, pivot: null } };
+    }
     const which = objectOf(scene, body.ref); // (the body it is, or the body the face or edge is in: one of several, `dec_independent_bodies`)
     const mine = scene.parts[which]?.kind === "body" ? which : BODY_OBJECT;
     return { ok: true, op: { ...base, parts: [mine], pivot: kind === "rotate" ? bodyCentre(scene, mine) : null } };
@@ -426,6 +431,19 @@ function forBody(cmd: Command | null, id: string, carries: boolean): Command | n
   return { ...cmd, step: { ...cmd.step, params: { ...rest, ...(carries && _f !== undefined ? { follow: _f } : {}), body: id } } };
 }
 export function opCommand(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Command | null {
+  // several bodies dragged together (`in_345`): each is moved by the same, one after another, so each step has its own number and its own sketches carried
+  if (op.target === "body" && op.kind === "move" && op.free && op.parts.length > 1 && op.parts.every((r) => scene.parts[r]?.kind === "body")) {
+    let sc = scene;
+    const all: Command[] = [];
+    for (const b of op.parts) {
+      const c = opCommand(sc, { ...op, parts: [b] }, opts);
+      if (!c) continue;
+      all.push(c);
+      const next = apply(sc, c);
+      if (next.ok) sc = next.value;
+    }
+    return all.length ? { type: "batch", commands: all } : null;
+  }
   const which = op.target === "body" && (op.kind === "move" || op.kind === "rotate" || op.kind === "scale") ? scene.parts[op.parts[0]!] : undefined;
   if (which?.kind !== "body" || which.ref === BODY_OBJECT || !which.id) return opCommandOf(scene, op, opts);
   // the sketches that made a body go with it, and what is drawn on its faces; the other bodies' stay

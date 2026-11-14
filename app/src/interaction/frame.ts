@@ -31,6 +31,7 @@ import { SIMILAR_RULES } from "./similar.ts";
 import type { ArcMap } from "./operations.ts";
 import { startOp, opCommand, bodyMotion, faceDrag, radiusDrag, sideDrag, edgeDrag, arcDrag, valueOf } from "./operations.ts";
 import { matrixOf } from "../operation/frames.ts";
+import type { Rigid } from "../operation/frames.ts";
 import { sharpOfPoints, chainOf, cornerOk, adjacentOk, roundingFaces, tangentChain } from "../operation/roundings.ts";
 import type { Sharp, SharpEdge } from "../operation/roundings.ts";
 import type { Command } from "../operation/commands.ts";
@@ -314,8 +315,11 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] 
   }
   const asked = bodyMotion(sceneOf(base), op);
   // the mates of a body that is dragged hold while it moves: it goes where they leave it free, and the ones that held it back flash (`in_338`)
-  const held = asked && op.target === "body" && op.parts[0] ? constrainedMotion(sceneOf(base), op.parts[0], asked) : null;
-  const m = held ? held.rigid : asked;
+  // the bodies selected move as one; the others stay where they are, mated to them or not (`in_345`)
+  const group = op.target === "body" ? op.parts.filter((r) => sceneOf(base).parts[r]?.kind === "body") : [];
+  const held = asked && group.length ? constrainedMotion(sceneOf(base), group, asked) : null;
+  const rigidOf = (b: Ref): Rigid | null => (held ? held.rigids.find((q) => q.body === b)?.rigid ?? null : asked);
+  const m = group.length ? rigidOf(group[0]!) : asked;
   const fd = m ? null : faceDrag(sceneOf(base), op);
   const rd = m || fd ? null : radiusDrag(sceneOf(base), op);
   const sd = m || fd || rd ? null : sideDrag(sceneOf(base), op);
@@ -333,9 +337,9 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] 
     const carry = full?.type === "batch" ? full.commands.filter((c) => c.type !== "addStep") : [];
     if (carry.length) { const moved = apply(sceneOf(base), { type: "batch", commands: carry }); if (moved.ok) shown = { scene: moved.value, outcome: gpuBase.value.outcome }; }
   }
-  // the bodies mated to this one go with it: each drawn moved by its own matrix, as the correction that comes with the release will put it (`in_341`)
-  const followers = held ? held.followers.flatMap((f) => { const fo = startOp(sceneOf(base), [f.body], "move", null); const split = fo.ok ? bodySplitOf(sceneOf(base), gpuBase!.value.outcome, fo.op) : null; return split ? [{ matrix: matrixOf(f.rigid), split }] : []; }) : [];
-  return { matrix, face, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked, followers } : {}) };
+  // the other bodies selected go with it, each drawn moved by its own matrix (`in_341`, `in_345`)
+  const followers = group.slice(1).flatMap((b) => { const r = rigidOf(b); const fo = r ? startOp(sceneOf(base), [b], "move", null) : null; const split = fo?.ok ? bodySplitOf(sceneOf(base), gpuBase!.value.outcome, fo.op) : null; return r && split ? [{ matrix: matrixOf(r), split }] : []; });
+  return { matrix, face, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked } : {}), followers };
 }
 
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
