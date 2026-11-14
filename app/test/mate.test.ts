@@ -215,3 +215,90 @@ test("a relation to a part of the body is saved with its description, and is acc
   const r = run(empty, { type: "addRelation", relation: { id: "r_900", kind: "mate", parts: ["b/x_s_900/o", "b/x_s_901/o"], params: { mode: 0, gap: 0 } } } as never);
   assert.ok(scene(r).relations.some((x) => x.id === "r_900"), `accepted (it is then said to be lost, as no body is there): ${r.message}`);
 });
+
+import { annotationsFor } from "../src/interaction/annotations.ts";
+
+test("flush leaves the gap that is typed: the faces stand that far apart, the mate is true at that gap, and a gap typed again replaces the mate (`in_317`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const pick = [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])];
+  const act = actionsFor(scene(s), pick).find((x) => x.id === "mate:flush")!;
+  assert.ok(act.dimensional && act.unit === "mm", "flush has a number");
+  assert.ok(Math.abs(act.measure()! - 30) < 1e-6, `it says how far apart they are now: ${act.measure()}`);
+  const gapped = run(s, act.run(5));
+  assert.ok(!gapped.message, `${gapped.message}`);
+  const b2 = bodies(gapped).find((x) => x.id === b!.id)!;
+  assert.ok(Math.abs(b2.bbox!.min[0] - 15) < 1e-3, `5 mm from A's face at x = 10: ${b2.bbox!.min[0]}`);
+  const st = mateStatus(scene(gapped));
+  assert.equal(st[0]!.state, "ok");
+  assert.equal(st[0]!.gap, 5);
+  // typed again: 2 mm; the one mate is made again
+  const pick2 = [faceOf(gapped, b2, [-1, 0, 0]), faceOf(gapped, bodies(gapped).find((x) => x.id === a!.id)!, [1, 0, 0])];
+  const again = run(gapped, actionsFor(scene(gapped), pick2).find((x) => x.id === "mate:flush")!.run(2));
+  assert.ok(Math.abs(bodies(again).find((x) => x.id === b!.id)!.bbox!.min[0] - 12) < 1e-3, "2 mm apart now");
+  assert.equal(scene(again).relations.filter((r) => r.kind === "mate").length, 1, "one mate, remade");
+  assert.equal(mateStatus(scene(again))[0]!.state, "ok");
+});
+
+test("the gap is typed into the number that stands over two selected faces, and it makes the mate (`in_317`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const env = { w: 800, h: 600, now: 0 };
+  const pick: Ref[] = [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])];
+  let st = { ...createState(s), cam: homeCamera() };
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: pick } } };
+  const note = annotationsFor(scene(st.session), pick, null, false).find((x) => x.id === "measure");
+  assert.ok(note && note.editable && note.unit === "mm", `a number stands over the two faces: ${JSON.stringify(note && [note.kind, note.value])}`);
+  const done = reduce(st, { type: "relation", act: "measure", id: null, value: 4 }, env);
+  assert.ok(Math.abs(bodies(done.session).find((x) => x.id === b!.id)!.bbox!.min[0] - 14) < 1e-3, "typed 4: B stands 4 mm from A");
+  const zero = reduce(st, { type: "relation", act: "measure", id: null, value: 0 }, env);
+  assert.ok(Math.abs(bodies(zero.session).find((x) => x.id === b!.id)!.bbox!.min[0] - 10) < 1e-3, "typed 0: touching");
+});
+
+/** A body turned about Z by this many degrees (a step of its own, naming it). */
+const turned = (s: Session, body: Body, deg: number): Session => run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "rotate", parts: [body.ref], params: { axis: 2, value: deg, px: 0, py: 0, pz: 0, body: body.id } } } as never);
+
+test("Mate: parallel faces only turns the first body until its face is parallel to the other's; it stays where it was (`in_317`)", () => {
+  let s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  s = turned(s, b!, 30);
+  const b1 = bodies(s).find((x) => x.id === b!.id)!;
+  const faceB = Object.values(scene(s).parts).find((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && p.of === b1.ref && !!p.mesh && !p.curved && !p.round && Math.abs(normalOfPlane(p)[2]) < 1e-6 && Math.abs(normalOfPlane(p)[0]) > 0.5)!.ref;
+  const act = actionsFor(scene(s), [faceB, faceOf(s, bodies(s).find((x) => x.id === a!.id)!, [1, 0, 0])]).find((x) => x.id === "mate:parallel")!;
+  assert.ok(act?.enabled && !act.dimensional, "offered, with no number");
+  const after = run(s, act.run());
+  assert.ok(!after.message, `${after.message}`);
+  assert.equal(mateStatus(scene(after))[0]!.state, "ok");
+  assert.equal(mateStatus(scene(after))[0]!.mode, "parallel");
+  const b2 = bodies(after).find((x) => x.id === b!.id)!;
+  assert.ok(Math.abs(b2.volume! - b1.volume!) < 1e-3, "the same body, turned");
+  // turning it again by hand makes the mate not true, and putting it back turns it again
+  const off = turned(after, b2, 10);
+  assert.equal(mateStatus(scene(off))[0]!.state, "off");
+  assert.ok(Math.abs(mateStatus(scene(off))[0]!.residual! - 10) < 1e-2, `ten degrees off: ${mateStatus(scene(off))[0]!.residual}`);
+  assert.equal(mateStatus(scene(off))[0]!.unit, "deg");
+  const back = run(off, putMatesBack(scene(off))!.command);
+  assert.equal(mateStatus(scene(back))[0]!.state, "ok");
+});
+
+test("Mate: parallel axes turns a round face's axis parallel to the other's and leaves it where it is (`in_317`)", () => {
+  let s = cylinder(cylinder(createSession(kernel), 0, 0, 5), 30, 4, 3);
+  const [a, b] = bodies(s);
+  // B is tipped over: a turn about X
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "rotate", parts: [b!.ref], params: { axis: 0, value: 20, px: 30, py: 4, pz: 0, body: b!.id } } } as never);
+  const act = actionsFor(scene(s), [roundOfBody(s, bodies(s).find((x) => x.id === b!.id)!), roundOfBody(s, a!)]).find((x) => x.id === "mate:parallelAxes")!;
+  assert.ok(act?.enabled, `offered: ${act?.why}`);
+  const after = run(s, act.run());
+  assert.ok(!after.message, `${after.message}`);
+  assert.equal(mateStatus(scene(after))[0]!.state, "ok");
+  const b2 = bodies(after).find((x) => x.id === b!.id)!;
+  assert.ok(Math.abs(b2.bbox!.max[2] - b2.bbox!.min[2] - 10) < 1e-2, "upright again: ten high");
+});
+
+test("the marks say what a mate is: the gap, and parallel (`in_317`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const gapped = run(s, actionsFor(scene(s), [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run(5));
+  const f = frameOf({ ...createState(gapped), cam: homeCamera() }, { w: 800, h: 600 });
+  assert.match(f.mates[0]!.text, /flush faces \(5 mm apart\)/);
+});

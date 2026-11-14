@@ -270,7 +270,7 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
   if (i.act === "measure") {
     const sel = selectionOf(s.session);
     const a = measureAction(actionsFor(sc, sel), (x) => x.enabled);
-    if (a) return i.value !== undefined && i.value > 0 ? withSession(s, run(s.session, a.run(i.value), { watchAll: true })) : s; // (a sketch the body was made from: a size the steps cannot take is refused)
+    if (a) return i.value !== undefined && (i.value > 0 || (a.id === "mate:flush" && i.value >= 0)) ? withSession(s, run(s.session, a.run(i.value), { watchAll: true })) : s; // (a sketch the body was made from: a size the steps cannot take is refused)
     // a line of the body: its length is made by pushing or pulling the face at its end
     const cmd = sel.length === 1 && i.value !== undefined ? setLineLength(sc, sel[0]!, i.value) : null;
     return cmd ? withSession({ ...s, op: null }, run(s.session, cmd)) : s;

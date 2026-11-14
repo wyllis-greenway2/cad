@@ -9,7 +9,7 @@ import { sub, dot, cross, normalize, length } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import type { MateMode } from "../operation/mates.ts";
-import { featureOf, mateRelation, mateStatus } from "../operation/mates.ts";
+import { featureOf, mateRelation, mateStatus, isFlatMode } from "../operation/mates.ts";
 import type { Command } from "../operation/commands.ts";
 import { carrySketches } from "./operations.ts";
 
@@ -19,7 +19,7 @@ type Mat = [Vec3, Vec3, Vec3]; // rows
 /** Why these two faces cannot be mated this way, or null. */
 export function whyNotMate(scene: Scene, mode: MateMode, mover: Ref, other: Ref): string | null {
   const [a, b] = [featureOf(scene, mover, mode), featureOf(scene, other, mode)];
-  if (!a || !b) return mode === "flush" ? "two flat faces of two bodies" : "two round faces of two bodies";
+  if (!a || !b) return isFlatMode(mode) ? "two flat faces of two bodies" : "two round faces of two bodies";
   if (a.body === b.body) return "the faces are of one body: choose a face of each of two bodies";
   return null;
 }
@@ -54,7 +54,7 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
   if (why) return { why };
   const [a, b] = [featureOf(scene, mover, mode)!, featureOf(scene, other, mode)!];
   // the turn: a flat face to face the other (its normal opposite), a round face's axis parallel to the other's (the nearer of the two ways)
-  const want: Vec3 = mode === "flush" ? [-b.dir[0], -b.dir[1], -b.dir[2]] : dot(a.dir, b.dir) >= 0 ? b.dir : [-b.dir[0], -b.dir[1], -b.dir[2]];
+  const want: Vec3 = mode === "flush" ? [-b.dir[0], -b.dir[1], -b.dir[2]] : dot(a.dir, b.dir) >= 0 ? b.dir : [-b.dir[0], -b.dir[1], -b.dir[2]]; // (a flush face faces the other; for the rest the nearer way is taken)
   const R = turnBetween(a.dir, want);
   const pivot = a.point; // (a point on the face or on the axis stays where it is under the turn)
   // the move: a flat face onto the other's plane (plus the gap, along the other's normal); an axis onto the other's axis, keeping its place along it
@@ -64,18 +64,21 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
     const s = dot(sub(a.point, b.point), b.dir);
     move = [b.dir[0] * (gap - s), b.dir[1] * (gap - s), b.dir[2] * (gap - s)];
     moverWhenTrue = [b.point[0] + b.dir[0] * gap, b.point[1] + b.dir[1] * gap, b.point[2] + b.dir[2] * gap];
-  } else {
+  } else if (mode === "coaxial") {
     const w = sub(a.point, b.point);
     const along = dot(w, b.dir);
     move = [-(w[0] - b.dir[0] * along), -(w[1] - b.dir[1] * along), -(w[2] - b.dir[2] * along)];
     moverWhenTrue = [b.point[0] + b.dir[0] * along, b.point[1] + b.dir[1] * along, b.point[2] + b.dir[2] * along];
+  } else { // only turned until parallel: where it is stays (a point of the face or the axis does not move under the turn)
+    move = [0, 0, 0];
+    moverWhenTrue = a.point;
   }
   const r6 = (v: Vec3): Vec3 => v.map((x) => Math.round(x * 1e6) / 1e6) as unknown as Vec3;
   const turns = eulerXYZ(R);
   const translate = r6(move);
   const record: Command = { type: "addRelation", relation: mateRelation(again ?? nextId(scene, "r"), mode, gap, a, b, { mover: { point: moverWhenTrue, dir: want }, other: { point: b.point, dir: b.dir } }) };
   const forget: Command[] = again ? [{ type: "removeRelation", id: again }] : [];
-  if (!turns.length && length(translate) < 1e-9) return again ? { command: { type: "batch", commands: [...forget, record] } } : { why: "they are mated already" };
+  if (!turns.length && length(translate) < 1e-9) return { command: { type: "batch", commands: [...forget, record] } }; // (they meet already: only the mate is recorded)
   const id = nextId(scene, "s");
   const steps: Command[] = turns.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: [a.body], params: { axis: t.axis, value: t.angle, px: pivot[0], py: pivot[1], pz: pivot[2], follow: 1, body: a.bodyId } } }));
   if (length(translate) > 1e-9) steps.push({ type: "addStep", step: { id: `${id}m`, type: "move", parts: [a.body], params: { axis: 0, value: 0, vx: translate[0], vy: translate[1], vz: translate[2], follow: 1, body: a.bodyId } } });

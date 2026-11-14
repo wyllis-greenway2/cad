@@ -7,11 +7,14 @@ import { sketchOfEdge } from "../operation/edgesource.ts";
 import { whyNotDeleteSurface, deleteSurface } from "../operation/trim.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
+import { dot, sub } from "../math/vec.ts";
 import type { Scene, Relation } from "../operation/scene.ts";
 import { lookup, nextId, figureRefs } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
 import { relationKind, planeOfParts, roundOf } from "../operation/part.ts";
 import { whyNotMate, mateCommand } from "./mate.ts";
+import type { MateMode } from "../operation/mates.ts";
+import { featureOf, existingMate, faceMiddle, isFlatMode } from "../operation/mates.ts";
 import { ordered } from "./selection.ts";
 import { ROWS, REFERENCES_ONLY, same } from "./rows.ts";
 import type { Ctx } from "./rows.ts";
@@ -84,15 +87,22 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
     });
   }
 
-  // two faces of two bodies: they can be mated, the first one's body is moved to the second (`in_314`)
+  // two faces of two bodies: they can be mated, the first one's body is moved to the second (`in_314`); flush has a gap that can be typed (`in_317`)
   if (sel.length === 2) {
-    for (const [mode, label] of [["flush", "Mate: flush faces"], ["coaxial", "Mate: coaxial"]] as const) {
+    const kinds: [MateMode, string, boolean][] = [["flush", "Mate: flush faces", true], ["parallel", "Mate: parallel faces", false], ["coaxial", "Mate: coaxial", false], ["parallelAxes", "Mate: parallel axes", false]];
+    for (const [mode, label, gapped] of kinds) {
       const why = whyNotMate(scene, mode, sel[0]!, sel[1]!);
-      if (why && (mode === "flush" ? !isFlatBodyFace(get, sel) : !isRoundBodyFace(get, sel))) continue; // (not this kind of faces: no row for it)
+      if (why && (isFlatMode(mode) ? !isFlatBodyFace(get, sel) : !isRoundBodyFace(get, sel))) continue; // (not this kind of faces: no row for it)
+      const [fa, fb] = [featureOf(scene, sel[0]!, mode), featureOf(scene, sel[1]!, mode)];
       out.push({
-        id: `mate:${mode}`, label, group: "relation", dimensional: false, unit: null, parts: [...sel], enabled: why === null, why,
-        measure: () => null, spot: () => null,
-        run: (): Command => { const r = mateCommand(scene, mode, sel[0]!, sel[1]!); return "command" in r ? r.command : { type: "batch", commands: [] }; },
+        id: `mate:${mode}`, label, group: "relation", dimensional: gapped, unit: gapped ? "mm" : null, parts: [...sel], enabled: why === null, why,
+        measure: () => (gapped && fa && fb ? Math.round(dot(sub(fa.point, fb.point), fb.dir) * 1e6) / 1e6 : null), // (how far the first face stands from the other's plane now: typed, it is the gap the mate leaves)
+        spot: () => faceMiddle(scene, sel[0]!),
+        run: (value?: number): Command => {
+          const again = fa && fb ? existingMate(scene, mode, fa.body, fb.body) ?? undefined : undefined; // (a mate made again between the same bodies replaces the one there)
+          const r = mateCommand(scene, mode, sel[0]!, sel[1]!, gapped ? Math.max(0, value ?? 0) : 0, again);
+          return "command" in r ? r.command : { type: "batch", commands: [] };
+        },
       });
     }
   }

@@ -1519,3 +1519,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_316 — 2026-11-14 — directive
 > Mark the mates on the model next
 (asks for the mates to be shown on the model itself: where two bodies are mated, with their state)
+
+## in_317 — 2026-11-14 — directive
+> Do the typed gap and parallel mates next
+(asks for a gap that can be typed in for the flush mate, and parallel mates)

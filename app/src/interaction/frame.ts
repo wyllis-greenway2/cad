@@ -550,8 +550,9 @@ function matesOn(sc: Scene): Frame["mates"] {
     const middle = (b: ReturnType<typeof body>): Vec3 | null => b?.bbox ? [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2] : null;
     const at = (m.mover ? faceMiddle(sc, m.mover.ref) : null) ?? (m.other ? faceMiddle(sc, m.other.ref) : null) ?? middle(mb) ?? middle(ob);
     if (!at) continue;
-    const what = m.mode === "flush" ? "flush faces" : "coaxial";
-    const text = m.state === "ok" ? `Mate: ${what}` : m.state === "off" ? `Mate: ${what}: no longer true (${(m.residual ?? 0).toFixed(2)} mm off): click to put it back` : `Mate: ${what}: a body or a face is gone`;
+    const what = { flush: "flush faces", coaxial: "coaxial", parallel: "parallel faces", parallelAxes: "parallel axes" }[m.mode];
+    const gap = m.mode === "flush" && m.gap > 0 ? ` (${m.gap} mm apart)` : "";
+    const text = m.state === "ok" ? `Mate: ${what}${gap}` : m.state === "off" ? `Mate: ${what}: no longer true (${(m.residual ?? 0).toFixed(2)} ${m.unit === "deg" ? "degrees" : "mm"} off): click to put it back` : `Mate: ${what}: a body or a face is gone`;
     out.push({ id: m.id, at, state: m.state, text });
   }
   return out;

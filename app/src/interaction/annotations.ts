@@ -228,7 +228,7 @@ export function annotationsOf(scene: Scene, ids: readonly string[]): Annotation[
 
 /** The measure of the selected pair (or part) when the relation table offers a number for it and no relation of that kind already holds it. */
 function measureOf(scene: Scene, selection: readonly Ref[]): Annotation | null {
-  if (selection.length < 1 || selection.length > 2 || !selection.every((r) => isPart(scene, r))) return null;
+  if (selection.length < 1 || selection.length > 2 || !selection.every((r) => isPart(scene, r) || (selection.length === 2 && scene.parts[r]?.kind === "plane" && scene.parts[r]?.origin === "body"))) return null; // (two faces of two bodies have the gap of a mate, `in_317`)
   // a number that only references have (a line of the body, two body corners) is shown as a measurement too, but cannot be locked
   const a = measureAction(actionsFor(scene, selection), (x) => x.enabled || x.why === REFERENCES_ONLY);
   if (!a || !a.unit) return null;
