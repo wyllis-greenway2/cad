@@ -124,11 +124,11 @@ const distToSegment = (p: readonly [number, number], a: readonly [number, number
   return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
 };
 /**
- * Where a round mark of `radius` px that belongs at `at` stands so that it does not cover the lines `segs` (the handles of the helper, `in_334`): where it is when it is clear, else the nearest of the places round it
+ * Where a round mark of `radius` px that belongs at `at` stands so that it does not cover the lines `segs` (the handles of the helper, `in_334`) or the discs `discs` (the drag icons of a finger, `in_336`): where it is when it is clear, else the nearest of the places round it
  * (a ring of eight directions, then a wider one) that is; where it is if none is. The mark keeps hold of its face by staying near it.
  */
-export function clearOfLines(at: readonly [number, number], segs: readonly (readonly [readonly [number, number], readonly [number, number]])[], radius: number): [number, number] {
-  const clear = (p: readonly [number, number]) => segs.every(([a, b]) => distToSegment(p, a, b) >= radius + 3);
+export function clearOfLines(at: readonly [number, number], segs: readonly (readonly [readonly [number, number], readonly [number, number]])[], radius: number, discs: readonly (readonly [number, number, number])[] = []): [number, number] {
+  const clear = (p: readonly [number, number]) => segs.every(([a, b]) => distToSegment(p, a, b) >= radius + 3) && discs.every(([x, y, r]) => Math.hypot(p[0] - x, p[1] - y) >= radius + r); // (`discs`: the drag icons of a finger, which a mark must not stand on)
   if (clear(at)) return [at[0], at[1]];
   for (const k of [1.9, 2.8]) {
     for (let i = 0; i < 8; i++) { // (above first, then round)

@@ -285,7 +285,7 @@ function frame(now: number) {
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
     // a mark does not stand on the helper's arrows and rings: a press there is meant for the handle (`in_334`)
     const handleSegs = (f.gizmo?.handles ?? []).flatMap((h) => h.points.slice(1).map((p, i) => [onPage(h.points[i]), onPage(p)] as const)).filter((s): s is readonly [[number, number], [number, number]] => !!s[0] && !!s[1]);
-    mateMarks.update(f.mates.flatMap((m) => { const q = onPage(m.at); return q ? [{ id: m.id, at: clearOfLines(q, handleSegs, 13), state: m.state, text: m.text }] : []; }));
+    mateMarks.update(f.mates.flatMap((m) => { const q = onPage(m.at); return q ? [{ id: m.id, at: clearOfLines(q, handleSegs, lastDevice === "touch" ? 30 : 13, touchRects.map((r) => [r.left + r.width / 2, r.top + r.height / 2, r.width / 2] as [number, number, number])), state: m.state, text: m.text }] : []; }));
     // the icon stands at the upper left of the handles, out of the way of the arrows and rings (`in_215`)
     const corner = f.modeSwitch ? f.modeSwitch.pts.map((p) => onPage(p)!).reduce<[number, number]>((c, q) => [Math.min(c[0], q[0]), Math.min(c[1], q[1])], [Infinity, Infinity]) : null;
     suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null, [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));
@@ -332,6 +332,8 @@ function frame(now: number) {
     timing.add("frame: all", tEnd - tFrame);
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);
     statusEl.textContent = f.message;
+    statusEl.style.bottom = lastDevice === "touch" ? "108px" : ""; // (above the undo bar of a finger, and clear of the X Y Z buttons: a long message is not under them, `in_336`)
+    statusEl.style.right = lastDevice === "touch" ? "64px" : "";
     dirty = !!f.flash || working || !!f.highlight.temp?.length || touchMoved; // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
   }
   requestAnimationFrame(frame);

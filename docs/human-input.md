@@ -1595,3 +1595,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_335 — 2026-11-14 — directive
 > Do the refusal text naming the pulled face next
 (asks the refusal of a change that leaves standing mates at odds to say which change it is, the pulled face for a push / pull, and which bodies the mates join)
+
+## in_336 — 2026-11-14 — directive
+> Do the browser pass over the touch case next
+(asks for the recent mate slices to be looked at with touch input in a real browser: the refusal, the joint handles, the mate marks and bubbles)

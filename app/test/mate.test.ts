@@ -674,3 +674,10 @@ test("the refusal says which change it is and which bodies the mates join (`in_3
   assert.equal(changeWords(scene(s), { type: "addStep", step: { id: "s_x", type: "move", parts: [], params: {} } as never }), "that move of a body");
   assert.equal(changeWords(scene(s), { type: "batch", commands: [{ type: "removeRelation", id: "r_1" }, { type: "movePart", ref: a!.ref, to: [0, 0, 0] }] }), "that move of a point of a drawing");
 });
+
+test("a mark also keeps off the drag icons of a finger (`in_336`)", () => {
+  const icon: [number, number, number][] = [[225, 300, 26]];
+  assert.deepEqual(clearOfLines([300, 100], [], 13, icon), [300, 100], "far from the icon: stays");
+  const moved = clearOfLines([241, 301], [], 13, icon);
+  assert.ok(Math.hypot(moved[0] - 225, moved[1] - 300) >= 13 + 26, `off the icon: ${moved}`);
+});
