@@ -3,14 +3,14 @@ id: q_body_constraints
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_293, in_305, in_306, in_307, in_308, in_309, in_310, in_311
+human_input: in_293, in_305, in_306, in_307, in_308, in_309, in_310, in_311, in_312
 date: 2026-11-14
 depends_on:
 alternative_to:
 ---
 # Constraints and suggestions between bodies, as there are between sketch parts
 
-**Status after `in_308`:** steps A and B for circular edges are built and accepted as `dec_anchor_geometry` (anchors in the table, the solver, the hints and the suggestions). Stable naming of a circular edge (by how it looks, with a clear-winner rule) is built too (`in_309`). Straight edges and corners as anchors, with the same naming, are built (`in_310`). Edges that are not in the sketch's plane, by their projection, are built (`in_311`). What is left here is open: faces, and body-to-body placement.
+**Status after `in_308`:** steps A and B for circular edges are built and accepted as `dec_anchor_geometry` (anchors in the table, the solver, the hints and the suggestions). Stable naming of a circular edge (by how it looks, with a clear-winner rule) is built too (`in_309`). Straight edges and corners as anchors, with the same naming, are built (`in_310`). Edges that are not in the sketch's plane, by their projection, are built (`in_311`). Hidden edges are told from visible ones (`in_312`). What is left here is open: faces, and body-to-body placement.
 
 ## What the human asked next (`in_305`, model kept as `app/test/fixtures/circle-on-body-face-in_305.cad.json`) and my answer, still a proposal
 

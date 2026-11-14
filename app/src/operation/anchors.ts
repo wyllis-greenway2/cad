@@ -19,13 +19,15 @@ function nearest<T extends { offset: number }>(items: T[], same: (a: T, b: T) =>
   for (const it of [...items].sort((x, y) => Math.abs(x.offset) - Math.abs(y.offset))) if (!out.some((o) => same(o, it))) out.push(it);
   return out;
 }
+/** Which of the body's parts to offer: `seen` says whether a point of the model can be seen (`in_312`: an edge that is not in the plane and cannot be seen is not offered by proximity; it can still be chosen by selecting it). */
+export interface AnchorOpts { seen?: (p: Vec3) => boolean }
 const near3 = (a: Vec3, b: Vec3, t = 1e-3): boolean => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) <= t;
 
 /**
  * The straight edges of the body as they fall on this plane (`in_310`, and not only the ones in it, `in_311`): a line drawn there can be level with them, parallel, square, on them. An edge that runs along the plane's
  * facing falls on a point and is left out; of two that fall on one line (the top and the bottom of a wall) the nearer to the plane is the one. `a` and `b` are the ends as they fall on the plane.
  */
-export function anchorLines(scene: Scene, pl: Plane): AnchorLine[] {
+export function anchorLines(scene: Scene, pl: Plane, opts: AnchorOpts = {}): AnchorLine[] {
   const get = lookup(scene);
   const n = normalOfPlane(pl);
   const found: AnchorLine[] = [];
@@ -35,20 +37,22 @@ export function anchorLines(scene: Scene, pl: Plane): AnchorLine[] {
     if (a?.kind !== "corner" || b?.kind !== "corner") continue;
     const [pa, pb] = [onto(pl, n, a.at), onto(pl, n, b.at)];
     if (Math.hypot(pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]) < 1e-6) continue;
+    const off = Math.max(Math.abs(along(pl, n, a.at)), Math.abs(along(pl, n, b.at)));
+    if (off > 1e-3 && opts.seen && ![a.at, b.at, [(a.at[0] + b.at[0]) / 2, (a.at[1] + b.at[1]) / 2, (a.at[2] + b.at[2]) / 2] as Vec3].some(opts.seen)) continue; // (out of sight)
     found.push({ ref: p.ref, a: pa, b: pb, offset: Math.max(Math.abs(along(pl, n, a.at)), Math.abs(along(pl, n, b.at))) });
   }
   return nearest(found, (x, y) => (near3(x.a, y.a) && near3(x.b, y.b)) || (near3(x.a, y.b) && near3(x.b, y.a)));
 }
 
 /** The corners of the body as they fall on this plane, the nearer to the plane where two fall on one place: a point or a curve drawn there can be put on them. */
-export function anchorCorners(scene: Scene, pl: Plane): AnchorCorner[] {
+export function anchorCorners(scene: Scene, pl: Plane, opts: AnchorOpts = {}): AnchorCorner[] {
   const n = normalOfPlane(pl);
-  const found = Object.values(scene.parts).flatMap((p): AnchorCorner[] => (p.kind === "corner" && p.origin === "body" ? [{ ref: p.ref, at: onto(pl, n, p.at), offset: along(pl, n, p.at) }] : []));
+  const found = Object.values(scene.parts).flatMap((p): AnchorCorner[] => (p.kind === "corner" && p.origin === "body" && !(Math.abs(along(pl, n, p.at)) > 1e-3 && opts.seen && !opts.seen(p.at)) ? [{ ref: p.ref, at: onto(pl, n, p.at), offset: along(pl, n, p.at) }] : []));
   return nearest(found, (x, y) => near3(x.at, y.at));
 }
 
 /** The circular edges of the body as they fall on this plane (their circle faces the same way as the plane; its centre falls on the plane): a circle or an arc drawn there can be tied to them. */
-export function anchorRounds(scene: Scene, pl: Plane): AnchorRound[] {
+export function anchorRounds(scene: Scene, pl: Plane, opts: AnchorOpts = {}): AnchorRound[] {
   const get = lookup(scene);
   const n = normalOfPlane(pl);
   const found: AnchorRound[] = [];
@@ -56,7 +60,22 @@ export function anchorRounds(scene: Scene, pl: Plane): AnchorRound[] {
     if (p.kind !== "line" || p.origin !== "body" || !(p.circle || p.mid)) continue;
     const r = roundOf(get, p.ref);
     if (!r?.normal || Math.abs(r.normal[0] * n[0] + r.normal[1] * n[1] + r.normal[2] * n[2]) < 1 - 1e-4) continue;
-    found.push({ ref: p.ref, center: onto(pl, n, r.center), radius: r.radius, offset: along(pl, n, r.center) });
+    const offset = along(pl, n, r.center);
+    if (Math.abs(offset) > 1e-3 && opts.seen) {
+      const [a, b] = [get(p.a), get(p.b)];
+      const samples: Vec3[] = [...(a?.kind === "corner" ? [a.at] : []), ...(b?.kind === "corner" ? [b.at] : []), ...(p.mid ? [p.mid] : [])]; // (the ends and the middle of the edge)
+      if (p.circle) { // (a rim that is a circle of its own: eight points round it)
+        const c = p.circle;
+        const ref0: Vec3 = Math.abs(c.normal[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+        const u0: Vec3 = [c.normal[1] * ref0[2] - c.normal[2] * ref0[1], c.normal[2] * ref0[0] - c.normal[0] * ref0[2], c.normal[0] * ref0[1] - c.normal[1] * ref0[0]];
+        const ul = Math.hypot(u0[0], u0[1], u0[2]) || 1;
+        const u: Vec3 = [u0[0] / ul, u0[1] / ul, u0[2] / ul];
+        const v: Vec3 = [c.normal[1] * u[2] - c.normal[2] * u[1], c.normal[2] * u[0] - c.normal[0] * u[2], c.normal[0] * u[1] - c.normal[1] * u[0]];
+        for (let k = 0; k < 8; k++) { const t = (k * Math.PI) / 4; samples.push([c.center[0] + c.radius * (Math.cos(t) * u[0] + Math.sin(t) * v[0]), c.center[1] + c.radius * (Math.cos(t) * u[1] + Math.sin(t) * v[1]), c.center[2] + c.radius * (Math.cos(t) * u[2] + Math.sin(t) * v[2])]); }
+      }
+      if (!samples.some(opts.seen)) continue; // (out of sight)
+    }
+    found.push({ ref: p.ref, center: onto(pl, n, r.center), radius: r.radius, offset });
   }
   return nearest(found, (x, y) => near3(x.center, y.center) && Math.abs(x.radius - y.radius) <= 1e-3);
 }

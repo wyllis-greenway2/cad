@@ -13,7 +13,7 @@ import { live } from "../operation/ownership.ts";
 import type { Command } from "../operation/commands.ts";
 import { drawSquaredRectangle, drawCircle, drawChain, drawArc, joinedAtCorners } from "../operation/build.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
-import { candidatesAt } from "./picking.ts";
+import { candidatesAt, visibleFrom } from "./picking.ts";
 import { anchorCorners } from "../operation/anchors.ts";
 import { settings } from "../shared/settings.ts";
 import { drawnRef } from "../shared/ref.ts";
@@ -76,7 +76,7 @@ export function snapOnPlane(spent: Scene, pv: PointerView, pl: Plane, skip?: Ref
     if (q && Math.abs(dot(sub(q, pl.at), normalOfPlane(pl))) < 1e-3) return q;
   }
   // a corner of the body that is not in the plane but falls on it (the bottom of a wall, the far end of an edge): the pointer near where it falls is taken there (`in_311`)
-  for (const c of anchorCorners(scene, pl)) {
+  for (const c of anchorCorners(scene, pl, { seen: (q) => visibleFrom(scene, pv, q, { at: pl.at, n: normalOfPlane(pl) }) })) { // (the ones out of sight are not offered, `in_312`)
     if (Math.abs(c.offset) <= 1e-3) continue;
     const [qx, qy] = pv.project(c.at);
     if (Math.hypot(qx - pv.x, qy - pv.y) <= settings.sketch.snapPx) return c.at;

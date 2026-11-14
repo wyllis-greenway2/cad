@@ -4,8 +4,10 @@
 // Drawn, body and world parts are treated alike: nothing here asks where a part came from (`in_088`).
 import { settings } from "../shared/settings.ts";
 import type { Ref } from "../shared/ref.ts";
-import type { Kind, Part, PointerView } from "../operation/part.ts";
-import { hitPart, depthOf, outlineOf } from "../operation/part.ts";
+import type { Kind, Part, PointerView, Plane } from "../operation/part.ts";
+import type { Camera } from "./camera.ts";
+import { projector } from "./camera.ts";
+import { hitPart, depthOf, outlineOf, normalOfPlane } from "../operation/part.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
@@ -117,3 +119,34 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
 export const refsAt = (scene: Scene, pv: PointerView, opts?: PickOptions): Ref[] => candidatesAt(scene, pv, opts).map((c) => c.ref);
 /** The part to highlight on hover. */
 export const hoverAt = (scene: Scene, pv: PointerView, opts?: PickOptions): Ref | undefined => candidatesAt(scene, pv, opts)[0]?.ref;
+
+const seenMemo = new WeakMap<Scene, Map<string, boolean>>();
+/**
+ * Whether a point of the model can be seen from the eye of this view: no face of the body is between it and the eye (the mesh of a curved face lies a hair inside the true surface, so a point between two curved faces is not
+ * taken for hidden behind them; a face between the eye and the plane being sketched on hides nothing, as in `candidatesAt`, `in_194`). Kept for the same scene and the same eye, so asking again for the same point is free (`in_312`).
+ */
+export function visibleFrom(scene: Scene, pv: PointerView, point: Vec3, plane?: { at: Vec3; n: Vec3 }): boolean {
+  const occluders = Object.values(scene.parts).filter((p) => p.kind === "plane" && p.origin === "body");
+  if (!pv.rayAt || !occluders.length) return true;
+  const [x, y] = pv.project(point);
+  const ray = pv.rayAt(x, y);
+  const eye = pv.straight ? [ray.d[0], ray.d[1], ray.d[2]] : [ray.o[0], ray.o[1], ray.o[2]]; // (parallel rays: the direction is the eye)
+  const key = `${eye.map((v) => Math.round(v * 1e3)).join(",")}|${point.map((v) => Math.round(v * 1e3)).join(",")}|${plane ? `${plane.at.join(",")}/${plane.n.join(",")}` : ""}`;
+  const memo = seenMemo.get(scene) ?? new Map<string, boolean>();
+  seenMemo.set(scene, memo);
+  const known = memo.get(key);
+  if (known !== undefined) return known;
+  const get = lookup(scene);
+  const tPlane = plane ? (() => { const den = dot(plane.n, ray.d); return Math.abs(den) < 1e-9 ? null : dot(plane.n, sub(plane.at, ray.o)) / den; })() : null;
+  const tp = dot(sub(point, ray.o), ray.d);
+  let seen = true;
+  for (const o of occluders) {
+    const t = depthOf(get, o, { ...pv, ray });
+    if (t !== null && t < tp - 1e-3 - 1.5e-3 * tp && !(tPlane !== null && t < tPlane - 1e-3)) { seen = false; break; }
+  }
+  memo.set(key, seen);
+  return seen;
+}
+
+/** Whether a point of the model can be seen from a camera while sketching on a plane: for the suggestions, which do not offer a part of the body that is out of sight (`in_312`). */
+export const seenIn = (cam: Camera, sc: Scene, size: { w: number; h: number }) => (plane: Plane, p: Vec3): boolean => visibleFrom(sc, projector(cam, size.w, size.h).view(0, 0), p, { at: plane.at, n: normalOfPlane(plane) });

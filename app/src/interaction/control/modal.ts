@@ -13,6 +13,7 @@ import type { Ref } from "../../shared/ref.ts";
 import { planeOf } from "../objects.ts";
 import { sketchOfEdge } from "../../operation/edgesource.ts";
 import { sideOf, viewAxes, nearTolMm } from "../camera.ts";
+import { seenIn } from "../picking.ts";
 import { moveOffset } from "../gizmo.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
@@ -218,7 +219,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "op:linear" || id === "op:circular" || id === "op:copy") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular" | "copy");
   if (id.startsWith("op:")) return beginOp(closed, id.slice(3) as OpKind, now, s.menu?.plane ?? null);
   if (id.startsWith("near:")) {
-    const cmd = nearCommand(sceneOf(s.session), selectionOf(s.session), id, nearTolMm(s.cam));
+    const cmd = nearCommand(sceneOf(s.session), selectionOf(s.session), id, nearTolMm(s.cam), seenIn(s.cam, sceneOf(s.session), { w: 800, h: 600 }));
     return cmd ? { ...withSession(s, run(s.session, cmd)), menu: null } : closed;
   }
   const a = actionsFor(sceneOf(s.session), selectionOf(s.session)).find((x) => x.id === id);

@@ -3,7 +3,7 @@ id: dec_anchor_geometry
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_305, in_308, in_309, in_310, in_311
+human_input: in_305, in_308, in_309, in_310, in_311, in_312
 date: 2026-11-14
 depends_on:
   - dec_relations_standard: the relations that apply to anchors are the table's own rows, not new ones
@@ -23,7 +23,9 @@ Built: (1) `roundOf` / `relationKind` (`operation/part.ts`): a **circular edge o
 
 **Edges that are not in the sketch's plane (`in_311`).** The edges and corners of the body count by the way they **fall on the plane** (straight down its facing): a rim lower than the sketch (the bottom of a chamfered post) is a circle on the plane with its own centre and radius, a slanting or lower straight edge a line, a lower corner a point (`anchorRounds`, `anchorLines`, `anchorCorners` give each with its `offset` from the plane; an edge that runs along the facing falls on a point and is left out; of several that fall on one place the nearer to the plane is the one). They are used by the hints, the suggestions, the first point of a circle, the snap of the pointer (a lower corner of the body is snapped to where it falls) and the corners a figure is held to. The solver already put every body corner and line on the plane it solves, so it held them already; the relation names the real edge or corner.
 
-Not built yet (each its own step): the same description for a face; an edge that is hidden behind the body is offered as the others are (not told apart by whether it can be seen); body-to-body constraints (`q_body_constraints`).
+**Hidden and visible (`in_312`).** A part of the body that is **not in the sketch's plane** is offered by proximity (the hints, the snaps, the first point of a circle, the suggestions) only if it **can be seen** from the camera: no face of the body between the eye and some point of it (its ends and middle, eight points round a rim; `visibleFrom` in `picking.ts`, the rule `candidatesAt` already used for picking: a face between the eye and the plane being sketched on hides nothing; the answer is kept for the same scene and eye). Parts in the plane are always offered (they are the face being sketched on). The relations table and the solver are not filtered: a part that is chosen by selecting it, or already named by a relation, is used whether it is seen or not. Orbiting so that an edge comes into view makes it offered; looking so that it is behind the body takes it away.
+
+Not built yet (each its own step): the same description for a face; body-to-body constraints (`q_body_constraints`).
 
 ## Rationale
 

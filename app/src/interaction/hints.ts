@@ -9,6 +9,7 @@ import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
 import { anchorRounds, anchorLines, anchorCorners } from "../operation/anchors.ts";
+import { visibleFrom } from "./picking.ts";
 import type { Command } from "../operation/commands.ts";
 import { settings } from "../shared/settings.ts";
 
@@ -20,9 +21,11 @@ const unit = (v: V2): V2 => { const l = lenOf(v) || 1; return [v[0] / l, v[1] / 
 
 /** A circle or an arc: what a line can end on or be tangent to. An arc's ends say which part of its circle is there (`in_230`: an arc is a circle too, and lit when it is the one the end is on). */
 interface Round { ref: Ref; center: Vec3; radius: number; arc?: { a: Vec3; b: Vec3; ccw: boolean } }
-function roundsOf(scene: Scene, get: (r: Ref) => Scene["parts"][string] | undefined, pl?: Plane): Round[] {
+/** Whether a point of the model can be seen from the view the pointer is in, while sketching on this plane: what the hints and snaps may offer of the body (`in_312`). */
+const seenFrom = (scene: Scene, pv: PointerView, pl: Plane) => (p: Vec3): boolean => visibleFrom(scene, pv, p, { at: pl.at, n: normalOfPlane(pl) });
+function roundsOf(scene: Scene, get: (r: Ref) => Scene["parts"][string] | undefined, pl?: Plane, seen?: (p: Vec3) => boolean): Round[] {
   const out: Round[] = [];
-  if (pl) for (const a of anchorRounds(scene, pl)) out.push({ ref: a.ref, center: a.center, radius: a.radius }); // (the circular edges of the body in this plane: anchors, `in_308`)
+  if (pl) for (const a of anchorRounds(scene, pl, { seen })) out.push({ ref: a.ref, center: a.center, radius: a.radius }); // (the circular edges of the body in this plane: anchors, `in_308`)
   for (const c of Object.values(scene.parts)) {
     if (c.kind === "circle") { const ci = circleOf(get, c.ref); if (ci) out.push({ ref: c.ref, ...ci }); continue; }
     if (c.kind === "line" && c.origin === "drawn" && c.center && !c.derived) { // (a piece an extrusion cut from the arc is not the arc: the arc is what constraints name)
@@ -64,7 +67,8 @@ function outlineSnap(scene: Scene, pl: Plane, pv: PointerView, e: V2, skip: (ref
   const get = (r: Ref) => scene.parts[r];
   const n = normalOfPlane(pl);
   const onPlane = (p: Vec3) => Math.abs(dot(sub(p, pl.at), n)) < 1e-3;
-  const projected = new Map(anchorLines(scene, pl).map((l) => [l.ref, [l.a, l.b] as [Vec3, Vec3]])); // (the straight edges of the body as they fall on this plane are lines too, read-only, `in_310`, `in_311`)
+  const seen = seenFrom(scene, pv, pl);
+  const projected = new Map(anchorLines(scene, pl, { seen }).map((l) => [l.ref, [l.a, l.b] as [Vec3, Vec3]])); // (the straight edges of the body as they fall on this plane are lines too, read-only, `in_310`, `in_311`; the ones out of sight are not offered, `in_312`)
   const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && ((p.origin === "drawn" && !p.center && !p.derived) || projected.has(p.ref)));
   // on a line: close to a line (not one that starts here)
   let best: { at: V2; ref: Ref; px: number } | null = null;
@@ -83,7 +87,7 @@ function outlineSnap(scene: Scene, pl: Plane, pv: PointerView, e: V2, skip: (ref
   if (best) return { at: best.at, hint: { kind: "onLine", ref: best.ref } };
   // on a circle: the point is at the edge of a circle or an arc
   let onCircle: { at: V2; ref: Ref; px: number } | null = null;
-  for (const c of roundsOf(scene, get, pl).filter((r) => onPlane(r.center) && !skip(r.ref))) {
+  for (const c of roundsOf(scene, get, pl, seen).filter((r) => onPlane(r.center) && !skip(r.ref))) {
     const m = localOf(pl, c.center);
     const w: V2 = [e[0] - m[0], e[1] - m[1]];
     const D = lenOf(w);
@@ -172,7 +176,8 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
   if (len < 1e-6) return none;
   const get = (r: Ref) => scene.parts[r];
   const tol = (settings.sketch.hintDeg * Math.PI) / 180;
-  const projected = new Map(anchorLines(scene, pl).map((l) => [l.ref, [l.a, l.b] as [Vec3, Vec3]])); // (the straight edges of the body as they fall on this plane, `in_310`, `in_311`)
+  const seen = seenFrom(scene, pv, pl);
+  const projected = new Map(anchorLines(scene, pl, { seen }).map((l) => [l.ref, [l.a, l.b] as [Vec3, Vec3]])); // (the straight edges of the body as they fall on this plane, `in_310`, `in_311`; the ones out of sight are not offered, `in_312`)
   const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && ((p.origin === "drawn" && !p.center && !p.derived) || projected.has(p.ref))); // (a piece a crossing cut from a line is not the line: constraints name the line, and the piece goes when the crossing does, `in_251`)
   const ends = (ref: Ref): [Vec3, Vec3] | null => projected.get(ref) ?? segmentOf(get, ref);
   const seg = (ref: Ref): [V2, V2] | null => { const q = ends(ref); return q && onPlane(q[0]) && onPlane(q[1]) ? [localOf(pl, q[0]), localOf(pl, q[1])] : null; };
@@ -180,7 +185,7 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
 
   // on a line, or on a circle or an arc: the end takes the nearest point on it
   const snapped = outlineSnap(scene, pl, pv, e, (ref) => touchesStart(ref));
-  const rounds = roundsOf(scene, get, pl).filter((r) => onPlane(r.center));
+  const rounds = roundsOf(scene, get, pl, seen).filter((r) => onPlane(r.center));
 
   // directions the end could take: level, upright, parallel or square to a line, tangent to a circle; the nearest one inside the tolerance wins
   const cands: { dir: V2; err: number; hint: Hint }[] = [];
@@ -327,7 +332,7 @@ export function circleCentredAt(spent: Scene, pl: Plane, at: Vec3): Ref | null {
  */
 export function anchorCentreAt(spent: Scene, pl: Plane, pv: PointerView): { at: Vec3; ref: Ref } | null {
   let best: { at: Vec3; ref: Ref; px: number } | null = null;
-  for (const a of anchorRounds(live(spent), pl)) {
+  for (const a of anchorRounds(live(spent), pl, { seen: seenFrom(live(spent), pv, pl) })) {
     const [x, y] = pv.project(a.center);
     const px = Math.hypot(x - pv.x, y - pv.y);
     if (px <= settings.sketch.snapPx && (!best || px < best.px)) best = { at: a.center, ref: a.ref, px };

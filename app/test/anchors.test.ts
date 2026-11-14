@@ -262,3 +262,41 @@ test("a line drawn parallel to a straight edge of the body in its plane is offer
   const hs = st.tool!.hints ?? [];
   assert.ok(hs.some((h) => h.kind === "parallel" && h.ref?.startsWith("b/body/e@")), `parallel with an edge of the body: ${JSON.stringify(hs)}`);
 });
+
+import { visibleFrom } from "../src/interaction/picking.ts";
+
+test("hidden and visible: a part of the body that is not in the plane and cannot be seen is not offered by proximity; one that can be seen is (`in_312`)", () => {
+  const s = open();
+  const pl = scene(s).parts["d/p_030"] as never;
+  const [none, all] = [() => false, () => true];
+  const [hide, show] = [anchorRounds(scene(s), pl, { seen: none }), anchorRounds(scene(s), pl, { seen: all })];
+  assert.ok(show.some((r) => Math.abs(r.offset) > 1) && !hide.some((r) => Math.abs(r.offset) > 1), "the lower rims go when none can be seen");
+  assert.ok(hide.some((r) => r.offset === 0), "the ones in the plane stay: they are the face being sketched on");
+  assert.ok(anchorLines(scene(s), pl, { seen: none }).every((l) => l.offset < 1e-3) && anchorLines(scene(s), pl, { seen: all }).some((l) => l.offset > 1));
+  assert.ok(anchorCorners(scene(s), pl, { seen: none }).every((c) => Math.abs(c.offset) < 1e-3) && anchorCorners(scene(s), pl, { seen: all }).some((c) => Math.abs(c.offset) > 1));
+});
+
+test("a point inside the body is hidden from above and from the side, a point over it is not; a point on the face being sketched on is seen (`in_312`)", () => {
+  const s = open();
+  const sc = scene(s);
+  const env = { w: 900, h: 700 };
+  const top = projector({ ...homeCamera(), straight: true, azimuth: 0, elevation: Math.PI / 2, target: [27, 27, 6], distance: 120 }, env.w, env.h).view(0, 0);
+  const inside: [number, number, number] = [27, 27, 6];
+  assert.equal(visibleFrom(sc, top, inside), false, "inside the body, under its top face");
+  assert.equal(visibleFrom(sc, top, [27, 27, 40]), true, "over it");
+  assert.equal(visibleFrom(sc, top, [27, 27, 13.5]), true, "on the top face");
+});
+
+test("a selected circle near the projection of a lower edge is offered it when the edge can be seen, and not when it cannot (`in_312`)", () => {
+  const s0 = open();
+  const pl = scene(s0).parts["d/p_030"] as never;
+  const low = anchorLines(scene(s0), pl).find((l) => l.offset > 1)!;
+  const mid = [(low.a[0] + low.b[0]) / 2, (low.a[1] + low.b[1]) / 2];
+  const d = [low.b[1] - low.a[1], -(low.b[0] - low.a[0])];
+  const dl = Math.hypot(d[0]!, d[1]!);
+  const at = [mid[0]! + (d[0]! / dl) * 0.2, mid[1]! + (d[1]! / dl) * 0.2, 13.5];
+  const s = run(s0, { type: "addPart", part: { ref: "d/e_901.c", kind: "corner", origin: "drawn", plane: "d/p_030", movable: true, at } } as never);
+  const ids = (seen: () => boolean) => suggestionsFor(scene(s), ["d/e_901.c" as Ref], 0, seen)?.items.map((i) => i.id) ?? [];
+  assert.ok(ids(() => true).includes(`near:onLine:${low.ref}`), "seen: offered");
+  assert.ok(!ids(() => false).includes(`near:onLine:${low.ref}`), "out of sight: not offered");
+});

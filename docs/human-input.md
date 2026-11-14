@@ -1499,3 +1499,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_311 — 2026-11-14 — directive
 > Do the edges not in the sketch's plane next
 (approves the next step of `dec_anchor_geometry`: edges and corners of the body that are not in the sketch's plane count as anchors by their projection onto it)
+
+## in_312 — 2026-11-14 — directive
+> Do the hidden versus visible edges next
+(approves the next step of `dec_anchor_geometry`: telling hidden edges of the body from visible ones when they are offered as anchors)
