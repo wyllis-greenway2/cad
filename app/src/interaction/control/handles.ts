@@ -14,14 +14,15 @@ import type { Hint } from "../hints.ts";
 import type { Scene } from "../../operation/scene.ts";
 import { nextId } from "../../operation/scene.ts";
 import { apply } from "../../operation/commands.ts";
-import { autoOp, isLive } from "../operations.ts";
+import { autoOp, isLive, startOp } from "../operations.ts";
+import { objectOf, bodyCentre } from "../objects.ts";
 import { runOp } from "../runop.ts";
 import { patternBase, dragPattern, liveRepeat, advanceHelp } from "../pattern.ts";
 import type { Op } from "../operations.ts";
 import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed } from "../gizmo.ts";
 import type { Gizmo } from "../gizmo.ts";
 import { candidatesAt } from "../picking.ts";
-import { projector } from "../camera.ts";
+import { projector, basis, viewAxes } from "../camera.ts";
 import { lookup } from "../../operation/scene.ts";
 import { pointOf } from "../../operation/part.ts";
 import { doOrbit } from "./viewing.ts";
@@ -83,6 +84,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
   if ("corner" in s.drag!) return moveCorner(s, i, env);
   if ("line" in s.drag!) return moveLine(s, i, env);
   if ("rim" in s.drag!) return moveRim(s, i, env);
+  if ("body" in s.drag!) return moveBody(s, i, env);
   if ("handle" in s.drag! && s.drag.repeat && s.repeat) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
     return r && "value" in r ? { ...s, repeat: advanceHelp({ ...s.repeat, op: dragPattern(s.repeat.op, s.drag.handle.id, r, s.drag.base) }) } : s;
@@ -106,12 +108,45 @@ function withScreen(d: Drag, h: Handle, pr: ReturnType<typeof projector>, x0: nu
   return { ...d, screen: { x0, y0, ux, uy, pxPerMm: steady } };
 }
 
+/** A selected whole body dragged free (`in_291`): it goes where the pointer goes on the plane through its middle that faces the camera, as one move step that is made when it is let go (the picture of it moving is the graphics card's). */
+function moveBody(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): AppState {
+  const d = s.drag as { body: Ref; from: Vec3; centre: Vec3 };
+  if (!s.op) return s;
+  const now = onViewPlane(s.cam, d.centre, projector(s.cam, env.w, env.h).ray(i.x, i.y));
+  if (!now) return s;
+  const r = (v: number) => Math.round(v * 1000) / 1000;
+  return { ...s, op: { ...s.op, free: [r(now[0] - d.from[0]), r(now[1] - d.from[1]), r(now[2] - d.from[2])] } };
+}
+
+/** Where a pointer's ray meets the plane through `centre` that faces the camera. */
+function onViewPlane(cam: AppState["cam"], centre: Vec3, ray: { o: Vec3; d: Vec3 } | null): Vec3 | null {
+  if (!ray) return null;
+  const n = basis(cam).forward;
+  const den = n[0] * ray.d[0] + n[1] * ray.d[1] + n[2] * ray.d[2];
+  if (Math.abs(den) < 1e-6) return null;
+  const t = (n[0] * (centre[0] - ray.o[0]) + n[1] * (centre[1] - ray.o[1]) + n[2] * (centre[2] - ray.o[2])) / den;
+  return t > 0 ? [ray.o[0] + ray.d[0] * t, ray.o[1] + ray.d[1] * t, ray.o[2] + ray.d[2] * t] : null;
+}
+
 /** A drag that starts on a corner of a drawing drags the corner (the solver keeps the relations: a rectangle stays a rectangle); anywhere else it turns the camera. */
 function orbitOrCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): AppState {
   if (!s.tool && !s.op) {
     const sc = sceneOf(s.session);
-    const pv = projector(s.cam, env.w, env.h).view(i.x - i.dx, i.y - i.dy);
+    const pr = projector(s.cam, env.w, env.h);
+    const pv = pr.view(i.x - i.dx, i.y - i.dy);
     const c = candidatesAt(sc, pv, { ...pickOpts(s), lineTol: 0 }).find((k) => k.kind === "corner" && sc.parts[k.ref]?.origin === "drawn" && sc.parts[k.ref]?.plane);
+    // a body that is selected whole is dragged free by pressing on it (`in_291`)
+    if (!c) {
+      const first = candidatesAt(sc, pv, pickOpts(s)).find((k) => sc.parts[k.ref]?.origin === "body" || sc.parts[k.ref]?.kind === "body");
+      const body = first ? objectOf(sc, first.ref) : null;
+      const sel = selectionOf(s.session);
+      if (body && sc.parts[body]?.kind === "body" && sel.length === 1 && sel[0] === body) {
+        const centre = bodyCentre(sc, body);
+        const start = centre ? onViewPlane(s.cam, centre, pr.ray(i.x - i.dx, i.y - i.dy)) : null;
+        const op = startOp(sc, [body], "move", viewAxes(s.cam));
+        if (centre && start && op.ok) return { ...s, op: { ...op.op, free: [0, 0, 0] }, drag: { body, from: start, centre }, hoverPoint: null };
+      }
+    }
     if (c) return { ...s, drag: { corner: c.ref, base: s.session }, hoverPoint: null };
     // a straight line of the drawing is dragged whole, the edge of a circle changes its size (`in_290`)
     const hit = candidatesAt(sc, pv, pickOpts(s)).find((k) => { const p = sc.parts[k.ref]; return p?.origin === "drawn" && !!p.plane && ((p.kind === "line" && !p.derived && !p.center) || p.kind === "circle"); });
@@ -219,6 +254,13 @@ export function doDragEnd(s: AppState, env?: Env): AppState {
   if (s.box) return env ? finishBox(s, env) : { ...s, box: null };
   const d = s.drag;
   const cleared: AppState = { ...s, drag: null, dragHint: null, orthoDebt: 0 };
+  if (d && "body" in d && s.op) {
+    // a body dragged free: it is moved by what it was taken, as one step (`in_291`)
+    const free = s.op.free;
+    if (!free || (!free[0] && !free[1] && !free[2])) return { ...cleared, op: null };
+    const made = runOp(s.session, s.op);
+    return made ? { ...cleared, session: made.session, op: null, spread: null, hoverPoint: null } : { ...cleared, op: null };
+  }
   if (!d || !("handle" in d) || !s.op) return cleared; // (a handle of a repeat being set up only set its numbers)
   if (d.handle.kind === "ball") return s.op.auto ? { ...cleared, op: null } : cleared;
   if (isLive(s.op)) {

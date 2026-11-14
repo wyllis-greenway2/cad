@@ -11,7 +11,7 @@ import { scene as sceneOf, selection as selectionOf } from "../session.ts";
 import type { Session } from "../session.ts";
 import { initialClick } from "../selection.ts";
 import { candidatesAt } from "../picking.ts";
-import { homeCamera, orbit, pan, zoomAt, blend, easeInOut, projector, sideOf } from "../camera.ts";
+import { homeCamera, position, basis, orbit, pan, zoomAt, blend, easeInOut, projector, sideOf } from "../camera.ts";
 import { pivotOf, planeOf } from "../objects.ts";
 import type { AppState, Env } from "./state.ts";
 import { pickOpts, stop, surfacePoint, planeView, animateTo, withSession } from "./state.ts";
@@ -21,15 +21,19 @@ const WORLD_PLANE = { X: "YZ", Y: "XZ", Z: "XY" } as const; // X looks along the
 const withoutMix = (c: AppState["cam"]): AppState["cam"] => { const { mix: _unused, ...rest } = c; return rest; };
 
 export function doOrbit(s: AppState, i: Extract<Intent, { type: "orbit" }>): AppState {
+  // the view turns about the body in view when there are several, kept for the whole drag (`in_291`)
+  const held = s.drag && "camera" in s.drag ? s.drag.pivot : undefined;
+  const pivot = held ?? pivotOf(s.session, { from: position(s.cam), dir: basis(s.cam).forward });
+  s = { ...s, drag: s.drag && "camera" in s.drag ? { camera: true, ...(pivot ? { pivot } : {}) } : s.drag };
   if (s.cam.straight && !s.anim) {
     // a straight view holds on: the drag is kept back until it is a little way (the perspective is not let in by accident), and then the view turns on from there
     const debt = s.orthoDebt + Math.hypot(i.dx, i.dy);
     if (debt < settings.view.leaveStraightPx) return { ...s, orthoDebt: debt, menu: null };
     const k = Math.min(1, (debt - settings.view.leaveStraightPx) / Math.max(1e-9, Math.hypot(i.dx, i.dy))); // (only what is past the hold turns the view)
-    const cam = orbit(s.cam, -i.dx * k * settings.view.orbitRadPerPx, i.dy * k * settings.view.orbitRadPerPx, pivotOf(s.session));
+    const cam = orbit(s.cam, -i.dx * k * settings.view.orbitRadPerPx, i.dy * k * settings.view.orbitRadPerPx, pivot);
     return { ...stop(s), cam: { ...cam, mix: 0.03 }, orthoDebt: 0, mixT0: -1, menu: null };
   }
-  return { ...stop(s), cam: orbit(s.cam, -i.dx * settings.view.orbitRadPerPx, i.dy * settings.view.orbitRadPerPx, pivotOf(s.session)), orthoDebt: 0, menu: null };
+  return { ...stop(s), cam: orbit(s.cam, -i.dx * settings.view.orbitRadPerPx, i.dy * settings.view.orbitRadPerPx, pivot), orthoDebt: 0, menu: null };
 }
 
 export const doPan = (s: AppState, i: Extract<Intent, { type: "pan" }>, env: Env): AppState => ({ ...stop(s), cam: pan(s.cam, i.dx, i.dy, env.h), menu: null });

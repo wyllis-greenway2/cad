@@ -87,7 +87,13 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
       run: (): Command => {
         // the body is gone, and so is all that made it: its steps (they would make a body that is deleted again at once) and the sketches they used, which were only hidden (`in_192`). What is not used up stays: a corner another drawing stands on, the circle that a piece of was extruded
         const gone = new Set<Ref>();
-        for (const st of scene.steps) {
+        // with several bodies only the selected ones go: the step that made each (named in its id, `x_<step>`) and the steps that were made on it alone (`in_291`: deleting one cylinder took the other too)
+        const all = Object.values(scene.parts).filter((q) => q.kind === "body");
+        const ids = new Set(whole.map((r) => (get(r) as { id?: string }).id).filter((x): x is string => !!x));
+        const some = all.length > 1 && ids.size > 0 && ids.size < all.length;
+        const mine = (st: Scene["steps"][number]): boolean => !some || [...ids].some((id) => st.id === id.replace(/^x_/, "") || st.params.body === id);
+        const steps = scene.steps.filter(mine);
+        for (const st of steps) {
           if (st.type !== "extrude") continue;
           const cut = st.params.cut !== undefined || figureRefs(st).some((r) => r.includes("@")); // (a piece of a cut shape: the sides stay with the other pieces)
           for (const r of figureRefs(st)) { const p = get(r); if (p?.movable && !r.includes("@") && (!cut || p.kind === "circle")) gone.add(r); }
@@ -95,7 +101,7 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
         const corners = [...gone].flatMap((r): Ref[] => { const p = get(r); return p?.kind === "circle" ? [p.center] : p?.kind === "line" ? [p.a, p.b, ...(p.center ? [p.center] : [])] : []; });
         const alone = (c: Ref) => !!get(c)?.movable && !Object.values(scene.parts).some((q) => !gone.has(q.ref) && ((q.kind === "circle" && q.center === c) || (q.kind === "line" && (q.a === c || q.b === c || q.center === c))));
         const refs = [...gone, ...new Set(corners.filter(alone))].filter((r) => r in scene.parts);
-        return { type: "batch", commands: [...[...scene.steps].reverse().map((st): Command => ({ type: "removeStep", id: st.id })), ...(refs.length ? [{ type: "deleteParts", refs } as Command] : [])] };
+        return { type: "batch", commands: [...[...steps].reverse().map((st): Command => ({ type: "removeStep", id: st.id })), ...(refs.length ? [{ type: "deleteParts", refs } as Command] : [])] };
       },
     });
   } else {

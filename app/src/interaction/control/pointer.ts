@@ -375,7 +375,10 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
     const only = selectable[0] ? withSession(base, { ...sess, click: { selection: [selectable[0]], spot: sess.click.spot }, message: null }) : base;
     return animateTo(only, planeView(base.cam, pl, false), env.now);
   }
-  const picked = clickOn(sess, selectable, i.shift);
+  // Shift on bodies adds or takes out the whole body: when what is selected are whole bodies, a click on a body (any face of it) is that body, not the face (`in_291`)
+  const whole = i.shift && selectionOf(sess).length > 0 && selectionOf(sess).every((r) => sc.parts[r]?.kind === "body");
+  const asBody = whole ? selectable.filter((r) => sc.parts[r]?.origin === "body").slice(0, 1).map((r) => objectOf(sc, r)) : [];
+  const picked = clickOn(sess, asBody.length ? asBody : selectable, i.shift);
   const next: Session = { ...picked, click: { ...picked.click, selection: withTwins(sc, selectionOf(sess), selectionOf(picked)) } };
   const top = selectionOf(next).at(-1);
   const hit = cands.find((c) => c.ref === top);

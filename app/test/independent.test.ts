@@ -10,7 +10,7 @@ import { drawSquaredRectangle } from "../src/operation/build.ts";
 import { nextId } from "../src/operation/scene.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
 import type { AppState } from "../src/interaction/controller.ts";
-import { homeCamera } from "../src/interaction/camera.ts";
+import { homeCamera, projector } from "../src/interaction/camera.ts";
 import { startOp, opCommand } from "../src/interaction/operations.ts";
 import { objectOf, bodyCentre } from "../src/interaction/objects.ts";
 import { frameOf } from "../src/interaction/frame.ts";
@@ -311,4 +311,91 @@ test("Copy of one body that has a sketch on its face: the copies are the solid, 
   assert.equal(bodies(st.session).length, 3, "the body, its copy, and the other body");
   assert.equal(JSON.stringify(r.corners.map((c) => (scene(st.session).parts[c as Ref] as { at: Vec3 }).at)), cornersBefore, "the sketch stayed where it was drawn");
   assert.ok(bodies(st.session).some((b) => Math.abs(b.bbox!.min[0] - 60) < 1e-6), "the other body did not move");
+});
+
+import { actionsFor } from "../src/interaction/actions.ts";
+test("deleting one of two bodies takes that body only: its step and sketch go, the other body and its step stay (`in_291`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const del = actionsFor(scene(s), [a!.ref]).find((x) => x.id === "delete")!;
+  const after = run(s, del.run());
+  assert.equal(after.message, null);
+  assert.equal(bodies(after).length, 1, "one body is left");
+  assert.ok(Math.abs(bodies(after)[0]!.bbox!.min[0] - 40) < 1e-6, "the other one");
+  assert.equal(scene(after).steps.length, 1);
+  // a body that was moved by a step made on it goes with its steps
+  const moved = startOp(scene(s), [b!.ref], "move");
+  if (!moved.ok) return assert.fail("no move");
+  const s2 = run(s, opCommand(scene(s), { ...moved.op, axis: 1, value: 20 })!);
+  const del2 = actionsFor(scene(s2), [bodies(s2)[1]!.ref]).find((x) => x.id === "delete")!;
+  const after2 = run(s2, del2.run());
+  assert.equal(bodies(after2).length, 1);
+  assert.equal(scene(after2).steps.filter((st) => st.type === "move").length, 0, "the move made on the deleted body went with it");
+  // with one body nothing changes: it all goes
+  const one = box(createSession(kernel), 0, 0);
+  const del3 = actionsFor(scene(one), [bodies(one)[0]!.ref]).find((x) => x.id === "delete")!;
+  assert.equal(bodies(run(one, del3.run())).length, 0);
+});
+
+test("Shift adds a second body to a selected body (the whole body, not a face of it), and takes it out again (`in_291`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  let st: AppState = { ...createState(s), cam: homeCamera() };
+  const pr = (bb: NonNullable<typeof a>) => { const q = (bb.bbox!.min.map((v, i) => (v + bb.bbox!.max[i]!) / 2) as unknown as [number, number, number]); q[1] = bb.bbox!.min[1]; q[2] = (bb.bbox!.min[2] + bb.bbox!.max[2]) / 2; return projector(st.cam, env.w, env.h).project(q); };
+  const click = (bb: NonNullable<typeof a>, count: number, shift: boolean, now: number) => { const p = pr(bb); st = reduce(st, { type: "click", x: p[0], y: p[1], count, shift }, { ...env, now }); };
+  click(a!, 1, false, 0); click(a!, 2, false, 100);
+  assert.deepEqual(st.session.click.selection, [a!.ref], "the whole body a is selected");
+  click(b!, 1, true, 2000);
+  assert.deepEqual(st.session.click.selection, [a!.ref, b!.ref], "shift adds the whole body b");
+  click(b!, 1, true, 4000);
+  assert.deepEqual(st.session.click.selection, [a!.ref], "and takes it out again");
+});
+
+test("the arrows and rings of Move and Turn stand in the middle of the selected body, not of all the bodies (`in_291`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  for (const kind of ["move", "rotate"] as const) {
+    for (const body of [a!, b!]) {
+      const st = reduce(pick({ ...createState(s), cam: homeCamera() }, [body.ref]), { type: "begin", name: kind }, env);
+      const g = frameOf(st, env).gizmo!;
+      const centre = bodyCentre(scene(s), body.ref)!;
+      const first = g.handles[0]!.points[0]!;
+      const onAxis = kind === "move" ? first : g.handles.find((h) => h.id === "pivot")!.points[0]!;
+      assert.ok(Math.hypot(onAxis[0] - centre[0], onAxis[1] - centre[1], onAxis[2] - centre[2]) < 1e-6, `${kind} of ${body.id}: ${onAxis} vs ${centre}`);
+    }
+  }
+});
+
+test("the view turns about the body in view: with two bodies far apart, turning while looking at one keeps that one where it is on the screen (`in_291`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 300, 0);
+  const [a] = bodies(s);
+  const centre = [0, 1, 2].map((i) => (a!.bbox!.min[i]! + a!.bbox!.max[i]!) / 2) as unknown as [number, number, number];
+  let st: AppState = { ...createState(s), cam: { ...homeCamera(), target: [20, 5, 5], distance: 60 } };
+  const where = () => projector(st.cam, env.w, env.h).project(centre);
+  const before = where();
+  st = reduce(st, { type: "hover", x: 400, y: 300 }, env);
+  st = reduce(st, { type: "orbit", dx: 30, dy: 0, x: 430, y: 300 }, env);
+  st = reduce(st, { type: "orbit", dx: 40, dy: 10, x: 470, y: 310 }, env);
+  st = reduce(st, { type: "dragEnd" }, env);
+  const after = where();
+  assert.ok(Math.hypot(after[0] - before[0], after[1] - before[1]) < 3, `the body in view stays: ${before} to ${after}`);
+});
+
+test("a body that is selected whole is dragged free by pressing on it: it moves by what the pointer moved, as one step, and the other body stays (`in_291`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  let st: AppState = pick({ ...createState(s), cam: { ...homeCamera(), target: [5, 5, 5] } }, [a!.ref]);
+  const pr = () => projector(st.cam, env.w, env.h);
+  const on = pr().project([5, 0, 5]); // (the front face of the first body)
+  const steps0 = scene(st.session).steps.length;
+  st = reduce(st, { type: "hover", x: on[0], y: on[1] }, env);
+  let [x, y] = on;
+  for (const [dx, dy] of [[0, 0], [20, -10], [20, -10], [10, 0]] as [number, number][]) { x += dx; y += dy; st = reduce(st, { type: "orbit", dx, dy, x, y }, env); }
+  assert.ok(st.op?.free, "the drag has taken hold of the body");
+  st = reduce(st, { type: "dragEnd" }, env);
+  assert.equal(st.op, null);
+  assert.equal(scene(st.session).steps.length, steps0 + 1, "one step");
+  const [a2, b2] = [bodies(st.session).find((q) => q.id === a!.id)!, bodies(st.session).find((q) => q.id === b!.id)!];
+  assert.ok(Math.abs(a2.bbox!.min[0] - a!.bbox!.min[0]) > 0.5, `the first body moved: ${a!.bbox!.min} to ${a2.bbox!.min}`);
+  assert.deepEqual(b2.bbox!.min.map((v) => Math.round(v * 1000)), b!.bbox!.min.map((v) => Math.round(v * 1000)), "the other body did not");
 });

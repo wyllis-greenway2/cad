@@ -6,7 +6,6 @@ import { add, scale, sub, dot, cross, normalize, centroid } from "../math/vec.ts
 import type { Scene } from "../operation/scene.ts";
 import { normalOfPlane } from "../operation/part.ts";
 import type { Op } from "./operations.ts";
-import { bodyCentre } from "./objects.ts";
 import { patternValues, patternCentre } from "./pattern.ts";
 import type { Camera } from "./camera.ts";
 import { basis } from "./camera.ts";
@@ -90,8 +89,12 @@ function ring(id: string, centre: Vec3, axis: Vec3, R: number, i: 0 | 1 | 2 | nu
   return { id, kind: "arc", axis: i, points, dir: axis, head: Math.round(RING / 8) };
 }
 const cornersOf = (scene: Scene, refs: readonly string[]): Vec3[] => refs.map((r) => scene.parts[r]).filter((p): p is Extract<NonNullable<Scene["parts"][string]>, { kind: "corner" }> => p?.kind === "corner").map((p) => p.at);
-/** The box that holds the body's corners, or null with no body. */
-function bodyBox(scene: Scene): { lo: Vec3; hi: Vec3 } | null {
+/** The box that holds the body's corners, or null with no body. With several bodies the box of the ones selected (`parts`), so the arrows and rings stand in the middle of what is selected, not of everything (`in_291`). */
+function bodyBox(scene: Scene, parts: readonly string[] = []): { lo: Vec3; hi: Vec3 } | null {
+  const mine = parts.map((r) => scene.parts[r]).filter((q): q is Extract<NonNullable<Scene["parts"][string]>, { kind: "body" }> => q?.kind === "body" && !!q.bbox);
+  if (mine.length) {
+    return { lo: [0, 1, 2].map((i) => Math.min(...mine.map((b) => b.bbox!.min[i]!))) as unknown as Vec3, hi: [0, 1, 2].map((i) => Math.max(...mine.map((b) => b.bbox!.max[i]!))) as unknown as Vec3 };
+  }
   const pts = Object.values(scene.parts).filter((p) => p.kind === "corner" && p.origin === "body").map((p) => (p as { at: Vec3 }).at);
   if (!pts.length) return null;
   const lo: [number, number, number] = [Infinity, Infinity, Infinity];
@@ -103,7 +106,7 @@ function bodyBox(scene: Scene): { lo: Vec3; hi: Vec3 } | null {
 /** Where the arrows of a move stand as it begins: the middle of the body's box, or of the corners of the drawn figure. Null with nothing to move. */
 export function moveCentre(scene: Scene, op: Op): Vec3 | null {
   if (op.target === "plane") { const pts = cornersOf(scene, op.parts); return pts.length ? centroid(pts) : null; }
-  const box = bodyBox(scene);
+  const box = bodyBox(scene, op.parts);
   return box ? scale(add(box.lo, box.hi), 0.5) : null;
 }
 /**
@@ -168,10 +171,10 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
     if (op.kind === "move") return { centre, handles: AXES.map((d, i): Handle => ({ id: `move:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, 2 * HALF * L))] })) };
     return { centre, handles: [...AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, centre, d, L * 0.8, i as 0 | 1 | 2)), { id: "pivot", kind: "ball", axis: null, points: [centre] }] };
   }
-  const box = bodyBox(scene);
+  const box = bodyBox(scene, op.parts);
   if (!box) return null;
   // a move that has begun keeps its arrows where the body is by the steps made (the kernel's box lags behind them: the arrows would jump back for a moment, `in_230`)
-  const centre = op.kind === "rotate" ? (op.pivot ?? bodyCentre(scene) ?? scale(add(box.lo, box.hi), 0.5)) : op.kind === "move" && op.from ? add(op.from, moveOffset(scene, op)) : scale(add(box.lo, box.hi), 0.5);
+  const centre = op.kind === "rotate" ? (op.pivot ?? scale(add(box.lo, box.hi), 0.5)) : op.kind === "move" && op.from ? add(op.from, moveOffset(scene, op)) : scale(add(box.lo, box.hi), 0.5);
   if (op.kind === "move") return { centre, handles: AXES.map((d, i): Handle => ({ id: `move:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, 2 * HALF * L))] })) };
   if (op.kind === "rotate") return { centre, handles: [...AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, centre, d, L * 0.8, i as 0 | 1 | 2)), { id: "pivot", kind: "ball", axis: null, points: [centre] }] };
   if (op.kind === "scale") return { centre, handles: [{ id: "scale", kind: "scale", axis: null, points: [centre, box.hi] }] };

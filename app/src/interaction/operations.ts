@@ -71,6 +71,8 @@ export interface Op {
   pat: string[];
   /** a repeat reopened: the record (a repeat of a drawn figure) or the step (a repeat of the body) whose numbers it sets again (`in_257`) */
   editPattern?: string;
+  /** a move of the whole body by a vector, from dragging the body free (`in_291`): one step that moves it all the way; the arrows' single axis is not used */
+  free?: Vec3;
   /** a move, turn or scale of one body of several: whose sketches go with it (its name; "-": none) */
   carryOnly?: string;
   editStep?: string;
@@ -430,6 +432,15 @@ export function opCommand(scene: Scene, op: Op, opts: { preview?: boolean } = {}
   return forBody(opCommandOf(scene, { ...op, carryOnly: which.id }, opts), which.id, true);
 }
 function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Command | null {
+  // the body dragged free: one move by a vector, with the sketches of the body carried by the same (`in_291`)
+  if (op.kind === "move" && op.target === "body" && op.free) {
+    const [x, y, z] = op.free;
+    if (!x && !y && !z) return null;
+    const id = nextId(scene, "s");
+    const step: Command = { type: "addStep", step: { id, type: "move", parts: op.parts, params: { axis: 0, value: 0, vx: x, vy: y, vz: z, follow: 1 } } };
+    const carry = carrySketches(scene, [], op.free, [0, 0, 0], 1, op.carryOnly);
+    return carry.length ? { type: "batch", commands: [step, ...carry] } : step;
+  }
   // a preview (what is shown while a number is dragged) is only the step: the sketches are carried when it is made for good. Carrying them changes what the earlier steps read, so every step would be made again at every move of the pointer (`in_206`)
   if (opts.preview && op.target === "body" && (op.kind === "move" || op.kind === "rotate" || op.kind === "scale")) return stripFollow(opCommand(scene, op));
   if (op.kind === "linear" || op.kind === "circular") return patternCommand(scene, op);
@@ -503,6 +514,7 @@ export function bodyMotion(scene: Scene, op: Op): Rigid | null {
     if (!adds.length || !pivot0 || (adds.length > 1 && !op.pivot)) return null;
     return laterMotion(adds.map((a) => ({ ...a.step, params: { ...a.step.params, follow: 1, px: pivot0[0], py: pivot0[1], pz: pivot0[2] } })), -1);
   }
+  if (op.kind === "move" && op.free) return motionOf({ id: "s_x", type: "move", parts: op.parts, params: { axis: 0, value: 0, vx: op.free[0], vy: op.free[1], vz: op.free[2] } });
   const v = valueOf(op);
   if (v === null) return null;
   if (op.kind === "scale" && v <= 0) return null;

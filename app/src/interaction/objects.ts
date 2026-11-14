@@ -6,8 +6,22 @@ import type { Scene } from "../operation/scene.ts";
 import type { Session } from "./session.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 
-/** The middle of the model: the body's bounding box (a single body for now). */
-export function pivotOf(s: Session): Vec3 | undefined {
+/**
+ * What the view turns about: the middle of the model, and with several bodies the middle of the one nearest in view (`in_291`: turning about the point between two bodies far apart threw the one you were looking at out
+ * of the screen). `near` is where the screen's middle is looking, as the body's distance from the line of sight: the body whose middle is nearest it is the one in view.
+ */
+export function pivotOf(s: Session, sight?: { from: Vec3; dir: Vec3 }): Vec3 | undefined {
+  const bodies = Object.values(s.history.scene.parts).filter((p): p is Extract<Part, { kind: "body" }> => p.kind === "body" && !!p.bbox);
+  if (sight && bodies.length > 1) {
+    const mid = (b: Extract<Part, { kind: "body" }>): Vec3 => [0, 1, 2].map((i) => (b.bbox!.min[i]! + b.bbox!.max[i]!) / 2) as unknown as Vec3;
+    const off = (b: Extract<Part, { kind: "body" }>): number => {
+      const q = mid(b);
+      const rel: Vec3 = [q[0] - sight.from[0], q[1] - sight.from[1], q[2] - sight.from[2]];
+      const t = rel[0] * sight.dir[0] + rel[1] * sight.dir[1] + rel[2] * sight.dir[2];
+      return Math.hypot(rel[0] - t * sight.dir[0], rel[1] - t * sight.dir[1], rel[2] - t * sight.dir[2]) + (t < 0 ? 1e6 : 0); // (a body behind the camera is not in view)
+    };
+    return mid([...bodies].sort((a, b) => off(a) - off(b))[0]!);
+  }
   const b = s.outcome.kernel?.bbox;
   return b ? [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2] : undefined;
 }

@@ -638,7 +638,8 @@ const OPS = {
     axis[op.axis] = 1;
     const again = (moved) => (one ? makeCompound([...one.rest, moved]) : moved);
     const only = one ? op.body : null;
-    if (op.mode === "move") return { kind: "solid", shape: again(t.translate(axis.map((a) => a * v))), tf: { mode: "move", axis: op.axis, v, only } };
+    // (a move by a vector, from dragging the body free, `in_291`: `op.vec`; else along one axis)
+    if (op.mode === "move") { const by = op.vec ?? axis.map((a) => a * v); return { kind: "solid", shape: again(t.translate(by)), tf: { mode: "move", axis: op.axis, v, vec: op.vec, only } }; }
     if (op.mode === "rotate") { const pivot = op.pivot ?? middle(); return { kind: "solid", shape: again(t.rotate(v, pivot, axis)), tf: { mode: "rotate", axis: op.axis, v, pivot, only } }; }
     if (op.mode === "scale") {
       if (!(v > 1e-6)) throw new Error("scale must be positive");

@@ -26,7 +26,7 @@ export function motionOf(st: Step): Rigid | null {
   if (st.type !== "move" && st.type !== "rotate" && st.type !== "scale") return null;
   const axis = Number(st.params.axis ?? 0) as 0 | 1 | 2;
   const v = Number(st.params.value ?? 0);
-  if (st.type === "move") { const d: [number, number, number] = [0, 0, 0]; d[axis] = v; return { turn: NONE.turn, shift: d, k: 1 }; }
+  if (st.type === "move") { const d: [number, number, number] = st.params.vx !== undefined ? [Number(st.params.vx), Number(st.params.vy), Number(st.params.vz)] : [0, 0, 0]; if (st.params.vx === undefined) d[axis] = v; return { turn: NONE.turn, shift: d, k: 1 }; }
   if (st.params.px === undefined) return null; // (a turn or a scale about the middle of the body, which was not recorded)
   const pivot: Vec3 = [Number(st.params.px), Number(st.params.py), Number(st.params.pz)];
   if (st.type === "scale") return { turn: NONE.turn, shift: [pivot[0] * (1 - v), pivot[1] * (1 - v), pivot[2] * (1 - v)], k: v };
