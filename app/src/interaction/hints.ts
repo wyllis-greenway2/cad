@@ -103,6 +103,34 @@ export function pointHint(spent: Scene, pl: Plane, pv: PointerView, base: Vec3, 
   return snapped ? { at: liftOf(pl, snapped.at), hints: [snapped.hint] } : { at: base, hints: [] };
 }
 
+/**
+ * The edge of a circle being drawn about `center`, at the pointer (`raw`): where that makes it touch another circle (outside it, or inside it, or with the other circle inside it) the radius is taken exactly and says "tangent" (`in_296`).
+ * The same snap as dragging the edge of a circle that is already drawn.
+ */
+export function circleRadiusHint(spent: Scene, pl: Plane, center: Vec3, pv: PointerView, raw: Vec3): { at: Vec3; hints: Hint[] } | null {
+  const scene = live(spent);
+  const n = normalOfPlane(pl);
+  const w = sub(raw, center);
+  const D = Math.hypot(w[0], w[1], w[2]);
+  if (D < 1e-9) return null;
+  let best: { at: Vec3; ref: Ref; px: number } | null = null;
+  for (const o of Object.values(scene.parts)) {
+    if (o.kind !== "circle" || o.origin !== "drawn") continue;
+    const oc = scene.parts[o.center];
+    if (oc?.kind !== "corner" || Math.abs(dot(sub(oc.at, pl.at), n)) > 1e-3) continue;
+    const d = dist(center, oc.at);
+    if (d < 1e-9) continue; // (the same centre: concentric, not tangent)
+    for (const want of [d + o.radius, Math.abs(d - o.radius), o.radius - d]) { // (outside it, or one inside the other)
+      if (want < 1e-6) continue;
+      const at = add(center, scale(w, want / D));
+      const [x, y] = pv.project(at);
+      const px = Math.hypot(x - pv.x, y - pv.y);
+      if (px <= settings.sketch.snapPx && (!best || px < best.px)) best = { at, ref: o.ref, px };
+    }
+  }
+  return best ? { at: best.at, hints: [{ kind: "tangent", ref: best.ref }] } : null;
+}
+
 /** The end of a line from `start` that the pointer is at, `base` (already snapped to corners and the rounding), made to satisfy any constraint it is close to. */
 export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, base: Vec3): { at: Vec3; hints: Hint[] } {
   const scene = live(spent); // (what an extrude used up, or a deleted body took, is not there to suggest a constraint to)

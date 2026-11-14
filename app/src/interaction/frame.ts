@@ -496,6 +496,7 @@ function withGhost(base: Preview | null, s: AppState): Preview | null {
 
 /** Does any of the body lie between the camera and the plane being sketched on? (Only when looking straight at that plane: in 3D it is all as it was.) */
 function fadeBodyOf(s: AppState, mesh: { vertices: Float32Array } | null): boolean {
+  if (s.cut) return true; // (the bodies being cut are seen through, so that the parts they make can be told apart, `in_296`)
   const pl = sketchPlaneOf(s);
   if (!pl || !mesh) return false;
   const n = normalOfPlane(pl);

@@ -12,7 +12,8 @@ import type { Session } from "../session.ts";
 import { candidatesAt } from "../picking.ts";
 import { actionsFor } from "../actions.ts";
 import type { ToolKind, Tool } from "../tools.ts";
-import { lineHint, hintRelations, circleCentredAt, pointHint, arcBulgeHint } from "../hints.ts";
+import { diskFaceRef } from "../../operation/loops.ts";
+import { lineHint, hintRelations, circleCentredAt, pointHint, arcBulgeHint, circleRadiusHint } from "../hints.ts";
 import type { Hint } from "../hints.ts";
 import { snapOnPlane, finish, planeForDrawing, armTool, pointOnPlane } from "../tools.ts";
 import { trimAt } from "../../operation/trim.ts";
@@ -185,7 +186,7 @@ function hintFor(sc: Scene, t: Tool, pl: Plane, pv: ReturnType<ReturnType<typeof
   if (!t.points.length) return pointHint(sc, pl, pv, raw); // (a first point of any figure: on a line or a circle, `in_294`: a circle's centre and a rectangle's corner are points like a line's end)
   if (t.kind === "line") return lineHint(sc, pl, t.points[0]!, pv, raw);
   if (t.kind === "rect") return pointHint(sc, pl, pv, raw); // (the opposite corner)
-  if (t.kind === "circle") return null; // (the size: a number, or a point on the edge)
+  if (t.kind === "circle") return t.typed[0] === "" ? circleRadiusHint(sc, pl, t.points[0]!, pv, raw) : null; // (the size: a number, or a point on the edge that touches another circle, `in_296`)
   if (t.points.length < 2) return pointHint(sc, pl, pv, raw);
   return t.typed[0] === "" ? arcBulgeHint(sc, pl, t.points[0]!, t.points[1]!, raw) : null;
 }
@@ -313,6 +314,13 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
       const corner = Object.values(sceneOf(session).parts).find((q) => q.kind === "corner" && q.origin === "drawn" && dist(q.at, pt) < 1e-6);
       for (const h of hs) if (corner && h.ref && isOn(h)) { session = run(session, { type: "addRelation", relation: { id: nextId(sceneOf(session), "r"), kind: h.kind, parts: [corner.ref, h.ref] } }); if (session.message) break; }
     }
+    done = { ...done, session };
+  }
+  // a circle whose edge was taken to where it touches another circle is made tangent to it (`in_296`)
+  if (t.kind === "circle" && fin && done !== base && !done.session.message) {
+    const made = fin.select[0] ? Object.values(sceneOf(done.session).parts).find((q) => q.kind === "circle" && diskFaceRef(q.ref) === fin.select[0]) : undefined;
+    let session = done.session;
+    for (const h of (hint?.hints ?? [])) if (made && h.kind === "tangent" && h.ref) { session = run(session, { type: "addRelation", relation: { id: nextId(sceneOf(session), "r"), kind: "tangent", parts: [made.ref, h.ref] } }); if (session.message) break; }
     done = { ...done, session };
   }
   // sketching goes on while you keep clicking on vertices (`in_150`): a figure finished on an existing vertex leaves the same tool ready (a line starts its next segment from that vertex); finished anywhere else, the tool is put away

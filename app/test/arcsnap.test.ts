@@ -171,3 +171,18 @@ test("a circle's centre and a rectangle's corner get the helpers of any point: n
   t = click(t, [30, 40, 0]);
   assert.ok(scene(t.session).relations.some((r) => r.kind === "onCircle" && r.parts.includes(big)), "a corner of the rectangle is on the circle");
 });
+
+test("the edge of a circle being drawn that comes to where it touches another circle snaps there, says tangent, and the circle is made tangent (`in_296`)", () => {
+  let s = createSession(kernel);
+  s = run(s, drawCircle(scene(s), XY, [20, 15, 0], 10).command);
+  let st = view(s);
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  st = click(st, [50, 15, 0]); // (the centre, 30 from the other centre)
+  st = move(st, [50, 36.05, 0]); // (about 20 away: the outside touch is at 20)
+  assert.deepEqual(st.tool!.hints!.map((h) => h.kind), ["tangent"]);
+  const c = st.tool!.cursor!;
+  near(Math.hypot(c[0] - 50, c[1] - 15), 20);
+  st = click(st, [50, 36.05, 0]);
+  assert.equal(rel(st, "tangent").length, 1);
+  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "circle").length, 2);
+});
