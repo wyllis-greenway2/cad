@@ -8,13 +8,20 @@ import { lookup } from "./scene.ts";
 import type { Part } from "./part.ts";
 import { normalOfPlane, roundOf } from "./part.ts";
 
-/** flush: face on face with a gap; coaxial: round face on round face; parallel: only turned until the flat faces are parallel; parallelAxes: only turned until the axes of the round faces are parallel (`in_317`) */
-export type MateMode = "flush" | "coaxial" | "parallel" | "parallelAxes";
-const MODES: MateMode[] = ["flush", "coaxial", "parallel", "parallelAxes"];
+/**
+ * flush: face on face with a gap; coaxial: round face on round face; parallel: only turned until the flat faces are parallel; parallelAxes: the same for the axes of round faces (`in_317`);
+ * perpendicular and perpendicularAxes: turned until they are at a right angle; angle and angleAxes: turned until they are at the typed angle (degrees, 0 to 90; kept in `gap`) (`in_318`).
+ * The angle is the one between the faces' planes, or between the axes, as lines: the faces have no "right way round" for these.
+ */
+export type MateMode = "flush" | "coaxial" | "parallel" | "parallelAxes" | "perpendicular" | "perpendicularAxes" | "angle" | "angleAxes";
+const MODES: MateMode[] = ["flush", "coaxial", "parallel", "parallelAxes", "perpendicular", "perpendicularAxes", "angle", "angleAxes"];
 const modeOf = (n: number | undefined): MateMode => MODES[n ?? 0] ?? "flush";
 const numberOfMode = (m: MateMode): number => MODES.indexOf(m);
 /** Does the mate join flat faces (else round ones)? */
-export const isFlatMode = (m: MateMode): boolean => m === "flush" || m === "parallel";
+export const isFlatMode = (m: MateMode): boolean => m === "flush" || m === "parallel" || m === "perpendicular" || m === "angle";
+/** A mate that only turns the first body (it moves nothing), and the angle it leaves, in degrees. */
+export const turnOnly = (m: MateMode): boolean => m !== "flush" && m !== "coaxial";
+export const angleOfMode = (m: MateMode, amount: number): number => (m === "perpendicular" || m === "perpendicularAxes" ? 90 : m === "angle" || m === "angleAxes" ? amount : 0);
 const MATE_KIND = "mate";
 /** A face of a body as something to mate: a flat face by a point on it and its outward normal; a round face by a point on its axis, the axis and its radius. */
 export interface MateFeature { ref: Ref; body: Ref; bodyId: string; point: Vec3; dir: Vec3; radius: number }
@@ -50,8 +57,8 @@ function findFace(scene: Scene, body: Ref, mode: MateMode, want: { point: Vec3; 
     const f = featureOf(scene, p.ref, mode);
     if (!f) continue;
     const turn = mode === "flush" ? angle(f.dir, want.dir) : Math.min(angle(f.dir, want.dir), Math.PI - angle(f.dir, want.dir)); // (a flush face has its way round; a round face's axis, and a face that is only parallel, have none)
-    const loose = mode === "parallel" || mode === "parallelAxes"; // (a parallel mate is about the turn: the face may have been turned a good way since, and is still the one)
-    if (turn > (loose ? 0.8 : 0.14)) continue; // (more than eight degrees from it, or forty-five for a parallel mate)
+    const loose = turnOnly(mode); // (a mate that is about a turn: the face may have been turned a good way since, and is still the one)
+    if (turn > (loose ? 0.8 : 0.14)) continue; // (more than eight degrees from it, or forty-five for a mate that turns)
     const d = sub(f.point, want.point);
     const along = dot(d, want.dir);
     const score = (isFlatMode(mode) ? Math.abs(along) : Math.hypot(d[0] - want.dir[0] * along, d[1] - want.dir[1] * along, d[2] - want.dir[2] * along) + Math.abs(f.radius - want.radius)) + (loose ? 5 : 30) * turn;
@@ -97,11 +104,11 @@ export function mateStatus(scene: Scene): MateState[] {
       const along = dot(w, other.dir);
       residual = Math.hypot(w[0] - other.dir[0] * along, w[1] - other.dir[1] * along, w[2] - other.dir[2] * along);
       ok = residual < 1e-3 && Math.min(angle(mover.dir, other.dir), Math.PI - angle(mover.dir, other.dir)) <= 1e-4;
-    } else { // only parallel
+    } else { // only turned: the angle between the two as lines, against the one it is to be
       const a = Math.min(angle(mover.dir, other.dir), Math.PI - angle(mover.dir, other.dir));
-      residual = (a * 180) / Math.PI;
+      residual = Math.abs((a * 180) / Math.PI - angleOfMode(mode, gap));
       unit = "deg";
-      ok = a <= 1e-4;
+      ok = residual <= 0.006;
     }
     out.push({ ...base, state: ok ? "ok" : "off", mover, other, residual, unit });
   }

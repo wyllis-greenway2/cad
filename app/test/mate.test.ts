@@ -247,11 +247,11 @@ test("the gap is typed into the number that stands over two selected faces, and 
   const pick: Ref[] = [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])];
   let st = { ...createState(s), cam: homeCamera() };
   st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: pick } } };
-  const note = annotationsFor(scene(st.session), pick, null, false).find((x) => x.id === "measure");
+  const note = annotationsFor(scene(st.session), pick, null, false).find((x) => x.measureId === "mate:flush");
   assert.ok(note && note.editable && note.unit === "mm", `a number stands over the two faces: ${JSON.stringify(note && [note.kind, note.value])}`);
-  const done = reduce(st, { type: "relation", act: "measure", id: null, value: 4 }, env);
+  const done = reduce(st, { type: "relation", act: "measure", id: "mate:flush", value: 4 }, env);
   assert.ok(Math.abs(bodies(done.session).find((x) => x.id === b!.id)!.bbox!.min[0] - 14) < 1e-3, "typed 4: B stands 4 mm from A");
-  const zero = reduce(st, { type: "relation", act: "measure", id: null, value: 0 }, env);
+  const zero = reduce(st, { type: "relation", act: "measure", id: "mate:flush", value: 0 }, env);
   assert.ok(Math.abs(bodies(zero.session).find((x) => x.id === b!.id)!.bbox!.min[0] - 10) < 1e-3, "typed 0: touching");
 });
 
@@ -301,4 +301,72 @@ test("the marks say what a mate is: the gap, and parallel (`in_317`)", () => {
   const gapped = run(s, actionsFor(scene(s), [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run(5));
   const f = frameOf({ ...createState(gapped), cam: homeCamera() }, { w: 800, h: 600 });
   assert.match(f.mates[0]!.text, /flush faces \(5 mm apart\)/);
+});
+
+test("Mate: perpendicular turns the first body until its face is at a right angle to the other's, and leaves it where it is (`in_318`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  // B's face facing +y and A's face facing +x are already at a right angle: turn B first by 30 degrees
+  const t = turned(s, b!, 30);
+  const b1 = bodies(t).find((x) => x.id === b!.id)!;
+  const faceB = Object.values(scene(t).parts).find((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && p.of === b1.ref && !!p.mesh && !p.curved && !p.round && Math.abs(normalOfPlane(p)[2]) < 1e-6 && Math.abs(normalOfPlane(p)[0]) > 0.5)!.ref;
+  const act = actionsFor(scene(t), [faceB, faceOf(t, bodies(t).find((x) => x.id === a!.id)!, [1, 0, 0])]).find((x) => x.id === "mate:perpendicular")!;
+  assert.ok(act?.enabled && !act.dimensional, "offered, with no number");
+  const after = run(t, act.run());
+  assert.ok(!after.message, `${after.message}`);
+  const st = mateStatus(scene(after))[0]!;
+  assert.equal(st.state, "ok", `true: ${st.residual}`);
+  assert.equal(st.mode, "perpendicular");
+  // B's face is now at 90 degrees to A's (a normal along y), and B did not move more than the turn about the face's point
+  const faceNow = Object.values(scene(after).parts).find((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && p.of === bodies(after).find((x) => x.id === b!.id)!.ref && p.ref === st.mover!.ref)!;
+  assert.ok(Math.abs(normalOfPlane(faceNow)[0]) < 1e-6, "its normal has no x: square to A's");
+});
+
+test("Mate: angle between faces leaves the angle that is typed (the angle between the planes, 0 to 90), is checked at it and put back (`in_318`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const pick = [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])];
+  const act = actionsFor(scene(s), pick).find((x) => x.id === "mate:angle")!;
+  assert.ok(act.dimensional && act.unit === "deg", "angle has a number");
+  assert.ok(Math.abs(act.measure()! - 0) < 1e-6, `they are parallel now: ${act.measure()}`);
+  const after = run(s, act.run(30));
+  assert.ok(!after.message, `${after.message}`);
+  const st = mateStatus(scene(after))[0]!;
+  assert.equal(st.state, "ok", `${st.residual}`);
+  assert.equal(st.gap, 30);
+  // the angle between B's face and A's face is 30 degrees: their normals' dot is cos 30 (as lines)
+  const [fm, fo] = [st.mover!, st.other!];
+  assert.ok(Math.abs(Math.abs(fm.dir[0] * fo.dir[0] + fm.dir[1] * fo.dir[1] + fm.dir[2] * fo.dir[2]) - Math.cos((30 * Math.PI) / 180)) < 1e-6, "thirty degrees apart");
+  // typed again, 60: the same mate, made again
+  const pick2 = [st.mover!.ref, st.other!.ref];
+  const again = run(after, actionsFor(scene(after), pick2).find((x) => x.id === "mate:angle")!.run(60));
+  assert.equal(scene(again).relations.filter((r) => r.kind === "mate").length, 1, "one mate");
+  assert.equal(mateStatus(scene(again))[0]!.state, "ok");
+  assert.equal(mateStatus(scene(again))[0]!.gap, 60);
+  // turned by hand: off by the turn, and put back
+  const off = turned(again, bodies(again).find((x) => x.id === b!.id)!, 7);
+  const o = mateStatus(scene(off))[0]!;
+  assert.equal(o.state, "off");
+  assert.ok(o.residual! > 1 && o.residual! < 8, `off by about the turn: ${o.residual}`);
+  assert.equal(mateStatus(scene(run(off, putMatesBack(scene(off))!.command)))[0]!.state, "ok");
+});
+
+test("an angle can be typed into the number over two selected faces, next to the gap; and the angle between axes for round faces (`in_318`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const env = { w: 800, h: 600, now: 0 };
+  const pick: Ref[] = [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])];
+  let st = { ...createState(s), cam: homeCamera() };
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: pick } } };
+  const notes = annotationsFor(scene(st.session), pick, null, false).filter((x) => x.measureId);
+  assert.deepEqual(notes.map((x) => [x.measureId, x.unit]).sort(), [["mate:angle", "deg"], ["mate:flush", "mm"]], "a gap and an angle");
+  const done = reduce(st, { type: "relation", act: "measure", id: "mate:angle", value: 45 }, env);
+  assert.equal(mateStatus(scene(done.session))[0]!.gap, 45);
+  assert.equal(mateStatus(scene(done.session))[0]!.mode, "angle");
+  const c = cylinder(cylinder(createSession(kernel), 0, 0, 5), 30, 4, 3);
+  const [c1, c2] = bodies(c);
+  const axes = actionsFor(scene(c), [roundOfBody(c, c2!), roundOfBody(c, c1!)]).map((x) => x.id);
+  assert.ok(axes.includes("mate:angleAxes") && axes.includes("mate:perpendicularAxes"), `for round faces: ${axes}`);
+  const tilted = run(c, actionsFor(scene(c), [roundOfBody(c, c2!), roundOfBody(c, c1!)]).find((x) => x.id === "mate:angleAxes")!.run(40));
+  assert.equal(mateStatus(scene(tilted))[0]!.state, "ok");
 });

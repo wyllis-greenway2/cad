@@ -16,7 +16,7 @@ export interface BubbleHandlers {
   /** a new number for a constraint */
   set(id: string, value: number): void;
   /** lock the measure of the selection at a number */
-  measure(value: number): void;
+  measure(value: number, id?: string): void;
 }
 
 interface Entry { el: HTMLElement; sig: string; editing: boolean; a: Annotation; tinted: boolean; /** the thin line back to its spot, once it has moved far */ leader?: HTMLElement; /** where it is from the spot it belongs to, on its way to where it should stand */ off?: [number, number] }
@@ -51,7 +51,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
       lock.innerHTML = iconSvg(a.locked ? "lock" : "unlock"); // (a closed padlock when locked, an open one when it is only a measurement, `in_290`)
       lock.style.cssText = `display:inline-flex;padding:2px;cursor:${a.editable ? "pointer" : "default"};opacity:${a.locked ? 1 : 0.8};color:${a.locked ? "#1a8f8b" : "inherit"}`;
       lock.title = a.locked ? "Locked: click to unlock (keep it as a measurement)" : a.readOnly ? "A measurement of the body: it cannot be locked" : "Measurement only: click to lock at this number";
-      if (a.editable) lock.addEventListener("click", (ev) => { ev.stopPropagation(); relation ? h.lock(relation) : h.measure(a.value!); });
+      if (a.editable) lock.addEventListener("click", (ev) => { ev.stopPropagation(); relation ? h.lock(relation) : h.measure(a.value!, a.measureId); });
       el.appendChild(lock);
     } else {
       const ic = document.createElement("span");
@@ -87,7 +87,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
       done = true;
       e.editing = false;
       const v = Number(input.value);
-      if (keep && Number.isFinite(v) && v > 0) (a.relationId ? h.set(a.relationId, v) : h.measure(v));
+      if (keep && Number.isFinite(v) && (v > 0 || (a.measureId !== undefined && v >= 0))) (a.relationId ? h.set(a.relationId, v) : h.measure(v, a.measureId));
       make(a, e); // back to showing the number (a refused change leaves the old one; an accepted one is redrawn with the new)
     };
     input.addEventListener("keydown", (ev) => { ev.stopPropagation(); if (ev.key === "Enter") finish(true); else if (ev.key === "Escape") finish(false); });

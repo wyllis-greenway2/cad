@@ -67,7 +67,7 @@ const bubbles = createBubbles(document.body, {
   remove: (id) => dispatch({ type: "relation", act: "remove", id }),
   lock: (id) => dispatch({ type: "relation", act: "lock", id }),
   set: (id, value) => dispatch({ type: "relation", act: "set", id, value }),
-  measure: (value) => dispatch({ type: "relation", act: "measure", id: null, value }),
+  measure: (value, id) => dispatch({ type: "relation", act: "measure", id: id ?? null, value }),
 });
 installTouchTips(); // (a held press shows the title of a button, for a finger has no hover, `in_300`)
 const bus = createBus<{ input: RawInput }>();

@@ -1523,3 +1523,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_317 — 2026-11-14 — directive
 > Do the typed gap and parallel mates next
 (asks for a gap that can be typed in for the flush mate, and parallel mates)
+
+## in_318 — 2026-11-14 — directive
+> Do the perpendicular and angle mates next
+(asks for perpendicular mates and for angle mates, an angle that can be typed, between two bodies)

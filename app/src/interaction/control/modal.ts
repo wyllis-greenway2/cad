@@ -269,8 +269,8 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
   if (i.act === "focus") return { ...s, focus: i.id === s.focus ? null : i.id }; // a second click closes it again
   if (i.act === "measure") {
     const sel = selectionOf(s.session);
-    const a = measureAction(actionsFor(sc, sel), (x) => x.enabled);
-    if (a) return i.value !== undefined && (i.value > 0 || (a.id === "mate:flush" && i.value >= 0)) ? withSession(s, run(s.session, a.run(i.value), { watchAll: true })) : s; // (a sketch the body was made from: a size the steps cannot take is refused)
+    const a = i.id?.startsWith("mate:") ? actionsFor(sc, sel).find((x) => x.id === i.id && x.dimensional && x.enabled) : measureAction(actionsFor(sc, sel), (x) => x.enabled); // (a mate's gap or angle: the number says which, `in_318`)
+    if (a) return i.value !== undefined && (i.value > 0 || (a.id.startsWith("mate:") && i.value >= 0)) ? withSession(s, run(s.session, a.run(i.value), { watchAll: true })) : s; // (a sketch the body was made from: a size the steps cannot take is refused)
     // a line of the body: its length is made by pushing or pulling the face at its end
     const cmd = sel.length === 1 && i.value !== undefined ? setLineLength(sc, sel[0]!, i.value) : null;
     return cmd ? withSession({ ...s, op: null }, run(s.session, cmd)) : s;

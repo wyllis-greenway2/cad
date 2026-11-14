@@ -9,7 +9,7 @@ import { sub, dot, cross, normalize, length } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import type { MateMode } from "../operation/mates.ts";
-import { featureOf, mateRelation, mateStatus, isFlatMode } from "../operation/mates.ts";
+import { featureOf, mateRelation, mateStatus, isFlatMode, turnOnly, angleOfMode } from "../operation/mates.ts";
 import type { Command } from "../operation/commands.ts";
 import { carrySketches } from "./operations.ts";
 
@@ -37,6 +37,18 @@ function turnBetween(from: Vec3, to: Vec3): Mat {
   if (c < -1 + 1e-12) { const across = Math.abs(f[0]) < 0.9 ? cross(f, [1, 0, 0]) : cross(f, [0, 1, 0]); return turnAbout(across, Math.PI); }
   return turnAbout(cross(f, t), Math.acos(Math.max(-1, Math.min(1, c))));
 }
+const rotate = (m: Mat, v: Vec3): Vec3 => [dot(m[0], v), dot(m[1], v), dot(m[2], v)];
+/** The turn that brings the angle between two directions (as lines) to `degrees`, by the smaller turn: about the line across both, toward the other when the angle is to be less, away when it is to be more. */
+function turnToAngle(a: Vec3, b: Vec3, degrees: number): Mat {
+  const b2: Vec3 = dot(a, b) >= 0 ? b : [-b[0], -b[1], -b[2]];
+  const phi = Math.acos(Math.max(-1, Math.min(1, dot(normalize(a), normalize(b2)))));
+  const psi = phi - (degrees * Math.PI) / 180;
+  if (Math.abs(psi) < 1e-12) return [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  const across = cross(a, b2);
+  const axis = length(across) > 1e-9 ? across : Math.abs(a[0]) < 0.9 ? cross(a, [1, 0, 0]) : cross(a, [0, 1, 0]); // (parallel already: any line across them)
+  return turnAbout(axis, psi);
+}
+
 /** The turns about X, then Y, then Z (degrees) that make this turn: R = Rz Ry Rx. */
 function eulerXYZ(m: Mat): { axis: 0 | 1 | 2; angle: number }[] {
   const b = -Math.asin(Math.max(-1, Math.min(1, m[2][0])));
@@ -55,7 +67,7 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
   const [a, b] = [featureOf(scene, mover, mode)!, featureOf(scene, other, mode)!];
   // the turn: a flat face to face the other (its normal opposite), a round face's axis parallel to the other's (the nearer of the two ways)
   const want: Vec3 = mode === "flush" ? [-b.dir[0], -b.dir[1], -b.dir[2]] : dot(a.dir, b.dir) >= 0 ? b.dir : [-b.dir[0], -b.dir[1], -b.dir[2]]; // (a flush face faces the other; for the rest the nearer way is taken)
-  const R = turnBetween(a.dir, want);
+  const R = turnOnly(mode) ? turnToAngle(a.dir, b.dir, angleOfMode(mode, gap)) : turnBetween(a.dir, want);
   const pivot = a.point; // (a point on the face or on the axis stays where it is under the turn)
   // the move: a flat face onto the other's plane (plus the gap, along the other's normal); an axis onto the other's axis, keeping its place along it
   let move: Vec3;
@@ -76,7 +88,7 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
   const r6 = (v: Vec3): Vec3 => v.map((x) => Math.round(x * 1e6) / 1e6) as unknown as Vec3;
   const turns = eulerXYZ(R);
   const translate = r6(move);
-  const record: Command = { type: "addRelation", relation: mateRelation(again ?? nextId(scene, "r"), mode, gap, a, b, { mover: { point: moverWhenTrue, dir: want }, other: { point: b.point, dir: b.dir } }) };
+  const record: Command = { type: "addRelation", relation: mateRelation(again ?? nextId(scene, "r"), mode, gap, a, b, { mover: { point: moverWhenTrue, dir: turnOnly(mode) ? rotate(R, a.dir) : want }, other: { point: b.point, dir: b.dir } }) };
   const forget: Command[] = again ? [{ type: "removeRelation", id: again }] : [];
   if (!turns.length && length(translate) < 1e-9) return { command: { type: "batch", commands: [...forget, record] } }; // (they meet already: only the mate is recorded)
   const id = nextId(scene, "s");

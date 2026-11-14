@@ -89,18 +89,29 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
 
   // two faces of two bodies: they can be mated, the first one's body is moved to the second (`in_314`); flush has a gap that can be typed (`in_317`)
   if (sel.length === 2) {
-    const kinds: [MateMode, string, boolean][] = [["flush", "Mate: flush faces", true], ["parallel", "Mate: parallel faces", false], ["coaxial", "Mate: coaxial", false], ["parallelAxes", "Mate: parallel axes", false]];
-    for (const [mode, label, gapped] of kinds) {
+    const kinds: [MateMode, string, "mm" | "deg" | null][] = [
+      ["flush", "Mate: flush faces", "mm"], ["parallel", "Mate: parallel faces", null], ["perpendicular", "Mate: perpendicular faces", null], ["angle", "Mate: angle between faces", "deg"],
+      ["coaxial", "Mate: coaxial", null], ["parallelAxes", "Mate: parallel axes", null], ["perpendicularAxes", "Mate: perpendicular axes", null], ["angleAxes", "Mate: angle between axes", "deg"],
+    ];
+    for (const [mode, label, unit] of kinds) {
       const why = whyNotMate(scene, mode, sel[0]!, sel[1]!);
       if (why && (isFlatMode(mode) ? !isFlatBodyFace(get, sel) : !isRoundBodyFace(get, sel))) continue; // (not this kind of faces: no row for it)
       const [fa, fb] = [featureOf(scene, sel[0]!, mode), featureOf(scene, sel[1]!, mode)];
+      const degrees = unit === "deg";
       out.push({
-        id: `mate:${mode}`, label, group: "relation", dimensional: gapped, unit: gapped ? "mm" : null, parts: [...sel], enabled: why === null, why,
-        measure: () => (gapped && fa && fb ? Math.round(dot(sub(fa.point, fb.point), fb.dir) * 1e6) / 1e6 : null), // (how far the first face stands from the other's plane now: typed, it is the gap the mate leaves)
+        id: `mate:${mode}`, label, group: "relation", dimensional: unit !== null, unit, parts: [...sel], enabled: why === null, why,
+        // (the gap now, or the angle now between the two as lines; typed, it is what the mate leaves, `in_317`, `in_318`)
+        measure: () => {
+          if (!fa || !fb || unit === null) return null;
+          if (!degrees) return Math.round(dot(sub(fa.point, fb.point), fb.dir) * 1e6) / 1e6;
+          const c = Math.abs(dot(fa.dir, fb.dir)) / (Math.hypot(...fa.dir) * Math.hypot(...fb.dir));
+          return Math.round(((Math.acos(Math.min(1, c)) * 180) / Math.PI) * 1e4) / 1e4;
+        },
         spot: () => faceMiddle(scene, sel[0]!),
         run: (value?: number): Command => {
           const again = fa && fb ? existingMate(scene, mode, fa.body, fb.body) ?? undefined : undefined; // (a mate made again between the same bodies replaces the one there)
-          const r = mateCommand(scene, mode, sel[0]!, sel[1]!, gapped ? Math.max(0, value ?? 0) : 0, again);
+          const amount = unit === null ? 0 : degrees ? Math.min(90, Math.max(0, value ?? 0)) : Math.max(0, value ?? 0);
+          const r = mateCommand(scene, mode, sel[0]!, sel[1]!, amount, again);
           return "command" in r ? r.command : { type: "batch", commands: [] };
         },
       });

@@ -38,6 +38,8 @@ export interface Annotation {
   open: boolean;
   /** a mark shown before the number: Ø for a diameter, R for a radius */
   symbol?: string;
+  /** a number of the selection that is not a relation (a mate's gap or angle): the action a typed value is for (`in_318`) */
+  measureId?: string;
   /** the parts it ties the selection to (shown amber while it is open) */
   others: Ref[];
   /** polylines drawn with it: the arc of an angle, the segment a distance measures */
@@ -217,7 +219,7 @@ function annotationsOf0(scene: Scene, selection: readonly Ref[], focus: string |
   const out = scene.relations.filter((rel) => rel.kind !== "arcEnds" && !hidden.has(rel.id) && rel.parts.some((p) => scope.has(p))).map((rel) => annotationOf(scene, rel, sel, focus, map)).filter((a): a is Annotation => !!a);
   const m = measureOf(scene, selection);
   const r = radiusOf(scene, selection);
-  return [...out, ...(m ? [m] : []), ...(r ? [r] : [])];
+  return [...out, ...(m ? [m] : []), ...(r ? [r] : []), ...mateMeasures(scene, selection)];
 }
 
 /** The annotations of these relations whether or not their parts are selected (to show what a refused change would have broken). */
@@ -228,7 +230,7 @@ export function annotationsOf(scene: Scene, ids: readonly string[]): Annotation[
 
 /** The measure of the selected pair (or part) when the relation table offers a number for it and no relation of that kind already holds it. */
 function measureOf(scene: Scene, selection: readonly Ref[]): Annotation | null {
-  if (selection.length < 1 || selection.length > 2 || !selection.every((r) => isPart(scene, r) || (selection.length === 2 && scene.parts[r]?.kind === "plane" && scene.parts[r]?.origin === "body"))) return null; // (two faces of two bodies have the gap of a mate, `in_317`)
+  if (selection.length < 1 || selection.length > 2 || !selection.every((r) => isPart(scene, r))) return null;
   // a number that only references have (a line of the body, two body corners) is shown as a measurement too, but cannot be locked
   const a = measureAction(actionsFor(scene, selection), (x) => x.enabled || x.why === REFERENCES_ONLY);
   if (!a || !a.unit) return null;
@@ -243,6 +245,15 @@ function measureOf(scene: Scene, selection: readonly Ref[]): Annotation | null {
   const at = placed?.at ?? a.spot();
   if (!at) return null;
   return { id: "measure", relationId: null, kind: a.id, label: a.label, at, ...(a.id === "diameter" ? { symbol: "Ø" } : a.id === "radius" ? { symbol: "R" } : {}), value: v, unit: a.unit, locked: false, editable: a.enabled || bodyLine, readOnly: !a.enabled && !bodyLine, broken: false, open: false, others: [], lines: placed?.lines ?? [] };
+}
+
+/** Two faces of two bodies show the numbers a mate can leave: the gap, the angle (`in_317`, `in_318`); each can be typed, and makes that mate. */
+function mateMeasures(scene: Scene, selection: readonly Ref[]): Annotation[] {
+  if (selection.length !== 2 || !selection.every((r) => scene.parts[r]?.kind === "plane" && scene.parts[r]?.origin === "body")) return [];
+  return actionsFor(scene, selection).filter((a) => a.id.startsWith("mate:") && a.dimensional && a.enabled && a.unit && a.measure() !== null).map((a, k) => {
+    const at = a.spot() ?? ([0, 0, 0] as Vec3);
+    return { id: `measure:${a.id}`, relationId: null, kind: a.id, label: a.label, at: [at[0], at[1], at[2] + 2 * k] as Vec3, value: a.measure(), unit: a.unit, locked: false, editable: true, readOnly: false, broken: false, open: false, others: [], lines: [], measureId: a.id };
+  });
 }
 
 /** The parts to show in amber: what the open constraint ties the selection to. */
