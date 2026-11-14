@@ -56,6 +56,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     const o = ops.find((x) => x.id === fin.id);
     if (o) o.error = "nothing would be left of the body (the cut takes all of it away)";
   }
+  const lite = !!tess.lite; // (a preview of a size being dragged: the mesh, volume and box, not the faces, edges and corners, `in_327`)
   const present = fin && box ? fin : null;
   const dkey = present?.key ? `${present.key}|${JSON.stringify(tess)}` : null;
   const known = dkey ? described.get(dkey) : undefined;
@@ -76,6 +77,13 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     vol = volume(fin.shape);
     bbox = { min: lo, max: hi };
     tMesh = performance.now();
+    if (lite) {
+      // (no faces, edges or corners; the bodies, for the names and boxes of the pieces)
+      faces = []; edges = []; vertices = [];
+      const lumps = lumpsOf(fin.shape);
+      bodies = (fin.markers ?? []).map((mk) => { const l = lumps[mk.lump]; const bb = l.boundingBox.bounds; return { id: mk.id, min: [...bb[0]], max: [...bb[1]], volume: lumps.length > 1 ? NaN : vol }; });
+      tFaces = performance.now();
+    } else {
     // flat faces at any angle, and full round faces: these can be hovered, selected and sketched on (start/count are index ranges into `triangles`)
     const ranges = new Map(m.faceGroups.map((g) => [g.faceId, g]));
     faces = [];
@@ -192,6 +200,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
       for (const v of [a, z]) seen.set(`${r4(v.x)},${r4(v.y)},${r4(v.z)}`, [r4(v.x), r4(v.y), r4(v.z)]);
     }
     vertices = [...seen.values()];
+    }
     if (dkey) {
       described.set(dkey, copyOf({ vol, bbox, faces, edges, vertices, mesh, bodies }));
       while (described.size > 6) described.delete(described.keys().next().value);

@@ -13,7 +13,7 @@ export interface KernelResult {
   volume: number | null;
   bbox: { min: Vec; max: Vec } | null;
   /** the bodies of the final shape, each with the name it keeps through the history (`dec_independent_bodies`); a face or an edge says which is its in `body` (its place in this list) when there are several */
-  bodies?: { id: string; min: Vec; max: Vec; volume: number }[] | null;
+  bodies?: { id: string; min: Vec; max: Vec; /** NaN in a lite answer with several bodies: it takes a while to work out, and a preview does not use it */ volume: number }[] | null;
   mesh: { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array } | null;
   faces: KernelFace[] | null;
   edges: KernelEdge[] | null;
@@ -35,9 +35,11 @@ export interface Kernel {
   /** the answer may come later than the question (the kernel works on its own thread): `evaluate` then gives the last result until the new one is ready */
   lagging?: boolean;
   init(options?: object): Promise<unknown>;
-  evaluate(graph: KernelGraph, tess?: { tolerance: number; angular: number; /** a rough mesh, quickly (while a size is being dragged) */ draft?: boolean }): KernelResult;
+  evaluate(graph: KernelGraph, tess?: { tolerance: number; angular: number; /** a rough mesh, quickly (while a size is being dragged) */ draft?: boolean; /** the mesh, volume and box only: no faces, edges or corners (the picture of a size being dragged, `in_327`) */ lite?: boolean }): KernelResult;
   /** the final body of the graph as a mesh made for a file at the given quality (not the screen's coarse one); answers later when the kernel works on its own thread */
   exportMesh(graph: KernelGraph, quality: ExportQuality): Promise<ExportResult>;
   /** ask for rough meshes (set while a size is being dragged, cleared when it is let go); a kernel that does not know it ignores it */
   draft?: boolean;
+  /** ask for the mesh only, no faces, edges or corners: for a preview, a quarter of the time (`in_327`) */
+  lite?: boolean;
 }

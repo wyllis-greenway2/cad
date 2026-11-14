@@ -1559,3 +1559,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_326 — 2026-11-14 — directive
 > yes, try step 1 and measure it on the holed model
 (approves trying step 1 of the AI's list after `in_325`: an exact preview from the kernel, the newest request winning, for the fillet and chamfer preview, and measuring it on the model with the hole; as an experiment, to be measured before it is kept)
+
+## in_327 — 2026-11-14 — directive
+> make the exact path cheaper and re-measure
+(approves building the two cheaper-exact ideas listed after `in_326`: a kernel pass for the preview that skips naming faces and edges and meshes only what changed, and reusing the drawn objects of a body that did not change; then measuring again with the same models and runs)

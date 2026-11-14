@@ -8,6 +8,7 @@ const KEEP = 24; // results kept, newest last
 
 export interface AsyncKernel extends Kernel {
   draft: boolean;
+  lite: boolean;
   /** is the worker still working something out */
   readonly pending: boolean;
 }
@@ -33,7 +34,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   let last: KernelResult = EMPTY;
   let busy: { id: number; key: string; graph: KernelGraph; asked?: { resolve: (r: ExportResult) => void } } | null = null;
   const exports: { graph: KernelGraph; quality: ExportQuality; resolve: (r: ExportResult) => void }[] = []; // (the exports waiting: each is answered, none is dropped for a newer one)
-  let queued: { key: string; graph: KernelGraph; draft: boolean } | null = null;
+  let queued: { key: string; graph: KernelGraph; draft: boolean; lite: boolean } | null = null;
   let counter = 0;
   const pump = () => {
     if (busy || !up) return;
@@ -47,11 +48,11 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
       return;
     }
     if (!queued) return;
-    const { key, graph, draft } = queued;
+    const { key, graph, draft, lite } = queued;
     queued = null;
     const job = { id: ++counter, key, graph };
     busy = job;
-    worker.postMessage({ id: job.id, graph, draft });
+    worker.postMessage({ id: job.id, graph, draft, lite });
     timer = setTimeout(() => stuck(job.id), limit);
     (timer as { unref?: () => void }).unref?.(); // (a timer must not keep a process alive that has nothing else to do)
   };
@@ -106,18 +107,19 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     name: "occt (worker)",
     lagging: true,
     draft: false,
+    lite: false,
     init: () => ready,
     get pending() { return busy !== null || queued !== null || exports.length > 0; },
     exportMesh(graph: KernelGraph, quality: ExportQuality): Promise<ExportResult> {
       return new Promise((resolve) => { exports.push({ graph, quality, resolve }); pump(); });
     },
     evaluate(graph: KernelGraph): KernelResult {
-      const draft = self.draft; // (a rough mesh while a size is dragged, `in_216`: asked for and kept apart from the fine one)
-      const key = (draft ? "draft:" : "") + JSON.stringify(graph);
+      const [draft, lite] = [self.draft, self.lite]; // (a rough mesh while a size is dragged, `in_216`, and with no faces and edges, `in_327`: asked for and kept apart from the fine and whole one)
+      const key = (draft ? "draft:" : "") + (lite ? "lite:" : "") + JSON.stringify(graph);
       const hit = cache.get(key);
       if (hit) { cache.delete(key); cache.set(key, hit); return hit; } // (`last` is only what the worker finished last: a hit on an old graph must not make the picture jump back to it)
       if (busy?.key === key) return { ...last, stale: true }; // already being worked out
-      queued = { key, graph, draft }; // only the newest request is kept: what was asked before it is no longer wanted
+      queued = { key, graph, draft, lite }; // only the newest request is kept: what was asked before it is no longer wanted
       pump();
       return { ...last, stale: true }; // (what is shown meanwhile is marked, so nothing is built on it)
     },
