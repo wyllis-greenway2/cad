@@ -19,7 +19,7 @@ import { faceEdges } from "./offsetbody.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
-import { lookup, nextId, figureParams, figureRefs } from "../operation/scene.ts";
+import { lookup, nextId, figureParams, figureRefs, figuresOf } from "../operation/scene.ts";
 import { rimRanks, edgeSignatures } from "../operation/rims.ts";
 import { consumed } from "../operation/ownership.ts";
 import type { Figure } from "../operation/scene.ts";
@@ -30,7 +30,7 @@ import { apply } from "../operation/commands.ts";
 import { solveScene } from "../compiler/solve.ts";
 import { actionsFor, measureAction } from "./actions.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
-import { drawnRef } from "../shared/ref.ts";
+import { drawnRef, formatId } from "../shared/ref.ts";
 import { objectOf, bodyCentre, figurePartsOf } from "./objects.ts";
 import { settings } from "../shared/settings.ts";
 
@@ -466,7 +466,15 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
     const a = measureAction(actionsFor(scene, op.parts), (x) => x.enabled);
     return a && v > 0 ? a.run(v) : null;
   }
-  if (op.kind === "extrude") return v === 0 ? null : { type: "addStep", step: { id, type: "extrude", parts: op.parts, params: { depth: v, ...(op.figs ?? {}) } } };
+  if (op.kind === "extrude") {
+    if (v === 0) return null;
+    // separate figures selected together are extruded in one go but each is a step, and so a body, of its own, with its own height (`in_322`); a hole inside a figure stays with it
+    const figs = figuresOf({ id, type: "extrude", parts: op.parts, params: op.figs ?? {} });
+    if (figs.length < 2) return { type: "addStep", step: { id, type: "extrude", parts: op.parts, params: { depth: v, ...(op.figs ?? {}) } } };
+    const { holes: _h, also: _a, ...rest } = op.figs ?? {};
+    const first = Number(id.slice(id.lastIndexOf("_") + 1));
+    return { type: "batch", commands: figs.map((f, i): Command => ({ type: "addStep", step: { id: formatId("s", first + i), type: "extrude", parts: f.outer, params: { depth: v, ...figureParams([f]), ...rest } } })) };
+  }
   if (op.kind === "pushpull" && op.faces && op.faces.length > 1) {
     if (v === 0) return null;
     return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }) } } })) };

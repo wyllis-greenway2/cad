@@ -1539,3 +1539,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_321 — 2026-11-14 — directive
 > I'll send exact steps
 (answers the question about the chamfer preview of `in_319`, which the AI could not reproduce: the human will send the exact clicks and drags, or a saved state taken while the distortion is on screen; nothing is to be changed for it until then)
+
+## in_322 — 2026-11-14 — directive
+> yes go ahead, test the moved-sibling case first
+(approves making separate complete sketches that are extruded together into separate steps and bodies, each with its own height, in place of the shared step with a depth for each figure of `in_320`; asks for the moved-sibling case to be tested before it is built)

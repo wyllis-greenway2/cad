@@ -357,7 +357,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   const sel = selectionOf(s.session);
   const outcome = shown?.outcome ?? s.session.outcome;
   // a whole-body drag is drawn by a matrix; when it is let go the picture stays moved until the kernel's answer for the new step comes (it would jump back otherwise)
-  const faceStep = lastDrag?.step === "__last__" ? (sc.steps.length === lastDrag.steps + 1 ? sc.steps.at(-1) : undefined) : lastDrag?.step ? sc.steps.find((x) => x.id === lastDrag!.step) : undefined;
+  const faceStep = lastDrag?.step === "__last__" ? (sc.steps.length > lastDrag.steps ? sc.steps.at(-1) : undefined) : lastDrag?.step ? sc.steps.find((x) => x.id === lastDrag!.step) : undefined;
   const settling = !gpu && !!outcome.kernel?.stale && !!lastDrag && (lastDrag.matrix ? sc.steps.length === lastDrag.steps + 1 : lastDrag.corners ? lastDrag.corners.every((c) => { const q = sc.parts[c.ref]; return q?.kind === "corner" && Math.hypot(q.at[0] - c.to[0], q.at[1] - c.to[1], q.at[2] - c.to[2]) < 1e-6; }) : lastDrag.circle ? (sc.parts[lastDrag.circle.ref] as { radius?: number } | undefined)?.radius !== undefined && Math.abs((sc.parts[lastDrag.circle.ref] as { radius: number }).radius - lastDrag.circle.radius) < 1e-6 : !!faceStep && Math.abs(Number(faceStep.params[lastDrag.param]) - lastDrag.depth) < 1e-6);
   if (!gpu && !settling && !outcome.kernel?.stale) lastDrag = null;
   const bodyMatrix = gpu ? gpu.matrix : settling ? lastDrag!.matrix : null;

@@ -3,7 +3,7 @@ id: dec_independent_bodies
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_269, in_270
+human_input: in_269, in_270, in_322
 date: 2026-11-10
 depends_on:
   - dec_stable_references: a body needs a name that stays when the model is edited, and its faces and edges are named under it; a change to how references are named changes how bodies are named
@@ -63,3 +63,7 @@ Joining or cutting another body happens **only on the first drag of a sketch int
 - **Sketches drawn on a face of a body (`in_277`):** the plane made for drawing on a face names the body it is a face of (`Plane.body`; a plane is reused only for the same body, as bodies' faces can lie in one plane), and a move, turn or scale of that body alone carries them (and `laterMotion` counts it for an extrusion made from such a sketch). `test/independent.test.ts`.
 - **Found with two cylinders (`in_291`), the places that still assumed one body:** **Delete** of one body took every body's steps; it now takes the step that made that body (`x_<step>` in its id) and the steps made on it alone, and with one body it still takes all. **Shift** on a selected whole body adds or takes out the whole body that is clicked (it added a face before). **The arrows and rings of Move and Turn** stand in the middle of the selected body (they stood in the middle of all). **The view turns about the body in view** (the body whose middle is nearest the line of sight, kept for the whole drag; with one body it is the middle of the model as before): turning about the point between two bodies far apart threw the one in view off the screen. **A body that is selected whole is dragged free by pressing on it**: it goes where the pointer goes on the plane through its middle that faces the camera, as one move step by a vector (`vx vy vz` in the step; the kernel, the markers and the picture all read it), the sketches of the body carried; the arrows still make exact moves. The **⋯ menu** now lists only what the ring does not (the app's own things).
 - **Boolean menu (`in_294`):** Add and Cut replace Add / Subtract / Intersect / keep the tools: see `dec_boolean_cut`.
+
+## Figures extruded together are separate bodies (`in_322`)
+
+Selecting two separate closed figures and extruding is one gesture, not one body: each figure becomes an extrude step of its own (a hole drawn inside a figure stays with it), so each is a body with its own name (`x_<step>`), its own height (pulling the end of one changes only it, whatever its outline is made of) and its own sketches to carry when it is moved. The steps are made together (one undo takes them all) and decided together: all `cut` if the whole took material away, all `new` if every figure made a piece of its own, else `add` (`runop.ts`; asking the kernel for each step on its own would ask for lists it has not worked out, and in the browser its answer comes late). A figure that touches a body joins it, as an extrusion always did.
