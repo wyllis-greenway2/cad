@@ -149,7 +149,7 @@ function orbitOrCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: 
     }
     if (c) return { ...s, drag: { corner: c.ref, base: s.session }, hoverPoint: null };
     // a straight line of the drawing is dragged whole, the edge of a circle changes its size (`in_290`)
-    const hit = candidatesAt(sc, pv, pickOpts(s)).find((k) => { const p = sc.parts[k.ref]; return p?.origin === "drawn" && !!p.plane && ((p.kind === "line" && !p.derived && !p.center) || p.kind === "circle"); });
+    const hit = candidatesAt(sc, pv, pickOpts(s)).find((k) => { const p = sc.parts[k.ref]; return p?.origin === "drawn" && !!p.plane && ((p.kind === "line" && !p.derived) || p.kind === "circle"); });
     const part = hit ? sc.parts[hit.ref] : undefined;
     const pl = part && "plane" in part && part.plane ? sc.parts[part.plane] : undefined;
     if (hit && part?.kind === "circle") return { ...s, drag: { rim: hit.ref, base: s.session }, hoverPoint: null };
@@ -212,7 +212,7 @@ function settledWith(s: AppState, base: Session, pins: { ref: Ref; to: Vec3 }[],
   return { ...s, session: run(base, { type: "batch", commands: [...moves, ...kept] }) };
 }
 
-/** A whole straight line dragged across its plane (`in_290`): both its ends go by the same amount, with the rest solved. */
+/** A whole straight line or arc dragged across its plane (`in_290`, `in_292`): its ends (and an arc's centre) go by the same amount, with the rest solved. */
 function moveLine(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): AppState {
   const d = s.drag as { line: Ref; base: Session; from: Vec3 };
   const sc = sceneOf(d.base);
@@ -223,7 +223,9 @@ function moveLine(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env):
   const now = pointOnPlane(projector(s.cam, env.w, env.h).view(i.x, i.y), pl);
   if (a?.kind !== "corner" || b?.kind !== "corner" || !now) return s;
   const by: Vec3 = [now[0] - d.from[0], now[1] - d.from[1], now[2] - d.from[2]];
-  return settledWith(s, d.base, [{ ref: line.a, to: [a.at[0] + by[0], a.at[1] + by[1], a.at[2] + by[2]] }, { ref: line.b, to: [b.at[0] + by[0], b.at[1] + by[1], b.at[2] + by[2]] }]);
+  const go = (q: Vec3): Vec3 => [q[0] + by[0], q[1] + by[1], q[2] + by[2]];
+  const centre = line.center ? sc.parts[line.center] : undefined; // (an arc goes with its centre: the whole curve, at its size, `in_292`)
+  return settledWith(s, d.base, [{ ref: line.a, to: go(a.at) }, { ref: line.b, to: go(b.at) }, ...(centre?.kind === "corner" && line.center ? [{ ref: line.center, to: go(centre.at) }] : [])]);
 }
 
 /** The edge of a circle dragged: its radius becomes the pointer's distance from the centre, unless its diameter is locked (`in_290`). */

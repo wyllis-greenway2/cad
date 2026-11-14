@@ -29,7 +29,8 @@ test("an arrow of Move is tapped to select it; then the helper stands on it, the
   let st = oneBox();
   st = reduce(st, { type: "begin", name: "move" }, env);
   let f = frameOf(st, { w: env.w, h: env.h });
-  assert.equal(f.touchHelper, null, "three arrows and none chosen: nothing is offered yet");
+  assert.equal(f.touchHelper?.points.length, 0, "three arrows and none chosen: no drag icon yet, but a tap on an arrow selects it and a tap elsewhere applies (`in_292`)");
+  assert.equal(f.touchHelper?.handles.length, 3);
   const h = f.gizmo!.handles.find((x) => x.id === "move:x")!;
   const pr = projector(st.cam, env.w, env.h);
   const mid = pr.project([(h.points[0]![0] + h.points[1]![0]) / 2, (h.points[0]![1] + h.points[1]![1]) / 2, (h.points[0]![2] + h.points[1]![2]) / 2]);
@@ -163,4 +164,21 @@ test("an applied drawing is moved with a finger (`in_290`): select a point, a li
   const circle = pick(c.circle);
   const bigger = proxy(circle, 40, 0);
   assert.ok((scene(bigger.session).parts[c.circle] as { radius: number }).radius > 7, "the circle is bigger");
+});
+
+import { drawChain as chain } from "../src/operation/build.ts";
+test("the scissors by touch: a tap over a part that can be cut cuts it; a tap in free space puts the tool away (`in_292`)", () => {
+  let s = createSession(kernel);
+  s = run(s, chain(scene(s), worldRef("XY"), [[5, 15, 0], [35, 15, 0]], false, { reuse: true }).command);
+  s = run(s, chain(scene(s), worldRef("XY"), [[20, 5, 0], [20, 25, 0]], false, { reuse: true }).command);
+  let st: AppState = { ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 15, 0] } };
+  const px = (p: [number, number, number]) => proj(st.cam, env.w, env.h).project(p);
+  st = reduce(st, { type: "begin", name: "trim" }, env);
+  const free = px([45, 40, 0]);
+  const away = reduce(st, { type: "tapAim", x: free[0], y: free[1] }, env);
+  assert.equal(away.tool, null, "free space: the tool is put away");
+  const on = px([10, 15, 0]);
+  const cut = reduce(st, { type: "tapAim", x: on[0], y: on[1] }, env);
+  assert.ok(cut.tool, "the tool stays while it cuts");
+  assert.ok(cut.session.history.cursor > st.session.history.cursor, "and something was cut");
 });

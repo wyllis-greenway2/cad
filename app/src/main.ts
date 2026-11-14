@@ -104,6 +104,7 @@ const ring = createRing(document.body, (id) => {
 
 const hintIcons = createHints(document.body);
 let lastIcon: [number, number] | null = null;
+let touchRects: DOMRect[] = []; // (where the drag icons of a finger stood on the last frame: the bubbles and the suggestions keep off them, `in_292`)
 const touchHandle = createTouchCursor(document.body);
 const boxView = createBoxView(document.body);
 const helper = createHelper(document.body);
@@ -248,16 +249,16 @@ function frame(now: number) {
     toolCursor.update(f.tool ? f.tool.kind : null);
     const project = projector(state.cam, size.w, size.h).project;
     // what comes before the constraint bubbles: the ring, and the number bubbles (and the helper bubble, the suggestions and the hint icons), as they stood on the last frame
-    const inFront = [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), hintIcons.rect()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : []));
+    const inFront = [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), hintIcons.rect(), ...touchRects].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : []));
     if (bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid, inFront)) dirty = true; // (a bubble still sliding to its place: another frame)
     view.setNotes(f.annotations.flatMap((a) => a.lines));
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
     // the icon stands at the upper left of the handles, out of the way of the arrows and rings (`in_215`)
     const corner = f.modeSwitch ? f.modeSwitch.pts.map((p) => onPage(p)!).reduce<[number, number]>((c, q) => [Math.min(c[0], q[0]), Math.min(c[1], q[1])], [Infinity, Infinity]) : null;
-    suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null, [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));
+    suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null, [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));
     const valueBubbles = f.entries.length ? f.entries : f.entry ? [f.entry] : [];
-    valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool && lastDevice !== "touch")); // (a mouse draws through the bubble: a finger can tap into it to type a size, `in_289`)
+    valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool && lastDevice !== "touch", lastDevice === "touch")); // (a mouse draws through the bubble: a finger can tap into it to type a size, `in_289`)
     for (let i = valueBubbles.length; i < chips.length; i++) chips[i]!.update(null, "mm", null);
     modeSwitch.update(f.modeSwitch, corner && Number.isFinite(corner[0]) ? corner : null, chips.flatMap((c) => c.rect() ?? [])); // (after the bubbles: it keeps off them, `in_231`)
     helper.update(f.helper ? f.helper.text : null, f.helper ? onPage(f.helper.at) : null);
@@ -282,7 +283,10 @@ function frame(now: number) {
       return { ...a, icon: clampTo([a.anchor[0] + (dx / len) * 66, a.anchor[1] + (dy / len) * 66]) };
     });
     lastIcon = th?.kind === "handle" && icons[0] ? icons[0].icon : null;
-    recognizer.setTouchHelper(th && icons.length ? { kind: th.kind, icons: icons.map((c) => ({ anchor: c.anchor, icon: c.icon, index: c.index })), closes: th.kind === "handle" && th.applies, handles: th.handles.map((p) => p.map((q) => { const r = project(q); return [r[0], r[1]] as [number, number]; })) } : null);
+    recognizer.setTouchHelper(th ? { kind: th.kind, icons: icons.map((c) => ({ anchor: c.anchor, icon: c.icon, index: c.index })), closes: th.kind === "handle" && th.applies, handles: th.handles.map((p) => p.map((q) => { const r = project(q); return [r[0], r[1]] as [number, number]; })) } : null);
+    const rects = icons.map((c) => new DOMRect(c.icon[0] + page.left - 26, c.icon[1] + page.top - 26, 52, 52));
+    const touchMoved = JSON.stringify(rects) !== JSON.stringify(touchRects); // (the bubbles and suggestions are laid out again round them next frame)
+    touchRects = rects;
     touchHandle.update(icons.map((c) => ({ icon: [c.icon[0] + page.left, c.icon[1] + page.top] as [number, number], target: [c.anchor[0] + page.left, c.anchor[1] + page.top] as [number, number], vertex: th?.kind === "figure" })));
     boxView.update(f.box, page.left, page.top);
     host.style.cursor = f.cursor;
@@ -295,7 +299,7 @@ function frame(now: number) {
     timing.add("frame: all", tEnd - tFrame);
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);
     statusEl.textContent = f.message;
-    dirty = !!f.flash || working || !!f.highlight.temp?.length; // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
+    dirty = !!f.flash || working || !!f.highlight.temp?.length || touchMoved; // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
   }
   requestAnimationFrame(frame);
 }

@@ -139,6 +139,15 @@ function place(get: Lookup, kind: string, parts: readonly Ref[]): Placed | null 
       const isArc = (r: Ref) => { const l = get(r); return l?.kind === "line" && !!l.center; };
       const arc = lines.map((r) => get(r)).find((l) => l?.kind === "line" && !!l.center);
       const arcCentre = arc?.kind === "line" && arc.center ? pt(arc.center) : null;
+      // two circles that touch: where the line between their centres crosses the first one's edge
+      if (circles.length === 2) {
+        const [c1, c2] = [circleOf(get, circles[0]!), circleOf(get, circles[1]!)];
+        if (!c1 || !c2) return null;
+        const dv: Vec3 = [c2.center[0] - c1.center[0], c2.center[1] - c1.center[1], c2.center[2] - c1.center[2]];
+        const dl = Math.hypot(...dv) || 1;
+        const sign = dl >= Math.abs(c1.radius - c2.radius) + 1e-9 && Math.abs(dl - (c1.radius + c2.radius)) <= Math.abs(dl - Math.abs(c1.radius - c2.radius)) ? 1 : c1.radius >= c2.radius ? 1 : -1;
+        return { at: [c1.center[0] + (dv[0] / dl) * c1.radius * sign, c1.center[1] + (dv[1] / dl) * c1.radius * sign, c1.center[2] + (dv[2] / dl) * c1.radius * sign], lines: [] };
+      }
       // an arc with a circle: they meet at the end of the arc that is on the circle (the end whose distance from the circle's centre is nearest its radius)
       if (arc && arc.kind === "line" && (c || lines.filter(isArc).length === 2)) {
         const [pa, pb] = [pt(arc.a), pt(arc.b)];

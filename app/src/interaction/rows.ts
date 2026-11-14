@@ -108,6 +108,7 @@ export const ROWS: Row[] = [
   },
 
   { id: "tangent", label: "Tangent", pair: ["line", "circle"], anyOrder: true },
+  { id: "tangent", label: "Tangent", pair: ["circle", "circle"] }, // (two circle edges that touch, `in_292`)
   {
     // a straight line touches an arc
     id: "tangent", label: "Tangent", pair: ["line", "line"],

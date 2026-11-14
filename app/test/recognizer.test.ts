@@ -214,3 +214,11 @@ test("finger on an operation: the drag icon drags the arrow that was tapped as a
   assert.deepEqual(types(run(r, [T("down", 100, 400), T("up", 100, 400)])), ["click"], "nothing open (an arrow only selected): a tap elsewhere is an ordinary click");
   assert.deepEqual(run(r, [T("down", 202, 278), T("up", 202, 278)]), [], "a tap on the icon does nothing");
 });
+
+test("an operation is open and no arrow is chosen: there is no drag icon, a tap on an arrow selects it, a tap anywhere else is a right click (`in_292`)", () => {
+  const T = (kind: "down" | "move" | "up", x: number, y: number, id = 1) => ev(kind, x, y, { device: "touch", id });
+  const r = createRecognizer();
+  r.setTouchHelper({ kind: "handle", icons: [], closes: true, handles: [[[150, 200], [250, 200]]] });
+  assert.deepEqual(types(run(r, [T("down", 200, 205), T("up", 200, 205)])), ["click"], "on an arrow: select it");
+  assert.deepEqual(run(r, [T("down", 100, 400), T("up", 100, 400)]), [{ type: "menu", x: 100, y: 400 }], "in free space: a right click");
+});

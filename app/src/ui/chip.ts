@@ -19,10 +19,10 @@ export function createChip(host: HTMLElement, h: ChipHandlers) {
     /** Where the bubble is on the page now (null while it is hidden): the switch beside the handles keeps off it. */
     rect(): DOMRect | null { return el.style.display === "none" ? null : el.getBoundingClientRect(); },
     /** `at`: what the bubble is by, in pixels (null: the bottom middle); `from`: the other end of the arrow `at` is the tip of, so the bubble stands out past the tip */
-    update(fields: ChipField[] | null, unit: string, at: [number, number] | null, from: [number, number] | null = null, through = false) {
+    update(fields: ChipField[] | null, unit: string, at: [number, number] | null, from: [number, number] | null = null, through = false, touch = false) {
       el.style.pointerEvents = through ? "none" : ""; // while a figure is being drawn its size is typed on the keyboard: the pointer passes over the bubble, so it cannot swallow the moves and clicks of drawing
       if (!fields || !fields.length) { el.style.display = "none"; sig = ""; inputs = []; return; }
-      const now = JSON.stringify([fields.map((f) => [f.label, f.index]), unit]);
+      const now = JSON.stringify([fields.map((f) => [f.label, f.index]), unit, touch]);
       if (now !== sig) {
         sig = now;
         el.replaceChildren();
@@ -41,6 +41,16 @@ export function createChip(host: HTMLElement, h: ChipHandlers) {
           });
           if (f.short) { const tag = document.createElement("span"); tag.textContent = f.short; tag.style.cssText = "font-weight:700;opacity:.6"; el.appendChild(tag); }
           el.appendChild(input);
+          if (touch) {
+            // a phone's number keyboard has no minus: a button flips the sign of the number in the field (an inward offset, a move back), `in_292`
+            const sign = document.createElement("span");
+            sign.textContent = "±";
+            sign.title = "Change the sign (a minus)";
+            sign.style.cssText = "display:inline-flex;align-items:center;justify-content:center;width:26px;height:22px;border-radius:11px;background:#eef0f2;font:700 14px system-ui,sans-serif;cursor:pointer;user-select:none;-webkit-user-select:none";
+            sign.addEventListener("pointerdown", (ev) => ev.preventDefault()); // (the field keeps the focus and the keyboard)
+            sign.addEventListener("click", (ev) => { ev.stopPropagation(); const v = input.value; input.value = v.startsWith("-") ? v.slice(1) : `-${v}`; h.entry(f.index ?? i, input.value); input.focus(); });
+            el.appendChild(sign);
+          }
           return input;
         });
       }

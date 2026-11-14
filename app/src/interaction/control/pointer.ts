@@ -205,7 +205,12 @@ function trimUnder(sc: Scene, pv: ReturnType<ReturnType<typeof projector>["view"
  * to be moved with its drag icon (its hints are the hover's) while the first has an icon of its own; a tap anywhere then sets the point held where it is. When that finished the figure it is made and the tool is put away (an arc goes on to its bow first), so a tap that applies also ends the tool (`in_289`). The trim tool has one step: a tap is a click.
  */
 export function doTapAim(s: AppState, i: Extract<Intent, { type: "tapAim" }>, env: Env): AppState {
-  if (!s.tool || s.tool.kind === "trim") return doClick(s, { type: "click", x: i.x, y: i.y, count: 1, shift: false }, env);
+  if (!s.tool) return doClick(s, { type: "click", x: i.x, y: i.y, count: 1, shift: false }, env);
+  if (s.tool.kind === "trim") {
+    // the scissors cut where a tap is over a part that can be cut off; a tap in free space is a right click: the tool is put away (`in_292`)
+    const over = trimUnder(sceneOf(s.session), projector(s.cam, env.w, env.h).view(i.x, i.y));
+    return over ? doClick(s, { type: "click", x: i.x, y: i.y, count: 1, shift: false }, env) : { ...s, tool: null, resume: null, menu: null };
+  }
   if (!s.tool.held || !s.tool.cursor) return holdNext(doClick({ ...s, tool: { ...s.tool, held: undefined } }, { type: "click", x: i.x, y: i.y, count: 1, shift: false }, env), env); // (the first point is set where the tap is)
   const at = projector(s.cam, env.w, env.h).project(s.tool.cursor); // (the point held is set where it is)
   return holdNext(doClick({ ...s, tool: { ...s.tool, held: undefined } }, { type: "click", x: at[0], y: at[1], count: 1, shift: false }, env), env);

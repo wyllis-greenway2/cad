@@ -169,6 +169,15 @@ function constraintFor(m: Model, rel: Relation): Omit<SolverConstraint, "id"> | 
       return cen && e ? { type: "ptOnCircle", p, c: cen, e } : null;
     }
     case "tangent": {
+      // two circles that touch (`in_292`): outside each other or one inside the other, as they are now
+      if (k1 && k2 && !l1) {
+        const [ca, cb] = [m.cornerId((m.get(k1) as { center: Ref }).center), m.cornerId((m.get(k2) as { center: Ref }).center)];
+        const [r1, r2] = [m.radiusId(k1), m.radiusId(k2)];
+        if (!ca || !cb || !r1 || !r2) return null;
+        const d = Math.hypot(m.points[ca]![0] - m.points[cb]![0], m.points[ca]![1] - m.points[cb]![1]);
+        const [s1, s2] = [m.scalars[r1]!, m.scalars[r2]!];
+        return { type: "tangentCircles", a: ca, b: cb, r: r1, s: r2, mode: Math.abs(d - (s1 + s2)) <= Math.abs(d - Math.abs(s1 - s2)) ? 1 : -1 };
+      }
       // two curves (a circle or an arc with a circle or an arc) meet smoothly at the end of the arc that is on the other (`in_280`)
       const [r1, r2] = [l1 ? m.get(l1) : null, l2 ? m.get(l2) : null];
       const arcA = r1?.kind === "line" && r1.center ? r1 : null;

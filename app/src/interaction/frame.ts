@@ -1,5 +1,6 @@
 // What to draw for the current state: one plain description the view, the chip, the badges and the controls draw from. All the decisions about what is shown
 // (the big axes or the compass, which plane's grid, whether badges give way to a tool or operation) are made here, so the UI only draws.
+import { pieceMiddle } from "../operation/trim.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Gizmo } from "./gizmo.ts";
 import { panelOf } from "./panels.ts";
@@ -249,6 +250,7 @@ function partHelperOf(s: AppState): Frame["touchHelper"] {
   let at: Vec3 | null = null;
   if (p.kind === "corner" && p.plane) at = p.at;
   else if (p.kind === "line" && !p.derived && !p.center && p.plane) { const [a, b] = [sc.parts[p.a], sc.parts[p.b]]; at = a?.kind === "corner" && b?.kind === "corner" ? [(a.at[0] + b.at[0]) / 2, (a.at[1] + b.at[1]) / 2, (a.at[2] + b.at[2]) / 2] : null; }
+  else if (p.kind === "line" && !p.derived && p.center && p.plane) { at = pieceMiddle(sc, p.ref)?.at ?? null; } // (an arc: the middle of the curve)
   else if (p.kind === "circle" && p.plane) { const [c, pl] = [sc.parts[p.center], sc.parts[p.plane]]; at = c?.kind === "corner" && pl?.kind === "plane" ? [c.at[0] + pl.u[0] * p.radius, c.at[1] + pl.u[1] * p.radius, c.at[2] + pl.u[2] * p.radius] : null; }
   return at ? { kind: "handle", points: [{ at, index: -1 }], handles: [], applies: false } : null;
 }
@@ -259,6 +261,8 @@ function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame[
   if (s.drag && !("handle" in s.drag) && !("corner" in s.drag) && !("line" in s.drag) && !("rim" in s.drag)) return null;
   if (!gizmo || (s.drag && !("handle" in s.drag))) return !s.op && !s.repeat ? partHelperOf(s) : null;
   const chosen = s.handleSel ? gizmo.handles.find((h) => h.id === s.handleSel) : (s.op || s.repeat) && gizmo.handles.length === 1 ? gizmo.handles[0] : undefined;
+  // an operation is open and no arrow has been chosen: no drag icon yet, but a tap on an arrow selects it and a tap anywhere else is a right click, as with one chosen (`in_292`)
+  if (!chosen) return s.op || s.repeat ? { kind: "handle", points: [], handles: gizmo.handles.map((h) => h.points), applies: true } : null;
   return chosen ? { kind: "handle", points: [{ at: handleMiddle(chosen), index: -1 }], handles: gizmo.handles.map((h) => h.points), applies: !!(s.op || s.repeat) } : null;
 }
 

@@ -224,7 +224,7 @@ function ownPieces(s: Scene, f: Extract<Scene["parts"][string], { kind: "face" }
 }
 
 /** A point in the middle of a piece (a straight side, or an arc of a circle). */
-function pieceMiddle(s: Scene, piece: Ref): { at: Vec3; plane: Ref } | null {
+export function pieceMiddle(s: Scene, piece: Ref): { at: Vec3; plane: Ref } | null {
   const p = s.parts[piece];
   if (p?.kind !== "line" || !p.plane) return null;
   const [a, b, pl] = [pointOf((r) => s.parts[r], p.a), pointOf((r) => s.parts[r], p.b), s.parts[p.plane]];

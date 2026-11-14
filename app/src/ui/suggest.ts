@@ -21,7 +21,7 @@ export function createSuggest(host: HTMLElement, run: (id: string) => void) {
           const b = document.createElement("div");
           b.title = it.label;
           b.style.cssText = "width:28px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#2b2b2d;background:#fff;border:1px solid #cfd0d4";
-          b.innerHTML = iconSvg(iconKey(it.id));
+          b.innerHTML = iconSvg(it.id === "fixed" ? "unlock" : iconKey(it.id)); // (Fix in place offered: an open padlock to close; once it is made its bubble shows the closed one, `in_292`)
           b.addEventListener("mouseenter", () => { b.style.background = "#e8f7f6"; b.style.borderColor = "#1ab8b3"; });
           b.addEventListener("mouseleave", () => { b.style.background = "#fff"; b.style.borderColor = "#cfd0d4"; });
           b.addEventListener("click", (e) => { e.stopPropagation(); run(it.id); });

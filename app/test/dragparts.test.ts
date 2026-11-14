@@ -117,3 +117,46 @@ test("a selected centre of a circle that lies close to the edge of another circl
   const s2 = run(after, farOne.command);
   assert.ok(!suggestionsFor(scene(s2), [farOne.centre])?.items.some((i) => i.id.startsWith("near:")), "not close: not offered");
 });
+
+import { drawArc } from "../src/operation/build.ts";
+test("an arc is dragged whole: its ends and its centre go by the same amount, so it keeps its size (`in_292`)", () => {
+  let s = createSession(kernel);
+  const a = drawArc(scene(s), XY, [10, 5, 0], [20, 12, 0], [30, 5, 0], [0, 0, 1])!;
+  s = run(s, a.command);
+  const arc = scene(s).parts[a.line] as unknown as { a: string; b: string; center: string };
+  const before = [arc.a, arc.b, arc.center].map((r) => at(view(s), r));
+  const st = drag(view(s), [20, 12, 0], [25, 20, 0]);
+  const after = [arc.a, arc.b, arc.center].map((r) => at(st, r));
+  for (let k = 0; k < 3; k++) { near(after[k]![0]! - before[k]![0]!, 5, 0.2); near(after[k]![1]! - before[k]![1]!, 8, 0.2); }
+});
+
+import { actionsFor } from "../src/interaction/actions.ts";
+test("two circle edges that nearly touch are offered 'tangent', the constraint holds them touching (outside or inside), and it is a Tangent action for the pair (`in_292`)", () => {
+  let s = createSession(kernel);
+  const a = drawCircle(scene(s), XY, [20, 15, 0], 6);
+  s = run(s, a.command);
+  const b = drawCircle(scene(s), XY, [32.2, 15, 0], 6); // (centres 12.2 apart, radii 6 and 6: nearly touching)
+  s = run(s, b.command);
+  const item = suggestionsFor(scene(s), [a.circle])?.items.find((i) => i.id === `near:tangent:${b.circle}`);
+  assert.ok(item, "offered");
+  const t = run(s, nearCommand(scene(s), [a.circle], item!.id)!);
+  assert.equal(t.message, null);
+  const [ca, cb] = [at(view(t), a.centre), at(view(t), b.centre)];
+  const [ra, rb] = [a.circle, b.circle].map((r) => (scene(t).parts[r] as { radius: number }).radius);
+  near(Math.hypot(ca[0]! - cb[0]!, ca[1]! - cb[1]!), ra! + rb!, 0.01);
+  // one inside the other
+  let u = createSession(kernel);
+  const big = drawCircle(scene(u), XY, [20, 15, 0], 10);
+  u = run(u, big.command);
+  const small = drawCircle(scene(u), XY, [25.9, 15, 0], 4);
+  u = run(u, small.command);
+  assert.ok(suggestionsFor(scene(u), [small.circle])?.items.some((i) => i.id === `near:tangent:${big.circle}`), "inside: offered");
+  const act = actionsFor(scene(u), [big.circle, small.circle]).find((x) => x.id === "tangent");
+  assert.ok(act?.enabled, "the Tangent action for two circles");
+  const held = run(u, act!.run());
+  const [c1, c2] = [at(view(held), big.centre), at(view(held), small.centre)];
+  const [r1, r2] = [big.circle, small.circle].map((r) => (scene(held).parts[r] as { radius: number }).radius);
+  near(Math.hypot(c1[0]! - c2[0]!, c1[1]! - c2[1]!), Math.abs(r1! - r2!), 0.01);
+  // far apart: not offered
+  assert.ok(!suggestionsFor(scene(s), [drawCircle(scene(s), XY, [60, 40, 0], 2).circle]) , "(a circle that is not in the scene has no suggestions)");
+});
