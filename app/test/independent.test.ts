@@ -72,25 +72,24 @@ test("Add joins overlapping bodies into the first; Cut (kept: only the first) ta
   const [a2, b2] = bodies(s);
   let st: AppState = { ...createState(s), cam: homeCamera() };
   const menu = (x: AppState) => reduce(x, { type: "menu", x: 5, y: 5, button: true }, env).menu!.items.flatMap((i) => i.children ?? [i]);
-  assert.equal(menu(pick(st, [a2!.ref])).find((i) => i.id === "combine:add")!.enabled, false);
-  assert.equal(menu(pick(st, [a2!.ref, b2!.ref])).find((i) => i.id === "combine:add")!.enabled, true);
-  assert.equal(menu(pick(st, [a2!.ref])).find((i) => i.id === "combine:cut")!.enabled, false);
-  const cutting = reduce(pick(st, [a2!.ref, b2!.ref]), { type: "runAction", id: "combine:cut" }, env);
-  assert.deepEqual(cutting.cut?.keep, [1], "a cut starts as a subtract: only the first body's part is kept");
-  const sub = reduce(cutting, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(menu(pick(st, [a2!.ref])).find((i) => i.id === "combine:parts")!.enabled, false);
+  assert.equal(menu(pick(st, [a2!.ref, b2!.ref])).find((i) => i.id === "combine:parts")!.enabled, true);
+  const cutting = reduce(pick(st, [a2!.ref, b2!.ref]), { type: "runAction", id: "combine:parts" }, env);
+  assert.deepEqual(cutting.cut?.keep.slice().sort(), [1, 2, 3], "it starts as an add: every part is kept");
+  const added = reduce(cutting, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(bodies(added.session).length, 1);
+  assert.ok(added.session.outcome.kernel!.volume! < 2000 && added.session.outcome.kernel!.volume! > 1000);
+  // a subtract: toss b's part and the overlap
+  const sub = reduce(reduce(reduce(cutting, { type: "cut", act: "toggle", mask: 2 }, env), { type: "cut", act: "toggle", mask: 3 }, env), { type: "typed", key: "Enter", shift: false }, env);
   assert.equal(sub.cut, null);
   assert.equal(bodies(sub.session).length, 1);
   assert.ok(sub.session.outcome.kernel!.volume! < 2000 - 1, "b was taken out of a");
-  st = reduce(pick(st, [a2!.ref, b2!.ref]), { type: "runAction", id: "combine:add" }, env);
-  assert.equal(st.session.message, "bodies added together");
-  assert.equal(bodies(st.session).length, 1);
-  assert.ok(st.session.outcome.kernel!.volume! < 2000 && st.session.outcome.kernel!.volume! > 1000);
   // two that do not touch cannot be added: refused with the reason, nothing changes
   const apart = box(box(createSession(kernel), 0, 0), 40, 0);
   const [p, q] = bodies(apart);
-  const no = reduce(pick({ ...createState(apart), cam: homeCamera() }, [p!.ref, q!.ref]), { type: "runAction", id: "combine:add" }, env);
-  assert.match(no.session.message ?? "", /do not touch or overlap/);
-  assert.equal(scene(no.session).steps.length, 2);
+  const none = reduce(pick({ ...createState(apart), cam: homeCamera() }, [p!.ref, q!.ref]), { type: "runAction", id: "combine:parts" }, env);
+  assert.deepEqual(none.cut?.keep.slice().sort(), [1, 2], "two that do not touch make no overlap: their parts are kept as they are");
+  assert.equal(bodies(reduce(none, { type: "typed", key: "Enter", shift: false }, env).session).length, 2);
 });
 
 import { exportStl, selectedBodies } from "../src/interaction/exportstl.ts";
@@ -441,7 +440,8 @@ test("Cut shows the parts the bodies make and keeps the ones chosen: the overlap
   if (!mv.ok) return assert.fail("no move");
   s = run(s, opCommand(scene(s), { ...mv.op, axis: 0, value: -35 })!); // two boxes 10 wide: the second at 5..15, the first at 0..10: they overlap by 5
   const [a, b] = bodies(s);
-  const start = reduce(pick({ ...createState(s), cam: homeCamera() }, [a!.ref, b!.ref]), { type: "runAction", id: "combine:cut" }, env);
+  const begun = reduce(pick({ ...createState(s), cam: homeCamera() }, [a!.ref, b!.ref]), { type: "runAction", id: "combine:parts" }, env);
+  const start = { ...begun, cut: { ...begun.cut!, keep: [1] } }; // (as a subtract: only the first body's part kept)
   const f = frameOf(start, env);
   assert.deepEqual(f.cut!.parts.map((p) => p.mask).sort(), [1, 2, 3], "only A, only B, where they meet");
   assert.deepEqual(f.cut!.parts.map((p) => p.label).sort(), ["A", "A∩B", "B"].sort());

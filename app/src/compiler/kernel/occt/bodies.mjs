@@ -6,6 +6,14 @@ const box = (s) => { const b = s.boundingBox.bounds; return { min: b[0], max: b[
 const centre = (b) => [0, 1, 2].map((i) => (b.min[i] + b.max[i]) / 2);
 const inside = (b, p, t = 1e-3) => [0, 1, 2].every((i) => p[i] >= b.min[i] - t && p[i] <= b.max[i] + t);
 
+const gap = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+/** The index of the box that holds the point, skipping the ones in `claimed`; of several (a body inside the box of another: parts a cut made), the one whose middle is nearest it, as `trackBodies` takes it (`in_298`: the first that held it was the larger body, which moved in place of the smaller). */
+const boxHolding = (boxes, p, claimed = new Set()) => {
+  let i = -1;
+  boxes.forEach((b, k) => { if (!claimed.has(k) && inside(b, p) && (i < 0 || gap(centre(b), p) < gap(centre(boxes[i]), p))) i = k; });
+  return i;
+};
+
 /** The solids of a shape (a compound of bodies, or a single solid). */
 export const lumpsOf = (shape) => shape.solids;
 
@@ -53,7 +61,7 @@ export function trackBodies(prev, shape, opId) {
 export function lumpAt(shape, at) {
   const lumps = lumpsOf(shape);
   if (lumps.length < 2) return null;
-  const i = lumps.findIndex((l) => inside(box(l), at));
+  const i = boxHolding(lumps.map(box), at);
   return i < 0 ? null : { lump: lumps[i], rest: lumps.filter((_, k) => k !== i) };
 }
 /** The solid of a body by its name (its marker), with the others. */
@@ -70,7 +78,7 @@ export function lumpsByName(shape, markers, ids) {
   const picked = [];
   for (const id of ids) {
     const m = markers.find((x) => x.id === id);
-    const i = m ? boxes.findIndex((b, k) => !claimed.has(k) && inside(b, m.at)) : -1;
+    const i = m ? boxHolding(boxes, m.at, claimed) : -1;
     if (i < 0) return null;
     claimed.add(i);
     picked.push(lumps[i]);

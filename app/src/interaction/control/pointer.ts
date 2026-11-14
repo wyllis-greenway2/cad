@@ -53,15 +53,14 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:circular", label: "Circular repeat", icon: "circular", op: "circular" },
   { id: "repeat:edit", label: "Edit repeat", icon: "linear", select: "editRepeat" },
   { id: "repeat:break", label: "Break repeat", icon: "unlink", select: "breakRepeat" },
-  { id: "combine:add", label: "Add bodies", icon: "add", select: "combine" },
-  { id: "combine:cut", label: "Cut bodies…", icon: "subtract", select: "combine" },
+  { id: "combine:parts", label: "Combine bodies…", icon: "subtract", select: "combine" }, // (add, cut and what is left of both: the parts the bodies make are each kept or tossed, `in_298`)
   { id: "select:similar", label: "Select similar", icon: "similar", select: "similar" },
   { id: "select:group", label: "Group", icon: "group", select: "group" },
   { id: "select:ungroup", label: "Ungroup", icon: "ungroup", select: "ungroup" },
 ];
 const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:offset"] },
-  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:scale", "combine:add", "combine:cut"] },
+  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:scale", "combine:parts"] },
   { id: "place", label: "Move and repeat", icon: "move", items: ["op:move", "op:rotate", "op:copy", "op:linear", "op:circular", "repeat:edit", "repeat:break"] },
   { id: "select", label: "Select", icon: "similar", items: ["select:similar", "select:group", "select:ungroup"] },
 ];

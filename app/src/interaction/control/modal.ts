@@ -25,7 +25,7 @@ import { patternOfAll } from "../../operation/repeat.ts";
 import { BODY_OBJECT } from "../../compiler/body.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
-import { doSimilar, doGroup, doUngroup, doCombine, doCutBegin, applyCut } from "./select.ts";
+import { doSimilar, doGroup, doUngroup, doCutBegin, applyCut } from "./select.ts";
 import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
@@ -208,8 +208,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   }
   if (id === "select:similar") return doSimilar(closed);
   if (id === "select:group") return doGroup(closed);
-  if (id === "combine:add") return doCombine(closed, "add");
-  if (id === "combine:cut") return doCutBegin(closed);
+  if (id === "combine:parts") return doCutBegin(closed);
   if (id === "repeat:edit") return doRepeatEdit(closed);
   if (id === "repeat:break") return doRepeatBreak(closed);
   if (id === "select:ungroup") return doUngroup(closed);

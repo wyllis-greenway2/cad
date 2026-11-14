@@ -1,6 +1,6 @@
 // Selecting by what a selection is like (`in_257`, `dec_selection_tools`): "Select similar" selects everything like the selected parts by a few rules, and the chip that follows loosens or tightens one rule at a time.
 import type { Intent } from "../../shared/input.ts";
-import { startCut, cutStep } from "../cut.ts";
+import { startCut, cutStep, cutParts } from "../cut.ts";
 import { scene as sceneOf, selection as selectionOf, run } from "../session.ts";
 import { nextId } from "../../operation/scene.ts";
 import { topItems, breakable } from "../../operation/groups.ts";
@@ -65,24 +65,15 @@ export function whyNotCombine(session: Session): string | null {
   const bodies = selectionOf(session).filter((r) => sc.parts[r]?.kind === "body");
   return bodies.length >= 2 ? null : "select two or more bodies (click a body three times, or choose it in the Bodies list)";
 }
-/** Add the selected bodies into the first one selected, or take the others away from it (they are used up). */
-export function doCombine(s: AppState, mode: "add" | "subtract" | "intersect", keep = false): AppState {
-  const why = whyNotCombine(s.session);
-  if (why) return say({ ...s, menu: null }, why);
-  const sc = sceneOf(s.session);
-  const bodies = selectionOf(s.session).filter((r) => sc.parts[r]?.kind === "body");
-  const next = run(s.session, { type: "addStep", step: { id: nextId(sc, "s"), type: "combine", parts: bodies, params: { mode, ...(keep ? { keep: 1 } : {}) } } });
-  if (next.message) return say({ ...s, menu: null, session: next }, next.message);
-  return { ...withSession(s, { ...next, click: { ...next.click, selection: (keep ? bodies : [bodies[0]!]).filter((r) => r in sceneOf(next).parts) }, message: mode === "add" ? "bodies added together" : mode === "intersect" ? "what the bodies share is kept" : keep ? "bodies subtracted (the tools are kept)" : "bodies subtracted" }), menu: null };
-}
-
 /** Cut: the selected bodies are shown as the parts they make, to keep or toss (`in_294`). */
 export function doCutBegin(s: AppState): AppState {
   const why = whyNotCombine(s.session);
   if (why) return say({ ...s, menu: null }, why);
   const sc = sceneOf(s.session);
   const bodies = selectionOf(s.session).filter((r) => sc.parts[r]?.kind === "body");
-  return { ...s, menu: null, op: null, tool: null, cut: startCut(bodies), session: { ...s.session, message: "click a part to keep it (+) or toss it (−); Enter or a right click makes it, Esc gives it up" } };
+  const start = startCut(bodies);
+  const cut = { ...start, keep: cutParts(sc, start).map((p) => p.mask) }; // (it starts as an add: every part kept and joined; a part tapped is tossed, `in_298`)
+  return { ...s, menu: null, op: null, tool: null, cut, session: { ...s.session, message: "every part is kept (+); click one to toss it (−); Enter or a right click makes it, Esc gives it up" } };
 }
 export function doCut(s: AppState, i: Extract<Intent, { type: "cut" }>): AppState {
   if (!s.cut) return s;

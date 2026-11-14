@@ -42,3 +42,13 @@ test("the button of the axis the view is nearest to takes the colour as the view
   const under = facingOf(lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0], -1));
   assert.deepEqual([under.axis, under.sign], ["Z", -1]);
 });
+
+test("an extrusion that goes into the body is stored as a cut, and the body is smaller for it (`in_298`)", () => {
+  let s = createSession(kernel);
+  const a = sketch(s, 0, 0); s = pull(a.s, a.face); // (a box 10 by 10 by 10)
+  const volume = (x: Session) => Object.values(scene(x).parts).reduce((t, p) => t + (p.kind === "body" ? (p.volume ?? 0) : 0), 0);
+  const before = volume(s);
+  const b = sketch(s, 5, 5); s = pull(b.s, b.face); // (a second figure on the same plane, half on the body: pulled into it)
+  assert.deepEqual(modes(s), [undefined, "cut"]);
+  assert.ok(volume(s) < before - 1);
+});

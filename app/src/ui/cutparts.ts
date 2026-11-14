@@ -5,7 +5,7 @@ export function createCutParts(host: HTMLElement, toggle: (mask: number) => void
   root.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;z-index:7;font:600 13px system-ui,sans-serif";
   host.appendChild(root);
   const joinEl = document.createElement("div");
-  joinEl.style.cssText = "position:fixed;z-index:7;left:50%;transform:translateX(-50%);top:64px;display:none;height:32px;padding:0 14px;border-radius:16px;background:#34363b;color:#fff;align-items:center;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation;box-shadow:0 2px 8px rgba(0,0,0,.25)";
+  joinEl.style.cssText = "position:fixed;z-index:7;left:50%;transform:translateX(-50%);top:64px;display:none;height:38px;padding:0 18px;border-radius:8px;background:#fff;color:#2b2b2d;border:1px solid #b9bbc1;font:600 14px system-ui,sans-serif;align-items:center;gap:8px;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation;box-shadow:0 2px 8px rgba(0,0,0,.25)";
   joinEl.addEventListener("pointerdown", (e) => e.stopPropagation());
   joinEl.addEventListener("click", (e) => { e.stopPropagation(); join(); });
   host.appendChild(joinEl);
@@ -16,7 +16,8 @@ export function createCutParts(host: HTMLElement, toggle: (mask: number) => void
       if (!parts) { root.style.display = "none"; joinEl.style.display = "none"; return; }
       root.style.display = "block";
       joinEl.style.display = "flex";
-      joinEl.textContent = joined ? "Kept parts are joined \u2022 tap to keep them separate" : "Kept parts stay separate \u2022 tap to join them";
+      joinEl.innerHTML = joined ? "<span>\u25A3</span><span>Joined: kept parts that touch become one body</span>" : "<span>\u25A1 \u25A1</span><span>Separate: every kept part stays its own body</span>";
+      joinEl.title = joined ? "Click to keep the parts as separate bodies" : "Click to join the parts that touch";
       for (const p of parts) {
         let el = els.get(p.mask);
         if (!el) {
