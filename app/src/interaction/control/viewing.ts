@@ -60,7 +60,7 @@ export function doZoom(s: AppState, i: Extract<Intent, { type: "zoom" }>, env: E
     const sc = sceneOf(s.session);
     const c = candidatesAt(sc, pv, pickOpts(s)).find((x) => x.rank === 2 && sc.parts[x.ref]?.origin !== "world"); // (the floor is under every pointer: zooming toward it walked the view across the floor with every wheel click, `in_200`)
     const p = c ? surfacePoint(pv, c.score) : null;
-    if (p && Math.hypot(...sub(p, s.cam.target)) <= settings.input.zoomAnchorMaxFactor * s.cam.distance) anchor = p;
+    if (p) anchor = p; // (any surface under the pointer, however far from the target: with the target left in empty space the view could not zoom up to the model, which was far past it, `in_337`)
   }
   return { ...stop(s), cam: zoomAt(s.cam, i.factor, anchor) };
 }

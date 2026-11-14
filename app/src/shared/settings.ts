@@ -32,7 +32,6 @@ export const settings = {
     trackpadPanScale: 0.3, // how much of a trackpad's two-finger scroll the view pans by: less than 1 is less sensitive (`in_300`)
     scrollMode: "auto" as "auto" | "pan" | "zoom", // what a scroll does: auto = a trackpad's two-finger scroll pans and a wheel zooms (a pinch always zooms) (`in_079`)
     zoomToCursor: true, // zoom IN toward the point under the cursor; zoom OUT is about the view centre (no runaway)
-    zoomAnchorMaxFactor: 1.5, // zoom toward surface points within this many view-distances of the target
     maxZoomFactorPerSecond: 5, // one gesture can never zoom faster than this
     pinchZoomPerWheel: 0.01, // a trackpad pinch (a wheel event with ctrl held) is more sensitive than a wheel notch
     scrollNotchMs: 160, // a scroll gesture keeps its kind while its events keep arriving within this
