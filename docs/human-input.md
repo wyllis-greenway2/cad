@@ -1563,3 +1563,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_327 — 2026-11-14 — directive
 > make the exact path cheaper and re-measure
 (approves building the two cheaper-exact ideas listed after `in_326`: a kernel pass for the preview that skips naming faces and edges and meshes only what changed, and reusing the drawn objects of a body that did not change; then measuring again with the same models and runs)
+
+## in_328 — 2026-11-14 — directive
+> make exact the default for fillet and chamfer
+(decides, after the measurements of `in_326` and `in_327`, that the preview of a fillet or chamfer being dragged is the kernel's own result for every size, the newest request winning, in place of the stretched picture; the stretch stays for the other previews)
