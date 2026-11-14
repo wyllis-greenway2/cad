@@ -465,3 +465,31 @@ test("Cut shows the parts the bodies make and keeps the ones chosen: the overlap
   const none = make(tog(start, 1));
   assert.match(none.session.message ?? "", /nothing was kept/);
 });
+
+test("Shift on move arrows chooses them for a free drag: the body then moves only along those axes; a free drag lights no single arrow (`in_299`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a] = bodies(s);
+  const base: AppState = pick({ ...createState(s), cam: { ...homeCamera(), target: [5, 5, 5] } }, [a!.ref]);
+  const handle = (st: AppState, id: string) => frameOf(st, env).gizmo!.handles.find((h) => h.id === id)!;
+  const pr = (st: AppState) => projector(st.cam, env.w, env.h);
+  const shiftClick = (st: AppState, id: string) => { const h = handle(st, id); const p = pr(st).project([(h.points[0]![0] + h.points[1]![0]) / 2, (h.points[0]![1] + h.points[1]![1]) / 2, (h.points[0]![2] + h.points[1]![2]) / 2]); return reduce(st, { type: "click", x: p[0], y: p[1], count: 1, shift: true }, env); };
+  let st = shiftClick(shiftClick(base, "move:x"), "move:y");
+  assert.deepEqual(st.lockAxes, [0, 1]);
+  assert.deepEqual(frameOf(st, env).gizmo!.locked, ["move:x", "move:y"]);
+  st = shiftClick(st, "move:y");
+  assert.deepEqual(st.lockAxes, [0], "a second Shift click takes it out again");
+  st = shiftClick(st, "move:z");
+  // dragged on the body: nothing moves in y
+  const on = pr(st).project([5, 0, 5]);
+  st = reduce(st, { type: "hover", x: on[0], y: on[1] }, env);
+  let [x, y] = on;
+  for (const [dx, dy] of [[0, 0], [20, -10], [20, -10], [10, 0]] as [number, number][]) { x += dx; y += dy; st = reduce(st, { type: "orbit", dx, dy, x, y }, env); }
+  assert.ok(st.op?.free, "the drag has taken hold of the body");
+  assert.equal(st.op!.free![1], 0, "y is not an axis chosen");
+  assert.ok(Math.abs(st.op!.free![0]) + Math.abs(st.op!.free![2]) > 1, "it moved along x and z");
+  assert.equal(frameOf({ ...st, lockAxes: [] }, env).gizmo!.chosen, null, "free in every direction: no single arrow is the chosen one");
+  // the dragged body stays with its axes; letting go of the selection drops them
+  const done = reduce(st, { type: "dragEnd" }, env);
+  assert.deepEqual(done.lockAxes, [0, 2], "kept for the next drag");
+  assert.deepEqual(reduce(done, { type: "escape" }, env).lockAxes, [], "dropped with the selection");
+});

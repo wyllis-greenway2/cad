@@ -35,6 +35,8 @@ export interface AppState {
   showAllConstraints: boolean;
   /** the arrow (or ring) of an operation that is selected (`in_238`): a click on it or taking it; only a selected arrow shows its number, so the arrows alone stay clean */
   handleSel: string | null;
+  /** the move arrows chosen with Shift (`in_299`): a body dragged free then moves only along those axes (one: along a line; two: across a plane); none: free in every direction */
+  lockAxes: (0 | 1 | 2)[];
   /** a cut of bodies being set up: the parts they make, which are kept (`in_294`) */
   cut: CutState | null;
   /** the constraint a point being dragged is close to (it has taken it, and a release keeps it), lit while the drag goes on (`in_290`) */
@@ -77,7 +79,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.

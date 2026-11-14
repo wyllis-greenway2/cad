@@ -115,7 +115,8 @@ function moveBody(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env):
   const now = onViewPlane(s.cam, d.centre, projector(s.cam, env.w, env.h).ray(i.x, i.y));
   if (!now) return s;
   const r = (v: number) => Math.round(v * 1000) / 1000;
-  return { ...s, op: { ...s.op, free: [r(now[0] - d.from[0]), r(now[1] - d.from[1]), r(now[2] - d.from[2])] } };
+  const go = (k: 0 | 1 | 2) => (s.lockAxes.length && !s.lockAxes.includes(k) ? 0 : r(now[k] - d.from[k])); // (the arrows chosen with Shift: only along those, `in_299`)
+  return { ...s, op: { ...s.op, free: [go(0), go(1), go(2)] } };
 }
 
 /** Where a pointer's ray meets the plane through `centre` that faces the camera. */

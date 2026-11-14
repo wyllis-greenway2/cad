@@ -23,19 +23,16 @@ export function createControls(host: HTMLElement, h: ControlHandlers) {
   });
 
   return {
-    /** Light the button of the axis the selected plane lies across (+ or −). */
+    /** A ring round the button of the axis the selected plane lies across (`in_299`); the colour of the buttons is the view's (`facing`). */
     hint(hint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null) {
       buttons.forEach((b, i) => {
         const on = hint?.axis === "XYZ"[i];
-        b.textContent = on ? `${hint!.sign > 0 ? "+" : "−"}${"XYZ"[i]}` : "XYZ"[i]!;
-        b.style.background = on ? "#1ab8b3" : "#fff";
-        b.style.color = on ? "#fff" : "#2b2b2d";
-        b.style.borderColor = on ? "#1ab8b3" : "#cfd0d4";
+        b.style.boxShadow = on ? "0 0 0 3px #fff, 0 0 0 5px #2b2b2d" : "0 2px 8px rgba(0,0,0,.10)";
+        b.title = on ? `The selected plane lies across ${"XYZ"[i]} (click to look along it; press again for the back)` : `Look along ${"XYZ"[i]} (press again for the back)`;
       });
     },
-    /** The button of the axis the view is nearest to takes on the teal as the view comes round to it (`in_295`); a plane that is selected lights its own (`hint`) and keeps it. */
-    facing(f: { axis: "X" | "Y" | "Z"; sign: 1 | -1; strength: number }, planeHint: boolean) {
-      if (planeHint) return;
+    /** The button of the axis the view is nearest to takes on the teal as the view comes round to it (`in_295`); a plane that is selected has its ring (`hint`), whatever the view. */
+    facing(f: { axis: "X" | "Y" | "Z"; sign: 1 | -1; strength: number }) {
       buttons.forEach((b, i) => {
         const k = f.axis === "XYZ"[i] ? f.strength : 0;
         const mix = (from: number[], to: number[]) => `rgb(${from.map((c, j) => Math.round(c + (to[j]! - c) * k)).join(",")})`;

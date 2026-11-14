@@ -36,6 +36,8 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if ((next.session.reveal ?? null) !== reveal) next = { ...next, session: { ...next.session, reveal } };
   if (next.cut && next.session.click.selection.join("|") !== s.session.click.selection.join("|")) next = { ...next, cut: null }; // (a cut is about the bodies that were selected: choosing something else gives it up)
   if (next.handleSel && (i.type === "begin" || i.type === "runAction")) next = { ...next, handleSel: null }; // (a new operation starts with its arrows alone)
+  // the axes chosen for a free drag belong to the body selected and the move: choosing something else, or a new operation, drops them (`in_299`)
+  if (next.lockAxes.length && (next.session.click.selection.join("|") !== s.session.click.selection.join("|") || i.type === "begin" || i.type === "runAction")) next = { ...next, lockAxes: [] };
   // a selected arrow stays selected while what it belongs to does: not when the selection changes or the operation ends (`in_238`)
   if (next.handleSel && (!next.op && !next.repeat && next.session.click.selection.join("|") !== s.session.click.selection.join("|") || (s.op && !next.op && !next.repeat) || (s.repeat && !next.repeat))) next = { ...next, handleSel: null };
   // an offset starts with its arrow on the outline where you were pointing when you chose it (or at the middle of the view), not wherever the figure's own first side is: zoomed in, that could be out of sight (`in_244`)

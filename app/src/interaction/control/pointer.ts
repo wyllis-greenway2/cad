@@ -352,6 +352,11 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   const hit = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y) : null;
   // a click on a ring of a repeat, or of the turn being set up, makes that the axis, with no drag needed (`in_206`)
   if (hit && hit.id.startsWith("rot:") && s.op?.kind === "rotate") return { ...base, op: { ...s.op, axis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2, typed: "" }, gizmoHover: hit.id, handleSel: hit.id };
+  // Shift on a move arrow chooses it with the others already chosen: a body dragged free then moves only along those axes (`in_299`)
+  if (hit && i.shift && hit.id.startsWith("move:") && (!s.op || s.op.kind === "move") && !s.repeat) {
+    const k = "xyz".indexOf(hit.id[5]!) as 0 | 1 | 2;
+    return { ...base, lockAxes: s.lockAxes.includes(k) ? s.lockAxes.filter((a) => a !== k) : [...s.lockAxes, k].sort() as (0 | 1 | 2)[], handleSel: null, gizmoHover: hit.id };
+  }
   // a click on an arrow selects it: it shows its number then (`in_238`)
   if (hit) return s.repeat && !s.op ? { ...(hit.id.startsWith("rot:") ? setRepeatAxis(base, "xyz".indexOf(hit.id[4]!)) : { ...base, repeat: { ...s.repeat, chosen: hit.id } }), handleSel: hit.id } : { ...base, handleSel: hit.id };
   // a click anywhere else, blank space too, leaves an operation you started, and then acts as a normal click
