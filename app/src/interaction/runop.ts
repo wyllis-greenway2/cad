@@ -17,7 +17,7 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
     return op.edit && v !== null && v !== 0 ? { session: { ...sess, message: `that size is not possible: ${why}` }, cmd: { type: "batch", commands: [] } } : null;
   }
   if (!op.edit || op.noEdit) {
-    const done = run(sess, cmd);
+    const done = run(sess, cmd, op.target === "body" ? { ownHold: true } : {}); // (a body that is moved has its own check below, which names the sketch it would stretch)
     // an extrusion onto bodies: whether it adds a piece or cuts is decided now, once, and kept in the step (`in_295`); decided again at every replay, a body that grew later would be cut by a piece that only stood beside it
     // (figures extruded together are steps of their own, `in_322`: they are decided together, below)
     const extrudes = cmd.type === "batch" ? cmd.commands : [cmd];

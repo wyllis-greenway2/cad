@@ -6,6 +6,7 @@ import type { Hint } from "../hints.ts";
 import type { CutState } from "../cut.ts";
 import { add, scale, dot } from "../../math/vec.ts";
 import { settings } from "../../shared/settings.ts";
+import type { Command } from "../../operation/commands.ts";
 import type { Plane } from "../../operation/part.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import type { Session } from "../session.ts";
@@ -79,7 +80,7 @@ export interface AppState {
   /** the helper handle under the pointer */
   gizmoHover: string | null;
   /** a command was refused because it could not be done without breaking constraints: they flash red and fade, and the one that tried shakes (`in_120`) */
-  flash: { culprits: string[]; victims: string[]; parts?: string[]; at: number } | null;
+  flash: { culprits: string[]; victims: string[]; parts?: string[]; retry?: Command; at: number } | null;
 }
 export interface Env { w: number; h: number; now: number }
 

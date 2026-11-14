@@ -205,7 +205,8 @@ function settledWith(s: AppState, base: Session, pins: { ref: Ref; to: Vec3 }[],
   if (pins.some((p) => sc.relations.some((r) => r.kind === "fixed" && r.locked !== false && r.parts.includes(p.ref)))) return { ...s, session: { ...base, message: "this point is fixed in place: remove the lock to move it" } };
   const hold: Command[] = pins.map((p, k) => ({ type: "addRelation", relation: { id: `drag_pin_${k}`, kind: "fixed", parts: [p.ref] } }));
   const held = run(base, { type: "batch", commands: [...hold, ...pins.map((p): Command => ({ type: "movePart", ref: p.ref, to: p.to }))] });
-  if (held.message) return { ...s, session: held };
+  // (to go on after its constraints are deleted, the points are simply put where they were taken: the pins were only for settling the rest, `in_335`)
+  if (held.message) return { ...s, session: held.conflict?.retry ? { ...held, conflict: { ...held.conflict, retry: { type: "batch", commands: pins.map((p): Command => ({ type: "movePart", ref: p.ref, to: p.to })) } } } : held };
   const after = sceneOf(held).parts;
   const moves: Command[] = [];
   for (const [ref, p] of Object.entries(sc.parts)) {

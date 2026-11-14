@@ -11,7 +11,9 @@ import { doPan, doWalk, doSwivel, doZoom, doLook, doHome, doResetView } from "./
 import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
-import { hoverOn, scene as sceneOf } from "./session.ts";
+import { hoverOn, run, scene as sceneOf } from "./session.ts";
+import { settings } from "../shared/settings.ts";
+import type { Command } from "../operation/commands.ts";
 import { projector } from "./camera.ts";
 import { noteSeen } from "./lastseen.ts";
 import type { Vec3 } from "../math/vec.ts";
@@ -61,6 +63,17 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   return c && c !== s.session.conflict ? { ...next, flash: { ...c, at: env.now } } : next;
 }
 
+/** "Delete constraint to proceed" (`in_335`): the constraints that stopped a change are deleted and the change is made, as one step (one undo takes both back). */
+function overrideRefusal(s: AppState): AppState {
+  const f = s.flash;
+  if (!f?.retry) return s;
+  const there = new Set(sceneOf(s.session).relations.map((r) => r.id));
+  const drop: Command[] = f.victims.filter((id) => there.has(id)).map((id): Command => ({ type: "removeRelation", id }));
+  const done = run(s.session, { type: "batch", commands: [...drop, f.retry] });
+  if (done.message) return { ...s, session: done, flash: null };
+  return { ...s, session: done, flash: null, op: null, drag: null };
+}
+
 function anchoredOffset(s: AppState, menu: AppState["menu"], env: Env): NonNullable<AppState["op"]> {
   const op = s.op!;
   const sc = sceneOf(s.session);
@@ -95,6 +108,8 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "look": return doLook(s, i, env);
     case "home": return doHome(s, env);
     case "runAction": return doRunAction(s, i.id, env.now);
+    case "overrideRefusal": return overrideRefusal(s);
+    case "holdFlash": return s.flash ? { ...s, flash: { ...s.flash, at: env.now - settings.flash.holdMs } } : s;
     case "group": return doGroup(s);
     case "ungroup": return doUngroup(s);
     case "similarRule": return doSimilarRule(s, i.rule);

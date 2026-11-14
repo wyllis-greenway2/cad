@@ -35,6 +35,7 @@ import { createToolChip } from "./ui/toolchip.ts";
 import { createToolCursor } from "./ui/toolcursor.ts";
 import { createSimilarChip } from "./ui/similarchip.ts";
 import { createSelectionChip } from "./ui/selectionchip.ts";
+import { createRefusalChip } from "./ui/refusalchip.ts";
 import { createResetView } from "./ui/resetview.ts";
 import { createCrosshair } from "./ui/crosshair.ts";
 import { createMateMarks } from "./ui/matemarks.ts";
@@ -130,6 +131,7 @@ const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction
 const crosshair = createCrosshair(document.body);
 const mateMarks = createMateMarks(document.body, (id, state) => dispatch({ type: "runAction", id: state === "off" ? `mate:reapply:${id}` : `mate:select:${id}` })); // (a mark of a mate that is not true puts it back; any other selects its two bodies, `in_316`)
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
+const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "overrideRefusal" }), () => dispatch({ type: "holdFlash" }));
 const selectionChip = createSelectionChip(document.body, (id) => dispatch({ type: "runAction", id }));
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch({ type: "begin", name: to }));
@@ -277,6 +279,7 @@ function frame(now: number) {
     undoBar.update(lastDevice === "touch", f.undoRedo);
     similarChip.update(f.similar);
     selectionChip.update(f.selection);
+    refusalChip.update(f.refusal);
     resetView.update(f.resetView);
     { const pg = host.getBoundingClientRect(); crosshair.update(recognizer.game && document.pointerLockElement !== null, { x: pg.left + pg.width / 2, y: pg.top + pg.height / 2 }); }
     toolCursor.update(f.tool ? f.tool.kind : null);

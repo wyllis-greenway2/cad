@@ -8,6 +8,8 @@ import type { Kernel } from "../compiler/kernel/adapter.ts";
 import { compile } from "../compiler/compile.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
 import type { Command } from "../operation/commands.ts";
+import { apply } from "../operation/commands.ts";
+import type { Vec3 } from "../math/vec.ts";
 import type { History } from "../operation/history.ts";
 import { newHistory, exec, undo, redo } from "../operation/history.ts";
 import type { Scene } from "../operation/scene.ts";
@@ -36,7 +38,7 @@ export interface Session {
   /** what to do instead if one of those steps could not be made (an edit of the step that made a face, refused late: the prism the old way) */
   readonly fallback?: Command;
   /** the last command that was refused because it could not be done without breaking constraints: who tried (`culprits`: relation ids) and what it would have broken (`victims`) */
-  readonly conflict: { culprits: string[]; victims: string[]; /** parts of a refused step that are the problem (the edges that cannot take a fillet or chamfer of that size): they flash red (`in_266`) */ parts?: string[] } | null;
+  readonly conflict: { culprits: string[]; victims: string[]; /** what to do once the constraints in `victims` are deleted (the button "Delete constraint to proceed", `in_335`): the refused command itself */ retry?: Command; /** parts of a refused step that are the problem (the edges that cannot take a fillet or chamfer of that size): they flash red (`in_266`) */ parts?: string[] } | null;
   /** the sketch plane whose hidden sketch is shown while a tool sketches in it (`in_211`) */
   readonly reveal?: Ref | null;
 }
@@ -112,7 +114,36 @@ function stepProblem(before: Session, after: Session, stepId: string): { culprit
   const parts = after.outcome.problems?.[stepId] ?? st.parts;
   return parts.length ? { culprits: [], victims: [], parts: [...parts] } : null;
 }
-export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback?: Command } = {}): Session {
+/**
+ * The constraints that held a move back (`in_335`): the corners the command moved that the solver put somewhere else. They are the ones that tie the moved parts to parts that did not move.
+ * One answer for every way to move something (the Move tool on a figure or a vertex, a typed number, the preview of either), so none refuses without saying why.
+ */
+export function heldBy(before: Scene, c: Command, after: Scene): string[] {
+  const list = c.type === "batch" ? c.commands : [c];
+  if (!list.some((x) => x.type === "transformFigure") || list.some((x) => x.type === "addRelation" || x.type === "removeRelation" || x.type === "setRelationValue")) return [];
+  const raw = apply(before, c);
+  if (!raw.ok) return [];
+  const far = (a: Vec3, b: Vec3) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) > 1e-3;
+  const moved = new Set<string>();
+  const held = new Set<string>();
+  for (const [ref, p] of Object.entries(raw.value.parts)) {
+    const was = before.parts[ref as Ref];
+    if (p.kind !== "corner" || was?.kind !== "corner" || !far(p.at, was.at)) continue;
+    moved.add(ref);
+    const got = after.parts[ref as Ref];
+    if (got?.kind === "corner" && far(p.at, got.at)) held.add(ref);
+  }
+  if (!held.size) return [];
+  // a line or circle goes with its corners
+  const goes = new Set<string>(moved);
+  const near = new Set<string>(held);
+  for (const q of Object.values(after.parts)) {
+    if (q.kind === "line") { if (moved.has(q.a) && moved.has(q.b)) goes.add(q.ref); if (held.has(q.a) || held.has(q.b) || (q.center && held.has(q.center))) near.add(q.ref); }
+    if (q.kind === "circle") { if (moved.has(q.center)) goes.add(q.ref); if (held.has(q.center)) near.add(q.ref); }
+  }
+  return after.relations.filter((r) => r.locked !== false && r.kind !== "arcEnds" && r.parts.some((x) => near.has(x)) && r.parts.some((x) => !goes.has(x))).map((r) => r.id);
+}
+export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback?: Command; /** the caller checks for moves that were held back itself (a body moved whole) */ ownHold?: boolean } = {}): Session {
   // `watchAll`: the command changes a step already in the history, so any step after it may stop working: those that worked before are watched too
   const steps = opts.watchAll ? s.history.scene.steps.map((x) => x.id).filter((id) => !s.outcome.errors[id]) : stepsOf(c);
   // a step is built on what is shown: while the kernel is still answering for the last change what is shown is the older model, and a step made now could mean something else (`in_142`)
@@ -136,8 +167,11 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   if (fresh.length) {
     const culprits = relationsOf(c);
     const victims = after.ids.filter((id) => !culprits.includes(id) && !before.ids.includes(id));
-    return { ...s, message: "that cannot be done without breaking other constraints", conflict: { culprits, victims } };
+    return { ...s, message: "that cannot be done without breaking other constraints", conflict: { culprits, victims, ...(victims.length ? { retry: c } : {}) } };
   }
+  // a move the solver quietly undid (a corner or circle held where it was by a constraint to something that stays) is refused the same way (`in_335`)
+  const held = opts.ownHold ? [] : heldBy(s.history.scene, c, next.history.scene);
+  if (held.length) return { ...s, message: `that would break ${held.length === 1 ? "a constraint" : "constraints"} (${held.join(", ")}): delete ${held.length === 1 ? "it" : "them"} to go on`, conflict: { culprits: [], victims: held, retry: c } };
   // a constraint to an edge of the body that the change took away, with no edge that looks like it: said, and the constraint flashes; the change stays (`in_309`)
   const lost = (next.outcome.lost ?? []).filter((id) => !(s.outcome.lost ?? []).includes(id));
   if (lost.length) return { ...next, message: `a constraint to an edge of the body has lost it (${lost.join(", ")}): no edge looks like it now; it holds nothing until the body is as it was`, conflict: { culprits: lost, victims: [] } };
@@ -187,4 +221,12 @@ export const clearSelection = (s: Session): Session => ({ ...s, click: initialCl
 export function previewCommand(s: Session, c: Command): { scene: Scene; outcome: CompileOutcome } | null {
   const r = exec(s.history, c);
   return r.ok ? { scene: r.value.scene, outcome: s.outcomeOf(r.value) } : null;
+}
+/** Why a command would be refused, as `run` would say it (the preview shows what is there, not a move the commit would refuse, `in_335`). */
+export function previewRefusal(s: Session, c: Command, shown: { scene: Scene; outcome: CompileOutcome }): string | null {
+  const before = conflictsOf(s.outcome);
+  const after = conflictsOf(shown.outcome);
+  const broken = after.planes.some((p) => !before.planes.includes(p)) ? after.ids.filter((id) => !relationsOf(c).includes(id) && !before.ids.includes(id)) : [];
+  const held = broken.length ? broken : heldBy(s.history.scene, c, shown.scene);
+  return held.length ? `that would break ${held.length === 1 ? "a constraint" : "constraints"} (${held.join(", ")})` : null;
 }

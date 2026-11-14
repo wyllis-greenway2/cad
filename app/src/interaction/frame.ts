@@ -22,7 +22,7 @@ import { outlineOf } from "../operation/part.ts";
 import { seenIn } from "./picking.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
-import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
+import { scene as sceneOf, selection as selectionOf, previewCommand, previewRefusal, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { SIMILAR_RULES } from "./similar.ts";
@@ -112,6 +112,8 @@ export interface Frame {
   mates: { id: string; at: Vec3; state: "ok" | "off" | "lost"; text: string }[];
   /** nothing of the model is in view: the Reset camera button is offered (`in_303`) */
   resetView: boolean;
+  /** a change refused for the constraints it would break, while it flashes: the button that deletes them and goes on (`in_335`) */
+  refusal: { text: string; button: string } | null;
   selection: { count: number; actions: { id: string; label: string; title: string }[] } | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate"; label: string } | null;
@@ -217,7 +219,8 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
   let value = previewCommand(base, cmd);
   // a size that breaks a step is not shown as the broken body (it collapses into a weird shape): what is there stays, and why it cannot be made is said (`in_229`)
   const bad = value && !value.outcome.kernel?.stale ? Object.entries(value.outcome.errors).find(([id]) => !(id in base.outcome.errors)) : undefined;
-  if (bad) { previewProblem = bad[1]; value = null; } else previewProblem = null;
+  const refused = !bad && value ? previewRefusal(base, cmd, value) : null; // (a move the solver would undo: what is there stays, and the constraint is named, `in_335`)
+  if (bad) { previewProblem = bad[1]; value = null; } else if (refused) { previewProblem = refused; value = null; } else previewProblem = null;
   memo = { history: s.session.history, outcome: s.session.outcome, key, value };
   return value;
 }
@@ -285,6 +288,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors, s.showSketch),
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus, s.showAllConstraints || !!s.showSketch), sc, flash)],
     flash,
+    refusal: flash && s.flash?.retry && s.flash.victims.length ? { text: s.session.message ?? "", button: s.flash.victims.length === 1 ? "Delete constraint to proceed" : "Delete constraints to proceed" } : null,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // on: the world plane that is on always has its grid (`in_190`)
     suggest: busy ? null : suggestionsFor(sc, sel, nearTolMm(s.cam), seenIn(s.cam, sc, size)),
     cut: s.cut ? { parts: cutParts(sceneOf(s.session), s.cut), join: s.cut.join } : null, // (the bodies as they are, not as the preview of the cut shows them)
