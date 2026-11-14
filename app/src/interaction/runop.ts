@@ -17,7 +17,9 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
     return op.edit && v !== null && v !== 0 ? { session: { ...sess, message: `that size is not possible: ${why}` }, cmd: { type: "batch", commands: [] } } : null;
   }
   if (!op.edit || op.noEdit) {
-    const done = run(sess, cmd, op.target === "body" ? { ownHold: true } : {}); // (a body that is moved has its own check below, which names the sketch it would stretch)
+    const corner = op.kind === "edge" ? withCorner(cmd) : null; // (a fillet or chamfer the kernel cannot make on the edge alone is made with the edges that meet it at a corner, `in_348`)
+    const done = run(sess, cmd, { ...(op.target === "body" ? { ownHold: true } : {}), ...(corner ? { fallback: corner } : {}) }); // (a body that is moved has its own check below, which names the sketch it would stretch)
+    if (corner && done.message && sceneOf(done).steps.length === sceneOf(sess).steps.length) { const again = run(sess, corner); if (sceneOf(again).steps.length > sceneOf(sess).steps.length) return { session: again, cmd: corner }; }
     // an extrusion onto bodies: whether it adds a piece or cuts is decided now, once, and kept in the step (`in_295`); decided again at every replay, a body that grew later would be cut by a piece that only stood beside it
     // (figures extruded together are steps of their own, `in_322`: they are decided together, below)
     const extrudes = cmd.type === "batch" ? cmd.commands : [cmd];
@@ -58,6 +60,12 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
   if (!prism) return { session: edited, cmd };
   const made = run(sess, prism);
   return { session: made.message ? edited : { ...made, message: "the step that made this face could not take that size: a push / pull was added instead" }, cmd: prism };
+}
+
+/** The command of a fillet or chamfer with the one thing changed: the step may round the edges that meet its edges at a corner too (`corner`, `in_348`); null if it is not one. */
+export function withCorner(cmd: Command): Command | null {
+  if (cmd.type === "addStep" && cmd.step.type === "edgeMod") return { ...cmd, step: { ...cmd.step, params: { ...cmd.step.params, corner: 1 } } };
+  return null;
 }
 
 /** The constraints that tie the corners of a sketch side to the rest of the sketch. */

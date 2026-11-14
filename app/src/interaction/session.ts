@@ -180,6 +180,8 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   const nowOff = mateStatus(next.history.scene).filter((m) => m.state !== "ok" && !wasOff.has(m.id));
   if (nowOff.length) return { ...next, conflict: null, message: `${nowOff.length === 1 ? "a mate is" : `${nowOff.length} mates are`} no longer true (${nowOff.map((m) => m.state === "lost" ? "a face is gone" : "the bodies have come apart").join(", ")}): "Put the mates back" in the ⋯ menu makes them again` };
   const late = !!next.outcome.kernel?.stale && steps.length > 0;
+  const said = steps.map((id) => next.outcome.notes?.[id]).find((n) => !!n); // (a step made in a way that is worth saying: a fillet with the edges at its corner, `in_348`)
+  if (said && !late) return { ...next, conflict: null, message: said };
   return { ...next, conflict: null, checkSteps: late ? steps : undefined, fallback: late ? opts.fallback : undefined };
 }
 /** The same history compiled again (the kernel's worker has an answer that was not there when the history was last compiled). */
@@ -195,7 +197,8 @@ export function refresh(s: Session): Session {
     const back = refresh({ ...withHistory(s, undo(h)), checkSteps: undefined, fallback: undefined });
     if (s.fallback) {
       const made = run(back, s.fallback);
-      if (!made.message) return { ...made, message: "the step that made this face could not take that size: a push / pull was added instead" };
+      const corner = s.fallback.type === "addStep" && s.fallback.step.type === "edgeMod"; // (a fillet or chamfer made with the edges at its corner, `in_348`)
+      if (corner ? made.history.scene.steps.length > back.history.scene.steps.length : !made.message) return { ...made, message: corner ? made.message ?? "the kernel could not round that edge alone: it was made together with the edges that meet it at a corner" : "the step that made this face could not take that size: a push / pull was added instead" };
     }
     return { ...back, message: now.outcome.errors[failed] ?? "that could not be made", conflict: stepProblem(back, now, failed) ?? back.conflict };
   }

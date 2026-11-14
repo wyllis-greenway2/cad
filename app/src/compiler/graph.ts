@@ -117,7 +117,7 @@ export function buildGraph(scene: Scene): GraphResult {
         const continues: boolean = !!chain && last?.type === "edgeMod" && last.id === prev && chain.mode === mode;
         const here = { ref: refs, value };
         chain = continues ? { ...chain!, mods: [...chain!.mods, here] } : { base: prev, mode, mods: [here] };
-        ops.push({ id: xid, type: "edgeMod", target: prev, ref: refs, mode, value, ...(chain.mods.length > 1 ? { together: { base: chain.base, mods: chain.mods } } : {}) });
+        ops.push({ id: xid, type: "edgeMod", target: prev, ref: refs, mode, value, ...(st.params.corner ? { corner: true } : {}), ...(chain.mods.length > 1 ? { together: { base: chain.base, mods: chain.mods } } : {}) });
         prev = xid;
         break;
       }

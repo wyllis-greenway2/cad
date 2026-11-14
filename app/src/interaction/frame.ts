@@ -22,6 +22,7 @@ import { outlineOf } from "../operation/part.ts";
 import { seenIn } from "./picking.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
+import { withCorner } from "./runop.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, previewRefusal, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
@@ -219,8 +220,15 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
   let value = previewCommand(base, cmd);
   // a size that breaks a step is not shown as the broken body (it collapses into a weird shape): what is there stays, and why it cannot be made is said (`in_229`)
   const bad = value && !value.outcome.kernel?.stale ? Object.entries(value.outcome.errors).find(([id]) => !(id in base.outcome.errors)) : undefined;
-  const refused = !bad && value ? previewRefusal(base, cmd, value) : null; // (a move the solver would undo: what is there stays, and the constraint is named, `in_335`)
-  if (bad) { previewProblem = bad[1]; value = null; } else if (refused) { previewProblem = refused; value = null; } else previewProblem = null;
+  // a fillet or chamfer the kernel cannot make on the edge alone shows what it would be made with the edges that meet it at a corner, as the commit does (`in_348`)
+  if (bad && s.op?.kind === "edge") {
+    const corner = withCorner(cmd);
+    const again = corner ? previewCommand(base, corner) : null;
+    if (again && !again.outcome.kernel?.stale && !Object.entries(again.outcome.errors).some(([id]) => !(id in base.outcome.errors))) { value = again; }
+  }
+  const stillBad = value && !value.outcome.kernel?.stale ? Object.entries(value.outcome.errors).find(([id]) => !(id in base.outcome.errors)) : undefined;
+  const refused = !stillBad && value ? previewRefusal(base, cmd, value) : null; // (a move the solver would undo: what is there stays, and the constraint is named, `in_335`)
+  if (stillBad) { previewProblem = stillBad[1]; value = null; } else if (refused) { previewProblem = refused; value = null; } else previewProblem = null;
   memo = { history: s.session.history, outcome: s.session.outcome, key, value };
   return value;
 }
@@ -303,7 +311,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     resetView: !s.anim && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
     modeSwitch: gizmo && !s.repeat ? modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : null,
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
-    message: s.session.message ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? "",
+    message: s.session.message ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
   };
 }
 

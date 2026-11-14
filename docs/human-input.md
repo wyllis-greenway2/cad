@@ -1639,3 +1639,11 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_346 — 2026-11-14 — directive
 > try chamfering those edges in the browser
 (the three curved edges of the tilted cut in the `in_341` file; follows `in_345`)
+
+## in_347 — 2026-11-14 — question
+> is this a bug or normal behavior?
+(about the chamfer / fillet of the curved edges of the `in_341` file that is refused alone; answered: the kernel refusal is probably normal OpenCascade behaviour at a corner, the message and the lack of a retry are the app's bugs)
+
+## in_348 — 2026-11-14 — approval
+> yes, add the retry with neighbours and fix the message
+(approves the change put after `in_347`: an edge that cannot be rounded or bevelled alone is tried with the edges that meet it at its corners, and says so; and the message no longer blames the size when no size works)
