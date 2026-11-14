@@ -3,7 +3,7 @@ id: dec_standing_mates
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_321, in_322, in_323, in_328, in_329, in_330, in_331, in_332
+human_input: in_321, in_322, in_323, in_328, in_329, in_330, in_331, in_332, in_333
 date: 2026-11-14
 depends_on:
   - dec_body_mates: a standing mate is a placement mate that is kept true; it uses the same record, faces and corrective steps
@@ -29,3 +29,4 @@ Keeping standing mates as appended steps reuses everything already tested (carry
 
 9. **A conflict must be resolved, not ranked (`in_330`, approved in `in_331`).** A change that leaves standing mates that held with no placement where they all hold is **refused**: nothing is made (the history is unchanged), the mates that cannot all hold are named in the message and flash, and the user must take one away or change it first. There is no priority between mates and the newest does not win. This replaces item 8's "the change stays". A conflict that was already in the file does not block unrelated changes (only mates that held before the change, or the one just made, count). When the kernel's answer comes late (browser) the change is shown first and taken back when the answer shows the conflict.
 10. **Browser pass over the refusal (`in_332`).** In Chromium, a second flush mate that cannot hold with the first was refused: the message showed at the bottom, the bodies and the one mate were as they were, the mates flashed briefly, no page errors. **Found and fixed:** the refusal that comes when the kernel's answer is late took the change back with undo and left it in the redo tail, so redo could make the conflict; the tail is now dropped (the earlier "a step the kernel could not make is taken back" path was not changed and may do the same). The message now reads "…could not all hold at once (flush, flush). That cannot be done: take one of them away or change it first".
+11. **Browser pass over the widened-body refusal (`in_333`).** In Chromium, with a body B between A and C, flush-mated to both, widening A was refused two ways: dragging the push / pull arrow of A's side face (the picture showed the pull; on release it was refused, the bodies and both mates stayed, the message named the mates, no redo tail) and moving A's corners one at a time (the first corner already refused). No page errors. **Seen, not changed:** the mark of a mate stands on the middle of the face's push / pull arrow, so a press on the middle of that arrow hits the mark, not the arrow (the ends of the arrow work); a refused push / pull says the mates could not all hold but not that the face being pulled is what changed; the single-corner move is refused even though it only tilts the face.

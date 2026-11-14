@@ -1583,3 +1583,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_332 — 2026-11-14 — directive
 > Do the browser pass over the conflict refusal next
 (asks for the refusal of conflicting standing mates to be looked at in a real browser)
+
+## in_333 — 2026-11-14 — directive
+> Do the browser pass over the widened-body refusal next
+(asks for the refusal of a change that leaves standing mates with no placement, with a body widened by a drag, to be looked at in a real browser)
