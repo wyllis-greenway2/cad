@@ -776,7 +776,7 @@ function stripFollow(c: Command | null): Command | null {
  * as a continuation of the recipe, and the extrude reads them back through the step (`compiler/graph.ts`). A constraint that ties one of them to something that is not carried (a free drawing, the world, the body) stays: it is
  * a constraint of the whole body to that thing, and the solver holds the body's sketch (`compiler/solve.ts`), so a move that would break it is refused and the constraint flashes (`in_205`).
  */
-function carrySketches(scene: Scene, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3, pivot: Vec3, bigger = 1, only?: string): Command[] {
+export function carrySketches(scene: Scene, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3, pivot: Vec3, bigger = 1, only?: string): Command[] {
   // one body of several: the sketches of the step that made it (its sides and circles, and their corners), not the others' (`in_271`)
   const birth = only ? scene.steps.find((st) => `x_${st.id}` === only) : undefined;
   const own = new Set<Ref>();

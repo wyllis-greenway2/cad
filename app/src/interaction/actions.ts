@@ -10,7 +10,8 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Scene, Relation } from "../operation/scene.ts";
 import { lookup, nextId, figureRefs } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
-import { relationKind, planeOfParts } from "../operation/part.ts";
+import { relationKind, planeOfParts, roundOf } from "../operation/part.ts";
+import { whyNotMate, mateCommand } from "./mate.ts";
 import { ordered } from "./selection.ts";
 import { ROWS, REFERENCES_ONLY, same } from "./rows.ts";
 import type { Ctx } from "./rows.ts";
@@ -33,6 +34,9 @@ export interface Action {
   /** The command that does it; a dimensional relation takes a value (the measure if none). */
   run(value?: number): Command;
 }
+
+const isFlatBodyFace = (get: ReturnType<typeof lookup>, sel: readonly Ref[]): boolean => sel.every((r) => { const p = get(r); return p?.kind === "plane" && p.origin === "body" && !!p.mesh && !p.curved && !p.round && !p.rounded; });
+const isRoundBodyFace = (get: ReturnType<typeof lookup>, sel: readonly Ref[]): boolean => sel.every((r) => { const p = get(r); return p?.kind === "plane" && p.origin === "body" && !!roundOf(get, r); });
 
 /** Every relation and operation that applies to the selection, relations first, in the order of the table. */
 export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
@@ -78,6 +82,19 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
         return moves ? { type: "batch", commands: [moves, { type: "addRelation", relation: rel }] } : { type: "addRelation", relation: rel };
       },
     });
+  }
+
+  // two faces of two bodies: they can be mated, the first one's body is moved to the second (`in_314`)
+  if (sel.length === 2) {
+    for (const [mode, label] of [["flush", "Mate: flush faces"], ["coaxial", "Mate: coaxial"]] as const) {
+      const why = whyNotMate(scene, mode, sel[0]!, sel[1]!);
+      if (why && (mode === "flush" ? !isFlatBodyFace(get, sel) : !isRoundBodyFace(get, sel))) continue; // (not this kind of faces: no row for it)
+      out.push({
+        id: `mate:${mode}`, label, group: "relation", dimensional: false, unit: null, parts: [...sel], enabled: why === null, why,
+        measure: () => null, spot: () => null,
+        run: (): Command => { const r = mateCommand(scene, mode, sel[0]!, sel[1]!); return "command" in r ? r.command : { type: "batch", commands: [] }; },
+      });
+    }
   }
 
   // delete: drawn parts (a closed figure goes with its corners, so nothing is left behind), or the whole body (one step, so it undoes)

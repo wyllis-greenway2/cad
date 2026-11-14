@@ -1,0 +1,114 @@
+// Mates between bodies (`in_314`): two faces of two bodies brought together by moving and turning the first one's body.
+import test from "node:test";
+import assert from "node:assert/strict";
+import { worldRef } from "../src/shared/ref.ts";
+import type { Ref } from "../src/shared/ref.ts";
+import { kernel } from "../src/compiler/kernel/index.ts";
+import { createSession, scene, run, saveText, openSession } from "../src/interaction/session.ts";
+import type { Session } from "../src/interaction/session.ts";
+import { actionsFor } from "../src/interaction/actions.ts";
+import { drawSquaredRectangle, drawCircle } from "../src/operation/build.ts";
+import { nextId } from "../src/operation/scene.ts";
+import type { Part } from "../src/operation/part.ts";
+import { normalOfPlane } from "../src/operation/part.ts";
+
+await kernel.init();
+const XY = worldRef("XY");
+type Body = Extract<Part, { kind: "body" }>;
+type PlanePart = Extract<Part, { kind: "plane" }>;
+const bodies = (s: Session) => Object.values(scene(s).parts).filter((p): p is Body => p.kind === "body" && p.ref !== "b/body/o");
+const extrudeLast = (s: Session, parts: Ref[], depth: number) => run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts, params: { depth } } });
+function box(s: Session, x: number, y: number, w = 10, h = 10): Session {
+  const r = drawSquaredRectangle(scene(s), XY, [x, y, 0], [x + w, y + w, 0], [1, 0, 0], [0, 1, 0]);
+  return extrudeLast(run(s, r.command), r.lines, h);
+}
+function cylinder(s: Session, x: number, y: number, radius: number, h = 10): Session {
+  const c = drawCircle(scene(s), XY, [x, y, 0], radius);
+  return extrudeLast(run(s, c.command), [c.circle], h);
+}
+/** The flat face of a body that faces this way. */
+const faceOf = (s: Session, body: Body, n: [number, number, number]): Ref => {
+  const f = Object.values(scene(s).parts).find((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && p.of === body.ref && !!p.mesh && !p.curved && !p.round && !p.rounded && normalOfPlane(p).every((v, i) => Math.abs(v - n[i]!) < 1e-6));
+  assert.ok(f, `a face of ${body.id} facing ${n}`);
+  return f!.ref;
+};
+const roundOfBody = (s: Session, body: Body): Ref => (Object.values(scene(s).parts).find((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && p.of === body.ref && !!(p.curved || p.round)) as PlanePart).ref;
+const minOf = (b: Body) => b.bbox!.min.map((v) => Math.round(v * 1e4) / 1e4);
+
+test("Mate flush lays the first face's body against the other: it moves, the other stays, the faces touch (`in_314`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const act = actionsFor(scene(s), [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])]).find((x) => x.id === "mate:flush")!;
+  assert.ok(act?.enabled, `offered: ${act?.why}`);
+  const after = run(s, act.run());
+  assert.ok(!after.message, `${after.message}`);
+  const [a2, b2] = [bodies(after).find((x) => x.id === a!.id)!, bodies(after).find((x) => x.id === b!.id)!];
+  assert.deepEqual(minOf(a2), minOf(a!), "the other body did not move");
+  assert.ok(Math.abs(b2.bbox!.min[0] - 10) < 1e-3 && Math.abs(b2.bbox!.min[1] - 0) < 1e-3, `touching at x = 10: ${minOf(b2)}`);
+  // the sketch that made B went with it (the corners of its rectangle are at x = 10 and 20 now, as the body is)
+  const xs = Object.values(scene(after).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as unknown as { at: number[] }).at[0]!).sort((p, q) => p - q);
+  assert.ok(xs.some((x) => Math.abs(x - 10) < 1e-6) && xs.some((x) => Math.abs(x - 20) < 1e-6), `B's sketch moved with it: ${xs}`);
+});
+
+test("Mate flush also turns the body when its face is not facing the right way, and the body's sketch goes with it (`in_314`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  // B's top face laid against A's right face: B has to lie on its side
+  const act = actionsFor(scene(s), [faceOf(s, b!, [0, 0, 1]), faceOf(s, a!, [1, 0, 0])]).find((x) => x.id === "mate:flush")!;
+  const after = run(s, act.run());
+  assert.ok(!after.message, `${after.message}`);
+  const b2 = bodies(after).find((x) => x.id === b!.id)!;
+  assert.ok(Math.abs(b2.bbox!.min[0] - 10) < 1e-3, `B's face is on A's face: min x ${b2.bbox!.min[0]}`);
+  assert.ok(Math.abs(b2.volume! - b!.volume!) < 1e-3, "the same body");
+  // the second mate of the same face now is "already"
+  const again = actionsFor(scene(after), [faceOf(after, b2, [-1, 0, 0]), faceOf(after, bodies(after).find((x) => x.id === a!.id)!, [1, 0, 0])]).find((x) => x.id === "mate:flush")!;
+  assert.ok(again, "B has a face facing -x again");
+});
+
+test("Mate coaxial puts the first round face's axis on the other's, keeping its place along the axis (`in_314`)", () => {
+  const s = cylinder(cylinder(createSession(kernel), 0, 0, 5), 30, 4, 3);
+  const [a, b] = bodies(s);
+  const act = actionsFor(scene(s), [roundOfBody(s, b!), roundOfBody(s, a!)]).find((x) => x.id === "mate:coaxial")!;
+  assert.ok(act?.enabled, `offered: ${act?.why}`);
+  const after = run(s, act.run());
+  assert.ok(!after.message, `${after.message}`);
+  const b2 = bodies(after).find((x) => x.id === b!.id)!;
+  const centre = [(b2.bbox!.min[0] + b2.bbox!.max[0]) / 2, (b2.bbox!.min[1] + b2.bbox!.max[1]) / 2];
+  assert.ok(Math.hypot(centre[0]! - 0, centre[1]! - 0) < 1e-2, `on the other's axis: ${centre}`);
+  assert.ok(Math.abs(b2.bbox!.min[2] - 0) < 1e-6 && Math.abs(b2.bbox!.max[2] - 10) < 1e-6, "its height along the axis is kept");
+});
+
+test("faces of one body cannot be mated, and flat faces are not offered coaxial (`in_314`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const same = actionsFor(scene(s), [faceOf(s, a!, [1, 0, 0]), faceOf(s, a!, [0, 1, 0])]).find((x) => x.id === "mate:flush")!;
+  assert.equal(same.enabled, false);
+  assert.match(same.why ?? "", /one body/);
+  const ids = actionsFor(scene(s), [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])]).map((x) => x.id);
+  assert.ok(!ids.includes("mate:coaxial"));
+});
+
+test("a mate is steps: it undoes, saves and opens again (`in_314`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const done = run(s, actionsFor(scene(s), [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  const back = (openSession(kernel, saveText(done)) as unknown as { value: Session }).value;
+  assert.ok(Math.abs(bodies(back).find((x) => x.id === b!.id)!.bbox!.min[0] - 10) < 1e-3, "opened again: still against A");
+  assert.ok(scene(done).steps.length > scene(s).steps.length);
+});
+
+import { createState, reduce } from "../src/interaction/controller.ts";
+import { homeCamera } from "../src/interaction/camera.ts";
+test("the menu offers the mates for two selected faces of two bodies, and choosing one makes it (`in_314`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const env = { w: 800, h: 600, now: 0 };
+  const pick: Ref[] = [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])];
+  let st = { ...createState(s), cam: homeCamera() };
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: pick } } };
+  const menu = reduce(st, { type: "menu", x: 5, y: 5, button: true }, env).menu!;
+  const items = menu.items.flatMap((i) => i.children ?? [i]);
+  assert.ok(items.some((i) => i.id === "mate:flush" && i.enabled), `the menu has Mate: flush: ${items.map((i) => i.id).filter((i) => i.startsWith("mate") || i === "tangent")}`);
+  const done = reduce(st, { type: "runAction", id: "mate:flush" }, env);
+  assert.ok(Math.abs(bodies(done.session).find((x) => x.id === b!.id)!.bbox!.min[0] - 10) < 1e-3, "choosing it moved B against A");
+});

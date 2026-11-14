@@ -1507,3 +1507,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_313 — 2026-11-14 — directive
 > Do the faces as anchors next
 (approves the next step of `dec_anchor_geometry`: faces of the body as anchors, by the line or circle where they cut the sketch's plane)
+
+## in_314 — 2026-11-14 — directive
+> Start on the body-to-body constraints next
+(approves starting the body-to-body part of `q_body_constraints`: constraints between bodies, the first of the assembly work, as discussed in `in_306` and `in_307`)
