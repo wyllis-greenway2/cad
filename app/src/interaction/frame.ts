@@ -30,7 +30,7 @@ import { BODY_OBJECT } from "../compiler/body.ts";
 import { SIMILAR_RULES } from "./similar.ts";
 import type { ArcMap } from "./operations.ts";
 import { startOp, opCommand, bodyMotion, faceDrag, radiusDrag, sideDrag, edgeDrag, arcDrag, valueOf } from "./operations.ts";
-import { matrixOf } from "../operation/frames.ts";
+import { matrixOf, applyPoint } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
 import { sharpOfPoints, chainOf, cornerOk, adjacentOk, roundingFaces, tangentChain } from "../operation/roundings.ts";
 import type { Sharp, SharpEdge } from "../operation/roundings.ts";
@@ -289,7 +289,7 @@ function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame[
 }
 
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
-function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome }; /** the mates that hold the dragged body back (`in_338`) */ blocked?: string[]; /** the bodies that follow it (`in_341`) */ followers?: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[] } | null {
+function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome }; /** the mates that hold the dragged body back (`in_338`) */ blocked?: string[]; /** where the dragged body's middle actually went, held by its mates: the arrows and numbers show it, not the pointer (`in_347`) */ shownFree?: Vec3; /** the bodies that follow it (`in_341`) */ followers?: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[] } | null {
   if (s.drag && "handle" in s.drag && s.drag.joint) { // a joint's handle dragged: the body is drawn turned or slid by the amount so far (`in_323`)
     const jd = s.drag.joint;
     const sc0 = sceneOf(s.session);
@@ -339,7 +339,11 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] 
   }
   // the other bodies selected go with it, each drawn moved by its own matrix (`in_341`, `in_345`)
   const followers = group.slice(1).flatMap((b) => { const r = rigidOf(b); const fo = r ? startOp(sceneOf(base), [b], "move", null) : null; const split = fo?.ok ? bodySplitOf(sceneOf(base), gpuBase!.value.outcome, fo.op) : null; return r && split ? [{ matrix: matrixOf(r), split }] : []; });
-  return { matrix, face, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked } : {}), followers };
+  // the arrows and numbers of a drag the mates hold back show where the body went, not where the pointer is
+  const first = group[0] ? sceneOf(base).parts[group[0]] : undefined;
+  const centre: Vec3 | null = first?.kind === "body" && first.bbox ? [(first.bbox.min[0] + first.bbox.max[0]) / 2, (first.bbox.min[1] + first.bbox.max[1]) / 2, (first.bbox.min[2] + first.bbox.max[2]) / 2] : null;
+  const went = held && m && centre ? applyPoint(m, centre) : null;
+  return { matrix, face, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked } : {}), ...(went && centre ? { shownFree: sub(went, centre) as Vec3 } : {}), followers };
 }
 
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
@@ -378,6 +382,7 @@ function helperAt(s: AppState, g: { handles: Handle[] } | null): { at: Vec3; tex
 
 export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): Frame {
   const gpu = gpuMotion(s);
+  if (gpu?.shownFree && s.op?.free) s = { ...s, op: { ...s.op, free: gpu.shownFree } };
   const shown = gpu ? gpu.shown : operationResult(s);
   const sc = shown?.scene ?? sceneOf(s.session);
   const sel = selectionOf(s.session);

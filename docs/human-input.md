@@ -1639,3 +1639,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_346 — 2026-11-14 — approval
 > Yes, do the rotation freedom next
 (approves the proposal in the reply to in_345: a free drag of a body that its mates hold back is given rotation freedom, by asking for the grabbed point to follow the pointer)
+
+## in_347 — 2026-11-14 — directive
+> Do the browser pass over the rotation freedom by touch next
+(asks for the free drag with rotation freedom to be looked at with touch input in a real browser)

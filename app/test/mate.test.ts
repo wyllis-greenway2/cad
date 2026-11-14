@@ -875,3 +875,17 @@ test("a free drag that the mates hold back is given rotation freedom: the point 
   const plain = runOp(s, op([0, 2, 0], undefined))!;
   assert.match(plain.session.message ?? "", /nowhere to go/);
 });
+
+test("while a drag is held back by its mates the arrows and numbers show where the body went, not where the pointer is (`in_347`)", () => {
+  const env = { w: 800, h: 600, now: 0 };
+  let s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  s = run(s, actionsFor(scene(s), [faceOf(s, bodies(s).find((x) => x.id === b!.id)!, [-1, 0, 0]), faceOf(s, bodies(s).find((x) => x.id === a!.id)!, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  const pin = bodies(s).find((x) => x.id === b!.id)!;
+  const o = startOp(scene(s), [pin.ref], "move");
+  assert.ok(o.ok);
+  const fr = frameOf({ ...createState(s), cam: homeCamera(), op: { ...(o as unknown as { op: object }).op, free: [9, 4, 2] } as never, drag: { body: pin.ref, from: [0, 0, 0], centre: [0, 0, 0] } as never }, env);
+  assert.equal(fr.entries.length, 3);
+  const shown = fr.entries.map((e) => Number(e.fields[0]!.value));
+  assert.ok(Math.abs(shown[0]!) < 0.02 && Math.abs(shown[1]! - 4) < 0.02 && Math.abs(shown[2]! - 2) < 0.02, `X Y Z as the body went: ${shown}`);
+});
