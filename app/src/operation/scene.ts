@@ -47,6 +47,12 @@ export function figuresOf(st: Step): Figure[] {
   }
   return out;
 }
+/** The depth of each figure of an extrude step: the first uses `depth`; a sibling uses its own number in `alsoDepth` (`a|b`, in the order of `also`) when it has one, else the step's depth (`in_320`: two blocks made together can then be pulled apart). */
+export function figureDepths(st: Step): number[] {
+  const d = Number(st.params.depth ?? 0);
+  const own = String(st.params.alsoDepth ?? "").split("|");
+  return figuresOf(st).map((_, i) => { if (i === 0) return d; const n = own[i - 1] === undefined || own[i - 1] === "" ? NaN : Number(own[i - 1]); return Number.isFinite(n) ? n : d; });
+}
 /** The step's figures as its two params (`holes` for the first, `also` for the rest). */
 export function figureParams(figs: Figure[]): Record<string, string> {
   const enc = (f: Figure) => f.holes.map((h) => h.join(",")).join(";");

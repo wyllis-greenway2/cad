@@ -4,7 +4,7 @@ import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { normalize, sub } from "../math/vec.ts";
 import type { Scene, Step } from "../operation/scene.ts";
-import { lookup, figuresOf } from "../operation/scene.ts";
+import { lookup, figuresOf, figureDepths } from "../operation/scene.ts";
 import type { Plane } from "../operation/part.ts";
 import { normalOfPlane, pointOf, loopSteps } from "../operation/part.ts";
 import type { KernelGraph, KernelOp } from "./kernel/adapter.ts";
@@ -57,7 +57,8 @@ export function buildGraph(scene: Scene): GraphResult {
     const xid = `x_${st.id}`;
     switch (st.type) {
       case "extrude": {
-        const distance = Number(st.params.depth ?? 0);
+        const depths = figureDepths(st);
+        const distance = depths[0]!;
         // each figure (the first, then siblings extruded together) is a sketch, and the figures drawn inside it are sketches that are cut out of it
         const made: { profile: string; holes: string[] }[] = [];
         let bad = "";
@@ -75,7 +76,7 @@ export function buildGraph(scene: Scene): GraphResult {
         });
         if (bad) { errors[st.id] = bad; break; }
         const [first, ...more] = made;
-        ops.push({ id: xid, type: "extrude", profile: first!.profile, ...(first!.holes.length ? { holes: first!.holes } : {}), ...(more.length ? { also: more } : {}), distance, ...(prev ? { target: prev } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" }); // (onto a body: a new piece while it only touches the body or stands apart, a cut as soon as it goes into it: `in_193`; the step says which when it was made, so that a body that grows later does not turn a piece into a cut: `in_295`)
+        ops.push({ id: xid, type: "extrude", profile: first!.profile, ...(first!.holes.length ? { holes: first!.holes } : {}), ...(more.length ? { also: more.map((m, i) => (depths[i + 1] !== distance ? { ...m, distance: depths[i + 1] } : m)) } : {}), distance, ...(prev ? { target: prev } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" }); // (onto a body: a new piece while it only touches the body or stands apart, a cut as soon as it goes into it: `in_193`; the step says which when it was made, so that a body that grows later does not turn a piece into a cut: `in_295`)
         prev = xid;
         break;
       }

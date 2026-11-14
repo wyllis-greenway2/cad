@@ -5,8 +5,8 @@ import { TAU } from "../operation/regions.ts";
 import type { Ref } from "../shared/ref.ts";
 import { dot, sub, scale, cross, normalize } from "../math/vec.ts";
 import type { Vec3 } from "../math/vec.ts";
-import type { Scene } from "../operation/scene.ts";
-import { figureRefs } from "../operation/scene.ts";
+import type { Scene, Figure } from "../operation/scene.ts";
+import { figureRefs, figuresOf, figureDepths } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
 import { solveScene } from "../compiler/solve.ts";
@@ -17,7 +17,7 @@ import { normalOfPlane } from "../operation/part.ts";
 
 /** What a face is the result of, and what to change to move it. */
 export type FaceEdit =
-  | { kind: "depth"; step: string; depth: number; /** +1 when pulling the face out lengthens the extrusion */ along: 1 | -1 }
+  | { kind: "depth"; step: string; depth: number; /** +1 when pulling the face out lengthens the extrusion */ along: 1 | -1; /** which figure of the step it is the end of, when the step made several together (0 the first, then each of `also`): only its depth changes (`in_320`) */ figure?: number }
   /** the end of an earlier push / pull (a prism step): its depth */
   | { kind: "stepDepth"; step: string; depth: number }
   /** the side of an extruded sketch: the sketch's corners on that side move along the face's outward normal */
@@ -28,7 +28,28 @@ export type FaceEdit =
 
 const near = (a: number, b: number, tol = 1e-3) => Math.abs(a - b) <= tol;
 
-/** The extrusion whose end is this flat face of the body, if exactly one is. */
+/** The box of the corners and circles of a figure's sides (the sketch as far as its corners and circles say), or null when they say nothing. */
+function footprintOf(scene: Scene, fig: Figure): { min: Vec3; max: Vec3 } | null {
+  const pts: Vec3[] = [];
+  const corner = (r: Ref) => { const q = scene.parts[r]; if (q?.kind === "corner") pts.push(q.at); };
+  for (const r of [...fig.outer]) {
+    const q = scene.parts[r];
+    if (q?.kind === "line") { corner(q.a); corner(q.b); }
+    else if (q?.kind === "circle") { const c = scene.parts[q.center]; if (c?.kind === "corner") for (const i of [0, 1, 2]) for (const sg of [-1, 1]) { const p = [...c.at]; p[i] = p[i]! + sg * q.radius; pts.push(p as unknown as Vec3); } }
+  }
+  if (!pts.length) return null;
+  return { min: [0, 1, 2].map((i) => Math.min(...pts.map((p) => p[i]!))) as unknown as Vec3, max: [0, 1, 2].map((i) => Math.max(...pts.map((p) => p[i]!))) as unknown as Vec3 };
+}
+const centreOf = (face: { mesh?: readonly number[]; at: Vec3 }): Vec3 => {
+  const m = face.mesh;
+  if (!m || m.length < 3) return face.at;
+  const c = [0, 0, 0];
+  const n = Math.floor(m.length / 3);
+  for (let i = 0; i < n; i++) for (let j = 0; j < 3; j++) c[j] = c[j]! + m[3 * i + j]! / n;
+  return c as unknown as Vec3;
+};
+
+/** The extrusion whose end is this flat face of the body, if exactly one is (and, when it made several figures together, which of them: the one whose sketch the face stands over). */
 function endOfExtrusion(scene: Scene, face: Extract<ReturnType<typeof faceOf>, object>): FaceEdit | null {
   const nf = normalOfPlane(face);
   const found: FaceEdit[] = [];
@@ -38,10 +59,24 @@ function endOfExtrusion(scene: Scene, face: Extract<ReturnType<typeof faceOf>, o
     const pl = part?.plane ? scene.parts[part.plane] : undefined;
     if (!pl || pl.kind !== "plane") continue;
     const n = normalOfPlane(pl);
-    const depth = Number(st.params.depth);
     const dn = dot(nf, n);
-    if (!Number.isFinite(depth) || Math.abs(Math.abs(dn) - 1) > 1e-6) continue;
-    if (near(dot(n, face.at), dot(n, pl.at) + depth)) found.push({ kind: "depth", step: st.id, depth, along: dn > 0 ? 1 : -1 });
+    if (Math.abs(Math.abs(dn) - 1) > 1e-6) continue;
+    const figs = figuresOf(st);
+    const depths = figureDepths(st);
+    if (figs.length < 2) {
+      const depth = depths[0]!;
+      if (Number.isFinite(depth) && near(dot(n, face.at), dot(n, pl.at) + depth)) found.push({ kind: "depth", step: st.id, depth, along: dn > 0 ? 1 : -1 });
+      continue;
+    }
+    // several figures made together: the face is the end of the one it stands over (its middle lies inside that sketch's box, along the plane), at that figure's depth
+    const mid = centreOf(face);
+    figs.forEach((fig, i) => {
+      const depth = depths[i]!;
+      if (!Number.isFinite(depth) || !near(dot(n, face.at), dot(n, pl.at) + depth)) return;
+      const box = footprintOf(scene, fig);
+      if (box && ![0, 1, 2].every((k) => Math.abs(n[k]!) > 0.5 || (mid[k]! >= box.min[k]! - 1e-3 && mid[k]! <= box.max[k]! + 1e-3))) return;
+      found.push({ kind: "depth", step: st.id, depth, along: dn > 0 ? 1 : -1, figure: i });
+    });
   }
   return found.length === 1 ? found[0]! : null;
 }
@@ -250,8 +285,14 @@ export function editCommand(scene: Scene, edit: FaceEdit, v: number): Command | 
     return moves.length ? { type: "batch", commands: moves } : null;
   }
   if (edit.kind === "depth") {
-    const depth = edit.depth + v * edit.along;
-    return Math.abs(depth) < 1e-6 ? null : { type: "setStepParams", id: edit.step, params: { depth: Math.round(depth * 1e6) / 1e6 } };
+    const depth = Math.round((edit.depth + v * edit.along) * 1e6) / 1e6;
+    if (Math.abs(depth) < 1e-6) return null;
+    const st = scene.steps.find((x) => x.id === edit.step);
+    if (edit.figure === undefined || !st) return { type: "setStepParams", id: edit.step, params: { depth } };
+    // one of several figures made together: its depth changes and the others keep theirs, each written down for itself (`in_320`)
+    const depths = figureDepths(st);
+    depths[edit.figure] = depth;
+    return { type: "setStepParams", id: edit.step, params: { depth: depths[0]!, alsoDepth: depths.slice(1).join("|") } };
   }
   const radius = Math.round((edit.radius + (edit.convex ? v : -v)) * 1e6) / 1e6;
   if (!(radius > 1e-6)) return null;

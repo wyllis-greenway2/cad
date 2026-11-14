@@ -1531,3 +1531,11 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_319 — 2026-11-14 — directive
 > Okay so in this file, if you try to chamfer one of the edges of the block, it can do really weird stuff to the block in the preview, the applied state after preview seems to go back to normal. Also it didn't seem to happen until I increased the height of one block, that also increased the height of the other block, which seems to be an additional bug.
 (reports two things in `chamfer_changes_other_side_angle_preview_only_also_hieghts_of_two_blocked_tied.json` and its state snapshot, with a picture: the preview of a chamfer on a vertical edge of one block distorts the blocks while the applied result is right; and pushing the top of one block taller made the other block taller too)
+
+## in_320 — 2026-11-14 — directive
+> Split them (Recommended)
+(answers the question about the two blocks of `in_319` that are extruded together and so share one height: pushing or pulling the top of one block should change only that block; the shared step is to be split so each block has its own height)
+
+## in_321 — 2026-11-14 — directive
+> I'll send exact steps
+(answers the question about the chamfer preview of `in_319`, which the AI could not reproduce: the human will send the exact clicks and drags, or a saved state taken while the distortion is on screen; nothing is to be changed for it until then)

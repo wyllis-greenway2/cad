@@ -376,17 +376,17 @@ const OPS = {
 
   extrude(op, ctx) {
     const dist = resolve(op.distance, ctx.params);
-    const prism = (profile, holes) => {
+    const prism = (profile, holes, d = dist) => {
       const p = ctx.get(profile, "sketch");
-      let solid = p.drawing.sketchOnPlane(p.plane, p.origin).extrude(dist);
+      let solid = p.drawing.sketchOnPlane(p.plane, p.origin).extrude(d);
       for (const h of holes ?? []) { // figures drawn inside this one are holes in it
         const hs = ctx.get(h, "sketch");
-        solid = solid.cut(hs.drawing.sketchOnPlane(hs.plane, hs.origin).extrude(dist));
+        solid = solid.cut(hs.drawing.sketchOnPlane(hs.plane, hs.origin).extrude(d));
       }
       return solid;
     };
     let solid = prism(op.profile, op.holes);
-    for (const f of op.also ?? []) solid = solid.fuse(prism(f.profile, f.holes)); // siblings extruded together
+    for (const f of op.also ?? []) solid = solid.fuse(prism(f.profile, f.holes, f.distance === undefined ? dist : resolve(f.distance, ctx.params))); // siblings extruded together (each may have a depth of its own, `in_320`)
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
     if (op.mode === "cutOrAdd") {
