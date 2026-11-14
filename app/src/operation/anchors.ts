@@ -62,7 +62,7 @@ export function anchorRounds(scene: Scene, pl: Plane, opts: AnchorOpts = {}): An
   const n = normalOfPlane(pl);
   const found: AnchorRound[] = [];
   for (const p of Object.values(scene.parts)) {
-    if (p.kind !== "line" || p.origin !== "body" || !(p.circle || p.mid)) continue;
+    if (p.kind !== "line" || p.origin !== "body" || !p.circle) continue; // (an edge that is another curve is no round, `in_344`)
     const r = roundOf(get, p.ref);
     if (!r?.normal || Math.abs(r.normal[0] * n[0] + r.normal[1] * n[1] + r.normal[2] * n[2]) < 1 - 1e-4) continue;
     const offset = along(pl, n, r.center);
@@ -174,8 +174,8 @@ export function rebindAnchors(scene: Scene): { scene: Scene; lost: string[] } {
     seen[kind] = true;
     for (const p of Object.values(scene.parts)) {
       if (p.origin !== "body") continue;
-      const isCircle = (p.kind === "line" && !!(p.circle || p.mid)) || (p.kind === "plane" && !!roundOf(get, p.ref)); // (a rim, or a round face)
-      const isLine = p.kind === "line" && !isCircle;
+      const isCircle = (p.kind === "line" && !!p.circle) || (p.kind === "plane" && !!roundOf(get, p.ref)); // (a rim, or a round face)
+      const isLine = p.kind === "line" && !p.circle && !p.mid; // (a straight edge: another curve is neither, `in_344`)
       const isFace = p.kind === "plane" && !isCircle && !!p.mesh && !p.curved && !p.round && !p.rounded;
       if (kind === "circle" ? !isCircle : kind === "line" ? !isLine : kind === "face" ? !isFace : p.kind !== "corner") continue;
       const a = describeEdge(scene, p.ref, [0, 0, 1]); // (the axis is only the stand-in for the height: it is replaced below by the one each relation kept)

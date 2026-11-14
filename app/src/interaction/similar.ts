@@ -5,7 +5,7 @@ import type { Vec3 } from "../math/vec.ts";
 import { add, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Part, Line } from "../operation/part.ts";
-import { pointOf, circumcentre } from "../operation/part.ts";
+import { pointOf } from "../operation/part.ts";
 
 export type SimilarRule = "kind" | "size" | "angle" | "direction";
 export const SIMILAR_RULES: { id: SimilarRule; label: string; title: string }[] = [
@@ -60,12 +60,17 @@ function lineProps(scene: Scene, l: Line, faces: Faces): Props | null {
   const closed = Math.hypot(...sub(a, b)) < 1e-6;
   let kind = "line";
   let size = [Math.hypot(...sub(a, b))];
-  if (l.circle || l.mid) {
+  if (l.mid && !l.circle) {
+    // a curve that is not a circle (`in_344`): its length along itself, nothing like a radius
+    const path = l.path && l.path.length > 1 ? l.path : [a, l.mid, b];
+    kind = "curve";
+    size = [path.slice(1).reduce((t, q, i) => t + Math.hypot(q[0] - path[i]![0], q[1] - path[i]![1], q[2] - path[i]![2]), 0)];
+  } else if (l.circle || l.mid) {
     if (l.circle && (closed || l.twin)) { kind = "circle"; size = [l.circle.radius]; } // (a whole rim, in one piece or in halves: the radius is what it is)
     else {
       kind = "arc";
       const m = l.mid ?? null;
-      const centre = l.circle ? l.circle.center : m ? circumcentre(a, m, b) : null;
+      const centre = l.circle ? l.circle.center : null; // (only a circle is an arc here: another curve was dealt with above, `in_344`)
       if (!m) return { category: "edge", kind: "line", size: [Math.hypot(...sub(a, b))], angle: null, convex: null, dir: normalize(sub(b, a)), tol: 1e-3 };
       if (!centre) return { category: "edge", kind: "line", size: [Math.hypot(...sub(a, b))], angle: null, convex: null, dir: normalize(sub(b, a)), tol: 1e-3 }; // (a "curve" that is straight)
       const span = angleOf(sub(a, centre), sub(m, centre)) + angleOf(sub(m, centre), sub(b, centre));

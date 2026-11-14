@@ -1619,3 +1619,15 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_341 — 2026-11-14 — directive
 > Okay the next bug is that this edge position on the object, and when selected as a blue line, seem to be in wildly different positions.
 (files `edge_off_state.json`, `edge_wildly_off_and_unselectable_and_unchamferable.json` and a screenshot: a cylinder with a tilted cylindrical cut; the blue selected edge runs outside the body while the drawn edge is elsewhere; the file name also says the edge cannot be selected or chamfered)
+
+## in_342 — 2026-11-14 — question
+> so how to fix? or is it already fixed by our earlier fixes to make the preview use kernal inputs? Why cant the selectable blue edge be the real kernal edge?
+(about `in_341`)
+
+## in_343 — 2026-11-14 — question
+> is this a good root cause fix?
+(about the `in_341` fix, `Line.path`; answered: no, a symptom fix at two sites; the root is two forms of an edge that can disagree)
+
+## in_344 — 2026-11-14 — approval
+> yes, do the root fix
+(approves the root fix put after `in_343`: one place that says what curve a body edge is, from the kernel's own type, every reader of an edge's geometry going through it, and no circle made of an edge that the kernel does not say is one)

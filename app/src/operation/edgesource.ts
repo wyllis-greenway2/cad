@@ -5,7 +5,7 @@ import { sub, dot, scale } from "../math/vec.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Scene } from "./scene.ts";
 import { figureRefs } from "./scene.ts";
-import { circumcentre, normalOfPlane } from "./part.ts";
+import { normalOfPlane } from "./part.ts";
 import type { Line } from "./part.ts";
 
 export interface EdgeSource {
@@ -21,11 +21,9 @@ export interface EdgeSource {
 
 const near = (a: number, b: number, t = 2e-3) => Math.abs(a - b) <= t;
 
-/** The middle of a curved body edge: its own circle, or the circle through its ends and its middle. */
+/** The centre of a circular body edge (the circle the kernel says it is part of); an edge that is any other curve has none (`in_344`). */
 export function edgeCentre(scene: Scene, l: Line): Vec3 | null {
-  if (l.circle) return l.circle.center;
-  const [a, b] = [scene.parts[l.a], scene.parts[l.b]];
-  return l.mid && a?.kind === "corner" && b?.kind === "corner" ? circumcentre(a.at, l.mid, b.at) : null;
+  return l.circle ? l.circle.center : null;
 }
 
 /** The sketch part (one an extrusion used) that lies where this edge of the body is, or null. */

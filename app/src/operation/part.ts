@@ -92,7 +92,7 @@ export const circleOf = (get: Lookup, ref: Ref): { center: Vec3; radius: number 
   return c ? { center: c, radius: p.radius } : null;
 };
 /**
- * A round the constraint system can use (`in_308`): a drawn circle, or a circular edge of a body: its circle, or the circle through its ends and its middle. An edge of a body is an **anchor**: read, never moved,
+ * A round the constraint system can use (`in_308`): a drawn circle, or a circular edge of a body: the circle the kernel says it is part of. An edge of a body that is some other curve (an ellipse, a curve where two round faces cross) is no round: no circle is made of it from three of its points (`in_344`). An edge of a body is an **anchor**: read, never moved,
  * but a drawn part can be held to it (concentric, equal radius, tangent, on it) as to any other round.
  */
 export const roundOf = (get: Lookup, ref: Ref): { center: Vec3; radius: number; anchor: boolean; /** which way it faces (a body edge; a drawn circle has the normal of its plane, not stored here) */ normal?: Vec3 } | null => {
@@ -107,19 +107,12 @@ export const roundOf = (get: Lookup, ref: Ref): { center: Vec3; radius: number; 
   }
   if (p.kind !== "line" || p.origin !== "body") return null;
   if (p.circle) return { center: p.circle.center, radius: p.circle.radius, anchor: true, normal: p.circle.normal };
-  const [a, b] = [pointOf(get, p.a), pointOf(get, p.b)];
-  if (!p.mid || !a || !b) return null;
-  const c = circumcentre(a, p.mid, b);
-  if (!c) return null;
-  const [u, w] = [[p.mid[0] - a[0], p.mid[1] - a[1], p.mid[2] - a[2]], [b[0] - a[0], b[1] - a[1], b[2] - a[2]]];
-  const n: Vec3 = [u[1]! * w[2]! - u[2]! * w[1]!, u[2]! * w[0]! - u[0]! * w[2]!, u[0]! * w[1]! - u[1]! * w[0]!];
-  const nl = Math.hypot(n[0], n[1], n[2]) || 1;
-  return { center: c, radius: Math.hypot(a[0] - c[0], a[1] - c[1], a[2] - c[2]), anchor: true, normal: [n[0] / nl, n[1] / nl, n[2] / nl] };
+  return null; // (a body edge that is not a circle of the kernel's: a straight line, or another curve)
 };
 /** What a part counts as when relations are chosen for a selection: a circular edge of a body is a circle (an anchor), the rest are what they are. */
 export const relationKind = (get: Lookup, ref: Ref, pl?: Plane | null): Kind => {
   const p = get(ref)!;
-  if (p.kind === "line" && p.origin === "body" && (p.circle || p.mid) && roundOf(get, ref)) return "circle";
+  if (p.kind === "line" && p.origin === "body" && p.circle && roundOf(get, ref)) return "circle";
   if (p.kind === "plane" && p.origin === "body") return roundOf(get, ref) ? "circle" : pl && traceOfFace(p, pl) ? "line" : p.kind; // (a face of the body: a circle if it is round; with the plane being worked in, a line if it cuts it, `in_313`)
   return p.kind;
 };
@@ -209,6 +202,22 @@ export function arcPoints(a: Vec3, m: Vec3, b: Vec3, steps = 40): Vec3[] {
   }
   return out;
 }
+/**
+ * The curve of a line, as points along it, for drawing it and picking it: the kernel's own curve for a body edge that is not a circle (`Line.path`), the ring (or the arc of it) for a circle, and an arc through its ends and
+ * middle for a drawn curve. Null for a straight line. One place for the geometry of a curved line (`in_344`): nothing else makes a circle from an edge's three points.
+ */
+export function curvePoints(get: Lookup, part: Line): Vec3[] | null {
+  if (part.origin === "body") {
+    if (part.circle && part.a === part.b) return ringPoints(part.circle);
+    if (part.path && part.path.length > 1) return part.path;
+    if (!part.mid) return null;
+    const [a, b] = [pointOf(get, part.a), pointOf(get, part.b)];
+    return part.circle && a && b ? arcPoints(a, part.mid, b) : [a, part.mid, b].filter((x): x is Vec3 => !!x); // (a circle's arc is the circle through its ends and middle: exact; a curve with no path is the chords)
+  }
+  const s = segmentOf(get, part.ref);
+  const cm = curveMid(get, part);
+  return s && cm ? arcPoints(s[0], cm, s[1]) : null;
+}
 /** The point halfway along a curved line (a body's curved edge, or a drawn arc), or null for a straight one. */
 export function curveMid(get: Lookup, part: Line): Vec3 | null {
   if (part.mid) return part.mid;
@@ -270,39 +279,22 @@ const ringPoints = (c: NonNullable<Line["circle"]>, n = 96): Vec3[] => {
 };
 const lineOps: KindOps<Line> = {
   hit: (get, part, pv) => {
-    if (part.circle && part.a === part.b) {
-      // a whole rim in one edge: the nearest of the pieces of its ring
-      const q = ringPoints(part.circle).map((p) => px(pv, p));
+    // a curved line (a rim, a drawn arc, an edge that is another curve): the nearest of the pieces of its curve; a straight one: its segment (`in_344`)
+    const curve = curvePoints(get, part);
+    if (curve) {
+      const q = curve.map((p) => px(pv, p));
       let best = Infinity;
       for (let i = 0; i + 1 < q.length; i++) best = Math.min(best, distToSegment2d([pv.x, pv.y], q[i]!, q[i + 1]!));
       return best;
     }
     const s = segmentOf(get, part.ref);
-    if (!s) return null;
-    if (part.path && part.path.length > 1) {
-      // a curve that is not a circle: the nearest of the pieces of the curve itself (`in_341`)
-      const q = part.path.map((p) => px(pv, p));
-      let best = Infinity;
-      for (let i = 0; i + 1 < q.length; i++) best = Math.min(best, distToSegment2d([pv.x, pv.y], q[i]!, q[i + 1]!));
-      return best;
-    }
-    const cm = curveMid(get, part);
-    if (cm) {
-      // a curved line: the nearest of the pieces of its arc
-      const q = arcPoints(s[0], cm, s[1]).map((p) => px(pv, p));
-      let best = Infinity;
-      for (let i = 0; i + 1 < q.length; i++) best = Math.min(best, distToSegment2d([pv.x, pv.y], q[i]!, q[i + 1]!));
-      return best;
-    }
-    return distToSegment2d([pv.x, pv.y], px(pv, s[0]), px(pv, s[1]));
+    return s ? distToSegment2d([pv.x, pv.y], px(pv, s[0]), px(pv, s[1])) : null;
   },
   outline: (get, part) => {
-    if (part.circle && part.a === part.b) return { shape: "polyline", pts: ringPoints(part.circle) };
+    const curve = curvePoints(get, part);
+    if (curve) return { shape: "polyline", pts: curve };
     const s = segmentOf(get, part.ref);
-    if (!s) return { shape: "none" };
-    if (part.path && part.path.length > 1) return { shape: "polyline", pts: part.path };
-    const cm = curveMid(get, part);
-    return cm ? { shape: "polyline", pts: arcPoints(s[0], cm, s[1]) } : { shape: "segment", a: s[0], b: s[1] };
+    return s ? { shape: "segment", a: s[0], b: s[1] } : { shape: "none" };
   },
   anchors: (part) => (part.center ? [part.a, part.b, part.center] : [part.a, part.b]),
 };

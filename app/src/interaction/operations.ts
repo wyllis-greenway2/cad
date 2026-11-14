@@ -22,7 +22,7 @@ import { rimRanks, edgeSignatures } from "../operation/rims.ts";
 import { consumed } from "../operation/ownership.ts";
 import type { Figure } from "../operation/scene.ts";
 import type { Part, Plane, PointerView } from "../operation/part.ts";
-import { normalOfPlane, pointOf, curveMid, circumcentre } from "../operation/part.ts";
+import { normalOfPlane, pointOf, curveMid } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
 import { solveScene } from "../compiler/solve.ts";
@@ -263,13 +263,14 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
       if (pa?.kind !== "corner" || pb?.kind !== "corner") return [];
       // a curved edge (the rim of a post or a hole): the arrow stands on the curve, in the middle of it, and points out across it; a straight one is a quarter of the way along
       const m = curveMid(get, l);
-      const centre = l.circle ? l.circle.center : m ? circumcentre(pa.at, m, pb.at) : null; // (a whole rim is one closed edge: its ends are the same point, so the circle itself says where the middle is)
+      const centre = l.circle ? l.circle.center : null; // (only a circle has a centre to point out from: another curve is pointed across where it is, below, `in_344`) // (a whole rim is one closed edge: its ends are the same point, so the circle itself says where the middle is)
       if (m && centre) {
         // out of the corner is away from the axis for a post and towards it for a hole (the air is inside a hole)
         const wall = l.circle ? Object.values(scene.parts).find((q) => q.kind === "plane" && q.origin === "body" && !!q.curved && Math.abs(q.curved.radius - l.circle!.radius) < 1e-3 && [0, 1, 2].every((i) => i === q.curved!.axis || Math.abs(q.curved!.center[i]! - l.circle!.center[i]!) < 1e-3)) : undefined;
         const out = normalize(sub(m, centre));
         return [{ mid: m, dir: edgeDirection(scene, pa.at, pb.at, wall && wall.kind === "plane" && wall.curved && !wall.curved.convex ? scale(out, -1) : out) }];
       }
+      if (m) return [{ mid: m, dir: edgeDirection(scene, pa.at, pb.at) }]; // (a curve that is not a circle: the arrow stands on the curve, in the middle of it)
       return [{ mid: add(pa.at, scale(sub(pb.at, pa.at), 0.25)), dir: edgeDirection(scene, pa.at, pb.at) }];
     });
     return { ok: true, op: { ...base, parts: lines.map((p) => p.ref), edges, ranks: rimRanks(scene, lines.map((p) => p.ref)), sigs: edgeSignatures(scene, lines.map((p) => p.ref)) } }; // no size yet: drag the double arrow, or type one

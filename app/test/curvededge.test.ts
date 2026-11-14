@@ -6,7 +6,8 @@ import { readFileSync } from "node:fs";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { openSession, scene } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
-import { outlineOf, hitPart, arcPoints } from "../src/operation/part.ts";
+import { outlineOf, hitPart, arcPoints, roundOf, relationKind, curvePoints } from "../src/operation/part.ts";
+import { startOp } from "../src/interaction/operations.ts";
 import { lookup } from "../src/operation/scene.ts";
 import type { Part } from "../src/operation/part.ts";
 import type { Vec3 } from "../src/math/vec.ts";
@@ -51,4 +52,30 @@ test("such an edge is picked where it is drawn, and not where the circle through
   const [a, b] = [sc.parts[l.a] as { at: Vec3 }, sc.parts[l.b] as { at: Vec3 }];
   const far = arcPoints(a.at, l.mid!, b.at).map((p) => ({ p, d: near(p, l.path!) })).sort((x, y) => y.d - x.d)[0]!;
   if (far.d > 1) assert.ok((hitPart(get, l, at(far.p)) ?? 0) > 5, "off the edge it is not");
+});
+
+test("an edge that is not a circle is no round: no circle is made of three of its points, for relations, hints or anchors (`in_344`)", () => {
+  const sc = scene(open());
+  const get = lookup(sc);
+  const bodyLines = (Object.values(sc.parts) as Part[]).filter((p): p is Line => p.kind === "line" && p.origin === "body");
+  const curved = bodyLines.filter((l) => !!l.path);
+  assert.ok(curved.length >= 3);
+  for (const l of curved) {
+    assert.equal(roundOf(get, l.ref), null, "no circle");
+    assert.notEqual(relationKind(get, l.ref), "circle", "not offered as a circle");
+    assert.deepEqual(curvePoints(get, l), l.path, "its geometry is its curve");
+  }
+  // the edges that the kernel says are circles still are
+  const circles = bodyLines.filter((l) => !!l.circle);
+  assert.ok(circles.length >= 1);
+  for (const l of circles) assert.ok(roundOf(get, l.ref), "a circle");
+});
+
+test("a fillet or chamfer arrow on such an edge stands on the curve", () => {
+  const sc = scene(open());
+  const l = (Object.values(sc.parts) as Part[]).find((p): p is Line => p.kind === "line" && p.origin === "body" && !!p.path && p.path.length > 6)!;
+  const st = startOp(sc, [l.ref], "edge");
+  assert.ok(st.ok);
+  const arrow = st.op.edges![0]!;
+  assert.ok(near(arrow.mid, l.path!) < 0.2, "the arrow's foot is on the edge");
 });

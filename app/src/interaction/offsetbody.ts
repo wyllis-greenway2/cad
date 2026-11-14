@@ -97,6 +97,7 @@ export function bodyOutline(scene: Scene, parts: Part[], ins?: (p: V2) => boolea
     return { kind: "outline", plane: pl.ref, edges: [{ k: "arc", c, r, p, q: p, ccw: true }], closed: true, side: within ? 1 : -1, origin: liftOf(pl, p), normal: pl.u };
   }
   if (edges.some((l) => l.a === l.b)) return null;
+  if (edges.some((l) => l.mid && !l.circle)) return null; // (an edge that is neither straight nor part of a circle is not offset: it is not made of lines and arcs, `in_344`)
   // the chain: edges joined end to end at shared corners
   const chain = walkChain(edges);
   if (!chain) return null; // (branches, or more than one chain)
