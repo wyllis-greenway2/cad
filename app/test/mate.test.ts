@@ -762,3 +762,31 @@ test("the bodies mated to a dragged body move with it in the picture: the one dr
   assert.ok(f2.followers.every((f) => Math.abs(f.matrix[12]! - 5) < 1e-3 && Math.abs(f.matrix[13]!) < 1e-2), `by 5 along x, and not sideways (the faces slide): ${f2.followers.map((f) => f.matrix.slice(12, 15))}`);
   assert.equal(f2.flash, null);
 });
+
+test("a cylinder turned 50 degrees off a coaxial mate is still held to it: its one round face is found however it was turned, so the mate is off, not lost, and the standing mates put it right (`in_342`)", () => {
+  const r = openSession(kernel, readFileSync(new URL("./fixtures/cylinder-rotated-off-in_342.json", import.meta.url), "utf8"));
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  const s = (r as { ok: true; value: Session }).value;
+  const st = mateStatus(scene(s));
+  assert.equal(st.length, 1);
+  assert.equal(st[0]!.state, "off", "found, but the axes are not on one line");
+  assert.ok(st[0]!.residual! > 5, `well off: ${st[0]!.residual}`);
+  const fix = solveStanding(scene(s));
+  assert.deepEqual(fix.atOdds, []);
+  assert.ok(fix.commands.length > 0);
+  const back = run(s, { type: "batch", commands: fix.commands });
+  assert.ok(!back.message, `${back.message}`);
+  assert.equal(mateStatus(scene(back))[0]!.state, "ok", "the axes are on one line again");
+});
+
+test("a standing correction of a coaxial mate does not spin the body about the axis it leaves free (`in_342`: the block in the human's file was turned by -15, -36, -177 degrees in turn, by corrections)", () => {
+  let s = cylinder(cylinder(createSession(kernel), 0, 8, 6), 40, 3, 14);
+  const [a, b] = bodies(s);
+  s = run(s, actionsFor(scene(s), [roundOfBody(s, b!), roundOfBody(s, a!)]).find((x) => x.id === "mate:coaxial")!.run());
+  const post = bodies(s).find((x) => x.id === a!.id)!;
+  const before = scene(s).steps.length;
+  const moved = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "move", parts: [post.ref], params: { axis: 0, value: 0, vx: 5, vy: 3, vz: 0, follow: 1, body: post.id } } } as never);
+  assert.ok(mateStatus(scene(moved)).every((m) => m.state === "ok"), "the pin went with the post");
+  const added = scene(moved).steps.slice(before);
+  assert.ok(added.every((x) => x.type === "move"), `only moves, no turns: ${added.map((x) => x.type)}`);
+});

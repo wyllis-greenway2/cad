@@ -56,10 +56,14 @@ const angle = (a: Vec3, b: Vec3) => Math.acos(Math.max(-1, Math.min(1, dot(norma
 function findFace(scene: Scene, body: Ref, mode: MateMode, want: { point: Vec3; dir: Vec3; radius: number }): MateFeature | null {
   let best: { f: MateFeature; score: number } | null = null;
   let candidates = 0; // (the faces of the body that face the way the mate remembers)
+  let ofKind = 0; // (the faces of the body of the kind the mate joins: round for a coaxial mate, flat for a flush one)
+  let only: MateFeature | null = null;
   for (const p of Object.values(scene.parts) as Part[]) {
     if (p.kind !== "plane" || p.origin !== "body" || p.of !== body) continue;
     const f = featureOf(scene, p.ref, mode);
     if (!f || (mode === "axisToFace" && (f.radius > 0) !== (want.radius > 0))) continue; // (the kind of face it was: flat or round)
+    ofKind++;
+    only = f;
     const turn = mode === "flush" ? angle(f.dir, want.dir) : Math.min(angle(f.dir, want.dir), Math.PI - angle(f.dir, want.dir)); // (a flush face has its way round; a round face's axis, and a face that is only parallel, have none)
     const loose = turnOnly(mode); // (a mate that is about a turn: the face may have been turned a good way since, and is still the one)
     if (turn > (loose ? 0.8 : 0.14)) continue; // (more than eight degrees from it, or forty-five for a mate that turns)
@@ -70,6 +74,8 @@ function findFace(scene: Scene, body: Ref, mode: MateMode, want: { point: Vec3; 
     if (!best || score < best.score) best = { f, score };
   }
   // the face is the one that faces that way, however far the body has been pulled from it: only when several face that way is the nearest taken, and only if it is near (a body pulled off its mate was 'lost' and nothing held it, `in_338`)
+  // a body with one face of the kind the mate joins (the one round face of a pin, of a hole) has it, however it has been turned or pulled (`in_339`, `in_342`: a cylinder turned 50 degrees was 'lost' and nothing held it)
+  if (!isFlatMode(mode) && mode !== "axisToFace" && ofKind === 1) return only;
   return best && (best.score <= 10 || candidates === 1) ? best.f : null;
 }
 

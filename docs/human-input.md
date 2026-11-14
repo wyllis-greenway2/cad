@@ -1619,3 +1619,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_341 — 2026-11-14 — directive
 > Do the followers moving in the preview next
 (asks that bodies mated to the one being dragged are drawn moving with it during the drag, not only catching up on release)
+
+## in_342 — 2026-11-14 — question
+> why was I able to rotate this cylinder even though it was in a coaxial constraint with the hole in the block? Shouldn't that have violated it?
+(a bug report on the coaxial mate, with a state snapshot and a saved model; the model is kept as `app/test/fixtures/cylinder-rotated-off-in_342.json`)

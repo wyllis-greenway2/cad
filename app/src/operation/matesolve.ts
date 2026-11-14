@@ -113,7 +113,11 @@ export function solvePoses(mates: readonly SolveMate[], bodies: readonly SolveBo
     const poses = poseOf(x);
     return mates.flatMap((m) => residuals(m, posed(m.a, pivot.get(m.mover)!, poses.get(m.mover)), posed(m.b, pivot.get(m.other)!, poses.get(m.other))));
   };
-  const x = minimise(r, new Array<number>(free.length * 6).fill(0));
+  // the smallest change that makes the mates hold: a little pull toward where each body stands, so what a mate leaves free (a turn about the shared axis, a slide along a face) is left alone and not spun to some other value (`in_342`)
+  const ease = 1e-3;
+  const start = new Array<number>(free.length * 6).fill(0);
+  const near = minimise((x) => [...r(x).map((v) => v * 100), ...x.map((v) => v * ease)], start);
+  const x = minimise((x) => [...r(x), ...x.map((v, i) => (v - near[i]!) * ease)], near);
   // which mates hold at the pose found
   const poses = poseOf(x);
   const atOdds = mates.filter((m) => Math.hypot(...residuals(m, posed(m.a, pivot.get(m.mover)!, poses.get(m.mover)), posed(m.b, pivot.get(m.other)!, poses.get(m.other)))) > 1e-6).map((m) => m.id);
