@@ -20,7 +20,7 @@ const extrude = (s: ReturnType<typeof createSession>, sel: Ref[], depth: string)
   return run(s, opCommand(scene(s), op)!);
 };
 
-test("two figures selected together are extruded together, in one step", () => {
+test("two figures selected together are extruded in one go, as a step each (`in_322`)", () => {
   let s = createSession(kernel);
   const a = drawRectangle(scene(s), XY, [0, 0, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]);
   s = run(s, a.command);
@@ -30,9 +30,9 @@ test("two figures selected together are extruded together, in one step", () => {
   assert.equal(fs.length, 2);
   s = extrude(s, fs.map((f) => f.ref), "10");
   assert.deepEqual(s.outcome.errors, {});
-  assert.equal(scene(s).steps.length, 1);
+  assert.equal(scene(s).steps.length, 2);
   assert.ok(Math.abs(s.outcome.kernel!.volume! - (100 + Math.PI * 16) * 10) < 0.5);
-  assert.equal(consumed(scene(s)).has(c.circle), true, "the second figure is used up by the step too");
+  assert.equal(consumed(scene(s)).has(c.circle), true, "the second figure is used up by its step too");
 });
 
 test("a figure with a figure of arcs inside it: the ring extrudes with a D-shaped hole", () => {
