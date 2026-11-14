@@ -692,3 +692,21 @@ test("a body dragged against its mate goes only where the mate leaves it free, a
   assert.ok(both.bodyMatrix && Math.abs(both.bodyMatrix[12]!) < 1e-3 && Math.abs(both.bodyMatrix[13]! - 4) < 1e-3, `sliding along the face: ${both.bodyMatrix?.slice(12, 15)}`);
   assert.deepEqual(both.flash?.victims, [mateId]);
 });
+
+import { readFileSync } from "node:fs";
+import { solveStanding } from "../src/interaction/mate.ts";
+test("a body pulled 16 mm off its flush mate (a file of the human's) is still held to it: the face is found however far, so the mate is off, not lost, and the standing mates put it back (`in_338`)", () => {
+  const r = openSession(kernel, readFileSync(new URL("./fixtures/body-pulled-off-in_338.json", import.meta.url), "utf8"));
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  const s = (r as { ok: true; value: Session }).value;
+  const st = mateStatus(scene(s));
+  assert.equal(st.length, 1);
+  assert.equal(st[0]!.state, "off", "found, but not true: it was pulled off");
+  assert.ok(Math.abs(st[0]!.residual! - 16.685) < 0.01, `pulled off by ${st[0]!.residual}`);
+  const fix = solveStanding(scene(s));
+  assert.deepEqual(fix.atOdds, []);
+  assert.ok(fix.commands.length > 0, "there is a correction");
+  const back = run(s, { type: "batch", commands: fix.commands });
+  assert.ok(!back.message, `${back.message}`);
+  assert.equal(mateStatus(scene(back))[0]!.state, "ok", "back against the other body");
+});

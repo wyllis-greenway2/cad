@@ -55,6 +55,7 @@ const angle = (a: Vec3, b: Vec3) => Math.acos(Math.max(-1, Math.min(1, dot(norma
 /** The face of a body that looks most like the one the mate remembers (the same way round, nearest to it), or null if none is near enough. */
 function findFace(scene: Scene, body: Ref, mode: MateMode, want: { point: Vec3; dir: Vec3; radius: number }): MateFeature | null {
   let best: { f: MateFeature; score: number } | null = null;
+  let candidates = 0; // (the faces of the body that face the way the mate remembers)
   for (const p of Object.values(scene.parts) as Part[]) {
     if (p.kind !== "plane" || p.origin !== "body" || p.of !== body) continue;
     const f = featureOf(scene, p.ref, mode);
@@ -62,12 +63,14 @@ function findFace(scene: Scene, body: Ref, mode: MateMode, want: { point: Vec3; 
     const turn = mode === "flush" ? angle(f.dir, want.dir) : Math.min(angle(f.dir, want.dir), Math.PI - angle(f.dir, want.dir)); // (a flush face has its way round; a round face's axis, and a face that is only parallel, have none)
     const loose = turnOnly(mode); // (a mate that is about a turn: the face may have been turned a good way since, and is still the one)
     if (turn > (loose ? 0.8 : 0.14)) continue; // (more than eight degrees from it, or forty-five for a mate that turns)
+    candidates++;
     const d = sub(f.point, want.point);
     const along = dot(d, want.dir);
     const score = (isFlatMode(mode) || (mode === "axisToFace" && want.radius === 0) ? Math.abs(along) : Math.hypot(d[0] - want.dir[0] * along, d[1] - want.dir[1] * along, d[2] - want.dir[2] * along) + Math.abs(f.radius - want.radius)) + (loose ? 5 : 30) * turn;
     if (!best || score < best.score) best = { f, score };
   }
-  return best && best.score <= 10 ? best.f : null;
+  // the face is the one that faces that way, however far the body has been pulled from it: only when several face that way is the nearest taken, and only if it is near (a body pulled off its mate was 'lost' and nothing held it, `in_338`)
+  return best && (best.score <= 10 || candidates === 1) ? best.f : null;
 }
 
 export interface MateState {
