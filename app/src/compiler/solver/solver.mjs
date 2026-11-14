@@ -9,8 +9,7 @@
 //   radius {r, value}        scalar r = value            equalRadius {r, s}       r = s
 //   angle {a, b, c, d, value} the angle from ab to cd (signed, radians) equals value
 //   ptLineDist {p, a, b, d, side}  a corner is d from the line ab    lineGap {a, b, c, d, dist, side}  the line cd is dist from the line ab
-//   tangentCircles {a, b, r, s, mode}  two circles about the points a and b with radii r, s touch (mode 1: side by side, -1: one inside the other)
-//   tangentRound {c, o, p}  two circles or arcs about the points c and o meet smoothly at the point p (p on the line through c and o; p is on both: ptOnCircle says so)
+//   tangentCircles {a, b, r | ea, s | eb, mode}  two circles or arcs about the points a and b touch (mode 1: side by side, -1: one inside the other); a circle's radius is the value r (s), an arc's the distance from its centre to its start ea (eb)
 //   parallelDir / perpDir {a, b, dir}  the line ab is parallel / perpendicular to a fixed direction dir = [dx, dy] (a line of the body, seen on the sketch plane)
 // The solver moves everything the least it can to satisfy the constraints (Levenberg-Marquardt from the current positions).
 // Result: { status: "ok" | "conflict", points, scalars, dof, redundant: [ids], conflicts: [ids], residual, iterations }
@@ -126,19 +125,12 @@ function residualsOf(c, x, index) {
       return [(Math.abs(d) - (c.type === "tangentCircle" ? S(c.r) : dir(c.c, c.p)[2])) * w];
     }
     case "tangentCircles": {
-      // two circles touch: the distance between their centres is the sum of the radii (outside each other: mode 1) or their difference (one inside the other: mode -1)
+      // two circles or arcs touch: the distance between their centres is the sum of the radii (outside each other: mode 1) or their difference (one inside the other: mode -1)
       const q = P(c.a);
       const o = P(c.b);
       const d = Math.hypot(o[0] - q[0], o[1] - q[1]);
-      return [(d - (c.mode > 0 ? S(c.r) + S(c.s) : Math.abs(S(c.r) - S(c.s)))) * w];
-    }
-    case "tangentRound": {
-      // two circles (or arcs) with centres c and o touch at the point p they share: p lies on the line through both centres (its distance from that line is zero)
-      const q = P(c.c);
-      const o = P(c.o);
-      const p = P(c.p);
-      const len = Math.hypot(o[0] - q[0], o[1] - q[1]) + 1e-12;
-      return [(((o[0] - q[0]) * (p[1] - q[1]) - (o[1] - q[1]) * (p[0] - q[0])) / len) * w];
+      const [r1, r2] = [c.r !== undefined ? S(c.r) : dir(c.a, c.ea)[2], c.s !== undefined ? S(c.s) : dir(c.b, c.eb)[2]];
+      return [(d - (c.mode > 0 ? r1 + r2 : Math.abs(r1 - r2))) * w];
     }
     case "ptOnCircle": {
       // a corner lies on a circle (the radius is the circle's value) or on an arc (the distance from its centre c to its start e): it slides round it

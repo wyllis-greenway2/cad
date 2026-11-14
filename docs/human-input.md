@@ -1607,3 +1607,11 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_338 — 2026-11-14 — directive
 > There is this curved line in this sketch that seems to be un trimmable with the scissors
 (files `Cannot_delete_line.json` and `cad-state-2026-11-14T06-46-17.json`, a touch device; the trim tool was used with `tapAim`; the state's last refusal names the relations r_053 to r_061 as the ones that tried)
+
+## in_339 — 2026-11-14 — question
+> What is the root cause? Is it more of a constraint issue than a trim issue?
+(about `in_338`; answered: mostly the constraint model: an arc's tangent to another round curve is held at an arc end, so it depends on where the arc ends; trim only exposed it)
+
+## in_340 — 2026-11-14 — approval
+> yes, do the distance form and remove the workaround
+(approves the change put after `in_339`: arc tangent to a circle or arc is held by the distance between the centres, not at an arc end, and the `touchesAtEnd` workaround in `trim.ts` is removed)
