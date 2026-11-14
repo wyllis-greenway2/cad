@@ -12,7 +12,7 @@ import type { Session } from "./interaction/session.ts";
 import { exportStl, canExport, selectedBodies } from "./interaction/exportstl.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
 import { createState, reduce, advance } from "./interaction/controller.ts";
-import { frameOf } from "./interaction/frame.ts";
+import { frameOf, previewIsExact } from "./interaction/frame.ts";
 import { appRows, nextScrollMode, isScrollMode, nextPanScale } from "./interaction/appmenu.ts";
 import { snapshotOf, logEntry } from "./interaction/snapshot.ts";
 import { createTiming } from "./interaction/timing.ts";
@@ -253,7 +253,7 @@ function frame(now: number) {
   if (dirty || spreading || state.flash) {
     const size = view.size();
     const tFrame = performance.now();
-    const exact = !settings.preview.stretch && !!state.drag && !!state.op; // (the kernel's own result for every size, `in_326`: a rough mesh, and only the mesh, `in_327`)
+    const exact = !!state.drag && !!state.op && previewIsExact(state.op); // (the kernel's own result for every size, `in_326`: a rough mesh, and only the mesh, `in_327`; for a fillet or a chamfer, `in_328`)
     engine.draft = exact || !!(state.drag && state.op && state.op.kind !== "edge");
     engine.lite = exact; // (a rough mesh while a size is dragged, the fine one when it is let go, `in_216`; a new fillet is made once, fine, and scaled, unless the kernel's own result is shown)
     const f = frameOf(state, size, now);

@@ -163,6 +163,9 @@ function memoPreview(s: AppState, base: Session, cmd: Command, made: unknown): {
   return value;
 }
 
+/** Is the picture of this operation, while its size is dragged, the kernel's own result for every size (not the stretched one)? A fillet or a chamfer, new or pulled in or out, unless the settings say otherwise (`in_328`). */
+export const previewIsExact = (op: Op): boolean => !settings.preview.stretch || (settings.preview.exactRounding && (op.kind === "edge" || (op.kind === "pushpull" && op.edit?.kind === "edgeSize")));
+
 /**
  * The check of a stretched picture against the kernel (`in_325`, `q_preview_provenance`). While a size is dragged, the picture is a reference the kernel made, stretched (`edgeNew`, `prismNew`, `edgeDrag`); its
  * rules for which faces move can be wrong for a shape nobody tried (`in_323`). Now and then (not on every frame) the kernel is asked for the size the picture stands at, exactly; when it answers, the stretched
@@ -335,7 +338,7 @@ function gpuMotion(s: AppState, now = 0): { split?: Frame["bodySplit"]; matrix: 
   const op = s.op;
   if (!op) return null;
   const base = op.made ? undone(s.session) : s.session;
-  const en = settings.preview.stretch ? edgeNew(s, op, base, now) ?? prismNew(s, op, base, now) : null;
+  const en = previewIsExact(op) ? null : edgeNew(s, op, base, now) ?? prismNew(s, op, base, now);
   if (en) {
     if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
     if ("wait" in en) return { matrix: null, face: null, shown: gpuBase.value };
@@ -346,7 +349,7 @@ function gpuMotion(s: AppState, now = 0): { split?: Frame["bodySplit"]; matrix: 
   const fd = m ? null : faceDrag(sceneOf(base), op);
   const rd = m || fd ? null : radiusDrag(sceneOf(base), op);
   const sd = m || fd || rd ? null : sideDrag(sceneOf(base), op);
-  const ed = m || fd || rd || sd || !settings.preview.stretch ? null : edgeDrag(sceneOf(base), op);
+  const ed = m || fd || rd || sd || previewIsExact(op) ? null : edgeDrag(sceneOf(base), op);
   const ad = m || fd || rd || sd || ed ? null : arcDrag(sceneOf(base), op);
   if (!m && !fd && !rd && !sd && !ed && !ad) return null;
   if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };

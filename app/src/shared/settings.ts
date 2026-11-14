@@ -73,6 +73,8 @@ export const settings = {
   world: { axisLengthMm: 24, axisWidthPx: 1.6, axisOpacity: 1, paneGapMm: 3, paneMm: 8, paneRound: 0.18, paneOpacity: 0.18, paneActiveOpacity: 0.4 }, // (the three little panes of the world planes: how far from the origin, how big, how see-through) // the small charcoal axes at the origin: their real length in mm (so they zoom with the model: was 8.4), line width, opacity
   buttons: { marginPx: 18, sizePx: 34 }, // the X Y Z buttons at the right edge, lower right
   light: { key: 1.7, fill: 0.12, ambient: 0.42, roughness: 0.4, sheen: 0.55, sheenRoughness: 0.25, reflect: 0.5 }, // lights ride with the camera; the body has a slight clear-coat sheen and a soft studio reflected in it
-  preview: { stretch: true }, // while a size is dragged: the kernel's result stretched on the graphics card (`dec_drag_preview_without_kernel`), or, off, the kernel's own result for every size, the newest request winning (an experiment, `in_326`)
+  // while a size is dragged: the kernel's result stretched on the graphics card (`dec_drag_preview_without_kernel`), or the kernel's own result for every size, the newest request winning, rough and with no faces or edges
+  // (`in_326`, `in_327`). `exactRounding`: the second for a fillet or a chamfer (new, or one that is there already pulled in or out), the first for the rest (`in_328`); `stretch` off: the second for all (an experiment)
+  preview: { stretch: true, exactRounding: true },
   extrude: { edgeAngleDeg: 30 }, // outline edges are drawn where faces meet at more than this angle
 };
