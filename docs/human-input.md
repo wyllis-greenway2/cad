@@ -1579,3 +1579,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_331 — 2026-11-14 — approval
 > Yes, refuse the change
 (approves the proposal in the reply to `in_330`: a change that would leave standing mates with no placement where they all hold is refused, naming the mates, as conflicting sketch constraints are)
+
+## in_332 — 2026-11-14 — directive
+> Do the browser pass over the conflict refusal next
+(asks for the refusal of conflicting standing mates to be looked at in a real browser)

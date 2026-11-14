@@ -103,7 +103,7 @@ const conflictsOf = (o: CompileOutcome): { planes: string[]; ids: string[] } => 
 /** What is said when standing mates cannot all hold: which ones (`in_329`). */
 const atOddsMessage = (scene: Scene, ids: readonly string[]): string => {
   const names = mateStatus(scene).filter((m) => ids.includes(m.id)).map((m) => m.mode.replace(/([A-Z])/g, " $1").toLowerCase());
-  return `these standing mates could not all hold at once (${names.join(", ")}): so that cannot be done: take one of them away or change it first`;
+  return `these standing mates could not all hold at once (${names.join(", ")}). That cannot be done: take one of them away or change it first`;
 };
 function standingFixes(h: History): { fixes: Command[]; atOdds: string[] } {
   // all the standing mates solved together first (`in_329`); the ones put back one at a time (`in_321`) only if that did not hold
@@ -220,7 +220,8 @@ export function refresh(s: Session): Session {
     // the answer shows the change leaves mates that held with no placement where they all hold: it is taken back, as when it is made with the answer at hand (`in_331`)
     const held = new Set(mateStatus(h.snapshots[h.cursor - 1] ?? h.base).filter((m) => m.state === "ok").map((m) => m.id));
     if (atOdds.some((id) => held.has(id) || !(h.snapshots[h.cursor - 1] ?? h.base).relations.some((r) => r.id === id))) {
-      const back = withHistory(s, undo(h));
+      const undone = undo(h);
+      const back = withHistory(s, { ...undone, commands: undone.commands.slice(0, undone.cursor), snapshots: undone.snapshots.slice(0, undone.cursor + 1) }); // (taken back, not kept to be done again with redo)
       return { ...back, checkSteps: undefined, fallback: undefined, message: atOddsMessage(now.history.scene, atOdds), conflict: { culprits: atOdds, victims: [] } };
     }
   }
