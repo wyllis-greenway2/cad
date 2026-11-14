@@ -4,7 +4,7 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Scene, Relation, EdgeAnchor } from "./scene.ts";
 import { lookup } from "./scene.ts";
 import type { Plane } from "./part.ts";
-import { normalOfPlane, roundOf } from "./part.ts";
+import { normalOfPlane, roundOf, traceOfFace } from "./part.ts";
 
 export interface AnchorRound { ref: Ref; center: Vec3; radius: number; /** how far the edge is from the plane, along its facing (0: in it) */ offset: number }
 export interface AnchorLine { ref: Ref; a: Vec3; b: Vec3; offset: number }
@@ -40,6 +40,11 @@ export function anchorLines(scene: Scene, pl: Plane, opts: AnchorOpts = {}): Anc
     const off = Math.max(Math.abs(along(pl, n, a.at)), Math.abs(along(pl, n, b.at)));
     if (off > 1e-3 && opts.seen && ![a.at, b.at, [(a.at[0] + b.at[0]) / 2, (a.at[1] + b.at[1]) / 2, (a.at[2] + b.at[2]) / 2] as Vec3].some(opts.seen)) continue; // (out of sight)
     found.push({ ref: p.ref, a: pa, b: pb, offset: Math.max(Math.abs(along(pl, n, a.at)), Math.abs(along(pl, n, b.at))) });
+  }
+  // the flat faces of the body that cut the plane: the line where each does (`in_313`); where an edge is that line already, the edge stays
+  for (const p of Object.values(scene.parts)) {
+    const t = p.kind === "plane" && p.origin === "body" ? traceOfFace(p, pl) : null;
+    if (t) found.push({ ref: p.ref, a: t[0], b: t[1], offset: 0 });
   }
   return nearest(found, (x, y) => (near3(x.a, y.a) && near3(x.b, y.b)) || (near3(x.a, y.b) && near3(x.b, y.a)));
 }
@@ -77,6 +82,24 @@ export function anchorRounds(scene: Scene, pl: Plane, opts: AnchorOpts = {}): An
     }
     found.push({ ref: p.ref, center: onto(pl, n, r.center), radius: r.radius, offset });
   }
+  // the round faces of the body (a post, a hole, a piece of one): the circle each cuts across its axis (`in_313`). The plane cuts the face when it is within the face's own extent along the axis (offset 0); else the circle is only
+  // where the face falls on it, as far from the plane as the nearer end of the face, and it must be seen to be offered (`in_312`)
+  for (const p of Object.values(scene.parts)) {
+    if (p.kind !== "plane" || p.origin !== "body" || !p.mesh || p.mesh.length < 9) continue;
+    const r = roundOf(get, p.ref);
+    if (!r?.normal || Math.abs(r.normal[0] * n[0] + r.normal[1] * n[1] + r.normal[2] * n[2]) < 1 - 1e-4) continue;
+    const m = p.mesh;
+    let [lo, hi] = [Infinity, -Infinity];
+    for (let i = 0; i + 2 < m.length; i += 3) { const d = along(pl, n, [m[i]!, m[i + 1]!, m[i + 2]!]); lo = Math.min(lo, d); hi = Math.max(hi, d); }
+    const offset = lo <= 1e-3 && hi >= -1e-3 ? 0 : lo > 0 ? lo : hi;
+    if (Math.abs(offset) > 1e-3 && opts.seen) {
+      const samples: Vec3[] = [];
+      const step = Math.max(3, Math.floor(m.length / 3 / 12) * 3); // (about twelve vertices of the face)
+      for (let i = 0; i + 2 < m.length; i += step) samples.push([m[i]!, m[i + 1]!, m[i + 2]!]);
+      if (!samples.some(opts.seen)) continue; // (out of sight)
+    }
+    found.push({ ref: p.ref, center: onto(pl, n, r.center), radius: r.radius, offset });
+  }
   return nearest(found, (x, y) => near3(x.center, y.center) && Math.abs(x.radius - y.radius) <= 1e-3);
 }
 
@@ -101,6 +124,14 @@ function describeEdge(scene: Scene, ref: Ref, axis: Vec3 | null): EdgeAnchor | n
   if (p?.origin !== "body") return null;
   const r = roundOf(get, ref);
   if (r?.anchor && r.normal) return { center: [...r.center] as [number, number, number], radius: r.radius, normal: [...r.normal] as [number, number, number], t: heightIn(scene, r.center, r.normal) };
+  if (p.kind === "plane" && p.mesh && p.mesh.length >= 9 && !p.curved && !p.round && !p.rounded) { // a flat face: where it is and which way it faces (`in_313`)
+    const m = p.mesh;
+    let [x, y, z, k] = [0, 0, 0, 0];
+    for (let i = 0; i + 2 < m.length; i += 3) { x += m[i]!; y += m[i + 1]!; z += m[i + 2]!; k++; }
+    const centre: [number, number, number] = [x / k, y / k, z / k];
+    const nf = normalOfPlane(p);
+    return { kind: "face", center: centre, radius: 0, normal: [...nf] as [number, number, number], t: heightIn(scene, centre, nf) };
+  }
   if (!axis) return null;
   const ax = [...axis] as [number, number, number];
   if (p.kind === "corner") return { kind: "point", center: [...p.at] as [number, number, number], radius: 0, normal: ax, t: heightIn(scene, p.at, axis), axis: ax };
@@ -137,15 +168,16 @@ export function rebindAnchors(scene: Scene): { scene: Scene; lost: string[] } {
   const get = lookup(scene);
   const kindOf = (a: EdgeAnchor) => a.kind ?? "circle";
   const now: { ref: Ref; kind: string; a: EdgeAnchor }[] = [];
-  const seen = { circle: false, line: false, point: false };
-  const lazy = (kind: "circle" | "line" | "point") => {
+  const seen = { circle: false, line: false, point: false, face: false };
+  const lazy = (kind: "circle" | "line" | "point" | "face") => {
     if (seen[kind]) return;
     seen[kind] = true;
     for (const p of Object.values(scene.parts)) {
       if (p.origin !== "body") continue;
-      const isCircle = p.kind === "line" && !!(p.circle || p.mid);
+      const isCircle = (p.kind === "line" && !!(p.circle || p.mid)) || (p.kind === "plane" && !!roundOf(get, p.ref)); // (a rim, or a round face)
       const isLine = p.kind === "line" && !isCircle;
-      if (kind === "circle" ? !isCircle : kind === "line" ? !isLine : p.kind !== "corner") continue;
+      const isFace = p.kind === "plane" && !isCircle && !!p.mesh && !p.curved && !p.round && !p.rounded;
+      if (kind === "circle" ? !isCircle : kind === "line" ? !isLine : kind === "face" ? !isFace : p.kind !== "corner") continue;
       const a = describeEdge(scene, p.ref, [0, 0, 1]); // (the axis is only the stand-in for the height: it is replaced below by the one each relation kept)
       if (a) now.push({ ref: p.ref, kind, a });
     }
@@ -158,24 +190,28 @@ export function rebindAnchors(scene: Scene): { scene: Scene; lost: string[] } {
     for (const [i, ref] of rel.parts.entries()) {
       const want = rel.anchors[ref];
       if (!want || get(ref)) continue; // (not a named part of the body, or still there)
-      const kind = kindOf(want) as "circle" | "line" | "point";
+      const kind = kindOf(want) as "circle" | "line" | "point" | "face";
       lazy(kind);
       const axis = (want.axis ?? want.normal) as Vec3;
       const scored = now
         .filter((e) => e.kind === kind)
         .flatMap((e) => {
-          const cand = kind === "circle" ? e.a : describeEdge(scene, e.ref, axis);
+          const cand = kind === "circle" || kind === "face" ? e.a : describeEdge(scene, e.ref, axis);
           if (!cand) return [];
-          if (kind !== "point" && Math.abs(dot3(cand.normal, want.normal)) < 1 - 1e-4) return []; // (not facing / running the same way)
+          // not facing / running the same way (a face must face the same way, not the opposite one); a wall or an edge may turn a little when a size changes (a tangent line between two circles), so up to eight degrees, with the turn counted against it
+          const cosine = dot3(cand.normal, want.normal);
+          const loose = kind === "face" || kind === "line";
+          if (kind === "face" ? cosine < 0.99 : kind === "line" ? Math.abs(cosine) < 0.99 : kind !== "point" && Math.abs(cosine) < 1 - 1e-4) return [];
+          const turn = loose ? 30 * Math.acos(Math.min(1, Math.abs(cosine))) : 0;
           const d = [cand.center[0] - want.center[0], cand.center[1] - want.center[1], cand.center[2] - want.center[2]];
-          const ax = (kind === "circle" ? want.normal : axis) as readonly number[];
+          const ax = (kind === "circle" || kind === "face" ? want.normal : axis) as readonly number[];
           const along = dot3(d, ax);
           const across = Math.hypot(d[0]! - along * ax[0]!, d[1]! - along * ax[1]!, d[2]! - along * ax[2]!);
-          return [{ ref: e.ref, score: across + Math.abs(cand.radius - want.radius) + 5 * Math.abs(cand.t - want.t) }];
+          return [{ ref: e.ref, score: (kind === "face" ? Math.abs(along) : across + Math.abs(cand.radius - want.radius)) + 5 * Math.abs(cand.t - want.t) + turn }]; // (a face is judged by how far along its facing it moved, not by how it grew)
         })
         .sort((x, y) => x.score - y.score);
       const [best, next] = scored;
-      const reach = kind === "point" ? 3 : 0.6 * want.radius + 1;
+      const reach = kind === "point" || kind === "face" ? 3 : 0.6 * want.radius + 1;
       if (!best || best.score > reach || (next && next.score - best.score < 0.5)) { lost.push(rel.id); continue; }
       parts = parts.map((q, k) => (k === i ? best.ref : q));
       const { [ref]: _old, ...rest } = anchors;

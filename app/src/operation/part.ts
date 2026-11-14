@@ -47,9 +47,38 @@ export const pointOf = (get: Lookup, ref: Ref): Vec3 | null => {
   const p = get(ref);
   return p && p.kind === "corner" ? p.at : null;
 };
-/** The two end points of a line, or null. */
-export const segmentOf = (get: Lookup, ref: Ref): [Vec3, Vec3] | null => {
+/**
+ * The line where a flat face of the body cuts a plane (`in_313`), as its two ends: the triangles of the face are cut by the plane and the ends are the farthest crossings along the line. Null for a curved face, a face that runs
+ * alongside the plane, or one the plane does not reach.
+ */
+export function traceOfFace(face: Part | undefined, pl: Plane): [Vec3, Vec3] | null {
+  if (!face || face.kind !== "plane" || face.origin !== "body" || !face.mesh || face.mesh.length < 9 || face.curved || face.round || face.rounded) return null;
+  const [nf, np] = [normalOfPlane(face), normalOfPlane(pl)];
+  const d: Vec3 = [nf[1] * np[2] - nf[2] * np[1], nf[2] * np[0] - nf[0] * np[2], nf[0] * np[1] - nf[1] * np[0]];
+  const dl = Math.hypot(d[0], d[1], d[2]);
+  if (dl < 1e-4) return null; // (alongside the plane: no line)
+  const u: Vec3 = [d[0] / dl, d[1] / dl, d[2] / dl];
+  const m = face.mesh;
+  const side = (i: number) => (m[i]! - pl.at[0]) * np[0] + (m[i + 1]! - pl.at[1]) * np[1] + (m[i + 2]! - pl.at[2]) * np[2];
+  let lo: Vec3 | null = null, hi: Vec3 | null = null, tlo = Infinity, thi = -Infinity;
+  const take = (q: Vec3) => { const t = q[0] * u[0] + q[1] * u[1] + q[2] * u[2]; if (t < tlo) { tlo = t; lo = q; } if (t > thi) { thi = t; hi = q; } };
+  for (let i = 0; i + 8 < m.length; i += 9) {
+    const v = [i, i + 3, i + 6];
+    const sd = v.map(side);
+    for (let k = 0; k < 3; k++) {
+      const [a, b] = [v[k]!, v[(k + 1) % 3]!];
+      const [sa, sb] = [sd[k]!, sd[(k + 1) % 3]!];
+      if (Math.abs(sa) < 1e-9) take([m[a]!, m[a + 1]!, m[a + 2]!]);
+      if ((sa < -1e-9 && sb > 1e-9) || (sa > 1e-9 && sb < -1e-9)) { const f = sa / (sa - sb); take([m[a]! + (m[b]! - m[a]!) * f, m[a + 1]! + (m[b + 1]! - m[a + 1]!) * f, m[a + 2]! + (m[b + 2]! - m[a + 2]!) * f]); }
+    }
+  }
+  return lo && hi && thi - tlo > 1e-6 ? [lo, hi] : null;
+}
+
+/** The two end points of a line, or null. With the plane being worked in, a flat face of the body is the line where it cuts that plane (`in_313`). */
+export const segmentOf = (get: Lookup, ref: Ref, pl?: Plane | null): [Vec3, Vec3] | null => {
   const p = get(ref);
+  if (p?.kind === "plane" && pl) return traceOfFace(p, pl);
   if (!p || p.kind !== "line") return null;
   const a = pointOf(get, p.a);
   const b = pointOf(get, p.b);
@@ -69,6 +98,12 @@ export const roundOf = (get: Lookup, ref: Ref): { center: Vec3; radius: number; 
   const p = get(ref);
   if (!p) return null;
   if (p.kind === "circle") { const c = pointOf(get, p.center); return c ? { center: c, radius: p.radius, anchor: false } : null; }
+  if (p.kind === "plane" && p.origin === "body") { // a round face of the body (a post or a hole, a piece of one): the circle it cuts across its axis (`in_313`)
+    const c = p.curved ?? (p.round && p.radius ? { axis: p.round.axis, dir: p.round.dir, center: p.round.center, radius: p.radius } : null);
+    if (!c) return null;
+    const axis: Vec3 = c.dir ?? (c.axis === 0 ? [1, 0, 0] : c.axis === 1 ? [0, 1, 0] : [0, 0, 1]);
+    return { center: c.center, radius: c.radius, anchor: true, normal: axis };
+  }
   if (p.kind !== "line" || p.origin !== "body") return null;
   if (p.circle) return { center: p.circle.center, radius: p.circle.radius, anchor: true, normal: p.circle.normal };
   const [a, b] = [pointOf(get, p.a), pointOf(get, p.b)];
@@ -81,7 +116,12 @@ export const roundOf = (get: Lookup, ref: Ref): { center: Vec3; radius: number; 
   return { center: c, radius: Math.hypot(a[0] - c[0], a[1] - c[1], a[2] - c[2]), anchor: true, normal: [n[0] / nl, n[1] / nl, n[2] / nl] };
 };
 /** What a part counts as when relations are chosen for a selection: a circular edge of a body is a circle (an anchor), the rest are what they are. */
-export const relationKind = (get: Lookup, ref: Ref): Kind => { const p = get(ref)!; return p.kind === "line" && p.origin === "body" && (p.circle || p.mid) && roundOf(get, ref) ? "circle" : p.kind; };
+export const relationKind = (get: Lookup, ref: Ref, pl?: Plane | null): Kind => {
+  const p = get(ref)!;
+  if (p.kind === "line" && p.origin === "body" && (p.circle || p.mid) && roundOf(get, ref)) return "circle";
+  if (p.kind === "plane" && p.origin === "body") return roundOf(get, ref) ? "circle" : pl && traceOfFace(p, pl) ? "line" : p.kind; // (a face of the body: a circle if it is round; with the plane being worked in, a line if it cuts it, `in_313`)
+  return p.kind;
+};
 export const normalOfPlane = (p: Plane): Vec3 => {
   const [u, v] = [p.u, p.v];
   const n: Vec3 = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];

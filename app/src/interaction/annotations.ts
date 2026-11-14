@@ -12,7 +12,7 @@ import { lookup } from "../operation/scene.ts";
 import { buildMap, structuralRelations } from "../operation/ownership.ts";
 import { sketchOfEdge } from "../operation/edgesource.ts";
 import type { Lookup } from "../operation/part.ts";
-import { pointOf, segmentOf, roundOf, relationKind, curveMid } from "../operation/part.ts";
+import { pointOf, segmentOf, roundOf, relationKind, curveMid, planeOfParts } from "../operation/part.ts";
 import { actionsFor, measureAction } from "./actions.ts";
 import { lengthEditable } from "./lengths.ts";
 import { surfaceTriangles } from "./surfaces.ts";
@@ -80,12 +80,13 @@ function arcBetween(v: Vec3, p: Vec3, q: Vec3): { points: Vec3[]; middle: Vec3 }
 interface Placed { at: Vec3; lines: Vec3[][] }
 /** Where a constraint of this kind between these parts is shown, and the lines drawn with it. Null if its parts are gone. */
 function place(get: Lookup, kind: string, parts: readonly Ref[]): Placed | null {
-  const kinds = parts.map((r) => (get(r) ? relationKind(get, r) : undefined)); // (a circular edge of a body is a circle: an anchor, `in_308`)
+  const pl = planeOfParts(get, [...parts]);
+  const kinds = parts.map((r) => (get(r) ? relationKind(get, r, pl) : undefined)); // (a circular edge of a body is a circle: an anchor, `in_308`)
   const corners = parts.filter((_, i) => kinds[i] === "corner");
   const lines = parts.filter((_, i) => kinds[i] === "line");
   const circles = parts.filter((_, i) => kinds[i] === "circle");
   const pt = (r: Ref | undefined) => (r ? pointOf(get, r) : null);
-  const seg = (r: Ref | undefined) => (r ? segmentOf(get, r) : null);
+  const seg = (r: Ref | undefined) => (r ? segmentOf(get, r, pl) : null);
   const [c1, c2] = [pt(corners[0]), pt(corners[1])];
   const [s1, s2] = [seg(lines[0]), seg(lines[1])];
   switch (kind) {

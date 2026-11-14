@@ -5,7 +5,7 @@ import type { Vec3 } from "../math/vec.ts";
 import { sub, dot, cross, length, dist, mid, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Kind, Lookup } from "../operation/part.ts";
-import { pointOf, segmentOf, roundOf, normalOfPlane, planeOfParts } from "../operation/part.ts";
+import { pointOf, segmentOf, roundOf, normalOfPlane, planeOfParts, relationKind } from "../operation/part.ts";
 
 const PARALLEL_SIN = 0.02; // two lines count as parallel for a distance when the sine of the angle between them is below this (about 1 degree)
 
@@ -34,7 +34,7 @@ function arcOf(c: Ctx, ref: Ref): { centre: Vec3; start: Vec3 } | null {
   const [centre, start] = [pointOf(c.get, l.center), pointOf(c.get, l.a)];
   return centre && start ? { centre, start } : null;
 }
-const segs = (c: Ctx, r: Ref[]): [Vec3, Vec3][] => r.map((x) => segmentOf(c.get, x)).filter((s): s is [Vec3, Vec3] => !!s);
+const segs = (c: Ctx, r: Ref[]): [Vec3, Vec3][] => { const pl = planeOfParts(c.get, r); return r.map((x) => segmentOf(c.get, x, pl)).filter((s): s is [Vec3, Vec3] => !!s); }; // (a face of the body is the line where it cuts the plane, `in_313`)
 const dir = (s: [Vec3, Vec3]): Vec3 => normalize(sub(s[1], s[0]));
 const normalFor = (c: Ctx, r: Ref[]): Vec3 => {
   const pl = planeOfParts(c.get, r);
@@ -74,7 +74,7 @@ export const ROWS: Row[] = [
     // a corner slides on a line (the line goes on past its ends): it stays on it wherever it is moved to
     id: "onLine", label: "On line", pair: ["corner", "line"], anyOrder: true,
     hidden: (c, r) => r.some((x) => !!arcOf(c, x)), // (on an arc it is "on circle")
-    unavailable: (c, r) => (c.get(r[0]!)?.kind === "corner" && segmentOf(c.get, r[1]!) ? null : c.get(r[1]!)?.kind === "corner" && segmentOf(c.get, r[0]!) ? null : "a corner and a line"),
+    unavailable: (c, r) => { const pl = planeOfParts(c.get, r); return c.get(r[0]!)?.kind === "corner" && segmentOf(c.get, r[1]!, pl) ? null : c.get(r[1]!)?.kind === "corner" && segmentOf(c.get, r[0]!, pl) ? null : "a corner and a line"; },
   },
   { id: "onCircle", label: "Coincident with circle", pair: ["corner", "circle"], anyOrder: true }, // a corner slides round a circle
   {
@@ -185,8 +185,9 @@ export const ROWS: Row[] = [
 
 function pointAndLine(c: Ctx, r: Ref[]): [Vec3 | null, [Vec3, Vec3] | null] {
   const corner = r.find((x) => c.get(x)?.kind === "corner");
-  const line = r.find((x) => c.get(x)?.kind === "line");
-  return [corner ? pointOf(c.get, corner) : null, line ? segmentOf(c.get, line) : null];
+  const pl = planeOfParts(c.get, r);
+  const line = r.find((x) => relationKind(c.get, x, pl) === "line");
+  return [corner ? pointOf(c.get, corner) : null, line ? segmentOf(c.get, line, planeOfParts(c.get, r)) : null];
 }
 /** Two lines that share a corner: the shared corner and the far ends. */
 function shared(c: Ctx, r: Ref[]): { v: Vec3; p: Vec3; q: Vec3 } | null {

@@ -1503,3 +1503,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_312 — 2026-11-14 — directive
 > Do the hidden versus visible edges next
 (approves the next step of `dec_anchor_geometry`: telling hidden edges of the body from visible ones when they are offered as anchors)
+
+## in_313 — 2026-11-14 — directive
+> Do the faces as anchors next
+(approves the next step of `dec_anchor_geometry`: faces of the body as anchors, by the line or circle where they cut the sketch's plane)

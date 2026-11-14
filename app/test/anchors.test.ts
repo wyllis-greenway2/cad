@@ -300,3 +300,57 @@ test("a selected circle near the projection of a lower edge is offered it when t
   assert.ok(ids(() => true).includes(`near:onLine:${low.ref}`), "seen: offered");
   assert.ok(!ids(() => false).includes(`near:onLine:${low.ref}`), "out of sight: not offered");
 });
+
+const withCutPlane = (s: Session): Session => run(s, { type: "addPart", part: { ref: "d/p_901", kind: "plane", origin: "drawn", plane: null, movable: false, at: [0, 0, 5], u: [1, 0, 0], v: [0, 1, 0], onBody: true } } as never);
+
+test("the faces of the body are anchors by the line or circle where they cut the sketch's plane: a plane through the body meets its walls (`in_313`)", () => {
+  const s = withCutPlane(open());
+  const pl = scene(s).parts["d/p_901"] as never;
+  const lines = anchorLines(scene(s), pl);
+  const walls = lines.filter((l) => l.ref.startsWith("b/body/f@"));
+  assert.ok(walls.length >= 2, `the flat walls cut the plane in lines: ${lines.map((l) => l.ref.slice(0, 14))}`);
+  assert.ok(walls.every((l) => l.offset === 0 && Math.abs(l.a[2] - 5) < 1e-9 && Math.abs(l.b[2] - 5) < 1e-9), "in the plane");
+  const rounds = anchorRounds(scene(s), pl);
+  assert.ok(rounds.filter((r) => r.ref.startsWith("b/body/s@CYLINDRE")).length >= 2 && rounds.every((r) => r.offset === 0 || r.ref), "the round walls cut it in circles");
+});
+
+test("a circle on a plane through the body can be concentric with a round wall, and a point on a flat wall's line (`in_313`)", () => {
+  let s = withCutPlane(open());
+  const round = anchorRounds(scene(s), scene(s).parts["d/p_901"] as never).find((r) => r.ref.startsWith("b/body/s@CYLINDRE"))!;
+  s = run(s, { type: "batch", commands: [
+    { type: "addPart", part: { origin: "drawn", plane: "d/p_901", movable: true, ref: "d/e_910.c", kind: "corner", at: [round.center[0] + 2, round.center[1] + 1, 5] } },
+    { type: "addPart", part: { origin: "drawn", plane: "d/p_901", movable: true, ref: "d/e_910.k", kind: "circle", center: "d/e_910.c", radius: 2 } },
+  ] } as never);
+  const conc = actionsFor(scene(s), ["d/e_910.k" as Ref, round.ref]).find((a) => a.id === "concentric")!;
+  assert.ok(conc?.enabled, "Concentric with the round wall");
+  const after = run(s, conc.run());
+  assert.ok(!after.message, `${after.message}`);
+  const c = centreOf(after, "d/e_910.c" as Ref);
+  assert.ok(Math.hypot(c[0]! - round.center[0], c[1]! - round.center[1]) < 1e-3 && Math.abs(c[2]! - 5) < 1e-9, `on the wall's axis: ${c} and ${round.center}`);
+  // a point put on a flat wall's line
+  const wall = anchorLines(scene(after), scene(after).parts["d/p_901"] as never).find((l) => l.ref.startsWith("b/body/f@"))!;
+  const mid = [(wall.a[0] + wall.b[0]) / 2, (wall.a[1] + wall.b[1]) / 2];
+  const withPoint = run(after, { type: "addPart", part: { origin: "drawn", plane: "d/p_901", movable: true, ref: "d/e_911.c", kind: "corner", at: [mid[0]! + 1.5, mid[1]! + 1.5, 5] } } as never);
+  const on = actionsFor(scene(withPoint), ["d/e_911.c" as Ref, wall.ref]).find((a) => a.id === "onLine")!;
+  assert.ok(on?.enabled, "On line with the wall");
+  const done = run(withPoint, on.run());
+  assert.ok(!done.message, `${done.message}`);
+  const p = centreOf(done, "d/e_911.c" as Ref);
+  const gap = Math.abs((p[0]! - wall.a[0]) * (wall.b[1] - wall.a[1]) - (p[1]! - wall.a[1]) * (wall.b[0] - wall.a[0])) / Math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1]);
+  assert.ok(gap < 1e-6, `on the wall's line: ${gap}`);
+});
+
+test("a constraint to a flat wall follows the wall when the body's size changes (`in_313`)", () => {
+  let s = withCutPlane(open());
+  const wall = anchorLines(scene(s), scene(s).parts["d/p_901"] as never).find((l) => l.ref.startsWith("b/body/f@"))!;
+  const mid = [(wall.a[0] + wall.b[0]) / 2, (wall.a[1] + wall.b[1]) / 2];
+  s = run(s, { type: "addPart", part: { origin: "drawn", plane: "d/p_901", movable: true, ref: "d/e_912.c", kind: "corner", at: [mid[0]! + 1, mid[1]! + 1, 5] } } as never);
+  s = run(s, actionsFor(scene(s), ["d/e_912.c" as Ref, wall.ref]).find((a) => a.id === "onLine")!.run());
+  const rel = scene(s).relations.find((r) => r.kind === "onLine")!;
+  assert.equal(rel.anchors?.[wall.ref]?.kind, "face", "the wall is described");
+  const bigger = run(s, { type: "setRadius", ref: "d/e_002.k", radius: 10.9 } as never);
+  assert.ok(!bigger.message, `${bigger.message}`);
+  const rel2 = scene(bigger).relations.find((r) => r.kind === "onLine")!;
+  assert.ok(rel2.parts.some((q) => q.startsWith("b/body/f@") && q in scene(bigger).parts), `it names a wall that is there: ${rel2.parts}`);
+  assert.ok(!bigger.outcome.lost?.length, `nothing lost: ${bigger.outcome.lost}`);
+});

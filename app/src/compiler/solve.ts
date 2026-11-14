@@ -7,7 +7,7 @@ import { sub, dot, add, scale } from "../math/vec.ts";
 import type { Scene, Relation } from "../operation/scene.ts";
 import { lookup } from "../operation/scene.ts";
 import type { Plane, Lookup } from "../operation/part.ts";
-import { planeOfParts, pointOf, roundOf, relationKind } from "../operation/part.ts";
+import { planeOfParts, pointOf, roundOf, relationKind, traceOfFace } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
 import { consumed } from "../operation/ownership.ts";
@@ -86,6 +86,13 @@ function newModel(get: Lookup, plane: Plane): Model {
   };
   const lineIds = (ref: Ref): [string, string] | null => {
     const l = get(ref);
+    if (l?.kind === "plane" && l.origin === "body") { // a flat face of the body: the line where it cuts this plane, held fixed (`in_313`)
+      const t = traceOfFace(l, plane);
+      if (!t) return null;
+      const ids: [string, string] = [`~t0:${ref}`, `~t1:${ref}`];
+      for (const [i, id] of ids.entries()) if (!(id in points)) { points[id] = frame.to2d(t[i]!); cons.push({ id: `~anchor:${id}`, type: "fixed", p: id, at: points[id]! }); }
+      return ids;
+    }
     if (!l || l.kind !== "line") return null;
     const a = cornerId(l.a);
     const b = cornerId(l.b);
@@ -113,7 +120,7 @@ function newModel(get: Lookup, plane: Plane): Model {
 
 /** The solver constraint a relation means, or null if it cannot be made (a part is missing, a number is not set). */
 function constraintFor(m: Model, rel: Relation): Omit<SolverConstraint, "id"> | null {
-  const kindOf = (r: Ref) => (m.get(r) ? relationKind(m.get, r) : undefined); // (a circular edge of a body is a circle: an anchor)
+  const kindOf = (r: Ref) => (m.get(r) ? relationKind(m.get, r, m.frame.plane) : undefined); // (a circular edge of a body is a circle: an anchor)
   const ofKind = (k: "corner" | "line" | "circle") => rel.parts.filter((p) => kindOf(p) === k);
   const [c1, c2] = ofKind("corner");
   const [l1, l2] = ofKind("line");

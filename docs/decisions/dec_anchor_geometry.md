@@ -3,7 +3,7 @@ id: dec_anchor_geometry
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_305, in_308, in_309, in_310, in_311, in_312
+human_input: in_305, in_308, in_309, in_310, in_311, in_312, in_313
 date: 2026-11-14
 depends_on:
   - dec_relations_standard: the relations that apply to anchors are the table's own rows, not new ones
@@ -25,7 +25,9 @@ Built: (1) `roundOf` / `relationKind` (`operation/part.ts`): a **circular edge o
 
 **Hidden and visible (`in_312`).** A part of the body that is **not in the sketch's plane** is offered by proximity (the hints, the snaps, the first point of a circle, the suggestions) only if it **can be seen** from the camera: no face of the body between the eye and some point of it (its ends and middle, eight points round a rim; `visibleFrom` in `picking.ts`, the rule `candidatesAt` already used for picking: a face between the eye and the plane being sketched on hides nothing; the answer is kept for the same scene and eye). Parts in the plane are always offered (they are the face being sketched on). The relations table and the solver are not filtered: a part that is chosen by selecting it, or already named by a relation, is used whether it is seen or not. Orbiting so that an edge comes into view makes it offered; looking so that it is behind the body takes it away.
 
-Not built yet (each its own step): the same description for a face; body-to-body constraints (`q_body_constraints`).
+**Faces (`in_313`).** A face of the body is an anchor by what it makes **in the sketch's plane**: a **flat face** is the line where it cuts the plane, clipped to the face (`traceOfFace` in `part.ts`; a face that runs alongside the plane or that the plane does not reach has none), a **round face** (a post, a hole, a piece of one) is the circle it cuts across its axis (`roundOf`). Where the plane is within the face's extent the anchor is in the plane (offset 0); a round face the plane does not reach is only where it falls on the plane and is offered when it can be seen (`in_312`). Where an edge is already that line or circle the edge stays (it comes first), so the faces add what the edges do not: the walls of a body cut by a plane through it. A face and an edge of the body are a *line* or a *circle* wherever relations are chosen (`relationKind` with the plane being worked in): a drawn corner and a flat wall are offered On line, Distance and the rest; a drawn circle and a round wall Concentric, Equal radius, Tangent. The solver takes the trace as two fixed virtual corners and a round face as a fixed centre and radius (`solve.ts`). The recorded look covers a flat face (its middle, which way it faces, its height) and is found again by how far it moved along its facing, with up to eight degrees of turn counted against it (a tangent wall turns a little when a circle's size changes); the same loosening now holds for straight edges. Only a face with a clear winner is taken; else the relation is listed as lost, as before.
+
+Not built yet (each its own step): a curved face that is not a cylinder (a cone, a sphere, a fillet) has no line or circle in a plane and is not an anchor; a face that is parallel to the sketch's plane (it is not cut: it has no trace, only a distance); body-to-body constraints (`q_body_constraints`).
 
 ## Rationale
 

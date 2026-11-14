@@ -10,7 +10,7 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Scene, Relation } from "../operation/scene.ts";
 import { lookup, nextId, figureRefs } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
-import { relationKind } from "../operation/part.ts";
+import { relationKind, planeOfParts } from "../operation/part.ts";
 import { ordered } from "./selection.ts";
 import { ROWS, REFERENCES_ONLY, same } from "./rows.ts";
 import type { Ctx } from "./rows.ts";
@@ -41,7 +41,8 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
   const get = lookup(scene);
   const sel = ordered(selection, get).filter((r) => get(r));
   if (!sel.length) return [];
-  const kinds = sel.map((r) => relationKind(get, r)); // (a circular edge of a body counts as a circle: an anchor, `in_308`)
+  const sketchPlane = planeOfParts(get, sel);
+  const kinds = sel.map((r) => relationKind(get, r, sketchPlane)); // (a circular edge of a body counts as a circle: an anchor, `in_308`)
   const ctx: Ctx = { scene, get, parts: sel };
   const out: Action[] = [];
   const movable = sel.some((r) => get(r)?.movable);
