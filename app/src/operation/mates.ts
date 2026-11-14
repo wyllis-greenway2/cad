@@ -41,9 +41,9 @@ const put = (o: Record<string, number>, prefix: string, f: { point: Vec3; dir: V
 const get = (p: Record<string, number>, prefix: string): { point: Vec3; dir: Vec3; radius: number } => ({ dir: KEYS.map((k) => p[`${prefix}d${k}`] ?? 0) as unknown as Vec3, point: KEYS.map((k) => p[`${prefix}p${k}`] ?? 0) as unknown as Vec3, radius: p[`${prefix}r`] ?? 0 });
 
 /** The relation that records a mate, with the faces as they stand when it is true. */
-export function mateRelation(id: string, mode: MateMode, gap: number, mover: MateFeature, other: MateFeature, whenTrue: { mover: { point: Vec3; dir: Vec3 }; other: { point: Vec3; dir: Vec3 } }, counts = true): Relation {
+export function mateRelation(id: string, mode: MateMode, gap: number, mover: MateFeature, other: MateFeature, whenTrue: { mover: { point: Vec3; dir: Vec3 }; other: { point: Vec3; dir: Vec3 } }, counts = true, standing = false): Relation {
   // `fix`: the number counts (a parallel mate that was given a distance; for the others it always does, `in_319`)
-  const params: Record<string, number> = { mode: numberOfMode(mode), gap, fix: counts ? 1 : 0 };
+  const params: Record<string, number> = { mode: numberOfMode(mode), gap, fix: counts ? 1 : 0, stand: standing ? 1 : 0 };
   put(params, "m", { ...whenTrue.mover, radius: mover.radius });
   put(params, "o", { ...whenTrue.other, radius: other.radius });
   return { id, kind: MATE_KIND, parts: [mover.body, other.body], params, locked: true };
@@ -74,6 +74,8 @@ export interface MateState {
   gap: number;
   /** whether `gap` counts (always, except for a parallel mate that was not given a distance) */
   counts?: boolean;
+  /** a standing mate puts itself back after a change (`in_321`) */
+  standing?: boolean;
   /** ok: still true; off: the faces are there but no longer as mated; lost: a body or a face is gone */
   state: "ok" | "off" | "lost";
   /** the faces now (when found) */
@@ -118,7 +120,7 @@ export function mateStatus(scene: Scene): MateState[] {
       unit = "deg";
       ok = residual <= 0.006;
     }
-    out.push({ ...base, counts: mode !== "parallel" || (rel.params.fix ?? 1) === 1, state: ok ? "ok" : "off", mover, other, residual, unit });
+    out.push({ ...base, counts: mode !== "parallel" || (rel.params.fix ?? 1) === 1, standing: (rel.params.stand ?? 0) === 1, state: ok ? "ok" : "off", mover, other, residual, unit });
   }
   return out;
 }

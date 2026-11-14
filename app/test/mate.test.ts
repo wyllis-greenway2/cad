@@ -124,7 +124,7 @@ const matedBoxes = () => {
   const s = box(extrudeLast(run(createSession(kernel), rA.command), rA.lines, 10), 40, 0);
   rightA = (rA.corners as Ref[]).filter((c) => (scene(s).parts[c] as unknown as { at: number[] }).at[0] === 10);
   const [a, b] = bodies(s);
-  const done = run(s, actionsFor(scene(s), [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  const done = once(run(s, actionsFor(scene(s), [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run()));
   return { s: done, a: a!, b: b!, rightA };
 };
 
@@ -256,6 +256,8 @@ test("the gap is typed into the number that stands over two selected faces, and 
 });
 
 /** A body turned about Z by this many degrees (a step of its own, naming it). */
+/** The mates of the session made placed-once (not standing): they are checked and put back on request (`in_315`), not by themselves (`in_321`). */
+const once = (s: Session): Session => scene(s).relations.filter((r) => r.kind === "mate").reduce((q, r) => run(q, { type: "batch", commands: [{ type: "removeRelation", id: r.id }, { type: "addRelation", relation: { ...r, params: { ...r.params!, stand: 0 } } }] } as never), s);
 const turned = (s: Session, body: Body, deg: number): Session => run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "rotate", parts: [body.ref], params: { axis: 2, value: deg, px: 0, py: 0, pz: 0, body: body.id } } } as never);
 
 test("Mate: parallel faces only turns the first body until its face is parallel to the other's; it stays where it was (`in_317`)", () => {
@@ -266,7 +268,7 @@ test("Mate: parallel faces only turns the first body until its face is parallel 
   const faceB = Object.values(scene(s).parts).find((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && p.of === b1.ref && !!p.mesh && !p.curved && !p.round && Math.abs(normalOfPlane(p)[2]) < 1e-6 && Math.abs(normalOfPlane(p)[0]) > 0.5)!.ref;
   const act = actionsFor(scene(s), [faceB, faceOf(s, bodies(s).find((x) => x.id === a!.id)!, [1, 0, 0])]).find((x) => x.id === "mate:parallel")!;
   assert.ok(act?.enabled && act.dimensional, "offered, with a number that is optional");
-  const after = run(s, act.run());
+  const after = once(run(s, act.run()));
   assert.ok(!after.message, `${after.message}`);
   assert.equal(mateStatus(scene(after))[0]!.state, "ok");
   assert.equal(mateStatus(scene(after))[0]!.mode, "parallel");
@@ -330,7 +332,7 @@ test("Mate: angle between faces leaves the angle that is typed (the angle betwee
   const act = actionsFor(scene(s), pick).find((x) => x.id === "mate:angle")!;
   assert.ok(act.dimensional && act.unit === "deg", "angle has a number");
   assert.ok(Math.abs(act.measure()! - 0) < 1e-6, `they are parallel now: ${act.measure()}`);
-  const after = run(s, act.run(30));
+  const after = once(run(s, act.run(30)));
   assert.ok(!after.message, `${after.message}`);
   const st = mateStatus(scene(after))[0]!;
   assert.equal(st.state, "ok", `${st.residual}`);
@@ -340,7 +342,7 @@ test("Mate: angle between faces leaves the angle that is typed (the angle betwee
   assert.ok(Math.abs(Math.abs(fm.dir[0] * fo.dir[0] + fm.dir[1] * fo.dir[1] + fm.dir[2] * fo.dir[2]) - Math.cos((30 * Math.PI) / 180)) < 1e-6, "thirty degrees apart");
   // typed again, 60: the same mate, made again
   const pick2 = [st.mover!.ref, st.other!.ref];
-  const again = run(after, actionsFor(scene(after), pick2).find((x) => x.id === "mate:angle")!.run(60));
+  const again = once(run(after, actionsFor(scene(after), pick2).find((x) => x.id === "mate:angle")!.run(60)));
   assert.equal(scene(again).relations.filter((r) => r.kind === "mate").length, 1, "one mate");
   assert.equal(mateStatus(scene(again))[0]!.state, "ok");
   assert.equal(mateStatus(scene(again))[0]!.gap, 60);
@@ -381,7 +383,7 @@ test("Mate: parallel faces with a distance typed turns the body and leaves the p
   const pick = [faceB, faceOf(s, bodies(s).find((x) => x.id === a!.id)!, [1, 0, 0])];
   const act = actionsFor(scene(s), pick).find((x) => x.id === "mate:parallel")!;
   assert.ok(act.measure()! > 5, `how far apart the planes are now: ${act.measure()}`);
-  const done = run(s, act.run(7));
+  const done = once(run(s, act.run(7)));
   assert.ok(!done.message, `${done.message}`);
   const st = mateStatus(scene(done))[0]!;
   assert.equal(st.state, "ok", `${st.residual}`);
@@ -431,4 +433,36 @@ test("the numbers of a mate over two faces are told apart by a word and put one 
   assert.deepEqual(notes.map((x) => x.tag), ["gap", "distance", "angle"], "a word before each number");
   assert.deepEqual(notes.map((x) => x.stack), [0, 1, 2], "a column, in order");
   assert.ok(notes.every((x) => x.at[0] === notes[0]!.at[0] && x.at[2] === notes[0]!.at[2]), "all belong to one spot: the stack is on the screen, not in the model");
+});
+
+test("a standing mate puts itself back with the change that broke it, in one undo (`in_321`)", () => {
+  const rA = drawSquaredRectangle(scene(createSession(kernel)), XY, [0, 0, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]);
+  const s0 = box(extrudeLast(run(createSession(kernel), rA.command), rA.lines, 10), 40, 0);
+  const [a, b] = bodies(s0);
+  const mated = run(s0, actionsFor(scene(s0), [faceOf(s0, b!, [-1, 0, 0]), faceOf(s0, a!, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  assert.equal(mateStatus(scene(mated))[0]!.standing, true, "a new mate stands");
+  const rightA = (rA.corners as Ref[]).filter((c) => (scene(mated).parts[c] as unknown as { at: number[] }).at[0] === 10);
+  let wider = mated;
+  for (const ref of rightA) { const at = (scene(wider).parts[ref] as unknown as { at: number[] }).at; wider = run(wider, { type: "movePart", ref, to: [14, at[1]!, at[2]!] } as never); }
+  assert.equal(mateStatus(scene(wider))[0]!.state, "ok", "true again after the change");
+  const [a2, b2] = [bodies(wider).find((x) => x.id === a!.id)!, bodies(wider).find((x) => x.id === b!.id)!];
+  assert.ok(Math.abs(b2.bbox!.min[0] - a2.bbox!.max[0]) < 1e-3, "B follows A's wider face");
+  assert.ok(a2.bbox!.max[0] > 11, `A is wider: ${a2.bbox!.max}`);
+});
+
+test("a pin in a hole turns about the axis and slides along it, and stays mated; the change and what it put back undo together (`in_321`)", () => {
+  let s = cylinder(cylinder(createSession(kernel), 0, 0, 5), 40, 0, 3, 8);
+  const [a, b] = bodies(s);
+  s = run(s, actionsFor(scene(s), [roundOfBody(s, b!), roundOfBody(s, a!)]).find((x) => x.id === "mate:coaxial")!.run());
+  assert.equal(mateStatus(scene(s))[0]!.state, "ok");
+  const rows = actionsFor(scene(s), [bodies(s).find((x) => x.id === b!.id)!.ref]);
+  const [turn, slide] = [rows.find((x) => x.id === "joint:turn")!, rows.find((x) => x.id === "joint:slide")!];
+  assert.ok(turn && slide, "a pivot and a slider are offered for the pin");
+  const z0 = bodies(s).find((x) => x.id === b!.id)!.bbox!.min[2]!;
+  const slid = run(s, slide.run(6));
+  assert.ok(!slid.message, `${slid.message}`);
+  assert.ok(Math.abs(Math.abs(bodies(slid).find((x) => x.id === b!.id)!.bbox!.min[2]! - z0) - 6) < 1e-3, "it slid six along the axis");
+  const spun = run(slid, actionsFor(scene(slid), [bodies(slid).find((x) => x.id === b!.id)!.ref]).find((x) => x.id === "joint:turn")!.run(45));
+  assert.ok(!spun.message, `${spun.message}`);
+  assert.equal(mateStatus(scene(spun))[0]!.state, "ok", "still mated after turning and sliding");
 });

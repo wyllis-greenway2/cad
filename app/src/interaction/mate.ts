@@ -61,7 +61,7 @@ function eulerXYZ(m: Mat): { axis: 0 | 1 | 2; angle: number }[] {
  * The command that puts the first face's body against the second's: turns and a move, with the body's sketches carried, and the mate recorded as a relation (`in_315`); or why not. `gap`: how far apart the flat faces are left (mm).
  * `again`: the id of a mate that is made again after a change: the old record goes and the new one takes its id.
  */
-export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref, gap = 0, again?: string, counts = true): { command: Command } | { why: string } {
+export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref, gap = 0, again?: string, counts = true, standing = false): { command: Command } | { why: string } {
   const why = whyNotMate(scene, mode, mover, other);
   if (why) return { why };
   const [a, b] = [featureOf(scene, mover, mode)!, featureOf(scene, other, mode)!];
@@ -97,10 +97,11 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
   const r6 = (v: Vec3): Vec3 => v.map((x) => Math.round(x * 1e6) / 1e6) as unknown as Vec3;
   const turns = eulerXYZ(R);
   const translate = r6(move);
-  const record: Command = { type: "addRelation", relation: mateRelation(again ?? nextId(scene, "r"), mode, gap, a, b, { mover: { point: moverWhenTrue, dir: turnOnly(mode) ? rotate(R, a.dir) : want }, other: { point: b.point, dir: b.dir } }, counts) };
+  const record: Command = { type: "addRelation", relation: mateRelation(again ?? nextId(scene, "r"), mode, gap, a, b, { mover: { point: moverWhenTrue, dir: turnOnly(mode) ? rotate(R, a.dir) : want }, other: { point: b.point, dir: b.dir } }, counts, standing) };
   const forget: Command[] = again ? [{ type: "removeRelation", id: again }] : [];
   if (!turns.length && length(translate) < 1e-9) return { command: { type: "batch", commands: [...forget, record] } }; // (they meet already: only the mate is recorded)
-  const id = nextId(scene, "s");
+  let id = nextId(scene, "s");
+  while (scene.steps.some((st) => st.id.startsWith(id))) id = `${id}_`; // (the steps of an earlier mate are named from its id: s_028m, s_028x0, so the id alone does not show that it is taken)
   const steps: Command[] = turns.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: [a.body], params: { axis: t.axis, value: t.angle, px: pivot[0], py: pivot[1], pz: pivot[2], follow: 1, body: a.bodyId } } }));
   if (length(translate) > 1e-9) steps.push({ type: "addStep", step: { id: `${id}m`, type: "move", parts: [a.body], params: { axis: 0, value: 0, vx: translate[0], vy: translate[1], vz: translate[2], follow: 1, body: a.bodyId } } });
   const carry = carrySketches(scene, turns, translate, pivot, 1, a.bodyId);
@@ -108,11 +109,32 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
 }
 
 /** The mates that are no longer true (or just `only` this one), and the command that puts the first of them back (the one after it is looked at again once this one is made, for it may have moved what it rests on); null when all are true. */
-export function putMatesBack(scene: Scene, only?: string): { command: Command; id: string } | null {
+export function putMatesBack(scene: Scene, only?: string, standingOnly = false): { command: Command; id: string } | null {
   for (const m of mateStatus(scene)) {
-    if (m.state !== "off" || !m.mover || !m.other || (only && m.id !== only)) continue;
-    const r = mateCommand(scene, m.mode, m.mover.ref, m.other.ref, m.gap, m.id);
+    if (m.state !== "off" || !m.mover || !m.other || (only && m.id !== only) || (standingOnly && !m.standing)) continue;
+    const r = mateCommand(scene, m.mode, m.mover.ref, m.other.ref, m.gap, m.id, m.counts !== false, !!m.standing);
     if ("command" in r) return { command: r.command, id: m.id };
   }
   return null;
+}
+
+/**
+ * A joint driven (`in_321`): a coaxial mate leaves the first body free to turn about the shared axis (a pivot) and to slide along it (a slider); this is that turn (degrees) or slide (mm) as ordinary steps, with the
+ * body's sketches carried. The mate stays true, since the axis is what is kept. Null when the mate is not a true coaxial mate.
+ */
+export function driveCommand(scene: Scene, mateId: string, kind: "turn" | "slide", amount: number): Command | null {
+  const m = mateStatus(scene).find((x) => x.id === mateId);
+  if (!m || m.state !== "ok" || !m.mover || (m.mode !== "coaxial" && m.mode !== "parallelAxes") || !Number.isFinite(amount) || amount === 0) return null;
+  const a = m.mover;
+  let id = nextId(scene, "s");
+  while (scene.steps.some((st) => st.id.startsWith(id))) id = `${id}_`;
+  const body = a.bodyId;
+  if (kind === "slide") {
+    const d = normalize(a.dir);
+    const t: Vec3 = [d[0] * amount, d[1] * amount, d[2] * amount];
+    return { type: "batch", commands: [{ type: "addStep", step: { id: `${id}m`, type: "move", parts: [a.body], params: { axis: 0, value: 0, vx: t[0], vy: t[1], vz: t[2], follow: 1, body } } }, ...carrySketches(scene, [], t, a.point, 1, body)] };
+  }
+  const turns = eulerXYZ(turnAbout(a.dir, (amount * Math.PI) / 180));
+  const steps = turns.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: [a.body], params: { axis: t.axis, value: t.angle, px: a.point[0], py: a.point[1], pz: a.point[2], follow: 1, body } } }));
+  return { type: "batch", commands: [...steps, ...carrySketches(scene, turns, [0, 0, 0], a.point, 1, body)] };
 }

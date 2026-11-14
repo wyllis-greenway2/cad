@@ -2,6 +2,7 @@
 // This is the one object the app holds. Commands are checked against the whole scene, so a relation to a body corner or a drawing on a body face is valid
 // (the gap noted in Handoff 084).
 import { mateStatus } from "../operation/mates.ts";
+import { putMatesBack } from "./mate.ts";
 import { describedCommand } from "../operation/anchors.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Kernel } from "../compiler/kernel/adapter.ts";
@@ -98,6 +99,20 @@ const conflictsOf = (o: CompileOutcome): { planes: string[]; ids: string[] } => 
   ids: o.solve.planes.flatMap((p) => p.conflicts),
 });
 
+/** The commands that put the standing mates back, one at a time (each may move what the next rests on); empty when none is off or one cannot be put back. */
+function standingFixes(h: History): Command[] {
+  const out: Command[] = [];
+  let cur = h;
+  for (let k = 0; k < 8; k++) {
+    const back = putMatesBack(cur.scene, undefined, true);
+    if (!back) break;
+    const r = exec(cur, back.command);
+    if (!r.ok) return [];
+    out.push(back.command);
+    cur = r.value;
+  }
+  return putMatesBack(cur.scene, undefined, true) ? [] : out;
+}
 /**
  * Do a command. A command that cannot be done is refused and changes nothing: its reason is in `message`; and one that cannot be done without breaking constraints that were
  * holding says which (`conflict`): the ones it tried to change, and the ones it would have broken, so the view can show them.
@@ -141,6 +156,17 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   // a constraint to an edge of the body that the change took away, with no edge that looks like it: said, and the constraint flashes; the change stays (`in_309`)
   const lost = (next.outcome.lost ?? []).filter((id) => !(s.outcome.lost ?? []).includes(id));
   if (lost.length) return { ...next, message: `a constraint to an edge of the body has lost it (${lost.join(", ")}): no edge looks like it now; it holds nothing until the body is as it was`, conflict: { culprits: lost, victims: [] } };
+  // standing mates (`in_321`): the ones the change broke are put back in the same step, so one undo takes back the change and the corrections together
+  if (!next.outcome.kernel?.stale) {
+    const fixes = standingFixes(next.history);
+    if (fixes.length) {
+      const again = exec(s.history, { type: "batch", commands: [describedCommand(s.history.scene, c), ...fixes] });
+      if (again.ok) {
+        const kept = withHistory(s, again.value);
+        return { ...kept, conflict: null, message: `${fixes.length === 1 ? "a standing mate" : `${fixes.length} standing mates`} put back with the change` };
+      }
+    }
+  }
   // a mate (`in_315`) that was true and is not any more after this change: said, so it can be put back from the menu; the change stays
   const wasOff = new Set(mateStatus(s.history.scene).filter((m) => m.state !== "ok").map((m) => m.id));
   const nowOff = mateStatus(next.history.scene).filter((m) => m.state !== "ok" && !wasOff.has(m.id));

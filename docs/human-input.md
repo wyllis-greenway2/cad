@@ -1535,3 +1535,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_320 — 2026-11-14 — directive
 > Separate the crowded number bubbles on screen next
 (asks for the number bubbles that stand close together over two selected faces, the gap, the distance and the angle of the mates, to be separated on the screen)
+
+## in_321 — 2026-11-14 — directive
+> Start on the standing mates with pivots and sliders
+(asks to start on option 3 of `q_mate_persistence`: mates that stay true by themselves, and mates that leave freedom, pivots and sliders)

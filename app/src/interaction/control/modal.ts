@@ -219,6 +219,13 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     const rel = sceneOf(s.session).relations.find((r) => r.id === id.slice(12));
     return rel ? { ...closed, session: { ...s.session, click: { ...s.session.click, selection: rel.parts.filter((q) => q in sceneOf(s.session).parts) }, message: null } } : closed;
   }
+  if (id.startsWith("mate:stand:")) { // a mate is made standing (it puts itself back after a change) or not (`in_321`)
+    const rel = sceneOf(s.session).relations.find((r) => r.id === id.slice(11));
+    if (!rel?.params) return closed;
+    const on = (rel.params.stand ?? 0) === 1;
+    const next = run(s.session, { type: "batch", commands: [{ type: "removeRelation", id: rel.id }, { type: "addRelation", relation: { ...rel, params: { ...rel.params, stand: on ? 0 : 1 } } }] });
+    return { ...closed, session: next.message ? next : { ...next, message: on ? "the mate is placed once: it no longer puts itself back" : "the mate is standing: it puts itself back after a change" } };
+  }
   if (id.startsWith("mate:reapply:")) { // the mark of a mate that is not true was clicked: just that one is put back
     const back = putMatesBack(sceneOf(s.session), id.slice(13));
     if (!back) return { ...closed, session: { ...s.session, message: "that mate is true, or its faces are not found" } };

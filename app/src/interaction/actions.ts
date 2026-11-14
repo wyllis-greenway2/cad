@@ -12,9 +12,9 @@ import type { Scene, Relation } from "../operation/scene.ts";
 import { lookup, nextId, figureRefs } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
 import { relationKind, planeOfParts, roundOf } from "../operation/part.ts";
-import { whyNotMate, mateCommand } from "./mate.ts";
+import { whyNotMate, mateCommand, driveCommand } from "./mate.ts";
 import type { MateMode } from "../operation/mates.ts";
-import { featureOf, existingMate, faceMiddle, isFlatMode } from "../operation/mates.ts";
+import { featureOf, existingMate, faceMiddle, isFlatMode, mateStatus } from "../operation/mates.ts";
 import { ordered } from "./selection.ts";
 import { ROWS, REFERENCES_ONLY, same } from "./rows.ts";
 import type { Ctx } from "./rows.ts";
@@ -115,10 +115,20 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
         run: (value?: number): Command => {
           const again = fa && fb ? existingMate(scene, mode, fa.body, fb.body) ?? undefined : undefined; // (a mate made again between the same bodies replaces the one there)
           const amount = unit === null ? 0 : degrees ? Math.min(90, Math.max(0, value ?? 0)) : Math.max(0, value ?? 0);
-          const r = mateCommand(scene, mode, sel[0]!, sel[1]!, amount, again, mode !== "parallel" || value !== undefined); // (parallel faces are only turned unless a distance is typed)
+          const r = mateCommand(scene, mode, sel[0]!, sel[1]!, amount, again, mode !== "parallel" || value !== undefined, true); // (parallel faces are only turned unless a distance is typed)
           return "command" in r ? r.command : { type: "batch", commands: [] };
         },
       });
+    }
+  }
+
+  // a body that is the first of a true coaxial mate (a pin in a hole) is free to turn about the shared axis and to slide along it: a pivot and a slider (`in_321`)
+  if (sel.length === 1 && get(sel[0]!)?.kind === "body") {
+    const mate = mateStatus(scene).find((m) => m.state === "ok" && m.mode === "coaxial" && m.mover?.body === sel[0]);
+    if (mate) {
+      for (const [kind, label, unit] of [["turn", "Turn about the mate's axis", "deg"], ["slide", "Slide along the mate's axis", "mm"]] as const) {
+        out.push({ id: `joint:${kind}`, label, group: "operation", dimensional: true, unit, parts: [...sel], enabled: true, why: null, measure: () => 0, spot: () => faceMiddle(scene, mate.mover!.ref), run: (value?: number): Command => driveCommand(scene, mate.id, kind, value ?? 0) ?? { type: "batch", commands: [] } });
+      }
     }
   }
 
