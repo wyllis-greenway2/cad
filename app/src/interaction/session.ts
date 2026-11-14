@@ -169,7 +169,8 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   }
   // a mate (`in_315`) that was true and is not any more after this change: said, so it can be put back from the menu; the change stays
   const wasOff = new Set(mateStatus(s.history.scene).filter((m) => m.state !== "ok").map((m) => m.id));
-  const nowOff = mateStatus(next.history.scene).filter((m) => m.state !== "ok" && !wasOff.has(m.id));
+  // (while the kernel is still answering the faces are the older ones, and a mate just made would read as not true: said only when the answer is there)
+  const nowOff = next.outcome.kernel?.stale ? [] : mateStatus(next.history.scene).filter((m) => m.state !== "ok" && !wasOff.has(m.id));
   if (nowOff.length) return { ...next, conflict: null, message: `${nowOff.length === 1 ? "a mate is" : `${nowOff.length} mates are`} no longer true (${nowOff.map((m) => m.state === "lost" ? "a face is gone" : "the bodies have come apart").join(", ")}): "Put the mates back" in the ⋯ menu makes them again` };
   const late = !!next.outcome.kernel?.stale && steps.length > 0;
   return { ...next, conflict: null, checkSteps: late ? steps : undefined, fallback: late ? opts.fallback : undefined };
@@ -191,7 +192,19 @@ export function refresh(s: Session): Session {
     }
     return { ...back, message: now.outcome.errors[failed] ?? "that could not be made", conflict: stepProblem(back, now, failed) ?? back.conflict };
   }
-  return { ...now, checkSteps: now.outcome.kernel?.stale ? s.checkSteps : undefined, fallback: now.outcome.kernel?.stale ? s.fallback : undefined };
+  const fresh = !now.outcome.kernel?.stale;
+  // the answer has come for a change made while it was awaited (the browser): the standing mates it broke are put back now, in the same step as the change (`in_321`, `in_328`: they were not before)
+  if (fresh && s.outcome.kernel?.stale && h.cursor === h.commands.length && h.cursor > 0) {
+    const fixes = standingFixes(now.history);
+    if (fixes.length) {
+      const again = exec(undo(now.history), { type: "batch", commands: [h.commands[h.cursor - 1]!, ...fixes] });
+      if (again.ok) return { ...withHistory(now, again.value), checkSteps: undefined, fallback: undefined, message: `${fixes.length === 1 ? "a standing mate" : `${fixes.length} standing mates`} put back with the change` };
+    }
+  }
+  // and a mate that is not true now, with nothing said when the change was made (the answer was awaited): said once the answer is here
+  const off = fresh && s.outcome.kernel?.stale && !now.message ? mateStatus(now.history.scene).filter((m) => m.state !== "ok" && m.standing) : []; // (a standing one the change broke and nothing could put back: the others were left off knowingly)
+  const said = off.length ? `${off.length === 1 ? "a mate is" : `${off.length} mates are`} not true and could not be put back with the change (it may be at odds with another mate, or a face is gone)` : now.message;
+  return { ...now, message: said, checkSteps: now.outcome.kernel?.stale ? s.checkSteps : undefined, fallback: now.outcome.kernel?.stale ? s.fallback : undefined };
 }
 export const undoLast = (s: Session): Session => { const n = withHistory(s, undo(s.history)); return s.lagging ? refresh(n) : n; };
 export const redoLast = (s: Session): Session => { const n = withHistory(s, redo(s.history)); return s.lagging ? refresh(n) : n; };

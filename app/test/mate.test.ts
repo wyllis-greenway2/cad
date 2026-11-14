@@ -602,3 +602,12 @@ test("a column of mate numbers goes down, and up when it would run off the botto
   assert.deepEqual([0, 1, 2].map((i) => stackOffset(40, i, 3, 100)), [0, 38, 76], "no room above either: stays down");
   assert.equal(stackOffset(560, 0, 1, 600), 0, "one number does not move");
 });
+
+test("a mate whose face is gone still says whether it stands, so it can be reported (`in_328`)", () => {
+  let s = cylinder(cylinder(createSession(kernel), 0, 0, 5), 40, 0, 3, 8);
+  const [a, b] = bodies(s);
+  s = run(s, actionsFor(scene(s), [roundOfBody(s, b!), roundOfBody(s, a!)]).find((x) => x.id === "mate:coaxial")!.run());
+  const gone = run(s, actionsFor(scene(s), [bodies(s).find((x) => x.id === a!.id)!.ref]).find((x) => x.id === "delete")!.run());
+  assert.ok(mateStatus(scene(s)).every((m) => m.standing === true), "standing while true");
+  assert.ok(mateStatus(scene(gone)).every((m) => m.standing === true) || mateStatus(scene(gone)).length === 0, "and when lost");
+});

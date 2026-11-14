@@ -95,7 +95,7 @@ export function mateStatus(scene: Scene): MateState[] {
     if (rel.kind !== MATE_KIND || !rel.params) continue;
     const mode = modeOf(rel.params.mode);
     const gap = rel.params.gap ?? 0;
-    const base = { id: rel.id, mode, gap };
+    const base = { id: rel.id, mode, gap, standing: (rel.params.stand ?? 0) === 1 };
     const [mb, ob] = rel.parts;
     if (!mb || !ob || scene.parts[mb]?.kind !== "body" || scene.parts[ob]?.kind !== "body") { out.push({ ...base, state: "lost" }); continue; }
     const [mover, other] = [findFace(scene, mb, mode, get(rel.params, "m")), findFace(scene, ob, mode, get(rel.params, "o"))];

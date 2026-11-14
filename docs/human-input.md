@@ -1563,3 +1563,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_327 — 2026-11-14 — directive
 > Do the mate-number column going upward next
 (asks for the stacked mate numbers to be able to go upward, listed as a known gap: the column always went downward)
+
+## in_328 — 2026-11-14 — directive
+> Do the browser pass over the recent slices next
+(asks for the recent mate slices to be looked at in a real browser)

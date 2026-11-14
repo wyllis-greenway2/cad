@@ -3,7 +3,7 @@ id: dec_standing_mates
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_321, in_322, in_323
+human_input: in_321, in_322, in_323, in_328
 date: 2026-11-14
 depends_on:
   - dec_body_mates: a standing mate is a placement mate that is kept true; it uses the same record, faces and corrective steps
@@ -23,3 +23,5 @@ alternative_to:
 ## Rationale
 
 Keeping standing mates as appended steps reuses everything already tested (carrying sketches, anchors, undo, save/open) and needs no new solver; the cost is that a body with competing mates is corrected greedily rather than solved. Grouping with the change in one entry keeps undo honest. A real pose solver should be added only if competing mates turn out to matter.
+
+7. **Browser pass (`in_328`).** Looked at in Chromium: the mate mark, the joint's ring and arrow, a slide drag (shown moving, made as one step, position kept on the mate), a turn drag of the ring, the axis-perpendicular-to-a-face mate, an angle of 120, the number column on a tall and a short page. **Found and fixed:** (a) a mate just made read as "no longer true" while the kernel's answer was awaited (it was checked against the older faces): the check now waits for the answer; (b) a standing mate that a change broke while the answer was awaited was never put back or reported: when the answer arrives it is put back in the same step as the change (`refresh`), or, if it cannot be (two mates at odds: an angle of 120 turns the body away from its coaxial mate and the face is lost), it is said. **Seen, not changed:** the joint's ring and arrow are drawn like the Move arrows (charcoal, faint) and are easy to miss; the mate-number bubbles sit on the page's left outside the view when their faces are out of view.
