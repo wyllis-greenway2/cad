@@ -1579,3 +1579,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_331 — 2026-11-14 — directive
 > Switch and delete the stretch code
 (answers the question of scope put after `in_330`: the kernel's own result becomes the preview of every operation that is a stretch today (a prism pull, a face pull, a wall made wider, a side or an arc made bigger, a fillet or chamfer), the matrix of the graphics card stays for the rigid motions (move, turn, uniform scale), and the stretch code is removed in the same go: the stretch paths, their check against the kernel, and the renderer's stretch machinery)
+
+## in_332 — 2026-11-14 — directive
+> okay look at this file. If you draw a line from the upper right arc end, it tries to make suggestions to all sorts of points that aren't there.
+(reports a bug in `snapping_to_things_that_arent_there.cad.json` and its state snapshot: drawing a line from the end of the upper right arc, the suggestions offered point at places where nothing is)

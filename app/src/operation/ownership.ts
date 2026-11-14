@@ -57,10 +57,31 @@ export const broken = (map: OwnershipMap): OwnedItem[] => [...map.items.values()
  * The drawn parts an extrude has used up: its lines or circle, their corners, and the closed figure's face. They stay in the scene (undo and deleting the step bring them
  * back, and relations on them still hold) but are not drawn or picked while the step uses them, as in the prototype.
  */
-/** The scene without what an extrude has used up (and what a deleted body took with it): the drawing as it is to work on. Snapping, alignment and suggested constraints look here, so nothing hidden is suggested or snapped to. */
+/**
+ * The drawn corners that nothing is drawn on: no line or arc ends or is centred there and no circle is centred there (`in_332`). Such a corner is not drawn (a corner shows only as the end of a line or the middle of a circle or
+ * arc), so it must not be snapped to, lined up with or offered a constraint: it is what is left behind when the lines that stood on it are taken away. Worked out once for a scene, as `consumed` is.
+ */
+const looseMemo = new WeakMap<Scene, ReadonlySet<Ref>>();
+function looseCorners(s: Scene): ReadonlySet<Ref> {
+  const known = looseMemo.get(s);
+  if (known) return known;
+  const stood = new Set<Ref>();
+  for (const p of Object.values(s.parts)) {
+    if (p.kind === "line") { stood.add(p.a); stood.add(p.b); if (p.center) stood.add(p.center); }
+    else if (p.kind === "circle") stood.add(p.center);
+  }
+  const loose = new Set<Ref>();
+  for (const p of Object.values(s.parts)) if (p.kind === "corner" && p.origin === "drawn" && !p.derived && !stood.has(p.ref)) loose.add(p.ref);
+  looseMemo.set(s, loose);
+  return loose;
+}
+
+/** The scene without what an extrude has used up (and what a deleted body took with it) and without the corners nothing is drawn on: the drawing as it is to work on. Snapping, alignment and suggested constraints look here, so nothing hidden is suggested or snapped to. */
 export function live(s: Scene): Scene {
   const used = consumed(s);
-  return used.size ? { ...s, parts: Object.fromEntries(Object.entries(s.parts).filter(([r]) => !used.has(r as Ref))) } : s;
+  const loose = looseCorners(s);
+  if (!used.size && !loose.size) return s;
+  return { ...s, parts: Object.fromEntries(Object.entries(s.parts).filter(([r]) => !used.has(r as Ref) && !loose.has(r as Ref))) };
 }
 
 /** The hidden parts of the sketch plane being sketched in (`in_211`): what the caller must not count as used up. */

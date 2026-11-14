@@ -137,7 +137,7 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
         run: (): Command => { const r = deleteSurface(scene, surfaces[0]!); return "command" in r ? r.command : { type: "batch", commands: [] }; },
       });
     }
-    const used = (corner: Ref) => Object.values(scene.parts).some((q) => !picked.has(q.ref) && ((q.kind === "circle" && q.center === corner) || (q.kind === "line" && (q.a === corner || q.b === corner || q.center === corner)))); // another part still stands on this corner
+    const used = (corner: Ref) => Object.values(scene.parts).some((q) => !picked.has(q.ref) && ((q.kind === "circle" && q.center === corner) || (q.kind === "line" && !q.derived && (q.a === corner || q.b === corner || q.center === corner)))); // another part still stands on this corner (a piece cut from a line, `derived`, is not another part: it goes with the line it was cut from)
     const targets = surfaces.length ? [] : drawn.flatMap((r): Ref[] => {
       const p = get(r);
       if (p?.kind === "face") return [...p.corners, ...p.loop.flatMap((l) => { const x = get(l); return x?.kind === "line" && x.center ? [x.center] : []; })]; // a face's corners (a disk's centre, the centres of its arcs): everything built on them goes too
