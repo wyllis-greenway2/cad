@@ -69,6 +69,8 @@ export function createView(host: HTMLElement) {
     shifter = built ? built.shift : null;
     splitter = built ? built.split : null;
     moverGroup = built ? built.mover : null;
+    ghoster = built ? built.ghost : null;
+    ghoster?.(hiddenOn);
     splitNow = null;
     shiftedFace = null;
     faceKeys = null;
@@ -79,6 +81,10 @@ export function createView(host: HTMLElement) {
     if (moverGroup) moverGroup.matrix.fromArray(IDENTITY);
     applyFade();
   }
+  let ghoster: ((on: boolean) => void) | null = null;
+  let hiddenOn = false;
+  /** The edges of the body that are behind a face show faintly (while a sketch is being drawn, `in_324`). */
+  function setHiddenEdges(on: boolean) { if (on === hiddenOn) return; hiddenOn = on; ghoster?.(on); }
   let bodyMat: import("three").MeshPhysicalMaterial | null = null;
   let bodyGroup: import("three").Group | null = null;
   let bodyMatrix: number[] | null = null;
@@ -251,5 +257,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { setScene, setBodyMatrix, setFaceShift, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { setScene, setHiddenEdges, setBodyMatrix, setFaceShift, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

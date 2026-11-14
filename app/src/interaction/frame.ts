@@ -68,6 +68,8 @@ export interface Frame {
   mesh: KernelResult["mesh"];
   /** the body is drawn moved by this matrix (16 numbers, column by column) while its move, turn or scale is dragged or waits for the kernel (`in_216`) */
   bodyMatrix: number[] | null;
+  /** the edges of a body that are behind a face are drawn faintly: while a sketch tool is on and there is a body to draw on or against (`in_324`) */
+  hiddenEdges: boolean;
   /** when the matrix moves one body of several: the triangles (ranges of the mesh's index list) and the box of that body, so only it is moved (`in_273`) */
   bodySplit: { tris: [number, number][]; box: { min: Vec3; max: Vec3 } } | null;
   /** the face (with the walls beside it) drawn moved by this much while it is dragged or waits for the kernel (`in_217`) */
@@ -403,6 +405,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     scene: sc,
     mesh: outcome.kernel?.mesh ?? null,
     bodyMatrix,
+    hiddenEdges: !!s.tool && hasBody,
     bodySplit,
     faceShift,
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),

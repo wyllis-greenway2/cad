@@ -71,7 +71,7 @@ function linePairs(s: Scene, skip: ReadonlySet<Ref>): number[] {
  * One look for every line (`in_115`): drawn lines and the body's outline are the same thin charcoal line, from the same material. Corners are not dotted anywhere:
  * a corner shows as a ball when you point at it or pick it, whatever it belongs to.
  */
-export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group; shift: (keys: Set<string> | null, how: Shift) => void; split: (tris: [number, number][] | null, box: { min: readonly number[]; max: readonly number[] } | null) => void; mover: THREE.Group } | null {
+export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group; /** the body's edges that lie behind a face, drawn faintly or not (`in_324`) */ ghost: (on: boolean) => void; shift: (keys: Set<string> | null, how: Shift) => void; split: (tris: [number, number][] | null, box: { min: readonly number[]; max: readonly number[] } | null) => void; mover: THREE.Group } | null {
   clearGroup(content);
   pen.reset();
   const get = lookup(s);
@@ -103,6 +103,7 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
   const corners = cornerEdges(mesh.vertices, mesh.normals, mesh.triangles, settings.extrude.edgeAngleDeg); // where the surface turns by more than 30 degrees
   let edgePos: THREE.BufferAttribute | null = null;
   let edgeLines: THREE.LineSegments | null = null;
+  let ghostLines: THREE.LineSegments | null = null;
   const edgeOrig = Float32Array.from(corners);
   if (corners.length) {
     const eg = new THREE.BufferGeometry();
@@ -110,6 +111,10 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
     eg.setAttribute("position", edgePos);
     edgeLines = new THREE.LineSegments(eg, edge);
     body.add(edgeLines);
+    // the same edges again, only where a face of the body is in front of them, faint: while a sketch is drawn they show where the edges are that cannot be pointed at (`in_324`)
+    ghostLines = new THREE.LineSegments(eg, new THREE.LineBasicMaterial({ color: settings.theme.bodyEdge, transparent: true, opacity: settings.theme.hiddenEdgeOpacity, depthFunc: THREE.GreaterDepth, depthWrite: false }));
+    ghostLines.visible = false;
+    body.add(ghostLines);
   }
   const material = new THREE.MeshPhysicalMaterial({ color: settings.theme.bodyColor, roughness: settings.light.roughness, metalness: 0, clearcoat: settings.light.sheen, clearcoatRoughness: settings.light.sheenRoughness, envMap, envMapIntensity: settings.light.reflect, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
   body.add(new THREE.Mesh(g, material));
@@ -244,5 +249,5 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
       mover.add(new THREE.LineSegments(eg2, edge));
     }
   };
-  return { material, body, shift, split, mover };
+  return { material, body, shift, split, mover, ghost: (on: boolean) => { if (ghostLines) ghostLines.visible = on; } };
 }

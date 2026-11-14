@@ -67,6 +67,8 @@ export const settings = {
     pane: [0.55, 0.58, 0.64] as [number, number, number], // the little pane of a world plane that is off
     bodyColor: 0xc9c9cd,
     bodyEdge: 0x2a2a2d,
+    /** how faint the edges of a body behind a face are drawn while a sketch tool is on (`in_324`) */
+    hiddenEdgeOpacity: 0.22,
   },
   grid: { show: true, divisions: 30, minorAlpha: 0.35, majorAlpha: 0.7, color: [0.62, 0.63, 0.67] as [number, number, number] },
   flash: { ms: 1100, shakeMs: 450 }, // a refused change: the broken constraints flash red and fade over this long; the one that tried shakes for the first part of it

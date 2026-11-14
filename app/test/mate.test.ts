@@ -536,3 +536,14 @@ test("how far a joint may still go is the room to its stops (`in_323`)", () => {
   assert.deepEqual(jointRoom(scene(s), id, "slide"), { down: -Infinity, up: 4 });
   assert.ok(jointRigid(scene(s), id, "slide", 3), "a picture of the slide while dragging");
 });
+
+test("the edges of a body behind a face are drawn faintly only while a sketch tool is on and there is a body (`in_324`)", () => {
+  const env = { w: 800, h: 600, now: 0 };
+  const empty = createState(createSession(kernel));
+  assert.equal(frameOf(reduce(empty, { type: "runAction", id: "tool:rect" }, env), env).hiddenEdges, false, "no body: nothing to show");
+  const st = createState(box(createSession(kernel), 0, 0));
+  assert.equal(frameOf(st, env).hiddenEdges, false, "no tool: the usual look");
+  const drawing = reduce(st, { type: "runAction", id: "tool:rect" }, env);
+  assert.ok(drawing.tool, "the tool is on");
+  assert.equal(frameOf(drawing, env).hiddenEdges, true);
+});

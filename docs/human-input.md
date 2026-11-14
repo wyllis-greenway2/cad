@@ -1547,3 +1547,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_323 — 2026-11-14 — directive
 > Do the drag handle for pivots and sliders next
 (asks for the drag handle left unbuilt in `dec_standing_mates`)
+
+## in_324 — 2026-11-14 — directive
+> Do the hidden-edge marking next
+(asks for the hidden-edge faint marking listed as a known gap since `in_312`)
