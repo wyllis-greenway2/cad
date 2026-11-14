@@ -1631,3 +1631,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_344 — 2026-11-14 — approval
 > yes, do the root fix
 (approves the root fix put after `in_343`: one place that says what curve a body edge is, from the kernel's own type, every reader of an edge's geometry going through it, and no circle made of an edge that the kernel does not say is one)
+
+## in_345 — 2026-11-14 — directive
+> check it in the real browser with playwright
+(about the `in_341` / `in_344` fix of the curved edge: look at it in the real app, not only headless)
