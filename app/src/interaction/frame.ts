@@ -113,7 +113,7 @@ export interface Frame {
   /** nothing of the model is in view: the Reset camera button is offered (`in_303`) */
   resetView: boolean;
   /** a change refused for the constraints it would break, while it flashes: the button that deletes them and goes on (`in_335`) */
-  refusal: { text: string; button: string } | null;
+  refusal: { text: string; button: string; /** the constraint it stands beside */ beside: string } | null;
   selection: { count: number; actions: { id: string; label: string; title: string }[] } | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate"; label: string } | null;
@@ -288,7 +288,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors, s.showSketch),
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus, s.showAllConstraints || !!s.showSketch), sc, flash)],
     flash,
-    refusal: flash && s.flash?.retry && s.flash.victims.length ? { text: s.session.message ?? "", button: s.flash.victims.length === 1 ? "Delete constraint to proceed" : "Delete constraints to proceed" } : null,
+    refusal: flash && s.flash?.retry && s.flash.victims.length ? { text: s.session.message ?? "", beside: s.flash.victims[0]!, button: s.flash.victims.length === 1 ? "Delete constraint to proceed" : "Delete constraints to proceed" } : null,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // on: the world plane that is on always has its grid (`in_190`)
     suggest: busy ? null : suggestionsFor(sc, sel, nearTolMm(s.cam), seenIn(s.cam, sc, size)),
     cut: s.cut ? { parts: cutParts(sceneOf(s.session), s.cut), join: s.cut.join } : null, // (the bodies as they are, not as the preview of the cut shows them)

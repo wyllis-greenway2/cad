@@ -279,7 +279,6 @@ function frame(now: number) {
     undoBar.update(lastDevice === "touch", f.undoRedo);
     similarChip.update(f.similar);
     selectionChip.update(f.selection);
-    refusalChip.update(f.refusal);
     resetView.update(f.resetView);
     { const pg = host.getBoundingClientRect(); crosshair.update(recognizer.game && document.pointerLockElement !== null, { x: pg.left + pg.width / 2, y: pg.top + pg.height / 2 }); }
     toolCursor.update(f.tool ? f.tool.kind : null);
@@ -287,6 +286,7 @@ function frame(now: number) {
     // what comes before the constraint bubbles: the ring, and the number bubbles (and the helper bubble, the suggestions and the hint icons), as they stood on the last frame
     const inFront = [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), hintIcons.rect(), ...touchRects].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : []));
     if (bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid, inFront)) dirty = true; // (a bubble still sliding to its place: another frame)
+    refusalChip.update(f.refusal, f.refusal ? bubbles.rectOf(f.refusal.beside) : null); // (beside the bubble of the constraint that stopped it, `in_336`)
     view.setNotes(f.annotations.flatMap((a) => a.lines));
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
