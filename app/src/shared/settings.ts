@@ -32,7 +32,6 @@ export const settings = {
     trackpadPanScale: 0.3, // how much of a trackpad's two-finger scroll the view pans by: less than 1 is less sensitive (`in_300`)
     scrollMode: "auto" as "auto" | "pan" | "zoom", // what a scroll does: auto = a trackpad's two-finger scroll pans and a wheel zooms (a pinch always zooms) (`in_079`)
     zoomToCursor: true, // zoom IN toward the point under the cursor; zoom OUT is about the view centre (no runaway)
-    zoomAnchorMaxFactor: 1.5, // zoom toward surface points within this many view-distances of the target
     maxZoomFactorPerSecond: 5, // one gesture can never zoom faster than this
     pinchZoomPerWheel: 0.01, // a trackpad pinch (a wheel event with ctrl held) is more sensitive than a wheel notch
     scrollNotchMs: 160, // a scroll gesture keeps its kind while its events keep arriving within this
@@ -71,7 +70,7 @@ export const settings = {
     hiddenEdgeOpacity: 0.22,
   },
   grid: { show: true, divisions: 30, minorAlpha: 0.35, majorAlpha: 0.7, color: [0.62, 0.63, 0.67] as [number, number, number] },
-  flash: { ms: 1100, shakeMs: 450 }, // a refused change: the broken constraints flash red and fade over this long; the one that tried shakes for the first part of it
+  flash: { ms: 4500, shakeMs: 450, holdMs: 1000 }, // a refused change (`in_366`: it stays long enough to read and to press "Delete constraint to proceed"; while the pointer is on that button it waits at `holdMs`): the broken constraints flash red and fade over this long; the one that tried shakes for the first part of it
   world: { axisLengthMm: 24, axisWidthPx: 1.6, axisOpacity: 1, paneGapMm: 3, paneMm: 8, paneRound: 0.18, paneOpacity: 0.18, paneActiveOpacity: 0.4 }, // (the three little panes of the world planes: how far from the origin, how big, how see-through) // the small charcoal axes at the origin: their real length in mm (so they zoom with the model: was 8.4), line width, opacity
   buttons: { marginPx: 18, sizePx: 34 }, // the X Y Z buttons at the right edge, lower right
   light: { key: 1.7, fill: 0.12, ambient: 0.42, roughness: 0.4, sheen: 0.55, sheenRoughness: 0.25, reflect: 0.5 }, // lights ride with the camera; the body has a slight clear-coat sheen and a soft studio reflected in it

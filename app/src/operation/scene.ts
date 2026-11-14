@@ -47,6 +47,12 @@ export function figuresOf(st: Step): Figure[] {
   }
   return out;
 }
+/** The depth of each figure of an extrude step: the first uses `depth`; a sibling uses its own number in `alsoDepth` (`a|b`, in the order of `also`) when it has one, else the step's depth (`in_351`: two blocks made together can then be pulled apart). */
+export function figureDepths(st: Step): number[] {
+  const d = Number(st.params.depth ?? 0);
+  const own = String(st.params.alsoDepth ?? "").split("|");
+  return figuresOf(st).map((_, i) => { if (i === 0) return d; const n = own[i - 1] === undefined || own[i - 1] === "" ? NaN : Number(own[i - 1]); return Number.isFinite(n) ? n : d; });
+}
 /** The step's figures as its two params (`holes` for the first, `also` for the rest). */
 export function figureParams(figs: Figure[]): Record<string, string> {
   const enc = (f: Figure) => f.holes.map((h) => h.join(",")).join(";");
@@ -67,6 +73,8 @@ export interface Scene {
   patterns?: readonly PatternRecord[];
   /** the plane whose hidden sketch (what extrusions used up) is shown and snapped to while sketching in it (not part of the model, only of how it is looked at, `in_211`) */
   reveal?: Ref;
+  /** A figure moved on a plane of its own keeps that plane under its own name; the name the command gave to a new plane is kept here as another name for it, so a history made when a move made a new plane (more parts were left on the old plane then) still replays (`in_372`) */
+  planeAlias?: Readonly<Record<string, Ref>>;
   /** Id counter: ids are never reused, so replaying a command list gives the same names. */
   counter: number;
 }

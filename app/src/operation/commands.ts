@@ -11,7 +11,7 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Part } from "./part.ts";
 import { anchorsOf } from "./part.ts";
 import type { Scene, Relation, Step } from "./scene.ts";
-import { bumpCounter } from "./scene.ts";
+import { bumpCounter, figureRefs } from "./scene.ts";
 import { addGroup, removeGroup, withoutParts } from "./groups.ts";
 import { addPattern, setPattern, breakPattern, patternsWithout } from "./repeat.ts";
 
@@ -30,7 +30,7 @@ export type Command =
   | { type: "setStepParams"; id: string; params: Record<string, number | string> }
   /** Move or turn a drawn figure in space like an object (`in_135`): its corners (and circles, lines) with the plane they lie on. `turns` are about the world axes through `pivot`, in order, then `translate`.
    *  If the plane is shared with other drawings (a world plane, a face of the body) the figure gets a new drawn plane, named `newPlane`. */
-  | { type: "transformFigure"; parts: Ref[]; plane: Ref; newPlane: Ref; turns: { axis: 0 | 1 | 2; angle: number }[]; pivot: Vec3; translate: Vec3; /** made this many times bigger about `pivot`, after the turns (the same all ways; circles too) */ scale?: number }
+  | { type: "transformFigure"; parts: Ref[]; plane: Ref; newPlane: Ref; turns: { axis: 0 | 1 | 2; angle: number }[]; pivot: Vec3; translate: Vec3; /** made this many times bigger about `pivot`, after the turns (the same all ways; circles too) */ scale?: number; /** a plane drawn when there was one body has no owner: this names the body it belongs to, so a later move of that body is read back through for what is drawn on it (`in_277`) */ body?: string }
   /** group things (parts, or groups made before) so that selecting one selects all; `id` is a new group id (`in_257`) */
   | { type: "group"; id: string; items: string[] }
   /** break one group: what was in it stays, and a group inside it stays a group */
@@ -60,10 +60,45 @@ export function dependentParts(s: Scene, ref: Ref): Ref[] {
   return [...out];
 }
 
+/**
+ * The drawn corners that stood under parts that are going and are left with nothing drawn on them (`in_363`, `in_365`): no line or arc ends or is centred there and no circle is centred there. A corner shows only as the end of a
+ * line or the middle of a circle or arc, so one with nothing on it is not there for the person drawing, and must not be left behind to be snapped to or lined up with. This is the one place the rule is kept: a delete, a trim and
+ * a deleted surface all take parts away through `deletePart` and `deleteParts`, whatever they ask for. A corner a step names or a repeat repeats stays (taking it would change what they are made of), as does a corner the
+ * sketch derives (a crossing). A piece cut from a line (`derived`) does not stand on a corner: it goes with its line.
+ */
+function strandedCorners(s: Scene, gone: ReadonlySet<Ref>): Ref[] {
+  const under = new Set<Ref>();
+  for (const r of gone) {
+    const p = s.parts[r];
+    if (p?.kind === "line") { under.add(p.a); under.add(p.b); if (p.center) under.add(p.center); }
+    else if (p?.kind === "circle") under.add(p.center);
+  }
+  if (!under.size) return [];
+  const stood = new Set<Ref>();
+  for (const p of Object.values(s.parts)) {
+    if (gone.has(p.ref)) continue;
+    if (p.kind === "line" && !p.derived) { stood.add(p.a); stood.add(p.b); if (p.center) stood.add(p.center); }
+    else if (p.kind === "circle") stood.add(p.center);
+  }
+  const named = new Set<Ref>([...s.steps.flatMap((st) => (st.type === "extrude" ? figureRefs(st) : st.parts)), ...(s.patterns ?? []).flatMap((r) => r.parts)]);
+  return [...under].filter((r) => {
+    const p = s.parts[r];
+    return !gone.has(r) && !stood.has(r) && !named.has(r) && p?.kind === "corner" && p.origin === "drawn" && p.movable && !p.derived;
+  });
+}
+/** What goes when these parts go: everything built on them, and the corners that would be left with nothing on them. */
+function goneWith(s: Scene, refs: readonly Ref[]): Set<Ref> {
+  const gone = new Set<Ref>();
+  for (const r of refs) for (const d of dependentParts(s, r)) gone.add(d);
+  for (const c of strandedCorners(s, gone)) for (const d of dependentParts(s, c)) gone.add(d);
+  return gone;
+}
+
 export function apply(s: Scene, c: Command): Result<Scene> {
   switch (c.type) {
     case "addPart": {
       if (c.part.ref in s.parts) return err(`${c.part.ref} already exists`);
+      if (c.part.plane && !(c.part.plane in s.parts) && s.planeAlias?.[c.part.plane]) return apply(s, { ...c, part: { ...c.part, plane: s.planeAlias[c.part.plane]! } as typeof c.part }); // (`in_372`)
       for (const a of anchorsOf(c.part)) if (a !== c.part.ref && !(a in s.parts)) return err(`${c.part.ref} uses ${a}, which does not exist`);
       if (c.part.plane && !(c.part.plane in s.parts)) return err(`plane ${c.part.plane} does not exist`);
       return ok(bumpCounter({ ...s, parts: { ...s.parts, [c.part.ref]: c.part } }, idOf(c.part.ref)));
@@ -83,21 +118,22 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       return ok({ ...s, parts: { ...s.parts, [c.ref]: { ...p, radius: c.radius } } });
     }
     case "transformFigure": {
-      const pl = s.parts[c.plane];
+      const planeRef = s.parts[c.plane] ? c.plane : s.planeAlias?.[c.plane] ?? c.plane; // (a plane the history knew by the name a move gave it, `in_372`)
+      const pl = s.parts[planeRef];
       if (!pl || pl.kind !== "plane") return err(`${c.plane} is not a plane`);
       const figure = new Set<Ref>(c.parts);
       const mats = c.turns.map((t) => about(t.axis, t.angle));
       const turn = (v: Vec3): Vec3 => mats.reduce((q, m) => [m[0] * q[0] + m[1] * q[1] + m[2] * q[2], m[3] * q[0] + m[4] * q[1] + m[5] * q[2], m[6] * q[0] + m[7] * q[1] + m[8] * q[2]] as Vec3, v);
       const kf = c.scale ?? 1;
       const move = (p: Vec3): Vec3 => { const q = turn(sub(p, c.pivot)); return add(add(c.pivot, [q[0] * kf, q[1] * kf, q[2] * kf]), c.translate); };
-      const others = Object.values(s.parts).some((p) => p.origin === "drawn" && p.plane === c.plane && p.kind !== "face" && !figure.has(p.ref));
+      const others = Object.values(s.parts).some((p) => p.origin === "drawn" && p.plane === planeRef && p.kind !== "face" && !figure.has(p.ref));
       const inPlace = pl.origin === "drawn" && !others;
       const target: Ref = inPlace ? pl.ref : c.newPlane;
       const parts: Record<Ref, Part> = { ...s.parts };
-      if (inPlace) parts[pl.ref] = { ...pl, at: move(pl.at), u: turn(pl.u), v: turn(pl.v) };
+      if (inPlace) parts[pl.ref] = { ...pl, at: move(pl.at), u: turn(pl.u), v: turn(pl.v), ...(c.body && !pl.body ? { body: c.body } : {}) };
       else {
         if (c.newPlane in s.parts) return err(`${c.newPlane} already exists`);
-        parts[c.newPlane] = { ref: c.newPlane, kind: "plane", origin: "drawn", plane: null, movable: false, at: move(pl.at), u: turn(pl.u), v: turn(pl.v), ...(pl.onBody ? { onBody: true as const } : {}), ...(pl.body ? { body: pl.body } : {}) };
+        parts[c.newPlane] = { ref: c.newPlane, kind: "plane", origin: "drawn", plane: null, movable: false, at: move(pl.at), u: turn(pl.u), v: turn(pl.v), ...(pl.onBody ? { onBody: true as const } : {}), ...(pl.body || c.body ? { body: pl.body ?? c.body! } : {}) };
       }
       for (const ref of c.parts) {
         const p = s.parts[ref];
@@ -106,27 +142,29 @@ export function apply(s: Scene, c: Command): Result<Scene> {
         else if (p.kind === "circle") parts[ref] = { ...p, plane: target, radius: p.radius * kf };
         else if (p.kind === "line") parts[ref] = { ...p, plane: target };
       }
-      return ok(inPlace ? { ...s, parts } : bumpCounter({ ...s, parts }, idOf(c.newPlane)));
+      return ok(inPlace ? { ...s, parts, planeAlias: { ...s.planeAlias, [c.newPlane]: pl.ref } } : bumpCounter({ ...s, parts }, idOf(c.newPlane)));
     }
     case "deletePart": {
       const p = s.parts[c.ref];
       if (!p) return err(`${c.ref} does not exist`);
       if (!p.movable) return err(`${c.ref} is a reference and cannot be deleted`);
-      const gone = new Set(dependentParts(s, c.ref));
+      const gone = goneWith(s, [c.ref]);
       const parts = Object.fromEntries(Object.entries(s.parts).filter(([k]) => !gone.has(k as Ref)));
       const relations = s.relations.filter((r) => !r.parts.some((x) => gone.has(x)));
       return ok(withoutParts(patternsWithout({ ...s, parts, relations }, gone), gone));
     }
     case "deleteParts": {
       // several at once: everything built on any of them goes too (a part that an earlier one already took is not an error)
-      const gone = new Set<Ref>();
+      const asked: Ref[] = [];
       for (const r of c.refs) {
         const p = s.parts[r];
         if (!p) continue;
         if (!p.movable) return err(`${r} is a reference and cannot be deleted`);
-        for (const d of dependentParts(s, r)) gone.add(d);
+        asked.push(r);
       }
-      if (!gone.size) return err("nothing to delete");
+      // parts that are gone already are not an error, whether some of them or all: a corner left with nothing on it goes with its line now (`strandedCorners`), and a history made before that has later commands that delete it by name
+      if (!asked.length) return ok(s);
+      const gone = goneWith(s, asked);
       const parts = Object.fromEntries(Object.entries(s.parts).filter(([k]) => !gone.has(k as Ref)));
       return ok(withoutParts(patternsWithout({ ...s, parts, relations: s.relations.filter((r) => !r.parts.some((x) => gone.has(x))) }, gone), gone));
     }

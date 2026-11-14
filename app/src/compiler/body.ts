@@ -21,6 +21,20 @@ export const faceName = (n: Vec3, d: number, at?: Vec3): Ref => bodyRef("body", 
 
 const vec = (s: string): Vec3 => s.split(",").map(Number) as unknown as Vec3;
 
+/** The points of a curved edge (flat x, y, z of segments, as the kernel meshes them) from one end to the other, thinned to a few dozen: what is drawn of the edge to pick and to light, `Line.path`. */
+function pathOf(flat: ArrayLike<number>, a: Vec3, b: Vec3): Vec3[] {
+  const pts: Vec3[] = [];
+  for (let i = 0; i + 2 < flat.length; i += 3) {
+    const p: Vec3 = [flat[i]!, flat[i + 1]!, flat[i + 2]!];
+    const q = pts[pts.length - 1];
+    if (!q || Math.abs(q[0] - p[0]) + Math.abs(q[1] - p[1]) + Math.abs(q[2] - p[2]) > 1e-6) pts.push(p); // (segments share their ends: each point once)
+  }
+  const d = (p: Vec3, q: Vec3) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+  if (pts.length > 1 && d(pts[0]!, b) < d(pts[0]!, a)) pts.reverse(); // (from a to b)
+  const keep = 48;
+  if (pts.length <= keep) return pts;
+  return Array.from({ length: keep }, (_, i) => pts[Math.round((i * (pts.length - 1)) / (keep - 1))]!);
+}
 /** The kernel's reference for a line of the body, read from its name alone (so a step can find its lines again): { a, b, mid }. */
 export function decodeEdge(r: Ref): { a: Vec3; b: Vec3; mid: Vec3; rank?: string; sig?: string } | null {
   const m = /^b\/body\/e@([^~]+)~([^~]+)~([^~]+)$/.exec(r);
@@ -65,7 +79,7 @@ export function bodyParts(result: KernelResult): Part[] {
     const name = edgeName(e.a, e.b, e.mid);
     const pair = e.circle ? halves.get(circleKey(e.circle)) : undefined;
     const twin = pair && pair.length === 2 && ends.get(pair[0]!) === ends.get(pair[1]!) ? pair.find((r) => r !== name) : undefined;
-    out.push({ ...base, ref: name, kind: "line", a: corner(e.a), b: corner(e.b), ...(straight ? {} : { mid: e.mid }), ...(e.circle ? { circle: e.circle as { center: Vec3; normal: Vec3; radius: number } } : {}), ...(twin ? { twin } : {}), ...(many && e.body !== undefined ? { of: bodyPart(e.body) } : {}) });
+    out.push({ ...base, ref: name, kind: "line", a: corner(e.a), b: corner(e.b), ...(straight ? {} : { mid: e.mid }), ...(!straight && !e.circle ? { path: pathOf(e.pts, e.a as Vec3, e.b as Vec3) } : {}), ...(e.circle ? { circle: e.circle as { center: Vec3; normal: Vec3; radius: number } } : {}), ...(twin ? { twin } : {}), ...(many && e.body !== undefined ? { of: bodyPart(e.body) } : {}) });
   }
   const flats: { n: Vec3; d: number; u: Vec3; v: Vec3; mesh: number[]; body?: number }[] = [];
   for (const f of result.faces ?? []) {

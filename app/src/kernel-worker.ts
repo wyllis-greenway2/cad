@@ -17,13 +17,14 @@ initWeb().then(
   () => post({ ready: true }),
   (e: unknown) => post({ failed: String(e) }),
 );
-self.onmessage = (e: MessageEvent<{ id: number; graph: KernelGraph; draft?: boolean; export?: ExportQuality }>) => {
+self.onmessage = (e: MessageEvent<{ id: number; graph: KernelGraph; draft?: boolean; lite?: boolean; export?: ExportQuality }>) => {
   try {
     if (e.data.export) {
       void kernel.exportMesh(e.data.graph, e.data.export).then((exported) => post({ id: e.data.id, exported }, exported.ok ? [exported.vertices.buffer, exported.triangles.buffer] : []), (err: unknown) => post({ id: e.data.id, failed: String(err) }));
       return;
     }
     kernel.draft = !!e.data.draft;
+    kernel.lite = !!e.data.lite;
     const result = kernel.evaluate(e.data.graph);
     post({ id: e.data.id, result }, buffers(result));
   } catch (err) {

@@ -5,6 +5,7 @@ import type { Scene, Ref, Vec3, Plane } from "../../interaction/api.ts";
 import { outlineOf, lookup, settings, normalOfPlane, consumed, faceEdges, edgeCentre, sketchOfEdge } from "../../interaction/api.ts";
 import type { Camera } from "../../interaction/camera.ts";
 import { surfaceTriangles } from "../../interaction/surfaces.ts";
+import { centreDots } from "../../interaction/centredots.ts";
 import { hoverOrb, selectOrb, fullOrb, orbMaterial, selectedLook } from "../orb.ts";
 import type { Pen } from "./pen.ts";
 import { clearGroup, trisMesh, ringOf, sphereAt, rgb } from "./pen.ts";
@@ -102,8 +103,9 @@ function outlineOfTriangles(tris: number[]): number[] {
 }
 
 /** Rebuild the highlight group: amber first, then the selection, then what the pointer is over (unless it is selected). */
-export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { vertices: Float32Array; triangles: Uint32Array } | null, h: Highlight, cam: Camera, pen: Pen, nowMs: number) {
+export function buildHighlight(overlay: THREE.Group, marks: THREE.Group, s: Scene | null, body: { vertices: Float32Array; triangles: Uint32Array } | null, h: Highlight, cam: Camera, pen: Pen, nowMs: number) {
   clearGroup(overlay);
+  clearGroup(marks);
   if (!s) return;
   const get = lookup(s);
   const unit = cam.distance;
@@ -151,11 +153,8 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
     else if (o.shape === "circle") overlay.add(fade(pen.line(ringOf(o.center, o.radius, o.normal), col, kind === "red" || kind === "temp" ? 3.4 : w, true)));
     else if (p.kind === "axis") overlay.add(pen.line([...p.at, ...[0, 1, 2].map((i) => p.at[i]! + p.dir[i]! * AXIS_LEN)], col, w, false));
   };
-  // the middle of a circle or an arc is always shown: a small dot, so it can be picked to line the curve up with other things (`in_159`)
-  const dots = new Set<Ref>();
-  const spent = consumed(s);
-  for (const p of Object.values(s.parts)) if (p.origin === "drawn" && ((p.kind === "circle") || (p.kind === "line" && p.center)) && p.center && !spent.has(p.ref)) dots.add(p.center);
-  for (const c of dots) { const q = get(c); if (q && q.kind === "corner") overlay.add(sphereAt(q.at, unit * settings.pick.vertexScale * 0.7, 0x2b2b2d, true)); }
+  // the middle of a circle or an arc is always shown: a small dot, so it can be picked to line the curve up with other things (`in_159`). It is in `marks`, not in `overlay`: a body dragged on the graphics card moves the overlay (its highlight) by the body's matrix, and a dot of a sketch that is not the body's must not go with it (what is the body's is already carried in the scene shown)
+  for (const at of centreDots(s)) marks.add(sphereAt(at, unit * settings.pick.vertexScale * 0.7, 0x2b2b2d, true));
   for (const r of h.amber ?? []) mark(r, "amber");
   for (const r of h.red?.refs ?? []) mark(r, "red");
   for (const r of h.temp ?? []) mark(r, "temp");

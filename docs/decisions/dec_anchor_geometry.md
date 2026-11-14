@@ -3,7 +3,7 @@ id: dec_anchor_geometry
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_305, in_308, in_309, in_310, in_311, in_312, in_313, in_324
+human_input: in_305, in_308, in_309, in_310, in_311, in_312, in_313, in_324, in_372, in_375
 date: 2026-11-14
 depends_on:
   - dec_relations_standard: the relations that apply to anchors are the table's own rows, not new ones
@@ -34,3 +34,5 @@ Not built yet (each its own step): a curved face that is not a cylinder (a cone,
 Constraints between a sketch and the body it sits on are the first thing a user reaches for (a circle on a face, concentric with the edge); the solver already holds body corners and lines fixed, so the missing part was that a circular edge had no centre to hold. Treating the edge as a circle with a fixed centre and radius keeps one relation vocabulary for drawn and body geometry, which is the start of the one system that `q_body_constraints` proposes, and needs no new solver.
 
 **Faint marking of hidden edges (`in_324`, AI's reading, for the human to correct).** While a sketch tool is on and the scene has a body, the edges of the body that lie behind one of its faces are drawn again, faintly (opacity `settings.theme.hiddenEdgeOpacity`, only where a face is in front), so the user can see which edges exist but are not offered. It is the edge lines of the body (where the surface turns by more than the edge angle), not only the ones that are anchors; the look is the same for every edge. A hidden edge is still not offered for constraints (`in_312`). Looked at once in Chromium with a box and the rectangle tool.
+
+**What curve an edge is (`in_372`, `in_375`).** A body edge is a straight line, a circle (or an arc of one), or **another curve** (an ellipse, a curve where two round faces cross, where a tilted round cut crosses a cylinder), and which it is comes from the **kernel's own type** (`circle` is set only for `CIRCLE`; `Line.path` carries the kernel's points along any other curve). A circle is **never made from an edge's ends and middle** unless the kernel says it is one: before, `roundOf` made one for any curved edge, so an ellipse was lit and picked as a circle far outside the body and offered as a circle anchor with a wrong centre and radius. The geometry of a curved line is in one place, `curvePoints` (`operation/part.ts`), which drawing, picking and lighting read. An edge that is another curve is no round (not a relation, hint or anchor circle), its length is its length along the curve (the Similar chip), its fillet arrow stands on it, and it is not offset (`offsetbody`). A history made before `dec_no_stray_corners` replays with `Scene.planeAlias` (`in_372`).

@@ -35,6 +35,7 @@ import { createToolChip } from "./ui/toolchip.ts";
 import { createToolCursor } from "./ui/toolcursor.ts";
 import { createSimilarChip } from "./ui/similarchip.ts";
 import { createSelectionChip } from "./ui/selectionchip.ts";
+import { createRefusalChip } from "./ui/refusalchip.ts";
 import { createResetView } from "./ui/resetview.ts";
 import { createCrosshair } from "./ui/crosshair.ts";
 import { createModeSwitch } from "./ui/modeswitch.ts";
@@ -78,6 +79,7 @@ const panel = createPanel(document.body, {
   close: () => dispatch({ type: "panel", name: state.panel ?? "bodies" }),
 });
 let state: AppState;
+let lastFrame: ReturnType<typeof frameOf> | null = null;
 const timing = createTiming();
 let engine: Kernel = kernel; // the kernel in use: on its own thread when that could start (`boot`), else the one in this page
 let dirty = true;
@@ -127,6 +129,7 @@ const busySign = createBusy(document.body);
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
 const crosshair = createCrosshair(document.body);
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
+const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "overrideRefusal" }), () => dispatch({ type: "holdFlash" }));
 const selectionChip = createSelectionChip(document.body, (id) => dispatch({ type: "runAction", id }));
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch({ type: "begin", name: to }));
@@ -234,6 +237,8 @@ async function boot() {
   // a hook for scripted checks in a browser (not used by the app)
   (window as unknown as { __cad: unknown }).__cad = {
     get state() { return state; },
+    get lastFrame() { return lastFrame; }, // (what the app itself drew last, so a script need not work a frame out again)
+    settings,
     size: () => view.size(),
     project: (p: [number, number, number]) => projector(state.cam, view.size().w, view.size().h).project(p),
     candidatesAt: (x: number, y: number) => candidatesAt(scene(state.session), projector(state.cam, view.size().w, view.size().h).view(x, y), { pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx }),
@@ -251,15 +256,19 @@ function frame(now: number) {
   if (dirty || spreading || state.flash) {
     const size = view.size();
     const tFrame = performance.now();
-    engine.draft = !!(state.drag && state.op && state.op.kind !== "edge"); // (a new fillet is made once, fine, and scaled) // (a rough mesh while a size is dragged, the fine one when it is let go, `in_216`)
+    // while a size is dragged, what is drawn is the kernel's own result for every size, newest request winning: rough and with no faces or edges, the fine and whole one comes when the pointer is let go (`in_358`, `in_362`)
+    const dragging = !!state.drag && !!state.op;
+    engine.draft = dragging;
+    engine.lite = dragging;
     const f = frameOf(state, size, now);
+    lastFrame = f;
     engine.draft = false;
+    engine.lite = false;
     const tMade = performance.now();
     const page = host.getBoundingClientRect();
     view.setScene(f.scene, f.mesh);
     view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit, f.followers.map((q) => ({ matrix: q.matrix, only: q.split })));
     view.setHiddenEdges(f.hiddenEdges);
-    view.setFaceShift(f.faceShift ? { face: f.faceShift.face, ...(f.faceShift.by ? { by: [...f.faceShift.by] as [number, number, number] } : {}), ...(f.faceShift.radial ? { radial: f.faceShift.radial } : {}), ...(f.faceShift.columns ? { columns: f.faceShift.columns } : {}), ...(f.faceShift.rounds ? { rounds: f.faceShift.rounds } : {}), ...(f.faceShift.arcs ? { arcs: f.faceShift.arcs } : {}), withOverlay: f.highlight.selection.length === 1 && f.highlight.selection[0] === f.faceShift.face } : null);
     view.setHighlight(f.highlight, state.cam, now);
     view.setPreview(f.preview, state.cam);
     view.setGizmo(f.gizmo, state.cam);
@@ -277,6 +286,7 @@ function frame(now: number) {
     // what comes before the constraint bubbles: the ring, and the number bubbles (and the helper bubble, the suggestions and the hint icons), as they stood on the last frame
     const inFront = [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), hintIcons.rect(), ...touchRects].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : []));
     if (bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid, inFront)) dirty = true; // (a bubble still sliding to its place: another frame)
+    refusalChip.update(f.refusal, f.refusal ? bubbles.rectOf(f.refusal.beside) : null); // (beside the bubble of the constraint that stopped it, `in_367`)
     view.setNotes(f.annotations.flatMap((a) => a.lines));
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };

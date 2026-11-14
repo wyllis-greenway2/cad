@@ -7,8 +7,6 @@ import { patternStart, patternCommand } from "./pattern.ts";
 import type { Mat3, Angles } from "../math/rotation.ts";
 import { IDENTITY, about, then, anglesOf, stepsBetween } from "../math/rotation.ts";
 import { motionOf, laterMotion, applyPoint } from "../operation/frames.ts";
-import { sharpOfPoints, chainOf, roundingFaces, circleOfRim } from "../operation/roundings.ts";
-import type { Sharp, SharpEdge } from "../operation/roundings.ts";
 import type { Rigid } from "../operation/frames.ts";
 import type { Curved } from "../operation/part.ts";
 import type { FaceEdit } from "./faceedit.ts";
@@ -19,18 +17,18 @@ import { faceEdges } from "./offsetbody.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
-import { lookup, nextId, figureParams, figureRefs } from "../operation/scene.ts";
+import { lookup, nextId, figureParams, figureRefs, figuresOf } from "../operation/scene.ts";
 import { rimRanks, edgeSignatures } from "../operation/rims.ts";
 import { consumed } from "../operation/ownership.ts";
 import type { Figure } from "../operation/scene.ts";
 import type { Part, Plane, PointerView } from "../operation/part.ts";
-import { normalOfPlane, pointOf, curveMid, circumcentre } from "../operation/part.ts";
+import { normalOfPlane, pointOf, curveMid } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
 import { solveScene } from "../compiler/solve.ts";
 import { actionsFor, measureAction } from "./actions.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
-import { drawnRef } from "../shared/ref.ts";
+import { drawnRef, formatId } from "../shared/ref.ts";
 import { objectOf, bodyCentre, figurePartsOf } from "./objects.ts";
 import { settings } from "../shared/settings.ts";
 
@@ -267,13 +265,14 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
       if (pa?.kind !== "corner" || pb?.kind !== "corner") return [];
       // a curved edge (the rim of a post or a hole): the arrow stands on the curve, in the middle of it, and points out across it; a straight one is a quarter of the way along
       const m = curveMid(get, l);
-      const centre = l.circle ? l.circle.center : m ? circumcentre(pa.at, m, pb.at) : null; // (a whole rim is one closed edge: its ends are the same point, so the circle itself says where the middle is)
+      const centre = l.circle ? l.circle.center : null; // (only a circle has a centre to point out from: another curve is pointed across where it is, below, `in_375`) // (a whole rim is one closed edge: its ends are the same point, so the circle itself says where the middle is)
       if (m && centre) {
         // out of the corner is away from the axis for a post and towards it for a hole (the air is inside a hole)
         const wall = l.circle ? Object.values(scene.parts).find((q) => q.kind === "plane" && q.origin === "body" && !!q.curved && Math.abs(q.curved.radius - l.circle!.radius) < 1e-3 && [0, 1, 2].every((i) => i === q.curved!.axis || Math.abs(q.curved!.center[i]! - l.circle!.center[i]!) < 1e-3)) : undefined;
         const out = normalize(sub(m, centre));
         return [{ mid: m, dir: edgeDirection(scene, pa.at, pb.at, wall && wall.kind === "plane" && wall.curved && !wall.curved.convex ? scale(out, -1) : out) }];
       }
+      if (m) return [{ mid: m, dir: edgeDirection(scene, pa.at, pb.at) }]; // (a curve that is not a circle: the arrow stands on the curve, in the middle of it)
       return [{ mid: add(pa.at, scale(sub(pb.at, pa.at), 0.25)), dir: edgeDirection(scene, pa.at, pb.at) }];
     });
     return { ok: true, op: { ...base, parts: lines.map((p) => p.ref), edges, ranks: rimRanks(scene, lines.map((p) => p.ref)), sigs: edgeSignatures(scene, lines.map((p) => p.ref)) } }; // no size yet: drag the double arrow, or type one
@@ -486,7 +485,15 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
     const a = measureAction(actionsFor(scene, op.parts), (x) => x.enabled);
     return a && v > 0 ? a.run(v) : null;
   }
-  if (op.kind === "extrude") return v === 0 ? null : { type: "addStep", step: { id, type: "extrude", parts: op.parts, params: { depth: v, ...(op.figs ?? {}) } } };
+  if (op.kind === "extrude") {
+    if (v === 0) return null;
+    // separate figures selected together are extruded in one go but each is a step, and so a body, of its own, with its own height (`in_353`); a hole inside a figure stays with it
+    const figs = figuresOf({ id, type: "extrude", parts: op.parts, params: op.figs ?? {} });
+    if (figs.length < 2) return { type: "addStep", step: { id, type: "extrude", parts: op.parts, params: { depth: v, ...(op.figs ?? {}) } } };
+    const { holes: _h, also: _a, ...rest } = op.figs ?? {};
+    const first = Number(id.slice(id.lastIndexOf("_") + 1));
+    return { type: "batch", commands: figs.map((f, i): Command => ({ type: "addStep", step: { id: formatId("s", first + i), type: "extrude", parts: f.outer, params: { depth: v, ...figureParams([f]), ...rest } } })) };
+  }
   if (op.kind === "pushpull" && op.faces && op.faces.length > 1) {
     if (v === 0) return null;
     return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }) } } })) };
@@ -544,245 +551,6 @@ export function bodyMotion(scene: Scene, op: Op): Rigid | null {
   return motionOf({ id: "s_x", type: op.kind, parts: op.parts, params: { axis: op.kind === "scale" ? 0 : op.axis, value: v, px: pivot[0], py: pivot[1], pz: pivot[2] } });
 }
 
-/** What the steps after step number `index` do to the body, if they are all moves or turns of the whole body (the picture of such an edit is the same shape, moved): their motion; null if any is something else. (`in_224`) */
-function motionsAfter(scene: Scene, index: number): Rigid | null {
-  for (let i = index + 1; i < scene.steps.length; i++) { const st = scene.steps[i]!; if (st.type === "scale" || Number(st.params.follow) !== 1 || !motionOf(st)) return null; }
-  return laterMotion(scene.steps, index);
-}
-/**
- * For pulling an end of a prism along `n`: the steps after the edited one may also round edges that run the same way (a fillet or chamfer of a vertical edge of an extrusion): the rounding is a prism too, so it
- * stretches with the end (`in_227`). True if every step after `index` is a move or turn, or such a rounding (its edges, from the names the step keeps, mapped through the motions after it, are parallel to `n`).
- */
-function prismaticAfter(scene: Scene, index: number, n: Vec3): boolean {
-  for (let i = index + 1; i < scene.steps.length; i++) {
-    const st = scene.steps[i]!;
-    if (st.type !== "scale" && Number(st.params.follow) === 1 && motionOf(st)) continue;
-    if (st.type !== "edgeMod" || !st.parts.length) return false;
-    const later = laterMotion(scene.steps, i);
-    for (const r of st.parts) {
-      const pts = String(r).split("@")[1]?.split("~").map((t) => t.split(",").map(Number));
-      if (!pts || pts.length !== 3 || pts.some((q) => q.length !== 3 || q.some((x) => !Number.isFinite(x)))) return false;
-      const [a, b, m] = pts as unknown as [Vec3, Vec3, Vec3];
-      if (Math.hypot(...sub(m, scale(add(a, b), 0.5))) > 1e-3 * Math.max(1, Math.hypot(...sub(b, a)))) return false; // (a curved edge is not a vertical one)
-      const d = normalize(sub(applyPoint(later, b), applyPoint(later, a)));
-      if (Math.abs(Math.abs(dot(d, n)) - 1) > 1e-4) return false;
-    }
-  }
-  return true;
-}
-/** The index of the last step that is an extrusion with one of these lines or circles. */
-const extrudeIndexOf = (scene: Scene, uses: (r: Ref) => boolean): number => { for (let i = scene.steps.length - 1; i >= 0; i--) { const st = scene.steps[i]!; if (st.type === "extrude" && figureRefs(st).some(uses)) return i; } return -1; };
-
-/**
- * A face pulled or pushed along its normal that only changes the depth of the last step (the end of an extrusion, or of a push / pull): the face just moves, and the walls beside it stretch, so it can be drawn
- * at once without the kernel while it is dragged (`in_217`). `depth` is what the step's depth will be. Null for anything the kernel has to work out (a step that comes after it would change too).
- */
-export function faceDrag(scene: Scene, op: Op): { face: Ref; by: Vec3; step: string; depth: number } | null {
-  if (op.kind !== "pushpull" || op.noEdit || !op.edit || op.parts.length !== 1 || !op.normal) return null;
-  const e = op.edit;
-  if (e.kind !== "depth" && e.kind !== "stepDepth") return null;
-  const at = scene.steps.findIndex((x) => x.id === e.step);
-  if (at < 0 || !prismaticAfter(scene, at, normalize(op.normal))) return null; // (only moves and turns, or roundings of edges that run the same way, come after it: the same edit of the same shape)
-  const v = valueOf(op);
-  if (v === null || v === 0) return null;
-  return { face: op.parts[0]!, by: scale(op.normal, v), step: e.step, depth: e.depth + v * (e.kind === "depth" ? e.along : 1) };
-}
-
-/**
- * The wall of an extruded circle made wider or narrower while the last step is the one that extruded it: the wall's points just move out from (or in towards) the axis, so it can be drawn at once without the
- * kernel (`in_218`). `circle` is the sketch circle and `radius` what its radius will be. Null for anything else (an arc whose circle is gone, a wall turned about a tilted axis, a later step).
- */
-export function radiusDrag(scene: Scene, op: Op): { face: Ref; radial: { center: Vec3; axis: Vec3; dr: number; r0: number }; circle: Ref; radius: number } | null {
-  const e = op.edit;
-  const c = op.curved ?? (op.roundAxis ? { axis: 2 as const, center: op.roundAxis.center, dir: op.roundAxis.dir } : null);
-  if (op.kind !== "pushpull" || op.noEdit || !e || e.kind !== "radius" || e.arc || !c || op.parts.length !== 1) return null;
-  const at = extrudeIndexOf(scene, (r) => r === e.circle);
-  if (at < 0 || !motionsAfter(scene, at)) return null;
-  const v = valueOf(op);
-  if (v === null || v === 0) return null;
-  const dr = e.convex ? v : -v;
-  if (!(e.radius + dr > 1e-3)) return null;
-  const axis: Vec3 = "dir" in c && c.dir ? c.dir : c.axis === 0 ? [1, 0, 0] : c.axis === 1 ? [0, 1, 0] : [0, 0, 1];
-  return { face: op.parts[0]!, radial: { center: c.center, axis, dr, r0: e.radius }, circle: e.circle, radius: e.radius + dr };
-}
-
-/** How the wall of an arc goes from the arc it was to the one it is: out from the middle by `dr`, along from where it began (`th0`, over `span`, turning `dir`) to where it begins now (`th0n`, over `spanN`), about the new middle. */
-export interface ArcMap { center: Vec3; centerN: Vec3; axis: Vec3; u: Vec3; v: Vec3; th0: number; span: number; th0n: number; spanN: number; dir: 1 | -1; dr: number }
-
-/** The map of one arc of the sketch, from the scene as it is and as the solver would have it; null if it cannot be told. */
-function arcMapOf(scene: Scene, solved: Scene, arc: Extract<Part, { kind: "line" }>): ArcMap | null {
-  if (!arc.center || !arc.plane) return null;
-  const [ca, cb, cc, pl] = [scene.parts[arc.a], scene.parts[arc.b], scene.parts[arc.center], scene.parts[arc.plane]];
-  const [na, nb, nc] = [solved.parts[arc.a], solved.parts[arc.b], solved.parts[arc.center]];
-  if (ca?.kind !== "corner" || cb?.kind !== "corner" || cc?.kind !== "corner" || pl?.kind !== "plane" || na?.kind !== "corner" || nb?.kind !== "corner" || nc?.kind !== "corner") return null;
-  // an arc whose two ends are not the same distance from its middle is no arc the picture can follow
-  const [r1, r2, r1n, r2n] = [Math.hypot(...sub(ca.at, cc.at)), Math.hypot(...sub(cb.at, cc.at)), Math.hypot(...sub(na.at, nc.at)), Math.hypot(...sub(nb.at, nc.at))];
-  if (Math.abs(r1 - r2) > 1e-3 || Math.abs(r1n - r2n) > 1e-3) return null;
-  const TAU = 2 * Math.PI;
-  const mod = (x: number) => ((x % TAU) + TAU) % TAU;
-  const ang = (p: Vec3, c: Vec3) => { const d = sub(p, c); return Math.atan2(dot(d, pl.v), dot(d, pl.u)); };
-  const mid = curveMid(lookup(scene), arc);
-  if (!mid) return null;
-  const [ta, tb, tm] = [ang(ca.at, cc.at), ang(cb.at, cc.at), ang(mid, cc.at)];
-  const dir: 1 | -1 = mod(tm - ta) < mod(tb - ta) ? 1 : -1;
-  const span = dir === 1 ? mod(tb - ta) : mod(ta - tb);
-  const [tan, tbn] = [ang(na.at, nc.at), ang(nb.at, nc.at)];
-  const spanN = dir === 1 ? mod(tbn - tan) : mod(tan - tbn);
-  if (span < 1e-6 || spanN < 1e-6) return null;
-  return { center: cc.at, centerN: nc.at, axis: normalOfPlane(pl), u: pl.u, v: pl.v, th0: ta, span, th0n: tan, spanN, dir, dr: Math.hypot(...sub(na.at, nc.at)) - Math.hypot(...sub(ca.at, cc.at)) };
-}
-
-/** The scene after a command, with its relations solved, or null when the command cannot be done or the solver finds a conflict: the first step of every drag that is drawn without the kernel (`in_282`: one copy). */
-function solvedAfter(scene: Scene, cmd: Command): ReturnType<typeof solveScene> | null {
-  const moved = apply(scene, cmd);
-  if (!moved.ok) return null;
-  const solved = solveScene(moved.value);
-  return solved.planes.some((p) => p.status === "conflict") ? null : solved;
-}
-
-/**
- * The wall of an arc of an extruded sketch (its circle was cut into arcs by lines and is gone) made wider or narrower (`in_225`): the arc keeps its middle, its two ends slide along their lines to the new radius (the
- * same corners the edit moves, checked with the solver), so the wall's points go out from the middle by the change and along the arc to where its ends are now, and every point over a moved corner moves with it.
- * Null for anything the kernel has to work out: a line that does not reach the new radius, a wall that is only part of the arc, a corner the solver will not move there.
- */
-export function arcDrag(scene: Scene, op: Op): { face: Ref; arc: ArcMap; items: { ref: Ref; at: Vec3; by: Vec3 }[] } | null {
-  const e = op.edit;
-  if (op.kind !== "pushpull" || op.noEdit || !e || e.kind !== "radius" || !e.arc || op.parts.length !== 1) return null;
-  const arc = scene.parts[e.circle];
-  if (arc?.kind !== "line" || !arc.center || !arc.plane) return null;
-  const at = extrudeIndexOf(scene, (r) => r === e.circle || (r.startsWith("d/arc@") && r.split("@")[1] === e.circle.slice(2)));
-  if (at < 0 || !motionsAfter(scene, at)) return null;
-  const v = valueOf(op);
-  if (v === null || v === 0) return null;
-  const dr = e.convex ? v : -v;
-  const radius = e.radius + dr;
-  if (!(radius > 1e-3)) return null;
-  // the wall is the whole arc: the piece the extrusion uses ends where the arc does
-  const piece = figureRefs(scene.steps[at]!).map((r) => scene.parts[r]).find((l) => l?.kind === "line" && l.derived && l.ref.split("@")[1] === e.circle.slice(2));
-  const [ca, cb] = [scene.parts[arc.a], scene.parts[arc.b]];
-  const [cc, pl] = [scene.parts[arc.center], scene.parts[arc.plane]];
-  if (ca?.kind !== "corner" || cb?.kind !== "corner" || cc?.kind !== "corner" || pl?.kind !== "plane") return null;
-  if (piece?.kind === "line") { const [pa, pb] = [scene.parts[piece.a], scene.parts[piece.b]]; if (pa?.kind !== "corner" || pb?.kind !== "corner") return null; const same = (x: Vec3, y: Vec3) => Math.hypot(...sub(x, y)) < 1e-3; if (!((same(pa.at, ca.at) && same(pb.at, cb.at)) || (same(pa.at, cb.at) && same(pb.at, ca.at)))) return null; }
-  const cmd = arcRadiusCommand(scene, e.circle, radius);
-  if (!cmd) return null;
-  const solved = solvedAfter(scene, cmd);
-  if (!solved) return null;
-  const items: { ref: Ref; at: Vec3; by: Vec3 }[] = [];
-  for (const q of Object.values(scene.parts)) {
-    if (q.kind !== "corner" || q.origin !== "drawn" || q.plane !== arc.plane) continue;
-    const w = solved.scene.parts[q.ref];
-    if (w?.kind !== "corner") return null;
-    const by = sub(w.at, q.at);
-    if (Math.hypot(...by) > 1e-9) items.push({ ref: q.ref, at: q.at, by });
-  }
-  // the ends went where the edit wanted (a constraint that holds one would make the kernel decide)
-  const [na, nb] = [solved.scene.parts[arc.a], solved.scene.parts[arc.b]];
-  if (na?.kind !== "corner" || nb?.kind !== "corner") return null;
-  const want = (cmd.type === "batch" ? cmd.commands : [cmd]).filter((x): x is Extract<Command, { type: "movePart" }> => x.type === "movePart");
-  for (const m of want) { const got = solved.scene.parts[m.ref]; if (got?.kind === "corner" && Math.hypot(...sub(got.at, m.to)) > 1e-6) return null; }
-  const arcMap = arcMapOf(scene, solved.scene, arc);
-  if (!arcMap) return null;
-  return { face: op.parts[0]!, arc: arcMap, items };
-}
-
-/**
- * A side of an extruded sketch pulled or pushed while that extrusion is the last step (`in_219`): the sketch's corners move (found with the solver, so what constraints do is in it) and every point of the
- * body that stands over a moved corner moves with it, so it can be drawn at once without the kernel. Null for anything the kernel has to work out: a sketch with arcs, a corner that cannot go where the edit
- * wants it, corners on different planes. `items` are the moved corners (where they are and how far they go), `axis` the way the sketch was extruded.
- */
-export function sideDrag(scene: Scene, op: Op): { face: Ref; axis: Vec3; items: { ref: Ref; at: Vec3; by: Vec3 }[]; edge: { a: Vec3; da: Vec3; b: Vec3; db: Vec3 } | null; arcWalls: { face: Ref; arc: ArcMap }[] } | null {
-  const e = op.edit;
-  if (op.kind !== "pushpull" || op.noEdit || !e || e.kind !== "side" || op.parts.length !== 1) return null;
-  const corners = new Set<Ref>(e.corners);
-  const at = extrudeIndexOf(scene, (r) => { const l = scene.parts[r]; return l?.kind === "line" && (corners.has(l.a) || corners.has(l.b)); });
-  if (at < 0 || !motionsAfter(scene, at)) return null;
-  const last = scene.steps[at]!;
-  const v = valueOf(op);
-  if (v === null || v === 0) return null;
-  // every line of the extrusion is straight, and the edited corners are its own
-  const lines = figureRefs(last).map((r) => scene.parts[r]);
-  if (lines.some((l) => l?.kind !== "line" || l.bulge)) return null;
-  const own = new Set<Ref>(lines.flatMap((l) => (l?.kind === "line" ? [l.a, l.b] : [])));
-  if (!e.corners.every((c) => own.has(c))) return null;
-  const cmd = editCommand(scene, e, v);
-  if (!cmd) return null;
-  const solved = solvedAfter(scene, cmd);
-  if (!solved) return null;
-  const items: { ref: Ref; at: Vec3; by: Vec3 }[] = [];
-  const plane = (scene.parts[e.corners[0]!] as { plane?: Ref | null }).plane;
-  for (const c of own) {
-    const [a, b] = [scene.parts[c], solved.scene.parts[c]];
-    if (a?.kind !== "corner" || b?.kind !== "corner") return null;
-    const by = sub(b.at, a.at);
-    if (Math.hypot(...by) < 1e-9) continue;
-    if (a.plane !== plane) return null;
-    items.push({ ref: c, at: a.at, by });
-  }
-  // the edit must have gone where it wanted to (a locked length would put the corner back)
-  for (const c of e.corners) { const w = (cmd.type === "batch" ? cmd.commands : [cmd]).find((x) => x.type === "movePart" && x.ref === c); const got = solved.scene.parts[c]; if (w?.type === "movePart" && got?.kind === "corner" && Math.hypot(...sub(got.at, w.to)) > 1e-6) return null; }
-  const pl = plane ? scene.parts[plane] : undefined;
-  if (!items.length || pl?.kind !== "plane") return null;
-  // the arcs of the sketch (their circles are gone or they were drawn as arcs): each whole arc that changed has its wall mapped from the old arc to the new one (`in_226`)
-  const arcWalls: { face: Ref; arc: ArcMap }[] = [];
-  const seen = new Set<Ref>();
-  for (const l of lines) {
-    if (l?.kind !== "line" || !l.center) continue;
-    const src = l.derived ? scene.parts[`d/${l.ref.split("@")[1] ?? ""}`] : l;
-    if (src?.kind !== "line" || !src.center || seen.has(src.ref)) continue;
-    seen.add(src.ref);
-    const [pa, pb] = [scene.parts[l.a], scene.parts[l.b]];
-    const [sa, sb] = [scene.parts[src.a], scene.parts[src.b]];
-    if (pa?.kind !== "corner" || pb?.kind !== "corner" || sa?.kind !== "corner" || sb?.kind !== "corner") return null;
-    const same = (x: Vec3, y: Vec3) => Math.hypot(...sub(x, y)) < 1e-3;
-    if (!((same(pa.at, sa.at) && same(pb.at, sb.at)) || (same(pa.at, sb.at) && same(pb.at, sa.at)))) return null; // (only a whole arc has its wall mapped)
-    const map = arcMapOf(scene, solved.scene, src);
-    if (!map) return null;
-    if (Math.hypot(...sub(map.center, map.centerN)) < 1e-9 && Math.abs(map.th0 - map.th0n) < 1e-9 && Math.abs(map.span - map.spanN) < 1e-9 && Math.abs(map.dr) < 1e-9) continue; // (this arc does not change)
-    const r0 = Math.hypot(...sub(sa.at, (scene.parts[src.center] as { at: Vec3 }).at));
-    const walls = Object.values(scene.parts).filter((q) => q.kind === "plane" && q.origin === "body" && q.rounded === "CYLINDRE" && !!q.round && !!q.radius && Math.abs((q.radius ?? 0) - r0) < 2e-3 && Math.abs(Math.abs(dot(q.round.dir ?? (q.round.axis === 0 ? [1, 0, 0] : q.round.axis === 1 ? [0, 1, 0] : [0, 0, 1]), map.axis)) - 1) < 1e-5 && Math.hypot(...sub(sub(q.round.center, map.center), scale(map.axis, dot(sub(q.round.center, map.center), map.axis)))) < 2e-3);
-    if (!walls.length) return null;
-    for (const w of walls) arcWalls.push({ face: w.ref, arc: map });
-  }
-  // the two ends of the face's own edge, to move what is selected exactly with it
-  const ends = e.corners.length === 2 ? e.corners.map((c) => ({ at: (scene.parts[c] as { at: Vec3 }).at, by: items.find((i) => i.ref === c)?.by ?? ([0, 0, 0] as Vec3) })) : null;
-  return { face: op.parts[0]!, axis: normalOfPlane(pl), items, arcWalls, edge: ends ? { a: ends[0]!.at, da: ends[0]!.by, b: ends[1]!.at, db: ends[1]!.by } : null };
-}
-
-/**
- * A fillet or chamfer made smaller or bigger while it is the last step (`in_220`, `in_222`): its cross-section is the same shape at any size, only scaled about the sharp edge (a line, or a circle), so the
- * points of the rounding (and where it meets the faces beside it) move by that scale, and it can be drawn at once without the kernel. The edges are read from the names the step keeps, and may be several if they
- * meet smoothly (no corner: a corner has a patch of its own that does not scale this way). `groups` are the rounding faces, each with its sharp edge, `k` the scale. Null for anything else (a whole circle, whose
- * plane the name does not say, a corner, a step that comes after it).
- */
-export function edgeDrag(scene: Scene, op: Op): { face: Ref; groups: { face: Ref; sharp: Sharp }[]; k: number; step: string; value: number } | null {
-  const e = op.edit;
-  if (op.kind !== "pushpull" || op.noEdit || !e || e.kind !== "edgeSize" || op.parts.length !== 1) return null;
-  const at = scene.steps.findIndex((x) => x.id === e.step);
-  const st = scene.steps[at];
-  const later = at >= 0 ? motionsAfter(scene, at) : null;
-  if (st?.type !== "edgeMod" || !later) return null;
-  const v = valueOf(op);
-  if (v === null || v === 0) return null;
-  const value = e.value - v;
-  if (!(value > 1e-3)) return null;
-  const edges: SharpEdge[] = [];
-  for (const r of st.parts) {
-    const pts = String(r).split("@")[1]?.split("~").map((t) => t.split(",").map(Number));
-    if (!pts || pts.length !== 3 || pts.some((q) => q.length !== 3 || q.some((x) => !Number.isFinite(x)))) return null;
-    const [a0, b0, m0] = pts as unknown as [Vec3, Vec3, Vec3];
-    const [a, b, m] = [applyPoint(later, a0), applyPoint(later, b0), applyPoint(later, m0)]; // (the names are from when the step was made: where the body has been moved or turned since)
-    // a whole circle: the name does not say which way it faces; a torus or a cone about it does
-    const se = Math.hypot(...sub(a, b)) < 1e-6 ? circleOfRim(scene, a, m) : sharpOfPoints(a, b, m);
-    if (!se) return null;
-    edges.push(se);
-  }
-  const chain = chainOf(edges, Math.max(e.value, value), st.params.mode === "chamfer" ? 4 : 2.2);
-  if (!chain) return null;
-  const faces = roundingFaces(scene, chain.edges, 3 * e.value, () => false, chain.corners);
-  if (!faces.some((f) => f.face === op.parts[0])) return null;
-  return { face: op.parts[0]!, groups: faces.map((f) => ({ face: f.face, sharp: f.corner ? { kind: "point" as const, center: f.corner } : chain.edges[f.edge]!.sharp })), k: value / e.value, step: e.step, value };
-}
-
 /** A command as it is without carrying the sketches: only the steps, and not marked `follow`. */
 function stripFollow(c: Command | null): Command | null {
   if (!c) return null;
@@ -800,17 +568,37 @@ export function carrySketches(scene: Scene, turns: { axis: 0 | 1 | 2; angle: num
   // one body of several: the sketches of the step that made it (its sides and circles, and their corners), not the others' (`in_271`)
   const birth = only ? scene.steps.find((st) => `x_${st.id}` === only) : undefined;
   const own = new Set<Ref>();
-  if (birth) for (const r of figureRefs(birth)) { own.add(r); const l = scene.parts[r]; if (l?.kind === "line") { own.add(l.a); own.add(l.b); if (l.center) own.add(l.center); } else if (l?.kind === "circle") own.add(l.center); }
+  if (birth) for (const r of figureRefs(birth)) {
+    own.add(r);
+    const l = scene.parts[r];
+    if (l?.kind === "line") { own.add(l.a); own.add(l.b); if (l.center) own.add(l.center); } else if (l?.kind === "circle") own.add(l.center);
+    // a piece of a cut shape (an arc or a side cut from a circle or a line) is named after what it was cut from and where it ends ("d/arc@e_001.k@e_012.p0@x@..."): those curves and corners are the body's sketch too, or the piece loses them and the step breaks (the body is gone)
+    if (r.includes("@")) for (const t of r.split("@")) {
+      const q = /^e_\d+\.[a-z0-9]+$/.test(t) ? scene.parts[`d/${t}` as Ref] : undefined;
+      if (!q) continue;
+      own.add(q.ref);
+      if (q.kind === "circle") own.add(q.center);
+      else if (q.kind === "line") { own.add(q.a); own.add(q.b); if (q.center) own.add(q.center); }
+    }
+  }
   const used = only ? own : consumed(scene);
   // what is drawn on a face of the body belongs to the body too and goes with it (`in_234`); what merely lies where a face is does not (it has no link)
   // what is drawn on a face of the body goes with it; with one body of several, only what is drawn on a face of that body (`in_277`)
-  const onFace = Object.values(scene.parts).filter((p) => { const pl = p.origin === "drawn" && p.plane ? (scene.parts[p.plane] as { onBody?: boolean; body?: string } | undefined) : undefined; return pl?.onBody === true && (!only || pl.body === only); }).map((p) => p.ref);
+  // (a plane made while there was one body has no owner: it belongs to the body whose box holds what is drawn on it, `inBox`)
+  const box = only ? Object.values(scene.parts).find((b): b is Extract<Part, { kind: "body" }> => b.kind === "body" && b.id === only)?.bbox : undefined;
+  const inBox = (p: Part): boolean => !!box && p.kind === "corner" && p.at.every((v, i) => v >= box.min[i]! - 1e-3 && v <= box.max[i]! + 1e-3);
+  const unowned = new Set<Ref>();
+  if (only && box) {
+    const centres = (pl: Ref) => Object.values(scene.parts).filter((q) => q.origin === "drawn" && q.plane === pl && q.kind === "corner");
+    for (const pl of Object.values(scene.parts)) if (pl.kind === "plane" && pl.onBody === true && !pl.body && centres(pl.ref).length && centres(pl.ref).every(inBox)) unowned.add(pl.ref);
+  }
+  const onFace = Object.values(scene.parts).filter((p) => { const pl = p.origin === "drawn" && p.plane ? (scene.parts[p.plane] as { onBody?: boolean; body?: string } | undefined) : undefined; return pl?.onBody === true && (!only || pl.body === only || unowned.has(p.plane!)); }).map((p) => p.ref);
   const parts = [...new Set([...used, ...onFace])].filter((r) => { const p = scene.parts[r]; return p && p.origin === "drawn" && p.movable && (p.kind === "corner" || p.kind === "line" || p.kind === "circle") && !("derived" in p && p.derived) && !!p.plane; });
   if (!parts.length) return [];
   const byPlane = new Map<Ref, Ref[]>();
   for (const r of parts) { const pl = scene.parts[r]!.plane!; byPlane.set(pl, [...(byPlane.get(pl) ?? []), r]); }
   const base = nextId(scene, "p");
-  const moves = [...byPlane.entries()].map(([plane, ps], k): Command => ({ type: "transformFigure", parts: ps, plane, newPlane: drawnRef(`${base}.k${k}`), turns, pivot, translate, ...(bigger !== 1 ? { scale: bigger } : {}) }));
+  const moves = [...byPlane.entries()].map(([plane, ps], k): Command => ({ type: "transformFigure", parts: ps, plane, newPlane: drawnRef(`${base}.k${k}`), turns, pivot, translate, ...(bigger !== 1 ? { scale: bigger } : {}), ...(only && unowned.has(plane) ? { body: only } : {}) }));
   // a scale makes the numbers locked on the carried sketch (a length, a distance, a diameter, a radius) as many times bigger too, or they would hold the sketch at its old size
   const carried = new Set<Ref>(parts);
   const sized = bigger === 1 ? [] : scene.relations.filter((r) => r.value !== undefined && ["length", "distance", "diameter", "radius"].includes(r.kind) && r.parts.every((q) => carried.has(q) || (scene.parts[q]?.kind === "line" && carried.has((scene.parts[q] as { a: Ref }).a))));

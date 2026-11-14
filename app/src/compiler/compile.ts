@@ -20,6 +20,8 @@ export interface CompileOutcome {
   errors: Record<string, string>;
   /** Step id -> the parts of the step that are the problem (the edges of a fillet or chamfer that cannot take the size), when the kernel could tell (`in_266`): they flash red when the step is refused */
   problems?: Record<string, Ref[]>;
+  /** Step id -> something to say about a step that was made (a fillet or chamfer that was made together with the edges meeting it at a corner, `in_379`) */
+  notes?: Record<string, string>;
   /** relations to an edge of the body that is gone and that no edge looks like now (`in_309`): they hold nothing until the body is as it was */
   lost?: string[];
 }
@@ -37,7 +39,9 @@ export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
   if (!graph.ops.length) return remembered({ scene: withDerived(withBody(solved.scene, [])), solve: solved, kernel: null, errors });
   const result = kernel.evaluate(graph);
   const problems: Record<string, Ref[]> = {};
+  const notes: Record<string, string> = {};
   for (const op of result.ops) {
+    if (op.note) { const made = solved.scene.steps.find((s) => `x_${s.id}` === op.id || `s_${s.id}` === op.id); if (made) notes[made.id] = op.note; }
     if (!op.error) continue;
     const step = solved.scene.steps.find((s) => `x_${s.id}` === op.id || `s_${s.id}` === op.id);
     if (step) { errors[step.id] ??= op.error; if (op.culprits?.length) problems[step.id] = op.culprits.flatMap((i) => (step.parts[i] ? [step.parts[i]!] : [])); }
@@ -46,7 +50,7 @@ export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
   const bound = rebindAnchors(placed); // (a relation to an edge of the body that the change took away is moved to the edge that looks most like it, `in_309`)
   // the drawn parts held to such an edge are solved again against the edge as it is now (the first solve was made before the body was)
   const again = bound.scene !== placed ? solveScene(bound.scene) : null;
-  return remembered({ scene: withDerived(again ? again.scene : bound.scene), solve: again ? { ...again, moves: [...solved.moves, ...again.moves] } : solved, kernel: result, errors, ...(bound.lost.length ? { lost: bound.lost } : {}), ...(Object.keys(problems).length ? { problems } : {}) });
+  return remembered({ scene: withDerived(again ? again.scene : bound.scene), solve: again ? { ...again, moves: [...solved.moves, ...again.moves] } : solved, kernel: result, errors, ...(bound.lost.length ? { lost: bound.lost } : {}), ...(Object.keys(notes).length ? { notes } : {}), ...(Object.keys(problems).length ? { problems } : {}) });
 }
 function remembered(o: CompileOutcome): CompileOutcome {
   settled.set(o.scene, { ...o.solve, scene: o.scene, moves: [] });

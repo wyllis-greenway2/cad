@@ -25,7 +25,7 @@ test("a chamfer too big for a tooth's edge, next to the chamfer of the top, says
   if (!st.ok) return;
   const t = run(base, opCommand(sc, { ...st.op, value: -1.2 })!);
   assert.equal(scene(t).steps.length, scene(base).steps.length, "refused");
-  assert.match(t.message ?? "", /a chamfer of 1\.2 mm cannot be made on this edge; the most that works here is about 0\.\d+ mm/);
+  assert.match(t.message ?? "", /a chamfer of 1\.2 mm cannot be made on this edge: the most that works here is about 0\.\d+ mm/);
   assert.deepEqual(t.conflict?.parts, [edge.ref], "the edge flashes");
   // a size that works is made
   assert.equal(scene(run(base, opCommand(sc, { ...st.op, value: -0.4 })!)).steps.length, scene(base).steps.length + 1);

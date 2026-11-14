@@ -376,17 +376,17 @@ const OPS = {
 
   extrude(op, ctx) {
     const dist = resolve(op.distance, ctx.params);
-    const prism = (profile, holes) => {
+    const prism = (profile, holes, d = dist) => {
       const p = ctx.get(profile, "sketch");
-      let solid = p.drawing.sketchOnPlane(p.plane, p.origin).extrude(dist);
+      let solid = p.drawing.sketchOnPlane(p.plane, p.origin).extrude(d);
       for (const h of holes ?? []) { // figures drawn inside this one are holes in it
         const hs = ctx.get(h, "sketch");
-        solid = solid.cut(hs.drawing.sketchOnPlane(hs.plane, hs.origin).extrude(dist));
+        solid = solid.cut(hs.drawing.sketchOnPlane(hs.plane, hs.origin).extrude(d));
       }
       return solid;
     };
     let solid = prism(op.profile, op.holes);
-    for (const f of op.also ?? []) solid = solid.fuse(prism(f.profile, f.holes)); // siblings extruded together
+    for (const f of op.also ?? []) solid = solid.fuse(prism(f.profile, f.holes, f.distance === undefined ? dist : resolve(f.distance, ctx.params))); // siblings extruded together (each may have a depth of its own, `in_351`)
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
     if (op.mode === "cutOrAdd") {
@@ -504,7 +504,8 @@ const OPS = {
     const found = refs.length ? resolveEdges(t, refs) : null;
     const base = op.together && op.together.base ? ctx.get(op.together.base, "solid").shape : null;
     /** The body with this step's edges (`list`, refs) rounded or bevelled by `size`: on their own, else together with the steps just before it (`in_176`), else it throws. */
-    const make = (size, list) => {
+    let note = null;
+    const make = (size, list, neighbours = true) => {
       const set = resolveEdges(t, list);
       const pick = (ef) => ef.when(({ element }) => set.has(element.hashCode));
       try {
@@ -515,7 +516,12 @@ const OPS = {
       } catch (e) {
         // on its own it cannot be made (next to fillets already made, a corner where three meet): the kernel can blend a corner when the edges that meet there are rounded in the same operation, so
         // this one is tried together with the ones just before it (each with its own size), from the body before them
-        if (!base || op.together.mods.length < 2) throw e;
+        if (!base || op.together.mods.length < 2) {
+          // else (`in_379`): together with the fewest of the edges that meet it at its ends, which the kernel needs rounded with it; only for a step made that way (`corner` on the step: the step said so when it was made, so a later change cannot start it rounding another edge) where they meet at a corner it cannot blend alone
+          const more = neighbours && op.corner && set ? withNeighbours(t, set, size, op.mode) : null;
+          if (more) { note = more.note; return more.shape; }
+          throw e;
+        }
         const sizes = new Map();
         op.together.mods.forEach((m, i) => {
           const last = i === op.together.mods.length - 1; // (this step's own edges and size: the ones being tried)
@@ -530,10 +536,11 @@ const OPS = {
       }
     };
     try {
-      return { kind: "solid", shape: make(v, refs) };
+      const shape = make(v, refs);
+      return { kind: "solid", shape, ...(note ? { note } : {}) };
     } catch (e) {
       // on failing for good: which of the edges cannot take the size on their own, and the most they can take, so the step can say (and the page can flash the ones that are the problem, `in_266`)
-      if (found && found.size) e.detail = diagnose(make, refs, found.size, v);
+      if (found && found.size) e.detail = diagnose((size, list) => make(size, list, false), refs, found.size, v);
       throw e;
     }
   },
@@ -725,6 +732,29 @@ const OPS = {
   },
 };
 
+/**
+ * A fillet or chamfer that the kernel cannot make on the chosen edges alone, made together with the edges that meet them at their ends (`in_379`): the kernel rounds a corner only when the edges that meet there are in
+ * the same operation. The fewest are tried (one, then two, then all of them): the first that works is used, and the answer says which. Null if none works.
+ */
+function withNeighbours(t, set, size, mode) {
+  const near = (p, q) => Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z) < 1e-4;
+  const all = edgesOf(t);
+  const mine = all.filter((e) => set.has(e.hashCode));
+  const ends = mine.flatMap((e) => [e.startPoint, e.endPoint]);
+  const next = all.filter((e) => !set.has(e.hashCode) && ends.some((p) => near(p, e.startPoint) || near(p, e.endPoint))).slice(0, 6);
+  if (!next.length) return null;
+  const subsets = [...next.map((e) => [e]), ...next.flatMap((e, i) => next.slice(i + 1).map((f) => [e, f])), ...(next.length > 2 ? [next] : [])];
+  for (const extra of subsets) {
+    const hashes = new Set([...set, ...extra.map((e) => e.hashCode)]);
+    try {
+      const pick = (ef) => ef.when(({ element }) => hashes.has(element.hashCode));
+      const made = mode === "chamfer" ? t.chamfer(size, pick) : t.fillet(size, pick);
+      if (isValidSolid(made)) return { shape: made, note: `the ${mode === "chamfer" ? "chamfer" : "fillet"} was made together with ${extra.length === 1 ? "the edge" : `${extra.length} edges`} that meet${extra.length === 1 ? "s" : ""} it at a corner: the kernel cannot blend that corner with this edge alone` };
+    } catch { /* the next */ }
+  }
+  return null;
+}
+
 /** Why a fillet or chamfer failed: the edges (their numbers in `refs`) that cannot take the size even alone, and the largest size the edges together can take (about; a few tries). Only for a few edges: each try costs a fillet. */
 function diagnose(make, refs, count, v) {
   const takes = (size, list) => { try { make(size, list); return true; } catch { return false; } };
@@ -736,7 +766,7 @@ function diagnose(make, refs, count, v) {
     for (let i = 0; i < 6; i++) { const mid = (lo + hi) / 2; if (takes(mid, refs)) lo = mid; else hi = mid; }
     if (lo >= 0.02) largest = Math.floor(lo * 20) / 20; // (a size that was seen to work, to 0.05)
   }
-  return { culprits, largest, total: refs.length, size: v };
+  return { culprits, largest, searched: count <= 8, total: refs.length, size: v };
 }
 
 /** OCCT in WASM can throw opaque WebAssembly.Exception objects with no message; say so plainly. */
@@ -745,8 +775,9 @@ function describeError(e, op) {
     const d = e.detail;
     const what = op.mode === "chamfer" ? "chamfer" : "fillet";
     const where = d.culprits && d.culprits.length && d.culprits.length < d.total ? `on ${d.culprits.length} of the ${d.total} edges (they flash red)` : d.total === 1 ? "on this edge" : "on these edges";
-    const most = d.largest ? `; the most that works here is about ${d.largest} mm` : "";
-    return `a ${what} of ${Math.round(d.size * 100) / 100} mm cannot be made ${where}${most}: the faces beside it are too small for that size, or a fillet or chamfer made earlier meets it`;
+    if (!d.searched) return `a ${what} of ${Math.round(d.size * 100) / 100} mm cannot be made ${where}: the faces beside it are too small for that size, or a fillet or chamfer made earlier meets it`;
+    if (!d.largest) return `a ${what} cannot be made ${where} at any size: the kernel cannot blend the corner where it meets the other edges, even with them (select the edges that meet it too, or change the shape there)`;
+    return `a ${what} of ${Math.round(d.size * 100) / 100} mm cannot be made ${where}: the most that works here is about ${d.largest} mm (a fillet or chamfer made earlier next to it can also stop it)`;
   }
   if (e instanceof Error) return e.message;
   if (typeof e === "string") return e;

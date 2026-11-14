@@ -1,3 +1,4 @@
+import { settings } from "../src/shared/settings.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";
@@ -199,10 +200,10 @@ test("a change that would break other constraints is refused: nothing moves, the
   assert.ok(early.flash && early.flash.t > 0 && early.flash.t < 0.2);
   assert.ok(early.highlight.red.refs.length > 0 && early.highlight.red.alpha > 0.8);
   assert.ok(c.victims.every((id) => early.annotations.some((a) => a.id === id)), "the broken constraints are shown");
-  const late = frameOf(refused, { w: 800, h: 600 }, 1000 + 1000);
+  const late = frameOf(refused, { w: 800, h: 600 }, 1000 + settings.flash.ms * 0.95);
   assert.ok(late.flash!.t > 0.85 && late.highlight.red.alpha < 0.15, "fading out");
-  assert.equal(frameOf(refused, { w: 800, h: 600 }, 5000).flash, null, "and gone");
-  assert.equal(advance(refused, 5000).flash, null);
+  assert.equal(frameOf(refused, { w: 800, h: 600 }, 1000 + settings.flash.ms + 500).flash, null, "and gone");
+  assert.equal(advance(refused, 1000 + settings.flash.ms + 500).flash, null);
   // a change that can be done is not refused
   const fine = reduce(st, { type: "relation", act: "set", id: angle.id, value: 90 }, env);
   assert.equal(fine.session.conflict, null);
