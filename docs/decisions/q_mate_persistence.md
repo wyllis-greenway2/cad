@@ -3,7 +3,7 @@ id: q_mate_persistence
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_314, in_315, in_321, in_322
+human_input: in_314, in_315, in_321, in_322, in_323
 date: 2026-11-14
 depends_on:
 alternative_to:

@@ -21,13 +21,14 @@ import { apply } from "../operation/commands.ts";
 import { outlineOf } from "../operation/part.ts";
 import { seenIn } from "./picking.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
+import { jointRigid } from "./mate.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { SIMILAR_RULES } from "./similar.ts";
 import type { ArcMap } from "./operations.ts";
-import { opCommand, bodyMotion, faceDrag, radiusDrag, sideDrag, edgeDrag, arcDrag, valueOf } from "./operations.ts";
+import { startOp, opCommand, bodyMotion, faceDrag, radiusDrag, sideDrag, edgeDrag, arcDrag, valueOf } from "./operations.ts";
 import { matrixOf } from "../operation/frames.ts";
 import { sharpOfPoints, chainOf, cornerOk, adjacentOk, roundingFaces, tangentChain } from "../operation/roundings.ts";
 import type { Sharp, SharpEdge } from "../operation/roundings.ts";
@@ -285,6 +286,19 @@ function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame[
 
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
 function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome } } | null {
+  if (s.drag && "handle" in s.drag && s.drag.joint) { // a joint's handle dragged: the body is drawn turned or slid by the amount so far (`in_323`)
+    const jd = s.drag.joint;
+    const sc0 = sceneOf(s.session);
+    const rigid = jointRigid(sc0, jd.mate, jd.kind, jd.amount);
+    const body = selectionOf(s.session)[0];
+    const fake = body ? startOp(sc0, [body], "move", null) : null;
+    if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === false)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: false, value: { scene: sc0, outcome: s.session.outcome } };
+    if (!rigid || !fake?.ok) return { matrix: null, face: null, shown: gpuBase.value };
+    const matrix = matrixOf(rigid);
+    const split = bodySplitOf(sc0, s.session.outcome, fake.op);
+    lastDrag = { split, matrix, face: null, step: "__last__", depth: 0, param: "depth", circle: null, corners: null, steps: sc0.steps.length };
+    return { matrix, face: null, shown: gpuBase.value, split };
+  }
   const op = s.op;
   if (!op) return null;
   const base = op.made ? undone(s.session) : s.session;

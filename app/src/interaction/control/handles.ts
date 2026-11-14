@@ -19,7 +19,8 @@ import { objectOf, bodyCentre } from "../objects.ts";
 import { runOp } from "../runop.ts";
 import { patternBase, dragPattern, liveRepeat, advanceHelp } from "../pattern.ts";
 import type { Op } from "../operations.ts";
-import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed } from "../gizmo.ts";
+import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed, jointHandles } from "../gizmo.ts";
+import { jointOfBody, jointRoom, driveCommand } from "../mate.ts";
 import type { Gizmo } from "../gizmo.ts";
 import { candidatesAt } from "../picking.ts";
 import { projector, basis, viewAxes, nearTolMm } from "../camera.ts";
@@ -48,7 +49,11 @@ export function gizmoOf(s: AppState): Gizmo | null {
   const helped = s.repeat && !s.op && op && op.kind === "linear" && s.repeat.help && s.repeat.help.phase !== "done" ? "xyz"[op.along ?? 0]! : null;
   const g = g0 && helped ? { ...g0, handles: g0.handles.filter((h) => h.id.endsWith(`:${helped}`)) } : g0;
   // the arrow of a push / pull or an extrude stands where the face is now: out by the value so far (it stays there when you let go, until the operation ends)
-  return g && op && op.normal && (op.kind === "pushpull" || op.kind === "extrude" || op.kind === "offset") ? followed(g, { dir: op.normal, kind: "double", id: "pull" }, op.value) : g;
+  const shown = g && op && op.normal && (op.kind === "pushpull" || op.kind === "extrude" || op.kind === "offset") ? followed(g, { dir: op.normal, kind: "double", id: "pull" }, op.value) : g;
+  // a body that is free to turn and slide on a mate has the ring and the arrow of its joint as well (`in_323`)
+  const sel = selectionOf(s.session);
+  const joint = !s.op && !s.repeat && sel.length === 1 ? jointHandles(sceneOf(s.session), sel[0]!, s.cam) : [];
+  return joint.length ? { centre: shown?.centre ?? joint[0]!.points[0]!, handles: [...(shown?.handles ?? []), ...joint] } : shown;
 }
 
 export function doGizmoHover(s: AppState, x: number, y: number, env: Env): AppState {
@@ -72,6 +77,12 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const d0 = h ? startDrag(g, h, pr.ray(i.x - i.dx, i.y - i.dy), s.cam) : null;
     const d = d0 && h ? withScreen(d0, h, pr, i.x - i.dx, i.y - i.dy, env.h) : d0;
     if (!d) return orbitOrCorner(s, i, env); // not on a handle: this drag turns the camera (or drags a corner of a drawing)
+    if (h!.id.startsWith("joint:")) { // the ring or the arrow of a joint: the amount is the drag; the step is made when it is let go (`in_323`)
+      const body = selectionOf(s.session)[0];
+      const j = body ? jointOfBody(sceneOf(s.session), body) : null;
+      if (!j) return orbitOrCorner(s, i, env);
+      return { ...s, handleSel: h!.id, drag: { handle: d, base: 0, joint: { mate: j.mate, kind: h!.id === "joint:turn" ? "turn" : "slide", amount: 0 } }, gizmoHover: h!.id };
+    }
     // an operation whose arrow showed up by itself stays up after the drag (like one you started): push / pull, extrude, fillet / chamfer go on until you click away; a body's move arrows end with the drag
     if (!s.op && s.repeat) {
       // a handle of the repeat being set up: it sets the repeat's numbers, nothing is made by the drag
@@ -80,6 +91,13 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const started = s.op ?? activeOp(s)!;
     const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" ? { ...started, auto: false } : started;
     s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
+  }
+  if ("handle" in s.drag! && s.drag.joint) {
+    const jd = s.drag.joint;
+    const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
+    if (!r || !("value" in r)) return s;
+    const room = jointRoom(sceneOf(s.session), jd.mate, jd.kind);
+    return { ...s, drag: { ...s.drag, joint: { ...jd, amount: Math.min(room.up, Math.max(room.down, r.value)) } } };
   }
   if ("corner" in s.drag!) return moveCorner(s, i, env);
   if ("line" in s.drag!) return moveLine(s, i, env);
@@ -310,6 +328,10 @@ export function doDragEnd(s: AppState, env?: Env): AppState {
   if (s.box) return env ? finishBox(s, env) : { ...s, box: null };
   const d = s.drag;
   const cleared: AppState = { ...s, drag: null, dragHint: null, orthoDebt: 0 };
+  if (d && "handle" in d && d.joint) { // a joint dragged: one drive step, as a typed amount makes (`in_323`)
+    const c = d.joint.amount !== 0 ? driveCommand(sceneOf(s.session), d.joint.mate, d.joint.kind, d.joint.amount) : null;
+    return c ? { ...cleared, session: run(s.session, c) } : cleared;
+  }
   if (d && "body" in d && s.op) {
     // a body dragged free: it is moved by what it was taken, as one step (`in_291`)
     const free = s.op.free;

@@ -7,7 +7,7 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, scene, run, saveText, openSession } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { actionsFor } from "../src/interaction/actions.ts";
-import { driveCommand, limitCommand, jointOf } from "../src/interaction/mate.ts";
+import { driveCommand, limitCommand, jointOf, jointRoom, jointRigid } from "../src/interaction/mate.ts";
 import { drawSquaredRectangle, drawCircle } from "../src/operation/build.ts";
 import { nextId } from "../src/operation/scene.ts";
 import type { Part } from "../src/operation/part.ts";
@@ -492,4 +492,47 @@ test("a pivot and a slider stop at the limits that are set, remember where they 
   const id = mateStatus(scene(spun))[0]!.id;
   const freed = run(spun, rows(spun).find((x) => x.id === "joint:slideFree")!.run());
   assert.deepEqual(jointOf(scene(freed), id)!.slide, { now: -2 });
+});
+
+import type { AppState } from "../src/interaction/controller.ts";
+import { projector } from "../src/interaction/camera.ts";
+import { handleMiddle } from "../src/interaction/gizmo.ts";
+
+test("a pin on a coaxial mate shows a ring and an arrow for its joint; dragging the arrow slides it, shown at once and made as one step when let go, stopping at a limit (`in_323`)", () => {
+  const env = { w: 800, h: 600, now: 0 };
+  let s = cylinder(cylinder(createSession(kernel), 0, 0, 5), 40, 0, 3, 8);
+  const [a, b] = bodies(s);
+  s = run(s, actionsFor(scene(s), [roundOfBody(s, b!), roundOfBody(s, a!)]).find((x) => x.id === "mate:coaxial")!.run());
+  const pin = bodies(s).find((x) => x.id === b!.id)!;
+  let st: AppState = { ...createState(s), cam: { ...homeCamera(), target: [0, 0, 5] } };
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [pin.ref] } } };
+  const handles = frameOf(st, env).gizmo!.handles;
+  assert.ok(handles.some((h) => h.id === "joint:turn") && handles.some((h) => h.id === "joint:slide"), "the joint's handles are up");
+  const mid = handleMiddle(handles.find((h) => h.id === "joint:slide")!);
+  const pr = projector(st.cam, env.w, env.h);
+  const [x0, y0] = pr.project(mid);
+  const steps0 = scene(st.session).steps.length;
+  st = reduce(st, { type: "hover", x: x0, y: y0 }, env);
+  let [x, y] = [x0, y0];
+  for (const [dx, dy] of [[0, 0], [0, -12], [0, -12], [0, -12]] as [number, number][]) { x += dx; y += dy; st = reduce(st, { type: "orbit", dx, dy, x, y }, env); }
+  assert.ok(st.drag && "handle" in st.drag && st.drag.joint && st.drag.joint.amount !== 0, "the drag has taken the joint");
+  assert.ok(frameOf(st, env).bodyMatrix, "the body is drawn moved while it is dragged");
+  assert.equal(scene(st.session).steps.length, steps0, "nothing made yet");
+  const amount = st.drag!.joint!.amount;
+  st = reduce(st, { type: "dragEnd" }, env);
+  const id = mateStatus(scene(st.session))[0]!.id;
+  assert.ok(Math.abs(jointOf(scene(st.session), id)!.slide.now - amount) < 1e-6, "it stands where it was taken");
+  assert.equal(mateStatus(scene(st.session))[0]!.state, "ok");
+  assert.ok(scene(st.session).steps.length > steps0, "made as steps");
+});
+
+test("how far a joint may still go is the room to its stops (`in_323`)", () => {
+  let s = cylinder(cylinder(createSession(kernel), 0, 0, 5), 40, 0, 3, 8);
+  const [a, b] = bodies(s);
+  s = run(s, actionsFor(scene(s), [roundOfBody(s, b!), roundOfBody(s, a!)]).find((x) => x.id === "mate:coaxial")!.run());
+  const id = mateStatus(scene(s))[0]!.id;
+  assert.deepEqual(jointRoom(scene(s), id, "slide"), { down: -Infinity, up: Infinity });
+  s = run(s, actionsFor(scene(s), [bodies(s).find((x) => x.id === b!.id)!.ref]).find((x) => x.id === "joint:slideMax")!.run(4));
+  assert.deepEqual(jointRoom(scene(s), id, "slide"), { down: -Infinity, up: 4 });
+  assert.ok(jointRigid(scene(s), id, "slide", 3), "a picture of the slide while dragging");
 });

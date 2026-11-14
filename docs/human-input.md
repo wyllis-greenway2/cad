@@ -1543,3 +1543,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_322 — 2026-11-14 — directive
 > Do the limits on turn and slide next
 (asks for the limits of pivots and sliders left open in `dec_standing_mates`)
+
+## in_323 — 2026-11-14 — directive
+> Do the drag handle for pivots and sliders next
+(asks for the drag handle left unbuilt in `dec_standing_mates`)

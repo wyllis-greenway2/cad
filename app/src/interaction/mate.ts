@@ -12,6 +12,9 @@ import type { MateMode } from "../operation/mates.ts";
 import { featureOf, mateRelation, mateStatus, isFlatMode, turnOnly, angleOfMode } from "../operation/mates.ts";
 import type { Command } from "../operation/commands.ts";
 import { carrySketches } from "./operations.ts";
+import type { Rigid } from "../operation/frames.ts";
+import { laterMotion } from "../operation/frames.ts";
+import type { Step } from "../operation/scene.ts";
 
 export type { MateMode };
 type Mat = [Vec3, Vec3, Vec3]; // rows
@@ -177,4 +180,21 @@ export function driveCommand(scene: Scene, mateId: string, kind: "turn" | "slide
   const turns = eulerXYZ(turnAbout(a.dir, (delta * Math.PI) / 180));
   const steps = turns.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: [a.body], params: { axis: t.axis, value: t.angle, px: a.point[0], py: a.point[1], pz: a.point[2], follow: 1, body } } }));
   return { type: "batch", commands: [...steps, ...carrySketches(scene, turns, [0, 0, 0], a.point, 1, body), ...record] };
+}
+
+/** The joint of a body (`in_323`): the mate that leaves it free to turn and slide (it is the first body of a true coaxial mate), where its axis stands and which way it points; or null. */
+export function jointOfBody(scene: Scene, body: Ref): { mate: string; point: Vec3; dir: Vec3 } | null {
+  const m = mateStatus(scene).find((x) => x.state === "ok" && x.mode === "coaxial" && x.mover?.body === body);
+  return m?.mover ? { mate: m.id, point: m.mover.point, dir: normalize(m.mover.dir) } : null;
+}
+/** What driving a joint by `amount` does to its body, for the picture while a handle is dragged (what is made when it is let go is `driveCommand`). */
+export function jointRigid(scene: Scene, mateId: string, kind: "turn" | "slide", amount: number): Rigid | null {
+  const c = driveCommand(scene, mateId, kind, amount);
+  const steps = (c?.type === "batch" ? c.commands : []).flatMap((x) => (x.type === "addStep" ? [x.step] : [])) as Step[];
+  return steps.length ? laterMotion(steps, -1, () => true) : null;
+}
+/** How far a joint may still go, each way, from where it stands (the stops; infinite when there is none). */
+export function jointRoom(scene: Scene, mateId: string, kind: "turn" | "slide"): { down: number; up: number } {
+  const j = jointOf(scene, mateId)?.[kind];
+  return j ? { down: j.min !== undefined ? j.min - j.now : -Infinity, up: j.max !== undefined ? j.max - j.now : Infinity } : { down: 0, up: 0 };
 }

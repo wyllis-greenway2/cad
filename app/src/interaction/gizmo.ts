@@ -1,6 +1,7 @@
 // The helper handles (`in_117`): Move shows X Y Z arrows you drag; Fillet / chamfer shows a double arrow on the edge (drag one way for a fillet, the other for a chamfer of that
 // size); Rotate shows curved arrows round X Y Z at a centre you can move to the point you want to turn about. Pure geometry: where the handles are, which one is under the
 // pointer, and what a drag of one means. The view draws them; the controller applies the drag.
+import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize, centroid } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
@@ -10,6 +11,7 @@ import { patternValues, patternCentre } from "./pattern.ts";
 import type { Camera } from "./camera.ts";
 import { basis } from "./camera.ts";
 import { settings } from "../shared/settings.ts";
+import { jointOfBody } from "./mate.ts";
 
 export type HandleKind = "arrow" | "double" | "arc" | "ball" | "scale";
 export interface Handle {
@@ -205,7 +207,7 @@ export function hitHandle(g: Gizmo, project: (p: Vec3) => [number, number], x: n
   let best: { h: Handle; d: number } | null = null;
   for (const h of g.handles) {
     const pts = h.points.map(project);
-    const d = h.kind === "ball" ? Math.hypot(x - pts[0]![0], y - pts[0]![1]) - 4 : Math.min(...pts.slice(1).map((q, i) => segDist([x, y], pts[i]!, q)));
+    const d = (h.kind === "ball" ? Math.hypot(x - pts[0]![0], y - pts[0]![1]) - 4 : Math.min(...pts.slice(1).map((q, i) => segDist([x, y], pts[i]!, q)))) - (h.id.startsWith("joint:") ? 3 : 0); // (a joint's handle wins over a move arrow along the same axis, `in_323`)
     if (d <= tolPx && (!best || d < best.d)) best = { h, d };
   }
   return best?.h ?? null;
@@ -300,4 +302,17 @@ export function dragTo(d: Drag, ray: Ray, pointer?: readonly [number, number]): 
   }
   const p = hitPlane(ray, d.origin, d.dir);
   return p && d.offset ? { pivot: sub(p, d.offset) } : null;
+}
+
+/** The handles of a body that is free to turn and slide on a mate (`in_323`): a ring round the shared axis (turn) and an arrow along it, past the body's end (slide); none for a body with no such mate. */
+export function jointHandles(scene: Scene, body: Ref, cam: Camera): Handle[] {
+  const j = jointOfBody(scene, body);
+  const b = scene.parts[body];
+  if (!j || b?.kind !== "body" || !b.bbox) return [];
+  const L = cam.distance * settings.gizmo.sizeOfView;
+  const c = scale(add(b.bbox.min, b.bbox.max), 0.5);
+  const at = add(j.point, scale(j.dir, dot(sub(c, j.point), j.dir))); // (the middle of the body, on the axis)
+  const half = Math.abs(dot(sub(b.bbox.max, b.bbox.min), j.dir)) / 2;
+  const start = add(at, scale(j.dir, half + HALF * L * 0.2));
+  return [ring("joint:turn", at, j.dir, L * 0.6, null), { id: "joint:slide", kind: "arrow", axis: null, points: [start, add(start, scale(j.dir, HALF * L * 1.2))] }];
 }
