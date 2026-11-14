@@ -7,6 +7,7 @@ import type { Pen } from "./pen.ts";
 import { clearGroup, trisMesh, ringOf, rgb } from "./pen.ts";
 import { cornerEdges } from "./edges.ts";
 import { ownSegments } from "./split.ts";
+import { groupDelta } from "../../interaction/stretch.ts";
 
 /** How a face's points move (`in_217`, `in_218`): all by the same step, or out from (in towards) an axis by `dr`. */
 export type Shift =
@@ -40,13 +41,6 @@ function arcDelta(a: ArcShape, x: number, y: number, z: number): [number, number
   const [ex, ey, ez] = [a.centerN[0]! + h * a.axis[0]! + rho2 * (Math.cos(th) * a.u[0]! + Math.sin(th) * a.v[0]!), a.centerN[1]! + h * a.axis[1]! + rho2 * (Math.cos(th) * a.u[1]! + Math.sin(th) * a.v[1]!), a.centerN[2]! + h * a.axis[2]! + rho2 * (Math.cos(th) * a.u[2]! + Math.sin(th) * a.v[2]!)];
   return [ex - x, ey - y, ez - z];
 }
-
-/** Which end of a straight sharp edge a point is nearer along it: 0 the start, 1 the end. */
-const nearer = (l: { a: readonly number[]; b: readonly number[]; dir: readonly number[] }, x: number, y: number, z: number): 0 | 1 => {
-  const s = (x - l.a[0]!) * l.dir[0]! + (y - l.a[1]!) * l.dir[1]! + (z - l.a[2]!) * l.dir[2]!;
-  const len = Math.hypot(l.b[0]! - l.a[0]!, l.b[1]! - l.a[1]!, l.b[2]! - l.a[2]!);
-  return s < len / 2 ? 0 : 1;
-};
 
 export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array }
 
@@ -156,32 +150,7 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
           const g = groupOf[i]! >= 0 ? how.groups[groupOf[i]!]! : null;
           if (g) {
             const [x, y, z] = [from[3 * i]!, from[3 * i + 1]!, from[3 * i + 2]!];
-            if (g.sharp.kind === "plane") {
-              // a prism of another depth: stretched along its normal about the plane it stands on
-              const n = g.sharp.normal;
-              const t = (x - g.sharp.point[0]!) * n[0]! + (y - g.sharp.point[1]!) * n[1]! + (z - g.sharp.point[2]!) * n[2]!;
-              [dx, dy, dz] = [(how.k - 1) * t * n[0]!, (how.k - 1) * t * n[1]!, (how.k - 1) * t * n[2]!];
-            } else if (g.sharp.kind === "point") {
-              // the patch at a corner: scaled about the corner
-              [dx, dy, dz] = [(how.k - 1) * (x - g.sharp.center[0]!), (how.k - 1) * (y - g.sharp.center[1]!), (how.k - 1) * (z - g.sharp.center[2]!)];
-            } else if (g.sharp.kind === "line" && ((g.sharp.cornerA && nearer(g.sharp, x, y, z) === 0) || (g.sharp.cornerB && nearer(g.sharp, x, y, z) === 1))) {
-              // near a corner everything is scaled about the corner
-              const v = nearer(g.sharp, x, y, z) === 0 ? g.sharp.a : g.sharp.b;
-              [dx, dy, dz] = [(how.k - 1) * (x - v[0]!), (how.k - 1) * (y - v[1]!), (how.k - 1) * (z - v[2]!)];
-            } else if (g.sharp.kind === "line") {
-              const [px, py, pz] = [x - g.sharp.point[0]!, y - g.sharp.point[1]!, z - g.sharp.point[2]!];
-              const along = px * g.sharp.dir[0]! + py * g.sharp.dir[1]! + pz * g.sharp.dir[2]!;
-              [dx, dy, dz] = [(how.k - 1) * (px - along * g.sharp.dir[0]!), (how.k - 1) * (py - along * g.sharp.dir[1]!), (how.k - 1) * (pz - along * g.sharp.dir[2]!)];
-            } else {
-              // about a circle: in the plane through the axis and the point, the point is scaled about where the circle is
-              const c = g.sharp;
-              const [px, py, pz] = [x - c.center[0]!, y - c.center[1]!, z - c.center[2]!];
-              const zz = px * c.axis[0]! + py * c.axis[1]! + pz * c.axis[2]!;
-              const [rx, ry, rz] = [px - zz * c.axis[0]!, py - zz * c.axis[1]!, pz - zz * c.axis[2]!];
-              const rho = Math.hypot(rx, ry, rz) || 1e-9;
-              const rho2 = c.radius + how.k * (rho - c.radius);
-              [dx, dy, dz] = [(rx / rho) * (rho2 - rho) + c.axis[0]! * (how.k - 1) * zz, (ry / rho) * (rho2 - rho) + c.axis[1]! * (how.k - 1) * zz, (rz / rho) * (rho2 - rho) + c.axis[2]! * (how.k - 1) * zz];
-            }
+            [dx, dy, dz] = groupDelta(g.sharp, how.k, x, y, z); // (the same numbers the check against the kernel uses, `in_325`)
           }
         } else if (keys && "items" in how && "axis" in how) {
           const [ax, ay, az] = [how.axis[0]!, how.axis[1]!, how.axis[2]!];

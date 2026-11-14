@@ -3,7 +3,7 @@ id: dec_drag_preview_without_kernel
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_216, in_217, in_218, in_219, in_220, in_221, in_222, in_223, in_224, in_225, in_226, in_227, in_323
+human_input: in_216, in_217, in_218, in_219, in_220, in_221, in_222, in_223, in_224, in_225, in_226, in_227, in_323, in_325
 date: 2026-11-07
 depends_on:
   - dec_face_edit_by_step: the picture while dragging must be what the edit of the step makes; this only draws it sooner
@@ -31,6 +31,9 @@ The kernel takes about 100 ms to answer for a model (most of it meshing the body
 
 
 **Which faces are the rounding (`in_323`).** The stretch of a fillet or chamfer in the picture moves the faces that are the rounding of the edge (`roundingFaces`): the strip along the edge, which lies within about its size R of the edge's line. It used to take any face within 3R, and on a small block a wall beside the rounding lies within 3R too, so when the size was dragged back from a big one (the reference stays the biggest asked for) the wall was stretched with it and the block folded into a slanted slab, in the picture only. The strip is held to 1.2 R.
+
+
+**The stretch is checked against the kernel (`in_325`, `q_preview_provenance`).** The rules for which faces move are guesses that can be wrong for a shape nobody tried. So, while the pointer is down, the kernel is asked now and then (at most every 150 ms; it keeps only the newest request) for the size the picture stands at, exactly; when it answers, the stretched mesh and the kernel's are compared (the volume to a hundredth, the box to 0.05 mm: both the same however finely a curve is cut). If they differ, the stretch is not used again for that operation and the kernel's own preview is shown (a warning is written to the console, and `previewChecks` in the state snapshot counts checks and differences, and keeps the last reason). This covers a new fillet or chamfer, one pulled in or out, and a prism pull (`frame.ts` `checkStretch`); it is not made for the other stretches (a face pulled, a wall made wider, a body moved). The numbers of the stretch are in one place, `interaction/stretch.ts`, used by the picture (`ui/view/content.ts`) and by the check, so what is checked is what is drawn. A wrong picture can still show for as long as the kernel takes to answer.
 
 ## Rationale
 

@@ -1551,3 +1551,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_324 — 2026-11-14 — directive
 > yes, look into what the kernel can report first
 (approves step 1 of the AI's proposal after `in_323`: find out what the kernel library can report about the faces an operation creates or changes, before anything is built; research only)
+
+## in_325 — 2026-11-14 — directive
+> go with option b first
+(chooses option (b) of `q_preview_provenance`: compare the stretched picture with the kernel's answer when it arrives, and replace it if they differ; (a) and (c) are not started)

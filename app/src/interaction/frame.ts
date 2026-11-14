@@ -28,6 +28,7 @@ import { BODY_OBJECT } from "../compiler/body.ts";
 import { SIMILAR_RULES } from "./similar.ts";
 import type { ArcMap } from "./operations.ts";
 import { opCommand, bodyMotion, faceDrag, radiusDrag, sideDrag, edgeDrag, arcDrag, valueOf } from "./operations.ts";
+import { stretched, summaryOf, stretchDiffers, pointKey } from "./stretch.ts";
 import { matrixOf } from "../operation/frames.ts";
 import { sharpOfPoints, chainOf, cornerOk, adjacentOk, roundingFaces, tangentChain } from "../operation/roundings.ts";
 import type { Sharp, SharpEdge } from "../operation/roundings.ts";
@@ -163,12 +164,53 @@ function memoPreview(s: AppState, base: Session, cmd: Command, made: unknown): {
 }
 
 /**
+ * The check of a stretched picture against the kernel (`in_325`, `q_preview_provenance`). While a size is dragged, the picture is a reference the kernel made, stretched (`edgeNew`, `prismNew`, `edgeDrag`); its
+ * rules for which faces move can be wrong for a shape nobody tried (`in_323`). Now and then (not on every frame) the kernel is asked for the size the picture stands at, exactly; when it answers, the stretched
+ * mesh and the kernel's are compared (their volume and box); if they differ, the stretch is not used again for this operation and the kernel's own preview is shown instead. The answer comes late in the browser:
+ * the request goes out, and a later frame (the answer asks for one) reads it. Only while the pointer is down: the kernel makes the same rough or fine mesh for the reference and the check then.
+ */
+const CHECK_EVERY_MS = 150;
+const READ_EVERY_MS = 50;
+const distrusted = new Set<string>();
+let pendingCheck: { id: string; cmd: Command; k: number } | null = null;
+let [lastIssued, lastRead] = [-Infinity, -Infinity];
+export const previewChecks: { checked: number; differed: number; last: { id: string; why: string } | null } = { checked: 0, differed: 0, last: null };
+const trusted = (id: string): boolean => !distrusted.has(id);
+export function checkStretch(s: AppState, base: Session, id: string, shown: { scene: Scene; outcome: CompileOutcome }, rounds: { k: number; groups: { face: Ref; sharp: Sharp }[] }, exactCmd: () => Command | null, now: number): boolean {
+  if (!s.drag) { pendingCheck = null; return true; }
+  if (pendingCheck && pendingCheck.id !== id) pendingCheck = null;
+  const mesh = shown.outcome.kernel?.mesh;
+  if (!mesh) return true;
+  if (!pendingCheck && now - lastIssued >= CHECK_EVERY_MS) {
+    const cmd = exactCmd();
+    if (cmd) { pendingCheck = { id, cmd, k: rounds.k }; lastIssued = now; }
+  }
+  if (!pendingCheck || (now - lastRead < READ_EVERY_MS && now !== lastIssued)) return true;
+  lastRead = now;
+  const made = previewCommand(base, pendingCheck.cmd);
+  if (!made || made.outcome.kernel?.stale) return true; // (not answered yet)
+  const { k } = pendingCheck;
+  pendingCheck = null;
+  const exact = made.outcome.kernel?.mesh;
+  if (Object.keys(made.outcome.errors).length || !exact) return true; // (a size the kernel cannot make is dealt with where the stretch is made)
+  const groups = rounds.groups.map((g) => { const q = shown.scene.parts[g.face] as { mesh?: readonly number[] } | undefined; const keys = new Set<string>(); for (let i = 0; q?.mesh && i + 2 < q.mesh.length; i += 3) keys.add(pointKey(q.mesh, i)); return { keys, sharp: g.sharp }; });
+  const why = stretchDiffers(summaryOf(stretched(mesh.vertices, groups, k), mesh.triangles), summaryOf(exact.vertices, exact.triangles));
+  previewChecks.checked++;
+  if (!why) return true;
+  previewChecks.differed++;
+  previewChecks.last = { id, why };
+  distrusted.add(id);
+  console.warn(`the stretched picture differs from what the kernel makes (${why}): the kernel's preview is shown instead`);
+  return false;
+}
+
+/**
  * A new fillet or chamfer on one straight edge (`in_221`): its cross-section is the same shape at every size, scaled about the sharp edge, so the kernel makes it once at a size (the reference) and
  * every size the pointer goes to after that is that result scaled, on the graphics card. Asked again for a new reference only when the size has grown a lot (so the arc keeps enough points).
  */
 let edgeRef: { key: string; want: number; ready: { R0: number; res: { scene: Scene; outcome: CompileOutcome }; groups: { face: Ref; sharp: Sharp }[] } | null; failed: number | null } | null = null;
 let refMemo: { history: Session["history"]; outcome: Session["outcome"]; key: string; value: { scene: Scene; outcome: CompileOutcome } | null } | null = null;
-function edgeNew(s: AppState, op: Op, base: Session): { wait: true } | { face: FaceShift; shown: { scene: Scene; outcome: CompileOutcome } } | null {
+function edgeNew(s: AppState, op: Op, base: Session, now = 0): { wait: true } | { face: FaceShift; shown: { scene: Scene; outcome: CompileOutcome } } | null {
   const sc = sceneOf(base);
   const v = op.kind === "edge" ? valueOf(op) : null;
   if (op.kind !== "edge" || v === null || v === 0 || !op.parts.length) return null;
@@ -211,7 +253,10 @@ function edgeNew(s: AppState, op: Op, base: Session): { wait: true } | { face: F
   // a size the kernel could not make is not drawn by stretching a smaller one: the faces would cross and fold into a spike. The kernel's own answer (its message, the body as it was) is shown instead (`in_233`)
   if (edgeRef.failed !== null && Math.abs(v) >= edgeRef.failed - 1e-9) return null;
   if (!edgeRef.ready) return { wait: true };
-  return { face: { face: edgeRef.ready.groups[0]!.face, rounds: { k: Math.abs(v) / edgeRef.ready.R0, groups: edgeRef.ready.groups } }, shown: edgeRef.ready.res };
+  const rounds = { k: Math.abs(v) / edgeRef.ready.R0, groups: edgeRef.ready.groups };
+  const id = JSON.stringify(["edge", op.parts, op.ranks ?? null, op.sigs ?? null, v > 0]);
+  if (!trusted(id) || !checkStretch(s, base, id, edgeRef.ready.res, rounds, () => opCommand(sc, { ...op, typed: "", value: v }, { preview: true }), now)) return null;
+  return { face: { face: edgeRef.ready.groups[0]!.face, rounds }, shown: edgeRef.ready.res };
 }
 
 /**
@@ -219,7 +264,7 @@ function edgeNew(s: AppState, op: Op, base: Session): { wait: true } | { face: F
  * reference) and every depth after is that result stretched. Only a prism that ends inside what it is made in (a cap at the depth, walls between it and the plane): a cut that goes right through is the kernel's.
  */
 let prismRef: { key: string; ready: { D0: number; res: { scene: Scene; outcome: CompileOutcome }; faces: { face: Ref; plane: { origin: Vec3; normal: Vec3 } }[] } | null; failed: boolean } | null = null;
-function prismNew(s: AppState, op: Op, base: Session): { wait: true } | { face: FaceShift; shown: { scene: Scene; outcome: CompileOutcome } } | null {
+function prismNew(s: AppState, op: Op, base: Session, now = 0): { wait: true } | { face: FaceShift; shown: { scene: Scene; outcome: CompileOutcome } } | null {
   const sc = sceneOf(base);
   const v = valueOf(op);
   // one face (or one sketch), or several flat faces of the body that each move along their own normal by the same distance (`in_228`)
@@ -250,6 +295,8 @@ function prismNew(s: AppState, op: Op, base: Session): { wait: true } | { face: 
   if (!prismRef.ready) return { wait: true };
   const k = Math.abs(v) / prismRef.ready.D0;
   const groups = prismRef.ready.faces.map((f) => ({ face: f.face, sharp: { kind: "plane" as const, point: f.plane.origin, normal: f.plane.normal } }));
+  const id = JSON.stringify([op.kind, "prism", op.parts, op.figs ?? null, planes, sign]);
+  if (!trusted(id) || !checkStretch(s, base, id, prismRef.ready.res, { k, groups }, () => opCommand(sc, { ...op, typed: "", value: sign * Math.abs(v), dim: undefined }, { preview: true }), now)) return null;
   return { face: { face: groups[0]!.face, rounds: { k, groups } }, shown: prismRef.ready.res };
 }
 
@@ -284,11 +331,11 @@ function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame[
 }
 
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
-function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome } } | null {
+function gpuMotion(s: AppState, now = 0): { split?: Frame["bodySplit"]; matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome } } | null {
   const op = s.op;
   if (!op) return null;
   const base = op.made ? undone(s.session) : s.session;
-  const en = edgeNew(s, op, base) ?? prismNew(s, op, base);
+  const en = edgeNew(s, op, base, now) ?? prismNew(s, op, base, now);
   if (en) {
     if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
     if ("wait" in en) return { matrix: null, face: null, shown: gpuBase.value };
@@ -303,6 +350,11 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] 
   const ad = m || fd || rd || sd || ed ? null : arcDrag(sceneOf(base), op);
   if (!m && !fd && !rd && !sd && !ed && !ad) return null;
   if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
+  // a fillet or chamfer that is there already, pulled in or out: the stretch of the picture is checked against the kernel as the others are (`in_325`)
+  if (ed) {
+    const id = JSON.stringify(["edit", op.parts, ed.step]);
+    if (!trusted(id) || !checkStretch(s, base, id, gpuBase.value, { k: ed.k, groups: ed.groups }, () => opCommand(sceneOf(base), op, { preview: true }), now)) return null;
+  }
   const matrix = m ? matrixOf(m) : null;
   const face: FaceShift | null = fd ? { face: fd.face, by: fd.by } : rd ? { face: rd.face, radial: rd.radial } : ad ? { face: ad.face, arcs: { arcWall: ad.arc, items: ad.items.map((i) => ({ at: i.at, by: i.by })) } } : ed ? { face: ed.face, rounds: { k: ed.k, groups: ed.groups } } : sd ? { face: sd.face, columns: { axis: sd.axis, items: sd.items.map((i) => ({ at: i.at, by: i.by })), arcWalls: sd.arcWalls, edge: sd.edge } } : null;
   lastDrag = { split: m ? bodySplitOf(sceneOf(base), gpuBase.value.outcome, op) : null, matrix, face, step: fd?.step ?? ed?.step ?? null, depth: fd?.depth ?? ed?.value ?? 0, param: ed ? "value" : "depth", circle: rd ? { ref: rd.circle, radius: rd.radius } : null, corners: sd ? sd.items.map((i) => ({ ref: i.ref, to: add(i.at, i.by) })) : ad ? ad.items.map((i) => ({ ref: i.ref, to: add(i.at, i.by) })) : null, steps: sceneOf(base).steps.length };
@@ -351,7 +403,8 @@ function helperAt(s: AppState, g: { handles: Handle[] } | null): { at: Vec3; tex
 }
 
 export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): Frame {
-  const gpu = gpuMotion(s);
+  if (!s.op) { distrusted.clear(); pendingCheck = null; } // (what was found about one operation is not held against the next)
+  const gpu = gpuMotion(s, now);
   const shown = gpu ? gpu.shown : operationResult(s);
   const sc = shown?.scene ?? sceneOf(s.session);
   const sel = selectionOf(s.session);

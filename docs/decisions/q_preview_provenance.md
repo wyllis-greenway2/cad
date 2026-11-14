@@ -3,13 +3,15 @@ id: q_preview_provenance
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_323, in_324
+human_input: in_323, in_324, in_325
 date: 2026-11-14
 depends_on:
   - dec_drag_preview_without_kernel: the question is how to make that decision's stretched picture right by construction; a change to it (an exact preview) would end the question
 alternative_to:
 ---
 # Should the kernel say which faces an operation made, so the preview does not have to guess
+
+**Status after `in_325`:** option (b) is built (`dec_drag_preview_without_kernel`): the stretched picture is checked against the kernel's answer and given up for the kernel's own preview when they differ. (a) and (c) are not started; what stays open here is whether (a) is still wanted once the check has shown, in real use, how often the stretch is wrong (`previewChecks` in the state snapshot says).
 
 **Why it comes up.** While a fillet or chamfer size is dragged, the picture stretches a reference the kernel made (`dec_drag_preview_without_kernel`). It has to decide which faces are "the rounding", and did so by distance from the edge (`roundingFaces`); on a small block that took a wall for the rounding and folded the block (`in_323`). That was fixed by tightening the distance, which is still a guess. The question after `in_323`: can the kernel simply say?
 
