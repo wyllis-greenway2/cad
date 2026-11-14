@@ -4,7 +4,7 @@ export interface SimilarView { rules: { id: string; label: string; title: string
 
 export function createSimilarChip(host: HTMLElement, toggle: (rule: string) => void) {
   const chip = document.createElement("div");
-  chip.style.cssText = PILL + ";bottom:64px;left:50%;transform:translateX(-50%)";
+  chip.style.cssText = PILL + ";bottom:108px;left:50%;transform:translateX(-50%)";
   const label = document.createElement("span");
   const boxes = document.createElement("span");
   boxes.style.cssText = "display:inline-flex;gap:6px";

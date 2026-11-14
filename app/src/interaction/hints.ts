@@ -173,7 +173,6 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
 
   // on a line, or on a circle or an arc: the end takes the nearest point on it
   const snapped = outlineSnap(scene, pl, pv, e, (ref) => touchesStart(ref));
-  if (snapped) return { at: liftOf(pl, snapped.at), hints: [snapped.hint] };
   const rounds = roundsOf(scene, get).filter((r) => onPlane(r.center));
 
   // directions the end could take: level, upright, parallel or square to a line, tangent to a circle; the nearest one inside the tolerance wins
@@ -214,6 +213,23 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
     dir = first.hint.kind === "tangent" ? first.dir : (dot([d[0], d[1], 0], [first.dir[0], first.dir[1], 0]) >= 0 ? first.dir : [-first.dir[0], -first.dir[1]]);
     hints.push(first.hint);
     for (const o of ok.slice(1)) if (Math.abs(dot([dir[0], dir[1], 0], [o.dir[0], o.dir[1], 0])) > Math.cos(1e-3) && o.hint.kind !== first.hint.kind) hints.push(o.hint); // another that gives the same direction
+  }
+  // the end on a circle or a line takes the place; when the line is also level, upright, parallel, square or tangent from where it starts, and the end is where that direction meets the circle, it keeps that too (`in_301`: a line tangent to one circle that ends on another)
+  if (snapped) {
+    const R = snapped.hint.kind === "onCircle" ? rounds.find((r) => r.ref === snapped.hint.ref) : undefined;
+    const toEnd = unit([snapped.at[0] - s[0], snapped.at[1] - s[1]]);
+    if (R && hints.length && Math.acos(Math.max(-1, Math.min(1, dot([toEnd[0], toEnd[1], 0], [dir[0], dir[1], 0])))) <= tol) {
+      const C = localOf(pl, R.center);
+      const f: V2 = [s[0] - C[0], s[1] - C[1]];
+      const b = 2 * (f[0] * dir[0] + f[1] * dir[1]);
+      const disc = b * b - 4 * (f[0] * f[0] + f[1] * f[1] - R.radius * R.radius);
+      if (disc >= 0) {
+        const want = lenOf([snapped.at[0] - s[0], snapped.at[1] - s[1]]);
+        const t = [(-b - Math.sqrt(disc)) / 2, (-b + Math.sqrt(disc)) / 2].filter((x) => x > 1e-6).sort((x, y) => Math.abs(x - want) - Math.abs(y - want))[0];
+        if (t !== undefined) return { at: liftOf(pl, [s[0] + dir[0] * t, s[1] + dir[1] * t]), hints: [snapped.hint, ...hints] };
+      }
+    }
+    return { at: liftOf(pl, snapped.at), hints: [snapped.hint] };
   }
   // as long as another line (within 2 %)
   let length = hints.length ? Math.abs(dot([d[0], d[1], 0], [dir[0], dir[1], 0])) : len;

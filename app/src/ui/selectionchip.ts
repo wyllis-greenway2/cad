@@ -4,7 +4,7 @@ export interface SelectionView { count: number; actions: { id: string; label: st
 
 export function createSelectionChip(host: HTMLElement, run: (id: string) => void) {
   const chip = document.createElement("div");
-  chip.style.cssText = PILL + ";bottom:64px;left:50%;transform:translateX(-50%)";
+  chip.style.cssText = PILL + ";bottom:108px;left:50%;transform:translateX(-50%)";
   const label = document.createElement("span");
   const choices = document.createElement("span");
   choices.style.cssText = "display:inline-flex;gap:6px";

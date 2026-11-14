@@ -27,7 +27,8 @@ export function createControls(host: HTMLElement, h: ControlHandlers) {
     hint(hint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null) {
       buttons.forEach((b, i) => {
         const on = hint?.axis === "XYZ"[i];
-        b.style.boxShadow = on ? "0 0 0 3px #fff, 0 0 0 5px #2b2b2d" : "0 2px 8px rgba(0,0,0,.10)";
+        b.style.outline = on ? "2px solid #2b2b2d" : "none"; // (a ring inside the button, off its edge: a halo outside was cut off by the buttons next to it, `in_301`)
+        b.style.outlineOffset = on ? "-6px" : "0";
         b.title = on ? `The selected plane lies across ${"XYZ"[i]} (click to look along it; press again for the back)` : `Look along ${"XYZ"[i]} (press again for the back)`;
       });
     },

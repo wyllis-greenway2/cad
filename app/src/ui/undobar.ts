@@ -1,9 +1,9 @@
-// Undo and redo kept on the screen for a finger (`in_283`): a pill at the bottom left with two round buttons. A mouse has the keys and the menu; a finger has neither, so on a touch screen they are always there.
+// Undo and redo kept on the screen for a finger (`in_283`): a pill at the middle of the bottom, where a thumb reaches (`in_301`) with two round buttons. A mouse has the keys and the menu; a finger has neither, so on a touch screen they are always there.
 import { iconSvg } from "./icons.ts";
 
 export function createUndoBar(host: HTMLElement, undo: () => void, redo: () => void) {
   const bar = document.createElement("div");
-  bar.style.cssText = "position:fixed;z-index:7;left:12px;bottom:40px;display:none;gap:8px;padding:6px;border-radius:28px;background:#34363b;box-shadow:0 2px 8px rgba(0,0,0,.3);user-select:none;-webkit-user-select:none;touch-action:manipulation";
+  bar.style.cssText = "position:fixed;z-index:7;left:50%;transform:translateX(-50%);bottom:40px;display:none;gap:8px;padding:6px;border-radius:28px;background:#34363b;box-shadow:0 2px 8px rgba(0,0,0,.3);user-select:none;-webkit-user-select:none;touch-action:manipulation";
   const button = (icon: string, title: string, fire: () => void) => {
     const b = document.createElement("div");
     b.innerHTML = iconSvg(icon);

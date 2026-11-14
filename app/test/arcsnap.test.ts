@@ -186,3 +186,31 @@ test("the edge of a circle being drawn that comes to where it touches another ci
   assert.equal(rel(st, "tangent").length, 1);
   assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "circle").length, 2);
 });
+
+test("a line that starts on a circle and runs along its tangent keeps that when its end comes to another circle's edge there: the end is on the second circle and the line tangent to the first (`in_301`)", () => {
+  let s = createSession(kernel);
+  s = run(s, drawCircle(scene(s), XY, [20, 20, 0], 10).command); // A
+  s = run(s, drawCircle(scene(s), XY, [70, 18, 0], 10).command); // B (its edge crosses y = 10 at x = 64)
+  let st = view(s);
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [20, 10, 0]); // the bottom of A: its tangent there is level
+  st = move(st, [64.05, 10.1, 0]); // (the pointer at B's edge on the level line from A's bottom)
+  const kinds = st.tool!.hints!.map((h) => h.kind);
+  assert.ok(kinds.includes("onCircle"), `on the second circle: ${kinds}`);
+  assert.ok(kinds.includes("horizontal") || kinds.includes("tangent"), `and the line keeps its direction: ${kinds}`);
+});
+
+test("that line, made, has its end on the second circle and keeps the direction constraint (`in_301`)", () => {
+  let s = createSession(kernel);
+  s = run(s, drawCircle(scene(s), XY, [20, 20, 0], 10).command);
+  s = run(s, drawCircle(scene(s), XY, [70, 18, 0], 10).command);
+  let st = view(s);
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [20, 10, 0]);
+  st = move(st, [64.05, 10.1, 0]);
+  st = click(st, [64.05, 10.1, 0]);
+  const kinds = scene(st.session).relations.map((r) => r.kind);
+  assert.ok(kinds.includes("onCircle"), `the ends on circles: ${kinds}`);
+  assert.ok(kinds.includes("tangent") || kinds.includes("horizontal"), `and the direction: ${kinds}`);
+  assert.ok(kinds.filter((k) => k === "onCircle").length >= 2, `both ends are on a circle: ${kinds}`);
+});

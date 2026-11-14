@@ -144,7 +144,7 @@ export function buildHighlight(overlay: THREE.Group, s: Scene | null, body: { ve
     const w = kind === "select" ? settings.pick.edgeWidthPx : settings.pick.edgeHoverWidthPx;
     const col = kind === "amber" ? AMBER : kind === "red" ? RED : kind === "temp" ? TEMP : tealHex;
     const alpha = kind === "red" ? h.red?.alpha ?? 1 : kind === "temp" ? 0.5 + 0.4 * Math.sin(nowMs / 280) : 1; // (the copies breathe: they are not there yet)
-    const fade = <T extends THREE.Object3D>(m: T): T => { if (alpha < 1) m.traverse((c) => { const mat = (c as THREE.Mesh).material as THREE.Material | undefined; if (mat) { mat.transparent = true; mat.opacity = alpha; } }); return m; };
+    const fade = <T extends THREE.Object3D>(m: T): T => { if (kind === "amber") m.traverse((c) => { c.renderOrder = 8; }); /* (the hint's orange is drawn over the blue of a selected circle or face it is about, `in_301`) */ if (alpha < 1) m.traverse((c) => { const mat = (c as THREE.Mesh).material as THREE.Material | undefined; if (mat) { mat.transparent = true; mat.opacity = alpha; } }); return m; };
     if (o.shape === "point") overlay.add(fade(sphereAt(o.at, unit * settings.pick.vertexScale * (kind === "select" ? settings.pick.vertexSelectScale : 1), col, true)));
     else if (o.shape === "polyline") overlay.add(fade(pen.line(o.pts.flat(), col, kind === "red" || kind === "temp" ? 3.4 : w, true)));
     else if (o.shape === "segment") overlay.add(fade(pen.line([...o.a, ...o.b], col, kind === "red" || kind === "temp" ? 3.4 : w, true)));

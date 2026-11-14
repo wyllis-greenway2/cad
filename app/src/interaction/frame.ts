@@ -3,6 +3,7 @@
 import { cutParts, cutStep } from "./cut.ts";
 import { pieceMiddle } from "../operation/trim.ts";
 import type { Ref } from "../shared/ref.ts";
+import { worldRef } from "../shared/ref.ts";
 import type { Gizmo } from "./gizmo.ts";
 import { panelOf } from "./panels.ts";
 import { patternCentre, liveRepeat } from "./pattern.ts";
@@ -391,7 +392,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
     helper: helperAt(s, gizmo),
     busy: !!s.session.outcome.kernel?.stale,
-    lookHint: lookOf(sc, sel, s.cam).lookHint,
+    lookHint: lookOf(sc, sel, s.cam, s.world).lookHint,
     facing: facingOf(s.cam),
     touchHelper: touchHelperOf(s, gizmo),
     undoRedo: { undo: s.session.history.cursor > 0, redo: s.session.history.cursor < s.session.history.commands.length },
@@ -459,8 +460,9 @@ export function facingOf(cam: Camera): Frame["facing"] {
 }
 
 /** A single selected plane or face: if it lies across a world axis, that axis's button is lit, + or − by the end the camera is at (the side that shows the face). */
-function lookOf(sc: Scene, sel: readonly Ref[], cam: Camera): { lookHint: Frame["lookHint"] } {
-  const pl = sel.length === 1 ? planeOf(lookup(sc), sel[0]!) : null;
+function lookOf(sc: Scene, sel: readonly Ref[], cam: Camera, world: AppState["world"]): { lookHint: Frame["lookHint"] } {
+  const get = lookup(sc);
+  const pl = (sel.length === 1 ? planeOf(get, sel[0]!) : null) ?? (sel.length === 0 ? (get(worldRef(world)) as Plane | undefined) ?? null : null); // (nothing selected: the world plane that is on is the one worked on, `in_301`)
   if (!pl) return { lookHint: null };
   const n = normalOfPlane(pl);
   const k = ([0, 1, 2] as const).find((i) => Math.abs(Math.abs(n[i]) - 1) < 1e-6);
