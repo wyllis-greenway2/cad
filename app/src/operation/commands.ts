@@ -98,6 +98,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
   switch (c.type) {
     case "addPart": {
       if (c.part.ref in s.parts) return err(`${c.part.ref} already exists`);
+      if (c.part.plane && !(c.part.plane in s.parts) && s.planeAlias?.[c.part.plane]) return apply(s, { ...c, part: { ...c.part, plane: s.planeAlias[c.part.plane]! } as typeof c.part }); // (`in_341`)
       for (const a of anchorsOf(c.part)) if (a !== c.part.ref && !(a in s.parts)) return err(`${c.part.ref} uses ${a}, which does not exist`);
       if (c.part.plane && !(c.part.plane in s.parts)) return err(`plane ${c.part.plane} does not exist`);
       return ok(bumpCounter({ ...s, parts: { ...s.parts, [c.part.ref]: c.part } }, idOf(c.part.ref)));
@@ -117,14 +118,15 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       return ok({ ...s, parts: { ...s.parts, [c.ref]: { ...p, radius: c.radius } } });
     }
     case "transformFigure": {
-      const pl = s.parts[c.plane];
+      const planeRef = s.parts[c.plane] ? c.plane : s.planeAlias?.[c.plane] ?? c.plane; // (a plane the history knew by the name a move gave it, `in_341`)
+      const pl = s.parts[planeRef];
       if (!pl || pl.kind !== "plane") return err(`${c.plane} is not a plane`);
       const figure = new Set<Ref>(c.parts);
       const mats = c.turns.map((t) => about(t.axis, t.angle));
       const turn = (v: Vec3): Vec3 => mats.reduce((q, m) => [m[0] * q[0] + m[1] * q[1] + m[2] * q[2], m[3] * q[0] + m[4] * q[1] + m[5] * q[2], m[6] * q[0] + m[7] * q[1] + m[8] * q[2]] as Vec3, v);
       const kf = c.scale ?? 1;
       const move = (p: Vec3): Vec3 => { const q = turn(sub(p, c.pivot)); return add(add(c.pivot, [q[0] * kf, q[1] * kf, q[2] * kf]), c.translate); };
-      const others = Object.values(s.parts).some((p) => p.origin === "drawn" && p.plane === c.plane && p.kind !== "face" && !figure.has(p.ref));
+      const others = Object.values(s.parts).some((p) => p.origin === "drawn" && p.plane === planeRef && p.kind !== "face" && !figure.has(p.ref));
       const inPlace = pl.origin === "drawn" && !others;
       const target: Ref = inPlace ? pl.ref : c.newPlane;
       const parts: Record<Ref, Part> = { ...s.parts };
@@ -140,7 +142,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
         else if (p.kind === "circle") parts[ref] = { ...p, plane: target, radius: p.radius * kf };
         else if (p.kind === "line") parts[ref] = { ...p, plane: target };
       }
-      return ok(inPlace ? { ...s, parts } : bumpCounter({ ...s, parts }, idOf(c.newPlane)));
+      return ok(inPlace ? { ...s, parts, planeAlias: { ...s.planeAlias, [c.newPlane]: pl.ref } } : bumpCounter({ ...s, parts }, idOf(c.newPlane)));
     }
     case "deletePart": {
       const p = s.parts[c.ref];

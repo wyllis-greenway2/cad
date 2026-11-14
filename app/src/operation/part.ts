@@ -20,6 +20,7 @@ interface Base {
 }
 export interface Corner extends Base { kind: "corner"; at: Vec3; /** a place where drawn curves cross (made when the faces are, never saved, not picked) */ derived?: boolean }
 export interface Line extends Base { kind: "line"; a: Ref; b: Ref; /** a point halfway along a curved edge (body edges only; straight lines omit it) */ mid?: Vec3;
+  /** the curve itself, for a body edge that is neither a straight line nor part of a circle (an ellipse, a curve where two round faces cross): the points along it, from `a` to `b`. A circle through the ends and the middle is not the curve for these (`in_341`) */ path?: Vec3[];
   /** a drawn arc: how far its middle is out from the chord, as a fraction of the chord's length (positive towards the plane's normal crossed with the chord's direction); a straight line omits it */ bulge?: number;
   /** a drawn arc about a centre point (a corner, so it can be positioned with constraints): the arc runs from `a` to `b` round `center`, counter-clockwise (seen from the plane's normal) or not; its radius is the distance from the centre to `a` */
   center?: Ref; ccw?: boolean;
@@ -278,6 +279,13 @@ const lineOps: KindOps<Line> = {
     }
     const s = segmentOf(get, part.ref);
     if (!s) return null;
+    if (part.path && part.path.length > 1) {
+      // a curve that is not a circle: the nearest of the pieces of the curve itself (`in_341`)
+      const q = part.path.map((p) => px(pv, p));
+      let best = Infinity;
+      for (let i = 0; i + 1 < q.length; i++) best = Math.min(best, distToSegment2d([pv.x, pv.y], q[i]!, q[i + 1]!));
+      return best;
+    }
     const cm = curveMid(get, part);
     if (cm) {
       // a curved line: the nearest of the pieces of its arc
@@ -292,6 +300,7 @@ const lineOps: KindOps<Line> = {
     if (part.circle && part.a === part.b) return { shape: "polyline", pts: ringPoints(part.circle) };
     const s = segmentOf(get, part.ref);
     if (!s) return { shape: "none" };
+    if (part.path && part.path.length > 1) return { shape: "polyline", pts: part.path };
     const cm = curveMid(get, part);
     return cm ? { shape: "polyline", pts: arcPoints(s[0], cm, s[1]) } : { shape: "segment", a: s[0], b: s[1] };
   },

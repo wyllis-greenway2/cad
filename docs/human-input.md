@@ -1615,3 +1615,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_340 — 2026-11-14 — approval
 > yes, do the distance form and remove the workaround
 (approves the change put after `in_339`: arc tangent to a circle or arc is held by the distance between the centres, not at an arc end, and the `touchesAtEnd` workaround in `trim.ts` is removed)
+
+## in_341 — 2026-11-14 — directive
+> Okay the next bug is that this edge position on the object, and when selected as a blue line, seem to be in wildly different positions.
+(files `edge_off_state.json`, `edge_wildly_off_and_unselectable_and_unchamferable.json` and a screenshot: a cylinder with a tilted cylindrical cut; the blue selected edge runs outside the body while the drawn edge is elsewhere; the file name also says the edge cannot be selected or chamfered)

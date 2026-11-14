@@ -73,6 +73,8 @@ export interface Scene {
   patterns?: readonly PatternRecord[];
   /** the plane whose hidden sketch (what extrusions used up) is shown and snapped to while sketching in it (not part of the model, only of how it is looked at, `in_211`) */
   reveal?: Ref;
+  /** A figure moved on a plane of its own keeps that plane under its own name; the name the command gave to a new plane is kept here as another name for it, so a history made when a move made a new plane (more parts were left on the old plane then) still replays (`in_341`) */
+  planeAlias?: Readonly<Record<string, Ref>>;
   /** Id counter: ids are never reused, so replaying a command list gives the same names. */
   counter: number;
 }
