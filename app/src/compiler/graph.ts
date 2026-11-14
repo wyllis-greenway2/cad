@@ -75,7 +75,7 @@ export function buildGraph(scene: Scene): GraphResult {
         });
         if (bad) { errors[st.id] = bad; break; }
         const [first, ...more] = made;
-        ops.push({ id: xid, type: "extrude", profile: first!.profile, ...(first!.holes.length ? { holes: first!.holes } : {}), ...(more.length ? { also: more } : {}), distance, ...(prev ? { target: prev } : {}), mode: prev ? "cutOrAdd" : "add" }); // (onto a body: a new piece while it only touches the body or stands apart, a cut as soon as it goes into it: `in_193`)
+        ops.push({ id: xid, type: "extrude", profile: first!.profile, ...(first!.holes.length ? { holes: first!.holes } : {}), ...(more.length ? { also: more } : {}), distance, ...(prev ? { target: prev } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" }); // (onto a body: a new piece while it only touches the body or stands apart, a cut as soon as it goes into it: `in_193`; the step says which when it was made, so that a body that grows later does not turn a piece into a cut: `in_295`)
         prev = xid;
         break;
       }

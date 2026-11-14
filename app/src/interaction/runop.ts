@@ -18,6 +18,14 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
   }
   if (!op.edit || op.noEdit) {
     const done = run(sess, cmd);
+    // an extrusion onto bodies: whether it adds a piece or cuts is decided now, once, and kept in the step (`in_295`); decided again at every replay, a body that grew later would be cut by a piece that only stood beside it
+    if (op.kind === "extrude" && cmd.type === "addStep" && !done.message && sceneOf(sess).steps.length) {
+      const [volume, count] = [(x: Session): number => Object.values(sceneOf(x).parts).reduce((a, q) => a + (q.kind === "body" ? (q.volume ?? 0) : 0), 0), (x: Session): number => Object.values(sceneOf(x).parts).filter((q) => q.kind === "body").length];
+      const mode = volume(done) < volume(sess) - 1e-6 * Math.max(1, volume(sess)) ? "cut" : count(done) > count(sess) ? "new" : "add"; // (a cut, a piece of its own, or one joined to a body it touches)
+      const tagged: Command = { ...cmd, step: { ...cmd.step, params: { ...cmd.step.params, mode } } };
+      const again = run(sess, tagged);
+      if (!again.message) return { session: again, cmd: tagged };
+    }
     // a body moved, turned or scaled whole brings its sketches with it; a constraint that ties one of them to something that stays would pull it out of shape instead (`in_293`): that is refused, and the constraint is named
     if (op.target === "body" && (op.kind === "move" || op.kind === "rotate" || op.kind === "scale") && !done.message) {
       const held = heldBack(sceneOf(sess), sceneOf(done), cmd, op.kind === "scale" ? (valueOf(op) ?? 1) : 1);
