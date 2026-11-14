@@ -44,7 +44,7 @@ function turnBetween(from: Vec3, to: Vec3): Mat {
 const rotate = (m: Mat, v: Vec3): Vec3 => [dot(m[0], v), dot(m[1], v), dot(m[2], v)];
 /** The turn that brings the angle between two directions (as lines) to `degrees`, by the smaller turn: about the line across both, toward the other when the angle is to be less, away when it is to be more. */
 function turnToAngle(a: Vec3, b: Vec3, degrees: number): Mat {
-  const b2: Vec3 = dot(a, b) >= 0 ? b : [-b[0], -b[1], -b[2]];
+  const b2: Vec3 = degrees > 90 || dot(a, b) >= 0 ? b : [-b[0], -b[1], -b[2]]; // (to 90 the angle is between lines: the nearer way round; past 90 it is between the directions themselves, `in_326`)
   const phi = Math.acos(Math.max(-1, Math.min(1, dot(normalize(a), normalize(b2)))));
   const psi = phi - (degrees * Math.PI) / 180;
   if (Math.abs(psi) < 1e-12) return [[1, 0, 0], [0, 1, 0], [0, 0, 1]];

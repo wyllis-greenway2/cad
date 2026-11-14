@@ -10,7 +10,7 @@ import { normalOfPlane, roundOf } from "./part.ts";
 
 /**
  * flush: face on face with a gap; coaxial: round face on round face; parallel: only turned until the flat faces are parallel; parallelAxes: the same for the axes of round faces (`in_317`);
- * perpendicular and perpendicularAxes: turned until they are at a right angle; angle and angleAxes: turned until they are at the typed angle (degrees, 0 to 90; kept in `gap`) (`in_318`).
+ * perpendicular and perpendicularAxes: turned until they are at a right angle; angle and angleAxes: turned until they are at the typed angle (degrees, 0 to 180; kept in `gap`) (`in_318`, `in_326`). Up to 90 the angle is between the faces' planes or the axes, as lines; past 90 it is between the directions themselves (a flat face's outward normal, an axis's own direction), so 100 and 80 are different: 100 leans the two away from each other.
  * axisToFace: the axis of a round face is turned to stand at a right angle to a flat face (along its normal), whichever of the two is first (`in_325`).
  * The angle is the one between the faces' planes, or between the axes, as lines: the faces have no "right way round" for these.
  */
@@ -118,7 +118,9 @@ export function mateStatus(scene: Scene): MateState[] {
       residual = Math.abs(Math.abs(along) - gap);
       ok = residual < 1e-3;
     } else { // only turned: the angle between the two as lines, against the one it is to be
-      residual = Math.abs((turned * 180) / Math.PI - angleOfMode(mode, mode === "parallel" ? 0 : gap));
+      const want = angleOfMode(mode, mode === "parallel" ? 0 : gap);
+      const between = want > 90 ? angle(mover.dir, other.dir) : turned; // (past 90 the directions themselves, `in_326`)
+      residual = Math.abs((between * 180) / Math.PI - want);
       unit = "deg";
       ok = residual <= 0.006;
     }

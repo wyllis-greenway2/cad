@@ -114,7 +114,7 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
         spot: () => faceMiddle(scene, sel[0]!),
         run: (value?: number): Command => {
           const again = fa && fb ? existingMate(scene, mode, fa.body, fb.body) ?? undefined : undefined; // (a mate made again between the same bodies replaces the one there)
-          const amount = unit === null ? 0 : degrees ? Math.min(90, Math.max(0, value ?? 0)) : Math.max(0, value ?? 0);
+          const amount = unit === null ? 0 : degrees ? Math.min(180, Math.max(0, value ?? 0)) : Math.max(0, value ?? 0);
           const r = mateCommand(scene, mode, sel[0]!, sel[1]!, amount, again, mode !== "parallel" || value !== undefined, true); // (parallel faces are only turned unless a distance is typed)
           return "command" in r ? r.command : { type: "batch", commands: [] };
         },

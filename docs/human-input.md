@@ -1555,3 +1555,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_325 — 2026-11-14 — directive
 > Do the no-perpendicular-face-to-axis mates next
 (asks for the mate between a flat face and a round face's axis at a right angle, listed as a known gap)
+
+## in_326 — 2026-11-14 — directive
+> Do the angles beyond 90 degrees next
+(asks for angle mates past 90 degrees, listed as a known gap: they were limited to 0 to 90 as lines)

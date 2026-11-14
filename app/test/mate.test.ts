@@ -572,3 +572,25 @@ test("Mate: a round face's axis perpendicular to a flat face turns the body unti
   const flip = run(s, actionsFor(scene(s), [top, roundOfBody(s, pin)]).find((x) => x.id === "mate:axisToFace")!.run());
   assert.equal(mateStatus(scene(flip))[0]!.state, "ok");
 });
+
+test("an angle past 90 is between the directions themselves: 120 leans the faces away from each other; it is checked at that and put back, and 100 differs from 80 (`in_326`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const pick = [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])];
+  const act = actionsFor(scene(s), pick).find((x) => x.id === "mate:angle")!;
+  const wide = once(run(s, act.run(120)));
+  assert.ok(!wide.message, `${wide.message}`);
+  const st = mateStatus(scene(wide))[0]!;
+  assert.equal(st.gap, 120, "the number is kept, not cut to 90");
+  assert.equal(st.state, "ok", `${st.residual}`);
+  const dot = st.mover!.dir[0] * st.other!.dir[0] + st.mover!.dir[1] * st.other!.dir[1] + st.mover!.dir[2] * st.other!.dir[2];
+  assert.ok(Math.abs(dot - Math.cos((120 * Math.PI) / 180)) < 1e-6, `the normals are 120 degrees apart: ${dot}`);
+  // 80 is the other way round: the normals are 80 apart, so their angle as lines is 80 too, and they differ from 120
+  const near = once(run(s, act.run(80)));
+  const dn = mateStatus(scene(near))[0]!;
+  assert.ok(Math.abs(Math.abs(dn.mover!.dir[0] * dn.other!.dir[0] + dn.mover!.dir[1] * dn.other!.dir[1] + dn.mover!.dir[2] * dn.other!.dir[2]) - Math.cos((80 * Math.PI) / 180)) < 1e-6);
+  // turned by hand: off, and put back to 120 by the turn
+  const off = turned(wide, bodies(wide).find((x) => x.id === b!.id)!, 20);
+  assert.equal(mateStatus(scene(off))[0]!.state, "off");
+  assert.equal(mateStatus(scene(run(off, putMatesBack(scene(off))!.command)))[0]!.state, "ok");
+});
