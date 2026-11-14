@@ -1627,3 +1627,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_343 — 2026-11-14 — approval
 > Yes, do it in those two steps
 (approves the proposal in the reply to the question about the root cause: first a mate follows its faces by the body's recorded motion, not by looking for them; then every command that moves a body is solved against its standing mates before it is made)
+
+## in_344 — 2026-11-14 — directive
+> Do the browser pass over the new mate tracking next
+(asks for the mate tracking by the body's recorded motion, and the solving of moves before they are made, to be looked at in a real browser)

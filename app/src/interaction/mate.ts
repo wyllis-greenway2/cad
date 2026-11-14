@@ -228,7 +228,7 @@ function poseCommands(scene: Scene, ref: Ref, pivot: Vec3, pose: Pose, k: number
   while (scene.steps.some((st) => st.id.startsWith(id))) id = `${id}_`;
   const angle = length(pose.turn);
   const shift = pose.shift.map((v) => Math.round(v * 1e6) / 1e6) as unknown as Vec3;
-  const turns = angle > 1e-6 ? eulerXYZ(turnAbout(pose.turn, angle)) : []; // (less than a millionth of a radian, or ten nanometres, is no change: the solver's own rounding)
+  const turns = angle > 5e-5 ? eulerXYZ(turnAbout(pose.turn, angle)) : []; // (less than fifty millionths of a radian (three thousandths of a degree), or ten nanometres, is no change: the solver's own rounding)
   if (!turns.length && length(shift) < 1e-5) return [];
   const tag = `${id}b${k}`;
   return [
