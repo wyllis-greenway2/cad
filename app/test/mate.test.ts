@@ -7,6 +7,7 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, scene, run, saveText, openSession } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { actionsFor } from "../src/interaction/actions.ts";
+import { driveCommand, limitCommand, jointOf } from "../src/interaction/mate.ts";
 import { drawSquaredRectangle, drawCircle } from "../src/operation/build.ts";
 import { nextId } from "../src/operation/scene.ts";
 import type { Part } from "../src/operation/part.ts";
@@ -465,4 +466,30 @@ test("a pin in a hole turns about the axis and slides along it, and stays mated;
   const spun = run(slid, actionsFor(scene(slid), [bodies(slid).find((x) => x.id === b!.id)!.ref]).find((x) => x.id === "joint:turn")!.run(45));
   assert.ok(!spun.message, `${spun.message}`);
   assert.equal(mateStatus(scene(spun))[0]!.state, "ok", "still mated after turning and sliding");
+});
+
+test("a pivot and a slider stop at the limits that are set, remember where they stand, and keep both when the mate is put back (`in_322`)", () => {
+  let s = cylinder(cylinder(createSession(kernel), 0, 0, 5), 40, 0, 3, 8);
+  const [a, b] = bodies(s);
+  s = run(s, actionsFor(scene(s), [roundOfBody(s, b!), roundOfBody(s, a!)]).find((x) => x.id === "mate:coaxial")!.run());
+  const rows = (q: Session) => actionsFor(scene(q), [bodies(q).find((x) => x.id === b!.id)!.ref]);
+  const z = (q: Session) => bodies(q).find((x) => x.id === b!.id)!.bbox!.min[2]!;
+  const z0 = z(s);
+  s = run(s, rows(s).find((x) => x.id === "joint:slideMax")!.run(10));
+  s = run(s, rows(s).find((x) => x.id === "joint:slideMin")!.run(-2));
+  assert.ok(!s.message, `${s.message}`);
+  assert.deepEqual(jointOf(scene(s), mateStatus(scene(s))[0]!.id)!.slide, { now: 0, min: -2, max: 10 });
+  s = run(s, rows(s).find((x) => x.id === "joint:slide")!.run(25)); // asked for 25: goes to the stop at 10
+  assert.equal(jointOf(scene(s), mateStatus(scene(s))[0]!.id)!.slide.now, 10);
+  assert.ok(Math.abs(Math.abs(z(s) - z0) - 10) < 1e-3, "it stopped at the limit");
+  assert.equal(driveCommand(scene(s), mateStatus(scene(s))[0]!.id, "slide", 3), null, "no further that way");
+  s = run(s, rows(s).find((x) => x.id === "joint:slide")!.run(-30)); // back to the low stop, -2
+  assert.equal(jointOf(scene(s), mateStatus(scene(s))[0]!.id)!.slide.now, -2);
+  assert.equal(limitCommand(scene(s), mateStatus(scene(s))[0]!.id, "slide", "Min", 50), null, "limits that cross are refused");
+  const spun = run(s, rows(s).find((x) => x.id === "joint:turn")!.run(30));
+  assert.equal(jointOf(scene(spun), mateStatus(scene(spun))[0]!.id)!.turn.now, 30);
+  assert.equal(mateStatus(scene(spun))[0]!.state, "ok");
+  const id = mateStatus(scene(spun))[0]!.id;
+  const freed = run(spun, rows(spun).find((x) => x.id === "joint:slideFree")!.run());
+  assert.deepEqual(jointOf(scene(freed), id)!.slide, { now: -2 });
 });

@@ -1539,3 +1539,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_321 — 2026-11-14 — directive
 > Start on the standing mates with pivots and sliders
 (asks to start on option 3 of `q_mate_persistence`: mates that stay true by themselves, and mates that leave freedom, pivots and sliders)
+
+## in_322 — 2026-11-14 — directive
+> Do the limits on turn and slide next
+(asks for the limits of pivots and sliders left open in `dec_standing_mates`)

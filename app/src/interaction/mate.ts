@@ -97,7 +97,10 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
   const r6 = (v: Vec3): Vec3 => v.map((x) => Math.round(x * 1e6) / 1e6) as unknown as Vec3;
   const turns = eulerXYZ(R);
   const translate = r6(move);
-  const record: Command = { type: "addRelation", relation: mateRelation(again ?? nextId(scene, "r"), mode, gap, a, b, { mover: { point: moverWhenTrue, dir: turnOnly(mode) ? rotate(R, a.dir) : want }, other: { point: b.point, dir: b.dir } }, counts, standing) };
+  const made = mateRelation(again ?? nextId(scene, "r"), mode, gap, a, b, { mover: { point: moverWhenTrue, dir: turnOnly(mode) ? rotate(R, a.dir) : want }, other: { point: b.point, dir: b.dir } }, counts, standing);
+  const kept = again ? scene.relations.find((r) => r.id === again)?.params : undefined; // (the drive values and limits of a joint stay when the mate is put back)
+  if (kept) for (const k of JOINT_KEYS) if (k in kept) made.params![k] = kept[k]!;
+  const record: Command = { type: "addRelation", relation: made };
   const forget: Command[] = again ? [{ type: "removeRelation", id: again }] : [];
   if (!turns.length && length(translate) < 1e-9) return { command: { type: "batch", commands: [...forget, record] } }; // (they meet already: only the mate is recorded)
   let id = nextId(scene, "s");
@@ -118,23 +121,60 @@ export function putMatesBack(scene: Scene, only?: string, standingOnly = false):
   return null;
 }
 
+/** The numbers a joint keeps on its mate: where it stands now (turn in degrees, slide in mm) and the limits (absent: none). */
+const JOINT_KEYS = ["turn", "slide", "turnMin", "turnMax", "slideMin", "slideMax"] as const;
+export type JointKey = (typeof JOINT_KEYS)[number];
+
+const withParams = (scene: Scene, mateId: string, set: Partial<Record<JointKey, number | null>>): Command[] => {
+  const rel = scene.relations.find((r) => r.id === mateId);
+  if (!rel?.params) return [];
+  const params = { ...rel.params };
+  for (const [k, v] of Object.entries(set)) { if (v === null || v === undefined) delete params[k]; else params[k] = v; }
+  return [{ type: "removeRelation", id: mateId }, { type: "addRelation", relation: { ...rel, params } }];
+};
+/** The limits of a joint as numbers (or none) and where it stands. */
+export function jointOf(scene: Scene, mateId: string): Record<"turn" | "slide", { now: number; min?: number; max?: number }> | null {
+  const p = scene.relations.find((r) => r.id === mateId)?.params;
+  if (!p) return null;
+  const of = (k: "turn" | "slide") => ({ now: p[k] ?? 0, ...(p[`${k}Min`] !== undefined ? { min: p[`${k}Min`]! } : {}), ...(p[`${k}Max`] !== undefined ? { max: p[`${k}Max`]! } : {}) });
+  return { turn: of("turn"), slide: of("slide") };
+}
+/** The command that sets one limit of a joint (or takes it away with null); refused when the limits would cross. */
+export function limitCommand(scene: Scene, mateId: string, kind: "turn" | "slide", side: "Min" | "Max", value: number | null): Command | null {
+  const j = jointOf(scene, mateId)?.[kind];
+  if (!j || (value !== null && !Number.isFinite(value))) return null;
+  if (value !== null && (side === "Min" ? value > (j.max ?? Infinity) : value < (j.min ?? -Infinity))) return null;
+  return { type: "batch", commands: withParams(scene, mateId, { [`${kind}${side}`]: value }) };
+}
+
+/** The command that takes both stops of a joint away. */
+export function unlimitCommand(scene: Scene, mateId: string, kind: "turn" | "slide"): Command | null {
+  return jointOf(scene, mateId) ? { type: "batch", commands: withParams(scene, mateId, { [`${kind}Min`]: null, [`${kind}Max`]: null }) } : null;
+}
+
 /**
  * A joint driven (`in_321`): a coaxial mate leaves the first body free to turn about the shared axis (a pivot) and to slide along it (a slider); this is that turn (degrees) or slide (mm) as ordinary steps, with the
- * body's sketches carried. The mate stays true, since the axis is what is kept. Null when the mate is not a true coaxial mate.
+ * body's sketches carried. The mate stays true, since the axis is what is kept. The amount is added to where the joint stands, and stops at a limit (`in_322`): asked for more, it goes as far as the limit.
+ * Null when the mate is not a true coaxial mate, or the joint cannot go that way.
  */
 export function driveCommand(scene: Scene, mateId: string, kind: "turn" | "slide", amount: number): Command | null {
   const m = mateStatus(scene).find((x) => x.id === mateId);
-  if (!m || m.state !== "ok" || !m.mover || (m.mode !== "coaxial" && m.mode !== "parallelAxes") || !Number.isFinite(amount) || amount === 0) return null;
+  const j = jointOf(scene, mateId)?.[kind];
+  if (!m || !j || m.state !== "ok" || !m.mover || (m.mode !== "coaxial" && m.mode !== "parallelAxes") || !Number.isFinite(amount) || amount === 0) return null;
+  const target = Math.min(j.max ?? Infinity, Math.max(j.min ?? -Infinity, j.now + amount));
+  const delta = target - j.now;
+  if (Math.abs(delta) < 1e-9) return null;
   const a = m.mover;
   let id = nextId(scene, "s");
   while (scene.steps.some((st) => st.id.startsWith(id))) id = `${id}_`;
   const body = a.bodyId;
+  const record = withParams(scene, mateId, { [kind]: Math.round(target * 1e6) / 1e6 });
   if (kind === "slide") {
     const d = normalize(a.dir);
-    const t: Vec3 = [d[0] * amount, d[1] * amount, d[2] * amount];
-    return { type: "batch", commands: [{ type: "addStep", step: { id: `${id}m`, type: "move", parts: [a.body], params: { axis: 0, value: 0, vx: t[0], vy: t[1], vz: t[2], follow: 1, body } } }, ...carrySketches(scene, [], t, a.point, 1, body)] };
+    const t: Vec3 = [d[0] * delta, d[1] * delta, d[2] * delta];
+    return { type: "batch", commands: [{ type: "addStep", step: { id: `${id}m`, type: "move", parts: [a.body], params: { axis: 0, value: 0, vx: t[0], vy: t[1], vz: t[2], follow: 1, body } } }, ...carrySketches(scene, [], t, a.point, 1, body), ...record] };
   }
-  const turns = eulerXYZ(turnAbout(a.dir, (amount * Math.PI) / 180));
+  const turns = eulerXYZ(turnAbout(a.dir, (delta * Math.PI) / 180));
   const steps = turns.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: [a.body], params: { axis: t.axis, value: t.angle, px: a.point[0], py: a.point[1], pz: a.point[2], follow: 1, body } } }));
-  return { type: "batch", commands: [...steps, ...carrySketches(scene, turns, [0, 0, 0], a.point, 1, body)] };
+  return { type: "batch", commands: [...steps, ...carrySketches(scene, turns, [0, 0, 0], a.point, 1, body), ...record] };
 }
