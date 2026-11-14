@@ -1571,3 +1571,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_329 — 2026-11-14 — directive
 > Do the competing mates solver next
 (asks for the pose solver that was left unbuilt in `dec_standing_mates`: several mates on the bodies solved together, and a clear answer when they are at odds)
+
+## in_330 — 2026-11-14 — preference
+> instead of having priority between mates shouldn't we just require a resolution? we dont want a pile of conflicting mates to build up with the most recent always winning
+(a design preference on `dec_standing_mates` item 8: conflicting mates should have to be resolved, not ranked; not yet built, the shape is asked in the reply)
