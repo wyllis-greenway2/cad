@@ -317,7 +317,7 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] 
   // the mates of a body that is dragged hold while it moves: it goes where they leave it free, and the ones that held it back flash (`in_338`)
   // the bodies selected move as one; the others stay where they are, mated to them or not (`in_345`)
   const group = op.target === "body" ? op.parts.filter((r) => sceneOf(base).parts[r]?.kind === "body") : [];
-  const held = asked && group.length ? constrainedMotion(sceneOf(base), group, asked) : null;
+  const held = asked && group.length ? constrainedMotion(sceneOf(base), group, asked, op.grab) : null;
   const rigidOf = (b: Ref): Rigid | null => (held ? held.rigids.find((q) => q.body === b)?.rigid ?? null : asked);
   const m = group.length ? rigidOf(group[0]!) : asked;
   const fd = m ? null : faceDrag(sceneOf(base), op);

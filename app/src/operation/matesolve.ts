@@ -162,19 +162,24 @@ export function poseForBody(pose: Pose, at: Vec3, pivot: Vec3): Pose {
  * Bodies dragged together (`in_338`, `in_345`): `group` moves as one, every other body stays where it is. Returns the pose of the group (about `at`, the middle of the pivots of its bodies) nearest to the one the pointer asks for at which
  * every mate between a body of the group and one outside holds, and `blockedBy`: the mates that keep it from the pose asked for. Mates between two bodies of the group are not in the way: they move together.
  */
-export function solveDriven(mates: readonly SolveMate[], bodies: readonly SolveBody[], group: readonly string[], desired: Pose): { pose: Pose; at: Vec3; blockedBy: string[] } {
+export function solveDriven(mates: readonly SolveMate[], bodies: readonly SolveBody[], group: readonly string[], desired: Pose, grab?: Vec3, start?: Pose): { pose: Pose; at: Vec3; blockedBy: string[]; /** with a `grab`: whether the point is where the pointer asked (else the mates hold it short) */ reached: boolean } {
   const inGroup = new Set(group);
   const members = bodies.filter((b) => inGroup.has(b.id));
   const at: Vec3 = members.length ? [members.reduce((t, b) => t + b.pivot[0], 0) / members.length, members.reduce((t, b) => t + b.pivot[1], 0) / members.length, members.reduce((t, b) => t + b.pivot[2], 0) / members.length] : [0, 0, 0];
   const mine = mates.filter((m) => inGroup.has(m.mover) !== inGroup.has(m.other));
-  if (!members.length || !mine.length) return { pose: desired, at, blockedBy: [] };
+  if (!members.length || !mine.length) return { pose: desired, at, blockedBy: [], reached: true };
   const pivot = new Map(bodies.map((b) => [b.id, b.pivot] as const));
   const asPose = (x: readonly number[]): Pose => ({ turn: [x[0]!, x[1]!, x[2]!], shift: [x[3]!, x[4]!, x[5]!] });
   const poseOf = (id: string, pose: Pose): Pose | undefined => (inGroup.has(id) ? poseForBody(pose, at, pivot.get(id)!) : undefined);
   const resid = (pose: Pose) => mine.flatMap((m) => residuals(m, posed(m.a, pivot.get(m.mover)!, poseOf(m.mover, pose)), posed(m.b, pivot.get(m.other)!, poseOf(m.other, pose))));
   const xd = [...desired.turn, ...desired.shift];
-  const near = minimise((x) => [...resid(asPose(x)).map((v) => v * 1000), ...x.map((v, i) => v - xd[i]!)], xd);
+  const target: Vec3 | null = grab ? [grab[0] + desired.shift[0], grab[1] + desired.shift[1], grab[2] + desired.shift[2]] : null;
+  const grabAt = (x: readonly number[]): Vec3 => { const R = rotationOf([x[0]!, x[1]!, x[2]!]); const q = mul(R, sub(grab!, at)); return [at[0] + q[0] + x[3]!, at[1] + q[1] + x[4]!, at[2] + q[2] + x[5]!]; };
+  // a free drag: the point that was pressed is brought as near the pointer as the mates allow, turning the body if that gets it nearer; the turn costs a little, so a drag the mates do not hold back stays a plain move (`in_346`)
+  const pull = (x: readonly number[]): number[] => (target ? [...sub(grabAt(x), target), ...x.slice(0, 3).map((v) => v * 0.1), ...x.slice(3).map((v, i) => (v - xd[3 + i]!) * 1e-3)] : x.map((v, i) => v - xd[i]!));
+  const near = minimise((x) => [...resid(asPose(x)).map((v) => v * 1000), ...pull(x)], start ? [start.turn[0], start.turn[1], start.turn[2], start.shift[0], start.shift[1], start.shift[2]] : xd);
   const x = minimise((x) => resid(asPose(x)), near); // (then onto the mates exactly, by the smallest step)
   const blockedBy = mine.filter((m) => Math.hypot(...residuals(m, posed(m.a, pivot.get(m.mover)!, poseOf(m.mover, desired)), posed(m.b, pivot.get(m.other)!, poseOf(m.other, desired)))) > 1e-4).map((m) => m.id);
-  return { pose: asPose(x), at, blockedBy };
+  const reached = target ? Math.hypot(...sub(grabAt(x), target)) < 1e-2 : blockedBy.length === 0;
+  return { pose: asPose(x), at, blockedBy, reached };
 }

@@ -73,6 +73,8 @@ export interface Op {
   editPattern?: string;
   /** a move of the whole body by a vector, from dragging the body free (`in_291`): one step that moves it all the way; the arrows' single axis is not used */
   free?: Vec3;
+  /** the point of the body that was pressed, in a free drag (`in_346`): when the mates hold the body back, it is this point that is brought as near the pointer as they allow, by turning as well as moving */
+  grab?: Vec3;
   /** a move, turn or scale of one body of several: whose sketches go with it (its name; "-": none) */
   carryOnly?: string;
   editStep?: string;

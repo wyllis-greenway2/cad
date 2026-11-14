@@ -243,8 +243,8 @@ function poseCommands(scene: Scene, ref: Ref, pivot: Vec3, pose: Pose, k: number
  * What releasing a drag of bodies makes when their standing mates hold them back (`in_340`, `in_345`): only the pose the mates leave, as the turns and move of each body, not the move asked for and then a correction. Null when no mate holds
  * them back (the move asked for is made as it is); an empty batch when the mates leave them nowhere to go that way.
  */
-export function heldCommand(scene: Scene, group: readonly Ref[], asked: Rigid): Command | null {
-  const held = constrainedMotion(scene, group, asked);
+export function heldCommand(scene: Scene, group: readonly Ref[], asked: Rigid, grab?: Vec3): Command | null {
+  const held = constrainedMotion(scene, group, asked, grab);
   if (!held) return null;
   const commands: Command[] = [];
   let sc = scene;
@@ -268,7 +268,8 @@ export function heldCommand(scene: Scene, group: readonly Ref[], asked: Rigid): 
  * Bodies being dragged (`in_338`, `in_345`): the motion the mates allow that is nearest to the one asked for, and the mates that held it back (they flash). The bodies dragged (the ones selected) move as one; every other body stays where it
  * is, even one that is mated to them. Null when no standing mate holds it back.
  */
-export function constrainedMotion(scene: Scene, group: readonly Ref[], asked: Rigid): { rigids: { body: Ref; rigid: Rigid }[]; blocked: string[] } | null {
+let lastGrab: { key: string; pose: Pose } | null = null;
+export function constrainedMotion(scene: Scene, group: readonly Ref[], asked: Rigid, grab?: Vec3): { rigids: { body: Ref; rigid: Rigid }[]; blocked: string[] } | null {
   const states = mateStatus(scene).filter((m) => m.standing && m.state === "ok" && m.mover && m.other && (group.includes(m.mover.body) !== group.includes(m.other.body)));
   if (!states.length) return null;
   const problem = problemOf(scene, states);
@@ -280,9 +281,12 @@ export function constrainedMotion(scene: Scene, group: readonly Ref[], asked: Ri
   const members = group.flatMap((g) => { const b = bodies.find((q) => q.id === g); return b ? [b] : []; });
   if (!members.length) return null;
   const at: Vec3 = [members.reduce((t, b) => t + b.pivot[0], 0) / members.length, members.reduce((t, b) => t + b.pivot[1], 0) / members.length, members.reduce((t, b) => t + b.pivot[2], 0) / members.length];
-  const solved = solveDriven(mates, bodies, group, poseOfRigid(asked, at));
-  if (!solved.blockedBy.length) return null;
-  return { rigids: members.map((b) => ({ body: b.id as Ref, rigid: rigidOfPose(poseForBody(solved.pose, solved.at, b.pivot), b.pivot) })), blocked: solved.blockedBy };
+  // (the last pose found is where the next one is looked for from, so a drag goes on from where it was and does not jump between two ways of getting there)
+  const key = `${group.join(",")}|${scene.steps.length}`;
+  const solved = solveDriven(mates, bodies, group, poseOfRigid(asked, at), grab, lastGrab?.key === key ? lastGrab.pose : undefined);
+  if (!solved.blockedBy.length) { lastGrab = null; return null; }
+  if (grab) lastGrab = { key, pose: solved.pose };
+  return { rigids: members.map((b) => ({ body: b.id as Ref, rigid: rigidOfPose(poseForBody(solved.pose, solved.at, b.pivot), b.pivot) })), blocked: solved.reached ? [] : solved.blockedBy };
 }
 
 export function solveStanding(scene: Scene): { commands: Command[]; atOdds: string[] } {

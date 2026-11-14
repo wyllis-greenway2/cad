@@ -845,3 +845,33 @@ test("a command that moves a body is solved against its standing mates before it
   assert.match(stuck.message ?? "", /nowhere to go/);
   assert.equal(stuck.history, s.history);
 });
+
+test("a free drag that the mates hold back is given rotation freedom: the point that was pressed follows the pointer as near as they allow, the body turning about what they leave free; a drag they do not hold back is a plain move (`in_346`)", () => {
+  const env = { w: 800, h: 600, now: 0 };
+  let s = cylinder(cylinder(createSession(kernel), 0, 0, 8, 6), 40, 4, 3, 14);
+  const [a, b] = bodies(s);
+  s = run(s, actionsFor(scene(s), [roundOfBody(s, bodies(s).find((x) => x.id === b!.id)!), roundOfBody(s, bodies(s).find((x) => x.id === a!.id)!)]).find((x) => x.id === "mate:coaxial")!.run());
+  const pin = bodies(s).find((x) => x.id === b!.id)!;
+  const op = (free: [number, number, number], grab: [number, number, number] | undefined) => { const o = startOp(scene(s), [pin.ref], "move"); assert.ok(o.ok); return { ...(o as unknown as { op: object }).op, free, ...(grab ? { grab } : {}) } as never; };
+  const side: [number, number, number] = [3, 0, 7]; // (the pin stands on the axis of the post: this point is on its side)
+  // sideways, with a point of its side pressed: it cannot go sideways, so it turns about its axis and the point goes round toward the pointer
+  const f = frameOf({ ...createState(s), cam: homeCamera(), op: op([0, 2, 0], side) }, env);
+  assert.ok(f.bodyMatrix, "drawn");
+  const sin = f.bodyMatrix![1]!;
+  assert.ok(Math.abs(sin) > 0.4, `turned about the axis: ${sin}`);
+  assert.ok(Math.abs(f.bodyMatrix![12]!) < 0.2 && Math.abs(f.bodyMatrix![13]!) < 0.2, `on the axis still: ${f.bodyMatrix!.slice(12, 15)}`);
+  // along the axis: a plain move, no turn
+  const g = frameOf({ ...createState(s), cam: homeCamera(), op: op([0, 0, 5], side) }, env);
+  assert.ok(g.bodyMatrix && Math.abs(g.bodyMatrix[1]!) < 1e-6 && Math.abs(g.bodyMatrix[14]! - 5) < 1e-6, `moved along: ${g.bodyMatrix?.slice(0, 15)}`);
+  assert.equal(g.flash, null);
+  // the release makes that pose: the mate holds, and there is a turn about the axis among the steps
+  const before = scene(s).steps.length;
+  const made = runOp(s, op([0, 2, 0], side))!;
+  assert.ok(!made.session.message, `${made.session.message}`);
+  assert.ok(mateStatus(scene(made.session)).every((m) => m.state === "ok"));
+  assert.ok(scene(made.session).steps.slice(before).some((x) => x.type === "rotate" && Number(x.params.axis) === 2), "a turn about the axis was made");
+  assert.equal(made.session.history.commands.length, s.history.commands.length + 1, "one entry");
+  // without a pressed point (the arrows, a typed number): the plain translation, held where it cannot go
+  const plain = runOp(s, op([0, 2, 0], undefined))!;
+  assert.match(plain.session.message ?? "", /nowhere to go/);
+});

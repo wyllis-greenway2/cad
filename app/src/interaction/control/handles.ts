@@ -134,7 +134,7 @@ function moveBody(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env):
   if (!now) return s;
   const r = (v: number) => Math.round(v * 1000) / 1000;
   const go = (k: 0 | 1 | 2) => (s.lockAxes.length && !s.lockAxes.includes(k) ? 0 : r(now[k] - d.from[k])); // (the arrows chosen with Shift: only along those, `in_299`)
-  return { ...s, op: { ...s.op, free: [go(0), go(1), go(2)] } };
+  return { ...s, op: { ...s.op, free: [go(0), go(1), go(2)], grab: d.from } };
 }
 
 /** Where a pointer's ray meets the plane through `centre` that faces the camera. */
