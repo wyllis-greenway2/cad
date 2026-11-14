@@ -116,3 +116,26 @@ export function stackOffset(y: number, index: number, count: number, height: num
   const room = y - (count - 1) * STACK_STEP >= 0; // (and the column fits above)
   return (down && room ? 0 - index : index) * STACK_STEP;
 }
+
+const distToSegment = (p: readonly [number, number], a: readonly [number, number], b: readonly [number, number]): number => {
+  const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+  const l2 = dx * dx + dy * dy;
+  const t = l2 === 0 ? 0 : Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2));
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+};
+/**
+ * Where a round mark of `radius` px that belongs at `at` stands so that it does not cover the lines `segs` (the handles of the helper, `in_334`): where it is when it is clear, else the nearest of the places round it
+ * (a ring of eight directions, then a wider one) that is; where it is if none is. The mark keeps hold of its face by staying near it.
+ */
+export function clearOfLines(at: readonly [number, number], segs: readonly (readonly [readonly [number, number], readonly [number, number]])[], radius: number): [number, number] {
+  const clear = (p: readonly [number, number]) => segs.every(([a, b]) => distToSegment(p, a, b) >= radius + 3);
+  if (clear(at)) return [at[0], at[1]];
+  for (const k of [1.9, 2.8]) {
+    for (let i = 0; i < 8; i++) { // (above first, then round)
+      const t = -Math.PI / 2 + (i / 8) * Math.PI * 2;
+      const q: [number, number] = [at[0] + Math.cos(t) * radius * k, at[1] + Math.sin(t) * radius * k];
+      if (clear(q)) return q;
+    }
+  }
+  return [at[0], at[1]];
+}

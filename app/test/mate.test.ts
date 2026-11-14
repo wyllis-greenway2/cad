@@ -649,3 +649,16 @@ test("a change that leaves standing mates with no placement where they all hold 
   const ok = run(free, actionsFor(scene(free), [face(free, b!.id, [1, 0, 0]), face(free, c!.id, [-1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
   assert.ok(!ok.message, `${ok.message}`);
 });
+
+import { clearOfLines } from "../src/interaction/bubbleplace.ts";
+test("a mark that would stand on a line moves off it, nearby; one that is clear stays (`in_334`)", () => {
+  const arrow: [[number, number], [number, number]][] = [[[100, 200], [300, 200]]];
+  assert.deepEqual(clearOfLines([200, 100], arrow, 13), [200, 100], "clear: stays");
+  const moved = clearOfLines([200, 200], arrow, 13);
+  assert.ok(Math.abs(moved[1] - 200) >= 16 && Math.hypot(moved[0] - 200, moved[1] - 200) < 45, `off the arrow, near its place: ${moved}`);
+  // lines on every side of it: the wider ring
+  const boxed: [[number, number], [number, number]][] = [[[100, 200], [300, 200]], [[200, 100], [200, 300]]];
+  const m2 = clearOfLines([200, 200], boxed, 13);
+  assert.ok(boxed.every(([a, b]) => Math.abs((b[0] - a[0]) * (a[1] - m2[1]) - (a[0] - m2[0]) * (b[1] - a[1])) / Math.hypot(b[0] - a[0], b[1] - a[1]) >= 16), `clear of both: ${m2}`);
+  assert.deepEqual(clearOfLines([200, 200], [[[0, 0], [1000, 1000]], [[0, 400], [400, 0]], [[0, 200], [1000, 200]], [[200, 0], [200, 1000]]], 13), [200, 200], "nowhere clear: where it was");
+});
