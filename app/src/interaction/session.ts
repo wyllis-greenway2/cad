@@ -103,7 +103,7 @@ const conflictsOf = (o: CompileOutcome): { planes: string[]; ids: string[] } => 
 /** What is said when standing mates cannot all hold: which ones (`in_329`). */
 const atOddsMessage = (scene: Scene, ids: readonly string[]): string => {
   const names = mateStatus(scene).filter((m) => ids.includes(m.id)).map((m) => m.mode.replace(/([A-Z])/g, " $1").toLowerCase());
-  return `these standing mates cannot all hold at once (${names.join(", ")}): the change stays and they stay as they are; take one away or change a number`;
+  return `these standing mates could not all hold at once (${names.join(", ")}): so that cannot be done: take one of them away or change it first`;
 };
 function standingFixes(h: History): { fixes: Command[]; atOdds: string[] } {
   // all the standing mates solved together first (`in_329`); the ones put back one at a time (`in_321`) only if that did not hold
@@ -174,6 +174,10 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   if (!next.outcome.kernel?.stale) {
     const { fixes, atOdds } = standingFixes(next.history);
     odds = atOdds;
+    // a change that leaves mates that held with no placement where they all hold is refused, as one that breaks sketch constraints is: the mates are named and nothing is made (`in_330`, `in_331`); a conflict that was already there is not the change's
+    const held = new Set(mateStatus(s.history.scene).filter((m) => m.state === "ok").map((m) => m.id));
+    const brought = atOdds.filter((id) => held.has(id) || !s.history.scene.relations.some((r) => r.id === id));
+    if (brought.length) return { ...s, message: atOddsMessage(next.history.scene, atOdds), conflict: { culprits: atOdds, victims: [] } };
     if (fixes.length) {
       const again = exec(s.history, { type: "batch", commands: [describedCommand(s.history.scene, c), ...fixes] });
       if (again.ok) return { ...withHistory(s, again.value), conflict: null, message: "the standing mates were put back with the change" };
@@ -213,7 +217,12 @@ export function refresh(s: Session): Session {
       const again = exec(undo(now.history), { type: "batch", commands: [h.commands[h.cursor - 1]!, ...fixes] });
       if (again.ok) return { ...withHistory(now, again.value), checkSteps: undefined, fallback: undefined, message: "the standing mates were put back with the change" };
     }
-    if (atOdds.length) return { ...now, message: atOddsMessage(now.history.scene, atOdds), checkSteps: undefined, fallback: undefined };
+    // the answer shows the change leaves mates that held with no placement where they all hold: it is taken back, as when it is made with the answer at hand (`in_331`)
+    const held = new Set(mateStatus(h.snapshots[h.cursor - 1] ?? h.base).filter((m) => m.state === "ok").map((m) => m.id));
+    if (atOdds.some((id) => held.has(id) || !(h.snapshots[h.cursor - 1] ?? h.base).relations.some((r) => r.id === id))) {
+      const back = withHistory(s, undo(h));
+      return { ...back, checkSteps: undefined, fallback: undefined, message: atOddsMessage(now.history.scene, atOdds), conflict: { culprits: atOdds, victims: [] } };
+    }
   }
   // and a mate that is not true now, with nothing said when the change was made (the answer was awaited): said once the answer is here
   const off = fresh && s.outcome.kernel?.stale && !now.message ? mateStatus(now.history.scene).filter((m) => m.state !== "ok" && m.standing) : []; // (a standing one the change broke and nothing could put back: the others were left off knowingly)

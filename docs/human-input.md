@@ -1575,3 +1575,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_330 — 2026-11-14 — preference
 > instead of having priority between mates shouldn't we just require a resolution? we dont want a pile of conflicting mates to build up with the most recent always winning
 (a design preference on `dec_standing_mates` item 8: conflicting mates should have to be resolved, not ranked; not yet built, the shape is asked in the reply)
+
+## in_331 — 2026-11-14 — approval
+> Yes, refuse the change
+(approves the proposal in the reply to `in_330`: a change that would leave standing mates with no placement where they all hold is refused, naming the mates, as conflicting sketch constraints are)

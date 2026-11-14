@@ -633,15 +633,19 @@ test("a chain of standing mates follows a change all at once: widening the first
   assert.ok(scene(wider).steps.length > before);
 });
 
-test("standing mates at odds are said, with which, and nothing is moved to please one of them (`in_329`)", () => {
-  // B is put against A's right face (x = 10 to 20); then its right face is mated against C's left face, at x = 25: no place holds both
+test("a change that leaves standing mates with no placement where they all hold is refused, naming them, and nothing is made (`in_330`, `in_331`)", () => {
+  // B is put against A's right face (x = 10 to 20); then its right face is to be mated against C's left face, at x = 25: no place holds both
   let s = box(box(box(createSession(kernel), 0, 0), 40, 0), 25, 30);
   const [a, b, c] = bodies(s);
   const face = (q: Session, id: string | undefined, n: [number, number, number]) => faceOf(q, bodies(q).find((x) => x.id === id)!, n);
   s = run(s, actionsFor(scene(s), [face(s, b!.id, [-1, 0, 0]), face(s, a!.id, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
   const second = run(s, actionsFor(scene(s), [face(s, b!.id, [1, 0, 0]), face(s, c!.id, [-1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
-  assert.ok(second.message && /cannot all hold/.test(second.message), `said: ${second.message}`);
-  // the change itself stays (the second mate put B against C, x = 15 to 25), and nothing is added to please the first
-  assert.equal(scene(second).steps.length, scene(s).steps.length + 1, "only the second mate's own move");
-  assert.ok(Math.abs(bodies(second).find((x) => x.id === b!.id)!.bbox!.min[0]! - 15) < 1e-3, "B stands against C");
+  assert.ok(second.message && /could not all hold/.test(second.message), `said: ${second.message}`);
+  assert.ok(second.conflict && second.conflict.culprits.length >= 1, "the mates are named for the flash");
+  assert.equal(second.history, s.history, "refused: nothing was made, nothing to undo");
+  assert.equal(scene(second).relations.filter((r) => r.kind === "mate").length, 1, "still one mate");
+  // with the first mate taken away it can be made
+  const free = run(s, { type: "removeRelation", id: scene(s).relations.find((r) => r.kind === "mate")!.id });
+  const ok = run(free, actionsFor(scene(free), [face(free, b!.id, [1, 0, 0]), face(free, c!.id, [-1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  assert.ok(!ok.message, `${ok.message}`);
 });
