@@ -14,7 +14,8 @@ import { planeOf } from "../objects.ts";
 import { sketchOfEdge } from "../../operation/edgesource.ts";
 import { sideOf, viewAxes, nearTolMm } from "../camera.ts";
 import { seenIn } from "../picking.ts";
-import { putMatesBack } from "../mate.ts";
+import { putMatesBack, setMateValue } from "../mate.ts";
+import { mateStatus } from "../../operation/mates.ts";
 import { moveOffset } from "../gizmo.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
@@ -215,10 +216,6 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "repeat:break") return doRepeatBreak(closed);
   if (id === "select:ungroup") return doUngroup(closed);
   if (id === "multiselect") return { ...closed, multiSelect: !s.multiSelect, session: { ...closed.session, message: s.multiSelect ? "select several is off" : "select several is on: a tap adds to the selection, a tap on what is selected takes it out" } };
-  if (id.startsWith("mate:select:")) { // a mark on the model was clicked: the two bodies of the mate are selected (`in_316`)
-    const rel = sceneOf(s.session).relations.find((r) => r.id === id.slice(12));
-    return rel ? { ...closed, session: { ...s.session, click: { ...s.session.click, selection: rel.parts.filter((q) => q in sceneOf(s.session).parts) }, message: null } } : closed;
-  }
   if (id.startsWith("mate:stand:")) { // a mate is made standing (it puts itself back after a change) or not (`in_321`)
     const rel = sceneOf(s.session).relations.find((r) => r.id === id.slice(11));
     if (!rel?.params) return closed;
@@ -273,11 +270,16 @@ export const doRedo = (s: AppState): AppState => s.repeat ? { ...s, menu: null, 
 /** A constraint shown on a selected part: open or close it, delete it, lock or unlock its number, give it a new number, or lock the measure of the selection. */
 export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>): AppState {
   const sc = sceneOf(s.session);
-  if (i.act === "focus") return { ...s, focus: i.id === s.focus ? null : i.id }; // a second click closes it again
+  if (i.act === "focus") {
+    // a mate that is not true is put back by a click on its bubble (`in_338`); any other bubble opens, and a second click closes it
+    const m = i.id ? mateStatus(sc).find((x) => x.id === i.id) : undefined;
+    if (m && m.state === "off") return doRunAction(s, `mate:reapply:${m.id}`);
+    return { ...s, focus: i.id === s.focus ? null : i.id };
+  }
   if (i.act === "measure") {
     const sel = selectionOf(s.session);
-    const a = i.id?.startsWith("mate:") ? actionsFor(sc, sel).find((x) => x.id === i.id && x.dimensional && x.enabled) : measureAction(actionsFor(sc, sel), (x) => x.enabled); // (a mate's gap or angle: the number says which, `in_318`)
-    if (a) return i.value !== undefined && (i.value > 0 || (a.id.startsWith("mate:") && i.value >= 0)) ? withSession(s, run(s.session, a.run(i.value), { watchAll: true })) : s; // (a sketch the body was made from: a size the steps cannot take is refused)
+    const a = measureAction(actionsFor(sc, sel), (x) => x.enabled);
+    if (a) return i.value !== undefined && i.value > 0 ? withSession(s, run(s.session, a.run(i.value), { watchAll: true })) : s; // (a sketch the body was made from: a size the steps cannot take is refused)
     // a line of the body: its length is made by pushing or pulling the face at its end
     const cmd = sel.length === 1 && i.value !== undefined ? setLineLength(sc, sel[0]!, i.value) : null;
     return cmd ? withSession({ ...s, op: null }, run(s.session, cmd)) : s;
@@ -285,6 +287,10 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
   const rel = i.id ? sc.relations.find((r) => r.id === i.id) : undefined;
   if (!rel) return s;
   if (i.act === "remove") return { ...withSession(s, run(s.session, { type: "removeRelation", id: rel.id })), focus: null };
+  if (i.act === "set" && rel.kind === "mate") { // a mate's number, typed over on its bubble: the mate is made again at it (`in_338`)
+    const cmd = i.value !== undefined ? setMateValue(sc, rel.id, i.value) : null;
+    return cmd ? withSession(s, run(s.session, cmd)) : s;
+  }
   if (i.act === "set") return rel.value !== undefined && i.value !== undefined && i.value > 0 ? withSession(s, run(s.session, { type: "setRelationValue", id: rel.id, value: i.value, locked: true }, { watchAll: true })) : s;
   if (rel.value === undefined) return s;
   const action = actionsFor(sc, rel.parts).find((x) => x.id === rel.kind && x.dimensional);

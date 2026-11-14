@@ -181,30 +181,6 @@ test("deleting a mated body takes its mate with it; a mate whose body is gone is
 });
 
 import { frameOf } from "../src/interaction/frame.ts";
-test("each mate is marked on the model where the two bodies meet, with its state; a click puts back one that is off or selects the two bodies (`in_316`)", () => {
-  const { s, a, b, rightA: right } = matedBoxes();
-  const env = { w: 800, h: 600 };
-  const st0 = { ...createState(s), cam: homeCamera() };
-  const f0 = frameOf(st0, env);
-  assert.equal(f0.mates.length, 1);
-  assert.equal(f0.mates[0]!.state, "ok");
-  assert.ok(Math.abs(f0.mates[0]!.at[0] - 10) < 1e-3, `at the touching faces (x = 10): ${f0.mates[0]!.at}`);
-  assert.match(f0.mates[0]!.text, /flush faces/);
-  // a click on the mark of a mate that is true selects the two bodies
-  const picked = reduce(st0, { type: "runAction", id: `mate:select:${f0.mates[0]!.id}` }, { ...env, now: 0 });
-  assert.deepEqual([...picked.session.click.selection].sort(), [a.ref, b.ref].sort());
-  // A made wider: the mark says it is off, and a click on it puts that mate back
-  let wider = s;
-  for (const ref of right) { const at = (scene(wider).parts[ref] as unknown as { at: number[] }).at; wider = run(wider, { type: "movePart", ref, to: [14, at[1]!, at[2]!] } as never); }
-  const f1 = frameOf({ ...createState(wider), cam: homeCamera() }, env);
-  assert.equal(f1.mates[0]!.state, "off");
-  assert.match(f1.mates[0]!.text, /no longer true.*click to put it back/);
-  const fixed = reduce({ ...createState(wider), cam: homeCamera() }, { type: "runAction", id: `mate:reapply:${f1.mates[0]!.id}` }, { ...env, now: 0 });
-  assert.equal(frameOf(fixed, env).mates[0]!.state, "ok");
-  // a mate of a body that is gone is marked as lost, at what is left
-  const gone = run(s, actionsFor(scene(s), [bodies(s).find((x) => x.id === a.id)!.ref]).find((x) => x.id === "delete")!.run());
-  assert.equal(frameOf({ ...createState(gone), cam: homeCamera() }, env).mates.length, 0, "its mate went with it");
-});
 
 test("a relation to a part of the body is saved with its description, and is accepted before the kernel has answered, as when a file is opened in the browser (`in_316`)", () => {
   const { s } = matedBoxes();
@@ -224,7 +200,7 @@ test("flush leaves the gap that is typed: the faces stand that far apart, the ma
   const [a, b] = bodies(s);
   const pick = [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])];
   const act = actionsFor(scene(s), pick).find((x) => x.id === "mate:flush")!;
-  assert.ok(act.dimensional && act.unit === "mm", "flush has a number");
+  assert.ok(!act.dimensional, "no number to type over two faces (it is on the mate's bubble)");
   assert.ok(Math.abs(act.measure()! - 30) < 1e-6, `it says how far apart they are now: ${act.measure()}`);
   const gapped = run(s, act.run(5));
   assert.ok(!gapped.message, `${gapped.message}`);
@@ -241,20 +217,6 @@ test("flush leaves the gap that is typed: the faces stand that far apart, the ma
   assert.equal(mateStatus(scene(again))[0]!.state, "ok");
 });
 
-test("the gap is typed into the number that stands over two selected faces, and it makes the mate (`in_317`)", () => {
-  const s = box(box(createSession(kernel), 0, 0), 40, 0);
-  const [a, b] = bodies(s);
-  const env = { w: 800, h: 600, now: 0 };
-  const pick: Ref[] = [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])];
-  let st = { ...createState(s), cam: homeCamera() };
-  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: pick } } };
-  const note = annotationsFor(scene(st.session), pick, null, false).find((x) => x.measureId === "mate:flush");
-  assert.ok(note && note.editable && note.unit === "mm", `a number stands over the two faces: ${JSON.stringify(note && [note.kind, note.value])}`);
-  const done = reduce(st, { type: "relation", act: "measure", id: "mate:flush", value: 4 }, env);
-  assert.ok(Math.abs(bodies(done.session).find((x) => x.id === b!.id)!.bbox!.min[0] - 14) < 1e-3, "typed 4: B stands 4 mm from A");
-  const zero = reduce(st, { type: "relation", act: "measure", id: "mate:flush", value: 0 }, env);
-  assert.ok(Math.abs(bodies(zero.session).find((x) => x.id === b!.id)!.bbox!.min[0] - 10) < 1e-3, "typed 0: touching");
-});
 
 /** A body turned about Z by this many degrees (a step of its own, naming it). */
 /** The mates of the session made placed-once (not standing): they are checked and put back on request (`in_315`), not by themselves (`in_321`). */
@@ -268,7 +230,7 @@ test("Mate: parallel faces only turns the first body until its face is parallel 
   const b1 = bodies(s).find((x) => x.id === b!.id)!;
   const faceB = Object.values(scene(s).parts).find((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && p.of === b1.ref && !!p.mesh && !p.curved && !p.round && Math.abs(normalOfPlane(p)[2]) < 1e-6 && Math.abs(normalOfPlane(p)[0]) > 0.5)!.ref;
   const act = actionsFor(scene(s), [faceB, faceOf(s, bodies(s).find((x) => x.id === a!.id)!, [1, 0, 0])]).find((x) => x.id === "mate:parallel")!;
-  assert.ok(act?.enabled && act.dimensional, "offered, with a number that is optional");
+  assert.ok(act?.enabled && !act.dimensional, "offered, with no number over the two faces");
   const after = once(run(s, act.run()));
   assert.ok(!after.message, `${after.message}`);
   assert.equal(mateStatus(scene(after))[0]!.state, "ok");
@@ -299,13 +261,6 @@ test("Mate: parallel axes turns a round face's axis parallel to the other's and 
   assert.ok(Math.abs(b2.bbox!.max[2] - b2.bbox!.min[2] - 10) < 1e-2, "upright again: ten high");
 });
 
-test("the marks say what a mate is: the gap, and parallel (`in_317`)", () => {
-  const s = box(box(createSession(kernel), 0, 0), 40, 0);
-  const [a, b] = bodies(s);
-  const gapped = run(s, actionsFor(scene(s), [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run(5));
-  const f = frameOf({ ...createState(gapped), cam: homeCamera() }, { w: 800, h: 600 });
-  assert.match(f.mates[0]!.text, /flush faces \(5 mm apart\)/);
-});
 
 test("Mate: perpendicular turns the first body until its face is at a right angle to the other's, and leaves it where it is (`in_318`)", () => {
   const s = box(box(createSession(kernel), 0, 0), 40, 0);
@@ -331,7 +286,7 @@ test("Mate: angle between faces leaves the angle that is typed (the angle betwee
   const [a, b] = bodies(s);
   const pick = [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])];
   const act = actionsFor(scene(s), pick).find((x) => x.id === "mate:angle")!;
-  assert.ok(act.dimensional && act.unit === "deg", "angle has a number");
+  assert.ok(!act.dimensional, "no number to type over two faces (it is on the mate's bubble)");
   assert.ok(Math.abs(act.measure()! - 0) < 1e-6, `they are parallel now: ${act.measure()}`);
   const after = once(run(s, act.run(30)));
   assert.ok(!after.message, `${after.message}`);
@@ -355,25 +310,6 @@ test("Mate: angle between faces leaves the angle that is typed (the angle betwee
   assert.equal(mateStatus(scene(run(off, putMatesBack(scene(off))!.command)))[0]!.state, "ok");
 });
 
-test("an angle can be typed into the number over two selected faces, next to the gap; and the angle between axes for round faces (`in_318`)", () => {
-  const s = box(box(createSession(kernel), 0, 0), 40, 0);
-  const [a, b] = bodies(s);
-  const env = { w: 800, h: 600, now: 0 };
-  const pick: Ref[] = [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])];
-  let st = { ...createState(s), cam: homeCamera() };
-  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: pick } } };
-  const notes = annotationsFor(scene(st.session), pick, null, false).filter((x) => x.measureId);
-  assert.deepEqual(notes.map((x) => [x.measureId, x.unit]).sort(), [["mate:angle", "deg"], ["mate:flush", "mm"], ["mate:parallel", "mm"]], "a gap, a distance and an angle");
-  const done = reduce(st, { type: "relation", act: "measure", id: "mate:angle", value: 45 }, env);
-  assert.equal(mateStatus(scene(done.session))[0]!.gap, 45);
-  assert.equal(mateStatus(scene(done.session))[0]!.mode, "angle");
-  const c = cylinder(cylinder(createSession(kernel), 0, 0, 5), 30, 4, 3);
-  const [c1, c2] = bodies(c);
-  const axes = actionsFor(scene(c), [roundOfBody(c, c2!), roundOfBody(c, c1!)]).map((x) => x.id);
-  assert.ok(axes.includes("mate:angleAxes") && axes.includes("mate:perpendicularAxes"), `for round faces: ${axes}`);
-  const tilted = run(c, actionsFor(scene(c), [roundOfBody(c, c2!), roundOfBody(c, c1!)]).find((x) => x.id === "mate:angleAxes")!.run(40));
-  assert.equal(mateStatus(scene(tilted))[0]!.state, "ok");
-});
 
 test("Mate: parallel faces with a distance typed turns the body and leaves the planes that far apart, on the side it is on; with none typed it only turns (`in_319`)", () => {
   let s = box(box(createSession(kernel), 0, 0), 40, 0);
@@ -405,7 +341,7 @@ test("Mate: coaxial with a number leaves the axes that far apart, in the way the
   const [a, b] = bodies(s);
   const pick = [roundOfBody(s, b!), roundOfBody(s, a!)];
   const act = actionsFor(scene(s), pick).find((x) => x.id === "mate:coaxial")!;
-  assert.ok(act.dimensional && act.unit === "mm", "coaxial has a number");
+  assert.ok(!act.dimensional, "no number to type over two faces (it is on the mate's bubble)");
   assert.ok(Math.abs(act.measure()! - Math.hypot(30, 4)) < 1e-3, `the axes are ${act.measure()} apart now`);
   const four = run(s, act.run(4));
   assert.ok(!four.message, `${four.message}`);
@@ -421,20 +357,10 @@ test("Mate: coaxial with a number leaves the axes that far apart, in the way the
   const b3 = bodies(again).find((x) => x.id === b!.id)!;
   assert.ok(Math.hypot((b3.bbox!.min[0] + b3.bbox!.max[0]) / 2, (b3.bbox!.min[1] + b3.bbox!.max[1]) / 2) < 1e-2, "on one axis");
   assert.equal(scene(again).relations.filter((r) => r.kind === "mate").length, 1, "one mate");
-  // the marks say it
-  const f = frameOf({ ...createState(four), cam: homeCamera() }, { w: 800, h: 600 });
-  assert.match(f.mates[0]!.text, /axes 4 mm apart/);
+  const shown = annotationsFor(scene(four), [bodies(four).find((x) => x.id === b!.id)!.ref], null).filter((x) => x.kind === "mate:coaxial");
+  assert.equal(shown.length, 1, "the bubble of the mate shows while a body it joins is selected");
 });
 
-test("the numbers of a mate over two faces are told apart by a word and put one under the other (`in_320`)", () => {
-  const s = box(box(createSession(kernel), 0, 0), 40, 0);
-  const [a, b] = bodies(s);
-  const pick: Ref[] = [faceOf(s, b!, [-1, 0, 0]), faceOf(s, a!, [1, 0, 0])];
-  const notes = annotationsFor(scene(s), pick, null, false).filter((x) => x.measureId);
-  assert.deepEqual(notes.map((x) => x.tag), ["gap", "distance", "angle"], "a word before each number");
-  assert.deepEqual(notes.map((x) => x.stack), [0, 1, 2], "a column, in order");
-  assert.ok(notes.every((x) => x.at[0] === notes[0]!.at[0] && x.at[2] === notes[0]!.at[2]), "all belong to one spot: the stack is on the screen, not in the model");
-});
 
 test("a standing mate puts itself back with the change that broke it, in one undo (`in_321`)", () => {
   const rA = drawSquaredRectangle(scene(createSession(kernel)), XY, [0, 0, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]);
@@ -641,7 +567,7 @@ test("a change that leaves standing mates with no placement where they all hold 
   s = run(s, actionsFor(scene(s), [face(s, b!.id, [-1, 0, 0]), face(s, a!.id, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
   const second = run(s, actionsFor(scene(s), [face(s, b!.id, [1, 0, 0]), face(s, c!.id, [-1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
   assert.ok(second.message && /unable to hold at once/.test(second.message), `said: ${second.message}`);
-  assert.ok(second.conflict && second.conflict.culprits.length >= 1, "the mates are named for the flash");
+  assert.ok(second.conflict && second.conflict.victims.length >= 1, "the mates are named, to flash red");
   assert.equal(second.history, s.history, "refused: nothing was made, nothing to undo");
   assert.equal(scene(second).relations.filter((r) => r.kind === "mate").length, 1, "still one mate");
   // with the first mate taken away it can be made
@@ -650,18 +576,6 @@ test("a change that leaves standing mates with no placement where they all hold 
   assert.ok(!ok.message, `${ok.message}`);
 });
 
-import { clearOfLines } from "../src/interaction/bubbleplace.ts";
-test("a mark that would stand on a line moves off it, nearby; one that is clear stays (`in_334`)", () => {
-  const arrow: [[number, number], [number, number]][] = [[[100, 200], [300, 200]]];
-  assert.deepEqual(clearOfLines([200, 100], arrow, 13), [200, 100], "clear: stays");
-  const moved = clearOfLines([200, 200], arrow, 13);
-  assert.ok(Math.abs(moved[1] - 200) >= 16 && Math.hypot(moved[0] - 200, moved[1] - 200) < 45, `off the arrow, near its place: ${moved}`);
-  // lines on every side of it: the wider ring
-  const boxed: [[number, number], [number, number]][] = [[[100, 200], [300, 200]], [[200, 100], [200, 300]]];
-  const m2 = clearOfLines([200, 200], boxed, 13);
-  assert.ok(boxed.every(([a, b]) => Math.abs((b[0] - a[0]) * (a[1] - m2[1]) - (a[0] - m2[0]) * (b[1] - a[1])) / Math.hypot(b[0] - a[0], b[1] - a[1]) >= 16), `clear of both: ${m2}`);
-  assert.deepEqual(clearOfLines([200, 200], [[[0, 0], [1000, 1000]], [[0, 400], [400, 0]], [[0, 200], [1000, 200]], [[200, 0], [200, 1000]]], 13), [200, 200], "nowhere clear: where it was");
-});
 
 import { changeWords } from "../src/interaction/changewords.ts";
 test("the refusal says which change it is and which bodies the mates join (`in_335`)", () => {
@@ -675,9 +589,44 @@ test("the refusal says which change it is and which bodies the mates join (`in_3
   assert.equal(changeWords(scene(s), { type: "batch", commands: [{ type: "removeRelation", id: "r_1" }, { type: "movePart", ref: a!.ref, to: [0, 0, 0] }] }), "that move of a point of a drawing");
 });
 
-test("a mark also keeps off the drag icons of a finger (`in_336`)", () => {
-  const icon: [number, number, number][] = [[225, 300, 26]];
-  assert.deepEqual(clearOfLines([300, 100], [], 13, icon), [300, 100], "far from the icon: stays");
-  const moved = clearOfLines([241, 301], [], 13, icon);
-  assert.ok(Math.hypot(moved[0] - 225, moved[1] - 300) >= 13 + 26, `off the icon: ${moved}`);
+
+test("a mate is shown like any constraint: a bubble with its own icon only while a body or a face it joins is selected; the number is typed over on it; a click puts back one that is off; the cross takes it away (`in_338`)", () => {
+  const env = { w: 800, h: 600, now: 0 };
+  const s0 = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s0);
+  const pick = [faceOf(s0, b!, [-1, 0, 0]), faceOf(s0, a!, [1, 0, 0])];
+  // two faces selected: nothing is measured over them, the mates are offered as rows
+  assert.deepEqual(annotationsFor(scene(s0), pick, null).filter((x) => x.measureId || x.kind.startsWith("mate")), [], "no numbers over two faces");
+  const rows = actionsFor(scene(s0), pick).filter((x) => x.id.startsWith("mate:"));
+  assert.ok(rows.some((x) => x.id === "mate:flush" && x.enabled) && rows.every((x) => !x.dimensional), "constraints can be added, with no number to type");
+  const s1 = run(s0, rows.find((x) => x.id === "mate:flush")!.run());
+  const id = scene(s1).relations.find((r) => r.kind === "mate")!.id;
+  const shown = (q: Session, sel: Ref[]) => annotationsFor(scene(q), sel, null).filter((x) => x.relationId === id);
+  assert.equal(shown(s1, []).length, 0, "nothing selected: not shown");
+  const [a1, b1] = [bodies(s1).find((x) => x.id === a!.id)!, bodies(s1).find((x) => x.id === b!.id)!];
+  assert.equal(shown(s1, [b1.ref]).length, 1, "the body that moved");
+  assert.equal(shown(s1, [a1.ref]).length, 1, "the other body");
+  assert.equal(shown(s1, [faceOf(s1, a1, [1, 0, 0])]).length, 1, "one of its faces");
+  assert.equal(shown(s1, [faceOf(s1, a1, [0, 0, 1])]).length, 0, "another face of the body: not shown");
+  const bubble = shown(s1, [b1.ref])[0]!;
+  assert.equal(bubble.kind, "mate:flush");
+  assert.equal(bubble.broken, false);
+  assert.equal(bubble.value, 0);
+  assert.equal(bubble.tag, "gap");
+  // the number typed over on the bubble makes the mate again at it
+  let st: AppState = { ...createState(s1), cam: homeCamera() };
+  st = reduce(st, { type: "relation", act: "set", id, value: 5 }, env);
+  const gapped = mateStatus(scene(st.session)).find((m) => m.id === id)!;
+  assert.equal(gapped.gap, 5);
+  assert.equal(gapped.state, "ok");
+  // not true (placed once, turned by hand): the bubble is red, and a click on it puts it back
+  const once1 = once(st.session);
+  const off = turned(once1, bodies(once1).find((x) => x.id === b!.id)!, 7);
+  const red = shown(off, [bodies(off).find((x) => x.id === b!.id)!.ref])[0]!;
+  assert.equal(red.broken, true, "red when it is not true");
+  const back = reduce({ ...createState(off), cam: homeCamera() }, { type: "relation", act: "focus", id }, env);
+  assert.equal(mateStatus(scene(back.session)).find((m) => m.id === id)!.state, "ok", "a click puts it back");
+  // the cross takes it away
+  const gone = reduce(back, { type: "relation", act: "remove", id }, env);
+  assert.equal(scene(gone.session).relations.filter((r) => r.kind === "mate").length, 0);
 });

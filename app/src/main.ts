@@ -12,7 +12,6 @@ import type { Session } from "./interaction/session.ts";
 import { exportStl, canExport, selectedBodies } from "./interaction/exportstl.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
 import { createState, reduce, advance } from "./interaction/controller.ts";
-import { clearOfLines } from "./interaction/bubbleplace.ts";
 import { frameOf } from "./interaction/frame.ts";
 import { appRows, nextScrollMode, isScrollMode, nextPanScale } from "./interaction/appmenu.ts";
 import { snapshotOf, logEntry } from "./interaction/snapshot.ts";
@@ -38,7 +37,6 @@ import { createSimilarChip } from "./ui/similarchip.ts";
 import { createSelectionChip } from "./ui/selectionchip.ts";
 import { createResetView } from "./ui/resetview.ts";
 import { createCrosshair } from "./ui/crosshair.ts";
-import { createMateMarks } from "./ui/matemarks.ts";
 import { createModeSwitch } from "./ui/modeswitch.ts";
 import { createSuggest } from "./ui/suggest.ts";
 import { createHints } from "./ui/hint.ts";
@@ -128,7 +126,6 @@ const busySign = createBusy(document.body);
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
 const crosshair = createCrosshair(document.body);
-const mateMarks = createMateMarks(document.body, (id, state) => dispatch({ type: "runAction", id: state === "off" ? `mate:reapply:${id}` : `mate:select:${id}` })); // (a mark of a mate that is not true puts it back; any other selects its two bodies, `in_316`)
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const selectionChip = createSelectionChip(document.body, (id) => dispatch({ type: "runAction", id }));
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
@@ -283,9 +280,6 @@ function frame(now: number) {
     view.setNotes(f.annotations.flatMap((a) => a.lines));
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
-    // a mark does not stand on the helper's arrows and rings: a press there is meant for the handle (`in_334`)
-    const handleSegs = (f.gizmo?.handles ?? []).flatMap((h) => h.points.slice(1).map((p, i) => [onPage(h.points[i]), onPage(p)] as const)).filter((s): s is readonly [[number, number], [number, number]] => !!s[0] && !!s[1]);
-    mateMarks.update(f.mates.flatMap((m) => { const q = onPage(m.at); return q ? [{ id: m.id, at: clearOfLines(q, handleSegs, lastDevice === "touch" ? 30 : 13, touchRects.map((r) => [r.left + r.width / 2, r.top + r.height / 2, r.width / 2] as [number, number, number])), state: m.state, text: m.text }] : []; }));
     // the icon stands at the upper left of the handles, out of the way of the arrows and rings (`in_215`)
     const corner = f.modeSwitch ? f.modeSwitch.pts.map((p) => onPage(p)!).reduce<[number, number]>((c, q) => [Math.min(c[0], q[0]), Math.min(c[1], q[1])], [Infinity, Infinity]) : null;
     suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null, [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));

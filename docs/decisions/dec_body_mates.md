@@ -3,7 +3,7 @@ id: dec_body_mates
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_306, in_307, in_314, in_315, in_316, in_317, in_318, in_319, in_320, in_325, in_326, in_327
+human_input: in_306, in_307, in_314, in_315, in_316, in_317, in_318, in_319, in_320, in_325, in_326, in_327, in_338
 date: 2026-11-14
 depends_on:
   - dec_independent_bodies: the bodies that are mated are the independent bodies of one model, each named by the step that made it
@@ -46,3 +46,5 @@ A placement mate needs no new subsystem: the kernel already moves and turns one 
 **Angles beyond 90 (`in_326`, AI's reading, for the human to correct).** The typed angle of an angle mate (faces or axes) now runs 0 to 180. Up to 90 it is as before, between the planes or axes as lines. Past 90 it is between the directions themselves (a flat face's outward normal, a round face's axis direction), so 120 leans the faces away from each other and 100 is not 80. Cost to know: a round face's axis has no natural sign, so for axes past 90 the direction is the one the kernel gives the face, which may flip if a body is turned half way round (the mate then reads as off and putting it back turns it again). The number shown on the face pair (the measure) is still the angle as lines.
 
 **The column of numbers goes up too (`in_327`, AI's reading).** The numbers over a pair of faces (`in_320`) stand one below the other; when the column would run off the bottom of the page (its last bubble past the bottom) and there is room above, it goes up instead (`stackOffset` in `bubbleplace.ts`). Chosen by where the column begins, not by a setting. Still avoids lines and other bubbles through the usual placing.
+
+**Mates are shown like other constraints (`in_338`, human direction).** Two selected faces show no numbers any more (no gap, distance, angle, offset): the menu offers the mates as plain rows that make the mate at what the faces are (angle rows at the angle they have now; flush at a gap of 0; coaxial at no offset). A mate is a constraint bubble like any other: it has its own icon (one per kind, `ui/icons.ts` `mate:<kind>`, not the measure stick), shows its number when it has one (flush gap, coaxial offset, parallel distance, angle), is typed over on the bubble (`setMateValue` makes the mate again at the number), turns red when it is not true (a click on it puts it back), is taken away by the cross, and is shown **only while a body or a face it joins is selected**. The always-on marks on the model are gone. A refused change flashes the mates it would have broken red (`annotationsOf` includes them). Not yet: the tape measure tool for the numbers of two faces (the next step), and the mates holding during motion (after it).

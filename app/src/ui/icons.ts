@@ -53,6 +53,16 @@ Object.assign(ICONS, {
   fingerdrag: svg('<path d="M6.4 8.6V3.3a1.1 1.1 0 012.2 0v4.1"/><path d="M8.6 7.4V6.6a1.1 1.1 0 012.2 0v1.2"/><path d="M10.8 7.8a1.1 1.1 0 012.2 0v2.4a4 4 0 01-4 4H8a3.2 3.2 0 01-2.6-1.3L3.2 9.9a1.1 1.1 0 011.8-1.2l1.4 1.5"/><path d="M1.6 3.3l1.3-1.2M1.6 3.3l1.3 1.2M1.6 3.3h3.2M14.4 3.3l-1.3-1.2M14.4 3.3l-1.3 1.2M14.4 3.3h-3.2"/>'),
   check: svg('<path d="M3 8.5l3.2 3.2L13 4.5"/>'),
   cross: svg('<path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>'),
+  // the mates between faces and axes of two bodies (`in_338`): what each one does, drawn as the faces or axes it joins; not the measure stick
+  "mate:flush": svg('<rect x="3" y="2.2" width="10" height="5.3" rx=".8"/><rect x="3" y="8.5" width="10" height="5.3" rx=".8"/><path d="M1.4 8h13.2" stroke-width="2.2"/>'),
+  "mate:coaxial": svg('<circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/>'),
+  "mate:parallel": svg('<path d="M2.5 6.2l3.2-3h8l-3.2 3z"/><path d="M2.5 12.7l3.2-3h8l-3.2 3z"/>'),
+  "mate:perpendicular": svg('<path d="M2.5 13.5h11l-2.4-3h-11z"/><path d="M2.5 13.5V2.5h3.2v8.2"/>'),
+  "mate:angle": svg('<path d="M2 13.5h12"/><path d="M2 13.5L11.8 4.6"/><path d="M12.4 3.8l1.6 1.8"/><path d="M7.4 13.5a5.2 5.2 0 0 0-1.6-3.6"/>'),
+  "mate:parallelAxes": svg('<path d="M5 14.5L7.6 1.5" stroke-dasharray="2.4 1.6"/><path d="M10.4 14.5L13 1.5" stroke-dasharray="2.4 1.6"/>'),
+  "mate:perpendicularAxes": svg('<path d="M3 2v11.5" stroke-dasharray="2.4 1.6"/><path d="M3 13.5h11" stroke-dasharray="2.4 1.6"/><path d="M3 10h3.5v3.5"/>'),
+  "mate:angleAxes": svg('<path d="M2.5 13.5h11" stroke-dasharray="2.4 1.6"/><path d="M2.5 13.5L11.5 4.5" stroke-dasharray="2.4 1.6"/><path d="M7.5 13.5a5 5 0 0 0-1.4-3.4"/>'),
+  "mate:axisToFace": svg('<path d="M1.8 12.8l3.2-3.2h9.2l-3.2 3.2z"/><path d="M8 9.6V1.8" stroke-dasharray="2.4 1.6"/><path d="M8 9.6h2.6"/><path d="M10.6 9.6V7"/>'),
   sameHeight: svg('<circle cx="3.6" cy="8" r="1.5"/><circle cx="12.4" cy="8" r="1.5"/><path d="M5.5 8h5" stroke-dasharray="1.4 1.6"/>'),
   sameAcross: svg('<circle cx="8" cy="3.6" r="1.5"/><circle cx="8" cy="12.4" r="1.5"/><path d="M8 5.5v5" stroke-dasharray="1.4 1.6"/>'),
 });

@@ -1603,3 +1603,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_337 — 2026-11-14 — directive
 > Do the browser pass over the turn ring by touch next
 (asks for the joint's turn ring to be looked at with touch input in a real browser)
+
+## in_338 — 2026-11-14 — directive
+> Okay lets hide all the information on clicking two faces, all the distance angle etc, Instead lets have it so you can just select two faces, you can then add constraints. Lets also have a tape measure tool that shows information about selected faces. Also can we make the constraint more like a regular constraint? It should actually keep the constraint valid during motion, so allow the object to move in the non constrained directions but keep the constrained ones. If you try to invalidate a constraint it should flash red and show you, just like all other constraints. Also all the constraint icons are measure sticks and we need better icons for them. Also the constraint should not be a persistent bubble, it should operate just like all other constraints and make itself shown when the linked object or face or entity is selected.
+(five steering changes to the body mates: hide the numbers on two selected faces and offer constraints instead; a tape measure tool for selected faces; mates that hold during motion and flash red when a motion would break them; distinct icons per constraint kind; a mate shown only when a linked body, face or entity is selected, as other constraints are)

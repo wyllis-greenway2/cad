@@ -98,23 +98,25 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
       if (why && (mode === "axisToFace" ? !(isFlatBodyFace(get, [sel[0]!]) !== isFlatBodyFace(get, [sel[1]!]) || (isRoundBodyFace(get, [sel[0]!]) !== isRoundBodyFace(get, [sel[1]!]))) : isFlatMode(mode) ? !isFlatBodyFace(get, sel) : !isRoundBodyFace(get, sel))) continue; // (not this kind of faces: no row for it)
       const [fa, fb] = [featureOf(scene, sel[0]!, mode), featureOf(scene, sel[1]!, mode)];
       const degrees = unit === "deg";
+      // what the faces leave now, as the number it would be typed as: the gap between flush faces, the distance between parallel faces, the distance between axes, the angle (`in_317`..`in_319`); the tape measure shows them (`in_338`)
+      const measureNow = (): number | null => {
+        if (!fa || !fb || unit === null) return null;
+        const w = sub(fa.point, fb.point);
+        const r = (x: number) => Math.round(x * 1e6) / 1e6;
+        if (degrees) { const c = Math.abs(dot(fa.dir, fb.dir)) / (Math.hypot(...fa.dir) * Math.hypot(...fb.dir)); return Math.round(((Math.acos(Math.min(1, c)) * 180) / Math.PI) * 1e4) / 1e4; }
+        if (mode === "flush") return r(dot(w, fb.dir));
+        if (mode === "parallel") return r(Math.abs(dot(w, fb.dir)));
+        const along = dot(w, fb.dir); // coaxial: how far the first axis is from the other's line
+        return r(Math.hypot(w[0] - fb.dir[0] * along, w[1] - fb.dir[1] * along, w[2] - fb.dir[2] * along));
+      };
       out.push({
-        id: `mate:${mode}`, label: mode === "coaxial" ? "Mate: coaxial (axes apart: type a number)" : label, group: "relation", dimensional: unit !== null, unit, parts: [...sel], enabled: why === null, why,
-        // (what it leaves now, as the number it would be typed as: the gap between flush faces, the distance between parallel faces, the distance between axes, the angle; `in_317`..`in_319`)
-        measure: () => {
-          if (!fa || !fb || unit === null) return null;
-          const w = sub(fa.point, fb.point);
-          const r = (x: number) => Math.round(x * 1e6) / 1e6;
-          if (degrees) { const c = Math.abs(dot(fa.dir, fb.dir)) / (Math.hypot(...fa.dir) * Math.hypot(...fb.dir)); return Math.round(((Math.acos(Math.min(1, c)) * 180) / Math.PI) * 1e4) / 1e4; }
-          if (mode === "flush") return r(dot(w, fb.dir));
-          if (mode === "parallel") return r(Math.abs(dot(w, fb.dir)));
-          const along = dot(w, fb.dir); // coaxial: how far the first axis is from the other's line
-          return r(Math.hypot(w[0] - fb.dir[0] * along, w[1] - fb.dir[1] * along, w[2] - fb.dir[2] * along));
-        },
+        // (no number to type here: a mate is made at what the faces are, and its number is changed on its bubble, `in_338`)
+        id: `mate:${mode}`, label, group: "relation", dimensional: false, unit: null, parts: [...sel], enabled: why === null, why,
+        measure: measureNow,
         spot: () => faceMiddle(scene, sel[0]!),
         run: (value?: number): Command => {
           const again = fa && fb ? existingMate(scene, mode, fa.body, fb.body) ?? undefined : undefined; // (a mate made again between the same bodies replaces the one there)
-          const amount = unit === null ? 0 : degrees ? Math.min(180, Math.max(0, value ?? 0)) : Math.max(0, value ?? 0);
+          const amount = unit === null ? 0 : degrees ? Math.min(180, Math.max(0, value ?? measureNow() ?? 0)) : Math.max(0, value ?? 0);
           const r = mateCommand(scene, mode, sel[0]!, sel[1]!, amount, again, mode !== "parallel" || value !== undefined, true); // (parallel faces are only turned unless a distance is typed)
           return "command" in r ? r.command : { type: "batch", commands: [] };
         },

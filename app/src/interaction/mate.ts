@@ -237,3 +237,13 @@ export function solveStanding(scene: Scene): { commands: Command[]; atOdds: stri
   }
   return { commands, atOdds: [] };
 }
+
+/** A mate made again at another number (its gap, offset, distance or angle), typed over on its bubble (`in_338`); null when its faces are not found or the number is not one it can take. */
+export function setMateValue(scene: Scene, id: string, value: number): Command | null {
+  const m = mateStatus(scene).find((x) => x.id === id);
+  if (!m || !m.mover || !m.other || !Number.isFinite(value)) return null;
+  const angle = m.mode === "angle" || m.mode === "angleAxes";
+  const v = angle ? Math.min(180, Math.max(0, value)) : Math.max(0, value);
+  const r = mateCommand(scene, m.mode, m.mover.ref, m.other.ref, v, id, m.counts !== false, !!m.standing);
+  return "command" in r ? r.command : null;
+}

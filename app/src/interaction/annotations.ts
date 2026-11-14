@@ -14,6 +14,8 @@ import { sketchOfEdge } from "../operation/edgesource.ts";
 import type { Lookup } from "../operation/part.ts";
 import { pointOf, segmentOf, roundOf, relationKind, curveMid, planeOfParts } from "../operation/part.ts";
 import { actionsFor, measureAction } from "./actions.ts";
+import type { MateMode } from "../operation/mates.ts";
+import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { lengthEditable } from "./lengths.ts";
 import { surfaceTriangles } from "./surfaces.ts";
 import { ROWS, REFERENCES_ONLY } from "./rows.ts";
@@ -222,13 +224,13 @@ function annotationsOf0(scene: Scene, selection: readonly Ref[], focus: string |
   const out = scene.relations.filter((rel) => rel.kind !== "arcEnds" && !hidden.has(rel.id) && rel.parts.some((p) => scope.has(p))).map((rel) => annotationOf(scene, rel, sel, focus, map)).filter((a): a is Annotation => !!a);
   const m = measureOf(scene, selection);
   const r = radiusOf(scene, selection);
-  return [...out, ...(m ? [m] : []), ...(r ? [r] : []), ...mateMeasures(scene, selection)];
+  return [...out, ...(m ? [m] : []), ...(r ? [r] : []), ...mateAnnotations(scene, selection, focus)];
 }
 
 /** The annotations of these relations whether or not their parts are selected (to show what a refused change would have broken). */
 export function annotationsOf(scene: Scene, ids: readonly string[]): Annotation[] {
   const map = buildMap(scene);
-  return scene.relations.filter((r) => ids.includes(r.id)).map((rel) => annotationOf(scene, rel, [], null, map)).filter((a): a is Annotation => !!a);
+  return [...scene.relations.filter((r) => ids.includes(r.id) && r.kind !== "mate").map((rel) => annotationOf(scene, rel, [], null, map)).filter((a): a is Annotation => !!a), ...mateAnnotations(scene, [], null, ids)]; // (the mates among them: a refused change flashes them, `in_338`)
 }
 
 /** The measure of the selected pair (or part) when the relation table offers a number for it and no relation of that kind already holds it. */
@@ -250,14 +252,33 @@ function measureOf(scene: Scene, selection: readonly Ref[]): Annotation | null {
   return { id: "measure", relationId: null, kind: a.id, label: a.label, at, ...(a.id === "diameter" ? { symbol: "Ø" } : a.id === "radius" ? { symbol: "R" } : {}), value: v, unit: a.unit, locked: false, editable: a.enabled || bodyLine, readOnly: !a.enabled && !bodyLine, broken: false, open: false, others: [], lines: placed?.lines ?? [] };
 }
 
-/** Two faces of two bodies show the numbers a mate can leave: the gap, the angle (`in_317`, `in_318`); each can be typed, and makes that mate. */
-function mateMeasures(scene: Scene, selection: readonly Ref[]): Annotation[] {
-  if (selection.length !== 2 || !selection.every((r) => scene.parts[r]?.kind === "plane" && scene.parts[r]?.origin === "body")) return [];
-  const TAG: Record<string, string> = { "mate:flush": "gap", "mate:parallel": "distance", "mate:coaxial": "offset", "mate:angle": "angle", "mate:angleAxes": "angle" };
-  return actionsFor(scene, selection).filter((a) => a.id.startsWith("mate:") && a.dimensional && a.enabled && a.unit && a.measure() !== null).map((a, k) => {
-    const at = a.spot() ?? ([0, 0, 0] as Vec3);
-    return { id: `measure:${a.id}`, relationId: null, kind: a.id, label: a.label, at, value: a.measure(), unit: a.unit, locked: false, editable: true, readOnly: false, broken: false, open: false, others: [], lines: [], measureId: a.id, tag: TAG[a.id] ?? a.label, stack: k };
-  });
+/** What each kind of mate is called (the tooltip of its icon), and the word before its number when it has one. */
+const MATE_WORDS: Record<MateMode, { label: string; tag?: string }> = {
+  flush: { label: "Flush faces", tag: "gap" }, coaxial: { label: "Coaxial", tag: "offset" }, parallel: { label: "Parallel faces", tag: "distance" }, parallelAxes: { label: "Parallel axes" },
+  perpendicular: { label: "Perpendicular faces" }, perpendicularAxes: { label: "Perpendicular axes" }, angle: { label: "Angle between faces", tag: "angle" }, angleAxes: { label: "Angle between axes", tag: "angle" }, axisToFace: { label: "Axis perpendicular to a face" },
+};
+/**
+ * The mates of the bodies and faces that are selected, shown as any constraint is: a bubble with its icon (and its number when it has one), there only while a body or a face it joins is selected; red when it is not true (`in_338`).
+ * A mate's number is typed over on its bubble; a click puts back one that is not true; the cross takes it away.
+ */
+function mateAnnotations(scene: Scene, selection: readonly Ref[], focus: string | null, ids?: readonly string[]): Annotation[] {
+  const sel = new Set(selection);
+  const out: Annotation[] = [];
+  for (const m of mateStatus(scene)) {
+    const rel = scene.relations.find((r) => r.id === m.id);
+    if (!rel || !(ids ? ids.includes(m.id) : rel.parts.some((q) => sel.has(q)) || (m.mover && sel.has(m.mover.ref)) || (m.other && sel.has(m.other.ref)))) continue;
+    const middle = (b: Ref | undefined): Vec3 | null => { const q = b ? scene.parts[b] : undefined; return q?.kind === "body" && q.bbox ? [(q.bbox.min[0] + q.bbox.max[0]) / 2, (q.bbox.min[1] + q.bbox.max[1]) / 2, (q.bbox.min[2] + q.bbox.max[2]) / 2] : null; };
+    const at = (m.mover ? faceMiddle(scene, m.mover.ref) : null) ?? (m.other ? faceMiddle(scene, m.other.ref) : null) ?? middle(rel.parts[0]) ?? middle(rel.parts[1]);
+    if (!at) continue;
+    const words = MATE_WORDS[m.mode];
+    const hasNumber = m.mode === "flush" || m.mode === "coaxial" || m.mode === "angle" || m.mode === "angleAxes" || (m.mode === "parallel" && m.counts);
+    out.push({
+      id: m.id, relationId: m.id, kind: `mate:${m.mode}`, label: `${words.label}${m.state === "off" ? ": no longer true (click to put it back)" : m.state === "lost" ? ": a body or a face is gone" : ""}`, at,
+      value: hasNumber ? m.gap : null, unit: hasNumber ? (m.mode === "angle" || m.mode === "angleAxes" ? "deg" : "mm") : null, locked: true, editable: !!hasNumber, readOnly: false, broken: m.state !== "ok", open: focus === m.id,
+      ...(words.tag ? { tag: words.tag } : {}), others: rel.parts.filter((q) => !sel.has(q) && q in scene.parts), lines: [],
+    });
+  }
+  return out;
 }
 
 /** The parts to show in amber: what the open constraint ties the selection to. */
