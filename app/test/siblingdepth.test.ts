@@ -1,4 +1,4 @@
-// Two blocks extruded together are one step, but pulling the top of one changes only that block (`in_320`): each figure of the step can have a depth of its own (`alsoDepth`).
+// Two blocks extruded together are one step, but pulling the top of one changes only that block (`in_351`): each figure of the step can have a depth of its own (`alsoDepth`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -10,7 +10,7 @@ import type { Part } from "../src/operation/part.ts";
 
 await kernel.init();
 type Body = Extract<Part, { kind: "body" }>;
-const open = () => undoLast((openSession(kernel, readFileSync(new URL("./fixtures/two-blocks-in_319.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value);
+const open = () => undoLast((openSession(kernel, readFileSync(new URL("./fixtures/two-blocks-in_350.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value);
 const bodies = (s: Session) => Object.values(scene(s).parts).filter((p): p is Body => p.kind === "body");
 const topOf = (s: Session, body: string) => Object.values(scene(s).parts).find((p) => p.origin === "body" && p.kind === "plane" && p.of === `b/${body}/o` && /^b\/body\/f@0,0,1,/.test(p.ref))!; // (the face looking up: the top)
 

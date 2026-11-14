@@ -17,11 +17,11 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
     return op.edit && v !== null && v !== 0 ? { session: { ...sess, message: `that size is not possible: ${why}` }, cmd: { type: "batch", commands: [] } } : null;
   }
   if (!op.edit || op.noEdit) {
-    const corner = op.kind === "edge" ? withCorner(cmd) : null; // (a fillet or chamfer the kernel cannot make on the edge alone is made with the edges that meet it at a corner, `in_348`)
+    const corner = op.kind === "edge" ? withCorner(cmd) : null; // (a fillet or chamfer the kernel cannot make on the edge alone is made with the edges that meet it at a corner, `in_379`)
     const done = run(sess, cmd, { ...(op.target === "body" ? { ownHold: true } : {}), ...(corner ? { fallback: corner } : {}) }); // (a body that is moved has its own check below, which names the sketch it would stretch)
     if (corner && done.message && sceneOf(done).steps.length === sceneOf(sess).steps.length) { const again = run(sess, corner); if (sceneOf(again).steps.length > sceneOf(sess).steps.length) return { session: again, cmd: corner }; }
     // an extrusion onto bodies: whether it adds a piece or cuts is decided now, once, and kept in the step (`in_295`); decided again at every replay, a body that grew later would be cut by a piece that only stood beside it
-    // (figures extruded together are steps of their own, `in_322`: they are decided together, below)
+    // (figures extruded together are steps of their own, `in_353`: they are decided together, below)
     const extrudes = cmd.type === "batch" ? cmd.commands : [cmd];
     if (op.kind === "extrude" && extrudes.length && extrudes.every((c): c is Extract<Command, { type: "addStep" }> => c.type === "addStep" && c.step.type === "extrude") && !done.message && (sceneOf(sess).steps.length || extrudes.length > 1)) {
       const [volume, count] = [(x: Session): number => Object.values(sceneOf(x).parts).reduce((a, q) => a + (q.kind === "body" ? (q.volume ?? 0) : 0), 0), (x: Session): number => Object.values(sceneOf(x).parts).filter((q) => q.kind === "body").length];
@@ -62,7 +62,7 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
   return { session: made.message ? edited : { ...made, message: "the step that made this face could not take that size: a push / pull was added instead" }, cmd: prism };
 }
 
-/** The command of a fillet or chamfer with the one thing changed: the step may round the edges that meet its edges at a corner too (`corner`, `in_348`); null if it is not one. */
+/** The command of a fillet or chamfer with the one thing changed: the step may round the edges that meet its edges at a corner too (`corner`, `in_379`); null if it is not one. */
 export function withCorner(cmd: Command): Command | null {
   if (cmd.type === "addStep" && cmd.step.type === "edgeMod") return { ...cmd, step: { ...cmd.step, params: { ...cmd.step.params, corner: 1 } } };
   return null;

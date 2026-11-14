@@ -1,4 +1,4 @@
-// A fillet or chamfer of an edge that the kernel cannot round alone is made together with the edges that meet it at a corner, and says so (`in_348`). The top outline of a tilted round cut is such an edge: refused alone
+// A fillet or chamfer of an edge that the kernel cannot round alone is made together with the edges that meet it at a corner, and says so (`in_379`). The top outline of a tilted round cut is such an edge: refused alone
 // at every size, made when the edge that meets it at its end is rounded with it.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -13,7 +13,7 @@ import { runOp } from "../src/interaction/runop.ts";
 import type { Part } from "../src/operation/part.ts";
 
 await kernel.init();
-const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/tilted-cut-edges-in_341.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/tilted-cut-edges-in_372.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
 type Line = Extract<Part, { kind: "line" }>;
 const curved = (s: Session): Line[] => (Object.values(scene(s).parts) as Part[]).filter((p): p is Line => p.kind === "line" && p.origin === "body" && !!p.path);
 const round = (s: Session, ref: string, value: number) => {

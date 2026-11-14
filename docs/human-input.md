@@ -1520,130 +1520,130 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 > Mark the mates on the model next
 (asks for the mates to be shown on the model itself: where two bodies are mated, with their state)
 
-## in_317 — 2026-11-14 — directive
+## in_348 — 2026-11-14 — directive
 > okay so I want you to help fix some bugs. Look at this file, the body with the hole in it disappears if you try to move it
-(asks for bug fixing, starting with a saved file, `body_with_hole_dissapears_on_move_model.cad_44.json`, in which the body that has a hole disappears when it is moved; the file is kept as `app/test/fixtures/hole-body-move-in_317.cad.json`)
+(asks for bug fixing, starting with a saved file, `body_with_hole_dissapears_on_move_model.cad_44.json`, in which the body that has a hole disappears when it is moved; the file is kept as `app/test/fixtures/hole-body-move-in_348.cad.json`)
 
-## in_318 — 2026-11-14 — directive
+## in_349 — 2026-11-14 — directive
 > okay so in the same model file I gave you, there was also a strange thing where if you rotate the cylinder, then a verticy of the sketch of a circle at the bottom of the part with the hold also rotates with the cylinder in preview. It seems to not actually rotate after preview and the rotation is applied though
 (reports a second bug in the same file, `body_with_hole_dissapears_on_move_model.cad_44.json`: while the cylinder is turned, the dot of the circle sketch at the bottom of the part with the hole turns with it in the preview only)
 
-## in_319 — 2026-11-14 — directive
+## in_350 — 2026-11-14 — directive
 > Okay so in this file, if you try to chamfer one of the edges of the block, it can do really weird stuff to the block in the preview, the applied state after preview seems to go back to normal. Also it didn't seem to happen until I increased the height of one block, that also increased the height of the other block, which seems to be an additional bug.
 (reports two things in `chamfer_changes_other_side_angle_preview_only_also_hieghts_of_two_blocked_tied.json` and its state snapshot, with a picture: the preview of a chamfer on a vertical edge of one block distorts the blocks while the applied result is right; and pushing the top of one block taller made the other block taller too)
 
-## in_320 — 2026-11-14 — directive
+## in_351 — 2026-11-14 — directive
 > Split them (Recommended)
-(answers the question about the two blocks of `in_319` that are extruded together and so share one height: pushing or pulling the top of one block should change only that block; the shared step is to be split so each block has its own height)
+(answers the question about the two blocks of `in_350` that are extruded together and so share one height: pushing or pulling the top of one block should change only that block; the shared step is to be split so each block has its own height)
 
-## in_321 — 2026-11-14 — directive
+## in_352 — 2026-11-14 — directive
 > I'll send exact steps
-(answers the question about the chamfer preview of `in_319`, which the AI could not reproduce: the human will send the exact clicks and drags, or a saved state taken while the distortion is on screen; nothing is to be changed for it until then)
+(answers the question about the chamfer preview of `in_350`, which the AI could not reproduce: the human will send the exact clicks and drags, or a saved state taken while the distortion is on screen; nothing is to be changed for it until then)
 
-## in_322 — 2026-11-14 — directive
+## in_353 — 2026-11-14 — directive
 > yes go ahead, test the moved-sibling case first
-(approves making separate complete sketches that are extruded together into separate steps and bodies, each with its own height, in place of the shared step with a depth for each figure of `in_320`; asks for the moved-sibling case to be tested before it is built)
+(approves making separate complete sketches that are extruded together into separate steps and bodies, each with its own height, in place of the shared step with a depth for each figure of `in_351`; asks for the moved-sibling case to be tested before it is built)
 
-## in_323 — 2026-11-14 — directive
+## in_354 — 2026-11-14 — directive
 > Okay so to get the chamfer bug to show up, try adjusting the height of either block, then adjust the fillet that already exists in or out, the problems only show up on preview, not if the operation is actually applied.
-(gives the steps for the preview distortion of `in_319`: change the height of either block, then pull or push the fillet that is already there; only the preview is wrong, the applied step is right)
+(gives the steps for the preview distortion of `in_350`: change the height of either block, then pull or push the fillet that is already there; only the preview is wrong, the applied step is right)
 
-## in_324 — 2026-11-14 — directive
+## in_355 — 2026-11-14 — directive
 > yes, look into what the kernel can report first
-(approves step 1 of the AI's proposal after `in_323`: find out what the kernel library can report about the faces an operation creates or changes, before anything is built; research only)
+(approves step 1 of the AI's proposal after `in_354`: find out what the kernel library can report about the faces an operation creates or changes, before anything is built; research only)
 
-## in_325 — 2026-11-14 — directive
+## in_356 — 2026-11-14 — directive
 > go with option b first
 (chooses option (b) of `q_preview_provenance`: compare the stretched picture with the kernel's answer when it arrives, and replace it if they differ; (a) and (c) are not started)
 
-## in_326 — 2026-11-14 — directive
+## in_357 — 2026-11-14 — directive
 > yes, try step 1 and measure it on the holed model
-(approves trying step 1 of the AI's list after `in_325`: an exact preview from the kernel, the newest request winning, for the fillet and chamfer preview, and measuring it on the model with the hole; as an experiment, to be measured before it is kept)
+(approves trying step 1 of the AI's list after `in_356`: an exact preview from the kernel, the newest request winning, for the fillet and chamfer preview, and measuring it on the model with the hole; as an experiment, to be measured before it is kept)
 
-## in_327 — 2026-11-14 — directive
+## in_358 — 2026-11-14 — directive
 > make the exact path cheaper and re-measure
-(approves building the two cheaper-exact ideas listed after `in_326`: a kernel pass for the preview that skips naming faces and edges and meshes only what changed, and reusing the drawn objects of a body that did not change; then measuring again with the same models and runs)
+(approves building the two cheaper-exact ideas listed after `in_357`: a kernel pass for the preview that skips naming faces and edges and meshes only what changed, and reusing the drawn objects of a body that did not change; then measuring again with the same models and runs)
 
-## in_328 — 2026-11-14 — directive
+## in_359 — 2026-11-14 — directive
 > make exact the default for fillet and chamfer
-(decides, after the measurements of `in_326` and `in_327`, that the preview of a fillet or chamfer being dragged is the kernel's own result for every size, the newest request winning, in place of the stretched picture; the stretch stays for the other previews)
+(decides, after the measurements of `in_357` and `in_358`, that the preview of a fillet or chamfer being dragged is the kernel's own result for every size, the newest request winning, in place of the stretched picture; the stretch stays for the other previews)
 
-## in_329 — 2026-11-14 — directive
+## in_360 — 2026-11-14 — directive
 > measure how far the picture lags the pointer. If the measurements work out well, maybe we should have this as a unified method for previews so we no longer have preview not being synced with the end result.
-(asks for the lag of the exact preview behind the pointer to be measured, which was left unmeasured after `in_327`; and, if it is good, to consider the kernel's own result as the one preview method for every operation, so that a preview cannot disagree with the result; the second part is a question to be answered from the measurements, not yet an instruction to build)
+(asks for the lag of the exact preview behind the pointer to be measured, which was left unmeasured after `in_358`; and, if it is good, to consider the kernel's own result as the one preview method for every operation, so that a preview cannot disagree with the result; the second part is a question to be answered from the measurements, not yet an instruction to build)
 
-## in_330 — 2026-11-14 — question
+## in_361 — 2026-11-14 — question
 > so it looks like we should just use this more accurate preview model instead of our current stretch model everywhere?
-(asks whether the kernel's own result should replace the stretch for every preview, after the measurements of `in_329`; the AI's answer is below in the handoff; this is not yet an instruction to build, the scope is put to the human)
+(asks whether the kernel's own result should replace the stretch for every preview, after the measurements of `in_360`; the AI's answer is below in the handoff; this is not yet an instruction to build, the scope is put to the human)
 
-## in_331 — 2026-11-14 — directive
+## in_362 — 2026-11-14 — directive
 > Switch and delete the stretch code
-(answers the question of scope put after `in_330`: the kernel's own result becomes the preview of every operation that is a stretch today (a prism pull, a face pull, a wall made wider, a side or an arc made bigger, a fillet or chamfer), the matrix of the graphics card stays for the rigid motions (move, turn, uniform scale), and the stretch code is removed in the same go: the stretch paths, their check against the kernel, and the renderer's stretch machinery)
+(answers the question of scope put after `in_361`: the kernel's own result becomes the preview of every operation that is a stretch today (a prism pull, a face pull, a wall made wider, a side or an arc made bigger, a fillet or chamfer), the matrix of the graphics card stays for the rigid motions (move, turn, uniform scale), and the stretch code is removed in the same go: the stretch paths, their check against the kernel, and the renderer's stretch machinery)
 
-## in_332 — 2026-11-14 — directive
+## in_363 — 2026-11-14 — directive
 > okay look at this file. If you draw a line from the upper right arc end, it tries to make suggestions to all sorts of points that aren't there.
 (reports a bug in `snapping_to_things_that_arent_there.cad.json` and its state snapshot: drawing a line from the end of the upper right arc, the suggestions offered point at places where nothing is)
 
-## in_333 — 2026-11-14 — question
+## in_364 — 2026-11-14 — question
 > so what is the root cause? would it be to entirely delete things? not leave any pieces behind?
-(asks for the root cause of `in_332`; answered: the cleanup after a delete counted derived pieces as users, and the deeper cause is that nothing guarantees a corner exists only while something is drawn on it, so each path had to remember to clean up)
+(asks for the root cause of `in_363`; answered: the cleanup after a delete counted derived pieces as users, and the deeper cause is that nothing guarantees a corner exists only while something is drawn on it, so each path had to remember to clean up)
 
-## in_334 — 2026-11-14 — directive
+## in_365 — 2026-11-14 — directive
 > yes, build the single-place rule
-(approves the stronger version put after `in_333`: the rule that a drawn corner nothing is drawn on is removed is made in one place, the command layer, instead of in each tool's own cleanup)
+(approves the stronger version put after `in_364`: the rule that a drawn corner nothing is drawn on is removed is made in one place, the command layer, instead of in each tool's own cleanup)
 
-## in_335 — 2026-11-14 — directive
+## in_366 — 2026-11-14 — directive
 > When you try to violate a constraint, it doesn't always flash the constraint and edges involed red. For example if I move this circle in this part with the move tool, then it doesn't let me move it at all, and it also doesn't flash the constraint. Also if I select just the verticy of this circle and move that with the move tool, it does flash the constraint but the preview still lets me move it (snaps back after preview though) this is dfferent than if I try to free form move the virticy just by clicking and dragging with mouse. It seems like it might be duplicate code, we should have a unified system here. Also I think if a user wants to voilate a constraint, they should have the option to do so, it should flash the constraint in question, it should offer button, delete constraint to proceed, and the constraint and that button should remain for a moment longer than they do now before fading away.
 (files `move_circle_against_constraint_preview_state.json` and `moved_circle_against_constraint_in_preview.json`; three things are asked: the flash of the constraint and its edges every time a constraint is violated, however the move is made (the whole circle with the move tool does not flash; the vertex with the move tool flashes but its preview moves anyway and snaps back); one system for dragging, the move tool and typed values in place of what looks like duplicate code; and a way to go against a constraint on purpose: the flash names the constraint, a button "delete constraint" lets the move go on, and the constraint and the button stay longer before they fade)
 
-## in_336 — 2026-11-14 — directive
+## in_367 — 2026-11-14 — directive
 > put the button next to the constraint bubble instead
-(refines `in_335`: the "Delete constraint to proceed" button stands beside the bubble of the constraint that stopped the change, not at the top centre)
+(refines `in_366`: the "Delete constraint to proceed" button stands beside the bubble of the constraint that stopped the change, not at the top centre)
 
-## in_337 — 2026-11-14 — directive
+## in_368 — 2026-11-14 — directive
 > The zoom got into a really weird state here. I am not sure if the cad state export captured it though. When I load the saved file back into the cad program the zoom state is no longer there.
 (files `zoom_got_really_wierd_state.json` and `zoom_got_really_wierd.json`; the project file does not keep the view, so the state snapshot's intents are the record)
 
-## in_338 — 2026-11-14 — directive
+## in_369 — 2026-11-14 — directive
 > There is this curved line in this sketch that seems to be un trimmable with the scissors
 (files `Cannot_delete_line.json` and `cad-state-2026-11-14T06-46-17.json`, a touch device; the trim tool was used with `tapAim`; the state's last refusal names the relations r_053 to r_061 as the ones that tried)
 
-## in_339 — 2026-11-14 — question
+## in_370 — 2026-11-14 — question
 > What is the root cause? Is it more of a constraint issue than a trim issue?
-(about `in_338`; answered: mostly the constraint model: an arc's tangent to another round curve is held at an arc end, so it depends on where the arc ends; trim only exposed it)
+(about `in_369`; answered: mostly the constraint model: an arc's tangent to another round curve is held at an arc end, so it depends on where the arc ends; trim only exposed it)
 
-## in_340 — 2026-11-14 — approval
+## in_371 — 2026-11-14 — approval
 > yes, do the distance form and remove the workaround
-(approves the change put after `in_339`: arc tangent to a circle or arc is held by the distance between the centres, not at an arc end, and the `touchesAtEnd` workaround in `trim.ts` is removed)
+(approves the change put after `in_370`: arc tangent to a circle or arc is held by the distance between the centres, not at an arc end, and the `touchesAtEnd` workaround in `trim.ts` is removed)
 
-## in_341 — 2026-11-14 — directive
+## in_372 — 2026-11-14 — directive
 > Okay the next bug is that this edge position on the object, and when selected as a blue line, seem to be in wildly different positions.
 (files `edge_off_state.json`, `edge_wildly_off_and_unselectable_and_unchamferable.json` and a screenshot: a cylinder with a tilted cylindrical cut; the blue selected edge runs outside the body while the drawn edge is elsewhere; the file name also says the edge cannot be selected or chamfered)
 
-## in_342 — 2026-11-14 — question
+## in_373 — 2026-11-14 — question
 > so how to fix? or is it already fixed by our earlier fixes to make the preview use kernal inputs? Why cant the selectable blue edge be the real kernal edge?
-(about `in_341`)
+(about `in_372`)
 
-## in_343 — 2026-11-14 — question
+## in_374 — 2026-11-14 — question
 > is this a good root cause fix?
-(about the `in_341` fix, `Line.path`; answered: no, a symptom fix at two sites; the root is two forms of an edge that can disagree)
+(about the `in_372` fix, `Line.path`; answered: no, a symptom fix at two sites; the root is two forms of an edge that can disagree)
 
-## in_344 — 2026-11-14 — approval
+## in_375 — 2026-11-14 — approval
 > yes, do the root fix
-(approves the root fix put after `in_343`: one place that says what curve a body edge is, from the kernel's own type, every reader of an edge's geometry going through it, and no circle made of an edge that the kernel does not say is one)
+(approves the root fix put after `in_374`: one place that says what curve a body edge is, from the kernel's own type, every reader of an edge's geometry going through it, and no circle made of an edge that the kernel does not say is one)
 
-## in_345 — 2026-11-14 — directive
+## in_376 — 2026-11-14 — directive
 > check it in the real browser with playwright
-(about the `in_341` / `in_344` fix of the curved edge: look at it in the real app, not only headless)
+(about the `in_372` / `in_375` fix of the curved edge: look at it in the real app, not only headless)
 
-## in_346 — 2026-11-14 — directive
+## in_377 — 2026-11-14 — directive
 > try chamfering those edges in the browser
-(the three curved edges of the tilted cut in the `in_341` file; follows `in_345`)
+(the three curved edges of the tilted cut in the `in_372` file; follows `in_376`)
 
-## in_347 — 2026-11-14 — question
+## in_378 — 2026-11-14 — question
 > is this a bug or normal behavior?
-(about the chamfer / fillet of the curved edges of the `in_341` file that is refused alone; answered: the kernel refusal is probably normal OpenCascade behaviour at a corner, the message and the lack of a retry are the app's bugs)
+(about the chamfer / fillet of the curved edges of the `in_372` file that is refused alone; answered: the kernel refusal is probably normal OpenCascade behaviour at a corner, the message and the lack of a retry are the app's bugs)
 
-## in_348 — 2026-11-14 — approval
+## in_379 — 2026-11-14 — approval
 > yes, add the retry with neighbours and fix the message
-(approves the change put after `in_347`: an edge that cannot be rounded or bevelled alone is tried with the edges that meet it at its corners, and says so; and the message no longer blames the size when no size works)
+(approves the change put after `in_378`: an edge that cannot be rounded or bevelled alone is tried with the edges that meet it at its corners, and says so; and the message no longer blames the size when no size works)

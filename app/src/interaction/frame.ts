@@ -113,7 +113,7 @@ export interface Frame {
   mates: { id: string; at: Vec3; state: "ok" | "off" | "lost"; text: string }[];
   /** nothing of the model is in view: the Reset camera button is offered (`in_303`) */
   resetView: boolean;
-  /** a change refused for the constraints it would break, while it flashes: the button that deletes them and goes on (`in_335`) */
+  /** a change refused for the constraints it would break, while it flashes: the button that deletes them and goes on (`in_366`) */
   refusal: { text: string; button: string; /** the constraint it stands beside */ beside: string } | null;
   selection: { count: number; actions: { id: string; label: string; title: string }[] } | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
@@ -184,7 +184,7 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
   const op = s.op;
   if (!op) return null;
   const base = op.made ? undone(s.session) : s.session;
-  // a move, turn or uniform scale of the whole body is exact on the graphics card (a matrix: no guess in it) and needs no kernel; every other operation is drawn from the kernel's own result (`in_331`)
+  // a move, turn or uniform scale of the whole body is exact on the graphics card (a matrix: no guess in it) and needs no kernel; every other operation is drawn from the kernel's own result (`in_362`)
   const m = bodyMotion(sceneOf(base), op);
   if (!m) return null;
   if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
@@ -220,14 +220,14 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
   let value = previewCommand(base, cmd);
   // a size that breaks a step is not shown as the broken body (it collapses into a weird shape): what is there stays, and why it cannot be made is said (`in_229`)
   const bad = value && !value.outcome.kernel?.stale ? Object.entries(value.outcome.errors).find(([id]) => !(id in base.outcome.errors)) : undefined;
-  // a fillet or chamfer the kernel cannot make on the edge alone shows what it would be made with the edges that meet it at a corner, as the commit does (`in_348`)
+  // a fillet or chamfer the kernel cannot make on the edge alone shows what it would be made with the edges that meet it at a corner, as the commit does (`in_379`)
   if (bad && s.op?.kind === "edge") {
     const corner = withCorner(cmd);
     const again = corner ? previewCommand(base, corner) : null;
     if (again && !again.outcome.kernel?.stale && !Object.entries(again.outcome.errors).some(([id]) => !(id in base.outcome.errors))) { value = again; }
   }
   const stillBad = value && !value.outcome.kernel?.stale ? Object.entries(value.outcome.errors).find(([id]) => !(id in base.outcome.errors)) : undefined;
-  const refused = !stillBad && value ? previewRefusal(base, cmd, value) : null; // (a move the solver would undo: what is there stays, and the constraint is named, `in_335`)
+  const refused = !stillBad && value ? previewRefusal(base, cmd, value) : null; // (a move the solver would undo: what is there stays, and the constraint is named, `in_366`)
   if (stillBad) { previewProblem = stillBad[1]; value = null; } else if (refused) { previewProblem = refused; value = null; } else previewProblem = null;
   memo = { history: s.session.history, outcome: s.session.outcome, key, value };
   return value;

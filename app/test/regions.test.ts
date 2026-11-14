@@ -20,7 +20,7 @@ const extrude = (s: ReturnType<typeof createSession>, sel: Ref[], depth: string)
   return run(s, opCommand(scene(s), op)!);
 };
 
-test("two figures selected together are extruded in one go, as a step each (`in_322`)", () => {
+test("two figures selected together are extruded in one go, as a step each (`in_353`)", () => {
   let s = createSession(kernel);
   const a = drawRectangle(scene(s), XY, [0, 0, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]);
   s = run(s, a.command);

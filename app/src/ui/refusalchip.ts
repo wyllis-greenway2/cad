@@ -1,4 +1,4 @@
-// The chip that offers a way through a refused change (`in_335`): what stopped it flashes, and this says so with "Delete constraint to proceed". It stays while the refusal flashes, and while the pointer is on it. It only draws and reports a click.
+// The chip that offers a way through a refused change (`in_366`): what stopped it flashes, and this says so with "Delete constraint to proceed". It stays while the refusal flashes, and while the pointer is on it. It only draws and reports a click.
 import { PILL, choiceRow } from "./look.ts";
 export interface RefusalView { text: string; button: string; beside: string }
 

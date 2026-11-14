@@ -263,7 +263,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
       if (pa?.kind !== "corner" || pb?.kind !== "corner") return [];
       // a curved edge (the rim of a post or a hole): the arrow stands on the curve, in the middle of it, and points out across it; a straight one is a quarter of the way along
       const m = curveMid(get, l);
-      const centre = l.circle ? l.circle.center : null; // (only a circle has a centre to point out from: another curve is pointed across where it is, below, `in_344`) // (a whole rim is one closed edge: its ends are the same point, so the circle itself says where the middle is)
+      const centre = l.circle ? l.circle.center : null; // (only a circle has a centre to point out from: another curve is pointed across where it is, below, `in_375`) // (a whole rim is one closed edge: its ends are the same point, so the circle itself says where the middle is)
       if (m && centre) {
         // out of the corner is away from the axis for a post and towards it for a hole (the air is inside a hole)
         const wall = l.circle ? Object.values(scene.parts).find((q) => q.kind === "plane" && q.origin === "body" && !!q.curved && Math.abs(q.curved.radius - l.circle!.radius) < 1e-3 && [0, 1, 2].every((i) => i === q.curved!.axis || Math.abs(q.curved!.center[i]! - l.circle!.center[i]!) < 1e-3)) : undefined;
@@ -467,7 +467,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   }
   if (op.kind === "extrude") {
     if (v === 0) return null;
-    // separate figures selected together are extruded in one go but each is a step, and so a body, of its own, with its own height (`in_322`); a hole inside a figure stays with it
+    // separate figures selected together are extruded in one go but each is a step, and so a body, of its own, with its own height (`in_353`); a hole inside a figure stays with it
     const figs = figuresOf({ id, type: "extrude", parts: op.parts, params: op.figs ?? {} });
     if (figs.length < 2) return { type: "addStep", step: { id, type: "extrude", parts: op.parts, params: { depth: v, ...(op.figs ?? {}) } } };
     const { holes: _h, also: _a, ...rest } = op.figs ?? {};

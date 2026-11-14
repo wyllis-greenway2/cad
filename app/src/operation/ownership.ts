@@ -58,7 +58,7 @@ export const broken = (map: OwnershipMap): OwnedItem[] => [...map.items.values()
  * back, and relations on them still hold) but are not drawn or picked while the step uses them, as in the prototype.
  */
 /**
- * The drawn corners that nothing is drawn on: no line or arc ends or is centred there and no circle is centred there (`in_332`). Such a corner is not drawn (a corner shows only as the end of a line or the middle of a circle or
+ * The drawn corners that nothing is drawn on: no line or arc ends or is centred there and no circle is centred there (`in_363`). Such a corner is not drawn (a corner shows only as the end of a line or the middle of a circle or
  * arc), so it must not be snapped to, lined up with or offered a constraint: it is what is left behind when the lines that stood on it are taken away. Worked out once for a scene, as `consumed` is.
  */
 const looseMemo = new WeakMap<Scene, ReadonlySet<Ref>>();

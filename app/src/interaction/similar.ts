@@ -61,7 +61,7 @@ function lineProps(scene: Scene, l: Line, faces: Faces): Props | null {
   let kind = "line";
   let size = [Math.hypot(...sub(a, b))];
   if (l.mid && !l.circle) {
-    // a curve that is not a circle (`in_344`): its length along itself, nothing like a radius
+    // a curve that is not a circle (`in_375`): its length along itself, nothing like a radius
     const path = l.path && l.path.length > 1 ? l.path : [a, l.mid, b];
     kind = "curve";
     size = [path.slice(1).reduce((t, q, i) => t + Math.hypot(q[0] - path[i]![0], q[1] - path[i]![1], q[2] - path[i]![2]), 0)];
@@ -70,7 +70,7 @@ function lineProps(scene: Scene, l: Line, faces: Faces): Props | null {
     else {
       kind = "arc";
       const m = l.mid ?? null;
-      const centre = l.circle ? l.circle.center : null; // (only a circle is an arc here: another curve was dealt with above, `in_344`)
+      const centre = l.circle ? l.circle.center : null; // (only a circle is an arc here: another curve was dealt with above, `in_375`)
       if (!m) return { category: "edge", kind: "line", size: [Math.hypot(...sub(a, b))], angle: null, convex: null, dir: normalize(sub(b, a)), tol: 1e-3 };
       if (!centre) return { category: "edge", kind: "line", size: [Math.hypot(...sub(a, b))], angle: null, convex: null, dir: normalize(sub(b, a)), tol: 1e-3 }; // (a "curve" that is straight)
       const span = angleOf(sub(a, centre), sub(m, centre)) + angleOf(sub(m, centre), sub(b, centre));

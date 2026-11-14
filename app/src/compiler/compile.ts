@@ -20,7 +20,7 @@ export interface CompileOutcome {
   errors: Record<string, string>;
   /** Step id -> the parts of the step that are the problem (the edges of a fillet or chamfer that cannot take the size), when the kernel could tell (`in_266`): they flash red when the step is refused */
   problems?: Record<string, Ref[]>;
-  /** Step id -> something to say about a step that was made (a fillet or chamfer that was made together with the edges meeting it at a corner, `in_348`) */
+  /** Step id -> something to say about a step that was made (a fillet or chamfer that was made together with the edges meeting it at a corner, `in_379`) */
   notes?: Record<string, string>;
   /** relations to an edge of the body that is gone and that no edge looks like now (`in_309`): they hold nothing until the body is as it was */
   lost?: string[];

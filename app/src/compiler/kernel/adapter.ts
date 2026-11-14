@@ -8,7 +8,7 @@ export interface KernelGraph { params: Record<string, number>; ops: KernelOp[] }
 export interface KernelEdge { type: string; body?: number; pts: Float32Array; a: Vec; b: Vec; mid: Vec; /** an edge that is (part of) a circle: its circle */ circle?: { center: Vec; normal: Vec; radius: number } }
 export interface KernelFace { start: number; count: number; body?: number; type?: string; n?: Vec; d?: number; axis?: number; [key: string]: unknown }
 export interface KernelResult {
-  ops: { id: string; type: string; error: string | null; ms: number; /** a fillet or chamfer that could not be made: which of its edges (their places in the step) cannot take the size by themselves */ culprits?: number[]; /** something worth saying about a step that was made (a fillet made together with the edges at its corner, `in_348`) */ note?: string }[];
+  ops: { id: string; type: string; error: string | null; ms: number; /** a fillet or chamfer that could not be made: which of its edges (their places in the step) cannot take the size by themselves */ culprits?: number[]; /** something worth saying about a step that was made (a fillet made together with the edges at its corner, `in_379`) */ note?: string }[];
   finalId: string | null;
   volume: number | null;
   bbox: { min: Vec; max: Vec } | null;
@@ -35,11 +35,11 @@ export interface Kernel {
   /** the answer may come later than the question (the kernel works on its own thread): `evaluate` then gives the last result until the new one is ready */
   lagging?: boolean;
   init(options?: object): Promise<unknown>;
-  evaluate(graph: KernelGraph, tess?: { tolerance: number; angular: number; /** a rough mesh, quickly (while a size is being dragged) */ draft?: boolean; /** the mesh, volume and box only: no faces, edges or corners (the picture of a size being dragged, `in_327`) */ lite?: boolean }): KernelResult;
+  evaluate(graph: KernelGraph, tess?: { tolerance: number; angular: number; /** a rough mesh, quickly (while a size is being dragged) */ draft?: boolean; /** the mesh, volume and box only: no faces, edges or corners (the picture of a size being dragged, `in_358`) */ lite?: boolean }): KernelResult;
   /** the final body of the graph as a mesh made for a file at the given quality (not the screen's coarse one); answers later when the kernel works on its own thread */
   exportMesh(graph: KernelGraph, quality: ExportQuality): Promise<ExportResult>;
   /** ask for rough meshes (set while a size is being dragged, cleared when it is let go); a kernel that does not know it ignores it */
   draft?: boolean;
-  /** ask for the mesh only, no faces, edges or corners: for a preview, a quarter of the time (`in_327`) */
+  /** ask for the mesh only, no faces, edges or corners: for a preview, a quarter of the time (`in_358`) */
   lite?: boolean;
 }

@@ -51,9 +51,9 @@ export type Intent =
   | { type: "save" }
   | { type: "open" }
   | { type: "runAction"; id: string }
-  /** the button on a refused change: delete the constraints that stopped it and do it (`in_335`) */
+  /** the button on a refused change: delete the constraints that stopped it and do it (`in_366`) */
   | { type: "overrideRefusal" }
-  /** the pointer is over that button: the flash waits (`in_335`) */
+  /** the pointer is over that button: the flash waits (`in_366`) */
   | { type: "holdFlash" }
   /** start a drawing tool or an operation (a key or the menu) */
   /** a box of the select similar chip: that rule on or off (`in_257`) */

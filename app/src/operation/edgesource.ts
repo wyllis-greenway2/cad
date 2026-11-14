@@ -21,7 +21,7 @@ export interface EdgeSource {
 
 const near = (a: number, b: number, t = 2e-3) => Math.abs(a - b) <= t;
 
-/** The centre of a circular body edge (the circle the kernel says it is part of); an edge that is any other curve has none (`in_344`). */
+/** The centre of a circular body edge (the circle the kernel says it is part of); an edge that is any other curve has none (`in_375`). */
 export function edgeCentre(scene: Scene, l: Line): Vec3 | null {
   return l.circle ? l.circle.center : null;
 }

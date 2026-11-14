@@ -1,4 +1,4 @@
-// Separate figures selected together are extruded in one go but are steps, and so bodies, of their own, each with its own height (`in_322`), arcs only or not; a hole drawn inside a figure stays with it.
+// Separate figures selected together are extruded in one go but are steps, and so bodies, of their own, each with its own height (`in_353`), arcs only or not; a hole drawn inside a figure stays with it.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

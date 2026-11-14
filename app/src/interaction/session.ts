@@ -38,7 +38,7 @@ export interface Session {
   /** what to do instead if one of those steps could not be made (an edit of the step that made a face, refused late: the prism the old way) */
   readonly fallback?: Command;
   /** the last command that was refused because it could not be done without breaking constraints: who tried (`culprits`: relation ids) and what it would have broken (`victims`) */
-  readonly conflict: { culprits: string[]; victims: string[]; /** what to do once the constraints in `victims` are deleted (the button "Delete constraint to proceed", `in_335`): the refused command itself */ retry?: Command; /** parts of a refused step that are the problem (the edges that cannot take a fillet or chamfer of that size): they flash red (`in_266`) */ parts?: string[] } | null;
+  readonly conflict: { culprits: string[]; victims: string[]; /** what to do once the constraints in `victims` are deleted (the button "Delete constraint to proceed", `in_366`): the refused command itself */ retry?: Command; /** parts of a refused step that are the problem (the edges that cannot take a fillet or chamfer of that size): they flash red (`in_266`) */ parts?: string[] } | null;
   /** the sketch plane whose hidden sketch is shown while a tool sketches in it (`in_211`) */
   readonly reveal?: Ref | null;
 }
@@ -115,7 +115,7 @@ function stepProblem(before: Session, after: Session, stepId: string): { culprit
   return parts.length ? { culprits: [], victims: [], parts: [...parts] } : null;
 }
 /**
- * The constraints that held a move back (`in_335`): the corners the command moved that the solver put somewhere else. They are the ones that tie the moved parts to parts that did not move.
+ * The constraints that held a move back (`in_366`): the corners the command moved that the solver put somewhere else. They are the ones that tie the moved parts to parts that did not move.
  * One answer for every way to move something (the Move tool on a figure or a vertex, a typed number, the preview of either), so none refuses without saying why.
  */
 export function heldBy(before: Scene, c: Command, after: Scene): string[] {
@@ -169,7 +169,7 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
     const victims = after.ids.filter((id) => !culprits.includes(id) && !before.ids.includes(id));
     return { ...s, message: "that cannot be done without breaking other constraints", conflict: { culprits, victims, ...(victims.length ? { retry: c } : {}) } };
   }
-  // a move the solver quietly undid (a corner or circle held where it was by a constraint to something that stays) is refused the same way (`in_335`)
+  // a move the solver quietly undid (a corner or circle held where it was by a constraint to something that stays) is refused the same way (`in_366`)
   const held = opts.ownHold ? [] : heldBy(s.history.scene, c, next.history.scene);
   if (held.length) return { ...s, message: `that would break ${held.length === 1 ? "a constraint" : "constraints"} (${held.join(", ")}): delete ${held.length === 1 ? "it" : "them"} to go on`, conflict: { culprits: [], victims: held, retry: c } };
   // a constraint to an edge of the body that the change took away, with no edge that looks like it: said, and the constraint flashes; the change stays (`in_309`)
@@ -180,7 +180,7 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   const nowOff = mateStatus(next.history.scene).filter((m) => m.state !== "ok" && !wasOff.has(m.id));
   if (nowOff.length) return { ...next, conflict: null, message: `${nowOff.length === 1 ? "a mate is" : `${nowOff.length} mates are`} no longer true (${nowOff.map((m) => m.state === "lost" ? "a face is gone" : "the bodies have come apart").join(", ")}): "Put the mates back" in the ⋯ menu makes them again` };
   const late = !!next.outcome.kernel?.stale && steps.length > 0;
-  const said = steps.map((id) => next.outcome.notes?.[id]).find((n) => !!n); // (a step made in a way that is worth saying: a fillet with the edges at its corner, `in_348`)
+  const said = steps.map((id) => next.outcome.notes?.[id]).find((n) => !!n); // (a step made in a way that is worth saying: a fillet with the edges at its corner, `in_379`)
   if (said && !late) return { ...next, conflict: null, message: said };
   return { ...next, conflict: null, checkSteps: late ? steps : undefined, fallback: late ? opts.fallback : undefined };
 }
@@ -197,7 +197,7 @@ export function refresh(s: Session): Session {
     const back = refresh({ ...withHistory(s, undo(h)), checkSteps: undefined, fallback: undefined });
     if (s.fallback) {
       const made = run(back, s.fallback);
-      const corner = s.fallback.type === "addStep" && s.fallback.step.type === "edgeMod"; // (a fillet or chamfer made with the edges at its corner, `in_348`)
+      const corner = s.fallback.type === "addStep" && s.fallback.step.type === "edgeMod"; // (a fillet or chamfer made with the edges at its corner, `in_379`)
       if (corner ? made.history.scene.steps.length > back.history.scene.steps.length : !made.message) return { ...made, message: corner ? made.message ?? "the kernel could not round that edge alone: it was made together with the edges that meet it at a corner" : "the step that made this face could not take that size: a push / pull was added instead" };
     }
     return { ...back, message: now.outcome.errors[failed] ?? "that could not be made", conflict: stepProblem(back, now, failed) ?? back.conflict };
@@ -225,7 +225,7 @@ export function previewCommand(s: Session, c: Command): { scene: Scene; outcome:
   const r = exec(s.history, c);
   return r.ok ? { scene: r.value.scene, outcome: s.outcomeOf(r.value) } : null;
 }
-/** Why a command would be refused, as `run` would say it (the preview shows what is there, not a move the commit would refuse, `in_335`). */
+/** Why a command would be refused, as `run` would say it (the preview shows what is there, not a move the commit would refuse, `in_366`). */
 export function previewRefusal(s: Session, c: Command, shown: { scene: Scene; outcome: CompileOutcome }): string | null {
   const before = conflictsOf(s.outcome);
   const after = conflictsOf(shown.outcome);

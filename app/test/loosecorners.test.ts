@@ -1,4 +1,4 @@
-// Corners nothing is drawn on are not snapped to, lined up with or suggested to (`in_332`), and deleting a surface no longer leaves them behind (`stranded.test.ts` has the rule itself, `in_334`: they are taken in the command layer). In the human's file three corners were left by deleting a surface cut by an arc:
+// Corners nothing is drawn on are not snapped to, lined up with or suggested to (`in_363`), and deleting a surface no longer leaves them behind (`stranded.test.ts` has the rule itself, `in_365`: they are taken in the command layer). In the human's file three corners were left by deleting a surface cut by an arc:
 // the pieces cut from its lines name the same corners, and were counted as something else standing on them, so the ends of the lines taken away were kept; they are not drawn, but the cursor lined up with them.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -14,7 +14,7 @@ import { frameOf } from "../src/interaction/frame.ts";
 import type { Part } from "../src/operation/part.ts";
 
 await kernel.init();
-const open = (): Session => (openSession(kernel, readFileSync(new URL("./fixtures/loose-corners-in_332.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+const open = (): Session => (openSession(kernel, readFileSync(new URL("./fixtures/loose-corners-in_363.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
 const LOOSE = ["d/e_005.p0", "d/e_005.p1", "d/e_007.p1"];
 const looseIn = (s: Session): string[] => {
   const stood = new Set<string>();

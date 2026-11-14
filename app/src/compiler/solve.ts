@@ -188,7 +188,7 @@ function constraintFor(m: Model, rel: Relation): Omit<SolverConstraint, "id"> | 
       return cen && e ? { type: "ptOnCircle", p, c: cen, e } : null;
     }
     case "tangent": {
-      // two circles or arcs that touch (`in_292`, `in_338`): the distance between their centres is the sum of their radii (outside each other) or their difference (one inside the other), as they are now. An arc's radius is
+      // two circles or arcs that touch (`in_292`, `in_369`): the distance between their centres is the sum of their radii (outside each other) or their difference (one inside the other), as they are now. An arc's radius is
       // the distance from its centre to its start, so this holds wherever the arcs end: nothing about the touching point is asked of an end (a trim or a dragged end cannot make it impossible)
       const round = (ref: Ref): { c: string; r?: string; e?: string } | null => {
         const k = kindOf(ref);

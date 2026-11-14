@@ -114,7 +114,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
       return new Promise((resolve) => { exports.push({ graph, quality, resolve }); pump(); });
     },
     evaluate(graph: KernelGraph): KernelResult {
-      const [draft, lite] = [self.draft, self.lite]; // (a rough mesh while a size is dragged, `in_216`, and with no faces and edges, `in_327`: asked for and kept apart from the fine and whole one)
+      const [draft, lite] = [self.draft, self.lite]; // (a rough mesh while a size is dragged, `in_216`, and with no faces and edges, `in_358`: asked for and kept apart from the fine and whole one)
       const key = (draft ? "draft:" : "") + (lite ? "lite:" : "") + JSON.stringify(graph);
       const hit = cache.get(key);
       if (hit) { cache.delete(key); cache.set(key, hit); return hit; } // (`last` is only what the worker finished last: a hit on an old graph must not make the picture jump back to it)

@@ -17,7 +17,7 @@ import { normalOfPlane } from "../operation/part.ts";
 
 /** What a face is the result of, and what to change to move it. */
 export type FaceEdit =
-  | { kind: "depth"; step: string; depth: number; /** +1 when pulling the face out lengthens the extrusion */ along: 1 | -1; /** which figure of the step it is the end of, when the step made several together (0 the first, then each of `also`): only its depth changes (`in_320`) */ figure?: number }
+  | { kind: "depth"; step: string; depth: number; /** +1 when pulling the face out lengthens the extrusion */ along: 1 | -1; /** which figure of the step it is the end of, when the step made several together (0 the first, then each of `also`): only its depth changes (`in_351`) */ figure?: number }
   /** the end of an earlier push / pull (a prism step): its depth */
   | { kind: "stepDepth"; step: string; depth: number }
   /** the side of an extruded sketch: the sketch's corners on that side move along the face's outward normal */
@@ -289,7 +289,7 @@ export function editCommand(scene: Scene, edit: FaceEdit, v: number): Command | 
     if (Math.abs(depth) < 1e-6) return null;
     const st = scene.steps.find((x) => x.id === edit.step);
     if (edit.figure === undefined || !st) return { type: "setStepParams", id: edit.step, params: { depth } };
-    // one of several figures made together: its depth changes and the others keep theirs, each written down for itself (`in_320`)
+    // one of several figures made together: its depth changes and the others keep theirs, each written down for itself (`in_351`)
     const depths = figureDepths(st);
     depths[edit.figure] = depth;
     return { type: "setStepParams", id: edit.step, params: { depth: depths[0]!, alsoDepth: depths.slice(1).join("|") } };

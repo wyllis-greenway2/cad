@@ -63,7 +63,7 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   return c && c !== s.session.conflict ? { ...next, flash: { ...c, at: env.now } } : next;
 }
 
-/** "Delete constraint to proceed" (`in_335`): the constraints that stopped a change are deleted and the change is made, as one step (one undo takes both back). */
+/** "Delete constraint to proceed" (`in_366`): the constraints that stopped a change are deleted and the change is made, as one step (one undo takes both back). */
 function overrideRefusal(s: AppState): AppState {
   const f = s.flash;
   if (!f?.retry) return s;

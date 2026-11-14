@@ -1,4 +1,4 @@
-// A drawn corner nothing is drawn on goes with the parts that stood on it, in one place, the command layer (`in_332`, `in_334`): whatever takes lines or circles away (a delete, a trim, a deleted surface) leaves no corner behind
+// A drawn corner nothing is drawn on goes with the parts that stood on it, in one place, the command layer (`in_363`, `in_365`): whatever takes lines or circles away (a delete, a trim, a deleted surface) leaves no corner behind
 // to be snapped to; a corner a step names stays; and a history made before the rule, which deletes such corners by name afterwards, still replays.
 import test from "node:test";
 import assert from "node:assert/strict";

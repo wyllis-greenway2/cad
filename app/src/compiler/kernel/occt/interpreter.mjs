@@ -386,7 +386,7 @@ const OPS = {
       return solid;
     };
     let solid = prism(op.profile, op.holes);
-    for (const f of op.also ?? []) solid = solid.fuse(prism(f.profile, f.holes, f.distance === undefined ? dist : resolve(f.distance, ctx.params))); // siblings extruded together (each may have a depth of its own, `in_320`)
+    for (const f of op.also ?? []) solid = solid.fuse(prism(f.profile, f.holes, f.distance === undefined ? dist : resolve(f.distance, ctx.params))); // siblings extruded together (each may have a depth of its own, `in_351`)
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
     if (op.mode === "cutOrAdd") {
@@ -517,7 +517,7 @@ const OPS = {
         // on its own it cannot be made (next to fillets already made, a corner where three meet): the kernel can blend a corner when the edges that meet there are rounded in the same operation, so
         // this one is tried together with the ones just before it (each with its own size), from the body before them
         if (!base || op.together.mods.length < 2) {
-          // else (`in_348`): together with the fewest of the edges that meet it at its ends, which the kernel needs rounded with it; only for a step made that way (`corner` on the step: the step said so when it was made, so a later change cannot start it rounding another edge) where they meet at a corner it cannot blend alone
+          // else (`in_379`): together with the fewest of the edges that meet it at its ends, which the kernel needs rounded with it; only for a step made that way (`corner` on the step: the step said so when it was made, so a later change cannot start it rounding another edge) where they meet at a corner it cannot blend alone
           const more = neighbours && op.corner && set ? withNeighbours(t, set, size, op.mode) : null;
           if (more) { note = more.note; return more.shape; }
           throw e;
@@ -733,7 +733,7 @@ const OPS = {
 };
 
 /**
- * A fillet or chamfer that the kernel cannot make on the chosen edges alone, made together with the edges that meet them at their ends (`in_348`): the kernel rounds a corner only when the edges that meet there are in
+ * A fillet or chamfer that the kernel cannot make on the chosen edges alone, made together with the edges that meet them at their ends (`in_379`): the kernel rounds a corner only when the edges that meet there are in
  * the same operation. The fewest are tried (one, then two, then all of them): the first that works is used, and the answer says which. Null if none works.
  */
 function withNeighbours(t, set, size, mode) {

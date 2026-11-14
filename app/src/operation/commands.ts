@@ -61,7 +61,7 @@ export function dependentParts(s: Scene, ref: Ref): Ref[] {
 }
 
 /**
- * The drawn corners that stood under parts that are going and are left with nothing drawn on them (`in_332`, `in_334`): no line or arc ends or is centred there and no circle is centred there. A corner shows only as the end of a
+ * The drawn corners that stood under parts that are going and are left with nothing drawn on them (`in_363`, `in_365`): no line or arc ends or is centred there and no circle is centred there. A corner shows only as the end of a
  * line or the middle of a circle or arc, so one with nothing on it is not there for the person drawing, and must not be left behind to be snapped to or lined up with. This is the one place the rule is kept: a delete, a trim and
  * a deleted surface all take parts away through `deletePart` and `deleteParts`, whatever they ask for. A corner a step names or a repeat repeats stays (taking it would change what they are made of), as does a corner the
  * sketch derives (a crossing). A piece cut from a line (`derived`) does not stand on a corner: it goes with its line.
@@ -98,7 +98,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
   switch (c.type) {
     case "addPart": {
       if (c.part.ref in s.parts) return err(`${c.part.ref} already exists`);
-      if (c.part.plane && !(c.part.plane in s.parts) && s.planeAlias?.[c.part.plane]) return apply(s, { ...c, part: { ...c.part, plane: s.planeAlias[c.part.plane]! } as typeof c.part }); // (`in_341`)
+      if (c.part.plane && !(c.part.plane in s.parts) && s.planeAlias?.[c.part.plane]) return apply(s, { ...c, part: { ...c.part, plane: s.planeAlias[c.part.plane]! } as typeof c.part }); // (`in_372`)
       for (const a of anchorsOf(c.part)) if (a !== c.part.ref && !(a in s.parts)) return err(`${c.part.ref} uses ${a}, which does not exist`);
       if (c.part.plane && !(c.part.plane in s.parts)) return err(`plane ${c.part.plane} does not exist`);
       return ok(bumpCounter({ ...s, parts: { ...s.parts, [c.part.ref]: c.part } }, idOf(c.part.ref)));
@@ -118,7 +118,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       return ok({ ...s, parts: { ...s.parts, [c.ref]: { ...p, radius: c.radius } } });
     }
     case "transformFigure": {
-      const planeRef = s.parts[c.plane] ? c.plane : s.planeAlias?.[c.plane] ?? c.plane; // (a plane the history knew by the name a move gave it, `in_341`)
+      const planeRef = s.parts[c.plane] ? c.plane : s.planeAlias?.[c.plane] ?? c.plane; // (a plane the history knew by the name a move gave it, `in_372`)
       const pl = s.parts[planeRef];
       if (!pl || pl.kind !== "plane") return err(`${c.plane} is not a plane`);
       const figure = new Set<Ref>(c.parts);

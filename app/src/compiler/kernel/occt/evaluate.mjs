@@ -56,7 +56,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     const o = ops.find((x) => x.id === fin.id);
     if (o) o.error = "nothing would be left of the body (the cut takes all of it away)";
   }
-  const lite = !!tess.lite; // (a preview of a size being dragged: the mesh, volume and box, not the faces, edges and corners, `in_327`)
+  const lite = !!tess.lite; // (a preview of a size being dragged: the mesh, volume and box, not the faces, edges and corners, `in_358`)
   const present = fin && box ? fin : null;
   const dkey = present?.key ? `${present.key}|${JSON.stringify(tess)}` : null;
   const known = dkey ? described.get(dkey) : undefined;

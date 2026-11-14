@@ -1,4 +1,4 @@
-// The lite answer of the kernel (`in_327`): the mesh, volume and box of a size being dragged, without the faces, edges and corners, which take about half the time of a preview and which a preview does not use.
+// The lite answer of the kernel (`in_358`): the mesh, volume and box of a size being dragged, without the faces, edges and corners, which take about half the time of a preview and which a preview does not use.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -10,7 +10,7 @@ import type { Session } from "../src/interaction/session.ts";
 import type { KernelGraph } from "../src/compiler/kernel/adapter.ts";
 
 await kernel.init();
-const open = (): Session => (openSession(kernel, readFileSync(new URL("./fixtures/two-blocks-in_319.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+const open = (): Session => (openSession(kernel, readFileSync(new URL("./fixtures/two-blocks-in_350.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
 const EDGE = "b/body/e@29.78,10.89,0~29.78,10.89,12.4~29.78,10.89,6.2";
 const fillet = (s: Session, v: number) => previewCommand(s, { type: "addStep", step: { id: "s_990", type: "edgeMod", parts: [EDGE as never], params: { mode: "fillet", value: v } } })!;
 

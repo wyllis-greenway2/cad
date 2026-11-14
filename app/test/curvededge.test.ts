@@ -1,5 +1,5 @@
 // A curved edge of the body that is not a circle (here where a tilted round cut crosses the top and the wall of a cylinder) is lit and picked along the edge itself, not along a circle through its ends and middle
-// (`in_341`): that circle ran far outside the body, so the blue line was nowhere near the drawn edge, and the edge could not be clicked where it is drawn.
+// (`in_372`): that circle ran far outside the body, so the blue line was nowhere near the drawn edge, and the edge could not be clicked where it is drawn.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -13,11 +13,11 @@ import type { Part } from "../src/operation/part.ts";
 import type { Vec3 } from "../src/math/vec.ts";
 
 await kernel.init();
-const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/tilted-cut-edges-in_341.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/tilted-cut-edges-in_372.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
 type Line = Extract<Part, { kind: "line" }>;
 const near = (p: Vec3, path: Vec3[]): number => Math.min(...path.slice(1).map((q, i) => { const a = path[i]!; const d = [q[0] - a[0], q[1] - a[1], q[2] - a[2]]; const w = [p[0] - a[0], p[1] - a[1], p[2] - a[2]]; const t = Math.max(0, Math.min(1, (w[0]! * d[0]! + w[1]! * d[1]! + w[2]! * d[2]!) / (d[0]! ** 2 + d[1]! ** 2 + d[2]! ** 2 || 1))); return Math.hypot(p[0] - a[0] - d[0]! * t, p[1] - a[1] - d[1]! * t, p[2] - a[2] - d[2]! * t); }));
 
-test("the file made when a move made a new plane still replays (`in_341`)", () => {
+test("the file made when a move made a new plane still replays (`in_372`)", () => {
   const s = open();
   assert.deepEqual(s.outcome.errors, {});
 });
@@ -54,7 +54,7 @@ test("such an edge is picked where it is drawn, and not where the circle through
   if (far.d > 1) assert.ok((hitPart(get, l, at(far.p)) ?? 0) > 5, "off the edge it is not");
 });
 
-test("an edge that is not a circle is no round: no circle is made of three of its points, for relations, hints or anchors (`in_344`)", () => {
+test("an edge that is not a circle is no round: no circle is made of three of its points, for relations, hints or anchors (`in_375`)", () => {
   const sc = scene(open());
   const get = lookup(sc);
   const bodyLines = (Object.values(sc.parts) as Part[]).filter((p): p is Line => p.kind === "line" && p.origin === "body");

@@ -257,7 +257,7 @@ function frame(now: number) {
   if (dirty || spreading || state.flash) {
     const size = view.size();
     const tFrame = performance.now();
-    // while a size is dragged, what is drawn is the kernel's own result for every size, newest request winning: rough and with no faces or edges, the fine and whole one comes when the pointer is let go (`in_327`, `in_331`)
+    // while a size is dragged, what is drawn is the kernel's own result for every size, newest request winning: rough and with no faces or edges, the fine and whole one comes when the pointer is let go (`in_358`, `in_362`)
     const dragging = !!state.drag && !!state.op;
     engine.draft = dragging;
     engine.lite = dragging;
@@ -286,7 +286,7 @@ function frame(now: number) {
     // what comes before the constraint bubbles: the ring, and the number bubbles (and the helper bubble, the suggestions and the hint icons), as they stood on the last frame
     const inFront = [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), hintIcons.rect(), ...touchRects].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : []));
     if (bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid, inFront)) dirty = true; // (a bubble still sliding to its place: another frame)
-    refusalChip.update(f.refusal, f.refusal ? bubbles.rectOf(f.refusal.beside) : null); // (beside the bubble of the constraint that stopped it, `in_336`)
+    refusalChip.update(f.refusal, f.refusal ? bubbles.rectOf(f.refusal.beside) : null); // (beside the bubble of the constraint that stopped it, `in_367`)
     view.setNotes(f.annotations.flatMap((a) => a.lines));
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };

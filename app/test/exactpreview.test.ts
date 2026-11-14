@@ -1,4 +1,4 @@
-// The picture of an operation while its size is dragged is the kernel's own result for that size, so it cannot disagree with what is made when the pointer is let go (`in_328`, `in_331`); the only other kind
+// The picture of an operation while its size is dragged is the kernel's own result for that size, so it cannot disagree with what is made when the pointer is let go (`in_359`, `in_362`); the only other kind
 // of picture is a matrix on a body moved, turned or scaled whole, which is exact too (a rigid motion, or a uniform scale: no guess in it).
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -15,8 +15,8 @@ import type { Part } from "../src/operation/part.ts";
 await kernel.init();
 const size = { w: 1280, h: 687 };
 const load = (f: string): Session => (openSession(kernel, readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8")) as unknown as { value: Session }).value;
-const blocks = (): Session => undoLast(load("two-blocks-in_319.cad.json"));
-const holed = (): Session => load("hole-body-move-in_317.cad.json");
+const blocks = (): Session => undoLast(load("two-blocks-in_350.cad.json"));
+const holed = (): Session => load("hole-body-move-in_348.cad.json");
 const dragging = (s: Session, ref: string, op: unknown): AppState => ({ ...createState(s), session: { ...s, click: { ...s.click, selection: [ref as never] } }, op: op as never, drag: { handle: { id: "h", dir: [1, 0, 0], kind: "pull" } } as never });
 const volumeOf = (m: { vertices: Float32Array; triangles: Uint32Array } | null | undefined): number => {
   if (!m) return NaN;
@@ -51,7 +51,7 @@ test("a fillet and a chamfer dragged: the picture is the result at each size", (
 });
 
 test("a fillet that is there already, pulled in and out: the picture is the result", () => {
-  const s = load("two-blocks-in_319.cad.json");
+  const s = load("two-blocks-in_350.cad.json");
   const round = parts(s).find((p) => p.origin === "body" && p.kind === "plane" && /CYLINDRE/.test(p.ref) && p.of === "b/x_s_025/o")!;
   agrees(s, round.ref, "pushpull", [0.8, -1, -2.5], "pulled fillet");
 });

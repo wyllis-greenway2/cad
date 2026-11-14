@@ -20,7 +20,7 @@ interface Base {
 }
 export interface Corner extends Base { kind: "corner"; at: Vec3; /** a place where drawn curves cross (made when the faces are, never saved, not picked) */ derived?: boolean }
 export interface Line extends Base { kind: "line"; a: Ref; b: Ref; /** a point halfway along a curved edge (body edges only; straight lines omit it) */ mid?: Vec3;
-  /** the curve itself, for a body edge that is neither a straight line nor part of a circle (an ellipse, a curve where two round faces cross): the points along it, from `a` to `b`. A circle through the ends and the middle is not the curve for these (`in_341`) */ path?: Vec3[];
+  /** the curve itself, for a body edge that is neither a straight line nor part of a circle (an ellipse, a curve where two round faces cross): the points along it, from `a` to `b`. A circle through the ends and the middle is not the curve for these (`in_372`) */ path?: Vec3[];
   /** a drawn arc: how far its middle is out from the chord, as a fraction of the chord's length (positive towards the plane's normal crossed with the chord's direction); a straight line omits it */ bulge?: number;
   /** a drawn arc about a centre point (a corner, so it can be positioned with constraints): the arc runs from `a` to `b` round `center`, counter-clockwise (seen from the plane's normal) or not; its radius is the distance from the centre to `a` */
   center?: Ref; ccw?: boolean;
@@ -92,7 +92,7 @@ export const circleOf = (get: Lookup, ref: Ref): { center: Vec3; radius: number 
   return c ? { center: c, radius: p.radius } : null;
 };
 /**
- * A round the constraint system can use (`in_308`): a drawn circle, or a circular edge of a body: the circle the kernel says it is part of. An edge of a body that is some other curve (an ellipse, a curve where two round faces cross) is no round: no circle is made of it from three of its points (`in_344`). An edge of a body is an **anchor**: read, never moved,
+ * A round the constraint system can use (`in_308`): a drawn circle, or a circular edge of a body: the circle the kernel says it is part of. An edge of a body that is some other curve (an ellipse, a curve where two round faces cross) is no round: no circle is made of it from three of its points (`in_375`). An edge of a body is an **anchor**: read, never moved,
  * but a drawn part can be held to it (concentric, equal radius, tangent, on it) as to any other round.
  */
 export const roundOf = (get: Lookup, ref: Ref): { center: Vec3; radius: number; anchor: boolean; /** which way it faces (a body edge; a drawn circle has the normal of its plane, not stored here) */ normal?: Vec3 } | null => {
@@ -204,7 +204,7 @@ export function arcPoints(a: Vec3, m: Vec3, b: Vec3, steps = 40): Vec3[] {
 }
 /**
  * The curve of a line, as points along it, for drawing it and picking it: the kernel's own curve for a body edge that is not a circle (`Line.path`), the ring (or the arc of it) for a circle, and an arc through its ends and
- * middle for a drawn curve. Null for a straight line. One place for the geometry of a curved line (`in_344`): nothing else makes a circle from an edge's three points.
+ * middle for a drawn curve. Null for a straight line. One place for the geometry of a curved line (`in_375`): nothing else makes a circle from an edge's three points.
  */
 export function curvePoints(get: Lookup, part: Line): Vec3[] | null {
   if (part.origin === "body") {
@@ -279,7 +279,7 @@ const ringPoints = (c: NonNullable<Line["circle"]>, n = 96): Vec3[] => {
 };
 const lineOps: KindOps<Line> = {
   hit: (get, part, pv) => {
-    // a curved line (a rim, a drawn arc, an edge that is another curve): the nearest of the pieces of its curve; a straight one: its segment (`in_344`)
+    // a curved line (a rim, a drawn arc, an edge that is another curve): the nearest of the pieces of its curve; a straight one: its segment (`in_375`)
     const curve = curvePoints(get, part);
     if (curve) {
       const q = curve.map((p) => px(pv, p));

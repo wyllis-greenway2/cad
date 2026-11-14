@@ -1,5 +1,5 @@
-// An arc tangent to another round curve can be trimmed anywhere (`in_338`). The solver used to hold such a tangent at an end of the arc, so trimming off the piece with that end left the arc a tangent it could not
-// take, and the whole trim was refused with relations nobody could see. It is now the distance between the centres (`in_340`), whatever the arc's ends.
+// An arc tangent to another round curve can be trimmed anywhere (`in_369`). The solver used to hold such a tangent at an end of the arc, so trimming off the piece with that end left the arc a tangent it could not
+// take, and the whole trim was refused with relations nobody could see. It is now the distance between the centres (`in_371`), whatever the arc's ends.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -11,7 +11,7 @@ import type { Vec3 } from "../src/math/vec.ts";
 import type { Ref } from "../src/shared/ref.ts";
 
 await kernel.init();
-const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/trim-arc-tangent-in_338.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/trim-arc-tangent-in_369.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
 const along = (s: Session, ref: string, f: number): Vec3 => {
   const sc = scene(s);
   const l = sc.parts[ref as Ref] as { a: string; b: string; center: string; ccw: boolean };

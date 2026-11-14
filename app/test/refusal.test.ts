@@ -1,4 +1,4 @@
-// A move a constraint stops says so, the same way whatever moved it, and can be pushed through by deleting the constraint (`in_335`).
+// A move a constraint stops says so, the same way whatever moved it, and can be pushed through by deleting the constraint (`in_366`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -12,7 +12,7 @@ import { frameOf } from "../src/interaction/frame.ts";
 import type { Part } from "../src/operation/part.ts";
 
 await kernel.init();
-const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/circle-held-by-concentric-in_335.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/circle-held-by-concentric-in_366.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
 const centre = (s: Session) => (scene(s).parts["d/e_025.c"] as Extract<Part, { kind: "corner" }>).at;
 const env = { w: 800, h: 600, now: 1000 } as Env;
 
