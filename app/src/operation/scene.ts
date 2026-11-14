@@ -11,7 +11,12 @@ import { withPatterns } from "./repeat.ts";
 
 /** A relation between parts. `parts` are listed mover first, then the references (held in place): the part selected FIRST moves and the ones selected before it stay (`in_196`, which reversed `in_090`). `kind` is a row id of the actions table. */
 /** How a circular edge of the body looked when a relation was made to it (`in_309`): its centre, radius and facing, and how far along its facing it stood in the body's box (0 bottom, 1 top). The relation names the edge by where it was; if the body changes and that edge is gone, the edge that looks most like this one now is taken (`anchors.ts`). */
-export interface EdgeAnchor { center: [number, number, number]; radius: number; normal: [number, number, number]; t: number }
+export interface EdgeAnchor {
+  /** a circular edge (the default), a straight edge (`center` is its middle, `radius` half its length, `normal` its direction) or a corner (`radius` 0); the last two are judged across `axis`, the facing of the sketch's plane (`in_310`) */
+  kind?: "line" | "point";
+  center: [number, number, number]; radius: number; normal: [number, number, number]; t: number;
+  axis?: [number, number, number];
+}
 export interface Relation {
   id: string;
   kind: string;

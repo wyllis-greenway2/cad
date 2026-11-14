@@ -239,7 +239,7 @@ export function finish(scene: Scene, t: Tool): Finished | null {
   const pts = [...t.points];
   if (pts.length < 2) return null;
   const d = drawChain(scene, pl.ref, pts, false, { reuse: true }); // a line: it ends at an existing corner when it is drawn to one (so lines meeting in a loop make a shape)
-  return { command: d.command, select: d.lines };
+  return { command: joinedAtCorners(scene, pl.ref, d.command), select: d.lines }; // (a line that ends at a corner of the body is held to it, `in_310`)
 }
 
 /** A drawn copy of a plane that is a face of the body (or any plane that is not already drawn or world), so a sketch on it does not depend on the body's name staying the same. */

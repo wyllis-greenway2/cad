@@ -8,7 +8,7 @@ import { segmentOf, circleOf, pointOf, normalOfPlane, localOf, liftOf } from "..
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
-import { anchorRounds } from "../operation/anchors.ts";
+import { anchorRounds, anchorLines } from "../operation/anchors.ts";
 import type { Command } from "../operation/commands.ts";
 import { settings } from "../shared/settings.ts";
 
@@ -64,7 +64,8 @@ function outlineSnap(scene: Scene, pl: Plane, pv: PointerView, e: V2, skip: (ref
   const get = (r: Ref) => scene.parts[r];
   const n = normalOfPlane(pl);
   const onPlane = (p: Vec3) => Math.abs(dot(sub(p, pl.at), n)) < 1e-3;
-  const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && p.origin === "drawn" && !p.center && !p.derived);
+  const anchored = new Set(anchorLines(scene, pl).map((l) => l.ref)); // (the straight edges of the body in this plane are lines too, read-only, `in_310`)
+  const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && ((p.origin === "drawn" && !p.center && !p.derived) || anchored.has(p.ref)));
   // on a line: close to a line (not one that starts here)
   let best: { at: V2; ref: Ref; px: number } | null = null;
   for (const l of lines) {
@@ -169,7 +170,8 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
   if (len < 1e-6) return none;
   const get = (r: Ref) => scene.parts[r];
   const tol = (settings.sketch.hintDeg * Math.PI) / 180;
-  const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && p.origin === "drawn" && !p.center && !p.derived); // (a piece a crossing cut from a line is not the line: constraints name the line, and the piece goes when the crossing does, `in_251`)
+  const anchored = new Set(anchorLines(scene, pl).map((l) => l.ref)); // (the straight edges of the body in this plane, `in_310`)
+  const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && ((p.origin === "drawn" && !p.center && !p.derived) || anchored.has(p.ref))); // (a piece a crossing cut from a line is not the line: constraints name the line, and the piece goes when the crossing does, `in_251`)
   const seg = (ref: Ref): [V2, V2] | null => { const q = segmentOf(get, ref); return q && onPlane(q[0]) && onPlane(q[1]) ? [localOf(pl, q[0]), localOf(pl, q[1])] : null; };
   const touchesStart = (ref: Ref) => { const q = segmentOf(get, ref); return !!q && (dist(q[0], start) < 1e-6 || dist(q[1], start) < 1e-6); };
 

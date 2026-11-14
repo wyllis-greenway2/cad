@@ -3,7 +3,7 @@ import type { Ref } from "../shared/ref.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { sub, dot, cross } from "../math/vec.ts";
-import { circumcentre } from "./part.ts";
+import { circumcentre, normalOfPlane } from "./part.ts";
 import type { Scene } from "./scene.ts";
 import { nextId } from "./scene.ts";
 import { live } from "./ownership.ts";
@@ -99,14 +99,21 @@ export function joinedAtCorners(s: Scene, plane: Ref, command: Command): Command
   const spent = live(s);
   const circleCentres = new Set(Object.values(spent.parts).flatMap((p) => (p.kind === "circle" ? [p.center] : [])));
   const taken = [...list.flatMap((c) => (c.type === "addPart" ? [c.part.ref] : c.type === "addRelation" ? [c.relation.id] : [])), formatId("e", s.counter)].map((id) => Number(/_(\d+)/.exec(id)?.[1] ?? 0));
-  let n = Math.max(s.counter, ...taken);
+  let n0 = Math.max(s.counter, ...taken);
   const out: Command[] = [];
+  const pl = spent.parts[plane];
+  const n = pl?.kind === "plane" ? normalOfPlane(pl) : null;
   for (const c of fresh) {
     for (const p of Object.values(spent.parts)) {
+      // a corner of the body on the plane, where this one is: it is held to it (an anchor, `in_310`)
+      if (p.kind === "corner" && p.origin === "body" && pl?.kind === "plane" && n && Math.abs((p.at[0] - pl.at[0]) * n[0] + (p.at[1] - pl.at[1]) * n[1] + (p.at[2] - pl.at[2]) * n[2]) < 1e-3 && Math.hypot(p.at[0] - c.at[0], p.at[1] - c.at[1], p.at[2] - c.at[2]) <= 1e-6) {
+        out.push({ type: "addRelation", relation: { id: formatId("r", ++n0), kind: "coincident", parts: [c.ref, p.ref] } });
+        continue;
+      }
       if (p.kind !== "corner" || p.origin !== "drawn" || p.derived || p.plane !== plane) continue;
       if (Math.hypot(p.at[0] - c.at[0], p.at[1] - c.at[1], p.at[2] - c.at[2]) > 1e-6) continue;
       if (centreOfNew.has(c.ref) && circleCentres.has(p.ref)) continue;
-      out.push({ type: "addRelation", relation: { id: formatId("r", ++n), kind: "coincident", parts: [c.ref, p.ref] } });
+      out.push({ type: "addRelation", relation: { id: formatId("r", ++n0), kind: "coincident", parts: [c.ref, p.ref] } });
     }
   }
   return out.length ? { type: "batch", commands: [command, ...out] } : command;

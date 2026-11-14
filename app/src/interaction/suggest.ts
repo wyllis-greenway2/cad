@@ -1,6 +1,6 @@
 // Suggested constraints (`in_195`): with one or two parts of a drawing selected, the constraints that could be put on them (and are not on them yet) are offered as little buttons by the selection; a click applies one.
 // The first selected part moves to meet the one selected after it, as for the same constraint from the menu (`in_229`).
-import { anchorRounds } from "../operation/anchors.ts";
+import { anchorRounds, anchorLines, anchorCorners } from "../operation/anchors.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Ref } from "../shared/ref.ts";
@@ -98,12 +98,14 @@ function nearItems(scene: Scene, selection: readonly Ref[], tol = 0): { id: stri
   const m = curveGap(scene, part);
   if (!m) return [];
   const touching = part.kind === "circle" ? touchingCircles(scene, part, tol) : [];
-  const near = Object.values(scene.parts).filter((p) => {
-    if (p.kind !== "corner" || p.origin !== "drawn" || p.derived || !p.movable || p.plane !== part.plane || m.own.has(p.ref)) return false;
-    const g = m.gap(p.at);
-    if (!(g <= Math.max(settings.sketch.nearFrac * m.size, tol))) return false; // (exactly on it counts: nothing ties it there yet)
-    return !scene.relations.some((r) => r.kind === m.kind && r.parts.includes(p.ref) && r.parts.includes(target));
-  }).map((p) => p.ref);
+  const plane = part.plane ? scene.parts[part.plane] : undefined;
+  const bodyCorners = plane?.kind === "plane" ? anchorCorners(scene, plane) : []; // (the corners of the body in this plane: the curve can be held to them, `in_310`)
+  const closeEnough = (at: Vec3) => m.gap(at) <= Math.max(settings.sketch.nearFrac * m.size, tol); // (exactly on it counts: nothing ties it there yet)
+  const tied = (ref: Ref) => scene.relations.some((r) => r.kind === m.kind && r.parts.includes(ref) && r.parts.includes(target));
+  const near = [
+    ...Object.values(scene.parts).filter((p) => p.kind === "corner" && p.origin === "drawn" && !p.derived && p.movable && p.plane === part.plane && !m.own.has(p.ref) && closeEnough(p.at) && !tied(p.ref)).map((p) => p.ref),
+    ...bodyCorners.filter((c) => closeEnough(c.at) && !tied(c.ref)).map((c) => c.ref),
+  ];
   if (!near.length) return touching;
   const what = m.kind === "onCircle" ? "Coincident with circle" : "On line";
   return [...touching, { id: `near:${m.kind}`, label: near.length === 1 ? `${what}: the corner close to it` : `${what}: the ${near.length} corners close to it`, corners: near, target, kind: m.kind }];
@@ -173,6 +175,17 @@ function nearCurves(scene: Scene, corner: Extract<Scene["parts"][string], { kind
     if (!(g <= Math.max(settings.sketch.nearFrac * m.size, tol))) continue;
     if (scene.relations.some((r) => r.kind === m.kind && r.parts.includes(corner.ref) && r.parts.includes(p.ref))) continue;
     out.push({ id: `near:${m.kind}:${p.ref}`, label: m.kind === "onCircle" ? "On the circle close to it" : "On the line close to it", corners: [corner.ref], target: p.ref, kind: m.kind, g });
+  }
+  // the straight edges and the circular edges of the body in this plane are curves too, read-only (`in_310`)
+  const plane = corner.plane ? scene.parts[corner.plane] : undefined;
+  if (plane?.kind === "plane") {
+    const consider = (ref: Ref, g: number, size: number, kind: "onCircle" | "onLine") => {
+      if (!(g <= Math.max(settings.sketch.nearFrac * size, tol))) return;
+      if (scene.relations.some((r) => r.kind === kind && r.parts.includes(corner.ref) && r.parts.includes(ref))) return;
+      out.push({ id: `near:${kind}:${ref}`, label: "On the edge of the body close to it", corners: [corner.ref], target: ref, kind, g });
+    };
+    for (const l of anchorLines(scene, plane)) { const m = curveGap(scene, scene.parts[l.ref]!); if (m) consider(l.ref, m.gap(corner.at), m.size, "onLine"); }
+    for (const r of anchorRounds(scene, plane)) consider(r.ref, Math.abs(Math.hypot(corner.at[0] - r.center[0], corner.at[1] - r.center[1], corner.at[2] - r.center[2]) - r.radius), r.radius, "onCircle");
   }
   return out.sort((x, y) => x.g - y.g).slice(0, 2).map(({ g: _g, ...rest }) => rest);
 }

@@ -1491,3 +1491,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_309 — 2026-11-14 — directive
 > Take the stable naming first
 (approves doing the stable naming of body edges that have no sketch source next, ahead of straight edges and corners)
+
+## in_310 — 2026-11-14 — directive
+> Do the straight edges and corners as anchors next
+(approves the next step of `dec_anchor_geometry`: straight edges and corners of the body as anchors in the hints and suggestions)

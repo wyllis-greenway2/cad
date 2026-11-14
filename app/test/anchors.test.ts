@@ -154,3 +154,77 @@ test("when no edge looks like the one a relation named, or two look alike, it is
   const two = rebindAnchors({ ...twin, relations: fake({}).relations });
   assert.deepEqual(two.lost, [rel.id], "two alike: not guessed");
 });
+
+import { anchorLines, anchorCorners } from "../src/operation/anchors.ts";
+const cornerRef = (x: number, y: number) => `b/body/v@${x},${y},13.5`;
+
+test("the straight edges and the corners of the body in the sketch's plane are anchors too (`in_310`)", () => {
+  const s = open();
+  const pl = scene(s).parts["d/p_030"] as never;
+  assert.equal(anchorLines(scene(s), pl).length, 2);
+  assert.equal(anchorCorners(scene(s), pl).length, 4);
+});
+
+test("a drawn corner near a straight edge of the body is offered 'on the edge', and the offer puts it exactly on the edge's line (`in_310`)", () => {
+  const s0 = open();
+  const pl = scene(s0).parts["d/p_030"] as never;
+  const edge = anchorLines(scene(s0), pl)[0]!;
+  const mid = [(edge.a[0] + edge.b[0]) / 2, (edge.a[1] + edge.b[1]) / 2, 13.5];
+  const d = [edge.b[1] - edge.a[1], -(edge.b[0] - edge.a[0])]; // the normal to the edge, in the plane
+  const dl = Math.hypot(d[0]!, d[1]!);
+  const at = [mid[0]! + (d[0]! / dl) * 0.25, mid[1]! + (d[1]! / dl) * 0.25, 13.5];
+  const s = run(s0, { type: "addPart", part: { ref: "d/e_900.c", kind: "corner", origin: "drawn", plane: "d/p_030", movable: true, at } } as never);
+  const items = suggestionsFor(scene(s), ["d/e_900.c" as Ref])?.items.map((i) => i.id) ?? [];
+  assert.ok(items.includes(`near:onLine:${edge.ref}`), `offered: ${items}`);
+  const after = run(s, nearCommand(scene(s), ["d/e_900.c" as Ref], `near:onLine:${edge.ref}`)!);
+  assert.ok(!after.message, `${after.message}`);
+  const p = centreOf(after, "d/e_900.c" as Ref);
+  const gap = Math.abs((p[0]! - edge.a[0]) * (edge.b[1] - edge.a[1]) - (p[1]! - edge.a[1]) * (edge.b[0] - edge.a[0])) / Math.hypot(edge.b[0] - edge.a[0], edge.b[1] - edge.a[1]);
+  assert.ok(gap < 1e-6, `on the edge's line: ${gap}`);
+});
+
+test("a line drawn from a corner of the body is held to it, and a corner or an edge the relation names is found again when the body is deeper (`in_310`)", () => {
+  const s = open();
+  const corner = anchorCorners(scene(s), scene(s).parts["d/p_030"] as never)[0]!;
+  const env = { w: 900, h: 700, now: 0 };
+  let st: AppState = { ...createState(s), cam: { ...homeCamera(), straight: true, azimuth: 0, elevation: Math.PI / 2, target: [corner.at[0], corner.at[1], 13.5], distance: 60 } };
+  const px = (p: number[]) => projector(st.cam, env.w, env.h).project(p as never);
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  const a = px([...corner.at]);
+  st = reduce(st, { type: "click", x: a[0], y: a[1], count: 1, shift: false }, env);
+  const b = px([corner.at[0] + 10, corner.at[1] - 12, 13.5]);
+  st = reduce(st, { type: "hover", x: b[0], y: b[1] }, env);
+  st = reduce(st, { type: "click", x: b[0], y: b[1], count: 1, shift: false }, env);
+  const joined = scene(st.session).relations.find((r) => r.kind === "coincident" && r.parts.includes(corner.ref));
+  assert.ok(joined, "the line's end is held to the body's corner");
+  assert.ok(joined!.anchors?.[corner.ref], "and the corner is described");
+  // a deeper body: the corner is named by the one that looks like it now
+  const deeper = run(st.session, { type: "setStepParams", id: "s_028", params: { depth: 16 } } as never);
+  const rel = scene(deeper).relations.find((r) => r.id === joined!.id)!;
+  const named = scene(deeper).parts[rel.parts.find((q) => q.startsWith("b/")) as Ref] as unknown as { at: number[] } | undefined;
+  assert.ok(named, "it names a corner that is there");
+  assert.ok(Math.hypot(named!.at[0]! - corner.at[0], named!.at[1]! - corner.at[1]) < 1e-3 && Math.abs(named!.at[2]! - 16) < 1e-3, `the same corner, at the new top: ${named!.at}`);
+  void cornerRef;
+});
+
+test("a line drawn parallel to a straight edge of the body in its plane is offered 'parallel' with it (`in_310`)", () => {
+  const s = open();
+  const env = { w: 900, h: 700, now: 0 };
+  let st: AppState = { ...createState(s), cam: { ...homeCamera(), straight: true, azimuth: 0, elevation: Math.PI / 2, target: [30, 25, 13.5], distance: 120 } };
+  const px = (p: number[]) => projector(st.cam, env.w, env.h).project(p as never);
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  const p0 = [45, 8, 0];
+  const a = px(p0);
+  st = reduce(st, { type: "click", x: a[0], y: a[1], count: 1, shift: false }, env);
+  const edge = anchorLines(scene(st.session), scene(st.session).parts[st.tool!.plane!] as never)[0]!; // (the plane the line is on: the edges of the body that lie in it)
+  assert.ok(edge, "the plane has an edge of the body in it");
+  const dir = [edge.b[0] - edge.a[0], edge.b[1] - edge.a[1]];
+  const dl = Math.hypot(dir[0]!, dir[1]!);
+  const rad = (0.8 * Math.PI) / 180; // 0.8 degrees off parallel
+  const [cx, cy] = [Math.cos(rad), Math.sin(rad)];
+  const end = [p0[0]! + (dir[0]! * cx - dir[1]! * cy) / dl * 15, p0[1]! + (dir[0]! * cy + dir[1]! * cx) / dl * 15, 0];
+  const b = px(end);
+  st = reduce(st, { type: "hover", x: b[0], y: b[1] }, env);
+  const hs = st.tool!.hints ?? [];
+  assert.ok(hs.some((h) => h.kind === "parallel" && h.ref?.startsWith("b/body/e@")), `parallel with an edge of the body: ${JSON.stringify(hs)}`);
+});
