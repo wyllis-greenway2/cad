@@ -133,3 +133,34 @@ test("a circle by touch (`in_289`): the held point's icon sets the radius, the c
   assert.ok(circle && Math.abs(circle.radius - 6) < 0.3, "a circle of radius 6");
   assert.equal(st.tool, null, "the tool is put away with the tap that applied it");
 });
+
+import { drawCircle, drawChain } from "../src/operation/build.ts";
+test("an applied drawing is moved with a finger (`in_290`): select a point, a line or a circle and its drag icon's proxy drag moves the point, moves the whole line, changes the circle's size", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), worldRef("XY"), [30, 20, 0], 6);
+  s = run(s, c.command);
+  const l = drawChain(scene(s), worldRef("XY"), [[5, 5, 0], [20, 5, 0]], false, { reuse: true });
+  s = run(s, l.command);
+  const base: AppState = { ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 15, 0] } };
+  const pick = (ref: string): AppState => ({ ...base, session: { ...base.session, click: { ...base.session.click, selection: [ref as never] } } });
+  const prj = (st: AppState, p: readonly number[]) => proj(st.cam, env.w, env.h).project(p as [number, number, number]);
+  // proxy drag from the helper's anchor by (dx, dy) pixels
+  const proxy = (st: AppState, dx: number, dy: number): AppState => {
+    const h = frameOf(st, { w: env.w, h: env.h }).touchHelper!;
+    assert.equal(h.kind, "handle");
+    let [x, y] = prj(st, h.points[0]!.at);
+    for (let k = 1; k <= 4; k++) { st = reduce(st, { type: "orbit", dx: dx / 4, dy: dy / 4, x: (x += dx / 4), y: (y += dy / 4) }, env); }
+    return reduce(st, { type: "dragEnd" }, env);
+  };
+  const corner = pick(l.corners[0]!);
+  const moved = proxy(corner, 40, -40);
+  const cAt = (scene(moved.session).parts[l.corners[0]!] as unknown as { at: number[] }).at;
+  assert.ok(Math.hypot(cAt[0]! - 5, cAt[1]! - 5) > 1, `the point moved: ${cAt}`);
+  const line = pick(l.lines[0]!);
+  const whole = proxy(line, 0, -40);
+  const [a2, b2] = l.corners.map((r) => (scene(whole.session).parts[r] as unknown as { at: number[] }).at);
+  assert.ok(a2![1]! > 5.5 && Math.abs(a2![1]! - b2![1]!) < 1e-6, `both ends went up together: ${a2} ${b2}`);
+  const circle = pick(c.circle);
+  const bigger = proxy(circle, 40, 0);
+  assert.ok((scene(bigger.session).parts[c.circle] as { radius: number }).radius > 7, "the circle is bigger");
+});

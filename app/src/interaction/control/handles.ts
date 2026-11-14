@@ -8,7 +8,12 @@ import type { Command } from "../../operation/commands.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { settings } from "../../shared/settings.ts";
 import type { Drag, Handle } from "../gizmo.ts";
-import { snapOnPlane } from "../tools.ts";
+import { snapOnPlane, pointOnPlane } from "../tools.ts";
+import { lineHint, pointHint, hintRelations } from "../hints.ts";
+import type { Hint } from "../hints.ts";
+import type { Scene } from "../../operation/scene.ts";
+import { nextId } from "../../operation/scene.ts";
+import { apply } from "../../operation/commands.ts";
 import { autoOp, isLive } from "../operations.ts";
 import { runOp } from "../runop.ts";
 import { patternBase, dragPattern, liveRepeat, advanceHelp } from "../pattern.ts";
@@ -76,6 +81,8 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
   }
   if ("corner" in s.drag!) return moveCorner(s, i, env);
+  if ("line" in s.drag!) return moveLine(s, i, env);
+  if ("rim" in s.drag!) return moveRim(s, i, env);
   if ("handle" in s.drag! && s.drag.repeat && s.repeat) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
     return r && "value" in r ? { ...s, repeat: advanceHelp({ ...s.repeat, op: dragPattern(s.repeat.op, s.drag.handle.id, r, s.drag.base) }) } : s;
@@ -106,6 +113,13 @@ function orbitOrCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: 
     const pv = projector(s.cam, env.w, env.h).view(i.x - i.dx, i.y - i.dy);
     const c = candidatesAt(sc, pv, { ...pickOpts(s), lineTol: 0 }).find((k) => k.kind === "corner" && sc.parts[k.ref]?.origin === "drawn" && sc.parts[k.ref]?.plane);
     if (c) return { ...s, drag: { corner: c.ref, base: s.session }, hoverPoint: null };
+    // a straight line of the drawing is dragged whole, the edge of a circle changes its size (`in_290`)
+    const hit = candidatesAt(sc, pv, pickOpts(s)).find((k) => { const p = sc.parts[k.ref]; return p?.origin === "drawn" && !!p.plane && ((p.kind === "line" && !p.derived && !p.center) || p.kind === "circle"); });
+    const part = hit ? sc.parts[hit.ref] : undefined;
+    const pl = part && "plane" in part && part.plane ? sc.parts[part.plane] : undefined;
+    if (hit && part?.kind === "circle") return { ...s, drag: { rim: hit.ref, base: s.session }, hoverPoint: null };
+    const from = pl?.kind === "plane" ? pointOnPlane(pv, pl) : null;
+    if (hit && part?.kind === "line" && from) return { ...s, drag: { line: hit.ref, base: s.session, from }, hoverPoint: null };
   }
   return doOrbit({ ...s, drag: { camera: true } }, i);
 }
@@ -116,11 +130,38 @@ function moveCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env
   const part = sc.parts[d.corner];
   const pl = part?.plane ? sc.parts[part.plane] : undefined;
   if (!pl || pl.kind !== "plane") return s;
-  const at = snapOnPlane(sc, projector(s.cam, env.w, env.h).view(i.x, i.y), pl, d.corner);
-  if (!at) return s;
-  // the corner is held where the pointer is while the rest is solved (else the solver splits the difference); what the solver then settles on is the one step made
-  const pin: Command = { type: "addRelation", relation: { id: "drag_pin", kind: "fixed", parts: [d.corner] } };
-  const held = run(d.base, { type: "batch", commands: [pin, { type: "movePart", ref: d.corner, to: at }] });
+  const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
+  const snapped = snapOnPlane(sc, pv, pl, d.corner);
+  if (!snapped) return s;
+  // the constraints a hover offers while a figure is drawn (on a line, on a circle, level, upright, parallel, square, tangent) are offered to a point that is dragged, and kept when it is let go (`in_290`)
+  const lines = Object.values(sc.parts).filter((p): p is Extract<typeof p, { kind: "line" }> => p.kind === "line" && p.origin === "drawn" && !p.derived && !p.center && (p.a === d.corner || p.b === d.corner));
+  const mine = new Set<Ref>(Object.values(sc.parts).filter((p) => (p.kind === "line" && (p.a === d.corner || p.b === d.corner || p.center === d.corner)) || (p.kind === "circle" && p.center === d.corner)).map((p) => p.ref));
+  const other = lines.length === 1 ? sc.parts[lines[0]!.a === d.corner ? lines[0]!.b : lines[0]!.a] : undefined;
+  const hint = other?.kind === "corner" ? lineHint(sc, pl, other.at, pv, snapped) : pointHint(sc, pl, pv, snapped, (r) => mine.has(r));
+  const at = hint.hints.length ? hint.at : snapped;
+  const line = lines.length === 1 ? lines[0]! : null;
+  const moved = settledWith({ ...s, dragHint: hint.hints.length ? { hints: hint.hints, at } : null }, d.base, [{ ref: d.corner, to: at }], (after) => {
+    const out: { kind: Hint["kind"]; parts: Ref[] }[] = [];
+    if (!hint.hints.length) return out;
+    if (line) { // the line the point is an end of: its constraints, with the point on a line or circle as its own
+      const isStart = line.a === d.corner ? 1 : 0; // (the hints' "start" is the other end of the line)
+      const ends: Hint[][] = [[], []];
+      ends[line.a === d.corner ? 0 : 1] = hint.hints.filter((x) => x.kind === "onLine" || x.kind === "onCircle");
+      return hintRelations(after, line.ref, ends, hint.hints.filter((x) => x.kind !== "onLine" && x.kind !== "onCircle").map((x) => (x.end !== undefined ? { ...x, end: isStart as 0 | 1 } : x)));
+    }
+    for (const x of hint.hints) if (x.ref && (x.kind === "onLine" || x.kind === "onCircle")) out.push({ kind: x.kind, parts: [d.corner, x.ref] });
+    return out;
+  });
+  return moved;
+}
+
+/** Corners held where the pointer has taken them while the rest is solved (else the solver splits the difference); what the solver then settles on is the one step made. A locked corner or a locked number in the way refuses it, and says so. */
+function settledWith(s: AppState, base: Session, pins: { ref: Ref; to: Vec3 }[], extra: (after: Scene) => { kind: Hint["kind"]; parts: Ref[] }[] = () => []): AppState {
+  const sc = sceneOf(base);
+  // a point that is fixed in place is not dragged (`in_290`)
+  if (pins.some((p) => sc.relations.some((r) => r.kind === "fixed" && r.locked !== false && r.parts.includes(p.ref)))) return { ...s, session: { ...base, message: "this point is fixed in place: remove the lock to move it" } };
+  const hold: Command[] = pins.map((p, k) => ({ type: "addRelation", relation: { id: `drag_pin_${k}`, kind: "fixed", parts: [p.ref] } }));
+  const held = run(base, { type: "batch", commands: [...hold, ...pins.map((p): Command => ({ type: "movePart", ref: p.ref, to: p.to }))] });
   if (held.message) return { ...s, session: held };
   const after = sceneOf(held).parts;
   const moves: Command[] = [];
@@ -128,7 +169,41 @@ function moveCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env
     const q = after[ref as Ref];
     if (p.kind === "corner" && q?.kind === "corner" && p.movable && (Math.abs(p.at[0] - q.at[0]) + Math.abs(p.at[1] - q.at[1]) + Math.abs(p.at[2] - q.at[2])) > 1e-9) moves.push({ type: "movePart", ref: ref as Ref, to: q.at });
   }
-  return { ...s, session: run(d.base, { type: "batch", commands: moves }) };
+  // the constraints the dragged point took, made with the same step as the move (one drag, one undo)
+  const moveAll: Command = { type: "batch", commands: moves };
+  const settled = apply(sc, moveAll);
+  const kept: Command[] = [];
+  if (settled.ok) { let cur = settled.value; for (const r of extra(cur)) { const c: Command = { type: "addRelation", relation: { id: nextId(cur, "r"), kind: r.kind, parts: r.parts } }; const n = apply(cur, c); if (!n.ok) break; kept.push(c); cur = n.value; } }
+  return { ...s, session: run(base, { type: "batch", commands: [...moves, ...kept] }) };
+}
+
+/** A whole straight line dragged across its plane (`in_290`): both its ends go by the same amount, with the rest solved. */
+function moveLine(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): AppState {
+  const d = s.drag as { line: Ref; base: Session; from: Vec3 };
+  const sc = sceneOf(d.base);
+  const line = sc.parts[d.line];
+  const pl = line?.kind === "line" && line.plane ? sc.parts[line.plane] : undefined;
+  if (line?.kind !== "line" || pl?.kind !== "plane") return s;
+  const [a, b] = [sc.parts[line.a], sc.parts[line.b]];
+  const now = pointOnPlane(projector(s.cam, env.w, env.h).view(i.x, i.y), pl);
+  if (a?.kind !== "corner" || b?.kind !== "corner" || !now) return s;
+  const by: Vec3 = [now[0] - d.from[0], now[1] - d.from[1], now[2] - d.from[2]];
+  return settledWith(s, d.base, [{ ref: line.a, to: [a.at[0] + by[0], a.at[1] + by[1], a.at[2] + by[2]] }, { ref: line.b, to: [b.at[0] + by[0], b.at[1] + by[1], b.at[2] + by[2]] }]);
+}
+
+/** The edge of a circle dragged: its radius becomes the pointer's distance from the centre, unless its diameter is locked (`in_290`). */
+function moveRim(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): AppState {
+  const d = s.drag as { rim: Ref; base: Session };
+  const sc = sceneOf(d.base);
+  const circle = sc.parts[d.rim];
+  const pl = circle?.kind === "circle" && circle.plane ? sc.parts[circle.plane] : undefined;
+  const centre = circle?.kind === "circle" ? sc.parts[circle.center] : undefined;
+  if (circle?.kind !== "circle" || pl?.kind !== "plane" || centre?.kind !== "corner") return s;
+  if (sc.relations.some((r) => r.kind === "diameter" && r.parts.includes(d.rim) && r.locked !== false)) return { ...s, session: { ...d.base, message: "the diameter of this circle is locked: unlock it to change the size" } };
+  const now = pointOnPlane(projector(s.cam, env.w, env.h).view(i.x, i.y), pl);
+  if (!now) return s;
+  const radius = Math.max(0.1, Math.hypot(now[0] - centre.at[0], now[1] - centre.at[1], now[2] - centre.at[2]));
+  return { ...s, session: run(d.base, { type: "setRadius", ref: d.rim, radius }) };
 }
 
 /** The centre of the rotator sticks to a corner you point near (the point you want to turn about), else it goes where the pointer puts it. */
@@ -143,7 +218,7 @@ function snapPivot(s: AppState, free: Vec3, x: number, y: number, env: Env): Vec
 export function doDragEnd(s: AppState, env?: Env): AppState {
   if (s.box) return env ? finishBox(s, env) : { ...s, box: null };
   const d = s.drag;
-  const cleared: AppState = { ...s, drag: null, orthoDebt: 0 };
+  const cleared: AppState = { ...s, drag: null, dragHint: null, orthoDebt: 0 };
   if (!d || !("handle" in d) || !s.op) return cleared; // (a handle of a repeat being set up only set its numbers)
   if (d.handle.kind === "ball") return s.op.auto ? { ...cleared, op: null } : cleared;
   if (isLive(s.op)) {

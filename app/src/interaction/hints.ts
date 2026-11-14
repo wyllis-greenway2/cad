@@ -58,7 +58,7 @@ function withinArc(pl: Plane, r: Round, p: V2): boolean {
  * The nearest point on a drawn straight line, or on a circle or an arc, within the snap distance of the pointer on the screen (`e` is the pointer on the plane, in the plane's own numbers):
  * where a point being placed would lie on it, and the constraint that says so (`onLine`, `onCircle`). A line `skip` says does not count (the one that starts at the point already placed).
  */
-function outlineSnap(scene: Scene, pl: Plane, pv: PointerView, e: V2, skip: (line: Ref) => boolean = () => false): { at: V2; hint: Hint } | null {
+function outlineSnap(scene: Scene, pl: Plane, pv: PointerView, e: V2, skip: (ref: Ref) => boolean = () => false): { at: V2; hint: Hint } | null {
   const get = (r: Ref) => scene.parts[r];
   const n = normalOfPlane(pl);
   const onPlane = (p: Vec3) => Math.abs(dot(sub(p, pl.at), n)) < 1e-3;
@@ -80,7 +80,7 @@ function outlineSnap(scene: Scene, pl: Plane, pv: PointerView, e: V2, skip: (lin
   if (best) return { at: best.at, hint: { kind: "onLine", ref: best.ref } };
   // on a circle: the point is at the edge of a circle or an arc
   let onCircle: { at: V2; ref: Ref; px: number } | null = null;
-  for (const c of roundsOf(scene, get).filter((r) => onPlane(r.center))) {
+  for (const c of roundsOf(scene, get).filter((r) => onPlane(r.center) && !skip(r.ref))) {
     const m = localOf(pl, c.center);
     const w: V2 = [e[0] - m[0], e[1] - m[1]];
     const D = lenOf(w);
@@ -95,11 +95,11 @@ function outlineSnap(scene: Scene, pl: Plane, pv: PointerView, e: V2, skip: (lin
 }
 
 /** A point of an arc being drawn (an end): on a line or on a circle, if the pointer is near one (`base` is the pointer already snapped to corners and the rounding). */
-export function pointHint(spent: Scene, pl: Plane, pv: PointerView, base: Vec3): { at: Vec3; hints: Hint[] } {
+export function pointHint(spent: Scene, pl: Plane, pv: PointerView, base: Vec3, skip: (ref: Ref) => boolean = () => false): { at: Vec3; hints: Hint[] } {
   const scene = live(spent);
   const n = normalOfPlane(pl);
   for (const p of Object.values(scene.parts)) if (p.kind === "corner" && Math.abs(dot(sub(p.at, pl.at), n)) < 1e-3 && dist(p.at, base) < 1e-6) return { at: base, hints: [] }; // (at a corner: that is its own constraint)
-  const snapped = outlineSnap(scene, pl, pv, localOf(pl, base));
+  const snapped = outlineSnap(scene, pl, pv, localOf(pl, base), skip);
   return snapped ? { at: liftOf(pl, snapped.at), hints: [snapped.hint] } : { at: base, hints: [] };
 }
 

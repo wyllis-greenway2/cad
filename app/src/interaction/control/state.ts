@@ -2,6 +2,7 @@
 import type { Ref } from "../../shared/ref.ts";
 import { worldRef } from "../../shared/ref.ts";
 import type { Vec3 } from "../../math/vec.ts";
+import type { Hint } from "../hints.ts";
 import { add, scale, dot } from "../../math/vec.ts";
 import { settings } from "../../shared/settings.ts";
 import type { Plane } from "../../operation/part.ts";
@@ -33,6 +34,8 @@ export interface AppState {
   showAllConstraints: boolean;
   /** the arrow (or ring) of an operation that is selected (`in_238`): a click on it or taking it; only a selected arrow shows its number, so the arrows alone stay clean */
   handleSel: string | null;
+  /** the constraint a point being dragged is close to (it has taken it, and a release keeps it), lit while the drag goes on (`in_290`) */
+  dragHint: { hints: Hint[]; at: Vec3 } | null;
   /** the rectangle of a drag select (`in_230`, `in_235`): the left button was held still, then dragged without letting up */
   box: { x0: number; y0: number; x: number; y: number; shift: boolean; remove?: boolean } | null;
   /** the list open from the ⋯ menu (`in_132`) */
@@ -55,7 +58,7 @@ export interface AppState {
   showSketch: string | null;
   /** a double click turns the view to the plane, but only once the window for a third click has passed: a triple click selects the object and leaves the view alone */
   /** a drag in progress: of the camera, or of a helper handle (`gizmo.ts`) */
-  drag: { camera: true } | { handle: Drag; /** the operation's value when the drag began (the drag adds to it) */ base: number; /** the handle sets the numbers of the repeat being set up */ repeat?: true } | { corner: Ref; base: Session } | null;
+  drag: { camera: true } | { handle: Drag; /** the operation's value when the drag began (the drag adds to it) */ base: number; /** the handle sets the numbers of the repeat being set up */ repeat?: true } | { corner: Ref; base: Session } | { /** a whole straight line dragged across its plane: where the pointer was on the plane when it began */ line: Ref; base: Session; from: Vec3 } | { /** the edge of a circle dragged to change its size (`in_290`) */ rim: Ref; base: Session } | null;
   /** the world plane that is on (`in_190`): it has the grid, is the one the pointer finds on empty space and the one a tool draws on; the little panes beside the axes and the X Y Z buttons change it */
   world: "XY" | "XZ" | "YZ";
   /** looking straight at a plane is a little hard to leave (`in_193`): the drag so far, in pixels, that has been kept from the camera; past `settings.view.leaveStraightPx` the view turns, and goes smoothly into perspective */
@@ -71,7 +74,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.

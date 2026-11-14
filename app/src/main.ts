@@ -48,7 +48,11 @@ const statusEl = document.getElementById("status")!;
 const view = createView(host);
 const chipHandlers = {
   entry: (field: number, text: string) => dispatch({ type: "entry", field, text }),
-  enter: () => dispatch({ type: "typed", key: "Enter", shift: false }),
+  enter: () => {
+    dispatch({ type: "typed", key: "Enter", shift: false });
+    // a finger applies a typed size and puts the tool away with it, as a tap that applies does (`in_290`)
+    if (lastDevice === "touch" && state.tool && !state.tool.points.length) dispatch({ type: "escape" });
+  },
   cancel: () => dispatch({ type: "escape" }),
 };
 const chips: ReturnType<typeof createChip>[] = []; // one value bubble, or several (a linear repeat has one on each axis)

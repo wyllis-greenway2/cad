@@ -92,43 +92,60 @@ function nearItems(scene: Scene, selection: readonly Ref[]): { id: string; label
   if (selection.length !== 1) return [];
   const target = selection[0]!;
   const part = scene.parts[target];
-  if (!part || part.origin !== "drawn" || !part.movable || part.kind === "corner") return [];
+  if (!part || part.origin !== "drawn" || !part.movable) return [];
+  if (part.kind === "corner") return nearCurves(scene, part);
+  const m = curveGap(scene, part);
+  if (!m) return [];
+  const near = Object.values(scene.parts).filter((p) => {
+    if (p.kind !== "corner" || p.origin !== "drawn" || p.derived || !p.movable || p.plane !== part.plane || m.own.has(p.ref)) return false;
+    const g = m.gap(p.at);
+    if (!(g > 1e-6 && g <= settings.sketch.nearFrac * m.size)) return false;
+    return !scene.relations.some((r) => r.kind === m.kind && r.parts.includes(p.ref) && r.parts.includes(target));
+  }).map((p) => p.ref);
+  if (!near.length) return [];
+  const what = m.kind === "onCircle" ? "Coincident with circle" : "On line";
+  return [{ id: `near:${m.kind}`, label: near.length === 1 ? `${what}: the corner close to it` : `${what}: the ${near.length} corners close to it`, corners: near, target, kind: m.kind }];
+}
+
+/** How far a point is from a drawn circle, arc or straight line, the size that is judged against, and what its own points are (a corner of its own is never offered to it). */
+function curveGap(scene: Scene, part: Scene["parts"][string]): { gap: (q: Vec3) => number; size: number; kind: "onCircle" | "onLine"; own: Set<Ref> } | null {
+  if (part.kind !== "line" && part.kind !== "circle") return null;
   const get = lookup(scene);
-  const own = new Set<Ref>(part.kind === "line" ? [part.a, part.b, ...(part.center ? [part.center] : [])] : part.kind === "circle" ? [part.center] : []);
-  // how far a point is from the curve, and the size it is judged against
-  let gap: (q: Vec3) => number;
-  let size: number;
-  let kind: "onCircle" | "onLine";
+  const own = new Set<Ref>(part.kind === "line" ? [part.a, part.b, ...(part.center ? [part.center] : [])] : [part.center]);
   const arc = part.kind === "line" && part.center ? pointOf(get, part.center) : null;
   if (part.kind === "circle" || arc) {
-    const c = part.kind === "circle" ? circleOf(get, target) : null;
+    const c = part.kind === "circle" ? circleOf(get, part.ref) : null;
     const [centre, radius] = c ? [c.center, c.radius] : [arc!, Math.hypot(...(pointOf(get, (part as { a: Ref }).a)!.map((v, i) => v - arc![i]!) as [number, number, number]))];
-    gap = (q) => Math.abs(Math.hypot(q[0] - centre[0], q[1] - centre[1], q[2] - centre[2]) - radius);
-    size = radius;
-    kind = "onCircle";
-  } else {
-    const sg = segmentOf(get, target);
-    if (!sg) return [];
-    const d = [sg[1][0] - sg[0][0], sg[1][1] - sg[0][1], sg[1][2] - sg[0][2]];
-    const len = Math.hypot(d[0]!, d[1]!, d[2]!);
-    if (len < 1e-9) return [];
-    size = len;
-    gap = (q) => {
+    return { gap: (q) => Math.abs(Math.hypot(q[0] - centre[0], q[1] - centre[1], q[2] - centre[2]) - radius), size: radius, kind: "onCircle", own };
+  }
+  const sg = segmentOf(get, part.ref);
+  if (!sg) return null;
+  const d = [sg[1][0] - sg[0][0], sg[1][1] - sg[0][1], sg[1][2] - sg[0][2]];
+  const len = Math.hypot(d[0]!, d[1]!, d[2]!);
+  if (len < 1e-9) return null;
+  return {
+    size: len, kind: "onLine", own,
+    gap: (q) => {
       const t = ((q[0] - sg[0][0]) * d[0]! + (q[1] - sg[0][1]) * d[1]! + (q[2] - sg[0][2]) * d[2]!) / (len * len);
       if (t < 0 || t > 1) return Infinity; // (beside the line, not on its length)
       return Math.hypot(sg[0][0] + d[0]! * t - q[0], sg[0][1] + d[1]! * t - q[1], sg[0][2] + d[2]! * t - q[2]);
-    };
-    kind = "onLine";
+    },
+  };
+}
+
+/** A selected point (the centre of a circle, a corner) that lies close to the edge of a circle or arc, or a line, that it is not on: "on circle" / "on line" is offered for it (`in_290`). */
+function nearCurves(scene: Scene, corner: Extract<Scene["parts"][string], { kind: "corner" }>): { id: string; label: string; corners: Ref[]; target: Ref; kind: "onCircle" | "onLine" }[] {
+  const out: { id: string; label: string; corners: Ref[]; target: Ref; kind: "onCircle" | "onLine"; g: number }[] = [];
+  for (const p of Object.values(scene.parts)) {
+    if (p.origin !== "drawn" || !p.movable || p.plane !== corner.plane || (p.kind !== "line" && p.kind !== "circle") || (p.kind === "line" && p.derived)) continue;
+    const m = curveGap(scene, p);
+    if (!m || m.own.has(corner.ref)) continue;
+    const g = m.gap(corner.at);
+    if (!(g > 1e-6 && g <= settings.sketch.nearFrac * m.size)) continue;
+    if (scene.relations.some((r) => r.kind === m.kind && r.parts.includes(corner.ref) && r.parts.includes(p.ref))) continue;
+    out.push({ id: `near:${m.kind}:${p.ref}`, label: m.kind === "onCircle" ? "On the circle close to it" : "On the line close to it", corners: [corner.ref], target: p.ref, kind: m.kind, g });
   }
-  const near = Object.values(scene.parts).filter((p) => {
-    if (p.kind !== "corner" || p.origin !== "drawn" || p.derived || !p.movable || p.plane !== part.plane || own.has(p.ref)) return false;
-    const g = gap(p.at);
-    if (!(g > 1e-6 && g <= settings.sketch.nearFrac * size)) return false;
-    return !scene.relations.some((r) => r.kind === kind && r.parts.includes(p.ref) && r.parts.includes(target));
-  }).map((p) => p.ref);
-  if (!near.length) return [];
-  const what = kind === "onCircle" ? "Coincident with circle" : "On line";
-  return [{ id: `near:${kind}`, label: near.length === 1 ? `${what}: the corner close to it` : `${what}: the ${near.length} corners close to it`, corners: near, target, kind }];
+  return out.sort((x, y) => x.g - y.g).slice(0, 2).map(({ g: _g, ...rest }) => rest);
 }
 
 /** The command for a "near" suggestion: each corner close to the selected circle, arc or line is put on it (the corner moves, the curve stays), as one step. */

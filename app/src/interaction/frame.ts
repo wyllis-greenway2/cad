@@ -236,10 +236,28 @@ function prismNew(s: AppState, op: Op, base: Session): { wait: true } | { face: 
   return { face: { face: groups[0]!.face, rounds: { k, groups } }, shown: prismRef.ready.res };
 }
 
+/**
+ * A drawn point, straight line or circle that is selected can be moved with a finger by its drag icon (`in_290`): the icon's proxy drag begins on the part (a corner, the middle of a line, a place on a circle's edge), where a
+ * mouse drag would take it: the corner goes, the whole line goes, the circle's size changes.
+ */
+function partHelperOf(s: AppState): Frame["touchHelper"] {
+  const sc = sceneOf(s.session);
+  const sel = selectionOf(s.session);
+  if (sel.length !== 1) return null;
+  const p = sc.parts[sel[0]!];
+  if (!p || p.origin !== "drawn" || !p.movable) return null;
+  let at: Vec3 | null = null;
+  if (p.kind === "corner" && p.plane) at = p.at;
+  else if (p.kind === "line" && !p.derived && !p.center && p.plane) { const [a, b] = [sc.parts[p.a], sc.parts[p.b]]; at = a?.kind === "corner" && b?.kind === "corner" ? [(a.at[0] + b.at[0]) / 2, (a.at[1] + b.at[1]) / 2, (a.at[2] + b.at[2]) / 2] : null; }
+  else if (p.kind === "circle" && p.plane) { const [c, pl] = [sc.parts[p.center], sc.parts[p.plane]]; at = c?.kind === "corner" && pl?.kind === "plane" ? [c.at[0] + pl.u[0] * p.radius, c.at[1] + pl.u[1] * p.radius, c.at[2] + pl.u[2] * p.radius] : null; }
+  return at ? { kind: "handle", points: [{ at, index: -1 }], handles: [], applies: false } : null;
+}
+
 /** What a finger is offered now (see `Frame.touchHelper`). */
 function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame["touchHelper"] {
   if (s.tool) return s.tool.held && s.tool.cursor ? { kind: "figure", points: [...s.tool.points.map((at, index) => ({ at, index })), { at: s.tool.cursor, index: -1 }], handles: [], applies: false } : null; // (a finger holds the next point: it and the points already set each have a drag icon, and a tap sets the one held, `in_286`, `in_288`)
-  if (!gizmo || (s.drag && !("handle" in s.drag))) return null;
+  if (s.drag && !("handle" in s.drag) && !("corner" in s.drag) && !("line" in s.drag) && !("rim" in s.drag)) return null;
+  if (!gizmo || (s.drag && !("handle" in s.drag))) return !s.op && !s.repeat ? partHelperOf(s) : null;
   const chosen = s.handleSel ? gizmo.handles.find((h) => h.id === s.handleSel) : (s.op || s.repeat) && gizmo.handles.length === 1 ? gizmo.handles[0] : undefined;
   return chosen ? { kind: "handle", points: [{ at: handleMiddle(chosen), index: -1 }], handles: gizmo.handles.map((h) => h.points), applies: !!(s.op || s.repeat) } : null;
 }
@@ -344,7 +362,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     faceShift,
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
     highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel,
-    amber: [...new Set([...focusParts(sc, sel, s.focus), ...[...(s.tool?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
+    amber: [...new Set([...focusParts(sc, sel, s.focus), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
     preview: faceShift ? previewFor(sc, s.tool) : withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
     entry: movingOp || (shownOp && !s.tool && hasGizmo(shownOp.kind) && !numberShown) ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
     entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
@@ -355,7 +373,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     undoRedo: { undo: s.session.history.cursor > 0, redo: s.session.history.cursor < s.session.history.commands.length },
     box: s.box ? { ...s.box, touching: crossing(s.box) } : null,
     avoid: busy || !annotationsPresent ? { segs: [], pts: [] } : avoidOf(sc),
-    hint: s.tool?.hints?.length && s.tool.cursor ? { kinds: s.tool.hints.map((h) => h.kind), at: s.tool.cursor } : null,
+    hint: s.tool?.hints?.length && s.tool.cursor ? { kinds: s.tool.hints.map((h) => h.kind), at: s.tool.cursor } : s.dragHint ? { kinds: s.dragHint.hints.map((h) => h.kind), at: s.dragHint.at } : null,
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors, s.showSketch),
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus, s.showAllConstraints || !!s.showSketch), sc, flash)],
     flash,
