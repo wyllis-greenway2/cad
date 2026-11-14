@@ -1567,3 +1567,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_328 — 2026-11-14 — directive
 > make exact the default for fillet and chamfer
 (decides, after the measurements of `in_326` and `in_327`, that the preview of a fillet or chamfer being dragged is the kernel's own result for every size, the newest request winning, in place of the stretched picture; the stretch stays for the other previews)
+
+## in_329 — 2026-11-14 — directive
+> measure how far the picture lags the pointer. If the measurements work out well, maybe we should have this as a unified method for previews so we no longer have preview not being synced with the end result.
+(asks for the lag of the exact preview behind the pointer to be measured, which was left unmeasured after `in_327`; and, if it is good, to consider the kernel's own result as the one preview method for every operation, so that a preview cannot disagree with the result; the second part is a question to be answered from the measurements, not yet an instruction to build)

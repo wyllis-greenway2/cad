@@ -3,7 +3,7 @@ id: q_preview_provenance
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_323, in_324, in_325, in_326, in_327, in_328
+human_input: in_323, in_324, in_325, in_326, in_327, in_328, in_329
 date: 2026-11-14
 depends_on:
   - dec_drag_preview_without_kernel: the question is how to make that decision's stretched picture right by construction; a change to it (an exact preview) would end the question
@@ -34,6 +34,14 @@ Tried as an experiment (`settings.preview.stretch` off; on by default, nothing c
 - **Cheaper exact (`in_327`), built behind the same switch (off by default):** while a size is dragged and the kernel's own result is shown, the request is also *lite*: the mesh, volume and box, no faces, edges or corners (`lite` on the kernel, in the async kernel's key and the worker's message, `evaluate.mjs`), and rough (`draft`). Kernel time per preview, holed model: whole and fine 75 to 81 ms, rough 54 to 57, rough and lite 38 to 40 (operation 21, mesh 12, bodies' boxes 5); two blocks 19, 13, 7. Only the fillet itself takes time (28 to 48 ms); the earlier steps come from the kernel's cache. About 25 updates a second on the holed model (from 11), over a hundred on the blocks. The lite answers also make the page's own work smaller (fewer parts to build): frame time, stretch / exact, average ms: two blocks 5.4 / 5.3 at normal speed and 20.5 / 15.7 with the CPU four times slower; holed model 7.9 / 5.7 and 30.5 / 26.5. So exact is no longer dearer than the stretch in the page's time, and cheaper on the holed model; on the slow setting both are over a frame on the holed model.
 - **Not built:** meshing only the changed body (an estimated 3 ms of the 12 at most: the unchanged body is a small part of the mesh); reusing the drawn objects of an unchanged body (the body is one mesh and one object; what the page spends per new mesh is about 1.4 ms, of which the outline detection `cornerEdges` is about 1; the rest of the saving came from the lite answer's fewer parts).
 - **Cost of the exact preview that stays:** the mesh is rough while the pointer is down (the curves of a fillet show their facets), and the fine one, with the faces and edges, comes when it is let go; and how far the picture runs behind the pointer was not measured (about 40 to 60 ms on the holed model and about 10 ms on the blocks, from the kernel times).
+
+## Measured: how far the exact picture runs behind the pointer, and what the other previews would cost (`in_329`)
+
+Two earlier tries were thrown away: the first drove the pointer with Playwright's mouse calls (about 120 ms each, so a crawl: "lag 0"), the second counted frames of a page that ran at 8 to 20 frames a second in this sandbox (a few CPU cores shared by the kernel's worker, the page and a software renderer), where a "lag of 200 ms" was mostly the length of a frame. What was kept: the pointer scripted inside the page (a size sweep out and back in 600 ms, three times), and the lag split into parts that do not depend on the frame rate (temporary timers in the async kernel, removed).
+- **In this sandbox, a request from asked to answered (ms, median / p95):** holed model 190 / 292 (waiting for the job before it 79 / 144, the kernel's own time 100 / 231); two blocks 47 / 60 (no waiting). With the CPU four times slower: 119 / 306 and 71 / 94. The picture then shows at the next frame (here 50 to 133 ms apart). So about 0.25 to 0.3 s behind on the holed model and about 0.1 s on the blocks, in this sandbox.
+- **The kernel alone, the same work (rough, lite):** holed model about 40 ms, two blocks 7 ms. The sandbox makes the kernel two to six times slower than that. On a machine with a graphics card and more cores the lag should be about one to two kernel times and a frame (about 60 to 110 ms on the holed model, 15 to 30 ms on the blocks): an estimate, not a measurement.
+- **Why more than one run:** the kernel works one request at a time and cannot stop one that has begun, so a new size waits for the one in progress (the waiting above) and the older sizes in between are dropped.
+- **Other previews, exact, rough and lite, the kernel alone on the holed model:** move, turn or scale of the body 7 ms (a rigid motion is also exact on the graphics card, with no kernel); widen the wall of the hole 36 ms; pull a face (the end of the extrusion) 47 ms (whole and fine: 161); a fillet or chamfer 38 to 40 ms.
 
 ## Rationale
 

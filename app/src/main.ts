@@ -79,6 +79,7 @@ const panel = createPanel(document.body, {
   close: () => dispatch({ type: "panel", name: state.panel ?? "bodies" }),
 });
 let state: AppState;
+let lastFrame: ReturnType<typeof frameOf> | null = null;
 const timing = createTiming();
 let engine: Kernel = kernel; // the kernel in use: on its own thread when that could start (`boot`), else the one in this page
 let dirty = true;
@@ -236,6 +237,7 @@ async function boot() {
   // a hook for scripted checks in a browser (not used by the app)
   (window as unknown as { __cad: unknown }).__cad = {
     get state() { return state; },
+    get lastFrame() { return lastFrame; }, // (what the app itself drew last, so a script need not work a frame out again)
     settings,
     size: () => view.size(),
     project: (p: [number, number, number]) => projector(state.cam, view.size().w, view.size().h).project(p),
@@ -257,6 +259,7 @@ function frame(now: number) {
     engine.draft = exact || !!(state.drag && state.op && state.op.kind !== "edge");
     engine.lite = exact; // (a rough mesh while a size is dragged, the fine one when it is let go, `in_216`; a new fillet is made once, fine, and scaled, unless the kernel's own result is shown)
     const f = frameOf(state, size, now);
+    lastFrame = f;
     engine.draft = false;
     engine.lite = false;
     const tMade = performance.now();
