@@ -5,7 +5,7 @@ import type { Vec3 } from "../math/vec.ts";
 import { sub, dot, cross, length, dist, mid, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Kind, Lookup } from "../operation/part.ts";
-import { pointOf, segmentOf, circleOf, normalOfPlane, planeOfParts } from "../operation/part.ts";
+import { pointOf, segmentOf, roundOf, normalOfPlane, planeOfParts } from "../operation/part.ts";
 
 const PARALLEL_SIN = 0.02; // two lines count as parallel for a distance when the sine of the angle between them is below this (about 1 degree)
 
@@ -86,10 +86,10 @@ export const ROWS: Row[] = [
     // the diameter of a circle
     id: "diameter", label: "Diameter", pair: ["circle"], unit: "mm",
     measure: (c, r) => {
-      const k = circleOf(c.get, r[0]!);
+      const k = roundOf(c.get, r[0]!);
       return k ? k.radius * 2 : null;
     },
-    spot: (c, r) => circleOf(c.get, r[0]!)?.center ?? null,
+    spot: (c, r) => roundOf(c.get, r[0]!)?.center ?? null,
   },
 
   { id: "coincident", label: "Coincident", pair: ["corner", "corner"] },

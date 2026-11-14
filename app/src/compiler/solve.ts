@@ -7,7 +7,7 @@ import { sub, dot, add, scale } from "../math/vec.ts";
 import type { Scene, Relation } from "../operation/scene.ts";
 import { lookup } from "../operation/scene.ts";
 import type { Plane, Lookup } from "../operation/part.ts";
-import { planeOfParts, pointOf } from "../operation/part.ts";
+import { planeOfParts, pointOf, roundOf, relationKind } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
 import { consumed } from "../operation/ownership.ts";
@@ -63,6 +63,8 @@ interface Model {
   cornerId(ref: Ref): string | null;
   lineIds(ref: Ref): [string, string] | null;
   radiusId(ref: Ref): string | null;
+  /** the centre of a circle (a corner id): of a drawn circle, or of a circular edge of a body, which is a fixed virtual corner (an anchor, `in_308`) */
+  roundCentre(ref: Ref): string | null;
 }
 
 function newModel(get: Lookup, plane: Plane): Model {
@@ -89,19 +91,29 @@ function newModel(get: Lookup, plane: Plane): Model {
     const b = cornerId(l.b);
     return a && b ? [a, b] : null;
   };
+  const roundCentre = (ref: Ref): string | null => {
+    const c = get(ref);
+    if (c?.kind === "circle") return cornerId(c.center);
+    const a = relationKind(get, ref) === "circle" ? roundOf(get, ref) : null; // (a circular edge of a body: read, never moved)
+    if (!a) return null;
+    const id = `~c:${ref}`;
+    if (!(id in points)) { points[id] = frame.to2d(a.center); cons.push({ id: `~anchor:${id}`, type: "fixed", p: id, at: points[id]! }); }
+    return id;
+  };
   const radiusId = (ref: Ref): string | null => {
     const c = get(ref);
-    if (!c || c.kind !== "circle") return null;
-    cornerId(c.center);
-    scalars[ref] = c.radius;
+    if (c?.kind === "circle") { cornerId(c.center); scalars[ref] = c.radius; return ref; }
+    const a = relationKind(get, ref) === "circle" ? roundOf(get, ref) : null;
+    if (!a) return null;
+    if (!(ref in scalars)) { scalars[ref] = a.radius; cons.push({ id: `~anchor:r:${ref}`, type: "radius", r: ref, value: a.radius }); }
     return ref;
   };
-  return { frame, get, points, scalars, cons, variable, cornerId, lineIds, radiusId };
+  return { frame, get, points, scalars, cons, variable, cornerId, lineIds, radiusId, roundCentre };
 }
 
 /** The solver constraint a relation means, or null if it cannot be made (a part is missing, a number is not set). */
 function constraintFor(m: Model, rel: Relation): Omit<SolverConstraint, "id"> | null {
-  const kindOf = (r: Ref) => m.get(r)?.kind;
+  const kindOf = (r: Ref) => (m.get(r) ? relationKind(m.get, r) : undefined); // (a circular edge of a body is a circle: an anchor)
   const ofKind = (k: "corner" | "line" | "circle") => rel.parts.filter((p) => kindOf(p) === k);
   const [c1, c2] = ofKind("corner");
   const [l1, l2] = ofKind("line");
@@ -162,7 +174,7 @@ function constraintFor(m: Model, rel: Relation): Omit<SolverConstraint, "id"> | 
     case "onCircle": {
       const p = c1 ? m.cornerId(c1) : null;
       if (!p) return null;
-      if (k1) { const r = m.radiusId(k1); const cen = m.cornerId((m.get(k1) as { center: Ref }).center); return r && cen ? { type: "ptOnCircle", p, c: cen, r } : null; }
+      if (k1) { const r = m.radiusId(k1); const cen = m.roundCentre(k1); return r && cen ? { type: "ptOnCircle", p, c: cen, r } : null; }
       const ar = l1 ? m.get(l1) : null;
       const cen = ar && ar.kind === "line" && ar.center ? m.cornerId(ar.center) : null;
       const e = ar && ar.kind === "line" && cen ? m.cornerId(ar.a) : null;
@@ -171,7 +183,7 @@ function constraintFor(m: Model, rel: Relation): Omit<SolverConstraint, "id"> | 
     case "tangent": {
       // two circles that touch (`in_292`): outside each other or one inside the other, as they are now
       if (k1 && k2 && !l1) {
-        const [ca, cb] = [m.cornerId((m.get(k1) as { center: Ref }).center), m.cornerId((m.get(k2) as { center: Ref }).center)];
+        const [ca, cb] = [m.roundCentre(k1), m.roundCentre(k2)];
         const [r1, r2] = [m.radiusId(k1), m.radiusId(k2)];
         if (!ca || !cb || !r1 || !r2) return null;
         const d = Math.hypot(m.points[ca]![0] - m.points[cb]![0], m.points[ca]![1] - m.points[cb]![1]);
@@ -196,7 +208,7 @@ function constraintFor(m: Model, rel: Relation): Omit<SolverConstraint, "id"> | 
         return null;
       }
       // a line touches a circle, or an arc
-      if (L1 && k1) { const r = m.radiusId(k1); const cen = m.cornerId((m.get(k1) as { center: Ref }).center); return r && cen ? { type: "tangentCircle", a: L1[0], b: L1[1], c: cen, r } : null; }
+      if (L1 && k1) { const r = m.radiusId(k1); const cen = m.roundCentre(k1); return r && cen ? { type: "tangentCircle", a: L1[0], b: L1[1], c: cen, r } : null; }
       const [x1, x2] = [l1 ? m.get(l1) : null, l2 ? m.get(l2) : null];
       const arc = x1?.kind === "line" && x1.center ? x1 : x2?.kind === "line" && x2.center ? x2 : null;
       const straight = arc && arc === x1 ? L2 : L1;
@@ -205,8 +217,8 @@ function constraintFor(m: Model, rel: Relation): Omit<SolverConstraint, "id"> | 
       return straight && cen && arcEnd ? { type: "tangentArc", a: straight[0], b: straight[1], c: cen, p: arcEnd } : null;
     }
     case "concentric": {
-      const a = k1 ? m.cornerId((m.get(k1) as { center: Ref }).center) : null;
-      const b = k2 ? m.cornerId((m.get(k2) as { center: Ref }).center) : null;
+      const a = k1 ? m.roundCentre(k1) : null;
+      const b = k2 ? m.roundCentre(k2) : null;
       return a && b ? { type: "coincident", a, b } : null;
     }
     case "equalRadius": {
@@ -235,7 +247,7 @@ function solvePlane(get: Lookup, plane: Plane, rels: Relation[], used: ReadonlyS
         const kind = get(part)?.kind;
         const line = kind === "line" ? m.get(part) : null;
         const centre = line?.kind === "line" && line.center ? m.cornerId(line.center) : null;
-        const pts = kind === "corner" ? [m.cornerId(part)] : kind === "line" ? [...(m.lineIds(part) ?? []), ...(centre ? [centre] : [])] : kind === "circle" ? [m.cornerId((get(part) as { center: Ref }).center)] : [];
+        const pts = kind === "corner" ? [m.cornerId(part)] : kind === "line" ? [...(m.lineIds(part) ?? []), ...(centre ? [centre] : [])] : kind === "circle" ? [m.roundCentre(part)] : [];
         for (const p of pts) if (p && m.variable.has(p as Ref)) m.cons.push({ id: `~hold${hold++}`, type: "fixed", p, at: m.points[p]! });
         if (kind === "circle" && part in m.scalars) m.cons.push({ id: `~hold${hold++}`, type: "radius", r: part, value: m.scalars[part]! });
       }
@@ -245,7 +257,7 @@ function solvePlane(get: Lookup, plane: Plane, rels: Relation[], used: ReadonlyS
       const kind = get(refPart)?.kind;
       const refLine = kind === "line" ? m.get(refPart) : null;
       const arcCentre = refLine?.kind === "line" && refLine.center ? m.cornerId(refLine.center) : null; // (an arc held softly holds its centre too)
-      const pts = kind === "corner" ? [m.cornerId(refPart)] : kind === "line" ? [...(m.lineIds(refPart) ?? []), ...(arcCentre ? [arcCentre] : [])] : kind === "circle" ? [m.cornerId((get(refPart) as { center: Ref }).center)] : [];
+      const pts = kind === "corner" ? [m.cornerId(refPart)] : kind === "line" ? [...(m.lineIds(refPart) ?? []), ...(arcCentre ? [arcCentre] : [])] : kind === "circle" ? [m.roundCentre(refPart)] : [];
       for (const p of pts) if (p && m.variable.has(p as Ref)) m.cons.push({ id: `~soft${soft++}`, type: "fixed", p, at: m.points[p]!, w: REFERENCE_WEIGHT });
     }
   }

@@ -61,6 +61,27 @@ export const circleOf = (get: Lookup, ref: Ref): { center: Vec3; radius: number 
   const c = pointOf(get, p.center);
   return c ? { center: c, radius: p.radius } : null;
 };
+/**
+ * A round the constraint system can use (`in_308`): a drawn circle, or a circular edge of a body: its circle, or the circle through its ends and its middle. An edge of a body is an **anchor**: read, never moved,
+ * but a drawn part can be held to it (concentric, equal radius, tangent, on it) as to any other round.
+ */
+export const roundOf = (get: Lookup, ref: Ref): { center: Vec3; radius: number; anchor: boolean; /** which way it faces (a body edge; a drawn circle has the normal of its plane, not stored here) */ normal?: Vec3 } | null => {
+  const p = get(ref);
+  if (!p) return null;
+  if (p.kind === "circle") { const c = pointOf(get, p.center); return c ? { center: c, radius: p.radius, anchor: false } : null; }
+  if (p.kind !== "line" || p.origin !== "body") return null;
+  if (p.circle) return { center: p.circle.center, radius: p.circle.radius, anchor: true, normal: p.circle.normal };
+  const [a, b] = [pointOf(get, p.a), pointOf(get, p.b)];
+  if (!p.mid || !a || !b) return null;
+  const c = circumcentre(a, p.mid, b);
+  if (!c) return null;
+  const [u, w] = [[p.mid[0] - a[0], p.mid[1] - a[1], p.mid[2] - a[2]], [b[0] - a[0], b[1] - a[1], b[2] - a[2]]];
+  const n: Vec3 = [u[1]! * w[2]! - u[2]! * w[1]!, u[2]! * w[0]! - u[0]! * w[2]!, u[0]! * w[1]! - u[1]! * w[0]!];
+  const nl = Math.hypot(n[0], n[1], n[2]) || 1;
+  return { center: c, radius: Math.hypot(a[0] - c[0], a[1] - c[1], a[2] - c[2]), anchor: true, normal: [n[0] / nl, n[1] / nl, n[2] / nl] };
+};
+/** What a part counts as when relations are chosen for a selection: a circular edge of a body is a circle (an anchor), the rest are what they are. */
+export const relationKind = (get: Lookup, ref: Ref): Kind => { const p = get(ref)!; return p.kind === "line" && p.origin === "body" && (p.circle || p.mid) && roundOf(get, ref) ? "circle" : p.kind; };
 export const normalOfPlane = (p: Plane): Vec3 => {
   const [u, v] = [p.u, p.v];
   const n: Vec3 = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];

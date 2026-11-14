@@ -13,7 +13,7 @@ import { candidatesAt } from "../picking.ts";
 import { actionsFor } from "../actions.ts";
 import type { ToolKind, Tool } from "../tools.ts";
 import { diskFaceRef } from "../../operation/loops.ts";
-import { lineHint, hintRelations, circleCentredAt, pointHint, arcBulgeHint, circleRadiusHint, tangentCentre } from "../hints.ts";
+import { lineHint, hintRelations, circleCentredAt, anchorCentreAt, pointHint, arcBulgeHint, circleRadiusHint, tangentCentre } from "../hints.ts";
 import type { Hint } from "../hints.ts";
 import { snapOnPlane, finish, planeForDrawing, armTool, pointOnPlane } from "../tools.ts";
 import { trimAt } from "../../operation/trim.ts";
@@ -149,7 +149,10 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   let next: AppState = { ...withSession(s, hoverOn(s.session, c?.ref)), hoverPoint: point, paneHover: null };
   if (s.tool?.plane) {
     const pl = sc.parts[s.tool.plane];
-    const raw = pl && pl.kind === "plane" ? snapOnPlane(sc, pv, pl) : null;
+    const raw0 = pl && pl.kind === "plane" ? snapOnPlane(sc, pv, pl) : null;
+    // the centre of a circle being drawn at the centre of a circular edge of the body: it goes there and will be concentric with it (`in_308`)
+    const anc = raw0 && pl && pl.kind === "plane" && s.tool.kind === "circle" && !s.tool.points.length ? anchorCentreAt(sc, pl, pv) : null;
+    const raw = anc?.at ?? raw0;
     const h = raw && pl && pl.kind === "plane" ? hintFor(sc, s.tool, pl, pv, raw) : null; // (the end of a line, an end of an arc, the bow of an arc: each takes a constraint it is close to)
     // a circle's centre on another circle's centre: it will be made concentric
     const about = raw && pl && pl.kind === "plane" && s.tool.kind === "circle" && !s.tool.points.length ? circleCentredAt(sc, pl, raw) : (s.tool.concentric ?? null);
@@ -171,9 +174,10 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
       const h = at && pl ? pointHint(sc, pl, pv, at) : null;
       next = { ...next, tool: { ...s.tool, hints: h?.hints ?? [], cursor: h?.hints.length ? h.at : s.tool.held ? at : null } }; // (a finger holds the cursor where it is aimed, `in_286`)
     } else {
-      const about = at && pl ? circleCentredAt(sc, pl, at) : null;
+      const anc = at && pl ? anchorCentreAt(sc, pl, pv) : null;
+      const about = anc?.ref ?? (at && pl ? circleCentredAt(sc, pl, at) : null);
       const h = !about && at && pl ? pointHint(sc, pl, pv, at) : null; // (a circle's centre on another circle's edge or on a line, `in_294`)
-      next = { ...next, tool: { ...s.tool, hints: about ? [{ kind: "concentric", ref: about }] : h?.hints ?? [], cursor: about ? at : h?.hints.length ? h.at : s.tool.held ? at : null } };
+      next = { ...next, tool: { ...s.tool, hints: about ? [{ kind: "concentric", ref: about }] : h?.hints ?? [], cursor: anc ? anc.at : about ? at : h?.hints.length ? h.at : s.tool.held ? at : null } };
     }
   }
   return doGizmoHover(next, i.x, i.y, env);
@@ -274,11 +278,13 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     // the plane chosen from the pencil bubble, else the surface under the click takes the drawing, from wherever the camera is; with none under it, the selected plane does
     const planeRef = t.plane ?? sketchPlaneOf(base)?.ref ?? drawingPlane(sc, refs) ?? drawingPlane(sc, selectionOf(sess)); // (the plane the tool is already on, else the one being looked at straight, else what is under the click: a block in front of the plane does not take the drawing, `in_194`)
     const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
-    const at = pl ? snapOnPlane(sc, pv, pl) : null;
-    if (!pl || !at) return { ...base, session: { ...sess, message: "click on a surface to draw on" } };
+    const at0 = pl ? snapOnPlane(sc, pv, pl) : null;
+    if (!pl || !at0) return { ...base, session: { ...sess, message: "click on a surface to draw on" } };
     const { plane, command } = planeForDrawing(sc, pl.ref);
     const session = command ? run(sess, command) : sess;
-    const about = t.kind === "circle" ? circleCentredAt(sceneOf(session), lookup(sceneOf(session))(plane) as Plane, at) : null;
+    const anc = t.kind === "circle" ? anchorCentreAt(sceneOf(session), lookup(sceneOf(session))(plane) as Plane, pv) : null; // (the centre of a circular edge of the body, `in_308`)
+    const at = anc?.at ?? at0;
+    const about = t.kind === "circle" ? anc?.ref ?? circleCentredAt(sceneOf(session), lookup(sceneOf(session))(plane) as Plane, at) : null;
     const first = pointHint(sc, pl, pv, at); // (the first end of a line or an arc on a line or a circle says so, `in_280`, `in_281`)
     const from = first ? first.at : at;
     return { ...base, session: { ...session, message: null }, tool: { ...t, plane, points: [from], cursor: from, ...(first ? { ends: [first.hints] } : {}), ...(about ? { concentric: about } : {}) } };

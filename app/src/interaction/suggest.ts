@@ -1,5 +1,6 @@
 // Suggested constraints (`in_195`): with one or two parts of a drawing selected, the constraints that could be put on them (and are not on them yet) are offered as little buttons by the selection; a click applies one.
 // The first selected part moves to meet the one selected after it, as for the same constraint from the menu (`in_229`).
+import { anchorRounds } from "../operation/anchors.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Ref } from "../shared/ref.ts";
@@ -88,7 +89,7 @@ function constraintsFor(scene: Scene, selection: readonly Ref[], tol = 0): Sugge
  * Corners that lie close to a selected circle, arc or line without being on it (`in_244`): "coincident with circle" / "on line" for them is offered too, though they are not in the selection (a circle drawn by eye
  * lands near the ends of lines, and the pair would otherwise have to be selected one by one). One suggestion puts every near corner on it; each moves to the curve, which stays.
  */
-function nearItems(scene: Scene, selection: readonly Ref[], tol = 0): { id: string; label: string; corners: Ref[]; target: Ref; kind: "onCircle" | "onLine" | "tangent" }[] {
+function nearItems(scene: Scene, selection: readonly Ref[], tol = 0): { id: string; label: string; corners: Ref[]; target: Ref; kind: "onCircle" | "onLine" | "tangent" | "concentric" }[] {
   if (selection.length !== 1) return [];
   const target = selection[0]!;
   const part = scene.parts[target];
@@ -109,11 +110,19 @@ function nearItems(scene: Scene, selection: readonly Ref[], tol = 0): { id: stri
 }
 
 /** The circles that almost touch this one, outside it or inside it: "tangent" is offered for each (`in_292`). */
-function touchingCircles(scene: Scene, circle: Extract<Scene["parts"][string], { kind: "circle" }>, tol = 0): { id: string; label: string; corners: Ref[]; target: Ref; kind: "tangent" }[] {
+function touchingCircles(scene: Scene, circle: Extract<Scene["parts"][string], { kind: "circle" }>, tol = 0): { id: string; label: string; corners: Ref[]; target: Ref; kind: "tangent" | "concentric" }[] {
   const get = lookup(scene);
   const a = circleOf(get, circle.ref);
   if (!a) return [];
-  const out: { id: string; label: string; corners: Ref[]; target: Ref; kind: "tangent"; g: number }[] = [];
+  const out: { id: string; label: string; corners: Ref[]; target: Ref; kind: "tangent" | "concentric"; g: number }[] = [];
+  // the circular edges of the body in this circle's plane are circles too, read-only (`in_308`): tangent when they almost touch, concentric when the centres are almost one
+  const plane = circle.plane ? scene.parts[circle.plane] : undefined;
+  for (const an of plane?.kind === "plane" ? anchorRounds(scene, plane) : []) {
+    const d = Math.hypot(a.center[0] - an.center[0], a.center[1] - an.center[1], a.center[2] - an.center[2]);
+    const g = Math.min(Math.abs(d - (a.radius + an.radius)), Math.abs(d - Math.abs(a.radius - an.radius)));
+    if (g <= Math.max(settings.sketch.nearFrac * Math.min(a.radius, an.radius), tol) && !scene.relations.some((r) => r.kind === "tangent" && r.parts.includes(circle.ref) && r.parts.includes(an.ref))) out.push({ id: `near:tangent:${an.ref}`, label: "Tangent: the edge of the body that nearly touches it", corners: [], target: an.ref, kind: "tangent", g });
+    if (d > 1e-6 && d <= Math.max(settings.sketch.nearFrac * Math.min(a.radius, an.radius), tol) && !scene.relations.some((r) => r.kind === "concentric" && r.parts.includes(circle.ref) && r.parts.includes(an.ref))) out.push({ id: `near:concentric:${an.ref}`, label: "Concentric: the edge of the body whose centre is close", corners: [], target: an.ref, kind: "concentric", g: d });
+  }
   for (const p of Object.values(scene.parts)) {
     if (p.kind !== "circle" || p.ref === circle.ref || p.origin !== "drawn" || !p.movable || p.plane !== circle.plane) continue;
     const b = circleOf(get, p.ref);
@@ -172,7 +181,7 @@ function nearCurves(scene: Scene, corner: Extract<Scene["parts"][string], { kind
 export function nearCommand(scene: Scene, selection: readonly Ref[], id: string, tol = 0): Command | null {
   const item = nearItems(scene, selection, tol).find((n) => n.id === id);
   if (!item) return null;
-  if (item.kind === "tangent") return { type: "addRelation", relation: { id: nextId(scene, "r"), kind: "tangent", parts: [selection[0]!, item.target] } }; // (the solver puts the circles touching)
+  if (item.kind === "tangent" || item.kind === "concentric") return { type: "addRelation", relation: { id: nextId(scene, "r"), kind: item.kind, parts: [selection[0]!, item.target] } }; // (the solver puts the circles touching, or their centres together)
   const first = Number(/_(\d+)$/.exec(nextId(scene, "r"))?.[1] ?? 0);
   const commands: Command[] = [];
   for (const [i, corner] of item.corners.entries()) {

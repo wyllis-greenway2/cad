@@ -8,6 +8,7 @@ import { segmentOf, circleOf, pointOf, normalOfPlane, localOf, liftOf } from "..
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
+import { anchorRounds } from "../operation/anchors.ts";
 import type { Command } from "../operation/commands.ts";
 import { settings } from "../shared/settings.ts";
 
@@ -19,8 +20,9 @@ const unit = (v: V2): V2 => { const l = lenOf(v) || 1; return [v[0] / l, v[1] / 
 
 /** A circle or an arc: what a line can end on or be tangent to. An arc's ends say which part of its circle is there (`in_230`: an arc is a circle too, and lit when it is the one the end is on). */
 interface Round { ref: Ref; center: Vec3; radius: number; arc?: { a: Vec3; b: Vec3; ccw: boolean } }
-function roundsOf(scene: Scene, get: (r: Ref) => Scene["parts"][string] | undefined): Round[] {
+function roundsOf(scene: Scene, get: (r: Ref) => Scene["parts"][string] | undefined, pl?: Plane): Round[] {
   const out: Round[] = [];
+  if (pl) for (const a of anchorRounds(scene, pl)) out.push({ ref: a.ref, center: a.center, radius: a.radius }); // (the circular edges of the body in this plane: anchors, `in_308`)
   for (const c of Object.values(scene.parts)) {
     if (c.kind === "circle") { const ci = circleOf(get, c.ref); if (ci) out.push({ ref: c.ref, ...ci }); continue; }
     if (c.kind === "line" && c.origin === "drawn" && c.center && !c.derived) { // (a piece an extrusion cut from the arc is not the arc: the arc is what constraints name)
@@ -34,7 +36,7 @@ function roundsOf(scene: Scene, get: (r: Ref) => Scene["parts"][string] | undefi
 function roundsThrough(scene: Scene, pl: Plane, P: V2): Round[] {
   const n = normalOfPlane(pl);
   const get = (r: Ref) => scene.parts[r];
-  return roundsOf(scene, get).filter((R) => {
+  return roundsOf(scene, get, pl).filter((R) => {
     if (Math.abs(dot(sub(R.center, pl.at), n)) > 1e-3) return false;
     const Rc = localOf(pl, R.center);
     return Math.abs(Math.hypot(P[0] - Rc[0], P[1] - Rc[1]) - R.radius) <= 1e-4 * Math.max(1, R.radius) && withinArc(pl, R, P);
@@ -80,7 +82,7 @@ function outlineSnap(scene: Scene, pl: Plane, pv: PointerView, e: V2, skip: (ref
   if (best) return { at: best.at, hint: { kind: "onLine", ref: best.ref } };
   // on a circle: the point is at the edge of a circle or an arc
   let onCircle: { at: V2; ref: Ref; px: number } | null = null;
-  for (const c of roundsOf(scene, get).filter((r) => onPlane(r.center) && !skip(r.ref))) {
+  for (const c of roundsOf(scene, get, pl).filter((r) => onPlane(r.center) && !skip(r.ref))) {
     const m = localOf(pl, c.center);
     const w: V2 = [e[0] - m[0], e[1] - m[1]];
     const D = lenOf(w);
@@ -173,7 +175,7 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
 
   // on a line, or on a circle or an arc: the end takes the nearest point on it
   const snapped = outlineSnap(scene, pl, pv, e, (ref) => touchesStart(ref));
-  const rounds = roundsOf(scene, get).filter((r) => onPlane(r.center));
+  const rounds = roundsOf(scene, get, pl).filter((r) => onPlane(r.center));
 
   // directions the end could take: level, upright, parallel or square to a line, tangent to a circle; the nearest one inside the tolerance wins
   const cands: { dir: V2; err: number; hint: Hint }[] = [];
@@ -305,10 +307,25 @@ export function hintRelations(scene: Scene, curve: Ref, ends: readonly (readonly
 /** The circle whose centre is exactly here, on this plane: drawing a circle's centre on it asks to make them concentric. */
 export function circleCentredAt(spent: Scene, pl: Plane, at: Vec3): Ref | null {
   const scene = live(spent);
+  for (const a of anchorRounds(scene, pl)) if (dist(a.center, at) < 1e-6) return a.ref; // (the centre of a circular edge of the body)
   for (const c of Object.values(scene.parts)) {
     if (c.kind !== "circle" || c.origin !== "drawn" || c.plane !== pl.ref) continue;
     const centre = scene.parts[c.center];
     if (centre?.kind === "corner" && dist(centre.at, at) < 1e-6) return c.ref;
   }
   return null;
+}
+
+/**
+ * The centre of a circular edge of the body that the pointer is at (`in_308`): the point of a circle being drawn is taken to it, and the circle is then concentric with the edge. A centre of a drawn circle is a corner and
+ * is snapped to like one; the edge of a body has no corner there, so it is found here.
+ */
+export function anchorCentreAt(spent: Scene, pl: Plane, pv: PointerView): { at: Vec3; ref: Ref } | null {
+  let best: { at: Vec3; ref: Ref; px: number } | null = null;
+  for (const a of anchorRounds(live(spent), pl)) {
+    const [x, y] = pv.project(a.center);
+    const px = Math.hypot(x - pv.x, y - pv.y);
+    if (px <= settings.sketch.snapPx && (!best || px < best.px)) best = { at: a.center, ref: a.ref, px };
+  }
+  return best ? { at: best.at, ref: best.ref } : null;
 }

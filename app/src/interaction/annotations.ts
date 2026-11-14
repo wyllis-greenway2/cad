@@ -12,7 +12,7 @@ import { lookup } from "../operation/scene.ts";
 import { buildMap, structuralRelations } from "../operation/ownership.ts";
 import { sketchOfEdge } from "../operation/edgesource.ts";
 import type { Lookup } from "../operation/part.ts";
-import { pointOf, segmentOf, circleOf, curveMid } from "../operation/part.ts";
+import { pointOf, segmentOf, roundOf, relationKind, curveMid } from "../operation/part.ts";
 import { actionsFor, measureAction } from "./actions.ts";
 import { lengthEditable } from "./lengths.ts";
 import { surfaceTriangles } from "./surfaces.ts";
@@ -80,7 +80,7 @@ function arcBetween(v: Vec3, p: Vec3, q: Vec3): { points: Vec3[]; middle: Vec3 }
 interface Placed { at: Vec3; lines: Vec3[][] }
 /** Where a constraint of this kind between these parts is shown, and the lines drawn with it. Null if its parts are gone. */
 function place(get: Lookup, kind: string, parts: readonly Ref[]): Placed | null {
-  const kinds = parts.map((r) => get(r)?.kind);
+  const kinds = parts.map((r) => (get(r) ? relationKind(get, r) : undefined)); // (a circular edge of a body is a circle: an anchor, `in_308`)
   const corners = parts.filter((_, i) => kinds[i] === "corner");
   const lines = parts.filter((_, i) => kinds[i] === "line");
   const circles = parts.filter((_, i) => kinds[i] === "circle");
@@ -96,15 +96,15 @@ function place(get: Lookup, kind: string, parts: readonly Ref[]): Placed | null 
     case "sameHeight": case "sameAcross":
       return c1 && c2 ? { at: mid(c1, c2), lines: [] } : null;
     case "diameter": {
-      const c = circles[0] ? circleOf(get, circles[0]) : null;
+      const c = circles[0] ? roundOf(get, circles[0]) : null;
       return c ? { at: c.center, lines: [] } : null;
     }
     case "concentric": {
-      const c = circles[0] ? circleOf(get, circles[0]) : null;
+      const c = circles[0] ? roundOf(get, circles[0]) : null;
       return c ? { at: c.center, lines: [] } : null;
     }
     case "equalRadius": {
-      const [a, b] = circles.map((r) => circleOf(get, r));
+      const [a, b] = circles.map((r) => roundOf(get, r));
       return a && b ? { at: mid(a.center, b.center), lines: [] } : null;
     }
     case "equalLength": case "parallel":
@@ -135,13 +135,13 @@ function place(get: Lookup, kind: string, parts: readonly Ref[]): Placed | null 
     }
     case "tangent": {
       // where the line touches the circle or the arc: the foot of its centre on the line (an arc is a line part that has a centre: the straight one is the other)
-      const c = circles[0] ? circleOf(get, circles[0]) : null;
+      const c = circles[0] ? roundOf(get, circles[0]) : null;
       const isArc = (r: Ref) => { const l = get(r); return l?.kind === "line" && !!l.center; };
       const arc = lines.map((r) => get(r)).find((l) => l?.kind === "line" && !!l.center);
       const arcCentre = arc?.kind === "line" && arc.center ? pt(arc.center) : null;
       // two circles that touch: where the line between their centres crosses the first one's edge
       if (circles.length === 2) {
-        const [c1, c2] = [circleOf(get, circles[0]!), circleOf(get, circles[1]!)];
+        const [c1, c2] = [roundOf(get, circles[0]!), roundOf(get, circles[1]!)];
         if (!c1 || !c2) return null;
         const dv: Vec3 = [c2.center[0] - c1.center[0], c2.center[1] - c1.center[1], c2.center[2] - c1.center[2]];
         const dl = Math.hypot(...dv) || 1;

@@ -1483,3 +1483,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_307 — 2026-11-14 — question
 > 1 I am leaning toward one model, it could have lots of bodies, but it would basically be one program instance of the cad system with many bodies in constraint relationships to each other. In fact, an assembly wouldn't actually be anything special at all, it would just be what a person might call a model that has several interlocked moving parts. Does this sound smart to you? and would this allow people to do what they normally want to do when making assemblies?
 (the human leans toward one model for assemblies: an assembly is just a model with several bodies in constraint relationships; asks whether that is sound and whether it lets people do what they normally do with assemblies)
+
+## in_308 — 2026-11-14 — approval
+> Yes, start on the anchors
+(approves building the anchor step of `q_body_constraints`: body geometry, first edges that come from a sketch, seen by the solver and the Constraints list as read-only references; and asked "Want me to start on the anchors?" in the same answer)
