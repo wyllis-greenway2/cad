@@ -1543,3 +1543,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_322 — 2026-11-14 — directive
 > yes go ahead, test the moved-sibling case first
 (approves making separate complete sketches that are extruded together into separate steps and bodies, each with its own height, in place of the shared step with a depth for each figure of `in_320`; asks for the moved-sibling case to be tested before it is built)
+
+## in_323 — 2026-11-14 — directive
+> Okay so to get the chamfer bug to show up, try adjusting the height of either block, then adjust the fillet that already exists in or out, the problems only show up on preview, not if the operation is actually applied.
+(gives the steps for the preview distortion of `in_319`: change the height of either block, then pull or push the fillet that is already there; only the preview is wrong, the applied step is right)

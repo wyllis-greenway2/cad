@@ -115,7 +115,7 @@ function distanceTo(s: Sharp, p: Vec3): number {
   return Math.hypot(Math.hypot(...sub(d, scale(s.axis, z))) - s.radius, z);
 }
 
-/** Which of the body's faces are the rounding of which edge: the faces whose points all lie within `reach` of one edge (the faces beside it run on much further), each given to the nearest edge. */
+/** Which of the body's faces are the rounding of which edge: the faces whose points all lie within a little more than a third of `reach` (the size of the rounding) of one edge (the faces beside it run on further), each given to the nearest edge. */
 export function roundingFaces(scene: Scene, edges: SharpEdge[], reach: number, skip: (r: Ref) => boolean = () => false, corners: Vec3[] = []): { face: Ref; edge: number; corner?: Vec3 }[] {
   const out: { face: Ref; edge: number; corner?: Vec3 }[] = [];
   for (const p of Object.values(scene.parts)) {
@@ -133,6 +133,9 @@ export function roundingFaces(scene: Scene, edges: SharpEdge[], reach: number, s
     }
     const near = p.rounded ? undefined : corners.find((v) => { for (let k = 0; k + 2 < p.mesh!.length; k += 3) if (Math.hypot(...sub([p.mesh![k]!, p.mesh![k + 1]!, p.mesh![k + 2]!], v)) > 2.2 * (reach / 3)) return false; return true; });
     if (near) { out.push({ face: p.ref, edge: -1, corner: near }); continue; }
+    // a strip along an edge (a fillet or a chamfer of size R) lies within R of the edge's line, its ends on the two faces it joins; a wall beside it runs on from there (`reach` is three times R). On a small body the wall lies
+    // within three R too, and was taken for the rounding and stretched with it (`in_323`): so the strip is held to a little more than R
+    const strip = (reach / 3) * 1.2;
     let best = -1;
     let bestMean = Infinity;
     edges.forEach((e, i) => {
@@ -140,7 +143,7 @@ export function roundingFaces(scene: Scene, edges: SharpEdge[], reach: number, s
       let sum = 0;
       let n = 0;
       for (let k = 0; k + 2 < p.mesh!.length; k += 3) { const d = distanceTo(e.sharp, [p.mesh![k]!, p.mesh![k + 1]!, p.mesh![k + 2]!]); max = Math.max(max, d); sum += d; n++; }
-      if (max <= reach && sum / n < bestMean) { best = i; bestMean = sum / n; }
+      if (max <= strip && sum / n < bestMean) { best = i; bestMean = sum / n; }
     });
     if (best >= 0) out.push({ face: p.ref, edge: best });
   }
