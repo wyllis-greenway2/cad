@@ -9,11 +9,12 @@ import { sub, dot, cross, normalize, length } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import type { MateMode } from "../operation/mates.ts";
+import type { MateState } from "../operation/mates.ts";
 import { featureOf, mateRelation, mateStatus, isFlatMode, turnOnly, angleOfMode } from "../operation/mates.ts";
 import type { Command } from "../operation/commands.ts";
 import { carrySketches } from "./operations.ts";
 import type { SolveMate, SolveBody } from "../operation/matesolve.ts";
-import { solvePoses } from "../operation/matesolve.ts";
+import { solvePoses, solveDriven, poseOfRigid, rigidOfPose } from "../operation/matesolve.ts";
 import type { Rigid } from "../operation/frames.ts";
 import { laterMotion } from "../operation/frames.ts";
 import type { Step } from "../operation/scene.ts";
@@ -206,9 +207,8 @@ export function jointRoom(scene: Scene, mateId: string, kind: "turn" | "slide"):
  * The standing mates solved together (`in_329`): when some are not true, the poses of the bodies that make them all true at once (`operation/matesolve.ts`), as turns and moves with the sketches carried, in one batch.
  * `atOdds`: the mates that cannot all hold (nothing is changed then). Empty commands and no mates at odds: nothing is off.
  */
-export function solveStanding(scene: Scene): { commands: Command[]; atOdds: string[] } {
-  const states = mateStatus(scene).filter((m) => m.standing && m.state !== "lost" && m.mover && m.other);
-  if (!states.some((m) => m.state === "off")) return { commands: [], atOdds: [] };
+/** The standing mates in `states` as a problem for the solver: the mates, and the bodies they join with their middles. */
+function problemOf(scene: Scene, states: readonly MateState[]): { mates: SolveMate[]; bodies: SolveBody[] } {
   const mates: SolveMate[] = states.map((m) => ({ id: m.id, mode: m.mode, gap: m.gap, counts: m.counts !== false, mover: m.mover!.body, other: m.other!.body, a: { point: m.mover!.point, dir: m.mover!.dir }, b: { point: m.other!.point, dir: m.other!.dir } }));
   const bodies: SolveBody[] = [];
   for (const ref of new Set(mates.flatMap((m) => [m.mover, m.other]))) {
@@ -216,6 +216,27 @@ export function solveStanding(scene: Scene): { commands: Command[]; atOdds: stri
     if (b?.kind !== "body" || !b.bbox) continue;
     bodies.push({ id: ref, pivot: [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2], order: Number(String(b.id ?? "").replace(/\D/g, "")) || 0 });
   }
+  return { mates, bodies };
+}
+
+/**
+ * A body being dragged (`in_338`): the motion the mates allow that is nearest to the one asked for, and the mates that held it back (they flash). The other bodies stay where they are; null when the body has no standing mate that holds,
+ * or the motion is not held back at all.
+ */
+export function constrainedMotion(scene: Scene, body: Ref, asked: Rigid): { rigid: Rigid; blocked: string[] } | null {
+  const states = mateStatus(scene).filter((m) => m.standing && m.state === "ok" && m.mover && m.other && (m.mover.body === body || m.other.body === body));
+  if (!states.length) return null;
+  const { mates, bodies } = problemOf(scene, states);
+  const me = bodies.find((b) => b.id === body);
+  if (!me) return null;
+  const solved = solveDriven(mates, bodies, body, poseOfRigid(asked, me.pivot));
+  return solved.blockedBy.length ? { rigid: rigidOfPose(solved.pose, me.pivot), blocked: solved.blockedBy } : null;
+}
+
+export function solveStanding(scene: Scene): { commands: Command[]; atOdds: string[] } {
+  const states = mateStatus(scene).filter((m) => m.standing && m.state !== "lost" && m.mover && m.other);
+  if (!states.some((m) => m.state === "off")) return { commands: [], atOdds: [] };
+  const { mates, bodies } = problemOf(scene, states);
   const solved = solvePoses(mates, bodies);
   if (!solved.ok) return { commands: [], atOdds: solved.atOdds };
   let id = nextId(scene, "s");

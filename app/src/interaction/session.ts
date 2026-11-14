@@ -111,14 +111,15 @@ const atOddsMessage = (scene: Scene, ids: readonly string[], change: string): st
   });
   return `${change[0]!.toUpperCase()}${change.slice(1)} would leave these standing mates unable to hold at once: ${names.join("; ")}. Take one of them away or change it first, or change something else`;
 };
-function standingFixes(h: History): { fixes: Command[]; atOdds: string[] } {
+function standingFixes(h: History, stale: (h: History) => boolean): { fixes: Command[]; atOdds: string[] } {
   // all the standing mates solved together first (`in_329`); the ones put back one at a time (`in_321`) only if that did not hold
   const sol = solveStanding(h.scene);
   if (sol.atOdds.length) return { fixes: [], atOdds: sol.atOdds };
   if (sol.commands.length) {
     const batch: Command = { type: "batch", commands: sol.commands };
     const r = exec(h, batch);
-    if (r.ok && !mateStatus(r.value.scene).some((m) => m.standing && m.state === "off")) return { fixes: [batch], atOdds: [] };
+    // (checked against the faces after it, unless the kernel has not answered for them yet: the solver has already checked its own numbers, and the browser's answer for the new steps is a moment away)
+    if (r.ok && (stale(r.value) || !mateStatus(r.value.scene).some((m) => m.standing && m.state === "off"))) return { fixes: [batch], atOdds: [] };
   }
   const out: Command[] = [];
   let cur = h;
@@ -178,7 +179,7 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   let odds: string[] = []; // (the standing mates that cannot all hold, `in_329`)
   // standing mates (`in_321`): the ones the change broke are put back in the same step, so one undo takes back the change and the corrections together
   if (!next.outcome.kernel?.stale) {
-    const { fixes, atOdds } = standingFixes(next.history);
+    const { fixes, atOdds } = standingFixes(next.history, (q) => !!withHistory(s, q).outcome.kernel?.stale);
     odds = atOdds;
     // a change that leaves mates that held with no placement where they all hold is refused, as one that breaks sketch constraints is: the mates are named and nothing is made (`in_330`, `in_331`); a conflict that was already there is not the change's
     const held = new Set(mateStatus(s.history.scene).filter((m) => m.state === "ok").map((m) => m.id));
@@ -218,7 +219,7 @@ export function refresh(s: Session): Session {
   const fresh = !now.outcome.kernel?.stale;
   // the answer has come for a change made while it was awaited (the browser): the standing mates it broke are put back now, in the same step as the change (`in_321`, `in_328`: they were not before)
   if (fresh && s.outcome.kernel?.stale && h.cursor === h.commands.length && h.cursor > 0) {
-    const { fixes, atOdds } = standingFixes(now.history);
+    const { fixes, atOdds } = standingFixes(now.history, (q) => !!withHistory(s, q).outcome.kernel?.stale);
     if (fixes.length) {
       const again = exec(undo(now.history), { type: "batch", commands: [h.commands[h.cursor - 1]!, ...fixes] });
       if (again.ok) return { ...withHistory(now, again.value), checkSteps: undefined, fallback: undefined, message: "the standing mates were put back with the change" };

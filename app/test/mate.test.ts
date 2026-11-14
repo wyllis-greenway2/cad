@@ -667,3 +667,28 @@ test("the tape measure for round faces: the radius and diameter of one, the offs
   assert.deepEqual(two.map((x) => x.tag), ["angle", "offset"]);
   assert.ok(Math.abs(two[1]!.value - Math.hypot(30, 4)) < 1e-3, `axes ${two[1]!.value} apart`);
 });
+
+import { startOp } from "../src/interaction/operations.ts";
+test("a body dragged against its mate goes only where the mate leaves it free, and the mate flashes red while it is held back (`in_338`)", () => {
+  const env = { w: 800, h: 600, now: 0 };
+  let s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  s = run(s, actionsFor(scene(s), [faceOf(s, bodies(s).find((x) => x.id === b!.id)!, [-1, 0, 0]), faceOf(s, bodies(s).find((x) => x.id === a!.id)!, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  const pin = bodies(s).find((x) => x.id === b!.id)!;
+  const mateId = scene(s).relations.find((r) => r.kind === "mate")!.id;
+  const op = startOp(scene(s), [pin.ref], "move");
+  assert.ok(op.ok);
+  const drag = (free: [number, number, number]) => frameOf({ ...createState(s), cam: homeCamera(), op: { ...(op as unknown as { op: object }).op, free } as never }, env);
+  // away from the face it is against: held back, and the mate is red
+  const away = drag([6, 0, 0]);
+  assert.ok(!away.bodyMatrix || Math.abs(away.bodyMatrix[12]!) < 1e-3, `not moved along the normal: ${away.bodyMatrix?.[12]}`);
+  assert.deepEqual(away.flash?.victims, [mateId], "the mate flashes red");
+  // along the face: free, so it goes there, and nothing flashes
+  const along = drag([0, 4, 3]);
+  assert.ok(along.bodyMatrix && Math.abs(along.bodyMatrix[13]! - 4) < 1e-3 && Math.abs(along.bodyMatrix[14]! - 3) < 1e-3, `moved along the face: ${along.bodyMatrix?.slice(12, 15)}`);
+  assert.equal(along.flash, null, "nothing held it back");
+  // both: only the free part is made
+  const both = drag([6, 4, 0]);
+  assert.ok(both.bodyMatrix && Math.abs(both.bodyMatrix[12]!) < 1e-3 && Math.abs(both.bodyMatrix[13]! - 4) < 1e-3, `sliding along the face: ${both.bodyMatrix?.slice(12, 15)}`);
+  assert.deepEqual(both.flash?.victims, [mateId]);
+});

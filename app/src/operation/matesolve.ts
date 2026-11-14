@@ -4,6 +4,7 @@
 import type { Vec3 } from "../math/vec.ts";
 import { add, sub, dot, cross, length } from "../math/vec.ts";
 import type { MateMode } from "./mates.ts";
+import type { Rigid } from "./frames.ts";
 
 /** What a mate is about on one body: the face as a point on it and a direction (a flat face's outward normal, a round face's axis). */
 export interface SolveFeature { point: Vec3; dir: Vec3 }
@@ -80,17 +81,11 @@ export function freeBodies(mates: readonly SolveMate[], bodies: readonly SolveBo
   return free;
 }
 
-export function solvePoses(mates: readonly SolveMate[], bodies: readonly SolveBody[]): Solved {
-  const free = [...freeBodies(mates, bodies)].filter((id) => bodies.some((b) => b.id === id));
-  const pivot = new Map(bodies.map((b) => [b.id, b.pivot] as const));
-  const n = free.length * 6;
-  const poseOf = (x: readonly number[]): Map<string, Pose> => new Map(free.map((id, i) => [id, { turn: [x[6 * i]!, x[6 * i + 1]!, x[6 * i + 2]!] as Vec3, shift: [x[6 * i + 3]!, x[6 * i + 4]!, x[6 * i + 5]!] as Vec3 }] as const));
-  const r = (x: readonly number[]): number[] => {
-    const poses = poseOf(x);
-    return mates.flatMap((m) => residuals(m, posed(m.a, pivot.get(m.mover)!, poses.get(m.mover)), posed(m.b, pivot.get(m.other)!, poses.get(m.other))));
-  };
+/** Damped Gauss-Newton: the numbers `x` (from `x0`) that make the residuals `r(x)` as small as can be found. */
+function minimise(r: (x: readonly number[]) => number[], x0: readonly number[]): number[] {
+  const n = x0.length;
   const norm2 = (v: readonly number[]) => v.reduce((s, q) => s + q * q, 0);
-  let x = new Array<number>(n).fill(0);
+  let x = [...x0];
   let res = r(x);
   let lambda = 1e-3;
   for (let it = 0; it < 80 && norm2(res) > 1e-20 && n > 0; it++) {
@@ -107,8 +102,60 @@ export function solvePoses(mates: readonly SolveMate[], bodies: readonly SolveBo
     }
     if (!stepped) break;
   }
+  return x;
+}
+
+export function solvePoses(mates: readonly SolveMate[], bodies: readonly SolveBody[]): Solved {
+  const free = [...freeBodies(mates, bodies)].filter((id) => bodies.some((b) => b.id === id));
+  const pivot = new Map(bodies.map((b) => [b.id, b.pivot] as const));
+  const poseOf = (x: readonly number[]): Map<string, Pose> => new Map(free.map((id, i) => [id, { turn: [x[6 * i]!, x[6 * i + 1]!, x[6 * i + 2]!] as Vec3, shift: [x[6 * i + 3]!, x[6 * i + 4]!, x[6 * i + 5]!] as Vec3 }] as const));
+  const r = (x: readonly number[]): number[] => {
+    const poses = poseOf(x);
+    return mates.flatMap((m) => residuals(m, posed(m.a, pivot.get(m.mover)!, poses.get(m.mover)), posed(m.b, pivot.get(m.other)!, poses.get(m.other))));
+  };
+  const x = minimise(r, new Array<number>(free.length * 6).fill(0));
   // which mates hold at the pose found
   const poses = poseOf(x);
   const atOdds = mates.filter((m) => Math.hypot(...residuals(m, posed(m.a, pivot.get(m.mover)!, poses.get(m.mover)), posed(m.b, pivot.get(m.other)!, poses.get(m.other)))) > 1e-6).map((m) => m.id);
   return { ok: atOdds.length === 0, poses, atOdds };
+}
+
+/** The rotation vector (radians) of a turn given as nine numbers, row by row. */
+function rotationVectorOf(m: readonly number[]): Vec3 {
+  const c = Math.max(-1, Math.min(1, (m[0]! + m[4]! + m[8]! - 1) / 2));
+  const th = Math.acos(c);
+  if (th < 1e-9) return [0, 0, 0];
+  if (Math.PI - th < 1e-6) { const ax: Vec3 = [Math.sqrt(Math.max(0, (m[0]! + 1) / 2)), Math.sqrt(Math.max(0, (m[4]! + 1) / 2)), Math.sqrt(Math.max(0, (m[8]! + 1) / 2))]; return [ax[0] * th, ax[1] * th, ax[2] * th]; }
+  const k = th / (2 * Math.sin(th));
+  return [(m[7]! - m[5]!) * k, (m[2]! - m[6]!) * k, (m[3]! - m[1]!) * k];
+}
+/** A motion of a body (turn, shift) as a pose about its pivot: it turns about the pivot, then moves. */
+export function poseOfRigid(r: Rigid, pivot: Vec3): Pose {
+  const R = r.turn;
+  const Rc = [R[0] * pivot[0] + R[1] * pivot[1] + R[2] * pivot[2], R[3] * pivot[0] + R[4] * pivot[1] + R[5] * pivot[2], R[6] * pivot[0] + R[7] * pivot[1] + R[8] * pivot[2]];
+  return { turn: rotationVectorOf(R), shift: [r.shift[0] + Rc[0]! - pivot[0], r.shift[1] + Rc[1]! - pivot[1], r.shift[2] + Rc[2]! - pivot[2]] };
+}
+export function rigidOfPose(p: Pose, pivot: Vec3): Rigid {
+  const R = rotationOf(p.turn);
+  const Rc = mul(R, pivot);
+  return { turn: [R[0]![0]!, R[0]![1]!, R[0]![2]!, R[1]![0]!, R[1]![1]!, R[1]![2]!, R[2]![0]!, R[2]![1]!, R[2]![2]!], shift: [p.shift[0] + pivot[0] - Rc[0], p.shift[1] + pivot[1] - Rc[1], p.shift[2] + pivot[2] - Rc[2]], k: 1 };
+}
+
+/**
+ * One body dragged (`in_338`): the pose nearest to the one the pointer asks for at which every mate of the body holds, the other bodies where they are; so the body moves in the directions its mates leave free and not in the others.
+ * `blockedBy`: the mates the asked-for pose would break (they are what held it back).
+ */
+export function solveDriven(mates: readonly SolveMate[], bodies: readonly SolveBody[], drivenId: string, desired: Pose): { pose: Pose; blockedBy: string[] } {
+  const body = bodies.find((b) => b.id === drivenId);
+  if (!body) return { pose: desired, blockedBy: [] };
+  const mine = mates.filter((m) => m.mover === drivenId || m.other === drivenId);
+  const pivot = new Map(bodies.map((b) => [b.id, b.pivot] as const));
+  const asPose = (x: readonly number[]): Pose => ({ turn: [x[0]!, x[1]!, x[2]!], shift: [x[3]!, x[4]!, x[5]!] });
+  const holds = (pose: Pose) => mine.flatMap((m) => residuals(m, posed(m.a, pivot.get(m.mover)!, m.mover === drivenId ? pose : undefined), posed(m.b, pivot.get(m.other)!, m.other === drivenId ? pose : undefined)));
+  const xd = [...desired.turn, ...desired.shift];
+  const W = 100; // (the mates count far more than staying near what was asked)
+  const near = minimise((x) => [...holds(asPose(x)).map((v) => v * W), ...x.map((v, i) => v - xd[i]!)], xd);
+  const x = minimise((x) => holds(asPose(x)), near); // (then onto the mates exactly, by the smallest step: the weighted pull toward what was asked leaves a little off them)
+  const blockedBy = mine.filter((m) => Math.hypot(...residuals(m, posed(m.a, pivot.get(m.mover)!, m.mover === drivenId ? desired : undefined), posed(m.b, pivot.get(m.other)!, m.other === drivenId ? desired : undefined))) > 1e-4).map((m) => m.id);
+  return { pose: asPose(x), blockedBy };
 }

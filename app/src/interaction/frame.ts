@@ -22,7 +22,7 @@ import { outlineOf } from "../operation/part.ts";
 import { seenIn } from "./picking.ts";
 import { tapeAnnotations } from "./tape.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
-import { jointRigid } from "./mate.ts";
+import { jointRigid, constrainedMotion } from "./mate.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
@@ -286,7 +286,7 @@ function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame[
 }
 
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
-function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome } } | null {
+function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] | null; face: FaceShift | null; shown: { scene: Scene; outcome: CompileOutcome }; /** the mates that hold the dragged body back (`in_338`) */ blocked?: string[] } | null {
   if (s.drag && "handle" in s.drag && s.drag.joint) { // a joint's handle dragged: the body is drawn turned or slid by the amount so far (`in_323`)
     const jd = s.drag.joint;
     const sc0 = sceneOf(s.session);
@@ -310,7 +310,10 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] 
     lastDrag = { matrix: null, face: en.face, step: "__last__", depth: op.kind === "edge" ? Math.abs(valueOf(op) ?? 0) : valueOf(op) ?? 0, param: op.kind === "edge" ? "value" : "depth", circle: null, corners: null, steps: sceneOf(base).steps.length };
     return { matrix: null, face: en.face, shown: en.shown };
   }
-  const m = bodyMotion(sceneOf(base), op);
+  const asked = bodyMotion(sceneOf(base), op);
+  // the mates of a body that is dragged hold while it moves: it goes where they leave it free, and the ones that held it back flash (`in_338`)
+  const held = asked && op.target === "body" && op.parts[0] ? constrainedMotion(sceneOf(base), op.parts[0], asked) : null;
+  const m = held ? held.rigid : asked;
   const fd = m ? null : faceDrag(sceneOf(base), op);
   const rd = m || fd ? null : radiusDrag(sceneOf(base), op);
   const sd = m || fd || rd ? null : sideDrag(sceneOf(base), op);
@@ -328,7 +331,7 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] 
     const carry = full?.type === "batch" ? full.commands.filter((c) => c.type !== "addStep") : [];
     if (carry.length) { const moved = apply(sceneOf(base), { type: "batch", commands: carry }); if (moved.ok) shown = { scene: moved.value, outcome: gpuBase.value.outcome }; }
   }
-  return { matrix, face, shown, split: lastDrag.split };
+  return { matrix, face, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked } : {}) };
 }
 
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
@@ -396,7 +399,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   const armed = !!s.handleSel && !!gizmo && gizmo.handles.some((h) => h.id === s.handleSel);
   const typing = !!shownOp && (shownOp.typed !== "" || shownOp.rot.some((t) => t !== ""));
   const numberShown = armed || typing || !!(s.drag && ("handle" in s.drag || "body" in s.drag));
-  const flash = flashOf(s, sc, now);
+  // a body dragged against its mates: they are red while it is held back, as a refused change shows what it would have broken (`in_338`)
+  const flash: FlashFrame | null = gpu?.blocked?.length ? { t: 0, victims: gpu.blocked, culprits: [], parts: sc.relations.filter((r) => gpu.blocked!.includes(r.id)).flatMap((r) => r.parts) } : flashOf(s, sc, now);
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
   const gp = gridPlaneOf(s);
   const annotationsPresent = !busy; // (the bubbles are the only user of `avoid`: none are shown while a tool or operation runs)
@@ -423,7 +427,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     avoid: busy || !annotationsPresent ? { segs: [], pts: [] } : avoidOf(sc),
     hint: s.tool?.hints?.length && s.tool.cursor ? { kinds: s.tool.hints.map((h) => h.kind), at: s.tool.cursor } : s.dragHint ? { kinds: s.dragHint.hints.map((h) => h.kind), at: s.dragHint.at } : null,
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors, s.showSketch),
-    annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus, s.showAllConstraints || !!s.showSketch), sc, flash), ...(s.tape ? tapeAnnotations(sc, sel) : [])],
+    annotations: busy ? withFlashed([], sc, flash?.t === 0 && gpu?.blocked?.length ? flash : null) : [...withFlashed(annotationsFor(sc, sel, s.focus, s.showAllConstraints || !!s.showSketch), sc, flash), ...(s.tape ? tapeAnnotations(sc, sel) : [])],
     flash,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // on: the world plane that is on always has its grid (`in_190`)
     suggest: busy ? null : suggestionsFor(sc, sel, nearTolMm(s.cam), seenIn(s.cam, sc, size)),
