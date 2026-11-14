@@ -1426,3 +1426,10 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_296 — 2026-11-14 — directive
 > okay can we make the circle have tangent while drawing too? The boolean operations you built are awesome! Thank you. The only problem is that it is kind of hard to see, can we make the bodies semi transparent so that you can see what is going on inside? Also does it even make sense to offer a seperate boolean add or subtract button now? maybe we just have boolean add / subtract as one option, because our plus minus buttons kind of cover all things now. The one missing gap I guess could be if you want to split all bodies separate on intersection, but also keep all the bodies, how would a person do that? Did you already build it like that and I just missed it? Or if not, maybe the method would be to label the body intersection spaces like you already have, with the ability to mark them as positive or negative spaces, but then you could potentially offer connection icons between the bodies to indicate if they are joined or separate? Maybe that is too complicated of an interface? what do you think?
 (asks: tangent snap for the circle's radius point while drawing; semi-transparent bodies while Cut shows its parts; whether Add and Cut should be one menu item; how to split every body on its intersections and keep all pieces, and whether per-piece connection icons would be too complicated)
+
+## in_297 — 2026-11-14 — approval
+> Lets do the things you mentioned not done yet "Not done.
+
+No test yet that creating an extrude actually stores its mode. The test covers the replay side only.
+The X/Y/Z buttons fading toward the axis most facing the camera while you rotate in 3D. I’d build it next, grading the fade by how closely the view lines up with that axis. Say if you’d like a different look." That xyz look sounds fine.
+(approves: a test that creating an extrude stores its mode; the X Y Z buttons fading toward the axis most facing the camera, graded by how closely the view lines up)

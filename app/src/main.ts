@@ -269,6 +269,7 @@ function frame(now: number) {
     helper.update(f.helper ? f.helper.text : null, f.helper ? onPage(f.helper.at) : null);
     const working = busySign.update(f.busy, now);
     controls.hint(f.lookHint);
+    controls.facing(f.facing, !!f.lookHint);
     hintIcons.update(f.hint?.kinds ?? [], onPage(f.hint?.at));
     // a finger has no hover and cannot drag small arrows: each point of a figure being drawn (the ones set, and the next one, held) has a drag icon, joined to it by a dotted line, and so has an arrow or ring that was tapped; a tap anywhere else sets the point held, or applies (`in_283`..`in_288`)
     const th = lastDevice === "touch" ? f.touchHelper : null;

@@ -79,6 +79,8 @@ export interface Frame {
   busy: boolean;
   /** the world axis the selected plane or face lies across and which end of it the camera must be at to see it (so that X Y Z button is lit, as + or −) */
   lookHint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null;
+  /** The world axis the camera is nearest to looking along, and how near (0: no axis is near, 1: exactly along it): its button takes on the colour as the view comes round to it, to pick the straight view that is closest (`in_295`) */
+  facing: { axis: "X" | "Y" | "Z"; sign: 1 | -1; strength: number };
   /**
    * What a finger is offered (`in_283`, `in_284`): a finger has no hover and cannot press, drag and let go on small arrows, so there is a drag icon that does the dragging for it and a check that applies. `cursor`: a
    * figure being drawn (the first point is set and the next held: each has a drag icon, the held one moves like a hover, a placed one moves that point; a tap sets the held point). `handle`: an arrow or ring that has been tapped (or the only one there is) of an operation (the drag icon
@@ -387,6 +389,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     helper: helperAt(s, gizmo),
     busy: !!s.session.outcome.kernel?.stale,
     lookHint: lookOf(sc, sel, s.cam).lookHint,
+    facing: facingOf(s.cam),
     touchHelper: touchHelperOf(s, gizmo),
     undoRedo: { undo: s.session.history.cursor > 0, redo: s.session.history.cursor < s.session.history.commands.length },
     box: s.box ? { ...s.box, touching: crossing(s.box) } : null,
@@ -441,6 +444,14 @@ function entryWhere(e: Entry | null, s: AppState, g: Gizmo | null, op: Op | null
   } else if (op && (op.kind === "linear" || op.kind === "circular")) at = patternCentre(s.session.history.scene, op);
   else if (s.tool) at = s.tool.cursor ?? s.tool.points.at(-1) ?? null;
   return { ...e, at, from };
+}
+
+/** The axis most facing the camera: strength is 0 at the diagonal (all three equally near, about 55 degrees) and grows to 1 as the view comes along the axis. */
+export function facingOf(cam: Camera): Frame["facing"] {
+  const o = offsetOf(cam);
+  const k = ([0, 1, 2] as const).reduce((b, i) => (Math.abs(o[i]) > Math.abs(o[b]) ? i : b), 0 as 0 | 1 | 2);
+  const strength = Math.max(0, Math.min(1, (Math.abs(o[k]) - 0.6) / 0.4));
+  return { axis: (["X", "Y", "Z"] as const)[k], sign: o[k] >= 0 ? 1 : -1, strength };
 }
 
 /** A single selected plane or face: if it lies across a world axis, that axis's button is lit, + or − by the end the camera is at (the side that shows the face). */

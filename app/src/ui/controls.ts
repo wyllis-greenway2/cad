@@ -33,6 +33,18 @@ export function createControls(host: HTMLElement, h: ControlHandlers) {
         b.style.borderColor = on ? "#1ab8b3" : "#cfd0d4";
       });
     },
+    /** The button of the axis the view is nearest to takes on the teal as the view comes round to it (`in_295`); a plane that is selected lights its own (`hint`) and keeps it. */
+    facing(f: { axis: "X" | "Y" | "Z"; sign: 1 | -1; strength: number }, planeHint: boolean) {
+      if (planeHint) return;
+      buttons.forEach((b, i) => {
+        const k = f.axis === "XYZ"[i] ? f.strength : 0;
+        const mix = (from: number[], to: number[]) => `rgb(${from.map((c, j) => Math.round(c + (to[j]! - c) * k)).join(",")})`;
+        b.textContent = k > 0.5 ? `${f.sign > 0 ? "+" : "−"}${"XYZ"[i]}` : "XYZ"[i]!;
+        b.style.background = mix([255, 255, 255], [26, 184, 179]);
+        b.style.color = mix([43, 43, 45], [255, 255, 255]);
+        b.style.borderColor = mix([207, 208, 212], [26, 184, 179]);
+      });
+    },
     /** Place the buttons at the right edge, lower right, one above the other (X on top). */
     update(pageW: number, pageH: number, margin: number, button: number) {
       buttons.forEach((b, i) => {
