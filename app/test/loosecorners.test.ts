@@ -1,4 +1,4 @@
-// Corners nothing is drawn on are not snapped to, lined up with or suggested to (`in_332`), and deleting a surface no longer leaves them behind. In the human's file three corners were left by deleting a surface cut by an arc:
+// Corners nothing is drawn on are not snapped to, lined up with or suggested to (`in_332`), and deleting a surface no longer leaves them behind (`stranded.test.ts` has the rule itself, `in_334`: they are taken in the command layer). In the human's file three corners were left by deleting a surface cut by an arc:
 // the pieces cut from its lines name the same corners, and were counted as something else standing on them, so the ends of the lines taken away were kept; they are not drawn, but the cursor lined up with them.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -35,16 +35,26 @@ test("deleting a surface cut by an arc takes the ends of its lines with it", () 
   assert.deepEqual(looseIn(after), [], "no corner is left with nothing on it");
 });
 
-test("what such a deletion left behind in the human's file is not in the drawing as it is worked on", () => {
-  const s = open();
-  assert.deepEqual(looseIn(s).sort(), LOOSE, "the file has them");
+/** The human's file with the corners put back that an older version left behind (they are made by hand: the file itself no longer has them, the command layer takes them on replay). */
+function withLoose(): Session {
+  let s = open();
+  assert.deepEqual(looseIn(s), [], "the rule takes them when the file is replayed");
+  for (const [ref, at] of [["d/e_005.p0", [27.14, 41.9, 0]], ["d/e_005.p1", [60.3, 29.65, 0]], ["d/e_007.p1", [60.81, 45.23, 0]]] as const) {
+    s = run(s, { type: "addPart", part: { origin: "drawn", plane: "w/XY", movable: true, ref: ref as never, kind: "corner", at } } as never);
+  }
+  return s;
+}
+
+test("a corner nothing is drawn on is not in the drawing as it is worked on, while every end and middle is", () => {
+  const s = withLoose();
+  assert.deepEqual(looseIn(s).sort(), LOOSE, "they are there");
   const work = live(scene(s));
   for (const c of LOOSE) assert.ok(!(c in work.parts), `${c} is not snapped to`);
   for (const c of ["d/e_001.p0", "d/e_001.p1", "d/e_002.p1", "d/e_013.p1", "d/e_001.c", "d/e_002.c", "d/e_013.c"]) assert.ok(c in work.parts, `${c} is drawn (an end or a middle) and still is`);
 });
 
 test("drawing a line from the end of the upper right arc: no guide runs to a corner nothing is drawn on", () => {
-  const s = open();
+  const s = withLoose();
   const env = { w: 1280, h: 687, now: 0 };
   const snap = { target: [49.1176, 31.4805, -9.1829], distance: 171.3142, azimuth: -1.9845, elevation: 1.5708, straight: false, mix: 1, eyeDistance: 171.3142, perspective: 1 };
   let st = createState(s);

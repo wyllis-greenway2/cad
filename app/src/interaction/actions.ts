@@ -141,7 +141,7 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
     const targets = surfaces.length ? [] : drawn.flatMap((r): Ref[] => {
       const p = get(r);
       if (p?.kind === "face") return [...p.corners, ...p.loop.flatMap((l) => { const x = get(l); return x?.kind === "line" && x.center ? [x.center] : []; })]; // a face's corners (a disk's centre, the centres of its arcs): everything built on them goes too
-      // a circle or a line goes with its points, unless something else stands on them: no point is left behind to snap to or suggest constraints to
+      // a circle or a line goes with its points, unless something else stands on them: no point is left behind to snap to or suggest constraints to. (The command layer keeps that rule for every way parts go, `strandedCorners` in `commands.ts`; the points are listed here only so that a move, turn or scale step that names one goes with it, below.)
       const own = p?.kind === "circle" ? [p.center] : p?.kind === "line" ? [p.a, p.b, ...(p.center ? [p.center] : [])] : [];
       return [r, ...own.filter((c) => get(c)?.movable && !used(c))];
     });
