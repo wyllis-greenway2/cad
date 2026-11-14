@@ -594,3 +594,11 @@ test("an angle past 90 is between the directions themselves: 120 leans the faces
   assert.equal(mateStatus(scene(off))[0]!.state, "off");
   assert.equal(mateStatus(scene(run(off, putMatesBack(scene(off))!.command)))[0]!.state, "ok");
 });
+
+import { stackOffset } from "../src/interaction/bubbleplace.ts";
+test("a column of mate numbers goes down, and up when it would run off the bottom of the page and there is room above (`in_327`)", () => {
+  assert.deepEqual([0, 1, 2].map((i) => stackOffset(100, i, 3, 600)), [0, 38, 76], "room below: down");
+  assert.deepEqual([0, 1, 2].map((i) => stackOffset(560, i, 3, 600)), [0, -38, -76], "no room below: up");
+  assert.deepEqual([0, 1, 2].map((i) => stackOffset(40, i, 3, 100)), [0, 38, 76], "no room above either: stays down");
+  assert.equal(stackOffset(560, 0, 1, 600), 0, "one number does not move");
+});

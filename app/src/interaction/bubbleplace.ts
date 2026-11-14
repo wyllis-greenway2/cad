@@ -104,3 +104,15 @@ export function placeBubbles(want: readonly Want[], obs: Obstacles, memory: Memo
   for (const id of [...memory.keys()]) if (!seen.has(id)) memory.delete(id); // (a bubble that is gone forgets where it was)
   return out;
 }
+
+/** The height of one step of a column of numbers (a bubble and a gap), px. */
+export const STACK_STEP = 38;
+/**
+ * How far down (px; up when negative) the bubble at `index` of a column of `count` stands from where the column begins, `y` px from the top of a page `height` px high (`in_320`, `in_327`):
+ * a column goes down, but when it would run off the bottom and there is room above, it goes up.
+ */
+export function stackOffset(y: number, index: number, count: number, height: number): number {
+  const down = y + (count - 1) * STACK_STEP + 30 > height; // (the last bubble's bottom is past the page)
+  const room = y - (count - 1) * STACK_STEP >= 0; // (and the column fits above)
+  return (down && room ? 0 - index : index) * STACK_STEP;
+}

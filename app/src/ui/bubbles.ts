@@ -6,7 +6,7 @@ import type { Vec3 } from "../interaction/api.ts";
 import type { Annotation } from "../interaction/annotations.ts";
 import { iconKey, iconSvg } from "./icons.ts";
 import { settings } from "../shared/settings.ts";
-import { placeBubbles } from "../interaction/bubbleplace.ts";
+import { placeBubbles, stackOffset } from "../interaction/bubbleplace.ts";
 import type { Memory } from "../interaction/bubbleplace.ts";
 
 export interface BubbleHandlers {
@@ -126,7 +126,11 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
       for (const [id, e] of entries) if (!seen.has(id) && !e.editing) { e.el.remove(); e.leader?.remove(); entries.delete(id); }
       // where each stands (`bubbleplace.ts`: clear of lines, corners and what comes first; keeps its place while that is clear), and the way there is eased, so a bubble that has to give way slides
       const put = placeBubbles(
-        placed.map((p) => ({ id: p.a.id, x: p.x, y: p.y + (p.a.stack ?? 0) * 38, w: p.e.el.offsetWidth || 40 })), // (a column of numbers of one mate: each a step lower than the one before, so they are not laid side by side in a row, `in_320`)
+        placed.map((p) => {
+          // (a column of numbers of one mate: each a step lower than the one before, so they are not laid side by side in a row, `in_320`; or a step higher each, when the column would run off the bottom, `in_327`)
+          const column = p.a.stack === undefined ? [] : placed.filter((q) => q.a.stack !== undefined && q.x === p.x && Math.abs(q.y - p.y) < 1e-6);
+          return { id: p.a.id, x: p.x, y: p.y + (p.a.stack === undefined ? 0 : stackOffset(p.y, p.a.stack, Math.max(column.length, p.a.stack + 1), window.innerHeight)), w: p.e.el.offsetWidth || 40 };
+        }),
         { lines: avoid.segs.map(([p, q]) => [project(p), project(q)] as [[number, number], [number, number]]), dots: avoid.pts.map((p) => project(p)), rects: before },
         memory,
       );

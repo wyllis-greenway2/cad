@@ -1559,3 +1559,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_326 — 2026-11-14 — directive
 > Do the angles beyond 90 degrees next
 (asks for angle mates past 90 degrees, listed as a known gap: they were limited to 0 to 90 as lines)
+
+## in_327 — 2026-11-14 — directive
+> Do the mate-number column going upward next
+(asks for the stacked mate numbers to be able to go upward, listed as a known gap: the column always went downward)
