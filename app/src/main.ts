@@ -263,19 +263,26 @@ function frame(now: number) {
     const working = busySign.update(f.busy, now);
     controls.hint(f.lookHint);
     hintIcons.update(f.hint?.kinds ?? [], onPage(f.hint?.at));
-    // a finger has no hover and cannot drag small arrows: it is offered a drag icon (it moves the cursor of a figure being drawn, or drags the arrow or ring that was tapped) and a check (sets the point, or applies the operation); a tap anywhere else cancels (`in_283`, `in_284`)
+    // a finger has no hover and cannot drag small arrows: each point of a figure being drawn (the ones set, and the next one, held) has a drag icon, joined to it by a dotted line, and so has an arrow or ring that was tapped; a tap anywhere else sets the point held, or applies (`in_283`..`in_288`)
     const th = lastDevice === "touch" ? f.touchHelper : null;
-    const anchor = th ? project(th.at) : null;
     const clampTo = (q: [number, number]): [number, number] => [Math.max(30, Math.min(size.w - 30, q[0])), Math.max(30, Math.min(size.h - 30, q[1]))];
-    let icon: [number, number] | null = null;
-    if (th && anchor) {
-      if (state.drag && "handle" in state.drag && lastIcon) icon = lastIcon; // (the icon stays where the finger took it while an arrow is being dragged)
-      else if (th.kind === "cursor") icon = clampTo([anchor[0] + 66, anchor[1] + 66]);
-      else { const below = clampTo([anchor[0], anchor[1] + 76]); icon = below[1] - anchor[1] < 40 ? clampTo([anchor[0], anchor[1] - 76]) : below; } // (below the arrow, or above it where there is no room)
-    }
-    lastIcon = icon;
-    recognizer.setTouchHelper(th && anchor && icon ? { kind: th.kind, anchor: [anchor[0], anchor[1]], icon, closes: th.kind === "handle" && th.applies, handles: th.handles.map((p) => p.map((q) => { const r = project(q); return [r[0], r[1]] as [number, number]; })) } : null);
-    touchHandle.update(icon ? [icon[0] + page.left, icon[1] + page.top] : null, anchor ? [anchor[0] + page.left, anchor[1] + page.top] : null, th?.kind === "cursor"); // (a figure: the point being placed shows as a vertex the icon is joined to; an arrow: the line runs to the arrow)
+    const anchors = th ? th.points.map((p) => ({ index: p.index, anchor: project(p.at) as [number, number] })) : [];
+    const icons = anchors.map((a, k) => {
+      if (th!.kind === "handle") {
+        if (state.drag && "handle" in state.drag && lastIcon) return { ...a, icon: lastIcon }; // (the icon stays where the finger took it while an arrow is being dragged)
+        const below = clampTo([a.anchor[0], a.anchor[1] + 76]);
+        return { ...a, icon: below[1] - a.anchor[1] < 40 ? clampTo([a.anchor[0], a.anchor[1] - 76]) : below }; // (below the arrow, or above it where there is no room)
+      }
+      // a point of a figure: the icon stands on the side away from the other points, so the icons do not cover each other or the figure
+      const others = anchors.filter((_, j) => j !== k);
+      const [cx, cy] = others.length ? [others.reduce((t, o) => t + o.anchor[0], 0) / others.length, others.reduce((t, o) => t + o.anchor[1], 0) / others.length] : [a.anchor[0] - 1, a.anchor[1] - 1];
+      const [dx, dy] = [a.anchor[0] - cx, a.anchor[1] - cy];
+      const len = Math.hypot(dx, dy) || 1;
+      return { ...a, icon: clampTo([a.anchor[0] + (dx / len) * 66, a.anchor[1] + (dy / len) * 66]) };
+    });
+    lastIcon = th?.kind === "handle" && icons[0] ? icons[0].icon : null;
+    recognizer.setTouchHelper(th && icons.length ? { kind: th.kind, icons: icons.map((c) => ({ anchor: c.anchor, icon: c.icon, index: c.index })), closes: th.kind === "handle" && th.applies, handles: th.handles.map((p) => p.map((q) => { const r = project(q); return [r[0], r[1]] as [number, number]; })) } : null);
+    touchHandle.update(icons.map((c) => ({ icon: [c.icon[0] + page.left, c.icon[1] + page.top] as [number, number], target: [c.anchor[0] + page.left, c.anchor[1] + page.top] as [number, number], vertex: th?.kind === "figure" })));
     boxView.update(f.box, page.left, page.top);
     host.style.cursor = f.cursor;
     const tBuilt = performance.now();

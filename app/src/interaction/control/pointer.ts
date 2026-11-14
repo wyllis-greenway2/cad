@@ -201,21 +201,48 @@ function trimUnder(sc: Scene, pv: ReturnType<ReturnType<typeof projector>["view"
 }
 
 /**
- * A tap while a sketch tool is on, for a finger (`in_286`): it has no hover, so a point is held first and moved with the drag icon (its hints are the hover's), and the next tap sets it. The tap sets the point the cursor is held
- * at, then holds the cursor where the tap was, for the next point; when that point finished the figure nothing is held, so a tap after the last point only applies it. The trim tool has one step: a tap is a click.
+ * A tap while a sketch tool is on, for a finger (`in_286`, `in_288`): it has no hover, so a figure starts as soon as it is tapped (the first point is set right there) and the next point is already held, a little way off,
+ * to be moved with its drag icon (its hints are the hover's) while the first has an icon of its own; a tap anywhere then sets the point held where it is. When that finished the figure nothing is held (an arc goes on to
+ * its bow); a tap after that starts the next figure. The trim tool has one step: a tap is a click.
  */
 export function doTapAim(s: AppState, i: Extract<Intent, { type: "tapAim" }>, env: Env): AppState {
   if (!s.tool || s.tool.kind === "trim") return doClick(s, { type: "click", x: i.x, y: i.y, count: 1, shift: false }, env);
-  const aim = (st: AppState): AppState => {
-    const held = doHover({ ...st, tool: { ...st.tool!, held: true } }, { type: "hover", x: i.x, y: i.y }, env); // (held first, so a tool with no plane yet keeps the cursor where it is aimed)
-    return held.tool?.cursor ? held : { ...held, tool: { ...held.tool!, held: undefined } };
-  };
-  if (!s.tool.held || !s.tool.cursor) return aim(s);
-  // the point held is set: a click where the cursor is
-  const at = projector(s.cam, env.w, env.h).project(s.tool.cursor);
-  const set = doClick({ ...s, tool: { ...s.tool, held: undefined } }, { type: "click", x: at[0], y: at[1], count: 1, shift: false }, env);
-  if (!set.tool || !set.tool.points.length) return set.tool ? { ...set, tool: { ...set.tool, held: undefined } } : set; // (the figure is made, or the tool is gone: nothing is held)
-  return aim(set); // (more points to come: the cursor is held where the tap was)
+  if (!s.tool.held || !s.tool.cursor) return holdNext(doClick({ ...s, tool: { ...s.tool, held: undefined } }, { type: "click", x: i.x, y: i.y, count: 1, shift: false }, env), env); // (the first point is set where the tap is)
+  const at = projector(s.cam, env.w, env.h).project(s.tool.cursor); // (the point held is set where it is)
+  return holdNext(doClick({ ...s, tool: { ...s.tool, held: undefined } }, { type: "click", x: at[0], y: at[1], count: 1, shift: false }, env), env);
+}
+
+/** After a point is set: the next is held a little way off where the tap can be seen and reached (up and to the right of the last point, so a rectangle or a circle shows at once; an arc's bow, to one side of its chord), unless the figure is made. */
+function holdNext(s: AppState, env: Env): AppState {
+  const t = s.tool;
+  if (!t || !t.points.length) return t ? { ...s, tool: { ...t, held: undefined } } : s; // (the figure is made, or the tool is gone: nothing is held)
+  const pr = projector(s.cam, env.w, env.h);
+  const last = pr.project(t.points[t.points.length - 1]!);
+  let target: [number, number] = [last[0] + 90, last[1] - 70];
+  if (t.kind === "arc" && t.points.length >= 2) {
+    const [a, b] = [pr.project(t.points[0]!), pr.project(t.points[1]!)];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    target = [(a[0] + b[0]) / 2 - ((b[1] - a[1]) / len) * 50, (a[1] + b[1]) / 2 + ((b[0] - a[0]) / len) * 50];
+  }
+  const [x, y] = [Math.max(40, Math.min(env.w - 40, target[0])), Math.max(90, Math.min(env.h - 90, target[1]))];
+  const held = doHover({ ...s, tool: { ...t, held: true } }, { type: "hover", x, y }, env);
+  return held.tool?.cursor ? held : { ...held, tool: { ...held.tool!, held: undefined } };
+}
+
+/** A finger drags the icon of a point already placed (`in_288`): the point goes where the icon is, with the hints a hover gives it (on a line, on a circle, tangent). */
+export function doMovePoint(s: AppState, i: Extract<Intent, { type: "movePoint" }>, env: Env): AppState {
+  const t = s.tool;
+  const sc = sceneOf(s.session);
+  const pl = t?.plane ? sc.parts[t.plane] : null;
+  if (!t || pl?.kind !== "plane" || i.index < 0 || i.index >= t.points.length) return s;
+  const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
+  const raw = snapOnPlane(sc, pv, pl);
+  if (!raw) return s;
+  const h = t.kind === "line" || t.kind === "arc" ? pointHint(sc, pl, pv, raw) : null;
+  const at = h?.hints.length ? h.at : raw;
+  const points = t.points.map((p, k) => (k === i.index ? at : p));
+  const ends = t.ends ? t.ends.map((e, k) => (k === i.index ? h?.hints ?? [] : e)) : t.ends;
+  return { ...s, tool: { ...t, points, ...(ends ? { ends } : {}), hints: h?.hints ?? [] } };
 }
 
 /** A click while a tool is armed: the first sets the plane and the first point, later ones place corners or finish the figure. */

@@ -79,10 +79,10 @@ export interface Frame {
   lookHint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null;
   /**
    * What a finger is offered (`in_283`, `in_284`): a finger has no hover and cannot press, drag and let go on small arrows, so there is a drag icon that does the dragging for it and a check that applies. `cursor`: a
-   * figure being drawn (the drag icon moves the cursor like a hover, the check is the click that sets the point). `handle`: an arrow or ring that has been tapped (or the only one there is) of an operation (the drag icon
-   * drags it, as the mouse would; the check applies the operation when one is open). `at` is where it is; `handles` every handle there (a tap on one selects it, a tap anywhere else cancels).
+   * figure being drawn (the first point is set and the next held: each has a drag icon, the held one moves like a hover, a placed one moves that point; a tap sets the held point). `handle`: an arrow or ring that has been tapped (or the only one there is) of an operation (the drag icon
+   * drags it, as the mouse would; a tap away from it applies the operation when one is open). `points` say where the icons are; `handles` every handle there (a tap on one selects it).
    */
-  touchHelper: { kind: "cursor" | "handle"; at: Vec3; handles: Vec3[][]; applies: boolean } | null;
+  touchHelper: { kind: "figure" | "handle"; /** each point a drag icon stands by: `index` is the placed point it moves (0 the first), or -1 for the cursor (the next point, held) / the handle */ points: { at: Vec3; index: number }[]; handles: Vec3[][]; applies: boolean } | null;
   /** whether there is something to undo / redo (the undo and redo buttons of a touch screen, `in_283`) */
   undoRedo: { undo: boolean; redo: boolean };
   /** the rectangle of a drag select being drawn, in pixels (`in_230`); `touching`: it was dragged from the right, so what it only touches is picked too */
@@ -238,10 +238,10 @@ function prismNew(s: AppState, op: Op, base: Session): { wait: true } | { face: 
 
 /** What a finger is offered now (see `Frame.touchHelper`). */
 function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame["touchHelper"] {
-  if (s.tool) return s.tool.held && s.tool.cursor ? { kind: "cursor", at: s.tool.cursor, handles: [], applies: false } : null; // (a finger holds the cursor: it is moved with the drag icon, and the next tap sets the point there, `in_286`)
+  if (s.tool) return s.tool.held && s.tool.cursor ? { kind: "figure", points: [...s.tool.points.map((at, index) => ({ at, index })), { at: s.tool.cursor, index: -1 }], handles: [], applies: false } : null; // (a finger holds the next point: it and the points already set each have a drag icon, and a tap sets the one held, `in_286`, `in_288`)
   if (!gizmo || (s.drag && !("handle" in s.drag))) return null;
   const chosen = s.handleSel ? gizmo.handles.find((h) => h.id === s.handleSel) : (s.op || s.repeat) && gizmo.handles.length === 1 ? gizmo.handles[0] : undefined;
-  return chosen ? { kind: "handle", at: handleMiddle(chosen), handles: gizmo.handles.map((h) => h.points), applies: !!(s.op || s.repeat) } : null;
+  return chosen ? { kind: "handle", points: [{ at: handleMiddle(chosen), index: -1 }], handles: gizmo.handles.map((h) => h.points), applies: !!(s.op || s.repeat) } : null;
 }
 
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */

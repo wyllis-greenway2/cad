@@ -37,7 +37,7 @@ test("an arrow of Move is tapped to select it; then the helper stands on it, the
   f = frameOf(st, { w: env.w, h: env.h });
   assert.equal(f.touchHelper?.kind, "handle", "the arrow is chosen: the helper is offered");
   assert.equal(f.touchHelper?.applies, true, "an operation is open: the check applies it");
-  const at = pr.project(f.touchHelper!.at);
+  const at = pr.project(f.touchHelper!.points[0]!.at);
   assert.ok(Math.hypot(at[0] - mid[0], at[1] - mid[1]) < 1, "the helper stands on the arrow");
   // the proxy drag: what the recogniser sends for a finger dragging the icon (the first move says where it began: the arrow)
   const before = Object.values(scene(st.session).parts).find((p) => p.kind === "body") as Extract<Part, { kind: "body" }>;
@@ -65,25 +65,48 @@ test("a single arrow (push / pull of a face) offers the helper at once once the 
 });
 
 import { projector as proj, lookStraight } from "../src/interaction/camera.ts";
-test("sketching with a finger (`in_286`): a tap holds the cursor, the next tap sets the point there and holds the cursor at the tap, the next sets the last point and the figure is made; the held cursor takes the hints a hover would; dragging the icon moves it", () => {
+test("sketching with a finger (`in_288`): the first tap sets the first point where it is and the second is already held beside it, each with a drag icon; dragging the first icon moves the first point, dragging the other moves the held one, and a tap anywhere sets the held point: the figure is made", () => {
   let st: AppState = { ...createState(createSession(kernel)), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 15, 0] } };
   const px = (p: [number, number, number]) => proj(st.cam, env.w, env.h).project(p);
-  const tap = (p: [number, number, number]) => { const q = px(p); st = reduce(st, { type: "tapAim", x: q[0], y: q[1] }, env); };
+  const f = () => frameOf(st, { w: env.w, h: env.h });
   st = reduce(st, { type: "begin", name: "rect" }, env);
-  assert.equal(frameOf(st, { w: env.w, h: env.h }).touchHelper, null, "nothing held yet");
-  tap([5, 5, 0]);
-  assert.equal(st.tool!.points.length, 0, "the first tap only holds the cursor");
-  assert.equal(frameOf(st, { w: env.w, h: env.h }).touchHelper?.kind, "cursor", "the drag icon is there");
-  // dragging the icon: the recogniser sends hovers
-  const d = px([6, 5, 0]);
-  st = reduce(st, { type: "hover", x: d[0], y: d[1] }, env);
-  assert.ok(st.tool!.held && st.tool!.cursor);
-  tap([25, 15, 0]); // sets the corner where the cursor is held, and holds the cursor at the tap
+  assert.equal(f().touchHelper, null, "nothing yet");
+  const a = px([5, 5, 0]);
+  st = reduce(st, { type: "tapAim", x: a[0], y: a[1] }, env);
+  assert.equal(st.tool!.points.length, 1, "the first point is set where the tap is");
+  assert.ok(st.tool!.held && st.tool!.cursor, "the second is held");
+  assert.deepEqual(f().touchHelper!.points.map((p) => p.index), [0, -1], "an icon for each point: the first, and the held one");
+  // the first icon moves the first point
+  const m = px([7, 6, 0]);
+  st = reduce(st, { type: "movePoint", index: 0, x: m[0], y: m[1] }, env);
+  assert.ok(Math.abs(st.tool!.points[0]![0] - 7) < 0.3 && Math.abs(st.tool!.points[0]![1] - 6) < 0.3, `the first point moved: ${st.tool!.points[0]}`);
+  // the held icon moves the held point
+  const c = px([25, 14, 0]);
+  st = reduce(st, { type: "hover", x: c[0], y: c[1] }, env);
+  // a tap anywhere sets the held point where it is: the rectangle is made
+  const far = px([0, 25, 0]);
+  st = reduce(st, { type: "tapAim", x: far[0], y: far[1] }, env);
+  const face = Object.values(scene(st.session).parts).filter((p) => p.kind === "face");
+  assert.equal(face.length, 1, "one rectangle");
+  const corners = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as unknown as { at: number[] }).at);
+  assert.ok(corners.some((q) => Math.abs(q[0]! - 7) < 0.3 && Math.abs(q[1]! - 6) < 0.3) && corners.some((q) => Math.abs(q[0]! - 25) < 0.3 && Math.abs(q[1]! - 14) < 0.3), "from the moved first point to the held one");
+  assert.ok(!st.tool?.held, "nothing is held after the figure");
+  assert.equal(f().touchHelper, null);
+});
+
+test("an arc by touch: the first point set, the second held; setting it holds the bow; each point has an icon", () => {
+  let st: AppState = { ...createState(createSession(kernel)), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 15, 0] } };
+  const px = (p: [number, number, number]) => proj(st.cam, env.w, env.h).project(p);
+  st = reduce(st, { type: "begin", name: "arc" }, env);
+  const a = px([5, 5, 0]);
+  st = reduce(st, { type: "tapAim", x: a[0], y: a[1] }, env);
   assert.equal(st.tool!.points.length, 1);
-  assert.ok(Math.abs(st.tool!.points[0]![0] - 6) < 0.3, `the first corner is where the icon moved the cursor: ${st.tool!.points[0]}`);
-  assert.ok(st.tool!.held, "the cursor is held for the second corner");
-  tap([30, 5, 0]); // sets the second corner where the cursor was held (25, 15): the figure is made
-  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length, 1, "one rectangle");
-  assert.ok(!st.tool?.held, "nothing is held after the last point: a tap after it only applies");
-  assert.equal(frameOf(st, { w: env.w, h: env.h }).touchHelper, null);
+  const b = px([25, 5, 0]);
+  st = reduce(st, { type: "hover", x: b[0], y: b[1] }, env);
+  st = reduce(st, { type: "tapAim", x: 10, y: 10 }, env); // sets the second end where it is held
+  assert.equal(st.tool!.points.length, 2, "both ends are set");
+  assert.ok(st.tool!.held, "the bow is held");
+  assert.deepEqual(frameOf(st, { w: env.w, h: env.h }).touchHelper!.points.map((p) => p.index), [0, 1, -1], "an icon for each end and the bow");
+  st = reduce(st, { type: "tapAim", x: 10, y: 10 }, env); // sets the bow: the arc is made
+  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn" && p.center).length, 1, "an arc");
 });

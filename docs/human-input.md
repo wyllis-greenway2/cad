@@ -1390,3 +1390,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_287 — 2026-11-14 — directive
 > Okay but on the first click it is not clear what you are dragging because there is no virticy or indication that you are dragging a start point, it just looks like empty space
 (on touch, after the first tap the drag icon stands in empty space: nothing shows which point it moves; asks for a visible vertex or other indication of the start point being dragged)
+
+## in_288 — 2026-11-14 — directive
+> How about we try something new, when you are sketching in mobile, it adds the first dot right where you click already, and the drag is already ready to move the second dot at destination. But now we have two drag icons, so you can drag the start or finish.
+(asks for a new touch flow for sketching: the first tap places the first point where it is, the second point is already there with its drag icon ready, and each of the two points has its own drag icon so the start or the finish can be dragged)
