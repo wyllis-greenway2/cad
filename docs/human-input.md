@@ -1599,3 +1599,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_336 — 2026-11-14 — directive
 > Do the browser pass over the touch case next
 (asks for the recent mate slices to be looked at with touch input in a real browser: the refusal, the joint handles, the mate marks and bubbles)
+
+## in_337 — 2026-11-14 — directive
+> Do the browser pass over the turn ring by touch next
+(asks for the joint's turn ring to be looked at with touch input in a real browser)
