@@ -30,7 +30,7 @@ export type Command =
   | { type: "setStepParams"; id: string; params: Record<string, number | string> }
   /** Move or turn a drawn figure in space like an object (`in_135`): its corners (and circles, lines) with the plane they lie on. `turns` are about the world axes through `pivot`, in order, then `translate`.
    *  If the plane is shared with other drawings (a world plane, a face of the body) the figure gets a new drawn plane, named `newPlane`. */
-  | { type: "transformFigure"; parts: Ref[]; plane: Ref; newPlane: Ref; turns: { axis: 0 | 1 | 2; angle: number }[]; pivot: Vec3; translate: Vec3; /** made this many times bigger about `pivot`, after the turns (the same all ways; circles too) */ scale?: number }
+  | { type: "transformFigure"; parts: Ref[]; plane: Ref; newPlane: Ref; turns: { axis: 0 | 1 | 2; angle: number }[]; pivot: Vec3; translate: Vec3; /** made this many times bigger about `pivot`, after the turns (the same all ways; circles too) */ scale?: number; /** a plane drawn when there was one body has no owner: this names the body it belongs to, so a later move of that body is read back through for what is drawn on it (`in_277`) */ body?: string }
   /** group things (parts, or groups made before) so that selecting one selects all; `id` is a new group id (`in_257`) */
   | { type: "group"; id: string; items: string[] }
   /** break one group: what was in it stays, and a group inside it stays a group */
@@ -94,10 +94,10 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       const inPlace = pl.origin === "drawn" && !others;
       const target: Ref = inPlace ? pl.ref : c.newPlane;
       const parts: Record<Ref, Part> = { ...s.parts };
-      if (inPlace) parts[pl.ref] = { ...pl, at: move(pl.at), u: turn(pl.u), v: turn(pl.v) };
+      if (inPlace) parts[pl.ref] = { ...pl, at: move(pl.at), u: turn(pl.u), v: turn(pl.v), ...(c.body && !pl.body ? { body: c.body } : {}) };
       else {
         if (c.newPlane in s.parts) return err(`${c.newPlane} already exists`);
-        parts[c.newPlane] = { ref: c.newPlane, kind: "plane", origin: "drawn", plane: null, movable: false, at: move(pl.at), u: turn(pl.u), v: turn(pl.v), ...(pl.onBody ? { onBody: true as const } : {}), ...(pl.body ? { body: pl.body } : {}) };
+        parts[c.newPlane] = { ref: c.newPlane, kind: "plane", origin: "drawn", plane: null, movable: false, at: move(pl.at), u: turn(pl.u), v: turn(pl.v), ...(pl.onBody ? { onBody: true as const } : {}), ...(pl.body || c.body ? { body: pl.body ?? c.body! } : {}) };
       }
       for (const ref of c.parts) {
         const p = s.parts[ref];

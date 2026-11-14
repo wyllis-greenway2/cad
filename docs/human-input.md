@@ -1519,3 +1519,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_316 — 2026-11-14 — directive
 > Mark the mates on the model next
 (asks for the mates to be shown on the model itself: where two bodies are mated, with their state)
+
+## in_317 — 2026-11-14 — directive
+> okay so I want you to help fix some bugs. Look at this file, the body with the hole in it disappears if you try to move it
+(asks for bug fixing, starting with a saved file, `body_with_hole_dissapears_on_move_model.cad_44.json`, in which the body that has a hole disappears when it is moved; the file is kept as `app/test/fixtures/hole-body-move-in_317.cad.json`)

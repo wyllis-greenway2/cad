@@ -780,17 +780,37 @@ export function carrySketches(scene: Scene, turns: { axis: 0 | 1 | 2; angle: num
   // one body of several: the sketches of the step that made it (its sides and circles, and their corners), not the others' (`in_271`)
   const birth = only ? scene.steps.find((st) => `x_${st.id}` === only) : undefined;
   const own = new Set<Ref>();
-  if (birth) for (const r of figureRefs(birth)) { own.add(r); const l = scene.parts[r]; if (l?.kind === "line") { own.add(l.a); own.add(l.b); if (l.center) own.add(l.center); } else if (l?.kind === "circle") own.add(l.center); }
+  if (birth) for (const r of figureRefs(birth)) {
+    own.add(r);
+    const l = scene.parts[r];
+    if (l?.kind === "line") { own.add(l.a); own.add(l.b); if (l.center) own.add(l.center); } else if (l?.kind === "circle") own.add(l.center);
+    // a piece of a cut shape (an arc or a side cut from a circle or a line) is named after what it was cut from and where it ends ("d/arc@e_001.k@e_012.p0@x@..."): those curves and corners are the body's sketch too, or the piece loses them and the step breaks (the body is gone)
+    if (r.includes("@")) for (const t of r.split("@")) {
+      const q = /^e_\d+\.[a-z0-9]+$/.test(t) ? scene.parts[`d/${t}` as Ref] : undefined;
+      if (!q) continue;
+      own.add(q.ref);
+      if (q.kind === "circle") own.add(q.center);
+      else if (q.kind === "line") { own.add(q.a); own.add(q.b); if (q.center) own.add(q.center); }
+    }
+  }
   const used = only ? own : consumed(scene);
   // what is drawn on a face of the body belongs to the body too and goes with it (`in_234`); what merely lies where a face is does not (it has no link)
   // what is drawn on a face of the body goes with it; with one body of several, only what is drawn on a face of that body (`in_277`)
-  const onFace = Object.values(scene.parts).filter((p) => { const pl = p.origin === "drawn" && p.plane ? (scene.parts[p.plane] as { onBody?: boolean; body?: string } | undefined) : undefined; return pl?.onBody === true && (!only || pl.body === only); }).map((p) => p.ref);
+  // (a plane made while there was one body has no owner: it belongs to the body whose box holds what is drawn on it, `inBox`)
+  const box = only ? Object.values(scene.parts).find((b): b is Extract<Part, { kind: "body" }> => b.kind === "body" && b.id === only)?.bbox : undefined;
+  const inBox = (p: Part): boolean => !!box && p.kind === "corner" && p.at.every((v, i) => v >= box.min[i]! - 1e-3 && v <= box.max[i]! + 1e-3);
+  const unowned = new Set<Ref>();
+  if (only && box) {
+    const centres = (pl: Ref) => Object.values(scene.parts).filter((q) => q.origin === "drawn" && q.plane === pl && q.kind === "corner");
+    for (const pl of Object.values(scene.parts)) if (pl.kind === "plane" && pl.onBody === true && !pl.body && centres(pl.ref).length && centres(pl.ref).every(inBox)) unowned.add(pl.ref);
+  }
+  const onFace = Object.values(scene.parts).filter((p) => { const pl = p.origin === "drawn" && p.plane ? (scene.parts[p.plane] as { onBody?: boolean; body?: string } | undefined) : undefined; return pl?.onBody === true && (!only || pl.body === only || unowned.has(p.plane!)); }).map((p) => p.ref);
   const parts = [...new Set([...used, ...onFace])].filter((r) => { const p = scene.parts[r]; return p && p.origin === "drawn" && p.movable && (p.kind === "corner" || p.kind === "line" || p.kind === "circle") && !("derived" in p && p.derived) && !!p.plane; });
   if (!parts.length) return [];
   const byPlane = new Map<Ref, Ref[]>();
   for (const r of parts) { const pl = scene.parts[r]!.plane!; byPlane.set(pl, [...(byPlane.get(pl) ?? []), r]); }
   const base = nextId(scene, "p");
-  const moves = [...byPlane.entries()].map(([plane, ps], k): Command => ({ type: "transformFigure", parts: ps, plane, newPlane: drawnRef(`${base}.k${k}`), turns, pivot, translate, ...(bigger !== 1 ? { scale: bigger } : {}) }));
+  const moves = [...byPlane.entries()].map(([plane, ps], k): Command => ({ type: "transformFigure", parts: ps, plane, newPlane: drawnRef(`${base}.k${k}`), turns, pivot, translate, ...(bigger !== 1 ? { scale: bigger } : {}), ...(only && unowned.has(plane) ? { body: only } : {}) }));
   // a scale makes the numbers locked on the carried sketch (a length, a distance, a diameter, a radius) as many times bigger too, or they would hold the sketch at its old size
   const carried = new Set<Ref>(parts);
   const sized = bigger === 1 ? [] : scene.relations.filter((r) => r.value !== undefined && ["length", "distance", "diameter", "radius"].includes(r.kind) && r.parts.every((q) => carried.has(q) || (scene.parts[q]?.kind === "line" && carried.has((scene.parts[q] as { a: Ref }).a))));
