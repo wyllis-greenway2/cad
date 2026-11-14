@@ -1635,3 +1635,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_345 — 2026-11-14 — directive
 > check it in the real browser with playwright
 (about the `in_341` / `in_344` fix of the curved edge: look at it in the real app, not only headless)
+
+## in_346 — 2026-11-14 — directive
+> try chamfering those edges in the browser
+(the three curved edges of the tilted cut in the `in_341` file; follows `in_345`)
