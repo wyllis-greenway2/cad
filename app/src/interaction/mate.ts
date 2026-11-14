@@ -22,7 +22,8 @@ type Mat = [Vec3, Vec3, Vec3]; // rows
 /** Why these two faces cannot be mated this way, or null. */
 export function whyNotMate(scene: Scene, mode: MateMode, mover: Ref, other: Ref): string | null {
   const [a, b] = [featureOf(scene, mover, mode), featureOf(scene, other, mode)];
-  if (!a || !b) return isFlatMode(mode) ? "two flat faces of two bodies" : "two round faces of two bodies";
+  if (!a || !b) return mode === "axisToFace" ? "a flat face and a round face of two bodies" : isFlatMode(mode) ? "two flat faces of two bodies" : "two round faces of two bodies";
+  if (mode === "axisToFace" && (a.radius > 0) === (b.radius > 0)) return "a flat face and a round face (one of each)";
   if (a.body === b.body) return "the faces are of one body: choose a face of each of two bodies";
   return null;
 }

@@ -11,10 +11,11 @@ import { normalOfPlane, roundOf } from "./part.ts";
 /**
  * flush: face on face with a gap; coaxial: round face on round face; parallel: only turned until the flat faces are parallel; parallelAxes: the same for the axes of round faces (`in_317`);
  * perpendicular and perpendicularAxes: turned until they are at a right angle; angle and angleAxes: turned until they are at the typed angle (degrees, 0 to 90; kept in `gap`) (`in_318`).
+ * axisToFace: the axis of a round face is turned to stand at a right angle to a flat face (along its normal), whichever of the two is first (`in_325`).
  * The angle is the one between the faces' planes, or between the axes, as lines: the faces have no "right way round" for these.
  */
-export type MateMode = "flush" | "coaxial" | "parallel" | "parallelAxes" | "perpendicular" | "perpendicularAxes" | "angle" | "angleAxes";
-const MODES: MateMode[] = ["flush", "coaxial", "parallel", "parallelAxes", "perpendicular", "perpendicularAxes", "angle", "angleAxes"];
+export type MateMode = "flush" | "coaxial" | "parallel" | "parallelAxes" | "perpendicular" | "perpendicularAxes" | "angle" | "angleAxes" | "axisToFace";
+const MODES: MateMode[] = ["flush", "coaxial", "parallel", "parallelAxes", "perpendicular", "perpendicularAxes", "angle", "angleAxes", "axisToFace"];
 const modeOf = (n: number | undefined): MateMode => MODES[n ?? 0] ?? "flush";
 const numberOfMode = (m: MateMode): number => MODES.indexOf(m);
 /** Does the mate join flat faces (else round ones)? */
@@ -31,6 +32,7 @@ export function featureOf(scene: Scene, ref: Ref, mode: MateMode): MateFeature |
   if (p?.kind !== "plane" || p.origin !== "body" || !p.of) return null;
   const body = scene.parts[p.of];
   if (body?.kind !== "body" || !body.id) return null;
+  if (mode === "axisToFace") return featureOf(scene, ref, "flush") ?? featureOf(scene, ref, "coaxial"); // (a flat face by its normal, a round one by its axis)
   if (isFlatMode(mode)) return p.curved || p.round || p.rounded ? null : { ref, body: body.ref, bodyId: body.id, point: p.at, dir: normalOfPlane(p), radius: 0 };
   const r = roundOf(lookup(scene), ref);
   return r?.normal ? { ref, body: body.ref, bodyId: body.id, point: r.center, dir: normalize(r.normal), radius: r.radius } : null;
@@ -56,13 +58,13 @@ function findFace(scene: Scene, body: Ref, mode: MateMode, want: { point: Vec3; 
   for (const p of Object.values(scene.parts) as Part[]) {
     if (p.kind !== "plane" || p.origin !== "body" || p.of !== body) continue;
     const f = featureOf(scene, p.ref, mode);
-    if (!f) continue;
+    if (!f || (mode === "axisToFace" && (f.radius > 0) !== (want.radius > 0))) continue; // (the kind of face it was: flat or round)
     const turn = mode === "flush" ? angle(f.dir, want.dir) : Math.min(angle(f.dir, want.dir), Math.PI - angle(f.dir, want.dir)); // (a flush face has its way round; a round face's axis, and a face that is only parallel, have none)
     const loose = turnOnly(mode); // (a mate that is about a turn: the face may have been turned a good way since, and is still the one)
     if (turn > (loose ? 0.8 : 0.14)) continue; // (more than eight degrees from it, or forty-five for a mate that turns)
     const d = sub(f.point, want.point);
     const along = dot(d, want.dir);
-    const score = (isFlatMode(mode) ? Math.abs(along) : Math.hypot(d[0] - want.dir[0] * along, d[1] - want.dir[1] * along, d[2] - want.dir[2] * along) + Math.abs(f.radius - want.radius)) + (loose ? 5 : 30) * turn;
+    const score = (isFlatMode(mode) || (mode === "axisToFace" && want.radius === 0) ? Math.abs(along) : Math.hypot(d[0] - want.dir[0] * along, d[1] - want.dir[1] * along, d[2] - want.dir[2] * along) + Math.abs(f.radius - want.radius)) + (loose ? 5 : 30) * turn;
     if (!best || score < best.score) best = { f, score };
   }
   return best && best.score <= 10 ? best.f : null;

@@ -547,3 +547,28 @@ test("the edges of a body behind a face are drawn faintly only while a sketch to
   assert.ok(drawing.tool, "the tool is on");
   assert.equal(frameOf(drawing, env).hiddenEdges, true);
 });
+
+test("Mate: a round face's axis perpendicular to a flat face turns the body until the axis is along the face's normal, either face first; it stays where it is (`in_325`)", () => {
+  let s = cylinder(box(createSession(kernel), 0, 0, 30, 4), 40, 0, 3, 8);
+  const [a, b] = bodies(s);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "rotate", parts: [b!.ref], params: { axis: 0, value: 35, px: 40, py: 0, pz: 0, body: b!.id } } } as never);
+  const pin = bodies(s).find((x) => x.id === b!.id)!;
+  const height = (q: Body) => q.bbox!.max[2]! - q.bbox!.min[2]!;
+  assert.ok(Math.abs(height(pin) - 8) > 1, `the pin is tilted: ${height(pin)}`);
+  const top = faceOf(s, bodies(s).find((x) => x.id === a!.id)!, [0, 0, 1]);
+  const act = actionsFor(scene(s), [roundOfBody(s, pin), top]).find((x) => x.id === "mate:axisToFace");
+  assert.ok(act?.enabled, `offered for a round and a flat face: ${act?.why}`);
+  const done = run(s, act!.run());
+  assert.ok(!done.message, `${done.message}`);
+  const st = mateStatus(scene(done))[0]!;
+  assert.equal(st.mode, "axisToFace");
+  assert.equal(st.state, "ok", `${st.residual}`);
+  assert.ok(Math.abs(height(bodies(done).find((x) => x.id === b!.id)!) - 8) < 1e-3, "the pin stands upright again");
+  assert.deepEqual(minOf(bodies(done).find((x) => x.id === a!.id)!), minOf(bodies(s).find((x) => x.id === a!.id)!), "the plate did not move");
+  // two flat faces, or two round ones, are not this mate
+  const two = actionsFor(scene(s), [top, faceOf(s, bodies(s).find((x) => x.id === a!.id)!, [1, 0, 0])]).find((x) => x.id === "mate:axisToFace");
+  assert.ok(!two || !two.enabled, "not for two flat faces");
+  // the flat face first: the plate is turned (it is the mover); it is the other way round, and put back when the pin turns again
+  const flip = run(s, actionsFor(scene(s), [top, roundOfBody(s, pin)]).find((x) => x.id === "mate:axisToFace")!.run());
+  assert.equal(mateStatus(scene(flip))[0]!.state, "ok");
+});

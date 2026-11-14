@@ -3,7 +3,7 @@ id: dec_body_mates
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_306, in_307, in_314, in_315, in_316, in_317, in_318, in_319, in_320
+human_input: in_306, in_307, in_314, in_315, in_316, in_317, in_318, in_319, in_320, in_325
 date: 2026-11-14
 depends_on:
   - dec_independent_bodies: the bodies that are mated are the independent bodies of one model, each named by the step that made it
@@ -40,3 +40,5 @@ Not a standing constraint (bodies do not follow their mates by themselves): that
 ## Rationale
 
 A placement mate needs no new subsystem: the kernel already moves and turns one body of several, the sketches follow, and the history already replays. It gives the assembly user the most used action (put this face on that face, this pin in that hole) at once, and its steps are the ones a standing mate would later keep correcting, so nothing built here is thrown away.
+
+**Axis perpendicular to a face (`in_325`, AI's reading, for the human to correct).** A flat face and a round face's axis can be mated so the axis stands at a right angle to the face (along its normal): a pin upright on a plate. The mode is `axisToFace`; the first face's body is only turned (nothing is moved), either face may be first, and the pair must be one flat and one round face. It is the turn-only family (`in_317`): checked, standing (`in_321`), put back. Not built: a mixed mate with a typed angle, or a parallel one (an axis lying in a face's plane), and the pin is not brought onto the face (use coaxial with a hole, or move it).

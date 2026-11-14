@@ -91,11 +91,11 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
   if (sel.length === 2) {
     const kinds: [MateMode, string, "mm" | "deg" | null][] = [
       ["flush", "Mate: flush faces", "mm"], ["parallel", "Mate: parallel faces", "mm"], ["perpendicular", "Mate: perpendicular faces", null], ["angle", "Mate: angle between faces", "deg"],
-      ["coaxial", "Mate: coaxial", "mm"], ["parallelAxes", "Mate: parallel axes", null], ["perpendicularAxes", "Mate: perpendicular axes", null], ["angleAxes", "Mate: angle between axes", "deg"],
+      ["coaxial", "Mate: coaxial", "mm"], ["parallelAxes", "Mate: parallel axes", null], ["perpendicularAxes", "Mate: perpendicular axes", null], ["angleAxes", "Mate: angle between axes", "deg"], ["axisToFace", "Mate: axis perpendicular to a face", null],
     ];
     for (const [mode, label, unit] of kinds) {
       const why = whyNotMate(scene, mode, sel[0]!, sel[1]!);
-      if (why && (isFlatMode(mode) ? !isFlatBodyFace(get, sel) : !isRoundBodyFace(get, sel))) continue; // (not this kind of faces: no row for it)
+      if (why && (mode === "axisToFace" ? !(isFlatBodyFace(get, [sel[0]!]) !== isFlatBodyFace(get, [sel[1]!]) || (isRoundBodyFace(get, [sel[0]!]) !== isRoundBodyFace(get, [sel[1]!]))) : isFlatMode(mode) ? !isFlatBodyFace(get, sel) : !isRoundBodyFace(get, sel))) continue; // (not this kind of faces: no row for it)
       const [fa, fb] = [featureOf(scene, sel[0]!, mode), featureOf(scene, sel[1]!, mode)];
       const degrees = unit === "deg";
       out.push({
