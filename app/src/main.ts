@@ -275,7 +275,7 @@ function frame(now: number) {
     }
     lastIcon = icon;
     recognizer.setTouchHelper(th && anchor && icon ? { kind: th.kind, anchor: [anchor[0], anchor[1]], icon, closes: th.kind === "handle" && th.applies, handles: th.handles.map((p) => p.map((q) => { const r = project(q); return [r[0], r[1]] as [number, number]; })) } : null);
-    touchHandle.update(icon ? [icon[0] + page.left, icon[1] + page.top] : null);
+    touchHandle.update(icon ? [icon[0] + page.left, icon[1] + page.top] : null, anchor ? [anchor[0] + page.left, anchor[1] + page.top] : null, th?.kind === "cursor"); // (a figure: the point being placed shows as a vertex the icon is joined to; an arrow: the line runs to the arrow)
     boxView.update(f.box, page.left, page.top);
     host.style.cursor = f.cursor;
     const tBuilt = performance.now();

@@ -1844,3 +1844,6 @@ The first long run (200 seeds of 120 steps, both modes) stopped at four failures
 
 ## Handoff 273 — 2026-11-14 (in_286, follow-up: the check that was still there)
 The human still saw a checkmark after Handoff 272. The one beside the drag icon was already gone; **the one left was the pill at the top for an open operation (tick and cross)**, which I had not touched. On a touch screen that pill now shows only the cross (cancel); a tap away from the operation applies it (`ui/toolchip.ts`, `touch` argument from `main.ts`). **Kept, as `in_283` asked:** the check on the pill of a sketch tool once a figure is made and none is half drawn (it puts the tool away: "done"). If the human means that one too, it can go: the tool is then put away with the cross or by the menu.
+
+## Handoff 274 — 2026-11-14 (in_287: what the drag icon drags)
+`in_287`: after the first tap the drag icon stood in empty space. Now the point being placed is drawn as a **vertex** (a ring with a dot) and a dotted line joins it to the drag icon; for an arrow or ring of an operation the dotted line runs from the icon to the arrow (`ui/touchcursor.ts`, positions from `main.ts`). Looked at in the touch browser for a rectangle's first corner and for Move's X arrow. Drawing only; no logic changed.

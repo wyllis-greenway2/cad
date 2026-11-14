@@ -1386,3 +1386,7 @@ Sent a model (kept as `app/test/fixtures/inner-fillet.cad.json`; the fillet that
 ## in_286 — 2026-11-12 — directive
 > Okay another problem with mobile, is that you cant even set the position of your original click well because there are no hover indicators. So all the helpful constraint suggestions on mouse dont exist for mobile. Lets try this. On mobile, first off, lets get rid of the checkmark, instead I think just clicking out should apply like right click on mouse does today. So the first click should set position and drag should set the second position as it does today and drag should be able to move that position with the constraint helpers. Then a second click should set the second point and drag should also be able to set that point. How else do you think we can handle hover loss on mobile generically?
 (asks to drop the check icon on touch so that tapping elsewhere applies as a right click does; the first tap sets a position and a drag can move it with the constraint helpers, a second tap sets the second point and a drag can also set that; asks for ideas for making up for the lack of hover on touch in general)
+
+## in_287 — 2026-11-14 — directive
+> Okay but on the first click it is not clear what you are dragging because there is no virticy or indication that you are dragging a start point, it just looks like empty space
+(on touch, after the first tap the drag icon stands in empty space: nothing shows which point it moves; asks for a visible vertex or other indication of the start point being dragged)
