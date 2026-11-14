@@ -104,7 +104,8 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
   const r6 = (v: Vec3): Vec3 => v.map((x) => Math.round(x * 1e6) / 1e6) as unknown as Vec3;
   const turns = eulerXYZ(R);
   const translate = r6(move);
-  const made = mateRelation(again ?? nextId(scene, "r"), mode, gap, a, b, { mover: { point: moverWhenTrue, dir: turnOnly(mode) ? rotate(R, a.dir) : want }, other: { point: b.point, dir: b.dir } }, counts, standing);
+  const own = turns.length + (length(translate) > 1e-9 ? 1 : 0); // (the steps the mate makes before it is recorded: it is true after them)
+  const made = mateRelation(again ?? nextId(scene, "r"), mode, gap, a, b, { mover: { point: moverWhenTrue, dir: turnOnly(mode) ? rotate(R, a.dir) : want }, other: { point: b.point, dir: b.dir } }, counts, standing, scene.steps.length + own);
   const kept = again ? scene.relations.find((r) => r.id === again)?.params : undefined; // (the drive values and limits of a joint stay when the mate is put back)
   if (kept) for (const k of JOINT_KEYS) if (k in kept) made.params![k] = kept[k]!;
   const record: Command = { type: "addRelation", relation: made };
@@ -289,4 +290,24 @@ export function setMateValue(scene: Scene, id: string, value: number): Command |
   const v = angle ? Math.min(180, Math.max(0, value)) : Math.max(0, value);
   const r = mateCommand(scene, m.mode, m.mover.ref, m.other.ref, v, id, m.counts !== false, !!m.standing);
   return "command" in r ? r.command : null;
+}
+
+/**
+ * A command that moves or turns a whole body is solved against the body's standing mates before it is made (`in_343`), so the state never leaves the mates: what is made is the pose the mates leave it at, the steps of the move that was
+ * asked for are not made. Returns the command to make; null when the mates leave the body nowhere to go that way (nothing is made); the command itself when it moves no body, or no mate holds the move back.
+ */
+export function projectOnMates(scene: Scene, c: Command): Command | null {
+  const list = c.type === "batch" ? c.commands : [c];
+  if (list.some((x) => x.type === "addRelation" || x.type === "removeRelation")) return c; // (a mate being made or taken away is not a move)
+  const motion = list.flatMap((x) => (x.type === "addStep" && (x.step.type === "move" || x.step.type === "rotate") && Number(x.step.params.follow) === 1 && x.step.params.body ? [x.step] : []));
+  const bodies = new Set(motion.map((st) => String(st.parts[0])));
+  if (!motion.length || bodies.size !== 1) return c;
+  // (the rest of the command is only what carries the sketches of the body along with it)
+  if (list.some((x) => x.type !== "addStep" && x.type !== "transformFigure" && x.type !== "batch")) return c;
+  const body = motion[0]!.parts[0]!;
+  if (scene.parts[body]?.kind !== "body") return c;
+  const rigid = laterMotion(motion, -1, () => true);
+  const held = heldCommand(scene, body, rigid);
+  if (!held) return c;
+  return held.type === "batch" && !held.commands.length ? null : held;
 }

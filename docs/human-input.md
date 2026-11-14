@@ -1623,3 +1623,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_342 — 2026-11-14 — question
 > why was I able to rotate this cylinder even though it was in a coaxial constraint with the hole in the block? Shouldn't that have violated it?
 (a bug report on the coaxial mate, with a state snapshot and a saved model; the model is kept as `app/test/fixtures/cylinder-rotated-off-in_342.json`)
+
+## in_343 — 2026-11-14 — approval
+> Yes, do it in those two steps
+(approves the proposal in the reply to the question about the root cause: first a mate follows its faces by the body's recorded motion, not by looking for them; then every command that moves a body is solved against its standing mates before it is made)

@@ -790,3 +790,44 @@ test("a standing correction of a coaxial mate does not spin the body about the a
   const added = scene(moved).steps.slice(before);
   assert.ok(added.every((x) => x.type === "move"), `only moves, no turns: ${added.map((x) => x.type)}`);
 });
+
+test("a mate follows its faces by the body's own recorded moves and turns: a body turned 80 degrees or pulled 200 mm, with the mate only placed once, has its mate off, never lost, and the faces are the same ones (`in_343`)", () => {
+  let s = cylinder(cylinder(createSession(kernel), 0, 0, 5), 40, 4, 3, 14);
+  const [a, b] = bodies(s);
+  s = once(run(s, actionsFor(scene(s), [roundOfBody(s, b!), roundOfBody(s, a!)]).find((x) => x.id === "mate:coaxial")!.run()));
+  const pin = bodies(s).find((x) => x.id === b!.id)!;
+  const status = (q: Session) => mateStatus(scene(q))[0]!;
+  assert.equal(scene(s).relations.find((r) => r.kind === "mate")!.params!.steps, scene(s).steps.length, "the mate keeps how many steps there were when it was true");
+  // moves and turns made the way the app makes them (the body's steps with its sketches carried)
+  const move = (q: Session, free: [number, number, number]) => { const op = startOp(scene(q), [bodies(q).find((x) => x.id === b!.id)!.ref], "move"); assert.ok(op.ok); return runOp(q, { ...(op as unknown as { op: object }).op, free } as never)!.session; };
+  const turn = (q: Session, deg: number) => { const bb = bodies(q).find((x) => x.id === b!.id)!; const op = startOp(scene(q), [bb.ref], "rotate"); assert.ok(op.ok); return runOp(q, { ...(op as unknown as { op: object }).op, axis: 0, value: deg, pivot: [(bb.bbox!.min[0] + bb.bbox!.max[0]) / 2, (bb.bbox!.min[1] + bb.bbox!.max[1]) / 2, (bb.bbox!.min[2] + bb.bbox!.max[2]) / 2] } as never)!.session; };
+  const turnedFar = turn(s, 80);
+  assert.equal(status(turnedFar).state, "off", `found, though it was turned 80 degrees: ${status(turnedFar).state}`);
+  assert.ok(status(turnedFar).residual! > 3);
+  const pulled = move(s, [200, -50, 30]);
+  assert.equal(status(pulled).state, "off", "found, though it was pulled 200 mm");
+  assert.ok(pin.bbox);
+  // and moved back by the same: true again, exactly
+  assert.equal(status(move(pulled, [-200, 50, -30])).state, "ok");
+  assert.equal(status(turn(turnedFar, -80)).state, "ok", "turned back: true again");
+});
+
+import { opCommand } from "../src/interaction/operations.ts";
+test("a command that moves a body is solved against its standing mates before it is made: the pose they leave is what is made, once, with no correction after it, and nothing is made when they leave it nowhere (`in_343`)", () => {
+  let s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  s = run(s, actionsFor(scene(s), [faceOf(s, bodies(s).find((x) => x.id === b!.id)!, [-1, 0, 0]), faceOf(s, bodies(s).find((x) => x.id === a!.id)!, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  const pin = bodies(s).find((x) => x.id === b!.id)!;
+  const raw = (free: [number, number, number]) => { const op = startOp(scene(s), [pin.ref], "move"); assert.ok(op.ok); return opCommand(scene(s), { ...(op as unknown as { op: object }).op, free } as never)!; };
+  const before = s.history.commands.length;
+  const done = run(s, raw([9, 4, 2])); // the move as it comes, not shaped by the drag
+  assert.ok(!done.message, `${done.message}`);
+  assert.equal(done.history.commands.length, before + 1, "one entry");
+  const ids = scene(done).steps.slice(scene(s).steps.length).map((x) => x.id);
+  assert.ok(ids.every((x) => /b0/.test(x)), `only the pose the mate leaves, not the move asked for and a correction: ${ids}`);
+  const b2 = bodies(done).find((x) => x.id === b!.id)!;
+  assert.ok(Math.abs(b2.bbox!.min[0]! - pin.bbox!.min[0]!) < 1e-3 && Math.abs(b2.bbox!.min[1]! - pin.bbox!.min[1]! - 4) < 1e-3, "stayed against the face and slid along it");
+  const stuck = run(s, raw([9, 0, 0]));
+  assert.match(stuck.message ?? "", /nowhere to go/);
+  assert.equal(stuck.history, s.history);
+});

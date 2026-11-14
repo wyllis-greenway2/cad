@@ -7,6 +7,7 @@ import type { Scene, Relation } from "./scene.ts";
 import { lookup } from "./scene.ts";
 import type { Part } from "./part.ts";
 import { normalOfPlane, roundOf } from "./part.ts";
+import { laterMotion, applyPoint, applyDir } from "./frames.ts";
 
 /**
  * flush: face on face with a gap; coaxial: round face on round face; parallel: only turned until the flat faces are parallel; parallelAxes: the same for the axes of round faces (`in_317`);
@@ -43,14 +44,25 @@ const put = (o: Record<string, number>, prefix: string, f: { point: Vec3; dir: V
 const get = (p: Record<string, number>, prefix: string): { point: Vec3; dir: Vec3; radius: number } => ({ dir: KEYS.map((k) => p[`${prefix}d${k}`] ?? 0) as unknown as Vec3, point: KEYS.map((k) => p[`${prefix}p${k}`] ?? 0) as unknown as Vec3, radius: p[`${prefix}r`] ?? 0 });
 
 /** The relation that records a mate, with the faces as they stand when it is true. */
-export function mateRelation(id: string, mode: MateMode, gap: number, mover: MateFeature, other: MateFeature, whenTrue: { mover: { point: Vec3; dir: Vec3 }; other: { point: Vec3; dir: Vec3 } }, counts = true, standing = false): Relation {
+export function mateRelation(id: string, mode: MateMode, gap: number, mover: MateFeature, other: MateFeature, whenTrue: { mover: { point: Vec3; dir: Vec3 }; other: { point: Vec3; dir: Vec3 } }, counts = true, standing = false, steps?: number): Relation {
   // `fix`: the number counts (a parallel mate that was given a distance; for the others it always does, `in_319`)
-  const params: Record<string, number> = { mode: numberOfMode(mode), gap, fix: counts ? 1 : 0, stand: standing ? 1 : 0 };
+  // `steps`: how many steps the scene had when the mate was true: the faces are kept as they stood then, and the body's own moves and turns since are followed exactly (`in_343`), not looked for
+  const params: Record<string, number> = { mode: numberOfMode(mode), gap, fix: counts ? 1 : 0, stand: standing ? 1 : 0, ...(steps !== undefined ? { steps } : {}) };
   put(params, "m", { ...whenTrue.mover, radius: mover.radius });
   put(params, "o", { ...whenTrue.other, radius: other.radius });
   return { id, kind: MATE_KIND, parts: [mover.body, other.body], params, locked: true };
 }
 
+/**
+ * Where a face the mate remembers is now (`in_343`): the faces were kept as they stood when the mate was true, and the body has been moved and turned since only by the steps recorded for it, so they are where those steps put them.
+ * A mate made before this was kept (no `steps`) is looked for where it was.
+ */
+function predicted(scene: Scene, body: Ref, want: { point: Vec3; dir: Vec3; radius: number }, from: number | undefined): { point: Vec3; dir: Vec3; radius: number } {
+  const b = scene.parts[body];
+  if (from === undefined || b?.kind !== "body" || !b.id) return want;
+  const rigid = laterMotion(scene.steps.slice(from), -1, (id) => id === b.id);
+  return { point: applyPoint(rigid, want.point), dir: applyDir(rigid, want.dir), radius: want.radius };
+}
 const angle = (a: Vec3, b: Vec3) => Math.acos(Math.max(-1, Math.min(1, dot(normalize(a), normalize(b)))));
 /** The face of a body that looks most like the one the mate remembers (the same way round, nearest to it), or null if none is near enough. */
 function findFace(scene: Scene, body: Ref, mode: MateMode, want: { point: Vec3; dir: Vec3; radius: number }): MateFeature | null {
@@ -107,7 +119,7 @@ export function mateStatus(scene: Scene): MateState[] {
     const base = { id: rel.id, mode, gap, standing: (rel.params.stand ?? 0) === 1 };
     const [mb, ob] = rel.parts;
     if (!mb || !ob || scene.parts[mb]?.kind !== "body" || scene.parts[ob]?.kind !== "body") { out.push({ ...base, state: "lost" }); continue; }
-    const [mover, other] = [findFace(scene, mb, mode, get(rel.params, "m")), findFace(scene, ob, mode, get(rel.params, "o"))];
+    const [mover, other] = [findFace(scene, mb, mode, predicted(scene, mb, get(rel.params, "m"), rel.params.steps)), findFace(scene, ob, mode, predicted(scene, ob, get(rel.params, "o"), rel.params.steps))];
     if (!mover || !other) { out.push({ ...base, state: "lost", ...(mover ? { mover } : {}), ...(other ? { other } : {}) }); continue; }
     let residual: number;
     let ok: boolean;

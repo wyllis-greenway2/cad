@@ -2,7 +2,7 @@
 // This is the one object the app holds. Commands are checked against the whole scene, so a relation to a body corner or a drawing on a body face is valid
 // (the gap noted in Handoff 084).
 import { mateStatus } from "../operation/mates.ts";
-import { putMatesBack, solveStanding } from "./mate.ts";
+import { putMatesBack, solveStanding, projectOnMates } from "./mate.ts";
 import { changeWords } from "./changewords.ts";
 import { bodyLabel } from "./panels.ts";
 import { describedCommand } from "../operation/anchors.ts";
@@ -149,9 +149,15 @@ function stepProblem(before: Session, after: Session, stepId: string): { culprit
 }
 export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback?: Command } = {}): Session {
   // `watchAll`: the command changes a step already in the history, so any step after it may stop working: those that worked before are watched too
-  const steps = opts.watchAll ? s.history.scene.steps.map((x) => x.id).filter((id) => !s.outcome.errors[id]) : stepsOf(c);
+  let steps = opts.watchAll ? s.history.scene.steps.map((x) => x.id).filter((id) => !s.outcome.errors[id]) : stepsOf(c);
   // a step is built on what is shown: while the kernel is still answering for the last change what is shown is the older model, and a step made now could mean something else (`in_142`)
   if (steps.length && !opts.watchAll && s.outcome.kernel?.stale) return { ...s, message: "the model is still being worked out: try again in a moment" };
+  // a move or turn of a body with standing mates is made as the pose they leave it at, never as one they do not (`in_343`)
+  if (!opts.watchAll) {
+    const held = projectOnMates(s.history.scene, c);
+    if (held === null) return { ...s, message: "the mates of this body leave it nowhere to go that way" };
+    if (held !== c) { c = held; steps = stepsOf(c); }
+  }
   const r = exec(s.history, describedCommand(s.history.scene, c)); // (a relation to a part of the body is saved with its description, `in_316`)
   if (!r.ok) return { ...s, message: r.error };
   const next = withHistory(s, r.value);
