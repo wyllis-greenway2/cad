@@ -659,6 +659,23 @@ const OPS = {
     const t = ctx.get(op.target, "solid");
     const found = lumpsByName(t.shape, t.markers ?? [], op.bodies);
     if (!found || found.picked.length < 2) throw new Error("select two or more bodies (one of them is not there any more)");
+    // "regions" (`in_294`): the parts the bodies make (only A, only B, where they overlap...: a number whose bits say which bodies a part is in) that are kept; they are joined into one body where they touch, or kept as they are
+    if (op.mode === "regions") {
+      const picked = found.picked;
+      const parts = [];
+      for (const mask of op.regions) {
+        let region = null;
+        try {
+          for (let i = 0; i < picked.length; i++) if ((mask >> i) & 1) region = region ? region.intersect(picked[i].clone()) : picked[i].clone();
+          for (let i = 0; i < picked.length; i++) if (region && !((mask >> i) & 1)) region = region.cut(picked[i].clone());
+        } catch { region = null; } // (a part that is not there: nothing)
+        if (region) for (const l of lumpsOf(region)) parts.push(l);
+      }
+      if (!parts.length) throw new Error("nothing would be left of the parts chosen");
+      let result = parts;
+      if (op.join && parts.length > 1) { let f = parts[0]; for (const p of parts.slice(1)) f = f.fuse(p); result = lumpsOf(f); }
+      return { kind: "solid", shape: makeCompound([...found.rest, ...result]), first: op.bodies[0] };
+    }
     const [first, ...others] = found.picked;
     const kept = op.keep && op.mode !== "add" ? others.map((o) => o.clone()) : []; // (a boolean uses up what it is given: the tools that stay are copied first)
     let made = first;

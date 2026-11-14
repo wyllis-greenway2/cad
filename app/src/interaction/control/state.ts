@@ -3,6 +3,7 @@ import type { Ref } from "../../shared/ref.ts";
 import { worldRef } from "../../shared/ref.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import type { Hint } from "../hints.ts";
+import type { CutState } from "../cut.ts";
 import { add, scale, dot } from "../../math/vec.ts";
 import { settings } from "../../shared/settings.ts";
 import type { Plane } from "../../operation/part.ts";
@@ -34,6 +35,8 @@ export interface AppState {
   showAllConstraints: boolean;
   /** the arrow (or ring) of an operation that is selected (`in_238`): a click on it or taking it; only a selected arrow shows its number, so the arrows alone stay clean */
   handleSel: string | null;
+  /** a cut of bodies being set up: the parts they make, which are kept (`in_294`) */
+  cut: CutState | null;
   /** the constraint a point being dragged is close to (it has taken it, and a release keeps it), lit while the drag goes on (`in_290`) */
   dragHint: { hints: Hint[]; at: Vec3 } | null;
   /** the rectangle of a drag select (`in_230`, `in_235`): the left button was held still, then dragged without letting up */
@@ -74,7 +77,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.

@@ -142,7 +142,7 @@ export function buildGraph(scene: Scene): GraphResult {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const names = st.parts.map((r) => (r.startsWith("b/") ? r.split("/")[1]! : ""));
         if (names.length < 2 || names.some((n) => !n || n === "body")) { errors[st.id] = "select two or more bodies"; break; }
-        ops.push({ id: xid, type: "combine", target: prev, mode: String(st.params.mode ?? "add"), bodies: names, ...(Number(st.params.keep) === 1 ? { keep: 1 } : {}) });
+        ops.push({ id: xid, type: "combine", target: prev, mode: String(st.params.mode ?? "add"), bodies: names, ...(Number(st.params.keep) === 1 ? { keep: 1 } : {}), ...(st.params.mode === "regions" ? { regions: String(st.params.regions ?? "").split(",").filter((x) => x !== "").map(Number), join: Number(st.params.join) === 1 } : {}) });
         prev = xid;
         break;
       }

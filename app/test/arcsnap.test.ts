@@ -146,3 +146,28 @@ test("a straight line that starts on a circle snaps to the tangent there when it
   const far = move(reduce(view(s), { type: "begin", name: "line" }, env), [30, 15, 0]);
   assert.ok(far.tool);
 });
+
+test("a circle's centre and a rectangle's corner get the helpers of any point: near another circle's edge they snap onto it, say so, and are made on it (`in_294`)", () => {
+  let s = createSession(kernel);
+  s = run(s, drawCircle(scene(s), XY, [20, 15, 0], 10).command);
+  const big = Object.values(scene(s).parts).find((p) => p.kind === "circle")!.ref;
+  // a circle drawn with its centre near the edge at (30, 15)
+  let st = view(s);
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  st = click(st, [30.05, 15.1, 0]);
+  const centre = st.tool!.points[0]!;
+  near(Math.hypot(centre[0] - 20, centre[1] - 15), 10, 0.02);
+  st = move(st, [36, 15, 0]);
+  st = click(st, [36, 15, 0]);
+  const small = Object.values(scene(st.session).parts).filter((p) => p.kind === "circle" && p.ref !== big)[0] as { center: string } | undefined;
+  assert.ok(small, "the circle is made");
+  assert.ok(scene(st.session).relations.some((r) => r.kind === "onCircle" && r.parts.includes(small!.center as never) && r.parts.includes(big)), "its centre is on the large circle's edge");
+  // a rectangle's first corner too
+  let t = view(s);
+  t = reduce(t, { type: "begin", name: "rect" }, env);
+  t = move(t, [20, 25.05, 0]);
+  t = click(t, [20, 25.05, 0]);
+  t = move(t, [30, 40, 0]);
+  t = click(t, [30, 40, 0]);
+  assert.ok(scene(t.session).relations.some((r) => r.kind === "onCircle" && r.parts.includes(big)), "a corner of the rectangle is on the circle");
+});

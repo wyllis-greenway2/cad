@@ -180,3 +180,6 @@ export function zoomAt(c: Camera, factor: number, anchor?: Vec3): Camera {
   const k = want / depth;
   return { ...c, distance, target: sub(anchor, add(add(scale(b.right, a * k), scale(b.up, u * k)), scale(b.forward, fNew))) };
 }
+
+/** How far apart, in millimetres at the target, two parts can be on the screen and still count as touching for the offers of constraints: the snap distance in pixels on a screen of a standard height (`in_294`: a finger, or an eye, does not land closer than that). */
+export const nearTolMm = (c: Camera): number => worldPerPixel(c, 800) * settings.sketch.snapPx;

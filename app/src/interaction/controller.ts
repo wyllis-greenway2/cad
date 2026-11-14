@@ -6,6 +6,7 @@ import { figureRefs } from "../operation/scene.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { AppState, Env } from "./control/state.ts";
 import { doHover, doClick, doMenu, doHold, doTapAim, doMovePoint } from "./control/pointer.ts";
+import { doCut } from "./control/select.ts";
 import { doPan, doZoom, doLook, doHome } from "./control/viewing.ts";
 import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
@@ -33,6 +34,7 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   const shownPlane = shownStep ? (next.session.history.scene.parts[figureRefs(shownStep)[0] ?? ""] as { plane?: Ref | null } | undefined)?.plane ?? null : null; // (the plane the extrusion's sketch is on, now: it may have been carried with the body)
   const reveal = next.tool?.reveal ? next.tool.plane : shownPlane;
   if ((next.session.reveal ?? null) !== reveal) next = { ...next, session: { ...next.session, reveal } };
+  if (next.cut && next.session.click.selection.join("|") !== s.session.click.selection.join("|")) next = { ...next, cut: null }; // (a cut is about the bodies that were selected: choosing something else gives it up)
   if (next.handleSel && (i.type === "begin" || i.type === "runAction")) next = { ...next, handleSel: null }; // (a new operation starts with its arrows alone)
   // a selected arrow stays selected while what it belongs to does: not when the selection changes or the operation ends (`in_238`)
   if (next.handleSel && (!next.op && !next.repeat && next.session.click.selection.join("|") !== s.session.click.selection.join("|") || (s.op && !next.op && !next.repeat) || (s.repeat && !next.repeat))) next = { ...next, handleSel: null };
@@ -71,6 +73,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
   switch (i.type) {
     case "hover": return doHover(s, i, env);
     case "tapAim": return doTapAim(s, i, env);
+    case "cut": return doCut(s, i);
     case "movePoint": return doMovePoint(s, i, env);
     case "hoverEnd": return { ...s, session: hoverOn(s.session, undefined), hoverPoint: null };
     case "click": return doClick(s, i, env);

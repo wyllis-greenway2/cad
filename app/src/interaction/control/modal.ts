@@ -12,7 +12,7 @@ import { lookup, nextId } from "../../operation/scene.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { planeOf } from "../objects.ts";
 import { sketchOfEdge } from "../../operation/edgesource.ts";
-import { sideOf, viewAxes } from "../camera.ts";
+import { sideOf, viewAxes, nearTolMm } from "../camera.ts";
 import { moveOffset } from "../gizmo.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
@@ -25,7 +25,7 @@ import { patternOfAll } from "../../operation/repeat.ts";
 import { BODY_OBJECT } from "../../compiler/body.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
-import { doSimilar, doGroup, doUngroup, doCombine } from "./select.ts";
+import { doSimilar, doGroup, doUngroup, doCombine, doCutBegin, applyCut } from "./select.ts";
 import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
@@ -97,6 +97,7 @@ export function commitOp(s: AppState): AppState {
 }
 
 export function doTyped(s: AppState, key: string): AppState {
+  if (s.cut && key === "Enter") return applyCut(s);
   if (!s.op && !s.tool && /^[0-9.\-]$/.test(key)) {
     // one standard for typing with something selected (`dec_typing_standard`, `in_235`): a drawn part that has a number of its own (a side: its length; a circle: its diameter; an arc: its radius; two
     // sides: the angle; a corner and another corner or a side: the distance) takes what is typed as that number, and Enter locks it; the figure itself, a face or the body has its handle (extrude, push
@@ -165,6 +166,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 /** Esc lets go in steps: the menu, then an open badge, then the tool or operation, then the selection. */
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
+  if (s.cut) return { ...s, cut: null, session: { ...s.session, message: null } };
   if (s.focus && !s.tool && !s.op) return { ...s, focus: null };
   if (s.box) return { ...s, box: null };
   if (s.repeat && !s.op) return doRepeatCancel(s); // (the repeat that is open is given up, as the pill's cross used to)
@@ -207,10 +209,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "select:similar") return doSimilar(closed);
   if (id === "select:group") return doGroup(closed);
   if (id === "combine:add") return doCombine(closed, "add");
-  if (id === "combine:subtract") return doCombine(closed, "subtract");
-  if (id === "combine:intersect") return doCombine(closed, "intersect");
-  if (id === "combine:subtract:keep") return doCombine(closed, "subtract", true);
-  if (id === "combine:intersect:keep") return doCombine(closed, "intersect", true);
+  if (id === "combine:cut") return doCutBegin(closed);
   if (id === "repeat:edit") return doRepeatEdit(closed);
   if (id === "repeat:break") return doRepeatBreak(closed);
   if (id === "select:ungroup") return doUngroup(closed);
@@ -219,7 +218,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "op:linear" || id === "op:circular" || id === "op:copy") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular" | "copy");
   if (id.startsWith("op:")) return beginOp(closed, id.slice(3) as OpKind, now, s.menu?.plane ?? null);
   if (id.startsWith("near:")) {
-    const cmd = nearCommand(sceneOf(s.session), selectionOf(s.session), id);
+    const cmd = nearCommand(sceneOf(s.session), selectionOf(s.session), id, nearTolMm(s.cam));
     return cmd ? { ...withSession(s, run(s.session, cmd)), menu: null } : closed;
   }
   const a = actionsFor(sceneOf(s.session), selectionOf(s.session)).find((x) => x.id === id);

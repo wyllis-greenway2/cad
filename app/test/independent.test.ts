@@ -63,7 +63,7 @@ test("Move takes the selected body only; the other stays where it is", () => {
   assert.ok(Math.abs(B.bbox!.min[1] - 25) < 1e-6, "b moved");
 });
 
-test("Add joins overlapping bodies into the first; Subtract takes the second out of the first; neither works with one body selected", () => {
+test("Add joins overlapping bodies into the first; Cut (kept: only the first) takes the second out of the first; neither works with one body selected", () => {
   let s = box(box(createSession(kernel), 0, 0), 40, 0);
   const b = bodies(s)[1]!;
   const mv = startOp(scene(s), [b.ref], "move");
@@ -74,8 +74,11 @@ test("Add joins overlapping bodies into the first; Subtract takes the second out
   const menu = (x: AppState) => reduce(x, { type: "menu", x: 5, y: 5, button: true }, env).menu!.items.flatMap((i) => i.children ?? [i]);
   assert.equal(menu(pick(st, [a2!.ref])).find((i) => i.id === "combine:add")!.enabled, false);
   assert.equal(menu(pick(st, [a2!.ref, b2!.ref])).find((i) => i.id === "combine:add")!.enabled, true);
-  const sub = reduce(pick(st, [a2!.ref, b2!.ref]), { type: "runAction", id: "combine:subtract" }, env);
-  assert.equal(sub.session.message, "bodies subtracted");
+  assert.equal(menu(pick(st, [a2!.ref])).find((i) => i.id === "combine:cut")!.enabled, false);
+  const cutting = reduce(pick(st, [a2!.ref, b2!.ref]), { type: "runAction", id: "combine:cut" }, env);
+  assert.deepEqual(cutting.cut?.keep, [1], "a cut starts as a subtract: only the first body's part is kept");
+  const sub = reduce(cutting, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(sub.cut, null);
   assert.equal(bodies(sub.session).length, 1);
   assert.ok(sub.session.outcome.kernel!.volume! < 2000 - 1, "b was taken out of a");
   st = reduce(pick(st, [a2!.ref, b2!.ref]), { type: "runAction", id: "combine:add" }, env);
@@ -429,4 +432,36 @@ test("a body whose sketch is tied by a constraint to something that stays is not
   assert.equal(ok!.session.message, null);
   assert.ok(Math.abs(bodies(ok!.session)[0]!.bbox!.min[0] - 12) < 1e-6);
   void s;
+});
+
+
+test("Cut shows the parts the bodies make and keeps the ones chosen: the overlap alone is an intersect, the two outer parts together are what does not overlap, kept parts join or stay separate; Esc gives it up (`in_294`)", () => {
+  let s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const mv = startOp(scene(s), [bodies(s)[1]!.ref], "move");
+  if (!mv.ok) return assert.fail("no move");
+  s = run(s, opCommand(scene(s), { ...mv.op, axis: 0, value: -35 })!); // two boxes 10 wide: the second at 5..15, the first at 0..10: they overlap by 5
+  const [a, b] = bodies(s);
+  const start = reduce(pick({ ...createState(s), cam: homeCamera() }, [a!.ref, b!.ref]), { type: "runAction", id: "combine:cut" }, env);
+  const f = frameOf(start, env);
+  assert.deepEqual(f.cut!.parts.map((p) => p.mask).sort(), [1, 2, 3], "only A, only B, where they meet");
+  assert.deepEqual(f.cut!.parts.map((p) => p.label).sort(), ["A", "A∩B", "B"].sort());
+  const vol = (st: AppState) => bodies(st.session).map((x) => Math.round(x.volume ?? 0)).sort((p, q) => p - q);
+  const make = (st: AppState) => reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  const tog = (st: AppState, mask: number) => reduce(st, { type: "cut", act: "toggle", mask }, env);
+  // intersect: keep only the overlap
+  assert.deepEqual(vol(make(tog(tog(start, 3), 1))), [500], "the overlap alone");
+  // the two outer parts: they touch only along the overlap's faces, so they are two bodies
+  const outer = make(tog(tog(start, 2), 1).cut ? tog(start, 2) : start);
+  assert.deepEqual(vol(outer), [500, 500].map((x) => x), "only A and only B, as separate bodies (the join has nothing to join)");
+  // everything kept and joined is an add; kept and separate stays as the parts
+  const all = tog(tog(start, 2), 3);
+  assert.deepEqual(vol(make(all)), [1500], "all three parts joined: one body");
+  assert.deepEqual(vol(make(reduce(all, { type: "cut", act: "join" }, env))), [500, 500, 500], "all three parts kept separate: three bodies");
+  // Esc gives it up, and nothing is made
+  const gone = reduce(start, { type: "escape" }, env);
+  assert.equal(gone.cut, null);
+  assert.equal(scene(gone.session).steps.length, scene(start.session).steps.length);
+  // nothing kept: refused with the reason
+  const none = make(tog(start, 1));
+  assert.match(none.session.message ?? "", /nothing was kept/);
 });

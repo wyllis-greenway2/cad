@@ -15,8 +15,8 @@ import { breakable } from "../operation/groups.ts";
 export interface Suggestions { at: Vec3; items: { id: string; label: string }[] }
 
 /** What could be applied to this selection: geometric constraints only (a number is asked for where it is shown), those not already holding, and where to put the buttons. Null for nothing to offer. */
-export function suggestionsFor(scene: Scene, selection: readonly Ref[]): Suggestions | null {
-  const constraints = constraintsFor(scene, selection);
+export function suggestionsFor(scene: Scene, selection: readonly Ref[], tol = 0): Suggestions | null {
+  const constraints = constraintsFor(scene, selection, tol);
   // "select similar" is offered when there are more like what is selected (`in_268`), and "ungroup" when a whole group is selected (`in_269`), after the constraints
   const more = [similarOffer(scene, selection), ungroupOffer(scene, selection)].filter((o): o is { at: Vec3; item: { id: string; label: string } } => !!o);
   if (!more.length) return constraints;
@@ -62,14 +62,14 @@ function similarOffer(scene: Scene, selection: readonly Ref[]): { at: Vec3; item
   return { at, item: { id: "select:similar", label: `Select similar (${found.count} more)` } };
 }
 
-function constraintsFor(scene: Scene, selection: readonly Ref[]): Suggestions | null {
+function constraintsFor(scene: Scene, selection: readonly Ref[], tol = 0): Suggestions | null {
   if (selection.length < 1 || selection.length > 2) return null;
   const get = lookup(scene);
   const parts = selection.map((r) => scene.parts[r]);
   if (!parts.every((p) => p && p.origin === "drawn" && p.movable && (p.kind === "corner" || p.kind === "line" || p.kind === "circle"))) return null;
   const have = (id: string, refs: readonly Ref[]) => scene.relations.some((r) => r.kind === id && r.parts.length === refs.length && refs.every((x) => r.parts.includes(x)));
   const items = actionsFor(scene, selection).filter((a) => a.group === "relation" && !a.dimensional && a.enabled && !have(a.id, a.parts)).map((a) => ({ id: a.id, label: a.label }));
-  items.push(...nearItems(scene, selection).map((n) => ({ id: n.id, label: n.label })));
+  items.push(...nearItems(scene, selection, tol).map((n) => ({ id: n.id, label: n.label })));
   if (!items.length) return null;
   // by the selection: the middle of what is selected
   const spots = selection.map((r): Vec3 | null => {
@@ -88,19 +88,19 @@ function constraintsFor(scene: Scene, selection: readonly Ref[]): Suggestions | 
  * Corners that lie close to a selected circle, arc or line without being on it (`in_244`): "coincident with circle" / "on line" for them is offered too, though they are not in the selection (a circle drawn by eye
  * lands near the ends of lines, and the pair would otherwise have to be selected one by one). One suggestion puts every near corner on it; each moves to the curve, which stays.
  */
-function nearItems(scene: Scene, selection: readonly Ref[]): { id: string; label: string; corners: Ref[]; target: Ref; kind: "onCircle" | "onLine" | "tangent" }[] {
+function nearItems(scene: Scene, selection: readonly Ref[], tol = 0): { id: string; label: string; corners: Ref[]; target: Ref; kind: "onCircle" | "onLine" | "tangent" }[] {
   if (selection.length !== 1) return [];
   const target = selection[0]!;
   const part = scene.parts[target];
   if (!part || part.origin !== "drawn" || !part.movable) return [];
-  if (part.kind === "corner") return nearCurves(scene, part);
+  if (part.kind === "corner") return nearCurves(scene, part, tol);
   const m = curveGap(scene, part);
   if (!m) return [];
-  const touching = part.kind === "circle" ? touchingCircles(scene, part) : [];
+  const touching = part.kind === "circle" ? touchingCircles(scene, part, tol) : [];
   const near = Object.values(scene.parts).filter((p) => {
     if (p.kind !== "corner" || p.origin !== "drawn" || p.derived || !p.movable || p.plane !== part.plane || m.own.has(p.ref)) return false;
     const g = m.gap(p.at);
-    if (!(g > 1e-6 && g <= settings.sketch.nearFrac * m.size)) return false;
+    if (!(g <= Math.max(settings.sketch.nearFrac * m.size, tol))) return false; // (exactly on it counts: nothing ties it there yet)
     return !scene.relations.some((r) => r.kind === m.kind && r.parts.includes(p.ref) && r.parts.includes(target));
   }).map((p) => p.ref);
   if (!near.length) return touching;
@@ -109,7 +109,7 @@ function nearItems(scene: Scene, selection: readonly Ref[]): { id: string; label
 }
 
 /** The circles that almost touch this one, outside it or inside it: "tangent" is offered for each (`in_292`). */
-function touchingCircles(scene: Scene, circle: Extract<Scene["parts"][string], { kind: "circle" }>): { id: string; label: string; corners: Ref[]; target: Ref; kind: "tangent" }[] {
+function touchingCircles(scene: Scene, circle: Extract<Scene["parts"][string], { kind: "circle" }>, tol = 0): { id: string; label: string; corners: Ref[]; target: Ref; kind: "tangent" }[] {
   const get = lookup(scene);
   const a = circleOf(get, circle.ref);
   if (!a) return [];
@@ -120,7 +120,7 @@ function touchingCircles(scene: Scene, circle: Extract<Scene["parts"][string], {
     if (!b) continue;
     const d = Math.hypot(a.center[0] - b.center[0], a.center[1] - b.center[1], a.center[2] - b.center[2]);
     const g = Math.min(Math.abs(d - (a.radius + b.radius)), Math.abs(d - Math.abs(a.radius - b.radius)));
-    if (!(g > 1e-6 && g <= settings.sketch.nearFrac * Math.min(a.radius, b.radius))) continue;
+    if (!(g <= Math.max(settings.sketch.nearFrac * Math.min(a.radius, b.radius), tol))) continue;
     if (scene.relations.some((r) => r.kind === "tangent" && r.parts.includes(circle.ref) && r.parts.includes(p.ref))) continue;
     out.push({ id: `near:tangent:${p.ref}`, label: "Tangent: the circle that nearly touches it", corners: [], target: p.ref, kind: "tangent", g });
   }
@@ -154,14 +154,14 @@ function curveGap(scene: Scene, part: Scene["parts"][string]): { gap: (q: Vec3) 
 }
 
 /** A selected point (the centre of a circle, a corner) that lies close to the edge of a circle or arc, or a line, that it is not on: "on circle" / "on line" is offered for it (`in_290`). */
-function nearCurves(scene: Scene, corner: Extract<Scene["parts"][string], { kind: "corner" }>): { id: string; label: string; corners: Ref[]; target: Ref; kind: "onCircle" | "onLine" }[] {
+function nearCurves(scene: Scene, corner: Extract<Scene["parts"][string], { kind: "corner" }>, tol = 0): { id: string; label: string; corners: Ref[]; target: Ref; kind: "onCircle" | "onLine" }[] {
   const out: { id: string; label: string; corners: Ref[]; target: Ref; kind: "onCircle" | "onLine"; g: number }[] = [];
   for (const p of Object.values(scene.parts)) {
     if (p.origin !== "drawn" || !p.movable || p.plane !== corner.plane || (p.kind !== "line" && p.kind !== "circle") || (p.kind === "line" && p.derived)) continue;
     const m = curveGap(scene, p);
     if (!m || m.own.has(corner.ref)) continue;
     const g = m.gap(corner.at);
-    if (!(g > 1e-6 && g <= settings.sketch.nearFrac * m.size)) continue;
+    if (!(g <= Math.max(settings.sketch.nearFrac * m.size, tol))) continue;
     if (scene.relations.some((r) => r.kind === m.kind && r.parts.includes(corner.ref) && r.parts.includes(p.ref))) continue;
     out.push({ id: `near:${m.kind}:${p.ref}`, label: m.kind === "onCircle" ? "On the circle close to it" : "On the line close to it", corners: [corner.ref], target: p.ref, kind: m.kind, g });
   }
@@ -169,8 +169,8 @@ function nearCurves(scene: Scene, corner: Extract<Scene["parts"][string], { kind
 }
 
 /** The command for a "near" suggestion: each corner close to the selected circle, arc or line is put on it (the corner moves, the curve stays), as one step. */
-export function nearCommand(scene: Scene, selection: readonly Ref[], id: string): Command | null {
-  const item = nearItems(scene, selection).find((n) => n.id === id);
+export function nearCommand(scene: Scene, selection: readonly Ref[], id: string, tol = 0): Command | null {
+  const item = nearItems(scene, selection, tol).find((n) => n.id === id);
   if (!item) return null;
   if (item.kind === "tangent") return { type: "addRelation", relation: { id: nextId(scene, "r"), kind: "tangent", parts: [selection[0]!, item.target] } }; // (the solver puts the circles touching)
   const first = Number(/_(\d+)$/.exec(nextId(scene, "r"))?.[1] ?? 0);

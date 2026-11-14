@@ -1,4 +1,6 @@
 // Selecting by what a selection is like (`in_257`, `dec_selection_tools`): "Select similar" selects everything like the selected parts by a few rules, and the chip that follows loosens or tightens one rule at a time.
+import type { Intent } from "../../shared/input.ts";
+import { startCut, cutStep } from "../cut.ts";
 import { scene as sceneOf, selection as selectionOf, run } from "../session.ts";
 import { nextId } from "../../operation/scene.ts";
 import { topItems, breakable } from "../../operation/groups.ts";
@@ -72,4 +74,30 @@ export function doCombine(s: AppState, mode: "add" | "subtract" | "intersect", k
   const next = run(s.session, { type: "addStep", step: { id: nextId(sc, "s"), type: "combine", parts: bodies, params: { mode, ...(keep ? { keep: 1 } : {}) } } });
   if (next.message) return say({ ...s, menu: null, session: next }, next.message);
   return { ...withSession(s, { ...next, click: { ...next.click, selection: (keep ? bodies : [bodies[0]!]).filter((r) => r in sceneOf(next).parts) }, message: mode === "add" ? "bodies added together" : mode === "intersect" ? "what the bodies share is kept" : keep ? "bodies subtracted (the tools are kept)" : "bodies subtracted" }), menu: null };
+}
+
+/** Cut: the selected bodies are shown as the parts they make, to keep or toss (`in_294`). */
+export function doCutBegin(s: AppState): AppState {
+  const why = whyNotCombine(s.session);
+  if (why) return say({ ...s, menu: null }, why);
+  const sc = sceneOf(s.session);
+  const bodies = selectionOf(s.session).filter((r) => sc.parts[r]?.kind === "body");
+  return { ...s, menu: null, op: null, tool: null, cut: startCut(bodies), session: { ...s.session, message: "click a part to keep it (+) or toss it (−); Enter or a right click makes it, Esc gives it up" } };
+}
+export function doCut(s: AppState, i: Extract<Intent, { type: "cut" }>): AppState {
+  if (!s.cut) return s;
+  if (i.act === "join") return { ...s, cut: { ...s.cut, join: !s.cut.join } };
+  const keep = s.cut.keep.includes(i.mask) ? s.cut.keep.filter((m) => m !== i.mask) : [...s.cut.keep, i.mask];
+  return { ...s, cut: { ...s.cut, keep } };
+}
+/** The kept parts are made, as one step that undoes in one. */
+export function applyCut(s: AppState): AppState {
+  if (!s.cut) return s;
+  const sc = sceneOf(s.session);
+  const cmd = cutStep(sc, s.cut);
+  if (!cmd) return say({ ...s, cut: null }, "nothing was kept: the bodies would all be gone (Delete takes a body away)");
+  const next = run(s.session, cmd);
+  if (next.message) return say({ ...s, cut: null, session: next }, next.message);
+  const after = sceneOf(next);
+  return { ...withSession(s, { ...next, click: { ...next.click, selection: [] }, message: s.cut.keep.length > 1 && s.cut.join ? "the parts kept are joined where they touch" : null }), cut: null };
 }

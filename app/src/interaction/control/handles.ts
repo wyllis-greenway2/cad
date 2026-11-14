@@ -22,7 +22,7 @@ import type { Op } from "../operations.ts";
 import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed } from "../gizmo.ts";
 import type { Gizmo } from "../gizmo.ts";
 import { candidatesAt } from "../picking.ts";
-import { projector, basis, viewAxes } from "../camera.ts";
+import { projector, basis, viewAxes, nearTolMm } from "../camera.ts";
 import { lookup } from "../../operation/scene.ts";
 import { pointOf } from "../../operation/part.ts";
 import { doOrbit } from "./viewing.ts";
@@ -172,8 +172,23 @@ function moveCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env
   const lines = Object.values(sc.parts).filter((p): p is Extract<typeof p, { kind: "line" }> => p.kind === "line" && p.origin === "drawn" && !p.derived && !p.center && (p.a === d.corner || p.b === d.corner));
   const mine = new Set<Ref>(Object.values(sc.parts).filter((p) => (p.kind === "line" && (p.a === d.corner || p.b === d.corner || p.center === d.corner)) || (p.kind === "circle" && p.center === d.corner)).map((p) => p.ref));
   const other = lines.length === 1 ? sc.parts[lines[0]!.a === d.corner ? lines[0]!.b : lines[0]!.a] : undefined;
-  const hint = other?.kind === "corner" ? lineHint(sc, pl, other.at, pv, snapped) : pointHint(sc, pl, pv, snapped, (r) => mine.has(r));
-  const at = hint.hints.length ? hint.at : snapped;
+  let hint = other?.kind === "corner" ? lineHint(sc, pl, other.at, pv, snapped) : pointHint(sc, pl, pv, snapped, (r) => mine.has(r));
+  // the centre of a circle taken to where the circle touches another circle lands there (`in_294`)
+  const own = Object.values(sc.parts).filter((q): q is Extract<typeof q, { kind: "circle" }> => q.kind === "circle" && q.center === d.corner);
+  let at = hint.hints.length ? hint.at : snapped;
+  if (!hint.hints.length && own.length === 1) {
+    let best = nearTolMm(s.cam);
+    for (const o of Object.values(sc.parts)) {
+      if (o.kind !== "circle" || o.ref === own[0]!.ref || o.origin !== "drawn" || o.plane !== own[0]!.plane) continue;
+      const oc = sc.parts[o.center];
+      if (oc?.kind !== "corner") continue;
+      const dc = Math.hypot(snapped[0] - oc.at[0], snapped[1] - oc.at[1], snapped[2] - oc.at[2]);
+      if (dc < 1e-9) continue;
+      for (const want of [own[0]!.radius + o.radius, Math.abs(own[0]!.radius - o.radius)]) {
+        if (Math.abs(dc - want) < best && want > 1e-6) { best = Math.abs(dc - want); at = [oc.at[0] + ((snapped[0] - oc.at[0]) / dc) * want, oc.at[1] + ((snapped[1] - oc.at[1]) / dc) * want, oc.at[2] + ((snapped[2] - oc.at[2]) / dc) * want]; hint = { at, hints: [{ kind: "tangent", ref: o.ref }] }; }
+      }
+    }
+  }
   const line = lines.length === 1 ? lines[0]! : null;
   const moved = settledWith({ ...s, dragHint: hint.hints.length ? { hints: hint.hints, at } : null }, d.base, [{ ref: d.corner, to: at }], (after) => {
     const out: { kind: Hint["kind"]; parts: Ref[] }[] = [];
@@ -184,7 +199,7 @@ function moveCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env
       ends[line.a === d.corner ? 0 : 1] = hint.hints.filter((x) => x.kind === "onLine" || x.kind === "onCircle");
       return hintRelations(after, line.ref, ends, hint.hints.filter((x) => x.kind !== "onLine" && x.kind !== "onCircle").map((x) => (x.end !== undefined ? { ...x, end: isStart as 0 | 1 } : x)));
     }
-    for (const x of hint.hints) if (x.ref && (x.kind === "onLine" || x.kind === "onCircle")) out.push({ kind: x.kind, parts: [d.corner, x.ref] });
+    for (const x of hint.hints) { if (x.ref && (x.kind === "onLine" || x.kind === "onCircle")) out.push({ kind: x.kind, parts: [d.corner, x.ref] }); if (x.ref && x.kind === "tangent" && own.length === 1) out.push({ kind: "tangent", parts: [own[0]!.ref, x.ref] }); }
     return out;
   });
   return moved;
@@ -222,10 +237,43 @@ function moveLine(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env):
   const [a, b] = [sc.parts[line.a], sc.parts[line.b]];
   const now = pointOnPlane(projector(s.cam, env.w, env.h).view(i.x, i.y), pl);
   if (a?.kind !== "corner" || b?.kind !== "corner" || !now) return s;
-  const by: Vec3 = [now[0] - d.from[0], now[1] - d.from[1], now[2] - d.from[2]];
+  let by: Vec3 = [now[0] - d.from[0], now[1] - d.from[1], now[2] - d.from[2]];
+  // a line that is dragged near something offers what a vertex or a line near it would (`in_294`): an end of it close to another line or a circle lands on it; a vertex of the drawing close to it is put on it
+  const pr = projector(s.cam, env.w, env.h);
+  const toPx = (q: Vec3) => pr.project(q);
+  const lined = Object.values(sc.parts).filter((q) => q.kind === "line" || q.kind === "circle").map((q) => q.ref);
+  const mine = new Set<Ref>([line.ref, line.a, line.b, ...(line.center ? [line.center] : [])]);
+  let taken: { corner: Ref; target: Ref; kind: "onLine" | "onCircle" } | null = null;
+  let best = Infinity;
+  for (const [ref, end] of [[line.a, a], [line.b, b]] as const) {
+    const p: Vec3 = [end.at[0] + by[0], end.at[1] + by[1], end.at[2] + by[2]];
+    const q = toPx(p);
+    const h = pointHint(sc, pl, pr.view(q[0], q[1]), p, (r) => mine.has(r) || (lined.includes(r) && sc.parts[r]?.kind === "line" && ((sc.parts[r] as { a: Ref; b: Ref }).a === ref || (sc.parts[r] as { a: Ref; b: Ref }).b === ref)));
+    const hint = h.hints[0];
+    if (hint?.ref && (hint.kind === "onLine" || hint.kind === "onCircle")) {
+      const gap = Math.hypot(h.at[0] - p[0], h.at[1] - p[1], h.at[2] - p[2]);
+      if (gap < best) { best = gap; by = [by[0] + h.at[0] - p[0], by[1] + h.at[1] - p[1], by[2] + h.at[2] - p[2]]; taken = { corner: ref, target: hint.ref, kind: hint.kind }; }
+    }
+  }
+  if (!taken) {
+    // a vertex of the drawing near the line: the line is taken across to it
+    const A: Vec3 = [a.at[0] + by[0], a.at[1] + by[1], a.at[2] + by[2]], B: Vec3 = [b.at[0] + by[0], b.at[1] + by[1], b.at[2] + by[2]];
+    const ab: Vec3 = [B[0] - A[0], B[1] - A[1], B[2] - A[2]];
+    const len2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2] || 1;
+    for (const c of Object.values(sc.parts)) {
+      if (c.kind !== "corner" || c.origin !== "drawn" || c.derived || c.plane !== line.plane || mine.has(c.ref) || sc.relations.some((r) => r.kind === "onLine" && r.parts.includes(c.ref) && r.parts.includes(line.ref))) continue;
+      const t = ((c.at[0] - A[0]) * ab[0] + (c.at[1] - A[1]) * ab[1] + (c.at[2] - A[2]) * ab[2]) / len2;
+      if (t < 0.02 || t > 0.98) continue;
+      const foot: Vec3 = [A[0] + ab[0] * t, A[1] + ab[1] * t, A[2] + ab[2] * t];
+      const [pc, pf] = [toPx(c.at), toPx(foot)];
+      const px = Math.hypot(pc[0] - pf[0], pc[1] - pf[1]);
+      if (px <= settings.sketch.snapPx && px < best) { best = px; by = [by[0] + c.at[0] - foot[0], by[1] + c.at[1] - foot[1], by[2] + c.at[2] - foot[2]]; taken = { corner: c.ref, target: line.ref, kind: "onLine" }; }
+    }
+  }
   const go = (q: Vec3): Vec3 => [q[0] + by[0], q[1] + by[1], q[2] + by[2]];
   const centre = line.center ? sc.parts[line.center] : undefined; // (an arc goes with its centre: the whole curve, at its size, `in_292`)
-  return settledWith(s, d.base, [{ ref: line.a, to: go(a.at) }, { ref: line.b, to: go(b.at) }, ...(centre?.kind === "corner" && line.center ? [{ ref: line.center, to: go(centre.at) }] : [])]);
+  const kept = taken;
+  return settledWith({ ...s, dragHint: kept ? { hints: [{ kind: kept.kind, ref: kept.target }], at: go(a.at) } : null }, d.base, [{ ref: line.a, to: go(a.at) }, { ref: line.b, to: go(b.at) }, ...(centre?.kind === "corner" && line.center ? [{ ref: line.center, to: go(centre.at) }] : [])], () => (kept ? [{ kind: kept.kind, parts: [kept.corner, kept.target] }] : []));
 }
 
 /** The edge of a circle dragged: its radius becomes the pointer's distance from the centre, unless its diameter is locked (`in_290`). */
@@ -239,8 +287,21 @@ function moveRim(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): 
   if (sc.relations.some((r) => r.kind === "diameter" && r.parts.includes(d.rim) && r.locked !== false)) return { ...s, session: { ...d.base, message: "the diameter of this circle is locked: unlock it to change the size" } };
   const now = pointOnPlane(projector(s.cam, env.w, env.h).view(i.x, i.y), pl);
   if (!now) return s;
-  const radius = Math.max(0.1, Math.hypot(now[0] - centre.at[0], now[1] - centre.at[1], now[2] - centre.at[2]));
-  return { ...s, session: run(d.base, { type: "setRadius", ref: d.rim, radius }) };
+  let radius = Math.max(0.1, Math.hypot(now[0] - centre.at[0], now[1] - centre.at[1], now[2] - centre.at[2]));
+  // a circle taken to the size at which it touches another circle (outside it or inside it) lands there and says so (`in_294`)
+  const tol = nearTolMm(s.cam);
+  let touch: Ref | null = null;
+  let best = tol;
+  for (const o of Object.values(sc.parts)) {
+    if (o.kind !== "circle" || o.ref === d.rim || o.origin !== "drawn" || o.plane !== circle.plane) continue;
+    const oc = sc.parts[o.center];
+    if (oc?.kind !== "corner") continue;
+    const gap = Math.hypot(oc.at[0] - centre.at[0], oc.at[1] - centre.at[1], oc.at[2] - centre.at[2]);
+    for (const want of [gap - o.radius, o.radius - gap, o.radius + gap]) if (want > 0.1 && Math.abs(want - radius) < best) { best = Math.abs(want - radius); touch = o.ref; radius = want; }
+  }
+  const t = touch;
+  const moved = run(d.base, { type: "batch", commands: [{ type: "setRadius", ref: d.rim, radius }, ...(t ? [{ type: "addRelation", relation: { id: nextId(sc, "r"), kind: "tangent", parts: [d.rim, t] } } as Command] : [])] });
+  return { ...s, dragHint: t ? { hints: [{ kind: "tangent", ref: t }], at: now } : null, session: moved };
 }
 
 /** The centre of the rotator sticks to a corner you point near (the point you want to turn about), else it goes where the pointer puts it. */

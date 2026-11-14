@@ -21,7 +21,7 @@ import type { OpKind } from "../operations.ts";
 import { startOp } from "../operations.ts";
 import { similarTo } from "../similar.ts";
 import { patternOfAll } from "../../operation/repeat.ts";
-import { whyNotGroup, whyNotUngroup, whyNotCombine } from "./select.ts";
+import { whyNotGroup, whyNotUngroup, whyNotCombine, applyCut } from "./select.ts";
 import { projector } from "../camera.ts";
 import { settings } from "../../shared/settings.ts";
 import { planeOf, objectOf } from "../objects.ts";
@@ -53,17 +53,14 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "repeat:edit", label: "Edit repeat", icon: "linear", select: "editRepeat" },
   { id: "repeat:break", label: "Break repeat", icon: "unlink", select: "breakRepeat" },
   { id: "combine:add", label: "Add bodies", icon: "add", select: "combine" },
-  { id: "combine:subtract", label: "Subtract bodies", icon: "subtract", select: "combine" },
-  { id: "combine:intersect", label: "Intersect bodies", icon: "intersect", select: "combine" },
-  { id: "combine:subtract:keep", label: "Subtract, keep the tools", icon: "subtract", select: "combine" },
-  { id: "combine:intersect:keep", label: "Intersect, keep the tools", icon: "intersect", select: "combine" },
+  { id: "combine:cut", label: "Cut bodies…", icon: "subtract", select: "combine" },
   { id: "select:similar", label: "Select similar", icon: "similar", select: "similar" },
   { id: "select:group", label: "Group", icon: "group", select: "group" },
   { id: "select:ungroup", label: "Ungroup", icon: "ungroup", select: "ungroup" },
 ];
 const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:offset"] },
-  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:scale", "combine:add", "combine:subtract", "combine:intersect", "combine:subtract:keep", "combine:intersect:keep"] },
+  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:scale", "combine:add", "combine:cut"] },
   { id: "place", label: "Move and repeat", icon: "move", items: ["op:move", "op:rotate", "op:copy", "op:linear", "op:circular", "repeat:edit", "repeat:break"] },
   { id: "select", label: "Select", icon: "similar", items: ["select:similar", "select:group", "select:ungroup"] },
 ];
@@ -168,13 +165,15 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
     const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
     const at = pl ? snapOnPlane(sc, pv, pl) : null;
     if (s.tool.kind === "rect") {
-      next = { ...next, tool: { ...s.tool, hints: [], cursor: s.tool.held ? at : null } };
+      const h = at && pl ? pointHint(sc, pl, pv, at) : null;
+      next = { ...next, tool: { ...s.tool, hints: h?.hints ?? [], cursor: h?.hints.length ? h.at : s.tool.held ? at : null } };
     } else if (s.tool.kind !== "circle") {
       const h = at && pl ? pointHint(sc, pl, pv, at) : null;
       next = { ...next, tool: { ...s.tool, hints: h?.hints ?? [], cursor: h?.hints.length ? h.at : s.tool.held ? at : null } }; // (a finger holds the cursor where it is aimed, `in_286`)
     } else {
       const about = at && pl ? circleCentredAt(sc, pl, at) : null;
-      next = { ...next, tool: { ...s.tool, hints: about ? [{ kind: "concentric", ref: about }] : [], cursor: about ? at : s.tool.held ? at : null } };
+      const h = !about && at && pl ? pointHint(sc, pl, pv, at) : null; // (a circle's centre on another circle's edge or on a line, `in_294`)
+      next = { ...next, tool: { ...s.tool, hints: about ? [{ kind: "concentric", ref: about }] : h?.hints ?? [], cursor: about ? at : h?.hints.length ? h.at : s.tool.held ? at : null } };
     }
   }
   return doGizmoHover(next, i.x, i.y, env);
@@ -182,9 +181,11 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
 
 /** The constraint the pointer is close to for the tool being drawn with: the end of a line, an end of an arc, or the bow of an arc (a height typed in is not moved by one). */
 function hintFor(sc: Scene, t: Tool, pl: Plane, pv: ReturnType<ReturnType<typeof projector>["view"]>, raw: Vec3): { at: Vec3; hints: Hint[] } | null {
-  if (t.kind !== "line" && t.kind !== "arc") return null;
-  if (!t.points.length) return pointHint(sc, pl, pv, raw); // (a first end: on a line or a circle)
+  if (t.kind === "trim") return null;
+  if (!t.points.length) return pointHint(sc, pl, pv, raw); // (a first point of any figure: on a line or a circle, `in_294`: a circle's centre and a rectangle's corner are points like a line's end)
   if (t.kind === "line") return lineHint(sc, pl, t.points[0]!, pv, raw);
+  if (t.kind === "rect") return pointHint(sc, pl, pv, raw); // (the opposite corner)
+  if (t.kind === "circle") return null; // (the size: a number, or a point on the edge)
   if (t.points.length < 2) return pointHint(sc, pl, pv, raw);
   return t.typed[0] === "" ? arcBulgeHint(sc, pl, t.points[0]!, t.points[1]!, raw) : null;
 }
@@ -242,7 +243,7 @@ export function doMovePoint(s: AppState, i: Extract<Intent, { type: "movePoint" 
   const pv = projector(s.cam, env.w, env.h).view(i.x, i.y);
   const raw = snapOnPlane(sc, pv, pl);
   if (!raw) return s;
-  const h = t.kind === "line" || t.kind === "arc" ? pointHint(sc, pl, pv, raw) : null;
+  const h = pointHint(sc, pl, pv, raw); // (any point of any figure, `in_294`)
   const at = h?.hints.length ? h.at : raw;
   const by: Vec3 = [at[0] - t.points[i.index]![0], at[1] - t.points[i.index]![1], at[2] - t.points[i.index]![2]];
   // a circle has its size set by the held point (its icon) and the centre's icon moves the whole circle at that size; so has an arc once its bow is held: its ends' icons move the whole curve (`in_289`)
@@ -275,7 +276,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     const { plane, command } = planeForDrawing(sc, pl.ref);
     const session = command ? run(sess, command) : sess;
     const about = t.kind === "circle" ? circleCentredAt(sceneOf(session), lookup(sceneOf(session))(plane) as Plane, at) : null;
-    const first = t.kind === "arc" || t.kind === "line" ? pointHint(sc, pl, pv, at) : null; // (the first end of a line or an arc on a line or a circle says so, `in_280`, `in_281`)
+    const first = pointHint(sc, pl, pv, at); // (the first end of a line or an arc on a line or a circle says so, `in_280`, `in_281`)
     const from = first ? first.at : at;
     return { ...base, session: { ...session, message: null }, tool: { ...t, plane, points: [from], cursor: from, ...(first ? { ends: [first.hints] } : {}), ...(about ? { concentric: about } : {}) } };
   }
@@ -301,6 +302,16 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     for (const r of hintRelations(sceneOf(session), curve, ends, rest)) {
       session = run(session, { type: "addRelation", relation: { id: nextId(sceneOf(session), "r"), kind: r.kind, parts: r.parts } });
       if (session.message) break;
+    }
+    done = { ...done, session };
+  }
+  // a circle's centre and a rectangle's corners that were put on a line or a circle say so, as a line's ends do (`in_294`)
+  if ((t.kind === "rect" || t.kind === "circle") && fin && done !== base && !done.session.message) {
+    const pairs: [Vec3, Hint[]][] = [[t.points[0]!, t.ends?.[0] ?? []], ...(t.kind === "rect" ? [[at, (hint?.hints ?? []).filter(isOn)] as [Vec3, Hint[]]] : [])];
+    let session = done.session;
+    for (const [pt, hs] of pairs) {
+      const corner = Object.values(sceneOf(session).parts).find((q) => q.kind === "corner" && q.origin === "drawn" && dist(q.at, pt) < 1e-6);
+      for (const h of hs) if (corner && h.ref && isOn(h)) { session = run(session, { type: "addRelation", relation: { id: nextId(sceneOf(session), "r"), kind: h.kind, parts: [corner.ref, h.ref] } }); if (session.message) break; }
     }
     done = { ...done, session };
   }
@@ -393,6 +404,7 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
 
 /** A right click opens the ring of operations on what is selected and changes nothing about the selection (`in_140`): select first (one click, a triple click, Shift for several), then right click. */
 export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: Env): AppState {
+  if (s.cut && !i.button) return applyCut(s); // (a right click makes the cut, as it applies an operation)
   // a repeat that is open (linear, circular or a copy): a right click leaves it and makes the copies; with none to make it just leaves (`in_236`)
   if (!i.button && (s.repeat && !s.op)) return doApply(s);
   // an operation that is open: a right click accepts it and leaves it, as Enter does (`in_244`)

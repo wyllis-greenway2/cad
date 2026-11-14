@@ -1,5 +1,6 @@
 // What to draw for the current state: one plain description the view, the chip, the badges and the controls draw from. All the decisions about what is shown
 // (the big axes or the compass, which plane's grid, whether badges give way to a tool or operation) are made here, so the UI only draws.
+import { cutParts, cutStep } from "./cut.ts";
 import { pieceMiddle } from "../operation/trim.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Gizmo } from "./gizmo.ts";
@@ -13,7 +14,7 @@ import { normalOfPlane } from "../operation/part.ts";
 import { planeOf } from "./objects.ts";
 import type { Plane } from "../operation/part.ts";
 import type { Camera } from "./camera.ts";
-import { offsetOf, sideOf } from "./camera.ts";
+import { offsetOf, sideOf, nearTolMm } from "./camera.ts";
 import { dot, cross, normalize, add, sub } from "../math/vec.ts";
 import { apply } from "../operation/commands.ts";
 import { outlineOf } from "../operation/part.ts";
@@ -110,6 +111,8 @@ export interface Frame {
   tool: { kind: "rect" | "circle" | "line" | "arc" | "trim"; label: string; /** figures made while it has been on (the chip flashes at each) */ made: number; /** a figure is half drawn (the chip's cross then cancels it) */ drawing: boolean; /** something is made and nothing is half drawn: the chip shows a check that puts the tool away, in place of the cross (`in_283`) */ done: boolean } | null;
   /** a repeat or an operation that is open: the tick (Enter, a right click) and the cross (Esc) are shown for it (`in_244`) */
   confirm: { kind: string; label: string } | null;
+  /** a cut of bodies being set up: the parts they make, with where the control of each stands and whether it is kept; and whether what is kept is joined (`in_294`) */
+  cut: { parts: { mask: number; at: Vec3; label: string; tip: string; kept: boolean }[]; join: boolean } | null;
   /** the little panes of the world planes beside the axes (`in_190`) */
   panes: { name: WorldName; corners: Vec3[]; active: boolean; hover: boolean }[];
   /** the helper handles of the running operation (arrows, a double arrow, curved arrows), or null */
@@ -257,6 +260,7 @@ function partHelperOf(s: AppState): Frame["touchHelper"] {
 
 /** What a finger is offered now (see `Frame.touchHelper`). */
 function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame["touchHelper"] {
+  if (s.cut) return { kind: "handle", points: [], handles: [], applies: true }; // (a tap in free space makes the cut, as a right click does)
   if (s.tool) return s.tool.held && s.tool.cursor ? { kind: "figure", points: [...s.tool.points.map((at, index) => ({ at, index })), { at: s.tool.cursor, index: -1 }], handles: [], applies: false } : null; // (a finger holds the next point: it and the points already set each have a drag icon, and a tap sets the one held, `in_286`, `in_288`)
   if (s.drag && !("handle" in s.drag) && !("corner" in s.drag) && !("line" in s.drag) && !("rim" in s.drag)) return null;
   if (!gizmo || (s.drag && !("handle" in s.drag))) return !s.op && !s.repeat ? partHelperOf(s) : null;
@@ -300,6 +304,16 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[] 
 }
 
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
+  // the cut that is being set up shows what the parts kept would make
+  if (s.cut) {
+    const cmd = cutStep(sceneOf(s.session), s.cut);
+    if (!cmd) return null;
+    const key = JSON.stringify(["cut", cmd]);
+    if (memo && memo.history === s.session.history && memo.outcome === s.session.outcome && memo.key === key) return memo.value;
+    const value = previewCommand(s.session, cmd);
+    memo = { history: s.session.history, outcome: s.session.outcome, key, value };
+    return value;
+  }
   // the operation being set up, else the repeat being set up (what it would make shows while its numbers are set)
   const op = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
   if (!op) return null;
@@ -382,8 +396,9 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     annotations: busy ? [] : [...withFlashed(annotationsFor(sc, sel, s.focus, s.showAllConstraints || !!s.showSketch), sc, flash)],
     flash,
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // on: the world plane that is on always has its grid (`in_190`)
-    suggest: busy ? null : suggestionsFor(sc, sel),
-    confirm: s.tool ? null : s.repeat && !s.op ? { kind: s.repeat.op.kind, label: OPEN_LABELS[s.repeat.op.kind] ?? s.repeat.op.kind } : s.op && s.op.kind !== "dimension" ? { kind: s.op.kind, label: OPEN_LABELS[s.op.kind] ?? s.op.kind } : null,
+    suggest: busy ? null : suggestionsFor(sc, sel, nearTolMm(s.cam)),
+    cut: s.cut ? { parts: cutParts(sceneOf(s.session), s.cut), join: s.cut.join } : null, // (the bodies as they are, not as the preview of the cut shows them)
+    confirm: s.cut ? { kind: "subtract", label: "Cut" } : s.tool ? null : s.repeat && !s.op ? { kind: s.repeat.op.kind, label: OPEN_LABELS[s.repeat.op.kind] ?? s.repeat.op.kind } : s.op && s.op.kind !== "dimension" ? { kind: s.op.kind, label: OPEN_LABELS[s.op.kind] ?? s.op.kind } : null,
     tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", trim: "Trim" } as const)[s.tool.kind], made: s.tool.made ?? 0, drawing: s.tool.points.length > 0, done: (s.tool.made ?? 0) > 0 && s.tool.points.length === 0 } : null,
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),

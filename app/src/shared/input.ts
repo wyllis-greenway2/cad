@@ -21,6 +21,9 @@ export type Intent =
    * icon and its hints; with no cursor held yet, the tap only holds it there. When the figure is complete nothing is held after it: a tap after the last point is what applies it.
    */
   | { type: "tapAim"; x: number; y: number }
+  /** a cut of bodies being set up (`in_294`): keep or toss the part `mask`, or join / separate what is kept */
+  | { type: "cut"; act: "toggle"; mask: number }
+  | { type: "cut"; act: "join" }
   /** A finger drags a point of the figure being drawn that is already placed (`in_288`): the point `index` (0 the first) goes where the finger's icon is, with the hints a hover would give it. */
   | { type: "movePoint"; index: number; x: number; y: number }
   | { type: "click"; x: number; y: number; count: number; shift: boolean }

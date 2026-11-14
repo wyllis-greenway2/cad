@@ -160,3 +160,41 @@ test("two circle edges that nearly touch are offered 'tangent', the constraint h
   // far apart: not offered
   assert.ok(!suggestionsFor(scene(s), [drawCircle(scene(s), XY, [60, 40, 0], 2).circle]) , "(a circle that is not in the scene has no suggestions)");
 });
+
+test("a whole line dragged near a circle lands its end on it, and a vertex of the drawing near the dragged line is put on it; both are kept (`in_294`)", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [40, 20, 0], 6);
+  s = run(s, c.command);
+  const d = drawChain(scene(s), XY, [[5, 5, 0], [25, 5, 0]], false, { reuse: true });
+  s = run(s, d.command);
+  let st = drag(view(s), [15, 5, 0], [24.1, 20.2, 0]); // the end (25, 5) goes to about (34.1, 20.2): at the circle's edge
+  assert.ok(scene(st.session).relations.some((r) => r.kind === "onCircle" && r.parts.includes(d.corners[1]!) && r.parts.includes(c.circle)), "the end is on the circle");
+  const e = at(st, d.corners[1]!);
+  near(Math.hypot(e[0]! - 40, e[1]! - 20), 6, 0.02);
+  // a vertex near the line
+  let u = createSession(kernel);
+  const l1 = drawChain(scene(u), XY, [[5, 5, 0], [25, 5, 0]], false, { reuse: true });
+  u = run(u, l1.command);
+  const l2 = drawChain(scene(u), XY, [[35, 20, 0], [50, 30, 0]], false, { reuse: true });
+  u = run(u, l2.command);
+  const dr = drag(view(u), [15, 5, 0], [30.0, 19.9, 0]); // the line is taken up beside the vertex (40, 20)? no: its middle goes by (15, 15): y = 20 passes through (40, 20)
+  assert.ok(scene(dr.session).relations.some((r) => r.kind === "onLine" && r.parts.includes(l2.corners[0]!) && r.parts.includes(l1.lines[0]!)), "the vertex is on the dragged line");
+});
+
+test("a circle dragged to where it touches another circle lands there and keeps it tangent: by its edge (the size) and by its centre (the place) (`in_294`)", () => {
+  let s = createSession(kernel);
+  const a = drawCircle(scene(s), XY, [20, 15, 0], 6);
+  s = run(s, a.command);
+  const b = drawCircle(scene(s), XY, [40, 15, 0], 4);
+  s = run(s, b.command);
+  // the edge of b taken out to nearly touch a (gap between centres 20: radius 14 touches a from outside)
+  let st = drag(view(s), [44, 15, 0], [53.9, 15, 0]); // radius 4 -> 13.9, about 14
+  const rb = (scene(st.session).parts[b.circle] as { radius: number }).radius;
+  near(rb, 14, 0.02);
+  assert.ok(scene(st.session).relations.some((r) => r.kind === "tangent" && r.parts.includes(a.circle) && r.parts.includes(b.circle)), "kept tangent");
+  // the centre of b taken to touch a: distance 10 from (20, 15)
+  let t = drag(view(s), [40, 15, 0], [30.1, 15, 0]);
+  const cb = at(t, b.centre);
+  near(Math.hypot(cb[0]! - 20, cb[1]! - 15), 10, 0.02);
+  assert.ok(scene(t.session).relations.some((r) => r.kind === "tangent" && r.parts.includes(a.circle) && r.parts.includes(b.circle)), "kept tangent");
+});

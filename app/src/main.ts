@@ -39,6 +39,7 @@ import { createHints } from "./ui/hint.ts";
 import { createBoxView } from "./ui/boxview.ts";
 import { createTouchCursor } from "./ui/touchcursor.ts";
 import { createUndoBar } from "./ui/undobar.ts";
+import { createCutParts } from "./ui/cutparts.ts";
 import { createBubbles } from "./ui/bubbles.ts";
 
 const host = document.getElementById("view")!;
@@ -114,6 +115,7 @@ const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch({ type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
+const cutParts = createCutParts(document.body, (mask) => dispatch({ type: "cut", act: "toggle", mask }), () => dispatch({ type: "cut", act: "join" }));
 const undoBar = createUndoBar(document.body, () => dispatch({ type: "undo" }), () => dispatch({ type: "redo" }));
 const toolChip = createToolChip(document.body, () => dispatch({ type: "escape" }), () => dispatch({ type: "typed", key: "Enter", shift: false }));
 const controls = createControls(document.body, {
@@ -164,6 +166,8 @@ function dispatch(i: Intent) {
     });
     return;
   }
+  // the ⋯ button again closes its menu (`in_294`)
+  if (i.type === "menu" && i.button && menu.open) { menu.hide(); dirty = true; return; }
   state = reduce(state, i, env());
   recognizer.setDrawing(!!state.tool);
   if (i.type === "menu") {
@@ -244,6 +248,7 @@ function frame(now: number) {
     view.setPanes(f.panes);
     view.setBodyFade(f.fadeBody);
     toolChip.update(f.tool, f.confirm, lastDevice === "touch");
+    { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
     undoBar.update(lastDevice === "touch", f.undoRedo);
     similarChip.update(f.similar);
     toolCursor.update(f.tool ? f.tool.kind : null);
