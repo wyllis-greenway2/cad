@@ -11,7 +11,7 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Part } from "./part.ts";
 import { anchorsOf } from "./part.ts";
 import type { Scene, Relation, Step } from "./scene.ts";
-import { bumpCounter } from "./scene.ts";
+import { bumpCounter, figureRefs } from "./scene.ts";
 import { addGroup, removeGroup, withoutParts } from "./groups.ts";
 import { addPattern, setPattern, breakPattern, patternsWithout } from "./repeat.ts";
 
@@ -58,6 +58,40 @@ export function dependentParts(s: Scene, ref: Ref): Ref[] {
     }
   }
   return [...out];
+}
+
+/**
+ * The drawn corners that stood under parts that are going and are left with nothing drawn on them (`in_332`, `in_334`): no line or arc ends or is centred there and no circle is centred there. A corner shows only as the end of a
+ * line or the middle of a circle or arc, so one with nothing on it is not there for the person drawing, and must not be left behind to be snapped to or lined up with. This is the one place the rule is kept: a delete, a trim and
+ * a deleted surface all take parts away through `deletePart` and `deleteParts`, whatever they ask for. A corner a step names or a repeat repeats stays (taking it would change what they are made of), as does a corner the
+ * sketch derives (a crossing). A piece cut from a line (`derived`) does not stand on a corner: it goes with its line.
+ */
+function strandedCorners(s: Scene, gone: ReadonlySet<Ref>): Ref[] {
+  const under = new Set<Ref>();
+  for (const r of gone) {
+    const p = s.parts[r];
+    if (p?.kind === "line") { under.add(p.a); under.add(p.b); if (p.center) under.add(p.center); }
+    else if (p?.kind === "circle") under.add(p.center);
+  }
+  if (!under.size) return [];
+  const stood = new Set<Ref>();
+  for (const p of Object.values(s.parts)) {
+    if (gone.has(p.ref)) continue;
+    if (p.kind === "line" && !p.derived) { stood.add(p.a); stood.add(p.b); if (p.center) stood.add(p.center); }
+    else if (p.kind === "circle") stood.add(p.center);
+  }
+  const named = new Set<Ref>([...s.steps.flatMap((st) => (st.type === "extrude" ? figureRefs(st) : st.parts)), ...(s.patterns ?? []).flatMap((r) => r.parts)]);
+  return [...under].filter((r) => {
+    const p = s.parts[r];
+    return !gone.has(r) && !stood.has(r) && !named.has(r) && p?.kind === "corner" && p.origin === "drawn" && p.movable && !p.derived;
+  });
+}
+/** What goes when these parts go: everything built on them, and the corners that would be left with nothing on them. */
+function goneWith(s: Scene, refs: readonly Ref[]): Set<Ref> {
+  const gone = new Set<Ref>();
+  for (const r of refs) for (const d of dependentParts(s, r)) gone.add(d);
+  for (const c of strandedCorners(s, gone)) for (const d of dependentParts(s, c)) gone.add(d);
+  return gone;
 }
 
 export function apply(s: Scene, c: Command): Result<Scene> {
@@ -112,21 +146,23 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       const p = s.parts[c.ref];
       if (!p) return err(`${c.ref} does not exist`);
       if (!p.movable) return err(`${c.ref} is a reference and cannot be deleted`);
-      const gone = new Set(dependentParts(s, c.ref));
+      const gone = goneWith(s, [c.ref]);
       const parts = Object.fromEntries(Object.entries(s.parts).filter(([k]) => !gone.has(k as Ref)));
       const relations = s.relations.filter((r) => !r.parts.some((x) => gone.has(x)));
       return ok(withoutParts(patternsWithout({ ...s, parts, relations }, gone), gone));
     }
     case "deleteParts": {
       // several at once: everything built on any of them goes too (a part that an earlier one already took is not an error)
-      const gone = new Set<Ref>();
+      const asked: Ref[] = [];
       for (const r of c.refs) {
         const p = s.parts[r];
         if (!p) continue;
         if (!p.movable) return err(`${r} is a reference and cannot be deleted`);
-        for (const d of dependentParts(s, r)) gone.add(d);
+        asked.push(r);
       }
-      if (!gone.size) return err("nothing to delete");
+      // parts that are gone already are not an error, whether some of them or all: a corner left with nothing on it goes with its line now (`strandedCorners`), and a history made before that has later commands that delete it by name
+      if (!asked.length) return ok(s);
+      const gone = goneWith(s, asked);
       const parts = Object.fromEntries(Object.entries(s.parts).filter(([k]) => !gone.has(k as Ref)));
       return ok(withoutParts(patternsWithout({ ...s, parts, relations: s.relations.filter((r) => !r.parts.some((x) => gone.has(x))) }, gone), gone));
     }

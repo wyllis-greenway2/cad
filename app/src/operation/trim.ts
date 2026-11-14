@@ -117,10 +117,7 @@ function trimSide(s: Scene, part: Extract<Scene["parts"][string], { kind: "line"
     for (const r of carried(s, part.ref, line, rid)) commands.push({ type: "addRelation", relation: r });
   });
   commands.push({ type: "deleteParts", refs: [part.ref] });
-  // an end that nothing else stands on goes with the piece it was the end of
-  const used = new Set<Ref>([...(lo.t > 1e-9 ? [part.a] : []), ...(hi.t < 1 - 1e-9 ? [part.b] : [])]);
-  const orphans = [part.a, part.b].filter((r) => !used.has(r) && s.parts[r]?.movable && !Object.values(s.parts).some((q) => q.ref !== part.ref && ((q.kind === "line" && !q.derived && (q.a === r || q.b === r || q.center === r)) || (q.kind === "circle" && q.center === r))));
-  if (orphans.length) commands.push({ type: "deleteParts", refs: orphans });
+  // (an end that nothing else stands on goes with the piece it was the end of: `deleteParts` takes it, `commands.ts` `strandedCorners`)
   return { span: [lift(pointAtParam(c, lo.t)), lift(pointAtParam(c, hi.t))], command: { type: "batch", commands } };
 }
 
@@ -161,10 +158,7 @@ function trimArc(s: Scene, part: Extract<Scene["parts"][string], { kind: "line" 
     for (const r of carried(s, part.ref, arc, rid)) commands.push({ type: "addRelation", relation: r });
   });
   commands.push({ type: "deleteParts", refs: [part.ref] });
-  // an end that nothing else stands on goes with the piece it was the end of (the middle stays: the arcs are about it)
-  const used = new Set<Ref>([...(lo.t > 1e-9 ? [part.a] : []), ...(hi.t < 1 - 1e-9 ? [part.b] : [])]);
-  const orphans = [part.a, part.b].filter((r) => !used.has(r) && s.parts[r]?.movable && !Object.values(s.parts).some((q) => q.ref !== part.ref && ((q.kind === "line" && !q.derived && (q.a === r || q.b === r || q.center === r)) || (q.kind === "circle" && q.center === r))));
-  if (orphans.length) commands.push({ type: "deleteParts", refs: orphans });
+  // (an end that nothing else stands on goes with the piece it was the end of: `deleteParts` takes it, `commands.ts` `strandedCorners`)
   const sweep = (hi.t - lo.t) * c.sweep;
   return { span: Array.from({ length: 33 }, (_, q) => lift(pointAt(lo.t + ((hi.t - lo.t) * q) / 32))).filter(() => Math.abs(sweep) > 0), command: { type: "batch", commands } };
 }

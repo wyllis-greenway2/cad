@@ -1583,3 +1583,11 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_332 — 2026-11-14 — directive
 > okay look at this file. If you draw a line from the upper right arc end, it tries to make suggestions to all sorts of points that aren't there.
 (reports a bug in `snapping_to_things_that_arent_there.cad.json` and its state snapshot: drawing a line from the end of the upper right arc, the suggestions offered point at places where nothing is)
+
+## in_333 — 2026-11-14 — question
+> so what is the root cause? would it be to entirely delete things? not leave any pieces behind?
+(asks for the root cause of `in_332`; answered: the cleanup after a delete counted derived pieces as users, and the deeper cause is that nothing guarantees a corner exists only while something is drawn on it, so each path had to remember to clean up)
+
+## in_334 — 2026-11-14 — directive
+> yes, build the single-place rule
+(approves the stronger version put after `in_333`: the rule that a drawn corner nothing is drawn on is removed is made in one place, the command layer, instead of in each tool's own cleanup)
