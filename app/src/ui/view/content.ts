@@ -7,40 +7,6 @@ import type { Pen } from "./pen.ts";
 import { clearGroup, trisMesh, ringOf, rgb } from "./pen.ts";
 import { cornerEdges } from "./edges.ts";
 import { ownSegments } from "./split.ts";
-import { groupDelta } from "../../interaction/stretch.ts";
-
-/** How a face's points move (`in_217`, `in_218`): all by the same step, or out from (in towards) an axis by `dr`. */
-export type Shift =
-  | { by: [number, number, number] }
-  | { center: readonly number[]; axis: readonly number[]; dr: number; r0: number }
-  /** the points that stand over moved corners of a sketch (in a line along `axis` through the corner) move with them (`in_219`) */
-  | { axis: readonly number[]; items: { at: readonly number[]; by: readonly number[] }[]; /** the walls of arcs of the sketch that change with it (`in_226`) */ arcWalls?: { keys: Set<string>; arc: ArcShape }[] }
-  /** the wall of an arc made wider (`in_225`): its points go out from the middle by `dr` and along the arc from where it began (`th0`, over `span`, turning `dir`) to where it begins now (`th0n`, over `spanN`); the points over moved corners move with them */
-  | { arcWall: ArcShape; items: { at: readonly number[]; by: readonly number[] }[] }
-  /** a fillet or chamfer of another size is the same cross-section scaled by `k` about its sharp edge (a line, or a circle), edge by edge (`in_220`, `in_222`) */
-  | { k: number; groups: { keys: Set<string>; sharp: SharpShape }[] };
-export type SharpShape =
-  | { kind: "line"; point: readonly number[]; dir: readonly number[]; a: readonly number[]; b: readonly number[]; cornerA: boolean; cornerB: boolean }
-  | { kind: "circle"; center: readonly number[]; axis: readonly number[]; radius: number }
-  | { kind: "point"; center: readonly number[] }
-  | { kind: "plane"; point: readonly number[]; normal: readonly number[] };
-
-export type ArcShape = { center: readonly number[]; centerN: readonly number[]; axis: readonly number[]; u: readonly number[]; v: readonly number[]; th0: number; span: number; th0n: number; spanN: number; dir: 1 | -1; dr: number };
-
-/** How far a point of an arc's wall goes when the arc becomes another (`in_225`, `in_226`): along the arc from where it began to where it begins now, out from the middle by `dr`, about the new middle. */
-function arcDelta(a: ArcShape, x: number, y: number, z: number): [number, number, number] {
-  const [px, py, pz] = [x - a.center[0]!, y - a.center[1]!, z - a.center[2]!];
-  const h = px * a.axis[0]! + py * a.axis[1]! + pz * a.axis[2]!;
-  const [qx, qy, qz] = [px - h * a.axis[0]!, py - h * a.axis[1]!, pz - h * a.axis[2]!];
-  const [cx, cy] = [qx * a.u[0]! + qy * a.u[1]! + qz * a.u[2]!, qx * a.v[0]! + qy * a.v[1]! + qz * a.v[2]!];
-  const TAU = 2 * Math.PI;
-  let f = ((a.dir * (Math.atan2(cy, cx) - a.th0)) % TAU + TAU) % TAU;
-  if (f > TAU - 1e-3) f = 0;
-  const th = a.th0n + a.dir * Math.min(1, f / a.span) * a.spanN;
-  const rho2 = Math.hypot(cx, cy) + a.dr;
-  const [ex, ey, ez] = [a.centerN[0]! + h * a.axis[0]! + rho2 * (Math.cos(th) * a.u[0]! + Math.sin(th) * a.v[0]!), a.centerN[1]! + h * a.axis[1]! + rho2 * (Math.cos(th) * a.u[1]! + Math.sin(th) * a.v[1]!), a.centerN[2]! + h * a.axis[2]! + rho2 * (Math.cos(th) * a.u[2]! + Math.sin(th) * a.v[2]!)];
-  return [ex - x, ey - y, ez - z];
-}
 
 export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array }
 
@@ -65,7 +31,7 @@ function linePairs(s: Scene, skip: ReadonlySet<Ref>): number[] {
  * One look for every line (`in_115`): drawn lines and the body's outline are the same thin charcoal line, from the same material. Corners are not dotted anywhere:
  * a corner shows as a ball when you point at it or pick it, whatever it belongs to.
  */
-export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group; shift: (keys: Set<string> | null, how: Shift) => void; split: (tris: [number, number][] | null, box: { min: readonly number[]; max: readonly number[] } | null) => void; mover: THREE.Group } | null {
+export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group; split: (tris: [number, number][] | null, box: { min: readonly number[]; max: readonly number[] } | null) => void; mover: THREE.Group } | null {
   clearGroup(content);
   pen.reset();
   const get = lookup(s);
@@ -110,80 +76,7 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
   const mover = new THREE.Group(); // (one body of several, being dragged: its triangles and outline in a group of its own, so a matrix can move it alone, `in_273`)
   mover.matrixAutoUpdate = false;
   content.add(mover);
-  // A face pulled or pushed along its normal, drawn at once without the kernel (`in_217`): every point of the surface (and of its outline) that lies where the face's points are moves by `by`; the walls beside it
-  // stretch, as a prism's do. With `keys` null everything goes back. The mesh the kernel gave is not changed: the moved points live in a copy.
   const orig = mesh.vertices;
-  let live: THREE.BufferAttribute | null = null;
-  const at = (a: ArrayLike<number>, i: number) => `${Math.round(a[i]! * 1e3)},${Math.round(a[i + 1]! * 1e3)},${Math.round(a[i + 2]! * 1e3)}`;
-  let seen: Set<string> | null = null;
-  let seenGroups: unknown = null;
-  let groupOf = new Int16Array(0);
-  let groupOfEdge = new Int16Array(0);
-  let vertexHits: Uint8Array = new Uint8Array(0);
-  let edgeHits: Uint8Array = new Uint8Array(0);
-  const hitsOf = (keys: Set<string>, from: ArrayLike<number>): Uint8Array => { const h = new Uint8Array(from.length / 3); for (let i = 0; i < h.length; i++) h[i] = keys.has(at(from, 3 * i)) ? 1 : 0; return h; };
-  const shift = (keys: Set<string> | null, how: Shift) => {
-    if (!live) { if (!keys) return; live = new THREE.BufferAttribute(Float32Array.from(orig), 3); g.setAttribute("position", live); }
-    if ("groups" in how && keys && how.groups !== seenGroups) {
-      seenGroups = how.groups;
-      groupOf = new Int16Array(orig.length / 3).fill(-1);
-      how.groups.forEach((g, gi) => { for (let i = 0; i < groupOf.length; i++) if (groupOf[i]! < 0 && g.keys.has(at(orig, 3 * i))) groupOf[i] = gi; });
-      groupOfEdge = new Int16Array(edgeOrig.length / 3).fill(-1);
-      how.groups.forEach((g, gi) => { for (let i = 0; i < groupOfEdge.length; i++) if (groupOfEdge[i]! < 0 && g.keys.has(at(edgeOrig, 3 * i))) groupOfEdge[i] = gi; });
-    }
-    if (keys && keys !== seen) { seen = keys; vertexHits = hitsOf(keys, orig); edgeHits = hitsOf(keys, edgeOrig); } // (found once for the face, not on every move)
-    const move = (target: Float32Array, from: ArrayLike<number>, hits: Uint8Array, groupOf: Int16Array) => {
-      for (let i = 0; i < hits.length; i++) {
-        let [dx, dy, dz] = [0, 0, 0];
-        if (keys && "arcWall" in how) {
-          const [x, y, z] = [from[3 * i]!, from[3 * i + 1]!, from[3 * i + 2]!];
-          const a = how.arcWall;
-          if (hits[i]) [dx, dy, dz] = arcDelta(a, x, y, z);
-          else {
-            const k = x * a.axis[0]! + y * a.axis[1]! + z * a.axis[2]!;
-            for (const it of how.items) {
-              const k0 = it.at[0]! * a.axis[0]! + it.at[1]! * a.axis[1]! + it.at[2]! * a.axis[2]!;
-              if (Math.hypot(x - k * a.axis[0]! - (it.at[0]! - k0 * a.axis[0]!), y - k * a.axis[1]! - (it.at[1]! - k0 * a.axis[1]!), z - k * a.axis[2]! - (it.at[2]! - k0 * a.axis[2]!)) < 2e-3) { [dx, dy, dz] = [it.by[0]!, it.by[1]!, it.by[2]!]; break; }
-            }
-          }
-        } else if (keys && "groups" in how) {
-          const g = groupOf[i]! >= 0 ? how.groups[groupOf[i]!]! : null;
-          if (g) {
-            const [x, y, z] = [from[3 * i]!, from[3 * i + 1]!, from[3 * i + 2]!];
-            [dx, dy, dz] = groupDelta(g.sharp, how.k, x, y, z); // (the same numbers the check against the kernel uses, `in_325`)
-          }
-        } else if (keys && "items" in how && "axis" in how) {
-          const [ax, ay, az] = [how.axis[0]!, how.axis[1]!, how.axis[2]!];
-          const [x, y, z] = [from[3 * i]!, from[3 * i + 1]!, from[3 * i + 2]!];
-          const wi = how.arcWalls ? how.arcWalls.findIndex((w) => w.keys.has(at(from, 3 * i))) : -1;
-          if (wi >= 0) [dx, dy, dz] = arcDelta(how.arcWalls![wi]!.arc, x, y, z);
-          else {
-            const k = x * ax + y * ay + z * az;
-            for (const it of how.items) {
-              const k0 = it.at[0]! * ax + it.at[1]! * ay + it.at[2]! * az;
-              if (Math.hypot(x - k * ax - (it.at[0]! - k0 * ax), y - k * ay - (it.at[1]! - k0 * ay), z - k * az - (it.at[2]! - k0 * az)) < 2e-3) { [dx, dy, dz] = [it.by[0]!, it.by[1]!, it.by[2]!]; break; }
-            }
-          }
-        } else if (keys && hits[i]) {
-          if ("by" in how) [dx, dy, dz] = how.by;
-
-          else if ("center" in how) {
-            // out from the axis (a round wall made wider): the way from the axis to the point, across it
-            const [px, py, pz] = [from[3 * i]! - how.center[0]!, from[3 * i + 1]! - how.center[1]!, from[3 * i + 2]! - how.center[2]!];
-            const along = px * how.axis[0]! + py * how.axis[1]! + pz * how.axis[2]!;
-            const [rx, ry, rz] = [px - along * how.axis[0]!, py - along * how.axis[1]!, pz - along * how.axis[2]!];
-            const len = Math.hypot(rx, ry, rz) || 1;
-            [dx, dy, dz] = [(rx / len) * how.dr, (ry / len) * how.dr, (rz / len) * how.dr];
-          }
-        }
-        target[3 * i] = from[3 * i]! + dx; target[3 * i + 1] = from[3 * i + 1]! + dy; target[3 * i + 2] = from[3 * i + 2]! + dz;
-      }
-    };
-    if (!keys) { vertexHits = new Uint8Array(orig.length / 3); edgeHits = new Uint8Array(edgeOrig.length / 3); seen = null; }
-    move(live.array as Float32Array, orig, vertexHits, groupOf);
-    live.needsUpdate = true;
-    if (edgePos) { move(edgePos.array as Float32Array, edgeOrig, edgeHits, groupOfEdge); edgePos.needsUpdate = true; }
-  };
   // Split the mesh: the triangles in `tris` (ranges of the index list) and the outline segments inside `box` go to `mover`, the rest stay in `body`; null puts everything back.
   let splitSig = "";
   const fullIndex = mesh.triangles;
@@ -213,5 +106,5 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
       mover.add(new THREE.LineSegments(eg2, edge));
     }
   };
-  return { material, body, shift, split, mover };
+  return { material, body, split, mover };
 }

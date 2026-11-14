@@ -6,7 +6,6 @@ import { scene as sceneOf, selection as selectionOf } from "./session.ts";
 import { toText } from "../operation/file.ts";
 import { settings } from "../shared/settings.ts";
 import { candidatesAt } from "./picking.ts";
-import { previewChecks } from "./frame.ts";
 import { pickOpts } from "./control/state.ts";
 import { projector, eyeDistance, mixOf } from "./camera.ts";
 
@@ -42,7 +41,6 @@ export function snapshotOf(s: AppState, extras: Extras): Record<string, unknown>
     message: s.session.message, conflict: s.session.conflict, lagging: s.session.lagging,
     kernel: { errors: outcome.errors, volume: k?.volume ?? null, bbox: k?.bbox ?? null, faces: k?.faces?.length ?? null, edges: k?.edges?.length ?? null, totalMs: k ? Math.round(k.totalMs) : null, perf: k?.perf ? Object.fromEntries(Object.entries(k.perf).map(([n, v]) => [n, Math.round(v)])) : null },
     timing: extras.timing ?? null,
-    previewChecks: { checked: previewChecks.checked, differed: previewChecks.differed, last: previewChecks.last }, // (how often the stretched picture was compared with the kernel, and what differed, `in_325`)
     scene: { partsByKind: kinds, relations: sc.relations.length, steps: sc.steps.map((st) => `${st.id}:${st.type}`), counter: sc.counter },
     history: { commands: s.session.history.commands.length, cursor: s.session.history.cursor },
     settings: { view: settings.view, input: settings.input, pick: settings.pick, sketch: settings.sketch },

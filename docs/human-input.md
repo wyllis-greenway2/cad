@@ -1571,3 +1571,11 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_329 — 2026-11-14 — directive
 > measure how far the picture lags the pointer. If the measurements work out well, maybe we should have this as a unified method for previews so we no longer have preview not being synced with the end result.
 (asks for the lag of the exact preview behind the pointer to be measured, which was left unmeasured after `in_327`; and, if it is good, to consider the kernel's own result as the one preview method for every operation, so that a preview cannot disagree with the result; the second part is a question to be answered from the measurements, not yet an instruction to build)
+
+## in_330 — 2026-11-14 — question
+> so it looks like we should just use this more accurate preview model instead of our current stretch model everywhere?
+(asks whether the kernel's own result should replace the stretch for every preview, after the measurements of `in_329`; the AI's answer is below in the handoff; this is not yet an instruction to build, the scope is put to the human)
+
+## in_331 — 2026-11-14 — directive
+> Switch and delete the stretch code
+(answers the question of scope put after `in_330`: the kernel's own result becomes the preview of every operation that is a stretch today (a prism pull, a face pull, a wall made wider, a side or an arc made bigger, a fillet or chamfer), the matrix of the graphics card stays for the rigid motions (move, turn, uniform scale), and the stretch code is removed in the same go: the stretch paths, their check against the kernel, and the renderer's stretch machinery)

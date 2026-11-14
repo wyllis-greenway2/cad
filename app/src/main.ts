@@ -12,7 +12,7 @@ import type { Session } from "./interaction/session.ts";
 import { exportStl, canExport, selectedBodies } from "./interaction/exportstl.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
 import { createState, reduce, advance } from "./interaction/controller.ts";
-import { frameOf, previewIsExact } from "./interaction/frame.ts";
+import { frameOf } from "./interaction/frame.ts";
 import { appRows, nextScrollMode, isScrollMode, nextPanScale } from "./interaction/appmenu.ts";
 import { snapshotOf, logEntry } from "./interaction/snapshot.ts";
 import { createTiming } from "./interaction/timing.ts";
@@ -255,9 +255,10 @@ function frame(now: number) {
   if (dirty || spreading || state.flash) {
     const size = view.size();
     const tFrame = performance.now();
-    const exact = !!state.drag && !!state.op && previewIsExact(state.op); // (the kernel's own result for every size, `in_326`: a rough mesh, and only the mesh, `in_327`; for a fillet or a chamfer, `in_328`)
-    engine.draft = exact || !!(state.drag && state.op && state.op.kind !== "edge");
-    engine.lite = exact; // (a rough mesh while a size is dragged, the fine one when it is let go, `in_216`; a new fillet is made once, fine, and scaled, unless the kernel's own result is shown)
+    // while a size is dragged, what is drawn is the kernel's own result for every size, newest request winning: rough and with no faces or edges, the fine and whole one comes when the pointer is let go (`in_327`, `in_331`)
+    const dragging = !!state.drag && !!state.op;
+    engine.draft = dragging;
+    engine.lite = dragging;
     const f = frameOf(state, size, now);
     lastFrame = f;
     engine.draft = false;
@@ -266,7 +267,6 @@ function frame(now: number) {
     const page = host.getBoundingClientRect();
     view.setScene(f.scene, f.mesh);
     view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit);
-    view.setFaceShift(f.faceShift ? { face: f.faceShift.face, ...(f.faceShift.by ? { by: [...f.faceShift.by] as [number, number, number] } : {}), ...(f.faceShift.radial ? { radial: f.faceShift.radial } : {}), ...(f.faceShift.columns ? { columns: f.faceShift.columns } : {}), ...(f.faceShift.rounds ? { rounds: f.faceShift.rounds } : {}), ...(f.faceShift.arcs ? { arcs: f.faceShift.arcs } : {}), withOverlay: f.highlight.selection.length === 1 && f.highlight.selection[0] === f.faceShift.face } : null);
     view.setHighlight(f.highlight, state.cam, now);
     view.setPreview(f.preview, state.cam);
     view.setGizmo(f.gizmo, state.cam);
