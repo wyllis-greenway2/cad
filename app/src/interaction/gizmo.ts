@@ -117,7 +117,12 @@ export function moveOffset(scene: Scene, op: Op): Vec3 {
   if (op.kind !== "move" || !op.from) return [0, 0, 0];
   if (op.target === "plane") { const c = moveCentre(scene, op); return c ? sub(c, op.from) : [0, 0, 0]; }
   const out: [number, number, number] = [0, 0, 0];
-  for (const st of scene.steps.slice(op.stepsAt ?? scene.steps.length)) if (st.type === "move" && st.parts[0] === op.parts[0]) out[Number(st.params.axis ?? 0)]! += Number(st.params.value ?? 0);
+  for (const st of scene.steps.slice(op.stepsAt ?? scene.steps.length)) {
+    if (st.type !== "move" || st.parts[0] !== op.parts[0]) continue;
+    if (st.params.vx !== undefined) { out[0] += Number(st.params.vx); out[1] += Number(st.params.vy); out[2] += Number(st.params.vz); } // (a body dragged free, `in_291`)
+    else out[Number(st.params.axis ?? 0)]! += Number(st.params.value ?? 0);
+  }
+  if (op.free) { out[0] += op.free[0]; out[1] += op.free[1]; out[2] += op.free[2]; } // (and while it is being dragged: the arrows and the numbers go with it, `in_293`)
   return out;
 }
 

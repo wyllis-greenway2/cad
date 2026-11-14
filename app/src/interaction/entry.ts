@@ -108,6 +108,13 @@ export function repeatEntries(op: Op, g: Gizmo | null, cam: Camera, chosen: stri
  */
 export function moveEntries(op: Op, g: Gizmo | null, offset: Vec3): Entry[] {
   if (!g || op.kind !== "move") return [];
+  // a body dragged free: all three numbers, one on each arrow, as it goes (`in_293`)
+  if (op.free) {
+    return ([0, 1, 2] as const).flatMap((k) => {
+      const arrow = g.handles.find((h) => h.id === `move:${"xyz"[k]}`);
+      return arrow ? [{ fields: [{ label: `Move along ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(offset[k]!), active: false, typed: false, index: k }], unit: "mm", at: arrow.points.at(-1)!, from: g.centre }] : [];
+    });
+  }
   const i = op.axis;
   const arrow = g.handles.find((h) => h.id === `move:${"xyz"[i]}`);
   if (!arrow) return [];

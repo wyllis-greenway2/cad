@@ -16,7 +16,15 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
     const why = op.edit?.kind === "radius" && op.edit.arc ? (isTangentArc(sceneOf(sess), op.edit.circle) ? "the lines tangent to this arc cannot stay tangent at that radius (a locked size or angle holds them)" : "the lines on both ends of this arc do not reach that radius (they would have to move)") : "it would be zero or less";
     return op.edit && v !== null && v !== 0 ? { session: { ...sess, message: `that size is not possible: ${why}` }, cmd: { type: "batch", commands: [] } } : null;
   }
-  if (!op.edit || op.noEdit) return { session: run(sess, cmd), cmd };
+  if (!op.edit || op.noEdit) {
+    const done = run(sess, cmd);
+    // a body moved, turned or scaled whole brings its sketches with it; a constraint that ties one of them to something that stays would pull it out of shape instead (`in_293`): that is refused, and the constraint is named
+    if (op.target === "body" && (op.kind === "move" || op.kind === "rotate" || op.kind === "scale") && !done.message) {
+      const held = heldBack(sceneOf(sess), sceneOf(done), cmd, op.kind === "scale" ? (valueOf(op) ?? 1) : 1);
+      if (held) return { session: { ...sess, message: `this body cannot ${op.kind === "move" ? "move" : op.kind === "rotate" ? "turn" : "scale"}: a constraint ties its sketch to something that stays (${held.names}): remove it, or move that too`, conflict: { culprits: held.ids, victims: [] } }, cmd };
+    }
+    return { session: done, cmd };
+  }
   const prism0 = opCommand(sceneOf(sess), { ...op, noEdit: true });
   const piece = sceneOf(sess).parts[op.parts[0]!];
   const ofCircle = piece?.kind === "plane" && !!piece.round; // (the wall of one arc of a circle, a tooth of a gear: its circle's prism would be a ring round all the teeth, `in_265`)
@@ -45,4 +53,24 @@ function holdingSide(scene: ReturnType<typeof sceneOf>, corners: readonly string
   const near = new Set<string>(own);
   for (const q of Object.values(scene.parts)) if (q.kind === "line" && (own.has(q.a) || own.has(q.b))) near.add(q.ref);
   return scene.relations.filter((r) => r.locked !== false && r.parts.some((x) => near.has(x))).map((r) => r.id);
+}
+
+/**
+ * The constraints that kept the sketches carried with a body from going with it (`in_293`): after the step the lines and circles that were carried must be the same size (times `k` for a scale); where one is not, the relations
+ * that tie a carried part to a part that is not carried are the ones that held it. Null when everything went with the body.
+ */
+function heldBack(before: ReturnType<typeof sceneOf>, after: ReturnType<typeof sceneOf>, cmd: Command, k: number): { ids: string[]; names: string } | null {
+  const moved = new Set<string>((cmd.type === "batch" ? cmd.commands : [cmd]).flatMap((c) => (c.type === "transformFigure" ? c.parts : [])));
+  if (!moved.size) return null;
+  const len = (sc: ReturnType<typeof sceneOf>, a: string, b: string): number | null => { const [p, q] = [sc.parts[a], sc.parts[b]]; return p?.kind === "corner" && q?.kind === "corner" ? Math.hypot(p.at[0] - q.at[0], p.at[1] - q.at[1], p.at[2] - q.at[2]) : null; };
+  let deformed = false;
+  for (const r of moved) {
+    const p = before.parts[r];
+    if (p?.kind === "line") { const [x, y] = [len(before, p.a, p.b), len(after, p.a, p.b)]; if (x !== null && y !== null && Math.abs(y - x * k) > 1e-4 * Math.max(1, x)) deformed = true; }
+    if (p?.kind === "circle") { const q = after.parts[r]; if (q?.kind === "circle" && Math.abs(q.radius - p.radius * k) > 1e-4 * Math.max(1, p.radius)) deformed = true; }
+  }
+  if (!deformed) return null;
+  const parts = new Set<string>([...moved].flatMap((r) => { const p = before.parts[r]; return p?.kind === "line" ? [r, p.a, p.b, ...(p.center ? [p.center] : [])] : p?.kind === "circle" ? [r, p.center] : [r]; }));
+  const ties = before.relations.filter((rel) => rel.locked !== false && rel.parts.some((x) => parts.has(x)) && rel.parts.some((x) => !parts.has(x)));
+  return { ids: ties.map((t) => t.id), names: ties.map((t) => t.id).join(", ") || "a relation" };
 }

@@ -353,7 +353,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   // the number of an operation's arrow shows only when that arrow is selected (clicked or taken), or a number is being typed for it: the arrows alone stay clean (`in_238`)
   const armed = !!s.handleSel && !!gizmo && gizmo.handles.some((h) => h.id === s.handleSel);
   const typing = !!shownOp && (shownOp.typed !== "" || shownOp.rot.some((t) => t !== ""));
-  const numberShown = armed || typing || !!(s.drag && "handle" in s.drag);
+  const numberShown = armed || typing || !!(s.drag && ("handle" in s.drag || "body" in s.drag));
   const flash = flashOf(s, sc, now);
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
   const gp = gridPlaneOf(s);

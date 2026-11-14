@@ -392,10 +392,41 @@ test("a body that is selected whole is dragged free by pressing on it: it moves 
   let [x, y] = on;
   for (const [dx, dy] of [[0, 0], [20, -10], [20, -10], [10, 0]] as [number, number][]) { x += dx; y += dy; st = reduce(st, { type: "orbit", dx, dy, x, y }, env); }
   assert.ok(st.op?.free, "the drag has taken hold of the body");
+  // while it is dragged the arrows go with it and all three numbers show (`in_293`)
+  const fr = frameOf(st, env);
+  const c0 = bodyCentre(scene(st.session), a!.ref)!;
+  const gc = fr.gizmo!.handles.find((h) => h.id === "move:x")!.points[0]!;
+  assert.ok(Math.abs(gc[0] - (c0[0] + st.op!.free![0])) < 1e-6 && Math.abs(gc[1] - (c0[1] + st.op!.free![1])) < 1e-6, `the arrows stand on the body as it goes: ${gc} vs ${c0} + ${st.op!.free}`);
+  assert.equal(fr.entries.length, 3, "an X, a Y and a Z number");
+  assert.deepEqual(fr.entries.map((e) => e.fields[0]!.short), ["X", "Y", "Z"]);
+  assert.ok(Math.abs(Number(fr.entries[0]!.fields[0]!.value) - st.op!.free![0]) < 0.01);
   st = reduce(st, { type: "dragEnd" }, env);
   assert.equal(st.op, null);
   assert.equal(scene(st.session).steps.length, steps0 + 1, "one step");
   const [a2, b2] = [bodies(st.session).find((q) => q.id === a!.id)!, bodies(st.session).find((q) => q.id === b!.id)!];
   assert.ok(Math.abs(a2.bbox!.min[0] - a!.bbox!.min[0]) > 0.5, `the first body moved: ${a!.bbox!.min} to ${a2.bbox!.min}`);
   assert.deepEqual(b2.bbox!.min.map((v) => Math.round(v * 1000)), b!.bbox!.min.map((v) => Math.round(v * 1000)), "the other body did not");
+});
+
+import { runOp } from "../src/interaction/runop.ts";
+test("a body whose sketch is tied by a constraint to something that stays is not moved out of shape: it is refused and the constraint named; a free body moves whole (`in_293`)", () => {
+  const rect = (s0: Session, x: number) => { const r = drawSquaredRectangle(scene(s0), XY, [x, 0, 0], [x + 10, 10, 0], [1, 0, 0], [0, 1, 0]); const s1 = run(s0, r.command); return { s: run(s1, { type: "addStep", step: { id: nextId(scene(s1), "s"), type: "extrude", parts: r.lines, params: { depth: 10 } } }), r }; };
+  const first = rect(createSession(kernel), 0);
+  const second = rect(first.s, 40);
+  let s = run(second.s, { type: "addRelation", relation: { id: "r_tie", kind: "sameHeight", parts: [first.r.corners[0]!, second.r.corners[0]!] } });
+  const [a] = bodies(s);
+  const mv = startOp(scene(s), [a!.ref], "move");
+  if (!mv.ok) return assert.fail("no move");
+  for (const op of [{ ...mv.op, axis: 1 as const, value: 7 }, { ...mv.op, free: [0, 7, 0] as [number, number, number] }]) {
+    const out = runOp(s, op);
+    assert.ok(out);
+    assert.match(out!.session.message ?? "", /ties its sketch/, "refused, with the reason");
+    assert.deepEqual(out!.session.conflict?.culprits, ["r_tie"], "the constraint is named");
+    assert.equal(bodies(out!.session)[0]!.bbox!.max[1], 10, "the body is not stretched");
+  }
+  // along the line the tie allows (x): it moves whole
+  const ok = runOp(s, { ...mv.op, free: [12, 0, 0] });
+  assert.equal(ok!.session.message, null);
+  assert.ok(Math.abs(bodies(ok!.session)[0]!.bbox!.min[0] - 12) < 1e-6);
+  void s;
 });
