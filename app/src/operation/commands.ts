@@ -132,7 +132,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     }
     case "addRelation": {
       if (s.relations.some((r) => r.id === c.relation.id)) return err(`relation ${c.relation.id} already exists`);
-      for (const r of c.relation.parts) if (!(r in s.parts)) return err(`relation uses ${r}, which does not exist`);
+      for (const r of c.relation.parts) if (!(r in s.parts) && !r.startsWith("b/")) return err(`relation uses ${r}, which does not exist`); // (a part of the body comes from the kernel, which may not have answered yet when a saved file is replayed in the browser: it is looked for when the compile has it, `in_316`)
       return ok(bumpCounter({ ...s, relations: [...s.relations, withAnchors(s, c.relation)] }, c.relation.id)); // (a circular edge of the body it names is described, so it can be found again, `in_309`)
     }
     case "removeRelation": {

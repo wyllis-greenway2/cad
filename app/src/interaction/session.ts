@@ -2,6 +2,7 @@
 // This is the one object the app holds. Commands are checked against the whole scene, so a relation to a body corner or a drawing on a body face is valid
 // (the gap noted in Handoff 084).
 import { mateStatus } from "../operation/mates.ts";
+import { describedCommand } from "../operation/anchors.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Kernel } from "../compiler/kernel/adapter.ts";
 import { compile } from "../compiler/compile.ts";
@@ -116,7 +117,7 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   const steps = opts.watchAll ? s.history.scene.steps.map((x) => x.id).filter((id) => !s.outcome.errors[id]) : stepsOf(c);
   // a step is built on what is shown: while the kernel is still answering for the last change what is shown is the older model, and a step made now could mean something else (`in_142`)
   if (steps.length && !opts.watchAll && s.outcome.kernel?.stale) return { ...s, message: "the model is still being worked out: try again in a moment" };
-  const r = exec(s.history, c);
+  const r = exec(s.history, describedCommand(s.history.scene, c)); // (a relation to a part of the body is saved with its description, `in_316`)
   if (!r.ok) return { ...s, message: r.error };
   const next = withHistory(s, r.value);
   // a step the kernel cannot make is refused, not kept to break the steps after it

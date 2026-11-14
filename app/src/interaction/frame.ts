@@ -20,6 +20,7 @@ import { dot, cross, normalize, add, sub } from "../math/vec.ts";
 import { apply } from "../operation/commands.ts";
 import { outlineOf } from "../operation/part.ts";
 import { seenIn } from "./picking.ts";
+import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
@@ -112,6 +113,8 @@ export interface Frame {
   /** a little icon by the move arrows of a body (or a drawn figure) that switches to turning it, and by its rings one that switches back (`in_206`) */
   /** the chip that follows "select similar": its rules and how many were selected; there only while the selection is still what it chose (`in_257`) */
   /** the chip over the view while several things are selected: what can be done with them as a set (`in_300`) */
+  /** the mates, marked on the model where the two bodies meet (`in_316`): where, how they stand, what to say, and which bodies they are between */
+  mates: { id: string; at: Vec3; state: "ok" | "off" | "lost"; text: string }[];
   /** nothing of the model is in view: the Reset camera button is offered (`in_303`) */
   resetView: boolean;
   selection: { count: number; actions: { id: string; label: string; title: string }[] } | null;
@@ -416,6 +419,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
     similar: similarChip(s),
     selection: selectionChip(s),
+    mates: busy ? [] : matesOn(sc),
     resetView: !s.anim && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
     modeSwitch: gizmo && !s.repeat ? modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : null,
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
@@ -534,6 +538,23 @@ function modeSwitchOf(op: AppState["op"], at: Vec3, pts: Vec3[]): Frame["modeSwi
   if (op.kind === "move") return { at, pts, to: "rotate", label: "Rotate" };
   if (op.kind === "rotate") return { at, pts, to: "move", label: "Move" };
   return null;
+}
+
+/** Each mate of the scene with where its mark stands and what it says (`in_316`). */
+function matesOn(sc: Scene): Frame["mates"] {
+  const out: Frame["mates"] = [];
+  for (const m of mateStatus(sc)) {
+    const rel = sc.relations.find((r) => r.id === m.id);
+    const body = (r: Ref | undefined) => { const p = r ? sc.parts[r] : undefined; return p?.kind === "body" && p.bbox ? p : null; };
+    const [mb, ob] = [body(rel?.parts[0]), body(rel?.parts[1])];
+    const middle = (b: ReturnType<typeof body>): Vec3 | null => b?.bbox ? [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2] : null;
+    const at = (m.mover ? faceMiddle(sc, m.mover.ref) : null) ?? (m.other ? faceMiddle(sc, m.other.ref) : null) ?? middle(mb) ?? middle(ob);
+    if (!at) continue;
+    const what = m.mode === "flush" ? "flush faces" : "coaxial";
+    const text = m.state === "ok" ? `Mate: ${what}` : m.state === "off" ? `Mate: ${what}: no longer true (${(m.residual ?? 0).toFixed(2)} mm off): click to put it back` : `Mate: ${what}: a body or a face is gone`;
+    out.push({ id: m.id, at, state: m.state, text });
+  }
+  return out;
 }
 
 function selectionChip(s: AppState): Frame["selection"] {

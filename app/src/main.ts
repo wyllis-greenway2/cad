@@ -37,6 +37,7 @@ import { createSimilarChip } from "./ui/similarchip.ts";
 import { createSelectionChip } from "./ui/selectionchip.ts";
 import { createResetView } from "./ui/resetview.ts";
 import { createCrosshair } from "./ui/crosshair.ts";
+import { createMateMarks } from "./ui/matemarks.ts";
 import { createModeSwitch } from "./ui/modeswitch.ts";
 import { createSuggest } from "./ui/suggest.ts";
 import { createHints } from "./ui/hint.ts";
@@ -126,6 +127,7 @@ const busySign = createBusy(document.body);
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
 const crosshair = createCrosshair(document.body);
+const mateMarks = createMateMarks(document.body, (id, state) => dispatch({ type: "runAction", id: state === "off" ? `mate:reapply:${id}` : `mate:select:${id}` })); // (a mark of a mate that is not true puts it back; any other selects its two bodies, `in_316`)
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const selectionChip = createSelectionChip(document.body, (id) => dispatch({ type: "runAction", id }));
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
@@ -238,7 +240,7 @@ async function boot() {
     project: (p: [number, number, number]) => projector(state.cam, view.size().w, view.size().h).project(p),
     candidatesAt: (x: number, y: number) => candidatesAt(scene(state.session), projector(state.cam, view.size().w, view.size().h).view(x, y), { pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx }),
     frame: () => frameOf(state, view.size()),
-    load: (text: string) => { const r = openSession(engine, text); if (r.ok) adopt(r.value); return r.ok },
+    load: (text: string) => { const r = openSession(engine, text); if (r.ok) adopt(r.value); return r.ok ? true : r.error },
     snapshot: () => snapshotOf(state, { intents: intentLog, viewport: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: "", scrollMode: recognizer.scrollMode, timing: timing.summary(), at: new Date().toISOString(), pointer }),
     dispatch, run: (c: Command) => { state = { ...state, session: run(state.session, c) }; dirty = true; },
   };
@@ -278,6 +280,7 @@ function frame(now: number) {
     view.setNotes(f.annotations.flatMap((a) => a.lines));
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
+    mateMarks.update(f.mates.flatMap((m) => { const q = onPage(m.at); return q ? [{ id: m.id, at: q, state: m.state, text: m.text }] : []; }));
     // the icon stands at the upper left of the handles, out of the way of the arrows and rings (`in_215`)
     const corner = f.modeSwitch ? f.modeSwitch.pts.map((p) => onPage(p)!).reduce<[number, number]>((c, q) => [Math.min(c[0], q[0]), Math.min(c[1], q[1])], [Infinity, Infinity]) : null;
     suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null, [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));

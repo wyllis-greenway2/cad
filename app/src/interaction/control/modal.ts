@@ -215,6 +215,16 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "repeat:break") return doRepeatBreak(closed);
   if (id === "select:ungroup") return doUngroup(closed);
   if (id === "multiselect") return { ...closed, multiSelect: !s.multiSelect, session: { ...closed.session, message: s.multiSelect ? "select several is off" : "select several is on: a tap adds to the selection, a tap on what is selected takes it out" } };
+  if (id.startsWith("mate:select:")) { // a mark on the model was clicked: the two bodies of the mate are selected (`in_316`)
+    const rel = sceneOf(s.session).relations.find((r) => r.id === id.slice(12));
+    return rel ? { ...closed, session: { ...s.session, click: { ...s.session.click, selection: rel.parts.filter((q) => q in sceneOf(s.session).parts) }, message: null } } : closed;
+  }
+  if (id.startsWith("mate:reapply:")) { // the mark of a mate that is not true was clicked: just that one is put back
+    const back = putMatesBack(sceneOf(s.session), id.slice(13));
+    if (!back) return { ...closed, session: { ...s.session, message: "that mate is true, or its faces are not found" } };
+    const next = run(s.session, back.command);
+    return { ...closed, session: next.message ? next : { ...next, message: "the mate was put back" } };
+  }
   if (id === "mate:reapply") { // the mates that are no longer true are made again, one at a time (each may move what the next rests on, `in_315`)
     let session = closed.session;
     let made = 0;

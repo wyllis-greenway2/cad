@@ -83,10 +83,10 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
   return { command: { type: "batch", commands: [...forget, ...steps, ...carry, record] } };
 }
 
-/** The mates that are no longer true, and the command that puts the first of them back (the one after it is looked at again once this one is made, for it may have moved what it rests on); null when all are true. */
-export function putMatesBack(scene: Scene): { command: Command; id: string } | null {
+/** The mates that are no longer true (or just `only` this one), and the command that puts the first of them back (the one after it is looked at again once this one is made, for it may have moved what it rests on); null when all are true. */
+export function putMatesBack(scene: Scene, only?: string): { command: Command; id: string } | null {
   for (const m of mateStatus(scene)) {
-    if (m.state !== "off" || !m.mover || !m.other) continue;
+    if (m.state !== "off" || !m.mover || !m.other || (only && m.id !== only)) continue;
     const r = mateCommand(scene, m.mode, m.mover.ref, m.other.ref, m.gap, m.id);
     if ("command" in r) return { command: r.command, id: m.id };
   }

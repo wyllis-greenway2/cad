@@ -178,3 +178,40 @@ test("deleting a mated body takes its mate with it; a mate whose body is gone is
   const after = run(s, del.run());
   assert.equal(scene(after).relations.filter((r) => r.kind === "mate").length, 0, "the mate went with the body");
 });
+
+import { frameOf } from "../src/interaction/frame.ts";
+test("each mate is marked on the model where the two bodies meet, with its state; a click puts back one that is off or selects the two bodies (`in_316`)", () => {
+  const { s, a, b, rightA: right } = matedBoxes();
+  const env = { w: 800, h: 600 };
+  const st0 = { ...createState(s), cam: homeCamera() };
+  const f0 = frameOf(st0, env);
+  assert.equal(f0.mates.length, 1);
+  assert.equal(f0.mates[0]!.state, "ok");
+  assert.ok(Math.abs(f0.mates[0]!.at[0] - 10) < 1e-3, `at the touching faces (x = 10): ${f0.mates[0]!.at}`);
+  assert.match(f0.mates[0]!.text, /flush faces/);
+  // a click on the mark of a mate that is true selects the two bodies
+  const picked = reduce(st0, { type: "runAction", id: `mate:select:${f0.mates[0]!.id}` }, { ...env, now: 0 });
+  assert.deepEqual([...picked.session.click.selection].sort(), [a.ref, b.ref].sort());
+  // A made wider: the mark says it is off, and a click on it puts that mate back
+  let wider = s;
+  for (const ref of right) { const at = (scene(wider).parts[ref] as unknown as { at: number[] }).at; wider = run(wider, { type: "movePart", ref, to: [14, at[1]!, at[2]!] } as never); }
+  const f1 = frameOf({ ...createState(wider), cam: homeCamera() }, env);
+  assert.equal(f1.mates[0]!.state, "off");
+  assert.match(f1.mates[0]!.text, /no longer true.*click to put it back/);
+  const fixed = reduce({ ...createState(wider), cam: homeCamera() }, { type: "runAction", id: `mate:reapply:${f1.mates[0]!.id}` }, { ...env, now: 0 });
+  assert.equal(frameOf(fixed, env).mates[0]!.state, "ok");
+  // a mate of a body that is gone is marked as lost, at what is left
+  const gone = run(s, actionsFor(scene(s), [bodies(s).find((x) => x.id === a.id)!.ref]).find((x) => x.id === "delete")!.run());
+  assert.equal(frameOf({ ...createState(gone), cam: homeCamera() }, env).mates.length, 0, "its mate went with it");
+});
+
+test("a relation to a part of the body is saved with its description, and is accepted before the kernel has answered, as when a file is opened in the browser (`in_316`)", () => {
+  const { s } = matedBoxes();
+  const saved = JSON.parse(saveText(s)) as { commands: unknown[] };
+  const text = JSON.stringify(saved);
+  assert.ok(/"kind":"mate"/.test(text), "the mate is in the saved commands, with its numbers");
+  // replayed with no body parts at all (the kernel has not answered): the relation is not refused
+  const empty = createSession(kernel);
+  const r = run(empty, { type: "addRelation", relation: { id: "r_900", kind: "mate", parts: ["b/x_s_900/o", "b/x_s_901/o"], params: { mode: 0, gap: 0 } } } as never);
+  assert.ok(scene(r).relations.some((x) => x.id === "r_900"), `accepted (it is then said to be lost, as no body is there): ${r.message}`);
+});

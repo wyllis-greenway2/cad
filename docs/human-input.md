@@ -1515,3 +1515,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_315 — 2026-11-14 — directive
 > Do option 2 next
 (chooses option 2 of `q_mate_persistence`: each mate is recorded, the compile says which mates are no longer true, and a button makes the corrective move and turn as new steps)
+
+## in_316 — 2026-11-14 — directive
+> Mark the mates on the model next
+(asks for the mates to be shown on the model itself: where two bodies are mated, with their state)

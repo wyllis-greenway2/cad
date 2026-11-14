@@ -93,3 +93,14 @@ export function mateStatus(scene: Scene): MateState[] {
   }
   return out;
 }
+
+/** The middle of a face of the body (the middle of its triangles), or where its plane is when it has none: where a mark for a mate goes. */
+export function faceMiddle(scene: Scene, ref: Ref): Vec3 | null {
+  const p = scene.parts[ref];
+  if (p?.kind !== "plane") return null;
+  const m = p.mesh;
+  if (!m || m.length < 9) return p.at;
+  let [x, y, z, n] = [0, 0, 0, 0];
+  for (let i = 0; i + 2 < m.length; i += 3) { x += m[i]!; y += m[i + 1]!; z += m[i + 2]!; n++; }
+  return [x / n, y / n, z / n];
+}

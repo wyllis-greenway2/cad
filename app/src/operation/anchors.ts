@@ -221,3 +221,14 @@ export function rebindAnchors(scene: Scene): { scene: Scene; lost: string[] } {
   });
   return { scene: relations.some((r, i) => r !== scene.relations[i]) ? { ...scene, relations } : scene, lost };
 }
+
+/**
+ * The command with each relation it adds already described (`withAnchors`): what is saved is the command, and a file opened in the browser is replayed before the kernel has answered, when the body is not there to describe;
+ * the description made when the relation was, is in the command (`in_316`).
+ */
+export function describedCommand<C extends { type: string }>(scene: Scene, c: C): C {
+  const cmd = c as unknown as { type: string; relation?: Relation; commands?: { type: string }[] };
+  if (cmd.type === "addRelation" && cmd.relation) return { ...c, relation: withAnchors(scene, cmd.relation) } as C;
+  if (cmd.type === "batch" && cmd.commands) return { ...c, commands: cmd.commands.map((x) => describedCommand(scene, x)) } as C;
+  return c;
+}
