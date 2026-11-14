@@ -3,6 +3,8 @@
 // (the gap noted in Handoff 084).
 import { mateStatus } from "../operation/mates.ts";
 import { putMatesBack, solveStanding } from "./mate.ts";
+import { changeWords } from "./changewords.ts";
+import { bodyLabel } from "./panels.ts";
 import { describedCommand } from "../operation/anchors.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Kernel } from "../compiler/kernel/adapter.ts";
@@ -101,9 +103,13 @@ const conflictsOf = (o: CompileOutcome): { planes: string[]; ids: string[] } => 
 
 /** The commands that put the standing mates back, one at a time (each may move what the next rests on); empty when none is off or one cannot be put back. */
 /** What is said when standing mates cannot all hold: which ones (`in_329`). */
-const atOddsMessage = (scene: Scene, ids: readonly string[]): string => {
-  const names = mateStatus(scene).filter((m) => ids.includes(m.id)).map((m) => m.mode.replace(/([A-Z])/g, " $1").toLowerCase());
-  return `these standing mates could not all hold at once (${names.join(", ")}). That cannot be done: take one of them away or change it first`;
+const atOddsMessage = (scene: Scene, ids: readonly string[], change: string): string => {
+  const names = mateStatus(scene).filter((m) => ids.includes(m.id)).map((m) => {
+    const rel = scene.relations.find((r) => r.id === m.id);
+    const bodies = (rel?.parts ?? []).filter((q) => scene.parts[q]?.kind === "body").map((q) => bodyLabel(scene, q));
+    return `${m.mode.replace(/([A-Z])/g, " $1").toLowerCase()}${bodies.length === 2 ? ` between ${bodies[0]} and ${bodies[1]}` : ""}`;
+  });
+  return `${change[0]!.toUpperCase()}${change.slice(1)} would leave these standing mates unable to hold at once: ${names.join("; ")}. Take one of them away or change it first, or change something else`;
 };
 function standingFixes(h: History): { fixes: Command[]; atOdds: string[] } {
   // all the standing mates solved together first (`in_329`); the ones put back one at a time (`in_321`) only if that did not hold
@@ -177,7 +183,7 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
     // a change that leaves mates that held with no placement where they all hold is refused, as one that breaks sketch constraints is: the mates are named and nothing is made (`in_330`, `in_331`); a conflict that was already there is not the change's
     const held = new Set(mateStatus(s.history.scene).filter((m) => m.state === "ok").map((m) => m.id));
     const brought = atOdds.filter((id) => held.has(id) || !s.history.scene.relations.some((r) => r.id === id));
-    if (brought.length) return { ...s, message: atOddsMessage(next.history.scene, atOdds), conflict: { culprits: atOdds, victims: [] } };
+    if (brought.length) return { ...s, message: atOddsMessage(next.history.scene, atOdds, changeWords(s.history.scene, c)), conflict: { culprits: atOdds, victims: [] } };
     if (fixes.length) {
       const again = exec(s.history, { type: "batch", commands: [describedCommand(s.history.scene, c), ...fixes] });
       if (again.ok) return { ...withHistory(s, again.value), conflict: null, message: "the standing mates were put back with the change" };
@@ -187,7 +193,7 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   const wasOff = new Set(mateStatus(s.history.scene).filter((m) => m.state !== "ok").map((m) => m.id));
   // (while the kernel is still answering the faces are the older ones, and a mate just made would read as not true: said only when the answer is there)
   const nowOff = next.outcome.kernel?.stale ? [] : mateStatus(next.history.scene).filter((m) => m.state !== "ok" && !wasOff.has(m.id));
-  if (odds.length) return { ...next, conflict: null, message: atOddsMessage(next.history.scene, odds) };
+  if (odds.length) return { ...next, conflict: null, message: atOddsMessage(next.history.scene, odds, changeWords(s.history.scene, c)) };
   if (nowOff.length) return { ...next, conflict: null, message: `${nowOff.length === 1 ? "a mate is" : `${nowOff.length} mates are`} no longer true (${nowOff.map((m) => m.state === "lost" ? "a face is gone" : "the bodies have come apart").join(", ")}): "Put the mates back" in the ⋯ menu makes them again` };
   const late = !!next.outcome.kernel?.stale && steps.length > 0;
   return { ...next, conflict: null, checkSteps: late ? steps : undefined, fallback: late ? opts.fallback : undefined };
@@ -222,7 +228,7 @@ export function refresh(s: Session): Session {
     if (atOdds.some((id) => held.has(id) || !(h.snapshots[h.cursor - 1] ?? h.base).relations.some((r) => r.id === id))) {
       const undone = undo(h);
       const back = withHistory(s, { ...undone, commands: undone.commands.slice(0, undone.cursor), snapshots: undone.snapshots.slice(0, undone.cursor + 1) }); // (taken back, not kept to be done again with redo)
-      return { ...back, checkSteps: undefined, fallback: undefined, message: atOddsMessage(now.history.scene, atOdds), conflict: { culprits: atOdds, victims: [] } };
+      return { ...back, checkSteps: undefined, fallback: undefined, message: atOddsMessage(now.history.scene, atOdds, changeWords(h.snapshots[h.cursor - 1] ?? h.base, h.commands[h.cursor - 1]!)), conflict: { culprits: atOdds, victims: [] } };
     }
   }
   // and a mate that is not true now, with nothing said when the change was made (the answer was awaited): said once the answer is here

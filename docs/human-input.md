@@ -1591,3 +1591,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_334 — 2026-11-14 — directive
 > Do the mate mark covering the arrow next
 (asks for the mate's mark not to stand over the middle of a face's push / pull arrow)
+
+## in_335 — 2026-11-14 — directive
+> Do the refusal text naming the pulled face next
+(asks the refusal of a change that leaves standing mates at odds to say which change it is, the pulled face for a push / pull, and which bodies the mates join)

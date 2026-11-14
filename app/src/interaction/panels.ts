@@ -26,6 +26,8 @@ function stepLabel(st: Step): string {
 }
 
 /** The bodies of the scene, each with its name (there is one body for now, named Body 1). */
+/** A body as the Bodies list names it (`in_335`: the messages say the same). */
+export const bodyLabel = (scene: Scene, ref: Ref): string => `Body ${Object.values(scene.parts).filter((p) => p.kind === "body").findIndex((b) => b.ref === ref) + 1}`;
 function bodiesPanel(scene: Scene, selection: readonly Ref[]): Panel {
   const bodies = Object.values(scene.parts).filter((p) => p.kind === "body");
   return { kind: "bodies", title: "Bodies", rows: bodies.map((b, i) => ({ id: b.ref, label: `Body ${i + 1}`, active: selection.includes(b.ref), removable: false })) };

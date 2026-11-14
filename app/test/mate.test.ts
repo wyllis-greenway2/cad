@@ -640,7 +640,7 @@ test("a change that leaves standing mates with no placement where they all hold 
   const face = (q: Session, id: string | undefined, n: [number, number, number]) => faceOf(q, bodies(q).find((x) => x.id === id)!, n);
   s = run(s, actionsFor(scene(s), [face(s, b!.id, [-1, 0, 0]), face(s, a!.id, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
   const second = run(s, actionsFor(scene(s), [face(s, b!.id, [1, 0, 0]), face(s, c!.id, [-1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
-  assert.ok(second.message && /could not all hold/.test(second.message), `said: ${second.message}`);
+  assert.ok(second.message && /unable to hold at once/.test(second.message), `said: ${second.message}`);
   assert.ok(second.conflict && second.conflict.culprits.length >= 1, "the mates are named for the flash");
   assert.equal(second.history, s.history, "refused: nothing was made, nothing to undo");
   assert.equal(scene(second).relations.filter((r) => r.kind === "mate").length, 1, "still one mate");
@@ -661,4 +661,16 @@ test("a mark that would stand on a line moves off it, nearby; one that is clear 
   const m2 = clearOfLines([200, 200], boxed, 13);
   assert.ok(boxed.every(([a, b]) => Math.abs((b[0] - a[0]) * (a[1] - m2[1]) - (a[0] - m2[0]) * (b[1] - a[1])) / Math.hypot(b[0] - a[0], b[1] - a[1]) >= 16), `clear of both: ${m2}`);
   assert.deepEqual(clearOfLines([200, 200], [[[0, 0], [1000, 1000]], [[0, 400], [400, 0]], [[0, 200], [1000, 200]], [[200, 0], [200, 1000]]], 13), [200, 200], "nowhere clear: where it was");
+});
+
+import { changeWords } from "../src/interaction/changewords.ts";
+test("the refusal says which change it is and which bodies the mates join (`in_335`)", () => {
+  let s = box(box(box(createSession(kernel), 0, 0), 40, 0), 25, 30);
+  const [a, b, c] = bodies(s);
+  const face = (q: Session, id: string | undefined, n: [number, number, number]) => faceOf(q, bodies(q).find((x) => x.id === id)!, n);
+  s = run(s, actionsFor(scene(s), [face(s, b!.id, [-1, 0, 0]), face(s, a!.id, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  const second = run(s, actionsFor(scene(s), [face(s, b!.id, [1, 0, 0]), face(s, c!.id, [-1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  assert.match(second.message ?? "", /^That mate would leave these standing mates unable to hold at once: flush between Body \d and Body \d; flush between Body \d and Body \d\./, `${second.message}`);
+  assert.equal(changeWords(scene(s), { type: "addStep", step: { id: "s_x", type: "move", parts: [], params: {} } as never }), "that move of a body");
+  assert.equal(changeWords(scene(s), { type: "batch", commands: [{ type: "removeRelation", id: "r_1" }, { type: "movePart", ref: a!.ref, to: [0, 0, 0] }] }), "that move of a point of a drawing");
 });
