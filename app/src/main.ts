@@ -236,6 +236,7 @@ async function boot() {
   // a hook for scripted checks in a browser (not used by the app)
   (window as unknown as { __cad: unknown }).__cad = {
     get state() { return state; },
+    settings,
     size: () => view.size(),
     project: (p: [number, number, number]) => projector(state.cam, view.size().w, view.size().h).project(p),
     candidatesAt: (x: number, y: number) => candidatesAt(scene(state.session), projector(state.cam, view.size().w, view.size().h).view(x, y), { pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx }),

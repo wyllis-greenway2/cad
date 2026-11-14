@@ -1555,3 +1555,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_325 — 2026-11-14 — directive
 > go with option b first
 (chooses option (b) of `q_preview_provenance`: compare the stretched picture with the kernel's answer when it arrives, and replace it if they differ; (a) and (c) are not started)
+
+## in_326 — 2026-11-14 — directive
+> yes, try step 1 and measure it on the holed model
+(approves trying step 1 of the AI's list after `in_325`: an exact preview from the kernel, the newest request winning, for the fillet and chamfer preview, and measuring it on the model with the hole; as an experiment, to be measured before it is kept)

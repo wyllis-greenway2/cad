@@ -335,7 +335,7 @@ function gpuMotion(s: AppState, now = 0): { split?: Frame["bodySplit"]; matrix: 
   const op = s.op;
   if (!op) return null;
   const base = op.made ? undone(s.session) : s.session;
-  const en = edgeNew(s, op, base, now) ?? prismNew(s, op, base, now);
+  const en = settings.preview.stretch ? edgeNew(s, op, base, now) ?? prismNew(s, op, base, now) : null;
   if (en) {
     if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
     if ("wait" in en) return { matrix: null, face: null, shown: gpuBase.value };
@@ -346,7 +346,7 @@ function gpuMotion(s: AppState, now = 0): { split?: Frame["bodySplit"]; matrix: 
   const fd = m ? null : faceDrag(sceneOf(base), op);
   const rd = m || fd ? null : radiusDrag(sceneOf(base), op);
   const sd = m || fd || rd ? null : sideDrag(sceneOf(base), op);
-  const ed = m || fd || rd || sd ? null : edgeDrag(sceneOf(base), op);
+  const ed = m || fd || rd || sd || !settings.preview.stretch ? null : edgeDrag(sceneOf(base), op);
   const ad = m || fd || rd || sd || ed ? null : arcDrag(sceneOf(base), op);
   if (!m && !fd && !rd && !sd && !ed && !ad) return null;
   if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
