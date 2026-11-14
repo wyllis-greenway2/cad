@@ -241,7 +241,7 @@ function frame(now: number) {
     view.setGizmo(f.gizmo, state.cam);
     view.setPanes(f.panes);
     view.setBodyFade(f.fadeBody);
-    toolChip.update(f.tool, f.confirm);
+    toolChip.update(f.tool, f.confirm, lastDevice === "touch");
     undoBar.update(lastDevice === "touch", f.undoRedo);
     similarChip.update(f.similar);
     toolCursor.update(f.tool ? f.tool.kind : null);

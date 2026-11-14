@@ -29,23 +29,23 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
   let madeSeen = 0;
   return {
     /** The tool that is on (its icon key and the words for the tooltip; `made` figures so far, `drawing` one half drawn), or an operation open that is applied with the check; or null. */
-    update(tool: { kind: string; label: string; made?: number; drawing?: boolean; done?: boolean } | null, confirm: { kind: string; label: string } | null = null) {
+    update(tool: { kind: string; label: string; made?: number; drawing?: boolean; done?: boolean } | null, confirm: { kind: string; label: string } | null = null, touch = false) {
       const on = confirm ?? tool;
       chip.style.display = on ? "flex" : "none";
       if (!on) { madeSeen = 0; shown = ""; return; }
       const done = !confirm && !!tool?.done; // (the interaction layer says: a figure is made and nothing is half drawn, so the tool can be put away with the check)
-      tick.style.display = confirm || done ? "inline-flex" : "none";
+      tick.style.display = (confirm && !touch) || done ? "inline-flex" : "none"; // (a finger applies an operation by tapping away from it, like a right click: no check for it, `in_286`)
       tick.dataset.mode = confirm ? "apply" : "done";
       x.style.display = confirm || !done ? "inline-flex" : "none"; // (an operation: apply or cancel; a tool: the check once there is something done, else the cross)
       if (!confirm && tool && (tool.made ?? 0) > madeSeen) flash();
       madeSeen = tool ? tool.made ?? 0 : 0;
-      const key = `${confirm ? "c" : "t"}:${on.kind}:${done ? "done" : ""}`;
+      const key = `${confirm ? "c" : "t"}:${on.kind}:${done ? "done" : ""}:${touch ? "touch" : ""}`;
       if (key === shown) return;
-      if (confirm) flash();
+      if (confirm && !touch) flash();
       shown = key;
       icon.innerHTML = iconSvg(on.kind);
       if (confirm) {
-        chip.title = `${confirm.label}: Enter or a right click applies, Esc cancels`;
+        chip.title = touch ? `${confirm.label}: tap away from it to apply, the cross cancels` : `${confirm.label}: Enter or a right click applies, Esc cancels`;
         tick.title = "Apply (Enter or right click)";
         x.title = "Cancel (Esc)";
       } else if (done) {
