@@ -47,10 +47,11 @@ export function createView(host: HTMLElement) {
 
   const content = new THREE.Group();
   const overlay = new THREE.Group();
+  const marks = new THREE.Group(); // (the middle dots of circles and arcs: never moved by the matrix of a body being dragged)
   const preview = new THREE.Group();
   const gizmo = new THREE.Group();
   const notes = new THREE.Group();
-  scene3.add(content, overlay, preview, gizmo, notes);
+  scene3.add(content, overlay, marks, preview, gizmo, notes);
   const world = createWorld(scene3, host);
   const pen = createPen();
   const envMap = new THREE.PMREMGenerator(renderer).fromScene(studio(), 0.04).texture; // a soft studio, only reflected in the body
@@ -189,7 +190,7 @@ export function createView(host: HTMLElement) {
     bodyMat.needsUpdate = true;
   }
   const setBodyFade = (on: boolean) => { if (on !== fade) { fade = on; applyFade(); } };
-  const setHighlight = (h: Highlight, cam: Camera, nowMs: number) => buildHighlight(overlay, lastScene, lastMesh, h, cam, pen, nowMs);
+  const setHighlight = (h: Highlight, cam: Camera, nowMs: number) => buildHighlight(overlay, marks, lastScene, lastMesh, h, cam, pen, nowMs);
   /** The figure being drawn, or the prism an extrude would make (lines; not part of the scene). */
   function setPreview(p: Preview | null, cam: Camera) {
     clearGroup(preview);
