@@ -8,7 +8,7 @@ import { segmentOf, circleOf, pointOf, normalOfPlane, localOf, liftOf } from "..
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
-import { anchorRounds, anchorLines } from "../operation/anchors.ts";
+import { anchorRounds, anchorLines, anchorCorners } from "../operation/anchors.ts";
 import type { Command } from "../operation/commands.ts";
 import { settings } from "../shared/settings.ts";
 
@@ -64,12 +64,12 @@ function outlineSnap(scene: Scene, pl: Plane, pv: PointerView, e: V2, skip: (ref
   const get = (r: Ref) => scene.parts[r];
   const n = normalOfPlane(pl);
   const onPlane = (p: Vec3) => Math.abs(dot(sub(p, pl.at), n)) < 1e-3;
-  const anchored = new Set(anchorLines(scene, pl).map((l) => l.ref)); // (the straight edges of the body in this plane are lines too, read-only, `in_310`)
-  const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && ((p.origin === "drawn" && !p.center && !p.derived) || anchored.has(p.ref)));
+  const projected = new Map(anchorLines(scene, pl).map((l) => [l.ref, [l.a, l.b] as [Vec3, Vec3]])); // (the straight edges of the body as they fall on this plane are lines too, read-only, `in_310`, `in_311`)
+  const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && ((p.origin === "drawn" && !p.center && !p.derived) || projected.has(p.ref)));
   // on a line: close to a line (not one that starts here)
   let best: { at: V2; ref: Ref; px: number } | null = null;
   for (const l of lines) {
-    const qs = segmentOf(get, l.ref);
+    const qs = projected.get(l.ref) ?? segmentOf(get, l.ref);
     if (!qs || !onPlane(qs[0]) || !onPlane(qs[1]) || skip(l.ref)) continue;
     const q: [V2, V2] = [localOf(pl, qs[0]), localOf(pl, qs[1])];
     const ab: V2 = [q[1][0] - q[0][0], q[1][1] - q[0][1]];
@@ -102,6 +102,7 @@ export function pointHint(spent: Scene, pl: Plane, pv: PointerView, base: Vec3, 
   const scene = live(spent);
   const n = normalOfPlane(pl);
   for (const p of Object.values(scene.parts)) if (p.kind === "corner" && Math.abs(dot(sub(p.at, pl.at), n)) < 1e-3 && dist(p.at, base) < 1e-6) return { at: base, hints: [] }; // (at a corner: that is its own constraint)
+  if (anchorCorners(scene, pl).some((c) => dist(c.at, base) < 1e-6)) return { at: base, hints: [] }; // (a corner of the body as it falls on the plane: the same, `in_311`)
   const snapped = outlineSnap(scene, pl, pv, localOf(pl, base), skip);
   return snapped ? { at: liftOf(pl, snapped.at), hints: [snapped.hint] } : { at: base, hints: [] };
 }
@@ -163,6 +164,7 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
   const n = normalOfPlane(pl);
   const onPlane = (p: Vec3) => Math.abs(dot(sub(p, pl.at), n)) < 1e-3;
   for (const p of Object.values(scene.parts)) if (p.kind === "corner" && onPlane(p.at) && dist(p.at, base) < 1e-6) return none; // it is at a corner: that is its own constraint
+  if (anchorCorners(scene, pl).some((c) => dist(c.at, base) < 1e-6)) return none; // (a corner of the body as it falls on the plane: the same, `in_311`)
   const s = localOf(pl, start);
   const e = localOf(pl, base);
   const d: V2 = [e[0] - s[0], e[1] - s[1]];
@@ -170,10 +172,11 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
   if (len < 1e-6) return none;
   const get = (r: Ref) => scene.parts[r];
   const tol = (settings.sketch.hintDeg * Math.PI) / 180;
-  const anchored = new Set(anchorLines(scene, pl).map((l) => l.ref)); // (the straight edges of the body in this plane, `in_310`)
-  const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && ((p.origin === "drawn" && !p.center && !p.derived) || anchored.has(p.ref))); // (a piece a crossing cut from a line is not the line: constraints name the line, and the piece goes when the crossing does, `in_251`)
-  const seg = (ref: Ref): [V2, V2] | null => { const q = segmentOf(get, ref); return q && onPlane(q[0]) && onPlane(q[1]) ? [localOf(pl, q[0]), localOf(pl, q[1])] : null; };
-  const touchesStart = (ref: Ref) => { const q = segmentOf(get, ref); return !!q && (dist(q[0], start) < 1e-6 || dist(q[1], start) < 1e-6); };
+  const projected = new Map(anchorLines(scene, pl).map((l) => [l.ref, [l.a, l.b] as [Vec3, Vec3]])); // (the straight edges of the body as they fall on this plane, `in_310`, `in_311`)
+  const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && ((p.origin === "drawn" && !p.center && !p.derived) || projected.has(p.ref))); // (a piece a crossing cut from a line is not the line: constraints name the line, and the piece goes when the crossing does, `in_251`)
+  const ends = (ref: Ref): [Vec3, Vec3] | null => projected.get(ref) ?? segmentOf(get, ref);
+  const seg = (ref: Ref): [V2, V2] | null => { const q = ends(ref); return q && onPlane(q[0]) && onPlane(q[1]) ? [localOf(pl, q[0]), localOf(pl, q[1])] : null; };
+  const touchesStart = (ref: Ref) => { const q = ends(ref); return !!q && (dist(q[0], start) < 1e-6 || dist(q[1], start) < 1e-6); };
 
   // on a line, or on a circle or an arc: the end takes the nearest point on it
   const snapped = outlineSnap(scene, pl, pv, e, (ref) => touchesStart(ref));

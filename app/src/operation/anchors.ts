@@ -6,47 +6,59 @@ import { lookup } from "./scene.ts";
 import type { Plane } from "./part.ts";
 import { normalOfPlane, roundOf } from "./part.ts";
 
-export interface AnchorRound { ref: Ref; center: Vec3; radius: number }
-export interface AnchorLine { ref: Ref; a: Vec3; b: Vec3 }
-export interface AnchorCorner { ref: Ref; at: Vec3 }
+export interface AnchorRound { ref: Ref; center: Vec3; radius: number; /** how far the edge is from the plane, along its facing (0: in it) */ offset: number }
+export interface AnchorLine { ref: Ref; a: Vec3; b: Vec3; offset: number }
+export interface AnchorCorner { ref: Ref; at: Vec3; offset: number }
 
-const onPlaneAt = (pl: Plane, n: Vec3, p: Vec3): boolean => Math.abs((p[0] - pl.at[0]) * n[0] + (p[1] - pl.at[1]) * n[1] + (p[2] - pl.at[2]) * n[2]) <= 1e-3;
+const along = (pl: Plane, n: Vec3, p: Vec3): number => (p[0] - pl.at[0]) * n[0] + (p[1] - pl.at[1]) * n[1] + (p[2] - pl.at[2]) * n[2];
+/** The point as it falls on the plane (straight down its facing). */
+const onto = (pl: Plane, n: Vec3, p: Vec3): Vec3 => { const d = along(pl, n, p); return [p[0] - n[0] * d, p[1] - n[1] * d, p[2] - n[2] * d]; };
+/** Of several that fall on one place, the one nearest the plane (`offset`). */
+function nearest<T extends { offset: number }>(items: T[], same: (a: T, b: T) => boolean): T[] {
+  const out: T[] = [];
+  for (const it of [...items].sort((x, y) => Math.abs(x.offset) - Math.abs(y.offset))) if (!out.some((o) => same(o, it))) out.push(it);
+  return out;
+}
+const near3 = (a: Vec3, b: Vec3, t = 1e-3): boolean => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) <= t;
 
-/** The straight edges of the body that lie in this plane (both ends on it): a line drawn there can be level with them, parallel, square, on them (`in_310`). */
+/**
+ * The straight edges of the body as they fall on this plane (`in_310`, and not only the ones in it, `in_311`): a line drawn there can be level with them, parallel, square, on them. An edge that runs along the plane's
+ * facing falls on a point and is left out; of two that fall on one line (the top and the bottom of a wall) the nearer to the plane is the one. `a` and `b` are the ends as they fall on the plane.
+ */
 export function anchorLines(scene: Scene, pl: Plane): AnchorLine[] {
   const get = lookup(scene);
   const n = normalOfPlane(pl);
-  const out: AnchorLine[] = [];
+  const found: AnchorLine[] = [];
   for (const p of Object.values(scene.parts)) {
     if (p.kind !== "line" || p.origin !== "body" || p.circle || p.mid) continue;
     const [a, b] = [get(p.a), get(p.b)];
-    if (a?.kind !== "corner" || b?.kind !== "corner" || !onPlaneAt(pl, n, a.at) || !onPlaneAt(pl, n, b.at)) continue;
-    out.push({ ref: p.ref, a: a.at, b: b.at });
+    if (a?.kind !== "corner" || b?.kind !== "corner") continue;
+    const [pa, pb] = [onto(pl, n, a.at), onto(pl, n, b.at)];
+    if (Math.hypot(pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]) < 1e-6) continue;
+    found.push({ ref: p.ref, a: pa, b: pb, offset: Math.max(Math.abs(along(pl, n, a.at)), Math.abs(along(pl, n, b.at))) });
   }
-  return out;
+  return nearest(found, (x, y) => (near3(x.a, y.a) && near3(x.b, y.b)) || (near3(x.a, y.b) && near3(x.b, y.a)));
 }
 
-/** The corners of the body that lie in this plane: a point or a curve drawn there can be put on them. */
+/** The corners of the body as they fall on this plane, the nearer to the plane where two fall on one place: a point or a curve drawn there can be put on them. */
 export function anchorCorners(scene: Scene, pl: Plane): AnchorCorner[] {
   const n = normalOfPlane(pl);
-  return Object.values(scene.parts).flatMap((p) => (p.kind === "corner" && p.origin === "body" && onPlaneAt(pl, n, p.at) ? [{ ref: p.ref, at: p.at }] : []));
+  const found = Object.values(scene.parts).flatMap((p): AnchorCorner[] => (p.kind === "corner" && p.origin === "body" ? [{ ref: p.ref, at: onto(pl, n, p.at), offset: along(pl, n, p.at) }] : []));
+  return nearest(found, (x, y) => near3(x.at, y.at));
 }
 
-/** The circular edges of the body that lie in this plane (their circle faces the same way and its centre is on the plane): a circle or an arc drawn there can be tied to them. */
+/** The circular edges of the body as they fall on this plane (their circle faces the same way as the plane; its centre falls on the plane): a circle or an arc drawn there can be tied to them. */
 export function anchorRounds(scene: Scene, pl: Plane): AnchorRound[] {
   const get = lookup(scene);
   const n = normalOfPlane(pl);
-  const out: AnchorRound[] = [];
+  const found: AnchorRound[] = [];
   for (const p of Object.values(scene.parts)) {
     if (p.kind !== "line" || p.origin !== "body" || !(p.circle || p.mid)) continue;
     const r = roundOf(get, p.ref);
-    if (!r?.normal) continue;
-    if (Math.abs(r.normal[0] * n[0] + r.normal[1] * n[1] + r.normal[2] * n[2]) < 1 - 1e-4) continue;
-    const off = (r.center[0] - pl.at[0]) * n[0] + (r.center[1] - pl.at[1]) * n[1] + (r.center[2] - pl.at[2]) * n[2];
-    if (Math.abs(off) > 1e-3) continue;
-    out.push({ ref: p.ref, center: r.center, radius: r.radius });
+    if (!r?.normal || Math.abs(r.normal[0] * n[0] + r.normal[1] * n[1] + r.normal[2] * n[2]) < 1 - 1e-4) continue;
+    found.push({ ref: p.ref, center: onto(pl, n, r.center), radius: r.radius, offset: along(pl, n, r.center) });
   }
-  return out;
+  return nearest(found, (x, y) => near3(x.center, y.center) && Math.abs(x.radius - y.radius) <= 1e-3);
 }
 
 const dot3 = (a: readonly number[], b: readonly number[]): number => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;

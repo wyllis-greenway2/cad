@@ -158,11 +158,45 @@ test("when no edge looks like the one a relation named, or two look alike, it is
 import { anchorLines, anchorCorners } from "../src/operation/anchors.ts";
 const cornerRef = (x: number, y: number) => `b/body/v@${x},${y},13.5`;
 
-test("the straight edges and the corners of the body in the sketch's plane are anchors too (`in_310`)", () => {
+test("the straight edges, the corners and the circular edges of the body are anchors as they fall on the sketch's plane, the ones in it first (`in_310`, `in_311`)", () => {
   const s = open();
   const pl = scene(s).parts["d/p_030"] as never;
-  assert.equal(anchorLines(scene(s), pl).length, 2);
-  assert.equal(anchorCorners(scene(s), pl).length, 4);
+  const [lines, corners, rounds] = [anchorLines(scene(s), pl), anchorCorners(scene(s), pl), anchorRounds(scene(s), pl)];
+  assert.ok(lines.filter((l) => l.offset < 1e-3).length === 2 && lines.some((l) => l.offset > 1), "two in the plane, and more that are lower");
+  assert.ok(corners.filter((c) => c.offset === 0).length === 4 && corners.some((c) => Math.abs(c.offset) > 1), "four in the plane, and more that fall on it");
+  assert.ok(rounds.some((r) => Math.abs(r.offset) > 1), "a rim that is lower: the bottom of the body");
+  assert.ok(lines.every((l) => Math.abs(l.a[2] - 13.5) < 1e-9 && Math.abs(l.b[2] - 13.5) < 1e-9), "each as it falls on the plane");
+});
+
+test("a circle can be held to a rim of the body that is lower than its plane: Concentric with the bottom rim's centre, in the plane (`in_311`)", () => {
+  const s = open();
+  const { circle } = setup(s);
+  const low = anchorRounds(scene(s), scene(s).parts["d/p_030"] as never).filter((r) => Math.abs(r.offset) > 1)[0]!;
+  const act = actionsFor(scene(s), [circle.ref, low.ref]).find((a) => a.id === "concentric")!;
+  assert.ok(act?.enabled, "offered");
+  const after = run(s, act.run());
+  assert.ok(!after.message, `${after.message}`);
+  const c = centreOf(after, circle.center);
+  assert.ok(Math.hypot(c[0]! - low.center[0], c[1]! - low.center[1]) < 1e-3 && Math.abs(c[2]! - 13.5) < 1e-9, `the centre is where the rim's centre falls: ${c} and ${low.center}`);
+});
+
+test("the pointer near where a lower corner of the body falls on the plane is taken there, and the point drawn is held to that corner (`in_311`)", () => {
+  const s = open();
+  const pl = scene(s).parts["d/p_030"] as never;
+  const low = anchorCorners(scene(s), pl).find((c) => Math.abs(c.offset) > 1)!;
+  const env = { w: 900, h: 700, now: 0 };
+  let st: AppState = { ...createState(s), cam: { ...homeCamera(), straight: true, azimuth: 0, elevation: Math.PI / 2, target: [low.at[0], low.at[1], 13.5], distance: 60 } };
+  const px = (p: number[]) => projector(st.cam, env.w, env.h).project(p as never);
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = { ...st, tool: { ...st.tool!, plane: "d/p_030" as Ref } };
+  const a = px([low.at[0] + 0.1, low.at[1] - 0.1, 13.5]);
+  st = reduce(st, { type: "hover", x: a[0], y: a[1] }, env);
+  assert.ok(Math.hypot(st.tool!.cursor![0] - low.at[0], st.tool!.cursor![1] - low.at[1]) < 1e-9, `taken to the corner: ${st.tool!.cursor}`);
+  st = reduce(st, { type: "click", x: a[0], y: a[1], count: 1, shift: false }, env);
+  const b = px([low.at[0] + 8, low.at[1] - 9, 13.5]);
+  st = reduce(st, { type: "hover", x: b[0], y: b[1] }, env);
+  st = reduce(st, { type: "click", x: b[0], y: b[1], count: 1, shift: false }, env);
+  assert.ok(scene(st.session).relations.some((r) => r.kind === "coincident" && r.parts.includes(low.ref)), "held to the corner it falls on");
 });
 
 test("a drawn corner near a straight edge of the body is offered 'on the edge', and the offer puts it exactly on the edge's line (`in_310`)", () => {

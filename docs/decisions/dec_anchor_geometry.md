@@ -3,7 +3,7 @@ id: dec_anchor_geometry
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_305, in_308, in_309, in_310
+human_input: in_305, in_308, in_309, in_310, in_311
 date: 2026-11-14
 depends_on:
   - dec_relations_standard: the relations that apply to anchors are the table's own rows, not new ones
@@ -21,7 +21,9 @@ Built: (1) `roundOf` / `relationKind` (`operation/part.ts`): a **circular edge o
 
 **Straight edges and corners (`in_310`).** The straight edges of the body that lie in the sketch's plane (`anchorLines`) and its corners on the plane (`anchorCorners`) are anchors for the drawing hints and the suggestions, as the circular edges are: a line being drawn takes level, upright, parallel, square, on-the-edge and as-long-as with them (`hints.ts`); a figure whose corner is drawn on a corner of the body, and a line that ends on one, is **held to it** by a Coincident relation (`joinedAtCorners`, now also for lines); a selected drawn corner near a body edge is offered On line / Coincident with circle, and a selected circle, arc or line near a corner of the body is offered it (`suggest.ts`). The recorded look and the finding again (`in_309`) cover them too: a straight edge by its direction, its middle across the sketch's plane, its length and its height; a corner by its place across the plane and its height (`EdgeAnchor.kind`, `axis`).
 
-Not built yet (each its own step): an edge that does not lie in the sketch's plane (only its projection is held by the solver, which already takes any body corner or line); the same description for a face; body-to-body constraints (`q_body_constraints`).
+**Edges that are not in the sketch's plane (`in_311`).** The edges and corners of the body count by the way they **fall on the plane** (straight down its facing): a rim lower than the sketch (the bottom of a chamfered post) is a circle on the plane with its own centre and radius, a slanting or lower straight edge a line, a lower corner a point (`anchorRounds`, `anchorLines`, `anchorCorners` give each with its `offset` from the plane; an edge that runs along the facing falls on a point and is left out; of several that fall on one place the nearer to the plane is the one). They are used by the hints, the suggestions, the first point of a circle, the snap of the pointer (a lower corner of the body is snapped to where it falls) and the corners a figure is held to. The solver already put every body corner and line on the plane it solves, so it held them already; the relation names the real edge or corner.
+
+Not built yet (each its own step): the same description for a face; an edge that is hidden behind the body is offered as the others are (not told apart by whether it can be seen); body-to-body constraints (`q_body_constraints`).
 
 ## Rationale
 

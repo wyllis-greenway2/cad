@@ -164,6 +164,14 @@ function curveGap(scene: Scene, part: Scene["parts"][string]): { gap: (q: Vec3) 
   };
 }
 
+/** How far a point is from the stretch between two points (not beside it), and how long it is. */
+function segmentGap(a: Vec3, b: Vec3): { gap: (q: Vec3) => number; size: number } | null {
+  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+  const len = Math.hypot(d[0]!, d[1]!, d[2]!);
+  if (len < 1e-9) return null;
+  return { size: len, gap: (q) => { const t = ((q[0] - a[0]) * d[0]! + (q[1] - a[1]) * d[1]! + (q[2] - a[2]) * d[2]!) / (len * len); return t < 0 || t > 1 ? Infinity : Math.hypot(a[0] + d[0]! * t - q[0], a[1] + d[1]! * t - q[1], a[2] + d[2]! * t - q[2]); } };
+}
+
 /** A selected point (the centre of a circle, a corner) that lies close to the edge of a circle or arc, or a line, that it is not on: "on circle" / "on line" is offered for it (`in_290`). */
 function nearCurves(scene: Scene, corner: Extract<Scene["parts"][string], { kind: "corner" }>, tol = 0): { id: string; label: string; corners: Ref[]; target: Ref; kind: "onCircle" | "onLine" }[] {
   const out: { id: string; label: string; corners: Ref[]; target: Ref; kind: "onCircle" | "onLine"; g: number }[] = [];
@@ -184,7 +192,7 @@ function nearCurves(scene: Scene, corner: Extract<Scene["parts"][string], { kind
       if (scene.relations.some((r) => r.kind === kind && r.parts.includes(corner.ref) && r.parts.includes(ref))) return;
       out.push({ id: `near:${kind}:${ref}`, label: "On the edge of the body close to it", corners: [corner.ref], target: ref, kind, g });
     };
-    for (const l of anchorLines(scene, plane)) { const m = curveGap(scene, scene.parts[l.ref]!); if (m) consider(l.ref, m.gap(corner.at), m.size, "onLine"); }
+    for (const l of anchorLines(scene, plane)) { const g = segmentGap(l.a, l.b); if (g) consider(l.ref, g.gap(corner.at), g.size, "onLine"); } // (the edge as it falls on the plane, `in_311`)
     for (const r of anchorRounds(scene, plane)) consider(r.ref, Math.abs(Math.hypot(corner.at[0] - r.center[0], corner.at[1] - r.center[1], corner.at[2] - r.center[2]) - r.radius), r.radius, "onCircle");
   }
   return out.sort((x, y) => x.g - y.g).slice(0, 2).map(({ g: _g, ...rest }) => rest);

@@ -1495,3 +1495,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_310 — 2026-11-14 — directive
 > Do the straight edges and corners as anchors next
 (approves the next step of `dec_anchor_geometry`: straight edges and corners of the body as anchors in the hints and suggestions)
+
+## in_311 — 2026-11-14 — directive
+> Do the edges not in the sketch's plane next
+(approves the next step of `dec_anchor_geometry`: edges and corners of the body that are not in the sketch's plane count as anchors by their projection onto it)
