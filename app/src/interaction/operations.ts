@@ -248,7 +248,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     const axes = revolveAxes(scene, face, lines);
     if (!axes.length) return { ok: false, why: "there is no line in the figure's plane to turn it about that the figure does not cross: draw a line beside it, or turn it about one of its own sides" };
     const pts = face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
-    return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, origin: face.disk ? pointOf(get, (get(face.disk) as Extract<Part, { kind: "circle" }>).center) ?? centroid(pts) : centroid(pts), normal: normalOfPlane(pl), plane: face.plane, revAxes: axes, axisIx: 0, advTyped: "", advValue: null, revField: 0 } };
+    return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, origin: face.disk ? pointOf(get, (get(face.disk) as Extract<Part, { kind: "circle" }>).center) ?? centroid(pts) : centroid(pts), normal: normalOfPlane(pl), plane: face.plane, figs: figureParams([figureOf(scene, face)]), revAxes: axes, axisIx: 0, advTyped: "", advValue: axes[0]!.twist ? 10 : null, revField: 0 } };
   }
   if (kind === "pushpull" && drawnFaces(scene, parts).length) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
   if (kind === "pushpull" && parts.length > 1) {

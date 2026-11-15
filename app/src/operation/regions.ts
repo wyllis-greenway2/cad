@@ -8,7 +8,7 @@ import { sub, dot } from "../math/vec.ts";
 import type { Lookup, Face, Part, Line, Corner, Plane } from "./part.ts";
 import { pointOf, normalOfPlane, loopPoints } from "./part.ts";
 import type { Scene } from "./scene.ts";
-import { figureRefs } from "./scene.ts";
+import { figureRefs, usesFigures } from "./scene.ts";
 
 export type V2 = [number, number];
 export type Curve =
@@ -121,7 +121,7 @@ export function regionsOf(s: Scene): Regions {
   // what an extrude has used up is out of the drawing: a new circle drawn over a circle that was extruded is not cut by it
   // (a piece of a cut shape is made of sides that other pieces still use: such a step says `cut`, or names derived parts; its circles are still used up)
   const spent = new Set<Ref>(s.steps.flatMap((st) => {
-    if (st.type !== "extrude") return [];
+    if (!usesFigures(st)) return [];
     const refs = figureRefs(st);
     const cut = st.params.cut !== undefined || refs.some((r) => r.includes("@"));
     return cut ? refs.filter((r) => s.parts[r]?.kind === "circle") : refs;

@@ -4,7 +4,7 @@ import type { Vec3 } from "../math/vec.ts";
 import { sub, dot, scale } from "../math/vec.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Scene } from "./scene.ts";
-import { figureRefs } from "./scene.ts";
+import { figureRefs, usesFigures } from "./scene.ts";
 import { normalOfPlane } from "./part.ts";
 import type { Line } from "./part.ts";
 
@@ -34,7 +34,7 @@ export function sketchOfEdge(scene: Scene, edge: Ref): EdgeSource | null {
   if (a?.kind !== "corner" || b?.kind !== "corner") return null;
   const centre = edgeCentre(scene, l);
   const used = new Set<Ref>();
-  for (const st of scene.steps) if (st.type === "extrude") for (const r of figureRefs(st)) { const p = scene.parts[r]; used.add(p?.kind === "line" && p.derived ? (`d/${r.split("@")[1] ?? ""}` as Ref) : r); }
+  for (const st of scene.steps) if (usesFigures(st)) for (const r of figureRefs(st)) { const p = scene.parts[r]; used.add(p?.kind === "line" && p.derived ? (`d/${r.split("@")[1] ?? ""}` as Ref) : r); }
   for (const ref of used) {
     const s = scene.parts[ref];
     if (!s || s.origin !== "drawn" || !s.plane) continue;

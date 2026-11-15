@@ -2,7 +2,7 @@
 // what relations touch this part (so they can be shown when it is clicked), what a deletion would take with it, and which relations or steps point at something gone.
 import type { Ref } from "../shared/ref.ts";
 import type { Scene } from "./scene.ts";
-import { hasPart, figureRefs } from "./scene.ts";
+import { hasPart, figureRefs, usesFigures } from "./scene.ts";
 import { anchorsOf } from "./part.ts";
 import { dependentParts } from "./commands.ts";
 
@@ -120,7 +120,7 @@ function consumedAll(s: Scene): Set<Ref> {
 function consumedFresh(s: Scene): Set<Ref> {
   const out = new Set<Ref>();
   for (const st of s.steps) {
-    if (st.type !== "extrude") continue;
+    if (!usesFigures(st)) continue;
     for (const r of figureRefs(st)) {
       out.add(r);
       const p = s.parts[r];
@@ -159,7 +159,7 @@ export function structuralRelations(s: Scene): Set<string> {
   const profile = consumedAll(s);
   const out = new Set<string>();
   if (!profile.size) return out;
-  const firstStep = Math.min(...s.steps.filter((st) => st.type === "extrude").map((st) => numberOf(st.id)).filter((n) => n >= 0), Infinity);
+  const firstStep = Math.min(...s.steps.filter(usesFigures).map((st) => numberOf(st.id)).filter((n) => n >= 0), Infinity);
   for (const rel of s.relations) {
     if (!JOINS.has(rel.kind) || !rel.parts.every((p) => profile.has(p))) continue;
     const n = numberOf(rel.id);

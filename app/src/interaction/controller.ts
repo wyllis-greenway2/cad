@@ -112,7 +112,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "runAction": return doRunAction(s, i.id, env.now);
     case "overrideRefusal": return overrideRefusal(s);
     case "sizeKind": return s.op?.kind === "edge" ? { ...s, op: { ...s.op, variable: i.kind === "variable", varField: 0 } } : s;
-    case "axisKind": return s.op?.kind === "revolve" ? { ...s, op: { ...s.op, axisIx: Math.max(0, Math.min((s.op.revAxes?.length ?? 1) - 1, i.index)) } } : s;
+    case "axisKind": { if (s.op?.kind !== "revolve") return s; const ix = Math.max(0, Math.min((s.op.revAxes?.length ?? 1) - 1, i.index)); return { ...s, op: { ...s.op, axisIx: ix, ...(s.op.revAxes?.[ix]?.twist && (s.op.advValue ?? 0) === 0 && (s.op.advTyped ?? "") === "" ? { advValue: 10 } : {}) } }; } // (a twist is carried along the axis: 10 mm to begin with)
     case "faceKind": return s.op?.kind === "pushpull" ? { ...s, op: { ...s.op, faceKind: i.kind } } : s;
     case "holdFlash": return s.flash ? { ...s, flash: { ...s.flash, at: env.now - settings.flash.holdMs } } : s;
     case "group": return doGroup(s);

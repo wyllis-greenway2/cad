@@ -11,7 +11,7 @@ import { typedNumber } from "../shared/numbers.ts";
 import type { Op } from "./operations.ts";
 
 /** A line the figure can turn about: a point on it, its direction (unit), and what to call it. */
-export interface RevAxis { p: Vec3; d: Vec3; label: string }
+export interface RevAxis { p: Vec3; d: Vec3; label: string; /** the plane's normal: the figure is carried along it while it turns (a twist) */ twist?: true }
 
 const WORLD: { d: Vec3; label: string }[] = [{ d: [1, 0, 0], label: "X axis" }, { d: [0, 1, 0], label: "Y axis" }, { d: [0, 0, 1], label: "Z axis" }];
 
@@ -44,6 +44,11 @@ export function revolveAxes(scene: Scene, face: Extract<Part, { kind: "face" }>,
   for (const l of chosen) { const [a, b] = [pointOf(get, l.a), pointOf(get, l.b)]; if (a && b && !l.center) add1(a, b, "the line you chose"); }
   for (const w of WORLD) if (Math.abs(dot(w.d, n)) < 1e-9 && Math.abs(dot(pl.at, n)) < 1e-6) { const q = add([0, 0, 0], scale(w.d, 1)); void q; if (ok([0, 0, 0], w.d)) out.push({ p: [0, 0, 0], d: w.d, label: w.label }); }
   face.loop.map((r) => get(r)).filter((x): x is Extract<Part, { kind: "line" }> => x?.kind === "line" && !x.center).forEach((l, i) => { const [a, b] = [pointOf(get, l.a), pointOf(get, l.b)]; if (a && b) add1(a, b, `side ${i + 1}`); });
+  // and the plane's own normal, through the figure's middle or the origin's foot on the plane: the figure is carried along it while it turns, a twisted extrusion (`in_422`)
+  const middle = round?.c ?? (corners.length ? scale(corners.reduce((a, q) => add(a, q), [0, 0, 0] as Vec3), 1 / corners.length) : null);
+  if (middle) out.push({ p: middle, d: n, label: "twist about the figure's middle", twist: true });
+  const foot = scale(n, dot(pl.at, n));
+  out.push({ p: foot, d: n, label: "twist about the origin", twist: true });
   return out;
 }
 const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -63,5 +68,5 @@ export function revolveCommand(scene: Scene, op: Op, angle: number): Command | n
   const a = axisOf(op);
   if (!a || angle === 0) return null;
   const id = nextId(scene, "s");
-  return { type: "addStep", step: { id, type: "revolve", parts: op.parts, params: { angle, advance: advanceOf(op), ax: a.p[0], ay: a.p[1], az: a.p[2], dx: a.d[0], dy: a.d[1], dz: a.d[2] } } };
+  return { type: "addStep", step: { id, type: "revolve", parts: op.parts, params: { ...(op.figs ?? {}), angle, advance: advanceOf(op), ax: a.p[0], ay: a.p[1], az: a.p[2], dx: a.d[0], dy: a.d[1], dz: a.d[2] } } };
 }

@@ -1964,3 +1964,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > Which axis should the new spiral/revolve operation turn the figure about? = In the figure's plane (Recommended)
 > How should the two arrows work? = Circle arrow + axis arrow (Recommended)
 (answers to two questions about `dec_spiral_extrude`: the axis lies in the figure's plane; a circle arrow sets the angle, a straight arrow along the axis sets the advance)
+
+## in_422 — 2026-11-15 — directive
+> add holes support and the twist about the normal
+(asks for the two things `dec_spiral_extrude` listed as not built: a figure with figures inside it as holes, and the twist about the plane's normal)

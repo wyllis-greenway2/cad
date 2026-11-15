@@ -433,46 +433,63 @@ const OPS = {
     const angle = resolve(op.angle, ctx.params);
     const advance = resolve(op.advance ?? 0, ctx.params);
     if (!Number.isFinite(angle) || Math.abs(angle) < 1e-6) throw new Error("the turn must be more than nothing");
-    const p = ctx.get(op.profile, "sketch");
-    const sk = p.drawing.sketchOnPlane(p.plane, p.origin);
     const A = op.axis.p;
     const D = (() => { const l = Math.hypot(...op.axis.d); return op.axis.d.map((x) => x / l); })();
     const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-    const face = sk.face();
-    // the axis must lie in the plane of the figure, and the figure must be on one side of it
+    // the figure and the figures drawn inside it (holes), each a sketch in the same plane
+    const sketchOf = (id) => { const q = ctx.get(id, "sketch"); return q.drawing.sketchOnPlane(q.plane, q.origin); };
+    const outerSketch = sketchOf(op.profile);
+    const face = outerSketch.face();
     const pn = face.normalAt();
-    if (Math.abs(dot([pn.x, pn.y, pn.z], D)) > 1e-4) throw new Error("the axis must lie in the plane of the figure");
+    const N = [pn.x, pn.y, pn.z];
     const pts = [];
     for (const e of edgesOf(face)) for (const t of [0, 0.5, 1]) { const q = e.pointAt(t); pts.push([q.x, q.y, q.z]); }
-    const along = pts.map((q) => dot(sub(q, A), D));
-    const rel = pts.map((q, i) => { const w = sub(q, A); return [w[0] - along[i] * D[0], w[1] - along[i] * D[1], w[2] - along[i] * D[2]]; });
-    const far = rel.reduce((m, w) => (Math.hypot(...w) > Math.hypot(...m) ? w : m), [0, 0, 0]);
-    const r0 = Math.hypot(...far);
-    if (r0 < 1e-6) throw new Error("the figure lies on the axis");
-    const U = far.map((x) => x / r0);
-    const side = rel.map((w) => dot(w, U));
-    if (side.some((x) => x < -1e-4)) throw new Error("the axis crosses the figure: draw the figure on one side of it");
-    let solid;
-    if (Math.abs(advance) < 1e-9) {
-      if (Math.abs(angle) > 360 + 1e-6) throw new Error("a turn of more than 360 degrees with no advance lies on itself: give it an advance, or turn it once");
-      solid = revolution(face, A, angle > 0 ? D : D.map((x) => -x), Math.abs(angle));
+    // what is made of one figure (the outer one, then each hole): the same turn for all, so the holes are cut from the figure
+    let make;
+    if (Math.abs(Math.abs(dot(N, D)) - 1) < 1e-6) {
+      // the axis is the plane's normal: the figure is carried along it by `advance` while it turns about it, a twisted extrusion (a bar turned into an auger, a lobed section into a screw); the axis may stand off the figure (a coil)
+      if (Math.abs(advance) < 1e-9) throw new Error("a twist needs a distance to be carried along the axis");
+      const sgn = dot(N, D) > 0 ? 1 : -1;
+      const v0 = pts[0];
+      const o = sub(A, N.map((x) => x * dot(sub(A, v0), N))); // (the axis where it meets the figure's plane)
+      const h = advance * sgn; // (the distance along the plane's normal)
+      const twist = angle * sgn * (h > 0 ? 1 : -1); // (counter-clockwise about the axis whichever way it points and the figure is carried)
+      make = (sk) => { const solid = sk.extrude(h, { twistAngle: twist, origin: o }); if (!isValidSolid(solid)) throw new Error("the twist could not be made at this size"); return solid; };
     } else {
-      const turns = Math.abs(angle) / 360;
-      const pitch = Math.abs(advance) / turns;
-      const lo = Math.min(...along), hi = Math.max(...along);
-      if (hi - lo > pitch + 1e-4) throw new Error(`the figure is ${Math.round((hi - lo) * 100) / 100} mm wide along the axis and the advance is ${Math.round(pitch * 100) / 100} mm a turn: the turns would overlap`);
-      const [mid, r] = [(lo + hi) / 2, Math.max(...side)];
-      // the helix runs through the middle of the figure, at its far side, about the axis; the figure is carried along it as one rigid screw motion (the kernel's frame of a helix does exactly that)
-      const dir = advance > 0 ? D : D.map((x) => -x);
-      const helixCcw = (angle > 0) === (advance > 0); // (a right hand helix turns counter-clockwise about its own direction)
-      const centre = [A[0] + D[0] * mid, A[1] + D[1] * mid, A[2] + D[2] * mid];
-      const spine = helix(pitch, pitch * turns, r, centre, dir, U, !helixCcw);
-      // the helix starts at the far side of the figure, in its plane: the figure is swept from where it is
-      const wire = sk.wire;
-      solid = genericSweep(wire, spine, { frenet: true });
-      if (!isValidSolid(solid)) throw new Error("the spiral could not be made at this size");
+      // the axis must lie in the plane of the figure, and the figure must be on one side of it
+      if (Math.abs(dot(N, D)) > 1e-4) throw new Error("the axis must lie in the plane of the figure");
+      const along = pts.map((q) => dot(sub(q, A), D));
+      const rel = pts.map((q, i) => { const w = sub(q, A); return [w[0] - along[i] * D[0], w[1] - along[i] * D[1], w[2] - along[i] * D[2]]; });
+      const far = rel.reduce((m, w) => (Math.hypot(...w) > Math.hypot(...m) ? w : m), [0, 0, 0]);
+      const r0 = Math.hypot(...far);
+      if (r0 < 1e-6) throw new Error("the figure lies on the axis");
+      const U = far.map((x) => x / r0);
+      const side = rel.map((w) => dot(w, U));
+      if (side.some((x) => x < -1e-4)) throw new Error("the axis crosses the figure: draw the figure on one side of it");
+      if (Math.abs(advance) < 1e-9) {
+        if (Math.abs(angle) > 360 + 1e-6) throw new Error("a turn of more than 360 degrees with no advance lies on itself: give it an advance, or turn it once");
+        make = (sk) => revolution(sk.face(), A, angle > 0 ? D : D.map((x) => -x), Math.abs(angle));
+      } else {
+        const turns = Math.abs(angle) / 360;
+        const pitch = Math.abs(advance) / turns;
+        const lo = Math.min(...along), hi = Math.max(...along);
+        if (hi - lo > pitch + 1e-4) throw new Error(`the figure is ${Math.round((hi - lo) * 100) / 100} mm wide along the axis and the advance is ${Math.round(pitch * 100) / 100} mm a turn: the turns would overlap`);
+        const [mid, r] = [(lo + hi) / 2, Math.max(...side)];
+        // the helix runs through the middle of the figure, at its far side, about the axis; the figure is carried along it as one rigid screw motion (the kernel's frame of a helix does exactly that)
+        const dir = advance > 0 ? D : D.map((x) => -x);
+        const helixCcw = (angle > 0) === (advance > 0); // (a right hand helix turns counter-clockwise about its own direction)
+        const centre = [A[0] + D[0] * mid, A[1] + D[1] * mid, A[2] + D[2] * mid];
+        make = (sk) => {
+          const solid = genericSweep(sk.wire, helix(pitch, pitch * turns, r, centre, dir, U, !helixCcw), { frenet: true });
+          if (!isValidSolid(solid)) throw new Error("the spiral could not be made at this size");
+          return solid;
+        };
+      }
     }
+    let solid = make(outerSketch);
+    for (const h of op.holes ?? []) solid = solid.cut(make(sketchOf(h)));
+    if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the figure when its holes were cut");
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
     if (op.mode === "cutOrAdd") {

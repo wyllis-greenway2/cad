@@ -61,6 +61,8 @@ export function figureParams(figs: Figure[]): Record<string, string> {
   if (figs.length > 1) out.also = figs.slice(1).map((f) => f.outer.join(",") + (f.holes.length ? ">" + enc(f) : "")).join("|");
   return out;
 }
+/** A step made from drawn figures (an extrude, a revolve): its figures are used up by it. */
+export const usesFigures = (st: Step): boolean => st.type === "extrude" || st.type === "revolve";
 /** Every ref an extrude step stands on: its figures' sides and circles, holes and siblings too. */
 export const figureRefs = (st: Step): Ref[] => figuresOf(st).flatMap((f) => [...f.outer, ...f.holes.flat()]);
 export interface Scene {
