@@ -148,6 +148,7 @@ export function doTyped(s: AppState, key: string): AppState {
 /** The text of a field of the value box changed: the operation's number, or a size of the figure being drawn. */
 export function doEntry(s: AppState, field: number, text: string): AppState {
   if (!/^-?\d*\.?\d*$/.test(text)) return s;
+  if (s.op && s.op.kind === "rotate" && s.op.frame && (s.op.target === "body" || s.op.target === "plane")) return { ...s, op: { ...s.op, auto: false, typed: text, rot: ["", "", ""] as [string, string, string] } }; // (a turn about the mover's own axis: one angle, `in_417`)
   if (s.op && s.op.kind === "rotate" && (s.op.target === "body" || s.op.target === "plane")) {
     const rot = [...s.op.rot] as [string, string, string];
     if (field >= 0 && field < 3) rot[field] = text;

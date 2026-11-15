@@ -14,6 +14,14 @@ export function about(axis: 0 | 1 | 2, angle: number): Mat3 {
   if (axis === 1) return [c, 0, s, 0, 1, 0, -s, 0, c];
   return [c, -s, 0, s, c, 0, 0, 0, 1];
 }
+/** The turn by `angle` degrees about the axis `dir` (a unit vector) through the origin, right-handed (Rodrigues'). */
+export function aboutDir(dir: readonly [number, number, number], angle: number): Mat3 {
+  const l = Math.hypot(dir[0], dir[1], dir[2]) || 1;
+  const [x, y, z] = [dir[0] / l, dir[1] / l, dir[2] / l];
+  const [c, s] = [Math.cos(rad(angle)), Math.sin(rad(angle))];
+  const t = 1 - c;
+  return [t * x * x + c, t * x * y - s * z, t * x * z + s * y, t * x * y + s * z, t * y * y + c, t * y * z - s * x, t * x * z - s * y, t * y * z + s * x, t * z * z + c];
+}
 /** a then b: the turn that does `a` first and `b` second. */
 export function then(a: Mat3, b: Mat3): Mat3 {
   const out: number[] = [];

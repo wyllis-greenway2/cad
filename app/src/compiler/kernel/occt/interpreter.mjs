@@ -744,7 +744,7 @@ const OPS = {
     const only = one ? op.body : null;
     // (a move by a vector, from dragging the body free, `in_291`: `op.vec`; else along one axis)
     if (op.mode === "move") { const by = op.vec ?? axis.map((a) => a * v); return { kind: "solid", shape: again(t.translate(by)), tf: { mode: "move", axis: op.axis, v, vec: op.vec, only } }; }
-    if (op.mode === "rotate") { const pivot = op.pivot ?? middle(); return { kind: "solid", shape: again(t.rotate(v, pivot, axis)), tf: { mode: "rotate", axis: op.axis, v, pivot, only } }; }
+    if (op.mode === "rotate") { const pivot = op.pivot ?? middle(); const about = op.dir ?? axis; return { kind: "solid", shape: again(t.rotate(v, pivot, about)), tf: { mode: "rotate", axis: op.axis, dir: op.dir, v, pivot, only } }; } // (`op.dir`: a turn about any axis, `in_417`)
     if (op.mode === "scale") {
       if (!(v > 1e-6)) throw new Error("scale must be positive");
       // (a body made a hundred metres long or more is a slip of the keys, and the kernel does not come back from meshing it: `in_255`)

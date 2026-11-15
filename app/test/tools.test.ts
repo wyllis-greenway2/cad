@@ -851,3 +851,16 @@ test("a hollow step makes the body a shell with the named face left open (`in_39
   near(before, 16000, 1);
   near(made.outcome.kernel!.volume!, 16000 - 36 * 16 * 18, 1);
 });
+
+test("a turn step about any axis (a direction in the step) turns the body about that axis through the pivot (`in_417`)", () => {
+  const st = drawBox(top(), 20); // 40 x 20 block from (3,3) up to z = 20
+  const s0 = Math.SQRT1_2;
+  // 90 degrees about the axis (1, 1, 0)/sqrt 2 through the middle of the block: the block's long X side lies along the other diagonal
+  const made = run(st.session, { type: "addStep", step: { id: "s_r1", type: "rotate", parts: [], params: { axis: 0, value: 90, dx: s0, dy: s0, dz: 0, px: 23, py: 13, pz: 10 } } });
+  assert.equal(made.message, null);
+  assert.deepEqual(made.outcome.errors, {});
+  near(made.outcome.kernel!.volume!, 16000, 1);
+  const b = made.outcome.kernel!.bbox!;
+  // a 40 x 20 x 20 block turned a quarter about a diagonal in the floor's plane no longer lies along the axes: its box is wider than 40 in Z
+  assert.ok(b.max[2] - b.min[2] > 30, `${JSON.stringify(b)}`);
+});

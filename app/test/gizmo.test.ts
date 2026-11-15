@@ -1922,7 +1922,7 @@ test("the mover has a sphere at its junction: a click selects it, its own arrows
   const [bx, by] = px(st, centre0);
   st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
   assert.equal(st.moverSphere, true, "the sphere is selected");
-  assert.deepEqual(ids(), ["piv:x", "piv:y", "piv:z", "pivot"], "its own arrows are up");
+  assert.deepEqual(ids(), ["piv:x", "piv:y", "piv:z", "rot:x", "rot:y", "rot:z", "pivot"], "its own arrows and rings are up: both work on the mover");
   // an arrow of the sphere moves the mover along x by 10, not the body
   const [c, tip] = gizmoOf(st)!.handles.find((h) => h.id === "piv:x")!.points;
   const stepsBefore = scene(st.session).steps.length;
@@ -1941,4 +1941,53 @@ test("the mover has a sphere at its junction: a click selects it, its own arrows
   const [tx, ty] = px(turn, gizmoOf(turn)!.centre);
   const picked = reduce(turn, { type: "click", x: tx, y: ty, count: 1, shift: false }, env);
   assert.deepEqual(gizmoOf(picked)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot", "piv:x", "piv:y", "piv:z"]);
+});
+
+test("the mover can be turned: with the sphere selected a ring turns the mover's axes, and then its arrows move the body along the turned axes and its rings turn it about them (`in_417`)", () => {
+  let st = select(box(), [BODY_OBJECT]); // 40 x 20 x 20
+  st = reduce(st, { type: "begin", name: "move" }, env);
+  const [bx, by] = px(st, gizmoOf(st)!.centre);
+  st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env); // (the sphere)
+  // turn the mover a quarter about its Z: take a point of the Z ring a quarter of the way round
+  const ring = gizmoOf(st)!.handles.find((h) => h.id === "rot:z")!;
+  const c = gizmoOf(st)!.centre;
+  const p0 = ring.points[Math.floor(ring.points.length / 8)]!; // (away from where the rings cross)
+  const w = sub(p0, c);
+  const p1: Vec3 = add(c, [-w[1], w[0], w[2]]); // (90 degrees about Z)
+  st = drag(st, p0, p1, 8);
+  const f = st.op!.frame!;
+  assert.ok(f, "the mover has its own axes now");
+  near(Math.abs(f[0][1]), 1, 0.08); // (its X now lies along the world Y)
+  // let the sphere go: the arrows move the body, along the mover's axes
+  st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
+  assert.equal(st.moverSphere, false);
+  const ax = gizmoOf(st)!.handles.find((h) => h.id === "move:x")!;
+  const d = sub(ax.points[1]!, ax.points[0]!);
+  near(Math.abs(d[1]) / Math.hypot(...d), 1, 0.08);
+  const before = st.session.outcome.kernel!.bbox!;
+  const mid = scale(add(ax.points[0]!, ax.points[1]!), 0.5);
+  st = drag(st, mid, add(mid, scale(d, 10 / Math.hypot(...d))), 6);
+  assert.equal(st.session.message, null);
+  const after = st.session.outcome.kernel!.bbox!;
+  assert.ok(Math.abs(after.min[1]! - before.min[1]!) > 6 && Math.abs(after.min[0]! - before.min[0]!) < 0.5, `the body went along the world Y: ${before.min} -> ${after.min}`);
+  const step = scene(st.session).steps.at(-1)!;
+  assert.equal(step.type, "move");
+  assert.ok(step.params.vy !== undefined && Math.abs(Number(step.params.vy)) > 6, "as a move by a vector");
+});
+
+test("with the mover turned, its ring turns the body about the mover's axis: a rotate step about that direction (`in_417`)", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  st = reduce(st, { type: "begin", name: "rotate" }, env);
+  st = { ...st, op: { ...st.op!, frame: [[0, 1, 0], [-1, 0, 0], [0, 0, 1]] } };
+  const g = gizmoOf(st)!;
+  const ring = g.handles.find((h) => h.id === "rot:x")!; // (the mover's X is the world Y: a ring about Y)
+  const c = g.centre;
+  const p0 = ring.points[Math.floor(ring.points.length / 8)]!;
+  const w = sub(p0, c);
+  const p1: Vec3 = add(c, [w[2], w[1], -w[0]]); // (a quarter about Y)
+  st = drag(st, p0, p1, 8);
+  assert.equal(st.session.message, null);
+  const step = scene(st.session).steps.at(-1)!;
+  assert.equal(step.type, "rotate");
+  assert.ok(Math.abs(Number(step.params.dy)) > 0.9 && Math.abs(Number(step.params.dx)) < 0.1, `about the world Y: ${JSON.stringify(step.params)}`);
 });

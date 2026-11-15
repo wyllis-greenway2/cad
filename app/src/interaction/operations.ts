@@ -5,7 +5,7 @@ import type { Ref } from "../shared/ref.ts";
 import { edgeDirection, moveCentre, moveOffset } from "./gizmo.ts";
 import { patternStart, patternCommand } from "./pattern.ts";
 import type { Mat3, Angles } from "../math/rotation.ts";
-import { IDENTITY, about, then, anglesOf, stepsBetween } from "../math/rotation.ts";
+import { IDENTITY, about, aboutDir, then, anglesOf, stepsBetween } from "../math/rotation.ts";
 import { motionOf, laterMotion, applyPoint } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
 import type { Curved } from "../operation/part.ts";
@@ -85,6 +85,8 @@ export interface Op {
   axes?: [number, number, number];
   /** hollow: the faces left open, each as `nx,ny,nz,d,px,py,pz`, joined by `;` (`in_391`) */
   openFaces?: string;
+  /** a move or a turn: the axes of the mover when it has been turned (`in_417`): the arrows pull along them and the rings turn about them; absent for the world axes */
+  frame?: [Vec3, Vec3, Vec3];
   /** hollow: the faces named are kept as the walls (the others open), or are the open ones, or nothing is open (`in_393`) */
   hollowMode?: "keep" | "open" | "closed";
   /** push / pull of a round face: the face (the radius changes by the distance) */
@@ -466,14 +468,14 @@ const faceParams = (op: Op): Record<string, number> => {
 /** How the body is turned now: every rotate step so far, one after another (a move or a push does not change it). */
 function bodyTurn(scene: Scene): Mat3 {
   let m: Mat3 = IDENTITY;
-  for (const st of scene.steps) if (st.type === "rotate") m = then(m, about(Number(st.params.axis ?? 0) as 0 | 1 | 2, Number(st.params.value ?? 0)));
+  for (const st of scene.steps) if (st.type === "rotate") m = then(m, st.params.dx !== undefined ? aboutDir([Number(st.params.dx), Number(st.params.dy), Number(st.params.dz)], Number(st.params.value ?? 0)) : about(Number(st.params.axis ?? 0) as 0 | 1 | 2, Number(st.params.value ?? 0)));
   return m;
 }
 /** The three angles of the body's turn, with the turn being dragged or typed on top of it (what the bubble shows and sets). */
 export function turnAngles(scene: Scene, op: Op): Angles {
   const live = valueOf(op);
   const now = op.target === "plane" ? planeTurn(scene, op) : bodyTurn(scene);
-  return anglesOf(live !== null && (op.target === "body" || op.target === "plane") ? then(now, about(op.axis, live)) : now);
+  return anglesOf(live !== null && (op.target === "body" || op.target === "plane") ? then(now, op.frame ? aboutDir(axisVec(op), live) : about(op.axis, live)) : now);
 }
 /** How a drawn figure's plane is turned: the turn that takes the world axes onto its directions (its first, its second and its normal). */
 function planeTurn(scene: Scene, op: Op): Mat3 {
@@ -606,15 +608,19 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   }
   if (op.target === "plane") {
     if (v === 0) return null;
-    return op.kind === "rotate" ? figureCommand(scene, op, [{ axis: op.axis, angle: v }], [0, 0, 0]) : figureCommand(scene, op, [], scale(([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Vec3[])[op.axis]!, v));
+    return op.kind === "rotate" ? figureCommand(scene, op, op.frame ? eulerTurns(axisVec(op), v) : [{ axis: op.axis, angle: v }], [0, 0, 0]) : figureCommand(scene, op, [], scale(axisVec(op), v));
   }
-  const pivot: Record<string, number> = op.kind === "rotate" && op.pivot ? { px: op.pivot[0], py: op.pivot[1], pz: op.pivot[2] } : {};
+  const pivotAt = op.kind === "rotate" ? (op.pivot ?? (op.frame && op.target === "body" ? bodyCentre(scene, op.parts[0]) : null)) : null; // (a turn about the mover's own axes needs its place, the middle of the body unless it has been put elsewhere)
+  const pivot: Record<string, number> = pivotAt ? { px: pivotAt[0], py: pivotAt[1], pz: pivotAt[2] } : {};
   if (v === 0) return null;
   // the whole body: the step, and the sketches that made it carried along with it (`in_204`)
-  const carried = op.kind === "move" || (op.kind === "rotate" && !!op.pivot);
-  const step: Command = { type: "addStep", step: { id, type: op.kind as "move" | "rotate", parts: op.parts, params: { axis: op.axis, value: v, ...pivot, ...(carried ? { follow: 1 } : {}) } as Record<string, number> } };
+  const carried = op.kind === "move" || (op.kind === "rotate" && !!pivotAt);
+  const dir = axisVec(op);
+  // the mover turned: a move is by a vector, a turn is about an axis that is given (`in_417`)
+  const along: Record<string, number> = !op.frame ? { axis: op.axis, value: v } : op.kind === "move" ? { axis: 0, value: 0, vx: dir[0] * v, vy: dir[1] * v, vz: dir[2] * v } : { axis: op.axis, value: v, dx: dir[0], dy: dir[1], dz: dir[2] };
+  const step: Command = { type: "addStep", step: { id, type: op.kind as "move" | "rotate", parts: op.parts, params: { ...along, ...pivot, ...(carried ? { follow: 1 } : {}) } as Record<string, number> } };
   if (!carried || op.target !== "body") return step;
-  const carry = op.kind === "move" ? carrySketches(scene, [], scale(([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Vec3[])[op.axis]!, v), [0, 0, 0], 1, op.carryOnly) : carrySketches(scene, [{ axis: op.axis, angle: v }], [0, 0, 0], op.pivot!, 1, op.carryOnly);
+  const carry = op.kind === "move" ? carrySketches(scene, [], scale(dir, v), [0, 0, 0], 1, op.carryOnly) : carrySketches(scene, op.frame ? eulerTurns(dir, v) : [{ axis: op.axis, angle: v }], [0, 0, 0], pivotAt!, 1, op.carryOnly);
   return carry.length ? { type: "batch", commands: [step, ...carry] } : step;
 }
 
@@ -638,10 +644,11 @@ export function bodyMotion(scene: Scene, op: Op): Rigid | null {
   const v = valueOf(op);
   if (v === null) return null;
   if (op.kind === "scale" && v <= 0) return null;
-  if (op.kind === "move") return motionOf({ id: "s_x", type: "move", parts: op.parts, params: { axis: op.axis, value: v } });
+  const dir = axisVec(op);
+  if (op.kind === "move") return motionOf({ id: "s_x", type: "move", parts: op.parts, params: op.frame ? { axis: 0, value: 0, vx: dir[0] * v, vy: dir[1] * v, vz: dir[2] * v } : { axis: op.axis, value: v } });
   const pivot = op.pivot ?? bodyCentre(scene, op.parts[0]);
   if (!pivot) return null;
-  return motionOf({ id: "s_x", type: op.kind, parts: op.parts, params: { axis: op.kind === "scale" ? 0 : op.axis, value: v, px: pivot[0], py: pivot[1], pz: pivot[2] } });
+  return motionOf({ id: "s_x", type: op.kind, parts: op.parts, params: { axis: op.kind === "scale" ? 0 : op.axis, value: v, px: pivot[0], py: pivot[1], pz: pivot[2], ...(op.frame && op.kind === "rotate" ? { dx: dir[0], dy: dir[1], dz: dir[2] } : {}) } });
 }
 
 /** A command as it is without carrying the sketches: only the steps, and not marked `follow`. */
@@ -657,6 +664,11 @@ function stripFollow(c: Command | null): Command | null {
  * as a continuation of the recipe, and the extrude reads them back through the step (`compiler/graph.ts`). A constraint that ties one of them to something that is not carried (a free drawing, the world, the body) stays: it is
  * a constraint of the whole body to that thing, and the solver holds the body's sketch (`compiler/solve.ts`), so a move that would break it is refused and the constraint flashes (`in_205`).
  */
+/** The direction of the axis the operation works along or about: the mover's own axis when it has been turned, else the world's (`in_417`). */
+const axisVec = (op: Op): Vec3 => op.frame ? op.frame[op.axis] : ([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Vec3[])[op.axis]!;
+/** A turn about any axis as the turns about X, Y, Z one after another that make it (what a drawn figure is turned by). */
+const eulerTurns = (dir: Vec3, angle: number): { axis: 0 | 1 | 2; angle: number }[] => anglesOf(aboutDir(dir, angle)).map((a, k) => ({ axis: k as 0 | 1 | 2, angle: a })).filter((t) => Math.abs(t.angle) > 1e-9);
+
 export function carrySketches(scene: Scene, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3, pivot: Vec3, bigger = 1, only?: string): Command[] {
   // one body of several: the sketches of the step that made it (its sides and circles, and their corners), not the others' (`in_271`)
   const birth = only ? scene.steps.find((st) => `x_${st.id}` === only) : undefined;

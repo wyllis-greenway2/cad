@@ -3,6 +3,7 @@
 import type { Intent } from "../../shared/input.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { sub } from "../../math/vec.ts";
+import { aboutDir } from "../../math/rotation.ts";
 import { scene as sceneOf, selection as selectionOf, run, undoLast } from "../session.ts";
 import type { Session } from "../session.ts";
 import type { Command } from "../../operation/commands.ts";
@@ -104,6 +105,10 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
       // a handle of the repeat being set up: it sets the repeat's numbers, nothing is made by the drag
       return { ...s, handleSel: h!.id, repeat: { ...s.repeat, chosen: h!.id }, drag: { handle: d, base: patternBase(liveRepeat(sceneOf(s.session), s.repeat), h!.id), repeat: true }, gizmoHover: h!.id };
     }
+    if (h!.id.startsWith("rot:") && s.moverSphere) { // a ring of the selected sphere: it turns the mover's own axes, not the body (`in_417`)
+      const started = s.op ?? activeOp(s)!;
+      if (started.kind === "move" || started.kind === "rotate") return { ...s, op: { ...started, auto: false, axis: d.axis ?? started.axis }, drag: { handle: d, base: 0, frameTurn: started.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]] }, gizmoHover: h!.id };
+    }
     if (h!.id.startsWith("piv:") && s.moverSphere) { // an arrow of the selected sphere: it moves the mover, not the body (`in_416`)
       const started = s.op ?? activeOp(s)!;
       const g0 = gizmoOf(s);
@@ -112,6 +117,14 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const started = s.op ?? activeOp(s)!;
     const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" ? { ...started, auto: false } : started;
     s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
+  }
+  if ("handle" in s.drag! && s.drag.frameTurn && s.op) {
+    const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
+    if (!r || !("value" in r)) return s;
+    const base = s.drag.frameTurn;
+    const m = aboutDir(base[s.drag.handle.axis as 0 | 1 | 2], r.value);
+    const turn = (v: Vec3): Vec3 => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2], m[6] * v[0] + m[7] * v[1] + m[8] * v[2]];
+    return { ...s, op: { ...s.op, frame: [turn(base[0]), turn(base[1]), turn(base[2])] } };
   }
   if ("handle" in s.drag! && s.drag.piv && s.op) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
@@ -373,6 +386,7 @@ export function doDragEnd(s: AppState, env?: Env): AppState {
   if (s.box) return env ? finishBox(s, env) : { ...s, box: null };
   const d = s.drag;
   const cleared: AppState = { ...s, drag: null, dragHint: null, orthoDebt: 0, gizmoHover: null };
+  if (d && "handle" in d && (d.piv || d.frameTurn)) return cleared; // (the sphere's arrows and rings only place and orient the mover: nothing is made, `in_416`, `in_417`)
   if (d && "handle" in d && d.section) { // a drag of the cross section plane's handle: one step, the plane where it was taken (`in_396`)
     const live = s.sectionLive;
     return live ? placeSection({ ...cleared, sectionLive: live }, live.centre, live.n) : cleared;

@@ -22,6 +22,11 @@ export interface Entry { fields: EntryField[]; unit: string; /** the number type
 
 /** The number chip: for a tool, its fields (what is typed, else the live size); for an operation, its one number. Null when there is nothing to show yet. */
 export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry | null {
+  if (op && op.kind === "rotate" && op.frame && (op.target === "body" || op.target === "plane")) {
+    // the mover has been turned: a single angle about the axis of the chosen ring (`in_417`)
+    const live = valueOf(op);
+    return { fields: [{ label: `About the mover's ${"XYZ"[op.axis]}`, short: "XYZ"[op.axis]!, value: op.typed !== "" ? op.typed : live !== null ? roundedText(live) : "0", active: true, typed: op.typed !== "", index: op.axis }], unit: "deg" };
+  }
   if (op && op.kind === "rotate" && (op.target === "body" || op.target === "plane")) {
     // only the axis that is chosen shows (one is always chosen: Z to begin with; the X Y Z buttons or a ring change it), with how the body is turned about it; what is typed is how it is to be turned about that axis (`in_194`)
     const now = turnAngles(scene, op);

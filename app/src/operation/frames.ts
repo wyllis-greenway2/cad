@@ -1,7 +1,7 @@
 // The body's frame (`in_204`): the moves and turns of the whole body are steps after the extrude that made it; the sketch that made it is carried along with each of them (so it stays attached to the body),
 // and the extrude reads the sketch back through the motions that came after it, since the step list moves the body again by itself. Pure: numbers in, numbers out.
 import type { Vec3 } from "../math/vec.ts";
-import { about, then, transpose } from "../math/rotation.ts";
+import { about, aboutDir, then, transpose } from "../math/rotation.ts";
 import type { Mat3 } from "../math/rotation.ts";
 import type { Step } from "./scene.ts";
 
@@ -30,7 +30,7 @@ export function motionOf(st: Step): Rigid | null {
   if (st.params.px === undefined) return null; // (a turn or a scale about the middle of the body, which was not recorded)
   const pivot: Vec3 = [Number(st.params.px), Number(st.params.py), Number(st.params.pz)];
   if (st.type === "scale") return { turn: NONE.turn, shift: [pivot[0] * (1 - v), pivot[1] * (1 - v), pivot[2] * (1 - v)], k: v };
-  const turn = about(axis, v);
+  const turn = st.params.dx !== undefined ? aboutDir([Number(st.params.dx), Number(st.params.dy), Number(st.params.dz)], v) : about(axis, v);
   const moved = mul(turn, pivot);
   return { turn, shift: [pivot[0] - moved[0], pivot[1] - moved[1], pivot[2] - moved[2]], k: 1 };
 }

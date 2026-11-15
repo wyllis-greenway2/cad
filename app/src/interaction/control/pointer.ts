@@ -1,7 +1,7 @@
 // The pointer intents: hover, click (selecting, or drawing when a tool is armed, or finishing an operation) and the menu.
 import type { Intent } from "../../shared/input.ts";
 import type { Ref } from "../../shared/ref.ts";
-import { dist, dot, sub } from "../../math/vec.ts";
+import { dist, dot, sub, cross, normalize } from "../../math/vec.ts";
 import type { Plane } from "../../operation/part.ts";
 import { normalOfPlane, segmentOf, circleOf } from "../../operation/part.ts";
 import { lookup, nextId } from "../../operation/scene.ts";
@@ -137,6 +137,22 @@ function moverPlace(sc: Scene, c: { ref: Ref; kind: string; score: number } | un
   else if (p.kind === "circle") at = circleOf(lookup(sc), p.ref)?.center ?? null;
   else at = surfacePoint(pv, c.score);
   return at && op.kind === "move" ? sub(at, moveOffset(sc, op)) : at;
+}
+
+/** The axes the mover takes from what it is put on (`in_417`): on a flat face Z is the face's outward normal, on a straight edge X runs along it; a vertex or a round leaves them as they are. */
+function moverTurned(sc: Scene, c: { ref: Ref } | undefined): [Vec3, Vec3, Vec3] | null {
+  const p = c ? sc.parts[c.ref] : undefined;
+  if (!p) return null;
+  const perp = (a: Vec3): [Vec3, Vec3] => { const u = normalize(cross(Math.abs(a[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], a)); return [u, cross(a, u)]; };
+  if (p.kind === "plane" && p.origin === "body" && !p.curved && !p.rounded && p.mesh) { const n = normalOfPlane(p); const [u, v] = perp(n); return [u, v, n]; }
+  if (p.kind === "line" && !p.circle && !p.mid) {
+    const sg = segmentOf(lookup(sc), p.ref);
+    if (!sg) return null;
+    const x = normalize(sub(sg[1], sg[0]));
+    const [u, v] = perp(x);
+    return [x, u, v];
+  }
+  return null;
 }
 
 /** A rim made of two half circles is one edge to the person: picking a half picks both, letting go of one lets go of both. */
@@ -394,7 +410,8 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   if (hit?.id === "pivot" && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat) return { ...base, moverSphere: !s.moverSphere, op: s.op ?? { ...mover, auto: false }, handleSel: null, gizmoHover: hit.id };
   if (!hit && s.moverSphere && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat) {
     const at = moverPlace(sc, cands[0], pv, mover);
-    if (at) return { ...base, op: { ...(s.op ?? mover), auto: false, pivot: at }, handleSel: null };
+    const turned = moverTurned(sc, cands[0]);
+    if (at) return { ...base, op: { ...(s.op ?? mover), auto: false, pivot: at, ...(turned ? { frame: turned } : {}) }, handleSel: null };
   }
   // a click on a ring of a repeat, or of the turn being set up, makes that the axis, with no drag needed (`in_206`)
   if (hit && hit.id.startsWith("rot:") && s.op?.kind === "rotate") return { ...base, op: { ...s.op, axis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2, typed: "" }, gizmoHover: hit.id, handleSel: hit.id };

@@ -91,11 +91,14 @@ export function sectionGizmo(sec: { at: Vec3; n: Vec3; mode: "move" | "rotate" }
  * The handles of the mover (`in_416`): arrows along x, y, z for a move, rings about them for a turn, and the sphere at their junction, which is where the mover measures from and turns about. With the sphere selected the
  * arrows that move it (`piv:`) are there in either tool (the move tool's own arrows give way to them, the turn tool's rings stay).
  */
-function moverHandles(kind: "move" | "rotate", centre: Vec3, L: number, sphere: boolean): Gizmo {
+function moverHandles(kind: "move" | "rotate", centre: Vec3, L: number, sphere: boolean, frame?: readonly [Vec3, Vec3, Vec3]): Gizmo {
+  const ax: readonly Vec3[] = frame ?? AXES; // (the mover's own axes when it has been turned, `in_417`)
   const ball: Handle = { id: "pivot", kind: "ball", axis: null, points: [centre] };
-  const arrows = (id: string): Handle[] => AXES.map((d, i): Handle => ({ id: `${id}:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, 2 * HALF * L))] }));
-  if (kind === "move") return { centre, handles: [...(sphere ? arrows("piv") : arrows("move")), ball] };
-  return { centre, handles: [...AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, centre, d, L * 0.8, i as 0 | 1 | 2)), ball, ...(sphere ? arrows("piv") : [])] };
+  const arrows = (id: string): Handle[] => ax.map((d, i): Handle => ({ id: `${id}:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, 2 * HALF * L))] }));
+  const rings = (): Handle[] => ax.map((d, i) => ring(`rot:${"xyz"[i]}`, centre, d, L * 0.8, i as 0 | 1 | 2));
+  // with the sphere selected both sets are up and they work on the mover itself: the arrows move it, the rings turn its axes
+  if (kind === "move") return { centre, handles: sphere ? [...arrows("piv"), ...rings(), ball] : [...arrows("move"), ball] };
+  return { centre, handles: [...rings(), ball, ...(sphere ? arrows("piv") : [])] };
 }
 
 /** A full circle round `axis` through `centre`, so which plane it turns in is plain to see; the arrowhead sits a little way round. */
@@ -204,13 +207,13 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
     const pts = cornersOf(scene, op.parts);
     if (!pts.length) return null;
     const centre = op.kind === "rotate" || op.kind === "move" ? (op.pivot ?? centroid(pts)) : centroid(pts);
-    return op.kind === "move" || op.kind === "rotate" ? moverHandles(op.kind, centre, L, sphere) : null;
+    return op.kind === "move" || op.kind === "rotate" ? moverHandles(op.kind, centre, L, sphere, op.frame) : null;
   }
   const box = bodyBox(scene, op.parts);
   if (!box) return null;
   // a move that has begun keeps its arrows where the body is by the steps made (the kernel's box lags behind them: the arrows would jump back for a moment, `in_230`)
   const centre = op.kind === "rotate" ? (op.pivot ?? scale(add(box.lo, box.hi), 0.5)) : op.kind === "move" && op.pivot ? add(op.pivot, moveOffset(scene, op)) : op.kind === "move" && op.from ? add(op.from, moveOffset(scene, op)) : scale(add(box.lo, box.hi), 0.5);
-  if (op.kind === "move" || op.kind === "rotate") return moverHandles(op.kind, centre, L, sphere);
+  if (op.kind === "move" || op.kind === "rotate") return moverHandles(op.kind, centre, L, sphere, op.frame);
   if (op.kind === "scale") {
     // an arrow along each axis scales along that axis alone, the diagonal ball scales all together (`in_387`)
     const half = [0, 1, 2].map((i) => (box.hi[i]! - box.lo[i]!) / 2);

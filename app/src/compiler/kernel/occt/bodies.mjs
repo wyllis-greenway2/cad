@@ -25,6 +25,12 @@ export function moveMarkers(markers, tf) {
     if (tf.mode === "scale") return [0, 1, 2].map((i) => tf.pivot[i] + d[i] * tf.v);
     // a turn of v degrees about the axis through the pivot (the right-hand rule)
     const a = (tf.v * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+    if (tf.dir) { // about any axis (Rodrigues): the part along the axis stays, the rest turns
+      const l = Math.hypot(...tf.dir) || 1, k = tf.dir.map((x) => x / l);
+      const kd = k[0] * d[0] + k[1] * d[1] + k[2] * d[2];
+      const cr = [k[1] * d[2] - k[2] * d[1], k[2] * d[0] - k[0] * d[2], k[0] * d[1] - k[1] * d[0]];
+      return [0, 1, 2].map((m) => tf.pivot[m] + d[m] * c + cr[m] * s + k[m] * kd * (1 - c));
+    }
     const [i, j] = tf.axis === 0 ? [1, 2] : tf.axis === 1 ? [2, 0] : [0, 1];
     const e = [...d];
     e[i] = d[i] * c - d[j] * s;
