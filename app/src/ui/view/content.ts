@@ -70,6 +70,7 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
     edgePos = new THREE.Float32BufferAttribute(Float32Array.from(corners), 3);
     eg.setAttribute("position", edgePos);
     edgeLines = new THREE.LineSegments(eg, edge);
+    edgeLines.visible = settings.theme.outlines;
     body.add(edgeLines);
     // the same edges again, only where a face of the body is in front of them, faint: while a sketch is drawn they show where the edges are that cannot be pointed at (`in_324`)
     ghostLines = new THREE.LineSegments(eg, new THREE.LineBasicMaterial({ color: settings.theme.bodyEdge, transparent: true, opacity: settings.theme.hiddenEdgeOpacity, depthFunc: THREE.GreaterDepth, depthWrite: false }));

@@ -89,6 +89,8 @@ const SCROLL_KEY = "cad.scrollMode";
 const savedScroll = webStore.get(SCROLL_KEY);
 if (isScrollMode(savedScroll)) recognizer.setScrollMode(savedScroll);
 
+const OUTLINE_KEY = "cad.outlines";
+if (webStore.get(OUTLINE_KEY) === "0") settings.theme.outlines = false;
 const PAN_KEY = "cad.panScale";
 const savedPan = Number(webStore.get(PAN_KEY));
 if (Number.isFinite(savedPan) && savedPan > 0) settings.input.trackpadPanScale = savedPan;
@@ -96,7 +98,12 @@ if (Number.isFinite(savedPan) && savedPan > 0) settings.input.trackpadPanScale =
 const menu = createMenu(document.body, (id) => {
   menu.hide();
   if (id === "view:game") { input.toggleGame(); return; } // (game mode is the input's: it holds the pointer, `in_391`)
-  if (id === "panSpeed") {
+  if (id === "outlines") {
+    settings.theme.outlines = !settings.theme.outlines;
+    webStore.set(OUTLINE_KEY, settings.theme.outlines ? "1" : "0");
+    view.rebuild();
+    dirty = true;
+  } else if (id === "panSpeed") {
     settings.input.trackpadPanScale = nextPanScale(settings.input.trackpadPanScale);
     webStore.set(PAN_KEY, String(settings.input.trackpadPanScale));
   } else if (id === "scrollMode") {
@@ -209,7 +216,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session), matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session), matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale, settings.theme.outlines)); }
     else { menu.hide(); if (state.menu) ring.show(i.x, i.y, state.menu.items); else ring.hide(); } // (no menu: a right click that applied the mover's orient mode, `in_439`)
   } else {
     // pointing around does not close a menu; any other intent does

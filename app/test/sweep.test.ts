@@ -61,14 +61,40 @@ test("a path that runs the other way (its far end on the shape's plane) is carri
   assert.ok(Math.abs(volume(r.session) - 320) < 0.5);
 });
 
-test("a path that never touches the shape's plane is refused with the reason; a shape with no path, or a branching path, is not offered", () => {
+test("a path away from the shape is followed where it is: a straight one 10 to the side gives the same bar at the shape's own place, a path that starts above the plane is brought to it (`in_446`)", () => {
   let { s, face } = square();
-  const p = drawChain(scene(s), XZ, [[0, 0, 5], [0, 0, 20]]);
+  const p = drawChain(scene(s), XZ, [[10, 0, 0], [10, 0, 20]]);
   s = run(s, p.command);
   const r = runOp(s, begin(s, [face, ...p.lines]))!;
-  assert.match(String(r.session.outcome.errors[Object.keys(r.session.outcome.errors)[0]!] ?? r.session.message), /plane/);
-  const none = startOp(scene(s), [face] as never, "sweep");
-  assert.equal(none.ok, false);
+  assert.deepEqual(r.session.outcome.errors, {});
+  assert.ok(Math.abs(volume(r.session) - 320) < 0.5, `volume ${volume(r.session)}`);
+  const box = Object.values(scene(r.session).parts).find((q) => q.kind === "body" && q.bbox) as unknown as { bbox: { min: number[]; max: number[] } };
+  assert.ok(Math.abs(box.bbox.min[0]! + 2) < 1e-3 && Math.abs(box.bbox.max[0]! - 2) < 1e-3, `the bar stays where the shape is: ${box.bbox.min[0]}..${box.bbox.max[0]}`);
+  let t = createSession(kernel);
+  const sq = drawRectangle(scene(t), XY, [-2, -2, 0], [2, 2, 0], [1, 0, 0], [0, 1, 0]);
+  t = run(t, sq.command);
+  const q = drawChain(scene(t), XZ, [[0, 0, 5], [0, 0, 20]]);
+  t = run(t, q.command);
+  const r2 = runOp(t, begin(t, [loopFaceRef(sq.lines), ...q.lines]))!;
+  assert.ok(Math.abs(volume(r2.session) - 240) < 0.5, `volume ${volume(r2.session)}`);
+});
+
+test("a bend away from the shape carries it rigidly round: the area times the length its middle travels (Pappus), the arc of radius 20 seen from 10 outside it", () => {
+  let { s, face } = square();
+  const a = drawArc(scene(s), XZ, [10, 0, 0], [30 - 20 * Math.SQRT1_2, 0, 20 * Math.SQRT1_2], [30, 0, 20], [0, -1, 0])!;
+  s = run(s, a.command);
+  const r = runOp(s, begin(s, [face, a.line]))!;
+  assert.deepEqual(r.session.outcome.errors, {});
+  assert.ok(Math.abs(volume(r.session) - 16 * 15 * Math.PI) < 8, `volume ${volume(r.session)}`);
+});
+
+test("a path that runs along the shape's plane where it starts is refused, with the reason; a shape with no path is not offered", () => {
+  let { s, face } = square();
+  const p = drawChain(scene(s), XZ, [[0, 0, 0], [20, 0, 0]]);
+  s = run(s, p.command);
+  const r = runOp(s, begin(s, [face, ...p.lines]))!;
+  assert.match(String(Object.values(r.session.outcome.errors)[0] ?? r.session.message), /plane/);
+  assert.equal(startOp(scene(s), [face] as never, "sweep").ok, false);
 });
 
 test("the Sweep operation: a shape and its path selected, Enter makes the one step", () => {
@@ -106,5 +132,5 @@ test("while the Sweep operation is open the body it would make is in the picture
   const f = frameOf(st, { w: 800, h: 600 });
   assert.equal(scene(st.session).steps.length, 0, "nothing made yet");
   assert.ok(Object.values(f.scene.parts).some((q) => q.kind === "body" && (q.volume ?? 0) > 300), "the body is in the picture");
-  assert.deepEqual(f.highlight.amber, [p.corners[1]], "the amber dot is on the end that stands on the shape's plane");
+  assert.deepEqual(f.highlight.amber, [p.corners[1]], "the amber dot is on the end nearer the shape's plane");
 });

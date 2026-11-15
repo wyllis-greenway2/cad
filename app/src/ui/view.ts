@@ -44,6 +44,8 @@ export function createView(host: HTMLElement) {
   const pen = createPen();
   const envMap = new THREE.PMREMGenerator(renderer).fromScene(studio(), 0.04).texture; // a soft studio, only reflected in the body
   let lastScene: Scene | null = null;
+  /** What is drawn is built again at the next frame (a look setting changed, `in_446`). */
+  const rebuild = (): void => { lastScene = null; };
   let lastMesh: BodyMesh | null = null;
   let size = { w: 1, h: 1 };
 
@@ -260,5 +262,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { setScene, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { rebuild, setScene, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

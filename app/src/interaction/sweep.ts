@@ -15,7 +15,7 @@ export function sweepCommand(scene: Scene, op: Op): Command | null {
 }
 
 
-/** The corner the shape is carried from, to show as a dot: the end of the path that is on the shape's plane (the far end when both are, as the kernel takes it). */
+/** The corner the shape is carried from, to show as a dot: the end of the path nearer the shape's plane. */
 export function sweepStart(scene: Scene, op: Op): Ref[] {
   if (!op.sweepFig || !op.sweepLines) return [];
   const get = lookup(scene);
@@ -26,6 +26,5 @@ export function sweepStart(scene: Scene, op: Op): Ref[] {
   const n = normalOfPlane(plane);
   const off = (q: readonly number[]): number => Math.abs((q[0]! - plane.at[0]) * n[0] + (q[1]! - plane.at[1]) * n[1] + (q[2]! - plane.at[2]) * n[2]);
   const [head, tail] = [walked.sides[0]!, walked.sides.at(-1)!];
-  if (off(head.a) <= 1e-3) return [head.from];
-  return off(tail.b) <= 1e-3 ? [tail.to] : [];
+  return [off(tail.b) < off(head.a) ? tail.to : head.from]; // (the end nearer the shape's plane, as the kernel takes it)
 }
