@@ -123,7 +123,7 @@ export function doTyped(s: AppState, key: string): AppState {
     rot[i] = typed.typed;
     return { ...s, op: { ...s.op, rot, value: null, typed: "" } };
   }
-  if (s.op && s.op.kind === "edge" && s.op.variable && s.op.parts.length === 1 && key !== "Enter") {
+  if (s.op && s.op.kind === "edge" && s.op.variable && s.op.vary && key !== "Enter") {
     // a fillet whose size changes along the edge: Tab goes between the size at its start and the size at its end (`in_387`)
     if (key === "Tab") return { ...s, op: { ...s.op, endActive: !s.op.endActive } };
     if (s.op.endActive) { const typed = typeOp({ ...s.op, typed: s.op.endTyped ?? "" }, key); return { ...s, op: { ...s.op, endTyped: typed.typed.replace(/^-/, "") } }; }
@@ -149,7 +149,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     if (field >= 0 && field < 3) rot[field] = text;
     return { ...s, op: { ...s.op, rot, axis: (field as 0 | 1 | 2), value: null, typed: "" } };
   }
-  if (s.op && s.op.kind === "edge" && s.op.variable && s.op.parts.length === 1 && (field === 0 || field === 1)) return field === 1 ? { ...s, op: { ...s.op, endTyped: text, endActive: true } } : { ...s, op: { ...s.op, typed: text, endActive: false } };
+  if (s.op && s.op.kind === "edge" && s.op.variable && s.op.vary && (field === 0 || field === 1)) return field === 1 ? { ...s, op: { ...s.op, endTyped: text, endActive: true } } : { ...s, op: { ...s.op, typed: text, endActive: false } };
   const mover = s.op ?? activeOp(s);
   if (mover && mover.kind === "move" && (mover.target === "body" || mover.target === "plane") && !s.repeat && !s.tool && field >= 0 && field < 3) {
     // the bubble on one of the move arrows (`in_215`): a distance typed along that axis; another axis starts again

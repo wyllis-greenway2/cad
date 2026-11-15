@@ -462,16 +462,38 @@ const OPS = {
     };
     const [lo, hi] = dist > 0 ? [0, dist] : [dist, 0];
     let region = slab([c.x, c.y, c.z], n, lo, hi);
-    for (const f of next) {
-      if (f.geomType !== "PLANE") throw new Error("the faces next to this face are not all flat, so it cannot be extended (move it instead)");
+    const inner = best.innerWires().map((w) => new Set(edgesOf(w).map((e) => e.hashCode)));
+    const wireOf = (f) => { const es = edgesOf(f).filter((e) => mine.has(e.hashCode)); const i = inner.findIndex((s) => es.some((e) => s.has(e.hashCode))); return i; }; // (-1: the outline of the face)
+    /** the solid that bounds the slab for a neighbour: `inner` is the side of the neighbour the new material is on for a neighbour round the outside of the face, the side it is not on for one round a hole in it */
+    const sideOf = (f, hole) => {
+      const fc = f.center;
+      if (/^CYLINDR/.test(f.geomType)) {
+        // a round wall (a post, a hole, a round corner): the inside of its cylinder, kept for the outline of the face and taken away for a hole in it
+        const cy = f._geomAdaptor().Cylinder();
+        const [L, D] = [cy.Location(), cy.Axis().Direction()];
+        const start = [L.X() - D.X() * big, L.Y() - D.Y() * big, L.Z() - D.Z() * big];
+        return makeCylinder(cy.Radius(), 2 * big, start, [D.X(), D.Y(), D.Z()]);
+      }
+      if (f.geomType !== "PLANE") throw new Error("the faces next to this face are not all flat or round, so it cannot be extended (move it instead)");
       const m0 = f.normalAt();
       const ml = Math.hypot(m0.x, m0.y, m0.z);
       const m = [m0.x / ml, m0.y / ml, m0.z / ml];
-      const fc = f.center;
-      // a neighbour that goes down from this face (the body is below the edge) bounds the slab from inside; one that rises above it (a wall round a pocket) bounds it from the side the air is on
+      // a neighbour that goes down from this face (the body is below the edge) has the material behind it, one that rises above it (a wall round a pocket, a post) has the air
       const below = (fc.x - c.x) * n[0] + (fc.y - c.y) * n[1] + (fc.z - c.z) * n[2] <= 1e-9;
-      const keep = below ? slab([fc.x, fc.y, fc.z], m, -big, 0) : slab([fc.x, fc.y, fc.z], m, 0, big);
-      region = region.intersect(keep);
+      const material = hole ? !below : below; // (round a hole the new material is on the side the wall faces away from: the hole is the side it faces)
+      return material ? slab([fc.x, fc.y, fc.z], m, -big, 0) : slab([fc.x, fc.y, fc.z], m, 0, big);
+    };
+    const groups = new Map();
+    for (const f of next) { const w = wireOf(f); groups.set(w, [...(groups.get(w) ?? []), f]); }
+    for (const [w, fs] of groups) {
+      if (w < 0) {
+        for (const f of fs) { region = region.intersect(sideOf(f, false)); if (!(measureVolume(region) > 1e-6)) break; }
+      } else {
+        // a hole in the face (or a post standing on it): what is inside it is taken out of the new material
+        let hole = null;
+        for (const f of fs) { const s = sideOf(f, true); hole = hole ? hole.intersect(s) : s; }
+        if (hole) region = region.cut(hole);
+      }
       if (!(measureVolume(region) > 1e-6)) break;
     }
     const left = measureVolume(region);
@@ -555,7 +577,7 @@ const OPS = {
     const refs = [].concat(op.ref);
     const found = refs.length ? resolveEdges(t, refs) : null;
     // a fillet that changes along its one edge (`in_387`): the radius is `v` at the start of the edge and `op.end` at its other end; smaller sizes keep the proportion
-    const ratio = op.end !== undefined && op.mode === "fillet" && refs.length === 1 && op.end > 1e-6 ? op.end / v : null;
+    const ratio = op.end !== undefined && op.end > 1e-6 ? op.end / v : null;
     const base = op.together && op.together.base ? ctx.get(op.together.base, "solid").shape : null;
     /** The body with this step's edges (`list`, refs) rounded or bevelled by `size`: on their own, else together with the steps just before it (`in_176`), else it throws. */
     let note = null;
@@ -564,6 +586,7 @@ const OPS = {
       const pick = (ef) => ef.when(({ element }) => set.has(element.hashCode));
       try {
         if (!set) throw new Error("line not found (the model changed since this step was made)");
+        if (ratio && op.mode === "chamfer") throw new Error("the library has no chamfer that changes along the edge"); // (it is made as a region, below)
         const made = op.mode === "chamfer" ? t.chamfer(size, pick) : t.fillet(ratio ? [size, size * ratio] : size, pick);
         if (!isValidSolid(made)) throw new Error("kernel returned an invalid solid"); // (a size the faces cannot take can come out as a broken solid, not an exception)
         if (Math.abs(measureVolume(made) - measureVolume(t)) < 1e-9 * measureVolume(t)) throw new Error("the kernel made nothing of it"); // (a size it cannot take can come out as the body unchanged)
@@ -574,7 +597,8 @@ const OPS = {
         if (region === "empty") throw Object.assign(new Error(`a ${op.mode === "chamfer" ? "chamfer" : "fillet"} of that size would take all of the body`), { final: true });
         const mixed = !region && neighbours && set && !ratio ? mixedRound(t, set, list, size, op.mode) : null;
         if (mixed) { note = `the ${op.mode === "chamfer" ? "chamfer" : "fillet"} could not be made all at once at this size, so the straight edges and rims were made as regions and the other edges by the kernel, one after the other`; return mixed; }
-        if (region) { note = `the ${op.mode === "chamfer" ? "chamfer" : "fillet"} could not be made as a smooth round at this size (the faces next to it are not wide enough, or other rounding meets it), so it was made as a region: as large a round as the faces beside it allow, or cut across them where they end`; return region; }
+        if (ratio && op.mode === "chamfer" && !region) throw Object.assign(new Error("a chamfer whose size changes along the edge can be made on straight edges between flat faces only"), { final: true });
+        if (region) { note = ratio && op.mode === "chamfer" ? "the chamfer was made as a region, as the kernel has no chamfer whose size changes along its edge" : `the ${op.mode === "chamfer" ? "chamfer" : "fillet"} could not be made as a smooth round at this size (the faces next to it are not wide enough, or other rounding meets it), so it was made as a region: as large a round as the faces beside it allow, or cut across them where they end`; return region; }
         // on its own it cannot be made (next to fillets already made, a corner where three meet): the kernel can blend a corner when the edges that meet there are rounded in the same operation, so
         // this one is tried together with the ones just before it (each with its own size), from the body before them
         if (!base || op.together.mods.length < 2) {
@@ -957,7 +981,7 @@ function regionRound(t, set, size, mode, end) {
       return outline.close().sketchOnPlane(new Plane(at(where), ex, normal));
     };
     let tool;
-    if (end !== undefined && mode === "fillet") {
+    if (end !== undefined) {
       // a fillet that changes along the edge: the size at the start is `size`, at the other end `end`, and between them it changes in a straight line, so the region is made between the two profiles (ruled, which
       // is the cone the rolling ball makes); where the edge is cut past its ends the profile goes on in the same straight line
       const sizeAt = (s) => Math.max(1e-3, size + (end - size) * (s / along)); // (s runs from the start of the edge, which is s = 0, to its other end at s = along)

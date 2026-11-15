@@ -67,26 +67,40 @@ test("the chip, the two numbers and Tab: Variable, 5, Tab, 12, Enter makes one s
   assert.deepEqual(st.session.outcome.errors, {});
 });
 
-test("a chamfer has one size: the choice is not offered for it, and the end number is ignored", () => {
+// ---- a chamfer that changes along its edge, and a size at each end of several edges (`in_391`) ----
+
+test("a chamfer that is 3 mm at one end of the edge and 9 mm at the other is made as a region, and takes the volume of a wedge that grows in a straight line", () => {
   const s = open();
-  const sc = scene(s);
-  const edge = (Object.values(sc.parts) as Part[]).find((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "body")!;
-  let st = createState({ ...s, click: { ...s.click, selection: [edge.ref] as never } });
-  st = reduce(st, { type: "begin", name: "edge" }, env);
-  st = type(st, "-2");
-  assert.equal(frameOf(st, { w: 800, h: 600 }).sizeKinds, null);
+  const base = vol(run(s, { type: "removeStep", id: "s_014" } as never));
+  const a = set(s, { mode: "chamfer", value: 3, end: 9 });
+  assert.deepEqual(a.outcome.errors, {});
+  assert.match(Object.values(a.outcome.notes ?? {}).join(" "), /no chamfer whose size changes along its edge/);
+  // the section of the cut is a triangle of d * d / 2 and d changes from 3 to 9 along 17.9 mm: the volume is 17.9 / 2 * (3 * 3 + 3 * 9 + 9 * 9) / 3
+  const removed = (17.9 / 2) * ((9 + 27 + 81) / 3);
+  assert.ok(Math.abs(base - vol(a) - removed) < 0.1, `removed ${(base - vol(a)).toFixed(2)} of ${removed.toFixed(2)}`);
+  assert.ok(Math.abs(vol(set(s, { mode: "chamfer", value: 9, end: 3 })) - vol(a)) < 0.1, "from either end on a block that is the same at both");
 });
 
-test("while the size is set, the end where the first size applies is shown in amber", () => {
+test("a size at each end of four edges at once: each from its own first end, and the same as four one at a time on a block whose corners do not meet", () => {
   const s = run(open(), { type: "removeStep", id: "s_014" } as never);
   const sc = scene(s);
-  const edge = (Object.values(sc.parts) as Part[]).find((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "body" && (() => {
-    const [a, b] = [sc.parts[p.a] as unknown as { at: number[] }, sc.parts[p.b] as unknown as { at: number[] }];
-    return a.at[2] !== b.at[2] && Math.abs(a.at[0]! - 29.7) < 1e-3 && Math.abs(a.at[1]! - 8.37) < 1e-3;
-  })())!;
-  let st = createState({ ...s, click: { ...s.click, selection: [edge.ref] as never } });
+  const vertical = (Object.values(sc.parts) as Part[]).filter((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "body" && (sc.parts[p.a] as unknown as { at: number[] }).at[2] !== (sc.parts[p.b] as unknown as { at: number[] }).at[2]);
+  assert.equal(vertical.length, 4);
+  const step = (parts: string[], params: Record<string, string | number>) => run(s, { type: "addStep", step: { id: "s_x", type: "edgeMod", parts: parts as never, params } });
+  const one = step([vertical[0]!.ref], { mode: "fillet", value: 2, end: 5 });
+  const all = step(vertical.map((v) => v.ref), { mode: "fillet", value: 2, end: 5 });
+  assert.deepEqual(all.outcome.errors, {});
+  const each = vol(s) - vol(one);
+  assert.ok(each > 0);
+  assert.ok(Math.abs(vol(s) - vol(all) - 4 * each) < 0.5, `${(vol(s) - vol(all)).toFixed(2)} against 4 x ${each.toFixed(2)}`);
+});
+
+test("the choice is offered for a chamfer and for several edges, not for a rim", () => {
+  const s = run(open(), { type: "removeStep", id: "s_014" } as never);
+  const sc = scene(s);
+  const lines = (Object.values(sc.parts) as Part[]).filter((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "body");
+  let st = createState({ ...s, click: { ...s.click, selection: lines.slice(0, 3).map((l) => l.ref) as never } });
   st = reduce(st, { type: "begin", name: "edge" }, env);
-  assert.deepEqual(frameOf(st, { w: 800, h: 600 }).highlight.amber, []);
-  st = type(reduce(st, { type: "sizeKind", kind: "variable" }, env), "4");
-  assert.deepEqual(frameOf(st, { w: 800, h: 600 }).highlight.amber, [edge.a]);
+  st = type(st, "-2");
+  assert.deepEqual(frameOf(st, { w: 800, h: 600 }).sizeKinds?.map((k) => k.id), ["constant", "variable"]);
 });

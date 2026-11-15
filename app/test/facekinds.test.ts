@@ -89,6 +89,7 @@ test("the wall of a hole is moved by moving its circle: the hole is pushed throu
   const st = startOp(sc, [wall.ref], "move");
   assert.ok(st.ok);
   assert.deepEqual(st.op.parts, ["d/e_033.k", "d/e_033.c"]);
+  assert.equal(st.op.axis, 1, "the Move starts along the hole's own axis");
   const moved = runOp(s, { ...st.op, axis: 1, value: -1 })!.session;
   assert.equal(moved.message, null);
   assert.deepEqual(moved.outcome.errors, {});
@@ -102,4 +103,77 @@ test("the wall of a hole is moved by moving its circle: the hole is pushed throu
 test("a flat end of an extrusion is not taken for the figure behind a hole's wall", () => {
   const s = block();
   assert.equal(figureBehindFace(scene(s), [topOf(s).ref]), null);
+});
+
+// ---- Extend with round neighbours and holes (`in_391`) ----
+import { createSession, run } from "../src/interaction/session.ts";
+import { worldRef } from "../src/shared/ref.ts";
+import { drawChain, drawCircle } from "../src/operation/build.ts";
+import { nextId } from "../src/operation/scene.ts";
+
+const XY = worldRef("XY");
+const extrude = (s: Session, parts: string[], depth: number, mode?: string) => run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: parts as never, params: { depth, ...(mode ? { mode } : {}) } } });
+const topPlane = (s: Session, z: number, name: string) => run(s, { type: "addPart", part: { ref: name, kind: "plane", origin: "drawn", plane: null, movable: false, at: [0, 0, z], u: [1, 0, 0], v: [0, 1, 0], onBody: true } as never });
+const faceAt = (s: Session, z: number) => (Object.values(scene(s).parts) as Part[]).filter((p) => p.kind === "plane" && p.origin === "body" && p.ref.includes(`f@0,0,1,${z}`)).sort((a, b) => ((b as { mesh?: number[] }).mesh?.length ?? 0) - ((a as { mesh?: number[] }).mesh?.length ?? 0))[0]!;
+const extend = (s: Session, ref: string, value: number) => {
+  const st = startOp(scene(s), [ref as never], "pushpull");
+  assert.ok(st.ok);
+  return runOp(s, { ...st.op, faceKind: "extend", value })!.session;
+};
+
+test("extend the top of a round post: the wall goes on up as a cylinder", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 10);
+  s = run(s, c.command);
+  s = extrude(s, [c.circle], 20);
+  const done = extend(s, faceAt(s, 20).ref, 5);
+  assert.equal(done.message, null);
+  assert.ok(Math.abs(vol(done) - vol(s) - Math.PI * 100 * 5) < 0.5, `${(vol(done) - vol(s)).toFixed(2)} of ${(Math.PI * 500).toFixed(2)}`);
+  const back = extend(s, faceAt(s, 20).ref, -5);
+  assert.ok(Math.abs(vol(s) - vol(back) - Math.PI * 100 * 5) < 0.5, "and the same pushed in");
+});
+
+test("extend the top of a block with a round hole: the hole goes on through the new material", () => {
+  let s = createSession(kernel);
+  const r = drawChain(scene(s), XY, [[-15, -15, 0], [15, -15, 0], [15, 15, 0], [-15, 15, 0]], true);
+  s = run(s, r.command);
+  s = extrude(s, r.lines as string[], 10);
+  s = topPlane(s, 10, "d/p_top");
+  const hole = drawCircle(scene(s), "d/p_top" as never, [0, 0, 10], 4);
+  s = run(s, hole.command);
+  s = extrude(s, [hole.circle], -10, "cut");
+  assert.ok(Math.abs(vol(s) - (900 - Math.PI * 16) * 10) < 0.5, "a block with a hole");
+  const done = extend(s, faceAt(s, 10).ref, 4);
+  assert.equal(done.message, null);
+  assert.ok(Math.abs(vol(done) - vol(s) - (900 - Math.PI * 16) * 4) < 0.5, `${(vol(done) - vol(s)).toFixed(2)} of ${((900 - Math.PI * 16) * 4).toFixed(2)}`);
+});
+
+test("extend the top of a plate with a post standing on it: the new material goes round the post", () => {
+  let s = createSession(kernel);
+  const r = drawChain(scene(s), XY, [[-15, -15, 0], [15, -15, 0], [15, 15, 0], [-15, 15, 0]], true);
+  s = run(s, r.command);
+  s = extrude(s, r.lines as string[], 2);
+  s = topPlane(s, 2, "d/p_top");
+  const post = drawCircle(scene(s), "d/p_top" as never, [0, 0, 2], 5);
+  s = run(s, post.command);
+  s = extrude(s, [post.circle], 10);
+  const done = extend(s, faceAt(s, 2).ref, 3);
+  assert.equal(done.message, null);
+  assert.ok(Math.abs(vol(done) - vol(s) - (900 - Math.PI * 25) * 3) < 0.5, `${(vol(done) - vol(s)).toFixed(2)} of ${((900 - Math.PI * 25) * 3).toFixed(2)}`);
+});
+
+test("several faces pushed together: the kinds are Extrude and Extend, and Extend extends each with its neighbours", () => {
+  const s = block();
+  // the top and the bottom of the chamfered block: the top goes up along its normal, the bottom down along its
+  const bottom = (Object.values(scene(s).parts) as Part[]).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.includes("f@0,0,-1,0"))!;
+  let st = createState({ ...s, click: { ...s.click, selection: [topOf(s).ref, bottom.ref] as never } });
+  st = reduce(st, { type: "begin", name: "pushpull" }, { w: 800, h: 600, now: 0 } as never);
+  assert.deepEqual(frameOf(st, { w: 800, h: 600 }).faceKinds?.map((k) => [k.id, k.on]), [["extrude", true], ["extend", false]]);
+  st = reduce(st, { type: "faceKind", kind: "extend" }, { w: 800, h: 600 } as never);
+  st = reduce({ ...st, op: { ...st.op!, value: 2 } }, { type: "typed", key: "Enter", shift: false }, { w: 800, h: 600, now: 0 } as never);
+  assert.equal(st.session.message, null);
+  const steps = scene(st.session).steps.filter((x) => x.type === "pushPull");
+  assert.equal(steps.length, 2);
+  assert.ok(steps.every((x) => x.params.extend === 1));
+  assert.ok(Math.abs(st.session.outcome.kernel!.bbox!.max[2] - 19.9) < 1e-6 && Math.abs(st.session.outcome.kernel!.bbox!.min[2] + 2) < 1e-6, "up at the top, down at the bottom");
 });

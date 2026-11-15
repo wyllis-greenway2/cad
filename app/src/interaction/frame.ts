@@ -478,21 +478,21 @@ const FACE_KINDS: { id: "move" | "extrude" | "extend"; label: string; title: str
 /** The choice of what a push / pull of one flat face does (`in_386`): only for a flat face (a round wall, a fillet or chamfer face and several faces have their own meaning). */
 function faceKinds(s: AppState): Frame["faceKinds"] {
   const op = s.op;
-  if (!op || op.kind !== "pushpull" || op.parts.length !== 1 || op.curved || op.rounded || op.roundAxis || (op.faces?.length ?? 0) > 1) return null;
+  if (!op || op.kind !== "pushpull" || op.curved || op.rounded || op.roundAxis) return null;
+  // several flat faces: each is pushed along its own normal by the same amount, as a prism (extrude) or extended with its neighbours (extend); there is no step to move for any of them (`in_391`)
+  if ((op.faces?.length ?? 0) > 1) return FACE_KINDS.filter((k) => k.id !== "move").map((k) => ({ ...k, on: (op.faceKind ?? "extrude") === k.id }));
+  if (op.parts.length !== 1) return null;
   return FACE_KINDS.map((k) => ({ ...k, on: (op.faceKind ?? "move") === k.id }));
 }
 /** The end of the edge where the first size of a fillet that changes along it applies, in amber (`in_387`). */
 function variableStart(sc: Scene, op: AppState["op"]): Ref[] {
-  if (!op || op.kind !== "edge" || !op.variable || op.parts.length !== 1) return [];
-  const l = sc.parts[op.parts[0]!];
-  return l?.kind === "line" && l.origin === "body" && l.a !== l.b ? [l.a] : [];
+  if (!op || op.kind !== "edge" || !op.variable || !op.vary) return [];
+  return op.parts.flatMap((r) => { const l = sc.parts[r]; return l?.kind === "line" && l.origin === "body" && l.a !== l.b ? [l.a] : []; });
 }
-/** The choice between a fillet of one edge that is the same size all along and one with a size at each end (`in_387`): only for one edge that is rounded (a chamfer has one size). */
+/** The choice between a fillet or chamfer that is the same size all along its edges and one with a size at each end of each edge (`in_387`, `in_391`): not for a rim, which has no ends. */
 function sizeKinds(s: AppState): Frame["sizeKinds"] {
   const op = s.op;
-  if (!op || op.kind !== "edge" || op.parts.length !== 1) return null;
-  const v = valueOf(op);
-  if (v !== null && v < 0) return null;
+  if (!op || op.kind !== "edge" || !op.vary) return null;
   const on = !!op.variable;
   return [
     { id: "constant", label: "Constant", title: "The same size all along the edge", on: !on },

@@ -1815,3 +1815,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_390 — 2026-11-15 — approval
 > yes, start on the mixed selections and corners
 (approves the first item recommended after `in_389`: a selection that mixes edges the region method can make with edges it cannot, and corners where several rounded edges meet)
+
+## in_391 — 2026-11-15 — directive
+> lets build the not built yet stuff
+(asks that the items listed as not built in `dec_edits_saturate` after `in_390` be built)

@@ -96,6 +96,8 @@ export interface Op {
   /** what pushing or pulling a flat face does (`in_386`): `move` (the default: the step that made the face changes), `extrude` (a prism of the face's outline is added or taken), `extend` (the face moves and its neighbours are carried on until they meet) */
   faceKind?: "move" | "extrude" | "extend";
   /** a fillet of one edge whose size changes along it (`in_387`): `value` is the size at the start of the edge and `endTyped` (empty: the same) the size at its other end */
+  /** the edges chosen can have a size at each end: none of them is a rim (`in_387`, `in_391`) */
+  vary?: boolean;
   variable?: boolean;
   endTyped?: string;
   /** the number being typed is the end one (Tab switches) */
@@ -160,7 +162,18 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind, v
 function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view: ViewAxes | null): StartResult {
   // the wall of a hole or a post is moved or turned by moving or turning the circle that made it (`in_386`)
   const behind = kind === "move" || kind === "rotate" ? figureBehindFace(scene, selection) : null;
-  if (behind) return startOpBare(scene, behind, kind, view);
+  if (behind) {
+    const r = startOpBare(scene, behind, kind, view);
+    // a hole is moved along its own axis to begin with (that is the move that takes it through the part): the world axis its circle's plane faces along, if it is one
+    const circle = scene.parts[behind[0]!];
+    const pl = circle?.kind === "circle" && circle.plane ? scene.parts[circle.plane] : undefined;
+    if (r.ok && kind === "move" && pl?.kind === "plane") {
+      const n = normalOfPlane(pl);
+      const k = [0, 1, 2].reduce((b, i) => (Math.abs(n[i]!) > Math.abs(n[b]!) ? i : b), 0) as 0 | 1 | 2;
+      if (Math.abs(n[k]!) > 0.999) return { ...r, op: { ...r.op, axis: k } };
+    }
+    return r;
+  }
   const get = lookup(scene);
   const parts = selection.map((r) => get(r)).filter((p): p is Part => !!p);
   // a piece of a figure that lines cut up shares its sides with the other pieces: it can be extruded (or offset nowhere), but moved, turned, scaled or repeated only by selecting the lines and points themselves
@@ -285,7 +298,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
       if (m) return [{ mid: m, dir: edgeDirection(scene, pa.at, pb.at) }]; // (a curve that is not a circle: the arrow stands on the curve, in the middle of it)
       return [{ mid: add(pa.at, scale(sub(pb.at, pa.at), 0.25)), dir: edgeDirection(scene, pa.at, pb.at) }];
     });
-    return { ok: true, op: { ...base, parts: lines.map((p) => p.ref), edges, ranks: rimRanks(scene, lines.map((p) => p.ref)), sigs: edgeSignatures(scene, lines.map((p) => p.ref)) } }; // no size yet: drag the double arrow, or type one
+    return { ok: true, op: { ...base, vary: lines.length > 0 && lines.every((l) => l.kind === "line" && !l.circle && l.a !== l.b), parts: lines.map((p) => p.ref), edges, ranks: rimRanks(scene, lines.map((p) => p.ref)), sigs: edgeSignatures(scene, lines.map((p) => p.ref)) } }; // no size yet: drag the double arrow, or type one
   }
   if (kind === "copy") {
     // a copy is a repeat of two (the thing and one more beside it): the same arrows and numbers, to place the copy
@@ -361,11 +374,11 @@ export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
   return r.ok ? { ...r.op, auto: true } : null;
 }
 
-/** The size at the other end of a fillet that changes along its edge, or null when the fillet is the same all along (`in_387`; only a fillet of one edge changes, a chamfer does not). */
+/** The size at the other end of a fillet or chamfer that changes along its edges (each edge from its own first end, `in_387`, `in_391`), or null when it is the same all along. */
 export function variableEnd(op: Op, v: number): number | null {
-  if (!op.variable || op.kind !== "edge" || v <= 0 || op.parts.length !== 1) return null;
+  if (!op.variable || !op.vary || op.kind !== "edge" || v === 0) return null;
   const t = typedNumber(op.endTyped ?? "");
-  return t !== null && t > 0 && Math.abs(t - v) > 1e-9 ? t : null;
+  return t !== null && t > 0 && Math.abs(t - Math.abs(v)) > 1e-9 ? t : null;
 }
 /** The number the operation will use: what was typed, else the pointer's or default value. */
 export const valueOf = (op: Op): number | null => {
@@ -512,7 +525,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   }
   if (op.kind === "pushpull" && op.faces && op.faces.length > 1) {
     if (v === 0) return null;
-    return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }) } } })) };
+    return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } })) };
   }
   if (op.kind === "pushpull" && op.edit && !op.noEdit && (op.faceKind ?? "move") === "move") return v === 0 ? null : editCommand(scene, op.edit, v);
   if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } };
