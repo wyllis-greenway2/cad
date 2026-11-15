@@ -114,6 +114,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "home": return doHome(s, env);
     case "runAction": return doRunAction(s, i.id, env.now);
     case "overrideRefusal": return overrideRefusal(s);
+    case "mirrorKind": return s.op?.kind === "mirror" ? { ...s, op: { ...s.op, mirrorIx: Math.max(0, Math.min((s.op.mirrorChoices?.length ?? 1) - 1, i.index)) } } : s;
     case "loftKind": return s.op?.kind === "loft" ? { ...s, op: loftChoice(sceneOf(s.session), s.op, i.id) } : s;
     case "sizeKind": {
       if (s.op?.kind !== "edge") return s;

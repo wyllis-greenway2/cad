@@ -48,6 +48,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:hollow", label: "Hollow", icon: "hollow", op: "hollow" },
   { id: "op:revolve", label: "Revolve / spiral", icon: "revolve", op: "revolve" },
   { id: "op:loft", label: "Loft", icon: "loft", op: "loft" },
+  { id: "op:mirror", label: "Mirror copy", icon: "mirror", op: "mirror" },
   { id: "op:scale", label: "Scale", icon: "scale", op: "scale" },
   { id: "op:move", label: "Move", icon: "move", op: "move" },
   { id: "op:rotate", label: "Rotate", icon: "rotate", op: "rotate" },
@@ -70,7 +71,7 @@ const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[]
   { id: "select", label: "Select", icon: "pointer", items: ["select:similar", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
-const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:move", "op:rotate", "op:copy", "op:linear", "op:circular"]);
+const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:move", "op:rotate", "op:copy", "op:mirror", "op:linear", "op:circular"]);
 const category = (id: string, label: string, icon: string, kids: MenuItem[]): MenuItem => {
   const first = kids.find((k) => k.enabled);
   return { id, label, icon, enabled: !!first, why: first ? null : kids[0]?.why ?? "nothing here applies", children: kids };
@@ -172,7 +173,8 @@ function paneUnder(s: AppState, x: number, y: number, env: Env): ReturnType<type
   if (!pane) return null;
   const sc = sceneOf(s.session);
   const there = candidatesAt(sc, projector(s.cam, env.w, env.h).view(x, y), pickOpts(s));
-  return there.some((c) => sc.parts[c.ref]?.origin !== "world") ? null : pane;
+  // the pane gives way to the body and to a point or a line of a drawing right at the pointer, but not to the fill of a figure drawn over it: that stays selectable by its edges (`in_433`)
+  return there.some((c) => { const p = sc.parts[c.ref]; return !!p && p.origin !== "world" && (p.origin === "body" || p.kind === "corner" || p.kind === "line" || p.kind === "circle"); }) ? null : pane;
 }
 
 const PANE_BUTTON: Record<WorldName, "X" | "Y" | "Z"> = { YZ: "X", XZ: "Y", XY: "Z" }; // (the button that looks at a plane: X at the plane across it)

@@ -102,14 +102,16 @@ test("sketching on a plane with a block between it and the camera: the block doe
   assert.equal(frameOf(free, { w: 800, h: 600 }).fadeBody, false);
 });
 
-test("a closed sketch under a little pane near the origin is hovered, not the pane (the panes do not block drawings)", () => {
+test("a closed sketch under a little pane near the origin: its fill does not take the pane away (the pane stays selectable), its edge and corners still do (`in_433`)", () => {
   let s = createSession(kernel);
   s = run(s, drawRectangle(scene(s), XY, [0, 0, 0], [30, 30, 0], [1, 0, 0], [0, 1, 0]).command);
   const st = createState(s);
   const [x, y] = projector(st.cam, 800, 600).project([6, 6, 0]); // (inside the XY pane, inside the rectangle)
   const hovered = reduce(st, { type: "hover", x, y }, env);
-  assert.equal(hovered.paneHover, null);
-  assert.match(hovered.session.hover ?? "", /^d\/loop@/, "the closed sketch is what the pointer is on");
+  assert.equal(hovered.paneHover, "XY", "the pane is what the pointer is on");
+  const [ex, ey] = projector(st.cam, 800, 600).project([6, 0, 0]); // (on the rectangle's own edge, inside the pane)
+  const onEdge = reduce(st, { type: "hover", x: ex, y: ey }, env);
+  assert.equal(onEdge.paneHover, null, "the edge of the drawing is not blocked by the pane");
 });
 
 test("the state snapshot has what is needed to see what the human sees, can be written as JSON, and its project opens again (`in_200`)", async () => {

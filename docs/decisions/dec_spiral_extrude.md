@@ -3,7 +3,7 @@ id: dec_spiral_extrude
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_427, in_428, in_429, in_430
+human_input: in_427, in_428, in_429, in_430, in_433
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -24,6 +24,8 @@ alternative_to:
 - Whether the turn past 360 with no advance should be allowed at all (it changes nothing).
 
 **Built (`in_428`).** Select a closed figure (and, if you like, a line in its plane) and choose **Revolve / spiral** in the Shape menu. The figure turns about **a line in its plane**: the line selected with it, a world axis in its plane, or one of its own sides (a chip "Axis:" chooses; a line the figure crosses is not offered). Two numbers, typed or dragged, Tab between them: **Angle** (any size, either way; the ring round the axis keeps counting past one turn) and **Advance** (mm along the axis over the whole angle; the arrow along the axis; none for a plain revolve). The step is `revolve` (`angle`, `advance`, the axis as numbers); the kernel's `revolve` op makes a plain turn of up to 360 degrees by revolution and a spiral by sweeping the figure along a helix about the axis (exactly a screw motion: the volume equals area times the path of the figure's middle, to four figures). Refused with the reason: a turn past 360 degrees with no advance, an advance a turn that is less than the figure is wide along the axis (the turns would overlap), an axis outside the figure's plane or through the figure. Whether it adds, cuts or stands apart is decided when it is made, as for an extrusion. **Not built:** a figure with holes or several figures at once; the twist about the plane's normal (B).
+
+**Simpler (`in_433`):** it begins as a full turn (360°) with no advance, so nothing has to be typed: pick the line to turn about and apply. The line is a line selected with the figure, a world axis in its plane, one of its own sides, or **the rotate tool**: a line through the sphere (the ball shown on the axis, dragged where it is wanted and brought to the figure's plane) along the figure's own X or Y. The twist axes keep an advance to begin with (10 mm), as a twist with none is nothing.
 
 ## Rationale
 

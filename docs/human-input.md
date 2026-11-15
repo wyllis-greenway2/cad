@@ -2012,3 +2012,10 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_432 — 2026-11-15 — approval
 > Yes build both as you recommended
 (approves building both as recommended in `q_chamfer_two_distances` and `q_loft_sketches`: the chamfer with a distance along each face, the face for the first distance picked by the person with a swap, a second field in the bubble, the region fallbacks equal only and a refusal with the reason otherwise; and the loft through sketches, the simple loft with start points shown and draggable, refusal of unequal part counts with a split-to-match offer, holes matched by position, a single point allowed at an end, no guides, tangents or looped loft in the first version)
+
+## in_433 — 2026-11-15 — directive
+> when there is a sketch over one of the world view panes sitting around the xyz arrows, then the pane is not really selectable anymore. 
+> Lets make the rotate extrude simpler. It should just default to 360 rotation with 0 perpendicular (for spring twist etc). you should just be able to select an edge that you want to rotate on, or just position the rotate tool. 
+> 
+> Can we introduce a mirror copy method? it should be able to work on either sketches or bodies.
+(asks: a world view pane stays selectable when a sketch lies over it; the revolve to default to a full 360 turn with no advance, the axis being a selected edge or the positioned rotate tool; a mirror copy for sketches and for bodies)

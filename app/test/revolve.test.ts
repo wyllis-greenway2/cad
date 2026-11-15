@@ -211,3 +211,25 @@ test("two bars twisted about their own middles keep their volumes", () => {
   const steps = scene(made.session).steps.filter((x) => x.type === "revolve");
   assert.notDeepEqual([steps[0]!.params.ax, steps[0]!.params.ay], [steps[1]!.params.ax, steps[1]!.params.ay], "each about its own middle");
 });
+
+test("it begins as a full turn with no advance (`in_433`): nothing to type, the figure turns once about the line chosen", () => {
+  const { s, face } = figure();
+  const op = begin(s, face);
+  assert.equal(op.value, 360);
+  const r = runOp(s, { ...op, axisIx: op.revAxes!.findIndex((a) => a.label === "Z axis") })!;
+  assert.equal(r.session.message, null);
+  assert.ok(Math.abs(volume(r.session) - pappus(1)) < 0.05, `volume ${volume(r.session)}`);
+  assert.equal(Number(scene(r.session).steps.at(-1)!.params.advance), 0);
+});
+
+test("the rotate tool can be the axis: a line through the sphere along the figure's Y, the sphere put off the plane and brought to it (`in_433`)", () => {
+  const { s, face } = figure();
+  const op = begin(s, face);
+  const ti = op.revAxes!.findIndex((a) => a.tool === "v");
+  assert.ok(ti >= 0, "offered");
+  const r = runOp(s, { ...op, axisIx: ti, pivot: [0, 5, 0] })!; // (the sphere is at the origin's line, 5 in front of the plane)
+  assert.equal(r.session.message, null);
+  assert.ok(Math.abs(volume(r.session) - pappus(1)) < 0.05, `volume ${volume(r.session)}`);
+  const further = runOp(s, { ...op, axisIx: ti, pivot: [-4, 0, 0] })!; // (the line moved 4 further out: the figure goes round a bigger circle)
+  assert.ok(volume(further.session) > volume(r.session) * 1.2, `${volume(further.session)}`);
+});

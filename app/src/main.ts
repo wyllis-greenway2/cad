@@ -135,6 +135,7 @@ const sectionChip = createSectionChip(document.body, (id) => dispatch({ type: "r
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "overrideRefusal" }), () => dispatch({ type: "holdFlash" }));
 const faceKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "faceKind", kind: id as "move" | "extrude" | "extend" }));
+const mirrorKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "mirrorKind", index: Number(id) }), "Mirror across:");
 const loftKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "loftKind", id }), "Loft:");
 const axisKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "axisKind", index: Number(id) }), "Axis:");
 const sizeKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "sizeKind", kind: id as "constant" | "variable" | "twoDistances" | "swap" }), "Size:");
@@ -294,6 +295,7 @@ function frame(now: number) {
     sizeKindChip.update(f.sizeKinds);
     axisKindChip.update(f.axisKinds);
     loftKindChip.update(f.loftKinds);
+    mirrorKindChip.update(f.mirrorKinds);
     resetView.update(f.resetView);
     { const pg = host.getBoundingClientRect(); crosshair.update(recognizer.game && document.pointerLockElement !== null, { x: pg.left + pg.width / 2, y: pg.top + pg.height / 2 }); }
     toolCursor.update(f.tool ? f.tool.kind : null);

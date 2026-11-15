@@ -57,6 +57,7 @@ export type Intent =
   | { type: "faceKind"; kind: "move" | "extrude" | "extend" }
   /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
   | { type: "loftKind"; id: string }
+  | { type: "mirrorKind"; index: number }
   | { type: "sizeKind"; kind: "constant" | "variable" | "twoDistances" | "swap" }
   | { type: "axisKind"; index: number }
   /** the pointer is over that button: the flash waits (`in_366`) */
@@ -67,7 +68,7 @@ export type Intent =
   | { type: "group" }
   | { type: "ungroup" }
   | { type: "similarRule"; rule: "kind" | "size" | "angle" | "direction" }
-  | { type: "begin"; name: "pushpull" | "rect" | "circle" | "line" | "arc" | "trim" | "extrude" | "edge" | "move" | "rotate" | "scale" | "dimension" | "revolve" | "loft" }
+  | { type: "begin"; name: "pushpull" | "rect" | "circle" | "line" | "arc" | "trim" | "extrude" | "edge" | "move" | "rotate" | "scale" | "dimension" | "revolve" | "loft" | "mirror" }
   /** a constraint shown on a selected part: open or close it (its other parts show amber), delete it, lock or unlock its number, give it a new number (`set`), or lock the measure of the selection at a number (`measure`) */
   | { type: "relation"; act: "focus" | "remove" | "lock" | "set" | "measure"; id: string | null; value?: number }
   /** a key for the number being typed (digits, ".", "-", Backspace, Tab, Enter, the arrows) */

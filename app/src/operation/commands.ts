@@ -39,7 +39,7 @@ export type Command =
   /** break one group: what was in it stays, and a group inside it stays a group */
   | { type: "ungroup"; id: string }
   /** repeat a drawn figure so that it keeps its numbers (`in_257`, `repeat.ts`): the copies are made from this record */
-  | { type: "pattern"; id: string; kind: "linear" | "circular"; parts: Ref[]; plane: Ref; params: number[] }
+  | { type: "pattern"; id: string; kind: "linear" | "circular" | "mirror"; parts: Ref[]; plane: Ref; params: number[] }
   | { type: "setPattern"; id: string; params: number[] }
   | { type: "breakPattern"; id: string }
   /** the whole model stretched by a factor along each world axis about a point (`dec_scale_axes`): the drawing and the distances of the steps, so the extrusions stay exact */

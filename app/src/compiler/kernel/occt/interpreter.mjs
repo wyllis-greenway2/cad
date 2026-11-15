@@ -842,6 +842,15 @@ const OPS = {
       let plane = along(1, n[1], row);
       return { kind: "solid", shape: again(along(2, n[2], plane)) };
     }
+    if (op.mode === "mirror") {
+      // the body and its reflection in a plane (`in_433`): joined where they touch, else two bodies
+      const l = Math.hypot(...op.normal);
+      if (!(l > 1e-12)) throw new Error("the mirror plane has no direction");
+      const copy = t.clone().mirror(op.normal.map((x) => x / l), op.point);
+      const both = out.fuse(copy);
+      if (!isValidSolid(both)) throw new Error("the mirror copy could not be joined to the body");
+      return { kind: "solid", shape: again(both) };
+    }
     if (op.mode === "circular") {
       const count = Math.max(1, Math.round(resolve(op.count, ctx.params)));
       const angle = resolve(op.angle, ctx.params);

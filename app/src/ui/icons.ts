@@ -2,6 +2,7 @@
 const svg = (inner: string): string => `<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 
 const ICONS: Record<string, string> = {
+  mirror: svg('<path d="M8 1.5v13" stroke-dasharray="1.8 1.4"/><path d="M6.4 4.5L2.5 11.5h3.9z"/><path d="M9.6 4.5l3.9 7h-3.9z" fill="currentColor" fill-opacity=".35"/>'), // (a shape and its reflection across a dashed line: a mirror copy, `in_433`)
   loft: svg('<path d="M3 13h10"/><path d="M5.5 3h5"/><path d="M3 13l2.5-10M13 13L10.5 3"/><path d="M4.4 8h7.2" stroke-dasharray="1.6 1.4"/>'), // (two sketches of different sizes joined: a loft, `in_431`)
   orient: svg('<circle cx="8" cy="8" r="2.1" fill="currentColor"/><path d="M8 5.5V1.8M9.9 9.1l3.3 1.9M6.1 9.1l-3.3 1.9"/><path d="M7 2.8L8 1.7l1 1.1M12.4 10.2l.2 1.5-1.4-.4M3.6 10.2l-.2 1.5 1.4-.4"/>'), // (the mover's sphere with its three axes: orienting the mover, `in_421`)
   // the Select menu's all faces / all edges / all vertices (`in_419`): the same block three ways, so what is chosen is what is picked out of it

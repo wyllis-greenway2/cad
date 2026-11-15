@@ -182,7 +182,9 @@ export function buildGraph(scene: Scene): GraphResult {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const p = st.params;
         const one = p.body ? { body: String(p.body) } : {}; // (one body of several is repeated, `in_271`)
-        ops.push(p.mode === "circular"
+        ops.push(p.mode === "mirror"
+          ? { id: xid, type: "pattern", target: prev, mode: "mirror", point: [Number(p.px), Number(p.py), Number(p.pz)], normal: [Number(p.nx), Number(p.ny), Number(p.nz)], ...one }
+          : p.mode === "circular"
           ? { id: xid, type: "pattern", target: prev, mode: "circular", count: Number(p.count), angle: Number(p.angle), axis: Number(p.axis), pivot: [Number(p.px), Number(p.py), Number(p.pz)], ...one }
           : { id: xid, type: "pattern", target: prev, mode: "linear", nx: Number(p.nx), ny: Number(p.ny), nz: Number(p.nz), dx: Number(p.dx), dy: Number(p.dy), dz: Number(p.dz), ...one });
         prev = xid;

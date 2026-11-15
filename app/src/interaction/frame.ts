@@ -133,6 +133,7 @@ export interface Frame {
   /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
   /** a revolve: the lines the figure can turn about, one chosen (`dec_spiral_extrude`) */
   axisKinds: { id: string; label: string; title: string; on: boolean }[] | null;
+  mirrorKinds: { id: string; label: string; title: string; on: boolean }[] | null;
   loftKinds: { id: string; label: string; title: string; on: boolean }[] | null;
   sizeKinds: { id: "constant" | "variable" | "twoDistances" | "swap"; label: string; title: string; on: boolean }[] | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
@@ -364,6 +365,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
     modeSwitch: gizmo ? (s.repeat ? repeatSwitchOf(s.repeat, gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points))) : null,
     faceKinds: faceKinds(s),
+    mirrorKinds: s.op?.kind === "mirror" ? (s.op.mirrorChoices ?? []).map((c, i) => ({ id: String(i), label: c.label, title: c.title, on: i === (s.op!.mirrorIx ?? 0) })) : null,
     loftKinds: s.op?.kind === "loft" ? loftChips(sceneOf(s.session), s.op) : null,
     sizeKinds: sizeKinds(s),
     axisKinds: axisKinds(s),
@@ -376,7 +378,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
 function temporaryParts(now: Scene, shown: Scene): Ref[] {
   return Object.values(shown.parts).filter((p) => p.origin === "drawn" && !now.parts[p.ref] && !(p.kind === "corner" && p.derived) && !(p.kind === "line" && p.derived) && (p.kind === "line" || p.kind === "circle" || p.kind === "corner")).map((p) => p.ref);
 }
-const OPEN_LABELS: Record<string, string> = { linear: "Linear repeat", circular: "Circular repeat", copy: "Copy", move: "Move", rotate: "Rotate", scale: "Scale", pushpull: "Push / pull", extrude: "Extrude", loft: "Loft", edge: "Fillet / chamfer", offset: "Offset" };
+const OPEN_LABELS: Record<string, string> = { linear: "Linear repeat", circular: "Circular repeat", copy: "Copy", move: "Move", rotate: "Rotate", scale: "Scale", pushpull: "Push / pull", extrude: "Extrude", loft: "Loft", mirror: "Mirror copy", edge: "Fillet / chamfer", offset: "Offset" };
 const withFlashed = (list: Annotation[], sc: Scene, flash: FlashFrame | null): Annotation[] => {
   if (!flash) return list;
   const have = new Set(list.map((a) => a.id));
