@@ -18,6 +18,7 @@ export const settings = {
     drawClickMovePx: 14, // and while a drawing tool is armed: a click that wanders this little is still a click (so the first point of a shape is not lost to turning the view)
     nearFactor: 0.02,
     farFactor: 120,
+    lostFactor: 4, // the view is lost when the model (or the origin) is farther from the view centre than this many view distances: zooming out then brings the centre back toward it (`in_394`)
   },
   input: {
     boxHoldMs: 400, // the left button held still this long (mouse): the cursor changes and a drag from there draws a selection rectangle (`in_235`)

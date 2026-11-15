@@ -62,7 +62,17 @@ export function doZoom(s: AppState, i: Extract<Intent, { type: "zoom" }>, env: E
     const p = c ? surfacePoint(pv, c.score) : null;
     if (p) anchor = p; // (any surface under the pointer, however far from the target: with the target left in empty space the view could not zoom up to the model, which was far past it, `in_368`)
   }
-  return { ...stop(s), cam: zoomAt(s.cam, i.factor, anchor) };
+  let cam = zoomAt(s.cam, i.factor, anchor);
+  // zooming out in empty space with everything far out of sight (the view went far from the model, then in): the target slides toward the model (the origin if there is none) as the view widens, so the wheel always brings it back (`in_394`)
+  if (!anchor && i.factor > 1 && !s.cam.straight) {
+    const home: Vec3 = pivotOf(s.session) ?? [0, 0, 0];
+    const off: Vec3 = [s.cam.target[0] - home[0], s.cam.target[1] - home[1], s.cam.target[2] - home[2]];
+    if (Math.hypot(off[0], off[1], off[2]) > settings.view.lostFactor * s.cam.distance) {
+      const k = 1 / (i.factor * i.factor);
+      cam = { ...cam, target: [home[0] + off[0] * k, home[1] + off[1] * k, home[2] + off[2] * k] };
+    }
+  }
+  return { ...stop(s), cam };
 }
 
 /** X, Y, Z select that axis's plane and look along it; N looks at the plane of the selection; while a move or rotate is being set up they choose its axis. */

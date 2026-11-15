@@ -1827,3 +1827,11 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_393 — 2026-11-15 — directive
 > Okay bugs. so look at these files. If you hit ctrl z you can see what I was trying to do. I would have expected these to make negative cut out holes, one in the chamfer sort of did, but also the chamfer surface had no hole. The other did, but only does when the cylinder is not present in the file? If the cylinder is present the operation seems to become positive?
 (two files attached: `hole_not_negative_at_all.json` and its state snapshot; the first is kept as `app/test/fixtures/hole-after-cylinder-in_393.cad.json` with the last step taken out)
+
+## in_394 — 2026-11-15 — directive
+> Okay the next bug is that I got into this really weird zoom state again. I did it by traveling far away from origin and then coming back. Let me know if the state file doesn't load into the weird zoom state (because I saved the state file in the weird zoom state)
+(two state files attached; both have an empty scene and a camera target about 125 mm from the origin with a distance of 5.6 and 0.9 mm)
+
+## in_395 — 2026-11-15 — question
+> How does it even get in this state? And why should it matter? Shouldn't position always just be fully relative? See how the game mode works. Also that is another question, what even is zoom? Shouldn't soom just be camera moving foward or backward? not actually zoom? What do you think?
+(asks whether zoom should be a move of the camera along the view; answered in chat, not yet decided)
