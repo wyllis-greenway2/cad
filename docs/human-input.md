@@ -1955,3 +1955,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_419 — 2026-11-15 — directive
 > why did this last operation not cut all the way through? the angled top plane seems to still be uninterrupted.
 (two files attached: a state snapshot and `model.cad_47.json`, kept as `app/test/fixtures/group-then-new-body-in_419.cad.json`)
+
+## in_420 — 2026-11-15 — directive
+> not a bug, can we add a feature. Can we offer a rotate extrude curved arrow that is normal to the plane, probably a full circle arrow so you can extrude more than 360 degrees. It should offer an arrow perpendicular to the rotational direction in order to make spirals like screws. Basically this would be a rotate extrude that also has the ability to spiral.
+(a feature request: revolve with turns beyond 360 degrees and a pitch; recorded as the provisional `dec_spiral_extrude`, not built until the human chooses)
