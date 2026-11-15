@@ -1729,20 +1729,39 @@ test("the tape measure goes when what it was applied to is let go or another thi
   assert.equal(st.tape, false, "deselected: the tape is put away");
 });
 
-test("Hollow: with a face selected it leaves that face open; its arrow points into the body and its distance, dragged or typed, is the wall (`in_391`)", () => {
-  let st = box(); // 40 x 20 x 20
-  const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.every((_, i) => i % 3 !== 2 || Math.abs(p.mesh![i]! - 20) < 1e-6))!;
-  st = select(st, [top.ref]);
+test("Hollow: the selected faces are the walls and the rest are open, the switch makes them the open ones instead, a body selected is hollowed with no opening, a wall pulled the other way is outside (`in_391`, `in_393`)", () => {
+  const faceOf = (st: AppState) => Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.every((_, i) => i % 3 !== 2 || Math.abs(p.mesh![i]! - 20) < 1e-6))!;
+  const make = (st: AppState, text: string) => { st = reduce(st, { type: "entry", field: 0, text }, env); return reduce(st, { type: "typed", key: "Enter", shift: false }, env); };
+  // the top face selected: it is the wall, everything else is open: a plate 2 thick
+  let st = select(box(), [faceOf(box()).ref]);
   st = reduce(st, { type: "runAction", id: "op:hollow" }, env);
-  assert.equal(st.op?.kind, "hollow");
-  st = reduce(st, { type: "entry", field: 0, text: "2" }, env);
-  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
-  assert.equal(st.session.message, null);
-  assert.equal(scene(st.session).steps.at(-1)!.type, "hollow");
-  near(st.session.outcome.kernel!.volume!, 16000 - 36 * 16 * 18, 1);
-  // nothing selected, or a round face: refused with the reason
+  assert.equal(st.op?.hollowMode, "keep");
+  assert.equal(frame(st).modeSwitch?.to, "invert");
+  const inverted = reduce(st, { type: "runAction", id: "hollow:invert" }, env);
+  assert.equal(inverted.op?.hollowMode, "open", "the switch makes the selected face the open one");
+  const plate = make(st, "2");
+  assert.equal(plate.session.message, null);
+  near(plate.session.outcome.kernel!.volume!, 40 * 20 * 2, 1);
+  const tray = make(inverted, "2");
+  near(tray.session.outcome.kernel!.volume!, 16000 - 36 * 16 * 18, 1);
+  // the whole body: hollow with no opening
+  let all = select(box(), [BODY_OBJECT]);
+  all = reduce(all, { type: "runAction", id: "op:hollow" }, env);
+  assert.equal(all.op?.hollowMode, "closed");
+  assert.equal(frame(all).modeSwitch, null, "nothing to switch: no face is open");
+  all = make(all, "2");
+  assert.equal(all.session.message, null);
+  near(all.session.outcome.kernel!.volume!, 16000 - 36 * 16 * 16, 1);
+  // a wall the other way is outside the body
+  let out = select(box(), [faceOf(box()).ref]);
+  out = reduce(out, { type: "runAction", id: "op:hollow" }, env);
+  out = reduce(out, { type: "runAction", id: "hollow:invert" }, env);
+  out = make(out, "-2");
+  assert.equal(out.session.message, null);
+  assert.ok(out.session.outcome.kernel!.bbox!.min[0] < -1.5, "it grew outward");
+  // nothing selected: refused with the reason
   const none = reduce(box(), { type: "runAction", id: "op:hollow" }, env);
-  assert.match(none.session.message ?? "", /face/);
+  assert.match(none.session.message ?? "", /body|face/);
 });
 
 test("the cross section: the menu offers the three planes at the middle of the part, a click on one slices there, its arrow moves it and its ring turns it; nothing is cut (`in_392`)", () => {
@@ -1770,4 +1789,12 @@ test("the cross section: the menu offers the three planes at the middle of the p
   st = reduce(st, { type: "runAction", id: "view:section" }, env);
   assert.equal(st.section, null);
   void c;
+});
+
+test("Select all faces, all edges, all vertices of the body (`in_393`)", () => {
+  let st = box(); // a block: 6 faces, 12 edges, 8 vertices
+  for (const [id, n] of [["select:faces", 6], ["select:edges", 12], ["select:vertices", 8]] as const) {
+    const next = reduce(st, { type: "runAction", id }, env);
+    assert.equal(next.session.click.selection.length, n, id);
+  }
 });

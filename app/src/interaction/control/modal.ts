@@ -30,7 +30,7 @@ import type { Op } from "../operations.ts";
 import { BODY_OBJECT } from "../../compiler/body.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
-import { doSimilar, doGroup, doUngroup, doCutBegin, applyCut } from "./select.ts";
+import { doSimilar, doSelectAll, doGroup, doUngroup, doCutBegin, applyCut } from "./select.ts";
 import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
@@ -223,8 +223,10 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   }
   if (id === "select:similar") return doSimilar(closed);
   if (id === "select:group") return doGroup(closed);
+  if (id === "select:faces" || id === "select:edges" || id === "select:vertices") return doSelectAll(closed, id.slice(7) as "faces" | "edges" | "vertices");
   if (id === "combine:parts") return doCutBegin(closed);
   if (id === "select:ungroup") return doUngroup(closed);
+  if (id === "hollow:invert" && s.op?.kind === "hollow" && s.op.hollowMode && s.op.hollowMode !== "closed") return { ...s, op: { ...s.op, hollowMode: s.op.hollowMode === "keep" ? "open" : "keep" }, session: { ...s.session, message: null } };
   if (id === "view:section") return doSectionToggle(closed);
   if (id === "view:wireframe") return { ...closed, wireframe: !s.wireframe, session: { ...closed.session, message: s.wireframe ? "solid view" : "wireframe view: the faces of bodies are not drawn, to see what is inside" } };
   if (id === "tape:measure") return { ...closed, tape: !s.tape, session: { ...closed.session, message: s.tape ? "tape measure off" : "tape measure on: select a face, or two (Shift adds the second), to see what they are to each other" } };

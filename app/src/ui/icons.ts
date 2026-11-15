@@ -21,6 +21,9 @@ const ICONS: Record<string, string> = {
 Object.assign(ICONS, {
   wireframe: svg('<path d="M2.5 5.5l5.5-3 5.5 3v6l-5.5 3-5.5-3z"/><path d="M2.5 5.5L8 8.5l5.5-3M8 8.5v6" stroke-dasharray="1.6 1.4"/>'), // (a block seen through, `in_386`)
   hollow: svg('<path d="M2.5 5.5l5.5-3 5.5 3v6l-5.5 3-5.5-3z"/><path d="M5.5 7.2L8 5.8l2.5 1.4v3L8 11.6 5.5 10.2z" fill="currentColor" fill-opacity=".18"/>'), // (a block with a cavity inside, `in_391`)
+  invert: svg('<path d="M3 5.5h8.5"/><path d="M9.5 3.2L12 5.5 9.5 7.8"/><path d="M13 10.5H4.5"/><path d="M6.5 8.2L4 10.5 6.5 12.8"/>'), // (swap: the other way round, `in_393`)
+  look: svg('<rect x="3" y="3" width="10" height="10" rx="1" stroke-dasharray="2 1.6"/><path d="M8 5.5V10.5M5.5 8H10.5"/><path d="M1.5 5V2.5H4M12 2.5h2.5V5M14.5 11v2.5H12M4 13.5H1.5V11"/>'), // (looking straight at a plane: the square seen square on, `in_393`)
+  game: svg('<circle cx="8" cy="8" r="4.2"/><path d="M8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3"/><circle cx="8" cy="8" r=".9" fill="currentColor" stroke="none"/>'), // (a crosshair: flying through the model, `in_393`)
   pointer: svg('<path d="M6 9.6V3.3a1.2 1.2 0 0 1 2.4 0V8"/><path d="M8.4 7.4a1.1 1.1 0 0 1 2.2 0v.7a1.1 1.1 0 0 1 2.2.2V11a3.5 3.5 0 0 1-3.5 3.5H8.7a3 3 0 0 1-2.3-1L3.6 10.2a1.1 1.1 0 0 1 1.6-1.5L6 9.6"/>'), // (a pointing hand: the Select menu, `in_386`)
   similar: svg('<rect x="2" y="2.5" width="5" height="5" rx=".8"/><rect x="9" y="2.5" width="5" height="5" rx=".8"/><rect x="2" y="9.5" width="5" height="5" rx=".8"/><path d="M9.5 12l1.6 1.6 3.2-3.4"/>'),
   group: svg('<rect x="2" y="2" width="12" height="12" rx="1.6" stroke-dasharray="2.2 1.8"/><rect x="4.6" y="4.6" width="3" height="3"/><rect x="8.6" y="8.6" width="3" height="3"/>'),

@@ -124,7 +124,7 @@ export interface Frame {
   /** a change refused for the constraints it would break, while it flashes: the button that deletes them and goes on (`in_366`) */
   refusal: { text: string; button: string; /** the constraint it stands beside */ beside: string } | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
-  modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate" | "linear" | "circular"; label: string } | null;
+  modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate" | "linear" | "circular" | "invert"; label: string } | null;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
   tool: { kind: "rect" | "circle" | "line" | "arc" | "trim"; label: string; /** figures made while it has been on (the chip flashes at each) */ made: number; /** a figure is half drawn (the chip's cross then cancels it) */ drawing: boolean; /** something is made and nothing is half drawn: the chip shows a check that puts the tool away, in place of the cross (`in_283`) */ done: boolean } | null;
   /** a repeat or an operation that is open: the tick (Enter, a right click) and the cross (Esc) are shown for it (`in_244`) */
@@ -468,6 +468,7 @@ function repeatSwitchOf(r: NonNullable<AppState["repeat"]>, at: Vec3, pts: Vec3[
 
 /** Which way the switch by the handles of a move or a turn goes: to turning from moving, to moving from turning. */
 function modeSwitchOf(op: AppState["op"], at: Vec3, pts: Vec3[]): Frame["modeSwitch"] {
+  if (op?.kind === "hollow" && op.hollowMode && op.hollowMode !== "closed") return { at, pts, to: "invert", label: op.hollowMode === "keep" ? "The selected faces are the walls: tap to make them the open ones" : "The selected faces are open: tap to make them the walls" };
   if (!op || (op.target !== "body" && op.target !== "plane")) return null;
   if (op.kind === "move") return { at, pts, to: "rotate", label: "Rotate" };
   if (op.kind === "rotate") return { at, pts, to: "move", label: "Move" };

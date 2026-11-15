@@ -1,5 +1,7 @@
 // Selecting by what a selection is like (`in_257`, `dec_selection_tools`): "Select similar" selects everything like the selected parts by a few rules, and the chip that follows loosens or tightens one rule at a time.
 import type { Intent } from "../../shared/input.ts";
+import type { Ref } from "../../shared/ref.ts";
+import { objectOf } from "../objects.ts";
 import { startCut, cutStep, cutParts } from "../cut.ts";
 import { scene as sceneOf, selection as selectionOf, run } from "../session.ts";
 import { nextId } from "../../operation/scene.ts";
@@ -18,6 +20,16 @@ function apply(s: AppState, base: readonly string[], rules: SimilarRule[]): AppS
   if (!r.ok) return { ...say({ ...s, similar: null }, r.why) };
   const found = r.refs.length;
   return { ...s, similar: { base: [...base] as never, rules, refs: r.refs, noun: r.noun }, session: { ...s.session, click: { ...s.session.click, selection: r.refs }, message: `selected ${plural(found, r.noun)}` } };
+}
+
+/** Select every face, every edge or every vertex of the body that is selected (or whose face, edge or vertex is), or of the model when nothing is (`in_393`). */
+export function doSelectAll(s: AppState, what: "faces" | "edges" | "vertices"): AppState {
+  const sc = sceneOf(s.session);
+  const bodies = new Set(selectionOf(s.session).map((r) => objectOf(sc, r)).filter((r) => sc.parts[r]?.kind === "body"));
+  const mine = (ref: Ref) => !bodies.size || bodies.has(objectOf(sc, ref));
+  const refs = Object.values(sc.parts).filter((p) => p.origin === "body" && mine(p.ref) && (what === "faces" ? p.kind === "plane" && !!p.mesh && p.mesh.length >= 9 : what === "edges" ? p.kind === "line" && !p.twin : p.kind === "corner")).map((p) => p.ref);
+  if (!refs.length) return { ...s, menu: null, session: { ...s.session, message: `no ${what} to select: make a body first` } };
+  return { ...s, menu: null, similar: null, session: { ...s.session, click: { ...s.session.click, selection: refs }, message: `selected ${refs.length} ${what}` } };
 }
 
 /** The menu item: everything like what is selected. */

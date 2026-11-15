@@ -132,7 +132,7 @@ const crosshair = createCrosshair(document.body);
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "overrideRefusal" }), () => dispatch({ type: "holdFlash" }));
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
-const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
+const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "invert" ? { type: "runAction", id: "hollow:invert" } : to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
 const cutParts = createCutParts(document.body, (mask) => dispatch({ type: "cut", act: "toggle", mask }), () => dispatch({ type: "cut", act: "join" }));
 const undoBar = createUndoBar(document.body, () => dispatch({ type: "undo" }), () => dispatch({ type: "redo" }));

@@ -85,6 +85,8 @@ export interface Op {
   axes?: [number, number, number];
   /** hollow: the faces left open, each as `nx,ny,nz,d,px,py,pz`, joined by `;` (`in_391`) */
   openFaces?: string;
+  /** hollow: the faces named are kept as the walls (the others open), or are the open ones, or nothing is open (`in_393`) */
+  hollowMode?: "keep" | "open" | "closed";
   /** push / pull of a round face: the face (the radius changes by the distance) */
   curved?: Curved;
   /** a round wall turned about a tilted axis (a turned body): where the axis is (`in_224`) */
@@ -162,9 +164,17 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
   if (["move", "rotate", "scale", "linear", "circular", "copy"].includes(kind) && parts.some((p) => p.kind === "face" && p.pieces)) return { ok: false, why: "this is one piece of a shape cut by lines, and it shares its sides with the other pieces: select the lines and points to move, turn, scale or repeat them (or extrude the piece)" };
   const base: Omit<Op, "parts"> = { kind, typed: "", value: null, axis: kind === "rotate" ? view?.normal ?? 2 : kind === "move" ? view?.right ?? 0 : 0, origin: null, normal: null, pivot: null, target: "body", plane: null, auto: false, made: false, rot: ["", "", ""], pat: [] };
   if (kind === "hollow") {
-    // the body made hollow with the faces selected left open: the arrow stands on the first, pointing into the body, and its distance is the wall (`in_391`)
+    // the body made hollow (`in_391`, `in_393`): the faces selected are the walls and every other face is open; a body selected with no face is hollowed with no opening; the arrow goes into the body for a wall
+    // inside and the other way for a wall outside; the switch by the handles makes the selected faces the open ones instead
+    const bodyPart = parts.find((p) => p.kind === "body");
+    if (bodyPart && bodyPart.kind === "body") {
+      const lo = bodyPart.bbox?.min;
+      const hi = bodyPart.bbox?.max;
+      if (!lo || !hi) return { ok: false, why: "there is no body to make hollow" };
+      return { ok: true, op: { ...base, parts: [bodyPart.ref], origin: [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, hi[2]], normal: [0, 0, -1], hollowMode: "closed", openFaces: "" } };
+    }
     const flats = parts.filter((p): p is Extract<Part, { kind: "plane" }> => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.length >= 9 && !p.rounded && !p.curved);
-    if (!flats.length || flats.length !== parts.length) return { ok: false, why: "select the flat face (or faces) of the body to leave open, then make it hollow" };
+    if (!flats.length || flats.length !== parts.length) return { ok: false, why: "select the whole body to hollow it closed, or the flat faces to keep as the walls (the others are left open)" };
     const info = flats.map((f) => {
       const pts: Vec3[] = [];
       for (let i = 0; i + 2 < f.mesh!.length; i += 3) pts.push([f.mesh![i]!, f.mesh![i + 1]!, f.mesh![i + 2]!]);
@@ -174,7 +184,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     });
     const first = info[0]!;
     const openFaces = info.map((x) => [...x.n, x.n[0] * x.c[0] + x.n[1] * x.c[1] + x.n[2] * x.c[2], ...x.c].map((v) => Math.round(v * 1e6) / 1e6).join(",")).join(";");
-    return { ok: true, op: { ...base, parts: flats.map((f) => f.ref), origin: first.c, normal: scale(first.n, -1), openFaces } };
+    return { ok: true, op: { ...base, parts: flats.map((f) => f.ref), origin: first.c, normal: scale(first.n, -1), openFaces, hollowMode: "keep" } };
   }
   if (kind === "offset") {
     const off = offsetSource(scene, parts);
@@ -500,7 +510,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   if (v === null) return null;
   if (op.kind === "offset") return op.off ? offsetCommand(scene, op.off, v) : null;
   const id = nextId(scene, "s");
-  if (op.kind === "hollow") return v > 0 && op.openFaces ? { type: "addStep", step: { id, type: "hollow", parts: [], params: { thickness: v, faces: op.openFaces } } } : null;
+  if (op.kind === "hollow") return v !== 0 && (op.hollowMode === "closed" || op.openFaces) ? { type: "addStep", step: { id, type: "hollow", parts: [], params: { thickness: v, mode: op.hollowMode ?? "open", faces: op.openFaces ?? "" } } } : null; // (a wall inward is positive, outward negative)
   if (op.kind === "dimension") {
     const a = measureAction(actionsFor(scene, op.parts), (x) => x.enabled);
     return a && v > 0 ? a.run(v) : null;

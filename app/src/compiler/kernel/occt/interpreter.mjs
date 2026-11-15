@@ -726,8 +726,18 @@ const OPS = {
   shell(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;
     const th = resolve(op.thickness, ctx.params);
-    if (!(th > 1e-6)) throw new Error("the wall must be thicker than nothing");
+    if (!(Math.abs(th) > 1e-6)) throw new Error("the wall must be thicker than nothing");
     // the faces left open: named by where they were (`op.refs`, as a push / pull names a face), or by a query
+    // the faces to keep as walls, every other face open (`op.keep`); none left open at all, a closed hollow (`op.closed`); else the faces named are the open ones (`in_393`)
+    if (op.keep) {
+      const keepH = new Set(op.keep.map((r) => findFace(t, r).hashCode));
+      return { kind: "solid", shape: t.shell(th, (f) => f.when(({ element }) => !keepH.has(element.hashCode))) };
+    }
+    if (op.closed) {
+      // no face open: the kernel's shell with nothing removed gives the offset solid alone, so the wall is what lies between that and the body
+      const offset = t.shell(th, (f) => f.when(() => false));
+      return { kind: "solid", shape: th > 0 ? t.cut(offset) : offset.cut(t) };
+    }
     if (op.refs) {
       const open = op.refs.map((r) => findFace(t, r));
       const hashes = new Set(open.map((f) => f.hashCode));

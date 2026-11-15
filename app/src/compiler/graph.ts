@@ -81,12 +81,14 @@ export function buildGraph(scene: Scene): GraphResult {
         break;
       }
       case "hollow": {
-        // the body made hollow, the faces named left open (`in_391`): the wall is `thickness` thick, inside the body
+        // the body made hollow (`in_391`, `in_393`): `faces` named by where they were; `mode` "open" leaves those open, "keep" keeps them as walls and opens every other, "closed" leaves no face open; the wall is `thickness`, inward when positive, outward when negative
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const p = st.params;
         const refs = String(p.faces ?? "").split(";").filter(Boolean).map((f) => { const [nx, ny, nz, fd, px, py, pz] = f.split(",").map(Number); return { n: [nx, ny, nz], d: fd, point: [px, py, pz] }; });
-        if (!refs.length) { errors[st.id] = "choose the face to leave open"; break; }
-        ops.push({ id: xid, type: "shell", target: prev, thickness: Number(p.thickness ?? 0), refs });
+        const mode = String(p.mode ?? "open");
+        if (mode === "closed") ops.push({ id: xid, type: "shell", target: prev, thickness: Number(p.thickness ?? 0), closed: true });
+        else if (!refs.length) { errors[st.id] = "choose the faces"; break; }
+        else ops.push({ id: xid, type: "shell", target: prev, thickness: Number(p.thickness ?? 0), ...(mode === "keep" ? { keep: refs } : { refs }) });
         prev = xid;
         break;
       }

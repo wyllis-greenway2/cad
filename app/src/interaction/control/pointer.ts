@@ -36,7 +36,7 @@ import { doGizmoHover, gizmoOf, chosenId } from "./handles.ts";
 import { hasGizmo, hitHandle } from "../gizmo.ts";
 
 /** The operations a right click offers (`in_133`), in categories (`in_143`): sketching, constraints, shape, moving and repeating, and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
-const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" | "combine" }[] = [
+const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" | "combine" | "faces" | "edges" | "vertices" }[] = [
   { id: "tool:rect", label: "Rectangle", icon: "rect", tool: "rect" },
   { id: "tool:circle", label: "Circle", icon: "circle", tool: "circle" },
   { id: "tool:line", label: "Line", icon: "line", tool: "line" },
@@ -54,6 +54,9 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:circular", label: "Repeat round a point", icon: "circular", op: "circular" },
   { id: "combine:parts", label: "Combine bodies…", icon: "subtract", select: "combine" }, // (add, cut and what is left of both: the parts the bodies make are each kept or tossed, `in_298`)
   { id: "select:similar", label: "Select similar", icon: "similar", select: "similar" },
+  { id: "select:faces", label: "Select all faces", icon: "pointer", select: "faces" },
+  { id: "select:edges", label: "Select all edges", icon: "pointer", select: "edges" },
+  { id: "select:vertices", label: "Select all vertices", icon: "pointer", select: "vertices" },
   { id: "select:group", label: "Group", icon: "group", select: "group" },
   { id: "select:ungroup", label: "Ungroup", icon: "ungroup", select: "ungroup" },
 ];
@@ -62,7 +65,7 @@ const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[]
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:scale", "combine:parts"] },
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate"] },
   { id: "repeat", label: "Copy and repeat", icon: "copy", items: ["op:copy", "op:linear", "op:circular"] },
-  { id: "select", label: "Select", icon: "pointer", items: ["select:similar", "select:group", "select:ungroup"] },
+  { id: "select", label: "Select", icon: "pointer", items: ["select:similar", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
 const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:move", "op:rotate", "op:copy", "op:linear", "op:circular"]);
@@ -79,6 +82,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
     if (r.select === "combine") { const why = whyNotCombine(session); return [r.id, { ...base, enabled: !why, why }]; }
+    if (r.select === "faces" || r.select === "edges" || r.select === "vertices") return [r.id, { ...base, enabled: true, why: null }];
     if (r.select) { const why = r.select === "group" ? whyNotGroup(session) : whyNotUngroup(session); return [r.id, { ...base, enabled: !why, why }]; }
     const st = startOp(sc, sel, r.op!);
     return [r.id, { ...base, enabled: st.ok, why: st.ok ? null : st.why }];
@@ -95,8 +99,8 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
     // the eye: how the model is looked at (`in_386`): straight at a surface, as wireframe, and the tape measure
     category("view", "View", "eye", [
-      { id: "look", label: "Look straight at it", icon: "eye", enabled: !!target, why: target ? null : "select a plane or a face, or right-click on one" },
-      { id: "view:game", label: "Game mode (Space): fly with W A S D, hold Alt for the pointer", icon: "eye", enabled: true, why: null },
+      { id: "look", label: "Look straight at it", icon: "look", enabled: !!target, why: target ? null : "select a plane or a face, or right-click on one" },
+      { id: "view:game", label: "Game mode (Space): fly with W A S D, hold Alt for the pointer", icon: "game", enabled: true, why: null },
       { id: "view:section", label: view.section ? "Cross section: on (tap to put away)" : "Cross section (a view, nothing is cut)", icon: "wireframe", enabled: true, why: null },
       { id: "view:wireframe", label: view.wireframe ? "Wireframe view: on (tap for solid)" : "Wireframe view", icon: "wireframe", enabled: true, why: null },
       { id: "tape:measure", label: view.tape ? "Tape measure: on (tap to put away)" : "Tape measure", icon: "dimension", enabled: true, why: null },
