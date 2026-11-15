@@ -31,7 +31,7 @@ import { BODY_OBJECT } from "../compiler/body.ts";
 import { drawnRef, formatId } from "../shared/ref.ts";
 import { objectOf, bodyCentre, figurePartsOf } from "./objects.ts";
 import type { RevAxis } from "./revolve.ts";
-import { revolveAxes, revolveCommand } from "./revolve.ts";
+import { revolveAxes, revolveCommand, middleOf } from "./revolve.ts";
 import { settings } from "../shared/settings.ts";
 
 export type OpKind = "extrude" | "pushpull" | "offset" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular" | "copy" | "hollow" | "revolve";
@@ -87,6 +87,8 @@ export interface Op {
   axes?: [number, number, number];
   /** revolve (`dec_spiral_extrude`): the lines the figure can turn about and which one is used, the advance along it (typed, or from its arrow) and which of the two numbers is being typed (0 the angle, 1 the advance) */
   revAxes?: RevAxis[];
+  /** revolve: each figure selected (its outer sides or circle and the figures inside it) and its middle */
+  revFigs?: { fig: Figure; middle: Vec3 }[];
   axisIx?: number;
   advTyped?: string;
   advValue?: number | null;
@@ -239,16 +241,19 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, figs: { ...figureParams(faces.map((f) => figureOf(scene, f))), ...(faces.some((f) => f.pieces) ? { cut: "1" } : {}) }, origin: centroid(pts), normal: normalOfPlane(pl), dim: { base: 0, scale: 1 } } };
   }
   if (kind === "revolve") {
-    // a closed figure turned about a line in its plane, any angle, with an advance for a spiral (`dec_spiral_extrude`): the line selected with it, a world axis in its plane, or one of its own sides
+    // closed figures turned about a line in their plane, any angle, with an advance for a spiral (`dec_spiral_extrude`): the line selected with them, a world axis in their plane, or one of their own sides; a figure
+    // drawn inside another is a hole in it; several figures are a step each
     const lines = parts.filter((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "drawn");
-    const face = drawnFaces(scene, parts.filter((p) => p.kind !== "line"))[0];
+    const all = drawnFaces(scene, parts.filter((p) => p.kind !== "line"));
+    const faces = all.filter((f) => !all.some((g) => g !== f && (g.holes ?? []).includes(f.ref)));
+    const face = faces[0];
     if (!face) return { ok: false, why: "select a closed figure first (and a line in its plane to turn it about, if you like)" };
     const pl = face.plane ? get(face.plane) : undefined;
     if (!pl || pl.kind !== "plane") return { ok: false, why: "the figure is not on a plane" };
-    const axes = revolveAxes(scene, face, lines);
-    if (!axes.length) return { ok: false, why: "there is no line in the figure's plane to turn it about that the figure does not cross: draw a line beside it, or turn it about one of its own sides" };
-    const pts = face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
-    return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, origin: face.disk ? pointOf(get, (get(face.disk) as Extract<Part, { kind: "circle" }>).center) ?? centroid(pts) : centroid(pts), normal: normalOfPlane(pl), plane: face.plane, figs: figureParams([figureOf(scene, face)]), revAxes: axes, axisIx: 0, advTyped: "", advValue: axes[0]!.twist ? 10 : null, revField: 0 } };
+    const axes = revolveAxes(scene, faces, lines);
+    if (!axes.length) return { ok: false, why: "there is no line in the figure's plane to turn it about that the figures do not cross: draw a line beside them, or turn them about one of their own sides" };
+    const revFigs = faces.map((f) => ({ fig: figureOf(scene, f), middle: middleOf(scene, f) ?? [0, 0, 0] as Vec3 }));
+    return { ok: true, op: { ...base, parts: revFigs[0]!.fig.outer, origin: revFigs[0]!.middle, normal: normalOfPlane(pl), plane: face.plane, revFigs, revAxes: axes, axisIx: 0, advTyped: "", advValue: axes[0]!.twist ? 10 : null, revField: 0 } };
   }
   if (kind === "pushpull" && drawnFaces(scene, parts).length) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
   if (kind === "pushpull" && parts.length > 1) {

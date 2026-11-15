@@ -3,7 +3,7 @@ id: dec_spiral_extrude
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_420, in_421, in_422
+human_input: in_420, in_421, in_422, in_423
 date: 2026-11-15
 depends_on:
 alternative_to:

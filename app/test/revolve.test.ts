@@ -142,7 +142,8 @@ test("a figure with a figure drawn inside it is revolved with a hole: the ring a
   s = run(s, c.command);
   const faceRef = loopFaceRef(r.lines);
   const op = begin(s, faceRef);
-  assert.ok(op.figs && op.figs.holes, "the figure inside is a hole");
+  assert.equal(op.revFigs!.length, 1);
+  assert.equal(op.revFigs![0]!.fig.holes.length, 1, "the figure inside is a hole");
   const zi = op.revAxes!.findIndex((a) => a.label === "Z axis");
   const area = 16 - Math.PI;
   const ring = runOp(s, { ...op, axisIx: zi, value: 360 })!;
@@ -170,4 +171,43 @@ test("a positive twist is counter-clockwise about the axis, as seen from the way
   // the same going down (the distance negative): the same sense about the axis
   const down = bbox(runOp(s, { ...op, axisIx: oi, value: 90, advValue: -10 })!.session);
   assert.ok(down.max[1]! > 3.9 && down.min[0]! < -1.9, `counter-clockwise going down: ${JSON.stringify(down)}`);
+});
+
+test("several figures selected together are revolved in one go, a step and a body each, all turned the same", () => {
+  let s = createSession(kernel);
+  const a = drawRectangle(scene(s), XZ, [8, 0, 0], [10, 0, 1.5], [1, 0, 0], [0, 0, 1]);
+  s = run(s, a.command);
+  const b = drawRectangle(scene(s), XZ, [14, 0, 0], [17, 0, 2], [1, 0, 0], [0, 0, 1]);
+  s = run(s, b.command);
+  const st = startOp(scene(s), [loopFaceRef(a.lines), loopFaceRef(b.lines)] as never, "revolve");
+  assert.ok(st.ok, st.ok ? "" : st.why);
+  const op = (st as { op: Op }).op;
+  assert.equal(op.revFigs!.length, 2);
+  const zi = op.revAxes!.findIndex((x) => x.label === "Z axis");
+  const made = runOp(s, { ...op, axisIx: zi, value: 360 })!;
+  assert.equal(made.session.message, null);
+  assert.deepEqual(made.session.outcome.errors, {});
+  const bodies = Object.values(scene(made.session).parts).filter((p) => p.kind === "body");
+  assert.equal(bodies.length, 2, "a body each");
+  assert.equal(scene(made.session).steps.filter((x) => x.type === "revolve").length, 2);
+  assert.ok(Math.abs(volume(made.session) - (3 * 2 * Math.PI * 9 + 6 * 2 * Math.PI * 15.5)) < 0.5, `volume ${volume(made.session)}`);
+  // a twist about each figure's own middle: each keeps its own volume
+  const ti = op.revAxes!.findIndex((x) => x.label === "twist about each figure's middle");
+  assert.ok(ti >= 0, op.revAxes!.map((x) => x.label).join());
+});
+
+test("two bars twisted about their own middles keep their volumes", () => {
+  let s = createSession(kernel);
+  const a = drawRectangle(scene(s), XY, [-3, -1, 0], [3, 1, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, a.command);
+  const b = drawRectangle(scene(s), XY, [10, 0, 0], [14, 2, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, b.command);
+  const st = startOp(scene(s), [loopFaceRef(a.lines), loopFaceRef(b.lines)] as never, "revolve") as { ok: true; op: Op };
+  const ti = st.op.revAxes!.findIndex((x) => x.label === "twist about each figure's middle");
+  const made = runOp(s, { ...st.op, axisIx: ti, value: 180, advValue: 10 })!;
+  assert.equal(made.session.message, null);
+  assert.deepEqual(made.session.outcome.errors, {});
+  assert.ok(Math.abs(volume(made.session) - (12 + 8) * 10) < 0.1, `volume ${volume(made.session)}`);
+  const steps = scene(made.session).steps.filter((x) => x.type === "revolve");
+  assert.notDeepEqual([steps[0]!.params.ax, steps[0]!.params.ay], [steps[1]!.params.ax, steps[1]!.params.ay], "each about its own middle");
 });

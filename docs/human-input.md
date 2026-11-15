@@ -1968,3 +1968,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_422 — 2026-11-15 — directive
 > add holes support and the twist about the normal
 (asks for the two things `dec_spiral_extrude` listed as not built: a figure with figures inside it as holes, and the twist about the plane's normal)
+
+## in_423 — 2026-11-15 — directive
+> support several figures at once
+(asks that a revolve take several figures selected together, the last thing `dec_spiral_extrude` listed as not built)
