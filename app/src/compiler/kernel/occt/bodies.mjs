@@ -37,6 +37,7 @@ export const lumpsOf = (shape) => shape.solids;
 
 /** Where a marker goes when an operation moves, turns or scales the bodies it names (`only`: one body's id, else all of them). */
 export function moveMarkers(markers, tf) {
+  if (tf.mode === "reshape") return markers.map((m) => (tf.only && m.id !== tf.only ? m : { ...m, at: tf.at })); // (the body's shape changed: it is found by its new middle)
   const go = (p) => {
     if (tf.mode === "move") { if (tf.vec) return [0, 1, 2].map((i) => p[i] + tf.vec[i]); const q = [...p]; q[tf.axis] += tf.v; return q; }
     const d = [0, 1, 2].map((i) => p[i] - tf.pivot[i]);

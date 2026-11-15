@@ -222,6 +222,15 @@ export function buildGraph(scene: Scene): GraphResult {
         prev = xid;
         break;
       }
+      case "reshape": {
+        // some corners of one body moved (`dec_direct_shape_editing`): `moves` is "fx,fy,fz>tx,ty,tz;..." (where each corner was, where it went)
+        if (!prev) { errors[st.id] = "there is no body yet"; break; }
+        const moves = String(st.params.moves ?? "").split(";").filter(Boolean).map((m) => { const [a, b] = m.split(">").map((q) => q.split(",").map(Number)); return { from: a!, to: b! }; });
+        if (!moves.length || moves.some((m) => m.from.length !== 3 || m.to.length !== 3 || [...m.from, ...m.to].some((x) => !Number.isFinite(x)))) { errors[st.id] = "bad corners"; break; }
+        ops.push({ id: xid, type: "reshape", target: prev, moves, ...(st.params.body ? { body: String(st.params.body) } : {}) });
+        prev = xid;
+        break;
+      }
       case "combine": {
         // add or subtract bodies (`in_270`): the first body named stays; the bodies are named by the step that made each (`b/<name>/o`)
         if (!prev) { errors[st.id] = "there is no body yet"; break; }

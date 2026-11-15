@@ -27,6 +27,7 @@ import {
   Wire,
 } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
+import { reshape } from "./reshape.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
@@ -953,6 +954,21 @@ const OPS = {
       return { kind: "solid", shape: again(t.scale(v, pivot)), tf: { mode: "scale", axis: 0, v, pivot, only } };
     }
     throw new Error(`unknown transform ${op.mode}`);
+  },
+
+  /**
+   * Shape one body by moving some of its corners (`dec_direct_shape_editing`): `moves` is [{ from, to }]. A face that stays flat stays whole, one that would not is split into flat pieces;
+   * a move that leaves the body open, empty or crossing itself is refused with the reason.
+   */
+  reshape(op, ctx) {
+    const target = ctx.get(op.target, "solid");
+    const markers = target.markers ?? [];
+    const one = op.body && markers.length > 1 ? lumpOf(target.shape, markers, op.body) : null;
+    if (op.body && markers.length > 1 && !one) throw new Error("that body is not there any more");
+    const t = one ? one.lump : target.shape.solids.length === 1 ? target.shape.solids[0] : target.shape;
+    const made = reshape(t, op.moves);
+    const b = bounds(made);
+    return { kind: "solid", shape: one ? makeCompound([...one.rest, made]) : made, tf: { mode: "reshape", only: one ? op.body : null, at: [0, 1, 2].map((i) => (b.min[i] + b.max[i]) / 2) }, checked: true };
   },
 
   /**

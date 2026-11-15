@@ -2137,4 +2137,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_457 — 2026-11-15 — directive
 > okay lets try it the way it is then, so lets move on if you think it is good for now. There is a bug where if you select one vertices of any object and try to move it, then it moves all bodies. See this file for example. Also Can we make it so can manipulate faces edges and verticies at all? Right now if you try to manipulate then it just moves as if you selected the entire object. But I would imagine we should let the user move individual faces edges or verticies to modify the shape of the object itself? inlcuding rotating entire faces etc. Of course there would be limits like you cant rotate a single edge out of contact with the other edges and break open the closed body etc.
-(a file attached: `model.cad_49.json`; kept as `app/test/fixtures/sweep-and-block-in_457.cad.json`. Two things: the bug, fixed; and a feature, shaping a body by moving, turning its faces, edges and corners, which is `q_direct_shape_editing`, asked, not built)
+(a file attached: `model.cad_49.json`; kept as `app/test/fixtures/sweep-and-block-in_457.cad.json`. Two things: the bug, fixed; and a feature, shaping a body by moving, turning its faces, edges and corners, which is `dec_direct_shape_editing`, asked, not built)
+
+## in_458 — 2026-11-15 — approval
+> Where should shaping a body by its parts start? = Faces, edges and corners together
+> When moving a corner or edge would make a face stop being flat, what should happen? = Split the face into flat pieces
+(answers to two questions about `dec_direct_shape_editing`: all three kinds of part together, and a face that would stop being flat is split into flat pieces; recorded as `dec_direct_shape_editing`)

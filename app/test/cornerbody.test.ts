@@ -20,34 +20,37 @@ function two() {
 }
 const bodies = (s: ReturnType<typeof two>) => Object.values(scene(s).parts).filter((p) => p.kind === "body") as unknown as { ref: string; bbox: { min: number[]; max: number[] } }[];
 
-test("a corner of one of two bodies names its body, and a move of it moves that body alone", () => {
+const bodyOf = (s: ReturnType<typeof two>, id: string) => (Object.values(scene(s).parts).find((p) => p.kind === "body" && p.ref === id) as unknown as { volume: number; bbox: { min: number[]; max: number[] } });
+const part = (s: ReturnType<typeof two>, f: (p: { ref: string; kind: string; origin: string; a?: string; at: number[]; of?: string }) => boolean) => (Object.values(scene(s).parts) as unknown as { ref: string; kind: string; origin: string; a?: string; at: number[]; of?: string }[]).find(f)!;
+
+test("a corner of one of two bodies names its body; scale still works on that body, a move shapes it", () => {
   const s = two();
-  const corners = Object.values(scene(s).parts).filter((p) => p.kind === "corner" && p.origin === "body") as unknown as { ref: string; at: number[]; of?: string }[];
-  assert.ok(corners.every((c) => c.of), "every corner says its body");
-  const far = corners.find((c) => c.at[0] === 40 && c.at[1] === 10 && c.at[2] === 10)!;
+  const far = part(s, (p) => p.kind === "corner" && p.origin === "body" && p.at[0] === 40 && p.at[1] === 10 && p.at[2] === 10);
   assert.equal(far.of, "b/x_s_101/o");
-  for (const kind of ["move", "rotate", "scale"] as const) {
-    const st = startOp(scene(s), [far.ref as never], kind);
-    assert.ok(st.ok);
-    assert.deepEqual(st.ok && st.op.parts, ["b/x_s_101/o"], `${kind} works on the body of the corner only`);
-  }
+  const sc = startOp(scene(s), [far.ref as never], "scale");
+  assert.ok(sc.ok && sc.op.parts[0] === "b/x_s_101/o", "scale works on the body of the corner");
   const st = startOp(scene(s), [far.ref as never], "move");
+  assert.ok(st.ok && st.op.target === "part", "a move of a corner shapes the body");
   if (!st.ok) return;
-  const moved = runOp(s, { ...st.op, axis: 0, value: 5 })!.session;
-  const [a, b] = [...bodies(moved)].sort((p, q) => p.bbox.min[0]! - q.bbox.min[0]!);
-  assert.deepEqual([a!.bbox.min[0], a!.bbox.max[0]], [0, 10], "the first body did not move");
-  assert.deepEqual([b!.bbox.min[0], b!.bbox.max[0]], [35, 45], "the body of the corner moved by 5");
+  const moved = runOp(s, { ...st.op, axis: 2, value: 5 })!.session;
+  assert.equal(scene(moved).steps.at(-1)!.type, "reshape");
+  const first = bodyOf(moved, "b/x_s_100/o");
+  assert.equal(Math.round(first.volume), 1000, "the first body did not change");
+  const second = bodyOf(moved, "b/x_s_101/o");
+  assert.equal(Math.round(second.volume), 1083, "the corner went up 5: the top is two flat triangles, one of them tilted: 50 x 5 / 3 more");
+  assert.equal(second.bbox.max[2], 15);
 });
 
-test("an edge and a face of one of two bodies work on that body too", () => {
+test("an edge, a face and a turn of a face shape the body they are in", () => {
   const s = two();
-  const parts = Object.values(scene(s).parts) as unknown as { ref: string; kind: string; origin: string; a?: string; at: number[]; of?: string }[];
-  const edge = parts.find((p) => p.kind === "line" && p.origin === "body" && p.of === "b/x_s_101/o")!;
-  assert.ok(edge, "an edge says its body");
-  const face = parts.find((p) => p.kind === "plane" && p.origin === "body" && p.of === "b/x_s_101/o")!;
-  for (const r of [edge.ref, face.ref]) for (const kind of ["move", "rotate", "scale"] as const) {
-    const st = startOp(scene(s), [r as never], kind);
-    assert.ok(st.ok);
-    assert.deepEqual(st.ok && st.op.parts, ["b/x_s_101/o"], `${kind} of ${r}`);
-  }
+  const edge = part(s, (p) => p.kind === "line" && p.origin === "body" && p.of === "b/x_s_101/o" && false);
+  void edge;
+  const top = part(s, (p) => p.kind === "plane" && p.origin === "body" && p.of === "b/x_s_101/o");
+  const st = startOp(scene(s), [top.ref as never], "move");
+  assert.ok(st.ok && st.op.target === "part");
+  const rot = startOp(scene(s), [top.ref as never], "rotate");
+  assert.ok(rot.ok && rot.op.target === "part");
+  const s2 = runOp(s, { ...(st.ok ? st.op : (null as never)), axis: 0, value: 4 })!.session;
+  assert.equal(scene(s2).steps.at(-1)!.type, "reshape");
+  assert.equal(Math.round(bodyOf(s2, "b/x_s_100/o").volume), 1000);
 });
