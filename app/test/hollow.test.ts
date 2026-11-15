@@ -155,12 +155,12 @@ test("the thin-wall body (`in_229`): a side of a trimmed sketch can be pulled ou
   assert.equal(out.session.message, null);
   assert.ok((out.session.outcome.kernel!.volume ?? 0) > (s.outcome.kernel!.volume ?? 0) + 100, "the body grew");
   assert.equal(scene(out.session).steps.length, sc.steps.length, "no step added");
-  // in too far: the pending size is not drawn as a broken body
+  // in too far: the fillet of a straight edge made before is no longer one the kernel can round, so it is made as a region across the faces beside it (`in_386`): the picture is that body, with the reason said, not a collapsed one
   st = begin();
   st = { ...st, op: { ...st.op!, value: -6 } };
   const f = frameOf(st, { w: 800, h: 600 });
-  assert.equal(f.mesh, s.outcome.kernel!.mesh, "the body as it was, not a collapsed one");
-  assert.ok(/cannot be made/.test(f.message), f.message);
+  assert.notEqual(f.mesh, s.outcome.kernel!.mesh, "the body is shown as it would be");
+  assert.ok(/could not be made as a smooth round/.test(f.message), f.message);
   // the first undo puts the open operation away; the steps stay
   const undone = reduce(st, { type: "undo" } as never, { w: 800, h: 600, now: 0 });
   assert.equal(undone.op, null);

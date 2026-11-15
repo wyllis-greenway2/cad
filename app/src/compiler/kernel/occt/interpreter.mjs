@@ -566,6 +566,10 @@ const OPS = {
         if (!isValidSolid(made)) throw new Error("kernel returned an invalid solid"); // (a size the faces cannot take can come out as a broken solid, not an exception)
         return made;
       } catch (e) {
+        // straight edges between flat faces: the corner is made as a region that is cut or added, which has no size that fails (`in_386`, `dec_edits_saturate`)
+        const region = neighbours && set ? regionRound(t, set, size, op.mode) : null;
+        if (region === "empty") throw Object.assign(new Error(`a ${op.mode === "chamfer" ? "chamfer" : "fillet"} of that size would take all of the body`), { final: true });
+        if (region) { note = `the ${op.mode === "chamfer" ? "chamfer" : "fillet"} could not be made as a smooth round at this size (the faces next to it are not wide enough, or other rounding meets it), so the corner was cut as a region: it crosses those faces instead of touching them smoothly`; return region; }
         // on its own it cannot be made (next to fillets already made, a corner where three meet): the kernel can blend a corner when the edges that meet there are rounded in the same operation, so
         // this one is tried together with the ones just before it (each with its own size), from the body before them
         if (!base || op.together.mods.length < 2) {
@@ -592,7 +596,7 @@ const OPS = {
       return { kind: "solid", shape, ...(note ? { note } : {}) };
     } catch (e) {
       // on failing for good: which of the edges cannot take the size on their own, and the most they can take, so the step can say (and the page can flash the ones that are the problem, `in_266`)
-      if (found && found.size) e.detail = diagnose((size, list) => make(size, list, false), refs, found.size, v);
+      if (!e.final && found && found.size) e.detail = diagnose((size, list) => make(size, list, false), refs, found.size, v);
       throw e;
     }
   },
@@ -783,6 +787,71 @@ const OPS = {
     return { kind: "solid", shape: t.shell({ filter: (f) => f.when(({ element }) => picked.has(element)), thickness: th }) };
   },
 };
+
+/**
+ * A fillet or chamfer of straight edges between two flat faces made as a **region** (`in_386`, `dec_edits_saturate` B): the corner is the area between the two face lines and the rounding (the rolling circle, or the
+ * bevel), made as a prism along the edge and cut from the body where the edge is convex, or added where it is concave. There is no size at which it fails: where the rounding would no longer touch the faces next to the
+ * edge tangentially (they are narrower than the size) it simply crosses them. Every region is made from the body as it was, then all are applied. Null if an edge is not straight between two flat faces.
+ */
+const faceVertices = (f) => edgesOf(f).flatMap((e) => [e.startPoint, e.endPoint]);
+function regionRound(t, set, size, mode) {
+  const faces = facesOf(t);
+  const byEdge = new Map();
+  for (const f of faces) for (const e of edgesOf(f)) byEdge.set(e.hashCode, [...(byEdge.get(e.hashCode) ?? []), f]);
+  const dir = (v) => { const l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; };
+  const dotp = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const crossp = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const tools = [];
+  for (const e of edgesOf(t).filter((x) => set.has(x.hashCode))) {
+    const fs = byEdge.get(e.hashCode) ?? [];
+    if (e.geomType !== "LINE" || fs.length !== 2 || fs.some((f) => f.geomType !== "PLANE")) return null;
+    const [A, B] = [e.startPoint, e.endPoint];
+    const len = Math.hypot(B.x - A.x, B.y - A.y, B.z - A.z);
+    if (!(len > 1e-6)) return null;
+    const u = [(B.x - A.x) / len, (B.y - A.y) / len, (B.z - A.z) / len];
+    const norm = fs.map((f) => { const n = f.normalAt(); return dir([n.x, n.y, n.z]); });
+    // along each face, away from the edge and across it
+    const a = fs.map((f, i) => {
+      const d = dir(crossp(norm[i], u));
+      const c = f.center;
+      return dotp(d, [c.x - A.x, c.y - A.y, c.z - A.z]) >= 0 ? d : [-d[0], -d[1], -d[2]];
+    });
+    const cosA = Math.max(-1, Math.min(1, dotp(a[0], a[1])));
+    const alpha = Math.acos(cosA);
+    if (alpha < 1e-3 || alpha > Math.PI - 1e-3) return null; // (two faces in one plane: no edge to round)
+    const convex = dotp(norm[0], a[1]) < 0;
+    let reach = mode === "chamfer" ? size : size / Math.tan(alpha / 2); // how far along each face the rounding begins
+    let radius = size;
+    if (!convex) {
+      // material added past the end of the faces would stand out from the body as a wing: a concave corner is filled as far as the faces go and no further
+      const extent = fs.map((f, i) => { let far = 0; for (const p of faceVertices(f)) far = Math.max(far, dotp(a[i], [p.x - A.x, p.y - A.y, p.z - A.z])); return far; });
+      const limit = Math.min(extent[0], extent[1]);
+      if (reach > limit) { reach = limit; radius = mode === "chamfer" ? size : limit * Math.tan(alpha / 2); }
+    }
+    const ex = a[0];
+    const ey = dir([a[1][0] - ex[0] * cosA, a[1][1] - ex[1] * cosA, a[1][2] - ex[2] * cosA]);
+    const normal = crossp(ex, ey);
+    const margin = convex ? 1 : 0; // (a region that is cut reaches past the ends of the edge; one that is added stops at them, or it would stand out)
+    const along = (B.x - A.x) * normal[0] + (B.y - A.y) * normal[1] + (B.z - A.z) * normal[2];
+    const shift = Math.min(0, along) - margin;
+    const origin = [A.x + normal[0] * shift, A.y + normal[1] * shift, A.z + normal[2] * shift];
+    const t1 = [reach, 0];
+    const t2 = [reach * Math.cos(alpha), reach * Math.sin(alpha)];
+    let outline = draw([0, 0]).lineTo(t1);
+    if (mode === "chamfer") outline = outline.lineTo(t2);
+    else {
+      const m = radius / Math.sin(alpha / 2) - radius; // the nearest point of the rolling circle to the edge
+      outline = outline.threePointsArcTo(t2, [m * Math.cos(alpha / 2), m * Math.sin(alpha / 2)]);
+    }
+    const tool = outline.close().sketchOnPlane(new Plane(origin, ex, normal)).extrude(len + 2 * margin);
+    tools.push({ tool, convex });
+  }
+  if (!tools.length) return null;
+  let made = t;
+  for (const { tool, convex } of tools) made = convex ? made.cut(tool) : made.fuse(tool);
+  if (!isValidSolid(made)) return null;
+  return measureVolume(made) > 1e-6 ? made : "empty"; // (the size takes all of the body)
+}
 
 /**
  * A fillet or chamfer that the kernel cannot make on the chosen edges alone, made together with the edges that meet them at their ends (`in_379`): the kernel rounds a corner only when the edges that meet there are in
