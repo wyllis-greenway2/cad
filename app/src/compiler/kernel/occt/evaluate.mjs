@@ -14,6 +14,7 @@ const copyOf = (d) => ({
   faces: d.faces && structuredClone(d.faces),
   edges: d.edges && d.edges.map((e) => ({ ...e, pts: e.pts.slice() })),
   vertices: d.vertices && structuredClone(d.vertices),
+  vertexBodies: d.vertexBodies ? [...d.vertexBodies] : null,
   bodies: d.bodies && structuredClone(d.bodies),
   mesh: d.mesh && { vertices: d.mesh.vertices.slice(), normals: d.mesh.normals.slice(), triangles: d.mesh.triangles.slice() },
 });
@@ -180,6 +181,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     const o = ops.find((x) => x.id === fin.id);
     if (o) o.error = "nothing would be left of the body (the cut takes all of it away)";
   }
+  let vertexBodies = null; // (for each corner, the place of its body in `bodies`, when there are several)
   let describeInfo = null; // (how many bodies were described again and how many were found as they were)
   const lite = !!tess.lite; // (a preview of a size being dragged: the mesh, volume and box, not the faces, edges and corners, `in_358`)
   const present = fin && box ? fin : null;
@@ -188,7 +190,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
   if (known) {
     described.delete(dkey);
     described.set(dkey, known);
-    ({ vol, bbox, faces, edges, vertices, mesh, bodies } = copyOf(known));
+    ({ vol, bbox, faces, edges, vertices, mesh, bodies, vertexBodies } = copyOf(known));
     describeInfo = { bodies: bodies?.length ?? 0, reused: bodies?.length ?? 0 }; // (the whole answer was kept)
   } else if (present) {
     // each body (solid) is described on its own and the description kept by what it looks like (its volume, box and number of faces and edges): a body that a change did not touch is not meshed again, however many others are
@@ -213,6 +215,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     mesh = { vertices: new Float32Array(nV), normals: new Float32Array(nV), triangles: new Uint32Array(nT) };
     faces = []; edges = []; vertices = []; 
     const seenV = new Map();
+    const vertexBody = new Map(); // (the body each corner is a corner of, the first when two bodies share one place: so that a corner picked says which body it is in, `in_457`)
     let [vo, to] = [0, 0];
     const bodyOfLump = new Map(markers.map((m, bi) => [m.lump, bi]));
     parts.forEach((d, li) => {
@@ -221,20 +224,21 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
       const body = lumps.length > 1 && bodyOfLump.has(li) ? { body: bodyOfLump.get(li) } : {};
       for (const f of d.faces) faces.push({ ...structuredClone(f), start: f.start + to, ...(f.ranges ? { ranges: f.ranges.map((r) => ({ start: r.start + to, count: r.count })) } : {}), ...body });
       for (const e of d.edges) edges.push({ ...e, pts: e.pts.slice(), ...body });
-      for (const v of d.vertices) seenV.set(v.join(","), v);
+      for (const v of d.vertices) { const k = v.join(","); if (!seenV.has(k)) seenV.set(k, v); if (!vertexBody.has(k) && body.body !== undefined) vertexBody.set(k, body.body); }
       vo += d.mesh.vertices.length; to += d.mesh.triangles.length;
     });
     vertices = [...seenV.values()].map((v) => [...v]);
+    vertexBodies = lumps.length > 1 ? [...seenV.keys()].map((k) => vertexBody.get(k) ?? 0) : null;
     vol = parts.reduce((a, d) => a + d.vol, 0);
     bbox = { min: [0, 1, 2].map((i) => Math.min(...parts.map((d) => d.bbox.min[i]))), max: [0, 1, 2].map((i) => Math.max(...parts.map((d) => d.bbox.max[i]))) };
     bodies = markers.map((m) => { const d = parts[m.lump]; return { id: m.id, min: [...d.bbox.min], max: [...d.bbox.max], volume: lumps.length > 1 ? (lite ? NaN : d.vol) : vol }; });
     tFaces = performance.now();
     if (dkey) {
-      described.set(dkey, copyOf({ vol, bbox, faces, edges, vertices, mesh, bodies }));
+      described.set(dkey, copyOf({ vol, bbox, faces, edges, vertices, mesh, bodies, vertexBodies }));
       while (described.size > 6) described.delete(described.keys().next().value);
     }
   }
-  return { ops, finalId: present?.id ?? null, volume: vol, bbox, bodies, faces, edges, vertices, totalMs: performance.now() - t0, mesh, ...(describeInfo ? { describe: describeInfo } : {}), perf: { ops: tCompile - t0, box: tBox, mesh: tMesh - tCompile - tBox, faces: tFaces - tMesh, edges: performance.now() - tFaces } };
+  return { ops, finalId: present?.id ?? null, volume: vol, bbox, bodies, faces, edges, vertices, totalMs: performance.now() - t0, mesh, ...(describeInfo ? { describe: describeInfo } : {}), ...(vertexBodies ? { vertexBodies } : {}), perf: { ops: tCompile - t0, box: tBox, mesh: tMesh - tCompile - tBox, faces: tFaces - tMesh, edges: performance.now() - tFaces } };
 }
 
 /**

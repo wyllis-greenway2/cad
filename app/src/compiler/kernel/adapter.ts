@@ -18,6 +18,8 @@ export interface KernelResult {
   faces: KernelFace[] | null;
   edges: KernelEdge[] | null;
   vertices: Vec[] | null;
+  /** with several bodies: for each corner, the place of the body it is a corner of in `bodies` (the first, where two bodies share a place) */
+  vertexBodies?: number[];
   totalMs: number;
   /** where the time went (ms): working the operations out, meshing the body, classifying its faces, its edges (`in_216`) */
   perf?: { ops: number; box?: number; mesh: number; faces: number; edges: number };

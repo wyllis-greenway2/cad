@@ -51,11 +51,11 @@ export function bodyParts(result: KernelResult): Part[] {
   const out: Part[] = [];
   const base = { origin: "body" as const, plane: null, movable: false };
   const corners = new Set<string>();
-  const corner = (p: Vec3) => {
+  const corner = (p: Vec3, body?: number) => {
     const ref = cornerName(p);
     if (!corners.has(ref)) {
       corners.add(ref);
-      out.push({ ...base, ref, kind: "corner", at: p });
+      out.push({ ...base, ref, kind: "corner", at: p, ...(body !== undefined && body >= 0 ? { of: bodyPart(body) } : {}) });
     }
     return ref;
   };
@@ -67,7 +67,7 @@ export function bodyParts(result: KernelResult): Part[] {
     if (many) bodies.forEach((b, i) => out.push({ ...base, ref: bodyPart(i), kind: "body", id: b.id, volume: b.volume, bbox: { min: b.min as Vec3, max: b.max as Vec3 } }));
     else out.push({ ...base, ref: BODY_OBJECT, kind: "body", ...(bodies[0] ? { id: bodies[0].id, volume: bodies[0].volume } : {}), ...(result.bbox ? { bbox: { min: result.bbox.min as Vec3, max: result.bbox.max as Vec3 } } : {}) });
   }
-  for (const v of result.vertices ?? []) corner(v);
+  (result.vertices ?? []).forEach((v, i) => corner(v, many ? result.vertexBodies?.[i] : undefined)); // (a corner of one of several bodies says which)
   // a rim that the kernel made of two half circles: each half knows the other, so picking one picks both
   // (two arcs of one circle that do not meet at both ends, such as the tips of two teeth, are not halves of a rim)
   const ends = new Map<Ref, string>();
