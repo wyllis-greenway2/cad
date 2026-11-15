@@ -2204,3 +2204,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_469 — 2026-11-15 — directive
 > okay lets get rid of the scroll weel changing menu items. Also lets have the actual camera tilt to view each menu item in the fixed selection thing, not just have it frozen. Can we have it so that a w d s enter game mode too? Can we have it so that if you enter game mode while in orthographic then it exits ortho graphic?
 (asks: the wheel no longer steps the menu in game mode; with the menu open in game mode the camera tilts to look at the option that is selected instead of being frozen; W A S D to begin game mode as well as Space; and entering game mode in a straight view to leave the straight view)
+
+## in_470 — 2026-11-15 — directive
+> It still doesn't really seem like the cursor hover blue circle shows up on cross section planes when they are in visible mode. Also can we have those planes have a delete icon?
+(reports that the blue hover circle still does not show on a visible plane; asks for a delete icon on the planes)

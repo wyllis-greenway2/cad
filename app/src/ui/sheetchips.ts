@@ -20,7 +20,7 @@ const MOVE_TITLE = [
 ] as const;
 
 export function createSheetChips(host: HTMLElement, run: (id: string) => void) {
-  type Pair = { box: HTMLDivElement; mode: HTMLDivElement; eye: HTMLDivElement; move: HTMLDivElement; sig: string };
+  type Pair = { box: HTMLDivElement; mode: HTMLDivElement; eye: HTMLDivElement; move: HTMLDivElement; del: HTMLDivElement; sig: string };
   const pool = new Map<string, Pair>();
   const button = (parent: HTMLElement, id: () => string): HTMLDivElement => {
     const b = document.createElement("div");
@@ -37,7 +37,10 @@ export function createSheetChips(host: HTMLElement, run: (id: string) => void) {
     const mode = button(box, () => `sheet:mode:${ref}`);
     const eye = button(box, () => `sheet:visible:${ref}`);
     const move = button(box, () => "sheet:move");
-    return { box, mode, eye, move, sig: "" };
+    const del = button(box, () => `sheet:delete:${ref}`);
+    del.innerHTML = iconSvg("trash");
+    del.title = "Delete this plane";
+    return { box, mode, eye, move, del, sig: "" };
   };
   const inside = (pt: [number, number], poly: [number, number][]): boolean => {
     let c = false;

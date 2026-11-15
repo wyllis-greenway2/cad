@@ -64,6 +64,14 @@ export function cutsNow(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent:
   });
 }
 
+/** A press on a sheet's delete icon (`in_470`): the plane goes (one step; what was drawn on it stays as it is). */
+export function doSheetDelete(s: AppState, ref: Ref): AppState {
+  const p = sceneOf(s.session).parts[ref];
+  if (p?.kind !== "plane" || !p.section) return s;
+  const session = run(s.session, { type: "deletePart", ref });
+  return select({ ...s, menu: null, sectionLive: null, sheetMove: s.sheetMove?.ref === ref ? null : s.sheetMove, session: { ...session, message: null } }, selectionOf(s.session).filter((r) => r !== ref));
+}
+
 /** A press on a sheet's eye icon: visible or invisible (an invisible sheet cannot be pointed at; it may still cut, `in_466`). */
 export function doSheetVisible(s: AppState, ref: Ref): AppState {
   const p = sceneOf(s.session).parts[ref];

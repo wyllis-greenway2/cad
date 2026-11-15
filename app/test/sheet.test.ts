@@ -131,3 +131,14 @@ test("a sketch can be started on a sheet like on any face, and a sheet is saved 
   const saved = JSON.parse(JSON.stringify(scene(st.session).parts[ref]));
   assert.equal(saved.hidden, true, "the mode is in the part, so in the file");
 });
+
+test("the delete icon takes the plane away (one step, undo brings it back), and the blue hover disc is drawn on a visible plane (`in_470`)", () => {
+  let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
+  const ref = sectionNow(st)!.ref;
+  st = reduce(st, { type: "escape" }, env);
+  const hov = { ...st, session: { ...st.session, hover: ref } };
+  assert.equal(frame(hov).highlight.hover, ref, "a plane the pointer is over is hovered like any surface");
+  const gone = reduce(st, { type: "runAction", id: `sheet:delete:${ref}` }, env);
+  assert.equal(planes(gone).length, 0);
+  assert.equal(planes(reduce(gone, { type: "undo" }, env)).length, 1, "undo brings it back");
+});
