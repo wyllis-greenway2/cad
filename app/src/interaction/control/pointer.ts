@@ -19,7 +19,7 @@ import { snapOnPlane, guidesOf, finish, planeForDrawing, armTool, pointOnPlane }
 import { trimAt } from "../../operation/trim.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { OpKind, Op } from "../operations.ts";
-import { startOp } from "../operations.ts";
+import { startOp, surfaceAxes } from "../operations.ts";
 import { similarTo } from "../similar.ts";
 import { whyNotGroup, whyNotUngroup, whyNotCombine, applyCut } from "./select.ts";
 import { projector, nearTolMm } from "../camera.ts";
@@ -54,9 +54,9 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:circular", label: "Repeat round a point", icon: "circular", op: "circular" },
   { id: "combine:parts", label: "Combine bodies…", icon: "subtract", select: "combine" }, // (add, cut and what is left of both: the parts the bodies make are each kept or tossed, `in_298`)
   { id: "select:similar", label: "Select similar", icon: "similar", select: "similar" },
-  { id: "select:faces", label: "Select all faces", icon: "pointer", select: "faces" },
-  { id: "select:edges", label: "Select all edges", icon: "pointer", select: "edges" },
-  { id: "select:vertices", label: "Select all vertices", icon: "pointer", select: "vertices" },
+  { id: "select:faces", label: "Select all faces", icon: "selfaces", select: "faces" },
+  { id: "select:edges", label: "Select all edges", icon: "seledges", select: "edges" },
+  { id: "select:vertices", label: "Select all vertices", icon: "selvertices", select: "vertices" },
   { id: "select:group", label: "Group", icon: "group", select: "group" },
   { id: "select:ungroup", label: "Ungroup", icon: "ungroup", select: "ungroup" },
 ];
@@ -144,7 +144,7 @@ function moverTurned(sc: Scene, c: { ref: Ref } | undefined): [Vec3, Vec3, Vec3]
   const p = c ? sc.parts[c.ref] : undefined;
   if (!p) return null;
   const perp = (a: Vec3): [Vec3, Vec3] => { const u = normalize(cross(Math.abs(a[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], a)); return [u, cross(a, u)]; };
-  if (p.kind === "plane" && p.origin === "body" && !p.curved && !p.rounded && p.mesh) { const n = normalOfPlane(p); const [u, v] = perp(n); return [u, v, n]; }
+  if (p.kind === "plane" && p.origin === "body") return surfaceAxes(sc, p);
   if (p.kind === "line" && !p.circle && !p.mid) {
     const sg = segmentOf(lookup(sc), p.ref);
     if (!sg) return null;
@@ -412,6 +412,11 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   // the mover shows its arrows and its rings together: the one of the other tool taken turns the tool about (`in_418`)
   const mover = hit && mover0 && !s.repeat && !s.moverSphere ? movingTool(s, mover0, hit.id) : mover0;
   if (mover && mover0 && mover.kind !== mover0.kind) s = { ...s, op: mover }; // (the arrows and rings then read this tool)
+  // the sphere clicked again while it is selected and the mover has been turned (or was): it goes between true x, y, z and its turned axes, staying where it is (`in_419`)
+  if (hit?.id === "pivot" && s.moverSphere && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat && (mover.frame || mover.frameKept)) {
+    const { frame, frameKept, ...rest } = s.op ?? mover;
+    return { ...base, op: { ...rest, auto: false, ...(frame ? { frameKept: frame } : frameKept ? { frame: frameKept } : {}) } as Op, handleSel: null, gizmoHover: hit.id };
+  }
   if (hit?.id === "pivot" && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat) return { ...base, moverSphere: !s.moverSphere, op: s.op ?? { ...mover, auto: false }, handleSel: null, gizmoHover: hit.id };
   if (!hit && s.moverSphere && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat) {
     const at = moverPlace(sc, cands[0], pv, mover);
@@ -421,12 +426,12 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   // a click on a ring of a repeat, or of the turn being set up, makes that the axis, with no drag needed (`in_206`)
   if (hit && hit.id.startsWith("rot:") && s.op?.kind === "rotate") return { ...base, op: { ...s.op, axis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2, typed: "" }, gizmoHover: hit.id, handleSel: hit.id };
   // Shift on a move arrow chooses it with the others already chosen: a body dragged free then moves only along those axes (`in_299`)
-  if (hit && i.shift && hit.id.startsWith("move:") && (!s.op || s.op.kind === "move") && !s.repeat) {
+  if (hit && i.shift && hit.id.startsWith("move:") && (!s.op || s.op.kind === "move") && !s.repeat && !sectionNow(s)) {
     const k = "xyz".indexOf(hit.id[5]!) as 0 | 1 | 2;
     return { ...base, lockAxes: s.lockAxes.includes(k) ? s.lockAxes.filter((a) => a !== k) : [...s.lockAxes, k].sort() as (0 | 1 | 2)[], handleSel: null, gizmoHover: hit.id };
   }
   // a click on a move arrow chooses that one alone for a free drag (a second click on it goes back to all three), Shift adds or takes one out (`in_383`)
-  if (hit && hit.id.startsWith("move:") && (!s.op || s.op.kind === "move") && !s.repeat) {
+  if (hit && hit.id.startsWith("move:") && (!s.op || s.op.kind === "move") && !s.repeat && !sectionNow(s)) {
     const k = "xyz".indexOf(hit.id[5]!) as 0 | 1 | 2;
     const only = s.lockAxes.length === 1 && s.lockAxes[0] === k;
     return { ...base, lockAxes: only ? [] : [k], handleSel: hit.id, gizmoHover: hit.id };

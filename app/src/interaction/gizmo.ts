@@ -80,11 +80,8 @@ export function edgeDirection(scene: Scene, a: Vec3, b: Vec3, radial?: Vec3): Ve
 }
 
 /** The handles of the cross section plane (`in_392`, `in_394`): arrows along the axes move it, or rings about them turn it, as its chip says. */
-export function sectionGizmo(sec: { at: Vec3; n: Vec3; mode: "move" | "rotate" }, cam: Camera): Gizmo {
-  const L = cam.distance * settings.gizmo.sizeOfView;
-  return { centre: sec.at, handles: sec.mode === "move"
-    ? AXES.map((d, i): Handle => ({ id: `sec:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [sec.at, add(sec.at, scale(d, 2 * HALF * L))] }))
-    : AXES.map((d, i) => ring(`secr:${"xyz"[i]}`, sec.at, d, L * 0.8, i as 0 | 1 | 2)) };
+export function sectionGizmo(at: Vec3, cam: Camera): Gizmo {
+  return moverHandles("move", at, cam.distance * settings.gizmo.sizeOfView, false); // (the very mover a body has: the arrows, the rings and the sphere, `in_419`)
 }
 
 /**

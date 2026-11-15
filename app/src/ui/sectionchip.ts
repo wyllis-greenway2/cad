@@ -1,4 +1,4 @@
-// The chips on the cross section plane (`in_394`): which axis it is across (a click goes round X, Y, Z), which half is cut away (swap), and whether its handles move or turn it. They only show and report the click.
+// The chips on the cross section plane (`in_394`): which axis it is across (a click goes round X, Y, Z), and which half is cut away (swap). They only show and report the click.
 import { iconSvg } from "./icons.ts";
 
 export function createSectionChip(host: HTMLElement, run: (id: string) => void) {
@@ -17,24 +17,21 @@ export function createSectionChip(host: HTMLElement, run: (id: string) => void) 
   const axis = button("section:axis", "Which way the plane faces: X, Y or Z (tap to go round)");
   const side = button("section:side", "Swap which half is cut away");
   side.innerHTML = iconSvg("invert");
-  const mode = button("section:mode", "");
   let shown = "";
   return {
     /** The rect the chips fill (the bubbles keep off them), or null while hidden. */
     rect(): DOMRect | null { return el.style.display === "none" ? null : el.getBoundingClientRect(); },
     /** `at`: the page position of the plane's corner; null hides them. */
-    update(sec: { axis: string; mode: "move" | "rotate" } | null, at: [number, number] | null, avoid: DOMRect[] = []) {
+    update(sec: { axis: string } | null, at: [number, number] | null, avoid: DOMRect[] = []) {
       if (!sec || !at) { el.style.display = "none"; return; }
-      const sig = `${sec.axis}|${sec.mode}`;
+      const sig = sec.axis;
       if (sig !== shown) {
         shown = sig;
         axis.textContent = sec.axis;
-        mode.innerHTML = iconSvg(sec.mode === "move" ? "rotate" : "move");
-        mode.title = sec.mode === "move" ? "The handles move the plane: tap to turn it instead" : "The handles turn the plane: tap to move it instead";
       }
       el.style.display = "flex";
       // the first of a few places round the corner that no bubble covers (`in_395`)
-      const [w, h] = [108, 32];
+      const [w, h] = [72, 32];
       const spots: [number, number][] = [[8, 8], [8, -h - 8], [-w - 8, 8], [-w - 8, -h - 8], [8, h + 20], [-w - 8, h + 20], [8, -2 * h - 20]];
       const free = (o: [number, number]) => { const [x, y] = [at[0] + o[0], at[1] + o[1]]; return avoid.every((r) => x + w + 4 <= r.left || x >= r.right + 4 || y + h + 4 <= r.top || y >= r.bottom + 4); };
       const o = spots.find(free) ?? spots[0]!;

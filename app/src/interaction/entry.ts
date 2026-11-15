@@ -124,11 +124,12 @@ export function repeatEntries(op: Op, g: Gizmo | null, cam: Camera, chosen: stri
  * that axis since it began (`offset`: 0 to begin with, and on across drags until the move is put away), and a typed number is that position.
  */
 /** The numbers of the cross section plane (`in_395`): while its arrows move it, where it is along each axis, a bubble at each arrow; while its rings turn it, the angle its normal makes about each axis, a bubble at each ring. */
-export function sectionEntries(sec: { at: Vec3; n: Vec3; mode: "move" | "rotate" }, g: Gizmo | null): Entry[] {
-  if (!g) return [];
+export function sectionEntries(sec: { at: Vec3; n: Vec3 }, g: Gizmo | null, chosen: string | null): Entry[] {
+  if (!g || !chosen) return []; // (as for a body: the number of the arrow or ring that is taken, not of all of them, `in_419`)
   return ([0, 1, 2] as const).flatMap((k) => {
-    const moving = sec.mode === "move";
-    const h = g.handles.find((x) => x.id === `${moving ? "sec" : "secr"}:${"xyz"[k]}`);
+    const moving = chosen === `move:${"xyz"[k]}`;
+    if (!moving && chosen !== `rot:${"xyz"[k]}`) return [];
+    const h = g.handles.find((x) => x.id === chosen);
     if (!h) return [];
     const at = moving ? h.points.at(-1)! : h.points[Math.floor(h.points.length / 8)]!;
     return [{ fields: [{ label: moving ? `Where the plane is along ${"XYZ"[k]}` : `The angle of the plane about ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(moving ? sec.at[k]! : normalAngle(sec.n, k)), active: false, typed: false, index: moving ? k : 3 + k }], unit: moving ? "mm" : "°", at, ...(moving ? { from: g.centre } : {}) }];

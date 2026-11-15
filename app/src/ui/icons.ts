@@ -2,6 +2,10 @@
 const svg = (inner: string): string => `<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 
 const ICONS: Record<string, string> = {
+  // the Select menu's all faces / all edges / all vertices (`in_419`): the same block three ways, so what is chosen is what is picked out of it
+  selfaces: svg('<path d="M8 1.6l5.6 3.1v6.6L8 14.4l-5.6-3.1V4.7z" stroke-width="1.1"/><path d="M8 1.6l5.6 3.1L8 7.8 2.4 4.7z" fill="currentColor" fill-opacity=".5"/><path d="M2.4 4.7L8 7.8l5.6-3.1M8 7.8v6.6" stroke-width="1.1"/>'),
+  seledges: svg('<path d="M8 1.6l5.6 3.1v6.6L8 14.4l-5.6-3.1V4.7z" stroke-width="1.9"/><path d="M2.4 4.7L8 7.8l5.6-3.1M8 7.8v6.6" stroke-width="1.9"/>'),
+  selvertices: svg('<path d="M8 1.6l5.6 3.1v6.6L8 14.4l-5.6-3.1V4.7z" stroke-width=".9"/><path d="M2.4 4.7L8 7.8l5.6-3.1M8 7.8v6.6" stroke-width=".9"/><g fill="currentColor" stroke="none"><circle cx="8" cy="1.6" r="1.5"/><circle cx="13.6" cy="4.7" r="1.5"/><circle cx="13.6" cy="11.3" r="1.5"/><circle cx="8" cy="14.4" r="1.5"/><circle cx="2.4" cy="11.3" r="1.5"/><circle cx="2.4" cy="4.7" r="1.5"/><circle cx="8" cy="7.8" r="1.5"/></g>'),
   mate: svg('<rect x="1.8" y="5" width="7.2" height="6" rx="1.8"/><rect x="7" y="5" width="7.2" height="6" rx="1.8"/>'), // (two links: a mate, `in_316`)
   horizontal: svg('<path d="M2 8h12"/>'),
   vertical: svg('<path d="M8 2v12"/>'),
@@ -61,7 +65,7 @@ Object.assign(ICONS, {
   check: svg('<path d="M3 8.5l3.2 3.2L13 4.5"/>'),
   cross: svg('<path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>'),
   // the mates between faces and axes of two bodies (`in_338`): what each one does, drawn as the faces or axes it joins; not the measure stick
-  "mate:flush": svg('<rect x="3" y="2.2" width="10" height="5.3" rx=".8"/><rect x="3" y="8.5" width="10" height="5.3" rx=".8"/><path d="M1.4 8h13.2" stroke-width="2.2"/>'),
+  "mate:flush": svg('<rect x="3" y="2.2" width="10" height="5.3" rx=".8"/><rect x="3" y="8.5" width="10" height="5.3" rx=".8"/><path d="M1.4 8h13.2" stroke-width="1.9"/>'),
   "mate:coaxial": svg('<circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/>'),
   "mate:parallel": svg('<path d="M2.5 6.2l3.2-3h8l-3.2 3z"/><path d="M2.5 12.7l3.2-3h8l-3.2 3z"/>'),
   "mate:perpendicular": svg('<path d="M2.5 13.5h11l-2.4-3h-11z"/><path d="M2.5 13.5V2.5h3.2v8.2"/>'),

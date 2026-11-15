@@ -118,7 +118,7 @@ export interface Frame {
   /** the plane that is cutting the view (`in_416`) */
   section: { at: Vec3; n: Vec3; corners: Vec3[] } | null;
   /** the chips of the cross section plane that is selected */
-  sectionChip: { mode: "move" | "rotate"; corners: Vec3[]; axis: string } | null;
+  sectionChip: { corners: Vec3[]; axis: string } | null;
   /** the constraints that could be put on the selected parts, as buttons by them (`in_195`) */
   suggest: Suggestions | null;
   /** a little icon by the move arrows of a body (or a drawn figure) that switches to turning it, and by its rings one that switches back (`in_206`) */
@@ -330,7 +330,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     amber: [...new Set([...focusParts(sc, sel, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
     preview: withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
     entry: movingOp || (shownOp && !s.tool && hasGizmo(shownOp.kind) && !numberShown) ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
-    entries: sectionNow(s) && !s.op && !s.repeat && !s.tool && gizmo ? sectionEntries({ at: sectionNow(s)!.centre, n: sectionNow(s)!.n, mode: sectionNow(s)!.mode }, gizmo) : s.moverSphere && shownOp && (shownOp.kind === "move" || shownOp.kind === "rotate") && !s.repeat ? moverPlaceEntries(gizmo) : shownOp?.kind === "scale" && shownOp.axes ? scaleEntries(shownOp, gizmo) : s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
+    entries: sectionNow(s) && !s.op && !s.repeat && !s.tool && gizmo ? sectionEntries({ at: sectionNow(s)!.centre, n: sectionNow(s)!.n }, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : s.moverSphere && shownOp && (shownOp.kind === "move" || shownOp.kind === "rotate") && !s.repeat ? moverPlaceEntries(gizmo) : shownOp?.kind === "scale" && shownOp.axes ? scaleEntries(shownOp, gizmo) : s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
     helper: helperAt(s, gizmo),
     busy: !!s.session.outcome.kernel?.stale,
     lookHint: lookOf(sc, sel, s.cam, s.world).lookHint,
@@ -351,7 +351,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", trim: "Trim" } as const)[s.tool.kind], made: s.tool.made ?? 0, drawing: s.tool.points.length > 0, done: (s.tool.made ?? 0) > 0 && s.tool.points.length === 0 } : null,
     wireframe: s.wireframe || (s.op?.kind === "hollow" && !!s.drag && "handle" in s.drag), // (the body fades to wireframe while the wall is pulled, so the wall can be seen, `in_394`)
     section: cutNow(s) ? { at: cutNow(s)!.centre, n: cutNow(s)!.n, corners: sectionQuad(cutNow(s)!.centre, cutNow(s)!.n, cutNow(s)!.extent) } : null,
-    sectionChip: sectionNow(s) ? { mode: sectionNow(s)!.mode, corners: sectionQuad(sectionNow(s)!.centre, sectionNow(s)!.n, sectionNow(s)!.extent), axis: sectionAxis(sectionNow(s)!.n) === null ? "·" : "XYZ"[sectionAxis(sectionNow(s)!.n)!]! } : null,
+    sectionChip: sectionNow(s) ? { corners: sectionQuad(sectionNow(s)!.centre, sectionNow(s)!.n, sectionNow(s)!.extent), axis: sectionAxis(sectionNow(s)!.n) === null ? "·" : "XYZ"[sectionAxis(sectionNow(s)!.n)!]! } : null,
     sectionPlanes: Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }),
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),

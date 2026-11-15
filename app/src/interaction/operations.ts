@@ -87,6 +87,8 @@ export interface Op {
   openFaces?: string;
   /** a move or a turn: the axes of the mover when it has been turned (`in_417`): the arrows pull along them and the rings turn about them; absent for the world axes */
   frame?: [Vec3, Vec3, Vec3];
+  /** the turned axes put aside by a click on the sphere (back to true x, y, z): a second click brings them back, the sphere has not moved (`in_419`) */
+  frameKept?: [Vec3, Vec3, Vec3];
   /** hollow: the faces named are kept as the walls (the others open), or are the open ones, or nothing is open (`in_393`) */
   hollowMode?: "keep" | "open" | "closed";
   /** push / pull of a round face: the face (the radius changes by the distance) */
@@ -168,7 +170,24 @@ function drawnFigure(scene: Scene, parts: Part[]): Ref[] {
 /** Can this operation start from this selection? Returns the operation, or why not. */
 /** The axes the view is straight along and across (`viewAxes`): a body's move starts along the one across the screen, its turn and a circular repeat about the one at the eye, a linear repeat along the one across (`in_244`). */
 export interface ViewAxes { normal: 0 | 1 | 2; right: 0 | 1 | 2 }
+/** The mover's axes on a flat face or plane (`in_417`, `in_419`): Z is the face's outward normal, X and Y lie across it. Null for anything that is not one flat surface. */
+export function surfaceAxes(scene: Scene, part: Part | undefined): [Vec3, Vec3, Vec3] | null {
+  if (!part) return null;
+  const pl = part.kind === "face" && part.plane ? scene.parts[part.plane] : part;
+  if (!pl || pl.kind !== "plane" || pl.curved || pl.rounded || (pl.origin === "body" && !pl.mesh)) return null;
+  const n = normalOfPlane(pl);
+  const u = normalize(cross(Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], n));
+  return [u, cross(n, u), n];
+}
+/** The mover put on one flat face or plane has an arrow normal to it (`in_419`). */
 export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind, view: ViewAxes | null = null): StartResult {
+  const r = startOpMoved(scene, selection, kind, view);
+  if (!r.ok || (kind !== "move" && kind !== "rotate") || selection.length !== 1 || (r.op.target !== "body" && r.op.target !== "plane")) return r;
+  const f = surfaceAxes(scene, scene.parts[selection[0]!]);
+  if (f && f[2].filter((c) => Math.abs(c) > 1 - 1e-6).length === 1) return r; // (a face across a world axis: the arrows are already along it)
+  return f ? { ...r, op: { ...r.op, frame: f, axis: 2 } } : r;
+}
+function startOpMoved(scene: Scene, selection: readonly Ref[], kind: OpKind, view: ViewAxes | null = null): StartResult {
   const r = startOpBare(scene, selection, kind, view);
   if (!r.ok || r.op.kind !== "move" || (r.op.target !== "body" && r.op.target !== "plane")) return r;
   const from = moveCentre(scene, r.op);

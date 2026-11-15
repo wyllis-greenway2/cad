@@ -44,7 +44,6 @@ export interface AppState {
   /** wireframe view (`in_383`): the body's faces are not drawn, only its edges, so a sketch inside a body can be seen */
   wireframe: boolean;
   /** the handles of a cross section plane move it or turn it (`in_396`: the plane is a part, the cross section is on while it is selected) */
-  sectionMode: "move" | "rotate";
   /** the sphere at the junction of the mover is selected (`in_416`): its own arrows are up, and a vertex, edge or face chosen puts the mover there */
   moverSphere: boolean;
   /** where a drag of its handles has taken the plane so far; one step is made when it is let go */
@@ -95,7 +94,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, multiSelect: false, tape: false, wireframe: false, sectionMode: "move", moverSphere: false, sectionLive: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, multiSelect: false, tape: false, wireframe: false, moverSphere: false, sectionLive: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.

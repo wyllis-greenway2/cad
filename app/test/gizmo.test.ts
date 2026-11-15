@@ -1776,7 +1776,6 @@ test("the cross section is a plane put in the part: the menu inserts it through 
   const sec = sectionNow(st)!;
   assert.ok(sec, "it begins at once");
   assert.deepEqual(st.session.click.selection, [sec.ref], "the plane is the only thing selected: the object is not");
-  assert.equal(sec.mode, "move");
   near(sec.centre[0], 20, 1e-6); near(sec.centre[1], 10, 1e-6); near(sec.centre[2], 10, 1e-6);
   assert.ok(dot(sec.n, sub(position(st.cam), sec.centre)) > 0, "the cut half is the one nearer the camera");
   assert.equal(frame(st).section!.corners.length, 4);
@@ -1786,12 +1785,10 @@ test("the cross section is a plane put in the part: the menu inserts it through 
   assert.ok(dot(sectionNow(side)!.n, sec.n) < -0.99, "swap the side");
   const axis = reduce(st, { type: "runAction", id: "section:axis" }, env);
   assert.ok(Math.abs(dot(sectionNow(axis)!.n, sec.n)) < 0.01, "the axis goes round");
-  const turn = reduce(st, { type: "runAction", id: "section:mode" }, env);
-  assert.deepEqual(gizmoOf(turn)!.handles.map((h) => h.id), ["secr:x", "secr:y", "secr:z"]);
-  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["sec:x", "sec:y", "sec:z"], "arrows by default");
+  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["move:x", "move:y", "move:z", "rot:x", "rot:y", "rot:z", "pivot"], "the very mover a body has: arrows, rings and the sphere (`in_419`)");
   // an arrow along its own axis moves it, as one step
   const k = sec.n.findIndex((v) => Math.abs(v) > 0.5);
-  const [, tip] = gizmoOf(st)!.handles.find((h) => h.id === `sec:${"xyz"[k]}`)!.points;
+  const [, tip] = gizmoOf(st)!.handles.find((h) => h.id === `move:${"xyz"[k]}`)!.points;
   const dir = [0, 0, 0].map((_, i) => (i === k ? 10 : 0)) as unknown as Vec3;
   const moved = drag(st, tip!, add(tip!, dir), 6);
   assert.ok(Math.abs(sectionNow(moved)!.centre[k]! - sec.centre[k]!) > 4, `${sectionNow(moved)!.centre[k]}`);
@@ -1839,11 +1836,13 @@ test("what the cross section cuts away cannot be picked: a corner on the cut sid
 
 test("numbers typed for the cross section: where it is along each axis while the arrows move it, the angle about each axis while the rings turn it (`in_395`)", () => {
   let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
-  assert.equal(frame(st).entries.length, 3, "a bubble at each arrow");
+  assert.equal(frame(st).entries.length, 0, "no bubble until an arrow or ring is chosen, as for a body");
+  st = { ...st, handleSel: "move:y" };
+  assert.equal(frame(st).entries.length, 1, "only the chosen arrow's bubble");
   st = reduce(st, { type: "entry", field: 1, text: "12.5" }, env);
   near(sectionNow(st)!.centre[1], 12.5, 1e-6);
-  st = reduce(st, { type: "runAction", id: "section:mode" }, env);
-  assert.deepEqual(frame(st).entries.map((e) => e.fields[0]!.index), [3, 4, 5], "a bubble at each ring");
+  st = { ...st, handleSel: "rot:x" };
+  assert.deepEqual(frame(st).entries.map((e) => e.fields[0]!.index), [3], "only the chosen ring's bubble");
   const k = sectionNow(st)!.n.findIndex((v) => Math.abs(v) > 0.5);
   const other = (k + 1) % 3;
   st = reduce(st, { type: "entry", field: 3 + other, text: "30" }, env);
@@ -1959,9 +1958,18 @@ test("the mover can be turned: with the sphere selected a ring turns the mover's
   const f = st.op!.frame!;
   assert.ok(f, "the mover has its own axes now");
   near(Math.abs(f[0][1]), 1, 0.08); // (its X now lies along the world Y)
-  // let the sphere go: the arrows move the body, along the mover's axes
+  // the sphere clicked again goes back to true x, y, z, where it is; once more, to its turned axes (`in_419`)
+  const place = gizmoOf(st)!.centre;
   st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
+  assert.equal(st.moverSphere, true);
+  assert.equal(st.op!.frame, undefined, "true x, y, z");
+  nearV(gizmoOf(st)!.centre, place, 1e-9);
+  st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
+  assert.ok(st.op!.frame, "its turned axes again");
+  // let the sphere go (Esc): the arrows move the body, along the mover's axes
+  st = reduce(st, { type: "escape" }, env);
   assert.equal(st.moverSphere, false);
+  assert.ok(st.op, "the mover stays");
   const ax = gizmoOf(st)!.handles.find((h) => h.id === "move:x")!;
   const d = sub(ax.points[1]!, ax.points[0]!);
   near(Math.abs(d[1]) / Math.hypot(...d), 1, 0.08);
@@ -2048,4 +2056,32 @@ test("a drawn figure turned about a slanted axis of the mover ends where the exa
   const exact = before.map((p) => [m[0] * p[0] + m[1] * p[1] + m[2] * p[2], m[3] * p[0] + m[4] * p[1] + m[5] * p[2], m[6] * p[0] + m[7] * p[1] + m[8] * p[2]] as Vec3);
   const after = corners();
   for (const e of exact) assert.ok(after.some((a) => Math.hypot(a[0] - e[0], a[1] - e[1], a[2] - e[2]) < 1e-4), `a corner at ${e} in ${JSON.stringify(after)}`);
+});
+
+test("a cross section made with a flat face selected lies on that face, facing out of it (`in_419`)", () => {
+  let st = box(); // 40 x 20 x 20
+  const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.mesh && p.mesh.length >= 9 && Math.abs(normalOfPlane(p)[2]) > 0.99 && normalOfPlane(p)[2] > 0)!;
+  st = select(st, [top.ref]);
+  st = reduce(st, { type: "runAction", id: "view:section" }, env);
+  const sec = sectionNow(st)!;
+  assert.ok(sec, "the plane is made");
+  nearV(sec.n, [0, 0, 1], 1e-6);
+  near(sec.centre[2], 20, 1e-6);
+});
+
+test("the mover put on a slanted face has an arrow normal to it; on a face across a world axis it keeps true x, y, z (`in_419`)", () => {
+  let st = box();
+  const faces = Object.values(scene(st.session).parts).filter((p) => p.kind === "plane" && p.origin === "body" && p.mesh);
+  const flat = faces.find((p) => p.kind === "plane" && Math.abs(normalOfPlane(p)[2]) > 0.99)!;
+  st = select(st, [flat.ref]);
+  st = reduce(st, { type: "begin", name: "move" }, env);
+  assert.equal(st.op!.frame, undefined, "across a world axis: true x, y, z");
+  const r = startOp(scene(st.session), [flat.ref], "move");
+  assert.ok(r.ok);
+  const slanted = { ...flat, u: [1, 0, 0], v: [0, Math.SQRT1_2, Math.SQRT1_2] } as typeof flat; // (a face that is across none of the axes)
+  const sc2 = { ...scene(st.session), parts: { ...scene(st.session).parts, [flat.ref]: slanted } };
+  const r2 = startOp(sc2, [flat.ref], "move");
+  assert.ok(r2.ok && r2.op.frame, "a slanted face: the mover is turned to it");
+  const n = normalOfPlane(slanted as Parameters<typeof normalOfPlane>[0]);
+  nearV(r2.op.frame![2], n, 1e-6);
 });

@@ -2,7 +2,7 @@
 // camera not drawn so the inside shows; chips on the plane swap which axis it is across, which half is cut away, and whether its handles move it (arrows along x, y, z) or turn it (rings about x, y, z).
 // Pure state changes on the app state; the picture (the clipping, the solid cut face with its hatching) is the view's.
 import type { Vec3 } from "../../math/vec.ts";
-import { add, sub, scale, dot, cross, normalize } from "../../math/vec.ts";
+import { add, sub, scale, dot, cross, normalize, centroid } from "../../math/vec.ts";
 import { about } from "../../math/rotation.ts";
 import type { Scene } from "../../operation/scene.ts";
 import type { Ref } from "../../shared/ref.ts";
@@ -11,6 +11,7 @@ import { nextId } from "../../operation/scene.ts";
 import { basis, position } from "../camera.ts";
 import { scene as sceneOf, selection as selectionOf, run } from "../session.ts";
 import type { AppState } from "./state.ts";
+import { surfaceAxes } from "../operations.ts";
 
 const AXES: Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 
@@ -38,13 +39,13 @@ function planeFrom(centre: Vec3, n: Vec3, extent: number): { at: Vec3; u: Vec3; 
 }
 
 /** The cross section that is on (`in_396`): the plane part that is selected, with where its middle is, its normal and the sizes the handles work with; while its handles are dragged, the place the drag has taken it to. Null when no such plane is selected: it is then only a plane inserted in the part. */
-export function sectionNow(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent: number; mode: "move" | "rotate" } | null {
+export function sectionNow(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent: number } | null {
   const sc = sceneOf(s.session);
   const ref = selectionOf(s.session).find((r) => { const p = sc.parts[r]; return p?.kind === "plane" && !!p.section; });
   const p = ref ? sc.parts[ref] : undefined;
   if (!ref || p?.kind !== "plane" || !p.section || p.extent === undefined) return null;
   const live = s.sectionLive && s.sectionLive.ref === ref ? s.sectionLive : null;
-  return { ref, centre: live ? live.centre : (add(p.at, scale(add(p.u, p.v), p.extent / 2)) as Vec3), n: live ? live.n : normalize(cross(p.u, p.v)), extent: p.extent, mode: s.sectionMode };
+  return { ref, centre: live ? live.centre : (add(p.at, scale(add(p.u, p.v), p.extent / 2)) as Vec3), n: live ? live.n : normalize(cross(p.u, p.v)), extent: p.extent };
 }
 
 /** The cross section that is cutting the view (`in_416`): the plane whose cut is on, selected or not; where its middle is and its normal (the place a drag has taken it to while its handles are dragged). */
@@ -73,15 +74,25 @@ export function doSectionToggle(s: AppState): AppState {
   const sc = sceneOf(s.session);
   const b = modelBox(sc);
   if (!b) return { ...s, menu: null, session: { ...s.session, message: "make a body first: there is nothing to slice" } };
-  const centre = scale(add(b.lo, b.hi), 0.5) as Vec3;
+  let centre = scale(add(b.lo, b.hi), 0.5) as Vec3;
   const f = basis(s.cam).forward;
   const k = [0, 1, 2].reduce((m, i) => (Math.abs(f[i]!) > Math.abs(f[m]!) ? i : m), 0);
   const toward = dot(AXES[k]!, sub(position(s.cam), centre)) >= 0 ? 1 : -1; // (the normal points at the camera: that half is the one cut away)
+  let normal = scale(AXES[k]!, toward) as Vec3;
+  // a flat surface selected: the plane lies on it, facing out of it (`in_419`), so moving it in cuts a slice off that side
+  const picked = selectionOf(s.session).length === 1 ? sc.parts[selectionOf(s.session)[0]!] : undefined;
+  const axes = surfaceAxes(sc, picked);
+  const surface = picked?.kind === "face" && picked.plane ? sc.parts[picked.plane] : picked;
+  if (axes && surface?.kind === "plane") {
+    normal = axes[2];
+    const m = surface.mesh;
+    centre = m && m.length >= 9 ? (centroid(Array.from({ length: Math.floor(m.length / 3) }, (_, i) => [m[3 * i]!, m[3 * i + 1]!, m[3 * i + 2]!] as Vec3)) as Vec3) : (sub(centre, scale(normal, dot(normal, sub(centre, surface.at)))) as Vec3);
+  }
   const extent = Math.max(...[0, 1, 2].map((i) => b.hi[i]! - b.lo[i]!)) * 1.5 || 30;
   const ref = drawnRef(nextId(sc, "p"));
-  const g = planeFrom(centre, scale(AXES[k]!, toward) as Vec3, extent);
+  const g = planeFrom(centre, normal, extent);
   const session = run(s.session, { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: true, section: true, cut: true, extent, ...g } });
-  return select({ ...s, menu: null, sectionMode: "move", sectionLive: null, session: { ...session, message: "sliced: the half nearer you is not drawn (nothing is cut); the chips on the plane change its axis, its side and its handles; deselect it and it stays as a plane in the part" } }, [ref]);
+  return select({ ...s, menu: null, sectionLive: null, session: { ...session, message: "sliced: the half nearer you is not drawn (nothing is cut); the chips on the plane change its axis, its side and its handles; deselect it and it stays as a plane in the part" } }, [ref]);
 }
 
 /** The plane put at a new middle and normal: one step. */
@@ -92,11 +103,10 @@ export function placeSection(s: AppState, centre: Vec3, n: Vec3): AppState {
   return { ...s, sectionLive: null, session: run(s.session, { type: "placePlane", ref: now.ref, ...g }) };
 }
 
-/** A chip of the plane: the axis it is across goes round X, Y, Z (the side cut away stays the one nearer the camera); the side cut away swaps; the handles go between moving and turning. */
-export function doSectionChip(s: AppState, what: "axis" | "side" | "mode"): AppState {
+/** A chip of the plane: the axis it is across goes round X, Y, Z (the side cut away stays the one nearer the camera); the side cut away swaps. */
+export function doSectionChip(s: AppState, what: "axis" | "side"): AppState {
   const sec = sectionNow(s);
   if (!sec) return s;
-  if (what === "mode") return { ...s, sectionMode: sec.mode === "move" ? "rotate" : "move" };
   if (what === "side") return placeSection(s, sec.centre, scale(sec.n, -1) as Vec3);
   const k = ((sectionAxis(sec.n) ?? 2) + 1) % 3;
   const toward = dot(AXES[k]!, sub(position(s.cam), sec.centre)) >= 0 ? 1 : -1;
@@ -109,10 +119,10 @@ export function sectionQuad(centre: Vec3, n: Vec3, extent: number): Vec3[] {
   return [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(g.at, scale(g.u, a! * extent)), scale(g.v, k! * extent)) as Vec3);
 }
 
-/** The plane a drag of one of its handles makes (`sec:x` an arrow along x, `secr:x` a ring about x), from the plane as it was and the drag's value. */
+/** The plane a drag of one of its handles makes (`move:x` the mover's arrow along x, `rot:x` its ring about x, the very handles of a body's mover, `in_419`), from the plane as it was and the drag's value. */
 export function draggedSection(from: { at: Vec3; n: Vec3 }, id: string, value: number): { at: Vec3; n: Vec3 } {
   const k = "xyz".indexOf(id[id.indexOf(":") + 1]!) as 0 | 1 | 2;
-  if (id.startsWith("secr:")) {
+  if (id.startsWith("rot:")) {
     const m = about(k, value);
     const n: Vec3 = [m[0] * from.n[0] + m[1] * from.n[1] + m[2] * from.n[2], m[3] * from.n[0] + m[4] * from.n[1] + m[5] * from.n[2], m[6] * from.n[0] + m[7] * from.n[1] + m[8] * from.n[2]];
     return { at: from.at, n: normalize(n) };
