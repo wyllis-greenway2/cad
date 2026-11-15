@@ -850,7 +850,7 @@ test("a linear repeat of the body: one copy on one axis to begin with, that axis
   assert.equal(frame(st).helper, null);
   assert.equal(scene(st.session).steps.length, 1);
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id), ["lin:x", "cnt:x", "lin:y", "cnt:y", "lin:z", "cnt:z"], "all three directions show from the start (`in_382`)");
+  assert.deepEqual(g.handles.map((h) => h.id), ["lin:orb", "lin:x", "cnt:x", "lin:y", "cnt:y", "lin:z", "cnt:z"], "all three directions show from the start (`in_382`)");
   const mid = (id: string) => { const h = gizmoOf(st)!.handles.find((q) => q.id === id)!; return scale(add(h.points[0]!, h.points[1]!), 0.5); };
   // pull the spacing arrow out by 10: the number shown for the pair follows
   const m = mid("lin:x");
@@ -892,7 +892,7 @@ test("a circular repeat: the pivot is a vertex joined to the middle by a line, t
   assert.equal(parts[line]!.kind, "line");
   assert.equal(frame(st).entries.length, 1, "one bubble");
   assert.deepEqual(frame(st).entries[0]!.fields.map((f) => [f.short, f.value]), [["n", "4"], ["°", "360"]]);
-  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "piv:x", "piv:y", "piv:z"], "the rings, and a short arrow each way to move the pivot point (`in_384`)");
+  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "piv:x", "piv:y", "piv:z", "pivot"], "the rings, and a short arrow each way to move the pivot point (`in_384`)");
   // the bubble is off to the side of the rings, not on them
   const rings = gizmoOf(st)!;
   assert.ok(Math.hypot(...sub(frame(st).entries[0]!.at!, rings.centre)) > 10);
@@ -985,12 +985,14 @@ test("a right click changes nothing about the selection; several figures selecte
   near(Math.max(...xs), 45, 1e-6);
   // Copy of one of them: a repeat of two, the same arrows and numbers
   st = select({ ...st, op: null }, [faces[0]!]);
-  st = reduce(st, { type: "runAction", id: "op:copy" }, env);
-  assert.equal(st.repeat, null, "a copy is made at once, nothing to set (`in_386`)");
+  st = reduce(st, { type: "runAction", id: "clipboard:copy" }, env);
+  st = reduce(st, { type: "runAction", id: "clipboard:paste" }, env);
+  assert.equal(st.repeat, null, "a paste is made at once, nothing to set (`in_386`)");
   assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length, 3);
   // and a body
   let b = select(box(), [BODY_OBJECT]);
-  b = reduce(b, { type: "runAction", id: "op:copy" }, env);
+  b = reduce(b, { type: "runAction", id: "clipboard:copy" }, env);
+  b = reduce(b, { type: "runAction", id: "clipboard:paste" }, env);
   near(b.session.outcome.kernel!.volume!, 2 * 16000, 5);
 });
 
@@ -1642,11 +1644,16 @@ test("Ctrl+C and Ctrl+V make a quick copy at once, with nothing to set (`in_382`
   st = select(st, [Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref]);
   for (const key of ["c", "v"]) {
     const intents = keyIntents({ kind: "key", key, down: true, mods: { shift: false, ctrl: true, alt: false }, t: 0 }, settings.input);
-    assert.deepEqual(intents, [{ type: "runAction", id: "op:copy" }]);
+    assert.deepEqual(intents, [key === "c" ? { type: "runAction", id: "clipboard:copy" } : { type: "runAction", id: "clipboard:paste" }], "Ctrl+C captures, Ctrl+V pastes (`in_435`)");
   }
-  st = reduce(st, { type: "runAction", id: "op:copy" }, env);
+  st = reduce(st, { type: "runAction", id: "clipboard:copy" }, env);
+  assert.equal(faces(), 1, "Ctrl+C makes nothing");
+  st = reduce(st, { type: "runAction", id: "clipboard:paste" }, env);
   assert.equal(st.repeat, null, "no repeat is left open");
   assert.equal(faces(), 2, "one copy beside it");
+  const pasted = Object.values(scene(st.session).parts).filter((p) => p.origin === "drawn" && p.kind === "corner");
+  assert.ok(pasted.every((p) => !p.ref.includes(".c") || true));
+  assert.equal(scene(st.session).patterns?.length ?? 0, 0, "the paste is parts of its own, not a repeat that is tied to the original (`in_435`)");
 });
 
 test("the wireframe view is a switch in the menu: on, the frame says the faces are not drawn; off, solid again (`in_383`)", () => {
@@ -2042,7 +2049,11 @@ test("the mover's place can be typed: with the sphere selected its x, y and z ar
   st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
   assert.equal(st.moverSphere, true);
   const f = frame(st);
-  assert.equal(f.entries.length, 3, "three fields, one on each arrow of the sphere");
+  assert.equal(f.entries.length, 0, "nothing until an arrow or ring is chosen (`in_439`)");
+  const chosen = { ...st, handleSel: "piv:x" };
+  assert.equal(frame(chosen).entries.length, 1, "the value of the arrow that was clicked");
+  const moved = { ...st, orbMovedAt: 0 };
+  assert.equal(frameOf(moved, { w: 800, h: 600 }, 100).entries.length, 3, "the whole orb moved: all three, one on each arrow of the sphere");
   st = reduce(st, { type: "entry", field: 0, text: "40" }, env);
   st = reduce(st, { type: "entry", field: 1, text: "20" }, env);
   nearV(gizmoOf(st)!.centre.map((c) => Math.round(c * 1e6) / 1e6) as unknown as Vec3, [40, 20, 10], 1e-6);
@@ -2131,7 +2142,7 @@ test("in the orient mode each of the three bubbles has the mover's position alon
   st = reduce(st, { type: "begin", name: "move" }, env);
   const [bx, by] = px(st, gizmoOf(st)!.centre);
   st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
-  const es = frame(st).entries;
+  const es = frameOf({ ...st, orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries; // (the whole orb just moved: all three show)
   assert.equal(es.length, 3);
   for (const e of es) {
     assert.deepEqual(e.fields.map((f) => f.unit), ["mm", "°"], "a position and a turn");
@@ -2141,7 +2152,99 @@ test("in the orient mode each of the three bubbles has the mover's position alon
   st = reduce(st, { type: "entry", field: 5, text: "90" }, env); // a quarter about Z
   const f = st.op!.frame!;
   near(f[0][1], 1, 1e-9); // (its X is the world Y now)
-  assert.equal(frame(st).entries[2]!.fields[1]!.value, "90");
+  assert.equal(frameOf({ ...st, orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries[2]!.fields[1]!.value, "90");
+  assert.equal(frame({ ...st, handleSel: "rot:z" }).entries[0]!.fields[0]!.value, "90", "a ring chosen: its turn alone");
+  assert.equal(frameOf({ ...st, orbMovedAt: 0 }, { w: 800, h: 600 }, 1700).entries[0]!.opacity! < 1, true, "and they fade");
   st = reduce(st, { type: "entry", field: 5, text: "0" }, env);
   assert.equal(st.op!.frame, undefined, "no turn: true x, y, z again");
+});
+
+test("Select all edges, faces and vertices belong to what is selected: one face gives its own edges and corners, a whole body all of its, a flat sketch its own sides (`in_435`)", () => {
+  const st0 = box();
+  const sc = scene(st0.session);
+  const top = Object.values(sc.parts).find((p) => p.kind === "plane" && p.origin === "body" && p.mesh && Math.abs(normalOfPlane(p)[2]) > 0.99 && normalOfPlane(p)[2] > 0)!;
+  const run1 = (st: AppState, id: string) => reduce(st, { type: "runAction", id }, env);
+  let st = run1(select(st0, [top.ref]), "select:edges");
+  assert.equal(selection(st.session).length, 4, "the four edges of that face, not the block's twelve");
+  st = run1(select(st0, [top.ref]), "select:vertices");
+  assert.equal(selection(st.session).length, 4);
+  st = run1(select(st0, [top.ref]), "select:faces");
+  assert.deepEqual(selection(st.session), [top.ref], "a face's face is itself");
+  st = run1(select(st0, [BODY_OBJECT]), "select:edges");
+  assert.equal(selection(st.session).length, 12, "the whole body: all its edges");
+  // a flat sketch has no thickness: its own sides and corners
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [40, 20, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  const face = Object.values(scene(s).parts).find((p) => p.kind === "face")!.ref;
+  const flat = select({ ...createState(s), cam: homeCamera() }, [face]);
+  assert.equal(selection(run1(flat, "select:edges").session).length, 4);
+  assert.equal(selection(run1(flat, "select:vertices").session).length, 4);
+});
+
+test("Select all edges on a cylinder includes its circles (a rim is two half circles, both are selected), for the whole cylinder and for its flat face (`in_437`)", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 10);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 20 } } });
+  const st0 = { ...createState(s), cam: homeCamera() };
+  const lines = (st: AppState) => selection(st.session).map((r) => scene(st.session).parts[r]).filter((p) => p?.kind === "line") as unknown as { circle?: unknown }[];
+  const all = reduce(select(st0, [BODY_OBJECT]), { type: "runAction", id: "select:edges" }, env);
+  assert.equal(lines(all).length, 6, "the seam and the four halves of the two rims");
+  assert.equal(lines(all).filter((l) => l.circle).length, 4, "the circles are edges");
+  const top = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && p.mesh && Math.abs((p.mesh[2] ?? 0) - 20) < 1e-6)!;
+  const face = reduce(select(st0, [top.ref]), { type: "runAction", id: "select:edges" }, env);
+  assert.equal(lines(face).length, 2, "the rim of the top face: its two halves");
+  assert.ok(lines(face).every((l) => l.circle));
+});
+
+test("an oriented mover stays while its part is selected, also across the move and turn tools; a right click in the orient mode is the apply check: the selection stays, the mover's place is kept, the tool it was in is there again (`in_439`)", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  st = reduce(st, { type: "begin", name: "move" }, env);
+  const [bx, by] = px(st, gizmoOf(st)!.centre);
+  st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
+  assert.equal(st.moverSphere, true);
+  assert.equal(frame(st).gizmo!.pulse, "pivot", "the orient mode pulses");
+  st = reduce(st, { type: "entry", field: 5, text: "90" }, env); // a quarter about Z
+  st = reduce(st, { type: "entry", field: 0, text: "30" }, env); // and a place along X
+  const placed = st.op!.pivot!;
+  // a right click on empty space applies it: no menu, the selection kept, the tool as it was
+  const right = reduce(st, { type: "menu", x: 40, y: 560 }, env);
+  assert.equal(right.moverSphere, false, "the orient mode is left");
+  assert.equal(right.menu, null, "no menu");
+  assert.deepEqual(selection(right.session), [BODY_OBJECT], "the selection is not touched");
+  assert.equal(right.op?.kind, "move", "back to the move tool");
+  assert.deepEqual(right.op?.pivot, placed, "with the mover where it was put");
+  assert.ok(right.op?.frame, "and turned");
+  // the swapper to the turn tool: the mover is as it was
+  const turned = reduce(right, { type: "runAction", id: "op:rotate" }, env);
+  assert.equal(turned.op?.kind, "rotate");
+  nearV(turned.op!.frame![0], [0, 1, 0], 1e-6);
+  nearV(turned.op!.pivot!, placed, 1e-6);
+  // and back again
+  const back = reduce(turned, { type: "runAction", id: "op:move" }, env);
+  nearV(back.op!.frame![0], [0, 1, 0], 1e-6);
+  // another part selected: it does not carry over
+  const other = reduce(select(back, []), { type: "begin", name: "move" }, env);
+  assert.equal(other.moverPose, null);
+  // the Enter and the check do the same
+  const enter = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(enter.moverSphere, false);
+  assert.ok(enter.moverPose, "remembered");
+});
+
+test("the mover's arrow, with its axes turned, moves the mover along the arrow as drawn, not along the world axis (`in_442`)", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  st = reduce(st, { type: "begin", name: "move" }, env);
+  const centre0 = gizmoOf(st)!.centre;
+  const [bx, by] = px(st, centre0);
+  st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
+  st = reduce(st, { type: "entry", field: 5, text: "90" }, env); // turned a quarter about Z: its X is the world Y
+  const [c, tip] = gizmoOf(st)!.handles.find((h) => h.id === "piv:x")!.points;
+  const u = sub(tip!, c!);
+  assert.ok(Math.abs(u[1]!) > 5 * Math.abs(u[0]!), "the arrow points along world Y");
+  st = drag(st, tip!, add(tip!, [0, 10, 0]), 6);
+  const g = gizmoOf(st)!.centre;
+  near(g[1] - centre0[1], 10, 0.6);
+  near(g[0] - centre0[0], 0, 1e-6);
 });

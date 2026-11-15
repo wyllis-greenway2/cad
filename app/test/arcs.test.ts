@@ -102,8 +102,10 @@ test("an open line or an arc can be copied, moved and repeated too (not only clo
   let st = { ...createState(a.s), cam: homeCamera() };
   const env = { w: 800, h: 600, now: 0 };
   st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [a.line] } } };
-  st = reduce(st, { type: "runAction", id: "op:copy" }, env);
-  assert.equal(st.repeat, null, "a copy is made at once (`in_386`)");
+  st = reduce(st, { type: "runAction", id: "clipboard:copy" }, env);
+  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && (p as { center?: Ref }).center).length, 1, "Ctrl+C makes nothing (`in_435`)");
+  st = reduce(st, { type: "runAction", id: "clipboard:paste" }, env);
+  assert.equal(st.repeat, null, "a paste is made at once (`in_386`)");
   assert.equal(st.session.message, null);
   const arcs = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && (p as { center?: Ref }).center);
   assert.equal(arcs.length, 2, "the arc and its copy, each with a centre of its own");

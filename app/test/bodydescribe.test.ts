@@ -1,4 +1,4 @@
-// Each body is described on its own and the descriptions are joined (`in_439`): the faces' triangle ranges and the triangles' vertex numbers stay right when there are several bodies, and a body that did not change
+// Each body is described on its own and the descriptions are joined (`in_446`): the faces' triangle ranges and the triangles' vertex numbers stay right when there are several bodies, and a body that did not change
 // is the same whatever happens to the others.
 import test from "node:test";
 import assert from "node:assert/strict";

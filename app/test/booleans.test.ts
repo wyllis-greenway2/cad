@@ -1,4 +1,4 @@
-// The library's booleans are made once (`in_443`): the same result as the library's own way (build with the two shapes, then build again), for fuse, cut and intersect, with and without the glue.
+// The library's booleans are made once (`in_450`): the same result as the library's own way (build with the two shapes, then build again), for fuse, cut and intersect, with and without the glue.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { makeBox, makeCylinder, measureVolume, getOC, cast } from "replicad";

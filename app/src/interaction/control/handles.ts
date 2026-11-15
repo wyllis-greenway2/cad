@@ -2,7 +2,7 @@
 // works the handle and does not turn the camera; letting go does it (one step, one undo) and leaves the operation open for another drag. Esc or Enter ends it.
 import type { Intent } from "../../shared/input.ts";
 import type { Vec3 } from "../../math/vec.ts";
-import { sub, add } from "../../math/vec.ts";
+import { sub, add, scale, normalize } from "../../math/vec.ts";
 import { aboutDir } from "../../math/rotation.ts";
 import { scene as sceneOf, selection as selectionOf, run, undoLast } from "../session.ts";
 import type { Session } from "../session.ts";
@@ -22,6 +22,7 @@ import { objectOf, bodyCentre } from "../objects.ts";
 import { runOp } from "../runop.ts";
 import { sectionGizmo } from "../gizmo.ts";
 import { draggedSection, sectionNow, placeSection } from "./section.ts";
+import { withPose, hasOrb, moverOp, putMover } from "./pose.ts";
 import { patternBase, dragPattern, liveRepeat, advanceHelp } from "../pattern.ts";
 import type { Op } from "../operations.ts";
 import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed, jointHandles, moveOffset } from "../gizmo.ts";
@@ -40,7 +41,7 @@ import { pickOpts } from "./state.ts";
 export function activeOp(s: AppState): Op | null {
   if (s.op) return hasGizmo(s.op.kind) ? s.op : null;
   if (s.repeat) return liveRepeat(sceneOf(s.session), s.repeat); // a repeat being set up shows its handles until another operation is started
-  return autoOp(sceneOf(s.session), selectionOf(s.session));
+  return withPose(s, autoOp(sceneOf(s.session), selectionOf(s.session))); // (an oriented mover stays as oriented while the part is selected, `in_439`)
 }
 
 /** The handles to show and work, or null. */
@@ -51,7 +52,7 @@ export function gizmoOf(s: AppState): Gizmo | null {
   if (sec && !s.op && !s.repeat && !op) return sectionGizmo(sec.centre, s.cam); // (the cross section's own arrows and rings, `in_392`)
   // looking straight at a plane (orthographic) the push / pull arrow points at you: it goes away (`in_137`)
   if (op && s.cam.straight && (op.kind === "pushpull" || op.kind === "extrude")) return null;
-  const g0 = op ? gizmoFor(sceneOf(s.session), op, s.cam, s.moverSphere && (op.kind === "move" || op.kind === "rotate")) : null; // (the sphere selected: its own arrows are there, `in_416`)
+  const g0 = op ? gizmoFor(sceneOf(s.session), op, s.cam, s.moverSphere && hasOrb(op.kind)) : null; // (the sphere selected: its own arrows are there, `in_416`)
   const g = g0; // (a linear repeat shows all three arrows from the start, `in_382`; the helper bubbles only point at one)
   // the arrow of a push / pull or an extrude stands where the face is now: out by the value so far (it stays there when you let go, until the operation ends)
   const shown = g && op && op.normal && (op.kind === "pushpull" || op.kind === "extrude" || op.kind === "offset" || op.kind === "hollow") ? followed(g, { dir: op.normal, kind: "double", id: "pull" }, op.value) : g;
@@ -78,6 +79,14 @@ export function movePivot(s: AppState, k: number, value: number): AppState {
   return next.message ? s : { ...s, session: next };
 }
 
+/** The pivot point of a circular repeat put at this place (one change of the point: the copies turn about it): its vertex in the scene is the truth (`in_384`, `in_440`). */
+export function movePivotTo(s: AppState, to: Vec3): AppState {
+  const p = s.repeat?.pivot ? sceneOf(s.session).parts[s.repeat.pivot.point] : undefined;
+  if (!s.repeat?.pivot || p?.kind !== "corner") return s;
+  const next = run(s.session, { type: "movePart", ref: s.repeat.pivot.point, to });
+  return next.message ? s : { ...s, session: next };
+}
+
 /** The handle already chosen: the ring of the axis a turn is set up about, else the arrow that was selected. */
 export const chosenId = (s: AppState): string | undefined => (s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.handleSel ?? undefined);
 
@@ -93,7 +102,8 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const h = hitHandle(g, pr.project, i.x - i.dx, i.y - i.dy, undefined, chosenId(s));
     const d0 = h ? startDrag(g, h, pr.ray(i.x - i.dx, i.y - i.dy), s.cam) : null;
     const d = d0 && h ? withScreen(d0, h, pr, i.x - i.dx, i.y - i.dy, env.h) : d0;
-    if (!d) return orbitOrCorner(s, i, env); // not on a handle: this drag turns the camera (or drags a corner of a drawing)
+    if (!d || h!.id === "rev:orb" || h!.id === "mir:orb" || h!.id === "lin:orb") return orbitOrCorner(s, i, env);
+    if (h!.id.startsWith("mir:") && s.op?.kind === "mirror" && s.op.mirrorAt) { const k = d.axis as 0 | 1 | 2; return { ...s, handleSel: h!.id, op: { ...s.op, auto: false, mirrorAxis: k }, drag: { handle: d, base: 0, mir: { k, from: s.op.mirrorAt[k]! } }, gizmoHover: h!.id }; } // (an arrow of the mirror: it chooses the plane across its axis and moves it, `in_437`) // not on a handle (the revolve's orb is only moved by clicking a line): this drag turns the camera (or drags a corner of a drawing)
     if (!s.op && !s.repeat && sectionNow(s) && !activeOp(s)) { if (h!.id === "pivot") return orbitOrCorner(s, i, env);  const sec = sectionNow(s)!; return { ...s, handleSel: h!.id, drag: { handle: d, base: 0, section: { ref: sec.ref, centre: sec.centre, n: sec.n } }, gizmoHover: h!.id }; } // (a handle of the cross section plane, `in_392`)
     if (h!.id.startsWith("joint:")) { // the ring or the arrow of a joint: the amount is the drag; the step is made when it is let go (`in_323`)
       const body = selectionOf(s.session)[0];
@@ -102,38 +112,44 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
       return { ...s, handleSel: h!.id, drag: { handle: d, base: 0, joint: { mate: j.mate, kind: h!.id === "joint:turn" ? "turn" : "slide", amount: 0 } }, gizmoHover: h!.id };
     }
     // an operation whose arrow showed up by itself stays up after the drag (like one you started): push / pull, extrude, fillet / chamfer go on until you click away; a body's move arrows end with the drag
+    if (s.moverSphere && (h!.id.startsWith("rot:") || h!.id.startsWith("piv:")) && moverOp(s)) { // an arrow or ring of the selected sphere: it puts or turns the mover itself, not what it works on (`in_416`, `in_417`, `in_440`)
+      const started = moverOp(s)!;
+      if (h!.id.startsWith("rot:")) return { ...putMover(s, { ...started, auto: false, axis: d.axis ?? started.axis }), drag: { handle: d, base: 0, frameTurn: started.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]] }, gizmoHover: h!.id };
+      const g0 = gizmoOf(s);
+      if (g0) return { ...putMover(s, { ...started, auto: false }), drag: { handle: d, base: 0, piv: { centre: g0.centre, offset: started.kind === "move" ? moveOffset(sceneOf(s.session), started) : [0, 0, 0] } }, gizmoHover: h!.id };
+    }
     if (!s.op && s.repeat) {
       // a handle of the repeat being set up: it sets the repeat's numbers, nothing is made by the drag
       return { ...s, handleSel: h!.id, repeat: { ...s.repeat, chosen: h!.id }, drag: { handle: d, base: patternBase(liveRepeat(sceneOf(s.session), s.repeat), h!.id), repeat: true }, gizmoHover: h!.id };
-    }
-    if (h!.id.startsWith("rot:") && s.moverSphere) { // a ring of the selected sphere: it turns the mover's own axes, not the body (`in_417`)
-      const started = s.op ?? activeOp(s)!;
-      if (started.kind === "move" || started.kind === "rotate") return { ...s, op: { ...started, auto: false, axis: d.axis ?? started.axis }, drag: { handle: d, base: 0, frameTurn: started.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]] }, gizmoHover: h!.id };
-    }
-    if (h!.id.startsWith("piv:") && s.moverSphere) { // an arrow of the selected sphere: it moves the mover, not the body (`in_416`)
-      const started = s.op ?? activeOp(s)!;
-      const g0 = gizmoOf(s);
-      if ((started.kind === "move" || started.kind === "rotate") && g0) return { ...s, op: { ...started, auto: false }, drag: { handle: d, base: 0, piv: { centre: g0.centre, offset: started.kind === "move" ? moveOffset(sceneOf(s.session), started) : [0, 0, 0] } }, gizmoHover: h!.id };
     }
     const started = s.op ?? activeOp(s)!;
     const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" || started.kind === "revolve" ? { ...started, auto: false } : started;
     const base = op.kind === "revolve" ? (h!.id === "rev:adv" ? advanceOf(op) : valueOf(op) ?? 0) : isLive(op) ? op.value ?? 0 : 0; // (a revolve has two numbers: the angle of its ring and the advance of its arrow)
     s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base, ...(h!.id === "rev:turn" ? { turned: { last: 0, total: 0 } } : {}) }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
   }
-  if ("handle" in s.drag! && s.drag.frameTurn && s.op) {
+  if ("handle" in s.drag! && s.drag.frameTurn && moverOp(s)) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
     if (!r || !("value" in r)) return s;
     const base = s.drag.frameTurn;
     const m = aboutDir(base[s.drag.handle.axis as 0 | 1 | 2], r.value);
     const turn = (v: Vec3): Vec3 => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2], m[6] * v[0] + m[7] * v[1] + m[8] * v[2]];
-    return { ...s, op: { ...s.op, frame: [turn(base[0]), turn(base[1]), turn(base[2])] } };
+    return putMover(s, { ...moverOp(s)!, frame: [turn(base[0]), turn(base[1]), turn(base[2])] });
   }
-  if ("handle" in s.drag! && s.drag.piv && s.op) {
+  if ("handle" in s.drag! && s.drag.mir && s.op?.mirrorAt) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
     if (!r || !("value" in r)) return s;
-    const k = s.drag.handle.axis as 0 | 1 | 2;
-    const centre = s.drag.piv.centre.map((c, j) => (j === k ? c + r.value : c)) as unknown as Vec3;
-    return { ...s, op: { ...s.op, pivot: sub(centre, s.drag.piv.offset) } };
+    const at = [...s.op.mirrorAt] as unknown as [number, number, number];
+    at[s.drag.mir.k] = Math.round((s.drag.mir.from + r.value) * 1e3) / 1e3;
+    return { ...s, op: { ...s.op, mirrorAt: at } };
+  }
+  if ("handle" in s.drag! && s.drag.piv && moverOp(s)) {
+    const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
+    if (!r || !("value" in r)) return s;
+    const u = normalize(s.drag.handle.dir); // (along the arrow as it is drawn: the mover's turned axis, not the world's, `in_442`)
+    const centre = add(s.drag.piv.centre, scale(u, r.value));
+    const mo = moverOp(s)!;
+    if (mo.kind === "circular" && s.repeat && !s.op) return movePivotTo(s, centre); // (a circular repeat's pivot is a point of the drawing: it goes there)
+    return putMover(s, { ...mo, pivot: sub(centre, s.drag.piv.offset) });
   }
   if ("handle" in s.drag! && s.drag.section) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
@@ -407,7 +423,7 @@ export function doDragEnd(s: AppState, env?: Env): AppState {
   if (s.box) return env ? finishBox(s, env) : { ...s, box: null };
   const d = s.drag;
   const cleared: AppState = { ...s, drag: null, dragHint: null, orthoDebt: 0, gizmoHover: null };
-  if (d && "handle" in d && (d.piv || d.frameTurn)) return cleared; // (the sphere's arrows and rings only place and orient the mover: nothing is made, `in_416`, `in_417`)
+  if (d && "handle" in d && (d.piv || d.frameTurn || d.mir)) return cleared; // (the sphere's arrows and rings only place and orient the mover: nothing is made, `in_416`, `in_417`)
   if (d && "handle" in d && d.section) { // a drag of the cross section plane's handle: one step, the plane where it was taken (`in_396`)
     const live = s.sectionLive;
     return live ? placeSection({ ...cleared, sectionLive: live }, live.centre, live.n) : cleared;
@@ -425,7 +441,7 @@ export function doDragEnd(s: AppState, env?: Env): AppState {
     return made ? { ...cleared, session: made.session, op: kept, spread: null, hoverPoint: null } : { ...cleared, op: kept };
   }
   if (!d || !("handle" in d) || !s.op) return cleared; // (a handle of a repeat being set up only set its numbers)
-  if (d.handle.kind === "ball") return s.op.auto ? { ...cleared, op: null } : cleared;
+  if (d.handle.kind === "ball") return s.op.auto ? { ...cleared, op: null } : { ...cleared, ...(s.moverSphere && env ? { orbMovedAt: env.now } : {}) }; // (the whole orb moved in the orient mode: its numbers show a while, `in_439`)
   if (isLive(s.op)) {
     // one step for the whole operation: what was made before is taken out and made again with the total value (so the number does not start over between drags)
     const sess = s.op.made ? undoLast(s.session) : s.session;
@@ -438,6 +454,6 @@ export function doDragEnd(s: AppState, env?: Env): AppState {
   const once = runOp(s.session, s.op);
   if (!once) return s.op.auto ? { ...cleared, op: null } : cleared;
   const next = once.session;
-  if (next.message && next.history === s.session.history) return { ...cleared, session: next, op: s.op.auto ? null : s.op };
+  if (next.message && next.history === s.session.history) return { ...cleared, session: next, op: s.op.auto ? null : { ...s.op, value: null, typed: "", rot: ["", "", ""], free: undefined } }; // (refused: the arrow or ring goes back to where it was, the degrees do not stay, `in_436`)
   return { ...cleared, session: next, op: s.op.auto ? null : { ...s.op, value: null, typed: "" }, spread: null, hoverPoint: null };
 }

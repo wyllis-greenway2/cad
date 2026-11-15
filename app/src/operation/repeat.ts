@@ -4,8 +4,8 @@
 import type { Ref } from "../shared/ref.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
-import { add, sub, dot, cross } from "../math/vec.ts";
-import { about } from "../math/rotation.ts";
+import { add, sub, dot, cross, scale } from "../math/vec.ts";
+import { about, aboutDir } from "../math/rotation.ts";
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import type { Scene } from "./scene.ts";
@@ -13,21 +13,22 @@ import { figureRefs } from "./scene.ts";
 import type { Part } from "./part.ts";
 import { normalOfPlane } from "./part.ts";
 
-/** `params` are the numbers of the repeat tool (a mirror: the mirror plane, [x, y, z of a point on it, then its normal]): linear [nX, dX, nY, dY, nZ, dZ] (how many along each axis, how far apart), circular [count, degrees, axis (0 X, 1 Y, 2 Z), x, y, z of the point it turns about]. */
+/** `params` are the numbers of the repeat tool (a mirror: the mirror plane, [x, y, z of a point on it, then its normal]): linear [nX, dX, nY, dY, nZ, dZ] (how many along each axis, how far apart), circular [count, degrees, axis (0 X, 1 Y, 2 Z), x, y, z of the point it turns about]; a repeat made with the mover turned has nine more, the three axes of the mover (`in_440`): the axes the copies run along, or turn about. */
 export interface PatternRecord { id: string; kind: "linear" | "circular" | "mirror"; parts: Ref[]; plane: Ref; params: number[] }
 
 export const patternsOf = (s: Scene): readonly PatternRecord[] => s.patterns ?? [];
 const MOST = 200;
 
-export interface Placement { move: Vec3; turn: { axis: 0 | 1 | 2; angle: number; pivot: Vec3 } | null }
+export interface Placement { move: Vec3; turn: { axis: 0 | 1 | 2; angle: number; pivot: Vec3; /** the axis as a direction, when the mover is turned (`in_440`) */ dir?: Vec3 } | null }
 /** The copies of a repeat as the places they go to: how far each is moved, or turned about the axis through the point (the original, the first, is not in the list). Too many copies make none. */
 export function placements(kind: "linear" | "circular", v: readonly number[]): Placement[] {
   if (v.length < 6) return [];
   const out: Placement[] = [];
+  const F: [Vec3, Vec3, Vec3] | null = v.length >= 15 ? [[v[6]!, v[7]!, v[8]!], [v[9]!, v[10]!, v[11]!], [v[12]!, v[13]!, v[14]!]] : null; // (the mover's own axes, if it was turned)
   if (kind === "linear") {
     const [nx, ny, nz] = [Math.max(1, Math.round(v[0]!)), Math.max(1, Math.round(v[2]!)), Math.max(1, Math.round(v[4]!))];
     if (nx * ny * nz > MOST) return [];
-    for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) for (let k = 0; k < nz; k++) if (i || j || k) out.push({ move: [i * v[1]!, j * v[3]!, k * v[5]!], turn: null });
+    for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) for (let k = 0; k < nz; k++) if (i || j || k) out.push({ move: F ? add(add(scale(F[0], i * v[1]!), scale(F[1], j * v[3]!)), scale(F[2], k * v[5]!)) : [i * v[1]!, j * v[3]!, k * v[5]!], turn: null });
     return out;
   }
   const count = Math.max(1, Math.round(v[0]!));
@@ -35,10 +36,10 @@ export function placements(kind: "linear" | "circular", v: readonly number[]): P
   const angle = v[1]!;
   const step = Math.abs(angle) >= 360 ? angle / count : count > 1 ? angle / (count - 1) : 0;
   const axis = Math.min(2, Math.max(0, Math.round(v[2]!))) as 0 | 1 | 2;
-  for (let i = 1; i < count; i++) out.push({ move: [0, 0, 0], turn: { axis, angle: step * i, pivot: [v[3]!, v[4]!, v[5]!] } });
+  for (let i = 1; i < count; i++) out.push({ move: [0, 0, 0], turn: { axis, angle: step * i, pivot: [v[3]!, v[4]!, v[5]!], ...(F ? { dir: F[axis] } : {}) } });
   return out;
 }
-const turnVec = (v: Vec3, axis: 0 | 1 | 2, angle: number): Vec3 => { const m = about(axis, angle); return [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2], m[6] * v[0] + m[7] * v[1] + m[8] * v[2]]; };
+const turnVec = (v: Vec3, axis: 0 | 1 | 2, angle: number, dir?: Vec3): Vec3 => { const m = dir ? aboutDir(dir, angle) : about(axis, angle); return [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2], m[6] * v[0] + m[7] * v[1] + m[8] * v[2]]; };
 
 /** The reflection in the plane through a point with a normal (`params`: the point, then the normal), as the one map a mirror's copy is made by. */
 function mirrorMaps(v: readonly number[]): { place: (p: Vec3) => Vec3; vec: (v: Vec3) => Vec3; mirror: true }[] {
@@ -66,8 +67,8 @@ function copiesOf(s: Scene, rec: PatternRecord): Part[] {
   const out: Part[] = [];
   // each copy is a map of points and of directions: a move, a turn about a point, or (a mirror) a reflection in a plane (`in_433`)
   const maps: { place: (p: Vec3) => Vec3; vec: (v: Vec3) => Vec3; mirror?: boolean }[] = rec.kind === "mirror" ? mirrorMaps(rec.params) : placements(rec.kind, rec.params).map((c) => ({
-    place: (p: Vec3): Vec3 => (c.turn ? add(c.turn.pivot, turnVec(sub(p, c.turn.pivot), c.turn.axis, c.turn.angle)) : add(p, c.move)),
-    vec: (v: Vec3): Vec3 => (c.turn ? turnVec(v, c.turn.axis, c.turn.angle) : v),
+    place: (p: Vec3): Vec3 => (c.turn ? add(c.turn.pivot, turnVec(sub(p, c.turn.pivot), c.turn.axis, c.turn.angle, c.turn.dir)) : add(p, c.move)),
+    vec: (v: Vec3): Vec3 => (c.turn ? turnVec(v, c.turn.axis, c.turn.angle, c.turn.dir) : v),
   }));
   maps.forEach((c, k) => {
     const place = c.place;

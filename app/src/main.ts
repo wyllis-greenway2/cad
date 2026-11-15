@@ -137,9 +137,7 @@ const sectionChip = createSectionChip(document.body, (id) => dispatch({ type: "r
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "overrideRefusal" }), () => dispatch({ type: "holdFlash" }));
 const faceKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "faceKind", kind: id as "move" | "extrude" | "extend" }));
-const mirrorKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "mirrorKind", index: Number(id) }), "Mirror across:");
 const loftKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "loftKind", id }), "Loft:");
-const axisKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "axisKind", index: Number(id) }), "Axis:");
 const sizeKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "sizeKind", kind: id as "constant" | "variable" | "twoDistances" | "swap" }), "Size:");
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "invert" ? { type: "runAction", id: "hollow:invert" } : to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
@@ -153,6 +151,17 @@ const controls = createControls(document.body, {
 });
 const env = () => ({ w: view.size().w, h: view.size().h, now: performance.now() });
 const FILE_NAME = "model.cad.json";
+/** The game mode's cursor over a ring: a small dot the mouse moves; it lights and clicks the bubbles like the page's own pointer. */
+const menuDot = document.createElement("div");
+menuDot.style.cssText = "position:fixed;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#1ab8b3;border:2px solid #fff;box-shadow:0 0 4px #000;pointer-events:none;z-index:2000;display:none";
+document.body.appendChild(menuDot);
+const menuCap = {
+  move: (x: number, y: number) => { menuDot.style.left = `${x}px`; menuDot.style.top = `${y}px`; ring.pointAt(x, y); },
+  click: (x: number, y: number) => { if (ring.activate(x, y)) dirty = true; },
+  close: () => { ring.hide(); input.captureMenu(null); dirty = true; },
+  show: (on: boolean) => { menuDot.style.display = on ? "block" : "none"; },
+};
+let panesFading = false; // (the world panes are fading in or out: keep drawing, `in_442`)
 function adopt(session: Session) { state = { ...createState(session), cam: state.cam }; menu.hide(); ring.hide(); dirty = true; }
 // the last things done, kept so that a snapshot can show them (`in_200`): hovering is only kept as its last position
 const intentLog: unknown[] = [];
@@ -203,13 +212,13 @@ function dispatch(i: Intent) {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
     if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale)); }
-    else { menu.hide(); ring.show(i.x, i.y, state.menu?.items ?? []); }
+    else { menu.hide(); if (state.menu) ring.show(i.x, i.y, state.menu.items); else ring.hide(); } // (no menu: a right click that applied the mover's orient mode, `in_439`)
   } else {
     // pointing around does not close a menu; any other intent does
     if (menu.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) menu.hide();
-    if (ring.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) ring.hide();
+    if (ring.open && !["hover", "hoverEnd", "runAction", "walk", "swivel"].includes(i.type)) ring.hide(); // (keys held in game mode do not close it, `in_441`)
   }
-  input.holdFree(ring.open || menu.open); // (game mode holds the pointer at the middle: a menu needs it free, `in_420`)
+  input.captureMenu(ring.open ? menuCap : null, ring.centre()); // (game mode keeps the pointer locked: the mouse moves a cursor over the ring and clicks its bubbles, `in_441`)
   dirty = true;
 }
 // which kind of device was used last: a laptop can have a mouse and a touch screen, so it is the event itself that says, not the machine (`in_160`)
@@ -288,7 +297,7 @@ function frame(now: number) {
     view.setHighlight(f.highlight, state.cam, now);
     view.setPreview(f.preview, state.cam);
     view.setGizmo(f.gizmo, state.cam);
-    view.setPanes(f.panes);
+    panesFading = view.setPanes(f.panes);
     view.setBodyFade(f.fadeBody);
     view.setWireframe(f.wireframe);
     view.setSectionPlanes(f.sectionPlanes);
@@ -300,9 +309,7 @@ function frame(now: number) {
     similarChip.update(f.similar);
     faceKindChip.update(f.faceKinds);
     sizeKindChip.update(f.sizeKinds);
-    axisKindChip.update(f.axisKinds);
     loftKindChip.update(f.loftKinds);
-    mirrorKindChip.update(f.mirrorKinds);
     resetView.update(f.resetView);
     { const pg = host.getBoundingClientRect(); crosshair.update(recognizer.game && document.pointerLockElement !== null, { x: pg.left + pg.width / 2, y: pg.top + pg.height / 2 }); }
     toolCursor.update(f.tool ? f.tool.kind : null);
@@ -318,7 +325,7 @@ function frame(now: number) {
     const corner = f.modeSwitch ? f.modeSwitch.pts.map((p) => onPage(p)!).reduce<[number, number]>((c, q) => [Math.min(c[0], q[0]), Math.min(c[1], q[1])], [Infinity, Infinity]) : null;
     suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null, [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));
     const valueBubbles = f.entries.length ? f.entries : f.entry ? [f.entry] : [];
-    valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool && lastDevice !== "touch", lastDevice === "touch", !!e.constraint)); // (a mouse draws through the bubble: a finger can tap into it to type a size, `in_289`)
+    valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool && lastDevice !== "touch", lastDevice === "touch", !!e.constraint, e.opacity ?? 1)); // (a mouse draws through the bubble: a finger can tap into it to type a size, `in_289`)
     for (let i = valueBubbles.length; i < chips.length; i++) chips[i]!.update(null, "mm", null);
     modeSwitch.update(f.modeSwitch, corner && Number.isFinite(corner[0]) ? corner : null, chips.flatMap((c) => c.rect() ?? [])); // (after the bubbles: it keeps off them, `in_231`)
     helper.update(f.helper ? f.helper.text : null, f.helper ? onPage(f.helper.at) : null);
@@ -363,7 +370,7 @@ function frame(now: number) {
     statusEl.textContent = f.message;
     statusEl.style.bottom = lastDevice === "touch" ? "108px" : ""; // (above the undo bar of a finger, and clear of the X Y Z buttons: a long message is not under them, `in_336`)
     statusEl.style.right = lastDevice === "touch" ? "64px" : "";
-    dirty = !!f.flash || !!f.gizmo?.pulse || working || !!f.highlight.temp?.length || touchMoved; // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
+    dirty = panesFading || !!f.flash || !!f.gizmo?.pulse || f.entries.some((e) => e.opacity !== undefined && e.opacity < 1) || working || !!f.highlight.temp?.length || touchMoved; // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
   }
   requestAnimationFrame(frame);
 }

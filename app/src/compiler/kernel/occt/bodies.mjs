@@ -4,7 +4,7 @@
 import { getOC } from "replicad";
 
 // The exact box of a solid takes a tenth of a second for a loft of a thousand faces: kept by the solid's own identity (the same shape, found again in a later result, has the same box), and by a quick box round it, so that
-// another solid with the same identity number is never taken for it (`in_439`)
+// another solid with the same identity number is never taken for it (`in_446`)
 const boxes = new Map();
 function roughKey(s) {
   const oc = getOC();

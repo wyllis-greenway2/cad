@@ -30,13 +30,14 @@ import { actionsFor, measureAction } from "./actions.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { drawnRef, formatId } from "../shared/ref.ts";
 import { objectOf, bodyCentre, figurePartsOf } from "./objects.ts";
-import type { RevAxis } from "./revolve.ts";
-import { revolveAxes, revolveCommand, middleOf } from "./revolve.ts";
+import { revolveStart, revolveCommand, middleOf } from "./revolve.ts";
 import { loftCommand } from "./loft.ts";
-import { mirrorChoices, mirrorCommand } from "./mirror.ts";
+import { sweepCommand } from "./sweep.ts";
+import { walkPath } from "../operation/path.ts";
+import { mirrorStart, mirrorCommand } from "./mirror.ts";
 import { settings } from "../shared/settings.ts";
 
-export type OpKind = "extrude" | "pushpull" | "offset" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular" | "copy" | "hollow" | "revolve" | "loft" | "mirror";
+export type OpKind = "extrude" | "pushpull" | "offset" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular" | "copy" | "hollow" | "revolve" | "loft" | "sweep" | "mirror";
 export interface Op {
   kind: OpKind;
   /** the parts it works on: the lines or circle of a figure, a face of the body, the lines of the body, the body, or the corners of a drawn figure */
@@ -87,20 +88,23 @@ export interface Op {
   rot: [string, string, string];
   /** a scale of a body: the factor along each axis when an axis arrow has been pulled (`dec_scale_axes`); absent for the same factor every way */
   axes?: [number, number, number];
-  /** revolve (`dec_spiral_extrude`): the lines the figure can turn about and which one is used, the advance along it (typed, or from its arrow) and which of the two numbers is being typed (0 the angle, 1 the advance) */
-  revAxes?: RevAxis[];
   /** revolve: each figure selected (its outer sides or circle and the figures inside it) and its middle */
   revFigs?: { fig: Figure; middle: Vec3 }[];
   /** loft (`dec_loft_sketches`): the sketches in the order picked (each its outer sides or circle and the figures inside it), how they are joined, and for each its start point (corners moved on) and direction */
-  /** mirror (`in_433`): the planes it can be made across and which one is in force */
-  mirrorChoices?: import("./mirror.ts").MirrorChoice[];
-  mirrorIx?: number;
+  /** mirror (`in_433`, `in_437`): the box of what is mirrored, where the plane stands along each axis (the arrows end there) and which axis is in force */
+  mirrorBox?: { lo: Vec3; hi: Vec3 };
+  mirrorAt?: Vec3;
+  mirrorAxis?: 0 | 1 | 2;
+  /** mirror: the box is flat (a figure): no arrow across its own plane */
+  mirrorFlat?: boolean;
+  /** sweep (`dec_sweep`): the shape carried (its outer sides or circle and the figures inside it) and the path it is carried along, as the step stores it */
+  sweepFig?: Figure;
+  sweepLines?: Ref[];
   loftFigs?: Figure[];
   loftRuled?: boolean;
   loftSplit?: boolean;
   loftShift?: number[];
   loftRev?: boolean[];
-  axisIx?: number;
   advTyped?: string;
   advValue?: number | null;
   revField?: 0 | 1;
@@ -155,8 +159,8 @@ export interface Op {
   unit?: string;
 }
 
-export const OP_UNIT: Record<OpKind, string> = { mirror: "", loft: "", revolve: "deg", hollow: "mm", extrude: "mm", pushpull: "mm", offset: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm", linear: "mm", circular: "mm", copy: "mm" };
-export const OP_FIELD: Record<OpKind, string> = { mirror: "Mirror", loft: "Loft", revolve: "Angle", hollow: "Wall", extrude: "Distance", pushpull: "Distance", offset: "Offset", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", linear: "Repeat", circular: "Repeat", copy: "Repeat", dimension: "Value" };
+export const OP_UNIT: Record<OpKind, string> = { mirror: "", loft: "", sweep: "", revolve: "deg", hollow: "mm", extrude: "mm", pushpull: "mm", offset: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm", linear: "mm", circular: "mm", copy: "mm" };
+export const OP_FIELD: Record<OpKind, string> = { mirror: "Mirror", loft: "Loft", sweep: "Sweep", revolve: "Angle", hollow: "Wall", extrude: "Distance", pushpull: "Distance", offset: "Offset", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", linear: "Repeat", circular: "Repeat", copy: "Repeat", dimension: "Value" };
 
 export type StartResult = { ok: true; op: Op } | { ok: false; why: string };
 
@@ -178,7 +182,7 @@ function drawnFace(scene: Scene, parts: Part[]): Extract<Part, { kind: "face" }>
 }
 
 /** Whatever drawn things are selected, as the parts that move and repeat together: a figure's corners, lines and circle, a selected line with its ends (and an arc's centre), a circle with its centre, a corner. Empty if anything selected is not drawn. */
-function drawnFigure(scene: Scene, parts: Part[]): Ref[] {
+export function drawnFigure(scene: Scene, parts: Part[]): Ref[] {
   const out = new Set<Ref>();
   for (const p of parts) {
     if (p.origin !== "drawn") return [];
@@ -302,10 +306,10 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     if (!box) return { ok: false, why: "select the body or something drawn to mirror" };
     let facePlane: { p: Vec3; n: Vec3 } | null = null;
     if (face && faceParts[0]?.kind === "plane" && faceParts[0].mesh && faceParts[0].mesh.length >= 9) { const m = faceParts[0].mesh; facePlane = { p: [(m[0]! + m[3]! + m[6]!) / 3, (m[1]! + m[4]! + m[7]!) / 3, (m[2]! + m[5]! + m[8]!) / 3], n: face[2] }; }
-    const choices = mirrorChoices(box, facePlane, !!figure);
-    const view0 = view?.right ?? 0;
-    const at = facePlane ? 0 : Math.max(0, choices.findIndex((c) => c.id === `max:${view0}`)); // (the copy goes to the right of what is seen, unless a face was chosen)
-    return { ok: true, op: { ...base, parts: targetParts, target: figure ? "plane" : "body", plane: [...planes][0] ?? null, mirrorChoices: choices, mirrorIx: at } };
+    const st0 = mirrorStart(box, facePlane, (view?.right ?? 0) as 0 | 1 | 2);
+    const flat = !!figure;
+    const axis = flat && box.hi[st0.axis]! - box.lo[st0.axis]! < 1e-6 ? ([0, 1, 2].find((i) => box!.hi[i]! - box!.lo[i]! > 1e-6) as 0 | 1 | 2 | undefined) ?? st0.axis : st0.axis; // (across a flat figure's own plane the copy would lie on it)
+    return { ok: true, op: { ...base, parts: targetParts, target: figure ? "plane" : "body", plane: [...planes][0] ?? null, mirrorBox: box, mirrorAt: st0.at, mirrorAxis: axis, mirrorFlat: flat } };
   }
   if (kind === "loft") {
     // two or more closed sketches, on planes of their own, joined side to side in the order picked (`dec_loft_sketches`)
@@ -314,6 +318,16 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     const figs = (faces as Extract<Part, { kind: "face" }>[]).filter((f, i, all) => all.indexOf(f) === i && !all.some((g) => g !== f && (g.holes ?? []).includes(f.ref))).map((f) => figureOf(scene, f));
     if (figs.length < 2) return { ok: false, why: "select two or more closed sketches to loft through" };
     return { ok: true, op: { ...base, parts: figs[0]!.outer, loftFigs: figs, loftShift: figs.map(() => 0), loftRev: figs.map(() => false) } };
+  }
+  if (kind === "sweep") {
+    // one closed sketch and, with it, the lines and arcs of the path it is carried along (`dec_sweep`)
+    const shapes = parts.filter((p) => !!drawnFace(scene, [p]));
+    const lines = parts.filter((p) => p.kind === "line" && !drawnFace(scene, [p]));
+    if (shapes.length !== 1 || !lines.length || shapes.length + lines.length !== parts.length) return { ok: false, why: "select one closed sketch and the lines and arcs of the path to carry it along" };
+    const path = walkPath(lookup(scene), lines.map((l) => l.ref));
+    if (!path.ok) return { ok: false, why: path.why };
+    const fig = figureOf(scene, drawnFace(scene, [shapes[0]!])!);
+    return { ok: true, op: { ...base, parts: fig.outer, sweepFig: fig, sweepLines: lines.map((l) => l.ref) } };
   }
   if (kind === "revolve") {
     // closed figures turned about a line in their plane, any angle, with an advance for a spiral (`dec_spiral_extrude`): the line selected with them, a world axis in their plane, or one of their own sides; a figure
@@ -325,10 +339,10 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     if (!face) return { ok: false, why: "select a closed figure first (and a line in its plane to turn it about, if you like)" };
     const pl = face.plane ? get(face.plane) : undefined;
     if (!pl || pl.kind !== "plane") return { ok: false, why: "the figure is not on a plane" };
-    const axes = revolveAxes(scene, faces, lines);
-    if (!axes.length) return { ok: false, why: "there is no line in the figure's plane to turn it about that the figures do not cross: draw a line beside them, or turn them about one of their own sides" };
+    const start = revolveStart(scene, faces, lines);
+    if (!start) return { ok: false, why: "the figure is not on a plane" };
     const revFigs = faces.map((f) => ({ fig: figureOf(scene, f), middle: middleOf(scene, f) ?? [0, 0, 0] as Vec3 }));
-    return { ok: true, op: { ...base, parts: revFigs[0]!.fig.outer, origin: revFigs[0]!.middle, normal: normalOfPlane(pl), plane: face.plane, revFigs, revAxes: axes, axisIx: 0, value: 360, advTyped: "", advValue: axes[0]!.twist ? 10 : null, revField: 0 } };
+    return { ok: true, op: { ...base, parts: revFigs[0]!.fig.outer, origin: revFigs[0]!.middle, normal: normalOfPlane(pl), plane: face.plane, revFigs, pivot: start.pivot, frame: start.frame, axis: 0, value: 90, advTyped: "", advValue: null, revField: 0 } };
   }
   if (kind === "pushpull" && drawnFaces(scene, parts).length) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
   if (kind === "pushpull" && parts.length > 1) {
@@ -674,6 +688,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
     return { type: "batch", commands: [...steps.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: op.parts, params: { axis: t.axis, value: t.angle, ...pivot, ...follow } } })), ...(op.pivot ? carrySketches(scene, steps.map((t) => ({ axis: t.axis, angle: t.angle })), [0, 0, 0], op.pivot, 1, op.carryOnly) : [])] };
   }
   if (op.kind === "mirror") return mirrorCommand(scene, op);
+  if (op.kind === "sweep") return sweepCommand(scene, op); // (no number: the shape and its path)
   if (op.kind === "loft") return loftCommand(scene, op); // (no number: the sketches, and how they are joined)
   const v = valueOf(op);
   if (v === null) return null;

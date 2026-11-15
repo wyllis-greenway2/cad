@@ -2,7 +2,7 @@
 // This is the one object the app holds. Commands are checked against the whole scene, so a relation to a body corner or a drawing on a body face is valid
 // (the gap noted in Handoff 084).
 import { mateStatus } from "../operation/mates.ts";
-import { putMatesBack, solveStanding, projectOnMates } from "./mate.ts";
+import { putMatesBack, solveStanding, projectOnMates, mateHolders } from "./mate.ts";
 import { changeWords } from "./changewords.ts";
 import { bodyLabel } from "./panels.ts";
 import { describedCommand } from "../operation/anchors.ts";
@@ -188,7 +188,10 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   // a move or turn of a body with standing mates is made as the pose they leave it at, never as one they do not (`in_343`)
   if (!opts.watchAll) {
     const held = projectOnMates(s.history.scene, c);
-    if (held === null) return { ...s, message: "the mates of this body leave it nowhere to go that way" };
+    if (held === null) { // refused by the standing mates: they flash and a button offers to delete them and go on (`in_366`, `in_436`)
+      const victims = mateHolders(s.history.scene, c);
+      return { ...s, message: "the mates of this body leave it nowhere to go that way", ...(victims.length ? { conflict: { culprits: [], victims, retry: c } } : {}) };
+    }
     if (held !== c) { c = held; steps = stepsOf(c); }
   }
   const r = exec(s.history, describedCommand(s.history.scene, c)); // (a relation to a part of the body is saved with its description, `in_316`)
@@ -269,7 +272,7 @@ export function refresh(s: Session): Session {
     const [vol, cnt] = [bodyVolume(now), bodyCount(now)];
     const mode = vol < s.modeFrom.volume - 1e-6 * Math.max(1, s.modeFrom.volume) ? "cut" : cnt - s.modeFrom.count >= s.modeFrom.extrudes ? "new" : "add";
     const last = h.commands[h.cursor - 1]!;
-    const tag = (c: Command): Command => (c.type === "addStep" && (c.step.type === "extrude" || c.step.type === "revolve" || c.step.type === "loft") ? { ...c, step: { ...c.step, params: { ...c.step.params, mode } } } : c);
+    const tag = (c: Command): Command => (c.type === "addStep" && (c.step.type === "extrude" || c.step.type === "revolve" || c.step.type === "loft" || c.step.type === "sweep") ? { ...c, step: { ...c.step, params: { ...c.step.params, mode } } } : c);
     const tagged: Command = last.type === "batch" ? { ...last, commands: last.commands.map(tag) } : tag(last);
     const again = exec(undo(h), tagged);
     if (again.ok) return { ...withHistory(s, again.value), modeFrom: undefined };

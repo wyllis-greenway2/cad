@@ -17,6 +17,9 @@ import {
   Plane,
   Vector,
   basicFaceExtrusion,
+  makeLine,
+  makeThreePointArc,
+  assembleWire,
   cast,
   makeAx3,
   genericSweep,
@@ -382,6 +385,45 @@ const OPS = {
     return { kind: "sketch", drawing, plane: op.plane ?? "XY", origin: p("origin") ?? 0 };
   },
 
+  /**
+   * A figure carried along a path of lines and arcs (`dec_sweep`, `in_444`): the profile (and the figures drawn inside it, cut out) stays as it is to the path where it starts. The path must touch the
+   * profile's plane at one of its ends; added to the body, cut from it, or a body of its own, as an extrusion is (`mode`).
+   */
+  sweep(op, ctx) {
+    const sketchOf = (id) => { const q = ctx.get(id, "sketch"); return q.drawing.sketchOnPlane(q.plane, q.origin); };
+    const outer = sketchOf(op.profile);
+    const face = outer.face();
+    const pn = face.normalAt();
+    const N = [pn.x, pn.y, pn.z];
+    const p0 = edgesOf(face)[0].startPoint;
+    const off = (q) => (q[0] - p0.x) * N[0] + (q[1] - p0.y) * N[1] + (q[2] - p0.z) * N[2];
+    let segs = op.path;
+    if (!segs?.length) throw new Error("there is no path");
+    const tol = 1e-3;
+    if (Math.abs(off(segs[0].a)) > tol) {
+      if (Math.abs(off(segs[segs.length - 1].b)) > tol) throw new Error("the path must start on the plane of the shape it carries");
+      segs = segs.map((s) => ({ a: s.b, b: s.a, m: s.m })).reverse();
+    }
+    const spine = assembleWire(segs.map((s) => (s.m ? makeThreePointArc(s.a, s.m, s.b) : makeLine(s.a, s.b))));
+    const make = (sk) => {
+      const solid = genericSweep(sk.wire, spine, { frenet: true, transitionMode: "right" });
+      if (!isValidSolid(solid)) throw new Error("the shape could not be carried along that path (a path that bends tighter than the shape is wide folds it over itself)");
+      return solid;
+    };
+    let solid = make(outer);
+    for (const h of op.holes ?? []) solid = solid.cut(make(sketchOf(h)));
+    if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the sweep when its holes were cut");
+    const target = op.target ? ctx.get(op.target, "solid").shape : null;
+    if (!target) return { kind: "solid", shape: solid };
+    if (op.mode === "cutOrAdd") {
+      const before = measureVolume(target);
+      try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut }; } catch { /* a join instead */ }
+      return { kind: "solid", shape: target.fuse(solid) };
+    }
+    if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
+    return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
+  },
+
   /** Sketches joined side to side (`dec_loft_sketches`): smooth through all of them, or ruled (straight between each two); holes are lofted the same way and cut out. */
   loft(op, ctx) {
     const sketchOf = (h) => {
@@ -556,7 +598,7 @@ const OPS = {
       if (-dist >= deepest - 1e-6) throw new Error("the push goes through the body");
     }
     const prism = stage("the prism of the face", () => basicFaceExtrusion(best, new Vector(n.map((v) => v * dist))));
-    // among several bodies the boolean is made on the body the face is on alone, when the prism comes nowhere near the others (a boolean on all of them takes as long as the biggest, `in_439`: a loft of a thousand faces)
+    // among several bodies the boolean is made on the body the face is on alone, when the prism comes nowhere near the others (a boolean on all of them takes as long as the biggest, `in_446`: a loft of a thousand faces)
     const lumps = stage("listing the bodies", () => lumpsOf(t));
     if (lumps.length > 1) {
       const mine = lumps.findIndex((l) => facesOf(l).some((f) => f.hashCode === best.hashCode));
@@ -566,7 +608,7 @@ const OPS = {
         if (!near) { const made = dist >= 0 ? lumps[mine].fuse(prism) : lumps[mine].cut(prism); return { kind: "solid", shape: makeCompound([...lumps.filter((_, i) => i !== mine), ...made.solids]) }; }
       }
     }
-    return { kind: "solid", shape: dist >= 0 ? t.fuse(prism, { optimisation: "commonFace" }) : t.cut(prism) }; // (the prism stands on the face and nowhere else: the kernel is told the two only share that face, which spares it looking for every other crossing, `in_442`) // (the prism stands on the face and nowhere else: the kernel is told the two only share that face, which spares it looking for every other crossing, `in_442`)
+    return { kind: "solid", shape: dist >= 0 ? t.fuse(prism, { optimisation: "commonFace" }) : t.cut(prism) }; // (the prism stands on the face and nowhere else: the kernel is told the two only share that face, which spares it looking for every other crossing, `in_449`) // (the prism stands on the face and nowhere else: the kernel is told the two only share that face, which spares it looking for every other crossing, `in_449`)
   },
 
   /**
@@ -844,14 +886,15 @@ const OPS = {
       const d = [op.dx, op.dy, op.dz].map((v) => resolve(v, ctx.params));
       if (n[0] * n[1] * n[2] > 200) throw new Error("that is more than 200 copies");
       // joined in pairs, then pairs of pairs (a row, then a grid of rows): each join is between pieces of the same size, so the work grows with the number of copies and not with its square
+      const dirOf = (axis) => (op.frame ? op.frame[axis] : [0, 1, 2].map((k) => (k === axis ? 1 : 0))); // (the axes of the mover, if it was turned, `in_440`)
       const along = (axis, count, base) => {
         const parts = [];
-        for (let i = 0; i < count; i++) { const v = [0, 0, 0]; v[axis] = i * d[axis]; parts.push(i === 0 ? base : base.clone().translate(v)); }
+        for (let i = 0; i < count; i++) { const v = dirOf(axis).map((c) => c * i * d[axis]); parts.push(i === 0 ? base : base.clone().translate(v)); }
         return fuseTree(parts);
       };
       // copies that stand apart (every direction they are repeated in, they are further apart than the body is wide) do not touch, so there is nothing to join: they are one compound at once
       const size = (() => { const b = bounds(t); return [0, 1, 2].map((i) => b.max[i] - b.min[i]); })();
-      if ([0, 1, 2].every((i) => n[i] === 1 || Math.abs(d[i]) > size[i] + 1e-6)) {
+      if (!op.frame && [0, 1, 2].every((i) => n[i] === 1 || Math.abs(d[i]) > size[i] + 1e-6)) {
         const copies = [];
         for (let i = 0; i < n[0]; i++) for (let j = 0; j < n[1]; j++) for (let k = 0; k < n[2]; k++) copies.push(i + j + k === 0 ? t.clone() : t.clone().translate([i * d[0], j * d[1], k * d[2]]));
         return { kind: "solid", shape: again(copies.length === 1 ? copies[0] : makeCompound(copies)) };
@@ -873,8 +916,8 @@ const OPS = {
       const count = Math.max(1, Math.round(resolve(op.count, ctx.params)));
       const angle = resolve(op.angle, ctx.params);
       if (count > 200) throw new Error("that is more than 200 copies");
-      const axis = [0, 0, 0];
-      axis[Math.round(resolve(op.axis, ctx.params))] = 1;
+      const axis = op.frame ? op.frame[Math.round(resolve(op.axis, ctx.params))] : [0, 0, 0];
+      if (!op.frame) axis[Math.round(resolve(op.axis, ctx.params))] = 1;
       const step = Math.abs(angle) >= 360 ? angle / count : count > 1 ? angle / (count - 1) : 0;
       const copies = [out];
       for (let i = 1; i < count; i++) copies.push(t.clone().rotate(step * i, op.pivot, axis));
@@ -1605,7 +1648,7 @@ export function compile(graph) {
       if (kind && r.value.kind !== kind) throw new Error(`${id} is a ${r.value.kind}, expected ${kind}`);
       return r.value.kind === "solid" ? { ...r.value, shape: r.value.shape.clone() } : r.value; // a copy: what an op does to it must not touch the kept one
     },
-    /** The kept result itself, not a copy (a copy of a loft of a thousand faces takes a tenth of a second): only for an op that does nothing to it but stand beside it (`in_439`). */
+    /** The kept result itself, not a copy (a copy of a loft of a thousand faces takes a tenth of a second): only for an op that does nothing to it but stand beside it (`in_446`). */
     peek(id, kind) {
       const r = results.get(id);
       if (!r) throw new Error(`${id} not found (ops must be ordered after their dependencies)`);

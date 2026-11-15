@@ -3,7 +3,7 @@ id: dec_description_cache
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_447, in_448, in_449
+human_input: in_454, in_455, in_456
 date: 2026-11-15
 depends_on:
   - dec_kernel_hybrid: the kernel runs on its own thread and answers a graph with plain data; the cache stores those answers
@@ -11,7 +11,7 @@ alternative_to:
 ---
 # A cache of the kernel's answers that outlives the page
 
-**The idea (`in_447`):** show the model's meshes at once, like a game, and bring in the exact values only where they are needed. **What it is here (`in_448`, `in_449`):** the kernel's answer for a graph (the meshes, the faces and edges a pointer can pick, the volume, the boxes) is kept in the browser's own storage (IndexedDB) under a key made of the whole graph and the version of the kernel. When a file is opened and its graph has been answered before, the answer is there at once and the model is drawn and can be picked while the kernel's thread goes on to work the model out; its answer replaces the kept one (they are the same: the kernel is deterministic).
+**The idea (`in_454`):** show the model's meshes at once, like a game, and bring in the exact values only where they are needed. **What it is here (`in_455`, `in_456`):** the kernel's answer for a graph (the meshes, the faces and edges a pointer can pick, the volume, the boxes) is kept in the browser's own storage (IndexedDB) under a key made of the whole graph and the version of the kernel. When a file is opened and its graph has been answered before, the answer is there at once and the model is drawn and can be picked while the kernel's thread goes on to work the model out; its answer replaces the kept one (they are the same: the kernel is deterministic).
 
 **Rules**
 1. **The key is the graph itself and the kernel's version** (a SHA-256 of the graph's text, and of the kernel's source files and libraries, found when the app is built). Never a short hash; a change of the kernel, the library or the settings of the mesh never finds an old answer.

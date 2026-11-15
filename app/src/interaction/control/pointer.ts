@@ -32,11 +32,13 @@ import { doLook, selectedSurface } from "./viewing.ts";
 import { sectionNow, doSectionClick } from "./section.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { commitFigure, commitOp, setRepeatAxis, doApply } from "./modal.ts";
-import { doGizmoHover, gizmoOf, chosenId, activeOp } from "./handles.ts";
+import { doGizmoHover, gizmoOf, chosenId, activeOp, movePivotTo } from "./handles.ts";
+import { orientApply, hasOrb, putMover } from "./pose.ts";
+import { patternValues } from "../pattern.ts";
 import { hasGizmo, hitHandle, moveOffset } from "../gizmo.ts";
 
 /** The operations a right click offers (`in_133`), in categories (`in_143`): sketching, constraints, shape, moving and repeating, and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
-const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" | "combine" | "faces" | "edges" | "vertices" }[] = [
+const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" | "combine" | "faces" | "edges" | "vertices" | "paste" }[] = [
   { id: "tool:rect", label: "Rectangle", icon: "rect", tool: "rect" },
   { id: "tool:circle", label: "Circle", icon: "circle", tool: "circle" },
   { id: "tool:line", label: "Line", icon: "line", tool: "line" },
@@ -48,11 +50,13 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:hollow", label: "Hollow", icon: "hollow", op: "hollow" },
   { id: "op:revolve", label: "Revolve / spiral", icon: "revolve", op: "revolve" },
   { id: "op:loft", label: "Loft", icon: "loft", op: "loft" },
+  { id: "op:sweep", label: "Sweep", icon: "sweep", op: "sweep" },
   { id: "op:mirror", label: "Mirror copy", icon: "mirror", op: "mirror" },
   { id: "op:scale", label: "Scale", icon: "scale", op: "scale" },
   { id: "op:move", label: "Move", icon: "move", op: "move" },
   { id: "op:rotate", label: "Rotate", icon: "rotate", op: "rotate" },
-  { id: "op:copy", label: "Copy", icon: "copy", op: "copy" },
+  { id: "op:copy", label: "Copy (Ctrl+C)", icon: "copy", op: "copy" },
+  { id: "clipboard:paste", label: "Paste (Ctrl+V)", icon: "copy", select: "paste" },
   { id: "op:linear", label: "Repeat in a line", icon: "linear", op: "linear" },
   { id: "op:circular", label: "Repeat round a point", icon: "circular", op: "circular" },
   { id: "combine:parts", label: "Combine bodies…", icon: "subtract", select: "combine" }, // (add, cut and what is left of both: the parts the bodies make are each kept or tossed, `in_298`)
@@ -65,9 +69,9 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
 ];
 const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:offset"] },
-  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:scale", "combine:parts"] },
+  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts"] },
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate"] },
-  { id: "repeat", label: "Copy and repeat", icon: "copy", items: ["op:copy", "op:linear", "op:circular"] },
+  { id: "repeat", label: "Copy and repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:similar", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
@@ -76,7 +80,7 @@ const category = (id: string, label: string, icon: string, kids: MenuItem[]): Me
   const first = kids.find((k) => k.enabled);
   return { id, label, icon, enabled: !!first, why: first ? null : kids[0]?.why ?? "nothing here applies", children: kids };
 };
-function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
+function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean; clip?: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
   const sc = sceneOf(session);
   const sel = selectionOf(session);
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
@@ -85,6 +89,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
     if (r.select === "combine") { const why = whyNotCombine(session); return [r.id, { ...base, enabled: !why, why }]; }
+    if (r.select === "paste") return [r.id, { ...base, enabled: !!view.clip, why: view.clip ? null : "nothing is copied: select something and press Ctrl+C" }];
     if (r.select === "faces" || r.select === "edges" || r.select === "vertices") return [r.id, { ...base, enabled: true, why: null }];
     if (r.select) { const why = r.select === "group" ? whyNotGroup(session) : whyNotUngroup(session); return [r.id, { ...base, enabled: !why, why }]; }
     const st = startOp(sc, sel, r.op!);
@@ -410,22 +415,33 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   const g = gizmoOf(s);
   const hit = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)) : null;
   // the sphere at the junction of the mover (`in_416`): a click selects it, a second click lets it go; selected, a vertex, an edge or a face clicked puts the mover there
+  // a figure being revolved waits for the line to turn about: a click on a straight line or an axis chooses it (`in_435`)
+  if (hit && hit.id.startsWith("mir:") && hit.id !== "mir:orb" && s.op?.kind === "mirror") return { ...base, op: { ...s.op, mirrorAxis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2 }, handleSel: hit.id, gizmoHover: hit.id }; // (taking an arrow of the mirror chooses its plane, `in_437`)
   const mover = s.op ?? activeOp(s);
+  // every orb is the mover's orb (`in_440`): the move and turn, the revolve, the mirror and the two repeats; the repeat being set up is not an operation of its own state, its mover is written into it
+  const orbHit = !!hit && (hit.id === "pivot" || hit.id === "rev:orb" || hit.id === "mir:orb" || hit.id === "lin:orb");
+  const canOrient = !!mover && hasOrb(mover.kind) && (!s.repeat || !s.op);
   // the sphere clicked again while it is selected and the mover has been turned (or was): it goes between true x, y, z and its turned axes, staying where it is (`in_419`)
-  if (hit?.id === "pivot" && s.moverSphere && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat && (mover.frame || mover.frameKept)) {
-    const { frame, frameKept, ...rest } = s.op ?? mover;
-    return { ...base, op: { ...rest, auto: false, ...(frame ? { frameKept: frame } : frameKept ? { frame: frameKept } : {}) } as Op, handleSel: null, gizmoHover: hit.id };
+  if (orbHit && s.moverSphere && canOrient && (mover!.frame || mover!.frameKept)) {
+    const { frame, frameKept, ...rest } = mover!;
+    return { ...putMover(base, { ...rest, auto: false, ...(frame ? { frameKept: frame } : frameKept ? { frame: frameKept } : {}) } as Op), handleSel: null, gizmoHover: hit!.id };
   }
-  if (hit?.id === "pivot" && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat) {
-    const op0 = s.op ?? { ...mover, auto: false };
+  if (orbHit && canOrient) {
+    const op0: Op = s.op ?? { ...mover!, auto: false };
     // selected: the mover itself is being oriented, not the object (`in_421`): where it stands and its axes now are kept for Cancel; clicked again it is applied
-    if (s.moverSphere) return { ...base, moverSphere: false, moverWas: null, op: op0, handleSel: null, gizmoHover: hit.id };
-    return { ...base, moverSphere: true, moverWas: { pivot: op0.pivot, ...(op0.frame ? { frame: op0.frame } : {}), ...(op0.frameKept ? { frameKept: op0.frameKept } : {}) }, op: op0, handleSel: null, gizmoHover: hit.id };
+    if (s.moverSphere) return { ...orientApply({ ...base, ...(s.repeat && !s.op ? {} : { op: op0 }) }), handleSel: null, gizmoHover: hit!.id };
+    const was = op0.kind === "circular" ? (([a, b, c]) => ({ pivot: [a, b, c] as Vec3 }))(patternValues(op0).slice(3, 6) as [number, number, number]) : { pivot: op0.pivot };
+    return { ...base, moverSphere: true, moverWas: { ...was, ...(op0.frame ? { frame: op0.frame } : {}), ...(op0.frameKept ? { frameKept: op0.frameKept } : {}) }, ...(s.repeat && !s.op ? {} : { op: op0 }), handleSel: null, gizmoHover: hit!.id };
   }
-  if (!hit && s.moverSphere && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat) {
-    const at = moverPlace(sc, cands[0], pv, mover);
+  // a revolve takes a click on a line, a vertex or a face for the orb even before the sphere is selected: it puts the orb there, its axis along the line or across the face (`in_438`)
+  if ((!hit || (mover?.kind === "revolve" && hit.id.startsWith("rev:"))) && (s.moverSphere || mover?.kind === "revolve") && canOrient) {
+    const at = moverPlace(sc, cands[0], pv, mover!);
     const turned = moverTurned(sc, cands[0]);
-    if (at) return { ...base, op: { ...(s.op ?? mover), auto: false, pivot: at, ...(turned ? { frame: turned } : {}) }, handleSel: null };
+    if (at) {
+      const placed: Op = { ...(s.op ?? mover!), auto: false, pivot: at, ...(turned ? { frame: turned } : {}), ...(mover!.kind === "revolve" && turned ? { axis: (sc.parts[cands[0]!.ref]?.kind === "plane" ? 2 : 0) as 0 | 2 } : {}) };
+      const moved = mover!.kind === "circular" ? movePivotTo(base, at) : base; // (a circular repeat's pivot is a point of the drawing: it is moved there)
+      return { ...putMover(moved, placed), handleSel: null, session: { ...moved.session, message: null } };
+    }
   }
   // a click on a ring of a repeat, or of the turn being set up, makes that the axis, with no drag needed (`in_206`)
   if (hit && hit.id.startsWith("rot:") && s.op?.kind === "rotate") return { ...base, op: { ...s.op, axis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2, typed: "" }, gizmoHover: hit.id, handleSel: hit.id };
@@ -516,7 +532,7 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   }
   // what is under the point (a finger has no hover: a long press must be told what is under it the same way a right click is, or a tool chosen from the ring would not turn the view straight to the plane there, `in_283`)
   const under = i.button ? null : candidatesAt(sceneOf(s.session), projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0]?.ref ?? null;
-  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!sectionNow(s) }) };
+  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!sectionNow(s), clip: !!s.clipboard?.length }) };
 }
 
 /**

@@ -217,7 +217,7 @@ export function createView(host: HTMLElement) {
       notes.add(m);
     }
   }
-  const setPanes = (p: Parameters<typeof world.setPanes>[0]) => world.setPanes(p);
+  const setPanes = (p: Parameters<typeof world.setPanes>[0]): boolean => world.setPanes(p);
   const setGizmo = (g: GizmoView | null, cam: Camera) => buildGizmo(gizmo, g, cam.distance, pen);
 
   function resize() {

@@ -29,6 +29,7 @@ const inQuad = (q: [number, number][], x: number, y: number): boolean => {
 
 /** The pane under a screen point, if any (a pane seen edge-on is not there to hit). */
 export function paneAt(cam: Camera, w: number, h: number, x: number, y: number): WorldName | null {
+  if (cam.straight) return null; // (looking straight at a plane, orthographic: the panes are not there, so they cannot take a pick from a sketch lying over one, `in_436`)
   const pr = projector(cam, w, h);
   for (const name of WORLD_NAMES) {
     const q = paneCorners(name).map((p) => pr.project(p) as unknown as [number, number]);

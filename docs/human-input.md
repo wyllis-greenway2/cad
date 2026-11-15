@@ -2027,61 +2027,110 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (asks: in the mover's orient mode each of the three bubbles shows its axis's position and its rotation, so it is plain which is which; a degree mark on every degree value across the app; a constraint's surfaces (and vertices) to flash red together with its bubble when it is violated, as an edge does)
 
 ## in_435 — 2026-11-15 — directive
-> okay your work has all been merged
-(the branch `claude/hopeful-cannon-3` is merged; work goes on a new branch, `claude/hopeful-cannon-4`, from the merged base)
+> okay the rotate still has zillions of buttons to select the edge. I dont want any of that. I just want to be able to click the edge I want to rotate around, I want it to wait for me to click it, and not guess or default to some edge. 
+> 
+> Copy is weird. If I copy a circle, it first off immedietly creates a copy on ctrl c, I would expect ctrl c to capture the copy but not paste, ctrl v should paste. It should default to paste at the preset disatance if I paste without defining a paste position, but if I click on a surface, it should then paste on that surface. Also the copy seems to be un deletable. Also when I delete the original, it seems to delete the copy too. 
+> 
+> Also if I select a closed sketch, the copy option is not available in the menu. Why? 
+> 
+> Also you cannot select a zero thickness plane sketch, and select all edges, it still has the whole plane selected.
+> 
+> Also I would expect that the select would belong to the item selected. If I select just one face of an object, and select all edges, I would expect it would select all edges of the face I had selected and applied the tool to, instead it does all edges of the entire object. If I select the entire object and select all edges, then I would expect all edges of the entire object to be selected. Same for faces verticies etc.
+(asks: the revolve to have no axis buttons and no default axis: it waits for a click on the line to turn about; Ctrl+C to capture only and Ctrl+V to paste (at the preset distance, or on a surface that is clicked), the pasted copy to be an ordinary deletable thing, deleting the original not to delete it; why a selected closed sketch has no Copy in the menu; Select all edges with a flat sketch selected to select its edges; Select all edges, faces or vertices to belong to what is selected: a face's edges, a whole body's edges, and so on)
 
 ## in_436 — 2026-11-15 — directive
-> I found another bug, if you delete the square in this file, it makes a hollow version of the cylinder? also if you increase the diameter of the cylinder, it deletes it?
-(two files attached: a state snapshot and `model.cad_48.json`, kept as `app/test/fixtures/cylinder-in-hole-in_436.cad.json`)
+> when I try to violate this constraint by moving the block in ways that would go against the constraint, it seems to turn all surfaces red? shouldnt it only flash the surfaces belonging to the constraint? When I try to move with xyz it flashes and undoes the xyz move. The rotate move doesn't do this, it stays in the degrees and continues to be red instead of bouncing back like it should. Also dont we have a rule that if you try to violate a constraint, there should be a button that shows up to allow you to remove the constraints involved in blocking the action? 
+> 
+> Can we have the bubbles stand a little further out on the rotating arrows in the mover? 
+> 
+> can we make it so that the world panes (the little semi transparent panes in the world xyz) go away when in orthographic mode? That will help us resolve selection conflicts when a sketch goes right over one of them.
+> 
+> Lets make the rotate extrude slightly different, lets have it just use the mover orb. Lets have it turn the part into wireframe while the rotate is being decided. Lets have it default to position the orb on one of the lines, and do a 90 degree turn as a preview. The mover should already be in blue pulsing orb mode ready to move so if you click another line on the sketch it will move there. It should default orient into to a rotate axis that is perpendicular or normal to a line selected, even if that line selected is not in true x y z with the world grid.
+(asks: a refused move flashes only the surfaces that belong to the constraint, not every surface; rotating a body against a constraint to bounce back as the arrow move does, not stay in the degrees red; the button that offers to remove the constraints that block an action, if that rule exists; the bubbles on the mover's rotating arrows to stand a little further out; the world panes to go away in orthographic mode; the revolve to use the mover's orb: wireframe while it is decided, the orb on one of the lines by default in its blue pulsing mode, a 90 degree turn as the preview, the orb moved by clicking another line, the axis normal to a line selected, even a slanted one)
 
-## in_437 — 2026-11-15 — question
-> would it make sense to delete the cuts made in a body when it is deleted? since those cuts no longer have any body to belong to? or are you saying the cuts made in other bodies with the deleted body? because if that is the case, we want the cuts to remain even if the body that cut them is later deleted I believe. What do you think?
-(asks which cuts should go when a body is deleted: the cuts made in it should go; the cuts it made in other bodies should stay)
+## in_437 — 2026-11-15 — directive
+> If you select a cylinder face, or the whole cylinder and select edges, it gets wierd, apparently the circles are not considered edges? 
+> 
+> okay the mirror tool needs some help, Again lets git rid of all the zillions of buttons. Instead, if 3d lets just offer a little xyz plane inside the orignal model to select the plane to mirror on. it should be the regular xyz mover thing similar to the copy where you can set the distance, and also selecting the arrow selects the plane to mirror on. Also the copy linear and copy rotate should adopt this mover type with the pulsing blue orb that allows specific location setting. In fact lets standardize all movers system wide into this type, the xyz and the rotate with the orb. Also their functions that use the mover needs to actually lock unto a relate to its positioning, so the copying and rotating works within the line of their arrows after orientation. Also for the linear copy lets have the arrows start out short of going to the center of the next copy (the value can be that, but the arrow is just for visual representation of the general copy direction and pull to adjust distance, the numerical input is for making it precise)
+(asks: Select all edges on a cylinder face or a whole cylinder to include its circles; the mirror tool without the row of buttons: a small xyz plane inside the model, the regular mover with arrows to set the distance, an arrow chosen picking the mirror plane; linear and circular copy to take the same mover with the pulsing blue orb for setting a place; all movers in the system to be of that one type (the xyz arrows and the rotate rings with the orb); what uses a mover to follow its place and orientation, so copies and turns run along its arrows after it is oriented; the linear copy's arrows to begin short of the next copy's middle, as a picture of the direction and for pulling, the number being for precision)
 
-## in_438 — 2026-11-15 — approval
-> yes build it and check the combine case first
-(approves the proposal: cuts made only in a deleted body go with it, and the combine case is checked first)
+## in_438 — 2026-11-15 — directive
+> Okay about the rotate extrude. I cant actually orient the rotate extrude orb freely in space like I expected, it should be like the pulsing mover that has the ability to orient it anywhere and clicking on lines and verticies and faces sets it to them. Also the orb should start default on one of the lines of the rotate, probably the longest straight one. Right now id defaults to no sketch edges, it seems to be in line with one of the lines, but not actually on the line. .
+(asks: the revolve's orb to be the pulsing mover that can be put and turned anywhere in space, a click on a line, vertex or face setting it there; its default place to be on the longest straight line of the figure, really on it)
 
 ## in_439 — 2026-11-15 — directive
+> Okay the mirror tool is pretty good, except the orb shouldn't be pulsating. That is only reserved for when a mover is in orientation mode. 
+> If you orient a mover, it should be persistent while that part is selected. Right now if you orient, it resets every time you use the swapper to go from rotate mode to move xyz mode. Can we also have it so that when you are in orient mover mode, can we have it show all three xyz position and rotation values if you are moving the whole orb, then the fade, and it shows you only the value of the axis clicked on. Also can we have it so that when in orient mode, a right click on it space is the same thing as clicking the green apply check mark, it doesn't cancel the object selection, it just applies the position of the mover, then goes back to the stage it was at before where the mover is used to move the object.
+(asks: the orb pulses only in the mover's orient mode (not on the mirror and the other orbs); an oriented mover to stay as oriented while the part is selected, also across the move / rotate switch; in the orient mode all three position and rotation values while the whole orb is being moved, fading to only the value of the axis clicked; a right click on empty space in the orient mode to be the same as the apply check: it keeps the selection, applies the mover's place and goes back to the stage before)
+
+## in_440 — 2026-11-15 — directive
+> Do the orient mode for the copies and the mirror next
+(asks for what Handoff 412 and `dec_mover_sphere` left unbuilt: the orient mode (place, turned axes, apply and cancel) on the linear and circular copies and on the mirror, so copies, turns and mirror planes run along the oriented axes)
+
+## in_441 — 2026-11-15 — directive
+> I asked for this previously "can we make it so that the world panes (the little semi transparent panes in the world xyz) go away when in orthographic mode? That will help us resolve selection conflicts when a sketch goes right over one of them.
+> " but it still doesn't seem to be this way?
+>  
+>  game mode is still basically impossible to select anything in the right click menu, i want to use the center screen game mode cursor to select from the menu in game mode. But the right click seems to be very delicate, try to go back into normal mouse mode, and all collapses as soon as a key in game mode is pressed again. Lets just have it open the menu in game mode, and game mode cursor is also used to click on menu items.
+(reports that the world panes still show in orthographic mode; asks for the right-click menu in game mode to open and be used with the game mode's own centre cursor, staying in game mode, not by going back to the normal mouse)
+
+## in_442 — 2026-11-15 — directive
+> try moving the orb or rotate point here, it jumps around all weird and doesn't move smoothly or even seem to move in the direction of the arrow drag.
+> Also can we have the little world panes fade in and out on orthographic so it is less sudden? Also why cant i take any surface and make a curved extrusion off of it?
+(reports the mover's orb / rotate point jumping and not following the arrow drag; asks for the world panes to fade in and out when the view goes to and from orthographic; asks why a curved extrusion cannot be made off any surface)
+
+## in_443 — 2026-11-15 — question
+> isn't skin basically just a version of our hollow tool already? and what would be the difference between a sweep and a bend anyway?
+(asks whether reading 2 of `q_curved_extrusion` is already the hollow tool, and how a sweep differs from a bend)
+
+## in_444 — 2026-11-15 — directive
+> Yes, build the sweep, doesn't hollow already have an outward option depending on how you pull the arrow?
+(approves building the sweep as recommended in `q_curved_extrusion`; asks whether hollow already goes outward depending on which way the arrow is pulled)
+
+## in_445 — 2026-11-15 — directive
+> Do the sweep preview and path-follows-sketch next
+(asks for the two things `dec_sweep` left unbuilt: a preview of the sweep while it is being made, and a path that follows a later edit of the sketch it was drawn in)
+
+## in_446 — 2026-11-15 — directive
 > When I try to modify the height of this block, it is really really slow. i think it is because of the complicated lofts around it. But why? the block edit doesn't modify or interact with the complicated lofts at all? So why so slow? Also why can I not edit the fillet I added to one of the lofts?
-(two files attached: a state snapshot and `really_slow.json`, kept as `app/test/fixtures/lofts-and-block-in_439.cad.json`)
+(two files attached: a state snapshot and `really_slow.json`, kept as `app/test/fixtures/lofts-and-block-in_446.cad.json`)
 
-## in_440 — 2026-11-15 — question
+## in_447 — 2026-11-15 — question
 > did this fix the root cause? Do we need to map dependency overall so we only recalc what we need in order to remain efficient and fast?
-(asks whether the fix of `in_439` was the root cause and whether a dependency map is needed; answered in chat: the steps are already kept by what they depend on, the slow part was the work done on the whole result afterwards, which is now per body; a per-body dependency graph only if a file shows a heavy step on an unrelated body being made again)
+(asks whether the fix of `in_446` was the root cause and whether a dependency map is needed; answered in chat: the steps are already kept by what they depend on, the slow part was the work done on the whole result afterwards, which is now per body; a per-body dependency graph only if a file shows a heavy step on an unrelated body being made again)
 
-## in_441 — 2026-11-15 — approval
+## in_448 — 2026-11-15 — approval
 > yes start with the timing breakdown
 (approves the first of the three steps proposed: a timing breakdown in the snapshot)
 
-## in_442 — 2026-11-15 — approval
+## in_449 — 2026-11-15 — approval
 > yes, start with the opening cost
 (approves the next step proposed after the timing breakdown: the cost of opening a file)
 
-## in_443 — 2026-11-15 — approval
+## in_450 — 2026-11-15 — approval
 > yes, start with the stage timings
 (approves step 1 of the plan: stage timings inside the slow steps, then the mesh cache)
 
-## in_444 — 2026-11-15 — question
+## in_451 — 2026-11-15 — question
 > we already have a working indicator dont we?
-(asked after `in_442`, before `in_443`; recorded late. Answered: yes, `ui/busy.ts` shows "Working…" whenever the kernel has not answered)
+(asked after `in_449`, before `in_450`; recorded late. Answered: yes, `ui/busy.ts` shows "Working…" whenever the kernel has not answered)
 
-## in_445 — 2026-11-15 — question
+## in_452 — 2026-11-15 — question
 > so is it all fixed? is it fast? or still too slow?
-(asked before `in_443`; recorded late)
+(asked before `in_450`; recorded late)
 
-## in_446 — 2026-11-15 — question
+## in_453 — 2026-11-15 — question
 > can we make it faster without doing shortcuts we will regret later?
-(asked before `in_443`; recorded late. Answered with a plan: stage timings, then a cache, no coarser meshes or skipped checks)
+(asked before `in_450`; recorded late. Answered with a plan: stage timings, then a cache, no coarser meshes or skipped checks)
 
-## in_447 — 2026-11-15 — preference
+## in_454 — 2026-11-15 — preference
 > okay hold that thought, we will probably do that, but I have another idea, would it make sense to just really roughly have everything be a mesh like in a video game, and only the object close to the camera or ones trying to be selected actually pulls in its real mathematically correct values? So we dont render and rotate everything in the world all the time perfectly etc.
-(asked before `in_443`; recorded late. The idea of showing meshes at once and bringing in the exact values only where they are needed: answered that rendering is already mesh-based and that the idea fits as a cache of the meshes and picking data of each body)
+(asked before `in_450`; recorded late. The idea of showing meshes at once and bringing in the exact values only where they are needed: answered that rendering is already mesh-based and that the idea fits as a cache of the meshes and picking data of each body)
 
-## in_448 — 2026-11-15 — question
+## in_455 — 2026-11-15 — question
 > so what do you recommend? Should we just do your plan before my mesh idea?
-(asked before `in_443`; recorded late. Answered: the stage timings first, then the mesh idea as a cache of descriptions)
+(asked before `in_450`; recorded late. Answered: the stage timings first, then the mesh idea as a cache of descriptions)
 
-## in_449 — 2026-11-15 — approval
+## in_456 — 2026-11-15 — approval
 > yes, start on the mesh cache
 (approves the mesh cache: `dec_description_cache`)

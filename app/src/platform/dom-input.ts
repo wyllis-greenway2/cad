@@ -12,7 +12,7 @@ const TICK_MS = 50;
 const GAME_TICK_MS = 16;
 
 /** Report the device events of `el` (and the keyboard) on the bus. Returns a function that stops reporting. */
-export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { toggleGame(): void; holdFree(on: boolean): void } {
+export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { toggleGame(): void; captureMenu(cap: { move(x: number, y: number): void; click(x: number, y: number): void; close(): void; show(on: boolean): void } | null, at?: [number, number]): void } {
   const now = () => performance.now();
   const at = (e: { clientX: number; clientY: number }) => {
     const r = el.getBoundingClientRect();
@@ -39,8 +39,17 @@ export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { to
     listeners.push([t, type, fn as (e: never) => void, o]);
   };
 
+  // a menu is open in game mode (`in_441`): the pointer stays held at the middle and the mouse moves a cursor of its own over the menu; a click clicks what it is on, a right click closes the menu
+  type MenuCapture = { move(x: number, y: number): void; click(x: number, y: number): void; close(): void; show(on: boolean): void };
+  let menuCap: MenuCapture | null = null;
+  let [vx, vy] = [0, 0];
   const centre = (): [number, number] => { const r = el.getBoundingClientRect(); return [r.width / 2, r.height / 2]; };
   const pointer = (kind: "down" | "move" | "up" | "cancel") => (e: PointerEvent) => {
+    if (menuCap && game && locked() && e.pointerType === "mouse") {
+      if (kind === "move") { vx = Math.max(0, Math.min(window.innerWidth, vx + e.movementX)); vy = Math.max(0, Math.min(window.innerHeight, vy + e.movementY)); menuCap.move(vx, vy); }
+      else if (kind === "down") { if (e.button === 2) menuCap.close(); else if (e.button === 0) menuCap.click(vx, vy); }
+      return; // (the menu has the mouse: the view does not turn and nothing is drawn or selected through it)
+    }
     const held = game && locked() && e.pointerType === "mouse"; // (game mode: the pointer is held at the middle of the screen and only its movement counts, `in_304`)
     const [x, y] = held ? centre() : at(e);
     // a mouse button released where the page could not see it (over the menu, a context menu, another window): the drag it began is over, not carried on by every later move (`in_144`)
@@ -111,12 +120,12 @@ export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { to
     if (game) endGame(); else startGame();
     keyEvent(false);
   };
-  /** A menu is open in game mode (`in_420`): the pointer is let go so the menu can be used (as with Alt), and taken back when it closes. */
-  const holdFree = (on: boolean) => {
-    if (!game || on === freed) return;
-    const alt = (down: boolean) => bus.emit("input", { kind: "key", key: "Alt", down, mods: { shift: false, ctrl: false, alt: down }, t: now() });
-    if (on) { freed = true; if (locked()) document.exitPointerLock(); alt(true); }
-    else { freed = false; try { void (el.requestPointerLock() as unknown as Promise<void> | undefined)?.catch?.(() => undefined); } catch { /* no lock */ } alt(false); }
+  /** A menu is open (or not): in game mode the mouse then moves a cursor over it from `at` (the menu's middle) instead of turning the view (`in_441`). Outside game mode nothing changes. */
+  const captureMenu = (cap: MenuCapture | null, at: [number, number] = [0, 0]) => {
+    const want = cap && game && locked() ? cap : null;
+    if (want && !menuCap) { [vx, vy] = at; want.show(true); want.move(vx, vy); }
+    if (!want && menuCap) menuCap.show(false);
+    menuCap = want;
   };
-  return Object.assign(stop, { toggleGame, holdFree });
+  return Object.assign(stop, { toggleGame, captureMenu });
 }

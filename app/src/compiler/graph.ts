@@ -11,6 +11,7 @@ import type { KernelGraph, KernelOp } from "./kernel/adapter.ts";
 import { decodeEdge, decodeFace } from "./body.ts";
 import { loopOf } from "../operation/loops.ts";
 import { matchSections } from "./loftmatch.ts";
+import { walkPath } from "../operation/path.ts";
 import { NONE, applyPoint, applyDir, inverse, laterMotion } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
 export { loopOf };
@@ -125,6 +126,27 @@ export function buildGraph(scene: Scene): GraphResult {
         prev = xid;
         break;
       }
+      case "sweep": {
+        // a figure (and the figures drawn inside it, holes) carried along a path of lines and arcs (`dec_sweep`): the path is the lines, named, read from the scene here so that it follows an edit of them (`in_445`)
+        const figs = figuresOf(st);
+        if (figs.length !== 1) { errors[st.id] = "a sweep takes one shape at a time"; break; }
+        const sk = profile(st, figs[0]!.outer);
+        if (typeof sk === "string") { errors[st.id] = sk; break; }
+        const holes: string[] = [];
+        let bad = "";
+        figs[0]!.holes.forEach((h, i) => { const hs = profile(st, h, `s_${st.id}h${i}`); if (typeof hs === "string") bad = hs; else { ops.push(hs); holes.push(hs.id); } });
+        if (bad) { errors[st.id] = bad; break; }
+        const lines = String(st.params.path ?? "").split(",").filter(Boolean) as Ref[];
+        if (!lines.length) { errors[st.id] = "choose the path to carry the shape along"; break; }
+        if (lines.some((r) => !get(r))) { errors[st.id] = "a line of the path is gone"; break; }
+        const walked = walkPath(get, lines);
+        if (!walked.ok) { errors[st.id] = walked.why; break; }
+        const path = walked.sides.map((x) => ({ a: [...x.a], b: [...x.b], ...(x.m ? { m: [...x.m] } : {}) }));
+        ops.push(sk);
+        ops.push({ id: xid, type: "sweep", profile: sk.id, ...(holes.length ? { holes } : {}), path, ...(prev ? { target: prev } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" });
+        prev = xid;
+        break;
+      }
       case "hollow": {
         // the body made hollow (`in_391`, `in_393`): `faces` named by where they were; `mode` "open" leaves those open, "keep" keeps them as walls and opens every other, "closed" leaves no face open; the wall is `thickness`, inward when positive, outward when negative
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
@@ -184,11 +206,12 @@ export function buildGraph(scene: Scene): GraphResult {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const p = st.params;
         const one = p.body ? { body: String(p.body) } : {}; // (one body of several is repeated, `in_271`)
+        const turned = p.f0x !== undefined ? { frame: [[p.f0x, p.f0y, p.f0z], [p.f1x, p.f1y, p.f1z], [p.f2x, p.f2y, p.f2z]].map((r) => r.map(Number)) } : {}; // (the mover was turned: the copies run along its axes, `in_440`)
         ops.push(p.mode === "mirror"
           ? { id: xid, type: "pattern", target: prev, mode: "mirror", point: [Number(p.px), Number(p.py), Number(p.pz)], normal: [Number(p.nx), Number(p.ny), Number(p.nz)], ...one }
           : p.mode === "circular"
-          ? { id: xid, type: "pattern", target: prev, mode: "circular", count: Number(p.count), angle: Number(p.angle), axis: Number(p.axis), pivot: [Number(p.px), Number(p.py), Number(p.pz)], ...one }
-          : { id: xid, type: "pattern", target: prev, mode: "linear", nx: Number(p.nx), ny: Number(p.ny), nz: Number(p.nz), dx: Number(p.dx), dy: Number(p.dy), dz: Number(p.dz), ...one });
+          ? { id: xid, type: "pattern", target: prev, mode: "circular", count: Number(p.count), angle: Number(p.angle), axis: Number(p.axis), pivot: [Number(p.px), Number(p.py), Number(p.pz)], ...turned, ...one }
+          : { id: xid, type: "pattern", target: prev, mode: "linear", nx: Number(p.nx), ny: Number(p.ny), nz: Number(p.nz), dx: Number(p.dx), dy: Number(p.dy), dz: Number(p.dz), ...turned, ...one });
         prev = xid;
         break;
       }

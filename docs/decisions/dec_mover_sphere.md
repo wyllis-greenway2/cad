@@ -3,7 +3,7 @@ id: dec_mover_sphere
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_416, in_417, in_418, in_419, in_434
+human_input: in_416, in_417, in_418, in_419, in_434, in_437, in_439, in_440
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -17,6 +17,10 @@ alternative_to:
 **`in_421` (a correction; it replaces the always-both mover of `in_418` and the sphere's second-click release of `in_419`):** move and turn are two tools again, each showing only its own arrows or rings and acting on the object. The sphere is a mode of its own for orienting the mover: selected (a click on it) it pulses blue, the object is drawn as wireframe and not highlighted, and a bubble at the top says "Orient the mover" with an apply check (Enter) and a cancel cross (Esc). In the mode the sphere's arrows (`piv:`) move the mover, its rings (`rot:`) turn its axes, a vertex, edge or face clicked puts it there, the typed fields give its place, and a click on the sphere goes between true x, y, z and the turned axes. Apply keeps the place and axes, Cancel puts them back as they were when the sphere was selected (`AppState.moverWas`). The cross section plane keeps both sets (it has no tool to be in).
 
 **`in_434`:** in the orient mode each of the three bubbles has two numbers: the mover's position along that axis (mm) and the turn of its axes about that axis (°, the angles of the axes taken about X, then Y, then Z); typing a turn sets the axes (all zero is true x, y, z again).
+
+**`in_437`, `in_440` (the mover everywhere):** the orb is on the move and turn, the revolve, the mirror and the linear and circular repeats, and **its orient mode works on all of them** (a click on the orb: its arrows put it, its rings turn its axes, typed place and turn, a click on a line, corner or face sets it, apply by the check, Enter or a right click, Esc cancels). What uses the mover follows it: a linear copy runs along the mover's turned axes, a circular copy turns about the axis of its frame the ring chose, through the orb (a circular repeat's orb is its pivot point: moving the orb moves that point, cancel puts it back), and a mirror plane is across the chosen axis of its frame at the orb's place (the arrow's distance is from the orb). The axes are kept with the numbers of a repeat (a sketch's repeat record, a body's step), so it can be opened and changed again. A repeat's mover is written into the repeat being set up, not into an operation of its own.
+
+**`in_439`:** the orb pulses only in the orient mode (the mirror's and the copies' orbs do not; the revolve's orb, which is ready to be oriented, still does by `in_436`). An oriented mover is **remembered for the selection it was made for** (`AppState.moverPose`: how far the orb stands from the middle of the object, so it goes with the object, and the turned axes): the move and turn tools both take it when they begin, also by the swapper, until another part is selected. In the orient mode the bubbles show all three positions and turns while the **whole orb** is dragged and for a moment after (they fade out), else only the value of the arrow (its position) or ring (its turn) that was clicked. A **right click** on empty space in the orient mode is the apply check (no menu): the place and axes are kept, the selection is not touched, and the tool it was in is there again; going to the other tool applies it too.
 
 ## Rationale
 

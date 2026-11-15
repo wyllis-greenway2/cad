@@ -1,4 +1,4 @@
-// The library's fuse, cut and intersect, made once (`in_443`). The library builds `BRepAlgoAPI_Fuse(a, b)`, and that constructor already runs the whole algorithm; it then sets the glue and calls `Build()`, which runs it again:
+// The library's fuse, cut and intersect, made once (`in_450`). The library builds `BRepAlgoAPI_Fuse(a, b)`, and that constructor already runs the whole algorithm; it then sets the glue and calls `Build()`, which runs it again:
 // every boolean was made twice (and the glue, which tells the kernel that two shapes share only faces, came too late to spare the first). Here the builder is made with no shapes, told them and the glue, and built once.
 // The result is the same as the library's (a test compares them); `options` are the library's (`simplify`, `optimisation`). This file replaces the three methods of the library's 3D shapes and nothing else.
 import { getOC, cast, isShape3D, _3DShape } from "replicad";

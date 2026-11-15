@@ -5,7 +5,8 @@ import { scene as sceneOf, run } from "./session.ts";
 import type { Command } from "../operation/commands.ts";
 import type { Op } from "./operations.ts";
 import { opCommand, valueOf, bodyMotion } from "./operations.ts";
-import { heldCommand } from "./mate.ts";
+import { heldCommand, constrainedMotion } from "./mate.ts";
+import { mateStatus } from "../operation/mates.ts";
 import { isTangentArc } from "./faceedit.ts";
 
 /** Run the step of `op` on `sess`. Returns the new session and whether it fell back to a prism; null when the operation has no step yet. */
@@ -13,7 +14,15 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
   // a body that is moved or turned against its standing mates: what is made is the pose they leave it at, one step, not the move asked for and then their correction (`in_340`)
   const asked = op.target === "body" && (op.kind === "move" || op.kind === "rotate") && op.parts[0] ? bodyMotion(sceneOf(sess), op) : null;
   const held = asked ? heldCommand(sceneOf(sess), op.parts.filter((r) => sceneOf(sess).parts[r]?.kind === "body"), asked, op.grab) : null;
-  if (held && held.type === "batch" && !held.commands.length) return { session: { ...sess, message: "the mates of this body leave it nowhere to go that way" }, cmd: held };
+  if (held && held.type === "batch" && !held.commands.length) {
+    // refused by the mates that hold it: they flash (with the faces they are between) and a button offers to delete them and make the move as asked (`in_366`, `in_436`)
+    const group = op.parts.filter((r) => sceneOf(sess).parts[r]?.kind === "body");
+    const named = asked ? constrainedMotion(sceneOf(sess), group, asked, op.grab)?.blocked ?? [] : [];
+    // (when the solver does not say which held it, every standing mate the bodies have with one that stays is what holds it)
+    const blocked = named.length ? named : mateStatus(sceneOf(sess)).filter((m) => m.standing && m.state === "ok" && m.mover && m.other && (group.includes(m.mover.body) !== group.includes(m.other.body))).map((m) => m.id);
+    const plain = blocked.length ? opCommand(sceneOf(sess), op) : null;
+    return { session: { ...sess, message: "the mates of this body leave it nowhere to go that way", ...(blocked.length && plain ? { conflict: { culprits: [], victims: blocked, retry: plain } } : {}) }, cmd: held };
+  }
   const cmd = held ?? opCommand(sceneOf(sess), op);
   if (!cmd) {
     // a size that is nothing, or less (a radius of zero, a fillet of nothing): said, not ignored
@@ -28,7 +37,7 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
     // an extrusion onto bodies: whether it adds a piece or cuts is decided now, once, and kept in the step (`in_295`); decided again at every replay, a body that grew later would be cut by a piece that only stood beside it
     // (figures extruded together are steps of their own, `in_353`: they are decided together, below)
     const extrudes = cmd.type === "batch" ? cmd.commands : [cmd];
-    if ((op.kind === "extrude" || op.kind === "revolve" || op.kind === "loft") && extrudes.length && extrudes.every((c): c is Extract<Command, { type: "addStep" }> => c.type === "addStep" && (c.step.type === "extrude" || c.step.type === "revolve" || c.step.type === "loft")) && !done.message && (sceneOf(sess).steps.length || extrudes.length > 1)) {
+    if ((op.kind === "extrude" || op.kind === "revolve" || op.kind === "loft" || op.kind === "sweep") && extrudes.length && extrudes.every((c): c is Extract<Command, { type: "addStep" }> => c.type === "addStep" && (c.step.type === "extrude" || c.step.type === "revolve" || c.step.type === "loft" || c.step.type === "sweep")) && !done.message && (sceneOf(sess).steps.length || extrudes.length > 1)) {
       const [volume, count] = [(x: Session): number => Object.values(sceneOf(x).parts).reduce((a, q) => a + (q.kind === "body" ? (q.volume ?? 0) : 0), 0), (x: Session): number => Object.values(sceneOf(x).parts).filter((q) => q.kind === "body").length];
       // (decided from the answer for all of them together, the one the kernel already has from the preview: asking it for each step on its own would ask for lists it has not worked out, and in the browser its answer comes late)
       // the kernel's answer is still to come (the browser): the volumes of `done` are the older ones, so nothing is decided now; the session keeps what it needs and decides when the answer is here (`in_412`)

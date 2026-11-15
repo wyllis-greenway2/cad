@@ -7,7 +7,10 @@ import { actionsFor, measureAction } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
 import { armTool, typeKey, finish, lineNext } from "../tools.ts";
 import type { OpKind } from "../operations.ts";
-import { startOp, typeOp, autoOp } from "../operations.ts";
+import { startOp, typeOp, autoOp, drawnFigure } from "../operations.ts";
+import { pasteFigure, surfaceOf } from "../paste.ts";
+import { placements } from "../../operation/repeat.ts";
+import type { Part } from "../../operation/part.ts";
 import { runOp } from "../runop.ts";
 import { lookup, nextId } from "../../operation/scene.ts";
 import type { Ref } from "../../shared/ref.ts";
@@ -21,13 +24,14 @@ import { moveOffset } from "../gizmo.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
-import { activeOp, movePivot, gizmoOf } from "./handles.ts";
+import { activeOp, movePivot, movePivotTo, gizmoOf } from "./handles.ts";
+import { withPose, orientApply, moverOp, putMover } from "./pose.ts";
 import { doSectionToggle, doSectionChip, typedSection, placeSection, sectionNow } from "./section.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { sub } from "../../math/vec.ts";
 import { frameAngles, frameOfAngles } from "../entry.ts";
 import { typedNumber } from "../../shared/numbers.ts";
-import { pivotCommands, patternCommand, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
+import { pivotCommands, patternCommand, patternValues, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
 import type { Repeat } from "../pattern.ts";
 import type { Op } from "../operations.ts";
 import { BODY_OBJECT } from "../../compiler/body.ts";
@@ -38,7 +42,7 @@ import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
 const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, line: true, arc: true, trim: true };
-const IS_SKETCH_OP: Record<OpKind, boolean> = { offset: true, extrude: false, pushpull: false, edge: false, move: false, rotate: false, scale: false, dimension: false, linear: false, circular: false, copy: false, hollow: false, revolve: false, loft: false, mirror: false };
+const IS_SKETCH_OP: Record<OpKind, boolean> = { offset: true, extrude: false, pushpull: false, edge: false, move: false, rotate: false, scale: false, dimension: false, linear: false, circular: false, copy: false, hollow: false, revolve: false, loft: false, sweep: false, mirror: false };
 const isSketchTool = (name: string): name is ToolKind => name in IS_SKETCH_TOOL;
 
 /** The plane a sketch tool or operation starts on: exactly one plane selected (a face, a plane, or what a sketch line or the body's edge lies in), or none, or several: the plane of what the right click was on (`in_169`). */
@@ -67,7 +71,7 @@ function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = 
 function beginOp(s: AppState, kind: OpKind, now = 0, over: Ref | null = null): AppState {
   const r = startOp(sceneOf(s.session), selectionOf(s.session), kind, viewAxes(s.cam));
   if (!r.ok) return { ...s, session: { ...s.session, message: r.why }, menu: null };
-  const started: AppState = { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: null } };
+  const started: AppState = { ...s, op: withPose(s, r.op), tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" ? "turning about the longest straight line: click another line, a point or a face to move the orb there, or click the orb to turn it any way" : null } };
   return IS_SKETCH_OP[kind] ? facePlane(started, over, now) : started;
 }
 export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["name"], now = 0): AppState {
@@ -107,13 +111,16 @@ export function commitOp(s: AppState): AppState {
 /** The mover was being oriented (the sphere selected, `in_421`): Cancel puts its place and axes back as they were and goes back to the tool. */
 function cancelOrient(s: AppState): AppState {
   const w = s.moverWas;
-  if (!s.op || !w) return { ...s, moverSphere: false, moverWas: null };
-  const { frame: _f, frameKept: _k, ...rest } = s.op;
-  return { ...s, moverSphere: false, moverWas: null, op: { ...rest, pivot: w.pivot, ...(w.frame ? { frame: w.frame } : {}), ...(w.frameKept ? { frameKept: w.frameKept } : {}) } as Op };
+  const mo = moverOp(s);
+  if (!mo || !w) return { ...s, moverSphere: false, moverWas: null };
+  const { frame: _f, frameKept: _k, ...rest } = mo;
+  let back = putMover({ ...s, moverSphere: false, moverWas: null }, { ...rest, pivot: w.pivot, ...(w.frame ? { frame: w.frame } : {}), ...(w.frameKept ? { frameKept: w.frameKept } : {}) } as Op);
+  if (mo.kind === "circular" && s.repeat && !s.op && w.pivot) back = movePivotTo(back, w.pivot); // (a circular repeat's pivot point goes back where it was)
+  return back;
 }
 
 export function doTyped(s: AppState, key: string): AppState {
-  if (s.moverSphere && key === "Enter") return { ...s, moverSphere: false, moverWas: null }; // (Apply: the mover stays as oriented, `in_421`)
+  if (s.moverSphere && key === "Enter") return orientApply(s); // (Apply: the mover stays as oriented, `in_421`, and while the part is selected, `in_439`)
   if (s.cut && key === "Enter") return applyCut(s);
   if (!s.op && !s.tool && /^[0-9.\-]$/.test(key)) {
     // one standard for typing with something selected (`dec_typing_standard`, `in_235`): a drawn part that has a number of its own (a side: its length; a circle: its diameter; an arc: its radius; two
@@ -164,22 +171,31 @@ export function doTyped(s: AppState, key: string): AppState {
 /** The text of a field of the value box changed: the operation's number, or a size of the figure being drawn. */
 export function doEntry(s: AppState, field: number, text: string): AppState {
   if (!/^-?\d*\.?\d*$/.test(text)) return s;
-  if (s.moverSphere && s.op && (s.op.kind === "move" || s.op.kind === "rotate") && !s.repeat && field >= 3 && field < 6) { // a number typed for the turn of the mover's axes about X, Y or Z (`in_434`)
+  const mo = s.moverSphere ? moverOp(s) : null;
+  if (mo && field >= 3 && field < 6) { // a number typed for the turn of the mover's axes about X, Y or Z (`in_434`, `in_440`)
     const n = typedNumber(text);
     if (n === null) return s;
-    const angles = frameAngles(s.op.frame);
+    const angles = frameAngles(mo.frame);
     angles[field - 3] = n;
     const turned = angles.some((a) => Math.abs(a) > 1e-9);
-    const { frame: _f, ...rest } = s.op;
-    return { ...s, op: { ...rest, auto: false, ...(turned ? { frame: frameOfAngles(angles) } : {}) } as Op };
+    const { frame: _f, ...rest } = mo;
+    return putMover(s, { ...rest, auto: false, ...(turned ? { frame: frameOfAngles(angles) } : {}) } as Op);
   }
-  if (s.moverSphere && s.op && (s.op.kind === "move" || s.op.kind === "rotate") && !s.repeat && field >= 0 && field < 3) { // a number typed for the mover's place: its world x, y or z (`in_418`)
+  if (mo && field >= 0 && field < 3) { // a number typed for the mover's place: its world x, y or z (`in_418`)
     const n = typedNumber(text);
     const g = gizmoOf(s);
     if (n === null || !g) return s;
-    const off = s.op.kind === "move" ? moveOffset(sceneOf(s.session), s.op) : ([0, 0, 0] as Vec3);
     const at = g.centre.map((c, j) => (j === field ? n : c)) as unknown as Vec3;
-    return { ...s, op: { ...s.op, auto: false, pivot: sub(at, off) } };
+    if (mo.kind === "circular" && s.repeat && !s.op) return movePivotTo(s, at); // (a circular repeat's pivot is a point of the drawing)
+    const off = mo.kind === "move" ? moveOffset(sceneOf(s.session), mo) : ([0, 0, 0] as Vec3);
+    return putMover(s, { ...mo, auto: false, pivot: sub(at, off) });
+  }
+  if (s.op?.kind === "mirror" && !s.moverSphere && s.op.mirrorAt && field >= 0 && field < 3) { // the number of the mirror plane's arrow: where the plane stands along that axis (`in_437`)
+    const n = typedNumber(text);
+    if (n === null) return s;
+    const at = [...s.op.mirrorAt] as unknown as [number, number, number];
+    at[field] = n;
+    return { ...s, op: { ...s.op, auto: false, mirrorAt: at, mirrorAxis: field as 0 | 1 | 2 } };
   }
   if (s.op && s.op.kind === "rotate" && s.op.frame && (s.op.target === "body" || s.op.target === "plane")) return { ...s, op: { ...s.op, auto: false, typed: text, rot: ["", "", ""] as [string, string, string] } }; // (a turn about the mover's own axis: one angle, `in_417`)
   if (s.op && s.op.kind === "rotate" && (s.op.target === "body" || s.op.target === "plane")) {
@@ -311,7 +327,8 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now, s.menu?.plane ?? null);
   if (s.repeat && (id === "op:linear" || id === "op:circular") && !s.repeat.op.editStep && !s.repeat.op.editPattern) return doRepeatSwitch(closed, id === "op:linear" ? "linear" : "circular"); // (a repeat that is open changes kind, `in_382`)
-  if (id === "op:copy") return doQuickCopy(closed);
+  if (id === "op:copy" || id === "clipboard:copy") return doCopyCapture(closed);
+  if (id === "clipboard:paste") return doPaste(closed);
   if (id === "op:linear" || id === "op:circular") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular");
   if (id.startsWith("op:")) return beginOp(closed, id.slice(3) as OpKind, now, s.menu?.plane ?? null);
   if (id.startsWith("near:")) {
@@ -396,6 +413,37 @@ function doQuickCopy(s: AppState): AppState {
   if (!cmd) return say("nothing to copy");
   const next = run(s.session, cmd);
   return { ...s, menu: null, op: null, tool: null, session: next.message ? next : { ...next, message: null } };
+}
+/** Ctrl+C and the menu's Copy (`in_435`): what is selected is captured, nothing is made; Ctrl+V pastes it. */
+function doCopyCapture(s: AppState): AppState {
+  const sel = selectionOf(s.session);
+  if (!sel.length) return { ...s, menu: null, session: { ...s.session, message: "select something to copy" } };
+  const r = startOp(sceneOf(s.session), sel, "copy", viewAxes(s.cam));
+  if (!r.ok) return { ...s, menu: null, session: { ...s.session, message: r.why } };
+  return { ...s, menu: null, clipboard: [...sel], session: { ...s.session, message: "copied: Ctrl+V pastes it beside the original, or onto a face or sketch plane you select first" } };
+}
+/** Ctrl+V and the menu's Paste (`in_435`): a drawn figure is pasted as parts of its own, at the distance a copy begins with, or onto the surface that is selected; a body is copied beside itself. */
+function doPaste(s: AppState): AppState {
+  const say = (message: string): AppState => ({ ...s, menu: null, session: { ...s.session, message } });
+  if (!s.clipboard?.length) return say("nothing is copied: select something and press Ctrl+C");
+  if (s.repeat) return say("apply or cancel the repeat that is open first");
+  const sc = sceneOf(s.session);
+  const parts = s.clipboard.map((r) => sc.parts[r]).filter((p): p is Part => !!p);
+  if (!parts.length) return say("what was copied is gone");
+  const drawn = drawnFigure(sc, parts);
+  if (!drawn.length) { // a body: a copy beside it (its own, as before)
+    return doQuickCopy({ ...s, session: { ...s.session, click: { ...s.session.click, selection: [...s.clipboard] } } });
+  }
+  const r = startOp(sc, drawn, "copy", viewAxes(s.cam));
+  const move = r.ok ? placements("linear", patternValues(r.op))[0]?.move ?? [0, 0, 0] : ([0, 0, 0] as Vec3);
+  // a surface selected (a face, a sketch's plane) takes the paste, unless it is the thing copied itself
+  const sel = selectionOf(s.session);
+  const here = sel.length === 1 && !s.clipboard.includes(sel[0]!) && !drawn.includes(sel[0]!) ? surfaceOf(sc, sel[0]!) : null;
+  const made = pasteFigure(sc, drawn, move as Vec3, here);
+  if (!made) return say("nothing to paste");
+  const next = run(s.session, made.command);
+  if (next.message) return say(next.message);
+  return { ...s, menu: null, op: null, tool: null, session: { ...next, message: null, click: { ...next.click, selection: made.made.filter((q) => q in sceneOf(next).parts) } } };
 }
 function doRepeatBegin(s: AppState, kind: "linear" | "circular"): AppState {
   const say = (message: string): AppState => ({ ...s, menu: null, session: { ...s.session, message } });

@@ -192,7 +192,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     describeInfo = { bodies: bodies?.length ?? 0, reused: bodies?.length ?? 0 }; // (the whole answer was kept)
   } else if (present) {
     // each body (solid) is described on its own and the description kept by what it looks like (its volume, box and number of faces and edges): a body that a change did not touch is not meshed again, however many others are
-    // (a block edited beside a loft of a thousand faces left the loft's mesh and faces to be made again at every size, `in_439`)
+    // (a block edited beside a loft of a thousand faces left the loft's mesh and faces to be made again at every size, `in_446`)
     const lumps = lumpsOf(fin.shape);
     const markers = fin.markers ?? [];
     const tKey = JSON.stringify([tess, lite]);

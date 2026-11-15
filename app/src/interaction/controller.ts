@@ -13,6 +13,7 @@ import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn, run, scene as sceneOf } from "./session.ts";
 import { loftChoice } from "./loft.ts";
+import { orientApply, storePose } from "./control/pose.ts";
 import { settings } from "../shared/settings.ts";
 import type { Command } from "../operation/commands.ts";
 import { projector } from "./camera.ts";
@@ -49,6 +50,8 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (next.tape && s.tape && next.session.click.selection.join("|") !== s.session.click.selection.join("|")) next = { ...next, tape: false };
   // the mover's sphere is selected only while the mover is up for the same selection (`in_416`)
   if (next.moverSphere && (next.session.click.selection.join("|") !== s.session.click.selection.join("|") || i.type === "begin" || (i.type === "runAction" && !i.id.startsWith("op:")))) next = { ...next, moverSphere: false, moverWas: null };
+  // the oriented mover stays while its part is selected, and goes when something else is (`in_439`)
+  if (next.moverPose && next.session.click.selection.join("|") !== next.moverPose.key) next = { ...next, moverPose: null };
   // a selected arrow stays selected while what it belongs to does: not when the selection changes or the operation ends (`in_238`)
   if (next.handleSel && (!next.op && !next.repeat && next.session.click.selection.join("|") !== s.session.click.selection.join("|") || (s.op && !next.op && !next.repeat) || (s.repeat && !next.repeat))) next = { ...next, handleSel: null };
   // an offset starts with its arrow on the outline where you were pointing when you chose it (or at the middle of the view), not wherever the figure's own first side is: zoomed in, that could be out of sight (`in_244`)
@@ -94,6 +97,10 @@ function anchoredOffset(s: AppState, menu: AppState["menu"], env: Env): NonNulla
 }
 
 function apply(s: AppState, i: Intent, env: Env): AppState {
+  // in the orient mode a right click on empty space is the apply check: the mover's place is kept, the selection is not touched, and it goes back to the tool that was there (`in_439`)
+  if (i.type === "menu" && !i.button && s.moverSphere) return orientApply(s);
+  // going to the other tool with the orient mode up applies what was oriented, as the check does
+  if (s.moverSphere && (i.type === "begin" || (i.type === "runAction" && i.id.startsWith("op:")))) s = storePose(s);
   switch (i.type) {
     case "hover": return doHover(s, i, env);
     case "tapAim": return doTapAim(s, i, env);
@@ -114,14 +121,12 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "home": return doHome(s, env);
     case "runAction": return doRunAction(s, i.id, env.now);
     case "overrideRefusal": return overrideRefusal(s);
-    case "mirrorKind": return s.op?.kind === "mirror" ? { ...s, op: { ...s.op, mirrorIx: Math.max(0, Math.min((s.op.mirrorChoices?.length ?? 1) - 1, i.index)) } } : s;
     case "loftKind": return s.op?.kind === "loft" ? { ...s, op: loftChoice(sceneOf(s.session), s.op, i.id) } : s;
     case "sizeKind": {
       if (s.op?.kind !== "edge") return s;
       if (i.kind === "swap") return { ...s, op: { ...s.op, dfaceIx: (s.op.dfaceIx ?? 0) + 1 } }; // (the first distance goes to the other face, `dec_chamfer_two_distances`)
       return { ...s, op: { ...s.op, variable: i.kind === "variable", twoDist: i.kind === "twoDistances", varField: 0 } };
     }
-    case "axisKind": { if (s.op?.kind !== "revolve") return s; const ix = Math.max(0, Math.min((s.op.revAxes?.length ?? 1) - 1, i.index)); return { ...s, op: { ...s.op, axisIx: ix, ...(s.op.revAxes?.[ix]?.twist && (s.op.advValue ?? 0) === 0 && (s.op.advTyped ?? "") === "" ? { advValue: 10 } : {}) } }; } // (a twist is carried along the axis: 10 mm to begin with)
     case "faceKind": return s.op?.kind === "pushpull" ? { ...s, op: { ...s.op, faceKind: i.kind } } : s;
     case "holdFlash": return s.flash ? { ...s, flash: { ...s.flash, at: env.now - settings.flash.holdMs } } : s;
     case "group": return doGroup(s);

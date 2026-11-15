@@ -22,7 +22,7 @@ export function logEntry(i: Intent, s: AppState, t: number): Record<string, unkn
 
 export interface Extras { intents: unknown[]; viewport: { w: number; h: number; dpr: number }; device: string; userAgent: string; build: string; scrollMode: string; at: string; pointer: { x: number; y: number } | null; /** where the time went (`in_216`) */ timing?: Record<string, unknown> }
 
-/** Where the kernel's time went for the last answer, and how the app's compiles have gone since the page began: what to read when a change is slow (`in_441`). */
+/** Where the kernel's time went for the last answer, and how the app's compiles have gone since the page began: what to read when a change is slow (`in_448`). */
 export function profileOf(k: CompileOutcome["kernel"]): Record<string, unknown> {
   const r = (v: number) => Math.round(v * 10) / 10;
   const ops = k?.ops ?? [];
@@ -59,7 +59,7 @@ export function snapshotOf(s: AppState, extras: Extras): Record<string, unknown>
     message: s.session.message, conflict: s.session.conflict, lagging: s.session.lagging,
     kernel: { errors: outcome.errors, volume: k?.volume ?? null, bbox: k?.bbox ?? null, faces: k?.faces?.length ?? null, edges: k?.edges?.length ?? null, totalMs: k ? Math.round(k.totalMs) : null, perf: k?.perf ? Object.fromEntries(Object.entries(k.perf).map(([n, v]) => [n, Math.round(v)])) : null },
     timing: extras.timing ?? null,
-    profile: profileOf(outcome.kernel), // (where the time of the last compile went: the steps made and the ones found as they were, the slowest, how the bodies were described, `in_441`)
+    profile: profileOf(outcome.kernel), // (where the time of the last compile went: the steps made and the ones found as they were, the slowest, how the bodies were described, `in_448`)
     scene: { partsByKind: kinds, relations: sc.relations.length, steps: sc.steps.map((st) => `${st.id}:${st.type}`), counter: sc.counter },
     history: { commands: s.session.history.commands.length, cursor: s.session.history.cursor },
     settings: { view: settings.view, input: settings.input, pick: settings.pick, sketch: settings.sketch },

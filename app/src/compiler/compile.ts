@@ -34,7 +34,7 @@ export interface CompileOutcome {
  */
 const settled = new WeakMap<Scene, SolveOutcome>();
 
-/** Where the time of each compile went (ms), the last few and the total since the page began: what a snapshot says when a change is slow (`in_441`). */
+/** Where the time of each compile went (ms), the last few and the total since the page began: what a snapshot says when a change is slow (`in_448`). */
 const recent: { at: number; solveMs: number; graphMs: number; kernelMs: number; placeMs: number; totalMs: number; ops: number }[] = [];
 let compiles = 0;
 let compileMs = 0;
