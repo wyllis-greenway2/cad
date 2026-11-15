@@ -572,6 +572,8 @@ const OPS = {
         // straight edges between flat faces: the corner is made as a region that is cut or added, which has no size that fails (`in_386`, `dec_edits_saturate`)
         const region = neighbours && set ? regionRound(t, set, size, op.mode, ratio ? size * ratio : undefined) : null;
         if (region === "empty") throw Object.assign(new Error(`a ${op.mode === "chamfer" ? "chamfer" : "fillet"} of that size would take all of the body`), { final: true });
+        const mixed = !region && neighbours && set && !ratio ? mixedRound(t, set, list, size, op.mode) : null;
+        if (mixed) { note = `the ${op.mode === "chamfer" ? "chamfer" : "fillet"} could not be made all at once at this size, so the straight edges and rims were made as regions and the other edges by the kernel, one after the other`; return mixed; }
         if (region) { note = `the ${op.mode === "chamfer" ? "chamfer" : "fillet"} could not be made as a smooth round at this size (the faces next to it are not wide enough, or other rounding meets it), so it was made as a region: as large a round as the faces beside it allow, or cut across them where they end`; return region; }
         // on its own it cannot be made (next to fillets already made, a corner where three meet): the kernel can blend a corner when the edges that meet there are rounded in the same operation, so
         // this one is tried together with the ones just before it (each with its own size), from the body before them
@@ -797,12 +799,45 @@ const OPS = {
  * edge tangentially (they are narrower than the size) it simply crosses them. Every region is made from the body as it was, then all are applied. Null if an edge is not straight between two flat faces.
  */
 /**
+ * A selection that mixes edges a region can make (straight between flat faces, rims) with edges it cannot (`in_390`): the regions are made from the body as it is and the kernel rounds the others on the result, or
+ * the other way about, whichever works. Null if the selection is not mixed, or neither order works.
+ */
+function mixedRound(t, set, list, size, mode) {
+  const byEdge = new Map();
+  for (const f of facesOf(t)) for (const e of edgesOf(f)) byEdge.set(e.hashCode, [...(byEdge.get(e.hashCode) ?? []), f]);
+  const regionable = (e) => { const fs = byEdge.get(e.hashCode) ?? []; return (e.geomType === "LINE" && fs.length === 2 && fs.every((f) => f.geomType === "PLANE")) || !!rimFaces(e, fs); };
+  const [R, K] = [[], []];
+  for (const e of edgesOf(t).filter((x) => set.has(x.hashCode))) (regionable(e) ? R : K).push(e.hashCode);
+  if (!R.length || !K.length) return null;
+  const refOf = new Map();
+  for (const r of list) { const h = resolveEdges(t, [r]); if (h && h.size === 1) refOf.set([...h][0], r); }
+  const [Rrefs, Krefs] = [R.map((h) => refOf.get(h)), K.map((h) => refOf.get(h))];
+  if (Rrefs.some((r) => !r) || Krefs.some((r) => !r)) return null;
+  const kernelRound = (body, refs) => {
+    const s2 = resolveEdges(body, refs);
+    if (!s2 || s2.size !== refs.length) return null;
+    try {
+      const pick = (ef) => ef.when(({ element }) => s2.has(element.hashCode));
+      const made = mode === "chamfer" ? body.chamfer(size, pick) : body.fillet(size, pick);
+      return isValidSolid(made) && Math.abs(measureVolume(made) - measureVolume(body)) > 1e-9 * measureVolume(body) ? made : null;
+    } catch { return null; }
+  };
+  const regions = (body, refs) => { const s2 = resolveEdges(body, refs); if (!s2 || s2.size !== refs.length) return null; const r = regionRound(body, s2, size, mode); return r && r !== "empty" ? r : null; };
+  const first = regions(t, Rrefs);
+  const a = first ? kernelRound(first, Krefs) : null;
+  if (a) return a;
+  const second = kernelRound(t, Krefs);
+  return second ? regions(second, Rrefs) : null;
+}
+
+/**
  * The region of a **rim** (`in_387`, `dec_edits_saturate` B): the circle where a flat face meets a round wall about an axis at right angles to it, revolved. The corner area between the two faces and the rounding
  * (the rolling circle, or the bevel) is drawn in the half plane through the axis (radius across, height along) and turned once round. A rim saturates at the largest size the faces beside it allow (the wall's height; the
  * flat face's width, which for the end of a post is its radius: past that the round is a dome and no more), since a region crossing the axis or going past the foot of a post would cut into what is not the corner.
  * Returns null for anything that is not such a rim.
  */
-function rimTool(e, fs, size, mode) {
+function rimFaces(e, fs) {
+  if (e.geomType !== "CIRCLE" || fs.length !== 2) return null;
   const plane = fs.find((f) => f.geomType === "PLANE");
   const wall = fs.find((f) => /^CYLINDR/.test(f.geomType)); // (the library names it CYLINDRE)
   if (!plane || !wall) return null;
@@ -812,11 +847,17 @@ function rimTool(e, fs, size, mode) {
   const C = [L.X(), L.Y(), L.Z()];
   const ax = [D.X(), D.Y(), D.Z()];
   const R = ci.Radius();
-  const dotp = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   const pn = plane.normalAt();
   const n = [pn.x, pn.y, pn.z];
   const nl = Math.hypot(...n);
-  if (Math.abs(dotp(n, ax)) / nl < 1 - 1e-6) return null; // (the flat face is not across the axis: a cone, or a slanted cut)
+  if (Math.abs(n[0] * ax[0] + n[1] * ax[1] + n[2] * ax[2]) / nl < 1 - 1e-6) return null; // (the flat face is not across the axis: a cone, or a slanted cut)
+  return { plane, wall, C, ax, R, n };
+}
+function rimTool(e, fs, size, mode) {
+  const rf = rimFaces(e, fs);
+  if (!rf) return null;
+  const { plane, wall, C, ax, R, n } = rf;
+  const dotp = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   const A = e.startPoint;
   const radial = [(A.x - C[0]) / R, (A.y - C[1]) / R, (A.z - C[2]) / R];
   const wn = wall.normalAt(A);
@@ -862,7 +903,7 @@ function regionRound(t, set, size, mode, end) {
   const rims = new Map();
   for (const e of edgesOf(t).filter((x) => set.has(x.hashCode))) {
     const fs = byEdge.get(e.hashCode) ?? [];
-    if (e.geomType === "CIRCLE" && fs.length === 2) {
+    if (rimFaces(e, fs)) {
       // a rim: a circle where a flat face meets a round wall about the same axis (the end of a post or a hole, the foot of a post): made by revolving the corner region about the axis (`rimTool`)
       const rim = rimTool(e, fs, size, mode);
       if (!rim) return null;

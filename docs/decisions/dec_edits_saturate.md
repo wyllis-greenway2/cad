@@ -3,7 +3,7 @@ id: dec_edits_saturate
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_383, in_386, in_387
+human_input: in_383, in_386, in_387, in_390
 date: 2026-11-15
 depends_on:
   - dec_direct_modification: edits stay a list of specific operations built from kernel pieces (booleans, prisms, wedges, rings); this entry adds to the list and does not rebuild bodies from planes
@@ -23,7 +23,9 @@ alternative_to:
 
 **Variable fillet (built, `in_387`).** A fillet of **one edge** can have a size at its start and another at its other end (the library's `[r1, r2]`; the step has `value` and `end`; a fillet only: a chamfer has one size): a chip beside the number (Constant, Variable), two numbers (Start, End; Tab goes between them, or click either), the start end in amber. The start is the end `a` of the edge (the first point of its name). It is its own step (never rounded together with others). Where the kernel cannot make it, a straight edge between flat faces is made as a region between two profiles (a ruled loft, the cone the rolling ball makes), so a size at either end does not fail either. Not built: a variable chamfer (the library has none), a size at several points along the edge, a variable fillet of several edges at once, the loft for edges that are not straight.
 
-**Not built:** B for corners where several rounded edges meet, and for an edge between a flat face and a curved one that is not a rim.
+**Mixed selections and corners (built, `in_390`).** A selection that mixes edges a region can make (straight between flat faces, rims) with edges it cannot (`mixedRound`): when the kernel cannot round the whole selection, the regions are made from the body as it is and the kernel rounds the other edges on the result, or the other way about, whichever works; the step says so. Where the others cannot take the size either it is refused, with the kernel's reason. Corners where several rounded edges meet: where the kernel can round them together it makes its spherical corners; where it cannot, the regions of all the edges are made from the body as it was, so a corner is the body inside every rounded edge (valid, with creases where the rounds cross; tested on all twelve edges of a cube at more than half its side, to 0.4 per cent of the volume of that body).
+
+**Not built:** a spherical patch where three rounded edges meet and the kernel cannot make them (the corner is creased); a variable fillet across a mixed selection.
 
 **C (later, with our own kernel).** Rebuild bodies from their surfaces (half-spaces, cylinders) so that every number saturates by construction, and kinds of face edit that need it (extend across curved neighbours). It is a second geometry engine, which `dec_direct_modification` rejected for now; it belongs to the project of writing our own kernel (`dec_kernel_hybrid`, "our own later"). Listed in `docs/roadmap.md`.
 

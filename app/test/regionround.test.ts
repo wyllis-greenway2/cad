@@ -148,3 +148,78 @@ test("the foot of a small post on a larger one (a concave rim) is filled as far 
     assert.ok(Math.abs(vol(done) - before - filled(used)) < 1.0, `r ${r}: added ${(vol(done) - before).toFixed(2)} of ${filled(used).toFixed(2)}`);
   }
 });
+
+// ---- a selection that mixes edges a region can make with edges it cannot, and corners where several rounded edges meet (`in_390`) ----
+
+/** A plate 30 x 30 x 1 with a post of radius 5 and height 10 on it, and a hole of radius 2 through the post: the plate's top edges can be made as regions, the hole's rims (a cylinder on a cylinder) cannot */
+function plateWithPost() {
+  let s = createSession(kernel);
+  const r = drawChain(scene(s), XY, [[-15, -15, 0], [15, -15, 0], [15, 15, 0], [-15, 15, 0]], true);
+  s = run(s, r.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: r.lines, params: { depth: 1 } } });
+  s = run(s, { type: "addPart", part: { ref: "d/p_top", kind: "plane", origin: "drawn", plane: null, movable: false, at: [0, 0, 1], u: [1, 0, 0], v: [0, 1, 0], onBody: true } as never });
+  const post = drawCircle(scene(s), "d/p_top" as never, [0, 0, 1], 5);
+  s = run(s, post.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [post.circle], params: { depth: 10 } } });
+  s = run(s, { type: "addPart", part: { ref: "d/p_hole", kind: "plane", origin: "drawn", plane: null, movable: false, at: [0, -8, 0], u: [1, 0, 0], v: [0, 0, 1], onBody: true } as never });
+  const hole = drawCircle(scene(s), "d/p_hole" as never, [0, -8, 6], 2);
+  s = run(s, hole.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [hole.circle], params: { depth: -16, mode: "cut" } } });
+  assert.deepEqual(s.outcome.errors, {});
+  const edges = (Object.values(scene(s).parts) as Part[]).filter((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "body");
+  return { s, plateTop: edges.filter((e) => /^b\/body\/e@-?15,-?15,1~/.test(e.ref)).map((e) => e.ref), holeRims: edges.filter((e) => !!e.path).map((e) => e.ref) };
+}
+const rounded = (s: Session, parts: string[], v: number) => run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "edgeMod", parts: parts as never, params: { mode: "fillet", value: v } } });
+
+test("edges that are regions (the plate's top edges, thinner than the size) and edges that are not (the rims of the hole) are rounded together: each as it can be, one after the other", () => {
+  const { s, plateTop, holeRims } = plateWithPost();
+  assert.equal(plateTop.length, 4);
+  assert.equal(holeRims.length, 2);
+  const both = rounded(s, [...plateTop, ...holeRims], 1.2);
+  assert.deepEqual(both.outcome.errors, {}, JSON.stringify(both.outcome.errors));
+  assert.equal(scene(both).steps.length, scene(s).steps.length + 1, "one step");
+  assert.match(Object.values(both.outcome.notes ?? {}).join(" "), /straight edges and rims were made as regions and the other edges by the kernel/);
+  // what the two would do alone, added: the volumes are taken from the same body
+  const [a, b] = [rounded(s, plateTop, 1.2), rounded(s, holeRims, 1.2)];
+  const want = vol(s) - (vol(s) - vol(a)) - (vol(s) - vol(b));
+  assert.ok(Math.abs(vol(both) - want) < 0.5, `${vol(both).toFixed(1)} against ${want.toFixed(1)}`);
+});
+
+test("when the other edges cannot take the size either, the refusal says so and nothing is made", () => {
+  const { s, plateTop, holeRims } = plateWithPost();
+  const both = rounded(s, [...plateTop, ...holeRims], 3);
+  assert.equal(scene(both).steps.length, scene(s).steps.length, "refused");
+  assert.match(both.message ?? "", /cannot be made/);
+});
+
+test("all twelve edges of a cube rounded by more than half its side: the corners are made, as the body inside every rounded edge", () => {
+  let s = createSession(kernel);
+  const r = drawChain(scene(s), XY, [[0, 0, 0], [20, 0, 0], [20, 20, 0], [0, 20, 0]], true);
+  s = run(s, r.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: r.lines, params: { depth: 20 } } });
+  const edges = (Object.values(scene(s).parts) as Part[]).filter((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "body" && !p.circle).map((p) => p.ref);
+  assert.equal(edges.length, 12);
+  for (const rr of [4, 12]) {
+    const done = rounded(s, edges, rr);
+    assert.deepEqual(done.outcome.errors, {}, `r ${rr}: ${JSON.stringify(done.outcome.errors)}`);
+    // the volume of the points of the cube that are in none of the twelve cut regions
+    const n = 160;
+    let kept = 0;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) for (let k = 0; k < n; k++) {
+      const p = [((i + 0.5) * 20) / n, ((j + 0.5) * 20) / n, ((k + 0.5) * 20) / n];
+      let cut = false;
+      for (let a = 0; a < 3 && !cut; a++) {
+        const [b, c] = [(a + 1) % 3, (a + 2) % 3];
+        for (const sb of [0, 20]) for (const sc of [0, 20]) {
+          const [u, v] = [Math.abs(p[b]! - sb), Math.abs(p[c]! - sc)];
+          if (u < rr && v < rr && Math.hypot(rr - u, rr - v) > rr) cut = true;
+        }
+      }
+      if (!cut) kept++;
+    }
+    const want = (kept / n ** 3) * 8000;
+    // r = 4 is the kernel's own round with spherical corners, a little less than the cut regions; r = 12 is made of the regions
+    const tol = rr === 4 ? 0.01 : 0.004;
+    assert.ok(Math.abs(vol(done) - want) / want < tol, `r ${rr}: ${vol(done).toFixed(1)} against ${want.toFixed(1)}`);
+  }
+});
