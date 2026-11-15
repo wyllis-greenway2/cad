@@ -2,6 +2,13 @@
 const svg = (inner: string): string => `<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 
 const ICONS: Record<string, string> = {
+  // the modes of a sheet's icon (`in_446`): the plane edge on, and the half that is cut away dashed (above, below), no cut, invisible
+  sheetCutUp: svg('<path d="M2 10h12"/><path d="M3 6h10M3 3.5h10" stroke-dasharray="1.6 1.4" opacity=".7"/><path d="M8 8.4V7.6" />'),
+  sheetCutDown: svg('<path d="M2 6h12"/><path d="M3 10h10M3 12.5h10" stroke-dasharray="1.6 1.4" opacity=".7"/>'),
+  sheetPlain: svg('<path d="M2.5 11.5l3-7h8l-3 7z"/>'),
+  sheetHidden: svg('<path d="M2.5 11.5l3-7h8l-3 7z" stroke-dasharray="1.6 1.6" opacity=".6"/><path d="M2 2.5l12 11"/>'),
+  sheetArrow: svg('<path d="M8 2v12"/><path d="M5.5 4.5L8 2l2.5 2.5M5.5 11.5L8 14l2.5-2.5"/>'),
+  sheetFree: svg('<circle cx="8" cy="8" r="1.8"/><path d="M8 1.5v3.2M8 11.3v3.2M1.5 8h3.2M11.3 8h3.2"/>'),
   mirror: svg('<path d="M8 1.5v13" stroke-dasharray="1.8 1.4"/><path d="M6.4 4.5L2.5 11.5h3.9z"/><path d="M9.6 4.5l3.9 7h-3.9z" fill="currentColor" fill-opacity=".35"/>'), // (a shape and its reflection across a dashed line: a mirror copy, `in_433`)
   sweep: svg('<circle cx="3.5" cy="12.5" r="2"/><path d="M5.5 12.5C10 12.5 12.5 10 12.5 3.5"/><path d="M10.5 3.5h4" />'), // (a shape carried along a curved path: a sweep, `in_444`)
   loft: svg('<path d="M3 13h10"/><path d="M5.5 3h5"/><path d="M3 13l2.5-10M13 13L10.5 3"/><path d="M4.4 8h7.2" stroke-dasharray="1.6 1.4"/>'), // (two sketches of different sizes joined: a loft, `in_431`)

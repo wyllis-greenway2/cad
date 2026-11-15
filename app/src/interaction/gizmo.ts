@@ -82,8 +82,14 @@ export function edgeDirection(scene: Scene, a: Vec3, b: Vec3, radial?: Vec3): Ve
 }
 
 /** The handles of the cross section plane (`in_392`, `in_394`): arrows along the axes move it, or rings about them turn it, as its chip says. */
-export function sectionGizmo(at: Vec3, cam: Camera): Gizmo {
-  return moverHandles("both", at, cam.distance * settings.gizmo.sizeOfView, false); // (the very mover a body has: the arrows, the rings and the sphere, `in_419`)
+export function sectionGizmo(at: Vec3, cam: Camera, n: Vec3 = [0, 0, 1], free = false): Gizmo {
+  // the push / pull arrow of a sheet (`in_446`): it moves the plane along its normal, nothing is made; the mover a body has (the arrows, the rings and the sphere, `in_419`) is there when the sheet's move icon has put it in its free mode
+  const L = cam.distance * settings.gizmo.sizeOfView;
+  const nn = normalize(n);
+  const arrow: Handle = { id: "sheet:n", kind: "double", axis: null, points: [add(at, scale(nn, -HALF * L * 1.2)), add(at, scale(nn, HALF * L * 1.2))] };
+  if (!free) return { centre: at, handles: [arrow] };
+  const m = moverHandles("both", at, L, false);
+  return { centre: at, handles: [arrow, ...m.handles] };
 }
 
 /**

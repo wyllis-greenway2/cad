@@ -109,6 +109,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     category("view", "View", "eye", [
       { id: "look", label: "Look straight at it", icon: "look", enabled: !!target, why: target ? null : "select a plane or a face, or right-click on one" },
       { id: "view:game", label: "Game mode (Space): fly with W A S D, hold Alt for the pointer", icon: "game", enabled: true, why: null },
+      { id: "view:plane", label: "Plane", icon: "section", enabled: true, why: null },
       { id: "view:section", label: view.section ? "Cross section: on (tap to put away)" : "Cross section (a view, nothing is cut)", icon: "section", enabled: true, why: null },
       { id: "view:wireframe", label: view.wireframe ? "Wireframe view: on (tap for solid)" : "Wireframe view", icon: "wireframe", enabled: true, why: null },
       { id: "tape:measure", label: view.tape ? "Tape measure: on (tap to put away)" : "Tape measure", icon: "dimension", enabled: true, why: null },
@@ -389,7 +390,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {
   if (s.box) s = { ...s, box: null }; // (held, but never moved: an ordinary click)
   const sc = sceneOf(s.session);
-  // a click on a cross section plane: its cut goes on, and a second click takes it off, selected or not (`in_416`)
+  // a click on a sheet selects it, as a click on a face does (`in_446`)
   if (!s.tool && !s.op && !s.repeat && !s.cut) {
     const top = candidatesAt(sc, projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0];
     const part = top ? sc.parts[top.ref] : undefined;

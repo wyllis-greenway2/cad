@@ -66,7 +66,7 @@ export function createView(host: HTMLElement) {
     if (bodyGroup) { bodyGroup.matrix.fromArray(bodyMatrix ?? IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
     if (moverGroup) moverGroup.matrix.fromArray(IDENTITY);
     applyFade();
-    if (clip) applyClip();
+    if (clips.length) applyClip();
   }
   let ghoster: ((on: boolean) => void) | null = null;
   let hiddenOn = false;
@@ -99,8 +99,8 @@ export function createView(host: HTMLElement) {
   let wire = false;
   let sectionKey = "";
   renderer.localClippingEnabled = true;
-  let clip: THREE.Plane | null = null;
-  let secNow: { at: Vec3; n: Vec3; corners: Vec3[] } | null = null;
+  let clips: THREE.Plane[] = []; // (every sheet that is cutting, `in_446`)
+  let secs: { at: Vec3; n: Vec3; corners: Vec3[] }[] = [];
   const sectionGroup = new THREE.Group(); // (the stencil passes, the solid cut face with its hatching, and the faint plane, `in_394`)
   scene3.add(sectionGroup);
   /** The cross section (`in_392`, `in_394`): the part of the body and its lines on the normal's side of the plane is not drawn; both faces of what is cut are shown; where the plane cuts a solid the cut face is drawn
@@ -108,18 +108,22 @@ export function createView(host: HTMLElement) {
   function applyClip() {
     content.traverse((o) => {
       const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
-      for (const mat of Array.isArray(m) ? m : m ? [m] : []) { mat.clippingPlanes = clip ? [clip] : null; if (mat instanceof THREE.MeshBasicMaterial || mat instanceof THREE.MeshPhysicalMaterial || mat instanceof THREE.MeshStandardMaterial) { if (clip) { mat.userData.side ??= mat.side; mat.side = THREE.DoubleSide; } else if (mat.userData.side !== undefined) mat.side = mat.userData.side as THREE.Side; } mat.needsUpdate = true; }
+      for (const mat of Array.isArray(m) ? m : m ? [m] : []) { mat.clippingPlanes = clips.length ? clips : null; if (mat instanceof THREE.MeshBasicMaterial || mat instanceof THREE.MeshPhysicalMaterial || mat instanceof THREE.MeshStandardMaterial) { if (clips.length) { mat.userData.side ??= mat.side; mat.side = THREE.DoubleSide; } else if (mat.userData.side !== undefined) mat.side = mat.userData.side as THREE.Side; } mat.needsUpdate = true; }
     });
     clearGroup(sectionGroup);
-    if (!clip || !secNow || !bodyGroup) return;
+    if (!clips.length || !bodyGroup) return;
+    const body = bodyGroup;
+    secs.forEach((secNow, idx) => {
+    const clip = clips[idx]!;
+    const others = clips.filter((_, j) => j !== idx); // (the cut face of a sheet is cut by the others, `in_446`)
     const planes = [clip];
     const stencil = (side: THREE.Side, op: THREE.StencilOp) => new THREE.MeshBasicMaterial({ side, colorWrite: false, depthWrite: false, depthTest: false, clippingPlanes: planes, stencilWrite: true, stencilFunc: THREE.AlwaysStencilFunc, stencilFail: op, stencilZFail: op, stencilZPass: op });
     const back = stencil(THREE.BackSide, THREE.IncrementWrapStencilOp);
     const front = stencil(THREE.FrontSide, THREE.DecrementWrapStencilOp);
-    bodyGroup.traverse((o) => {
+    body.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
-      for (const [mat, order] of [[back, 1], [front, 1]] as const) {
+      for (const [mat, order] of [[back, 1 + idx * 0.2], [front, 1 + idx * 0.2]] as const) { // (each sheet's stencil pass and cut face come one after the other, the stencil put back to nothing by the cut face)
         const twin = new THREE.Mesh(mesh.geometry, mat);
         twin.matrixAutoUpdate = false;
         mesh.updateWorldMatrix(true, false);
@@ -130,7 +134,7 @@ export function createView(host: HTMLElement) {
     });
     // the half that is cut away stays as a faint ghost, so it is plain what the cut is of (`in_397`)
     const ghostMat = new THREE.MeshBasicMaterial({ color: 0x8a94a3, transparent: true, opacity: 0.07, side: THREE.DoubleSide, depthWrite: false, clippingPlanes: [new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(...secNow.n).normalize(), new THREE.Vector3(...secNow.at))] });
-    bodyGroup.traverse((o) => {
+    body.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
       const twin = new THREE.Mesh(mesh.geometry, ghostMat);
@@ -144,22 +148,23 @@ export function createView(host: HTMLElement) {
     const u = new THREE.Vector3().crossVectors(Math.abs(n.z) < 0.9 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0), n).normalize();
     const v = new THREE.Vector3().crossVectors(n, u);
     const cut = new THREE.Mesh(new THREE.PlaneGeometry(1e4, 1e4), new THREE.ShaderMaterial({
-      uniforms: { u: { value: u }, v: { value: v }, at: { value: new THREE.Vector3(...secNow.at) }, pitch: { value: Math.max(0.5, bodySize() / 34) } },
+      uniforms: { cl: { value: Array.from({ length: 8 }, (_, i) => { const q = others[i]; return q ? new THREE.Vector4(q.normal.x, q.normal.y, q.normal.z, q.constant) : new THREE.Vector4(); }) }, cc: { value: Math.min(8, others.length) }, u: { value: u }, v: { value: v }, at: { value: new THREE.Vector3(...secNow.at) }, pitch: { value: Math.max(0.5, bodySize() / 34) } },
       vertexShader: "varying vec3 w; void main(){ vec4 p = modelMatrix * vec4(position, 1.0); w = p.xyz; gl_Position = projectionMatrix * viewMatrix * p; }",
       // solid light grey with slanting parallel lines (45 degrees, as a cut part is hatched in a drawing)
-      fragmentShader: "uniform vec3 u; uniform vec3 v; uniform vec3 at; uniform float pitch; varying vec3 w; void main(){ vec3 d = w - at; float a = (dot(d, u) + dot(d, v)) / pitch; float line = smoothstep(0.43, 0.47, abs(fract(a) - 0.5)); gl_FragColor = vec4(mix(vec3(0.92, 0.93, 0.95), vec3(0.62, 0.64, 0.68), line), 1.0); }",
+      fragmentShader: "uniform vec4 cl[8]; uniform int cc; uniform vec3 u; uniform vec3 v; uniform vec3 at; uniform float pitch; varying vec3 w; void main(){ for(int i=0;i<8;i++){ if(i>=cc) break; if(dot(cl[i].xyz, w) + cl[i].w < 0.0) discard; } vec3 d = w - at; float a = (dot(d, u) + dot(d, v)) / pitch; float line = smoothstep(0.43, 0.47, abs(fract(a) - 0.5)); gl_FragColor = vec4(mix(vec3(0.92, 0.93, 0.95), vec3(0.62, 0.64, 0.68), line), 1.0); }",
       side: THREE.DoubleSide, depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, // (a face of the part like any other: what is in front of it hides it, `in_396`)
       stencilWrite: true, stencilRef: 0, stencilFunc: THREE.NotEqualStencilFunc, stencilFail: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilZPass: THREE.ReplaceStencilOp,
     }));
     cut.position.copy(new THREE.Vector3(...secNow.at));
     cut.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(u, v, n));
-    cut.renderOrder = 2;
+    cut.renderOrder = 1.1 + idx * 0.2;
     sectionGroup.add(cut);
+    });
   }
   const planesGroup = new THREE.Group(); // (the cross section planes in the part: faint when not selected, fainter still when they are cutting, `in_396`)
   scene3.add(planesGroup);
   let planesKey = "";
-  const setSectionPlanes = (list: { selected: boolean; cutting: boolean; corners: Vec3[] }[]) => {
+  const setSectionPlanes = (list: { guide?: true; selected: boolean; cutting: boolean; mode?: number; corners: Vec3[] }[]) => {
     const key = JSON.stringify(list);
     if (key === planesKey) return;
     planesKey = key;
@@ -168,21 +173,25 @@ export function createView(host: HTMLElement) {
       const c = p.corners;
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.Float32BufferAttribute([...c[0]!, ...c[1]!, ...c[2]!, ...c[0]!, ...c[2]!, ...c[3]!], 3));
-      const quad = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x1ab8b3, transparent: true, opacity: p.cutting ? 0.025 : p.selected ? 0.04 : 0.07, side: THREE.DoubleSide, depthWrite: false, depthTest: true, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 })); // (a plane in the part, hidden by the part where the part is in front of it, `in_416`)
+      // a sheet is translucent grey like the little world panes (`in_446`); its invisible mode is fainter still; a guide a tool draws (the mirror's plane) stays teal
+      const hidden = p.mode === 3;
+      const colour = p.guide ? new THREE.Color(0x1ab8b3) : new THREE.Color().setRGB(settings.theme.pane[0], settings.theme.pane[1], settings.theme.pane[2], THREE.SRGBColorSpace);
+      const fillOpacity = p.guide ? 0.07 : hidden ? 0.03 : p.selected ? settings.world.paneActiveOpacity * 0.7 : settings.world.paneOpacity;
+      const quad = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity: fillOpacity, side: THREE.DoubleSide, depthWrite: false, depthTest: true, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 })); // (a plane in the part, hidden by the part where the part is in front of it, `in_416`)
       quad.renderOrder = 3;
       planesGroup.add(quad);
-      const edge = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(c.map((q) => new THREE.Vector3(...q))), new THREE.LineBasicMaterial({ color: 0x1ab8b3, transparent: true, opacity: p.cutting ? 0.35 : 0.55, depthTest: true }));
+      const edge = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(c.map((q) => new THREE.Vector3(...q))), new THREE.LineBasicMaterial({ color: colour, transparent: true, opacity: p.guide ? 0.55 : hidden ? 0.12 : p.selected ? 0.9 : 0.5, depthTest: true }));
       edge.renderOrder = 3;
       planesGroup.add(edge);
     }
   };
   const bodySize = () => { if (!lastMesh) return 40; const v = lastMesh.vertices; const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; for (let i = 0; i + 2 < v.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k]!, v[i + k]!); hi[k] = Math.max(hi[k]!, v[i + k]!); } return Math.max(hi[0]! - lo[0]!, hi[1]! - lo[1]!, hi[2]! - lo[2]!); };
-  const setSection = (sec: { at: Vec3; n: Vec3; corners: Vec3[] } | null) => {
-    const key = JSON.stringify(sec);
+  const setSection = (list: { at: Vec3; n: Vec3; corners: Vec3[] }[]) => {
+    const key = JSON.stringify(list);
     if (key === sectionKey) return;
     sectionKey = key;
-    secNow = sec;
-    clip = sec ? new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(...sec.n).negate(), new THREE.Vector3(...sec.at)) : null;
+    secs = list;
+    clips = list.map((sec) => new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(...sec.n).negate(), new THREE.Vector3(...sec.at)));
     applyClip();
   };
   /** The body see-through (the sketch plane is looked at straight and the body is between it and the camera) or as it was (`in_194`). */

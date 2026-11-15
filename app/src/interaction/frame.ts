@@ -51,7 +51,7 @@ import { annotationsFor, annotationsOf, focusParts } from "./annotations.ts";
 import { suggestionsFor } from "./suggest.ts";
 import type { Suggestions } from "./suggest.ts";
 import type { Annotation } from "./annotations.ts";
-import { sectionQuad, sectionAxis, sectionNow, cutNow } from "./control/section.ts";
+import { sectionQuad, sectionNow, cutsNow, modeOf, sheetMoveOf } from "./control/section.ts";
 import { entryOf, previewFor, repeatEntries, moveEntries, moverPlaceEntries, mirrorEntries, scaleEntries, sectionEntries } from "./entry.ts";
 import { helperOf } from "./pattern.ts";
 import type { Entry } from "./entry.ts";
@@ -118,11 +118,9 @@ export interface Frame {
   wireframe: boolean;
   /** the cross section plane (`in_392`) and, while it is being chosen, the three planes offered */
   /** every cross section plane in the part, faint when it is not selected (`in_396`) */
-  sectionPlanes: { ref: Ref; selected: boolean; cutting: boolean; corners: Vec3[] }[];
-  /** the plane that is cutting the view (`in_416`) */
-  section: { at: Vec3; n: Vec3; corners: Vec3[] } | null;
-  /** the chips of the cross section plane that is selected */
-  sectionChip: { corners: Vec3[]; axis: string } | null;
+  sectionPlanes: { ref: Ref; /** a guide drawn for a tool (the mirror's plane), not a sheet: no icons */ guide?: true; selected: boolean; cutting: boolean; /** the mode of its icon (`in_446`): 0 cuts the half its normal points to, 1 the other half, 2 no cut, 3 invisible */ mode: 0 | 1 | 2 | 3; /** the state of its move icon, for the one that is selected */ move: 0 | 1 | 2 | 3 | 4; corners: Vec3[] }[];
+  /** the sheets that are cutting the view (`in_416`, any number: `in_446`); the normal points to the half cut away */
+  sections: { at: Vec3; n: Vec3; corners: Vec3[] }[];
   /** the constraints that could be put on the selected parts, as buttons by them (`in_195`) */
   suggest: Suggestions | null;
   /** a little icon by the move arrows of a body (or a drawn figure) that switches to turning it, and by its rings one that switches back (`in_206`) */
@@ -356,9 +354,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     confirm: s.moverSphere && moverOp(s) && !s.tool ? { kind: "orient", label: "Orient the mover", text: "Orient the mover" } : s.cut ? { kind: "subtract", label: "Cut" } : s.tool ? null : s.repeat && !s.op ? { kind: s.repeat.op.kind, label: OPEN_LABELS[s.repeat.op.kind] ?? s.repeat.op.kind } : s.op && s.op.kind !== "dimension" ? { kind: s.op.kind, label: OPEN_LABELS[s.op.kind] ?? s.op.kind } : null,
     tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", trim: "Trim" } as const)[s.tool.kind], made: s.tool.made ?? 0, drawing: s.tool.points.length > 0, done: (s.tool.made ?? 0) > 0 && s.tool.points.length === 0 } : null,
     wireframe: s.wireframe || (s.moverSphere && !!moverOp(s)) || s.op?.kind === "revolve" || s.op?.kind === "mirror" || /* the object goes wireframe while the mover itself is oriented, `in_421` */ (s.op?.kind === "hollow" && !!s.drag && "handle" in s.drag), // (the body fades to wireframe while the wall is pulled, so the wall can be seen, `in_394`)
-    section: cutNow(s) ? { at: cutNow(s)!.centre, n: cutNow(s)!.n, corners: sectionQuad(cutNow(s)!.centre, cutNow(s)!.n, cutNow(s)!.extent) } : null,
-    sectionChip: sectionNow(s) ? { corners: sectionQuad(sectionNow(s)!.centre, sectionNow(s)!.n, sectionNow(s)!.extent), axis: sectionAxis(sectionNow(s)!.n) === null ? "·" : "XYZ"[sectionAxis(sectionNow(s)!.n)!]! } : null,
-    sectionPlanes: [...Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }), ...mirrorGuide(s)],
+    sections: cutsNow(s).map((c) => ({ at: c.centre, n: c.n, corners: sectionQuad(c.centre, c.n, c.extent) })),
+    sectionPlanes: [...Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, mode: modeOf(pl), move: sheetMoveOf(s, pl.ref), corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }), ...mirrorGuide(s)],
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     panes: s.cam.straight ? [] : WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
     gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
@@ -389,7 +386,7 @@ function mirrorGuide(s: AppState): Frame["sectionPlanes"] {
   const pl = op && op.kind === "mirror" ? mirrorPlane(op) : null;
   if (!op || !pl || !op.mirrorBox) return [];
   const ext = Math.max(...[0, 1, 2].map((i) => op.mirrorBox!.hi[i]! - op.mirrorBox!.lo[i]!), 1) * 1.3;
-  return [{ ref: "mirror" as Ref, selected: true, cutting: false, corners: sectionQuad(pl.p, pl.n, ext) }];
+  return [{ ref: "mirror" as Ref, guide: true, mode: 2 as const, move: 0 as const, selected: true, cutting: false, corners: sectionQuad(pl.p, pl.n, ext) }];
 }
 /** What the orient mode's bubbles show (`in_439`): all three positions and turns while the whole orb is moved and a moment after (fading), else only the value of the arrow or ring that was clicked. */
 function orbShow(s: AppState, now: number | undefined): { all: false; handle: string | null } | { all: true; opacity: number } {

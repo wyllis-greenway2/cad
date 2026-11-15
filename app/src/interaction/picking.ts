@@ -26,7 +26,7 @@ export interface PickOptions {
   /** the middle points shown on selected curved edges of the body: where they are drawn, and the corner of the sketch each is (`in_214`) */
   centres?: { at: Vec3; ref: Ref }[];
   /** the cross section (`in_395`): what lies on the side of the plane its normal points to is not drawn, so it is not there to point at */
-  clip?: { at: Vec3; n: Vec3; /** the cross section plane that is cutting: it is the face of the cut, picked like any face (`in_396`) */ ref?: Ref };
+  clips?: { at: Vec3; n: Vec3 }[];
 }
 const DEFAULT_PICK: PickOptions = { pointTol: 10, lineTol: 8 };
 
@@ -57,26 +57,26 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
   const f = opts.inFront;
   const ahead = (q: Vec3): number => dot(sub(q, f!.at), f!.n) * f!.side;
   const tPlane = f && pv.ray ? (() => { const den = dot(f.n, pv.ray!.d); return Math.abs(den) < 1e-9 ? null : dot(f.n, sub(f.at, pv.ray!.o)) / den; })() : null;
-  const cut = (q: Vec3): boolean => !!opts.clip && dot(sub(q, opts.clip.at), opts.clip.n) > 1e-3;
+  const cut = (q: Vec3): boolean => !!opts.clips && opts.clips.some((c) => dot(sub(q, c.at), c.n) > 1e-3); // (any sheet that cuts: what lies on the side cut away is not there, `in_446`)
   const before = (p: Part): boolean => {
-    if (opts.clip && p.origin !== "world") { if (p.kind === "corner" && cut(p.at)) return true; if (p.kind === "line") { const [a, b] = [scene.parts[p.a], scene.parts[p.b]]; if (a?.kind === "corner" && b?.kind === "corner" && cut(a.at) && cut(b.at)) return true; } }
+    if (opts.clips?.length && p.origin !== "world") { if (p.kind === "corner" && cut(p.at)) return true; if (p.kind === "line") { const [a, b] = [scene.parts[p.a], scene.parts[p.b]]; if (a?.kind === "corner" && b?.kind === "corner" && cut(a.at) && cut(b.at)) return true; } }
     if (!f || p.origin === "world") return false;
     if (p.kind === "corner") return ahead(p.at) > 1e-3;
     if (p.kind === "line") { const [a, b] = [scene.parts[p.a], scene.parts[p.b]]; return a?.kind === "corner" && b?.kind === "corner" && ahead(a.at) > 1e-3 && ahead(b.at) > 1e-3; }
     return false;
   };
-  const parts = Object.values(scene.parts).filter((p) => !before(p) && !(opts.world && p.origin === "world" && p.kind === "plane" && p.infinite && p.ref !== opts.world) && !used.has(p.ref) && !((p.kind === "line" || p.kind === "corner") && p.derived));
+  const parts = Object.values(scene.parts).filter((p) => !before(p) && !(opts.world && p.origin === "world" && p.kind === "plane" && p.infinite && p.ref !== opts.world) && !used.has(p.ref) && !(p.kind === "plane" && !!p.section && !!p.hidden) && !((p.kind === "line" || p.kind === "corner") && p.derived));
   // surfaces first: only the nearest one counts, plus anything flush with it (a shape drawn on a face, a pane lying in a face); things behind it are hidden
   const surfaces: { p: Part; t: number }[] = [];
   for (const p of parts) {
     if (RANK[p.kind] !== 2) continue;
     const t = depthOf(get, p, pv);
-    if (t !== null && opts.clip && p.origin !== "world" && pv.ray && cut(add(pv.ray.o, scale(pv.ray.d, t)))) continue; // (the part of a surface that is cut away cannot be hit)
+    if (t !== null && opts.clips?.length && p.origin !== "world" && pv.ray && cut(add(pv.ray.o, scale(pv.ray.d, t)))) continue; // (the part of a surface that is cut away cannot be hit)
     if (t !== null && !(tPlane !== null && p.origin !== "world" && p.origin !== "drawn" && t < tPlane - 1e-3)) surfaces.push({ p, t });
   }
   // an infinite world plane is only the background, whatever lies in front of what: it is what a click lands on only when there is no other surface under the pointer, even if the
   // plane is between the eye and a model (so a figure drawn on it is not always "overlapping" it, and a model seen through a plane is clicked, not the plane)
-  const isBackground = (p: Part) => (p.origin === "world" && p.kind === "plane" && !!p.infinite) || (p.kind === "plane" && !!p.section && p.ref !== opts.clip?.ref); // (a cross section plane that is not cutting is only a plane in the part: what lies in it is picked first, `in_396`)
+  const isBackground = (p: Part) => (p.origin === "world" && p.kind === "plane" && !!p.infinite) || false; // (a sheet that is not invisible is a face like any other, `in_446`)
   const real = surfaces.filter((x) => !isBackground(x.p));
   const tmin = real.reduce((m, x) => Math.min(m, x.t), Infinity);
   const flush = (t: number) => t <= tmin + 1e-3 + 1e-6 * tmin;

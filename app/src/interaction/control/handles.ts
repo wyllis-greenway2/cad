@@ -21,7 +21,7 @@ import { advanceOf } from "../revolve.ts";
 import { objectOf, bodyCentre } from "../objects.ts";
 import { runOp } from "../runop.ts";
 import { sectionGizmo } from "../gizmo.ts";
-import { draggedSection, sectionNow, placeSection } from "./section.ts";
+import { draggedSection, sectionNow, placeSection, sheetMoveOf } from "./section.ts";
 import { withPose, hasOrb, moverOp, putMover } from "./pose.ts";
 import { patternBase, dragPattern, liveRepeat, advanceHelp } from "../pattern.ts";
 import type { Op } from "../operations.ts";
@@ -49,7 +49,7 @@ export function gizmoOf(s: AppState): Gizmo | null {
   if (s.tool && !s.op) return null; // (a sketch tool is on: what is selected does not offer its handles under it)
   const op = activeOp(s);
   const sec = sectionNow(s);
-  if (sec && !s.op && !s.repeat && !op) return sectionGizmo(sec.centre, s.cam); // (the cross section's own arrows and rings, `in_392`)
+  if (sec && !s.op && !s.repeat && !op) return sectionGizmo(sec.centre, s.cam, sec.n, sheetMoveOf(s, sec.ref) === 1); // (the sheet's arrow along its normal, and with its move icon the mover's arrows and rings, `in_392`, `in_446`)
   // looking straight at a plane (orthographic) the push / pull arrow points at you: it goes away (`in_137`)
   if (op && s.cam.straight && (op.kind === "pushpull" || op.kind === "extrude")) return null;
   const g0 = op ? gizmoFor(sceneOf(s.session), op, s.cam, s.moverSphere && hasOrb(op.kind)) : null; // (the sphere selected: its own arrows are there, `in_416`)

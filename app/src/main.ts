@@ -27,7 +27,7 @@ import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
 import { createRing } from "./ui/ring.ts";
 import { createChip } from "./ui/chip.ts";
-import { createSectionChip } from "./ui/sectionchip.ts";
+import { createSheetChips } from "./ui/sheetchips.ts";
 import { createPanel } from "./ui/panel.ts";
 import { createHelper } from "./ui/helper.ts";
 import { createBusy } from "./ui/busy.ts";
@@ -138,7 +138,7 @@ const busySign = createBusy(document.body);
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
 const crosshair = createCrosshair(document.body);
-const sectionChip = createSectionChip(document.body, (id) => dispatch({ type: "runAction", id }));
+const sheetChips = createSheetChips(document.body, (id) => dispatch({ type: "runAction", id }));
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "overrideRefusal" }), () => dispatch({ type: "holdFlash" }));
 const faceKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "faceKind", kind: id as "move" | "extrude" | "extend" }));
@@ -302,8 +302,8 @@ function frame(now: number) {
     view.setBodyFade(f.fadeBody);
     view.setWireframe(f.wireframe);
     view.setSectionPlanes(f.sectionPlanes);
-    view.setSection(f.section);
-    { const c = f.sectionChip ? projector(state.cam, size.w, size.h).project(f.sectionChip.corners[0]!) : null; const pg = host.getBoundingClientRect(); sectionChip.update(f.sectionChip, c ? [c[0] + pg.left, c[1] + pg.top] : null, [...chips.flatMap((q) => q.rect() ?? []), ...bubbles.rects(), helper.rect(), hintIcons.rect()].flatMap((r) => (r ? [r] : []))); }
+    view.setSection(f.sections);
+    { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); sheetChips.update(f.sectionPlanes.filter((p) => !p.guide).map((p) => ({ ref: p.ref, mode: p.mode, move: p.move, selected: p.selected, corners: p.corners })), (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null); }
     toolChip.update(f.tool, f.confirm, lastDevice === "touch");
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
     undoBar.update(lastDevice === "touch", f.undoRedo);

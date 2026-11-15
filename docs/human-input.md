@@ -2098,3 +2098,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 >
 > For the sweep it says the sweep line must be on sketch? but why? why can't it follow a line off at a distance?
 (asks: to try the view without the black edge lines; to rework the cross section planes as a generic plane entity: translucent grey like the world panes, one icon on each that cycles cut one way / cut the other way / not cut / invisible (more transparent, no mouse interaction except the icon fading in on hover), otherwise an ordinary face that can be sketched on, with the push / pull arrow moving the plane along its normal instead of extruding, an icon to put it in move mode with the xyz and rotate orb or cycling x / y / z plane, and returning to the free position remembers where it was; several planes cutting one part; and for the sweep, why the path must be on the shape's plane and whether it can follow a line at a distance)
+
+## in_447 — 2026-11-15 — directive
+> Go ahead with the plane rework
+(approves `q_sheet_planes` as read and in the recommended order, with its defaults: planes are saved parts, a Plane menu entry makes them and Cross section is one begun in a cutting mode, each plane's cut face hatched)

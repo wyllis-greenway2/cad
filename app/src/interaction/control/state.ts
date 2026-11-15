@@ -2,7 +2,7 @@
 import type { Ref } from "../../shared/ref.ts";
 import { worldRef } from "../../shared/ref.ts";
 import type { Vec3 } from "../../math/vec.ts";
-import { cutNow } from "./section.ts";
+import { cutsNow } from "./section.ts";
 import type { Hint } from "../hints.ts";
 import type { CutState } from "../cut.ts";
 import { add, scale, dot } from "../../math/vec.ts";
@@ -56,6 +56,8 @@ export interface AppState {
   moverWas: { pivot: Vec3 | null; frame?: [Vec3, Vec3, Vec3]; frameKept?: [Vec3, Vec3, Vec3] } | null;
   /** where a drag of its handles has taken the plane so far; one step is made when it is let go */
   sectionLive: { ref: Ref; centre: Vec3; n: Vec3 } | null;
+  /** the sheet's move icon (`in_446`): which state it is in for the sheet, and the free place it came from to go back to */
+  sheetMove: { ref: Ref; mode: 0 | 1 | 2 | 3 | 4; free: { at: Vec3; u: Vec3; v: Vec3 } | null } | null;
   /** the body (or "sketch") that was last in view: "Reset camera" goes back to it (`in_303`) */
   lastSeen: string | null;
   /** the move arrows chosen with Shift (`in_299`): a body dragged free then moves only along those axes (one: along a line; two: across a plane); none: free in every direction */
@@ -102,7 +104,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, multiSelect: false, tape: false, wireframe: false, moverSphere: false, moverWas: null, moverPose: null, orbMovedAt: null, clipboard: null, sectionLive: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, multiSelect: false, tape: false, wireframe: false, moverSphere: false, moverWas: null, moverPose: null, orbMovedAt: null, clipboard: null, sectionLive: null, sheetMove: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.
@@ -120,7 +122,7 @@ export const pickOpts = (s?: AppState) => {
   const behind = s ? sketchPlaneOf(s) : null;
   // the middle point drawn on a selected curved edge of the body can be picked: it is the middle point of the sketch behind the edge (`in_214`)
   const centres = s ? selectionOf(s.session).flatMap((r) => { const e = sketchOfEdge(sceneOf(s.session), r); return e?.centre && e.centreRef ? [{ at: e.centre, ref: e.centreRef }] : []; }) : [];
-  return { ...(centres.length ? { centres } : {}), pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx, ...(s ? { world: worldRef(s.world) } : {}), ...(s && cutNow(s) ? { clip: { at: cutNow(s)!.centre, n: cutNow(s)!.n, ref: cutNow(s)!.ref } } : {}), ...(behind && s ? { inFront: { at: behind.at, n: normalOfPlane(behind), side: sideOf(s.cam, normalOfPlane(behind)) as 1 | -1 } } : {}) };
+  return { ...(centres.length ? { centres } : {}), pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx, ...(s ? { world: worldRef(s.world) } : {}), ...(s && cutsNow(s).length ? { clips: cutsNow(s).map((c) => ({ at: c.centre, n: c.n })) } : {}), ...(behind && s ? { inFront: { at: behind.at, n: normalOfPlane(behind), side: sideOf(s.cam, normalOfPlane(behind)) as 1 | -1 } } : {}) };
 };
 export const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });
 export const stop = (s: AppState): AppState => (s.anim ? { ...s, anim: null } : s);

@@ -26,7 +26,7 @@ import type { Plane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
 import { activeOp, movePivot, movePivotTo, gizmoOf } from "./handles.ts";
 import { withPose, orientApply, moverOp, putMover } from "./pose.ts";
-import { doSectionToggle, doSectionChip, typedSection, placeSection, sectionNow } from "./section.ts";
+import { doSectionToggle, doPlaneNew, doSheetMode, doSheetMove, typedSection, placeSection, sectionNow } from "./section.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { sub } from "../../math/vec.ts";
 import { frameAngles, frameOfAngles } from "../entry.ts";
@@ -212,7 +212,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     return { ...s, op: { ...mover, auto: false, axis: field as 0 | 1 | 2, typed: text, typedBase: moveOffset(sceneOf(s.session), mover)[field]!, ...(same ? {} : { value: null }) } };
   }
   const sec = sectionNow(s);
-  if (sec && !s.op && !s.repeat && !s.tool && field >= 0 && field <= 5) { // a number typed for the cross section plane (`in_395`)
+  if (sec && !s.op && !s.repeat && !s.tool && field >= 0 && field <= 6) { // a number typed for the cross section plane (`in_395`)
     const n = typedNumber(text);
     return n === null ? s : placeSection(s, ...(() => { const t = typedSection(sec, field, n); return [t.centre, t.n] as [Vec3, Vec3]; })());
   }
@@ -293,7 +293,9 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "select:ungroup") return doUngroup(closed);
   if (id === "hollow:invert" && s.op?.kind === "hollow" && s.op.hollowMode && s.op.hollowMode !== "closed") return { ...s, op: { ...s.op, hollowMode: s.op.hollowMode === "keep" ? "open" : "keep" }, session: { ...s.session, message: null } };
   if (id === "view:section") return doSectionToggle(closed);
-  if (id === "section:axis" || id === "section:side") return doSectionChip(closed, id.slice(8) as "axis" | "side");
+  if (id === "view:plane") return doPlaneNew(closed, false); // (a new plane that does not cut, `in_446`)
+  if (id.startsWith("sheet:mode:")) return doSheetMode(closed, id.slice(11) as never);
+  if (id === "sheet:move") return doSheetMove(closed);
   if (id === "view:wireframe") return { ...closed, wireframe: !s.wireframe, session: { ...closed.session, message: s.wireframe ? "solid view" : "wireframe view: the faces of bodies are not drawn, to see what is inside" } };
   if (id === "tape:measure") return { ...closed, tape: !s.tape, session: { ...closed.session, message: s.tape ? "tape measure off" : "tape measure on: select a face, or two (Shift adds the second), to see what they are to each other" } };
   if (id === "multiselect") return { ...closed, multiSelect: !s.multiSelect, session: { ...closed.session, message: s.multiSelect ? "select several is off" : "select several is on: a tap adds to the selection, a tap on what is selected takes it out" } };

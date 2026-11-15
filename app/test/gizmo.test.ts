@@ -1785,32 +1785,43 @@ test("the cross section is a plane put in the part: the menu inserts it through 
   assert.deepEqual(st.session.click.selection, [sec.ref], "the plane is the only thing selected: the object is not");
   near(sec.centre[0], 20, 1e-6); near(sec.centre[1], 10, 1e-6); near(sec.centre[2], 10, 1e-6);
   assert.ok(dot(sec.n, sub(position(st.cam), sec.centre)) > 0, "the cut half is the one nearer the camera");
-  assert.equal(frame(st).section!.corners.length, 4);
+  assert.equal(frame(st).sections.length, 1);
+  assert.equal(frame(st).sections[0]!.corners.length, 4);
   assert.equal(frame(st).sectionPlanes.length, 1);
-  // the chips
-  const side = reduce(st, { type: "runAction", id: "section:side" }, env);
-  assert.ok(dot(sectionNow(side)!.n, sec.n) < -0.99, "swap the side");
-  const axis = reduce(st, { type: "runAction", id: "section:axis" }, env);
-  assert.ok(Math.abs(dot(sectionNow(axis)!.n, sec.n)) < 0.01, "the axis goes round");
-  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["move:x", "move:y", "move:z", "rot:x", "rot:y", "rot:z", "pivot"], "the very mover a body has: arrows, rings and the sphere (`in_419`)");
+  // the icon goes through the modes: cuts the half the normal points to (it did), the other half, no cut, invisible, and round again
+  const modeOf = (x: AppState): number => frame(x).sectionPlanes[0]!.mode;
+  assert.equal(modeOf(st), 0);
+  const m1 = reduce(st, { type: "runAction", id: `sheet:mode:${sec.ref}` }, env);
+  assert.equal(modeOf(m1), 1);
+  assert.ok(dot(frame(m1).sections[0]!.n, sec.n) < -0.99, "the other half is cut away: the cut side's normal is swapped");
+  const m2 = reduce(m1, { type: "runAction", id: `sheet:mode:${sec.ref}` }, env);
+  assert.equal(modeOf(m2), 2);
+  assert.equal(frame(m2).sections.length, 0, "not cutting");
+  const m3 = reduce(m2, { type: "runAction", id: `sheet:mode:${sec.ref}` }, env);
+  assert.equal(modeOf(m3), 3);
+  assert.equal(frame(m3).sections.length, 0);
+  assert.equal(modeOf(reduce(m3, { type: "runAction", id: `sheet:mode:${sec.ref}` }, env)), 0, "and round again");
+  // by default the arrow along its normal; the move icon goes to the mover, then across X, Y, Z, then back to where it was
+  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["sheet:n"], "the push / pull arrow of a sheet");
+  const free = reduce(st, { type: "runAction", id: "sheet:move" }, env);
+  assert.deepEqual(gizmoOf(free)!.handles.map((h) => h.id), ["sheet:n", "move:x", "move:y", "move:z", "rot:x", "rot:y", "rot:z", "pivot"], "the very mover a body has: arrows, rings and the sphere (`in_419`)");
   // an arrow along its own axis moves it, as one step
   const k = sec.n.findIndex((v) => Math.abs(v) > 0.5);
-  const [, tip] = gizmoOf(st)!.handles.find((h) => h.id === `move:${"xyz"[k]}`)!.points;
+  const [, tip] = gizmoOf(free)!.handles.find((h) => h.id === `move:${"xyz"[k]}`)!.points;
   const dir = [0, 0, 0].map((_, i) => (i === k ? 10 : 0)) as unknown as Vec3;
-  const moved = drag(st, tip!, add(tip!, dir), 6);
+  const moved = drag(free, tip!, add(tip!, dir), 6);
   assert.ok(Math.abs(sectionNow(moved)!.centre[k]! - sec.centre[k]!) > 4, `${sectionNow(moved)!.centre[k]}`);
   assert.equal(scene(st.session).steps.length, stepsBefore, "a view: no step of the body was made");
   // a right click lets the plane go: it is deselected, and the cut stays (the cut is the plane's own, selected or not, `in_416`)
   const left = reduce(st, { type: "menu", x: 400, y: 300 }, env);
   assert.equal(sectionNow(left), null, "not selected");
-  assert.ok(frame(left).section, "still cutting");
+  assert.equal(frame(left).sections.length, 1, "still cutting");
   assert.equal(frame(left).sectionPlanes.length, 1, "the plane is still there");
   assert.equal(sectionNow(reduce(st, { type: "escape" }, env)), null);
-  // a click on the plane switches the cut off, and another on again, selected or not
+  // a click on the plane selects it, as a face (the icon, not the click, changes the mode)
   const off = doSectionClick(left, sec.ref);
-  assert.equal(frame(off).section, null, "the click puts the cut off");
+  assert.equal(frame(off).sections.length, 1, "the click leaves the cut as it is");
   assert.ok(sectionNow(off), "and the plane is selected");
-  assert.ok(frame(doSectionClick(off, sec.ref)).section, "the next click puts it on");
   // the menu row with the plane selected puts it away for good (the plane goes)
   const again = select(left, [sec.ref]);
   assert.ok(sectionNow(again));
@@ -1836,14 +1847,20 @@ test("what the cross section cuts away cannot be picked: a corner on the cut sid
   const clip = { at: [20, 10, 10] as Vec3, n: [1, 0, 0] as Vec3 }; // the side x > 20 is cut away
   const at = (c: { at: Vec3 }, opts: object) => { const [x, y] = px(st, c.at); return candidatesAt(scene(st.session), projector(st.cam, env.w, env.h).view(x, y), { pointTol: 6, lineTol: 4, ...opts }); };
   assert.ok(at(hi, {}).some((c) => c.ref === hi.ref), "without a cut it is found");
-  assert.ok(!at(hi, { clip }).some((c) => c.ref === hi.ref), "on the cut side: not found");
-  assert.ok(at(hi, { clip: { at: clip.at, n: [-1, 0, 0] } }).some((c) => c.ref === hi.ref), "on the kept side: found");
+  assert.ok(!at(hi, { clips: [clip] }).some((c) => c.ref === hi.ref), "on the cut side: not found");
+  assert.ok(at(hi, { clips: [{ at: clip.at, n: [-1, 0, 0] as Vec3 }] }).some((c) => c.ref === hi.ref), "on the kept side: found");
   void lo;
 });
 
 test("numbers typed for the cross section: where it is along each axis while the arrows move it, the angle about each axis while the rings turn it (`in_395`)", () => {
   let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
   assert.equal(frame(st).entries.length, 0, "no bubble until an arrow or ring is chosen, as for a body");
+  const along = { ...st, handleSel: "sheet:n" }; // (the sheet's own arrow: how far along its normal the plane stands)
+  assert.equal(frame(along).entries.length, 1);
+  const k0 = sectionNow(st)!.n.findIndex((v) => Math.abs(v) > 0.5);
+  const typedAlong = reduce(along, { type: "entry", field: 6, text: "7" }, env);
+  near(Math.abs(sectionNow(typedAlong)!.centre[k0]!), 7, 1e-6);
+  st = reduce(st, { type: "runAction", id: "sheet:move" }, env); // (the move icon: the mover's arrows and rings)
   st = { ...st, handleSel: "move:y" };
   assert.equal(frame(st).entries.length, 1, "only the chosen arrow's bubble");
   st = reduce(st, { type: "entry", field: 1, text: "12.5" }, env);
