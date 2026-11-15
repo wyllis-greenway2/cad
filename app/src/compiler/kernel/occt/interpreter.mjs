@@ -564,7 +564,7 @@ const OPS = {
         if (!near) { const made = dist >= 0 ? lumps[mine].fuse(prism) : lumps[mine].cut(prism); return { kind: "solid", shape: makeCompound([...lumps.filter((_, i) => i !== mine), ...made.solids]) }; }
       }
     }
-    return { kind: "solid", shape: dist >= 0 ? t.fuse(prism) : t.cut(prism) };
+    return { kind: "solid", shape: dist >= 0 ? t.fuse(prism, { optimisation: "commonFace" }) : t.cut(prism) }; // (the prism stands on the face and nowhere else: the kernel is told the two only share that face, which spares it looking for every other crossing, `in_442`)
   },
 
   /**
