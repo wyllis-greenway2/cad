@@ -89,8 +89,7 @@ export function sectionGizmo(at: Vec3, cam: Camera, n: Vec3 = [0, 0, 1], free = 
   const nn = normalize(n);
   const arrow: Handle = { id: "sheet:n", kind: "double", axis: null, points: [add(at, scale(nn, -HALF * L * 1.2)), add(at, scale(nn, HALF * L * 1.2))] };
   if (!free) return { centre: at, handles: [arrow] };
-  const m = moverHandles("both", at, L, false);
-  return { centre: at, handles: [arrow, ...m.handles] };
+  return moverHandles("both", at, L, false); // (the mover replaces the arrow along the normal while it is there, `in_466`)
 }
 
 /**

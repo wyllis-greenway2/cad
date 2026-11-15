@@ -1797,14 +1797,15 @@ test("the cross section is a plane put in the part: the menu inserts it through 
   const m2 = reduce(m1, { type: "runAction", id: `sheet:mode:${sec.ref}` }, env);
   assert.equal(modeOf(m2), 2);
   assert.equal(frame(m2).sections.length, 0, "not cutting");
-  const m3 = reduce(m2, { type: "runAction", id: `sheet:mode:${sec.ref}` }, env);
-  assert.equal(modeOf(m3), 3);
-  assert.equal(frame(m3).sections.length, 0);
-  assert.equal(modeOf(reduce(m3, { type: "runAction", id: `sheet:mode:${sec.ref}` }, env)), 0, "and round again");
+  assert.equal(modeOf(reduce(m2, { type: "runAction", id: `sheet:mode:${sec.ref}` }, env)), 0, "and round again");
+  // the eye is its own icon: invisible, the sheet cannot be pointed at (it may still cut)
+  const eye = reduce(st, { type: "runAction", id: `sheet:visible:${sec.ref}` }, env);
+  assert.equal(frame(eye).sectionPlanes[0]!.hidden, true);
+  assert.equal(frame(eye).sections.length, 1, "an invisible sheet still cuts");
   // by default the arrow along its normal; the move icon goes to the mover, then across X, Y, Z, then back to where it was
   assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["sheet:n"], "the push / pull arrow of a sheet");
   const free = reduce(st, { type: "runAction", id: "sheet:move" }, env);
-  assert.deepEqual(gizmoOf(free)!.handles.map((h) => h.id), ["sheet:n", "move:x", "move:y", "move:z", "rot:x", "rot:y", "rot:z", "pivot"], "the very mover a body has: arrows, rings and the sphere (`in_419`)");
+  assert.deepEqual(gizmoOf(free)!.handles.map((h) => h.id), ["move:x", "move:y", "move:z", "rot:x", "rot:y", "rot:z", "pivot"], "the very mover a body has: arrows, rings and the sphere (`in_419`), in place of the arrow along the normal (`in_466`)");
   // an arrow along its own axis moves it, as one step
   const k = sec.n.findIndex((v) => Math.abs(v) > 0.5);
   const [, tip] = gizmoOf(free)!.handles.find((h) => h.id === `move:${"xyz"[k]}`)!.points;
@@ -1822,11 +1823,11 @@ test("the cross section is a plane put in the part: the menu inserts it through 
   const off = doSectionClick(left, sec.ref);
   assert.equal(frame(off).sections.length, 1, "the click leaves the cut as it is");
   assert.ok(sectionNow(off), "and the plane is selected");
-  // the menu row with the plane selected puts it away for good (the plane goes)
+  // the menu row makes another plane, the first stays; the plane goes with the delete action
   const again = select(left, [sec.ref]);
   assert.ok(sectionNow(again));
-  const gone = reduce(again, { type: "runAction", id: "view:section" }, env);
-  assert.equal(frame(gone).sectionPlanes.length, 0);
+  assert.equal(frame(reduce(again, { type: "runAction", id: "view:section" }, env)).sectionPlanes.length, 2);
+  assert.equal(frame(reduce(again, { type: "runAction", id: "delete" }, env)).sectionPlanes.length, 0);
   // undo takes the plane out again: it was a step
   assert.equal(Object.values(scene(reduce(st, { type: "undo" }, env).session).parts).some((p) => p.kind === "plane" && !!p.section), false);
 });

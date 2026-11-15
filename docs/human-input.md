@@ -2185,3 +2185,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_465 — 2026-11-15 — directive
 > Light only the right kinds of thing while an operation is waiting
 (asks for the one thing `dec_menu_picking` left unbuilt: while an operation waits for what to click, only the kinds of thing it can use are lit (and picked))
+
+## in_466 — 2026-11-15 — directive
+> When a cross section cuts an object, can we have it so there is no ghost of the object left. 
+> Can we have the hidden plane view have just a slightly more visible plane edge? Can we make it so that when the plane is exactly on a surface is just does the hatch pattern instead of flickering betwene normal surface and hatch? Can we have seperate icon for making the plane visible or invisible and the cut types? When in the move orb mode that should replace the normal arrow instead of being included with the normal arrow. Can we make it so that the little blue circle cursor highlight shows up on the visible plane on hover just like it does on all surfaces? Lets have just one item in the menu for the  plane / cross section and it should be called that too.
+(asks: no ghost of the cut-away part; the invisible sheet's edge a little more visible; a plane exactly on a surface to show only the hatch, not flicker between surface and hatch; one icon for visible / invisible and another for the cut types; the move orb mode to replace the normal arrow, not add to it; the blue circle hover highlight on a visible plane as on every surface; a single menu item for the plane / cross section, called that)

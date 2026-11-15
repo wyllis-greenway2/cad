@@ -45,41 +45,42 @@ const drag = (st: AppState, from: Vec3, to: Vec3, steps = 5): AppState => {
   return reduce(st, { type: "dragEnd" }, env);
 };
 
-test("the Plane menu row makes a plane that does not cut; the Cross section row one that does; several can cut at once and each is in the picture", () => {
-  let st = reduce(box(), { type: "runAction", id: "view:plane" }, env);
+test("the one menu row (Plane / cross section) makes a plane that cuts; another can be made and cut as well, so two cut at once and each is in the picture", () => {
+  let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
   assert.equal(planes(st).length, 1);
-  assert.equal(frame(st).sections.length, 0, "a plane does not cut");
-  assert.equal(frame(st).sectionPlanes[0]!.mode, 2);
+  assert.equal(frame(st).sections.length, 1, "it cuts");
+  assert.equal(frame(st).sectionPlanes[0]!.mode, 0);
   st = reduce(st, { type: "escape" }, env);
   st = reduce(st, { type: "runAction", id: "view:section" }, env);
-  assert.equal(planes(st).length, 2);
-  assert.equal(frame(st).sections.length, 1);
-  // a third plane, cut by its icon: two cut now
-  const first = planes(st).find((p) => p.kind === "plane" && !p.cut)!;
-  st = reduce(st, { type: "runAction", id: `sheet:mode:${first.ref}` }, env); // 2 (no cut) -> 3 (invisible)
-  st = reduce(st, { type: "runAction", id: `sheet:mode:${first.ref}` }, env); // -> 0 (cuts)
+  assert.equal(planes(st).length, 2, "a new one, the first stays");
   assert.equal(frame(st).sections.length, 2, "two planes cut together");
-  assert.equal(frame(st).sectionPlanes.filter((p) => p.mode === 0).length, 2);
+  const second = planes(st).find((p) => p.ref === sectionNow(st)!.ref)!;
+  st = reduce(st, { type: "runAction", id: `sheet:mode:${second.ref}` }, env); // cuts the other half
+  st = reduce(st, { type: "runAction", id: `sheet:mode:${second.ref}` }, env); // does not cut
+  assert.equal(frame(st).sections.length, 1);
+  assert.equal(frame(st).sectionPlanes.filter((p) => p.mode === 2).length, 1);
 });
 
 test("a sheet that is not invisible is a face to point at; an invisible one cannot be pointed at, and goes back to a face with its icon", () => {
-  let st = reduce(box(), { type: "runAction", id: "view:plane" }, env);
+  let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
   const ref = planes(st)[0]!.ref;
+  st = reduce(st, { type: "runAction", id: `sheet:mode:${ref}` }, env);
+  st = reduce(st, { type: "runAction", id: `sheet:mode:${ref}` }, env); // (no cut: the plane alone)
   st = reduce(st, { type: "escape" }, env);
   const sec = planes(st)[0] as unknown as { at: Vec3; u: Vec3; v: Vec3; extent: number };
   const grid: Vec3[] = [];
   for (let i = 1; i < 10; i++) for (let j = 1; j < 10; j++) grid.push(add(add(sec.at, scale(sec.u, (sec.extent * i) / 10)), scale(sec.v, (sec.extent * j) / 10)) as Vec3); // (points all over the sheet)
   const hits = (s: AppState): number => grid.filter((q) => { const pr = projector(s.cam, 800, 600); const [x, y] = pr.project(q); return candidatesAt(scene(s.session), pr.view(x, y), pickOpts(s)).some((c) => c.ref === ref); }).length;
   assert.ok(hits(st) > 20, `the sheet is a face: it is under the pointer over most of it (${hits(st)} of ${grid.length})`);
-  const hidden = reduce(st, { type: "runAction", id: `sheet:mode:${ref}` }, env); // (no cut, then one press: invisible)
-  assert.equal(frame(hidden).sectionPlanes[0]!.mode, 3);
+  const hidden = reduce(st, { type: "runAction", id: `sheet:visible:${ref}` }, env); // (the eye)
+  assert.equal(frame(hidden).sectionPlanes[0]!.hidden, true);
   assert.equal(hits(hidden), 0, "the invisible sheet is not under the pointer anywhere");
-  const back = reduce(reduce(reduce(hidden, { type: "runAction", id: `sheet:mode:${ref}` }, env), { type: "runAction", id: `sheet:mode:${ref}` }, env), { type: "runAction", id: `sheet:mode:${ref}` }, env); // 3 -> 0 -> 1 -> 2: round to no cut
+  const back = reduce(hidden, { type: "runAction", id: `sheet:visible:${ref}` }, env); // visible again
   assert.ok(hits(back) > 20, "and a face again");
 });
 
 test("the arrow along its normal moves the sheet (no step of the body is made), and a number typed for it sets how far along the normal it stands", () => {
-  let st = reduce(box(), { type: "runAction", id: "view:plane" }, env);
+  let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
   const sec = sectionNow(st)!;
   const steps = scene(st.session).steps.length;
   const k = sec.n.findIndex((v) => Math.abs(v) > 0.5);
@@ -96,7 +97,7 @@ test("the arrow along its normal moves the sheet (no step of the body is made), 
 });
 
 test("the move icon goes arrow, free mover, across X, across Y, across Z, then back to the free place it left", () => {
-  let st = reduce(box(), { type: "runAction", id: "view:plane" }, env);
+  let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
   const ref = sectionNow(st)!.ref;
   const first = sectionNow(st)!;
   st = reduce(st, { type: "runAction", id: "sheet:move" }, env); // free
@@ -121,12 +122,12 @@ test("the move icon goes arrow, free mover, across X, across Y, across Z, then b
 });
 
 test("a sketch can be started on a sheet like on any face, and a sheet is saved with the part (mode and all)", () => {
-  let st = reduce(box(), { type: "runAction", id: "view:plane" }, env);
+  let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
   const ref = sectionNow(st)!.ref;
   st = reduce(st, { type: "begin", name: "rect" }, env);
   assert.ok(st.tool, "the rectangle tool is on with the sheet selected");
   st = reduce(st, { type: "escape" }, env);
-  st = reduce(st, { type: "runAction", id: `sheet:mode:${ref}` }, env); // -> invisible
+  st = reduce(st, { type: "runAction", id: `sheet:visible:${ref}` }, env); // -> invisible
   const saved = JSON.parse(JSON.stringify(scene(st.session).parts[ref]));
   assert.equal(saved.hidden, true, "the mode is in the part, so in the file");
 });

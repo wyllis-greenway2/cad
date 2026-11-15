@@ -26,7 +26,7 @@ import type { Plane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
 import { activeOp, movePivot, movePivotTo, gizmoOf } from "./handles.ts";
 import { withPose, orientApply, moverOp, putMover } from "./pose.ts";
-import { doSectionToggle, doPlaneNew, doSheetMode, doSheetMove, typedSection, placeSection, sectionNow } from "./section.ts";
+import { doPlaneNew, doSheetMode, doSheetVisible, doSheetMove, typedSection, placeSection, sectionNow } from "./section.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { sub } from "../../math/vec.ts";
 import { frameAngles, frameOfAngles } from "../entry.ts";
@@ -308,9 +308,9 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "combine:parts") return doCutBegin(closed);
   if (id === "select:ungroup") return doUngroup(closed);
   if (id === "hollow:invert" && s.op?.kind === "hollow" && s.op.hollowMode && s.op.hollowMode !== "closed") return { ...s, op: { ...s.op, hollowMode: s.op.hollowMode === "keep" ? "open" : "keep" }, session: { ...s.session, message: null } };
-  if (id === "view:section") return doSectionToggle(closed);
+  if (id === "view:section") return doPlaneNew(closed, true);
   if (id === "world:toggle") return { ...closed, worldHidden: !s.worldHidden };
-  if (id === "view:plane") return doPlaneNew(closed, false); // (a new plane that does not cut, `in_459`)
+  if (id.startsWith("sheet:visible:")) return doSheetVisible(closed, id.slice(14) as never);
   if (id.startsWith("sheet:mode:")) return doSheetMode(closed, id.slice(11) as never);
   if (id === "sheet:move") return doSheetMove(closed);
   if (id === "view:wireframe") return { ...closed, wireframe: !s.wireframe, session: { ...closed.session, message: s.wireframe ? "solid view" : "wireframe view: the faces of bodies are not drawn, to see what is inside" } };

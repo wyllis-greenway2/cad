@@ -3,14 +3,13 @@
 import { iconSvg } from "./icons.ts";
 import type { Vec3 } from "../interaction/api.ts";
 
-export interface SheetView { ref: string; mode: 0 | 1 | 2 | 3; move: 0 | 1 | 2 | 3 | 4; selected: boolean; corners: Vec3[] }
+export interface SheetView { ref: string; mode: 0 | 1 | 2; hidden: boolean; move: 0 | 1 | 2 | 3 | 4; selected: boolean; corners: Vec3[] }
 
-const MODE_ICON = ["sheetCutUp", "sheetCutDown", "sheetPlain", "sheetHidden"] as const;
+const MODE_ICON = ["sheetCutUp", "sheetCutDown", "sheetPlain"] as const;
 const MODE_TITLE = [
   "Cuts away the half the plane faces (tap for the next mode)",
   "Cuts away the other half (tap for the next mode)",
   "Does not cut (tap for the next mode)",
-  "Invisible: it cannot be pointed at; tap for the next mode",
 ] as const;
 const MOVE_TITLE = [
   "Moves along its normal with the arrow; tap to move it freely (arrows along x, y, z and rings)",
@@ -21,7 +20,7 @@ const MOVE_TITLE = [
 ] as const;
 
 export function createSheetChips(host: HTMLElement, run: (id: string) => void) {
-  type Pair = { box: HTMLDivElement; mode: HTMLDivElement; move: HTMLDivElement; sig: string };
+  type Pair = { box: HTMLDivElement; mode: HTMLDivElement; eye: HTMLDivElement; move: HTMLDivElement; sig: string };
   const pool = new Map<string, Pair>();
   const button = (parent: HTMLElement, id: () => string): HTMLDivElement => {
     const b = document.createElement("div");
@@ -36,8 +35,9 @@ export function createSheetChips(host: HTMLElement, run: (id: string) => void) {
     box.style.cssText = "position:fixed;left:0;top:0;display:none;gap:6px;z-index:6;align-items:center;transition:opacity .2s";
     host.appendChild(box);
     const mode = button(box, () => `sheet:mode:${ref}`);
+    const eye = button(box, () => `sheet:visible:${ref}`);
     const move = button(box, () => "sheet:move");
-    return { box, mode, move, sig: "" };
+    return { box, mode, eye, move, sig: "" };
   };
   const inside = (pt: [number, number], poly: [number, number][]): boolean => {
     let c = false;
@@ -60,11 +60,13 @@ export function createSheetChips(host: HTMLElement, run: (id: string) => void) {
         seen.add(sh.ref);
         const pair = pool.get(sh.ref) ?? make(sh.ref);
         pool.set(sh.ref, pair);
-        const sig = `${sh.mode}${sh.move}${sh.selected}`;
+        const sig = `${sh.mode}${sh.hidden}${sh.move}${sh.selected}`;
         if (sig !== pair.sig) {
           pair.sig = sig;
           pair.mode.innerHTML = iconSvg(MODE_ICON[sh.mode]);
           pair.mode.title = MODE_TITLE[sh.mode];
+          pair.eye.innerHTML = iconSvg(sh.hidden ? "eyeOff" : "eye");
+          pair.eye.title = sh.hidden ? "Invisible: it cannot be pointed at; tap to make it visible" : "Visible; tap to make it invisible";
           pair.move.innerHTML = sh.move === 0 ? iconSvg("sheetArrow") : sh.move === 1 ? iconSvg("sheetFree") : "XYZ"[sh.move - 2]!;
           pair.move.title = MOVE_TITLE[sh.move];
           pair.move.style.display = sh.selected ? "flex" : "none";
@@ -76,8 +78,8 @@ export function createSheetChips(host: HTMLElement, run: (id: string) => void) {
         pair.box.style.display = "flex";
         // an invisible sheet's icon is there only while the pointer is over the sheet (or the icon itself)
         const over = !!pointer && (inside(pointer, poly) || pair.box.matches(":hover"));
-        pair.box.style.opacity = sh.mode === 3 && !over && !sh.selected ? "0" : "1";
-        pair.box.style.pointerEvents = sh.mode === 3 && !over && !sh.selected ? "none" : "auto";
+        pair.box.style.opacity = sh.hidden && !over && !sh.selected ? "0" : "1";
+        pair.box.style.pointerEvents = sh.hidden && !over && !sh.selected ? "none" : "auto";
       }
       for (const [ref, pair] of pool) if (!seen.has(ref)) { pair.box.remove(); pool.delete(ref); }
     },
