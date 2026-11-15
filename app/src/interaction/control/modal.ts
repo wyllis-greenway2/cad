@@ -24,8 +24,8 @@ import { moveOffset } from "../gizmo.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
-import { activeOp, movePivot, gizmoOf } from "./handles.ts";
-import { withPose, orientApply } from "./pose.ts";
+import { activeOp, movePivot, movePivotTo, gizmoOf } from "./handles.ts";
+import { withPose, orientApply, moverOp, putMover } from "./pose.ts";
 import { doSectionToggle, doSectionChip, typedSection, placeSection, sectionNow } from "./section.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { sub } from "../../math/vec.ts";
@@ -111,9 +111,12 @@ export function commitOp(s: AppState): AppState {
 /** The mover was being oriented (the sphere selected, `in_421`): Cancel puts its place and axes back as they were and goes back to the tool. */
 function cancelOrient(s: AppState): AppState {
   const w = s.moverWas;
-  if (!s.op || !w) return { ...s, moverSphere: false, moverWas: null };
-  const { frame: _f, frameKept: _k, ...rest } = s.op;
-  return { ...s, moverSphere: false, moverWas: null, op: { ...rest, pivot: w.pivot, ...(w.frame ? { frame: w.frame } : {}), ...(w.frameKept ? { frameKept: w.frameKept } : {}) } as Op };
+  const mo = moverOp(s);
+  if (!mo || !w) return { ...s, moverSphere: false, moverWas: null };
+  const { frame: _f, frameKept: _k, ...rest } = mo;
+  let back = putMover({ ...s, moverSphere: false, moverWas: null }, { ...rest, pivot: w.pivot, ...(w.frame ? { frame: w.frame } : {}), ...(w.frameKept ? { frameKept: w.frameKept } : {}) } as Op);
+  if (mo.kind === "circular" && s.repeat && !s.op && w.pivot) back = movePivotTo(back, w.pivot); // (a circular repeat's pivot point goes back where it was)
+  return back;
 }
 
 export function doTyped(s: AppState, key: string): AppState {
@@ -168,29 +171,31 @@ export function doTyped(s: AppState, key: string): AppState {
 /** The text of a field of the value box changed: the operation's number, or a size of the figure being drawn. */
 export function doEntry(s: AppState, field: number, text: string): AppState {
   if (!/^-?\d*\.?\d*$/.test(text)) return s;
-  if (s.op?.kind === "mirror" && s.op.mirrorAt && field >= 0 && field < 3) { // the number of the mirror plane's arrow: where the plane stands along that axis (`in_437`)
+  const mo = s.moverSphere ? moverOp(s) : null;
+  if (mo && field >= 3 && field < 6) { // a number typed for the turn of the mover's axes about X, Y or Z (`in_434`, `in_440`)
+    const n = typedNumber(text);
+    if (n === null) return s;
+    const angles = frameAngles(mo.frame);
+    angles[field - 3] = n;
+    const turned = angles.some((a) => Math.abs(a) > 1e-9);
+    const { frame: _f, ...rest } = mo;
+    return putMover(s, { ...rest, auto: false, ...(turned ? { frame: frameOfAngles(angles) } : {}) } as Op);
+  }
+  if (mo && field >= 0 && field < 3) { // a number typed for the mover's place: its world x, y or z (`in_418`)
+    const n = typedNumber(text);
+    const g = gizmoOf(s);
+    if (n === null || !g) return s;
+    const at = g.centre.map((c, j) => (j === field ? n : c)) as unknown as Vec3;
+    if (mo.kind === "circular" && s.repeat && !s.op) return movePivotTo(s, at); // (a circular repeat's pivot is a point of the drawing)
+    const off = mo.kind === "move" ? moveOffset(sceneOf(s.session), mo) : ([0, 0, 0] as Vec3);
+    return putMover(s, { ...mo, auto: false, pivot: sub(at, off) });
+  }
+  if (s.op?.kind === "mirror" && !s.moverSphere && s.op.mirrorAt && field >= 0 && field < 3) { // the number of the mirror plane's arrow: where the plane stands along that axis (`in_437`)
     const n = typedNumber(text);
     if (n === null) return s;
     const at = [...s.op.mirrorAt] as unknown as [number, number, number];
     at[field] = n;
     return { ...s, op: { ...s.op, auto: false, mirrorAt: at, mirrorAxis: field as 0 | 1 | 2 } };
-  }
-  if (s.moverSphere && s.op && (s.op.kind === "move" || s.op.kind === "rotate" || s.op.kind === "revolve") && !s.repeat && field >= 3 && field < 6) { // a number typed for the turn of the mover's axes about X, Y or Z (`in_434`)
-    const n = typedNumber(text);
-    if (n === null) return s;
-    const angles = frameAngles(s.op.frame);
-    angles[field - 3] = n;
-    const turned = angles.some((a) => Math.abs(a) > 1e-9);
-    const { frame: _f, ...rest } = s.op;
-    return { ...s, op: { ...rest, auto: false, ...(turned ? { frame: frameOfAngles(angles) } : {}) } as Op };
-  }
-  if (s.moverSphere && s.op && (s.op.kind === "move" || s.op.kind === "rotate" || s.op.kind === "revolve") && !s.repeat && field >= 0 && field < 3) { // a number typed for the mover's place: its world x, y or z (`in_418`)
-    const n = typedNumber(text);
-    const g = gizmoOf(s);
-    if (n === null || !g) return s;
-    const off = s.op.kind === "move" ? moveOffset(sceneOf(s.session), s.op) : ([0, 0, 0] as Vec3);
-    const at = g.centre.map((c, j) => (j === field ? n : c)) as unknown as Vec3;
-    return { ...s, op: { ...s.op, auto: false, pivot: sub(at, off) } };
   }
   if (s.op && s.op.kind === "rotate" && s.op.frame && (s.op.target === "body" || s.op.target === "plane")) return { ...s, op: { ...s.op, auto: false, typed: text, rot: ["", "", ""] as [string, string, string] } }; // (a turn about the mover's own axis: one angle, `in_417`)
   if (s.op && s.op.kind === "rotate" && (s.op.target === "body" || s.op.target === "plane")) {

@@ -22,7 +22,7 @@ import { objectOf, bodyCentre } from "../objects.ts";
 import { runOp } from "../runop.ts";
 import { sectionGizmo } from "../gizmo.ts";
 import { draggedSection, sectionNow, placeSection } from "./section.ts";
-import { withPose } from "./pose.ts";
+import { withPose, hasOrb, moverOp, putMover } from "./pose.ts";
 import { patternBase, dragPattern, liveRepeat, advanceHelp } from "../pattern.ts";
 import type { Op } from "../operations.ts";
 import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed, jointHandles, moveOffset } from "../gizmo.ts";
@@ -52,7 +52,7 @@ export function gizmoOf(s: AppState): Gizmo | null {
   if (sec && !s.op && !s.repeat && !op) return sectionGizmo(sec.centre, s.cam); // (the cross section's own arrows and rings, `in_392`)
   // looking straight at a plane (orthographic) the push / pull arrow points at you: it goes away (`in_137`)
   if (op && s.cam.straight && (op.kind === "pushpull" || op.kind === "extrude")) return null;
-  const g0 = op ? gizmoFor(sceneOf(s.session), op, s.cam, s.moverSphere && (op.kind === "move" || op.kind === "rotate" || op.kind === "revolve")) : null; // (the sphere selected: its own arrows are there, `in_416`)
+  const g0 = op ? gizmoFor(sceneOf(s.session), op, s.cam, s.moverSphere && hasOrb(op.kind)) : null; // (the sphere selected: its own arrows are there, `in_416`)
   const g = g0; // (a linear repeat shows all three arrows from the start, `in_382`; the helper bubbles only point at one)
   // the arrow of a push / pull or an extrude stands where the face is now: out by the value so far (it stays there when you let go, until the operation ends)
   const shown = g && op && op.normal && (op.kind === "pushpull" || op.kind === "extrude" || op.kind === "offset" || op.kind === "hollow") ? followed(g, { dir: op.normal, kind: "double", id: "pull" }, op.value) : g;
@@ -75,6 +75,14 @@ export function movePivot(s: AppState, k: number, value: number): AppState {
   const p = s.repeat?.pivot ? sceneOf(s.session).parts[s.repeat.pivot.point] : undefined;
   if (!s.repeat?.pivot || p?.kind !== "corner" || k < 0 || Math.abs(p.at[k]! - value) < 1e-9) return s;
   const to = p.at.map((c, j) => (j === k ? value : c)) as unknown as Vec3;
+  const next = run(s.session, { type: "movePart", ref: s.repeat.pivot.point, to });
+  return next.message ? s : { ...s, session: next };
+}
+
+/** The pivot point of a circular repeat put at this place (one change of the point: the copies turn about it): its vertex in the scene is the truth (`in_384`, `in_440`). */
+export function movePivotTo(s: AppState, to: Vec3): AppState {
+  const p = s.repeat?.pivot ? sceneOf(s.session).parts[s.repeat.pivot.point] : undefined;
+  if (!s.repeat?.pivot || p?.kind !== "corner") return s;
   const next = run(s.session, { type: "movePart", ref: s.repeat.pivot.point, to });
   return next.message ? s : { ...s, session: next };
 }
@@ -104,31 +112,28 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
       return { ...s, handleSel: h!.id, drag: { handle: d, base: 0, joint: { mate: j.mate, kind: h!.id === "joint:turn" ? "turn" : "slide", amount: 0 } }, gizmoHover: h!.id };
     }
     // an operation whose arrow showed up by itself stays up after the drag (like one you started): push / pull, extrude, fillet / chamfer go on until you click away; a body's move arrows end with the drag
+    if (s.moverSphere && (h!.id.startsWith("rot:") || h!.id.startsWith("piv:")) && moverOp(s)) { // an arrow or ring of the selected sphere: it puts or turns the mover itself, not what it works on (`in_416`, `in_417`, `in_440`)
+      const started = moverOp(s)!;
+      if (h!.id.startsWith("rot:")) return { ...putMover(s, { ...started, auto: false, axis: d.axis ?? started.axis }), drag: { handle: d, base: 0, frameTurn: started.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]] }, gizmoHover: h!.id };
+      const g0 = gizmoOf(s);
+      if (g0) return { ...putMover(s, { ...started, auto: false }), drag: { handle: d, base: 0, piv: { centre: g0.centre, offset: started.kind === "move" ? moveOffset(sceneOf(s.session), started) : [0, 0, 0] } }, gizmoHover: h!.id };
+    }
     if (!s.op && s.repeat) {
       // a handle of the repeat being set up: it sets the repeat's numbers, nothing is made by the drag
       return { ...s, handleSel: h!.id, repeat: { ...s.repeat, chosen: h!.id }, drag: { handle: d, base: patternBase(liveRepeat(sceneOf(s.session), s.repeat), h!.id), repeat: true }, gizmoHover: h!.id };
-    }
-    if (h!.id.startsWith("rot:") && s.moverSphere) { // a ring of the selected sphere: it turns the mover's own axes, not the body (`in_417`)
-      const started = s.op ?? activeOp(s)!;
-      if (started.kind === "move" || started.kind === "rotate" || started.kind === "revolve") return { ...s, op: { ...started, auto: false, axis: d.axis ?? started.axis }, drag: { handle: d, base: 0, frameTurn: started.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]] }, gizmoHover: h!.id };
-    }
-    if (h!.id.startsWith("piv:") && s.moverSphere) { // an arrow of the selected sphere: it moves the mover, not the body (`in_416`)
-      const started = s.op ?? activeOp(s)!;
-      const g0 = gizmoOf(s);
-      if ((started.kind === "move" || started.kind === "rotate" || started.kind === "revolve") && g0) return { ...s, op: { ...started, auto: false }, drag: { handle: d, base: 0, piv: { centre: g0.centre, offset: started.kind === "move" ? moveOffset(sceneOf(s.session), started) : [0, 0, 0] } }, gizmoHover: h!.id };
     }
     const started = s.op ?? activeOp(s)!;
     const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" || started.kind === "revolve" ? { ...started, auto: false } : started;
     const base = op.kind === "revolve" ? (h!.id === "rev:adv" ? advanceOf(op) : valueOf(op) ?? 0) : isLive(op) ? op.value ?? 0 : 0; // (a revolve has two numbers: the angle of its ring and the advance of its arrow)
     s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base, ...(h!.id === "rev:turn" ? { turned: { last: 0, total: 0 } } : {}) }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
   }
-  if ("handle" in s.drag! && s.drag.frameTurn && s.op) {
+  if ("handle" in s.drag! && s.drag.frameTurn && moverOp(s)) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
     if (!r || !("value" in r)) return s;
     const base = s.drag.frameTurn;
     const m = aboutDir(base[s.drag.handle.axis as 0 | 1 | 2], r.value);
     const turn = (v: Vec3): Vec3 => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2], m[6] * v[0] + m[7] * v[1] + m[8] * v[2]];
-    return { ...s, op: { ...s.op, frame: [turn(base[0]), turn(base[1]), turn(base[2])] } };
+    return putMover(s, { ...moverOp(s)!, frame: [turn(base[0]), turn(base[1]), turn(base[2])] });
   }
   if ("handle" in s.drag! && s.drag.mir && s.op?.mirrorAt) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
@@ -137,12 +142,14 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     at[s.drag.mir.k] = Math.round((s.drag.mir.from + r.value) * 1e3) / 1e3;
     return { ...s, op: { ...s.op, mirrorAt: at } };
   }
-  if ("handle" in s.drag! && s.drag.piv && s.op) {
+  if ("handle" in s.drag! && s.drag.piv && moverOp(s)) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
     if (!r || !("value" in r)) return s;
     const k = s.drag.handle.axis as 0 | 1 | 2;
     const centre = s.drag.piv.centre.map((c, j) => (j === k ? c + r.value : c)) as unknown as Vec3;
-    return { ...s, op: { ...s.op, pivot: sub(centre, s.drag.piv.offset) } };
+    const mo = moverOp(s)!;
+    if (mo.kind === "circular" && s.repeat && !s.op) return movePivotTo(s, centre); // (a circular repeat's pivot is a point of the drawing: it goes there)
+    return putMover(s, { ...mo, pivot: sub(centre, s.drag.piv.offset) });
   }
   if ("handle" in s.drag! && s.drag.section) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);

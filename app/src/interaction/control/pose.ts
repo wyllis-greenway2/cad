@@ -6,6 +6,7 @@ import { scene as sceneOf, selection as selectionOf } from "../session.ts";
 import { moveCentre } from "../gizmo.ts";
 import type { Op } from "../operations.ts";
 import type { AppState } from "./state.ts";
+import { liveRepeat } from "../pattern.ts";
 
 const moves = (op: Op | null): op is Op => !!op && (op.kind === "move" || op.kind === "rotate") && (op.target === "body" || op.target === "plane");
 const selectionKey = (s: AppState): string => selectionOf(s.session).join("|");
@@ -31,4 +32,19 @@ export function withPose(s: AppState, op: Op | null): Op | null {
 /** The orient mode applied (the check, Enter, a right click, the sphere clicked again): the mover keeps its place and axes, and the mode is left; the selection is not touched. */
 export function orientApply(s: AppState): AppState {
   return { ...storePose(s), moverSphere: false, moverWas: null };
+}
+
+/** The operations that have the mover's orb, and so its orient mode (`in_440`): the tools that move or turn, the revolve, the mirror and the two repeats. */
+export const hasOrb = (k: Op["kind"]): boolean => k === "move" || k === "rotate" || k === "revolve" || k === "mirror" || k === "linear" || k === "circular";
+/** The operation whose mover is oriented: the one open, or the repeat that is being set up (read as it is now: a circular repeat's pivot is where its point is). */
+export function moverOp(s: AppState): Op | null {
+  const o = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
+  return o && hasOrb(o.kind) ? o : null;
+}
+/** The operation with the mover's place and axes changed: into the operation that is open, else into the repeat (only those: the repeat's numbers stay its own). */
+export function putMover(s: AppState, op: Op): AppState {
+  if (s.op || !s.repeat) return { ...s, op };
+  const { frame, frameKept, pivot, axis } = op;
+  const { frame: _f, frameKept: _k, ...rest } = s.repeat.op;
+  return { ...s, repeat: { ...s.repeat, op: { ...rest, ...(frame ? { frame } : {}), ...(frameKept ? { frameKept } : {}), ...(s.repeat.op.kind === "circular" ? {} : { pivot }), axis } } };
 }

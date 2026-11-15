@@ -18,14 +18,16 @@ export function mirrorStart(box: { lo: Vec3; hi: Vec3 }, face: { p: Vec3; n: Vec
 }
 /** The middle of the box mirrored: where the arrows start. */
 export const mirrorCentre = (op: Op): Vec3 => (op.mirrorBox ? [0, 1, 2].map((i) => (op.mirrorBox!.lo[i]! + op.mirrorBox!.hi[i]!) / 2) as unknown as Vec3 : [0, 0, 0]);
-/** The plane in force: a point on it and its normal (the chosen axis). */
+/** The plane in force: a point on it and its normal: the chosen axis of the mover (its frame if it was turned, `in_440`), at the distance the arrow ends from the orb (which is where the mover was put). */
 export function mirrorPlane(op: Op): { p: Vec3; n: Vec3 } | null {
   const k = op.mirrorAxis ?? 0;
   const at = op.mirrorAt;
   if (!at || !op.mirrorBox) return null;
-  const p = mirrorCentre(op);
-  (p as unknown as number[])[k] = at[k]!;
-  return { p, n: UNIT[k]! };
+  const centre = mirrorCentre(op);
+  const n = op.frame?.[k] ?? UNIT[k]!;
+  const o = op.pivot ?? centre;
+  const d = at[k]! - centre[k]!; // (how far the plane stands from the orb along the axis)
+  return { p: [o[0] + n[0] * d, o[1] + n[1] * d, o[2] + n[2] * d], n };
 }
 
 /** The step of the mirror: a body gets a step of its own with the plane's numbers; a drawn figure a record that keeps them, its copies made from it (as a repeat's are). */

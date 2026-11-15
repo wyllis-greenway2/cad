@@ -79,18 +79,20 @@ export function patternCommand(scene: Scene, op: Op): Command | null {
   if (op.target !== "plane") {
     // the body: a step of the history with the numbers (reopened from its row in the History list, `in_257`: the same numbers are set again)
     const names = kind === "linear" ? ["nx", "dx", "ny", "dy", "nz", "dz"] : ["count", "angle", "axis", "px", "py", "pz"];
-    const numbers = Object.fromEntries(names.map((n, i) => [n, params[i]!]));
+    const turned = op.frame ? Object.fromEntries(["f0x", "f0y", "f0z", "f1x", "f1y", "f1z", "f2x", "f2y", "f2z"].map((n, i) => [n, op.frame![Math.floor(i / 3)]![i % 3]!])) : {}; // (the mover was turned: the copies run along its axes, `in_440`)
+    const numbers = { ...Object.fromEntries(names.map((n, i) => [n, params[i]!])), ...turned };
     if (op.editStep) return { type: "setStepParams", id: op.editStep, params: numbers };
     const mine = scene.parts[op.parts[0]!];
     const body: Record<string, string> = mine?.kind === "body" && mine.ref !== BODY_OBJECT && mine.id ? { body: mine.id } : {};
     return { type: "addStep", step: { id: nextId(scene, "s"), type: "pattern", parts: op.parts, params: { mode: kind, ...numbers, ...body } } };
   }
   // a drawn figure: a repeat that keeps its numbers, its copies made from it (`in_257`): changing the numbers later changes the copies, and the copies keep their names
-  if (op.editPattern) return { type: "setPattern", id: op.editPattern, params };
+  const withFrame = op.frame ? [...params, ...op.frame.flat()] : params; // (the mover's axes follow the six numbers, `in_440`)
+  if (op.editPattern) return { type: "setPattern", id: op.editPattern, params: withFrame };
   const first = op.parts.map((r) => scene.parts[r]).find((p) => p?.kind === "corner");
   const plane = first?.plane ? scene.parts[first.plane] : undefined;
   if (!plane || plane.kind !== "plane") return null;
-  return { type: "pattern", id: nextId(scene, "q"), kind, parts: op.parts, plane: plane.ref, params };
+  return { type: "pattern", id: nextId(scene, "q"), kind, parts: op.parts, plane: plane.ref, params: withFrame };
 }
 
 const fmtN = (v: number) => String(Math.round(v * 1e3) / 1e3);

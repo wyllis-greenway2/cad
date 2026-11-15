@@ -826,14 +826,15 @@ const OPS = {
       const d = [op.dx, op.dy, op.dz].map((v) => resolve(v, ctx.params));
       if (n[0] * n[1] * n[2] > 200) throw new Error("that is more than 200 copies");
       // joined in pairs, then pairs of pairs (a row, then a grid of rows): each join is between pieces of the same size, so the work grows with the number of copies and not with its square
+      const dirOf = (axis) => (op.frame ? op.frame[axis] : [0, 1, 2].map((k) => (k === axis ? 1 : 0))); // (the axes of the mover, if it was turned, `in_440`)
       const along = (axis, count, base) => {
         const parts = [];
-        for (let i = 0; i < count; i++) { const v = [0, 0, 0]; v[axis] = i * d[axis]; parts.push(i === 0 ? base : base.clone().translate(v)); }
+        for (let i = 0; i < count; i++) { const v = dirOf(axis).map((c) => c * i * d[axis]); parts.push(i === 0 ? base : base.clone().translate(v)); }
         return fuseTree(parts);
       };
       // copies that stand apart (every direction they are repeated in, they are further apart than the body is wide) do not touch, so there is nothing to join: they are one compound at once
       const size = (() => { const b = bounds(t); return [0, 1, 2].map((i) => b.max[i] - b.min[i]); })();
-      if ([0, 1, 2].every((i) => n[i] === 1 || Math.abs(d[i]) > size[i] + 1e-6)) {
+      if (!op.frame && [0, 1, 2].every((i) => n[i] === 1 || Math.abs(d[i]) > size[i] + 1e-6)) {
         const copies = [];
         for (let i = 0; i < n[0]; i++) for (let j = 0; j < n[1]; j++) for (let k = 0; k < n[2]; k++) copies.push(i + j + k === 0 ? t.clone() : t.clone().translate([i * d[0], j * d[1], k * d[2]]));
         return { kind: "solid", shape: again(copies.length === 1 ? copies[0] : makeCompound(copies)) };
@@ -855,8 +856,8 @@ const OPS = {
       const count = Math.max(1, Math.round(resolve(op.count, ctx.params)));
       const angle = resolve(op.angle, ctx.params);
       if (count > 200) throw new Error("that is more than 200 copies");
-      const axis = [0, 0, 0];
-      axis[Math.round(resolve(op.axis, ctx.params))] = 1;
+      const axis = op.frame ? op.frame[Math.round(resolve(op.axis, ctx.params))] : [0, 0, 0];
+      if (!op.frame) axis[Math.round(resolve(op.axis, ctx.params))] = 1;
       const step = Math.abs(angle) >= 360 ? angle / count : count > 1 ? angle / (count - 1) : 0;
       const copies = [out];
       for (let i = 1; i < count; i++) copies.push(t.clone().rotate(step * i, op.pivot, axis));

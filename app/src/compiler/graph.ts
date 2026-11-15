@@ -182,11 +182,12 @@ export function buildGraph(scene: Scene): GraphResult {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const p = st.params;
         const one = p.body ? { body: String(p.body) } : {}; // (one body of several is repeated, `in_271`)
+        const turned = p.f0x !== undefined ? { frame: [[p.f0x, p.f0y, p.f0z], [p.f1x, p.f1y, p.f1z], [p.f2x, p.f2y, p.f2z]].map((r) => r.map(Number)) } : {}; // (the mover was turned: the copies run along its axes, `in_440`)
         ops.push(p.mode === "mirror"
           ? { id: xid, type: "pattern", target: prev, mode: "mirror", point: [Number(p.px), Number(p.py), Number(p.pz)], normal: [Number(p.nx), Number(p.ny), Number(p.nz)], ...one }
           : p.mode === "circular"
-          ? { id: xid, type: "pattern", target: prev, mode: "circular", count: Number(p.count), angle: Number(p.angle), axis: Number(p.axis), pivot: [Number(p.px), Number(p.py), Number(p.pz)], ...one }
-          : { id: xid, type: "pattern", target: prev, mode: "linear", nx: Number(p.nx), ny: Number(p.ny), nz: Number(p.nz), dx: Number(p.dx), dy: Number(p.dy), dz: Number(p.dz), ...one });
+          ? { id: xid, type: "pattern", target: prev, mode: "circular", count: Number(p.count), angle: Number(p.angle), axis: Number(p.axis), pivot: [Number(p.px), Number(p.py), Number(p.pz)], ...turned, ...one }
+          : { id: xid, type: "pattern", target: prev, mode: "linear", nx: Number(p.nx), ny: Number(p.ny), nz: Number(p.nz), dx: Number(p.dx), dy: Number(p.dy), dz: Number(p.dz), ...turned, ...one });
         prev = xid;
         break;
       }

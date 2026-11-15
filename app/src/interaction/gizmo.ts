@@ -160,11 +160,12 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
   }
   if (op.kind === "mirror" && op.mirrorBox && op.mirrorAt) {
     // the mover's arrows from the middle of what is mirrored, each ending at the plane across its axis; taking one chooses that plane, pulling it moves the plane (`in_437`); the orb marks where they start
-    const c = mirrorCentre(op);
+    const centre = mirrorCentre(op);
+    const c = op.pivot ?? centre; // (the orb, where the arrows start: the middle of what is mirrored unless it was put elsewhere, `in_440`)
+    if (sphere) return moverHandles("move", c, L, true, op.frame);
     const handles: Handle[] = [{ id: "mir:orb", kind: "ball", axis: null, points: [c] }];
-    AXES.forEach((d, i) => {
-      if (op.mirrorFlat && op.mirrorBox!.hi[i]! - op.mirrorBox!.lo[i]! < 1e-6 && i === 2 && false) return;
-      const away = op.mirrorAt![i]! - c[i]!;
+    (op.frame ?? AXES).forEach((d, i) => {
+      const away = op.mirrorAt![i]! - centre[i]!; // (how far the plane stands from the orb along this axis)
       const len = Math.sign(away || 1) * Math.max(Math.abs(away), 0.35 * L);
       handles.push({ id: `mir:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [c, add(c, scale(d, len))] });
     });
@@ -188,17 +189,20 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
   if (op.kind === "linear" || op.kind === "circular") {
     const v = patternValues(op);
     if (v.length < 6) return null;
+    const ax: readonly Vec3[] = op.frame ?? AXES; // (the axes of the mover, if it was turned: the copies run along them and the rings are about them, `in_440`)
+    if (sphere && op.kind === "circular") return moverHandles("move", [v[3]!, v[4]!, v[5]!], L, true, op.frame);
+    if (sphere) return moverHandles("move", op.pivot ?? patternCentre(scene, op), L, true, op.frame);
     if (op.kind === "circular") {
       // the same rings and ball as a rotation: the ring you take sets the axis, the ball is the point the copies turn about
       const pivot: Vec3 = [v[3]!, v[4]!, v[5]!];
       // the rings choose the axis; short arrows along x, y and z move the pivot point (its vertex in the scene), so it can be placed or typed exactly (`in_384`)
-      const arrows = AXES.map((d, i): Handle => ({ id: `piv:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [pivot, add(pivot, scale(d, L * 0.45))] }));
-      return { centre: pivot, handles: [...AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, pivot, d, L * 0.8, i as 0 | 1 | 2)), ...arrows, { id: "pivot", kind: "ball", axis: null, points: [pivot] }] }; // (the orb, as on the mover: drag it to place the point the copies turn about, `in_437`)
+      const arrows = ax.map((d, i): Handle => ({ id: `piv:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [pivot, add(pivot, scale(d, L * 0.45))] }));
+      return { centre: pivot, handles: [...ax.map((d, i) => ring(`rot:${"xyz"[i]}`, pivot, d, L * 0.8, i as 0 | 1 | 2)), ...arrows, { id: "pivot", kind: "ball", axis: null, points: [pivot] }] }; // (the orb, as on the mover: drag it to place the point the copies turn about, `in_437`)
     }
     // an arrow along each axis whose end is where the next copy goes (pull it for the distance between them), and a short arrow past the last copy (pull it for how many)
-    const c = patternCentre(scene, op);
+    const c = op.pivot ?? patternCentre(scene, op);
     const handles: Handle[] = [{ id: "lin:orb", kind: "ball", axis: null, points: [c] }]; // (the mover's orb where the arrows start, `in_437`)
-    AXES.forEach((d, i) => {
+    ax.forEach((d, i) => {
       const sp = v[2 * i + 1]!;
       const n = Math.max(1, Math.round(v[2 * i]!));
       if (Math.abs(sp) < 1e-9) return;
