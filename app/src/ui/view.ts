@@ -93,16 +93,19 @@ export function createView(host: HTMLElement) {
     overlay.matrixWorldNeedsUpdate = true;
   }
   let fade = false;
+  let wire = false;
   /** The body see-through (the sketch plane is looked at straight and the body is between it and the camera) or as it was (`in_194`). */
   function applyFade() {
     if (!bodyMat) return;
-    bodyMat.transparent = fade;
-    bodyMat.opacity = fade ? settings.theme.bodyFadeOpacity : 1;
-    bodyMat.depthWrite = !fade;
-    bodyMat.visible = !wire; // (wireframe: the faces are not drawn, the edges are, `in_383`)
+    bodyMat.userData.base ??= bodyMat.color.getHex(); // (its own colour, put back after a wireframe)
+    // wireframe (`in_383`, `in_386`): the surfaces are nearly clear and dark, not gone, so the edges and the sketches inside show through them
+    bodyMat.transparent = fade || wire;
+    bodyMat.opacity = wire ? 0.14 : fade ? settings.theme.bodyFadeOpacity : 1;
+    bodyMat.depthWrite = !fade && !wire;
+    bodyMat.color.setHex(wire ? 0x14161a : (bodyMat.userData.base as number));
+    bodyMat.visible = true;
     bodyMat.needsUpdate = true;
   }
-  let wire = false;
   const setWireframe = (on: boolean) => { if (on !== wire) { wire = on; applyFade(); } };
   const setBodyFade = (on: boolean) => { if (on !== fade) { fade = on; applyFade(); } };
   const setHighlight = (h: Highlight, cam: Camera, nowMs: number) => buildHighlight(overlay, marks, lastScene, lastMesh, h, cam, pen, nowMs);

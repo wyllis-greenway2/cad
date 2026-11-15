@@ -64,7 +64,7 @@ test("three clicks select only the face and look straight at it, from the side y
 
 test("a selected face across a world axis lights that axis's button; the eye is not on the screen but in the right-click menu", () => {
   let st = boxState();
-  const look = (x: AppState, at: [number, number] = [400, 300], button = true) => reduce(x, { type: "menu", x: at[0], y: at[1], button }, env).menu!.items.find((i) => i.id === "look")!; // (the menu button: it acts on the selection and ignores what is under the point)
+  const look = (x: AppState, at: [number, number] = [400, 300], button = true) => reduce(x, { type: "menu", x: at[0], y: at[1], button }, env).menu!.items.find((i) => i.id === "view")!.children!.find((i) => i.id === "look")!; // (the menu button: it acts on the selection and ignores what is under the point)
   assert.equal(look(st).enabled, false, "nothing selected: nothing to look at");
   assert.equal(look(st, [400, 300], false).enabled, true, "a click on a face is enough, with a mouse (hover) or a finger (the point itself is looked at, `in_283`)");
   st = click(st, SIDE, 1);
@@ -197,7 +197,7 @@ test("the menu: a right click offers the operations on what is selected and does
   assert.deepEqual(selection(st.session), [a.circle, b.circle]);
   const [x, y] = px(st, [63, 0, 0]);
   st = reduce(st, { type: "menu", x, y }, env);
-  assert.deepEqual(st.menu!.items.map((i) => i.label), ["Sketch", "Constraints", "Shape", "Move", "Copy and repeat", "Select", "Look straight at it", "Delete"], "the right click offers the operations (constraints are on the left click)");
+  assert.deepEqual(st.menu!.items.map((i) => i.label), ["Sketch", "Constraints", "Shape", "Move", "Copy and repeat", "Select", "View", "Delete"], "the right click offers the operations (constraints are on the left click)");
   assert.ok(st.menu!.items.find((i) => i.id === "delete")!.enabled);
   assert.deepEqual(flat(st.menu!.items).map((i) => i.label).slice(0, 4), ["Rectangle", "Circle", "Line", "Curve"], "and the categories hold the tools");
   const radiusBefore = (scene(st.session).parts[b.circle] as { radius: number }).radius;

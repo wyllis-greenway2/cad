@@ -46,6 +46,7 @@ export function patternStart(scene: Scene, kind: "linear" | "circular", figure: 
     // (a body is repeated across the screen when the view is straight on to a plane, not towards the eye, `in_244`)
     const along = (figure ? Math.max(0, ext.findIndex((e, i) => e > 1e-6 && i !== normalAxis)) : view?.right ?? 0) as 0 | 1 | 2;
     const start = [1, 0, 1, 0, 1, 0].map((v, k) => (k % 2 === 0 ? 1 : r3((ext[k >> 1]! > 1e-6 ? ext[k >> 1]! : biggest) * 1.25)));
+    start[2 * along] = 2; // (one copy to begin with, along the axis the view looks across, `in_386`)
     return { parts, start, target: figure ? "plane" : "body", along };
   }
   const axis = figure ? normalAxis : view?.normal ?? 2; // (like a clock face seen from where you look, `in_244`)

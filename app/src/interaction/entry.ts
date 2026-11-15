@@ -94,14 +94,13 @@ export function repeatEntries(op: Op, g: Gizmo | null, cam: Camera, chosen: stri
   const arrow = g.handles.find((h) => h.id === chosen);
   if (i < 0 || !arrow) return [];
   const X = "XYZ"[i]!;
-  const count = chosen.startsWith("cnt:");
-  const field = count ? 2 * i : 2 * i + 1;
-  return [{
-    fields: [count
-      ? { label: `Copies along ${X}`, short: `${X}×`, value: show(field), active: false, typed: typed(field), index: field }
-      : { label: `Distance between copies along ${X}`, short: "Δ", value: show(field), active: false, typed: typed(field), index: field }],
-    unit: count ? "" : "mm", at: arrow.points.at(-1)!, from: g.centre,
-  }];
+  // the count arrow and the distance arrow of an axis are active together (`in_386`): both numbers show, each at the tip of its arrow
+  const countArrow = g.handles.find((h) => h.id === `cnt:${chosen.slice(4, 5)}`);
+  const distArrow = g.handles.find((h) => h.id === `lin:${chosen.slice(4, 5)}`);
+  return [
+    ...(countArrow ? [{ fields: [{ label: `Copies along ${X}`, short: `${X}×`, value: show(2 * i), active: false, typed: typed(2 * i), index: 2 * i }], unit: "", at: countArrow.points.at(-1)!, from: g.centre }] : []),
+    ...(distArrow ? [{ fields: [{ label: `Distance between copies along ${X}`, short: "Δ", value: show(2 * i + 1), active: false, typed: typed(2 * i + 1), index: 2 * i + 1 }], unit: "mm", at: distArrow.points.at(-1)!, from: g.centre }] : []),
+  ];
 }
 
 /**

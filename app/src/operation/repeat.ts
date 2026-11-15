@@ -90,12 +90,6 @@ export function withPatterns(s: Scene): Scene {
 function patternOf(s: Scene, ref: Ref): PatternRecord | undefined {
   return patternsOf(s).find((r) => r.parts.includes(ref) || isMade(r.id, ref) || ref.includes(`@${r.id}.c`));
 }
-/** The one repeat that all of these belong to, or null (nothing selected, or parts of different repeats, or something that is not in one). */
-export function patternOfAll(s: Scene, refs: readonly Ref[]): PatternRecord | null {
-  const found = refs.map((r) => patternOf(s, r));
-  return found.length && found.every((r) => r && r === found[0]) ? found[0]! : null;
-}
-
 export function addPattern(s: Scene, rec: PatternRecord): Result<Scene> {
   if (patternsOf(s).some((r) => r.id === rec.id)) return err(`repeat ${rec.id} already exists`);
   if (!(rec.plane in s.parts)) return err(`plane ${rec.plane} does not exist`);

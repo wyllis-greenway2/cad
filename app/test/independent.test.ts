@@ -307,8 +307,7 @@ test("Copy of one body that has a sketch on its face: the copies are the solid, 
   s = run(s, r.command);
   const cornersBefore = JSON.stringify(r.corners.map((c) => (scene(s).parts[c as Ref] as { at: Vec3 }).at));
   let st: AppState = pick({ ...createState(s), cam: homeCamera() }, [a!.ref]);
-  st = reduce(st, { type: "runAction", id: "op:copy" }, env);
-  st = reduce(st, { type: "repeatApply" }, env);
+  st = reduce(st, { type: "runAction", id: "op:copy" }, env); // (a quick copy: made at once, `in_386`)
   assert.equal(st.session.message, null);
   assert.equal(bodies(st.session).length, 3, "the body, its copy, and the other body");
   assert.equal(JSON.stringify(r.corners.map((c) => (scene(st.session).parts[c as Ref] as { at: Vec3 }).at)), cornersBefore, "the sketch stayed where it was drawn");
@@ -508,4 +507,13 @@ test("a long press (the menu intent of a finger) on a move arrow chooses it with
   st = reduce(st, { type: "menu", x: p[0], y: p[1] }, env);
   assert.deepEqual(st.lockAxes, [0]);
   assert.equal(st.menu, null, "no menu opened over an arrow");
+});
+
+import { similarTo as similarBodies } from "../src/interaction/similar.ts";
+test("select similar on a whole body finds the bodies that are the same, a pasted copy among them, wherever they are (`in_386`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 40, 0);
+  const [a, b] = bodies(s);
+  const r = similarBodies(scene(s), [a!.ref]);
+  assert.ok(r.ok);
+  if (r.ok) { assert.equal(r.noun, "body"); assert.deepEqual([...r.refs].sort(), [a!.ref, b!.ref].sort()); }
 });

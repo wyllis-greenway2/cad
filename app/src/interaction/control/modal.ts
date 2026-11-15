@@ -23,10 +23,9 @@ import type { Plane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
 import { activeOp, movePivot } from "./handles.ts";
 import { typedNumber } from "../../shared/numbers.ts";
-import { pivotCommands, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
+import { pivotCommands, patternCommand, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
 import type { Repeat } from "../pattern.ts";
 import type { Op } from "../operations.ts";
-import { patternOfAll } from "../../operation/repeat.ts";
 import { BODY_OBJECT } from "../../compiler/body.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
@@ -216,8 +215,6 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "select:similar") return doSimilar(closed);
   if (id === "select:group") return doGroup(closed);
   if (id === "combine:parts") return doCutBegin(closed);
-  if (id === "repeat:edit") return doRepeatEdit(closed);
-  if (id === "repeat:break") return doRepeatBreak(closed);
   if (id === "select:ungroup") return doUngroup(closed);
   if (id === "view:wireframe") return { ...closed, wireframe: !s.wireframe, session: { ...closed.session, message: s.wireframe ? "solid view" : "wireframe view: the faces of bodies are not drawn, to see what is inside" } };
   if (id === "tape:measure") return { ...closed, tape: !s.tape, session: { ...closed.session, message: s.tape ? "tape measure off" : "tape measure on: select a face, or two (Shift adds the second), to see what they are to each other" } };
@@ -252,7 +249,8 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now, s.menu?.plane ?? null);
   if (s.repeat && (id === "op:linear" || id === "op:circular") && !s.repeat.op.editStep && !s.repeat.op.editPattern) return doRepeatSwitch(closed, id === "op:linear" ? "linear" : "circular"); // (a repeat that is open changes kind, `in_382`)
-  if (id === "op:linear" || id === "op:circular" || id === "op:copy") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular" | "copy");
+  if (id === "op:copy") return doQuickCopy(closed);
+  if (id === "op:linear" || id === "op:circular") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular");
   if (id.startsWith("op:")) return beginOp(closed, id.slice(3) as OpKind, now, s.menu?.plane ?? null);
   if (id.startsWith("near:")) {
     const cmd = nearCommand(sceneOf(s.session), selectionOf(s.session), id, nearTolMm(s.cam), seenIn(s.cam, sceneOf(s.session), { w: 800, h: 600 }));
@@ -325,7 +323,19 @@ export function doPanelRow(s: AppState, id: string, act: "select" | "remove" | "
 
 // ---- a repeat being set up (`in_141`): it is its own state, not an operation, so Move and the rest can still be used while it is up ----
 /** Start a repeat of what is selected (a copy is a repeat of two). A circular one gets its pivot parts: a point, a point at the middle of what is repeated, a line between. */
-function doRepeatBegin(s: AppState, kind: "linear" | "circular" | "copy"): AppState {
+/** A quick copy (`in_386`, Ctrl+C / Ctrl+V): one copy beside the thing, at the distance a repeat starts with, made at once with nothing to set; the arrows of a repeat are there to change it. */
+function doQuickCopy(s: AppState): AppState {
+  const say = (message: string): AppState => ({ ...s, menu: null, session: { ...s.session, message } });
+  if (s.repeat) return say("apply or cancel the repeat that is open first");
+  const sc = sceneOf(s.session);
+  const r = startOp(sc, selectionOf(s.session), "copy", viewAxes(s.cam));
+  if (!r.ok) return say(r.why);
+  const cmd = patternCommand(sc, r.op);
+  if (!cmd) return say("nothing to copy");
+  const next = run(s.session, cmd);
+  return { ...s, menu: null, op: null, tool: null, session: next.message ? next : { ...next, message: null } };
+}
+function doRepeatBegin(s: AppState, kind: "linear" | "circular"): AppState {
   const say = (message: string): AppState => ({ ...s, menu: null, session: { ...s.session, message } });
   if (s.repeat) return say("apply or cancel the repeat that is open first");
   const r = startOp(sceneOf(s.session), selectionOf(s.session), kind, viewAxes(s.cam));
@@ -339,7 +349,7 @@ function doRepeatBegin(s: AppState, kind: "linear" | "circular" | "copy"): AppSt
     session = next;
     pivot = made.parts;
   }
-  return { ...s, menu: null, op: null, tool: null, session: { ...session, message: null }, repeat: { op: r.op, pivot, chosen: null, help: kind === "linear" ? { phase: "copy", sep0: 0 } : kind === "copy" ? advanceHelp({ op: r.op, pivot, help: { phase: "copy", sep0: 0 } }).help! : null } };
+  return { ...s, menu: null, op: null, tool: null, session: { ...session, message: null }, repeat: { op: r.op, pivot, chosen: kind === "linear" ? `cnt:${"xyz"[r.op.along ?? 0]}` : null, help: null } };
 }
 /** Change an open repeat to the other kind (`in_382`): what was set for the one it leaves is kept, so coming back finds it as it was; a circular one's pivot parts go and come back with it. */
 function doRepeatSwitch(s: AppState, to: "linear" | "circular"): AppState {
@@ -367,19 +377,6 @@ function doRepeatSwitch(s: AppState, to: "linear" | "circular"): AppState {
   }
   return { ...s, session: { ...session, message: null }, handleSel: null, repeat: { op, pivot, chosen: null, help: null, stash } };
 }
-const NO_REPEAT = "select a copy of a repeat, or what was repeated (a step of the repeat of the body is reopened from the History list)";
-/** Open a repeat again to change its numbers (`in_257`): the same arrows and bubbles it was made with, with its numbers; Apply changes the copies, Cancel leaves them. */
-function doRepeatEdit(s: AppState): AppState {
-  const say = (message: string): AppState => ({ ...s, menu: null, session: { ...s.session, message } });
-  if (s.repeat) return say("apply or cancel the repeat that is open first");
-  const sc = sceneOf(s.session);
-  const rec = patternOfAll(sc, selectionOf(s.session));
-  if (!rec) return say(NO_REPEAT);
-  const r = startOp(sc, rec.parts, rec.kind, viewAxes(s.cam));
-  if (!r.ok) return say(r.why);
-  const along = [0, 1, 2].find((i) => (rec.params[2 * i] ?? 1) > 1) ?? r.op.along ?? 0;
-  return openRepeat(s, { ...r.op, parts: rec.parts, target: "plane", plane: rec.plane, patStart: [...rec.params], pat: rec.params.map(() => ""), along: along as 0 | 1 | 2, editPattern: rec.id });
-}
 /** Reopen the repeat of the body that is a step of the history (from its row in the History list). */
 function doRepeatEditStep(s: AppState, id: string): AppState {
   const say = (message: string): AppState => ({ ...s, menu: null, session: { ...s.session, message } });
@@ -394,14 +391,6 @@ function doRepeatEditStep(s: AppState, id: string): AppState {
   const start = names.map((n, i) => Number(st.params[n] ?? r.op.patStart?.[i] ?? 0));
   const along = [0, 1, 2].find((i) => kind === "linear" && (start[2 * i] ?? 1) > 1) ?? r.op.along ?? 0;
   return openRepeat({ ...s, panel: null }, { ...r.op, patStart: start, pat: start.map(() => ""), along: along as 0 | 1 | 2, editStep: id });
-}
-/** Break a repeat of a drawn figure: its copies stay, as ordinary parts. */
-function doRepeatBreak(s: AppState): AppState {
-  const closed = { ...s, menu: null };
-  const rec = patternOfAll(sceneOf(s.session), selectionOf(s.session));
-  if (!rec) return { ...closed, session: { ...s.session, message: NO_REPEAT } };
-  const next = run(s.session, { type: "breakPattern", id: rec.id });
-  return next.message ? { ...closed, session: next } : { ...withSession(closed, { ...next, message: "repeat broken: its copies are ordinary parts now" }) };
 }
 /** The repeat state for an operation that is already made (the circular one needs its pivot parts). */
 function openRepeat(s: AppState, op: Op): AppState {

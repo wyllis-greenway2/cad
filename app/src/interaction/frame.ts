@@ -339,7 +339,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     wireframe: s.wireframe,
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
-    gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
+    gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
     similar: similarChip(s),
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
     modeSwitch: gizmo ? (s.repeat ? repeatSwitchOf(s.repeat, gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points))) : null,
@@ -456,6 +456,7 @@ function fadeBodyOf(s: AppState, mesh: { vertices: Float32Array } | null): boole
 /** The switch of a repeat that is open: to the other kind of repeat (not for one reopened to change, `in_382`). */
 function repeatSwitchOf(r: NonNullable<AppState["repeat"]>, at: Vec3, pts: Vec3[]): Frame["modeSwitch"] {
   if (r.op.editStep || r.op.editPattern) return null;
+  pts = [at]; // (it stays by the middle of the handles, not out at the end of an arrow that is pulled, `in_386`)
   return r.op.kind === "circular" ? { at, pts, to: "linear", label: "Repeat in a line" } : { at, pts, to: "circular", label: "Repeat round a point" };
 }
 

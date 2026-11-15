@@ -6,6 +6,7 @@ import { add, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Part, Line } from "../operation/part.ts";
 import { pointOf } from "../operation/part.ts";
+import { BODY_OBJECT } from "../compiler/body.ts";
 
 export type SimilarRule = "kind" | "size" | "angle" | "direction";
 export const SIMILAR_RULES: { id: SimilarRule; label: string; title: string }[] = [
@@ -130,7 +131,15 @@ function drawnProps(scene: Scene, p: Part): Props | null {
   return { category: `sketch:${p.plane ?? ""}`, kind: "line", size: [Math.hypot(...sub(a, b))], angle: null, convex: null, dir: normalize(sub(b, a)), tol: 1e-3 };
 }
 
+/** A whole body (`in_386`): its volume and the sorted sides of its box, which a copy shares whichever way it is turned or wherever it is. The one that stands for all the bodies together is not a body. */
+function bodyProps(p: Extract<Part, { kind: "body" }>): Props | null {
+  if (p.ref === BODY_OBJECT || !p.bbox || p.volume === undefined) return null;
+  const sides = [0, 1, 2].map((i) => r(p.bbox!.max[i]! - p.bbox!.min[i]!)).sort((x, y) => x - y);
+  return { category: "body", kind: "body", size: [p.volume, ...sides], angle: null, convex: null, dir: null, tol: 1e-2 };
+}
+
 function propsOf(scene: Scene, p: Part, faces: Faces): Props | null {
+  if (p.kind === "body") return bodyProps(p);
   if (p.kind === "line") return p.origin === "body" ? lineProps(scene, p, faces) : drawnProps(scene, p);
   if (p.kind === "circle") return drawnProps(scene, p);
   if (p.kind === "plane" && p.origin === "body" && p.mesh && p.mesh.length >= 9) return faceProps(p);
@@ -158,7 +167,7 @@ export function similarTo(scene: Scene, selection: readonly Ref[], rules: readon
   const faces = facesOf(scene);
   const set = new Set(rules);
   const examples = selection.map((q) => scene.parts[q]).filter((p): p is Part => !!p);
-  if (!examples.length) return { ok: false, why: "select an edge, a face or a sketch line first" };
+  if (!examples.length) return { ok: false, why: "select an edge, a face, a body or a sketch line first" };
   const eProps = examples.map((p) => propsOf(scene, p, faces));
   if (eProps.some((p) => !p)) return { ok: false, why: "select edges or faces of the body, or lines and circles of a sketch (not a mix with anything else)" };
   const cats = new Set(eProps.map((p) => p!.category));
@@ -171,6 +180,6 @@ export function similarTo(scene: Scene, selection: readonly Ref[], rules: readon
     if (pr && eProps.some((e) => matches(e!, pr, set))) out.add(p.ref);
   }
   for (const q of [...out]) { const p = scene.parts[q]; if (p?.kind === "line" && p.twin) out.add(p.twin); }
-  const noun = cat === "edge" ? "edge" : cat === "face" ? "face" : "sketch part";
+  const noun = cat === "edge" ? "edge" : cat === "face" ? "face" : cat === "body" ? "body" : "sketch part";
   return { ok: true, refs: [...out], noun };
 }

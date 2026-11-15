@@ -118,53 +118,6 @@ const env = { w: 800, h: 600, now: 0 };
 const pick = (st: AppState, refs: Ref[]): AppState => ({ ...st, session: { ...st.session, click: { ...st.session.click, selection: refs } } });
 const menu = (st: AppState) => reduce(st, { type: "menu", x: 10, y: 10, button: true }, env).menu!.items.flatMap((i) => i.children ?? [i]);
 
-test("Edit repeat reopens the repeat with its numbers: more copies on Apply, the copies stay on Cancel; a copy a step is made from cannot be taken away, and the repeat stays open to try again", () => {
-  const { s } = repeated(3);
-  let st: AppState = { ...createState(s), cam: homeCamera() };
-  assert.equal(menu(st).find((i) => i.id === "repeat:edit")!.enabled, false, "nothing selected");
-  st = pick(st, [copyFace(s, 1).ref]);
-  assert.equal(menu(st).find((i) => i.id === "repeat:edit")!.enabled, true, "a copy's face is enough");
-  st = reduce(st, { type: "runAction", id: "repeat:edit" }, env);
-  assert.deepEqual(st.repeat?.op.patStart, [3, 15, 1, 0, 1, 0], "its own numbers");
-  assert.equal(st.repeat?.op.editPattern, "q_1");
-  assert.equal(frameOf(st, env).confirm?.kind, "linear");
-  st = reduce(st, { type: "entry", field: 0, text: "5" }, env);
-  assert.equal(faces(st.session).length, 3, "nothing is changed until Apply");
-  const f = frameOf(st, env);
-  assert.ok(f.entries.length > 0, "the bubbles show");
-  st = reduce(st, { type: "repeatApply" }, env);
-  assert.equal(st.repeat, null);
-  assert.equal(st.session.message, null);
-  assert.equal(faces(st.session).length, 5);
-  assert.equal(patternsOf(scene(st.session)).length, 1, "the same repeat, not another");
-  // Cancel leaves it
-  st = reduce(pick(st, [copyFace(st.session, 1).ref]), { type: "runAction", id: "repeat:edit" }, env);
-  st = reduce(st, { type: "entry", field: 0, text: "2" }, env);
-  st = reduce(st, { type: "repeatCancel" }, env);
-  assert.equal(faces(st.session).length, 5);
-  // a step made from copy 4 (the fifth shape) stops a count of 3
-  const f4 = copyFace(st.session, 3);
-  const ex = startOp(scene(st.session), [f4.ref], "extrude");
-  assert.ok(ex.ok);
-  if (!ex.ok) return;
-  st = { ...st, session: run(st.session, opCommand(scene(st.session), { ...ex.op, value: 4 })!) };
-  st = reduce(pick(st, [copyFace(st.session, 1).ref]), { type: "runAction", id: "repeat:edit" }, env);
-  st = reduce(st, { type: "entry", field: 0, text: "3" }, env);
-  st = reduce(st, { type: "repeatApply" }, env);
-  assert.match(st.session.message ?? "", /would take away copies/);
-  assert.ok(st.repeat, "still open to try another number");
-  assert.equal(patternsOf(scene(st.session))[0]!.params[0], 5);
-});
-
-test("Break repeat turns the copies into ordinary parts from the menu, and is only offered with a repeat selected", () => {
-  const { s } = repeated(3);
-  let st: AppState = pick({ ...createState(s), cam: homeCamera() }, [copyFace(s, 0).ref]);
-  assert.equal(menu(st).find((i) => i.id === "repeat:break")!.enabled, true);
-  st = reduce(st, { type: "runAction", id: "repeat:break" }, env);
-  assert.equal(patternsOf(scene(st.session)).length, 0);
-  assert.equal(st.session.message, "repeat broken: its copies are ordinary parts now");
-  assert.equal(menu(pick(st, [copyFace(st.session, 0).ref])).find((i) => i.id === "repeat:break")!.enabled, false);
-});
 
 test("a repeat of the body is reopened from its row in the History list, and Apply changes that step", () => {
   let s = createSession(kernel);

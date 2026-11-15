@@ -21,7 +21,6 @@ import type { Command } from "../../operation/commands.ts";
 import type { OpKind } from "../operations.ts";
 import { startOp } from "../operations.ts";
 import { similarTo } from "../similar.ts";
-import { patternOfAll } from "../../operation/repeat.ts";
 import { whyNotGroup, whyNotUngroup, whyNotCombine, applyCut } from "./select.ts";
 import { projector, nearTolMm } from "../camera.ts";
 import { settings } from "../../shared/settings.ts";
@@ -36,7 +35,7 @@ import { doGizmoHover, gizmoOf, chosenId } from "./handles.ts";
 import { hasGizmo, hitHandle } from "../gizmo.ts";
 
 /** The operations a right click offers (`in_133`), in categories (`in_143`): sketching, constraints, shape, moving and repeating, and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
-const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" | "editRepeat" | "breakRepeat" | "combine" }[] = [
+const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" | "combine" }[] = [
   { id: "tool:rect", label: "Rectangle", icon: "rect", tool: "rect" },
   { id: "tool:circle", label: "Circle", icon: "circle", tool: "circle" },
   { id: "tool:line", label: "Line", icon: "line", tool: "line" },
@@ -48,10 +47,9 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:scale", label: "Scale", icon: "scale", op: "scale" },
   { id: "op:move", label: "Move", icon: "move", op: "move" },
   { id: "op:rotate", label: "Rotate", icon: "rotate", op: "rotate" },
-  { id: "op:linear", label: "Copy / repeat in a line", icon: "copy", op: "linear" },
+  { id: "op:copy", label: "Copy", icon: "copy", op: "copy" },
+  { id: "op:linear", label: "Repeat in a line", icon: "linear", op: "linear" },
   { id: "op:circular", label: "Repeat round a point", icon: "circular", op: "circular" },
-  { id: "repeat:edit", label: "Edit repeat", icon: "linear", select: "editRepeat" },
-  { id: "repeat:break", label: "Break repeat", icon: "unlink", select: "breakRepeat" },
   { id: "combine:parts", label: "Combine bodies…", icon: "subtract", select: "combine" }, // (add, cut and what is left of both: the parts the bodies make are each kept or tossed, `in_298`)
   { id: "select:similar", label: "Select similar", icon: "similar", select: "similar" },
   { id: "select:group", label: "Group", icon: "group", select: "group" },
@@ -61,16 +59,16 @@ const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[]
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:scale", "combine:parts"] },
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate"] },
-  { id: "repeat", label: "Copy and repeat", icon: "copy", items: ["op:linear", "op:circular", "repeat:edit", "repeat:break"] },
-  { id: "select", label: "Select", icon: "similar", items: ["select:similar", "select:group", "select:ungroup"] },
+  { id: "repeat", label: "Copy and repeat", icon: "copy", items: ["op:copy", "op:linear", "op:circular"] },
+  { id: "select", label: "Select", icon: "pointer", items: ["select:similar", "select:group", "select:ungroup"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
-const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:move", "op:rotate", "op:linear", "op:circular"]);
+const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:move", "op:rotate", "op:copy", "op:linear", "op:circular"]);
 const category = (id: string, label: string, icon: string, kids: MenuItem[]): MenuItem => {
   const first = kids.find((k) => k.enabled);
   return { id, label, icon, enabled: !!first, why: first ? null : kids[0]?.why ?? "nothing here applies", children: kids };
 };
-function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null): AppState["menu"] {
+function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean } = { wireframe: false, tape: false }): AppState["menu"] {
   const sc = sceneOf(session);
   const sel = selectionOf(session);
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
@@ -79,7 +77,6 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
     if (r.select === "combine") { const why = whyNotCombine(session); return [r.id, { ...base, enabled: !why, why }]; }
-    if (r.select === "editRepeat" || r.select === "breakRepeat") { const rec = patternOfAll(sc, sel); return [r.id, { ...base, enabled: !!rec, why: rec ? null : "select a copy of a repeat, or what was repeated" }]; }
     if (r.select) { const why = r.select === "group" ? whyNotGroup(session) : whyNotUngroup(session); return [r.id, { ...base, enabled: !why, why }]; }
     const st = startOp(sc, sel, r.op!);
     return [r.id, { ...base, enabled: st.ok, why: st.ok ? null : st.why }];
@@ -94,7 +91,12 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     ...CATEGORIES.slice(0, 1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
     category("constraints", "Constraints", "constraint", rels.length ? rels : [{ id: "none", label: "Constraints", icon: "constraint", enabled: false, why: "select the parts to constrain (a line, a corner, two lines …)" }]),
     ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
-    { id: "look", label: "Look straight at it", icon: "eye", enabled: !!target, why: target ? null : "select a plane or a face, or right-click on one" },
+    // the eye: how the model is looked at (`in_386`): straight at a surface, as wireframe, and the tape measure
+    category("view", "View", "eye", [
+      { id: "look", label: "Look straight at it", icon: "eye", enabled: !!target, why: target ? null : "select a plane or a face, or right-click on one" },
+      { id: "view:wireframe", label: view.wireframe ? "Wireframe view: on (tap for solid)" : "Wireframe view", icon: "wireframe", enabled: true, why: null },
+      { id: "tape:measure", label: view.tape ? "Tape measure: on (tap to put away)" : "Tape measure", icon: "dimension", enabled: true, why: null },
+    ]),
     { id: "delete", label: "Delete", icon: "trash", enabled: !!del?.enabled, why: del?.why ?? "select something to delete" },
   ];
   return { x, y, items, plane: clicked ? clicked.ref : null };
@@ -448,7 +450,7 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   }
   // what is under the point (a finger has no hover: a long press must be told what is under it the same way a right click is, or a tool chosen from the ring would not turn the view straight to the plane there, `in_283`)
   const under = i.button ? null : candidatesAt(sceneOf(s.session), projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0]?.ref ?? null;
-  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined) };
+  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape }) };
 }
 
 /**

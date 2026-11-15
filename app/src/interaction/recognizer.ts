@@ -23,6 +23,7 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   let game = false;
   let spaceUsed = false; // (a button was pressed while Space was held: that was a pan, not a switch)
   let rightUp = false;
+  let virtual: [number, number] | null = null; // (where a dragged pointer is in game mode, `in_386`)
   let centre: [number, number] | null = null; // (where the pointer is held in game mode: the middle of the screen)
   let flyAt = 0;
   const vel = { f: 0, r: 0 };
@@ -72,11 +73,17 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
         if (e.kind === "down" && game && e.button === 2) { game = false; fly.clear(); rightUp = true; return []; } // (a right click ends game mode)
         if (e.kind === "up" && rightUp) { rightUp = false; return []; }
         if (e.kind === "down") buttons++; else if ((e.kind === "up" || e.kind === "cancel") && buttons > 0) buttons--;
-        if (e.kind === "move" && game && e.dx !== undefined) { // (the pointer is held at the middle: the mouse's movement turns the view, with or without a button; a click is a click at the middle, `in_304`)
-          pend.x += e.dx * I.flyLookScale; pend.y += e.dy! * I.flyLookScale;
+        if (e.kind === "down" && game) virtual = [e.x, e.y]; // (a button pressed in game mode: from here the mouse's movement moves the pointer, as it does outside the mode, until it is let go, `in_386`)
+        if (e.kind === "move" && game && e.dx !== undefined) { // (the pointer is held at the middle: with no button the mouse's movement turns the view; a click is a click at the middle, `in_304`)
           centre = [e.x, e.y];
+          if (buttons > 0 && virtual) { // (a drag: it works what is under the pointer, push / pull, a fillet, anything, the same as a drag outside the mode)
+            virtual = [Math.max(0, virtual[0] + e.dx), Math.max(0, virtual[1] + e.dy!)];
+            return mouse({ ...e, x: virtual[0], y: virtual[1], dx: undefined, dy: undefined });
+          }
+          pend.x += e.dx * I.flyLookScale; pend.y += e.dy! * I.flyLookScale;
           return [{ type: "hover", x: e.x, y: e.y }];
         }
+        if (e.kind === "up" && game && virtual) { const at = virtual; virtual = null; return mouse({ ...e, x: at[0], y: at[1] }); }
         if (e.kind === "move" && game && !buttons && last) { pend.x += (e.x - last[0]) * I.flyLookScale; pend.y += (e.y - last[1]) * I.flyLookScale; last = [e.x, e.y]; return []; }
         last = [e.x, e.y];
         return mouse(e);

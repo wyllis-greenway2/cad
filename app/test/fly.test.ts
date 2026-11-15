@@ -98,3 +98,17 @@ test("Esc ends game mode at once", () => {
   run(rec, [key("a", true, 0), key("a", false, 1), key("Escape", true, 2)]);
   assert.equal(swivels(run(rec, [move(100, 100, 3), move(160, 100, 4), ...ticks(4, 5)])).length, 0);
 });
+
+test("in game mode a button held makes the mouse's movement move the pointer, so a drag works what is under it as outside the mode (`in_386`)", () => {
+  const rec = createRecognizer();
+  const held = (dx: number, dy: number, t: number, buttons = 0): RawInput => ({ kind: "move", device: "mouse", id: 1, x: 400, y: 300, dx, dy, button: 0, buttons, mods, t } as unknown as RawInput);
+  run(rec, enter());
+  run(rec, [held(0, 0, 10)]);
+  const down = { kind: "down", device: "mouse", id: 1, x: 400, y: 300, button: 0, mods, t: 20 } as unknown as RawInput;
+  run(rec, [down]);
+  const moved = run(rec, [held(60, 0, 30), held(60, 0, 40), ...ticks(40, 6)]);
+  assert.equal(swivels(moved).length, 0, "the view does not turn while the button is down");
+  const up = run(rec, [{ kind: "up", device: "mouse", id: 1, x: 400, y: 300, button: 0, mods, t: 400 } as unknown as RawInput, ...ticks(400, 3)]);
+  assert.ok(Array.isArray(up));
+  assert.equal(swivels(run(rec, [held(60, 0, 500), ...ticks(500, 6)])).length > 0, true, "the view turns again once it is let go");
+});

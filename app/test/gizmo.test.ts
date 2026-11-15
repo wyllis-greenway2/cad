@@ -825,41 +825,24 @@ test("a circle's diameter bubble carries Ø", () => {
 const apply = (st: AppState) => reduce(st, { type: "repeatApply" }, env);
 const bubbles = (st: AppState) => frame(st).entries.map((e) => e.fields.map((f) => f.value));
 
-test("a linear repeat of the body: one copy to begin with, a helper bubble on the arrow to pull for a copy and then on the one to pull to separate (once each), only the arrow taken shows its number, the result shows as you go; right click applies, Esc gives it up (`in_236`)", () => {
+test("a linear repeat of the body: one copy on one axis to begin with, that axis's count and distance arrows active together and both numbers shown, the result shows as you go; right click applies, Esc gives it up (`in_236`, `in_386`)", () => {
   let st = select(box(), [BODY_OBJECT]); // 40 x 20 x 20
   st = reduce(st, { type: "runAction", id: "op:linear" }, env);
   assert.ok(st.repeat && !st.op, "a repeat is open, and it is not an operation");
-  assert.equal(frame(st).entries.length, 0, "no arrow has been taken: no number is shown");
-  assert.equal(frame(st).helper?.text, "pull to copy");
+  assert.equal(st.repeat!.op.patStart![0], 2, "one copy to begin with, on one axis");
+  assert.deepEqual(frame(st).entries.map((e) => e.fields[0]!.short), ["X×", "Δ"], "the pair that made the copy shows its count and its distance");
+  assert.deepEqual(frame(st).gizmo!.locked, ["lin:x", "cnt:x"], "both arrows of the pair are lit");
+  assert.equal(frame(st).helper, null);
   assert.equal(scene(st.session).steps.length, 1);
-  // the handles: the spacing arrows and the count stubs, the stubs well clear of the arrows at first
   const g = gizmoOf(st)!;
   assert.deepEqual(g.handles.map((h) => h.id), ["lin:x", "cnt:x", "lin:y", "cnt:y", "lin:z", "cnt:z"], "all three directions show from the start (`in_382`)");
-  const tipX = g.handles.find((h) => h.id === "lin:x")!.points[1]!;
-  const stubX = g.handles.find((h) => h.id === "cnt:x")!.points[0]!;
-  assert.ok(Math.hypot(...sub(stubX, tipX)) > 4, "the count arrow does not touch the spacing arrow when it first shows");
-  const tipOf = (id: string) => gizmoOf(st)!.handles.find((q) => q.id === id)!.points.at(-1)!;
-  assert.deepEqual(frame(st).helper!.at, tipOf("cnt:x"), "the bubble stands on the arrow past the last copy");
   const mid = (id: string) => { const h = gizmoOf(st)!.handles.find((q) => q.id === id)!; return scale(add(h.points[0]!, h.points[1]!), 0.5); };
-  // pull the count arrow out by one spacing (60): a copy exists, so that helper goes and the other one comes, on the spacing arrow
-  const c0 = mid("cnt:x");
-  st = drag(st, c0, add(c0, [60, 0, 0]));
-  assert.deepEqual(bubbles(st), [["2"]], "the count arrow was taken: only its number shows");
-  assert.deepEqual(frame(st).entries.map((e) => e.fields.map((f) => f.short)), [["X×"]]);
-  assert.equal(frame(st).helper?.text, "pull to separate");
-  assert.deepEqual(frame(st).helper!.at, tipOf("lin:x"));
-  near(frame(st).mesh!.vertices.reduce((m, v, i) => (i % 3 === 0 ? Math.max(m, v) : m), -1e9), 40 + 50, 0.01); // the preview is the real result
-  // pull the spacing arrow out by 10: separated a bit, that helper goes for good, and the number shown is the spacing's
+  // pull the spacing arrow out by 10: the number shown for the pair follows
   const m = mid("lin:x");
   st = drag(st, m, add(m, [10, 0, 0]));
-  assert.deepEqual(bubbles(st), [["60"]]);
-  assert.equal(frame(st).helper, null, "each helper shows once");
-  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["lin:x", "cnt:x", "lin:y", "cnt:y", "lin:z", "cnt:z"], "used: the other directions come");
+  assert.deepEqual(bubbles(st), [["2"], ["60"]]);
   assert.ok(st.repeat, "a drag does not end it");
-  st = drag(st, mid("cnt:x"), add(mid("cnt:x"), [0, 0, 0]));
-  assert.equal(frame(st).helper, null, "and does not come back");
   st = reduce(st, { type: "entry", field: 2, text: "2" }, env);
-  assert.deepEqual(bubbles(st), [["2"]], "typing a number takes that arrow: its number only");
   st = reduce(st, { type: "entry", field: 3, text: "50" }, env);
   assert.equal(scene(st.session).steps.length, 1, "nothing is made yet");
   // a stray click on nothing does not end it
@@ -876,14 +859,11 @@ test("a linear repeat of the body: one copy to begin with, a helper bubble on th
   assert.deepEqual(done.session.outcome.errors, {});
   near(done.session.outcome.kernel!.volume!, 4 * 16000, 5); // 2 x 2
   assert.equal(scene(done.session).steps.at(-1)!.type, "pattern");
-  // Esc gives it up, and a right click with no copy to make just leaves it: nothing is made
-  for (const leave of [{ type: "escape" }, { type: "menu", x: 400, y: 300 }] as const) {
-    let c = select(box(), [BODY_OBJECT]);
-    c = reduce(c, { type: "runAction", id: "op:linear" }, env);
-    c = reduce(c, leave, env);
-    assert.equal(c.repeat, null);
-    assert.equal(scene(c.session).steps.length, 1);
-  }
+  // Esc gives it up
+  const c = reduce(select(box(), [BODY_OBJECT]), { type: "runAction", id: "op:linear" }, env);
+  const left = reduce(c, { type: "escape" }, env);
+  assert.equal(left.repeat, null);
+  assert.equal(scene(left.session).steps.length, 1);
 });
 
 test("a circular repeat: the pivot is a vertex joined to the middle by a line, there for Move, constraints and a length; a click on a ring sets the axis; one bubble for the count and the degrees", () => {
@@ -938,8 +918,7 @@ test("a drawn figure can be repeated too: copies of its corners, lines and relat
   const faces = () => Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length;
   st = select(st, [Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref]);
   st = reduce(st, { type: "runAction", id: "op:linear" }, env);
-  assert.deepEqual(st.repeat!.op.patStart, [1, 12.5, 1, 6.25, 1, 12.5], "one to begin with, spaced one and a quarter sizes (a flat one has no size across, so the biggest is used there)");
-  assert.equal(frame(st).helper?.text, "pull to copy");
+  assert.deepEqual(st.repeat!.op.patStart, [2, 12.5, 1, 6.25, 1, 12.5], "one copy to begin with, spaced one and a quarter sizes (a flat one has no size across, so the biggest is used there)");
   st = reduce(st, { type: "entry", field: 0, text: "3" }, env);
   st = apply(st);
   assert.equal(st.session.message, null);
@@ -992,14 +971,11 @@ test("a right click changes nothing about the selection; several figures selecte
   // Copy of one of them: a repeat of two, the same arrows and numbers
   st = select({ ...st, op: null }, [faces[0]!]);
   st = reduce(st, { type: "runAction", id: "op:copy" }, env);
-  assert.equal(st.repeat!.op.patStart![0], 2, "a copy is a repeat of two");
-  assert.equal(frame(st).helper?.text, "pull to separate", "the copy exists already: the helper is the one for moving it away");
-  st = apply(st);
+  assert.equal(st.repeat, null, "a copy is made at once, nothing to set (`in_386`)");
   assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length, 3);
   // and a body
   let b = select(box(), [BODY_OBJECT]);
   b = reduce(b, { type: "runAction", id: "op:copy" }, env);
-  b = apply(b);
   near(b.session.outcome.kernel!.volume!, 2 * 16000, 5);
 });
 
@@ -1577,7 +1553,6 @@ test("looking straight at a plane, a body's operations start in that plane: move
   assert.equal(reduce(st, { type: "begin", name: "rotate" }, env).op!.axis, 0);
   assert.equal(reduce(st, { type: "begin", name: "move" }, env).op!.axis, 1);
   assert.equal(reduce(st, { type: "runAction", id: "op:linear" }, env).repeat!.op.along, 1);
-  assert.equal(reduce(st, { type: "runAction", id: "op:copy" }, env).repeat!.op.along, 1);
   // not straight on: as before
   const tilted = { ...st, cam: homeCamera() };
   assert.equal(reduce(tilted, { type: "begin", name: "move" }, env).op!.axis, 0);
@@ -1643,18 +1618,19 @@ test("an open repeat switches to the other kind and back, each keeping what was 
   assert.deepEqual(st.repeat!.op.pat, typed, "the grid is as it was left");
 });
 
-test("Ctrl+C and Ctrl+V go straight into the copy mode: one more copy, to place with the arrows (`in_382`)", () => {
+test("Ctrl+C and Ctrl+V make a quick copy at once, with nothing to set (`in_382`, `in_386`)", () => {
   let s = createSession(kernel);
   s = run(s, drawSquaredRectangle(scene(s), XY, [0, 0, 0], [10, 5, 0], [1, 0, 0], [0, 1, 0]).command);
   let st: AppState = { ...createState(s), cam: homeCamera() };
+  const faces = () => Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length;
   st = select(st, [Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref]);
   for (const key of ["c", "v"]) {
     const intents = keyIntents({ kind: "key", key, down: true, mods: { shift: false, ctrl: true, alt: false }, t: 0 }, settings.input);
     assert.deepEqual(intents, [{ type: "runAction", id: "op:copy" }]);
   }
   st = reduce(st, { type: "runAction", id: "op:copy" }, env);
-  assert.ok(st.repeat, "the copy mode is on");
-  assert.equal(st.repeat!.op.patStart![0], 2, "two: the thing and one copy");
+  assert.equal(st.repeat, null, "no repeat is left open");
+  assert.equal(faces(), 2, "one copy beside it");
 });
 
 test("the wireframe view is a switch in the menu: on, the frame says the faces are not drawn; off, solid again (`in_383`)", () => {
