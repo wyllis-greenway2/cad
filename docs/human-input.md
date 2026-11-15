@@ -1824,6 +1824,6 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 > do the not built stuff please
 (asks that what `dec_edits_saturate` still lists as not built after `in_391` be built: the region for edges between a flat face and a cone, sphere or torus and for curved edges in general, a spherical corner for chamfers and for corners not at right angles, a size at more than three places along an edge, a rim with a size that changes along it)
 
-## in_393 — 2026-11-15 — bug report
+## in_393 — 2026-11-15 — directive
 > Okay bugs. so look at these files. If you hit ctrl z you can see what I was trying to do. I would have expected these to make negative cut out holes, one in the chamfer sort of did, but also the chamfer surface had no hole. The other did, but only does when the cylinder is not present in the file? If the cylinder is present the operation seems to become positive?
 (two files attached: `hole_not_negative_at_all.json` and its state snapshot; the first is kept as `app/test/fixtures/hole-after-cylinder-in_393.cad.json` with the last step taken out)
