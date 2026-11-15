@@ -2,6 +2,7 @@
 // (the cache), else with the last result there was (the picture lags a little) and asks the worker, newest request first, one at a time. When an answer comes `onChange` is called
 // so the app compiles again and picks the new result up from the cache. A heavy model therefore never freezes the page; it just takes a moment to appear.
 import type { ExportQuality, ExportResult, Kernel, KernelGraph, KernelResult } from "./compiler/kernel/adapter.ts";
+import type { ResultStore } from "./platform/result-store.ts";
 
 const EMPTY: KernelResult = { ops: [], finalId: null, volume: null, bbox: null, mesh: null, faces: null, edges: null, vertices: null, totalMs: 0 };
 const KEEP = 24; // results kept, newest last
@@ -24,7 +25,9 @@ const failedResult = (graph: KernelGraph, error: string, ms = 0): KernelResult =
  * `limitMs`: how long a job may take (`in_255`: a body scaled to half a million times its size did not come back from the kernel, and with the worker stuck on it nothing after it was ever answered). A job that
  * takes longer is given up: the worker is stopped and a new one started, and the job is answered as an error, so the step that asked for it is refused and the page works again.
  */
-export function createAsyncKernel(onChange: () => void, first: WorkerLike = spawn(), opts: { limitMs?: number; respawn?: () => WorkerLike } = {}): AsyncKernel {
+export function createAsyncKernel(onChange: () => void, first: WorkerLike = spawn(), opts: { limitMs?: number; respawn?: () => WorkerLike; /** answers kept from earlier sessions (`dec_description_cache`) */ store?: ResultStore | null } = {}): AsyncKernel {
+  const store = opts.store ?? null;
+  const asked = new Set<string>(); // (the graphs the store has been asked for: once each)
   const limit = opts.limitMs ?? 60000;
   const respawn = opts.respawn ?? spawn;
   let worker = first;
@@ -92,6 +95,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     }
     if (m.result) {
       cache.set(job.key, m.result);
+      if (store && !job.key.startsWith("draft:") && !job.key.startsWith("lite:") && !m.result.stale) store.put(job.key, m.result); // (the whole answers only: a rough one made while a size is dragged is not kept)
       if (cache.size > KEEP) cache.delete(cache.keys().next().value as string);
       last = m.result;
       onChange();
@@ -118,6 +122,12 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
       const key = (draft ? "draft:" : "") + (lite ? "lite:" : "") + JSON.stringify(graph);
       const hit = cache.get(key);
       if (hit) { cache.delete(key); cache.set(key, hit); return hit; } // (`last` is only what the worker finished last: a hit on an old graph must not make the picture jump back to it)
+      if (store && !draft && !lite && !asked.has(key)) {
+        // an answer kept from an earlier session: shown the moment it is found, while the thread works the model out (and its own answer replaces it)
+        asked.add(key);
+        if (asked.size > 200) asked.delete(asked.values().next().value as string);
+        void store.get(key).then((kept) => { if (kept && !cache.has(key)) { cache.set(key, { ...kept, fromCache: true }); onChange(); } });
+      }
       if (busy?.key === key) return { ...last, stale: true }; // already being worked out
       queued = { key, graph, draft, lite }; // only the newest request is kept: what was asked before it is no longer wanted
       pump();

@@ -20,6 +20,7 @@ import type { AppState } from "./interaction/controller.ts";
 import { projector } from "./interaction/camera.ts";
 import { candidatesAt } from "./interaction/picking.ts";
 import { createAsyncKernel } from "./kernel-async.ts";
+import { openResultStore } from "./platform/result-store.ts";
 import type { Kernel } from "./compiler/kernel/adapter.ts";
 import { kernel, initKernelWeb, drawRectangle, nextId } from "./interaction/api.ts";
 import type { Ref, Command, Vec3 } from "./interaction/api.ts";
@@ -106,6 +107,7 @@ const menu = createMenu(document.body, (id) => {
   } else if (id === "constraints") dispatch({ type: "runAction", id: "constraints" });
   else if (id === "share") shareState();
   else if (id === "exportStl") void exportModel();
+  else if (id === "clearAnswers") void resultStore?.clear();
   else if (id === "exportBody") void exportModel(selectedBodies(state.session));
   else if (id === "save" || id === "open") dispatch({ type: id });
   else if (id === "bodies" || id === "history" || id === "groups") dispatch({ type: "panel", name: id });
@@ -200,7 +202,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session), matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale)); }
     else { menu.hide(); ring.show(i.x, i.y, state.menu?.items ?? []); }
   } else {
     // pointing around does not close a menu; any other intent does
@@ -218,6 +220,10 @@ bus.on("input", (raw) => {
 });
 const input = attachInput(host, bus);
 
+/** The kernel's answers are kept between sessions in a built app, or with `?cache=1` while developing (the stamp of the kernel is found when the app is built: a change made after the dev server started would not be seen, `dec_description_cache`). `?cache=0` turns it off. */
+let resultStore: ReturnType<typeof openResultStore> = null;
+const resultStoreOn = (): boolean => { const q = new URLSearchParams(location.search).get("cache"); return q === "1" || (q !== "0" && !import.meta.env.DEV); };
+
 async function boot() {
   statusEl.textContent = "loading the geometry kernel…";
   // the kernel works on its own thread so a heavy model does not freeze the page; if that cannot start, it runs here instead
@@ -229,7 +235,7 @@ async function boot() {
       const c = session.conflict;
       state = { ...state, session, ...(session.history.cursor < before ? { op: null, drag: null } : {}), ...(c && c !== state.session.conflict ? { flash: { ...c, at: performance.now() } } : {}) }; // (a step taken back with its reason: what is the problem flashes red, `in_266`)
       dirty = true;
-    });
+    }, undefined, { store: (resultStore = resultStoreOn() ? openResultStore(typeof __KERNEL__ === "string" ? __KERNEL__ : "unstamped") : null) });
     await worked.init();
     engine = worked;
   } catch {

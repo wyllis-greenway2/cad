@@ -2061,3 +2061,27 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_443 — 2026-11-15 — approval
 > yes, start with the stage timings
 (approves step 1 of the plan: stage timings inside the slow steps, then the mesh cache)
+
+## in_444 — 2026-11-15 — question
+> we already have a working indicator dont we?
+(asked after `in_442`, before `in_443`; recorded late. Answered: yes, `ui/busy.ts` shows "Working…" whenever the kernel has not answered)
+
+## in_445 — 2026-11-15 — question
+> so is it all fixed? is it fast? or still too slow?
+(asked before `in_443`; recorded late)
+
+## in_446 — 2026-11-15 — question
+> can we make it faster without doing shortcuts we will regret later?
+(asked before `in_443`; recorded late. Answered with a plan: stage timings, then a cache, no coarser meshes or skipped checks)
+
+## in_447 — 2026-11-15 — preference
+> okay hold that thought, we will probably do that, but I have another idea, would it make sense to just really roughly have everything be a mesh like in a video game, and only the object close to the camera or ones trying to be selected actually pulls in its real mathematically correct values? So we dont render and rotate everything in the world all the time perfectly etc.
+(asked before `in_443`; recorded late. The idea of showing meshes at once and bringing in the exact values only where they are needed: answered that rendering is already mesh-based and that the idea fits as a cache of the meshes and picking data of each body)
+
+## in_448 — 2026-11-15 — question
+> so what do you recommend? Should we just do your plan before my mesh idea?
+(asked before `in_443`; recorded late. Answered: the stage timings first, then the mesh idea as a cache of descriptions)
+
+## in_449 — 2026-11-15 — approval
+> yes, start on the mesh cache
+(approves the mesh cache: `dec_description_cache`)

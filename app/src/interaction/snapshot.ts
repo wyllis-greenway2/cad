@@ -30,7 +30,7 @@ export function profileOf(k: CompileOutcome["kernel"]): Record<string, unknown> 
   return {
     compile: compileTimings(),
     kernel: k ? {
-      totalMs: r(k.totalMs), stale: !!k.stale, perf: k.perf ? Object.fromEntries(Object.entries(k.perf).map(([n, v]) => [n, r(v)])) : null,
+      totalMs: r(k.totalMs), stale: !!k.stale, ...(k.fromCache ? { fromCache: true } : {}), perf: k.perf ? Object.fromEntries(Object.entries(k.perf).map(([n, v]) => [n, r(v)])) : null,
       ops: { total: ops.length, kept: ops.length - made.length, madeMs: r(made.reduce((a, o) => a + o.ms, 0)) },
       slowest: [...made].sort((a, b) => b.ms - a.ms).slice(0, 8).filter((o) => o.ms >= 1).map((o) => ({ id: o.id, type: o.type, ms: r(o.ms), ...(o.checkMs ? { checkMs: o.checkMs } : {}), ...(o.markMs ? { markMs: o.markMs } : {}), ...(o.stages ? { stages: o.stages } : {}), ...(o.error ? { error: true } : {}) })),
       describe: k.describe ?? null,
