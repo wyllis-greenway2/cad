@@ -160,10 +160,8 @@ const controls = createControls(document.body, {
 });
 const env = () => ({ w: view.size().w, h: view.size().h, now: performance.now() });
 const FILE_NAME = "model.cad.json";
-/** A ring opened in game mode stands where it was opened, in the world (`in_463`): it is not fixed to the screen, the view moves about it, the crosshair points at its bubbles and a click presses one; it goes with a click on nothing, when it leaves the view, or when a bubble is chosen. */
-let ringAnchor: Vec3 | null = null;
-const closeRing = (): void => { ring.hide(); ringAnchor = null; };
-const viewCentre = (): [number, number] => { const pg = host.getBoundingClientRect(); return [pg.left + pg.width / 2, pg.top + pg.height / 2]; };
+/** A ring opened in game mode is at the middle of the view and the view is fixed while it is open (`in_467`): the wheel lights one option after another, the mouse turns round it in clicks, a click chooses the lit one wherever the pointer is; a right click, or a click with none lit, closes it. */
+const inGame = (): boolean => recognizer.game && document.pointerLockElement !== null;
 let panesFading = false; // (the world panes are fading in or out: keep drawing, `in_442`)
 function adopt(session: Session) { state = { ...createState(session), cam: state.cam }; menu.hide(); ring.hide(); dirty = true; }
 // the last things done, kept so that a snapshot can show them (`in_200`): hovering is only kept as its last position
@@ -207,9 +205,15 @@ function dispatch(i: Intent) {
     });
     return;
   }
-  if (ringAnchor && ring.open) {
-    if (i.type === "click") { const [cx, cy] = viewCentre(); if (!ring.activate(cx, cy)) closeRing(); dirty = true; return; } // (the crosshair's click: a bubble, or nothing: the ring goes)
-    if (i.type === "menu" && !i.button) { closeRing(); dirty = true; return; }
+  if (recognizer.game && i.type === "menuStep") { // the wheel in game mode: the menu opens and goes round (`in_467`)
+    if (!ring.open) { dispatch({ type: "menu", x: view.size().w / 2, y: view.size().h / 2 }); if (ring.open) ring.step(1); } else ring.step(i.dir);
+    dirty = true;
+    return;
+  }
+  if (i.type === "menuTurn") { if (ring.open) ring.turn(i.dx, i.dy); dirty = true; return; }
+  if (ring.open && recognizer.game) {
+    if (i.type === "click") { if (!ring.pickSelected()) ring.hide(); dirty = true; return; }
+    if (i.type === "menu" && !i.button) { ring.hide(); dirty = true; return; }
   }
   // the ⋯ button again closes its menu (`in_294`)
   if (i.type === "menu" && i.button && menu.open) { menu.hide(); dirty = true; return; }
@@ -221,18 +225,14 @@ function dispatch(i: Intent) {
     if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale, settings.theme.outlines)); }
     else {
       menu.hide();
-      if (state.menu && recognizer.game && document.pointerLockElement !== null) { // game mode: the ring is put in the world, ahead of the eye, and stays there
-        const eye = position(state.cam);
-        const fwd = basis(state.cam).forward;
-        ringAnchor = [0, 1, 2].map((k) => eye[k]! + fwd[k]! * state.cam.distance * 0.6) as unknown as Vec3;
-        const [cx, cy] = viewCentre();
-        ring.show(cx, cy, state.menu.items, true);
-      } else { ringAnchor = null; if (state.menu) ring.show(i.x, i.y, state.menu.items); else ring.hide(); }
+      if (state.menu && inGame()) { const pg = host.getBoundingClientRect(); ring.show(pg.left + pg.width / 2, pg.top + pg.height / 2, state.menu.items, true); } // game mode: the ring stands at the middle and the view is fixed (`in_467`)
+      else if (state.menu) ring.show(i.x, i.y, state.menu.items); else ring.hide();
+
     } // (no menu: a right click that applied the mover's orient mode, `in_439`)
   } else {
     // pointing around does not close a menu; any other intent does
     if (menu.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) menu.hide();
-    if (ring.open && !ringAnchor && !["hover", "hoverEnd", "runAction"].includes(i.type)) ring.hide(); // (a ring in the world is not closed by keys or by the view moving, `in_441`, `in_463`)
+    if (ring.open && !recognizer.game && !["hover", "hoverEnd", "runAction"].includes(i.type)) ring.hide(); // (in game mode keys and the view do not close it, `in_441`, `in_467`)
   }
   dirty = true;
 }
@@ -328,17 +328,8 @@ function frame(now: number) {
     sizeKindChip.update(f.sizeKinds);
     loftKindChip.update(f.loftKinds);
     resetView.update(f.resetView);
-    if (ringAnchor) { // the ring that stands in the world follows it as the view moves; it goes when it is out of view (`in_463`)
-      if (!ring.open) ringAnchor = null;
-      else {
-        const eye = position(state.cam);
-        const ahead = [0, 1, 2].reduce((t, k) => t + (ringAnchor![k]! - eye[k]!) * basis(state.cam).forward[k]!, 0);
-        const p = ahead > 0.05 ? projector(state.cam, size.w, size.h).project(ringAnchor) : null;
-        const pg = host.getBoundingClientRect();
-        if (!p || p[0] < 0 || p[1] < 0 || p[0] > size.w || p[1] > size.h) closeRing();
-        else { ring.moveTo(pg.left + p[0], pg.top + p[1]); const [cx, cy] = viewCentre(); ring.pointAt(cx, cy); dirty = true; }
-      }
-    }
+    recognizer.setMenu(ring.open && recognizer.game); // (a menu open in game mode fixes the view: the mouse and the wheel go round it, `in_467`)
+    if (recognizer.game && state.cam.straight) input.toggleGame(); // (a straight view and the game mode do not go together: it ends, `in_467`)
     { const pg = host.getBoundingClientRect(); crosshair.update(recognizer.game && document.pointerLockElement !== null, { x: pg.left + pg.width / 2, y: pg.top + pg.height / 2 }); }
     toolCursor.update(f.tool ? f.tool.kind : null);
     const project = projector(state.cam, size.w, size.h).project;

@@ -31,7 +31,7 @@ export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { to
   const endGame = () => { game = false; gameKeys.clear(); if (locked()) document.exitPointerLock(); ticking(); };
   const ticking = () => {
     const want = game ? GAME_TICK_MS : down.size ? TICK_MS : 0;
-    if (want !== tickMs) { if (timer) clearInterval(timer); timer = want ? setInterval(() => { bus.emit("input", { kind: "tick", t: now() }); ticking(); }, want) : null; tickMs = want; }
+    if (want !== tickMs) { if (timer) clearInterval(timer); timer = want ? setInterval(() => { bus.emit("input", { kind: "tick", t: now() }); if (game) syncHover(); ticking(); }, want) : null; tickMs = want; }
   };
   const listeners: [EventTarget, string, (e: never) => void, AddEventListenerOptions?][] = [];
   const on = <E extends Event>(t: EventTarget, type: string, fn: (e: E) => void, o?: AddEventListenerOptions) => {
@@ -39,8 +39,47 @@ export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { to
     listeners.push([t, type, fn as (e: never) => void, o]);
   };
 
+  // game mode's crosshair works the bubbles, icons and fields of the page as a pointer does (`in_467`): what is under the middle of the view is hovered, pressed and clicked with the events a mouse would give it
+  let chain: Element[] = [];
+  let pressed: Element | null = null;
+  const underCrosshair = (): Element | null => {
+    const r = el.getBoundingClientRect();
+    const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return t && t !== el && !el.contains(t) && t !== document.body && t !== document.documentElement ? t : null;
+  };
+  const fire = (t: Element, type: string, extra: { bubbles?: boolean; button?: number } = {}): void => {
+    const r = el.getBoundingClientRect();
+    const init = { bubbles: extra.bubbles ?? true, cancelable: true, composed: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: extra.button ?? 0, buttons: type.endsWith("down") ? 1 << (extra.button ?? 0) : 0, view: window };
+    t.dispatchEvent(type.startsWith("pointer") ? new PointerEvent(type, { ...init, pointerId: 1, pointerType: "mouse", isPrimary: true }) : new MouseEvent(type, init));
+  };
+  const syncHover = (): void => {
+    if (!game || !locked()) { if (chain.length) { for (const a of chain) { fire(a, "pointerleave", { bubbles: false }); fire(a, "mouseleave", { bubbles: false }); } chain = []; } return; }
+    const t = underCrosshair();
+    const now: Element[] = [];
+    for (let a: Element | null = t; a && a !== document.body; a = a.parentElement) now.push(a);
+    for (const a of chain) if (!now.includes(a)) { fire(a, "pointerleave", { bubbles: false }); fire(a, "mouseleave", { bubbles: false }); }
+    for (const a of [...now].reverse()) if (!chain.includes(a)) { fire(a, "pointerenter", { bubbles: false }); fire(a, "mouseenter", { bubbles: false }); }
+    if (t) { fire(t, "pointermove"); fire(t, "mousemove"); }
+    chain = now;
+  };
   const centre = (): [number, number] => { const r = el.getBoundingClientRect(); return [r.width / 2, r.height / 2]; };
   const pointer = (kind: "down" | "move" | "up" | "cancel") => (e: PointerEvent) => {
+    if (game && locked() && e.pointerType === "mouse" && !freed) { // (what the crosshair is over in the page takes the press, not the view, `in_467`)
+      if (kind === "move") syncHover();
+      const t = kind === "down" ? underCrosshair() : kind === "up" ? pressed : null;
+      if (kind === "down" && t) {
+        pressed = t;
+        fire(t, "pointerdown", { button: e.button }); fire(t, "mousedown", { button: e.button });
+        if (t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) t.focus();
+        return;
+      }
+      if (kind === "up" && t) {
+        pressed = null;
+        fire(t, "pointerup", { button: e.button }); fire(t, "mouseup", { button: e.button });
+        if (e.button === 0) fire(t, "click", { button: 0 });
+        return;
+      }
+    }
     const held = game && locked() && e.pointerType === "mouse"; // (game mode: the pointer is held at the middle of the screen and only its movement counts, `in_304`)
     const [x, y] = held ? centre() : at(e);
     // a mouse button released where the page could not see it (over the menu, a context menu, another window): the drag it began is over, not carried on by every later move (`in_144`)

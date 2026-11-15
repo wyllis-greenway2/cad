@@ -57,6 +57,9 @@ export type Intent =
   | { type: "faceKind"; kind: "move" | "extrude" | "extend" }
   /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
   | { type: "loftKind"; id: string }
+  /** game mode (`in_467`): a notch of the wheel (the menu opens and goes on one option), and the mouse turning while the menu is open (its selection goes round the ring) */
+  | { type: "menuStep"; dir: 1 | -1 }
+  | { type: "menuTurn"; dx: number; dy: number }
   | { type: "sizeKind"; kind: "constant" | "variable" | "twoDistances" | "swap" }
   /** the pointer is over that button: the flash waits (`in_366`) */
   | { type: "holdFlash" }

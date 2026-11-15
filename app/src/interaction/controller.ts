@@ -121,6 +121,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "home": return doHome(s, env);
     case "runAction": return doRunAction(s, i.id, env.now);
     case "overrideRefusal": return overrideRefusal(s);
+    case "menuStep": case "menuTurn": return s; // (game mode's: the menu is turned by the page, `in_467`)
     case "loftKind": return s.op?.kind === "loft" ? { ...s, op: loftChoice(sceneOf(s.session), s.op, i.id) } : s;
     case "sizeKind": {
       if (s.op?.kind !== "edge") return s;

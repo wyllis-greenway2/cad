@@ -16,6 +16,8 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   const countClick = createClickCounter(I);
   const scroll = createScroll(I);
   let straight = false;
+  let menuOn = false; // a menu is open in game mode: the view is fixed and the mouse and the wheel go round it (`in_467`)
+  let wheelAcc = 0;
   let drawing = false; // a drawing tool is armed: a click may wander more before it counts as turning the view
   const touch = createTouch(I, countClick, () => (drawing ? I.drawTouchSlopPx : I.touchSlopPx), () => drawing);
   let space = false;
@@ -49,11 +51,21 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
         if (game && /^[wasd]$/i.test(e.key) && !e.mods.ctrl && !e.mods.alt) { const k = e.key.toLowerCase(); if (e.down) fly.add(k); else fly.delete(k); return []; }
         if (game && e.down && e.key === "Escape") { game = false; freed = false; gameDragged = false; fly.clear(); return []; }
         return e.down ? keyIntents(e, I) : [];
-      case "wheel": return scroll.wheel(e);
+      case "wheel": {
+        if (game) { // game mode: the wheel is the menu's, not the zoom (`in_467`)
+          const out: Intent[] = [];
+          const d = e.unit === 1 ? e.dy * 40 : e.dy;
+          if (Math.abs(d) >= 50) { out.push({ type: "menuStep", dir: d > 0 ? 1 : -1 }); wheelAcc = 0; } // (a notch of a wheel: one step)
+          else { wheelAcc += d; if (Math.abs(wheelAcc) >= 80) { out.push({ type: "menuStep", dir: wheelAcc > 0 ? 1 : -1 }); wheelAcc = 0; } } // (a trackpad's fine scroll: a step for each long enough run)
+          return out;
+        }
+        return scroll.wheel(e);
+      }
       case "gesture": return scroll.gesture(e);
       case "leave": return [{ type: "hoverEnd" }];
       case "tick": {
         const out: Intent[] = [];
+        if (menuOn && game) { fly.clear(); vel.f = vel.r = 0; pend.x = pend.y = 0; return [...touch.tick(e.t), ...mouse.tick(e.t)]; } // (the view is fixed while the menu is open, `in_467`)
         if (game || vel.f || vel.r) {
           const dt = Math.min(0.1, Math.max(0, (e.t - flyAt) / 1000));
           flyAt = e.t;
@@ -76,6 +88,7 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
         if (e.kind === "down" && space) spaceUsed = true;
         if (freed) { last = [e.x, e.y]; return mouse(e); } // (Alt: the pointer is free to use the bubbles and icons, `in_391`)
         if (e.kind === "down") buttons++; else if ((e.kind === "up" || e.kind === "cancel") && buttons > 0) buttons--;
+        if (e.kind === "move" && game && e.dx !== undefined && menuOn) return [{ type: "menuTurn", dx: e.dx, dy: e.dy! }]; // (the mouse turns the menu's selection, not the view, `in_467`)
         if (e.kind === "move" && game && e.dx !== undefined) { // (the pointer is held at the middle, `in_304`)
           centre = [e.x, e.y];
           { const g = fineGain(Math.hypot(e.dx, e.dy!)); pend.x += e.dx * I.flyLookScale * g; pend.y += e.dy! * I.flyLookScale * g; } // (the mouse turns the view, with a button down too: what is being worked follows the crosshair)
@@ -94,5 +107,5 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
       }
     }
   }
-  return { feed, get game() { return game; }, setDrawing: (on: boolean, flat = false) => { drawing = on; straight = flat; }, setTouchHelper: touch.setHelper, setScrollMode: scroll.setMode, get scrollMode() { return scroll.mode; } };
+  return { feed, get game() { return game; }, setDrawing: (on: boolean, flat = false) => { drawing = on; straight = flat; }, setMenu: (on: boolean) => { menuOn = on; }, setTouchHelper: touch.setHelper, setScrollMode: scroll.setMode, get scrollMode() { return scroll.mode; } };
 }

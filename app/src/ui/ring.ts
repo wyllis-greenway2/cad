@@ -24,6 +24,19 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
   let shown: HTMLElement[] = [];
   const acts = new Map<HTMLElement, { live: boolean; id: string; go: () => void }>(); // (what each bubble does, for a pointer that is not the page's own: the game mode's crosshair, `in_441`)
 
+  let sel: number | null = null; // the option lit by the wheel or the turning mouse (game mode, `in_467`)
+  let vx = 0, vy = 0;
+  let keepSel = false;
+  const light = (k: number): void => {
+    sel = k;
+    shown.forEach((b, i) => {
+      const a = acts.get(b);
+      const on = i === k;
+      b.style.transform = on ? "scale(1.22)" : "scale(1)";
+      b.style.boxShadow = on ? "0 0 0 3px rgba(26,184,179,.45)" : "";
+      if (a?.live) b.style.borderColor = on ? (a.id === "back" ? "#c0392b" : "#1ab8b3") : a.id === "back" ? "#c0392b" : "#d6d7db";
+    });
+  };
   const pos = (a: number) => ({ left: Math.round(C.x + Math.cos(a) * C.R - SIZE / 2), top: Math.round(C.y + Math.sin(a) * C.R - SIZE / 2) });
   const bubble = (it: RingItem, at: { left: number; top: number }, from: { left: number; top: number } | null, k: number, go: () => void) => {
     const b = document.createElement("div");
@@ -53,6 +66,7 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
     old.forEach((b) => { b.style.pointerEvents = "none"; if (from) { b.style.transition = `left ${MS}ms,top ${MS}ms,opacity ${MS * 0.7}ms,transform ${MS}ms`; b.style.left = `${from.left}px`; b.style.top = `${from.top}px`; b.style.opacity = "0"; b.style.transform = "scale(.4)"; } });
     setTimeout(() => old.forEach((b) => b.remove()), from ? MS : 0);
     const { items, start } = path[depth]!;
+    sel = null; vx = vy = 0;
     const slots = depth ? [BACK, ...items] : items;
     shown = slots.map((it, k) => {
       const a = start + (k / slots.length) * Math.PI * 2;
@@ -67,6 +81,7 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
       };
       return bubble(it, pos(a), from, k, go);
     });
+    if (keepSel) light(0); // (a ring opened by choosing in game mode has its first option lit)
   };
 
   return {
@@ -91,33 +106,38 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
       const [l, t] = [Math.min(...rs.map((r) => r.left)), Math.min(...rs.map((r) => r.top))];
       return new DOMRect(l, t, Math.max(...rs.map((r) => r.right)) - l, Math.max(...rs.map((r) => r.bottom)) - t);
     },
-    /** The whole ring moved so that its middle is at this point (a ring that stands in the world while the view moves, `in_463`). */
-    moveTo(x: number, y: number): void { root.style.transform = `translate(${Math.round(x - C.x)}px, ${Math.round(y - C.y)}px)`; },
-    /** The bubble under a point that is not the page's pointer (the game mode's crosshair, moved by the mouse): it lights as one under the pointer does; true when there is one (`in_441`). */
-    pointAt(x: number, y: number): boolean {
-      let hit = false;
-      for (const b of shown) {
-        const r = b.getBoundingClientRect();
-        const on = Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2)) <= SIZE / 2 + 2;
-        const a = acts.get(b);
-        if (a?.live) b.style.borderColor = on ? (a.id === "back" ? "#c0392b" : "#1ab8b3") : a.id === "back" ? "#c0392b" : "#d6d7db";
-        if (on) hit = true;
-      }
-      return hit;
+    /** The selection that is not the pointer's (game mode, `in_467`): one option of the ring is lit and a click chooses it wherever the pointer is; the wheel goes one on, the mouse turns round the ring in clicks. */
+    step(dir: number): void {
+      const n = shown.length;
+      if (!n) return;
+      light(sel === null ? (dir > 0 ? 0 : n - 1) : (((sel + dir) % n) + n) % n);
     },
-    /** A click at that point: the bubble under it does what a click on it does; false when there is none. */
-    activate(x: number, y: number): boolean {
-      for (const b of shown) {
-        const r = b.getBoundingClientRect();
-        if (Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2)) > SIZE / 2 + 2) continue;
-        const a = acts.get(b);
-        if (!a?.live) return false;
-        a.go();
-        return true;
-      }
-      return false;
+    turn(dx: number, dy: number): void {
+      const n = shown.length;
+      if (!n || !path.length) return;
+      vx += dx; vy += dy;
+      const len = Math.hypot(vx, vy);
+      const cap = 90; // (the little stick that the mouse pushes: it cannot go further, so the selection goes round with the mouse, not away from it)
+      if (len > cap) { vx = (vx / len) * cap; vy = (vy / len) * cap; }
+      if (len < 18) return; // (a dead place in the middle)
+      const a = Math.atan2(vy, vx);
+      const { start } = path[path.length - 1]!;
+      const gap = (Math.PI * 2) / n;
+      let best = 0, bd = Infinity;
+      for (let k = 0; k < n; k++) { const d = Math.abs(Math.atan2(Math.sin(a - (start + k * gap)), Math.cos(a - (start + k * gap)))); if (d < bd) { bd = d; best = k; } }
+      if (sel === null || (best !== sel && bd < gap * 0.35)) light(best); // (it keeps the one it is on until the next is clearly nearer: a click from one to the next)
     },
-    hide() { root.style.display = "none"; },
+    /** Choose the lit option; false when none is lit. */
+    pickSelected(): boolean {
+      if (sel === null) return false;
+      const a = acts.get(shown[sel]!);
+      if (!a?.live) return false;
+      keepSel = true;
+      a.go();
+      keepSel = false;
+      return true;
+    },
+    hide() { root.style.display = "none"; sel = null; vx = vy = 0; },
     get open() { return root.style.display !== "none"; },
   };
 }
