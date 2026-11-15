@@ -2041,3 +2041,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_438 — 2026-11-15 — approval
 > yes build it and check the combine case first
 (approves the proposal: cuts made only in a deleted body go with it, and the combine case is checked first)
+
+## in_439 — 2026-11-15 — directive
+> When I try to modify the height of this block, it is really really slow. i think it is because of the complicated lofts around it. But why? the block edit doesn't modify or interact with the complicated lofts at all? So why so slow? Also why can I not edit the fillet I added to one of the lofts?
+(two files attached: a state snapshot and `really_slow.json`, kept as `app/test/fixtures/lofts-and-block-in_439.cad.json`)

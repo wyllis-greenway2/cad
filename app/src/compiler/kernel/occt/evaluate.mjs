@@ -2,11 +2,12 @@
 // Nothing outside src/kernel/occt/ may import OCCT or replicad (inv_kernel_boundary).
 import { loadOC } from "./oc.mjs";
 import { compile, finalSolid, volume } from "./interpreter.mjs";
-import { makeCompound } from "replicad";
+import { makeCompound, getOC } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
 import { lumpsOf, lumpsByName } from "./bodies.mjs";
 
 const described = new Map();
+const lumpDescribed = new Map();
 const copyOf = (d) => ({
   vol: d.vol,
   bbox: d.bbox && { min: [...d.bbox.min], max: [...d.bbox.max] },
@@ -22,75 +23,32 @@ export const KERNEL_NAME = "occt (replicad)";
 /** Load the kernel (once). `options` is passed to the WASM loader (e.g. where to find the .wasm file). */
 export const init = (options = {}) => loadOC(options);
 
-/**
- * Compile an operation graph and describe its final body.
- * Returns { ops: [{ id, type, error, ms }], finalId, volume, bbox: {min, max}, mesh: { vertices, normals, triangles } | null,
- *           faces, edges, vertices, totalMs }. Everything is plain numbers and arrays: no kernel objects or ids escape.
- */
-export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
-  const t0 = performance.now();
-  const results = compile(graph);
-  const tCompile = performance.now();
-  let tMesh = tCompile;
-  let tFaces = tCompile;
-  let tBox = 0;
-  const ops = graph.ops.map((o) => {
-    const r = results.get(o.id);
-    return { id: o.id, type: o.type, error: r.error ?? null, ms: r.ms, ...(r.culprits ? { culprits: r.culprits } : {}), ...(r.value?.note ? { note: r.value.note } : {}), ...(r.value?.used ? { used: r.value.used } : {}), ...(r.value?.cutInto ? { cutInto: r.value.cutInto } : {}) };
-  });
-  const fin = finalSolid(graph, results);
-  let mesh = null;
-  let vol = null;
-  let bbox = null;
-  let faces = null;
-  let edges = null;
-  let vertices = null;
-  let bodies = null;
-  // what the final body looks like (its mesh, faces, edges, corners) is kept for the last few bodies, by what the body was worked out from: a change that leaves the body as it is (a sketch beside it, a
-  // constraint, undo and redo, the kernel's answer taken in again) takes the description from here instead of making it again, which is most of the time of a body of a few hundred faces (`in_252`).
-  // What goes back out is a copy: the worker hands the mesh over to the page, which empties it here.
-  // a body with nothing in it (a cut that takes all of the body away) has no box: the kernel throws when it is asked for one. That is an answer, not a failure of the kernel: the step that made it cannot be made (`in_254`)
-  let box = null;
-  if (fin) { try { box = fin.shape.boundingBox.bounds; } catch { box = null; } }
-  if (fin && !box) {
-    const o = ops.find((x) => x.id === fin.id);
-    if (o) o.error = "nothing would be left of the body (the cut takes all of it away)";
-  }
-  const lite = !!tess.lite; // (a preview of a size being dragged: the mesh, volume and box, not the faces, edges and corners, `in_358`)
-  const present = fin && box ? fin : null;
-  const dkey = present?.key ? `${present.key}|${JSON.stringify(tess)}` : null;
-  const known = dkey ? described.get(dkey) : undefined;
-  if (known) {
-    described.delete(dkey);
-    described.set(dkey, known);
-    ({ vol, bbox, faces, edges, vertices, mesh, bodies } = copyOf(known));
-  } else if (present) {
+/** The mesh, faces, edges and corners of one solid (a body), as plain data: the triangle ranges of its faces are into its own mesh, joined with the others' by `evaluate`. */
+/** A box round a solid that is quick to find (not the exact one, which takes a tenth of a second for a loft): used to tell one body from another by what it looks like. */
+function roughBox(shape) {
+  const oc = getOC();
+  const b = new oc.Bnd_Box();
+  try { oc.BRepBndLib.Add(shape.wrapped, b, false); const [a, z] = [b.CornerMin(), b.CornerMax()]; const out = [a.X(), a.Y(), a.Z(), z.X(), z.Y(), z.Z()].map((v) => Math.round(v * 1e5)); a.delete(); z.delete(); return out; } finally { b.delete(); }
+}
+
+function describeSolid(shape, tess0, lite) {
     // the finer the part, the finer the mesh: the deflection allowed is a small part of the part's own size (a 2 mm post must not be a 20-sided prism: `in_165`), never coarser than `tess.tolerance`
-    const tBox0 = performance.now();
-    const [lo, hi] = box; // (the exact box takes about 20 ms: asked for once and kept, `in_227`)
-    tBox = performance.now() - tBox0;
+    const [lo, hi] = shape.boundingBox.bounds;
     const diag = Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
     // a draft (while a size is dragged, `in_216`): a rough mesh, quickly; the fine one is made when the pointer is let go
-    tess = tess.draft ? { tolerance: Math.max(0.1, diag * 0.01), angular: 0.5 } : { tolerance: Math.min(tess.tolerance, Math.max(0.002, diag * 0.002)), angular: Math.min(tess.angular, 0.2) };
-    const m = fin.shape.mesh({ tolerance: tess.tolerance, angularTolerance: tess.angular });
-    mesh = { vertices: new Float32Array(m.vertices), normals: new Float32Array(m.normals), triangles: new Uint32Array(m.triangles) };
-    vol = volume(fin.shape);
-    bbox = { min: lo, max: hi };
-    tMesh = performance.now();
-    if (lite) {
-      // (no faces, edges or corners; the bodies, for the names and boxes of the pieces)
-      faces = []; edges = []; vertices = [];
-      const lumps = lumpsOf(fin.shape);
-      bodies = (fin.markers ?? []).map((mk) => { const l = lumps[mk.lump]; const bb = l.boundingBox.bounds; return { id: mk.id, min: [...bb[0]], max: [...bb[1]], volume: lumps.length > 1 ? NaN : vol }; });
-      tFaces = performance.now();
-    } else {
+    const tess = tess0.draft ? { tolerance: Math.max(0.1, diag * 0.01), angular: 0.5 } : { tolerance: Math.min(tess0.tolerance, Math.max(0.002, diag * 0.002)), angular: Math.min(tess0.angular, 0.2) };
+    const m = shape.mesh({ tolerance: tess.tolerance, angularTolerance: tess.angular });
+    const mesh = { vertices: new Float32Array(m.vertices), normals: new Float32Array(m.normals), triangles: new Uint32Array(m.triangles) };
+    const vol = volume(shape);
+    const bbox = { min: [...lo], max: [...hi] };
+    if (lite) return { mesh, vol, bbox, faces: [], edges: [], vertices: [], lite: true };
     // flat faces at any angle, and full round faces: these can be hovered, selected and sketched on (start/count are index ranges into `triangles`)
     const ranges = new Map(m.faceGroups.map((g) => [g.faceId, g]));
-    faces = [];
+    const faces = [];
     const round = new Map();
     const partOf = new Map(); // hash code of a round face -> where its axis is (a piece of a cylinder keeps it, so its wall can be pushed and pulled as the radius of the circle it comes from)
     const other = [];
-    for (const f of facesOf(fin.shape)) {
+    for (const f of facesOf(shape)) {
       const g = ranges.get(f.hashCode);
       if (g && f.geomType === "CYLINDRE") {
         // a round face (post or hole) along a world axis; a circle is often made of two halves, so the halves with the same axis, radius and height are gathered
@@ -160,27 +118,12 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
       } catch { radius = undefined; }
       faces.push({ type: "surf", surface: String(f.geomType), start: g.start, count: g.count, lo: lo.map(r4s), hi: hi.map(r4s), ...(radius ? { radius: Math.round(radius * 1e4) / 1e4 } : {}), ...(partOf.has(f.hashCode) ? { axisOf: partOf.get(f.hashCode) } : {}) });
     }
-    // the bodies of the shape (a compound of solids that stand alone), each with its name, box and volume, and which faces and edges are its (`in_270`)
-    const lumps = lumpsOf(fin.shape);
-    const markers = fin.markers ?? [];
-    bodies = markers.map((m) => { const l = lumps[m.lump]; const bb = l.boundingBox.bounds; return { id: m.id, min: [...bb[0]], max: [...bb[1]], volume: lumps.length > 1 ? volume(l) : vol }; });
-    let bodyOfEdge = null;
-    if (lumps.length > 1) {
-      const startBody = new Map();
-      bodyOfEdge = new Map();
-      markers.forEach((m, bi) => {
-        for (const f of facesOf(lumps[m.lump])) { const g = ranges.get(f.hashCode); if (g) startBody.set(g.start, bi); }
-        for (const e of edgesOf(lumps[m.lump])) bodyOfEdge.set(e.hashCode, bi);
-      });
-      for (const f of faces) if (startBody.has(f.start)) f.body = startBody.get(f.start);
-    }
-    tFaces = performance.now();
     // edges as polylines, and their end points as vertices (for selecting lines and corners)
-    const em = fin.shape.meshEdges({ tolerance: tess.tolerance, angularTolerance: tess.angular });
-    const byHash = new Map(edgesOf(fin.shape).map((e) => [e.hashCode, e]));
+    const em = shape.meshEdges({ tolerance: tess.tolerance, angularTolerance: tess.angular });
+    const byHash = new Map(edgesOf(shape).map((e) => [e.hashCode, e]));
     const r4 = (v) => Math.round(v * 1e4) / 1e4;
     const seen = new Map();
-    edges = [];
+    const edges = [];
     for (const g of em.edgeGroups) {
       const e = byHash.get(g.edgeId);
       const pts = Float32Array.from(em.lines.slice(g.start * 3, (g.start + g.count) * 3));
@@ -196,11 +139,92 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
           circle = { center: [r4(lc.X()), r4(lc.Y()), r4(lc.Z())], normal: [r4(ax.X()), r4(ax.Y()), r4(ax.Z())], radius: r4(ci.Radius()) };
         } catch { circle = undefined; }
       }
-      edges.push({ type: e.geomType, pts, a: [r4(a.x), r4(a.y), r4(a.z)], b: [r4(z.x), r4(z.y), r4(z.z)], mid: [r4(mid.x), r4(mid.y), r4(mid.z)], ...(circle ? { circle } : {}), ...(bodyOfEdge?.has(g.edgeId) ? { body: bodyOfEdge.get(g.edgeId) } : {}) });
+      edges.push({ type: e.geomType, pts, a: [r4(a.x), r4(a.y), r4(a.z)], b: [r4(z.x), r4(z.y), r4(z.z)], mid: [r4(mid.x), r4(mid.y), r4(mid.z)], ...(circle ? { circle } : {}) });
       for (const v of [a, z]) seen.set(`${r4(v.x)},${r4(v.y)},${r4(v.z)}`, [r4(v.x), r4(v.y), r4(v.z)]);
     }
-    vertices = [...seen.values()];
-    }
+    const vertices = [...seen.values()];
+    return { mesh, vol, bbox, faces, edges, vertices };
+}
+
+/**
+ * Compile an operation graph and describe its final body.
+ * Returns { ops: [{ id, type, error, ms }], finalId, volume, bbox: {min, max}, mesh: { vertices, normals, triangles } | null,
+ *           faces, edges, vertices, totalMs }. Everything is plain numbers and arrays: no kernel objects or ids escape.
+ */
+export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
+  const t0 = performance.now();
+  const results = compile(graph);
+  const tCompile = performance.now();
+  let tMesh = tCompile;
+  let tFaces = tCompile;
+  let tBox = 0;
+  const ops = graph.ops.map((o) => {
+    const r = results.get(o.id);
+    return { id: o.id, type: o.type, error: r.error ?? null, ms: r.ms, ...(r.culprits ? { culprits: r.culprits } : {}), ...(r.value?.note ? { note: r.value.note } : {}), ...(r.value?.used ? { used: r.value.used } : {}), ...(r.value?.cutInto ? { cutInto: r.value.cutInto } : {}) };
+  });
+  const fin = finalSolid(graph, results);
+  let mesh = null;
+  let vol = null;
+  let bbox = null;
+  let faces = null;
+  let edges = null;
+  let vertices = null;
+  let bodies = null;
+  // what the final body looks like (its mesh, faces, edges, corners) is kept for the last few bodies, by what the body was worked out from: a change that leaves the body as it is (a sketch beside it, a
+  // constraint, undo and redo, the kernel's answer taken in again) takes the description from here instead of making it again, which is most of the time of a body of a few hundred faces (`in_252`).
+  // What goes back out is a copy: the worker hands the mesh over to the page, which empties it here.
+  // a body with nothing in it (a cut that takes all of the body away) has no box: the kernel throws when it is asked for one. That is an answer, not a failure of the kernel: the step that made it cannot be made (`in_254`)
+  let box = null;
+  if (fin) { try { box = lumpsOf(fin.shape).length ? true : null; } catch { box = null; } } // (the exact box of the whole takes as long as of its parts: it is the union of theirs, found as each is described)
+  if (fin && !box) {
+    const o = ops.find((x) => x.id === fin.id);
+    if (o) o.error = "nothing would be left of the body (the cut takes all of it away)";
+  }
+  const lite = !!tess.lite; // (a preview of a size being dragged: the mesh, volume and box, not the faces, edges and corners, `in_358`)
+  const present = fin && box ? fin : null;
+  const dkey = present?.key ? `${present.key}|${JSON.stringify(tess)}` : null;
+  const known = dkey ? described.get(dkey) : undefined;
+  if (known) {
+    described.delete(dkey);
+    described.set(dkey, known);
+    ({ vol, bbox, faces, edges, vertices, mesh, bodies } = copyOf(known));
+  } else if (present) {
+    // each body (solid) is described on its own and the description kept by what it looks like (its volume, box and number of faces and edges): a body that a change did not touch is not meshed again, however many others are
+    // (a block edited beside a loft of a thousand faces left the loft's mesh and faces to be made again at every size, `in_439`)
+    const lumps = lumpsOf(fin.shape);
+    const markers = fin.markers ?? [];
+    const tKey = JSON.stringify([tess, lite]);
+    const parts = lumps.map((l) => {
+      const fp = JSON.stringify([Math.round(volume(l) * 1e6), roughBox(l), facesOf(l).length, edgesOf(l).length, tKey]);
+      let d = lumpDescribed.get(fp);
+      if (d) { lumpDescribed.delete(fp); } else d = describeSolid(l, tess, lite);
+      lumpDescribed.set(fp, d);
+      while (lumpDescribed.size > 40) lumpDescribed.delete(lumpDescribed.keys().next().value);
+      return d;
+    });
+    tMesh = performance.now();
+    // joined into one: the vertices and triangles one after the other (the triangle numbers of a body's faces and the vertex numbers of its triangles move on by what came before)
+    const nV = parts.reduce((a, d) => a + d.mesh.vertices.length, 0);
+    const nT = parts.reduce((a, d) => a + d.mesh.triangles.length, 0);
+    mesh = { vertices: new Float32Array(nV), normals: new Float32Array(nV), triangles: new Uint32Array(nT) };
+    faces = []; edges = []; vertices = []; 
+    const seenV = new Map();
+    let [vo, to] = [0, 0];
+    const bodyOfLump = new Map(markers.map((m, bi) => [m.lump, bi]));
+    parts.forEach((d, li) => {
+      mesh.vertices.set(d.mesh.vertices, vo); mesh.normals.set(d.mesh.normals, vo);
+      for (let k = 0; k < d.mesh.triangles.length; k++) mesh.triangles[to + k] = d.mesh.triangles[k] + vo / 3;
+      const body = lumps.length > 1 && bodyOfLump.has(li) ? { body: bodyOfLump.get(li) } : {};
+      for (const f of d.faces) faces.push({ ...structuredClone(f), start: f.start + to, ...(f.ranges ? { ranges: f.ranges.map((r) => ({ start: r.start + to, count: r.count })) } : {}), ...body });
+      for (const e of d.edges) edges.push({ ...e, pts: e.pts.slice(), ...body });
+      for (const v of d.vertices) seenV.set(v.join(","), v);
+      vo += d.mesh.vertices.length; to += d.mesh.triangles.length;
+    });
+    vertices = [...seenV.values()].map((v) => [...v]);
+    vol = parts.reduce((a, d) => a + d.vol, 0);
+    bbox = { min: [0, 1, 2].map((i) => Math.min(...parts.map((d) => d.bbox.min[i]))), max: [0, 1, 2].map((i) => Math.max(...parts.map((d) => d.bbox.max[i]))) };
+    bodies = markers.map((m) => { const d = parts[m.lump]; return { id: m.id, min: [...d.bbox.min], max: [...d.bbox.max], volume: lumps.length > 1 ? (lite ? NaN : d.vol) : vol }; });
+    tFaces = performance.now();
     if (dkey) {
       described.set(dkey, copyOf({ vol, bbox, faces, edges, vertices, mesh, bodies }));
       while (described.size > 6) described.delete(described.keys().next().value);

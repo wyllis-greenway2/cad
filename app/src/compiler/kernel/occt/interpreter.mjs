@@ -24,7 +24,7 @@ import {
   Wire,
 } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
-import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers } from "./bodies.mjs";
+import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
 
 /** OCCT's own topology/geometry check. Operations can return garbage without throwing. */
 export function isValidSolid(shape) {
@@ -399,7 +399,7 @@ const OPS = {
       try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut }; } catch { /* a join instead */ }
       return { kind: "solid", shape: target.fuse(solid) };
     }
-    if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
+    if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
     return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
   },
 
@@ -427,11 +427,12 @@ const OPS = {
       return sld;
     };
     let solid = toolOf(0);
-    const targetValue = op.target ? ctx.get(op.target, "solid") : null;
+    const targetValue = op.target ? (op.mode === "new" ? ctx.peek(op.target, "solid") : ctx.get(op.target, "solid")) : null; // (a piece of its own stands beside the body: no copy of it is needed)
     const target = targetValue ? targetValue.shape : null;
     if (!target) return { kind: "solid", shape: solid };
     // (only when the plane is on the boundary of the body: with material just behind it, as a hole begun inside the body under a skin, the tool begins where it was drawn)
-    const behind = (() => { try { const slab = prism(op.profile, op.holes, dist < 0 ? BACK : -BACK, 0); return measureVolume(target.clone().intersect(slab.clone())) > 0.5 * measureVolume(slab); } catch { return false; } })(); // (mostly body in a slab behind the plane)
+    const cuts = op.mode === "cut" || op.mode === "cutOrAdd"; // (a piece added or of its own needs no start behind the plane, and the test costs a boolean on the whole body)
+    const behind = !cuts || (() => { try { const slab = prism(op.profile, op.holes, dist < 0 ? BACK : -BACK, 0); return measureVolume(target.clone().intersect(slab.clone())) > 0.5 * measureVolume(slab); } catch { return false; } })(); // (mostly body in a slab behind the plane)
     const back = behind ? 0 : BACK;
     if (op.mode === "cutOrAdd") {
       // a figure pulled backwards: a pocket when it meets the body (drawn on a face and pushed in); drawn out in the open it is a new piece, not a cut that does nothing
@@ -446,7 +447,7 @@ const OPS = {
       return joined(target, solid);
     }
     // "new" (`in_295`): a piece that stood apart when it was made stays a body of its own, however the others grow later: no join, one compound
-    if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
+    if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
     if (op.mode === "cut") { const tool = toolOf(back); return { kind: "solid", shape: target.cut(tool.clone()), cutInto: cutInto(targetValue, tool) }; }
     return { kind: "solid", shape: target.fuse(solid) };
   },
@@ -516,7 +517,7 @@ const OPS = {
     let solid = make(outerSketch);
     for (const h of op.holes ?? []) solid = solid.cut(make(sketchOf(h)));
     if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the figure when its holes were cut");
-    const targetValue = op.target ? ctx.get(op.target, "solid") : null;
+    const targetValue = op.target ? (op.mode === "new" ? ctx.peek(op.target, "solid") : ctx.get(op.target, "solid")) : null; // (a piece of its own stands beside the body: no copy of it is needed)
     const target = targetValue ? targetValue.shape : null;
     if (!target) return { kind: "solid", shape: solid };
     if (op.mode === "cutOrAdd") {
@@ -524,7 +525,7 @@ const OPS = {
       try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut, used: "cut", cutInto: cutInto(targetValue, solid) }; } catch { /* a join instead */ }
       return joined(target, solid);
     }
-    if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
+    if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
     if (op.mode === "cut") return { kind: "solid", shape: target.cut(solid.clone()), cutInto: cutInto(targetValue, solid) };
     return { kind: "solid", shape: target.fuse(solid) };
   },
@@ -553,6 +554,16 @@ const OPS = {
       if (-dist >= deepest - 1e-6) throw new Error("the push goes through the body");
     }
     const prism = basicFaceExtrusion(best, new Vector(n.map((v) => v * dist)));
+    // among several bodies the boolean is made on the body the face is on alone, when the prism comes nowhere near the others (a boolean on all of them takes as long as the biggest, `in_439`: a loft of a thousand faces)
+    const lumps = lumpsOf(t);
+    if (lumps.length > 1) {
+      const mine = lumps.findIndex((l) => facesOf(l).some((f) => f.hashCode === best.hashCode));
+      if (mine >= 0) {
+        const pb = boxOf(prism);
+        const near = lumps.some((l, i) => i !== mine && (() => { const lb = boxOf(l); return [0, 1, 2].every((k) => pb.min[k] <= lb.max[k] + 1e-3 && pb.max[k] >= lb.min[k] - 1e-3); })());
+        if (!near) { const made = dist >= 0 ? lumps[mine].fuse(prism) : lumps[mine].cut(prism); return { kind: "solid", shape: makeCompound([...lumps.filter((_, i) => i !== mine), ...made.solids]) }; }
+      }
+    }
     return { kind: "solid", shape: dist >= 0 ? t.fuse(prism) : t.cut(prism) };
   },
 
@@ -1592,6 +1603,14 @@ export function compile(graph) {
       if (kind && r.value.kind !== kind) throw new Error(`${id} is a ${r.value.kind}, expected ${kind}`);
       return r.value.kind === "solid" ? { ...r.value, shape: r.value.shape.clone() } : r.value; // a copy: what an op does to it must not touch the kept one
     },
+    /** The kept result itself, not a copy (a copy of a loft of a thousand faces takes a tenth of a second): only for an op that does nothing to it but stand beside it (`in_439`). */
+    peek(id, kind) {
+      const r = results.get(id);
+      if (!r) throw new Error(`${id} not found (ops must be ordered after their dependencies)`);
+      if (r.error) throw new Error(`upstream ${id} failed`);
+      if (kind && r.value.kind !== kind) throw new Error(`${id} is a ${r.value.kind}, expected ${kind}`);
+      return r.value;
+    },
   };
   const pj = JSON.stringify(params);
   for (const op of graph.ops) {
@@ -1615,7 +1634,7 @@ export function compile(graph) {
         value.markers = trackBodies(prev, value.shape, op.id);
       }
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
-      if (value.kind === "solid" && !rigid && !isValidSolid(value.shape)) throw new Error("kernel returned an invalid solid");
+      if (value.kind === "solid" && !rigid && !value.checked && !isValidSolid(value.shape)) throw new Error("kernel returned an invalid solid");
       results.set(op.id, { value, ms: performance.now() - t0, key });
       remember(key, { value });
     } catch (e) {
