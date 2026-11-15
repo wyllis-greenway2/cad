@@ -1871,3 +1871,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_398 — 2026-11-15 — directive
 > Do the not built yet stuff for the cross section corners next
 (asks for the corners where the cut edges meet as anchors of their own, left unbuilt in Handoff 376)
+
+## in_399 — 2026-11-15 — directive
+> can you merge with the other claude branch so I can deploy it all?
+(asks for the other session's branch to be merged into this one, as in `in_380`)
