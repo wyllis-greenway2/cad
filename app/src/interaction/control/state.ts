@@ -13,7 +13,7 @@ import { normalOfPlane } from "../../operation/part.ts";
 import type { Session } from "../session.ts";
 import type { Tool, ToolKind } from "../tools.ts";
 import type { Repeat } from "../pattern.ts";
-import type { Op } from "../operations.ts";
+import type { Op, OpKind } from "../operations.ts";
 import type { Camera } from "../camera.ts";
 import type { Drag } from "../gizmo.ts";
 import type { SimilarRule } from "../similar.ts";
@@ -23,7 +23,7 @@ import { planeOf } from "../objects.ts";
 import { scene as sceneOf, selection as selectionOf } from "../session.ts";
 import { sketchOfEdge } from "../../operation/edgesource.ts";
 
-export interface MenuItem { id: string; label: string; /** the name of its icon */ icon: string; enabled: boolean; why: string | null; /** a category: choosing it opens these as the next ring */ children?: MenuItem[] }
+export interface MenuItem { id: string; label: string; /** chosen, it waits for what it needs to be clicked (`in_464`): `why` is what it needs */ picks?: true; /** the name of its icon */ icon: string; enabled: boolean; why: string | null; /** a category: choosing it opens these as the next ring */ children?: MenuItem[] }
 export interface AppState {
   session: Session;
   cam: Camera;
@@ -93,6 +93,8 @@ export interface AppState {
   world: "XY" | "XZ" | "YZ";
   /** the axes and the little panes put away with the orb at their junction (`in_463`) */
   worldHidden: boolean;
+  /** an operation chosen from the menu with what it needs not selected (`in_464`): it waits for what is clicked next; the operations that take several things (a loft, a sweep) wait for Enter or the check */
+  picking: { kind: OpKind } | null;
   /** looking straight at a plane is a little hard to leave (`in_193`): the drag so far, in pixels, that has been kept from the camera; past `settings.view.leaveStraightPx` the view turns, and goes smoothly into perspective */
   orthoDebt: number;
   /** when the perspective began to come in after leaving a straight view (-1: at the next frame), null when it is all in */
@@ -106,7 +108,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, multiSelect: false, tape: false, wireframe: false, moverSphere: false, moverWas: null, moverPose: null, orbMovedAt: null, clipboard: null, sectionLive: null, sheetMove: null, worldHidden: false, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, multiSelect: false, tape: false, wireframe: false, moverSphere: false, moverWas: null, moverPose: null, orbMovedAt: null, clipboard: null, sectionLive: null, sheetMove: null, worldHidden: false, picking: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.

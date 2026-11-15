@@ -31,7 +31,7 @@ import type { WorldName } from "../panes.ts";
 import { doLook, selectedSurface } from "./viewing.ts";
 import { sectionNow, doSectionClick } from "./section.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
-import { commitFigure, commitOp, setRepeatAxis, doApply } from "./modal.ts";
+import { commitFigure, commitOp, setRepeatAxis, doApply, finishPicking, picksMany } from "./modal.ts";
 import { doGizmoHover, gizmoOf, chosenId, activeOp, movePivotTo } from "./handles.ts";
 import { orientApply, hasOrb, putMover } from "./pose.ts";
 import { patternValues } from "../pattern.ts";
@@ -93,7 +93,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (r.select === "faces" || r.select === "edges" || r.select === "vertices") return [r.id, { ...base, enabled: true, why: null }];
     if (r.select) { const why = r.select === "group" ? whyNotGroup(session) : whyNotUngroup(session); return [r.id, { ...base, enabled: !why, why }]; }
     const st = startOp(sc, sel, r.op!);
-    return [r.id, { ...base, enabled: st.ok, why: st.ok ? null : st.why }];
+    return [r.id, { ...base, enabled: true, why: st.ok ? null : st.why, ...(st.ok ? {} : { picks: true as const }) }]; // (not selected yet: it can be chosen and waits for what to click, `in_464`)
   }));
   const acts = actionsFor(sc, sel);
   const rels: MenuItem[] = acts.filter((a) => a.group === "relation" && a.enabled).map((a) => ({ id: a.id, label: a.label, icon: a.id, enabled: true, why: null }));
@@ -390,6 +390,19 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {
   if (s.box) s = { ...s, box: null }; // (held, but never moved: an ordinary click)
   const sc = sceneOf(s.session);
+  // an operation chosen from the menu is waiting for what it needs (`in_464`): what is clicked is given to it; on nothing, what there is starts it (or it is let go)
+  if (s.picking && !s.tool && !s.op && !s.repeat) {
+    const top = candidatesAt(sc, projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s)).find((c) => sc.parts[c.ref]?.origin !== "world"); // (a world plane under the pointer is the background, not a thing)
+    if (!top) {
+      const started = finishPicking(s, env.now);
+      return started.picking ? { ...started, picking: null, session: { ...started.session, message: null } } : started;
+    }
+    const kind = s.picking.kind;
+    const next = doClick({ ...s, picking: null }, picksMany(kind) ? { ...i, shift: true } : i, env); // (several things: each click adds, as Shift does)
+    const w = { ...next, picking: { kind } };
+    if (picksMany(kind)) return { ...w, session: { ...w.session, message: `${selectionOf(w.session).length} picked: click more, then Enter or the check starts it (Esc to leave)` } };
+    return finishPicking(w, env.now);
+  }
   // a click on a sheet selects it, as a click on a face does (`in_459`)
   if (!s.tool && !s.op && !s.repeat && !s.cut) {
     const top = candidatesAt(sc, projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0];
@@ -523,6 +536,7 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   if (!i.button && (s.repeat && !s.op)) return doApply(s);
   // an operation that is open: a right click accepts it and leaves it, as Enter does (`in_244`)
   if (!i.button && s.op) return doApply(s);
+  if (!i.button && s.picking && !s.tool) return doApply(s); // (a right click starts what was clicked for it, as Enter does, `in_464`)
   // the views (the cross section, the wireframe) are put away by a right click as a tool is (`in_394`); the ⋯ button still opens the menu
   if (!i.button && !s.tool && !s.op && !s.repeat && !s.cut && (sectionNow(s) || s.wireframe)) return { ...s, sectionLive: null, wireframe: false, menu: null, session: { ...s.session, click: { ...s.session.click, selection: sectionNow(s) ? [] : s.session.click.selection }, message: null } };
   // while a sketching tool is on, a right click puts it away (the ⋯ button still opens the menu): the tool stays on until then or the cancel icon (`in_193`)

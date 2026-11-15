@@ -68,10 +68,15 @@ function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = 
   if (plane && onSketch) return animateTo({ ...armed, tool: { ...armTool(kind), plane: plane.ref, reveal: true } }, planeView(s.cam, plane, false), now);
   return facePlane(armed, over, now);
 }
+/** The operations that take several things clicked one after another, so that they begin on Enter or the check and not on the first thing that would do (`in_464`). */
+const MANY = new Set<OpKind>(["loft", "sweep"]);
+export const picksMany = (kind: OpKind): boolean => MANY.has(kind);
+
 function beginOp(s: AppState, kind: OpKind, now = 0, over: Ref | null = null): AppState {
   const r = startOp(sceneOf(s.session), selectionOf(s.session), kind, viewAxes(s.cam));
-  if (!r.ok) return { ...s, session: { ...s.session, message: r.why }, menu: null };
-  const started: AppState = { ...s, op: withPose(s, r.op), tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" ? "turning about the longest straight line: click another line, a point or a face to move the orb there, or click the orb to turn it any way" : null } };
+  // what it needs is not selected: it waits for what is clicked next, and says what that is (`in_464`)
+  if (!r.ok) return { ...s, picking: s.repeat ? null : { kind }, session: { ...s.session, message: s.repeat ? r.why : `${r.why}: click it now (Esc to leave)` }, menu: null };
+  const started: AppState = { ...s, picking: null, op: withPose(s, r.op), tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" ? "turning about the longest straight line: click another line, a point or a face to move the orb there, or click the orb to turn it any way" : null } };
   return IS_SKETCH_OP[kind] ? facePlane(started, over, now) : started;
 }
 export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["name"], now = 0): AppState {
@@ -120,6 +125,7 @@ function cancelOrient(s: AppState): AppState {
 }
 
 export function doTyped(s: AppState, key: string): AppState {
+  if (s.picking && !s.op && !s.tool && key === "Enter") return finishPicking(s); // (what is selected starts the operation that waits for it, `in_464`)
   if (s.moverSphere && key === "Enter") return orientApply(s); // (Apply: the mover stays as oriented, `in_421`, and while the part is selected, `in_439`)
   if (s.cut && key === "Enter") return applyCut(s);
   if (!s.op && !s.tool && /^[0-9.\-]$/.test(key)) {
@@ -243,6 +249,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 /** Esc lets go in steps: the menu, then an open badge, then the tool or operation, then the selection. */
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
+  if (s.picking && !s.op) return { ...s, picking: null, session: { ...s.session, message: null } }; // (the operation that was waiting for what to click is given up, `in_464`)
   if (s.moverSphere) return cancelOrient(s); // (the mover is put back as it was, `in_421`)
   if (sectionNow(s) && !s.tool && !s.op && !s.repeat) return { ...s, sectionLive: null, session: { ...s.session, click: { ...s.session.click, selection: [] }, message: null } }; // (the plane is let go, as a tool is put away: it stays as a plane in the part, `in_394`, `in_396`)
   if (s.tape && !s.tool && !s.op && !s.repeat && !s.cut) return { ...s, tape: false, session: { ...s.session, message: null } }; // (the tape measure is put away first, `in_338`)
@@ -266,7 +273,16 @@ function cancelOp(s: AppState): AppState {
  * Enter, a right click, or the tick: accept what is open and leave it (`in_244`). A repeat makes its copies (with none to make it just leaves); an operation takes the number typed for it or, with none, leaves
  * what its drags made as it is; a tool that has a figure under way makes it, else it is put away.
  */
+/** What is selected now is given to the operation that was waiting for it: it begins if that is what it needed; else it says what is missing and goes on waiting. */
+export function finishPicking(s: AppState, now = 0): AppState {
+  if (!s.picking) return s;
+  const r = startOp(sceneOf(s.session), selectionOf(s.session), s.picking.kind, viewAxes(s.cam));
+  if (!r.ok) return { ...s, session: { ...s.session, message: `${r.why}: click it now (Esc to leave)` } };
+  return beginOp({ ...s, picking: null }, s.picking.kind, now);
+}
+
 export function doApply(s: AppState): AppState {
+  if (s.picking && !s.op && !s.tool) return finishPicking(s);
   if (s.repeat && !s.op) { const made = doRepeatApply(s); return made.repeat ? doRepeatCancel(made) : made; }
   if (s.op) {
     const c = commitOp(s); // (what was typed or dragged is made; a refusal keeps the operation open with its reason; with nothing to make, it only leaves)

@@ -1,14 +1,14 @@
 ---
-id: q_menu_always_selectable
-kind: question
-status: open
-origin: ai-unreviewed
-human_input: in_463
+id: dec_menu_picking
+kind: decision
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_463, in_464
 date: 2026-11-15
 depends_on:
 alternative_to:
 ---
-# Every menu item always selectable, with the things picked after it?
+# Every operation of the menu can be chosen first, and what it needs clicked after
 
 `in_463` asked whether any menu item could always be chosen, the right things being clicked afterwards to complete the operation, and what the edge cases are. **Answer: it works, as a "command first" mode, and it needs these decisions.**
 
@@ -25,7 +25,7 @@ alternative_to:
 8. *Undo and cancel:* a picking state makes no step; leaving it leaves nothing behind.
 9. *Menu size:* nothing is hidden or dimmed any more, so the ring shows every operation; the *why not* text becomes the bubble's prompt.
 
-**Recommendation:** build it, item by item, beginning with the multi-role operations that most need it (sweep, mirror, loft, revolve), keeping today's select-first path as it is. Say go ahead, or which edge cases to answer differently.
+**Built (`in_464`, approved as proposed):** `AppState.picking`: an operation of the menu (the ring no longer dims one for want of a selection; its tooltip says what it needs) chosen without what it needs waits, says what to click, and shows the check and the cross. A click gives it that thing (a world plane under the pointer is background, not a thing). The operations that take one thing begin at once (`finishPicking`); a loft and a sweep take several (each click adds, as Shift does) and begin on Enter, the check or a right click; Esc, or a click on nothing with nothing to start it, leaves the waiting; any tool or operation begun leaves it. With the right things selected the item runs at once, as before. **Not built:** lighting only the kinds of thing the operation can use (a wrong click is told what is still missing); saying at once that there is nothing in the model it could use; the roles of a mirror's picks (it takes what is selected).
 
 ## Rationale
-It changes how every menu item starts, so it is asked before it is built.
+It changes how every operation of the menu starts; kept the select-first path so nothing gets slower, and the many-things operations wait for an explicit end because no count says when they are complete.

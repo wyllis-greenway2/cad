@@ -28,7 +28,7 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
   const bubble = (it: RingItem, at: { left: number; top: number }, from: { left: number; top: number } | null, k: number, go: () => void) => {
     const b = document.createElement("div");
     b.innerHTML = iconSvg(iconKey(it.icon));
-    b.title = it.enabled || !it.why ? it.label : `${it.label}: ${it.why}`;
+    b.title = it.why ? `${it.label}: ${it.why}` : it.label;
     const live = it.enabled;
     const start = from ?? at;
     b.style.cssText = `position:absolute;left:${start.left}px;top:${start.top}px;width:${SIZE}px;height:${SIZE}px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#fff;border:1px solid ${it.id === "back" ? "#c0392b" : "#d6d7db"};color:${it.id === "back" ? "#c0392b" : "inherit"};box-shadow:0 1px 6px rgba(0,0,0,.14);cursor:${live ? "pointer" : "default"};opacity:${from ? 0 : live ? 1 : 0.38};transform:scale(${from ? 0.4 : 1})`;
