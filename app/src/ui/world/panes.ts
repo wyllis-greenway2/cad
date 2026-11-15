@@ -30,8 +30,24 @@ export function createPanes(scene3: THREE.Scene) {
   scene3.add(group);
   const shown = new Map<string, { fill: THREE.Mesh; edge: THREE.LineLoop }>();
   const colour = new THREE.Color();
-  return (panes: PaneView[]) => {
-    for (const o of shown.values()) { o.fill.visible = false; o.edge.visible = false; } // (the ones not in the list are not there: none in an orthographic view, `in_436`, `in_441`)
+  const base = new Map<string, [number, number]>(); // (each pane's opacities at full)
+  const level = new Map<string, number>(); // (how much of each pane is there, 0..1: they fade in and out with the straight view, `in_442`)
+  let last = performance.now();
+  /** Draws the panes given (the ones not in the list fade away: none in an orthographic view, `in_436`); true while any is still fading. */
+  return (panes: PaneView[]): boolean => {
+    const now = performance.now();
+    const step = Math.min(1, (now - last) / 250);
+    last = now;
+    let moving = false;
+    const want = new Set(panes.map((p) => p.name));
+    for (const [name, o] of shown) {
+      const l0 = level.get(name) ?? 0;
+      const l = want.has(name) ? Math.min(1, l0 + step) : Math.max(0, l0 - step);
+      if (l !== (want.has(name) ? 1 : 0)) moving = true;
+      level.set(name, l);
+      o.fill.visible = o.edge.visible = l > 0;
+      if (!want.has(name) && l > 0) { const b = base.get(name) ?? [0, 0]; (o.fill.material as THREE.MeshBasicMaterial).opacity = b[0] * l; (o.edge.material as THREE.LineBasicMaterial).opacity = b[1] * l; }
+    }
     for (const p of panes) {
       let o = shown.get(p.name);
       if (!o) {
@@ -49,15 +65,22 @@ export function createPanes(scene3: THREE.Scene) {
         o = { fill, edge };
         shown.set(p.name, o);
       }
-      o.fill.visible = true; o.edge.visible = true;
+      const l = Math.min(1, (level.get(p.name) ?? 0) + step);
+      if (l < 1) moving = true;
+      level.set(p.name, l);
+      o.fill.visible = o.edge.visible = l > 0;
       const rgb = p.active ? settings.orb.color : settings.theme.pane; // (the plane that is on is in the one selected blue, `in_206`)
       colour.setRGB(rgb[0], rgb[1], rgb[2], THREE.SRGBColorSpace);
       const fill = o.fill.material as THREE.MeshBasicMaterial;
       fill.color.copy(colour);
-      fill.opacity = p.hover ? Math.min(0.75, settings.world.paneActiveOpacity + 0.3) : p.active ? settings.world.paneActiveOpacity : settings.world.paneOpacity;
+      const full = p.hover ? Math.min(0.75, settings.world.paneActiveOpacity + 0.3) : p.active ? settings.world.paneActiveOpacity : settings.world.paneOpacity;
+      fill.opacity = l * full;
       const line = o.edge.material as THREE.LineBasicMaterial;
       line.color.copy(colour);
-      line.opacity = p.hover || p.active ? 0.9 : 0.5;
+      const lineFull = p.hover || p.active ? 0.9 : 0.5;
+      line.opacity = l * lineFull;
+      base.set(p.name, [full, lineFull]);
     }
+    return moving;
   };
 }

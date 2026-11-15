@@ -2,7 +2,7 @@
 // works the handle and does not turn the camera; letting go does it (one step, one undo) and leaves the operation open for another drag. Esc or Enter ends it.
 import type { Intent } from "../../shared/input.ts";
 import type { Vec3 } from "../../math/vec.ts";
-import { sub, add } from "../../math/vec.ts";
+import { sub, add, scale, normalize } from "../../math/vec.ts";
 import { aboutDir } from "../../math/rotation.ts";
 import { scene as sceneOf, selection as selectionOf, run, undoLast } from "../session.ts";
 import type { Session } from "../session.ts";
@@ -145,8 +145,8 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
   if ("handle" in s.drag! && s.drag.piv && moverOp(s)) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
     if (!r || !("value" in r)) return s;
-    const k = s.drag.handle.axis as 0 | 1 | 2;
-    const centre = s.drag.piv.centre.map((c, j) => (j === k ? c + r.value : c)) as unknown as Vec3;
+    const u = normalize(s.drag.handle.dir); // (along the arrow as it is drawn: the mover's turned axis, not the world's, `in_442`)
+    const centre = add(s.drag.piv.centre, scale(u, r.value));
     const mo = moverOp(s)!;
     if (mo.kind === "circular" && s.repeat && !s.op) return movePivotTo(s, centre); // (a circular repeat's pivot is a point of the drawing: it goes there)
     return putMover(s, { ...mo, pivot: sub(centre, s.drag.piv.offset) });

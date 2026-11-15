@@ -2232,3 +2232,19 @@ test("an oriented mover stays while its part is selected, also across the move a
   assert.equal(enter.moverSphere, false);
   assert.ok(enter.moverPose, "remembered");
 });
+
+test("the mover's arrow, with its axes turned, moves the mover along the arrow as drawn, not along the world axis (`in_442`)", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  st = reduce(st, { type: "begin", name: "move" }, env);
+  const centre0 = gizmoOf(st)!.centre;
+  const [bx, by] = px(st, centre0);
+  st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
+  st = reduce(st, { type: "entry", field: 5, text: "90" }, env); // turned a quarter about Z: its X is the world Y
+  const [c, tip] = gizmoOf(st)!.handles.find((h) => h.id === "piv:x")!.points;
+  const u = sub(tip!, c!);
+  assert.ok(Math.abs(u[1]!) > 5 * Math.abs(u[0]!), "the arrow points along world Y");
+  st = drag(st, tip!, add(tip!, [0, 10, 0]), 6);
+  const g = gizmoOf(st)!.centre;
+  near(g[1] - centre0[1], 10, 0.6);
+  near(g[0] - centre0[0], 0, 1e-6);
+});

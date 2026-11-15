@@ -2073,3 +2073,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 >  
 >  game mode is still basically impossible to select anything in the right click menu, i want to use the center screen game mode cursor to select from the menu in game mode. But the right click seems to be very delicate, try to go back into normal mouse mode, and all collapses as soon as a key in game mode is pressed again. Lets just have it open the menu in game mode, and game mode cursor is also used to click on menu items.
 (reports that the world panes still show in orthographic mode; asks for the right-click menu in game mode to open and be used with the game mode's own centre cursor, staying in game mode, not by going back to the normal mouse)
+
+## in_442 — 2026-11-15 — directive
+> try moving the orb or rotate point here, it jumps around all weird and doesn't move smoothly or even seem to move in the direction of the arrow drag.
+> Also can we have the little world panes fade in and out on orthographic so it is less sudden? Also why cant i take any surface and make a curved extrusion off of it?
+(reports the mover's orb / rotate point jumping and not following the arrow drag; asks for the world panes to fade in and out when the view goes to and from orthographic; asks why a curved extrusion cannot be made off any surface)

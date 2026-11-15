@@ -159,6 +159,7 @@ const menuCap = {
   close: () => { ring.hide(); input.captureMenu(null); dirty = true; },
   show: (on: boolean) => { menuDot.style.display = on ? "block" : "none"; },
 };
+let panesFading = false; // (the world panes are fading in or out: keep drawing, `in_442`)
 function adopt(session: Session) { state = { ...createState(session), cam: state.cam }; menu.hide(); ring.hide(); dirty = true; }
 // the last things done, kept so that a snapshot can show them (`in_200`): hovering is only kept as its last position
 const intentLog: unknown[] = [];
@@ -290,7 +291,7 @@ function frame(now: number) {
     view.setHighlight(f.highlight, state.cam, now);
     view.setPreview(f.preview, state.cam);
     view.setGizmo(f.gizmo, state.cam);
-    view.setPanes(f.panes);
+    panesFading = view.setPanes(f.panes);
     view.setBodyFade(f.fadeBody);
     view.setWireframe(f.wireframe);
     view.setSectionPlanes(f.sectionPlanes);
@@ -363,7 +364,7 @@ function frame(now: number) {
     statusEl.textContent = f.message;
     statusEl.style.bottom = lastDevice === "touch" ? "108px" : ""; // (above the undo bar of a finger, and clear of the X Y Z buttons: a long message is not under them, `in_336`)
     statusEl.style.right = lastDevice === "touch" ? "64px" : "";
-    dirty = !!f.flash || !!f.gizmo?.pulse || f.entries.some((e) => e.opacity !== undefined && e.opacity < 1) || working || !!f.highlight.temp?.length || touchMoved; // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
+    dirty = panesFading || !!f.flash || !!f.gizmo?.pulse || f.entries.some((e) => e.opacity !== undefined && e.opacity < 1) || working || !!f.highlight.temp?.length || touchMoved; // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
   }
   requestAnimationFrame(frame);
 }
