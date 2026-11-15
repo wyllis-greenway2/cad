@@ -16,6 +16,7 @@ import { frameOf } from "./interaction/frame.ts";
 import { appRows, nextScrollMode, isScrollMode, nextPanScale } from "./interaction/appmenu.ts";
 import { snapshotOf, logEntry } from "./interaction/snapshot.ts";
 import { createTiming } from "./interaction/timing.ts";
+import { buildStats } from "./ui/view/content.ts";
 import type { AppState } from "./interaction/controller.ts";
 import { projector } from "./interaction/camera.ts";
 import { candidatesAt } from "./interaction/picking.ts";
@@ -299,7 +300,9 @@ function frame(now: number) {
     engine.lite = false;
     const tMade = performance.now();
     const page = host.getBoundingClientRect();
+    const buildsBefore = buildStats.runs;
     view.setScene(f.scene, f.mesh);
+    if (buildStats.runs !== buildsBefore) { timing.add("geometry: built again (buildContent)", buildStats.totalMs); timing.add("geometry: of it the sharp edges (cornerEdges)", buildStats.cornersMs); timing.add("geometry: triangles built", buildStats.triangles); }
     view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit, f.followers.map((q) => ({ matrix: q.matrix, only: q.split })));
     view.setHiddenEdges(f.hiddenEdges);
     view.setHighlight(f.highlight, state.cam, now);
