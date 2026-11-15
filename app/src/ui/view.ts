@@ -157,7 +157,7 @@ export function createView(host: HTMLElement) {
   const planesGroup = new THREE.Group(); // (the cross section planes in the part: faint when not selected, fainter still when they are cutting, `in_396`)
   scene3.add(planesGroup);
   let planesKey = "";
-  const setSectionPlanes = (list: { selected: boolean; corners: Vec3[] }[]) => {
+  const setSectionPlanes = (list: { selected: boolean; cutting: boolean; corners: Vec3[] }[]) => {
     const key = JSON.stringify(list);
     if (key === planesKey) return;
     planesKey = key;
@@ -166,10 +166,10 @@ export function createView(host: HTMLElement) {
       const c = p.corners;
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.Float32BufferAttribute([...c[0]!, ...c[1]!, ...c[2]!, ...c[0]!, ...c[2]!, ...c[3]!], 3));
-      const quad = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x1ab8b3, transparent: true, opacity: p.selected ? 0.05 : 0.1, side: THREE.DoubleSide, depthWrite: false, depthTest: false }));
+      const quad = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x1ab8b3, transparent: true, opacity: p.cutting ? 0.025 : p.selected ? 0.04 : 0.07, side: THREE.DoubleSide, depthWrite: false, depthTest: true, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 })); // (a plane in the part, hidden by the part where the part is in front of it, `in_416`)
       quad.renderOrder = 3;
       planesGroup.add(quad);
-      const edge = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(c.map((q) => new THREE.Vector3(...q))), new THREE.LineBasicMaterial({ color: 0x1ab8b3, transparent: true, opacity: p.selected ? 0.5 : 0.7, depthTest: false }));
+      const edge = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(c.map((q) => new THREE.Vector3(...q))), new THREE.LineBasicMaterial({ color: 0x1ab8b3, transparent: true, opacity: p.cutting ? 0.35 : 0.55, depthTest: true }));
       edge.renderOrder = 3;
       planesGroup.add(edge);
     }

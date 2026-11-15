@@ -281,8 +281,8 @@ function frame(now: number) {
     view.setBodyFade(f.fadeBody);
     view.setWireframe(f.wireframe);
     view.setSectionPlanes(f.sectionPlanes);
-    view.setSection(f.section ? { at: f.section.at, n: f.section.n, corners: f.section.corners } : null);
-    { const c = f.section ? projector(state.cam, size.w, size.h).project(f.section.corners[0]!) : null; const pg = host.getBoundingClientRect(); sectionChip.update(f.section, c ? [c[0] + pg.left, c[1] + pg.top] : null, [...chips.flatMap((q) => q.rect() ?? []), ...bubbles.rects(), helper.rect(), hintIcons.rect()].flatMap((r) => (r ? [r] : []))); }
+    view.setSection(f.section);
+    { const c = f.sectionChip ? projector(state.cam, size.w, size.h).project(f.sectionChip.corners[0]!) : null; const pg = host.getBoundingClientRect(); sectionChip.update(f.sectionChip, c ? [c[0] + pg.left, c[1] + pg.top] : null, [...chips.flatMap((q) => q.rect() ?? []), ...bubbles.rects(), helper.rect(), hintIcons.rect()].flatMap((r) => (r ? [r] : []))); }
     toolChip.update(f.tool, f.confirm, lastDevice === "touch");
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
     undoBar.update(lastDevice === "touch", f.undoRedo);

@@ -47,7 +47,7 @@ import { annotationsFor, annotationsOf, focusParts } from "./annotations.ts";
 import { suggestionsFor } from "./suggest.ts";
 import type { Suggestions } from "./suggest.ts";
 import type { Annotation } from "./annotations.ts";
-import { sectionQuad, sectionAxis, sectionNow } from "./control/section.ts";
+import { sectionQuad, sectionAxis, sectionNow, cutNow } from "./control/section.ts";
 import { entryOf, previewFor, repeatEntries, moveEntries, scaleEntries, sectionEntries } from "./entry.ts";
 import { helperOf } from "./pattern.ts";
 import type { Entry } from "./entry.ts";
@@ -114,8 +114,11 @@ export interface Frame {
   wireframe: boolean;
   /** the cross section plane (`in_392`) and, while it is being chosen, the three planes offered */
   /** every cross section plane in the part, faint when it is not selected (`in_396`) */
-  sectionPlanes: { ref: Ref; selected: boolean; corners: Vec3[] }[];
-  section: { at: Vec3; n: Vec3; mode: "move" | "rotate"; /** the square drawn for the plane */ corners: Vec3[]; /** which axis it is across (X, Y, Z), or none once turned */ axis: string } | null;
+  sectionPlanes: { ref: Ref; selected: boolean; cutting: boolean; corners: Vec3[] }[];
+  /** the plane that is cutting the view (`in_416`) */
+  section: { at: Vec3; n: Vec3; corners: Vec3[] } | null;
+  /** the chips of the cross section plane that is selected */
+  sectionChip: { mode: "move" | "rotate"; corners: Vec3[]; axis: string } | null;
   /** the constraints that could be put on the selected parts, as buttons by them (`in_195`) */
   suggest: Suggestions | null;
   /** a little icon by the move arrows of a body (or a drawn figure) that switches to turning it, and by its rings one that switches back (`in_206`) */
@@ -347,8 +350,9 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     confirm: s.cut ? { kind: "subtract", label: "Cut" } : s.tool ? null : s.repeat && !s.op ? { kind: s.repeat.op.kind, label: OPEN_LABELS[s.repeat.op.kind] ?? s.repeat.op.kind } : s.op && s.op.kind !== "dimension" ? { kind: s.op.kind, label: OPEN_LABELS[s.op.kind] ?? s.op.kind } : null,
     tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", trim: "Trim" } as const)[s.tool.kind], made: s.tool.made ?? 0, drawing: s.tool.points.length > 0, done: (s.tool.made ?? 0) > 0 && s.tool.points.length === 0 } : null,
     wireframe: s.wireframe || (s.op?.kind === "hollow" && !!s.drag && "handle" in s.drag), // (the body fades to wireframe while the wall is pulled, so the wall can be seen, `in_394`)
-    section: sectionNow(s) ? { at: sectionNow(s)!.centre, n: sectionNow(s)!.n, mode: sectionNow(s)!.mode, corners: sectionQuad(sectionNow(s)!.centre, sectionNow(s)!.n, sectionNow(s)!.extent), axis: sectionAxis(sectionNow(s)!.n) === null ? "·" : "XYZ"[sectionAxis(sectionNow(s)!.n)!]! } : null,
-    sectionPlanes: Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }),
+    section: cutNow(s) ? { at: cutNow(s)!.centre, n: cutNow(s)!.n, corners: sectionQuad(cutNow(s)!.centre, cutNow(s)!.n, cutNow(s)!.extent) } : null,
+    sectionChip: sectionNow(s) ? { mode: sectionNow(s)!.mode, corners: sectionQuad(sectionNow(s)!.centre, sectionNow(s)!.n, sectionNow(s)!.extent), axis: sectionAxis(sectionNow(s)!.n) === null ? "·" : "XYZ"[sectionAxis(sectionNow(s)!.n)!]! } : null,
+    sectionPlanes: Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }),
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,

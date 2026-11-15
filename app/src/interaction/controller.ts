@@ -46,6 +46,8 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (next.lockAxes.length && (next.session.click.selection.join("|") !== s.session.click.selection.join("|") || i.type === "begin" || i.type === "runAction")) next = { ...next, lockAxes: [] };
   // the tape measure shows what it measured for the thing it was applied to, and goes when that is let go or another is chosen (`in_391`)
   if (next.tape && s.tape && next.session.click.selection.join("|") !== s.session.click.selection.join("|")) next = { ...next, tape: false };
+  // the mover's sphere is selected only while the mover is up for the same selection (`in_416`)
+  if (next.moverSphere && (next.session.click.selection.join("|") !== s.session.click.selection.join("|") || i.type === "begin" || (i.type === "runAction" && !i.id.startsWith("op:")))) next = { ...next, moverSphere: false };
   // a selected arrow stays selected while what it belongs to does: not when the selection changes or the operation ends (`in_238`)
   if (next.handleSel && (!next.op && !next.repeat && next.session.click.selection.join("|") !== s.session.click.selection.join("|") || (s.op && !next.op && !next.repeat) || (s.repeat && !next.repeat))) next = { ...next, handleSel: null };
   // an offset starts with its arrow on the outline where you were pointing when you chose it (or at the middle of the view), not wherever the figure's own first side is: zoomed in, that could be out of sight (`in_244`)

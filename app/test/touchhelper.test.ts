@@ -30,7 +30,7 @@ test("an arrow of Move is tapped to select it; then the helper stands on it, the
   st = reduce(st, { type: "begin", name: "move" }, env);
   let f = frameOf(st, { w: env.w, h: env.h });
   assert.equal(f.touchHelper?.points.length, 0, "three arrows and none chosen: no drag icon yet, but a tap on an arrow selects it and a tap elsewhere applies (`in_292`)");
-  assert.equal(f.touchHelper?.handles.length, 3);
+  assert.equal(f.touchHelper?.handles.length, 4);
   const h = f.gizmo!.handles.find((x) => x.id === "move:x")!;
   const pr = projector(st.cam, env.w, env.h);
   const mid = pr.project([(h.points[0]![0] + h.points[1]![0]) / 2, (h.points[0]![1] + h.points[1]![1]) / 2, (h.points[0]![2] + h.points[1]![2]) / 2]);

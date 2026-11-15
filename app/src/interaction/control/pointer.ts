@@ -3,7 +3,7 @@ import type { Intent } from "../../shared/input.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { dist, dot, sub } from "../../math/vec.ts";
 import type { Plane } from "../../operation/part.ts";
-import { normalOfPlane } from "../../operation/part.ts";
+import { normalOfPlane, segmentOf, circleOf } from "../../operation/part.ts";
 import { lookup, nextId } from "../../operation/scene.ts";
 import type { Scene } from "../../operation/scene.ts";
 import type { Vec3 } from "../../math/vec.ts";
@@ -18,7 +18,7 @@ import type { Hint } from "../hints.ts";
 import { snapOnPlane, guidesOf, finish, planeForDrawing, armTool, pointOnPlane } from "../tools.ts";
 import { trimAt } from "../../operation/trim.ts";
 import type { Command } from "../../operation/commands.ts";
-import type { OpKind } from "../operations.ts";
+import type { OpKind, Op } from "../operations.ts";
 import { startOp } from "../operations.ts";
 import { similarTo } from "../similar.ts";
 import { whyNotGroup, whyNotUngroup, whyNotCombine, applyCut } from "./select.ts";
@@ -29,11 +29,11 @@ import type { AppState, Env, MenuItem } from "./state.ts";
 import { paneAt } from "../panes.ts";
 import type { WorldName } from "../panes.ts";
 import { doLook, selectedSurface } from "./viewing.ts";
-import { sectionNow } from "./section.ts";
+import { sectionNow, doSectionClick } from "./section.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { commitFigure, commitOp, setRepeatAxis, doApply } from "./modal.ts";
-import { doGizmoHover, gizmoOf, chosenId } from "./handles.ts";
-import { hasGizmo, hitHandle } from "../gizmo.ts";
+import { doGizmoHover, gizmoOf, chosenId, activeOp } from "./handles.ts";
+import { hasGizmo, hitHandle, moveOffset } from "../gizmo.ts";
 
 /** The operations a right click offers (`in_133`), in categories (`in_143`): sketching, constraints, shape, moving and repeating, and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
 const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" | "combine" | "faces" | "edges" | "vertices" }[] = [
@@ -125,6 +125,18 @@ function drawingPlane(sc: Scene, refs: readonly Ref[]): Ref | null {
     if (pl) return pl.ref;
   }
   return null;
+}
+
+/** Where a click puts the mover's sphere (`in_416`): on a vertex, at the point of the edge or the face that was clicked; for a move the mover goes where the body's own moving has not yet taken it, so the offset so far is taken out. */
+function moverPlace(sc: Scene, c: { ref: Ref; kind: string; score: number } | undefined, pv: ReturnType<ReturnType<typeof projector>["view"]>, op: Op): Vec3 | null {
+  const p = c ? sc.parts[c.ref] : undefined;
+  if (!c || !p) return null;
+  let at: Vec3 | null = null;
+  if (p.kind === "corner") at = p.at;
+  else if (p.kind === "line") { const sg = segmentOf(lookup(sc), p.ref); at = sg ? [(sg[0][0] + sg[1][0]) / 2, (sg[0][1] + sg[1][1]) / 2, (sg[0][2] + sg[1][2]) / 2] : null; }
+  else if (p.kind === "circle") at = circleOf(lookup(sc), p.ref)?.center ?? null;
+  else at = surfacePoint(pv, c.score);
+  return at && op.kind === "move" ? sub(at, moveOffset(sc, op)) : at;
 }
 
 /** A rim made of two half circles is one edge to the person: picking a half picks both, letting go of one lets go of both. */
@@ -352,6 +364,12 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {
   if (s.box) s = { ...s, box: null }; // (held, but never moved: an ordinary click)
   const sc = sceneOf(s.session);
+  // a click on a cross section plane: its cut goes on, and a second click takes it off, selected or not (`in_416`)
+  if (!s.tool && !s.op && !s.repeat && !s.cut) {
+    const top = candidatesAt(sc, projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0];
+    const part = top ? sc.parts[top.ref] : undefined;
+    if (part?.kind === "plane" && part.section) return doSectionClick(s, part.ref);
+  }
   // a click on a little pane turns that world plane on and looks straight at it (the same as its X Y Z button, `in_190`)
   const pane = !s.tool && !s.op ? paneUnder(s, i.x, i.y, env) : null;
   if (pane) return doLook({ ...s, menu: null, focus: null, resume: null }, { type: "look", plane: PANE_BUTTON[pane] }, env);
@@ -371,6 +389,13 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   // the handles are dragged, so a click on one does nothing (it must not reselect what is under it)
   const g = gizmoOf(s);
   const hit = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)) : null;
+  // the sphere at the junction of the mover (`in_416`): a click selects it, a second click lets it go; selected, a vertex, an edge or a face clicked puts the mover there
+  const mover = s.op ?? activeOp(s);
+  if (hit?.id === "pivot" && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat) return { ...base, moverSphere: !s.moverSphere, op: s.op ?? { ...mover, auto: false }, handleSel: null, gizmoHover: hit.id };
+  if (!hit && s.moverSphere && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat) {
+    const at = moverPlace(sc, cands[0], pv, mover);
+    if (at) return { ...base, op: { ...(s.op ?? mover), auto: false, pivot: at }, handleSel: null };
+  }
   // a click on a ring of a repeat, or of the turn being set up, makes that the axis, with no drag needed (`in_206`)
   if (hit && hit.id.startsWith("rot:") && s.op?.kind === "rotate") return { ...base, op: { ...s.op, axis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2, typed: "" }, gizmoHover: hit.id, handleSel: hit.id };
   // Shift on a move arrow chooses it with the others already chosen: a body dragged free then moves only along those axes (`in_299`)

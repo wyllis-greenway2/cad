@@ -2,6 +2,7 @@
 // works the handle and does not turn the camera; letting go does it (one step, one undo) and leaves the operation open for another drag. Esc or Enter ends it.
 import type { Intent } from "../../shared/input.ts";
 import type { Vec3 } from "../../math/vec.ts";
+import { sub } from "../../math/vec.ts";
 import { scene as sceneOf, selection as selectionOf, run, undoLast } from "../session.ts";
 import type { Session } from "../session.ts";
 import type { Command } from "../../operation/commands.ts";
@@ -21,7 +22,7 @@ import { sectionGizmo } from "../gizmo.ts";
 import { draggedSection, sectionNow, placeSection } from "./section.ts";
 import { patternBase, dragPattern, liveRepeat, advanceHelp } from "../pattern.ts";
 import type { Op } from "../operations.ts";
-import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed, jointHandles } from "../gizmo.ts";
+import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed, jointHandles, moveOffset } from "../gizmo.ts";
 import { jointOfBody, jointRoom, driveCommand } from "../mate.ts";
 import type { Gizmo } from "../gizmo.ts";
 import { candidatesAt } from "../picking.ts";
@@ -48,7 +49,7 @@ export function gizmoOf(s: AppState): Gizmo | null {
   if (sec && !s.op && !s.repeat && !op) return sectionGizmo({ at: sec.centre, n: sec.n, mode: sec.mode }, s.cam); // (the cross section's own arrows and rings, `in_392`)
   // looking straight at a plane (orthographic) the push / pull arrow points at you: it goes away (`in_137`)
   if (op && s.cam.straight && (op.kind === "pushpull" || op.kind === "extrude")) return null;
-  const g0 = op ? gizmoFor(sceneOf(s.session), op, s.cam) : null;
+  const g0 = op ? gizmoFor(sceneOf(s.session), op, s.cam, s.moverSphere && (op.kind === "move" || op.kind === "rotate")) : null; // (the sphere selected: its own arrows are there, `in_416`)
   const g = g0; // (a linear repeat shows all three arrows from the start, `in_382`; the helper bubbles only point at one)
   // the arrow of a push / pull or an extrude stands where the face is now: out by the value so far (it stays there when you let go, until the operation ends)
   const shown = g && op && op.normal && (op.kind === "pushpull" || op.kind === "extrude" || op.kind === "offset" || op.kind === "hollow") ? followed(g, { dir: op.normal, kind: "double", id: "pull" }, op.value) : g;
@@ -103,9 +104,21 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
       // a handle of the repeat being set up: it sets the repeat's numbers, nothing is made by the drag
       return { ...s, handleSel: h!.id, repeat: { ...s.repeat, chosen: h!.id }, drag: { handle: d, base: patternBase(liveRepeat(sceneOf(s.session), s.repeat), h!.id), repeat: true }, gizmoHover: h!.id };
     }
+    if (h!.id.startsWith("piv:") && s.moverSphere) { // an arrow of the selected sphere: it moves the mover, not the body (`in_416`)
+      const started = s.op ?? activeOp(s)!;
+      const g0 = gizmoOf(s);
+      if ((started.kind === "move" || started.kind === "rotate") && g0) return { ...s, op: { ...started, auto: false }, drag: { handle: d, base: 0, piv: { centre: g0.centre, offset: started.kind === "move" ? moveOffset(sceneOf(s.session), started) : [0, 0, 0] } }, gizmoHover: h!.id };
+    }
     const started = s.op ?? activeOp(s)!;
     const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" ? { ...started, auto: false } : started;
     s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
+  }
+  if ("handle" in s.drag! && s.drag.piv && s.op) {
+    const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
+    if (!r || !("value" in r)) return s;
+    const k = s.drag.handle.axis as 0 | 1 | 2;
+    const centre = s.drag.piv.centre.map((c, j) => (j === k ? c + r.value : c)) as unknown as Vec3;
+    return { ...s, op: { ...s.op, pivot: sub(centre, s.drag.piv.offset) } };
   }
   if ("handle" in s.drag! && s.drag.section) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);

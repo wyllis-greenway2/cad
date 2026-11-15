@@ -47,6 +47,23 @@ export function sectionNow(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; exte
   return { ref, centre: live ? live.centre : (add(p.at, scale(add(p.u, p.v), p.extent / 2)) as Vec3), n: live ? live.n : normalize(cross(p.u, p.v)), extent: p.extent, mode: s.sectionMode };
 }
 
+/** The cross section that is cutting the view (`in_416`): the plane whose cut is on, selected or not; where its middle is and its normal (the place a drag has taken it to while its handles are dragged). */
+export function cutNow(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent: number } | null {
+  const sc = sceneOf(s.session);
+  const p = Object.values(sc.parts).find((q) => q.kind === "plane" && !!q.section && q.cut && q.extent !== undefined);
+  if (!p || p.kind !== "plane" || p.extent === undefined) return null;
+  const live = s.sectionLive && s.sectionLive.ref === p.ref ? s.sectionLive : null;
+  return { ref: p.ref, centre: live ? live.centre : (add(p.at, scale(add(p.u, p.v), p.extent / 2)) as Vec3), n: live ? live.n : normalize(cross(p.u, p.v)), extent: p.extent };
+}
+
+/** A click on a cross section plane (`in_416`): it is selected, and its cut goes on if it was off and off if it was on, whether it was selected or not. */
+export function doSectionClick(s: AppState, ref: Ref): AppState {
+  const p = sceneOf(s.session).parts[ref];
+  if (p?.kind !== "plane" || !p.section) return s;
+  const session = run(s.session, { type: "placePlane", ref, at: p.at, u: p.u, v: p.v, cut: !p.cut });
+  return select({ ...s, menu: null, sectionLive: null, session: { ...session, message: null } }, [ref]);
+}
+
 const select = (s: AppState, refs: Ref[]): AppState => ({ ...s, session: { ...s.session, click: { ...s.session.click, selection: refs } } });
 
 /** The cross section from the menu: with one selected it is put away (the plane goes); else a plane is put through the middle of the part across the axis the camera looks along, the half nearer the camera cut away, and it is the only thing selected. */
@@ -63,7 +80,7 @@ export function doSectionToggle(s: AppState): AppState {
   const extent = Math.max(...[0, 1, 2].map((i) => b.hi[i]! - b.lo[i]!)) * 1.5 || 30;
   const ref = drawnRef(nextId(sc, "p"));
   const g = planeFrom(centre, scale(AXES[k]!, toward) as Vec3, extent);
-  const session = run(s.session, { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: true, section: true, extent, ...g } });
+  const session = run(s.session, { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: true, section: true, cut: true, extent, ...g } });
   return select({ ...s, menu: null, sectionMode: "move", sectionLive: null, session: { ...session, message: "sliced: the half nearer you is not drawn (nothing is cut); the chips on the plane change its axis, its side and its handles; deselect it and it stays as a plane in the part" } }, [ref]);
 }
 

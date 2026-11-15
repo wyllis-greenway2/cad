@@ -1,5 +1,5 @@
 import { anchorLines, anchorCutCorners } from "../src/operation/anchors.ts";
-import { normalAngle, sectionNow } from "../src/interaction/control/section.ts";
+import { normalAngle, sectionNow, doSectionClick } from "../src/interaction/control/section.ts";
 import { liveRepeat } from "../src/interaction/pattern.ts";
 import { keyIntents } from "../src/interaction/input/keys.ts";
 import { settings } from "../src/shared/settings.ts";
@@ -82,7 +82,7 @@ test("Move offers X Y Z arrows at the body; dragging one moves the body that way
   let st = select(box(), [BODY_OBJECT]);
   st = reduce(st, { type: "begin", name: "move" }, env);
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id), ["move:x", "move:y", "move:z"]);
+  assert.deepEqual(g.handles.map((h) => h.id), ["move:x", "move:y", "move:z", "pivot"]);
   nearV(g.centre, [20, 10, 10]);
   const x = g.handles[0]!;
   const mid = scale(add(x.points[0]!, x.points[1]!), 0.5);
@@ -208,7 +208,7 @@ test("fillet / chamfer and the helpers need what they need; the frame carries th
   st = select(st, [BODY_OBJECT]);
   st = reduce(st, { type: "begin", name: "move" }, env);
   const f = frameOf(st, { w: 800, h: 600 });
-  assert.equal(f.gizmo!.handles.length, 3);
+  assert.equal(f.gizmo!.handles.length, 4);
   assert.equal(f.gizmo!.hover, null);
   assert.equal(paramOnLine([0, 0, 0], [1, 0, 0], { o: [0, 5, 5], d: [1, 0, 0] }), null, "looking along the line: no distance");
   assert.deepEqual(selection(st.session), [BODY_OBJECT]);
@@ -219,7 +219,7 @@ const frame = (st: AppState) => frameOf(st, { w: 800, h: 600 });
 test("the handles show up by themselves from a click: the body shows its X Y Z arrows, no menu", () => {
   let st = select(box(), [BODY_OBJECT]);
   assert.equal(st.op, null);
-  assert.deepEqual(frame(st).gizmo!.handles.map((h) => h.id), ["move:x", "move:y", "move:z"]);
+  assert.deepEqual(frame(st).gizmo!.handles.map((h) => h.id), ["move:x", "move:y", "move:z", "pivot"]);
   const g = gizmoOf(st)!;
   const x = g.handles[0]!;
   const mid = scale(add(x.points[0]!, x.points[1]!), 0.5);
@@ -343,7 +343,7 @@ test("a drawn figure moves and turns like an object: X Y Z arrows, X Y Z rings a
   st = select(st, [faceRef()]);
   st = reduce(st, { type: "begin", name: "move" }, env);
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id), ["move:x", "move:y", "move:z"], "the same arrows as an object");
+  assert.deepEqual(g.handles.map((h) => h.id), ["move:x", "move:y", "move:z", "pivot"], "the same arrows as an object");
   const x = g.handles[0]!;
   const mid = scale(add(x.points[0]!, x.points[1]!), 0.5);
   st = drag(st, mid, add(mid, [7, 0, 0]));
@@ -1795,13 +1795,18 @@ test("the cross section is a plane put in the part: the menu inserts it through 
   const moved = drag(st, tip!, add(tip!, dir), 6);
   assert.ok(Math.abs(sectionNow(moved)!.centre[k]! - sec.centre[k]!) > 4, `${sectionNow(moved)!.centre[k]}`);
   assert.equal(scene(st.session).steps.length, stepsBefore, "a view: no step of the body was made");
-  // a right click lets the plane go: it stays as a plane in the part, and cuts nothing
+  // a right click lets the plane go: it is deselected, and the cut stays (the cut is the plane's own, selected or not, `in_416`)
   const left = reduce(st, { type: "menu", x: 400, y: 300 }, env);
-  assert.equal(sectionNow(left), null);
-  assert.equal(frame(left).section, null, "no cut");
+  assert.equal(sectionNow(left), null, "not selected");
+  assert.ok(frame(left).section, "still cutting");
   assert.equal(frame(left).sectionPlanes.length, 1, "the plane is still there");
   assert.equal(sectionNow(reduce(st, { type: "escape" }, env)), null);
-  // selected again it cuts again; the menu row puts it away for good (the plane goes)
+  // a click on the plane switches the cut off, and another on again, selected or not
+  const off = doSectionClick(left, sec.ref);
+  assert.equal(frame(off).section, null, "the click puts the cut off");
+  assert.ok(sectionNow(off), "and the plane is selected");
+  assert.ok(frame(doSectionClick(off, sec.ref)).section, "the next click puts it on");
+  // the menu row with the plane selected puts it away for good (the plane goes)
   const again = select(left, [sec.ref]);
   assert.ok(sectionNow(again));
   const gone = reduce(again, { type: "runAction", id: "view:section" }, env);
@@ -1906,4 +1911,34 @@ test("the corners where the cross section's cut edges meet are anchors: a point 
   assert.equal(st.session.message, null);
   const on = scene(st.session).relations.filter((r) => r.kind === "onLine" && r.parts.some((p) => c.refs.includes(p)));
   assert.equal(on.length, 2, "a constraint to each of the two faces' cuts");
+});
+
+test("the mover has a sphere at its junction: a click selects it, its own arrows then move the mover (the body stays), and a vertex clicked puts the mover there; a turn is about the mover's place (`in_416`)", () => {
+  let st = select(box(), [BODY_OBJECT]); // 40 x 20 x 20
+  st = reduce(st, { type: "begin", name: "move" }, env);
+  const ids = () => gizmoOf(st)!.handles.map((h) => h.id);
+  assert.deepEqual(ids(), ["move:x", "move:y", "move:z", "pivot"], "arrows and the sphere");
+  const centre0 = gizmoOf(st)!.centre;
+  const [bx, by] = px(st, centre0);
+  st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
+  assert.equal(st.moverSphere, true, "the sphere is selected");
+  assert.deepEqual(ids(), ["piv:x", "piv:y", "piv:z", "pivot"], "its own arrows are up");
+  // an arrow of the sphere moves the mover along x by 10, not the body
+  const [c, tip] = gizmoOf(st)!.handles.find((h) => h.id === "piv:x")!.points;
+  const stepsBefore = scene(st.session).steps.length;
+  st = drag(st, tip!, add(tip!, [10, 0, 0]), 6);
+  near(gizmoOf(st)!.centre[0] - c![0], 10, 0.6);
+  assert.equal(scene(st.session).steps.length, stepsBefore, "the body did not move");
+  // a vertex clicked puts the mover on it
+  const corner = Object.values(scene(st.session).parts).find((p) => p.kind === "corner" && p.origin === "body" && (p as { at: Vec3 }).at[0] === 40 && (p as { at: Vec3 }).at[1] === 20 && (p as { at: Vec3 }).at[2] === 20) as unknown as { at: Vec3 };
+  const [qx, qy] = px(st, corner.at);
+  st = reduce(st, { type: "click", x: qx, y: qy, count: 1, shift: false }, env);
+  near(gizmoOf(st)!.centre[0], 40, 1e-6); near(gizmoOf(st)!.centre[1], 20, 1e-6); near(gizmoOf(st)!.centre[2], 20, 1e-6);
+  assert.equal(st.moverSphere, true, "the sphere stays selected for another place");
+  // the turn tool has the sphere too, and its own arrows when the sphere is selected
+  const turn = reduce(select(box(), [BODY_OBJECT]), { type: "begin", name: "rotate" }, env);
+  assert.deepEqual(gizmoOf(turn)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot"]);
+  const [tx, ty] = px(turn, gizmoOf(turn)!.centre);
+  const picked = reduce(turn, { type: "click", x: tx, y: ty, count: 1, shift: false }, env);
+  assert.deepEqual(gizmoOf(picked)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot", "piv:x", "piv:y", "piv:z"]);
 });
