@@ -2002,3 +2002,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_430 — 2026-11-15 — directive
 > support several figures at once
 (asks that a revolve take several figures selected together, the last thing `dec_spiral_extrude` listed as not built)
+
+## in_431 — 2026-11-15 — question
+> Can we offer a new type of chamfer that is distance distance instead of the default equal distance? 
+> 
+> Can we offer loft through sketches? if so, how should that work on complext sketch shape changes over the loft?
+(asks for a chamfer with two distances, one along each face, besides the equal-distance chamfer; and whether a loft through sketches can be offered, and how it should handle sketches whose shapes differ in complexity)
