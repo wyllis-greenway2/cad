@@ -16,6 +16,7 @@ import {
   Plane,
   Vector,
   basicFaceExtrusion,
+  cast as castShape,
 } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers } from "./bodies.mjs";
@@ -727,27 +728,31 @@ const OPS = {
     const t = ctx.get(op.target, "solid").shape;
     const th = resolve(op.thickness, ctx.params);
     if (!(Math.abs(th) > 1e-6)) throw new Error("the wall must be thicker than nothing");
-    // the faces left open: named by where they were (`op.refs`, as a push / pull names a face), or by a query
-    // the faces to keep as walls, every other face open (`op.keep`); none left open at all, a closed hollow (`op.closed`); else the faces named are the open ones (`in_393`)
-    if (op.keep) {
-      const keepH = new Set(op.keep.map((r) => findFace(t, r).hashCode));
-      return { kind: "solid", shape: t.shell(th, (f) => f.when(({ element }) => !keepH.has(element.hashCode))) };
-    }
-    if (op.closed) {
-      // no face open: the kernel's shell with nothing removed gives the offset solid alone, so the wall is what lies between that and the body
-      const offset = t.shell(th, (f) => f.when(() => false));
-      return { kind: "solid", shape: th > 0 ? t.cut(offset) : offset.cut(t) };
-    }
-    if (op.refs) {
-      const open = op.refs.map((r) => findFace(t, r));
-      const hashes = new Set(open.map((f) => f.hashCode));
-      return { kind: "solid", shape: t.shell(th, (f) => f.when(({ element }) => hashes.has(element.hashCode))) };
-    }
-    const faces = selectFaces(t, op.remove);
-    const picked = new Set(faces.map((f) => f.hashCode));
-    return { kind: "solid", shape: t.shell(th, (f) => f.when(({ element }) => picked.has(element.hashCode))) };
+    // the faces left open (`in_391`, `in_393`): named by where they were (`op.refs`, as a push / pull names a face); or the faces named are the walls and every other is open (`op.keep`); or none is open (`op.closed`)
+    let open;
+    if (op.keep) { const keepH = new Set(op.keep.map((r) => findFace(t, r).hashCode)); open = facesOf(t).filter((f) => !keepH.has(f.hashCode)); }
+    else if (op.closed) open = [];
+    else open = (op.refs ?? []).map((r) => findFace(t, r));
+    // the corners stay sharp whichever way the wall goes: the join is made by meeting the offset faces, not by rounding them
+    const offset = thickSolid(t, open, th);
+    if (!op.closed) return { kind: "solid", shape: offset };
+    // no face open: the kernel's shell with nothing removed gives the offset solid alone, so the wall is what lies between that and the body
+    return { kind: "solid", shape: th > 0 ? t.cut(offset) : offset.cut(t) };
   },
 };
+
+/** The solid thickened by `th` (inward when positive) with the faces `open` removed; the faces' offsets meet at sharp corners (`in_394`). */
+function thickSolid(t, open, th) {
+  const oc = getOC();
+  const list = new oc.NCollection_List_TopoDS_Shape();
+  for (const f of open) list.Append(f.wrapped);
+  const builder = new oc.BRepOffsetAPI_MakeThickSolid();
+  builder.MakeThickSolidByJoin(t.wrapped, list, -th, 1e-3, oc.BRepOffset_Mode.BRepOffset_Skin, false, false, oc.GeomAbs_JoinType.GeomAbs_Intersection, false);
+  const out = castShape(builder.Shape());
+  builder.delete();
+  list.delete();
+  return out;
+}
 
 /**
  * A fillet or chamfer that the kernel cannot make on the chosen edges alone, made together with the edges that meet them at their ends (`in_379`): the kernel rounds a corner only when the edges that meet there are in

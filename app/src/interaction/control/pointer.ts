@@ -29,7 +29,6 @@ import type { AppState, Env, MenuItem } from "./state.ts";
 import { paneAt } from "../panes.ts";
 import type { WorldName } from "../panes.ts";
 import { doLook, selectedSurface } from "./viewing.ts";
-import { doSectionPick } from "./section.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { commitFigure, commitOp, setRepeatAxis, doApply } from "./modal.ts";
 import { doGizmoHover, gizmoOf, chosenId } from "./handles.ts";
@@ -101,7 +100,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     category("view", "View", "eye", [
       { id: "look", label: "Look straight at it", icon: "look", enabled: !!target, why: target ? null : "select a plane or a face, or right-click on one" },
       { id: "view:game", label: "Game mode (Space): fly with W A S D, hold Alt for the pointer", icon: "game", enabled: true, why: null },
-      { id: "view:section", label: view.section ? "Cross section: on (tap to put away)" : "Cross section (a view, nothing is cut)", icon: "wireframe", enabled: true, why: null },
+      { id: "view:section", label: view.section ? "Cross section: on (tap to put away)" : "Cross section (a view, nothing is cut)", icon: "section", enabled: true, why: null },
       { id: "view:wireframe", label: view.wireframe ? "Wireframe view: on (tap for solid)" : "Wireframe view", icon: "wireframe", enabled: true, why: null },
       { id: "tape:measure", label: view.tape ? "Tape measure: on (tap to put away)" : "Tape measure", icon: "dimension", enabled: true, why: null },
     ]),
@@ -351,8 +350,6 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
 
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {
   if (s.box) s = { ...s, box: null }; // (held, but never moved: an ordinary click)
-  const picked = doSectionPick(s, i.x, i.y, env); // (the cross section's planes are offered: a click chooses one, `in_392`)
-  if (picked) return picked;
   const sc = sceneOf(s.session);
   // a click on a little pane turns that world plane on and looks straight at it (the same as its X Y Z button, `in_190`)
   const pane = !s.tool && !s.op ? paneUnder(s, i.x, i.y, env) : null;
@@ -450,6 +447,8 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   if (!i.button && (s.repeat && !s.op)) return doApply(s);
   // an operation that is open: a right click accepts it and leaves it, as Enter does (`in_244`)
   if (!i.button && s.op) return doApply(s);
+  // the views (the cross section, the wireframe) are put away by a right click as a tool is (`in_394`); the ⋯ button still opens the menu
+  if (!i.button && !s.tool && !s.op && !s.repeat && !s.cut && (s.section || s.wireframe)) return { ...s, section: null, wireframe: false, menu: null, session: { ...s.session, message: null } };
   // while a sketching tool is on, a right click puts it away (the ⋯ button still opens the menu): the tool stays on until then or the cancel icon (`in_193`)
   if (s.tool && !i.button) return { ...s, tool: null, resume: null, menu: null };
   // a long press on a move arrow chooses the arrow with the others, as Shift does: a phone has no Shift (`in_300`)
@@ -460,7 +459,7 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   }
   // what is under the point (a finger has no hover: a long press must be told what is under it the same way a right click is, or a tool chosen from the ring would not turn the view straight to the plane there, `in_283`)
   const under = i.button ? null : candidatesAt(sceneOf(s.session), projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0]?.ref ?? null;
-  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!s.section || s.sectionOffer }) };
+  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!s.section }) };
 }
 
 /**

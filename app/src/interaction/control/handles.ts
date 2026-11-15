@@ -108,7 +108,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
   }
   if ("handle" in s.drag! && s.drag.section) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
-    return r && "value" in r ? { ...s, section: draggedSection(s.drag.section, s.drag.handle.id, r.value) } : s;
+    return r && "value" in r ? { ...s, section: { ...draggedSection(s.drag.section, s.drag.handle.id, r.value), mode: s.drag.section.mode } } : s;
   }
   if ("handle" in s.drag! && s.drag.joint) {
     const jd = s.drag.joint;

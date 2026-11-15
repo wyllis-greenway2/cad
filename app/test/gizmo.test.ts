@@ -1729,21 +1729,21 @@ test("the tape measure goes when what it was applied to is let go or another thi
   assert.equal(st.tape, false, "deselected: the tape is put away");
 });
 
-test("Hollow: the selected faces are the walls and the rest are open, the switch makes them the open ones instead, a body selected is hollowed with no opening, a wall pulled the other way is outside (`in_391`, `in_393`)", () => {
+test("Hollow: the selected faces are the open ones and the rest are the walls, the switch makes them the walls instead, a body selected is hollowed with no opening, a wall pulled the other way is outside (`in_391`, `in_393`)", () => {
   const faceOf = (st: AppState) => Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.every((_, i) => i % 3 !== 2 || Math.abs(p.mesh![i]! - 20) < 1e-6))!;
   const make = (st: AppState, text: string) => { st = reduce(st, { type: "entry", field: 0, text }, env); return reduce(st, { type: "typed", key: "Enter", shift: false }, env); };
   // the top face selected: it is the wall, everything else is open: a plate 2 thick
   let st = select(box(), [faceOf(box()).ref]);
   st = reduce(st, { type: "runAction", id: "op:hollow" }, env);
-  assert.equal(st.op?.hollowMode, "keep");
+  assert.equal(st.op?.hollowMode, "open", "the selected face is the open one (`in_394`)");
   assert.equal(frame(st).modeSwitch?.to, "invert");
   const inverted = reduce(st, { type: "runAction", id: "hollow:invert" }, env);
-  assert.equal(inverted.op?.hollowMode, "open", "the switch makes the selected face the open one");
-  const plate = make(st, "2");
-  assert.equal(plate.session.message, null);
-  near(plate.session.outcome.kernel!.volume!, 40 * 20 * 2, 1);
-  const tray = make(inverted, "2");
+  assert.equal(inverted.op?.hollowMode, "keep", "the switch makes the selected face the wall");
+  const tray = make(st, "2");
+  assert.equal(tray.session.message, null);
   near(tray.session.outcome.kernel!.volume!, 16000 - 36 * 16 * 18, 1);
+  const plate = make(inverted, "2");
+  near(plate.session.outcome.kernel!.volume!, 40 * 20 * 2, 1);
   // the whole body: hollow with no opening
   let all = select(box(), [BODY_OBJECT]);
   all = reduce(all, { type: "runAction", id: "op:hollow" }, env);
@@ -1755,40 +1755,45 @@ test("Hollow: the selected faces are the walls and the rest are open, the switch
   // a wall the other way is outside the body
   let out = select(box(), [faceOf(box()).ref]);
   out = reduce(out, { type: "runAction", id: "op:hollow" }, env);
-  out = reduce(out, { type: "runAction", id: "hollow:invert" }, env);
   out = make(out, "-2");
   assert.equal(out.session.message, null);
   assert.ok(out.session.outcome.kernel!.bbox!.min[0] < -1.5, "it grew outward");
+  near(out.session.outcome.kernel!.volume!, 44 * 24 * 22 - 16000, 1); // (sharp corners: no fillet where the walls meet, `in_394`)
   // nothing selected: refused with the reason
   const none = reduce(box(), { type: "runAction", id: "op:hollow" }, env);
   assert.match(none.session.message ?? "", /body|face/);
 });
 
-test("the cross section: the menu offers the three planes at the middle of the part, a click on one slices there, its arrow moves it and its ring turns it; nothing is cut (`in_392`)", () => {
+test("the cross section: the menu begins it at once, a plane through the middle across the axis the camera looks along with the half nearer the camera cut away; chips swap the axis, the side and the handles; right click puts it away; nothing is cut (`in_392`, `in_394`)", () => {
   let st = box(); // 40 x 20 x 20 from the origin
   const stepsBefore = scene(st.session).steps.length;
   st = reduce(st, { type: "runAction", id: "view:section" }, env);
-  const offer = frame(st).sectionOffer!;
-  assert.equal(offer.length, 3, "three planes are offered");
-  // the plane across X: its middle is the middle of the box (20, 10, 10)
-  const mid = (corners: Vec3[]) => scale(corners.reduce((a, q) => add(a, q), [0, 0, 0] as Vec3), 1 / corners.length);
-  const x = offer.find((o) => Math.abs(mid(o.corners)[0] - 20) < 1e-6 && o.corners.every((q) => Math.abs(q[0] - 20) < 1e-6))!;
-  const [pxx, pyy] = px(st, mid(x.corners));
-  st = reduce(st, { type: "click", x: pxx, y: pyy, count: 1, shift: false }, env);
-  assert.equal(st.sectionOffer, false);
-  assert.deepEqual(st.section!.n, [1, 0, 0]);
-  near(st.section!.at[0], 20, 1e-6);
-  // its arrow along X moves it
-  const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id), ["sec:x", "sec:y", "sec:z", "secr:x", "secr:y", "secr:z"]);
-  const [c, tip] = g.handles.find((h) => h.id === "sec:x")!.points;
-  st = drag(st, tip!, add(tip!, [10, 0, 0]), 6);
-  assert.ok(st.section!.at[0] > 25, `${st.section!.at[0]}`);
+  const sec = st.section!;
+  assert.ok(sec, "it begins at once");
+  assert.equal(sec.mode, "move");
+  near(sec.at[0], 20, 1e-6); near(sec.at[1], 10, 1e-6); near(sec.at[2], 10, 1e-6);
+  const eye = position(st.cam);
+  assert.ok(dot(sec.n, sub(eye, sec.at)) > 0, "the cut half is the one nearer the camera");
+  assert.equal(frame(st).section!.corners.length, 4);
+  // the chips
+  const side = reduce(st, { type: "runAction", id: "section:side" }, env);
+  assert.deepEqual(side.section!.n, scale(sec.n, -1), "swap the side");
+  const axis = reduce(st, { type: "runAction", id: "section:axis" }, env);
+  assert.notDeepEqual(axis.section!.n.map(Math.abs), sec.n.map(Math.abs), "the axis goes round");
+  const turn = reduce(st, { type: "runAction", id: "section:mode" }, env);
+  assert.deepEqual(gizmoOf(turn)!.handles.map((h) => h.id), ["secr:x", "secr:y", "secr:z"]);
+  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["sec:x", "sec:y", "sec:z"], "arrows by default");
+  // an arrow along its own axis moves it
+  const k = sec.n.findIndex((v) => Math.abs(v) > 0.5);
+  const [, tip] = gizmoOf(st)!.handles.find((h) => h.id === `sec:${"xyz"[k]}`)!.points;
+  const dir = [0, 0, 0].map((_, i) => (i === k ? 10 : 0)) as unknown as Vec3;
+  const moved = drag(st, tip!, add(tip!, dir), 6);
+  assert.ok(Math.abs(moved.section!.at[k]! - sec.at[k]!) > 4, `${moved.section!.at[k]}`);
   assert.equal(scene(st.session).steps.length, stepsBefore, "a view: no step was made");
-  // off again from the menu
-  st = reduce(st, { type: "runAction", id: "view:section" }, env);
-  assert.equal(st.section, null);
-  void c;
+  // a right click puts it away, as a tool; the menu row and Esc too
+  assert.equal(reduce(st, { type: "menu", x: 400, y: 300 }, env).section, null);
+  assert.equal(reduce(st, { type: "escape" }, env).section, null);
+  assert.equal(reduce(st, { type: "runAction", id: "view:section" }, env).section, null);
 });
 
 test("Select all faces, all edges, all vertices of the body (`in_393`)", () => {

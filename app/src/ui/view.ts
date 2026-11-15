@@ -20,7 +20,7 @@ export type { Highlight };
 type Preview = { segments: [Vec3, Vec3][]; guides?: [Vec3, Vec3][]; circle: { center: Vec3; radius: number; normal: Vec3 } | null; cursor: Vec3 | null };
 
 export function createView(host: HTMLElement) {
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, stencil: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(settings.theme.background);
   host.appendChild(renderer.domElement);
@@ -98,30 +98,65 @@ export function createView(host: HTMLElement) {
   let sectionKey = "";
   renderer.localClippingEnabled = true;
   let clip: THREE.Plane | null = null;
-  const offerGroup = new THREE.Group();
-  scene3.add(offerGroup);
-  /** The cross section (`in_392`): the part of the body and its lines on the plane's positive side is not drawn; both faces of what is cut are shown, so the inside can be seen. */
+  let secNow: { at: Vec3; n: Vec3; corners: Vec3[] } | null = null;
+  const sectionGroup = new THREE.Group(); // (the stencil passes, the solid cut face with its hatching, and the faint plane, `in_394`)
+  scene3.add(sectionGroup);
+  /** The cross section (`in_392`, `in_394`): the part of the body and its lines on the normal's side of the plane is not drawn; both faces of what is cut are shown; where the plane cuts a solid the cut face is drawn
+   * solid and hatched with parallel lines, as a cut part is in an engineering drawing (the stencil counts, along each pixel's line of sight, how many faces of the body lie behind the plane: odd is inside the solid). */
   function applyClip() {
     content.traverse((o) => {
       const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
       for (const mat of Array.isArray(m) ? m : m ? [m] : []) { mat.clippingPlanes = clip ? [clip] : null; if (mat instanceof THREE.MeshBasicMaterial || mat instanceof THREE.MeshPhysicalMaterial || mat instanceof THREE.MeshStandardMaterial) { if (clip) { mat.userData.side ??= mat.side; mat.side = THREE.DoubleSide; } else if (mat.userData.side !== undefined) mat.side = mat.userData.side as THREE.Side; } mat.needsUpdate = true; }
     });
+    clearGroup(sectionGroup);
+    if (!clip || !secNow || !bodyGroup) return;
+    const planes = [clip];
+    const stencil = (side: THREE.Side, op: THREE.StencilOp) => new THREE.MeshBasicMaterial({ side, colorWrite: false, depthWrite: false, depthTest: false, clippingPlanes: planes, stencilWrite: true, stencilFunc: THREE.AlwaysStencilFunc, stencilFail: op, stencilZFail: op, stencilZPass: op });
+    const back = stencil(THREE.BackSide, THREE.IncrementWrapStencilOp);
+    const front = stencil(THREE.FrontSide, THREE.DecrementWrapStencilOp);
+    bodyGroup.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      for (const [mat, order] of [[back, 1], [front, 1]] as const) {
+        const twin = new THREE.Mesh(mesh.geometry, mat);
+        twin.matrixAutoUpdate = false;
+        mesh.updateWorldMatrix(true, false);
+        twin.matrix.copy(mesh.matrixWorld);
+        twin.renderOrder = order;
+        sectionGroup.add(twin);
+      }
+    });
+    const n = new THREE.Vector3(...secNow.n).normalize();
+    const u = new THREE.Vector3().crossVectors(Math.abs(n.z) < 0.9 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0), n).normalize();
+    const v = new THREE.Vector3().crossVectors(n, u);
+    const cut = new THREE.Mesh(new THREE.PlaneGeometry(1e4, 1e4), new THREE.ShaderMaterial({
+      uniforms: { u: { value: u }, v: { value: v }, at: { value: new THREE.Vector3(...secNow.at) }, pitch: { value: Math.max(1, bodySize() / 12) } },
+      vertexShader: "varying vec3 w; void main(){ vec4 p = modelMatrix * vec4(position, 1.0); w = p.xyz; gl_Position = projectionMatrix * viewMatrix * p; }",
+      // solid light grey with slanting parallel lines (45 degrees, as a cut part is hatched in a drawing)
+      fragmentShader: "uniform vec3 u; uniform vec3 v; uniform vec3 at; uniform float pitch; varying vec3 w; void main(){ vec3 d = w - at; float a = (dot(d, u) + dot(d, v)) / pitch; float line = smoothstep(0.36, 0.44, abs(fract(a) - 0.5)); gl_FragColor = vec4(mix(vec3(0.89, 0.91, 0.94), vec3(0.28, 0.32, 0.38), line), 1.0); }",
+      side: THREE.DoubleSide, depthTest: false, depthWrite: false,
+      stencilWrite: true, stencilRef: 0, stencilFunc: THREE.NotEqualStencilFunc, stencilFail: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilZPass: THREE.ReplaceStencilOp,
+    }));
+    cut.position.copy(new THREE.Vector3(...secNow.at));
+    cut.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(u, v, n));
+    cut.renderOrder = 2;
+    sectionGroup.add(cut);
+    // the plane itself, faint
+    const c = secNow.corners;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute([...c[0]!, ...c[1]!, ...c[2]!, ...c[0]!, ...c[2]!, ...c[3]!], 3));
+    const quad = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x1ab8b3, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false, depthTest: false }));
+    quad.renderOrder = 3;
+    sectionGroup.add(quad);
   }
-  const setSection = (sec: { at: Vec3; n: Vec3 } | null, offer: { corners: Vec3[] }[] | null) => {
-    const key = JSON.stringify([sec, offer]);
+  const bodySize = () => { if (!lastMesh) return 40; const v = lastMesh.vertices; const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; for (let i = 0; i + 2 < v.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k]!, v[i + k]!); hi[k] = Math.max(hi[k]!, v[i + k]!); } return Math.max(hi[0]! - lo[0]!, hi[1]! - lo[1]!, hi[2]! - lo[2]!); };
+  const setSection = (sec: { at: Vec3; n: Vec3; corners: Vec3[] } | null) => {
+    const key = JSON.stringify(sec);
     if (key === sectionKey) return;
     sectionKey = key;
+    secNow = sec;
     clip = sec ? new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(...sec.n).negate(), new THREE.Vector3(...sec.at)) : null;
     applyClip();
-    clearGroup(offerGroup);
-    const quad = (c: Vec3[], opacity: number) => {
-      const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.Float32BufferAttribute([...c[0]!, ...c[1]!, ...c[2]!, ...c[0]!, ...c[2]!, ...c[3]!], 3));
-      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x1ab8b3, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false }));
-      m.renderOrder = 6;
-      offerGroup.add(m);
-    };
-    for (const o of offer ?? []) quad(o.corners, 0.22);
   };
   /** The body see-through (the sketch plane is looked at straight and the body is between it and the camera) or as it was (`in_194`). */
   function applyFade() {

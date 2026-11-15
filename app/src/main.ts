@@ -27,6 +27,7 @@ import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
 import { createRing } from "./ui/ring.ts";
 import { createChip } from "./ui/chip.ts";
+import { createSectionChip } from "./ui/sectionchip.ts";
 import { createPanel } from "./ui/panel.ts";
 import { createHelper } from "./ui/helper.ts";
 import { createBusy } from "./ui/busy.ts";
@@ -129,6 +130,7 @@ const busySign = createBusy(document.body);
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
 const crosshair = createCrosshair(document.body);
+const sectionChip = createSectionChip(document.body, (id) => dispatch({ type: "runAction", id }));
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "overrideRefusal" }), () => dispatch({ type: "holdFlash" }));
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
@@ -275,7 +277,8 @@ function frame(now: number) {
     view.setPanes(f.panes);
     view.setBodyFade(f.fadeBody);
     view.setWireframe(f.wireframe);
-    view.setSection(f.section, f.sectionOffer);
+    view.setSection(f.section ? { at: f.section.at, n: f.section.n, corners: f.section.corners } : null);
+    { const c = f.section ? projector(state.cam, size.w, size.h).project(f.section.corners[0]!) : null; const pg = host.getBoundingClientRect(); sectionChip.update(f.section, c ? [c[0] + pg.left, c[1] + pg.top] : null); }
     toolChip.update(f.tool, f.confirm, lastDevice === "touch");
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
     undoBar.update(lastDevice === "touch", f.undoRedo);

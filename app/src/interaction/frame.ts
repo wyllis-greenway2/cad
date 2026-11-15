@@ -47,7 +47,7 @@ import { annotationsFor, annotationsOf, focusParts } from "./annotations.ts";
 import { suggestionsFor } from "./suggest.ts";
 import type { Suggestions } from "./suggest.ts";
 import type { Annotation } from "./annotations.ts";
-import { offeredPlanes } from "./control/section.ts";
+import { sectionQuad, sectionAxis } from "./control/section.ts";
 import { entryOf, previewFor, repeatEntries, moveEntries, scaleEntries } from "./entry.ts";
 import { helperOf } from "./pattern.ts";
 import type { Entry } from "./entry.ts";
@@ -113,8 +113,7 @@ export interface Frame {
   fadeBody: boolean;
   wireframe: boolean;
   /** the cross section plane (`in_392`) and, while it is being chosen, the three planes offered */
-  section: { at: Vec3; n: Vec3 } | null;
-  sectionOffer: { corners: Vec3[] }[] | null;
+  section: { at: Vec3; n: Vec3; mode: "move" | "rotate"; /** the square drawn for the plane */ corners: Vec3[]; /** which axis it is across (X, Y, Z), or none once turned */ axis: string } | null;
   /** the constraints that could be put on the selected parts, as buttons by them (`in_195`) */
   suggest: Suggestions | null;
   /** a little icon by the move arrows of a body (or a drawn figure) that switches to turning it, and by its rings one that switches back (`in_206`) */
@@ -340,9 +339,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     cut: s.cut ? { parts: cutParts(sceneOf(s.session), s.cut), join: s.cut.join } : null, // (the bodies as they are, not as the preview of the cut shows them)
     confirm: s.cut ? { kind: "subtract", label: "Cut" } : s.tool ? null : s.repeat && !s.op ? { kind: s.repeat.op.kind, label: OPEN_LABELS[s.repeat.op.kind] ?? s.repeat.op.kind } : s.op && s.op.kind !== "dimension" ? { kind: s.op.kind, label: OPEN_LABELS[s.op.kind] ?? s.op.kind } : null,
     tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", trim: "Trim" } as const)[s.tool.kind], made: s.tool.made ?? 0, drawing: s.tool.points.length > 0, done: (s.tool.made ?? 0) > 0 && s.tool.points.length === 0 } : null,
-    wireframe: s.wireframe,
-    section: s.section,
-    sectionOffer: s.sectionOffer ? offeredPlanes(sc).map((p) => ({ corners: p.corners })) : null,
+    wireframe: s.wireframe || (s.op?.kind === "hollow" && !!s.drag && "handle" in s.drag), // (the body fades to wireframe while the wall is pulled, so the wall can be seen, `in_394`)
+    section: s.section ? { ...s.section, corners: sectionQuad(sc, s.section), axis: sectionAxis(s.section.n) === null ? "·" : "XYZ"[sectionAxis(s.section.n)!]! } : null,
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
@@ -468,7 +466,7 @@ function repeatSwitchOf(r: NonNullable<AppState["repeat"]>, at: Vec3, pts: Vec3[
 
 /** Which way the switch by the handles of a move or a turn goes: to turning from moving, to moving from turning. */
 function modeSwitchOf(op: AppState["op"], at: Vec3, pts: Vec3[]): Frame["modeSwitch"] {
-  if (op?.kind === "hollow" && op.hollowMode && op.hollowMode !== "closed") return { at, pts, to: "invert", label: op.hollowMode === "keep" ? "The selected faces are the walls: tap to make them the open ones" : "The selected faces are open: tap to make them the walls" };
+  if (op?.kind === "hollow" && op.hollowMode && op.hollowMode !== "closed") return { at, pts, to: "invert", label: op.hollowMode === "open" ? "The selected faces are open: tap to make them the walls" : "The selected faces are the walls: tap to make them the open ones" };
   if (!op || (op.target !== "body" && op.target !== "plane")) return null;
   if (op.kind === "move") return { at, pts, to: "rotate", label: "Rotate" };
   if (op.kind === "rotate") return { at, pts, to: "move", label: "Move" };
