@@ -1775,3 +1775,11 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_380 — 2026-11-14 — directive
 > okay I had another claude working on another branch, can you merge it in so we can deploy all the latest changes?
 (asks for the branch `claude/hopeful-cannon-3qzdtg`, worked on by another session, to be merged into this one; both sessions had numbered the human's messages from in_317, so the other branch's numbers were moved: see Handoff 360)
+
+## in_381 — 2026-11-15 — question
+> okay I had the prior claude merge your work, does that mean we should start working on a new branch so they can merge our next batch of work easily?
+(about branches; answered: yes, a new branch from the tip of the branch they merged into)
+
+## in_382 — 2026-11-15 — directive
+> option 1, call it claude/hopeful-cannon-next
+(a new branch `claude/hopeful-cannon-next` is made from `origin/claude/inspiring-pascal-l342k7`, and the next batch of work goes there)
