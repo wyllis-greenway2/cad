@@ -11,7 +11,7 @@ import { createSession, openSession, saveText, run, scene, selection, refresh } 
 import type { Session } from "./interaction/session.ts";
 import { exportStl, canExport, selectedBodies } from "./interaction/exportstl.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
-import { createState, reduce, advance } from "./interaction/controller.ts";
+import { createState, reduce, advance, stopView } from "./interaction/controller.ts";
 import { frameOf } from "./interaction/frame.ts";
 import { appRows, nextScrollMode, isScrollMode, nextPanScale } from "./interaction/appmenu.ts";
 import { snapshotOf, logEntry } from "./interaction/snapshot.ts";
@@ -163,6 +163,7 @@ const FILE_NAME = "model.cad.json";
 /** A ring opened in game mode is at the middle of the view and the view is fixed while it is open (`in_467`): the wheel lights one option after another, the mouse turns round it in clicks, a click chooses the lit one wherever the pointer is; a right click, or a click with none lit, closes it. */
 let wasGame = false; // (game mode was on at the last frame)
 let tilt: [number, number] = [0, 0]; // (how far the view has been tilted to look at a menu option, in swivel units)
+let ringAnchor: Vec3 | null = null; // (where a ring opened in game mode stands in the world)
 const inGame = (): boolean => recognizer.game && document.pointerLockElement !== null;
 let panesFading = false; // (the world panes are fading in or out: keep drawing, `in_442`)
 function adopt(session: Session) { state = { ...createState(session), cam: state.cam }; menu.hide(); ring.hide(); dirty = true; }
@@ -222,7 +223,13 @@ function dispatch(i: Intent) {
     if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale, settings.theme.outlines)); }
     else {
       menu.hide();
-      if (state.menu && inGame()) { const pg = host.getBoundingClientRect(); ring.show(pg.left + pg.width / 2, pg.top + pg.height / 2, state.menu.items, true); } // game mode: the ring stands at the middle and the view is fixed (`in_467`)
+      if (state.menu && inGame()) { // game mode: the ring stands in the world, ahead of the eye, where it was opened (`in_463`, `in_471`)
+        const pg = host.getBoundingClientRect();
+        const eye = position(state.cam);
+        const fwd = basis(state.cam).forward;
+        ringAnchor = [0, 1, 2].map((k) => eye[k]! + fwd[k]! * state.cam.distance * 0.6) as unknown as Vec3;
+        ring.show(pg.left + pg.width / 2, pg.top + pg.height / 2, state.menu.items, true);
+      } // game mode: the ring stands at the middle and the view is fixed (`in_467`)
       else if (state.menu) ring.show(i.x, i.y, state.menu.items); else ring.hide();
 
     } // (no menu: a right click that applied the mover's orient mode, `in_439`)
@@ -325,19 +332,39 @@ function frame(now: number) {
     sizeKindChip.update(f.sizeKinds);
     loftKindChip.update(f.loftKinds);
     resetView.update(f.resetView);
-    recognizer.setMenu(ring.open && recognizer.game); // (a menu open in game mode fixes the view: the mouse and the wheel go round it, `in_467`)
-    // a straight view and game mode: game mode begun in one leaves the straight view; a view made straight while in game mode ends it (`in_467`, `in_469`)
-    if (recognizer.game && state.cam.straight) {
-      if (!wasGame) state = { ...state, cam: { ...state.cam, straight: false, mix: 0.03 }, mixT0: -1, orthoDebt: 0 };
-      else input.toggleGame();
-    }
+    // game mode and the straight (orthographic) view, in and out, cleanly (`in_467`, `in_469`, `in_471`): going in while a straight view is on or on its way puts it away smoothly (the animation is given up
+    // properly, so no half-made view is left); a view that becomes straight or goes on its way to it while in game mode ends the game mode
+    if (recognizer.game && !wasGame) {
+      if (state.anim?.to.straight) state = stopView(state);
+      if (state.cam.straight) state = { ...state, cam: { ...state.cam, straight: false, mix: 0.03 }, mixT0: -1, mixBase: 0.03, orthoDebt: 0 };
+    } else if (recognizer.game && (state.cam.straight || state.anim?.to.straight)) input.toggleGame();
     wasGame = recognizer.game;
-    // the menu open in game mode: the view is fixed but it tilts to look at the option that is lit, and comes back when the menu goes (`in_469`)
+    recognizer.setMenu(ring.open && recognizer.game); // (a menu open in game mode fixes the view against the mouse and the keys: the mouse turns the selection round it, `in_467`)
+    // a ring opened in game mode stands where it was opened, in the world; the view tilts, just enough, to bring the lit option under the crosshair, and comes back when the menu goes (`in_471`)
     {
-      const off = ring.open && recognizer.game ? ring.selectedOffset() : null;
-      const want: [number, number] = off ? [off[0] * 0.8, off[1] * 0.8] : [0, 0];
-      const d: [number, number] = [(want[0] - tilt[0]) * 0.18, (want[1] - tilt[1]) * 0.18];
+      const pg = host.getBoundingClientRect();
+      let want: [number, number] = [0, 0]; // (the tilt that is wanted, in swivel units)
+      if (ringAnchor && !ring.open) ringAnchor = null;
+      if (ringAnchor) {
+        const eye = position(state.cam);
+        const fwd = basis(state.cam).forward;
+        const ahead = [0, 1, 2].reduce((t, k) => t + (ringAnchor![k]! - eye[k]!) * fwd[k]!, 0);
+        const p = ahead > 0.05 ? projector(state.cam, size.w, size.h).project(ringAnchor) : null;
+        if (!p || p[0] < 0 || p[1] < 0 || p[0] > size.w || p[1] > size.h) { ring.hide(); ringAnchor = null; }
+        else {
+          ring.moveTo(pg.left + p[0], pg.top + p[1]);
+          const lit = ring.selectedCentre();
+          if (lit) {
+            const focal = size.h / 2 / Math.tan((settings.view.fovDeg * Math.PI) / 360); // (pixels from the eye to the picture, so a number of pixels is an angle)
+            const k = focal * settings.view.orbitRadPerPx;
+            want = [tilt[0] + (lit[0] - (pg.left + pg.width / 2)) / k, tilt[1] + (lit[1] - (pg.top + pg.height / 2)) / k];
+          } else want = tilt; // (nothing lit: where the view is stays)
+        }
+      }
+      if (!ringAnchor) want = [0, 0]; // (the ring is gone: the view comes back)
+      const d: [number, number] = [(want[0] - tilt[0]) * 0.25, (want[1] - tilt[1]) * 0.25];
       if (Math.abs(d[0]) > 0.02 || Math.abs(d[1]) > 0.02) { state = reduce(state, { type: "swivel", dx: d[0], dy: d[1] }, env()); tilt = [tilt[0] + d[0], tilt[1] + d[1]]; dirty = true; }
+      else if (!ringAnchor && (tilt[0] !== 0 || tilt[1] !== 0)) tilt = [0, 0];
     }
     { const pg = host.getBoundingClientRect(); crosshair.update(recognizer.game && document.pointerLockElement !== null, { x: pg.left + pg.width / 2, y: pg.top + pg.height / 2 }); }
     toolCursor.update(f.tool ? f.tool.kind : null);

@@ -27,6 +27,7 @@ import { add, sub, scale, dot } from "../math/vec.ts";
 export { createState } from "./control/state.ts";
 export type { AppState } from "./control/state.ts";
 export { advance, gridPlaneOf } from "./control/viewing.ts";
+export { stop as stopView } from "./control/state.ts";
 export { pivotOf, planeOf, objectOf } from "./objects.ts";
 
 const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit", "pan", "zoom", "dragEnd", "look", "typed", "entry"]);

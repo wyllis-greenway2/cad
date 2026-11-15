@@ -2208,3 +2208,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_470 — 2026-11-15 — directive
 > It still doesn't really seem like the cursor hover blue circle shows up on cross section planes when they are in visible mode. Also can we have those planes have a delete icon?
 (reports that the blue hover circle still does not show on a visible plane; asks for a delete icon on the planes)
+
+## in_471 — 2026-11-15 — directive
+> About the camera tilting to the menu options, No I meant the menu should be stationary in space, not fixed to the camera, and the camera should tilt just enough to circle the menu options in the clicking fashion we already have so that the center circle curcor goes on each icon. Also it is still really bugging going in and out of game mode and into ortho graphic. The mode switch seems to fail half way all the time and get stuck in weird states. We need to cleanly and smoothly transition into and out of game mode and orthographic views. It seems like if I click w midway through orienting to orthographic then things break pretty badly.
+(asks: the game-mode menu to stand still in the world, not on the camera, with the camera tilting just enough to take the crosshair on to each option as the selection clicks round; and a clean, smooth way into and out of game mode and orthographic views, with no half-made switches or stuck states, in particular when W is pressed while the view is turning to orthographic)

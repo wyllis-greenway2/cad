@@ -107,11 +107,13 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
       return new DOMRect(l, t, Math.max(...rs.map((r) => r.right)) - l, Math.max(...rs.map((r) => r.bottom)) - t);
     },
     /** The selection that is not the pointer's (game mode, `in_467`): one option of the ring is lit and a click chooses it wherever the pointer is; the mouse turns round the ring in clicks. */
-    /** Where the lit option stands from the ring's middle, in pixels (the view tilts to look at it, `in_469`), or null when none is lit. */
-    selectedOffset(): [number, number] | null {
+    /** The whole ring moved so that its middle is at this point: a ring that stands in the world while the view moves (`in_463`, `in_471`). */
+    moveTo(x: number, y: number): void { root.style.transform = `translate(${Math.round(x - C.x)}px, ${Math.round(y - C.y)}px)`; },
+    /** Where the lit option is on the page now (the view tilts to bring it under the crosshair, `in_471`), or null when none is lit. */
+    selectedCentre(): [number, number] | null {
       if (sel === null || !shown[sel]) return null;
       const r = shown[sel]!.getBoundingClientRect();
-      return [r.left + r.width / 2 - C.x, r.top + r.height / 2 - C.y];
+      return [r.left + r.width / 2, r.top + r.height / 2];
     },
     turn(dx: number, dy: number): void {
       const n = shown.length;

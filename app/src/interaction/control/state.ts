@@ -17,7 +17,7 @@ import type { Op, OpKind } from "../operations.ts";
 import type { Camera } from "../camera.ts";
 import type { Drag } from "../gizmo.ts";
 import type { SimilarRule } from "../similar.ts";
-import { homeCamera, lookStraight, lookAlternating, offsetOf, sideOf } from "../camera.ts";
+import { mixOf, homeCamera, lookStraight, lookAlternating, offsetOf, sideOf } from "../camera.ts";
 import { lookup } from "../../operation/scene.ts";
 import { planeOf } from "../objects.ts";
 import { scene as sceneOf, selection as selectionOf } from "../session.ts";
@@ -99,6 +99,8 @@ export interface AppState {
   orthoDebt: number;
   /** when the perspective began to come in after leaving a straight view (-1: at the next frame), null when it is all in */
   mixT0: number | null;
+  /** the perspective that was in the view when it began to come back (`in_471`): it goes from this to all of it */
+  mixBase: number;
   /** the little pane under the pointer (it lights up) */
   paneHover: "XY" | "XZ" | "YZ" | null;
   /** the helper handle under the pointer */
@@ -108,7 +110,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, multiSelect: false, tape: false, wireframe: false, moverSphere: false, moverWas: null, moverPose: null, orbMovedAt: null, clipboard: null, sectionLive: null, sheetMove: null, worldHidden: false, picking: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, multiSelect: false, tape: false, wireframe: false, moverSphere: false, moverWas: null, moverPose: null, orbMovedAt: null, clipboard: null, sectionLive: null, sheetMove: null, worldHidden: false, picking: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, mixBase: 0.03, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.
@@ -129,7 +131,15 @@ export const pickOpts = (s?: AppState) => {
   return { ...(centres.length ? { centres } : {}), pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx, ...(s ? { world: worldRef(s.world) } : {}), ...(s && cutsNow(s).length ? { clips: cutsNow(s).map((c) => ({ at: c.centre, n: c.n })) } : {}), ...(behind && s ? { inFront: { at: behind.at, n: normalOfPlane(behind), side: sideOf(s.cam, normalOfPlane(behind)) as 1 | -1 } } : {}) };
 };
 export const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });
-export const stop = (s: AppState): AppState => (s.anim ? { ...s, anim: null } : s);
+/**
+ * A camera animation is given up (the view is taken by something else: the keys, the mouse). A change of the view in between a perspective and a straight one is not left half done: the picture
+ * that was part way to a straight view goes back to the perspective, smoothly from where it is (`in_471`), never staying with a narrowed lens.
+ */
+export const stop = (s: AppState): AppState => {
+  if (!s.anim) return s;
+  const m = mixOf(s.cam);
+  return !s.cam.straight && m < 1 && s.mixT0 === null ? { ...s, anim: null, mixT0: -1, mixBase: Math.max(0.03, m) } : { ...s, anim: null };
+};
 export const surfacePoint = (pv: { ray?: { o: Vec3; d: Vec3 } }, t: number): Vec3 | null => (pv.ray ? add(pv.ray.o, scale(pv.ray.d, t)) : null);
 
 /** Look straight at a plane: alternating front and back (X Y Z N), or from the side you are on (a double click). */
