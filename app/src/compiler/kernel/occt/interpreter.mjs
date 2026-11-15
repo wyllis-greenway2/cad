@@ -18,6 +18,10 @@ import {
   Vector,
   basicFaceExtrusion,
   cast,
+  makeAx3,
+  genericSweep,
+  revolution,
+  Wire,
 } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers } from "./bodies.mjs";
@@ -378,31 +382,121 @@ const OPS = {
 
   extrude(op, ctx) {
     const dist = resolve(op.distance, ctx.params);
-    const prism = (profile, holes, d = dist) => {
-      const p = ctx.get(profile, "sketch");
-      let solid = p.drawing.sketchOnPlane(p.plane, p.origin).extrude(d);
-      for (const h of holes ?? []) { // figures drawn inside this one are holes in it
-        const hs = ctx.get(h, "sketch");
-        solid = solid.cut(hs.drawing.sketchOnPlane(hs.plane, hs.origin).extrude(d));
-      }
+    // a cut that starts on a face of the body (a figure drawn on the face and pushed in) has its tool begin a little behind that face, in the air: begun exactly on it, the kernel leaves the face as a skin over the pocket,
+    // and the top of a hole stays shut (`in_426`)
+    const BACK = 1e-3;
+    const prism = (profile, holes, d = dist, back = 0) => {
+      const dir = d < 0 ? -1 : 1;
+      // the sketch's plane moved `back` against the way it is extruded (a named plane takes an offset along its normal; a plane of its own is moved along its normal)
+      const sketch = (h) => {
+        const q = ctx.get(h, "sketch");
+        if (typeof q.plane === "string") return q.drawing.sketchOnPlane(q.plane, (q.origin ?? 0) - dir * back);
+        const z = q.plane.zDir;
+        return q.drawing.sketchOnPlane(back ? q.plane.translate(-dir * back * z.x, -dir * back * z.y, -dir * back * z.z) : q.plane, q.origin);
+      };
+      let solid = sketch(profile).extrude(d + dir * back);
+      for (const h of holes ?? []) solid = solid.cut(sketch(h).extrude(d + dir * back)); // figures drawn inside this one are holes in it
       return solid;
     };
-    let solid = prism(op.profile, op.holes);
-    for (const f of op.also ?? []) solid = solid.fuse(prism(f.profile, f.holes, f.distance === undefined ? dist : resolve(f.distance, ctx.params))); // siblings extruded together (each may have a depth of its own, `in_351`)
+    const toolOf = (back) => {
+      let sld = prism(op.profile, op.holes, dist, back);
+      for (const f of op.also ?? []) sld = sld.fuse(prism(f.profile, f.holes, f.distance === undefined ? dist : resolve(f.distance, ctx.params), back)); // siblings extruded together (each may have a depth of its own, `in_351`)
+      return sld;
+    };
+    let solid = toolOf(0);
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
+    // (only when the plane is on the boundary of the body: with material just behind it, as a hole begun inside the body under a skin, the tool begins where it was drawn)
+    const behind = (() => { try { const slab = prism(op.profile, op.holes, dist < 0 ? BACK : -BACK, 0); return measureVolume(target.clone().intersect(slab.clone())) > 0.5 * measureVolume(slab); } catch { return false; } })(); // (mostly body in a slab behind the plane)
+    const back = behind ? 0 : BACK;
     if (op.mode === "cutOrAdd") {
       // a figure pulled backwards: a pocket when it meets the body (drawn on a face and pushed in); drawn out in the open it is a new piece, not a cut that does nothing
       const [tb, sb] = [bounds(target), bounds(solid)];
       const meets = [0, 1, 2].every((i) => sb.min[i] < tb.max[i] - 1e-6 && sb.max[i] > tb.min[i] + 1e-6);
       if (meets) {
         const before = measureVolume(target);
-        const cut = target.clone().cut(solid.clone());
+        const cut = target.clone().cut(toolOf(back));
         if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut };
       }
       return { kind: "solid", shape: target.fuse(solid) };
     }
     // "new" (`in_295`): a piece that stood apart when it was made stays a body of its own, however the others grow later: no join, one compound
+    if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
+    return { kind: "solid", shape: op.mode === "cut" ? target.cut(toolOf(back)) : target.fuse(solid) };
+  },
+
+  /**
+   * Revolve a figure about an axis in its own plane, through `angle` degrees (any size, either way) while it advances `advance` mm along the axis over the whole angle (`dec_spiral_extrude`, `in_427`):
+   * a ring or a bowl with no advance (at most one turn: more would lie on itself), a screw thread or a spring with one. Added to the body, cut from it, or a body of its own, as an extrusion is (`mode`).
+   */
+  revolve(op, ctx) {
+    const angle = resolve(op.angle, ctx.params);
+    const advance = resolve(op.advance ?? 0, ctx.params);
+    if (!Number.isFinite(angle) || Math.abs(angle) < 1e-6) throw new Error("the turn must be more than nothing");
+    const A = op.axis.p;
+    const D = (() => { const l = Math.hypot(...op.axis.d); return op.axis.d.map((x) => x / l); })();
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    // the figure and the figures drawn inside it (holes), each a sketch in the same plane
+    const sketchOf = (id) => { const q = ctx.get(id, "sketch"); return q.drawing.sketchOnPlane(q.plane, q.origin); };
+    const outerSketch = sketchOf(op.profile);
+    const face = outerSketch.face();
+    const pn = face.normalAt();
+    const N = [pn.x, pn.y, pn.z];
+    const pts = [];
+    for (const e of edgesOf(face)) for (const t of [0, 0.5, 1]) { const q = e.pointAt(t); pts.push([q.x, q.y, q.z]); }
+    // what is made of one figure (the outer one, then each hole): the same turn for all, so the holes are cut from the figure
+    let make;
+    if (Math.abs(Math.abs(dot(N, D)) - 1) < 1e-6) {
+      // the axis is the plane's normal: the figure is carried along it by `advance` while it turns about it, a twisted extrusion (a bar turned into an auger, a lobed section into a screw); the axis may stand off the figure (a coil)
+      if (Math.abs(advance) < 1e-9) throw new Error("a twist needs a distance to be carried along the axis");
+      const sgn = dot(N, D) > 0 ? 1 : -1;
+      const v0 = pts[0];
+      const o = sub(A, N.map((x) => x * dot(sub(A, v0), N))); // (the axis where it meets the figure's plane)
+      const h = advance * sgn; // (the distance along the plane's normal)
+      const twist = angle * sgn * (h > 0 ? 1 : -1); // (counter-clockwise about the axis whichever way it points and the figure is carried)
+      make = (sk) => { const solid = sk.extrude(h, { twistAngle: twist, origin: o }); if (!isValidSolid(solid)) throw new Error("the twist could not be made at this size"); return solid; };
+    } else {
+      // the axis must lie in the plane of the figure, and the figure must be on one side of it
+      if (Math.abs(dot(N, D)) > 1e-4) throw new Error("the axis must lie in the plane of the figure");
+      const along = pts.map((q) => dot(sub(q, A), D));
+      const rel = pts.map((q, i) => { const w = sub(q, A); return [w[0] - along[i] * D[0], w[1] - along[i] * D[1], w[2] - along[i] * D[2]]; });
+      const far = rel.reduce((m, w) => (Math.hypot(...w) > Math.hypot(...m) ? w : m), [0, 0, 0]);
+      const r0 = Math.hypot(...far);
+      if (r0 < 1e-6) throw new Error("the figure lies on the axis");
+      const U = far.map((x) => x / r0);
+      const side = rel.map((w) => dot(w, U));
+      if (side.some((x) => x < -1e-4)) throw new Error("the axis crosses the figure: draw the figure on one side of it");
+      if (Math.abs(advance) < 1e-9) {
+        if (Math.abs(angle) > 360 + 1e-6) throw new Error("a turn of more than 360 degrees with no advance lies on itself: give it an advance, or turn it once");
+        make = (sk) => revolution(sk.face(), A, angle > 0 ? D : D.map((x) => -x), Math.abs(angle));
+      } else {
+        const turns = Math.abs(angle) / 360;
+        const pitch = Math.abs(advance) / turns;
+        const lo = Math.min(...along), hi = Math.max(...along);
+        if (hi - lo > pitch + 1e-4) throw new Error(`the figure is ${Math.round((hi - lo) * 100) / 100} mm wide along the axis and the advance is ${Math.round(pitch * 100) / 100} mm a turn: the turns would overlap`);
+        const [mid, r] = [(lo + hi) / 2, Math.max(...side)];
+        // the helix runs through the middle of the figure, at its far side, about the axis; the figure is carried along it as one rigid screw motion (the kernel's frame of a helix does exactly that)
+        const dir = advance > 0 ? D : D.map((x) => -x);
+        const helixCcw = (angle > 0) === (advance > 0); // (a right hand helix turns counter-clockwise about its own direction)
+        const centre = [A[0] + D[0] * mid, A[1] + D[1] * mid, A[2] + D[2] * mid];
+        make = (sk) => {
+          const solid = genericSweep(sk.wire, helix(pitch, pitch * turns, r, centre, dir, U, !helixCcw), { frenet: true });
+          if (!isValidSolid(solid)) throw new Error("the spiral could not be made at this size");
+          return solid;
+        };
+      }
+    }
+    let solid = make(outerSketch);
+    for (const h of op.holes ?? []) solid = solid.cut(make(sketchOf(h)));
+    if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the figure when its holes were cut");
+    const target = op.target ? ctx.get(op.target, "solid").shape : null;
+    if (!target) return { kind: "solid", shape: solid };
+    if (op.mode === "cutOrAdd") {
+      const before = measureVolume(target);
+      try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut }; } catch { /* a join instead */ }
+      return { kind: "solid", shape: target.fuse(solid) };
+    }
     if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
     return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
   },
@@ -831,9 +925,43 @@ const OPS = {
     const offset = thickSolid(t, open, th);
     if (!op.closed) return { kind: "solid", shape: offset };
     // no face open: the kernel's shell with nothing removed gives the offset solid alone, so the wall is what lies between that and the body
-    return { kind: "solid", shape: th > 0 ? t.cut(offset) : offset.cut(t) };
+    // an outward offset of some bodies comes back turned inside out (a negative volume): turned right again before it is used
+    const grown = measureVolume(offset) < 0 ? cast(offset.wrapped.Reversed()) : offset;
+    const [outer, inner] = th > 0 ? [t, grown] : [grown, t];
+    const expected = measureVolume(outer) - measureVolume(inner);
+    let made = null;
+    try { made = outer.cut(inner); if (!isValidSolid(made) || Math.abs(measureVolume(made) - expected) > 0.01 * Math.abs(expected)) made = null; } catch { made = null; }
+    // the boolean can fail, or give the wrong body, where the two surfaces are close kin (a rolled edge whose rolling circle is nearly the radius of the cylinder, a torus that crosses its own axis, `in_425`): the wall is then
+    // made as a solid of two shells, the outer one and the inner reversed, which asks for no boolean at all
+    return { kind: "solid", shape: made ?? hollowByShells(outer, inner) };
   },
 };
+
+/** A solid whose boundary is the outer solid's shell and, as a void inside it, the inner solid's shell turned inside out. */
+function hollowByShells(outer, inner) {
+  const oc = getOC();
+  const shellOf = (sh) => { const ex = new oc.TopExp_Explorer(sh.wrapped, oc.TopAbs_ShapeEnum.TopAbs_SHELL, oc.TopAbs_ShapeEnum.TopAbs_SHAPE); try { return oc.TopoDS.Shell(ex.Current()); } finally { ex.delete(); } };
+  const maker = new oc.BRepBuilderAPI_MakeSolid(shellOf(outer), oc.TopoDS.Shell(shellOf(inner).Oriented(oc.TopAbs_Orientation.TopAbs_REVERSED)));
+  const out = cast(maker.Shape());
+  maker.delete();
+  if (!isValidSolid(out)) throw new Error("the wall could not be made at this thickness");
+  return out;
+}
+
+/** A helix about the axis through `centre` along `dir`, starting at `radius` from it in the direction `xDir`: `pitch` mm a turn, `height` mm long (the library's own helix always starts in a direction it picks). */
+function helix(pitch, height, radius, centre, dir, xDir, left) {
+  const oc = getOC();
+  const turns = height / pitch;
+  const line = new oc.Geom2d_Line(new oc.gp_Pnt2d(0, 0), new oc.gp_Dir2d(left ? -2 * Math.PI : 2 * Math.PI, pitch));
+  const from = line.Value(0);
+  const to = line.Value(turns * Math.sqrt((2 * Math.PI) ** 2 + pitch ** 2));
+  const seg = new oc.GC_MakeSegment2d(from, to);
+  const surface = new oc.Geom_CylindricalSurface(makeAx3(centre, dir, xDir), radius);
+  const edge = new oc.BRepBuilderAPI_MakeEdge(seg.Value(), surface).Edge();
+  const wire = new oc.BRepBuilderAPI_MakeWire(edge).Wire();
+  oc.BRepLib.BuildCurves3d(wire);
+  return new Wire(wire);
+}
 
 /** The solid thickened by `th` (inward when positive) with the faces `open` removed; the faces' offsets meet at sharp corners (`in_394`). */
 function thickSolid(t, open, th) {

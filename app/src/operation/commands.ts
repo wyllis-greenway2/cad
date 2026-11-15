@@ -11,7 +11,7 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Part } from "./part.ts";
 import { anchorsOf } from "./part.ts";
 import type { Scene, Relation, Step } from "./scene.ts";
-import { bumpCounter, figureRefs } from "./scene.ts";
+import { bumpCounter, figureRefs, usesFigures } from "./scene.ts";
 import { addGroup, removeGroup, withoutParts } from "./groups.ts";
 import { stretchScene } from "./stretch.ts";
 import { addPattern, setPattern, breakPattern, patternsWithout } from "./repeat.ts";
@@ -85,7 +85,7 @@ function strandedCorners(s: Scene, gone: ReadonlySet<Ref>): Ref[] {
     if (p.kind === "line" && !p.derived) { stood.add(p.a); stood.add(p.b); if (p.center) stood.add(p.center); }
     else if (p.kind === "circle") stood.add(p.center);
   }
-  const named = new Set<Ref>([...s.steps.flatMap((st) => (st.type === "extrude" ? figureRefs(st) : st.parts)), ...(s.patterns ?? []).flatMap((r) => r.parts)]);
+  const named = new Set<Ref>([...s.steps.flatMap((st) => (usesFigures(st) ? figureRefs(st) : st.parts)), ...(s.patterns ?? []).flatMap((r) => r.parts)]);
   return [...under].filter((r) => {
     const p = s.parts[r];
     return !gone.has(r) && !stood.has(r) && !named.has(r) && p?.kind === "corner" && p.origin === "drawn" && p.movable && !p.derived;

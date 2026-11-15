@@ -80,6 +80,23 @@ export function buildGraph(scene: Scene): GraphResult {
         prev = xid;
         break;
       }
+      case "revolve": {
+        // a figure (and the figures drawn inside it, which are holes) turned about a line in its own plane, any angle, with an advance along the axis for a spiral; or, the axis being the plane's normal, carried along it while it
+        // turns (a twisted extrusion) (`dec_spiral_extrude`, `in_427`, `in_429`); the axis is stored as numbers (a point on it and its direction), as a push / pull stores its face
+        const figs = figuresOf(st);
+        if (figs.length > 1) { errors[st.id] = "a revolve takes one figure at a time"; break; }
+        const sk = profile(st, figs[0]!.outer);
+        if (typeof sk === "string") { errors[st.id] = sk; break; }
+        const holes: string[] = [];
+        let bad = "";
+        figs[0]!.holes.forEach((h, i) => { const hs = profile(st, h, `s_${st.id}h${i}`); if (typeof hs === "string") bad = hs; else { ops.push(hs); holes.push(hs.id); } });
+        if (bad) { errors[st.id] = bad; break; }
+        const p = st.params;
+        ops.push(sk);
+        ops.push({ id: xid, type: "revolve", profile: sk.id, ...(holes.length ? { holes } : {}), axis: { p: [Number(p.ax), Number(p.ay), Number(p.az)], d: [Number(p.dx), Number(p.dy), Number(p.dz)] }, angle: Number(p.angle ?? 0), advance: Number(p.advance ?? 0), ...(prev ? { target: prev } : {}), mode: !prev ? "add" : p.mode === "add" || p.mode === "cut" || p.mode === "new" ? String(p.mode) : "cutOrAdd" });
+        prev = xid;
+        break;
+      }
       case "hollow": {
         // the body made hollow (`in_391`, `in_393`): `faces` named by where they were; `mode` "open" leaves those open, "keep" keeps them as walls and opens every other, "closed" leaves no face open; the wall is `thickness`, inward when positive, outward when negative
         if (!prev) { errors[st.id] = "there is no body yet"; break; }

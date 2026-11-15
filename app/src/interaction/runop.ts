@@ -28,7 +28,7 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
     // an extrusion onto bodies: whether it adds a piece or cuts is decided now, once, and kept in the step (`in_295`); decided again at every replay, a body that grew later would be cut by a piece that only stood beside it
     // (figures extruded together are steps of their own, `in_353`: they are decided together, below)
     const extrudes = cmd.type === "batch" ? cmd.commands : [cmd];
-    if (op.kind === "extrude" && extrudes.length && extrudes.every((c): c is Extract<Command, { type: "addStep" }> => c.type === "addStep" && c.step.type === "extrude") && !done.message && (sceneOf(sess).steps.length || extrudes.length > 1)) {
+    if ((op.kind === "extrude" || op.kind === "revolve") && extrudes.length && extrudes.every((c): c is Extract<Command, { type: "addStep" }> => c.type === "addStep" && (c.step.type === "extrude" || c.step.type === "revolve")) && !done.message && (sceneOf(sess).steps.length || extrudes.length > 1)) {
       const [volume, count] = [(x: Session): number => Object.values(sceneOf(x).parts).reduce((a, q) => a + (q.kind === "body" ? (q.volume ?? 0) : 0), 0), (x: Session): number => Object.values(sceneOf(x).parts).filter((q) => q.kind === "body").length];
       // (decided from the answer for all of them together, the one the kernel already has from the preview: asking it for each step on its own would ask for lists it has not worked out, and in the browser its answer comes late)
       // the kernel's answer is still to come (the browser): the volumes of `done` are the older ones, so nothing is decided now; the session keeps what it needs and decides when the answer is here (`in_412`)

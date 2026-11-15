@@ -16,7 +16,8 @@ import type { Hint } from "../hints.ts";
 import type { Scene } from "../../operation/scene.ts";
 import { nextId } from "../../operation/scene.ts";
 import { apply } from "../../operation/commands.ts";
-import { autoOp, isLive, startOp } from "../operations.ts";
+import { autoOp, isLive, startOp, valueOf } from "../operations.ts";
+import { advanceOf } from "../revolve.ts";
 import { objectOf, bodyCentre } from "../objects.ts";
 import { runOp } from "../runop.ts";
 import { sectionGizmo } from "../gizmo.ts";
@@ -115,8 +116,9 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
       if ((started.kind === "move" || started.kind === "rotate") && g0) return { ...s, op: { ...started, auto: false }, drag: { handle: d, base: 0, piv: { centre: g0.centre, offset: started.kind === "move" ? moveOffset(sceneOf(s.session), started) : [0, 0, 0] } }, gizmoHover: h!.id };
     }
     const started = s.op ?? activeOp(s)!;
-    const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" ? { ...started, auto: false } : started;
-    s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
+    const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" || started.kind === "revolve" ? { ...started, auto: false } : started;
+    const base = op.kind === "revolve" ? (h!.id === "rev:adv" ? advanceOf(op) : valueOf(op) ?? 0) : isLive(op) ? op.value ?? 0 : 0; // (a revolve has two numbers: the angle of its ring and the advance of its arrow)
+    s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base, ...(h!.id === "rev:turn" ? { turned: { last: 0, total: 0 } } : {}) }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
   }
   if ("handle" in s.drag! && s.drag.frameTurn && s.op) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
@@ -158,6 +160,16 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
   if (!("handle" in s.drag!) || !s.op) return doOrbit(s, i);
   const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
   if (!r) return s;
+  if ("value" in r && s.op.kind === "revolve") {
+    if (s.drag.handle.id === "rev:adv") return { ...s, op: { ...s.op, advValue: Math.round((s.drag.base + r.value) * 1e6) / 1e6, advTyped: "", revField: 1 } }; // (the arrow along the axis: the advance)
+    // the ring: the turn goes on past one turn, by the change since the last move (each move is under half a turn)
+    const t = s.drag.turned ?? { last: 0, total: 0 };
+    let dv = r.value - t.last;
+    while (dv > 180) dv -= 360;
+    while (dv <= -180) dv += 360;
+    const total = t.total + dv;
+    return { ...s, drag: { ...s.drag, turned: { last: r.value, total } }, op: { ...s.op, value: Math.round((s.drag.base + total) * 1e6) / 1e6, typed: "", revField: 0 } };
+  }
   if ("value" in r && s.op.kind === "scale" && (s.op.target === "body" || s.op.target === "shape") && s.drag.handle.id.startsWith("scale:")) {
     // an axis arrow of a scale: only that axis changes, the others stay as they were (`dec_scale_axes`)
     const k = s.drag.handle.axis as 0 | 1 | 2;

@@ -12,6 +12,7 @@ import type { Camera } from "./camera.ts";
 import { basis } from "./camera.ts";
 import { settings } from "../shared/settings.ts";
 import { jointOfBody } from "./mate.ts";
+import { axisOf, revolveCentre } from "./revolve.ts";
 
 export type HandleKind = "arrow" | "double" | "arc" | "ball" | "scale";
 export interface Handle {
@@ -155,6 +156,14 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
   if ((op.kind === "extrude" || op.kind === "pushpull" || op.kind === "offset" || op.kind === "hollow") && op.origin && op.normal) {
     // the arrow normal to the figure or the face, pointing both ways: drag it out to pull, in to push
     return { centre: op.origin, handles: [{ id: "pull", kind: "double", axis: null, points: [add(op.origin, scale(op.normal, -HALF * L)), add(op.origin, scale(op.normal, HALF * L))] }] };
+  }
+  if (op.kind === "revolve") {
+    // a full circle round the line the figure turns about (drag it round, and on past one turn), and an arrow along the line (drag it for the advance of a spiral): both stand on the axis, by the figure (`dec_spiral_extrude`)
+    const a = axisOf(op);
+    const c = revolveCentre(op);
+    if (!a || !c) return null;
+    const start = add(c, scale(a.d, L * 0.55));
+    return { centre: c, handles: [ring("rev:turn", c, a.d, L * 0.5, null), { id: "rev:adv", kind: "double", axis: null, points: [add(start, scale(a.d, -HALF * L * 0.6)), add(start, scale(a.d, HALF * L * 0.6))] }] };
   }
   if (op.kind === "edge") {
     // one double arrow, on the edge selected last, through its middle, along the way out of the corner; the size you drag applies to all the selected edges, so one arrow and one bubble are all there is to work with
