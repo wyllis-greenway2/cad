@@ -12,7 +12,7 @@ const TICK_MS = 50;
 const GAME_TICK_MS = 16;
 
 /** Report the device events of `el` (and the keyboard) on the bus. Returns a function that stops reporting. */
-export function attachInput(el: HTMLElement, bus: InputBus): () => void {
+export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { toggleGame(): void } {
   const now = () => performance.now();
   const at = (e: { clientX: number; clientY: number }) => {
     const r = el.getBoundingClientRect();
@@ -20,6 +20,7 @@ export function attachInput(el: HTMLElement, bus: InputBus): () => void {
   };
   const down = new Set<number>();
   let spaceDown = false; // (Space held; a drag with it pans, so only a Space pressed and let go alone turns game mode on or off, `in_383`)
+  let freed = false; // (Alt held in game mode: the pointer is let go to use the bubbles and icons, and taken back when it is let go, `in_391`)
   let spaceUsed = false;
   const gameKeys = new Set<string>();
   const locked = () => document.pointerLockElement === el;
@@ -47,7 +48,6 @@ export function attachInput(el: HTMLElement, bus: InputBus): () => void {
       down.delete(e.pointerId);
       bus.emit("input", { kind: "cancel", id: e.pointerId, device: "mouse", x, y, button: 0, mods: modsOf(e), t: now() });
     }
-    if (kind === "down" && e.pointerType === "mouse" && e.button === 2 && game) { endGame(); bus.emit("input", { kind: "down", id: e.pointerId, device: "mouse", x, y, button: 2, mods: modsOf(e), t: now() }); return; } // (a right click ends game mode and is not a click, `in_383`)
     if (kind === "down" && spaceDown) spaceUsed = true;
     if (kind === "down") {
       try { el.setPointerCapture(e.pointerId); } catch { /* a synthetic event has nothing to capture */ }
@@ -65,7 +65,7 @@ export function attachInput(el: HTMLElement, bus: InputBus): () => void {
   // the pointer held at the middle (`in_304`): when it is let go (Esc, or the page lost focus) game mode is over; when it is taken, the recogniser is told where the middle is
   on<Event>(document, "pointerlockchange", () => {
     if (locked()) { const [x, y] = centre(); bus.emit("input", { kind: "move", id: 1, device: "mouse", x, y, dx: 0, dy: 0, button: 0, mods: { shift: false, ctrl: false, alt: false }, t: now() }); }
-    else if (game) { bus.emit("input", { kind: "key", key: "Escape", down: true, mods: { shift: false, ctrl: false, alt: false }, t: now() }); endGame(); }
+    else if (game && !freed) { bus.emit("input", { kind: "key", key: "Escape", down: true, mods: { shift: false, ctrl: false, alt: false }, t: now() }); endGame(); }
   });
   on<Event>(window, "blur", () => { endGame();  for (const id of down) bus.emit("input", { kind: "cancel", id, device: "mouse", x: 0, y: 0, button: 0, mods: { shift: false, ctrl: false, alt: false }, t: now() }); down.clear(); ticking(); });
   on<WheelEvent>(el, "wheel", (e) => {
@@ -91,13 +91,25 @@ export function attachInput(el: HTMLElement, bus: InputBus): () => void {
     if (e.key === " ") { if (down) { if (!spaceDown) spaceUsed = false; spaceDown = true; } else { spaceDown = false; if (!spaceUsed) { if (game) endGame(); else startGame(); } } }
     if (/^[wasd]$/i.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && game) { if (down) { gameKeys.add(e.key.toLowerCase()); ticking(); } else gameKeys.delete(e.key.toLowerCase()); }
     if (e.key === "Escape" && down && game) endGame();
+    if (e.key === "Alt" && game) {
+      if (down && !freed) { freed = true; if (locked()) document.exitPointerLock(); }
+      else if (!down && freed) { freed = false; try { void (el.requestPointerLock() as unknown as Promise<void> | undefined)?.catch?.(() => undefined); } catch { /* no lock */ } }
+    }
     bus.emit("input", { kind: "key", key: e.key, down, mods: modsOf(e), t: now() });
   };
   on<KeyboardEvent>(window, "keydown", key(true));
   on<KeyboardEvent>(window, "keyup", key(false));
 
-  return () => {
+  const stop = () => {
     for (const [t, type, fn, o] of listeners) t.removeEventListener(type, fn as EventListener, o);
     if (timer) clearInterval(timer);
   };
+  /** Game mode on or off from outside (the View menu, `in_391`): the same as Space pressed and let go alone. */
+  const toggleGame = () => {
+    const keyEvent = (down: boolean) => bus.emit("input", { kind: "key", key: " ", down, mods: { shift: false, ctrl: false, alt: false }, t: now() });
+    keyEvent(true);
+    if (game) endGame(); else startGame();
+    keyEvent(false);
+  };
+  return Object.assign(stop, { toggleGame });
 }

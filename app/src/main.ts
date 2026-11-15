@@ -93,6 +93,7 @@ if (Number.isFinite(savedPan) && savedPan > 0) settings.input.trackpadPanScale =
 
 const menu = createMenu(document.body, (id) => {
   menu.hide();
+  if (id === "view:game") { input.toggleGame(); return; } // (game mode is the input's: it holds the pointer, `in_391`)
   if (id === "panSpeed") {
     settings.input.trackpadPanScale = nextPanScale(settings.input.trackpadPanScale);
     webStore.set(PAN_KEY, String(settings.input.trackpadPanScale));
@@ -114,6 +115,7 @@ const menu = createMenu(document.body, (id) => {
 
 const ring = createRing(document.body, (id) => {
   ring.hide();
+  if (id === "view:game") { input.toggleGame(); return; }
   dispatch({ type: "runAction", id });
 });
 
@@ -205,7 +207,7 @@ bus.on("input", (raw) => {
   if ("device" in raw && raw.device !== lastDevice) { lastDevice = raw.device; dirty = true; }
   for (const i of recognizer.feed(raw)) dispatch(i);
 });
-attachInput(host, bus);
+const input = attachInput(host, bus);
 
 async function boot() {
   statusEl.textContent = "loading the geometry kernel…";

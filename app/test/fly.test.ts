@@ -67,7 +67,7 @@ test("the pointer held at the middle: the mouse's movement (dx, dy) turns the vi
   const turned = swivels(run(rec, ticks(110, 10)));
   assert.ok(Math.abs(turned.reduce((x, s) => x + s.dx, 0) - 60 * settings.input.flyLookScale) < 3, "the movement turns the view, however far the mouse went");
   assert.ok(run(rec, ticks(280, 5)).some((i) => i.type === "hover" && i.x === 400), "the view moving under the pointer: it hovers again at the middle");
-  // no time limit: it stays on with no key down until Space, right click or Esc
+  // no time limit: it stays on with no key down until Space or Esc
   run(rec, [{ kind: "tick", t: 60000 } as RawInput]);
   assert.equal(rec.game, true, "no timed exit (`in_383`)");
   run(rec, [key(" ", true, 61000), key(" ", false, 61010)]);
@@ -75,7 +75,10 @@ test("the pointer held at the middle: the mouse's movement (dx, dy) turns the vi
   assert.equal(swivels(run(rec, [held(50, 0, 62000), ...ticks(62000, 5)])).length, 0, "the mouse no longer turns the view");
   run(rec, enter(63000));
   run(rec, [{ kind: "down", device: "mouse", id: 1, x: 100, y: 100, button: 2, mods, t: 63100 } as unknown as RawInput]);
-  assert.equal(rec.game, false, "a right click ends it");
+  assert.equal(rec.game, true, "a right click no longer ends it (`in_391`)");
+  run(rec, [{ kind: "up", device: "mouse", id: 1, x: 100, y: 100, button: 2, mods, t: 63200 } as unknown as RawInput]);
+  run(rec, [key(" ", true, 63300), key(" ", false, 63310)]);
+  assert.equal(rec.game, false);
   run(rec, enter(64000));
   run(rec, [key("Escape", true, 64100)]);
   assert.equal(rec.game, false, "Esc ends it");
@@ -99,16 +102,23 @@ test("Esc ends game mode at once", () => {
   assert.equal(swivels(run(rec, [move(100, 100, 3), move(160, 100, 4), ...ticks(4, 5)])).length, 0);
 });
 
-test("in game mode a button held makes the mouse's movement move the pointer, so a drag works what is under it as outside the mode (`in_386`)", () => {
+test("in game mode a drag goes on while the view follows the mouse: drag moves are made at the crosshair, the release ends the drag and is no click, Alt frees the pointer for the bubbles (`in_391`)", () => {
   const rec = createRecognizer();
-  const held = (dx: number, dy: number, t: number, buttons = 0): RawInput => ({ kind: "move", device: "mouse", id: 1, x: 400, y: 300, dx, dy, button: 0, buttons, mods, t } as unknown as RawInput);
+  const held = (dx: number, dy: number, t: number): RawInput => ({ kind: "move", device: "mouse", id: 1, x: 400, y: 300, dx, dy, button: 0, mods, t } as unknown as RawInput);
   run(rec, enter());
   run(rec, [held(0, 0, 10)]);
-  const down = { kind: "down", device: "mouse", id: 1, x: 400, y: 300, button: 0, mods, t: 20 } as unknown as RawInput;
-  run(rec, [down]);
-  const moved = run(rec, [held(60, 0, 30), held(60, 0, 40), ...ticks(40, 6)]);
-  assert.equal(swivels(moved).length, 0, "the view does not turn while the button is down");
-  const up = run(rec, [{ kind: "up", device: "mouse", id: 1, x: 400, y: 300, button: 0, mods, t: 400 } as unknown as RawInput, ...ticks(400, 3)]);
-  assert.ok(Array.isArray(up));
-  assert.equal(swivels(run(rec, [held(60, 0, 500), ...ticks(500, 6)])).length > 0, true, "the view turns again once it is let go");
+  run(rec, [{ kind: "down", device: "mouse", id: 1, x: 400, y: 300, button: 0, mods, t: 20 } as unknown as RawInput]);
+  const moved = run(rec, [held(30, 0, 30), held(30, 0, 40), ...ticks(40, 6)]);
+  assert.ok(swivels(moved).length > 0, "the view turns with the mouse while the button is down");
+  assert.ok(moved.some((i) => i.type === "orbit" && i.x === 400 && i.y === 300), "the drag is worked at the crosshair");
+  const up = run(rec, [{ kind: "up", device: "mouse", id: 1, x: 400, y: 300, button: 0, mods, t: 400 } as unknown as RawInput]);
+  assert.deepEqual(up.map((i) => i.type), ["dragEnd"], "the release ends the drag and is not a click");
+  // a plain click at the crosshair is still a click
+  run(rec, [{ kind: "down", device: "mouse", id: 1, x: 400, y: 300, button: 0, mods, t: 500 } as unknown as RawInput]);
+  assert.ok(run(rec, [{ kind: "up", device: "mouse", id: 1, x: 400, y: 300, button: 0, mods, t: 510 } as unknown as RawInput]).some((i) => i.type === "click"));
+  // Alt: the pointer is free, the mouse's moves are ordinary
+  run(rec, ticks(520, 80)); // (what was left to turn is let out first)
+  run(rec, [key("Alt", true, 2000)]);
+  assert.equal(swivels(run(rec, [{ kind: "move", device: "mouse", id: 1, x: 100, y: 100, button: 0, mods, t: 2010 } as unknown as RawInput, ...ticks(2010, 4)])).length, 0, "with Alt the view does not turn");
+  run(rec, [key("Alt", false, 2100)]);
 });

@@ -32,7 +32,7 @@ import { drawnRef, formatId } from "../shared/ref.ts";
 import { objectOf, bodyCentre, figurePartsOf } from "./objects.ts";
 import { settings } from "../shared/settings.ts";
 
-export type OpKind = "extrude" | "pushpull" | "offset" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular" | "copy";
+export type OpKind = "extrude" | "pushpull" | "offset" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular" | "copy" | "hollow";
 export interface Op {
   kind: OpKind;
   /** the parts it works on: the lines or circle of a figure, a face of the body, the lines of the body, the body, or the corners of a drawn figure */
@@ -83,6 +83,8 @@ export interface Op {
   rot: [string, string, string];
   /** a scale of a body: the factor along each axis when an axis arrow has been pulled (`dec_scale_axes`); absent for the same factor every way */
   axes?: [number, number, number];
+  /** hollow: the faces left open, each as `nx,ny,nz,d,px,py,pz`, joined by `;` (`in_391`) */
+  openFaces?: string;
   /** push / pull of a round face: the face (the radius changes by the distance) */
   curved?: Curved;
   /** a round wall turned about a tilted axis (a turned body): where the axis is (`in_224`) */
@@ -107,8 +109,8 @@ export interface Op {
   unit?: string;
 }
 
-export const OP_UNIT: Record<OpKind, string> = { extrude: "mm", pushpull: "mm", offset: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm", linear: "mm", circular: "mm", copy: "mm" };
-export const OP_FIELD: Record<OpKind, string> = { extrude: "Distance", pushpull: "Distance", offset: "Offset", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", linear: "Repeat", circular: "Repeat", copy: "Repeat", dimension: "Value" };
+export const OP_UNIT: Record<OpKind, string> = { hollow: "mm", extrude: "mm", pushpull: "mm", offset: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm", linear: "mm", circular: "mm", copy: "mm" };
+export const OP_FIELD: Record<OpKind, string> = { hollow: "Wall", extrude: "Distance", pushpull: "Distance", offset: "Offset", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", linear: "Repeat", circular: "Repeat", copy: "Repeat", dimension: "Value" };
 
 export type StartResult = { ok: true; op: Op } | { ok: false; why: string };
 
@@ -159,6 +161,21 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
   // (an offset only reads the piece's outline and draws a new figure beside it, so a piece can be offset, `in_232`)
   if (["move", "rotate", "scale", "linear", "circular", "copy"].includes(kind) && parts.some((p) => p.kind === "face" && p.pieces)) return { ok: false, why: "this is one piece of a shape cut by lines, and it shares its sides with the other pieces: select the lines and points to move, turn, scale or repeat them (or extrude the piece)" };
   const base: Omit<Op, "parts"> = { kind, typed: "", value: null, axis: kind === "rotate" ? view?.normal ?? 2 : kind === "move" ? view?.right ?? 0 : 0, origin: null, normal: null, pivot: null, target: "body", plane: null, auto: false, made: false, rot: ["", "", ""], pat: [] };
+  if (kind === "hollow") {
+    // the body made hollow with the faces selected left open: the arrow stands on the first, pointing into the body, and its distance is the wall (`in_391`)
+    const flats = parts.filter((p): p is Extract<Part, { kind: "plane" }> => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.length >= 9 && !p.rounded && !p.curved);
+    if (!flats.length || flats.length !== parts.length) return { ok: false, why: "select the flat face (or faces) of the body to leave open, then make it hollow" };
+    const info = flats.map((f) => {
+      const pts: Vec3[] = [];
+      for (let i = 0; i + 2 < f.mesh!.length; i += 3) pts.push([f.mesh![i]!, f.mesh![i + 1]!, f.mesh![i + 2]!]);
+      const n = normalOfPlane(f);
+      const c = centroid(pts);
+      return { f, n, c };
+    });
+    const first = info[0]!;
+    const openFaces = info.map((x) => [...x.n, x.n[0] * x.c[0] + x.n[1] * x.c[1] + x.n[2] * x.c[2], ...x.c].map((v) => Math.round(v * 1e6) / 1e6).join(",")).join(";");
+    return { ok: true, op: { ...base, parts: flats.map((f) => f.ref), origin: first.c, normal: scale(first.n, -1), openFaces } };
+  }
   if (kind === "offset") {
     const off = offsetSource(scene, parts);
     if (!off) return { ok: false, why: "select a closed figure (straight sides or arcs), a circle, a line or a chain of sides, or the edges (or the face) of a flat face of the body, to offset" };
@@ -483,6 +500,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   if (v === null) return null;
   if (op.kind === "offset") return op.off ? offsetCommand(scene, op.off, v) : null;
   const id = nextId(scene, "s");
+  if (op.kind === "hollow") return v > 0 && op.openFaces ? { type: "addStep", step: { id, type: "hollow", parts: [], params: { thickness: v, faces: op.openFaces } } } : null;
   if (op.kind === "dimension") {
     const a = measureAction(actionsFor(scene, op.parts), (x) => x.enabled);
     return a && v > 0 ? a.run(v) : null;
@@ -639,7 +657,7 @@ function scaleShapeCommand(scene: Scene, op: Op, f: number): Command | null {
 }
 
 /** Operations that make one step and then change it as you drag or type again, until you click away: the value is the total since the operation began. */
-export const isLive = (op: Op): boolean => !op.auto && (op.kind === "extrude" || op.kind === "pushpull" || op.kind === "edge" || op.kind === "offset");
+export const isLive = (op: Op): boolean => !op.auto && (op.kind === "extrude" || op.kind === "pushpull" || op.kind === "edge" || op.kind === "offset" || op.kind === "hollow");
 
 /** A face as the figure an extrude uses: its sides (or circle) and those of each figure drawn inside it. */
 function figureOf(scene: Scene, face: Extract<Part, { kind: "face" }>): Figure {

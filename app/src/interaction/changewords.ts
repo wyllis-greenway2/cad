@@ -4,7 +4,7 @@ import type { Command } from "../operation/commands.ts";
 import type { Ref } from "../shared/ref.ts";
 import { bodyLabel } from "./panels.ts";
 
-const STEP: Record<string, string> = { extrude: "that extrusion", pushPull: "that push / pull of a face", combine: "that combining of bodies", delete: "that delete", move: "that move of a body", rotate: "that turn of a body", scale: "that scaling", edgeMod: "that fillet or chamfer", pattern: "that repeat" };
+const STEP: Record<string, string> = { extrude: "that extrusion", pushPull: "that push / pull of a face", hollow: "that hollowing", combine: "that combining of bodies", delete: "that delete", move: "that move of a body", rotate: "that turn of a body", scale: "that scaling", edgeMod: "that fillet or chamfer", pattern: "that repeat" };
 
 /** " of Body 2" for a face or body that a step works on, else nothing. */
 const ofBody = (scene: Scene, parts: readonly Ref[]): string => {

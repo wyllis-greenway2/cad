@@ -22,8 +22,9 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   const fly = new Set<string>();
   let game = false;
   let spaceUsed = false; // (a button was pressed while Space was held: that was a pan, not a switch)
-  let rightUp = false;
-  let virtual: [number, number] | null = null; // (where a dragged pointer is in game mode, `in_386`)
+  let freed = false; // (Alt held in game mode: the pointer is let go, `in_391`)
+  let dragged = 0;
+  let gameDragged = false;
   let centre: [number, number] | null = null; // (where the pointer is held in game mode: the middle of the screen)
   let flyAt = 0;
   const vel = { f: 0, r: 0 };
@@ -36,14 +37,15 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   function feed(e: RawInput): Intent[] {
     switch (e.kind) {
       case "key":
+        if (e.key === "Alt") { freed = e.down && game; return []; }
         if (e.key === " ") {
           if (e.down) { if (!space) spaceUsed = false; space = true; return []; }
           space = false;
-          if (!spaceUsed) { if (game) { game = false; fly.clear(); } else { game = true; flyAt = e.t; pend.x = pend.y = 0; } }
+          if (!spaceUsed) { if (game) { game = false; freed = false; gameDragged = false; fly.clear(); } else { game = true; flyAt = e.t; pend.x = pend.y = 0; } }
           return [];
         }
         if (game && /^[wasd]$/i.test(e.key) && !e.mods.ctrl && !e.mods.alt) { const k = e.key.toLowerCase(); if (e.down) fly.add(k); else fly.delete(k); return []; }
-        if (game && e.down && e.key === "Escape") { game = false; fly.clear(); return []; }
+        if (game && e.down && e.key === "Escape") { game = false; freed = false; gameDragged = false; fly.clear(); return []; }
         return e.down ? keyIntents(e, I) : [];
       case "wheel": return scroll.wheel(e);
       case "gesture": return scroll.gesture(e);
@@ -63,27 +65,27 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
           const [dx, dy] = [pend.x * m, pend.y * m];
           pend.x -= dx; pend.y -= dy;
           if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) out.push({ type: "swivel", dx, dy });
-          if (out.length && game && centre) out.push({ type: "hover", x: centre[0], y: centre[1] }); // (the view moved under the pointer that is held at the middle: what it is over changes)
+          if (out.length && game && centre && !freed) out.push(gameDragged ? { type: "orbit", dx: 0, dy: 0, x: centre[0], y: centre[1] } : { type: "hover", x: centre[0], y: centre[1] }); // (the view moved under the pointer that is held at the middle: what it is over changes, and a drag in hand follows the crosshair, `in_391`)
         }
         return [...out, ...touch.tick(e.t), ...mouse.tick(e.t)];
       }
       default: {
         if (e.device === "touch") return touch.pointer(e);
         if (e.kind === "down" && space) spaceUsed = true;
-        if (e.kind === "down" && game && e.button === 2) { game = false; fly.clear(); rightUp = true; return []; } // (a right click ends game mode)
-        if (e.kind === "up" && rightUp) { rightUp = false; return []; }
+        if (freed) { last = [e.x, e.y]; return mouse(e); } // (Alt: the pointer is free to use the bubbles and icons, `in_391`)
         if (e.kind === "down") buttons++; else if ((e.kind === "up" || e.kind === "cancel") && buttons > 0) buttons--;
-        if (e.kind === "down" && game) virtual = [e.x, e.y]; // (a button pressed in game mode: from here the mouse's movement moves the pointer, as it does outside the mode, until it is let go, `in_386`)
-        if (e.kind === "move" && game && e.dx !== undefined) { // (the pointer is held at the middle: with no button the mouse's movement turns the view; a click is a click at the middle, `in_304`)
+        if (e.kind === "move" && game && e.dx !== undefined) { // (the pointer is held at the middle, `in_304`)
           centre = [e.x, e.y];
-          if (buttons > 0 && virtual) { // (a drag: it works what is under the pointer, push / pull, a fillet, anything, the same as a drag outside the mode)
-            virtual = [Math.max(0, virtual[0] + e.dx), Math.max(0, virtual[1] + e.dy!)];
-            return mouse({ ...e, x: virtual[0], y: virtual[1], dx: undefined, dy: undefined });
+          pend.x += e.dx * I.flyLookScale; pend.y += e.dy! * I.flyLookScale; // (the mouse turns the view, with a button down too: what is being worked follows the crosshair)
+          if (buttons > 0) {
+            dragged += Math.abs(e.dx) + Math.abs(e.dy!);
+            if (dragged > 3 || gameDragged) { gameDragged = true; return [{ type: "orbit", dx: 0, dy: 0, x: e.x, y: e.y }]; } // (a drag begun at the crosshair: the same drag as outside the mode, worked from where the crosshair is)
+            return [];
           }
-          pend.x += e.dx * I.flyLookScale; pend.y += e.dy! * I.flyLookScale;
           return [{ type: "hover", x: e.x, y: e.y }];
         }
-        if (e.kind === "up" && game && virtual) { const at = virtual; virtual = null; return mouse({ ...e, x: at[0], y: at[1] }); }
+        if (e.kind === "down" && game) { dragged = 0; gameDragged = false; }
+        if ((e.kind === "up" || e.kind === "cancel") && game && gameDragged) { gameDragged = false; dragged = 0; mouse({ ...e, kind: "cancel" }); return [{ type: "dragEnd" }]; } // (a drag is over; it is no click)
         if (e.kind === "move" && game && !buttons && last) { pend.x += (e.x - last[0]) * I.flyLookScale; pend.y += (e.y - last[1]) * I.flyLookScale; last = [e.x, e.y]; return []; }
         last = [e.x, e.y];
         return mouse(e);

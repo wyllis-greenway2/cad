@@ -47,7 +47,7 @@ export function gizmoOf(s: AppState): Gizmo | null {
   const g0 = op ? gizmoFor(sceneOf(s.session), op, s.cam) : null;
   const g = g0; // (a linear repeat shows all three arrows from the start, `in_382`; the helper bubbles only point at one)
   // the arrow of a push / pull or an extrude stands where the face is now: out by the value so far (it stays there when you let go, until the operation ends)
-  const shown = g && op && op.normal && (op.kind === "pushpull" || op.kind === "extrude" || op.kind === "offset") ? followed(g, { dir: op.normal, kind: "double", id: "pull" }, op.value) : g;
+  const shown = g && op && op.normal && (op.kind === "pushpull" || op.kind === "extrude" || op.kind === "offset" || op.kind === "hollow") ? followed(g, { dir: op.normal, kind: "double", id: "pull" }, op.value) : g;
   // a body that is free to turn and slide on a mate has the ring and the arrow of its joint as well (`in_323`)
   const sel = selectionOf(s.session);
   const joint = !s.op && !s.repeat && sel.length === 1 ? jointHandles(sceneOf(s.session), sel[0]!, s.cam) : [];
@@ -99,7 +99,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
       return { ...s, handleSel: h!.id, repeat: { ...s.repeat, chosen: h!.id }, drag: { handle: d, base: patternBase(liveRepeat(sceneOf(s.session), s.repeat), h!.id), repeat: true }, gizmoHover: h!.id };
     }
     const started = s.op ?? activeOp(s)!;
-    const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" ? { ...started, auto: false } : started;
+    const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" ? { ...started, auto: false } : started;
     s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
   }
   if ("handle" in s.drag! && s.drag.joint) {

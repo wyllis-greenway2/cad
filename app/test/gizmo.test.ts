@@ -1717,3 +1717,30 @@ test("a block with a fillet on an upright edge is stretched along X: the fillet 
   near(b.max[0] - b.min[0], 2 * (before.max[0] - before.min[0]), 1e-4);
   assert.ok(Object.values(scene(made).parts).some((p) => p.kind === "plane" && p.origin === "body" && (p.rounded || p.curved)), "the fillet's surface is still there");
 });
+
+test("the tape measure goes when what it was applied to is let go or another thing is chosen (`in_391`)", () => {
+  const s = box();
+  const faces = Object.values(scene(s.session).parts).filter((p) => p.kind === "plane" && p.origin === "body" && p.mesh);
+  let st = select(s, [faces[0]!.ref]);
+  st = reduce(st, { type: "runAction", id: "tape:measure" }, env);
+  assert.equal(st.tape, true);
+  st = reduce(st, { type: "click", x: 5, y: 5, count: 1, shift: false }, env); // (a click on nothing)
+  assert.equal(st.session.click.selection.length, 0);
+  assert.equal(st.tape, false, "deselected: the tape is put away");
+});
+
+test("Hollow: with a face selected it leaves that face open; its arrow points into the body and its distance, dragged or typed, is the wall (`in_391`)", () => {
+  let st = box(); // 40 x 20 x 20
+  const top = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.every((_, i) => i % 3 !== 2 || Math.abs(p.mesh![i]! - 20) < 1e-6))!;
+  st = select(st, [top.ref]);
+  st = reduce(st, { type: "runAction", id: "op:hollow" }, env);
+  assert.equal(st.op?.kind, "hollow");
+  st = reduce(st, { type: "entry", field: 0, text: "2" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  assert.equal(scene(st.session).steps.at(-1)!.type, "hollow");
+  near(st.session.outcome.kernel!.volume!, 16000 - 36 * 16 * 18, 1);
+  // nothing selected, or a round face: refused with the reason
+  const none = reduce(box(), { type: "runAction", id: "op:hollow" }, env);
+  assert.match(none.session.message ?? "", /face/);
+});

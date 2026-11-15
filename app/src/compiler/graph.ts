@@ -80,6 +80,16 @@ export function buildGraph(scene: Scene): GraphResult {
         prev = xid;
         break;
       }
+      case "hollow": {
+        // the body made hollow, the faces named left open (`in_391`): the wall is `thickness` thick, inside the body
+        if (!prev) { errors[st.id] = "there is no body yet"; break; }
+        const p = st.params;
+        const refs = String(p.faces ?? "").split(";").filter(Boolean).map((f) => { const [nx, ny, nz, fd, px, py, pz] = f.split(",").map(Number); return { n: [nx, ny, nz], d: fd, point: [px, py, pz] }; });
+        if (!refs.length) { errors[st.id] = "choose the face to leave open"; break; }
+        ops.push({ id: xid, type: "shell", target: prev, thickness: Number(p.thickness ?? 0), refs });
+        prev = xid;
+        break;
+      }
       case "pushPull": {
         // push or pull a flat face of the body along its normal: out adds material, in cuts it (the same helper arrow as an extrude)
         if (!prev) { errors[st.id] = "there is no body yet"; break; }

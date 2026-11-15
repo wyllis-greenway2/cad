@@ -131,7 +131,7 @@ export function moveOffset(scene: Scene, op: Op): Vec3 {
 /** The handles for the operation that is being set up (or whose handle shows up by itself), sized to the view (about a sixth of the view distance). */
 export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
   const L = cam.distance * settings.gizmo.sizeOfView;
-  if ((op.kind === "extrude" || op.kind === "pushpull" || op.kind === "offset") && op.origin && op.normal) {
+  if ((op.kind === "extrude" || op.kind === "pushpull" || op.kind === "offset" || op.kind === "hollow") && op.origin && op.normal) {
     // the arrow normal to the figure or the face, pointing both ways: drag it out to pull, in to push
     return { centre: op.origin, handles: [{ id: "pull", kind: "double", axis: null, points: [add(op.origin, scale(op.normal, -HALF * L)), add(op.origin, scale(op.normal, HALF * L))] }] };
   }

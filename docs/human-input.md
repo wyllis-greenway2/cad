@@ -1836,3 +1836,9 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_390 — 2026-11-15 — directive
 > do the not built yet stuff please
 (asks for what Handoff 368 listed as not built for the stretch: one body of several, a bubble for each axis, a stretch with fillets, and a drawn figure's stretch)
+
+## in_391 — 2026-11-15 — directive
+> The tape measure tool should only show once per selected thing when it was applied and go away on deselect.When in game mode, I cant actually interact with bubbles as normal. I cant click on real or suggested icons, I can click to input dimension values etc, also when manipulating things, the camera stops following the cursor, I think it should still folow the cursor with the cursor kept in the center of the screen. Also lets have it so that right click no longer exits game mode. Also lets have it so that game mode can be entered into and exited from via the eye menu icon area.
+> 
+> Can we offer a hollow tool?
+(asks: the tape measure shows once for what was selected when applied and goes on deselect; game mode: bubbles and icons usable, the camera follows the cursor kept at the centre while manipulating, right click no longer exits, enter and exit from the eye menu; a hollow tool)

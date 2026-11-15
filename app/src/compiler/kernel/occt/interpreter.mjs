@@ -726,9 +726,16 @@ const OPS = {
   shell(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;
     const th = resolve(op.thickness, ctx.params);
+    if (!(th > 1e-6)) throw new Error("the wall must be thicker than nothing");
+    // the faces left open: named by where they were (`op.refs`, as a push / pull names a face), or by a query
+    if (op.refs) {
+      const open = op.refs.map((r) => findFace(t, r));
+      const hashes = new Set(open.map((f) => f.hashCode));
+      return { kind: "solid", shape: t.shell(th, (f) => f.when(({ element }) => hashes.has(element.hashCode))) };
+    }
     const faces = selectFaces(t, op.remove);
-    const picked = new Set(faces);
-    return { kind: "solid", shape: t.shell({ filter: (f) => f.when(({ element }) => picked.has(element)), thickness: th }) };
+    const picked = new Set(faces.map((f) => f.hashCode));
+    return { kind: "solid", shape: t.shell(th, (f) => f.when(({ element }) => picked.has(element.hashCode))) };
   },
 };
 

@@ -31,7 +31,7 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     const v = valueOf(op);
     const axis = op.kind === "move" || op.kind === "rotate" ? ` ${"XYZ"[op.axis]}` : "";
     // an edge is a fillet one way and a chamfer the other
-    const label = op.kind === "edge" ? (v !== null && v < 0 ? "Chamfer" : "Fillet") : op.dim ? (op.curved ? "Diameter" : op.kind === "pushpull" ? "Size" : "Distance") : (op.field ?? OP_FIELD[op.kind]) + axis;
+    const label = op.kind === "edge" ? (v !== null && v < 0 ? "Chamfer" : "Fillet") : op.dim ? (op.curved ? "Diameter" : op.kind === "pushpull" ? "Size" : op.kind === "hollow" ? "Wall" : "Distance") : (op.field ?? OP_FIELD[op.kind]) + axis;
     const size = sizeShown(op); // a push / pull or an extrude shows the size (the thickness, the diameter) you are making, and a typed size is that size
     const shown = size !== null ? size : op.kind === "edge" && v !== null ? Math.abs(v) : v;
     return { fields: [{ label, ...(op.curved ? { short: "Ø" } : {}), value: op.typed !== "" ? op.typed.replace(/^-/, "") : shown === null ? "0" : roundedText(shown), active: true, typed: op.typed !== "" }], unit: op.unit ?? OP_UNIT[op.kind] };

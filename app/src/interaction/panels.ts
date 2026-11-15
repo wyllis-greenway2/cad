@@ -14,6 +14,7 @@ function stepLabel(st: Step): string {
   const p = st.params;
   switch (st.type) {
     case "extrude": return `Extrude ${n(p.depth)} mm`;
+    case "hollow": return `Hollow, ${n(p.thickness)} mm walls`;
     case "pushPull": return `Push / pull ${n(p.depth)} mm`;
     case "edgeMod": return `${p.mode === "chamfer" ? "Chamfer" : "Fillet"} ${n(p.value)} mm`;
     case "combine": return `${p.mode === "subtract" ? "Subtract" : p.mode === "intersect" ? "Intersect" : "Add"} bodies${Number(p.keep) === 1 ? " (tools kept)" : ""}`;
