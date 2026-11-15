@@ -1,4 +1,4 @@
-// Deleting a body that took part in a combine (`in_432`): a tool that was kept leaves the cut it made; the body that was cut takes the combine with it.
+// Deleting a body that took part in a combine (`in_436`): a tool that was kept leaves the cut it made; the body that was cut takes the combine with it.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";

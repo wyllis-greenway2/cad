@@ -31,7 +31,7 @@ export interface Relation {
 /** A step of the history of building: extrude, round or bevel, move, rotate, scale, delete. It names the parts it uses by ref. */
 export interface Step {
   id: string;
-  type: "extrude" | "pushPull" | "edgeMod" | "move" | "rotate" | "scale" | "pattern" | "combine" | "hollow" | "revolve" | "delete";
+  type: "extrude" | "pushPull" | "edgeMod" | "move" | "rotate" | "scale" | "pattern" | "combine" | "hollow" | "revolve" | "loft" | "delete";
   parts: Ref[];
   params: Record<string, number | string>;
 }
@@ -62,7 +62,7 @@ export function figureParams(figs: Figure[]): Record<string, string> {
   return out;
 }
 /** A step made from drawn figures (an extrude, a revolve): its figures are used up by it. */
-export const usesFigures = (st: Step): boolean => st.type === "extrude" || st.type === "revolve";
+export const usesFigures = (st: Step): boolean => st.type === "extrude" || st.type === "revolve" || st.type === "loft";
 /** Every ref an extrude step stands on: its figures' sides and circles, holes and siblings too. */
 export const figureRefs = (st: Step): Ref[] => figuresOf(st).flatMap((f) => [...f.outer, ...f.holes.flat()]);
 export interface Scene {
@@ -77,7 +77,7 @@ export interface Scene {
   reveal?: Ref;
   /** A figure moved on a plane of its own keeps that plane under its own name; the name the command gave to a new plane is kept here as another name for it, so a history made when a move made a new plane (more parts were left on the old plane then) still replays (`in_372`) */
   planeAlias?: Readonly<Record<string, Ref>>;
-  /** derived, not saved: for each cut step, the bodies (their names) it took material from, as the kernel found when it made them (`in_432`): deleting a body takes out the cuts made only in it */
+  /** derived, not saved: for each cut step, the bodies (their names) it took material from, as the kernel found when it made them (`in_436`): deleting a body takes out the cuts made only in it */
   cutOf?: Readonly<Record<string, readonly string[]>>;
   /** Id counter: ids are never reused, so replaying a command list gives the same names. */
   counter: number;

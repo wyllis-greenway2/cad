@@ -13,8 +13,8 @@ import { figureRefs } from "./scene.ts";
 import type { Part } from "./part.ts";
 import { normalOfPlane } from "./part.ts";
 
-/** `params` are the numbers of the repeat tool: linear [nX, dX, nY, dY, nZ, dZ] (how many along each axis, how far apart), circular [count, degrees, axis (0 X, 1 Y, 2 Z), x, y, z of the point it turns about]. */
-export interface PatternRecord { id: string; kind: "linear" | "circular"; parts: Ref[]; plane: Ref; params: number[] }
+/** `params` are the numbers of the repeat tool (a mirror: the mirror plane, [x, y, z of a point on it, then its normal]): linear [nX, dX, nY, dY, nZ, dZ] (how many along each axis, how far apart), circular [count, degrees, axis (0 X, 1 Y, 2 Z), x, y, z of the point it turns about]. */
+export interface PatternRecord { id: string; kind: "linear" | "circular" | "mirror"; parts: Ref[]; plane: Ref; params: number[] }
 
 export const patternsOf = (s: Scene): readonly PatternRecord[] => s.patterns ?? [];
 const MOST = 200;
@@ -40,6 +40,17 @@ export function placements(kind: "linear" | "circular", v: readonly number[]): P
 }
 const turnVec = (v: Vec3, axis: 0 | 1 | 2, angle: number): Vec3 => { const m = about(axis, angle); return [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2], m[6] * v[0] + m[7] * v[1] + m[8] * v[2]]; };
 
+/** The reflection in the plane through a point with a normal (`params`: the point, then the normal), as the one map a mirror's copy is made by. */
+function mirrorMaps(v: readonly number[]): { place: (p: Vec3) => Vec3; vec: (v: Vec3) => Vec3; mirror: true }[] {
+  if (v.length < 6) return [];
+  const q: Vec3 = [v[0]!, v[1]!, v[2]!];
+  const l = Math.hypot(v[3]!, v[4]!, v[5]!);
+  if (l < 1e-12) return [];
+  const n: Vec3 = [v[3]! / l, v[4]! / l, v[5]! / l];
+  const flip = (w: Vec3, o: Vec3): Vec3 => { const d = 2 * dot(sub(w, o), n); return [w[0] - d * n[0], w[1] - d * n[1], w[2] - d * n[2]]; };
+  return [{ place: (p) => flip(p, q), vec: (w) => flip(w, [0, 0, 0]), mirror: true }];
+}
+
 const nameOf = (id: string, k: number, r: Ref): Ref => drawnRef(`${id}.c${k}_${r.slice(2).replace(/[./]/g, "_")}`);
 const planeName = (id: string, k: number): Ref => drawnRef(`${id}.p${k}`);
 /** Whether this part is made by the repeat `id` (a copy, or a plane of one). */
@@ -53,13 +64,20 @@ function copiesOf(s: Scene, rec: PatternRecord): Part[] {
   const corners = new Set(sources.filter((p) => p.kind === "corner").map((p) => p.ref));
   const n0 = normalOfPlane(plane);
   const out: Part[] = [];
-  placements(rec.kind, rec.params).forEach((c, k) => {
-    const place = (p: Vec3): Vec3 => (c.turn ? add(c.turn.pivot, turnVec(sub(p, c.turn.pivot), c.turn.axis, c.turn.angle)) : add(p, c.move));
+  // each copy is a map of points and of directions: a move, a turn about a point, or (a mirror) a reflection in a plane (`in_433`)
+  const maps: { place: (p: Vec3) => Vec3; vec: (v: Vec3) => Vec3; mirror?: boolean }[] = rec.kind === "mirror" ? mirrorMaps(rec.params) : placements(rec.kind, rec.params).map((c) => ({
+    place: (p: Vec3): Vec3 => (c.turn ? add(c.turn.pivot, turnVec(sub(p, c.turn.pivot), c.turn.axis, c.turn.angle)) : add(p, c.move)),
+    vec: (v: Vec3): Vec3 => (c.turn ? turnVec(v, c.turn.axis, c.turn.angle) : v),
+  }));
+  maps.forEach((c, k) => {
+    const place = c.place;
     const at2 = place(plane.at);
-    const u2 = c.turn ? turnVec(plane.u, c.turn.axis, c.turn.angle) : plane.u;
-    const v2 = c.turn ? turnVec(plane.v, c.turn.axis, c.turn.angle) : plane.v;
-    const n2 = c.turn ? turnVec(n0, c.turn.axis, c.turn.angle) : n0;
-    const same = Math.abs(dot(n2, n0) - 1) < 1e-9 && Math.abs(dot(sub(at2, plane.at), n0)) < 1e-9;
+    const u2 = c.vec(plane.u);
+    const v2 = c.vec(plane.v);
+    const n2 = c.mirror ? normalOfPlane({ ...plane, u: u2, v: v2 }) : c.vec(n0);
+    const same = Math.abs(Math.abs(dot(n2, n0)) - 1) < 1e-9 && Math.abs(dot(sub(at2, plane.at), n0)) < 1e-9;
+    // a reflection across a plane that cuts the figure's own plane turns the drawing over: an arc goes the other way round (`in_433`)
+    const turnedOver = !!c.mirror && same && (dot(u2, plane.u) * dot(v2, plane.v) - dot(u2, plane.v) * dot(v2, plane.u)) < 0;
     let target: Ref = plane.ref;
     if (!same) {
       target = planeName(rec.id, k);
@@ -68,7 +86,7 @@ function copiesOf(s: Scene, rec: PatternRecord): Part[] {
     const base = { origin: "drawn" as const, plane: target, movable: false };
     for (const p of sources) if (p.kind === "corner") out.push({ ...base, ref: nameOf(rec.id, k, p.ref), kind: "corner", at: place(p.at) });
     for (const p of sources) {
-      if (p.kind === "line" && corners.has(p.a) && corners.has(p.b) && (!p.center || corners.has(p.center))) out.push({ ...base, ref: nameOf(rec.id, k, p.ref), kind: "line", a: nameOf(rec.id, k, p.a), b: nameOf(rec.id, k, p.b), ...(p.bulge ? { bulge: p.bulge } : {}), ...(p.center ? { center: nameOf(rec.id, k, p.center), ccw: p.ccw } : {}) });
+      if (p.kind === "line" && corners.has(p.a) && corners.has(p.b) && (!p.center || corners.has(p.center))) out.push({ ...base, ref: nameOf(rec.id, k, p.ref), kind: "line", a: nameOf(rec.id, k, p.a), b: nameOf(rec.id, k, p.b), ...(p.bulge ? { bulge: turnedOver ? -p.bulge : p.bulge } : {}), ...(p.center ? { center: nameOf(rec.id, k, p.center), ccw: turnedOver ? !p.ccw : p.ccw } : {}) });
       else if (p.kind === "circle" && corners.has(p.center)) out.push({ ...base, ref: nameOf(rec.id, k, p.ref), kind: "circle", center: nameOf(rec.id, k, p.center), radius: p.radius });
     }
   });

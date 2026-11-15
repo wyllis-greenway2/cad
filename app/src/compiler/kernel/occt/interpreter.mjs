@@ -380,6 +380,29 @@ const OPS = {
     return { kind: "sketch", drawing, plane: op.plane ?? "XY", origin: p("origin") ?? 0 };
   },
 
+  /** Sketches joined side to side (`dec_loft_sketches`): smooth through all of them, or ruled (straight between each two); holes are lofted the same way and cut out. */
+  loft(op, ctx) {
+    const sketchOf = (h) => {
+      const q = ctx.get(h, "sketch");
+      return typeof q.plane === "string" ? q.drawing.sketchOnPlane(q.plane, q.origin ?? 0) : q.drawing.sketchOnPlane(q.plane, q.origin);
+    };
+    const through = (ids) => { const sk = ids.map(sketchOf); return sk[0].loftWith(sk.slice(1), { ruled: !op.smooth }); };
+    let solid = through(op.sections.map((s) => s.profile));
+    if (!isValidSolid(solid)) throw new Error("the loft could not be made through those sketches (try turning an outline round with its start point, or reverse one)");
+    const holes = op.sections[0].holes?.length ?? 0;
+    for (let i = 0; i < holes; i++) solid = solid.cut(through(op.sections.map((s) => s.holes[i])));
+    if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the loft when its holes were cut");
+    const target = op.target ? ctx.get(op.target, "solid").shape : null;
+    if (!target) return { kind: "solid", shape: solid };
+    if (op.mode === "cutOrAdd") {
+      const before = measureVolume(target);
+      try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut }; } catch { /* a join instead */ }
+      return { kind: "solid", shape: target.fuse(solid) };
+    }
+    if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
+    return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
+  },
+
   extrude(op, ctx) {
     const dist = resolve(op.distance, ctx.params);
     // a cut that starts on a face of the body (a figure drawn on the face and pushed in) has its tool begin a little behind that face, in the air: begun exactly on it, the kernel leaves the face as a skin over the pocket,
@@ -690,11 +713,24 @@ const OPS = {
         if (!set) throw new Error("line not found (the model changed since this step was made)");
         if (rel && edgesOf(t).some((x) => set.has(x.hashCode) && x.geomType === "CIRCLE" && Math.hypot(x.startPoint.x - x.endPoint.x, x.startPoint.y - x.endPoint.y, x.startPoint.z - x.endPoint.z) > 1e-6)) throw Object.assign(new Error("a rim made of two halves cannot change its size round it yet: it can when it is one closed edge"), { final: true });
         if (rel && op.mode === "chamfer") throw new Error("the library has no chamfer that changes along the edge"); // (it is made as a region, below)
+        if (op.dist2) { // a chamfer with a distance along each face (`dec_chamfer_two_distances`): `size` along the named face, `dist2` along the other
+          const face = op.face ? findFace(t, op.face) : null;
+          if (!face) throw Object.assign(new Error("the face the first distance is measured along is not there (the model changed since this step was made)"), { final: true });
+          const { n: fn, d: fd } = refPlane(op.face);
+          const off = (pt) => Math.abs(fn[0] * pt.x + fn[1] * pt.y + fn[2] * pt.z - fd);
+          if (edgesOf(t).some((x) => set.has(x.hashCode) && (off(x.startPoint) > 1e-3 || off(x.endPoint) > 1e-3))) throw Object.assign(new Error("an edge selected does not lie on the face the first distance is measured along: select edges of one face"), { final: true });
+          const second = resolve(op.dist2, ctx.params);
+          const two = t.chamfer({ distances: [size, second], selectedFace: (ff) => ff.when(({ element }) => element.hashCode === face.hashCode) }, pick);
+          if (!isValidSolid(two) || Math.abs(measureVolume(two) - measureVolume(t)) < 1e-9 * measureVolume(t)) throw new Error("the kernel made nothing of it");
+          return two;
+        }
         const made = op.mode === "chamfer" ? t.chamfer(size, pick) : rel && rel.length > 2 ? lawFillet(t, set, stationsFor(size)) : t.fillet(rel ? [size, size * rel[1][1]] : size, pick);
         if (!isValidSolid(made)) throw new Error("kernel returned an invalid solid"); // (a size the faces cannot take can come out as a broken solid, not an exception)
         if (Math.abs(measureVolume(made) - measureVolume(t)) < 1e-9 * measureVolume(t)) throw new Error("the kernel made nothing of it"); // (a size it cannot take can come out as the body unchanged)
         return made;
       } catch (e) {
+        // two distances have no region to fall back on (`dec_chamfer_two_distances`): refused, with the reason
+        if (op.dist2) throw e.final ? e : Object.assign(new Error(`a chamfer of ${size} mm along that face and ${resolve(op.dist2, ctx.params)} mm along the other could not be made here (the kernel: ${e.message}); try smaller distances, or an edge that lies on that face`), { final: true });
         // straight edges between flat faces: the corner is made as a region that is cut or added, which has no size that fails (`in_405`, `dec_edits_saturate`)
         const region = neighbours && set ? regionRound(t, set, size, op.mode, stationsFor(size)) : null;
         if (region === "empty") throw Object.assign(new Error(`a ${op.mode === "chamfer" ? "chamfer" : "fillet"} of that size would take all of the body`), { final: true });
@@ -811,6 +847,15 @@ const OPS = {
       let plane = along(1, n[1], row);
       return { kind: "solid", shape: again(along(2, n[2], plane)) };
     }
+    if (op.mode === "mirror") {
+      // the body and its reflection in a plane (`in_433`): joined where they touch, else two bodies
+      const l = Math.hypot(...op.normal);
+      if (!(l > 1e-12)) throw new Error("the mirror plane has no direction");
+      const copy = t.clone().mirror(op.normal.map((x) => x / l), op.point);
+      const both = out.fuse(copy);
+      if (!isValidSolid(both)) throw new Error("the mirror copy could not be joined to the body");
+      return { kind: "solid", shape: again(both) };
+    }
     if (op.mode === "circular") {
       const count = Math.max(1, Math.round(resolve(op.count, ctx.params)));
       const angle = resolve(op.angle, ctx.params);
@@ -880,7 +925,7 @@ const OPS = {
       return { kind: "solid", shape: makeCompound([...found.rest, ...result]), first: op.bodies[0] };
     }
     const [first, ...others] = found.picked;
-    const drop = new Set(op.drop ?? []); // (tools that were kept but have been deleted since: the cut they made stays, they do not, `in_432`)
+    const drop = new Set(op.drop ?? []); // (tools that were kept but have been deleted since: the cut they made stays, they do not, `in_436`)
     const kept = op.keep && op.mode !== "add" ? others.filter((_, i) => !drop.has(op.bodies[i + 1])).map((o) => o.clone()) : []; // (a boolean uses up what it is given: the tools that stay are copied first)
     let made = first;
     for (const o of others) made = op.mode === "subtract" ? made.cut(o) : op.mode === "intersect" ? made.intersect(o) : made.fuse(o);
@@ -943,7 +988,7 @@ const OPS = {
   },
 };
 
-/** The bodies (their names) that a tool cuts into: the ones it takes material from (`in_432`: deleting a body takes out the cuts made only in it). */
+/** The bodies (their names) that a tool cuts into: the ones it takes material from (`in_436`: deleting a body takes out the cuts made only in it). */
 function cutInto(value, tool) {
   const markers = value.markers ?? [];
   const lumps = lumpsOf(value.shape);
@@ -957,7 +1002,7 @@ function cutInto(value, tool) {
   return hit;
 }
 
-/** The body and a piece added to it, and what that was: a piece that stands apart is a body of its own (`new`), one that touches it joins it (`add`); said, so that a step that did not say can be made to (`in_432`). */
+/** The body and a piece added to it, and what that was: a piece that stands apart is a body of its own (`new`), one that touches it joins it (`add`); said, so that a step that did not say can be made to (`in_436`). */
 function joined(target, solid) {
   const shape = target.fuse(solid);
   const used = (shape.solids?.length ?? 1) > (target.solids?.length ?? 1) ? "new" : "add";

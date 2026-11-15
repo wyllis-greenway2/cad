@@ -155,7 +155,7 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
         const ids = new Set(whole.map((r) => (get(r) as { id?: string }).id).filter((x): x is string => !!x));
         const some = all.length > 1 && ids.size > 0 && ids.size < all.length;
         const mine = (st: Scene["steps"][number]): boolean => !some || [...ids].some((id) => st.id === id.replace(/^x_/, "") || st.params.body === id);
-        // the cuts that were made only in the bodies that go are taken out with them: they have nothing left to cut (`in_432`); a cut that also took material from another body stays
+        // the cuts that were made only in the bodies that go are taken out with them: they have nothing left to cut (`in_436`); a cut that also took material from another body stays
         const onlyHere = (st: Scene["steps"][number]): boolean => { const into = scene.cutOf?.[st.id]; return !!into && into.length > 0 && into.every((b) => ids.has(b)); };
         // a body that was kept as the tool of a subtraction or intersection and is deleted leaves the cut it made (the combine drops it, its own steps stay); one that was the body cut loses the combine too (it has nothing to work on)
         const combines = scene.steps.filter((st) => st.type === "combine" && (st.params.mode === "subtract" || st.params.mode === "intersect") && Number(st.params.keep) === 1);

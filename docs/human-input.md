@@ -2003,18 +2003,41 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > support several figures at once
 (asks that a revolve take several figures selected together, the last thing `dec_spiral_extrude` listed as not built)
 
-## in_431 — 2026-11-15 — directive
+## in_431 — 2026-11-15 — question
+> Can we offer a new type of chamfer that is distance distance instead of the default equal distance? 
+> 
+> Can we offer loft through sketches? if so, how should that work on complext sketch shape changes over the loft?
+(asks for a chamfer with two distances, one along each face, besides the equal-distance chamfer; and whether a loft through sketches can be offered, and how it should handle sketches whose shapes differ in complexity)
+
+## in_432 — 2026-11-15 — approval
+> Yes build both as you recommended
+(approves building both as recommended in `q_chamfer_two_distances` and `q_loft_sketches`: the chamfer with a distance along each face, the face for the first distance picked by the person with a swap, a second field in the bubble, the region fallbacks equal only and a refusal with the reason otherwise; and the loft through sketches, the simple loft with start points shown and draggable, refusal of unequal part counts with a split-to-match offer, holes matched by position, a single point allowed at an end, no guides, tangents or looped loft in the first version)
+
+## in_433 — 2026-11-15 — directive
+> when there is a sketch over one of the world view panes sitting around the xyz arrows, then the pane is not really selectable anymore. 
+> Lets make the rotate extrude simpler. It should just default to 360 rotation with 0 perpendicular (for spring twist etc). you should just be able to select an edge that you want to rotate on, or just position the rotate tool. 
+> 
+> Can we introduce a mirror copy method? it should be able to work on either sketches or bodies.
+(asks: a world view pane stays selectable when a sketch lies over it; the revolve to default to a full 360 turn with no advance, the axis being a selected edge or the positioned rotate tool; a mirror copy for sketches and for bodies)
+
+## in_434 — 2026-11-15 — directive
+> when the mover is in orient mode, it is hard to tell if the bubbles are reffering to xyz position, or zyx rotation, buecause both are shown. As far as I can tell it is always just zyx position and rotation is not shown at all. Can we have the same three bubbles show a x value and x rotation as well? Also can we have degree values always have a degree mark on them systemwide? 
+> 
+> Normally constraints and the items they belong to are supposed to flash red when they are being violated. For example an edge constraint bubble and its edge both flash when it is being violated. Surface constraints dont seem to do this? can we have surfaces and flash red with their constraint bubbles? Also can we check that verticy constraints operate the same way? It should be the standard way that constraints and what they are attached to both flash red.
+(asks: in the mover's orient mode each of the three bubbles shows its axis's position and its rotation, so it is plain which is which; a degree mark on every degree value across the app; a constraint's surfaces (and vertices) to flash red together with its bubble when it is violated, as an edge does)
+
+## in_435 — 2026-11-15 — directive
 > okay your work has all been merged
 (the branch `claude/hopeful-cannon-3` is merged; work goes on a new branch, `claude/hopeful-cannon-4`, from the merged base)
 
-## in_432 — 2026-11-15 — directive
+## in_436 — 2026-11-15 — directive
 > I found another bug, if you delete the square in this file, it makes a hollow version of the cylinder? also if you increase the diameter of the cylinder, it deletes it?
-(two files attached: a state snapshot and `model.cad_48.json`, kept as `app/test/fixtures/cylinder-in-hole-in_432.cad.json`)
+(two files attached: a state snapshot and `model.cad_48.json`, kept as `app/test/fixtures/cylinder-in-hole-in_436.cad.json`)
 
-## in_433 — 2026-11-15 — question
+## in_437 — 2026-11-15 — question
 > would it make sense to delete the cuts made in a body when it is deleted? since those cuts no longer have any body to belong to? or are you saying the cuts made in other bodies with the deleted body? because if that is the case, we want the cuts to remain even if the body that cut them is later deleted I believe. What do you think?
 (asks which cuts should go when a body is deleted: the cuts made in it should go; the cuts it made in other bodies should stay)
 
-## in_434 — 2026-11-15 — approval
+## in_438 — 2026-11-15 — approval
 > yes build it and check the combine case first
 (approves the proposal: cuts made only in a deleted body go with it, and the combine case is checked first)

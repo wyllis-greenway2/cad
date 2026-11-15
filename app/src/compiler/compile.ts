@@ -22,7 +22,7 @@ export interface CompileOutcome {
   problems?: Record<string, Ref[]>;
   /** Step id -> something to say about a step that was made (a fillet or chamfer that was made together with the edges meeting it at a corner, `in_379`) */
   notes?: Record<string, string>;
-  /** Step id -> what an extrusion or revolve that did not say whether it cuts, joins or stands apart came to (a cut, a piece joined on, a piece of its own): the session makes the step say it (`in_432`) */
+  /** Step id -> what an extrusion or revolve that did not say whether it cuts, joins or stands apart came to (a cut, a piece joined on, a piece of its own): the session makes the step say it (`in_436`) */
   modes?: Record<string, "cut" | "add" | "new">;
   /** relations to an edge of the body that is gone and that no edge looks like now (`in_309`): they hold nothing until the body is as it was */
   lost?: string[];

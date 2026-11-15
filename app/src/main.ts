@@ -135,8 +135,10 @@ const sectionChip = createSectionChip(document.body, (id) => dispatch({ type: "r
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "overrideRefusal" }), () => dispatch({ type: "holdFlash" }));
 const faceKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "faceKind", kind: id as "move" | "extrude" | "extend" }));
+const mirrorKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "mirrorKind", index: Number(id) }), "Mirror across:");
+const loftKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "loftKind", id }), "Loft:");
 const axisKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "axisKind", index: Number(id) }), "Axis:");
-const sizeKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "sizeKind", kind: id as "constant" | "variable" }), "Fillet size:");
+const sizeKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "sizeKind", kind: id as "constant" | "variable" | "twoDistances" | "swap" }), "Size:");
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "invert" ? { type: "runAction", id: "hollow:invert" } : to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
@@ -253,6 +255,7 @@ async function boot() {
     load: (text: string) => { const r = openSession(engine, text); if (r.ok) adopt(r.value); return r.ok ? true : r.error },
     snapshot: () => snapshotOf(state, { intents: intentLog, viewport: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: "", scrollMode: recognizer.scrollMode, timing: timing.summary(), at: new Date().toISOString(), pointer }),
     select: (refs: string[]) => { state = { ...state, session: { ...state.session, click: { ...state.session.click, selection: refs as never } } }; dirty = true; }, // (for scripted checks)
+    flash: (victims: string[]) => { state = { ...state, flash: { victims, culprits: [], at: performance.now() } as never }; dirty = true; }, // (a refused change's flash, for scripted checks)
     dispatch, run: (c: Command) => { state = { ...state, session: run(state.session, c) }; dirty = true; },
   };
   requestAnimationFrame(frame);
@@ -292,6 +295,8 @@ function frame(now: number) {
     faceKindChip.update(f.faceKinds);
     sizeKindChip.update(f.sizeKinds);
     axisKindChip.update(f.axisKinds);
+    loftKindChip.update(f.loftKinds);
+    mirrorKindChip.update(f.mirrorKinds);
     resetView.update(f.resetView);
     { const pg = host.getBoundingClientRect(); crosshair.update(recognizer.game && document.pointerLockElement !== null, { x: pg.left + pg.width / 2, y: pg.top + pg.height / 2 }); }
     toolCursor.update(f.tool ? f.tool.kind : null);

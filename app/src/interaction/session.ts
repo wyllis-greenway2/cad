@@ -269,14 +269,14 @@ export function refresh(s: Session): Session {
     const [vol, cnt] = [bodyVolume(now), bodyCount(now)];
     const mode = vol < s.modeFrom.volume - 1e-6 * Math.max(1, s.modeFrom.volume) ? "cut" : cnt - s.modeFrom.count >= s.modeFrom.extrudes ? "new" : "add";
     const last = h.commands[h.cursor - 1]!;
-    const tag = (c: Command): Command => (c.type === "addStep" && (c.step.type === "extrude" || c.step.type === "revolve") ? { ...c, step: { ...c.step, params: { ...c.step.params, mode } } } : c);
+    const tag = (c: Command): Command => (c.type === "addStep" && (c.step.type === "extrude" || c.step.type === "revolve" || c.step.type === "loft") ? { ...c, step: { ...c.step, params: { ...c.step.params, mode } } } : c);
     const tagged: Command = last.type === "batch" ? { ...last, commands: last.commands.map(tag) } : tag(last);
     const again = exec(undo(h), tagged);
     if (again.ok) return { ...withHistory(s, again.value), modeFrom: undefined };
     return { ...now, modeFrom: undefined };
   }
   // an extrusion or revolve onto the body that never said whether it cuts, joins or stands apart (a file from before the step said it, or one made while the answer was late) is made to say it, once, from what it came to:
-  // left to be worked out again at every change, making a piece bigger could turn it into a cut of the body beside it (`in_432`). The steps' own commands are rewritten where they stand (a change undone stays to be redone)
+  // left to be worked out again at every change, making a piece bigger could turn it into a cut of the body beside it (`in_436`). The steps' own commands are rewritten where they stand (a change undone stays to be redone)
   if (fresh && now.outcome.modes) {
     const modes = now.outcome.modes;
     const untagged = new Set(h.scene.steps.filter((st) => (st.type === "extrude" || st.type === "revolve") && st.params.mode === undefined && modes[st.id] && !now.outcome.errors[st.id]).map((st) => st.id));

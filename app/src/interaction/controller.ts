@@ -12,6 +12,7 @@ import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn, run, scene as sceneOf } from "./session.ts";
+import { loftChoice } from "./loft.ts";
 import { settings } from "../shared/settings.ts";
 import type { Command } from "../operation/commands.ts";
 import { projector } from "./camera.ts";
@@ -113,7 +114,13 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "home": return doHome(s, env);
     case "runAction": return doRunAction(s, i.id, env.now);
     case "overrideRefusal": return overrideRefusal(s);
-    case "sizeKind": return s.op?.kind === "edge" ? { ...s, op: { ...s.op, variable: i.kind === "variable", varField: 0 } } : s;
+    case "mirrorKind": return s.op?.kind === "mirror" ? { ...s, op: { ...s.op, mirrorIx: Math.max(0, Math.min((s.op.mirrorChoices?.length ?? 1) - 1, i.index)) } } : s;
+    case "loftKind": return s.op?.kind === "loft" ? { ...s, op: loftChoice(sceneOf(s.session), s.op, i.id) } : s;
+    case "sizeKind": {
+      if (s.op?.kind !== "edge") return s;
+      if (i.kind === "swap") return { ...s, op: { ...s.op, dfaceIx: (s.op.dfaceIx ?? 0) + 1 } }; // (the first distance goes to the other face, `dec_chamfer_two_distances`)
+      return { ...s, op: { ...s.op, variable: i.kind === "variable", twoDist: i.kind === "twoDistances", varField: 0 } };
+    }
     case "axisKind": { if (s.op?.kind !== "revolve") return s; const ix = Math.max(0, Math.min((s.op.revAxes?.length ?? 1) - 1, i.index)); return { ...s, op: { ...s.op, axisIx: ix, ...(s.op.revAxes?.[ix]?.twist && (s.op.advValue ?? 0) === 0 && (s.op.advTyped ?? "") === "" ? { advValue: 10 } : {}) } }; } // (a twist is carried along the axis: 10 mm to begin with)
     case "faceKind": return s.op?.kind === "pushpull" ? { ...s, op: { ...s.op, faceKind: i.kind } } : s;
     case "holdFlash": return s.flash ? { ...s, flash: { ...s.flash, at: env.now - settings.flash.holdMs } } : s;

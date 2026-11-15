@@ -1,4 +1,4 @@
-// A piece made onto the body that never said whether it cuts, joins or stands apart is made to say it, and deleting the body a cut was made in leaves no cut behind to make a tube of the piece beside it (`in_432`).
+// A piece made onto the body that never said whether it cuts, joins or stands apart is made to say it, and deleting the body a cut was made in leaves no cut behind to make a tube of the piece beside it (`in_436`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -11,7 +11,7 @@ import type { Session } from "../src/interaction/session.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
 
 await kernel.init();
-const text = () => readFileSync(new URL("./fixtures/cylinder-in-hole-in_432.cad.json", import.meta.url), "utf8");
+const text = () => readFileSync(new URL("./fixtures/cylinder-in-hole-in_436.cad.json", import.meta.url), "utf8");
 function lagging(onChange: () => void) {
   let job: { id: number; graph: KernelGraph; draft?: boolean } | null = null;
   const listeners: ((e: { data: unknown }) => void)[] = [];
@@ -49,7 +49,7 @@ test("deleting the block leaves no cut to turn the piece beside it into a tube: 
   assert.ok(Math.abs(left[0]!.volume - Math.PI * 2.2207 ** 2 * 27.1) < 0.5, `the cylinder, whole: ${left[0]!.volume}`);
 });
 
-test("deleting the block also takes out the cut that was made only in it, and the piece beside it stays whole with no broken step (`in_432`)", () => {
+test("deleting the block also takes out the cut that was made only in it, and the piece beside it stays whole with no broken step (`in_436`)", () => {
   const o = openSession(kernel, text());
   assert.ok(o.ok);
   if (!o.ok) return;

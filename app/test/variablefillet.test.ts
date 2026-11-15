@@ -102,7 +102,7 @@ test("the choice is offered for a chamfer and for several edges, not for a rim",
   let st = createState({ ...s, click: { ...s.click, selection: lines.slice(0, 3).map((l) => l.ref) as never } });
   st = reduce(st, { type: "begin", name: "edge" }, env);
   st = type(st, "-2");
-  assert.deepEqual(frameOf(st, { w: 800, h: 600 }).sizeKinds?.map((k) => k.id), ["constant", "variable"]);
+  assert.deepEqual(frameOf(st, { w: 800, h: 600 }).sizeKinds?.map((k) => k.id), ["constant", "variable", "twoDistances"]);
 });
 
 test("a size at the middle of the edge too: Start, End and Middle with Tab, and the round goes through the three", () => {

@@ -31,6 +31,27 @@ export function rimRanks(scene: Scene, refs: readonly Ref[]): string {
 }
 
 /**
+ * The flat faces of the body that a straight edge lies on (one or two): the faces a chamfer with a distance along each face measures along (`dec_chamfer_two_distances`).
+ */
+export function facesOfEdge(scene: Scene, ref: Ref): Extract<Scene["parts"][string], { kind: "plane" }>[] {
+  const get = (r: Ref) => scene.parts[r];
+  const l = scene.parts[ref];
+  if (l?.kind !== "line" || l.circle || l.mid) return [];
+  const [a, b] = [pointOf(get, l.a), pointOf(get, l.b)];
+  if (!a || !b) return [];
+  const mid: Vec3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+  return Object.values(scene.parts).filter((f): f is Extract<typeof f, { kind: "plane" }> => {
+    if (f.kind !== "plane" || f.origin !== "body" || f.curved || f.rounded || !f.mesh || f.mesh.length < 9) return false;
+    const n = normalOfPlane(f);
+    if (Math.abs(dot(n, sub(a, f.at))) > 1e-3 || Math.abs(dot(n, sub(b, f.at))) > 1e-3) return false;
+    const m = f.mesh;
+    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i + 2 < m.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k]!, m[i + k]!); hi[k] = Math.max(hi[k]!, m[i + k]!); }
+    return mid.every((v, k) => v >= lo[k]! - 1e-3 && v <= hi[k]! + 1e-3);
+  });
+}
+
+/**
  * The flat faces each straight edge lies between, as a signature (their outward normals, sorted: `nx:ny:nz/nx:ny:nz`), one per ref, joined by `|` (empty where the edge is not between two flat faces).
  * A fillet or chamfer finds its edge again by it after sizes changed: the edge of a block between its +x and +y faces is that one whatever the block has grown to.
  */

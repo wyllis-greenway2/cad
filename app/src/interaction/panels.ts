@@ -15,6 +15,8 @@ function stepLabel(st: Step): string {
   switch (st.type) {
     case "extrude": return `Extrude ${n(p.depth)} mm`;
     case "hollow": return `Hollow, ${n(p.thickness)} mm walls`;
+    case "pattern": return p.mode === "mirror" ? "Mirror copy" : p.mode === "circular" ? `Circular repeat ${n(p.count)}` : `Linear repeat ${n(p.nx)} × ${n(p.ny)} × ${n(p.nz)}`;
+    case "loft": return `Loft through ${1 + String(p.also ?? "").split("|").filter(Boolean).length} sketches${p.ruled ? " (ruled)" : ""}`;
     case "revolve": return Number(p.advance ?? 0) ? `Spiral ${n(p.angle)}°, ${n(p.advance)} mm along the axis` : `Revolve ${n(p.angle)}°`;
     case "pushPull": return `Push / pull ${n(p.depth)} mm`;
     case "edgeMod": return `${p.mode === "chamfer" ? "Chamfer" : "Fillet"} ${n(p.value)} mm`;
@@ -22,7 +24,6 @@ function stepLabel(st: Step): string {
     case "rotate": return `Rotate ${"XYZ"[Number(p.axis ?? 0)]} ${n(p.value)}°`;
     case "move": return `Move ${"XYZ"[Number(p.axis ?? 0)]} ${n(p.value)} mm`;
     case "scale": return `Scale ×${n(p.value)}`;
-    case "pattern": return p.mode === "circular" ? `Circular repeat ${n(p.count)}` : `Linear repeat ${n(p.nx)} × ${n(p.ny)} × ${n(p.nz)}`;
     default: return st.type;
   }
 }
