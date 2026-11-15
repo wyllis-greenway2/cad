@@ -12,7 +12,7 @@ import { typedNumber } from "../shared/numbers.ts";
 import type { Op } from "./operations.ts";
 
 /** A line the figure can turn about: a point on it, its direction (unit), and what to call it. */
-export interface RevAxis { p: Vec3; d: Vec3; label: string; /** the plane's normal: the figure is carried along it while it turns (a twist) */ twist?: "middle" | "origin"; /** a line through the rotate tool (the sphere put where the person likes, `Op.pivot`) along the figure's own X or Y (`in_433`) */ tool?: "u" | "v" }
+export interface RevAxis { p: Vec3; d: Vec3; label: string; /** the plane's normal: the figure is carried along it while it turns (a twist) */ twist?: "middle" | "origin" }
 
 const WORLD: { d: Vec3; label: string }[] = [{ d: [1, 0, 0], label: "X axis" }, { d: [0, 1, 0], label: "Y axis" }, { d: [0, 0, 1], label: "Z axis" }];
 
@@ -48,8 +48,6 @@ export function revolveAxes(scene: Scene, faces: readonly Extract<Part, { kind: 
   for (const l of chosen) { const [a, b] = [pointOf(get, l.a), pointOf(get, l.b)]; if (a && b && !l.center) add1(a, b, "the line you chose"); }
   for (const w of WORLD) if (Math.abs(dot(w.d, n)) < 1e-9 && Math.abs(dot(pl.at, n)) < 1e-6 && ok([0, 0, 0], w.d)) out.push({ p: [0, 0, 0], d: w.d, label: w.label });
   faces.forEach((f, k) => f.loop.map((r) => get(r)).filter((x): x is Extract<Part, { kind: "line" }> => x?.kind === "line" && !x.center).forEach((l, i) => { const [a, b] = [pointOf(get, l.a), pointOf(get, l.b)]; if (a && b) add1(a, b, faces.length > 1 ? `figure ${k + 1} side ${i + 1}` : `side ${i + 1}`); }));
-  // the rotate tool: a line through the sphere, which is put wherever the person likes, along the figure's own X or Y (`in_433`)
-  if (middles[0]) { out.push({ p: middles[0], d: normalize(pl.u), label: "the tool, along the figure's X", tool: "u" }); out.push({ p: middles[0], d: normalize(pl.v), label: "the tool, along the figure's Y", tool: "v" }); }
   // and the plane's own normal, through each figure's middle or the origin's foot on the plane: the figure is carried along it while it turns, a twisted extrusion (`in_429`)
   if (middles[0]) out.push({ p: middles[0], d: n, label: faces.length > 1 ? "twist about each figure's middle" : "twist about the figure's middle", twist: "middle" });
   out.push({ p: scale(n, dot(pl.at, n)), d: n, label: "twist about the origin", twist: "origin" });
@@ -66,12 +64,7 @@ export function middleOf(scene: Scene, face: Extract<Part, { kind: "face" }>): V
 const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
 /** The line being turned about. */
-export const axisOf = (op: Op): RevAxis | null => {
-  const a = op.revAxes?.[op.axisIx ?? 0] ?? null;
-  if (!a || !a.tool || !op.pivot || !op.normal || !op.origin) return a;
-  const off = dot(sub(op.pivot, op.origin), op.normal); // (the sphere is dragged on the screen: its foot on the figure's plane)
-  return { ...a, p: sub(op.pivot, scale(op.normal, off)) };
-};
+export const axisOf = (op: Op): RevAxis | null => ((op.axisIx ?? -1) >= 0 ? op.revAxes?.[op.axisIx!] ?? null : null); // (none until the line to turn about is chosen: it waits, `in_435`)
 /** The advance along the axis over the whole turn: what is typed, else what the arrow was dragged to, else none. */
 export const advanceOf = (op: Op): number => { const t = typedNumber(op.advTyped ?? ""); return t !== null ? t : op.advValue ?? 0; };
 /** The point on the axis nearest the figure's middle, where the ring and the arrow stand. */
@@ -95,4 +88,24 @@ export function revolveCommand(scene: Scene, op: Op, angle: number): Command | n
     return { type: "addStep", step: { id: figs.length > 1 ? formatId("s", first + i) : id, type: "revolve", parts: f.fig.outer, params: { ...figureParams([f.fig]), angle, advance: advanceOf(op), ax: at[0], ay: at[1], az: at[2], dx: a.d[0], dy: a.d[1], dz: a.d[2] } } };
   };
   return figs.length > 1 ? { type: "batch", commands: figs.map(one) } : one(figs[0]!, 0);
+}
+
+/** The line a click on this part would turn the figure about, if it is one the figure can turn about (a straight side or line in its plane, or a world axis in it): its place in the op's list, else a new one added to it. Null with the reason when it is not. */
+export function chooseAxis(scene: Scene, op: Op, ref: string): { revAxes: RevAxis[]; axisIx: number } | { why: string } {
+  const get = lookup(scene);
+  const part = scene.parts[ref];
+  const list = op.revAxes ?? [];
+  let a: Vec3 | null = null, b: Vec3 | null = null;
+  if (part?.kind === "line" && !part.center && !part.circle) { a = pointOf(get, part.a); b = pointOf(get, part.b); }
+  else if (part?.kind === "axis") { a = part.at; b = add(part.at, part.dir); }
+  if (!a || !b) return { why: "click a straight line (a side of the figure, another line in its plane, or an axis) to turn it about" };
+  const d = normalize(sub(b, a));
+  const same = (x: RevAxis) => Math.abs(Math.abs(dot(x.d, d)) - 1) < 1e-6 && Math.hypot(...sub(x.p, add(a!, scale(d, dot(sub(x.p, a!), d))))) < 1e-4;
+  const at = list.findIndex((x) => !x.twist && same(x));
+  if (at >= 0) return { revAxes: list, axisIx: at };
+  // not among the ones offered: a line of its own, if the figures are on one side of it and it is in their plane
+  const faces = (op.revFaces ?? []).map((r) => scene.parts[r]).filter((p): p is Extract<Part, { kind: "face" }> => p?.kind === "face");
+  const mine = part?.kind === "line" ? revolveAxes(scene, faces, [part]).find((x) => x.label === "the line you chose") : undefined;
+  if (!mine) return { why: "that line is not in the figure's plane, or the figure crosses it: click another" };
+  return { revAxes: [...list, mine], axisIx: list.length };
 }

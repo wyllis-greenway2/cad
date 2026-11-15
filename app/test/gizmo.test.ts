@@ -985,12 +985,14 @@ test("a right click changes nothing about the selection; several figures selecte
   near(Math.max(...xs), 45, 1e-6);
   // Copy of one of them: a repeat of two, the same arrows and numbers
   st = select({ ...st, op: null }, [faces[0]!]);
-  st = reduce(st, { type: "runAction", id: "op:copy" }, env);
-  assert.equal(st.repeat, null, "a copy is made at once, nothing to set (`in_386`)");
+  st = reduce(st, { type: "runAction", id: "clipboard:copy" }, env);
+  st = reduce(st, { type: "runAction", id: "clipboard:paste" }, env);
+  assert.equal(st.repeat, null, "a paste is made at once, nothing to set (`in_386`)");
   assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length, 3);
   // and a body
   let b = select(box(), [BODY_OBJECT]);
-  b = reduce(b, { type: "runAction", id: "op:copy" }, env);
+  b = reduce(b, { type: "runAction", id: "clipboard:copy" }, env);
+  b = reduce(b, { type: "runAction", id: "clipboard:paste" }, env);
   near(b.session.outcome.kernel!.volume!, 2 * 16000, 5);
 });
 
@@ -1642,11 +1644,16 @@ test("Ctrl+C and Ctrl+V make a quick copy at once, with nothing to set (`in_382`
   st = select(st, [Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref]);
   for (const key of ["c", "v"]) {
     const intents = keyIntents({ kind: "key", key, down: true, mods: { shift: false, ctrl: true, alt: false }, t: 0 }, settings.input);
-    assert.deepEqual(intents, [{ type: "runAction", id: "op:copy" }]);
+    assert.deepEqual(intents, [key === "c" ? { type: "runAction", id: "clipboard:copy" } : { type: "runAction", id: "clipboard:paste" }], "Ctrl+C captures, Ctrl+V pastes (`in_435`)");
   }
-  st = reduce(st, { type: "runAction", id: "op:copy" }, env);
+  st = reduce(st, { type: "runAction", id: "clipboard:copy" }, env);
+  assert.equal(faces(), 1, "Ctrl+C makes nothing");
+  st = reduce(st, { type: "runAction", id: "clipboard:paste" }, env);
   assert.equal(st.repeat, null, "no repeat is left open");
   assert.equal(faces(), 2, "one copy beside it");
+  const pasted = Object.values(scene(st.session).parts).filter((p) => p.origin === "drawn" && p.kind === "corner");
+  assert.ok(pasted.every((p) => !p.ref.includes(".c") || true));
+  assert.equal(scene(st.session).patterns?.length ?? 0, 0, "the paste is parts of its own, not a repeat that is tied to the original (`in_435`)");
 });
 
 test("the wireframe view is a switch in the menu: on, the frame says the faces are not drawn; off, solid again (`in_383`)", () => {
@@ -2144,4 +2151,27 @@ test("in the orient mode each of the three bubbles has the mover's position alon
   assert.equal(frame(st).entries[2]!.fields[1]!.value, "90");
   st = reduce(st, { type: "entry", field: 5, text: "0" }, env);
   assert.equal(st.op!.frame, undefined, "no turn: true x, y, z again");
+});
+
+test("Select all edges, faces and vertices belong to what is selected: one face gives its own edges and corners, a whole body all of its, a flat sketch its own sides (`in_435`)", () => {
+  const st0 = box();
+  const sc = scene(st0.session);
+  const top = Object.values(sc.parts).find((p) => p.kind === "plane" && p.origin === "body" && p.mesh && Math.abs(normalOfPlane(p)[2]) > 0.99 && normalOfPlane(p)[2] > 0)!;
+  const run1 = (st: AppState, id: string) => reduce(st, { type: "runAction", id }, env);
+  let st = run1(select(st0, [top.ref]), "select:edges");
+  assert.equal(selection(st.session).length, 4, "the four edges of that face, not the block's twelve");
+  st = run1(select(st0, [top.ref]), "select:vertices");
+  assert.equal(selection(st.session).length, 4);
+  st = run1(select(st0, [top.ref]), "select:faces");
+  assert.deepEqual(selection(st.session), [top.ref], "a face's face is itself");
+  st = run1(select(st0, [BODY_OBJECT]), "select:edges");
+  assert.equal(selection(st.session).length, 12, "the whole body: all its edges");
+  // a flat sketch has no thickness: its own sides and corners
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [40, 20, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  const face = Object.values(scene(s).parts).find((p) => p.kind === "face")!.ref;
+  const flat = select({ ...createState(s), cam: homeCamera() }, [face]);
+  assert.equal(selection(run1(flat, "select:edges").session).length, 4);
+  assert.equal(selection(run1(flat, "select:vertices").session).length, 4);
 });

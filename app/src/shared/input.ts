@@ -59,7 +59,6 @@ export type Intent =
   | { type: "loftKind"; id: string }
   | { type: "mirrorKind"; index: number }
   | { type: "sizeKind"; kind: "constant" | "variable" | "twoDistances" | "swap" }
-  | { type: "axisKind"; index: number }
   /** the pointer is over that button: the flash waits (`in_366`) */
   | { type: "holdFlash" }
   /** start a drawing tool or an operation (a key or the menu) */

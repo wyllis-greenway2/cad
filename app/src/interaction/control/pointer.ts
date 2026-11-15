@@ -20,6 +20,7 @@ import { trimAt } from "../../operation/trim.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { OpKind, Op } from "../operations.ts";
 import { startOp, surfaceAxes } from "../operations.ts";
+import { chooseAxis } from "../revolve.ts";
 import { similarTo } from "../similar.ts";
 import { whyNotGroup, whyNotUngroup, whyNotCombine, applyCut } from "./select.ts";
 import { projector, nearTolMm } from "../camera.ts";
@@ -36,7 +37,7 @@ import { doGizmoHover, gizmoOf, chosenId, activeOp } from "./handles.ts";
 import { hasGizmo, hitHandle, moveOffset } from "../gizmo.ts";
 
 /** The operations a right click offers (`in_133`), in categories (`in_143`): sketching, constraints, shape, moving and repeating, and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
-const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" | "combine" | "faces" | "edges" | "vertices" }[] = [
+const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" | "combine" | "faces" | "edges" | "vertices" | "paste" }[] = [
   { id: "tool:rect", label: "Rectangle", icon: "rect", tool: "rect" },
   { id: "tool:circle", label: "Circle", icon: "circle", tool: "circle" },
   { id: "tool:line", label: "Line", icon: "line", tool: "line" },
@@ -52,7 +53,8 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:scale", label: "Scale", icon: "scale", op: "scale" },
   { id: "op:move", label: "Move", icon: "move", op: "move" },
   { id: "op:rotate", label: "Rotate", icon: "rotate", op: "rotate" },
-  { id: "op:copy", label: "Copy", icon: "copy", op: "copy" },
+  { id: "op:copy", label: "Copy (Ctrl+C)", icon: "copy", op: "copy" },
+  { id: "clipboard:paste", label: "Paste (Ctrl+V)", icon: "copy", select: "paste" },
   { id: "op:linear", label: "Repeat in a line", icon: "linear", op: "linear" },
   { id: "op:circular", label: "Repeat round a point", icon: "circular", op: "circular" },
   { id: "combine:parts", label: "Combine bodies…", icon: "subtract", select: "combine" }, // (add, cut and what is left of both: the parts the bodies make are each kept or tossed, `in_298`)
@@ -67,7 +69,7 @@ const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[]
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:scale", "combine:parts"] },
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate"] },
-  { id: "repeat", label: "Copy and repeat", icon: "copy", items: ["op:copy", "op:linear", "op:circular"] },
+  { id: "repeat", label: "Copy and repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:similar", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
@@ -76,7 +78,7 @@ const category = (id: string, label: string, icon: string, kids: MenuItem[]): Me
   const first = kids.find((k) => k.enabled);
   return { id, label, icon, enabled: !!first, why: first ? null : kids[0]?.why ?? "nothing here applies", children: kids };
 };
-function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
+function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean; clip?: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
   const sc = sceneOf(session);
   const sel = selectionOf(session);
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
@@ -85,6 +87,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
     if (r.select === "combine") { const why = whyNotCombine(session); return [r.id, { ...base, enabled: !why, why }]; }
+    if (r.select === "paste") return [r.id, { ...base, enabled: !!view.clip, why: view.clip ? null : "nothing is copied: select something and press Ctrl+C" }];
     if (r.select === "faces" || r.select === "edges" || r.select === "vertices") return [r.id, { ...base, enabled: true, why: null }];
     if (r.select) { const why = r.select === "group" ? whyNotGroup(session) : whyNotUngroup(session); return [r.id, { ...base, enabled: !why, why }]; }
     const st = startOp(sc, sel, r.op!);
@@ -410,6 +413,16 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   const g = gizmoOf(s);
   const hit = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)) : null;
   // the sphere at the junction of the mover (`in_416`): a click selects it, a second click lets it go; selected, a vertex, an edge or a face clicked puts the mover there
+  // a figure being revolved waits for the line to turn about: a click on a straight line or an axis chooses it (`in_435`)
+  if (!hit && s.op?.kind === "revolve" && cands.length) {
+    let why = "";
+    for (const c of cands) {
+      const r = chooseAxis(sc, s.op, c.ref);
+      if ("why" in r) { why ||= r.why; continue; }
+      return { ...base, op: { ...s.op, revAxes: r.revAxes, axisIx: r.axisIx, auto: false }, session: { ...base.session, message: null } };
+    }
+    return { ...base, session: { ...base.session, message: why } };
+  }
   const mover = s.op ?? activeOp(s);
   // the sphere clicked again while it is selected and the mover has been turned (or was): it goes between true x, y, z and its turned axes, staying where it is (`in_419`)
   if (hit?.id === "pivot" && s.moverSphere && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat && (mover.frame || mover.frameKept)) {
@@ -516,7 +529,7 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   }
   // what is under the point (a finger has no hover: a long press must be told what is under it the same way a right click is, or a tool chosen from the ring would not turn the view straight to the plane there, `in_283`)
   const under = i.button ? null : candidatesAt(sceneOf(s.session), projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0]?.ref ?? null;
-  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!sectionNow(s) }) };
+  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!sectionNow(s), clip: !!s.clipboard?.length }) };
 }
 
 /**

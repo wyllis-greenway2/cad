@@ -91,6 +91,8 @@ export interface Op {
   revAxes?: RevAxis[];
   /** revolve: each figure selected (its outer sides or circle and the figures inside it) and its middle */
   revFigs?: { fig: Figure; middle: Vec3 }[];
+  /** revolve: the figures' faces, to check a line clicked as the axis against */
+  revFaces?: Ref[];
   /** loft (`dec_loft_sketches`): the sketches in the order picked (each its outer sides or circle and the figures inside it), how they are joined, and for each its start point (corners moved on) and direction */
   /** mirror (`in_433`): the planes it can be made across and which one is in force */
   mirrorChoices?: import("./mirror.ts").MirrorChoice[];
@@ -178,7 +180,7 @@ function drawnFace(scene: Scene, parts: Part[]): Extract<Part, { kind: "face" }>
 }
 
 /** Whatever drawn things are selected, as the parts that move and repeat together: a figure's corners, lines and circle, a selected line with its ends (and an arc's centre), a circle with its centre, a corner. Empty if anything selected is not drawn. */
-function drawnFigure(scene: Scene, parts: Part[]): Ref[] {
+export function drawnFigure(scene: Scene, parts: Part[]): Ref[] {
   const out = new Set<Ref>();
   for (const p of parts) {
     if (p.origin !== "drawn") return [];
@@ -326,9 +328,8 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     const pl = face.plane ? get(face.plane) : undefined;
     if (!pl || pl.kind !== "plane") return { ok: false, why: "the figure is not on a plane" };
     const axes = revolveAxes(scene, faces, lines);
-    if (!axes.length) return { ok: false, why: "there is no line in the figure's plane to turn it about that the figures do not cross: draw a line beside them, or turn them about one of their own sides" };
     const revFigs = faces.map((f) => ({ fig: figureOf(scene, f), middle: middleOf(scene, f) ?? [0, 0, 0] as Vec3 }));
-    return { ok: true, op: { ...base, parts: revFigs[0]!.fig.outer, origin: revFigs[0]!.middle, normal: normalOfPlane(pl), plane: face.plane, revFigs, revAxes: axes, axisIx: 0, value: 360, advTyped: "", advValue: axes[0]!.twist ? 10 : null, revField: 0 } };
+    return { ok: true, op: { ...base, parts: revFigs[0]!.fig.outer, origin: revFigs[0]!.middle, normal: normalOfPlane(pl), plane: face.plane, revFigs, revFaces: faces.map((f) => f.ref), revAxes: axes, axisIx: lines.length ? 0 : -1, value: 360, advTyped: "", advValue: axes[0]!.twist ? 10 : null, revField: 0 } };
   }
   if (kind === "pushpull" && drawnFaces(scene, parts).length) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
   if (kind === "pushpull" && parts.length > 1) {

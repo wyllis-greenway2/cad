@@ -45,6 +45,8 @@ export interface AppState {
   wireframe: boolean;
   /** the handles of a cross section plane move it or turn it (`in_396`: the plane is a part, the cross section is on while it is selected) */
   /** the sphere at the junction of the mover is selected (`in_416`): its own arrows are up, and a vertex, edge or face chosen puts the mover there */
+  /** what Ctrl+C captured: pasted by Ctrl+V (`in_435`) */
+  clipboard: readonly Ref[] | null;
   moverSphere: boolean;
   /** the mover's place and axes as they were when the sphere was selected: Cancel puts them back (`in_421`) */
   moverWas: { pivot: Vec3 | null; frame?: [Vec3, Vec3, Vec3]; frameKept?: [Vec3, Vec3, Vec3] } | null;
@@ -96,7 +98,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, multiSelect: false, tape: false, wireframe: false, moverSphere: false, moverWas: null, sectionLive: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, multiSelect: false, tape: false, wireframe: false, moverSphere: false, moverWas: null, clipboard: null, sectionLive: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.

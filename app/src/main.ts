@@ -137,7 +137,6 @@ const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "ove
 const faceKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "faceKind", kind: id as "move" | "extrude" | "extend" }));
 const mirrorKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "mirrorKind", index: Number(id) }), "Mirror across:");
 const loftKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "loftKind", id }), "Loft:");
-const axisKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "axisKind", index: Number(id) }), "Axis:");
 const sizeKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "sizeKind", kind: id as "constant" | "variable" | "twoDistances" | "swap" }), "Size:");
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "invert" ? { type: "runAction", id: "hollow:invert" } : to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
@@ -294,7 +293,6 @@ function frame(now: number) {
     similarChip.update(f.similar);
     faceKindChip.update(f.faceKinds);
     sizeKindChip.update(f.sizeKinds);
-    axisKindChip.update(f.axisKinds);
     loftKindChip.update(f.loftKinds);
     mirrorKindChip.update(f.mirrorKinds);
     resetView.update(f.resetView);

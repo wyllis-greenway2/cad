@@ -76,9 +76,7 @@ test("the Revolve operation shows a ring and an arrow on the axis, takes the ang
   st = reduce(st, { type: "begin", name: "revolve" }, env);
   assert.equal(st.op?.kind, "revolve");
   const zi = st.op!.revAxes!.findIndex((a) => a.label === "Z axis");
-  st = reduce(st, { type: "axisKind", index: zi }, env);
-  const f0 = frameOf(st, { w: 800, h: 600 });
-  assert.ok(f0.axisKinds && f0.axisKinds.some((k) => k.on && k.label === "Z axis"), "the axis choices are offered");
+  st = { ...st, op: { ...st.op!, axisIx: zi } };
   const g = gizmoOf(st)!;
   assert.deepEqual(g.handles.map((h) => h.id).sort(), ["rev:adv", "rev:turn"]);
   for (const k of "900") st = reduce(st, { type: "typed", key: k, shift: false }, env);
@@ -98,7 +96,7 @@ test("dragging the ring round past one turn keeps counting (400 degrees), and th
   let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
   st = reduce(st, { type: "begin", name: "revolve" }, env);
   const zi = st.op!.revAxes!.findIndex((a) => a.label === "Z axis");
-  st = reduce(st, { type: "axisKind", index: zi }, env);
+  st = { ...st, op: { ...st.op!, axisIx: zi } };
   const g = gizmoOf(st)!;
   const ring = g.handles.find((h) => h.id === "rev:turn")!;
   const pr = projector(st.cam, 800, 600);
@@ -222,14 +220,23 @@ test("it begins as a full turn with no advance (`in_433`): nothing to type, the 
   assert.equal(Number(scene(r.session).steps.at(-1)!.params.advance), 0);
 });
 
-test("the rotate tool can be the axis: a line through the sphere along the figure's Y, the sphere put off the plane and brought to it (`in_433`)", () => {
+test("it waits for the line to turn about: no axis is chosen, nothing shows and nothing is made until a straight line is clicked (`in_435`)", () => {
   const { s, face } = figure();
-  const op = begin(s, face);
-  const ti = op.revAxes!.findIndex((a) => a.tool === "v");
-  assert.ok(ti >= 0, "offered");
-  const r = runOp(s, { ...op, axisIx: ti, pivot: [0, 5, 0] })!; // (the sphere is at the origin's line, 5 in front of the plane)
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  assert.equal(st.op!.axisIx, -1, "no axis by default");
+  assert.equal(gizmoOf(st), null, "no ring until there is an axis");
+  assert.ok(/click the line/.test(st.session.message ?? ""), "it says what it waits for");
+  assert.equal(runOp(s, st.op!), null, "no step without an axis");
+  assert.equal((st as unknown as { frame?: unknown }).frame, undefined);
+  // click the figure's own left side (x = 8): it turns about that line
+  const pr = projector(st.cam, 800, 600);
+  const [x, y] = pr.project([8, 0, 0.75]);
+  st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env);
+  assert.equal(st.op?.kind, "revolve", "the operation stays");
+  assert.ok(st.op!.axisIx! >= 0, "the axis is chosen");
+  assert.ok(gizmoOf(st), "the ring and arrow are there now");
+  const r = runOp(s, st.op!)!;
   assert.equal(r.session.message, null);
-  assert.ok(Math.abs(volume(r.session) - pappus(1)) < 0.05, `volume ${volume(r.session)}`);
-  const further = runOp(s, { ...op, axisIx: ti, pivot: [-4, 0, 0] })!; // (the line moved 4 further out: the figure goes round a bigger circle)
-  assert.ok(volume(further.session) > volume(r.session) * 1.2, `${volume(further.session)}`);
+  assert.ok(Math.abs(volume(r.session) - Math.PI * 4 * 1.5) < 0.1, `a full turn about its own side: ${volume(r.session)}`);
 });

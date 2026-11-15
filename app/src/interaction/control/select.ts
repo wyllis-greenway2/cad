@@ -2,6 +2,8 @@
 import type { Intent } from "../../shared/input.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { objectOf } from "../objects.ts";
+import { faceEdges } from "../offsetbody.ts";
+import type { Part } from "../../operation/part.ts";
 import { startCut, cutStep, cutParts } from "../cut.ts";
 import { scene as sceneOf, selection as selectionOf, run } from "../session.ts";
 import { nextId } from "../../operation/scene.ts";
@@ -22,13 +24,47 @@ function apply(s: AppState, base: readonly string[], rules: SimilarRule[]): AppS
   return { ...s, similar: { base: [...base] as never, rules, refs: r.refs, noun: r.noun }, session: { ...s.session, click: { ...s.session.click, selection: r.refs }, message: `selected ${plural(found, r.noun)}` } };
 }
 
-/** Select every face, every edge or every vertex of the body that is selected (or whose face, edge or vertex is), or of the model when nothing is (`in_393`). */
+/**
+ * Select every face, every edge or every vertex that belongs to what is selected (`in_393`, `in_435`): the whole body selected, all of the body's; one face selected, that face's edges or corners; edges, the
+ * faces they bound or their ends; a corner, the edges and faces that meet there; a flat sketch (a closed figure, a line, a circle), its own sides and corners. With nothing selected, the model's.
+ */
 export function doSelectAll(s: AppState, what: "faces" | "edges" | "vertices"): AppState {
   const sc = sceneOf(s.session);
-  const bodies = new Set(selectionOf(s.session).map((r) => objectOf(sc, r)).filter((r) => sc.parts[r]?.kind === "body"));
-  const mine = (ref: Ref) => !bodies.size || bodies.has(objectOf(sc, ref));
-  const refs = Object.values(sc.parts).filter((p) => p.origin === "body" && mine(p.ref) && (what === "faces" ? p.kind === "plane" && !!p.mesh && p.mesh.length >= 9 : what === "edges" ? p.kind === "line" && !p.twin : p.kind === "corner")).map((p) => p.ref);
-  if (!refs.length) return { ...s, menu: null, session: { ...s.session, message: `no ${what} to select: make a body first` } };
+  const sel = selectionOf(s.session);
+  const flats = Object.values(sc.parts).filter((p): p is Extract<Part, { kind: "plane" }> => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.length >= 9);
+  const bodyEdges = Object.values(sc.parts).filter((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "body" && !p.twin);
+  const out = new Set<Ref>();
+  const add = (refs: readonly Ref[]) => refs.forEach((r) => { if (r in sc.parts) out.add(r); });
+  const edgesOfFace = (f: Extract<Part, { kind: "plane" }>): Ref[] => faceEdges(sc, f).filter((r) => { const l = sc.parts[r]; return l?.kind === "line" && !l.twin; });
+  const endsOf = (edges: readonly Ref[]): Ref[] => edges.flatMap((r) => { const l = sc.parts[r]; return l?.kind === "line" ? [l.a, l.b] : []; });
+  const facesAround = (edges: ReadonlySet<Ref>): Ref[] => flats.filter((f) => edgesOfFace(f).some((e) => edges.has(e))).map((f) => f.ref);
+  const scoped = (what2: typeof what, ref: Ref): void => {
+    const p = sc.parts[ref];
+    if (!p) return;
+    const obj = objectOf(sc, ref);
+    if (p.kind === "body" || (p.origin === "body" && obj === ref)) { // the whole body: all of its faces, edges or corners
+      const mine = (q: Part) => q.origin === "body" && objectOf(sc, q.ref) === obj;
+      add(Object.values(sc.parts).filter((q) => mine(q) && (what2 === "faces" ? q.kind === "plane" && !!q.mesh && q.mesh.length >= 9 : what2 === "edges" ? q.kind === "line" && !q.twin : q.kind === "corner")).map((q) => q.ref));
+    } else if (p.kind === "plane" && p.origin === "body") { // one face: itself, its edges, its corners
+      const e = edgesOfFace(p);
+      add(what2 === "faces" ? [p.ref] : what2 === "edges" ? e : endsOf(e));
+    } else if (p.kind === "line" && p.origin === "body") { // one edge: itself, its ends, the faces it bounds
+      add(what2 === "edges" ? [p.ref] : what2 === "vertices" ? [p.a, p.b] : facesAround(new Set([p.ref])));
+    } else if (p.kind === "corner" && p.origin === "body") { // one corner: itself, the edges that meet there, the faces round it
+      const e = bodyEdges.filter((l) => l.a === p.ref || l.b === p.ref).map((l) => l.ref);
+      add(what2 === "vertices" ? [p.ref] : what2 === "edges" ? e : facesAround(new Set(e)));
+    } else if (p.kind === "face" && p.origin === "drawn") { // a closed sketch (it has no thickness): its own sides and corners
+      const rings = [p, ...(p.holes ?? []).map((h) => sc.parts[h]).filter((h): h is Extract<Part, { kind: "face" }> => h?.kind === "face")];
+      const sides = rings.flatMap((f) => (f.disk ? [f.disk] : f.loop));
+      add(what2 === "faces" ? [p.ref] : what2 === "edges" ? sides : rings.flatMap((f) => f.corners));
+    } else if (p.origin === "drawn" && (p.kind === "line" || p.kind === "circle" || p.kind === "corner")) { // a drawn side, circle or point
+      add(what2 === "edges" ? (p.kind === "corner" ? [] : [p.ref]) : what2 === "vertices" ? (p.kind === "line" ? [p.a, p.b] : p.kind === "circle" ? [p.center] : [p.ref]) : []);
+    }
+  };
+  if (sel.length) for (const r of sel) scoped(what, r);
+  else for (const b of Object.values(sc.parts).filter((q) => q.kind === "body")) scoped(what, b.ref); // (nothing selected: the model's)
+  const refs = [...out];
+  if (!refs.length) return { ...s, menu: null, session: { ...s.session, message: sel.length ? `there are no ${what} that belong to what is selected` : `no ${what} to select: make a body first` } };
   return { ...s, menu: null, similar: null, session: { ...s.session, click: { ...s.session.click, selection: refs }, message: `selected ${refs.length} ${what}` } };
 }
 

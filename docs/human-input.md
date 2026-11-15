@@ -2025,3 +2025,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > 
 > Normally constraints and the items they belong to are supposed to flash red when they are being violated. For example an edge constraint bubble and its edge both flash when it is being violated. Surface constraints dont seem to do this? can we have surfaces and flash red with their constraint bubbles? Also can we check that verticy constraints operate the same way? It should be the standard way that constraints and what they are attached to both flash red.
 (asks: in the mover's orient mode each of the three bubbles shows its axis's position and its rotation, so it is plain which is which; a degree mark on every degree value across the app; a constraint's surfaces (and vertices) to flash red together with its bubble when it is violated, as an edge does)
+
+## in_435 — 2026-11-15 — directive
+> okay the rotate still has zillions of buttons to select the edge. I dont want any of that. I just want to be able to click the edge I want to rotate around, I want it to wait for me to click it, and not guess or default to some edge. 
+> 
+> Copy is weird. If I copy a circle, it first off immedietly creates a copy on ctrl c, I would expect ctrl c to capture the copy but not paste, ctrl v should paste. It should default to paste at the preset disatance if I paste without defining a paste position, but if I click on a surface, it should then paste on that surface. Also the copy seems to be un deletable. Also when I delete the original, it seems to delete the copy too. 
+> 
+> Also if I select a closed sketch, the copy option is not available in the menu. Why? 
+> 
+> Also you cannot select a zero thickness plane sketch, and select all edges, it still has the whole plane selected.
+> 
+> Also I would expect that the select would belong to the item selected. If I select just one face of an object, and select all edges, I would expect it would select all edges of the face I had selected and applied the tool to, instead it does all edges of the entire object. If I select the entire object and select all edges, then I would expect all edges of the entire object to be selected. Same for faces verticies etc.
+(asks: the revolve to have no axis buttons and no default axis: it waits for a click on the line to turn about; Ctrl+C to capture only and Ctrl+V to paste (at the preset distance, or on a surface that is clicked), the pasted copy to be an ordinary deletable thing, deleting the original not to delete it; why a selected closed sketch has no Copy in the menu; Select all edges with a flat sketch selected to select its edges; Select all edges, faces or vertices to belong to what is selected: a face's edges, a whole body's edges, and so on)

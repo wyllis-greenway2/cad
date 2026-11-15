@@ -7,7 +7,10 @@ import { actionsFor, measureAction } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
 import { armTool, typeKey, finish, lineNext } from "../tools.ts";
 import type { OpKind } from "../operations.ts";
-import { startOp, typeOp, autoOp } from "../operations.ts";
+import { startOp, typeOp, autoOp, drawnFigure } from "../operations.ts";
+import { pasteFigure, surfaceOf } from "../paste.ts";
+import { placements } from "../../operation/repeat.ts";
+import type { Part } from "../../operation/part.ts";
 import { runOp } from "../runop.ts";
 import { lookup, nextId } from "../../operation/scene.ts";
 import type { Ref } from "../../shared/ref.ts";
@@ -27,7 +30,7 @@ import type { Vec3 } from "../../math/vec.ts";
 import { sub } from "../../math/vec.ts";
 import { frameAngles, frameOfAngles } from "../entry.ts";
 import { typedNumber } from "../../shared/numbers.ts";
-import { pivotCommands, patternCommand, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
+import { pivotCommands, patternCommand, patternValues, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
 import type { Repeat } from "../pattern.ts";
 import type { Op } from "../operations.ts";
 import { BODY_OBJECT } from "../../compiler/body.ts";
@@ -67,7 +70,7 @@ function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = 
 function beginOp(s: AppState, kind: OpKind, now = 0, over: Ref | null = null): AppState {
   const r = startOp(sceneOf(s.session), selectionOf(s.session), kind, viewAxes(s.cam));
   if (!r.ok) return { ...s, session: { ...s.session, message: r.why }, menu: null };
-  const started: AppState = { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: null } };
+  const started: AppState = { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" && (r.op.axisIx ?? -1) < 0 ? "click the line to turn the figure about (a straight side, another line in its plane, or an axis)" : null } };
   return IS_SKETCH_OP[kind] ? facePlane(started, over, now) : started;
 }
 export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["name"], now = 0): AppState {
@@ -311,7 +314,8 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now, s.menu?.plane ?? null);
   if (s.repeat && (id === "op:linear" || id === "op:circular") && !s.repeat.op.editStep && !s.repeat.op.editPattern) return doRepeatSwitch(closed, id === "op:linear" ? "linear" : "circular"); // (a repeat that is open changes kind, `in_382`)
-  if (id === "op:copy") return doQuickCopy(closed);
+  if (id === "op:copy" || id === "clipboard:copy") return doCopyCapture(closed);
+  if (id === "clipboard:paste") return doPaste(closed);
   if (id === "op:linear" || id === "op:circular") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular");
   if (id.startsWith("op:")) return beginOp(closed, id.slice(3) as OpKind, now, s.menu?.plane ?? null);
   if (id.startsWith("near:")) {
@@ -396,6 +400,37 @@ function doQuickCopy(s: AppState): AppState {
   if (!cmd) return say("nothing to copy");
   const next = run(s.session, cmd);
   return { ...s, menu: null, op: null, tool: null, session: next.message ? next : { ...next, message: null } };
+}
+/** Ctrl+C and the menu's Copy (`in_435`): what is selected is captured, nothing is made; Ctrl+V pastes it. */
+function doCopyCapture(s: AppState): AppState {
+  const sel = selectionOf(s.session);
+  if (!sel.length) return { ...s, menu: null, session: { ...s.session, message: "select something to copy" } };
+  const r = startOp(sceneOf(s.session), sel, "copy", viewAxes(s.cam));
+  if (!r.ok) return { ...s, menu: null, session: { ...s.session, message: r.why } };
+  return { ...s, menu: null, clipboard: [...sel], session: { ...s.session, message: "copied: Ctrl+V pastes it beside the original, or onto a face or sketch plane you select first" } };
+}
+/** Ctrl+V and the menu's Paste (`in_435`): a drawn figure is pasted as parts of its own, at the distance a copy begins with, or onto the surface that is selected; a body is copied beside itself. */
+function doPaste(s: AppState): AppState {
+  const say = (message: string): AppState => ({ ...s, menu: null, session: { ...s.session, message } });
+  if (!s.clipboard?.length) return say("nothing is copied: select something and press Ctrl+C");
+  if (s.repeat) return say("apply or cancel the repeat that is open first");
+  const sc = sceneOf(s.session);
+  const parts = s.clipboard.map((r) => sc.parts[r]).filter((p): p is Part => !!p);
+  if (!parts.length) return say("what was copied is gone");
+  const drawn = drawnFigure(sc, parts);
+  if (!drawn.length) { // a body: a copy beside it (its own, as before)
+    return doQuickCopy({ ...s, session: { ...s.session, click: { ...s.session.click, selection: [...s.clipboard] } } });
+  }
+  const r = startOp(sc, drawn, "copy", viewAxes(s.cam));
+  const move = r.ok ? placements("linear", patternValues(r.op))[0]?.move ?? [0, 0, 0] : ([0, 0, 0] as Vec3);
+  // a surface selected (a face, a sketch's plane) takes the paste, unless it is the thing copied itself
+  const sel = selectionOf(s.session);
+  const here = sel.length === 1 && !s.clipboard.includes(sel[0]!) && !drawn.includes(sel[0]!) ? surfaceOf(sc, sel[0]!) : null;
+  const made = pasteFigure(sc, drawn, move as Vec3, here);
+  if (!made) return say("nothing to paste");
+  const next = run(s.session, made.command);
+  if (next.message) return say(next.message);
+  return { ...s, menu: null, op: null, tool: null, session: { ...next, message: null, click: { ...next.click, selection: made.made.filter((q) => q in sceneOf(next).parts) } } };
 }
 function doRepeatBegin(s: AppState, kind: "linear" | "circular"): AppState {
   const say = (message: string): AppState => ({ ...s, menu: null, session: { ...s.session, message } });

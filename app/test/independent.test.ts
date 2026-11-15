@@ -307,7 +307,8 @@ test("Copy of one body that has a sketch on its face: the copies are the solid, 
   s = run(s, r.command);
   const cornersBefore = JSON.stringify(r.corners.map((c) => (scene(s).parts[c as Ref] as { at: Vec3 }).at));
   let st: AppState = pick({ ...createState(s), cam: homeCamera() }, [a!.ref]);
-  st = reduce(st, { type: "runAction", id: "op:copy" }, env); // (a quick copy: made at once, `in_386`)
+  st = reduce(st, { type: "runAction", id: "clipboard:copy" }, env);
+  st = reduce(st, { type: "runAction", id: "clipboard:paste" }, env); // (a quick copy: made at once, `in_386`)
   assert.equal(st.session.message, null);
   assert.equal(bodies(st.session).length, 3, "the body, its copy, and the other body");
   assert.equal(JSON.stringify(r.corners.map((c) => (scene(st.session).parts[c as Ref] as { at: Vec3 }).at)), cornersBefore, "the sketch stayed where it was drawn");
