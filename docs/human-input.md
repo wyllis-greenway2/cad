@@ -2163,3 +2163,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_462 — 2026-11-15 — directive
 > how about claude/hopeful-cannon-4 ?
 (asks whether the branch `claude/hopeful-cannon-4` can be merged too)
+
+## in_463 — 2026-11-15 — directive
+> okay your branch is merged so we should start a new one
+(asks for a new branch now that `claude/hopeful-cannon-4` is merged: `claude/hopeful-cannon-5`)
+
+## in_464 — 2026-11-15 — question
+> For this one again, it seems like it is slightly faster, but why does it need to re render the non modified objects at all? Like when I change the cube, why do the lofts need to do anything at all?
+(a file, `really_slow.json`, was attached; asks why the unchanged lofts are worked on at all when the block is edited; answered from a measurement: their shapes are not rebuilt, but every body is still meshed again)
