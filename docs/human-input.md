@@ -1965,3 +1965,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_421 — 2026-11-15 — rejection
 > Okay the xyz and rotate sphere modifications are not really what I was talking about. So I was saying that you still have seperate xyz and rotate modes. They still default to just the xyz arrows or the rotate arrows like they used to, and they still default to move the object like they used to. However, there is a sphere slection mode that is about orienting the mover itself. When that sphere is selected is should pulse blue to make it obvious, the object should go wireframe to make it clear that it is about the orienter itself not the object. There should be a littler bubble that says "Orient the mover" with a little apply and cancel checkmark and x button.
 (corrects the always-both mover of `in_418`/`in_416`: move and rotate stay two modes, each showing only its own arrows or rings and acting on the object; the sphere is a separate selection mode for orienting the mover: the sphere pulses blue, the object goes wireframe, and a small bubble "Orient the mover" has an apply check and a cancel x)
+
+## in_422 — 2026-11-15 — directive
+> okay can you merge in the other branch so I can deploy it all?
+(asks to merge the other session's branch into this one, as at `in_399`)
