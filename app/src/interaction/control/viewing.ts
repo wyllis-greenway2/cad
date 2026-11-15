@@ -3,6 +3,7 @@ import type { Intent } from "../../shared/input.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { sub } from "../../math/vec.ts";
 import { settings } from "../../shared/settings.ts";
+import { fineGain } from "../../shared/fine.ts";
 import { worldRef } from "../../shared/ref.ts";
 import type { Plane } from "../../operation/part.ts";
 import type { Scene } from "../../operation/scene.ts";
@@ -23,7 +24,9 @@ const WORLD_PLANE = { X: "YZ", Y: "XZ", Z: "XY" } as const; // X looks along the
 
 const withoutMix = (c: AppState["cam"]): AppState["cam"] => { const { mix: _unused, ...rest } = c; return rest; };
 
-export function doOrbit(s: AppState, i: Extract<Intent, { type: "orbit" }>): AppState {
+export function doOrbit(s: AppState, i0: Extract<Intent, { type: "orbit" }>): AppState {
+  const g = fineGain(Math.hypot(i0.dx, i0.dy)); // (the finest movements turn the view a little less, `in_420`)
+  const i = { ...i0, dx: i0.dx * g, dy: i0.dy * g };
   // the view turns about the body in view when there are several, kept for the whole drag (`in_291`)
   const held = s.drag && "camera" in s.drag ? s.drag.pivot : undefined;
   const pivot = held ?? pivotOf(s.session, { from: position(s.cam), dir: basis(s.cam).forward });

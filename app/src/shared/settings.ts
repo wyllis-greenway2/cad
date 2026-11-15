@@ -27,6 +27,7 @@ export const settings = {
     flyEaseSec: 0.15, // game mode: how long the keys take to bring the view up to speed and to rest (`in_302`)
     flyLookSec: 0.06, // and how long the pointer's movement is let out over, so the turning is smooth
     flyLookScale: 0.25, // game mode: how much of the mouse's movement turns the view (`in_304`: less sensitive; `in_386`: less again)
+    fineGain: 0.6, fineFadePx: 6, // the smallest mouse movements turn the view by this much of what they would, rising to all of it as the movement grows over about this many pixels (`in_420`)
     flySpeed: 0.45, // game mode: view distances per second at full speed
     trackpadPanScale: 0.3, // how much of a trackpad's two-finger scroll the view pans by: less than 1 is less sensitive (`in_300`)
     scrollMode: "auto" as "auto" | "pan" | "zoom", // what a scroll does: auto = a trackpad's two-finger scroll pans and a wheel zooms (a pinch always zooms) (`in_079`)

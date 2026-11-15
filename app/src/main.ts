@@ -204,6 +204,7 @@ function dispatch(i: Intent) {
     if (menu.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) menu.hide();
     if (ring.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) ring.hide();
   }
+  input.holdFree(ring.open || menu.open); // (game mode holds the pointer at the middle: a menu needs it free, `in_420`)
   dirty = true;
 }
 // which kind of device was used last: a laptop can have a mouse and a touch screen, so it is the event itself that says, not the machine (`in_160`)

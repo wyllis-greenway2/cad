@@ -12,7 +12,7 @@ const TICK_MS = 50;
 const GAME_TICK_MS = 16;
 
 /** Report the device events of `el` (and the keyboard) on the bus. Returns a function that stops reporting. */
-export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { toggleGame(): void } {
+export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { toggleGame(): void; holdFree(on: boolean): void } {
   const now = () => performance.now();
   const at = (e: { clientX: number; clientY: number }) => {
     const r = el.getBoundingClientRect();
@@ -111,5 +111,12 @@ export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { to
     if (game) endGame(); else startGame();
     keyEvent(false);
   };
-  return Object.assign(stop, { toggleGame });
+  /** A menu is open in game mode (`in_420`): the pointer is let go so the menu can be used (as with Alt), and taken back when it closes. */
+  const holdFree = (on: boolean) => {
+    if (!game || on === freed) return;
+    const alt = (down: boolean) => bus.emit("input", { kind: "key", key: "Alt", down, mods: { shift: false, ctrl: false, alt: down }, t: now() });
+    if (on) { freed = true; if (locked()) document.exitPointerLock(); alt(true); }
+    else { freed = false; try { void (el.requestPointerLock() as unknown as Promise<void> | undefined)?.catch?.(() => undefined); } catch { /* no lock */ } alt(false); }
+  };
+  return Object.assign(stop, { toggleGame, holdFree });
 }

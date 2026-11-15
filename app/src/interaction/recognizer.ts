@@ -4,6 +4,7 @@
 //   finger: one-finger drag orbits, two fingers pan and pinch, tap, double tap, triple tap, long press = menu. While a figure is being drawn a finger has a cursor like a mouse's pointer (a handle that drags it, a tap on the handle sets the point).
 import type { Intent, RawInput } from "../shared/input.ts";
 import { settings } from "../shared/settings.ts";
+import { fineGain } from "../shared/fine.ts";
 import { createClickCounter } from "./input/clicks.ts";
 import { createScroll } from "./input/scroll.ts";
 import { createMouse } from "./input/mouse.ts";
@@ -76,7 +77,7 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
         if (e.kind === "down") buttons++; else if ((e.kind === "up" || e.kind === "cancel") && buttons > 0) buttons--;
         if (e.kind === "move" && game && e.dx !== undefined) { // (the pointer is held at the middle, `in_304`)
           centre = [e.x, e.y];
-          pend.x += e.dx * I.flyLookScale; pend.y += e.dy! * I.flyLookScale; // (the mouse turns the view, with a button down too: what is being worked follows the crosshair)
+          { const g = fineGain(Math.hypot(e.dx, e.dy!)); pend.x += e.dx * I.flyLookScale * g; pend.y += e.dy! * I.flyLookScale * g; } // (the mouse turns the view, with a button down too: what is being worked follows the crosshair)
           if (buttons > 0) {
             dragged += Math.abs(e.dx) + Math.abs(e.dy!);
             if (dragged > 3 || gameDragged) { gameDragged = true; return [{ type: "orbit", dx: 0, dy: 0, x: e.x, y: e.y }]; } // (a drag begun at the crosshair: the same drag as outside the mode, worked from where the crosshair is)
@@ -86,7 +87,7 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
         }
         if (e.kind === "down" && game) { dragged = 0; gameDragged = false; }
         if ((e.kind === "up" || e.kind === "cancel") && game && gameDragged) { gameDragged = false; dragged = 0; mouse({ ...e, kind: "cancel" }); return [{ type: "dragEnd" }]; } // (a drag is over; it is no click)
-        if (e.kind === "move" && game && !buttons && last) { pend.x += (e.x - last[0]) * I.flyLookScale; pend.y += (e.y - last[1]) * I.flyLookScale; last = [e.x, e.y]; return []; }
+        if (e.kind === "move" && game && !buttons && last) { const g = fineGain(Math.hypot(e.x - last[0], e.y - last[1])); pend.x += (e.x - last[0]) * I.flyLookScale * g; pend.y += (e.y - last[1]) * I.flyLookScale * g; last = [e.x, e.y]; return []; }
         last = [e.x, e.y];
         return mouse(e);
       }
