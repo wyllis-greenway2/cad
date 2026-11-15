@@ -8,7 +8,7 @@ import { segmentOf, circleOf, pointOf, normalOfPlane, localOf, liftOf } from "..
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
-import { anchorRounds, anchorLines, anchorCorners } from "../operation/anchors.ts";
+import { anchorRounds, anchorLines, anchorCorners, anchorCutCorners } from "../operation/anchors.ts";
 import { visibleFrom } from "./picking.ts";
 import type { Command } from "../operation/commands.ts";
 import { settings } from "../shared/settings.ts";
@@ -105,6 +105,8 @@ function outlineSnap(scene: Scene, pl: Plane, pv: PointerView, e: V2, skip: (ref
 export function pointHint(spent: Scene, pl: Plane, pv: PointerView, base: Vec3, skip: (ref: Ref) => boolean = () => false): { at: Vec3; hints: Hint[] } {
   const scene = live(spent);
   const n = normalOfPlane(pl);
+  const cc = anchorCutCorners(scene, pl).find((c) => dist(c.at, base) < 1e-6); // (a corner of the cut of the cross section plane: on each of the cut edges that meet there, `in_398`)
+  if (cc) return { at: base, hints: cc.refs.map((ref): Hint => ({ kind: "onLine", ref })) };
   for (const p of Object.values(scene.parts)) if (p.kind === "corner" && Math.abs(dot(sub(p.at, pl.at), n)) < 1e-3 && dist(p.at, base) < 1e-6) return { at: base, hints: [] }; // (at a corner: that is its own constraint)
   if (anchorCorners(scene, pl).some((c) => dist(c.at, base) < 1e-6)) return { at: base, hints: [] }; // (a corner of the body as it falls on the plane: the same, `in_311`)
   const snapped = outlineSnap(scene, pl, pv, localOf(pl, base), skip);
@@ -178,6 +180,8 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
   const none = { at: base, hints: [] as Hint[] };
   const n = normalOfPlane(pl);
   const onPlane = (p: Vec3) => Math.abs(dot(sub(p, pl.at), n)) < 1e-3;
+  const cut = anchorCutCorners(scene, pl).find((c) => dist(c.at, base) < 1e-6);
+  if (cut) return { at: base, hints: cut.refs.map((ref): Hint => ({ kind: "onLine", ref })) }; // (the end is a corner of the cross section's cut: on each cut edge there, `in_398`)
   for (const p of Object.values(scene.parts)) if (p.kind === "corner" && onPlane(p.at) && dist(p.at, base) < 1e-6) return none; // it is at a corner: that is its own constraint
   if (anchorCorners(scene, pl).some((c) => dist(c.at, base) < 1e-6)) return none; // (a corner of the body as it falls on the plane: the same, `in_311`)
   const s = localOf(pl, start);

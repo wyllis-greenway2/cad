@@ -1,4 +1,4 @@
-import { anchorLines } from "../src/operation/anchors.ts";
+import { anchorLines, anchorCutCorners } from "../src/operation/anchors.ts";
 import { normalAngle, sectionNow } from "../src/interaction/control/section.ts";
 import { liveRepeat } from "../src/interaction/pattern.ts";
 import { keyIntents } from "../src/interaction/input/keys.ts";
@@ -1884,4 +1884,25 @@ test("a line started on a cut edge of the cross section plane is made with an on
   const rels = scene(st.session).relations;
   assert.ok(rels.some((r) => r.kind === "onLine" && r.parts.includes(edge.ref)), `relations: ${JSON.stringify(rels.map((r) => [r.kind, r.parts]))}`);
   assert.ok(Object.values(scene(st.session).parts).some((p) => p.kind === "line" && p.origin === "drawn" && p.plane === sec.ref), "drawn on the cross section plane");
+});
+
+test("the corners where the cross section's cut edges meet are anchors: a point snaps to one and is held on each of the two cut edges (`in_398`)", () => {
+  let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
+  const sec = sectionNow(st)!;
+  const pl = scene(st.session).parts[sec.ref] as unknown as Parameters<typeof anchorLines>[1];
+  const corners = anchorCutCorners(scene(st.session), pl);
+  assert.equal(corners.length, 4, "a block cut across has four corners of the cut");
+  assert.ok(corners.every((c) => c.refs.length === 2), "each is where two cut edges meet");
+  const c = corners[0]!;
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  const toward = scale(sub(sec.centre, c.at), 0.02);
+  const near2 = add(c.at, toward); // (a hair from the corner, inside it)
+  st = reduce(st, { type: "hover", x: px(st, near2)[0], y: px(st, near2)[1] }, env);
+  assert.ok(Math.hypot(...sub(st.tool!.cursor!, c.at)) < 1e-6, `the pointer is taken to the corner: ${JSON.stringify(st.tool!.cursor)}`);
+  assert.deepEqual(st.tool!.hints!.map((h) => h.kind), ["onLine", "onLine"], "on both cut edges");
+  st = reduce(st, { type: "click", x: px(st, near2)[0], y: px(st, near2)[1], count: 1, shift: false }, env);
+  st = reduce(st, { type: "click", x: px(st, sec.centre)[0], y: px(st, sec.centre)[1], count: 1, shift: false }, env);
+  assert.equal(st.session.message, null);
+  const on = scene(st.session).relations.filter((r) => r.kind === "onLine" && r.parts.some((p) => c.refs.includes(p)));
+  assert.equal(on.length, 2, "a constraint to each of the two faces' cuts");
 });

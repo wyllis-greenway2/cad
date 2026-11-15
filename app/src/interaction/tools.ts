@@ -14,7 +14,7 @@ import type { Command } from "../operation/commands.ts";
 import { drawSquaredRectangle, drawCircle, drawChain, drawArc, joinedAtCorners } from "../operation/build.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt, visibleFrom } from "./picking.ts";
-import { anchorCorners, anchorLines } from "../operation/anchors.ts";
+import { anchorCorners, anchorLines, anchorCutCorners } from "../operation/anchors.ts";
 import { settings } from "../shared/settings.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Hint } from "./hints.ts";
@@ -80,6 +80,11 @@ export function snapOnPlane(spent: Scene, pv: PointerView, pl: Plane, skip?: Ref
   // a corner of the body that is not in the plane but falls on it (the bottom of a wall, the far end of an edge): the pointer near where it falls is taken there (`in_311`)
   for (const c of anchorCorners(scene, pl, { seen: (q) => visibleFrom(scene, pv, q, { at: pl.at, n: normalOfPlane(pl) }) })) { // (the ones out of sight are not offered, `in_312`)
     if (Math.abs(c.offset) <= 1e-3) continue;
+    const [qx, qy] = pv.project(c.at);
+    if (Math.hypot(qx - pv.x, qy - pv.y) <= settings.sketch.snapPx) return c.at;
+  }
+  // a corner of the cut of a cross section plane: the pointer near it is taken there (`in_398`)
+  for (const c of anchorCutCorners(scene, pl)) {
     const [qx, qy] = pv.project(c.at);
     if (Math.hypot(qx - pv.x, qy - pv.y) <= settings.sketch.snapPx) return c.at;
   }

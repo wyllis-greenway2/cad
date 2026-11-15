@@ -49,6 +49,22 @@ export function anchorLines(scene: Scene, pl: Plane, opts: AnchorOpts = {}): Anc
   return nearest(found, (x, y) => (near3(x.a, y.a) && near3(x.b, y.b)) || (near3(x.a, y.b) && near3(x.b, y.a)));
 }
 
+/**
+ * The corners of the cut where a plane cuts the body (`in_398`): the places where the lines the flat faces cut in it meet. Each is named by the faces that meet there, since a point of the cut is no part of its own: a point made on one is
+ * held by being on each of those lines.
+ */
+export function anchorCutCorners(scene: Scene, pl: Plane): { at: Vec3; refs: Ref[] }[] {
+  const out: { at: Vec3; refs: Ref[] }[] = [];
+  for (const l of anchorLines(scene, pl)) {
+    if (l.offset !== 0 || scene.parts[l.ref]?.kind !== "plane") continue; // (the cut of a flat face)
+    for (const end of [l.a, l.b]) {
+      const at = out.find((o) => near3(o.at, end));
+      if (at) { if (!at.refs.includes(l.ref)) at.refs.push(l.ref); } else out.push({ at: end, refs: [l.ref] });
+    }
+  }
+  return out.filter((o) => o.refs.length >= 2); // (a corner is where two of the cut's edges meet)
+}
+
 /** The corners of the body as they fall on this plane, the nearer to the plane where two fall on one place: a point or a curve drawn there can be put on them. */
 export function anchorCorners(scene: Scene, pl: Plane, opts: AnchorOpts = {}): AnchorCorner[] {
   const n = normalOfPlane(pl);

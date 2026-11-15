@@ -1867,3 +1867,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_397 — 2026-11-15 — directive
 > Do the not built yet stuff for the cross section plane next
 (asks for what Handoff 375 listed as not built: suggestions and constraints to the cut's own edges, a ghost of the half that is cut away, Look straight at it on the plane, and the browser checks left undone)
+
+## in_398 — 2026-11-15 — directive
+> Do the not built yet stuff for the cross section corners next
+(asks for the corners where the cut edges meet as anchors of their own, left unbuilt in Handoff 376)
