@@ -278,6 +278,19 @@ export function refresh(s: Session): Session {
     if (again.ok) return { ...withHistory(s, again.value), modeFrom: undefined };
     return { ...now, modeFrom: undefined };
   }
+  // an extrusion or revolve onto the body that never said whether it cuts, joins or stands apart (a file from before the step said it, or one made while the answer was late) is made to say it, once, from what it came to:
+  // left to be worked out again at every change, making a piece bigger could turn it into a cut of the body beside it (`in_436`). The steps' own commands are rewritten where they stand (a change undone stays to be redone)
+  if (fresh && now.outcome.modes) {
+    const modes = now.outcome.modes;
+    const untagged = new Set(h.scene.steps.filter((st) => (st.type === "extrude" || st.type === "revolve") && st.params.mode === undefined && modes[st.id] && !now.outcome.errors[st.id]).map((st) => st.id));
+    if (untagged.size) {
+      const tag = (c: Command): Command => c.type === "batch" ? { ...c, commands: c.commands.map(tag) } : c.type === "addStep" && untagged.has(c.step.id) ? { ...c, step: { ...c.step, params: { ...c.step.params, mode: modes[c.step.id]! } } } : c;
+      const file = JSON.parse(toText(h)) as { commands: Command[] };
+      file.commands = file.commands.map(tag);
+      const again = fromText(JSON.stringify(file), h.derive);
+      if (again.ok) return { ...withHistory(s, again.value), checkSteps: s.checkSteps, fallback: s.fallback };
+    }
+  }
   // the answer has come for a change made while it was awaited (the browser): the standing mates it broke are put back now, in the same step as the change (`in_321`, `in_328`: they were not before)
   if (fresh && s.outcome.kernel?.stale && h.cursor === h.commands.length && h.cursor > 0) {
     const { fixes, atOdds } = standingFixes(now.history, (q) => !!withHistory(s, q).outcome.kernel?.stale);

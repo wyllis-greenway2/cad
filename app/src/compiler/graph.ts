@@ -77,6 +77,7 @@ export function buildGraph(scene: Scene): GraphResult {
           made.push({ profile: sk.id, holes });
         });
         if (bad) { errors[st.id] = bad; break; }
+        if (!prev && st.params.mode === "cut") { errors[st.id] = "there is nothing to cut from (the body it cut is gone)"; break; }
         const [first, ...more] = made;
         ops.push({ id: xid, type: "extrude", profile: first!.profile, ...(first!.holes.length ? { holes: first!.holes } : {}), ...(more.length ? { also: more.map((m, i) => (depths[i + 1] !== distance ? { ...m, distance: depths[i + 1] } : m)) } : {}), distance, ...(prev ? { target: prev } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" }); // (onto a body: a new piece while it only touches the body or stands apart, a cut as soon as it goes into it: `in_193`; the step says which when it was made, so that a body that grows later does not turn a piece into a cut: `in_295`)
         prev = xid;
@@ -94,6 +95,7 @@ export function buildGraph(scene: Scene): GraphResult {
         figs[0]!.holes.forEach((h, i) => { const hs = profile(st, h, `s_${st.id}h${i}`); if (typeof hs === "string") bad = hs; else { ops.push(hs); holes.push(hs.id); } });
         if (bad) { errors[st.id] = bad; break; }
         const p = st.params;
+        if (!prev && p.mode === "cut") { errors[st.id] = "there is nothing to cut from (the body it cut is gone)"; break; }
         ops.push(sk);
         ops.push({ id: xid, type: "revolve", profile: sk.id, ...(holes.length ? { holes } : {}), axis: { p: [Number(p.ax), Number(p.ay), Number(p.az)], d: [Number(p.dx), Number(p.dy), Number(p.dz)] }, angle: Number(p.angle ?? 0), advance: Number(p.advance ?? 0), ...(prev ? { target: prev } : {}), mode: !prev ? "add" : p.mode === "add" || p.mode === "cut" || p.mode === "new" ? String(p.mode) : "cutOrAdd" });
         prev = xid;
@@ -220,12 +222,21 @@ export function buildGraph(scene: Scene): GraphResult {
         prev = xid;
         break;
       }
+      case "reshape": {
+        // some corners of one body moved (`dec_direct_shape_editing`): `moves` is "fx,fy,fz>tx,ty,tz;..." (where each corner was, where it went)
+        if (!prev) { errors[st.id] = "there is no body yet"; break; }
+        const moves = String(st.params.moves ?? "").split(";").filter(Boolean).map((m) => { const [a, b] = m.split(">").map((q) => q.split(",").map(Number)); return { from: a!, to: b! }; });
+        if (!moves.length || moves.some((m) => m.from.length !== 3 || m.to.length !== 3 || [...m.from, ...m.to].some((x) => !Number.isFinite(x)))) { errors[st.id] = "bad corners"; break; }
+        ops.push({ id: xid, type: "reshape", target: prev, moves, ...(st.params.body ? { body: String(st.params.body) } : {}) });
+        prev = xid;
+        break;
+      }
       case "combine": {
         // add or subtract bodies (`in_270`): the first body named stays; the bodies are named by the step that made each (`b/<name>/o`)
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const names = st.parts.map((r) => (r.startsWith("b/") ? r.split("/")[1]! : ""));
         if (names.length < 2 || names.some((n) => !n || n === "body")) { errors[st.id] = "select two or more bodies"; break; }
-        ops.push({ id: xid, type: "combine", target: prev, mode: String(st.params.mode ?? "add"), bodies: names, ...(Number(st.params.keep) === 1 ? { keep: 1 } : {}), ...(st.params.mode === "regions" ? { regions: String(st.params.regions ?? "").split(",").filter((x) => x !== "").map(Number), join: Number(st.params.join) === 1 } : {}) });
+        ops.push({ id: xid, type: "combine", target: prev, mode: String(st.params.mode ?? "add"), bodies: names, ...(Number(st.params.keep) === 1 ? { keep: 1 } : {}), ...(st.params.drop ? { drop: String(st.params.drop).split(",").filter(Boolean) } : {}), ...(st.params.mode === "regions" ? { regions: String(st.params.regions ?? "").split(",").filter((x) => x !== "").map(Number), join: Number(st.params.join) === 1 } : {}) });
         prev = xid;
         break;
       }

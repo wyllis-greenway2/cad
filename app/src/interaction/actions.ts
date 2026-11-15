@@ -155,7 +155,24 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
         const ids = new Set(whole.map((r) => (get(r) as { id?: string }).id).filter((x): x is string => !!x));
         const some = all.length > 1 && ids.size > 0 && ids.size < all.length;
         const mine = (st: Scene["steps"][number]): boolean => !some || [...ids].some((id) => st.id === id.replace(/^x_/, "") || st.params.body === id);
-        const steps = scene.steps.filter(mine);
+        // the cuts that were made only in the bodies that go are taken out with them: they have nothing left to cut (`in_436`); a cut that also took material from another body stays
+        const onlyHere = (st: Scene["steps"][number]): boolean => { const into = scene.cutOf?.[st.id]; return !!into && into.length > 0 && into.every((b) => ids.has(b)); };
+        // a body that was kept as the tool of a subtraction or intersection and is deleted leaves the cut it made (the combine drops it, its own steps stay); one that was the body cut loses the combine too (it has nothing to work on)
+        const combines = scene.steps.filter((st) => st.type === "combine" && (st.params.mode === "subtract" || st.params.mode === "intersect") && Number(st.params.keep) === 1);
+        const bodyOf = (r: Ref): string => (r.startsWith("b/") ? r.split("/")[1]! : "");
+        const dropped = new Map<string, string[]>(); // combine step id -> the tools deleted
+        const lostCombines = new Set<string>();
+        for (const c of combines) {
+          const names = c.parts.map(bodyOf);
+          if (ids.has(names[0]!)) lostCombines.add(c.id);
+          else { const gone2 = names.slice(1).filter((n) => ids.has(n)); if (gone2.length) dropped.set(c.id, gone2); }
+        }
+        const keptTools = new Set([...dropped.values()].flat()); // (their steps stay: the cut they made is made by them)
+        const steps = scene.steps.filter((st) => {
+          if (lostCombines.has(st.id)) return true;
+          if ([...keptTools].some((id) => st.id === id.replace(/^x_/, "") || st.params.body === id)) return false;
+          return mine(st) || (st.params.mode === "cut" && onlyHere(st));
+        });
         for (const st of steps) {
           if (st.type !== "extrude") continue;
           const cut = st.params.cut !== undefined || figureRefs(st).some((r) => r.includes("@")); // (a piece of a cut shape: the sides stay with the other pieces)
@@ -165,7 +182,8 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
         const alone = (c: Ref) => !!get(c)?.movable && !Object.values(scene.parts).some((q) => !gone.has(q.ref) && ((q.kind === "circle" && q.center === c) || (q.kind === "line" && (q.a === c || q.b === c || q.center === c))));
         const refs = [...gone, ...new Set(corners.filter(alone))].filter((r) => r in scene.parts);
         const mates = scene.relations.filter((r) => r.kind === "mate" && r.parts.some((q) => whole.includes(q))).map((r): Command => ({ type: "removeRelation", id: r.id })); // (a mate of a body that is deleted goes with it, `in_315`)
-        return { type: "batch", commands: [...mates, ...[...steps].reverse().map((st): Command => ({ type: "removeStep", id: st.id })), ...(refs.length ? [{ type: "deleteParts", refs } as Command] : [])] };
+        const drops = [...dropped].map(([id, tools]): Command => ({ type: "setStepParams", id, params: { drop: [...String(scene.steps.find((x) => x.id === id)?.params.drop ?? "").split(",").filter(Boolean), ...tools].join(",") } }));
+        return { type: "batch", commands: [...mates, ...drops, ...[...steps].reverse().map((st): Command => ({ type: "removeStep", id: st.id })), ...(refs.length ? [{ type: "deleteParts", refs } as Command] : [])] };
       },
     });
   } else {

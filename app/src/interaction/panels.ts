@@ -25,6 +25,7 @@ function stepLabel(st: Step): string {
     case "rotate": return `Rotate ${"XYZ"[Number(p.axis ?? 0)]} ${n(p.value)}°`;
     case "move": return `Move ${"XYZ"[Number(p.axis ?? 0)]} ${n(p.value)} mm`;
     case "scale": return `Scale ×${n(p.value)}`;
+    case "reshape": return `Reshape by ${String(p.moves ?? "").split(";").filter(Boolean).length} corner(s)`;
     default: return st.type;
   }
 }

@@ -2091,6 +2091,59 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > Do the sweep preview and path-follows-sketch next
 (asks for the two things `dec_sweep` left unbuilt: a preview of the sweep while it is being made, and a path that follows a later edit of the sketch it was drawn in)
 
+## in_446 — 2026-11-15 — directive
+> When I try to modify the height of this block, it is really really slow. i think it is because of the complicated lofts around it. But why? the block edit doesn't modify or interact with the complicated lofts at all? So why so slow? Also why can I not edit the fillet I added to one of the lofts?
+(two files attached: a state snapshot and `really_slow.json`, kept as `app/test/fixtures/lofts-and-block-in_446.cad.json`)
+
+## in_447 — 2026-11-15 — question
+> did this fix the root cause? Do we need to map dependency overall so we only recalc what we need in order to remain efficient and fast?
+(asks whether the fix of `in_446` was the root cause and whether a dependency map is needed; answered in chat: the steps are already kept by what they depend on, the slow part was the work done on the whole result afterwards, which is now per body; a per-body dependency graph only if a file shows a heavy step on an unrelated body being made again)
+
+## in_448 — 2026-11-15 — approval
+> yes start with the timing breakdown
+(approves the first of the three steps proposed: a timing breakdown in the snapshot)
+
+## in_449 — 2026-11-15 — approval
+> yes, start with the opening cost
+(approves the next step proposed after the timing breakdown: the cost of opening a file)
+
+## in_450 — 2026-11-15 — approval
+> yes, start with the stage timings
+(approves step 1 of the plan: stage timings inside the slow steps, then the mesh cache)
+
+## in_451 — 2026-11-15 — question
+> we already have a working indicator dont we?
+(asked after `in_449`, before `in_450`; recorded late. Answered: yes, `ui/busy.ts` shows "Working…" whenever the kernel has not answered)
+
+## in_452 — 2026-11-15 — question
+> so is it all fixed? is it fast? or still too slow?
+(asked before `in_450`; recorded late)
+
+## in_453 — 2026-11-15 — question
+> can we make it faster without doing shortcuts we will regret later?
+(asked before `in_450`; recorded late. Answered with a plan: stage timings, then a cache, no coarser meshes or skipped checks)
+
+## in_454 — 2026-11-15 — preference
+> okay hold that thought, we will probably do that, but I have another idea, would it make sense to just really roughly have everything be a mesh like in a video game, and only the object close to the camera or ones trying to be selected actually pulls in its real mathematically correct values? So we dont render and rotate everything in the world all the time perfectly etc.
+(asked before `in_450`; recorded late. The idea of showing meshes at once and bringing in the exact values only where they are needed: answered that rendering is already mesh-based and that the idea fits as a cache of the meshes and picking data of each body)
+
+## in_455 — 2026-11-15 — question
+> so what do you recommend? Should we just do your plan before my mesh idea?
+(asked before `in_450`; recorded late. Answered: the stage timings first, then the mesh idea as a cache of descriptions)
+
+## in_456 — 2026-11-15 — approval
+> yes, start on the mesh cache
+(approves the mesh cache: `dec_description_cache`)
+
+## in_457 — 2026-11-15 — directive
+> okay lets try it the way it is then, so lets move on if you think it is good for now. There is a bug where if you select one vertices of any object and try to move it, then it moves all bodies. See this file for example. Also Can we make it so can manipulate faces edges and verticies at all? Right now if you try to manipulate then it just moves as if you selected the entire object. But I would imagine we should let the user move individual faces edges or verticies to modify the shape of the object itself? inlcuding rotating entire faces etc. Of course there would be limits like you cant rotate a single edge out of contact with the other edges and break open the closed body etc.
+(a file attached: `model.cad_49.json`; kept as `app/test/fixtures/sweep-and-block-in_457.cad.json`. Two things: the bug, fixed; and a feature, shaping a body by moving, turning its faces, edges and corners, which is `dec_direct_shape_editing`, asked, not built)
+
+## in_458 — 2026-11-15 — approval
+> Where should shaping a body by its parts start? = Faces, edges and corners together
+> When moving a corner or edge would make a face stop being flat, what should happen? = Split the face into flat pieces
+(answers to two questions about `dec_direct_shape_editing`: all three kinds of part together, and a face that would stop being flat is split into flat pieces; recorded as `dec_direct_shape_editing`)
+
 ## in_459 — 2026-11-15 — directive
 > can we try rendering without the black lines? 
 > Can we change the cross section planes a bit? First lets make them a more generic entity so they can be reused for other things. They should just be planes, they should be translucent grey like the little world panes. They should have a little icon on them that toggles them between different visual modes. The modes should be the cut modes of our current cross sheet. It should all be in one icon that toggles beteen modes as you click it. It should cut normal one direction, cut normal other direction, not cut, and invisible sheet mode. Invisible sheet mode should be an even more transparent sheet that stops interacting with the mouse except the the icon should still fade in show on hover so you can get it back out of that mode again. Aside from that it should operate as a normal face in many respects, if not invisible, and when clicked on you should be able to sketch on it like any other face. Also it should have the push pull arrow except instead of actually extruding it, it should just move the sheet along its normal. There should be an icon to toggle it into move mode with the xyz and rotate orb, or cycle between x y z plane when cycled back to free position in the move, it should remember where it last was.

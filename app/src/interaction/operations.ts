@@ -35,6 +35,7 @@ import { loftCommand } from "./loft.ts";
 import { sweepCommand } from "./sweep.ts";
 import { walkPath } from "../operation/path.ts";
 import { mirrorStart, mirrorCommand } from "./mirror.ts";
+import { partCorners, reshapeCommand, bodyIdOf } from "./reshape.ts";
 import { settings } from "../shared/settings.ts";
 
 export type OpKind = "extrude" | "pushpull" | "offset" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular" | "copy" | "hollow" | "revolve" | "loft" | "sweep" | "mirror";
@@ -150,7 +151,10 @@ export interface Op {
   /** rotate: the point it turns about (the rotator's centre; you can move it) */
   pivot: Vec3 | null;
   /** move and rotate: the body, or a drawn shape (its corners are `parts`, its plane is `plane`) */
-  target: "body" | "shape" | "plane";
+  target: "body" | "shape" | "plane" | "part";
+  /** a corner, an edge or a face of the body moved or turned (`target` "part", `dec_direct_shape_editing`): the corners it is made of as it began, the body they are in (its name when there are several) and where the steps made since began */
+  sub?: Vec3[];
+  bodyId?: string;
   plane: Ref | null;
   /** the operation came from selecting something (its handle showed up by itself): it ends when the drag does, instead of staying open */
   auto: boolean;
@@ -210,14 +214,14 @@ export function surfaceAxes(scene: Scene, part: Part | undefined): [Vec3, Vec3, 
 /** The mover put on one flat face or plane has an arrow normal to it (`in_419`). */
 export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind, view: ViewAxes | null = null): StartResult {
   const r = startOpMoved(scene, selection, kind, view);
-  if (!r.ok || (kind !== "move" && kind !== "rotate") || selection.length !== 1 || (r.op.target !== "body" && r.op.target !== "plane")) return r;
+  if (!r.ok || (kind !== "move" && kind !== "rotate") || selection.length !== 1 || (r.op.target !== "body" && r.op.target !== "plane" && r.op.target !== "part")) return r;
   const f = surfaceAxes(scene, scene.parts[selection[0]!]);
   if (f && f[2].filter((c) => Math.abs(c) > 1 - 1e-6).length === 1) return r; // (a face across a world axis: the arrows are already along it)
   return f ? { ...r, op: { ...r.op, frame: f, axis: 2 } } : r;
 }
 function startOpMoved(scene: Scene, selection: readonly Ref[], kind: OpKind, view: ViewAxes | null = null): StartResult {
   const r = startOpBare(scene, selection, kind, view);
-  if (!r.ok || r.op.kind !== "move" || (r.op.target !== "body" && r.op.target !== "plane")) return r;
+  if (!r.ok || r.op.kind !== "move" || (r.op.target !== "body" && r.op.target !== "plane")) return r; // (a part of the body has its own start)
   const from = moveCentre(scene, r.op);
   return from ? { ...r, op: { ...r.op, from, stepsAt: scene.steps.length } } : r;
 }
@@ -473,6 +477,14 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     const a = measureAction(actionsFor(scene, selection), (x) => x.enabled); // (the same number the bubble offers: an arc's radius before its chord, `in_235`)
     if (!a || !a.unit) return { ok: false, why: "select two parts that can be measured (two corners, a corner and a line, two lines)" };
     return { ok: true, op: { ...base, parts: a.parts, value: a.measure(), field: a.label, unit: a.unit } };
+  }
+  // a corner, an edge or a face of the body (not the whole body): it takes the corners it is made of with it and the body is shaped (`dec_direct_shape_editing`)
+  if ((kind === "move" || kind === "rotate") && parts.length && !parts.some((p) => p.kind === "body") && parts.every((p) => p.origin === "body")) {
+    const got = partCorners(scene, parts);
+    if (!got.ok) return got;
+    const mid = [0, 1, 2].map((i) => got.corners.reduce((a, q) => a + q[i]!, 0) / got.corners.length) as unknown as Vec3;
+    const id = bodyIdOf(scene, got.body);
+    return { ok: true, op: { ...base, parts: parts.map((p) => p.ref), target: "part", sub: got.corners, ...(id ? { bodyId: id } : {}), pivot: kind === "rotate" ? mid : null, from: mid, stepsAt: scene.steps.length } };
   }
   // move, rotate, scale: the whole body, or (move and rotate) a drawn closed figure
   const body = parts.find((p) => p.kind === "body" || p.origin === "body");
@@ -745,6 +757,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
     const carry = carrySketches(scene, [], [0, 0, 0], pivot, v, op.carryOnly);
     return carry.length ? { type: "batch", commands: [step, ...carry] } : step;
   }
+  if (op.target === "part") return reshapeCommand(scene, op, v, axisVec(op));
   if (op.target === "plane") {
     if (v === 0) return null;
     return op.kind === "rotate" ? figureCommand(scene, op, op.frame ? eulerTurns(axisVec(op), v) : [{ axis: op.axis, angle: v }], [0, 0, 0]) : figureCommand(scene, op, [], scale(axisVec(op), v));

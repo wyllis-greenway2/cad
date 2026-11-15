@@ -27,7 +27,10 @@ import {
   Wire,
 } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
-import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers } from "./bodies.mjs";
+import { reshape } from "./reshape.mjs";
+import { stage, beginStages, endStages } from "./stages.mjs";
+import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
+import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
 
 /** OCCT's own topology/geometry check. Operations can return garbage without throwing. */
 export function isValidSolid(shape) {
@@ -443,7 +446,7 @@ const OPS = {
       try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut }; } catch { /* a join instead */ }
       return { kind: "solid", shape: target.fuse(solid) };
     }
-    if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
+    if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
     return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
   },
 
@@ -471,10 +474,12 @@ const OPS = {
       return sld;
     };
     let solid = toolOf(0);
-    const target = op.target ? ctx.get(op.target, "solid").shape : null;
+    const targetValue = op.target ? (op.mode === "new" ? ctx.peek(op.target, "solid") : ctx.get(op.target, "solid")) : null; // (a piece of its own stands beside the body: no copy of it is needed)
+    const target = targetValue ? targetValue.shape : null;
     if (!target) return { kind: "solid", shape: solid };
     // (only when the plane is on the boundary of the body: with material just behind it, as a hole begun inside the body under a skin, the tool begins where it was drawn)
-    const behind = (() => { try { const slab = prism(op.profile, op.holes, dist < 0 ? BACK : -BACK, 0); return measureVolume(target.clone().intersect(slab.clone())) > 0.5 * measureVolume(slab); } catch { return false; } })(); // (mostly body in a slab behind the plane)
+    const cuts = op.mode === "cut" || op.mode === "cutOrAdd"; // (a piece added or of its own needs no start behind the plane, and the test costs a boolean on the whole body)
+    const behind = !cuts || (() => { try { const slab = prism(op.profile, op.holes, dist < 0 ? BACK : -BACK, 0); return measureVolume(target.clone().intersect(slab.clone())) > 0.5 * measureVolume(slab); } catch { return false; } })(); // (mostly body in a slab behind the plane)
     const back = behind ? 0 : BACK;
     if (op.mode === "cutOrAdd") {
       // a figure pulled backwards: a pocket when it meets the body (drawn on a face and pushed in); drawn out in the open it is a new piece, not a cut that does nothing
@@ -482,14 +487,16 @@ const OPS = {
       const meets = [0, 1, 2].every((i) => sb.min[i] < tb.max[i] - 1e-6 && sb.max[i] > tb.min[i] + 1e-6);
       if (meets) {
         const before = measureVolume(target);
-        const cut = target.clone().cut(toolOf(back));
-        if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut };
+        const tool = toolOf(back);
+        const cut = target.clone().cut(tool.clone());
+        if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut, used: "cut", cutInto: cutInto(targetValue, tool) };
       }
-      return { kind: "solid", shape: target.fuse(solid) };
+      return joined(target, solid);
     }
     // "new" (`in_295`): a piece that stood apart when it was made stays a body of its own, however the others grow later: no join, one compound
-    if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
-    return { kind: "solid", shape: op.mode === "cut" ? target.cut(toolOf(back)) : target.fuse(solid) };
+    if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
+    if (op.mode === "cut") { const tool = toolOf(back); return { kind: "solid", shape: target.cut(tool.clone()), cutInto: cutInto(targetValue, tool) }; }
+    return { kind: "solid", shape: target.fuse(solid) };
   },
 
   /**
@@ -557,15 +564,17 @@ const OPS = {
     let solid = make(outerSketch);
     for (const h of op.holes ?? []) solid = solid.cut(make(sketchOf(h)));
     if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the figure when its holes were cut");
-    const target = op.target ? ctx.get(op.target, "solid").shape : null;
+    const targetValue = op.target ? (op.mode === "new" ? ctx.peek(op.target, "solid") : ctx.get(op.target, "solid")) : null; // (a piece of its own stands beside the body: no copy of it is needed)
+    const target = targetValue ? targetValue.shape : null;
     if (!target) return { kind: "solid", shape: solid };
     if (op.mode === "cutOrAdd") {
       const before = measureVolume(target);
-      try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut }; } catch { /* a join instead */ }
-      return { kind: "solid", shape: target.fuse(solid) };
+      try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut, used: "cut", cutInto: cutInto(targetValue, solid) }; } catch { /* a join instead */ }
+      return joined(target, solid);
     }
-    if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
-    return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
+    if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
+    if (op.mode === "cut") return { kind: "solid", shape: target.cut(solid.clone()), cutInto: cutInto(targetValue, solid) };
+    return { kind: "solid", shape: target.fuse(solid) };
   },
 
   /**
@@ -573,10 +582,10 @@ const OPS = {
    * its box containing the point). Pulling out adds the prism the face sweeps; pushing in cuts it.
    */
   faceExtrude(op, ctx) {
-    const t = ctx.get(op.target, "solid").shape;
+    const t = stage("copying the body it works on", () => ctx.get(op.target, "solid").shape);
     const dist = resolve(op.distance, ctx.params);
-    const best = findFace(t, op.ref);
-    const fn = best.normalAt(); // the face's own normal, exactly: a rounded one slants the prism and leaves slivers (an invalid solid)
+    const best = stage("finding the face", () => findFace(t, op.ref));
+    const fn = stage("the face's normal", () => best.normalAt()); // the face's own normal, exactly: a rounded one slants the prism and leaves slivers (an invalid solid)
     const fl = Math.hypot(fn.x, fn.y, fn.z);
     const n = [fn.x / fl, fn.y / fl, fn.z / fl];
     if (!Number.isFinite(dist)) throw new Error("bad distance");
@@ -591,8 +600,18 @@ const OPS = {
       }
       if (-dist >= deepest - 1e-6) throw new Error("the push goes through the body");
     }
-    const prism = basicFaceExtrusion(best, new Vector(n.map((v) => v * dist)));
-    return { kind: "solid", shape: dist >= 0 ? t.fuse(prism) : t.cut(prism) };
+    const prism = stage("the prism of the face", () => basicFaceExtrusion(best, new Vector(n.map((v) => v * dist))));
+    // among several bodies the boolean is made on the body the face is on alone, when the prism comes nowhere near the others (a boolean on all of them takes as long as the biggest, `in_446`: a loft of a thousand faces)
+    const lumps = stage("listing the bodies", () => lumpsOf(t));
+    if (lumps.length > 1) {
+      const mine = lumps.findIndex((l) => facesOf(l).some((f) => f.hashCode === best.hashCode));
+      if (mine >= 0) {
+        const pb = boxOf(prism);
+        const near = lumps.some((l, i) => i !== mine && (() => { const lb = boxOf(l); return [0, 1, 2].every((k) => pb.min[k] <= lb.max[k] + 1e-3 && pb.max[k] >= lb.min[k] - 1e-3); })());
+        if (!near) { const made = dist >= 0 ? lumps[mine].fuse(prism) : lumps[mine].cut(prism); return { kind: "solid", shape: makeCompound([...lumps.filter((_, i) => i !== mine), ...made.solids]) }; }
+      }
+    }
+    return { kind: "solid", shape: dist >= 0 ? t.fuse(prism, { optimisation: "commonFace" }) : t.cut(prism) }; // (the prism stands on the face and nowhere else: the kernel is told the two only share that face, which spares it looking for every other crossing, `in_449`) // (the prism stands on the face and nowhere else: the kernel is told the two only share that face, which spares it looking for every other crossing, `in_449`)
   },
 
   /**
@@ -746,7 +765,7 @@ const OPS = {
     /** The body with this step's edges (`list`, refs) rounded or bevelled by `size`: on their own, else together with the steps just before it (`in_176`), else it throws. */
     let note = null;
     const make = (size, list, neighbours = true) => {
-      const set = resolveEdges(t, list);
+      const set = stage("finding the edges", () => resolveEdges(t, list));
       const pick = (ef) => ef.when(({ element }) => set.has(element.hashCode));
       try {
         if (!set) throw new Error("line not found (the model changed since this step was made)");
@@ -763,9 +782,9 @@ const OPS = {
           if (!isValidSolid(two) || Math.abs(measureVolume(two) - measureVolume(t)) < 1e-9 * measureVolume(t)) throw new Error("the kernel made nothing of it");
           return two;
         }
-        const made = op.mode === "chamfer" ? t.chamfer(size, pick) : rel && rel.length > 2 ? lawFillet(t, set, stationsFor(size)) : t.fillet(rel ? [size, size * rel[1][1]] : size, pick);
-        if (!isValidSolid(made)) throw new Error("kernel returned an invalid solid"); // (a size the faces cannot take can come out as a broken solid, not an exception)
-        if (Math.abs(measureVolume(made) - measureVolume(t)) < 1e-9 * measureVolume(t)) throw new Error("the kernel made nothing of it"); // (a size it cannot take can come out as the body unchanged)
+        const made = stage("the kernel's round", () => op.mode === "chamfer" ? t.chamfer(size, pick) : rel && rel.length > 2 ? lawFillet(t, set, stationsFor(size)) : t.fillet(rel ? [size, size * rel[1][1]] : size, pick));
+        if (!stage("checking the round", () => isValidSolid(made))) throw new Error("kernel returned an invalid solid"); // (a size the faces cannot take can come out as a broken solid, not an exception)
+        if (stage("checking the round's volume", () => Math.abs(measureVolume(made) - measureVolume(t)) < 1e-9 * measureVolume(t))) throw new Error("the kernel made nothing of it"); // (a size it cannot take can come out as the body unchanged)
         return made;
       } catch (e) {
         // two distances have no region to fall back on (`dec_chamfer_two_distances`): refused, with the reason
@@ -940,6 +959,21 @@ const OPS = {
   },
 
   /**
+   * Shape one body by moving some of its corners (`dec_direct_shape_editing`): `moves` is [{ from, to }]. A face that stays flat stays whole, one that would not is split into flat pieces;
+   * a move that leaves the body open, empty or crossing itself is refused with the reason.
+   */
+  reshape(op, ctx) {
+    const target = ctx.get(op.target, "solid");
+    const markers = target.markers ?? [];
+    const one = op.body && markers.length > 1 ? lumpOf(target.shape, markers, op.body) : null;
+    if (op.body && markers.length > 1 && !one) throw new Error("that body is not there any more");
+    const t = one ? one.lump : target.shape.solids.length === 1 ? target.shape.solids[0] : target.shape;
+    const made = reshape(t, op.moves);
+    const b = bounds(made);
+    return { kind: "solid", shape: one ? makeCompound([...one.rest, made]) : made, tf: { mode: "reshape", only: one ? op.body : null, at: [0, 1, 2].map((i) => (b.min[i] + b.max[i]) / 2) }, checked: true };
+  },
+
+  /**
    * Add or subtract bodies (`in_270`): `bodies` are the names of the bodies, the first is the one that stays. Add joins them all into the first (they must touch or overlap, or they could not be one solid);
    * Subtract takes the others away from the first, and they are used up. The other bodies of the model are left as they are.
    */
@@ -965,7 +999,8 @@ const OPS = {
       return { kind: "solid", shape: makeCompound([...found.rest, ...result]), first: op.bodies[0] };
     }
     const [first, ...others] = found.picked;
-    const kept = op.keep && op.mode !== "add" ? others.map((o) => o.clone()) : []; // (a boolean uses up what it is given: the tools that stay are copied first)
+    const drop = new Set(op.drop ?? []); // (tools that were kept but have been deleted since: the cut they made stays, they do not, `in_436`)
+    const kept = op.keep && op.mode !== "add" ? others.filter((_, i) => !drop.has(op.bodies[i + 1])).map((o) => o.clone()) : []; // (a boolean uses up what it is given: the tools that stay are copied first)
     let made = first;
     for (const o of others) made = op.mode === "subtract" ? made.cut(o) : op.mode === "intersect" ? made.intersect(o) : made.fuse(o);
     const parts = lumpsOf(made);
@@ -1026,6 +1061,27 @@ const OPS = {
     return { kind: "solid", shape: made ?? hollowByShells(outer, inner) };
   },
 };
+
+/** The bodies (their names) that a tool cuts into: the ones it takes material from (`in_436`: deleting a body takes out the cuts made only in it). */
+function cutInto(value, tool) {
+  const markers = value.markers ?? [];
+  const lumps = lumpsOf(value.shape);
+  if (lumps.length < 2) return markers.slice(0, 1).map((m) => m.id);
+  const hit = [];
+  for (const m of markers) {
+    const l = lumps[m.lump];
+    if (!l) continue;
+    try { if (measureVolume(l.clone().intersect(tool.clone())) > 1e-7) hit.push(m.id); } catch { /* not this one */ }
+  }
+  return hit;
+}
+
+/** The body and a piece added to it, and what that was: a piece that stands apart is a body of its own (`new`), one that touches it joins it (`add`); said, so that a step that did not say can be made to (`in_436`). */
+function joined(target, solid) {
+  const shape = target.fuse(solid);
+  const used = (shape.solids?.length ?? 1) > (target.solids?.length ?? 1) ? "new" : "add";
+  return { kind: "solid", shape, used };
+}
 
 /** A solid whose boundary is the outer solid's shell and, as a void inside it, the inner solid's shell turned inside out. */
 function hollowByShells(outer, inner) {
@@ -1610,6 +1666,14 @@ export function compile(graph) {
       if (kind && r.value.kind !== kind) throw new Error(`${id} is a ${r.value.kind}, expected ${kind}`);
       return r.value.kind === "solid" ? { ...r.value, shape: r.value.shape.clone() } : r.value; // a copy: what an op does to it must not touch the kept one
     },
+    /** The kept result itself, not a copy (a copy of a loft of a thousand faces takes a tenth of a second): only for an op that does nothing to it but stand beside it (`in_446`). */
+    peek(id, kind) {
+      const r = results.get(id);
+      if (!r) throw new Error(`${id} not found (ops must be ordered after their dependencies)`);
+      if (r.error) throw new Error(`upstream ${id} failed`);
+      if (kind && r.value.kind !== kind) throw new Error(`${id} is a ${r.value.kind}, expected ${kind}`);
+      return r.value;
+    },
   };
   const pj = JSON.stringify(params);
   for (const op of graph.ops) {
@@ -1619,24 +1683,33 @@ export function compile(graph) {
     const kept = memo.get(key);
     if (kept) {
       remember(key, kept);
-      results.set(op.id, { value: kept.value, ms: 0, key });
+      results.set(op.id, { value: kept.value, ms: 0, key, cached: true });
       continue;
     }
+    let markMs = 0;
+    let checkMs = 0;
     try {
       if (!OPS[op.type]) throw new Error(`unknown op type ${op.type}`);
+      beginStages();
       const value = run(op, ctx, results);
+      const stagesOf = endStages();
       if (value.kind === "solid") {
         // which bodies the result has, by the markers of the body it was made from (moved with it if this was a move)
         const from = op.target ? results.get(op.target)?.value : null;
         let prev = value.tf ? moveMarkers(from?.markers ?? [], value.tf) : from?.markers ?? [];
         if (value.first) prev = [...prev.filter((m) => m.id === value.first), ...prev.filter((m) => m.id !== value.first)]; // (the body that stays keeps its name when bodies are combined)
+        const tM = performance.now();
         value.markers = trackBodies(prev, value.shape, op.id);
+        markMs = performance.now() - tM;
       }
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
-      if (value.kind === "solid" && !rigid && !isValidSolid(value.shape)) throw new Error("kernel returned an invalid solid");
-      results.set(op.id, { value, ms: performance.now() - t0, key });
+      const tC = performance.now();
+      if (value.kind === "solid" && !rigid && !value.checked && !isValidSolid(value.shape)) throw new Error("kernel returned an invalid solid");
+      checkMs = performance.now() - tC;
+      results.set(op.id, { value, ms: performance.now() - t0, key, markMs, checkMs, ...(Object.keys(stagesOf).length ? { stages: Object.fromEntries(Object.entries(stagesOf).map(([n, v]) => [n, Math.round(v * 10) / 10])) } : {}) });
       remember(key, { value });
     } catch (e) {
+      endStages();
       results.set(op.id, { error: describeError(e, op), ms: performance.now() - t0, ...(e?.detail?.culprits?.length ? { culprits: e.detail.culprits } : {}) });
     }
   }

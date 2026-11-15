@@ -1,6 +1,7 @@
 // The helper handles (`in_117`): Move shows X Y Z arrows you drag; Fillet / chamfer shows a double arrow on the edge (drag one way for a fillet, the other for a chamfer of that
 // size); Rotate shows curved arrows round X Y Z at a centre you can move to the point you want to turn about. Pure geometry: where the handles are, which one is under the
 // pointer, and what a drag of one means. The view draws them; the controller applies the drag.
+import { currentCorners } from "./reshape.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize, centroid } from "../math/vec.ts";
@@ -136,6 +137,7 @@ function bodyBox(scene: Scene, parts: readonly string[] = []): { lo: Vec3; hi: V
 
 /** Where the arrows of a move stand as it begins: the middle of the body's box, or of the corners of the drawn figure. Null with nothing to move. */
 export function moveCentre(scene: Scene, op: Op): Vec3 | null {
+  if (op.target === "part" && op.sub) return centroid(currentCorners(scene, op.sub, op.stepsAt ?? scene.steps.length));
   if (op.target === "plane") { const pts = cornersOf(scene, op.parts); return pts.length ? centroid(pts) : null; }
   const box = bodyBox(scene, op.parts);
   return box ? scale(add(box.lo, box.hi), 0.5) : null;
@@ -146,6 +148,7 @@ export function moveCentre(scene: Scene, op: Op): Vec3 | null {
  */
 export function moveOffset(scene: Scene, op: Op): Vec3 {
   if (op.kind !== "move" || !op.from) return [0, 0, 0];
+  if (op.target === "part") { const c = moveCentre(scene, op); return c ? sub(c, op.from) : [0, 0, 0]; }
   if (op.target === "plane") { const c = moveCentre(scene, op); return c ? sub(c, op.from) : [0, 0, 0]; }
   const out: [number, number, number] = [0, 0, 0];
   for (const st of scene.steps.slice(op.stepsAt ?? scene.steps.length)) {
@@ -234,6 +237,11 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
     const ext = (i: number) => (first?.kind === "circle" ? first.radius : pts.length ? Math.max(...pts.map((q) => Math.abs(q[i]! - op.pivot![i]!))) : 0);
     const arrows = c === undefined ? [] : AXES.flatMap((d, i): Handle[] => (i === c ? [] : [{ id: `scale:${"xyz"[i]}`, kind: "scale", axis: i as 0 | 1 | 2, points: [op.pivot!, add(op.pivot!, scale(d, ext(i) + 0.5 * L))] }]));
     return { centre: op.pivot, handles: [...arrows, { id: "scale", kind: "scale", axis: null, points: [op.pivot, far] }] };
+  }
+  if (op.target === "part" && op.sub) {
+    // a corner, an edge or a face of the body: the same X Y Z arrows and rings as an object, at the middle of its corners (the pivot of a turn can be moved)
+    const c = centroid(currentCorners(scene, op.sub, op.stepsAt ?? scene.steps.length));
+    return op.kind === "move" || op.kind === "rotate" ? moverHandles(op.kind, op.kind === "rotate" ? (op.pivot ?? c) : c, L, sphere, op.frame) : null;
   }
   if (op.target === "plane") {
     // a drawn figure: the same X Y Z arrows and rings as an object, at the figure's middle (the pivot of a turn can be moved)

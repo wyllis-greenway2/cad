@@ -1,8 +1,26 @@
 // Independent bodies (`dec_independent_bodies`, `in_270`): the final shape is a compound of solids; each solid that stands alone is a body, and a body keeps its name through the history. A body is found again after
 // each operation by a marker, a point inside it (the middle of its box, kept up to date): the solid that holds a body's marker is that body, a solid with no marker is a new body (named by the operation that made it), and a
 // marker with no solid of its own any more (two bodies joined, one cut away) is gone. Pure geometry on plain numbers and replicad shapes; nothing here leaves the kernel folder.
+import { getOC } from "replicad";
 
-const box = (s) => { const b = s.boundingBox.bounds; return { min: b[0], max: b[1] }; };
+// The exact box of a solid takes a tenth of a second for a loft of a thousand faces: kept by the solid's own identity (the same shape, found again in a later result, has the same box), and by a quick box round it, so that
+// another solid with the same identity number is never taken for it (`in_446`)
+const boxes = new Map();
+function roughKey(s) {
+  const oc = getOC();
+  const b = new oc.Bnd_Box();
+  try { oc.BRepBndLib.Add(s.wrapped, b, false); const [a, z] = [b.CornerMin(), b.CornerMax()]; const k = [a.X(), a.Y(), a.Z(), z.X(), z.Y(), z.Z()].map((v) => Math.round(v * 1e6)).join(","); a.delete(); z.delete(); return k; } finally { b.delete(); }
+}
+export const box = (s) => {
+  const key = `${s.hashCode}|${roughKey(s)}`;
+  const kept = boxes.get(key);
+  if (kept) return { min: [...kept.min], max: [...kept.max] };
+  const b = s.boundingBox.bounds;
+  const made = { min: [...b[0]], max: [...b[1]] };
+  boxes.set(key, made);
+  while (boxes.size > 400) boxes.delete(boxes.keys().next().value);
+  return { min: [...made.min], max: [...made.max] };
+};
 const centre = (b) => [0, 1, 2].map((i) => (b.min[i] + b.max[i]) / 2);
 const inside = (b, p, t = 1e-3) => [0, 1, 2].every((i) => p[i] >= b.min[i] - t && p[i] <= b.max[i] + t);
 
@@ -19,6 +37,7 @@ export const lumpsOf = (shape) => shape.solids;
 
 /** Where a marker goes when an operation moves, turns or scales the bodies it names (`only`: one body's id, else all of them). */
 export function moveMarkers(markers, tf) {
+  if (tf.mode === "reshape") return markers.map((m) => (tf.only && m.id !== tf.only ? m : { ...m, at: tf.at })); // (the body's shape changed: it is found by its new middle)
   const go = (p) => {
     if (tf.mode === "move") { if (tf.vec) return [0, 1, 2].map((i) => p[i] + tf.vec[i]); const q = [...p]; q[tf.axis] += tf.v; return q; }
     const d = [0, 1, 2].map((i) => p[i] - tf.pivot[i]);
