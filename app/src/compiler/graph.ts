@@ -82,7 +82,7 @@ export function buildGraph(scene: Scene): GraphResult {
       }
       case "revolve": {
         // a figure (and the figures drawn inside it, which are holes) turned about a line in its own plane, any angle, with an advance along the axis for a spiral; or, the axis being the plane's normal, carried along it while it
-        // turns (a twisted extrusion) (`dec_spiral_extrude`, `in_420`, `in_422`); the axis is stored as numbers (a point on it and its direction), as a push / pull stores its face
+        // turns (a twisted extrusion) (`dec_spiral_extrude`, `in_427`, `in_429`); the axis is stored as numbers (a point on it and its direction), as a push / pull stores its face
         const figs = figuresOf(st);
         if (figs.length > 1) { errors[st.id] = "a revolve takes one figure at a time"; break; }
         const sk = profile(st, figs[0]!.outer);

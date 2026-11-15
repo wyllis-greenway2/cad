@@ -383,7 +383,7 @@ const OPS = {
   extrude(op, ctx) {
     const dist = resolve(op.distance, ctx.params);
     // a cut that starts on a face of the body (a figure drawn on the face and pushed in) has its tool begin a little behind that face, in the air: begun exactly on it, the kernel leaves the face as a skin over the pocket,
-    // and the top of a hole stays shut (`in_419`)
+    // and the top of a hole stays shut (`in_426`)
     const BACK = 1e-3;
     const prism = (profile, holes, d = dist, back = 0) => {
       const dir = d < 0 ? -1 : 1;
@@ -426,7 +426,7 @@ const OPS = {
   },
 
   /**
-   * Revolve a figure about an axis in its own plane, through `angle` degrees (any size, either way) while it advances `advance` mm along the axis over the whole angle (`dec_spiral_extrude`, `in_420`):
+   * Revolve a figure about an axis in its own plane, through `angle` degrees (any size, either way) while it advances `advance` mm along the axis over the whole angle (`dec_spiral_extrude`, `in_427`):
    * a ring or a bowl with no advance (at most one turn: more would lie on itself), a screw thread or a spring with one. Added to the body, cut from it, or a body of its own, as an extrusion is (`mode`).
    */
   revolve(op, ctx) {
@@ -931,7 +931,7 @@ const OPS = {
     const expected = measureVolume(outer) - measureVolume(inner);
     let made = null;
     try { made = outer.cut(inner); if (!isValidSolid(made) || Math.abs(measureVolume(made) - expected) > 0.01 * Math.abs(expected)) made = null; } catch { made = null; }
-    // the boolean can fail, or give the wrong body, where the two surfaces are close kin (a rolled edge whose rolling circle is nearly the radius of the cylinder, a torus that crosses its own axis, `in_418`): the wall is then
+    // the boolean can fail, or give the wrong body, where the two surfaces are close kin (a rolled edge whose rolling circle is nearly the radius of the cylinder, a torus that crosses its own axis, `in_425`): the wall is then
     // made as a solid of two shells, the outer one and the inner reversed, which asks for no boolean at all
     return { kind: "solid", shape: made ?? hollowByShells(outer, inner) };
   },

@@ -1,4 +1,4 @@
-// A cut drawn on a face of the body and pushed in opens that face (`in_419`): the tool began exactly on the face and the kernel left the face as a skin over the pocket, with a floor of the pocket on the same
+// A cut drawn on a face of the body and pushed in opens that face (`in_426`): the tool began exactly on the face and the kernel left the face as a skin over the pocket, with a floor of the pocket on the same
 // plane under it, so the top of the hole stayed shut. The tool now begins a hair behind the face, in the air.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -7,7 +7,7 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { openSession, scene } from "../src/interaction/session.ts";
 
 await kernel.init();
-const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/group-then-new-body-in_419.cad.json", import.meta.url), "utf8")) as unknown as { value: any }).value;
+const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/group-then-new-body-in_426.cad.json", import.meta.url), "utf8")) as unknown as { value: any }).value;
 
 test("the D drawn on the slanted end of the arm and cut along the arm leaves no floor on the plane of the end: the end is open", () => {
   const s = open();

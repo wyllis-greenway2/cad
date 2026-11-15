@@ -1,4 +1,4 @@
-// Revolve with turns and a pitch (`dec_spiral_extrude`, `in_420`): a figure turned about a line in its plane, any angle, with an advance along the line for a spiral.
+// Revolve with turns and a pitch (`dec_spiral_extrude`, `in_427`): a figure turned about a line in its plane, any angle, with an advance along the line for a spiral.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";

@@ -1940,35 +1940,35 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > okay the one thing I want to preserve is the rotate point in non game mode which is usually defined as the objects center point closest to the camera. Can we do a dolly model that fixes all these problems but still uses that rotational axis when rotating the camera around an object in non game mode
 (approves the dolly model of `in_414` on the condition that the orbit keeps turning about the centre of the object nearest the camera)
 
-## in_416 — 2026-11-15 — question
+## in_423 — 2026-11-15 — question
 > okay so all your work has been merged, does this mean we should work on a new branch now?
 (asks whether to start a new branch after the merge; answered: yes, from the merged base)
 
-## in_417 — 2026-11-15 — approval
+## in_424 — 2026-11-15 — approval
 > go, use that name and base
 (approves the proposal: branch `claude/hopeful-cannon-3` from `origin/claude/inspiring-pascal-l342k7`)
 
-## in_418 — 2026-11-15 — directive
+## in_425 — 2026-11-15 — directive
 > okay why cant I select this whole object, and make it hollow?
-(a file attached: a cylinder with a rolled top edge of 9.3 on a radius of 9.64; kept as `app/test/fixtures/rolled-cylinder-hollow-in_418.cad.json`)
+(a file attached: a cylinder with a rolled top edge of 9.3 on a radius of 9.64; kept as `app/test/fixtures/rolled-cylinder-hollow-in_425.cad.json`)
 
-## in_419 — 2026-11-15 — directive
+## in_426 — 2026-11-15 — directive
 > why did this last operation not cut all the way through? the angled top plane seems to still be uninterrupted.
-(two files attached: a state snapshot and `model.cad_47.json`, kept as `app/test/fixtures/group-then-new-body-in_419.cad.json`)
+(two files attached: a state snapshot and `model.cad_47.json`, kept as `app/test/fixtures/group-then-new-body-in_426.cad.json`)
 
-## in_420 — 2026-11-15 — directive
+## in_427 — 2026-11-15 — directive
 > not a bug, can we add a feature. Can we offer a rotate extrude curved arrow that is normal to the plane, probably a full circle arrow so you can extrude more than 360 degrees. It should offer an arrow perpendicular to the rotational direction in order to make spirals like screws. Basically this would be a rotate extrude that also has the ability to spiral.
 (a feature request: revolve with turns beyond 360 degrees and a pitch; recorded as the provisional `dec_spiral_extrude`, not built until the human chooses)
 
-## in_421 — 2026-11-15 — approval
+## in_428 — 2026-11-15 — approval
 > Which axis should the new spiral/revolve operation turn the figure about? = In the figure's plane (Recommended)
 > How should the two arrows work? = Circle arrow + axis arrow (Recommended)
 (answers to two questions about `dec_spiral_extrude`: the axis lies in the figure's plane; a circle arrow sets the angle, a straight arrow along the axis sets the advance)
 
-## in_422 — 2026-11-15 — directive
+## in_429 — 2026-11-15 — directive
 > add holes support and the twist about the normal
 (asks for the two things `dec_spiral_extrude` listed as not built: a figure with figures inside it as holes, and the twist about the plane's normal)
 
-## in_423 — 2026-11-15 — directive
+## in_430 — 2026-11-15 — directive
 > support several figures at once
 (asks that a revolve take several figures selected together, the last thing `dec_spiral_extrude` listed as not built)

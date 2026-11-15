@@ -1,4 +1,4 @@
-// Revolve with turns and a pitch (`dec_spiral_extrude`, `in_420`, `in_421`): a closed figure turned about a line in its own plane, through any angle, advancing along the line for a spiral. This file is what the
+// Revolve with turns and a pitch (`dec_spiral_extrude`, `in_427`, `in_428`): a closed figure turned about a line in its own plane, through any angle, advancing along the line for a spiral. This file is what the
 // interaction needs of it: the lines the figure can turn about, the step it makes, and the numbers its bubble shows. The kernel makes the body (`revolve` in `interpreter.mjs`).
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, normalize } from "../math/vec.ts";
@@ -48,7 +48,7 @@ export function revolveAxes(scene: Scene, faces: readonly Extract<Part, { kind: 
   for (const l of chosen) { const [a, b] = [pointOf(get, l.a), pointOf(get, l.b)]; if (a && b && !l.center) add1(a, b, "the line you chose"); }
   for (const w of WORLD) if (Math.abs(dot(w.d, n)) < 1e-9 && Math.abs(dot(pl.at, n)) < 1e-6 && ok([0, 0, 0], w.d)) out.push({ p: [0, 0, 0], d: w.d, label: w.label });
   faces.forEach((f, k) => f.loop.map((r) => get(r)).filter((x): x is Extract<Part, { kind: "line" }> => x?.kind === "line" && !x.center).forEach((l, i) => { const [a, b] = [pointOf(get, l.a), pointOf(get, l.b)]; if (a && b) add1(a, b, faces.length > 1 ? `figure ${k + 1} side ${i + 1}` : `side ${i + 1}`); }));
-  // and the plane's own normal, through each figure's middle or the origin's foot on the plane: the figure is carried along it while it turns, a twisted extrusion (`in_422`)
+  // and the plane's own normal, through each figure's middle or the origin's foot on the plane: the figure is carried along it while it turns, a twisted extrusion (`in_429`)
   if (middles[0]) out.push({ p: middles[0], d: n, label: faces.length > 1 ? "twist about each figure's middle" : "twist about the figure's middle", twist: "middle" });
   out.push({ p: scale(n, dot(pl.at, n)), d: n, label: "twist about the origin", twist: "origin" });
   return out;

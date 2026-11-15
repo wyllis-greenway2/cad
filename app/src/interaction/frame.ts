@@ -501,7 +501,7 @@ function faceKinds(s: AppState): Frame["faceKinds"] {
   if (op.parts.length !== 1) return null;
   return FACE_KINDS.map((k) => ({ ...k, on: (op.faceKind ?? "move") === k.id }));
 }
-/** The lines a figure being revolved can turn about, as choices (`dec_spiral_extrude`, `in_421`). */
+/** The lines a figure being revolved can turn about, as choices (`dec_spiral_extrude`, `in_428`). */
 function axisKinds(s: AppState): Frame["axisKinds"] {
   const op = s.op;
   if (!op || op.kind !== "revolve" || !op.revAxes || op.revAxes.length < 2) return null;

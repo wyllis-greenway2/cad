@@ -48,7 +48,7 @@ export function addGroup(s: Scene, id: string, items: readonly string[]): Result
   if (isGroupId(s, id)) return err(`group ${id} already exists`);
   if (new Set(items).size !== items.length || items.length < 2) return err("a group needs at least two different things");
   for (const x of items) {
-    // (a part of the body is named by the kernel's answer, which a file being opened in the browser has not had yet when its commands are replayed: it is taken as there, as the steps that name body parts are, `in_419`)
+    // (a part of the body is named by the kernel's answer, which a file being opened in the browser has not had yet when its commands are replayed: it is taken as there, as the steps that name body parts are, `in_426`)
     if (!(isGroupId(s, x) || x in s.parts || x.startsWith("b/"))) return err(`${x} does not exist`);
     if (parentOf(s, x)) return err(`${x} is already in a group`);
   }

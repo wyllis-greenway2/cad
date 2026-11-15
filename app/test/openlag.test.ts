@@ -1,4 +1,4 @@
-// A file with a group of parts of the body opens with the kernel answering later (the browser), as it does with the kernel at hand (`in_419`): the group was checked against the body before the first answer was there.
+// A file with a group of parts of the body opens with the kernel answering later (the browser), as it does with the kernel at hand (`in_426`): the group was checked against the body before the first answer was there.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -19,7 +19,7 @@ function lagging(onChange: () => void) {
 
 test("a file whose history groups parts of a body opens with the kernel answering later", () => {
   const lag = lagging(() => {});
-  const o = openSession(lag.kernel, readFileSync(new URL("./fixtures/group-then-new-body-in_419.cad.json", import.meta.url), "utf8"));
+  const o = openSession(lag.kernel, readFileSync(new URL("./fixtures/group-then-new-body-in_426.cad.json", import.meta.url), "utf8"));
   assert.ok(o.ok, o.ok ? "" : o.error);
   if (o.ok) { for (let i = 0; i < 40 && lag.deliver(); i++); assert.ok(scene(refresh(o.value)).steps.length > 5); }
 });

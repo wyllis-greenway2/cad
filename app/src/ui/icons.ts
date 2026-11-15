@@ -19,7 +19,7 @@ const ICONS: Record<string, string> = {
 };
 
 Object.assign(ICONS, {
-  revolve: svg('<path d="M2.5 2.5v11" stroke-dasharray="1.8 1.4"/><path d="M4 4.5c3.5-1.6 8.5-1.2 9.5 1.2s-3 3.6-6.5 4.2"/><path d="M4 9.5c2.6 1.2 5.7 1.4 8.3.4"/><path d="M10.7 8.6l1.8 1.3-2 1.2"/>'), // (a figure turned round a line, with its path winding on: revolve and spiral, `in_420`)
+  revolve: svg('<path d="M2.5 2.5v11" stroke-dasharray="1.8 1.4"/><path d="M4 4.5c3.5-1.6 8.5-1.2 9.5 1.2s-3 3.6-6.5 4.2"/><path d="M4 9.5c2.6 1.2 5.7 1.4 8.3.4"/><path d="M10.7 8.6l1.8 1.3-2 1.2"/>'), // (a figure turned round a line, with its path winding on: revolve and spiral, `in_427`)
   wireframe: svg('<path d="M2.5 5.5l5.5-3 5.5 3v6l-5.5 3-5.5-3z"/><path d="M2.5 5.5L8 8.5l5.5-3M8 8.5v6" stroke-dasharray="1.6 1.4"/>'), // (a block seen through, `in_386`)
   hollow: svg('<path d="M2.5 5.5l5.5-3 5.5 3v6l-5.5 3-5.5-3z"/><path d="M5.5 7.2L8 5.8l2.5 1.4v3L8 11.6 5.5 10.2z" fill="currentColor" fill-opacity=".18"/>'), // (a block with a cavity inside, `in_391`)
   invert: svg('<path d="M3 5.5h8.5"/><path d="M9.5 3.2L12 5.5 9.5 7.8"/><path d="M13 10.5H4.5"/><path d="M6.5 8.2L4 10.5 6.5 12.8"/>'), // (swap: the other way round, `in_393`)
