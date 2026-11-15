@@ -416,9 +416,9 @@ const OPS = {
       if (meets) {
         const before = measureVolume(target);
         const cut = target.clone().cut(toolOf(back));
-        if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut };
+        if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut, used: "cut" };
       }
-      return { kind: "solid", shape: target.fuse(solid) };
+      return joined(target, solid);
     }
     // "new" (`in_295`): a piece that stood apart when it was made stays a body of its own, however the others grow later: no join, one compound
     if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
@@ -494,8 +494,8 @@ const OPS = {
     if (!target) return { kind: "solid", shape: solid };
     if (op.mode === "cutOrAdd") {
       const before = measureVolume(target);
-      try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut }; } catch { /* a join instead */ }
-      return { kind: "solid", shape: target.fuse(solid) };
+      try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut, used: "cut" }; } catch { /* a join instead */ }
+      return joined(target, solid);
     }
     if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
     return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
@@ -936,6 +936,13 @@ const OPS = {
     return { kind: "solid", shape: made ?? hollowByShells(outer, inner) };
   },
 };
+
+/** The body and a piece added to it, and what that was: a piece that stands apart is a body of its own (`new`), one that touches it joins it (`add`); said, so that a step that did not say can be made to (`in_432`). */
+function joined(target, solid) {
+  const shape = target.fuse(solid);
+  const used = (shape.solids?.length ?? 1) > (target.solids?.length ?? 1) ? "new" : "add";
+  return { kind: "solid", shape, used };
+}
 
 /** A solid whose boundary is the outer solid's shell and, as a void inside it, the inner solid's shell turned inside out. */
 function hollowByShells(outer, inner) {

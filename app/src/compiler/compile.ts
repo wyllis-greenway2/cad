@@ -22,6 +22,8 @@ export interface CompileOutcome {
   problems?: Record<string, Ref[]>;
   /** Step id -> something to say about a step that was made (a fillet or chamfer that was made together with the edges meeting it at a corner, `in_379`) */
   notes?: Record<string, string>;
+  /** Step id -> what an extrusion or revolve that did not say whether it cuts, joins or stands apart came to (a cut, a piece joined on, a piece of its own): the session makes the step say it (`in_432`) */
+  modes?: Record<string, "cut" | "add" | "new">;
   /** relations to an edge of the body that is gone and that no edge looks like now (`in_309`): they hold nothing until the body is as it was */
   lost?: string[];
 }
@@ -40,7 +42,9 @@ export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
   const result = kernel.evaluate(graph);
   const problems: Record<string, Ref[]> = {};
   const notes: Record<string, string> = {};
+  const modes: Record<string, "cut" | "add" | "new"> = {};
   for (const op of result.ops) {
+    if (op.used) { const made = solved.scene.steps.find((s) => `x_${s.id}` === op.id); if (made) modes[made.id] = op.used; }
     if (op.note) { const made = solved.scene.steps.find((s) => `x_${s.id}` === op.id || `s_${s.id}` === op.id); if (made) notes[made.id] = op.note; }
     if (!op.error) continue;
     const step = solved.scene.steps.find((s) => `x_${s.id}` === op.id || `s_${s.id}` === op.id);
@@ -50,7 +54,7 @@ export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
   const bound = rebindAnchors(placed); // (a relation to an edge of the body that the change took away is moved to the edge that looks most like it, `in_309`)
   // the drawn parts held to such an edge are solved again against the edge as it is now (the first solve was made before the body was)
   const again = bound.scene !== placed ? solveScene(bound.scene) : null;
-  return remembered({ scene: withDerived(again ? again.scene : bound.scene), solve: again ? { ...again, moves: [...solved.moves, ...again.moves] } : solved, kernel: result, errors, ...(bound.lost.length ? { lost: bound.lost } : {}), ...(Object.keys(notes).length ? { notes } : {}), ...(Object.keys(problems).length ? { problems } : {}) });
+  return remembered({ scene: withDerived(again ? again.scene : bound.scene), solve: again ? { ...again, moves: [...solved.moves, ...again.moves] } : solved, kernel: result, errors, ...(bound.lost.length ? { lost: bound.lost } : {}), ...(Object.keys(notes).length ? { notes } : {}), ...(Object.keys(modes).length ? { modes } : {}), ...(Object.keys(problems).length ? { problems } : {}) });
 }
 function remembered(o: CompileOutcome): CompileOutcome {
   settled.set(o.scene, { ...o.solve, scene: o.scene, moves: [] });

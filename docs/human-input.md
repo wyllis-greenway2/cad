@@ -2006,3 +2006,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_431 — 2026-11-15 — directive
 > okay your work has all been merged
 (the branch `claude/hopeful-cannon-3` is merged; work goes on a new branch, `claude/hopeful-cannon-4`, from the merged base)
+
+## in_432 — 2026-11-15 — directive
+> I found another bug, if you delete the square in this file, it makes a hollow version of the cylinder? also if you increase the diameter of the cylinder, it deletes it?
+(two files attached: a state snapshot and `model.cad_48.json`, kept as `app/test/fixtures/cylinder-in-hole-in_432.cad.json`)
