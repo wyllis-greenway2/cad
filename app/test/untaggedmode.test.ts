@@ -48,3 +48,13 @@ test("deleting the block leaves no cut to turn the piece beside it into a tube: 
   assert.equal(left.length, 1);
   assert.ok(Math.abs(left[0]!.volume - Math.PI * 2.2207 ** 2 * 27.1) < 0.5, `the cylinder, whole: ${left[0]!.volume}`);
 });
+
+test("deleting the block also takes out the cut that was made only in it, and the piece beside it stays whole with no broken step (`in_432`)", () => {
+  const o = openSession(kernel, text());
+  assert.ok(o.ok);
+  if (!o.ok) return;
+  let st = createState({ ...o.value, click: { ...o.value.click, selection: ["b/x_s_013/o"] as never } });
+  st = reduce(st, { type: "runAction", id: "delete" }, { w: 800, h: 600, now: 0 } as never);
+  assert.deepEqual(scene(st.session).steps.filter((x) => x.type === "extrude").map((x) => x.id), ["s_019"], "the block and its hole are gone, the piece stays");
+  assert.deepEqual(st.session.outcome.errors, {});
+});

@@ -77,6 +77,8 @@ export interface Scene {
   reveal?: Ref;
   /** A figure moved on a plane of its own keeps that plane under its own name; the name the command gave to a new plane is kept here as another name for it, so a history made when a move made a new plane (more parts were left on the old plane then) still replays (`in_372`) */
   planeAlias?: Readonly<Record<string, Ref>>;
+  /** derived, not saved: for each cut step, the bodies (their names) it took material from, as the kernel found when it made them (`in_432`): deleting a body takes out the cuts made only in it */
+  cutOf?: Readonly<Record<string, readonly string[]>>;
   /** Id counter: ids are never reused, so replaying a command list gives the same names. */
   counter: number;
 }

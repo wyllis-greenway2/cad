@@ -2010,3 +2010,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_432 — 2026-11-15 — directive
 > I found another bug, if you delete the square in this file, it makes a hollow version of the cylinder? also if you increase the diameter of the cylinder, it deletes it?
 (two files attached: a state snapshot and `model.cad_48.json`, kept as `app/test/fixtures/cylinder-in-hole-in_432.cad.json`)
+
+## in_433 — 2026-11-15 — question
+> would it make sense to delete the cuts made in a body when it is deleted? since those cuts no longer have any body to belong to? or are you saying the cuts made in other bodies with the deleted body? because if that is the case, we want the cuts to remain even if the body that cut them is later deleted I believe. What do you think?
+(asks which cuts should go when a body is deleted: the cuts made in it should go; the cuts it made in other bodies should stay)
+
+## in_434 — 2026-11-15 — approval
+> yes build it and check the combine case first
+(approves the proposal: cuts made only in a deleted body go with it, and the combine case is checked first)

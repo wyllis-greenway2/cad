@@ -43,7 +43,9 @@ export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
   const problems: Record<string, Ref[]> = {};
   const notes: Record<string, string> = {};
   const modes: Record<string, "cut" | "add" | "new"> = {};
+  const cuts: Record<string, string[]> = {};
   for (const op of result.ops) {
+    if (op.cutInto) { const made = solved.scene.steps.find((s) => `x_${s.id}` === op.id); if (made) cuts[made.id] = op.cutInto; }
     if (op.used) { const made = solved.scene.steps.find((s) => `x_${s.id}` === op.id); if (made) modes[made.id] = op.used; }
     if (op.note) { const made = solved.scene.steps.find((s) => `x_${s.id}` === op.id || `s_${s.id}` === op.id); if (made) notes[made.id] = op.note; }
     if (!op.error) continue;
@@ -54,7 +56,8 @@ export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
   const bound = rebindAnchors(placed); // (a relation to an edge of the body that the change took away is moved to the edge that looks most like it, `in_309`)
   // the drawn parts held to such an edge are solved again against the edge as it is now (the first solve was made before the body was)
   const again = bound.scene !== placed ? solveScene(bound.scene) : null;
-  return remembered({ scene: withDerived(again ? again.scene : bound.scene), solve: again ? { ...again, moves: [...solved.moves, ...again.moves] } : solved, kernel: result, errors, ...(bound.lost.length ? { lost: bound.lost } : {}), ...(Object.keys(notes).length ? { notes } : {}), ...(Object.keys(modes).length ? { modes } : {}), ...(Object.keys(problems).length ? { problems } : {}) });
+  const derived = withDerived(again ? again.scene : bound.scene);
+  return remembered({ scene: Object.keys(cuts).length ? { ...derived, cutOf: cuts } : derived, solve: again ? { ...again, moves: [...solved.moves, ...again.moves] } : solved, kernel: result, errors, ...(bound.lost.length ? { lost: bound.lost } : {}), ...(Object.keys(notes).length ? { notes } : {}), ...(Object.keys(modes).length ? { modes } : {}), ...(Object.keys(problems).length ? { problems } : {}) });
 }
 function remembered(o: CompileOutcome): CompileOutcome {
   settled.set(o.scene, { ...o.solve, scene: o.scene, moves: [] });

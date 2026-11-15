@@ -404,7 +404,8 @@ const OPS = {
       return sld;
     };
     let solid = toolOf(0);
-    const target = op.target ? ctx.get(op.target, "solid").shape : null;
+    const targetValue = op.target ? ctx.get(op.target, "solid") : null;
+    const target = targetValue ? targetValue.shape : null;
     if (!target) return { kind: "solid", shape: solid };
     // (only when the plane is on the boundary of the body: with material just behind it, as a hole begun inside the body under a skin, the tool begins where it was drawn)
     const behind = (() => { try { const slab = prism(op.profile, op.holes, dist < 0 ? BACK : -BACK, 0); return measureVolume(target.clone().intersect(slab.clone())) > 0.5 * measureVolume(slab); } catch { return false; } })(); // (mostly body in a slab behind the plane)
@@ -415,14 +416,16 @@ const OPS = {
       const meets = [0, 1, 2].every((i) => sb.min[i] < tb.max[i] - 1e-6 && sb.max[i] > tb.min[i] + 1e-6);
       if (meets) {
         const before = measureVolume(target);
-        const cut = target.clone().cut(toolOf(back));
-        if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut, used: "cut" };
+        const tool = toolOf(back);
+        const cut = target.clone().cut(tool.clone());
+        if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut, used: "cut", cutInto: cutInto(targetValue, tool) };
       }
       return joined(target, solid);
     }
     // "new" (`in_295`): a piece that stood apart when it was made stays a body of its own, however the others grow later: no join, one compound
     if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
-    return { kind: "solid", shape: op.mode === "cut" ? target.cut(toolOf(back)) : target.fuse(solid) };
+    if (op.mode === "cut") { const tool = toolOf(back); return { kind: "solid", shape: target.cut(tool.clone()), cutInto: cutInto(targetValue, tool) }; }
+    return { kind: "solid", shape: target.fuse(solid) };
   },
 
   /**
@@ -490,15 +493,17 @@ const OPS = {
     let solid = make(outerSketch);
     for (const h of op.holes ?? []) solid = solid.cut(make(sketchOf(h)));
     if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the figure when its holes were cut");
-    const target = op.target ? ctx.get(op.target, "solid").shape : null;
+    const targetValue = op.target ? ctx.get(op.target, "solid") : null;
+    const target = targetValue ? targetValue.shape : null;
     if (!target) return { kind: "solid", shape: solid };
     if (op.mode === "cutOrAdd") {
       const before = measureVolume(target);
-      try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut, used: "cut" }; } catch { /* a join instead */ }
+      try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut, used: "cut", cutInto: cutInto(targetValue, solid) }; } catch { /* a join instead */ }
       return joined(target, solid);
     }
     if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
-    return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
+    if (op.mode === "cut") return { kind: "solid", shape: target.cut(solid.clone()), cutInto: cutInto(targetValue, solid) };
+    return { kind: "solid", shape: target.fuse(solid) };
   },
 
   /**
@@ -875,7 +880,8 @@ const OPS = {
       return { kind: "solid", shape: makeCompound([...found.rest, ...result]), first: op.bodies[0] };
     }
     const [first, ...others] = found.picked;
-    const kept = op.keep && op.mode !== "add" ? others.map((o) => o.clone()) : []; // (a boolean uses up what it is given: the tools that stay are copied first)
+    const drop = new Set(op.drop ?? []); // (tools that were kept but have been deleted since: the cut they made stays, they do not, `in_432`)
+    const kept = op.keep && op.mode !== "add" ? others.filter((_, i) => !drop.has(op.bodies[i + 1])).map((o) => o.clone()) : []; // (a boolean uses up what it is given: the tools that stay are copied first)
     let made = first;
     for (const o of others) made = op.mode === "subtract" ? made.cut(o) : op.mode === "intersect" ? made.intersect(o) : made.fuse(o);
     const parts = lumpsOf(made);
@@ -936,6 +942,20 @@ const OPS = {
     return { kind: "solid", shape: made ?? hollowByShells(outer, inner) };
   },
 };
+
+/** The bodies (their names) that a tool cuts into: the ones it takes material from (`in_432`: deleting a body takes out the cuts made only in it). */
+function cutInto(value, tool) {
+  const markers = value.markers ?? [];
+  const lumps = lumpsOf(value.shape);
+  if (lumps.length < 2) return markers.slice(0, 1).map((m) => m.id);
+  const hit = [];
+  for (const m of markers) {
+    const l = lumps[m.lump];
+    if (!l) continue;
+    try { if (measureVolume(l.clone().intersect(tool.clone())) > 1e-7) hit.push(m.id); } catch { /* not this one */ }
+  }
+  return hit;
+}
 
 /** The body and a piece added to it, and what that was: a piece that stands apart is a body of its own (`new`), one that touches it joins it (`add`); said, so that a step that did not say can be made to (`in_432`). */
 function joined(target, solid) {
