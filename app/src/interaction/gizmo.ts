@@ -81,22 +81,23 @@ export function edgeDirection(scene: Scene, a: Vec3, b: Vec3, radial?: Vec3): Ve
 
 /** The handles of the cross section plane (`in_392`, `in_394`): arrows along the axes move it, or rings about them turn it, as its chip says. */
 export function sectionGizmo(at: Vec3, cam: Camera): Gizmo {
-  return moverHandles("move", at, cam.distance * settings.gizmo.sizeOfView, false); // (the very mover a body has: the arrows, the rings and the sphere, `in_419`)
+  return moverHandles("both", at, cam.distance * settings.gizmo.sizeOfView, false); // (the very mover a body has: the arrows, the rings and the sphere, `in_419`)
 }
 
 /**
  * The handles of the mover (`in_416`): arrows along x, y, z for a move, rings about them for a turn, and the sphere at their junction, which is where the mover measures from and turns about. With the sphere selected the
  * arrows that move it (`piv:`) are there in either tool (the move tool's own arrows give way to them, the turn tool's rings stay).
  */
-function moverHandles(kind: "move" | "rotate", centre: Vec3, L: number, sphere: boolean, frame?: readonly [Vec3, Vec3, Vec3]): Gizmo {
+function moverHandles(kind: "move" | "rotate" | "both", centre: Vec3, L: number, sphere: boolean, frame?: readonly [Vec3, Vec3, Vec3]): Gizmo {
   const ax: readonly Vec3[] = frame ?? AXES; // (the mover's own axes when it has been turned, `in_417`)
   const ball: Handle = { id: "pivot", kind: "ball", axis: null, points: [centre] };
   const arrows = (id: string): Handle[] => ax.map((d, i): Handle => ({ id: `${id}:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, 2 * HALF * L))] }));
   const rings = (): Handle[] => ax.map((d, i) => ring(`rot:${"xyz"[i]}`, centre, d, L * 0.8, i as 0 | 1 | 2));
   // with the sphere selected both sets are up and they work on the mover itself: the arrows move it, the rings turn its axes
-  // the mover always shows both the arrows and the rings (`in_416`, `in_418`): grabbing the other tool's handle turns the tool about
-  if (kind === "move") return { centre, handles: [...arrows(sphere ? "piv" : "move"), ...rings(), ball] };
-  return { centre, handles: [...rings(), ball, ...arrows(sphere ? "piv" : "move")] };
+  // move and turn are two tools, each with its own handles, acting on the object (`in_421`); the cross section plane has both, as it has no tool to be in
+  if (sphere) return { centre, handles: [...arrows("piv"), ...rings(), ball] };
+  if (kind === "both") return { centre, handles: [...arrows("move"), ...rings(), ball] };
+  return { centre, handles: kind === "move" ? [...arrows("move"), ball] : [...rings(), ball] };
 }
 
 /** A full circle round `axis` through `centre`, so which plane it turns in is plain to see; the arrowhead sits a little way round. */

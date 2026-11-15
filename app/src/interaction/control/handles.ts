@@ -77,16 +77,6 @@ export function movePivot(s: AppState, k: number, value: number): AppState {
   return next.message ? s : { ...s, session: next };
 }
 
-/** The mover shows its arrows and its rings together: the one taken that the tool begun is not (the ring of a move, the arrow of a turn) turns the tool about, keeping the mover's place and axes (`in_418`). */
-export function movingTool(s: AppState, op: Op, id: string): Op {
-  const want = id.startsWith("rot:") ? "rotate" : id.startsWith("move:") ? "move" : null;
-  if (!want || (op.kind !== "move" && op.kind !== "rotate") || op.kind === want) return op;
-  const r = startOp(sceneOf(s.session), selectionOf(s.session), want, viewAxes(s.cam));
-  if (!r.ok) return op;
-  const pivot = op.pivot && op.kind === "move" ? add(op.pivot, moveOffset(sceneOf(s.session), op)) : op.pivot;
-  return { ...r.op, auto: false, pivot, ...(op.frame ? { frame: op.frame } : {}) };
-}
-
 /** The handle already chosen: the ring of the axis a turn is set up about, else the arrow that was selected. */
 export const chosenId = (s: AppState): string | undefined => (s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.handleSel ?? undefined);
 
@@ -124,7 +114,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
       const g0 = gizmoOf(s);
       if ((started.kind === "move" || started.kind === "rotate") && g0) return { ...s, op: { ...started, auto: false }, drag: { handle: d, base: 0, piv: { centre: g0.centre, offset: started.kind === "move" ? moveOffset(sceneOf(s.session), started) : [0, 0, 0] } }, gizmoHover: h!.id };
     }
-    const started = movingTool(s, s.op ?? activeOp(s)!, h!.id);
+    const started = s.op ?? activeOp(s)!;
     const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" ? { ...started, auto: false } : started;
     s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
   }

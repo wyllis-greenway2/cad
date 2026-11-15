@@ -350,7 +350,7 @@ function frame(now: number) {
     statusEl.textContent = f.message;
     statusEl.style.bottom = lastDevice === "touch" ? "108px" : ""; // (above the undo bar of a finger, and clear of the X Y Z buttons: a long message is not under them, `in_336`)
     statusEl.style.right = lastDevice === "touch" ? "64px" : "";
-    dirty = !!f.flash || working || !!f.highlight.temp?.length || touchMoved; // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
+    dirty = !!f.flash || !!f.gizmo?.pulse || working || !!f.highlight.temp?.length || touchMoved; // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
   }
   requestAnimationFrame(frame);
 }

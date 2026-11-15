@@ -8,7 +8,7 @@ import type { Pen } from "./pen.ts";
 import { clearGroup, sphereAt, rgb } from "./pen.ts";
 import { TEAL } from "./highlight.ts";
 
-export interface GizmoView { handles: Handle[]; hover: string | null; active: string | null; /** the ring of the axis a turn is set up about: shown in the selected blue before anything is dragged */ chosen?: string | null; /** the arrows chosen with Shift for a free drag along only those axes (`in_299`) */ locked?: string[] }
+export interface GizmoView { handles: Handle[]; hover: string | null; active: string | null; /** the ring of the axis a turn is set up about: shown in the selected blue before anything is dragged */ chosen?: string | null; /** the arrows chosen with Shift for a free drag along only those axes (`in_299`) */ locked?: string[]; /** the handle that pulses blue (`in_421`) */ pulse?: string }
 
 const cone = (tip: Vec3, dir: Vec3, unit: number, color: number): THREE.Mesh => {
   const h = unit * 0.02 * settings.gizmo.headScale;
@@ -32,7 +32,16 @@ export function buildGizmo(group: THREE.Group, g: GizmoView | null, unit: number
     const hot = h.id === g.hover || h.id === g.active || h.id === g.chosen || !!g.locked?.includes(h.id);
     const col = hot ? TEAL : ink;
     const pts = h.points;
-    if (h.kind === "ball") { group.add(sphereAt(pts[0]!, unit * 0.01 * settings.gizmo.headScale, col)); continue; }
+    if (h.kind === "ball") {
+      if (h.id === g.pulse) { // the sphere being oriented breathes blue (`in_421`)
+        const k = 0.5 + 0.5 * Math.sin(performance.now() / 260);
+        const blue = new THREE.Color(0x2f6fe0).lerp(new THREE.Color(0x9cc4ff), k).getHex();
+        group.add(sphereAt(pts[0]!, unit * 0.01 * settings.gizmo.headScale * (1.25 + 0.25 * k), blue));
+        continue;
+      }
+      group.add(sphereAt(pts[0]!, unit * 0.01 * settings.gizmo.headScale, col));
+      continue;
+    }
     const line = pen.line(pts.flat(), col, hot ? settings.gizmo.widthPx + 1 : settings.gizmo.widthPx, false);
     (line.material as { transparent: boolean; opacity: number }).transparent = true;
     (line.material as { opacity: number }).opacity = hot ? 1 : settings.gizmo.opacity;

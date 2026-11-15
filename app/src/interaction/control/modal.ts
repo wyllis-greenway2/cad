@@ -103,7 +103,16 @@ export function commitOp(s: AppState): AppState {
   return { ...s, ...settled, session: s.op.kind === "extrude" || s.op.kind === "pushpull" ? { ...next, hover: undefined, click: { ...next.click, selection: [] } } : next, op: null };
 }
 
+/** The mover was being oriented (the sphere selected, `in_421`): Cancel puts its place and axes back as they were and goes back to the tool. */
+function cancelOrient(s: AppState): AppState {
+  const w = s.moverWas;
+  if (!s.op || !w) return { ...s, moverSphere: false, moverWas: null };
+  const { frame: _f, frameKept: _k, ...rest } = s.op;
+  return { ...s, moverSphere: false, moverWas: null, op: { ...rest, pivot: w.pivot, ...(w.frame ? { frame: w.frame } : {}), ...(w.frameKept ? { frameKept: w.frameKept } : {}) } as Op };
+}
+
 export function doTyped(s: AppState, key: string): AppState {
+  if (s.moverSphere && key === "Enter") return { ...s, moverSphere: false, moverWas: null }; // (Apply: the mover stays as oriented, `in_421`)
   if (s.cut && key === "Enter") return applyCut(s);
   if (!s.op && !s.tool && /^[0-9.\-]$/.test(key)) {
     // one standard for typing with something selected (`dec_typing_standard`, `in_235`): a drawn part that has a number of its own (a side: its length; a circle: its diameter; an arc: its radius; two
@@ -202,7 +211,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 /** Esc lets go in steps: the menu, then an open badge, then the tool or operation, then the selection. */
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
-  if (s.moverSphere) return { ...s, moverSphere: false }; // (the sphere is let go first, the mover stays, `in_419`)
+  if (s.moverSphere) return cancelOrient(s); // (the mover is put back as it was, `in_421`)
   if (sectionNow(s) && !s.tool && !s.op && !s.repeat) return { ...s, sectionLive: null, session: { ...s.session, click: { ...s.session.click, selection: [] }, message: null } }; // (the plane is let go, as a tool is put away: it stays as a plane in the part, `in_394`, `in_396`)
   if (s.tape && !s.tool && !s.op && !s.repeat && !s.cut) return { ...s, tape: false, session: { ...s.session, message: null } }; // (the tape measure is put away first, `in_338`)
   if (s.cut) return { ...s, cut: null, session: { ...s.session, message: null } };

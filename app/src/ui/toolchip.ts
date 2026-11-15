@@ -14,7 +14,9 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
   tick.style.cssText = x.style.cssText;
   tick.innerHTML = iconSvg("check");
   tick.addEventListener("click", (e) => { e.stopPropagation(); if (tick.dataset.mode === "done") cancel(); else apply(); });
-  chip.append(icon, tick, x);
+  const words = document.createElement("span");
+  words.style.cssText = "display:none;font:600 13px system-ui,sans-serif;white-space:nowrap";
+  chip.append(icon, words, tick, x);
   host.appendChild(chip);
   const tickBase = tick.style.background;
   /** green, fading out: "this is there to press" (`in_283`) */
@@ -29,17 +31,19 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
   let madeSeen = 0;
   return {
     /** The tool that is on (its icon key and the words for the tooltip; `made` figures so far, `drawing` one half drawn), or an operation open that is applied with the check; or null. */
-    update(tool: { kind: string; label: string; made?: number; drawing?: boolean; done?: boolean } | null, confirm: { kind: string; label: string } | null = null, touch = false) {
+    update(tool: { kind: string; label: string; made?: number; drawing?: boolean; done?: boolean } | null, confirm: { kind: string; label: string; text?: string } | null = null, touch = false) {
       const on = confirm ?? tool;
       chip.style.display = on ? "flex" : "none";
       if (!on) { madeSeen = 0; shown = ""; return; }
       const done = !confirm && !!tool?.done; // (the interaction layer says: a figure is made and nothing is half drawn, so the tool can be put away with the check)
-      tick.style.display = (confirm && !touch) || done ? "inline-flex" : "none"; // (a finger applies an operation by tapping away from it, like a right click: no check for it, `in_286`)
+      tick.style.display = (confirm && (!touch || !!confirm.text)) || done ? "inline-flex" : "none"; // (a finger applies an operation by tapping away from it, like a right click: no check for it, `in_286`)
       tick.dataset.mode = confirm ? "apply" : "done";
       x.style.display = confirm || !done ? "inline-flex" : "none"; // (an operation: apply or cancel; a tool: the check once there is something done, else the cross)
       if (!confirm && tool && (tool.made ?? 0) > madeSeen) flash();
       madeSeen = tool ? tool.made ?? 0 : 0;
-      const key = `${confirm ? "c" : "t"}:${on.kind}:${done ? "done" : ""}:${touch ? "touch" : ""}`;
+      words.textContent = confirm?.text ?? "";
+      words.style.display = confirm?.text ? "inline" : "none";
+      const key = `${confirm ? "c" : "t"}:${on.kind}:${confirm?.text ?? ""}:${done ? "done" : ""}:${touch ? "touch" : ""}`;
       if (key === shown) return;
       if (confirm && !touch) flash();
       shown = key;

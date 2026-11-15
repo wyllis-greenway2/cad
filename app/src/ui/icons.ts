@@ -2,6 +2,7 @@
 const svg = (inner: string): string => `<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 
 const ICONS: Record<string, string> = {
+  orient: svg('<circle cx="8" cy="8" r="2.1" fill="currentColor"/><path d="M8 5.5V1.8M9.9 9.1l3.3 1.9M6.1 9.1l-3.3 1.9"/><path d="M7 2.8L8 1.7l1 1.1M12.4 10.2l.2 1.5-1.4-.4M3.6 10.2l-.2 1.5 1.4-.4"/>'), // (the mover's sphere with its three axes: orienting the mover, `in_421`)
   // the Select menu's all faces / all edges / all vertices (`in_419`): the same block three ways, so what is chosen is what is picked out of it
   selfaces: svg('<path d="M8 1.6l5.6 3.1v6.6L8 14.4l-5.6-3.1V4.7z" stroke-width="1.1"/><path d="M8 1.6l5.6 3.1L8 7.8 2.4 4.7z" fill="currentColor" fill-opacity=".5"/><path d="M2.4 4.7L8 7.8l5.6-3.1M8 7.8v6.6" stroke-width="1.1"/>'),
   seledges: svg('<path d="M8 1.6l5.6 3.1v6.6L8 14.4l-5.6-3.1V4.7z" stroke-width="1.9"/><path d="M2.4 4.7L8 7.8l5.6-3.1M8 7.8v6.6" stroke-width="1.9"/>'),
