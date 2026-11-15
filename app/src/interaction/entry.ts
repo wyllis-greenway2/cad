@@ -16,7 +16,7 @@ import { OP_FIELD, OP_UNIT, valueOf, turnAngles, sizeShown } from "./operations.
 
 export interface EntryField { label: string; value: string; active: boolean; typed: boolean; /** a short name shown in front of the number when there are several (X Y Z) */ short?: string; /** which numbered field of its operation it is, when the operation has several bubbles */ index?: number }
 /** `at`: where in the scene the bubble sits (null: no place to attach it to) */
-export interface Entry { fields: EntryField[]; unit: string; at?: Vec3 | null; /** the other end of the arrow the bubble is at the tip of: the bubble stands out past the tip, away from it, so it does not cover the arrow */ from?: Vec3 | null }
+export interface Entry { fields: EntryField[]; unit: string; /** the number typed is also a constraint (a size of a figure): a lock shows by it, closed once typed (`in_384`) */ constraint?: boolean; at?: Vec3 | null; /** the other end of the arrow the bubble is at the tip of: the bubble stands out past the tip, away from it, so it does not cover the arrow */ from?: Vec3 | null }
 
 
 /** The number chip: for a tool, its fields (what is typed, else the live size); for an operation, its one number. Null when there is nothing to show yet. */
@@ -58,7 +58,7 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     const a = tool.points[tool.points.length - 1]!;
     if (n) live.push(Math.hypot(n[0] - a[0], n[1] - a[1], n[2] - a[2]));
   }
-  return { fields: labels.map((label, i) => ({ label, value: tool.typed[i as 0 | 1] !== "" ? tool.typed[i as 0 | 1] : live[i] != null ? roundedText(live[i]!) : "", active: tool.field === i, typed: tool.typed[i as 0 | 1] !== "" })), unit: "mm" };
+  return { fields: labels.map((label, i) => ({ label, value: tool.typed[i as 0 | 1] !== "" ? tool.typed[i as 0 | 1] : live[i] != null ? roundedText(live[i]!) : "", active: tool.field === i, typed: tool.typed[i as 0 | 1] !== "" })), unit: "mm", constraint: true }; // (a size typed for a figure is kept as a constraint on it, `in_384`)
 }
 
 /** The figure being drawn (an extrude and the other operations show their real result instead, see `frame.ts`). */
@@ -78,13 +78,15 @@ export function repeatEntries(op: Op, g: Gizmo | null, cam: Camera, chosen: stri
   if (op.kind === "circular") {
     const L = cam.distance * settings.gizmo.sizeOfView;
     const right = basis(cam).right;
+    const piv = chosen?.startsWith("piv:") ? g.handles.find((h) => h.id === chosen) : undefined; // (the pivot's arrow that was taken: its coordinate, to type, `in_384`)
+    const k = piv ? "xyz".indexOf(chosen![4]!) : -1;
     return [{
       fields: [
         { label: "Number of copies", short: "n", value: show(0), active: false, typed: typed(0), index: 0 },
         { label: "Degrees to spread them over (360: all the way round)", short: "°", value: show(1), active: false, typed: typed(1), index: 1 },
       ],
       unit: "", at: add(g.centre, scale(right, L * 1.35)),
-    }];
+    }, ...(piv && k >= 0 ? [{ fields: [{ label: `The pivot point along ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(v[3 + k]!), active: false, typed: false, index: 3 + k }], unit: "mm", at: piv.points.at(-1)!, from: g.centre }] : [])];
   }
   // only the arrow that was taken last shows its number, as only the chosen ring of a turn does (`in_236`): the stub past the last copy its count, the other arrow the distance between copies
   if (!chosen) return [];

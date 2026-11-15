@@ -1,3 +1,4 @@
+import { iconSvg } from "./icons.ts";
 // The value bubble (`in_124`, `in_127`): while an operation or a tool runs, a small bubble like a constraint's number sits by what it sets (the tip of the push / pull arrow, the edge, the
 // middle of the handles) and takes a typed number: the amount to push or pull, the fillet or chamfer size, the angle, the distance. It shows the live value while an arrow is dragged; Enter
 // applies a typed one, Esc cancels. The words are in its tooltip. It displays what the interaction layer says.
@@ -19,10 +20,10 @@ export function createChip(host: HTMLElement, h: ChipHandlers) {
     /** Where the bubble is on the page now (null while it is hidden): the switch beside the handles keeps off it. */
     rect(): DOMRect | null { return el.style.display === "none" ? null : el.getBoundingClientRect(); },
     /** `at`: what the bubble is by, in pixels (null: the bottom middle); `from`: the other end of the arrow `at` is the tip of, so the bubble stands out past the tip */
-    update(fields: ChipField[] | null, unit: string, at: [number, number] | null, from: [number, number] | null = null, through = false, touch = false) {
+    update(fields: ChipField[] | null, unit: string, at: [number, number] | null, from: [number, number] | null = null, through = false, touch = false, constraint = false) {
       el.style.pointerEvents = through ? "none" : ""; // while a figure is being drawn its size is typed on the keyboard: the pointer passes over the bubble, so it cannot swallow the moves and clicks of drawing
       if (!fields || !fields.length) { el.style.display = "none"; sig = ""; inputs = []; return; }
-      const now = JSON.stringify([fields.map((f) => [f.label, f.index]), unit, touch]);
+      const now = JSON.stringify([fields.map((f) => [f.label, f.index]), unit, touch, constraint]);
       if (now !== sig) {
         sig = now;
         el.replaceChildren();
@@ -40,9 +41,8 @@ export function createChip(host: HTMLElement, h: ChipHandlers) {
             if (ev.key === "Enter") { ev.preventDefault(); h.enter(); input.blur(); } else if (ev.key === "Escape") { ev.preventDefault(); input.blur(); h.cancel(); }
           });
           if (f.short) { const tag = document.createElement("span"); tag.textContent = f.short; tag.style.cssText = "font-weight:700;opacity:.6"; el.appendChild(tag); }
-          el.appendChild(input);
           if (touch) {
-            // a phone's number keyboard has no minus: a button flips the sign of the number in the field (an inward offset, a move back), `in_292`
+            // a phone's number keyboard has no minus: a button flips the sign of the number in the field (an inward offset, a move back), `in_292`; it stands on the left so the lock on the right is clear of it (`in_384`)
             const sign = document.createElement("span");
             sign.textContent = "±";
             sign.title = "Change the sign (a minus)";
@@ -51,11 +51,20 @@ export function createChip(host: HTMLElement, h: ChipHandlers) {
             sign.addEventListener("click", (ev) => { ev.stopPropagation(); const v = input.value; input.value = v.startsWith("-") ? v.slice(1) : `-${v}`; h.entry(f.index ?? i, input.value); input.focus(); });
             el.appendChild(sign);
           }
+          el.appendChild(input);
+          if (constraint) {
+            const lock = document.createElement("span");
+            lock.dataset.lock = String(i);
+            lock.style.cssText = "display:inline-flex;padding:1px;pointer-events:none";
+            el.appendChild(lock);
+          }
           return input;
         });
       }
       fields.forEach((f, i) => {
         const input = inputs[i]!;
+        const lock = el.querySelector(`[data-lock="${i}"]`) as HTMLElement | null;
+        if (lock) { const key = f.typed ? "lock" : "unlock"; if (lock.dataset.k !== key) { lock.dataset.k = key; lock.innerHTML = iconSvg(key); } lock.style.color = f.typed ? "#1a8f8b" : "#8a8c91"; lock.title = f.typed ? "Locked: the number typed is also a constraint, this size is kept" : "Type a number and it becomes a constraint: the size is kept"; }
         input.style.textDecoration = f.active && fields.length > 1 ? "underline #1ab8b3" : "none";
         if (document.activeElement !== input) input.value = f.value; // what is being typed in the bubble is left alone
       });

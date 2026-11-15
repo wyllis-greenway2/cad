@@ -292,12 +292,13 @@ function frame(now: number) {
     const corner = f.modeSwitch ? f.modeSwitch.pts.map((p) => onPage(p)!).reduce<[number, number]>((c, q) => [Math.min(c[0], q[0]), Math.min(c[1], q[1])], [Infinity, Infinity]) : null;
     suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null, [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));
     const valueBubbles = f.entries.length ? f.entries : f.entry ? [f.entry] : [];
-    valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool && lastDevice !== "touch", lastDevice === "touch")); // (a mouse draws through the bubble: a finger can tap into it to type a size, `in_289`)
+    valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool && lastDevice !== "touch", lastDevice === "touch", !!e.constraint)); // (a mouse draws through the bubble: a finger can tap into it to type a size, `in_289`)
     for (let i = valueBubbles.length; i < chips.length; i++) chips[i]!.update(null, "mm", null);
     modeSwitch.update(f.modeSwitch, corner && Number.isFinite(corner[0]) ? corner : null, chips.flatMap((c) => c.rect() ?? [])); // (after the bubbles: it keeps off them, `in_231`)
     helper.update(f.helper ? f.helper.text : null, f.helper ? onPage(f.helper.at) : null);
     const working = busySign.update(f.busy, now);
     controls.hint(f.lookHint);
+    controls.menuOpen(menu.open);
     controls.facing(f.facing);
     hintIcons.update(f.hint?.kinds ?? [], onPage(f.hint?.at));
     // a finger has no hover and cannot drag small arrows: each point of a figure being drawn (the ones set, and the next one, held) has a drag icon, joined to it by a dotted line, and so has an arrow or ring that was tapped; a tap anywhere else sets the point held, or applies (`in_283`..`in_288`)

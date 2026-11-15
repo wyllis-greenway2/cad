@@ -62,6 +62,15 @@ export function doGizmoHover(s: AppState, x: number, y: number, env: Env): AppSt
   return id === s.gizmoHover ? s : { ...s, gizmoHover: id };
 }
 
+/** The pivot point of a circular repeat moved to this coordinate along an axis (a drag of its arrow, or a number typed for it): its vertex in the scene is the truth (`in_384`). */
+export function movePivot(s: AppState, k: number, value: number): AppState {
+  const p = s.repeat?.pivot ? sceneOf(s.session).parts[s.repeat.pivot.point] : undefined;
+  if (!s.repeat?.pivot || p?.kind !== "corner" || k < 0 || Math.abs(p.at[k]! - value) < 1e-9) return s;
+  const to = p.at.map((c, j) => (j === k ? value : c)) as unknown as Vec3;
+  const next = run(s.session, { type: "movePart", ref: s.repeat.pivot.point, to });
+  return next.message ? s : { ...s, session: next };
+}
+
 /** The handle already chosen: the ring of the axis a turn is set up about, else the arrow that was selected. */
 export const chosenId = (s: AppState): string | undefined => (s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.handleSel ?? undefined);
 
@@ -87,7 +96,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     // an operation whose arrow showed up by itself stays up after the drag (like one you started): push / pull, extrude, fillet / chamfer go on until you click away; a body's move arrows end with the drag
     if (!s.op && s.repeat) {
       // a handle of the repeat being set up: it sets the repeat's numbers, nothing is made by the drag
-      return { ...s, handleSel: h!.id, repeat: { ...s.repeat, chosen: h!.id }, drag: { handle: d, base: patternBase(s.repeat.op, h!.id), repeat: true }, gizmoHover: h!.id };
+      return { ...s, handleSel: h!.id, repeat: { ...s.repeat, chosen: h!.id }, drag: { handle: d, base: patternBase(liveRepeat(sceneOf(s.session), s.repeat), h!.id), repeat: true }, gizmoHover: h!.id };
     }
     const started = s.op ?? activeOp(s)!;
     const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" ? { ...started, auto: false } : started;
@@ -106,6 +115,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
   if ("body" in s.drag!) return moveBody(s, i, env);
   if ("handle" in s.drag! && s.drag.repeat && s.repeat) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
+    if (r && "value" in r && s.drag.handle.id.startsWith("piv:") && s.repeat.pivot) return movePivot(s, "xyz".indexOf(s.drag.handle.id[4]!), Math.round((s.drag.base + r.value) * 1e3) / 1e3); // (the pivot point goes where the arrow is taken)
     return r && "value" in r ? { ...s, repeat: advanceHelp({ ...s.repeat, op: dragPattern(s.repeat.op, s.drag.handle.id, r, s.drag.base) }) } : s;
   }
   if (!("handle" in s.drag!) || !s.op) return doOrbit(s, i);

@@ -101,6 +101,7 @@ export function patternBase(op: Op, id: string): number {
   if (id.startsWith("lin:")) return v[2 * i + 1] ?? 0;
   if (id.startsWith("cnt:")) return v[2 * i] ?? 1;
   if (id.startsWith("rot:")) return v[1] ?? 360;
+  if (id.startsWith("piv:")) return v[3 + "xyz".indexOf(id[4]!)] ?? 0; // (where the pivot point is along that axis, `in_384`)
   return 0;
 }
 

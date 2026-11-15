@@ -782,3 +782,16 @@ test("a long press on a face (a finger has no hover) opens the ring over it, and
   const chosen = reduce(long, { type: "runAction", id: "tool:rect" }, env);
   assert.ok(chosen.anim, "the view turns to the face under the finger");
 });
+
+test("a sketch started with a face selected goes on that face's plane wherever the click lands, in clear space too (`in_384`)", () => {
+  let st = drawBox(top(), 20); // 40 x 20 block from (3,3), its top at z = 20
+  st = { ...st, cam: homeCamera() };
+  const topFace = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.every((_, i) => i % 3 !== 2 || Math.abs(p.mesh![i]! - 20) < 1e-6))!;
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [topFace.ref] } } };
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  st = click(st, [80, 60, 20]); // far past the block's edge: not on the face, out in clear space on its plane
+  assert.ok(st.tool?.plane, "the sketch started");
+  const pl = scene(st.session).parts[st.tool!.plane!] as unknown as { at: Vec3 };
+  near(pl.at[2], 20, 1e-6);
+  near(st.tool!.points[0]![2], 20, 1e-6);
+});

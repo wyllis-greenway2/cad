@@ -1,6 +1,7 @@
 // Tools and operations that take typing: starting them, typed keys, finishing, cancelling; and the edits that do not depend on the pointer (delete, undo, relations).
 import type { Intent } from "../../shared/input.ts";
 import { scene as sceneOf, selection as selectionOf, run, undoLast, redoLast, clearSelection } from "../session.ts";
+import type { Session } from "../session.ts";
 import { nearCommand } from "../suggest.ts";
 import { actionsFor, measureAction } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
@@ -20,7 +21,8 @@ import { moveOffset } from "../gizmo.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
-import { activeOp } from "./handles.ts";
+import { activeOp, movePivot } from "./handles.ts";
+import { typedNumber } from "../../shared/numbers.ts";
 import { pivotCommands, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
 import type { Repeat } from "../pattern.ts";
 import type { Op } from "../operations.ts";
@@ -151,7 +153,8 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     return { ...s, op: { ...mover, auto: false, axis: field as 0 | 1 | 2, typed: text, typedBase: moveOffset(sceneOf(s.session), mover)[field]!, ...(same ? {} : { value: null }) } };
   }
   if (s.repeat && !s.op) {
-    // a number of the repeat that is open (the count and the spacing, or the count and the degrees)
+    // a number of the repeat that is open (the count and the spacing, or the count and the degrees); a pivot's x, y or z moves the pivot point (`in_384`)
+    if (s.repeat.op.kind === "circular" && field >= 3 && field <= 5) { const n = typedNumber(text); return n === null ? s : movePivot({ ...s, repeat: { ...s.repeat, chosen: `piv:${"xyz"[field - 3]}` } }, field - 3, n); }
     const pat = [...s.repeat.op.pat];
     if (field >= 0 && field < pat.length) pat[field] = text;
     const chosen = s.repeat.op.kind === "circular" ? null : field >= 0 && field < 6 ? `${field % 2 === 0 ? "cnt" : "lin"}:${"xyz"[field >> 1]}` : s.repeat.chosen ?? null; // (the arrow whose number it is)
@@ -263,13 +266,16 @@ export function doDelete(s: AppState): AppState {
   const a = actionsFor(sceneOf(s.session), selectionOf(s.session)).find((x) => x.id === "delete");
   return a ? { ...withSession(s, run(s.session, a.run())), menu: null } : s;
 }
+/** The pivot parts of a circular repeat (a point at the middle, the pivot point and the line between) that are in the scene while no repeat is open: they are only there for the setting up, so history that lands on them goes on past (`in_384`: undoing an applied repeat left the line). */
+const strayPivot = (s: AppState): boolean => !s.repeat && Object.keys(sceneOf(s.session).parts).some((r) => /\.rp$/.test(r));
+const settle = (s: AppState, step: (x: Session) => Session): AppState => { let next = s; for (let k = 0; k < 200 && strayPivot(next); k++) next = withSession(next, step(next.session)); return next; };
 export const doUndo = (s: AppState): AppState => {
   if (s.repeat) return { ...s, menu: null, session: { ...s.session, message: "apply or cancel the repeat that is open first" } };
   // an operation that is open and has made nothing yet (an arrow was dragged, nothing was applied, or it was refused) is not on the history: the first undo puts it away, it does not undo the step before (`in_229`)
   if (s.op && !s.op.made && !s.op.auto) return { ...s, menu: null, op: null, drag: null, gizmoHover: null, session: { ...s.session, message: null, conflict: null } };
-  return { ...withSession(s, undoLast(s.session)), menu: null, op: s.op?.made ? null : s.op };
+  return settle({ ...withSession(s, undoLast(s.session)), menu: null, op: s.op?.made ? null : s.op }, undoLast);
 };
-export const doRedo = (s: AppState): AppState => s.repeat ? { ...s, menu: null, session: { ...s.session, message: "apply or cancel the repeat that is open first" } } : ({ ...withSession(s, redoLast(s.session)), menu: null, op: s.op?.made ? null : s.op });
+export const doRedo = (s: AppState): AppState => s.repeat ? { ...s, menu: null, session: { ...s.session, message: "apply or cancel the repeat that is open first" } } : settle({ ...withSession(s, redoLast(s.session)), menu: null, op: s.op?.made ? null : s.op }, redoLast);
 
 /** A constraint shown on a selected part: open or close it, delete it, lock or unlock its number, give it a new number, or lock the measure of the selection. */
 export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>): AppState {

@@ -1,3 +1,4 @@
+import { liveRepeat } from "../src/interaction/pattern.ts";
 import { keyIntents } from "../src/interaction/input/keys.ts";
 import { settings } from "../src/shared/settings.ts";
 import { consumed } from "../src/operation/ownership.ts";
@@ -896,7 +897,7 @@ test("a circular repeat: the pivot is a vertex joined to the middle by a line, t
   assert.equal(parts[line]!.kind, "line");
   assert.equal(frame(st).entries.length, 1, "one bubble");
   assert.deepEqual(frame(st).entries[0]!.fields.map((f) => [f.short, f.value]), [["n", "4"], ["°", "360"]]);
-  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z"], "the rings only: the point is a vertex, not a ball");
+  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "piv:x", "piv:y", "piv:z"], "the rings, and a short arrow each way to move the pivot point (`in_384`)");
   // the bubble is off to the side of the rings, not on them
   const rings = gizmoOf(st)!;
   assert.ok(Math.hypot(...sub(frame(st).entries[0]!.at!, rings.centre)) > 10);
@@ -1663,4 +1664,34 @@ test("the wireframe view is a switch in the menu: on, the frame says the faces a
   assert.equal(frame(st).wireframe, true);
   st = reduce(st, { type: "runAction", id: "view:wireframe" }, env);
   assert.equal(frame(st).wireframe, false);
+});
+
+test("undoing an applied circular repeat of a drawing leaves no pivot line behind, and redo brings the copies back (`in_384`)", () => {
+  let s = createSession(kernel);
+  s = run(s, drawSquaredRectangle(scene(s), XY, [0, 0, 0], [10, 5, 0], [1, 0, 0], [0, 1, 0]).command);
+  let st: AppState = { ...createState(s), cam: homeCamera() };
+  st = select(st, [Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref]);
+  st = reduce(st, { type: "runAction", id: "op:circular" }, env);
+  assert.ok(Object.keys(scene(st.session).parts).some((r) => r.endsWith(".rp")), "the pivot is there while it is set up");
+  st = reduce(st, { type: "repeatApply" } as never, env);
+  assert.ok(!Object.keys(scene(st.session).parts).some((r) => r.endsWith(".rp")), "applied: the pivot parts are gone");
+  const copies = Object.keys(scene(st.session).parts).length;
+  st = reduce(st, { type: "undo" }, env);
+  assert.ok(!Object.keys(scene(st.session).parts).some((r) => /\.r[cpl]$/.test(r)), "undone: no pivot line left");
+  st = reduce(st, { type: "redo" }, env);
+  assert.equal(Object.keys(scene(st.session).parts).length, copies, "redone: the copies are back");
+});
+
+test("a number typed for the pivot of a circular repeat moves the pivot point there (`in_384`)", () => {
+  let s = createSession(kernel);
+  s = run(s, drawSquaredRectangle(scene(s), XY, [0, 0, 0], [10, 5, 0], [1, 0, 0], [0, 1, 0]).command);
+  let st: AppState = { ...createState(s), cam: homeCamera() };
+  st = select(st, [Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref]);
+  st = reduce(st, { type: "runAction", id: "op:circular" }, env);
+  st = reduce(st, { type: "entry", field: 3, text: "42.5" }, env);
+  const corner = scene(st.session).parts[st.repeat!.pivot!.point] as unknown as { at: Vec3 };
+  assert.equal(corner.at[0], 42.5, "the pivot point is at the number typed");
+  st = reduce(st, { type: "entry", field: 4, text: "7" }, env);
+  assert.deepEqual(liveRepeat(scene(st.session), st.repeat!).patStart!.slice(3, 5), [42.5, 7]);
+  assert.ok(frame(st).entries.some((e) => e.fields[0]!.short === "Y"), "the bubble of the arrow that was taken shows its number");
 });

@@ -146,7 +146,9 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
     if (op.kind === "circular") {
       // the same rings and ball as a rotation: the ring you take sets the axis, the ball is the point the copies turn about
       const pivot: Vec3 = [v[3]!, v[4]!, v[5]!];
-      return { centre: pivot, handles: AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, pivot, d, L * 0.8, i as 0 | 1 | 2)) }; // (the point itself is a vertex in the scene: move it with Move)
+      // the rings choose the axis; short arrows along x, y and z move the pivot point (its vertex in the scene), so it can be placed or typed exactly (`in_384`)
+      const arrows = AXES.map((d, i): Handle => ({ id: `piv:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [pivot, add(pivot, scale(d, L * 0.45))] }));
+      return { centre: pivot, handles: [...AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, pivot, d, L * 0.8, i as 0 | 1 | 2)), ...arrows] };
     }
     // an arrow along each axis whose end is where the next copy goes (pull it for the distance between them), and a short arrow past the last copy (pull it for how many)
     const c = patternCentre(scene, op);

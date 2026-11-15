@@ -8,7 +8,7 @@ export function createControls(host: HTMLElement, h: ControlHandlers) {
   const menu = document.createElement("div");
   menu.textContent = "⋯";
   menu.title = "Settings and options";
-  menu.style.cssText = css + "top:12px;right:12px;width:40px;height:40px;border-radius:20px;background:#34363b;color:#fff;font:700 22px/38px system-ui,sans-serif;text-align:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)";
+  menu.style.cssText = css + "z-index:11;top:12px;right:12px;width:40px;height:40px;border-radius:20px;background:#34363b;color:#fff;font:700 22px/38px system-ui,sans-serif;text-align:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)";
   menu.addEventListener("click", (e) => { e.stopPropagation(); const r = menu.getBoundingClientRect(); h.menu(r.left, r.bottom + 6); });
   host.appendChild(menu);
 
@@ -23,6 +23,8 @@ export function createControls(host: HTMLElement, h: ControlHandlers) {
   });
 
   return {
+    /** The ⋯ button shows a cross while its menu is open, and stands above the menu so it can always be tapped to close it (`in_384`). */
+    menuOpen(on: boolean) { const t = on ? "×" : "⋯"; if (menu.textContent !== t) menu.textContent = t; },
     /** A ring round the button of the axis the selected plane lies across (`in_299`); the colour of the buttons is the view's (`facing`). */
     hint(hint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null) {
       buttons.forEach((b, i) => {

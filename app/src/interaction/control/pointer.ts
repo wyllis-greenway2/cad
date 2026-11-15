@@ -117,6 +117,13 @@ function drawingPlane(sc: Scene, refs: readonly Ref[]): Ref | null {
   return null;
 }
 
+/** The plane of a face (or a drawn plane) that is selected, not a world plane: a sketch that is started goes onto it wherever the click lands, out in the clear space too (`in_384`). */
+function selectedSurface(sc: Scene, sel: readonly Ref[]): Ref | null {
+  const get = lookup(sc);
+  for (const r of sel) { const pl = planeOf(get, r); if (pl && pl.origin !== "world") return pl.ref; }
+  return null;
+}
+
 /** A rim made of two half circles is one edge to the person: picking a half picks both, letting go of one lets go of both. */
 function withTwins(sc: Scene, before: readonly Ref[], now: readonly Ref[]): Ref[] {
   const twinOf = (r: Ref): Ref | undefined => { const p = sc.parts[r]; return p?.kind === "line" ? p.twin : undefined; };
@@ -164,7 +171,7 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   if (s.tool?.kind === "trim") next = { ...withSession(next, hoverOn(next.session, undefined)), hoverPoint: null, tool: { ...s.tool, trimming: trimUnder(sc, pv) } };
   // a circle tool still armed (no plane yet): where the centre would go, and whether it is on another circle's centre; a line or an arc: whether its first end would be on a line or a circle
   if (s.tool && !s.tool.plane && (s.tool.kind === "circle" || s.tool.kind === "arc" || s.tool.kind === "line" || s.tool.kind === "rect")) {
-    const planeRef = drawingPlane(sc, candidatesAt(sc, pv, pickOpts(s)).map((k) => k.ref)) ?? drawingPlane(sc, selectionOf(s.session));
+    const planeRef = selectedSurface(sc, selectionOf(s.session)) ?? drawingPlane(sc, candidatesAt(sc, pv, pickOpts(s)).map((k) => k.ref)) ?? drawingPlane(sc, selectionOf(s.session));
     const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
     const at = pl ? snapOnPlane(sc, pv, pl) : null;
     const lined = at && pl ? guidesOf(sc, pl, at) : []; // (the pointer lines up with a corner: it is shown, and the click takes it, `in_381`)
@@ -277,7 +284,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   }
   if (!t.points.length) {
     // the plane chosen from the pencil bubble, else the surface under the click takes the drawing, from wherever the camera is; with none under it, the selected plane does
-    const planeRef = t.plane ?? sketchPlaneOf(base)?.ref ?? drawingPlane(sc, refs) ?? drawingPlane(sc, selectionOf(sess)); // (the plane the tool is already on, else the one being looked at straight, else what is under the click: a block in front of the plane does not take the drawing, `in_194`)
+    const planeRef = t.plane ?? sketchPlaneOf(base)?.ref ?? selectedSurface(sc, selectionOf(sess)) ?? drawingPlane(sc, refs) ?? drawingPlane(sc, selectionOf(sess)); // (the plane the tool is already on, else the one being looked at straight, else what is under the click: a block in front of the plane does not take the drawing, `in_194`)
     const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
     const at0 = pl ? snapOnPlane(sc, pv, pl) : null;
     if (!pl || !at0) return { ...base, session: { ...sess, message: "click on a surface to draw on" } };
