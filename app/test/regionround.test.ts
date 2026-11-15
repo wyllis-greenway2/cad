@@ -223,3 +223,21 @@ test("all twelve edges of a cube rounded by more than half its side: the corners
     assert.ok(Math.abs(vol(done) - want) / want < tol, `r ${rr}: ${vol(done).toFixed(1)} against ${want.toFixed(1)}`);
   }
 });
+
+test("one half of a rim alone, rounded past what the kernel can: the region runs the span of that half and ends in a flat cut", () => {
+  const { s, rim } = post();
+  const halves = rim(20);
+  assert.equal(halves.length, 2);
+  const whole = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "edgeMod", parts: halves as never, params: { mode: "fillet", value: 15 } } });
+  const half = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "edgeMod", parts: [halves[0]!] as never, params: { mode: "fillet", value: 15 } } });
+  assert.deepEqual(half.outcome.errors, {});
+  const [all, some] = [vol(s) - vol(whole), vol(s) - vol(half)];
+  assert.ok(some > 0 && Math.abs(some - all / 2) / all < 0.01, `a half takes ${some.toFixed(1)}, the whole rim ${all.toFixed(1)}`);
+});
+
+test("a size at each end of the plate's four top edges, one of which is more than the plate allows: made as regions, each from its own first end", () => {
+  const { s, plateTop } = plateWithPost();
+  const varied = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "edgeMod", parts: plateTop as never, params: { mode: "fillet", value: 0.4, end: 1.2 } } });
+  assert.deepEqual(varied.outcome.errors, {}, JSON.stringify(varied.outcome.errors));
+  assert.ok(vol(varied) < vol(s));
+});

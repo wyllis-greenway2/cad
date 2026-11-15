@@ -53,11 +53,11 @@ test("the chip, the two numbers and Tab: Variable, 5, Tab, 12, Enter makes one s
   st = reduce(st, { type: "sizeKind", kind: "variable" }, env);
   st = type(st, "5");
   let fields = frameOf(st, { w: 800, h: 600 }).entry?.fields;
-  assert.deepEqual(fields?.map((f) => [f.label, f.value, f.active]), [["Start", "5", true], ["End", "5", false]]);
+  assert.deepEqual(fields?.map((f) => [f.label, f.value, f.active]), [["Start", "5", true], ["End", "5", false], ["Middle", "-", false]]);
   st = key(st, "Tab");
   st = type(st, "12");
   fields = frameOf(st, { w: 800, h: 600 }).entry?.fields;
-  assert.deepEqual(fields?.map((f) => [f.label, f.value, f.active]), [["Start", "5", false], ["End", "12", true]]);
+  assert.deepEqual(fields?.map((f) => [f.label, f.value, f.active]), [["Start", "5", false], ["End", "12", true], ["Middle", "-", false]]);
   st = key(st, "Enter");
   const step = scene(st.session).steps.at(-1)!;
   assert.equal(step.type, "edgeMod");
@@ -103,4 +103,32 @@ test("the choice is offered for a chamfer and for several edges, not for a rim",
   st = reduce(st, { type: "begin", name: "edge" }, env);
   st = type(st, "-2");
   assert.deepEqual(frameOf(st, { w: 800, h: 600 }).sizeKinds?.map((k) => k.id), ["constant", "variable"]);
+});
+
+test("a size at the middle of the edge too: Start, End and Middle with Tab, and the round goes through the three", () => {
+  const s = open();
+  const lin = set(s, { value: 2, end: 6 });
+  const mid = set(s, { value: 2, end: 6, mid: 4 });
+  const bulge = set(s, { value: 2, end: 2.0001, mid: 8 });
+  assert.deepEqual(bulge.outcome.errors, {});
+  assert.ok(Math.abs(vol(mid) - vol(lin)) < 0.5, "a middle on the straight line is the straight line");
+  assert.ok(vol(bulge) < vol(set(s, { value: 2 })) - 50, "a round that is bigger in the middle takes more");
+  // it can be larger than the faces allow: made as a region through the three sizes, and said
+  const past = set(s, { value: 2, end: 2.0001, mid: 30 });
+  assert.deepEqual(past.outcome.errors, {});
+  assert.match(Object.values(past.outcome.notes ?? {}).join(" "), /could not be made as a smooth round/);
+  // through the keys: Tab, Tab goes to the middle
+  const plain = run(open(), { type: "removeStep", id: "s_014" } as never);
+  const sc = scene(plain);
+  const edge = (Object.values(sc.parts) as Part[]).find((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "body" && (sc.parts[p.a] as unknown as { at: number[] }).at[2] !== (sc.parts[p.b] as unknown as { at: number[] }).at[2])!;
+  let st = createState({ ...plain, click: { ...plain.click, selection: [edge.ref] as never } });
+  st = reduce(st, { type: "begin", name: "edge" }, env);
+  st = reduce(st, { type: "sizeKind", kind: "variable" }, env);
+  st = key(type(st, "2"), "Tab");
+  st = key(type(st, "6"), "Tab");
+  st = type(st, "4");
+  st = key(st, "Enter");
+  const made = scene(st.session).steps.at(-1)!;
+  assert.deepEqual([made.params.value, made.params.end, made.params.mid], [2, 6, 4]);
+  assert.deepEqual(st.session.outcome.errors, {});
 });

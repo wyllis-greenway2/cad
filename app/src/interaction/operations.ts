@@ -101,7 +101,9 @@ export interface Op {
   variable?: boolean;
   endTyped?: string;
   /** the number being typed is the end one (Tab switches) */
-  endActive?: boolean;
+  /** a size at the middle of the edge too, and which of the three numbers is being typed: 0 the start, 1 the end, 2 the middle (Tab goes round, `in_391`) */
+  midTyped?: string;
+  varField?: 0 | 1 | 2;
   /** rotate: the point it turns about (the rotator's centre; you can move it) */
   pivot: Vec3 | null;
   /** move and rotate: the body, or a drawn shape (its corners are `parts`, its plane is `plane`) */
@@ -375,6 +377,12 @@ export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
 }
 
 /** The size at the other end of a fillet or chamfer that changes along its edges (each edge from its own first end, `in_387`, `in_391`), or null when it is the same all along. */
+/** The size at the middle of the edge, when one is given (the round then goes through the start, the middle and the end sizes, `in_391`), else null. */
+export function variableMid(op: Op, v: number): number | null {
+  if (!op.variable || !op.vary || op.kind !== "edge" || v === 0 || variableEnd(op, v) === null) return null;
+  const t = typedNumber(op.midTyped ?? "");
+  return t !== null && t > 0 ? t : null;
+}
 export function variableEnd(op: Op, v: number): number | null {
   if (!op.variable || !op.vary || op.kind !== "edge" || v === 0) return null;
   const t = typedNumber(op.endTyped ?? "");
@@ -530,7 +538,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   if (op.kind === "pushpull" && op.edit && !op.noEdit && (op.faceKind ?? "move") === "move") return v === 0 ? null : editCommand(scene, op.edit, v);
   if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
-  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(variableEnd(op, v) !== null ? { end: variableEnd(op, v)! } : {}), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
+  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(variableEnd(op, v) !== null ? { end: variableEnd(op, v)! } : {}), ...(variableMid(op, v) !== null ? { mid: variableMid(op, v)! } : {}), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
   if (op.kind === "scale" && op.target === "shape") return v <= 0 ? null : scaleShapeCommand(scene, op, v);
   if (op.kind === "scale") {
     if (v <= 0) return null;
