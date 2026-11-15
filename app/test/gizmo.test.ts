@@ -1,3 +1,4 @@
+import { normalAngle } from "../src/interaction/control/section.ts";
 import { liveRepeat } from "../src/interaction/pattern.ts";
 import { keyIntents } from "../src/interaction/input/keys.ts";
 import { settings } from "../src/shared/settings.ts";
@@ -1802,4 +1803,31 @@ test("Select all faces, all edges, all vertices of the body (`in_393`)", () => {
     const next = reduce(st, { type: "runAction", id }, env);
     assert.equal(next.session.click.selection.length, n, id);
   }
+});
+
+test("what the cross section cuts away cannot be picked: a corner on the cut side is not there to point at, one on the kept side is (`in_395`)", () => {
+  const st = box(); // 40 x 20 x 20
+  const corners = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "body") as unknown as { ref: string; at: Vec3 }[];
+  const lo = corners.find((c) => c.at[0] === 0 && c.at[1] === 0 && c.at[2] === 0)!;
+  const hi = corners.find((c) => c.at[0] === 40 && c.at[1] === 20 && c.at[2] === 20)!;
+  const clip = { at: [20, 10, 10] as Vec3, n: [1, 0, 0] as Vec3 }; // the side x > 20 is cut away
+  const at = (c: { at: Vec3 }, opts: object) => { const [x, y] = px(st, c.at); return candidatesAt(scene(st.session), projector(st.cam, env.w, env.h).view(x, y), { pointTol: 6, lineTol: 4, ...opts }); };
+  assert.ok(at(hi, {}).some((c) => c.ref === hi.ref), "without a cut it is found");
+  assert.ok(!at(hi, { clip }).some((c) => c.ref === hi.ref), "on the cut side: not found");
+  assert.ok(at(hi, { clip: { at: clip.at, n: [-1, 0, 0] } }).some((c) => c.ref === hi.ref), "on the kept side: found");
+  void lo;
+});
+
+test("numbers typed for the cross section: where it is along each axis while the arrows move it, the angle about each axis while the rings turn it (`in_395`)", () => {
+  let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
+  assert.equal(frame(st).entries.length, 3, "a bubble at each arrow");
+  st = reduce(st, { type: "entry", field: 1, text: "12.5" }, env);
+  near(st.section!.at[1], 12.5, 1e-9);
+  st = reduce(st, { type: "runAction", id: "section:mode" }, env);
+  assert.deepEqual(frame(st).entries.map((e) => e.fields[0]!.index), [3, 4, 5], "a bubble at each ring");
+  const k = st.section!.n.findIndex((v) => Math.abs(v) > 0.5);
+  const other = (k + 1) % 3;
+  st = reduce(st, { type: "entry", field: 3 + other, text: "30" }, env);
+  near(normalAngle(st.section!.n, other as 0 | 1 | 2), 30, 1e-6);
+  assert.ok(Math.abs(Math.hypot(...st.section!.n) - 1) < 1e-9, "still a unit normal");
 });

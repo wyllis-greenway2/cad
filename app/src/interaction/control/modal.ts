@@ -22,7 +22,7 @@ import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
 import { activeOp, movePivot } from "./handles.ts";
-import { doSectionToggle, doSectionChip } from "./section.ts";
+import { doSectionToggle, doSectionChip, typedSection } from "./section.ts";
 import { typedNumber } from "../../shared/numbers.ts";
 import { pivotCommands, patternCommand, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
 import type { Repeat } from "../pattern.ts";
@@ -151,6 +151,10 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     // the bubble on one of the move arrows (`in_215`): a distance typed along that axis; another axis starts again
     const same = mover.axis === field;
     return { ...s, op: { ...mover, auto: false, axis: field as 0 | 1 | 2, typed: text, typedBase: moveOffset(sceneOf(s.session), mover)[field]!, ...(same ? {} : { value: null }) } };
+  }
+  if (s.section && !s.op && !s.repeat && !s.tool && field >= 0 && field <= 5) { // a number typed for the cross section plane (`in_395`)
+    const n = typedNumber(text);
+    return n === null ? s : { ...s, section: typedSection(s.section, field, n) };
   }
   if (s.op?.kind === "scale" && s.op.axes && field >= 0 && field <= 2) { // a number typed for one axis of a scale along axes (`in_390`)
     const n = typedNumber(text);

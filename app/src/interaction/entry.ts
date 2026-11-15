@@ -1,4 +1,5 @@
 // What the view shows while a tool or an operation is running: the figure or prism being made and the number chip. Derived from the state; nothing here changes it.
+import { normalAngle } from "./control/section.ts";
 import { localOf } from "../operation/part.ts";
 import { roundedText } from "../shared/numbers.ts";
 import type { Vec3 } from "../math/vec.ts";
@@ -107,6 +108,17 @@ export function repeatEntries(op: Op, g: Gizmo | null, cam: Camera, chosen: stri
  * The number bubble of the move arrows (`in_215`, changed by `in_230`): only on the arrow of the chosen axis, as the rotator shows one ring's number. It shows where the move has taken the body along
  * that axis since it began (`offset`: 0 to begin with, and on across drags until the move is put away), and a typed number is that position.
  */
+/** The numbers of the cross section plane (`in_395`): while its arrows move it, where it is along each axis, a bubble at each arrow; while its rings turn it, the angle its normal makes about each axis, a bubble at each ring. */
+export function sectionEntries(sec: { at: Vec3; n: Vec3; mode: "move" | "rotate" }, g: Gizmo | null): Entry[] {
+  if (!g) return [];
+  return ([0, 1, 2] as const).flatMap((k) => {
+    const moving = sec.mode === "move";
+    const h = g.handles.find((x) => x.id === `${moving ? "sec" : "secr"}:${"xyz"[k]}`);
+    if (!h) return [];
+    const at = moving ? h.points.at(-1)! : h.points[Math.floor(h.points.length / 8)]!;
+    return [{ fields: [{ label: moving ? `Where the plane is along ${"XYZ"[k]}` : `The angle of the plane about ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(moving ? sec.at[k]! : normalAngle(sec.n, k)), active: false, typed: false, index: moving ? k : 3 + k }], unit: moving ? "mm" : "°", at, ...(moving ? { from: g.centre } : {}) }];
+  });
+}
 /** The numbers of a scale along axes (`in_390`): one bubble at the tip of each axis arrow with the factor along it, to type. */
 export function scaleEntries(op: Op, g: Gizmo | null): Entry[] {
   if (!g || op.kind !== "scale" || !op.axes) return [];

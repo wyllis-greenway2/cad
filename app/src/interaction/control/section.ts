@@ -71,3 +71,18 @@ export function draggedSection(from: { at: Vec3; n: Vec3 }, id: string, value: n
   }
   return { at: add(from.at, scale(AXES[k]!, value)) as Vec3, n: from.n };
 }
+
+/** The angle in degrees the plane's normal makes about world axis `k`, measured from the next axis towards the one after it (x: y to z, y: z to x, z: x to y), as `about` turns. */
+export function normalAngle(n: Vec3, k: 0 | 1 | 2): number {
+  const [a, b] = [(k + 1) % 3, (k + 2) % 3];
+  return Math.round(((Math.atan2(n[b]!, n[a]!) * 180) / Math.PI) * 1e4) / 1e4;
+}
+
+/** A number typed for the plane (`in_395`): `field` 0 to 2 is where the plane's middle is along x, y, z; 3 to 5 the angle its normal makes about x, y, z. */
+export function typedSection(sec: { at: Vec3; n: Vec3; mode: "move" | "rotate" }, field: number, value: number): { at: Vec3; n: Vec3; mode: "move" | "rotate" } {
+  if (field < 3) return { ...sec, at: sec.at.map((c, i) => (i === field ? value : c)) as unknown as Vec3 };
+  const k = (field - 3) as 0 | 1 | 2;
+  const m = about(k, value - normalAngle(sec.n, k));
+  const n: Vec3 = [m[0] * sec.n[0] + m[1] * sec.n[1] + m[2] * sec.n[2], m[3] * sec.n[0] + m[4] * sec.n[1] + m[5] * sec.n[2], m[6] * sec.n[0] + m[7] * sec.n[1] + m[8] * sec.n[2]];
+  return { ...sec, n: normalize(n) };
+}
