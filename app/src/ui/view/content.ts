@@ -5,7 +5,7 @@ import { outlineOf, lookup, settings, consumed } from "../../interaction/api.ts"
 import { surfaceTriangles } from "../../interaction/surfaces.ts";
 import type { Pen } from "./pen.ts";
 import { clearGroup, trisMesh, ringOf, rgb } from "./pen.ts";
-import { cornerEdges } from "./edges.ts";
+import { cornerEdgesOf } from "./edges.ts";
 import { ownSegments } from "./split.ts";
 
 export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array }
@@ -64,7 +64,7 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
   g.setAttribute("normal", new THREE.BufferAttribute(mesh.normals, 3));
   g.setIndex(new THREE.BufferAttribute(mesh.triangles, 1));
   const tCorners = performance.now();
-  const corners = cornerEdges(mesh.vertices, mesh.normals, mesh.triangles, settings.extrude.edgeAngleDeg);
+  const corners = cornerEdgesOf(mesh, settings.extrude.edgeAngleDeg).edges;
   buildStats.cornersMs = performance.now() - tCorners;
   buildStats.triangles = mesh.triangles.length / 3; // where the surface turns by more than 30 degrees
   let edgePos: THREE.BufferAttribute | null = null;

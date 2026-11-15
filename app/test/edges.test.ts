@@ -18,3 +18,18 @@ test("lines are drawn where the surface turns a corner, by the smooth normals: a
   assert.equal(edge.length, 6, "one line");
   assert.deepEqual([...edge].sort(), [0, 0, 0, 0, 1, 1].sort(), "the edge they share, from (0,1,0) to (1,0,0)");
 });
+
+test("the edges of a mesh are found once: the same mesh gives the same list, a new mesh or another angle is found again (`dec_sharp_edges_once`)", async () => {
+  const { cornerEdgesOf } = await import("../src/ui/view/edges.ts");
+  const v = new Float32Array([0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1]);
+  const n = new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, -1, 0, 0, -1, 0]);
+  const t = new Uint32Array([0, 1, 2, 0, 2, 3, 0, 4, 1, 1, 4, 5]);
+  const a = cornerEdgesOf({ vertices: v, normals: n, triangles: t }, 30);
+  assert.equal(a.again, false);
+  assert.deepEqual(a.edges, cornerEdges(v, n, t, 30), "the same edges as the plain search");
+  const b = cornerEdgesOf({ vertices: v, normals: n, triangles: t }, 30);
+  assert.equal(b.again, true, "remembered");
+  assert.equal(b.edges, a.edges);
+  assert.equal(cornerEdgesOf({ vertices: v, normals: n, triangles: t }, 80).again, false, "another angle");
+  assert.equal(cornerEdgesOf({ vertices: new Float32Array(v), normals: n, triangles: t }, 80).again, false, "another mesh");
+});

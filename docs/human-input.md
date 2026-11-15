@@ -2183,3 +2183,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_467 — 2026-11-15 — directive
 > yes go ahead
 (approves the next step offered: splitting the page's 150 ms into what `buildContent` costs and what is the browser's own, then writing the decision entry for keeping each body's drawn geometry and asking before any code)
+
+## in_468 — 2026-11-15 — directive
+> do step 1 now
+(approves step 1 of `dec_sharp_edges_once`: the sharp edges of a mesh are remembered by the mesh on the page; step 2 is not approved)

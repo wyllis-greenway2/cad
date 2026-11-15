@@ -25,3 +25,16 @@ export function cornerEdges(vertices: Float32Array, normals: Float32Array, trian
   }
   return out;
 }
+
+const kept = new WeakMap<Float32Array, { normals: Float32Array; triangles: Uint32Array; deg: number; edges: number[] }>();
+/**
+ * The same as `cornerEdges`, remembered by the mesh it was made from (`dec_sharp_edges_once`, step 1): the picture is built again when the scene changes and the mesh did not (a sketch moved, a
+ * selection), and the edges of an unchanged mesh are the same edges. The list returned is shared: it must not be changed.
+ */
+export function cornerEdgesOf(mesh: { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array }, thresholdDeg: number): { edges: number[]; again: boolean } {
+  const k = kept.get(mesh.vertices);
+  if (k && k.normals === mesh.normals && k.triangles === mesh.triangles && k.deg === thresholdDeg) return { edges: k.edges, again: true };
+  const edges = cornerEdges(mesh.vertices, mesh.normals, mesh.triangles, thresholdDeg);
+  kept.set(mesh.vertices, { normals: mesh.normals, triangles: mesh.triangles, deg: thresholdDeg, edges });
+  return { edges, again: false };
+}
