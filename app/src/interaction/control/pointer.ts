@@ -19,7 +19,7 @@ import { snapOnPlane, guidesOf, finish, planeForDrawing, armTool, pointOnPlane }
 import { trimAt } from "../../operation/trim.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { OpKind, Op } from "../operations.ts";
-import { startOp, surfaceAxes } from "../operations.ts";
+import { startOp, surfaceAxes, canPickFor } from "../operations.ts";
 import { similarTo } from "../similar.ts";
 import { whyNotGroup, whyNotUngroup, whyNotCombine, applyCut } from "./select.ts";
 import { projector, nearTolMm } from "../camera.ts";
@@ -192,7 +192,8 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   // a little pane of another world plane under the pointer lights up and takes the pointer: nothing else is hovered through it (`in_190`)
   const pane = !s.tool && !s.op && !s.drag ? paneUnder(s, i.x, i.y, env) : null;
   if (pane) return { ...withSession(s, hoverOn(s.session, undefined)), hoverPoint: null, paneHover: pane };
-  const c = candidatesAt(sc, pv, pickOpts(s))[0];
+  // an operation that is waiting for what to click lights only what it can use (`in_465`)
+  const c = candidatesAt(sc, pv, pickOpts(s)).find((k) => !s.picking || canPickFor(sc, s.picking.kind, k.ref));
   const point = c && c.rank === 2 ? surfacePoint(pv, c.score) : null;
   let next: AppState = { ...withSession(s, hoverOn(s.session, c?.ref)), hoverPoint: point, paneHover: null };
   if (s.tool?.plane) {
@@ -392,7 +393,9 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   const sc = sceneOf(s.session);
   // an operation chosen from the menu is waiting for what it needs (`in_464`): what is clicked is given to it; on nothing, what there is starts it (or it is let go)
   if (s.picking && !s.tool && !s.op && !s.repeat) {
-    const top = candidatesAt(sc, projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s)).find((c) => sc.parts[c.ref]?.origin !== "world"); // (a world plane under the pointer is the background, not a thing)
+    const under = candidatesAt(sc, projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s)).filter((c) => sc.parts[c.ref]?.origin !== "world"); // (a world plane under the pointer is the background, not a thing)
+    const top = under.find((c) => canPickFor(sc, s.picking!.kind, c.ref));
+    if (!top && under.length) return { ...s, session: { ...s.session, message: `that cannot be used here: ${(() => { const r = startOp(sc, [under[0]!.ref], s.picking!.kind); return r.ok ? "" : r.why; })()} (Esc to leave)` } }; // (a click on what it cannot use leaves it waiting)
     if (!top) {
       const started = finishPicking(s, env.now);
       return started.picking ? { ...started, picking: null, session: { ...started.session, message: null } } : started;

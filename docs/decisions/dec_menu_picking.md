@@ -3,7 +3,7 @@ id: dec_menu_picking
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_463, in_464
+human_input: in_463, in_464, in_465
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -25,7 +25,7 @@ alternative_to:
 8. *Undo and cancel:* a picking state makes no step; leaving it leaves nothing behind.
 9. *Menu size:* nothing is hidden or dimmed any more, so the ring shows every operation; the *why not* text becomes the bubble's prompt.
 
-**Built (`in_464`, approved as proposed):** `AppState.picking`: an operation of the menu (the ring no longer dims one for want of a selection; its tooltip says what it needs) chosen without what it needs waits, says what to click, and shows the check and the cross. A click gives it that thing (a world plane under the pointer is background, not a thing). The operations that take one thing begin at once (`finishPicking`); a loft and a sweep take several (each click adds, as Shift does) and begin on Enter, the check or a right click; Esc, or a click on nothing with nothing to start it, leaves the waiting; any tool or operation begun leaves it. With the right things selected the item runs at once, as before. **Not built:** lighting only the kinds of thing the operation can use (a wrong click is told what is still missing); saying at once that there is nothing in the model it could use; the roles of a mirror's picks (it takes what is selected).
+**Built (`in_464`, approved as proposed):** `AppState.picking`: an operation of the menu (the ring no longer dims one for want of a selection; its tooltip says what it needs) chosen without what it needs waits, says what to click, and shows the check and the cross. A click gives it that thing (a world plane under the pointer is background, not a thing). The operations that take one thing begin at once (`finishPicking`); a loft and a sweep take several (each click adds, as Shift does) and begin on Enter, the check or a right click; Esc, or a click on nothing with nothing to start it, leaves the waiting; any tool or operation begun leaves it. With the right things selected the item runs at once, as before. **Only the right kinds are lit and picked (`in_465`):** while an operation waits, the pointer lights only what it can use (`canPickFor`: a sweep takes a closed sketch or a line that is no part of one, a loft closed sketches, any other operation what it can start from alone, tested by starting it on that thing) and a click on anything else leaves it waiting and says why it cannot be used. **Not built:** saying at once that there is nothing in the model it could use; the roles of a mirror's picks (it takes what is selected).
 
 ## Rationale
 It changes how every operation of the menu starts; kept the select-first path so nothing gets slower, and the many-things operations wait for an explicit end because no count says when they are complete.

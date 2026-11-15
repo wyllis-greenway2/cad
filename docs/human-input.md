@@ -2181,3 +2181,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_464 — 2026-11-15 — directive
 > Go ahead with the menu picking mode
 (approves `q_menu_always_selectable` as proposed: every operation of the menu can be chosen whatever is selected, and then what it needs is clicked)
+
+## in_465 — 2026-11-15 — directive
+> Light only the right kinds of thing while an operation is waiting
+(asks for the one thing `dec_menu_picking` left unbuilt: while an operation waits for what to click, only the kinds of thing it can use are lit (and picked))

@@ -178,6 +178,15 @@ function drawnFaces(scene: Scene, parts: Part[]): Extract<Part, { kind: "face" }
   return all.length === parts.length && all.length > 0 && all.every((f) => f.plane === all[0]!.plane) ? all : [];
 }
 
+/** Can this thing be one of what an operation that is waiting is given (`in_465`)? A sweep takes a closed sketch (its shape) or a line that is no part of one (its path), a loft closed sketches; any other operation, what it can start from alone. */
+export function canPickFor(scene: Scene, kind: OpKind, ref: Ref): boolean {
+  const p = scene.parts[ref];
+  if (!p) return false;
+  if (kind === "sweep") return !!drawnFace(scene, [p]) || (p.kind === "line" && p.origin === "drawn");
+  if (kind === "loft") return !!drawnFace(scene, [p]);
+  return startOp(scene, [ref], kind).ok;
+}
+
 function drawnFace(scene: Scene, parts: Part[]): Extract<Part, { kind: "face" }> | null {
   const first = parts[0];
   if (!first || parts.length !== 1) return null;

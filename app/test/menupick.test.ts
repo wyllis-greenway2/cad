@@ -68,3 +68,26 @@ test("an operation that needs one thing starts at once when it is clicked; Esc l
   assert.equal(empty.picking, null, "let go");
   assert.equal(empty.op, null);
 });
+
+test("while a sweep waits only a closed sketch and a line of an open path are lit and picked; a face of the body is not, and a click on it leaves it waiting with the reason", () => {
+  let s = createSession(kernel);
+  const sq = drawRectangle(scene(s), XY, [-2, -2, 0], [2, 2, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, sq.command);
+  const p = drawChain(scene(s), XZ, [[0, 0, 0], [0, 0, 20]]);
+  s = run(s, p.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: sq.lines, params: { depth: 4 } } }); // (the square is used: a body 4 x 4 x 4)
+  let st = { ...createState(s), cam: homeCamera() };
+  st = reduce(st, { type: "runAction", id: "op:sweep" }, env);
+  const [bx, by] = px(st, [1.5, 1.5, 4]); // the top of the block, off the path
+  const hovered = reduce(st, { type: "hover", x: bx, y: by }, env);
+  assert.equal(hovered.session.hover, undefined, "a face of the body is not lit for a sweep");
+  const clicked = click(st, bx, by);
+  assert.equal(clicked.picking?.kind, "sweep", "still waiting");
+  assert.match(clicked.session.message ?? "", /cannot be used/);
+  assert.equal(selectionOfState(clicked), 0, "nothing was taken");
+  const [lx, ly] = px(st, [0, 0, 12]);
+  const line = reduce(st, { type: "hover", x: lx, y: ly }, env);
+  assert.ok(line.session.hover, "the line of the path is lit");
+});
+
+const selectionOfState = (st: AppState): number => st.session.click.selection.length;
