@@ -530,3 +530,19 @@ test("one body of several is stretched alone: its sketch and extrusion change, t
   assert.ok(a2!.bbox!.max[0] - a2!.bbox!.min[0] > (a!.bbox!.max[0] - a!.bbox!.min[0]) * 1.99, "it is twice as long in x");
   assert.ok(b);
 });
+
+test("a body dragged free with a turned mover moves along the mover's own axes: with its X (the world Y) chosen it goes only along the world Y (`in_418`)", () => {
+  const s = box(createSession(kernel), 0, 0);
+  const [a] = bodies(s);
+  let st: AppState = pick({ ...createState(s), cam: { ...homeCamera(), target: [5, 5, 5] } }, [a!.ref]);
+  st = reduce(st, { type: "begin", name: "move" }, env);
+  st = { ...st, op: { ...st.op!, frame: [[0, 1, 0], [-1, 0, 0], [0, 0, 1]] }, lockAxes: [0] };
+  const on = projector(st.cam, env.w, env.h).project([5, 0, 5]);
+  let [x, y] = on;
+  st = reduce(st, { type: "hover", x, y }, env);
+  for (const [dx, dy] of [[0, 0], [20, -10], [20, -10], [10, 0]] as [number, number][]) { x += dx; y += dy; st = reduce(st, { type: "orbit", dx, dy, x, y }, env); }
+  const f = st.op?.free;
+  assert.ok(f, "the drag has taken hold");
+  assert.ok(Math.abs(f![0]) < 1e-6 && Math.abs(f![2]) < 1e-6, `only along the world Y: ${f}`);
+  assert.ok(Math.abs(f![1]) > 0.5, `and it moved: ${f}`);
+});

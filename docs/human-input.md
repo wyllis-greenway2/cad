@@ -1949,3 +1949,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_417 — 2026-11-15 — directive
 > Do the mover orientation next
 (asks for what `dec_mover_sphere` and Handoff 393 left unbuilt: the mover's orientation: its rings turn its axes while the sphere is selected, and its arrows and rings then work along and about the turned axes)
+
+## in_418 — 2026-11-15 — directive
+> Do the not built yet stuff for the mover next
+(asks for what Handoff 394 and `dec_mover_sphere` left unbuilt for the mover: both tools' handles always shown together, typing the mover's place, a free drag along the turned axes, exact figure turns)

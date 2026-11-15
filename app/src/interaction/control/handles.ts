@@ -2,7 +2,7 @@
 // works the handle and does not turn the camera; letting go does it (one step, one undo) and leaves the operation open for another drag. Esc or Enter ends it.
 import type { Intent } from "../../shared/input.ts";
 import type { Vec3 } from "../../math/vec.ts";
-import { sub } from "../../math/vec.ts";
+import { sub, add } from "../../math/vec.ts";
 import { aboutDir } from "../../math/rotation.ts";
 import { scene as sceneOf, selection as selectionOf, run, undoLast } from "../session.ts";
 import type { Session } from "../session.ts";
@@ -77,6 +77,16 @@ export function movePivot(s: AppState, k: number, value: number): AppState {
   return next.message ? s : { ...s, session: next };
 }
 
+/** The mover shows its arrows and its rings together: the one taken that the tool begun is not (the ring of a move, the arrow of a turn) turns the tool about, keeping the mover's place and axes (`in_418`). */
+export function movingTool(s: AppState, op: Op, id: string): Op {
+  const want = id.startsWith("rot:") ? "rotate" : id.startsWith("move:") ? "move" : null;
+  if (!want || (op.kind !== "move" && op.kind !== "rotate") || op.kind === want) return op;
+  const r = startOp(sceneOf(s.session), selectionOf(s.session), want, viewAxes(s.cam));
+  if (!r.ok) return op;
+  const pivot = op.pivot && op.kind === "move" ? add(op.pivot, moveOffset(sceneOf(s.session), op)) : op.pivot;
+  return { ...r.op, auto: false, pivot, ...(op.frame ? { frame: op.frame } : {}) };
+}
+
 /** The handle already chosen: the ring of the axis a turn is set up about, else the arrow that was selected. */
 export const chosenId = (s: AppState): string | undefined => (s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.handleSel ?? undefined);
 
@@ -114,7 +124,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
       const g0 = gizmoOf(s);
       if ((started.kind === "move" || started.kind === "rotate") && g0) return { ...s, op: { ...started, auto: false }, drag: { handle: d, base: 0, piv: { centre: g0.centre, offset: started.kind === "move" ? moveOffset(sceneOf(s.session), started) : [0, 0, 0] } }, gizmoHover: h!.id };
     }
-    const started = s.op ?? activeOp(s)!;
+    const started = movingTool(s, s.op ?? activeOp(s)!, h!.id);
     const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" ? { ...started, auto: false } : started;
     s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
   }
@@ -190,6 +200,13 @@ function moveBody(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env):
   if (!now) return s;
   const r = (v: number) => Math.round(v * 1000) / 1000;
   const go = (k: 0 | 1 | 2) => (s.lockAxes.length && !s.lockAxes.includes(k) ? 0 : r(now[k] - d.from[k])); // (the arrows chosen with Shift: only along those, `in_299`)
+  const f = s.op.frame;
+  if (f) { // a turned mover: the drag is taken along its own axes (the ones chosen, or all three), `in_418`
+    const delta = sub(now, d.from);
+    const along = f.map((a, k) => (s.lockAxes.length && !s.lockAxes.includes(k as 0 | 1 | 2) ? 0 : r(a[0] * delta[0] + a[1] * delta[1] + a[2] * delta[2])));
+    const free = [0, 1, 2].map((j) => r(f.reduce((acc, a, k) => acc + a[j]! * along[k]!, 0))) as unknown as Vec3;
+    return { ...s, op: { ...s.op, free, grab: d.from } };
+  }
   return { ...s, op: { ...s.op, free: [go(0), go(1), go(2)], grab: d.from } };
 }
 
@@ -205,11 +222,12 @@ function onViewPlane(cam: AppState["cam"], centre: Vec3, ray: { o: Vec3; d: Vec3
 
 /** A drag that starts on a corner of a drawing drags the corner (the solver keeps the relations: a rectangle stays a rectangle); anywhere else it turns the camera. */
 function orbitOrCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): AppState {
-  if (!s.tool && !s.op) {
+  const mover = !!s.op && (s.op.kind === "move" || s.op.kind === "rotate") && s.op.target === "body" && !s.moverSphere && !s.repeat; // (a mover that is open: a body can still be dragged free, along its axes, `in_418`)
+  if (!s.tool && (!s.op || mover)) {
     const sc = sceneOf(s.session);
     const pr = projector(s.cam, env.w, env.h);
     const pv = pr.view(i.x - i.dx, i.y - i.dy);
-    const c = candidatesAt(sc, pv, { ...pickOpts(s), lineTol: 0 }).find((k) => k.kind === "corner" && sc.parts[k.ref]?.origin === "drawn" && sc.parts[k.ref]?.plane);
+    const c = s.op ? undefined : candidatesAt(sc, pv, { ...pickOpts(s), lineTol: 0 }).find((k) => k.kind === "corner" && sc.parts[k.ref]?.origin === "drawn" && sc.parts[k.ref]?.plane);
     // a body that is selected whole is dragged free by pressing on it (`in_291`)
     if (!c) {
       const first = candidatesAt(sc, pv, pickOpts(s)).find((k) => sc.parts[k.ref]?.origin === "body" || sc.parts[k.ref]?.kind === "body");
@@ -220,10 +238,11 @@ function orbitOrCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: 
         const centre = bodyCentre(sc, body);
         const start = centre ? onViewPlane(s.cam, centre, pr.ray(i.x - i.dx, i.y - i.dy)) : null;
         const op = startOp(sc, sel, "move", viewAxes(s.cam));
-        if (centre && start && op.ok) return { ...s, op: { ...op.op, free: [0, 0, 0] }, drag: { body, from: start, centre }, hoverPoint: null };
+        if (centre && start && op.ok) return { ...s, op: { ...op.op, free: [0, 0, 0], ...(s.op?.frame ? { frame: s.op.frame } : {}), ...(s.op?.pivot ? { pivot: s.op.pivot } : {}) }, drag: { body, from: start, centre, ...(s.op ? { keep: s.op } : {}) }, hoverPoint: null };
       }
     }
     if (c) return { ...s, drag: { corner: c.ref, base: s.session }, hoverPoint: null };
+    if (s.op) return doOrbit({ ...s, drag: { camera: true } }, i);
     // a straight line of the drawing is dragged whole, the edge of a circle changes its size (`in_290`)
     const hit = candidatesAt(sc, pv, pickOpts(s)).find((k) => { const p = sc.parts[k.ref]; return p?.origin === "drawn" && !!p.plane && ((p.kind === "line" && !p.derived) || p.kind === "circle"); });
     const part = hit ? sc.parts[hit.ref] : undefined;
@@ -398,9 +417,10 @@ export function doDragEnd(s: AppState, env?: Env): AppState {
   if (d && "body" in d && s.op) {
     // a body dragged free: it is moved by what it was taken, as one step (`in_291`)
     const free = s.op.free;
-    if (!free || (!free[0] && !free[1] && !free[2])) return { ...cleared, op: null };
+    if (!free || (!free[0] && !free[1] && !free[2])) return { ...cleared, op: d.keep ?? null };
     const made = runOp(s.session, s.op);
-    return made ? { ...cleared, session: made.session, op: null, spread: null, hoverPoint: null } : { ...cleared, op: null };
+    const kept = d.keep ?? null; // (a mover that was open stays open, with its axes)
+    return made ? { ...cleared, session: made.session, op: kept, spread: null, hoverPoint: null } : { ...cleared, op: kept };
   }
   if (!d || !("handle" in d) || !s.op) return cleared; // (a handle of a repeat being set up only set its numbers)
   if (d.handle.kind === "ball") return s.op.auto ? { ...cleared, op: null } : cleared;

@@ -142,6 +142,14 @@ export function scaleEntries(op: Op, g: Gizmo | null): Entry[] {
     return arrow ? [{ fields: [{ label: `Scale along ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(op.axes![k]), active: false, typed: false, index: k }], unit: "×", at: arrow.points.at(-1)!, from: g.centre }] : [];
   });
 }
+/** The mover's own place as three numbers (world x, y, z), one on each of the sphere's arrows, while the sphere is selected (`in_418`). */
+export function moverPlaceEntries(g: Gizmo | null): Entry[] {
+  if (!g) return [];
+  return ([0, 1, 2] as const).flatMap((k) => {
+    const arrow = g.handles.find((h) => h.id === `piv:${"xyz"[k]}`);
+    return arrow ? [{ fields: [{ label: `Mover ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(g.centre[k]!), active: false, typed: false, index: k }], unit: "mm", at: arrow.points.at(-1)!, from: g.centre }] : [];
+  });
+}
 export function moveEntries(op: Op, g: Gizmo | null, offset: Vec3): Entry[] {
   if (!g || op.kind !== "move") return [];
   // a body dragged free: all three numbers, one on each arrow, as it goes (`in_293`)

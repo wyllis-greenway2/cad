@@ -21,9 +21,10 @@ import { moveOffset } from "../gizmo.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
-import { activeOp, movePivot } from "./handles.ts";
+import { activeOp, movePivot, gizmoOf } from "./handles.ts";
 import { doSectionToggle, doSectionChip, typedSection, placeSection, sectionNow } from "./section.ts";
 import type { Vec3 } from "../../math/vec.ts";
+import { sub } from "../../math/vec.ts";
 import { typedNumber } from "../../shared/numbers.ts";
 import { pivotCommands, patternCommand, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
 import type { Repeat } from "../pattern.ts";
@@ -148,6 +149,14 @@ export function doTyped(s: AppState, key: string): AppState {
 /** The text of a field of the value box changed: the operation's number, or a size of the figure being drawn. */
 export function doEntry(s: AppState, field: number, text: string): AppState {
   if (!/^-?\d*\.?\d*$/.test(text)) return s;
+  if (s.moverSphere && s.op && (s.op.kind === "move" || s.op.kind === "rotate") && !s.repeat && field >= 0 && field < 3) { // a number typed for the mover's place: its world x, y or z (`in_418`)
+    const n = typedNumber(text);
+    const g = gizmoOf(s);
+    if (n === null || !g) return s;
+    const off = s.op.kind === "move" ? moveOffset(sceneOf(s.session), s.op) : ([0, 0, 0] as Vec3);
+    const at = g.centre.map((c, j) => (j === field ? n : c)) as unknown as Vec3;
+    return { ...s, op: { ...s.op, auto: false, pivot: sub(at, off) } };
+  }
   if (s.op && s.op.kind === "rotate" && s.op.frame && (s.op.target === "body" || s.op.target === "plane")) return { ...s, op: { ...s.op, auto: false, typed: text, rot: ["", "", ""] as [string, string, string] } }; // (a turn about the mover's own axis: one angle, `in_417`)
   if (s.op && s.op.kind === "rotate" && (s.op.target === "body" || s.op.target === "plane")) {
     const rot = [...s.op.rot] as [string, string, string];

@@ -32,7 +32,7 @@ import { doLook, selectedSurface } from "./viewing.ts";
 import { sectionNow, doSectionClick } from "./section.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { commitFigure, commitOp, setRepeatAxis, doApply } from "./modal.ts";
-import { doGizmoHover, gizmoOf, chosenId, activeOp } from "./handles.ts";
+import { doGizmoHover, gizmoOf, chosenId, activeOp, movingTool } from "./handles.ts";
 import { hasGizmo, hitHandle, moveOffset } from "../gizmo.ts";
 
 /** The operations a right click offers (`in_133`), in categories (`in_143`): sketching, constraints, shape, moving and repeating, and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
@@ -404,9 +404,14 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   if (s.op && !hasGizmo(s.op.kind)) return commitOp(base); // the dimension number chip: a click finishes it
   // the handles are dragged, so a click on one does nothing (it must not reselect what is under it)
   const g = gizmoOf(s);
-  const hit = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)) : null;
+  const hit0 = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)) : null;
+  // the rings stand about the whole body, so one often crosses what is clicked: until a turn is begun a click goes to what is under it (a ring is for dragging; with the rings always up they must not hide the body's points and faces, `in_418`)
+  const hit = hit0 && hit0.kind === "arc" && !s.repeat && !s.op && cands.length ? null : hit0;
   // the sphere at the junction of the mover (`in_416`): a click selects it, a second click lets it go; selected, a vertex, an edge or a face clicked puts the mover there
-  const mover = s.op ?? activeOp(s);
+  const mover0 = s.op ?? activeOp(s);
+  // the mover shows its arrows and its rings together: the one of the other tool taken turns the tool about (`in_418`)
+  const mover = hit && mover0 && !s.repeat && !s.moverSphere ? movingTool(s, mover0, hit.id) : mover0;
+  if (mover && mover0 && mover.kind !== mover0.kind) s = { ...s, op: mover }; // (the arrows and rings then read this tool)
   if (hit?.id === "pivot" && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat) return { ...base, moverSphere: !s.moverSphere, op: s.op ?? { ...mover, auto: false }, handleSel: null, gizmoHover: hit.id };
   if (!hit && s.moverSphere && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat) {
     const at = moverPlace(sc, cands[0], pv, mover);

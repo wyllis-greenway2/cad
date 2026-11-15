@@ -97,8 +97,9 @@ function moverHandles(kind: "move" | "rotate", centre: Vec3, L: number, sphere: 
   const arrows = (id: string): Handle[] => ax.map((d, i): Handle => ({ id: `${id}:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, 2 * HALF * L))] }));
   const rings = (): Handle[] => ax.map((d, i) => ring(`rot:${"xyz"[i]}`, centre, d, L * 0.8, i as 0 | 1 | 2));
   // with the sphere selected both sets are up and they work on the mover itself: the arrows move it, the rings turn its axes
-  if (kind === "move") return { centre, handles: sphere ? [...arrows("piv"), ...rings(), ball] : [...arrows("move"), ball] };
-  return { centre, handles: [...rings(), ball, ...(sphere ? arrows("piv") : [])] };
+  // the mover always shows both the arrows and the rings (`in_416`, `in_418`): grabbing the other tool's handle turns the tool about
+  if (kind === "move") return { centre, handles: [...arrows(sphere ? "piv" : "move"), ...rings(), ball] };
+  return { centre, handles: [...rings(), ball, ...arrows(sphere ? "piv" : "move")] };
 }
 
 /** A full circle round `axis` through `centre`, so which plane it turns in is plain to see; the arrowhead sits a little way round. */

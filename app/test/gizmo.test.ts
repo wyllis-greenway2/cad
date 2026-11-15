@@ -1,3 +1,4 @@
+import { aboutDir } from "../src/math/rotation.ts";
 import { anchorLines, anchorCutCorners } from "../src/operation/anchors.ts";
 import { normalAngle, sectionNow, doSectionClick } from "../src/interaction/control/section.ts";
 import { liveRepeat } from "../src/interaction/pattern.ts";
@@ -82,7 +83,7 @@ test("Move offers X Y Z arrows at the body; dragging one moves the body that way
   let st = select(box(), [BODY_OBJECT]);
   st = reduce(st, { type: "begin", name: "move" }, env);
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id), ["move:x", "move:y", "move:z", "pivot"]);
+  assert.deepEqual(g.handles.map((h) => h.id), ["move:x", "move:y", "move:z", "rot:x", "rot:y", "rot:z", "pivot"]);
   nearV(g.centre, [20, 10, 10]);
   const x = g.handles[0]!;
   const mid = scale(add(x.points[0]!, x.points[1]!), 0.5);
@@ -164,7 +165,7 @@ test("Rotate offers curved arrows round X Y Z and a ball at the centre; a drag o
   let st = select(box(), [BODY_OBJECT]);
   st = reduce(st, { type: "begin", name: "rotate" }, env);
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot"]);
+  assert.deepEqual(g.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot", "move:x", "move:y", "move:z"]);
   const arc = g.handles[2]!;
   assert.equal(arc.points.length, 49, "a full circle");
   nearV(arc.points[0]!, arc.points[48]!, 1e-9);
@@ -198,7 +199,7 @@ test("the rotator's centre can be moved: dragging the ball puts it on the corner
   const bb = bbox(st);
   // a quarter turn about the top near corner (40, 20): the 40 x 20 footprint now lies at x 40 to 60 and y -20 to 20
   nearV([bb.min[0], bb.max[0], bb.min[1], bb.max[1]], [40, 60, -20, 20], 0.1);
-  assert.equal(frameOf(st, { w: 800, h: 600 }).gizmo!.handles.length, 4);
+  assert.equal(frameOf(st, { w: 800, h: 600 }).gizmo!.handles.length, 7);
 });
 
 test("fillet / chamfer and the helpers need what they need; the frame carries the handles for the view", () => {
@@ -208,7 +209,7 @@ test("fillet / chamfer and the helpers need what they need; the frame carries th
   st = select(st, [BODY_OBJECT]);
   st = reduce(st, { type: "begin", name: "move" }, env);
   const f = frameOf(st, { w: 800, h: 600 });
-  assert.equal(f.gizmo!.handles.length, 4);
+  assert.equal(f.gizmo!.handles.length, 7);
   assert.equal(f.gizmo!.hover, null);
   assert.equal(paramOnLine([0, 0, 0], [1, 0, 0], { o: [0, 5, 5], d: [1, 0, 0] }), null, "looking along the line: no distance");
   assert.deepEqual(selection(st.session), [BODY_OBJECT]);
@@ -219,7 +220,7 @@ const frame = (st: AppState) => frameOf(st, { w: 800, h: 600 });
 test("the handles show up by themselves from a click: the body shows its X Y Z arrows, no menu", () => {
   let st = select(box(), [BODY_OBJECT]);
   assert.equal(st.op, null);
-  assert.deepEqual(frame(st).gizmo!.handles.map((h) => h.id), ["move:x", "move:y", "move:z", "pivot"]);
+  assert.deepEqual(frame(st).gizmo!.handles.map((h) => h.id), ["move:x", "move:y", "move:z", "rot:x", "rot:y", "rot:z", "pivot"]);
   const g = gizmoOf(st)!;
   const x = g.handles[0]!;
   const mid = scale(add(x.points[0]!, x.points[1]!), 0.5);
@@ -343,7 +344,7 @@ test("a drawn figure moves and turns like an object: X Y Z arrows, X Y Z rings a
   st = select(st, [faceRef()]);
   st = reduce(st, { type: "begin", name: "move" }, env);
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id), ["move:x", "move:y", "move:z", "pivot"], "the same arrows as an object");
+  assert.deepEqual(g.handles.map((h) => h.id), ["move:x", "move:y", "move:z", "rot:x", "rot:y", "rot:z", "pivot"], "the same arrows as an object");
   const x = g.handles[0]!;
   const mid = scale(add(x.points[0]!, x.points[1]!), 0.5);
   st = drag(st, mid, add(mid, [7, 0, 0]));
@@ -362,7 +363,7 @@ test("a drawn figure moves and turns like an object: X Y Z arrows, X Y Z rings a
   // turning: three rings and the angle fields (0 0 0 for a figure lying flat), 90 about Z by typing
   st = select(st, [faceRef()]);
   st = reduce(st, { type: "begin", name: "rotate" }, env);
-  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot"]);
+  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot", "move:x", "move:y", "move:z"]);
   assert.equal(frame(st).entry, null, "no number until a ring is selected");
   st = pickArrow(st, "rot:z");
   assert.deepEqual(frame(st).entry!.fields.map((f) => [f.label, f.value]), [["Z", "0"]], "only the axis that is chosen shows, Z to begin with (`in_194`)");
@@ -1917,7 +1918,7 @@ test("the mover has a sphere at its junction: a click selects it, its own arrows
   let st = select(box(), [BODY_OBJECT]); // 40 x 20 x 20
   st = reduce(st, { type: "begin", name: "move" }, env);
   const ids = () => gizmoOf(st)!.handles.map((h) => h.id);
-  assert.deepEqual(ids(), ["move:x", "move:y", "move:z", "pivot"], "arrows and the sphere");
+  assert.deepEqual(ids(), ["move:x", "move:y", "move:z", "rot:x", "rot:y", "rot:z", "pivot"], "arrows and the sphere");
   const centre0 = gizmoOf(st)!.centre;
   const [bx, by] = px(st, centre0);
   st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
@@ -1937,7 +1938,7 @@ test("the mover has a sphere at its junction: a click selects it, its own arrows
   assert.equal(st.moverSphere, true, "the sphere stays selected for another place");
   // the turn tool has the sphere too, and its own arrows when the sphere is selected
   const turn = reduce(select(box(), [BODY_OBJECT]), { type: "begin", name: "rotate" }, env);
-  assert.deepEqual(gizmoOf(turn)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot"]);
+  assert.deepEqual(gizmoOf(turn)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot", "move:x", "move:y", "move:z"]);
   const [tx, ty] = px(turn, gizmoOf(turn)!.centre);
   const picked = reduce(turn, { type: "click", x: tx, y: ty, count: 1, shift: false }, env);
   assert.deepEqual(gizmoOf(picked)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot", "piv:x", "piv:y", "piv:z"]);
@@ -1990,4 +1991,61 @@ test("with the mover turned, its ring turns the body about the mover's axis: a r
   const step = scene(st.session).steps.at(-1)!;
   assert.equal(step.type, "rotate");
   assert.ok(Math.abs(Number(step.params.dy)) > 0.9 && Math.abs(Number(step.params.dx)) < 0.1, `about the world Y: ${JSON.stringify(step.params)}`);
+});
+
+test("the mover shows its arrows and its rings together: a ring taken in the move tool turns the body (a rotate step), an arrow taken in the turn tool moves it (`in_418`)", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  st = reduce(st, { type: "begin", name: "move" }, env);
+  let g = gizmoOf(st)!;
+  const ring = g.handles.find((h) => h.id === "rot:z")!;
+  const p0 = ring.points[Math.floor(ring.points.length / 8)]!;
+  const w = sub(p0, g.centre);
+  st = drag(st, p0, add(g.centre, [-w[1], w[0], w[2]]), 8);
+  assert.equal(st.session.message, null);
+  assert.equal(scene(st.session).steps.at(-1)!.type, "rotate", "the ring of the move tool turned the body");
+  assert.equal(st.op?.kind, "rotate");
+  g = gizmoOf(st)!;
+  const arrow = g.handles.find((h) => h.id === "move:y")!;
+  const mid = scale(add(arrow.points[0]!, arrow.points[1]!), 0.5);
+  st = drag(st, mid, add(mid, [0, 6, 0]), 6);
+  const last = scene(st.session).steps.at(-1)!;
+  assert.equal(last.type, "move", "the arrow of the turn tool moved the body");
+  near(Math.abs(Number(last.params.value)), 6, 0.3);
+});
+
+test("the mover's place can be typed: with the sphere selected its x, y and z are fields, and the next turn is about that point; a free drag of a turned mover follows its axes (`in_418`)", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  st = reduce(st, { type: "begin", name: "rotate" }, env);
+  const [bx, by] = px(st, gizmoOf(st)!.centre);
+  st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
+  assert.equal(st.moverSphere, true);
+  const f = frame(st);
+  assert.equal(f.entries.length, 3, "three fields, one on each arrow of the sphere");
+  st = reduce(st, { type: "entry", field: 0, text: "40" }, env);
+  st = reduce(st, { type: "entry", field: 1, text: "20" }, env);
+  nearV(gizmoOf(st)!.centre.map((c) => Math.round(c * 1e6) / 1e6) as unknown as Vec3, [40, 20, 10], 1e-6);
+  assert.equal(scene(st.session).steps.length, 1, "no step: only the mover moved");
+  // a turned mover: the free drag follows its own axes
+  st = { ...st, moverSphere: false, op: { ...st.op!, kind: "move", frame: [[0, 1, 0], [-1, 0, 0], [0, 0, 1]], pivot: null } };
+  assert.equal(st.op!.frame![0][1], 1);
+});
+
+test("a drawn figure turned about a slanted axis of the mover ends where the exact turn puts it (`in_418`)", () => {
+  let s = createSession(kernel);
+  s = run(s, drawSquaredRectangle(scene(s), XY, [0, 0, 0], [40, 20, 0], [1, 0, 0], [0, 1, 0]).command);
+  let st = { ...createState(s), cam: homeCamera() };
+  const corners = () => Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as { at: Vec3 }).at);
+  const before = corners();
+  const faceRef = Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref;
+  st = select(st, [faceRef]);
+  st = reduce(st, { type: "begin", name: "rotate" }, env);
+  const dir: Vec3 = [1 / Math.sqrt(3), 1 / Math.sqrt(3), 1 / Math.sqrt(3)];
+  st = { ...st, op: { ...st.op!, frame: [dir, [-1 / Math.SQRT2, 1 / Math.SQRT2, 0], [-1 / Math.sqrt(6), -1 / Math.sqrt(6), 2 / Math.sqrt(6)]], axis: 0, pivot: [0, 0, 0] } };
+  st = reduce(st, { type: "entry", field: 0, text: "50" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  const m = aboutDir(dir, 50);
+  const exact = before.map((p) => [m[0] * p[0] + m[1] * p[1] + m[2] * p[2], m[3] * p[0] + m[4] * p[1] + m[5] * p[2], m[6] * p[0] + m[7] * p[1] + m[8] * p[2]] as Vec3);
+  const after = corners();
+  for (const e of exact) assert.ok(after.some((a) => Math.hypot(a[0] - e[0], a[1] - e[1], a[2] - e[2]) < 1e-4), `a corner at ${e} in ${JSON.stringify(after)}`);
 });
