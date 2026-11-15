@@ -161,6 +161,8 @@ const controls = createControls(document.body, {
 const env = () => ({ w: view.size().w, h: view.size().h, now: performance.now() });
 const FILE_NAME = "model.cad.json";
 /** A ring opened in game mode is at the middle of the view and the view is fixed while it is open (`in_467`): the wheel lights one option after another, the mouse turns round it in clicks, a click chooses the lit one wherever the pointer is; a right click, or a click with none lit, closes it. */
+let wasGame = false; // (game mode was on at the last frame)
+let tilt: [number, number] = [0, 0]; // (how far the view has been tilted to look at a menu option, in swivel units)
 const inGame = (): boolean => recognizer.game && document.pointerLockElement !== null;
 let panesFading = false; // (the world panes are fading in or out: keep drawing, `in_442`)
 function adopt(session: Session) { state = { ...createState(session), cam: state.cam }; menu.hide(); ring.hide(); dirty = true; }
@@ -203,11 +205,6 @@ function dispatch(i: Intent) {
       if (r.ok) adopt(r.value);
       else state = { ...state, session: { ...state.session, message: r.error } }, (dirty = true);
     });
-    return;
-  }
-  if (recognizer.game && i.type === "menuStep") { // the wheel in game mode: the menu opens and goes round (`in_467`)
-    if (!ring.open) { dispatch({ type: "menu", x: view.size().w / 2, y: view.size().h / 2 }); if (ring.open) ring.step(1); } else ring.step(i.dir);
-    dirty = true;
     return;
   }
   if (i.type === "menuTurn") { if (ring.open) ring.turn(i.dx, i.dy); dirty = true; return; }
@@ -329,7 +326,19 @@ function frame(now: number) {
     loftKindChip.update(f.loftKinds);
     resetView.update(f.resetView);
     recognizer.setMenu(ring.open && recognizer.game); // (a menu open in game mode fixes the view: the mouse and the wheel go round it, `in_467`)
-    if (recognizer.game && state.cam.straight) input.toggleGame(); // (a straight view and the game mode do not go together: it ends, `in_467`)
+    // a straight view and game mode: game mode begun in one leaves the straight view; a view made straight while in game mode ends it (`in_467`, `in_469`)
+    if (recognizer.game && state.cam.straight) {
+      if (!wasGame) state = { ...state, cam: { ...state.cam, straight: false, mix: 0.03 }, mixT0: -1, orthoDebt: 0 };
+      else input.toggleGame();
+    }
+    wasGame = recognizer.game;
+    // the menu open in game mode: the view is fixed but it tilts to look at the option that is lit, and comes back when the menu goes (`in_469`)
+    {
+      const off = ring.open && recognizer.game ? ring.selectedOffset() : null;
+      const want: [number, number] = off ? [off[0] * 0.8, off[1] * 0.8] : [0, 0];
+      const d: [number, number] = [(want[0] - tilt[0]) * 0.18, (want[1] - tilt[1]) * 0.18];
+      if (Math.abs(d[0]) > 0.02 || Math.abs(d[1]) > 0.02) { state = reduce(state, { type: "swivel", dx: d[0], dy: d[1] }, env()); tilt = [tilt[0] + d[0], tilt[1] + d[1]]; dirty = true; }
+    }
     { const pg = host.getBoundingClientRect(); crosshair.update(recognizer.game && document.pointerLockElement !== null, { x: pg.left + pg.width / 2, y: pg.top + pg.height / 2 }); }
     toolCursor.update(f.tool ? f.tool.kind : null);
     const project = projector(state.cam, size.w, size.h).project;

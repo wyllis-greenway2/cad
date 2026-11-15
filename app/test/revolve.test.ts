@@ -276,7 +276,7 @@ test("the revolve's handles are the rotate orb: a ring about each of the three a
   const along = (h: typeof adv) => { const d = [0, 1, 2].map((k) => h.points[1]![k]! - h.points[0]![k]!); const l = Math.hypot(...d); return d.map((v) => v / l); };
   const frame = st.op!.frame!;
   const dot = (a: readonly number[], b: readonly number[]) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
-  assert.ok(Math.abs(Math.abs(dot(along(adv), frame[axis0])) - 1) < 1e-6, "the spiral arrow is along the chosen ring's axis");
+  assert.ok(Math.abs(Math.abs(dot(along(adv), frame[axis0]!)) - 1) < 1e-6, "the spiral arrow is along the chosen ring's axis");
   // a click on another ring chooses that axis
   const other = (axis0 + 1) % 3;
   const ring = g.handles.find((h) => h.id === `rev:turn:${"xyz"[other]}`)!;
@@ -284,7 +284,7 @@ test("the revolve's handles are the rotate orb: a ring about each of the three a
   st = reduce(st, { type: "click", x: rx, y: ry, count: 1, shift: false }, env);
   assert.equal(st.op!.axis, other, "the ring clicked is the axis");
   const adv2 = gizmoOf(st)!.handles.find((h) => h.id === "rev:adv")!;
-  assert.ok(Math.abs(Math.abs(dot(along(adv2), frame[other])) - 1) < 1e-6, "and the spiral arrow follows it");
+  assert.ok(Math.abs(Math.abs(dot(along(adv2), frame[other]!)) - 1) < 1e-6, "and the spiral arrow follows it");
 });
 
 test("the revolve's orb is dragged to move it, with no click on it first: the camera does not turn, the orb and its rings stay in the picture and go where it is taken (`in_468`)", () => {

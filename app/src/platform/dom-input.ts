@@ -128,6 +128,7 @@ export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { to
     if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "o" || e.key === "g")) e.preventDefault(); // save and open are ours, not the browser's
     if (e.key === " " || e.key === "Tab" || e.key === "Backspace" || e.key.startsWith("Arrow")) e.preventDefault(); // Space + drag pans, Tab moves between typed fields: the page must not scroll, change focus or go back
     if (e.key === " ") { if (down) { if (!spaceDown) spaceUsed = false; spaceDown = true; } else { spaceDown = false; if (!spaceUsed) { if (game) endGame(); else startGame(); } } }
+    if (!game && down && /^[wasd]$/i.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) startGame(); // (W A S D begin game mode as Space does, `in_469`)
     if (/^[wasd]$/i.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && game) { if (down) { gameKeys.add(e.key.toLowerCase()); ticking(); } else gameKeys.delete(e.key.toLowerCase()); }
     if (e.key === "Escape" && down && game) endGame();
     if (e.key === "Alt" && game) {

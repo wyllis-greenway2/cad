@@ -106,11 +106,12 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
       const [l, t] = [Math.min(...rs.map((r) => r.left)), Math.min(...rs.map((r) => r.top))];
       return new DOMRect(l, t, Math.max(...rs.map((r) => r.right)) - l, Math.max(...rs.map((r) => r.bottom)) - t);
     },
-    /** The selection that is not the pointer's (game mode, `in_467`): one option of the ring is lit and a click chooses it wherever the pointer is; the wheel goes one on, the mouse turns round the ring in clicks. */
-    step(dir: number): void {
-      const n = shown.length;
-      if (!n) return;
-      light(sel === null ? (dir > 0 ? 0 : n - 1) : (((sel + dir) % n) + n) % n);
+    /** The selection that is not the pointer's (game mode, `in_467`): one option of the ring is lit and a click chooses it wherever the pointer is; the mouse turns round the ring in clicks. */
+    /** Where the lit option stands from the ring's middle, in pixels (the view tilts to look at it, `in_469`), or null when none is lit. */
+    selectedOffset(): [number, number] | null {
+      if (sel === null || !shown[sel]) return null;
+      const r = shown[sel]!.getBoundingClientRect();
+      return [r.left + r.width / 2 - C.x, r.top + r.height / 2 - C.y];
     },
     turn(dx: number, dy: number): void {
       const n = shown.length;

@@ -12,13 +12,19 @@ const ticks = (from: number, n: number): RawInput[] => Array.from({ length: n },
 const run = (rec: ReturnType<typeof createRecognizer>, xs: RawInput[]): Intent[] => xs.flatMap((e) => rec.feed(e));
 const enter = (rec: ReturnType<typeof createRecognizer>): void => { run(rec, [key(" ", true, 0), key(" ", false, 1)]); };
 
-test("in game mode a notch of the wheel is a step of the menu, not a zoom; out of it the wheel zooms", () => {
+test("the wheel zooms in game mode as it does outside it (it no longer steps the menu, `in_469`)", () => {
   const rec = createRecognizer();
-  assert.ok(run(rec, [wheel(120, 5)]).some((i) => i.type === "zoom"), "outside game mode: zoom");
   enter(rec);
-  const is = run(rec, [wheel(120, 10), wheel(-120, 20)]);
-  assert.deepEqual(is.filter((i) => i.type === "menuStep").map((i) => (i as { dir: number }).dir), [1, -1]);
-  assert.ok(!is.some((i) => i.type === "zoom"));
+  assert.ok(run(rec, [wheel(120, 10)]).some((i) => i.type === "zoom"));
+});
+
+test("W A S D begin game mode as Space does, and the key walks at once; with Shift or Ctrl they do not (`in_469`)", () => {
+  const rec = createRecognizer();
+  const is = run(rec, [key("w", true, 0), ...ticks(0, 12)]);
+  assert.ok(is.some((i) => i.type === "walk"), "the view walks");
+  const rec2 = createRecognizer();
+  const none = run(rec2, [{ ...key("s", true, 0), mods: { shift: false, ctrl: true, alt: false } } as RawInput, ...ticks(0, 12)]);
+  assert.ok(!none.some((i) => i.type === "walk"), "Ctrl+S is not a walk");
 });
 
 test("with the menu open the mouse turns the menu's selection and does not swivel the view, and the keys do not walk it", () => {

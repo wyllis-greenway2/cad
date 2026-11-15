@@ -17,7 +17,6 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   const scroll = createScroll(I);
   let straight = false;
   let menuOn = false; // a menu is open in game mode: the view is fixed and the mouse and the wheel go round it (`in_467`)
-  let wheelAcc = 0;
   let drawing = false; // a drawing tool is armed: a click may wander more before it counts as turning the view
   const touch = createTouch(I, countClick, () => (drawing ? I.drawTouchSlopPx : I.touchSlopPx), () => drawing);
   let space = false;
@@ -48,19 +47,11 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
           if (!spaceUsed) { if (game) { game = false; freed = false; gameDragged = false; fly.clear(); } else { game = true; flyAt = e.t; pend.x = pend.y = 0; } }
           return [];
         }
+        if (!game && e.down && /^[wasd]$/i.test(e.key) && !e.mods.ctrl && !e.mods.alt && !e.mods.shift) { game = true; flyAt = e.t; pend.x = pend.y = 0; fly.add(e.key.toLowerCase()); return []; } // (W A S D begin game mode as Space does, `in_469`)
         if (game && /^[wasd]$/i.test(e.key) && !e.mods.ctrl && !e.mods.alt) { const k = e.key.toLowerCase(); if (e.down) fly.add(k); else fly.delete(k); return []; }
         if (game && e.down && e.key === "Escape") { game = false; freed = false; gameDragged = false; fly.clear(); return []; }
         return e.down ? keyIntents(e, I) : [];
-      case "wheel": {
-        if (game) { // game mode: the wheel is the menu's, not the zoom (`in_467`)
-          const out: Intent[] = [];
-          const d = e.unit === 1 ? e.dy * 40 : e.dy;
-          if (Math.abs(d) >= 50) { out.push({ type: "menuStep", dir: d > 0 ? 1 : -1 }); wheelAcc = 0; } // (a notch of a wheel: one step)
-          else { wheelAcc += d; if (Math.abs(wheelAcc) >= 80) { out.push({ type: "menuStep", dir: wheelAcc > 0 ? 1 : -1 }); wheelAcc = 0; } } // (a trackpad's fine scroll: a step for each long enough run)
-          return out;
-        }
-        return scroll.wheel(e);
-      }
+      case "wheel": return scroll.wheel(e);
       case "gesture": return scroll.gesture(e);
       case "leave": return [{ type: "hoverEnd" }];
       case "tick": {
