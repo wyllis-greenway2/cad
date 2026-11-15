@@ -119,7 +119,7 @@ export interface Frame {
   /** a change refused for the constraints it would break, while it flashes: the button that deletes them and goes on (`in_366`) */
   refusal: { text: string; button: string; /** the constraint it stands beside */ beside: string } | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
-  modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate"; label: string } | null;
+  modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate" | "linear" | "circular"; label: string } | null;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
   tool: { kind: "rect" | "circle" | "line" | "arc" | "trim"; label: string; /** figures made while it has been on (the chip flashes at each) */ made: number; /** a figure is half drawn (the chip's cross then cancels it) */ drawing: boolean; /** something is made and nothing is half drawn: the chip shows a check that puts the tool away, in place of the cross (`in_283`) */ done: boolean } | null;
   /** a repeat or an operation that is open: the tick (Enter, a right click) and the cross (Esc) are shown for it (`in_244`) */
@@ -339,8 +339,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
     similar: similarChip(s),
-    resetView: !s.anim && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
-    modeSwitch: gizmo && !s.repeat ? modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : null,
+    resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
+    modeSwitch: gizmo ? (s.repeat ? repeatSwitchOf(s.repeat, gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points))) : null,
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
     message: s.session.message ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
   };
@@ -449,6 +449,12 @@ function fadeBodyOf(s: AppState, mesh: { vertices: Float32Array } | null): boole
   if (!side) return false;
   for (let i = 0; i + 2 < mesh.vertices.length; i += 3) if (((mesh.vertices[i]! - pl.at[0]) * n[0] + (mesh.vertices[i + 1]! - pl.at[1]) * n[1] + (mesh.vertices[i + 2]! - pl.at[2]) * n[2]) * side > 1e-3) return true;
   return false;
+}
+
+/** The switch of a repeat that is open: to the other kind of repeat (not for one reopened to change, `in_382`). */
+function repeatSwitchOf(r: NonNullable<AppState["repeat"]>, at: Vec3, pts: Vec3[]): Frame["modeSwitch"] {
+  if (r.op.editStep || r.op.editPattern) return null;
+  return r.op.kind === "circular" ? { at, pts, to: "linear", label: "Repeat in a line" } : { at, pts, to: "circular", label: "Repeat round a point" };
 }
 
 /** Which way the switch by the handles of a move or a turn goes: to turning from moving, to moving from turning. */

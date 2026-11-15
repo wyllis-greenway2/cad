@@ -35,7 +35,7 @@ function inView(cam: Camera, w: number, h: number, t: Thing, project: (p: Vec3) 
     front++;
     x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
   }
-  return front > 0 && x1 >= 0 && x0 <= w && y1 >= 0 && y0 <= h && Math.max(x1 - x0, y1 - y0) >= 6; // (a speck of a few pixels is not in view: it could not be found by eye)
+  return front > 0 && x1 >= 0 && x0 <= w && y1 >= 0 && y0 <= h && (Math.hypot(t.hi[0] - t.lo[0], t.hi[1] - t.lo[1], t.hi[2] - t.lo[2]) < 1e-6 || Math.max(x1 - x0, y1 - y0) >= 6); // (a lone point, like the first thing drawn, is in view when it is on the screen, `in_382`; a speck of a few pixels is not in view: it could not be found by eye)
 }
 
 /** The thing to go to: the one last seen, else the last there is. */

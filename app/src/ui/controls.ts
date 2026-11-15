@@ -27,8 +27,10 @@ export function createControls(host: HTMLElement, h: ControlHandlers) {
     hint(hint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null) {
       buttons.forEach((b, i) => {
         const on = hint?.axis === "XYZ"[i];
-        b.style.outline = on ? "2px solid #2b2b2d" : "none"; // (a ring inside the button, off its edge: a halo outside was cut off by the buttons next to it, `in_301`)
-        b.style.outlineOffset = on ? "-6px" : "0";
+        b.dataset.sel = on ? "1" : ""; // (the button's own border is bolder and dark: no ring of its own, `in_382`)
+        b.style.boxSizing = "border-box";
+        b.style.borderWidth = on ? "3px" : "1px";
+        b.style.lineHeight = on ? "28px" : "32px";
         b.title = on ? `The selected plane lies across ${"XYZ"[i]} (click to look along it; press again for the back)` : `Look along ${"XYZ"[i]} (press again for the back)`;
       });
     },
@@ -40,7 +42,7 @@ export function createControls(host: HTMLElement, h: ControlHandlers) {
         b.textContent = k > 0.5 ? `${f.sign > 0 ? "+" : "−"}${"XYZ"[i]}` : "XYZ"[i]!;
         b.style.background = mix([255, 255, 255], [26, 184, 179]);
         b.style.color = mix([43, 43, 45], [255, 255, 255]);
-        b.style.borderColor = mix([207, 208, 212], [26, 184, 179]);
+        b.style.borderColor = b.dataset.sel ? "#2b2b2d" : mix([207, 208, 212], [26, 184, 179]);
       });
     },
     /** Place the buttons at the right edge, lower right, one above the other (X on top). */

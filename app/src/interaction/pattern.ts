@@ -42,10 +42,10 @@ export function patternStart(scene: Scene, kind: "linear" | "circular", figure: 
   const mid = hi.map((h, i) => (h + lo[i]!) / 2);
   const biggest = Math.max(...ext, 1);
   if (kind === "linear") {
-    // one to begin with (no copy yet: the arrow past it is pulled to make one, `in_236`), spaced one and a half sizes
+    // one to begin with (no copy yet: the arrow past it is pulled to make one, `in_236`), spaced a quarter of a size apart (`in_382`: close, so the copies and their arrows stay in view)
     // (a body is repeated across the screen when the view is straight on to a plane, not towards the eye, `in_244`)
     const along = (figure ? Math.max(0, ext.findIndex((e, i) => e > 1e-6 && i !== normalAxis)) : view?.right ?? 0) as 0 | 1 | 2;
-    const start = [1, 0, 1, 0, 1, 0].map((v, k) => (k % 2 === 0 ? 1 : r3((ext[k >> 1]! > 1e-6 ? ext[k >> 1]! : biggest) * 1.5)));
+    const start = [1, 0, 1, 0, 1, 0].map((v, k) => (k % 2 === 0 ? 1 : r3((ext[k >> 1]! > 1e-6 ? ext[k >> 1]! : biggest) * 1.25)));
     return { parts, start, target: figure ? "plane" : "body", along };
   }
   const axis = figure ? normalAxis : view?.normal ?? 2; // (like a clock face seen from where you look, `in_244`)
@@ -136,6 +136,8 @@ export interface Repeat {
   chosen?: string | null;
   /** the helper bubbles of a linear repeat, once in each use of the tool: "pull to copy" on the arrow past the last copy until a copy exists, then "pull to separate" on the other arrow until the copies have been moved apart a little */
   help?: { phase: "copy" | "separate" | "done"; sep0: number } | null;
+  /** the numbers of the other kind of repeat, kept while this one is on, so that switching to it and back leaves each as it was (`in_382`) */
+  stash?: Partial<Record<"linear" | "circular", Op>>;
 }
 
 /** Where the helper bubbles are in their one use of the tool: they only go forward (`in_236`). */

@@ -156,9 +156,10 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
       const n = Math.max(1, Math.round(v[2 * i]!));
       if (Math.abs(sp) < 1e-9) return;
       const sgn = sp < 0 ? -1 : 1;
-      handles.push({ id: `lin:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [c, add(c, scale(d, sp))] });
+      const cap = L * 2.2; // (the arrows are drawn no longer than this, so they stay in view whatever the spacing is, `in_382`)
+      handles.push({ id: `lin:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [c, add(c, scale(d, sgn * Math.min(Math.abs(sp), cap)))] });
       // the stub for how many starts a good way past the last copy (and so well clear of the spacing arrow, which ends at the first), and stays close to the copies once there are some
-      const slot = add(c, scale(d, sp * n + sgn * L * (n > 1 ? 0.35 : 0.9)));
+      const slot = add(c, scale(d, sgn * (Math.min(Math.abs(sp) * n, cap) + L * (n > 1 ? 0.35 : 0.6))));
       handles.push({ id: `cnt:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [slot, add(slot, scale(d, sgn * L * 0.3))] });
     });
     return { centre: c, handles };

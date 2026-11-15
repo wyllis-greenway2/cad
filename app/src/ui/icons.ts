@@ -36,7 +36,7 @@ Object.assign(ICONS, {
   rect: svg('<rect x="2.5" y="4" width="11" height="8" rx="0.6"/>'),
   circle: svg('<circle cx="8" cy="8" r="5.5"/>'),
   line: svg('<path d="M3 13L13 3"/><circle cx="3" cy="13" r="1" /><circle cx="13" cy="3" r="1"/>'),
-  pushpull: svg('<path d="M2.5 11.5L5.5 6h8l-3 5.5z"/><path d="M8 14V2.5"/><path d="M5.8 4.7L8 2.5l2.2 2.2"/>'),
+  pushpull: svg('<path d="M2 14l3-2.4h9l-3 2.4z" fill="currentColor" fill-opacity=".2"/><path d="M2 7.4l3-2.4h9l-3 2.4z" stroke-dasharray="1.8 1.6"/><path d="M2 14V7.4M11 14V7.4M14 11.6V5" stroke-dasharray="1.8 1.6"/><path d="M6.5 11V3.2"/><path d="M4.6 5l1.9-1.9L8.4 5"/>'), // (a face pulled up into a block, `in_382`)
   move: svg('<path d="M8 2v12M2 8h12"/><path d="M6 4l2-2 2 2M6 12l2 2 2-2M4 6L2 8l2 2M12 6l2 2-2 2"/>'),
   rotate: svg('<path d="M13 8a5 5 0 11-1.6-3.7"/><path d="M13.2 2.4v3h-3"/>'),
   scale: svg('<rect x="2.5" y="7.5" width="6" height="6" rx="0.6"/><path d="M8 8l5.5-5.5"/><path d="M9.5 2.5h4v4"/>'),
@@ -46,7 +46,7 @@ Object.assign(ICONS, {
   trash: svg('<path d="M3 4.5h10"/><path d="M6 4.5V3h4v1.5"/><path d="M4.5 4.5l.6 8.5h5.8l.6-8.5"/><path d="M7 7v4M9 7v4"/>'),
   eye: svg('<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/>'),
   sketch: svg('<path d="M2.5 13.5l.8-3L11 2.8a1.4 1.4 0 012 2L5.5 12.7z"/><path d="M9.8 4l2.2 2.2"/>'),
-  constraint: svg('<path d="M2.5 13.5h11"/><path d="M4 13.5V6"/><path d="M12 13.5V6"/><path d="M4 8h8"/><path d="M5.8 6.4L4 8l1.8 1.6M10.2 6.4L12 8l-1.8 1.6"/>'),
+  constraint: svg('<path d="M2.5 11.5l.6-2.4 5.6-5.6 1.8 1.8-5.6 5.6z"/><path d="M7.7 4.5l1.8 1.8"/><rect x="8.8" y="10" width="5.2" height="4" rx=".9" fill="currentColor" fill-opacity=".18"/><path d="M10 10V9a1.4 1.4 0 0 1 2.8 0v1"/>'), // (a pencil with a lock: what is drawn and held, `in_382`)
   body: svg('<path d="M8 1.8l5.5 3v6.4l-5.5 3-5.5-3V4.8z"/><path d="M2.5 4.8L8 8l5.5-3.2"/><path d="M8 8v6.2"/>'),
   undo: svg('<path d="M3.5 6.5h5.8a3.2 3.2 0 010 6.4H5.5"/><path d="M6 3.5L3 6.5l3 3"/>'),
   redo: svg('<path d="M12.5 6.5H6.7a3.2 3.2 0 000 6.4h3.8"/><path d="M10 3.5l3 3-3 3"/>'),

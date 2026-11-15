@@ -21,7 +21,7 @@ import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
 import { activeOp } from "./handles.ts";
-import { pivotCommands, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
+import { pivotCommands, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
 import type { Repeat } from "../pattern.ts";
 import type { Op } from "../operations.ts";
 import { patternOfAll } from "../../operation/repeat.ts";
@@ -247,6 +247,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   }
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now, s.menu?.plane ?? null);
+  if (s.repeat && (id === "op:linear" || id === "op:circular") && !s.repeat.op.editStep && !s.repeat.op.editPattern) return doRepeatSwitch(closed, id === "op:linear" ? "linear" : "circular"); // (a repeat that is open changes kind, `in_382`)
   if (id === "op:linear" || id === "op:circular" || id === "op:copy") return doRepeatBegin(closed, id.slice(3) as "linear" | "circular" | "copy");
   if (id.startsWith("op:")) return beginOp(closed, id.slice(3) as OpKind, now, s.menu?.plane ?? null);
   if (id.startsWith("near:")) {
@@ -332,6 +333,32 @@ function doRepeatBegin(s: AppState, kind: "linear" | "circular" | "copy"): AppSt
     pivot = made.parts;
   }
   return { ...s, menu: null, op: null, tool: null, session: { ...session, message: null }, repeat: { op: r.op, pivot, chosen: null, help: kind === "linear" ? { phase: "copy", sep0: 0 } : kind === "copy" ? advanceHelp({ op: r.op, pivot, help: { phase: "copy", sep0: 0 } }).help! : null } };
+}
+/** Change an open repeat to the other kind (`in_382`): what was set for the one it leaves is kept, so coming back finds it as it was; a circular one's pivot parts go and come back with it. */
+function doRepeatSwitch(s: AppState, to: "linear" | "circular"): AppState {
+  const r = s.repeat!;
+  const from = r.op.kind === "circular" ? "circular" : "linear";
+  if (from === to) return s;
+  const sc = sceneOf(s.session);
+  const left = liveRepeat(sc, r); // (the pivot as it is now)
+  const stash = { ...r.stash, [from]: left };
+  let op = stash[to];
+  if (!op) {
+    const st = startOp(sc, left.target === "plane" ? left.parts : selectionOf(s.session), to, viewAxes(s.cam));
+    if (!st.ok) return { ...s, session: { ...s.session, message: st.why } };
+    op = st.op;
+  }
+  let session = s.session;
+  if (r.pivot) session = run(session, { type: "deleteParts", refs: [r.pivot.centre, r.pivot.point, r.pivot.line].filter((x) => x in sceneOf(session).parts) });
+  let pivot = null;
+  if (to === "circular") {
+    const made = pivotCommands(sceneOf(session), op);
+    const next = run(session, made.command);
+    if (next.message) return { ...s, session: next };
+    session = next;
+    pivot = made.parts;
+  }
+  return { ...s, session: { ...session, message: null }, handleSel: null, repeat: { op, pivot, chosen: null, help: null, stash } };
 }
 const NO_REPEAT = "select a copy of a repeat, or what was repeated (a step of the repeat of the body is reopened from the History list)";
 /** Open a repeat again to change its numbers (`in_257`): the same arrows and bubbles it was made with, with its numbers; Apply changes the copies, Cancel leaves them. */

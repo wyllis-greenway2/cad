@@ -45,9 +45,7 @@ export function gizmoOf(s: AppState): Gizmo | null {
   // looking straight at a plane (orthographic) the push / pull arrow points at you: it goes away (`in_137`)
   if (op && s.cam.straight && (op.kind === "pushpull" || op.kind === "extrude")) return null;
   const g0 = op ? gizmoFor(sceneOf(s.session), op, s.cam) : null;
-  // a linear repeat shows only the arrows of the direction its helper bubbles are about until that has been used; then the other directions come (`in_237`)
-  const helped = s.repeat && !s.op && op && op.kind === "linear" && s.repeat.help && s.repeat.help.phase !== "done" ? "xyz"[op.along ?? 0]! : null;
-  const g = g0 && helped ? { ...g0, handles: g0.handles.filter((h) => h.id.endsWith(`:${helped}`)) } : g0;
+  const g = g0; // (a linear repeat shows all three arrows from the start, `in_382`; the helper bubbles only point at one)
   // the arrow of a push / pull or an extrude stands where the face is now: out by the value so far (it stays there when you let go, until the operation ends)
   const shown = g && op && op.normal && (op.kind === "pushpull" || op.kind === "extrude" || op.kind === "offset") ? followed(g, { dir: op.normal, kind: "double", id: "pull" }, op.value) : g;
   // a body that is free to turn and slide on a mate has the ring and the arrow of its joint as well (`in_323`)

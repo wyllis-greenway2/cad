@@ -15,6 +15,7 @@ export function keyIntents(e: Key, I: typeof settings.input): Intent[] {
   if (typing) return [...(e.key === "Backspace" && a === "delete" ? [{ type: "delete" } as Intent] : []), { type: "typed", key: e.key, shift: e.mods.shift }];
   if (!a) return [];
   if (PLAIN.has(a)) return [{ type: a } as Intent];
+  if (a === "copy") return [{ type: "runAction", id: "op:copy" }]; // (Ctrl+C and Ctrl+V go straight to the copy mode: place the copy with the arrows, `in_382`)
   if (a === "cancel") return [{ type: "escape" }];
   if (a in LOOK) return [{ type: "look", plane: LOOK[a as keyof typeof LOOK] }];
   if (a in BEGIN) return [{ type: "begin", name: BEGIN[a as keyof typeof BEGIN] }];
