@@ -2171,3 +2171,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_464 — 2026-11-15 — question
 > For this one again, it seems like it is slightly faster, but why does it need to re render the non modified objects at all? Like when I change the cube, why do the lofts need to do anything at all?
 (a file, `really_slow.json`, was attached; asks why the unchanged lofts are worked on at all when the block is edited; answered from a measurement: their shapes are not rebuilt, but every body is still meshed again)
+
+## in_465 — 2026-11-15 — question
+> as I edit the cube, the non edited bodies go into coarse mode. How does this help? isn't this just more work because it is something to redraw from fine to coarse back to fine again?
+(asks why the bodies that are not edited are drawn roughly while a size is dragged; said it does not help for them, and changed)

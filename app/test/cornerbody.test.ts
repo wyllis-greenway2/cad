@@ -54,3 +54,17 @@ test("an edge, a face and a turn of a face shape the body they are in", () => {
   assert.equal(scene(s2).steps.at(-1)!.type, "reshape");
   assert.equal(Math.round(bodyOf(s2, "b/x_s_100/o").volume), 1000);
 });
+
+test("while a size is dragged (a rough mesh), a body that did not change keeps its fine mesh", () => {
+  const cylinder = (s0: ReturnType<typeof two>) => s0;
+  let s = cylinder(two());
+  const tri = (x: ReturnType<typeof two>) => (x.outcome.kernel as unknown as { mesh: { triangles: unknown[] } }).mesh.triangles.length;
+  const before = tri(s);
+  kernel.draft = true;
+  try {
+    s = run(s, { type: "setStepParams", id: "s_101", params: { depth: 12 } } as never);
+    const d = (s.outcome.kernel as unknown as { describe?: { bodies: number; reused: number } }).describe;
+    assert.ok(d && d.reused >= 1, `the first body was not meshed again: ${JSON.stringify(d)}`);
+    assert.equal(tri(s), before, "boxes mesh the same either way: nothing changed in the count");
+  } finally { kernel.draft = false; }
+});

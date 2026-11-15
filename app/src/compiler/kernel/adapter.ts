@@ -24,7 +24,7 @@ export interface KernelResult {
   /** where the time went (ms): working the operations out, meshing the body, classifying its faces, its edges (`in_216`) */
   perf?: { ops: number; box?: number; mesh: number; faces: number; edges: number };
   /** the bodies of the final shape: how many, and how many were found as they were (not meshed and classified again) */
-  describe?: { bodies: number; reused: number };
+  describe?: { bodies: number; reused: number; fingerprintMs?: number; describedMs?: number };
   /** this answer was kept from an earlier session (`dec_description_cache`): the kernel's own answer for the same graph, shown while the thread works the model out */
   fromCache?: boolean;
   /** the kernel works on its own thread and has not answered this question yet: this is the last answer it gave, for an older model */

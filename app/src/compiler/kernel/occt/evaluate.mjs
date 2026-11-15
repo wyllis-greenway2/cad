@@ -198,16 +198,25 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     const lumps = lumpsOf(fin.shape);
     const markers = fin.markers ?? [];
     const tKey = JSON.stringify([tess, lite]);
-    let reused = 0;
+    let reused = 0, fpMs = 0, meshMs = 0;
     const parts = lumps.map((l) => {
+      const tF = performance.now();
       const fp = JSON.stringify([Math.round(volume(l) * 1e6), roughBox(l), facesOf(l).length, edgesOf(l).length, tKey]);
+      fpMs += performance.now() - tF;
       let d = lumpDescribed.get(fp);
-      if (d) { lumpDescribed.delete(fp); reused++; } else d = describeSolid(l, tess, lite);
+      if (!d && tess.draft) { // (while a size is dragged a body already meshed finely keeps that mesh: a rough one would only be more work, and a body that did not change would flicker from fine to rough and back)
+        const { draft: _d, ...fine } = tess;
+        const fineFp = JSON.stringify([Math.round(volume(l) * 1e6), roughBox(l), facesOf(l).length, edgesOf(l).length, JSON.stringify([fine, lite])]);
+        d = lumpDescribed.get(fineFp);
+        if (d) { lumpDescribed.delete(fineFp); lumpDescribed.set(fineFp, d); reused++; return d; }
+      }
+      const tD = performance.now();
+      if (d) { lumpDescribed.delete(fp); reused++; } else { d = describeSolid(l, tess, lite); meshMs += performance.now() - tD; }
       lumpDescribed.set(fp, d);
       while (lumpDescribed.size > 40) lumpDescribed.delete(lumpDescribed.keys().next().value);
       return d;
     });
-    describeInfo = { bodies: lumps.length, reused };
+    describeInfo = { bodies: lumps.length, reused, fingerprintMs: Math.round(fpMs * 10) / 10, describedMs: Math.round(meshMs * 10) / 10 };
     tMesh = performance.now();
     // joined into one: the vertices and triangles one after the other (the triangle numbers of a body's faces and the vertex numbers of its triangles move on by what came before)
     const nV = parts.reduce((a, d) => a + d.mesh.vertices.length, 0);
