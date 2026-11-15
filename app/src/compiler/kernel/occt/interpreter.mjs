@@ -378,33 +378,47 @@ const OPS = {
 
   extrude(op, ctx) {
     const dist = resolve(op.distance, ctx.params);
-    const prism = (profile, holes, d = dist) => {
-      const p = ctx.get(profile, "sketch");
-      let solid = p.drawing.sketchOnPlane(p.plane, p.origin).extrude(d);
-      for (const h of holes ?? []) { // figures drawn inside this one are holes in it
-        const hs = ctx.get(h, "sketch");
-        solid = solid.cut(hs.drawing.sketchOnPlane(hs.plane, hs.origin).extrude(d));
-      }
+    // a cut that starts on a face of the body (a figure drawn on the face and pushed in) has its tool begin a little behind that face, in the air: begun exactly on it, the kernel leaves the face as a skin over the pocket,
+    // and the top of a hole stays shut (`in_419`)
+    const BACK = 1e-3;
+    const prism = (profile, holes, d = dist, back = 0) => {
+      const dir = d < 0 ? -1 : 1;
+      // the sketch's plane moved `back` against the way it is extruded (a named plane takes an offset along its normal; a plane of its own is moved along its normal)
+      const sketch = (h) => {
+        const q = ctx.get(h, "sketch");
+        if (typeof q.plane === "string") return q.drawing.sketchOnPlane(q.plane, (q.origin ?? 0) - dir * back);
+        const z = q.plane.zDir;
+        return q.drawing.sketchOnPlane(back ? q.plane.translate(-dir * back * z.x, -dir * back * z.y, -dir * back * z.z) : q.plane, q.origin);
+      };
+      let solid = sketch(profile).extrude(d + dir * back);
+      for (const h of holes ?? []) solid = solid.cut(sketch(h).extrude(d + dir * back)); // figures drawn inside this one are holes in it
       return solid;
     };
-    let solid = prism(op.profile, op.holes);
-    for (const f of op.also ?? []) solid = solid.fuse(prism(f.profile, f.holes, f.distance === undefined ? dist : resolve(f.distance, ctx.params))); // siblings extruded together (each may have a depth of its own, `in_351`)
+    const toolOf = (back) => {
+      let sld = prism(op.profile, op.holes, dist, back);
+      for (const f of op.also ?? []) sld = sld.fuse(prism(f.profile, f.holes, f.distance === undefined ? dist : resolve(f.distance, ctx.params), back)); // siblings extruded together (each may have a depth of its own, `in_351`)
+      return sld;
+    };
+    let solid = toolOf(0);
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
+    // (only when the plane is on the boundary of the body: with material just behind it, as a hole begun inside the body under a skin, the tool begins where it was drawn)
+    const behind = (() => { try { const slab = prism(op.profile, op.holes, dist < 0 ? BACK : -BACK, 0); return measureVolume(target.clone().intersect(slab.clone())) > 0.5 * measureVolume(slab); } catch { return false; } })(); // (mostly body in a slab behind the plane)
+    const back = behind ? 0 : BACK;
     if (op.mode === "cutOrAdd") {
       // a figure pulled backwards: a pocket when it meets the body (drawn on a face and pushed in); drawn out in the open it is a new piece, not a cut that does nothing
       const [tb, sb] = [bounds(target), bounds(solid)];
       const meets = [0, 1, 2].every((i) => sb.min[i] < tb.max[i] - 1e-6 && sb.max[i] > tb.min[i] + 1e-6);
       if (meets) {
         const before = measureVolume(target);
-        const cut = target.clone().cut(solid.clone());
+        const cut = target.clone().cut(toolOf(back));
         if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut };
       }
       return { kind: "solid", shape: target.fuse(solid) };
     }
     // "new" (`in_295`): a piece that stood apart when it was made stays a body of its own, however the others grow later: no join, one compound
     if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
-    return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
+    return { kind: "solid", shape: op.mode === "cut" ? target.cut(toolOf(back)) : target.fuse(solid) };
   },
 
   /**

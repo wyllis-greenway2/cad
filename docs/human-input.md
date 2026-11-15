@@ -1951,3 +1951,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_418 — 2026-11-15 — directive
 > okay why cant I select this whole object, and make it hollow?
 (a file attached: a cylinder with a rolled top edge of 9.3 on a radius of 9.64; kept as `app/test/fixtures/rolled-cylinder-hollow-in_418.cad.json`)
+
+## in_419 — 2026-11-15 — directive
+> why did this last operation not cut all the way through? the angled top plane seems to still be uninterrupted.
+(two files attached: a state snapshot and `model.cad_47.json`, kept as `app/test/fixtures/group-then-new-body-in_419.cad.json`)
