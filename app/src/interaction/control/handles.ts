@@ -93,7 +93,8 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const h = hitHandle(g, pr.project, i.x - i.dx, i.y - i.dy, undefined, chosenId(s));
     const d0 = h ? startDrag(g, h, pr.ray(i.x - i.dx, i.y - i.dy), s.cam) : null;
     const d = d0 && h ? withScreen(d0, h, pr, i.x - i.dx, i.y - i.dy, env.h) : d0;
-    if (!d || h!.id === "rev:orb") return orbitOrCorner(s, i, env); // not on a handle (the revolve's orb is only moved by clicking a line): this drag turns the camera (or drags a corner of a drawing)
+    if (!d || h!.id === "rev:orb" || h!.id === "mir:orb" || h!.id === "lin:orb") return orbitOrCorner(s, i, env);
+    if (h!.id.startsWith("mir:") && s.op?.kind === "mirror" && s.op.mirrorAt) { const k = d.axis as 0 | 1 | 2; return { ...s, handleSel: h!.id, op: { ...s.op, auto: false, mirrorAxis: k }, drag: { handle: d, base: 0, mir: { k, from: s.op.mirrorAt[k]! } }, gizmoHover: h!.id }; } // (an arrow of the mirror: it chooses the plane across its axis and moves it, `in_437`) // not on a handle (the revolve's orb is only moved by clicking a line): this drag turns the camera (or drags a corner of a drawing)
     if (!s.op && !s.repeat && sectionNow(s) && !activeOp(s)) { if (h!.id === "pivot") return orbitOrCorner(s, i, env);  const sec = sectionNow(s)!; return { ...s, handleSel: h!.id, drag: { handle: d, base: 0, section: { ref: sec.ref, centre: sec.centre, n: sec.n } }, gizmoHover: h!.id }; } // (a handle of the cross section plane, `in_392`)
     if (h!.id.startsWith("joint:")) { // the ring or the arrow of a joint: the amount is the drag; the step is made when it is let go (`in_323`)
       const body = selectionOf(s.session)[0];
@@ -127,6 +128,13 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const m = aboutDir(base[s.drag.handle.axis as 0 | 1 | 2], r.value);
     const turn = (v: Vec3): Vec3 => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2], m[6] * v[0] + m[7] * v[1] + m[8] * v[2]];
     return { ...s, op: { ...s.op, frame: [turn(base[0]), turn(base[1]), turn(base[2])] } };
+  }
+  if ("handle" in s.drag! && s.drag.mir && s.op?.mirrorAt) {
+    const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
+    if (!r || !("value" in r)) return s;
+    const at = [...s.op.mirrorAt] as unknown as [number, number, number];
+    at[s.drag.mir.k] = Math.round((s.drag.mir.from + r.value) * 1e3) / 1e3;
+    return { ...s, op: { ...s.op, mirrorAt: at } };
   }
   if ("handle" in s.drag! && s.drag.piv && s.op) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
@@ -407,7 +415,7 @@ export function doDragEnd(s: AppState, env?: Env): AppState {
   if (s.box) return env ? finishBox(s, env) : { ...s, box: null };
   const d = s.drag;
   const cleared: AppState = { ...s, drag: null, dragHint: null, orthoDebt: 0, gizmoHover: null };
-  if (d && "handle" in d && (d.piv || d.frameTurn)) return cleared; // (the sphere's arrows and rings only place and orient the mover: nothing is made, `in_416`, `in_417`)
+  if (d && "handle" in d && (d.piv || d.frameTurn || d.mir)) return cleared; // (the sphere's arrows and rings only place and orient the mover: nothing is made, `in_416`, `in_417`)
   if (d && "handle" in d && d.section) { // a drag of the cross section plane's handle: one step, the plane where it was taken (`in_396`)
     const live = s.sectionLive;
     return live ? placeSection({ ...cleared, sectionLive: live }, live.centre, live.n) : cleared;

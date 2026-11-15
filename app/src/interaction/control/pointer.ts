@@ -414,6 +414,7 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   const hit = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)) : null;
   // the sphere at the junction of the mover (`in_416`): a click selects it, a second click lets it go; selected, a vertex, an edge or a face clicked puts the mover there
   // a figure being revolved waits for the line to turn about: a click on a straight line or an axis chooses it (`in_435`)
+  if (hit && hit.id.startsWith("mir:") && hit.id !== "mir:orb" && s.op?.kind === "mirror") return { ...base, op: { ...s.op, mirrorAxis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2 }, handleSel: hit.id, gizmoHover: hit.id }; // (taking an arrow of the mirror chooses its plane, `in_437`)
   if ((!hit || hit.id.startsWith("rev:")) && s.op?.kind === "revolve" && cands.length) {
     let why = "";
     const found: { revAxes: NonNullable<Op["revAxes"]>; axisIx: number }[] = [];

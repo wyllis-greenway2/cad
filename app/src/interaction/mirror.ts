@@ -1,5 +1,6 @@
-// A mirror copy (`in_433`): a drawn figure or a body copied as its reflection in a plane. The plane is one the person chooses by a chip: a face that was selected with the body, one of the six sides of the
-// box that holds what is mirrored (the copy lands against that side), or a plane of the world through the origin. This file is what the interaction needs of it: the choices and the step they make.
+// A mirror copy (`in_433`, `in_437`): a drawn figure or a body copied as its reflection in a plane. The plane is set with the mover's own arrows: an arrow along each axis stands in the middle of what is mirrored
+// and ends at the plane across that axis (a small plane is drawn there for the arrow that is chosen); pulling an arrow or typing its number moves the plane, taking an arrow chooses it. It begins at the
+// side of what is mirrored (the copy lands against it), on the axis the view looks across. This file is the mirror plane and the step it makes.
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
@@ -7,35 +8,29 @@ import type { Command } from "../operation/commands.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import type { Op } from "./operations.ts";
 
-export interface MirrorChoice { id: string; label: string; title: string; p: Vec3; n: Vec3 }
-
-const AXIS_NAMES: [string, string][] = [["Left", "Right"], ["Front", "Back"], ["Bottom", "Top"]];
-const WORLD = ["YZ", "XZ", "XY"];
-
-/**
- * The planes offered: the selected face first, then each side of the box of what is mirrored (not across a flat figure's own plane, where the copy would lie on the figure), then the world's planes.
- */
-export function mirrorChoices(box: { lo: Vec3; hi: Vec3 }, face: { p: Vec3; n: Vec3 } | null, flat: boolean): MirrorChoice[] {
-  const out: MirrorChoice[] = [];
-  if (face) out.push({ id: "face", label: "Selected face", title: "Mirror across the face that was selected: the copy lands against it", p: face.p, n: face.n });
-  for (let i = 0; i < 3; i++) {
-    if (flat && box.hi[i]! - box.lo[i]! < 1e-6) continue;
-    const n: Vec3 = [0, 0, 0].map((_, k) => (k === i ? 1 : 0)) as unknown as Vec3;
-    for (const [j, side] of [[0, box.lo], [1, box.hi]] as const) {
-      const p: Vec3 = [0, 0, 0].map((_, k) => (k === i ? side[i]! : (box.lo[k]! + box.hi[k]!) / 2)) as unknown as Vec3;
-      out.push({ id: `${j ? "max" : "min"}:${i}`, label: AXIS_NAMES[i]![j]!, title: `Mirror across the plane at its ${AXIS_NAMES[i]![j]!.toLowerCase()} side: the copy lands against that side`, p, n });
-    }
-  }
-  for (let i = 0; i < 3; i++) out.push({ id: `world:${i}`, label: `World ${WORLD[i]}`, title: `Mirror across the world's ${WORLD[i]} plane, through the origin`, p: [0, 0, 0], n: [0, 0, 0].map((_, k) => (k === i ? 1 : 0)) as unknown as Vec3 });
-  return out;
+const UNIT: Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+/** Where the plane stands to begin with: at the far side of the box of what is mirrored along each axis (a face selected with the body, if it faces along an axis, takes its axis), and which axis. */
+export function mirrorStart(box: { lo: Vec3; hi: Vec3 }, face: { p: Vec3; n: Vec3 } | null, viewRight: 0 | 1 | 2): { at: Vec3; axis: 0 | 1 | 2 } {
+  const at: Vec3 = [box.hi[0], box.hi[1], box.hi[2]];
+  let axis = viewRight;
+  if (face) { const k = [0, 1, 2].find((i) => Math.abs(Math.abs(face.n[i]!) - 1) < 1e-6) as 0 | 1 | 2 | undefined; if (k !== undefined) { axis = k; (at as unknown as number[])[k] = face.p[k]!; } }
+  return { at, axis };
 }
-
-/** The choice in force: the one picked, else the first. */
-const mirrorChosen = (op: Op): MirrorChoice | null => op.mirrorChoices?.[Math.min(op.mirrorIx ?? 0, (op.mirrorChoices?.length ?? 1) - 1)] ?? null;
+/** The middle of the box mirrored: where the arrows start. */
+export const mirrorCentre = (op: Op): Vec3 => (op.mirrorBox ? [0, 1, 2].map((i) => (op.mirrorBox!.lo[i]! + op.mirrorBox!.hi[i]!) / 2) as unknown as Vec3 : [0, 0, 0]);
+/** The plane in force: a point on it and its normal (the chosen axis). */
+export function mirrorPlane(op: Op): { p: Vec3; n: Vec3 } | null {
+  const k = op.mirrorAxis ?? 0;
+  const at = op.mirrorAt;
+  if (!at || !op.mirrorBox) return null;
+  const p = mirrorCentre(op);
+  (p as unknown as number[])[k] = at[k]!;
+  return { p, n: UNIT[k]! };
+}
 
 /** The step of the mirror: a body gets a step of its own with the plane's numbers; a drawn figure a record that keeps them, its copies made from it (as a repeat's are). */
 export function mirrorCommand(scene: Scene, op: Op): Command | null {
-  const c = mirrorChosen(op);
+  const c = mirrorPlane(op);
   if (!c) return null;
   const numbers = { px: c.p[0], py: c.p[1], pz: c.p[2], nx: c.n[0], ny: c.n[1], nz: c.n[2] };
   if (op.target !== "plane") {

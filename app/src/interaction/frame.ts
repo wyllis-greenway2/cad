@@ -30,6 +30,7 @@ import type { Session } from "./session.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { SIMILAR_RULES } from "./similar.ts";
 import { loftChips, loftStarts } from "./loft.ts";
+import { mirrorPlane } from "./mirror.ts";
 import { startOp, opCommand, bodyMotion, valueOf, chamferFaces, chosenFace } from "./operations.ts";
 import { matrixOf, applyPoint } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
@@ -49,7 +50,7 @@ import { suggestionsFor } from "./suggest.ts";
 import type { Suggestions } from "./suggest.ts";
 import type { Annotation } from "./annotations.ts";
 import { sectionQuad, sectionAxis, sectionNow, cutNow } from "./control/section.ts";
-import { entryOf, previewFor, repeatEntries, moveEntries, moverPlaceEntries, scaleEntries, sectionEntries } from "./entry.ts";
+import { entryOf, previewFor, repeatEntries, moveEntries, moverPlaceEntries, mirrorEntries, scaleEntries, sectionEntries } from "./entry.ts";
 import { helperOf } from "./pattern.ts";
 import type { Entry } from "./entry.ts";
 import type { Preview } from "./tools.ts";
@@ -132,7 +133,6 @@ export interface Frame {
   faceKinds: { id: "move" | "extrude" | "extend"; label: string; title: string; on: boolean }[] | null;
   /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
   /** a revolve: the lines the figure can turn about, one chosen (`dec_spiral_extrude`) */
-  mirrorKinds: { id: string; label: string; title: string; on: boolean }[] | null;
   loftKinds: { id: string; label: string; title: string; on: boolean }[] | null;
   sizeKinds: { id: "constant" | "variable" | "twoDistances" | "swap"; label: string; title: string; on: boolean }[] | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
@@ -334,7 +334,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     amber: [...new Set([...(s.op?.kind === "loft" ? loftStarts(sceneOf(s.session), s.op) : []), ...focusParts(sc, sel, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
     preview: withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
     entry: movingOp || (shownOp && !s.tool && hasGizmo(shownOp.kind) && !numberShown) ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
-    entries: sectionNow(s) && !s.op && !s.repeat && !s.tool && gizmo ? sectionEntries({ at: sectionNow(s)!.centre, n: sectionNow(s)!.n }, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : s.moverSphere && shownOp && (shownOp.kind === "move" || shownOp.kind === "rotate") && !s.repeat ? moverPlaceEntries(gizmo, shownOp.frame) : shownOp?.kind === "scale" && shownOp.axes ? scaleEntries(shownOp, gizmo) : s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
+    entries: sectionNow(s) && !s.op && !s.repeat && !s.tool && gizmo ? sectionEntries({ at: sectionNow(s)!.centre, n: sectionNow(s)!.n }, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : shownOp?.kind === "mirror" ? mirrorEntries(shownOp, gizmo) : s.moverSphere && shownOp && (shownOp.kind === "move" || shownOp.kind === "rotate") && !s.repeat ? moverPlaceEntries(gizmo, shownOp.frame) : shownOp?.kind === "scale" && shownOp.axes ? scaleEntries(shownOp, gizmo) : s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
     helper: helperAt(s, gizmo),
     busy: !!s.session.outcome.kernel?.stale,
     lookHint: lookOf(sc, sel, s.cam, s.world).lookHint,
@@ -353,18 +353,17 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     cut: s.cut ? { parts: cutParts(sceneOf(s.session), s.cut), join: s.cut.join } : null, // (the bodies as they are, not as the preview of the cut shows them)
     confirm: s.moverSphere && s.op && !s.tool ? { kind: "orient", label: "Orient the mover", text: "Orient the mover" } : s.cut ? { kind: "subtract", label: "Cut" } : s.tool ? null : s.repeat && !s.op ? { kind: s.repeat.op.kind, label: OPEN_LABELS[s.repeat.op.kind] ?? s.repeat.op.kind } : s.op && s.op.kind !== "dimension" ? { kind: s.op.kind, label: OPEN_LABELS[s.op.kind] ?? s.op.kind } : null,
     tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", trim: "Trim" } as const)[s.tool.kind], made: s.tool.made ?? 0, drawing: s.tool.points.length > 0, done: (s.tool.made ?? 0) > 0 && s.tool.points.length === 0 } : null,
-    wireframe: s.wireframe || (s.moverSphere && !!s.op) || s.op?.kind === "revolve" || /* the object goes wireframe while the mover itself is oriented, `in_421` */ (s.op?.kind === "hollow" && !!s.drag && "handle" in s.drag), // (the body fades to wireframe while the wall is pulled, so the wall can be seen, `in_394`)
+    wireframe: s.wireframe || (s.moverSphere && !!s.op) || s.op?.kind === "revolve" || s.op?.kind === "mirror" || /* the object goes wireframe while the mover itself is oriented, `in_421` */ (s.op?.kind === "hollow" && !!s.drag && "handle" in s.drag), // (the body fades to wireframe while the wall is pulled, so the wall can be seen, `in_394`)
     section: cutNow(s) ? { at: cutNow(s)!.centre, n: cutNow(s)!.n, corners: sectionQuad(cutNow(s)!.centre, cutNow(s)!.n, cutNow(s)!.extent) } : null,
     sectionChip: sectionNow(s) ? { corners: sectionQuad(sectionNow(s)!.centre, sectionNow(s)!.n, sectionNow(s)!.extent), axis: sectionAxis(sectionNow(s)!.n) === null ? "·" : "XYZ"[sectionAxis(sectionNow(s)!.n)!]! } : null,
-    sectionPlanes: Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }),
+    sectionPlanes: [...Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }), ...mirrorGuide(s)],
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     panes: s.cam.straight ? [] : WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
-    gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
+    gizmo: gizmo ? { handles: gizmo.handles, pulse: s.repeat && !s.op ? (s.repeat.op.kind === "circular" ? "pivot" : "lin:orb") : s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : s.op?.kind === "mirror" ? "mir:orb" : undefined, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
     similar: similarChip(s),
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
     modeSwitch: gizmo ? (s.repeat ? repeatSwitchOf(s.repeat, gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points))) : null,
     faceKinds: faceKinds(s),
-    mirrorKinds: s.op?.kind === "mirror" ? (s.op.mirrorChoices ?? []).map((c, i) => ({ id: String(i), label: c.label, title: c.title, on: i === (s.op!.mirrorIx ?? 0) })) : null,
     loftKinds: s.op?.kind === "loft" ? loftChips(sceneOf(s.session), s.op) : null,
     sizeKinds: sizeKinds(s),
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
@@ -382,6 +381,14 @@ const withFlashed = (list: Annotation[], sc: Scene, flash: FlashFrame | null): A
   const have = new Set(list.map((a) => a.id));
   return [...list, ...annotationsOf(sc, [...flash.victims, ...flash.culprits]).filter((a) => !have.has(a.id))];
 };
+/** The small plane drawn for the mirror's chosen arrow (`in_437`): a square across that axis where the plane stands, a little bigger than what is mirrored. */
+function mirrorGuide(s: AppState): Frame["sectionPlanes"] {
+  const op = s.op;
+  const pl = op && op.kind === "mirror" ? mirrorPlane(op) : null;
+  if (!op || !pl || !op.mirrorBox) return [];
+  const ext = Math.max(...[0, 1, 2].map((i) => op.mirrorBox!.hi[i]! - op.mirrorBox!.lo[i]!), 1) * 1.3;
+  return [{ ref: "mirror" as Ref, selected: true, cutting: false, corners: sectionQuad(pl.p, pl.n, ext) }];
+}
 /** What flashes red with a constraint's bubble when it is violated (`in_436`): the parts it ties; for a mate the two faces it is between (not the two whole bodies, which would turn every surface red). */
 function flashParts(sc: Scene, victims: readonly string[]): Ref[] {
   const mates = victims.some((id) => sc.relations.find((r) => r.id === id)?.kind === "mate") ? mateStatus(sc) : [];

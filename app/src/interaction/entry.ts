@@ -24,6 +24,7 @@ export interface Entry { fields: EntryField[]; unit: string; /** the number type
 
 /** The number chip: for a tool, its fields (what is typed, else the live size); for an operation, its one number. Null when there is nothing to show yet. */
 export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry | null {
+  if (op && op.kind === "mirror") return null; // (its numbers are on its arrows, `in_437`)
   if (op && op.kind === "rotate" && op.frame && (op.target === "body" || op.target === "plane")) {
     // the mover has been turned: a single angle about the axis of the chosen ring (`in_417`)
     const live = valueOf(op);
@@ -142,6 +143,13 @@ export function repeatEntries(op: Op, g: Gizmo | null, cam: Camera, chosen: stri
  * that axis since it began (`offset`: 0 to begin with, and on across drags until the move is put away), and a typed number is that position.
  */
 /** The numbers of the cross section plane (`in_395`): while its arrows move it, where it is along each axis, a bubble at each arrow; while its rings turn it, the angle its normal makes about each axis, a bubble at each ring. */
+/** The mirror plane's number: the chosen arrow's, where its plane stands along the axis (type it to place the plane exactly, `in_437`). */
+export function mirrorEntries(op: Op, g: Gizmo | null): Entry[] {
+  if (!g || op.kind !== "mirror" || !op.mirrorAt) return [];
+  const k = op.mirrorAxis ?? 0;
+  const arrow = g.handles.find((h) => h.id === `mir:${"xyz"[k]}`);
+  return arrow ? [{ fields: [{ label: `Mirror plane along ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(op.mirrorAt[k]!), active: true, typed: false, index: k, unit: "mm" }], unit: "mm", at: arrow.points.at(-1)!, from: g.centre }] : [];
+}
 export function sectionEntries(sec: { at: Vec3; n: Vec3 }, g: Gizmo | null, chosen: string | null): Entry[] {
   if (!g || !chosen) return []; // (as for a body: the number of the arrow or ring that is taken, not of all of them, `in_419`)
   return ([0, 1, 2] as const).flatMap((k) => {

@@ -33,7 +33,7 @@ import { objectOf, bodyCentre, figurePartsOf } from "./objects.ts";
 import type { RevAxis } from "./revolve.ts";
 import { revolveAxes, revolveCommand, middleOf } from "./revolve.ts";
 import { loftCommand } from "./loft.ts";
-import { mirrorChoices, mirrorCommand } from "./mirror.ts";
+import { mirrorStart, mirrorCommand } from "./mirror.ts";
 import { settings } from "../shared/settings.ts";
 
 export type OpKind = "extrude" | "pushpull" | "offset" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular" | "copy" | "hollow" | "revolve" | "loft" | "mirror";
@@ -94,9 +94,12 @@ export interface Op {
   /** revolve: the figures' faces, to check a line clicked as the axis against */
   revFaces?: Ref[];
   /** loft (`dec_loft_sketches`): the sketches in the order picked (each its outer sides or circle and the figures inside it), how they are joined, and for each its start point (corners moved on) and direction */
-  /** mirror (`in_433`): the planes it can be made across and which one is in force */
-  mirrorChoices?: import("./mirror.ts").MirrorChoice[];
-  mirrorIx?: number;
+  /** mirror (`in_433`, `in_437`): the box of what is mirrored, where the plane stands along each axis (the arrows end there) and which axis is in force */
+  mirrorBox?: { lo: Vec3; hi: Vec3 };
+  mirrorAt?: Vec3;
+  mirrorAxis?: 0 | 1 | 2;
+  /** mirror: the box is flat (a figure): no arrow across its own plane */
+  mirrorFlat?: boolean;
   loftFigs?: Figure[];
   loftRuled?: boolean;
   loftSplit?: boolean;
@@ -304,10 +307,10 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     if (!box) return { ok: false, why: "select the body or something drawn to mirror" };
     let facePlane: { p: Vec3; n: Vec3 } | null = null;
     if (face && faceParts[0]?.kind === "plane" && faceParts[0].mesh && faceParts[0].mesh.length >= 9) { const m = faceParts[0].mesh; facePlane = { p: [(m[0]! + m[3]! + m[6]!) / 3, (m[1]! + m[4]! + m[7]!) / 3, (m[2]! + m[5]! + m[8]!) / 3], n: face[2] }; }
-    const choices = mirrorChoices(box, facePlane, !!figure);
-    const view0 = view?.right ?? 0;
-    const at = facePlane ? 0 : Math.max(0, choices.findIndex((c) => c.id === `max:${view0}`)); // (the copy goes to the right of what is seen, unless a face was chosen)
-    return { ok: true, op: { ...base, parts: targetParts, target: figure ? "plane" : "body", plane: [...planes][0] ?? null, mirrorChoices: choices, mirrorIx: at } };
+    const st0 = mirrorStart(box, facePlane, (view?.right ?? 0) as 0 | 1 | 2);
+    const flat = !!figure;
+    const axis = flat && box.hi[st0.axis]! - box.lo[st0.axis]! < 1e-6 ? ([0, 1, 2].find((i) => box!.hi[i]! - box!.lo[i]! > 1e-6) as 0 | 1 | 2 | undefined) ?? st0.axis : st0.axis; // (across a flat figure's own plane the copy would lie on it)
+    return { ok: true, op: { ...base, parts: targetParts, target: figure ? "plane" : "body", plane: [...planes][0] ?? null, mirrorBox: box, mirrorAt: st0.at, mirrorAxis: axis, mirrorFlat: flat } };
   }
   if (kind === "loft") {
     // two or more closed sketches, on planes of their own, joined side to side in the order picked (`dec_loft_sketches`)

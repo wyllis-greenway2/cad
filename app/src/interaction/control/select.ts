@@ -32,10 +32,10 @@ export function doSelectAll(s: AppState, what: "faces" | "edges" | "vertices"): 
   const sc = sceneOf(s.session);
   const sel = selectionOf(s.session);
   const flats = Object.values(sc.parts).filter((p): p is Extract<Part, { kind: "plane" }> => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.length >= 9);
-  const bodyEdges = Object.values(sc.parts).filter((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "body" && !p.twin);
+  const bodyEdges = Object.values(sc.parts).filter((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "body");
   const out = new Set<Ref>();
   const add = (refs: readonly Ref[]) => refs.forEach((r) => { if (r in sc.parts) out.add(r); });
-  const edgesOfFace = (f: Extract<Part, { kind: "plane" }>): Ref[] => faceEdges(sc, f).filter((r) => { const l = sc.parts[r]; return l?.kind === "line" && !l.twin; });
+  const edgesOfFace = (f: Extract<Part, { kind: "plane" }>): Ref[] => faceEdges(sc, f).filter((r) => { const l = sc.parts[r]; return l?.kind === "line"; });
   const endsOf = (edges: readonly Ref[]): Ref[] => edges.flatMap((r) => { const l = sc.parts[r]; return l?.kind === "line" ? [l.a, l.b] : []; });
   const facesAround = (edges: ReadonlySet<Ref>): Ref[] => flats.filter((f) => edgesOfFace(f).some((e) => edges.has(e))).map((f) => f.ref);
   const scoped = (what2: typeof what, ref: Ref): void => {
@@ -44,7 +44,7 @@ export function doSelectAll(s: AppState, what: "faces" | "edges" | "vertices"): 
     const obj = objectOf(sc, ref);
     if (p.kind === "body" || (p.origin === "body" && obj === ref)) { // the whole body: all of its faces, edges or corners
       const mine = (q: Part) => q.origin === "body" && objectOf(sc, q.ref) === obj;
-      add(Object.values(sc.parts).filter((q) => mine(q) && (what2 === "faces" ? q.kind === "plane" && !!q.mesh && q.mesh.length >= 9 : what2 === "edges" ? q.kind === "line" && !q.twin : q.kind === "corner")).map((q) => q.ref));
+      add(Object.values(sc.parts).filter((q) => mine(q) && (what2 === "faces" ? q.kind === "plane" && !!q.mesh && q.mesh.length >= 9 : what2 === "edges" ? q.kind === "line" : q.kind === "corner")).map((q) => q.ref));
     } else if (p.kind === "plane" && p.origin === "body") { // one face: itself, its edges, its corners
       const e = edgesOfFace(p);
       add(what2 === "faces" ? [p.ref] : what2 === "edges" ? e : endsOf(e));

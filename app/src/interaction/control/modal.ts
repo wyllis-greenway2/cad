@@ -167,6 +167,13 @@ export function doTyped(s: AppState, key: string): AppState {
 /** The text of a field of the value box changed: the operation's number, or a size of the figure being drawn. */
 export function doEntry(s: AppState, field: number, text: string): AppState {
   if (!/^-?\d*\.?\d*$/.test(text)) return s;
+  if (s.op?.kind === "mirror" && s.op.mirrorAt && field >= 0 && field < 3) { // the number of the mirror plane's arrow: where the plane stands along that axis (`in_437`)
+    const n = typedNumber(text);
+    if (n === null) return s;
+    const at = [...s.op.mirrorAt] as unknown as [number, number, number];
+    at[field] = n;
+    return { ...s, op: { ...s.op, auto: false, mirrorAt: at, mirrorAxis: field as 0 | 1 | 2 } };
+  }
   if (s.moverSphere && s.op && (s.op.kind === "move" || s.op.kind === "rotate") && !s.repeat && field >= 3 && field < 6) { // a number typed for the turn of the mover's axes about X, Y or Z (`in_434`)
     const n = typedNumber(text);
     if (n === null) return s;

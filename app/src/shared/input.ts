@@ -57,7 +57,6 @@ export type Intent =
   | { type: "faceKind"; kind: "move" | "extrude" | "extend" }
   /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
   | { type: "loftKind"; id: string }
-  | { type: "mirrorKind"; index: number }
   | { type: "sizeKind"; kind: "constant" | "variable" | "twoDistances" | "swap" }
   /** the pointer is over that button: the flash waits (`in_366`) */
   | { type: "holdFlash" }

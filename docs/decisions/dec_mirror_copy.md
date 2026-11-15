@@ -3,14 +3,14 @@ id: dec_mirror_copy
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_433
+human_input: in_433, in_437
 date: 2026-11-15
 depends_on:
 alternative_to:
 ---
 # Mirror copy: a figure or a body copied as its reflection in a plane
 
-`in_433` asked for a mirror copy method that works on sketches or bodies. **The AI's reading, built (for the human to correct):** *Mirror copy* is in the right-click ring beside Copy and the repeats. With a body (or one body of several) selected, or a drawn figure (corners, lines, circles, faces), a chip row offers the plane: a flat face that was selected with the body (first), the six sides of the box of what is mirrored (Left, Right, Front, Back, Bottom, Top: the copy lands against that side; not across a flat figure's own plane), and the world's three planes through the origin; Enter or the check makes it. The default is the right-hand side of what is seen. A body gets a `pattern` step with `mode: mirror` (point and normal of the plane); the kernel joins the reflection to it where they touch, else the copy is a second body. A drawn figure gets a repeat record of kind `mirror` that keeps the plane, its copies made from the original each time (they follow it, as a repeat's do; arcs are turned over so they stay the same arc). **Not built:** a plane offset by a typed distance, a selected line (for a figure) or a drawn plane as the mirror plane, mirroring in place (replacing the original), a picture of the plane before it is made.
+`in_433` asked for a mirror copy method that works on sketches or bodies. **`in_437` (replaces the row of plane buttons):** *Mirror copy* is the mover's own arrows. With a body (or one body of several) or a drawn figure selected, an arrow along each axis stands in the middle of what is mirrored and ends at the plane across that axis; a small plane is drawn for the arrow that is chosen (the body goes wireframe so the plane shows inside it) and the mover's orb pulses where the arrows start. Taking an arrow chooses the plane across it; pulling it, or typing its number (where the plane stands along the axis), moves the plane. It begins with the plane at the far side of what is mirrored on the axis the view looks across (a face selected with the body that faces along an axis takes that axis and its place), so the copy lands against it; Enter or the check makes it. A body gets a `pattern` step with `mode: mirror`; the kernel joins the reflection where they touch, else it is a second body. A drawn figure gets a repeat record of kind `mirror` that keeps the plane (its copies follow the original; arcs are turned over). **Not built:** the orb placing the plane's anchor, the mirror plane at a slant (the mover oriented), a selected line as the plane for a figure, mirroring in place, a figure's own plane as an axis arrow.
 
 ## Rationale
 

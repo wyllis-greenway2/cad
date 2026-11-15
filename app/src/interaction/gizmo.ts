@@ -13,6 +13,7 @@ import { basis } from "./camera.ts";
 import { settings } from "../shared/settings.ts";
 import { jointOfBody } from "./mate.ts";
 import { axisOf, revolveCentre } from "./revolve.ts";
+import { mirrorCentre } from "./mirror.ts";
 
 export type HandleKind = "arrow" | "double" | "arc" | "ball" | "scale";
 export interface Handle {
@@ -157,6 +158,18 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
     // the arrow normal to the figure or the face, pointing both ways: drag it out to pull, in to push
     return { centre: op.origin, handles: [{ id: "pull", kind: "double", axis: null, points: [add(op.origin, scale(op.normal, -HALF * L)), add(op.origin, scale(op.normal, HALF * L))] }] };
   }
+  if (op.kind === "mirror" && op.mirrorBox && op.mirrorAt) {
+    // the mover's arrows from the middle of what is mirrored, each ending at the plane across its axis; taking one chooses that plane, pulling it moves the plane (`in_437`); the orb marks where they start
+    const c = mirrorCentre(op);
+    const handles: Handle[] = [{ id: "mir:orb", kind: "ball", axis: null, points: [c] }];
+    AXES.forEach((d, i) => {
+      if (op.mirrorFlat && op.mirrorBox!.hi[i]! - op.mirrorBox!.lo[i]! < 1e-6 && i === 2 && false) return;
+      const away = op.mirrorAt![i]! - c[i]!;
+      const len = Math.sign(away || 1) * Math.max(Math.abs(away), 0.35 * L);
+      handles.push({ id: `mir:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [c, add(c, scale(d, len))] });
+    });
+    return { centre: c, handles };
+  }
   if (op.kind === "revolve") {
     // a full circle round the line the figure turns about (drag it round, and on past one turn), and an arrow along the line (drag it for the advance of a spiral): both stand on the axis, by the figure (`dec_spiral_extrude`)
     const a = axisOf(op);
@@ -179,18 +192,18 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
       const pivot: Vec3 = [v[3]!, v[4]!, v[5]!];
       // the rings choose the axis; short arrows along x, y and z move the pivot point (its vertex in the scene), so it can be placed or typed exactly (`in_384`)
       const arrows = AXES.map((d, i): Handle => ({ id: `piv:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [pivot, add(pivot, scale(d, L * 0.45))] }));
-      return { centre: pivot, handles: [...AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, pivot, d, L * 0.8, i as 0 | 1 | 2)), ...arrows] };
+      return { centre: pivot, handles: [...AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, pivot, d, L * 0.8, i as 0 | 1 | 2)), ...arrows, { id: "pivot", kind: "ball", axis: null, points: [pivot] }] }; // (the orb, as on the mover: drag it to place the point the copies turn about, `in_437`)
     }
     // an arrow along each axis whose end is where the next copy goes (pull it for the distance between them), and a short arrow past the last copy (pull it for how many)
     const c = patternCentre(scene, op);
-    const handles: Handle[] = [];
+    const handles: Handle[] = [{ id: "lin:orb", kind: "ball", axis: null, points: [c] }]; // (the mover's orb where the arrows start, `in_437`)
     AXES.forEach((d, i) => {
       const sp = v[2 * i + 1]!;
       const n = Math.max(1, Math.round(v[2 * i]!));
       if (Math.abs(sp) < 1e-9) return;
       const sgn = sp < 0 ? -1 : 1;
       const cap = L * 2.2; // (the arrows are drawn no longer than this, so they stay in view whatever the spacing is, `in_382`)
-      handles.push({ id: `lin:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [c, add(c, scale(d, sgn * Math.min(Math.abs(sp), cap)))] });
+      handles.push({ id: `lin:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [c, add(c, scale(d, sgn * 0.6 * Math.min(Math.abs(sp), cap)))] }); // (short of the next copy's middle: a picture of the direction to pull, the number is for precision, `in_437`)
       // the stub for how many starts a good way past the last copy (and so well clear of the spacing arrow, which ends at the first), and stays close to the copies once there are some
       const slot = add(c, scale(d, sgn * (Math.min(Math.abs(sp) * n, cap) + L * (n > 1 ? 0.35 : 0.6))));
       handles.push({ id: `cnt:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [slot, add(slot, scale(d, sgn * L * 0.3))] });

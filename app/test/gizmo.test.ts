@@ -850,7 +850,7 @@ test("a linear repeat of the body: one copy on one axis to begin with, that axis
   assert.equal(frame(st).helper, null);
   assert.equal(scene(st.session).steps.length, 1);
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id), ["lin:x", "cnt:x", "lin:y", "cnt:y", "lin:z", "cnt:z"], "all three directions show from the start (`in_382`)");
+  assert.deepEqual(g.handles.map((h) => h.id), ["lin:orb", "lin:x", "cnt:x", "lin:y", "cnt:y", "lin:z", "cnt:z"], "all three directions show from the start (`in_382`)");
   const mid = (id: string) => { const h = gizmoOf(st)!.handles.find((q) => q.id === id)!; return scale(add(h.points[0]!, h.points[1]!), 0.5); };
   // pull the spacing arrow out by 10: the number shown for the pair follows
   const m = mid("lin:x");
@@ -892,7 +892,7 @@ test("a circular repeat: the pivot is a vertex joined to the middle by a line, t
   assert.equal(parts[line]!.kind, "line");
   assert.equal(frame(st).entries.length, 1, "one bubble");
   assert.deepEqual(frame(st).entries[0]!.fields.map((f) => [f.short, f.value]), [["n", "4"], ["°", "360"]]);
-  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "piv:x", "piv:y", "piv:z"], "the rings, and a short arrow each way to move the pivot point (`in_384`)");
+  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "piv:x", "piv:y", "piv:z", "pivot"], "the rings, and a short arrow each way to move the pivot point (`in_384`)");
   // the bubble is off to the side of the rings, not on them
   const rings = gizmoOf(st)!;
   assert.ok(Math.hypot(...sub(frame(st).entries[0]!.at!, rings.centre)) > 10);
@@ -2174,4 +2174,20 @@ test("Select all edges, faces and vertices belong to what is selected: one face 
   const flat = select({ ...createState(s), cam: homeCamera() }, [face]);
   assert.equal(selection(run1(flat, "select:edges").session).length, 4);
   assert.equal(selection(run1(flat, "select:vertices").session).length, 4);
+});
+
+test("Select all edges on a cylinder includes its circles (a rim is two half circles, both are selected), for the whole cylinder and for its flat face (`in_437`)", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 10);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 20 } } });
+  const st0 = { ...createState(s), cam: homeCamera() };
+  const lines = (st: AppState) => selection(st.session).map((r) => scene(st.session).parts[r]).filter((p) => p?.kind === "line") as unknown as { circle?: unknown }[];
+  const all = reduce(select(st0, [BODY_OBJECT]), { type: "runAction", id: "select:edges" }, env);
+  assert.equal(lines(all).length, 6, "the seam and the four halves of the two rims");
+  assert.equal(lines(all).filter((l) => l.circle).length, 4, "the circles are edges");
+  const top = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && p.mesh && Math.abs((p.mesh[2] ?? 0) - 20) < 1e-6)!;
+  const face = reduce(select(st0, [top.ref]), { type: "runAction", id: "select:edges" }, env);
+  assert.equal(lines(face).length, 2, "the rim of the top face: its two halves");
+  assert.ok(lines(face).every((l) => l.circle));
 });
