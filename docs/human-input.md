@@ -1939,3 +1939,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_415 — 2026-11-15 — directive
 > okay the one thing I want to preserve is the rotate point in non game mode which is usually defined as the objects center point closest to the camera. Can we do a dolly model that fixes all these problems but still uses that rotational axis when rotating the camera around an object in non game mode
 (approves the dolly model of `in_414` on the condition that the orbit keeps turning about the centre of the object nearest the camera)
+
+## in_416 — 2026-11-15 — question
+> okay so all your work has been merged, does this mean we should work on a new branch now?
+(asks whether to start a new branch after the merge; answered: yes, from the merged base)
+
+## in_417 — 2026-11-15 — approval
+> go, use that name and base
+(approves the proposal: branch `claude/hopeful-cannon-3` from `origin/claude/inspiring-pascal-l342k7`)
+
+## in_418 — 2026-11-15 — directive
+> okay why cant I select this whole object, and make it hollow?
+(a file attached: a cylinder with a rolled top edge of 9.3 on a radius of 9.64; kept as `app/test/fixtures/rolled-cylinder-hollow-in_418.cad.json`)

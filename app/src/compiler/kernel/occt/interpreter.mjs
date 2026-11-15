@@ -831,9 +831,28 @@ const OPS = {
     const offset = thickSolid(t, open, th);
     if (!op.closed) return { kind: "solid", shape: offset };
     // no face open: the kernel's shell with nothing removed gives the offset solid alone, so the wall is what lies between that and the body
-    return { kind: "solid", shape: th > 0 ? t.cut(offset) : offset.cut(t) };
+    // an outward offset of some bodies comes back turned inside out (a negative volume): turned right again before it is used
+    const grown = measureVolume(offset) < 0 ? cast(offset.wrapped.Reversed()) : offset;
+    const [outer, inner] = th > 0 ? [t, grown] : [grown, t];
+    const expected = measureVolume(outer) - measureVolume(inner);
+    let made = null;
+    try { made = outer.cut(inner); if (!isValidSolid(made) || Math.abs(measureVolume(made) - expected) > 0.01 * Math.abs(expected)) made = null; } catch { made = null; }
+    // the boolean can fail, or give the wrong body, where the two surfaces are close kin (a rolled edge whose rolling circle is nearly the radius of the cylinder, a torus that crosses its own axis, `in_418`): the wall is then
+    // made as a solid of two shells, the outer one and the inner reversed, which asks for no boolean at all
+    return { kind: "solid", shape: made ?? hollowByShells(outer, inner) };
   },
 };
+
+/** A solid whose boundary is the outer solid's shell and, as a void inside it, the inner solid's shell turned inside out. */
+function hollowByShells(outer, inner) {
+  const oc = getOC();
+  const shellOf = (sh) => { const ex = new oc.TopExp_Explorer(sh.wrapped, oc.TopAbs_ShapeEnum.TopAbs_SHELL, oc.TopAbs_ShapeEnum.TopAbs_SHAPE); try { return oc.TopoDS.Shell(ex.Current()); } finally { ex.delete(); } };
+  const maker = new oc.BRepBuilderAPI_MakeSolid(shellOf(outer), oc.TopoDS.Shell(shellOf(inner).Oriented(oc.TopAbs_Orientation.TopAbs_REVERSED)));
+  const out = cast(maker.Shape());
+  maker.delete();
+  if (!isValidSolid(out)) throw new Error("the wall could not be made at this thickness");
+  return out;
+}
 
 /** The solid thickened by `th` (inward when positive) with the faces `open` removed; the faces' offsets meet at sharp corners (`in_394`). */
 function thickSolid(t, open, th) {
