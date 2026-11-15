@@ -308,8 +308,8 @@ test("Scale has a handle: pull the ball at the corner out to make the body bigge
   let st = select(box(), [BODY_OBJECT]);
   st = reduce(st, { type: "begin", name: "scale" }, env);
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.kind), ["scale"]);
-  const [c, corner] = g.handles[0]!.points;
+  assert.deepEqual(g.handles.map((h) => h.id), ["scale:x", "scale:y", "scale:z", "scale"], "an arrow for each axis and the ball for all together (`in_387`)");
+  const [c, corner] = g.handles.find((h) => h.id === "scale")!.points;
   nearV(c!, [20, 10, 10]);
   nearV(corner!, [40, 20, 20]);
   const out: Vec3 = add(c!, scale(sub(corner!, c!), 2)); // twice as far from the centre
@@ -317,6 +317,18 @@ test("Scale has a handle: pull the ball at the corner out to make the body bigge
   near(Number(scene(st.session).steps.at(-1)!.params.value), 2, 0.02);
   const bb = bbox(st);
   near(bb.max[0] - bb.min[0], 80, 0.5);
+});
+
+test("pulling the X arrow of Scale stretches the body along X alone, as the recipe is stretched (`dec_scale_axes`)", () => {
+  let st = select(box(), [BODY_OBJECT]); // 40 x 20 x 20
+  st = reduce(st, { type: "begin", name: "scale" }, env);
+  const [c, tip] = gizmoOf(st)!.handles.find((h) => h.id === "scale:x")!.points;
+  st = drag(st, tip!, add(c!, scale(sub(tip!, c!), 2)), 6);
+  assert.equal(st.session.message, null);
+  const bb = bbox(st);
+  near(bb.max[0] - bb.min[0], 80, 1);
+  near(bb.max[1] - bb.min[1], 20, 0.01);
+  near(bb.max[2] - bb.min[2], 20, 0.01);
 });
 
 test("a drawn figure moves and turns like an object: X Y Z arrows, X Y Z rings and angle fields, taking its plane with it", () => {

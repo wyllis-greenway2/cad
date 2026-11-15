@@ -121,6 +121,14 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
   if (!("handle" in s.drag!) || !s.op) return doOrbit(s, i);
   const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
   if (!r) return s;
+  if ("value" in r && s.op.kind === "scale" && s.op.target === "body" && s.drag.handle.id.startsWith("scale:")) {
+    // an axis arrow of a scale: only that axis changes, the others stay as they were (`dec_scale_axes`)
+    const k = s.drag.handle.axis as 0 | 1 | 2;
+    const axes: [number, number, number] = [...(s.op.axes ?? [1, 1, 1])] as [number, number, number];
+    axes[k] = r.value;
+    return { ...s, op: { ...s.op, axes, axis: k, value: r.value, typed: "" } };
+  }
+  if ("value" in r && s.op.kind === "scale") return { ...s, op: { ...s.op, axes: undefined, value: Math.round((s.drag.base + r.value) * 1e6) / 1e6, typed: "", rot: ["", "", ""] as [string, string, string] } }; // (the diagonal: all together again)
   if ("value" in r) return { ...s, op: { ...s.op, value: Math.round((s.drag.base + r.value) * 1e6) / 1e6, typed: "", rot: ["", "", ""] as [string, string, string], ...(s.drag.handle.axis !== null ? { axis: s.drag.handle.axis } : {}) } };
   return { ...s, op: { ...s.op, pivot: snapPivot(s, r.pivot, i.x, i.y, env) } };
 }

@@ -1828,3 +1828,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_388 — 2026-11-15 — approval
 > Stretch the recipe (Recommended)
 (the human's answer to the multiple-choice question about how to build scaling along x, y or z alone (`dec_scale_axes`): option 1, rewrite the sketches and extrusion distances a body was made from per axis)
+
+## in_389 — 2026-11-15 — directive
+> Do the axis-aligned stretch for extruded bodies next
+(asks for the first slice named in Handoff 367 under `dec_scale_axes`: the pure stretch of a body made only of axis-aligned extrusions)

@@ -821,3 +821,23 @@ test("an extrusion pulled back to nothing is a sketch again: the step goes, the 
   assert.equal(scene(back).steps.length, scene(st.session).steps.length - 1);
   assert.ok(Object.values(scene(back).parts).some((p) => p.kind === "face" && p.origin === "drawn"), "the sketch is there");
 });
+
+test("a body made of an extrusion is stretched along each axis by its own factor, exact prisms again; a circle is refused when its two directions differ (`dec_scale_axes`)", () => {
+  const st = drawBox(top(), 20); // 40 x 20 block from (3,3) up to z = 20
+  const before = st.session.outcome.kernel!.bbox!;
+  const made = run(st.session, { type: "stretch", factors: [2, 0.5, 1.5], pivot: [0, 0, 0] });
+  assert.equal(made.message, null);
+  assert.deepEqual(made.outcome.errors, {});
+  const b = made.outcome.kernel!.bbox!;
+  for (const k of [0, 1, 2]) { near(b.min[k]!, before.min[k]! * [2, 0.5, 1.5][k]!, 1e-6); near(b.max[k]!, before.max[k]! * [2, 0.5, 1.5][k]!, 1e-6); }
+  const undone = made.history.cursor;
+  assert.ok(undone > st.session.history.cursor, "it is one step of the history that undo can take back");
+  // a circle across x and y with unequal factors would be an ellipse
+  let c = top();
+  c = reduce(c, { type: "begin", name: "circle" }, env);
+  c = click(c, [20, 20, 0]);
+  c = click(c, [30, 20, 0]);
+  const refused = run(c.session, { type: "stretch", factors: [2, 1, 1], pivot: [0, 0, 0] });
+  assert.match(refused.message ?? "", /ellipse/);
+  assert.equal(run(c.session, { type: "stretch", factors: [2, 2, 1], pivot: [0, 0, 0] }).message, null, "the same both ways across its plane is fine");
+});

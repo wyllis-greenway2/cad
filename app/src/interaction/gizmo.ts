@@ -187,7 +187,12 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
   const centre = op.kind === "rotate" ? (op.pivot ?? scale(add(box.lo, box.hi), 0.5)) : op.kind === "move" && op.from ? add(op.from, moveOffset(scene, op)) : scale(add(box.lo, box.hi), 0.5);
   if (op.kind === "move") return { centre, handles: AXES.map((d, i): Handle => ({ id: `move:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, 2 * HALF * L))] })) };
   if (op.kind === "rotate") return { centre, handles: [...AXES.map((d, i) => ring(`rot:${"xyz"[i]}`, centre, d, L * 0.8, i as 0 | 1 | 2)), { id: "pivot", kind: "ball", axis: null, points: [centre] }] };
-  if (op.kind === "scale") return { centre, handles: [{ id: "scale", kind: "scale", axis: null, points: [centre, box.hi] }] };
+  if (op.kind === "scale") {
+    // an arrow along each axis scales along that axis alone, the diagonal ball scales all together (`in_387`)
+    const half = [0, 1, 2].map((i) => (box.hi[i]! - box.lo[i]!) / 2);
+    const arrows = AXES.map((d, i): Handle => ({ id: `scale:${"xyz"[i]}`, kind: "scale", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, half[i]! + 0.8 * HALF * L))] }));
+    return { centre, handles: [...arrows, { id: "scale", kind: "scale", axis: null, points: [centre, box.hi] }] };
+  }
   return null;
 }
 
@@ -264,7 +269,7 @@ export function startDrag(g: Gizmo, h: Handle, ray: Ray, cam: Camera): Drag | nu
     // the ball slides along the diagonal from the centre: how far along it the pointer is, relative to where you took hold, is the factor
     const dir = sub(h.points[1]!, h.points[0]!);
     const t = paramOnLine(h.points[0]!, normalize(dir), ray);
-    return t === null ? null : { id: h.id, kind: "scale", axis: null, origin: h.points[0]!, dir, start: Math.max(1e-6, t / Math.hypot(...dir)), offset: null };
+    return t === null ? null : { id: h.id, kind: "scale", axis: h.axis, origin: h.points[0]!, dir, start: Math.max(1e-6, t / Math.hypot(...dir)), offset: null };
   }
   if (h.kind === "arc") {
     const dir = h.dir ?? AXES[h.axis!]!;

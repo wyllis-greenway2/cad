@@ -81,6 +81,8 @@ export interface Op {
   along?: 0 | 1 | 2;
   /** rotate the body: the three angles typed so far (X, Y, Z) as the body is to be turned (empty = as it is now) */
   rot: [string, string, string];
+  /** a scale of a body: the factor along each axis when an axis arrow has been pulled (`dec_scale_axes`); absent for the same factor every way */
+  axes?: [number, number, number];
   /** push / pull of a round face: the face (the radius changes by the distance) */
   curved?: Curved;
   /** a round wall turned about a tilted axis (a turned body): where the axis is (`in_224`) */
@@ -503,6 +505,15 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
   if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
   if (op.kind === "scale" && op.target === "shape") return v <= 0 ? null : scaleShapeCommand(scene, op, v);
+  if (op.kind === "scale" && op.axes) {
+    // factors along the axes alone (`dec_scale_axes`): the recipe is stretched, about the middle of the body
+    const f: [number, number, number] = [...op.axes] as [number, number, number];
+    if (op.typed !== "") f[op.axis] = v;
+    if (f.some((k) => !(k > 0))) return null;
+    if (f.every((k) => Math.abs(k - 1) < 1e-9)) return null;
+    const pivot = op.pivot ?? bodyCentre(scene, op.parts[0]);
+    return pivot ? { type: "stretch", factors: f, pivot } : null;
+  }
   if (op.kind === "scale") {
     if (v <= 0) return null;
     // the whole body: about the middle of its box, and the sketches that made it carried along, made as many times bigger (`in_204`, `in_205`)
@@ -541,6 +552,7 @@ export function bodyMotion(scene: Scene, op: Op): Rigid | null {
     if (!adds.length || !pivot0 || (adds.length > 1 && !op.pivot)) return null;
     return laterMotion(adds.map((a) => ({ ...a.step, params: { ...a.step.params, follow: 1, px: pivot0[0], py: pivot0[1], pz: pivot0[2] } })), -1);
   }
+  if (op.kind === "scale" && op.axes) return null; // (a stretch along axes is not a matrix of the graphics card: the kernel shows it)
   if (op.kind === "move" && op.free) return motionOf({ id: "s_x", type: "move", parts: op.parts, params: { axis: 0, value: 0, vx: op.free[0], vy: op.free[1], vz: op.free[2] } });
   const v = valueOf(op);
   if (v === null) return null;
