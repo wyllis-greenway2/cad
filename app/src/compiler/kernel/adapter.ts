@@ -14,7 +14,8 @@ export interface KernelResult {
   bbox: { min: Vec; max: Vec } | null;
   /** the bodies of the final shape, each with the name it keeps through the history (`dec_independent_bodies`); a face or an edge says which is its in `body` (its place in this list) when there are several */
   bodies?: { id: string; min: Vec; max: Vec; /** NaN in a lite answer with several bodies: it takes a while to work out, and a preview does not use it */ volume: number }[] | null;
-  mesh: { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array } | null;
+  /** `sharp`: the lines (two ends each, xyz) where the surface of each body turns a corner by more than `sharpDeg` degrees, found once for each body in the kernel's thread (`dec_sharp_edges_once`) */
+  mesh: { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array; sharp?: Float32Array; sharpDeg?: number } | null;
   faces: KernelFace[] | null;
   edges: KernelEdge[] | null;
   vertices: Vec[] | null;

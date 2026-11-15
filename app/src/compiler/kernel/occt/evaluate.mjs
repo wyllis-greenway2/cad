@@ -5,9 +5,12 @@ import { compile, finalSolid, volume } from "./interpreter.mjs";
 import { makeCompound, getOC } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
 import { lumpsOf, lumpsByName } from "./bodies.mjs";
+import { cornerEdges } from "./sharp.mjs";
 
 const described = new Map();
 const lumpDescribed = new Map();
+/** The angle (degrees) at which the surface turns a corner that is drawn as an edge: the page's `settings.extrude.edgeAngleDeg`, which the page checks against the answer's `sharpDeg` (it searches itself if they differ). */
+const EDGE_ANGLE_DEG = 30;
 const copyOf = (d) => ({
   vol: d.vol,
   bbox: d.bbox && { min: [...d.bbox.min], max: [...d.bbox.max] },
@@ -16,7 +19,7 @@ const copyOf = (d) => ({
   vertices: d.vertices && structuredClone(d.vertices),
   vertexBodies: d.vertexBodies ? [...d.vertexBodies] : null,
   bodies: d.bodies && structuredClone(d.bodies),
-  mesh: d.mesh && { vertices: d.mesh.vertices.slice(), normals: d.mesh.normals.slice(), triangles: d.mesh.triangles.slice() },
+  mesh: d.mesh && { vertices: d.mesh.vertices.slice(), normals: d.mesh.normals.slice(), triangles: d.mesh.triangles.slice(), ...(d.mesh.sharp ? { sharp: d.mesh.sharp.slice(), sharpDeg: d.mesh.sharpDeg } : {}) },
 });
 
 export const KERNEL_NAME = "occt (replicad)";
@@ -40,6 +43,8 @@ function describeSolid(shape, tess0, lite) {
     const tess = tess0.draft ? { tolerance: Math.max(0.1, diag * 0.01), angular: 0.5 } : { tolerance: Math.min(tess0.tolerance, Math.max(0.002, diag * 0.002)), angular: Math.min(tess0.angular, 0.2) };
     const m = shape.mesh({ tolerance: tess.tolerance, angularTolerance: tess.angular });
     const mesh = { vertices: new Float32Array(m.vertices), normals: new Float32Array(m.normals), triangles: new Uint32Array(m.triangles) };
+    mesh.sharp = Float32Array.from(cornerEdges(mesh.vertices, mesh.normals, mesh.triangles, EDGE_ANGLE_DEG)); // (once for each body, kept with its description: the page draws them and does not search the triangles, `dec_sharp_edges_once`)
+    mesh.sharpDeg = EDGE_ANGLE_DEG;
     const vol = volume(shape);
     const bbox = { min: [...lo], max: [...hi] };
     if (lite) return { mesh, vol, bbox, faces: [], edges: [], vertices: [], lite: true };
@@ -221,7 +226,8 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     // joined into one: the vertices and triangles one after the other (the triangle numbers of a body's faces and the vertex numbers of its triangles move on by what came before)
     const nV = parts.reduce((a, d) => a + d.mesh.vertices.length, 0);
     const nT = parts.reduce((a, d) => a + d.mesh.triangles.length, 0);
-    mesh = { vertices: new Float32Array(nV), normals: new Float32Array(nV), triangles: new Uint32Array(nT) };
+    mesh = { vertices: new Float32Array(nV), normals: new Float32Array(nV), triangles: new Uint32Array(nT), sharp: new Float32Array(parts.reduce((a, d) => a + d.mesh.sharp.length, 0)), sharpDeg: EDGE_ANGLE_DEG };
+    let so = 0;
     faces = []; edges = []; vertices = []; 
     const seenV = new Map();
     const vertexBody = new Map(); // (the body each corner is a corner of, the first when two bodies share one place: so that a corner picked says which body it is in, `in_457`)
@@ -229,6 +235,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     const bodyOfLump = new Map(markers.map((m, bi) => [m.lump, bi]));
     parts.forEach((d, li) => {
       mesh.vertices.set(d.mesh.vertices, vo); mesh.normals.set(d.mesh.normals, vo);
+      mesh.sharp.set(d.mesh.sharp, so); so += d.mesh.sharp.length;
       for (let k = 0; k < d.mesh.triangles.length; k++) mesh.triangles[to + k] = d.mesh.triangles[k] + vo / 3;
       const body = lumps.length > 1 && bodyOfLump.has(li) ? { body: bodyOfLump.get(li) } : {};
       for (const f of d.faces) faces.push({ ...structuredClone(f), start: f.start + to, ...(f.ranges ? { ranges: f.ranges.map((r) => ({ start: r.start + to, count: r.count })) } : {}), ...body });

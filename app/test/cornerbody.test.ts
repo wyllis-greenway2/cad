@@ -68,3 +68,15 @@ test("while a size is dragged (a rough mesh), a body that did not change keeps i
     assert.equal(tri(s), before, "boxes mesh the same either way: nothing changed in the count");
   } finally { kernel.draft = false; }
 });
+
+test("the kernel's answer carries the sharp edges of each body, found once for each (`dec_sharp_edges_once`)", async () => {
+  const s = two();
+  const mesh = (s.outcome.kernel as unknown as { mesh: { sharp: Float32Array; sharpDeg: number; vertices: Float32Array; normals: Float32Array; triangles: Uint32Array } }).mesh;
+  assert.equal(mesh.sharpDeg, 30);
+  assert.equal(mesh.sharp.length, 2 * 12 * 6, "two boxes: twelve edges each, two ends of three numbers");
+  const { cornerEdgesOf } = await import("../src/ui/view/edges.ts");
+  const got = cornerEdgesOf(mesh, 30);
+  assert.equal(got.again, true, "the page takes them as they are");
+  assert.equal(got.edges.length, mesh.sharp.length);
+  assert.equal(cornerEdgesOf({ ...mesh, sharpDeg: 20 }, 30).again, false, "found again here when they were found for another angle");
+});

@@ -23,7 +23,7 @@ const sha256 = async (text: string): Promise<string> => {
 };
 /** about how many bytes the answer takes in storage (its arrays) */
 export function sizeOf(r: KernelResult): number {
-  const m = r.mesh ? r.mesh.vertices.byteLength + r.mesh.normals.byteLength + r.mesh.triangles.byteLength : 0;
+  const m = r.mesh ? r.mesh.vertices.byteLength + r.mesh.normals.byteLength + r.mesh.triangles.byteLength + (r.mesh.sharp?.byteLength ?? 0) : 0;
   const e = (r.edges ?? []).reduce((a, x) => a + x.pts.byteLength + 200, 0);
   return m + e + (r.faces?.length ?? 0) * 200 + (r.vertices?.length ?? 0) * 40;
 }
@@ -31,7 +31,7 @@ export function sizeOf(r: KernelResult): number {
 export function looksRight(r: unknown): r is KernelResult {
   const x = r as Partial<KernelResult> | null;
   if (!x || typeof x !== "object" || !Array.isArray(x.ops) || typeof x.totalMs !== "number") return false;
-  if (x.mesh && !(x.mesh.vertices instanceof Float32Array && x.mesh.normals instanceof Float32Array && x.mesh.triangles instanceof Uint32Array)) return false;
+  if (x.mesh && !(x.mesh.vertices instanceof Float32Array && x.mesh.normals instanceof Float32Array && x.mesh.triangles instanceof Uint32Array && (x.mesh.sharp === undefined || x.mesh.sharp instanceof Float32Array))) return false;
   if (x.edges && !x.edges.every((e) => e.pts instanceof Float32Array)) return false;
   return true;
 }

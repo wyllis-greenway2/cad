@@ -2187,3 +2187,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_468 — 2026-11-15 — directive
 > do step 1 now
 (approves step 1 of `dec_sharp_edges_once`: the sharp edges of a mesh are remembered by the mesh on the page; step 2 is not approved)
+
+## in_469 — 2026-11-15 — directive
+> Do step 2 as well
+(approves step 2 of `dec_sharp_edges_once`: the sharp edges found once per body in the kernel's thread, kept with its description and sent in the answer)

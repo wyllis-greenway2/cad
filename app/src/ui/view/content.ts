@@ -8,7 +8,7 @@ import { clearGroup, trisMesh, ringOf, rgb } from "./pen.ts";
 import { cornerEdgesOf } from "./edges.ts";
 import { ownSegments } from "./split.ts";
 
-export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array }
+export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array; /** the sharp edges found by the kernel (`dec_sharp_edges_once`) and the angle they were found for */ sharp?: Float32Array; sharpDeg?: number }
 
 /** Every straight line and circle of the scene, whatever its origin, as flat pairs of points: the one list that all the lines are drawn from. */
 function linePairs(s: Scene, skip: ReadonlySet<Ref>): number[] {

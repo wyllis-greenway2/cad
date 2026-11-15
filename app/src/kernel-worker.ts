@@ -9,6 +9,7 @@ const post = (message: unknown, transfer: Transferable[] = []) => (self as unkno
 const buffers = (r: KernelResult): Transferable[] => {
   const out: Transferable[] = [];
   if (r.mesh) out.push(r.mesh.vertices.buffer, r.mesh.normals.buffer, r.mesh.triangles.buffer);
+  if (r.mesh?.sharp) out.push(r.mesh.sharp.buffer);
   for (const e of r.edges ?? []) out.push(e.pts.buffer);
   return out;
 };
