@@ -17,6 +17,9 @@ import {
   Plane,
   Vector,
   basicFaceExtrusion,
+  makeLine,
+  makeThreePointArc,
+  assembleWire,
   cast,
   makeAx3,
   genericSweep,
@@ -378,6 +381,45 @@ const OPS = {
     // op.frame = { origin, xDir, normal }: an explicit plane (e.g. a face of the body); otherwise the named base plane
     if (op.frame) return { kind: "sketch", drawing, plane: new Plane(op.frame.origin, op.frame.xDir, op.frame.normal), origin: undefined };
     return { kind: "sketch", drawing, plane: op.plane ?? "XY", origin: p("origin") ?? 0 };
+  },
+
+  /**
+   * A figure carried along a path of lines and arcs (`dec_sweep`, `in_444`): the profile (and the figures drawn inside it, cut out) stays as it is to the path where it starts. The path must touch the
+   * profile's plane at one of its ends; added to the body, cut from it, or a body of its own, as an extrusion is (`mode`).
+   */
+  sweep(op, ctx) {
+    const sketchOf = (id) => { const q = ctx.get(id, "sketch"); return q.drawing.sketchOnPlane(q.plane, q.origin); };
+    const outer = sketchOf(op.profile);
+    const face = outer.face();
+    const pn = face.normalAt();
+    const N = [pn.x, pn.y, pn.z];
+    const p0 = edgesOf(face)[0].startPoint;
+    const off = (q) => (q[0] - p0.x) * N[0] + (q[1] - p0.y) * N[1] + (q[2] - p0.z) * N[2];
+    let segs = op.path;
+    if (!segs?.length) throw new Error("there is no path");
+    const tol = 1e-3;
+    if (Math.abs(off(segs[0].a)) > tol) {
+      if (Math.abs(off(segs[segs.length - 1].b)) > tol) throw new Error("the path must start on the plane of the shape it carries");
+      segs = segs.map((s) => ({ a: s.b, b: s.a, m: s.m })).reverse();
+    }
+    const spine = assembleWire(segs.map((s) => (s.m ? makeThreePointArc(s.a, s.m, s.b) : makeLine(s.a, s.b))));
+    const make = (sk) => {
+      const solid = genericSweep(sk.wire, spine, { frenet: true, transitionMode: "right" });
+      if (!isValidSolid(solid)) throw new Error("the shape could not be carried along that path (a path that bends tighter than the shape is wide folds it over itself)");
+      return solid;
+    };
+    let solid = make(outer);
+    for (const h of op.holes ?? []) solid = solid.cut(make(sketchOf(h)));
+    if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the sweep when its holes were cut");
+    const target = op.target ? ctx.get(op.target, "solid").shape : null;
+    if (!target) return { kind: "solid", shape: solid };
+    if (op.mode === "cutOrAdd") {
+      const before = measureVolume(target);
+      try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut }; } catch { /* a join instead */ }
+      return { kind: "solid", shape: target.fuse(solid) };
+    }
+    if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
+    return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
   },
 
   /** Sketches joined side to side (`dec_loft_sketches`): smooth through all of them, or ruled (straight between each two); holes are lofted the same way and cut out. */

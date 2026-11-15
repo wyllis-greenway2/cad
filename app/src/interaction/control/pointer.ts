@@ -50,6 +50,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:hollow", label: "Hollow", icon: "hollow", op: "hollow" },
   { id: "op:revolve", label: "Revolve / spiral", icon: "revolve", op: "revolve" },
   { id: "op:loft", label: "Loft", icon: "loft", op: "loft" },
+  { id: "op:sweep", label: "Sweep", icon: "sweep", op: "sweep" },
   { id: "op:mirror", label: "Mirror copy", icon: "mirror", op: "mirror" },
   { id: "op:scale", label: "Scale", icon: "scale", op: "scale" },
   { id: "op:move", label: "Move", icon: "move", op: "move" },
@@ -68,7 +69,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
 ];
 const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:offset"] },
-  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:scale", "combine:parts"] },
+  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts"] },
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate"] },
   { id: "repeat", label: "Copy and repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:similar", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },

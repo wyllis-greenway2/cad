@@ -2082,3 +2082,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_443 — 2026-11-15 — question
 > isn't skin basically just a version of our hollow tool already? and what would be the difference between a sweep and a bend anyway?
 (asks whether reading 2 of `q_curved_extrusion` is already the hollow tool, and how a sweep differs from a bend)
+
+## in_444 — 2026-11-15 — directive
+> Yes, build the sweep, doesn't hollow already have an outward option depending on how you pull the arrow?
+(approves building the sweep as recommended in `q_curved_extrusion`; asks whether hollow already goes outward depending on which way the arrow is pulled)

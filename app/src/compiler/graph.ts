@@ -123,6 +123,23 @@ export function buildGraph(scene: Scene): GraphResult {
         prev = xid;
         break;
       }
+      case "sweep": {
+        // a figure (and the figures drawn inside it, holes) carried along a path of lines and arcs (`dec_sweep`): the path is stored as numbers, `ax,ay,az,bx,by,bz[,mx,my,mz]` a side, sides joined by `;`
+        const figs = figuresOf(st);
+        if (figs.length !== 1) { errors[st.id] = "a sweep takes one shape at a time"; break; }
+        const sk = profile(st, figs[0]!.outer);
+        if (typeof sk === "string") { errors[st.id] = sk; break; }
+        const holes: string[] = [];
+        let bad = "";
+        figs[0]!.holes.forEach((h, i) => { const hs = profile(st, h, `s_${st.id}h${i}`); if (typeof hs === "string") bad = hs; else { ops.push(hs); holes.push(hs.id); } });
+        if (bad) { errors[st.id] = bad; break; }
+        const path = String(st.params.path ?? "").split(";").filter(Boolean).map((side) => { const n = side.split(",").map(Number); return { a: n.slice(0, 3), b: n.slice(3, 6), ...(n.length >= 9 ? { m: n.slice(6, 9) } : {}) }; });
+        if (!path.length) { errors[st.id] = "choose the path to carry the shape along"; break; }
+        ops.push(sk);
+        ops.push({ id: xid, type: "sweep", profile: sk.id, ...(holes.length ? { holes } : {}), path, ...(prev ? { target: prev } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" });
+        prev = xid;
+        break;
+      }
       case "hollow": {
         // the body made hollow (`in_391`, `in_393`): `faces` named by where they were; `mode` "open" leaves those open, "keep" keeps them as walls and opens every other, "closed" leaves no face open; the wall is `thickness`, inward when positive, outward when negative
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
