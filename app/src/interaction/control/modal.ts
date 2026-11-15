@@ -125,9 +125,9 @@ export function doTyped(s: AppState, key: string): AppState {
   }
   if (s.op && s.op.kind === "edge" && s.op.variable && s.op.vary && key !== "Enter") {
     // a fillet whose size changes along the edge: Tab goes between the size at its start and the size at its end (`in_387`)
-    if (key === "Tab") return { ...s, op: { ...s.op, varField: (((s.op.varField ?? 0) + 1) % 3) as 0 | 1 | 2 } };
-    if (s.op.varField === 1) { const typed = typeOp({ ...s.op, typed: s.op.endTyped ?? "" }, key); return { ...s, op: { ...s.op, endTyped: typed.typed.replace(/^-/, "") } }; }
-    if (s.op.varField === 2) { const typed = typeOp({ ...s.op, typed: s.op.midTyped ?? "" }, key); return { ...s, op: { ...s.op, midTyped: typed.typed.replace(/^-/, "") } }; }
+    if (key === "Tab") { const order = s.op.rimVary ? [0, 2, 3, 4] : [0, 1, 2, 3, 4]; return { ...s, op: { ...s.op, varField: order[(Math.max(0, order.indexOf(s.op.varField ?? 0)) + 1) % order.length] as 0 | 1 | 2 | 3 | 4 } }; }
+    const slot = (["", "endTyped", "midTyped", "q1Typed", "q3Typed"] as const)[s.op.varField ?? 0];
+    if (slot) { const typed = typeOp({ ...s.op, typed: s.op[slot] ?? "" }, key); return { ...s, op: { ...s.op, [slot]: typed.typed.replace(/^-/, "") } }; }
   }
   if (s.op) {
     if (key === "Enter") return doApply(s);
@@ -150,7 +150,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     if (field >= 0 && field < 3) rot[field] = text;
     return { ...s, op: { ...s.op, rot, axis: (field as 0 | 1 | 2), value: null, typed: "" } };
   }
-  if (s.op && s.op.kind === "edge" && s.op.variable && s.op.vary && (field === 0 || field === 1 || field === 2)) return field === 1 ? { ...s, op: { ...s.op, endTyped: text, varField: 1 } } : field === 2 ? { ...s, op: { ...s.op, midTyped: text, varField: 2 } } : { ...s, op: { ...s.op, typed: text, varField: 0 } };
+  if (s.op && s.op.kind === "edge" && s.op.variable && s.op.vary && (field >= 0 && field <= 4)) { const slot = (["typed", "endTyped", "midTyped", "q1Typed", "q3Typed"] as const)[field]!; return { ...s, op: { ...s.op, [slot]: text, varField: field as 0 | 1 | 2 | 3 | 4 } }; }
   const mover = s.op ?? activeOp(s);
   if (mover && mover.kind === "move" && (mover.target === "body" || mover.target === "plane") && !s.repeat && !s.tool && field >= 0 && field < 3) {
     // the bubble on one of the move arrows (`in_215`): a distance typed along that axis; another axis starts again

@@ -487,7 +487,7 @@ function faceKinds(s: AppState): Frame["faceKinds"] {
 /** The end of the edge where the first size of a fillet that changes along it applies, in amber (`in_387`). */
 function variableStart(sc: Scene, op: AppState["op"]): Ref[] {
   if (!op || op.kind !== "edge" || !op.variable || !op.vary) return [];
-  return op.parts.flatMap((r) => { const l = sc.parts[r]; return l?.kind === "line" && l.origin === "body" && l.a !== l.b ? [l.a] : []; });
+  return op.parts.flatMap((r) => { const l = sc.parts[r]; return l?.kind === "line" && l.origin === "body" && (l.a !== l.b || op.rimVary) ? [l.a] : []; });
 }
 /** The choice between a fillet or chamfer that is the same size all along its edges and one with a size at each end of each edge (`in_387`, `in_391`): not for a rim, which has no ends. */
 function sizeKinds(s: AppState): Frame["sizeKinds"] {

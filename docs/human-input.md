@@ -1819,3 +1819,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_391 — 2026-11-15 — directive
 > lets build the not built yet stuff
 (asks that the items listed as not built in `dec_edits_saturate` after `in_390` be built)
+
+## in_392 — 2026-11-15 — directive
+> do the not built stuff please
+(asks that what `dec_edits_saturate` still lists as not built after `in_391` be built: the region for edges between a flat face and a cone, sphere or torus and for curved edges in general, a spherical corner for chamfers and for corners not at right angles, a size at more than three places along an edge, a rim with a size that changes along it)

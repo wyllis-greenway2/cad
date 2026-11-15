@@ -98,12 +98,17 @@ export interface Op {
   /** a fillet of one edge whose size changes along it (`in_387`): `value` is the size at the start of the edge and `endTyped` (empty: the same) the size at its other end */
   /** the edges chosen can have a size at each end: none of them is a rim (`in_387`, `in_391`) */
   vary?: boolean;
+  /** the edges chosen are rims (a circle): the size changes round the rim, with no end of its own (`in_391`) */
+  rimVary?: boolean;
   variable?: boolean;
   endTyped?: string;
   /** the number being typed is the end one (Tab switches) */
   /** a size at the middle of the edge too, and which of the three numbers is being typed: 0 the start, 1 the end, 2 the middle (Tab goes round, `in_391`) */
   midTyped?: string;
-  varField?: 0 | 1 | 2;
+  /** and at a quarter and three quarters of the way along (`in_391`) */
+  q1Typed?: string;
+  q3Typed?: string;
+  varField?: 0 | 1 | 2 | 3 | 4;
   /** rotate: the point it turns about (the rotator's centre; you can move it) */
   pivot: Vec3 | null;
   /** move and rotate: the body, or a drawn shape (its corners are `parts`, its plane is `plane`) */
@@ -300,7 +305,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
       if (m) return [{ mid: m, dir: edgeDirection(scene, pa.at, pb.at) }]; // (a curve that is not a circle: the arrow stands on the curve, in the middle of it)
       return [{ mid: add(pa.at, scale(sub(pb.at, pa.at), 0.25)), dir: edgeDirection(scene, pa.at, pb.at) }];
     });
-    return { ok: true, op: { ...base, vary: lines.length > 0 && lines.every((l) => l.kind === "line" && !l.circle && l.a !== l.b), parts: lines.map((p) => p.ref), edges, ranks: rimRanks(scene, lines.map((p) => p.ref)), sigs: edgeSignatures(scene, lines.map((p) => p.ref)) } }; // no size yet: drag the double arrow, or type one
+    return { ok: true, op: { ...base, vary: lines.length > 0 && (lines.every((l) => l.kind === "line" && !l.circle && l.a !== l.b) || lines.every((l) => l.kind === "line" && !!l.circle && l.a === l.b)), rimVary: lines.length > 0 && lines.every((l) => l.kind === "line" && !!l.circle && l.a === l.b), parts: lines.map((p) => p.ref), edges, ranks: rimRanks(scene, lines.map((p) => p.ref)), sigs: edgeSignatures(scene, lines.map((p) => p.ref)) } }; // no size yet: drag the double arrow, or type one
   }
   if (kind === "copy") {
     // a copy is a repeat of two (the thing and one more beside it): the same arrows and numbers, to place the copy
@@ -383,8 +388,16 @@ export function variableMid(op: Op, v: number): number | null {
   const t = typedNumber(op.midTyped ?? "");
   return t !== null && t > 0 ? t : null;
 }
+/** The sizes typed at a quarter and at three quarters of the way along the edges (`in_391`), as the step's `q1` and `q3` (only when the size at the other end is given too). */
+export function variableQuarters(op: Op, v: number): { q1?: number; q3?: number } {
+  if (!op.variable || !op.vary || op.kind !== "edge" || v === 0 || variableEnd(op, v) === null) return {};
+  const [a, b] = [typedNumber(op.q1Typed ?? ""), typedNumber(op.q3Typed ?? "")];
+  return { ...(a !== null && a > 0 ? { q1: a } : {}), ...(b !== null && b > 0 ? { q3: b } : {}) };
+}
 export function variableEnd(op: Op, v: number): number | null {
   if (!op.variable || !op.vary || op.kind !== "edge" || v === 0) return null;
+  // round a rim there is no end: the size comes back to where it began, so the end is the start, and the rim changes only if a size is given somewhere round it
+  if (op.rimVary) return [op.midTyped, op.q1Typed, op.q3Typed].some((x) => typedNumber(x ?? "") !== null) ? Math.abs(v) : null;
   const t = typedNumber(op.endTyped ?? "");
   return t !== null && t > 0 && Math.abs(t - Math.abs(v)) > 1e-9 ? t : null;
 }
@@ -538,7 +551,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   if (op.kind === "pushpull" && op.edit && !op.noEdit && (op.faceKind ?? "move") === "move") return v === 0 ? null : editCommand(scene, op.edit, v);
   if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
-  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(variableEnd(op, v) !== null ? { end: variableEnd(op, v)! } : {}), ...(variableMid(op, v) !== null ? { mid: variableMid(op, v)! } : {}), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
+  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(variableEnd(op, v) !== null ? { end: variableEnd(op, v)! } : {}), ...(variableMid(op, v) !== null ? { mid: variableMid(op, v)! } : {}), ...variableQuarters(op, v), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
   if (op.kind === "scale" && op.target === "shape") return v <= 0 ? null : scaleShapeCommand(scene, op, v);
   if (op.kind === "scale") {
     if (v <= 0) return null;

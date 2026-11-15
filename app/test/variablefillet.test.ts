@@ -53,11 +53,11 @@ test("the chip, the two numbers and Tab: Variable, 5, Tab, 12, Enter makes one s
   st = reduce(st, { type: "sizeKind", kind: "variable" }, env);
   st = type(st, "5");
   let fields = frameOf(st, { w: 800, h: 600 }).entry?.fields;
-  assert.deepEqual(fields?.map((f) => [f.label, f.value, f.active]), [["Start", "5", true], ["End", "5", false], ["Middle", "-", false]]);
+  assert.deepEqual(fields?.map((f) => [f.label, f.value, f.active]), [["Start", "5", true], ["End", "5", false], ["Middle", "-", false], ["1/4", "-", false], ["3/4", "-", false]]);
   st = key(st, "Tab");
   st = type(st, "12");
   fields = frameOf(st, { w: 800, h: 600 }).entry?.fields;
-  assert.deepEqual(fields?.map((f) => [f.label, f.value, f.active]), [["Start", "5", false], ["End", "12", true], ["Middle", "-", false]]);
+  assert.deepEqual(fields?.map((f) => [f.label, f.value, f.active]), [["Start", "5", false], ["End", "12", true], ["Middle", "-", false], ["1/4", "-", false], ["3/4", "-", false]]);
   st = key(st, "Enter");
   const step = scene(st.session).steps.at(-1)!;
   assert.equal(step.type, "edgeMod");
@@ -131,4 +131,61 @@ test("a size at the middle of the edge too: Start, End and Middle with Tab, and 
   const made = scene(st.session).steps.at(-1)!;
   assert.deepEqual([made.params.value, made.params.end, made.params.mid], [2, 6, 4]);
   assert.deepEqual(st.session.outcome.errors, {});
+});
+
+test("sizes at a quarter and three quarters of the way too: five numbers, Tab goes round, and the round goes through all of them", () => {
+  const s = open();
+  const flat = set(s, { value: 2, end: 2.0001 });
+  const bumps = set(s, { value: 2, end: 2.0001, q1: 6, mid: 2, q3: 6 });
+  assert.deepEqual(bumps.outcome.errors, {});
+  assert.ok(vol(bumps) < vol(flat) - 30, "bigger at a quarter and three quarters takes more");
+  // the same through the keys
+  const plain = run(open(), { type: "removeStep", id: "s_014" } as never);
+  const sc = scene(plain);
+  const edge = (Object.values(sc.parts) as Part[]).find((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "body" && (sc.parts[p.a] as unknown as { at: number[] }).at[2] !== (sc.parts[p.b] as unknown as { at: number[] }).at[2])!;
+  let st = createState({ ...plain, click: { ...plain.click, selection: [edge.ref] as never } });
+  st = reduce(st, { type: "begin", name: "edge" }, env);
+  st = reduce(st, { type: "sizeKind", kind: "variable" }, env);
+  st = key(type(st, "2"), "Tab");        // end
+  st = key(type(st, "2.5"), "Tab");      // middle
+  st = key(type(st, "2"), "Tab");        // a quarter
+  st = key(type(st, "6"), "Tab");        // three quarters
+  st = type(st, "6");
+  st = key(st, "Enter");
+  const made = scene(st.session).steps.at(-1)!;
+  assert.deepEqual([made.params.value, made.params.end, made.params.mid, made.params.q1, made.params.q3], [2, 2.5, undefined, 6, undefined].map((_, i) => [2, 2.5, 2, 6, 6][i]));
+  assert.deepEqual(st.session.outcome.errors, {});
+});
+
+// ---- a size that changes round a rim (`in_392`) ----
+test("a size that changes round the rim of a post: 1 mm at its start and 2.5 mm half way round, between the two constant ones, the same turned round, and made as a region past what the kernel can", () => {
+  const post = () => (openSession(kernel, readFileSync(new URL("./fixtures/stacked-posts-in_392.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+  const s = post();
+  const rim = (Object.values(scene(s).parts) as Part[]).find((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "body" && !!p.circle && Math.abs(p.circle.center[2] - 20) < 1e-6)!;
+  assert.equal(rim.a, rim.b, "one closed edge");
+  const round = (params: Record<string, string | number>) => run(s, { type: "addStep", step: { id: "s_x", type: "edgeMod", parts: [rim.ref] as never, params: { mode: "fillet", ...params } } });
+  const [c1, c25] = [vol(round({ value: 1 })), vol(round({ value: 2.5 }))];
+  const varied = round({ value: 1, end: 1, mid: 2.5 });
+  assert.deepEqual(varied.outcome.errors, {});
+  assert.ok(vol(varied) < c1 && vol(varied) > c25, `${vol(varied).toFixed(1)} between ${c1.toFixed(1)} and ${c25.toFixed(1)}`);
+  const turned = round({ value: 2.5, end: 2.5, mid: 1 });
+  assert.ok(vol(turned) < c1 && vol(turned) > c25 && Math.abs(vol(turned) - vol(varied)) < 0.5, "a half turn round gives the same volume");
+  const past = round({ value: 1, end: 1, mid: 30 });
+  assert.deepEqual(past.outcome.errors, {});
+  assert.match(Object.values(past.outcome.notes ?? {}).join(" "), /could not be made as a smooth round/);
+  assert.ok(vol(past) < c25, "larger than the post allows: as large as it goes at the middle");
+});
+
+test("the choice is offered for a closed rim, with no End, and Tab goes Start, Middle, 1/4, 3/4", () => {
+  const s = (openSession(kernel, readFileSync(new URL("./fixtures/stacked-posts-in_392.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+  const rim = (Object.values(scene(s).parts) as Part[]).find((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "body" && !!p.circle && Math.abs(p.circle.center[2] - 20) < 1e-6)!;
+  let st = createState({ ...s, click: { ...s.click, selection: [rim.ref] as never } });
+  st = reduce(st, { type: "begin", name: "edge" }, env);
+  assert.deepEqual(frameOf(st, { w: 800, h: 600 }).sizeKinds?.map((k) => k.id), ["constant", "variable"]);
+  st = reduce(st, { type: "sizeKind", kind: "variable" }, env);
+  st = key(type(st, "1"), "Tab");
+  st = key(type(st, "2.5"), "Enter");
+  assert.deepEqual(frameOf(st, { w: 800, h: 600 }).entry, null, "applied");
+  const made = scene(st.session).steps.at(-1)!;
+  assert.deepEqual([made.params.value, made.params.end, made.params.mid], [1, 1, 2.5]);
 });

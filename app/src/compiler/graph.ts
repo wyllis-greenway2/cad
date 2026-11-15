@@ -118,7 +118,7 @@ export function buildGraph(scene: Scene): GraphResult {
         const continues: boolean = !!chain && last?.type === "edgeMod" && last.id === prev && chain.mode === mode && end === undefined && !(last as { end?: number }).end;
         const here = { ref: refs, value };
         chain = continues ? { ...chain!, mods: [...chain!.mods, here] } : { base: prev, mode, mods: [here] };
-        ops.push({ id: xid, type: "edgeMod", target: prev, ref: refs, mode, value, ...(end !== undefined ? { end } : {}), ...(end !== undefined && st.params.mid !== undefined ? { mid: Number(st.params.mid) } : {}), ...(st.params.corner ? { corner: true } : {}), ...(chain.mods.length > 1 ? { together: { base: chain.base, mods: chain.mods } } : {}) });
+        ops.push({ id: xid, type: "edgeMod", target: prev, ref: refs, mode, value, ...(end !== undefined ? { stations: stationsOf(value, end, st.params) } : {}), ...(st.params.corner ? { corner: true } : {}), ...(chain.mods.length > 1 ? { together: { base: chain.base, mods: chain.mods } } : {}) });
         prev = xid;
         break;
       }
@@ -157,4 +157,10 @@ export function buildGraph(scene: Scene): GraphResult {
     }
   }
   return { graph: { params: {}, ops }, errors };
+}
+
+/** The sizes along the edge of a fillet or chamfer that changes along it (`in_387`, `in_391`): [place from 0 at the start to 1 at the other end, size] at the start, at a quarter, the middle and three quarters when they are given, and at the end. */
+function stationsOf(value: number, end: number, p: Record<string, string | number>): [number, number][] {
+  const at = (key: string, t: number): [number, number][] => (p[key] !== undefined && Number(p[key]) > 0 ? [[t, Number(p[key])]] : []);
+  return [[0, value], ...at("q1", 0.25), ...at("mid", 0.5), ...at("q3", 0.75), [1, end]];
 }
