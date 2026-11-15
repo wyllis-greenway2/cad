@@ -1799,3 +1799,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_386 — 2026-11-15 — approval
 > okay lets do A and B and mark C as a later project in our to do when we write our own kernel
 (approves options A and B of `q_edits_saturate`, and asks that C, rebuilding bodies from their surfaces, be recorded as a later project in the to-do list, for when our own kernel is written)
+
+## in_387 — 2026-11-15 — directive
+> Extend B to rims and variable fillet
+(asks that option B of `dec_edits_saturate` (fillets and chamfers as regions that do not fail) be extended to rims, the circular edges of posts and holes, and that a variable fillet be added)

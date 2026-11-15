@@ -29,7 +29,7 @@ import { scene as sceneOf, selection as selectionOf, previewCommand, previewRefu
 import type { Session } from "./session.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { SIMILAR_RULES } from "./similar.ts";
-import { startOp, opCommand, bodyMotion } from "./operations.ts";
+import { startOp, opCommand, bodyMotion, valueOf } from "./operations.ts";
 import { matrixOf, applyPoint } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
 import type { Command } from "../operation/commands.ts";
@@ -122,6 +122,8 @@ export interface Frame {
   refusal: { text: string; button: string; /** the constraint it stands beside */ beside: string } | null;
   /** push / pull of one flat face: what it does, to choose (`in_386`) */
   faceKinds: { id: "move" | "extrude" | "extend"; label: string; title: string; on: boolean }[] | null;
+  /** a fillet of one edge: the same size all along, or a size at each end (`in_387`) */
+  sizeKinds: { id: "constant" | "variable"; label: string; title: string; on: boolean }[] | null;
   selection: { count: number; actions: { id: string; label: string; title: string }[] } | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate"; label: string } | null;
@@ -318,7 +320,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     followers: gpu?.followers ?? [],
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
     highlight: { hover: s.session.hover, hoverPoint: s.hoverPoint, selection: sel,
-    amber: [...new Set([...focusParts(sc, sel, s.focus), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
+    amber: [...new Set([...focusParts(sc, sel, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
     preview: withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
     entry: movingOp || (shownOp && !s.tool && hasGizmo(shownOp.kind) && !numberShown) ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
     entries: s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
@@ -346,6 +348,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     similar: similarChip(s),
     selection: selectionChip(s),
     faceKinds: faceKinds(s),
+    sizeKinds: sizeKinds(s),
     resetView: !s.anim && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
     modeSwitch: gizmo && !s.repeat ? modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : null,
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
@@ -477,6 +480,24 @@ function faceKinds(s: AppState): Frame["faceKinds"] {
   const op = s.op;
   if (!op || op.kind !== "pushpull" || op.parts.length !== 1 || op.curved || op.rounded || op.roundAxis || (op.faces?.length ?? 0) > 1) return null;
   return FACE_KINDS.map((k) => ({ ...k, on: (op.faceKind ?? "move") === k.id }));
+}
+/** The end of the edge where the first size of a fillet that changes along it applies, in amber (`in_387`). */
+function variableStart(sc: Scene, op: AppState["op"]): Ref[] {
+  if (!op || op.kind !== "edge" || !op.variable || op.parts.length !== 1) return [];
+  const l = sc.parts[op.parts[0]!];
+  return l?.kind === "line" && l.origin === "body" && l.a !== l.b ? [l.a] : [];
+}
+/** The choice between a fillet of one edge that is the same size all along and one with a size at each end (`in_387`): only for one edge that is rounded (a chamfer has one size). */
+function sizeKinds(s: AppState): Frame["sizeKinds"] {
+  const op = s.op;
+  if (!op || op.kind !== "edge" || op.parts.length !== 1) return null;
+  const v = valueOf(op);
+  if (v !== null && v < 0) return null;
+  const on = !!op.variable;
+  return [
+    { id: "constant", label: "Constant", title: "The same size all along the edge", on: !on },
+    { id: "variable", label: "Variable", title: "A size at the start of the edge (the end shown in amber) and a size at its other end (Tab goes between them); the round grows or shrinks along the edge", on },
+  ];
 }
 function selectionChip(s: AppState): Frame["selection"] {
   const n = selectionOf(s.session).length;

@@ -95,6 +95,11 @@ export interface Op {
   noEdit?: boolean;
   /** what pushing or pulling a flat face does (`in_386`): `move` (the default: the step that made the face changes), `extrude` (a prism of the face's outline is added or taken), `extend` (the face moves and its neighbours are carried on until they meet) */
   faceKind?: "move" | "extrude" | "extend";
+  /** a fillet of one edge whose size changes along it (`in_387`): `value` is the size at the start of the edge and `endTyped` (empty: the same) the size at its other end */
+  variable?: boolean;
+  endTyped?: string;
+  /** the number being typed is the end one (Tab switches) */
+  endActive?: boolean;
   /** rotate: the point it turns about (the rotator's centre; you can move it) */
   pivot: Vec3 | null;
   /** move and rotate: the body, or a drawn shape (its corners are `parts`, its plane is `plane`) */
@@ -356,6 +361,12 @@ export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
   return r.ok ? { ...r.op, auto: true } : null;
 }
 
+/** The size at the other end of a fillet that changes along its edge, or null when the fillet is the same all along (`in_387`; only a fillet of one edge changes, a chamfer does not). */
+export function variableEnd(op: Op, v: number): number | null {
+  if (!op.variable || op.kind !== "edge" || v <= 0 || op.parts.length !== 1) return null;
+  const t = typedNumber(op.endTyped ?? "");
+  return t !== null && t > 0 && Math.abs(t - v) > 1e-9 ? t : null;
+}
 /** The number the operation will use: what was typed, else the pointer's or default value. */
 export const valueOf = (op: Op): number | null => {
   const t = typedNumber(op.typed);
@@ -506,7 +517,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   if (op.kind === "pushpull" && op.edit && !op.noEdit && (op.faceKind ?? "move") === "move") return v === 0 ? null : editCommand(scene, op.edit, v);
   if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
-  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
+  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(variableEnd(op, v) !== null ? { end: variableEnd(op, v)! } : {}), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
   if (op.kind === "scale" && op.target === "shape") return v <= 0 ? null : scaleShapeCommand(scene, op, v);
   if (op.kind === "scale") {
     if (v <= 0) return null;

@@ -55,6 +55,8 @@ export type Intent =
   | { type: "overrideRefusal" }
   /** what pushing or pulling a flat face does: move it with the step that made it, extrude a prism from it, or extend it with its neighbours (`in_386`) */
   | { type: "faceKind"; kind: "move" | "extrude" | "extend" }
+  /** a fillet of one edge: the same size all along, or a size at each end (`in_387`) */
+  | { type: "sizeKind"; kind: "constant" | "variable" }
   /** the pointer is over that button: the flash waits (`in_366`) */
   | { type: "holdFlash" }
   /** start a drawing tool or an operation (a key or the menu) */
