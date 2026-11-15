@@ -80,6 +80,16 @@ export function buildGraph(scene: Scene): GraphResult {
         prev = xid;
         break;
       }
+      case "revolve": {
+        // a figure turned about a line in its own plane, any angle, with an advance along the axis for a spiral (`dec_spiral_extrude`, `in_420`); the axis is stored as numbers (a point on it and its direction), as a push / pull stores its face
+        const sk = profile(st);
+        if (typeof sk === "string") { errors[st.id] = sk; break; }
+        const p = st.params;
+        ops.push(sk);
+        ops.push({ id: xid, type: "revolve", profile: sk.id, axis: { p: [Number(p.ax), Number(p.ay), Number(p.az)], d: [Number(p.dx), Number(p.dy), Number(p.dz)] }, angle: Number(p.angle ?? 0), advance: Number(p.advance ?? 0), ...(prev ? { target: prev } : {}), mode: !prev ? "add" : p.mode === "add" || p.mode === "cut" || p.mode === "new" ? String(p.mode) : "cutOrAdd" });
+        prev = xid;
+        break;
+      }
       case "hollow": {
         // the body made hollow (`in_391`, `in_393`): `faces` named by where they were; `mode` "open" leaves those open, "keep" keeps them as walls and opens every other, "closed" leaves no face open; the wall is `thickness`, inward when positive, outward when negative
         if (!prev) { errors[st.id] = "there is no body yet"; break; }

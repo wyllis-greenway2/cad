@@ -1,9 +1,9 @@
 ---
 id: dec_spiral_extrude
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_420
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_420, in_421
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -19,11 +19,12 @@ alternative_to:
 4. **Kernel:** a plain revolve of up to 360 degrees is the kernel's own revolution. Past 360 with no advance the extra turns lie on the first (the same body), so the angle is limited to 360 until there is an advance. With an advance the figure is swept along a helix about the axis (the kernel's pipe shell on a helical spine, with the profile kept at the same angle to the axis); the result must not cross itself: an advance per turn smaller than the figure is wide along the axis is refused with the reason.
 5. **As a step** `revolve` with `angle`, `advance` and the axis named by what it is (a line of the sketch, a world axis); a change of the number changes the step, as every other operation does (`dec_modifications_are_steps`).
 
-**Open choices for the human.**
-- **Which axis?** (A) a line **in** the figure's plane (a sketch line or a world axis): the classic revolve, and with an advance the screw thread (draw the tooth in section, spin it about the shaft). (B) the **normal** of the figure's plane: the figure turns about its own normal while it is extruded (a twist extrude: a star turned into a twisted bar, an off-centre circle into a coil, a lobed section into an auger or thread). The AI recommends **A** (it is what a screw is made from) and B as a second operation later; `in_420` says "normal to the plane", which could mean either.
+**Decided (`in_421`):** the axis is a line **in** the figure's plane (A); a **circle arrow** sets the angle and a straight **arrow along the axis** sets the advance. The twist about the normal (B) is not built. **Choices still open:**
 - Where the curved arrow lies (a ring round the axis, standing on the figure).
 - Whether the turn past 360 with no advance should be allowed at all (it changes nothing).
 
+**Built (`in_421`).** Select a closed figure (and, if you like, a line in its plane) and choose **Revolve / spiral** in the Shape menu. The figure turns about **a line in its plane**: the line selected with it, a world axis in its plane, or one of its own sides (a chip "Axis:" chooses; a line the figure crosses is not offered). Two numbers, typed or dragged, Tab between them: **Angle** (any size, either way; the ring round the axis keeps counting past one turn) and **Advance** (mm along the axis over the whole angle; the arrow along the axis; none for a plain revolve). The step is `revolve` (`angle`, `advance`, the axis as numbers); the kernel's `revolve` op makes a plain turn of up to 360 degrees by revolution and a spiral by sweeping the figure along a helix about the axis (exactly a screw motion: the volume equals area times the path of the figure's middle, to four figures). Refused with the reason: a turn past 360 degrees with no advance, an advance a turn that is less than the figure is wide along the axis (the turns would overlap), an axis outside the figure's plane or through the figure. Whether it adds, cuts or stands apart is decided when it is made, as for an extrusion. **Not built:** a figure with holes or several figures at once; the twist about the plane's normal (B).
+
 ## Rationale
 
-Revolve is in the blueprint's operation list (`docs/origin/CAD_Blueprint.original.md`, "Revolve sketch around axis") and threads are a stated goal; a spiral is a revolve with an advance, so one operation with two numbers covers rings, bowls, screws and springs. Provisional: the axis and the arrow layout are for the human to decide.
+Revolve is in the blueprint's operation list (`docs/origin/CAD_Blueprint.original.md`, "Revolve sketch around axis") and threads are a stated goal; a spiral is a revolve with an advance, so one operation with two numbers covers rings, bowls, screws and springs. Accepted with the axis and arrow layout chosen by the human (`in_421`).

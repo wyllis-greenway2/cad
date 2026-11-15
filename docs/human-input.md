@@ -1959,3 +1959,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_420 — 2026-11-15 — directive
 > not a bug, can we add a feature. Can we offer a rotate extrude curved arrow that is normal to the plane, probably a full circle arrow so you can extrude more than 360 degrees. It should offer an arrow perpendicular to the rotational direction in order to make spirals like screws. Basically this would be a rotate extrude that also has the ability to spiral.
 (a feature request: revolve with turns beyond 360 degrees and a pitch; recorded as the provisional `dec_spiral_extrude`, not built until the human chooses)
+
+## in_421 — 2026-11-15 — approval
+> Which axis should the new spiral/revolve operation turn the figure about? = In the figure's plane (Recommended)
+> How should the two arrows work? = Circle arrow + axis arrow (Recommended)
+(answers to two questions about `dec_spiral_extrude`: the axis lies in the figure's plane; a circle arrow sets the angle, a straight arrow along the axis sets the advance)

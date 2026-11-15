@@ -18,6 +18,10 @@ import {
   Vector,
   basicFaceExtrusion,
   cast,
+  makeAx3,
+  genericSweep,
+  revolution,
+  Wire,
 } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers } from "./bodies.mjs";
@@ -419,6 +423,65 @@ const OPS = {
     // "new" (`in_295`): a piece that stood apart when it was made stays a body of its own, however the others grow later: no join, one compound
     if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
     return { kind: "solid", shape: op.mode === "cut" ? target.cut(toolOf(back)) : target.fuse(solid) };
+  },
+
+  /**
+   * Revolve a figure about an axis in its own plane, through `angle` degrees (any size, either way) while it advances `advance` mm along the axis over the whole angle (`dec_spiral_extrude`, `in_420`):
+   * a ring or a bowl with no advance (at most one turn: more would lie on itself), a screw thread or a spring with one. Added to the body, cut from it, or a body of its own, as an extrusion is (`mode`).
+   */
+  revolve(op, ctx) {
+    const angle = resolve(op.angle, ctx.params);
+    const advance = resolve(op.advance ?? 0, ctx.params);
+    if (!Number.isFinite(angle) || Math.abs(angle) < 1e-6) throw new Error("the turn must be more than nothing");
+    const p = ctx.get(op.profile, "sketch");
+    const sk = p.drawing.sketchOnPlane(p.plane, p.origin);
+    const A = op.axis.p;
+    const D = (() => { const l = Math.hypot(...op.axis.d); return op.axis.d.map((x) => x / l); })();
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    const face = sk.face();
+    // the axis must lie in the plane of the figure, and the figure must be on one side of it
+    const pn = face.normalAt();
+    if (Math.abs(dot([pn.x, pn.y, pn.z], D)) > 1e-4) throw new Error("the axis must lie in the plane of the figure");
+    const pts = [];
+    for (const e of edgesOf(face)) for (const t of [0, 0.5, 1]) { const q = e.pointAt(t); pts.push([q.x, q.y, q.z]); }
+    const along = pts.map((q) => dot(sub(q, A), D));
+    const rel = pts.map((q, i) => { const w = sub(q, A); return [w[0] - along[i] * D[0], w[1] - along[i] * D[1], w[2] - along[i] * D[2]]; });
+    const far = rel.reduce((m, w) => (Math.hypot(...w) > Math.hypot(...m) ? w : m), [0, 0, 0]);
+    const r0 = Math.hypot(...far);
+    if (r0 < 1e-6) throw new Error("the figure lies on the axis");
+    const U = far.map((x) => x / r0);
+    const side = rel.map((w) => dot(w, U));
+    if (side.some((x) => x < -1e-4)) throw new Error("the axis crosses the figure: draw the figure on one side of it");
+    let solid;
+    if (Math.abs(advance) < 1e-9) {
+      if (Math.abs(angle) > 360 + 1e-6) throw new Error("a turn of more than 360 degrees with no advance lies on itself: give it an advance, or turn it once");
+      solid = revolution(face, A, angle > 0 ? D : D.map((x) => -x), Math.abs(angle));
+    } else {
+      const turns = Math.abs(angle) / 360;
+      const pitch = Math.abs(advance) / turns;
+      const lo = Math.min(...along), hi = Math.max(...along);
+      if (hi - lo > pitch + 1e-4) throw new Error(`the figure is ${Math.round((hi - lo) * 100) / 100} mm wide along the axis and the advance is ${Math.round(pitch * 100) / 100} mm a turn: the turns would overlap`);
+      const [mid, r] = [(lo + hi) / 2, Math.max(...side)];
+      // the helix runs through the middle of the figure, at its far side, about the axis; the figure is carried along it as one rigid screw motion (the kernel's frame of a helix does exactly that)
+      const dir = advance > 0 ? D : D.map((x) => -x);
+      const helixCcw = (angle > 0) === (advance > 0); // (a right hand helix turns counter-clockwise about its own direction)
+      const centre = [A[0] + D[0] * mid, A[1] + D[1] * mid, A[2] + D[2] * mid];
+      const spine = helix(pitch, pitch * turns, r, centre, dir, U, !helixCcw);
+      // the helix starts at the far side of the figure, in its plane: the figure is swept from where it is
+      const wire = sk.wire;
+      solid = genericSweep(wire, spine, { frenet: true });
+      if (!isValidSolid(solid)) throw new Error("the spiral could not be made at this size");
+    }
+    const target = op.target ? ctx.get(op.target, "solid").shape : null;
+    if (!target) return { kind: "solid", shape: solid };
+    if (op.mode === "cutOrAdd") {
+      const before = measureVolume(target);
+      try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut }; } catch { /* a join instead */ }
+      return { kind: "solid", shape: target.fuse(solid) };
+    }
+    if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
+    return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
   },
 
   /**
@@ -866,6 +929,21 @@ function hollowByShells(outer, inner) {
   maker.delete();
   if (!isValidSolid(out)) throw new Error("the wall could not be made at this thickness");
   return out;
+}
+
+/** A helix about the axis through `centre` along `dir`, starting at `radius` from it in the direction `xDir`: `pitch` mm a turn, `height` mm long (the library's own helix always starts in a direction it picks). */
+function helix(pitch, height, radius, centre, dir, xDir, left) {
+  const oc = getOC();
+  const turns = height / pitch;
+  const line = new oc.Geom2d_Line(new oc.gp_Pnt2d(0, 0), new oc.gp_Dir2d(left ? -2 * Math.PI : 2 * Math.PI, pitch));
+  const from = line.Value(0);
+  const to = line.Value(turns * Math.sqrt((2 * Math.PI) ** 2 + pitch ** 2));
+  const seg = new oc.GC_MakeSegment2d(from, to);
+  const surface = new oc.Geom_CylindricalSurface(makeAx3(centre, dir, xDir), radius);
+  const edge = new oc.BRepBuilderAPI_MakeEdge(seg.Value(), surface).Edge();
+  const wire = new oc.BRepBuilderAPI_MakeWire(edge).Wire();
+  oc.BRepLib.BuildCurves3d(wire);
+  return new Wire(wire);
 }
 
 /** The solid thickened by `th` (inward when positive) with the faces `open` removed; the faces' offsets meet at sharp corners (`in_394`). */

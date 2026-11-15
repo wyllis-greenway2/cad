@@ -31,7 +31,7 @@ export interface Relation {
 /** A step of the history of building: extrude, round or bevel, move, rotate, scale, delete. It names the parts it uses by ref. */
 export interface Step {
   id: string;
-  type: "extrude" | "pushPull" | "edgeMod" | "move" | "rotate" | "scale" | "pattern" | "combine" | "hollow" | "delete";
+  type: "extrude" | "pushPull" | "edgeMod" | "move" | "rotate" | "scale" | "pattern" | "combine" | "hollow" | "revolve" | "delete";
   parts: Ref[];
   params: Record<string, number | string>;
 }

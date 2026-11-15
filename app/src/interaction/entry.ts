@@ -14,6 +14,7 @@ import { basis } from "./camera.ts";
 import { settings } from "../shared/settings.ts";
 import { add, scale } from "../math/vec.ts";
 import { OP_FIELD, OP_UNIT, valueOf, turnAngles, sizeShown } from "./operations.ts";
+import { advanceOf } from "./revolve.ts";
 
 export interface EntryField { label: string; value: string; active: boolean; typed: boolean; /** a short name shown in front of the number when there are several (X Y Z) */ short?: string; /** which numbered field of its operation it is, when the operation has several bubbles */ index?: number }
 /** `at`: where in the scene the bubble sits (null: no place to attach it to) */
@@ -27,6 +28,15 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     const now = turnAngles(scene, op);
     const i = op.axis;
     return { fields: [{ label: "XYZ"[i]!, short: "XYZ"[i]!, value: op.rot[i] !== "" ? op.rot[i]! : roundedText(now[i]!), active: true, typed: op.rot[i] !== "", index: i }], unit: "deg" };
+  }
+  if (op && op.kind === "revolve") {
+    // the angle (any size: past 360 it goes on round) and the advance along the axis (a spiral if it is not nothing), Tab goes between them (`dec_spiral_extrude`)
+    const angle = valueOf(op);
+    const on = op.revField ?? 0;
+    return { fields: [
+      { label: "Angle", short: "°", value: op.typed !== "" ? op.typed : roundedText(angle ?? 0), active: on === 0, typed: op.typed !== "", index: 0 },
+      { label: "Advance", short: "↔", value: (op.advTyped ?? "") !== "" ? op.advTyped! : roundedText(advanceOf(op)), active: on === 1, typed: (op.advTyped ?? "") !== "", index: 1 },
+    ], unit: "deg · mm" };
   }
   if (op) {
     const v = valueOf(op);

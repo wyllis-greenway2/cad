@@ -127,6 +127,8 @@ export interface Frame {
   /** push / pull of one flat face: what it does, to choose (`in_405`) */
   faceKinds: { id: "move" | "extrude" | "extend"; label: string; title: string; on: boolean }[] | null;
   /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
+  /** a revolve: the lines the figure can turn about, one chosen (`dec_spiral_extrude`) */
+  axisKinds: { id: string; label: string; title: string; on: boolean }[] | null;
   sizeKinds: { id: "constant" | "variable"; label: string; title: string; on: boolean }[] | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate" | "linear" | "circular" | "invert"; label: string } | null;
@@ -357,6 +359,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     modeSwitch: gizmo ? (s.repeat ? repeatSwitchOf(s.repeat, gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points))) : null,
     faceKinds: faceKinds(s),
     sizeKinds: sizeKinds(s),
+    axisKinds: axisKinds(s),
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
     message: s.session.message ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
   };
@@ -497,6 +500,12 @@ function faceKinds(s: AppState): Frame["faceKinds"] {
   if ((op.faces?.length ?? 0) > 1) return FACE_KINDS.filter((k) => k.id !== "move").map((k) => ({ ...k, on: (op.faceKind ?? "extrude") === k.id }));
   if (op.parts.length !== 1) return null;
   return FACE_KINDS.map((k) => ({ ...k, on: (op.faceKind ?? "move") === k.id }));
+}
+/** The lines a figure being revolved can turn about, as choices (`dec_spiral_extrude`, `in_421`). */
+function axisKinds(s: AppState): Frame["axisKinds"] {
+  const op = s.op;
+  if (!op || op.kind !== "revolve" || !op.revAxes || op.revAxes.length < 2) return null;
+  return op.revAxes.slice(0, 8).map((a, i) => ({ id: String(i), label: a.label, title: `Turn the figure about ${a.label}`, on: (op.axisIx ?? 0) === i }));
 }
 /** The end of the edge where the first size of a fillet that changes along it applies, in amber (`in_406`). */
 function variableStart(sc: Scene, op: AppState["op"]): Ref[] {

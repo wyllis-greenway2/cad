@@ -30,9 +30,11 @@ import { actionsFor, measureAction } from "./actions.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { drawnRef, formatId } from "../shared/ref.ts";
 import { objectOf, bodyCentre, figurePartsOf } from "./objects.ts";
+import type { RevAxis } from "./revolve.ts";
+import { revolveAxes, revolveCommand } from "./revolve.ts";
 import { settings } from "../shared/settings.ts";
 
-export type OpKind = "extrude" | "pushpull" | "offset" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular" | "copy" | "hollow";
+export type OpKind = "extrude" | "pushpull" | "offset" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular" | "copy" | "hollow" | "revolve";
 export interface Op {
   kind: OpKind;
   /** the parts it works on: the lines or circle of a figure, a face of the body, the lines of the body, the body, or the corners of a drawn figure */
@@ -83,6 +85,12 @@ export interface Op {
   rot: [string, string, string];
   /** a scale of a body: the factor along each axis when an axis arrow has been pulled (`dec_scale_axes`); absent for the same factor every way */
   axes?: [number, number, number];
+  /** revolve (`dec_spiral_extrude`): the lines the figure can turn about and which one is used, the advance along it (typed, or from its arrow) and which of the two numbers is being typed (0 the angle, 1 the advance) */
+  revAxes?: RevAxis[];
+  axisIx?: number;
+  advTyped?: string;
+  advValue?: number | null;
+  revField?: 0 | 1;
   /** hollow: the faces left open, each as `nx,ny,nz,d,px,py,pz`, joined by `;` (`in_391`) */
   openFaces?: string;
   /** hollow: the faces named are kept as the walls (the others open), or are the open ones, or nothing is open (`in_393`) */
@@ -127,8 +135,8 @@ export interface Op {
   unit?: string;
 }
 
-export const OP_UNIT: Record<OpKind, string> = { hollow: "mm", extrude: "mm", pushpull: "mm", offset: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm", linear: "mm", circular: "mm", copy: "mm" };
-export const OP_FIELD: Record<OpKind, string> = { hollow: "Wall", extrude: "Distance", pushpull: "Distance", offset: "Offset", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", linear: "Repeat", circular: "Repeat", copy: "Repeat", dimension: "Value" };
+export const OP_UNIT: Record<OpKind, string> = { revolve: "deg", hollow: "mm", extrude: "mm", pushpull: "mm", offset: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm", linear: "mm", circular: "mm", copy: "mm" };
+export const OP_FIELD: Record<OpKind, string> = { revolve: "Angle", hollow: "Wall", extrude: "Distance", pushpull: "Distance", offset: "Offset", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", linear: "Repeat", circular: "Repeat", copy: "Repeat", dimension: "Value" };
 
 export type StartResult = { ok: true; op: Op } | { ok: false; why: string };
 
@@ -229,6 +237,18 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     if (!pl || pl.kind !== "plane") return { ok: false, why: "the figure is not on a plane" };
     const pts = face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
     return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, figs: { ...figureParams(faces.map((f) => figureOf(scene, f))), ...(faces.some((f) => f.pieces) ? { cut: "1" } : {}) }, origin: centroid(pts), normal: normalOfPlane(pl), dim: { base: 0, scale: 1 } } };
+  }
+  if (kind === "revolve") {
+    // a closed figure turned about a line in its plane, any angle, with an advance for a spiral (`dec_spiral_extrude`): the line selected with it, a world axis in its plane, or one of its own sides
+    const lines = parts.filter((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "drawn");
+    const face = drawnFaces(scene, parts.filter((p) => p.kind !== "line"))[0];
+    if (!face) return { ok: false, why: "select a closed figure first (and a line in its plane to turn it about, if you like)" };
+    const pl = face.plane ? get(face.plane) : undefined;
+    if (!pl || pl.kind !== "plane") return { ok: false, why: "the figure is not on a plane" };
+    const axes = revolveAxes(scene, face, lines);
+    if (!axes.length) return { ok: false, why: "there is no line in the figure's plane to turn it about that the figure does not cross: draw a line beside it, or turn it about one of its own sides" };
+    const pts = face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
+    return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, origin: face.disk ? pointOf(get, (get(face.disk) as Extract<Part, { kind: "circle" }>).center) ?? centroid(pts) : centroid(pts), normal: normalOfPlane(pl), plane: face.plane, revAxes: axes, axisIx: 0, advTyped: "", advValue: null, revField: 0 } };
   }
   if (kind === "pushpull" && drawnFaces(scene, parts).length) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
   if (kind === "pushpull" && parts.length > 1) {
@@ -565,6 +585,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
     const a = measureAction(actionsFor(scene, op.parts), (x) => x.enabled);
     return a && v > 0 ? a.run(v) : null;
   }
+  if (op.kind === "revolve") return revolveCommand(scene, op, v);
   if (op.kind === "extrude") {
     if (v === 0) return null;
     // separate figures selected together are extruded in one go but each is a step, and so a body, of its own, with its own height (`in_353`); a hole inside a figure stays with it
@@ -717,7 +738,7 @@ function scaleShapeCommand(scene: Scene, op: Op, f: number): Command | null {
 }
 
 /** Operations that make one step and then change it as you drag or type again, until you click away: the value is the total since the operation began. */
-export const isLive = (op: Op): boolean => !op.auto && (op.kind === "extrude" || op.kind === "pushpull" || op.kind === "edge" || op.kind === "offset" || op.kind === "hollow");
+export const isLive = (op: Op): boolean => !op.auto && (op.kind === "extrude" || op.kind === "pushpull" || op.kind === "edge" || op.kind === "offset" || op.kind === "hollow" || op.kind === "revolve");
 
 /** A face as the figure an extrude uses: its sides (or circle) and those of each figure drawn inside it. */
 function figureOf(scene: Scene, face: Extract<Part, { kind: "face" }>): Figure {
