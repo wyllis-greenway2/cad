@@ -1,3 +1,4 @@
+import { anchorLines } from "../src/operation/anchors.ts";
 import { normalAngle, sectionNow } from "../src/interaction/control/section.ts";
 import { liveRepeat } from "../src/interaction/pattern.ts";
 import { keyIntents } from "../src/interaction/input/keys.ts";
@@ -1841,4 +1842,46 @@ test("numbers typed for the cross section: where it is along each axis while the
   st = reduce(st, { type: "entry", field: 3 + other, text: "30" }, env);
   near(normalAngle(sectionNow(st)!.n, other as 0 | 1 | 2), 30, 1e-4);
   assert.ok(Math.abs(Math.hypot(...sectionNow(st)!.n) - 1) < 1e-9, "still a unit normal");
+});
+
+test("a sketch on the cross section plane is held to the cut's own edges: the faces the plane cuts are lines, the round faces circles, to snap to and constrain (`in_397`)", () => {
+  let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
+  const sec = sectionNow(st)!;
+  const pl = scene(st.session).parts[sec.ref] as unknown as Parameters<typeof anchorLines>[1];
+  const lines = anchorLines(scene(st.session), pl);
+  const cut = lines.filter((l) => l.offset === 0);
+  assert.equal(cut.length, 4, "a block cut across has four edges where the plane meets its faces");
+  // the plane is the sketch plane when it is selected: the rectangle tool begins on it, and a corner near a cut edge is put on it
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  assert.ok(st.tool, "the tool is on with the plane selected");
+  const mid = (l: { a: Vec3; b: Vec3 }) => scale(add(l.a, l.b), 0.5);
+  const edge = cut[0]!;
+  const target = add(mid(edge), scale(sub(mid(edge), sec.centre), 0.01)); // (a hair off the edge)
+  st = reduce(st, { type: "hover", x: px(st, target)[0], y: px(st, target)[1] }, env);
+  assert.ok(st.tool!.hints?.some((h) => h.kind === "onLine" && h.ref === edge.ref), `the point is offered on the cut edge: ${JSON.stringify(st.tool!.hints)}`);
+});
+
+test("Look straight at the cross section plane turns the view to it (`in_397`)", () => {
+  let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
+  const menu = reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!;
+  const look = menu.items.find((i) => i.id === "view")!.children!.find((i) => i.id === "look")!;
+  assert.ok(look.enabled, "the plane is a surface to look at");
+  st = reduce(st, { type: "runAction", id: "look" }, env);
+  assert.ok(st.anim, "the view is turning to it");
+});
+
+test("a line started on a cut edge of the cross section plane is made with an on-line constraint to that face's cut, and the sketch stays on the plane (`in_397`)", () => {
+  let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
+  const sec = sectionNow(st)!;
+  const pl = scene(st.session).parts[sec.ref] as unknown as Parameters<typeof anchorLines>[1];
+  const edge = anchorLines(scene(st.session), pl).filter((l) => l.offset === 0)[0]!;
+  const m = scale(add(edge.a, edge.b), 0.5);
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  const click = (p: Vec3) => reduce(st, { type: "click", x: px(st, p)[0], y: px(st, p)[1], count: 1, shift: false }, env);
+  st = click(add(m, scale(sub(sec.centre, m), 0.01)));
+  st = click(sec.centre);
+  assert.equal(st.session.message, null);
+  const rels = scene(st.session).relations;
+  assert.ok(rels.some((r) => r.kind === "onLine" && r.parts.includes(edge.ref)), `relations: ${JSON.stringify(rels.map((r) => [r.kind, r.parts]))}`);
+  assert.ok(Object.values(scene(st.session).parts).some((p) => p.kind === "line" && p.origin === "drawn" && p.plane === sec.ref), "drawn on the cross section plane");
 });

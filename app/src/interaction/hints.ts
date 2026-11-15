@@ -69,7 +69,7 @@ function outlineSnap(scene: Scene, pl: Plane, pv: PointerView, e: V2, skip: (ref
   const onPlane = (p: Vec3) => Math.abs(dot(sub(p, pl.at), n)) < 1e-3;
   const seen = seenFrom(scene, pv, pl);
   const projected = new Map(anchorLines(scene, pl, { seen }).map((l) => [l.ref, [l.a, l.b] as [Vec3, Vec3]])); // (the straight edges of the body as they fall on this plane are lines too, read-only, `in_310`, `in_311`; the ones out of sight are not offered, `in_312`)
-  const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && ((p.origin === "drawn" && !p.center && !p.derived) || projected.has(p.ref)));
+  const lines = Object.values(scene.parts).filter((p) => (p.kind === "line" && ((p.origin === "drawn" && !p.center && !p.derived) || projected.has(p.ref))) || (p.kind === "plane" && p.origin === "body" && projected.has(p.ref))); // (a flat face the plane cuts is a line where it does, `in_313`, `in_397`)
   // on a line: close to a line (not one that starts here)
   let best: { at: V2; ref: Ref; px: number } | null = null;
   for (const l of lines) {
@@ -189,7 +189,7 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
   const tol = (settings.sketch.hintDeg * Math.PI) / 180;
   const seen = seenFrom(scene, pv, pl);
   const projected = new Map(anchorLines(scene, pl, { seen }).map((l) => [l.ref, [l.a, l.b] as [Vec3, Vec3]])); // (the straight edges of the body as they fall on this plane, `in_310`, `in_311`; the ones out of sight are not offered, `in_312`)
-  const lines = Object.values(scene.parts).filter((p) => p.kind === "line" && ((p.origin === "drawn" && !p.center && !p.derived) || projected.has(p.ref))); // (a piece a crossing cut from a line is not the line: constraints name the line, and the piece goes when the crossing does, `in_251`)
+  const lines = Object.values(scene.parts).filter((p) => (p.kind === "line" && ((p.origin === "drawn" && !p.center && !p.derived) || projected.has(p.ref))) || (p.kind === "plane" && p.origin === "body" && projected.has(p.ref))); // (a flat face the plane cuts is a line where it does, `in_313`, `in_397`) // (a piece a crossing cut from a line is not the line: constraints name the line, and the piece goes when the crossing does, `in_251`)
   const ends = (ref: Ref): [Vec3, Vec3] | null => projected.get(ref) ?? segmentOf(get, ref);
   const seg = (ref: Ref): [V2, V2] | null => { const q = ends(ref); return q && onPlane(q[0]) && onPlane(q[1]) ? [localOf(pl, q[0]), localOf(pl, q[1])] : null; };
   const touchesStart = (ref: Ref) => { const q = ends(ref); return !!q && (dist(q[0], start) < 1e-6 || dist(q[1], start) < 1e-6); };

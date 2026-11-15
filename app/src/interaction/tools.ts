@@ -88,7 +88,7 @@ export function snapOnPlane(spent: Scene, pv: PointerView, pl: Plane, skip?: Ref
   const projected = new Map(anchorLines(scene, pl, { seen }).map((l) => [l.ref, [l.a, l.b] as [Vec3, Vec3]]));
   let mid: { at: Vec3; px: number } | null = null;
   for (const l of Object.values(scene.parts)) {
-    if (l.kind !== "line" || l.center || l.derived || (l.origin !== "drawn" && !projected.has(l.ref))) continue;
+    if (!(l.kind === "line" || (l.kind === "plane" && l.origin === "body" && projected.has(l.ref))) || (l.kind === "line" && (l.center || l.derived)) || (l.origin !== "drawn" && !projected.has(l.ref))) continue; // (the cut of a flat face is a line too)
     const q = projected.get(l.ref) ?? segmentOf((r) => scene.parts[r], l.ref);
     if (!q || Math.abs(dot(sub(q[0], pl.at), normalOfPlane(pl))) > 1e-3 || Math.abs(dot(sub(q[1], pl.at), normalOfPlane(pl))) > 1e-3) continue;
     const m = scale(add(q[0], q[1]), 0.5);

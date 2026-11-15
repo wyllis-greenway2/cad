@@ -126,6 +126,18 @@ export function createView(host: HTMLElement) {
         sectionGroup.add(twin);
       }
     });
+    // the half that is cut away stays as a faint ghost, so it is plain what the cut is of (`in_397`)
+    const ghostMat = new THREE.MeshBasicMaterial({ color: 0x8a94a3, transparent: true, opacity: 0.07, side: THREE.DoubleSide, depthWrite: false, clippingPlanes: [new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(...secNow.n).normalize(), new THREE.Vector3(...secNow.at))] });
+    bodyGroup.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const twin = new THREE.Mesh(mesh.geometry, ghostMat);
+      twin.matrixAutoUpdate = false;
+      mesh.updateWorldMatrix(true, false);
+      twin.matrix.copy(mesh.matrixWorld);
+      twin.renderOrder = 4;
+      sectionGroup.add(twin);
+    });
     const n = new THREE.Vector3(...secNow.n).normalize();
     const u = new THREE.Vector3().crossVectors(Math.abs(n.z) < 0.9 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0), n).normalize();
     const v = new THREE.Vector3().crossVectors(n, u);
