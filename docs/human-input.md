@@ -2175,3 +2175,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_465 — 2026-11-15 — question
 > as I edit the cube, the non edited bodies go into coarse mode. How does this help? isn't this just more work because it is something to redraw from fine to coarse back to fine again?
 (asks why the bodies that are not edited are drawn roughly while a size is dragged; said it does not help for them, and changed)
+
+## in_466 — 2026-11-15 — directive
+> yes add the timing
+(approves adding timing for the stages of one edit outside the kernel)

@@ -83,6 +83,7 @@ const panel = createPanel(document.body, {
 let state: AppState;
 let lastFrame: ReturnType<typeof frameOf> | null = null;
 const timing = createTiming();
+let staleSince: number | null = null; // (when the picture began to wait for the kernel's answer: the time until that answer is drawn is what an edit makes you wait)
 let engine: Kernel = kernel; // the kernel in use: on its own thread when that could start (`boot`), else the one in this page
 let dirty = true;
 
@@ -373,6 +374,9 @@ function frame(now: number) {
     timing.add("frame: build what is drawn", tBuilt - tMade);
     timing.add("frame: draw (render)", tEnd - tBuilt);
     timing.add("frame: all", tEnd - tFrame);
+    const waiting = !!state.session.outcome.kernel?.stale;
+    if (waiting && staleSince === null) staleSince = tFrame;
+    else if (!waiting && staleSince !== null) { timing.add("edit: waiting for the kernel until its answer is drawn", tEnd - staleSince); staleSince = null; }
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);
     statusEl.textContent = f.message;
     statusEl.style.bottom = lastDevice === "touch" ? "108px" : ""; // (above the undo bar of a finger, and clear of the X Y Z buttons: a long message is not under them, `in_336`)

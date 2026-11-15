@@ -34,6 +34,7 @@ export function profileOf(k: CompileOutcome["kernel"]): Record<string, unknown> 
       ops: { total: ops.length, kept: ops.length - made.length, madeMs: r(made.reduce((a, o) => a + o.ms, 0)) },
       slowest: [...made].sort((a, b) => b.ms - a.ms).slice(0, 8).filter((o) => o.ms >= 1).map((o) => ({ id: o.id, type: o.type, ms: r(o.ms), ...(o.checkMs ? { checkMs: o.checkMs } : {}), ...(o.markMs ? { markMs: o.markMs } : {}), ...(o.stages ? { stages: o.stages } : {}), ...(o.error ? { error: true } : {}) })),
       describe: k.describe ?? null,
+      trip: k.trip ? { waitedForThreadMs: r(k.trip.waitMs), roundTripMs: r(k.trip.tripMs), messagesAndCopiesMs: r(k.trip.messageMs), ...(k.trip.threadMs !== undefined ? { requestToThreadMs: r(k.trip.toThreadMs!), threadMs: r(k.trip.threadMs), answerBackMs: r(k.trip.backMs!) } : {}) } : null,
     } : null,
   };
 }

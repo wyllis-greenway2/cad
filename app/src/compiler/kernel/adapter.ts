@@ -18,6 +18,8 @@ export interface KernelResult {
   faces: KernelFace[] | null;
   edges: KernelEdge[] | null;
   vertices: Vec[] | null;
+  /** the kernel's own thread (the browser): how long the request waited for the thread, and the round trip to the answer; what the thread's own work took is `totalMs`, the rest of the trip (`messageMs`) is the messages and the copies of the graph and the answer */
+  trip?: { waitMs: number; tripMs: number; messageMs: number; /** the request on its way to the thread (the graph copied, and the thread busy with something else), what the thread itself took from taking the request to sending the answer, and the answer on its way back (the copy, and the page's own thread busy drawing) */ toThreadMs?: number; threadMs?: number; backMs?: number };
   /** with several bodies: for each corner, the place of the body it is a corner of in `bodies` (the first, where two bodies share a place) */
   vertexBodies?: number[];
   totalMs: number;

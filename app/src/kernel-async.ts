@@ -35,9 +35,9 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   let timer: ReturnType<typeof setTimeout> | null = null;
   const cache = new Map<string, KernelResult>();
   let last: KernelResult = EMPTY;
-  let busy: { id: number; key: string; graph: KernelGraph; asked?: { resolve: (r: ExportResult) => void } } | null = null;
+  let busy: { id: number; key: string; graph: KernelGraph; asked?: { resolve: (r: ExportResult) => void }; at?: number; posted?: number } | null = null;
   const exports: { graph: KernelGraph; quality: ExportQuality; resolve: (r: ExportResult) => void }[] = []; // (the exports waiting: each is answered, none is dropped for a newer one)
-  let queued: { key: string; graph: KernelGraph; draft: boolean; lite: boolean } | null = null;
+  let queued: { key: string; graph: KernelGraph; draft: boolean; lite: boolean; at: number } | null = null;
   let counter = 0;
   const pump = () => {
     if (busy || !up) return;
@@ -51,9 +51,9 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
       return;
     }
     if (!queued) return;
-    const { key, graph, draft, lite } = queued;
+    const { key, graph, draft, lite, at } = queued;
     queued = null;
-    const job = { id: ++counter, key, graph };
+    const job = { id: ++counter, key, graph, at, posted: performance.now() };
     busy = job;
     worker.postMessage({ id: job.id, graph, draft, lite });
     timer = setTimeout(() => stuck(job.id), limit);
@@ -75,7 +75,8 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   let resolveReady: () => void = () => {};
   let rejectReady: (e: Error) => void = () => {};
   const ready = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
-  const onMessage = (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; result?: KernelResult; exported?: ExportResult }>) => {
+  const onMessage = (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; result?: KernelResult; exported?: ExportResult; at?: { started: number; sent: number } }>) => {
+    const received = performance.timeOrigin + performance.now();
     const m = e.data;
     if (m.ready) { up = true; resolveReady(); pump(); return; }
     if (m.id === undefined) return void rejectReady(new Error(m.failed ?? "the kernel could not start"));
@@ -94,6 +95,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
       onChange();
     }
     if (m.result) {
+      if (job.at !== undefined && job.posted !== undefined) { const now = performance.now(); const tripMs = now - job.posted; m.result.trip = { waitMs: job.posted - job.at, tripMs, messageMs: tripMs - (m.result.totalMs ?? 0), ...(m.at ? { toThreadMs: m.at.started - (performance.timeOrigin + job.posted), threadMs: m.at.sent - m.at.started, backMs: received - m.at.sent } : {}) }; }
       cache.set(job.key, m.result);
       if (store && !job.key.startsWith("draft:") && !job.key.startsWith("lite:") && !m.result.stale) store.put(job.key, m.result); // (the whole answers only: a rough one made while a size is dragged is not kept)
       if (cache.size > KEEP) cache.delete(cache.keys().next().value as string);
@@ -129,7 +131,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
         void store.get(key).then((kept) => { if (kept && !cache.has(key)) { cache.set(key, { ...kept, fromCache: true }); onChange(); } });
       }
       if (busy?.key === key) return { ...last, stale: true }; // already being worked out
-      queued = { key, graph, draft, lite }; // only the newest request is kept: what was asked before it is no longer wanted
+      queued = { key, graph, draft, lite, at: performance.now() }; // only the newest request is kept: what was asked before it is no longer wanted
       pump();
       return { ...last, stale: true }; // (what is shown meanwhile is marked, so nothing is built on it)
     },
