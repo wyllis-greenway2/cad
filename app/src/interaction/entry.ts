@@ -50,6 +50,13 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     const label = op.kind === "edge" ? (v !== null && v < 0 ? "Chamfer" : "Fillet") : op.dim ? (op.curved ? "Diameter" : op.kind === "pushpull" ? "Size" : op.kind === "hollow" ? "Wall" : "Distance") : (op.field ?? OP_FIELD[op.kind]) + axis;
     const size = sizeShown(op); // a push / pull or an extrude shows the size (the thickness, the diameter) you are making, and a typed size is that size
     const shown = size !== null ? size : op.kind === "edge" && v !== null ? Math.abs(v) : v;
+    if (op.kind === "edge" && op.twoDist && op.vary) {
+      // a chamfer with a distance along each face: the one along the face that is lit, and the one along the other (`dec_chamfer_two_distances`)
+      const first = op.typed !== "" ? op.typed.replace(/^-/, "") : shown === null ? "0" : roundedText(shown);
+      const second = (op.endTyped ?? "") !== "" ? op.endTyped! : first;
+      const on = op.varField ?? 0;
+      return { fields: [{ label: "Along the lit face", short: "1", value: first, active: on === 0, typed: op.typed !== "", index: 0 }, { label: "Along the other face", short: "2", value: second, active: on === 1, typed: (op.endTyped ?? "") !== "", index: 1 }], unit: op.unit ?? OP_UNIT[op.kind] };
+    }
     if (op.kind === "edge" && op.variable && op.vary) {
       // a fillet or chamfer whose size changes along the edge: the size at its start and at its end (`in_406`)
       const first = op.typed !== "" ? op.typed.replace(/^-/, "") : shown === null ? "0" : roundedText(shown);

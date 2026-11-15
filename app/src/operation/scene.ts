@@ -31,7 +31,7 @@ export interface Relation {
 /** A step of the history of building: extrude, round or bevel, move, rotate, scale, delete. It names the parts it uses by ref. */
 export interface Step {
   id: string;
-  type: "extrude" | "pushPull" | "edgeMod" | "move" | "rotate" | "scale" | "pattern" | "combine" | "hollow" | "revolve" | "delete";
+  type: "extrude" | "pushPull" | "edgeMod" | "move" | "rotate" | "scale" | "pattern" | "combine" | "hollow" | "revolve" | "loft" | "delete";
   parts: Ref[];
   params: Record<string, number | string>;
 }
@@ -62,7 +62,7 @@ export function figureParams(figs: Figure[]): Record<string, string> {
   return out;
 }
 /** A step made from drawn figures (an extrude, a revolve): its figures are used up by it. */
-export const usesFigures = (st: Step): boolean => st.type === "extrude" || st.type === "revolve";
+export const usesFigures = (st: Step): boolean => st.type === "extrude" || st.type === "revolve" || st.type === "loft";
 /** Every ref an extrude step stands on: its figures' sides and circles, holes and siblings too. */
 export const figureRefs = (st: Step): Ref[] => figuresOf(st).flatMap((f) => [...f.outer, ...f.holes.flat()]);
 export interface Scene {

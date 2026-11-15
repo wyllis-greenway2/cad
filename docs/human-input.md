@@ -2008,3 +2008,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > 
 > Can we offer loft through sketches? if so, how should that work on complext sketch shape changes over the loft?
 (asks for a chamfer with two distances, one along each face, besides the equal-distance chamfer; and whether a loft through sketches can be offered, and how it should handle sketches whose shapes differ in complexity)
+
+## in_432 — 2026-11-15 — approval
+> Yes build both as you recommended
+(approves building both as recommended in `q_chamfer_two_distances` and `q_loft_sketches`: the chamfer with a distance along each face, the face for the first distance picked by the person with a swap, a second field in the bubble, the region fallbacks equal only and a refusal with the reason otherwise; and the loft through sketches, the simple loft with start points shown and draggable, refusal of unequal part counts with a split-to-match offer, holes matched by position, a single point allowed at an end, no guides, tangents or looped loft in the first version)

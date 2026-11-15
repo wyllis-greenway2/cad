@@ -18,7 +18,7 @@ import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { lookup, nextId, figureParams, figureRefs, figuresOf } from "../operation/scene.ts";
-import { rimRanks, edgeSignatures } from "../operation/rims.ts";
+import { rimRanks, edgeSignatures, facesOfEdge } from "../operation/rims.ts";
 import { consumed } from "../operation/ownership.ts";
 import type { Figure } from "../operation/scene.ts";
 import type { Part, Plane, PointerView } from "../operation/part.ts";
@@ -32,9 +32,10 @@ import { drawnRef, formatId } from "../shared/ref.ts";
 import { objectOf, bodyCentre, figurePartsOf } from "./objects.ts";
 import type { RevAxis } from "./revolve.ts";
 import { revolveAxes, revolveCommand, middleOf } from "./revolve.ts";
+import { loftCommand } from "./loft.ts";
 import { settings } from "../shared/settings.ts";
 
-export type OpKind = "extrude" | "pushpull" | "offset" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular" | "copy" | "hollow" | "revolve";
+export type OpKind = "extrude" | "pushpull" | "offset" | "edge" | "move" | "rotate" | "scale" | "dimension" | "linear" | "circular" | "copy" | "hollow" | "revolve" | "loft";
 export interface Op {
   kind: OpKind;
   /** the parts it works on: the lines or circle of a figure, a face of the body, the lines of the body, the body, or the corners of a drawn figure */
@@ -89,6 +90,12 @@ export interface Op {
   revAxes?: RevAxis[];
   /** revolve: each figure selected (its outer sides or circle and the figures inside it) and its middle */
   revFigs?: { fig: Figure; middle: Vec3 }[];
+  /** loft (`dec_loft_sketches`): the sketches in the order picked (each its outer sides or circle and the figures inside it), how they are joined, and for each its start point (corners moved on) and direction */
+  loftFigs?: Figure[];
+  loftRuled?: boolean;
+  loftSplit?: boolean;
+  loftShift?: number[];
+  loftRev?: boolean[];
   axisIx?: number;
   advTyped?: string;
   advValue?: number | null;
@@ -122,6 +129,9 @@ export interface Op {
   rimVary?: boolean;
   variable?: boolean;
   endTyped?: string;
+  /** a chamfer with a distance along each face (`dec_chamfer_two_distances`): `typed` is the distance along the face that is highlighted, `endTyped` the one along the other; `dfaceIx` is which of the faces the edges share it is */
+  twoDist?: boolean;
+  dfaceIx?: number;
   /** the number being typed is the end one (Tab switches) */
   /** a size at the middle of the edge too, and which of the three numbers is being typed: 0 the start, 1 the end, 2 the middle (Tab goes round, `in_410`) */
   midTyped?: string;
@@ -141,8 +151,8 @@ export interface Op {
   unit?: string;
 }
 
-export const OP_UNIT: Record<OpKind, string> = { revolve: "deg", hollow: "mm", extrude: "mm", pushpull: "mm", offset: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm", linear: "mm", circular: "mm", copy: "mm" };
-export const OP_FIELD: Record<OpKind, string> = { revolve: "Angle", hollow: "Wall", extrude: "Distance", pushpull: "Distance", offset: "Offset", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", linear: "Repeat", circular: "Repeat", copy: "Repeat", dimension: "Value" };
+export const OP_UNIT: Record<OpKind, string> = { loft: "", revolve: "deg", hollow: "mm", extrude: "mm", pushpull: "mm", offset: "mm", edge: "mm", move: "mm", rotate: "deg", scale: "x", dimension: "mm", linear: "mm", circular: "mm", copy: "mm" };
+export const OP_FIELD: Record<OpKind, string> = { loft: "Loft", revolve: "Angle", hollow: "Wall", extrude: "Distance", pushpull: "Distance", offset: "Offset", edge: "Fillet", move: "Move", rotate: "Angle", scale: "Factor", linear: "Repeat", circular: "Repeat", copy: "Repeat", dimension: "Value" };
 
 export type StartResult = { ok: true; op: Op } | { ok: false; why: string };
 
@@ -260,6 +270,14 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     if (!pl || pl.kind !== "plane") return { ok: false, why: "the figure is not on a plane" };
     const pts = face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
     return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, figs: { ...figureParams(faces.map((f) => figureOf(scene, f))), ...(faces.some((f) => f.pieces) ? { cut: "1" } : {}) }, origin: centroid(pts), normal: normalOfPlane(pl), dim: { base: 0, scale: 1 } } };
+  }
+  if (kind === "loft") {
+    // two or more closed sketches, on planes of their own, joined side to side in the order picked (`dec_loft_sketches`)
+    const faces = parts.map((p) => drawnFace(scene, [p]));
+    if (parts.length < 2 || faces.some((f) => !f)) return { ok: false, why: "select two or more closed sketches (figures drawn on planes) to loft through, in the order they are to be joined" };
+    const figs = (faces as Extract<Part, { kind: "face" }>[]).filter((f, i, all) => all.indexOf(f) === i && !all.some((g) => g !== f && (g.holes ?? []).includes(f.ref))).map((f) => figureOf(scene, f));
+    if (figs.length < 2) return { ok: false, why: "select two or more closed sketches to loft through" };
+    return { ok: true, op: { ...base, parts: figs[0]!.outer, loftFigs: figs, loftShift: figs.map(() => 0), loftRev: figs.map(() => false) } };
   }
   if (kind === "revolve") {
     // closed figures turned about a line in their plane, any angle, with an advance for a spiral (`dec_spiral_extrude`): the line selected with them, a world axis in their plane, or one of their own sides; a figure
@@ -469,6 +487,23 @@ function variableQuarters(op: Op, v: number): { q1?: number; q3?: number } {
   const [a, b] = [typedNumber(op.q1Typed ?? ""), typedNumber(op.q3Typed ?? "")];
   return { ...(a !== null && a > 0 ? { q1: a } : {}), ...(b !== null && b > 0 ? { q3: b } : {}) };
 }
+/** The flat faces all of an operation's straight edges lie on: the ones a chamfer's first distance can be measured along, each as a part and as the kernel names it (`n,d,point`). */
+export function chamferFaces(scene: Scene, op: Op): { ref: Ref; spec: string }[] {
+  if (op.kind !== "edge" || !op.parts.length) return [];
+  const per = op.parts.map((r) => facesOfEdge(scene, r));
+  const common = (per[0] ?? []).filter((f) => per.every((list) => list.some((g) => g.ref === f.ref)));
+  return common.map((f) => {
+    const n = normalOfPlane(f);
+    const m = f.mesh!;
+    const point = [(m[0]! + m[3]! + m[6]!) / 3, (m[1]! + m[4]! + m[7]!) / 3, (m[2]! + m[5]! + m[8]!) / 3];
+    return { ref: f.ref, spec: [...n, dot(n, f.at), ...point].join(",") };
+  }).sort((a, b) => (a.ref < b.ref ? -1 : 1)); // (a fixed order, so the swap goes between the same two faces)
+}
+/** The face the first distance is measured along: the one chosen (the swap goes round them), else the first. */
+export const chosenFace = (scene: Scene, op: Op): { ref: Ref; spec: string } | null => {
+  const faces = chamferFaces(scene, op);
+  return faces.length ? faces[(op.dfaceIx ?? 0) % faces.length]! : null;
+};
 function variableEnd(op: Op, v: number): number | null {
   if (!op.variable || !op.vary || op.kind !== "edge" || v === 0) return null;
   // round a rim there is no end: the size comes back to where it began, so the end is the start, and the rim changes only if a size is given somewhere round it
@@ -602,6 +637,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
     const follow: Record<string, number> = op.pivot ? { follow: 1 } : {};
     return { type: "batch", commands: [...steps.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: op.parts, params: { axis: t.axis, value: t.angle, ...pivot, ...follow } } })), ...(op.pivot ? carrySketches(scene, steps.map((t) => ({ axis: t.axis, angle: t.angle })), [0, 0, 0], op.pivot, 1, op.carryOnly) : [])] };
   }
+  if (op.kind === "loft") return loftCommand(scene, op); // (no number: the sketches, and how they are joined)
   const v = valueOf(op);
   if (v === null) return null;
   if (op.kind === "offset") return op.off ? offsetCommand(scene, op.off, v) : null;
@@ -628,6 +664,12 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   if (op.kind === "pushpull" && op.edit && !op.noEdit && (op.faceKind ?? "move") === "move") return v === 0 ? null : editCommand(scene, op.edit, v);
   if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
+  if (op.kind === "edge" && op.twoDist && v < 0) { // a chamfer with a distance along each face (`dec_chamfer_two_distances`)
+    const face = chosenFace(scene, op);
+    if (!face) return null;
+    const second = typedNumber(op.endTyped ?? "");
+    return { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: "chamfer", value: Math.abs(v), d2: second !== null && second > 0 ? second : Math.abs(v), face: face.spec, ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
+  }
   if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(variableEnd(op, v) !== null ? { end: variableEnd(op, v)! } : {}), ...(variableMid(op, v) !== null ? { mid: variableMid(op, v)! } : {}), ...variableQuarters(op, v), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
   if (op.kind === "scale" && op.target === "shape" && !op.axes) return v <= 0 ? null : scaleShapeCommand(scene, op, v);
   if (op.kind === "scale" && op.axes) {

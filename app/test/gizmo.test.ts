@@ -689,7 +689,7 @@ test("the length of a line of the body can be set like a sketch line's: the face
 
 // ---- a model with a bore, a cross hole and rounded edges (found by the human, `in_136`) ----
 import { readFileSync } from "node:fs";
-import { startOp, opCommand } from "../src/interaction/operations.ts";
+import { startOp, opCommand, chosenFace, chamferFaces } from "../src/interaction/operations.ts";
 import { planeForDrawing } from "../src/interaction/tools.ts";
 import type { Op } from "../src/interaction/operations.ts";
 import { openSession } from "../src/interaction/session.ts";
@@ -2098,4 +2098,30 @@ test("the mover put on a slanted face has an arrow normal to it; on a face acros
   assert.ok(r2.ok && r2.op.frame, "a slanted face: the mover is turned to it");
   const n = normalOfPlane(slanted as Parameters<typeof normalOfPlane>[0]);
   nearV(r2.op.frame![2], n, 1e-6);
+});
+
+test("a chamfer can have a distance along each face: the chip offers it for a chamfer, the first face is lit, two numbers are typed, Swap takes the first distance to the other face, and the step names the face (`in_432`)", () => {
+  const { st: st0 } = edgeSelected(); // the top front edge of the 40 x 20 x 20 block: between the top (z = 20) and the front (y = 0)
+  let st = reduce(st0, { type: "begin", name: "edge" }, env);
+  assert.equal(frame(st).sizeKinds!.some((k) => k.id === "twoDistances"), false, "not offered before it is a chamfer");
+  st = reduce(st, { type: "typed", key: "-", shift: false }, env);
+  st = reduce(st, { type: "typed", key: "2", shift: false }, env);
+  assert.ok(frame(st).sizeKinds!.some((k) => k.id === "twoDistances"), "offered for a chamfer");
+  st = reduce(st, { type: "sizeKind", kind: "twoDistances" }, env);
+  assert.equal(frame(st).entry!.fields.length, 2, "two numbers");
+  assert.equal(frame(st).highlight.selection.length, 2, "the face the first distance is along is lit with the edge");
+  assert.ok(frame(st).sizeKinds!.some((k) => k.id === "swap"), "and a swap");
+  st = reduce(st, { type: "typed", key: "Tab", shift: false }, env);
+  st = reduce(st, { type: "typed", key: "5", shift: false }, env);
+  const first = chosenFace(scene(st.session), st.op!)!;
+  const swapped = reduce(st, { type: "sizeKind", kind: "swap" }, env);
+  assert.notEqual(chosenFace(scene(swapped.session), swapped.op!)!.ref, first.ref, "the other face");
+  const done = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(done.session.message, null);
+  const step = scene(done.session).steps.at(-1)!;
+  assert.equal(step.params.mode, "chamfer");
+  assert.equal(step.params.value, 2);
+  assert.equal(step.params.d2, 5);
+  assert.equal(String(step.params.face).split(",").length, 7, "the face is named");
+  near(done.session.outcome.kernel!.volume!, 16000 - 0.5 * 2 * 5 * 40, 0.2);
 });

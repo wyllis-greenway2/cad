@@ -29,7 +29,8 @@ import { scene as sceneOf, selection as selectionOf, previewCommand, previewRefu
 import type { Session } from "./session.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { SIMILAR_RULES } from "./similar.ts";
-import { startOp, opCommand, bodyMotion, valueOf } from "./operations.ts";
+import { loftChips, loftStarts } from "./loft.ts";
+import { startOp, opCommand, bodyMotion, valueOf, chamferFaces, chosenFace } from "./operations.ts";
 import { matrixOf, applyPoint } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
 import type { Command } from "../operation/commands.ts";
@@ -132,7 +133,8 @@ export interface Frame {
   /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
   /** a revolve: the lines the figure can turn about, one chosen (`dec_spiral_extrude`) */
   axisKinds: { id: string; label: string; title: string; on: boolean }[] | null;
-  sizeKinds: { id: "constant" | "variable"; label: string; title: string; on: boolean }[] | null;
+  loftKinds: { id: string; label: string; title: string; on: boolean }[] | null;
+  sizeKinds: { id: "constant" | "variable" | "twoDistances" | "swap"; label: string; title: string; on: boolean }[] | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate" | "linear" | "circular" | "invert"; label: string } | null;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
@@ -328,8 +330,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     bodySplit,
     followers: gpu?.followers ?? [],
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
-    highlight: { hover: isSectionPlane(sc, s.session.hover) ? undefined : s.session.hover, hoverPoint: s.hoverPoint, selection: s.moverSphere ? [] : sel.filter((r) => !isSectionPlane(sc, r)), /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
-    amber: [...new Set([...focusParts(sc, sel, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
+    highlight: { hover: isSectionPlane(sc, s.session.hover) ? undefined : s.session.hover, hoverPoint: s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
+    amber: [...new Set([...(s.op?.kind === "loft" ? loftStarts(sceneOf(s.session), s.op) : []), ...focusParts(sc, sel, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
     preview: withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
     entry: movingOp || (shownOp && !s.tool && hasGizmo(shownOp.kind) && !numberShown) ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
     entries: sectionNow(s) && !s.op && !s.repeat && !s.tool && gizmo ? sectionEntries({ at: sectionNow(s)!.centre, n: sectionNow(s)!.n }, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : s.moverSphere && shownOp && (shownOp.kind === "move" || shownOp.kind === "rotate") && !s.repeat ? moverPlaceEntries(gizmo) : shownOp?.kind === "scale" && shownOp.axes ? scaleEntries(shownOp, gizmo) : s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
@@ -362,6 +364,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
     modeSwitch: gizmo ? (s.repeat ? repeatSwitchOf(s.repeat, gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points))) : null,
     faceKinds: faceKinds(s),
+    loftKinds: s.op?.kind === "loft" ? loftChips(sceneOf(s.session), s.op) : null,
     sizeKinds: sizeKinds(s),
     axisKinds: axisKinds(s),
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
@@ -373,7 +376,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
 function temporaryParts(now: Scene, shown: Scene): Ref[] {
   return Object.values(shown.parts).filter((p) => p.origin === "drawn" && !now.parts[p.ref] && !(p.kind === "corner" && p.derived) && !(p.kind === "line" && p.derived) && (p.kind === "line" || p.kind === "circle" || p.kind === "corner")).map((p) => p.ref);
 }
-const OPEN_LABELS: Record<string, string> = { linear: "Linear repeat", circular: "Circular repeat", copy: "Copy", move: "Move", rotate: "Rotate", scale: "Scale", pushpull: "Push / pull", extrude: "Extrude", edge: "Fillet / chamfer", offset: "Offset" };
+const OPEN_LABELS: Record<string, string> = { linear: "Linear repeat", circular: "Circular repeat", copy: "Copy", move: "Move", rotate: "Rotate", scale: "Scale", pushpull: "Push / pull", extrude: "Extrude", loft: "Loft", edge: "Fillet / chamfer", offset: "Offset" };
 const withFlashed = (list: Annotation[], sc: Scene, flash: FlashFrame | null): Annotation[] => {
   if (!flash) return list;
   const have = new Set(list.map((a) => a.id));
@@ -521,9 +524,13 @@ function sizeKinds(s: AppState): Frame["sizeKinds"] {
   const op = s.op;
   if (!op || op.kind !== "edge" || !op.vary) return null;
   const on = !!op.variable;
+  const v = valueOf(op);
+  const faces = v !== null && v < 0 ? chamferFaces(sceneOf(s.session), op) : [];
   return [
-    { id: "constant", label: "Constant", title: "The same size all along the edge", on: !on },
+    { id: "constant", label: "Constant", title: "The same size all along the edge", on: !on && !op.twoDist },
     { id: "variable", label: "Variable", title: "A size at the start of the edge (the end shown in amber) and a size at its other end (Tab goes between them); the round grows or shrinks along the edge", on },
+    ...(faces.length ? [{ id: "twoDistances" as const, label: "Two distances", title: "A chamfer with a distance along each face: the first along the face that is lit, the second along the other (Tab goes between them)", on: !!op.twoDist }] : []),
+    ...(faces.length > 1 && op.twoDist ? [{ id: "swap" as const, label: "Swap faces", title: "Measure the first distance along the other face", on: false }] : []),
   ];
 }
 function similarChip(s: AppState): Frame["similar"] {

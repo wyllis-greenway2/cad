@@ -56,7 +56,8 @@ export type Intent =
   /** what pushing or pulling a flat face does: move it with the step that made it, extrude a prism from it, or extend it with its neighbours (`in_405`) */
   | { type: "faceKind"; kind: "move" | "extrude" | "extend" }
   /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
-  | { type: "sizeKind"; kind: "constant" | "variable" }
+  | { type: "loftKind"; id: string }
+  | { type: "sizeKind"; kind: "constant" | "variable" | "twoDistances" | "swap" }
   | { type: "axisKind"; index: number }
   /** the pointer is over that button: the flash waits (`in_366`) */
   | { type: "holdFlash" }
@@ -66,7 +67,7 @@ export type Intent =
   | { type: "group" }
   | { type: "ungroup" }
   | { type: "similarRule"; rule: "kind" | "size" | "angle" | "direction" }
-  | { type: "begin"; name: "pushpull" | "rect" | "circle" | "line" | "arc" | "trim" | "extrude" | "edge" | "move" | "rotate" | "scale" | "dimension" | "revolve" }
+  | { type: "begin"; name: "pushpull" | "rect" | "circle" | "line" | "arc" | "trim" | "extrude" | "edge" | "move" | "rotate" | "scale" | "dimension" | "revolve" | "loft" }
   /** a constraint shown on a selected part: open or close it (its other parts show amber), delete it, lock or unlock its number, give it a new number (`set`), or lock the measure of the selection at a number (`measure`) */
   | { type: "relation"; act: "focus" | "remove" | "lock" | "set" | "measure"; id: string | null; value?: number }
   /** a key for the number being typed (digits, ".", "-", Backspace, Tab, Enter, the arrows) */

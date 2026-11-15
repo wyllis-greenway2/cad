@@ -269,7 +269,7 @@ export function refresh(s: Session): Session {
     const [vol, cnt] = [bodyVolume(now), bodyCount(now)];
     const mode = vol < s.modeFrom.volume - 1e-6 * Math.max(1, s.modeFrom.volume) ? "cut" : cnt - s.modeFrom.count >= s.modeFrom.extrudes ? "new" : "add";
     const last = h.commands[h.cursor - 1]!;
-    const tag = (c: Command): Command => (c.type === "addStep" && (c.step.type === "extrude" || c.step.type === "revolve") ? { ...c, step: { ...c.step, params: { ...c.step.params, mode } } } : c);
+    const tag = (c: Command): Command => (c.type === "addStep" && (c.step.type === "extrude" || c.step.type === "revolve" || c.step.type === "loft") ? { ...c, step: { ...c.step, params: { ...c.step.params, mode } } } : c);
     const tagged: Command = last.type === "batch" ? { ...last, commands: last.commands.map(tag) } : tag(last);
     const again = exec(undo(h), tagged);
     if (again.ok) return { ...withHistory(s, again.value), modeFrom: undefined };

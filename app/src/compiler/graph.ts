@@ -10,6 +10,7 @@ import { normalOfPlane, pointOf, loopSteps } from "../operation/part.ts";
 import type { KernelGraph, KernelOp } from "./kernel/adapter.ts";
 import { decodeEdge, decodeFace } from "./body.ts";
 import { loopOf } from "../operation/loops.ts";
+import { matchSections } from "./loftmatch.ts";
 import { NONE, applyPoint, applyDir, inverse, laterMotion } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
 export { loopOf };
@@ -97,6 +98,31 @@ export function buildGraph(scene: Scene): GraphResult {
         prev = xid;
         break;
       }
+      case "loft": {
+        // two or more sketches joined side to side (`dec_loft_sketches`): each figure of the step is a section, in the order given; the outlines are matched (split, started and turned as the step says) or refused
+        const figs = figuresOf(st);
+        if (figs.length < 2) { errors[st.id] = "a loft needs two or more sketches"; break; }
+        const sections: { sk: KernelOp; holes: KernelOp[] }[] = [];
+        let bad = "";
+        figs.forEach((fig, n) => {
+          if (bad) return;
+          const sk = profile(st, fig.outer, `s_${st.id}_f${n}`);
+          if (typeof sk === "string") { bad = sk; return; }
+          const holes: KernelOp[] = [];
+          fig.holes.forEach((h, i) => { const hs = profile(st, h, `s_${st.id}_f${n}h${i}`); if (typeof hs === "string") bad = hs; else holes.push(hs); });
+          sections.push({ sk, holes });
+        });
+        if (bad) { errors[st.id] = bad; break; }
+        if (sections.some((s) => s.holes.length !== sections[0]!.holes.length)) { errors[st.id] = "the sketches have different numbers of holes: each hole must have one in every sketch to join to"; break; }
+        const nums = (v: unknown) => String(v ?? "").split(",").map(Number);
+        const matched = matchSections(sections.map((s) => s.sk), { shift: nums(st.params.shift), rev: String(st.params.rev ?? "").split(",").map((x) => x === "1"), splitToMatch: !!st.params.split });
+        if (!matched.ok) { errors[st.id] = matched.why; break; }
+        matched.sketches.forEach((s) => ops.push(s));
+        sections.forEach((s) => s.holes.forEach((h) => ops.push(h)));
+        ops.push({ id: xid, type: "loft", sections: sections.map((s, i) => ({ profile: matched.sketches[i]!.id, holes: s.holes.map((h) => h.id) })), smooth: st.params.ruled ? false : true, ...(prev ? { target: prev } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" });
+        prev = xid;
+        break;
+      }
       case "hollow": {
         // the body made hollow (`in_391`, `in_393`): `faces` named by where they were; `mode` "open" leaves those open, "keep" keeps them as walls and opens every other, "closed" leaves no face open; the wall is `thickness`, inward when positive, outward when negative
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
@@ -144,10 +170,11 @@ export function buildGraph(scene: Scene): GraphResult {
         const value = Number(st.params.value ?? 0);
         const last = ops[ops.length - 1];
         const end = st.params.end !== undefined ? Number(st.params.end) : undefined; // (a fillet whose size changes along the edge: its own, never rounded together with others)
-        const continues: boolean = !!chain && last?.type === "edgeMod" && last.id === prev && chain.mode === mode && end === undefined && !(last as { end?: number }).end;
+        const two = st.params.d2 !== undefined && st.params.face !== undefined ? String(st.params.face).split(",").map(Number) : null; // (a chamfer with a distance along each face: its own step, `dec_chamfer_two_distances`)
+        const continues: boolean = !two && !!chain && last?.type === "edgeMod" && last.id === prev && chain.mode === mode && end === undefined && !(last as { end?: number }).end;
         const here = { ref: refs, value };
         chain = continues ? { ...chain!, mods: [...chain!.mods, here] } : { base: prev, mode, mods: [here] };
-        ops.push({ id: xid, type: "edgeMod", target: prev, ref: refs, mode, value, ...(end !== undefined ? { stations: stationsOf(value, end, st.params) } : {}), ...(st.params.corner ? { corner: true } : {}), ...(chain.mods.length > 1 ? { together: { base: chain.base, mods: chain.mods } } : {}) });
+        ops.push({ id: xid, type: "edgeMod", target: prev, ref: refs, mode, value, ...(two && two.length === 7 ? { dist2: Number(st.params.d2), face: { n: [two[0]!, two[1]!, two[2]!], d: two[3]!, point: [two[4]!, two[5]!, two[6]!] } } : {}), ...(end !== undefined ? { stations: stationsOf(value, end, st.params) } : {}), ...(st.params.corner ? { corner: true } : {}), ...(chain.mods.length > 1 ? { together: { base: chain.base, mods: chain.mods } } : {}) });
         prev = xid;
         break;
       }

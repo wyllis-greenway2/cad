@@ -37,7 +37,7 @@ import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
 const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, line: true, arc: true, trim: true };
-const IS_SKETCH_OP: Record<OpKind, boolean> = { offset: true, extrude: false, pushpull: false, edge: false, move: false, rotate: false, scale: false, dimension: false, linear: false, circular: false, copy: false, hollow: false, revolve: false };
+const IS_SKETCH_OP: Record<OpKind, boolean> = { offset: true, extrude: false, pushpull: false, edge: false, move: false, rotate: false, scale: false, dimension: false, linear: false, circular: false, copy: false, hollow: false, revolve: false, loft: false };
 const isSketchTool = (name: string): name is ToolKind => name in IS_SKETCH_TOOL;
 
 /** The plane a sketch tool or operation starts on: exactly one plane selected (a face, a plane, or what a sketch line or the body's edge lies in), or none, or several: the plane of what the right click was on (`in_169`). */
@@ -141,9 +141,9 @@ export function doTyped(s: AppState, key: string): AppState {
     if (key === "Tab") return { ...s, op: { ...s.op, revField: s.op.revField === 1 ? 0 : 1 } };
     if (s.op.revField === 1) { const t = typeOp({ ...s.op, typed: s.op.advTyped ?? "" }, key); return { ...s, op: { ...s.op, advTyped: t.typed } }; }
   }
-  if (s.op && s.op.kind === "edge" && s.op.variable && s.op.vary && key !== "Enter") {
+  if (s.op && s.op.kind === "edge" && (s.op.variable || s.op.twoDist) && s.op.vary && key !== "Enter") {
     // a fillet whose size changes along the edge: Tab goes between the size at its start and the size at its end (`in_406`)
-    if (key === "Tab") { const order = s.op.rimVary ? [0, 2, 3, 4] : [0, 1, 2, 3, 4]; return { ...s, op: { ...s.op, varField: order[(Math.max(0, order.indexOf(s.op.varField ?? 0)) + 1) % order.length] as 0 | 1 | 2 | 3 | 4 } }; }
+    if (key === "Tab") { const order = s.op.twoDist ? [0, 1] : s.op.rimVary ? [0, 2, 3, 4] : [0, 1, 2, 3, 4]; return { ...s, op: { ...s.op, varField: order[(Math.max(0, order.indexOf(s.op.varField ?? 0)) + 1) % order.length] as 0 | 1 | 2 | 3 | 4 } }; }
     const slot = (["", "endTyped", "midTyped", "q1Typed", "q3Typed"] as const)[s.op.varField ?? 0];
     if (slot) { const typed = typeOp({ ...s.op, typed: s.op[slot] ?? "" }, key); return { ...s, op: { ...s.op, [slot]: typed.typed.replace(/^-/, "") } }; }
   }
@@ -178,7 +178,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     return { ...s, op: { ...s.op, rot, axis: (field as 0 | 1 | 2), value: null, typed: "" } };
   }
   if (s.op && s.op.kind === "revolve" && (field === 0 || field === 1)) return { ...s, op: { ...s.op, ...(field === 0 ? { typed: text } : { advTyped: text }), revField: field as 0 | 1 } };
-  if (s.op && s.op.kind === "edge" && s.op.variable && s.op.vary && (field >= 0 && field <= 4)) { const slot = (["typed", "endTyped", "midTyped", "q1Typed", "q3Typed"] as const)[field]!; return { ...s, op: { ...s.op, [slot]: text, varField: field as 0 | 1 | 2 | 3 | 4 } }; }
+  if (s.op && s.op.kind === "edge" && (s.op.variable || s.op.twoDist) && s.op.vary && (field >= 0 && field <= (s.op.twoDist ? 1 : 4))) { const slot = (["typed", "endTyped", "midTyped", "q1Typed", "q3Typed"] as const)[field]!; return { ...s, op: { ...s.op, [slot]: text, varField: field as 0 | 1 | 2 | 3 | 4 } }; }
   const mover = s.op ?? activeOp(s);
   if (mover && mover.kind === "move" && (mover.target === "body" || mover.target === "plane") && !s.repeat && !s.tool && field >= 0 && field < 3) {
     // the bubble on one of the move arrows (`in_215`): a distance typed along that axis; another axis starts again
