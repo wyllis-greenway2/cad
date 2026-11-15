@@ -211,7 +211,8 @@ export function faceEdit(scene: Scene, ref: Ref): FaceEdit | null {
 export function editCommand(scene: Scene, edit: FaceEdit, v: number): Command | null {
   if (edit.kind === "stepDepth") {
     const depth = edit.depth + v;
-    return Math.abs(depth) < 1e-6 ? null : { type: "setStepParams", id: edit.step, params: { depth: Math.round(depth * 1e6) / 1e6 } };
+    // pulled all the way back to nothing: it is a sketch again, the step that extruded it goes and the drawing stays (`in_387`)
+    return Math.abs(depth) < 1e-6 ? { type: "removeStep", id: edit.step } : { type: "setStepParams", id: edit.step, params: { depth: Math.round(depth * 1e6) / 1e6 } };
   }
   if (edit.kind === "edgeSize") {
     const value = Math.round((edit.value - v) * 1e6) / 1e6;
@@ -286,8 +287,8 @@ export function editCommand(scene: Scene, edit: FaceEdit, v: number): Command | 
   }
   if (edit.kind === "depth") {
     const depth = Math.round((edit.depth + v * edit.along) * 1e6) / 1e6;
-    if (Math.abs(depth) < 1e-6) return null;
     const st = scene.steps.find((x) => x.id === edit.step);
+    if (Math.abs(depth) < 1e-6) return edit.figure === undefined && st ? { type: "removeStep", id: edit.step } : null; // (a lone extrusion taken back to nothing is a sketch again, `in_387`; one of several made together is not removed)
     if (edit.figure === undefined || !st) return { type: "setStepParams", id: edit.step, params: { depth } };
     // one of several figures made together: its depth changes and the others keep theirs, each written down for itself (`in_351`)
     const depths = figureDepths(st);

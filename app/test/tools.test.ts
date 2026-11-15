@@ -807,3 +807,17 @@ test("sketching on a selected face shows the grid on that face's plane, not on t
   assert.ok(g, "a grid shows while the tool is on");
   assert.deepEqual([...heights(g)], [20], "all of it on the face's plane");
 });
+
+import { faceEdit as faceEditOf, editCommand as editCommandOf } from "../src/interaction/faceedit.ts";
+test("an extrusion pulled back to nothing is a sketch again: the step goes, the drawing stays (`in_387`)", () => {
+  const st = drawBox(top(), 20);
+  const sc = scene(st.session);
+  const topFace = Object.values(sc.parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.every((_, i) => i % 3 !== 2 || Math.abs(p.mesh![i]! - 20) < 1e-6))!;
+  const edit = faceEditOf(sc, topFace.ref)!;
+  assert.ok(edit && (edit.kind === "depth" || edit.kind === "stepDepth"));
+  const cmd = editCommandOf(sc, edit, -20)!;
+  assert.equal(cmd.type, "removeStep");
+  const back = run(st.session, cmd);
+  assert.equal(scene(back).steps.length, scene(st.session).steps.length - 1);
+  assert.ok(Object.values(scene(back).parts).some((p) => p.kind === "face" && p.origin === "drawn"), "the sketch is there");
+});
