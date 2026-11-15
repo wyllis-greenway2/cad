@@ -22,6 +22,7 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
   /** the rings opened so far: each is its items and the angle it starts from */
   let path: { items: RingItem[]; start: number }[] = [];
   let shown: HTMLElement[] = [];
+  const acts = new Map<HTMLElement, { live: boolean; id: string; go: () => void }>(); // (what each bubble does, for a pointer that is not the page's own: the game mode's crosshair, `in_441`)
 
   const pos = (a: number) => ({ left: Math.round(C.x + Math.cos(a) * C.R - SIZE / 2), top: Math.round(C.y + Math.sin(a) * C.R - SIZE / 2) });
   const bubble = (it: RingItem, at: { left: number; top: number }, from: { left: number; top: number } | null, k: number, go: () => void) => {
@@ -36,6 +37,7 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
       b.addEventListener("pointerleave", () => { b.style.borderColor = it.id === "back" ? "#c0392b" : "#d6d7db"; });
       b.addEventListener("pointerup", (e) => { e.stopPropagation(); go(); });
     }
+    acts.set(b, { live, id: it.id, go });
     root.appendChild(b);
     if (from) {
       void b.offsetWidth; // (so the start is drawn before the move)
@@ -87,6 +89,32 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
       if (!rs.length) return null;
       const [l, t] = [Math.min(...rs.map((r) => r.left)), Math.min(...rs.map((r) => r.top))];
       return new DOMRect(l, t, Math.max(...rs.map((r) => r.right)) - l, Math.max(...rs.map((r) => r.bottom)) - t);
+    },
+    /** Where the ring stands (its middle), for a pointer that starts there. */
+    centre(): [number, number] { return [C.x, C.y]; },
+    /** The bubble under a point that is not the page's pointer (the game mode's crosshair, moved by the mouse): it lights as one under the pointer does; true when there is one (`in_441`). */
+    pointAt(x: number, y: number): boolean {
+      let hit = false;
+      for (const b of shown) {
+        const r = b.getBoundingClientRect();
+        const on = Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2)) <= SIZE / 2 + 2;
+        const a = acts.get(b);
+        if (a?.live) b.style.borderColor = on ? (a.id === "back" ? "#c0392b" : "#1ab8b3") : a.id === "back" ? "#c0392b" : "#d6d7db";
+        if (on) hit = true;
+      }
+      return hit;
+    },
+    /** A click at that point: the bubble under it does what a click on it does; false when there is none. */
+    activate(x: number, y: number): boolean {
+      for (const b of shown) {
+        const r = b.getBoundingClientRect();
+        if (Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2)) > SIZE / 2 + 2) continue;
+        const a = acts.get(b);
+        if (!a?.live) return false;
+        a.go();
+        return true;
+      }
+      return false;
     },
     hide() { root.style.display = "none"; },
     get open() { return root.style.display !== "none"; },

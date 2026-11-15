@@ -149,6 +149,16 @@ const controls = createControls(document.body, {
 });
 const env = () => ({ w: view.size().w, h: view.size().h, now: performance.now() });
 const FILE_NAME = "model.cad.json";
+/** The game mode's cursor over a ring: a small dot the mouse moves; it lights and clicks the bubbles like the page's own pointer. */
+const menuDot = document.createElement("div");
+menuDot.style.cssText = "position:fixed;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#1ab8b3;border:2px solid #fff;box-shadow:0 0 4px #000;pointer-events:none;z-index:2000;display:none";
+document.body.appendChild(menuDot);
+const menuCap = {
+  move: (x: number, y: number) => { menuDot.style.left = `${x}px`; menuDot.style.top = `${y}px`; ring.pointAt(x, y); },
+  click: (x: number, y: number) => { if (ring.activate(x, y)) dirty = true; },
+  close: () => { ring.hide(); input.captureMenu(null); dirty = true; },
+  show: (on: boolean) => { menuDot.style.display = on ? "block" : "none"; },
+};
 function adopt(session: Session) { state = { ...createState(session), cam: state.cam }; menu.hide(); ring.hide(); dirty = true; }
 // the last things done, kept so that a snapshot can show them (`in_200`): hovering is only kept as its last position
 const intentLog: unknown[] = [];
@@ -203,9 +213,9 @@ function dispatch(i: Intent) {
   } else {
     // pointing around does not close a menu; any other intent does
     if (menu.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) menu.hide();
-    if (ring.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) ring.hide();
+    if (ring.open && !["hover", "hoverEnd", "runAction", "walk", "swivel"].includes(i.type)) ring.hide(); // (keys held in game mode do not close it, `in_441`)
   }
-  input.holdFree(ring.open || menu.open); // (game mode holds the pointer at the middle: a menu needs it free, `in_420`)
+  input.captureMenu(ring.open ? menuCap : null, ring.centre()); // (game mode keeps the pointer locked: the mouse moves a cursor over the ring and clicks its bubbles, `in_441`)
   dirty = true;
 }
 // which kind of device was used last: a laptop can have a mouse and a touch screen, so it is the event itself that says, not the machine (`in_160`)

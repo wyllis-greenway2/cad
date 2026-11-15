@@ -2066,3 +2066,10 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_440 — 2026-11-15 — directive
 > Do the orient mode for the copies and the mirror next
 (asks for what Handoff 412 and `dec_mover_sphere` left unbuilt: the orient mode (place, turned axes, apply and cancel) on the linear and circular copies and on the mirror, so copies, turns and mirror planes run along the oriented axes)
+
+## in_441 — 2026-11-15 — directive
+> I asked for this previously "can we make it so that the world panes (the little semi transparent panes in the world xyz) go away when in orthographic mode? That will help us resolve selection conflicts when a sketch goes right over one of them.
+> " but it still doesn't seem to be this way?
+>  
+>  game mode is still basically impossible to select anything in the right click menu, i want to use the center screen game mode cursor to select from the menu in game mode. But the right click seems to be very delicate, try to go back into normal mouse mode, and all collapses as soon as a key in game mode is pressed again. Lets just have it open the menu in game mode, and game mode cursor is also used to click on menu items.
+(reports that the world panes still show in orthographic mode; asks for the right-click menu in game mode to open and be used with the game mode's own centre cursor, staying in game mode, not by going back to the normal mouse)

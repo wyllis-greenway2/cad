@@ -31,6 +31,7 @@ export function createPanes(scene3: THREE.Scene) {
   const shown = new Map<string, { fill: THREE.Mesh; edge: THREE.LineLoop }>();
   const colour = new THREE.Color();
   return (panes: PaneView[]) => {
+    for (const o of shown.values()) { o.fill.visible = false; o.edge.visible = false; } // (the ones not in the list are not there: none in an orthographic view, `in_436`, `in_441`)
     for (const p of panes) {
       let o = shown.get(p.name);
       if (!o) {
@@ -48,6 +49,7 @@ export function createPanes(scene3: THREE.Scene) {
         o = { fill, edge };
         shown.set(p.name, o);
       }
+      o.fill.visible = true; o.edge.visible = true;
       const rgb = p.active ? settings.orb.color : settings.theme.pane; // (the plane that is on is in the one selected blue, `in_206`)
       colour.setRGB(rgb[0], rgb[1], rgb[2], THREE.SRGBColorSpace);
       const fill = o.fill.material as THREE.MeshBasicMaterial;
