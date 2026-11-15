@@ -2125,3 +2125,23 @@ test("a chamfer can have a distance along each face: the chip offers it for a ch
   assert.equal(String(step.params.face).split(",").length, 7, "the face is named");
   near(done.session.outcome.kernel!.volume!, 16000 - 0.5 * 2 * 5 * 40, 0.2);
 });
+
+test("in the orient mode each of the three bubbles has the mover's position along its axis and, beside it, its turn about that axis, with the degree mark; a turn typed there turns the mover's axes (`in_434`)", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  st = reduce(st, { type: "begin", name: "move" }, env);
+  const [bx, by] = px(st, gizmoOf(st)!.centre);
+  st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
+  const es = frame(st).entries;
+  assert.equal(es.length, 3);
+  for (const e of es) {
+    assert.deepEqual(e.fields.map((f) => f.unit), ["mm", "°"], "a position and a turn");
+    assert.deepEqual(e.fields.map((f) => f.index).map((i) => i! >= 3), [false, true]);
+  }
+  assert.equal(es[2]!.fields[1]!.value, "0");
+  st = reduce(st, { type: "entry", field: 5, text: "90" }, env); // a quarter about Z
+  const f = st.op!.frame!;
+  near(f[0][1], 1, 1e-9); // (its X is the world Y now)
+  assert.equal(frame(st).entries[2]!.fields[1]!.value, "90");
+  st = reduce(st, { type: "entry", field: 5, text: "0" }, env);
+  assert.equal(st.op!.frame, undefined, "no turn: true x, y, z again");
+});

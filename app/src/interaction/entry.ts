@@ -13,10 +13,11 @@ import type { Camera } from "./camera.ts";
 import { basis } from "./camera.ts";
 import { settings } from "../shared/settings.ts";
 import { add, scale } from "../math/vec.ts";
+import { anglesOf, fromAngles } from "../math/rotation.ts";
 import { OP_FIELD, OP_UNIT, valueOf, turnAngles, sizeShown } from "./operations.ts";
 import { advanceOf } from "./revolve.ts";
 
-export interface EntryField { label: string; value: string; active: boolean; typed: boolean; /** a short name shown in front of the number when there are several (X Y Z) */ short?: string; /** which numbered field of its operation it is, when the operation has several bubbles */ index?: number }
+export interface EntryField { label: string; value: string; active: boolean; typed: boolean; /** a short name shown in front of the number when there are several (X Y Z) */ short?: string; /** which numbered field of its operation it is, when the operation has several bubbles */ index?: number; /** the unit of this field when it is not the entry's (a position and a rotation in one bubble) */ unit?: string }
 /** `at`: where in the scene the bubble sits (null: no place to attach it to) */
 export interface Entry { fields: EntryField[]; unit: string; /** the number typed is also a constraint (a size of a figure): a lock shows by it, closed once typed (`in_384`) */ constraint?: boolean; at?: Vec3 | null; /** the other end of the arrow the bubble is at the tip of: the bubble stands out past the tip, away from it, so it does not cover the arrow */ from?: Vec3 | null }
 
@@ -39,9 +40,9 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     const angle = valueOf(op);
     const on = op.revField ?? 0;
     return { fields: [
-      { label: "Angle", short: "°", value: op.typed !== "" ? op.typed : roundedText(angle ?? 0), active: on === 0, typed: op.typed !== "", index: 0 },
-      { label: "Advance", short: "↔", value: (op.advTyped ?? "") !== "" ? op.advTyped! : roundedText(advanceOf(op)), active: on === 1, typed: (op.advTyped ?? "") !== "", index: 1 },
-    ], unit: "deg · mm" };
+      { label: "Angle", short: "°", value: op.typed !== "" ? op.typed : roundedText(angle ?? 0), active: on === 0, typed: op.typed !== "", index: 0, unit: "°" },
+      { label: "Advance", short: "↔", value: (op.advTyped ?? "") !== "" ? op.advTyped! : roundedText(advanceOf(op)), active: on === 1, typed: (op.advTyped ?? "") !== "", index: 1, unit: "mm" },
+    ], unit: "mm" };
   }
   if (op) {
     const v = valueOf(op);
@@ -116,7 +117,7 @@ export function repeatEntries(op: Op, g: Gizmo | null, cam: Camera, chosen: stri
     return [{
       fields: [
         { label: "Number of copies", short: "n", value: show(0), active: false, typed: typed(0), index: 0 },
-        { label: "Degrees to spread them over (360: all the way round)", short: "°", value: show(1), active: false, typed: typed(1), index: 1 },
+        { label: "Degrees to spread them over (360: all the way round)", short: "°", value: show(1), active: false, typed: typed(1), index: 1, unit: "°" },
       ],
       unit: "", at: add(g.centre, scale(right, L * 1.35)),
     }, ...(piv && k >= 0 ? [{ fields: [{ label: `The pivot point along ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(v[3 + k]!), active: false, typed: false, index: 3 + k }], unit: "mm", at: piv.points.at(-1)!, from: g.centre }] : [])];
@@ -161,12 +162,28 @@ export function scaleEntries(op: Op, g: Gizmo | null): Entry[] {
   });
 }
 /** The mover's own place as three numbers (world x, y, z), one on each of the sphere's arrows, while the sphere is selected (`in_418`). */
-export function moverPlaceEntries(g: Gizmo | null): Entry[] {
+export function moverPlaceEntries(g: Gizmo | null, frame?: readonly [Vec3, Vec3, Vec3]): Entry[] {
   if (!g) return [];
+  const turned = frameAngles(frame);
+  // each of the three bubbles has the mover's position along its axis and, beside it, the turn of its axes about that axis (`in_434`)
   return ([0, 1, 2] as const).flatMap((k) => {
     const arrow = g.handles.find((h) => h.id === `piv:${"xyz"[k]}`);
-    return arrow ? [{ fields: [{ label: `Mover ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(g.centre[k]!), active: false, typed: false, index: k }], unit: "mm", at: arrow.points.at(-1)!, from: g.centre }] : [];
+    return arrow ? [{ fields: [
+      { label: `Mover's position along ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(g.centre[k]!), active: false, typed: false, index: k, unit: "mm" },
+      { label: `Mover's turn about ${"XYZ"[k]}`, short: "↻", value: roundedText(turned[k]!), active: false, typed: false, index: 3 + k, unit: "°" },
+    ], unit: "mm", at: arrow.points.at(-1)!, from: g.centre }] : [];
   });
+}
+/** The turn of the mover's axes as three angles, about X, then Y, then Z (zeros for the world's own axes). */
+export function frameAngles(frame?: readonly [Vec3, Vec3, Vec3]): [number, number, number] {
+  if (!frame) return [0, 0, 0];
+  const [a, b, c] = frame;
+  return anglesOf([a[0], b[0], c[0], a[1], b[1], c[1], a[2], b[2], c[2]]);
+}
+/** The mover's axes after a turn of these three angles (the inverse of `frameAngles`). */
+export function frameOfAngles(angles: [number, number, number]): [Vec3, Vec3, Vec3] {
+  const r = fromAngles(angles);
+  return [[r[0], r[3], r[6]], [r[1], r[4], r[7]], [r[2], r[5], r[8]]];
 }
 export function moveEntries(op: Op, g: Gizmo | null, offset: Vec3): Entry[] {
   if (!g || op.kind !== "move") return [];

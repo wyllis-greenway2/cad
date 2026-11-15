@@ -25,6 +25,7 @@ import { activeOp, movePivot, gizmoOf } from "./handles.ts";
 import { doSectionToggle, doSectionChip, typedSection, placeSection, sectionNow } from "./section.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { sub } from "../../math/vec.ts";
+import { frameAngles, frameOfAngles } from "../entry.ts";
 import { typedNumber } from "../../shared/numbers.ts";
 import { pivotCommands, patternCommand, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
 import type { Repeat } from "../pattern.ts";
@@ -163,6 +164,15 @@ export function doTyped(s: AppState, key: string): AppState {
 /** The text of a field of the value box changed: the operation's number, or a size of the figure being drawn. */
 export function doEntry(s: AppState, field: number, text: string): AppState {
   if (!/^-?\d*\.?\d*$/.test(text)) return s;
+  if (s.moverSphere && s.op && (s.op.kind === "move" || s.op.kind === "rotate") && !s.repeat && field >= 3 && field < 6) { // a number typed for the turn of the mover's axes about X, Y or Z (`in_434`)
+    const n = typedNumber(text);
+    if (n === null) return s;
+    const angles = frameAngles(s.op.frame);
+    angles[field - 3] = n;
+    const turned = angles.some((a) => Math.abs(a) > 1e-9);
+    const { frame: _f, ...rest } = s.op;
+    return { ...s, op: { ...rest, auto: false, ...(turned ? { frame: frameOfAngles(angles) } : {}) } as Op };
+  }
   if (s.moverSphere && s.op && (s.op.kind === "move" || s.op.kind === "rotate") && !s.repeat && field >= 0 && field < 3) { // a number typed for the mover's place: its world x, y or z (`in_418`)
     const n = typedNumber(text);
     const g = gizmoOf(s);

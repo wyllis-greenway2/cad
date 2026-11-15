@@ -127,6 +127,15 @@ export function buildHighlight(overlay: THREE.Group, marks: THREE.Group, s: Scen
       }
       return;
     }
+    if (kind === "red" && (p.kind === "face" || p.kind === "body" || (p.kind === "plane" && p.origin !== "world"))) {
+      // a surface a refused change would have broken flashes red all over, as an edge does, with its constraint's bubble (`in_434`)
+      const ft = fillTriangles(s, ref, "select", body);
+      if (ft && ft.length) {
+        const a = h.red?.alpha ?? 1;
+        overlay.add(trisMesh(ft, new THREE.MeshBasicMaterial({ color: RED, transparent: true, opacity: 0.5 * a, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })));
+        return;
+      }
+    }
     const tris = kind === "amber" || kind === "red" || kind === "temp" ? null : fillTriangles(s, ref, kind, body);
     if (!tris && p.origin === "world" && p.kind === "plane") return; // nothing to draw for a picked world plane (its tint is the pulse below)
     if (tris && kind === "hover" && p.kind === "face" && p.origin === "drawn") {

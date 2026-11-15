@@ -2019,3 +2019,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > 
 > Can we introduce a mirror copy method? it should be able to work on either sketches or bodies.
 (asks: a world view pane stays selectable when a sketch lies over it; the revolve to default to a full 360 turn with no advance, the axis being a selected edge or the positioned rotate tool; a mirror copy for sketches and for bodies)
+
+## in_434 — 2026-11-15 — directive
+> when the mover is in orient mode, it is hard to tell if the bubbles are reffering to xyz position, or zyx rotation, buecause both are shown. As far as I can tell it is always just zyx position and rotation is not shown at all. Can we have the same three bubbles show a x value and x rotation as well? Also can we have degree values always have a degree mark on them systemwide? 
+> 
+> Normally constraints and the items they belong to are supposed to flash red when they are being violated. For example an edge constraint bubble and its edge both flash when it is being violated. Surface constraints dont seem to do this? can we have surfaces and flash red with their constraint bubbles? Also can we check that verticy constraints operate the same way? It should be the standard way that constraints and what they are attached to both flash red.
+(asks: in the mover's orient mode each of the three bubbles shows its axis's position and its rotation, so it is plain which is which; a degree mark on every degree value across the app; a constraint's surfaces (and vertices) to flash red together with its bubble when it is violated, as an edge does)

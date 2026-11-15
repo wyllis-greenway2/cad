@@ -3,7 +3,7 @@ id: dec_mover_sphere
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_416, in_417, in_418, in_419
+human_input: in_416, in_417, in_418, in_419, in_434
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -15,6 +15,8 @@ alternative_to:
 **`in_419` (the AI's reading, for the human to correct):** a move or turn begun on one flat face or plane that is not across a world axis has its Z arrow normal to the face (`surfaceAxes`; across a world axis the mover keeps true x, y, z since it already points that way). A click on the sphere while it is selected and the mover has a turned axes (or had them) switches between true x, y, z and the turned axes (`Op.frameKept`), the sphere not moving; the sphere is let go with Esc (it is no longer let go by a second click: the second click is the switch). The cross section plane has no handles of its own now: it is given the mover's own (`moverHandles`: arrows, rings and the sphere, ids `move:`, `rot:`, `pivot`), there is no move/turn chip, and only the number of the arrow or ring that is taken shows, as for a body. A cross section made with one flat face selected lies on that face, its normal out of the face, its middle the face's middle. The Select menu's all faces, edges and vertices have icons of their own (a block with its top face filled, with bold edges, with dots on its corners). **Not done:** the section plane's sphere is shown but does nothing (it has no mover place or turned axes of its own: the plane's normal is its axes); a face that is across a world axis gives no turned mover.
 
 **`in_421` (a correction; it replaces the always-both mover of `in_418` and the sphere's second-click release of `in_419`):** move and turn are two tools again, each showing only its own arrows or rings and acting on the object. The sphere is a mode of its own for orienting the mover: selected (a click on it) it pulses blue, the object is drawn as wireframe and not highlighted, and a bubble at the top says "Orient the mover" with an apply check (Enter) and a cancel cross (Esc). In the mode the sphere's arrows (`piv:`) move the mover, its rings (`rot:`) turn its axes, a vertex, edge or face clicked puts it there, the typed fields give its place, and a click on the sphere goes between true x, y, z and the turned axes. Apply keeps the place and axes, Cancel puts them back as they were when the sphere was selected (`AppState.moverWas`). The cross section plane keeps both sets (it has no tool to be in).
+
+**`in_434`:** in the orient mode each of the three bubbles has two numbers: the mover's position along that axis (mm) and the turn of its axes about that axis (°, the angles of the axes taken about X, then Y, then Z); typing a turn sets the axes (all zero is true x, y, z again).
 
 ## Rationale
 
