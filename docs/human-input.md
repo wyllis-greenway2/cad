@@ -2078,3 +2078,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > try moving the orb or rotate point here, it jumps around all weird and doesn't move smoothly or even seem to move in the direction of the arrow drag.
 > Also can we have the little world panes fade in and out on orthographic so it is less sudden? Also why cant i take any surface and make a curved extrusion off of it?
 (reports the mover's orb / rotate point jumping and not following the arrow drag; asks for the world panes to fade in and out when the view goes to and from orthographic; asks why a curved extrusion cannot be made off any surface)
+
+## in_443 — 2026-11-15 — question
+> isn't skin basically just a version of our hollow tool already? and what would be the difference between a sweep and a bend anyway?
+(asks whether reading 2 of `q_curved_extrusion` is already the hollow tool, and how a sweep differs from a bend)
