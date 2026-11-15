@@ -2102,3 +2102,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_447 — 2026-11-15 — directive
 > Go ahead with the plane rework
 (approves `q_sheet_planes` as read and in the recommended order, with its defaults: planes are saved parts, a Plane menu entry makes them and Cross section is one begun in a cutting mode, each plane's cut face hatched)
+
+## in_448 — 2026-11-15 — directive
+> can you merge the other branch into this work so I can deploy everything?
+(asks for the other branch to be merged into this work so it can be deployed)
