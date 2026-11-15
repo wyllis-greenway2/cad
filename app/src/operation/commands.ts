@@ -41,7 +41,7 @@ export type Command =
   | { type: "setPattern"; id: string; params: number[] }
   | { type: "breakPattern"; id: string }
   /** the whole model stretched by a factor along each world axis about a point (`dec_scale_axes`): the drawing and the distances of the steps, so the extrusions stay exact */
-  | { type: "stretch"; factors: Vec3; pivot: Vec3 }
+  | { type: "stretch"; factors: Vec3; pivot: Vec3; /** only this body of several (its name), or only these drawn parts (`in_390`) */ body?: string; parts?: Ref[] }
   | { type: "batch"; commands: Command[] };
 
 const idOf = (full: string): string => full.slice(full.indexOf("/") + 1).split(/[./]/)[0] ?? full;
@@ -113,7 +113,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       if (p.kind !== "corner") return err("only corners move directly; move their corners");
       return ok({ ...s, parts: { ...s.parts, [c.ref]: { ...p, at: c.to } } });
     }
-    case "stretch": return stretchScene(s, c.factors, c.pivot);
+    case "stretch": return stretchScene(s, c.factors, c.pivot, { ...(c.body ? { body: c.body } : {}), ...(c.parts ? { parts: c.parts } : {}) });
     case "setRadius": {
       const p = s.parts[c.ref];
       if (!p || p.kind !== "circle") return err(`${c.ref} is not a circle`);

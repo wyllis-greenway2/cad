@@ -551,7 +551,7 @@ test("a drawn figure can be scaled about its middle: corners go out, a circle's 
   const face = Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref;
   st = select(st, [face]);
   st = reduce(st, { type: "begin", name: "scale" }, env);
-  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.kind), ["scale"]);
+  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["scale:x", "scale:y", "scale"], "an arrow along each axis of its plane, and the ball for all together (`in_390`)");
   st = reduce(st, { type: "entry", field: 0, text: "2" }, env);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   assert.equal(st.session.message, null);
@@ -1682,4 +1682,38 @@ test("a number typed for the pivot of a circular repeat moves the pivot point th
   st = reduce(st, { type: "entry", field: 4, text: "7" }, env);
   assert.deepEqual(liveRepeat(scene(st.session), st.repeat!).patStart!.slice(3, 5), [42.5, 7]);
   assert.ok(frame(st).entries.some((e) => e.fields[0]!.short === "Y"), "the bubble of the arrow that was taken shows its number");
+});
+
+test("a drawn figure is stretched along one axis of its plane alone by its arrow (`in_390`)", () => {
+  let s = createSession(kernel);
+  s = run(s, drawSquaredRectangle(scene(s), XY, [0, 0, 0], [40, 20, 0], [1, 0, 0], [0, 1, 0]).command);
+  let st: AppState = { ...createState(s), cam: homeCamera() };
+  st = select(st, [Object.values(scene(st.session).parts).find((p) => p.kind === "face")!.ref]);
+  st = reduce(st, { type: "begin", name: "scale" }, env);
+  const [c, tip] = gizmoOf(st)!.handles.find((h) => h.id === "scale:y")!.points;
+  st = drag(st, tip!, add(c!, scale(sub(tip!, c!), 2)), 6);
+  assert.equal(st.session.message, null);
+  const cs = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as { at: Vec3 }).at);
+  near(Math.max(...cs.map((q) => q[0])) - Math.min(...cs.map((q) => q[0])), 40, 0.01);
+  near(Math.max(...cs.map((q) => q[1])) - Math.min(...cs.map((q) => q[1])), 40, 0.5);
+  assert.deepEqual(frame(st).entries.map((e) => e.fields[0]!.short), ["X", "Y"], "a bubble for each axis once an arrow has been pulled (`in_390`)");
+  st = reduce(st, { type: "entry", field: 0, text: "3" }, env);
+  assert.equal(st.op!.axes![0], 3, "a number typed for an axis sets that axis");
+});
+
+test("a block with a fillet on an upright edge is stretched along X: the fillet stays and the block is longer (`in_390`)", () => {
+  let st = box();
+  const vertical = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "body" && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] !== (scene(st.session).parts[p.b] as { at: Vec3 }).at[2])!;
+  st = select(st, [vertical.ref]);
+  st = reduce(st, { type: "begin", name: "edge" }, env);
+  st = reduce(st, { type: "entry", field: 0, text: "3" }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  const before = st.session.outcome.kernel!.bbox!;
+  const made = run(st.session, { type: "stretch", factors: [2, 1, 1], pivot: [before.min[0], before.min[1], before.min[2]] });
+  assert.equal(made.message, null);
+  assert.deepEqual(made.outcome.errors, {});
+  const b = made.outcome.kernel!.bbox!;
+  near(b.max[0] - b.min[0], 2 * (before.max[0] - before.min[0]), 1e-4);
+  assert.ok(Object.values(scene(made).parts).some((p) => p.kind === "plane" && p.origin === "body" && (p.rounded || p.curved)), "the fillet's surface is still there");
 });

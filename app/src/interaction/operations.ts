@@ -504,15 +504,18 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
   if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
-  if (op.kind === "scale" && op.target === "shape") return v <= 0 ? null : scaleShapeCommand(scene, op, v);
+  if (op.kind === "scale" && op.target === "shape" && !op.axes) return v <= 0 ? null : scaleShapeCommand(scene, op, v);
   if (op.kind === "scale" && op.axes) {
     // factors along the axes alone (`dec_scale_axes`): the recipe is stretched, about the middle of the body
     const f: [number, number, number] = [...op.axes] as [number, number, number];
     if (op.typed !== "") f[op.axis] = v;
     if (f.some((k) => !(k > 0))) return null;
     if (f.every((k) => Math.abs(k - 1) < 1e-9)) return null;
+    const bp = scene.parts[op.parts[0]!];
+    if (op.target === "shape") return op.pivot ? { type: "stretch", factors: f, pivot: op.pivot, parts: op.parts } : null; // (a drawn figure alone)
     const pivot = op.pivot ?? bodyCentre(scene, op.parts[0]);
-    return pivot ? { type: "stretch", factors: f, pivot } : null;
+    const body = bp?.kind === "body" && bp.ref !== BODY_OBJECT && bp.id ? { body: bp.id } : {}; // (one body of several: only it is stretched)
+    return pivot ? { type: "stretch", factors: f, pivot, ...body } : null;
   }
   if (op.kind === "scale") {
     if (v <= 0) return null;

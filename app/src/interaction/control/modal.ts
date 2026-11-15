@@ -151,6 +151,13 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     const same = mover.axis === field;
     return { ...s, op: { ...mover, auto: false, axis: field as 0 | 1 | 2, typed: text, typedBase: moveOffset(sceneOf(s.session), mover)[field]!, ...(same ? {} : { value: null }) } };
   }
+  if (s.op?.kind === "scale" && s.op.axes && field >= 0 && field <= 2) { // a number typed for one axis of a scale along axes (`in_390`)
+    const n = typedNumber(text);
+    if (n === null || !(n > 0)) return s;
+    const axes: [number, number, number] = [...s.op.axes] as [number, number, number];
+    axes[field] = n;
+    return { ...s, op: { ...s.op, axes, axis: field as 0 | 1 | 2, value: n, typed: "" } };
+  }
   if (s.repeat && !s.op) {
     // a number of the repeat that is open (the count and the spacing, or the count and the degrees); a pivot's x, y or z moves the pivot point (`in_384`)
     if (s.repeat.op.kind === "circular" && field >= 3 && field <= 5) { const n = typedNumber(text); return n === null ? s : movePivot({ ...s, repeat: { ...s.repeat, chosen: `piv:${"xyz"[field - 3]}` } }, field - 3, n); }

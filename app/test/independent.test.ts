@@ -517,3 +517,16 @@ test("select similar on a whole body finds the bodies that are the same, a paste
   assert.ok(r.ok);
   if (r.ok) { assert.equal(r.noun, "body"); assert.deepEqual([...r.refs].sort(), [a!.ref, b!.ref].sort()); }
 });
+
+test("one body of several is stretched alone: its sketch and extrusion change, the other body stays (`in_390`)", () => {
+  const s = box(box(createSession(kernel), 0, 0), 60, 0);
+  const [a, b] = bodies(s);
+  const before = bodies(s).map((x) => JSON.stringify(x.bbox));
+  const made = run(s, { type: "stretch", factors: [2, 1, 1.5], pivot: [0, 0, 0], body: a!.id });
+  assert.equal(made.message, null);
+  assert.deepEqual(made.outcome.errors, {});
+  const [a2, b2] = bodies(made);
+  assert.equal(JSON.stringify(b2!.bbox), before[1], "the other body did not change");
+  assert.ok(a2!.bbox!.max[0] - a2!.bbox!.min[0] > (a!.bbox!.max[0] - a!.bbox!.min[0]) * 1.99, "it is twice as long in x");
+  assert.ok(b);
+});

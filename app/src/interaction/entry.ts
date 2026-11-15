@@ -107,6 +107,14 @@ export function repeatEntries(op: Op, g: Gizmo | null, cam: Camera, chosen: stri
  * The number bubble of the move arrows (`in_215`, changed by `in_230`): only on the arrow of the chosen axis, as the rotator shows one ring's number. It shows where the move has taken the body along
  * that axis since it began (`offset`: 0 to begin with, and on across drags until the move is put away), and a typed number is that position.
  */
+/** The numbers of a scale along axes (`in_390`): one bubble at the tip of each axis arrow with the factor along it, to type. */
+export function scaleEntries(op: Op, g: Gizmo | null): Entry[] {
+  if (!g || op.kind !== "scale" || !op.axes) return [];
+  return ([0, 1, 2] as const).flatMap((k) => {
+    const arrow = g.handles.find((h) => h.id === `scale:${"xyz"[k]}`);
+    return arrow ? [{ fields: [{ label: `Scale along ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(op.axes![k]), active: false, typed: false, index: k }], unit: "×", at: arrow.points.at(-1)!, from: g.centre }] : [];
+  });
+}
 export function moveEntries(op: Op, g: Gizmo | null, offset: Vec3): Entry[] {
   if (!g || op.kind !== "move") return [];
   // a body dragged free: all three numbers, one on each arrow, as it goes (`in_293`)

@@ -171,7 +171,14 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera): Gizmo | null {
     const first = op.parts[0] ? scene.parts[op.parts[0]] : undefined;
     const pl = op.plane ? scene.parts[op.plane] : undefined;
     const far = first?.kind === "corner" ? first.at : first?.kind === "circle" && pl?.kind === "plane" ? add(op.pivot, scale(pl.u, first.radius)) : null;
-    return far ? { centre: op.pivot, handles: [{ id: "scale", kind: "scale", axis: null, points: [op.pivot, far] }] } : null;
+    if (!far) return null;
+    // along the axes of its plane (when it faces along a world axis) an arrow each scales the figure that way alone; the ball scales it all together (`in_390`)
+    const n = pl?.kind === "plane" ? normalOfPlane(pl) : null;
+    const c = n ? [0, 1, 2].find((i) => Math.abs(Math.abs(n[i]!) - 1) < 1e-6) : undefined;
+    const pts = cornersOf(scene, op.parts);
+    const ext = (i: number) => (first?.kind === "circle" ? first.radius : pts.length ? Math.max(...pts.map((q) => Math.abs(q[i]! - op.pivot![i]!))) : 0);
+    const arrows = c === undefined ? [] : AXES.flatMap((d, i): Handle[] => (i === c ? [] : [{ id: `scale:${"xyz"[i]}`, kind: "scale", axis: i as 0 | 1 | 2, points: [op.pivot!, add(op.pivot!, scale(d, ext(i) + 0.5 * L))] }]));
+    return { centre: op.pivot, handles: [...arrows, { id: "scale", kind: "scale", axis: null, points: [op.pivot, far] }] };
   }
   if (op.target === "plane") {
     // a drawn figure: the same X Y Z arrows and rings as an object, at the figure's middle (the pivot of a turn can be moved)

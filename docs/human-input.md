@@ -1832,3 +1832,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_389 — 2026-11-15 — directive
 > Do the axis-aligned stretch for extruded bodies next
 (asks for the first slice named in Handoff 367 under `dec_scale_axes`: the pure stretch of a body made only of axis-aligned extrusions)
+
+## in_390 — 2026-11-15 — directive
+> do the not built yet stuff please
+(asks for what Handoff 368 listed as not built for the stretch: one body of several, a bubble for each axis, a stretch with fillets, and a drawn figure's stretch)
