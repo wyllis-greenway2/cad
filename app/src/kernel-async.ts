@@ -2,7 +2,8 @@
 // (the cache), else with the last result there was (the picture lags a little) and asks the worker, newest request first, one at a time. When an answer comes `onChange` is called
 // so the app compiles again and picks the new result up from the cache. A heavy model therefore never freezes the page; it just takes a moment to appear.
 import type { ExportQuality, ExportResult, Kernel, KernelGraph, KernelResult } from "./compiler/kernel/adapter.ts";
-import type { ResultStore } from "./platform/result-store.ts";
+import type { ResultStore as Store } from "./platform/result-store.ts";
+type ResultStore = Store<KernelResult>; // (the store is made for the kernel's answer without knowing it: the platform layer does not import the compiler)
 
 const EMPTY: KernelResult = { ops: [], finalId: null, volume: null, bbox: null, mesh: null, faces: null, edges: null, vertices: null, totalMs: 0 };
 const KEEP = 24; // results kept, newest last

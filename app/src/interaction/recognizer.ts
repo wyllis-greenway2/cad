@@ -15,6 +15,7 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   const I = opts.input ?? settings.input;
   const countClick = createClickCounter(I);
   const scroll = createScroll(I);
+  let straight = false;
   let drawing = false; // a drawing tool is armed: a click may wander more before it counts as turning the view
   const touch = createTouch(I, countClick, () => (drawing ? I.drawTouchSlopPx : I.touchSlopPx), () => drawing);
   let space = false;
@@ -33,7 +34,7 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   let last: [number, number] | null = null;
   let buttons = 0;
   const ease = (dt: number, tau: number) => 1 - Math.exp(-dt / tau);
-  const mouse = createMouse(countClick, () => space, () => (drawing ? settings.view.drawClickMovePx : settings.view.clickMovePx));
+  const mouse = createMouse(countClick, () => space, () => (drawing ? (straight ? settings.view.leaveStraightPx : settings.view.drawClickMovePx) : settings.view.clickMovePx));
 
   function feed(e: RawInput): Intent[] {
     switch (e.kind) {
@@ -93,5 +94,5 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
       }
     }
   }
-  return { feed, get game() { return game; }, setDrawing: (on: boolean) => { drawing = on; }, setTouchHelper: touch.setHelper, setScrollMode: scroll.setMode, get scrollMode() { return scroll.mode; } };
+  return { feed, get game() { return game; }, setDrawing: (on: boolean, flat = false) => { drawing = on; straight = flat; }, setTouchHelper: touch.setHelper, setScrollMode: scroll.setMode, get scrollMode() { return scroll.mode; } };
 }

@@ -220,14 +220,16 @@ export function createView(host: HTMLElement) {
   }
 
   /** The lines that go with constraints: the arc of an angle, the segment a distance measures. */
-  function setNotes(lines: Vec3[][]) {
+  function setNotes(lines: Vec3[][], dashed: Vec3[][] = [], dash = 1) {
     clearGroup(notes);
+    for (const l of dashed) { const m = pen.dashed(l.flat(), 0x55575c, 1.4, dash); m.renderOrder = 4; notes.add(m); } // (the lines from an arc's centre to its ends, `in_463`)
     for (const l of lines) {
       const m = pen.line(l.flat(), 0x55575c, 1.6, false);
       m.renderOrder = 4;
       notes.add(m);
     }
   }
+  const setWorldHidden = (on: boolean): void => world.setOff(on);
   const setPanes = (p: Parameters<typeof world.setPanes>[0]): boolean => world.setPanes(p);
   const setGizmo = (g: GizmoView | null, cam: Camera) => buildGizmo(gizmo, g, cam.distance, pen);
 
@@ -271,5 +273,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { rebuild, setScene, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { rebuild, setWorldHidden, setScene, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

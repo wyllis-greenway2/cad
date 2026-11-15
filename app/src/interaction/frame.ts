@@ -144,6 +144,8 @@ export interface Frame {
   /** a cut of bodies being set up: the parts they make, with where the control of each stands and whether it is kept; and whether what is kept is joined (`in_294`) */
   cut: { parts: { mask: number; at: Vec3; label: string; tip: string; kept: boolean }[]; join: boolean } | null;
   /** the little panes of the world planes beside the axes (`in_190`) */
+  /** the axes and the panes are put away (`in_463`) */
+  worldHidden: boolean;
   panes: { name: WorldName; corners: Vec3[]; active: boolean; hover: boolean }[];
   /** the helper handles of the running operation (arrows, a double arrow, curved arrows), or null */
   gizmo: GizmoFrame | null;
@@ -357,7 +359,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     sections: cutsNow(s).map((c) => ({ at: c.centre, n: c.n, corners: sectionQuad(c.centre, c.n, c.extent) })),
     sectionPlanes: [...Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, mode: modeOf(pl), move: sheetMoveOf(s, pl.ref), corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }), ...mirrorGuide(s)],
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
-    panes: s.cam.straight ? [] : WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
+    worldHidden: s.worldHidden,
+    panes: s.cam.straight || s.worldHidden ? [] : WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
     gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
     similar: similarChip(s),
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),

@@ -17,11 +17,11 @@ import { appRows, nextScrollMode, isScrollMode, nextPanScale } from "./interacti
 import { snapshotOf, logEntry } from "./interaction/snapshot.ts";
 import { createTiming } from "./interaction/timing.ts";
 import type { AppState } from "./interaction/controller.ts";
-import { projector } from "./interaction/camera.ts";
+import { projector, position, basis } from "./interaction/camera.ts";
 import { candidatesAt } from "./interaction/picking.ts";
 import { createAsyncKernel } from "./kernel-async.ts";
 import { openResultStore } from "./platform/result-store.ts";
-import type { Kernel } from "./compiler/kernel/adapter.ts";
+import type { Kernel, KernelResult } from "./compiler/kernel/adapter.ts";
 import { kernel, initKernelWeb, drawRectangle, nextId } from "./interaction/api.ts";
 import type { Ref, Command, Vec3 } from "./interaction/api.ts";
 import { createView } from "./ui/view.ts";
@@ -29,6 +29,7 @@ import { createMenu } from "./ui/menu.ts";
 import { createRing } from "./ui/ring.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
+import { createWorldOrb } from "./ui/worldorb.ts";
 import { createPanel } from "./ui/panel.ts";
 import { createHelper } from "./ui/helper.ts";
 import { createBusy } from "./ui/busy.ts";
@@ -140,6 +141,7 @@ const busySign = createBusy(document.body);
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
 const crosshair = createCrosshair(document.body);
+const worldOrb = createWorldOrb(document.body, () => dispatch({ type: "runAction", id: "world:toggle" }));
 const sheetChips = createSheetChips(document.body, (id) => dispatch({ type: "runAction", id }));
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "overrideRefusal" }), () => dispatch({ type: "holdFlash" }));
@@ -158,16 +160,10 @@ const controls = createControls(document.body, {
 });
 const env = () => ({ w: view.size().w, h: view.size().h, now: performance.now() });
 const FILE_NAME = "model.cad.json";
-/** The game mode's cursor over a ring: a small dot the mouse moves; it lights and clicks the bubbles like the page's own pointer. */
-const menuDot = document.createElement("div");
-menuDot.style.cssText = "position:fixed;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#1ab8b3;border:2px solid #fff;box-shadow:0 0 4px #000;pointer-events:none;z-index:2000;display:none";
-document.body.appendChild(menuDot);
-const menuCap = {
-  move: (x: number, y: number) => { menuDot.style.left = `${x}px`; menuDot.style.top = `${y}px`; ring.pointAt(x, y); },
-  click: (x: number, y: number) => { if (ring.activate(x, y)) dirty = true; },
-  close: () => { ring.hide(); input.captureMenu(null); dirty = true; },
-  show: (on: boolean) => { menuDot.style.display = on ? "block" : "none"; },
-};
+/** A ring opened in game mode stands where it was opened, in the world (`in_463`): it is not fixed to the screen, the view moves about it, the crosshair points at its bubbles and a click presses one; it goes with a click on nothing, when it leaves the view, or when a bubble is chosen. */
+let ringAnchor: Vec3 | null = null;
+const closeRing = (): void => { ring.hide(); ringAnchor = null; };
+const viewCentre = (): [number, number] => { const pg = host.getBoundingClientRect(); return [pg.left + pg.width / 2, pg.top + pg.height / 2]; };
 let panesFading = false; // (the world panes are fading in or out: keep drawing, `in_442`)
 function adopt(session: Session) { state = { ...createState(session), cam: state.cam }; menu.hide(); ring.hide(); dirty = true; }
 // the last things done, kept so that a snapshot can show them (`in_200`): hovering is only kept as its last position
@@ -211,21 +207,33 @@ function dispatch(i: Intent) {
     });
     return;
   }
+  if (ringAnchor && ring.open) {
+    if (i.type === "click") { const [cx, cy] = viewCentre(); if (!ring.activate(cx, cy)) closeRing(); dirty = true; return; } // (the crosshair's click: a bubble, or nothing: the ring goes)
+    if (i.type === "menu" && !i.button) { closeRing(); dirty = true; return; }
+  }
   // the ⋯ button again closes its menu (`in_294`)
   if (i.type === "menu" && i.button && menu.open) { menu.hide(); dirty = true; return; }
   state = reduce(state, i, env());
-  recognizer.setDrawing(!!state.tool);
+  recognizer.setDrawing(!!state.tool, state.cam.straight); // (with a sketch tool in hand a click that wanders is still a click: up to the drag that would leave a straight view, `in_463`)
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
     if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale, settings.theme.outlines)); }
-    else { menu.hide(); if (state.menu) ring.show(i.x, i.y, state.menu.items); else ring.hide(); } // (no menu: a right click that applied the mover's orient mode, `in_439`)
+    else {
+      menu.hide();
+      if (state.menu && recognizer.game && document.pointerLockElement !== null) { // game mode: the ring is put in the world, ahead of the eye, and stays there
+        const eye = position(state.cam);
+        const fwd = basis(state.cam).forward;
+        ringAnchor = [0, 1, 2].map((k) => eye[k]! + fwd[k]! * state.cam.distance * 0.6) as unknown as Vec3;
+        const [cx, cy] = viewCentre();
+        ring.show(cx, cy, state.menu.items, true);
+      } else { ringAnchor = null; if (state.menu) ring.show(i.x, i.y, state.menu.items); else ring.hide(); }
+    } // (no menu: a right click that applied the mover's orient mode, `in_439`)
   } else {
     // pointing around does not close a menu; any other intent does
     if (menu.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) menu.hide();
-    if (ring.open && !["hover", "hoverEnd", "runAction", "walk", "swivel"].includes(i.type)) ring.hide(); // (keys held in game mode do not close it, `in_441`)
+    if (ring.open && !ringAnchor && !["hover", "hoverEnd", "runAction"].includes(i.type)) ring.hide(); // (a ring in the world is not closed by keys or by the view moving, `in_441`, `in_463`)
   }
-  input.captureMenu(ring.open ? menuCap : null, ring.centre()); // (game mode keeps the pointer locked: the mouse moves a cursor over the ring and clicks its bubbles, `in_441`)
   dirty = true;
 }
 // which kind of device was used last: a laptop can have a mouse and a touch screen, so it is the event itself that says, not the machine (`in_160`)
@@ -237,7 +245,7 @@ bus.on("input", (raw) => {
 const input = attachInput(host, bus);
 
 /** The kernel's answers are kept between sessions in a built app, or with `?cache=1` while developing (the stamp of the kernel is found when the app is built: a change made after the dev server started would not be seen, `dec_description_cache`). `?cache=0` turns it off. */
-let resultStore: ReturnType<typeof openResultStore> = null;
+let resultStore: ReturnType<typeof openResultStore<KernelResult>> = null;
 const resultStoreOn = (): boolean => { const q = new URLSearchParams(location.search).get("cache"); return q === "1" || (q !== "0" && !import.meta.env.DEV); };
 
 async function boot() {
@@ -251,7 +259,7 @@ async function boot() {
       const c = session.conflict;
       state = { ...state, session, ...(session.history.cursor < before ? { op: null, drag: null } : {}), ...(c && c !== state.session.conflict ? { flash: { ...c, at: performance.now() } } : {}) }; // (a step taken back with its reason: what is the problem flashes red, `in_266`)
       dirty = true;
-    }, undefined, { store: (resultStore = resultStoreOn() ? openResultStore(typeof __KERNEL__ === "string" ? __KERNEL__ : "unstamped") : null) });
+    }, undefined, { store: (resultStore = resultStoreOn() ? openResultStore<KernelResult>(typeof __KERNEL__ === "string" ? __KERNEL__ : "unstamped") : null) });
     await worked.init();
     engine = worked;
   } catch {
@@ -309,6 +317,8 @@ function frame(now: number) {
     view.setWireframe(f.wireframe);
     view.setSectionPlanes(f.sectionPlanes);
     view.setSection(f.sections);
+    view.setWorldHidden(f.worldHidden);
+    { const pg = host.getBoundingClientRect(); const c = projector(state.cam, size.w, size.h).project([0, 0, 0]); worldOrb.update(c && c[0] > -20 && c[1] > -20 && c[0] < size.w + 20 && c[1] < size.h + 20 ? [c[0] + pg.left, c[1] + pg.top] : null, f.worldHidden); }
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); sheetChips.update(f.sectionPlanes.filter((p) => !p.guide).map((p) => ({ ref: p.ref, mode: p.mode, move: p.move, selected: p.selected, corners: p.corners })), (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null); }
     toolChip.update(f.tool, f.confirm, lastDevice === "touch");
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
@@ -318,6 +328,17 @@ function frame(now: number) {
     sizeKindChip.update(f.sizeKinds);
     loftKindChip.update(f.loftKinds);
     resetView.update(f.resetView);
+    if (ringAnchor) { // the ring that stands in the world follows it as the view moves; it goes when it is out of view (`in_463`)
+      if (!ring.open) ringAnchor = null;
+      else {
+        const eye = position(state.cam);
+        const ahead = [0, 1, 2].reduce((t, k) => t + (ringAnchor![k]! - eye[k]!) * basis(state.cam).forward[k]!, 0);
+        const p = ahead > 0.05 ? projector(state.cam, size.w, size.h).project(ringAnchor) : null;
+        const pg = host.getBoundingClientRect();
+        if (!p || p[0] < 0 || p[1] < 0 || p[0] > size.w || p[1] > size.h) closeRing();
+        else { ring.moveTo(pg.left + p[0], pg.top + p[1]); const [cx, cy] = viewCentre(); ring.pointAt(cx, cy); dirty = true; }
+      }
+    }
     { const pg = host.getBoundingClientRect(); crosshair.update(recognizer.game && document.pointerLockElement !== null, { x: pg.left + pg.width / 2, y: pg.top + pg.height / 2 }); }
     toolCursor.update(f.tool ? f.tool.kind : null);
     const project = projector(state.cam, size.w, size.h).project;
@@ -325,7 +346,7 @@ function frame(now: number) {
     const inFront = [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), hintIcons.rect(), ...touchRects].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : []));
     if (bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid, inFront)) dirty = true; // (a bubble still sliding to its place: another frame)
     refusalChip.update(f.refusal, f.refusal ? bubbles.rectOf(f.refusal.beside) : null); // (beside the bubble of the constraint that stopped it, `in_367`)
-    view.setNotes(f.annotations.flatMap((a) => a.lines));
+    view.setNotes(f.annotations.flatMap((a) => a.lines), f.annotations.flatMap((a) => a.dashed ?? []), state.cam.distance * 0.012);
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
     // the icon stands at the upper left of the handles, out of the way of the arrows and rings (`in_215`)

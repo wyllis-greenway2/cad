@@ -2163,3 +2163,17 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_462 — 2026-11-15 — directive
 > how about claude/hopeful-cannon-4 ?
 (asks whether the branch `claude/hopeful-cannon-4` can be merged too)
+
+## in_463 — 2026-11-15 — directive
+> On game mode right click still seperates the cursor and pops it out. I want right click to position a menu in space, and it should persist and you can just do game mode around it and click on the items. It should't make the menu stuck to the camera, it should just be in space and you should be able to navigate around it. It should go away when you click out of the menu, or when it goes out of camera view or of course when it normally closes after a successful selection. 
+>
+> When an arc is created, you should be able to both set the radius and also arc angle. Since there radial lines going to arc center we probably need to draw dashed ones on selection so that we can draw the corner angle thingie. 
+>
+> The sweep doesnt apply if you don't click the green checkmark button. I think generally operations shuold just apply if you click in outside space rather than cancel. 
+>
+> Can we make the world xyz and panes hide able? So lets put a little orb in the junction. If you click the orb, then shuold all hide, if you click the orb again they should all show, hovering on the orb should show a little eye or eye crossed icon to indicate what clicking on it does. 
+>
+> Can we try to make it so that any menu option is always selectable, instead of needing to select the correct things in advance to access the menu item, you just have the click the correct things after to get the operation completed? Would this work or would there be edge cases? 
+>
+> There seems to be a bug where a sketch click doesn't actually start the sketch unless the mouse is perfectly stationary, if there is any drag at all it doesn't start, if you have a sketch tool in hand, I think a click should just start it easier unless the drag movement at the same time is more significant, at least enough to pull you out of orthographic mode. You can always use the right click to rotate the world as well if thats what the user wants to do instead of start a sketch point.
+(asks: in game mode a right click to put the menu in the world where it was opened, staying there while you move about, clicked with the game mode cursor, closing on a click outside, when it leaves the view, or after a choice; an arc to have both a radius and an arc angle, with the radial lines drawn dashed when it is selected so the angle mark can be drawn; operations to apply, not cancel, on a click in empty space; the world axes and panes hideable with an orb at their junction (click hides all, again shows all, hover shows an eye or a crossed eye); whether every menu item can always be selectable with the things chosen after it, and what the edge cases are; and a sketch click that moves a little to still start the sketch with a tool in hand unless the drag is enough to leave orthographic view, right click being there to turn the view)

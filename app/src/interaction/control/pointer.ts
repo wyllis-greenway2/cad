@@ -175,7 +175,7 @@ function withTwins(sc: Scene, before: readonly Ref[], now: readonly Ref[]): Ref[
 
 /** The little pane under the pointer, unless something of the drawing or the body is there too (a sketch near the origin is not blocked by the panes beside the axes). */
 function paneUnder(s: AppState, x: number, y: number, env: Env): ReturnType<typeof paneAt> {
-  const pane = paneAt(s.cam, env.w, env.h, x, y);
+  const pane = paneAt(s.cam, env.w, env.h, x, y, s.worldHidden);
   if (!pane) return null;
   const sc = sceneOf(s.session);
   const there = candidatesAt(sc, projector(s.cam, env.w, env.h).view(x, y), pickOpts(s));
@@ -460,7 +460,9 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   // a click on an arrow selects it: it shows its number then (`in_238`)
   if (hit) return s.repeat && !s.op ? { ...(hit.id.startsWith("rot:") ? setRepeatAxis(base, "xyz".indexOf(hit.id[4]!)) : { ...base, repeat: { ...s.repeat, chosen: hit.id } }), handleSel: hit.id } : { ...base, handleSel: hit.id };
   // a click anywhere else, blank space too, leaves an operation you started, and then acts as a normal click
-  return doClickSelect(s.op ? { ...base, op: null, drag: null, gizmoHover: null } : base, i, env, cands, refs, pv);
+  // (an operation that is open is applied by it, as the check and Enter do, not dropped: a sweep, a loft or a mirror that was not given its check was lost, `in_463`)
+  const left = s.op ? { ...doApply(base), drag: null, gizmoHover: null } : base;
+  return doClickSelect(left.op ? { ...left, op: null } : left, i, env, cands, refs, pv);
 }
 
 /** A normal click: select what is under it (cycling where things overlap), two select the whole object, three look straight at the plane. */

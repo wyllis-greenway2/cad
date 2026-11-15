@@ -1,0 +1,31 @@
+---
+id: q_menu_always_selectable
+kind: question
+status: open
+origin: ai-unreviewed
+human_input: in_463
+date: 2026-11-15
+depends_on:
+alternative_to:
+---
+# Every menu item always selectable, with the things picked after it?
+
+`in_463` asked whether any menu item could always be chosen, the right things being clicked afterwards to complete the operation, and what the edge cases are. **Answer: it works, as a "command first" mode, and it needs these decisions.**
+
+**How it would work (the AI's proposal):** an item that cannot start from what is selected is no longer dimmed; choosing it opens the operation in a *picking* state: a bubble says what it waits for ("click a closed sketch, then the lines of the path"), only things of the kinds it can use are lit and can be clicked, each click adds to the operation's selection, and the operation begins by itself when what it needs is complete (a single target) or on the check, Enter or a click in empty space (as operations now apply on that click, `in_463`). With the right things already selected the item runs at once as today, so nothing gets slower. The revolve already waits this way (`in_435`), and the sketch tools do.
+
+**Edge cases:**
+1. *Is a click an argument or a selection?* In the picking state it is an argument; Esc or the cross leaves the state and clicks select again.
+2. *Order and roles:* operations with more than one role (sweep: shape then path; mirror: what then across what; loft: order matters) need each pick given its role, in the order the bubble names, or the picks sorted by kind when that is unambiguous (a closed sketch is the shape, lines are the path).
+3. *Ambiguity:* a face clicked could mean the face or the body (push / pull, hollow); the state says which it takes.
+4. *Nothing to pick:* an item with no possible target in the model (a sweep with no sketch drawn) says so at once instead of waiting.
+5. *Operations that take a number:* the number's bubble appears once the picks are complete.
+6. *Touch and game mode:* a tap or the crosshair's click is the pick; the helper bubble has to be there for both.
+7. *Several picks of one kind* (loft sketches, a repeat's parts): they end on the check, since no count says when it is complete.
+8. *Undo and cancel:* a picking state makes no step; leaving it leaves nothing behind.
+9. *Menu size:* nothing is hidden or dimmed any more, so the ring shows every operation; the *why not* text becomes the bubble's prompt.
+
+**Recommendation:** build it, item by item, beginning with the multi-role operations that most need it (sweep, mirror, loft, revolve), keeping today's select-first path as it is. Say go ahead, or which edge cases to answer differently.
+
+## Rationale
+It changes how every menu item starts, so it is asked before it is built.

@@ -5,7 +5,7 @@ import type { Vec3 } from "../math/vec.ts";
 import { sub, dot, cross, length, dist, mid, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Kind, Lookup } from "../operation/part.ts";
-import { pointOf, segmentOf, roundOf, normalOfPlane, planeOfParts, relationKind } from "../operation/part.ts";
+import { pointOf, segmentOf, roundOf, normalOfPlane, planeOfParts, relationKind, curveMid } from "../operation/part.ts";
 
 const PARALLEL_SIN = 0.02; // two lines count as parallel for a distance when the sine of the angle between them is below this (about 1 degree)
 
@@ -33,6 +33,16 @@ function arcOf(c: Ctx, ref: Ref): { centre: Vec3; start: Vec3 } | null {
   if (!l || l.kind !== "line" || !l.center) return null;
   const [centre, start] = [pointOf(c.get, l.center), pointOf(c.get, l.a)];
   return centre && start ? { centre, start } : null;
+}
+/** How far round the arc goes, in degrees (`in_463`): from its start through its middle to its end about its centre, either way; null for a straight line. */
+export function arcSweepDeg(c: Ctx, ref: Ref): number | null {
+  const l = c.get(ref);
+  if (!l || l.kind !== "line" || !l.center) return null;
+  const [o, a, b, m] = [pointOf(c.get, l.center), pointOf(c.get, l.a), pointOf(c.get, l.b), curveMid(c.get, l)];
+  if (!o || !a || !b || !m) return null;
+  const n = normalOfPlane(planeOfParts(c.get, [ref]) ?? { kind: "plane", at: o, u: [1, 0, 0], v: [0, 1, 0] } as never);
+  const turn = (p: Vec3, q: Vec3): number => { const [u, v] = [sub(p, o), sub(q, o)]; return Math.atan2(dot(n, cross(u, v)), dot(u, v)); };
+  return Math.round((Math.abs(turn(a, m) + turn(m, b)) * 180 / Math.PI) * 1e4) / 1e4;
 }
 const segs = (c: Ctx, r: Ref[]): [Vec3, Vec3][] => { const pl = planeOfParts(c.get, r); return r.map((x) => segmentOf(c.get, x, pl)).filter((s): s is [Vec3, Vec3] => !!s); }; // (a face of the body is the line where it cuts the plane, `in_313`)
 const dir = (s: [Vec3, Vec3]): Vec3 => normalize(sub(s[1], s[0]));
@@ -67,6 +77,13 @@ export const ROWS: Row[] = [
     id: "radius", label: "Radius", pair: ["line"], unit: "mm",
     hidden: (c, r) => !arcOf(c, r[0]!),
     measure: (c, r) => { const a = arcOf(c, r[0]!); return a ? dist(a.centre, a.start) : null; },
+    spot: (c, r) => { const a = arcOf(c, r[0]!); return a ? a.centre : null; },
+  },
+  {
+    // how far round an arc goes (`in_463`): the angle between the lines from its centre to its two ends
+    id: "arcAngle", label: "Arc angle", pair: ["line"], unit: "deg",
+    hidden: (c, r) => !arcOf(c, r[0]!),
+    measure: (c, r) => arcSweepDeg(c, r[0]!),
     spot: (c, r) => { const a = arcOf(c, r[0]!); return a ? a.centre : null; },
   },
   { id: "fixed", label: "Fix in place", pair: ["corner"] },

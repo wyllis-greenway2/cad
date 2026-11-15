@@ -70,14 +70,15 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
   };
 
   return {
-    show(x: number, y: number, items: RingItem[]) {
+    show(x: number, y: number, items: RingItem[], free = false) {
       root.replaceChildren();
+      root.style.transform = "";
       shown = [];
       if (!items.length) return;
       const R = Math.max(SIZE + 14, ((SIZE + GAP) * depthN(items)) / (2 * Math.PI)); // far enough out that neighbours do not touch, the same for every ring
       // the whole ring is kept on the screen: the centre moves in from an edge
       const m = R + SIZE / 2 + 6;
-      C = { x: Math.max(m, Math.min(window.innerWidth - m, x)), y: Math.max(m, Math.min(window.innerHeight - m, y)), R };
+      C = free ? { x, y, R } : { x: Math.max(m, Math.min(window.innerWidth - m, x)), y: Math.max(m, Math.min(window.innerHeight - m, y)), R }; // (a ring that stands in the world is not kept on the screen: it goes out of view, `in_463`)
       path = [{ items, start: -Math.PI / 2 }];
       draw(0, null);
       root.style.display = "block";
@@ -90,8 +91,8 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
       const [l, t] = [Math.min(...rs.map((r) => r.left)), Math.min(...rs.map((r) => r.top))];
       return new DOMRect(l, t, Math.max(...rs.map((r) => r.right)) - l, Math.max(...rs.map((r) => r.bottom)) - t);
     },
-    /** Where the ring stands (its middle), for a pointer that starts there. */
-    centre(): [number, number] { return [C.x, C.y]; },
+    /** The whole ring moved so that its middle is at this point (a ring that stands in the world while the view moves, `in_463`). */
+    moveTo(x: number, y: number): void { root.style.transform = `translate(${Math.round(x - C.x)}px, ${Math.round(y - C.y)}px)`; },
     /** The bubble under a point that is not the page's pointer (the game mode's crosshair, moved by the mouse): it lights as one under the pointer does; true when there is one (`in_441`). */
     pointAt(x: number, y: number): boolean {
       let hit = false;

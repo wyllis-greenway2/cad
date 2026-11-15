@@ -293,6 +293,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "select:ungroup") return doUngroup(closed);
   if (id === "hollow:invert" && s.op?.kind === "hollow" && s.op.hollowMode && s.op.hollowMode !== "closed") return { ...s, op: { ...s.op, hollowMode: s.op.hollowMode === "keep" ? "open" : "keep" }, session: { ...s.session, message: null } };
   if (id === "view:section") return doSectionToggle(closed);
+  if (id === "world:toggle") return { ...closed, worldHidden: !s.worldHidden };
   if (id === "view:plane") return doPlaneNew(closed, false); // (a new plane that does not cut, `in_459`)
   if (id.startsWith("sheet:mode:")) return doSheetMode(closed, id.slice(11) as never);
   if (id === "sheet:move") return doSheetMove(closed);
@@ -367,7 +368,8 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
   }
   if (i.act === "measure") {
     const sel = selectionOf(s.session);
-    const a = measureAction(actionsFor(sc, sel), (x) => x.enabled);
+    const named = i.id && i.id.startsWith("measure:") ? i.id.slice(8) : null; // (the arc's angle, beside its radius: `in_463`)
+    const a = named ? actionsFor(sc, sel).find((x) => x.id === named && x.dimensional && x.enabled) : measureAction(actionsFor(sc, sel), (x) => x.enabled);
     if (a) return i.value !== undefined && i.value > 0 ? withSession(s, run(s.session, a.run(i.value), { watchAll: true })) : s; // (a sketch the body was made from: a size the steps cannot take is refused)
     // a line of the body: its length is made by pushing or pulling the face at its end
     const cmd = sel.length === 1 && i.value !== undefined ? setLineLength(sc, sel[0]!, i.value) : null;

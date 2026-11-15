@@ -21,6 +21,7 @@ export function createWorld(scene3: THREE.Scene, host: HTMLElement) {
   const labels = AXES.map((a) => makeLabel(host, a.name));
   for (const l of labels) { l.style.fontSize = "10px"; l.style.opacity = String(settings.world.axisOpacity); }
 
+  let off = false; // the axes and the panes put away with the orb at their junction (`in_463`)
   const ray = new THREE.Raycaster();
   /** Is anything of the model between the eye and this point? (The axes themselves are drawn with depth, the labels are text and need this check.) */
   function hidden(cam: Camera, point: Vec3, occluders: THREE.Object3D): boolean {
@@ -36,6 +37,7 @@ export function createWorld(scene3: THREE.Scene, host: HTMLElement) {
   function update(cam: Camera, size: { w: number; h: number }, occluders: THREE.Object3D) {
     const k = settings.world.axisLengthMm / AXIS_LEN;
     axes.group.scale.setScalar(k);
+    axes.group.visible = !off;
     for (const l of axes.lines) l.resolution.set(size.w, size.h);
     const pr = projector(cam, size.w, size.h);
     const fwd = basis(cam).forward;
@@ -44,10 +46,10 @@ export function createWorld(scene3: THREE.Scene, host: HTMLElement) {
     labels.forEach((d, i) => {
       const at = AXES[i]!.dir.map((v) => v * AXIS_LEN * k * 1.18) as unknown as Vec3;
       const p = pr.project(at);
-      d.style.display = facing[i] || hidden(cam, at, occluders) ? "none" : "block";
+      d.style.display = off || facing[i] || hidden(cam, at, occluders) ? "none" : "block";
       d.style.left = `${p[0]}px`;
       d.style.top = `${p[1]}px`;
     });
   }
-  return { update, setGrid, setPanes };
+  return { update, setGrid, setPanes, setOff: (on: boolean) => { off = on; } };
 }

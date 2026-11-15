@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { createAsyncKernel } from "../src/kernel-async.ts";
 import type { WorkerLike } from "../src/kernel-async.ts";
 import { looksRight, sizeOf } from "../src/platform/result-store.ts";
-import type { ResultStore } from "../src/platform/result-store.ts";
+import type { ResultStore as Store } from "../src/platform/result-store.ts";
+type ResultStore = Store<KernelResult>;
 import type { KernelGraph, KernelResult } from "../src/compiler/kernel/adapter.ts";
 
 const answer = (volume: number): KernelResult => ({ ops: [{ id: "a", type: "extrude", error: null, ms: 1 }], finalId: "a", volume, bbox: { min: [0, 0, 0], max: [1, 1, 1] }, mesh: { vertices: new Float32Array(9), normals: new Float32Array(9), triangles: new Uint32Array(3) }, faces: [], edges: [], vertices: [], totalMs: 1 });
