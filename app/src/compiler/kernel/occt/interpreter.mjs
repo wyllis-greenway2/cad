@@ -601,7 +601,11 @@ const OPS = {
         if (region === "empty") throw Object.assign(new Error(`a ${op.mode === "chamfer" ? "chamfer" : "fillet"} of that size would take all of the body`), { final: true });
         const mixed = !region && neighbours && set ? mixedRound(t, set, list, size, op.mode, stationsFor(size)) : null;
         if (mixed) { note = `the ${op.mode === "chamfer" ? "chamfer" : "fillet"} could not be made all at once at this size, so the straight edges and rims were made as regions and the other edges by the kernel, one after the other`; return mixed; }
-        if (rel && op.mode === "chamfer" && !region) throw Object.assign(new Error("a chamfer whose size changes along the edge can be made on straight edges between flat faces only"), { final: true });
+        if (rel && op.mode === "chamfer" && !region) {
+          const approx = neighbours && set ? approximateRound(t, set, size, op.mode, stationsFor(size)) : null;
+          if (approx) { note = "the chamfer was made as a region that follows the edge, as the kernel has no chamfer whose size changes along its edge (close, not exact)"; return approx; }
+          throw Object.assign(new Error("a chamfer whose size changes along the edge could not be made on these edges"), { final: true });
+        }
         if (region) { note = rel && op.mode === "chamfer" ? "the chamfer was made as a region, as the kernel has no chamfer whose size changes along its edge" : `the ${op.mode === "chamfer" ? "chamfer" : "fillet"} could not be made as a smooth round at this size (the faces next to it are not wide enough, or other rounding meets it), so it was made as a region: as large a round as the faces beside it allow, or cut across them where they end`; return region; }
         // on its own it cannot be made (next to fillets already made, a corner where three meet): the kernel can blend a corner when the edges that meet there are rounded in the same operation, so
         // this one is tried together with the ones just before it (each with its own size), from the body before them
@@ -609,6 +613,8 @@ const OPS = {
           // else (`in_379`): together with the fewest of the edges that meet it at its ends, which the kernel needs rounded with it; only for a step made that way (`corner` on the step: the step said so when it was made, so a later change cannot start it rounding another edge) where they meet at a corner it cannot blend alone
           const more = neighbours && op.corner && set ? withNeighbours(t, set, size, op.mode) : null;
           if (more) { note = more.note; return more.shape; }
+          const approx = neighbours && op.corner && set ? approximateRound(t, set, size, op.mode, stationsFor(size)) : null; // (the last thing tried, in the retry made with corner: the neighbours come first)
+          if (approx) { note = `the ${op.mode === "chamfer" ? "chamfer" : "fillet"} could not be made by the kernel, so it was made as a region that follows the edge (the faces beside it are taken as flat across it: approximate, and it can take noticeably less than a true round where the faces curve strongly across its size)`; return approx; }
           throw e;
         }
         const sizes = new Map();
@@ -897,12 +903,99 @@ function mixedRound(t, set, list, size, mode, stations) {
   return second ? regions(second, Rrefs) : null;
 }
 
+/** Every edge of `set` made by `curvedRegion` from the body as it was, all cut or added; null if any cannot be. */
+function approximateRound(t, set, size, mode, stations) {
+  const byEdge = new Map();
+  for (const f of facesOf(t)) for (const e of edgesOf(f)) byEdge.set(e.hashCode, [...(byEdge.get(e.hashCode) ?? []), { f, rev: e.wrapped.Orientation() === getOC().TopAbs_Orientation.TopAbs_REVERSED }]); // (the edge as the face's own outline has it: forward or reversed)
+  const tools = [];
+  for (const e of edgesOf(t).filter((x) => set.has(x.hashCode))) {
+    let r = null;
+    const here = byEdge.get(e.hashCode) ?? [];
+    try { r = curvedRegion(t, e, here.map((x) => x.f), here.map((x) => x.rev), size, mode, stations); } catch { r = null; }
+    if (!r) return null;
+    tools.push(r);
+  }
+  if (!tools.length) return null;
+  try {
+    let made = t;
+    for (const { tool, convex } of tools) made = convex ? made.cut(tool) : made.fuse(tool);
+    return isValidSolid(made) && measureVolume(made) > 1e-6 && Math.abs(measureVolume(made) - measureVolume(t)) > 1e-9 * measureVolume(t) ? made : null;
+  } catch { return null; }
+}
+
 /**
  * The region of a **rim** (`in_387`, `dec_edits_saturate` B): the circle where a flat face meets a round wall about an axis at right angles to it, revolved. The corner area between the two faces and the rounding
  * (the rolling circle, or the bevel) is drawn in the half plane through the axis (radius across, height along) and turned once round. A rim saturates at the largest size the faces beside it allow (the wall's height; the
  * flat face's width, which for the end of a post is its radius: past that the round is a dome and no more), since a region crossing the axis or going past the foot of a post would cut into what is not the corner.
  * Returns null for anything that is not such a rim.
  */
+/**
+ * A fillet or chamfer of **any edge between two faces**, made as a region approximately (`in_392`): sections across the edge at places along it, each drawn as the corner profile (the two faces taken as the planes
+ * tangent to them there, the rolling circle or the bevel between them) in the plane across the edge, and between each two sections a ruled piece; the pieces are joined and cut from the body (a convex edge) or added to it
+ * (a concave one). It is exact where the faces are planes along the edge and near it where they curve slowly across the size; it is the last thing tried, for an edge the kernel cannot round, a rim a region cannot make
+ * and an edge between faces that are not flat and not a round wall (a cone, a sphere, a torus, a free surface). A closed edge is made in two halves. Null if it cannot be made.
+ */
+function curvedRegion(t, e, fs, revs, size, mode, stations) {
+  if (fs.length !== 2) return null;
+  const dotp = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const unit = (v) => { const l = Math.hypot(v[0], v[1], v[2]); return l > 1e-12 ? [v[0] / l, v[1] / l, v[2] / l] : null; };
+  const closed = Math.hypot(e.startPoint.x - e.endPoint.x, e.startPoint.y - e.endPoint.y, e.startPoint.z - e.endPoint.z) < 1e-6;
+  const N = 24;
+  // the frame across the edge at a place along it: the directions along the two faces away from the edge, from the faces' own normals there
+  const frameAt = (u) => {
+    const P = e.pointAt(u);
+    const T = unit([e.tangentAt(u).x, e.tangentAt(u).y, e.tangentAt(u).z]);
+    if (!T) return null;
+    const norm = fs.map((f) => { const n = f.normalAt(P); return unit([n.x, n.y, n.z]); });
+    if (norm.some((n) => !n)) return null;
+    // into each face from the edge: to the left of the way the face's own outline runs along the edge, seen from outside (so no guess is made from where the face's middle is)
+    const a = fs.map((f, i) => unit(cross3(norm[i], revs[i] ? [-T[0], -T[1], -T[2]] : T)));
+    if (a.some((d) => !d)) return null;
+    const cosA = Math.max(-1, Math.min(1, dotp(a[0], a[1])));
+    const alpha = Math.acos(cosA);
+    if (alpha < 1e-3 || alpha > Math.PI - 1e-3) return null;
+    const ey = unit([a[1][0] - a[0][0] * cosA, a[1][1] - a[0][1] * cosA, a[1][2] - a[0][2] * cosA]);
+    return { P, a, alpha, cosA, ex: a[0], ey, normal: cross3(a[0], ey), convex: dotp(norm[0], a[1]) < 0 };
+  };
+  const section = (fr, sz) => {
+    let reach = mode === "chamfer" ? sz : sz / Math.tan(fr.alpha / 2);
+    let radius = sz;
+    if (!fr.convex) {
+      // added material past the end of the faces would stand out as a wing: no further than the faces go from the edge here (taken from the corners of each face)
+      const far = fs.map((f, i) => { let m = 0; for (const p of faceVertices(f)) m = Math.max(m, dotp(fr.a[i], [p.x - fr.P.x, p.y - fr.P.y, p.z - fr.P.z])); return m; });
+      const limit = Math.min(...far.map((x) => (x > 1e-9 ? x : Infinity)));
+      if (reach > limit) { reach = limit; radius = mode === "chamfer" ? sz : limit * Math.tan(fr.alpha / 2); }
+    }
+    if (!(reach > 1e-6)) return null;
+    const [t1, t2] = [[reach, 0], [reach * fr.cosA, reach * Math.sin(fr.alpha)]];
+    const eps = 1e-4;
+    const [o1, o2] = [[0, -1], [-Math.sin(fr.alpha), fr.cosA]];
+    const k = eps / (1 + o1[0] * o2[0] + o1[1] * o2[1]);
+    let outline = draw([k * (o1[0] + o2[0]), k * (o1[1] + o2[1])]).lineTo([t1[0] + eps * o1[0], t1[1] + eps * o1[1]]).lineTo(t1);
+    if (mode === "chamfer") outline = outline.lineTo(t2);
+    else { const m = radius / Math.sin(fr.alpha / 2) - radius; outline = outline.threePointsArcTo(t2, [m * Math.cos(fr.alpha / 2), m * Math.sin(fr.alpha / 2)]); }
+    return outline.lineTo([t2[0] + eps * o2[0], t2[1] + eps * o2[1]]).close().sketchOnPlane(new Plane([fr.P.x, fr.P.y, fr.P.z], fr.ex, fr.normal));
+  };
+  const sizeAt = (u) => (stations ? Math.max(1e-3, pchip(stations, u)) : size);
+  const halves = closed ? [[0, 0.5], [0.5, 1]] : [[0, 1]];
+  let ring = null;
+  let convex = null;
+  for (const [lo, hi] of halves) {
+    const us = Array.from({ length: N / halves.length + 1 }, (_, k) => lo + ((hi - lo) * k) / (N / halves.length));
+    const frames = us.map(frameAt);
+    if (frames.some((f) => !f)) return null;
+    if (convex === null) convex = frames[0].convex;
+    if (frames.some((f) => f.convex !== convex)) return null; // (an edge that is convex in one place and concave in another is not made this way)
+    // one smooth loft through all the sections of the half (a ruled piece between each two, joined, was slow and left the bends short)
+    const sections = frames.map((fr, i) => section(fr, sizeAt(us[i])));
+    if (sections.some((s) => !s)) return null;
+    const piece = sections[0].loftWith(sections.slice(1), { ruled: false });
+    ring = ring ? ring.fuse(piece) : piece;
+  }
+  return ring ? { tool: ring, convex } : null;
+}
+
 function rimFaces(e, fs) {
   if (e.geomType !== "CIRCLE" || fs.length !== 2) return null;
   const plane = fs.find((f) => f.geomType === "PLANE");
@@ -1033,7 +1126,7 @@ function sphereCorners(edges, mode) {
   }
   return out;
 }
-export { regionRound };
+export { regionRound, approximateRound };
 const faceVertices = (f) => edgesOf(f).flatMap((e) => [e.startPoint, e.endPoint]);
 function regionRound(t, set, size, mode, stations) {
   const faces = facesOf(t);
@@ -1133,7 +1226,7 @@ function regionRound(t, set, size, mode, stations) {
   for (const { tool, convex } of tools) made = convex ? made.cut(tool) : made.fuse(tool);
   // where three rounded edges meet at a corner of three faces at right angles (the corner of a block) and the size is small enough for the rounds not to meet, the corner is a piece of a sphere, as the kernel makes it
   // (the three regions leave the corner as the three rounds cross; the cube of the size at the corner without the ball is taken off)
-  for (const corner of process.env.NOPATCH ? [] : sphereCorners(straight, mode)) {
+  for (const corner of sphereCorners(straight, mode)) {
     try {
       const { V, d, m, w, r } = corner;
       const c = [V[0] + r * w[0], V[1] + r * w[1], V[2] + r * w[2]];

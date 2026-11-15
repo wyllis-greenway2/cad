@@ -3,7 +3,7 @@ id: dec_edits_saturate
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_383, in_386, in_387, in_390, in_391
+human_input: in_383, in_386, in_387, in_390, in_391, in_392
 date: 2026-11-15
 depends_on:
   - dec_direct_modification: edits stay a list of specific operations built from kernel pieces (booleans, prisms, wedges, rings); this entry adds to the list and does not rebuild bodies from planes
@@ -27,7 +27,9 @@ alternative_to:
 
 **Corners and partial rims (built, `in_391`).** Where three rounded straight edges meet at a corner of three faces at right angles, the same size for all and no larger than half of any, the region method adds the corner's piece of a sphere (the cube of that size at the corner, without the ball), so it equals the kernel's own corner (tested to a millionth of the volume on three edges and on all twelve edges of a block). A piece of a rim (one half of the circle the kernel splits a rim into) is rounded by a region that turns through the span of that piece and ends in a flat cut.
 
-**Not built:** the region for edges between a flat face and a surface that is not a plane or a round wall (a cone, a sphere, a torus), and for curved edges in general (the rolling-ball problem between curved faces: with C); a spherical corner for chamfers or corners not at right angles; a size at more than three places along an edge; a rim with a size that changes along it.
+**Built, in part (`in_392`).** (1) **A size at up to five places along an edge** (the params `value`, `end`, `mid`, `q1`, `q3`; Tab goes round the fields; the kernel's radius law takes the points, the region fallback a monotone interpolation through them). (2) **A rim with a size that changes along it** (a closed rim: its start at the circle's first point, `rimTool` takes the sizes by angle). (3) **A spherical corner for chamfers** (exact flat corner) **and for corners not at right angles** (the patch is the slab intersection; agrees with the kernel to about 2e-4 of the volume). (4) **The region for curved edges** (edges between a flat face and a cone, sphere or torus, or two curved faces): `curvedRegion` draws sections across the edge, taking the two faces as the planes tangent to them there, and lofts them; it is **approximate** and is the last thing tried (only in the retry made with `corner`, after the neighbours), with a note saying so. Measured on a post with a cross hole: 6 per cent below the kernel's removed volume at 0.5 mm, 12 per cent at 1 mm, about half at 3 mm, so it is an honest stand-in, not the rolling ball.
+
+**Still not built:** the exact rolling ball between curved faces (with C, the own kernel); a spherical corner for chamfers at corners not at right angles; a size at more than five places along an edge; a varying size on a rim made of one half or on several rims at once.
 
 **C (later, with our own kernel).** Rebuild bodies from their surfaces (half-spaces, cylinders) so that every number saturates by construction, and kinds of face edit that need it (extend across curved neighbours). It is a second geometry engine, which `dec_direct_modification` rejected for now; it belongs to the project of writing our own kernel (`dec_kernel_hybrid`, "our own later"). Listed in `docs/roadmap.md`.
 
