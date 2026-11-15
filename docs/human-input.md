@@ -2191,3 +2191,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_469 — 2026-11-15 — directive
 > Do step 2 as well
 (approves step 2 of `dec_sharp_edges_once`: the sharp edges found once per body in the kernel's thread, kept with its description and sent in the answer)
+
+## in_470 — 2026-11-15 — directive
+> find out what the long task after an edit is
+(asks to find what the page's long task of 120 to 160 ms after an edit is; measuring, nothing is to be built yet)

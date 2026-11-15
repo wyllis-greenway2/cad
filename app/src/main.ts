@@ -84,6 +84,7 @@ const panel = createPanel(document.body, {
 let state: AppState;
 let lastFrame: ReturnType<typeof frameOf> | null = null;
 const timing = createTiming();
+let drawnAt: number | null = null; // (when the last frame that drew was done: the next frame starts after the browser has handed it to the graphics card, `in_470`)
 let staleSince: number | null = null; // (when the picture began to wait for the kernel's answer: the time until that answer is drawn is what an edit makes you wait)
 let engine: Kernel = kernel; // the kernel in use: on its own thread when that could start (`boot`), else the one in this page
 let dirty = true;
@@ -285,6 +286,8 @@ async function boot() {
   requestAnimationFrame(frame);
 }
 function frame(now: number) {
+  const tStart = performance.now();
+  if (drawnAt !== null) { timing.add("browser: from a drawn frame to the next one (commit, the graphics card, the screen's refresh)", tStart - drawnAt); drawnAt = null; }
   if (state.anim || state.flash || state.mixT0 !== null) { state = advance(state, now); dirty = true; }
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
@@ -377,6 +380,7 @@ function frame(now: number) {
     timing.add("frame: build what is drawn", tBuilt - tMade);
     timing.add("frame: draw (render)", tEnd - tBuilt);
     timing.add("frame: all", tEnd - tFrame);
+    drawnAt = tEnd;
     const waiting = !!state.session.outcome.kernel?.stale;
     if (waiting && staleSince === null) staleSince = tFrame;
     else if (!waiting && staleSince !== null) { timing.add("edit: waiting for the kernel until its answer is drawn", tEnd - staleSince); staleSince = null; }
