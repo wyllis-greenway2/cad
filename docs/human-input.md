@@ -1807,3 +1807,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_388 — 2026-11-15 — directive
 > try the rim fillet in the browser
 (follows `in_387`: the rim fillet, made as a revolved region, is to be tried in the real app)
+
+## in_389 — 2026-11-15 — question
+> okay should we try the "Not built: several sizes along one edge, a variable fillet of several edges at once, the loft for curved edges, and corners where several rounded edges meet."
+(asks whether to build the four items listed as not built after `in_387`)
