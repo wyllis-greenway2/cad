@@ -387,3 +387,18 @@ export function arcRadiusCommand(scene: Scene, arc: Ref, radius: number): Comman
 
 /** Whether a line is tangent to this arc (or circle): its radius is then changed by the solver, so the lines stay tangent (`in_229`). */
 export const isTangentArc = (scene: Scene, arc: Ref): boolean => scene.relations.some((r) => r.kind === "tangent" && r.parts.includes(arc));
+
+/**
+ * The figure a face of the body comes from, when moving or turning that figure is what moving or turning the face means (`in_386`): the wall of a hole or a post is its circle. The circle is moved (along the axis
+ * of the hole, which sweeps it through the part; across it, which slides it; turned, which tilts it) and the steps after it are worked out again, so the hole is wherever it is put and nothing is refused for being
+ * valid geometry. Null for any other face.
+ */
+export function figureBehindFace(scene: Scene, selection: readonly Ref[]): Ref[] | null {
+  if (selection.length !== 1) return null;
+  const f = scene.parts[selection[0]!];
+  if (f?.kind !== "plane" || f.origin !== "body") return null;
+  const e = faceEdit(scene, f.ref);
+  if (e?.kind !== "radius") return null;
+  const c = scene.parts[e.circle];
+  return c?.kind === "circle" && c.origin === "drawn" ? [c.ref] : null;
+}

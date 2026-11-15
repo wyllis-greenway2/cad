@@ -21,7 +21,7 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
     const why = op.edit?.kind === "radius" && op.edit.arc ? (isTangentArc(sceneOf(sess), op.edit.circle) ? "the lines tangent to this arc cannot stay tangent at that radius (a locked size or angle holds them)" : "the lines on both ends of this arc do not reach that radius (they would have to move)") : "it would be zero or less";
     return op.edit && v !== null && v !== 0 ? { session: { ...sess, message: `that size is not possible: ${why}` }, cmd: { type: "batch", commands: [] } } : null;
   }
-  if (!op.edit || op.noEdit) {
+  if (!op.edit || op.noEdit || (op.faceKind && op.faceKind !== "move")) {
     const corner = op.kind === "edge" ? withCorner(cmd) : null; // (a fillet or chamfer the kernel cannot make on the edge alone is made with the edges that meet it at a corner, `in_379`)
     const done = run(sess, cmd, { ...(op.target === "body" ? { ownHold: true } : {}), ...(corner ? { fallback: corner } : {}) }); // (a body that is moved has its own check below, which names the sketch it would stretch)
     if (corner && done.message && sceneOf(done).steps.length === sceneOf(sess).steps.length) { const again = run(sess, corner); if (sceneOf(again).steps.length > sceneOf(sess).steps.length) return { session: again, cmd: corner }; }

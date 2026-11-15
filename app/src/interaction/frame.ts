@@ -120,6 +120,8 @@ export interface Frame {
   resetView: boolean;
   /** a change refused for the constraints it would break, while it flashes: the button that deletes them and goes on (`in_366`) */
   refusal: { text: string; button: string; /** the constraint it stands beside */ beside: string } | null;
+  /** push / pull of one flat face: what it does, to choose (`in_386`) */
+  faceKinds: { id: "move" | "extrude" | "extend"; label: string; title: string; on: boolean }[] | null;
   selection: { count: number; actions: { id: string; label: string; title: string }[] } | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate"; label: string } | null;
@@ -343,6 +345,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     gizmo: gizmo ? { handles: gizmo.handles, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
     similar: similarChip(s),
     selection: selectionChip(s),
+    faceKinds: faceKinds(s),
     resetView: !s.anim && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
     modeSwitch: gizmo && !s.repeat ? modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : null,
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
@@ -464,6 +467,17 @@ function modeSwitchOf(op: AppState["op"], at: Vec3, pts: Vec3[]): Frame["modeSwi
 }
 
 
+const FACE_KINDS: { id: "move" | "extrude" | "extend"; label: string; title: string }[] = [
+  { id: "move", label: "Move", title: "Move the face by changing the step that made it: the height of what is attached grows or shrinks" },
+  { id: "extrude", label: "Extrude", title: "Add (or take) a prism of the face's outline: a square growing out of the face" },
+  { id: "extend", label: "Extend", title: "Move the face and carry the faces next to it on until they meet: a chamfered top grows into a pyramid, and past the top nothing more happens" },
+];
+/** The choice of what a push / pull of one flat face does (`in_386`): only for a flat face (a round wall, a fillet or chamfer face and several faces have their own meaning). */
+function faceKinds(s: AppState): Frame["faceKinds"] {
+  const op = s.op;
+  if (!op || op.kind !== "pushpull" || op.parts.length !== 1 || op.curved || op.rounded || op.roundAxis || (op.faces?.length ?? 0) > 1) return null;
+  return FACE_KINDS.map((k) => ({ ...k, on: (op.faceKind ?? "move") === k.id }));
+}
 function selectionChip(s: AppState): Frame["selection"] {
   const n = selectionOf(s.session).length;
   if (n < 2 || s.op || s.tool || s.cut || s.repeat || s.drag || similarChip(s)) return null;

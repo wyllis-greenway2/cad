@@ -12,7 +12,7 @@ import type { Curved } from "../operation/part.ts";
 import type { FaceEdit } from "./faceedit.ts";
 import type { OffsetSource } from "./offset.ts";
 import { offsetSource, offsetCommand } from "./offset.ts";
-import { faceEdit, editCommand, arcRadiusCommand } from "./faceedit.ts";
+import { faceEdit, editCommand, arcRadiusCommand, figureBehindFace } from "./faceedit.ts";
 import { faceEdges } from "./offsetbody.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
@@ -93,6 +93,8 @@ export interface Op {
   rounded?: boolean;
   /** this time make the prism instead (the step that made the face could not take the size) */
   noEdit?: boolean;
+  /** what pushing or pulling a flat face does (`in_386`): `move` (the default: the step that made the face changes), `extrude` (a prism of the face's outline is added or taken), `extend` (the face moves and its neighbours are carried on until they meet) */
+  faceKind?: "move" | "extrude" | "extend";
   /** rotate: the point it turns about (the rotator's centre; you can move it) */
   pivot: Vec3 | null;
   /** move and rotate: the body, or a drawn shape (its corners are `parts`, its plane is `plane`) */
@@ -151,6 +153,9 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind, v
   return from ? { ...r, op: { ...r.op, from, stepsAt: scene.steps.length } } : r;
 }
 function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view: ViewAxes | null): StartResult {
+  // the wall of a hole or a post is moved or turned by moving or turning the circle that made it (`in_386`)
+  const behind = kind === "move" || kind === "rotate" ? figureBehindFace(scene, selection) : null;
+  if (behind) return startOpBare(scene, behind, kind, view);
   const get = lookup(scene);
   const parts = selection.map((r) => get(r)).filter((p): p is Part => !!p);
   // a piece of a figure that lines cut up shares its sides with the other pieces: it can be extruded (or offset nowhere), but moved, turned, scaled or repeated only by selecting the lines and points themselves
@@ -498,8 +503,8 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
     if (v === 0) return null;
     return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }) } } })) };
   }
-  if (op.kind === "pushpull" && op.edit && !op.noEdit) return v === 0 ? null : editCommand(scene, op.edit, v);
-  if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op) } } };
+  if (op.kind === "pushpull" && op.edit && !op.noEdit && (op.faceKind ?? "move") === "move") return v === 0 ? null : editCommand(scene, op.edit, v);
+  if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
   if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
   if (op.kind === "scale" && op.target === "shape") return v <= 0 ? null : scaleShapeCommand(scene, op, v);

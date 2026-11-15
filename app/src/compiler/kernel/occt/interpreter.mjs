@@ -433,6 +433,58 @@ const OPS = {
   },
 
   /**
+   * Move a flat face along its normal by `distance` and carry the faces next to it along as surfaces, until they meet (`in_386`, "extend"): the material added (pulled out) or taken (pushed in) is the slab between the
+   * old and the new plane, kept to the side of each neighbouring face that the body is on (for a neighbour that lies across the face, the other side). A chamfered top pulled up grows as a pyramid; past the apex nothing
+   * is left of the slab, so nothing is added and nothing fails. Needs flat neighbours; a push that leaves nothing of the body is refused.
+   */
+  faceExtend(op, ctx) {
+    const t = ctx.get(op.target, "solid").shape;
+    const dist = resolve(op.distance, ctx.params);
+    if (!Number.isFinite(dist)) throw new Error("bad distance");
+    if (Math.abs(dist) < 1e-6) return { kind: "solid", shape: t };
+    const best = findFace(t, op.ref);
+    const fn = best.normalAt();
+    const fl = Math.hypot(fn.x, fn.y, fn.z);
+    const n = [fn.x / fl, fn.y / fl, fn.z / fl];
+    const c = best.center;
+    const mine = new Set(edgesOf(best).map((e) => e.hashCode));
+    const next = facesOf(t).filter((f) => f.hashCode !== best.hashCode && edgesOf(f).some((e) => mine.has(e.hashCode)));
+    if (!next.length) throw new Error("this face has no neighbours to extend");
+    const b = bounds(t);
+    const big = Math.hypot(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]) * 2 + Math.abs(dist) + 50;
+    const slab = (p, m, from, to) => {
+      // the solid between the planes at `from` and `to` along m from the point p, wide enough to reach past the whole body
+      const pick = Math.abs(m[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+      const xd = [m[1] * pick[2] - m[2] * pick[1], m[2] * pick[0] - m[0] * pick[2], m[0] * pick[1] - m[1] * pick[0]];
+      const xl = Math.hypot(...xd);
+      const origin = [p[0] + m[0] * from, p[1] + m[1] * from, p[2] + m[2] * from];
+      return drawRectangle(2 * big, 2 * big).sketchOnPlane(new Plane(origin, xd.map((v) => v / xl), m)).extrude(to - from);
+    };
+    const [lo, hi] = dist > 0 ? [0, dist] : [dist, 0];
+    let region = slab([c.x, c.y, c.z], n, lo, hi);
+    for (const f of next) {
+      if (f.geomType !== "PLANE") throw new Error("the faces next to this face are not all flat, so it cannot be extended (move it instead)");
+      const m0 = f.normalAt();
+      const ml = Math.hypot(m0.x, m0.y, m0.z);
+      const m = [m0.x / ml, m0.y / ml, m0.z / ml];
+      const fc = f.center;
+      // a neighbour that goes down from this face (the body is below the edge) bounds the slab from inside; one that rises above it (a wall round a pocket) bounds it from the side the air is on
+      const below = (fc.x - c.x) * n[0] + (fc.y - c.y) * n[1] + (fc.z - c.z) * n[2] <= 1e-9;
+      const keep = below ? slab([fc.x, fc.y, fc.z], m, -big, 0) : slab([fc.x, fc.y, fc.z], m, 0, big);
+      region = region.intersect(keep);
+      if (!(measureVolume(region) > 1e-6)) break;
+    }
+    const left = measureVolume(region);
+    if (!(left > 1e-6)) {
+      if (dist > 0) return { kind: "solid", shape: t }; // the neighbours have met: nothing more to add, and nothing is wrong
+      throw new Error("nothing of the body would be left");
+    }
+    const made = dist > 0 ? t.fuse(region) : t.cut(region);
+    if (!(measureVolume(made) > 1e-6)) throw new Error("nothing of the body would be left");
+    return { kind: "solid", shape: made };
+  },
+
+  /**
    * Tilt a flat face about an axis through its middle: material is added where the face lifts and removed where it dips.
    * ref finds the face (see faceExtrude); axis is a world axis (0..2) lying in the face; angle is in degrees.
    */
@@ -783,7 +835,7 @@ function describeError(e, op) {
   if (typeof e === "string") return e;
   // the kernel says nothing when it cannot build a shape: say what was being done, and the usual reason
   if (op?.type === "edgeMod") return `the kernel could not make a ${op.mode === "chamfer" ? "chamfer" : "fillet"} of that size on this edge: it is probably too big for the faces beside it (try a smaller size)`;
-  if (op?.type === "cylRadius" || op?.type === "faceExtrude") return "the kernel could not make that size (it may be too small, too big, or run into another part of the model)";
+  if (op?.type === "cylRadius" || op?.type === "faceExtrude" || op?.type === "faceExtend") return "the kernel could not make that size (it may be too small, too big, or run into another part of the model)";
   return "the kernel could not make this step (it gave no reason)";
 }
 
@@ -819,6 +871,7 @@ function fingerprint(text) {
 /** Operations that change a face, an edge or a round wall of one body: with several bodies they work on the body that holds it and leave the others alone, even when what is pulled goes into another body (`in_270`). */
 const LOCAL = {
   faceExtrude: (op) => [op.ref?.point],
+  faceExtend: (op) => [op.ref?.point],
   faceTilt: (op) => [op.ref?.point],
   cylRadius: (op) => [op.ref?.center],
   cylDraft: (op) => [op.ref?.center],

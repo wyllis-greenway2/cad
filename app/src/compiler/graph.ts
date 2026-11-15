@@ -92,7 +92,7 @@ export function buildGraph(scene: Scene): GraphResult {
         }
         if (p.nx !== undefined && p.px !== undefined) {
           // the face as it was when the step was made (later steps move the body's named faces, this one still means its own)
-          ops.push({ id: xid, type: "faceExtrude", target: prev, ref: { n: [Number(p.nx), Number(p.ny), Number(p.nz)], d: Number(p.fd), point: [Number(p.px), Number(p.py), Number(p.pz)] }, distance: Number(p.depth ?? 0) });
+          ops.push({ id: xid, type: p.extend ? "faceExtend" : "faceExtrude", target: prev, ref: { n: [Number(p.nx), Number(p.ny), Number(p.nz)], d: Number(p.fd), point: [Number(p.px), Number(p.py), Number(p.pz)] }, distance: Number(p.depth ?? 0) });
           prev = xid;
           break;
         }
@@ -101,7 +101,7 @@ export function buildGraph(scene: Scene): GraphResult {
         if (!face || face.kind !== "plane" || !ref || !face.mesh || face.mesh.length < 9) { errors[st.id] = "the face is gone"; break; }
         const m = face.mesh;
         const point: Vec3 = [(m[0]! + m[3]! + m[6]!) / 3, (m[1]! + m[4]! + m[7]!) / 3, (m[2]! + m[5]! + m[8]!) / 3]; // a point on the face itself: the kernel finds it by plane and by this point
-        ops.push({ id: xid, type: "faceExtrude", target: prev, ref: { n: ref.n, d: ref.d, point }, distance: Number(p.depth ?? 0) });
+        ops.push({ id: xid, type: p.extend ? "faceExtend" : "faceExtrude", target: prev, ref: { n: ref.n, d: ref.d, point }, distance: Number(p.depth ?? 0) });
         prev = xid;
         break;
       }

@@ -1795,3 +1795,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_385 — 2026-11-15 — question
 > So what is OCCT and what is the kernel? is OCCT basically just the open source kernel we are using to handle object validation? Also how much work would it be just to write our own now? Wouldn't an intersection based one be much much simpler? How does the current one work?
 (about what OpenCascade is, what a kernel is, the cost of our own, whether an intersection-based one is simpler, and how the current one works)
+
+## in_386 — 2026-11-15 — approval
+> okay lets do A and B and mark C as a later project in our to do when we write our own kernel
+(approves options A and B of `q_edits_saturate`, and asks that C, rebuilding bodies from their surfaces, be recorded as a later project in the to-do list, for when our own kernel is written)
