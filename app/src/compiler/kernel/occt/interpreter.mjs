@@ -24,6 +24,8 @@ import {
   Wire,
 } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
+import { stage, beginStages, endStages } from "./stages.mjs";
+import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
 
 /** OCCT's own topology/geometry check. Operations can return garbage without throwing. */
@@ -535,10 +537,10 @@ const OPS = {
    * its box containing the point). Pulling out adds the prism the face sweeps; pushing in cuts it.
    */
   faceExtrude(op, ctx) {
-    const t = ctx.get(op.target, "solid").shape;
+    const t = stage("copying the body it works on", () => ctx.get(op.target, "solid").shape);
     const dist = resolve(op.distance, ctx.params);
-    const best = findFace(t, op.ref);
-    const fn = best.normalAt(); // the face's own normal, exactly: a rounded one slants the prism and leaves slivers (an invalid solid)
+    const best = stage("finding the face", () => findFace(t, op.ref));
+    const fn = stage("the face's normal", () => best.normalAt()); // the face's own normal, exactly: a rounded one slants the prism and leaves slivers (an invalid solid)
     const fl = Math.hypot(fn.x, fn.y, fn.z);
     const n = [fn.x / fl, fn.y / fl, fn.z / fl];
     if (!Number.isFinite(dist)) throw new Error("bad distance");
@@ -553,9 +555,9 @@ const OPS = {
       }
       if (-dist >= deepest - 1e-6) throw new Error("the push goes through the body");
     }
-    const prism = basicFaceExtrusion(best, new Vector(n.map((v) => v * dist)));
+    const prism = stage("the prism of the face", () => basicFaceExtrusion(best, new Vector(n.map((v) => v * dist))));
     // among several bodies the boolean is made on the body the face is on alone, when the prism comes nowhere near the others (a boolean on all of them takes as long as the biggest, `in_439`: a loft of a thousand faces)
-    const lumps = lumpsOf(t);
+    const lumps = stage("listing the bodies", () => lumpsOf(t));
     if (lumps.length > 1) {
       const mine = lumps.findIndex((l) => facesOf(l).some((f) => f.hashCode === best.hashCode));
       if (mine >= 0) {
@@ -564,7 +566,7 @@ const OPS = {
         if (!near) { const made = dist >= 0 ? lumps[mine].fuse(prism) : lumps[mine].cut(prism); return { kind: "solid", shape: makeCompound([...lumps.filter((_, i) => i !== mine), ...made.solids]) }; }
       }
     }
-    return { kind: "solid", shape: dist >= 0 ? t.fuse(prism, { optimisation: "commonFace" }) : t.cut(prism) }; // (the prism stands on the face and nowhere else: the kernel is told the two only share that face, which spares it looking for every other crossing, `in_442`)
+    return { kind: "solid", shape: dist >= 0 ? t.fuse(prism, { optimisation: "commonFace" }) : t.cut(prism) }; // (the prism stands on the face and nowhere else: the kernel is told the two only share that face, which spares it looking for every other crossing, `in_442`) // (the prism stands on the face and nowhere else: the kernel is told the two only share that face, which spares it looking for every other crossing, `in_442`)
   },
 
   /**
@@ -718,7 +720,7 @@ const OPS = {
     /** The body with this step's edges (`list`, refs) rounded or bevelled by `size`: on their own, else together with the steps just before it (`in_176`), else it throws. */
     let note = null;
     const make = (size, list, neighbours = true) => {
-      const set = resolveEdges(t, list);
+      const set = stage("finding the edges", () => resolveEdges(t, list));
       const pick = (ef) => ef.when(({ element }) => set.has(element.hashCode));
       try {
         if (!set) throw new Error("line not found (the model changed since this step was made)");
@@ -735,9 +737,9 @@ const OPS = {
           if (!isValidSolid(two) || Math.abs(measureVolume(two) - measureVolume(t)) < 1e-9 * measureVolume(t)) throw new Error("the kernel made nothing of it");
           return two;
         }
-        const made = op.mode === "chamfer" ? t.chamfer(size, pick) : rel && rel.length > 2 ? lawFillet(t, set, stationsFor(size)) : t.fillet(rel ? [size, size * rel[1][1]] : size, pick);
-        if (!isValidSolid(made)) throw new Error("kernel returned an invalid solid"); // (a size the faces cannot take can come out as a broken solid, not an exception)
-        if (Math.abs(measureVolume(made) - measureVolume(t)) < 1e-9 * measureVolume(t)) throw new Error("the kernel made nothing of it"); // (a size it cannot take can come out as the body unchanged)
+        const made = stage("the kernel's round", () => op.mode === "chamfer" ? t.chamfer(size, pick) : rel && rel.length > 2 ? lawFillet(t, set, stationsFor(size)) : t.fillet(rel ? [size, size * rel[1][1]] : size, pick));
+        if (!stage("checking the round", () => isValidSolid(made))) throw new Error("kernel returned an invalid solid"); // (a size the faces cannot take can come out as a broken solid, not an exception)
+        if (stage("checking the round's volume", () => Math.abs(measureVolume(made) - measureVolume(t)) < 1e-9 * measureVolume(t))) throw new Error("the kernel made nothing of it"); // (a size it cannot take can come out as the body unchanged)
         return made;
       } catch (e) {
         // two distances have no region to fall back on (`dec_chamfer_two_distances`): refused, with the reason
@@ -1627,7 +1629,9 @@ export function compile(graph) {
     let checkMs = 0;
     try {
       if (!OPS[op.type]) throw new Error(`unknown op type ${op.type}`);
+      beginStages();
       const value = run(op, ctx, results);
+      const stagesOf = endStages();
       if (value.kind === "solid") {
         // which bodies the result has, by the markers of the body it was made from (moved with it if this was a move)
         const from = op.target ? results.get(op.target)?.value : null;
@@ -1641,9 +1645,10 @@ export function compile(graph) {
       const tC = performance.now();
       if (value.kind === "solid" && !rigid && !value.checked && !isValidSolid(value.shape)) throw new Error("kernel returned an invalid solid");
       checkMs = performance.now() - tC;
-      results.set(op.id, { value, ms: performance.now() - t0, key, markMs, checkMs });
+      results.set(op.id, { value, ms: performance.now() - t0, key, markMs, checkMs, ...(Object.keys(stagesOf).length ? { stages: Object.fromEntries(Object.entries(stagesOf).map(([n, v]) => [n, Math.round(v * 10) / 10])) } : {}) });
       remember(key, { value });
     } catch (e) {
+      endStages();
       results.set(op.id, { error: describeError(e, op), ms: performance.now() - t0, ...(e?.detail?.culprits?.length ? { culprits: e.detail.culprits } : {}) });
     }
   }

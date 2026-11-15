@@ -160,7 +160,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
   let tBox = 0;
   const ops = graph.ops.map((o) => {
     const r = results.get(o.id);
-    return { id: o.id, type: o.type, error: r.error ?? null, ms: r.ms, ...(r.cached ? { cached: true } : {}), ...(r.checkMs >= 1 ? { checkMs: Math.round(r.checkMs) } : {}), ...(r.markMs >= 1 ? { markMs: Math.round(r.markMs) } : {}), ...(r.culprits ? { culprits: r.culprits } : {}), ...(r.value?.note ? { note: r.value.note } : {}), ...(r.value?.used ? { used: r.value.used } : {}), ...(r.value?.cutInto ? { cutInto: r.value.cutInto } : {}) };
+    return { id: o.id, type: o.type, error: r.error ?? null, ms: r.ms, ...(r.cached ? { cached: true } : {}), ...(r.checkMs >= 1 ? { checkMs: Math.round(r.checkMs) } : {}), ...(r.markMs >= 1 ? { markMs: Math.round(r.markMs) } : {}), ...(r.stages ? { stages: r.stages } : {}), ...(r.culprits ? { culprits: r.culprits } : {}), ...(r.value?.note ? { note: r.value.note } : {}), ...(r.value?.used ? { used: r.value.used } : {}), ...(r.value?.cutInto ? { cutInto: r.value.cutInto } : {}) };
   });
   const fin = finalSolid(graph, results);
   let mesh = null;

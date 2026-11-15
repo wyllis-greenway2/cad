@@ -2057,3 +2057,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_442 — 2026-11-15 — approval
 > yes, start with the opening cost
 (approves the next step proposed after the timing breakdown: the cost of opening a file)
+
+## in_443 — 2026-11-15 — approval
+> yes, start with the stage timings
+(approves step 1 of the plan: stage timings inside the slow steps, then the mesh cache)
