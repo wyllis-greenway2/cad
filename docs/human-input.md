@@ -1803,3 +1803,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_387 — 2026-11-15 — directive
 > Extend B to rims and variable fillet
 (asks that option B of `dec_edits_saturate` (fillets and chamfers as regions that do not fail) be extended to rims, the circular edges of posts and holes, and that a variable fillet be added)
+
+## in_388 — 2026-11-15 — directive
+> try the rim fillet in the browser
+(follows `in_387`: the rim fillet, made as a revolved region, is to be tried in the real app)

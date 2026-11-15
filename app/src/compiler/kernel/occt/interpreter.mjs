@@ -572,7 +572,7 @@ const OPS = {
         // straight edges between flat faces: the corner is made as a region that is cut or added, which has no size that fails (`in_386`, `dec_edits_saturate`)
         const region = neighbours && set ? regionRound(t, set, size, op.mode, ratio ? size * ratio : undefined) : null;
         if (region === "empty") throw Object.assign(new Error(`a ${op.mode === "chamfer" ? "chamfer" : "fillet"} of that size would take all of the body`), { final: true });
-        if (region) { note = `the ${op.mode === "chamfer" ? "chamfer" : "fillet"} could not be made as a smooth round at this size (the faces next to it are not wide enough, or other rounding meets it), so the corner was cut as a region: it crosses those faces instead of touching them smoothly`; return region; }
+        if (region) { note = `the ${op.mode === "chamfer" ? "chamfer" : "fillet"} could not be made as a smooth round at this size (the faces next to it are not wide enough, or other rounding meets it), so it was made as a region: as large a round as the faces beside it allow, or cut across them where they end`; return region; }
         // on its own it cannot be made (next to fillets already made, a corner where three meet): the kernel can blend a corner when the edges that meet there are rounded in the same operation, so
         // this one is tried together with the ones just before it (each with its own size), from the body before them
         if (!base || op.together.mods.length < 2) {
