@@ -163,7 +163,8 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
     const c = revolveCentre(op);
     if (!a || !c) return null;
     const start = add(c, scale(a.d, L * 0.55));
-    return { centre: c, handles: [ring("rev:turn", c, a.d, L * 0.5, null), { id: "rev:adv", kind: "double", axis: null, points: [add(start, scale(a.d, -HALF * L * 0.6)), add(start, scale(a.d, HALF * L * 0.6))] }] };
+    const orb: Handle = { id: "rev:orb", kind: "ball", axis: null, points: [c] }; // (the mover's orb on the line it turns about: it moves when another line is clicked, `in_436`)
+    return { centre: c, handles: [orb, ring("rev:turn", c, a.d, L * 0.5, null), { id: "rev:adv", kind: "double", axis: null, points: [add(start, scale(a.d, -HALF * L * 0.6)), add(start, scale(a.d, HALF * L * 0.6))] }] };
   }
   if (op.kind === "edge") {
     // one double arrow, on the edge selected last, through its middle, along the way out of the corner; the size you drag applies to all the selected edges, so one arrow and one bubble are all there is to work with

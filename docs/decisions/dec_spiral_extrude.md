@@ -3,7 +3,7 @@ id: dec_spiral_extrude
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_427, in_428, in_429, in_430, in_433, in_435
+human_input: in_427, in_428, in_429, in_430, in_433, in_435, in_436
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -28,6 +28,8 @@ alternative_to:
 **Simpler (`in_433`):** it begins as a full turn (360°) with no advance, so nothing has to be typed: pick the line to turn about and apply. The line is a line selected with the figure, a world axis in its plane, one of its own sides, or **the rotate tool**: a line through the sphere (the ball shown on the axis, dragged where it is wanted and brought to the figure's plane) along the figure's own X or Y. The twist axes keep an advance to begin with (10 mm), as a twist with none is nothing.
 
 **`in_435` (replaces the axis chips and the tool axes above):** the revolve has no axis buttons and chooses no axis by itself: it begins at 360° with no advance and **waits for a click on the line to turn about** (a straight side of the figure, another straight line in its plane, or a world axis in it; a line selected with the figure counts as that click). Nothing shows and nothing is made until then; a click on something that cannot be the axis says why. The twist about the plane's normal is no longer offered from the screen (the step still takes it).
+
+**`in_436` (replaces the waiting of `in_435`):** the revolve uses the mover's orb. It begins with the orb on one of the figure's own lines (the line selected with it, else its first side), pulsing blue as the mover's orb does in its orient mode, the part drawn as wireframe while it is decided, and a quarter turn (90°) as the preview; the ring (normal to the line: the axis runs along the line, slanted or not) and the advance arrow are there to change the angle and advance. Clicking another straight line of the figure, or any line in its plane the figure does not cross, moves the orb and the axis there (near a corner the line that is not the axis already is the one taken). The orb itself is not dragged.
 
 ## Rationale
 

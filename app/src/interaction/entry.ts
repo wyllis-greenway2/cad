@@ -12,7 +12,7 @@ import type { Gizmo } from "./gizmo.ts";
 import type { Camera } from "./camera.ts";
 import { basis } from "./camera.ts";
 import { settings } from "../shared/settings.ts";
-import { add, scale } from "../math/vec.ts";
+import { add, sub, scale } from "../math/vec.ts";
 import { anglesOf, fromAngles } from "../math/rotation.ts";
 import { OP_FIELD, OP_UNIT, valueOf, turnAngles, sizeShown } from "./operations.ts";
 import { advanceOf } from "./revolve.ts";
@@ -149,7 +149,8 @@ export function sectionEntries(sec: { at: Vec3; n: Vec3 }, g: Gizmo | null, chos
     if (!moving && chosen !== `rot:${"xyz"[k]}`) return [];
     const h = g.handles.find((x) => x.id === chosen);
     if (!h) return [];
-    const at = moving ? h.points.at(-1)! : h.points[Math.floor(h.points.length / 8)]!;
+    const head = h.points[Math.floor(h.points.length / 8)]!;
+    const at = moving ? h.points.at(-1)! : add(g.centre, scale(sub(head, g.centre), 1.25)); // (the number of a ring stands a little further out than its arrowhead, `in_436`)
     return [{ fields: [{ label: moving ? `Where the plane is along ${"XYZ"[k]}` : `The angle of the plane about ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(moving ? sec.at[k]! : normalAngle(sec.n, k)), active: false, typed: false, index: moving ? k : 3 + k }], unit: moving ? "mm" : "°", at, ...(moving ? { from: g.centre } : {}) }];
   });
 }

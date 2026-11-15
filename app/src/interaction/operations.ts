@@ -329,7 +329,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     if (!pl || pl.kind !== "plane") return { ok: false, why: "the figure is not on a plane" };
     const axes = revolveAxes(scene, faces, lines);
     const revFigs = faces.map((f) => ({ fig: figureOf(scene, f), middle: middleOf(scene, f) ?? [0, 0, 0] as Vec3 }));
-    return { ok: true, op: { ...base, parts: revFigs[0]!.fig.outer, origin: revFigs[0]!.middle, normal: normalOfPlane(pl), plane: face.plane, revFigs, revFaces: faces.map((f) => f.ref), revAxes: axes, axisIx: lines.length ? 0 : -1, value: 360, advTyped: "", advValue: axes[0]!.twist ? 10 : null, revField: 0 } };
+    return { ok: true, op: { ...base, parts: revFigs[0]!.fig.outer, origin: revFigs[0]!.middle, normal: normalOfPlane(pl), plane: face.plane, revFigs, revFaces: faces.map((f) => f.ref), revAxes: axes, axisIx: Math.max(0, lines.length ? 0 : axes.findIndex((a) => /side \d/.test(a.label))), value: 90, advTyped: "", advValue: axes[0]!.twist ? 10 : null, revField: 0 } };
   }
   if (kind === "pushpull" && drawnFaces(scene, parts).length) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
   if (kind === "pushpull" && parts.length > 1) {

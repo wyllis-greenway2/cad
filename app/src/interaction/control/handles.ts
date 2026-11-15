@@ -93,7 +93,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const h = hitHandle(g, pr.project, i.x - i.dx, i.y - i.dy, undefined, chosenId(s));
     const d0 = h ? startDrag(g, h, pr.ray(i.x - i.dx, i.y - i.dy), s.cam) : null;
     const d = d0 && h ? withScreen(d0, h, pr, i.x - i.dx, i.y - i.dy, env.h) : d0;
-    if (!d) return orbitOrCorner(s, i, env); // not on a handle: this drag turns the camera (or drags a corner of a drawing)
+    if (!d || h!.id === "rev:orb") return orbitOrCorner(s, i, env); // not on a handle (the revolve's orb is only moved by clicking a line): this drag turns the camera (or drags a corner of a drawing)
     if (!s.op && !s.repeat && sectionNow(s) && !activeOp(s)) { if (h!.id === "pivot") return orbitOrCorner(s, i, env);  const sec = sectionNow(s)!; return { ...s, handleSel: h!.id, drag: { handle: d, base: 0, section: { ref: sec.ref, centre: sec.centre, n: sec.n } }, gizmoHover: h!.id }; } // (a handle of the cross section plane, `in_392`)
     if (h!.id.startsWith("joint:")) { // the ring or the arrow of a joint: the amount is the drag; the step is made when it is let go (`in_323`)
       const body = selectionOf(s.session)[0];
@@ -438,6 +438,6 @@ export function doDragEnd(s: AppState, env?: Env): AppState {
   const once = runOp(s.session, s.op);
   if (!once) return s.op.auto ? { ...cleared, op: null } : cleared;
   const next = once.session;
-  if (next.message && next.history === s.session.history) return { ...cleared, session: next, op: s.op.auto ? null : s.op };
+  if (next.message && next.history === s.session.history) return { ...cleared, session: next, op: s.op.auto ? null : { ...s.op, value: null, typed: "", rot: ["", "", ""], free: undefined } }; // (refused: the arrow or ring goes back to where it was, the degrees do not stay, `in_436`)
   return { ...cleared, session: next, op: s.op.auto ? null : { ...s.op, value: null, typed: "" }, spread: null, hoverPoint: null };
 }

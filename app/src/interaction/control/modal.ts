@@ -70,7 +70,7 @@ function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = 
 function beginOp(s: AppState, kind: OpKind, now = 0, over: Ref | null = null): AppState {
   const r = startOp(sceneOf(s.session), selectionOf(s.session), kind, viewAxes(s.cam));
   if (!r.ok) return { ...s, session: { ...s.session, message: r.why }, menu: null };
-  const started: AppState = { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" && (r.op.axisIx ?? -1) < 0 ? "click the line to turn the figure about (a straight side, another line in its plane, or an axis)" : null } };
+  const started: AppState = { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" ? "turning about a side of the figure: click another line to move the orb there" : null } };
   return IS_SKETCH_OP[kind] ? facePlane(started, over, now) : started;
 }
 export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["name"], now = 0): AppState {

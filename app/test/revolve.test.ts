@@ -78,7 +78,7 @@ test("the Revolve operation shows a ring and an arrow on the axis, takes the ang
   const zi = st.op!.revAxes!.findIndex((a) => a.label === "Z axis");
   st = { ...st, op: { ...st.op!, axisIx: zi } };
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id).sort(), ["rev:adv", "rev:turn"]);
+  assert.deepEqual(g.handles.map((h) => h.id).sort(), ["rev:adv", "rev:orb", "rev:turn"]);
   for (const k of "900") st = reduce(st, { type: "typed", key: k, shift: false }, env);
   st = reduce(st, { type: "typed", key: "Tab", shift: false }, env);
   for (const k of "10") st = reduce(st, { type: "typed", key: k, shift: false }, env);
@@ -213,30 +213,34 @@ test("two bars twisted about their own middles keep their volumes", () => {
 test("it begins as a full turn with no advance (`in_433`): nothing to type, the figure turns once about the line chosen", () => {
   const { s, face } = figure();
   const op = begin(s, face);
-  assert.equal(op.value, 360);
-  const r = runOp(s, { ...op, axisIx: op.revAxes!.findIndex((a) => a.label === "Z axis") })!;
+  assert.equal(op.value, 90);
+  const r = runOp(s, { ...op, value: 360, axisIx: op.revAxes!.findIndex((a) => a.label === "Z axis") })!;
   assert.equal(r.session.message, null);
   assert.ok(Math.abs(volume(r.session) - pappus(1)) < 0.05, `volume ${volume(r.session)}`);
   assert.equal(Number(scene(r.session).steps.at(-1)!.params.advance), 0);
 });
 
-test("it waits for the line to turn about: no axis is chosen, nothing shows and nothing is made until a straight line is clicked (`in_435`)", () => {
+test("it begins on one of the figure's own lines with the mover's orb there (pulsing blue), the part wireframe and a 90 degree turn as the preview; clicking another line moves the orb to it (`in_436`)", () => {
   const { s, face } = figure();
   let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
   st = reduce(st, { type: "begin", name: "revolve" }, env);
-  assert.equal(st.op!.axisIx, -1, "no axis by default");
-  assert.equal(gizmoOf(st), null, "no ring until there is an axis");
-  assert.ok(/click the line/.test(st.session.message ?? ""), "it says what it waits for");
-  assert.equal(runOp(s, st.op!), null, "no step without an axis");
-  assert.equal((st as unknown as { frame?: unknown }).frame, undefined);
-  // click the figure's own left side (x = 8): it turns about that line
+  assert.equal(st.op!.value, 90, "a quarter turn to begin with");
+  assert.ok(st.op!.axisIx! >= 0 && /side/.test(st.op!.revAxes![st.op!.axisIx!]!.label), "on one of the sketch's own lines");
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.equal(f.wireframe, true, "the part is wireframe while it is decided");
+  assert.equal(f.gizmo!.pulse, "rev:orb", "the orb pulses blue");
+  assert.ok(f.gizmo!.handles.some((h) => h.id === "rev:orb" && h.kind === "ball"), "the orb is on the axis");
+  const first = st.op!.axisIx!;
+  const r90 = runOp(s, st.op!)!;
+  assert.equal(r90.session.message, null);
+  assert.equal(Number(scene(r90.session).steps.at(-1)!.params.angle), 90);
+  // click another line of the figure: the orb (and the axis) moves there
+  const sides = st.op!.revAxes!.map((a, k) => [a, k] as const).filter(([a]) => /side/.test(a.label));
+  const other = sides.find(([, k]) => k !== first)!;
+  const mid = [(other[0].p[0]), other[0].p[1], other[0].p[2]];
   const pr = projector(st.cam, 800, 600);
-  const [x, y] = pr.project([8, 0, 0.75]);
+  const [x, y] = pr.project([mid[0]! + other[0].d[0] * 0.5, mid[1]! + other[0].d[1] * 0.5, mid[2]! + other[0].d[2] * 0.5]);
   st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env);
   assert.equal(st.op?.kind, "revolve", "the operation stays");
-  assert.ok(st.op!.axisIx! >= 0, "the axis is chosen");
-  assert.ok(gizmoOf(st), "the ring and arrow are there now");
-  const r = runOp(s, st.op!)!;
-  assert.equal(r.session.message, null);
-  assert.ok(Math.abs(volume(r.session) - Math.PI * 4 * 1.5) < 0.1, `a full turn about its own side: ${volume(r.session)}`);
+  assert.notEqual(st.op!.axisIx, first, "the axis moved to the line clicked");
 });

@@ -313,6 +313,12 @@ export function setMateValue(scene: Scene, id: string, value: number): Command |
  * A command that moves or turns a whole body is solved against the body's standing mates before it is made (`in_343`), so the state never leaves the mates: what is made is the pose the mates leave it at, the steps of the move that was
  * asked for are not made. Returns the command to make; null when the mates leave the body nowhere to go that way (nothing is made); the command itself when it moves no body, or no mate holds the move back.
  */
+/** The standing mates that hold the bodies a move or turn command moves (each between one of them and a body that stays): the ones to offer to delete when the move is refused (`in_436`). */
+export function mateHolders(scene: Scene, c: Command): string[] {
+  const flat = (x: Command): Command[] => (x.type === "batch" ? x.commands.flatMap(flat) : [x]);
+  const bodies = new Set(flat(c).flatMap((x) => (x.type === "addStep" && (x.step.type === "move" || x.step.type === "rotate") && x.step.params.body ? [x.step.parts[0]!] : [])));
+  return mateStatus(scene).filter((m) => m.standing && m.state === "ok" && m.mover && m.other && bodies.has(m.mover.body) !== bodies.has(m.other.body)).map((m) => m.id);
+}
 export function projectOnMates(scene: Scene, c: Command): Command | null {
   const flat = (x: Command): Command[] => (x.type === "batch" ? x.commands.flatMap(flat) : [x]);
   const list = flat(c);

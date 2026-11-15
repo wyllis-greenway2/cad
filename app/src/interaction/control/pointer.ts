@@ -414,13 +414,16 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   const hit = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)) : null;
   // the sphere at the junction of the mover (`in_416`): a click selects it, a second click lets it go; selected, a vertex, an edge or a face clicked puts the mover there
   // a figure being revolved waits for the line to turn about: a click on a straight line or an axis chooses it (`in_435`)
-  if (!hit && s.op?.kind === "revolve" && cands.length) {
+  if ((!hit || hit.id.startsWith("rev:")) && s.op?.kind === "revolve" && cands.length) {
     let why = "";
+    const found: { revAxes: NonNullable<Op["revAxes"]>; axisIx: number }[] = [];
     for (const c of cands) {
       const r = chooseAxis(sc, s.op, c.ref);
       if ("why" in r) { why ||= r.why; continue; }
-      return { ...base, op: { ...s.op, revAxes: r.revAxes, axisIx: r.axisIx, auto: false }, session: { ...base.session, message: null } };
+      found.push(r);
     }
+    const pick = found.find((r) => r.axisIx !== s.op!.axisIx) ?? found[0]; // (near a corner two lines are under the pointer: the one that is not the axis already is the one meant)
+    if (pick) return { ...base, op: { ...s.op, revAxes: pick.revAxes, axisIx: pick.axisIx, auto: false }, session: { ...base.session, message: null } };
     return { ...base, session: { ...base.session, message: why } };
   }
   const mover = s.op ?? activeOp(s);

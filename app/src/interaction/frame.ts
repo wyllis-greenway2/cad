@@ -318,7 +318,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   const typing = !!shownOp && (shownOp.typed !== "" || shownOp.rot.some((t) => t !== ""));
   const numberShown = armed || typing || !!(s.drag && ("handle" in s.drag || "body" in s.drag));
   // a body dragged against its mates: they are red while it is held back, as a refused change shows what it would have broken (`in_338`)
-  const flash: FlashFrame | null = gpu?.blocked?.length ? { t: 0, victims: gpu.blocked, culprits: [], parts: sc.relations.filter((r) => gpu.blocked!.includes(r.id)).flatMap((r) => r.parts) } : flashOf(s, sc, now);
+  const flash: FlashFrame | null = gpu?.blocked?.length ? { t: 0, victims: gpu.blocked, culprits: [], parts: flashParts(sc, gpu.blocked) } : flashOf(s, sc, now);
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
   const gp = gridPlaneOf(s);
   const annotationsPresent = !busy; // (the bubbles are the only user of `avoid`: none are shown while a tool or operation runs)
@@ -353,13 +353,13 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     cut: s.cut ? { parts: cutParts(sceneOf(s.session), s.cut), join: s.cut.join } : null, // (the bodies as they are, not as the preview of the cut shows them)
     confirm: s.moverSphere && s.op && !s.tool ? { kind: "orient", label: "Orient the mover", text: "Orient the mover" } : s.cut ? { kind: "subtract", label: "Cut" } : s.tool ? null : s.repeat && !s.op ? { kind: s.repeat.op.kind, label: OPEN_LABELS[s.repeat.op.kind] ?? s.repeat.op.kind } : s.op && s.op.kind !== "dimension" ? { kind: s.op.kind, label: OPEN_LABELS[s.op.kind] ?? s.op.kind } : null,
     tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", trim: "Trim" } as const)[s.tool.kind], made: s.tool.made ?? 0, drawing: s.tool.points.length > 0, done: (s.tool.made ?? 0) > 0 && s.tool.points.length === 0 } : null,
-    wireframe: s.wireframe || (s.moverSphere && !!s.op) || /* the object goes wireframe while the mover itself is oriented, `in_421` */ (s.op?.kind === "hollow" && !!s.drag && "handle" in s.drag), // (the body fades to wireframe while the wall is pulled, so the wall can be seen, `in_394`)
+    wireframe: s.wireframe || (s.moverSphere && !!s.op) || s.op?.kind === "revolve" || /* the object goes wireframe while the mover itself is oriented, `in_421` */ (s.op?.kind === "hollow" && !!s.drag && "handle" in s.drag), // (the body fades to wireframe while the wall is pulled, so the wall can be seen, `in_394`)
     section: cutNow(s) ? { at: cutNow(s)!.centre, n: cutNow(s)!.n, corners: sectionQuad(cutNow(s)!.centre, cutNow(s)!.n, cutNow(s)!.extent) } : null,
     sectionChip: sectionNow(s) ? { corners: sectionQuad(sectionNow(s)!.centre, sectionNow(s)!.n, sectionNow(s)!.extent), axis: sectionAxis(sectionNow(s)!.n) === null ? "·" : "XYZ"[sectionAxis(sectionNow(s)!.n)!]! } : null,
     sectionPlanes: Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }),
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
-    panes: WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
-    gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : undefined, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
+    panes: s.cam.straight ? [] : WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
+    gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
     similar: similarChip(s),
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
     modeSwitch: gizmo ? (s.repeat ? repeatSwitchOf(s.repeat, gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points))) : null,
@@ -382,11 +382,21 @@ const withFlashed = (list: Annotation[], sc: Scene, flash: FlashFrame | null): A
   const have = new Set(list.map((a) => a.id));
   return [...list, ...annotationsOf(sc, [...flash.victims, ...flash.culprits]).filter((a) => !have.has(a.id))];
 };
+/** What flashes red with a constraint's bubble when it is violated (`in_436`): the parts it ties; for a mate the two faces it is between (not the two whole bodies, which would turn every surface red). */
+function flashParts(sc: Scene, victims: readonly string[]): Ref[] {
+  const mates = victims.some((id) => sc.relations.find((r) => r.id === id)?.kind === "mate") ? mateStatus(sc) : [];
+  return sc.relations.filter((r) => victims.includes(r.id)).flatMap((r) => {
+    if (r.kind !== "mate") return r.parts;
+    const m = mates.find((x) => x.id === r.id);
+    const faces = [m?.mover?.ref, m?.other?.ref].filter((q): q is Ref => !!q);
+    return faces.length ? faces : r.parts;
+  });
+}
 function flashOf(s: AppState, sc: Scene, now: number): FlashFrame | null {
   if (!s.flash) return null;
   const t = (now - s.flash.at) / settings.flash.ms;
   if (t < 0 || t >= 1) return null;
-  const parts = [...sc.relations.filter((r) => s.flash!.victims.includes(r.id)).flatMap((r) => r.parts), ...((s.flash.parts ?? []) as Ref[])];
+  const parts = [...flashParts(sc, s.flash.victims), ...((s.flash.parts ?? []) as Ref[])];
   return { t, victims: s.flash.victims, culprits: s.flash.culprits, parts };
 }
 
