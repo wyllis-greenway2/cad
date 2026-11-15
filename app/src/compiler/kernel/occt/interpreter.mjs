@@ -1620,9 +1620,11 @@ export function compile(graph) {
     const kept = memo.get(key);
     if (kept) {
       remember(key, kept);
-      results.set(op.id, { value: kept.value, ms: 0, key });
+      results.set(op.id, { value: kept.value, ms: 0, key, cached: true });
       continue;
     }
+    let markMs = 0;
+    let checkMs = 0;
     try {
       if (!OPS[op.type]) throw new Error(`unknown op type ${op.type}`);
       const value = run(op, ctx, results);
@@ -1631,11 +1633,15 @@ export function compile(graph) {
         const from = op.target ? results.get(op.target)?.value : null;
         let prev = value.tf ? moveMarkers(from?.markers ?? [], value.tf) : from?.markers ?? [];
         if (value.first) prev = [...prev.filter((m) => m.id === value.first), ...prev.filter((m) => m.id !== value.first)]; // (the body that stays keeps its name when bodies are combined)
+        const tM = performance.now();
         value.markers = trackBodies(prev, value.shape, op.id);
+        markMs = performance.now() - tM;
       }
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
+      const tC = performance.now();
       if (value.kind === "solid" && !rigid && !value.checked && !isValidSolid(value.shape)) throw new Error("kernel returned an invalid solid");
-      results.set(op.id, { value, ms: performance.now() - t0, key });
+      checkMs = performance.now() - tC;
+      results.set(op.id, { value, ms: performance.now() - t0, key, markMs, checkMs });
       remember(key, { value });
     } catch (e) {
       results.set(op.id, { error: describeError(e, op), ms: performance.now() - t0, ...(e?.detail?.culprits?.length ? { culprits: e.detail.culprits } : {}) });

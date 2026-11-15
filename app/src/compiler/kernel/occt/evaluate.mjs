@@ -160,7 +160,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
   let tBox = 0;
   const ops = graph.ops.map((o) => {
     const r = results.get(o.id);
-    return { id: o.id, type: o.type, error: r.error ?? null, ms: r.ms, ...(r.culprits ? { culprits: r.culprits } : {}), ...(r.value?.note ? { note: r.value.note } : {}), ...(r.value?.used ? { used: r.value.used } : {}), ...(r.value?.cutInto ? { cutInto: r.value.cutInto } : {}) };
+    return { id: o.id, type: o.type, error: r.error ?? null, ms: r.ms, ...(r.cached ? { cached: true } : {}), ...(r.checkMs >= 1 ? { checkMs: Math.round(r.checkMs) } : {}), ...(r.markMs >= 1 ? { markMs: Math.round(r.markMs) } : {}), ...(r.culprits ? { culprits: r.culprits } : {}), ...(r.value?.note ? { note: r.value.note } : {}), ...(r.value?.used ? { used: r.value.used } : {}), ...(r.value?.cutInto ? { cutInto: r.value.cutInto } : {}) };
   });
   const fin = finalSolid(graph, results);
   let mesh = null;
@@ -180,6 +180,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     const o = ops.find((x) => x.id === fin.id);
     if (o) o.error = "nothing would be left of the body (the cut takes all of it away)";
   }
+  let describeInfo = null; // (how many bodies were described again and how many were found as they were)
   const lite = !!tess.lite; // (a preview of a size being dragged: the mesh, volume and box, not the faces, edges and corners, `in_358`)
   const present = fin && box ? fin : null;
   const dkey = present?.key ? `${present.key}|${JSON.stringify(tess)}` : null;
@@ -188,20 +189,23 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     described.delete(dkey);
     described.set(dkey, known);
     ({ vol, bbox, faces, edges, vertices, mesh, bodies } = copyOf(known));
+    describeInfo = { bodies: bodies?.length ?? 0, reused: bodies?.length ?? 0 }; // (the whole answer was kept)
   } else if (present) {
     // each body (solid) is described on its own and the description kept by what it looks like (its volume, box and number of faces and edges): a body that a change did not touch is not meshed again, however many others are
     // (a block edited beside a loft of a thousand faces left the loft's mesh and faces to be made again at every size, `in_439`)
     const lumps = lumpsOf(fin.shape);
     const markers = fin.markers ?? [];
     const tKey = JSON.stringify([tess, lite]);
+    let reused = 0;
     const parts = lumps.map((l) => {
       const fp = JSON.stringify([Math.round(volume(l) * 1e6), roughBox(l), facesOf(l).length, edgesOf(l).length, tKey]);
       let d = lumpDescribed.get(fp);
-      if (d) { lumpDescribed.delete(fp); } else d = describeSolid(l, tess, lite);
+      if (d) { lumpDescribed.delete(fp); reused++; } else d = describeSolid(l, tess, lite);
       lumpDescribed.set(fp, d);
       while (lumpDescribed.size > 40) lumpDescribed.delete(lumpDescribed.keys().next().value);
       return d;
     });
+    describeInfo = { bodies: lumps.length, reused };
     tMesh = performance.now();
     // joined into one: the vertices and triangles one after the other (the triangle numbers of a body's faces and the vertex numbers of its triangles move on by what came before)
     const nV = parts.reduce((a, d) => a + d.mesh.vertices.length, 0);
@@ -230,7 +234,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
       while (described.size > 6) described.delete(described.keys().next().value);
     }
   }
-  return { ops, finalId: present?.id ?? null, volume: vol, bbox, bodies, faces, edges, vertices, totalMs: performance.now() - t0, mesh, perf: { ops: tCompile - t0, box: tBox, mesh: tMesh - tCompile - tBox, faces: tFaces - tMesh, edges: performance.now() - tFaces } };
+  return { ops, finalId: present?.id ?? null, volume: vol, bbox, bodies, faces, edges, vertices, totalMs: performance.now() - t0, mesh, ...(describeInfo ? { describe: describeInfo } : {}), perf: { ops: tCompile - t0, box: tBox, mesh: tMesh - tCompile - tBox, faces: tFaces - tMesh, edges: performance.now() - tFaces } };
 }
 
 /**

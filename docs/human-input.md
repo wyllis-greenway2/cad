@@ -2045,3 +2045,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_439 — 2026-11-15 — directive
 > When I try to modify the height of this block, it is really really slow. i think it is because of the complicated lofts around it. But why? the block edit doesn't modify or interact with the complicated lofts at all? So why so slow? Also why can I not edit the fillet I added to one of the lofts?
 (two files attached: a state snapshot and `really_slow.json`, kept as `app/test/fixtures/lofts-and-block-in_439.cad.json`)
+
+## in_440 — 2026-11-15 — question
+> did this fix the root cause? Do we need to map dependency overall so we only recalc what we need in order to remain efficient and fast?
+(asks whether the fix of `in_439` was the root cause and whether a dependency map is needed; answered in chat: the steps are already kept by what they depend on, the slow part was the work done on the whole result afterwards, which is now per body; a per-body dependency graph only if a file shows a heavy step on an unrelated body being made again)
+
+## in_441 — 2026-11-15 — approval
+> yes start with the timing breakdown
+(approves the first of the three steps proposed: a timing breakdown in the snapshot)
