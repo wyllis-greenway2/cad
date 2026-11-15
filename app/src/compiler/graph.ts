@@ -104,7 +104,7 @@ export function buildGraph(scene: Scene): GraphResult {
         }
         if (p.nx !== undefined && p.px !== undefined) {
           // the face as it was when the step was made (later steps move the body's named faces, this one still means its own)
-          ops.push({ id: xid, type: "faceExtrude", target: prev, ref: { n: [Number(p.nx), Number(p.ny), Number(p.nz)], d: Number(p.fd), point: [Number(p.px), Number(p.py), Number(p.pz)] }, distance: Number(p.depth ?? 0) });
+          ops.push({ id: xid, type: p.extend ? "faceExtend" : "faceExtrude", target: prev, ref: { n: [Number(p.nx), Number(p.ny), Number(p.nz)], d: Number(p.fd), point: [Number(p.px), Number(p.py), Number(p.pz)] }, distance: Number(p.depth ?? 0) });
           prev = xid;
           break;
         }
@@ -113,7 +113,7 @@ export function buildGraph(scene: Scene): GraphResult {
         if (!face || face.kind !== "plane" || !ref || !face.mesh || face.mesh.length < 9) { errors[st.id] = "the face is gone"; break; }
         const m = face.mesh;
         const point: Vec3 = [(m[0]! + m[3]! + m[6]!) / 3, (m[1]! + m[4]! + m[7]!) / 3, (m[2]! + m[5]! + m[8]!) / 3]; // a point on the face itself: the kernel finds it by plane and by this point
-        ops.push({ id: xid, type: "faceExtrude", target: prev, ref: { n: ref.n, d: ref.d, point }, distance: Number(p.depth ?? 0) });
+        ops.push({ id: xid, type: p.extend ? "faceExtend" : "faceExtrude", target: prev, ref: { n: ref.n, d: ref.d, point }, distance: Number(p.depth ?? 0) });
         prev = xid;
         break;
       }
@@ -126,10 +126,11 @@ export function buildGraph(scene: Scene): GraphResult {
         const mode = String(st.params.mode ?? "fillet");
         const value = Number(st.params.value ?? 0);
         const last = ops[ops.length - 1];
-        const continues: boolean = !!chain && last?.type === "edgeMod" && last.id === prev && chain.mode === mode;
+        const end = st.params.end !== undefined ? Number(st.params.end) : undefined; // (a fillet whose size changes along the edge: its own, never rounded together with others)
+        const continues: boolean = !!chain && last?.type === "edgeMod" && last.id === prev && chain.mode === mode && end === undefined && !(last as { end?: number }).end;
         const here = { ref: refs, value };
         chain = continues ? { ...chain!, mods: [...chain!.mods, here] } : { base: prev, mode, mods: [here] };
-        ops.push({ id: xid, type: "edgeMod", target: prev, ref: refs, mode, value, ...(st.params.corner ? { corner: true } : {}), ...(chain.mods.length > 1 ? { together: { base: chain.base, mods: chain.mods } } : {}) });
+        ops.push({ id: xid, type: "edgeMod", target: prev, ref: refs, mode, value, ...(end !== undefined ? { stations: stationsOf(value, end, st.params) } : {}), ...(st.params.corner ? { corner: true } : {}), ...(chain.mods.length > 1 ? { together: { base: chain.base, mods: chain.mods } } : {}) });
         prev = xid;
         break;
       }
@@ -168,4 +169,10 @@ export function buildGraph(scene: Scene): GraphResult {
     }
   }
   return { graph: { params: {}, ops }, errors };
+}
+
+/** The sizes along the edge of a fillet or chamfer that changes along it (`in_406`, `in_410`): [place from 0 at the start to 1 at the other end, size] at the start, at a quarter, the middle and three quarters when they are given, and at the end. */
+function stationsOf(value: number, end: number, p: Record<string, string | number>): [number, number][] {
+  const at = (key: string, t: number): [number, number][] => (p[key] !== undefined && Number(p[key]) > 0 ? [[t, Number(p[key])]] : []);
+  return [[0, value], ...at("q1", 0.25), ...at("mid", 0.5), ...at("q3", 0.75), [1, end]];
 }

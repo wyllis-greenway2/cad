@@ -12,7 +12,7 @@ import type { Curved } from "../operation/part.ts";
 import type { FaceEdit } from "./faceedit.ts";
 import type { OffsetSource } from "./offset.ts";
 import { offsetSource, offsetCommand } from "./offset.ts";
-import { faceEdit, editCommand, arcRadiusCommand } from "./faceedit.ts";
+import { faceEdit, editCommand, arcRadiusCommand, figureBehindFace } from "./faceedit.ts";
 import { faceEdges } from "./offsetbody.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
@@ -99,6 +99,22 @@ export interface Op {
   rounded?: boolean;
   /** this time make the prism instead (the step that made the face could not take the size) */
   noEdit?: boolean;
+  /** what pushing or pulling a flat face does (`in_405`): `move` (the default: the step that made the face changes), `extrude` (a prism of the face's outline is added or taken), `extend` (the face moves and its neighbours are carried on until they meet) */
+  faceKind?: "move" | "extrude" | "extend";
+  /** a fillet of one edge whose size changes along it (`in_406`): `value` is the size at the start of the edge and `endTyped` (empty: the same) the size at its other end */
+  /** the edges chosen can have a size at each end: none of them is a rim (`in_406`, `in_410`) */
+  vary?: boolean;
+  /** the edges chosen are rims (a circle): the size changes round the rim, with no end of its own (`in_410`) */
+  rimVary?: boolean;
+  variable?: boolean;
+  endTyped?: string;
+  /** the number being typed is the end one (Tab switches) */
+  /** a size at the middle of the edge too, and which of the three numbers is being typed: 0 the start, 1 the end, 2 the middle (Tab goes round, `in_410`) */
+  midTyped?: string;
+  /** and at a quarter and three quarters of the way along (`in_410`) */
+  q1Typed?: string;
+  q3Typed?: string;
+  varField?: 0 | 1 | 2 | 3 | 4;
   /** rotate: the point it turns about (the rotator's centre; you can move it) */
   pivot: Vec3 | null;
   /** move and rotate: the body, or a drawn shape (its corners are `parts`, its plane is `plane`) */
@@ -157,6 +173,20 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind, v
   return from ? { ...r, op: { ...r.op, from, stepsAt: scene.steps.length } } : r;
 }
 function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view: ViewAxes | null): StartResult {
+  // the wall of a hole or a post is moved or turned by moving or turning the circle that made it (`in_405`)
+  const behind = kind === "move" || kind === "rotate" ? figureBehindFace(scene, selection) : null;
+  if (behind) {
+    const r = startOpBare(scene, behind, kind, view);
+    // a hole is moved along its own axis to begin with (that is the move that takes it through the part): the world axis its circle's plane faces along, if it is one
+    const circle = scene.parts[behind[0]!];
+    const pl = circle?.kind === "circle" && circle.plane ? scene.parts[circle.plane] : undefined;
+    if (r.ok && kind === "move" && pl?.kind === "plane") {
+      const n = normalOfPlane(pl);
+      const k = [0, 1, 2].reduce((b, i) => (Math.abs(n[i]!) > Math.abs(n[b]!) ? i : b), 0) as 0 | 1 | 2;
+      if (Math.abs(n[k]!) > 0.999) return { ...r, op: { ...r.op, axis: k } };
+    }
+    return r;
+  }
   const get = lookup(scene);
   const parts = selection.map((r) => get(r)).filter((p): p is Part => !!p);
   // a piece of a figure that lines cut up shares its sides with the other pieces: it can be extruded (or offset nowhere), but moved, turned, scaled or repeated only by selecting the lines and points themselves
@@ -304,7 +334,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
       if (m) return [{ mid: m, dir: edgeDirection(scene, pa.at, pb.at) }]; // (a curve that is not a circle: the arrow stands on the curve, in the middle of it)
       return [{ mid: add(pa.at, scale(sub(pb.at, pa.at), 0.25)), dir: edgeDirection(scene, pa.at, pb.at) }];
     });
-    return { ok: true, op: { ...base, parts: lines.map((p) => p.ref), edges, ranks: rimRanks(scene, lines.map((p) => p.ref)), sigs: edgeSignatures(scene, lines.map((p) => p.ref)) } }; // no size yet: drag the double arrow, or type one
+    return { ok: true, op: { ...base, vary: lines.length > 0 && (lines.every((l) => l.kind === "line" && !l.circle && l.a !== l.b) || lines.every((l) => l.kind === "line" && !!l.circle && l.a === l.b)), rimVary: lines.length > 0 && lines.every((l) => l.kind === "line" && !!l.circle && l.a === l.b), parts: lines.map((p) => p.ref), edges, ranks: rimRanks(scene, lines.map((p) => p.ref)), sigs: edgeSignatures(scene, lines.map((p) => p.ref)) } }; // no size yet: drag the double arrow, or type one
   }
   if (kind === "copy") {
     // a copy is a repeat of two (the thing and one more beside it): the same arrows and numbers, to place the copy
@@ -380,6 +410,26 @@ export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
   return r.ok ? { ...r.op, auto: true } : null;
 }
 
+/** The size at the other end of a fillet or chamfer that changes along its edges (each edge from its own first end, `in_406`, `in_410`), or null when it is the same all along. */
+/** The size at the middle of the edge, when one is given (the round then goes through the start, the middle and the end sizes, `in_410`), else null. */
+function variableMid(op: Op, v: number): number | null {
+  if (!op.variable || !op.vary || op.kind !== "edge" || v === 0 || variableEnd(op, v) === null) return null;
+  const t = typedNumber(op.midTyped ?? "");
+  return t !== null && t > 0 ? t : null;
+}
+/** The sizes typed at a quarter and at three quarters of the way along the edges (`in_410`), as the step's `q1` and `q3` (only when the size at the other end is given too). */
+function variableQuarters(op: Op, v: number): { q1?: number; q3?: number } {
+  if (!op.variable || !op.vary || op.kind !== "edge" || v === 0 || variableEnd(op, v) === null) return {};
+  const [a, b] = [typedNumber(op.q1Typed ?? ""), typedNumber(op.q3Typed ?? "")];
+  return { ...(a !== null && a > 0 ? { q1: a } : {}), ...(b !== null && b > 0 ? { q3: b } : {}) };
+}
+function variableEnd(op: Op, v: number): number | null {
+  if (!op.variable || !op.vary || op.kind !== "edge" || v === 0) return null;
+  // round a rim there is no end: the size comes back to where it began, so the end is the start, and the rim changes only if a size is given somewhere round it
+  if (op.rimVary) return [op.midTyped, op.q1Typed, op.q3Typed].some((x) => typedNumber(x ?? "") !== null) ? Math.abs(v) : null;
+  const t = typedNumber(op.endTyped ?? "");
+  return t !== null && t > 0 && Math.abs(t - Math.abs(v)) > 1e-9 ? t : null;
+}
 /** The number the operation will use: what was typed, else the pointer's or default value. */
 export const valueOf = (op: Op): number | null => {
   const t = typedNumber(op.typed);
@@ -526,12 +576,12 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   }
   if (op.kind === "pushpull" && op.faces && op.faces.length > 1) {
     if (v === 0) return null;
-    return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }) } } })) };
+    return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } })) };
   }
-  if (op.kind === "pushpull" && op.edit && !op.noEdit) return v === 0 ? null : editCommand(scene, op.edit, v);
-  if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op) } } };
+  if (op.kind === "pushpull" && op.edit && !op.noEdit && (op.faceKind ?? "move") === "move") return v === 0 ? null : editCommand(scene, op.edit, v);
+  if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
-  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
+  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(variableEnd(op, v) !== null ? { end: variableEnd(op, v)! } : {}), ...(variableMid(op, v) !== null ? { mid: variableMid(op, v)! } : {}), ...variableQuarters(op, v), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
   if (op.kind === "scale" && op.target === "shape" && !op.axes) return v <= 0 ? null : scaleShapeCommand(scene, op, v);
   if (op.kind === "scale" && op.axes) {
     // factors along the axes alone (`dec_scale_axes`): the recipe is stretched, about the middle of the body

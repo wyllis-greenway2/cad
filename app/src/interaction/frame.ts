@@ -29,7 +29,7 @@ import { scene as sceneOf, selection as selectionOf, previewCommand, previewRefu
 import type { Session } from "./session.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { SIMILAR_RULES } from "./similar.ts";
-import { startOp, opCommand, bodyMotion } from "./operations.ts";
+import { startOp, opCommand, bodyMotion, valueOf } from "./operations.ts";
 import { matrixOf, applyPoint } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
 import type { Command } from "../operation/commands.ts";
@@ -124,6 +124,10 @@ export interface Frame {
   resetView: boolean;
   /** a change refused for the constraints it would break, while it flashes: the button that deletes them and goes on (`in_366`) */
   refusal: { text: string; button: string; /** the constraint it stands beside */ beside: string } | null;
+  /** push / pull of one flat face: what it does, to choose (`in_405`) */
+  faceKinds: { id: "move" | "extrude" | "extend"; label: string; title: string; on: boolean }[] | null;
+  /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
+  sizeKinds: { id: "constant" | "variable"; label: string; title: string; on: boolean }[] | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate" | "linear" | "circular" | "invert"; label: string } | null;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
@@ -320,7 +324,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     followers: gpu?.followers ?? [],
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
     highlight: { hover: isSectionPlane(sc, s.session.hover) ? undefined : s.session.hover, hoverPoint: s.hoverPoint, selection: sel.filter((r) => !isSectionPlane(sc, r)), // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
-    amber: [...new Set([...focusParts(sc, sel, s.focus), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
+    amber: [...new Set([...focusParts(sc, sel, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
     preview: withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
     entry: movingOp || (shownOp && !s.tool && hasGizmo(shownOp.kind) && !numberShown) ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
     entries: sectionNow(s) && !s.op && !s.repeat && !s.tool && gizmo ? sectionEntries({ at: sectionNow(s)!.centre, n: sectionNow(s)!.n, mode: sectionNow(s)!.mode }, gizmo) : shownOp?.kind === "scale" && shownOp.axes ? scaleEntries(shownOp, gizmo) : s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
@@ -351,6 +355,8 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     similar: similarChip(s),
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
     modeSwitch: gizmo ? (s.repeat ? repeatSwitchOf(s.repeat, gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points))) : null,
+    faceKinds: faceKinds(s),
+    sizeKinds: sizeKinds(s),
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
     message: s.session.message ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
   };
@@ -478,6 +484,35 @@ function modeSwitchOf(op: AppState["op"], at: Vec3, pts: Vec3[]): Frame["modeSwi
 }
 
 
+const FACE_KINDS: { id: "move" | "extrude" | "extend"; label: string; title: string }[] = [
+  { id: "move", label: "Move", title: "Move the face by changing the step that made it: the height of what is attached grows or shrinks" },
+  { id: "extrude", label: "Extrude", title: "Add (or take) a prism of the face's outline: a square growing out of the face" },
+  { id: "extend", label: "Extend", title: "Move the face and carry the faces next to it on until they meet: a chamfered top grows into a pyramid, and past the top nothing more happens" },
+];
+/** The choice of what a push / pull of one flat face does (`in_405`): only for a flat face (a round wall, a fillet or chamfer face and several faces have their own meaning). */
+function faceKinds(s: AppState): Frame["faceKinds"] {
+  const op = s.op;
+  if (!op || op.kind !== "pushpull" || op.curved || op.rounded || op.roundAxis) return null;
+  // several flat faces: each is pushed along its own normal by the same amount, as a prism (extrude) or extended with its neighbours (extend); there is no step to move for any of them (`in_410`)
+  if ((op.faces?.length ?? 0) > 1) return FACE_KINDS.filter((k) => k.id !== "move").map((k) => ({ ...k, on: (op.faceKind ?? "extrude") === k.id }));
+  if (op.parts.length !== 1) return null;
+  return FACE_KINDS.map((k) => ({ ...k, on: (op.faceKind ?? "move") === k.id }));
+}
+/** The end of the edge where the first size of a fillet that changes along it applies, in amber (`in_406`). */
+function variableStart(sc: Scene, op: AppState["op"]): Ref[] {
+  if (!op || op.kind !== "edge" || !op.variable || !op.vary) return [];
+  return op.parts.flatMap((r) => { const l = sc.parts[r]; return l?.kind === "line" && l.origin === "body" && (l.a !== l.b || op.rimVary) ? [l.a] : []; });
+}
+/** The choice between a fillet or chamfer that is the same size all along its edges and one with a size at each end of each edge (`in_406`, `in_410`): not for a rim, which has no ends. */
+function sizeKinds(s: AppState): Frame["sizeKinds"] {
+  const op = s.op;
+  if (!op || op.kind !== "edge" || !op.vary) return null;
+  const on = !!op.variable;
+  return [
+    { id: "constant", label: "Constant", title: "The same size all along the edge", on: !on },
+    { id: "variable", label: "Variable", title: "A size at the start of the edge (the end shown in amber) and a size at its other end (Tab goes between them); the round grows or shrinks along the edge", on },
+  ];
+}
 function similarChip(s: AppState): Frame["similar"] {
   const sim = s.similar;
   if (!sim) return null;

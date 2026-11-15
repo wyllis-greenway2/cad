@@ -35,6 +35,16 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     const label = op.kind === "edge" ? (v !== null && v < 0 ? "Chamfer" : "Fillet") : op.dim ? (op.curved ? "Diameter" : op.kind === "pushpull" ? "Size" : op.kind === "hollow" ? "Wall" : "Distance") : (op.field ?? OP_FIELD[op.kind]) + axis;
     const size = sizeShown(op); // a push / pull or an extrude shows the size (the thickness, the diameter) you are making, and a typed size is that size
     const shown = size !== null ? size : op.kind === "edge" && v !== null ? Math.abs(v) : v;
+    if (op.kind === "edge" && op.variable && op.vary) {
+      // a fillet or chamfer whose size changes along the edge: the size at its start and at its end (`in_406`)
+      const first = op.typed !== "" ? op.typed.replace(/^-/, "") : shown === null ? "0" : roundedText(shown);
+      const second = (op.endTyped ?? "") !== "" ? op.endTyped! : first;
+      const dash = (s: string | undefined) => (s ?? "") !== "" ? s! : "-";
+      const on = op.varField ?? 0;
+      const f = (label: string, short: string, value: string, i: number, typed: boolean) => ({ label, short, value, active: on === i, typed, index: i });
+      const all = [f("Start", "A", first, 0, op.typed !== ""), f("End", "B", second, 1, (op.endTyped ?? "") !== ""), f("Middle", "M", dash(op.midTyped), 2, (op.midTyped ?? "") !== ""), f("1/4", "Q", dash(op.q1Typed), 3, (op.q1Typed ?? "") !== ""), f("3/4", "R", dash(op.q3Typed), 4, (op.q3Typed ?? "") !== "")];
+      return { fields: op.rimVary ? all.filter((x) => x.index !== 1) : all, unit: op.unit ?? OP_UNIT[op.kind] }; // (round a rim there is no end: the size comes back to the start)
+    }
     return { fields: [{ label, ...(op.curved ? { short: "Ø" } : {}), value: op.typed !== "" ? op.typed.replace(/^-/, "") : shown === null ? "0" : roundedText(shown), active: true, typed: op.typed !== "" }], unit: op.unit ?? OP_UNIT[op.kind] };
   }
   if (!tool || !tool.plane || !tool.points.length) return null;

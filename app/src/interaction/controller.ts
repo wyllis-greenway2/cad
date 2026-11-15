@@ -111,6 +111,8 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "home": return doHome(s, env);
     case "runAction": return doRunAction(s, i.id, env.now);
     case "overrideRefusal": return overrideRefusal(s);
+    case "sizeKind": return s.op?.kind === "edge" ? { ...s, op: { ...s.op, variable: i.kind === "variable", varField: 0 } } : s;
+    case "faceKind": return s.op?.kind === "pushpull" ? { ...s, op: { ...s.op, faceKind: i.kind } } : s;
     case "holdFlash": return s.flash ? { ...s, flash: { ...s.flash, at: env.now - settings.flash.holdMs } } : s;
     case "group": return doGroup(s);
     case "ungroup": return doUngroup(s);

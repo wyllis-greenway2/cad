@@ -21,7 +21,7 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
     const why = op.edit?.kind === "radius" && op.edit.arc ? (isTangentArc(sceneOf(sess), op.edit.circle) ? "the lines tangent to this arc cannot stay tangent at that radius (a locked size or angle holds them)" : "the lines on both ends of this arc do not reach that radius (they would have to move)") : "it would be zero or less";
     return op.edit && v !== null && v !== 0 ? { session: { ...sess, message: `that size is not possible: ${why}` }, cmd: { type: "batch", commands: [] } } : null;
   }
-  if (!op.edit || op.noEdit) {
+  if (!op.edit || op.noEdit || (op.faceKind && op.faceKind !== "move")) {
     const corner = op.kind === "edge" ? withCorner(cmd) : null; // (a fillet or chamfer the kernel cannot make on the edge alone is made with the edges that meet it at a corner, `in_379`)
     const done = run(sess, cmd, { ...(op.target === "body" ? { ownHold: true } : {}), ...(corner ? { fallback: corner } : {}) }); // (a body that is moved has its own check below, which names the sketch it would stretch)
     if (corner && done.message && sceneOf(done).steps.length === sceneOf(sess).steps.length) { const again = run(sess, corner); if (sceneOf(again).steps.length > sceneOf(sess).steps.length) return { session: again, cmd: corner }; }
@@ -31,6 +31,8 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
     if (op.kind === "extrude" && extrudes.length && extrudes.every((c): c is Extract<Command, { type: "addStep" }> => c.type === "addStep" && c.step.type === "extrude") && !done.message && (sceneOf(sess).steps.length || extrudes.length > 1)) {
       const [volume, count] = [(x: Session): number => Object.values(sceneOf(x).parts).reduce((a, q) => a + (q.kind === "body" ? (q.volume ?? 0) : 0), 0), (x: Session): number => Object.values(sceneOf(x).parts).filter((q) => q.kind === "body").length];
       // (decided from the answer for all of them together, the one the kernel already has from the preview: asking it for each step on its own would ask for lists it has not worked out, and in the browser its answer comes late)
+      // the kernel's answer is still to come (the browser): the volumes of `done` are the older ones, so nothing is decided now; the session keeps what it needs and decides when the answer is here (`in_412`)
+      if (done.outcome.kernel?.stale) return { session: { ...done, modeFrom: { volume: volume(sess), count: count(sess), extrudes: extrudes.length } }, cmd };
       const grown = count(done) - count(sess);
       const mode = volume(done) < volume(sess) - 1e-6 * Math.max(1, volume(sess)) ? "cut" : grown >= extrudes.length ? "new" : "add"; // (a cut, pieces of their own, or joined to a body they touch)
       const tagged: Command[] = (extrudes as Extract<Command, { type: "addStep" }>[]).map((c) => ({ ...c, step: { ...c.step, params: { ...c.step.params, mode } } }));

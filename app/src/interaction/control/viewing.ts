@@ -64,7 +64,9 @@ export function doZoom(s: AppState, i: Extract<Intent, { type: "zoom" }>, env: E
     const p = c ? surfacePoint(pv, c.score) : null;
     if (p) anchor = p; // (any surface under the pointer, however far from the target: with the target left in empty space the view could not zoom up to the model, which was far past it, `in_368`)
   }
-  return { ...stop(s), cam: zoomAt(s.cam, i.factor, anchor) };
+  const content: Vec3 = pivotOf(s.session, { from: position(s.cam), dir: basis(s.cam).forward }) ?? [0, 0, 0]; // (the point the orbit turns about, else the origin)
+  const cam = zoomAt(s.cam, i.factor, anchor, content);
+  return { ...stop(s), cam };
 }
 
 /** X, Y, Z select that axis's plane and look along it; N looks at the plane of the selection; while a move or rotate is being set up they choose its axis. */
