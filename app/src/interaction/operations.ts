@@ -30,8 +30,7 @@ import { actionsFor, measureAction } from "./actions.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { drawnRef, formatId } from "../shared/ref.ts";
 import { objectOf, bodyCentre, figurePartsOf } from "./objects.ts";
-import type { RevAxis } from "./revolve.ts";
-import { revolveAxes, revolveCommand, middleOf } from "./revolve.ts";
+import { revolveStart, revolveCommand, middleOf } from "./revolve.ts";
 import { loftCommand } from "./loft.ts";
 import { mirrorStart, mirrorCommand } from "./mirror.ts";
 import { settings } from "../shared/settings.ts";
@@ -87,12 +86,8 @@ export interface Op {
   rot: [string, string, string];
   /** a scale of a body: the factor along each axis when an axis arrow has been pulled (`dec_scale_axes`); absent for the same factor every way */
   axes?: [number, number, number];
-  /** revolve (`dec_spiral_extrude`): the lines the figure can turn about and which one is used, the advance along it (typed, or from its arrow) and which of the two numbers is being typed (0 the angle, 1 the advance) */
-  revAxes?: RevAxis[];
   /** revolve: each figure selected (its outer sides or circle and the figures inside it) and its middle */
   revFigs?: { fig: Figure; middle: Vec3 }[];
-  /** revolve: the figures' faces, to check a line clicked as the axis against */
-  revFaces?: Ref[];
   /** loft (`dec_loft_sketches`): the sketches in the order picked (each its outer sides or circle and the figures inside it), how they are joined, and for each its start point (corners moved on) and direction */
   /** mirror (`in_433`, `in_437`): the box of what is mirrored, where the plane stands along each axis (the arrows end there) and which axis is in force */
   mirrorBox?: { lo: Vec3; hi: Vec3 };
@@ -105,7 +100,6 @@ export interface Op {
   loftSplit?: boolean;
   loftShift?: number[];
   loftRev?: boolean[];
-  axisIx?: number;
   advTyped?: string;
   advValue?: number | null;
   revField?: 0 | 1;
@@ -330,9 +324,10 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     if (!face) return { ok: false, why: "select a closed figure first (and a line in its plane to turn it about, if you like)" };
     const pl = face.plane ? get(face.plane) : undefined;
     if (!pl || pl.kind !== "plane") return { ok: false, why: "the figure is not on a plane" };
-    const axes = revolveAxes(scene, faces, lines);
+    const start = revolveStart(scene, faces, lines);
+    if (!start) return { ok: false, why: "the figure is not on a plane" };
     const revFigs = faces.map((f) => ({ fig: figureOf(scene, f), middle: middleOf(scene, f) ?? [0, 0, 0] as Vec3 }));
-    return { ok: true, op: { ...base, parts: revFigs[0]!.fig.outer, origin: revFigs[0]!.middle, normal: normalOfPlane(pl), plane: face.plane, revFigs, revFaces: faces.map((f) => f.ref), revAxes: axes, axisIx: Math.max(0, lines.length ? 0 : axes.findIndex((a) => /side \d/.test(a.label))), value: 90, advTyped: "", advValue: axes[0]!.twist ? 10 : null, revField: 0 } };
+    return { ok: true, op: { ...base, parts: revFigs[0]!.fig.outer, origin: revFigs[0]!.middle, normal: normalOfPlane(pl), plane: face.plane, revFigs, pivot: start.pivot, frame: start.frame, axis: 0, value: 90, advTyped: "", advValue: null, revField: 0 } };
   }
   if (kind === "pushpull" && drawnFaces(scene, parts).length) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
   if (kind === "pushpull" && parts.length > 1) {

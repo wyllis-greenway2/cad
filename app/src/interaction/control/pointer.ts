@@ -20,7 +20,6 @@ import { trimAt } from "../../operation/trim.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { OpKind, Op } from "../operations.ts";
 import { startOp, surfaceAxes } from "../operations.ts";
-import { chooseAxis } from "../revolve.ts";
 import { similarTo } from "../similar.ts";
 import { whyNotGroup, whyNotUngroup, whyNotCombine, applyCut } from "./select.ts";
 import { projector, nearTolMm } from "../camera.ts";
@@ -415,34 +414,23 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   // the sphere at the junction of the mover (`in_416`): a click selects it, a second click lets it go; selected, a vertex, an edge or a face clicked puts the mover there
   // a figure being revolved waits for the line to turn about: a click on a straight line or an axis chooses it (`in_435`)
   if (hit && hit.id.startsWith("mir:") && hit.id !== "mir:orb" && s.op?.kind === "mirror") return { ...base, op: { ...s.op, mirrorAxis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2 }, handleSel: hit.id, gizmoHover: hit.id }; // (taking an arrow of the mirror chooses its plane, `in_437`)
-  if ((!hit || hit.id.startsWith("rev:")) && s.op?.kind === "revolve" && cands.length) {
-    let why = "";
-    const found: { revAxes: NonNullable<Op["revAxes"]>; axisIx: number }[] = [];
-    for (const c of cands) {
-      const r = chooseAxis(sc, s.op, c.ref);
-      if ("why" in r) { why ||= r.why; continue; }
-      found.push(r);
-    }
-    const pick = found.find((r) => r.axisIx !== s.op!.axisIx) ?? found[0]; // (near a corner two lines are under the pointer: the one that is not the axis already is the one meant)
-    if (pick) return { ...base, op: { ...s.op, revAxes: pick.revAxes, axisIx: pick.axisIx, auto: false }, session: { ...base.session, message: null } };
-    return { ...base, session: { ...base.session, message: why } };
-  }
   const mover = s.op ?? activeOp(s);
   // the sphere clicked again while it is selected and the mover has been turned (or was): it goes between true x, y, z and its turned axes, staying where it is (`in_419`)
-  if (hit?.id === "pivot" && s.moverSphere && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat && (mover.frame || mover.frameKept)) {
+  if ((hit?.id === "pivot" || hit?.id === "rev:orb") && s.moverSphere && mover && (mover.kind === "move" || mover.kind === "rotate" || mover.kind === "revolve") && !s.repeat && (mover.frame || mover.frameKept)) {
     const { frame, frameKept, ...rest } = s.op ?? mover;
     return { ...base, op: { ...rest, auto: false, ...(frame ? { frameKept: frame } : frameKept ? { frame: frameKept } : {}) } as Op, handleSel: null, gizmoHover: hit.id };
   }
-  if (hit?.id === "pivot" && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat) {
+  if ((hit?.id === "pivot" || hit?.id === "rev:orb") && mover && (mover.kind === "move" || mover.kind === "rotate" || mover.kind === "revolve") && !s.repeat) {
     const op0 = s.op ?? { ...mover, auto: false };
     // selected: the mover itself is being oriented, not the object (`in_421`): where it stands and its axes now are kept for Cancel; clicked again it is applied
     if (s.moverSphere) return { ...base, moverSphere: false, moverWas: null, op: op0, handleSel: null, gizmoHover: hit.id };
     return { ...base, moverSphere: true, moverWas: { pivot: op0.pivot, ...(op0.frame ? { frame: op0.frame } : {}), ...(op0.frameKept ? { frameKept: op0.frameKept } : {}) }, op: op0, handleSel: null, gizmoHover: hit.id };
   }
-  if (!hit && s.moverSphere && mover && (mover.kind === "move" || mover.kind === "rotate") && !s.repeat) {
+  // a revolve takes a click on a line, a vertex or a face for the orb even before the sphere is selected: it puts the orb there, its axis along the line or across the face (`in_438`)
+  if ((!hit || (mover?.kind === "revolve" && hit.id.startsWith("rev:"))) && (s.moverSphere || mover?.kind === "revolve") && mover && (mover.kind === "move" || mover.kind === "rotate" || mover.kind === "revolve") && !s.repeat) {
     const at = moverPlace(sc, cands[0], pv, mover);
     const turned = moverTurned(sc, cands[0]);
-    if (at) return { ...base, op: { ...(s.op ?? mover), auto: false, pivot: at, ...(turned ? { frame: turned } : {}) }, handleSel: null };
+    if (at) return { ...base, op: { ...(s.op ?? mover), auto: false, pivot: at, ...(turned ? { frame: turned } : {}), ...(mover.kind === "revolve" && turned ? { axis: (sc.parts[cands[0]!.ref]?.kind === "plane" ? 2 : 0) as 0 | 2 } : {}) }, handleSel: null, session: { ...base.session, message: null } };
   }
   // a click on a ring of a repeat, or of the turn being set up, makes that the axis, with no drag needed (`in_206`)
   if (hit && hit.id.startsWith("rot:") && s.op?.kind === "rotate") return { ...base, op: { ...s.op, axis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2, typed: "" }, gizmoHover: hit.id, handleSel: hit.id };

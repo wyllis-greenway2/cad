@@ -51,7 +51,7 @@ export function gizmoOf(s: AppState): Gizmo | null {
   if (sec && !s.op && !s.repeat && !op) return sectionGizmo(sec.centre, s.cam); // (the cross section's own arrows and rings, `in_392`)
   // looking straight at a plane (orthographic) the push / pull arrow points at you: it goes away (`in_137`)
   if (op && s.cam.straight && (op.kind === "pushpull" || op.kind === "extrude")) return null;
-  const g0 = op ? gizmoFor(sceneOf(s.session), op, s.cam, s.moverSphere && (op.kind === "move" || op.kind === "rotate")) : null; // (the sphere selected: its own arrows are there, `in_416`)
+  const g0 = op ? gizmoFor(sceneOf(s.session), op, s.cam, s.moverSphere && (op.kind === "move" || op.kind === "rotate" || op.kind === "revolve")) : null; // (the sphere selected: its own arrows are there, `in_416`)
   const g = g0; // (a linear repeat shows all three arrows from the start, `in_382`; the helper bubbles only point at one)
   // the arrow of a push / pull or an extrude stands where the face is now: out by the value so far (it stays there when you let go, until the operation ends)
   const shown = g && op && op.normal && (op.kind === "pushpull" || op.kind === "extrude" || op.kind === "offset" || op.kind === "hollow") ? followed(g, { dir: op.normal, kind: "double", id: "pull" }, op.value) : g;
@@ -109,12 +109,12 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     }
     if (h!.id.startsWith("rot:") && s.moverSphere) { // a ring of the selected sphere: it turns the mover's own axes, not the body (`in_417`)
       const started = s.op ?? activeOp(s)!;
-      if (started.kind === "move" || started.kind === "rotate") return { ...s, op: { ...started, auto: false, axis: d.axis ?? started.axis }, drag: { handle: d, base: 0, frameTurn: started.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]] }, gizmoHover: h!.id };
+      if (started.kind === "move" || started.kind === "rotate" || started.kind === "revolve") return { ...s, op: { ...started, auto: false, axis: d.axis ?? started.axis }, drag: { handle: d, base: 0, frameTurn: started.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]] }, gizmoHover: h!.id };
     }
     if (h!.id.startsWith("piv:") && s.moverSphere) { // an arrow of the selected sphere: it moves the mover, not the body (`in_416`)
       const started = s.op ?? activeOp(s)!;
       const g0 = gizmoOf(s);
-      if ((started.kind === "move" || started.kind === "rotate") && g0) return { ...s, op: { ...started, auto: false }, drag: { handle: d, base: 0, piv: { centre: g0.centre, offset: started.kind === "move" ? moveOffset(sceneOf(s.session), started) : [0, 0, 0] } }, gizmoHover: h!.id };
+      if ((started.kind === "move" || started.kind === "rotate" || started.kind === "revolve") && g0) return { ...s, op: { ...started, auto: false }, drag: { handle: d, base: 0, piv: { centre: g0.centre, offset: started.kind === "move" ? moveOffset(sceneOf(s.session), started) : [0, 0, 0] } }, gizmoHover: h!.id };
     }
     const started = s.op ?? activeOp(s)!;
     const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" || started.kind === "revolve" ? { ...started, auto: false } : started;

@@ -70,7 +70,7 @@ function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = 
 function beginOp(s: AppState, kind: OpKind, now = 0, over: Ref | null = null): AppState {
   const r = startOp(sceneOf(s.session), selectionOf(s.session), kind, viewAxes(s.cam));
   if (!r.ok) return { ...s, session: { ...s.session, message: r.why }, menu: null };
-  const started: AppState = { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" ? "turning about a side of the figure: click another line to move the orb there" : null } };
+  const started: AppState = { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" ? "turning about the longest straight line: click another line, a point or a face to move the orb there, or click the orb to turn it any way" : null } };
   return IS_SKETCH_OP[kind] ? facePlane(started, over, now) : started;
 }
 export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["name"], now = 0): AppState {
@@ -174,7 +174,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     at[field] = n;
     return { ...s, op: { ...s.op, auto: false, mirrorAt: at, mirrorAxis: field as 0 | 1 | 2 } };
   }
-  if (s.moverSphere && s.op && (s.op.kind === "move" || s.op.kind === "rotate") && !s.repeat && field >= 3 && field < 6) { // a number typed for the turn of the mover's axes about X, Y or Z (`in_434`)
+  if (s.moverSphere && s.op && (s.op.kind === "move" || s.op.kind === "rotate" || s.op.kind === "revolve") && !s.repeat && field >= 3 && field < 6) { // a number typed for the turn of the mover's axes about X, Y or Z (`in_434`)
     const n = typedNumber(text);
     if (n === null) return s;
     const angles = frameAngles(s.op.frame);
@@ -183,7 +183,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     const { frame: _f, ...rest } = s.op;
     return { ...s, op: { ...rest, auto: false, ...(turned ? { frame: frameOfAngles(angles) } : {}) } as Op };
   }
-  if (s.moverSphere && s.op && (s.op.kind === "move" || s.op.kind === "rotate") && !s.repeat && field >= 0 && field < 3) { // a number typed for the mover's place: its world x, y or z (`in_418`)
+  if (s.moverSphere && s.op && (s.op.kind === "move" || s.op.kind === "rotate" || s.op.kind === "revolve") && !s.repeat && field >= 0 && field < 3) { // a number typed for the mover's place: its world x, y or z (`in_418`)
     const n = typedNumber(text);
     const g = gizmoOf(s);
     if (n === null || !g) return s;

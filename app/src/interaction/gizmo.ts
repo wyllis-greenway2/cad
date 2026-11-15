@@ -170,6 +170,7 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
     });
     return { centre: c, handles };
   }
+  if (op.kind === "revolve" && sphere && op.pivot) return moverHandles("move", op.pivot, L, true, op.frame); // (the orb selected: the mover's own arrows and rings put and turn it anywhere in space, `in_438`)
   if (op.kind === "revolve") {
     // a full circle round the line the figure turns about (drag it round, and on past one turn), and an arrow along the line (drag it for the advance of a spiral): both stand on the axis, by the figure (`dec_spiral_extrude`)
     const a = axisOf(op);
