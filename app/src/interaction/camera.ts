@@ -157,7 +157,19 @@ export function projector(c: Camera, widthPx: number, heightPx: number) {
  * Zoom by a factor (below 1 = closer) keeping the world point `anchor` where it is on the screen (zoom toward the cursor). Without an anchor: about the view centre.
  * The anchor's offsets from the target (right, up) scale with the new view size, and its depth offset is kept, so it does not move on screen.
  */
-export function zoomAt(c: Camera, factor: number, anchor?: Vec3): Camera {
+export function zoomAt(c: Camera, factor: number, anchor?: Vec3, content?: Vec3): Camera {
+  // nothing under the cursor, in the perspective view: the eye moves along the view, by a step of the way to the model (`content`: the middle of the nearest object, else the origin), never by a step of the distance to the
+  // target, which can be a point in empty space that the view has shrunk toward; the target is then put at the depth of the model (`in_396`: after a long way from the origin the wheel moved a few hundredths of a mm and the world was cut off)
+  if (!anchor && content && !c.straight) {
+    const b = basis(c);
+    const eye = position(c);
+    const s = dot(sub(content, eye), b.forward); // the model's depth ahead of the eye (negative: behind it)
+    if (factor < 1 && s > 0 && s <= settings.view.minSurfaceMm + 1e-9) return c; // (as close as it may be)
+    const move = s > 0 ? s - Math.max(s * factor, settings.view.minSurfaceMm) : Math.max(Math.abs(s), settings.view.minSurfaceMm) * (1 - factor); // (forward is positive)
+    const at = add(eye, scale(b.forward, move));
+    const distance = clamp(Math.abs(s - move), settings.view.minDistance, settings.view.maxDistance);
+    return { ...c, distance, target: add(at, scale(b.forward, distance)) };
+  }
   let next = zoom(c, factor);
   if (!anchor) return next;
   if (c.straight && next.distance === c.distance) return next;

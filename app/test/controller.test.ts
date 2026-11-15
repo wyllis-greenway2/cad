@@ -11,7 +11,7 @@ import { createState, reduce, advance, pivotOf } from "../src/interaction/contro
 import type { AppState } from "../src/interaction/controller.ts";
 import { drawRectangle, drawCircle } from "../src/operation/build.ts";
 import { nextId } from "../src/operation/scene.ts";
-import { projector, basis, lookStraight, homeCamera } from "../src/interaction/camera.ts";
+import { projector, basis, position, lookStraight, homeCamera } from "../src/interaction/camera.ts";
 import { BODY_OBJECT, faceName } from "../src/compiler/body.ts";
 
 await kernel.init();
@@ -150,8 +150,16 @@ test("zoom toward the cursor keeps the point under it fixed, and zooming out the
   nearV(z.cam.target, st.cam.target, 1e-6);
   near(z.cam.distance, st.cam.distance, 1e-6);
   // and the floor is not a surface to zoom toward: a pointer over empty floor zooms about the middle of the view
+  // (the eye moves along the view toward the model, by a step of the way to it, `in_396`: it stays on the line of sight and is nearer the middle of the box)
   const empty = reduce(st, { type: "zoom", factor: 0.5, x: 30, y: 30 }, env);
-  nearV(empty.cam.target, st.cam.target);
+  const e0: Vec3 = position(st.cam);
+  const e1: Vec3 = position(empty.cam);
+  const mid: Vec3 = pivotOf(st.session) ?? [0, 0, 0];
+  const toMid = (e: Vec3) => Math.hypot(e[0] - mid[0], e[1] - mid[1], e[2] - mid[2]);
+  assert.ok(toMid(e1) < toMid(e0) * 0.75, "the eye came nearer the model");
+  nearV(basis(empty.cam).forward, basis(st.cam).forward);
+  const along: Vec3 = [e1[0] - e0[0], e1[1] - e0[1], e1[2] - e0[2]];
+  near(Math.abs(dot(along, basis(st.cam).forward)), Math.hypot(along[0], along[1], along[2]), 1e-6);
 });
 
 test("X, Y, Z select that axis's plane and look along it, front then back then front", () => {

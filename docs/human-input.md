@@ -1835,3 +1835,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_395 — 2026-11-15 — question
 > How does it even get in this state? And why should it matter? Shouldn't position always just be fully relative? See how the game mode works. Also that is another question, what even is zoom? Shouldn't soom just be camera moving foward or backward? not actually zoom? What do you think?
 (asks whether zoom should be a move of the camera along the view; answered in chat, not yet decided)
+
+## in_396 — 2026-11-15 — directive
+> okay the one thing I want to preserve is the rotate point in non game mode which is usually defined as the objects center point closest to the camera. Can we do a dolly model that fixes all these problems but still uses that rotational axis when rotating the camera around an object in non game mode
+(approves the dolly model of `in_395` on the condition that the orbit keeps turning about the centre of the object nearest the camera)
