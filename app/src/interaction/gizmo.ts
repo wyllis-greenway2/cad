@@ -204,14 +204,16 @@ const segDist = (p: [number, number], a: [number, number], b: [number, number]):
   return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
 };
 /** The handle nearest the pointer within `tolPx`, if any. The ball wins over what is under it. */
-export function hitHandle(g: Gizmo, project: (p: Vec3) => [number, number], x: number, y: number, tolPx = settings.gizmo.hitPx): Handle | null {
+export function hitHandle(g: Gizmo, project: (p: Vec3) => [number, number], x: number, y: number, tolPx = settings.gizmo.hitPx, prefer?: string): Handle | null {
   let best: { h: Handle; d: number } | null = null;
+  let wanted: Handle | null = null;
   for (const h of g.handles) {
     const pts = h.points.map(project);
     const d = (h.kind === "ball" ? Math.hypot(x - pts[0]![0], y - pts[0]![1]) - 4 : Math.min(...pts.slice(1).map((q, i) => segDist([x, y], pts[i]!, q)))) - (h.id.startsWith("joint:") ? 3 : 0); // (a joint's handle wins over a move arrow along the same axis, `in_323`)
     if (d <= tolPx && (!best || d < best.d)) best = { h, d };
+    if (d <= tolPx && h.id === prefer) wanted = h;
   }
-  return best?.h ?? null;
+  return wanted ?? best?.h ?? null; // (where two rings are close, the one already chosen keeps the touch: a finger near another ring does not swap the axis, `in_383`)
 }
 
 // ---- what a drag means ----

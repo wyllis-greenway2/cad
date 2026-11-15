@@ -62,6 +62,9 @@ export function doGizmoHover(s: AppState, x: number, y: number, env: Env): AppSt
   return id === s.gizmoHover ? s : { ...s, gizmoHover: id };
 }
 
+/** The handle already chosen: the ring of the axis a turn is set up about, else the arrow that was selected. */
+export const chosenId = (s: AppState): string | undefined => (s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.handleSel ?? undefined);
+
 /** The pointer moves while the button is down: it works a handle if the drag began on one, else it turns the camera. */
 export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): AppState {
   if (s.box) return { ...s, box: { ...s.box, x: i.x, y: i.y } }; // the rectangle of a drag select (`in_235`)
@@ -71,7 +74,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const g = gizmoOf(s);
     if (!g) return orbitOrCorner(s, i, env);
     // the first move of a drag: where did it begin? (the pointer is at (x, y) now and has moved (dx, dy) since the press)
-    const h = hitHandle(g, pr.project, i.x - i.dx, i.y - i.dy);
+    const h = hitHandle(g, pr.project, i.x - i.dx, i.y - i.dy, undefined, chosenId(s));
     const d0 = h ? startDrag(g, h, pr.ray(i.x - i.dx, i.y - i.dy), s.cam) : null;
     const d = d0 && h ? withScreen(d0, h, pr, i.x - i.dx, i.y - i.dy, env.h) : d0;
     if (!d) return orbitOrCorner(s, i, env); // not on a handle: this drag turns the camera (or drags a corner of a drawing)
@@ -327,7 +330,7 @@ function snapPivot(s: AppState, free: Vec3, x: number, y: number, env: Env): Vec
 export function doDragEnd(s: AppState, env?: Env): AppState {
   if (s.box) return env ? finishBox(s, env) : { ...s, box: null };
   const d = s.drag;
-  const cleared: AppState = { ...s, drag: null, dragHint: null, orthoDebt: 0 };
+  const cleared: AppState = { ...s, drag: null, dragHint: null, orthoDebt: 0, gizmoHover: null }; // (no ring stays lit as hovered after the finger is up, or two look chosen, `in_383`)
   if (d && "handle" in d && d.joint) { // a joint dragged: one drive step, as a typed amount makes (`in_323`)
     const c = d.joint.amount !== 0 ? driveCommand(sceneOf(s.session), d.joint.mate, d.joint.kind, d.joint.amount) : null;
     return c ? { ...cleared, session: run(s.session, c) } : cleared;

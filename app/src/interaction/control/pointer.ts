@@ -32,7 +32,7 @@ import type { WorldName } from "../panes.ts";
 import { doLook } from "./viewing.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { commitFigure, commitOp, setRepeatAxis, doApply } from "./modal.ts";
-import { doGizmoHover, gizmoOf } from "./handles.ts";
+import { doGizmoHover, gizmoOf, chosenId } from "./handles.ts";
 import { hasGizmo, hitHandle } from "../gizmo.ts";
 
 /** The operations a right click offers (`in_133`), in categories (`in_143`): sketching, constraints, shape, moving and repeating, and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
@@ -360,13 +360,19 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   if (s.op && !hasGizmo(s.op.kind)) return commitOp(base); // the dimension number chip: a click finishes it
   // the handles are dragged, so a click on one does nothing (it must not reselect what is under it)
   const g = gizmoOf(s);
-  const hit = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y) : null;
+  const hit = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)) : null;
   // a click on a ring of a repeat, or of the turn being set up, makes that the axis, with no drag needed (`in_206`)
   if (hit && hit.id.startsWith("rot:") && s.op?.kind === "rotate") return { ...base, op: { ...s.op, axis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2, typed: "" }, gizmoHover: hit.id, handleSel: hit.id };
   // Shift on a move arrow chooses it with the others already chosen: a body dragged free then moves only along those axes (`in_299`)
   if (hit && i.shift && hit.id.startsWith("move:") && (!s.op || s.op.kind === "move") && !s.repeat) {
     const k = "xyz".indexOf(hit.id[5]!) as 0 | 1 | 2;
     return { ...base, lockAxes: s.lockAxes.includes(k) ? s.lockAxes.filter((a) => a !== k) : [...s.lockAxes, k].sort() as (0 | 1 | 2)[], handleSel: null, gizmoHover: hit.id };
+  }
+  // a click on a move arrow chooses that one alone for a free drag (a second click on it goes back to all three), Shift adds or takes one out (`in_383`)
+  if (hit && hit.id.startsWith("move:") && (!s.op || s.op.kind === "move") && !s.repeat) {
+    const k = "xyz".indexOf(hit.id[5]!) as 0 | 1 | 2;
+    const only = s.lockAxes.length === 1 && s.lockAxes[0] === k;
+    return { ...base, lockAxes: only ? [] : [k], handleSel: hit.id, gizmoHover: hit.id };
   }
   // a click on an arrow selects it: it shows its number then (`in_238`)
   if (hit) return s.repeat && !s.op ? { ...(hit.id.startsWith("rot:") ? setRepeatAxis(base, "xyz".indexOf(hit.id[4]!)) : { ...base, repeat: { ...s.repeat, chosen: hit.id } }), handleSel: hit.id } : { ...base, handleSel: hit.id };

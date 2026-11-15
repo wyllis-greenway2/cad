@@ -473,6 +473,11 @@ test("Shift on move arrows chooses them for a free drag: the body then moves onl
   const handle = (st: AppState, id: string) => frameOf(st, env).gizmo!.handles.find((h) => h.id === id)!;
   const pr = (st: AppState) => projector(st.cam, env.w, env.h);
   const shiftClick = (st: AppState, id: string) => { const h = handle(st, id); const p = pr(st).project([(h.points[0]![0] + h.points[1]![0]) / 2, (h.points[0]![1] + h.points[1]![1]) / 2, (h.points[0]![2] + h.points[1]![2]) / 2]); return reduce(st, { type: "click", x: p[0], y: p[1], count: 1, shift: true }, env); };
+  const plainClick = (st: AppState, id: string) => { const h = handle(st, id); const p = pr(st).project([(h.points[0]![0] + h.points[1]![0]) / 2, (h.points[0]![1] + h.points[1]![1]) / 2, (h.points[0]![2] + h.points[1]![2]) / 2]); return reduce(st, { type: "click", x: p[0], y: p[1], count: 1, shift: false }, env); };
+  const one = plainClick(base, "move:y"); // (a plain click chooses that arrow alone, `in_383`)
+  assert.deepEqual(one.lockAxes, [1]);
+  assert.deepEqual(plainClick(one, "move:y").lockAxes, [], "a second click on it goes back to all three");
+  assert.deepEqual(shiftClick(one, "move:z").lockAxes, [1, 2], "Shift adds one");
   let st = shiftClick(shiftClick(base, "move:x"), "move:y");
   assert.deepEqual(st.lockAxes, [0, 1]);
   assert.deepEqual(frameOf(st, env).gizmo!.locked, ["move:x", "move:y"]);
