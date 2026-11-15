@@ -1,4 +1,4 @@
-// A round of an edge between two curved faces, made as an approximate region when the kernel cannot (`in_392`, `dec_edits_saturate` B).
+// A round of an edge between two curved faces, made as an approximate region when the kernel cannot (`in_411`, `dec_edits_saturate` B).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { makeCylinder, measureVolume } from "replicad";

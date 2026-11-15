@@ -1776,66 +1776,66 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 > okay I had another claude working on another branch, can you merge it in so we can deploy all the latest changes?
 (asks for the branch `claude/hopeful-cannon-3qzdtg`, worked on by another session, to be merged into this one; both sessions had numbered the human's messages from in_317, so the other branch's numbers were moved: see Handoff 360)
 
-## in_381 — 2026-11-15 — question
+## in_400 — 2026-11-15 — question
 > okay I had the prior claude merge your work, does that mean we should start working on a new branch so they can merge our next batch of work easily?
 (about branches; answered: yes, a new branch from the tip of the branch they merged into)
 
-## in_382 — 2026-11-15 — directive
+## in_401 — 2026-11-15 — directive
 > option 1, call it claude/hopeful-cannon-next
 (a new branch `claude/hopeful-cannon-next` is made from `origin/claude/inspiring-pascal-l342k7`, and the next batch of work goes there)
 
-## in_383 — 2026-11-15 — question
+## in_402 — 2026-11-15 — question
 > Okay I am finding a bunch of situations where I cant extend faces or form parts in ways that I know would still be valid, but the system just doesn't seem to like it. For example, it seems like I can't push the this hole all the way through this part in cant through hole? Also this problem shows up in fillets and chamfers all the time. For example in max fillet part, why can't I just keep increasing this fillet? it fails when it reaches the corners of the block, but wouldn't it still be valid geometry if it just kept extending like that surface was just extended against the others and the remaining part was an intersection of what was left? (I understand sometimes we have some real constraints that perhaps we applied where an edge must have a certain length etc, in which case it is okay to bump against that constraint and fail and flash it red as per regular). Also another one is trying to extend the top surface of this chamfered square until it becomes a pyramid on top in the cant extend pyrimid file. This again would be the idea almost that you are just extending surfaces in an intersection. So why can't we do things like this and is there a simpler cleaner model that allows us to do so? Because I would rather use a simpler clean model with less edge cases rather than just defining a bunch of new edge cases. Also in the pyramid example specifically, I think that it might be nice just to have face extension types possibly under the body meny next to the extrude option. So for the pyramid example, one method could be literal face extrusion, in which case it would create a square non chamfered shape growing out of the top square , or we could offer what it does now where it just grows the height of the already existing geometry, or another could be extend the face into current geometry like an intersection, in that case, you would extend the top square surface and the chamfers together until a limit where the chamfers meet, which shouldn't fail past that limit but it just doesn't make new geometry either. What do you think about a model like this? is this reasonable? Also on complex parts like for example this complex fillet, would it make sense just to offer a variable fillet option? so the point here is about achieving a roundness appearance that is valid as the angles on which the chamfer needs to map changes from acute to obtuse while keeping the part still valid and offering as much fillet freedom as possible? Also back to the cant through hole part, why can't I select the curved hole geometry and actually just move the entire hole up or down or sideways etc? Again this would be back to a model that is more defined as intersecting parts rather than fixed geometry. I can push pull faces, but I cant actually entirely move or sweep faces through a part, why not? Is there a simple model that captures all of these desires for freedom of movement?
 (files `cant_extend_pyrimid.json`, `max_fillet.json`, `cant_through_hole.json`, `complex_fillet.json`; a design question: why these edits are refused, whether a simpler model of bodies as intersections of surfaces would allow them, face extension types beside extrude, a variable fillet, and moving a whole hole or sweeping a face)
 
-## in_384 — 2026-11-15 — question
+## in_403 — 2026-11-15 — question
 > so A and B would be our modules that operate on top of the current OCCTV engine right? and C would basically be building our own from scratch?
 (about `q_edits_saturate`; answered: A and B sit on top of OpenCascade's booleans; C is our own representation of bodies, the start of "our own kernel later")
 
-## in_385 — 2026-11-15 — question
+## in_404 — 2026-11-15 — question
 > So what is OCCT and what is the kernel? is OCCT basically just the open source kernel we are using to handle object validation? Also how much work would it be just to write our own now? Wouldn't an intersection based one be much much simpler? How does the current one work?
 (about what OpenCascade is, what a kernel is, the cost of our own, whether an intersection-based one is simpler, and how the current one works)
 
-## in_386 — 2026-11-15 — approval
+## in_405 — 2026-11-15 — approval
 > okay lets do A and B and mark C as a later project in our to do when we write our own kernel
 (approves options A and B of `q_edits_saturate`, and asks that C, rebuilding bodies from their surfaces, be recorded as a later project in the to-do list, for when our own kernel is written)
 
-## in_387 — 2026-11-15 — directive
+## in_406 — 2026-11-15 — directive
 > Extend B to rims and variable fillet
 (asks that option B of `dec_edits_saturate` (fillets and chamfers as regions that do not fail) be extended to rims, the circular edges of posts and holes, and that a variable fillet be added)
 
-## in_388 — 2026-11-15 — directive
+## in_407 — 2026-11-15 — directive
 > try the rim fillet in the browser
-(follows `in_387`: the rim fillet, made as a revolved region, is to be tried in the real app)
+(follows `in_406`: the rim fillet, made as a revolved region, is to be tried in the real app)
 
-## in_389 — 2026-11-15 — question
+## in_408 — 2026-11-15 — question
 > okay should we try the "Not built: several sizes along one edge, a variable fillet of several edges at once, the loft for curved edges, and corners where several rounded edges meet."
-(asks whether to build the four items listed as not built after `in_387`)
+(asks whether to build the four items listed as not built after `in_406`)
 
-## in_390 — 2026-11-15 — approval
+## in_409 — 2026-11-15 — approval
 > yes, start on the mixed selections and corners
-(approves the first item recommended after `in_389`: a selection that mixes edges the region method can make with edges it cannot, and corners where several rounded edges meet)
+(approves the first item recommended after `in_408`: a selection that mixes edges the region method can make with edges it cannot, and corners where several rounded edges meet)
 
-## in_391 — 2026-11-15 — directive
+## in_410 — 2026-11-15 — directive
 > lets build the not built yet stuff
-(asks that the items listed as not built in `dec_edits_saturate` after `in_390` be built)
+(asks that the items listed as not built in `dec_edits_saturate` after `in_409` be built)
 
-## in_392 — 2026-11-15 — directive
+## in_411 — 2026-11-15 — directive
 > do the not built stuff please
-(asks that what `dec_edits_saturate` still lists as not built after `in_391` be built: the region for edges between a flat face and a cone, sphere or torus and for curved edges in general, a spherical corner for chamfers and for corners not at right angles, a size at more than three places along an edge, a rim with a size that changes along it)
+(asks that what `dec_edits_saturate` still lists as not built after `in_410` be built: the region for edges between a flat face and a cone, sphere or torus and for curved edges in general, a spherical corner for chamfers and for corners not at right angles, a size at more than three places along an edge, a rim with a size that changes along it)
 
-## in_393 — 2026-11-15 — directive
+## in_412 — 2026-11-15 — directive
 > Okay bugs. so look at these files. If you hit ctrl z you can see what I was trying to do. I would have expected these to make negative cut out holes, one in the chamfer sort of did, but also the chamfer surface had no hole. The other did, but only does when the cylinder is not present in the file? If the cylinder is present the operation seems to become positive?
-(two files attached: `hole_not_negative_at_all.json` and its state snapshot; the first is kept as `app/test/fixtures/hole-after-cylinder-in_393.cad.json` with the last step taken out)
+(two files attached: `hole_not_negative_at_all.json` and its state snapshot; the first is kept as `app/test/fixtures/hole-after-cylinder-in_412.cad.json` with the last step taken out)
 
-## in_394 — 2026-11-15 — directive
+## in_413 — 2026-11-15 — directive
 > Okay the next bug is that I got into this really weird zoom state again. I did it by traveling far away from origin and then coming back. Let me know if the state file doesn't load into the weird zoom state (because I saved the state file in the weird zoom state)
 (two state files attached; both have an empty scene and a camera target about 125 mm from the origin with a distance of 5.6 and 0.9 mm)
 
-## in_395 — 2026-11-15 — question
+## in_414 — 2026-11-15 — question
 > How does it even get in this state? And why should it matter? Shouldn't position always just be fully relative? See how the game mode works. Also that is another question, what even is zoom? Shouldn't soom just be camera moving foward or backward? not actually zoom? What do you think?
 (asks whether zoom should be a move of the camera along the view; answered in chat, not yet decided)
 
-## in_396 — 2026-11-15 — directive
+## in_415 — 2026-11-15 — directive
 > okay the one thing I want to preserve is the rotate point in non game mode which is usually defined as the objects center point closest to the camera. Can we do a dolly model that fixes all these problems but still uses that rotational axis when rotating the camera around an object in non game mode
-(approves the dolly model of `in_395` on the condition that the orbit keeps turning about the centre of the object nearest the camera)
+(approves the dolly model of `in_414` on the condition that the orbit keeps turning about the centre of the object nearest the camera)

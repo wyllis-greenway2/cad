@@ -159,7 +159,7 @@ export function buildGraph(scene: Scene): GraphResult {
   return { graph: { params: {}, ops }, errors };
 }
 
-/** The sizes along the edge of a fillet or chamfer that changes along it (`in_387`, `in_391`): [place from 0 at the start to 1 at the other end, size] at the start, at a quarter, the middle and three quarters when they are given, and at the end. */
+/** The sizes along the edge of a fillet or chamfer that changes along it (`in_406`, `in_410`): [place from 0 at the start to 1 at the other end, size] at the start, at a quarter, the middle and three quarters when they are given, and at the end. */
 function stationsOf(value: number, end: number, p: Record<string, string | number>): [number, number][] {
   const at = (key: string, t: number): [number, number][] => (p[key] !== undefined && Number(p[key]) > 0 ? [[t, Number(p[key])]] : []);
   return [[0, value], ...at("q1", 0.25), ...at("mid", 0.5), ...at("q3", 0.75), [1, end]];

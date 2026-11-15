@@ -35,7 +35,7 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     const size = sizeShown(op); // a push / pull or an extrude shows the size (the thickness, the diameter) you are making, and a typed size is that size
     const shown = size !== null ? size : op.kind === "edge" && v !== null ? Math.abs(v) : v;
     if (op.kind === "edge" && op.variable && op.vary) {
-      // a fillet or chamfer whose size changes along the edge: the size at its start and at its end (`in_387`)
+      // a fillet or chamfer whose size changes along the edge: the size at its start and at its end (`in_406`)
       const first = op.typed !== "" ? op.typed.replace(/^-/, "") : shown === null ? "0" : roundedText(shown);
       const second = (op.endTyped ?? "") !== "" ? op.endTyped! : first;
       const dash = (s: string | undefined) => (s ?? "") !== "" ? s! : "-";

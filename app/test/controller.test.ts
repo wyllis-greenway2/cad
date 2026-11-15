@@ -150,7 +150,7 @@ test("zoom toward the cursor keeps the point under it fixed, and zooming out the
   nearV(z.cam.target, st.cam.target, 1e-6);
   near(z.cam.distance, st.cam.distance, 1e-6);
   // and the floor is not a surface to zoom toward: a pointer over empty floor zooms about the middle of the view
-  // (the eye moves along the view toward the model, by a step of the way to it, `in_396`: it stays on the line of sight and is nearer the middle of the box)
+  // (the eye moves along the view toward the model, by a step of the way to it, `in_415`: it stays on the line of sight and is nearer the middle of the box)
   const empty = reduce(st, { type: "zoom", factor: 0.5, x: 30, y: 30 }, env);
   const e0: Vec3 = position(st.cam);
   const e1: Vec3 = position(empty.cam);

@@ -1,4 +1,4 @@
-// Where three rounded edges meet at a corner of three faces at right angles, the region method gives the kernel's own corner: a piece of a sphere (`in_391`).
+// Where three rounded edges meet at a corner of three faces at right angles, the region method gives the kernel's own corner: a piece of a sphere (`in_410`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { makeBox, measureVolume } from "replicad";

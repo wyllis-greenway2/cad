@@ -12,7 +12,7 @@ Update it at the end of each session.
 - Project record set up; `docs/licenses.md` written; `kernel-slice`, `sketch-extrude`, `cad-ui` built as prototypes (2026-11-04 and 2026-11-05): planes, sketching, constraints, extrude, fillet and chamfer, devices, the pencil look and the ring highlight; relations (distances) started.
 
 ## Later
-- **Our own kernel (`dec_kernel_hybrid`, "our own later"), and with it option C of `dec_edits_saturate` (`in_386`):** bodies rebuilt from their surfaces (half-spaces, cylinders) so every edit's numbers saturate by construction, and the face edits that need it (extend across curved neighbours). A second geometry engine: not before the operations on OpenCASCADE (A and B of `dec_edits_saturate`) have been used and shown what is still refused.
+- **Our own kernel (`dec_kernel_hybrid`, "our own later"), and with it option C of `dec_edits_saturate` (`in_405`):** bodies rebuilt from their surfaces (half-spaces, cylinders) so every edit's numbers saturate by construction, and the face edits that need it (extend across curved neighbours). A second geometry engine: not before the operations on OpenCASCADE (A and B of `dec_edits_saturate`) have been used and shown what is still refused.
 - Blueprint phases 2-5 (solver feel, analytical fillets and STEP, polish, then AI generation, assemblies, threads).
 
 

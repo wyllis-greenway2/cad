@@ -1,4 +1,4 @@
-// A fillet or chamfer of a straight edge between two flat faces has no size that fails (`in_386`, `dec_edits_saturate` B): where the kernel's rolling fillet cannot be made the corner is made as a region that is cut
+// A fillet or chamfer of a straight edge between two flat faces has no size that fails (`in_405`, `dec_edits_saturate` B): where the kernel's rolling fillet cannot be made the corner is made as a region that is cut
 // (a convex edge) or added (a concave one), and past the size where the rounding stops touching the faces next to it, it crosses them.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -13,7 +13,7 @@ import type { Part } from "../src/operation/part.ts";
 
 await kernel.init();
 const XY = worldRef("XY");
-const block = () => (openSession(kernel, readFileSync(new URL("./fixtures/block-fillet-in_386.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+const block = () => (openSession(kernel, readFileSync(new URL("./fixtures/block-fillet-in_405.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
 const vol = (s: Session) => s.outcome.kernel!.volume!;
 const set = (s: Session, params: Record<string, unknown>) => run(s, { type: "setStepParams", id: "s_014", params } as never);
 
@@ -149,7 +149,7 @@ test("the foot of a small post on a larger one (a concave rim) is filled as far 
   }
 });
 
-// ---- a selection that mixes edges a region can make with edges it cannot, and corners where several rounded edges meet (`in_390`) ----
+// ---- a selection that mixes edges a region can make with edges it cannot, and corners where several rounded edges meet (`in_409`) ----
 
 /** A plate 30 x 30 x 1 with a post of radius 5 and height 10 on it, and a hole of radius 2 through the post: the plate's top edges can be made as regions, the hole's rims (a cylinder on a cylinder) cannot */
 function plateWithPost() {

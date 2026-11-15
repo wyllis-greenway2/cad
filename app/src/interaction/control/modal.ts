@@ -124,7 +124,7 @@ export function doTyped(s: AppState, key: string): AppState {
     return { ...s, op: { ...s.op, rot, value: null, typed: "" } };
   }
   if (s.op && s.op.kind === "edge" && s.op.variable && s.op.vary && key !== "Enter") {
-    // a fillet whose size changes along the edge: Tab goes between the size at its start and the size at its end (`in_387`)
+    // a fillet whose size changes along the edge: Tab goes between the size at its start and the size at its end (`in_406`)
     if (key === "Tab") { const order = s.op.rimVary ? [0, 2, 3, 4] : [0, 1, 2, 3, 4]; return { ...s, op: { ...s.op, varField: order[(Math.max(0, order.indexOf(s.op.varField ?? 0)) + 1) % order.length] as 0 | 1 | 2 | 3 | 4 } }; }
     const slot = (["", "endTyped", "midTyped", "q1Typed", "q3Typed"] as const)[s.op.varField ?? 0];
     if (slot) { const typed = typeOp({ ...s.op, typed: s.op[slot] ?? "" }, key); return { ...s, op: { ...s.op, [slot]: typed.typed.replace(/^-/, "") } }; }

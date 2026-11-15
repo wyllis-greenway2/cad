@@ -1,4 +1,4 @@
-// A chip of choices beside an operation's number (`in_386`: what a push / pull of a flat face does; `in_387`: a fillet the same size all along or a size at each end). It only draws and reports a click.
+// A chip of choices beside an operation's number (`in_405`: what a push / pull of a flat face does; `in_406`: a fillet the same size all along or a size at each end). It only draws and reports a click.
 import { PILL, choiceRow } from "./look.ts";
 export interface FaceKindView { id: string; label: string; title: string; on: boolean }
 

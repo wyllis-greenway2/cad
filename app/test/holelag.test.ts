@@ -1,4 +1,4 @@
-// A hole drawn on the top of a block and pushed through it is a cut, also when the kernel answers later (the browser) and a separate body stands beside it (`in_393`):
+// A hole drawn on the top of a block and pushed through it is a cut, also when the kernel answers later (the browser) and a separate body stands beside it (`in_412`):
 // the mode of the step (adds a piece, joins, cuts) was decided from the answer that was still the older one, so the hole was kept as a body joined on.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -22,10 +22,10 @@ function lagging(onChange: () => void) {
   return { kernel: k as Kernel, deliver: (): boolean => { if (!job) return false; const j = job; job = null; kernel.draft = !!j.draft; const result = kernel.evaluate(j.graph); for (const f of listeners) f({ data: { id: j.id, result } }); return true; } };
 }
 
-test("a hole pushed through the block, the kernel answering later, is a cut (`in_393`)", () => {
+test("a hole pushed through the block, the kernel answering later, is a cut (`in_412`)", () => {
   let s!: Session;
   const lag = lagging(() => { s = refresh(s); });
-  const o = openSession(lag.kernel, readFileSync(new URL("./fixtures/hole-after-cylinder-in_393.cad.json", import.meta.url), "utf8"));
+  const o = openSession(lag.kernel, readFileSync(new URL("./fixtures/hole-after-cylinder-in_412.cad.json", import.meta.url), "utf8"));
   assert.ok(o.ok);
   if (!o.ok) return;
   s = redoLast(o.value);

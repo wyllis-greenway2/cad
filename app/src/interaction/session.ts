@@ -38,7 +38,7 @@ export interface Session {
   readonly lagging: boolean;
   /** steps just made while the kernel's answer was still to come: when it comes and one of them could not be made, it is taken back */
   readonly checkSteps?: string[];
-  /** extrusions made while the kernel's answer was still to come: whether they add a piece, join or cut is decided when it comes, from the volume and the number of bodies before (`in_393`: decided from the older answer they all read as joined, and a hole was kept as an addition) */
+  /** extrusions made while the kernel's answer was still to come: whether they add a piece, join or cut is decided when it comes, from the volume and the number of bodies before (`in_412`: decided from the older answer they all read as joined, and a hole was kept as an addition) */
   readonly modeFrom?: { volume: number; count: number; extrudes: number };
   /** what to do instead if one of those steps could not be made (an edit of the step that made a face, refused late: the prism the old way) */
   readonly fallback?: Command;
@@ -264,7 +264,7 @@ export function refresh(s: Session): Session {
     return { ...back, message: now.outcome.errors[failed] ?? "that could not be made", conflict: stepProblem(back, now, failed) ?? back.conflict };
   }
   const fresh = !now.outcome.kernel?.stale;
-  // the extrusions made before the answer came: now it is known whether they cut, stand apart or join, and the steps keep it (`in_295`, `in_393`)
+  // the extrusions made before the answer came: now it is known whether they cut, stand apart or join, and the steps keep it (`in_295`, `in_412`)
   if (fresh && s.modeFrom && h.cursor === h.commands.length && h.cursor > 0) {
     const [vol, cnt] = [bodyVolume(now), bodyCount(now)];
     const mode = vol < s.modeFrom.volume - 1e-6 * Math.max(1, s.modeFrom.volume) ? "cut" : cnt - s.modeFrom.count >= s.modeFrom.extrudes ? "new" : "add";

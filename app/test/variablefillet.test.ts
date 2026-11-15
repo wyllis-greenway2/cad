@@ -1,4 +1,4 @@
-// A fillet whose size changes along its edge (`in_387`): a size at the start of the edge and a size at the other end, with the library's own variable fillet.
+// A fillet whose size changes along its edge (`in_406`): a size at the start of the edge and a size at the other end, with the library's own variable fillet.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -10,7 +10,7 @@ import { frameOf } from "../src/interaction/frame.ts";
 import type { Part } from "../src/operation/part.ts";
 
 await kernel.init();
-const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/block-fillet-in_386.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/block-fillet-in_405.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
 const vol = (s: Session) => s.outcome.kernel!.volume!;
 const set = (s: Session, params: Record<string, unknown>) => run(s, { type: "setStepParams", id: "s_014", params } as never);
 const env = { w: 800, h: 600, now: 0 } as never;
@@ -67,7 +67,7 @@ test("the chip, the two numbers and Tab: Variable, 5, Tab, 12, Enter makes one s
   assert.deepEqual(st.session.outcome.errors, {});
 });
 
-// ---- a chamfer that changes along its edge, and a size at each end of several edges (`in_391`) ----
+// ---- a chamfer that changes along its edge, and a size at each end of several edges (`in_410`) ----
 
 test("a chamfer that is 3 mm at one end of the edge and 9 mm at the other is made as a region, and takes the volume of a wedge that grows in a straight line", () => {
   const s = open();
@@ -157,9 +157,9 @@ test("sizes at a quarter and three quarters of the way too: five numbers, Tab go
   assert.deepEqual(st.session.outcome.errors, {});
 });
 
-// ---- a size that changes round a rim (`in_392`) ----
+// ---- a size that changes round a rim (`in_411`) ----
 test("a size that changes round the rim of a post: 1 mm at its start and 2.5 mm half way round, between the two constant ones, the same turned round, and made as a region past what the kernel can", () => {
-  const post = () => (openSession(kernel, readFileSync(new URL("./fixtures/stacked-posts-in_392.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+  const post = () => (openSession(kernel, readFileSync(new URL("./fixtures/stacked-posts-in_411.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
   const s = post();
   const rim = (Object.values(scene(s).parts) as Part[]).find((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "body" && !!p.circle && Math.abs(p.circle.center[2] - 20) < 1e-6)!;
   assert.equal(rim.a, rim.b, "one closed edge");
@@ -177,7 +177,7 @@ test("a size that changes round the rim of a post: 1 mm at its start and 2.5 mm 
 });
 
 test("the choice is offered for a closed rim, with no End, and Tab goes Start, Middle, 1/4, 3/4", () => {
-  const s = (openSession(kernel, readFileSync(new URL("./fixtures/stacked-posts-in_392.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+  const s = (openSession(kernel, readFileSync(new URL("./fixtures/stacked-posts-in_411.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
   const rim = (Object.values(scene(s).parts) as Part[]).find((p): p is Extract<Part, { kind: "line" }> => p.kind === "line" && p.origin === "body" && !!p.circle && Math.abs(p.circle.center[2] - 20) < 1e-6)!;
   let st = createState({ ...s, click: { ...s.click, selection: [rim.ref] as never } });
   st = reduce(st, { type: "begin", name: "edge" }, env);

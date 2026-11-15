@@ -1,4 +1,4 @@
-// What a push / pull of a flat face does, three ways (`in_386`, `q_edits_saturate` option A), and the hole that is moved by its wall: nothing valid is refused for being valid.
+// What a push / pull of a flat face does, three ways (`in_405`, `q_edits_saturate` option A), and the hole that is moved by its wall: nothing valid is refused for being valid.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -14,7 +14,7 @@ import type { Part } from "../src/operation/part.ts";
 
 await kernel.init();
 const open = (f: string) => (openSession(kernel, readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8")) as unknown as { value: Session }).value;
-const block = () => open("chamfered-block-in_386.cad.json");
+const block = () => open("chamfered-block-in_405.cad.json");
 const topOf = (s: Session) => (Object.values(scene(s).parts) as Part[]).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.includes("f@0,0,1,17.9"))!;
 const push = (s: Session, kind: "move" | "extrude" | "extend", value: number) => {
   const st = startOp(scene(s), [topOf(s).ref], "pushpull");
@@ -82,7 +82,7 @@ test("the three kinds are offered while a flat face is pushed or pulled, and the
 });
 
 test("the wall of a hole is moved by moving its circle: the hole is pushed through the skin in front of it", () => {
-  const s = open("hole-skin-in_386.cad.json");
+  const s = open("hole-skin-in_405.cad.json");
   const sc = scene(s);
   const wall = (Object.values(sc.parts) as Part[]).find((p): p is Extract<Part, { kind: "plane" }> => p.kind === "plane" && p.origin === "body" && !!p.curved && p.curved.radius < 3)!;
   assert.ok(wall.curved!.lo > -1e-6, "the hole starts inside the front of the body");
@@ -105,7 +105,7 @@ test("a flat end of an extrusion is not taken for the figure behind a hole's wal
   assert.equal(figureBehindFace(scene(s), [topOf(s).ref]), null);
 });
 
-// ---- Extend with round neighbours and holes (`in_391`) ----
+// ---- Extend with round neighbours and holes (`in_410`) ----
 import { createSession, run } from "../src/interaction/session.ts";
 import { worldRef } from "../src/shared/ref.ts";
 import { drawChain, drawCircle } from "../src/operation/build.ts";

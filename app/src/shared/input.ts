@@ -53,9 +53,9 @@ export type Intent =
   | { type: "runAction"; id: string }
   /** the button on a refused change: delete the constraints that stopped it and do it (`in_366`) */
   | { type: "overrideRefusal" }
-  /** what pushing or pulling a flat face does: move it with the step that made it, extrude a prism from it, or extend it with its neighbours (`in_386`) */
+  /** what pushing or pulling a flat face does: move it with the step that made it, extrude a prism from it, or extend it with its neighbours (`in_405`) */
   | { type: "faceKind"; kind: "move" | "extrude" | "extend" }
-  /** a fillet of one edge: the same size all along, or a size at each end (`in_387`) */
+  /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
   | { type: "sizeKind"; kind: "constant" | "variable" }
   /** the pointer is over that button: the flash waits (`in_366`) */
   | { type: "holdFlash" }

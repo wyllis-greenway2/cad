@@ -155,7 +155,7 @@ test("the thin-wall body (`in_229`): a side of a trimmed sketch can be pulled ou
   assert.equal(out.session.message, null);
   assert.ok((out.session.outcome.kernel!.volume ?? 0) > (s.outcome.kernel!.volume ?? 0) + 100, "the body grew");
   assert.equal(scene(out.session).steps.length, sc.steps.length, "no step added");
-  // in too far: the fillet of a straight edge made before is no longer one the kernel can round, so it is made as a region across the faces beside it (`in_386`): the picture is that body, with the reason said, not a collapsed one
+  // in too far: the fillet of a straight edge made before is no longer one the kernel can round, so it is made as a region across the faces beside it (`in_405`): the picture is that body, with the reason said, not a collapsed one
   st = begin();
   st = { ...st, op: { ...st.op!, value: -6 } };
   const f = frameOf(st, { w: 800, h: 600 });

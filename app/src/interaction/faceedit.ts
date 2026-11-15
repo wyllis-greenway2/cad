@@ -389,7 +389,7 @@ export function arcRadiusCommand(scene: Scene, arc: Ref, radius: number): Comman
 export const isTangentArc = (scene: Scene, arc: Ref): boolean => scene.relations.some((r) => r.kind === "tangent" && r.parts.includes(arc));
 
 /**
- * The figure a face of the body comes from, when moving or turning that figure is what moving or turning the face means (`in_386`): the wall of a hole or a post is its circle. The circle is moved (along the axis
+ * The figure a face of the body comes from, when moving or turning that figure is what moving or turning the face means (`in_405`): the wall of a hole or a post is its circle. The circle is moved (along the axis
  * of the hole, which sweeps it through the part; across it, which slides it; turned, which tilts it) and the steps after it are worked out again, so the hole is wherever it is put and nothing is refused for being
  * valid geometry. Null for any other face.
  */

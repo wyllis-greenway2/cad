@@ -31,7 +31,7 @@ export function runOp(sess: Session, op: Op): { session: Session; cmd: Command }
     if (op.kind === "extrude" && extrudes.length && extrudes.every((c): c is Extract<Command, { type: "addStep" }> => c.type === "addStep" && c.step.type === "extrude") && !done.message && (sceneOf(sess).steps.length || extrudes.length > 1)) {
       const [volume, count] = [(x: Session): number => Object.values(sceneOf(x).parts).reduce((a, q) => a + (q.kind === "body" ? (q.volume ?? 0) : 0), 0), (x: Session): number => Object.values(sceneOf(x).parts).filter((q) => q.kind === "body").length];
       // (decided from the answer for all of them together, the one the kernel already has from the preview: asking it for each step on its own would ask for lists it has not worked out, and in the browser its answer comes late)
-      // the kernel's answer is still to come (the browser): the volumes of `done` are the older ones, so nothing is decided now; the session keeps what it needs and decides when the answer is here (`in_393`)
+      // the kernel's answer is still to come (the browser): the volumes of `done` are the older ones, so nothing is decided now; the session keeps what it needs and decides when the answer is here (`in_412`)
       if (done.outcome.kernel?.stale) return { session: { ...done, modeFrom: { volume: volume(sess), count: count(sess), extrudes: extrudes.length } }, cmd };
       const grown = count(done) - count(sess);
       const mode = volume(done) < volume(sess) - 1e-6 * Math.max(1, volume(sess)) ? "cut" : grown >= extrudes.length ? "new" : "add"; // (a cut, pieces of their own, or joined to a body they touch)

@@ -1,4 +1,4 @@
-// Zooming is the eye moving along the view, by a step of the way to the model (the nearest object's middle, else the origin), not of the distance to the view's target (`in_396`):
+// Zooming is the eye moving along the view, by a step of the way to the model (the nearest object's middle, else the origin), not of the distance to the view's target (`in_415`):
 // after a long way from the origin, with the target in empty space and the view shrunk to a few mm, the wheel moved hundredths of a mm and the world was cut off.
 import test from "node:test";
 import assert from "node:assert/strict";

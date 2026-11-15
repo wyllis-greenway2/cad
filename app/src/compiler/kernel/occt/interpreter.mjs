@@ -435,7 +435,7 @@ const OPS = {
   },
 
   /**
-   * Move a flat face along its normal by `distance` and carry the faces next to it along as surfaces, until they meet (`in_386`, "extend"): the material added (pulled out) or taken (pushed in) is the slab between the
+   * Move a flat face along its normal by `distance` and carry the faces next to it along as surfaces, until they meet (`in_405`, "extend"): the material added (pulled out) or taken (pushed in) is the slab between the
    * old and the new plane, kept to the side of each neighbouring face that the body is on (for a neighbour that lies across the face, the other side). A chamfered top pulled up grows as a pyramid; past the apex nothing
    * is left of the slab, so nothing is added and nothing fails. Needs flat neighbours; a push that leaves nothing of the body is refused.
    */
@@ -578,7 +578,7 @@ const OPS = {
     if (!(v > 1e-6)) throw new Error("the size must be positive");
     const refs = [].concat(op.ref);
     const found = refs.length ? resolveEdges(t, refs) : null;
-    // a fillet or chamfer that changes along its edges (`in_387`, `in_391`): sizes at places along each edge (0 its start, 1 its other end); smaller sizes keep the proportions
+    // a fillet or chamfer that changes along its edges (`in_406`, `in_410`): sizes at places along each edge (0 its start, 1 its other end); smaller sizes keep the proportions
     const rel = op.stations && op.stations.length >= 2 ? op.stations.map(([x, s]) => [x, s / v]) : null;
     const stationsFor = (sz) => (rel ? rel.map(([x, r]) => [x, sz * r]) : undefined);
     const base = op.together && op.together.base ? ctx.get(op.together.base, "solid").shape : null;
@@ -596,7 +596,7 @@ const OPS = {
         if (Math.abs(measureVolume(made) - measureVolume(t)) < 1e-9 * measureVolume(t)) throw new Error("the kernel made nothing of it"); // (a size it cannot take can come out as the body unchanged)
         return made;
       } catch (e) {
-        // straight edges between flat faces: the corner is made as a region that is cut or added, which has no size that fails (`in_386`, `dec_edits_saturate`)
+        // straight edges between flat faces: the corner is made as a region that is cut or added, which has no size that fails (`in_405`, `dec_edits_saturate`)
         const region = neighbours && set ? regionRound(t, set, size, op.mode, stationsFor(size)) : null;
         if (region === "empty") throw Object.assign(new Error(`a ${op.mode === "chamfer" ? "chamfer" : "fillet"} of that size would take all of the body`), { final: true });
         const mixed = !region && neighbours && set ? mixedRound(t, set, list, size, op.mode, stationsFor(size)) : null;
@@ -843,7 +843,7 @@ function pchip(points, x) {
 }
 
 /**
- * A fillet whose size goes through several sizes along the edge (`in_391`): the library's own fillet has a start and an end radius, the kernel has a radius law, made here from points (the place along the edge,
+ * A fillet whose size goes through several sizes along the edge (`in_410`): the library's own fillet has a start and an end radius, the kernel has a radius law, made here from points (the place along the edge,
  * from 0 at its start to 1 at its other end, and the size there) for every edge in `set`.
  */
 function lawFillet(t, set, points) {
@@ -866,12 +866,12 @@ function lawFillet(t, set, points) {
 }
 
 /**
- * A fillet or chamfer of straight edges between two flat faces made as a **region** (`in_386`, `dec_edits_saturate` B): the corner is the area between the two face lines and the rounding (the rolling circle, or the
+ * A fillet or chamfer of straight edges between two flat faces made as a **region** (`in_405`, `dec_edits_saturate` B): the corner is the area between the two face lines and the rounding (the rolling circle, or the
  * bevel), made as a prism along the edge and cut from the body where the edge is convex, or added where it is concave. There is no size at which it fails: where the rounding would no longer touch the faces next to the
  * edge tangentially (they are narrower than the size) it simply crosses them. Every region is made from the body as it was, then all are applied. Null if an edge is not straight between two flat faces.
  */
 /**
- * A selection that mixes edges a region can make (straight between flat faces, rims) with edges it cannot (`in_390`): the regions are made from the body as it is and the kernel rounds the others on the result, or
+ * A selection that mixes edges a region can make (straight between flat faces, rims) with edges it cannot (`in_409`): the regions are made from the body as it is and the kernel rounds the others on the result, or
  * the other way about, whichever works. Null if the selection is not mixed, or neither order works.
  */
 function mixedRound(t, set, list, size, mode, stations) {
@@ -924,13 +924,13 @@ function approximateRound(t, set, size, mode, stations) {
 }
 
 /**
- * The region of a **rim** (`in_387`, `dec_edits_saturate` B): the circle where a flat face meets a round wall about an axis at right angles to it, revolved. The corner area between the two faces and the rounding
+ * The region of a **rim** (`in_406`, `dec_edits_saturate` B): the circle where a flat face meets a round wall about an axis at right angles to it, revolved. The corner area between the two faces and the rounding
  * (the rolling circle, or the bevel) is drawn in the half plane through the axis (radius across, height along) and turned once round. A rim saturates at the largest size the faces beside it allow (the wall's height; the
  * flat face's width, which for the end of a post is its radius: past that the round is a dome and no more), since a region crossing the axis or going past the foot of a post would cut into what is not the corner.
  * Returns null for anything that is not such a rim.
  */
 /**
- * A fillet or chamfer of **any edge between two faces**, made as a region approximately (`in_392`): sections across the edge at places along it, each drawn as the corner profile (the two faces taken as the planes
+ * A fillet or chamfer of **any edge between two faces**, made as a region approximately (`in_411`): sections across the edge at places along it, each drawn as the corner profile (the two faces taken as the planes
  * tangent to them there, the rolling circle or the bevel between them) in the plane across the edge, and between each two sections a ruled piece; the pieces are joined and cut from the body (a convex edge) or added to it
  * (a concave one). It is exact where the faces are planes along the edge and near it where they curve slowly across the size; it is the last thing tried, for an edge the kernel cannot round, a rim a region cannot make
  * and an edge between faces that are not flat and not a round wall (a cone, a sphere, a torus, a free surface). A closed edge is made in two halves. Null if it cannot be made.
@@ -1059,7 +1059,7 @@ function rimTool(e, fs, size, mode, stations) {
   const rS = ccw ? rA : rad(B); // where the sweep starts: the start of the arc, or its other end when it runs the other way
   if (stations && !closed) throw Object.assign(new Error("a rim made of two halves cannot change its size round it yet: it can when it is one closed edge"), { final: true });
   if (stations && closed) {
-    // a size that changes round the rim (`in_391`): sections at angles round it, each with the size there (the sizes at the places along the rim, 0 its start and 1 round again to it, joined in a smooth curve),
+    // a size that changes round the rim (`in_410`): sections at angles round it, each with the size there (the sizes at the places along the rim, 0 its start and 1 round again to it, joined in a smooth curve),
     // and between each two a ruled piece, so that no piece has to turn all the way round; the pieces are cut one after the other
     const N = 24;
     const turn = (r, phi) => r.map((x, i) => x * Math.cos(phi) + cross3(ax, r)[i] * Math.sin(phi));
@@ -1089,7 +1089,7 @@ function slabSolid(p, m, from, to, big) {
   return drawRectangle(2 * big, 2 * big).sketchOnPlane(new Plane(origin, xd.map((v) => v / xl), m)).extrude(to - from);
 }
 /**
- * The corners where exactly three rounded straight edges meet, the same size for all, on three flat faces (`in_391`, `in_392`: not only at right angles): the corner point, the three unit directions into the edges, the three
+ * The corners where exactly three rounded straight edges meet, the same size for all, on three flat faces (`in_410`, `in_411`: not only at right angles): the corner point, the three unit directions into the edges, the three
  * inward normals of the faces, the centre of the ball of the size that touches all three faces, and the size. The cap that is taken off is the corner of the body between the faces, behind the planes through that centre across each
  * edge, without the ball.
  */

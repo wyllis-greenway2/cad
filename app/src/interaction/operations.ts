@@ -93,19 +93,19 @@ export interface Op {
   rounded?: boolean;
   /** this time make the prism instead (the step that made the face could not take the size) */
   noEdit?: boolean;
-  /** what pushing or pulling a flat face does (`in_386`): `move` (the default: the step that made the face changes), `extrude` (a prism of the face's outline is added or taken), `extend` (the face moves and its neighbours are carried on until they meet) */
+  /** what pushing or pulling a flat face does (`in_405`): `move` (the default: the step that made the face changes), `extrude` (a prism of the face's outline is added or taken), `extend` (the face moves and its neighbours are carried on until they meet) */
   faceKind?: "move" | "extrude" | "extend";
-  /** a fillet of one edge whose size changes along it (`in_387`): `value` is the size at the start of the edge and `endTyped` (empty: the same) the size at its other end */
-  /** the edges chosen can have a size at each end: none of them is a rim (`in_387`, `in_391`) */
+  /** a fillet of one edge whose size changes along it (`in_406`): `value` is the size at the start of the edge and `endTyped` (empty: the same) the size at its other end */
+  /** the edges chosen can have a size at each end: none of them is a rim (`in_406`, `in_410`) */
   vary?: boolean;
-  /** the edges chosen are rims (a circle): the size changes round the rim, with no end of its own (`in_391`) */
+  /** the edges chosen are rims (a circle): the size changes round the rim, with no end of its own (`in_410`) */
   rimVary?: boolean;
   variable?: boolean;
   endTyped?: string;
   /** the number being typed is the end one (Tab switches) */
-  /** a size at the middle of the edge too, and which of the three numbers is being typed: 0 the start, 1 the end, 2 the middle (Tab goes round, `in_391`) */
+  /** a size at the middle of the edge too, and which of the three numbers is being typed: 0 the start, 1 the end, 2 the middle (Tab goes round, `in_410`) */
   midTyped?: string;
-  /** and at a quarter and three quarters of the way along (`in_391`) */
+  /** and at a quarter and three quarters of the way along (`in_410`) */
   q1Typed?: string;
   q3Typed?: string;
   varField?: 0 | 1 | 2 | 3 | 4;
@@ -167,7 +167,7 @@ export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind, v
   return from ? { ...r, op: { ...r.op, from, stepsAt: scene.steps.length } } : r;
 }
 function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view: ViewAxes | null): StartResult {
-  // the wall of a hole or a post is moved or turned by moving or turning the circle that made it (`in_386`)
+  // the wall of a hole or a post is moved or turned by moving or turning the circle that made it (`in_405`)
   const behind = kind === "move" || kind === "rotate" ? figureBehindFace(scene, selection) : null;
   if (behind) {
     const r = startOpBare(scene, behind, kind, view);
@@ -381,14 +381,14 @@ export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
   return r.ok ? { ...r.op, auto: true } : null;
 }
 
-/** The size at the other end of a fillet or chamfer that changes along its edges (each edge from its own first end, `in_387`, `in_391`), or null when it is the same all along. */
-/** The size at the middle of the edge, when one is given (the round then goes through the start, the middle and the end sizes, `in_391`), else null. */
+/** The size at the other end of a fillet or chamfer that changes along its edges (each edge from its own first end, `in_406`, `in_410`), or null when it is the same all along. */
+/** The size at the middle of the edge, when one is given (the round then goes through the start, the middle and the end sizes, `in_410`), else null. */
 export function variableMid(op: Op, v: number): number | null {
   if (!op.variable || !op.vary || op.kind !== "edge" || v === 0 || variableEnd(op, v) === null) return null;
   const t = typedNumber(op.midTyped ?? "");
   return t !== null && t > 0 ? t : null;
 }
-/** The sizes typed at a quarter and at three quarters of the way along the edges (`in_391`), as the step's `q1` and `q3` (only when the size at the other end is given too). */
+/** The sizes typed at a quarter and at three quarters of the way along the edges (`in_410`), as the step's `q1` and `q3` (only when the size at the other end is given too). */
 export function variableQuarters(op: Op, v: number): { q1?: number; q3?: number } {
   if (!op.variable || !op.vary || op.kind !== "edge" || v === 0 || variableEnd(op, v) === null) return {};
   const [a, b] = [typedNumber(op.q1Typed ?? ""), typedNumber(op.q3Typed ?? "")];

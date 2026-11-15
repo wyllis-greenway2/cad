@@ -159,7 +159,7 @@ export function projector(c: Camera, widthPx: number, heightPx: number) {
  */
 export function zoomAt(c: Camera, factor: number, anchor?: Vec3, content?: Vec3): Camera {
   // nothing under the cursor, in the perspective view: the eye moves along the view, by a step of the way to the model (`content`: the middle of the nearest object, else the origin), never by a step of the distance to the
-  // target, which can be a point in empty space that the view has shrunk toward; the target is then put at the depth of the model (`in_396`: after a long way from the origin the wheel moved a few hundredths of a mm and the world was cut off)
+  // target, which can be a point in empty space that the view has shrunk toward; the target is then put at the depth of the model (`in_415`: after a long way from the origin the wheel moved a few hundredths of a mm and the world was cut off)
   if (!anchor && content && !c.straight) {
     const b = basis(c);
     const eye = position(c);

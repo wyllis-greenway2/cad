@@ -152,7 +152,7 @@ export function createView(host: HTMLElement) {
     }
     const away = eyeDistance(cam);
     active.near = away * settings.view.nearFactor;
-    active.far = Math.max(away * settings.view.farFactor + (away - cam.distance), Math.hypot(...eye) * 1.5 + settings.world.axisLengthMm * 2); // (and far enough to reach the origin and its axes, so the world is not cut off after a long way from it, `in_394`)
+    active.far = Math.max(away * settings.view.farFactor + (away - cam.distance), Math.hypot(...eye) * 1.5 + settings.world.axisLengthMm * 2); // (and far enough to reach the origin and its axes, so the world is not cut off after a long way from it, `in_413`)
     active.position.set(...eye);
     active.up.set(...b.up);
     active.lookAt(...cam.target);

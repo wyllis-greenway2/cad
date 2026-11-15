@@ -1146,7 +1146,7 @@ test("fillet / chamfer on the rim of a hole: its arrow points out of the corner 
   assert.ok(d[0] * (c[0] - m[0]) + d[1] * (c[1] - m[1]) + d[2] * (c[2] - m[2]) > 1, "towards the axis");
 });
 
-test("a fillet too big for its edge is made as a region that crosses the faces beside it, and says so (`in_386`: it used to be refused)", () => {
+test("a fillet too big for its edge is made as a region that crosses the faces beside it, and says so (`in_405`: it used to be refused)", () => {
   let st = box();
   const vertical = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "body" && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] !== (scene(st.session).parts[p.b] as { at: Vec3 }).at[2])!;
   st = select(st, [vertical.ref]);

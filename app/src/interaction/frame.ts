@@ -120,9 +120,9 @@ export interface Frame {
   resetView: boolean;
   /** a change refused for the constraints it would break, while it flashes: the button that deletes them and goes on (`in_366`) */
   refusal: { text: string; button: string; /** the constraint it stands beside */ beside: string } | null;
-  /** push / pull of one flat face: what it does, to choose (`in_386`) */
+  /** push / pull of one flat face: what it does, to choose (`in_405`) */
   faceKinds: { id: "move" | "extrude" | "extend"; label: string; title: string; on: boolean }[] | null;
-  /** a fillet of one edge: the same size all along, or a size at each end (`in_387`) */
+  /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
   sizeKinds: { id: "constant" | "variable"; label: string; title: string; on: boolean }[] | null;
   selection: { count: number; actions: { id: string; label: string; title: string }[] } | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
@@ -475,21 +475,21 @@ const FACE_KINDS: { id: "move" | "extrude" | "extend"; label: string; title: str
   { id: "extrude", label: "Extrude", title: "Add (or take) a prism of the face's outline: a square growing out of the face" },
   { id: "extend", label: "Extend", title: "Move the face and carry the faces next to it on until they meet: a chamfered top grows into a pyramid, and past the top nothing more happens" },
 ];
-/** The choice of what a push / pull of one flat face does (`in_386`): only for a flat face (a round wall, a fillet or chamfer face and several faces have their own meaning). */
+/** The choice of what a push / pull of one flat face does (`in_405`): only for a flat face (a round wall, a fillet or chamfer face and several faces have their own meaning). */
 function faceKinds(s: AppState): Frame["faceKinds"] {
   const op = s.op;
   if (!op || op.kind !== "pushpull" || op.curved || op.rounded || op.roundAxis) return null;
-  // several flat faces: each is pushed along its own normal by the same amount, as a prism (extrude) or extended with its neighbours (extend); there is no step to move for any of them (`in_391`)
+  // several flat faces: each is pushed along its own normal by the same amount, as a prism (extrude) or extended with its neighbours (extend); there is no step to move for any of them (`in_410`)
   if ((op.faces?.length ?? 0) > 1) return FACE_KINDS.filter((k) => k.id !== "move").map((k) => ({ ...k, on: (op.faceKind ?? "extrude") === k.id }));
   if (op.parts.length !== 1) return null;
   return FACE_KINDS.map((k) => ({ ...k, on: (op.faceKind ?? "move") === k.id }));
 }
-/** The end of the edge where the first size of a fillet that changes along it applies, in amber (`in_387`). */
+/** The end of the edge where the first size of a fillet that changes along it applies, in amber (`in_406`). */
 function variableStart(sc: Scene, op: AppState["op"]): Ref[] {
   if (!op || op.kind !== "edge" || !op.variable || !op.vary) return [];
   return op.parts.flatMap((r) => { const l = sc.parts[r]; return l?.kind === "line" && l.origin === "body" && (l.a !== l.b || op.rimVary) ? [l.a] : []; });
 }
-/** The choice between a fillet or chamfer that is the same size all along its edges and one with a size at each end of each edge (`in_387`, `in_391`): not for a rim, which has no ends. */
+/** The choice between a fillet or chamfer that is the same size all along its edges and one with a size at each end of each edge (`in_406`, `in_410`): not for a rim, which has no ends. */
 function sizeKinds(s: AppState): Frame["sizeKinds"] {
   const op = s.op;
   if (!op || op.kind !== "edge" || !op.vary) return null;
