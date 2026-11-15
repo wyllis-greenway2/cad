@@ -29,6 +29,7 @@ import type { AppState, Env, MenuItem } from "./state.ts";
 import { paneAt } from "../panes.ts";
 import type { WorldName } from "../panes.ts";
 import { doLook, selectedSurface } from "./viewing.ts";
+import { doSectionPick } from "./section.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { commitFigure, commitOp, setRepeatAxis, doApply } from "./modal.ts";
 import { doGizmoHover, gizmoOf, chosenId } from "./handles.ts";
@@ -69,7 +70,7 @@ const category = (id: string, label: string, icon: string, kids: MenuItem[]): Me
   const first = kids.find((k) => k.enabled);
   return { id, label, icon, enabled: !!first, why: first ? null : kids[0]?.why ?? "nothing here applies", children: kids };
 };
-function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean } = { wireframe: false, tape: false }): AppState["menu"] {
+function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
   const sc = sceneOf(session);
   const sel = selectionOf(session);
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
@@ -96,6 +97,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     category("view", "View", "eye", [
       { id: "look", label: "Look straight at it", icon: "eye", enabled: !!target, why: target ? null : "select a plane or a face, or right-click on one" },
       { id: "view:game", label: "Game mode (Space): fly with W A S D, hold Alt for the pointer", icon: "eye", enabled: true, why: null },
+      { id: "view:section", label: view.section ? "Cross section: on (tap to put away)" : "Cross section (a view, nothing is cut)", icon: "wireframe", enabled: true, why: null },
       { id: "view:wireframe", label: view.wireframe ? "Wireframe view: on (tap for solid)" : "Wireframe view", icon: "wireframe", enabled: true, why: null },
       { id: "tape:measure", label: view.tape ? "Tape measure: on (tap to put away)" : "Tape measure", icon: "dimension", enabled: true, why: null },
     ]),
@@ -345,6 +347,8 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
 
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {
   if (s.box) s = { ...s, box: null }; // (held, but never moved: an ordinary click)
+  const picked = doSectionPick(s, i.x, i.y, env); // (the cross section's planes are offered: a click chooses one, `in_392`)
+  if (picked) return picked;
   const sc = sceneOf(s.session);
   // a click on a little pane turns that world plane on and looks straight at it (the same as its X Y Z button, `in_190`)
   const pane = !s.tool && !s.op ? paneUnder(s, i.x, i.y, env) : null;
@@ -452,7 +456,7 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   }
   // what is under the point (a finger has no hover: a long press must be told what is under it the same way a right click is, or a tool chosen from the ring would not turn the view straight to the plane there, `in_283`)
   const under = i.button ? null : candidatesAt(sceneOf(s.session), projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0]?.ref ?? null;
-  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape }) };
+  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!s.section || s.sectionOffer }) };
 }
 
 /**

@@ -1842,3 +1842,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 > 
 > Can we offer a hollow tool?
 (asks: the tape measure shows once for what was selected when applied and goes on deselect; game mode: bubbles and icons usable, the camera follows the cursor kept at the centre while manipulating, right click no longer exits, enter and exit from the eye menu; a hollow tool)
+
+## in_392 — 2026-11-15 — directive
+> Can we offer a cross section slice tool to see inside our parts? It would be a view, not an actual cut, it should offer xyz planes right in the middle of the part, if you click one, it slices to that plane, you should be able to move the plane with the xyz or rotate tool in order to position the slice where you want.
+(asks for a cross-section view: not a cut; offers x, y and z planes at the middle of the part; clicking one slices the view there; the plane is moved with the xyz or the rotate handles)

@@ -1744,3 +1744,30 @@ test("Hollow: with a face selected it leaves that face open; its arrow points in
   const none = reduce(box(), { type: "runAction", id: "op:hollow" }, env);
   assert.match(none.session.message ?? "", /face/);
 });
+
+test("the cross section: the menu offers the three planes at the middle of the part, a click on one slices there, its arrow moves it and its ring turns it; nothing is cut (`in_392`)", () => {
+  let st = box(); // 40 x 20 x 20 from the origin
+  const stepsBefore = scene(st.session).steps.length;
+  st = reduce(st, { type: "runAction", id: "view:section" }, env);
+  const offer = frame(st).sectionOffer!;
+  assert.equal(offer.length, 3, "three planes are offered");
+  // the plane across X: its middle is the middle of the box (20, 10, 10)
+  const mid = (corners: Vec3[]) => scale(corners.reduce((a, q) => add(a, q), [0, 0, 0] as Vec3), 1 / corners.length);
+  const x = offer.find((o) => Math.abs(mid(o.corners)[0] - 20) < 1e-6 && o.corners.every((q) => Math.abs(q[0] - 20) < 1e-6))!;
+  const [pxx, pyy] = px(st, mid(x.corners));
+  st = reduce(st, { type: "click", x: pxx, y: pyy, count: 1, shift: false }, env);
+  assert.equal(st.sectionOffer, false);
+  assert.deepEqual(st.section!.n, [1, 0, 0]);
+  near(st.section!.at[0], 20, 1e-6);
+  // its arrow along X moves it
+  const g = gizmoOf(st)!;
+  assert.deepEqual(g.handles.map((h) => h.id), ["sec:x", "sec:y", "sec:z", "secr:x", "secr:y", "secr:z"]);
+  const [c, tip] = g.handles.find((h) => h.id === "sec:x")!.points;
+  st = drag(st, tip!, add(tip!, [10, 0, 0]), 6);
+  assert.ok(st.section!.at[0] > 25, `${st.section!.at[0]}`);
+  assert.equal(scene(st.session).steps.length, stepsBefore, "a view: no step was made");
+  // off again from the menu
+  st = reduce(st, { type: "runAction", id: "view:section" }, env);
+  assert.equal(st.section, null);
+  void c;
+});

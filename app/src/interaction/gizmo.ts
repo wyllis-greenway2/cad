@@ -79,6 +79,15 @@ export function edgeDirection(scene: Scene, a: Vec3, b: Vec3, radial?: Vec3): Ve
   return normalize(cross(along, helper)); // a straight edge between parallel faces: any way across it
 }
 
+/** The handles of the cross section plane (`in_392`): an arrow along each axis moves it, a ring about each axis turns it. */
+export function sectionGizmo(sec: { at: Vec3; n: Vec3 }, cam: Camera): Gizmo {
+  const L = cam.distance * settings.gizmo.sizeOfView;
+  return { centre: sec.at, handles: [
+    ...AXES.map((d, i): Handle => ({ id: `sec:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [sec.at, add(sec.at, scale(d, 2 * HALF * L))] })),
+    ...AXES.map((d, i) => ring(`secr:${"xyz"[i]}`, sec.at, d, L * 0.8, i as 0 | 1 | 2)),
+  ] };
+}
+
 /** A full circle round `axis` through `centre`, so which plane it turns in is plain to see; the arrowhead sits a little way round. */
 function ring(id: string, centre: Vec3, axis: Vec3, R: number, i: 0 | 1 | 2 | null): Handle {
   const u = normalize(cross(Math.abs(axis[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], axis));

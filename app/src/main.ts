@@ -275,6 +275,7 @@ function frame(now: number) {
     view.setPanes(f.panes);
     view.setBodyFade(f.fadeBody);
     view.setWireframe(f.wireframe);
+    view.setSection(f.section, f.sectionOffer);
     toolChip.update(f.tool, f.confirm, lastDevice === "touch");
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
     undoBar.update(lastDevice === "touch", f.undoRedo);

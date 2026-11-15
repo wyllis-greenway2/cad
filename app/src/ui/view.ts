@@ -64,6 +64,7 @@ export function createView(host: HTMLElement) {
     if (bodyGroup) { bodyGroup.matrix.fromArray(bodyMatrix ?? IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
     if (moverGroup) moverGroup.matrix.fromArray(IDENTITY);
     applyFade();
+    if (clip) applyClip();
   }
   let ghoster: ((on: boolean) => void) | null = null;
   let hiddenOn = false;
@@ -94,6 +95,34 @@ export function createView(host: HTMLElement) {
   }
   let fade = false;
   let wire = false;
+  let sectionKey = "";
+  renderer.localClippingEnabled = true;
+  let clip: THREE.Plane | null = null;
+  const offerGroup = new THREE.Group();
+  scene3.add(offerGroup);
+  /** The cross section (`in_392`): the part of the body and its lines on the plane's positive side is not drawn; both faces of what is cut are shown, so the inside can be seen. */
+  function applyClip() {
+    content.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+      for (const mat of Array.isArray(m) ? m : m ? [m] : []) { mat.clippingPlanes = clip ? [clip] : null; if (mat instanceof THREE.MeshBasicMaterial || mat instanceof THREE.MeshPhysicalMaterial || mat instanceof THREE.MeshStandardMaterial) { if (clip) { mat.userData.side ??= mat.side; mat.side = THREE.DoubleSide; } else if (mat.userData.side !== undefined) mat.side = mat.userData.side as THREE.Side; } mat.needsUpdate = true; }
+    });
+  }
+  const setSection = (sec: { at: Vec3; n: Vec3 } | null, offer: { corners: Vec3[] }[] | null) => {
+    const key = JSON.stringify([sec, offer]);
+    if (key === sectionKey) return;
+    sectionKey = key;
+    clip = sec ? new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(...sec.n).negate(), new THREE.Vector3(...sec.at)) : null;
+    applyClip();
+    clearGroup(offerGroup);
+    const quad = (c: Vec3[], opacity: number) => {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute([...c[0]!, ...c[1]!, ...c[2]!, ...c[0]!, ...c[2]!, ...c[3]!], 3));
+      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x1ab8b3, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false }));
+      m.renderOrder = 6;
+      offerGroup.add(m);
+    };
+    for (const o of offer ?? []) quad(o.corners, 0.22);
+  };
   /** The body see-through (the sketch plane is looked at straight and the body is between it and the camera) or as it was (`in_194`). */
   function applyFade() {
     if (!bodyMat) return;
@@ -171,5 +200,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { setScene, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setWireframe, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { setScene, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setWireframe, setSection, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

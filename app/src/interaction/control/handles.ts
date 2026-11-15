@@ -17,6 +17,8 @@ import { apply } from "../../operation/commands.ts";
 import { autoOp, isLive, startOp } from "../operations.ts";
 import { objectOf, bodyCentre } from "../objects.ts";
 import { runOp } from "../runop.ts";
+import { sectionGizmo } from "../gizmo.ts";
+import { draggedSection } from "./section.ts";
 import { patternBase, dragPattern, liveRepeat, advanceHelp } from "../pattern.ts";
 import type { Op } from "../operations.ts";
 import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed, jointHandles } from "../gizmo.ts";
@@ -42,6 +44,7 @@ export function activeOp(s: AppState): Op | null {
 export function gizmoOf(s: AppState): Gizmo | null {
   if (s.tool && !s.op) return null; // (a sketch tool is on: what is selected does not offer its handles under it)
   const op = activeOp(s);
+  if (s.section && !s.op && !s.repeat && !op) return sectionGizmo(s.section, s.cam); // (the cross section's own arrows and rings, `in_392`)
   // looking straight at a plane (orthographic) the push / pull arrow points at you: it goes away (`in_137`)
   if (op && s.cam.straight && (op.kind === "pushpull" || op.kind === "extrude")) return null;
   const g0 = op ? gizmoFor(sceneOf(s.session), op, s.cam) : null;
@@ -87,6 +90,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const d0 = h ? startDrag(g, h, pr.ray(i.x - i.dx, i.y - i.dy), s.cam) : null;
     const d = d0 && h ? withScreen(d0, h, pr, i.x - i.dx, i.y - i.dy, env.h) : d0;
     if (!d) return orbitOrCorner(s, i, env); // not on a handle: this drag turns the camera (or drags a corner of a drawing)
+    if (h!.id.startsWith("sec") && s.section) return { ...s, handleSel: h!.id, drag: { handle: d, base: 0, section: s.section }, gizmoHover: h!.id }; // (a handle of the cross section plane, `in_392`)
     if (h!.id.startsWith("joint:")) { // the ring or the arrow of a joint: the amount is the drag; the step is made when it is let go (`in_323`)
       const body = selectionOf(s.session)[0];
       const j = body ? jointOfBody(sceneOf(s.session), body) : null;
@@ -101,6 +105,10 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const started = s.op ?? activeOp(s)!;
     const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" ? { ...started, auto: false } : started;
     s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base: isLive(op) ? op.value ?? 0 : 0 }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
+  }
+  if ("handle" in s.drag! && s.drag.section) {
+    const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
+    return r && "value" in r ? { ...s, section: draggedSection(s.drag.section, s.drag.handle.id, r.value) } : s;
   }
   if ("handle" in s.drag! && s.drag.joint) {
     const jd = s.drag.joint;
