@@ -130,25 +130,38 @@ export function createView(host: HTMLElement) {
     const u = new THREE.Vector3().crossVectors(Math.abs(n.z) < 0.9 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0), n).normalize();
     const v = new THREE.Vector3().crossVectors(n, u);
     const cut = new THREE.Mesh(new THREE.PlaneGeometry(1e4, 1e4), new THREE.ShaderMaterial({
-      uniforms: { u: { value: u }, v: { value: v }, at: { value: new THREE.Vector3(...secNow.at) }, pitch: { value: Math.max(1, bodySize() / 12) } },
+      uniforms: { u: { value: u }, v: { value: v }, at: { value: new THREE.Vector3(...secNow.at) }, pitch: { value: Math.max(0.5, bodySize() / 34) } },
       vertexShader: "varying vec3 w; void main(){ vec4 p = modelMatrix * vec4(position, 1.0); w = p.xyz; gl_Position = projectionMatrix * viewMatrix * p; }",
       // solid light grey with slanting parallel lines (45 degrees, as a cut part is hatched in a drawing)
-      fragmentShader: "uniform vec3 u; uniform vec3 v; uniform vec3 at; uniform float pitch; varying vec3 w; void main(){ vec3 d = w - at; float a = (dot(d, u) + dot(d, v)) / pitch; float line = smoothstep(0.36, 0.44, abs(fract(a) - 0.5)); gl_FragColor = vec4(mix(vec3(0.89, 0.91, 0.94), vec3(0.28, 0.32, 0.38), line), 1.0); }",
-      side: THREE.DoubleSide, depthTest: false, depthWrite: false,
+      fragmentShader: "uniform vec3 u; uniform vec3 v; uniform vec3 at; uniform float pitch; varying vec3 w; void main(){ vec3 d = w - at; float a = (dot(d, u) + dot(d, v)) / pitch; float line = smoothstep(0.43, 0.47, abs(fract(a) - 0.5)); gl_FragColor = vec4(mix(vec3(0.92, 0.93, 0.95), vec3(0.62, 0.64, 0.68), line), 1.0); }",
+      side: THREE.DoubleSide, depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, // (a face of the part like any other: what is in front of it hides it, `in_396`)
       stencilWrite: true, stencilRef: 0, stencilFunc: THREE.NotEqualStencilFunc, stencilFail: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilZPass: THREE.ReplaceStencilOp,
     }));
     cut.position.copy(new THREE.Vector3(...secNow.at));
     cut.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(u, v, n));
     cut.renderOrder = 2;
     sectionGroup.add(cut);
-    // the plane itself, faint
-    const c = secNow.corners;
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute([...c[0]!, ...c[1]!, ...c[2]!, ...c[0]!, ...c[2]!, ...c[3]!], 3));
-    const quad = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x1ab8b3, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false, depthTest: false }));
-    quad.renderOrder = 3;
-    sectionGroup.add(quad);
   }
+  const planesGroup = new THREE.Group(); // (the cross section planes in the part: faint when not selected, fainter still when they are cutting, `in_396`)
+  scene3.add(planesGroup);
+  let planesKey = "";
+  const setSectionPlanes = (list: { selected: boolean; corners: Vec3[] }[]) => {
+    const key = JSON.stringify(list);
+    if (key === planesKey) return;
+    planesKey = key;
+    clearGroup(planesGroup);
+    for (const p of list) {
+      const c = p.corners;
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute([...c[0]!, ...c[1]!, ...c[2]!, ...c[0]!, ...c[2]!, ...c[3]!], 3));
+      const quad = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x1ab8b3, transparent: true, opacity: p.selected ? 0.05 : 0.1, side: THREE.DoubleSide, depthWrite: false, depthTest: false }));
+      quad.renderOrder = 3;
+      planesGroup.add(quad);
+      const edge = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(c.map((q) => new THREE.Vector3(...q))), new THREE.LineBasicMaterial({ color: 0x1ab8b3, transparent: true, opacity: p.selected ? 0.5 : 0.7, depthTest: false }));
+      edge.renderOrder = 3;
+      planesGroup.add(edge);
+    }
+  };
   const bodySize = () => { if (!lastMesh) return 40; const v = lastMesh.vertices; const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; for (let i = 0; i + 2 < v.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k]!, v[i + k]!); hi[k] = Math.max(hi[k]!, v[i + k]!); } return Math.max(hi[0]! - lo[0]!, hi[1]! - lo[1]!, hi[2]! - lo[2]!); };
   const setSection = (sec: { at: Vec3; n: Vec3; corners: Vec3[] } | null) => {
     const key = JSON.stringify(sec);
@@ -235,5 +248,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { setScene, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setWireframe, setSection, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { setScene, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

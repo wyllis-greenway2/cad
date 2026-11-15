@@ -2,6 +2,7 @@
 import type { Ref } from "../../shared/ref.ts";
 import { worldRef } from "../../shared/ref.ts";
 import type { Vec3 } from "../../math/vec.ts";
+import { sectionNow } from "./section.ts";
 import type { Hint } from "../hints.ts";
 import type { CutState } from "../cut.ts";
 import { add, scale, dot } from "../../math/vec.ts";
@@ -42,8 +43,10 @@ export interface AppState {
   tape: boolean;
   /** wireframe view (`in_383`): the body's faces are not drawn, only its edges, so a sketch inside a body can be seen */
   wireframe: boolean;
-  /** the cross section (`in_392`): a plane through the model, the part on its normal's side not drawn; a view, nothing is cut */
-  section: { at: Vec3; n: Vec3; /** its handles move it (arrows) or turn it (rings) */ mode: "move" | "rotate" } | null;
+  /** the handles of a cross section plane move it or turn it (`in_396`: the plane is a part, the cross section is on while it is selected) */
+  sectionMode: "move" | "rotate";
+  /** where a drag of its handles has taken the plane so far; one step is made when it is let go */
+  sectionLive: { ref: Ref; centre: Vec3; n: Vec3 } | null;
   /** the body (or "sketch") that was last in view: "Reset camera" goes back to it (`in_303`) */
   lastSeen: string | null;
   /** the move arrows chosen with Shift (`in_299`): a body dragged free then moves only along those axes (one: along a line; two: across a plane); none: free in every direction */
@@ -74,7 +77,7 @@ export interface AppState {
   showSketch: string | null;
   /** a double click turns the view to the plane, but only once the window for a third click has passed: a triple click selects the object and leaves the view alone */
   /** a drag in progress: of the camera, or of a helper handle (`gizmo.ts`) */
-  drag: { camera: true; /** what the view turns about for this drag (`in_291`) */ pivot?: Vec3 } | { handle: Drag; /** a handle of the cross section plane (`in_392`): the plane as it was when the drag began */ section?: { at: Vec3; n: Vec3; mode: "move" | "rotate" }; /** a joint's handle (`in_323`): which mate, which freedom, and how far it has been taken so far */ joint?: { mate: string; kind: "turn" | "slide"; amount: number }; /** the operation's value when the drag began (the drag adds to it) */ base: number; /** the handle sets the numbers of the repeat being set up */ repeat?: true } | { corner: Ref; base: Session } | { /** a whole straight line dragged across its plane: where the pointer was on the plane when it began */ line: Ref; base: Session; from: Vec3 } | { /** the edge of a circle dragged to change its size (`in_290`) */ rim: Ref; base: Session } | { /** a selected body dragged free (`in_291`): where the pointer was on the plane through its middle facing the camera when it began */ body: Ref; from: Vec3; centre: Vec3 } | null;
+  drag: { camera: true; /** what the view turns about for this drag (`in_291`) */ pivot?: Vec3 } | { handle: Drag; /** a handle of the cross section plane (`in_392`): the plane as it was when the drag began */ section?: { ref: Ref; centre: Vec3; n: Vec3 }; /** a joint's handle (`in_323`): which mate, which freedom, and how far it has been taken so far */ joint?: { mate: string; kind: "turn" | "slide"; amount: number }; /** the operation's value when the drag began (the drag adds to it) */ base: number; /** the handle sets the numbers of the repeat being set up */ repeat?: true } | { corner: Ref; base: Session } | { /** a whole straight line dragged across its plane: where the pointer was on the plane when it began */ line: Ref; base: Session; from: Vec3 } | { /** the edge of a circle dragged to change its size (`in_290`) */ rim: Ref; base: Session } | { /** a selected body dragged free (`in_291`): where the pointer was on the plane through its middle facing the camera when it began */ body: Ref; from: Vec3; centre: Vec3 } | null;
   /** the world plane that is on (`in_190`): it has the grid, is the one the pointer finds on empty space and the one a tool draws on; the little panes beside the axes and the X Y Z buttons change it */
   world: "XY" | "XZ" | "YZ";
   /** looking straight at a plane is a little hard to leave (`in_193`): the drag so far, in pixels, that has been kept from the camera; past `settings.view.leaveStraightPx` the view turns, and goes smoothly into perspective */
@@ -90,7 +93,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, multiSelect: false, tape: false, wireframe: false, section: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ similar: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, handleSel: null, multiSelect: false, tape: false, wireframe: false, sectionMode: "move", sectionLive: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.
@@ -108,7 +111,7 @@ export const pickOpts = (s?: AppState) => {
   const behind = s ? sketchPlaneOf(s) : null;
   // the middle point drawn on a selected curved edge of the body can be picked: it is the middle point of the sketch behind the edge (`in_214`)
   const centres = s ? selectionOf(s.session).flatMap((r) => { const e = sketchOfEdge(sceneOf(s.session), r); return e?.centre && e.centreRef ? [{ at: e.centre, ref: e.centreRef }] : []; }) : [];
-  return { ...(centres.length ? { centres } : {}), pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx, ...(s ? { world: worldRef(s.world) } : {}), ...(s?.section ? { clip: { at: s.section.at, n: s.section.n } } : {}), ...(behind && s ? { inFront: { at: behind.at, n: normalOfPlane(behind), side: sideOf(s.cam, normalOfPlane(behind)) as 1 | -1 } } : {}) };
+  return { ...(centres.length ? { centres } : {}), pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx, ...(s ? { world: worldRef(s.world) } : {}), ...(s && sectionNow(s) ? { clip: { at: sectionNow(s)!.centre, n: sectionNow(s)!.n, ref: sectionNow(s)!.ref } } : {}), ...(behind && s ? { inFront: { at: behind.at, n: normalOfPlane(behind), side: sideOf(s.cam, normalOfPlane(behind)) as 1 | -1 } } : {}) };
 };
 export const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });
 export const stop = (s: AppState): AppState => (s.anim ? { ...s, anim: null } : s);

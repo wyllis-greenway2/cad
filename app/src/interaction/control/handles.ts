@@ -18,7 +18,7 @@ import { autoOp, isLive, startOp } from "../operations.ts";
 import { objectOf, bodyCentre } from "../objects.ts";
 import { runOp } from "../runop.ts";
 import { sectionGizmo } from "../gizmo.ts";
-import { draggedSection } from "./section.ts";
+import { draggedSection, sectionNow, placeSection } from "./section.ts";
 import { patternBase, dragPattern, liveRepeat, advanceHelp } from "../pattern.ts";
 import type { Op } from "../operations.ts";
 import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed, jointHandles } from "../gizmo.ts";
@@ -44,7 +44,8 @@ export function activeOp(s: AppState): Op | null {
 export function gizmoOf(s: AppState): Gizmo | null {
   if (s.tool && !s.op) return null; // (a sketch tool is on: what is selected does not offer its handles under it)
   const op = activeOp(s);
-  if (s.section && !s.op && !s.repeat && !op) return sectionGizmo(s.section, s.cam); // (the cross section's own arrows and rings, `in_392`)
+  const sec = sectionNow(s);
+  if (sec && !s.op && !s.repeat && !op) return sectionGizmo({ at: sec.centre, n: sec.n, mode: sec.mode }, s.cam); // (the cross section's own arrows and rings, `in_392`)
   // looking straight at a plane (orthographic) the push / pull arrow points at you: it goes away (`in_137`)
   if (op && s.cam.straight && (op.kind === "pushpull" || op.kind === "extrude")) return null;
   const g0 = op ? gizmoFor(sceneOf(s.session), op, s.cam) : null;
@@ -90,7 +91,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const d0 = h ? startDrag(g, h, pr.ray(i.x - i.dx, i.y - i.dy), s.cam) : null;
     const d = d0 && h ? withScreen(d0, h, pr, i.x - i.dx, i.y - i.dy, env.h) : d0;
     if (!d) return orbitOrCorner(s, i, env); // not on a handle: this drag turns the camera (or drags a corner of a drawing)
-    if (h!.id.startsWith("sec") && s.section) return { ...s, handleSel: h!.id, drag: { handle: d, base: 0, section: s.section }, gizmoHover: h!.id }; // (a handle of the cross section plane, `in_392`)
+    if (h!.id.startsWith("sec") && sectionNow(s)) { const sec = sectionNow(s)!; return { ...s, handleSel: h!.id, drag: { handle: d, base: 0, section: { ref: sec.ref, centre: sec.centre, n: sec.n } }, gizmoHover: h!.id }; } // (a handle of the cross section plane, `in_392`)
     if (h!.id.startsWith("joint:")) { // the ring or the arrow of a joint: the amount is the drag; the step is made when it is let go (`in_323`)
       const body = selectionOf(s.session)[0];
       const j = body ? jointOfBody(sceneOf(s.session), body) : null;
@@ -108,7 +109,9 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
   }
   if ("handle" in s.drag! && s.drag.section) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
-    return r && "value" in r ? { ...s, section: { ...draggedSection(s.drag.section, s.drag.handle.id, r.value), mode: s.drag.section.mode } } : s;
+    if (!r || !("value" in r)) return s;
+    const dr = draggedSection({ at: s.drag.section.centre, n: s.drag.section.n }, s.drag.handle.id, r.value);
+    return { ...s, sectionLive: { ref: s.drag.section.ref, centre: dr.at, n: dr.n } };
   }
   if ("handle" in s.drag! && s.drag.joint) {
     const jd = s.drag.joint;
@@ -356,7 +359,11 @@ function snapPivot(s: AppState, free: Vec3, x: number, y: number, env: Env): Vec
 export function doDragEnd(s: AppState, env?: Env): AppState {
   if (s.box) return env ? finishBox(s, env) : { ...s, box: null };
   const d = s.drag;
-  const cleared: AppState = { ...s, drag: null, dragHint: null, orthoDebt: 0, gizmoHover: null }; // (no ring stays lit as hovered after the finger is up, or two look chosen, `in_383`)
+  const cleared: AppState = { ...s, drag: null, dragHint: null, orthoDebt: 0, gizmoHover: null };
+  if (d && "handle" in d && d.section) { // a drag of the cross section plane's handle: one step, the plane where it was taken (`in_396`)
+    const live = s.sectionLive;
+    return live ? placeSection({ ...cleared, sectionLive: live }, live.centre, live.n) : cleared;
+  } // (no ring stays lit as hovered after the finger is up, or two look chosen, `in_383`)
   if (d && "handle" in d && d.joint) { // a joint dragged: one drive step, as a typed amount makes (`in_323`)
     const c = d.joint.amount !== 0 ? driveCommand(sceneOf(s.session), d.joint.mate, d.joint.kind, d.joint.amount) : null;
     return c ? { ...cleared, session: run(s.session, c) } : cleared;

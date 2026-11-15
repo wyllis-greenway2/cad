@@ -19,6 +19,8 @@ import { addPattern, setPattern, breakPattern, patternsWithout } from "./repeat.
 export type Command =
   | { type: "addPart"; part: Part }
   | { type: "movePart"; ref: Ref; to: Vec3 }
+  /** a plane put somewhere else (the cross section plane moved, turned or flipped, `in_396`) */
+  | { type: "placePlane"; ref: Ref; at: Vec3; u: Vec3; v: Vec3 }
   | { type: "setRadius"; ref: Ref; radius: number }
   | { type: "deletePart"; ref: Ref }
   | { type: "deleteParts"; refs: Ref[] }
@@ -114,6 +116,11 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       return ok({ ...s, parts: { ...s.parts, [c.ref]: { ...p, at: c.to } } });
     }
     case "stretch": return stretchScene(s, c.factors, c.pivot, { ...(c.body ? { body: c.body } : {}), ...(c.parts ? { parts: c.parts } : {}) });
+    case "placePlane": {
+      const p = s.parts[c.ref];
+      if (p?.kind !== "plane" || !p.section) return err(`${c.ref} is not a cross section plane`);
+      return ok({ ...s, parts: { ...s.parts, [c.ref]: { ...p, at: c.at, u: c.u, v: c.v } } });
+    }
     case "setRadius": {
       const p = s.parts[c.ref];
       if (!p || p.kind !== "circle") return err(`${c.ref} is not a circle`);

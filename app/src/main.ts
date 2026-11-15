@@ -7,7 +7,6 @@ import { settings } from "./shared/settings.ts";
 import { attachInput } from "./platform/dom-input.ts";
 import { createRecognizer } from "./interaction/recognizer.ts";
 import { mateStatus } from "./operation/mates.ts";
-import { withView, sectionOf } from "./interaction/viewstate.ts";
 import { createSession, openSession, saveText, run, scene, selection, refresh } from "./interaction/session.ts";
 import type { Session } from "./interaction/session.ts";
 import { exportStl, canExport, selectedBodies } from "./interaction/exportstl.ts";
@@ -178,12 +177,12 @@ async function exportModel(only?: string[]) {
 }
 function dispatch(i: Intent) {
   logIntent(i);
-  if (i.type === "save") { webFiles.save(FILE_NAME, withView(saveText(state.session), state.section)); return; }
+  if (i.type === "save") { webFiles.save(FILE_NAME, saveText(state.session)); return; }
   if (i.type === "open") {
     void webFiles.open().then((text) => {
       if (text === null) return;
       const r = openSession(engine, text);
-      if (r.ok) { adopt(r.value); state = { ...state, section: sectionOf(text) }; dirty = true; }
+      if (r.ok) adopt(r.value);
       else state = { ...state, session: { ...state.session, message: r.error } }, (dirty = true);
     });
     return;
@@ -278,6 +277,7 @@ function frame(now: number) {
     view.setPanes(f.panes);
     view.setBodyFade(f.fadeBody);
     view.setWireframe(f.wireframe);
+    view.setSectionPlanes(f.sectionPlanes);
     view.setSection(f.section ? { at: f.section.at, n: f.section.n, corners: f.section.corners } : null);
     { const c = f.section ? projector(state.cam, size.w, size.h).project(f.section.corners[0]!) : null; const pg = host.getBoundingClientRect(); sectionChip.update(f.section, c ? [c[0] + pg.left, c[1] + pg.top] : null, [...chips.flatMap((q) => q.rect() ?? []), ...bubbles.rects(), helper.rect(), hintIcons.rect()].flatMap((r) => (r ? [r] : []))); }
     toolChip.update(f.tool, f.confirm, lastDevice === "touch");

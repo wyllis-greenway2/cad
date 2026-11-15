@@ -22,7 +22,8 @@ import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
 import { activeOp, movePivot } from "./handles.ts";
-import { doSectionToggle, doSectionChip, typedSection } from "./section.ts";
+import { doSectionToggle, doSectionChip, typedSection, placeSection, sectionNow } from "./section.ts";
+import type { Vec3 } from "../../math/vec.ts";
 import { typedNumber } from "../../shared/numbers.ts";
 import { pivotCommands, patternCommand, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
 import type { Repeat } from "../pattern.ts";
@@ -152,9 +153,10 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     const same = mover.axis === field;
     return { ...s, op: { ...mover, auto: false, axis: field as 0 | 1 | 2, typed: text, typedBase: moveOffset(sceneOf(s.session), mover)[field]!, ...(same ? {} : { value: null }) } };
   }
-  if (s.section && !s.op && !s.repeat && !s.tool && field >= 0 && field <= 5) { // a number typed for the cross section plane (`in_395`)
+  const sec = sectionNow(s);
+  if (sec && !s.op && !s.repeat && !s.tool && field >= 0 && field <= 5) { // a number typed for the cross section plane (`in_395`)
     const n = typedNumber(text);
-    return n === null ? s : { ...s, section: typedSection(s.section, field, n) };
+    return n === null ? s : placeSection(s, ...(() => { const t = typedSection(sec, field, n); return [t.centre, t.n] as [Vec3, Vec3]; })());
   }
   if (s.op?.kind === "scale" && s.op.axes && field >= 0 && field <= 2) { // a number typed for one axis of a scale along axes (`in_390`)
     const n = typedNumber(text);
@@ -183,7 +185,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 /** Esc lets go in steps: the menu, then an open badge, then the tool or operation, then the selection. */
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
-  if (s.section && !s.tool && !s.op && !s.repeat) return { ...s, section: null, session: { ...s.session, message: null } }; // (the cross section is put away, as a tool is, `in_394`)
+  if (sectionNow(s) && !s.tool && !s.op && !s.repeat) return { ...s, sectionLive: null, session: { ...s.session, click: { ...s.session.click, selection: [] }, message: null } }; // (the plane is let go, as a tool is put away: it stays as a plane in the part, `in_394`, `in_396`)
   if (s.tape && !s.tool && !s.op && !s.repeat && !s.cut) return { ...s, tape: false, session: { ...s.session, message: null } }; // (the tape measure is put away first, `in_338`)
   if (s.cut) return { ...s, cut: null, session: { ...s.session, message: null } };
   if (s.focus && !s.tool && !s.op) return { ...s, focus: null };

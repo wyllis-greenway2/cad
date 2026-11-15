@@ -26,7 +26,7 @@ export interface PickOptions {
   /** the middle points shown on selected curved edges of the body: where they are drawn, and the corner of the sketch each is (`in_214`) */
   centres?: { at: Vec3; ref: Ref }[];
   /** the cross section (`in_395`): what lies on the side of the plane its normal points to is not drawn, so it is not there to point at */
-  clip?: { at: Vec3; n: Vec3 };
+  clip?: { at: Vec3; n: Vec3; /** the cross section plane that is cutting: it is the face of the cut, picked like any face (`in_396`) */ ref?: Ref };
 }
 const DEFAULT_PICK: PickOptions = { pointTol: 10, lineTol: 8 };
 
@@ -76,7 +76,7 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
   }
   // an infinite world plane is only the background, whatever lies in front of what: it is what a click lands on only when there is no other surface under the pointer, even if the
   // plane is between the eye and a model (so a figure drawn on it is not always "overlapping" it, and a model seen through a plane is clicked, not the plane)
-  const isBackground = (p: Part) => p.origin === "world" && p.kind === "plane" && !!p.infinite;
+  const isBackground = (p: Part) => (p.origin === "world" && p.kind === "plane" && !!p.infinite) || (p.kind === "plane" && !!p.section && p.ref !== opts.clip?.ref); // (a cross section plane that is not cutting is only a plane in the part: what lies in it is picked first, `in_396`)
   const real = surfaces.filter((x) => !isBackground(x.p));
   const tmin = real.reduce((m, x) => Math.min(m, x.t), Infinity);
   const flush = (t: number) => t <= tmin + 1e-3 + 1e-6 * tmin;

@@ -1,4 +1,4 @@
-import { normalAngle } from "../src/interaction/control/section.ts";
+import { normalAngle, sectionNow } from "../src/interaction/control/section.ts";
 import { liveRepeat } from "../src/interaction/pattern.ts";
 import { keyIntents } from "../src/interaction/input/keys.ts";
 import { settings } from "../src/shared/settings.ts";
@@ -1765,36 +1765,47 @@ test("Hollow: the selected faces are the open ones and the rest are the walls, t
   assert.match(none.session.message ?? "", /body|face/);
 });
 
-test("the cross section: the menu begins it at once, a plane through the middle across the axis the camera looks along with the half nearer the camera cut away; chips swap the axis, the side and the handles; right click puts it away; nothing is cut (`in_392`, `in_394`)", () => {
+test("the cross section is a plane put in the part: the menu inserts it through the middle across the axis the camera looks along and selects only it, the half nearer the camera is cut away while it is selected, chips swap axis, side and handles, a deselected plane stays and cuts nothing, nothing is cut (`in_392`, `in_394`, `in_396`)", () => {
   let st = box(); // 40 x 20 x 20 from the origin
+  st = select(st, [BODY_OBJECT]);
   const stepsBefore = scene(st.session).steps.length;
   st = reduce(st, { type: "runAction", id: "view:section" }, env);
-  const sec = st.section!;
+  const sec = sectionNow(st)!;
   assert.ok(sec, "it begins at once");
+  assert.deepEqual(st.session.click.selection, [sec.ref], "the plane is the only thing selected: the object is not");
   assert.equal(sec.mode, "move");
-  near(sec.at[0], 20, 1e-6); near(sec.at[1], 10, 1e-6); near(sec.at[2], 10, 1e-6);
-  const eye = position(st.cam);
-  assert.ok(dot(sec.n, sub(eye, sec.at)) > 0, "the cut half is the one nearer the camera");
+  near(sec.centre[0], 20, 1e-6); near(sec.centre[1], 10, 1e-6); near(sec.centre[2], 10, 1e-6);
+  assert.ok(dot(sec.n, sub(position(st.cam), sec.centre)) > 0, "the cut half is the one nearer the camera");
   assert.equal(frame(st).section!.corners.length, 4);
+  assert.equal(frame(st).sectionPlanes.length, 1);
   // the chips
   const side = reduce(st, { type: "runAction", id: "section:side" }, env);
-  assert.deepEqual(side.section!.n, scale(sec.n, -1), "swap the side");
+  assert.ok(dot(sectionNow(side)!.n, sec.n) < -0.99, "swap the side");
   const axis = reduce(st, { type: "runAction", id: "section:axis" }, env);
-  assert.notDeepEqual(axis.section!.n.map(Math.abs), sec.n.map(Math.abs), "the axis goes round");
+  assert.ok(Math.abs(dot(sectionNow(axis)!.n, sec.n)) < 0.01, "the axis goes round");
   const turn = reduce(st, { type: "runAction", id: "section:mode" }, env);
   assert.deepEqual(gizmoOf(turn)!.handles.map((h) => h.id), ["secr:x", "secr:y", "secr:z"]);
   assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["sec:x", "sec:y", "sec:z"], "arrows by default");
-  // an arrow along its own axis moves it
+  // an arrow along its own axis moves it, as one step
   const k = sec.n.findIndex((v) => Math.abs(v) > 0.5);
   const [, tip] = gizmoOf(st)!.handles.find((h) => h.id === `sec:${"xyz"[k]}`)!.points;
   const dir = [0, 0, 0].map((_, i) => (i === k ? 10 : 0)) as unknown as Vec3;
   const moved = drag(st, tip!, add(tip!, dir), 6);
-  assert.ok(Math.abs(moved.section!.at[k]! - sec.at[k]!) > 4, `${moved.section!.at[k]}`);
-  assert.equal(scene(st.session).steps.length, stepsBefore, "a view: no step was made");
-  // a right click puts it away, as a tool; the menu row and Esc too
-  assert.equal(reduce(st, { type: "menu", x: 400, y: 300 }, env).section, null);
-  assert.equal(reduce(st, { type: "escape" }, env).section, null);
-  assert.equal(reduce(st, { type: "runAction", id: "view:section" }, env).section, null);
+  assert.ok(Math.abs(sectionNow(moved)!.centre[k]! - sec.centre[k]!) > 4, `${sectionNow(moved)!.centre[k]}`);
+  assert.equal(scene(st.session).steps.length, stepsBefore, "a view: no step of the body was made");
+  // a right click lets the plane go: it stays as a plane in the part, and cuts nothing
+  const left = reduce(st, { type: "menu", x: 400, y: 300 }, env);
+  assert.equal(sectionNow(left), null);
+  assert.equal(frame(left).section, null, "no cut");
+  assert.equal(frame(left).sectionPlanes.length, 1, "the plane is still there");
+  assert.equal(sectionNow(reduce(st, { type: "escape" }, env)), null);
+  // selected again it cuts again; the menu row puts it away for good (the plane goes)
+  const again = select(left, [sec.ref]);
+  assert.ok(sectionNow(again));
+  const gone = reduce(again, { type: "runAction", id: "view:section" }, env);
+  assert.equal(frame(gone).sectionPlanes.length, 0);
+  // undo takes the plane out again: it was a step
+  assert.equal(Object.values(scene(reduce(st, { type: "undo" }, env).session).parts).some((p) => p.kind === "plane" && !!p.section), false);
 });
 
 test("Select all faces, all edges, all vertices of the body (`in_393`)", () => {
@@ -1822,12 +1833,12 @@ test("numbers typed for the cross section: where it is along each axis while the
   let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
   assert.equal(frame(st).entries.length, 3, "a bubble at each arrow");
   st = reduce(st, { type: "entry", field: 1, text: "12.5" }, env);
-  near(st.section!.at[1], 12.5, 1e-9);
+  near(sectionNow(st)!.centre[1], 12.5, 1e-6);
   st = reduce(st, { type: "runAction", id: "section:mode" }, env);
   assert.deepEqual(frame(st).entries.map((e) => e.fields[0]!.index), [3, 4, 5], "a bubble at each ring");
-  const k = st.section!.n.findIndex((v) => Math.abs(v) > 0.5);
+  const k = sectionNow(st)!.n.findIndex((v) => Math.abs(v) > 0.5);
   const other = (k + 1) % 3;
   st = reduce(st, { type: "entry", field: 3 + other, text: "30" }, env);
-  near(normalAngle(st.section!.n, other as 0 | 1 | 2), 30, 1e-6);
-  assert.ok(Math.abs(Math.hypot(...st.section!.n) - 1) < 1e-9, "still a unit normal");
+  near(normalAngle(sectionNow(st)!.n, other as 0 | 1 | 2), 30, 1e-4);
+  assert.ok(Math.abs(Math.hypot(...sectionNow(st)!.n) - 1) < 1e-9, "still a unit normal");
 });
