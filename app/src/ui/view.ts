@@ -99,8 +99,11 @@ export function createView(host: HTMLElement) {
     bodyMat.transparent = fade;
     bodyMat.opacity = fade ? settings.theme.bodyFadeOpacity : 1;
     bodyMat.depthWrite = !fade;
+    bodyMat.visible = !wire; // (wireframe: the faces are not drawn, the edges are, `in_383`)
     bodyMat.needsUpdate = true;
   }
+  let wire = false;
+  const setWireframe = (on: boolean) => { if (on !== wire) { wire = on; applyFade(); } };
   const setBodyFade = (on: boolean) => { if (on !== fade) { fade = on; applyFade(); } };
   const setHighlight = (h: Highlight, cam: Camera, nowMs: number) => buildHighlight(overlay, marks, lastScene, lastMesh, h, cam, pen, nowMs);
   /** The figure being drawn, or the prism an extrude would make (lines; not part of the scene). */
@@ -165,5 +168,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { setScene, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { setScene, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setWireframe, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

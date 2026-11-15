@@ -1655,3 +1655,12 @@ test("Ctrl+C and Ctrl+V go straight into the copy mode: one more copy, to place 
   assert.ok(st.repeat, "the copy mode is on");
   assert.equal(st.repeat!.op.patStart![0], 2, "two: the thing and one copy");
 });
+
+test("the wireframe view is a switch in the menu: on, the frame says the faces are not drawn; off, solid again (`in_383`)", () => {
+  let st: AppState = { ...createState(createSession(kernel)), cam: homeCamera() };
+  assert.equal(frame(st).wireframe, false);
+  st = reduce(st, { type: "runAction", id: "view:wireframe" }, env);
+  assert.equal(frame(st).wireframe, true);
+  st = reduce(st, { type: "runAction", id: "view:wireframe" }, env);
+  assert.equal(frame(st).wireframe, false);
+});

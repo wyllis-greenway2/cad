@@ -17,11 +17,12 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   let drawing = false; // a drawing tool is armed: a click may wander more before it counts as turning the view
   const touch = createTouch(I, countClick, () => (drawing ? I.drawTouchSlopPx : I.touchSlopPx), () => drawing);
   let space = false;
-  // Game mode (`in_300`, `in_302`): any of W A S D turns it on and it stays on until the mouse is clicked (or Esc): the view moves with the keys, and the pointer, with no key needed and no button down, turns the view about the eye.
+  // Game mode (`in_300`, `in_302`): Space turns it on and off (a Space that was used to pan does not), right click or Esc ends it, and there is no time limit (`in_383`): the view moves with the keys, and the pointer, with no key needed and no button down, turns the view about the eye.
   // Both are smoothed over the ticks (the keys ease up to speed and down again, the pointer's movement is let out over a few ticks), so neither is chunky.
   const fly = new Set<string>();
   let game = false;
-  let idleAt: number | null = null; // (game mode ends at this time, once no key is down)
+  let spaceUsed = false; // (a button was pressed while Space was held: that was a pan, not a switch)
+  let rightUp = false;
   let centre: [number, number] | null = null; // (where the pointer is held in game mode: the middle of the screen)
   let flyAt = 0;
   const vel = { f: 0, r: 0 };
@@ -34,16 +35,20 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   function feed(e: RawInput): Intent[] {
     switch (e.kind) {
       case "key":
-        if (e.key === " ") { space = e.down; return []; }
-        if (/^[wasd]$/i.test(e.key) && !e.mods.ctrl && !e.mods.alt) { const k = e.key.toLowerCase(); if (e.down) { if (!game) { flyAt = e.t; pend.x = pend.y = 0; } game = true; idleAt = null; fly.add(k); } else { fly.delete(k); if (!fly.size) idleAt = e.t + I.gameIdleMs; } return []; }
-        if (game && e.down && e.key === "Escape") { game = false; fly.clear(); idleAt = null; return []; }
+        if (e.key === " ") {
+          if (e.down) { if (!space) spaceUsed = false; space = true; return []; }
+          space = false;
+          if (!spaceUsed) { if (game) { game = false; fly.clear(); } else { game = true; flyAt = e.t; pend.x = pend.y = 0; } }
+          return [];
+        }
+        if (game && /^[wasd]$/i.test(e.key) && !e.mods.ctrl && !e.mods.alt) { const k = e.key.toLowerCase(); if (e.down) fly.add(k); else fly.delete(k); return []; }
+        if (game && e.down && e.key === "Escape") { game = false; fly.clear(); return []; }
         return e.down ? keyIntents(e, I) : [];
       case "wheel": return scroll.wheel(e);
       case "gesture": return scroll.gesture(e);
       case "leave": return [{ type: "hoverEnd" }];
       case "tick": {
         const out: Intent[] = [];
-        if (game && !fly.size && idleAt !== null && e.t >= idleAt) { game = false; idleAt = null; pend.x = pend.y = 0; } // (a moment after the last key: it fades out of game mode, `in_304`)
         if (game || vel.f || vel.r) {
           const dt = Math.min(0.1, Math.max(0, (e.t - flyAt) / 1000));
           flyAt = e.t;
@@ -63,6 +68,9 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
       }
       default: {
         if (e.device === "touch") return touch.pointer(e);
+        if (e.kind === "down" && space) spaceUsed = true;
+        if (e.kind === "down" && game && e.button === 2) { game = false; fly.clear(); rightUp = true; return []; } // (a right click ends game mode)
+        if (e.kind === "up" && rightUp) { rightUp = false; return []; }
         if (e.kind === "down") buttons++; else if ((e.kind === "up" || e.kind === "cancel") && buttons > 0) buttons--;
         if (e.kind === "move" && game && e.dx !== undefined) { // (the pointer is held at the middle: the mouse's movement turns the view, with or without a button; a click is a click at the middle, `in_304`)
           pend.x += e.dx * I.flyLookScale; pend.y += e.dy! * I.flyLookScale;

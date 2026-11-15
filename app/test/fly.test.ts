@@ -15,6 +15,7 @@ const mods = { shift: false, ctrl: false, alt: false };
 const key = (k: string, down: boolean, t: number): RawInput => ({ kind: "key", key: k, down, mods, t });
 const move = (x: number, y: number, t: number): RawInput => ({ kind: "move", device: "mouse", id: 1, x, y, button: 0, mods, t } as unknown as RawInput);
 const press = (kind: "down" | "up", t: number): RawInput => ({ kind, device: "mouse", id: 1, x: 100, y: 100, button: 0, mods, t } as unknown as RawInput);
+const enter = (t = 0): RawInput[] => [key(" ", true, t), key(" ", false, t + 1)]; // (Space, pressed and let go alone: game mode on or off, `in_383`)
 const ticks = (from: number, n: number): RawInput[] => Array.from({ length: n }, (_, i) => ({ kind: "tick", t: from + (i + 1) * 16 }) as RawInput);
 const run = (rec: ReturnType<typeof createRecognizer>, inputs: RawInput[]): Intent[] => inputs.flatMap((e) => rec.feed(e));
 const apply = (intents: Intent[]) => intents.reduce((st, i) => reduce(st, i, env), { ...createState(createSession(kernel)), cam: homeCamera() });
@@ -23,7 +24,7 @@ const swivels = (is: Intent[]) => is.filter((i): i is Extract<Intent, { type: "s
 
 test("W moves the view forward and eases up to speed, then eases down after it is let go; D goes right (`in_300`, `in_302`)", () => {
   const rec = createRecognizer();
-  const held = run(rec, [key("w", true, 0), ...ticks(0, 20)]);
+  const held = run(rec, [...enter(), key("w", true, 0), ...ticks(0, 20)]);
   const f = walks(held).map((w) => w.forward);
   assert.ok(f.length > 10 && f[0]! < f[f.length - 1]! && f[0]! < 0.2, "it starts gently and gains speed");
   assert.ok(f[f.length - 1]! > 0.8, "and nearly reaches full speed in a third of a second");
@@ -34,14 +35,14 @@ test("W moves the view forward and eases up to speed, then eases down after it i
   const c0 = homeCamera();
   const fw = basis(c0).forward;
   assert.ok([0, 1, 2].reduce((a, k) => a + (st.cam.target[k]! - c0.target[k]!) * fw[k]!, 0) > 1, "it went the way the view looks");
-  const right = apply(run(createRecognizer(), [key("d", true, 0), ...ticks(0, 10)]));
+  const right = apply(run(createRecognizer(), [...enter(-10), key("d", true, 0), ...ticks(0, 10)]));
   const r = basis(c0).right;
   assert.ok([0, 1, 2].reduce((a, k) => a + (right.cam.target[k]! - c0.target[k]!) * r[k]!, 0) > 0.3, "D goes to the right");
 });
 
 test("game mode stays on after the key is let go: the pointer goes on turning the view about the eye, smoothly, until a click (`in_302`)", () => {
   const rec = createRecognizer();
-  run(rec, [move(100, 100, 0), key("w", true, 1), key("w", false, 2)]); // (a tap on W: game mode)
+  run(rec, [move(100, 100, 0), ...enter(1), key("w", true, 3), key("w", false, 4)]); // (Space: game mode)
   const turned = run(rec, [move(180, 100, 3), ...ticks(3, 12)]);
   const sw = swivels(turned);
   assert.ok(sw.length > 4, "the movement is let out over several ticks, not at once");
@@ -61,19 +62,29 @@ test("game mode stays on after the key is let go: the pointer goes on turning th
 test("the pointer held at the middle: the mouse's movement (dx, dy) turns the view, with the hover at the middle; a click is a click at the middle; it fades out of the mode a moment after the last key (`in_304`)", () => {
   const rec = createRecognizer();
   const held = (dx: number, dy: number, t: number): RawInput => ({ kind: "move", device: "mouse", id: 1, x: 400, y: 300, dx, dy, button: 0, mods, t } as unknown as RawInput);
-  const a = run(rec, [key("w", true, 0), key("w", false, 100), held(0, 0, 101), held(60, 0, 110)]);
+  const a = run(rec, [...enter(), key("w", true, 0), key("w", false, 100), held(0, 0, 101), held(60, 0, 110)]);
   assert.ok(a.some((i) => i.type === "hover" && i.x === 400 && i.y === 300), "hovering at the middle");
   const turned = swivels(run(rec, ticks(110, 10)));
   assert.ok(Math.abs(turned.reduce((x, s) => x + s.dx, 0) - 60 * settings.input.flyLookScale) < 3, "the movement turns the view, however far the mouse went");
   assert.ok(run(rec, ticks(280, 5)).some((i) => i.type === "hover" && i.x === 400), "the view moving under the pointer: it hovers again at the middle");
-  // the mode ends a moment after the last key
-  run(rec, [{ kind: "tick", t: 100 + settings.input.gameIdleMs + 20 } as RawInput]);
-  assert.equal(rec.game, false, "faded out of game mode");
-  assert.equal(swivels(run(rec, [held(50, 0, 3000), ...ticks(3000, 5)])).length, 0, "the mouse no longer turns the view");
-  // a key still down keeps it on
+  // no time limit: it stays on with no key down until Space, right click or Esc
+  run(rec, [{ kind: "tick", t: 60000 } as RawInput]);
+  assert.equal(rec.game, true, "no timed exit (`in_383`)");
+  run(rec, [key(" ", true, 61000), key(" ", false, 61010)]);
+  assert.equal(rec.game, false, "Space ends it");
+  assert.equal(swivels(run(rec, [held(50, 0, 62000), ...ticks(62000, 5)])).length, 0, "the mouse no longer turns the view");
+  run(rec, enter(63000));
+  run(rec, [{ kind: "down", device: "mouse", id: 1, x: 100, y: 100, button: 2, mods, t: 63100 } as unknown as RawInput]);
+  assert.equal(rec.game, false, "a right click ends it");
+  run(rec, enter(64000));
+  run(rec, [key("Escape", true, 64100)]);
+  assert.equal(rec.game, false, "Esc ends it");
   const rec2 = createRecognizer();
-  run(rec2, [key("a", true, 0), { kind: "tick", t: 5000 } as RawInput]);
-  assert.equal(rec2.game, true);
+  run(rec2, [key("a", true, 0)]);
+  assert.equal(rec2.game, false, "W A S D alone do not turn it on");
+  // Space used to pan is not a switch
+  run(rec2, [key(" ", true, 10), press("down", 20), press("up", 30), key(" ", false, 40)]);
+  assert.equal(rec2.game, false, "Space with a drag pans, it does not enter");
 });
 
 test("with no key pressed the pointer only hovers", () => {

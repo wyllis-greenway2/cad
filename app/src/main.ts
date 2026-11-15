@@ -190,7 +190,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session), matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length, tape: state.tape }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session), matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length, tape: state.tape, wireframe: state.wireframe }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale)); }
     else { menu.hide(); ring.show(i.x, i.y, state.menu?.items ?? []); }
   } else {
     // pointing around does not close a menu; any other intent does
@@ -272,6 +272,7 @@ function frame(now: number) {
     view.setGizmo(f.gizmo, state.cam);
     view.setPanes(f.panes);
     view.setBodyFade(f.fadeBody);
+    view.setWireframe(f.wireframe);
     toolChip.update(f.tool, f.confirm, lastDevice === "touch");
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
     undoBar.update(lastDevice === "touch", f.undoRedo);
