@@ -3,7 +3,7 @@ id: dec_spiral_extrude
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_427, in_428, in_429, in_430, in_433, in_435, in_436, in_438
+human_input: in_468, in_427, in_428, in_429, in_430, in_433, in_435, in_436, in_438
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -36,3 +36,5 @@ alternative_to:
 ## Rationale
 
 Revolve is in the blueprint's operation list (`docs/origin/CAD_Blueprint.original.md`, "Revolve sketch around axis") and threads are a stated goal; a spiral is a revolve with an advance, so one operation with two numbers covers rings, bowls, screws and springs. Accepted with the axis and arrow layout chosen by the human (`in_428`).
+
+**Rotate orb (`in_468`):** the revolve's handles are always the rotate orb: a ring about each of the three axes of the orb (`rev:turn:x|y|z`, about the frame's axes, wherever the orb stands and however it is turned), the ring taken (a click, or a drag that turns it) is the axis the figure turns about (`Op.axis`), the arrow through the middle of it, perpendicular to it (`rev:adv`), sets the spiral advance and follows the chosen ring; the orb itself is dragged to move it (it no longer turns the view; the sphere click still opens the orient mode). The *orb vanishing while it is moved* was not reproduced (the orb and rings stayed in the picture, in data and in the browser during a drag of the orb and of a ring): tell me the steps if it still does.

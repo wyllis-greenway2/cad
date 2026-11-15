@@ -102,7 +102,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const h = hitHandle(g, pr.project, i.x - i.dx, i.y - i.dy, undefined, chosenId(s));
     const d0 = h ? startDrag(g, h, pr.ray(i.x - i.dx, i.y - i.dy), s.cam) : null;
     const d = d0 && h ? withScreen(d0, h, pr, i.x - i.dx, i.y - i.dy, env.h) : d0;
-    if (!d || h!.id === "rev:orb" || h!.id === "mir:orb" || h!.id === "lin:orb") return orbitOrCorner(s, i, env);
+    if (!d || h!.id === "mir:orb" || h!.id === "lin:orb") return orbitOrCorner(s, i, env); // (the revolve's orb is dragged to move it, `in_468`)
     if (h!.id.startsWith("mir:") && s.op?.kind === "mirror" && s.op.mirrorAt) { const k = d.axis as 0 | 1 | 2; return { ...s, handleSel: h!.id, op: { ...s.op, auto: false, mirrorAxis: k }, drag: { handle: d, base: 0, mir: { k, from: s.op.mirrorAt[k]! } }, gizmoHover: h!.id }; } // (an arrow of the mirror: it chooses the plane across its axis and moves it, `in_437`) // not on a handle (the revolve's orb is only moved by clicking a line): this drag turns the camera (or drags a corner of a drawing)
     if (!s.op && !s.repeat && sectionNow(s) && !activeOp(s)) { if (h!.id === "pivot") return orbitOrCorner(s, i, env);  const sec = sectionNow(s)!; return { ...s, handleSel: h!.id, drag: { handle: d, base: 0, section: { ref: sec.ref, centre: sec.centre, n: sec.n } }, gizmoHover: h!.id }; } // (a handle of the cross section plane, `in_392`)
     if (h!.id.startsWith("joint:")) { // the ring or the arrow of a joint: the amount is the drag; the step is made when it is let go (`in_323`)
@@ -123,9 +123,9 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
       return { ...s, handleSel: h!.id, repeat: { ...s.repeat, chosen: h!.id }, drag: { handle: d, base: patternBase(liveRepeat(sceneOf(s.session), s.repeat), h!.id), repeat: true }, gizmoHover: h!.id };
     }
     const started = s.op ?? activeOp(s)!;
-    const op: Op = started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" || started.kind === "revolve" ? { ...started, auto: false } : started;
+    const op: Op = started.kind === "revolve" && h!.id.startsWith("rev:turn:") ? { ...started, auto: false, axis: d.axis ?? started.axis } : started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" || started.kind === "revolve" ? { ...started, auto: false } : started;
     const base = op.kind === "revolve" ? (h!.id === "rev:adv" ? advanceOf(op) : valueOf(op) ?? 0) : isLive(op) ? op.value ?? 0 : 0; // (a revolve has two numbers: the angle of its ring and the advance of its arrow)
-    s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base, ...(h!.id === "rev:turn" ? { turned: { last: 0, total: 0 } } : {}) }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
+    s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base, ...(h!.id.startsWith("rev:turn") ? { turned: { last: 0, total: 0 } } : {}) }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
   }
   if ("handle" in s.drag! && s.drag.frameTurn && moverOp(s)) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);

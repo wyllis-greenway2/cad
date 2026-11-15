@@ -83,7 +83,7 @@ test("the Revolve operation shows a ring and an arrow on the axis, takes the ang
   assert.equal(st.op?.kind, "revolve");
   st = { ...st, op: Z(st.op!) };
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id).sort(), ["rev:adv", "rev:orb", "rev:turn"]);
+  assert.deepEqual(g.handles.map((h) => h.id).sort(), ["rev:adv", "rev:orb", "rev:turn:x", "rev:turn:y", "rev:turn:z"]);
   for (const k of "900") st = reduce(st, { type: "typed", key: k, shift: false }, env);
   st = reduce(st, { type: "typed", key: "Tab", shift: false }, env);
   for (const k of "10") st = reduce(st, { type: "typed", key: k, shift: false }, env);
@@ -102,7 +102,7 @@ test("dragging the ring round past one turn keeps counting (400 degrees), and th
   st = reduce(st, { type: "begin", name: "revolve" }, env);
   st = { ...st, op: Z(st.op!) };
   const g = gizmoOf(st)!;
-  const ring = g.handles.find((h) => h.id === "rev:turn")!;
+  const ring = g.handles.find((h) => h.id === `rev:turn:${"xyz"[st.op!.axis]}`)!;
   const pr = projector(st.cam, 800, 600);
   // press on the ring and go all the way round (each step under half a turn) and a little more
   const pts = ring.points;
@@ -264,4 +264,42 @@ test("the orb is the mover's: a click on it selects it (the orient mode with its
   const applied = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   assert.equal(applied.moverSphere, false);
   assert.equal(applied.op!.pivot![1], 5, "apply keeps it");
+});
+
+test("the revolve's handles are the rotate orb: a ring about each of the three axes, the ring taken is the axis (a click chooses it, the arrow through it sets the spiral), and the orb is dragged to move (`in_468`)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  const axis0 = st.op!.axis;
+  const g = gizmoOf(st)!;
+  const adv = g.handles.find((h) => h.id === "rev:adv")!;
+  const along = (h: typeof adv) => { const d = [0, 1, 2].map((k) => h.points[1]![k]! - h.points[0]![k]!); const l = Math.hypot(...d); return d.map((v) => v / l); };
+  const frame = st.op!.frame!;
+  const dot = (a: readonly number[], b: readonly number[]) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
+  assert.ok(Math.abs(Math.abs(dot(along(adv), frame[axis0])) - 1) < 1e-6, "the spiral arrow is along the chosen ring's axis");
+  // a click on another ring chooses that axis
+  const other = (axis0 + 1) % 3;
+  const ring = g.handles.find((h) => h.id === `rev:turn:${"xyz"[other]}`)!;
+  const [rx, ry] = projector(st.cam, 800, 600).project(ring.points[Math.floor(ring.points.length / 3)]!);
+  st = reduce(st, { type: "click", x: rx, y: ry, count: 1, shift: false }, env);
+  assert.equal(st.op!.axis, other, "the ring clicked is the axis");
+  const adv2 = gizmoOf(st)!.handles.find((h) => h.id === "rev:adv")!;
+  assert.ok(Math.abs(Math.abs(dot(along(adv2), frame[other])) - 1) < 1e-6, "and the spiral arrow follows it");
+});
+
+test("the revolve's orb is dragged to move it, with no click on it first: the camera does not turn, the orb and its rings stay in the picture and go where it is taken (`in_468`)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  const pr = projector(st.cam, 800, 600);
+  const was = [...st.op!.pivot!];
+  const azimuth = st.cam.azimuth;
+  const [x, y] = pr.project(gizmoOf(st)!.handles.find((h) => h.id === "rev:orb")!.points[0]!);
+  for (let k = 1; k <= 4; k++) {
+    st = reduce(st, { type: "orbit", dx: 12, dy: 0, x: x + 12 * k, y } as never, env);
+    const f = frameOf(st, { w: 800, h: 600 });
+    assert.ok(f.gizmo && f.gizmo.handles.some((h) => h.id === "rev:orb") && f.gizmo.handles.filter((h) => h.id.startsWith("rev:turn:")).length === 3, "the orb and its three rings are there while it is dragged");
+  }
+  assert.equal(st.cam.azimuth, azimuth, "the view did not turn");
+  assert.ok(Math.hypot(st.op!.pivot![0]! - was[0]!, st.op!.pivot![1]! - was[1]!, st.op!.pivot![2]! - was[2]!) > 0.5, "the orb moved");
 });
