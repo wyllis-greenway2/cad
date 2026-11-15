@@ -795,3 +795,15 @@ test("a sketch started with a face selected goes on that face's plane wherever t
   near(pl.at[2], 20, 1e-6);
   near(st.tool!.points[0]![2], 20, 1e-6);
 });
+
+test("sketching on a selected face shows the grid on that face's plane, not on the world plane (`in_385`)", () => {
+  let st = drawBox(top(), 20);
+  st = { ...st, cam: homeCamera() };
+  const topFace = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.every((_, i) => i % 3 !== 2 || Math.abs(p.mesh![i]! - 20) < 1e-6))!;
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [topFace.ref] } } };
+  const heights = (g: { minor: number[]; major: number[] } | null) => new Set([...(g?.minor ?? []), ...(g?.major ?? [])].filter((_, i) => i % 3 === 2).map((z) => Math.round(z * 1e3) / 1e3));
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  const g = frameOf(st, env).grid;
+  assert.ok(g, "a grid shows while the tool is on");
+  assert.deepEqual([...heights(g)], [20], "all of it on the face's plane");
+});

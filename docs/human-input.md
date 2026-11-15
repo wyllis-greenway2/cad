@@ -1808,3 +1808,7 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 > Shouldn't distances have a lock on them to indicate that the input distance is actually also a constraint? also we should probably put the +/- thing that exist on mobile on the left so that it doesn;t interfere with the lock on the right.
 > If you apply a circular sketch repeat, then undo it with ctrl z, then the line that drew to the pivot point seems to redraw itself and stay there. Can we have the ability to set the xyz point of the circular sketch repeat with precision? I think the center vertice of the circular sketch repeat should have a little xyz mover on it just like the regular xyz mover except maybe with shorter arrows so it fits into the orb better
 (five asks: a sketch on a selected face keeps that face's plane out into clear space, with a visual; the ⋯ menu on mobile covers its own icon; a lock on typed distances (they are constraints) and the +/- on the left; undoing a circular sketch repeat leaves the pivot line; setting the pivot point's x y z precisely, with a small xyz mover on it)
+
+## in_385 — 2026-11-15 — directive
+> Do the grid sheet on the selected face next
+(asks for the visual left unbuilt in `in_384`: a grid-style sheet on the face being sketched on, with the world plane let go)

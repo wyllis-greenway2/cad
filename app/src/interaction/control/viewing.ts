@@ -5,6 +5,8 @@ import { sub } from "../../math/vec.ts";
 import { settings } from "../../shared/settings.ts";
 import { worldRef } from "../../shared/ref.ts";
 import type { Plane } from "../../operation/part.ts";
+import type { Scene } from "../../operation/scene.ts";
+import type { Ref } from "../../shared/ref.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import { lookup } from "../../operation/scene.ts";
 import { scene as sceneOf, selection as selectionOf } from "../session.ts";
@@ -104,8 +106,21 @@ export function advance(s: AppState, now: number): AppState {
 }
 
 /** The plane whose grid is shown: when looking straight at a plane, the selected plane (or a part on it) if it faces the camera, else the world plane that does. */
+/** The plane of a face (or a drawn plane) that is selected, not a world plane: a sketch that is started goes onto it wherever the click lands, out in the clear space too (`in_384`). */
+export function selectedSurface(sc: Scene, sel: readonly Ref[]): Ref | null {
+  const get = lookup(sc);
+  for (const r of sel) { const pl = planeOf(get, r); if (pl && pl.origin !== "world") return pl.ref; }
+  return null;
+}
+
 export function gridPlaneOf(s: AppState): Plane | null {
   const get = lookup(sceneOf(s.session));
+  // sketching on a face: its plane has the grid, as a world plane has its own, so it shows where the sketch will go, out past the face too; the world plane's grid is let go (`in_385`)
+  if (s.tool && s.tool.kind !== "trim") {
+    const own = s.tool.plane ?? selectedSurface(sceneOf(s.session), selectionOf(s.session));
+    const pl = own ? (get(own) as Plane | undefined) : undefined;
+    if (pl && pl.kind === "plane" && pl.origin !== "world") return pl;
+  }
   const facing = (pl: Plane) => sideOf(s.cam, normalOfPlane(pl)) !== 0;
   if (s.cam.straight) {
     for (const r of selectionOf(s.session)) {

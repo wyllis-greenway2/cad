@@ -29,7 +29,7 @@ import { planeOf, objectOf } from "../objects.ts";
 import type { AppState, Env, MenuItem } from "./state.ts";
 import { paneAt } from "../panes.ts";
 import type { WorldName } from "../panes.ts";
-import { doLook } from "./viewing.ts";
+import { doLook, selectedSurface } from "./viewing.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { commitFigure, commitOp, setRepeatAxis, doApply } from "./modal.ts";
 import { doGizmoHover, gizmoOf, chosenId } from "./handles.ts";
@@ -114,13 +114,6 @@ function drawingPlane(sc: Scene, refs: readonly Ref[]): Ref | null {
     const pl = planeOf(get, r);
     if (pl) return pl.ref;
   }
-  return null;
-}
-
-/** The plane of a face (or a drawn plane) that is selected, not a world plane: a sketch that is started goes onto it wherever the click lands, out in the clear space too (`in_384`). */
-function selectedSurface(sc: Scene, sel: readonly Ref[]): Ref | null {
-  const get = lookup(sc);
-  for (const r of sel) { const pl = planeOf(get, r); if (pl && pl.origin !== "world") return pl.ref; }
   return null;
 }
 
