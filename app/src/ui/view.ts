@@ -44,7 +44,7 @@ export function createView(host: HTMLElement) {
   const pen = createPen();
   const envMap = new THREE.PMREMGenerator(renderer).fromScene(studio(), 0.04).texture; // a soft studio, only reflected in the body
   let lastScene: Scene | null = null;
-  /** What is drawn is built again at the next frame (a look setting changed, `in_446`). */
+  /** What is drawn is built again at the next frame (a look setting changed, `in_459`). */
   const rebuild = (): void => { lastScene = null; };
   let lastMesh: BodyMesh | null = null;
   let size = { w: 1, h: 1 };
@@ -99,7 +99,7 @@ export function createView(host: HTMLElement) {
   let wire = false;
   let sectionKey = "";
   renderer.localClippingEnabled = true;
-  let clips: THREE.Plane[] = []; // (every sheet that is cutting, `in_446`)
+  let clips: THREE.Plane[] = []; // (every sheet that is cutting, `in_459`)
   let secs: { at: Vec3; n: Vec3; corners: Vec3[] }[] = [];
   const sectionGroup = new THREE.Group(); // (the stencil passes, the solid cut face with its hatching, and the faint plane, `in_394`)
   scene3.add(sectionGroup);
@@ -115,7 +115,7 @@ export function createView(host: HTMLElement) {
     const body = bodyGroup;
     secs.forEach((secNow, idx) => {
     const clip = clips[idx]!;
-    const others = clips.filter((_, j) => j !== idx); // (the cut face of a sheet is cut by the others, `in_446`)
+    const others = clips.filter((_, j) => j !== idx); // (the cut face of a sheet is cut by the others, `in_459`)
     const planes = [clip];
     const stencil = (side: THREE.Side, op: THREE.StencilOp) => new THREE.MeshBasicMaterial({ side, colorWrite: false, depthWrite: false, depthTest: false, clippingPlanes: planes, stencilWrite: true, stencilFunc: THREE.AlwaysStencilFunc, stencilFail: op, stencilZFail: op, stencilZPass: op });
     const back = stencil(THREE.BackSide, THREE.IncrementWrapStencilOp);
@@ -173,7 +173,7 @@ export function createView(host: HTMLElement) {
       const c = p.corners;
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.Float32BufferAttribute([...c[0]!, ...c[1]!, ...c[2]!, ...c[0]!, ...c[2]!, ...c[3]!], 3));
-      // a sheet is translucent grey like the little world panes (`in_446`); its invisible mode is fainter still; a guide a tool draws (the mirror's plane) stays teal
+      // a sheet is translucent grey like the little world panes (`in_459`); its invisible mode is fainter still; a guide a tool draws (the mirror's plane) stays teal
       const hidden = p.mode === 3;
       const colour = p.guide ? new THREE.Color(0x1ab8b3) : new THREE.Color().setRGB(settings.theme.pane[0], settings.theme.pane[1], settings.theme.pane[2], THREE.SRGBColorSpace);
       const fillOpacity = p.guide ? 0.07 : hidden ? 0.03 : p.selected ? settings.world.paneActiveOpacity * 0.7 : settings.world.paneOpacity;

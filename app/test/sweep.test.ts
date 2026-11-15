@@ -61,7 +61,7 @@ test("a path that runs the other way (its far end on the shape's plane) is carri
   assert.ok(Math.abs(volume(r.session) - 320) < 0.5);
 });
 
-test("a path away from the shape is followed where it is: a straight one 10 to the side gives the same bar at the shape's own place, a path that starts above the plane is brought to it (`in_446`)", () => {
+test("a path away from the shape is followed where it is: a straight one 10 to the side gives the same bar at the shape's own place, a path that starts above the plane is brought to it (`in_459`)", () => {
   let { s, face } = square();
   const p = drawChain(scene(s), XZ, [[10, 0, 0], [10, 0, 20]]);
   s = run(s, p.command);

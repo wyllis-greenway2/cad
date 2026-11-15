@@ -57,7 +57,7 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
   const f = opts.inFront;
   const ahead = (q: Vec3): number => dot(sub(q, f!.at), f!.n) * f!.side;
   const tPlane = f && pv.ray ? (() => { const den = dot(f.n, pv.ray!.d); return Math.abs(den) < 1e-9 ? null : dot(f.n, sub(f.at, pv.ray!.o)) / den; })() : null;
-  const cut = (q: Vec3): boolean => !!opts.clips && opts.clips.some((c) => dot(sub(q, c.at), c.n) > 1e-3); // (any sheet that cuts: what lies on the side cut away is not there, `in_446`)
+  const cut = (q: Vec3): boolean => !!opts.clips && opts.clips.some((c) => dot(sub(q, c.at), c.n) > 1e-3); // (any sheet that cuts: what lies on the side cut away is not there, `in_459`)
   const before = (p: Part): boolean => {
     if (opts.clips?.length && p.origin !== "world") { if (p.kind === "corner" && cut(p.at)) return true; if (p.kind === "line") { const [a, b] = [scene.parts[p.a], scene.parts[p.b]]; if (a?.kind === "corner" && b?.kind === "corner" && cut(a.at) && cut(b.at)) return true; } }
     if (!f || p.origin === "world") return false;
@@ -76,7 +76,7 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
   }
   // an infinite world plane is only the background, whatever lies in front of what: it is what a click lands on only when there is no other surface under the pointer, even if the
   // plane is between the eye and a model (so a figure drawn on it is not always "overlapping" it, and a model seen through a plane is clicked, not the plane)
-  const isBackground = (p: Part) => (p.origin === "world" && p.kind === "plane" && !!p.infinite) || false; // (a sheet that is not invisible is a face like any other, `in_446`)
+  const isBackground = (p: Part) => (p.origin === "world" && p.kind === "plane" && !!p.infinite) || false; // (a sheet that is not invisible is a face like any other, `in_459`)
   const real = surfaces.filter((x) => !isBackground(x.p));
   const tmin = real.reduce((m, x) => Math.min(m, x.t), Infinity);
   const flush = (t: number) => t <= tmin + 1e-3 + 1e-6 * tmin;

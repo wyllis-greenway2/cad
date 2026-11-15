@@ -384,7 +384,7 @@ const OPS = {
   },
 
   /**
-   * A figure carried along a path of lines and arcs (`dec_sweep`, `in_444`): the profile (and the figures drawn inside it, cut out) stays as it is and is carried along the path's shape, wherever the path is (`in_446`); added to the body, cut from it, or a body of its own, as an extrusion is (`mode`).
+   * A figure carried along a path of lines and arcs (`dec_sweep`, `in_444`): the profile (and the figures drawn inside it, cut out) stays as it is and is carried along the path's shape, wherever the path is (`in_459`); added to the body, cut from it, or a body of its own, as an extrusion is (`mode`).
    */
   sweep(op, ctx) {
     const sketchOf = (id) => { const q = ctx.get(id, "sketch"); return q.drawing.sketchOnPlane(q.plane, q.origin); };
@@ -396,7 +396,7 @@ const OPS = {
     const off = (q) => (q[0] - p0.x) * N[0] + (q[1] - p0.y) * N[1] + (q[2] - p0.z) * N[2];
     let segs = op.path;
     if (!segs?.length) throw new Error("there is no path");
-    // the path may be anywhere: it is carried to the shape's plane along the plane's normal (its end that is nearer the plane lands on it), and the shape keeps its own place beside it (`in_446`)
+    // the path may be anywhere: it is carried to the shape's plane along the plane's normal (its end that is nearer the plane lands on it), and the shape keeps its own place beside it (`in_459`)
     if (Math.abs(off(segs[segs.length - 1].b)) < Math.abs(off(segs[0].a))) segs = segs.map((q) => ({ a: q.b, b: q.a, m: q.m })).reverse();
     const lift = off(segs[0].a);
     const down = (q) => (q ? [q[0] - N[0] * lift, q[1] - N[1] * lift, q[2] - N[2] * lift] : q);

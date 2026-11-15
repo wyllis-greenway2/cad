@@ -16,4 +16,4 @@ alternative_to:
 
 Recorded because production code needs an entry (`CLAUDE.md` rule 9); the form is the AI's reading and stays provisional.
 
-**Reworked by `dec_sheet_planes` (`in_447`):** the chips, the single cut and the click that switched the cut are gone: a sheet has a mode icon and a move icon, any number of sheets can cut, and the plane is a face like any other.
+**Reworked by `dec_sheet_planes` (`in_460`):** the chips, the single cut and the click that switched the cut are gone: a sheet has a mode icon and a move icon, any number of sheets can cut, and the plane is a face like any other.

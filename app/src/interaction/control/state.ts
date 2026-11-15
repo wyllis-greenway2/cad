@@ -56,7 +56,7 @@ export interface AppState {
   moverWas: { pivot: Vec3 | null; frame?: [Vec3, Vec3, Vec3]; frameKept?: [Vec3, Vec3, Vec3] } | null;
   /** where a drag of its handles has taken the plane so far; one step is made when it is let go */
   sectionLive: { ref: Ref; centre: Vec3; n: Vec3 } | null;
-  /** the sheet's move icon (`in_446`): which state it is in for the sheet, and the free place it came from to go back to */
+  /** the sheet's move icon (`in_459`): which state it is in for the sheet, and the free place it came from to go back to */
   sheetMove: { ref: Ref; mode: 0 | 1 | 2 | 3 | 4; free: { at: Vec3; u: Vec3; v: Vec3 } | null } | null;
   /** the body (or "sketch") that was last in view: "Reset camera" goes back to it (`in_303`) */
   lastSeen: string | null;

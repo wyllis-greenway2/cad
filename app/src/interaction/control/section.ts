@@ -48,12 +48,12 @@ export function sectionNow(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; exte
   return { ref, centre: live ? live.centre : (add(p.at, scale(add(p.u, p.v), p.extent / 2)) as Vec3), n: live ? live.n : normalize(cross(p.u, p.v)), extent: p.extent };
 }
 
-/** A sheet: the planes of `in_446` (a cross section is one in a cutting mode). Its four modes, in the order its icon goes through them: it cuts away the half its normal points to, the other half, it does not cut, it is invisible. */
+/** A sheet: the planes of `in_459` (a cross section is one in a cutting mode). Its four modes, in the order its icon goes through them: it cuts away the half its normal points to, the other half, it does not cut, it is invisible. */
 export type SheetMode = 0 | 1 | 2 | 3;
 export const modeOf = (p: { cut?: boolean; flip?: boolean; hidden?: boolean }): SheetMode => (p.hidden ? 3 : !p.cut ? 2 : p.flip ? 1 : 0);
 const MODE_FLAGS: Record<SheetMode, { cut: boolean; flip: boolean; hidden: boolean }> = { 0: { cut: true, flip: false, hidden: false }, 1: { cut: true, flip: true, hidden: false }, 2: { cut: false, flip: false, hidden: false }, 3: { cut: false, flip: false, hidden: true } };
 
-/** Every sheet that is cutting the view (`in_416`, `in_446`: any number at once): its middle, and the normal that points to the half cut away (the place a drag has taken it to while its handles are dragged). */
+/** Every sheet that is cutting the view (`in_416`, `in_459`: any number at once): its middle, and the normal that points to the half cut away (the place a drag has taken it to while its handles are dragged). */
 export function cutsNow(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent: number }[] {
   const sc = sceneOf(s.session);
   return Object.values(sc.parts).flatMap((p) => {
@@ -73,7 +73,7 @@ export function doSheetMode(s: AppState, ref: Ref): AppState {
   return { ...s, menu: null, session: { ...session, message: null } };
 }
 
-/** A click on a sheet: it is selected, as a face is (its icon goes through its modes, `in_446`; the click no longer switches its cut, `in_416`). */
+/** A click on a sheet: it is selected, as a face is (its icon goes through its modes, `in_459`; the click no longer switches its cut, `in_416`). */
 export function doSectionClick(s: AppState, ref: Ref): AppState {
   const p = sceneOf(s.session).parts[ref];
   if (p?.kind !== "plane" || !p.section) return s;
@@ -89,7 +89,7 @@ export function doSectionToggle(s: AppState): AppState {
   return doPlaneNew(s, true);
 }
 
-/** A new sheet (`in_446`): a plane through the middle of the part across the axis the camera looks along, or lying on the flat surface selected; cutting (a cross section) or not. */
+/** A new sheet (`in_459`): a plane through the middle of the part across the axis the camera looks along, or lying on the flat surface selected; cutting (a cross section) or not. */
 export function doPlaneNew(s: AppState, cutting: boolean): AppState {
   const sc = sceneOf(s.session);
   const b = modelBox(sc);
@@ -131,7 +131,7 @@ export function sectionQuad(centre: Vec3, n: Vec3, extent: number): Vec3[] {
 
 /** The plane a drag of one of its handles makes (`move:x` the mover's arrow along x, `rot:x` its ring about x, the very handles of a body's mover, `in_419`), from the plane as it was and the drag's value. */
 export function draggedSection(from: { at: Vec3; n: Vec3 }, id: string, value: number): { at: Vec3; n: Vec3 } {
-  if (id === "sheet:n") return { at: add(from.at, scale(from.n, value)) as Vec3, n: from.n }; // (the sheet's own arrow: along its normal, `in_446`)
+  if (id === "sheet:n") return { at: add(from.at, scale(from.n, value)) as Vec3, n: from.n }; // (the sheet's own arrow: along its normal, `in_459`)
   const k = "xyz".indexOf(id[id.indexOf(":") + 1]!) as 0 | 1 | 2;
   if (id.startsWith("rot:")) {
     const m = about(k, value);
@@ -149,7 +149,7 @@ export function normalAngle(n: Vec3, k: 0 | 1 | 2): number {
 
 /** A number typed for the plane (`in_395`): `field` 0 to 2 is where the plane's middle is along x, y, z; 3 to 5 the angle its normal makes about x, y, z. */
 export function typedSection(sec: { centre: Vec3; n: Vec3 }, field: number, value: number): { centre: Vec3; n: Vec3 } {
-  if (field === 6) return { ...sec, centre: add(sec.centre, scale(sec.n, value - dot(sec.centre, sec.n))) as Vec3 }; // (how far along its normal from the origin, the number of the sheet's own arrow, `in_446`)
+  if (field === 6) return { ...sec, centre: add(sec.centre, scale(sec.n, value - dot(sec.centre, sec.n))) as Vec3 }; // (how far along its normal from the origin, the number of the sheet's own arrow, `in_459`)
   if (field < 3) return { ...sec, centre: sec.centre.map((c, i) => (i === field ? value : c)) as unknown as Vec3 };
   const k = (field - 3) as 0 | 1 | 2;
   const m = about(k, value - normalAngle(sec.n, k));
@@ -157,12 +157,12 @@ export function typedSection(sec: { centre: Vec3; n: Vec3 }, field: number, valu
   return { ...sec, n: normalize(n) };
 }
 
-/** What the sheet's move icon has it in (`in_446`): 0 the arrow along its normal only, 1 the mover (arrows along x, y, z and the rings), 2 / 3 / 4 the plane across X / Y / Z. */
+/** What the sheet's move icon has it in (`in_459`): 0 the arrow along its normal only, 1 the mover (arrows along x, y, z and the rings), 2 / 3 / 4 the plane across X / Y / Z. */
 export function sheetMoveOf(s: AppState, ref: Ref): 0 | 1 | 2 | 3 | 4 {
   return s.sheetMove && s.sheetMove.ref === ref ? s.sheetMove.mode : 0;
 }
 
-/** A press on the move icon: the next state; going to a plane across an axis keeps where the sheet was, and coming back from them puts it back where it was (the free place is remembered, `in_446`). */
+/** A press on the move icon: the next state; going to a plane across an axis keeps where the sheet was, and coming back from them puts it back where it was (the free place is remembered, `in_459`). */
 export function doSheetMove(s: AppState): AppState {
   const sec = sectionNow(s);
   if (!sec) return s;

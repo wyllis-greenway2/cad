@@ -152,7 +152,7 @@ export function mirrorEntries(op: Op, g: Gizmo | null): Entry[] {
 }
 export function sectionEntries(sec: { at: Vec3; n: Vec3 }, g: Gizmo | null, chosen: string | null): Entry[] {
   if (!g || !chosen) return []; // (as for a body: the number of the arrow or ring that is taken, not of all of them, `in_419`)
-  if (chosen === "sheet:n") { // the sheet's own arrow: how far along its normal the plane stands from the origin, `in_446`
+  if (chosen === "sheet:n") { // the sheet's own arrow: how far along its normal the plane stands from the origin, `in_459`
     const h = g.handles.find((x) => x.id === chosen);
     return h ? [{ fields: [{ label: "Where the plane is along its normal", short: "n", value: roundedText(dot(sec.at, sec.n)), active: false, typed: false, index: 6 }], unit: "mm", at: h.points.at(-1)!, from: g.centre }] : [];
   }

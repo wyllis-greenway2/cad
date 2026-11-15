@@ -390,7 +390,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {
   if (s.box) s = { ...s, box: null }; // (held, but never moved: an ordinary click)
   const sc = sceneOf(s.session);
-  // a click on a sheet selects it, as a click on a face does (`in_446`)
+  // a click on a sheet selects it, as a click on a face does (`in_459`)
   if (!s.tool && !s.op && !s.repeat && !s.cut) {
     const top = candidatesAt(sc, projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0];
     const part = top ? sc.parts[top.ref] : undefined;

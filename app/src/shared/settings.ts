@@ -66,7 +66,7 @@ export const settings = {
     pane: [0.55, 0.58, 0.64] as [number, number, number], // the little pane of a world plane that is off
     bodyColor: 0xc9c9cd,
     bodyEdge: 0x2a2a2d,
-    outlines: true, // the dark lines along a body's edges: off, the body is drawn by its shading alone (`in_446`; the menu row switches it, the choice is kept)
+    outlines: true, // the dark lines along a body's edges: off, the body is drawn by its shading alone (`in_459`; the menu row switches it, the choice is kept)
     /** how faint the edges of a body behind a face are drawn while a sketch tool is on (`in_324`) */
     hiddenEdgeOpacity: 0.22,
   },

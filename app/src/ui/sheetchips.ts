@@ -1,4 +1,4 @@
-// The icons on the sheets (`in_446`): each sheet has one that goes through its four modes (cuts the half its normal points to, the other half, does not cut, invisible) and the sheet that is selected has a second, its move icon
+// The icons on the sheets (`in_459`): each sheet has one that goes through its four modes (cuts the half its normal points to, the other half, does not cut, invisible) and the sheet that is selected has a second, its move icon
 // (the arrow along its normal; the mover with its arrows and rings; the plane across X, then Y, then Z). They only show and report the click. An invisible sheet takes no pointer pick: its icon fades in while the pointer is over it.
 import { iconSvg } from "./icons.ts";
 import type { Vec3 } from "../interaction/api.ts";
