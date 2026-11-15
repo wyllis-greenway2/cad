@@ -12,6 +12,7 @@ import type { Op } from "../src/interaction/operations.ts";
 import { runOp } from "../src/interaction/runop.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
 import { homeCamera } from "../src/interaction/camera.ts";
+import { frameOf } from "../src/interaction/frame.ts";
 
 await kernel.init();
 const [XY, XZ] = [worldRef("XY"), worldRef("XZ")];
@@ -81,4 +82,29 @@ test("the Sweep operation: a shape and its path selected, Enter makes the one st
   assert.equal(st.session.message, null);
   assert.equal(scene(st.session).steps.at(-1)!.type, "sweep");
   assert.ok(Math.abs(volume(st.session) - 320) < 0.5, `volume ${volume(st.session)}`);
+});
+
+test("the path follows the sketch it was drawn in: the far corner moved from 20 to 30 makes the bar 30 long (`in_445`); a path line deleted is said to be gone", () => {
+  let { s, face } = square();
+  const p = drawChain(scene(s), XZ, [[0, 0, 0], [0, 0, 20]]);
+  s = run(s, p.command);
+  s = runOp(s, begin(s, [face, ...p.lines]))!.session;
+  assert.ok(Math.abs(volume(s) - 320) < 0.5);
+  const moved = run(s, { type: "movePart", ref: p.corners[1]!, to: [0, 0, 30] });
+  assert.deepEqual(moved.outcome.errors, {}, JSON.stringify(moved.outcome.errors));
+  assert.ok(Math.abs(volume(moved) - 480) < 0.5, `volume ${volume(moved)}`);
+  const gone = run(s, { type: "deletePart", ref: p.lines[0]! });
+  assert.ok(Object.values(gone.outcome.errors).length > 0 || volume(gone) === 0, "the step does not go on as if the line were there");
+});
+
+test("while the Sweep operation is open the body it would make is in the picture, the sketch's start corner is the amber dot, and nothing is made until Enter (`in_445`)", () => {
+  let { s, face } = square();
+  const p = drawChain(scene(s), XZ, [[0, 0, 20], [0, 0, 0]]); // (the far end is the one on the shape's plane)
+  s = run(s, p.command);
+  let st = { ...createState({ ...s, click: { ...s.click, selection: [face, ...p.lines] as never } }), cam: homeCamera() };
+  st = reduce(st, { type: "begin", name: "sweep" }, env);
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.equal(scene(st.session).steps.length, 0, "nothing made yet");
+  assert.ok(Object.values(f.scene.parts).some((q) => q.kind === "body" && (q.volume ?? 0) > 300), "the body is in the picture");
+  assert.deepEqual(f.highlight.amber, [p.corners[1]], "the amber dot is on the end that stands on the shape's plane");
 });

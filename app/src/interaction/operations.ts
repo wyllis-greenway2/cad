@@ -32,7 +32,8 @@ import { drawnRef, formatId } from "../shared/ref.ts";
 import { objectOf, bodyCentre, figurePartsOf } from "./objects.ts";
 import { revolveStart, revolveCommand, middleOf } from "./revolve.ts";
 import { loftCommand } from "./loft.ts";
-import { sweepCommand, pathOf } from "./sweep.ts";
+import { sweepCommand } from "./sweep.ts";
+import { walkPath } from "../operation/path.ts";
 import { mirrorStart, mirrorCommand } from "./mirror.ts";
 import { settings } from "../shared/settings.ts";
 
@@ -98,7 +99,7 @@ export interface Op {
   mirrorFlat?: boolean;
   /** sweep (`dec_sweep`): the shape carried (its outer sides or circle and the figures inside it) and the path it is carried along, as the step stores it */
   sweepFig?: Figure;
-  sweepPath?: string;
+  sweepLines?: Ref[];
   loftFigs?: Figure[];
   loftRuled?: boolean;
   loftSplit?: boolean;
@@ -323,10 +324,10 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     const shapes = parts.filter((p) => !!drawnFace(scene, [p]));
     const lines = parts.filter((p) => p.kind === "line" && !drawnFace(scene, [p]));
     if (shapes.length !== 1 || !lines.length || shapes.length + lines.length !== parts.length) return { ok: false, why: "select one closed sketch and the lines and arcs of the path to carry it along" };
-    const path = pathOf(scene, lines.map((l) => l.ref));
+    const path = walkPath(lookup(scene), lines.map((l) => l.ref));
     if (!path.ok) return { ok: false, why: path.why };
     const fig = figureOf(scene, drawnFace(scene, [shapes[0]!])!);
-    return { ok: true, op: { ...base, parts: fig.outer, sweepFig: fig, sweepPath: path.path } };
+    return { ok: true, op: { ...base, parts: fig.outer, sweepFig: fig, sweepLines: lines.map((l) => l.ref) } };
   }
   if (kind === "revolve") {
     // closed figures turned about a line in their plane, any angle, with an advance for a spiral (`dec_spiral_extrude`): the line selected with them, a world axis in their plane, or one of their own sides; a figure

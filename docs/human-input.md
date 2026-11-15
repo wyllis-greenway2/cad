@@ -2086,3 +2086,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_444 — 2026-11-15 — directive
 > Yes, build the sweep, doesn't hollow already have an outward option depending on how you pull the arrow?
 (approves building the sweep as recommended in `q_curved_extrusion`; asks whether hollow already goes outward depending on which way the arrow is pulled)
+
+## in_445 — 2026-11-15 — directive
+> Do the sweep preview and path-follows-sketch next
+(asks for the two things `dec_sweep` left unbuilt: a preview of the sweep while it is being made, and a path that follows a later edit of the sketch it was drawn in)
