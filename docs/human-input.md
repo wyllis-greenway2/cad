@@ -2003,6 +2003,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > support several figures at once
 (asks that a revolve take several figures selected together, the last thing `dec_spiral_extrude` listed as not built)
 
-## in_431 — 2026-11-15 — status
+## in_431 — 2026-11-15 — directive
 > okay your work has all been merged
 (the branch `claude/hopeful-cannon-3` is merged; work goes on a new branch, `claude/hopeful-cannon-4`, from the merged base)
