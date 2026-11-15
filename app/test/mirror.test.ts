@@ -84,7 +84,7 @@ test("the Mirror operation has no buttons: three arrows from the middle of the b
   assert.equal(st.op?.kind, "mirror");
   const f = frameOf(st, { w: 800, h: 600 });
   assert.deepEqual(f.gizmo!.handles.map((h) => h.id), ["mir:orb", "mir:x", "mir:y", "mir:z"]);
-  assert.equal(f.gizmo!.pulse, "mir:orb", "the orb pulses");
+  assert.equal(f.gizmo!.pulse, undefined, "the orb does not pulse: only the orient mode does (`in_439`)");
   assert.equal(f.wireframe, true, "the body is wireframe so the plane inside it shows");
   assert.equal(f.sectionPlanes.length, 1, "the plane of the chosen arrow is drawn");
   assert.equal(f.entries.length, 1, "only the chosen arrow's number");

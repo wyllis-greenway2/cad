@@ -22,6 +22,7 @@ import { objectOf, bodyCentre } from "../objects.ts";
 import { runOp } from "../runop.ts";
 import { sectionGizmo } from "../gizmo.ts";
 import { draggedSection, sectionNow, placeSection } from "./section.ts";
+import { withPose } from "./pose.ts";
 import { patternBase, dragPattern, liveRepeat, advanceHelp } from "../pattern.ts";
 import type { Op } from "../operations.ts";
 import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed, jointHandles, moveOffset } from "../gizmo.ts";
@@ -40,7 +41,7 @@ import { pickOpts } from "./state.ts";
 export function activeOp(s: AppState): Op | null {
   if (s.op) return hasGizmo(s.op.kind) ? s.op : null;
   if (s.repeat) return liveRepeat(sceneOf(s.session), s.repeat); // a repeat being set up shows its handles until another operation is started
-  return autoOp(sceneOf(s.session), selectionOf(s.session));
+  return withPose(s, autoOp(sceneOf(s.session), selectionOf(s.session))); // (an oriented mover stays as oriented while the part is selected, `in_439`)
 }
 
 /** The handles to show and work, or null. */
@@ -433,7 +434,7 @@ export function doDragEnd(s: AppState, env?: Env): AppState {
     return made ? { ...cleared, session: made.session, op: kept, spread: null, hoverPoint: null } : { ...cleared, op: kept };
   }
   if (!d || !("handle" in d) || !s.op) return cleared; // (a handle of a repeat being set up only set its numbers)
-  if (d.handle.kind === "ball") return s.op.auto ? { ...cleared, op: null } : cleared;
+  if (d.handle.kind === "ball") return s.op.auto ? { ...cleared, op: null } : { ...cleared, ...(s.moverSphere && env ? { orbMovedAt: env.now } : {}) }; // (the whole orb moved in the orient mode: its numbers show a while, `in_439`)
   if (isLive(s.op)) {
     // one step for the whole operation: what was made before is taken out and made again with the total value (so the number does not start over between drags)
     const sess = s.op.made ? undoLast(s.session) : s.session;

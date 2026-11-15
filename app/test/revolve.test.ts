@@ -251,7 +251,8 @@ test("the orb is the mover's: a click on it selects it (the orient mode with its
   const f = frameOf(st, { w: 800, h: 600 });
   assert.equal(f.confirm?.text, "Orient the mover");
   assert.deepEqual(f.gizmo!.handles.map((h) => h.id), ["piv:x", "piv:y", "piv:z", "rot:x", "rot:y", "rot:z", "pivot"], "its arrows and rings, anywhere in space");
-  assert.equal(f.entries.length, 3, "the position and turn numbers");
+  assert.equal(f.entries.length, 0, "the numbers show for the arrow or ring that is chosen, or for the whole orb moved (`in_439`)");
+  st = { ...st, orbMovedAt: 0 };
   // type a place off the figure's plane and a turn about Z
   st = reduce(st, { type: "entry", field: 1, text: "5" }, env);
   assert.equal(st.op!.pivot![1], 5, "off the plane: anywhere in space");

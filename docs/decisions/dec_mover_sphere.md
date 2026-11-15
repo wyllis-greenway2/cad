@@ -3,7 +3,7 @@ id: dec_mover_sphere
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_416, in_417, in_418, in_419, in_434, in_437
+human_input: in_416, in_417, in_418, in_419, in_434, in_437, in_439
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -19,6 +19,8 @@ alternative_to:
 **`in_434`:** in the orient mode each of the three bubbles has two numbers: the mover's position along that axis (mm) and the turn of its axes about that axis (°, the angles of the axes taken about X, then Y, then Z); typing a turn sets the axes (all zero is true x, y, z again).
 
 **`in_437` (the mover everywhere, partly):** the pulsing orb is on the revolve (the axis), the mirror (where its arrows start), the linear repeat (where its arrows start) and the circular repeat (the point the copies turn about; the orb dragged places it) as well as on move and turn. **Not built:** the orb's orient mode (position, turned axes, apply and cancel) on the repeats and the mirror, so copies, turns and planes that run along oriented axes: a repeat and a mirror still work along the world's axes.
+
+**`in_439`:** the orb pulses only in the orient mode (the mirror's and the copies' orbs do not; the revolve's orb, which is ready to be oriented, still does by `in_436`). An oriented mover is **remembered for the selection it was made for** (`AppState.moverPose`: how far the orb stands from the middle of the object, so it goes with the object, and the turned axes): the move and turn tools both take it when they begin, also by the swapper, until another part is selected. In the orient mode the bubbles show all three positions and turns while the **whole orb** is dragged and for a moment after (they fade out), else only the value of the arrow (its position) or ring (its turn) that was clicked. A **right click** on empty space in the orient mode is the apply check (no menu): the place and axes are kept, the selection is not touched, and the tool it was in is there again; going to the other tool applies it too.
 
 ## Rationale
 

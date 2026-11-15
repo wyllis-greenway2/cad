@@ -21,7 +21,8 @@ export function createChip(host: HTMLElement, h: ChipHandlers) {
     /** Where the bubble is on the page now (null while it is hidden): the switch beside the handles keeps off it. */
     rect(): DOMRect | null { return el.style.display === "none" ? null : el.getBoundingClientRect(); },
     /** `at`: what the bubble is by, in pixels (null: the bottom middle); `from`: the other end of the arrow `at` is the tip of, so the bubble stands out past the tip */
-    update(fields: ChipField[] | null, unit: string, at: [number, number] | null, from: [number, number] | null = null, through = false, touch = false, constraint = false) {
+    update(fields: ChipField[] | null, unit: string, at: [number, number] | null, from: [number, number] | null = null, through = false, touch = false, constraint = false, opacity = 1) {
+      el.style.opacity = String(opacity); // (a number that fades away, `in_439`)
       el.style.pointerEvents = through ? "none" : ""; // while a figure is being drawn its size is typed on the keyboard: the pointer passes over the bubble, so it cannot swallow the moves and clicks of drawing
       if (!fields || !fields.length) { el.style.display = "none"; sig = ""; inputs = []; return; }
       const now = JSON.stringify([fields.map((f) => [f.label, f.index, f.unit]), unit, touch, constraint]);

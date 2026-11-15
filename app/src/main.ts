@@ -199,7 +199,7 @@ function dispatch(i: Intent) {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
     if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session), matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale)); }
-    else { menu.hide(); ring.show(i.x, i.y, state.menu?.items ?? []); }
+    else { menu.hide(); if (state.menu) ring.show(i.x, i.y, state.menu.items); else ring.hide(); } // (no menu: a right click that applied the mover's orient mode, `in_439`)
   } else {
     // pointing around does not close a menu; any other intent does
     if (menu.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) menu.hide();
@@ -308,7 +308,7 @@ function frame(now: number) {
     const corner = f.modeSwitch ? f.modeSwitch.pts.map((p) => onPage(p)!).reduce<[number, number]>((c, q) => [Math.min(c[0], q[0]), Math.min(c[1], q[1])], [Infinity, Infinity]) : null;
     suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null, [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));
     const valueBubbles = f.entries.length ? f.entries : f.entry ? [f.entry] : [];
-    valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool && lastDevice !== "touch", lastDevice === "touch", !!e.constraint)); // (a mouse draws through the bubble: a finger can tap into it to type a size, `in_289`)
+    valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool && lastDevice !== "touch", lastDevice === "touch", !!e.constraint, e.opacity ?? 1)); // (a mouse draws through the bubble: a finger can tap into it to type a size, `in_289`)
     for (let i = valueBubbles.length; i < chips.length; i++) chips[i]!.update(null, "mm", null);
     modeSwitch.update(f.modeSwitch, corner && Number.isFinite(corner[0]) ? corner : null, chips.flatMap((c) => c.rect() ?? [])); // (after the bubbles: it keeps off them, `in_231`)
     helper.update(f.helper ? f.helper.text : null, f.helper ? onPage(f.helper.at) : null);
@@ -353,7 +353,7 @@ function frame(now: number) {
     statusEl.textContent = f.message;
     statusEl.style.bottom = lastDevice === "touch" ? "108px" : ""; // (above the undo bar of a finger, and clear of the X Y Z buttons: a long message is not under them, `in_336`)
     statusEl.style.right = lastDevice === "touch" ? "64px" : "";
-    dirty = !!f.flash || !!f.gizmo?.pulse || working || !!f.highlight.temp?.length || touchMoved; // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
+    dirty = !!f.flash || !!f.gizmo?.pulse || f.entries.some((e) => e.opacity !== undefined && e.opacity < 1) || working || !!f.highlight.temp?.length || touchMoved; // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
   }
   requestAnimationFrame(frame);
 }

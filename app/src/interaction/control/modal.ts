@@ -25,6 +25,7 @@ import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
 import type { AppState } from "./state.ts";
 import { activeOp, movePivot, gizmoOf } from "./handles.ts";
+import { withPose, orientApply } from "./pose.ts";
 import { doSectionToggle, doSectionChip, typedSection, placeSection, sectionNow } from "./section.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { sub } from "../../math/vec.ts";
@@ -70,7 +71,7 @@ function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = 
 function beginOp(s: AppState, kind: OpKind, now = 0, over: Ref | null = null): AppState {
   const r = startOp(sceneOf(s.session), selectionOf(s.session), kind, viewAxes(s.cam));
   if (!r.ok) return { ...s, session: { ...s.session, message: r.why }, menu: null };
-  const started: AppState = { ...s, op: r.op, tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" ? "turning about the longest straight line: click another line, a point or a face to move the orb there, or click the orb to turn it any way" : null } };
+  const started: AppState = { ...s, op: withPose(s, r.op), tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" ? "turning about the longest straight line: click another line, a point or a face to move the orb there, or click the orb to turn it any way" : null } };
   return IS_SKETCH_OP[kind] ? facePlane(started, over, now) : started;
 }
 export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["name"], now = 0): AppState {
@@ -116,7 +117,7 @@ function cancelOrient(s: AppState): AppState {
 }
 
 export function doTyped(s: AppState, key: string): AppState {
-  if (s.moverSphere && key === "Enter") return { ...s, moverSphere: false, moverWas: null }; // (Apply: the mover stays as oriented, `in_421`)
+  if (s.moverSphere && key === "Enter") return orientApply(s); // (Apply: the mover stays as oriented, `in_421`, and while the part is selected, `in_439`)
   if (s.cut && key === "Enter") return applyCut(s);
   if (!s.op && !s.tool && /^[0-9.\-]$/.test(key)) {
     // one standard for typing with something selected (`dec_typing_standard`, `in_235`): a drawn part that has a number of its own (a side: its length; a circle: its diameter; an arc: its radius; two

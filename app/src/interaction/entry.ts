@@ -19,7 +19,7 @@ import { advanceOf } from "./revolve.ts";
 
 export interface EntryField { label: string; value: string; active: boolean; typed: boolean; /** a short name shown in front of the number when there are several (X Y Z) */ short?: string; /** which numbered field of its operation it is, when the operation has several bubbles */ index?: number; /** the unit of this field when it is not the entry's (a position and a rotation in one bubble) */ unit?: string }
 /** `at`: where in the scene the bubble sits (null: no place to attach it to) */
-export interface Entry { fields: EntryField[]; unit: string; /** the number typed is also a constraint (a size of a figure): a lock shows by it, closed once typed (`in_384`) */ constraint?: boolean; at?: Vec3 | null; /** the other end of the arrow the bubble is at the tip of: the bubble stands out past the tip, away from it, so it does not cover the arrow */ from?: Vec3 | null }
+export interface Entry { fields: EntryField[]; unit: string; /** how plainly it shows: less than 1 while it fades out (`in_439`) */ opacity?: number; /** the number typed is also a constraint (a size of a figure): a lock shows by it, closed once typed (`in_384`) */ constraint?: boolean; at?: Vec3 | null; /** the other end of the arrow the bubble is at the tip of: the bubble stands out past the tip, away from it, so it does not cover the arrow */ from?: Vec3 | null }
 
 
 /** The number chip: for a tool, its fields (what is typed, else the live size); for an operation, its one number. Null when there is nothing to show yet. */
@@ -171,13 +171,24 @@ export function scaleEntries(op: Op, g: Gizmo | null): Entry[] {
   });
 }
 /** The mover's own place as three numbers (world x, y, z), one on each of the sphere's arrows, while the sphere is selected (`in_418`). */
-export function moverPlaceEntries(g: Gizmo | null, frame?: readonly [Vec3, Vec3, Vec3]): Entry[] {
+export function moverPlaceEntries(g: Gizmo | null, frame: readonly [Vec3, Vec3, Vec3] | undefined, show: { all: false; handle: string | null } | { all: true; opacity: number }): Entry[] {
   if (!g) return [];
   const turned = frameAngles(frame);
+  // the whole orb being moved: all three positions and turns, which fade out; else only the value of the arrow or ring that was clicked (`in_439`)
+  if (!show.all) {
+    const h = show.handle;
+    const k = h && /^(piv|rot):[xyz]$/.test(h) ? "xyz".indexOf(h[4]!) : -1;
+    if (k < 0) return [];
+    const handle = g.handles.find((x) => x.id === h);
+    if (!handle) return [];
+    if (h!.startsWith("piv:")) return [{ fields: [{ label: `Mover's position along ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(g.centre[k]!), active: false, typed: false, index: k, unit: "mm" }], unit: "mm", at: handle.points.at(-1)!, from: g.centre }];
+    const head = handle.points[Math.floor(handle.points.length / 8)]!;
+    return [{ fields: [{ label: `Mover's turn about ${"XYZ"[k]}`, short: "↻", value: roundedText(turned[k]!), active: false, typed: false, index: 3 + k, unit: "°" }], unit: "°", at: add(g.centre, scale(sub(head, g.centre), 1.25)), from: g.centre }];
+  }
   // each of the three bubbles has the mover's position along its axis and, beside it, the turn of its axes about that axis (`in_434`)
   return ([0, 1, 2] as const).flatMap((k) => {
     const arrow = g.handles.find((h) => h.id === `piv:${"xyz"[k]}`);
-    return arrow ? [{ fields: [
+    return arrow ? [{ opacity: show.opacity, fields: [
       { label: `Mover's position along ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(g.centre[k]!), active: false, typed: false, index: k, unit: "mm" },
       { label: `Mover's turn about ${"XYZ"[k]}`, short: "↻", value: roundedText(turned[k]!), active: false, typed: false, index: 3 + k, unit: "°" },
     ], unit: "mm", at: arrow.points.at(-1)!, from: g.centre }] : [];

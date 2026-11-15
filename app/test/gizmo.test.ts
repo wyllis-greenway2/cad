@@ -2049,7 +2049,11 @@ test("the mover's place can be typed: with the sphere selected its x, y and z ar
   st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
   assert.equal(st.moverSphere, true);
   const f = frame(st);
-  assert.equal(f.entries.length, 3, "three fields, one on each arrow of the sphere");
+  assert.equal(f.entries.length, 0, "nothing until an arrow or ring is chosen (`in_439`)");
+  const chosen = { ...st, handleSel: "piv:x" };
+  assert.equal(frame(chosen).entries.length, 1, "the value of the arrow that was clicked");
+  const moved = { ...st, orbMovedAt: 0 };
+  assert.equal(frameOf(moved, { w: 800, h: 600 }, 100).entries.length, 3, "the whole orb moved: all three, one on each arrow of the sphere");
   st = reduce(st, { type: "entry", field: 0, text: "40" }, env);
   st = reduce(st, { type: "entry", field: 1, text: "20" }, env);
   nearV(gizmoOf(st)!.centre.map((c) => Math.round(c * 1e6) / 1e6) as unknown as Vec3, [40, 20, 10], 1e-6);
@@ -2138,7 +2142,7 @@ test("in the orient mode each of the three bubbles has the mover's position alon
   st = reduce(st, { type: "begin", name: "move" }, env);
   const [bx, by] = px(st, gizmoOf(st)!.centre);
   st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
-  const es = frame(st).entries;
+  const es = frameOf({ ...st, orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries; // (the whole orb just moved: all three show)
   assert.equal(es.length, 3);
   for (const e of es) {
     assert.deepEqual(e.fields.map((f) => f.unit), ["mm", "°"], "a position and a turn");
@@ -2148,7 +2152,9 @@ test("in the orient mode each of the three bubbles has the mover's position alon
   st = reduce(st, { type: "entry", field: 5, text: "90" }, env); // a quarter about Z
   const f = st.op!.frame!;
   near(f[0][1], 1, 1e-9); // (its X is the world Y now)
-  assert.equal(frame(st).entries[2]!.fields[1]!.value, "90");
+  assert.equal(frameOf({ ...st, orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries[2]!.fields[1]!.value, "90");
+  assert.equal(frame({ ...st, handleSel: "rot:z" }).entries[0]!.fields[0]!.value, "90", "a ring chosen: its turn alone");
+  assert.equal(frameOf({ ...st, orbMovedAt: 0 }, { w: 800, h: 600 }, 1700).entries[0]!.opacity! < 1, true, "and they fade");
   st = reduce(st, { type: "entry", field: 5, text: "0" }, env);
   assert.equal(st.op!.frame, undefined, "no turn: true x, y, z again");
 });
@@ -2190,4 +2196,39 @@ test("Select all edges on a cylinder includes its circles (a rim is two half cir
   const face = reduce(select(st0, [top.ref]), { type: "runAction", id: "select:edges" }, env);
   assert.equal(lines(face).length, 2, "the rim of the top face: its two halves");
   assert.ok(lines(face).every((l) => l.circle));
+});
+
+test("an oriented mover stays while its part is selected, also across the move and turn tools; a right click in the orient mode is the apply check: the selection stays, the mover's place is kept, the tool it was in is there again (`in_439`)", () => {
+  let st = select(box(), [BODY_OBJECT]);
+  st = reduce(st, { type: "begin", name: "move" }, env);
+  const [bx, by] = px(st, gizmoOf(st)!.centre);
+  st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
+  assert.equal(st.moverSphere, true);
+  assert.equal(frame(st).gizmo!.pulse, "pivot", "the orient mode pulses");
+  st = reduce(st, { type: "entry", field: 5, text: "90" }, env); // a quarter about Z
+  st = reduce(st, { type: "entry", field: 0, text: "30" }, env); // and a place along X
+  const placed = st.op!.pivot!;
+  // a right click on empty space applies it: no menu, the selection kept, the tool as it was
+  const right = reduce(st, { type: "menu", x: 40, y: 560 }, env);
+  assert.equal(right.moverSphere, false, "the orient mode is left");
+  assert.equal(right.menu, null, "no menu");
+  assert.deepEqual(selection(right.session), [BODY_OBJECT], "the selection is not touched");
+  assert.equal(right.op?.kind, "move", "back to the move tool");
+  assert.deepEqual(right.op?.pivot, placed, "with the mover where it was put");
+  assert.ok(right.op?.frame, "and turned");
+  // the swapper to the turn tool: the mover is as it was
+  const turned = reduce(right, { type: "runAction", id: "op:rotate" }, env);
+  assert.equal(turned.op?.kind, "rotate");
+  nearV(turned.op!.frame![0], [0, 1, 0], 1e-6);
+  nearV(turned.op!.pivot!, placed, 1e-6);
+  // and back again
+  const back = reduce(turned, { type: "runAction", id: "op:move" }, env);
+  nearV(back.op!.frame![0], [0, 1, 0], 1e-6);
+  // another part selected: it does not carry over
+  const other = reduce(select(back, []), { type: "begin", name: "move" }, env);
+  assert.equal(other.moverPose, null);
+  // the Enter and the check do the same
+  const enter = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(enter.moverSphere, false);
+  assert.ok(enter.moverPose, "remembered");
 });

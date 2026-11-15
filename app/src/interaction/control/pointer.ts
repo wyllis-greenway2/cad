@@ -33,6 +33,7 @@ import { sectionNow, doSectionClick } from "./section.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { commitFigure, commitOp, setRepeatAxis, doApply } from "./modal.ts";
 import { doGizmoHover, gizmoOf, chosenId, activeOp } from "./handles.ts";
+import { orientApply } from "./pose.ts";
 import { hasGizmo, hitHandle, moveOffset } from "../gizmo.ts";
 
 /** The operations a right click offers (`in_133`), in categories (`in_143`): sketching, constraints, shape, moving and repeating, and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
@@ -423,7 +424,7 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   if ((hit?.id === "pivot" || hit?.id === "rev:orb") && mover && (mover.kind === "move" || mover.kind === "rotate" || mover.kind === "revolve") && !s.repeat) {
     const op0 = s.op ?? { ...mover, auto: false };
     // selected: the mover itself is being oriented, not the object (`in_421`): where it stands and its axes now are kept for Cancel; clicked again it is applied
-    if (s.moverSphere) return { ...base, moverSphere: false, moverWas: null, op: op0, handleSel: null, gizmoHover: hit.id };
+    if (s.moverSphere) return { ...orientApply({ ...base, op: op0 }), handleSel: null, gizmoHover: hit.id };
     return { ...base, moverSphere: true, moverWas: { pivot: op0.pivot, ...(op0.frame ? { frame: op0.frame } : {}), ...(op0.frameKept ? { frameKept: op0.frameKept } : {}) }, op: op0, handleSel: null, gizmoHover: hit.id };
   }
   // a revolve takes a click on a line, a vertex or a face for the orb even before the sphere is selected: it puts the orb there, its axis along the line or across the face (`in_438`)

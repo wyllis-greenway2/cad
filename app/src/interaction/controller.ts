@@ -13,6 +13,7 @@ import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn, run, scene as sceneOf } from "./session.ts";
 import { loftChoice } from "./loft.ts";
+import { orientApply, storePose } from "./control/pose.ts";
 import { settings } from "../shared/settings.ts";
 import type { Command } from "../operation/commands.ts";
 import { projector } from "./camera.ts";
@@ -49,6 +50,8 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (next.tape && s.tape && next.session.click.selection.join("|") !== s.session.click.selection.join("|")) next = { ...next, tape: false };
   // the mover's sphere is selected only while the mover is up for the same selection (`in_416`)
   if (next.moverSphere && (next.session.click.selection.join("|") !== s.session.click.selection.join("|") || i.type === "begin" || (i.type === "runAction" && !i.id.startsWith("op:")))) next = { ...next, moverSphere: false, moverWas: null };
+  // the oriented mover stays while its part is selected, and goes when something else is (`in_439`)
+  if (next.moverPose && next.session.click.selection.join("|") !== next.moverPose.key) next = { ...next, moverPose: null };
   // a selected arrow stays selected while what it belongs to does: not when the selection changes or the operation ends (`in_238`)
   if (next.handleSel && (!next.op && !next.repeat && next.session.click.selection.join("|") !== s.session.click.selection.join("|") || (s.op && !next.op && !next.repeat) || (s.repeat && !next.repeat))) next = { ...next, handleSel: null };
   // an offset starts with its arrow on the outline where you were pointing when you chose it (or at the middle of the view), not wherever the figure's own first side is: zoomed in, that could be out of sight (`in_244`)
@@ -94,6 +97,10 @@ function anchoredOffset(s: AppState, menu: AppState["menu"], env: Env): NonNulla
 }
 
 function apply(s: AppState, i: Intent, env: Env): AppState {
+  // in the orient mode a right click on empty space is the apply check: the mover's place is kept, the selection is not touched, and it goes back to the tool that was there (`in_439`)
+  if (i.type === "menu" && !i.button && s.moverSphere) return orientApply(s);
+  // going to the other tool with the orient mode up applies what was oriented, as the check does
+  if (s.moverSphere && (i.type === "begin" || (i.type === "runAction" && i.id.startsWith("op:")))) s = storePose(s);
   switch (i.type) {
     case "hover": return doHover(s, i, env);
     case "tapAim": return doTapAim(s, i, env);
