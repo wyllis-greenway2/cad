@@ -112,6 +112,17 @@ export function pointHint(spent: Scene, pl: Plane, pv: PointerView, base: Vec3, 
 }
 
 /**
+ * The other end of an arc being drawn from `start`: on a line or a circle if it is near one, else level or upright with the first end when the chord is close to that (`in_381`; the arc is then made with that constraint on it).
+ */
+export function arcEndHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, base: Vec3): { at: Vec3; hints: Hint[] } {
+  const on = pointHint(spent, pl, pv, base);
+  if (on.hints.length) return on;
+  const l = lineHint(spent, pl, start, pv, base);
+  const first = l.hints[0];
+  return first && (first.kind === "horizontal" || first.kind === "vertical") ? { at: l.at, hints: [first] } : on;
+}
+
+/**
  * The edge of a circle being drawn about `center`, at the pointer (`raw`): where that makes it touch another circle (outside it, or inside it, or with the other circle inside it) the radius is taken exactly and says "tangent" (`in_296`).
  * The same snap as dragging the edge of a circle that is already drawn.
  */

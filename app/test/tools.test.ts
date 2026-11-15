@@ -380,7 +380,45 @@ test("while drawing, the pointer lines up with a corner that is level or upright
   st = reduce(st, { type: "hover", x, y }, env);
   near(st.tool!.cursor![0], 25, 1e-6);
   near(st.tool!.cursor![1], 22.03, 0.02);
-  assert.ok(previewFor(scene(st.session), st.tool)!.segments.some(([a]) => a[0] === 25 && a[1] === 15), "a guide from the corner it lines up with");
+  assert.ok(previewFor(scene(st.session), st.tool)!.guides!.some(([a]) => a[0] === 25 && a[1] === 15), "a (dashed) guide from the corner it lines up with, apart from the figure's own lines (`in_381`)");
+});
+
+test("the first corner of a second figure lines up with the first one too: a dashed guide shows before the click and the click takes it (`in_381`)", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  st = click(st, [5, 5, 0]);
+  st = click(st, [25, 15, 0]);
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  const [x, y] = px(st, [40.03, 15.02, 0]); // a hair off the level of the first rectangle's top edge
+  st = reduce(st, { type: "hover", x, y }, env);
+  near(st.tool!.cursor![1], 15, 1e-6);
+  assert.ok(previewFor(scene(st.session), st.tool)!.guides!.some(([a]) => a[0] === 25 && a[1] === 15), "a guide to the corner it is level with, before the first click");
+  st = click(st, [40.03, 15.02, 0]);
+  assert.equal(st.tool!.points[0]![1], 15, "the first corner is exactly level with it");
+});
+
+test("the middle of a line is snapped to, so a point or a corner can be put halfway along it (`in_381`)", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [5, 5, 0]);
+  st = click(st, [25, 5, 0]);
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  const [x, y] = px(st, [15.03, 5.02, 0]);
+  st = reduce(st, { type: "hover", x, y }, env);
+  near(st.tool!.cursor![0], 15, 1e-6);
+});
+
+test("an arc's other end is level or upright with its first end when it is near, and the arc is made with that constraint (`in_381`)", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "arc" }, env);
+  st = click(st, [5, 5, 0]);
+  const [x, y] = px(st, [30, 5.4, 0]);
+  st = reduce(st, { type: "hover", x, y }, env);
+  assert.deepEqual(st.tool!.hints!.map((h) => h.kind), ["horizontal"]);
+  near(st.tool!.cursor![1], 5, 1e-6);
+  st = click(st, [30, 5.4, 0]);
+  st = click(st, [18, 12, 0]);
+  assert.ok(scene(st.session).relations.some((r) => r.kind === "horizontal"), "the arc's chord is held level");
 });
 
 test("a triple click on a sketch drawn on a face of a block turns to it, like a sketch in free space", () => {
@@ -450,10 +488,10 @@ test("hints while drawing a line: close to level it becomes level with a horizon
   // a line ending on the middle of the first
   st = reduce(st, { type: "begin", name: "line" }, env);
   st = click(st, [40, 30, 0]);
-  st = click(st, [14, 5.1, 0]);
+  st = click(st, [9, 5.1, 0]);
   assert.ok(rels().includes("onLine"));
   sc = scene(st.session);
-  assert.ok(Object.values(sc.parts).some((p) => p.kind === "corner" && Math.abs(p.at[0] - 14) < 1e-6 && Math.abs(p.at[1] - 5) < 1e-6), "its end is exactly on the first line");
+  assert.ok(Object.values(sc.parts).some((p) => p.kind === "corner" && Math.abs(p.at[0] - 9) < 1e-6 && Math.abs(p.at[1] - 5) < 1e-6), "its end is exactly on the first line");
 });
 
 test("a line from the centre of a circle to its edge ends exactly on the circle with an 'on circle' constraint; at that spot repeated clicks cycle between the corner and the circle, and both can be constrained", () => {

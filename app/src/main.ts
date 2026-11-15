@@ -34,7 +34,6 @@ import { createControls } from "./ui/controls.ts";
 import { createToolChip } from "./ui/toolchip.ts";
 import { createToolCursor } from "./ui/toolcursor.ts";
 import { createSimilarChip } from "./ui/similarchip.ts";
-import { createSelectionChip } from "./ui/selectionchip.ts";
 import { createRefusalChip } from "./ui/refusalchip.ts";
 import { createResetView } from "./ui/resetview.ts";
 import { createCrosshair } from "./ui/crosshair.ts";
@@ -130,7 +129,6 @@ const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction
 const crosshair = createCrosshair(document.body);
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "overrideRefusal" }), () => dispatch({ type: "holdFlash" }));
-const selectionChip = createSelectionChip(document.body, (id) => dispatch({ type: "runAction", id }));
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch({ type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
@@ -278,7 +276,6 @@ function frame(now: number) {
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
     undoBar.update(lastDevice === "touch", f.undoRedo);
     similarChip.update(f.similar);
-    selectionChip.update(f.selection);
     resetView.update(f.resetView);
     { const pg = host.getBoundingClientRect(); crosshair.update(recognizer.game && document.pointerLockElement !== null, { x: pg.left + pg.width / 2, y: pg.top + pg.height / 2 }); }
     toolCursor.update(f.tool ? f.tool.kind : null);

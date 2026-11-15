@@ -6,7 +6,7 @@ import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, dist, cross } from "../math/vec.ts";
 import type { PointerView, Plane } from "../operation/part.ts";
-import { normalOfPlane, pointOf, arcPoints, localOf, liftOf } from "../operation/part.ts";
+import { normalOfPlane, pointOf, segmentOf, arcPoints, localOf, liftOf } from "../operation/part.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
@@ -14,7 +14,7 @@ import type { Command } from "../operation/commands.ts";
 import { drawSquaredRectangle, drawCircle, drawChain, drawArc, joinedAtCorners } from "../operation/build.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt, visibleFrom } from "./picking.ts";
-import { anchorCorners } from "../operation/anchors.ts";
+import { anchorCorners, anchorLines } from "../operation/anchors.ts";
 import { settings } from "../shared/settings.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Hint } from "./hints.ts";
@@ -43,6 +43,8 @@ export interface Tool {
   ends?: Hint[][];
   /** a circle being drawn about the centre of another circle: that circle (the new one is made concentric with it) */
   concentric?: Ref;
+  /** before the first click (armed, or no point yet): the dashed lines to what the pointer lines up with, so the first corner can be aligned too (`in_381`) */
+  guides?: [Vec3, Vec3][];
   /** trim: the part of a line or circle under the pointer that a click would cut off (shown as it is) */
   trimming?: { ref: Ref; span: Vec3[] };
 }
@@ -81,6 +83,20 @@ export function snapOnPlane(spent: Scene, pv: PointerView, pl: Plane, skip?: Ref
     const [qx, qy] = pv.project(c.at);
     if (Math.hypot(qx - pv.x, qy - pv.y) <= settings.sketch.snapPx) return c.at;
   }
+  // the middle of a straight line (drawn, or an edge of the body as it falls on the plane) within the snap distance: the pointer takes it, and a point there lies on the line (`in_381`)
+  const seen = (q: Vec3) => visibleFrom(scene, pv, q, { at: pl.at, n: normalOfPlane(pl) });
+  const projected = new Map(anchorLines(scene, pl, { seen }).map((l) => [l.ref, [l.a, l.b] as [Vec3, Vec3]]));
+  let mid: { at: Vec3; px: number } | null = null;
+  for (const l of Object.values(scene.parts)) {
+    if (l.kind !== "line" || l.center || l.derived || (l.origin !== "drawn" && !projected.has(l.ref))) continue;
+    const q = projected.get(l.ref) ?? segmentOf((r) => scene.parts[r], l.ref);
+    if (!q || Math.abs(dot(sub(q[0], pl.at), normalOfPlane(pl))) > 1e-3 || Math.abs(dot(sub(q[1], pl.at), normalOfPlane(pl))) > 1e-3) continue;
+    const m = scale(add(q[0], q[1]), 0.5);
+    const [mx, my] = pv.project(m);
+    const px = Math.hypot(mx - pv.x, my - pv.y);
+    if (px <= settings.sketch.snapPx && (!mid || px < mid.px)) mid = { at: m, px };
+  }
+  if (mid) return mid.at;
   const [x, y] = localOf(pl, raw);
   let [sx, sy] = [round(x, settings.sketch.roundMm), round(y, settings.sketch.roundMm)];
   // in line with a corner of the scene (level or upright on the plane) within the snap distance on the screen: the pointer takes that line (the guide is drawn by `previewOf`)
@@ -151,12 +167,14 @@ export function lineNext(t: Tool): Vec3 | null {
 /** What to draw while a figure is being made (the view draws it; it is not part of the scene). */
 export interface Preview {
   segments: [Vec3, Vec3][];
+  /** dashed lines from the cursor to what it lines up with (not part of the figure, `in_381`) */
+  guides?: [Vec3, Vec3][];
   circle: { center: Vec3; radius: number; normal: Vec3 } | null;
   /** where the pointer is on the plane (a small ball marks it) */
   cursor: Vec3 | null;
 }
 /** Thin lines from the cursor to the corners it lines up with (level or upright), so you can see what it is aligned to. */
-function guidesOf(spent: Scene, pl: Plane, cursor: Vec3 | null): [Vec3, Vec3][] {
+export function guidesOf(spent: Scene, pl: Plane, cursor: Vec3 | null): [Vec3, Vec3][] {
   if (!cursor) return [];
   const scene = live(spent);
   const [cx, cy] = localOf(pl, cursor);
@@ -172,9 +190,12 @@ function guidesOf(spent: Scene, pl: Plane, cursor: Vec3 | null): [Vec3, Vec3][] 
 export function previewOf(scene: Scene, t: Tool): Preview | null {
   if (t.kind === "trim") return t.trimming ? { segments: t.trimming.span.slice(1).map((p, i): [Vec3, Vec3] => [t.trimming!.span[i]!, p]), circle: null, cursor: null } : null; // the part that would be cut off
   const pl = t.plane ? (scene.parts[t.plane] as Plane | undefined) : undefined;
-  if (!pl || pl.kind !== "plane" || !t.points.length) return null;
+  if (!pl || pl.kind !== "plane" || !t.points.length) {
+    const guides = pl && pl.kind === "plane" ? guidesOf(scene, pl, t.cursor) : t.guides ?? []; // (nothing placed yet: only what the pointer lines up with)
+    return guides.length ? { segments: [], guides, circle: null, cursor: t.cursor } : null;
+  }
   const p = previewShape(scene, t, pl);
-  return p ? { ...p, segments: [...p.segments, ...guidesOf(scene, pl, t.cursor)] } : p;
+  return p ? { ...p, guides: guidesOf(scene, pl, t.cursor) } : p;
 }
 function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
   const n = normalOfPlane(pl);

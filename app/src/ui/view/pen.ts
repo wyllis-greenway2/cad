@@ -57,6 +57,14 @@ export function createPen() {
       mats.push(mat);
       return new Line2(geo, mat);
     },
+    /** A dashed thick line (a guide, not a figure): dashes of `dash` world units with gaps of the same (`in_381`). */
+    dashed(pts: number[], color: number | THREE.Color, widthPx: number, dash: number): Line2 {
+      const line = this.line(pts, color, widthPx, false);
+      const mat = line.material as LineMaterial;
+      mat.dashed = true; mat.dashSize = dash; mat.gapSize = dash * 0.7; mat.needsUpdate = true;
+      line.computeLineDistances();
+      return line;
+    },
     /** Separate thick segments: flat pairs of points (a, b, a, b, ...), with nothing drawn between one pair and the next (a line strip would join them). */
     segments(pairs: number[], color: number | THREE.Color, widthPx: number, depthTest = true): LineSegments2 {
       const geo = new LineSegmentsGeometry();

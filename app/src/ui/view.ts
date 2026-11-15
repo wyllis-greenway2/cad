@@ -17,7 +17,7 @@ import type { GizmoView } from "./view/gizmo.ts";
 import type { Highlight } from "./view/highlight.ts";
 
 export type { Highlight };
-type Preview = { segments: [Vec3, Vec3][]; circle: { center: Vec3; radius: number; normal: Vec3 } | null; cursor: Vec3 | null };
+type Preview = { segments: [Vec3, Vec3][]; guides?: [Vec3, Vec3][]; circle: { center: Vec3; radius: number; normal: Vec3 } | null; cursor: Vec3 | null };
 
 export function createView(host: HTMLElement) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -109,6 +109,7 @@ export function createView(host: HTMLElement) {
     if (!p) return;
     if (p.cursor) preview.add(sphereAt(p.cursor, cam.distance * settings.pick.vertexScale, TEAL));
     for (const [a, b] of p.segments) preview.add(pen.line([...a, ...b], TEAL, 2, false));
+    for (const [a, b] of p.guides ?? []) preview.add(pen.dashed([...a, ...b], TEAL, 1.5, cam.distance * 0.012)); // (alignment guides are dashed so they read differently from the figure, `in_381`)
     if (p.circle) preview.add(pen.line(ringOf(p.circle.center, p.circle.radius, p.circle.normal), TEAL, 2, false));
   }
 

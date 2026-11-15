@@ -12,7 +12,7 @@ import { settings } from "../shared/settings.ts";
 import { formatId } from "../shared/ref.ts";
 import { actionsFor } from "./actions.ts";
 import { similarTo } from "./similar.ts";
-import { breakable } from "../operation/groups.ts";
+import { breakable, topItems } from "../operation/groups.ts";
 
 export interface Suggestions { at: Vec3; items: { id: string; label: string }[] }
 
@@ -23,8 +23,8 @@ const optsFor = (plane: Plane, seen?: Seen) => (seen ? { seen: (p: Vec3) => seen
 
 export function suggestionsFor(scene: Scene, selection: readonly Ref[], tol = 0, seen?: Seen): Suggestions | null {
   const constraints = constraintsFor(scene, selection, tol, seen);
-  // "select similar" is offered when there are more like what is selected (`in_268`), and "ungroup" when a whole group is selected (`in_269`), after the constraints
-  const more = [similarOffer(scene, selection), ungroupOffer(scene, selection)].filter((o): o is { at: Vec3; item: { id: string; label: string } } => !!o);
+  // "select similar" is offered when two or more like things are selected and there are more like them (`in_268`, `in_381`); "group" for two or more things, "ungroup" when a whole group is selected (`in_269`, `in_381`: they are offered like a suggested icon), after the constraints
+  const more = [similarOffer(scene, selection), groupOffer(scene, selection), ungroupOffer(scene, selection)].filter((o): o is { at: Vec3; item: { id: string; label: string } } => !!o);
   if (!more.length) return constraints;
   const items = [...(constraints?.items ?? []), ...more.map((o) => o.item)];
   return { at: constraints?.at ?? more[0]!.at, items };
@@ -38,11 +38,17 @@ function spotOf(scene: Scene, selection: readonly Ref[]): Vec3 | null {
     if (p?.kind === "corner") return pointOf(get, r);
     if (p?.kind === "line") { const s = segmentOf(get, r); return s ? [(s[0][0] + s[1][0]) / 2, (s[0][1] + s[1][1]) / 2, (s[0][2] + s[1][2]) / 2] : null; }
     if (p?.kind === "circle") return circleOf(get, r)?.center ?? null;
+    if (p?.kind === "body" && p.bbox) return [(p.bbox.min[0] + p.bbox.max[0]) / 2, (p.bbox.min[1] + p.bbox.max[1]) / 2, (p.bbox.min[2] + p.bbox.max[2]) / 2];
     if (p?.kind === "plane" && p.mesh && p.mesh.length >= 9) { let x = 0, y = 0, z = 0, n = 0; for (let i = 0; i + 2 < p.mesh.length; i += 3) { x += p.mesh[i]!; y += p.mesh[i + 1]!; z += p.mesh[i + 2]!; n++; } return [x / n, y / n, z / n]; }
     return null;
   }).filter((q): q is Vec3 => !!q);
   if (!spots.length) return null;
   return [spots.reduce((a, q) => a + q[0], 0) / spots.length, spots.reduce((a, q) => a + q[1], 0) / spots.length, spots.reduce((a, q) => a + q[2], 0) / spots.length];
+}
+function groupOffer(scene: Scene, selection: readonly Ref[]): { at: Vec3; item: { id: string; label: string } } | null {
+  if (selection.length < 2 || selection.some((r) => scene.parts[r]?.origin === "world") || topItems(scene, selection).length < 2) return null;
+  const at = spotOf(scene, selection);
+  return at ? { at, item: { id: "select:group", label: "Group" } } : null;
 }
 function ungroupOffer(scene: Scene, selection: readonly Ref[]): { at: Vec3; item: { id: string; label: string } } | null {
   if (!breakable(scene, selection).length) return null;
@@ -53,7 +59,7 @@ function ungroupOffer(scene: Scene, selection: readonly Ref[]): { at: Vec3; item
 const offers = new WeakMap<Scene, Map<string, { count: number } | null>>();
 /** Select similar as a button, when what is selected has others like it (the same body or sketch): where it stands (the middle of what is selected) and the button. */
 function similarOffer(scene: Scene, selection: readonly Ref[]): { at: Vec3; item: { id: string; label: string } } | null {
-  if (!selection.length || selection.length > 4) return null;
+  if (selection.length < 2 || selection.length > 8) return null; // (only once two like things are already selected: one alone is not asking for more, `in_381`)
   const memo = offers.get(scene) ?? offers.set(scene, new Map()).get(scene)!;
   const key = selection.join("|");
   let found = memo.get(key);

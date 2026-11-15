@@ -13,9 +13,9 @@ import { candidatesAt } from "../picking.ts";
 import { actionsFor } from "../actions.ts";
 import type { ToolKind, Tool } from "../tools.ts";
 import { diskFaceRef } from "../../operation/loops.ts";
-import { lineHint, hintRelations, circleCentredAt, anchorCentreAt, pointHint, arcBulgeHint, circleRadiusHint, tangentCentre } from "../hints.ts";
+import { lineHint, arcEndHint, hintRelations, circleCentredAt, anchorCentreAt, pointHint, arcBulgeHint, circleRadiusHint, tangentCentre } from "../hints.ts";
 import type { Hint } from "../hints.ts";
-import { snapOnPlane, finish, planeForDrawing, armTool, pointOnPlane } from "../tools.ts";
+import { snapOnPlane, guidesOf, finish, planeForDrawing, armTool, pointOnPlane } from "../tools.ts";
 import { trimAt } from "../../operation/trim.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { OpKind } from "../operations.ts";
@@ -167,12 +167,13 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
     const planeRef = drawingPlane(sc, candidatesAt(sc, pv, pickOpts(s)).map((k) => k.ref)) ?? drawingPlane(sc, selectionOf(s.session));
     const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
     const at = pl ? snapOnPlane(sc, pv, pl) : null;
+    const lined = at && pl ? guidesOf(sc, pl, at) : []; // (the pointer lines up with a corner: it is shown, and the click takes it, `in_381`)
     if (s.tool.kind === "rect") {
       const h = at && pl ? pointHint(sc, pl, pv, at) : null;
-      next = { ...next, tool: { ...s.tool, hints: h?.hints ?? [], cursor: h?.hints.length ? h.at : s.tool.held ? at : null } };
+      next = { ...next, tool: { ...s.tool, guides: lined, hints: h?.hints ?? [], cursor: h?.hints.length ? h.at : s.tool.held || lined.length ? at : null } };
     } else if (s.tool.kind !== "circle") {
       const h = at && pl ? pointHint(sc, pl, pv, at) : null;
-      next = { ...next, tool: { ...s.tool, hints: h?.hints ?? [], cursor: h?.hints.length ? h.at : s.tool.held ? at : null } }; // (a finger holds the cursor where it is aimed, `in_286`)
+      next = { ...next, tool: { ...s.tool, guides: lined, hints: h?.hints ?? [], cursor: h?.hints.length ? h.at : s.tool.held || lined.length ? at : null } }; // (a finger holds the cursor where it is aimed, `in_286`)
     } else {
       const anc = at && pl ? anchorCentreAt(sc, pl, pv) : null;
       const about = anc?.ref ?? (at && pl ? circleCentredAt(sc, pl, at) : null);
@@ -190,7 +191,7 @@ function hintFor(sc: Scene, t: Tool, pl: Plane, pv: ReturnType<ReturnType<typeof
   if (t.kind === "line") return lineHint(sc, pl, t.points[0]!, pv, raw);
   if (t.kind === "rect") return pointHint(sc, pl, pv, raw); // (the opposite corner)
   if (t.kind === "circle") return t.typed[0] === "" ? circleRadiusHint(sc, pl, t.points[0]!, pv, raw) : null; // (the size: a number, or a point on the edge that touches another circle, `in_296`)
-  if (t.points.length < 2) return pointHint(sc, pl, pv, raw);
+  if (t.points.length < 2) return arcEndHint(sc, pl, t.points[0]!, pv, raw); // (an arc's other end: level or upright with the first, `in_381`)
   return t.typed[0] === "" ? arcBulgeHint(sc, pl, t.points[0]!, t.points[1]!, raw) : null;
 }
 
@@ -305,7 +306,8 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const curve = t.kind === "line" || t.kind === "arc" ? fin?.select[0] : undefined;
   const isOn = (h: Hint) => h.kind === "onLine" || h.kind === "onCircle";
   const ends: Hint[][] = t.kind === "arc" ? (t.ends ?? []) : [t.ends?.[0] ?? [], (hint?.hints ?? []).filter(isOn)];
-  const rest = (hint?.hints ?? []).filter((h) => t.kind === "line" ? !isOn(h) : true);
+  const chord = t.kind === "arc" ? (t.ends?.[1] ?? []).filter((h) => h.kind === "horizontal" || h.kind === "vertical") : []; // (the other end was placed level or upright with the first)
+  const rest = [...chord, ...(hint?.hints ?? []).filter((h) => t.kind === "line" ? !isOn(h) : true)];
   if (curve && done !== base && !(done.tool && done.tool.points.length) && !done.session.message && (ends.some((e) => e.length) || rest.length)) {
     let session = done.session;
     for (const r of hintRelations(sceneOf(session), curve, ends, rest)) {

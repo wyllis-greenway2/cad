@@ -1775,3 +1775,14 @@ The X/Y/Z buttons fading toward the axis most facing the camera while you rotate
 ## in_380 — 2026-11-14 — directive
 > okay I had another claude working on another branch, can you merge it in so we can deploy all the latest changes?
 (asks for the branch `claude/hopeful-cannon-3qzdtg`, worked on by another session, to be merged into this one; both sessions had numbered the human's messages from in_317, so the other branch's numbers were moved: see Handoff 360)
+
+## in_381 — 2026-11-14 — directive
+> can we make it so the offer to select similar only shows up after you have already selected at least two similar things and if there are more of them to select? Can we have it so that group and ungroup options show up the the same way as a suggested icon? 
+> 
+> when I am sketching with an arc, there is no click to indicate I am virtical or horizontal while I am hovering the set position of the other end verticy.
+> We should have a midway suggested point and or possibly constraint. Midway on lines edges, midway point in object etc.
+> 
+> also when I sketch two rectangles, i cant align the top edge (first click) of the second rectangle with the first rectangle because it doesn't offer suggestions there. 
+> 
+> can we have the suggested constraints / snapping to lines (the lines that indicate the consrtaint or alignment points like for example if you start a rectangle corner at the same height as another rectangle it draws a line between them) be dashed lines instead of solid? we want to make them visually different.
+(six changes to the sketching and selection helpers: select similar only after two similar things are selected and more exist; group and ungroup offered like a suggested icon; a vertical / horizontal hint for the free end of an arc; midpoint suggestions on lines and edges; alignment suggestions for the first point of a second figure; the alignment guide lines dashed)

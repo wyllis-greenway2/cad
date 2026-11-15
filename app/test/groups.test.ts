@@ -150,15 +150,14 @@ test("a selected group offers Ungroup in the suggestion bubble (`in_269`)", () =
   assert.ok(!suggestionsFor(scene(s), [c[0]!, c[1]!])?.items.some((i) => i.id === "select:ungroup"), "no group: no Ungroup");
 });
 
-test("a chip stands over the view while several things are selected and offers Group, then Ungroup once they are a group (`in_300`)", () => {
+test("Group and Ungroup are offered in the suggestion row like a suggested icon, and not for one thing (`in_300`, `in_381`)", () => {
   const { s, c } = sketch();
   let st = select({ ...createState(s) }, [c[0]!, c[1]!]);
-  const chip = (x: AppState) => frameOf(x, env).selection;
-  assert.deepEqual(chip(st)?.actions.map((a) => a.id), ["select:group"]);
-  assert.equal(chip(st)?.count, 2);
+  const ids = (x: AppState) => frameOf(x, env).suggest?.items.map((i) => i.id) ?? [];
+  assert.ok(ids(st).includes("select:group"));
   st = reduce(st, { type: "runAction", id: "select:group" }, env);
-  assert.deepEqual(chip(st)?.actions.map((a) => a.id), ["select:ungroup"]);
-  assert.equal(chip(select(st, [c[0]!])), null, "one thing is not several");
+  assert.ok(ids(st).includes("select:ungroup") && !ids(st).includes("select:group"));
+  assert.ok(!ids(select(st, [c[0]!])).includes("select:group"), "one thing is not several");
 });
 
 test("select several (the ⋯ menu): every tap adds to the selection and a tap on what is selected takes it out, as Shift does (`in_300`)", () => {
