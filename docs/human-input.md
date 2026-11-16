@@ -2737,3 +2737,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_600 — 2026-11-16 — directive
 > yes make that error message clearer
 (approves making the message clearer for a revolve the kernel cannot make, the one that said "nothing was left of the figure when its holes were cut")
+
+## in_601 — 2026-11-16 — directive
+> instead of failing on a short spiral, can we just have it reduce the rotational degrees to 0?
+(asks that a spiral the kernel cannot make fall back to a turn of 0 degrees, instead of failing; answered in chat with a question about which kind of revolve is meant, nothing built yet)
