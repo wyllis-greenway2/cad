@@ -69,6 +69,9 @@ export const settings = {
     /** a drawn line marked score or engrave (`in_564`): on screen blue dashes and a thicker orange line; cut is the usual charcoal line */
     markScore: 0x2f6fdd,
     markEngrave: 0xd9822b,
+    /** the toolpath preview (`in_570`): a cut line is red, score and engrave are the colours of their marks, a travel move a pale grey */
+    previewCut: 0xe03131,
+    previewTravel: 0x9aa0a6,
     outlines: true, // the dark lines along a body's edges: off, the body is drawn by its shading alone (`in_459`; the menu row switches it, the choice is kept)
     /** how faint the edges of a body behind a face are drawn while a sketch tool is on (`in_324`) */
     hiddenEdgeOpacity: 0.22,

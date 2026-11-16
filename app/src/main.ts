@@ -40,6 +40,7 @@ import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
 import { createRing } from "./ui/ring.ts";
 import { createAddChip } from "./ui/addchip.ts";
+import { createPreviewBar } from "./ui/previewbar.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
@@ -115,6 +116,7 @@ if (Number.isFinite(savedPan) && savedPan > 0) settings.input.trackpadPanScale =
 
 const menu = createMenu(document.body, (id) => {
   menu.hide();
+  if (state.menu) { state = { ...state, menu: null }; dirty = true; } // (a row that opens a dialog or sets something does not close the ⋯ menu's state on its own: the first Esc afterwards would only have closed that)
   if (id === "view:game") { input.toggleGame(); return; } // (game mode is the input's: it holds the pointer, `in_391`)
   if (id === "outlines") {
     settings.theme.outlines = !settings.theme.outlines;
@@ -168,6 +170,7 @@ const faceKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: 
 const loftKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "loftKind", id }), "Loft:");
 const sizeKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "sizeKind", kind: id as "constant" | "variable" | "twoDistances" | "swap" }), "Size:");
 const addChip = createAddChip(document.body, () => dispatch({ type: "runAction", id: "select:add" }));
+const previewBar = createPreviewBar(document.body, (at) => dispatch({ type: "previewAt", at }), () => dispatch({ type: "previewClose" }));
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "invert" ? { type: "runAction", id: "hollow:invert" } : to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
@@ -247,6 +250,7 @@ async function laserDialogFlow() {
   if (!r.ok) return say(r.error);
   const { run, file, summary } = r.value;
   if (!file) return say("nothing was planned: " + (run.findings[0]?.message ?? "no lines to cut"));
+  if (run.toolpath) { state = { ...state, preview: { toolpath: run.toolpath, at: 1 } }; dirty = true; } // (the toolpath is shown over the drawing while the findings are read and after the file is saved, `in_570`)
   if (run.findings.length || run.warnings.length) {
     const go = await dialog.open(() => findingsDialog(run.findings, summary), {});
     if (!go) return say("the file was not saved");
@@ -407,6 +411,8 @@ function frame(now: number) {
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
     undoBar.update(lastDevice === "touch", f.undoRedo);
     similarChip.update(f.similar);
+    view.setToolpath(f.toolpath, state.cam);
+    previewBar.update(f.previewBar);
     addChip.update(f.adding === "offer" && lastDevice !== "touch" ? null : f.adding);
     faceKindChip.update(f.faceKinds);
     sizeKindChip.update(f.sizeKinds);

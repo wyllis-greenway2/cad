@@ -1,5 +1,5 @@
 // The neutral toolpath (`dec_manufacturing_contract` points 6 and 8): an ordered list of moves that a machine profile turns into a file. Every route writes this and every preview draws it, so one overlay serves them all. Plain data.
-import type { Point3 } from "./part.ts";
+import type { Point3, PlaneFrame } from "./part.ts";
 
 /** One move. Millimetres; `feed` in mm/min; `power` as a fraction of the machine's full power (0 to 1). */
 export type Move =
@@ -21,6 +21,8 @@ export interface ToolpathOperation {
 
 export interface Toolpath {
   units: "mm";
+  /** where the toolpath's own x, y and z are in the world (a point it calls zero, the way its x axis points and its normal): lets a preview draw it over the part it was made from. Absent: the toolpath is drawn as it is. */
+  frame?: PlaneFrame;
   operations: ToolpathOperation[];
   /** the raw material, drawn in the preview, if the route knows it */
   stock?: { min: Point3; max: Point3 };

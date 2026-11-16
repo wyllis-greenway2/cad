@@ -3,7 +3,7 @@ id: dec_laser_outline_route
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_569
+human_input: in_569, in_570
 date: 2026-11-16
 depends_on:
   - dec_manufacturing_prep: this is its v1 beam outline cutting (profile with tabs and kerf, layers, G-code) as the first route
@@ -26,7 +26,9 @@ alternative_to:
 - **The machine and the dialect are generic starting points, not official ones:** a work area and a power scale the user types, and plain GRBL-style words (G21 G90 G0 G1 G2 G3, `M4 S` power, M5, M2). Marked `user`, with the note that the first lines are to be read against the controller's manual. Official ones wait for a cited source (`dec_manufacturing_definitions` point 10).
 - **Offsetting is our own code,** not Clipper2: `clipper2-js` (Boost) was tried and gave wrong offsets for a plain square (recorded in `docs/licenses.md`).
 
-**Not built:** the **preview** of the toolpath in the 3D view (the shared overlay of `dec_manufacturing_contract` point 7); saving a machine and settings (the dialog remembers the last answers only); a power and speed table by material; lead-ins and lead-outs; cut order within a depth beyond nearest-next; nesting several parts on a sheet (`in_560`: manual layout and bounding-box packing are next); engrave fills and raster images; SVG or DXF written from the toolpath; a solid body or a body's face as the part's source for kerf (only a flat face's outline); a tool-radius offset for a router (the offset code is shared and ready); a check that a hole or a part is not inside a hole; features smaller than the offset on concave corners are caught only by a distance check, not repaired.
+**The preview (`in_570`, built):** the toolpath is shown over the drawing in the 3D view, with the same camera and world: cut lines red, score blue and engrave orange (the colours of their marks), travel pale grey, what is done in full colour and what is still to come faint, a red dot where the head is, and a scrubber under it (a slider, how far along by length, the estimated time, a cross). It opens when the file is made (before the findings are read) and stays after the file is saved; Esc or the cross ends it. It is **shared, not the laser's:** the toolpath carries a `frame` (where its zero, x and normal are in the world), `interaction/toolpathview.ts` flattens any toolpath (arcs in five-degree steps) into lines by position, and `ui/previewbar.ts` and `view.setToolpath` draw them, so every later route gets its preview with no code of its own.
+
+**Not built:** the playing of the preview as a moving animation (only the slider) saving a machine and settings (the dialog remembers the last answers only); a power and speed table by material; lead-ins and lead-outs; cut order within a depth beyond nearest-next; nesting several parts on a sheet (`in_560`: manual layout and bounding-box packing are next); engrave fills and raster images; SVG or DXF written from the toolpath; a solid body or a body's face as the part's source for kerf (only a flat face's outline); a tool-radius offset for a router (the offset code is shared and ready); a check that a hole or a part is not inside a hole; features smaller than the offset on concave corners are caught only by a distance check, not repaired.
 
 ## Rationale
 

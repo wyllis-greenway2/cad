@@ -56,7 +56,7 @@ const percent = (ctx: RouteContext, id: string, d: number): number => (typeof ct
 const value = (ctx: RouteContext, id: string, d: number): number => (typeof ctx.settings[id] === "number" ? (ctx.settings[id] as number) : d);
 
 function plan(part: PartSnapshot, ctx: RouteContext): Toolpath {
-  const { paths } = prepare(part, ctx.settings);
+  const { paths, shift } = prepare(part, ctx.settings);
   const rapid = ctx.machine.limits.feed;
   const ops: ToolpathOperation[] = [];
   let seconds = 0;
@@ -95,7 +95,9 @@ function plan(part: PartSnapshot, ctx: RouteContext): Toolpath {
     }
     ops.push({ id: layer, label, layer, moves });
   }
-  return { units: "mm", operations: ops, seconds: Math.round(seconds) };
+  const pl = part.outlines?.[0]?.plane;
+  // the toolpath is in the machine's x and y (the part moved to the corner): its zero is where the drawing's own point (-shift) is, so a preview can lay it over the drawing
+  return { units: "mm", operations: ops, seconds: Math.round(seconds), ...(pl ? { frame: { origin: world(part, [-shift[0], -shift[1]]), xDir: pl.xDir, normal: pl.normal } } : {}) };
 }
 
 export const laserOutline: Route = {

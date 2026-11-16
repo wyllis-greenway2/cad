@@ -143,6 +143,8 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "entry": return doEntry(s, i.field, i.text);
     case "repeatApply": return doRepeatApply(s);
     case "repeatCancel": return doRepeatCancel(s);
+    case "previewAt": return s.preview ? { ...s, preview: { ...s.preview, at: Math.min(1, Math.max(0, Number.isFinite(i.at) ? i.at : 0)) } } : s;
+    case "previewClose": return { ...s, preview: null };
     case "panel": return doPanel(s, i.name);
     case "panelRow": return doPanelRow(s, i.id, i.act);
     case "relation": return doRelation(s, i);

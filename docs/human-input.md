@@ -2616,3 +2616,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_569 — 2026-11-16 — directive
 > Do the laser outline route next
 (asks for the first manufacturing route: laser outline cutting, as planned in dec_manufacturing_prep, with the part snapshot builder built alongside it)
+
+## in_570 — 2026-11-16 — directive
+> Do the toolpath preview next
+(asks for what in_569 left unbuilt: the toolpath of a manufacturing route shown in the 3D view, the shared preview overlay)
