@@ -7,7 +7,7 @@ import type { Session } from "./session.ts";
 import { EXPORT_QUALITY, EXPORT_NOTHING, canExport } from "./exportstl.ts";
 
 export type ExportFormat = "stl" | "3mf" | "step";
-export const FORMATS: Record<ExportFormat, { ext: string; mime: string; label: string }> = {
+const FORMATS: Record<ExportFormat, { ext: string; mime: string; label: string }> = {
   stl: { ext: "stl", mime: "model/stl", label: "STL" },
   "3mf": { ext: "3mf", mime: "model/3mf", label: "3MF" },
   step: { ext: "step", mime: "model/step", label: "STEP" },

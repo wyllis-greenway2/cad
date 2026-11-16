@@ -11,6 +11,8 @@ import { createSession, openSession, saveText, run, scene, selection, refresh } 
 import type { Session } from "./interaction/session.ts";
 import { canExport, selectedBodies } from "./interaction/exportstl.ts";
 import { exportFile, fileName } from "./interaction/exportfile.ts";
+import { exportFlat, canExportFlat } from "./interaction/exportsketch.ts";
+import type { FlatFormat } from "./interaction/exportsketch.ts";
 import type { ExportFormat } from "./interaction/exportfile.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
 import { createState, reduce, advance, stopView } from "./interaction/controller.ts";
@@ -118,6 +120,7 @@ const menu = createMenu(document.body, (id) => {
   } else if (id === "constraints") dispatch({ type: "runAction", id: "constraints" });
   else if (id === "share") shareState();
   else if (id === "exportStl" || id === "export3mf" || id === "exportStep") void exportModel(id === "exportStl" ? "stl" : id === "export3mf" ? "3mf" : "step");
+  else if (id === "exportSvg" || id === "exportDxf") exportSketch(id === "exportSvg" ? "svg" : "dxf");
   else if (id === "clearAnswers") void resultStore?.clear();
   else if (id === "exportBody" || id === "exportBody3mf" || id === "exportBodyStep") void exportModel(id === "exportBody" ? "stl" : id === "exportBody3mf" ? "3mf" : "step", selectedBodies(state.session));
   else if (id === "save" || id === "open") dispatch({ type: id });
@@ -200,6 +203,13 @@ async function exportModel(format: ExportFormat, only?: string[]) {
   webFiles.saveBytes(r.name, r.bytes, r.mime);
   say(r.message);
 }
+/** Save a flat drawing (the selected sketch or flat face, else the whole drawing) as an SVG or a DXF file (`dec_export_flat`). */
+function exportSketch(format: FlatFormat) {
+  const r = exportFlat(state.session, format);
+  state = { ...state, session: { ...state.session, message: r.ok ? r.message : r.error } };
+  if (r.ok) webFiles.saveBytes(r.name, r.bytes, r.mime);
+  dirty = true;
+}
 function dispatch(i: Intent) {
   logIntent(i);
   if (i.type === "save") { webFiles.save(FILE_NAME, saveText(state.session)); return; }
@@ -224,7 +234,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale, settings.theme.outlines, scene(state.session).clearance ?? 0)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportFlat: canExportFlat(state.session), exportBody: !!selectedBodies(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale, settings.theme.outlines, scene(state.session).clearance ?? 0)); }
     else {
       menu.hide();
       if (state.menu && inGame()) { // game mode: the ring stands in the world, ahead of the eye, where it was opened (`in_463`, `in_471`)

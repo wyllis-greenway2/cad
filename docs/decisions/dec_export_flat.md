@@ -1,0 +1,28 @@
+---
+id: dec_export_flat
+kind: decision
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_488, in_491
+date: 2026-11-16
+depends_on:
+  - dec_export_formats: the same file service (`saveBytes`) and the same menu rows; this adds the two flat formats (SVG, DXF) that `q_import_export` point 3 puts after STEP
+alternative_to:
+---
+# Export a flat drawing as SVG or DXF
+
+`in_491` asked for SVG and DXF export next, from the order proposed in `q_import_export` (which stays open for the rest). **Built as the AI proposed, narrowly:**
+
+- **What is exported:** a *selected flat face of the body* (its outline: the outer edge and the holes), else the *lines, arcs and circles of what is selected* of a sketch (a figure with the figures inside it, lines, circles, a drawn plane), else, with nothing selected, *the whole drawing* when it lies on one plane. Drawings on several planes without a selection, a face with a sketch, and a whole body are refused with what to select.
+- **Coordinates:** the plane's own, x along its first direction and y along its second, millimetres, as drawn (nothing is moved to the origin).
+- **SVG** (`compiler/flatfile.ts` `svgText`): the file's width and height are in mm (so laser and vinyl programs size it right), a 1 mm margin, no fill, a 0.1 mm black line; the pieces that meet end to end are one path (closed with Z when they come round, so a cut is one closed shape), a circle is a `<circle>`; y is turned over so the picture is the same way up; arcs keep their radius (an `A` command).
+- **DXF** (`dxfText`): the old plain form (AC1009) that every program reads, units mm ($INSUNITS 4), a LINE, ARC or CIRCLE for each piece (an arc is always counter-clockwise in DXF, so a clockwise one is written from its other end); the programs join the pieces themselves.
+- **Menu:** `Export sketch as SVG…` and `Export sketch as DXF…`, greyed out with the reason when there is nothing to export (`appmenu.ts`).
+
+**Checked outside the tests (`ezdxf` and `svgpathtools`):** a block's top with a round hole gives a DXF and an SVG whose total lengths are both 145.1327 mm (the rectangle and the hole) and `ezdxf`'s audit finds no errors; a half circle gives 31.4159 mm both ways.
+
+**Not built:** layers, colours and line weights; text and dimensions; ellipses and splines (the app has none); a choice of what to export beyond the selection; units other than mm; DXF in a newer version with polylines; several sketches in one file.
+
+## Rationale
+
+Laser, vinyl and CNC users need the outline, not the solid; the sketch and the face outline already exist in the app in plane coordinates (`offsetbody.ts` for faces), so the cost is the two writers. The old DXF form is chosen for reach over neatness: every program reads it, and joining lines into shapes is what they all do on opening.

@@ -2292,3 +2292,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_490 — 2026-11-16 — directive
 > Build STEP and 3MF export first
 (approves the first two steps of the order in `q_import_export` point 5 that follow STL: 3MF export and STEP export; the `about` block, the Import / Export menu restructure and the imports are not asked for yet)
+
+## in_491 — 2026-11-16 — directive
+> Build SVG and DXF export next
+(asks for the next step of `q_import_export` point 5: SVG and DXF export of a sketch or a flat face; imports and the Import / Export restructure are not asked for yet)

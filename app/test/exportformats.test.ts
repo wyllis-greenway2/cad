@@ -15,7 +15,7 @@ import { appRows } from "../src/interaction/appmenu.ts";
 import { createAsyncKernel } from "../src/kernel-async.ts";
 
 await kernel.init();
-setOC(await loadOC());
+setOC((await loadOC()) as never);
 const XY = worldRef("XY");
 const box = (): Session => {
   let s = createSession(kernel);
@@ -85,7 +85,7 @@ test("a STEP of a block is the exact solid: a STEP file with 6 faces that the ke
   assert.match(text, /^ISO-10303-21;/);
   assert.equal((text.match(/ADVANCED_FACE/g) ?? []).length, 6);
   const back = await importSTEP(new Blob([r.bytes as BlobPart]));
-  assert.ok(Math.abs(measureVolume(back) - 16000) < 1e-3, `volume ${measureVolume(back)}`);
+  assert.ok(Math.abs(measureVolume(back as never) - 16000) < 1e-3, `volume ${measureVolume(back as never)}`);
   assert.match(r.message, /the exact body.*40 × 20 × 20 mm/);
 });
 
