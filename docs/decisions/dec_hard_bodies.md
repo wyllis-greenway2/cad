@@ -1,16 +1,16 @@
 ---
-id: q_hard_bodies
-kind: question
-status: open
-origin: ai-unreviewed
-human_input: in_472
+id: dec_hard_bodies
+kind: decision
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_472, in_473
 date: 2026-11-16
 depends_on:
 alternative_to:
 ---
-# Hard bodies: bodies that collide
+# Hard bodies: bodies that collide, kept apart by one clearance for the model
 
-`in_472` asked whether bodies that cannot pass through each other ("hard bodies") are possible and feasible, as a natural real-world constraint for interlocking parts, or whether it takes a whole physics engine. Nothing is built; this is the AI's answer and proposal.
+`in_472` asked whether bodies that cannot pass through each other ("hard bodies") are possible and feasible, as a natural real-world constraint for interlocking parts, or whether it takes a whole physics engine. The AI's answer and proposal were approved as written, with one clearance for the whole model (`in_473`).
 
 **Answer: possible, and it does not take a physics engine.** What is wanted is a *kinematic* rule, "a hard body may not overlap another body", checked while a body is moved or turned by hand, not dynamics (no gravity, forces, bounce, momentum, friction). The app already has the other half: a driven move is solved against the mates (`solveDriven` in `operation/matesolve.ts` takes the pose the pointer asks for and gives back the nearest pose the mates allow, with `blockedBy` naming what held it back, and the picture flashes red, `in_338`). Non-penetration is one more constraint of that kind, an inequality instead of an equality.
 
@@ -32,7 +32,11 @@ alternative_to:
 
 **Size:** the flag, the exact test, blocking a drag at contact with the flash and the message: about a session; sliding along contacts and the clearance: another; mesh-based speed for large bodies: another. No new dependency is needed for the first two (OpenCascade is there); a triangle-mesh tree is a few hundred lines of our own.
 
-**Recommendation:** build it in that order. Say go ahead, and whether the tolerance for fitted parts should be a number set once for the model or on each body.
+**Built (`in_473`, the first two of the three steps, the clearance one number for the model):**
+- *The flag and the clearance:* `Scene.hard` (the names of the hard bodies) and `Scene.clearance` (mm, 0 = only going into each other counts), saved, set by the commands `setHard` and `setClearance` (undoable); the ring's *Hard body* (Shape; every body selected, off again when all are hard) and the ⋯ list's *Hard bodies: clearance …* (goes round 0, 0.1, 0.2, 0.3, 0.5, 1 mm).
+- *The test (`operation/collide.ts`, pure):* triangle lists, a tree of boxes over the one that stays, proper crossings of a triangle by an edge (a face on a face, an edge or a corner on a surface are touches), the least triangle distance when there is a clearance (so a face resting on a face is a collision when the clearance is more than nothing), a body wholly inside another by a counted ray; the way a rigid motion goes (`partOf`: a turn about an axis with a slide, taken any part of the way) and `freePart` (24 steps along it so a thin wall is not stepped over, the last free one narrowed in 10 halvings).
+- *The rule (`interaction/hard.ts`):* `hardLimit` for a group moved by hand against every hard body that stays (a pair already overlapping is left out so bodies can be pulled out of each other); the triangles come from the face meshes of each body; `limitedOp` for what releasing makes: a drag's move or turn taken only as far as it can go, a number typed that would run into another is refused with the reason, a body already against another says so. While dragging, the picture stops where the bodies meet (`frame.ts` `gpuMotion`) and the body it is against flashes.
+- *Not built:* sliding along the contact (a body only stops), moves by a repeat, a mirror, a push / pull that grows a hard body, and the history is not tested again when it is replayed (the steps hold the poses reached); a mate that holds two hard bodies against the rule; a motion held by mates is limited as the mates leave it only in the picture, not at release; a tree of the moving body for very heavy models (each step moves its triangles); a mark on a hard body.
 
 ## Rationale
 It adds a property to bodies and a rule to every motion, so it is asked before it is built.

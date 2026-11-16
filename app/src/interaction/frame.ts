@@ -23,6 +23,8 @@ import { seenIn } from "./picking.ts";
 import { tapeAnnotations } from "./tape.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
+import { hardLimit } from "./hard.ts";
+import { partOf } from "../operation/collide.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { withCorner } from "./runop.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, previewRefusal, undoLast } from "./session.ts";
@@ -201,7 +203,7 @@ function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame[
 }
 
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
-function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[]; shown: { scene: Scene; outcome: CompileOutcome }; /** the mates that hold the dragged body back (`in_338`) */ blocked?: string[]; /** where the dragged body's middle actually went, held by its mates: the arrows and numbers show it, not the pointer (`in_347`) */ shownFree?: Vec3; /** the other bodies selected, dragged with it (`in_341`, `in_345`) */ followers?: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[] } | null {
+function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[]; shown: { scene: Scene; outcome: CompileOutcome }; /** the mates that hold the dragged body back (`in_338`) */ blocked?: string[]; /** the hard bodies the dragged one is against (`dec_hard_bodies`) */ hardHit?: Ref[]; /** where the dragged body's middle actually went, held by its mates: the arrows and numbers show it, not the pointer (`in_347`) */ shownFree?: Vec3; /** the other bodies selected, dragged with it (`in_341`, `in_345`) */ followers?: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[] } | null {
   if (s.drag && "handle" in s.drag && s.drag.joint) { // a joint's handle dragged: the body is drawn turned or slid by the amount so far (`in_323`)
     const jd = s.drag.joint;
     const sc0 = sceneOf(s.session);
@@ -224,8 +226,12 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
   // the bodies selected move as one; the others stay where they are, mated to them or not, and the mates of the bodies that move hold them (`in_338`, `in_345`)
   const group = op.target === "body" ? op.parts.filter((r) => sceneOf(base).parts[r]?.kind === "body") : [];
   const held = group.length ? constrainedMotion(sceneOf(base), group, asked, op.grab) : null;
-  const rigidOf = (b: Ref): Rigid | null => (held ? held.rigids.find((q) => q.body === b)?.rigid ?? null : asked);
+  const rigidOf0 = (b: Ref): Rigid | null => (held ? held.rigids.find((q) => q.body === b)?.rigid ?? null : asked);
+  // hard bodies (`dec_hard_bodies`): a body that is hard goes only as far as it can before it meets another hard body; the body it is against flashes
+  const stopped = group.length && !op.typed && op.kind !== "scale" ? hardLimit(sceneOf(base), group, rigidOf0) : null;
+  const rigidOf = (b: Ref): Rigid | null => { const r = rigidOf0(b); return r && stopped ? partOf(r, stopped.t) : r; };
   const m = group.length ? rigidOf(group[0]!) : asked;
+  const blockedBodies = stopped?.hit ?? [];
   if (!m) return null;
   if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
   const matrix = matrixOf(m);
@@ -242,8 +248,8 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
   // the arrows and numbers of a drag the mates hold back show where the body went, not where the pointer is
   const first = group[0] ? sceneOf(base).parts[group[0]] : undefined;
   const centre: Vec3 | null = first?.kind === "body" && first.bbox ? [(first.bbox.min[0] + first.bbox.max[0]) / 2, (first.bbox.min[1] + first.bbox.max[1]) / 2, (first.bbox.min[2] + first.bbox.max[2]) / 2] : null;
-  const went = held && m && centre ? applyPoint(m, centre) : null;
-  return { matrix, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked } : {}), ...(went && centre ? { shownFree: sub(went, centre) as Vec3 } : {}), followers };
+  const went = (held || stopped) && m && centre ? applyPoint(m, centre) : null;
+  return { matrix, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked } : {}), ...(blockedBodies.length ? { hardHit: blockedBodies } : {}), ...(went && centre ? { shownFree: sub(went, centre) as Vec3 } : {}), followers };
 }
 
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
@@ -320,7 +326,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   const typing = !!shownOp && (shownOp.typed !== "" || shownOp.rot.some((t) => t !== ""));
   const numberShown = armed || typing || !!(s.drag && ("handle" in s.drag || "body" in s.drag));
   // a body dragged against its mates: they are red while it is held back, as a refused change shows what it would have broken (`in_338`)
-  const flash: FlashFrame | null = gpu?.blocked?.length ? { t: 0, victims: gpu.blocked, culprits: [], parts: flashParts(sc, gpu.blocked) } : flashOf(s, sc, now);
+  const flash: FlashFrame | null = gpu?.hardHit?.length ? { t: 0, victims: [], culprits: [], parts: gpu.hardHit } : gpu?.blocked?.length ? { t: 0, victims: gpu.blocked, culprits: [], parts: flashParts(sc, gpu.blocked) } : flashOf(s, sc, now);
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
   const gp = gridPlaneOf(s);
   const annotationsPresent = !busy; // (the bubbles are the only user of `avoid`: none are shown while a tool or operation runs)

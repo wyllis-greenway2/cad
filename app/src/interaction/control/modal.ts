@@ -1,4 +1,6 @@
 // Tools and operations that take typing: starting them, typed keys, finishing, cancelling; and the edits that do not depend on the pointer (delete, undo, relations).
+import { isHard } from "../hard.ts";
+import type { Command } from "../../operation/commands.ts";
 import type { Intent } from "../../shared/input.ts";
 import { scene as sceneOf, selection as selectionOf, run, undoLast, redoLast, clearSelection } from "../session.ts";
 import type { Session } from "../session.ts";
@@ -305,6 +307,21 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "select:similar") return doSimilar(closed);
   if (id === "select:group") return doGroup(closed);
   if (id === "select:faces" || id === "select:edges" || id === "select:vertices") return doSelectAll(closed, id.slice(7) as "faces" | "edges" | "vertices");
+  if (id === "body:hard") { // a body made hard or soft (`in_473`): all the bodies selected, to hard unless every one already is
+    const sc = sceneOf(closed.session);
+    const bodies = selectionOf(closed.session).filter((r) => sc.parts[r]?.kind === "body" && !!(sc.parts[r] as { id?: string }).id);
+    if (!bodies.length) return { ...closed, session: { ...closed.session, message: "select a body" } };
+    const on = !bodies.every((r) => isHard(sc, r));
+    const session = run(closed.session, { type: "batch", commands: bodies.map((r): Command => ({ type: "setHard", body: (sc.parts[r] as { id: string }).id, on })) });
+    return { ...closed, session: { ...session, message: on ? `hard: ${bodies.length === 1 ? "this body" : "these bodies"} will not go into other hard bodies when moved by hand` : null } };
+  }
+  if (id === "hard:clearance") { // the clearance of the whole model, round a few values (`in_473`)
+    const sc = sceneOf(closed.session);
+    const steps = [0, 0.1, 0.2, 0.3, 0.5, 1];
+    const now = sc.clearance ?? 0;
+    const next = steps.find((v) => v > now + 1e-9) ?? 0;
+    return { ...closed, session: run(closed.session, { type: "setClearance", value: next }) };
+  }
   if (id === "combine:parts") return doCutBegin(closed);
   if (id === "select:ungroup") return doUngroup(closed);
   if (id === "hollow:invert" && s.op?.kind === "hollow" && s.op.hollowMode && s.op.hollowMode !== "closed") return { ...s, op: { ...s.op, hollowMode: s.op.hollowMode === "keep" ? "open" : "keep" }, session: { ...s.session, message: null } };

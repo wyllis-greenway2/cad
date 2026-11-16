@@ -36,6 +36,10 @@ export type Command =
   | { type: "transformFigure"; parts: Ref[]; plane: Ref; newPlane: Ref; turns: { axis: 0 | 1 | 2; angle: number }[]; pivot: Vec3; translate: Vec3; /** made this many times bigger about `pivot`, after the turns (the same all ways; circles too) */ scale?: number; /** a plane drawn when there was one body has no owner: this names the body it belongs to, so a later move of that body is read back through for what is drawn on it (`in_277`) */ body?: string }
   /** group things (parts, or groups made before) so that selecting one selects all; `id` is a new group id (`in_257`) */
   | { type: "group"; id: string; items: string[] }
+  /** a body made hard or soft (`dec_hard_bodies`): `body` is the name it keeps through the history */
+  | { type: "setHard"; body: string; on: boolean }
+  /** the clearance of the whole model, mm (`dec_hard_bodies`) */
+  | { type: "setClearance"; value: number }
   /** break one group: what was in it stays, and a group inside it stays a group */
   | { type: "ungroup"; id: string }
   /** repeat a drawn figure so that it keeps its numbers (`in_257`, `repeat.ts`): the copies are made from this record */
@@ -208,6 +212,8 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       return r.ok ? ok(bumpCounter(r.value, c.id)) : r;
     }
     case "ungroup": return removeGroup(s, c.id);
+    case "setHard": { const hard = (s.hard ?? []).filter((b) => b !== c.body); return ok({ ...s, ...(c.on ? { hard: [...hard, c.body] } : hard.length ? { hard } : { hard: undefined }) }); }
+    case "setClearance": return Number.isFinite(c.value) && c.value >= 0 ? ok({ ...s, clearance: c.value || undefined }) : err("the clearance is a distance of nothing or more");
     case "pattern": { const r = addPattern(s, { id: c.id, kind: c.kind, parts: c.parts, plane: c.plane, params: c.params }); return r.ok ? ok(bumpCounter(r.value, c.id)) : r; }
     case "setPattern": return setPattern(s, c.id, c.params);
     case "breakPattern": return breakPattern(s, c.id);

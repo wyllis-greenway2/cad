@@ -2216,3 +2216,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_472 — 2026-11-16 — question
 > Can we introduce hard bodies? These would be bodies that are collidable. So the idea is that a hard body would collide with any other body. It would be helpful because it would naturally set real world constraints for interlocking parts that fit together. is this possible and feasible? or would it basically require an entire physics engine?
 (asks whether bodies that collide (hard bodies) are feasible, as a natural real-world constraint for interlocking parts, and whether that needs a whole physics engine)
+
+## in_473 — 2026-11-16 — directive
+> Go ahead with hard bodies, one tolerance for the whole model
+(approves `q_hard_bodies` as proposed, in its order, with one clearance for the whole model)
