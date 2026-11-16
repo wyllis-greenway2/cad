@@ -2640,3 +2640,6 @@ Six inputs of the last turns had not been recorded (`in_451` to `in_456`; record
 ## Handoff 536 — 2026-11-16 (in_571: a checklist for the real hardware)
 `in_571`. What is left needs a person with a phone, a trackpad, a mouse in game mode and a physical keyboard. **Written:** `docs/hardware-checklist.md` (13 things to try, each with what should happen). No code changed.
 
+## Handoff 537 — 2026-11-16 (in_573: the cross section as the real object, part 1)
+`in_573`. **Built (`dec_cross_section`):** the teal of a selected face, the ring of the pointer and the highlight's lines are clipped by the cutting sheets (`ui/orb.ts` `sectionClip` shared by the orb materials, `view.ts` `setHighlight` for the rest); the cut face is darker and its hatching closer (`view.ts`); the faint plane follows its drag live (`frame.ts` `sectionPlanes`). **Test:** `sectionlive.test.ts` (the quad and the clip are at the dragged place). **Browser:** in Chromium a selected top face stops at the plane (fill and outline), the body clips live during a drag and the plane's quad now moves with it (-5.9 mid-drag, was left at 0), no errors. **Not built:** the cut face as a real, pickable face (hover, click, sketch, constraints to its edges): a design is in `dec_cross_section` with three open choices; it touches the derivation of the body's parts, so say go before I build it.
+
