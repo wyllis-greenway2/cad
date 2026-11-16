@@ -115,3 +115,4 @@ export function joinedAtCorners(s: Scene, plane: Ref, command: Command): Command
   }
   return out.length ? { type: "batch", commands: [command, ...out] } : command;
 }
+
