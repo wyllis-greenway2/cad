@@ -68,10 +68,10 @@ const CASES: { file: string; step: string; known?: string; slow?: boolean }[] = 
   // breaks found by the sweep: the kernel's round gives way to the region and the volume goes back (a bigger round that leaves more of the body)
   { file: "cyl-fillet.cad.json", step: "s_007" }, // (was a break: the region rounded the one half of the rim the step names, the kernel the whole rim; `in_479`)
   { file: "stadium-body.cad.json", step: "s_020" }, // (was a break: the region chamfered the one straight side named, the kernel the whole outline of the slot; `in_480`)
-  { file: "hollow-pushed.cad.json", step: "s_022", slow: true, known: "8 to 8.5 mm: 3786 to 4421 mm3" },
-  { file: "hollow-pushed.cad.json", step: "s_026", slow: true, known: "5.5 to 6 mm: 2219 to 2018 mm3" },
-  { file: "thin-wall.cad.json", step: "s_020", slow: true, known: "7.5 to 8 mm: 16261 to 17065 mm3" },
-  { file: "big-chamfer.cad.json", step: "s_036", slow: true, known: "7 to 7.5 mm: 8112 to 8646 mm3" },
+  { file: "hollow-pushed.cad.json", step: "s_022", slow: true },
+  { file: "hollow-pushed.cad.json", step: "s_026", slow: true, known: "5.5 to 6 mm: the region fills about 35 mm3 (1.6 %) less than the kernel's concave round at the handover, so the step is 18 mm3 where 50 is expected, then 57; the foot of a post of radius 6.7 (a concave rim), no reversal" },
+  { file: "thin-wall.cad.json", step: "s_020", slow: true },
+  { file: "big-chamfer.cad.json", step: "s_036", slow: true },
 ];
 
 for (const c of CASES) {

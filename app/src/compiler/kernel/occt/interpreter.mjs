@@ -853,6 +853,7 @@ const OPS = {
           if (!roundIsSane(t, two, Math.max(size, second), set)) throw new Error("kernel returned an invalid solid");
           return two;
         }
+        if (!rel && stage("is a rim rounded past its end", () => rimCapped(t, set, size, op.mode))) throw new Error("the region makes this round (a rim rounded by more than the face or the wall it runs on)");
         const made = stage("the kernel's round", () => op.mode === "chamfer" ? t.chamfer(size, pick) : rel && rel.length > 2 ? lawFillet(t, set, stationsFor(size)) : t.fillet(rel ? [size, size * rel[1][1]] : size, pick));
         if (!stage("checking the round", () => isValidSolid(made))) throw new Error("kernel returned an invalid solid"); // (a size the faces cannot take can come out as a broken solid, not an exception)
         const reach = Math.max(size, rel ? size * Math.max(...rel.map(([, r]) => r)) : 0);
@@ -1415,6 +1416,7 @@ function rimTool(e, fs, size, mode, stations, whole = false) {
   };
   const outline = outlineFor(size);
   if (!outline) return null;
+  const capped = Math.min(size, planeW, wallH) < size - 1e-9; // (the round is larger than the face or the wall it runs on: it saturates, as a dome at the end of a post)
   // the profile is drawn in the half plane through the axis that holds the start of the rim (radius across, height along the axis) and turned about the axis through the span of the rim: all the way round for a whole
   // rim, the span of the arc for a piece of one (the round then ends in a flat cut across it, as a round ends at a vertex)
   const M = e.pointAt(0.5);
@@ -1443,11 +1445,11 @@ function rimTool(e, fs, size, mode, stations, whole = false) {
     for (let k = 0; k < N; k++) { const [a, b] = [section(k), section(k + 1)]; if (!a || !b) return null; pieces.push(a.loftWith(b, { ruled: true })); }
     let ring = pieces[0];
     for (const piece of pieces.slice(1)) ring = ring.fuse(piece); // (joined into one ring before it is cut: pieces cut one after the other leave slivers where they meet)
-    return { tool: ring, convex, R, length: e.length, partial: false, key: String(e.hashCode) };
+    return { tool: ring, convex, R, length: e.length, partial: false, key: String(e.hashCode), capped };
   }
   const sketch = outline.sketchOnPlane(new Plane(C, rS, cross3(rS, ax)));
   const solid = sketch.revolve(ax, { origin: C, angle: span });
-  return { tool: solid, convex, R, length: e.length, partial: !closed, key: String(e.hashCode) };
+  return { tool: solid, convex, R, length: e.length, partial: !closed, key: String(e.hashCode), capped };
 }
 /** The solid between the planes at `from` and `to` along the unit vector m from the point p, square and `big` wide about it. */
 function slabSolid(p, m, from, to, big) {
@@ -1497,6 +1499,24 @@ function sphereCorners(edges, mode) {
 }
 export { regionRound, approximateRound };
 const faceVertices = (f) => edgesOf(f).flatMap((e) => [e.startPoint, e.endPoint]);
+/**
+ * Is a rim of the selection (the named edges and the smooth chain they are on) rounded by more than the face or the wall it runs on allows (`rimTool`'s reach is capped: the end of a post of a radius smaller
+ * than the size)? The kernel's round of that size is some other surface than the dome the region makes there, and the two do not agree: the kernel's takes off more, so a bigger round took off less where the
+ * region took over (`in_482`: a round tip of a teardrop-shaped post, a bigger round than the tip's radius). From that size the region's round is used, so there is one way of making it.
+ */
+function rimCapped(t, set, size, mode) {
+  const edges = edgesOf(t);
+  if (!edges.some((x) => x.geomType === "CIRCLE")) return false; // (a body with no round edge: nothing to look at; the smooth chain below may take one up)
+  const byEdge = new Map();
+  for (const f of facesOf(t)) for (const e of edgesOf(f)) byEdge.set(e.hashCode, [...(byEdge.get(e.hashCode) ?? []), f]);
+  const chain = smoothChain(t, set, byEdge) ?? set;
+  for (const e of edges.filter((x) => chain.has(x.hashCode))) {
+    const fs = byEdge.get(e.hashCode) ?? [];
+    if (!rimFaces(e, fs)) continue;
+    try { const rim = rimTool(e, fs, size, mode, undefined); if (rim && rim.capped && rim.convex) return true; } catch { /* (not a rim the region can make: the kernel's round is tried) */ }
+  }
+  return false;
+}
 /**
  * The edges the kernel's round would carry on to from the edges `set` (hash codes): an edge that meets one of them at a corner and goes on in the same direction there (a straight side into the arc that
  * turns it, an arc into the next), is on the same flat face (the one whose boundary the chain is) and has beside it a face that goes on smoothly from the one beside the edge it follows (the same normal at the
