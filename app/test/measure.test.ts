@@ -162,3 +162,43 @@ test("the volume two bodies share, from the kernel: the common part of two block
   r = lines(measureReport(scene(apart), bodyRefs(apart)));
   assert.equal(r["Between the two bodies|Shared volume"], undefined);
 });
+
+// ---- the centre of mass (`in_574`) ----
+import { massOf } from "../src/interaction/mass.ts";
+test("the centre of mass: a block's is the middle of it, bodies together weigh by volume", () => {
+  const s = block(10, 20, 30);
+  const [b] = (Object.values(scene(s).parts).filter((p) => p.kind === "body") as unknown as { ref: Ref }[]).map((x) => x.ref);
+  const m = massOf(scene(s), b!)!;
+  assert.ok(Math.abs(m.volume - 6000) < 1e-6, `volume from the mesh: ${m.volume}`);
+  assert.deepEqual(m.centre.map((v) => Math.round(v * 1e6) / 1e6), [5, 10, 15]);
+  assert.equal(lines(measureReport(scene(s), [b!]))["Body 1|Centre of mass"], "5, 10, 15 mm (as solid all through)");
+  // two bodies: 1000 mm3 at x 5 and 3000 mm3 (30 x 10 x 10) at x 35 + 15... a 10 cube at 0..10 and a 10 x 10 x 30 block at 20..50, same y and z: together (1000*5 + 3000*35) / 4000 = 27.5
+  let t = createSession(kernel);
+  const a = drawRectangle(scene(t), XY, [0, 0, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]); t = run(t, a.command);
+  t = run(t, { type: "addStep", step: { id: "s_100", type: "extrude", parts: a.lines, params: { depth: 10 } } } as never);
+  const c = drawRectangle(scene(t), XY, [20, 0, 0], [50, 10, 0], [1, 0, 0], [0, 1, 0]); t = run(t, c.command);
+  t = run(t, { type: "addStep", step: { id: "s_101", type: "extrude", parts: c.lines, params: { depth: 10, mode: "new" } } } as never);
+  const r = lines(measureReport(scene(t), []));
+  assert.equal(r["The model|Centre of mass, all"], "27.5, 5, 5 mm");
+  assert.equal(r["Body 1|Centre of mass"], "5, 5, 5 mm (as solid all through)");
+  assert.equal(r["Body 2|Centre of mass"], "35, 5, 5 mm (as solid all through)");
+});
+
+test("a notch cut out moves the centre of mass away from it, and a round post's is on its axis", () => {
+  let n = createSession(kernel);
+  const base = drawRectangle(scene(n), XY, [0, 0, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]); n = run(n, base.command);
+  n = run(n, { type: "addStep", step: { id: "s_100", type: "extrude", parts: base.lines, params: { depth: 10 } } } as never);
+  const notch = drawRectangle(scene(n), XY, [0, 0, 0], [4, 10, 0], [1, 0, 0], [0, 1, 0]); n = run(n, notch.command);
+  n = run(n, { type: "addStep", step: { id: "s_101", type: "extrude", parts: notch.lines, params: { depth: 5, mode: "cut" } } } as never);
+  const nb = (Object.values(scene(n).parts).find((p) => p.kind === "body") as unknown as { ref: Ref });
+  const nm = massOf(scene(n), nb.ref)!;
+  assert.ok(Math.abs(nm.volume - 800) < 1e-6, `800 left: ${nm.volume}`);
+  assert.deepEqual(nm.centre.map((v) => Math.round(v * 1e4) / 1e4), [5.75, 5, 5.625], "the centre has moved away from the notch");
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [3, 4, 0], 5); s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: [c.circle], params: { depth: 10 } } } as never);
+  const b = (Object.values(scene(s).parts).find((p) => p.kind === "body") as unknown as { ref: Ref });
+  const m = massOf(scene(s), b.ref)!;
+  assert.ok(Math.abs(m.centre[0] - 3) < 0.01 && Math.abs(m.centre[1] - 4) < 0.01 && Math.abs(m.centre[2] - 5) < 0.01, m.centre.join(", "));
+  assert.ok(Math.abs(m.volume - Math.PI * 25 * 10) < 0.01 * Math.PI * 25 * 10, `a post's volume from its mesh, a little under the true one: ${m.volume}`);
+});

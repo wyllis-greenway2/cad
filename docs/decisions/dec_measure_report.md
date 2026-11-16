@@ -3,7 +3,7 @@ id: dec_measure_report
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_546, in_567, in_568, in_573
+human_input: in_546, in_567, in_568, in_573, in_574
 date: 2026-11-16
 depends_on:
   - dec_model_panel: the report is the Measure tab of that panel
@@ -36,6 +36,14 @@ depends_on:
 - **How** (`interaction/overlap.ts`): the kernel makes the common part with the same boolean as the combine step's intersect (the scene's own graph and one more step after its last solid, the two bodies by the names they keep) and says its volume from the solid itself; the answer is asked through the kernel's export queue (`exportMesh` with the first body named, meshed coarsely, only its volume is used), so the kernel's thread needs nothing new and the model's own answer is not disturbed. It is asked once for the scene and the pair (kept for the scene) when the Measure tab is open with two overlapping bodies selected (`main.ts`); the panel shows it when it comes. A boolean that fails says why in the line.
 - **Tests:** two blocks overlapping by half share 500 mm³ and 50 %; asked twice, the kernel is asked once; bodies that are apart have no such line. Looked at in the browser, where the kernel runs on its own thread: the same.
 - **Not done:** the place of the nearest points; the overlap of more than two bodies; the overlap by regions of the combine step (it exists, `in_294`, in the Combine operation).
+
+## The centre of mass (`in_574`)
+
+- **A body's centre of mass** is a line "Centre of mass" in its section ("5, 10, 15 mm (as solid all through)"), and with several bodies the model's section has "Centre of mass, all" (each body counted for its own volume; where bodies overlap the overlap counts twice). It is of the solid as if it were the same all through (not of a printed part with its infill and walls).
+- **How** (`interaction/mass.ts`): from the triangles of the body's faces, by the divergence theorem: each triangle with the origin is a small piece with a signed volume and a middle, summed; inner faces face inward and count negative, so a cavity or a notch takes nothing. Kept for the scene.
+- **Accuracy:** the mesh of a round face lies inside the true surface by a few hundredths of a millimetre, so for round bodies the centre and the volume (from the mesh) are that much off (a post's volume from its mesh reads under 1 % low; its centre is on its axis to 0.01 mm); for flat faces it is exact.
+- **Tests:** a block's centre is the middle of it and its volume from the mesh is the kernel's; two blocks together weigh by volume (27.5, 5, 5); a notch cut out moves the centre away from it (5.75, 5, 5.625 for the block with a 4 x 10 x 5 notch); a round post's centre is on its axis.
+- **Not done:** the centre of the part as printed (infill, walls), the moments of inertia, the centre of mass of the selected part of a body.
 
 **Not done (later, each needing its own approval):** the place of the nearest points; the centre of mass; the perimeter of a face; the length of a chain of edges in one go; wall thickness and overhang checks for printing; a copy of the report as text; the units in inches.
 

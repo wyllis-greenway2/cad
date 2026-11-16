@@ -12,6 +12,7 @@ import { surfaceTriangles } from "./surfaces.ts";
 import { settings } from "../shared/settings.ts";
 import { clearanceBetween } from "./clearance.ts";
 import { overlapOf } from "./overlap.ts";
+import { massOf, massOfAll } from "./mass.ts";
 import type { Clearance } from "./clearance.ts";
 
 export interface MeasureLine { label: string; value: string }
@@ -56,6 +57,8 @@ function bodySection(scene: Scene, body: Extract<Part, { kind: "body" }>, title:
     const { min, max } = body.bbox;
     lines.push({ label: "Size", value: `${r2(max[0] - min[0])} × ${r2(max[1] - min[1])} × ${r2(max[2] - min[2])} mm (X × Y × Z)` });
     lines.push({ label: "Lowest, highest", value: `Z ${r2(min[2])} to ${r2(max[2])} mm` });
+    const mass = massOf(scene, body.ref);
+    if (mass) lines.push({ label: "Centre of mass", value: `${r2(mass.centre[0])}, ${r2(mass.centre[1])}, ${r2(mass.centre[2])} mm (as solid all through)` });
     lines.push({ label: "Middle of its box", value: `${r2((min[0] + max[0]) / 2)}, ${r2((min[1] + max[1]) / 2)}, ${r2((min[2] + max[2]) / 2)} mm` });
   }
   const others = bodies(scene).filter((o) => o.ref !== body.ref);
@@ -114,11 +117,13 @@ export function measureReport(scene: Scene, selection: readonly Ref[]): MeasureS
     if (!all.length) return [{ title: "Nothing to measure yet", lines: [{ label: "", value: "Make a body, or select something, to see its numbers." }] }];
     const vol = all.reduce((s, b) => s + (b.volume ?? 0), 0);
     const boxes = all.flatMap((b) => (b.bbox ? [b.bbox] : []));
+    const together = massOfAll(scene, all.map((b) => b.ref));
     const lines: MeasureLine[] = [{ label: "Bodies", value: String(all.length) }, { label: "Volume", value: `${r2(vol)} mm³ (${r2(vol / 1000)} cm³)` }, { label: "Weight, solid", value: `${r2(grams(vol))} g at ${settings.measure.densityGramsPerCm3} g/cm³` }];
     if (boxes.length) {
       const lo = [0, 1, 2].map((k) => Math.min(...boxes.map((b) => b.min[k]!))), hi = [0, 1, 2].map((k) => Math.max(...boxes.map((b) => b.max[k]!)));
       lines.push({ label: "Size, all together", value: `${r2(hi[0]! - lo[0]!)} × ${r2(hi[1]! - lo[1]!)} × ${r2(hi[2]! - lo[2]!)} mm (X × Y × Z)` });
     }
+    if (together && all.length > 1) lines.push({ label: "Centre of mass, all", value: `${r2(together.centre[0])}, ${r2(together.centre[1])}, ${r2(together.centre[2])} mm` });
     return [{ title: "The model", lines }, ...(all.length > 1 ? all.map((b, i) => bodySection(scene, b, `Body ${i + 1}`)) : [bodySection(scene, all[0]!, "Body 1")])];
   }
   const out: MeasureSection[] = [];

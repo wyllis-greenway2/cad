@@ -2628,3 +2628,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_573 — 2026-11-16 — directive
 > yes start on the overlap volume
 (approves the next item of `dec_measure_report`: the volume two bodies share where they go into each other)
+
+## in_574 — 2026-11-16 — directive
+> yes start on the centre of mass
+(approves the next item of `dec_measure_report`: the centre of mass of a body and of the model)
