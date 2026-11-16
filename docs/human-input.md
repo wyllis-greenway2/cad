@@ -2568,3 +2568,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_558 — 2026-11-16 — directive
 > Do the HTD 3M and 8M pulleys next
 (asks for the other two HTD pitches in dec_gear_tool's list of what is not built; HTD 5M exists)
+
+## in_559 — 2026-11-16 — directive
+> okay lets build all the stuff left to build. Build the HTD 3M. It needs its tooth radii, which I couldn’t find.
+> MXL, XL and T-series pulleys only if you can find data about their profile shape that you think is reasonably accurate
+(asks for everything on dec_gear_tool's not-built list; HTD 3M needs a source for its radii, and MXL, XL and T-series only if data of reasonable accuracy about their profile is found)
