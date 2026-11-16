@@ -3,7 +3,7 @@ id: q_manufacturing_open
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_548, in_550
+human_input: in_548, in_550, in_553, in_554
 date: 2026-11-16
 depends_on:
 alternative_to:
@@ -12,7 +12,7 @@ alternative_to:
 
 Asked of the human in the answers to `in_548` to `in_550`; unanswered:
 
-1. Is the line between graph (makes bodies) and plan (depends on a machine) the one wanted (`dec_manufacturing_prep`)?
+1. ~~Graph or plan~~: answered by `in_553` and `in_554`, now `dec_manufacturing_version` (provisional); kept here until the human says accepted.
 2. Machines and materials as a **user-level library with a copy in each project** (the AI's proposal), or only inside each project?
 3. Does a **community library** (and opt-in learning from results) get planned, or only offline packs for now (`dec_manufacturing_definitions`)?
 4. Safety data for materials (hazards, fumes): a small table of our own, or only what packs contain?
