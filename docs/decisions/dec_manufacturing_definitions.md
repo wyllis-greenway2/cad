@@ -3,7 +3,7 @@ id: dec_manufacturing_definitions
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_549, in_550, in_551, in_555, in_556, in_557, in_558
+human_input: in_549, in_550, in_551, in_555, in_556, in_557, in_558, in_559
 date: 2026-11-16
 depends_on:
   - dec_manufacturing_contract: routes use these definitions through the contract and declare which kinds and fields they need
@@ -23,6 +23,8 @@ alternative_to:
 6. **Who makes what (`in_557`, the human's decision):** keep it simple for now. **Only we make the shared (public) library of machines, tools and materials, officially, to ensure quality;** users can add their own definitions, which live in their personal library and project copies. Consequences: the trust levels reduce to `official` and `user`; there is no community contribution and no review process to run; **learning from results is not planned** (the schema may still hold a confidence count so nothing is boxed in). Exporting and importing a definition as one file (a pack) stays as a cheap way to move a user's own definitions between people; imported data is `user` data and is flagged as such. A community library and learning from results can be reconsidered later, and would be new entries. The public layer itself is built later (`in_556`) as a read-only source: a repository of JSON files served as static files, cached for offline use, versions immutable.
 
 7. **Hazards on materials (`in_558`, approved):** an official material carries a **small structured `hazards` field**: a few flags per process (for example "do not laser cut", "needs fume extraction"), a short note and a **source** (a safety data sheet or manufacturer datasheet). A route reads the flags and raises a finding, which advises and never blocks (`in_546`). The field comes with a plain disclaimer that it is guidance and not a substitute for the material's own safety data sheet or the machine's manual. **Entries are not written from the AI's memory:** each needs its cited source and a check by whoever is responsible for the library. A user-added material carries whatever the user enters and is labelled unchecked.
+
+8. **Tool library for the first milling version (`in_559`, approved):** the official library ships a **small starter set** of common cutters (a few flat end mills, a ball nose, a V-bit and a drill, in metric and imperial sizes hobbyists commonly own). Feeds and speeds are **advisory starting values, each with a source** (a tool maker's chart), clearly marked as a starting point; the user's own values always take priority. As with hazards, the AI does not write the numbers from memory. Users add their own cutters to their personal library. This is a promise about what ships with milling, which comes after the beam route.
 
 ## Rationale
 

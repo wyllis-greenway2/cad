@@ -2573,3 +2573,6 @@ Six inputs of the last turns had not been recorded (`in_451` to `in_456`; record
 
 ## Handoff 514 — 2026-11-16 (in_558: question 4 answered, hazards field)
 `in_558`. **Question 4:** the human approved a small structured, sourced `hazards` field on official materials with a disclaimer. **Written:** `dec_manufacturing_definitions` (point 7), `q_manufacturing_open` (question 4 answered). The AI is not to write hazard entries from memory; each needs a cited source and a human check. **Next:** question 5 (a default tool library with feeds for the first milling version).
+
+## Handoff 515 — 2026-11-16 (in_559: question 5 answered, starter tool library)
+`in_559`. **Question 5:** the human approved a small starter set of cutters with sourced, advisory feeds and speeds; users add their own. **Written:** `dec_manufacturing_definitions` (point 8), `q_manufacturing_open` (question 5 answered). **Next:** question 6 (nesting).

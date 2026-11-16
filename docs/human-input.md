@@ -2572,3 +2572,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_558 — 2026-11-16 — approval
 > Yes, small sourced hazards field
 (approves the answer to question 4 of q_manufacturing_open: official materials carry a small structured hazards field with a source, with a disclaimer)
+
+## in_559 — 2026-11-16 — approval
+> Yes, small starter set, advisory feeds
+(approves the answer to question 5 of q_manufacturing_open: a small starter set of cutters in the official tool library with sourced, advisory feeds and speeds; users add their own)
