@@ -34,6 +34,8 @@ export interface Step {
   type: "extrude" | "pushPull" | "edgeMod" | "move" | "rotate" | "scale" | "pattern" | "combine" | "hollow" | "reshape" | "revolve" | "loft" | "sweep" | "delete" | "import" | "importMesh";
   parts: Ref[];
   params: Record<string, number | string>;
+  /** numbers of this step that are tied to a formula of named parameters (`dec_named_parameters`): key → formula; `params[key]` holds its value now */
+  links?: Record<string, string>;
 }
 /** A figure an extrude uses: the refs of its sides (or its circle), and those of each figure drawn inside it, which are holes. */
 export interface Figure { outer: Ref[]; holes: Ref[][] }
@@ -83,6 +85,8 @@ export interface Scene {
   planeAlias?: Readonly<Record<string, Ref>>;
   /** the bodies (their refs, `b/<name>/o`) that are hidden (`dec_hidden_bodies`): drawn very faintly, not hoverable, selectable or snapped to; how the model is looked at, not a step; absent when none is hidden */
   hiddenBodies?: readonly Ref[];
+  /** the named parameters (`dec_named_parameters`): name → formula text (a number is a formula) */
+  parameters?: Readonly<Record<string, string>>;
   /** derived, not saved: for each cut step, the bodies (their names) it took material from, as the kernel found when it made them (`in_436`): deleting a body takes out the cuts made only in it */
   cutOf?: Readonly<Record<string, readonly string[]>>;
   /** Id counter: ids are never reused, so replaying a command list gives the same names. */
@@ -137,6 +141,7 @@ export interface SceneJson {
   hard?: string[];
   clearance?: number;
   hiddenBodies?: Ref[];
+  parameters?: Record<string, string>;
 }
 export function toJSON(s: Scene): SceneJson {
   return {
@@ -150,6 +155,7 @@ export function toJSON(s: Scene): SceneJson {
     ...(s.hard?.length ? { hard: [...s.hard] } : {}),
     ...(s.clearance ? { clearance: s.clearance } : {}),
     ...(s.hiddenBodies?.length ? { hiddenBodies: [...s.hiddenBodies] } : {}),
+    ...(s.parameters && Object.keys(s.parameters).length ? { parameters: { ...s.parameters } } : {}),
   };
 }
 export function fromJSON(j: SceneJson): Scene {
@@ -157,7 +163,7 @@ export function fromJSON(j: SceneJson): Scene {
   const s = emptyScene();
   const parts: Record<string, Part> = { ...s.parts };
   for (const p of j.parts) parts[p.ref] = p;
-  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter, ...(j.hard?.length ? { hard: [...j.hard] } : {}), ...(j.clearance ? { clearance: j.clearance } : {}), ...(j.groups?.length ? { groups: j.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}), ...(j.patterns?.length ? { patterns: j.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}), ...(j.hiddenBodies?.length ? { hiddenBodies: [...j.hiddenBodies] } : {}) };
+  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter, ...(j.hard?.length ? { hard: [...j.hard] } : {}), ...(j.clearance ? { clearance: j.clearance } : {}), ...(j.groups?.length ? { groups: j.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}), ...(j.patterns?.length ? { patterns: j.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}), ...(j.hiddenBodies?.length ? { hiddenBodies: [...j.hiddenBodies] } : {}), ...(j.parameters && Object.keys(j.parameters).length ? { parameters: { ...j.parameters } } : {}) };
 }
 
 /** The scene with its body parts replaced by these (derived from the kernel result; never saved). */

@@ -1,8 +1,8 @@
 // The list card opened from the ⋯ menu (`in_132`): the bodies with their names, or the history of steps. It displays what the interaction layer says and reports which row was chosen.
 import { iconSvg } from "./icons.ts";
 
-export interface PanelData { kind: string; title: string; rows: { detail?: string; id: string; label: string; active: boolean; removable: boolean; edit?: boolean; error?: string; sketch?: boolean; hidden?: boolean; future?: boolean; current?: boolean; fields?: { key: string; label: string; value: number }[]; open?: boolean }[]; note?: string; actions?: { id: string; label: string; title: string }[]; tabs?: { id: string; label: string; on: boolean }[] }
-export interface PanelHandlers { row(id: string, act: "select" | "remove" | "sketch" | "edit" | "hide"): void; action(id: string): void; go(id: string): void; tab(id: string): void; edit(id: string): void; set(id: string, key: string, value: number): void; undo(): void; redo(): void; close(): void }
+export interface PanelData { kind: string; title: string; rows: { detail?: string; param?: { name: string; expr: string; value: number | null }; id: string; label: string; active: boolean; removable: boolean; edit?: boolean; error?: string; sketch?: boolean; hidden?: boolean; future?: boolean; current?: boolean; fields?: { key: string; label: string; value: number; expr?: string }[]; open?: boolean }[]; note?: string; actions?: { id: string; label: string; title: string }[]; tabs?: { id: string; label: string; on: boolean }[] }
+export interface PanelHandlers { row(id: string, act: "select" | "remove" | "sketch" | "edit" | "hide"): void; action(id: string): void; go(id: string): void; tab(id: string): void; edit(id: string): void; set(id: string, key: string, value: number): void; link(id: string, key: string, expr: string): void; param(name: string, expr: string): void; unparam(name: string): void; undo(): void; redo(): void; close(): void }
 
 export function createPanel(host: HTMLElement, h: PanelHandlers) {
   const el = document.createElement("div");
@@ -57,13 +57,29 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
         if (r.detail) { label.textContent = ""; const a = document.createElement("div"); a.textContent = r.label; const d = document.createElement("div"); d.textContent = r.detail; d.style.cssText = "font-size:11px;color:#6b6e75;font-weight:400"; label.append(a, d); }
         if (r.error) { label.style.color = "#c0392b"; row.title = r.error; label.textContent = `${r.label} ✕`; } // a step that could not be made: red, the reason on hover
         row.appendChild(label);
+        if (r.param) {
+          label.textContent = "";
+          const nm = document.createElement("div"); nm.textContent = r.param.name; nm.style.fontWeight = "600";
+          const val = document.createElement("div"); val.textContent = r.param.value === null ? "no value" : `= ${Math.round(r.param.value * 1e6) / 1e6}`; val.style.cssText = `font-size:11px;color:${r.error ? "#c0392b" : "#6b6e75"}`;
+          if (r.detail) val.textContent += ` · ${r.detail}`;
+          label.append(nm, val);
+          const input = document.createElement("input");
+          input.type = "text"; input.value = r.param.expr; input.title = r.error ?? "the number, or a formula of other parameters";
+          input.style.cssText = "width:92px;padding:3px 6px;border:1px solid #cfd0d4;border-radius:6px;font:12px system-ui,sans-serif";
+          const commit = () => { const t = input.value.trim(); if (t && t !== r.param!.expr) h.param(r.param!.name, t); };
+          input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") { commit(); input.blur(); } });
+          input.addEventListener("change", commit);
+          input.addEventListener("click", (e) => e.stopPropagation());
+          row.appendChild(input);
+        }
         if (r.hidden !== undefined) { label.style.opacity = r.hidden ? ".45" : "1"; row.appendChild(btn(iconSvg(r.hidden ? "eyeOff" : "eye"), r.hidden ? "Hidden: show this body" : "Shown: hide this body", () => h.row(r.id, "hide"))); }
         if (r.sketch !== undefined) { const b = btn(iconSvg("sketch"), r.sketch ? "Put the sketch away" : "Show the sketch this extrusion was made from", () => h.row(r.id, "sketch")); if (r.sketch) b.style.background = "#dff1f0"; row.appendChild(b); }
         if (r.edit) row.appendChild(btn(iconSvg("linear"), "Change the numbers of this repeat", () => h.row(r.id, "edit")));
         if (r.fields?.length) { const b = btn(iconSvg("pencil"), r.open ? "Close the numbers of this step" : "Change the numbers of this step", () => h.edit(r.id)); if (r.open) b.style.background = "#dff1f0"; row.appendChild(b); }
-        if (r.removable) row.appendChild(btn(iconSvg("cross"), p.kind === "groups" ? "Break this group (what is inside it stays grouped)" : p.kind === "bodies" ? "Delete this body (with the steps and sketches that made it)" : "Take this step out", () => h.row(r.id, "remove")));
+        if (r.removable) row.appendChild(btn(iconSvg("cross"), p.kind === "parameters" ? "Take this parameter away (refused while something uses it)" : p.kind === "groups" ? "Break this group (what is inside it stays grouped)" : p.kind === "bodies" ? "Delete this body (with the steps and sketches that made it)" : "Take this step out", () => h.row(r.id, "remove")));
         if (p.kind === "bodies" || p.kind === "groups") row.addEventListener("click", () => h.row(r.id, "select"));
         if (p.kind === "sketches" && r.sketch !== undefined) row.addEventListener("click", () => h.row(r.id, "sketch"));
+        if (p.kind === "parameters") row.style.cursor = "default";
         if (p.kind === "history") { row.title = r.future ? "A step that comes after: go to it" : "Go to this step: the model as it was when it had been made"; row.addEventListener("click", () => h.go(r.id)); }
         if (r.current) label.style.fontWeight = "600";
         el.appendChild(row);
@@ -75,9 +91,9 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
             line.style.cssText = "display:flex;align-items:center;gap:8px;font-size:12px";
             const name = document.createElement("span"); name.textContent = f.label; name.style.flex = "1";
             const input = document.createElement("input");
-            input.type = "number"; input.step = "any"; input.value = String(f.value);
+            input.type = "text"; input.value = f.expr ?? String(f.value); input.title = f.expr ? `a formula: now ${f.value}` : "a number, or a name or formula of parameters";
             input.style.cssText = "width:84px;padding:3px 6px;border:1px solid #cfd0d4;border-radius:6px;font:12px system-ui,sans-serif";
-            const commit = () => { const v = Number(input.value); if (input.value !== "" && Number.isFinite(v) && v !== f.value) h.set(r.id, f.key, v); };
+            const commit = () => { const t = input.value.trim(); if (t === "" || t === (f.expr ?? String(f.value))) return; if (/^-?(\d+\.?\d*|\.\d+)$/.test(t)) h.set(r.id, f.key, Number(t)); else h.link(r.id, f.key, t); };
             input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") { commit(); input.blur(); } });
             input.addEventListener("change", commit);
             input.addEventListener("click", (e) => e.stopPropagation());
@@ -87,7 +103,17 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
           el.appendChild(box);
         }
       }
-      if (!p.rows.length) { const none = document.createElement("div"); none.textContent = "—"; none.style.cssText = "padding:6px 8px;opacity:.5"; el.appendChild(none); }
+      if (p.kind === "parameters") {
+        const add = document.createElement("div");
+        add.style.cssText = "display:flex;gap:4px;padding:6px 8px 4px;align-items:center";
+        const mk = (ph: string, w: number) => { const i = document.createElement("input"); i.type = "text"; i.placeholder = ph; i.style.cssText = `width:${w}px;padding:3px 6px;border:1px solid #cfd0d4;border-radius:6px;font:12px system-ui,sans-serif`; i.addEventListener("keydown", (e) => { e.stopPropagation(); }); return i; };
+        const nm = mk("name", 70), ex = mk("value or formula", 96);
+        const go = () => { const n = nm.value.trim(), x = ex.value.trim(); if (n && x) { h.param(n, x); } };
+        ex.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+        add.append(nm, ex, btn("+", "Add this parameter", go));
+        el.appendChild(add);
+      }
+      if (!p.rows.length && p.kind !== "parameters") { const none = document.createElement("div"); none.textContent = "—"; none.style.cssText = "padding:6px 8px;opacity:.5"; el.appendChild(none); }
       el.style.display = "block";
     },
   };

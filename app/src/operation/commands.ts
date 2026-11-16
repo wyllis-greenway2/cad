@@ -12,6 +12,7 @@ import type { Part } from "./part.ts";
 import { anchorsOf } from "./part.ts";
 import type { Scene, Relation, Step } from "./scene.ts";
 import { bumpCounter, figureRefs, usesFigures } from "./scene.ts";
+import { setParameter, removeParameter, linkParam, unlinked } from "./paramscene.ts";
 import { addGroup, removeGroup, withoutParts } from "./groups.ts";
 import { stretchScene } from "./stretch.ts";
 import { addPattern, setPattern, breakPattern, patternsWithout } from "./repeat.ts";
@@ -36,6 +37,12 @@ export type Command =
   | { type: "transformFigure"; parts: Ref[]; plane: Ref; newPlane: Ref; turns: { axis: 0 | 1 | 2; angle: number }[]; pivot: Vec3; translate: Vec3; /** made this many times bigger about `pivot`, after the turns (the same all ways; circles too) */ scale?: number; /** a plane drawn when there was one body has no owner: this names the body it belongs to, so a later move of that body is read back through for what is drawn on it (`in_277`) */ body?: string }
   /** hide bodies or show them again (`dec_hidden_bodies`): `refs` are the bodies' refs; how the model is looked at, not a step */
   | { type: "hideBodies"; refs: Ref[]; hidden: boolean }
+  /** a named parameter is given a formula, or made (`dec_named_parameters`); the numbers tied to it are made again */
+  | { type: "setParameter"; name: string; expr: string }
+  /** a parameter is taken away (refused while a formula or a step uses it) */
+  | { type: "removeParameter"; name: string }
+  /** a number of a step is tied to a formula (`expr`), or let go (`null`: it keeps the value it has) */
+  | { type: "linkParam"; id: string; key: string; expr: string | null }
   /** group things (parts, or groups made before) so that selecting one selects all; `id` is a new group id (`in_257`) */
   | { type: "group"; id: string; items: string[] }
   /** a body made hard or soft (`dec_hard_bodies`): `body` is the name it keeps through the history */
@@ -213,7 +220,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     case "setStepParams": {
       const st = s.steps.find((x) => x.id === c.id);
       if (!st) return err(`step ${c.id} does not exist`);
-      return ok({ ...s, steps: s.steps.map((x) => (x.id === c.id ? { ...x, params: { ...x.params, ...c.params } } : x)) });
+      return ok({ ...s, steps: s.steps.map((x) => (x.id === c.id ? unlinked({ ...x, params: { ...x.params, ...c.params } }, Object.keys(c.params)) : x)) }); // (a number typed over a tied one lets it go)
     }
     case "removeStep":
       if (!s.steps.some((x) => x.id === c.id)) return err(`step ${c.id} does not exist`);
@@ -223,6 +230,9 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       return r.ok ? ok(bumpCounter(r.value, c.id)) : r;
     }
     case "ungroup": return removeGroup(s, c.id);
+    case "setParameter": return setParameter(s, c.name, c.expr);
+    case "removeParameter": return removeParameter(s, c.name);
+    case "linkParam": return linkParam(s, c.id, c.key, c.expr);
     case "hideBodies": {
       const now = new Set(s.hiddenBodies ?? []);
       for (const r of c.refs) { if (c.hidden) now.add(r); else now.delete(r); }

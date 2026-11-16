@@ -2,15 +2,16 @@
 import type { Ref } from "../shared/ref.ts";
 import type { Scene, Step } from "../operation/scene.ts";
 import { figuresOf, usesFigures } from "../operation/scene.ts";
+import { evaluateAll } from "../operation/parameters.ts";
 import type { History } from "../operation/history.ts";
 import type { Group } from "../operation/groups.ts";
 import { groupsOf, membersOf, parentOf } from "../operation/groups.ts";
 import { hardOverlaps, overlapBlame, hardNames } from "./hard.ts";
 
-export type PanelKind = "bodies" | "history" | "groups" | "sketches";
+export type PanelKind = "bodies" | "history" | "groups" | "sketches" | "parameters";
 /** The lists that are the parts of the one Model panel, in the order of its tabs (`dec_model_panel`). */
-export const MODEL_TABS: readonly { id: PanelKind; label: string }[] = [{ id: "history", label: "Steps" }, { id: "bodies", label: "Bodies" }, { id: "sketches", label: "Sketches" }];
-export interface PanelRow { id: string; label: string; /** selected (a body) */ active: boolean; /** can be taken out (a step) */ removable: boolean; /** a repeat of the body: it can be opened again to change its numbers (`in_257`) */ edit?: boolean; /** why this step could not be made, when it could not (it is shown in red) */ error?: string; /** an extrusion: its hidden sketch can be shown (`in_228`); true while it is shown */ sketch?: boolean; /** a body: the eye (`dec_hidden_bodies`): true when it is hidden, false when it is shown */ hidden?: boolean; /** a step that comes after the cursor (`dec_history_navigation`): faded, gone back to by choosing it */ future?: boolean; /** the step the cursor is at */ current?: boolean; /** the numbers of the step that can be changed (only at the last step), and whether they are open */ fields?: { key: string; label: string; value: number }[]; open?: boolean; /** a second, smaller line under the label (a sketch: its step, its body and its status) */ detail?: string }
+export const MODEL_TABS: readonly { id: PanelKind; label: string }[] = [{ id: "history", label: "Steps" }, { id: "bodies", label: "Bodies" }, { id: "sketches", label: "Sketches" }, { id: "parameters", label: "Parameters" }];
+export interface PanelRow { id: string; label: string; /** selected (a body) */ active: boolean; /** can be taken out (a step) */ removable: boolean; /** a repeat of the body: it can be opened again to change its numbers (`in_257`) */ edit?: boolean; /** why this step could not be made, when it could not (it is shown in red) */ error?: string; /** an extrusion: its hidden sketch can be shown (`in_228`); true while it is shown */ sketch?: boolean; /** a body: the eye (`dec_hidden_bodies`): true when it is hidden, false when it is shown */ hidden?: boolean; /** a step that comes after the cursor (`dec_history_navigation`): faded, gone back to by choosing it */ future?: boolean; /** the step the cursor is at */ current?: boolean; /** the numbers of the step that can be changed (only at the last step), and whether they are open */ fields?: { key: string; label: string; value: number; /** the formula it is tied to */ expr?: string }[]; open?: boolean; /** a parameter (`dec_named_parameters`): its formula, and its value (`null` when the formula cannot be made, `error` says why) */ param?: { name: string; expr: string; value: number | null }; /** a second, smaller line under the label (a sketch: its step, its body and its status) */ detail?: string }
 export interface Panel { kind: PanelKind; title: string; rows: PanelRow[]; /** the History: the cursor is at the last step (the numbers can be changed); else a line says where it is */ note?: string; /** buttons for the whole list (the Bodies list: select all and none, hide all and show all) */ actions?: { id: string; label: string; title: string }[]; /** the Model panel's tabs; the one that is open is `on` */ tabs?: { id: PanelKind; label: string; on: boolean }[] }
 
 const n = (v: unknown): string => String(Math.round(Number(v) * 100) / 100);
@@ -80,6 +81,17 @@ export function sketchRows(scene: Scene, shown: string | null): PanelRow[] {
 function sketchesPanel(scene: Scene, shown: string | null): Panel {
   return { kind: "sketches", title: "Sketches", rows: sketchRows(scene, shown), note: "Each is the recipe of the step that took it, kept as drawn. The pencil shows the sketch of an extrusion in the picture." };
 }
+/** The named parameters (`dec_named_parameters`): each with its formula and its value, and the steps' numbers that are tied to it counted. */
+function parametersPanel(scene: Scene): Panel {
+  const defs = scene.parameters ?? {};
+  const { values, errors } = evaluateAll(defs);
+  const ties = (n: string): number => scene.steps.reduce((a, st) => a + Object.values(st.links ?? {}).filter((f) => new RegExp(`(^|[^A-Za-z0-9_])${n}([^A-Za-z0-9_(]|$)`).test(f)).length, 0);
+  return {
+    kind: "parameters", title: "Parameters",
+    rows: Object.keys(defs).sort().map((n) => ({ id: n, label: n, active: false, removable: true, param: { name: n, expr: defs[n]!, value: values[n] ?? null }, ...(errors[n] ? { error: errors[n] } : {}), detail: ties(n) ? `${ties(n)} number${ties(n) === 1 ? "" : "s"} tied to it` : "" })),
+    note: "A name for a number, or a formula of other names (wall * 2 + 1; sqrt, min, max, sin, cos, pi). Tie a step's number to one with its pencil in Steps: type the name or the formula in place of the number.",
+  };
+}
 /** The selection groups as a tree (`in_257`): a row for each group, the ones inside it under it, so any group (the outer one or one inside) can be selected or broken without picking it in the picture. */
 function groupsPanel(scene: Scene, selection: readonly Ref[]): Panel {
   const rows: PanelRow[] = [];
@@ -94,9 +106,9 @@ function groupsPanel(scene: Scene, selection: readonly Ref[]): Panel {
 }
 /** The steps of building, oldest first. */
 /** The numbers of a step that the panel lets be changed (`dec_history_navigation`): the keys of its params, with what each is. */
-function stepFields(st: Step): { key: string; label: string; value: number }[] {
+function stepFields(st: Step): { key: string; label: string; value: number; expr?: string }[] {
   const p = st.params;
-  const one = (key: string, label: string) => (p[key] !== undefined && Number.isFinite(Number(p[key])) ? [{ key, label, value: Number(p[key]) }] : []);
+  const one = (key: string, label: string) => (p[key] !== undefined && Number.isFinite(Number(p[key])) ? [{ key, label, value: Number(p[key]), ...(st.links?.[key] ? { expr: st.links[key] } : {}) }] : []);
   switch (st.type) {
     case "extrude": return one("depth", "Depth (mm)");
     case "pushPull": return one("depth", "Distance (mm)");
@@ -134,7 +146,7 @@ const historyPanel = (history: History, errors0: Record<string, string>, shown: 
 const panelOf0 = (kind: PanelKind | null, scene: Scene, selection: readonly Ref[], errors: Record<string, string> = {}, shownSketch: string | null = null, history?: History, editing: string | null = null): Panel | null => (kind === "bodies" ? bodiesPanel(scene, selection) : kind === "history" ? historyPanel(history ?? ({ commands: [], cursor: 0, snapshots: [scene], scene } as unknown as History), errors, shownSketch, editing) : kind === "groups" ? groupsPanel(scene, selection) : null);
 /** The panel for a kind, the three lists of the Model panel with its tabs (`dec_model_panel`). */
 export const panelOf = (kind: PanelKind | null, scene: Scene, selection: readonly Ref[], errors: Record<string, string> = {}, shownSketch: string | null = null, history?: History, editing: string | null = null): Panel | null => {
-  const p = kind === "sketches" ? sketchesPanel(scene, shownSketch) : panelOf0(kind, scene, selection, errors, shownSketch, history, editing);
+  const p = kind === "sketches" ? sketchesPanel(scene, shownSketch) : kind === "parameters" ? parametersPanel(scene) : panelOf0(kind, scene, selection, errors, shownSketch, history, editing);
   return p && p.kind !== "groups" ? { ...p, title: "Model", tabs: MODEL_TABS.map((t) => ({ ...t, on: t.id === p.kind })) } : p;
 };
 

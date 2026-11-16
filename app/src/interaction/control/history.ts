@@ -28,6 +28,25 @@ export function doStepSet(s: AppState, id: string, key: string, value: number): 
   if (h.cursor < h.commands.length) return { ...s, session: { ...s.session, message: "go to the last step to change numbers" } };
   if (!Number.isFinite(value)) return s;
   const step = sceneOf(s.session).steps.find((x) => x.id === id);
-  if (!step || Number(step.params[key]) === value) return s;
+  if (!step || (Number(step.params[key]) === value && !step.links?.[key])) return s;
   return withSession({ ...s, menu: null }, run(s.session, { type: "setStepParams", id, params: { [key]: value } }));
+}
+
+/** Tie one number of a step to a formula of named parameters (`dec_named_parameters`): the command `linkParam`, at the last step only. */
+export function doStepLink(s: AppState, id: string, key: string, expr: string): AppState {
+  const h = s.session.history;
+  if (h.cursor < h.commands.length) return { ...s, session: { ...s.session, message: "go to the last step to change numbers" } };
+  return withSession({ ...s, menu: null }, run(s.session, { type: "linkParam", id, key, expr }));
+}
+/** Give a parameter a formula (or make it), or take it away (`dec_named_parameters`). */
+export function doParamSet(s: AppState, name: string, expr: string): AppState {
+  const h = s.session.history;
+  if (h.cursor < h.commands.length) return { ...s, session: { ...s.session, message: "go to the last step to change parameters" } };
+  if (sceneOf(s.session).parameters?.[name] === expr.trim().replace(/^=/, "")) return s;
+  return withSession({ ...s, menu: null }, run(s.session, { type: "setParameter", name, expr }));
+}
+export function doParamRemove(s: AppState, name: string): AppState {
+  const h = s.session.history;
+  if (h.cursor < h.commands.length) return { ...s, session: { ...s.session, message: "go to the last step to change parameters" } };
+  return withSession({ ...s, menu: null }, run(s.session, { type: "removeParameter", name }));
 }

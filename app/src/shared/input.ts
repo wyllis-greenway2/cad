@@ -74,7 +74,7 @@ export type Intent =
   /** a key for the number being typed (digits, ".", "-", Backspace, Tab, Enter, the arrows) */
   | { type: "typed"; key: string; shift: boolean }
   /** open or close a list from the ⋯ menu (the bodies, the history) */
-  | { type: "panel"; name: "bodies" | "history" | "groups" | "sketches" }
+  | { type: "panel"; name: "bodies" | "history" | "groups" | "sketches" | "parameters" }
   /** a row of the open list: select it (a body) or take it out (a step) */
   | { type: "panelRow"; id: string; act: "select" | "remove" | "sketch" | "edit" | "hide" }
   | { type: "panelAction"; id: string }
@@ -82,6 +82,9 @@ export type Intent =
   | { type: "stepGo"; id: string }
   | { type: "stepEdit"; id: string | null }
   | { type: "stepSet"; id: string; key: string; value: number }
+  | { type: "stepLink"; id: string; key: string; expr: string }
+  | { type: "paramSet"; name: string; expr: string }
+  | { type: "paramRemove"; name: string }
   /** the text of a field of the value box changed (a tool's field, or the operation's one number) */
   | { type: "entry"; field: number; text: string }
   /** the Apply and Cancel buttons of a repeat being set up (`in_141`) */
