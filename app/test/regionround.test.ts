@@ -224,7 +224,7 @@ test("all twelve edges of a cube rounded by more than half its side: the corners
   }
 });
 
-test("one half of a rim alone, rounded past what the kernel can: the region runs the span of that half and ends in a flat cut", () => {
+test("one half of a rim alone, rounded past what the kernel can: the round goes all the way round the rim, as the kernel's does at the sizes it can make (`in_479`)", () => {
   const { s, rim } = post();
   const halves = rim(20);
   assert.equal(halves.length, 2);
@@ -232,7 +232,7 @@ test("one half of a rim alone, rounded past what the kernel can: the region runs
   const half = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "edgeMod", parts: [halves[0]!] as never, params: { mode: "fillet", value: 15 } } });
   assert.deepEqual(half.outcome.errors, {});
   const [all, some] = [vol(s) - vol(whole), vol(s) - vol(half)];
-  assert.ok(some > 0 && Math.abs(some - all / 2) / all < 0.01, `a half takes ${some.toFixed(1)}, the whole rim ${all.toFixed(1)}`);
+  assert.ok(all > 0 && Math.abs(some - all) / all < 0.01, `a half takes ${some.toFixed(1)}, the whole rim ${all.toFixed(1)}: one half named is the whole rim, as for the kernel's round`);
 });
 
 test("a size at each end of the plate's four top edges, one of which is more than the plate allows: made as regions, each from its own first end", () => {

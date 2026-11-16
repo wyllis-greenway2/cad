@@ -1382,7 +1382,7 @@ function rimFaces(e, fs) {
   if (Math.abs(n[0] * ax[0] + n[1] * ax[1] + n[2] * ax[2]) / nl < 1 - 1e-6) return null; // (the flat face is not across the axis: a cone, or a slanted cut)
   return { plane, wall, C, ax, R, n };
 }
-function rimTool(e, fs, size, mode, stations) {
+function rimTool(e, fs, size, mode, stations, whole = false) {
   const rf = rimFaces(e, fs);
   if (!rf) return null;
   const { plane, wall, C, ax, R, n } = rf;
@@ -1420,7 +1420,7 @@ function rimTool(e, fs, size, mode, stations) {
   const M = e.pointAt(0.5);
   const B = e.endPoint;
   const rad = (p) => { const v = [p.x - C[0], p.y - C[1], p.z - C[2]]; const h = dotp(v, ax); const r = [v[0] - ax[0] * h, v[1] - ax[1] * h, v[2] - ax[2] * h]; const l = Math.hypot(...r); return r.map((x) => x / l); };
-  const closed = Math.hypot(A.x - B.x, A.y - B.y, A.z - B.z) < 1e-6;
+  const closed = whole || Math.hypot(A.x - B.x, A.y - B.y, A.z - B.z) < 1e-6; // (`whole`: the piece is one of the pieces of a circle that is closed by them all: the round goes all the way round)
   const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
   const [rA, rM] = [rad(A), rad(M)];
   const ccw = dotp(cross3(rA, rM), ax) >= 0; // the arc runs from its start round the axis in the positive sense
@@ -1507,11 +1507,41 @@ function regionRound(t, set, size, mode, stations) {
   const tools = [];
   const straight = [];
   const rims = new Map();
-  for (const e of edgesOf(t).filter((x) => set.has(x.hashCode))) {
+  // the kernel's round follows an edge round the rim: one half of a circle the kernel splits a rim into is rounded with the other half (`in_479`: a post's rim of which the step names one half went from the whole
+  // rim to half of it where the region took over, and a bigger round took off less). Where the pieces between the same two faces on the same circle close it, the round goes all the way round, in one turn;
+  // an arc that really ends (on a wall that cuts the round) is not one of them and ends in a flat cut.
+  const wholeRim = new Map(); // hash code of the piece that makes the round -> true; the other pieces of its circle are in `skipped`
+  const skipped = new Set();
+  if (!stations) {
+    const picked = edgesOf(t).filter((x) => set.has(x.hashCode));
+    for (const e of picked) {
+      if (skipped.has(e.hashCode)) continue;
+      const fs = byEdge.get(e.hashCode) ?? [];
+      const rf = rimFaces(e, fs);
+      if (!rf) continue;
+      const same = (x) => {
+        if (x.geomType !== "CIRCLE") return false;
+        const rx = rimFaces(x, byEdge.get(x.hashCode) ?? []); // (the other half is between the same flat face and the other half of the round wall, which the kernel may keep as two faces)
+        if (!rx || rx.plane.hashCode !== rf.plane.hashCode) return false;
+        try {
+          const c = x._geomAdaptor().Circle();
+          const [L, D] = [c.Location(), c.Axis().Direction()];
+          return Math.hypot(L.X() - rf.C[0], L.Y() - rf.C[1], L.Z() - rf.C[2]) < 1e-6 * Math.max(1, rf.R) && Math.abs(c.Radius() - rf.R) < 1e-6 * Math.max(1, rf.R) && Math.abs(Math.abs(D.X() * rf.ax[0] + D.Y() * rf.ax[1] + D.Z() * rf.ax[2]) - 1) < 1e-6;
+        } catch { return false; }
+      };
+      const pieces = edgesOf(t).filter((x) => x.hashCode !== e.hashCode && same(x));
+      if (!pieces.length) continue;
+      const around = e.length + pieces.reduce((a, x) => a + x.length, 0);
+      if (Math.abs(around - 2 * Math.PI * rf.R) > 1e-4 * rf.R) continue; // (they do not close the circle: an arc that ends)
+      wholeRim.set(e.hashCode, true);
+      for (const x of pieces) skipped.add(x.hashCode);
+    }
+  }
+  for (const e of edgesOf(t).filter((x) => set.has(x.hashCode) && !skipped.has(x.hashCode))) {
     const fs = byEdge.get(e.hashCode) ?? [];
     if (rimFaces(e, fs)) {
       // a rim: a circle where a flat face meets a round wall about the same axis (the end of a post or a hole, the foot of a post): made by revolving the corner region about the axis (`rimTool`)
-      const rim = rimTool(e, fs, size, mode, stations);
+      const rim = rimTool(e, fs, size, mode, stations, wholeRim.has(e.hashCode));
       if (!rim) return null;
       const key = rim.key;
       rims.set(key, rim);

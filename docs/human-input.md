@@ -2227,3 +2227,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_478 — 2026-11-16 — directive
 > yes start with the reach fix
 (approves building the reach fix for `q_chamfer_region_reach`: a chamfer or fillet made as a cut region reaches as far along its edge as the two faces beside the edge reach)
+
+## in_479 — 2026-11-16 — directive
+> yes do the cylinder rim next
+(approves taking the next kind of break found by the continuity test: the fillet on a cylinder's rim, 907 to 987 mm3 at 4 to 4.5 mm in `cyl-fillet.cad.json`)
