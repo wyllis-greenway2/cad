@@ -2577,3 +2577,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_560 — 2026-11-16 — directive
 > skip the unfindable profiles for now and lets just add them to our to do list. Lets do the left over stuff.
 (HTD 3M and the MXL, XL and T-series pulleys stay on the not-built list; the rest of that list is to be done)
+
+## in_561 — 2026-11-16 — question
+> lets do the helical gears next, what do we need for that? Should we introduce a spiraled or twisted loft type to our program to make that possible? Or would we only need that for angled gears? Also can these gear types even my sketch types? or would they need to directly make a model? What do you need from me? do you have the tooth profile to make them? and which should we make?
+(asks what helical gears need: a twisted loft or sweep, whether only the angled kind needs it, whether they are sketches or models, what the AI needs from the human, whether the tooth profile is in hand, and which kinds to make; the helical gears are the last item on dec_gear_tool's to-do list)
