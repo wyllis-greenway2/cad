@@ -2585,3 +2585,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_562 — 2026-11-16 — directive
 > yes run the feasibility check
 (asks for the test of whether the kernel can twist-extrude a gear outline, before anything is built for helical gears)
+
+## in_563 — 2026-11-16 — question
+> okay we are going to have to speed that up a lot. What options do we have?
+(asks for ways to make the twisted gear body, which took 1 to 5 seconds, much faster)

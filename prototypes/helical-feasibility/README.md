@@ -10,3 +10,12 @@
 - the turn direction is the sign of the angle (the hand).
 
 **Not tested:** the shape against a real helical gear (only the volume), meshing, a twist of a herringbone, the preview while the numbers are typed (the revolve's preview is a wireframe).
+
+## Where the time goes (`in_563`, 40 teeth, module 1.5, 6 mm bore; ms; measured with temporary timers, since removed)
+- A **flat** extrusion of the same gear already costs about 1.4 s (840 compile, of which the validity check 390; 590 to mesh).
+- The **twist** costs about 4.5 s in all:
+  - make the twisted solid 570, validity check 150, the bore (twisted the same way, then cut) 600, the check and volume again after the cut 270;
+  - the op's own checks after it: the body's markers 490, the validity check again plus the self-crossing check 820;
+  - the screen's mesh of the 480 curved faces 1440.
+- **Fewer arcs** to a flank (2 instead of 4): 4.5 s to 3.0 s; the volume moves by 0.01 per cent.
+- **A loft through K turned copies** is not faster: 5.3 s (K=3), 16.8 s (K=5), 6.3 s (K=9), the volume right to 0.1 per cent at K=3.
