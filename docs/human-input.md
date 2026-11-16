@@ -2544,3 +2544,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_551 — 2026-11-16 — directive
 > Yes, update the provisional entries with all of that
 (asks for the provisional manufacturing entries to be updated with the proposals of the answers to in_546 to in_550: plan per part and machine, advisory findings, a route per process, machine and library data, the data-versus-code rule, sharing in tiers, the preparation tools)
+
+## in_552 — 2026-11-16 — directive
+> Let's go through the open questions one by one
+(asks to go through the six questions of q_manufacturing_open one at a time; no answer given yet)
