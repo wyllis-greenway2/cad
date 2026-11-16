@@ -2299,3 +2299,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_496 — 2026-11-16 — approval
 > yes approve it
 (approves `dec_sketch_recipe_synced` as written: a sketch is the recipe of its step, kept in step with the body wherever it can express the change and labelled where it cannot; it is `accepted` now)
+
+## in_497 — 2026-11-16 — directive
+> yes start with hidden bodies
+(approves starting the build order of `in_489` with hidden bodies and the upgraded Bodies list: a body can be hidden, drawn very faintly and not interactive, with an eye icon that fades in on hover, in the Bodies list too, with select all and none, hide and show all, and delete)

@@ -45,6 +45,16 @@ export function objectOf(sc: Scene, ref: Ref): Ref {
 }
 
 
+/** Is this part the body itself, or a face, an edge or a corner of a body, that is hidden (`dec_hidden_bodies`)? It is not hovered, selected, boxed or snapped to, and hides nothing behind it. */
+export function inHiddenBody(sc: Scene, p: Part): boolean {
+  const hidden = sc.hiddenBodies;
+  if (!hidden?.length) return false;
+  if (p.kind === "body") return hidden.includes(p.ref);
+  if (p.origin !== "body") return false;
+  const owner = p.of && p.of in sc.parts ? p.of : BODY_OBJECT in sc.parts ? BODY_OBJECT : null;
+  return !!owner && hidden.includes(owner);
+}
+
 /** The middle of the body from its corners (the box that holds them), or null with no body. Rotating and moving handles start here. */
 export function bodyCentre(sc: Scene, ref: Ref = BODY_OBJECT): Vec3 | null {
   const body = sc.parts[ref];

@@ -34,6 +34,8 @@ export type Command =
   /** Move or turn a drawn figure in space like an object (`in_135`): its corners (and circles, lines) with the plane they lie on. `turns` are about the world axes through `pivot`, in order, then `translate`.
    *  If the plane is shared with other drawings (a world plane, a face of the body) the figure gets a new drawn plane, named `newPlane`. */
   | { type: "transformFigure"; parts: Ref[]; plane: Ref; newPlane: Ref; turns: { axis: 0 | 1 | 2; angle: number }[]; pivot: Vec3; translate: Vec3; /** made this many times bigger about `pivot`, after the turns (the same all ways; circles too) */ scale?: number; /** a plane drawn when there was one body has no owner: this names the body it belongs to, so a later move of that body is read back through for what is drawn on it (`in_277`) */ body?: string }
+  /** hide bodies or show them again (`dec_hidden_bodies`): `refs` are the bodies' refs; how the model is looked at, not a step */
+  | { type: "hideBodies"; refs: Ref[]; hidden: boolean }
   /** group things (parts, or groups made before) so that selecting one selects all; `id` is a new group id (`in_257`) */
   | { type: "group"; id: string; items: string[] }
   /** break one group: what was in it stays, and a group inside it stays a group */
@@ -208,6 +210,12 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       return r.ok ? ok(bumpCounter(r.value, c.id)) : r;
     }
     case "ungroup": return removeGroup(s, c.id);
+    case "hideBodies": {
+      const now = new Set(s.hiddenBodies ?? []);
+      for (const r of c.refs) { if (c.hidden) now.add(r); else now.delete(r); }
+      const { hiddenBodies: _old, ...rest } = s;
+      return ok(now.size ? { ...rest, hiddenBodies: [...now].sort() } : rest);
+    }
     case "pattern": { const r = addPattern(s, { id: c.id, kind: c.kind, parts: c.parts, plane: c.plane, params: c.params }); return r.ok ? ok(bumpCounter(r.value, c.id)) : r; }
     case "setPattern": return setPattern(s, c.id, c.params);
     case "breakPattern": return breakPattern(s, c.id);
