@@ -476,7 +476,7 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
 }
 
 /** The ⋯ menu's lists: choosing one opens it, choosing it again closes it. */
-export const doPanel = (s: AppState, name: "bodies" | "history" | "groups"): AppState => ({ ...s, panel: s.panel === name ? null : name, menu: null });
+export const doPanel = (s: AppState, name: "bodies" | "history" | "groups" | "sketches"): AppState => ({ ...s, panel: s.panel === name ? null : name, menu: null });
 /** A row of the open list: a body is selected, a step is taken out of the history. */
 export function doPanelRow(s: AppState, id: string, act: "select" | "remove" | "sketch" | "edit" | "hide"): AppState {
   if (act === "hide") return doBodyEye(s, id as Ref); // (the eye of a row of the Bodies list, `dec_hidden_bodies`)

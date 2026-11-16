@@ -2556,3 +2556,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_555 — 2026-11-16 — directive
 > yes start on the history
 (approves starting the next item of the order of `in_546`: a usable History: click a step to edit its values, and view the model at a step)
+
+## in_556 — 2026-11-16 — directive
+> yes start on the model panel
+(approves starting the third item of the order of `in_546`: the Model panel, one panel with filters, with the sketches named and given a status)

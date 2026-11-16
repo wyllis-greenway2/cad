@@ -90,6 +90,7 @@ const recognizer = createRecognizer();
 const panel = createPanel(document.body, {
   row: (id, act) => dispatch({ type: "panelRow", id, act }),
   action: (id) => dispatch({ type: "panelAction", id }),
+  tab: (id) => dispatch({ type: "panel", name: id as "bodies" | "history" | "sketches" }),
   go: (id) => dispatch({ type: "stepGo", id }),
   edit: (id) => dispatch({ type: "stepEdit", id }),
   set: (id, key, value) => dispatch({ type: "stepSet", id, key, value }),
