@@ -21,6 +21,40 @@ export function planesOf(shape) {
   return out;
 }
 
+/**
+ * The flat faces and the round (cylindrical) faces of a shape (`dec_stable_reference_mechanism`, `in_564`): a flat face has its unit normal `n`, a point of its mass `c` and its box; a round face its axis direction `n`,
+ * a point `o` of the axis, its radius `r`, a point `c` on its surface and its box. Other surfaces (a cone, a sphere, a torus, a spline) have no name yet.
+ */
+export function surfacesOf(shape) {
+  const out = [];
+  for (const f of facesOf(shape)) {
+    const type = f.geomType;
+    if (type === "PLANE") {
+      const q = f.normalAt();
+      const l = Math.hypot(q.x, q.y, q.z) || 1;
+      const [lo, hi] = f.boundingBox.bounds;
+      // a point of the face: the middle of its box, brought onto its plane (the face's centre of mass takes an integral over its outline: 90 ms for the two faces of a 60-tooth gear)
+      const n = [q.x / l, q.y / l, q.z / l];
+      const p = f.pointOnSurface(0.5, 0.5);
+      const m = [0, 1, 2].map((k) => (lo[k] + hi[k]) / 2);
+      const off = dot(n, [m[0] - p.x, m[1] - p.y, m[2] - p.z]);
+      out.push({ kind: "plane", n, c: m.map((v, k) => v - n[k] * off), lo: [...lo], hi: [...hi], face: f });
+    } else if (type === "CYLINDRE") {
+      const cyl = f._geomAdaptor().Cylinder();
+      const ax = cyl.Axis();
+      const loc = ax.Location();
+      const dir = ax.Direction();
+      const p = f.pointOnSurface(0.5, 0.5);
+      const [lo, hi] = f.boundingBox.bounds;
+      const d = [dir.X(), dir.Y(), dir.Z()];
+      const l = Math.hypot(...d) || 1;
+      out.push({ kind: "cyl", n: d.map((v) => v / l), o: [loc.X(), loc.Y(), loc.Z()], r: cyl.Radius(), c: [p.x, p.y, p.z], lo: [...lo], hi: [...hi], face: f });
+      for (const x of [dir, loc, ax, cyl]) x.delete?.();
+    }
+  }
+  return out;
+}
+
 /** A name moved with the body: the point and the end of its normal are carried by the same motion (`tf`, as `moveMarkers` takes it). */
 function carried(names, tf) {
   if (!tf) return names;
@@ -29,10 +63,14 @@ function carried(names, tf) {
   return names.map((m, i) => {
     const d = [tip[i].at[0] - at[i].at[0], tip[i].at[1] - at[i].at[1], tip[i].at[2] - at[i].at[2]];
     const l = Math.hypot(...d) || 1;
-    return { name: m.name, n: d.map((v) => v / l), c: at[i].at };
+    const q = { name: m.name, n: d.map((v) => v / l), c: at[i].at };
+    if (m.kind === "cyl") { q.kind = "cyl"; q.o = moveMarkers([{ id: "o", at: m.o }], tf)[0].at; q.r = tf.mode === "scale" ? m.r * tf.v : m.r; }
+    return q;
   });
 }
 
+/** How far a point is from the line through `o` along the unit vector `n`. */
+const lineGap = (o, n, p) => { const d = [p[0] - o[0], p[1] - o[1], p[2] - o[2]]; const k = dot(d, n); return Math.hypot(d[0] - n[0] * k, d[1] - n[1] * k, d[2] - n[2] * k); };
 const near = (p, lo, hi, t) => [0, 1, 2].every((k) => p[k] >= lo[k] - t && p[k] <= hi[k] + t);
 
 /**
@@ -41,7 +79,7 @@ const near = (p, lo, hi, t) => [0, 1, 2].every((k) => p[k] >= lo[k] - t && p[k] 
  * same names. Returns the names in the order of the faces of `shape`, each with its normal and a point.
  */
 export function nameFaces(prev, tf, shape, opId, roles) {
-  const faces = planesOf(shape);
+  const faces = surfacesOf(shape);
   const old = carried(prev ?? [], tf);
   const diag = (() => { let m = 0; for (const f of faces) m = Math.max(m, Math.hypot(f.hi[0] - f.lo[0], f.hi[1] - f.lo[1], f.hi[2] - f.lo[2])); return m || 1; })();
   const tol = TOL + 1e-6 * diag;
@@ -50,9 +88,23 @@ export function nameFaces(prev, tf, shape, opId, roles) {
   // the names that match a face exactly, in the order they were made; the faces are looked up by their normal's main direction and the offset of their plane (a body of a thousand faces would otherwise be a million comparisons)
   const bucket = (n, d) => { const a = Math.abs(n[0]) >= Math.abs(n[1]) && Math.abs(n[0]) >= Math.abs(n[2]) ? 0 : Math.abs(n[1]) >= Math.abs(n[2]) ? 1 : 2; return `${a}${n[a] < 0 ? "-" : "+"}${Math.round(d / 0.05)}`; };
   const buckets = new Map();
-  faces.forEach((f, i) => { const k = bucket(f.n, dot(f.n, f.c)); buckets.set(k, [...(buckets.get(k) ?? []), i]); });
+  const cyls = [];
+  faces.forEach((f, i) => { if (f.kind === "cyl") { cyls.push(i); return; } const k = bucket(f.n, dot(f.n, f.c)); buckets.set(k, [...(buckets.get(k) ?? []), i]); });
+  // a round face is the same surface when its axis is the same line and its radius the same
+  const sameCyl = (f, m) => Math.abs(Math.abs(dot(f.n, m.n)) - 1) < 1e-6 && Math.abs(f.r - m.r) <= tol && lineGap(f.o, f.n, m.o) <= tol && lineGap(m.o, m.n, f.o) <= tol;
   for (const m of old) {
     let best = -1, bestGap = Infinity;
+    if (m.kind === "cyl") {
+      for (const i of cyls) {
+        const f = faces[i];
+        if (taken.has(i) || !sameCyl(f, m)) continue;
+        const gap = Math.hypot(m.c[0] - f.c[0], m.c[1] - f.c[1], m.c[2] - f.c[2]);
+        const score = near(m.c, f.lo, f.hi, tol) ? gap : gap + 1e6;
+        if (score < bestGap) { best = i; bestGap = score; }
+      }
+      if (best >= 0) { taken.add(best); given[best] = m.name; }
+      continue;
+    }
     const d0 = Math.round(dot(m.n, m.c) / 0.05);
     const a0 = bucket(m.n, 0).slice(0, 2);
     for (const dk of [d0 - 1, d0, d0 + 1]) for (const i of buckets.get(`${a0}${dk}`) ?? []) {
@@ -68,31 +120,33 @@ export function nameFaces(prev, tf, shape, opId, roles) {
   }
   // the faces no name matched that lie on the plane of a role (the sketch's own edge, a cap): named by the role
   if (roles?.length) {
-    const used = new Set();
-    faces.forEach((f, i) => {
-      if (given[i] !== null) return;
+    const used = new Map(); // role index -> how many faces it has named (a round face the kernel made of two halves is two faces of one role: the second is `#1`)
+    const order = faces.map((f, i) => i).filter((i) => given[i] === null).sort((a, b) => { for (let k = 0; k < 3; k++) { const d = Math.round(faces[a].c[k] * 1e3) - Math.round(faces[b].c[k] * 1e3); if (d) return d; } return 0; });
+    for (const i of order) {
+      const f = faces[i];
       let best = null, gap = Infinity;
       roles.forEach((r, k) => {
-        if (used.has(k) || Math.abs(Math.abs(dot(f.n, r.n)) - 1) > 1e-6) return;
-        if (Math.abs(dot(r.n, [r.c[0] - f.c[0], r.c[1] - f.c[1], r.c[2] - f.c[2]])) > tol) return;
+        if ((r.kind === "cyl") !== (f.kind === "cyl")) return;
+        if (f.kind === "cyl") { if (!sameCyl(f, r)) return; }
+        else if (used.has(k) || Math.abs(Math.abs(dot(f.n, r.n)) - 1) > 1e-6 || Math.abs(dot(r.n, [r.c[0] - f.c[0], r.c[1] - f.c[1], r.c[2] - f.c[2]])) > tol) return;
         const g = Math.hypot(r.c[0] - f.c[0], r.c[1] - f.c[1], r.c[2] - f.c[2]);
         if (g < gap) { gap = g; best = k; }
       });
-      if (best !== null) { used.add(best); given[i] = `${opId}:${roles[best].role}`; }
-    });
+      if (best !== null) { const n = used.get(best) ?? 0; used.set(best, n + 1); given[i] = `${opId}:${roles[best].role}${n ? `#${n}` : ""}`; }
+    }
   }
   // the faces no name matched: new, named by the operation and their order
   const fresh = faces.map((f, i) => ({ f, i })).filter((x) => given[x.i] === null);
-  const key = (f) => [...f.n.map((v) => Math.round(v * 1e4)), Math.round(dot(f.n, f.c) * 1e3), ...f.c.map((v) => Math.round(v * 1e3))];
+  const key = (f) => [f.kind === "cyl" ? 1 : 0, ...f.n.map((v) => Math.round(v * 1e4)), Math.round((f.kind === "cyl" ? f.r : dot(f.n, f.c)) * 1e3), ...f.c.map((v) => Math.round(v * 1e3))];
   fresh.sort((a, b) => { const ka = key(a.f), kb = key(b.f); for (let k = 0; k < ka.length; k++) if (ka[k] !== kb[k]) return ka[k] - kb[k]; return 0; });
   fresh.forEach((x, rank) => { given[x.i] = `${opId}:${rank}`; });
-  const names = faces.map((f, i) => ({ name: given[i], n: f.n, c: f.c }));
+  const names = faces.map((f, i) => (f.kind === "cyl" ? { name: given[i], kind: "cyl", n: f.n, c: f.c, o: f.o, r: f.r } : { name: given[i], n: f.n, c: f.c }));
   return { faces: names, edges: nameEdges(faces, given) };
 }
 
 /**
  * The names of the straight and curved edges that lie between two flat faces (`dec_stable_reference_mechanism`): an edge is named by the names of its two faces, `<a>|<b>` (sorted); where several edges lie between the
- * same two faces (a face cut in two by a hole), each also gets its rank by place, `#k`. An edge with a curved face beside it has no name yet. Each comes with its ends and middle as the shape has them now.
+ * same two faces (a face cut in two by a hole), each also gets its rank by place, `#k`. An edge with a face beside it that has no name (a cone, a sphere, a spline) has no name. Each comes with its ends and middle as the shape has them now.
  */
 function nameEdges(faces, given) {
   const sides = new Map(); // edge hash -> { edge, names }
@@ -141,7 +195,21 @@ export function refOfName(names, name) {
 /** What the extrusion needs of a sketch to name its faces, as plain numbers, read before the extrusion uses the sketch up: its edges' ends in the order of its wire, and the direction it is extruded along. */
 export function edgeEnds(sketch) {
   const d = sketch.defaultDirection;
-  return { dir: [d.x, d.y, d.z], edges: sketch.wire.edges.map((e) => ({ a: [e.startPoint.x, e.startPoint.y, e.startPoint.z], b: [e.endPoint.x, e.endPoint.y, e.endPoint.z], line: e.geomType === "LINE" })) };
+  return { dir: [d.x, d.y, d.z], edges: sketch.wire.edges.map((e) => { const p = (v) => [v.x, v.y, v.z]; const line = e.geomType === "LINE"; return { a: p(e.startPoint), b: p(e.endPoint), line, ...(line ? {} : { mid: p(e.pointAt(0.5)), p1: p(e.pointAt(1 / 3)), p2: p(e.pointAt(2 / 3)) }) }; }) };
+}
+
+/** The circle through three points in space: its centre and radius; null when they are on a line. */
+function circleOf(a, b, c) {
+  const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], ac = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+  const nx = [ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2], ab[0] * ac[1] - ab[1] * ac[0]];
+  const n2 = dot(nx, nx);
+  if (n2 < 1e-18) return null;
+  const abl = dot(ab, ab), acl = dot(ac, ac);
+  // centre = a + ((|ac|^2 (ab x ac) x ab) + (|ab|^2 ac x (ab x ac))) / (2 |ab x ac|^2)
+  const t1 = [nx[1] * ab[2] - nx[2] * ab[1], nx[2] * ab[0] - nx[0] * ab[2], nx[0] * ab[1] - nx[1] * ab[0]];
+  const t2 = [ac[1] * nx[2] - ac[2] * nx[1], ac[2] * nx[0] - ac[0] * nx[2], ac[0] * nx[1] - ac[1] * nx[0]];
+  const o = [0, 1, 2].map((k) => a[k] + (acl * t1[k] + abl * t2[k]) / (2 * n2));
+  return { o, r: Math.hypot(a[0] - o[0], a[1] - o[1], a[2] - o[2]) };
 }
 
 /**
@@ -151,8 +219,12 @@ export function edgeEnds(sketch) {
  * find among the new faces. Nothing is returned when the sketch does not say its sides or has not as many edges as sides.
  */
 export function figureRoles(ends, distance, sides, caps) {
+  ends = ends ?? null;
   const roles = [];
-  if (!ends || !sides || !sides.length || ends.edges.length !== sides.length || !Number.isFinite(distance)) return roles;
+  if (!ends || !sides || !sides.length || !Number.isFinite(distance)) return roles;
+  // a circle is drawn as two halves in the wire but is one side of the sketch
+  if (sides.length === 1 && ends.edges.length > 1 && ends.edges.every((e) => !e.line)) ends = { ...ends, edges: [ends.edges[0]] };
+  if (ends.edges.length !== sides.length) return roles;
   const dir = ends.dir;
   const dl = Math.hypot(...dir) || 1;
   const u = dir.map((v) => v / dl);
@@ -163,7 +235,12 @@ export function figureRoles(ends, distance, sides, caps) {
     roles.push({ role: "start", n: u, c: c0 }, { role: "end", n: u, c: c0.map((v, k) => v + u[k] * distance) });
   }
   ends.edges.forEach((e, i) => {
-    if (!sides[i] || !e.line) return;
+    if (!sides[i]) return;
+    if (!e.line) { // an arc or a circle: the round face along the extrusion through its three points
+      const k = circleOf(e.a, e.p1, e.p2);
+      if (k) roles.push({ role: `side:${sides[i]}`, kind: "cyl", n: u, o: k.o, r: k.r, c: [0, 1, 2].map((q) => e.mid[q] + half[q]) });
+      return;
+    }
     const tan = [e.b[0] - e.a[0], e.b[1] - e.a[1], e.b[2] - e.a[2]];
     const n = [tan[1] * u[2] - tan[2] * u[1], tan[2] * u[0] - tan[0] * u[2], tan[0] * u[1] - tan[1] * u[0]];
     const l = Math.hypot(...n);

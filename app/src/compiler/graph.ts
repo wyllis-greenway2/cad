@@ -46,7 +46,7 @@ export function buildGraph(scene: Scene): GraphResult {
     if (first.kind === "circle") {
       const c = pointOf(get, first.center);
       if (!c) return "the circle's centre is gone";
-      return { id, type: "sketch", shape: "circle", radius: r6(first.radius * back.k), at: to2d(plane, c, back.k), plane: "XY", origin: 0, frame: frameOf(plane, back) };
+      return { id, type: "sketch", shape: "circle", sides: [first.ref], radius: r6(first.radius * back.k), at: to2d(plane, c, back.k), plane: "XY", origin: 0, frame: frameOf(plane, back) };
     }
     const loop = loopOf(get, refs);
     if (!loop.ok) return loop.error;

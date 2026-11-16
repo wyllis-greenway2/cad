@@ -94,7 +94,7 @@ export function bodyParts(result: KernelResult): Part[] {
     for (let i = 0; i < mesh.length; i += 3) { x += mesh[i]!; y += mesh[i + 1]!; z += mesh[i + 2]!; }
     let best: string | undefined; let gap = Infinity;
     for (const q of names) {
-      if (q.n[0] * n[0] + q.n[1] * n[1] + q.n[2] * n[2] < 1 - 1e-6 || Math.abs(q.n[0] * q.c[0] + q.n[1] * q.c[1] + q.n[2] * q.c[2] - d) > 1e-3) continue;
+      if ((q as { kind?: string }).kind || q.n[0] * n[0] + q.n[1] * n[1] + q.n[2] * n[2] < 1 - 1e-6 || Math.abs(q.n[0] * q.c[0] + q.n[1] * q.c[1] + q.n[2] * q.c[2] - d) > 1e-3) continue;
       const g = Math.hypot(q.c[0] - x / k, q.c[1] - y / k, q.c[2] - z / k);
       if (g < gap) { gap = g; best = q.name; }
     }

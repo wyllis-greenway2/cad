@@ -2588,3 +2588,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_563 — 2026-11-16 — directive
 > yes start on the insertion
 (approves the recommendation: build the insertion of a step in the middle of the history, the later steps made again)
+
+## in_564 — 2026-11-16 — directive
+> yes start on curved face names
+(approves the next item of `dec_stable_reference_mechanism`: lasting names for curved faces, which also gives the edges beside them a name)

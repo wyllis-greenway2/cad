@@ -173,3 +173,66 @@ test("in the model: the faces of an extruded drawing are named by the lines it w
   const after = (Object.values(scene(s).parts).filter((p) => p.kind === "plane" && p.origin === "body") as unknown as { stable?: string }[]).map((p) => p.stable!).sort();
   assert.deepEqual(after, stable);
 });
+
+// ---- round faces (`in_564`) ----
+const disc = (r: number) => ({ id: "s_a", type: "sketch", shape: "circle", radius: r, at: [0, 0], sides: ["d/c1"], plane: "XY", origin: 0 });
+const post = (r: number, depth: number) => [disc(r), { id: "x_a", type: "extrude", profile: "s_a", distance: depth }];
+
+test("a post has a named round wall, and the rim edges beside it are named by the top and the wall", () => {
+  const a = evE(post(5, 10)), b = evE(post(7, 25));
+  const wall = (r: RE) => r.faceNames!.filter((f) => (f as { kind?: string }).kind === "cyl").map((f) => f.name).sort();
+  assert.ok(wall(a).length >= 1 && wall(a).every((n) => n.startsWith("x_a:side:d/c1")), wall(a).join());
+  assert.deepEqual(wall(a), wall(b), "the same names for any radius and height");
+  const rim = (r: RE) => r.edgeNames!.filter((e) => e.name.startsWith("x_a:end|x_a:side:d/c1")).map((e) => e.name).sort();
+  assert.ok(rim(a).length >= 1, "the rim has a name");
+  assert.deepEqual(rim(a), rim(b));
+  assert.ok(r2(a));
+  function r2(r: RE) { return r.faceNames!.some((f) => f.name === "x_a:start") && r.faceNames!.some((f) => f.name === "x_a:end"); }
+});
+
+test("a fillet of the top rim by its names follows when the post is made wider and taller, and when a move is put before it", () => {
+  const rimNames = (r: RE) => r.edgeNames!.filter((e) => e.name.startsWith("x_a:end|x_a:side:d/c1"));
+  const names = rimNames(evE(post(5, 10)));
+  const fillet = (target: string, rim: RE) => ({ id: "f", type: "edgeMod", target, mode: "fillet", value: 1, ref: rimNames(rim).map((e) => ({ name: e.name, a: e.a, b: e.b, mid: e.mid })) });
+  assert.ok(names.length >= 1);
+  const base = evE(post(5, 10));
+  const f1 = evE([...post(5, 10), fillet("x_a", base)]);
+  assert.equal(f1.ops.find((o) => o.id === "f")!.error, null, f1.ops.map((o) => o.error).join());
+  const v1 = Math.PI * 25 * 10 - f1.volume;
+  assert.ok(v1 > 6 && v1 < 7, `a 1 mm round off the rim of a 5 mm post: ${v1}`);
+  // the names are what finds the rim, not the numbers in the refs: refs with wrong numbers (made for the first post) still find the rim of the wider, taller one
+  const f2 = evE([...post(7, 25), fillet("x_a", base)]);
+  assert.equal(f2.ops.find((o) => o.id === "f")!.error, null, f2.ops.map((o) => o.error).join());
+  const v2 = Math.PI * 49 * 25 - f2.volume;
+  assert.ok(v2 > 8.5 && v2 < 10 && Math.abs(v2 - v1) > 0.5, `the rim of the 7 mm post, 25 high: ${v2}`);
+  const moved = evE([...post(5, 10), { id: "m", type: "transform", mode: "move", target: "x_a", axis: 2, value: 7 }, fillet("m", base)]);
+  assert.equal(moved.ops.find((o) => o.id === "f")!.error, null, moved.ops.map((o) => o.error).join());
+  assert.ok(Math.abs(Math.PI * 25 * 10 - moved.volume - v1) < 1e-3, "the same round after a move");
+});
+
+test("an arc side of a drawn shape is named for its sketch edge", () => {
+  // a half disc: a straight side d/l1 and an arc d/a1 through the mid point
+  const half = { id: "s_a", type: "sketch", shape: "polygon", points: [[-5, 0], [5, 0]], mids: [null, [0, 5]], sides: ["d/l1", "d/a1"], plane: "XY", origin: 0 };
+  const r = evE([half, { id: "x_a", type: "extrude", profile: "s_a", distance: 10 }]);
+  const names = r.faceNames!.map((f) => f.name);
+  assert.ok(names.includes("x_a:side:d/l1"), names.join(" "));
+  assert.ok(names.some((n) => n.startsWith("x_a:side:d/a1")), names.join(" "));
+});
+
+import { drawCircle } from "../src/operation/build.ts";
+test("in the model: the rim of a post is named, and a fillet of it follows when the circle is made bigger", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), worldRef("XY"), [0, 0, 0], 5); s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: [c.circle], params: { depth: 10 } } } as never);
+  const rim = () => (Object.values(scene(s).parts).filter((p) => p.kind === "line" && p.origin === "body") as unknown as { ref: string; stable?: string; circle?: unknown; a: string; b: string }[]).filter((l) => l.stable?.startsWith("x_s_100:end|x_s_100:side"));
+  const top = rim();
+  assert.ok(top.length >= 1, "the rim edges have lasting names");
+  s = run(s, { type: "addStep", step: { id: "s_101", type: "edgeMod", parts: top.map((l) => l.ref), params: { mode: "fillet", value: 1, enames: top.map((l) => l.stable).join(";") } } } as never);
+  assert.deepEqual(s.outcome.errors, {});
+  const v1 = (s.outcome.kernel as { volume: number }).volume;
+  s = run(s, { type: "setRadius", ref: c.circle, radius: 8 } as never);
+  assert.deepEqual(s.outcome.errors, {}, JSON.stringify(s.outcome.errors));
+  const v2 = (s.outcome.kernel as { volume: number }).volume;
+  assert.ok(Math.PI * 25 * 10 - v1 > 6 && Math.PI * 25 * 10 - v1 < 7, `round off a 5 mm post: ${Math.PI * 25 * 10 - v1}`);
+  assert.ok(Math.PI * 64 * 10 - v2 > 10.4 && Math.PI * 64 * 10 - v2 < 11.5, `round off the 8 mm post: ${Math.PI * 64 * 10 - v2}`);
+});

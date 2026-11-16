@@ -3,7 +3,7 @@ id: dec_stable_reference_mechanism
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_546, in_558, in_559, in_560, in_561
+human_input: in_546, in_558, in_559, in_560, in_561, in_564
 date: 2026-11-16
 depends_on:
   - dec_stable_references: that entry decided the idea (names by how things were made, geometry as the fallback); this asks how it is built
@@ -48,7 +48,15 @@ alternative_to:
 - **Cost:** about 0.5 s more on a 60-tooth gear's extrusion (0.43 to about 0.8 s), most of it the matching of 250 faces; the gear's timing test (2 s) passes but with little room.
 - **Not done:** revolve, loft and sweep faces still get rank names (a revolve's faces are mostly curved; a loft's and a sweep's flat faces need the same idea with their own sketches); arc sides.
 
-**Not built (next, in this order):** (1) roles for revolve, loft and sweep (rank names until then); (2) curved faces (a round wall) and the faces made by a fillet or chamfer, which also gives the edges beside them a name; (3) hollow's faces, a repeat's, the sketch's plane when drawn on a face; (4) the command that puts a step **in the middle** of the history (the later steps made again) and its place in the History panel; (5) the kernel's own history (option A) where matching is wrong (a face that splits, two faces that swap).
+## Round faces (`in_564`)
+
+- **Cylinders have names** (`surfacesOf` in `facenames.mjs`): a round face is the same surface when its axis is the same line and its radius the same; a name is carried through the steps by that (and by the place on the cylinder), after a move, turn or scale (the radius scales). A new one is named by its sketch edge when an extrusion made it, else by rank. A cylinder the kernel made of two halves has `side:<id>` and `side:<id>#1`.
+- **The extrusion's roles cover arcs and circles:** an arc side of a drawn shape or a drawn circle (one side of the sketch, two halves in the wire) is a round role found from three points of its edge; the graph gives the circle sketch its `sides`.
+- **So the edges beside a round face have names:** a rim is `<top>|<wall>` (`#0`, `#1` for its two halves), so a fillet or chamfer of a post's or hole's rim keeps it through a change of the radius or the height and through a step put before it. Tested in the kernel and in the model (a post's rim filleted, the circle made bigger).
+- **Speed:** the first version read each flat face's centre of mass, which integrates over the outline (90 ms for each of the two faces of a 60-tooth gear); a point of the face from its box is used instead. The gear's extrusion now takes about 0.2 s more with names (0.4 to 0.63 s). The gear and the 144-post timing tests are timing-sensitive under the load of the whole suite; they passed in the last run and had failed in the one before.
+- **Not built:** a push or pull of a round wall (the radius change) still finds the wall by numbers; the faces a fillet or chamfer makes are named by rank (not by the edge they round); other curved faces (a cone, a sphere, a torus, a spline) and the edges beside them have no name.
+
+**Not built (next, in this order):** (1) roles for revolve, loft and sweep (rank names until then), and the faces a fillet or chamfer makes named for the edge they round; (2) hollow's faces, a repeat's, the sketch's plane when drawn on a face; (3) a push or pull of a round wall by name; (4) the kernel's own history (option A) where matching is wrong (a face that splits, two faces that swap).
 
 ## Rationale
 
