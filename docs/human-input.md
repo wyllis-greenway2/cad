@@ -2741,3 +2741,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_601 — 2026-11-16 — directive
 > instead of failing on a short spiral, can we just have it reduce the rotational degrees to 0?
 (asks that a spiral the kernel cannot make fall back to a turn of 0 degrees, instead of failing; answered in chat with a question about which kind of revolve is meant, nothing built yet)
+
+## in_602 — 2026-11-16 — approval
+> Twist about the figure's normal
+(answers which revolve is meant: the twist about the figure's own normal, where a turn of 0 degrees with an advance is a straight extrusion; the fallback is for that kind only)

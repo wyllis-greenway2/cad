@@ -464,3 +464,17 @@ test("a spiral the kernel cannot make says so by the turn and the advance asked 
   const good = runOp(s, { ...op, pivot: [9, 0, 0], value: 360, advValue: 2.8, auto: false });
   assert.ok(good && !good.session.message, good?.session.message ?? "");
 });
+
+// ---- a twist packed into a tiny advance (`in_599`, `in_602`) ----
+test("a twist of many turns in a tiny advance is made as asked (the self-crossing check used to overflow its stack on the fine mesh and the step was refused)", () => {
+  let s = createSession(kernel);
+  const r = drawRectangle(scene(s), XY, [-3, -1, 0], [3, 1, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  const op = begin(s, loopFaceRef(r.lines));
+  for (const [angle, advance] of [[-3600, 2], [360, 0.001]] as const) {
+    const made = runOp(s, { ...twistMid(op), value: angle, advValue: advance })!;
+    assert.equal(made.session.message, null, `${angle} in ${advance}: ${made.session.message}`);
+    assert.deepEqual(made.session.outcome.errors, {});
+    assert.ok(Math.abs(volume(made.session) - 12 * advance) < 0.05 * Math.max(1, advance), `${angle} in ${advance}: the bar's volume, ${volume(made.session)}`);
+  }
+});

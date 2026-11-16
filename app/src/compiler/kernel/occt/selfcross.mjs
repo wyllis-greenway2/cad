@@ -47,7 +47,8 @@ export function findCrossing(vertices, triangles, depth, budget = 3e7, ms = 1500
     tri.push({ t, p, ids: idx.map(vid), u, d0: dot(u, p[0]), lo, hi });
   }
   // the sweep runs along the axis the mesh is longest in
-  const span = [0, 1, 2].map((a) => Math.max(...tri.map((x) => x.hi[a])) - Math.min(...tri.map((x) => x.lo[a])));
+  // (a loop, not `Math.max(...list)`: a list of a few hundred thousand overflows the stack when spread, as a finely meshed twist of ten turns does)
+  const span = [0, 1, 2].map((a) => { let hi = -Infinity, lo = Infinity; for (const x of tri) { if (x.hi[a] > hi) hi = x.hi[a]; if (x.lo[a] < lo) lo = x.lo[a]; } return hi - lo; });
   const ax = span.indexOf(Math.max(...span));
   tri.sort((a, b) => a.lo[ax] - b.lo[ax]);
   let work = 0;
