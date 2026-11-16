@@ -2556,3 +2556,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_555 — 2026-11-16 — directive
 > Do the clearance field and HTD pulleys next
 (asks for the two items dec_gear_tool listed as not built: a clearance field in the gear's number box, and HTD pulleys)
+
+## in_556 — 2026-11-16 — directive
+> Do the ISO 606 sprockets next. Also the gear menu is going to get very large, so why don't we just have one gear icon in the sketching menu that opens to another sub menu where all the gear drawing options are. Can we give the ability to give our gears bores?
+(three asks: the ISO 606 sprockets from dec_gear_tool's list; one Gear icon in the Sketch menu that opens a submenu holding every gear tool; bores for the gears: they already have a Bore field in the box for gears, clock gears, pulleys and sprockets, but not for a partner made by Mesh gear and not as a thing the person can find)

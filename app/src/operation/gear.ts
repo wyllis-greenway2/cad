@@ -34,7 +34,7 @@ export interface GearSpec {
   /** a timing pulley for this belt (`pulley.ts`): `teeth` grooves, `clearance` (mm, bigger all round than the belt tooth) in place of the root clearance of a gear; the module is the belt's pitch */
   pulley?: PulleyKind;
   /** a roller chain sprocket (`sprocket.ts`): `teeth` teeth for the ANSI chain number `chain` (40 if none), or for the `pitch` and `roller` diameter given (mm); a bore as for a gear */
-  sprocket?: { chain?: number; pitch?: number; roller?: number };
+  sprocket?: { chain?: number; pitch?: number; roller?: number; /** the ISO 606 tooth form (`iso606.ts`): the chain number is then the B series' 6 to 24 (or an ANSI number for the A series), and `fit` from 0 (tight) to 1 (loose), 0.5 if none, where in ISO's limits the seat and flank are */ iso?: boolean; fit?: number };
   /** a cycloidal (clock) gear (`cycloidal.ts`): the generating circle's radius, the addendum and the dedendum, in modules (3, 1 and 1.25 if none); the same circle for gears that are to mesh; backlash as for a gear */
   cycloidal?: { circle?: number; addendum?: number; dedendum?: number };
 }

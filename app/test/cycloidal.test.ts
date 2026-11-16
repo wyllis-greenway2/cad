@@ -151,7 +151,7 @@ const typeText = (st: AppState, text: string) => [...text].reduce((t, c) => key(
 
 test("Clock gear tool: the box has Teeth, Module, Backlash, Circle, Addendum, Dedendum and Bore; Mesh gear makes a clock gear partner; a refused number says why", () => {
   let st = top();
-  const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap((i) => [i.id, ...(i.children ?? []).map((c) => c.id)]);
+  const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? []).flatMap(walk)]; });
   assert.ok(ids.includes("tool:clock"));
   st = reduce(st, { type: "begin", name: "gear" }, env);
   st = reduce(st, { type: "runAction", id: "tool:clock" }, env);
@@ -276,7 +276,7 @@ test("extruded through the kernel a cycloidal rack and a cycloidal ring have the
 });
 
 test("Clock rack and Clock ring tools: their boxes (Base and Wall in place of Bore), typed numbers, the pointer sets the length or the wall; Mesh rack from a clock gear makes a clock rack", () => {
-  const ids = (reduce(top(), { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap((i) => [i.id, ...(i.children ?? []).map((c) => c.id)]);
+  const ids = (reduce(top(), { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? []).flatMap(walk)]; });
   assert.ok(ids.includes("tool:clockring") && ids.includes("tool:clockrack"));
   let st = reduce(top(), { type: "begin", name: "gear" }, env);
   st = reduce(st, { type: "runAction", id: "tool:clockrack" }, env);

@@ -109,7 +109,7 @@ const typeText = (st: AppState, text: string) => [...text].reduce((t, c) => key(
 
 test("GT2 pulley tool: Teeth, Clearance and Bore are its numbers; click the centre, type the teeth, Enter; Edit gear changes them; a gear is not meshed to it", () => {
   let st = top();
-  const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap((i) => [i.id, ...(i.children ?? []).map((c) => c.id)]);
+  const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? []).flatMap(walk)]; });
   assert.ok(ids.includes("tool:gt2") && ids.includes("tool:gt3"));
   st = reduce(st, { type: "begin", name: "gear" }, env);
   st = reduce(st, { type: "runAction", id: "tool:gt2" }, env);
@@ -188,7 +188,7 @@ test("extruded through the kernel an HTD 5M pulley of 20 grooves has the outline
 
 test("HTD 5M tool: the Sketch ring has it; Teeth, Clearance (0.07 shown) and Bore are its numbers; a refused count says why", () => {
   let st = top();
-  const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap((i) => [i.id, ...(i.children ?? []).map((c) => c.id)]);
+  const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? []).flatMap(walk)]; });
   assert.ok(ids.includes("tool:htd5"));
   st = reduce(st, { type: "begin", name: "gear" }, env);
   st = reduce(st, { type: "runAction", id: "tool:htd5" }, env);

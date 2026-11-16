@@ -200,7 +200,7 @@ const reach = (st: AppState) => Math.max(...drawn(st).map((p) => Math.hypot(p[0]
 
 test("the Gear tool is in the Sketch ring; click the centre, the pointer sets the size (20 teeth, the module that makes the outside that wide), a click makes it, one undo takes it all away", () => {
   let st = top();
-  const items = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap((i) => [i.id, ...(i.children ?? []).map((c) => c.id)]);
+  const items = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? []).flatMap(walk)]; });
   assert.ok(items.includes("tool:gear"));
   st = reduce(st, { type: "begin", name: "gear" }, env);
   assert.equal(st.tool!.kind, "gear");
@@ -325,7 +325,7 @@ test("Edit gear: the number box opens on the selected gear with its numbers; typ
   const made = Object.values(scene(st.session).parts).find((p) => p.kind === "face" && p.ref.includes("g_"))!;
   st = reduce(st, { type: "escape" }, env); // (the tool is on to make the next gear: put it away)
   st = pick({ ...st, tool: null }, [made.ref]);
-  const items = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; enabled: boolean; children?: { id: string; enabled: boolean }[] }[]).flatMap((i) => [i, ...(i.children ?? [])]);
+  const items = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; enabled: boolean; children?: { id: string; enabled: boolean }[] }[]).flatMap(function walk(i: any): { id: string; enabled: boolean }[] { return [i, ...(i.children ?? []).flatMap(walk)]; });
   assert.ok(items.find((i) => i.id === "gear:edit")!.enabled);
   st = reduce(st, { type: "runAction", id: "gear:edit" }, env);
   assert.equal(st.tool!.gear!.editing, "g_001");
@@ -350,7 +350,7 @@ test("Edit gear: the number box opens on the selected gear with its numbers; typ
 
 test("Ring gear tool: the pointer sets the outside of the wall; typed Wall changes it; the ring is made with its wall and one undo takes it all", () => {
   let st = top();
-  const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap((i) => [i.id, ...(i.children ?? []).map((c) => c.id)]);
+  const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? []).flatMap(walk)]; });
   assert.ok(ids.includes("tool:ring") && ids.includes("gear:edit"));
   st = reduce(st, { type: "runAction", id: "tool:ring" }, env);
   assert.equal(st.tool!.gear!.internal, true);
@@ -487,12 +487,12 @@ test("Mesh gear: with a gear selected, the pointer says which way the partner st
   st = made(st);
   const face = faceOf(st, "g_001");
   st = pick({ ...st, tool: null }, [face.ref]);
-  const items = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; enabled: boolean; children?: { id: string; enabled: boolean }[] }[]).flatMap((i) => [i, ...(i.children ?? [])]);
+  const items = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; enabled: boolean; children?: { id: string; enabled: boolean }[] }[]).flatMap(function walk(i: any): { id: string; enabled: boolean }[] { return [i, ...(i.children ?? []).flatMap(walk)]; });
   assert.ok(items.find((i) => i.id === "gear:mesh")!.enabled && items.find((i) => i.id === "gear:meshrack")!.enabled);
   let m = reduce(st, { type: "runAction", id: "gear:mesh" }, env);
   assert.equal(m.tool!.gear!.mesh!.rack, false);
   m = move(m, [C[0], C[1] + 50, 0]); // (straight up from the gear)
-  assert.deepEqual(entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.label), ["Teeth", "Ratio", "Angle"]);
+  assert.deepEqual(entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.label), ["Teeth", "Ratio", "Angle", "Bore"]);
   const shown = entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.value);
   assert.deepEqual(shown.slice(0, 2), ["20", "1"], "the same teeth, a ratio of 1");
   assert.ok(Math.abs(Number(shown[2]) - 90) < 2, `up is about 90 degrees: ${shown[2]}`);
@@ -530,7 +530,7 @@ test("Mesh rack and a gear on a rack: the rack goes where the pointer is, tangen
   const rackFace = faceOf(m, "g_002");
   let on = pick({ ...m, tool: null }, [rackFace.ref]);
   on = reduce(on, { type: "runAction", id: "gear:mesh" }, env);
-  assert.deepEqual(entryOf(scene(on.session), on.tool, on.op)!.fields.map((f) => f.label), ["Teeth", "Offset"]);
+  assert.deepEqual(entryOf(scene(on.session), on.tool, on.op)!.fields.map((f) => f.label), ["Teeth", "Offset", "Bore"]);
   on = typeText(on, "12"); on = key(on, "Tab"); on = typeText(on, "5");
   on = key(on, "Enter");
   const third = gearsOfState(on)[2]!;
