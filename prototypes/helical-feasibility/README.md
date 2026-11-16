@@ -19,3 +19,6 @@
   - the screen's mesh of the 480 curved faces 1440.
 - **Fewer arcs** to a flank (2 instead of 4): 4.5 s to 3.0 s; the volume moves by 0.01 per cent.
 - **A loft through K turned copies** is not faster: 5.3 s (K=3), 16.8 s (K=5), 6.3 s (K=9), the volume right to 0.1 per cent at K=3.
+
+## After the speed rules (`in_565`; `dec_speed_rules` has the table)
+`bench.test.ts` (from `app/`: `node --test ../prototypes/helical-feasibility/bench.test.ts`; `OP=extrude`, `DRAFT=1`, `DETAIL=n`, `Z`, `M`, `BORE` change it) reports the stage times. The twisted 40-tooth gear: 4.8 s before, 1.9 s after.

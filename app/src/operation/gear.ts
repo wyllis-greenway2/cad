@@ -31,6 +31,8 @@ export interface GearSpec {
   rim?: number;
   /** diameter of a round hole through the middle of an external gear, mm (0 or absent: none) */
   bore?: number;
+  /** arcs to each side of a tooth's flank (2 to 8; 4 by default): fewer is a rougher involute and a body with fewer faces, which is quicker to make (`dec_speed_rules`) */
+  detail?: number;
   /** the corner radius of the rack cutter, in modules: the root is then shaped as that cutter makes it (a fillet, and the undercut when there are few teeth: `gearroot.ts`); none or 0: the root is the circle between the flanks */
   fillet?: number;
   /** a flat cut this deep (mm) into the bore, on its +x side: a D bore (`bore.ts`) */
@@ -67,7 +69,7 @@ export interface GearOutline {
 }
 
 /** per side of a tooth: how many arcs make up the involute (each is an arc through two points of it and the point between; checked in the tests) */
-const ARCS = 4;
+const DEFAULT_ARCS = 4;
 const inv = (a: number) => Math.tan(a) - a;
 const polar = (r: number, a: number): [number, number] => [r * Math.cos(a), r * Math.sin(a)];
 
@@ -123,6 +125,8 @@ function outlineOf(spec: GearSpec): Result<GearOutline> {
   if (!Number.isFinite(m) || m <= 0) return err("the module must be above zero");
   const alpha = ((spec.pressure ?? 20) * Math.PI) / 180;
   if (!(alpha > 0 && alpha < (35 * Math.PI) / 180)) return err("the pressure angle must be between 0 and 35 degrees");
+  const ARCS = Math.round(spec.detail ?? DEFAULT_ARCS);
+  if (!(ARCS >= 2 && ARCS <= 8)) return err("the detail (arcs to a flank) must be from 2 to 8");
   const x = spec.internal ? 0 : spec.shift ?? 0;
   const c = spec.clearance ?? 0.25;
   const backlash = spec.backlash ?? 0;
