@@ -1,7 +1,7 @@
 // THE OPERATION BAR (`in_546`, `q_ui_unification`): the one place that says what is open, with its options and its apply and cancel. On a mouse it is a pill at the top; on a finger it is at the bottom, with undo and redo in it.
 // The sketching tool that is on (`in_193`): a little pill at the top of the page with the tool's icon and a cross; the tool stays on until a right click or this cross puts it away. Once a figure has been made the cross becomes a check (the work is done, the check puts the tool away: it is not a cancel, `in_283`) and it flashes green, fading, at every figure and every operation that opens, to show it is there to press.
 import { iconSvg } from "./icons.ts";
-import { choiceRow } from "./look.ts";
+import { choiceRow, roundButton, onPress } from "./look.ts";
 import type { Option } from "../interaction/options.ts";
 
 export function createToolChip(host: HTMLElement, cancel: () => void, apply: () => void, pick: (o: Option) => void = () => {}, undo: () => void = () => {}, redo: () => void = () => {}) {
@@ -9,20 +9,16 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
   chip.style.cssText = "position:fixed;z-index:7;top:12px;left:50%;transform:translateX(-50%);display:none;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;min-height:40px;max-width:calc(100vw - 16px);padding:4px 6px 4px 14px;border-radius:20px;background:#34363b;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.25);user-select:none;-webkit-user-select:none;touch-action:manipulation";
   const icon = document.createElement("span");
   icon.style.cssText = "display:inline-flex;width:20px;height:20px";
-  const x = document.createElement("div");
-  x.style.cssText = "display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:14px;cursor:pointer;background:rgba(255,255,255,.14)";
-  x.innerHTML = iconSvg("cross");
+  const x = roundButton({ icon: "cross", size: 28, tone: "dark" });
   x.addEventListener("click", (e) => { e.stopPropagation(); cancel(); });
-  const tick = document.createElement("div");
-  tick.style.cssText = x.style.cssText;
-  tick.innerHTML = iconSvg("check");
+  const tick = roundButton({ icon: "check", size: 28, tone: "dark" });
   tick.addEventListener("click", (e) => { e.stopPropagation(); if (tick.dataset.mode === "done") cancel(); else apply(); });
   const words = document.createElement("span");
   words.style.cssText = "display:none;font:600 13px system-ui,sans-serif;white-space:nowrap";
   const options = document.createElement("span");
   options.style.cssText = "display:none;gap:6px;align-items:center";
   // undo and redo, for a finger: they are in the bar, which is at the bottom, where a thumb reaches (`in_546`)
-  const round = (name: string, title: string, fire: () => void): HTMLElement => { const b = document.createElement("div"); b.innerHTML = iconSvg(name); b.title = title; b.style.cssText = "display:none;align-items:center;justify-content:center;width:36px;height:36px;border-radius:18px;background:rgba(255,255,255,.14);cursor:pointer"; b.addEventListener("pointerdown", (e) => e.stopPropagation()); b.addEventListener("click", (e) => { e.stopPropagation(); fire(); }); return b; };
+  const round = (name: string, title: string, fire: () => void): HTMLElement => { const b = roundButton({ icon: name, size: 36, tone: "dark", title }); onPress(b, fire); return b; };
   const undoB = round("undo", "Undo", undo);
   const redoB = round("redo", "Redo", redo);
   chip.append(undoB, redoB, icon, words, options, tick, x);

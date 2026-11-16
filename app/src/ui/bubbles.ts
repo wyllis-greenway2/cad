@@ -2,6 +2,7 @@
 // pointer. A dimension is just its number and a little lock; any other constraint is its icon. Click the number to type a new one, click the lock to lock or unlock it, click the
 // bubble to open it (an x to delete it appears; hovering also shows it) and click again to close it. Several constraints at one spot are laid side by side. The words are in tooltips.
 import { roundedText } from "../shared/numbers.ts";
+import { bubbleCss } from "./look.ts";
 import { lengthIn, lengthText, unitName, units } from "../shared/units.ts";
 
 /** A bubble's number and unit as the person reads them in the number system in use (`in_543`): only a length changes. */
@@ -39,7 +40,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
     e.a = a;
     el.replaceChildren();
     el.title = `${a.label}${a.value !== null ? ` ${shownNumber(a)}${a.unit === "deg" ? "°" : ` ${unitName(a.unit ?? "")}`}${a.locked ? " (locked)" : a.readOnly ? " (measured: it belongs to the body)" : " (measured: click the number to type one and lock it)"}` : ""}${a.broken ? ": a part it used is gone" : ""}`;
-    el.style.cssText = `position:absolute;left:0;top:0;display:flex;align-items:center;gap:3px;height:26px;box-sizing:border-box;padding:0 7px;border-radius:13px;background:#fff;border:1px solid ${a.broken ? "#d33" : a.open ? "#e0a82e" : "#d6d7db"};box-shadow:0 1px 6px rgba(0,0,0,.12);cursor:${a.relationId ? "pointer" : "default"};white-space:nowrap`;
+    el.style.cssText = bubbleCss(a.broken ? "#d33" : a.open ? "#e0a82e" : "#d6d7db", `position:absolute;left:0;top:0;cursor:${a.relationId ? "pointer" : "default"}`);
     const relation = a.relationId;
     const isMate = a.kind.startsWith("mate:");
     // a mate is only its icon until it is clicked; then it has its number (with the word for it, to type over) and the cross (`in_345`)

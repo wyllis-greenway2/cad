@@ -1,4 +1,5 @@
 import { iconSvg } from "./icons.ts";
+import { bubbleCss } from "./look.ts";
 // The value bubble (`in_124`, `in_127`): while an operation or a tool runs, a small bubble like a constraint's number sits by what it sets (the tip of the push / pull arrow, the edge, the
 // middle of the handles) and takes a typed number: the amount to push or pull, the fillet or chamfer size, the angle, the distance. It shows the live value while an arrow is dragged; Enter
 // applies a typed one, Esc cancels. The words are in its tooltip. It displays what the interaction layer says.
@@ -13,7 +14,7 @@ export interface ChipHandlers {
 
 export function createChip(host: HTMLElement, h: ChipHandlers) {
   const el = document.createElement("div");
-  el.style.cssText = "position:fixed;left:0;top:0;display:none;align-items:center;gap:4px;height:26px;box-sizing:border-box;padding:0 6px;border-radius:13px;background:#fff;border:1px solid #d6d7db;box-shadow:0 1px 6px rgba(0,0,0,.12);font:13px system-ui,sans-serif;color:#2b2b2d;z-index:9;white-space:nowrap";
+  el.style.cssText = bubbleCss("#d6d7db", "position:fixed;left:0;top:0;display:none;gap:4px;padding:0 6px;z-index:9");
   host.appendChild(el);
   let sig = "";
   let inputs: HTMLInputElement[] = [];

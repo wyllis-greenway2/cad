@@ -1,13 +1,12 @@
 // The little switch by the handles of a move or a turn (`in_206`): the move arrows come with a rotate icon next to them, the turning rings with a move icon; a click changes which one is on.
 import { iconSvg } from "./icons.ts";
+import { roundButton } from "./look.ts";
 
 export function createModeSwitch(host: HTMLElement, go: (to: "move" | "rotate" | "linear" | "circular" | "invert") => void) {
-  const el = document.createElement("div");
-  el.style.cssText = "position:fixed;left:0;top:0;display:none;width:30px;height:30px;box-sizing:border-box;padding:6px;border-radius:15px;background:#fff;border:1px solid #cfd0d4;color:#2b2b2d;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.15);z-index:8;user-select:none;-webkit-user-select:none;touch-action:manipulation";
+  const el = roundButton({ size: 30 });
+  el.style.cssText += ";position:fixed;left:0;top:0;display:none;z-index:8";
   let to: "move" | "rotate" | "linear" | "circular" | "invert" = "rotate";
   let shown = "";
-  el.addEventListener("mouseenter", () => { el.style.borderColor = "#1ab8b3"; el.style.background = "#e8f7f6"; });
-  el.addEventListener("mouseleave", () => { el.style.borderColor = "#cfd0d4"; el.style.background = "#fff"; });
   el.addEventListener("click", (e) => { e.stopPropagation(); go(to); });
   host.appendChild(el);
   return {
@@ -19,7 +18,7 @@ export function createModeSwitch(host: HTMLElement, go: (to: "move" | "rotate" |
       if (!what || !at) { el.style.display = "none"; return; }
       to = what.to;
       if (shown !== what.to + what.label) { shown = what.to + what.label; el.innerHTML = iconSvg(what.to); el.title = what.label; }
-      el.style.display = "block";
+      el.style.display = "flex";
       const SIZE = 30;
       const spots: [number, number][] = [[-38, -38], [-38, 8], [8, -38], [-76, -38], [-38, -76], [-76, 8], [8, -76], [-76, -76], [-114, -38], [-38, -114]];
       const free = (o: [number, number]) => { const [x, y] = [at[0] + o[0], at[1] + o[1]]; return avoid.every((r) => x + SIZE + 4 <= r.left || x >= r.right + 4 || y + SIZE + 4 <= r.top || y >= r.bottom + 4); };

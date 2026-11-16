@@ -1,5 +1,6 @@
 // The page that asks the questions of the Import and Export dialogs (`dec_import_export_menu`): it draws a description (`interaction/transfer.ts`) and gives back the answers, or null when it is cancelled. It knows nothing of what the choices mean.
 import type { Dialog, Field, FieldValue } from "../interaction/transfer.ts";
+import { textButton } from "./look.ts";
 
 export type Values = Record<string, FieldValue>;
 const valuesOf = (d: Dialog): Values => Object.fromEntries(d.fields.map((f) => [f.id, f.value]));
@@ -34,7 +35,7 @@ export function createDialog(host: HTMLElement) {
     for (const f of dlg.fields) card.appendChild(row(f, values, redraw));
     const bar = document.createElement("div");
     bar.style.cssText = "display:flex;gap:8px;justify-content:flex-end;margin-top:16px";
-    const button = (label: string, primary: boolean, click: () => void) => { const b = document.createElement("button"); b.textContent = label; b.style.cssText = `padding:9px 16px;border-radius:8px;border:1px solid ${primary ? "#1d7f84" : "#cfd0d4"};background:${primary ? "#1d7f84" : "#fff"};color:${primary ? "#fff" : "#222"};font:inherit;cursor:pointer;min-height:40px`; b.addEventListener("click", click); return b; };
+    const button = (label: string, primary: boolean, click: () => void) => textButton(label, { tone: primary ? "primary" : "plain", click });
     bar.append(button("Cancel", false, () => close(null)), button(dlg.ok, true, () => close({ ...values })));
     card.appendChild(bar);
   };

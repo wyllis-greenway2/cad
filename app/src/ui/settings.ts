@@ -3,6 +3,7 @@
 import { KEY_ACTIONS, KEY_GROUPS, chordOf, specText, rebind, unbind } from "../interaction/preferences.ts";
 import type { Keys } from "../interaction/preferences.ts";
 import type { NumberSystem } from "../shared/units.ts";
+import { textButton } from "./look.ts";
 
 export interface Prefs { units: NumberSystem; outlines: boolean; scrollMode: "auto" | "pan" | "zoom"; panScale: number; keys: Keys; usualKeys: Keys }
 export type Change =
@@ -28,9 +29,7 @@ export function createSettings(host: HTMLElement, read: () => Prefs, change: (c:
     l.append(el("div", "", label)); if (hint) l.append(el("div", "font-size:12px;color:#777;margin-top:2px", hint));
     const g = el("div", "display:flex;gap:6px");
     for (const o of options) {
-      const b = el("button", `padding:8px 14px;border-radius:8px;border:1px solid ${o.v === current ? "#1d7f84" : "#cfd0d4"};background:${o.v === current ? "#1ab8b3" : "#fff"};color:${o.v === current ? "#fff" : "inherit"};font:inherit;cursor:pointer;min-height:38px`, o.t);
-      b.addEventListener("click", () => pick(o.v));
-      g.append(b);
+      g.append(textButton(o.t, { on: o.v === current, click: () => pick(o.v) }));
     }
     r.append(l, g);
     return r;
@@ -59,7 +58,7 @@ export function createSettings(host: HTMLElement, read: () => Prefs, change: (c:
   const draw = (): void => {
     const p = read();
     const head = el("div", "position:sticky;top:0;background:#f4f5f7;padding:14px 0 10px;display:flex;align-items:center;gap:12px;z-index:1");
-    head.append(el("div", "font-size:20px;font-weight:600;flex:1", "Settings"), chip("Done", "border:1px solid #1d7f84;background:#1ab8b3;color:#fff;padding:9px 20px", close));
+    head.append(el("div", "font-size:20px;font-weight:600;flex:1", "Settings"), textButton("Done", { tone: "primary", click: close }));
     const body = el("div", "max-width:720px;margin:0 auto;padding:0 16px 40px");
     body.append(head);
     body.append(section("Numbers", choice("Number system", [{ v: "mm", t: "Millimetres" }, { v: "in", t: "Inches" }], p.units, (v) => { change({ what: "units", value: v as NumberSystem }); draw(); }, "What lengths are shown and typed in. The model itself is kept exactly, whichever you use.")));
@@ -72,7 +71,7 @@ export function createSettings(host: HTMLElement, read: () => Prefs, change: (c:
     const k = section("Keyboard", el("div", "font-size:12px;color:#777;margin:0 0 6px", "Click a key to change it, × to take it away, or add one. Ctrl also means Cmd. A key that another action has moves to the one you set it on."));
     if (note) k.append(el("div", "padding:8px 10px;margin:6px 0;border-radius:8px;background:#fff4e5;color:#7a4b00", note));
     for (const g of KEY_GROUPS) { k.append(el("div", "font-size:12px;font-weight:600;color:#555;margin:12px 0 2px", g)); for (const a of KEY_ACTIONS.filter((x) => x.group === g)) k.append(keyRow(a, p.keys)); }
-    k.append(el("div", "height:10px"), chip("Put every key back", "border:1px solid #cfd0d4;background:#fff", () => { change({ what: "keys", value: Object.fromEntries(Object.entries(p.usualKeys).map(([a, l]) => [a, [...l]])) }); capturing = null; note = ""; draw(); }));
+    k.append(el("div", "height:10px"), textButton("Put every key back", { click: () => { change({ what: "keys", value: Object.fromEntries(Object.entries(p.usualKeys).map(([a, l]) => [a, [...l]])) }); capturing = null; note = ""; draw(); } }));
     keys.append(k);
     body.append(keys);
     const top = page.scrollTop;

@@ -1,5 +1,6 @@
 // The suggested constraints (`in_195`): a little row of round buttons by the selected parts, each an icon with its name as a tooltip; a click applies that constraint.
-import { iconKey, iconSvg } from "./icons.ts";
+import { iconKey } from "./icons.ts";
+import { roundButton } from "./look.ts";
 import { placeBubbles } from "../interaction/bubbleplace.ts";
 import type { Memory } from "../interaction/bubbleplace.ts";
 
@@ -18,12 +19,7 @@ export function createSuggest(host: HTMLElement, run: (id: string) => void) {
       if (now !== sig) {
         sig = now;
         row.replaceChildren(...items.map((it) => {
-          const b = document.createElement("div");
-          b.title = it.label;
-          b.style.cssText = "width:28px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#2b2b2d;background:#fff;border:1px solid #cfd0d4";
-          b.innerHTML = iconSvg(it.id === "fixed" ? "unlock" : iconKey(it.id)); // (Fix in place offered: an open padlock to close; once it is made its bubble shows the closed one, `in_292`)
-          b.addEventListener("mouseenter", () => { b.style.background = "#e8f7f6"; b.style.borderColor = "#1ab8b3"; });
-          b.addEventListener("mouseleave", () => { b.style.background = "#fff"; b.style.borderColor = "#cfd0d4"; });
+          const b = roundButton({ icon: it.id === "fixed" ? "unlock" : iconKey(it.id), size: 28, title: it.label }); // (Fix in place offered: an open padlock to close; once it is made its bubble shows the closed one, `in_292`)
           b.addEventListener("click", (e) => { e.stopPropagation(); run(it.id); });
           return b;
         }));
