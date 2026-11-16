@@ -2288,3 +2288,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_490 — 2026-11-16 — directive
 > the hard body should be categorized as a constraint and put under that section of the menu. Also I was thinking a hard body would treat any other body it encounters as a hard body too, not that you would have to declare two bodies as hard in order for it to react as hard with the hard body. Is that something we can do?
 (asks that the Hard body item be a constraint, in the constraints section of the menu; and asks whether a hard body can treat any other body it meets as hard too, so that only one body has to be declared hard for the two to collide)
+
+## in_491 — 2026-11-16 — directive
+> can you merge in branch claude/hopeful-cannon-5 please
+(asks to merge the branch claude/hopeful-cannon-5 into this work)
