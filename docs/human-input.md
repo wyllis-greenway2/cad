@@ -2513,150 +2513,219 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > I will take your recommendations on all. Except one point. I actually dont want to bake in special treatment for laser cut gears. As a matter of fact, I don't want to have special treatment per manufactured route at all, laser cut, machined, 3d printed etc. I want the modeling to be entirely manufacture route agnostic, and then we will build a separate specialized module for making a model actually manufacturable per manufacturing route. Lets build it
 (approves the proposal of in_543's answer: the profile order, a flat outline first with an optional thickness, a prototype first; except no treatment per manufacturing route anywhere in modeling, a separate module for that later; asks for the gear tool to be built)
 
-## in_545 — 2026-11-16 — question
+## in_545 — 2026-11-16 — directive
+> Do the editable gear numbers and internal gears next
+(asks for what in_544's first slice left unbuilt: a gear's numbers kept so they can be changed later, and internal gears in the tool)
+
+## in_546 — 2026-11-16 — directive
+> Do moving a gear and the bore field next
+(asks for what in_545 left unbuilt: moving a gear, and a bore field in the gear's number box)
+
+## in_547 — 2026-11-16 — directive
+> Do the rack and meshing helper next
+(asks for the next items from dec_gear_tool's list: the rack, and a helper that places a gear so that it meshes with another)
+
+## in_548 — 2026-11-16 — directive
+> Do the refusal messages and timing pulleys next
+(asks for what in_547 left: messages that say why a gear, rack or partner is not made, and the timing pulleys from dec_gear_tool's list)
+
+## in_549 — 2026-11-16 — approval
+> Let me ask for network access (Recommended)
+(answers the question how to get the belt tooth dimensions for the timing pulleys: the AI asks for network access to read the real tables, and builds from them)
+
+## in_550 — 2026-11-16 — approval
+> Allow more sites for the drawings (Recommended)
+(answers the question what to do for the pulley grooves: the AI asks for more hosts to read the real groove drawings and builds from them, with the sources recorded)
+
+## in_551 — 2026-11-16 — directive
+> @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/0e714450-Timing_Pulley_Design_Tutorial_-_CAD_-_Chief_Delphi.pdf"
+(sends the Chief Delphi "Timing Pulley Design Tutorial" page as a PDF, as asked for in the AI's list: it holds the Misumi table of GT2 belt tooth radii and the HTD 5M belt drawing)
+
+## in_552 — 2026-11-16 — directive
+> Do the chain sprockets next
+(asks for the roller chain sprockets from dec_gear_tool's list, after the GT2 pulleys)
+
+## in_553 — 2026-11-16 — directive
+> Do the cycloidal clock gears next
+(asks for the cycloidal (clock) tooth profile from dec_gear_tool's list, after the chain sprockets)
+
+## in_554 — 2026-11-16 — directive
+> Do the cycloidal racks and rings next
+(asks for the cycloidal rack and the cycloidal ring (internal) gear that dec_gear_tool left unbuilt, after the cycloidal clock gears)
+
+## in_555 — 2026-11-16 — directive
+> Do the clearance field and HTD pulleys next
+(asks for the two items dec_gear_tool listed as not built: a clearance field in the gear's number box, and HTD pulleys)
+
+## in_556 — 2026-11-16 — directive
+> Do the ISO 606 sprockets next. Also the gear menu is going to get very large, so why don't we just have one gear icon in the sketching menu that opens to another sub menu where all the gear drawing options are. Can we give the ability to give our gears bores?
+(three asks: the ISO 606 sprockets from dec_gear_tool's list; one Gear icon in the Sketch menu that opens a submenu holding every gear tool; bores for the gears: they already have a Bore field in the box for gears, clock gears, pulleys and sprockets, but not for a partner made by Mesh gear and not as a thing the person can find)
+
+## in_557 — 2026-11-16 — directive
+> Do the D flat and keyway bores next
+(asks for the other bore shapes in dec_gear_tool's list of what is not built: a bore with a D flat, and a bore with a keyway)
+
+## in_558 — 2026-11-16 — directive
+> Do the HTD 3M and 8M pulleys next
+(asks for the other two HTD pitches in dec_gear_tool's list of what is not built; HTD 5M exists)
+
+## in_559 — 2026-11-16 — directive
+> okay lets build all the stuff left to build. Build the HTD 3M. It needs its tooth radii, which I couldn’t find.
+> MXL, XL and T-series pulleys only if you can find data about their profile shape that you think is reasonably accurate
+(asks for everything on dec_gear_tool's not-built list; HTD 3M needs a source for its radii, and MXL, XL and T-series only if data of reasonable accuracy about their profile is found)
+
+## in_560 — 2026-11-16 — directive
+> skip the unfindable profiles for now and lets just add them to our to do list. Lets do the left over stuff.
+(HTD 3M and the MXL, XL and T-series pulleys stay on the not-built list; the rest of that list is to be done)
+
+## in_561 — 2026-11-16 — question
+> lets do the helical gears next, what do we need for that? Should we introduce a spiraled or twisted loft type to our program to make that possible? Or would we only need that for angled gears? Also can these gear types even my sketch types? or would they need to directly make a model? What do you need from me? do you have the tooth profile to make them? and which should we make?
+(asks what helical gears need: a twisted loft or sweep, whether only the angled kind needs it, whether they are sketches or models, what the AI needs from the human, whether the tooth profile is in hand, and which kinds to make; the helical gears are the last item on dec_gear_tool's to-do list)
+
+## in_562 — 2026-11-16 — question
 > What are some other key sketching of body operations you think we need to make this like a real usable cad program? What are some fundamentals that we are missing now?
 (asks which sketching and body operations are missing, and which fundamentals are still lacking, for this to be a really usable CAD program; answered in chat, nothing built)
 
-## in_546 — 2026-11-16 — directive
+## in_563 — 2026-11-16 — directive
 > okay so for all those points. 1 should we introduce this? perhaps as a thing that can be viewd similar to how you can view history or bodies? or integrate it into those things? perhaps as a constraints version of these things? or built into history in cosntraints? It seems like we are pretty close to the stable references with bodies list, we should make a sketches list too, and possibly a constraints one? what do you think? The history is not very usable. Can we have it so that you can move to different spots in the history? can we make it so that you can click on different operations in the history and modify them? Can we make it so that bodies can be set to invisible? Similar to how you can make a plane visible or invisible with a little icon that shows on hover. Invisible is still ever so slightly visible so you know it is there, the cursor doesn't interact aside from making the icon fade in on hover so you can bring the body back. The bodies list should be able to do this as well. The bodies list should also have an option to select all bodies or deselect all bodies and apply the hide or un-hide to all and should offer the ability to delete bodies. Should we have a sketches area? were original copies of actual sketches drawn with the sketching tools are saved? We would need a sketch ID system, probably similar to the body system where each closed sketch is considered its own sketch. This might help users who today could be confused if their sketch becomes modified via vody modifications. For measuring and checking, we have the measuring tool under the view part of the right click menu, maybe we should make that report more useful information? Also back to our original question about history and stable references, I am almost thinking we should just have a single unified system? So basically a history with filters? like every body, sketch, or constraint lives in the history, and that context also gives relational information about it, so maybe we should unify this all into one thing that has filters to isolate and work with only the sketches, or the bodies, or constraints etc. It seems like the named dimensions and formulas probably belong in there as well.
 (asks whether named dimensions and formulas should be their own view or part of the history / a constraints version of it; proposes a sketches list and a constraints list beside the bodies list, a usable history (move to any point, click an operation to modify it), hiding bodies with a hover icon like the planes (faint, no interaction), a bodies list with select all / deselect all / hide all / delete, a sketch identity system like the bodies, a more useful measure report, and finally one unified history with filters for bodies, sketches and constraints, holding the named dimensions too; asks what I think)
 
-## in_547 — 2026-11-16 — question
+## in_564 — 2026-11-16 — question
 > Yes except it seems like we need to resolve the sketch Identity issue. So originally I was thinking that a sketch moved and morphed with the object it produced, it literally turned into a part of the object. Do you think this is the right method to keep? or do you think we should consider the body and the sketch a separate thing and the body can morph away from the sketch that originally produced it?
-(agrees with the plan of `in_546` and the order and the single panel, but says the sketch identity question must be settled first: should a sketch move and morph with the body it made and become part of it, or are the sketch and the body separate things so that the body can morph away from the sketch that made it; asks what I think)
+(agrees with the plan of `in_563` and the order and the single panel, but says the sketch identity question must be settled first: should a sketch move and morph with the body it made and become part of it, or are the sketch and the body separate things so that the body can morph away from the sketch that made it; asks what I think)
 
-## in_548 — 2026-11-16 — question
+## in_565 — 2026-11-16 — question
 > I don't really see the difference though? because another way to look at is just where the sketch lives? either in its original drawn spot, or moves with the surface of the body it created?
-(says the two models of `in_547` do not look different to them, and offers another way to see it: only where the sketch lives, either in its original drawn place or moving with the surface of the body it made)
+(says the two models of `in_564` do not look different to them, and offers another way to see it: only where the sketch lives, either in its original drawn place or moving with the surface of the body it made)
 
-## in_549 — 2026-11-16 — question
+## in_566 — 2026-11-16 — question
 > but didn't we already solve the shape problem too? because I thought we integrated the sketch into the edges of the body, so if the body moves, then it is basically considered a sketch modification too? So arent they always synced?
 (asks whether the shape question is not already solved, since they thought the sketch had been integrated into the edges of the body so that a body change counts as a sketch modification, so that the two are always in sync)
 
-## in_550 — 2026-11-16 — question
+## in_567 — 2026-11-16 — question
 > okay so the decision is that sketches are part of the body, and stay synced with the body?
 (asks whether the decision is that sketches are part of the body and stay synced with it; not a recorded decision: answered that it is close but not what was proposed, and asked which of the options they mean)
 
-## in_551 — 2026-11-16 — question
+## in_568 — 2026-11-16 — question
 > what do you recommend? and does this mean if someone wants to see one of their original sketches, then it is a step in history they would go to?
 (asks what I recommend among the options for the sketch and the body, and whether, under it, someone who wants to see one of their original sketches would go to a step in the history)
 
-## in_552 — 2026-11-16 — directive
+## in_569 — 2026-11-16 — directive
 > yes write up the decision
-(asks me to write up, as one decision for approval, the recommendation of `in_551`: the sketch is the recipe of its step, synced with the body wherever the sketch can express the change, labelled where it cannot, with its rows under their steps; this is a request to write it up, not an approval of it: it is written as `dec_sketch_recipe_synced`, `provisional`)
+(asks me to write up, as one decision for approval, the recommendation of `in_568`: the sketch is the recipe of its step, synced with the body wherever the sketch can express the change, labelled where it cannot, with its rows under their steps; this is a request to write it up, not an approval of it: it is written as `dec_sketch_recipe_synced`, `provisional`)
 
-## in_553 — 2026-11-16 — approval
+## in_570 — 2026-11-16 — approval
 > yes approve it
 (approves `dec_sketch_recipe_synced` as written: a sketch is the recipe of its step, kept in step with the body wherever it can express the change and labelled where it cannot; it is `accepted` now)
 
-## in_554 — 2026-11-16 — directive
+## in_571 — 2026-11-16 — directive
 > yes start with hidden bodies
-(approves starting the build order of `in_546` with hidden bodies and the upgraded Bodies list: a body can be hidden, drawn very faintly and not interactive, with an eye icon that fades in on hover, in the Bodies list too, with select all and none, hide and show all, and delete)
+(approves starting the build order of `in_563` with hidden bodies and the upgraded Bodies list: a body can be hidden, drawn very faintly and not interactive, with an eye icon that fades in on hover, in the Bodies list too, with select all and none, hide and show all, and delete)
 
-## in_555 — 2026-11-16 — directive
+## in_572 — 2026-11-16 — directive
 > yes start on the history
-(approves starting the next item of the order of `in_546`: a usable History: click a step to edit its values, and view the model at a step)
+(approves starting the next item of the order of `in_563`: a usable History: click a step to edit its values, and view the model at a step)
 
-## in_556 — 2026-11-16 — directive
+## in_573 — 2026-11-16 — directive
 > yes start on the model panel
-(approves starting the third item of the order of `in_546`: the Model panel, one panel with filters, with the sketches named and given a status)
+(approves starting the third item of the order of `in_563`: the Model panel, one panel with filters, with the sketches named and given a status)
 
-## in_557 — 2026-11-16 — directive
+## in_574 — 2026-11-16 — directive
 > yes start on named parameters
-(approves starting the fourth item of the order of `in_546`: named parameters and formulas)
+(approves starting the fourth item of the order of `in_563`: named parameters and formulas)
 
-## in_558 — 2026-11-16 — directive
+## in_575 — 2026-11-16 — directive
 > yes start on stable references
-(approves starting the fifth item of the order of `in_546`: stable references, then inserting a step in the middle)
+(approves starting the fifth item of the order of `in_563`: stable references, then inserting a step in the middle)
 
-## in_559 — 2026-11-16 — approval
+## in_576 — 2026-11-16 — approval
 > C: matching first, kernel history later (Recommended)
 (answers the question of `q_stable_reference_mechanism`, choosing option C: names from the sketch-based steps carried by matching outside the kernel, kernel history added later where matching is not enough)
 
-## in_560 — 2026-11-16 — directive
+## in_577 — 2026-11-16 — directive
 > yes start on edge names
 (approves the next item of `dec_stable_reference_mechanism`: names for edges, so a fillet or chamfer keeps its edge)
 
-## in_561 — 2026-11-16 — directive
+## in_578 — 2026-11-16 — directive
 > yes start on the sketch-edge names
 (approves the next item of `dec_stable_reference_mechanism`: roles from the sketch's own edges for the faces of an extrusion, a revolve, a loft and a sweep, instead of the rank)
 
-## in_562 — 2026-11-16 — question
+## in_579 — 2026-11-16 — question
 > what do you reccomend?
 (asks which of the three next items to do: finish the names for revolve, loft and sweep, curved faces, or the insertion of a step in the middle; answered in chat with a recommendation of the insertion, nothing built)
 
-## in_563 — 2026-11-16 — directive
+## in_580 — 2026-11-16 — directive
 > yes start on the insertion
 (approves the recommendation: build the insertion of a step in the middle of the history, the later steps made again)
 
-## in_564 — 2026-11-16 — directive
+## in_581 — 2026-11-16 — directive
 > yes start on curved face names
 (approves the next item of `dec_stable_reference_mechanism`: lasting names for curved faces, which also gives the edges beside them a name)
 
-## in_565 — 2026-11-16 — directive
+## in_582 — 2026-11-16 — directive
 > yes start on the first one
 (approves the first of the three options put in chat: name the faces a fillet or chamfer makes after the edge they round, and finish the names for revolve, loft and sweep)
 
-## in_566 — 2026-11-16 — directive
+## in_583 — 2026-11-16 — directive
 > yes start on the model panel
 (approves the next item: the rest of the Model panel, with the rows of each kind shown under the step that owns them, and the Constraints filter)
 
-## in_567 — 2026-11-16 — directive
+## in_584 — 2026-11-16 — directive
 > yes start on the measure report
-(approves the last item of the order of `in_546`: a richer measure report)
+(approves the last item of the order of `in_563`: a richer measure report)
 
-## in_568 — 2026-11-16 — directive
+## in_585 — 2026-11-16 — directive
 > yes start on the clearance check
 (approves the next item: the nearest distance between two bodies and the overlap of two, the clearance a fit needs, in the measure report)
 
-## in_569 — 2026-11-16 — directive
+## in_586 — 2026-11-16 — directive
 > yes start on loft and sweep names
 (approves the next item of `dec_stable_reference_mechanism`: lasting names for the faces of a loft and a sweep)
 
-## in_570 — 2026-11-16 — directive
+## in_587 — 2026-11-16 — directive
 > yes start on the sketch statuses
 (approves the next item of `dec_sketch_recipe_synced` / `dec_model_panel`: the sketch statuses unused and detached in the Model panel)
 
-## in_571 — 2026-11-16 — directive
+## in_588 — 2026-11-16 — directive
 > yes start on names kept for good
 (approves the next item of `dec_sketch_recipe_synced` rule 5 / `dec_model_panel`: sketch names that are given when a figure is drawn and kept, instead of the order of the steps)
 
-## in_572 — 2026-11-16 — directive
+## in_589 — 2026-11-16 — directive
 > yes start on selecting a sketch from a step's row
 (approves the next item of `dec_model_panel`: choosing a sketch's row selects the sketch in the model, so it can be looked at and worked on)
 
-## in_573 — 2026-11-16 — directive
+## in_590 — 2026-11-16 — directive
 > yes start on the overlap volume
 (approves the next item of `dec_measure_report`: the volume two bodies share where they go into each other)
 
-## in_574 — 2026-11-16 — directive
+## in_591 — 2026-11-16 — directive
 > yes start on the centre of mass
 (approves the next item of `dec_measure_report`: the centre of mass of a body and of the model)
 
-## in_575 — 2026-11-16 — directive
+## in_592 — 2026-11-16 — directive
 > yes start on the wall thickness checks
 (approves the next item of `dec_measure_report`: wall thickness checks for printing)
 
-## in_576 — 2026-11-16 — question
+## in_593 — 2026-11-16 — question
 > which of these features do you think are most useful? I dont want to over complicate things
 (asks which of the remaining features (marking the thin places, overhang checks, the thinnest gap between parts, a text copy of the report, the place of the nearest points, the sweep faces along a bent path) are the most useful, and says the app should not be made more complicated; answered in chat, nothing built)
 
-## in_577 — 2026-11-16 — directive
+## in_594 — 2026-11-16 — directive
 > yes start on marking the thin places
 (approves marking the places the wall check finds too thin, in the picture, while the Measure tab is open)
 
-## in_578 — 2026-11-16 — question
+## in_595 — 2026-11-16 — question
 > okay so we are ready to merge? what is your branch called?
 (asks whether the work is ready to merge and what the branch is called; answered in chat)
 
-## in_579 — 2026-11-16 — question
+## in_596 — 2026-11-16 — question
 > why not just merge this branch into that? wouldn't it be the same amount of work? or would merging default into this be better?
 (asks whether to merge this branch into the default branch directly, or the default branch into this one first, and whether the work is the same; answered in chat)
 
-## in_580 — 2026-11-16 — question
+## in_597 — 2026-11-16 — question
 > can you merge into claude/inspiring-pascal-l342k7 which is the main branch even while that claude is still working on it?
 (asks whether I can merge this work into the default branch while another session is still working on it; answered in chat, nothing merged yet)
 
-## in_581 — 2026-11-16 — directive
+## in_598 — 2026-11-16 — directive
 > okay then instead, why dont you just get this branch up to date so that we can keep on working on it without being too far behind?
 (asks me to bring this branch up to date with the default branch, without merging into the default branch, so work can go on here)

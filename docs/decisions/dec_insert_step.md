@@ -3,7 +3,7 @@ id: dec_insert_step
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_489, in_490, in_562, in_563
+human_input: in_489, in_490, in_579, in_580
 date: 2026-11-16
 depends_on:
   - dec_history_navigation: this is the one place that decision's "doing something at an earlier point drops what comes after" no longer holds, when the human switches Insert here on
@@ -12,7 +12,7 @@ depends_on:
 ---
 # Insert a step in the middle of the history
 
-**What the human asked (`in_489`, `in_490`, `in_563`):** to make a step in the middle of the history, not only at the end; the last of the order of `in_489` that waited for stable references (`in_562` asked which to do next; the recommendation was this, `in_563` approved it).
+**What the human asked (`in_489`, `in_490`, `in_580`):** to make a step in the middle of the history, not only at the end; the last of the order of `in_489` that waited for stable references (`in_579` asked which to do next; the recommendation was this, `in_580` approved it).
 
 **What is built, and the choices that were mine**
 1. **Insert here** is a switch in the History panel, shown while the cursor is before the last step (go to a step first). While it is on, what is made goes in **at the cursor**, and the steps after it (the faded ones) are **made again** on top of it. The cursor stays at the new step, so several steps can be put in one after another. Off, or at the last step, things work as before (an action at an earlier point drops the faded steps). It is off by default and goes off when the cursor reaches the end; it is not saved in the file.

@@ -3,7 +3,7 @@ id: dec_named_parameters
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_546, in_547, in_557
+human_input: in_563, in_564, in_574
 date: 2026-11-16
 depends_on:
   - dec_model_panel: the parameters are a tab of that panel
@@ -13,7 +13,7 @@ depends_on:
 ---
 # Named parameters and formulas
 
-**What the human asked (`in_546`, `in_547`, `in_557`):** named dimensions and formulas, in the unified model view, fourth of the agreed order.
+**What the human asked (`in_563`, `in_564`, `in_574`):** named dimensions and formulas, in the unified model view, fourth of the agreed order.
 
 **What is built, and the choices that were mine**
 1. **A parameter** is a name and a formula text (`wall`, `4`, `wall * 2 + 1`). Names are words of letters, digits and `_` (not starting with a digit; not a function or `pi`). Formulas: numbers, `+ - * / ^`, brackets, a minus, the names of other parameters, `pi`, and `sqrt abs min max round floor ceil sin cos tan` (angles in degrees). Millimetres only; no units in formulas.

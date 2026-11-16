@@ -16,6 +16,8 @@ import { faceEdit, editCommand, arcRadiusCommand, figureBehindFace } from "./fac
 import { faceEdges } from "./offsetbody.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
+import { gearOfPart } from "../operation/gearscene.ts";
+import type { GearRecord } from "../operation/gearscene.ts";
 import type { Scene } from "../operation/scene.ts";
 import { surfaceTriangles } from "./surfaces.ts";
 import { lookup, nextId, figureParams, figureRefs, figuresOf } from "../operation/scene.ts";
@@ -659,12 +661,33 @@ function planeTurn(scene: Scene, op: Op): Mat3 {
   const [u, v, n] = [pl.u, pl.v, normalOfPlane(pl)];
   return [u[0], v[0], n[0], u[1], v[1], n[1], u[2], v[2], n[2]];
 }
+/**
+ * A gear moved or turned (`in_546`): its parts are made from its record, so the move changes the record: the centre goes where the move takes it and the gear turns by what the turns turn it about its plane's
+ * axis. A gear stays in its plane: a move across the plane, or a turn about another axis, is not made (null).
+ */
+function gearCommand(scene: Scene, op: Op, rec: GearRecord, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3, pivot: Vec3): Command | null {
+  const pl = scene.parts[rec.plane];
+  if (!pl || pl.kind !== "plane" || op.parts.some((r) => gearOfPart(scene, r)?.id !== rec.id)) return null;
+  const n = normalOfPlane(pl);
+  const rot = (m: Mat3, v: Vec3): Vec3 => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2], m[6] * v[0] + m[7] * v[1] + m[8] * v[2]];
+  let [c, u, nn]: [Vec3, Vec3, Vec3] = [rec.at, pl.u, n];
+  for (const t of turns) { const m = about(t.axis, t.angle); c = add(pivot, rot(m, sub(c, pivot))); u = rot(m, u); nn = rot(m, nn); }
+  c = add(c, translate);
+  if (Math.abs(dot(sub(c, rec.at), n)) > 1e-6 || Math.abs(dot(nn, n) - 1) > 1e-9) return null;
+  const delta = Math.atan2(dot(u, pl.v), dot(u, pl.u));
+  const corners = new Set(op.parts.filter((r) => scene.parts[r]?.kind === "corner"));
+  const released = scene.relations.filter((r) => r.kind === "fixed" && r.parts.every((q) => corners.has(q)));
+  const turn = (rec.turn ?? 0) + delta;
+  return { type: "batch", commands: [...released.map((r): Command => ({ type: "removeRelation", id: r.id })), { type: "setGear", id: rec.id, spec: rec.spec, at: c, turn: Math.abs(turn) < 1e-12 ? 0 : turn }] };
+}
 /** Moving or turning a drawn figure with its plane: `transformFigure`, and the corners it pinned in place let go (one command, so one undo). */
 function figureCommand(scene: Scene, op: Op, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3): Command | null {
   const corners = new Set(op.parts.filter((r) => scene.parts[r]?.kind === "corner"));
   const pts = op.parts.map((r) => scene.parts[r]).filter((p): p is Extract<Part, { kind: "corner" }> => p?.kind === "corner").map((p) => p.at);
   if (!pts.length) return null;
   const pivot = op.pivot ?? centroid(pts);
+  const gear = op.parts.length ? gearOfPart(scene, op.parts[0]!) : undefined;
+  if (gear) return gearCommand(scene, op, gear, turns, translate, pivot);
   const released = scene.relations.filter((r) => r.kind === "fixed" && r.parts.every((q) => corners.has(q)));
   // the figures may lie on different planes: each plane's figures are moved with that plane (all with the same turn about the same point)
   const byPlane = new Map<Ref, Ref[]>();

@@ -8,6 +8,8 @@ import { derivedFaces } from "./loops.ts";
 import type { Group } from "./groups.ts";
 import type { PatternRecord } from "./repeat.ts";
 import { withPatterns } from "./repeat.ts";
+import type { GearRecord } from "./gearscene.ts";
+import { withGears, madeByAGear } from "./gearscene.ts";
 
 /** A relation between parts. `parts` are listed mover first, then the references (held in place): the part selected FIRST moves and the ones selected before it stay (`in_196`, which reversed `in_090`). `kind` is a row id of the actions table. */
 /** How a circular edge of the body looked when a relation was made to it (`in_309`): its centre, radius and facing, and how far along its facing it stood in the body's box (0 bottom, 1 top). The relation names the edge by where it was; if the body changes and that edge is gone, the edge that looks most like this one now is taken (`anchors.ts`). */
@@ -79,6 +81,8 @@ export interface Scene {
   clearance?: number;
   /** repeats of drawn figures that keep their numbers: their copies are made from these (`repeat.ts`) */
   patterns?: readonly PatternRecord[];
+  /** gears that keep their numbers: their parts are made from these (`gearscene.ts`) */
+  gears?: readonly GearRecord[];
   /** the plane whose hidden sketch (what extrusions used up) is shown and snapped to while sketching in it (not part of the model, only of how it is looked at, `in_211`) */
   reveal?: Ref;
   /** A figure moved on a plane of its own keeps that plane under its own name; the name the command gave to a new plane is kept here as another name for it, so a history made when a move made a new plane (more parts were left on the old plane then) still replays (`in_372`) */
@@ -141,6 +145,7 @@ export interface SceneJson {
   steps: Step[];
   groups?: Group[];
   patterns?: PatternRecord[];
+  gears?: GearRecord[];
   hard?: string[];
   clearance?: number;
   hiddenBodies?: Ref[];
@@ -150,11 +155,12 @@ export function toJSON(s: Scene): SceneJson {
   return {
     version: 1,
     counter: s.counter,
-    parts: Object.values(s.parts).filter((p) => p.origin === "drawn" && p.kind !== "face"), // faces are derived
+    parts: Object.values(s.parts).filter((p) => p.origin === "drawn" && p.kind !== "face" && !madeByAGear(s, p.ref)), // faces are derived, and so are a gear's parts
     relations: [...s.relations],
     steps: [...s.steps],
     ...(s.groups?.length ? { groups: s.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}),
     ...(s.patterns?.length ? { patterns: s.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}),
+    ...(s.gears?.length ? { gears: s.gears.map((g) => ({ ...g, at: [...g.at] as unknown as Vec3, spec: { ...g.spec } })) } : {}),
     ...(s.hard?.length ? { hard: [...s.hard] } : {}),
     ...(s.clearance ? { clearance: s.clearance } : {}),
     ...(s.hiddenBodies?.length ? { hiddenBodies: [...s.hiddenBodies] } : {}),
@@ -166,7 +172,7 @@ export function fromJSON(j: SceneJson): Scene {
   const s = emptyScene();
   const parts: Record<string, Part> = { ...s.parts };
   for (const p of j.parts) parts[p.ref] = p;
-  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter, ...(j.hard?.length ? { hard: [...j.hard] } : {}), ...(j.clearance ? { clearance: j.clearance } : {}), ...(j.groups?.length ? { groups: j.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}), ...(j.patterns?.length ? { patterns: j.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}), ...(j.hiddenBodies?.length ? { hiddenBodies: [...j.hiddenBodies] } : {}), ...(j.parameters && Object.keys(j.parameters).length ? { parameters: { ...j.parameters } } : {}) };
+  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter, ...(j.hard?.length ? { hard: [...j.hard] } : {}), ...(j.clearance ? { clearance: j.clearance } : {}), ...(j.groups?.length ? { groups: j.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}), ...(j.patterns?.length ? { patterns: j.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}), ...(j.gears?.length ? { gears: j.gears.map((g) => ({ ...g, at: [...g.at] as unknown as Vec3, spec: { ...g.spec } })) } : {}), ...(j.hiddenBodies?.length ? { hiddenBodies: [...j.hiddenBodies] } : {}), ...(j.parameters && Object.keys(j.parameters).length ? { parameters: { ...j.parameters } } : {}) };
 }
 
 /** The scene with its body parts replaced by these (derived from the kernel result; never saved). */
@@ -179,7 +185,7 @@ export function withBody(s: Scene, body: readonly Part[]): Scene {
 
 /** The scene with its derived faces (closed loops, disks) rebuilt. */
 export function withDerived(s0: Scene): Scene {
-  const s = withPatterns(s0); // (the copies of the repeats that keep their numbers, made from the originals as they are now)
+  const s = withGears(withPatterns(s0)); // (the copies of the repeats that keep their numbers, made from the originals as they are now, and the gears made from their numbers)
   const parts: Record<string, Part> = {};
   for (const p of Object.values(s.parts)) if (p.kind !== "face" && !((p.kind === "line" || p.kind === "corner") && p.derived)) parts[p.ref] = p;
   const { faces, parts: made } = derivedFaces({ ...s, parts });

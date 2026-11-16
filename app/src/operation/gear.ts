@@ -6,7 +6,14 @@
 // involute of the base circle: at radius r its half-thickness, as an angle, is  half(r) = half(rp) + inv(a_p) - inv(a_r)  with inv(a) = tan a - a and cos a_r = rb / r.
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
+import { pulleyOutline } from "./pulley.ts";
+import { sprocketOutline } from "./sprocket.ts";
+import { cycloidalOutline } from "./cycloidal.ts";
+import { boreProblem } from "./bore.ts";
+import { gearRoot } from "./gearroot.ts";
 
+/** the belts there are timing pulleys for (`pulley.ts`) */
+export type PulleyKind = "2GT" | "3GT" | "HTD5M" | "HTD8M";
 export interface GearSpec {
   teeth: number;
   /** mm of pitch diameter per tooth */
@@ -22,6 +29,23 @@ export interface GearSpec {
   /** a ring: the outline is the hole whose teeth point in (a wall of `rim` modules round it, 2 by default, is drawn as a circle by the caller) */
   internal?: boolean;
   rim?: number;
+  /** diameter of a round hole through the middle of an external gear, mm (0 or absent: none) */
+  bore?: number;
+  /** the corner radius of the rack cutter, in modules: the root is then shaped as that cutter makes it (a fillet, and the undercut when there are few teeth: `gearroot.ts`); none or 0: the root is the circle between the flanks */
+  fillet?: number;
+  /** a flat cut this deep (mm) into the bore, on its +x side: a D bore (`bore.ts`) */
+  flat?: number;
+  /** a keyway of this width (mm) in the bore, with its depth `keyDepth` (the hub depth t2 of DIN 6885, mm: the standard's for the bore if none) */
+  key?: number;
+  keyDepth?: number;
+  /** a rack: a gear of endless radius, a straight bar with straight-sided teeth (`teeth` of them, `rim` modules of bar under the roots, 2 by default); its outline lies along x from the middle of its pitch line, teeth up */
+  rack?: boolean;
+  /** a timing pulley for this belt (`pulley.ts`): `teeth` grooves, `clearance` (mm, bigger all round than the belt tooth) in place of the root clearance of a gear; the module is the belt's pitch */
+  pulley?: PulleyKind;
+  /** a roller chain sprocket (`sprocket.ts`): `teeth` teeth for the ANSI chain number `chain` (40 if none), or for the `pitch` and `roller` diameter given (mm); a bore as for a gear */
+  sprocket?: { chain?: number; pitch?: number; roller?: number; /** the ISO 606 tooth form (`iso606.ts`): the chain number is then the B series' 6 to 24 (or an ANSI number for the A series), and `fit` from 0 (tight) to 1 (loose), 0.5 if none, where in ISO's limits the seat and flank are */ iso?: boolean; fit?: number };
+  /** a cycloidal (clock) gear (`cycloidal.ts`): the generating circle's radius, the addendum and the dedendum, in modules (3, 1 and 1.25 if none); the same circle for gears that are to mesh; backlash as for a gear */
+  cycloidal?: { circle?: number; addendum?: number; dedendum?: number };
 }
 export interface GearOutline {
   /** the corners of the outline in order, counter-clockwise */
@@ -36,6 +60,8 @@ export interface GearOutline {
   rootRadius: number;
   /** an internal gear: the radius of the wall round the hole (the outer circle) */
   outerRadius?: number;
+  /** a rack: how long it is along its pitch line, mm */
+  length?: number;
   /** things worth saying that did not stop the outline (few teeth: undercut not shaped; teeth pointed; tip inside the base circle) */
   warnings: string[];
 }
@@ -54,8 +80,43 @@ export function bulgeOf(a: readonly [number, number], m: readonly [number, numbe
   return Math.abs(off) < 1e-12 ? 0 : off / len;
 }
 
-/** The outline of a gear, or why there is none. */
+/** The outline of a rack: straight sides at the pressure angle, the pitch line along the x axis, the middle of it at the origin, teeth up. */
+function rackOutline(spec: GearSpec): Result<GearOutline> {
+  const n = Math.round(spec.teeth);
+  const m = spec.module;
+  if (!Number.isFinite(n) || n < 1 || n > 500) return err("a rack needs 1 to 500 teeth");
+  if (!Number.isFinite(m) || m <= 0) return err("the module must be above zero");
+  const alpha = ((spec.pressure ?? 20) * Math.PI) / 180;
+  if (!(alpha > 0 && alpha < (35 * Math.PI) / 180)) return err("the pressure angle must be between 0 and 35 degrees");
+  const [c, t] = [spec.clearance ?? 0.25, Math.tan(alpha)];
+  const p = Math.PI * m;
+  const s = p / 2 - (spec.backlash ?? 0); // (the tooth's thickness on the pitch line)
+  const [tip, root] = [m, -(1 + c) * m];
+  const [ht, hr] = [s / 2 - m * t, s / 2 + (1 + c) * m * t]; // (half the tooth at its tip and at its root)
+  if (s <= 0 || ht <= 1e-6) return err("the teeth would be pointed: less backlash is needed");
+  if (p - 2 * hr <= 1e-6) return err("the teeth meet at the root");
+  const bottom = root - (spec.rim ?? 2) * m;
+  const L = n * p;
+  const top: [number, number][] = [[0, root]]; // (the top edge from the left end to the right, a half gap at each end)
+  for (let k = 0; k < n; k++) { const xc = (k + 0.5) * p; top.push([xc - hr, root], [xc - ht, tip], [xc + ht, tip], [xc + hr, root]); }
+  top.push([L, root]);
+  const points = [[0, bottom], [L, bottom], ...top.slice().reverse()].map((q): [number, number] => [q[0]! - L / 2, q[1]!]); // (counter-clockwise: along the bottom, up the right end, back along the top)
+  return ok({ points, bulges: points.map(() => 0), pitchRadius: 0, baseRadius: 0, tipRadius: tip, rootRadius: root, length: L, warnings: [] });
+}
+
+/** The outline of a gear, or why there is none (and why its bore has no such flat or keyway). */
 export function gearOutline(spec: GearSpec): Result<GearOutline> {
+  const r = outlineOf(spec);
+  if (!r.ok) return r;
+  const why = boreProblem(spec, r.value.rootRadius);
+  return why ? err(why) : r;
+}
+function outlineOf(spec: GearSpec): Result<GearOutline> {
+  if (!spec.pulley && !spec.sprocket && !spec.cycloidal && spec.clearance !== undefined && !(spec.clearance >= 0 && spec.clearance <= 1)) return err("the clearance is from 0 to 1 module");
+  if (spec.cycloidal) return cycloidalOutline(spec);
+  if (spec.rack) return rackOutline(spec);
+  if (spec.pulley) return pulleyOutline(spec);
+  if (spec.sprocket) return sprocketOutline(spec);
   const z = Math.round(spec.teeth);
   const m = spec.module;
   if (!Number.isFinite(z) || z < 3 || z > 500) return err("a gear needs 3 to 500 teeth");
@@ -102,9 +163,33 @@ export function gearOutline(spec: GearSpec): Result<GearOutline> {
       ra = lo;
       warnings.push("the tips are pointed, so they are cut short");
     }
-    if (z < (2 * (1 - x)) / Math.sin(alpha) ** 2 - 1e-9) warnings.push("few teeth: the root is not undercut, so this gear will bind against a gear that reaches it");
+    if (z < (2 * (1 - x)) / Math.sin(alpha) ** 2 - 1e-9) warnings.push("few teeth: the root is not undercut, so this gear will bind against a gear that reaches it (a Fillet shapes the root as a cutter leaves it)");
+    if ((spec.bore ?? 0) < 0 || (spec.bore ?? 0) >= 2 * rf * 0.95) return err("the bore must be smaller than the gear's root circle");
     const r0 = Math.max(rb, rf);
     if (half(r0) >= pitch / 2 - 1e-4) return err("the teeth meet at the root: raise the tooth count or lower the shift");
+    if ((spec.fillet ?? 0) < 0) return err("the fillet cannot be below zero");
+    if ((spec.fillet ?? 0) > 0) { // the root as the rack cutter makes it (`in_560`)
+      const g = gearRoot({ m, z, alpha, x, c, backlash, rho: spec.fillet! * m });
+      if (!g.ok) return err(g.error);
+      const { pts, rLo } = g.value;
+      if (!(rLo < ra) || rLo < rb - 1e-9) return err("the root's fillet would reach the tip: a smaller fillet");
+      for (let k = 0; k < z; k++) {
+        const phi = tooth(k);
+        const cwR = pts.map(([r, a]) => polar(r, phi - pitch / 2 + a)), ccwR = pts.map(([r, a]) => polar(r, phi + pitch / 2 - a));
+        const cw = flank(rLo, ra, phi, -1), ccw = flank(rLo, ra, phi, 1);
+        add(cwR[6]!); edge(cwR[6]!, cwR[5]!, cwR[4]!); // the root's corner, up to where the involute starts
+        add(cwR[4]!); edge(cwR[4]!, cwR[3]!, cwR[2]!);
+        add(cwR[2]!); edge(cwR[2]!, cwR[1]!, cw.p[0]!);
+        for (let j = 0; j <= ARCS; j++) { add(cw.p[j]!); if (j < ARCS) edge(cw.p[j]!, cw.mid[j]!, cw.p[j + 1]!); }
+        edge(cw.p[ARCS]!, polar(ra, phi), ccw.p[ARCS]!);
+        for (let j = ARCS; j >= 0; j--) { add(ccw.p[j]!); if (j > 0) edge(ccw.p[j]!, ccw.mid[j - 1]!, ccw.p[j - 1]!); }
+        edge(ccw.p[0]!, ccwR[1]!, ccwR[2]!);
+        add(ccwR[2]!); edge(ccwR[2]!, ccwR[3]!, ccwR[4]!);
+        add(ccwR[4]!); edge(ccwR[4]!, ccwR[5]!, ccwR[6]!);
+        add(ccwR[6]!); edge(ccwR[6]!, polar(rf, phi + pitch / 2), polar(pts[6]![0], phi + pitch / 2 + pts[6]![1])); // the root circle to the next tooth's corner
+      }
+      return ok({ points, bulges, pitchRadius: rp, baseRadius: rb, tipRadius: ra, rootRadius: rf, warnings: [...warnings.filter((w) => !w.startsWith("few teeth")), ...(g.value.undercut ? ["undercut: the root is shaped as the cutter leaves it, so the involute starts higher up"] : [])] });
+    }
     for (let k = 0; k < z; k++) {
       const phi = tooth(k);
       const cw = flank(r0, ra, phi, -1), ccw = flank(r0, ra, phi, 1);

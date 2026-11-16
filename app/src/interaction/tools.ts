@@ -11,7 +11,7 @@ import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
 import type { Command } from "../operation/commands.ts";
-import { drawSquaredRectangle, drawCircle, drawChain, drawArc, drawGear, joinedAtCorners } from "../operation/build.ts";
+import { drawSquaredRectangle, drawCircle, drawChain, drawArc, joinedAtCorners } from "../operation/build.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt, visibleFrom } from "./picking.ts";
 import { anchorCorners, anchorLines, anchorCutCorners } from "../operation/anchors.ts";
@@ -19,7 +19,14 @@ import { settings } from "../shared/settings.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Hint } from "./hints.ts";
 import { gearOutline, moduleForOutside } from "../operation/gear.ts";
-import type { GearOutline } from "../operation/gear.ts";
+import type { GearSpec, PulleyKind } from "../operation/gear.ts";
+import { standardKey } from "../operation/bore.ts";
+import type { Result } from "../shared/result.ts";
+import { ok, err } from "../shared/result.ts";
+import { gearRefs } from "../operation/gearscene.ts";
+import { chainOf } from "../operation/chains.ts";
+import type { GearRecord } from "../operation/gearscene.ts";
+import { meshWith } from "../operation/mesh.ts";
 
 export type ToolKind = "rect" | "circle" | "line" | "arc" | "trim" | "gear";
 export interface Tool {
@@ -49,9 +56,44 @@ export interface Tool {
   guides?: [Vec3, Vec3][];
   /** trim: the part of a line or circle under the pointer that a click would cut off (shown as it is) */
   trimming?: { ref: Ref; span: Vec3[] };
+  /** a gear (`dec_gear_tool`): a ring or an outside gear, the numbers typed, the field being typed in, and, when its numbers are being changed, which gear and how it is now */
+  gear?: GearState;
 }
+export interface GearState {
+  internal: boolean; typed: string[]; field: number; editing?: string; base?: GearSpec;
+  /** the turn the gear being changed has (radians), so its preview stands as it does */ turn?: number;
+  /** a rack (`in_547`) */ rack?: boolean;
+  /** a timing pulley for this belt (`in_551`) */ pulley?: PulleyKind;
+  /** a roller chain sprocket (`in_552`) */ sprocket?: true;
+  /** the ISO 606 tooth form of it (`in_556`) */ iso?: true;
+  /** a cycloidal (clock) gear (`in_553`) */ cycloidal?: true;
+  /** a gear or a rack made to mesh with `src` (`in_547`); `rack`: the partner is a rack */ mesh?: { src: GearRecord; rack: boolean };
+}
+export type GearKey = "teeth" | "module" | "pressure" | "shift" | "backlash" | "rim" | "bore" | "ratio" | "angle" | "offset" | "clearance" | "chain" | "pitch" | "roller" | "circle" | "addendum" | "dedendum" | "fit" | "flat" | "key" | "keydepth" | "fillet";
+/** The numbers of a gear in the order the number box shows them (a ring has a wall where a gear has a shift; a rack has the bar under its teeth; a partner has its tooth count, ratio and the direction it stands in). */
+export const gearFields = (g: { internal: boolean; rack?: boolean; pulley?: PulleyKind; sprocket?: true; iso?: true; cycloidal?: true; mesh?: { src: GearRecord; rack: boolean } }): { key: GearKey; label: string }[] => {
+  const f = (key: GearKey, label: string) => ({ key, label });
+  const fs = gearFieldsBase(g, f);
+  const at = fs.findIndex((x) => x.key === "bore");
+  return at < 0 ? fs : [...fs.slice(0, at + 1), f("flat", "Flat"), f("key", "Key"), f("keydepth", "Key depth"), ...fs.slice(at + 1)]; // (a bore can have a D flat or a keyway, `in_557`)
+};
+const gearFieldsBase = (g: { internal: boolean; rack?: boolean; pulley?: PulleyKind; sprocket?: true; iso?: true; cycloidal?: true; mesh?: { src: GearRecord; rack: boolean } }, f: (key: GearKey, label: string) => { key: GearKey; label: string }): { key: GearKey; label: string }[] => {
+  if (g.mesh) return g.mesh.src.spec.rack ? [f("teeth", "Teeth"), f("offset", "Offset"), f("bore", "Bore")] : g.mesh.rack ? [f("teeth", "Teeth"), f("angle", "Angle")] : [f("teeth", "Teeth"), f("ratio", "Ratio"), f("angle", "Angle"), f("bore", "Bore")]; // (a gear made to mesh can have its bore at once, `in_556`)
+  if (g.pulley) return [f("teeth", "Teeth"), f("clearance", "Clearance"), f("bore", "Bore")];
+  if (g.cycloidal) return [f("teeth", "Teeth"), f("module", "Module"), f("backlash", "Backlash"), f("circle", "Circle"), f("addendum", "Addendum"), f("dedendum", "Dedendum"), g.internal ? f("rim", "Wall") : g.rack ? f("rim", "Base") : f("bore", "Bore")];
+  if (g.sprocket) return [f("teeth", "Teeth"), f("chain", "Chain"), f("pitch", "Pitch"), f("roller", "Roller"), ...(g.iso ? [f("fit", "Fit")] : []), f("bore", "Bore")];
+  if (g.rack) return [f("teeth", "Teeth"), f("module", "Module"), f("pressure", "Pressure"), f("backlash", "Backlash"), f("rim", "Base"), f("clearance", "Clearance")];
+  return [f("teeth", "Teeth"), f("module", "Module"), f("pressure", "Pressure"), g.internal ? f("rim", "Wall") : f("shift", "Shift"), f("backlash", "Backlash"), f("clearance", "Clearance"), ...(g.internal ? [] : [f("fillet", "Fillet"), f("bore", "Bore")])]; // (the root as the cutter leaves it, `in_560`)
+};
+const gearState = (t: Tool): GearState => t.gear ?? { internal: false, typed: [], field: 0 };
 /** A tool that waits for its first click on a surface. */
-export const armTool = (kind: ToolKind): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0 });
+export type GearVariant = "gear" | "ring" | "rack" | "gt2" | "gt3" | "htd5" | "htd8" | "sprocket" | "isosprocket" | "clock" | "clockring" | "clockrack";
+export const variantOf = (g: { internal?: boolean; rack?: boolean; pulley?: PulleyKind; sprocket?: unknown; iso?: unknown; cycloidal?: unknown } | undefined): GearVariant => (g?.cycloidal ? (g.internal ? "clockring" : g.rack ? "clockrack" : "clock") : g?.sprocket ? (g.iso ? "isosprocket" : "sprocket") : g?.pulley === "2GT" ? "gt2" : g?.pulley === "3GT" ? "gt3" : g?.internal ? "ring" : g?.rack ? "rack" : "gear");
+export const armTool = (kind: ToolKind, variant: GearVariant = "gear"): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0, ...(kind === "gear" ? { gear: { internal: variant === "ring" || variant === "clockring", typed: ["", "", "", "", "", "", "", "", "", "", "", ""], field: 0, ...(variant === "rack" || variant === "clockrack" ? { rack: true } : {}), ...(variant === "gt2" ? { pulley: "2GT" as const } : variant === "gt3" ? { pulley: "3GT" as const } : variant === "htd5" ? { pulley: "HTD5M" as const } : variant === "htd8" ? { pulley: "HTD8M" as const } : {}), ...(variant === "sprocket" || variant === "isosprocket" ? { sprocket: true as const } : {}), ...(variant === "isosprocket" ? { iso: true as const } : {}), ...(variant === "clock" || variant === "clockring" || variant === "clockrack" ? { cycloidal: true as const } : {}) } } : {}) });
+/** The tool opened to make a gear or a rack that meshes with `src`: its centre is the gear's, the pointer says where the partner goes. */
+export const meshGearTool = (src: GearRecord, rack: boolean): Tool => ({ ...armTool("gear"), plane: src.plane, points: [src.at], cursor: src.at, gear: { internal: false, typed: ["", "", "", "", "", "", "", "", "", "", "", ""], field: 0, mesh: { src, rack } } });
+/** The tool opened on a gear that is already made, to change its numbers: its plane and centre, and its numbers as they are. */
+export const editGearTool = (rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }): Tool => ({ ...armTool("gear", variantOf(rec.spec)), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: !!rec.spec.internal, ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}), typed: ["", "", "", "", "", "", "", "", "", "", "", ""], field: 0, editing: rec.id, base: rec.spec, ...(rec.turn ? { turn: rec.turn } : {}) } });
 
 export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], trim: [], gear: ["Teeth", "Module"] };
 
@@ -122,17 +164,31 @@ export function snapOnPlane(spent: Scene, pv: PointerView, pl: Plane, skip?: Ref
 // ---- typing ----
 /** A key typed into the current field. Returns the new tool state; Tab changes field, Backspace deletes. Keys that are not numbers are ignored. */
 export function typeKey(t: Tool, key: string): Tool {
+  if (t.kind === "gear") {
+    const g = gearState(t);
+    if (key === "Tab") return { ...t, gear: { ...g, field: (g.field + 1) % gearFields(g).length } };
+    const typed = typeInto(g.typed[g.field] ?? "", key);
+    return typed === null ? t : { ...t, gear: { ...g, typed: Array.from({ length: 12 }, (_, i) => (i === g.field ? typed : g.typed[i] ?? "")) } };
+  }
   const n = FIELDS[t.kind].length;
   if (key === "Tab") return { ...t, field: n > 1 ? ((t.field === 0 ? 1 : 0) as 0 | 1) : 0 };
-  const cur = t.typed[t.field];
-  let next = cur;
-  if (key === "Backspace") next = cur.slice(0, -1);
-  else if (/^[0-9]$/.test(key)) next = cur + key;
-  else if (key === "." && !cur.includes(".")) next = cur + (cur === "" ? "0." : ".");
-  else if (key === "-" && cur === "") next = "-";
-  else return t;
+  const next = typeInto(t.typed[t.field], key);
+  if (next === null) return t;
   const typed: [string, string] = t.field === 0 ? [next, t.typed[1]] : [t.typed[0], next];
   return { ...t, typed };
+}
+/** What a field says after a key is typed into it (null: the key is not for a number). */
+function typeInto(cur: string, key: string): string | null {
+  if (key === "Backspace") return cur.slice(0, -1);
+  if (/^[0-9]$/.test(key)) return cur + key;
+  if (key === "." && !cur.includes(".")) return cur + (cur === "" ? "0." : ".");
+  if (key === "-" && cur === "") return "-";
+  return null;
+}
+/** The text of a field of a gear's number box changed (typed in the box itself). */
+export function gearTyped(t: Tool, field: number, text: string): Tool {
+  const g = gearState(t);
+  return { ...t, gear: { ...g, field, typed: Array.from({ length: 12 }, (_, i) => (i === field ? text : g.typed[i] ?? "")) } };
 }
 const typedValues = (t: Tool): [number | null, number | null] => [typedNumber(t.typed[0]), typedNumber(t.typed[1])];
 
@@ -159,22 +215,112 @@ export function circleRadius(pl: Plane, t: Tool): number {
   const c = t.cursor;
   return a && c ? dist(a, c) : 0;
 }
-/** The teeth and module of the gear being drawn: the typed numbers; with no teeth typed 20; with no module typed the one that makes the outside as wide as the pointer is from the centre (to the nearest 0.05). */
-export function gearNumbers(t: Tool): { teeth: number; module: number } | null {
-  const [teeth0, module0] = typedValues(t);
-  const teeth = teeth0 !== null && teeth0 >= 1 ? Math.round(teeth0) : 20;
-  if (module0 !== null && module0 > 0) return { teeth, module: module0 };
-  const a = t.points[0], c = t.cursor;
-  const reach = a && c ? dist(a, c) : 0;
-  if (reach < 1e-6) return null;
-  return { teeth, module: Math.max(0.1, Math.round(moduleForOutside(teeth, 2 * reach) / 0.05) * 0.05) };
+/** The numbers of the gear being drawn or changed: each as typed, else as the gear has it now, else the default (20 teeth, 20 degrees, no shift or backlash, a wall or a bar of 2 modules); with no module typed and none to start from, the one (to the nearest 0.05) that makes the outside as wide as the pointer is from the centre (a rack: as long as twice that). Null while there is no size. */
+/** The bore's shape as typed (or as the gear had it): a flat, a keyway and its depth. */
+const shapeOf = (typed: (k: string) => number | null, b: GearSpec | undefined) => {
+  const [flat, key, keyDepth] = [typed("flat") ?? b?.flat, typed("key") ?? b?.key, typed("keydepth") ?? b?.keyDepth];
+  return { ...(flat ? { flat } : {}), ...(key ? { key } : {}), ...(keyDepth ? { keyDepth } : {}) };
+};
+function gearSpecOf(t: Tool): GearSpec | null {
+  const g = gearState(t);
+  const fields = gearFields(g);
+  const typed = (k: string) => { const i = fields.findIndex((f) => f.key === k); return i < 0 ? null : typedNumber(g.typed[i] ?? ""); };
+  const b = g.base;
+  if (g.pulley) { // a timing pulley: its grooves, how much bigger than the belt tooth they are, and a bore; the belt fixes the rest
+    const [clearance, bore] = [typed("clearance") ?? b?.clearance, typed("bore") ?? b?.bore];
+    return { teeth: Math.round(typed("teeth") ?? b?.teeth ?? 20), module: g.pulley === "2GT" ? 2 : g.pulley === "3GT" ? 3 : g.pulley === "HTD8M" ? 8 : 5, pulley: g.pulley, ...(clearance ? { clearance } : {}), ...(bore ? { bore, ...shapeOf(typed, b) } : {}) };
+  }
+  if (g.cycloidal) { // a clock gear: the generating circle (radius), addendum and dedendum in modules, the same circle for gears that are to mesh
+    const [circle, addendum, dedendum] = [typed("circle") ?? b?.cycloidal?.circle, typed("addendum") ?? b?.cycloidal?.addendum, typed("dedendum") ?? b?.cycloidal?.dedendum];
+    const [teeth, backlash, typedModule] = [Math.round(typed("teeth") ?? b?.teeth ?? (g.rack ? 10 : 20)), typed("backlash") ?? b?.backlash, typed("module")];
+    const bore = g.internal || g.rack ? undefined : typed("bore") ?? b?.bore;
+    const rim = g.internal || g.rack ? typed("rim") ?? b?.rim : undefined;
+    let module = typedModule !== null && typedModule > 0 ? typedModule : b?.module;
+    if (module === undefined) {
+      const [a, c] = [t.points[0], t.cursor];
+      const reach = a && c ? dist(a, c) : 0;
+      if (reach < 1e-6) return null;
+      const exact = g.rack ? (2 * reach) / (Math.PI * Math.max(1, teeth)) : g.internal ? reach / (teeth / 2 + (dedendum ?? 1.25) + (rim ?? 2)) : moduleForOutside(teeth, 2 * reach, (addendum ?? 1) - 1);
+      module = Math.max(0.1, Math.round(exact / 0.05) * 0.05);
+    }
+    return { teeth, module, ...(g.internal ? { internal: true as const } : {}), ...(g.rack ? { rack: true as const } : {}), ...(rim !== undefined ? { rim } : {}), cycloidal: { ...(circle ? { circle } : {}), ...(addendum ? { addendum } : {}), ...(dedendum ? { dedendum } : {}) }, ...(backlash !== undefined ? { backlash } : {}), ...(bore ? { bore, ...shapeOf(typed, b) } : {}) };
+  }
+  if (g.sprocket) { // a roller chain sprocket: its teeth, the chain by its ANSI number, or its own pitch and roller diameter (mm), and a bore
+    const [chain, pitch, roller, bore] = [typed("chain") ?? b?.sprocket?.chain, typed("pitch") ?? b?.sprocket?.pitch, typed("roller") ?? b?.sprocket?.roller, typed("bore") ?? b?.bore];
+    const fit = g.iso ? typed("fit") ?? b?.sprocket?.fit : undefined;
+    return { teeth: Math.round(typed("teeth") ?? b?.teeth ?? (g.iso ? 20 : 18)), module: 1, sprocket: { chain: chain ?? (pitch || roller ? undefined : g.iso ? 8 : 40), ...(pitch ? { pitch } : {}), ...(roller ? { roller } : {}), ...(g.iso ? { iso: true } : {}), ...(fit !== undefined ? { fit } : {}) }, ...(bore ? { bore, ...shapeOf(typed, b) } : {}) };
+  }
+  const teeth = Math.round(typed("teeth") ?? b?.teeth ?? (g.rack ? 10 : 20));
+  const pressure = typed("pressure") ?? b?.pressure;
+  const shift = g.internal || g.rack ? undefined : typed("shift") ?? b?.shift;
+  const backlash = typed("backlash") ?? b?.backlash;
+  const clearance = typed("clearance") ?? b?.clearance; // (the root clearance, in modules)
+  const rim = g.internal || g.rack ? typed("rim") ?? b?.rim : undefined;
+  const bore = g.internal || g.rack ? undefined : typed("bore") ?? b?.bore;
+  const fillet = g.internal || g.rack ? undefined : typed("fillet") ?? b?.fillet;
+  const typedModule = typed("module");
+  let module = typedModule !== null && typedModule > 0 ? typedModule : b?.module;
+  if (module === undefined) {
+    const [a, c] = [t.points[0], t.cursor];
+    const reach = a && c ? dist(a, c) : 0;
+    if (reach < 1e-6) return null;
+    const exact = g.rack ? (2 * reach) / (Math.PI * Math.max(1, teeth)) : g.internal ? reach / (teeth / 2 + 1 + (clearance ?? 0.25) + (rim ?? 2)) : moduleForOutside(teeth, 2 * reach, shift ?? 0);
+    module = Math.max(0.1, Math.round(exact / 0.05) * 0.05);
+  }
+  return { teeth, module, ...(pressure !== undefined ? { pressure } : {}), ...(shift !== undefined ? { shift } : {}), ...(backlash !== undefined ? { backlash } : {}), ...(clearance !== undefined ? { clearance } : {}), ...(g.internal ? { internal: true as const } : {}), ...(g.rack ? { rack: true as const } : {}), ...(rim !== undefined ? { rim } : {}), ...(fillet ? { fillet } : {}), ...(bore ? { bore, ...shapeOf(typed, b) } : {}) };
 }
-/** The outline of the gear being drawn, or null while it is not a gear (no size yet, or numbers that make none: the reason is for the message). */
-function gearOf(t: Tool): { outline: GearOutline } | { error: string } | null {
-  const n = gearNumbers(t);
-  if (!n) return null;
-  const o = gearOutline({ teeth: n.teeth, module: n.module });
-  return o.ok ? { outline: o.value } : { error: o.error };
+type GearTarget = { spec: GearSpec; at: Vec3; turn: number; live: Partial<Record<GearKey, number>> };
+/** The gear the tool would make, or why it would make none (`in_548`: said when Enter or a click makes nothing); null while there is nothing to say yet (no size, no plane). */
+function gearMade(scene: Scene, t: Tool): Result<GearTarget> | null {
+  const g = gearState(t);
+  const pl = t.plane ? scene.parts[t.plane] : undefined;
+  if (!g.mesh) {
+    const spec = gearSpecOf(t);
+    const at = t.points[0];
+    if (!spec || !at) return null;
+    const o = gearOutline(spec);
+    if (!o.ok) return err(o.error);
+    return ok({ spec, at, turn: g.turn ?? 0, live: { teeth: spec.teeth, module: spec.module, pressure: spec.pressure ?? 20, shift: spec.shift ?? 0, backlash: spec.backlash ?? 0, rim: spec.rim ?? 2, bore: spec.bore ?? 0, fillet: spec.fillet ?? 0, flat: spec.flat ?? 0, key: spec.key ?? 0, keydepth: spec.keyDepth ?? (spec.bore ? standardKey(spec.bore)?.t2 ?? 0 : 0), clearance: spec.clearance ?? (spec.pulley === "HTD5M" ? 0.07 : spec.pulley ? 0 : 0.25), circle: spec.cycloidal?.circle ?? 3, addendum: spec.cycloidal?.addendum ?? 1, dedendum: spec.cycloidal?.dedendum ?? 1.25, chain: spec.sprocket?.chain ?? 0, fit: spec.sprocket?.fit ?? 0.5, ...(spec.sprocket ? (() => { const c = chainOf(spec.sprocket); return c ? { pitch: c.pitch, roller: c.roller } : {}; })() : {}) } });
+  }
+  if (!pl || pl.kind !== "plane") return null;
+  const { src, rack } = g.mesh;
+  const fields = gearFields(g);
+  const typed = (k: string) => { const i = fields.findIndex((f) => f.key === k); return i < 0 ? null : typedNumber(g.typed[i] ?? ""); };
+  const srcRack = !!src.spec.rack;
+  const ratio = typed("ratio");
+  const teeth = Math.round(typed("teeth") ?? (ratio !== null && ratio > 0 && !srcRack ? ratio * src.spec.teeth : srcRack ? 16 : rack ? 10 : src.spec.teeth));
+  const [cx, cy] = localOf(pl, src.at);
+  const [px, py] = t.cursor ? localOf(pl, t.cursor) : [cx, cy];
+  let where: number;
+  if (srcRack) {
+    const tr = src.turn ?? 0;
+    where = typed("offset") ?? (px - cx) * Math.cos(tr) + (py - cy) * Math.sin(tr);
+  } else {
+    const a = typed("angle");
+    where = a !== null ? (a * Math.PI) / 180 : Math.hypot(px - cx, py - cy) > 1e-6 ? Math.atan2(py - cy, px - cx) : 0;
+  }
+  const r = meshWith(src, pl.u, pl.v, { teeth, rack }, where);
+  if (!r.ok) return err(r.error);
+  const bore = rack ? null : typed("bore");
+  const spec = bore ? { ...r.value.spec, bore, ...shapeOf(typed, undefined) } : r.value.spec;
+  const o = gearOutline(spec);
+  if (!o.ok) return err(o.error);
+  return ok({ ...r.value, spec, live: { teeth, ratio: srcRack ? 0 : teeth / src.spec.teeth, angle: (where * 180) / Math.PI, offset: where, bore: 0 } });
+}
+/** The gear to be made (or changed) by the tool as it stands: its numbers, where it stands and how it is turned, and what each field of the box says while nothing is typed in it. A partner (`in_547`) is where the pointer says (a gear: the direction of it from the gear it meshes with; a gear on a rack: how far along the rack), or as typed. Null while there is none. */
+function gearTarget(scene: Scene, t: Tool): GearTarget | null {
+  const r = gearMade(scene, t);
+  return r && r.ok ? r.value : null;
+}
+/** Why the gear the tool stands at makes none (what Enter or a click says), or null. */
+export function gearProblem(scene: Scene, t: Tool): string | null {
+  const r = gearMade(scene, t);
+  return r && !r.ok ? r.error : null;
+}
+/** What each field of the number box says while nothing is typed in it: the numbers as they are now. */
+export function gearLive(scene: Scene, t: Tool): number[] | null {
+  const g = gearTarget(scene, t);
+  return g ? gearFields(gearState(t)).map((f) => g.live[f.key] ?? 0) : null;
 }
 /** The next corner of a line from the last one, the cursor and a typed length (along the cursor's direction). */
 export function lineNext(t: Tool): Vec3 | null {
@@ -234,20 +380,22 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
   }
   if (t.kind === "circle") return { segments: [], circle: { center: t.points[0]!, radius: circleRadius(pl, t), normal: n }, cursor: t.cursor };
   if (t.kind === "gear") {
-    const g = gearOf(t);
-    if (!g || !("outline" in g)) return null;
-    const [cx, cy] = localOf(pl, t.points[0]!);
-    const at = (q: readonly [number, number]): Vec3 => liftOf(pl, [cx + q[0], cy + q[1]]);
-    const o = g.outline;
+    const target = gearTarget(scene, t);
+    const o = target ? gearOutline(target.spec) : null;
+    if (!target || !o || !o.ok) return null;
+    const [cx, cy] = localOf(pl, target.at);
+    const [ct, st] = [Math.cos(target.turn), Math.sin(target.turn)];
+    const at = (q: readonly [number, number]): Vec3 => liftOf(pl, [cx + q[0] * ct - q[1] * st, cy + q[0] * st + q[1] * ct]);
     const segments: [Vec3, Vec3][] = [];
-    o.points.forEach((a, i) => { // (each side as two short lines through its middle: close enough to see the teeth)
-      const b = o.points[(i + 1) % o.points.length]!;
+    o.value.points.forEach((a, i) => { // (each side as two short lines through its middle: close enough to see the teeth)
+      const b = o.value.points[(i + 1) % o.value.points.length]!;
       const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
-      const k = o.bulges[i]!;
+      const k = o.value.bulges[i]!;
       const m: [number, number] = [(a[0] + b[0]) / 2 - dy * k, (a[1] + b[1]) / 2 + dx * k];
       segments.push([at(a), at(m)], [at(m), at(b)]);
     });
-    return { segments, circle: null, cursor: t.cursor };
+    const bore = target.spec.bore ?? 0; // (a ring's wall, or a gear's bore, as the one circle of the preview)
+    return { segments, circle: o.value.outerRadius !== undefined ? { center: target.at, radius: o.value.outerRadius, normal: n } : bore > 0 ? { center: target.at, radius: bore / 2, normal: n } : null, cursor: t.cursor };
   }
   if (t.kind === "arc") {
     const arc = t.points.length >= 2 ? arcOf(pl, t) : null;
@@ -299,10 +447,12 @@ export function finish(scene: Scene, t: Tool): Finished | null {
     return { command: joinedAtCorners(scene, pl.ref, c.command), select: [diskFaceRef(c.circle)] };
   }
   if (t.kind === "gear") {
-    const g = gearOf(t);
-    if (!g || !("outline" in g)) return null;
-    const d = drawGear(scene, pl.ref, t.points[0]!, pl.u, pl.v, g.outline);
-    return { command: d.command, select: [loopFaceRef(d.lines)] };
+    const target = gearTarget(scene, t);
+    if (!target || !gearOutline(target.spec).ok) return null;
+    const id = t.gear?.editing ?? nextId(scene, "g");
+    const refs = gearRefs({ id, plane: pl.ref, at: target.at, spec: target.spec });
+    const select = [refs.wall ? diskFaceRef(refs.wall) : loopFaceRef(refs.lines)];
+    return { command: t.gear?.editing ? { type: "setGear", id, spec: target.spec } : { type: "gear", id, plane: pl.ref, at: target.at, spec: target.spec, ...(target.turn ? { turn: target.turn } : {}) }, select };
   }
   if (t.kind === "arc") {
     const arc = arcOf(pl, t);

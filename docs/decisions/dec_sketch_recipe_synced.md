@@ -3,7 +3,7 @@ id: dec_sketch_recipe_synced
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_546, in_547, in_548, in_549, in_550, in_551, in_552, in_553
+human_input: in_563, in_564, in_565, in_566, in_567, in_568, in_569, in_570
 date: 2026-11-16
 depends_on:
   - dec_sketch_belongs_to_step: this keeps it (a sketch is the recipe of the step that consumed it, never a separate copy) and adds a name and a status to the sketch
@@ -14,7 +14,7 @@ depends_on:
 ---
 # A sketch is the recipe of its step, kept in step with the body wherever it can express the change, and labelled where it cannot
 
-**Approved (`in_553`).** The human asked whether a sketch should move and morph with the body it made, becoming part of it, or whether the sketch and the body are separate things that can drift apart (`in_547`), reframed it as where the sketch lives (`in_548`), asked whether the two are not always in sync (`in_549`, `in_550`), and asked for this to be written up (`in_552`). What the app does now was checked on a block (`in_549`): a push of a side face changed the sketch (its corners went from 10 to 14, no step added); a fillet changed the body and left the sketch sharp; a corner moved with the shape editing changed the body and left the sketch alone.
+**Approved (`in_570`).** The human asked whether a sketch should move and morph with the body it made, becoming part of it, or whether the sketch and the body are separate things that can drift apart (`in_564`), reframed it as where the sketch lives (`in_565`), asked whether the two are not always in sync (`in_566`, `in_567`), and asked for this to be written up (`in_569`). What the app does now was checked on a block (`in_566`): a push of a side face changed the sketch (its corners went from 10 to 14, no step added); a fillet changed the body and left the sketch sharp; a corner moved with the shape editing changed the body and left the sketch alone.
 
 **The rules**
 
@@ -22,7 +22,7 @@ depends_on:
 2. **Where it lives.** A sketch lives on the surface it made (the starting face of its extrusion, or the face it was drawn on), not at the place where it was first drawn. It moves with the body: now, through the whole-body motions (`dec_sketch_follows_body`); later, through every edit of that face, once the face has a name that survives edits (`dec_stable_references`). When the face stops being flat the sketch follows its plane while the face is flat; when the face is gone the sketch stays where it last was and is marked **detached**.
 3. **What it looks like.** The shape of a sketch stays as it was drawn. A later fillet, hollow, cut or shaping of corners changes the body, not the sketch (`dec_modifications_are_steps`). A sketch changes only through an edit the sketch can express: a push of one of its sides, a change of the depth or of a circle's radius (`dec_face_edit_by_step`), a move, turn or scale of the whole body, or an edit of the sketch itself. Those keep the sketch and the body in step because the body is made again from the sketch.
 4. **A status on every sketch**, shown beside it, so a sketch is never taken for the current shape of the body: **as drawn**; **carried by** a move, turn or scale (naming the step); **changed by** a push or a size (naming the step); **the body has changed since** by a named step (a fillet, a hollow, a cut: the sketch is the recipe, not the body's outline now); **unused** (drawn, not yet taken by a step); **detached** (its face is gone).
-5. **A name.** Each closed figure (its outer loop and the figures inside it) gets a name when it is drawn ("Sketch 1", in the order drawn, kept for good), by the same idea as the bodies' names; the step that takes it refers to it by that name. It is listed in the Model panel (`in_546`) under the step that owns it; one that no step has taken is listed as unused.
+5. **A name.** Each closed figure (its outer loop and the figures inside it) gets a name when it is drawn ("Sketch 1", in the order drawn, kept for good), by the same idea as the bodies' names; the step that takes it refers to it by that name. It is listed in the Model panel (`in_563`) under the step that owns it; one that no step has taken is listed as unused.
 6. **Seeing and editing the original.** To see a sketch, go to its step in the Model panel (the History): the sketch's row is under it; choosing it shows the sketch in the 3D view and takes edits, and an edit makes the body again from it. The sketch seen is the recipe as it is now, with the status above, not a frozen first drawing.
 
 **Later work, not decided here (each needs its own approval)**

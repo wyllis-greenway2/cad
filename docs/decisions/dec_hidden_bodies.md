@@ -3,7 +3,7 @@ id: dec_hidden_bodies
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_546, in_547, in_554
+human_input: in_563, in_564, in_571
 date: 2026-11-16
 depends_on:
   - dec_independent_bodies: a body is named and selected on its own; hiding works on those names
@@ -12,7 +12,7 @@ depends_on:
 ---
 # A body can be hidden: drawn very faintly, not interactive, with an icon on hover
 
-**What the human asked (`in_546`, `in_554`):** bodies can be made invisible, as a plane can with its little icon that shows on hover. An invisible body is still ever so slightly visible, so you know it is there; the cursor does not interact with it, except that the icon fades in on hover so the body can be brought back. The Bodies list does the same, can select all or none of the bodies, hide or show all of them, and delete bodies.
+**What the human asked (`in_563`, `in_571`):** bodies can be made invisible, as a plane can with its little icon that shows on hover. An invisible body is still ever so slightly visible, so you know it is there; the cursor does not interact with it, except that the icon fades in on hover so the body can be brought back. The Bodies list does the same, can select all or none of the bodies, hide or show all of them, and delete bodies.
 
 **What is built, and the choices that were mine**
 1. **Saved as view state, in the history of commands, not as a step.** The command `hideBodies` (body names, hidden or not) is kept in the project and is undone with the rest, as the modes of a sheet are (`placePlane`). A hidden body keeps its steps and everything that refers to it; hiding changes what is drawn and what can be pointed at, not the model.

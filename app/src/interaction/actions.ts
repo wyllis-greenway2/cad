@@ -3,6 +3,7 @@
 // long-press all ask this one function. Generalises the prototype's relations table (`relations.mjs`) from sketch parts to any parts.
 // Geometry is read in 3D from the scene, so no plane or sketch is involved in measuring.
 import { arcRadiusCommand } from "./faceedit.ts";
+import { gearOfPart } from "../operation/gearscene.ts";
 import { sketchOfEdge } from "../operation/edgesource.ts";
 import { whyNotDeleteSurface, deleteSurface } from "../operation/trim.ts";
 import type { Ref } from "../shared/ref.ts";
@@ -141,6 +142,15 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
     }
   }
 
+  // a gear that keeps its numbers goes as a whole, with its record (`gearscene.ts`)
+  const gearIds = [...new Set(sel.flatMap((r) => { const g = gearOfPart(scene, r); return g ? [g.id] : []; }))];
+  if (gearIds.length) {
+    out.push({
+      id: "delete", label: "Delete", group: "operation", dimensional: false, unit: null, parts: [...sel],
+      enabled: true, why: null, measure: () => null, spot: () => null,
+      run: (): Command => ({ type: "batch", commands: gearIds.map((id): Command => ({ type: "deleteGear", id })) }),
+    });
+  }
   // delete: drawn parts (a closed figure goes with its corners, so nothing is left behind), or the whole body (one step, so it undoes)
   const whole = sel.filter((r) => get(r)?.kind === "body");
   if (whole.length) {

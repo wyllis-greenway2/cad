@@ -10,7 +10,6 @@ import { nextId } from "./scene.ts";
 import { live } from "./ownership.ts";
 import { formatId } from "../shared/ref.ts";
 import type { Command } from "./commands.ts";
-import type { GearOutline } from "./gear.ts";
 
 /** A line chain through points on a plane: corners d/e_N.p0.. and lines d/e_N.s0.. (closed adds the last line back to the first corner). Returns the command and the refs. */
 export function drawChain(s: Scene, plane: Ref, points: Vec3[], closed = false, opts: { bulges?: number[]; reuse?: boolean } = {}): { command: Command; corners: Ref[]; lines: Ref[] } {
@@ -117,14 +116,3 @@ export function joinedAtCorners(s: Scene, plane: Ref, command: Command): Command
   return out.length ? { type: "batch", commands: [command, ...out] } : command;
 }
 
-/**
- * A gear outline (`gear.ts`) drawn on a plane as a closed chain of lines and arcs about a centre, `u` and `v` the plane's own x and y (`dec_gear_tool`). An internal gear's wall is drawn as a circle round
- * the hole, so the hole is a figure inside a figure. Returns the command, the sides of the outline and, for a ring, the circle.
- */
-export function drawGear(s: Scene, plane: Ref, centre: Vec3, u: Vec3, v: Vec3, outline: GearOutline): { command: Command; lines: Ref[]; wall?: Ref } {
-  const at = (p: readonly [number, number]): Vec3 => [centre[0] + u[0] * p[0] + v[0] * p[1], centre[1] + u[1] * p[0] + v[1] * p[1], centre[2] + u[2] * p[0] + v[2] * p[1]];
-  const d = drawChain(s, plane, outline.points.map(at), true, { bulges: outline.bulges });
-  if (outline.outerRadius === undefined) return { command: d.command, lines: d.lines };
-  const wall = drawCircle(s, plane, centre, outline.outerRadius); // (the chain's names end .p and .s, the circle's .c and .k: one id serves both)
-  return { command: { type: "batch", commands: [d.command, wall.command] }, lines: d.lines, wall: wall.circle };
-}

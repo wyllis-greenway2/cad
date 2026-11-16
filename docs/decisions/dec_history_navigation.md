@@ -3,16 +3,16 @@ id: dec_history_navigation
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_546, in_547, in_555
+human_input: in_563, in_564, in_572
 date: 2026-11-16
 depends_on:
   - prin_history_additive: the history is a list of commands with a cursor; moving to an earlier point only moves the cursor, nothing is removed
   - dec_modifications_are_steps: a change of a step's numbers is a command (`setStepParams`) added at the end; it does not rewrite the list
-  - dec_hidden_bodies: the first item of the order of `in_546`, built before this one; it is the same panel and the same kind of row
+  - dec_hidden_bodies: the first item of the order of `in_563`, built before this one; it is the same panel and the same kind of row
 ---
 # The History panel: go to any step, and change the numbers of a step
 
-**What the human asked (`in_546`, `in_555`):** the history is not usable; it should be possible to move to different spots in the history and to click an operation in it and modify it. The second item of the agreed order (`in_546`, `in_547`).
+**What the human asked (`in_563`, `in_572`):** the history is not usable; it should be possible to move to different spots in the history and to click an operation in it and modify it. The second item of the agreed order (`in_563`, `in_564`).
 
 **What is built, and the choices that were mine**
 1. **The list shows every step, the ones after the cursor too.** The History panel lists the steps of the model as it is at the cursor and then the steps that come after it (the ones that undo has put away and redo would bring back), those after the cursor faded. The step where the cursor is is marked.
