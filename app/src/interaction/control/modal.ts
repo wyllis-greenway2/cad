@@ -1,5 +1,5 @@
 // Tools and operations that take typing: starting them, typed keys, finishing, cancelling; and the edits that do not depend on the pointer (delete, undo, relations).
-import { isHard } from "../hard.ts";
+import { isHard, hardCopies } from "../hard.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { Intent } from "../../shared/input.ts";
 import { scene as sceneOf, selection as selectionOf, run, undoLast, redoLast, clearSelection } from "../session.ts";
@@ -556,6 +556,8 @@ function openRepeat(s: AppState, op: Op): AppState {
 }
 export function doRepeatApply(s: AppState): AppState {
   if (!s.repeat) return s;
+  const hard = hardCopies(sceneOf(s.session), liveRepeat(sceneOf(s.session), s.repeat)); // (copies of hard bodies that would run into hard bodies are refused, `in_475`)
+  if (hard) return { ...s, session: { ...s.session, message: hard.why } };
   const cmd = repeatApply(sceneOf(s.session), s.repeat);
   if (!cmd) return { ...s, session: { ...s.session, message: "there is nothing to repeat yet: more than one copy" } };
   const next = run(s.session, cmd);

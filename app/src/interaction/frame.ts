@@ -23,7 +23,7 @@ import { seenIn } from "./picking.ts";
 import { tapeAnnotations } from "./tape.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
-import { hardMotion } from "./hard.ts";
+import { hardMotion, hardNote, limitedOp } from "./hard.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { withCorner } from "./runop.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, previewRefusal, undoLast } from "./session.ts";
@@ -263,12 +263,13 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
     return value;
   }
   // the operation being set up, else the repeat being set up (what it would make shows while its numbers are set)
-  const op = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
-  if (!op) return null;
-  const base = op.made ? undone(s.session) : s.session; // a step already made for this operation is replaced by what is being dragged
+  const op0 = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
+  if (!op0) return null;
+  const base = op0.made ? undone(s.session) : s.session; // a step already made for this operation is replaced by what is being dragged
+  const op = op0.kind === "pushpull" && sceneOf(base).hard?.length ? (() => { const l = limitedOp(sceneOf(base), op0); return l && "op" in l ? l.op : op0; })() : op0; // (a hard body's face is drawn pulled only as far as it can go, `in_475`)
   const cmd: Command | null = opCommand(sceneOf(base), op, { preview: true });
   if (!cmd) return null;
-  const key = JSON.stringify([cmd, op.made]);
+  const key = JSON.stringify([cmd, op0.made]);
   if (memo && memo.history === s.session.history && memo.outcome === s.session.outcome && memo.key === key) return memo.value;
   let value = previewCommand(base, cmd);
   // a size that breaks a step is not shown as the broken body (it collapses into a weird shape): what is there stays, and why it cannot be made is said (`in_229`)
@@ -325,7 +326,9 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   const typing = !!shownOp && (shownOp.typed !== "" || shownOp.rot.some((t) => t !== ""));
   const numberShown = armed || typing || !!(s.drag && ("handle" in s.drag || "body" in s.drag));
   // a body dragged against its mates: they are red while it is held back, as a refused change shows what it would have broken (`in_338`)
-  const flash: FlashFrame | null = gpu?.hardHit?.length ? { t: 0, victims: [], culprits: [], parts: gpu.hardHit } : gpu?.blocked?.length ? { t: 0, victims: gpu.blocked, culprits: [], parts: flashParts(sc, gpu.blocked) } : flashOf(s, sc, now);
+  const noteOp = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
+  const hardWhy = noteOp && !gpu && sceneOf(s.session).hard?.length ? hardNote(sceneOf(s.session), noteOp) : null; // (what a repeat, a mirror or a pull that is open runs into, `in_475`)
+  const flash: FlashFrame | null = hardWhy?.hit.length ? { t: 0, victims: [], culprits: [], parts: hardWhy.hit } : gpu?.hardHit?.length ? { t: 0, victims: [], culprits: [], parts: gpu.hardHit } : gpu?.blocked?.length ? { t: 0, victims: gpu.blocked, culprits: [], parts: flashParts(sc, gpu.blocked) } : flashOf(s, sc, now);
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
   const gp = gridPlaneOf(s);
   const annotationsPresent = !busy; // (the bubbles are the only user of `avoid`: none are shown while a tool or operation runs)
@@ -374,7 +377,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     loftKinds: s.op?.kind === "loft" ? loftChips(sceneOf(s.session), s.op) : null,
     sizeKinds: sizeKinds(s),
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
-    message: s.session.message ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
+    message: s.session.message ?? hardWhy?.why ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
   };
 }
 

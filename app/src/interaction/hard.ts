@@ -4,7 +4,11 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Rigid } from "../operation/frames.ts";
 import type { Op } from "./operations.ts";
-import { bodyMotion } from "./operations.ts";
+import { bodyMotion, valueOf } from "./operations.ts";
+import { patternValues } from "./pattern.ts";
+import { mirrorPlane } from "./mirror.ts";
+import { placements } from "../operation/repeat.ts";
+import { about, aboutDir } from "../math/rotation.ts";
 import { NONE } from "../operation/frames.ts";
 import { buildTree, collides, moved, partOf, freePart, contactNormal } from "../operation/collide.ts";
 import type { Tree } from "../operation/collide.ts";
@@ -113,7 +117,18 @@ export function hardMotion(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref
  * typed for it would run into another hard body, or it is against one already). Null when nothing hard is in the way.
  */
 export function limitedOp(scene: Scene, op: Op): { op: Op } | { why: string } | null {
-  if (op.target !== "body" || (op.kind !== "move" && op.kind !== "rotate")) return null;
+  // copies a repeat or a mirror would make: refused with the reason (`in_475`)
+  const copies = hardCopies(scene, op);
+  if (copies) return { why: copies.why };
+  // a hard body's face pulled out into another hard body: taken as far as it goes, or refused when typed
+  const grown = growth(scene, op);
+  if (grown) {
+    const names = grown.hit.map((r) => nameOf(scene, r)).join(", ");
+    if (op.typed !== "") return { why: `it would grow into ${names || "another hard body"}: hard bodies do not go into each other` };
+    const d = valueOf(op) ?? 0;
+    if (grown.t * d < 1e-3) return { why: `it is against ${names || "another hard body"}: hard bodies do not go into each other` };
+    return { op: { ...op, value: Math.round(grown.t * d * 1e4) / 1e4 } };
+  }
   const asked = bodyMotion(scene, op);
   const group = op.parts.filter((r) => scene.parts[r]?.kind === "body");
   if (!asked || !group.length) return null;
@@ -126,4 +141,88 @@ export function limitedOp(scene: Scene, op: Op): { op: Op } | { why: string } | 
   const k = Math.round(lim.t * 1e6) / 1e6;
   const scaled: Op = op.kind === "move" && op.free && lim.shift ? { ...op, free: lim.shift.map((v) => Math.round(v * 1e3) / 1e3) as unknown as Vec3 } : op.kind === "move" && op.free ? { ...op, free: op.free.map((v) => Math.round(v * k * 1e3) / 1e3) as unknown as Vec3 } : { ...op, ...(op.value !== null && op.value !== undefined ? { value: Math.round(op.value * k * 1e4) / 1e4 } : {}) };
   return { op: scaled };
+}
+
+// ---- copies and growth (`in_475`) ----
+type Map3 = (p: Vec3) => Vec3;
+/** Where the copies of a repeat (a line, a circle of them, a quick copy) or of a mirror put a point: one map for each copy. */
+function copyMaps(op: Op): Map3[] {
+  if (op.kind === "mirror") {
+    const pl = mirrorPlane(op);
+    if (!pl) return [];
+    const [q, n] = [pl.p, pl.n];
+    const l = Math.hypot(...n) || 1;
+    return [(p) => { const d = (2 * ((p[0] - q[0]) * n[0] + (p[1] - q[1]) * n[1] + (p[2] - q[2]) * n[2])) / (l * l); return [p[0] - d * n[0], p[1] - d * n[1], p[2] - d * n[2]]; }];
+  }
+  if (op.kind !== "linear" && op.kind !== "circular" && op.kind !== "copy") return [];
+  const kind = op.kind === "circular" ? "circular" : "linear";
+  return placements(kind, patternValues(op)).map((pl): Map3 => (p) => {
+    if (!pl.turn) return [p[0] + pl.move[0], p[1] + pl.move[1], p[2] + pl.move[2]];
+    const m = pl.turn.dir ? aboutDir(pl.turn.dir, pl.turn.angle) : about(pl.turn.axis, pl.turn.angle);
+    const c = pl.turn.pivot;
+    const w: Vec3 = [p[0] - c[0], p[1] - c[1], p[2] - c[2]];
+    return [c[0] + m[0] * w[0] + m[1] * w[1] + m[2] * w[2] + pl.move[0], c[1] + m[3] * w[0] + m[4] * w[1] + m[5] * w[2] + pl.move[1], c[2] + m[6] * w[0] + m[7] * w[1] + m[8] * w[2] + pl.move[2]];
+  });
+}
+const nameOf = (scene: Scene, r: Ref): string => { const p = scene.parts[r]; return p?.kind === "body" && p.id ? p.id : r; };
+
+/**
+ * Do the copies a repeat or a mirror of hard bodies would make run into hard bodies (`in_475`)? The copies are those of the source bodies that are hard; each is tested against every hard body there is (the
+ * source and the others), and the copies of one repeat against each other. Null when none does; else which copy it is and what it is against.
+ */
+export function hardCopies(scene: Scene, op: Op): { why: string; hit: Ref[] } | null {
+  if (op.target !== "body") return null;
+  const sources = op.parts.filter((r) => isHard(scene, r));
+  if (!sources.length) return null;
+  const maps = copyMaps(op);
+  if (!maps.length || maps.length > 60) return null;
+  const clearance = scene.clearance ?? 0;
+  const others = Object.keys(scene.parts).filter((r) => isHard(scene, r as Ref)) as Ref[];
+  const trees = others.flatMap((r) => { const m = meshOf(scene, r); return m ? [{ ref: r, tree: m.tree }] : []; });
+  const copies: { k: number; src: Ref; tris: number[]; tree: Tree }[] = [];
+  for (const src of sources) {
+    const a = meshOf(scene, src);
+    if (!a) continue;
+    maps.forEach((f, k) => { const tris: number[] = new Array(a.tris.length); for (let i = 0; i < a.tris.length; i += 3) { const q = f([a.tris[i]!, a.tris[i + 1]!, a.tris[i + 2]!]); tris[i] = q[0]; tris[i + 1] = q[1]; tris[i + 2] = q[2]; } copies.push({ k, src, tris, tree: buildTree(tris) }); });
+  }
+  for (const c of copies) {
+    const hits = trees.filter((t) => collides(c.tris, t.tree, clearance));
+    if (hits.length) return { why: `copy ${c.k + 1} would run into ${hits.map((h) => nameOf(scene, h.ref)).join(", ")}: hard bodies do not go into each other`, hit: hits.map((h) => h.ref) };
+    const other = copies.find((d) => d !== c && d.src === c.src && d.k < c.k && collides(c.tris, d.tree, clearance));
+    if (other) return { why: `copy ${c.k + 1} would run into copy ${other.k + 1}: hard bodies do not go into each other`, hit: [c.src] };
+  }
+  return null;
+}
+
+/** How far a hard body's face may be pulled out before it meets another hard body: the part of the distance (0 to 1) and what it meets; null when nothing is in the way. */
+function growth(scene: Scene, op: Op): { t: number; hit: Ref[]; owners: Ref[] } | null {
+  if (op.kind !== "pushpull" || op.curved) return null;
+  const d = valueOf(op);
+  if (d === null || d <= 0) return null; // (pushed in, a body does not grow into anything)
+  const faces = op.parts.map((r) => scene.parts[r]).filter((p) => p?.kind === "plane" && p.origin === "body" && !!p.mesh && !!p.of);
+  const owners = [...new Set(faces.map((p) => (p as { of: Ref }).of))].filter((b) => isHard(scene, b));
+  if (!owners.length) return null;
+  const stays = Object.keys(scene.parts).filter((r) => !owners.includes(r as Ref) && isHard(scene, r as Ref)) as Ref[];
+  if (!stays.length) return null;
+  const clearance = scene.clearance ?? 0;
+  const pieces = faces.flatMap((p, i) => {
+    const f = p as { of: Ref; mesh: readonly number[] };
+    if (!owners.includes(f.of)) return [];
+    const n = op.faces?.[i]?.normal ?? op.normal;
+    return n ? [{ tris: Array.from(f.mesh), n }] : [];
+  });
+  const pairs = pieces.flatMap((q) => stays.flatMap((s) => { const m = meshOf(scene, s); return m && !collides(q.tris, m.tree, clearance, true) ? [{ q, s, tree: m.tree }] : []; }));
+  if (!pairs.length) return null;
+  const hitAt = (u: number): Ref[] => [...new Set(pairs.filter((x) => collides(moved(x.q.tris, { turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift: [x.q.n[0] * d * u, x.q.n[1] * d * u, x.q.n[2] * d * u], k: 1 }), x.tree, clearance, true)).map((x) => x.s))];
+  const t = freePart((u) => hitAt(u).length > 0);
+  return t >= 1 ? null : { t, hit: hitAt(Math.min(1, t + 5e-4)), owners };
+}
+
+/** What a repeat, a mirror or a push / pull that is open runs into, for the picture while it is set up (the body it is against flashes, and what is said): null when nothing. */
+export function hardNote(scene: Scene, op: Op): { why: string; hit: Ref[] } | null {
+  if (!scene.hard?.length) return null;
+  const copies = hardCopies(scene, op);
+  if (copies) return copies;
+  const grown = growth(scene, op);
+  return grown ? { why: `it can grow only as far as it meets ${grown.hit.map((r) => nameOf(scene, r)).join(", ")}`, hit: grown.hit } : null;
 }

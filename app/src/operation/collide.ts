@@ -5,7 +5,10 @@ import type { Rigid } from "./frames.ts";
 import { applyPoint } from "./frames.ts";
 
 type M3 = [number, number, number];
-const EPS = 1e-4; // mm: what lies this near a plane or a surface is on it, a touch, not a crossing
+const EPS = 1e-4;
+/** The moving triangles are moved by this much (a hundredth of a micron, far below `EPS`) before they are tested, so that nothing is exactly on a diagonal or an edge of the other body's triangles; touching stays touching. */
+const NUDGE: Vec3 = [1.3e-5, 2.1e-5, 0.7e-5];
+const nudged = (t: ArrayLike<number>): number[] => { const o: number[] = new Array(t.length); for (let i = 0; i < t.length; i++) o[i] = t[i]! + NUDGE[i % 3]!; return o; }; // mm: what lies this near a plane or a surface is on it, a touch, not a crossing
 
 export interface Tree { tris: ArrayLike<number>; nodes: { lo: Vec3; hi: Vec3; l: number; r: number; from: number; to: number }[]; order: number[]; lo: Vec3; hi: Vec3 }
 
@@ -53,7 +56,7 @@ function crosses(p: Vec3, q: Vec3, t: [Vec3, Vec3, Vec3]): boolean {
   const k = dp / (dp - dq);
   const x: Vec3 = [p[0] + (q[0] - p[0]) * k, p[1] + (q[1] - p[1]) * k, p[2] + (q[2] - p[2]) * k];
   const [e0, e1, e2] = [dot(n, cross(sub(t[1], t[0]), sub(x, t[0]))), dot(n, cross(sub(t[2], t[1]), sub(x, t[1]))), dot(n, cross(sub(t[0], t[2]), sub(x, t[2])))];
-  return e0 > 0 && e1 > 0 && e2 > 0; // (strictly inside: a crossing through an edge or a corner is a touch)
+  return e0 > 0 && e1 > 0 && e2 > 0; // (strictly inside: a crossing through an edge or a corner is a touch; the moving triangles are nudged by `NUDGE` first, so a crossing that falls exactly on the diagonal of a face is not lost)
 }
 const triCross = (a: [Vec3, Vec3, Vec3], b: [Vec3, Vec3, Vec3]): boolean =>
   crosses(a[0], a[1], b) || crosses(a[1], a[2], b) || crosses(a[2], a[0], b) || crosses(b[0], b[1], a) || crosses(b[1], b[2], a) || crosses(b[2], b[0], a);
@@ -103,6 +106,21 @@ function triDist(a: [Vec3, Vec3, Vec3], b: [Vec3, Vec3, Vec3]): number {
   return m;
 }
 
+/** A few points just inside the closed surface of these triangles (or on the piece itself when it is `open`): the middle of some of the triangles, taken a hair in against the way each faces. */
+function probes(tris: ArrayLike<number>, open: boolean): Vec3[] {
+  const n = Math.floor(tris.length / 9);
+  const out: Vec3[] = [];
+  for (const i of new Set([0, n >> 1, n - 1])) {
+    if (i < 0 || i >= n) continue;
+    const [a, b, c] = tri(tris, i);
+    const m: Vec3 = [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3, (a[2] + b[2] + c[2]) / 3];
+    const nv = cross(sub(b, a), sub(c, a));
+    const l = Math.hypot(...nv);
+    out.push(open || l < 1e-12 ? m : [m[0] - (nv[0] / l) * 1e-3, m[1] - (nv[1] / l) * 1e-3, m[2] - (nv[2] / l) * 1e-3]);
+  }
+  return out;
+}
+
 /** Is the point inside the closed surface of these triangles? (a ray that no edge is on, the crossings counted) */
 function inside(p: Vec3, tris: ArrayLike<number>): boolean {
   const d: Vec3 = [1, 0.0017320508, 0.0005773503];
@@ -125,9 +143,10 @@ function inside(p: Vec3, tris: ArrayLike<number>): boolean {
 }
 
 /**
- * Do the moving triangles (already in their place) collide with the body that stays: do they cross its surface, or (with `clearance`) come nearer to it than that, or is one inside the other?
+ * Do the moving triangles (already in their place) collide with the body that stays: do they cross its surface, or (with `clearance`) come nearer to it than that, or is one inside the other? `open`: the moving
+ * triangles are a piece of surface and not a closed body (a face being pulled out): only a point of the piece itself is tested for being inside.
  */
-export function collides(moving: ArrayLike<number>, fixed: Tree, clearance = 0): boolean {
+export function collides(moving: ArrayLike<number>, fixed: Tree, clearance = 0, open = false): boolean {
   const nm = Math.floor(moving.length / 9);
   if (!nm || !fixed.nodes.length) return false;
   const c = Math.max(0, clearance);
@@ -135,8 +154,9 @@ export function collides(moving: ArrayLike<number>, fixed: Tree, clearance = 0):
   const lo: M3 = [Infinity, Infinity, Infinity], hi: M3 = [-Infinity, -Infinity, -Infinity];
   for (let i = 0; i < nm * 3; i++) for (let k = 0; k < 3; k++) { const x = moving[3 * i + k]!; if (x < lo[k]!) lo[k] = x; if (x > hi[k]!) hi[k] = x; }
   for (let k = 0; k < 3; k++) if (hi[k]! < fixed.lo[k]! - c || lo[k]! > fixed.hi[k]! + c) return false;
+  const mv = nudged(moving);
   for (let i = 0; i < nm; i++) {
-    const a = tri(moving, i);
+    const a = tri(mv, i);
     const alo: Vec3 = [Math.min(a[0][0], a[1][0], a[2][0]) - c, Math.min(a[0][1], a[1][1], a[2][1]) - c, Math.min(a[0][2], a[1][2], a[2][2]) - c];
     const ahi: Vec3 = [Math.max(a[0][0], a[1][0], a[2][0]) + c, Math.max(a[0][1], a[1][1], a[2][1]) + c, Math.max(a[0][2], a[1][2], a[2][2]) + c];
     const stack = [0];
@@ -152,9 +172,10 @@ export function collides(moving: ArrayLike<number>, fixed: Tree, clearance = 0):
       } else stack.push(nd.l, nd.r);
     }
   }
-  // no surface crosses: one may be wholly inside the other
-  if (inside([moving[0]!, moving[1]!, moving[2]!], fixed.tris)) return true;
-  return inside([fixed.tris[0]!, fixed.tris[1]!, fixed.tris[2]!], moving);
+  // no surface crosses: one may be wholly inside the other (a point just inside the surface of one, not a corner of it, which may lie on the other's surface when they line up)
+  for (const q of probes(moving, open)) if (inside(q, fixed.tris)) return true;
+  if (!open) for (const q of probes(fixed.tris, false)) if (inside(q, moving)) return true;
+  return false;
 }
 
 /**
@@ -166,8 +187,9 @@ export function contactNormal(moving: ArrayLike<number>, fixed: Tree, clearance 
   const c = Math.max(0, clearance);
   const sum: M3 = [0, 0, 0];
   let any = false;
+  const mv = nudged(moving);
   for (let i = 0; i < nm; i++) {
-    const a = tri(moving, i);
+    const a = tri(mv, i);
     const alo: Vec3 = [Math.min(a[0][0], a[1][0], a[2][0]) - c, Math.min(a[0][1], a[1][1], a[2][1]) - c, Math.min(a[0][2], a[1][2], a[2][2]) - c];
     const ahi: Vec3 = [Math.max(a[0][0], a[1][0], a[2][0]) + c, Math.max(a[0][1], a[1][1], a[2][1]) + c, Math.max(a[0][2], a[1][2], a[2][2]) + c];
     const stack = fixed.nodes.length ? [0] : [];

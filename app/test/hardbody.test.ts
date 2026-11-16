@@ -142,3 +142,45 @@ test("the dragged picture slides too: the matrix on the graphics card is the sli
   const f = frameOf(st, { w: 800, h: 600 });
   assert.ok(Math.abs(f.bodyMatrix![12]! - 20) < 0.05 && Math.abs(f.bodyMatrix![13]! - 5) < 0.05, `${f.bodyMatrix![12]}, ${f.bodyMatrix![13]}`);
 });
+
+import { hardCopies, limitedOp } from "../src/interaction/hard.ts";
+
+test("copies of a hard body that would run into another hard body are refused with which copy and what it is against; copies that are clear are not (`in_475`)", () => {
+  const s = hardOf(two(), [A, B]);
+  const st = startOp(scene(s), [A] as never, "linear", null);
+  assert.ok(st.ok);
+  const op = (spacing: string): Op => ({ ...(st as { op: Op }).op, pat: ["2", spacing, "", "", "", ""] });
+  const bad = hardCopies(scene(s), op("25"));
+  assert.ok(bad && /copy 1 would run into x_s_101/.test(bad.why), String(bad?.why));
+  assert.deepEqual(bad!.hit, [B]);
+  assert.equal(hardCopies(scene(s), op("50")), null, "clear: at 50 it stands beyond the other");
+  assert.equal(hardCopies(scene(hardOf(two(), [A])), op("25")), null, "the other is soft: nothing to run into");
+  assert.ok(limitedOp(scene(s), op("25")) && "why" in limitedOp(scene(s), op("25"))!, "and the release refuses it");
+});
+
+test("a mirror of a hard body across a plane that puts the copy into another hard body is refused", () => {
+  const s = hardOf(two(), [A, B]);
+  const st = startOp(scene(s), [A] as never, "mirror", null);
+  assert.ok(st.ok);
+  const op0 = (st as { op: Op }).op;
+  const at = (x: number): Op => ({ ...op0, mirrorAxis: 0, mirrorAt: [x, op0.mirrorAt![1]!, op0.mirrorAt![2]!] as never });
+  // (across x = 20 the block at 0..10 comes to 30..40, where the other stands; across x = 40 it comes to 70..80)
+  const bad = hardCopies(scene(s), at(17.5));
+  assert.ok(bad && /would run into x_s_101/.test(bad.why), String(bad?.why));
+  assert.equal(hardCopies(scene(s), at(40)), null);
+});
+
+test("a hard body's face pulled out into another hard body goes only as far as it meets it; a typed distance that would go into it is refused", () => {
+  const s = hardOf(two(), [A, B]);
+  const face = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && (p as { of?: string }).of === A && (p as unknown as { mesh?: number[] }).mesh && Math.abs((p as unknown as { mesh: number[] }).mesh[0]! - 10) < 1e-6 && Math.abs((p as unknown as { mesh: number[] }).mesh[3]! - 10) < 1e-6 && Math.abs((p as unknown as { mesh: number[] }).mesh[6]! - 10) < 1e-6)!;
+  assert.ok(face, "the face of the first block at x = 10");
+  const st = startOp(scene(s), [face.ref] as never, "pushpull", null);
+  assert.ok(st.ok, st.ok ? "" : st.why);
+  const op = (st as { op: Op }).op;
+  const pulled = limitedOp(scene(s), { ...op, value: 25 });
+  assert.ok(pulled && "op" in pulled && Math.abs(pulled.op.value! - 20) < 0.05, JSON.stringify(pulled && "op" in pulled ? pulled.op.value : pulled));
+  const typed = limitedOp(scene(s), { ...op, value: 25, typed: "75" });
+  assert.ok(typed && "why" in typed && /would grow into x_s_101/.test(typed.why), JSON.stringify(typed));
+  assert.equal(limitedOp(scene(s), { ...op, value: 15 }), null, "short of it: whole");
+  assert.equal(limitedOp(scene(hardOf(two(), [A])), { ...op, value: 25 }), null, "the other is soft");
+});
