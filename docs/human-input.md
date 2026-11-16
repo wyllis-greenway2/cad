@@ -2620,3 +2620,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_570 — 2026-11-16 — directive
 > Go with your recommendation, start on the unit gaps
 (approves doing the unit gaps of the number system: areas, the Import and Export dialogs' unit choice, and the Clearance row)
+
+## in_571 — 2026-11-16 — directive
+> Go with your recommendation
+(approves the recommendation to have the parts that need real hardware tried by a person; since the AI cannot do that, the AI prepares the list of what to try)

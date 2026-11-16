@@ -2637,3 +2637,6 @@ Six inputs of the last turns had not been recorded (`in_451` to `in_456`; record
 ## Handoff 535 — 2026-11-16 (in_570: the unit gaps)
 `in_570`. **Built (`dec_settings_page`):** `areaText` and `unitName("mm²")` (`units.ts`; the area bubble in `bubbles.ts`); the Clearance row label (`appmenu.ts`) and its steps in inches (`modal.ts`); the Export dialog's units start from the number system and the last units are not kept (`main.ts`); an STL import's units start from it (`transfer.ts`). **Test:** `units.test.ts` (areas, the row, the six steps round to nothing, the STL default, millimetres as before). **Not done:** the gear tool (`q_gear_units`); **Browser:** in inches the tape measure shows "area 1.24 in²" for 800 mm², and the Clearance row reads "Clearance 0"; no errors.
 
+## Handoff 536 — 2026-11-16 (in_571: a checklist for the real hardware)
+`in_571`. What is left needs a person with a phone, a trackpad, a mouse in game mode and a physical keyboard. **Written:** `docs/hardware-checklist.md` (13 things to try, each with what should happen). No code changed.
+
