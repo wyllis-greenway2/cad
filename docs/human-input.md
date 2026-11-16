@@ -2528,3 +2528,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_547 — 2026-11-16 — preference
 > no we don't want to relax our license rules, we want to avoid being tied down by licenses. Okay so what is a manufacturing route that would be most useful for hobbyist builders? it sounds like slicers are already widely available
 (confirms the licence rules stay as they are, with the aim of not being tied down by licences; asks which manufacturing route would help hobbyist builders most, since slicers are already available)
+
+## in_548 — 2026-11-16 — preference
+> I don't really have a single specific user, I am just trying to make a really good cad program. Okay so I kind of like your idea about offering the 2d 2.5 d ones, because that seems to cover a lot of machine routes, and undserved people, what would that look like more specifically? I also really like your idea of a manufacturing route prepping a part even if it doesn't fully go all the way to a cut or print file. For example the 3d printer route breaking a part up with automatic key slots and kerf allowance etc. That is smart. Lets drill down a little further on some of these ideas and see if we can polish them
+(no single target user: the aim is a really good CAD program; likes the 2D and 2.5D cutting route and a route that only prepares a part, for example splitting a print with keys and allowances; asks for both to be worked out in more detail; nothing is decided)
