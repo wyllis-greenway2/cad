@@ -16,7 +16,7 @@ depends_on:
 
 **What is built, and the choices that were mine**
 1. The History and the Bodies lists are the tabs **Steps** and **Bodies** of one panel titled **Model**; a new tab **Sketches** is added. The ⋯ menu's Bodies and History entries open the panel at their tab. Groups stays its own list.
-2. **Sketches:** one row for each figure a step (extrude, revolve, loft, sweep) made a body from, named in the order of the steps (**Sketch 1, 2, ...**), with a second line: the step that took it and a status. The pencil on an extrusion's row shows or puts away its sketch in the picture (the existing control).
+2. **Sketches:** one row for each figure a step (extrude, revolve, loft, sweep) made a body from, named **Sketch 1, 2, ...** (from `in_571`, by the number each figure was given when it was drawn, kept for good), with a second line: the step that took it and a status. The pencil on an extrusion's row shows or puts away its sketch in the picture (the existing control).
 3. **Status** (from the steps after the sketch's own that act on its body, taken by the body's name): *as drawn*; *carried by* a move, turn or scale; *changed by* a push or pull; *the body has changed since:* a fillet, a hollow, a cut, a reshape (the last such step is named).
 
 ## Second part (`in_566`)
