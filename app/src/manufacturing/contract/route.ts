@@ -51,7 +51,8 @@ export interface Route {
   uses: DefinitionKind[];
   /** the route's settings, from which the settings screen is made */
   params: ParamSpec[];
-  fit?(part: PartSnapshot, ctx: RouteContext): FitReport;
+  /** `ctx` may be missing: listing the routes a part could take happens before a machine is chosen */
+  fit?(part: PartSnapshot, ctx?: RouteContext): FitReport;
   check?(part: PartSnapshot, ctx: RouteContext): Finding[];
   plan?(part: PartSnapshot, ctx: RouteContext): Toolpath;
 }
@@ -66,4 +67,23 @@ export interface ManufacturingPlan {
   machine: string;
   material?: string;
   settings: Settings;
+}
+
+/** A route as offered for a part: the route's id and name, and whether and why it fits. */
+export interface RouteOffer {
+  route: string;
+  name: string;
+  process: string;
+  fit: FitReport;
+}
+
+/** What running a route on a part gives back (`dec_manufacturing_contract` point 4): everything the stages said, the toolpath if the route plans one, the files if a dialect was given. A stage that fails is a finding, not a crash. */
+export interface RouteRun {
+  route: string;
+  fit: FitReport;
+  findings: Finding[];
+  toolpath?: Toolpath;
+  files: OutputFile[];
+  /** what the shared Emit stage could not write */
+  warnings: string[];
 }

@@ -2608,3 +2608,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_567 — 2026-11-16 — approval
 > Yes, make that change
 (approves the change proposed after in_566: remove emit from what a route provides, so turning a toolpath into a file is shared code driven by the machine's dialect, with a shared core folder, starting with the dialect writer)
+
+## in_568 — 2026-11-16 — directive
+> Do the registry next
+(asks for the next groundwork piece of the accepted manufacturing entries: the registry of routes, the clean cut point for adding and removing a route)
