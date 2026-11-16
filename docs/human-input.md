@@ -2211,3 +2211,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_474 — 2026-11-16 — question
 > Okay here is another weird thing, maybe not a bug, but you can see what I tried to do if you use ctrl z, and you can see that pushing in this face at some point created these little ear like artifacts on the part? It seems like odd behavior
 (two files were attached: `face_shift_adding_weird_ear_things.json` and its state snapshot; says that pushing in a face at some point made small ear-like artifacts on the part, and asks whether this is expected)
+
+## in_475 — 2026-11-16 — directive
+> no lets leave it, I just wanted to make sure it wasn't a bug
+(decides not to build the fix for the arc-end slivers of `in_474`: leave it as it is)
