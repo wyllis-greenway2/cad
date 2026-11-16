@@ -92,3 +92,57 @@ test("a cut face can be picked, looked at and sketched on, and a push / pull of 
   assert.ok(selection(sel.session).includes(face.ref));
   assert.ok(actionsFor(scene(sel.session), [face.ref]).length >= 0);
 });
+
+// ---- curved cuts (`in_575`) ----
+/** A cylinder along z as triangles: radius r, `sides` flat sides, z from 0 to h. */
+function cylinder(r: number, h: number, sides = 48) {
+  const v: number[] = [];
+  for (let i = 0; i < sides; i++) { const a = (i / sides) * Math.PI * 2; v.push(r * Math.cos(a), r * Math.sin(a), 0); }
+  for (let i = 0; i < sides; i++) { const a = (i / sides) * Math.PI * 2; v.push(r * Math.cos(a), r * Math.sin(a), h); }
+  v.push(0, 0, 0, 0, 0, h); // (the middles of the two ends)
+  const t: number[] = [];
+  for (let i = 0; i < sides; i++) { const j = (i + 1) % sides; t.push(i, j, sides + j, i, sides + j, sides + i, 2 * sides, j, i, 2 * sides + 1, sides + i, sides + j); }
+  return { vertices: v, triangles: t };
+}
+
+test("a plane across a cylinder cuts a circle: two half arcs on one circle, not a ring of short sides", () => {
+  const f = sectionFaces(cylinder(10, 20), { at: [0, 0, 7], n: [0, 0, 1] });
+  assert.equal(f.length, 1);
+  const e = f[0]!.edges;
+  assert.equal(e.length, 2, "two half arcs");
+  assert.ok(e.every((x) => x.half && x.arc && Math.abs(x.arc.radius - 10) < 0.3), `radius about 10: ${e.map((x) => x.arc?.radius)}`);
+  assert.ok(e.every((x) => Math.hypot(x.arc!.center[0], x.arc!.center[1]) < 1e-3 && Math.abs(x.arc!.center[2] - 7) < 1e-6), "centred on the axis, in the plane");
+});
+
+test("a plane along a cylinder's axis cuts straight sides (the rulings), not arcs", () => {
+  const f = sectionFaces(cylinder(10, 20), { at: [0.3, 0, 0], n: [1, 0, 0] }, []);
+  assert.equal(f.length, 1);
+  assert.ok(f[0]!.edges.every((x) => !x.arc), "four straight sides");
+  assert.equal(f[0]!.edges.length, 4);
+});
+
+test("a plane tilted across a cylinder cuts an ellipse: it is not taken for a circle", () => {
+  const f = sectionFaces(cylinder(10, 40), { at: [0, 0, 20], n: [0.5, 0, Math.sqrt(0.75)] });
+  assert.equal(f.length, 1);
+  assert.ok(f[0]!.edges.every((x) => !x.arc || x.arc.radius > 0), "no wrong circle");
+  assert.ok(f[0]!.edges.filter((x) => x.half).length === 0, "not a whole circle");
+});
+
+test("in the app a cut across a cylinder has two half arcs that know each other, with the circle on them", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 10);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 20 } } } as never);
+  let st = reduce({ ...createState(s), cam: homeCamera() }, { type: "runAction", id: "view:section" }, env);
+  const sec = sectionNow(st)!;
+  st = { ...st, session: run(st.session, { type: "placePlane", ref: sec.ref, at: [-50, -50, 8], u: [1, 0, 0], v: [0, 1, 0] } as never) };
+  const parts = Object.values(scene(st.session).parts) as Part[];
+  const arcs = parts.filter((p) => p.kind === "line" && p.origin === "body" && !!p.circle && Math.abs(p.circle.center[2] - 8) < 1e-6);
+  assert.equal(arcs.length, 2, "two half arcs of the cut");
+  const [a, b] = arcs as Extract<Part, { kind: "line" }>[];
+  assert.equal(a!.twin, b!.ref);
+  assert.equal(b!.twin, a!.ref);
+  assert.ok(Math.abs(a!.circle!.radius - 10) < 0.3);
+  const ids = actionsFor(scene(st.session), [a!.ref]).map((x) => x.id);
+  assert.ok(ids.includes("radius") || ids.includes("diameter"), `an arc of the cut can be measured: ${ids}`);
+});

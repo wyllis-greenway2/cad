@@ -9,7 +9,9 @@ import { triangulate, withHoles2d, joinTouching } from "./polygon.ts";
 /** A sheet that cuts: a point on its plane and the normal that points to the half that is cut away. */
 export interface Sheet { at: Vec3; n: Vec3 }
 /** One face of the cut: the plane (outward normal and offset), its outlines in 3D (the first is the outside, the rest are holes) and its triangles (flat x, y, z). */
-export interface CutFace { n: Vec3; d: number; loops: Vec3[][]; mesh: number[] }
+export interface CutFace { n: Vec3; d: number; loops: Vec3[][]; /** the edges of the outlines: straight sides and arcs (a circle is two half arcs that know each other) */ edges: CutEdge[]; mesh: number[] }
+/** One edge of the cut: its ends, and when it is an arc the circle it lies on and a point halfway round it. A circle is two of these, `half` set on both. */
+export interface CutEdge { a: Vec3; b: Vec3; arc?: { center: Vec3; normal: Vec3; radius: number; mid: Vec3 }; half?: true }
 
 const EPS = 1e-6;
 const q = (v: number): string => String(Math.round(v * 1e4) / 1e4 + 0);
@@ -63,6 +65,52 @@ const keepHalf = (poly: [number, number][], f: (p: [number, number]) => number):
   });
   return out;
 };
+
+/** The circle through three points in the plane, or null when they are in a line. */
+function circleThrough(a: [number, number], b: [number, number], c: [number, number]): { x: number; y: number; r: number } | null {
+  const d = 2 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1]));
+  if (Math.abs(d) < 1e-12) return null;
+  const [a2, b2, c2] = [a[0] * a[0] + a[1] * a[1], b[0] * b[0] + b[1] * b[1], c[0] * c[0] + c[1] * c[1]];
+  const x = (a2 * (b[1] - c[1]) + b2 * (c[1] - a[1]) + c2 * (a[1] - b[1])) / d;
+  const y = (a2 * (c[0] - b[0]) + b2 * (a[0] - c[0]) + c2 * (b[0] - a[0])) / d;
+  return { x, y, r: Math.hypot(a[0] - x, a[1] - y) };
+}
+/** How near to a circle the points of a run must lie: the tessellation of a curved face leaves the cut a little inside the true curve, so a few hundredths of the radius (and never less than a hundredth of a millimetre). */
+const fitTol = (r: number): number => Math.max(0.01, 0.025 * r);
+const fitsCircle = (pts: [number, number][], c: { x: number; y: number; r: number }): boolean => c.r < 1e5 && pts.every((p) => Math.abs(Math.hypot(p[0] - c.x, p[1] - c.y) - c.r) <= fitTol(c.r));
+
+/**
+ * The edges of a closed outline (its points in the plane's coordinates): runs of points that lie on one circle become arcs (a cylinder, a cone or a sphere cut by a plane across its axis), the rest are straight sides;
+ * an outline that is all one circle is two half arcs. The outline is walked from its sharpest corner so that no arc is begun in the middle.
+ */
+function edgesOf(poly: [number, number][]): { pts: [number, number][]; arc?: { x: number; y: number; r: number }; half?: true }[] {
+  const n = poly.length;
+  // all one circle?
+  if (n >= 8) {
+    const c = circleThrough(poly[0]!, poly[Math.floor(n / 3)]!, poly[Math.floor((2 * n) / 3)]!);
+    if (c && fitsCircle(poly, c)) { const m = n >> 1; return [{ pts: poly.slice(0, m + 1), arc: c, half: true }, { pts: [...poly.slice(m), poly[0]!], arc: c, half: true }]; }
+  }
+  // from the sharpest corner
+  const turn = (i: number): number => { const [a, b, c] = [poly[(i + n - 1) % n]!, poly[i]!, poly[(i + 1) % n]!]; return Math.abs(Math.atan2((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]), (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1]))); };
+  let start = 0;
+  for (let i = 1; i < n; i++) if (turn(i) > turn(start)) start = i;
+  const at = (i: number): [number, number] => poly[(start + i) % n]!;
+  const out: { pts: [number, number][]; arc?: { x: number; y: number; r: number } }[] = [];
+  let i = 0;
+  while (i < n) {
+    let best: { to: number; c: { x: number; y: number; r: number } } | null = null;
+    for (let j = i + 4; j <= n; j++) { // (at least five points: a rectangle's four corners are on a circle too)
+      const run = Array.from({ length: j - i + 1 }, (_, k) => at(i + k));
+      const c = circleThrough(run[0]!, run[run.length >> 1]!, run[run.length - 1]!);
+      if (!c || !fitsCircle(run, c)) break;
+      if (run.some((p, k) => k > 0 && Math.hypot(p[0] - run[k - 1]![0], p[1] - run[k - 1]![1]) > 0.7 * c.r)) break; // (a curve is many short sides: a regular pentagon is not a circle)
+      best = { to: j, c };
+    }
+    if (best) { out.push({ pts: Array.from({ length: best.to - i + 1 }, (_, k) => at(i + k)), arc: best.c }); i = best.to; }
+    else { out.push({ pts: [at(i), at(i + 1)] }); i++; }
+  }
+  return out;
+}
 
 /** The faces the sheet cuts out of the body whose triangles these are (`vertices`: flat x, y, z; `triangles`: the index of each corner), less what the `others` cut away. */
 export function sectionFaces(mesh: { vertices: ArrayLike<number>; triangles: ArrayLike<number> }, sheet: Sheet, others: Sheet[] = []): CutFace[] {
@@ -134,7 +182,14 @@ export function sectionFaces(mesh: { vertices: ArrayLike<number>; triangles: Arr
     const ring = hs.length ? withHoles2d(out, joinTouching(hs)) : out;
     const tris = triangulate(ring).flatMap((k) => [...lift(ring[k]!)]);
     if (!tris.length) return;
-    faces.push({ n, d, loops: [out, ...hs].map((l) => l.map(lift)), mesh: tris });
+    const edges: CutEdge[] = [out, ...hs].flatMap((l) => edgesOf(l).map((e): CutEdge => {
+      const [a, b] = [lift(e.pts[0]!), lift(e.pts[e.pts.length - 1]!)];
+      if (!e.arc) return { a, b };
+      const m = e.pts[e.pts.length >> 1]!;
+      const k = e.arc.r / (Math.hypot(m[0] - e.arc.x, m[1] - e.arc.y) || 1);
+      return { a, b, arc: { center: lift([e.arc.x, e.arc.y]), normal: n, radius: e.arc.r, mid: lift([e.arc.x + (m[0] - e.arc.x) * k, e.arc.y + (m[1] - e.arc.y) * k]) }, ...(e.half ? { half: true as const } : {}) };
+    }));
+    faces.push({ n, d, loops: [out, ...hs].map((l) => l.map(lift)), edges, mesh: tris });
   });
   return faces;
 }

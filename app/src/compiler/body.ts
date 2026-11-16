@@ -147,12 +147,21 @@ export function bodyParts(result: KernelResult, sheets: Sheet[] = []): Part[] {
         const mid: Vec3 = [0, 1, 2].map((a) => { let t = 0; for (let j = 0; j < f.mesh.length; j += 3) t += f.mesh[j + a]!; return t / k; }) as unknown as Vec3;
         const [u, v] = axesOf(f.n);
         out.push({ ...base, ref: faceName(f.n, f.d, mid), kind: "plane", at: [f.n[0] * f.d, f.n[1] * f.d, f.n[2] * f.d], u, v, mesh: f.mesh, cap: true });
-        for (const loop of f.loops) loop.forEach((a, j) => {
-          const b = loop[(j + 1) % loop.length]!;
-          const name = edgeName(a, b, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]);
+        // the edges of the cut: straight sides, and arcs where the cut goes round a curved face (a circle is two half arcs that know each other, as the kernel's rims are)
+        const names: Ref[] = [];
+        for (const e of f.edges) {
+          const mid: Vec3 = e.arc ? e.arc.mid : [(e.a[0] + e.b[0]) / 2, (e.a[1] + e.b[1]) / 2, (e.a[2] + e.b[2]) / 2];
+          names.push(edgeName(e.a, e.b, mid));
+        }
+        const twinOf: number[] = [];
+        let open: number | null = null; // (the halves of a circle come two by two)
+        f.edges.forEach((e, j) => { if (!e.half) return; if (open === null) open = j; else { twinOf[open] = j; twinOf[j] = open; open = null; } });
+        f.edges.forEach((e, j) => {
+          const name = names[j]!;
           if (lines.has(name)) return;
           lines.add(name);
-          out.push({ ...base, ref: name, kind: "line", a: corner(a), b: corner(b) });
+          const twin = e.half ? names[twinOf[j]!] : undefined;
+          out.push({ ...base, ref: name, kind: "line", a: corner(e.a), b: corner(e.b), ...(e.arc ? { mid: e.arc.mid, circle: { center: e.arc.center, normal: e.arc.normal, radius: e.arc.radius } } : {}), ...(twin ? { twin } : {}) });
         });
       }
     });

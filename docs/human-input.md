@@ -2636,3 +2636,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_574 — 2026-11-16 — directive
 > Go with your recommendation, build the cut face
 (approves building the cut face as a real face, as proposed in `dec_cross_section`: the cut face derived as flat face, edges and corners named by position, pickable, sketchable, with constraints to its edges; the cut face updates when the drag is let go; picking skips the cut-away half; a sketch on a cut face lives on a new plane made from it)
+
+## in_575 — 2026-11-16 — directive
+> Go with your recommendation, add arcs for curved cuts
+(approves the recommendation to give a curved cut (a cylinder sliced by a section plane) real arcs and circles as its edges, instead of many short straight edges)
