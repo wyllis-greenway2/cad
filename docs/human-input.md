@@ -2283,3 +2283,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_492 — 2026-11-16 — question
 > but didn't we already solve the shape problem too? because I thought we integrated the sketch into the edges of the body, so if the body moves, then it is basically considered a sketch modification too? So arent they always synced?
 (asks whether the shape question is not already solved, since they thought the sketch had been integrated into the edges of the body so that a body change counts as a sketch modification, so that the two are always in sync)
+
+## in_493 — 2026-11-16 — question
+> okay so the decision is that sketches are part of the body, and stay synced with the body?
+(asks whether the decision is that sketches are part of the body and stay synced with it; not a recorded decision: answered that it is close but not what was proposed, and asked which of the options they mean)
