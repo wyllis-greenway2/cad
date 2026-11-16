@@ -2564,3 +2564,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_557 — 2026-11-16 — directive
 > yes start on named parameters
 (approves starting the fourth item of the order of `in_546`: named parameters and formulas)
+
+## in_558 — 2026-11-16 — directive
+> yes start on stable references
+(approves starting the fifth item of the order of `in_546`: stable references, then inserting a step in the middle)
