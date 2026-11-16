@@ -7,8 +7,9 @@
     "test": "node --test \"test/**/*.test.ts\" \"test/**/*.test.mjs\"",
     "typecheck": "tsc --noEmit",
     "layers": "python3 ../tools/check_layers.py",
+    "manufacturing": "python3 ../tools/check_manufacturing_boundary.py",
     "unused": "python3 ../tools/check_unused.py",
-    "check": "npm test && npm run typecheck && npm run layers && npm run unused",
+    "check": "npm test && npm run typecheck && npm run layers && npm run manufacturing && npm run unused",
     "dev": "vite",
     "build": "vite build"
   },

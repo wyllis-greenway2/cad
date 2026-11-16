@@ -13,9 +13,10 @@ Look: orbit about the model (it stays where it is on screen), pan, zoom to the c
 
 ## Layers (`src/`, the human's layers, `inv_layer_adjacency`)
 `math` (pure functions) - `operation` (the graph: parts, relations, steps, commands, history, the project file; the source of truth) - `compiler` (graph to geometry: the solver, the kernel adapter, the body parts) - `interaction` (selection, picking, intents, tools, operations, camera logic, the actions service, the controller) - `ui` (the three.js view, menu, chip, badges) - `platform` (device events, files, storage) - and `shared` (types, settings, the bus) which every layer may use. `src/main.ts` is the composition root that wires them.
-Who may import whom is enforced by `tools/check_layers.py`. Only `ui`, `platform` and the root may use the browser (`window`, `document`, DOM, three.js); only `compiler/kernel/occt` may import the geometry library.
+Who may import whom is enforced by `tools/check_layers.py`. Only `ui`, `platform` and the root may use the browser (`window`, `document`, DOM, three.js); only `compiler/kernel/occt` may import the geometry library. `manufacturing/` (`dec_manufacturing_contract`) imports nothing outside itself; only `interaction` and the root import it, and only through `manufacturing/index.ts` (`tools/check_manufacturing_boundary.py`, `inv_manufacturing_boundary`).
 
 ## Where things are
+- Manufacturing routes live in `manufacturing/`: `contract/` is the types a route and the app share (a part, a toolpath, findings, definitions, the route and plan shapes), nothing else exists yet.
 - A part is one record with per-kind functions (`operation/part.ts`); everything you can select is a part, whether drawn, from the body or from the world.
 - One selection (`interaction/selection.ts`), one picking function (`interaction/picking.ts`), one table of relations and actions (`interaction/actions.ts`), one controller that applies an intent to the state (`interaction/controller.ts`, with the work in `interaction/control/`: `viewing`, `pointer`, `modal`).
 - `shared/settings.ts` holds every tuned look and behaviour value (the human's, copied from the prototype).

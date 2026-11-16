@@ -2584,3 +2584,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_561 — 2026-11-16 — approval
 > Accept all five entries
 (accepts dec_manufacturing_contract, dec_manufacturing_definitions, dec_manufacturing_prep, dec_manufacturing_version and inv_manufacturing_boundary)
+
+## in_562 — 2026-11-16 — directive
+> Start with the contract types and check script
+(asks for the first two groundwork pieces of the accepted manufacturing entries: the contract types and the boundary check script)

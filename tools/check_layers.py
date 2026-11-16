@@ -15,10 +15,11 @@ ALLOWED = {
     "shared": set(),
     "operation": {"math", "shared"},
     "compiler": {"operation", "math", "shared"},
-    "interaction": {"compiler", "operation", "math", "shared"},
+    "interaction": {"compiler", "operation", "manufacturing", "math", "shared"},
     "ui": {"interaction", "shared"},
     "platform": {"shared"},
-    "root": {"ui", "interaction", "compiler", "operation", "platform", "math", "shared"},
+    "manufacturing": set(),  # routes and the contract (inv_manufacturing_boundary): imports only itself; tools/check_manufacturing_boundary.py holds the finer rules
+    "root": {"ui", "interaction", "compiler", "operation", "platform", "manufacturing", "math", "shared"},
 }
 BROWSER = re.compile(r"\b(window|document|navigator|localStorage|sessionStorage|requestAnimationFrame|HTMLElement|HTMLCanvasElement|addEventListener)\b")
 IMPORT = re.compile(r"""^\s*(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]""", re.M)
@@ -66,7 +67,7 @@ def main() -> int:
                 in_adapter = rel.parts[:4] == ("compiler", "kernel", "occt") or rel.parts[:3] == ("compiler", "kernel", "occt")
                 if bare in KERNEL_PKGS and not in_adapter:
                     problems.append(f"{rel}: only compiler/kernel/occt may import {spec}")
-                elif bare not in KERNEL_PKGS and layer not in ("ui", "platform", "root"):
+                elif bare not in KERNEL_PKGS and layer not in ("ui", "platform", "root", "manufacturing"):  # (manufacturing: the permitted libraries are listed in check_manufacturing_boundary.py)
                     problems.append(f"{rel}: the {layer} layer may not import the package {spec}")
         if layer not in ("ui", "platform", "root") and BROWSER.search(code):
             problems.append(f"{rel}: browser API in the {layer} layer ({BROWSER.search(code).group(1)})")
