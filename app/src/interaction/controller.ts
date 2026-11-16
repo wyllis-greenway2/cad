@@ -12,6 +12,7 @@ import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn, run, scene as sceneOf } from "./session.ts";
+import { stepOption } from "./options.ts";
 import { loftChoice } from "./loft.ts";
 import { orientApply, storePose } from "./control/pose.ts";
 import { settings } from "../shared/settings.ts";
@@ -123,13 +124,13 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "runAction": return doRunAction(s, i.id, env.now);
     case "overrideRefusal": return overrideRefusal(s);
     case "menuTurn": return s; // (game mode's: the menu is turned by the page, `in_467`)
-    case "loftKind": return s.op?.kind === "loft" ? { ...s, op: loftChoice(sceneOf(s.session), s.op, i.id) } : s;
+    case "loftKind": return s.op?.kind === "loft" ? { ...s, op: { ...loftChoice(sceneOf(s.session), s.op, i.id), optionAt: undefined } } : s;
     case "sizeKind": {
       if (s.op?.kind !== "edge") return s;
-      if (i.kind === "swap") return { ...s, op: { ...s.op, dfaceIx: (s.op.dfaceIx ?? 0) + 1 } }; // (the first distance goes to the other face, `dec_chamfer_two_distances`)
-      return { ...s, op: { ...s.op, variable: i.kind === "variable", twoDist: i.kind === "twoDistances", varField: 0 } };
+      if (i.kind === "swap") return { ...s, op: { ...s.op, dfaceIx: (s.op.dfaceIx ?? 0) + 1, optionAt: undefined } }; // (the first distance goes to the other face, `dec_chamfer_two_distances`)
+      return { ...s, op: { ...s.op, variable: i.kind === "variable", twoDist: i.kind === "twoDistances", varField: 0, optionAt: undefined } };
     }
-    case "faceKind": return s.op?.kind === "pushpull" ? { ...s, op: { ...s.op, faceKind: i.kind } } : s;
+    case "faceKind": return s.op?.kind === "pushpull" ? { ...s, op: { ...s.op, faceKind: i.kind, optionAt: undefined } } : s;
     case "holdFlash": return s.flash ? { ...s, flash: { ...s.flash, at: env.now - settings.flash.holdMs } } : s;
     case "group": return doGroup(s);
     case "ungroup": return doUngroup(s);
@@ -139,7 +140,12 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "redo": return doRedo(s);
     case "escape": return doEscape(s);
     case "begin": return doBegin(s, i.name, env.now);
-    case "typed": return doTyped(s, i.key);
+    case "typed": {
+      // Tab and Shift+Tab step through the options of the open operation, each step choosing it (`in_546`); the left and right arrows go between its numbers, which Tab does when it has no options or has several numbers to type
+      const numbers = s.op?.kind === "edge" && !!(s.op.variable || s.op.twoDist) && !!s.op.vary; // (several numbers to type: Tab goes between them as it always did; Shift+Tab still steps the options)
+      if (i.key === "Tab" && (i.shift || !numbers)) { const step = stepOption(s, i.shift ? -1 : 1); if (step) { const next = reduce(s, step.intent, env); return next.op ? { ...next, op: { ...next.op, optionAt: step.index } } : next; } }
+      return doTyped(s, i.key === "ArrowLeft" || i.key === "ArrowRight" ? "Tab" : i.key);
+    }
     case "entry": return doEntry(s, i.field, i.text);
     case "repeatApply": return doRepeatApply(s);
     case "repeatCancel": return doRepeatCancel(s);

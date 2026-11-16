@@ -3,7 +3,7 @@ id: q_ui_unification
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_545, in_544
+human_input: in_546, in_545, in_544
 date: 2026-11-16
 depends_on:
 alternative_to:
@@ -34,4 +34,5 @@ alternative_to:
 
 ## Progress
 - **Step 1 done (`in_545`, the human approved the order and asked to start with Add more):** the "+ Add more" offer is gone; **Add mode** is a bubble in the Select ring only when the menu was opened by a finger (a long press carries `touch`; a mouse has Shift), and while adding is on it stays in every menu (it reads "Stop adding"). The pill remains only to say adding is on ("Adding: tap to add or remove · Done"), which is the one thing a finger cannot otherwise see. Next: the operation bar with Tab stepping (2 and 1).
+- **Step 2 done (`in_546`):** the top pill is now **the operation bar** (`ui/toolchip.ts`): it shows the operation's icon, its **options** (what a push / pull of a face does, a fillet's way of running, a loft's way of joining: the three separate chips are gone, `interaction/options.ts` lists them), and the check and cross for every operation on every device (a finger's check was hidden before). On a finger it sits at the bottom with undo and redo in it (the separate undo bar is gone). **Tab and Shift+Tab step through the choices between ways** (each step chooses, the one Tab is on is outlined); the loft's switches (Split, Start, Reverse) are left to the pointer. **Where Tab already moved between numbers** (a varying fillet, a two-distance chamfer, the spiral's angle and advance, a figure's two sizes) it still does, with Shift+Tab stepping the options in the fillet, and **the left and right arrows go between numbers everywhere**. **Not in the bar yet:** the dimension operation (it opens on every selection of a drawn part: a bar there would be noise), the Select similar chip, the Cut chips and the sheet chips (they sit at things in the scene).
 

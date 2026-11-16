@@ -32,6 +32,8 @@ import type { Session } from "./session.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { SIMILAR_RULES } from "./similar.ts";
 import { loftChips, loftStarts } from "./loft.ts";
+import { faceKinds, sizeKinds, optionsOf } from "./options.ts";
+import type { Option } from "./options.ts";
 import { sweepStart } from "./sweep.ts";
 import { moverOp } from "./control/pose.ts";
 import { mirrorPlane } from "./mirror.ts";
@@ -132,6 +134,8 @@ export interface Frame {
   /** a change refused for the constraints it would break, while it flashes: the button that deletes them and goes on (`in_366`) */
   refusal: { text: string; button: string; /** the constraint it stands beside */ beside: string } | null;
   /** push / pull of one flat face: what it does, to choose (`in_405`) */
+  /** every option of the operation bar, in order (`in_546`) */
+  options: Option[];
   faceKinds: { id: "move" | "extrude" | "extend"; label: string; title: string; on: boolean }[] | null;
   /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
   /** a revolve: the lines the figure can turn about, one chosen (`dec_spiral_extrude`) */
@@ -400,6 +404,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     adding: s.adding ? "on" : null,
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
     modeSwitch: gizmo ? (s.repeat ? repeatSwitchOf(s.repeat, gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points))) : null,
+    options: optionsOf(s),
     faceKinds: faceKinds(s),
     loftKinds: s.op?.kind === "loft" ? loftChips(sceneOf(s.session), s.op) : null,
     sizeKinds: sizeKinds(s),
@@ -572,37 +577,10 @@ function modeSwitchOf(op: AppState["op"], at: Vec3, pts: Vec3[]): Frame["modeSwi
 }
 
 
-const FACE_KINDS: { id: "move" | "extrude" | "extend"; label: string; title: string }[] = [
-  { id: "move", label: "Move", title: "Move the face by changing the step that made it: the height of what is attached grows or shrinks" },
-  { id: "extrude", label: "Extrude", title: "Add (or take) a prism of the face's outline: a square growing out of the face" },
-  { id: "extend", label: "Extend", title: "Move the face and carry the faces next to it on until they meet: a chamfered top grows into a pyramid, and past the top nothing more happens" },
-];
-/** The choice of what a push / pull of one flat face does (`in_405`): only for a flat face (a round wall, a fillet or chamfer face and several faces have their own meaning). */
-function faceKinds(s: AppState): Frame["faceKinds"] {
-  const op = s.op;
-  if (!op || op.kind !== "pushpull" || op.curved || op.rounded || op.roundAxis) return null;
-  // several flat faces: each is pushed along its own normal by the same amount, as a prism (extrude) or extended with its neighbours (extend); there is no step to move for any of them (`in_410`)
-  if ((op.faces?.length ?? 0) > 1) return FACE_KINDS.filter((k) => k.id !== "move").map((k) => ({ ...k, on: (op.faceKind ?? "extrude") === k.id }));
-  if (op.parts.length !== 1) return null;
-  return FACE_KINDS.map((k) => ({ ...k, on: (op.faceKind ?? "move") === k.id }));
-}
 /** The end of the edge where the first size of a fillet that changes along it applies, in amber (`in_406`). */
 function variableStart(sc: Scene, op: AppState["op"]): Ref[] {
   if (!op || op.kind !== "edge" || !op.variable || !op.vary) return [];
   return op.parts.flatMap((r) => { const l = sc.parts[r]; return l?.kind === "line" && l.origin === "body" && (l.a !== l.b || op.rimVary) ? [l.a] : []; });
-}
-/** The choice between a fillet or chamfer that is the same size all along its edges and one with a size at each end of each edge (`in_406`, `in_410`): not for a rim, which has no ends. */
-function sizeKinds(s: AppState): Frame["sizeKinds"] {
-  const op = s.op;
-  if (!op || op.kind !== "edge" || !op.vary) return null;
-  const on = !!op.variable;
-  const faces = chamferFaces(sceneOf(s.session), op); // (always offered, like Variable: it makes the operation a chamfer whatever way the arrow is pulled)
-  return [
-    { id: "constant", label: "Constant", title: "The same size all along the edge", on: !on && !op.twoDist },
-    { id: "variable", label: "Variable", title: "A size at the start of the edge (the end shown in amber) and a size at its other end (Tab goes between them); the round grows or shrinks along the edge", on },
-    ...(faces.length ? [{ id: "twoDistances" as const, label: "Two distances", title: "A chamfer with a distance along each face: the first along the face that is lit, the second along the other (Tab goes between them)", on: !!op.twoDist }] : []),
-    ...(faces.length > 1 && op.twoDist ? [{ id: "swap" as const, label: "Swap faces", title: "Measure the first distance along the other face", on: false }] : []),
-  ];
 }
 function similarChip(s: AppState): Frame["similar"] {
   const sim = s.similar;
