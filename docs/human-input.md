@@ -2251,3 +2251,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_484 — 2026-11-16 — directive
 > yes start on the gear hang
 (approves taking the gear fillet hang: the fillet of step `s_138` of the gear files at 9.25 mm does not come back in 300 seconds)
+
+## in_485 — 2026-11-16 — directive
+> yes run the full sweep
+(approves running the full sweep over every saved file with a round step, to see which of the 26 breaks of `in_477` remain and whether the chain and tip rules introduced a new one)
