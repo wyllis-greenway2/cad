@@ -3,7 +3,7 @@
 import { KEY_ACTIONS, KEY_GROUPS, chordOf, specText, rebind, unbind } from "../interaction/preferences.ts";
 import type { Keys } from "../interaction/preferences.ts";
 import type { NumberSystem } from "../shared/units.ts";
-import { textButton } from "./look.ts";
+import { textButton, guardOpenClicks } from "./look.ts";
 
 export interface Prefs { units: NumberSystem; outlines: boolean; scrollMode: "auto" | "pan" | "zoom"; panScale: number; keys: Keys; usualKeys: Keys }
 export type Change =
@@ -15,6 +15,7 @@ export function createSettings(host: HTMLElement, read: () => Prefs, change: (c:
   const page = document.createElement("div");
   page.style.cssText = "position:fixed;inset:0;display:none;background:#f4f5f7;z-index:1100;overflow-y:auto;font:14px system-ui,sans-serif;color:#2b2b2d";
   host.appendChild(page);
+  const armed = guardOpenClicks(page); // (the press that opened the page must not click on it, `in_556`)
   let capturing: { action: string; index: number } | null = null;
   let note = "";
   const el = (tag: string, css = "", text = ""): HTMLElement => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (text) e.textContent = text; return e; };
@@ -100,7 +101,7 @@ export function createSettings(host: HTMLElement, read: () => Prefs, change: (c:
   const close = (): void => { page.style.display = "none"; capturing = null; note = ""; window.removeEventListener("keydown", onKey, true); window.removeEventListener("keyup", onKey, true); };
   for (const t of ["pointerdown", "pointerup", "wheel", "contextmenu"]) page.addEventListener(t, (e) => { e.stopPropagation(); if (t === "contextmenu") e.preventDefault(); });
   return {
-    open(): void { capturing = null; note = ""; draw(); page.style.display = "block"; window.addEventListener("keydown", onKey, true); window.addEventListener("keyup", onKey, true); },
+    open(): void { capturing = null; note = ""; armed(); draw(); page.style.display = "block"; window.addEventListener("keydown", onKey, true); window.addEventListener("keyup", onKey, true); },
     close,
     get isOpen() { return page.style.display !== "none"; },
     element: page,

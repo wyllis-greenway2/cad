@@ -58,3 +58,9 @@ export function textButton(label: string, o: { tone?: "plain" | "primary"; on?: 
   if (o.click) b.addEventListener("click", o.click);
   return b;
 }
+/** A page or dialog opened by a press on a menu row: on a touch screen the click that ends that press arrives after it, on whatever now stands under the finger (a setting would be changed). The click is let through only a moment after it opened. Call the returned function when it opens. */
+export function guardOpenClicks(el: HTMLElement, ms = 450): () => void {
+  let until = 0;
+  el.addEventListener("click", (e) => { if (performance.now() < until) { e.stopPropagation(); e.preventDefault(); } }, true);
+  return () => { until = performance.now() + ms; };
+}

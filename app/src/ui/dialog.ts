@@ -1,6 +1,6 @@
 // The page that asks the questions of the Import and Export dialogs (`dec_import_export_menu`): it draws a description (`interaction/transfer.ts`) and gives back the answers, or null when it is cancelled. It knows nothing of what the choices mean.
 import type { Dialog, Field, FieldValue } from "../interaction/transfer.ts";
-import { textButton } from "./look.ts";
+import { textButton, guardOpenClicks } from "./look.ts";
 
 export type Values = Record<string, FieldValue>;
 const valuesOf = (d: Dialog): Values => Object.fromEntries(d.fields.map((f) => [f.id, f.value]));
@@ -11,6 +11,7 @@ export function createDialog(host: HTMLElement) {
   const card = document.createElement("div");
   card.style.cssText = "background:#fff;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:18px 20px;min-width:320px;max-width:min(520px,92vw);max-height:90vh;overflow:auto";
   veil.appendChild(card);
+  const armed = guardOpenClicks(veil); // (the press that opened the dialog must not click on it, `in_556`)
   host.appendChild(veil);
   let finish: ((v: Values | null) => void) | null = null;
   let current: Values = {};
@@ -85,6 +86,7 @@ export function createDialog(host: HTMLElement) {
       if (finish) close(null);
       const values: Values = { ...initial };
       current = values;
+      armed();
       draw(build, values);
       veil.style.display = "flex";
       window.addEventListener("keydown", onKey, true);

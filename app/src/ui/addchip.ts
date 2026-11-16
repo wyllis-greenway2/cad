@@ -3,7 +3,7 @@ import { PILL } from "./look.ts";
 
 export function createAddChip(host: HTMLElement, toggle: () => void) {
   const chip = document.createElement("div");
-  chip.style.cssText = PILL + ";bottom:60px;left:12px;cursor:pointer;pointer-events:auto";
+  chip.style.cssText = PILL + ";top:12px;left:12px;max-width:calc(100vw - 80px);height:auto;min-height:36px;padding:6px 12px;white-space:normal;cursor:pointer;pointer-events:auto"; // (at the top, clear of the operation bar at the bottom, `in_556`)
   host.appendChild(chip);
   chip.addEventListener("pointerup", (e) => { e.stopPropagation(); toggle(); });
   let shown = "";

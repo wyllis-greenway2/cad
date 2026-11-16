@@ -3,7 +3,7 @@ id: dec_ui_unification
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_555, in_554, in_553, in_552, in_551, in_550, in_549, in_548, in_547, in_546, in_545, in_544
+human_input: in_556, in_555, in_554, in_553, in_552, in_551, in_550, in_549, in_548, in_547, in_546, in_545, in_544
 date: 2026-11-16
 depends_on:
 alternative_to:
@@ -50,6 +50,8 @@ alternative_to:
 - **The round controls (`in_554`, the human took the recommendation):** the X Y Z and ⋯ buttons (`controls.ts`), the Cut chips at the parts (`cutparts.ts`) and the world orb (`worldorb.ts`) **keep their own looks**: their colour and border change with the view (facing, the selection ring) or they carry a letter, a plus or a minus, so they are not a plain round button. Fold them in only if `roundButton` grows a state for what they show.
 
 - **The browser pass (`in_555`):** Chromium, the real app. *Cut:* the bar shows "A kept, B kept, A∩B kept, Joined"; Tab then Shift+Enter tossed A (the focus stayed on it); Enter made one `combine` step and one body (x 5 to 15, as it should be). It showed that **the old "Kept parts: Joined / Separate" pill was still there beside the bar's own Joined switch: the pill is gone** (`cutparts.ts` keeps only the plus / minus controls at the parts). *Mates at odds:* **the page found a gap the unit test could not:** in the browser the kernel answers later, and the refusal is made in `refresh`, not in `run`, so the first button never appeared; `refresh` now carries the retry too, and then "Delete constraints to proceed" showed beside the red mates and pressing it left one mate (the new one) and no message. *The refusal pill* is wide (it has no single bubble to stand beside when two mates are named) and cuts its words with an ellipsis; it works and I left it.
+
+- **The locked-length pill and the phone pass (`in_556`):** *The pill* (a side that a locked length holds, push / pull typed 50): the words and "Delete constraints to proceed" show at the top, the locked edge flashes red, and the button leaves the body 0 to 50 with the lock gone and no message; it has no single bubble to stand beside, so it is at the top centre. *The late-answer path of the mates button* now has a test (`matesoddslag.test.ts`, with a kernel that answers when told; it fails without the fix). *A phone* (390 x 780, touch emulation, the long press stood in for by the menu intent that it sends): the finger's ring has Add mode under Select and it turns adding on; inches typed into a bubble show "1 in" and make the step 25.4 mm; the settings page lays out on one column. **It found two faults, fixed:** (1) the "Adding: tap to add or remove · Done" pill stood under the operation bar and was hidden by it: it is at the top left now; (2) **the press that opened the settings page clicked on the page**: on a touch screen the click that ends a press arrives on what is then under the finger, so opening Settings changed "A scroll" to Zooms: the page and the dialogs ignore clicks for 450 ms after they open (`guardOpenClicks`, `look.ts`).
 
 ## Rationale
 

@@ -2560,3 +2560,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_555 — 2026-11-16 — directive
 > Go with the browser pass
 (asks for the browser check I offered of what only tests covered so far: the Cut chips in the operation bar, the mates-at-odds button and the refusal pill)
+
+## in_556 — 2026-11-16 — directive
+> Go with your recommendations, start with the pill
+(approves the three recommendations given after the browser pass: look at the locked-length refusal pill in the browser first; then a test for the late-answer path of the mates button; then a phone-sized pass; then get the branch merged)
