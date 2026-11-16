@@ -2757,3 +2757,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_605 — 2026-11-16 — question
 > what is the root cause? why does it do one edge differently then four?
 (asks for the root cause of the chamfer coming out wrongly, and why a chamfer of one edge is made differently from a chamfer of four)
+
+## in_606 — 2026-11-16 — directive
+> yes fix the fallback chamfer, then lets look into why the sweep has kinks even though the spline doesn't.
+(approves two things in order: fix the app's fallback chamfer (the region method) so it does not leave stray triangular faces on curved faces and at kinks, then look into why the swept edges have kinks at the joint of the two arcs although the path is smooth)

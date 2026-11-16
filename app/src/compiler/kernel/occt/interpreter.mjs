@@ -1494,7 +1494,45 @@ function rimFaces(e, fs) {
   if (Math.abs(n[0] * ax[0] + n[1] * ax[1] + n[2] * ax[2]) / nl < 1 - 1e-6) return null; // (the flat face is not across the axis: a cone, or a slanted cut)
   return { plane, wall, C, ax, R, n };
 }
-function rimTool(e, fs, size, mode, stations, whole = false) {
+/**
+ * Where a round of a piece of a rim ends (`in_606`): at each end of the arc, the plane the tool is cut by. Where the next piece of the chain is rounded too (a rim that the kernel splits where two arcs of a sweep meet,
+ * or two tangent arcs) both tools are cut by the plane that halves the angle between the pieces there (a mitre), so they meet and nothing is left standing between them; where the end is free it is cut by the plane of
+ * the one flat face that closes the edge there (the end of a sweep, a cap), as the round of a straight edge is, not by the plane across the arc, which is another plane where the face is not square to the edge.
+ * Returns [start, end], each `{ V, n }` (n pointing out of the piece, the tool keeps the side it is behind) or null for the flat cut across the arc.
+ */
+function rimEnds(t, e, set, faces, byEdge) {
+  const near = (p, q) => Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z) < 1e-6;
+  const unit = (v) => { const l = Math.hypot(v[0], v[1], v[2]); return l > 1e-12 ? [v[0] / l, v[1] / l, v[2] / l] : null; };
+  const leaving = (edge, atStart) => { // the way the edge runs away from one of its ends, along the edge
+    const [p, q] = atStart ? [edge.startPoint, edge.pointAt(0.02)] : [edge.endPoint, edge.pointAt(0.98)];
+    return unit([q.x - p.x, q.y - p.y, q.z - p.z]);
+  };
+  const fsHere = new Set((byEdge.get(e.hashCode) ?? []).map((f) => f.hashCode));
+  return [true, false].map((atStart) => {
+    const V = atStart ? e.startPoint : e.endPoint;
+    const others = edgesOf(t).filter((x) => x.hashCode !== e.hashCode && set.has(x.hashCode) && (near(x.startPoint, V) || near(x.endPoint, V)));
+    if (others.length === 1) {
+      const x = others[0];
+      if (!rimFaces(x, byEdge.get(x.hashCode) ?? [])) return null; // (the next piece is not a rim: a straight side of the outline is cut by its own planes, and this end keeps the flat cut across the arc)
+      const into = leaving(e, atStart); // (along the arc, away from this end: the way out of the piece is the other way)
+      const tB = leaving(x, near(x.startPoint, V));
+      if (!into || !tB) return null;
+      const out = into.map((c) => -c);
+      const n = unit([out[0] + tB[0], out[1] + tB[1], out[2] + tB[2]]);
+      if (n && n[0] * out[0] + n[1] * out[1] + n[2] * out[2] > Math.cos(0.5 * Math.PI / 180)) return null; // (tangent pieces: the mitre is the plane across the arc already, the flat cut stands)
+      return n ? { V, n } : null;
+    }
+    if (others.length) return null;
+    const third = faces.filter((f) => !fsHere.has(f.hashCode) && faceVertices(f).some((p) => near(p, V)));
+    if (third.length !== 1 || third[0].geomType !== "PLANE") return null;
+    const nn = third[0].normalAt();
+    const n = unit([nn.x, nn.y, nn.z]);
+    const into = leaving(e, atStart);
+    if (n && into && -(n[0] * into[0] + n[1] * into[1] + n[2] * into[2]) > Math.cos(0.5 * Math.PI / 180)) return null; // (a face square to the arc: it is the plane across it already)
+    return { V, n };
+  });
+}
+function rimTool(e, fs, size, mode, stations, whole = false, ends = null) {
   const rf = rimFaces(e, fs);
   if (!rf) return null;
   const { plane, wall, C, ax, R, n } = rf;
@@ -1575,8 +1613,18 @@ function rimTool(e, fs, size, mode, stations, whole = false) {
     for (const piece of pieces.slice(1)) ring = ring.fuse(piece); // (joined into one ring before it is cut: pieces cut one after the other leave slivers where they meet)
     return { tool: ring, convex, R, length: e.length, partial: false, key: String(e.hashCode), capped, tip };
   }
-  const sketch = outline.sketchOnPlane(new Plane(C, rS, cross3(rS, ax)));
-  const solid = sketch.revolve(ax, { origin: C, angle: span });
+  // the ends: where the arc ends against a plane (the next piece's mitre, the cap) the tool is turned a little further at that end and cut by the plane (`rimEnds`); else it ends in the flat cut across the arc
+  const clipStart = ends && !closed ? (ccw ? ends[0] : ends[1]) : null;
+  const clipEnd = ends && !closed ? (ccw ? ends[1] : ends[0]) : null;
+  const room = Math.max(0, (360 - span) / 2 - 5);
+  const extra = Math.min(60, room);
+  const [e0, e1] = [clipStart && extra > 1 ? extra : 0, clipEnd && extra > 1 ? extra : 0];
+  const turnBy = (r, deg) => { const phi = (deg * Math.PI) / 180; const k = cross3(ax, r); return r.map((x, i) => x * Math.cos(phi) + k[i] * Math.sin(phi)); };
+  const rS2 = e0 ? turnBy(rS, -e0) : rS;
+  const sketch = outline.sketchOnPlane(new Plane(C, rS2, cross3(rS2, ax)));
+  let solid = sketch.revolve(ax, { origin: C, angle: span + e0 + e1 });
+  const reachAll = (() => { const bb = bounds(solid); return 2 * Math.hypot(bb.max[0] - bb.min[0], bb.max[1] - bb.min[1], bb.max[2] - bb.min[2]) + 10; })();
+  for (const [clip, did] of [[clipStart, e0], [clipEnd, e1]]) if (clip && did) solid = solid.intersect(slabSolid([clip.V.x, clip.V.y, clip.V.z], clip.n, -reachAll, 1e-3, reachAll));
   return { tool: solid, convex, R, length: e.length, partial: !closed, key: String(e.hashCode), capped, tip };
 }
 /** The solid between the planes at `from` and `to` along the unit vector m from the point p, square and `big` wide about it. */
@@ -1774,7 +1822,7 @@ function regionRound(t, set0, size, mode, stations) {
     const fs = byEdge.get(e.hashCode) ?? [];
     if (rimFaces(e, fs)) {
       // a rim: a circle where a flat face meets a round wall about the same axis (the end of a post or a hole, the foot of a post): made by revolving the corner region about the axis (`rimTool`)
-      const rim = rimTool(e, fs, size, mode, stations, wholeRim.has(e.hashCode));
+      const rim = rimTool(e, fs, size, mode, stations, wholeRim.has(e.hashCode), !stations && !wholeRim.has(e.hashCode) ? rimEnds(t, e, set, faces, byEdge) : null);
       if (!rim) return null;
       const key = rim.key;
       rims.set(key, rim);
