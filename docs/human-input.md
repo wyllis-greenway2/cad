@@ -2617,3 +2617,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_570 — 2026-11-16 — directive
 > yes run the benchmark
 (asks for the benchmark of cutting a worm out of a wheel blank at many positions, to replace the time estimate with a measured number)
+
+## in_571 — 2026-11-16 — question
+> okay, and how does that compare to the loft method? and would the loft method be accurate enough to actually make a usable gear?
+(asks how the loft method for the throated wheel compares in time with the 153 s hobbing result, and whether it would be accurate enough for a usable gear)

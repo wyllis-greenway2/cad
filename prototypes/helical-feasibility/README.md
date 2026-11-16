@@ -22,3 +22,6 @@
 
 ## After the speed rules (`in_565`; `dec_speed_rules` has the table)
 `bench.test.ts` (from `app/`: `node --test ../prototypes/helical-feasibility/bench.test.ts`; `OP=extrude`, `DRAFT=1`, `DETAIL=n`, `Z`, `M`, `BORE` change it) reports the stage times. The twisted 40-tooth gear: 4.8 s before, 1.9 s after.
+
+## A throated wheel as a loft: time (`in_571`)
+`loft.test.ts` (env `K`, `Z`, `M`, `TW`) with 30 teeth, module 2, 6 mm bore, 12 mm wide, a 1.9 degree twist and the middle section's tips taken in by a profile shift (the shape of a throat; not the real sections): **3 sections 3.1 s, 5 sections 4.1 s, 9 sections 5.7 s** (the hobbing of one window took 153 s: `prototypes/worm-hobbing`). Accuracy was not measured.
