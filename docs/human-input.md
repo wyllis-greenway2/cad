@@ -2576,3 +2576,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_559 — 2026-11-16 — approval
 > Yes, small starter set, advisory feeds
 (approves the answer to question 5 of q_manufacturing_open: a small starter set of cutters in the official tool library with sourced, advisory feeds and speeds; users add their own)
+
+## in_560 — 2026-11-16 — approval
+> Yes, manual layout and bounding-box packing
+(approves the answer to question 6 of q_manufacturing_open: the first laser route gets manual layout and bounding-box packing of several parts on a sheet; true-shape nesting comes later)

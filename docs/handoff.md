@@ -2576,3 +2576,6 @@ Six inputs of the last turns had not been recorded (`in_451` to `in_456`; record
 
 ## Handoff 515 — 2026-11-16 (in_559: question 5 answered, starter tool library)
 `in_559`. **Question 5:** the human approved a small starter set of cutters with sourced, advisory feeds and speeds; users add their own. **Written:** `dec_manufacturing_definitions` (point 8), `q_manufacturing_open` (question 5 answered). **Next:** question 6 (nesting).
+
+## Handoff 516 — 2026-11-16 (in_560: question 6 answered, nesting)
+`in_560`. **Question 6:** the human approved manual layout and bounding-box packing in the first beam route, with true-shape nesting later. **Written:** `dec_manufacturing_prep` (point 5), `q_manufacturing_open` (question 6 answered). **All six questions are now answered;** `q_manufacturing_open` has no open question left and the human may want it deleted or kept as a record (rule 7: edit in place, git is the history). **Still provisional, none accepted:** `dec_manufacturing_contract`, `dec_manufacturing_definitions`, `dec_manufacturing_prep`, `dec_manufacturing_version`, `inv_manufacturing_boundary`. **Next:** the human accepts, corrects or rejects each; stable references (another AI is building them) come before the manufacturing version.
