@@ -2548,3 +2548,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_552 — 2026-11-16 — directive
 > Let's go through the open questions one by one
 (asks to go through the six questions of q_manufacturing_open one at a time; no answer given yet)
+
+## in_553 — 2026-11-16 — question
+> would it make more sense just to have a version of a part that is a manufactured version? For example if you have a perfect model, just keep it, then split a copy of that model which can actually be modified, shrunk or scaled for plastic shrinkage allowance, cut or keyed, tabs or handles added etc. So the idea is the parent part describes ideal end state, and the copy part is a modified version to achieve that given the environment. We should probably link them somehow so that the copied part updates when the parent updates. Is that something we can do?
+(answers question 1 of q_manufacturing_open with a different idea: a manufactured version of a part, a linked copy of the ideal parent that is modified (shrink, split, keys, tabs, handles) and updates when the parent changes; asks whether we can do it; nothing is decided)
