@@ -10,6 +10,8 @@ import { pulleyOutline } from "./pulley.ts";
 import { sprocketOutline } from "./sprocket.ts";
 import { cycloidalOutline } from "./cycloidal.ts";
 
+/** the belts there are timing pulleys for (`pulley.ts`) */
+export type PulleyKind = "2GT" | "3GT" | "HTD5M";
 export interface GearSpec {
   teeth: number;
   /** mm of pitch diameter per tooth */
@@ -30,7 +32,7 @@ export interface GearSpec {
   /** a rack: a gear of endless radius, a straight bar with straight-sided teeth (`teeth` of them, `rim` modules of bar under the roots, 2 by default); its outline lies along x from the middle of its pitch line, teeth up */
   rack?: boolean;
   /** a timing pulley for this belt (`pulley.ts`): `teeth` grooves, `clearance` (mm, bigger all round than the belt tooth) in place of the root clearance of a gear; the module is the belt's pitch */
-  pulley?: "2GT" | "3GT";
+  pulley?: PulleyKind;
   /** a roller chain sprocket (`sprocket.ts`): `teeth` teeth for the ANSI chain number `chain` (40 if none), or for the `pitch` and `roller` diameter given (mm); a bore as for a gear */
   sprocket?: { chain?: number; pitch?: number; roller?: number };
   /** a cycloidal (clock) gear (`cycloidal.ts`): the generating circle's radius, the addendum and the dedendum, in modules (3, 1 and 1.25 if none); the same circle for gears that are to mesh; backlash as for a gear */
@@ -95,6 +97,7 @@ function rackOutline(spec: GearSpec): Result<GearOutline> {
 
 /** The outline of a gear, or why there is none. */
 export function gearOutline(spec: GearSpec): Result<GearOutline> {
+  if (!spec.pulley && !spec.sprocket && !spec.cycloidal && spec.clearance !== undefined && !(spec.clearance >= 0 && spec.clearance <= 1)) return err("the clearance is from 0 to 1 module");
   if (spec.cycloidal) return cycloidalOutline(spec);
   if (spec.rack) return rackOutline(spec);
   if (spec.pulley) return pulleyOutline(spec);

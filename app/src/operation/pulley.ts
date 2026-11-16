@@ -18,7 +18,54 @@ export const GT_TOOTH = {
   "3GT": { pitch: 3, R1: 0.25, R2: 1.52, R3: 0.85, b: 0.61, h: 1.14, pld: 0.381, minTeeth: 12 },
 } as const;
 
+/**
+ * The HTD 5 mm belt (`in_555`): the belt tooth of Gates' drawing as SDP/SI, Chief Delphi and Capolight give it (pitch 5, tooth height 2.06 to 2.08, belt 3.80 to 3.81 thick, tooth radius R1 = 1.49, root radius R2 = 0.43;
+ * the pitch line differential 0.572 is from Pfeifer's charts, the 13 grooves of the least from the same). The tooth is the arc of R1 about a point h - R1 below the flat, straight sides tangent to it, and R2 rounding the
+ * corner where each side meets the flat. The groove is that tooth made `clearance` mm bigger all round; the default 0.07 mm is the difference between the 1.56 mm groove radius a machinist's forum gives for this belt and
+ * the belt's 1.49, which was not read at its source, and HTD is cut with a good deal of clearance (SDP/SI says so). Not the pulley makers' own groove drawing, and the 3.05 mm tooth width and 0.74 mm flat that some of those
+ * pages give do not fit a tooth drawn from the radii (`q_timing_pulleys`): to be checked against a real belt.
+ */
+export const HTD_TOOTH = { "HTD5M": { pitch: 5, R1: 1.49, R2: 0.43, h: 2.06, pld: 0.572, minTeeth: 13, clearance: 0.07 } } as const;
+
+function htdOutline(spec: GearSpec): Result<GearOutline> {
+  const t = HTD_TOOTH.HTD5M;
+  const z = Math.round(spec.teeth);
+  if (!Number.isFinite(z) || z < t.minTeeth || z > 400) return err(`an HTD 5M pulley needs ${t.minTeeth} to 400 teeth`);
+  const c = spec.clearance ?? t.clearance;
+  if (!(c >= 0 && c < t.R2 - 0.02)) return err(`the clearance must be from 0 to ${(t.R2 - 0.02).toFixed(2)} mm`);
+  const Ro = (z * t.pitch) / (2 * Math.PI) - t.pld;
+  const [R1, R2] = [t.R1 + c, t.R2 - c]; // (the tip circle and the corner, made bigger all round: the corner's circle is the same one, smaller)
+  const r3 = Ro - (t.h - t.R1); // (the tip circle is centred this far from the middle of the pulley)
+  const xf = t.R1 + t.R2; // (the corner's circle is this far across from the groove's middle: R1 + c of side and R2 - c of corner)
+  const rf = Ro - R2;
+  if (!(rf > xf)) return err("the pulley is too small for the tooth: more teeth are needed");
+  const uf = Math.sqrt(rf * rf - xf * xf); // (and this far along the groove from the middle of the pulley, so it touches the outside circle on the inside)
+  if (!(uf > r3 + 1e-6)) return err("the sides of the groove would have no length: more teeth are needed");
+  const gamma = Math.atan2(xf, uf);
+  const pitch = (2 * Math.PI) / z;
+  if (2 * gamma >= pitch - 1e-3) return err("the grooves meet at the outside: more teeth are needed");
+  const tipDepth = r3 - R1;
+  const bore = spec.bore ?? 0;
+  if (bore < 0 || bore >= 2 * tipDepth * 0.95) return err("the bore must be smaller than the pulley's root circle");
+  const points: P[] = [], bulges: number[] = [];
+  for (let k = 0; k < z; k++) {
+    const phi = k * pitch;
+    const [rh, th]: [P, P] = [[Math.cos(phi), Math.sin(phi)], [-Math.sin(phi), Math.cos(phi)]];
+    const at = (u: number, v: number): P => [u * rh[0] + v * th[0], u * rh[1] + v * th[1]];
+    const [P1, P2, P3, P4, P5, P6] = [polar(Ro, phi - gamma), at(uf, -R1), at(r3, -R1), at(r3, R1), at(uf, R1), polar(Ro, phi + gamma)];
+    const next = polar(Ro, (k + 1) * pitch - gamma);
+    points.push(P1); bulges.push(bulge(P1, arcMid(at(uf, -xf), R2, P1, P2), P2)); // the corner
+    points.push(P2); bulges.push(0); // the straight side
+    points.push(P3); bulges.push(bulge(P3, at(r3 - R1, 0), P4)); // the tip, round
+    points.push(P4); bulges.push(0);
+    points.push(P5); bulges.push(bulge(P5, arcMid(at(uf, xf), R2, P5, P6), P6));
+    points.push(P6); bulges.push(bulge(P6, polar(Ro, phi + pitch / 2), next)); // the outside circle to the next groove
+  }
+  return ok({ points, bulges, pitchRadius: Ro + t.pld, baseRadius: 0, tipRadius: Ro, rootRadius: tipDepth, warnings: [] });
+}
+
 export function pulleyOutline(spec: GearSpec): Result<GearOutline> {
+  if (spec.pulley === "HTD5M") return htdOutline(spec);
   const t = spec.pulley ? GT_TOOTH[spec.pulley] : undefined;
   if (!t) return err("no such belt");
   const z = Math.round(spec.teeth);

@@ -208,8 +208,8 @@ test("the Gear tool is in the Sketch ring; click the centre, the pointer sets th
   st = move(st, [C[0] + 22, C[1], 0]);
   assert.ok(previewFor(scene(st.session), st.tool)!.segments.length > 100, "the teeth are shown while the size is set");
   const e = entryOf(scene(st.session), st.tool, st.op);
-  assert.deepEqual(e!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Bore"]);
-  assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0"]);
+  assert.deepEqual(e!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Bore"]);
+  assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0.25", "0"]);
   st = click(st, [C[0] + 22, C[1], 0]);
   assert.ok(Math.abs(reach(st) - 22) < 1e-6, `outside radius ${reach(st)}`);
   assert.ok(selection(st.session).length === 1, "the figure is selected");
@@ -330,7 +330,7 @@ test("Edit gear: the number box opens on the selected gear with its numbers; typ
   st = reduce(st, { type: "runAction", id: "gear:edit" }, env);
   assert.equal(st.tool!.gear!.editing, "g_001");
   const e = entryOf(scene(st.session), st.tool, st.op)!;
-  assert.deepEqual(e.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0"], "its numbers as they are");
+  assert.deepEqual(e.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0.25", "0"], "its numbers as they are");
   st = typeText(st, "30");
   st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab");
   st = typeText(st, "0.1");
@@ -357,7 +357,7 @@ test("Ring gear tool: the pointer sets the outside of the wall; typed Wall chang
   st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
   st = click(st, C);
   st = move(st, [C[0] + 45, C[1], 0]);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Wall", "Backlash"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Wall", "Backlash", "Clearance"]);
   st = click(st, [C[0] + 45, C[1], 0]);
   const rec = scene(st.session).gears![0]!;
   assert.equal(rec.spec.internal, true);
@@ -407,15 +407,15 @@ test("the Gear box has a Bore field; typing it in Edit gear applies it (a ring h
   let st = top();
   st = reduce(st, { type: "begin", name: "gear" }, env);
   st = click(st, C);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Bore"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Bore"]);
   st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2");
-  for (let i = 0; i < 4; i++) st = key(st, "Tab");
+  for (let i = 0; i < 5; i++) st = key(st, "Tab");
   st = typeText(st, "6");
   st = key(st, "Enter");
   assert.equal(scene(st.session).gears![0]!.spec.bore, 6);
   assert.ok(Object.values(scene(st.session).parts).some((p) => p.kind === "circle" && p.ref === "d/g_001.b"));
   const ring = reduce(top(), { type: "runAction", id: "tool:ring" }, env);
-  assert.equal(entryOf(scene(ring.session), { ...ring.tool!, plane: worldRef("XY"), points: [C] }, null)!.fields.length, 5);
+  assert.equal(entryOf(scene(ring.session), { ...ring.tool!, plane: worldRef("XY"), points: [C] }, null)!.fields.length, 6, "a ring has no Bore: Teeth, Module, Pressure, Wall, Backlash, Clearance");
 });
 
 test("Move on a gear moves it: its centre goes where the move takes it, as one command, and the body made from it follows; undo puts it back", () => {
@@ -468,7 +468,7 @@ test("Rack tool: click the middle of the pitch line, the pointer sets half its l
   st = reduce(st, { type: "runAction", id: "tool:rack" }, env);
   st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
   st = click(st, C);
-  assert.deepEqual(entryOf(scene(st.session), { ...st.tool!, cursor: [C[0] + 30, C[1], 0] }, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Backlash", "Base"]);
+  assert.deepEqual(entryOf(scene(st.session), { ...st.tool!, cursor: [C[0] + 30, C[1], 0] }, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Backlash", "Base", "Clearance"]);
   st = typeText(st, "8"); st = key(st, "Tab"); st = typeText(st, "3");
   st = key(st, "Enter");
   const rec = gearsOfState(st)[0]!;
@@ -560,7 +560,7 @@ test("Edit gear on a rack has the rack's own fields and changing the teeth chang
   st = click(st, C); st = typeText(st, "6"); st = key(st, "Tab"); st = typeText(st, "2"); st = key(st, "Enter");
   const sel = pick({ ...reduce(st, { type: "escape" }, env), tool: null }, [faceOf(st, "g_001").ref]);
   let e = reduce(sel, { type: "runAction", id: "gear:edit" }, env);
-  assert.deepEqual(entryOf(scene(e.session), e.tool, e.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Backlash", "Base"]);
+  assert.deepEqual(entryOf(scene(e.session), e.tool, e.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Backlash", "Base", "Clearance"]);
   e = typeText(e, "9"); e = key(e, "Enter");
   assert.equal(gearsOfState(e)[0]!.spec.teeth, 9);
   assert.equal(gearsOfState(e)[0]!.spec.rack, true);
@@ -604,4 +604,27 @@ test("a gear, a rack or a partner that is not made says why, and the tool stays 
   let rr = reduce(pick({ ...reduce(ring, { type: "escape" }, env), tool: null }, [faceOf(ring, "g_001").ref]), { type: "runAction", id: "gear:meshrack" }, env);
   rr = move(rr, [C[0], C[1] + 30, 0]); rr = key(rr, "Enter");
   assert.match(say(rr), /rack does not mesh with a ring/);
+});
+
+test("a gear's clearance field: the root clearance in modules (0.25 shown), typed it moves the root circle; an edit changes the body; a clearance outside 0 to 1 is refused with the reason (`in_555`)", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "gear" }, env);
+  st = click(st, C);
+  st = typeText(st, "24"); st = key(st, "Tab"); st = typeText(st, "2");
+  for (let i = 0; i < 4; i++) st = key(st, "Tab"); // (pressure, shift, backlash, clearance)
+  st = typeText(st, "0.4");
+  st = key(st, "Enter");
+  const rec = scene(st.session).gears![0]!;
+  assert.equal(rec.spec.clearance, 0.4);
+  const g = must(gearOutline(rec.spec));
+  assert.ok(Math.abs(g.rootRadius - (24 - 2 * 1.4)) < 1e-9, `root radius ${g.rootRadius}`);
+  // a clearance of 2 modules is no clearance
+  const bad = run(st.session, { type: "setGear", id: "g_001", spec: { ...rec.spec, clearance: 2 } });
+  assert.match(bad.message ?? "", /clearance is from 0 to 1 module/);
+  // the same on a body: changing it after the extrude changes the volume
+  const d = makeGear(createSession(kernel), { teeth: 20, module: 2 });
+  const s = extrude(d.s, loopFaceRef(d.lines), 5);
+  const more = run(s, { type: "setGear", id: "g_001", spec: { teeth: 20, module: 2, clearance: 0.6 } });
+  assert.ok(!more.message, more.message ?? "");
+  assert.ok(bodyVolume(more) < bodyVolume(s), "a deeper root takes more away");
 });
