@@ -1,4 +1,5 @@
 // The pointer intents: hover, click (selecting, or drawing when a tool is armed, or finishing an operation) and the menu.
+import { CONSTRAINT_GROUPS, fits } from "../constraintlist.ts";
 import type { Intent } from "../../shared/input.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { dist, dot, sub, cross, normalize } from "../../math/vec.ts";
@@ -10,7 +11,7 @@ import type { Vec3 } from "../../math/vec.ts";
 import { scene as sceneOf, selection as selectionOf, clickOn, hoverOn, run } from "../session.ts";
 import type { Session } from "../session.ts";
 import { candidatesAt } from "../picking.ts";
-import { actionsFor } from "../actions.ts";
+import { actionsFor, relationKinds } from "../actions.ts";
 import type { ToolKind, Tool } from "../tools.ts";
 import { diskFaceRef } from "../../operation/loops.ts";
 import { lineHint, arcEndHint, hintRelations, circleCentredAt, anchorCentreAt, pointHint, arcBulgeHint, circleRadiusHint, tangentCentre } from "../hints.ts";
@@ -80,9 +81,6 @@ const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[]
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
 const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:move", "op:rotate", "op:copy", "op:mirror", "op:linear", "op:circular"]);
-/** What a constraint or mate is called in the ring: one or two words (`in_538`). */
-const TIPS: Record<string, string> = { fixed: "Fix", onCircle: "On circle", sameAcross: "Same across", equalLength: "Equal", equalRadius: "Equal", "mate:flush": "Flush", "mate:parallel": "Parallel faces", "mate:perpendicular": "Perpendicular faces", "mate:angle": "Face angle", "mate:coaxial": "Coaxial", "mate:parallelAxes": "Parallel axes", "mate:perpendicularAxes": "Perpendicular axes", "mate:angleAxes": "Axis angle", "mate:axisToFace": "Axis to face" };
-const tipOf = (id: string, label: string): string => TIPS[id] ?? label;
 const category = (id: string, label: string, icon: string, kids: MenuItem[]): MenuItem => {
   const first = kids.find((k) => k.enabled);
   return { id, label, icon, enabled: true, why: null, children: kids, ...(first ? {} : { dim: true as const }) }; // (always opens, so every ring can be looked through: dimmed when nothing in it applies now, `in_538`)
@@ -111,14 +109,22 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     return [r.id, { ...base, enabled: true, why: st.ok ? null : st.why, ...(st.ok ? {} : { picks: true as const }) }]; // (not selected yet: it can be chosen and waits for what to click, `in_464`)
   }));
   const acts = actionsFor(sc, sel);
-  const rels: MenuItem[] = acts.filter((a) => a.group === "relation").map((a) => ({ id: a.id, label: tipOf(a.id, a.label), icon: a.id, enabled: a.enabled, why: a.why })); // (one that cannot be applied stays, dimmed, and says why when pressed: nothing is left out, `in_543`)
+  const live = acts.filter((a) => a.group === "relation");
+  const selKinds = relationKinds(sc, sel);
+  // every constraint and mate there is, in groups by what they apply to: the ring never changes shape with the selection; one that does not fit it is dimmed and says what to select (`in_548`)
+  const groups: MenuItem[] = CONSTRAINT_GROUPS.map((g) => category(g.id, g.label, g.items[0]!.id, g.items.map((it): MenuItem => {
+    const a = live.find((x) => x.id === it.id);
+    const fit = fits(g, selKinds);
+    return { id: it.id, label: it.label, icon: it.id, enabled: fit && !!a && a.enabled, why: !fit || !a ? `select ${g.what} first` : a.why };
+  })));
+  groups.push(category("group:bodies", "Bodies", "hard", [leaf.get("body:hard")!]));
   const del = acts.find((a) => a.id === "delete");
   // looking straight at the selected plane or face, or at the one the click was on (`in_171`: the eye lives here, not on the screen)
   const clicked = over ? planeOf(lookup(sc), over) : null; // (the surface the right click was on: a face, a sketch's plane, a world plane; a sketch tool chosen from the ring turns to it when the selection does not say which plane)
   const target = lookTarget(sc, sel, over);
   const items: MenuItem[] = [
     ...CATEGORIES.slice(0, 1).map((c) => category(c.id, c.label, c.icon, c.items.filter((i) => i !== "select:add" || view.touch || adding).map((i) => leaf.get(i)!))),
-    category("constraints", "Constraints", "constraint", [...rels, leaf.get("body:hard")!].length > 1 || leaf.get("body:hard")!.enabled ? [...rels, leaf.get("body:hard")!] : [{ id: "none", label: "Constraints", icon: "constraint", enabled: false, why: "select the parts to constrain (a line, a corner, two lines …)" }]), // (a hard body is a constraint on every body that meets it, `in_490`)
+    category("constraints", "Constraints", "constraint", groups), // (a hard body is a constraint on every body that meets it, `in_490`)
     ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.filter((i) => i !== "select:add" || view.touch || adding).map((i) => leaf.get(i)!))),
     // the eye: how the model is looked at (`in_386`): straight at a surface, as wireframe, and the tape measure
     category("view", "View", "eye", [

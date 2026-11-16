@@ -599,9 +599,10 @@ test("the Hard body item is in the Constraints section of the menu, not under Sh
   let st = { ...createState({ ...s, click: { ...s.click, selection: [A] as never } }), cam: homeCamera() };
   const items = reduce(st, { type: "menu", x: 400, y: 300 }, env).menu!.items;
   const section = (id: string) => items.find((c) => c.id === id)!;
-  assert.ok((section("constraints").children ?? []).some((c) => c.id === "body:hard" && c.enabled), "under Constraints, for a body that is selected");
+  const under = (it: { id: string; children?: readonly unknown[] }): { id: string; enabled: boolean }[] => ((it.children ?? []) as { id: string; enabled: boolean; children?: readonly unknown[] }[]).flatMap((c) => [c, ...under(c)]);
+  assert.ok(under(section("constraints")).some((c) => c.id === "body:hard" && c.enabled), "under Constraints, for a body that is selected");
   assert.ok(!(section("shape").children ?? []).some((c) => c.id === "body:hard"), "and no longer under Shape");
   st = { ...createState({ ...s, click: { ...s.click, selection: [] as never } }), cam: homeCamera() };
   const none = reduce(st, { type: "menu", x: 400, y: 300 }, env).menu!.items.find((c) => c.id === "constraints")!;
-  assert.ok(!(none.children ?? []).some((c) => c.id === "body:hard" && c.enabled), "with nothing selected it is not offered");
+  assert.ok(!under(none).some((c) => c.id === "body:hard" && c.enabled), "with nothing selected it is not offered");
 });

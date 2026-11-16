@@ -359,7 +359,7 @@ test("the right-click ring offers all the operations around the click; nothing o
   st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [topFace.ref] } } };
   const f = frameOf(st, { w: 800, h: 600 });
   assert.ok(!f.annotations.some((a) => ["pushpull", "sketch", "edge", "rect"].includes(a.kind)), "a left click shows constraints and dimensions only");
-  const ring = flat(reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items);
+  const ring = flat(reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.filter((i) => i.id !== "constraints")); // (the constraints have their own test: they are all always there, `in_548`)
   assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:offset", "op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", "op:move", "op:rotate", "op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup", "look", "view:game", "view:section", "view:wireframe", "tape:measure", "undo", "redo", "delete"]);
   assert.deepEqual(ring.filter((i) => !i.enabled).map((i) => i.id), ["combine:parts", "clipboard:paste", "select:group", "select:ungroup", "redo", "delete"], "an operation that needs more than a face is still offered and waits for it (`in_464`); one face is nothing to group and is no group to break; a face cannot be deleted (fillet / chamfer takes a flat face too now, `in_257`, as offset does, `in_199`)");
   assert.ok(ring.every((i) => i.icon));

@@ -2528,3 +2528,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_547 — 2026-11-16 — directive
 > Go with the notification system next
 (approves and asks for step 3 of `q_ui_unification`: one notification path and renderer for every message, refusal, helper and hint, and one refusal rule: any change refused because of a constraint offers "Delete constraint to proceed")
+
+## in_548 — 2026-11-16 — directive
+> Go with the constraint list next
+(approves and asks for step 5 of `q_ui_unification` (the constraint list): every constraint and mate the table knows is always in the Constraints ring, dimmed unless it fits the selection)
