@@ -1405,6 +1405,22 @@ function rimTool(e, fs, size, mode, stations, whole = false) {
   let planeW = stations ? R * 0.99 : R; // (a size that changes round the rim stops a hair short of the axis: pieces that all meet on the axis cannot be cut)
   if (sRho > 0) { planeW = 0; for (const p of faceVertices(plane)) { const v = [p.x - C[0], p.y - C[1], p.z - C[2]]; const h = dotp(v, ax); planeW = Math.max(planeW, Math.hypot(v[0] - ax[0] * h, v[1] - ax[1] * h, v[2] - ax[2] * h) - R); } if (planeW < 1e-9) planeW = Infinity; }
   const outlineFor = (sz) => {
+    // a concave round (an inside corner that is filled) at a tip of radius R smaller than the size, the flat face running toward the axis (the tip of a pocket): the kernel's surface is the profile of the round turned
+    // through the axis, which is the profile clipped at the axis (the union of the turned profile and of its mirror image across the axis lies in the circle): the region is made so, and joins the kernel's round
+    // where it takes over (`in_483`). A convex tip keeps the app's own rule, a dome at the tip's radius.
+    if (!convex && sRho < 0 && !stations && sz > R + 1e-9 && Math.min(sz, wallH) > R + 1e-9) {
+      const r = Math.min(sz, wallH);
+      const h = Math.sqrt(Math.max(0, r * r - (r - R) * (r - R)));
+      const d0 = r - h; // (the depth below the flat face at which the arc crosses the axis)
+      let outline = draw([R, 0]).lineTo([0, 0]).lineTo([0, sW * d0]);
+      if (mode === "chamfer") outline = outline.lineTo([R, sW * r]);
+      else {
+        const a0 = Math.atan2(-sW * h, r - R); // (the angle of the start of the arc about the centre of the rolling circle, at (R - r, sW r); the arc ends at angle 0, on the wall)
+        const am = a0 / 2;
+        outline = outline.threePointsArcTo([R, sW * r], [R - r + r * Math.cos(am), sW * r + r * Math.sin(am)]);
+      }
+      return outline.close();
+    }
     const reach = Math.min(sz, planeW, wallH);
     if (!(reach > 1e-6)) return null;
     const T1 = [R + sRho * reach, 0];
@@ -1417,6 +1433,7 @@ function rimTool(e, fs, size, mode, stations, whole = false) {
   const outline = outlineFor(size);
   if (!outline) return null;
   const capped = Math.min(size, planeW, wallH) < size - 1e-9; // (the round is larger than the face or the wall it runs on: it saturates, as a dome at the end of a post)
+  const tip = sRho < 0 && planeW < size - 1e-9; // (the flat face runs toward the axis and is shorter than the size: the end of a post, the tip of a pocket; a concave foot or a hole's rim, where the face runs away from the axis, has no such limit)
   // the profile is drawn in the half plane through the axis that holds the start of the rim (radius across, height along the axis) and turned about the axis through the span of the rim: all the way round for a whole
   // rim, the span of the arc for a piece of one (the round then ends in a flat cut across it, as a round ends at a vertex)
   const M = e.pointAt(0.5);
@@ -1445,11 +1462,11 @@ function rimTool(e, fs, size, mode, stations, whole = false) {
     for (let k = 0; k < N; k++) { const [a, b] = [section(k), section(k + 1)]; if (!a || !b) return null; pieces.push(a.loftWith(b, { ruled: true })); }
     let ring = pieces[0];
     for (const piece of pieces.slice(1)) ring = ring.fuse(piece); // (joined into one ring before it is cut: pieces cut one after the other leave slivers where they meet)
-    return { tool: ring, convex, R, length: e.length, partial: false, key: String(e.hashCode), capped };
+    return { tool: ring, convex, R, length: e.length, partial: false, key: String(e.hashCode), capped, tip };
   }
   const sketch = outline.sketchOnPlane(new Plane(C, rS, cross3(rS, ax)));
   const solid = sketch.revolve(ax, { origin: C, angle: span });
-  return { tool: solid, convex, R, length: e.length, partial: !closed, key: String(e.hashCode), capped };
+  return { tool: solid, convex, R, length: e.length, partial: !closed, key: String(e.hashCode), capped, tip };
 }
 /** The solid between the planes at `from` and `to` along the unit vector m from the point p, square and `big` wide about it. */
 function slabSolid(p, m, from, to, big) {
@@ -1500,7 +1517,7 @@ function sphereCorners(edges, mode) {
 export { regionRound, approximateRound };
 const faceVertices = (f) => edgesOf(f).flatMap((e) => [e.startPoint, e.endPoint]);
 /**
- * Is a rim of the selection (the named edges and the smooth chain they are on) rounded by more than the face or the wall it runs on allows (`rimTool`'s reach is capped: the end of a post of a radius smaller
+ * Is a rim of the selection (the named edges and the smooth chain they are on, a corner of the body or an inside corner that is filled) rounded by more than the face or the wall it runs on allows (`rimTool`'s reach is capped: the end of a post of a radius smaller
  * than the size)? The kernel's round of that size is some other surface than the dome the region makes there, and the two do not agree: the kernel's takes off more, so a bigger round took off less where the
  * region took over (`in_482`: a round tip of a teardrop-shaped post, a bigger round than the tip's radius). From that size the region's round is used, so there is one way of making it.
  */
@@ -1513,7 +1530,8 @@ function rimCapped(t, set, size, mode) {
   for (const e of edges.filter((x) => chain.has(x.hashCode))) {
     const fs = byEdge.get(e.hashCode) ?? [];
     if (!rimFaces(e, fs)) continue;
-    try { const rim = rimTool(e, fs, size, mode, undefined); if (rim && rim.capped && rim.convex) return true; } catch { /* (not a rim the region can make: the kernel's round is tried) */ }
+    // (a convex rim capped by its face or its wall; a concave one is not: the kernel's round of an inside corner is made as before, and where the region has to make it, `rimTool` makes the tip as the kernel's does)
+    try { const rim = rimTool(e, fs, size, mode, undefined); if (rim && rim.convex && rim.capped) return true; } catch { /* (not a rim the region can make: the kernel's round is tried) */ }
   }
   return false;
 }

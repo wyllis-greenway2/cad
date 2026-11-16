@@ -69,7 +69,7 @@ const CASES: { file: string; step: string; known?: string; slow?: boolean }[] = 
   { file: "cyl-fillet.cad.json", step: "s_007" }, // (was a break: the region rounded the one half of the rim the step names, the kernel the whole rim; `in_479`)
   { file: "stadium-body.cad.json", step: "s_020" }, // (was a break: the region chamfered the one straight side named, the kernel the whole outline of the slot; `in_480`)
   { file: "hollow-pushed.cad.json", step: "s_022", slow: true },
-  { file: "hollow-pushed.cad.json", step: "s_026", slow: true, known: "5.5 to 6 mm: the region fills about 35 mm3 (1.6 %) less than the kernel's concave round at the handover, so the step is 18 mm3 where 50 is expected, then 57; the foot of a post of radius 6.7 (a concave rim), no reversal" },
+  { file: "hollow-pushed.cad.json", step: "s_026", slow: true }, // (was a break: the concave tip of a pocket rounded past its radius, `in_483`)
   { file: "thin-wall.cad.json", step: "s_020", slow: true },
   { file: "big-chamfer.cad.json", step: "s_036", slow: true },
 ];

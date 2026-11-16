@@ -2243,3 +2243,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_482 — 2026-11-16 — directive
 > yes do the remaining four
 (approves taking the four remaining known breaks of the continuity test: `hollow-pushed` `s_022` and `s_026`, `thin-wall` `s_020`, `big-chamfer` `s_036`)
+
+## in_483 — 2026-11-16 — directive
+> yes fix the concave fillet one too
+(approves fixing the last known break of the continuity test: the concave fillet of `hollow-pushed.cad.json` `s_026`, where the cut region fills about 1.6 % less than the kernel's round at the handover)
