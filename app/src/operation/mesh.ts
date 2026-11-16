@@ -26,10 +26,11 @@ export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: nu
   if (s.pulley || s.sprocket) return err("a pulley or a sprocket meshes with a belt or a chain, not with a gear");
   if ((s.shift ?? 0) !== 0) return err("a gear with a profile shift is not meshed yet");
   if (!Number.isFinite(z2) || z2 < 1) return err("the partner needs teeth");
-  const m = s.module;
+  const helical = s.helix !== undefined;
+  if (helical && partner.rack) return err("a helical gear does not mesh with a rack yet");
+  const m = helical ? s.module / Math.cos((Math.abs(s.helix!) * Math.PI) / 180) : s.module; // (a helical gear's pitch circles are those of its transverse section)
   const at = (c: Vec3, x: number, y: number): Vec3 => [c[0] + u[0] * x + v[0] * y, c[1] + u[1] * x + v[1] * y, c[2] + u[2] * x + v[2] * y];
-  if (s.cycloidal && (partner.rack || s.internal)) return err("a clock gear meshes with another clock gear of the same generating circle");
-  const base: GearSpec = { teeth: z2, module: m, ...(s.cycloidal ? { cycloidal: { ...s.cycloidal } } : {}), ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), ...(s.clearance !== undefined ? { clearance: s.clearance } : {}) };
+  const base: GearSpec = { teeth: z2, module: s.module, ...(helical ? { helix: -s.helix!, width: s.width } : {}), ...(s.cycloidal ? { cycloidal: { ...s.cycloidal } } : {}), ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), ...(s.clearance !== undefined ? { clearance: s.clearance } : {}) };
   const turn1 = src.turn ?? 0;
   if (s.rack) {
     if (partner.rack) return err("a rack does not mesh with a rack");

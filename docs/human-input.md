@@ -2549,6 +2549,63 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > Do the cycloidal clock gears next
 (asks for the cycloidal (clock) tooth profile from dec_gear_tool's list, after the chain sprockets)
 
+## in_554 — 2026-11-16 — directive
+> Do the cycloidal racks and rings next
+(asks for the cycloidal rack and the cycloidal ring (internal) gear that dec_gear_tool left unbuilt, after the cycloidal clock gears)
+
+## in_555 — 2026-11-16 — directive
+> Do the clearance field and HTD pulleys next
+(asks for the two items dec_gear_tool listed as not built: a clearance field in the gear's number box, and HTD pulleys)
+
+## in_556 — 2026-11-16 — directive
+> Do the ISO 606 sprockets next. Also the gear menu is going to get very large, so why don't we just have one gear icon in the sketching menu that opens to another sub menu where all the gear drawing options are. Can we give the ability to give our gears bores?
+(three asks: the ISO 606 sprockets from dec_gear_tool's list; one Gear icon in the Sketch menu that opens a submenu holding every gear tool; bores for the gears: they already have a Bore field in the box for gears, clock gears, pulleys and sprockets, but not for a partner made by Mesh gear and not as a thing the person can find)
+
+## in_557 — 2026-11-16 — directive
+> Do the D flat and keyway bores next
+(asks for the other bore shapes in dec_gear_tool's list of what is not built: a bore with a D flat, and a bore with a keyway)
+
+## in_558 — 2026-11-16 — directive
+> Do the HTD 3M and 8M pulleys next
+(asks for the other two HTD pitches in dec_gear_tool's list of what is not built; HTD 5M exists)
+
+## in_559 — 2026-11-16 — directive
+> okay lets build all the stuff left to build. Build the HTD 3M. It needs its tooth radii, which I couldn’t find.
+> MXL, XL and T-series pulleys only if you can find data about their profile shape that you think is reasonably accurate
+(asks for everything on dec_gear_tool's not-built list; HTD 3M needs a source for its radii, and MXL, XL and T-series only if data of reasonable accuracy about their profile is found)
+
+## in_560 — 2026-11-16 — directive
+> skip the unfindable profiles for now and lets just add them to our to do list. Lets do the left over stuff.
+(HTD 3M and the MXL, XL and T-series pulleys stay on the not-built list; the rest of that list is to be done)
+
+## in_561 — 2026-11-16 — question
+> lets do the helical gears next, what do we need for that? Should we introduce a spiraled or twisted loft type to our program to make that possible? Or would we only need that for angled gears? Also can these gear types even my sketch types? or would they need to directly make a model? What do you need from me? do you have the tooth profile to make them? and which should we make?
+(asks what helical gears need: a twisted loft or sweep, whether only the angled kind needs it, whether they are sketches or models, what the AI needs from the human, whether the tooth profile is in hand, and which kinds to make; the helical gears are the last item on dec_gear_tool's to-do list)
+
+## in_562 — 2026-11-16 — directive
+> yes run the feasibility check
+(asks for the test of whether the kernel can twist-extrude a gear outline, before anything is built for helical gears)
+
+## in_563 — 2026-11-16 — question
+> okay we are going to have to speed that up a lot. What options do we have?
+(asks for ways to make the twisted gear body, which took 1 to 5 seconds, much faster)
+
+## in_564 — 2026-11-16 — question
+> lets potentially try all those ideas, but first lets brainstorm more, arent there lessons we can learn from video games here? For example, not draw things the camera can't see at all? and rapidly draw a really rough version (maybe entire flat faced curves) until the model is settled and or if resources are low. Also maybe we should check less while operating and or only render a preview of highlighted edges during operation preview ? like for example only one outline edge of each tooth, maybe some edges that outline the surface, maybe only edges facing the camera etc. What do you think? Maybe some of these should be systemwide generic rules for speed rather than gear specific?
+(a brainstorm: game-engine lessons for speed — culling, rough versions while unsettled or under load, fewer checks during an operation, edge-only previews; and whether they should be system-wide rules, not gear-specific)
+
+## in_565 — 2026-11-16 — directive
+> Yes, do all of those and measure each
+(approves the whole list in the AI's last answer: skip the safety checks in previews, mesh to the screen with a finer mesh when settled, rough first and fine when settled, a load governor, the JS-computed exact wireframe preview of a twist (which extends dec_drag_preview_without_kernel), the bore in the profile, and a Detail setting; each to be measured)
+
+## in_566 — 2026-11-16 — directive
+> Yes, go ahead with the helical gear tool, I will take your recommendations on how to build it and on scope, I think we can skip herring bone because users can still manually create that just by stacking gears.
+(approves the helical gear tool as recommended: external helical spur gears with Helix angle and Width fields and a partner gear of opposite hand, the twisted body made from the flat outline by the existing twist; herringbone is not built, to be made by stacking)
+
+## in_567 — 2026-11-16 — question
+> okay now why cant we do worm gears? isn't that just a rotated rack gear?
+(asks why worm gears were left out of the helical gear tool and whether a worm is just a rotated rack)
+
 ## in_568 — 2026-11-16 — directive
 > The menu sometimes entirely hides icons when they arent available to apply, other times it just fades the icon and makes it unclickable. Can we have it so that the icons are always present, but only onclickable when they cannot be applied. 
 >
@@ -2644,3 +2701,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_590 — 2026-11-16 — directive
 > Go with your recommendation
 (approves doing the remaining cut-face limits, the ones the AI listed as not done: a sheet that passes exactly through an edge, a corner or a face of the body, and the cut face of one of several bodies naming its body)
+
+## in_591 — 2026-11-16 — directive
+> okay can you update to the latest from claude/inspiring-pascal-l342k7 so we can keep working without getting to far behind.
+(asks that the latest of `claude/inspiring-pascal-l342k7` be merged into this branch so it does not fall far behind)

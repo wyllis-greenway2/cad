@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { gearOutline } from "../src/operation/gear.ts";
 import type { GearSpec, GearOutline } from "../src/operation/gear.ts";
-import { GT_TOOTH } from "../src/operation/pulley.ts";
+import { GT_TOOTH, HTD_TOOTH } from "../src/operation/pulley.ts";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { worldRef } from "../src/shared/ref.ts";
 import { createSession, run, scene } from "../src/interaction/session.ts";
@@ -109,14 +109,14 @@ const typeText = (st: AppState, text: string) => [...text].reduce((t, c) => key(
 
 test("GT2 pulley tool: Teeth, Clearance and Bore are its numbers; click the centre, type the teeth, Enter; Edit gear changes them; a gear is not meshed to it", () => {
   let st = top();
-  const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap((i) => [i.id, ...(i.children ?? []).map((c) => c.id)]);
+  const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? []).flatMap(walk)]; });
   assert.ok(ids.includes("tool:gt2") && ids.includes("tool:gt3"));
   st = reduce(st, { type: "begin", name: "gear" }, env);
   st = reduce(st, { type: "runAction", id: "tool:gt2" }, env);
   st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
   st = click(st, C);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Clearance", "Bore"]);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.value), ["20", "0", "0"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Clearance", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.value), ["20", "0", "0", "0", "0", "0"]);
   st = typeText(st, "24"); st = key(st, "Tab"); st = typeText(st, "0.05"); st = key(st, "Tab"); st = typeText(st, "5");
   st = key(st, "Enter");
   const rec = scene(st.session).gears![0]!;
@@ -129,4 +129,111 @@ test("GT2 pulley tool: Teeth, Clearance and Bore are its numbers; click the cent
   few = { ...few, tool: { ...few.tool!, plane: worldRef("XY") } };
   few = click(few, C); few = typeText(few, "8"); few = key(few, "Enter");
   assert.match(few.session.message ?? "", /12 to 400 teeth/);
+});
+
+// ---- HTD 5M (`in_555`) ----
+function arcCentre(g: GearOutline, i: number): { c: P; r: number } | null {
+  const [a, b, k] = [g.points[i]!, g.points[(i + 1) % g.points.length]!, g.bulges[i]!];
+  if (!k) return null;
+  const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+  const m: P = [(a[0] + b[0]) / 2 - dy * k, (a[1] + b[1]) / 2 + dx * k];
+  const d = 2 * (a[0] * (m[1] - b[1]) + m[0] * (b[1] - a[1]) + b[0] * (a[1] - m[1]));
+  const ux = ((a[0] ** 2 + a[1] ** 2) * (m[1] - b[1]) + (m[0] ** 2 + m[1] ** 2) * (b[1] - a[1]) + (b[0] ** 2 + b[1] ** 2) * (a[1] - m[1])) / d;
+  const uy = ((a[0] ** 2 + a[1] ** 2) * (b[0] - m[0]) + (m[0] ** 2 + m[1] ** 2) * (a[0] - b[0]) + (b[0] ** 2 + b[1] ** 2) * (m[0] - a[0])) / d;
+  return { c: [ux, uy], r: Math.hypot(a[0] - ux, a[1] - uy) };
+}
+test("an HTD 5M pulley of 20 grooves: outside diameter 30.69 mm (Pfeifer), the grooves 2.06 mm deep (plus the clearance), the tip arc of radius 1.49 + clearance, the corners 0.43 - clearance, six corners to a groove, closed and counter-clockwise", () => {
+  const t = HTD_TOOTH.HTD5M;
+  for (const c of [0, 0.07, 0.2]) {
+    const g = must({ teeth: 20, module: 5, pulley: "HTD5M", clearance: c });
+    const rs = g.points.map((p) => Math.hypot(p[0], p[1]));
+    assert.ok(Math.abs(2 * Math.max(...rs) - (100 / Math.PI - 2 * t.pld)) < 1e-9 && Math.abs(2 * Math.max(...rs) - 30.69) < 0.005, `${2 * Math.max(...rs)}`);
+    assert.ok(Math.abs(g.rootRadius - ((100 / Math.PI - 2 * t.pld) / 2 - t.h - c)) < 1e-9, `root ${g.rootRadius}`);
+    assert.equal(g.points.length, 120);
+    assert.ok(area(g) > 0);
+    // the arcs: R1 + c for the tip, R2 - c for the corners (twice a groove), the outside circle's own
+    const radii = g.points.map((_, i) => arcCentre(g, i)).filter((a): a is { c: P; r: number } => !!a).map((a) => a.r);
+    const Ro = 100 / Math.PI / 2 - t.pld;
+    assert.ok(radii.some((r) => Math.abs(r - (t.R1 + c)) < 1e-6), "the tip");
+    assert.equal(radii.filter((r) => Math.abs(r - (t.R2 - c)) < 1e-6).length, 40, "two corners to a groove");
+    assert.equal(radii.filter((r) => Math.abs(r - Ro) < 1e-6).length, 20, "the outside circle between the grooves");
+    // each corner's circle touches the outside circle on the inside (its centre is Ro - (R2 - c) from the middle) and the side line (its centre is R1 + c + R2 - c from the groove's middle)
+    const corner = g.points.map((_, i) => arcCentre(g, i)).filter((a): a is { c: P; r: number } => !!a && Math.abs(a.r - (t.R2 - c)) < 1e-6)[0]!;
+    assert.ok(Math.abs(Math.hypot(corner.c[0], corner.c[1]) - (Ro - (t.R2 - c))) < 1e-6);
+  }
+});
+
+test("HTD 5M limits: fewer than 13 grooves, a clearance as big as the corner, a bore as wide as the root are refused with the reason; the default clearance is 0.07 mm", () => {
+  assert.match((gearOutline({ teeth: 12, module: 5, pulley: "HTD5M" }) as { error: string }).error, /13 to 400 teeth/);
+  assert.ok(!gearOutline({ teeth: 20, module: 5, pulley: "HTD5M", clearance: 0.42 }).ok);
+  assert.ok(!gearOutline({ teeth: 20, module: 5, pulley: "HTD5M", bore: 30 }).ok);
+  const a = must({ teeth: 20, module: 5, pulley: "HTD5M" }), b = must({ teeth: 20, module: 5, pulley: "HTD5M", clearance: 0.07 });
+  assert.deepEqual(a.points, b.points);
+});
+
+test("extruded through the kernel an HTD 5M pulley of 20 grooves has the outline's area times the thickness; a bore is a hole", () => {
+  const spec: GearSpec = { teeth: 20, module: 5, pulley: "HTD5M", bore: 8 };
+  const g = must({ teeth: 20, module: 5, pulley: "HTD5M" });
+  let s = createSession(kernel);
+  s = run(s, { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec });
+  assert.ok(!s.message, s.message ?? "");
+  const lines = gearRefs({ id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec }).lines;
+  const op = startOp(scene(s), [loopFaceRef(lines) as never], "extrude");
+  assert.ok(op.ok);
+  const done = runOp(s, { ...(op as { op: Op }).op, value: 10 })!.session;
+  const vol = Object.values(scene(done).parts).filter((p) => p.kind === "body").reduce((t, p) => t + ((p as { volume?: number }).volume ?? 0), 0);
+  const want = (area(g) - Math.PI * 16) * 10;
+  assert.ok(Math.abs(vol - want) < 0.002 * want, `${vol} against ${want}`);
+});
+
+test("HTD 5M tool: the Sketch ring has it; Teeth, Clearance (0.07 shown) and Bore are its numbers; a refused count says why", () => {
+  let st = top();
+  const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? []).flatMap(walk)]; });
+  assert.ok(ids.includes("tool:htd5"));
+  st = reduce(st, { type: "begin", name: "gear" }, env);
+  st = reduce(st, { type: "runAction", id: "tool:htd5" }, env);
+  st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
+  st = click(st, C);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => [f.label, f.value]), [["Teeth", "20"], ["Clearance", "0.07"], ["Bore", "0"], ["Flat", "0"], ["Key", "0"], ["Key depth", "0"]]);
+  st = typeText(st, "24"); st = key(st, "Enter");
+  const rec = scene(st.session).gears![0]!;
+  assert.deepEqual([rec.spec.pulley, rec.spec.teeth], ["HTD5M", 24]);
+  let few = reduce(top(), { type: "begin", name: "gear" }, env);
+  few = reduce(few, { type: "runAction", id: "tool:htd5" }, env);
+  few = { ...few, tool: { ...few.tool!, plane: worldRef("XY") } };
+  few = click(few, C); few = typeText(few, "9"); few = key(few, "Enter");
+  assert.match(few.session.message ?? "", /13 to 400 teeth/);
+});
+
+// ---- HTD 8M (`in_558`) ----
+test("an HTD 8M pulley of 20 grooves: outside diameter 49.56 mm (Pfeifer's chart), grooves 3.38 mm deep, the tip arc 2.46 and the corners 0.70 (ProTorque's datasheet), no clearance by default", () => {
+  const t = HTD_TOOTH.HTD8M;
+  const g = must({ teeth: 20, module: 8, pulley: "HTD8M" });
+  const rs = g.points.map((p) => Math.hypot(p[0], p[1]));
+  assert.ok(Math.abs(2 * Math.max(...rs) - 49.56) < 0.006, `${2 * Math.max(...rs)}`);
+  assert.ok(Math.abs(g.rootRadius - ((160 / Math.PI - 2 * t.pld) / 2 - t.h)) < 1e-9, `root ${g.rootRadius}`);
+  assert.equal(g.points.length, 120);
+  assert.ok(area(g) > 0);
+  const radii = g.points.map((_, i) => arcCentre(g, i)).filter((a): a is { c: P; r: number } => !!a).map((a) => a.r);
+  assert.ok(radii.some((r) => Math.abs(r - 2.46) < 1e-6), "the tip");
+  assert.equal(radii.filter((r) => Math.abs(r - 0.7) < 1e-6).length, 40, "two corners to a groove");
+  const more = must({ teeth: 20, module: 8, pulley: "HTD8M", clearance: 0.1 });
+  assert.ok(more.rootRadius < g.rootRadius, "a clearance deepens the groove");
+});
+
+test("HTD 8M limits: fewer than 14 grooves, a clearance as big as the corner, a bore as wide as the root are refused with the reason", () => {
+  assert.match((gearOutline({ teeth: 13, module: 8, pulley: "HTD8M" }) as { error: string }).error, /HTD 8M pulley needs 14 to 400 teeth/);
+  assert.ok(!gearOutline({ teeth: 20, module: 8, pulley: "HTD8M", clearance: 0.7 }).ok);
+  assert.ok(!gearOutline({ teeth: 20, module: 8, pulley: "HTD8M", bore: 50 }).ok);
+});
+
+test("HTD 8M tool: the pulley menu has it; typing the teeth makes an HTD8M pulley with its clearance shown as 0", () => {
+  let st = reduce(top(), { type: "begin", name: "gear" }, env);
+  st = reduce(st, { type: "runAction", id: "tool:htd8" }, env);
+  st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
+  st = click(st, C);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.slice(0, 2).map((f) => [f.label, f.value]), [["Teeth", "20"], ["Clearance", "0"]]);
+  st = typeText(st, "24"); st = key(st, "Enter");
+  const rec = scene(st.session).gears![0]!;
+  assert.deepEqual([rec.spec.pulley, rec.spec.teeth, rec.spec.module], ["HTD8M", 24, 8]);
 });

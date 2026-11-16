@@ -21,6 +21,12 @@ export const box = (s) => {
   while (boxes.size > 400) boxes.delete(boxes.keys().next().value);
   return { min: [...made.min], max: [...made.max] };
 };
+/** A box round a solid that is quick to find (a little roomier than the exact one for freeform faces). */
+function quickBox(s) {
+  const oc = getOC();
+  const b = new oc.Bnd_Box();
+  try { oc.BRepBndLib.Add(s.wrapped, b, false); const [a, z] = [b.CornerMin(), b.CornerMax()]; const out = { min: [a.X(), a.Y(), a.Z()], max: [z.X(), z.Y(), z.Z()] }; a.delete(); z.delete(); return out; } finally { b.delete(); }
+}
 const centre = (b) => [0, 1, 2].map((i) => (b.min[i] + b.max[i]) / 2);
 const inside = (b, p, t = 1e-3) => [0, 1, 2].every((i) => p[i] >= b.min[i] - t && p[i] <= b.max[i] + t);
 
@@ -66,7 +72,7 @@ export function moveMarkers(markers, tf) {
 export function trackBodies(prev, shape, opId) {
   const lumps = lumpsOf(shape);
   if (!lumps.length) return [];
-  if (lumps.length === 1) return [{ id: prev[0]?.id ?? opId, at: centre(box(lumps[0])), lump: 0 }];
+  if (lumps.length === 1) return [{ id: prev[0]?.id ?? opId, at: centre(quickBox(lumps[0])), lump: 0 }]; // (the marker only has to lie in the body's box: a quick box serves, the exact one of a body of freeform faces takes a third of a second, `dec_speed_rules`)
   const boxes = lumps.map(box);
   const claimed = new Set();
   const out = [];

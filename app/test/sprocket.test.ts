@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { gearOutline } from "../src/operation/gear.ts";
 import type { GearSpec, GearOutline } from "../src/operation/gear.ts";
-import { CHAINS, chainOf } from "../src/operation/sprocket.ts";
+import { CHAINS, chainOf } from "../src/operation/chains.ts";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { worldRef } from "../src/shared/ref.ts";
 import { createSession, run, scene } from "../src/interaction/session.ts";
@@ -134,14 +134,14 @@ const typeText = (st: AppState, text: string) => [...text].reduce((t, c) => key(
 
 test("Sprocket tool: Teeth, Chain (the ANSI number), Pitch, Roller and Bore; #40 by default; a chain of one's own by its pitch and roller; a chain number there is none of says so", () => {
   let st = top();
-  const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap((i) => [i.id, ...(i.children ?? []).map((c) => c.id)]);
+  const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? []).flatMap(walk)]; });
   assert.ok(ids.includes("tool:sprocket"));
   st = reduce(st, { type: "begin", name: "gear" }, env);
   st = reduce(st, { type: "runAction", id: "tool:sprocket" }, env);
   st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
   st = click(st, C);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Chain", "Pitch", "Roller", "Bore"]);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.value), ["18", "40", "12.7", "7.92", "0"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Chain", "Pitch", "Roller", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.value), ["18", "40", "12.7", "7.92", "0", "0", "0", "0"]);
   st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "50");
   st = key(st, "Enter");
   const rec = scene(st.session).gears![0]!;

@@ -12,24 +12,13 @@
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import type { GearSpec, GearOutline } from "./gear.ts";
+import { CHAINS, IN, chainOf } from "./chains.ts";
+import { isoSprocketOutline } from "./iso606.ts";
 import type { P } from "./arcs.ts";
 import { polar, bulgeOf, arcMid } from "./arcs.ts";
 
-const IN = 25.4;
-/** the ANSI roller chains: pitch, roller diameter and the tooth width of a single strand sprocket, in inches (Martin Sprocket's catalogue, "Chain Data For All Sprockets") */
-export const CHAINS: Record<number, { pitch: number; roller: number; tooth: number }> = {
-  25: { pitch: 0.25, roller: 0.13, tooth: 0.11 }, 35: { pitch: 0.375, roller: 0.2, tooth: 0.168 }, 41: { pitch: 0.5, roller: 0.306, tooth: 0.227 }, 40: { pitch: 0.5, roller: 0.312, tooth: 0.284 },
-  50: { pitch: 0.625, roller: 0.4, tooth: 0.343 }, 60: { pitch: 0.75, roller: 0.469, tooth: 0.459 }, 80: { pitch: 1, roller: 0.625, tooth: 0.575 }, 100: { pitch: 1.25, roller: 0.75, tooth: 0.692 },
-  120: { pitch: 1.5, roller: 0.875, tooth: 0.924 },
-};
-/** the pitch and roller diameter (mm) a sprocket's chain has: its numbers if given, else its ANSI number's (40 if none) */
-export function chainOf(s: NonNullable<GearSpec["sprocket"]>): { pitch: number; roller: number } | null {
-  const c = CHAINS[s.chain ?? 40];
-  const [pitch, roller] = [s.pitch ?? (c ? c.pitch * IN : NaN), s.roller ?? (c ? c.roller * IN : NaN)];
-  return Number.isFinite(pitch) && Number.isFinite(roller) && pitch > 0 && roller > 0 ? { pitch, roller } : null;
-}
-
 export function sprocketOutline(spec: GearSpec): Result<GearOutline> {
+  if (spec.sprocket?.iso) return isoSprocketOutline(spec);
   const ch = spec.sprocket ? chainOf(spec.sprocket) : null;
   if (!ch) return err(spec.sprocket?.chain !== undefined && !CHAINS[spec.sprocket.chain] ? `no chain numbered ${spec.sprocket.chain}: ${Object.keys(CHAINS).join(", ")}` : "the pitch and the roller diameter must be above zero");
   const N = Math.round(spec.teeth);
