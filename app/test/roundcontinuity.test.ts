@@ -64,8 +64,8 @@ const CASES: { file: string; step: string; known?: string; slow?: boolean }[] = 
   { file: "channel-block.cad.json", step: "s_021" },
   { file: "face-edits.cad.json", step: "s_018" },
   { file: "face-shift-ears-in_474.cad.json", step: "s_022" },
+  { file: "chamfer-continuation-in_476.cad.json", step: "s_020" }, // (`in_476`: was a break, fixed by ending the region at the end faces, `dec_chamfer_region_reach`)
   // breaks found by the sweep: the kernel's round gives way to the region and the volume goes back (a bigger round that leaves more of the body)
-  { file: "chamfer-continuation-in_476.cad.json", step: "s_020", known: "5 to 5.5 mm: the region stops 1 mm past the ends of the edge, the kernel's chamfer is a plane across the corner (`q_chamfer_region_reach`)" },
   { file: "cyl-fillet.cad.json", step: "s_007", known: "4 to 4.5 mm: 907 to 987 mm3, the region of a fillet on a cylinder's rim" },
   { file: "stadium-body.cad.json", step: "s_020", known: "4 to 4.5 mm: 4981 to 5302 mm3" },
   { file: "hollow-pushed.cad.json", step: "s_022", slow: true, known: "8 to 8.5 mm: 3786 to 4421 mm3" },

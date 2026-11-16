@@ -1536,7 +1536,19 @@ function regionRound(t, set, size, mode, stations) {
     const ex = a[0];
     const ey = dir([a[1][0] - ex[0] * cosA, a[1][1] - ex[1] * cosA, a[1][2] - ex[2] * cosA]);
     const normal = crossp(ex, ey);
-    const margin = convex ? 1 : 0; // (a region that is cut reaches past the ends of the edge; one that is added stops at them, or it would stand out)
+    // a region that is cut ends where the kernel's round does: at the faces that close the edge at its two ends (the third face at each end corner), not in a flat cut across the edge a millimetre past it. The prism
+    // is made long and cut off by the planes of those two faces, so a round bigger than the faces beside the edge are wide carries on, as a plane, across the corner (`in_476`: a prism that stopped a millimetre
+    // past the ends of the edge was a strip that stopped short of the corner, and a bigger round took off less). Where an end has no one flat face (or the size changes along the edge) the old flat cut is kept.
+    // One that is added stops at the ends, or it would stand out.
+    const endPlanes = convex && !stations ? [A, B].map((V) => {
+      const near = faces.filter((f) => faceVertices(f).some((p) => Math.hypot(p.x - V.x, p.y - V.y, p.z - V.z) < 1e-6) && !fs.some((g) => g.hashCode === f.hashCode));
+      if (near.length !== 1 || near[0].geomType !== "PLANE") return null;
+      const nn = near[0].normalAt();
+      return { V, n: dir([nn.x, nn.y, nn.z]) };
+    }) : [];
+    const clipped = endPlanes.length === 2 && endPlanes.every(Boolean);
+    const reachAll = (() => { const bb = bounds(t); return 2 * Math.hypot(bb.max[0] - bb.min[0], bb.max[1] - bb.min[1], bb.max[2] - bb.min[2]) + 10; })();
+    const margin = convex ? (clipped ? reachAll : 1) : 0;
     const along = (B.x - A.x) * normal[0] + (B.y - A.y) * normal[1] + (B.z - A.z) * normal[2];
     const lowest = Math.min(0, along) - margin;
     const at = (s) => [A.x + normal[0] * s, A.y + normal[1] * s, A.z + normal[2] * s]; // a point of the line of the edge, `s` along the normal of the profile
@@ -1581,7 +1593,10 @@ function regionRound(t, set, size, mode, stations) {
       const pieces = cuts.slice(1).map((s, i) => profile(sizeAt(cuts[i]), cuts[i]).loftWith(profile(sizeAt(s), s), { ruled: true }));
       tool = pieces[0];
       for (const piece of pieces.slice(1)) extra.push(piece);
-    } else tool = profile(size, lowest).extrude(len + 2 * margin);
+    } else {
+      tool = profile(size, lowest).extrude(len + 2 * margin);
+      if (clipped) for (const { V, n } of endPlanes) tool = tool.intersect(slabSolid([V.x, V.y, V.z], n, -reachAll, 1e-3, reachAll)); // (the side of the end face the body is on, and a hair beyond the face)
+    }
     tools.push({ tool, convex });
     for (const piece of extra) tools.push({ tool: piece, convex });
     straight.push({ A, B, u, len, convex, norm, size: !stations ? size : null });

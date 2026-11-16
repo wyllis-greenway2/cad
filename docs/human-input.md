@@ -2223,3 +2223,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_477 — 2026-11-16 — directive
 > yes build the continuity test first
 (approves building the continuity test for fillets and chamfers first: sweep the size across saved files and check the volume changes smoothly with no jumps or reversals where the kernel hands over to the cut-region method)
+
+## in_478 — 2026-11-16 — directive
+> yes start with the reach fix
+(approves building the reach fix for `q_chamfer_region_reach`: a chamfer or fillet made as a cut region reaches as far along its edge as the two faces beside the edge reach)
