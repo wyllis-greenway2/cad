@@ -9,6 +9,7 @@ import { ok, err } from "../shared/result.ts";
 import type { Scene, Step } from "./scene.ts";
 import type { Part } from "./part.ts";
 import { gearOutline } from "./gear.ts";
+import { boreLoop } from "./bore.ts";
 import type { GearSpec, GearOutline } from "./gear.ts";
 
 /** `at`: the centre, in the world; `turn`: how far the gear is turned about its centre in its plane, radians (tooth 0 points along the plane's first direction when 0); `spec`: the numbers (`gear.ts`) */
@@ -33,10 +34,16 @@ function outlineOf(spec: GearSpec): Result<GearOutline> {
 const cornerRef = (id: string, i: number): Ref => drawnRef(`${id}.p${i}`);
 const lineRef = (id: string, i: number): Ref => drawnRef(`${id}.s${i}`);
 /** The sides of a gear's outline, in order (what a step that extrudes it names), the circle of its bore and, for a ring, the circle of its wall; empty if the numbers make no gear. */
-export function gearRefs(rec: GearRecord): { lines: Ref[]; wall?: Ref; bore?: Ref } {
+export function gearRefs(rec: GearRecord): { lines: Ref[]; wall?: Ref; bore?: string } {
   const o = outlineOf(rec.spec);
   if (!o.ok) return { lines: [] };
-  return { lines: o.value.points.map((_, i) => lineRef(rec.id, i)), ...(o.value.outerRadius !== undefined ? { wall: drawnRef(`${rec.id}.k`) } : {}), ...(!rec.spec.internal && (rec.spec.bore ?? 0) > 0 ? { bore: drawnRef(`${rec.id}.b`) } : {}) };
+  return { lines: o.value.points.map((_, i) => lineRef(rec.id, i)), ...(o.value.outerRadius !== undefined ? { wall: drawnRef(`${rec.id}.k`) } : {}), ...(!rec.spec.internal && (rec.spec.bore ?? 0) > 0 ? { bore: boreGroup(rec) } : {}) };
+}
+
+/** The bore as a hole of a step names it: its circle, or the sides of its D or keyway loop joined by commas. */
+function boreGroup(rec: GearRecord): string {
+  const l = boreLoop(rec.spec);
+  return l ? l.points.map((_, i) => drawnRef(`${rec.id}.bs${i}`)).join(",") : drawnRef(`${rec.id}.b`);
 }
 
 /** The parts of a gear: the corners and sides of its outline and, for a ring, its wall's circle. Locked. Empty if its plane is not there or the numbers make no gear. */
@@ -55,7 +62,12 @@ function partsOf(s: Scene, rec: GearRecord): Part[] {
     out.push({ ...base, ref: drawnRef(`${rec.id}.c`), kind: "corner", at: rec.at });
     out.push({ ...base, ref: drawnRef(`${rec.id}.k`), kind: "circle", center: drawnRef(`${rec.id}.c`), radius: g.outerRadius });
   }
-  if (!g.outerRadius && (rec.spec.bore ?? 0) > 0) {
+  const loop = !g.outerRadius ? boreLoop(rec.spec) : null;
+  if (loop) {
+    const m = loop.points.length;
+    loop.points.forEach((p, i) => out.push({ ...base, ref: drawnRef(`${rec.id}.bp${i}`), kind: "corner", at: at(p) }));
+    loop.points.forEach((_, i) => out.push({ ...base, ref: drawnRef(`${rec.id}.bs${i}`), kind: "line", a: drawnRef(`${rec.id}.bp${i}`), b: drawnRef(`${rec.id}.bp${(i + 1) % m}`), ...(loop.bulges[i] ? { bulge: loop.bulges[i]! } : {}) }));
+  } else if (!g.outerRadius && (rec.spec.bore ?? 0) > 0) {
     out.push({ ...base, ref: drawnRef(`${rec.id}.bc`), kind: "corner", at: rec.at });
     out.push({ ...base, ref: drawnRef(`${rec.id}.b`), kind: "circle", center: drawnRef(`${rec.id}.bc`), radius: rec.spec.bore! / 2 });
   }
@@ -92,7 +104,7 @@ function swapRun(st: Step, from: readonly Ref[], to: readonly Ref[]): Step {
   return { ...st, parts: whole(st.parts) ? [...to] : st.parts, params };
 }
 /** A step that names the whole outline: the bore circle a hole of it, or not, as the gear has it now. */
-function swapBore(st: Step, lines: readonly Ref[], was: Ref | undefined, now: Ref | undefined): Step {
+function swapBore(st: Step, lines: readonly Ref[], was: string | undefined, now: string | undefined): Step {
   if (!["extrude", "revolve", "loft", "sweep"].includes(st.type) || st.parts.length !== lines.length || !st.parts.every((r) => lines.includes(r))) return st;
   const groups = String(st.params.holes ?? "").split(";").filter(Boolean).filter((g) => g !== was);
   if (now) groups.push(now);

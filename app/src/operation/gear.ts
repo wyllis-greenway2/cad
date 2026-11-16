@@ -9,6 +9,7 @@ import { ok, err } from "../shared/result.ts";
 import { pulleyOutline } from "./pulley.ts";
 import { sprocketOutline } from "./sprocket.ts";
 import { cycloidalOutline } from "./cycloidal.ts";
+import { boreProblem } from "./bore.ts";
 
 /** the belts there are timing pulleys for (`pulley.ts`) */
 export type PulleyKind = "2GT" | "3GT" | "HTD5M";
@@ -29,6 +30,11 @@ export interface GearSpec {
   rim?: number;
   /** diameter of a round hole through the middle of an external gear, mm (0 or absent: none) */
   bore?: number;
+  /** a flat cut this deep (mm) into the bore, on its +x side: a D bore (`bore.ts`) */
+  flat?: number;
+  /** a keyway of this width (mm) in the bore, with its depth `keyDepth` (the hub depth t2 of DIN 6885, mm: the standard's for the bore if none) */
+  key?: number;
+  keyDepth?: number;
   /** a rack: a gear of endless radius, a straight bar with straight-sided teeth (`teeth` of them, `rim` modules of bar under the roots, 2 by default); its outline lies along x from the middle of its pitch line, teeth up */
   rack?: boolean;
   /** a timing pulley for this belt (`pulley.ts`): `teeth` grooves, `clearance` (mm, bigger all round than the belt tooth) in place of the root clearance of a gear; the module is the belt's pitch */
@@ -95,8 +101,14 @@ function rackOutline(spec: GearSpec): Result<GearOutline> {
   return ok({ points, bulges: points.map(() => 0), pitchRadius: 0, baseRadius: 0, tipRadius: tip, rootRadius: root, length: L, warnings: [] });
 }
 
-/** The outline of a gear, or why there is none. */
+/** The outline of a gear, or why there is none (and why its bore has no such flat or keyway). */
 export function gearOutline(spec: GearSpec): Result<GearOutline> {
+  const r = outlineOf(spec);
+  if (!r.ok) return r;
+  const why = boreProblem(spec, r.value.rootRadius);
+  return why ? err(why) : r;
+}
+function outlineOf(spec: GearSpec): Result<GearOutline> {
   if (!spec.pulley && !spec.sprocket && !spec.cycloidal && spec.clearance !== undefined && !(spec.clearance >= 0 && spec.clearance <= 1)) return err("the clearance is from 0 to 1 module");
   if (spec.cycloidal) return cycloidalOutline(spec);
   if (spec.rack) return rackOutline(spec);

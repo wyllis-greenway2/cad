@@ -140,8 +140,8 @@ test("Sprocket tool: Teeth, Chain (the ANSI number), Pitch, Roller and Bore; #40
   st = reduce(st, { type: "runAction", id: "tool:sprocket" }, env);
   st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
   st = click(st, C);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Chain", "Pitch", "Roller", "Bore"]);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.value), ["18", "40", "12.7", "7.92", "0"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Chain", "Pitch", "Roller", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.value), ["18", "40", "12.7", "7.92", "0", "0", "0", "0"]);
   st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "50");
   st = key(st, "Enter");
   const rec = scene(st.session).gears![0]!;
