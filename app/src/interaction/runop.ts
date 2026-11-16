@@ -8,6 +8,7 @@ import { opCommand, valueOf, bodyMotion } from "./operations.ts";
 import { heldCommand, constrainedMotion } from "./mate.ts";
 import { mateStatus } from "../operation/mates.ts";
 import { isTangentArc } from "./faceedit.ts";
+import { axisAcross } from "./revolve.ts";
 import { limitedOp, hardCollision, hardNames } from "./hard.ts";
 
 /** Run the step of `op` on `sess`. Returns the new session and whether it fell back to a prism; null when the operation has no step yet. */
@@ -16,6 +17,7 @@ export function runOp(sess: Session, op0: Op): { session: Session; cmd: Command 
   const limit = limitedOp(sceneOf(sess), op0);
   if (limit && "why" in limit) return { session: { ...sess, message: limit.why }, cmd: { type: "batch", commands: [] } };
   const op = limit ? limit.op : op0;
+  if (op.kind === "revolve") { const why = axisAcross(sceneOf(sess), op); if (why) return { session: { ...sess, message: why }, cmd: { type: "batch", commands: [] } }; } // (`in_486`)
   // a body that is moved or turned against its standing mates: what is made is the pose they leave it at, one step, not the move asked for and then their correction (`in_340`)
   const asked = op.target === "body" && (op.kind === "move" || op.kind === "rotate") && op.parts[0] ? bodyMotion(sceneOf(sess), op) : null;
   const held = asked ? heldCommand(sceneOf(sess), op.parts.filter((r) => sceneOf(sess).parts[r]?.kind === "body"), asked, op.grab) : null;

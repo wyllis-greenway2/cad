@@ -3,7 +3,7 @@ id: dec_revolve_body_face
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_484, in_485
+human_input: in_484, in_485, in_486
 date: 2026-11-16
 depends_on:
   - dec_sketch_on_face_follows_body: the copy is a sketch on a drawn plane that goes with the body, as a sketch drawn on a face is
@@ -21,7 +21,7 @@ alternative_to:
 
 An axis that cuts across the face (the figure would cross itself) is refused with the reason. **Approved: option 1 (`in_485`).**
 
-**Built (`in_485`):** beginning Revolve with one flat face of a body selected first draws the face's outline exactly (every loop: the outer one and the holes; lines and arcs) as a sketch on a drawn plane that goes with the body (`faceSketchCommand` in `offsetbody.ts`, the offset's own outline code with no offset), selects that figure, and goes on as for a drawn figure: the axis is the longest edge to start, another edge, a point or a face clicked, or the orb moved out in space (all as before); the angle, the advance, and the join / cut / new body are the revolve's own. The copy is a drawing, not a step, and stays if the revolve is cancelled (undo takes it away). A face that is round, or whose edges are not lines and arcs, is refused with the reason. **Not built:** an axis across the face is not refused beforehand (the kernel's refusal stands); revolve in place as a face edit (option 3).
+**Built (`in_485`):** beginning Revolve with one flat face of a body selected first draws the face's outline exactly (every loop: the outer one and the holes; lines and arcs) as a sketch on a drawn plane that goes with the body (`faceSketchCommand` in `offsetbody.ts`, the offset's own outline code with no offset), selects that figure, and goes on as for a drawn figure: the axis is the longest edge to start, another edge, a point or a face clicked, or the orb moved out in space (all as before); the angle, the advance, and the join / cut / new body are the revolve's own. The copy is a drawing, not a step, and stays if the revolve is cancelled (undo takes it away). A face that is round, or whose edges are not lines and arcs, is refused with the reason. **Changed (`in_486`):** an axis that lies in the figure's plane and has parts of the figure on both sides is refused when the revolve is made (`axisAcross` in `revolve.ts`, called from `runOp`), with the reason and nothing made; for any figure, drawn or a face's copy. An axis on an edge, beside the figure, across the plane (a twist) or off the plane is not judged here (the kernel's own refusals stand). **Not built:** revolve in place as a face edit (option 3); the live picture while the orb is dragged across the figure is not refused, only the step.
 
 ## Rationale
 

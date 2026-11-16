@@ -303,3 +303,17 @@ test("the revolve's orb is dragged to move it, with no click on it first: the ca
   assert.equal(st.cam.azimuth, azimuth, "the view did not turn");
   assert.ok(Math.hypot(st.op!.pivot![0]! - was[0]!, st.op!.pivot![1]! - was[1]!, st.op!.pivot![2]! - was[2]!) > 0.5, "the orb moved");
 });
+
+test("an axis that cuts across the figure is refused beforehand with the reason; on an edge or beside the figure it is not (`in_486`)", () => {
+  const { s, face } = figure(); // 8 to 10 along X, 0 to 1.5 up
+  const op = begin(s, face);
+  const across = runOp(s, { ...along(op, [9, 0, 0], [0, 0, 1]), value: 90 })!;
+  assert.match(across.session.message ?? "", /cuts across the figure/);
+  assert.equal(scene(across.session).steps.length, scene(s).steps.length, "nothing is made");
+  const acrossX = runOp(s, { ...along(op, [9, 0, 0.75], [1, 0, 0]), value: 90 })!; // (along X through the middle of the height)
+  assert.match(acrossX.session.message ?? "", /cuts across the figure/);
+  const onEdge = runOp(s, { ...along(op, [8, 0, 0], [0, 0, 1]), value: 90 })!;
+  assert.equal(onEdge.session.message, null, "on its own edge");
+  const beside = runOp(s, { ...Z(op), value: 90 })!;
+  assert.equal(beside.session.message, null, "beside it");
+});

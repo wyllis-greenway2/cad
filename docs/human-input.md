@@ -2272,3 +2272,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_485 — 2026-11-16 — approval
 > Go with option 1 for the face revolve
 (approves option 1 of `q_revolve_body_face`: the face becomes a figure at the moment of the revolve, the axis an edge of it or the orb out in space)
+
+## in_486 — 2026-11-16 — directive
+> Refuse an axis that cuts across the face
+(asks for what `dec_revolve_body_face` lists as not built: a revolve whose axis cuts across the figure is refused beforehand, with the reason)
