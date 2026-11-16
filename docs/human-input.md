@@ -2568,3 +2568,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_557 — 2026-11-16 — directive
 > actually lets keep it simple for now, only we create official machinery, tools, material library, in order to ensure quality, users can add their own though.
 (answers question 3 of q_manufacturing_open: for now the shared library is official only, made by us to ensure quality; users can add their own definitions; no community contribution and no learning from results for now)
+
+## in_558 — 2026-11-16 — approval
+> Yes, small sourced hazards field
+(approves the answer to question 4 of q_manufacturing_open: official materials carry a small structured hazards field with a source, with a disclaimer)

@@ -2570,3 +2570,6 @@ Six inputs of the last turns had not been recorded (`in_451` to `in_456`; record
 
 ## Handoff 513 — 2026-11-16 (in_557: question 3 answered, official library only)
 `in_557`. **Question 3:** the human chose to keep it simple: only we make the shared library of machines, tools and materials (official, for quality); users add their own. No community contribution, no learning from results for now. **Written:** `dec_manufacturing_definitions` (point 6 rewritten, trust levels reduced to `official` and `user`), `q_manufacturing_open` (question 3 answered). Packs (export and import of one's own definitions) stay and are flagged as user data (my reading, not asked). **Next:** question 4 (safety data in official materials).
+
+## Handoff 514 — 2026-11-16 (in_558: question 4 answered, hazards field)
+`in_558`. **Question 4:** the human approved a small structured, sourced `hazards` field on official materials with a disclaimer. **Written:** `dec_manufacturing_definitions` (point 7), `q_manufacturing_open` (question 4 answered). The AI is not to write hazard entries from memory; each needs a cited source and a human check. **Next:** question 5 (a default tool library with feeds for the first milling version).
