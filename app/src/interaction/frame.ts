@@ -33,6 +33,8 @@ import { BODY_OBJECT } from "../compiler/body.ts";
 import { SIMILAR_RULES } from "./similar.ts";
 import { loftChips, loftStarts } from "./loft.ts";
 import { faceKinds, sizeKinds, optionsOf } from "./options.ts";
+import { noticesOf } from "./notice.ts";
+import type { Notice } from "./notice.ts";
 import type { Option } from "./options.ts";
 import { sweepStart } from "./sweep.ts";
 import { moverOp } from "./control/pose.ts";
@@ -93,6 +95,8 @@ export interface Frame {
   helper: { at: Vec3; text: string } | null;
   /** the kernel is still working the model out (a picture of it may be a moment old): a "working" sign shows if it takes a while */
   busy: boolean;
+  /** everything the person is told, as one list for one renderer (`in_547`) */
+  notices: Notice[];
   /** the world axis the selected plane or face lies across and which end of it the camera must be at to see it (so that X Y Z button is lit, as + or −) */
   lookHint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null;
   /** The world axis the camera is nearest to looking along, and how near (0: no axis is near, 1: exactly along it): its button takes on the colour as the view comes round to it, to pick the straight view that is closest (`in_295`) */
@@ -316,6 +320,10 @@ function helperAt(s: AppState, g: { handles: Handle[] } | null): { at: Vec3; tex
 
 const isSectionPlane = (sc: Scene, r: Ref | undefined | null): boolean => { const p = r ? sc.parts[r] : undefined; return p?.kind === "plane" && !!p.section; };
 export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): Frame {
+  const f = frameBase(s, size, now);
+  return { ...f, notices: noticesOf(f) };
+}
+function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<Frame, "notices"> {
   const gpu = gpuMotion(s);
   if (gpu?.shownFree && s.op?.free) s = { ...s, op: { ...s.op, free: gpu.shownFree } };
   const shown = gpu ? gpu.shown : operationResult(s);
@@ -421,7 +429,7 @@ const OPEN_LABELS: Record<string, string> = { linear: "Linear repeat", circular:
 const withFlashed = (list: Annotation[], sc: Scene, flash: FlashFrame | null): Annotation[] => {
   if (!flash) return list;
   const have = new Set(list.map((a) => a.id));
-  return [...list, ...annotationsOf(sc, [...flash.victims, ...flash.culprits]).filter((a) => !have.has(a.id))];
+  return [...list, ...annotationsOf(sc, [...new Set([...flash.victims, ...flash.culprits])]).filter((a) => !have.has(a.id))];
 };
 /** The small plane drawn for the mirror's chosen arrow (`in_437`): a square across that axis where the plane stands, a little bigger than what is mirrored. */
 function mirrorGuide(s: AppState): Frame["sectionPlanes"] {

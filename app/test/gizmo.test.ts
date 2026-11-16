@@ -1303,6 +1303,24 @@ test("a rectangle with a locked width cannot be stretched from its side: it is r
   assert.ok(st.session.conflict && st.session.conflict.culprits.length > 0, "the constraint that holds it flashes");
 });
 
+test("a side that a locked length holds is refused like any other change: the notice offers to delete the constraint and make it, and one undo takes both back (`in_547`)", () => {
+  let st = box();
+  const lines = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn");
+  const bottom = lines.find((l) => { if (l.kind !== "line") return false; const [a, b] = [scene(st.session).parts[l.a] as { at: Vec3 }, scene(st.session).parts[l.b] as { at: Vec3 }]; return a.at[1] === 0 && b.at[1] === 0; })!;
+  st = { ...st, session: run(st.session, actionsFor(scene(st.session), [bottom.ref]).find((x) => x.id === "length")!.run(40)) };
+  const side = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && Math.abs(p.at[0] - 40) < 1e-6 && p.u[0] === 0 && p.v[0] === 0)!;
+  st = reduce(select(st, [side.ref]), { type: "begin", name: "pushpull" }, env);
+  st = typeNumber(st, "50");
+  const refusal = frame(st).notices.find((n) => n.kind === "refusal");
+  assert.ok(refusal?.action, "a refusal by a constraint has the button");
+  assert.deepEqual(refusal!.action!.intent, { type: "overrideRefusal" });
+  assert.ok(refusal!.beside, "it stands by the constraint that stopped it");
+  const before = scene(st.session).relations.length;
+  st = reduce(st, refusal!.action!.intent, env);
+  assert.ok(scene(st.session).relations.length < before, "the constraint that held it is deleted");
+  assert.equal(st.session.message, null, "and the change is made");
+});
+
 test("a chamfer face of a box edge: pulling it out makes the chamfer smaller, as the step that made it; the end of an earlier prism push is its depth", () => {
   let st = box();
   const vertical = Object.values(scene(st.session).parts).find((p) => p.kind === "line" && p.origin === "body" && (scene(st.session).parts[p.a] as { at: Vec3 }).at[2] !== (scene(st.session).parts[p.b] as { at: Vec3 }).at[2])!;

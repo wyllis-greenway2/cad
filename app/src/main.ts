@@ -46,13 +46,11 @@ import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
 import { createHardMarks } from "./ui/hardmarks.ts";
 import { createPanel } from "./ui/panel.ts";
-import { createHelper } from "./ui/helper.ts";
-import { createBusy } from "./ui/busy.ts";
 import { createControls } from "./ui/controls.ts";
 import { createToolChip } from "./ui/toolchip.ts";
 import { createToolCursor } from "./ui/toolcursor.ts";
 import { createSimilarChip } from "./ui/similarchip.ts";
-import { createRefusalChip } from "./ui/refusalchip.ts";
+import { createNotices } from "./ui/notices.ts";
 import { createResetView } from "./ui/resetview.ts";
 import { createCrosshair } from "./ui/crosshair.ts";
 import { createModeSwitch } from "./ui/modeswitch.ts";
@@ -156,8 +154,6 @@ let lastIcon: [number, number] | null = null;
 let touchRects: DOMRect[] = []; // (where the drag icons of a finger stood on the last frame: the bubbles and the suggestions keep off them, `in_292`)
 const touchHandle = createTouchCursor(document.body);
 const boxView = createBoxView(document.body);
-const helper = createHelper(document.body);
-const busySign = createBusy(document.body);
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
 const crosshair = createCrosshair(document.body);
@@ -165,7 +161,7 @@ const hardMarks = createHardMarks(document.body, (id) => dispatch({ type: "runAc
 const worldOrb = createWorldOrb(document.body, () => dispatch({ type: "runAction", id: "world:toggle" }));
 const sheetChips = createSheetChips(document.body, (id) => dispatch({ type: "runAction", id }));
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
-const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "overrideRefusal" }), () => dispatch({ type: "holdFlash" }));
+const notices = createNotices(document.body, statusEl, (i) => dispatch(i)); // (every message, refusal, help and the working sign, `in_547`)
 const addChip = createAddChip(document.body, () => dispatch({ type: "runAction", id: "select:add" }));
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "invert" ? { type: "runAction", id: "hollow:invert" } : to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
@@ -295,7 +291,7 @@ let resultStore: ReturnType<typeof openResultStore<KernelResult>> = null;
 const resultStoreOn = (): boolean => { const q = new URLSearchParams(location.search).get("cache"); return q === "1" || (q !== "0" && !import.meta.env.DEV); };
 
 async function boot() {
-  statusEl.textContent = "loading the geometry kernel…";
+  notices.say("loading the geometry kernel…");
   // the kernel works on its own thread so a heavy model does not freeze the page; if that cannot start, it runs here instead
   try {
     const worked = createAsyncKernel(() => {
@@ -311,7 +307,7 @@ async function boot() {
   } catch {
     await initKernelWeb();
   }
-  statusEl.textContent = "";
+  notices.say("");
   let session = createSession(engine);
   if (new URLSearchParams(location.search).get("demo") === "box") {
     const r = drawRectangle(scene(session), "w/XY" as Ref, [-20, -10, 0], [20, 10, 0], [1, 0, 0], [0, 1, 0]);
@@ -415,21 +411,19 @@ function frame(now: number) {
     toolCursor.update(f.tool ? f.tool.kind : null);
     const project = projector(state.cam, size.w, size.h).project;
     // what comes before the constraint bubbles: the ring, and the number bubbles (and the helper bubble, the suggestions and the hint icons), as they stood on the last frame
-    const inFront = [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), hintIcons.rect(), ...touchRects].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : []));
+    const inFront = [ring.rect(), ...chips.map((c) => c.rect()), notices.helpRect(), hintIcons.rect(), ...touchRects].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : []));
     if (bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid, inFront)) dirty = true; // (a bubble still sliding to its place: another frame)
-    refusalChip.update(f.refusal, f.refusal ? bubbles.rectOf(f.refusal.beside) : null); // (beside the bubble of the constraint that stopped it, `in_367`)
     view.setNotes(f.annotations.flatMap((a) => a.lines), f.annotations.flatMap((a) => a.dashed ?? []), state.cam.distance * 0.012);
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
     // the icon stands at the upper left of the handles, out of the way of the arrows and rings (`in_215`)
     const corner = f.modeSwitch ? f.modeSwitch.pts.map((p) => onPage(p)!).reduce<[number, number]>((c, q) => [Math.min(c[0], q[0]), Math.min(c[1], q[1])], [Infinity, Infinity]) : null;
-    suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null, [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));
+    suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null, [ring.rect(), ...chips.map((c) => c.rect()), notices.helpRect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));
     const valueBubbles = f.entries.length ? f.entries : f.entry ? [f.entry] : [];
     valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool && lastDevice !== "touch", lastDevice === "touch", !!e.constraint, e.opacity ?? 1)); // (a mouse draws through the bubble: a finger can tap into it to type a size, `in_289`)
     for (let i = valueBubbles.length; i < chips.length; i++) chips[i]!.update(null, "mm", null);
     modeSwitch.update(f.modeSwitch, corner && Number.isFinite(corner[0]) ? corner : null, chips.flatMap((c) => c.rect() ?? [])); // (after the bubbles: it keeps off them, `in_231`)
-    helper.update(f.helper ? f.helper.text : null, f.helper ? onPage(f.helper.at) : null);
-    const working = busySign.update(f.busy, now);
+    const working = notices.update(f.notices, { onPage, bubble: (id) => bubbles.rectOf(id), touch: lastDevice === "touch", now });
     controls.hint(f.lookHint);
     controls.menuOpen(menu.open);
     controls.facing(f.facing);
@@ -471,9 +465,6 @@ function frame(now: number) {
     if (waiting && staleSince === null) staleSince = tFrame;
     else if (!waiting && staleSince !== null) { timing.add("edit: waiting for the kernel until its answer is drawn", tEnd - staleSince); staleSince = null; }
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);
-    statusEl.textContent = f.message;
-    statusEl.style.bottom = lastDevice === "touch" ? "108px" : ""; // (above the operation bar of a finger, with its undo and redo, `in_546`; and clear of the X Y Z buttons: a long message is not under them, `in_336`)
-    statusEl.style.right = lastDevice === "touch" ? "64px" : "";
     dirty = panesFading || !!f.flash || !!f.gizmo?.pulse || f.entries.some((e) => e.opacity !== undefined && e.opacity < 1) || working || !!f.highlight.temp?.length || touchMoved; // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
   }
   requestAnimationFrame(frame);

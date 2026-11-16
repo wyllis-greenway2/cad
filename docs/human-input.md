@@ -2524,3 +2524,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_546 — 2026-11-16 — directive
 > Go with the operation bar and Tab stepping
 (approves and asks for step 2 of `q_ui_unification`: one operation bar with the operation's options, apply and cancel for every operation, tool, repeat, picking, cut and mover state on every device (at the bottom and joined with undo and redo on a phone), and Tab and Shift+Tab stepping through the options of the open operation)
+
+## in_547 — 2026-11-16 — directive
+> Go with the notification system next
+(approves and asks for step 3 of `q_ui_unification`: one notification path and renderer for every message, refusal, helper and hint, and one refusal rule: any change refused because of a constraint offers "Delete constraint to proceed")
