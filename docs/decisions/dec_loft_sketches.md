@@ -3,7 +3,7 @@ id: dec_loft_sketches
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_485, in_431, in_432
+human_input: in_489, in_488, in_485, in_431, in_432
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -15,6 +15,8 @@ alternative_to:
 **Built (`in_432`):** *Loft* in the Shape menu with two or more closed sketches selected, on planes of their own, in the order picked (the first is the step's figure, the rest its `also` siblings, as an extrude carries them); chips: Smooth or Ruled, Split to match, and for each sketch with sides Start *k* (moves its start point, shown as an amber dot, to the next corner) and Reverse *k*; Enter or the check makes one `loft` step. Outlines are matched in `compiler/loftmatch.ts`: equal part counts join start to start; unequal are refused with the reason unless Split to match is on (a straight side cut in two at its middle, longest first; a circle becomes the same circle as that many arcs); holes are lofted and cut out and must be as many in every sketch; the step joins or cuts a body it meets as an extrusion does. **Not built:** a single point at an end (cone, dome), dragging the start dots (a chip moves them), dots for a sketch that was split, guides, tangent ends, a looped loft.
 
 **Preview (`in_485`):** a loft's preview, open or waiting for the check (chosen before its sketches were clicked), is drawn as a wireframe, as the revolve's and the sweep's are (`frame.ts`).
+
+**Number bubbles (`in_488`, `in_489`):** the human chose the start point of each sketch as the loft's number (not the distances between sketches). A bubble at each sketch's start dot (`loftEntries`) shows the corner it starts at, 1 to its number of sides; a number typed moves the start there (`loftStartTyped`, going round past the last), as pressing Start k does. A circle has none. The Start / Reverse chips stay.
 
 ## Rationale
 

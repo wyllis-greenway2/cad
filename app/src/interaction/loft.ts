@@ -71,3 +71,25 @@ export function loftStarts(scene: Scene, op: Op): Ref[] {
     return c ? [c as Ref] : [];
   });
 }
+
+/** The start corner of each sketch as a number bubble at its start dot (`in_488`, `in_489`): 1 is the corner the sketch began at, typing another number moves the start there; one for each sketch with sides. */
+export function loftNumbers(scene: Scene, op: Op): { index: number; sketch: number; value: number; sides: number; at: readonly [number, number, number] }[] {
+  return (op.loftFigs ?? []).flatMap((f, i) => {
+    const n = sidesOf(scene, f);
+    const loop = n ? loopOf(lookup(scene), f.outer) : null;
+    if (!n || !loop || !loop.ok) return [];
+    const s = (op.loftShift?.[i] ?? 0) % n;
+    const c = scene.parts[loop.corners[op.loftRev?.[i] ? (n - s) % n : s] as Ref];
+    return c?.kind === "corner" ? [{ index: i, sketch: i + 1, value: s + 1, sides: n, at: c.at }] : [];
+  });
+}
+
+/** A start corner typed for sketch `i` (1 to its number of sides; another number goes round to one that fits). */
+export function loftStartTyped(scene: Scene, op: Op, i: number, typed: number): Op {
+  const fig = op.loftFigs?.[i];
+  const n = fig ? sidesOf(scene, fig) : 0;
+  if (!n || !Number.isFinite(typed)) return op;
+  const shift = [...(op.loftShift ?? [])];
+  shift[i] = ((Math.round(typed) - 1) % n + n) % n;
+  return { ...op, loftShift: shift };
+}

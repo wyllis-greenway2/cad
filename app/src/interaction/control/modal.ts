@@ -31,6 +31,7 @@ import { withPose, orientApply, moverOp, putMover } from "./pose.ts";
 import { doPlaneNew, doSheetMode, doSheetVisible, doSheetDelete, doSheetMove, typedSection, placeSection, sectionNow } from "./section.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { sub } from "../../math/vec.ts";
+import { loftStartTyped } from "../loft.ts";
 import { frameAngles, frameOfAngles } from "../entry.ts";
 import { typedNumber } from "../../shared/numbers.ts";
 import { pivotCommands, patternCommand, patternValues, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
@@ -205,6 +206,10 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     const d = (s.op.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]])[field - 10]!; // (along the arrow as it stands: only that part of the place changes, `in_487`)
     const more = n - (s.op.pivot[0] * d[0] + s.op.pivot[1] * d[1] + s.op.pivot[2] * d[2]);
     return { ...s, op: { ...s.op, auto: false, pivot: [s.op.pivot[0] + more * d[0], s.op.pivot[1] + more * d[1], s.op.pivot[2] + more * d[2]] as Vec3 } };
+  }
+  if (s.op?.kind === "loft") { // the corner a sketch starts at, typed on its start dot's bubble (`in_488`)
+    const n = typedNumber(text);
+    return n === null ? s : { ...s, op: loftStartTyped(sceneOf(s.session), s.op, field, n) };
   }
   if (s.op?.kind === "mirror" && !s.moverSphere && s.op.mirrorAt && field >= 0 && field < 3) { // the number of the mirror plane's arrow: where the plane stands along that axis (`in_437`)
     const n = typedNumber(text);

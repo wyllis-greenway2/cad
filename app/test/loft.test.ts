@@ -113,3 +113,19 @@ test("the Loft operation: with two sketches selected it opens with its chips and
   assert.equal(step.params.shift, "0,1");
   assert.ok(volume(st.session) > 400, `the body: ${volume(st.session)}`);
 });
+
+test("each sketch's start dot has a number bubble (the corner it starts at); a number typed moves the start, and it goes round (`in_488`, `in_489`)", () => {
+  const { s, faces } = twoSquares(10, 4, 20);
+  let st = { ...createState({ ...s, click: { ...s.click, selection: faces as never } }), cam: homeCamera() };
+  st = reduce(st, { type: "begin", name: "loft" }, env);
+  const e0 = frameOf(st, { w: 800, h: 600 }).entries;
+  assert.deepEqual(e0.map((e) => [e.fields[0]!.index, e.fields[0]!.value]), [[0, "1"], [1, "1"]], "one on each sketch, at corner 1");
+  assert.ok(e0.every((e) => !!e.at), "each stands at its dot");
+  st = reduce(st, { type: "entry", field: 1, text: "3" } as never, env);
+  assert.deepEqual(st.op!.loftShift, [0, 2], "corner 3 is two on");
+  assert.equal(frameOf(st, { w: 800, h: 600 }).entries[1]!.fields[0]!.value, "3");
+  st = reduce(st, { type: "entry", field: 1, text: "6" } as never, env);
+  assert.deepEqual(st.op!.loftShift, [0, 1], "6 of 4 sides goes round to corner 2");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(scene(st.session).steps.at(-1)!.params.shift, "0,1");
+});

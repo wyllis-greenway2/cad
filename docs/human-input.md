@@ -2278,3 +2278,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_487 — 2026-11-16 — directive
 > Do the turned-orb position bubbles next
 (asks for what in_486 left unbuilt: for a turned orb, the revolve's position bubbles giving the place along the turned axis, not the world coordinate)
+
+## in_488 — 2026-11-16 — directive
+> Do the loft's own number bubbles next
+(asks for number bubbles for the loft; what numbers a loft has is not said)
+
+## in_489 — 2026-11-16 — preference
+> Start point per sketch
+(answers which numbers the loft's bubbles should carry (asked after in_488): the start point of each sketch; not the distances between sketches)

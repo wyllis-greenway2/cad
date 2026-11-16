@@ -16,6 +16,7 @@ import { add, sub, scale, dot } from "../math/vec.ts";
 import { anglesOf, fromAngles } from "../math/rotation.ts";
 import { OP_FIELD, OP_UNIT, valueOf, turnAngles, sizeShown } from "./operations.ts";
 import { advanceOf } from "./revolve.ts";
+import { loftNumbers } from "./loft.ts";
 
 export interface EntryField { label: string; value: string; active: boolean; typed: boolean; /** a short name shown in front of the number when there are several (X Y Z) */ short?: string; /** which numbered field of its operation it is, when the operation has several bubbles */ index?: number; /** the unit of this field when it is not the entry's (a position and a rotation in one bubble) */ unit?: string }
 /** `at`: where in the scene the bubble sits (null: no place to attach it to) */
@@ -184,6 +185,11 @@ export function revolveEntries(op: Op, g: Gizmo | null, chosen: string | null): 
     return [{ fields: [{ label: `The spiral advance along ${"XYZ"["xyz".indexOf(chosen[8]!)]}`, short: "↔", value: typed ? op.advTyped! : roundedText(advanceOf(op)), active: false, typed, index: 1, unit: "mm" }], unit: "mm", at: h.points.at(-1)!, from: h.points[0]! }];
   }
   return [];
+}
+/** A loft's start numbers: a bubble at each sketch's start dot with the number of the corner it starts at (`in_488`). */
+export function loftEntries(scene: Scene, op: Op): Entry[] {
+  if (op.kind !== "loft") return [];
+  return loftNumbers(scene, op).map((x) => ({ fields: [{ label: `Where sketch ${x.sketch} starts (corner 1 to ${x.sides})`, short: `${x.sketch}`, value: String(x.value), active: false, typed: false, index: x.index }], unit: "", at: x.at }));
 }
 /** The numbers of a scale along axes (`in_390`): one bubble at the tip of each axis arrow with the factor along it, to type. */
 export function scaleEntries(op: Op, g: Gizmo | null): Entry[] {
