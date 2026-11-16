@@ -206,10 +206,11 @@ const say = (message: string) => { state = { ...state, session: { ...state.sessi
 async function exportDialogFlow() {
   let saved = EXPORT_DEFAULTS;
   try { saved = { ...EXPORT_DEFAULTS, ...JSON.parse(webStore.get(EXPORT_KEY) ?? "{}") }; } catch { /* not kept, or not readable: the usual */ }
+  saved = { ...saved, units: units.system }; // (the units start from the number system of the settings page; a different choice here is for this file only, `in_570`)
   const answers = await dialog.open((v) => exportDialog(state.session, v as unknown as ExportOptions), (({ name: _name, ...rest }) => rest)(fitExport(state.session, { ...saved, name: "" })) as unknown as Values); // (the file name is not asked as an answer to begin with: the dialog offers its own)
   if (!answers) return;
   const o = fitExport(state.session, answers as unknown as ExportOptions);
-  webStore.set(EXPORT_KEY, JSON.stringify({ format: o.format, units: o.units, quality: o.quality, what: "all", perBody: o.perBody, name: "" }));
+  webStore.set(EXPORT_KEY, JSON.stringify({ format: o.format, quality: o.quality, what: "all", perBody: o.perBody, name: "" }));
   say(`making the ${FLAT_OR_NOT(o.format)} file…`);
   const r = await exportWith(state.session, engine, o);
   if (!r.ok) return say(r.error);

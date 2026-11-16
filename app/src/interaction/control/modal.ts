@@ -37,7 +37,7 @@ import { sub } from "../../math/vec.ts";
 import { loftStartTyped } from "../loft.ts";
 import { frameAngles, frameOfAngles } from "../entry.ts";
 import { typedNumber } from "../../shared/numbers.ts";
-import { typedLength } from "../../shared/units.ts";
+import { typedLength, lengthIn, units } from "../../shared/units.ts";
 import { pivotCommands, patternCommand, patternValues, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
 import type { Repeat } from "../pattern.ts";
 import type { Op } from "../operations.ts";
@@ -375,7 +375,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   }
   if (id === "hard:clearance") { // the clearance of the whole model, round a few values (`in_473`)
     const sc = sceneOf(closed.session);
-    const steps = [0, 0.1, 0.2, 0.3, 0.5, 1];
+    const steps = units.system === "in" ? [0, 0.005, 0.01, 0.015, 0.02, 0.04].map((v) => lengthIn(v)) : [0, 0.1, 0.2, 0.3, 0.5, 1]; // (the same few small values, in the number system in use, `in_570`)
     const now = sc.clearance ?? 0;
     const next = steps.find((v) => v > now + 1e-9) ?? 0;
     return { ...closed, session: run(closed.session, { type: "setClearance", value: next }) };

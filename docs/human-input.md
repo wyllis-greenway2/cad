@@ -2616,3 +2616,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_569 — 2026-11-16 — directive
 > I think the gear code needs to be left alone because it is in regards to already existing external standards for gear sizes right? I suppose free form gears could have sizes though, just leave it alone for now but lets add a note to our project that we should review that. What else do we need to do?
 (asks that the gear tool's numbers be left alone for now, since gears are sized by existing external standards, with a note in the project to review it later, because free-form gears could have sizes of their own; and asks what else is left to do)
+
+## in_570 — 2026-11-16 — directive
+> Go with your recommendation, start on the unit gaps
+(approves doing the unit gaps of the number system: areas, the Import and Export dialogs' unit choice, and the Clearance row)

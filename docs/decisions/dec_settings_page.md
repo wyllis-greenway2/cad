@@ -3,7 +3,7 @@ id: dec_settings_page
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_554
+human_input: in_570, in_554
 date: 2026-11-16
 depends_on:
   - dec_menu_picking: the ⋯ list is where the page is opened from, and its rows are the short ones that decision set
@@ -19,7 +19,7 @@ alternative_to:
 - *Key bindings* are data in `settings.input.keys` as before (`keymap.ts`); the page's logic is `interaction/preferences.ts` (pure), only the changed bindings are kept so a key the app gives later is not hidden by an old copy.
 - *The number system* (`shared/units.ts`): the model is always millimetres; only what is shown and typed for a **length** changes: the number bubbles of operations, tools and repeats (`inUnits` in `entry.ts`: a live value is converted, what was typed already is in the system in use), a typed length (`typedLength` at each place a typed length is read: operations, tools, repeats' distances, the revolve's advance, the loft's distances, the orb, mirror and section places), the dimension bubbles of constraints and measures, the History's steps; an arrow key steps a tenth of a millimetre or a hundredth of an inch. Angles, counts and scale factors are never converted. Inches show four places, millimetres two.
 
-**Not converted yet (said plainly):** areas (the `mm²` of an area measure), the file names and sizes of Import and Export (their dialogs have their own unit choice and do not follow this setting), the tape measure's text if it shows one outside a bubble, and the clearance row of the ⋯ list (it still says a number of millimetres). The grid has no labels.
+**Gaps closed (`in_570`):** *areas* (the tape measure's area, `mm²`) show in square inches with `in²`; the **Clearance** row and its steps follow the system (a few small values: 0.005, 0.01, 0.015, 0.02, 0.04 in); the **Export** dialog's units start from the number system (what was chosen last time for the units is no longer kept: it is a choice for that file); an **STL import** starts from the number system too (the other imports start from "as the file says"). **Not converted, on purpose (`in_569`):** the gear tool's numbers, which follow external standards: `q_gear_units`. The grid has no labels.
 
 ## Rationale
 

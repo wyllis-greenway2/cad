@@ -65,3 +65,26 @@ test("the history says a step's length in the number system in use", () => {
   units.system = "in";
   assert.match(label(), /Extrude 1 in/);
 });
+
+import { areaText } from "../src/shared/units.ts";
+import { appRows } from "../src/interaction/appmenu.ts";
+import { importDialog } from "../src/interaction/transfer.ts";
+import { IMPORT_DEFAULTS } from "../src/interaction/importfile.ts";
+import { createState, reduce } from "../src/interaction/controller.ts";
+
+test("areas, the Clearance row and its steps and an STL's units follow the number system (`in_570`)", () => {
+  assert.equal(areaText(645.16), "645.16"); // millimetres: as it was
+  units.system = "in";
+  assert.equal(areaText(645.16), "1");
+  assert.equal(unitName("mm²"), "in²");
+  assert.equal(appRows("", {}, false, 0.254).find((r) => r.id === "hard:clearance")!.label, "Clearance 0.01");
+  const stl = importDialog("a.stl", { ...IMPORT_DEFAULTS }).fields.find((f) => f.id === "units")!;
+  assert.equal(stl.value, "in", "an STL's units start from the number system");
+  let st = createState(createSession(kernel));
+  const seen: number[] = [];
+  for (let i = 0; i < 6; i++) { st = reduce(st, { type: "runAction", id: "hard:clearance" }, { w: 800, h: 600, now: 0 } as never); seen.push(scene(st.session).clearance ?? 0); }
+  assert.deepEqual(seen.map((v) => Math.round((v / 25.4) * 1e4) / 1e4), [0.005, 0.01, 0.015, 0.02, 0.04, 0], "a few small values in inches, round to nothing");
+  units.system = "mm";
+  st = reduce(createState(createSession(kernel)), { type: "runAction", id: "hard:clearance" }, { w: 800, h: 600, now: 0 } as never);
+  assert.equal(scene(st.session).clearance, 0.1, "millimetres: as before");
+});
