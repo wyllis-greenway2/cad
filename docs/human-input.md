@@ -2262,3 +2262,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 >
 > There seems to be an issue with scale. First off it should have arrows, line lines with orbs on the end. Second, it seems that if you scale in one direction, it still also scales in other directions as well? Also it is not very clear that the scale all arrow is pointing in a different direction on thin objects because it is connected to the object, instead lets just have an xyz style pointer with one extra arrow fully going 45 degrees to each, or on the opposite quadrent pointing away from each at a corner angle.
 (a bug report and a request: *Two distances* always offered with Variable; scale handles as arrows (not lines with balls); a stretch along one axis leaving the others alone; the all-together handle an arrow of its own, at the same angle to X, Y and Z, not joined to the body's corner)
+
+## in_484 — 2026-11-16 — directive
+> for the camera tilt on right click to select menu items, can we try having it not click? lets just try smooth motion but perhaps the actual icon in selection clicks. does that make sense? so the camera tilt and circle center cursor are purely smooth, but the actual selection based off position clicks?
+>
+> Why cant I treat a treat a surface as a sketch? it basically is a sketch with edges etc? If I select a surface, shouldn't I be able to rotate extrude it? by selecting one of its edges as the rotate, or setting the rotate orb out in space?
+(the first: the menu's view tilt and the crosshair move smoothly with the mouse, and only which option is lit and chosen steps; the second: a question, and a request, to revolve a face of a body about one of its edges or about the revolve's orb put out in space)

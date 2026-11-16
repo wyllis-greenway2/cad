@@ -356,12 +356,13 @@ function frame(now: number) {
         if (!p || p[0] < 0 || p[1] < 0 || p[0] > size.w || p[1] > size.h) { ring.hide(); ringAnchor = null; }
         else {
           ring.moveTo(pg.left + p[0], pg.top + p[1]);
-          const lit = ring.selectedCentre();
-          if (lit) {
+          // the view follows the mouse smoothly (the crosshair goes where the mouse's stick points, in no steps); which option is lit is decided from the same stick, in steps, and a click chooses it (`in_484`)
+          const stick = ring.stickOffset();
+          if (stick) {
             const focal = size.h / 2 / Math.tan((settings.view.fovDeg * Math.PI) / 360); // (pixels from the eye to the picture, so a number of pixels is an angle)
             const k = focal * settings.view.orbitRadPerPx;
-            want = [tilt[0] + (lit[0] - (pg.left + pg.width / 2)) / k, tilt[1] + (lit[1] - (pg.top + pg.height / 2)) / k];
-          } else want = tilt; // (nothing lit: where the view is stays)
+            want = [tilt[0] + (pg.left + p[0] + stick[0] - (pg.left + pg.width / 2)) / k, tilt[1] + (pg.top + p[1] + stick[1] - (pg.top + pg.height / 2)) / k];
+          } else want = tilt;
         }
       }
       if (!ringAnchor) want = [0, 0]; // (the ring is gone: the view comes back)
