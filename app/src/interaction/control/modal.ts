@@ -387,7 +387,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id.startsWith("sheet:mode:")) return doSheetMode(closed, id.slice(11) as never);
   if (id === "sheet:move") return doSheetMove(closed);
   if (id === "view:wireframe") return { ...closed, wireframe: !s.wireframe, session: { ...closed.session, message: s.wireframe ? "solid view" : "wireframe view: the faces of bodies are not drawn, to see what is inside" } };
-  if (id === "tape:measure") return { ...closed, tape: !s.tape, session: { ...closed.session, message: s.tape ? "tape measure off" : "tape measure on: select a face, or two (Shift adds the second), to see what they are to each other" } };
+  if (id === "tape:measure") return { ...closed, tape: !s.tape, panel: s.tape ? (s.panel === "measure" ? null : s.panel) : "measure", session: { ...closed.session, message: s.tape ? "tape measure off" : "tape measure on: select a face, or two (Shift adds the second), to see what they are to each other" } };
   if (id.startsWith("mate:stand:")) { // a mate is made standing (it puts itself back after a change) or not (`in_321`)
     const rel = sceneOf(s.session).relations.find((r) => r.id === id.slice(11));
     if (!rel?.params) return closed;
@@ -478,7 +478,7 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
 }
 
 /** The ⋯ menu's lists: choosing one opens it, choosing it again closes it. */
-export const doPanel = (s: AppState, name: "bodies" | "history" | "groups" | "sketches" | "parameters" | "constraints"): AppState => ({ ...s, panel: s.panel === name ? null : name, menu: null });
+export const doPanel = (s: AppState, name: "bodies" | "history" | "groups" | "sketches" | "parameters" | "constraints" | "measure"): AppState => ({ ...s, panel: s.panel === name ? null : name, menu: null });
 /** A row of the open list: a body is selected, a step is taken out of the history. */
 export function doPanelRow(s: AppState, id: string, act: "select" | "remove" | "sketch" | "edit" | "hide"): AppState {
   if (act === "remove" && s.panel === "parameters") return doParamRemove(s, id); // (the cross of a parameter, `dec_named_parameters`)

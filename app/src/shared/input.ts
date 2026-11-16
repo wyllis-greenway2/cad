@@ -74,7 +74,7 @@ export type Intent =
   /** a key for the number being typed (digits, ".", "-", Backspace, Tab, Enter, the arrows) */
   | { type: "typed"; key: string; shift: boolean }
   /** open or close a list from the ⋯ menu (the bodies, the history) */
-  | { type: "panel"; name: "bodies" | "history" | "groups" | "sketches" | "parameters" | "constraints" }
+  | { type: "panel"; name: "bodies" | "history" | "groups" | "sketches" | "parameters" | "constraints" | "measure" }
   /** a row of the open list: select it (a body) or take it out (a step) */
   | { type: "panelRow"; id: string; act: "select" | "remove" | "sketch" | "edit" | "hide" }
   | { type: "panelAction"; id: string }

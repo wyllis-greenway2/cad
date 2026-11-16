@@ -2600,3 +2600,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_566 — 2026-11-16 — directive
 > yes start on the model panel
 (approves the next item: the rest of the Model panel, with the rows of each kind shown under the step that owns them, and the Constraints filter)
+
+## in_567 — 2026-11-16 — directive
+> yes start on the measure report
+(approves the last item of the order of `in_546`: a richer measure report)

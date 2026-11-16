@@ -1,7 +1,7 @@
 // The list card opened from the ⋯ menu (`in_132`): the bodies with their names, or the history of steps. It displays what the interaction layer says and reports which row was chosen.
 import { iconSvg } from "./icons.ts";
 
-export interface PanelData { kind: string; title: string; rows: { child?: "select" | "sketch"; detail?: string; param?: { name: string; expr: string; value: number | null }; id: string; label: string; active: boolean; removable: boolean; edit?: boolean; error?: string; sketch?: boolean; hidden?: boolean; future?: boolean; current?: boolean; fields?: { key: string; label: string; value: number; expr?: string }[]; open?: boolean }[]; note?: string; actions?: { id: string; label: string; title: string }[]; tabs?: { id: string; label: string; on: boolean }[]; insert?: { on: boolean } }
+export interface PanelData { kind: string; title: string; rows: { child?: "select" | "sketch"; detail?: string; param?: { name: string; expr: string; value: number | null }; id: string; label: string; active: boolean; removable: boolean; edit?: boolean; error?: string; sketch?: boolean; hidden?: boolean; future?: boolean; current?: boolean; fields?: { key: string; label: string; value: number; expr?: string }[]; open?: boolean }[]; note?: string; actions?: { id: string; label: string; title: string }[]; tabs?: { id: string; label: string; on: boolean }[]; insert?: { on: boolean }; sections?: { title: string; lines: { label: string; value: string }[] }[] }
 export interface PanelHandlers { row(id: string, act: "select" | "remove" | "sketch" | "edit" | "hide"): void; action(id: string): void; go(id: string): void; tab(id: string): void; insert(): void; edit(id: string): void; set(id: string, key: string, value: number): void; link(id: string, key: string, expr: string): void; param(name: string, expr: string): void; unparam(name: string): void; undo(): void; redo(): void; close(): void }
 
 export function createPanel(host: HTMLElement, h: PanelHandlers) {
@@ -37,8 +37,8 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
       el.appendChild(head);
       if (p.tabs?.length) {
         const bar = document.createElement("div");
-        bar.style.cssText = "display:flex;gap:2px;padding:0 4px 6px";
-        for (const t of p.tabs) { const b = btn(t.label, "", () => { if (!t.on) h.tab(t.id); }); b.style.cssText += `;flex:1;padding:0 4px;font-size:11.5px;${t.on ? "background:#dff1f0;font-weight:600" : "border:1px solid #e1e2e5"}`; if (t.on) b.onpointerleave = () => (b.style.background = "#dff1f0"); bar.appendChild(b); }
+        bar.style.cssText = "display:flex;flex-wrap:wrap;gap:2px;padding:0 4px 6px";
+        for (const t of p.tabs) { const b = btn(t.label, "", () => { if (!t.on) h.tab(t.id); }); b.style.cssText += `;flex:1 0 auto;padding:0 6px;font-size:11.5px;${t.on ? "background:#dff1f0;font-weight:600" : "border:1px solid #e1e2e5"}`; if (t.on) b.onpointerleave = () => (b.style.background = "#dff1f0"); bar.appendChild(b); }
         el.appendChild(bar);
       }
       if (p.actions?.length) {
@@ -54,6 +54,20 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
         b.style.cssText += `;padding:0 8px;font-size:12px;border:1px solid #cfd0d4;${p.insert.on ? "background:#dff1f0;font-weight:600" : ""}`;
         bar.appendChild(b);
         el.appendChild(bar);
+      }
+      for (const sec of p.sections ?? []) {
+        const box = document.createElement("div");
+        box.style.cssText = "padding:4px 8px 8px";
+        const h2 = document.createElement("div"); h2.textContent = sec.title; h2.style.cssText = "font-weight:600;font-size:12px;padding-bottom:3px;color:#2b2b2d"; box.appendChild(h2);
+        for (const l of sec.lines) {
+          const line = document.createElement("div");
+          line.style.cssText = "display:flex;gap:8px;font-size:12px;padding:1px 0;user-select:text;-webkit-user-select:text";
+          const a = document.createElement("span"); a.textContent = l.label; a.style.cssText = "flex:0 0 38%;color:#6b6e75";
+          const b = document.createElement("span"); b.textContent = l.value; b.style.cssText = "flex:1";
+          if (l.label) line.append(a, b); else { b.style.color = "#6b6e75"; line.append(b); }
+          box.appendChild(line);
+        }
+        el.appendChild(box);
       }
       if (p.note) { const note = document.createElement("div"); note.textContent = p.note; note.style.cssText = "padding:0 8px 6px;font-size:12px;color:#6b6e75"; el.appendChild(note); }
       for (const r of p.rows) {
@@ -123,7 +137,7 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
         add.append(nm, ex, btn("+", "Add this parameter", go));
         el.appendChild(add);
       }
-      if (!p.rows.length && p.kind !== "parameters") { const none = document.createElement("div"); none.textContent = "—"; none.style.cssText = "padding:6px 8px;opacity:.5"; el.appendChild(none); }
+      if (!p.rows.length && p.kind !== "parameters" && !p.sections) { const none = document.createElement("div"); none.textContent = "—"; none.style.cssText = "padding:6px 8px;opacity:.5"; el.appendChild(none); }
       el.style.display = "block";
     },
   };

@@ -28,10 +28,10 @@ test("the lists are the tabs of one panel called Model", () => {
   let st = three();
   st = reduce(st, { type: "panel", name: "history" }, env);
   assert.equal(panel(st).title, "Model");
-  assert.deepEqual(panel(st).tabs!.map((t) => [t.label, t.on]), [["Steps", true], ["Bodies", false], ["Sketches", false], ["Constraints", false], ["Parameters", false]]);
+  assert.deepEqual(panel(st).tabs!.map((t) => [t.label, t.on]), [["Steps", true], ["Bodies", false], ["Sketches", false], ["Constraints", false], ["Parameters", false], ["Measure", false]]);
   st = reduce(st, { type: "panel", name: "sketches" }, env);
   assert.equal(st.panel, "sketches");
-  assert.deepEqual(panel(st).tabs!.map((t) => t.on), [false, false, true, false, false]);
+  assert.deepEqual(panel(st).tabs!.map((t) => t.on), [false, false, true, false, false, false]);
 });
 
 test("each figure is a sketch, named in the order of its steps, with its step and its status", () => {
