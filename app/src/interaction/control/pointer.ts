@@ -5,6 +5,7 @@ import { dist, dot, sub, cross, normalize } from "../../math/vec.ts";
 import type { Plane } from "../../operation/part.ts";
 import { normalOfPlane, segmentOf, circleOf } from "../../operation/part.ts";
 import { lookup, nextId } from "../../operation/scene.ts";
+import { gearOfPart } from "../../operation/gearscene.ts";
 import type { Scene } from "../../operation/scene.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { scene as sceneOf, selection as selectionOf, clickOn, hoverOn, run } from "../session.ts";
@@ -46,6 +47,8 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:arc", label: "Curve", icon: "arc", tool: "arc" },
   { id: "tool:trim", label: "Trim", icon: "scissors", tool: "trim" },
   { id: "tool:gear", label: "Gear", icon: "gear", tool: "gear" },
+  { id: "tool:ring", label: "Ring gear", icon: "gear", tool: "gear" },
+  { id: "gear:edit", label: "Edit gear", icon: "gear" },
   { id: "op:offset", label: "Offset", icon: "offset", op: "offset" },
   { id: "op:pushpull", label: "Push pull", icon: "pushpull", op: "pushpull" },
   { id: "op:edge", label: "Fillet chamfer", icon: "edge", op: "edge" },
@@ -73,14 +76,14 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "select:ungroup", label: "Ungroup", icon: "ungroup", select: "ungroup" },
 ];
 const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[] = [
-  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:gear", "tool:trim", "op:offset"] },
+  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:gear", "tool:ring", "gear:edit", "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts"] },
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
-const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:gear", "tool:trim", "op:move", "op:rotate", "op:copy", "op:mirror", "op:linear", "op:circular"]);
+const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:gear", "tool:ring", "tool:trim", "op:move", "op:rotate", "op:copy", "op:mirror", "op:linear", "op:circular"]);
 /** What a constraint or mate is called in the ring: one or two words (`in_538`). */
 const TIPS: Record<string, string> = { fixed: "Fix", onCircle: "On circle", sameAcross: "Same across", equalLength: "Equal", equalRadius: "Equal", "mate:flush": "Flush", "mate:parallel": "Parallel faces", "mate:perpendicular": "Perpendicular faces", "mate:angle": "Face angle", "mate:coaxial": "Coaxial", "mate:parallelAxes": "Parallel axes", "mate:perpendicularAxes": "Perpendicular axes", "mate:angleAxes": "Axis angle", "mate:axisToFace": "Axis to face" };
 const tipOf = (id: string, label: string): string => TIPS[id] ?? label;
@@ -95,6 +98,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
     const base = { id: r.id, label: r.label, icon: r.icon };
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
+    if (r.id === "gear:edit") { const has = sel.some((x) => !!gearOfPart(sc, x)); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
     if (r.select === "combine") { const why = whyNotCombine(session); return [r.id, { ...base, enabled: !why, why }]; }

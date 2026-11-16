@@ -15,6 +15,8 @@ import { bumpCounter, figureRefs, usesFigures } from "./scene.ts";
 import { addGroup, removeGroup, withoutParts } from "./groups.ts";
 import { stretchScene } from "./stretch.ts";
 import { addPattern, setPattern, breakPattern, patternsWithout } from "./repeat.ts";
+import { addGear, setGear, deleteGear } from "./gearscene.ts";
+import type { GearSpec } from "./gear.ts";
 
 export type Command =
   | { type: "addPart"; part: Part }
@@ -46,6 +48,10 @@ export type Command =
   | { type: "pattern"; id: string; kind: "linear" | "circular" | "mirror"; parts: Ref[]; plane: Ref; params: number[] }
   | { type: "setPattern"; id: string; params: number[] }
   | { type: "breakPattern"; id: string }
+  /** a gear that keeps its numbers (`gearscene.ts`, `dec_gear_tool`): its parts are made from this record; `setGear` gives it new numbers (and a new centre), `deleteGear` takes it away */
+  | { type: "gear"; id: string; plane: Ref; at: Vec3; spec: GearSpec }
+  | { type: "setGear"; id: string; spec: GearSpec; at?: Vec3 }
+  | { type: "deleteGear"; id: string }
   /** the whole model stretched by a factor along each world axis about a point (`dec_scale_axes`): the drawing and the distances of the steps, so the extrusions stay exact */
   | { type: "stretch"; factors: Vec3; pivot: Vec3; /** only this body of several (its name), or only these drawn parts (`in_390`) */ body?: string; parts?: Ref[] }
   | { type: "batch"; commands: Command[] };
@@ -226,6 +232,9 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     case "pattern": { const r = addPattern(s, { id: c.id, kind: c.kind, parts: c.parts, plane: c.plane, params: c.params }); return r.ok ? ok(bumpCounter(r.value, c.id)) : r; }
     case "setPattern": return setPattern(s, c.id, c.params);
     case "breakPattern": return breakPattern(s, c.id);
+    case "gear": { const r = addGear(s, { id: c.id, plane: c.plane, at: c.at, spec: c.spec }); return r.ok ? ok(bumpCounter(r.value, c.id)) : r; }
+    case "setGear": return setGear(s, c.id, c.spec, c.at);
+    case "deleteGear": return deleteGear(s, c.id);
     case "batch": {
       let cur = s;
       // a run of addPart commands adds to one private copy of the parts, made once: copying every part for each one added was quadratic (a drawing of 4,000 parts took 6 seconds to import)

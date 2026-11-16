@@ -2512,3 +2512,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_544 — 2026-11-16 — approval
 > I will take your recommendations on all. Except one point. I actually dont want to bake in special treatment for laser cut gears. As a matter of fact, I don't want to have special treatment per manufactured route at all, laser cut, machined, 3d printed etc. I want the modeling to be entirely manufacture route agnostic, and then we will build a separate specialized module for making a model actually manufacturable per manufacturing route. Lets build it
 (approves the proposal of in_543's answer: the profile order, a flat outline first with an optional thickness, a prototype first; except no treatment per manufacturing route anywhere in modeling, a separate module for that later; asks for the gear tool to be built)
+
+## in_545 — 2026-11-16 — directive
+> Do the editable gear numbers and internal gears next
+(asks for what in_544's first slice left unbuilt: a gear's numbers kept so they can be changed later, and internal gears in the tool)

@@ -6,7 +6,9 @@ import type { GearOutline } from "../src/operation/gear.ts";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { worldRef } from "../src/shared/ref.ts";
 import { createSession, run, scene } from "../src/interaction/session.ts";
-import { drawGear, drawCircle } from "../src/operation/build.ts";
+import { drawCircle } from "../src/operation/build.ts";
+import { gearRefs } from "../src/operation/gearscene.ts";
+import type { GearSpec } from "../src/operation/gear.ts";
 import { loopFaceRef, diskFaceRef } from "../src/operation/loops.ts";
 import { startOp } from "../src/interaction/operations.ts";
 import type { Op } from "../src/interaction/operations.ts";
@@ -136,6 +138,12 @@ function areaOf(g: GearOutline): number {
   return a;
 }
 const bodyVolume = (s: ReturnType<typeof createSession>) => Object.values(scene(s).parts).filter((p) => p.kind === "body").reduce((t, p) => t + ((p as { volume?: number }).volume ?? 0), 0);
+/** a gear made by the command, on the XY plane about the origin: the session and the refs of its outline (and of its wall, for a ring) */
+function makeGear(s: ReturnType<typeof createSession>, spec: GearSpec, id = "g_001", at: [number, number, number] = [0, 0, 0]) {
+  const next = run(s, { type: "gear", id, plane: worldRef("XY"), at, spec });
+  assert.ok(!next.message, next.message ?? "");
+  return { s: next, ...gearRefs({ id, plane: worldRef("XY"), at, spec }) };
+}
 const extrude = (s: ReturnType<typeof createSession>, face: string, depth: number) => {
   const op = startOp(scene(s), [face as never], "extrude");
   assert.ok(op.ok);
@@ -144,9 +152,8 @@ const extrude = (s: ReturnType<typeof createSession>, face: string, depth: numbe
 
 test("a gear drawn on the XY plane is a figure that extrudes to a solid with the outline's area times the thickness (a bore is a hole)", () => {
   const g = must(gearOutline({ teeth: 20, module: 2 }));
-  let s = createSession(kernel);
-  const d = drawGear(scene(s), worldRef("XY"), [0, 0, 0], [1, 0, 0], [0, 1, 0], g);
-  s = run(s, d.command);
+  const d = makeGear(createSession(kernel), { teeth: 20, module: 2 });
+  const s = d.s;
   const solid = extrude(s, loopFaceRef(d.lines), 5);
   assert.ok(Math.abs(bodyVolume(solid) - areaOf(g) * 5) < 0.001 * areaOf(g) * 5, `${bodyVolume(solid)} against ${areaOf(g) * 5}`);
   // with a bore drawn in its middle
@@ -157,9 +164,8 @@ test("a gear drawn on the XY plane is a figure that extrudes to a solid with the
 
 test("a ring drawn on the XY plane extrudes to the wall's area, less the hole, times the thickness", () => {
   const g = must(gearOutline({ teeth: 40, module: 2, internal: true }));
-  let s = createSession(kernel);
-  const d = drawGear(scene(s), worldRef("XY"), [0, 0, 0], [1, 0, 0], [0, 1, 0], g);
-  s = run(s, d.command);
+  const d = makeGear(createSession(kernel), { teeth: 40, module: 2, internal: true });
+  const s = d.s;
   const solid = extrude(s, diskFaceRef(d.wall!), 6);
   const want = (Math.PI * g.outerRadius! ** 2 - Math.abs(areaOf(g))) * 6;
   assert.ok(Math.abs(bodyVolume(solid) - want) < 0.001 * want, `${bodyVolume(solid)} against ${want}`);
@@ -168,10 +174,8 @@ test("a ring drawn on the XY plane extrudes to the wall's area, less the hole, t
 test("a gear with 60 teeth is drawn and extruded in well under two seconds", () => {
   const g = must(gearOutline({ teeth: 60, module: 1.5 }));
   const t0 = Date.now();
-  let s = createSession(kernel);
-  const d = drawGear(scene(s), worldRef("XY"), [0, 0, 0], [1, 0, 0], [0, 1, 0], g);
-  s = run(s, d.command);
-  extrude(s, loopFaceRef(d.lines), 4);
+  const d = makeGear(createSession(kernel), { teeth: 60, module: 1.5 });
+  extrude(d.s, loopFaceRef(d.lines), 4);
   assert.ok(Date.now() - t0 < 2000, `${Date.now() - t0} ms`);
 });
 
@@ -204,12 +208,13 @@ test("the Gear tool is in the Sketch ring; click the centre, the pointer sets th
   st = move(st, [C[0] + 22, C[1], 0]);
   assert.ok(previewFor(scene(st.session), st.tool)!.segments.length > 100, "the teeth are shown while the size is set");
   const e = entryOf(scene(st.session), st.tool, st.op);
-  assert.deepEqual(e!.fields.map((f) => f.label), ["Teeth", "Module"]);
-  assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2"]);
+  assert.deepEqual(e!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash"]);
+  assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2", "20", "0", "0"]);
   st = click(st, [C[0] + 22, C[1], 0]);
   assert.ok(Math.abs(reach(st) - 22) < 1e-6, `outside radius ${reach(st)}`);
   assert.ok(selection(st.session).length === 1, "the figure is selected");
   assert.equal(drawn(st).length, 20 * 12, "twelve corners to a tooth: two sides of five points and the two feet below the base circle");
+  assert.equal(scene(st.session).gears!.length, 1, "it keeps its numbers");
   st = { ...st, session: undoLast(st.session) };
   assert.equal(drawn(st).length, 0);
 });
@@ -234,4 +239,147 @@ test("numbers that make no gear make none (3 teeth of a huge shift are not asked
   st = typeText(st, "2");
   st = key(st, "Enter");
   assert.equal(drawn(st).length, 0, "no gear of 2 teeth");
+});
+
+// ---- a gear keeps its numbers (`in_545`) ----
+import { toJSON } from "../src/operation/scene.ts";
+import { openSession, saveText } from "../src/interaction/session.ts";
+
+const pick = (st: AppState, refs: string[]): AppState => ({ ...st, session: { ...st.session, click: { ...st.session.click, selection: refs as never } } });
+const stepOf = (st: ReturnType<typeof createSession>) => scene(st).steps.find((x) => x.type === "extrude")!;
+
+test("changing a gear's teeth changes the body made from it: the step is given the new sides and the volume is the new outline's", () => {
+  const d = makeGear(createSession(kernel), { teeth: 20, module: 2 });
+  let s = extrude(d.s, loopFaceRef(d.lines), 5);
+  assert.equal(stepOf(s).parts.length, 240);
+  const before = bodyVolume(s);
+  s = run(s, { type: "setGear", id: "g_001", spec: { teeth: 30, module: 2 } });
+  assert.ok(!s.message, s.message ?? "");
+  const g = must(gearOutline({ teeth: 30, module: 2 }));
+  assert.equal(stepOf(s).parts.length, g.points.length);
+  assert.ok(bodyVolume(s) > before * 1.4, `${before} -> ${bodyVolume(s)}`);
+  assert.ok(Math.abs(bodyVolume(s) - areaOf(g) * 5) < 0.001 * areaOf(g) * 5, `${bodyVolume(s)} against ${areaOf(g) * 5}`);
+  // the same count with other numbers keeps the sides as they are
+  const names = stepOf(s).parts.join();
+  s = run(s, { type: "setGear", id: "g_001", spec: { teeth: 30, module: 2, backlash: 0.2 } });
+  assert.equal(stepOf(s).parts.join(), names);
+  assert.ok(bodyVolume(s) < areaOf(g) * 5);
+  // one undo each
+  assert.equal(scene(undoLast(s)).gears![0]!.spec.backlash, undefined);
+});
+
+test("a gear with a bore keeps the bore when its teeth change; a ring's wall follows its numbers", () => {
+  const d = makeGear(createSession(kernel), { teeth: 20, module: 2 });
+  const bore = drawCircle(scene(d.s), worldRef("XY"), [0, 0, 0], 4);
+  let s = extrude(run(d.s, bore.command), loopFaceRef(d.lines), 5);
+  s = run(s, { type: "setGear", id: "g_001", spec: { teeth: 24, module: 2 } });
+  const g = must(gearOutline({ teeth: 24, module: 2 }));
+  assert.ok(Math.abs(bodyVolume(s) - (areaOf(g) - Math.PI * 16) * 5) < 0.002 * areaOf(g) * 5, `${bodyVolume(s)}`);
+  const r = makeGear(createSession(kernel), { teeth: 40, module: 2, internal: true });
+  let t = extrude(r.s, diskFaceRef(r.wall!), 6);
+  t = run(t, { type: "setGear", id: "g_001", spec: { teeth: 48, module: 2, internal: true } });
+  assert.ok(!t.message, t.message ?? "");
+  const g2 = must(gearOutline({ teeth: 48, module: 2, internal: true }));
+  const want = (Math.PI * g2.outerRadius! ** 2 - Math.abs(areaOf(g2))) * 6;
+  assert.ok(Math.abs(bodyVolume(t) - want) < 0.002 * want, `${bodyVolume(t)} against ${want}`);
+});
+
+test("numbers that make no gear are refused with the reason and the gear stays as it was; a constraint on a corner that would go refuses the change", () => {
+  const d = makeGear(createSession(kernel), { teeth: 20, module: 2 });
+  const bad = run(d.s, { type: "setGear", id: "g_001", spec: { teeth: 2, module: 2 } });
+  assert.match(bad.message ?? "", /3 to 500 teeth/);
+  assert.equal(scene(bad).gears![0]!.spec.teeth, 20);
+  const corners = Object.values(scene(d.s).parts).filter((p) => p.kind === "corner" && p.ref.startsWith("d/g_001.p")).map((p) => p.ref);
+  const fixed = run(d.s, { type: "addRelation", relation: { id: "r_900", kind: "fixed", parts: [corners[corners.length - 1]!] } });
+  assert.ok(!fixed.message, fixed.message ?? "");
+  const lost = run(fixed, { type: "setGear", id: "g_001", spec: { teeth: 10, module: 2 } });
+  assert.match(lost.message ?? "", /constraint/);
+});
+
+test("a gear is saved as its numbers (the file holds the command, not the parts) and comes back whole; deleting it takes the record and the parts", () => {
+  const d = makeGear(createSession(kernel), { teeth: 24, module: 2.5, pressure: 20, backlash: 0.1 }, "g_001", [10, 5, 0]);
+  const text = saveText(d.s);
+  assert.ok(text.length < 2000, `${text.length} bytes for 24 teeth`);
+  const back = openSession(kernel, text);
+  assert.ok(back.ok, back.ok ? "" : back.error);
+  if (!back.ok) return;
+  assert.equal(Object.keys(scene(back.value).parts).filter((r) => r.startsWith("d/g_001.p")).length, d.lines.length);
+  assert.equal(JSON.stringify(scene(back.value).gears), JSON.stringify(scene(d.s).gears));
+  // as the starting scene of a file, the record is kept and the parts are not
+  const json = toJSON(scene(d.s));
+  assert.equal(json.gears![0]!.spec.backlash, 0.1);
+  assert.ok(!json.parts.some((p) => p.ref.startsWith("d/g_001.")), "no parts of the gear in it");
+  const gone = run(d.s, { type: "deleteGear", id: "g_001" });
+  assert.equal(Object.keys(scene(gone).parts).filter((r) => r.startsWith("d/g_001.")).length, 0);
+  assert.equal(scene(gone).gears, undefined);
+});
+
+test("Edit gear: the number box opens on the selected gear with its numbers; typing teeth and Enter changes it and puts the tool away; Esc leaves it alone", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "gear" }, env);
+  st = click(st, C);
+  st = typeText(st, "20");
+  st = key(st, "Tab");
+  st = typeText(st, "2");
+  st = key(st, "Enter");
+  const made = Object.values(scene(st.session).parts).find((p) => p.kind === "face" && p.ref.includes("g_"))!;
+  st = reduce(st, { type: "escape" }, env); // (the tool is on to make the next gear: put it away)
+  st = pick({ ...st, tool: null }, [made.ref]);
+  const items = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; enabled: boolean; children?: { id: string; enabled: boolean }[] }[]).flatMap((i) => [i, ...(i.children ?? [])]);
+  assert.ok(items.find((i) => i.id === "gear:edit")!.enabled);
+  st = reduce(st, { type: "runAction", id: "gear:edit" }, env);
+  assert.equal(st.tool!.gear!.editing, "g_001");
+  const e = entryOf(scene(st.session), st.tool, st.op)!;
+  assert.deepEqual(e.fields.map((f) => f.value), ["20", "2", "20", "0", "0"], "its numbers as they are");
+  st = typeText(st, "30");
+  st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab");
+  st = typeText(st, "0.1");
+  st = key(st, "Enter");
+  assert.equal(st.tool, null, "the tool is put away");
+  assert.deepEqual([scene(st.session).gears![0]!.spec.teeth, scene(st.session).gears![0]!.spec.backlash], [30, 0.1]);
+  assert.equal(selection(st.session).length, 1, "and the gear is still selected");
+  // Esc leaves it alone
+  let again = reduce(pick(st, [...selection(st.session)] as string[]), { type: "runAction", id: "gear:edit" }, env);
+  again = typeText(again, "12");
+  again = reduce(again, { type: "escape" }, env);
+  assert.equal(scene(again.session).gears![0]!.spec.teeth, 30);
+  // with nothing selected it says so
+  const none = reduce(pick(st, []), { type: "runAction", id: "gear:edit" }, env);
+  assert.match(none.session.message ?? "", /select a gear/);
+});
+
+test("Ring gear tool: the pointer sets the outside of the wall; typed Wall changes it; the ring is made with its wall and one undo takes it all", () => {
+  let st = top();
+  const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap((i) => [i.id, ...(i.children ?? []).map((c) => c.id)]);
+  assert.ok(ids.includes("tool:ring") && ids.includes("gear:edit"));
+  st = reduce(st, { type: "runAction", id: "tool:ring" }, env);
+  assert.equal(st.tool!.gear!.internal, true);
+  st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
+  st = click(st, C);
+  st = move(st, [C[0] + 45, C[1], 0]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Wall", "Backlash"]);
+  st = click(st, [C[0] + 45, C[1], 0]);
+  const rec = scene(st.session).gears![0]!;
+  assert.equal(rec.spec.internal, true);
+  const g = must(gearOutline(rec.spec));
+  assert.ok(Math.abs(g.outerRadius! - 45) < 0.5 * rec.spec.module * 1.2, `wall ${g.outerRadius}`);
+  assert.ok(Object.values(scene(st.session).parts).some((p) => p.kind === "circle" && p.ref.startsWith("d/g_001.")));
+  assert.equal(drawn(undoed(st)).length, 0);
+});
+function undoed(st: AppState): AppState { return { ...st, session: undoLast(st.session) }; }
+
+test("Delete on a selected gear takes the gear whole (record and parts), and one undo brings it back", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "gear" }, env);
+  st = click(st, C);
+  st = typeText(st, "16");
+  st = key(st, "Tab");
+  st = typeText(st, "2");
+  st = key(st, "Enter");
+  const made = Object.values(scene(st.session).parts).find((p) => p.kind === "face" && p.ref.includes("g_"))!;
+  st = pick({ ...reduce(st, { type: "escape" }, env), tool: null }, [made.ref]);
+  const gone = reduce(st, { type: "runAction", id: "delete" }, env);
+  assert.equal(scene(gone.session).gears, undefined);
+  assert.equal(drawn(gone).length, 0);
+  assert.equal(scene({ ...gone.session, history: undoLast(gone.session).history }).gears!.length, 1);
 });

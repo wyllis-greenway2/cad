@@ -11,7 +11,7 @@ import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
 import type { Command } from "../operation/commands.ts";
-import { drawSquaredRectangle, drawCircle, drawChain, drawArc, drawGear, joinedAtCorners } from "../operation/build.ts";
+import { drawSquaredRectangle, drawCircle, drawChain, drawArc, joinedAtCorners } from "../operation/build.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt, visibleFrom } from "./picking.ts";
 import { anchorCorners, anchorLines, anchorCutCorners } from "../operation/anchors.ts";
@@ -19,7 +19,8 @@ import { settings } from "../shared/settings.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Hint } from "./hints.ts";
 import { gearOutline, moduleForOutside } from "../operation/gear.ts";
-import type { GearOutline } from "../operation/gear.ts";
+import type { GearSpec, GearOutline } from "../operation/gear.ts";
+import { gearRefs } from "../operation/gearscene.ts";
 
 export type ToolKind = "rect" | "circle" | "line" | "arc" | "trim" | "gear";
 export interface Tool {
@@ -49,9 +50,20 @@ export interface Tool {
   guides?: [Vec3, Vec3][];
   /** trim: the part of a line or circle under the pointer that a click would cut off (shown as it is) */
   trimming?: { ref: Ref; span: Vec3[] };
+  /** a gear (`dec_gear_tool`): a ring or an outside gear, the numbers typed, the field being typed in, and, when its numbers are being changed, which gear and how it is now */
+  gear?: GearState;
 }
+export interface GearState { internal: boolean; typed: string[]; field: number; editing?: string; base?: GearSpec }
+/** The numbers of a gear in the order the number box shows them (a ring has a wall where a gear has a shift). */
+export const gearFields = (internal: boolean): { key: "teeth" | "module" | "pressure" | "shift" | "backlash" | "rim"; label: string }[] => [
+  { key: "teeth", label: "Teeth" }, { key: "module", label: "Module" }, { key: "pressure", label: "Pressure" },
+  internal ? { key: "rim", label: "Wall" } : { key: "shift", label: "Shift" }, { key: "backlash", label: "Backlash" },
+];
+const gearState = (t: Tool): GearState => t.gear ?? { internal: false, typed: [], field: 0 };
 /** A tool that waits for its first click on a surface. */
-export const armTool = (kind: ToolKind): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0 });
+export const armTool = (kind: ToolKind, internal = false): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0, ...(kind === "gear" ? { gear: { internal, typed: ["", "", "", "", ""], field: 0 } } : {}) });
+/** The tool opened on a gear that is already made, to change its numbers: its plane and centre, and its numbers as they are. */
+export const editGearTool = (rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec }): Tool => ({ ...armTool("gear", !!rec.spec.internal), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: !!rec.spec.internal, typed: ["", "", "", "", ""], field: 0, editing: rec.id, base: rec.spec } });
 
 export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], trim: [], gear: ["Teeth", "Module"] };
 
@@ -122,17 +134,31 @@ export function snapOnPlane(spent: Scene, pv: PointerView, pl: Plane, skip?: Ref
 // ---- typing ----
 /** A key typed into the current field. Returns the new tool state; Tab changes field, Backspace deletes. Keys that are not numbers are ignored. */
 export function typeKey(t: Tool, key: string): Tool {
+  if (t.kind === "gear") {
+    const g = gearState(t);
+    if (key === "Tab") return { ...t, gear: { ...g, field: (g.field + 1) % gearFields(g.internal).length } };
+    const typed = typeInto(g.typed[g.field] ?? "", key);
+    return typed === null ? t : { ...t, gear: { ...g, typed: Array.from({ length: 5 }, (_, i) => (i === g.field ? typed : g.typed[i] ?? "")) } };
+  }
   const n = FIELDS[t.kind].length;
   if (key === "Tab") return { ...t, field: n > 1 ? ((t.field === 0 ? 1 : 0) as 0 | 1) : 0 };
-  const cur = t.typed[t.field];
-  let next = cur;
-  if (key === "Backspace") next = cur.slice(0, -1);
-  else if (/^[0-9]$/.test(key)) next = cur + key;
-  else if (key === "." && !cur.includes(".")) next = cur + (cur === "" ? "0." : ".");
-  else if (key === "-" && cur === "") next = "-";
-  else return t;
+  const next = typeInto(t.typed[t.field], key);
+  if (next === null) return t;
   const typed: [string, string] = t.field === 0 ? [next, t.typed[1]] : [t.typed[0], next];
   return { ...t, typed };
+}
+/** What a field says after a key is typed into it (null: the key is not for a number). */
+function typeInto(cur: string, key: string): string | null {
+  if (key === "Backspace") return cur.slice(0, -1);
+  if (/^[0-9]$/.test(key)) return cur + key;
+  if (key === "." && !cur.includes(".")) return cur + (cur === "" ? "0." : ".");
+  if (key === "-" && cur === "") return "-";
+  return null;
+}
+/** The text of a field of a gear's number box changed (typed in the box itself). */
+export function gearTyped(t: Tool, field: number, text: string): Tool {
+  const g = gearState(t);
+  return { ...t, gear: { ...g, field, typed: Array.from({ length: 5 }, (_, i) => (i === field ? text : g.typed[i] ?? "")) } };
 }
 const typedValues = (t: Tool): [number | null, number | null] => [typedNumber(t.typed[0]), typedNumber(t.typed[1])];
 
@@ -159,22 +185,37 @@ export function circleRadius(pl: Plane, t: Tool): number {
   const c = t.cursor;
   return a && c ? dist(a, c) : 0;
 }
-/** The teeth and module of the gear being drawn: the typed numbers; with no teeth typed 20; with no module typed the one that makes the outside as wide as the pointer is from the centre (to the nearest 0.05). */
-export function gearNumbers(t: Tool): { teeth: number; module: number } | null {
-  const [teeth0, module0] = typedValues(t);
-  const teeth = teeth0 !== null && teeth0 >= 1 ? Math.round(teeth0) : 20;
-  if (module0 !== null && module0 > 0) return { teeth, module: module0 };
-  const a = t.points[0], c = t.cursor;
-  const reach = a && c ? dist(a, c) : 0;
-  if (reach < 1e-6) return null;
-  return { teeth, module: Math.max(0.1, Math.round(moduleForOutside(teeth, 2 * reach) / 0.05) * 0.05) };
+/** The numbers of the gear being drawn or changed: each as typed, else as the gear has it now, else the default (20 teeth, 20 degrees, no shift or backlash, a wall of 2 modules); with no module typed and none to start from, the one (to the nearest 0.05) that makes the outside as wide as the pointer is from the centre. Null while there is no size. */
+function gearSpecOf(t: Tool): GearSpec | null {
+  const g = gearState(t);
+  const fields = gearFields(g.internal);
+  const typed = (k: string) => { const i = fields.findIndex((f) => f.key === k); return i < 0 ? null : typedNumber(g.typed[i] ?? ""); };
+  const b = g.base;
+  const teeth = Math.round(typed("teeth") ?? b?.teeth ?? 20);
+  const pressure = typed("pressure") ?? b?.pressure;
+  const shift = g.internal ? undefined : typed("shift") ?? b?.shift;
+  const backlash = typed("backlash") ?? b?.backlash;
+  const rim = g.internal ? typed("rim") ?? b?.rim : undefined;
+  const typedModule = typed("module");
+  let module = typedModule !== null && typedModule > 0 ? typedModule : b?.module;
+  if (module === undefined) {
+    const [a, c] = [t.points[0], t.cursor];
+    const reach = a && c ? dist(a, c) : 0;
+    if (reach < 1e-6) return null;
+    module = Math.max(0.1, Math.round((g.internal ? reach / (teeth / 2 + 1.25 + (rim ?? 2)) : moduleForOutside(teeth, 2 * reach, shift ?? 0)) / 0.05) * 0.05);
+  }
+  return { teeth, module, ...(pressure !== undefined ? { pressure } : {}), ...(shift !== undefined ? { shift } : {}), ...(backlash !== undefined ? { backlash } : {}), ...(g.internal ? { internal: true as const } : {}), ...(rim !== undefined ? { rim } : {}) };
 }
-/** The outline of the gear being drawn, or null while it is not a gear (no size yet, or numbers that make none: the reason is for the message). */
-function gearOf(t: Tool): { outline: GearOutline } | { error: string } | null {
-  const n = gearNumbers(t);
-  if (!n) return null;
-  const o = gearOutline({ teeth: n.teeth, module: n.module });
-  return o.ok ? { outline: o.value } : { error: o.error };
+/** What each field of the number box says while nothing is typed in it: the numbers as they are now. */
+export function gearLive(t: Tool): number[] | null {
+  const s = gearSpecOf(t);
+  return s ? gearFields(!!s.internal).map((f) => ({ teeth: s.teeth, module: s.module, pressure: s.pressure ?? 20, shift: s.shift ?? 0, backlash: s.backlash ?? 0, rim: s.rim ?? 2 })[f.key]) : null;
+}
+/** The outline of the gear being drawn, or null while it is not a gear (no size yet, or numbers that make none). */
+function gearOf(t: Tool): GearOutline | null {
+  const s = gearSpecOf(t);
+  const o = s ? gearOutline(s) : null;
+  return o && o.ok ? o.value : null;
 }
 /** The next corner of a line from the last one, the cursor and a typed length (along the cursor's direction). */
 export function lineNext(t: Tool): Vec3 | null {
@@ -234,11 +275,10 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
   }
   if (t.kind === "circle") return { segments: [], circle: { center: t.points[0]!, radius: circleRadius(pl, t), normal: n }, cursor: t.cursor };
   if (t.kind === "gear") {
-    const g = gearOf(t);
-    if (!g || !("outline" in g)) return null;
+    const o = gearOf(t);
+    if (!o) return null;
     const [cx, cy] = localOf(pl, t.points[0]!);
     const at = (q: readonly [number, number]): Vec3 => liftOf(pl, [cx + q[0], cy + q[1]]);
-    const o = g.outline;
     const segments: [Vec3, Vec3][] = [];
     o.points.forEach((a, i) => { // (each side as two short lines through its middle: close enough to see the teeth)
       const b = o.points[(i + 1) % o.points.length]!;
@@ -247,7 +287,7 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
       const m: [number, number] = [(a[0] + b[0]) / 2 - dy * k, (a[1] + b[1]) / 2 + dx * k];
       segments.push([at(a), at(m)], [at(m), at(b)]);
     });
-    return { segments, circle: null, cursor: t.cursor };
+    return { segments, circle: o.outerRadius !== undefined ? { center: t.points[0]!, radius: o.outerRadius, normal: n } : null, cursor: t.cursor };
   }
   if (t.kind === "arc") {
     const arc = t.points.length >= 2 ? arcOf(pl, t) : null;
@@ -299,10 +339,12 @@ export function finish(scene: Scene, t: Tool): Finished | null {
     return { command: joinedAtCorners(scene, pl.ref, c.command), select: [diskFaceRef(c.circle)] };
   }
   if (t.kind === "gear") {
-    const g = gearOf(t);
-    if (!g || !("outline" in g)) return null;
-    const d = drawGear(scene, pl.ref, t.points[0]!, pl.u, pl.v, g.outline);
-    return { command: d.command, select: [loopFaceRef(d.lines)] };
+    const spec = gearSpecOf(t);
+    if (!spec || !gearOutline(spec).ok) return null;
+    const id = t.gear?.editing ?? nextId(scene, "g");
+    const refs = gearRefs({ id, plane: pl.ref, at: t.points[0]!, spec });
+    const select = [refs.wall ? diskFaceRef(refs.wall) : loopFaceRef(refs.lines)];
+    return { command: t.gear?.editing ? { type: "setGear", id, spec } : { type: "gear", id, plane: pl.ref, at: t.points[0]!, spec }, select };
   }
   if (t.kind === "arc") {
     const arc = arcOf(pl, t);
