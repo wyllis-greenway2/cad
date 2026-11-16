@@ -2304,3 +2304,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_493 — 2026-11-16 — directive
 > Build STL and 3MF import as mesh bodies next
 (asks for the next step of `q_import_export` point 5: STL and 3MF import as bodies made from meshes; the `about` block and the Import / Export menu restructure are not asked for yet)
+
+## in_494 — 2026-11-16 — directive
+> Build the about block and Import/Export menu next
+(asks for the last open parts of `q_import_export`: the small `about` block in every project file, and the Import / Export menu with standard options in place of the separate export rows)

@@ -111,14 +111,14 @@ test("nothing to export is said, for every format; the file names follow the for
   assert.equal(fileName("step", ["x_s_1"]), "model-x_s_1.step");
 });
 
-test("the menu offers 3MF and STEP beside STL, and for the selected body when there is a choice; greyed out with no body", () => {
-  const ids = (can: Parameters<typeof appRows>[2]) => appRows("pan" as never, "", can, false, false, 1, true, 0).map((r) => r.id);
-  const base = { undo: false, redo: false, exportStl: true };
-  assert.ok(["exportStl", "export3mf", "exportStep"].every((i) => ids(base).includes(i)));
-  assert.ok(!ids(base).includes("exportBody3mf"));
-  assert.ok(["exportBody", "exportBody3mf", "exportBodyStep"].every((i) => ids({ ...base, exportBody: true }).includes(i)));
-  const none = appRows("pan" as never, "", { ...base, exportStl: false }, false, false, 1, true, 0);
-  assert.deepEqual(none.filter((r) => /^export(Stl|3mf|Step)$/.test(r.id)).map((r) => r.enabled), [false, false, false]);
+test("the menu has one Export… (greyed out with the reason when there is nothing to export) and one Import…", () => {
+  const rows = (can: Parameters<typeof appRows>[2]) => appRows("pan" as never, "", can, false, false, 1, true, 0);
+  const ids = rows({ undo: false, redo: false, export: true }).map((r) => r.id);
+  assert.ok(["save", "open", "import", "export"].every((i) => ids.includes(i)));
+  assert.ok(!ids.some((i) => /^export.+/.test(i)), "no row for each format any more");
+  const none = rows({ undo: false, redo: false, export: false }).find((r) => r.id === "export")!;
+  assert.equal(none.enabled, false);
+  assert.match(none.why ?? "", /nothing to export yet/);
 });
 
 test("a STEP export goes through the worker's queue like a mesh, and is answered as bytes (`dec_export_formats`)", async () => {

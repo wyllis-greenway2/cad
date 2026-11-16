@@ -6,12 +6,12 @@ origin: ai-proposed-human-approved
 human_input: in_488, in_491
 date: 2026-11-16
 depends_on:
-  - dec_export_formats: the same file service (`saveBytes`) and the same menu rows; this adds the two flat formats (SVG, DXF) that `q_import_export` point 3 puts after STEP
+  - dec_export_formats: the same file service (`saveBytes`) and the same menu rows; this adds the two flat formats (SVG, DXF) that `dec_import_export_menu` point 3 puts after STEP
 alternative_to:
 ---
 # Export a flat drawing as SVG or DXF
 
-`in_491` asked for SVG and DXF export next, from the order proposed in `q_import_export` (which stays open for the rest). **Built as the AI proposed, narrowly:**
+`in_491` asked for SVG and DXF export next, from the order proposed in `dec_import_export_menu`. **Built as the AI proposed, narrowly:**
 
 - **What is exported:** a *selected flat face of the body* (its outline: the outer edge and the holes), else the *lines, arcs and circles of what is selected* of a sketch (a figure with the figures inside it, lines, circles, a drawn plane), else, with nothing selected, *the whole drawing* when it lies on one plane. Drawings on several planes without a selection, a face with a sketch, and a whole body are refused with what to select.
 - **Coordinates:** the plane's own, x along its first direction and y along its second, millimetres, as drawn (nothing is moved to the origin).

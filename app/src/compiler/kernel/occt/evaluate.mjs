@@ -2,7 +2,7 @@
 // Nothing outside src/kernel/occt/ may import OCCT or replicad (inv_kernel_boundary).
 import { loadOC } from "./oc.mjs";
 import { compile, finalSolid, volume } from "./interpreter.mjs";
-import { makeCompound, getOC } from "replicad";
+import { makeCompound, getOC, exportSTEP as writeStep } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
 import { lumpsOf, lumpsByName } from "./bodies.mjs";
 
@@ -253,13 +253,15 @@ export function exportMesh(graph, quality) {
   return { ok: true, vertices: new Float32Array(m.vertices), triangles: new Uint32Array(m.triangles), volume: volume(shape), bbox: { min: [...box[0]], max: [...box[1]] } };
 }
 
-/** The final body of a graph (or only the bodies named) as a STEP file (`dec_export_formats`): the exact solid, as bytes. */
-export async function exportStep(graph, bodies) {
+/** The final body of a graph (or only the bodies named) as a STEP file (`dec_export_formats`): the exact solid, as bytes; in millimetres or, with `unit` "in", inches. */
+export async function exportStep(graph, bodies, unit) {
   const picked = exportShape(graph, bodies);
   if (!picked.ok) return picked;
   const { shape, box } = picked;
   try {
-    const bytes = new Uint8Array(await shape.blobSTEP().arrayBuffer());
+    // (the unit is a setting of the whole kernel that stays as it was left: it is set every time, millimetres too, or one export in inches would make all the next ones inches; the model is in millimetres either way)
+    const blob = writeStep([{ shape, name: "model" }], { unit: unit === "in" ? "INCH" : "MM", modelUnit: "MM" });
+    const bytes = new Uint8Array(await blob.arrayBuffer());
     return { ok: true, bytes, volume: volume(shape), bbox: { min: [...box[0]], max: [...box[1]] } };
   } catch (e) {
     return { ok: false, error: `the kernel could not write the STEP file: ${e instanceof Error ? e.message : String(e)}` };

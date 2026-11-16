@@ -118,9 +118,9 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     exportMesh(graph: KernelGraph, quality: ExportQuality): Promise<ExportResult> {
       return new Promise((resolve) => { exports.push({ graph, quality, resolve: (r) => resolve(r as ExportResult) }); pump(); });
     },
-    exportStep(graph: KernelGraph, bodies?: string[]): Promise<StepResult> {
+    exportStep(graph: KernelGraph, bodies?: string[], unit?: "in"): Promise<StepResult> {
       // the same queue as the mesh exports (one at a time, none dropped); the answer is a STEP result and is handed back as one
-      return new Promise((resolve) => { exports.push({ graph, quality: { tolerance: 0, angular: 0, step: true, ...(bodies ? { bodies } : {}) }, resolve: (r) => resolve(r as StepResult) }); pump(); });
+      return new Promise((resolve) => { exports.push({ graph, quality: { tolerance: 0, angular: 0, step: true, ...(unit ? { unit } : {}), ...(bodies ? { bodies } : {}) }, resolve: (r) => resolve(r as StepResult) }); pump(); });
     },
     evaluate(graph: KernelGraph): KernelResult {
       const [draft, lite] = [self.draft, self.lite]; // (a rough mesh while a size is dragged, `in_216`, and with no faces and edges, `in_358`: asked for and kept apart from the fine and whole one)

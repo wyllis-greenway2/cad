@@ -40,7 +40,7 @@ const pieceCount = (n: number): string | null => (n > MAX_PIECES ? `this drawing
 const DXF_UNITS: Record<number, number> = { 0: 1, 1: 25.4, 2: 304.8, 4: 1, 5: 10, 6: 1000, 8: 0.0000254, 9: 0.0254, 10: 914.4, 13: 0.001, 14: 100, 15: 10000 };
 
 /** Pieces of an ASCII DXF: LINE, CIRCLE, ARC, LWPOLYLINE and POLYLINE (with bulges), ELLIPSE and SPLINE (flattened); in the file's own units turned into millimetres. Blocks, inserts, text, hatches and 3D entities are left out and said. */
-export function parseDxf(text: string): Parsed {
+export function parseDxf(text: string, opts: { unitMm?: number } = {}): Parsed {
   if (/^AutoCAD Binary DXF/.test(text)) return { ok: false, error: "this is a binary DXF: save it as an ASCII DXF and import that" };
   const lines = text.split(/\r?\n/);
   const pairs: [number, string][] = [];
@@ -48,6 +48,7 @@ export function parseDxf(text: string): Parsed {
   if (!pairs.some(([c, v]) => c === 0 && v === "SECTION")) return { ok: false, error: "this is not a DXF file (no SECTION in it)" };
   let unit = 1;
   for (let i = 0; i < pairs.length; i++) if (pairs[i]![0] === 9 && pairs[i]![1] === "$INSUNITS") { const v = pairs.slice(i + 1, i + 4).find(([c]) => c === 70); if (v) unit = DXF_UNITS[Number(v[1])] ?? 1; break; }
+  if (opts.unitMm) unit = opts.unitMm; // (the person's choice over what the file says)
   // the entities section only
   const start = pairs.findIndex(([c, v], i) => c === 0 && v === "SECTION" && pairs[i + 1]?.[0] === 2 && pairs[i + 1]?.[1] === "ENTITIES");
   if (start < 0) return { ok: false, error: "this DXF has no ENTITIES section" };
@@ -103,7 +104,8 @@ export function parseDxf(text: string): Parsed {
   if (flattened) notes.push(`${flattened} curve${flattened === 1 ? "" : "s"} (ellipses, splines) turned into short lines: the app has no such curves yet`);
   const skipped = Object.entries(left).map(([k, n]) => `${n} ${k}`).join(", ");
   if (skipped) notes.push(`left out: ${skipped}`);
-  if (unit !== 1) notes.push(`the file's units were converted to millimetres (×${unit})`);
+  if (opts.unitMm) unit = opts.unitMm;
+  if (unit !== 1) notes.push(`${opts.unitMm ? "the units you chose" : "the file's units"} were converted to millimetres (×${unit})`);
   return pieces.length ? { ok: true, pieces, notes } : { ok: false, error: `no lines, arcs or circles were found in this DXF${skipped ? ` (it has ${skipped})` : ""}` };
 }
 
@@ -190,7 +192,7 @@ const attrsOf = (s: string): Record<string, string> => {
 };
 
 /** Pieces of an SVG: path, line, polyline, polygon, rect (rounded too), circle and ellipse, with the transforms of the groups; circles and circular arcs stay circles and arcs (also under a uniform scale or a turn), Béziers and ellipses are flattened. The user unit is a pixel (1/96 inch) unless the width, height and viewBox say otherwise; the drawing's own origin stays the origin and y is turned up. */
-export function parseSvg(text: string): Parsed {
+export function parseSvg(text: string, opts: { unitMm?: number } = {}): Parsed {
   if (!/<svg[\s>]/i.test(text)) return { ok: false, error: "this is not an SVG file (no <svg> in it)" };
   const notes: string[] = [];
   const pieces: Piece[] = [];
@@ -211,6 +213,7 @@ export function parseSvg(text: string): Parsed {
       const vb = nums(at.viewBox ?? "");
       if (vb.length === 4 && w && h && vb[2]! > 0 && vb[3]! > 0) unit = Math.min(w / vb[2]!, h / vb[3]!);
       else if (vb.length === 4 && w && vb[2]! > 0) unit = w / vb[2]!;
+      if (opts.unitMm) unit = opts.unitMm; // (the person's choice over what the file says: a user unit is this much)
     }
     if (["defs", "clippath", "mask", "symbol", "pattern", "marker", "style", "script", "title", "desc", "metadata", "text", "image", "foreignobject"].includes(name)) { skip = true; if (["text", "image"].includes(name)) left[name] = (left[name] ?? 0) + 1; }
     if (at.transform) m = mul(m, transformOf(at.transform));

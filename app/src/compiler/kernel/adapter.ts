@@ -31,7 +31,7 @@ export interface KernelResult {
   stale?: boolean;
 }
 /** How fine an exported mesh is: the most a facet may be from the true surface (mm), and the most a curve may turn across one facet (radians). */
-export interface ExportQuality { tolerance: number; angular: number; /** ask for the exact solid as a STEP file (`exportStep`), not a mesh: the worker takes both through the one queue of exports (`dec_export_formats`) */ step?: boolean; /** only these bodies (their names, `KernelResult.bodies`); absent: all of them, which is what the export does unless it is told otherwise (`in_271`) */ bodies?: string[] }
+export interface ExportQuality { tolerance: number; angular: number; /** ask for the exact solid as a STEP file (`exportStep`), not a mesh: the worker takes both through the one queue of exports (`dec_export_formats`) */ step?: boolean; /** with `step`: the file's unit, inches (the model is in millimetres either way) */ unit?: "in"; /** only these bodies (their names, `KernelResult.bodies`); absent: all of them, which is what the export does unless it is told otherwise (`in_271`) */ bodies?: string[] }
 /** The body as a closed triangle mesh for a file (`dec_export_stl`): plain numbers, millimetres, in the world as modelled. */
 export type ExportResult =
   | { ok: true; vertices: Float32Array; triangles: Uint32Array; volume: number; bbox: { min: Vec; max: Vec } }
@@ -49,7 +49,7 @@ export interface Kernel {
   /** the final body of the graph as a mesh made for a file at the given quality (not the screen's coarse one); answers later when the kernel works on its own thread */
   exportMesh(graph: KernelGraph, quality: ExportQuality): Promise<ExportResult>;
   /** the final body (or only the bodies named) as a STEP file; answers later when the kernel works on its own thread */
-  exportStep(graph: KernelGraph, bodies?: string[]): Promise<StepResult>;
+  exportStep(graph: KernelGraph, bodies?: string[], unit?: "in"): Promise<StepResult>;
   /** ask for rough meshes (set while a size is being dragged, cleared when it is let go); a kernel that does not know it ignores it */
   draft?: boolean;
   /** ask for the mesh only, no faces, edges or corners: for a preview, a quarter of the time (`in_358`) */

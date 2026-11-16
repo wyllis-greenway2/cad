@@ -244,7 +244,7 @@ export function buildGraph(scene: Scene): GraphResult {
         // a body (or several) read from a STEP file: it has no history of its own, only the file's text, kept in the step (`dec_import`); beside the bodies already there, as a piece of its own
         const data = String(st.params.data ?? "");
         if (!data) { errors[st.id] = "the file this step imported is gone"; break; }
-        ops.push({ id: xid, type: "import", data, name: String(st.params.name ?? ""), ...(prev ? { target: prev, mode: "new" } : {}) });
+        ops.push({ id: xid, type: "import", data, name: String(st.params.name ?? ""), ...(st.params.scale !== undefined ? { scale: Number(st.params.scale) } : {}), ...(st.params.place ? { place: String(st.params.place) } : {}), ...(prev ? { target: prev, mode: "new" } : {}) });
         prev = xid;
         break;
       }

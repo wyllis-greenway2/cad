@@ -2,4 +2,4 @@
 import type { Kernel } from "./adapter.ts";
 import { KERNEL_NAME, init, evaluate, exportMesh, exportStep } from "./occt/evaluate.mjs";
 
-export const kernel: Kernel = { name: KERNEL_NAME, init, draft: false, lite: false, evaluate: (graph, tess) => evaluate(graph, kernel.draft || kernel.lite ? { tolerance: 0.05, angular: 0.3, ...tess, ...(kernel.draft ? { draft: true } : {}), ...(kernel.lite ? { lite: true } : {}) } : tess), exportMesh: (graph, quality) => Promise.resolve(exportMesh(graph, quality)), exportStep: (graph, bodies) => exportStep(graph, bodies) };
+export const kernel: Kernel = { name: KERNEL_NAME, init, draft: false, lite: false, evaluate: (graph, tess) => evaluate(graph, kernel.draft || kernel.lite ? { tolerance: 0.05, angular: 0.3, ...tess, ...(kernel.draft ? { draft: true } : {}), ...(kernel.lite ? { lite: true } : {}) } : tess), exportMesh: (graph, quality) => Promise.resolve(exportMesh(graph, quality)), exportStep: (graph, bodies, unit) => exportStep(graph, bodies, unit) };

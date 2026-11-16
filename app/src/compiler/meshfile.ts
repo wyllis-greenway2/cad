@@ -100,7 +100,7 @@ function parseModel(xml: string): { unit: number; objects: Map<string, Obj>; ite
 }
 
 /** The meshes of a 3MF file, one for each object that is built (an assembly's parts are each their own, at their places), in millimetres, as corners (nine numbers for each triangle). */
-export async function parse3mf(bytes: Uint8Array): Promise<Parsed<{ name: string; corners: Float64Array }[]>> {
+export async function parse3mf(bytes: Uint8Array, opts: { unitMm?: number } = {}): Promise<Parsed<{ name: string; corners: Float64Array }[]>> {
   const z = await unzip(bytes);
   if (!z.ok) return z;
   const files = z.value;
@@ -109,6 +109,7 @@ export async function parse3mf(bytes: Uint8Array): Promise<Parsed<{ name: string
   const main = files.get(mainPath ?? "3D/3dmodel.model") ?? [...files.entries()].find(([k]) => k.endsWith(".model"))?.[1];
   if (!main) return { ok: false, error: "this 3MF file has no model in it" };
   const model = parseModel(new TextDecoder().decode(main));
+  if (opts.unitMm) model.unit = opts.unitMm; // (the person's choice over the unit the file says)
   const others = new Map<string, ReturnType<typeof parseModel>>();
   const notes: string[] = [];
   const out: { name: string; corners: Float64Array }[] = [];

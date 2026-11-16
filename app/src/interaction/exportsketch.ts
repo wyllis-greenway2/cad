@@ -85,12 +85,12 @@ export function sketchPieces(scene: Scene, selection: readonly Ref[]): Pieces {
 export const canExportFlat = (s: Session): boolean => sketchPieces(s.history.scene, s.click.selection).ok;
 
 /** The file of the selection (or the whole drawing) in `format`; the message says what was made. */
-export function exportFlat(s: Session, format: FlatFormat, name = `sketch.${FLAT[format].ext}`): FileOutcome {
+export function exportFlat(s: Session, format: FlatFormat, name = `sketch.${FLAT[format].ext}`, units: "mm" | "in" = "mm"): FileOutcome {
   const r = sketchPieces(s.history.scene, s.click.selection);
   if (!r.ok) return { ok: false, error: r.error };
-  const text = format === "svg" ? svgText(r.pieces, name.replace(/\.[^.]*$/, "")) : dxfText(r.pieces);
+  const text = format === "svg" ? svgText(r.pieces, name.replace(/\.[^.]*$/, ""), units) : dxfText(r.pieces, units);
   const b = boundsOf(r.pieces)!;
-  const dims = [b.max[0] - b.min[0], b.max[1] - b.min[1]].map((v) => +v.toFixed(2)).join(" × ");
+  const dims = [b.max[0] - b.min[0], b.max[1] - b.min[1]].map((v) => +(units === "in" ? v / 25.4 : v).toFixed(units === "in" ? 3 : 2)).join(" × ");
   const bytes = new TextEncoder().encode(text);
-  return { ok: true, name, bytes, mime: FLAT[format].mime, message: `exported ${name} (${FLAT[format].label}): ${r.what}, ${r.pieces.length} piece${r.pieces.length === 1 ? "" : "s"}, ${dims} mm` };
+  return { ok: true, name, bytes, mime: FLAT[format].mime, message: `exported ${name} (${FLAT[format].label}): ${r.what}, ${r.pieces.length} piece${r.pieces.length === 1 ? "" : "s"}, ${dims} ${units}` };
 }

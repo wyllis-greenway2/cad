@@ -13,7 +13,7 @@ alternative_to:
 ---
 # Import: STEP as a body with no history, SVG and DXF as sketches
 
-`in_492` asked for STEP and SVG / DXF import next, from the order proposed in `q_import_export` (which stays open for STL / 3MF import as mesh bodies and the Import / Export menu restructure). **Built as the AI proposed, narrowly:**
+`in_492` asked for STEP and SVG / DXF import next, from the order proposed in `dec_import_export_menu`. **Built as the AI proposed, narrowly:**
 
 - **Menu:** one row, `Import STEP, SVG or DXF…`, beside Save and Open (`appmenu.ts`); a file picker (`FileService.pick`) takes `.step .stp .svg .dxf`; the kind is the file's ending. One import is one step to undo.
 - **STEP** (`importfile.ts`, the `import` step type, `graph.ts`, `readStep` in `interpreter.mjs`): the solids in the file become **bodies with no history**: the step keeps the file's text (`params.data`) and the kernel reads it on every build (millimetres: the kernel's reader converts the file's units), so the body can be pushed and pulled, cut, filleted, mated, moved, exported and saved like any body, but not edited as a recipe. Each solid is checked; a file with no solid in it (only surfaces or curves), a damaged file or an invalid solid is refused with the reason and nothing is changed. A second STEP stands beside the first as a body of its own. A file over 25 MB is refused (its text travels in the project and with every build).
@@ -22,7 +22,7 @@ alternative_to:
 - **Where a drawing goes** (`importPlane`): the selected plane, or the plane of a selected drawn figure, or a flat face of a body (as a drawn plane that goes with the body), else the XY plane of the world. The pieces that meet are joined at shared corners so closed outlines are figures that can be extruded; arcs are made about their centres, as arcs drawn in the app are.
 - **Checked outside the tests:** `svgpathtools` gives the length of a path with lines, cubic, smooth, quadratic and rotated elliptical arcs as 481.984 mm, the import 481.948 (0.007 % less: lines instead of curves); `ezdxf` wrote the DXF fixture (`test/fixtures/ezdxf-sample.dxf`: lines, an arc, a circle, a bulged polyline, an ellipse, two splines, text) and its own curve of the control-point spline is within 0.006 mm of the import's.
 
-**Not built here (STL and 3MF came with `dec_import_mesh`, `in_493`):** STEP names, colours and assemblies (an assembly's solids come in as separate bodies at their places), surfaces-only STEP, DXF blocks and layers, SVG text and styles (stroke widths, colours), choosing the plane or the place or the scale at import (the options of `q_import_export` point 4), a STEP in the browser larger than 25 MB.
+**Not built here (STL and 3MF came with `dec_import_mesh`, `in_493`):** STEP names, colours and assemblies (an assembly's solids come in as separate bodies at their places), surfaces-only STEP, DXF blocks and layers, SVG text and styles (stroke widths, colours), choosing the plane or the place or the scale at import (the options of `dec_import_export_menu` point 4), a STEP in the browser larger than 25 MB.
 
 ## Rationale
 

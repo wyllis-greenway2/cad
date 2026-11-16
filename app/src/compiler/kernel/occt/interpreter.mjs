@@ -36,6 +36,20 @@ import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
 
+/** The imported solids scaled about the origin by `op.scale` and then placed: `op.place` "center" brings the middle of their box to the origin, "floor" brings the middle of the box to the z axis and the bottom to z = 0 (a part that sits on the build plate). */
+function placedSolids(solids, op) {
+  const k = Number(op.scale ?? 1);
+  let out = solids;
+  if (k !== 1) { if (!(k > 1e-6 && k < 1e4)) throw new Error("the scale of the import must be more than nothing"); out = out.map((x) => x.scale(k, [0, 0, 0])); }
+  if (op.place === "center" || op.place === "floor") {
+    const boxes = out.map(bounds);
+    const [lo, hi] = [0, 1, 2].map((i) => [Math.min(...boxes.map((b) => b.min[i])), Math.max(...boxes.map((b) => b.max[i]))]).reduce((a, r) => [[...a[0], r[0]], [...a[1], r[1]]], [[], []]);
+    const by = [-(lo[0] + hi[0]) / 2, -(lo[1] + hi[1]) / 2, op.place === "floor" ? -lo[2] : -(lo[2] + hi[2]) / 2];
+    out = out.map((x) => x.translate(by));
+  }
+  return out;
+}
+
 /** What an import makes: the solids beside the bodies already there (as a piece of its own each), or alone. */
 function importedSolids(op, ctx, solids) {
   const target = op.target ? ctx.peek(op.target, "solid") : null;
@@ -509,7 +523,7 @@ const OPS = {
 
   /** The solids of a STEP file, as bodies of their own beside the ones already there (`dec_import`): read here, on this thread, from the text kept in the step. A file with no solid in it (only surfaces or curves) is refused with that. */
   import(op, ctx) {
-    return importedSolids(op, ctx, readStep(String(op.data)));
+    return importedSolids(op, ctx, placedSolids(readStep(String(op.data)), op));
   },
   /** The closed meshes of a step (`dec_import_mesh`): each is sewn into a solid whose faces are its triangles, the flat ones that lie in one plane joined, as a body of its own beside the ones already there. */
   importMesh(op, ctx) {

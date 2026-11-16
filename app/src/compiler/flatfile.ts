@@ -68,10 +68,24 @@ export function boundsOf(pieces: readonly Piece[]): { min: V2; max: V2 } | null 
   return { min: [Math.min(...pts.map((q) => q[0])), Math.min(...pts.map((q) => q[1]))], max: [Math.max(...pts.map((q) => q[0])), Math.max(...pts.map((q) => q[1]))] };
 }
 
+/** The pieces in other units: every length times `k` (a millimetre drawing in inches is `1 / 25.4`). */
+export function scaledPieces(pieces: readonly Piece[], k: number): Piece[] {
+  const v = (p: V2): V2 => [p[0] * k, p[1] * k];
+  return pieces.map((p): Piece => (p.k === "seg" ? { k: "seg", p: v(p.p), q: v(p.q) } : p.k === "circle" ? { k: "circle", c: v(p.c), r: p.r * k } : { ...p, c: v(p.c), r: p.r * k, p: v(p.p), q: v(p.q) }));
+}
+
+/** The pieces moved by `by`. */
+export function movedPieces(pieces: readonly Piece[], by: V2): Piece[] {
+  const v = (p: V2): V2 => [p[0] + by[0], p[1] + by[1]];
+  return pieces.map((p): Piece => (p.k === "seg" ? { k: "seg", p: v(p.p), q: v(p.q) } : p.k === "circle" ? { k: "circle", c: v(p.c), r: p.r } : { ...p, c: v(p.c), p: v(p.p), q: v(p.q) }));
+}
+
 /** The SVG: millimetres (the file's width and height are in mm so a laser or vinyl program sizes it right), no fill, a thin black line, one path for each run and a circle for each circle. */
-export function svgText(pieces: readonly Piece[], title: string): string {
+export function svgText(pieces0: readonly Piece[], title: string, units: "mm" | "in" = "mm"): string {
+  const k = units === "in" ? 1 / 25.4 : 1; // (the pieces are in millimetres; an inch drawing has its numbers in inches and says so in its width and height)
+  const pieces = k === 1 ? pieces0 : scaledPieces(pieces0, k);
   const b = boundsOf(pieces) ?? { min: [0, 0] as V2, max: [1, 1] as V2 };
-  const pad = 1; // (a millimetre of margin so the line at the edge is not cut)
+  const pad = k; // (a millimetre of margin so the line at the edge is not cut)
   const [x0, y0, w, h] = [b.min[0] - pad, -b.max[1] - pad, b.max[0] - b.min[0] + 2 * pad, b.max[1] - b.min[1] + 2 * pad];
   const P = (q: V2): string => `${num(q[0])} ${num(-q[1])}`;
   const els: string[] = [];
@@ -88,14 +102,15 @@ export function svgText(pieces: readonly Piece[], title: string): string {
     if (c && c.k === "circle") els.push(`<circle cx="${num(c.c[0])}" cy="${num(-c.c[1])}" r="${num(c.r)}"/>`);
   }
   const esc = title.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${num(w)}mm" height="${num(h)}mm" viewBox="${num(x0)} ${num(y0)} ${num(w)} ${num(h)}">\n<title>${esc}</title>\n<g fill="none" stroke="#000000" stroke-width="0.1" stroke-linecap="round" stroke-linejoin="round">\n${els.join("\n")}\n</g>\n</svg>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${num(w)}${units === "in" ? "in" : "mm"}" height="${num(h)}${units === "in" ? "in" : "mm"}" viewBox="${num(x0)} ${num(y0)} ${num(w)} ${num(h)}">\n<title>${esc}</title>\n<g fill="none" stroke="#000000" stroke-width="${num(0.1 * k)}" stroke-linecap="round" stroke-linejoin="round">\n${els.join("\n")}\n</g>\n</svg>\n`;
 }
 
 /** The DXF: the old plain form (AC1009) that every program reads, millimetres, one LINE, ARC or CIRCLE for each piece; an arc always runs counter-clockwise in DXF, so a clockwise one is written from its other end. */
-export function dxfText(pieces: readonly Piece[]): string {
+export function dxfText(pieces0: readonly Piece[], units: "mm" | "in" = "mm"): string {
+  const pieces = units === "in" ? scaledPieces(pieces0, 1 / 25.4) : pieces0;
   const g: string[] = [];
   const add = (code: number, value: string | number) => { g.push(String(code), typeof value === "number" ? num(value) : value); };
-  add(0, "SECTION"); add(2, "HEADER"); add(9, "$ACADVER"); add(1, "AC1009"); add(9, "$INSUNITS"); add(70, 4); add(0, "ENDSEC");
+  add(0, "SECTION"); add(2, "HEADER"); add(9, "$ACADVER"); add(1, "AC1009"); add(9, "$INSUNITS"); add(70, units === "in" ? 1 : 4); add(0, "ENDSEC");
   add(0, "SECTION"); add(2, "ENTITIES");
   const deg = (r: number): number => ((r * 180) / Math.PI + 360) % 360;
   for (const raw of pieces) {

@@ -9,12 +9,15 @@ import { createRecognizer } from "./interaction/recognizer.ts";
 import { mateStatus } from "./operation/mates.ts";
 import { createSession, openSession, saveText, run, scene, selection, refresh } from "./interaction/session.ts";
 import type { Session } from "./interaction/session.ts";
-import { canExport, selectedBodies } from "./interaction/exportstl.ts";
-import { exportFile, fileName } from "./interaction/exportfile.ts";
-import { importAny, IMPORT_KINDS } from "./interaction/importfile.ts";
-import { exportFlat, canExportFlat } from "./interaction/exportsketch.ts";
-import type { FlatFormat } from "./interaction/exportsketch.ts";
+import { canExport } from "./interaction/exportstl.ts";
+import { canExportFlat } from "./interaction/exportsketch.ts";
+import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
+import type { ExportOptions } from "./interaction/transfer.ts";
+import type { ImportOptions } from "./interaction/importfile.ts";
+import { createDialog } from "./ui/dialog.ts";
+import type { Values } from "./ui/dialog.ts";
 import type { ExportFormat } from "./interaction/exportfile.ts";
+import { aboutOf } from "./operation/file.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
 import { createState, reduce, advance, stopView } from "./interaction/controller.ts";
 import { frameOf } from "./interaction/frame.ts";
@@ -120,11 +123,9 @@ const menu = createMenu(document.body, (id) => {
     webStore.set(SCROLL_KEY, next);
   } else if (id === "constraints") dispatch({ type: "runAction", id: "constraints" });
   else if (id === "share") shareState();
-  else if (id === "exportStl" || id === "export3mf" || id === "exportStep") void exportModel(id === "exportStl" ? "stl" : id === "export3mf" ? "3mf" : "step");
-  else if (id === "exportSvg" || id === "exportDxf") exportSketch(id === "exportSvg" ? "svg" : "dxf");
-  else if (id === "import") void importPicked();
+  else if (id === "export") void exportDialogFlow();
+  else if (id === "import") void importDialogFlow();
   else if (id === "clearAnswers") void resultStore?.clear();
-  else if (id === "exportBody" || id === "exportBody3mf" || id === "exportBodyStep") void exportModel(id === "exportBody" ? "stl" : id === "exportBody3mf" ? "3mf" : "step", selectedBodies(state.session));
   else if (id === "save" || id === "open") dispatch({ type: id });
   else if (id === "bodies" || id === "history" || id === "groups") dispatch({ type: "panel", name: id });
   else if (id === "undo" || id === "redo") dispatch({ type: id });
@@ -196,40 +197,44 @@ function shareState() {
   state = { ...state, session: { ...state.session, message: `saved ${name}: send that file` } };
   dirty = true;
 }
-/** Save the body as a file (`dec_export_stl`, `dec_export_formats`): the kernel makes the fine mesh (STL, 3MF) or the exact solid (STEP), on its thread when it has one, then it is offered as a download; the result line says what was made. */
-async function exportModel(format: ExportFormat, only?: string[]) {
-  const say = (message: string) => { state = { ...state, session: { ...state.session, message } }; dirty = true; };
-  say(`making the ${format === "3mf" ? "3MF" : format.toUpperCase()} file…`);
-  const r = await exportFile(state.session, engine, format, only, fileName(format, only));
+const EXPORT_KEY = "cad.exportOptions";
+const dialog = createDialog(document.body);
+const say = (message: string) => { state = { ...state, session: { ...state.session, message } }; dirty = true; };
+/** Export (`dec_export_stl`, `dec_export_formats`, `dec_export_flat`, `dec_import_export_menu`): a dialog asks the format and its options (the last choices are remembered), then the file is made (the kernel on its own thread for a mesh or an exact solid) and offered as a download; the result line says what was made. */
+async function exportDialogFlow() {
+  let saved = EXPORT_DEFAULTS;
+  try { saved = { ...EXPORT_DEFAULTS, ...JSON.parse(webStore.get(EXPORT_KEY) ?? "{}") }; } catch { /* not kept, or not readable: the usual */ }
+  const answers = await dialog.open((v) => exportDialog(state.session, v as unknown as ExportOptions), (({ name: _name, ...rest }) => rest)(fitExport(state.session, { ...saved, name: "" })) as unknown as Values); // (the file name is not asked as an answer to begin with: the dialog offers its own)
+  if (!answers) return;
+  const o = fitExport(state.session, answers as unknown as ExportOptions);
+  webStore.set(EXPORT_KEY, JSON.stringify({ format: o.format, units: o.units, quality: o.quality, what: "all", perBody: o.perBody, name: "" }));
+  say(`making the ${FLAT_OR_NOT(o.format)} file…`);
+  const r = await exportWith(state.session, engine, o);
   if (!r.ok) return say(r.error);
   webFiles.saveBytes(r.name, r.bytes, r.mime);
   say(r.message);
 }
-/** Choose a STEP, SVG or DXF file and bring it in (`dec_import`): a STEP is a body with no history, a drawing a sketch on the selected plane (else the XY plane); one step to undo. */
-async function importPicked() {
-  const say = (message: string) => { state = { ...state, session: { ...state.session, message } }; dirty = true; };
+const FLAT_OR_NOT = (f: string): string => (f === "3mf" ? "3MF" : f.toUpperCase());
+/** Import (`dec_import`, `dec_import_mesh`, `dec_import_export_menu`): choose a file, say how it is to come in (units, scale, where), and it is added as one step to undo. */
+async function importDialogFlow() {
   const picked = await webFiles.pick(IMPORT_KINDS);
   if (!picked) return;
+  if (!KIND_OF(picked.name)) return say("the app imports STEP (.step, .stp), STL, 3MF, SVG and DXF files");
+  const answers = await dialog.open((v) => importDialog(picked.name, v as unknown as ImportOptions), { ...IMPORT_DEFAULTS } as unknown as Values);
+  if (!answers) return;
   say(`reading ${picked.name}…`);
-  const r = await importAny(state.session, picked.name, picked.bytes);
+  const r = await importWith(state.session, picked.name, picked.bytes, answers as unknown as ImportOptions);
   state = { ...state, session: r.ok ? { ...r.session, message: r.message } : { ...state.session, message: r.error } };
-  dirty = true;
-}
-/** Save a flat drawing (the selected sketch or flat face, else the whole drawing) as an SVG or a DXF file (`dec_export_flat`). */
-function exportSketch(format: FlatFormat) {
-  const r = exportFlat(state.session, format);
-  state = { ...state, session: { ...state.session, message: r.ok ? r.message : r.error } };
-  if (r.ok) webFiles.saveBytes(r.name, r.bytes, r.mime);
   dirty = true;
 }
 function dispatch(i: Intent) {
   logIntent(i);
-  if (i.type === "save") { webFiles.save(FILE_NAME, saveText(state.session)); return; }
+  if (i.type === "save") { webFiles.save(FILE_NAME, saveText(state.session, { app: "CAD", build: typeof __BUILD__ === "string" ? __BUILD__ : "", saved: new Date().toISOString() })); return; } // (what made the file is written at its top, `in_494`)
   if (i.type === "open") {
     void webFiles.open().then((text) => {
       if (text === null) return;
       const r = openSession(engine, text);
-      if (r.ok) adopt(r.value);
+      if (r.ok) { adopt(r.value); const a = aboutOf(text); if (a) { state = { ...state, session: { ...state.session, message: `opened a project saved by ${a.app}${a.build ? ` build ${a.build}` : ""} on ${a.saved.slice(0, 10)}` } }; dirty = true; } }
       else state = { ...state, session: { ...state.session, message: r.error } }, (dirty = true);
     });
     return;
@@ -246,7 +251,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportFlat: canExportFlat(state.session), exportBody: !!selectedBodies(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale, settings.theme.outlines, scene(state.session).clearance ?? 0)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, export: canExport(state.session) || canExportFlat(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale, settings.theme.outlines, scene(state.session).clearance ?? 0)); }
     else {
       menu.hide();
       if (state.menu && inGame()) { // game mode: the ring stands in the world, ahead of the eye, where it was opened (`in_463`, `in_471`)

@@ -80,9 +80,9 @@ test("a drawn rectangle and a circle export as they were drawn; the menu items f
   const dxf = exportFlat(s, "dxf");
   assert.ok(dxf.ok);
   if (dxf.ok) { assert.equal((text(dxf.bytes).match(/^LINE$/gm) ?? []).length, 4); assert.equal((text(dxf.bytes).match(/^CIRCLE$/gm) ?? []).length, 1); }
-  const rows = (can: boolean) => appRows("pan" as never, "", { undo: false, redo: false, exportFlat: can }, false, false, 1, true, 0).filter((r) => r.id === "exportSvg" || r.id === "exportDxf").map((r) => r.enabled);
-  assert.deepEqual(rows(true), [true, true]);
-  assert.deepEqual(rows(false), [false, false]);
+  const rows = (can: boolean) => appRows("pan" as never, "", { undo: false, redo: false, export: can }, false, false, 1, true, 0).filter((r) => r.id === "export").map((r) => r.enabled);
+  assert.deepEqual(rows(true), [true]);
+  assert.deepEqual(rows(false), [false]);
 });
 
 test("a sketch on a plane that is not XY is exported in the plane's own x and y", () => {
