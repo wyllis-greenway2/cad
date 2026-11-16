@@ -60,6 +60,29 @@ export function cavitiesInside(shape) {
   return true;
 }
 
+/**
+ * Is what a fillet or a chamfer of `size` made of the selected edges (`set`: their hash codes) believable? A round takes material off a corner, or puts it in, and never more than about `size` squared
+ * along the edge (a bevel of the legs `size` is half that, a round less); at the corners where edges meet there is a little more (`size` cubed). A body whose volume changed by far more than that is not
+ * what the round makes: the kernel's round on a thin wall can come out "valid" and with the hollow of the body gone (a chamfer of 1.7 mm on a box with a 0.5 mm wall made by subtracting: 271 mm3 became 985).
+ * The kernel carries a round on along the edges that continue the selected one smoothly (a rim, the edges of an arc), so the length counted is first that of the edges selected and, if that does not
+ * hold the change, all the edges of the faces they bound (the most the round can follow).
+ */
+export function roundIsSane(before, after, size, set) {
+  const [v0, v1] = [Math.abs(measureVolume(before)), Math.abs(measureVolume(after))];
+  const room = (length) => 1.05 * size * size * (length + 2 * size) + 1e-9 * v0;
+  const change = Math.abs(v1 - v0);
+  const selected = edgesOf(before).filter((x) => set.has(x.hashCode));
+  if (change <= room(selected.reduce((a, x) => a + x.length, 0))) return true;
+  const seen = new Set();
+  let around = 0;
+  for (const f of facesOf(before)) {
+    const edges = edgesOf(f);
+    if (!edges.some((x) => set.has(x.hashCode))) continue;
+    for (const x of edges) if (!seen.has(x.hashCode)) { seen.add(x.hashCode); around += x.length; }
+  }
+  return change <= room(around);
+}
+
 /** Resolve "$name" references against graph.params. Everything is a named parameter. */
 function resolve(value, params) {
   if (typeof value === "string" && value.startsWith("$")) {
@@ -803,10 +826,13 @@ const OPS = {
           const second = resolve(op.dist2, ctx.params);
           const two = t.chamfer({ distances: [size, second], selectedFace: (ff) => ff.when(({ element }) => element.hashCode === face.hashCode) }, pick);
           if (!isValidSolid(two) || Math.abs(measureVolume(two) - measureVolume(t)) < 1e-9 * measureVolume(t)) throw new Error("the kernel made nothing of it");
+          if (!roundIsSane(t, two, Math.max(size, second), set)) throw new Error("kernel returned an invalid solid");
           return two;
         }
         const made = stage("the kernel's round", () => op.mode === "chamfer" ? t.chamfer(size, pick) : rel && rel.length > 2 ? lawFillet(t, set, stationsFor(size)) : t.fillet(rel ? [size, size * rel[1][1]] : size, pick));
         if (!stage("checking the round", () => isValidSolid(made))) throw new Error("kernel returned an invalid solid"); // (a size the faces cannot take can come out as a broken solid, not an exception)
+        const reach = Math.max(size, rel ? size * Math.max(...rel.map(([, r]) => r)) : 0);
+        if (!stage("checking the round's size", () => roundIsSane(t, made, reach, set))) throw new Error("kernel returned an invalid solid"); // (more taken or added than a round of this size can: the hollow of a thin body gone)
         if (stage("checking the round's volume", () => Math.abs(measureVolume(made) - measureVolume(t)) < 1e-9 * measureVolume(t))) throw new Error("the kernel made nothing of it"); // (a size it cannot take can come out as the body unchanged)
         return made;
       } catch (e) {

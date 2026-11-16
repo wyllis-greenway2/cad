@@ -2199,3 +2199,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_471 — 2026-11-16 — directive
 > okay it seems to run alright for me. lets work on other stuff. Look at this bug, I was able to do an invalid chamfer and put this body into a bad state.
 (two files were attached: `invalid_chamfer_on_hollow.json` and its state snapshot; says the editing speed is fine on their machine and asks to look at a bug: an invalid chamfer on a hollowed body that left the body in a bad state)
+
+## in_472 — 2026-11-16 — question
+> Is this truly a generic fix though? What if someone made a hollow body via boolean subtract instead of using the hollow tool? shouldn't it just generically know when it is going into an invalid format?
+(asks whether the fix for `in_471` is generic, for example for a hollow made by a boolean subtract, and says the kernel should know in general when a result is going invalid; answered by testing: not generic enough, and a second check was added)
