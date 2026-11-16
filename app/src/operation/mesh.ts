@@ -23,6 +23,7 @@ const norm = (a: number): number => { const t = ((a % TAU) + TAU) % TAU; return 
 export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean }, where: number): Result<Placement> {
   const s = src.spec;
   const z2 = Math.round(partner.teeth);
+  if (s.pulley) return err("a timing pulley meshes with a belt, not with a gear");
   if ((s.shift ?? 0) !== 0) return err("a gear with a profile shift is not meshed yet");
   if (!Number.isFinite(z2) || z2 < 1) return err("the partner needs teeth");
   const m = s.module;

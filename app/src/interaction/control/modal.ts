@@ -7,7 +7,7 @@ import type { Session } from "../session.ts";
 import { nearCommand } from "../suggest.ts";
 import { actionsFor, measureAction } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
-import { armTool, typeKey, finish, lineNext, gearTyped, editGearTool, meshGearTool, gearProblem } from "../tools.ts";
+import { armTool, typeKey, finish, lineNext, gearTyped, editGearTool, meshGearTool, gearProblem, variantOf } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
 import { gearOfPart } from "../../operation/gearscene.ts";
 import type { OpKind } from "../operations.ts";
@@ -68,7 +68,7 @@ function facePlane(s: AppState, over: Ref | null, now: number): AppState {
 }
 
 function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = null, variant: GearVariant = "gear"): AppState {
-  if (s.tool?.kind === kind && !s.tool.plane && (!!s.tool.gear?.internal ? "ring" : s.tool.gear?.rack ? "rack" : "gear") === (kind === "gear" ? variant : "gear")) return { ...s, tool: null }; // pressing it again puts it away
+  if (s.tool?.kind === kind && !s.tool.plane && variantOf(s.tool.gear) === (kind === "gear" ? variant : "gear")) return { ...s, tool: null }; // pressing it again puts it away
   const armed: AppState = { ...s, tool: armTool(kind, variant), op: null, menu: null };
   const { plane, onSketch } = sketchPlane(s, over);
   if (plane && onSketch) return animateTo({ ...armed, tool: { ...armTool(kind, variant), plane: plane.ref, reveal: true } }, planeView(s.cam, plane, false), now);
@@ -111,7 +111,7 @@ export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["n
 
 /** Put a finished figure into the scene and hand back to normal selection with the figure selected. */
 /** The tool stays on after a figure is made, ready on the same plane for the next, until a right click or the cancel icon at the top puts it away (`in_193`). */
-const stays = (t: AppState["tool"]): AppState["tool"] => (t && !t.gear?.editing && !t.gear?.mesh ? { ...armTool(t.kind, t.gear?.internal ? "ring" : t.gear?.rack ? "rack" : "gear"), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
+const stays = (t: AppState["tool"]): AppState["tool"] => (t && !t.gear?.editing && !t.gear?.mesh ? { ...armTool(t.kind, variantOf(t.gear)), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
 
 export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppState {
   if (!fin) {
@@ -420,6 +420,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id === "tool:ring") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "ring"); // (a gear with its teeth pointing in)
   if (id === "tool:rack") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "rack");
+  if (id === "tool:gt2" || id === "tool:gt3") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:gt2" ? "gt2" : "gt3"); // (a timing pulley, `in_551`)
   if (id === "gear:mesh" || id === "gear:meshrack") { // a gear, or a rack, that meshes with the one selected (`in_547`)
     const sc = sceneOf(s.session);
     const rec = selectionOf(s.session).map((r) => gearOfPart(sc, r)).find((g) => !!g);

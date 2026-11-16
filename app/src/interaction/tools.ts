@@ -61,24 +61,27 @@ export interface GearState {
   internal: boolean; typed: string[]; field: number; editing?: string; base?: GearSpec;
   /** the turn the gear being changed has (radians), so its preview stands as it does */ turn?: number;
   /** a rack (`in_547`) */ rack?: boolean;
+  /** a timing pulley for this belt (`in_551`) */ pulley?: "2GT" | "3GT";
   /** a gear or a rack made to mesh with `src` (`in_547`); `rack`: the partner is a rack */ mesh?: { src: GearRecord; rack: boolean };
 }
-export type GearKey = "teeth" | "module" | "pressure" | "shift" | "backlash" | "rim" | "bore" | "ratio" | "angle" | "offset";
+export type GearKey = "teeth" | "module" | "pressure" | "shift" | "backlash" | "rim" | "bore" | "ratio" | "angle" | "offset" | "clearance";
 /** The numbers of a gear in the order the number box shows them (a ring has a wall where a gear has a shift; a rack has the bar under its teeth; a partner has its tooth count, ratio and the direction it stands in). */
-export const gearFields = (g: { internal: boolean; rack?: boolean; mesh?: { src: GearRecord; rack: boolean } }): { key: GearKey; label: string }[] => {
+export const gearFields = (g: { internal: boolean; rack?: boolean; pulley?: "2GT" | "3GT"; mesh?: { src: GearRecord; rack: boolean } }): { key: GearKey; label: string }[] => {
   const f = (key: GearKey, label: string) => ({ key, label });
   if (g.mesh) return g.mesh.src.spec.rack ? [f("teeth", "Teeth"), f("offset", "Offset")] : g.mesh.rack ? [f("teeth", "Teeth"), f("angle", "Angle")] : [f("teeth", "Teeth"), f("ratio", "Ratio"), f("angle", "Angle")];
+  if (g.pulley) return [f("teeth", "Teeth"), f("clearance", "Clearance"), f("bore", "Bore")];
   if (g.rack) return [f("teeth", "Teeth"), f("module", "Module"), f("pressure", "Pressure"), f("backlash", "Backlash"), f("rim", "Base")];
   return [f("teeth", "Teeth"), f("module", "Module"), f("pressure", "Pressure"), g.internal ? f("rim", "Wall") : f("shift", "Shift"), f("backlash", "Backlash"), ...(g.internal ? [] : [f("bore", "Bore")])];
 };
 const gearState = (t: Tool): GearState => t.gear ?? { internal: false, typed: [], field: 0 };
 /** A tool that waits for its first click on a surface. */
-export type GearVariant = "gear" | "ring" | "rack";
-export const armTool = (kind: ToolKind, variant: GearVariant = "gear"): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0, ...(kind === "gear" ? { gear: { internal: variant === "ring", typed: ["", "", "", "", "", ""], field: 0, ...(variant === "rack" ? { rack: true } : {}) } } : {}) });
+export type GearVariant = "gear" | "ring" | "rack" | "gt2" | "gt3";
+export const variantOf = (g: { internal?: boolean; rack?: boolean; pulley?: "2GT" | "3GT" } | undefined): GearVariant => (g?.pulley === "2GT" ? "gt2" : g?.pulley === "3GT" ? "gt3" : g?.internal ? "ring" : g?.rack ? "rack" : "gear");
+export const armTool = (kind: ToolKind, variant: GearVariant = "gear"): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0, ...(kind === "gear" ? { gear: { internal: variant === "ring", typed: ["", "", "", "", "", ""], field: 0, ...(variant === "rack" ? { rack: true } : {}), ...(variant === "gt2" ? { pulley: "2GT" as const } : variant === "gt3" ? { pulley: "3GT" as const } : {}) } } : {}) });
 /** The tool opened to make a gear or a rack that meshes with `src`: its centre is the gear's, the pointer says where the partner goes. */
 export const meshGearTool = (src: GearRecord, rack: boolean): Tool => ({ ...armTool("gear"), plane: src.plane, points: [src.at], cursor: src.at, gear: { internal: false, typed: ["", "", "", "", "", ""], field: 0, mesh: { src, rack } } });
 /** The tool opened on a gear that is already made, to change its numbers: its plane and centre, and its numbers as they are. */
-export const editGearTool = (rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }): Tool => ({ ...armTool("gear", rec.spec.rack ? "rack" : rec.spec.internal ? "ring" : "gear"), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: !!rec.spec.internal, ...(rec.spec.rack ? { rack: true } : {}), typed: ["", "", "", "", "", ""], field: 0, editing: rec.id, base: rec.spec, ...(rec.turn ? { turn: rec.turn } : {}) } });
+export const editGearTool = (rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }): Tool => ({ ...armTool("gear", variantOf(rec.spec)), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: !!rec.spec.internal, ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), typed: ["", "", "", "", "", ""], field: 0, editing: rec.id, base: rec.spec, ...(rec.turn ? { turn: rec.turn } : {}) } });
 
 export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], trim: [], gear: ["Teeth", "Module"] };
 
@@ -206,6 +209,10 @@ function gearSpecOf(t: Tool): GearSpec | null {
   const fields = gearFields(g);
   const typed = (k: string) => { const i = fields.findIndex((f) => f.key === k); return i < 0 ? null : typedNumber(g.typed[i] ?? ""); };
   const b = g.base;
+  if (g.pulley) { // a timing pulley: its grooves, how much bigger than the belt tooth they are, and a bore; the belt fixes the rest
+    const [clearance, bore] = [typed("clearance") ?? b?.clearance, typed("bore") ?? b?.bore];
+    return { teeth: Math.round(typed("teeth") ?? b?.teeth ?? 20), module: g.pulley === "2GT" ? 2 : 3, pulley: g.pulley, ...(clearance ? { clearance } : {}), ...(bore ? { bore } : {}) };
+  }
   const teeth = Math.round(typed("teeth") ?? b?.teeth ?? (g.rack ? 10 : 20));
   const pressure = typed("pressure") ?? b?.pressure;
   const shift = g.internal || g.rack ? undefined : typed("shift") ?? b?.shift;
@@ -234,7 +241,7 @@ function gearMade(scene: Scene, t: Tool): Result<GearTarget> | null {
     if (!spec || !at) return null;
     const o = gearOutline(spec);
     if (!o.ok) return err(o.error);
-    return ok({ spec, at, turn: g.turn ?? 0, live: { teeth: spec.teeth, module: spec.module, pressure: spec.pressure ?? 20, shift: spec.shift ?? 0, backlash: spec.backlash ?? 0, rim: spec.rim ?? 2, bore: spec.bore ?? 0 } });
+    return ok({ spec, at, turn: g.turn ?? 0, live: { teeth: spec.teeth, module: spec.module, pressure: spec.pressure ?? 20, shift: spec.shift ?? 0, backlash: spec.backlash ?? 0, rim: spec.rim ?? 2, bore: spec.bore ?? 0, clearance: spec.clearance ?? 0 } });
   }
   if (!pl || pl.kind !== "plane") return null;
   const { src, rack } = g.mesh;

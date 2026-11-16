@@ -2536,3 +2536,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_550 — 2026-11-16 — approval
 > Allow more sites for the drawings (Recommended)
 (answers the question what to do for the pulley grooves: the AI asks for more hosts to read the real groove drawings and builds from them, with the sources recorded)
+
+## in_551 — 2026-11-16 — directive
+> @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/0e714450-Timing_Pulley_Design_Tutorial_-_CAD_-_Chief_Delphi.pdf"
+(sends the Chief Delphi "Timing Pulley Design Tutorial" page as a PDF, as asked for in the AI's list: it holds the Misumi table of GT2 belt tooth radii and the HTD 5M belt drawing)

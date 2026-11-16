@@ -6,6 +6,7 @@
 // involute of the base circle: at radius r its half-thickness, as an angle, is  half(r) = half(rp) + inv(a_p) - inv(a_r)  with inv(a) = tan a - a and cos a_r = rb / r.
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
+import { pulleyOutline } from "./pulley.ts";
 
 export interface GearSpec {
   teeth: number;
@@ -26,6 +27,8 @@ export interface GearSpec {
   bore?: number;
   /** a rack: a gear of endless radius, a straight bar with straight-sided teeth (`teeth` of them, `rim` modules of bar under the roots, 2 by default); its outline lies along x from the middle of its pitch line, teeth up */
   rack?: boolean;
+  /** a timing pulley for this belt (`pulley.ts`): `teeth` grooves, `clearance` (mm, bigger all round than the belt tooth) in place of the root clearance of a gear; the module is the belt's pitch */
+  pulley?: "2GT" | "3GT";
 }
 export interface GearOutline {
   /** the corners of the outline in order, counter-clockwise */
@@ -87,6 +90,7 @@ function rackOutline(spec: GearSpec): Result<GearOutline> {
 /** The outline of a gear, or why there is none. */
 export function gearOutline(spec: GearSpec): Result<GearOutline> {
   if (spec.rack) return rackOutline(spec);
+  if (spec.pulley) return pulleyOutline(spec);
   const z = Math.round(spec.teeth);
   const m = spec.module;
   if (!Number.isFinite(z) || z < 3 || z > 500) return err("a gear needs 3 to 500 teeth");
