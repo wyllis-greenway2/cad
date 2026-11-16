@@ -2263,3 +2263,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_487 — 2026-11-16 — directive
 > yes check s_023 next
 (approves looking at the remaining reversal `circle-held-by-concentric-in_366.cad.json` `s_023`: +19.6 mm3 at 4.25 to 4.5, +82 at 5.75 to 6, +331 at 9.75 to 10 mm)
+
+## in_488 — 2026-11-16 — question
+> What are some other key sketching of body operations you think we need to make this like a real usable cad program? What are some fundamentals that we are missing now?
+(asks which sketching and body operations are missing, and which fundamentals are still lacking, for this to be a really usable CAD program; answered in chat, nothing built)
