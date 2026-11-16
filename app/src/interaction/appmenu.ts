@@ -10,7 +10,7 @@ const PAN_LEVELS = [{ name: "low", scale: 0.15 }, { name: "medium", scale: 0.3 }
 export const nextPanScale = (scale: number): number => { const i = PAN_LEVELS.findIndex((l) => Math.abs(l.scale - scale) < 1e-9); return PAN_LEVELS[(i + 1) % PAN_LEVELS.length]!.scale; };
 const panName = (scale: number): string => PAN_LEVELS.reduce((a, l) => (Math.abs(l.scale - scale) < Math.abs(a.scale - scale) ? l : a)).name;
 
-export const appRows = (mode: ScrollMode, build = "", can: { export?: boolean; /** a body is selected, so a material can be tagged on it (`in_565`) */ material?: boolean; /** how many mates are no longer true (`in_315`) */ matesOff?: number; /** the kernel's answers are kept between sessions (`dec_description_cache`): a row to forget them */ clearAnswers?: boolean } = {}, allConstraints = false, panScale = 0.3, outlines = true, clearance = 0): AppRow[] => [
+export const appRows = (mode: ScrollMode, build = "", can: { export?: boolean; /** a body is selected, so a material can be tagged on it (`in_565`) */ material?: boolean; /** there is a flat drawing to cut with a laser (`in_569`) */ laser?: boolean; /** how many mates are no longer true (`in_315`) */ matesOff?: number; /** the kernel's answers are kept between sessions (`dec_description_cache`): a row to forget them */ clearAnswers?: boolean } = {}, allConstraints = false, panScale = 0.3, outlines = true, clearance = 0): AppRow[] => [
   ...(can.matesOff ? [{ id: "mate:reapply", label: "Reapply mates", enabled: true, why: null }] : []),
   { id: "bodies", label: "Bodies", enabled: true, why: null },
   { id: "history", label: "History", enabled: true, why: null },
@@ -20,6 +20,7 @@ export const appRows = (mode: ScrollMode, build = "", can: { export?: boolean; /
   { id: "import", label: "Import…", enabled: true, why: null },
   { id: "material", label: "Material…", enabled: can.material ?? true, why: "select a body first" },
   { id: "export", label: "Export…", enabled: can.export ?? true, why: "nothing to export yet: make a body, or draw something" },
+  { id: "laser", label: "Laser cut…", enabled: can.laser ?? true, why: "draw something, or select a sketch first" },
   ...(can.clearAnswers ? [{ id: "clearAnswers", label: "Clear cache", enabled: true, why: null }] : []),
   { id: "share", label: "Share state", enabled: true, why: null },
   { id: "constraints", label: allConstraints ? "All constraints" : "Key constraints", enabled: true, why: null },

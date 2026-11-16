@@ -3,3 +3,4 @@ export * from "./contract/index.ts";
 export { createRegistry, runRoute, defaultSettings, checkSettings, whyBadParams } from "./registry.ts";
 export type { Registry, Outcome } from "./registry.ts";
 export { writeGcode } from "./core/gcode.ts";
+export { builtInRoutes } from "./routes/index.ts";

@@ -2612,3 +2612,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_568 — 2026-11-16 — directive
 > Do the registry next
 (asks for the next groundwork piece of the accepted manufacturing entries: the registry of routes, the clean cut point for adding and removing a route)
+
+## in_569 — 2026-11-16 — directive
+> Do the laser outline route next
+(asks for the first manufacturing route: laser outline cutting, as planned in dec_manufacturing_prep, with the part snapshot builder built alongside it)

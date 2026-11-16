@@ -1,0 +1,33 @@
+---
+id: dec_laser_outline_route
+kind: decision
+status: provisional
+origin: ai-unreviewed
+human_input: in_569
+date: 2026-11-16
+depends_on:
+  - dec_manufacturing_prep: this is its v1 beam outline cutting (profile with tabs and kerf, layers, G-code) as the first route
+  - dec_manufacturing_contract: a standard route (declares settings, fit, check, plan; no emit) in the registry, run by the shared stages
+  - dec_manufacturing_definitions: the machine and the dialect it uses are generic and unofficial until official ones are made from a cited source
+  - dec_export_flat: the drawing's lines and their cut, score and engrave layers are what the route cuts
+alternative_to:
+---
+# The laser outline route: the first manufacturing route
+
+`in_569` asked for the laser outline route, the first of `dec_manufacturing_prep`'s v1. **Built; the details are the AI's choices (provisional until the human accepts them).**
+
+- **What it takes:** a flat drawing (a sketch, or a flat face of a body) as the contract's part (`interaction/partsnapshot.ts`, the snapshot builder: the one place that knows the scene and turns it into plain data). The drawing's lines keep their layer (*cut*, *score*, *engrave*, `in_563`).
+- **The route** (`manufacturing/routes/laser-outline/`): `fit` (a flat drawing with lines in it; its size in its own plane against the machine's work area), `check` (findings) and `plan` (the toolpath). It has no `emit`: the file is written by the shared stage from a dialect (`in_567`). The geometry is worked out once, in `prepare.ts`, so `plan` and `check` cannot disagree.
+- **Cut lines:** pieces that meet are joined into loops (`core/outline.ts`); a loop inside another is a hole (even-odd nesting); with a **kerf** the path of an outside edge is moved out by half of it and a hole's in by half (`core/offset.ts`: mitred corners, so the part's sharp corners stay sharp), so the part comes out the size it was drawn; with **no kerf and no tabs lines and arcs stay lines and arcs** (a circle is two half arcs); **tabs** are bridges left on each outside edge (a number and a width, evenly round it); everything is cut **inside before outside, nearest next**, a loop started at the vertex nearest the head (`core/order.ts`); **passes** repeat the cut.
+- **Score and engrave lines** are followed on the line, once, at their own power and speed.
+- **Findings (advice, never a block):** a line to cut that does not close; a feature too small for the kerf (cut on its drawn line instead); a wall between two cut lines thinner than the kerf; tabs that do not fit; tabs asked for with no closed outside edge; nothing marked to cut; a drawing bigger than the machine's work area (`fit`); settings out of their limits (the registry).
+- **Settings** are declared as a schema (kerf, cut power, speed and passes, tabs and tab width, score and engrave power and speed, part to the corner). **The numbers are only places to start:** power and speed depend on the laser, the lens and the material, and the help says to test on a scrap.
+- **In the app:** the ⋯ menu's **Laser cut…** row opens a dialog **made from the route's own schema** (so any later route gets one the same way), then runs the route on the selected sketch (or all that is drawn); the findings are read in a "Before you cut" step before the file is saved; the file is plain G-code.
+- **The machine and the dialect are generic starting points, not official ones:** a work area and a power scale the user types, and plain GRBL-style words (G21 G90 G0 G1 G2 G3, `M4 S` power, M5, M2). Marked `user`, with the note that the first lines are to be read against the controller's manual. Official ones wait for a cited source (`dec_manufacturing_definitions` point 10).
+- **Offsetting is our own code,** not Clipper2: `clipper2-js` (Boost) was tried and gave wrong offsets for a plain square (recorded in `docs/licenses.md`).
+
+**Not built:** the **preview** of the toolpath in the 3D view (the shared overlay of `dec_manufacturing_contract` point 7); saving a machine and settings (the dialog remembers the last answers only); a power and speed table by material; lead-ins and lead-outs; cut order within a depth beyond nearest-next; nesting several parts on a sheet (`in_560`: manual layout and bounding-box packing are next); engrave fills and raster images; SVG or DXF written from the toolpath; a solid body or a body's face as the part's source for kerf (only a flat face's outline); a tool-radius offset for a router (the offset code is shared and ready); a check that a hole or a part is not inside a hole; features smaller than the offset on concave corners are caught only by a distance check, not repaired.
+
+## Rationale
+
+A laser outline is the cheapest toolpath (2D polygons with kerf, tabs and an order), it covers the largest hobbyist group the brainstorm found underserved, and it proves the whole chain at once: the snapshot builder, the contract, the registry, the shared Emit stage, findings and a settings dialog made from a schema. Keeping the geometry in `core/` (loops, offset, order) is the human's wish for generic reusable code (`in_566`): a router's profile, a plasma or a waterjet will use the same three files and add only their own compensation model and parameters.

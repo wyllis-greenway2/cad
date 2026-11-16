@@ -16,7 +16,7 @@ const FLAT: Record<FlatFormat, { ext: string; mime: string; label: string }> = {
 };
 const FLAT_NOTHING = "nothing to export yet: draw something, or select a sketch or a flat face of a body";
 
-type Pieces = { ok: true; pieces: Piece[]; what: string } | { ok: false; error: string };
+type Pieces = { ok: true; pieces: Piece[]; what: string; /** the plane the pieces lie on: their x and y are along its u and v (`in_569`) */ plane: Plane } | { ok: false; error: string };
 
 /** The circle through three points (centre and radius), or null when they are in a line. */
 function circleThrough(a: V2, m: V2, b: V2): { c: V2; r: number } | null {
@@ -75,7 +75,7 @@ export function sketchPieces(scene: Scene, selection: readonly Ref[]): Pieces {
     const loops = multi ? multi.loops : [bodyOutline(scene, sel)];
     if (!loops.length || loops.some((o) => !o)) return { ok: false, error: "this face cannot be exported: it must be flat, with edges that are lines and arcs" };
     const pieces = loops.flatMap((o) => o!.edges.map((e): Piece => (e.k === "seg" ? { k: "seg", p: e.p, q: e.q } : { k: "arc", c: e.c, r: e.r, p: e.p, q: e.q, ccw: e.ccw })));
-    return { ok: true, pieces, what: "the face" };
+    return { ok: true, pieces, what: "the face", plane: face };
   }
   const drawn = drawnOf(scene, sel);
   if (!drawn.size) return { ok: false, error: FLAT_NOTHING };
@@ -87,7 +87,7 @@ export function sketchPieces(scene: Scene, selection: readonly Ref[]): Pieces {
   const uses = [...drawn].map((r) => (scene.parts[r] as { use?: Use }).use);
   const layered = uses.some((u) => u !== undefined);
   const pieces = [...drawn].flatMap((r) => { const q = pieceOf(scene, pl, scene.parts[r]!); return q ? [layered ? { ...q, layer: (scene.parts[r] as { use?: Use }).use ?? "cut" } as Piece : q] : []; });
-  return pieces.length ? { ok: true, pieces, what: (sel.length ? "the selected sketch" : "the drawing") + (layered ? " in layers" : "") } : { ok: false, error: FLAT_NOTHING };
+  return pieces.length ? { ok: true, pieces, what: (sel.length ? "the selected sketch" : "the drawing") + (layered ? " in layers" : ""), plane: pl } : { ok: false, error: FLAT_NOTHING };
 }
 
 /** Is there a flat drawing to export (for the menu items). */
