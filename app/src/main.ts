@@ -248,7 +248,10 @@ function dispatch(i: Intent) {
 let lastDevice: "mouse" | "touch" | "pen" = "mouse";
 bus.on("input", (raw) => {
   if ("device" in raw && raw.device !== lastDevice) { lastDevice = raw.device; dirty = true; }
+  const escRing = raw.kind === "key" && raw.key === "Escape" && raw.down && ring.open;
   for (const i of recognizer.feed(raw)) dispatch(i);
+  // Esc ends the ring too: in game mode the key leaves the game and sends no intent of its own, so the ring would stay up (`in_497`)
+  if (escRing && ring.open) { ring.hide(); dispatch({ type: "escape" }); }
 });
 const input = attachInput(host, bus);
 

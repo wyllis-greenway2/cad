@@ -103,3 +103,14 @@ test("a dimmed row says why when pressed, and has no long tooltip (`in_496`)", (
   const said = reduce(st, { type: "runAction", id: "say:nothing to export yet: make a body" }, env);
   assert.equal(said.session.message, "nothing to export yet: make a body");
 });
+
+test("Esc ends the ring (and the ⋯ list): the menu is gone from the state and what is selected stays (`in_497`)", () => {
+  const { st } = states().find((x) => x.name === "figure")!;
+  const open = reduce(st, { type: "menu", x: 400, y: 300, button: true }, env);
+  assert.ok(open.menu);
+  const sel = selection(open.session);
+  const closed = reduce(open, { type: "escape" }, env);
+  assert.equal(closed.menu, null);
+  assert.deepEqual(selection(closed.session), sel, "the first Esc only ends the menu");
+  assert.equal(selection(reduce(closed, { type: "escape" }, env).session).length, 0, "the next clears the selection");
+});

@@ -2314,3 +2314,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_496 — 2026-11-16 — directive
 > Do the shorten ⋯ menu row labels next
 (asks for what in_493 left undone: the ⋯ menu's own row labels shortened, as the ring's tooltips were, to one or two words)
+
+## in_497 — 2026-11-16 — directive
+> Do the Esc ending the ring menu next
+(asks for Esc to end the ring menu)
