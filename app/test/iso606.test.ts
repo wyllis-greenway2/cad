@@ -142,7 +142,7 @@ test("the Sketch ring holds one Gear icon that opens a submenu with every gear t
   assert.equal(gears.label, "Gear");
   assert.deepEqual(gears.children!.map((i) => i.id), ["tool:gear", "tool:ring", "tool:rack", "clockgears", "pulleys", "sprockets", "gear:edit", "gear:mesh", "gear:meshrack"]);
   assert.deepEqual(gears.children!.find((i) => i.id === "clockgears")!.children!.map((i) => i.id), ["tool:clock", "tool:clockring", "tool:clockrack"]);
-  assert.deepEqual(gears.children!.find((i) => i.id === "pulleys")!.children!.map((i) => i.id), ["tool:gt2", "tool:gt3", "tool:htd5"]);
+  assert.deepEqual(gears.children!.find((i) => i.id === "pulleys")!.children!.map((i) => i.id), ["tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8"]);
   assert.deepEqual(gears.children!.find((i) => i.id === "sprockets")!.children!.map((i) => i.id), ["tool:sprocket", "tool:isosprocket"]);
   assert.ok(gears.enabled && gears.children!.filter((i) => i.id.startsWith("tool:")).every((i) => i.enabled));
   // and each tool still starts from its place in the submenu

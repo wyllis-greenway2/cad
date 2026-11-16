@@ -12,7 +12,7 @@ import { cycloidalOutline } from "./cycloidal.ts";
 import { boreProblem } from "./bore.ts";
 
 /** the belts there are timing pulleys for (`pulley.ts`) */
-export type PulleyKind = "2GT" | "3GT" | "HTD5M";
+export type PulleyKind = "2GT" | "3GT" | "HTD5M" | "HTD8M";
 export interface GearSpec {
   teeth: number;
   /** mm of pitch diameter per tooth */

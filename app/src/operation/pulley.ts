@@ -25,12 +25,16 @@ export const GT_TOOTH = {
  * the belt's 1.49, which was not read at its source, and HTD is cut with a good deal of clearance (SDP/SI says so). Not the pulley makers' own groove drawing, and the 3.05 mm tooth width and 0.74 mm flat that some of those
  * pages give do not fit a tooth drawn from the radii (`q_timing_pulleys`): to be checked against a real belt.
  */
-export const HTD_TOOTH = { "HTD5M": { pitch: 5, R1: 1.49, R2: 0.43, h: 2.06, pld: 0.572, minTeeth: 13, clearance: 0.07 } } as const;
+export const HTD_TOOTH = {
+  "HTD5M": { pitch: 5, R1: 1.49, R2: 0.43, h: 2.06, pld: 0.572, minTeeth: 13, clearance: 0.07, name: "HTD 5M" },
+  /** HTD 8M (`in_558`): ProTorque's HTD datasheet (https://www.protorque.net/en/products/belts/htd-timing-belts/): pitch 8, tooth height 3.38, head radius 2.46, foot radius 0.70, belt 6.00 thick, 14 degree flank; the pitch line differential is Pfeifer's 8 mm HTD chart (20 grooves: PD 50.93, OD 49.56, 0.686 mm). No groove drawing was found, so the groove is the belt tooth with no clearance unless one is typed. */
+  "HTD8M": { pitch: 8, R1: 2.46, R2: 0.70, h: 3.38, pld: 0.686, minTeeth: 14, clearance: 0, name: "HTD 8M" },
+} as const;
 
-function htdOutline(spec: GearSpec): Result<GearOutline> {
-  const t = HTD_TOOTH.HTD5M;
+function htdOutline(spec: GearSpec, kind: "HTD5M" | "HTD8M"): Result<GearOutline> {
+  const t = HTD_TOOTH[kind];
   const z = Math.round(spec.teeth);
-  if (!Number.isFinite(z) || z < t.minTeeth || z > 400) return err(`an HTD 5M pulley needs ${t.minTeeth} to 400 teeth`);
+  if (!Number.isFinite(z) || z < t.minTeeth || z > 400) return err(`an ${t.name} pulley needs ${t.minTeeth} to 400 teeth`);
   const c = spec.clearance ?? t.clearance;
   if (!(c >= 0 && c < t.R2 - 0.02)) return err(`the clearance must be from 0 to ${(t.R2 - 0.02).toFixed(2)} mm`);
   const Ro = (z * t.pitch) / (2 * Math.PI) - t.pld;
@@ -65,7 +69,7 @@ function htdOutline(spec: GearSpec): Result<GearOutline> {
 }
 
 export function pulleyOutline(spec: GearSpec): Result<GearOutline> {
-  if (spec.pulley === "HTD5M") return htdOutline(spec);
+  if (spec.pulley === "HTD5M" || spec.pulley === "HTD8M") return htdOutline(spec, spec.pulley);
   const t = spec.pulley ? GT_TOOTH[spec.pulley] : undefined;
   if (!t) return err("no such belt");
   const z = Math.round(spec.teeth);

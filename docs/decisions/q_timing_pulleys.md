@@ -36,3 +36,5 @@ alternative_to:
 ## Rationale
 
 Kept open for HTD 5 mm (and the other belts) and for the check of the GT2 groove against a real belt.
+
+**HTD 3M and 8M (`in_558`).** `www.protorque.net` was added to the `cad` environment with approval. Its HTD datasheet gives the 5M, 8M and 14M belt tooth (height, width, head and foot radius, belt thickness): 8M was built from it (see `dec_gear_tool`); there is no 3M column. Pfeifer's "(3mm HTD)" and "(8mm HTD)" PD and OD charts give the pitch line differential (3M 0.381, 8M 0.686). **Open: the HTD 3M tooth radii** (a Fusion 360 comment quotes 0.306 mm for the small radius, not a source). A pasted Gates or ISO 13050 table, or another host with it, would let 3M be built.

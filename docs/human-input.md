@@ -2564,3 +2564,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_557 — 2026-11-16 — directive
 > Do the D flat and keyway bores next
 (asks for the other bore shapes in dec_gear_tool's list of what is not built: a bore with a D flat, and a bore with a keyway)
+
+## in_558 — 2026-11-16 — directive
+> Do the HTD 3M and 8M pulleys next
+(asks for the other two HTD pitches in dec_gear_tool's list of what is not built; HTD 5M exists)

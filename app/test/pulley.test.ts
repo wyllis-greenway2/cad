@@ -204,3 +204,36 @@ test("HTD 5M tool: the Sketch ring has it; Teeth, Clearance (0.07 shown) and Bor
   few = click(few, C); few = typeText(few, "9"); few = key(few, "Enter");
   assert.match(few.session.message ?? "", /13 to 400 teeth/);
 });
+
+// ---- HTD 8M (`in_558`) ----
+test("an HTD 8M pulley of 20 grooves: outside diameter 49.56 mm (Pfeifer's chart), grooves 3.38 mm deep, the tip arc 2.46 and the corners 0.70 (ProTorque's datasheet), no clearance by default", () => {
+  const t = HTD_TOOTH.HTD8M;
+  const g = must({ teeth: 20, module: 8, pulley: "HTD8M" });
+  const rs = g.points.map((p) => Math.hypot(p[0], p[1]));
+  assert.ok(Math.abs(2 * Math.max(...rs) - 49.56) < 0.006, `${2 * Math.max(...rs)}`);
+  assert.ok(Math.abs(g.rootRadius - ((160 / Math.PI - 2 * t.pld) / 2 - t.h)) < 1e-9, `root ${g.rootRadius}`);
+  assert.equal(g.points.length, 120);
+  assert.ok(area(g) > 0);
+  const radii = g.points.map((_, i) => arcCentre(g, i)).filter((a): a is { c: P; r: number } => !!a).map((a) => a.r);
+  assert.ok(radii.some((r) => Math.abs(r - 2.46) < 1e-6), "the tip");
+  assert.equal(radii.filter((r) => Math.abs(r - 0.7) < 1e-6).length, 40, "two corners to a groove");
+  const more = must({ teeth: 20, module: 8, pulley: "HTD8M", clearance: 0.1 });
+  assert.ok(more.rootRadius < g.rootRadius, "a clearance deepens the groove");
+});
+
+test("HTD 8M limits: fewer than 14 grooves, a clearance as big as the corner, a bore as wide as the root are refused with the reason", () => {
+  assert.match((gearOutline({ teeth: 13, module: 8, pulley: "HTD8M" }) as { error: string }).error, /HTD 8M pulley needs 14 to 400 teeth/);
+  assert.ok(!gearOutline({ teeth: 20, module: 8, pulley: "HTD8M", clearance: 0.7 }).ok);
+  assert.ok(!gearOutline({ teeth: 20, module: 8, pulley: "HTD8M", bore: 50 }).ok);
+});
+
+test("HTD 8M tool: the pulley menu has it; typing the teeth makes an HTD8M pulley with its clearance shown as 0", () => {
+  let st = reduce(top(), { type: "begin", name: "gear" }, env);
+  st = reduce(st, { type: "runAction", id: "tool:htd8" }, env);
+  st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
+  st = click(st, C);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.slice(0, 2).map((f) => [f.label, f.value]), [["Teeth", "20"], ["Clearance", "0"]]);
+  st = typeText(st, "24"); st = key(st, "Enter");
+  const rec = scene(st.session).gears![0]!;
+  assert.deepEqual([rec.spec.pulley, rec.spec.teeth, rec.spec.module], ["HTD8M", 24, 8]);
+});
