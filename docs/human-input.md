@@ -2302,3 +2302,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_493 — 2026-11-16 — directive
 > the paste icon in the menu needs a different icon. The extrude face icon needs a new one, simpler. Can we make the menu always navigable even if options arent selectable? Some of the tool tips are rediculous in the menu. Specifically offset, it should just say single word offset. Lets audit all the menu tool tips. They should all be one or two words only. I think the menu also needs a select all bodies option. Lets offer an undo redo option next to delete and turn the delete menu area into an actions area. Lets get rid of undo redo out of the ... menu. lets get rid of select several under the ... menu entirely
 (asks, for the ring menu and the ⋯ menu: a different icon for paste; a new, simpler icon for extrude face; every category and item always navigable even when its options cannot be used; tooltips of one or two words (offset: "Offset"), audited across the menu; a "select all bodies" option; undo and redo offered next to delete, the Delete area turned into an Actions area; undo and redo taken out of the ⋯ menu; "select several" taken out of the ⋯ menu entirely)
+
+## in_494 — 2026-11-16 — directive
+> Do the touch way to select several next
+(asks for what in_493 left open: with Select several taken out of the ⋯ menu, a way to select several things with a finger, where a tap adds to the selection; the form is left to the AI)

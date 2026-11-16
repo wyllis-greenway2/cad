@@ -325,6 +325,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   }
   if (id === "select:similar") return doSimilar(closed);
   if (id === "select:group") return doGroup(closed);
+  if (id === "select:add") return { ...closed, adding: !s.adding, session: { ...closed.session, message: s.adding ? "adding is off" : "adding is on: a tap adds to the selection, or takes out what is selected" } }; // (the way to select several with a finger, `in_494`)
   if (id === "select:bodies") return doSelectBodies(closed);
   if (id === "undo") return doUndo(closed); // (undo, redo and delete are the Actions of the ring, `in_493`)
   if (id === "redo") return doRedo(closed);
