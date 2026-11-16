@@ -203,7 +203,7 @@ test("the Gear tool is in the Sketch ring; click the centre, the pointer sets th
   st = click(st, C);
   st = move(st, [C[0] + 22, C[1], 0]);
   assert.ok(previewFor(scene(st.session), st.tool)!.segments.length > 100, "the teeth are shown while the size is set");
-  const e = entryOf(scene(st.session), st.tool, st.op, st.cam);
+  const e = entryOf(scene(st.session), st.tool, st.op);
   assert.deepEqual(e!.fields.map((f) => f.label), ["Teeth", "Module"]);
   assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2"]);
   st = click(st, [C[0] + 22, C[1], 0]);
