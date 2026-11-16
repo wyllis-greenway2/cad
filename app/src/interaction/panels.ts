@@ -5,8 +5,8 @@ import type { Group } from "../operation/groups.ts";
 import { groupsOf, membersOf, parentOf } from "../operation/groups.ts";
 
 export type PanelKind = "bodies" | "history" | "groups";
-export interface PanelRow { id: string; label: string; /** selected (a body) */ active: boolean; /** can be taken out (a step) */ removable: boolean; /** a repeat of the body: it can be opened again to change its numbers (`in_257`) */ edit?: boolean; /** why this step could not be made, when it could not (it is shown in red) */ error?: string; /** an extrusion: its hidden sketch can be shown (`in_228`); true while it is shown */ sketch?: boolean }
-export interface Panel { kind: PanelKind; title: string; rows: PanelRow[] }
+export interface PanelRow { id: string; label: string; /** selected (a body) */ active: boolean; /** can be taken out (a step) */ removable: boolean; /** a repeat of the body: it can be opened again to change its numbers (`in_257`) */ edit?: boolean; /** why this step could not be made, when it could not (it is shown in red) */ error?: string; /** an extrusion: its hidden sketch can be shown (`in_228`); true while it is shown */ sketch?: boolean; /** a body: the eye (`dec_hidden_bodies`): true when it is hidden, false when it is shown */ hidden?: boolean }
+export interface Panel { kind: PanelKind; title: string; rows: PanelRow[]; /** buttons for the whole list (the Bodies list: select all and none, hide all and show all) */ actions?: { id: string; label: string; title: string }[] }
 
 const n = (v: unknown): string => String(Math.round(Number(v) * 100) / 100);
 /** What a step says, in a few words. */
@@ -35,7 +35,18 @@ function stepLabel(st: Step): string {
 export const bodyLabel = (scene: Scene, ref: Ref): string => `Body ${Object.values(scene.parts).filter((p) => p.kind === "body").findIndex((b) => b.ref === ref) + 1}`;
 function bodiesPanel(scene: Scene, selection: readonly Ref[]): Panel {
   const bodies = Object.values(scene.parts).filter((p) => p.kind === "body");
-  return { kind: "bodies", title: "Bodies", rows: bodies.map((b, i) => ({ id: b.ref, label: `Body ${i + 1}`, active: selection.includes(b.ref), removable: false })) };
+  const hidden = new Set(scene.hiddenBodies ?? []);
+  return {
+    kind: "bodies",
+    title: "Bodies",
+    rows: bodies.map((b, i) => ({ id: b.ref, label: `Body ${i + 1}`, active: selection.includes(b.ref), removable: true, hidden: hidden.has(b.ref) })),
+    actions: [
+      { id: "bodies:all", label: "Select all", title: "Select every body that is shown" },
+      { id: "bodies:none", label: "Select none", title: "Select nothing" },
+      { id: "bodies:hide", label: "Hide all", title: "Hide every body" },
+      { id: "bodies:show", label: "Show all", title: "Show every body" },
+    ],
+  };
 }
 /** The selection groups as a tree (`in_257`): a row for each group, the ones inside it under it, so any group (the outer one or one inside) can be selected or broken without picking it in the picture. */
 function groupsPanel(scene: Scene, selection: readonly Ref[]): Panel {

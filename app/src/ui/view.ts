@@ -58,6 +58,8 @@ export function createView(host: HTMLElement) {
     bodyMat = built ? built.material : null;
     bodyGroup = built ? built.body : null;
     splitter = built ? built.split : null;
+    hider = built ? built.hide : null;
+    hider?.(hiddenNow);
     moverGroup = built ? built.mover : null;
     moversOf = built ? built.movers : null;
     ghoster = built ? built.ghost : null;
@@ -77,6 +79,10 @@ export function createView(host: HTMLElement) {
   let bodyMatrix: number[] | null = null;
   type Part = { tris: [number, number][]; box: { min: readonly number[]; max: readonly number[] } };
   let splitter: ((items: Part[] | null) => void) | null = null;
+  let hider: ((items: { tris: [number, number][] }[] | null) => void) | null = null;
+  let hiddenNow: { tris: [number, number][] }[] | null = null; // (the hidden bodies, `dec_hidden_bodies`: kept so a picture built again has them)
+  /** The bodies that are hidden: drawn very faintly, out of the body. */
+  function setHiddenBodies(items: { tris: [number, number][] }[] | null) { hiddenNow = items && items.length ? items : null; hider?.(hiddenNow); }
   let moversOf: (() => import("three").Group[]) | null = null;
   let moverGroup: import("three").Group | null = null;
   let splitNow: Part[] | null = null;
@@ -271,5 +277,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { rebuild, setScene, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { rebuild, setScene, setHiddenBodies, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

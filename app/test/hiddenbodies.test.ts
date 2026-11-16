@@ -54,3 +54,66 @@ test("a hidden body, and its faces, edges and corners, cannot be pointed at, and
   const first = candidatesAt(scene(s), pr.view(cx, cy), { pointTol: 14, lineTol: 8 });
   assert.ok(first.some((c) => (scene(s).parts[c.ref] as { of?: string }).of === A), "the first body can still be pointed at");
 });
+
+// ---- the Bodies list, the eye, the frame ----
+import { createState, reduce } from "../src/interaction/controller.ts";
+import { frameOf } from "../src/interaction/frame.ts";
+import { panelOf } from "../src/interaction/panels.ts";
+const env = { w: 800, h: 600, now: 0 };
+const state = () => createState(two());
+const hiddenOf = (st: ReturnType<typeof state>) => scene(st.session).hiddenBodies;
+
+test("the Bodies list shows an eye for each body and the buttons for the whole list", () => {
+  let s = two();
+  let p = panelOf("bodies", scene(s), [])!;
+  assert.deepEqual(p.rows.map((r) => [r.id, r.hidden, r.removable]), [[A, false, true], [B, false, true]]);
+  assert.deepEqual(p.actions!.map((a) => a.id), ["bodies:all", "bodies:none", "bodies:hide", "bodies:show"]);
+  s = run(s, { type: "hideBodies", refs: [B], hidden: true } as never);
+  p = panelOf("bodies", scene(s), [])!;
+  assert.deepEqual(p.rows.map((r) => r.hidden), [false, true]);
+});
+
+test("the eye of a row hides and shows a body; hide all and show all do the whole list; hiding takes a body out of the selection", () => {
+  let st = state();
+  st = reduce(st, { type: "panelRow", id: A, act: "select" }, env);
+  assert.deepEqual([...st.session.click.selection], [A]);
+  st = reduce(st, { type: "panelRow", id: A, act: "hide" }, env);
+  assert.deepEqual(hiddenOf(st), [A], "hidden");
+  assert.deepEqual([...st.session.click.selection], [], "a hidden body is not selected");
+  st = reduce(st, { type: "panelRow", id: A, act: "hide" }, env);
+  assert.equal(hiddenOf(st), undefined, "shown again");
+  st = reduce(st, { type: "panelAction", id: "bodies:hide" }, env);
+  assert.deepEqual(hiddenOf(st), [A, B], "hide all");
+  st = reduce(st, { type: "panelAction", id: "bodies:all" }, env);
+  assert.deepEqual([...st.session.click.selection], [], "select all takes the bodies that are shown: none");
+  st = reduce(st, { type: "panelAction", id: "bodies:show" }, env);
+  assert.equal(hiddenOf(st), undefined, "show all");
+  st = reduce(st, { type: "panelAction", id: "bodies:all" }, env);
+  assert.deepEqual([...st.session.click.selection].sort(), [A, B], "select all");
+  st = reduce(st, { type: "panelAction", id: "bodies:none" }, env);
+  assert.deepEqual([...st.session.click.selection], [], "select none");
+});
+
+test("the cross of a row deletes the body (with its steps); the other body stays", () => {
+  let st = state();
+  st = reduce(st, { type: "panelRow", id: B, act: "remove" }, env);
+  const bodies = Object.values(scene(st.session).parts).filter((p) => p.kind === "body");
+  assert.equal(bodies.length, 1, "one body left");
+  assert.equal(scene(st.session).steps.length, 1, "its step went with it");
+  assert.equal(Math.round((bodies[0] as unknown as { volume: number }).volume), 1000);
+});
+
+test("the frame says which triangles are hidden, and gives each body an eye", () => {
+  let st = state();
+  const quiet = frameOf(st, { w: 800, h: 600 });
+  assert.equal(quiet.hiddenBodies, null, "none hidden");
+  assert.equal(quiet.eyesQuiet, false, "nothing is in use");
+  assert.deepEqual(quiet.bodyEyes.map((e) => [e.ref, e.hidden, e.corners.length]), [[A, false, 8], [B, false, 8]]);
+  st = reduce(st, { type: "panelRow", id: B, act: "hide" }, env);
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.equal(f.hiddenBodies?.length, 1, "one hidden body");
+  const tris = f.hiddenBodies![0]!.tris.reduce((a, [, n]) => a + n, 0);
+  const all = (st.session.outcome.kernel!.mesh!.triangles.length);
+  assert.ok(tris > 0 && tris < all, `its triangles are some of the mesh's: ${tris} of ${all}`);
+  assert.deepEqual(f.bodyEyes.map((e) => e.hidden), [false, true]);
+});

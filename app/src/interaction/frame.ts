@@ -76,6 +76,11 @@ export interface Frame {
   hiddenEdges: boolean;
   /** when the matrix moves one body of several: the triangles (ranges of the mesh's index list) and the box of that body, so only it is moved (`in_273`) */
   bodySplit: { tris: [number, number][]; box: { min: Vec3; max: Vec3 } } | null;
+  /** the bodies that are hidden (`dec_hidden_bodies`), each as its triangles (ranges of the mesh's index list): drawn very faintly, not part of the body that is drawn in full */
+  hiddenBodies: { tris: [number, number][] }[] | null;
+  /** the eye on each body (`dec_hidden_bodies`): its box's corners and whether it is hidden; `eyesQuiet`: a tool or an operation is in use, so the eyes of shown bodies stay away */
+  bodyEyes: { ref: string; hidden: boolean; corners: Vec3[] }[];
+  eyesQuiet: boolean;
   /** the bodies that move with the one being dragged, each by its own matrix, as its mates take them along (`in_341`) */
   followers: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[];
   /** what is selected is the body, so its highlight is moved by the same matrix */
@@ -328,6 +333,9 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     bodyMatrix,
     hiddenEdges: !!s.tool && hasBody,
     bodySplit,
+    hiddenBodies: hiddenItemsOf(sc, outcome),
+    bodyEyes: Object.values(sc.parts).flatMap((p) => { if (p.kind !== "body" || !p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners }]; }),
+    eyesQuiet: !!s.tool || !!s.op || !!s.drag || !!s.repeat,
     followers: gpu?.followers ?? [],
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
     highlight: { hover: isSectionPlane(sc, s.session.hover) ? undefined : s.session.hover, hoverPoint: s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
@@ -556,6 +564,29 @@ function similarChip(s: AppState): Frame["similar"] {
   const sel = selectionOf(s.session);
   if (sel.length !== sim.refs.length || !sim.refs.every((r) => sel.includes(r))) return null;
   return { rules: SIMILAR_RULES.map((r) => ({ ...r, on: sim.rules.includes(r.id) })), count: sim.refs.length, noun: sim.noun };
+}
+
+/** The triangles of each hidden body (`dec_hidden_bodies`): all of the mesh when it is the only body, else the faces the kernel says are its. Null when none is hidden. */
+function hiddenItemsOf(sc: Scene, outcome: CompileOutcome): { tris: [number, number][] }[] | null {
+  const hidden = sc.hiddenBodies;
+  const k = outcome.kernel;
+  if (!hidden?.length || !k?.mesh) return null;
+  const out: { tris: [number, number][] }[] = [];
+  for (const ref of hidden) {
+    const body = sc.parts[ref];
+    if (body?.kind !== "body") continue;
+    if (!k.bodies || k.bodies.length < 2) { out.push({ tris: [[0, k.mesh.triangles.length]] }); continue; }
+    const index = k.bodies.findIndex((b) => b.id === body.id);
+    if (index < 0) continue;
+    const tris: [number, number][] = [];
+    for (const f of k.faces ?? []) {
+      if (f.body !== index) continue;
+      const ranges = (f.ranges as { start: number; count: number }[] | undefined) ?? [{ start: f.start, count: f.count }];
+      for (const r of ranges) tris.push([r.start, r.count]);
+    }
+    if (tris.length) out.push({ tris });
+  }
+  return out.length ? out : null;
 }
 
 /** The part of the mesh that is one body of several, for a move, turn or scale of that body (null for the whole body): its triangles, from the faces the kernel says are its, and its box (`in_273`). */

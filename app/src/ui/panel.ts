@@ -1,8 +1,8 @@
 // The list card opened from the ⋯ menu (`in_132`): the bodies with their names, or the history of steps. It displays what the interaction layer says and reports which row was chosen.
 import { iconSvg } from "./icons.ts";
 
-export interface PanelData { kind: string; title: string; rows: { id: string; label: string; active: boolean; removable: boolean; edit?: boolean; error?: string; sketch?: boolean }[] }
-export interface PanelHandlers { row(id: string, act: "select" | "remove" | "sketch" | "edit"): void; undo(): void; redo(): void; close(): void }
+export interface PanelData { kind: string; title: string; rows: { id: string; label: string; active: boolean; removable: boolean; edit?: boolean; error?: string; sketch?: boolean; hidden?: boolean }[]; actions?: { id: string; label: string; title: string }[] }
+export interface PanelHandlers { row(id: string, act: "select" | "remove" | "sketch" | "edit" | "hide"): void; action(id: string): void; undo(): void; redo(): void; close(): void }
 
 export function createPanel(host: HTMLElement, h: PanelHandlers) {
   const el = document.createElement("div");
@@ -35,6 +35,12 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
       if (p.kind === "history") { head.appendChild(btn("↶", "Undo", h.undo)); head.appendChild(btn("↷", "Redo", h.redo)); }
       head.appendChild(btn(iconSvg("cross"), "Close", h.close));
       el.appendChild(head);
+      if (p.actions?.length) {
+        const bar = document.createElement("div");
+        bar.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;padding:0 4px 6px";
+        for (const a of p.actions) { const b = btn(a.label, a.title, () => h.action(a.id)); b.style.cssText += ";padding:0 8px;font-size:12px;border:1px solid #cfd0d4"; bar.appendChild(b); }
+        el.appendChild(bar);
+      }
       for (const r of p.rows) {
         const row = document.createElement("div");
         row.style.cssText = `display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;cursor:${p.kind === "bodies" || p.kind === "groups" ? "pointer" : "default"};background:${r.active ? "#dff1f0" : ""}`;
@@ -43,9 +49,10 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
         label.style.flex = "1";
         if (r.error) { label.style.color = "#c0392b"; row.title = r.error; label.textContent = `${r.label} ✕`; } // a step that could not be made: red, the reason on hover
         row.appendChild(label);
+        if (r.hidden !== undefined) { label.style.opacity = r.hidden ? ".45" : "1"; row.appendChild(btn(iconSvg(r.hidden ? "eyeOff" : "eye"), r.hidden ? "Hidden: show this body" : "Shown: hide this body", () => h.row(r.id, "hide"))); }
         if (r.sketch !== undefined) { const b = btn(iconSvg("sketch"), r.sketch ? "Put the sketch away" : "Show the sketch this extrusion was made from", () => h.row(r.id, "sketch")); if (r.sketch) b.style.background = "#dff1f0"; row.appendChild(b); }
         if (r.edit) row.appendChild(btn(iconSvg("linear"), "Change the numbers of this repeat", () => h.row(r.id, "edit")));
-        if (r.removable) row.appendChild(btn(iconSvg("cross"), p.kind === "groups" ? "Break this group (what is inside it stays grouped)" : "Take this step out", () => h.row(r.id, "remove")));
+        if (r.removable) row.appendChild(btn(iconSvg("cross"), p.kind === "groups" ? "Break this group (what is inside it stays grouped)" : p.kind === "bodies" ? "Delete this body (with the steps and sketches that made it)" : "Take this step out", () => h.row(r.id, "remove")));
         if (p.kind === "bodies" || p.kind === "groups") row.addEventListener("click", () => h.row(r.id, "select"));
         el.appendChild(row);
       }

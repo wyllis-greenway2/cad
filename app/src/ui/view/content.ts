@@ -33,7 +33,7 @@ function linePairs(s: Scene, skip: ReadonlySet<Ref>): number[] {
  */
 /** How long the last build took, and the part of it that found the body's sharp edges (`cornerEdges`): read by the page's timing (`in_466`). */
 export const buildStats = { runs: 0, totalMs: 0, cornersMs: 0, triangles: 0 };
-export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group; /** the body's edges that lie behind a face, drawn faintly or not (`in_324`) */ ghost: (on: boolean) => void; split: (items: { tris: [number, number][]; box: { min: readonly number[]; max: readonly number[] } }[] | null) => void; mover: THREE.Group; /** the group of each body that moves on its own, in the order of the items last given to `split` */ movers: () => THREE.Group[] } | null {
+export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group; /** the body's edges that lie behind a face, drawn faintly or not (`in_324`) */ ghost: (on: boolean) => void; split: (items: { tris: [number, number][]; box: { min: readonly number[]; max: readonly number[] } }[] | null) => void; mover: THREE.Group; /** the group of each body that moves on its own, in the order of the items last given to `split` */ movers: () => THREE.Group[]; /** the bodies that are hidden (`dec_hidden_bodies`): their triangles and outline lines are drawn very faintly in a group of their own and are left out of the body; null or none brings them back */ hide: (items: { tris: [number, number][] }[] | null) => void } | null {
   const tBuild = performance.now();
   clearGroup(content);
   pen.reset();
@@ -67,7 +67,7 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
   const corners = cornerEdgesOf(mesh, settings.extrude.edgeAngleDeg).edges;
   buildStats.cornersMs = performance.now() - tCorners;
   buildStats.triangles = mesh.triangles.length / 3; // where the surface turns by more than 30 degrees
-  let edgePos: THREE.BufferAttribute | null = null;
+  let edgePos: THREE.BufferAttribute | null = null; // (the outline of what is drawn in full: all of it, less the hidden bodies')
   let edgeLines: THREE.LineSegments | null = null;
   let ghostLines: THREE.LineSegments | null = null;
   const edgeOrig = Float32Array.from(corners);
@@ -93,6 +93,47 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
   // in `body`; null puts everything back.
   let splitSig = "";
   const fullIndex = mesh.triangles;
+  let visibleIndex = fullIndex; // (the triangles drawn in full: all, less the hidden bodies')
+  let hiddenTri: Uint8Array | null = null; // (a flag for each triangle of `fullIndex` that is a hidden body's)
+  let edgeBase: Float32Array = edgeOrig; // (the outline lines of what is drawn in full)
+  const faint = new THREE.Group();
+  content.add(faint);
+  let hideSig = "";
+  const hide = (items: { tris: [number, number][] }[] | null) => {
+    const sig = items && items.length ? JSON.stringify(items) : "";
+    if (sig === hideSig) return;
+    hideSig = sig;
+    clearGroup(faint);
+    if (!sig) { visibleIndex = fullIndex; hiddenTri = null; edgeBase = edgeOrig; }
+    else {
+      const flags = new Uint8Array(Math.ceil(fullIndex.length / 3));
+      for (const it of items!) for (const [start, count] of it.tris) for (let t = Math.floor(start / 3); t < Math.ceil((start + count) / 3); t++) flags[t] = 1;
+      const shown: number[] = [];
+      const gone: number[] = [];
+      for (let t = 0; t < flags.length; t++) (flags[t] ? gone : shown).push(fullIndex[3 * t]!, fullIndex[3 * t + 1]!, fullIndex[3 * t + 2]!);
+      hiddenTri = flags;
+      visibleIndex = Uint32Array.from(shown);
+      const { go, stay } = ownSegments(edgeOrig, orig, gone, shown);
+      edgeBase = Float32Array.from(stay);
+      const gm = new THREE.BufferGeometry();
+      gm.setAttribute("position", g.getAttribute("position")!);
+      gm.setAttribute("normal", g.getAttribute("normal")!);
+      gm.setIndex(new THREE.BufferAttribute(Uint32Array.from(gone), 1));
+      const veil = new THREE.Mesh(gm, new THREE.MeshBasicMaterial({ color: settings.theme.bodyColor, transparent: true, opacity: settings.theme.hiddenBodyOpacity, depthWrite: false, side: THREE.DoubleSide }));
+      veil.renderOrder = 1;
+      faint.add(veil);
+      const lg = new THREE.BufferGeometry();
+      lg.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(go), 3));
+      const lines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: settings.theme.bodyEdge, transparent: true, opacity: settings.theme.hiddenBodyOpacity * 2, depthWrite: false }));
+      lines.renderOrder = 1;
+      faint.add(lines);
+    }
+    edgePos = edgeLines ? new THREE.Float32BufferAttribute(edgeBase, 3) : null;
+    if (edgeLines && edgePos) edgeLines.geometry.setAttribute("position", edgePos);
+    splitSig = "\u0000"; // (the next `split` goes over the new base)
+    split(null);
+    splitSig = "";
+  };
   const kids: THREE.Group[] = [];
   const split = (items: { tris: [number, number][]; box: { min: readonly number[]; max: readonly number[] } }[] | null) => {
     const sig = items && items.length ? JSON.stringify(items) : "";
@@ -101,14 +142,14 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
     clearGroup(mover);
     kids.length = 0;
     if (edgeLines && edgePos) edgeLines.geometry.setAttribute("position", edgePos);
-    if (!items || !items.length) { g.setIndex(new THREE.BufferAttribute(fullIndex, 1)); return; }
+    if (!items || !items.length) { g.setIndex(new THREE.BufferAttribute(visibleIndex, 1)); return; }
     const owner = new Int16Array(Math.ceil(fullIndex.length / 3)).fill(-1);
     items.forEach((it, k) => { for (const [start, count] of it.tris) for (let t = Math.floor(start / 3); t < Math.ceil((start + count) / 3); t++) owner[t] = k; });
     const rest: number[] = [];
     const mine: number[][] = items.map(() => []);
-    for (let t = 0; t < owner.length; t++) (owner[t]! >= 0 ? mine[owner[t]!]! : rest).push(fullIndex[3 * t]!, fullIndex[3 * t + 1]!, fullIndex[3 * t + 2]!);
+    for (let t = 0; t < owner.length; t++) { if (hiddenTri && hiddenTri[t]) continue; (owner[t]! >= 0 ? mine[owner[t]!]! : rest).push(fullIndex[3 * t]!, fullIndex[3 * t + 1]!, fullIndex[3 * t + 2]!); }
     g.setIndex(new THREE.BufferAttribute(Uint32Array.from(rest), 1));
-    let remaining: number[] | Float32Array = edgeOrig;
+    let remaining: number[] | Float32Array = edgeBase;
     items.forEach((_, k) => {
       const kid = new THREE.Group();
       kid.matrixAutoUpdate = false;
@@ -131,5 +172,5 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
     if (edgeLines && edgePos) edgeLines.geometry.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(remaining), 3));
   };
   buildStats.runs++; buildStats.totalMs = performance.now() - tBuild;
-  return { material, body, split, mover, movers: () => kids, ghost: (on: boolean) => { if (ghostLines) ghostLines.visible = on; } };
+  return { material, body, split, hide, mover, movers: () => kids, ghost: (on: boolean) => { if (ghostLines) ghostLines.visible = on; } };
 }

@@ -31,6 +31,7 @@ import { createRing } from "./ui/ring.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
 import { createPanel } from "./ui/panel.ts";
+import { createBodyChips } from "./ui/bodychips.ts";
 import { createHelper } from "./ui/helper.ts";
 import { createBusy } from "./ui/busy.ts";
 import { createControls } from "./ui/controls.ts";
@@ -77,6 +78,7 @@ const bus = createBus<{ input: RawInput }>();
 const recognizer = createRecognizer();
 const panel = createPanel(document.body, {
   row: (id, act) => dispatch({ type: "panelRow", id, act }),
+  action: (id) => dispatch({ type: "panelAction", id }),
   undo: () => dispatch({ type: "undo" }),
   redo: () => dispatch({ type: "redo" }),
   close: () => dispatch({ type: "panel", name: state.panel ?? "bodies" }),
@@ -144,6 +146,7 @@ const busySign = createBusy(document.body);
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
 const crosshair = createCrosshair(document.body);
 const sheetChips = createSheetChips(document.body, (id) => dispatch({ type: "runAction", id }));
+const bodyChips = createBodyChips(document.body, (id) => dispatch({ type: "runAction", id }));
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "overrideRefusal" }), () => dispatch({ type: "holdFlash" }));
 const faceKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "faceKind", kind: id as "move" | "extrude" | "extend" }));
@@ -305,6 +308,7 @@ function frame(now: number) {
     const page = host.getBoundingClientRect();
     const buildsBefore = buildStats.runs;
     view.setScene(f.scene, f.mesh);
+    view.setHiddenBodies(f.hiddenBodies);
     if (buildStats.runs !== buildsBefore) { timing.add("geometry: built again (buildContent)", buildStats.totalMs); timing.add("geometry: of it the sharp edges (cornerEdges)", buildStats.cornersMs); timing.add("geometry: triangles built", buildStats.triangles); }
     view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit, f.followers.map((q) => ({ matrix: q.matrix, only: q.split })));
     view.setHiddenEdges(f.hiddenEdges);
@@ -316,6 +320,7 @@ function frame(now: number) {
     view.setWireframe(f.wireframe);
     view.setSectionPlanes(f.sectionPlanes);
     view.setSection(f.sections);
+    { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); bodyChips.update(f.bodyEyes, (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null, f.eyesQuiet); }
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); sheetChips.update(f.sectionPlanes.filter((p) => !p.guide).map((p) => ({ ref: p.ref, mode: p.mode, move: p.move, selected: p.selected, corners: p.corners })), (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null); }
     toolChip.update(f.tool, f.confirm, lastDevice === "touch");
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
