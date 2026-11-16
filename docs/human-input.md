@@ -2536,3 +2536,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_549 — 2026-11-16 — directive
 > Go with the bubble and button types next
 (approves and asks for step 5 of `q_ui_unification`: one bubble component and one round button look, so the many pill and chip files shrink to descriptions)
+
+## in_550 — 2026-11-16 — directive
+> Go with the handles next
+(approves and asks for step 6, the last, of `q_ui_unification`: the X Y Z handles reduced to fewer kinds, with one family per job (move, turn, size, count) and one drawing and one drag code)

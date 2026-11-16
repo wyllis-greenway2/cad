@@ -16,13 +16,18 @@ import { jointOfBody } from "./mate.ts";
 import { axisOf, revolveCentre } from "./revolve.ts";
 import { mirrorCentre } from "./mirror.ts";
 
-export type HandleKind = "arrow" | "double" | "arc" | "ball" | "scale";
+/** THREE KINDS OF HANDLE (`in_550`, `q_ui_unification`): an arrow (pulled along a line), a ring (turned about an axis) and an orb (moved about). What used to be a double arrow is an arrow with `both`, and a scale handle an arrow with `ratio`. */
+export type HandleKind = "arrow" | "ring" | "orb";
 export interface Handle {
   id: string;
   kind: HandleKind;
   axis: 0 | 1 | 2 | null;
-  /** an arrow or double arrow: [from, to]; a turning ring: the points round it (closed); a ball: [at]; a scale handle: [centre, the corner you pull] */
+  /** an arrow: [from, to]; a ring: the points round it (closed); an orb: [at] */
   points: Vec3[];
+  /** an arrow pulled either way, from its middle, with a head at each end (a push / pull, a fillet's size) */
+  both?: true;
+  /** an arrow whose value is a factor, taken from its start: how many times as far along it the pointer is as where it was taken hold of (scale) */
+  ratio?: true;
   /** a turning ring: the axis it turns about */
   dir?: Vec3;
   /** a turning ring: which of its points carries the arrowhead */
@@ -83,11 +88,21 @@ export function edgeDirection(scene: Scene, a: Vec3, b: Vec3, radial?: Vec3): Ve
 }
 
 /** The handles of the cross section plane (`in_392`, `in_394`): arrows along the axes move it, or rings about them turn it, as its chip says. */
+// ---- the three kinds, made one way (`in_550`) ----
+/** An arrow from `from` along the unit `dir`, `len` long (a negative length points the other way). `ratio`: its value is a factor (a scale handle). */
+const arrowAlong = (id: string, axis: 0 | 1 | 2 | null, from: Vec3, dir: Vec3, len: number, ratio?: true): Handle => ({ id, kind: "arrow", axis, points: [from, add(from, scale(dir, len))], ...(ratio ? { ratio } : {}) });
+/** An arrow through `mid` along `dir`, `half` each way, with a head at each end: pulled out or pushed in. */
+const arrowBoth = (id: string, mid: Vec3, dir: Vec3, half: number): Handle => ({ id, kind: "arrow", both: true, axis: null, points: [add(mid, scale(dir, -half)), add(mid, scale(dir, half))] });
+/** One arrow along each of three axes, named `prefix:x`, `prefix:y`, `prefix:z`. */
+const axisArrows = (prefix: string, ax: readonly Vec3[], from: Vec3, len: number, ratio?: true): Handle[] => ax.map((d, i) => arrowAlong(`${prefix}:${"xyz"[i]}`, i as 0 | 1 | 2, from, d, len, ratio));
+/** An orb at a point: drag it to move it about. */
+const orbAt = (id: string, at: Vec3): Handle => ({ id, kind: "orb", axis: null, points: [at] });
+
 export function sectionGizmo(at: Vec3, cam: Camera, n: Vec3 = [0, 0, 1], free = false): Gizmo {
   // the push / pull arrow of a sheet (`in_459`): it moves the plane along its normal, nothing is made; the mover a body has (the arrows, the rings and the sphere, `in_419`) is there when the sheet's move icon has put it in its free mode
   const L = cam.distance * settings.gizmo.sizeOfView;
   const nn = normalize(n);
-  const arrow: Handle = { id: "sheet:n", kind: "double", axis: null, points: [add(at, scale(nn, -HALF * L * 1.2)), add(at, scale(nn, HALF * L * 1.2))] };
+  const arrow = arrowBoth("sheet:n", at, nn, HALF * L * 1.2);
   if (!free) return { centre: at, handles: [arrow] };
   return moverHandles("both", at, L, false); // (the mover replaces the arrow along the normal while it is there, `in_466`)
 }
@@ -98,8 +113,8 @@ export function sectionGizmo(at: Vec3, cam: Camera, n: Vec3 = [0, 0, 1], free = 
  */
 function moverHandles(kind: "move" | "rotate" | "both", centre: Vec3, L: number, sphere: boolean, frame?: readonly [Vec3, Vec3, Vec3]): Gizmo {
   const ax: readonly Vec3[] = frame ?? AXES; // (the mover's own axes when it has been turned, `in_417`)
-  const ball: Handle = { id: "pivot", kind: "ball", axis: null, points: [centre] };
-  const arrows = (id: string): Handle[] => ax.map((d, i): Handle => ({ id: `${id}:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, 2 * HALF * L))] }));
+  const ball = orbAt("pivot", centre);
+  const arrows = (id: string): Handle[] => axisArrows(id, ax, centre, 2 * HALF * L);
   const rings = (): Handle[] => ax.map((d, i) => ring(`rot:${"xyz"[i]}`, centre, d, L * 0.8, i as 0 | 1 | 2));
   // with the sphere selected both sets are up and they work on the mover itself: the arrows move it, the rings turn its axes
   // move and turn are two tools, each with its own handles, acting on the object (`in_421`); the cross section plane has both, as it has no tool to be in
@@ -117,7 +132,7 @@ function ring(id: string, centre: Vec3, axis: Vec3, R: number, i: 0 | 1 | 2 | nu
     const t = (k / RING) * Math.PI * 2;
     points.push(add(centre, scale(add(scale(u, Math.cos(t)), scale(v, Math.sin(t))), R)));
   }
-  return { id, kind: "arc", axis: i, points, dir: axis, head: Math.round(RING / 8) };
+  return { id, kind: "ring", axis: i, points, dir: axis, head: Math.round(RING / 8) };
 }
 const cornersOf = (scene: Scene, refs: readonly string[]): Vec3[] => refs.map((r) => scene.parts[r]).filter((p): p is Extract<NonNullable<Scene["parts"][string]>, { kind: "corner" }> => p?.kind === "corner").map((p) => p.at);
 /** The box that holds the body's corners, or null with no body. With several bodies the box of the ones selected (`parts`), so the arrows and rings stand in the middle of what is selected, not of everything (`in_291`). */
@@ -164,18 +179,18 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
   const L = cam.distance * settings.gizmo.sizeOfView;
   if ((op.kind === "extrude" || op.kind === "pushpull" || op.kind === "offset" || op.kind === "hollow") && op.origin && op.normal) {
     // the arrow normal to the figure or the face, pointing both ways: drag it out to pull, in to push
-    return { centre: op.origin, handles: [{ id: "pull", kind: "double", axis: null, points: [add(op.origin, scale(op.normal, -HALF * L)), add(op.origin, scale(op.normal, HALF * L))] }] };
+    return { centre: op.origin, handles: [arrowBoth("pull", op.origin, op.normal, HALF * L)] };
   }
   if (op.kind === "mirror" && op.mirrorBox && op.mirrorAt) {
     // the mover's arrows from the middle of what is mirrored, each ending at the plane across its axis; taking one chooses that plane, pulling it moves the plane (`in_437`); the orb marks where they start
     const centre = mirrorCentre(op);
     const c = op.pivot ?? centre; // (the orb, where the arrows start: the middle of what is mirrored unless it was put elsewhere, `in_440`)
     if (sphere) return moverHandles("move", c, L, true, op.frame);
-    const handles: Handle[] = [{ id: "mir:orb", kind: "ball", axis: null, points: [c] }];
+    const handles: Handle[] = [orbAt("mir:orb", c)];
     (op.frame ?? AXES).forEach((d, i) => {
       const away = op.mirrorAt![i]! - centre[i]!; // (how far the plane stands from the orb along this axis)
       const len = Math.sign(away || 1) * Math.max(Math.abs(away), 0.35 * L);
-      handles.push({ id: `mir:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [c, add(c, scale(d, len))] });
+      handles.push(arrowAlong(`mir:${"xyz"[i]}`, i as 0 | 1 | 2, c, d, len));
     });
     return { centre: c, handles };
   }
@@ -185,18 +200,18 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
     const a = axisOf(op);
     const c = revolveCentre(op);
     if (!a || !c) return null;
-    const orb: Handle = { id: "rev:orb", kind: "ball", axis: null, points: [c] }; // (the mover's orb: it moves when another line is clicked or when it is dragged, `in_436`, `in_468`)
+    const orb = orbAt("rev:orb", c); // (the mover's orb: it moves when another line is clicked or when it is dragged, `in_436`, `in_468`)
     // the rotate orb: a ring about each of the three axes, wherever the orb stands and however it is turned; the ring taken is the axis that is turned about (`in_468`). On each axis, as on the linear repeat, two arrows
     // in line: the first (`piv:`) puts the orb along that axis, the second, past it (`rev:adv:`), sets the spiral along that axis (`in_529`)
     const ax: readonly Vec3[] = op.frame ?? AXES;
     const rings = ax.map((d, i) => ring(`rev:turn:${"xyz"[i]}`, c, d, L * 0.5, i as 0 | 1 | 2));
-    const place = ax.map((d, i): Handle => ({ id: `piv:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [c, add(c, scale(d, L * 0.8))] }));
-    const spiral = ax.map((d, i): Handle => { const at = add(c, scale(d, L * 0.95)); return { id: `rev:adv:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [at, add(at, scale(d, L * 0.35))] }; });
+    const place = axisArrows("piv", ax, c, L * 0.8);
+    const spiral = ax.map((d, i) => arrowAlong(`rev:adv:${"xyz"[i]}`, i as 0 | 1 | 2, add(c, scale(d, L * 0.95)), d, L * 0.35));
     return { centre: c, handles: [orb, ...rings, ...place, ...spiral] };
   }
   if (op.kind === "edge") {
     // one double arrow, on the edge selected last, through its middle, along the way out of the corner; the size you drag applies to all the selected edges, so one arrow and one bubble are all there is to work with
-    const handles: Handle[] = (op.edges ?? []).slice(-1).map((e, i): Handle => ({ id: `edge:${i}`, kind: "double", axis: null, points: [add(e.mid, scale(e.dir, -HALF * L)), add(e.mid, scale(e.dir, HALF * L))] }));
+    const handles: Handle[] = (op.edges ?? []).slice(-1).map((e, i) => arrowBoth(`edge:${i}`, e.mid, e.dir, HALF * L));
     return handles.length ? { centre: scale(add(handles[0]!.points[0]!, handles[0]!.points[1]!), 0.5), handles } : null;
   }
   if (op.kind === "linear" || op.kind === "circular") {
@@ -209,22 +224,22 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
       // the same rings and ball as a rotation: the ring you take sets the axis, the ball is the point the copies turn about
       const pivot: Vec3 = [v[3]!, v[4]!, v[5]!];
       // the rings choose the axis; short arrows along x, y and z move the pivot point (its vertex in the scene), so it can be placed or typed exactly (`in_384`)
-      const arrows = ax.map((d, i): Handle => ({ id: `piv:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [pivot, add(pivot, scale(d, L * 0.45))] }));
-      return { centre: pivot, handles: [...ax.map((d, i) => ring(`rot:${"xyz"[i]}`, pivot, d, L * 0.8, i as 0 | 1 | 2)), ...arrows, { id: "pivot", kind: "ball", axis: null, points: [pivot] }] }; // (the orb, as on the mover: drag it to place the point the copies turn about, `in_437`)
+      const arrows = axisArrows("piv", ax, pivot, L * 0.45);
+      return { centre: pivot, handles: [...ax.map((d, i) => ring(`rot:${"xyz"[i]}`, pivot, d, L * 0.8, i as 0 | 1 | 2)), ...arrows, orbAt("pivot", pivot)] }; // (the orb, as on the mover: drag it to place the point the copies turn about, `in_437`)
     }
     // an arrow along each axis whose end is where the next copy goes (pull it for the distance between them), and a short arrow past the last copy (pull it for how many)
     const c = op.pivot ?? patternCentre(scene, op);
-    const handles: Handle[] = [{ id: "lin:orb", kind: "ball", axis: null, points: [c] }]; // (the mover's orb where the arrows start, `in_437`)
+    const handles: Handle[] = [orbAt("lin:orb", c)]; // (the mover's orb where the arrows start, `in_437`)
     ax.forEach((d, i) => {
       const sp = v[2 * i + 1]!;
       const n = Math.max(1, Math.round(v[2 * i]!));
       if (Math.abs(sp) < 1e-9) return;
       const sgn = sp < 0 ? -1 : 1;
       const cap = L * 2.2; // (the arrows are drawn no longer than this, so they stay in view whatever the spacing is, `in_382`)
-      handles.push({ id: `lin:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [c, add(c, scale(d, sgn * 0.6 * Math.min(Math.abs(sp), cap)))] }); // (short of the next copy's middle: a picture of the direction to pull, the number is for precision, `in_437`)
+      handles.push(arrowAlong(`lin:${"xyz"[i]}`, i as 0 | 1 | 2, c, d, sgn * 0.6 * Math.min(Math.abs(sp), cap))); // (short of the next copy's middle: a picture of the direction to pull, the number is for precision, `in_437`)
       // the stub for how many starts a good way past the last copy (and so well clear of the spacing arrow, which ends at the first), and stays close to the copies once there are some
       const slot = add(c, scale(d, sgn * (Math.min(Math.abs(sp) * n, cap) + L * (n > 1 ? 0.35 : 0.6))));
-      handles.push({ id: `cnt:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [slot, add(slot, scale(d, sgn * L * 0.3))] });
+      handles.push(arrowAlong(`cnt:${"xyz"[i]}`, i as 0 | 1 | 2, slot, d, sgn * L * 0.3));
     });
     return { centre: c, handles };
   }
@@ -238,9 +253,9 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
     const c = n ? [0, 1, 2].find((i) => Math.abs(Math.abs(n[i]!) - 1) < 1e-6) : undefined;
     const pts = cornersOf(scene, op.parts);
     const ext = (i: number) => (first?.kind === "circle" ? first.radius : pts.length ? Math.max(...pts.map((q) => Math.abs(q[i]! - op.pivot![i]!))) : 0);
-    const arrows = c === undefined ? [] : AXES.flatMap((d, i): Handle[] => (i === c ? [] : [{ id: `scale:${"xyz"[i]}`, kind: "scale", axis: i as 0 | 1 | 2, points: [op.pivot!, add(op.pivot!, scale(d, ext(i) + 0.5 * L))] }]));
+    const arrows = c === undefined ? [] : AXES.flatMap((d, i): Handle[] => (i === c ? [] : [arrowAlong(`scale:${"xyz"[i]}`, i as 0 | 1 | 2, op.pivot!, d, ext(i) + 0.5 * L, true)]));
     const across = c === undefined ? normalize(pl?.kind === "plane" ? pl.u : [1, 0, 0]) : normalize(AXES.reduce<Vec3>((a, d, i) => (i === c ? a : add(a, d)), [0, 0, 0])); // (the all-together arrow runs out at the same angle to the axes of the figure's plane)
-    return { centre: op.pivot, handles: [...arrows, { id: "scale", kind: "scale", axis: null, points: [op.pivot, add(op.pivot, scale(across, Math.max(...[0, 1, 2].map((i) => (i === c ? 0 : ext(i)))) + 0.5 * L))] }] };
+    return { centre: op.pivot, handles: [...arrows, arrowAlong("scale", null, op.pivot, across, Math.max(...[0, 1, 2].map((i) => (i === c ? 0 : ext(i)))) + 0.5 * L, true)] };
   }
   if (op.target === "part" && op.sub) {
     // a corner, an edge or a face of the body: the same X Y Z arrows and rings as an object, at the middle of its corners (the pivot of a turn can be moved)
@@ -263,15 +278,15 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
     // an arrow along each axis scales along that axis alone, the diagonal ball scales all together (`in_387`)
     // (all of them stand at the middle and are as long as the mover's, not tied to the body's own size: on a thin body they stay apart and clear of it; the all-together arrow runs out at the same angle to the three)
     const len = 2 * HALF * L;
-    const arrows = AXES.map((d, i): Handle => ({ id: `scale:${"xyz"[i]}`, kind: "scale", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, len))] }));
-    return { centre, handles: [...arrows, { id: "scale", kind: "scale", axis: null, points: [centre, add(centre, scale(normalize([1, 1, 1]), len))] }] };
+    const arrows = axisArrows("scale", AXES, centre, len, true);
+    return { centre, handles: [...arrows, arrowAlong("scale", null, centre, normalize([1, 1, 1]), len, true)] };
   }
   return null;
 }
 
 /** The handles moved along with what they are dragging (the arrows of a move or a pull follow the object live). */
-export function followed(g: Gizmo, drag: { dir: Vec3; kind: HandleKind; id: string } | null, value: number | null): Gizmo {
-  if (!drag || value === null || (drag.kind !== "arrow" && drag.kind !== "double") || drag.id.startsWith("edge")) return g;
+export function followed(g: Gizmo, drag: { dir: Vec3; kind: HandleKind; ratio?: true; id: string } | null, value: number | null): Gizmo {
+  if (!drag || value === null || drag.kind !== "arrow" || drag.ratio || drag.id.startsWith("edge")) return g;
   const by = scale(drag.dir, value);
   return { centre: add(g.centre, by), handles: g.handles.map((h) => ({ ...h, points: h.points.map((p) => add(p, by)) })) };
 }
@@ -283,13 +298,13 @@ const segDist = (p: [number, number], a: [number, number], b: [number, number]):
   const t = l2 === 0 ? 0 : Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2));
   return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
 };
-/** The handle nearest the pointer within `tolPx`, if any. The ball wins over what is under it. */
+/** The handle nearest the pointer within `tolPx`, if any. The orb wins over what is under it. */
 export function hitHandle(g: Gizmo, project: (p: Vec3) => [number, number], x: number, y: number, tolPx = settings.gizmo.hitPx, prefer?: string): Handle | null {
   let best: { h: Handle; d: number } | null = null;
   let wanted: Handle | null = null;
   for (const h of g.handles) {
     const pts = h.points.map(project);
-    const d = (h.kind === "ball" ? Math.hypot(x - pts[0]![0], y - pts[0]![1]) - 4 : Math.min(...pts.slice(1).map((q, i) => segDist([x, y], pts[i]!, q)))) - (h.id.startsWith("joint:") ? 3 : 0); // (a joint's handle wins over a move arrow along the same axis, `in_323`)
+    const d = (h.kind === "orb" ? Math.hypot(x - pts[0]![0], y - pts[0]![1]) - 4 : Math.min(...pts.slice(1).map((q, i) => segDist([x, y], pts[i]!, q)))) - (h.id.startsWith("joint:") ? 3 : 0); // (a joint's handle wins over a move arrow along the same axis, `in_323`)
     if (d <= tolPx && (!best || d < best.d)) best = { h, d };
     if (d <= tolPx && h.id === prefer) wanted = h;
   }
@@ -316,8 +331,10 @@ const hitPlane = (ray: Ray, at: Vec3, n: Vec3): Vec3 | null => {
 export interface Drag {
   id: string;
   kind: HandleKind;
+  /** an arrow whose value is a factor (`Handle.ratio`) */
+  ratio?: true;
   axis: 0 | 1 | 2 | null;
-  /** the line, the turning centre or the ball's position where the drag began */
+  /** the line, the turning centre or the orb's position where the drag began */
   origin: Vec3;
   /** the unit direction of the line, or the axis turned about */
   dir: Vec3;
@@ -332,26 +349,26 @@ export interface Drag {
 
 /** Begin dragging a handle with the pointer ray at the press. Null if the ray cannot be turned into a drag (the view is along the line). */
 export function startDrag(g: Gizmo, h: Handle, ray: Ray, cam: Camera): Drag | null {
-  if (h.kind === "arrow" || h.kind === "double") {
-    const dir = normalize(sub(h.points[1]!, h.points[0]!));
-    const origin = h.kind === "double" ? scale(add(h.points[0]!, h.points[1]!), 0.5) : h.points[0]!;
-    const t = paramOnLine(origin, dir, ray);
-    return t === null ? null : { id: h.id, kind: h.kind, axis: h.axis, origin, dir, start: t, offset: null };
-  }
-  if (h.kind === "scale") {
-    // the ball slides along the diagonal from the centre: how far along it the pointer is, relative to where you took hold, is the factor
+  if (h.kind === "arrow" && h.ratio) {
+    // the handle slides along the diagonal from the centre: how far along it the pointer is, relative to where you took hold, is the factor
     const dir = sub(h.points[1]!, h.points[0]!);
     const t = paramOnLine(h.points[0]!, normalize(dir), ray);
-    return t === null ? null : { id: h.id, kind: "scale", axis: h.axis, origin: h.points[0]!, dir, start: Math.max(1e-6, t / Math.hypot(...dir)), offset: null };
+    return t === null ? null : { id: h.id, kind: "arrow", ratio: true, axis: h.axis, origin: h.points[0]!, dir, start: Math.max(1e-6, t / Math.hypot(...dir)), offset: null };
   }
-  if (h.kind === "arc") {
+  if (h.kind === "arrow") {
+    const dir = normalize(sub(h.points[1]!, h.points[0]!));
+    const origin = h.both ? scale(add(h.points[0]!, h.points[1]!), 0.5) : h.points[0]!;
+    const t = paramOnLine(origin, dir, ray);
+    return t === null ? null : { id: h.id, kind: "arrow", axis: h.axis, origin, dir, start: t, offset: null };
+  }
+  if (h.kind === "ring") {
     const dir = h.dir ?? AXES[h.axis!]!;
     const p = hitPlane(ray, g.centre, dir);
-    return p ? { id: h.id, kind: "arc", axis: h.axis, origin: g.centre, dir, start: angleIn(g.centre, dir, p), offset: null } : null;
+    return p ? { id: h.id, kind: "ring", axis: h.axis, origin: g.centre, dir, start: angleIn(g.centre, dir, p), offset: null } : null;
   }
   const dir = basis(cam).forward;
   const p = hitPlane(ray, g.centre, dir);
-  return p ? { id: h.id, kind: "ball", axis: null, origin: g.centre, dir, start: 0, offset: sub(p, g.centre) } : null;
+  return p ? { id: h.id, kind: "orb", axis: null, origin: g.centre, dir, start: 0, offset: sub(p, g.centre) } : null;
 }
 /** The angle of a point round an axis through `centre` (right-handed about the axis), in radians. */
 function angleIn(centre: Vec3, axis: Vec3, p: Vec3): number {
@@ -365,23 +382,23 @@ const clean = (v: number) => Math.round(v * 1e6) / 1e6 + 0;
 
 /** The value a drag has reached: a distance along a line (arrows, the edge), degrees for a turn, or the new position of the ball. */
 export function dragTo(d: Drag, ray: Ray, pointer?: readonly [number, number]): { value: number } | { pivot: Vec3 } | null {
-  if (d.kind === "arrow" || d.kind === "double") {
+  if (d.kind === "arrow" && d.ratio) {
+    const t = paramOnLine(d.origin, normalize(d.dir), ray);
+    return t === null ? null : { value: clean(Math.max(0.05, snap(t / Math.hypot(...d.dir) / d.start, 0.01))) };
+  }
+  if (d.kind === "arrow") {
     const step = d.step ?? settings.op.distanceStep;
     if (d.screen && pointer) return { value: clean(snap(((pointer[0] - d.screen.x0) * d.screen.ux + (pointer[1] - d.screen.y0) * d.screen.uy) / d.screen.pxPerMm, step)) };
     const t = paramOnLine(d.origin, d.dir, ray);
     return t === null ? null : { value: clean(snap(t - d.start, step)) };
   }
-  if (d.kind === "arc") {
+  if (d.kind === "ring") {
     const p = hitPlane(ray, d.origin, d.dir);
     if (!p) return null;
     let a = angleIn(d.origin, d.dir, p) - d.start;
     while (a > Math.PI) a -= 2 * Math.PI;
     while (a <= -Math.PI) a += 2 * Math.PI;
     return { value: clean(snap((a * 180) / Math.PI, settings.gizmo.angleStep)) };
-  }
-  if (d.kind === "scale") {
-    const t = paramOnLine(d.origin, normalize(d.dir), ray);
-    return t === null ? null : { value: clean(Math.max(0.05, snap(t / Math.hypot(...d.dir) / d.start, 0.01))) };
   }
   const p = hitPlane(ray, d.origin, d.dir);
   return p && d.offset ? { pivot: sub(p, d.offset) } : null;
@@ -397,5 +414,5 @@ export function jointHandles(scene: Scene, body: Ref, cam: Camera): Handle[] {
   const at = add(j.point, scale(j.dir, dot(sub(c, j.point), j.dir))); // (the middle of the body, on the axis)
   const half = Math.abs(dot(sub(b.bbox.max, b.bbox.min), j.dir)) / 2;
   const start = add(at, scale(j.dir, half + HALF * L * 0.2));
-  return [ring("joint:turn", at, j.dir, L * 0.6, null), { id: "joint:slide", kind: "arrow", axis: null, points: [start, add(start, scale(j.dir, HALF * L * 1.2))] }];
+  return [ring("joint:turn", at, j.dir, L * 0.6, null), arrowAlong("joint:slide", null, start, j.dir, HALF * L * 1.2)];
 }

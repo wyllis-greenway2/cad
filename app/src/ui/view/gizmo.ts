@@ -32,7 +32,7 @@ export function buildGizmo(group: THREE.Group, g: GizmoView | null, unit: number
     const hot = h.id === g.hover || h.id === g.active || h.id === g.chosen || !!g.locked?.includes(h.id);
     const col = hot ? TEAL : ink;
     const pts = h.points;
-    if (h.kind === "ball") {
+    if (h.kind === "orb") {
       if (h.id === g.pulse) { // the sphere being oriented breathes blue (`in_421`)
         const k = 0.5 + 0.5 * Math.sin(performance.now() / 260);
         const blue = new THREE.Color(0x2f6fe0).lerp(new THREE.Color(0x9cc4ff), k).getHex();
@@ -48,13 +48,13 @@ export function buildGizmo(group: THREE.Group, g: GizmoView | null, unit: number
     line.renderOrder = 6;
     group.add(line);
     const n = pts.length;
-    if (h.kind === "arc") {
+    if (h.kind === "ring") {
       // a full circle, so the plane it turns in is plain; one arrowhead says which way
       const k = h.head ?? 6;
       group.add(cone(pts[k + 1]!, unitDir(pts[k]!, pts[k + 1]!), unit, col));
       continue;
     }
-    group.add(cone(pts[n - 1]!, unitDir(pts[n - 2]!, pts[n - 1]!), unit, col)); // (a scale handle is an arrow too: pull it out for bigger)
-    if (h.kind === "double") group.add(cone(pts[0]!, unitDir(pts[1]!, pts[0]!), unit, col));
+    group.add(cone(pts[n - 1]!, unitDir(pts[n - 2]!, pts[n - 1]!), unit, col)); // (a scale handle is an arrow too: pull it out for bigger; a push / pull has a head at each end)
+    if (h.both) group.add(cone(pts[0]!, unitDir(pts[1]!, pts[0]!), unit, col));
   }
 }
