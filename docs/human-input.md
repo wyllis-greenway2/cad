@@ -2270,3 +2270,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_485 — 2026-11-16 — directive
 > Do the loft wireframe preview next
 (asks for what in_484 left unbuilt: the loft's preview, open or waiting, drawn as a wireframe as the sweep's and the revolve's are)
+
+## in_486 — 2026-11-16 — directive
+> Do the number bubbles on the revolve arrows next
+(asks for what in_484 left unbuilt: number bubbles on the revolve's new position arrows and spiral arrows, to read and type the numbers)

@@ -2391,3 +2391,6 @@ Six inputs of the last turns had not been recorded (`in_451` to `in_456`; record
 
 ## Handoff 454 — 2026-11-16 (in_485: the loft's preview as a wireframe)
 `in_485`. **Built (`dec_loft_sketches`):** `frame.ts`: the body goes wireframe while a loft is open or while one chosen first (`pickingOp`) waits for the check with enough selected, as for the sweep. **Test (`menupick.test.ts`):** a loft chosen first, one sketch clicked (solid), the second (wireframe, nothing made), Enter (open, wireframe). **Not browser-checked.**
+
+## Handoff 455 — 2026-11-16 (in_486: number bubbles on the revolve's arrows)
+`in_486`. **Built (`dec_spiral_extrude`):** `revolveEntries` (`entry.ts`, used in `frame.ts`): the arrow taken (clicked or dragged) has a bubble at its tip, a position arrow (`piv:`) the orb's world coordinate along that axis, typed through `doEntry` (`modal.ts`, field 10 + axis) it puts the orb there; a spiral arrow (`rev:adv:`) the advance (field 1, as the chip's). **Test (`revolve.test.ts`):** no bubble before an arrow is taken, one each after, typed 7 and 12 land. **Not built:** for a turned orb the position is still the world coordinate, not along the turned axis; not browser-checked.

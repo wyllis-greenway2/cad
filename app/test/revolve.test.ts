@@ -335,3 +335,28 @@ test("the orb has an arrow on each axis to put it, and a second one past it that
   assert.ok(spiral.mesh && spiral.mesh.vertices.length > 0, "the preview is made");
 });
 import { advanceOf as advanceOfOp } from "../src/interaction/revolve.ts";
+
+test("an arrow of the orb that is taken has a number bubble: the orb's place on a position arrow (typed to put it), the advance on a spiral arrow (`in_486`)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  st = { ...st, op: Z(st.op!) }; // (the orb at the origin, its first axis along z)
+  const f0 = frameOf(st, { w: 800, h: 600 });
+  assert.equal(f0.entries.length, 0, "no bubble on arrows not taken");
+  const pr = projector(st.cam, 800, 600);
+  const tip = (id: string) => { const h = gizmoOf(st)!.handles.find((x) => x.id === id)!; const a = pr.project(h.points[0]!), b = pr.project(h.points.at(-1)!); return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] as const; };
+  const [px1, py1] = tip("piv:x");
+  st = reduce(st, { type: "click", x: px1, y: py1, count: 1, shift: false }, env);
+  st = { ...st, handleSel: "piv:x" };
+  const e = frameOf(st, { w: 800, h: 600 }).entries;
+  assert.equal(e.length, 1);
+  assert.equal(e[0]!.fields[0]!.index, 10);
+  st = reduce(st, { type: "entry", field: 10, text: "7" } as never, env);
+  assert.equal(st.op!.pivot![0], 7, "the number typed puts the orb at x = 7");
+  st = { ...st, handleSel: "rev:adv:z" };
+  const a = frameOf(st, { w: 800, h: 600 }).entries;
+  assert.equal(a.length, 1);
+  assert.equal(a[0]!.fields[0]!.index, 1);
+  st = reduce(st, { type: "entry", field: 1, text: "12" } as never, env);
+  assert.equal(advanceOfOp(st.op!), 12);
+});

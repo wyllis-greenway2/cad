@@ -166,6 +166,24 @@ export function sectionEntries(sec: { at: Vec3; n: Vec3 }, g: Gizmo | null, chos
     return [{ fields: [{ label: moving ? `Where the plane is along ${"XYZ"[k]}` : `The angle of the plane about ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(moving ? sec.at[k]! : normalAngle(sec.n, k)), active: false, typed: false, index: moving ? k : 3 + k }], unit: moving ? "mm" : "°", at, ...(moving ? { from: g.centre } : {}) }];
   });
 }
+/**
+ * The number bubble of a revolve's arrow that is taken (`in_486`): at the tip of a position arrow (`piv:`) the orb's place along that axis (world coordinate, typed to put it: field 10 + the axis), at the tip of a
+ * spiral arrow (`rev:adv:`) the advance (field 1, the same number as the chip's). Nothing for an arrow not taken.
+ */
+export function revolveEntries(op: Op, g: Gizmo | null, chosen: string | null): Entry[] {
+  if (!g || op.kind !== "revolve" || !chosen) return [];
+  const h = g.handles.find((x) => x.id === chosen);
+  if (!h) return [];
+  if (/^piv:[xyz]$/.test(chosen)) {
+    const k = "xyz".indexOf(chosen[4]!);
+    return [{ fields: [{ label: `The orb's place along ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(g.centre[k]!), active: false, typed: false, index: 10 + k, unit: "mm" }], unit: "mm", at: h.points.at(-1)!, from: g.centre }];
+  }
+  if (/^rev:adv:[xyz]$/.test(chosen)) {
+    const typed = (op.advTyped ?? "") !== "";
+    return [{ fields: [{ label: `The spiral advance along ${"XYZ"["xyz".indexOf(chosen[8]!)]}`, short: "↔", value: typed ? op.advTyped! : roundedText(advanceOf(op)), active: false, typed, index: 1, unit: "mm" }], unit: "mm", at: h.points.at(-1)!, from: h.points[0]! }];
+  }
+  return [];
+}
 /** The numbers of a scale along axes (`in_390`): one bubble at the tip of each axis arrow with the factor along it, to type. */
 export function scaleEntries(op: Op, g: Gizmo | null): Entry[] {
   if (!g || op.kind !== "scale" || !op.axes) return [];

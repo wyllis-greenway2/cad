@@ -198,6 +198,12 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     const off = mo.kind === "move" ? moveOffset(sceneOf(s.session), mo) : ([0, 0, 0] as Vec3);
     return putMover(s, { ...mo, auto: false, pivot: sub(at, off) });
   }
+  if (s.op?.kind === "revolve" && !s.moverSphere && field >= 10 && field < 13) { // the orb's place along one axis, typed on its arrow's bubble (`in_486`)
+    const n = typedNumber(text);
+    const g = gizmoOf(s);
+    if (n === null || !g || !s.op.pivot) return s;
+    return { ...s, op: { ...s.op, auto: false, pivot: s.op.pivot.map((c, j) => (j === field - 10 ? n : c)) as unknown as Vec3 } };
+  }
   if (s.op?.kind === "mirror" && !s.moverSphere && s.op.mirrorAt && field >= 0 && field < 3) { // the number of the mirror plane's arrow: where the plane stands along that axis (`in_437`)
     const n = typedNumber(text);
     if (n === null) return s;
