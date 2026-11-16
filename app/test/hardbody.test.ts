@@ -224,3 +224,29 @@ test("a mate that would take a body into a third hard body is refused with its n
   const r = mateCommand(scene(hard), "flush", fa, fb, 0);
   assert.ok("why" in r && /would put this body into x_s_102/.test(r.why), JSON.stringify(r));
 });
+
+import { hardOverlaps, overlapBlame } from "../src/interaction/hard.ts";
+import { panelOf } from "../src/interaction/panels.ts";
+test("when an earlier change makes hard bodies overlap on replay, they are found, the step to look at is marked in the History list, the marks and the message say so (`in_478`)", () => {
+  let s = two();
+  s = moveBy(s, [30, 0, 15])!.session; // A stands above B (A z 15..25, B z 0..10)
+  const moveStep = scene(s).steps.at(-1)!;
+  assert.equal(moveStep.type, "move");
+  s = hardOf(s, [A, B]);
+  assert.deepEqual(hardOverlaps(scene(s)), [], "clear");
+  const frame0 = frameOf({ ...createState(s), cam: homeCamera() }, { w: 800, h: 600 });
+  assert.ok(frame0.hardMarks.every((m) => !m.overlaps) && !/overlap/.test(frame0.message ?? ""), "no warning");
+  // an earlier step is changed (B is extruded to 20): the replay puts B into A
+  const later = run(s, { type: "setStepParams", id: "s_101", params: { depth: 20 } } as never);
+  assert.ok(Math.abs(box(later, B).max[2]! - 20) < 1e-6, `replayed: ${box(later, B).max[2]}`);
+  const over = hardOverlaps(scene(later));
+  assert.equal(over.length, 1, "found");
+  assert.equal(overlapBlame(scene(later), over[0]!), moveStep.id, "the step that moved it");
+  const row = panelOf("history", scene(later), [], later.outcome.errors)!.rows.find((r) => r.id === moveStep.id)!;
+  assert.match(row.error ?? "", /overlap here/);
+  const f = frameOf({ ...createState(later), cam: homeCamera() }, { w: 800, h: 600 });
+  assert.ok(f.hardMarks.every((m) => !!m.overlaps), "both marks say what they overlap");
+  assert.match(f.message ?? "", /hard bodies overlap/);
+  // soft bodies, or a model with nothing hard, say nothing
+  assert.deepEqual(hardOverlaps(scene(run(later, { type: "setHard", body: "x_s_100", on: false }))), []);
+});

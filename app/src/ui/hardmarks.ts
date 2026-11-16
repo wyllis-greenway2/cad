@@ -18,7 +18,7 @@ export function createHardMarks(host: HTMLElement, run: (id: string) => void) {
   };
   return {
     /** The page position of each mark (null: it is not in view). */
-    update(marks: { ref: string; at: Vec3 }[], screen: (q: Vec3) => [number, number] | null): void {
+    update(marks: { ref: string; at: Vec3; overlaps?: string }[], screen: (q: Vec3) => [number, number] | null): void {
       const seen = new Set<string>();
       for (const m of marks) {
         const p = screen(m.at);
@@ -27,6 +27,9 @@ export function createHardMarks(host: HTMLElement, run: (id: string) => void) {
         const el = pool.get(m.ref) ?? make(m.ref);
         pool.set(m.ref, el);
         el.style.display = "flex";
+        el.style.background = m.overlaps ? "rgba(255,226,226,.96)" : "rgba(255,255,255,.92)";
+        el.style.borderColor = m.overlaps ? "#c0392b" : "#8a8f98";
+        el.title = m.overlaps ? `Hard body: it overlaps ${m.overlaps} (an earlier change put them together)` : "Hard body: it will not go into other hard bodies; tap to make it soft";
         el.style.transform = `translate(${Math.round(p[0])}px, ${Math.round(p[1])}px)`;
       }
       for (const [ref, el] of pool) if (!seen.has(ref)) { el.remove(); pool.delete(ref); }

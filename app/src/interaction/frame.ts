@@ -23,7 +23,7 @@ import { seenIn } from "./picking.ts";
 import { tapeAnnotations } from "./tape.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
-import { hardMotion, hardNote, limitedOp, hardCollision } from "./hard.ts";
+import { hardMotion, hardNote, limitedOp, hardCollision, hardOverlaps, hardNames } from "./hard.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { withCorner } from "./runop.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, previewRefusal, undoLast } from "./session.ts";
@@ -146,7 +146,7 @@ export interface Frame {
   cut: { parts: { mask: number; at: Vec3; label: string; tip: string; kept: boolean }[]; join: boolean } | null;
   /** the little panes of the world planes beside the axes (`in_190`) */
   /** a small mark on each hard body (`in_476`): the body and the point of it the mark stands at (the middle of its top) */
-  hardMarks: { ref: Ref; at: Vec3 }[];
+  hardMarks: { ref: Ref; at: Vec3; /** the hard bodies it overlaps (the history put them together), `in_478` */ overlaps?: string }[];
   /** the axes and the panes are put away (`in_463`) */
   worldHidden: boolean;
   panes: { name: WorldName; corners: Vec3[]; active: boolean; hover: boolean }[];
@@ -373,7 +373,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     sectionPlanes: [...Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, mode: modeOf(pl), hidden: !!pl.hidden, move: sheetMoveOf(s, pl.ref), corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }), ...mirrorGuide(s)],
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     worldHidden: s.worldHidden,
-    hardMarks: sc.hard?.length ? Object.values(sc.parts).flatMap((p) => (p.kind === "body" && p.id && p.bbox && sc.hard!.includes(p.id) ? [{ ref: p.ref, at: [(p.bbox.min[0] + p.bbox.max[0]) / 2, (p.bbox.min[1] + p.bbox.max[1]) / 2, p.bbox.max[2]] as Vec3 }] : [])) : [],
+    hardMarks: sc.hard?.length ? Object.values(sc.parts).flatMap((p) => (p.kind === "body" && p.id && p.bbox && sc.hard!.includes(p.id) ? [{ ref: p.ref, at: [(p.bbox.min[0] + p.bbox.max[0]) / 2, (p.bbox.min[1] + p.bbox.max[1]) / 2, p.bbox.max[2]] as Vec3, ...overlapNote(sc, p.ref) }] : [])) : [],
     panes: s.cam.straight || s.worldHidden ? [] : WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
     gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "revolve" && !s.moverSphere ? `rev:turn:${"xyz"[s.op.axis]}` : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
     similar: similarChip(s),
@@ -383,7 +383,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     loftKinds: s.op?.kind === "loft" ? loftChips(sceneOf(s.session), s.op) : null,
     sizeKinds: sizeKinds(s),
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
-    message: s.session.message ?? hardWhy?.why ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
+    message: s.session.message ?? hardWhy?.why ?? hardOverlapMessage(sc) ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
   };
 }
 
@@ -413,6 +413,16 @@ function orbShow(s: AppState, now: number | undefined): { all: false; handle: st
   return { all: false, handle: s.handleSel };
 }
 /** What flashes red with a constraint's bubble when it is violated (`in_436`): the parts it ties; for a mate the two faces it is between (not the two whole bodies, which would turn every surface red). */
+/** Which hard bodies a hard body is in, for its mark (`in_478`). */
+function overlapNote(sc: Scene, ref: Ref): { overlaps?: string } {
+  const mine = hardOverlaps(sc).filter((o) => o.a === ref || o.b === ref).map((o) => (o.a === ref ? o.b : o.a));
+  return mine.length ? { overlaps: hardNames(sc, mine) } : {};
+}
+/** What is said while hard bodies overlap in the model as the history makes it (`in_478`); nothing when they do not. */
+function hardOverlapMessage(sc: Scene): string | undefined {
+  const o = hardOverlaps(sc);
+  return o.length ? `hard bodies overlap: ${o.map((q) => hardNames(sc, [q.a, q.b])).join("; ")} (the History list marks the step; moves that take them apart are allowed)` : undefined;
+}
 function flashParts(sc: Scene, victims: readonly string[]): Ref[] {
   const mates = victims.some((id) => sc.relations.find((r) => r.id === id)?.kind === "mate") ? mateStatus(sc) : [];
   return sc.relations.filter((r) => victims.includes(r.id)).flatMap((r) => {

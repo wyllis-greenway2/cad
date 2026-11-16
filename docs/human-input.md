@@ -2236,3 +2236,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_477 — 2026-11-16 — directive
 > Do the mates against hard bodies next
 (asks for what `dec_hard_bodies` left unbuilt about mates: a mate that holds hard bodies against the rule, and a motion held by mates being limited by the rule at release as well as in the picture)
+
+## in_478 — 2026-11-16 — directive
+> Do the history replay test next
+(asks for what `dec_hard_bodies` left open: the hard-body rule is not tested again when the history is replayed, so an earlier change that makes hard bodies overlap goes unnoticed)

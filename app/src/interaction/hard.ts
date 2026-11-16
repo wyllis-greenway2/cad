@@ -251,3 +251,34 @@ export function hardCollision(scene: Scene, group: readonly Ref[], rigidOf: (b: 
   return [...hits];
 }
 export const hardNames = (scene: Scene, refs: readonly Ref[]): string => refs.map((r) => nameOf(scene, r)).join(", ");
+
+// ---- the history replayed (`in_478`) ----
+const overlapCache = new WeakMap<Scene, { a: Ref; b: Ref }[]>();
+/**
+ * The pairs of hard bodies that overlap (or are nearer than the clearance) as the scene stands. The rule is for the moment of moving, so a model made of steps can come to have hard bodies in each other
+ * when an earlier step is changed and the history is replayed; this finds them, and `overlapBlame` the step to look at.
+ */
+export function hardOverlaps(scene: Scene): { a: Ref; b: Ref }[] {
+  if (!scene.hard?.length) return [];
+  const known = overlapCache.get(scene);
+  if (known) return known;
+  const bodies = Object.keys(scene.parts).filter((r) => isHard(scene, r as Ref)) as Ref[];
+  const out: { a: Ref; b: Ref }[] = [];
+  for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
+    const [ma, mb] = [meshOf(scene, bodies[i]!), meshOf(scene, bodies[j]!)];
+    if (ma && mb && collides(ma.tris, mb.tree, scene.clearance ?? 0)) out.push({ a: bodies[i]!, b: bodies[j]! });
+  }
+  overlapCache.set(scene, out);
+  return out;
+}
+
+/** The last step that made or moved either body (the one to look at when they overlap), or null. */
+export function overlapBlame(scene: Scene, pair: { a: Ref; b: Ref }): string | null {
+  const ids = [pair.a, pair.b].map((r) => { const p = scene.parts[r]; return p?.kind === "body" ? p.id : undefined; }).filter((x): x is string => !!x);
+  for (let i = scene.steps.length - 1; i >= 0; i--) {
+    const st = scene.steps[i]!;
+    if (st.params.body !== undefined && ids.includes(String(st.params.body))) return st.id;
+    if (ids.includes(`x_${st.id}`) || st.parts.some((r) => r === pair.a || r === pair.b)) return st.id;
+  }
+  return null;
+}

@@ -3,6 +3,7 @@ import type { Ref } from "../shared/ref.ts";
 import type { Scene, Step } from "../operation/scene.ts";
 import type { Group } from "../operation/groups.ts";
 import { groupsOf, membersOf, parentOf } from "../operation/groups.ts";
+import { hardOverlaps, overlapBlame, hardNames } from "./hard.ts";
 
 export type PanelKind = "bodies" | "history" | "groups";
 export interface PanelRow { id: string; label: string; /** selected (a body) */ active: boolean; /** can be taken out (a step) */ removable: boolean; /** a repeat of the body: it can be opened again to change its numbers (`in_257`) */ edit?: boolean; /** why this step could not be made, when it could not (it is shown in red) */ error?: string; /** an extrusion: its hidden sketch can be shown (`in_228`); true while it is shown */ sketch?: boolean }
@@ -50,6 +51,11 @@ function groupsPanel(scene: Scene, selection: readonly Ref[]): Panel {
   return { kind: "groups", title: "Groups", rows };
 }
 /** The steps of building, oldest first. */
-const historyPanel = (scene: Scene, errors: Record<string, string>, shown: string | null): Panel => ({ kind: "history", title: "History", rows: scene.steps.map((s) => ({ id: s.id, label: stepLabel(s), active: false, removable: true, ...(s.type === "pattern" ? { edit: true } : {}), ...(s.type === "extrude" ? { sketch: shown === s.id } : {}), ...(errors[s.id] ? { error: errors[s.id] } : {}) })) });
+const historyPanel = (scene: Scene, errors0: Record<string, string>, shown: string | null): Panel => {
+  // the hard bodies that overlap after the history is replayed: the step to look at is marked (`in_478`)
+  const errors: Record<string, string> = { ...errors0 };
+  for (const o of hardOverlaps(scene)) { const id = overlapBlame(scene, o); if (id && !errors[id]) errors[id] = `the hard bodies ${hardNames(scene, [o.a, o.b])} overlap here: move one of them clear`; }
+  return { kind: "history", title: "History", rows: scene.steps.map((s) => ({ id: s.id, label: stepLabel(s), active: false, removable: true, ...(s.type === "pattern" ? { edit: true } : {}), ...(s.type === "extrude" ? { sketch: shown === s.id } : {}), ...(errors[s.id] ? { error: errors[s.id] } : {}) })) };
+};
 export const panelOf = (kind: PanelKind | null, scene: Scene, selection: readonly Ref[], errors: Record<string, string> = {}, shownSketch: string | null = null): Panel | null => (kind === "bodies" ? bodiesPanel(scene, selection) : kind === "history" ? historyPanel(scene, errors, shownSketch) : kind === "groups" ? groupsPanel(scene, selection) : null);
 
