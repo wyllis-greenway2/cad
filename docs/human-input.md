@@ -2621,3 +2621,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_571 — 2026-11-16 — question
 > okay, and how does that compare to the loft method? and would the loft method be accurate enough to actually make a usable gear?
 (asks how the loft method for the throated wheel compares in time with the 153 s hobbing result, and whether it would be accurate enough for a usable gear)
+
+## in_572 — 2026-11-16 — directive
+> yes run the prototype
+(asks for the throated wheel prototype: sections worked out from the worm, a loft through 3, 5 and 9 of them, and the overlap with the worm measured at several turns)
