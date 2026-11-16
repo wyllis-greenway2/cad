@@ -2589,3 +2589,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_563 — 2026-11-16 — question
 > okay we are going to have to speed that up a lot. What options do we have?
 (asks for ways to make the twisted gear body, which took 1 to 5 seconds, much faster)
+
+## in_564 — 2026-11-16 — question
+> lets potentially try all those ideas, but first lets brainstorm more, arent there lessons we can learn from video games here? For example, not draw things the camera can't see at all? and rapidly draw a really rough version (maybe entire flat faced curves) until the model is settled and or if resources are low. Also maybe we should check less while operating and or only render a preview of highlighted edges during operation preview ? like for example only one outline edge of each tooth, maybe some edges that outline the surface, maybe only edges facing the camera etc. What do you think? Maybe some of these should be systemwide generic rules for speed rather than gear specific?
+(a brainstorm: game-engine lessons for speed — culling, rough versions while unsettled or under load, fewer checks during an operation, edge-only previews; and whether they should be system-wide rules, not gear-specific)
