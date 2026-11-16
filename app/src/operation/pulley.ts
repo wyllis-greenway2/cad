@@ -10,28 +10,13 @@
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import type { GearSpec, GearOutline } from "./gear.ts";
+import type { P } from "./arcs.ts";
+import { polar, bulgeOf as bulge, arcMid } from "./arcs.ts";
 
-type P = [number, number];
 export const GT_TOOTH = {
   "2GT": { pitch: 2, R1: 0.15, R2: 1.0, R3: 0.555, b: 0.4, h: 0.75, pld: 0.254, minTeeth: 12 },
   "3GT": { pitch: 3, R1: 0.25, R2: 1.52, R3: 0.85, b: 0.61, h: 1.14, pld: 0.381, minTeeth: 12 },
 } as const;
-
-const polar = (r: number, a: number): P => [r * Math.cos(a), r * Math.sin(a)];
-const bulge = (a: P, m: P, b: P): number => {
-  const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
-  const len = Math.hypot(dx, dy);
-  if (len < 1e-12) return 0;
-  const off = ((m[0] - (a[0] + b[0]) / 2) * -dy + (m[1] - (a[1] + b[1]) / 2) * dx) / len;
-  return Math.abs(off) < 1e-12 ? 0 : off / len;
-};
-/** The middle of the shorter arc of the circle about `c` of radius `r` from `a` to `b`. */
-const arcMid = (c: P, r: number, a: P, b: P): P => {
-  const u: P = [a[0] - c[0], a[1] - c[1]], v: P = [b[0] - c[0], b[1] - c[1]];
-  const [mx, my] = [u[0] + v[0], u[1] + v[1]];
-  const l = Math.hypot(mx, my);
-  return l < 1e-12 ? [c[0] - u[1], c[1] + u[0]] : [c[0] + (mx / l) * r, c[1] + (my / l) * r];
-};
 
 export function pulleyOutline(spec: GearSpec): Result<GearOutline> {
   const t = spec.pulley ? GT_TOOTH[spec.pulley] : undefined;
