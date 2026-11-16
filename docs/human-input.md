@@ -2272,3 +2272,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_486 — 2026-11-16 — directive
 > okay now it just freezes when I try to move the cylinder or block
 (reports that after the previous fix the app freezes when the pin (cylinder) or the block of the hard_body project is moved by hand)
+
+## in_487 — 2026-11-16 — directive
+> okay seems better, moving the cylinder is pretty smooth. If you grab the block and try to move, it is pretty shaky though. Even if you drag the mouse in a smooth straight direction, it seems to bounce back and forth across in that direction?
+(reports that dragging the pin is now smooth, but dragging the block (the pin standing in its hole) is shaky: along a smooth straight pointer drag the block bounces back and forth in that direction)

@@ -79,16 +79,38 @@ function reachOf(scene: Scene, bodies: readonly Ref[]): number {
  * overlaps is left out, so that bodies can be pulled out of each other.
  */
 const motionMemo = new WeakMap<Scene, { key: string; value: HardMotion | null }>();
-export function hardMotion(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref) => Rigid | null, slide = false): HardMotion | null {
+/** Where a drag by the pointer has got to, in this scene: the pointer's place and the place the bodies were put at for it, each as a move from where they stood (`in_487`). */
+const dragMemo = new WeakMap<Scene, { group: string; target: Vec3; result: Vec3 }>();
+export function hardMotion(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref) => Rigid | null, slide = false, follow = false): HardMotion | null {
   // (the same motion asked again, as a picture is drawn again with the pointer where it was, is not worked out again)
-  const key = `${group.join(",")}|${slide}|${group.map((b) => { const r = rigidOf(b); return r ? [...r.turn, ...r.shift, r.k].join(",") : "-"; }).join(";")}`;
+  const key = `${group.join(",")}|${slide}|${follow}|${group.map((b) => { const r = rigidOf(b); return r ? [...r.turn, ...r.shift, r.k].join(",") : "-"; }).join(";")}`;
   const kept = motionMemo.get(scene);
   if (kept && kept.key === key) return kept.value;
-  const value = hardMotionNow(scene, group, rigidOf, slide);
+  const rigids = group.map((b) => rigidOf(b));
+  const plain = follow && slide && rigids.length > 0 && rigids.every((r) => r && isMove(r) && Math.hypot(r.shift[0] - rigids[0]!.shift[0], r.shift[1] - rigids[0]!.shift[1], r.shift[2] - rigids[0]!.shift[2]) < 1e-9);
+  let value: HardMotion | null;
+  if (plain) {
+    // a drag by the pointer goes on from where the last picture put the bodies, towards where the pointer is now: they follow it, and do not start again from the start of the drag at every picture, which chose between ways of getting round a wall again and again and made them jump about
+    const target = rigids[0]!.shift;
+    const names = group.join(",");
+    const last = dragMemo.get(scene);
+    const fresh = Math.hypot(...target) < 1e-3 || !last || last.group !== names || Math.hypot(target[0] - last.target[0], target[1] - last.target[1], target[2] - last.target[2]) > 60;
+    const base: Vec3 = fresh ? [0, 0, 0] : last.result;
+    const delta: Rigid = slideOf([target[0] - base[0], target[1] - base[1], target[2] - base[2]]);
+    value = hardMotionNow(scene, group, () => delta, true, base);
+    let result: Vec3 = value ? (value.shift ?? (value.rigidOf(group[0]!)?.shift ?? target)) : target;
+    // never farther from the pointer than the last picture was: the bodies come closer to it or stay where they are, they do not wander off along a wall and come back (that bounced them to and fro along the way the pointer went)
+    const gap = (q: Vec3): number => Math.hypot(q[0] - target[0], q[1] - target[1], q[2] - target[2]);
+    if (!fresh && gap(result) > gap(base) + 1e-6) {
+      result = base;
+      value = { t: 0, hit: value?.hit ?? [], rigidOf: (b) => (group.includes(b) ? slideOf(base) : null), shift: base };
+    }
+    dragMemo.set(scene, { group: names, target, result });
+  } else value = hardMotionNow(scene, group, rigidOf, slide);
   motionMemo.set(scene, { key, value });
   return value;
 }
-function hardMotionNow(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref) => Rigid | null, slide: boolean): HardMotion | null {
+function hardMotionNow(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref) => Rigid | null, slide: boolean, base: Vec3 = [0, 0, 0]): HardMotion | null {
   const movers = group.filter((b) => isHard(scene, b));
   if (!movers.length) return null;
   const stays = Object.keys(scene.parts).filter((r) => !group.includes(r as Ref) && isHard(scene, r as Ref)) as Ref[];
@@ -106,7 +128,7 @@ function hardMotionNow(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref) =>
   }
   if (!pairs.length) return null;
   const hitAt = (r: (b: Ref) => Rigid | null, sliding = false): Ref[] => [...new Set(pairs.filter((q) => collidesMoving(q.mover, r(q.m) ?? NONE, q.fixed, Math.max(0, q.c - (sliding ? 5e-4 : 0)))).map((q) => q.s))]; // (sliding along a surface is tested a hair nearer, or a body on it would count as hitting it at every step)
-  const part = (t: number) => (b: Ref): Rigid | null => { const r = rigidOf(b); return r ? partOf(r, t) : r; };
+  const part = (t: number) => (b: Ref): Rigid | null => { const r = rigidOf(b); if (!r) return r; const p = partOf(r, t); return base[0] || base[1] || base[2] ? { ...p, shift: [p.shift[0] + base[0], p.shift[1] + base[1], p.shift[2] + base[2]] } : p; }; // (a drag that goes on from where it was has `base`: its bodies stand there already)
   const stepLen = stepLength(scene, movers, stays);
   const reach = reachOf(scene, movers);
   const travel = Math.max(...movers.map((b) => { const r = rigidOf(b); if (!r) return 0; const c = Math.hypot(...r.shift); const a = Math.acos(Math.max(-1, Math.min(1, (r.turn[0] + r.turn[4] + r.turn[8] - 1) / 2))); return c + a * reach; }), 0);
@@ -114,10 +136,12 @@ function hardMotionNow(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref) =>
   if (t >= 1) return null;
   const hit = hitAt(part(Math.min(1, t + 5e-4)));
   const stop: HardMotion = { t, hit, rigidOf: part(t) };
+  const here = part(t)(movers[0]!);
+  if (base[0] || base[1] || base[2]) stop.shift = here ? here.shift : undefined; // (the bodies' place from where the drag began, not from where this picture's motion began)
   // sliding: only a plain move, the same for every body of the group
   const first = movers.map((b) => rigidOf(b));
   if (!slide || !first.every(isMove) || first.some((r) => Math.hypot(r.shift[0] - first[0]!.shift[0], r.shift[1] - first[0]!.shift[1], r.shift[2] - first[0]!.shift[2]) > 1e-9)) return stop;
-  let at: Vec3 = [first[0]!.shift[0] * t, first[0]!.shift[1] * t, first[0]!.shift[2] * t]; // (where it has got to)
+  let at: Vec3 = [base[0] + first[0]!.shift[0] * t, base[1] + first[0]!.shift[1] * t, base[2] + first[0]!.shift[2] * t]; // (where it has got to)
   let left: Vec3 = [first[0]!.shift[0] * (1 - t), first[0]!.shift[1] * (1 - t), first[0]!.shift[2] * (1 - t)];
   const hits = new Set<Ref>(hit);
   /** How much of `dir`, from `from`, the group can go (0 to 1), by tests along it (counted: a drag has only so many to spend, or a heavy model would freeze the picture, `in_485`). */
@@ -148,8 +172,18 @@ function hardMotionNow(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref) =>
     let u = slid ? canGo(at, slid) : 0;
     if (!slid || Math.hypot(...slid) * u < 2e-3) {
       // the contact found does not say which way to go (a rim that faces along the motion, a bend): the motion is tried with each of its parts left out, and the one that gets furthest is taken
-      const found: { best: { dir: Vec3; u: number; went: number } | null } = { best: null };
-      const tryParts = (parts: Vec3[]): void => { for (const dir of parts) { const len = Math.hypot(...dir); if (len < 1e-4) continue; const uu = canGo(at, dir); if (!found.best || len * uu > found.best.went) found.best = { dir, u: uu, went: len * uu }; } };
+      const found: { best: { dir: Vec3; u: number; went: number; score: number } | null } = { best: null };
+      // (the way that brings it nearest to where it was going, not the one that goes furthest: that went sideways along a wall, away from the pointer)
+      const tryParts = (parts: Vec3[]): void => {
+        for (const dir of parts) {
+          const len = Math.hypot(...dir);
+          if (len < 1e-4) continue;
+          const uu = canGo(at, dir);
+          const mv: Vec3 = [dir[0] * uu, dir[1] * uu, dir[2] * uu];
+          const score = 2 * (left[0] * mv[0] + left[1] * mv[1] + left[2] * mv[2]) - (mv[0] * mv[0] + mv[1] * mv[1] + mv[2] * mv[2]);
+          if (!found.best || score > found.best.score) found.best = { dir, u: uu, went: len * uu, score };
+        }
+      };
       tryParts([[0, left[1], left[2]], [left[0], 0, left[2]], [left[0], left[1], 0]]);
       if (!found.best || found.best.went < 2e-3) tryParts([[left[0], 0, 0], [0, left[1], 0], [0, 0, left[2]]]);
       const best = found.best;
@@ -163,6 +197,22 @@ function hardMotionNow(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref) =>
     for (const r of hitAt(go(Math.min(1, u + 5e-4)), true)) hits.add(r);
     if (u >= 1) break;
     left = [slid[0] * (1 - u), slid[1] * (1 - u), slid[2] * (1 - u)];
+  }
+  // one more try, from where the slide ended, with each way of getting nearer to where the pointer is (a slide along a round wall does not always end as near as the body can get: it may be able to go on along the axis of a hole): the best of them, if it gets any nearer
+  {
+    const goal: Vec3 = [base[0] + first[0]!.shift[0], base[1] + first[0]!.shift[1], base[2] + first[0]!.shift[2]];
+    const rest: Vec3 = [goal[0] - at[0], goal[1] - at[1], goal[2] - at[2]];
+    if (Math.hypot(...rest) > 2e-3) {
+      let best: { dir: Vec3; u: number; score: number } | null = null;
+      for (const dir of [rest, [0, rest[1], rest[2]], [rest[0], 0, rest[2]], [rest[0], rest[1], 0], [rest[0], 0, 0], [0, rest[1], 0], [0, 0, rest[2]]] as Vec3[]) {
+        if (Math.hypot(...dir) < 2e-3) continue;
+        const uu = canGo(at, dir);
+        const mv: Vec3 = [dir[0] * uu, dir[1] * uu, dir[2] * uu];
+        const score = 2 * (rest[0] * mv[0] + rest[1] * mv[1] + rest[2] * mv[2]) - (mv[0] * mv[0] + mv[1] * mv[1] + mv[2] * mv[2]);
+        if (Math.hypot(...mv) > 2e-3 && score > 1e-6 && (!best || score > best.score)) best = { dir, u: uu, score };
+      }
+      if (best) at = [at[0] + best.dir[0] * best.u, at[1] + best.dir[1] * best.u, at[2] + best.dir[2] * best.u];
+    }
   }
   const final = slideOf(at);
   return { t, hit: [...hits], rigidOf: (b) => (rigidOf(b) ? final : null), shift: at };
@@ -192,7 +242,7 @@ export function limitedOp(scene: Scene, op: Op): { op: Op } | { why: string } | 
   const asked = bodyMotion(scene, op);
   const group = op.parts.filter((r) => scene.parts[r]?.kind === "body");
   if (!asked || !group.length) return null;
-  const lim = hardMotion(scene, group, () => asked, op.kind === "move" && !!op.free);
+  const lim = hardMotion(scene, group, () => asked, op.kind === "move" && !!op.free, !!op.grab);
   if (!lim) return null;
   const names = lim.hit.map((r) => { const p = scene.parts[r]; return p?.kind === "body" && p.id ? p.id : r; }).join(", ");
   const typed = op.typed !== "" || op.rot.some((x) => x !== "");

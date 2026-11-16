@@ -227,7 +227,7 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
   // the bodies selected move as one; the others stay where they are, mated to them or not, and the mates of the bodies that move hold them (`in_338`, `in_345`)
   const group = op.target === "body" ? op.parts.filter((r) => sceneOf(base).parts[r]?.kind === "body") : [];
   // hard bodies (`dec_hard_bodies`): what is asked is taken only as far as a hard body can go before it meets another (the body it is against flashes), and then the mates settle it (`in_477`: the same order as at release)
-  const stopped = group.length && !op.typed && op.kind !== "scale" ? hardMotion(sceneOf(base), group, () => asked, op.kind === "move" && !!op.free) : null;
+  const stopped = group.length && !op.typed && op.kind !== "scale" ? hardMotion(sceneOf(base), group, () => asked, op.kind === "move" && !!op.free, !!op.grab) : null;
   const askedLimited: Rigid = stopped ? stopped.rigidOf(group[0]!) ?? asked : asked;
   const held = group.length ? constrainedMotion(sceneOf(base), group, askedLimited, op.grab) : null;
   const rigidOf1 = (b: Ref): Rigid | null => (held ? held.rigids.find((q) => q.body === b)?.rigid ?? null : askedLimited);

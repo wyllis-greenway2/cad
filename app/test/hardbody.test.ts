@@ -516,9 +516,9 @@ test("the pin pulled up out of its hole with the pointer wobbling sideways comes
   for (const lat of [2, 6]) for (const dir of [[1, 0], [0, 1], [-1, -1]] as const) {
     const lim = limitedOp(scene(s), { ...op(s), free: [dir[0] * lat, dir[1] * lat, 40] });
     assert.ok(lim && "op" in lim && Math.abs(lim.op.free![2]! - 40) < 0.01, `it went up the whole 40 with ${lat} of sideways push (${JSON.stringify(lim && "op" in lim ? lim.op.free : lim)})`);
-    const part = limitedOp(scene(s), { ...op(s), free: [dir[0] * lat * 0.25, dir[1] * lat * 0.25, 10] });
-    assert.ok(part && "op" in part && Math.abs(part.op.free![2]! - 10) < 0.01 && Math.hypot(part.op.free![0]!, part.op.free![1]!) < 0.4, `a pull of 10 only (the pin still in the hole) goes straight up, within the hole's width: ${JSON.stringify(part && "op" in part ? part.op.free : part)}`);
-    assert.ok(Math.hypot(lim.op.free![0]!, lim.op.free![1]!) <= lat + 0.01, "and once it is out it goes no further sideways than the pointer did");
+    const part = limitedOp(scene(s), { ...op(s), free: [dir[0] * lat * 0.25, dir[1] * lat * 0.25, 6] });
+    assert.ok(part && "op" in part && Math.abs(part.op.free![2]! - 6) < 0.01 && Math.hypot(part.op.free![0]!, part.op.free![1]!) < 0.4, `a pull of 6 only (the pin still in the hole) goes straight up, within the hole's width: ${JSON.stringify(part && "op" in part ? part.op.free : part)}`);
+    assert.ok(Math.hypot(lim.op.free![0]!, lim.op.free![1]!) <= lat * Math.hypot(dir[0], dir[1]) + 0.01, "and once it is out it goes no further sideways than the pointer did");
   }
   s = runOp(s, { ...op(s), free: [0, 0, 48] })!.session; // out, above the block
   assert.deepEqual(hardOverlaps(scene(s)), []);
@@ -549,5 +549,28 @@ test("dragging the block or the pin of the pin-in-hole project never takes long 
       worst = Math.max(worst, ms); total += ms;
     }
     assert.ok(worst < 800 && total / 16 < 300, `${id}: worst ${Math.round(worst)} ms, average ${Math.round(total / 16)} ms`);
+  }
+});
+
+test("the block with the pin in its hole, dragged along a straight line by the pointer, follows it without bouncing back and forth: along the way of the drag it never goes back (`in_487`)", () => {
+  const s = pinInHole();
+  const block = bodiesOf(s).find((x) => x.id === "x_s_013")!;
+  const op0 = (startOp(scene(s), [block.ref] as never, "move", null) as { op: Op }).op;
+  for (const dir of [[1, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0.3, 0.2], [-1, 0.5, 0], [0, 0, 1]] as const) {
+    const len = Math.hypot(...dir);
+    let before = 0;
+    let last: number[] = [0, 0, 0];
+    let travelled = 0;
+    for (let f = 1; f <= 30; f++) {
+      const free = dir.map((v) => v * f * 0.25) as [number, number, number];
+      const lim = limitedOp(scene(s), { ...op0, free, grab: [0, 0, 0] });
+      const got = (lim && "op" in lim ? lim.op.free : free) as unknown as number[];
+      const along = (got[0]! * dir[0] + got[1]! * dir[1] + got[2]! * dir[2]) / len;
+      assert.ok(along >= before - 0.02, `frame ${f} of the drag along ${dir}: went back from ${before.toFixed(3)} to ${along.toFixed(3)}`);
+      before = Math.max(before, along);
+      travelled += Math.hypot(got[0]! - last[0]!, got[1]! - last[1]!, got[2]! - last[2]!);
+      last = got;
+    }
+    assert.ok(travelled < 8, `and does not wander about: it went ${travelled.toFixed(2)} in all for a drag of 7.5 (${dir})`);
   }
 });
