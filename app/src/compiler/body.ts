@@ -141,30 +141,37 @@ export function bodyParts(result: KernelResult, sheets: Sheet[] = []): Part[] {
   // where a sheet that is cutting passes through the body the cut is a face too, with its edges and corners (`in_574`): named by where they are, like the rest
   if (sheets.length && result.mesh) {
     const lines = new Set(out.filter((p) => p.kind === "line").map((p) => p.ref));
-    sheets.forEach((sheet, i) => {
-      for (const f of sectionFaces(result.mesh!, sheet, sheets.filter((_, j) => j !== i))) {
-        const k = f.mesh.length / 3;
-        const mid: Vec3 = [0, 1, 2].map((a) => { let t = 0; for (let j = 0; j < f.mesh.length; j += 3) t += f.mesh[j + a]!; return t / k; }) as unknown as Vec3;
-        const [u, v] = axesOf(f.n);
-        out.push({ ...base, ref: faceName(f.n, f.d, mid), kind: "plane", at: [f.n[0] * f.d, f.n[1] * f.d, f.n[2] * f.d], u, v, mesh: f.mesh, cap: true });
-        // the edges of the cut: straight sides, and arcs where the cut goes round a curved face (a circle is two half arcs that know each other, as the kernel's rims are)
-        const names: Ref[] = [];
-        for (const e of f.edges) {
-          const mid: Vec3 = e.arc ? e.arc.mid : [(e.a[0] + e.b[0]) / 2, (e.a[1] + e.b[1]) / 2, (e.a[2] + e.b[2]) / 2];
-          names.push(edgeName(e.a, e.b, mid));
+    // with several bodies each is cut on its own (only its own triangles), and its parts say which body they belong to
+    const triangles = (i: number | null): ArrayLike<number> => {
+      if (i === null) return result.mesh!.triangles;
+      const keep: number[] = [];
+      for (const f of result.faces ?? []) if (f.body === i) for (const r of (f.ranges as { start: number; count: number }[] | undefined) ?? [{ start: f.start, count: f.count }]) for (let k = r.start; k < r.start + r.count; k++) keep.push(result.mesh!.triangles[k]!);
+      return keep;
+    };
+    for (const body of many ? bodies.map((_, i) => i) : [null]) {
+      const mesh = { vertices: result.mesh.vertices, triangles: triangles(body) };
+      const of = body === null ? {} : { of: bodyPart(body) };
+      sheets.forEach((sheet, i) => {
+        for (const f of sectionFaces(mesh, sheet, sheets.filter((_, j) => j !== i))) {
+          const k = f.mesh.length / 3;
+          const mid: Vec3 = [0, 1, 2].map((a) => { let t = 0; for (let j = 0; j < f.mesh.length; j += 3) t += f.mesh[j + a]!; return t / k; }) as unknown as Vec3;
+          const [u, v] = axesOf(f.n);
+          out.push({ ...base, ref: faceName(f.n, f.d, mid), kind: "plane", at: [f.n[0] * f.d, f.n[1] * f.d, f.n[2] * f.d], u, v, mesh: f.mesh, cap: true, ...of });
+          // the edges of the cut: straight sides, and arcs where the cut goes round a curved face (a circle is two half arcs that know each other, as the kernel's rims are)
+          const names = f.edges.map((e) => edgeName(e.a, e.b, e.arc ? e.arc.mid : ([(e.a[0] + e.b[0]) / 2, (e.a[1] + e.b[1]) / 2, (e.a[2] + e.b[2]) / 2] as Vec3)));
+          const twinOf: number[] = [];
+          let open: number | null = null; // (the halves of a circle come two by two)
+          f.edges.forEach((e, j) => { if (!e.half) return; if (open === null) open = j; else { twinOf[open] = j; twinOf[j] = open; open = null; } });
+          f.edges.forEach((e, j) => {
+            const name = names[j]!;
+            if (lines.has(name)) return;
+            lines.add(name);
+            const twin = e.half ? names[twinOf[j]!] : undefined;
+            out.push({ ...base, ref: name, kind: "line", a: corner(e.a, body ?? undefined), b: corner(e.b, body ?? undefined), ...(e.arc ? { mid: e.arc.mid, circle: { center: e.arc.center, normal: e.arc.normal, radius: e.arc.radius } } : {}), ...(twin ? { twin } : {}), ...of });
+          });
         }
-        const twinOf: number[] = [];
-        let open: number | null = null; // (the halves of a circle come two by two)
-        f.edges.forEach((e, j) => { if (!e.half) return; if (open === null) open = j; else { twinOf[open] = j; twinOf[j] = open; open = null; } });
-        f.edges.forEach((e, j) => {
-          const name = names[j]!;
-          if (lines.has(name)) return;
-          lines.add(name);
-          const twin = e.half ? names[twinOf[j]!] : undefined;
-          out.push({ ...base, ref: name, kind: "line", a: corner(e.a), b: corner(e.b), ...(e.arc ? { mid: e.arc.mid, circle: { center: e.arc.center, normal: e.arc.normal, radius: e.arc.radius } } : {}), ...(twin ? { twin } : {}) });
-        });
-      }
-    });
+      });
+    }
   }
   return out;
 }

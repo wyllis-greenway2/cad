@@ -146,3 +146,40 @@ test("in the app a cut across a cylinder has two half arcs that know each other,
   const ids = actionsFor(scene(st.session), [a!.ref]).map((x) => x.id);
   assert.ok(ids.includes("radius") || ids.includes("diameter"), `an arc of the cut can be measured: ${ids}`);
 });
+
+// ---- a plane through a corner, an edge or a face; several bodies (`in_576`) ----
+test("a plane that passes exactly through corners and edges of the body still cuts cleanly", () => {
+  // x = y through the box's corner (0,0,0) and the edge from (0,0,0) to (0,0,10): the cut is a rectangle across it
+  const s = Math.SQRT1_2;
+  const f = sectionFaces(BOX, { at: [0, 0, 0], n: [s, -s, 0] });
+  assert.equal(f.length, 1, "one face");
+  assert.ok(f[0]!.edges.length >= 3 && f[0]!.edges.every((e) => !e.arc));
+  // a cylinder cut along its axis through the vertices of the mesh (x = 0 passes through two of them exactly)
+  const c = sectionFaces(cylinder(10, 20), { at: [0, 0, 0], n: [1, 0, 0] });
+  assert.equal(c.length, 1);
+  assert.equal(c[0]!.edges.length, 4, "four straight sides");
+});
+
+test("a plane in a face of the body cuts nothing new: the face stays what it is", () => {
+  assert.equal(sectionFaces(BOX, { at: [0, 0, 0], n: [1, 0, 0] }).length, 0, "the plane is the face at x = 0 with the part on the cut-away side's other half: nothing straddles it");
+  assert.equal(sectionFaces(BOX, { at: [20, 0, 0], n: [1, 0, 0] }).length, 0);
+});
+
+test("with several bodies each is cut on its own and its cut face and edges say which body they belong to", () => {
+  let ses = createSession(kernel);
+  for (const x of [0, 40]) {
+    const r = drawSquaredRectangle(scene(ses), XY, [x, 0, 0], [x + 10, 10, 0], [1, 0, 0], [0, 1, 0]);
+    ses = run(ses, r.command);
+    ses = run(ses, { type: "addStep", step: { id: nextId(scene(ses), "s"), type: "extrude", parts: r.lines, params: { depth: 10 } } } as never);
+  }
+  let st = reduce({ ...createState(ses), cam: homeCamera() }, { type: "runAction", id: "view:section" }, env);
+  const sec = sectionNow(st)!;
+  st = { ...st, session: run(st.session, { type: "placePlane", ref: sec.ref, at: [-50, 5, -50], u: [1, 0, 0], v: [0, 0, 1] } as never) };
+  const parts = Object.values(scene(st.session).parts) as Part[];
+  const faces = parts.filter((p) => p.kind === "plane" && !!p.cap) as Extract<Part, { kind: "plane" }>[];
+  assert.equal(faces.length, 2, "one cut face for each body");
+  const ofs = faces.map((f) => f.of);
+  assert.ok(ofs.every((o) => !!o) && new Set(ofs).size === 2, `each says its body: ${ofs}`);
+  const edgeOfs = (parts.filter((p) => p.kind === "line" && p.origin === "body" && p.ref.includes("e@") && (p.of !== undefined)) as { of?: string }[]).length;
+  assert.ok(edgeOfs >= 8, "and so do the edges");
+});

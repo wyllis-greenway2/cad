@@ -2640,3 +2640,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_575 — 2026-11-16 — directive
 > Go with your recommendation, add arcs for curved cuts
 (approves the recommendation to give a curved cut (a cylinder sliced by a section plane) real arcs and circles as its edges, instead of many short straight edges)
+
+## in_576 — 2026-11-16 — directive
+> Go with your recommendation
+(approves doing the remaining cut-face limits, the ones the AI listed as not done: a sheet that passes exactly through an edge, a corner or a face of the body, and the cut face of one of several bodies naming its body)

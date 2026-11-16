@@ -14,6 +14,8 @@ export interface CutFace { n: Vec3; d: number; loops: Vec3[][]; /** the edges of
 export interface CutEdge { a: Vec3; b: Vec3; arc?: { center: Vec3; normal: Vec3; radius: number; mid: Vec3 }; half?: true }
 
 const EPS = 1e-6;
+/** The plane is taken a hair to the cut-away side for the slicing, so that a plane that passes exactly through a corner, an edge or a face of the body (as the planes at the origin do) still cuts cleanly: the cut is that far from where the plane is, which the names of the parts (to a ten-thousandth) do not see. */
+const HAIR = 2e-5;
 const q = (v: number): string => String(Math.round(v * 1e4) / 1e4 + 0);
 const keyOf = (p: Vec3): string => `${q(p[0])},${q(p[1])},${q(p[2])}`;
 
@@ -118,12 +120,16 @@ export function sectionFaces(mesh: { vertices: ArrayLike<number>; triangles: Arr
   const d = dot(n, sheet.at);
   const [u, v] = axesOf(n);
   const V = (i: number): Vec3 => [mesh.vertices[i * 3]!, mesh.vertices[i * 3 + 1]!, mesh.vertices[i * 3 + 2]!];
+  // the plane has to have material on both sides of it: one that only touches the body, or lies in a face of it, cuts nothing new
+  let [below, above] = [false, false];
+  for (let i = 0; i + 2 < mesh.vertices.length; i += 3) { const x = n[0] * mesh.vertices[i]! + n[1] * mesh.vertices[i + 1]! + n[2] * mesh.vertices[i + 2]! - d; if (x < -EPS) below = true; else if (x > EPS) above = true; }
+  if (!below || !above) return [];
   // 1. the segments where the triangles cross the plane (a triangle that only touches it, or lies in it, gives none)
   const segs: [Vec3, Vec3][] = [];
   for (let t = 0; t + 2 < mesh.triangles.length; t += 3) {
     const ix = [mesh.triangles[t]!, mesh.triangles[t + 1]!, mesh.triangles[t + 2]!];
     const ps = ix.map(V);
-    const ds = ps.map((p) => dot(n, p) - d);
+    const ds = ps.map((p) => dot(n, p) - d - HAIR);
     const sg = ds.map((x) => (x < -EPS ? -1 : x > EPS ? 1 : 0));
     if (!sg.includes(-1) || !sg.includes(1)) continue;
     const pts: Vec3[] = [];
