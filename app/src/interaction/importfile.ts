@@ -7,6 +7,9 @@ import { worldRef, drawnRef, formatId } from "../shared/ref.ts";
 import { liftOf } from "../operation/part.ts";
 import type { Plane } from "../operation/part.ts";
 import { parseSvg, parseDxf } from "../compiler/flatparse.ts";
+import { parseStl, parse3mf, weld, shellsOf, MAX_MESH_TRIANGLES } from "../compiler/meshfile.ts";
+import type { Mesh } from "../compiler/meshfile.ts";
+import { encodeMesh } from "../compiler/kernel/occt/meshdata.mjs";
 import type { Piece, V2 } from "../compiler/flatfile.ts";
 import { planeForDrawing } from "./tools.ts";
 import { apply } from "../operation/commands.ts";
@@ -15,7 +18,9 @@ import { run, scene as sceneOf } from "./session.ts";
 
 /** The most of a STEP file kept in a project: its text travels with every save and every evaluation of the model. */
 const MAX_STEP_BYTES = 25e6;
-export const IMPORT_KINDS = ".step,.stp,.svg,.dxf";
+/** The most faces a mesh body may have once its flat areas are joined: the app lists and draws every face of a body on each change (about 0.7 ms a face). */
+const MAX_MESH_FACES = 6000;
+export const IMPORT_KINDS = ".step,.stp,.svg,.dxf,.stl,.3mf";
 
 export type ImportOutcome = { ok: true; session: Session; message: string } | { ok: false; error: string };
 
@@ -89,5 +94,56 @@ export function importFile(s: Session, name: string, text: string): ImportOutcom
     const n = parsed.pieces.length;
     return { ok: true, session: done, message: `imported ${name}: ${n} piece${n === 1 ? "" : "s"} as a sketch${parsed.notes.length ? `; ${parsed.notes.join("; ")}` : ""}` };
   }
-  return { ok: false, error: "the app imports STEP (.step, .stp), SVG and DXF files" };
+  return { ok: false, error: "the app imports STEP (.step, .stp), STL, 3MF, SVG and DXF files" };
+}
+
+/** The cleaned shells of some triangle corners (nine numbers a triangle): joined, closed, turned the right way; or why not. */
+function shellsFrom(corners: ArrayLike<number>, label: string): { ok: true; shells: Mesh[]; notes: string[] } | { ok: false; error: string } {
+  const w = weld(corners);
+  const r = shellsOf(w.mesh);
+  if (!r.ok) return { ok: false, error: label ? `${label}: ${r.error}` : r.error };
+  const notes: string[] = [];
+  if (w.dropped) notes.push(`${w.dropped} triangle${w.dropped === 1 ? "" : "s"} with no area left out`);
+  if (r.value.turned) notes.push(`${r.value.turned} triangle${r.value.turned === 1 ? "" : "s"} turned to face the same way as their neighbours`);
+  if (r.value.insideOut) notes.push(`${r.value.insideOut === 1 ? "a body that was" : `${r.value.insideOut} bodies that were`} inside out turned the right way`);
+  return { ok: true, shells: r.value.shells, notes };
+}
+
+/** Bring an STL or a 3MF in as bodies (`dec_import_mesh`): each closed shell is a body made of faces that are its triangles (the flat areas joined), with no history. The mesh is cleaned here and kept in the step. */
+async function importMeshFile(s: Session, name: string, bytes: Uint8Array): Promise<ImportOutcome> {
+  const ext = extOf(name);
+  const scene = sceneOf(s);
+  const shells: Mesh[] = [];
+  const notes: string[] = [];
+  if (ext === "stl") {
+    const p = parseStl(bytes);
+    if (!p.ok) return { ok: false, error: p.error };
+    const r = shellsFrom(p.value, "");
+    if (!r.ok) return r;
+    shells.push(...r.shells); notes.push(...r.notes);
+  } else {
+    const p = await parse3mf(bytes);
+    if (!p.ok) return { ok: false, error: p.error };
+    notes.push(...p.notes);
+    for (const o of p.value) {
+      const r = shellsFrom(o.corners, o.name ? `${o.name}` : "");
+      if (!r.ok) return r;
+      shells.push(...r.shells); notes.push(...r.notes);
+    }
+  }
+  const triangles = shells.reduce((a, m) => a + m.triangles.length / 3, 0);
+  if (triangles > MAX_MESH_TRIANGLES) return { ok: false, error: `this mesh has ${triangles.toLocaleString("en-US")} triangles: the app imports up to ${MAX_MESH_TRIANGLES.toLocaleString("en-US")}` };
+  const done = run(s, { type: "addStep", step: { id: nextId(scene, "s"), type: "importMesh", parts: [], params: { data: shells.map(encodeMesh).join("|"), name } } });
+  if (sceneOf(done).steps.length === scene.steps.length) return { ok: false, error: done.message ?? "the mesh could not be imported" };
+  const made = Object.values(sceneOf(done).parts).filter((p) => p.kind === "body").length - Object.values(scene.parts).filter((p) => p.kind === "body").length;
+  const faces = Object.values(sceneOf(done).parts).filter((p) => p.kind === "plane" && p.origin === "body").length - Object.values(scene.parts).filter((p) => p.kind === "plane" && p.origin === "body").length;
+  if (faces > MAX_MESH_FACES) return { ok: false, error: `this mesh is ${faces.toLocaleString("en-US")} faces even with its flat areas joined: over the ${MAX_MESH_FACES.toLocaleString("en-US")} the app handles comfortably (every change would take seconds). Reduce it first in a mesh program (Decimate in Blender, Simplify in MeshLab or PrusaSlicer) and import that` };
+  return { ok: true, session: done, message: `imported ${name}: ${made > 1 ? `${made} bodies` : "a body"} made of ${triangles.toLocaleString("en-US")} triangles (flat areas joined into single faces), with no history: it can be moved, cut, mated and exported; its curved parts are many small flat faces, so they cannot be filleted${notes.length ? `; ${[...new Set(notes)].join("; ")}` : ""}` };
+}
+
+/** Import any kind of file the app reads, from its bytes. */
+export async function importAny(s: Session, name: string, bytes: Uint8Array): Promise<ImportOutcome> {
+  const ext = extOf(name);
+  if (ext === "stl" || ext === "3mf") return importMeshFile(s, name, bytes);
+  return importFile(s, name, new TextDecoder().decode(bytes));
 }

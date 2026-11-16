@@ -2300,3 +2300,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_492 — 2026-11-16 — directive
 > Build STEP and SVG/DXF import next
 (asks for the next step of `q_import_export` point 5: STEP import as a body with no history, and SVG and DXF import as sketches; STL / 3MF import as mesh bodies and the rest of the menu restructure are not asked for yet)
+
+## in_493 — 2026-11-16 — directive
+> Build STL and 3MF import as mesh bodies next
+(asks for the next step of `q_import_export` point 5: STL and 3MF import as bodies made from meshes; the `about` block and the Import / Export menu restructure are not asked for yet)

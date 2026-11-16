@@ -22,7 +22,7 @@ alternative_to:
 - **Where a drawing goes** (`importPlane`): the selected plane, or the plane of a selected drawn figure, or a flat face of a body (as a drawn plane that goes with the body), else the XY plane of the world. The pieces that meet are joined at shared corners so closed outlines are figures that can be extruded; arcs are made about their centres, as arcs drawn in the app are.
 - **Checked outside the tests:** `svgpathtools` gives the length of a path with lines, cubic, smooth, quadratic and rotated elliptical arcs as 481.984 mm, the import 481.948 (0.007 % less: lines instead of curves); `ezdxf` wrote the DXF fixture (`test/fixtures/ezdxf-sample.dxf`: lines, an arc, a circle, a bulged polyline, an ellipse, two splines, text) and its own curve of the control-point spline is within 0.006 mm of the import's.
 
-**Not built:** STL and 3MF import (mesh bodies need a body kind the app does not have), STEP names, colours and assemblies (an assembly's solids come in as separate bodies at their places), surfaces-only STEP, DXF blocks and layers, SVG text and styles (stroke widths, colours), choosing the plane or the place or the scale at import (the options of `q_import_export` point 4), a STEP in the browser larger than 25 MB.
+**Not built here (STL and 3MF came with `dec_import_mesh`, `in_493`):** STEP names, colours and assemblies (an assembly's solids come in as separate bodies at their places), surfaces-only STEP, DXF blocks and layers, SVG text and styles (stroke widths, colours), choosing the plane or the place or the scale at import (the options of `q_import_export` point 4), a STEP in the browser larger than 25 MB.
 
 ## Rationale
 

@@ -248,6 +248,14 @@ export function buildGraph(scene: Scene): GraphResult {
         prev = xid;
         break;
       }
+      case "importMesh": {
+        // closed triangle meshes (STL, 3MF), each a body made of faces that are its triangles (`dec_import_mesh`); the cleaned mesh is kept in the step as text
+        const data = String(st.params.data ?? "");
+        if (!data) { errors[st.id] = "the file this step imported is gone"; break; }
+        ops.push({ id: xid, type: "importMesh", data, name: String(st.params.name ?? ""), ...(prev ? { target: prev, mode: "new" } : {}) });
+        prev = xid;
+        break;
+      }
       case "delete": {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         ops.push({ id: xid, type: "clear" });

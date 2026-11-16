@@ -19,7 +19,7 @@ export const appRows = (mode: ScrollMode, build = "", can: { undo: boolean; redo
   { id: "groups", label: "Groups", enabled: true, why: null },
   { id: "save", label: "Save", enabled: true, why: null },
   { id: "open", label: "Open…", enabled: true, why: null },
-  { id: "import", label: "Import STEP, SVG or DXF…", enabled: true, why: null },
+  { id: "import", label: "Import STEP, STL, 3MF, SVG or DXF…", enabled: true, why: null },
   { id: "exportStl", label: "Export STL…", enabled: can.exportStl ?? true, why: "nothing to export yet: make a body" },
   { id: "export3mf", label: "Export 3MF…", enabled: can.exportStl ?? true, why: "nothing to export yet: make a body" },
   { id: "exportStep", label: "Export STEP…", enabled: can.exportStl ?? true, why: "nothing to export yet: make a body" },

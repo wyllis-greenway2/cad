@@ -26,12 +26,45 @@ import {
   revolution,
   Wire,
   localGC,
+  makePolygon,
+  makeSolid,
 } from "replicad";
+import { decodeMesh } from "./meshdata.mjs";
 import { facesOf, edgesOf } from "./topo.mjs";
 import { reshape } from "./reshape.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
+
+/** What an import makes: the solids beside the bodies already there (as a piece of its own each), or alone. */
+function importedSolids(op, ctx, solids) {
+  const target = op.target ? ctx.peek(op.target, "solid") : null;
+  const all = [...(target ? target.shape.solids : []), ...solids];
+  return { kind: "solid", shape: all.length === 1 ? all[0] : makeCompound(all), checked: true };
+}
+
+/**
+ * A solid from a closed triangle mesh whose triangles all run the same way (counter-clockwise seen from outside): a face for each triangle, sewn into a shell and made a solid, then the neighbouring faces that lie in
+ * one plane (and edges that run on in one line) are joined, so a flat face of the part is one face again. Throws with the reason when it does not make a valid solid.
+ */
+export function solidOfMesh(mesh) {
+  const { vertices: v, triangles: t } = mesh;
+  const at = (i) => [v[3 * i], v[3 * i + 1], v[3 * i + 2]];
+  const faces = [];
+  for (let i = 0; i < t.length; i += 3) faces.push(makePolygon([at(t[i]), at(t[i + 1]), at(t[i + 2])]));
+  let solid = makeSolid(faces);
+  try {
+    const oc = getOC();
+    const [r, gc] = localGC();
+    const up = r(new oc.ShapeUpgrade_UnifySameDomain(solid.wrapped, true, true, false));
+    up.Build();
+    const joined = cast(up.Shape());
+    gc();
+    if ((joined.solids ?? []).length === 1 && isValidSolid(joined.solids[0])) solid = joined.solids[0];
+  } catch { /* the triangles stay as faces: still a solid */ }
+  if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("this mesh could not be made into a valid solid (its triangles do not close up cleanly)");
+  return solid;
+}
 
 /** The solids in the text of a STEP file, in millimetres (the reader converts the file's own units); each is checked. Throws with the reason when there is none or one is not a valid solid. */
 export function readStep(text) {
@@ -476,10 +509,11 @@ const OPS = {
 
   /** The solids of a STEP file, as bodies of their own beside the ones already there (`dec_import`): read here, on this thread, from the text kept in the step. A file with no solid in it (only surfaces or curves) is refused with that. */
   import(op, ctx) {
-    const solids = readStep(String(op.data));
-    const target = op.target ? ctx.peek(op.target, "solid") : null;
-    const all = [...(target ? target.shape.solids : []), ...solids];
-    return { kind: "solid", shape: all.length === 1 ? all[0] : makeCompound(all), checked: true };
+    return importedSolids(op, ctx, readStep(String(op.data)));
+  },
+  /** The closed meshes of a step (`dec_import_mesh`): each is sewn into a solid whose faces are its triangles, the flat ones that lie in one plane joined, as a body of its own beside the ones already there. */
+  importMesh(op, ctx) {
+    return importedSolids(op, ctx, String(op.data).split("|").filter(Boolean).map((m) => solidOfMesh(decodeMesh(m))));
   },
   extrude(op, ctx) {
     const dist = resolve(op.distance, ctx.params);
