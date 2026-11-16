@@ -1,4 +1,4 @@
-// Meshing gears (`dec_gear_tool`, `in_547`): where another gear or a rack goes so that its teeth fit between the teeth of a gear that is there, and how it must be turned. Pure maths in the plane's own x and y.
+// Meshing gears (`dec_gear_tool`, `in_579`): where another gear or a rack goes so that its teeth fit between the teeth of a gear that is there, and how it must be turned. Pure maths in the plane's own x and y.
 //
 // Pitch circles roll on each other: two outside gears touch at a distance of r1 + r2 (m (z1 + z2) / 2), a gear inside a ring at r1 - r2, a gear on a rack at its pitch radius from the rack's pitch line. The teeth of the two
 // must alternate where the pitch circles touch: a tooth of one is in the gap of the other. With the angle `psi` of the way to the other gear measured in a gear's own frame (from its tooth 0, which stands on its x

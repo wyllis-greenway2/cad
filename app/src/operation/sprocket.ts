@@ -1,4 +1,4 @@
-// Roller chain sprockets (`dec_gear_tool`, `in_552`): the outline of a sprocket with the ANSI B29.1 tooth form, as points and bulges like a gear's (`gear.ts`).
+// Roller chain sprockets (`dec_gear_tool`, `in_584`): the outline of a sprocket with the ANSI B29.1 tooth form, as points and bulges like a gear's (`gear.ts`).
 //
 // The tooth form (ANSI B29.1 as the American Chain Association works it, written out by TNB Positioners' generator, checked here: with these numbers the topping curve's centre is exactly 1.4 Dr from the roller's
 // centre, and for a #40 chain of 18 teeth they give the working radius 0.4079 in and topping radius 0.2582 in of the commercial part it was laid over). From the chain's pitch P and roller diameter Dr and the tooth

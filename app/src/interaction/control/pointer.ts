@@ -88,7 +88,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "select:group", label: "Group", icon: "group", select: "group" },
   { id: "select:ungroup", label: "Ungroup", icon: "ungroup", select: "ungroup" },
 ];
-/** a submenu: its own icon in the ring that opens another ring of what is in it (`in_556`: every gear tool is in the Gear submenu of Sketch) */
+/** a submenu: its own icon in the ring that opens another ring of what is in it (`in_588`: every gear tool is in the Gear submenu of Sketch) */
 interface Group { id: string; label: string; icon: string; items: (string | Group)[] }
 const GEARS: Group = {
   id: "gears", label: "Gear", icon: "gear", items: [

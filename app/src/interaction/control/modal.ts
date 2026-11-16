@@ -115,7 +115,7 @@ const stays = (t: AppState["tool"]): AppState["tool"] => (t && !t.gear?.editing 
 
 export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppState {
   if (!fin) {
-    const why = s.tool?.kind === "gear" ? gearProblem(sceneOf(s.session), s.tool) : null; // (a gear, a rack or a partner that is not made says why, `in_548`)
+    const why = s.tool?.kind === "gear" ? gearProblem(sceneOf(s.session), s.tool) : null; // (a gear, a rack or a partner that is not made says why, `in_580`)
     return why ? { ...s, session: { ...s.session, message: why } } : s;
   }
   const next = run(s.session, fin.command);
@@ -418,18 +418,18 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     return { ...closed, session: { ...session, message: made ? `${made === 1 ? "the mate was" : `${made} mates were`} put back` : "every mate is true" } };
   }
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
-  if (id === "tool:helical") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "helical"); // (a gear that is twisted along its axis, `in_566`)
+  if (id === "tool:helical") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "helical"); // (a gear that is twisted along its axis, `in_598`)
   if (id === "tool:ring") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "ring"); // (a gear with its teeth pointing in)
   if (id === "tool:rack") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "rack");
-  if (id === "tool:clock" || id === "tool:clockring" || id === "tool:clockrack") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:clock" ? "clock" : id === "tool:clockring" ? "clockring" : "clockrack"); // (a cycloidal clock gear, `in_553`)
-  if (id === "tool:sprocket" || id === "tool:isosprocket") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:sprocket" ? "sprocket" : "isosprocket"); // (a roller chain sprocket, `in_552`)
-  if (id === "tool:gt2" || id === "tool:gt3" || id === "tool:htd5" || id === "tool:htd8") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:gt2" ? "gt2" : id === "tool:gt3" ? "gt3" : id === "tool:htd8" ? "htd8" : "htd5"); // (a timing pulley, `in_551`)
-  if (id === "gear:mesh" || id === "gear:meshrack") { // a gear, or a rack, that meshes with the one selected (`in_547`)
+  if (id === "tool:clock" || id === "tool:clockring" || id === "tool:clockrack") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:clock" ? "clock" : id === "tool:clockring" ? "clockring" : "clockrack"); // (a cycloidal clock gear, `in_585`)
+  if (id === "tool:sprocket" || id === "tool:isosprocket") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:sprocket" ? "sprocket" : "isosprocket"); // (a roller chain sprocket, `in_584`)
+  if (id === "tool:gt2" || id === "tool:gt3" || id === "tool:htd5" || id === "tool:htd8") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:gt2" ? "gt2" : id === "tool:gt3" ? "gt3" : id === "tool:htd8" ? "htd8" : "htd5"); // (a timing pulley, `in_583`)
+  if (id === "gear:mesh" || id === "gear:meshrack") { // a gear, or a rack, that meshes with the one selected (`in_579`)
     const sc = sceneOf(s.session);
     const rec = selectionOf(s.session).map((r) => gearOfPart(sc, r)).find((g) => !!g);
     return rec ? { ...closed, tool: meshGearTool(rec, id === "gear:meshrack"), op: null } : { ...closed, session: { ...s.session, message: "select a gear first" } };
   }
-  if (id === "gear:edit") { // the numbers of the gear that is selected, in the number box (`in_545`)
+  if (id === "gear:edit") { // the numbers of the gear that is selected, in the number box (`in_577`)
     const sc = sceneOf(s.session);
     const rec = selectionOf(s.session).map((r) => gearOfPart(sc, r)).find((g) => !!g);
     return rec ? { ...closed, tool: editGearTool(rec), op: null } : { ...closed, session: { ...s.session, message: "select a gear first" } };

@@ -1,4 +1,4 @@
-// A gear that fits another (`dec_gear_tool`, `in_547`): the rack's outline, and where a meshing gear, ring partner or rack goes, checked by teeth that do not run into each other.
+// A gear that fits another (`dec_gear_tool`, `in_579`): the rack's outline, and where a meshing gear, ring partner or rack goes, checked by teeth that do not run into each other.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gearOutline } from "../src/operation/gear.ts";

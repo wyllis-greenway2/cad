@@ -1,4 +1,4 @@
-// The shapes of a gear's bore (`dec_gear_tool`, `in_557`): round (the default), with a D flat, or with a keyway. Pure maths in the gear's own x and y, the middle of the bore on the origin, the flat and the keyway on the +x side
+// The shapes of a gear's bore (`dec_gear_tool`, `in_589`): round (the default), with a D flat, or with a keyway. Pure maths in the gear's own x and y, the middle of the bore on the origin, the flat and the keyway on the +x side
 // (the gear's turn takes them where it goes). The hole is a closed loop of an arc and straight sides (a round bore is a circle: `gearscene.ts` draws that one).
 //
 // A keyway is described the way a hub's is in DIN 6885 / ISO 773: a width b across the slot and the depth t2, measured so that the top of the slot is d + t2 from the far side of the bore, which is t2 beyond the bore's own

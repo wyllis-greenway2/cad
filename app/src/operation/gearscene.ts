@@ -1,4 +1,4 @@
-// A gear that keeps its numbers (`dec_gear_tool`, `in_545`): the scene holds a record (the plane, the centre, the numbers) and the gear's parts are made from it each time the scene is derived, as the copies of a repeat are
+// A gear that keeps its numbers (`dec_gear_tool`, `in_577`): the scene holds a record (the plane, the centre, the numbers) and the gear's parts are made from it each time the scene is derived, as the copies of a repeat are
 // (`repeat.ts`), so changing the numbers changes the gear and the bodies made from it. The parts are locked (they are the gear's, not drawn); they are named by the gear and their place in the outline
 // (`d/g_003.s17`), so a step made from them finds them again; when the numbers change the count of sides, the steps that use the whole outline are given the new sides. Pure: scenes in, scenes out.
 import type { Ref } from "../shared/ref.ts";
@@ -159,7 +159,7 @@ export function deleteGear(s: Scene, id: string): Result<Scene> {
 /** The gear a part belongs to: one of its corners, sides or its wall, or a face made of them. */
 export function gearOfPart(s: Scene, ref: Ref): GearRecord | undefined {
   const p = s.parts[ref];
-  if (p?.kind === "body" && p.id?.startsWith("x_")) { // the body of a helical gear (made by its twist step, `in_566`) is the gear's
+  if (p?.kind === "body" && p.id?.startsWith("x_")) { // the body of a helical gear (made by its twist step, `in_598`) is the gear's
     const step = s.steps.find((st) => st.id === p.id!.slice(2) && st.type === "revolve" && typeof st.params.gear === "string");
     const own = step ? gearsOf(s).find((g) => g.id === step.params.gear) : undefined;
     if (own) return own;

@@ -31,7 +31,7 @@ export interface GearSpec {
   rim?: number;
   /** diameter of a round hole through the middle of an external gear, mm (0 or absent: none) */
   bore?: number;
-  /** a helical gear (`in_566`): the helix angle at the pitch circle in degrees (above 0 a right hand helix, below 0 a left hand one, 45 at the most) and the width of the gear along its axis, mm. The module, the pressure angle, the shift,
+  /** a helical gear (`in_598`): the helix angle at the pitch circle in degrees (above 0 a right hand helix, below 0 a left hand one, 45 at the most) and the width of the gear along its axis, mm. The module, the pressure angle, the shift,
    * the backlash and the clearance are the *normal* ones, measured square to the teeth; the outline is the transverse section (module / cos of the helix angle) that the body is then twisted from (`helixTwist`) */
   helix?: number;
   width?: number;
@@ -193,7 +193,7 @@ function outlineOf(spec: GearSpec): Result<GearOutline> {
     const r0 = Math.max(rb, rf);
     if (half(r0) >= pitch / 2 - 1e-4) return err("the teeth meet at the root: raise the tooth count or lower the shift");
     if ((spec.fillet ?? 0) < 0) return err("the fillet cannot be below zero");
-    if ((spec.fillet ?? 0) > 0) { // the root as the rack cutter makes it (`in_560`)
+    if ((spec.fillet ?? 0) > 0) { // the root as the rack cutter makes it (`in_592`)
       const g = gearRoot({ m, z, alpha, x, c, backlash, rho: spec.fillet! * mn });
       if (!g.ok) return err(g.error);
       const { pts, rLo } = g.value;

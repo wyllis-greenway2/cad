@@ -1,4 +1,4 @@
-// Cycloidal (clock) gears (`dec_gear_tool`, `in_553`): the numbers of the profile, the curves against their equations, that gears of one generating circle mesh and others do not, and what the kernel makes of it.
+// Cycloidal (clock) gears (`dec_gear_tool`, `in_585`): the numbers of the profile, the curves against their equations, that gears of one generating circle mesh and others do not, and what the kernel makes of it.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gearOutline } from "../src/operation/gear.ts";
@@ -179,7 +179,7 @@ test("Clock gear tool: the box has Teeth, Module, Backlash, Circle, Addendum, De
   assert.match(few.session.message ?? "", /7 to 500 teeth/);
 });
 
-// ---- the rack and the ring (`in_554`) ----
+// ---- the rack and the ring (`in_586`) ----
 test("a cycloidal rack: n pi m long, tip a module above the pitch line, root 1.25 modules below, the tooth pi m / 2 thick on the pitch line, narrower at the tip and wider at the root, all of it arcs through the cycloid's points", () => {
   const g = must({ teeth: 8, module: 2, rack: true, cycloidal: {} });
   assert.ok(Math.abs(g.length! - 8 * Math.PI * 2) < 1e-9);

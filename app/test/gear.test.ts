@@ -1,4 +1,4 @@
-// The involute gear outline (`dec_gear_tool`, `in_544`): its numbers, its arcs against the true involute, and that it makes a body.
+// The involute gear outline (`dec_gear_tool`, `in_576`): its numbers, its arcs against the true involute, and that it makes a body.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gearOutline, bulgeOf, moduleForOutside } from "../src/operation/gear.ts";
@@ -241,7 +241,7 @@ test("numbers that make no gear make none (3 teeth of a huge shift are not asked
   assert.equal(drawn(st).length, 0, "no gear of 2 teeth");
 });
 
-// ---- a gear keeps its numbers (`in_545`) ----
+// ---- a gear keeps its numbers (`in_577`) ----
 import { toJSON } from "../src/operation/scene.ts";
 import { openSession, saveText } from "../src/interaction/session.ts";
 
@@ -384,7 +384,7 @@ test("Delete on a selected gear takes the gear whole (record and parts), and one
   assert.equal(scene({ ...gone.session, history: undoLast(gone.session).history }).gears!.length, 1);
 });
 
-// ---- the bore and moving a gear (`in_546`) ----
+// ---- the bore and moving a gear (`in_578`) ----
 import { opCommand } from "../src/interaction/operations.ts";
 
 test("a bore is a number of the gear: the body made from it has the hole; a bore put in or taken out after the extrude follows; one too wide is refused", () => {
@@ -458,7 +458,7 @@ test("Rotate on a gear about its plane's axis turns it (tooth 0 points another w
   assert.ok(Math.abs(a1 - a0 - Math.PI / 20) < 1e-9, `${a1 - a0}`);
 });
 
-// ---- the rack and the meshing helper (`in_547`) ----
+// ---- the rack and the meshing helper (`in_579`) ----
 const gearsOfState = (st: AppState) => scene(st.session).gears ?? [];
 const faceOf = (st: AppState, id: string) => { const r = gearRefs(gearsOfState(st).find((g) => g.id === id)!); return scene(st.session).parts[(r.wall ? diskFaceRef(r.wall) : loopFaceRef(r.lines)) as never]!; };
 
@@ -548,7 +548,7 @@ test("a gear that is profile shifted gets no partner (the tool stays for numbers
   m = move(m, [C[0], C[1] + 50, 0]);
   m = key(m, "Enter");
   assert.equal(gearsOfState(m).length, 1, "no partner is made for a shifted gear: the tool stays for a number that works");
-  assert.match(m.session.message ?? "", /profile shift/, "and it says why (`in_548`)");
+  assert.match(m.session.message ?? "", /profile shift/, "and it says why (`in_580`)");
   assert.ok(m.tool, "the tool is still on");
 });
 
@@ -571,7 +571,7 @@ test("Edit gear on a rack has the rack's own fields and changing the teeth chang
   assert.ok(Math.abs(scene(moved).gears![0]!.at[1] - (C[1] + 25)) < 1e-6);
 });
 
-test("a gear, a rack or a partner that is not made says why, and the tool stays on (`in_548`)", () => {
+test("a gear, a rack or a partner that is not made says why, and the tool stays on (`in_580`)", () => {
   const say = (st: AppState) => st.session.message ?? "";
   // too few teeth, by Enter and by a click
   let st = top();
@@ -606,7 +606,7 @@ test("a gear, a rack or a partner that is not made says why, and the tool stays 
   assert.match(say(rr), /rack does not mesh with a ring/);
 });
 
-test("a gear's clearance field: the root clearance in modules (0.25 shown), typed it moves the root circle; an edit changes the body; a clearance outside 0 to 1 is refused with the reason (`in_555`)", () => {
+test("a gear's clearance field: the root clearance in modules (0.25 shown), typed it moves the root circle; an edit changes the body; a clearance outside 0 to 1 is refused with the reason (`in_587`)", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "gear" }, env);
   st = click(st, C);

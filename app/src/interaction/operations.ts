@@ -658,7 +658,7 @@ function planeTurn(scene: Scene, op: Op): Mat3 {
   return [u[0], v[0], n[0], u[1], v[1], n[1], u[2], v[2], n[2]];
 }
 /**
- * A gear moved or turned (`in_546`): its parts are made from its record, so the move changes the record: the centre goes where the move takes it and the gear turns by what the turns turn it about its plane's
+ * A gear moved or turned (`in_578`): its parts are made from its record, so the move changes the record: the centre goes where the move takes it and the gear turns by what the turns turn it about its plane's
  * axis. A gear stays in its plane: a move across the plane, or a turn about another axis, is not made (null).
  */
 function gearCommand(scene: Scene, op: Op, rec: GearRecord, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3, pivot: Vec3): Command | null {

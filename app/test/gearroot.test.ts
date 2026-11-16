@@ -1,4 +1,4 @@
-// The root of an involute gear as a rack cutter makes it: fillet and undercut (`in_560`).
+// The root of an involute gear as a rack cutter makes it: fillet and undercut (`in_592`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gearOutline } from "../src/operation/gear.ts";

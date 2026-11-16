@@ -237,7 +237,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       const r = addGear(s, rec);
       if (!r.ok) return r;
       const made = bumpCounter(r.value, c.id);
-      const body = helicalStep(made, rec); // (a helical gear comes with the twist that makes its body, `in_566`)
+      const body = helicalStep(made, rec); // (a helical gear comes with the twist that makes its body, `in_598`)
       return ok(body ? bumpCounter({ ...made, steps: [...made.steps, body] }, body.id) : made);
     }
     case "setGear": return setGear(s, c.id, c.spec, c.at, c.turn);

@@ -1,4 +1,4 @@
-// The roller chain sprocket (`dec_gear_tool`, `in_552`): the ANSI B29.1 tooth form's numbers, that a roller sits in each gap and the chain's rollers clear the teeth, and what the kernel makes of it.
+// The roller chain sprocket (`dec_gear_tool`, `in_584`): the ANSI B29.1 tooth form's numbers, that a roller sits in each gap and the chain's rollers clear the teeth, and what the kernel makes of it.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gearOutline } from "../src/operation/gear.ts";
