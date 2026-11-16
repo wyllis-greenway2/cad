@@ -2235,3 +2235,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_480 — 2026-11-16 — directive
 > yes do the stadium chamfer next
 (approves taking the next break found by the continuity test: the stadium chamfer, 4981 to 5302 mm3 at 4 to 4.5 mm in `stadium-body.cad.json`)
+
+## in_481 — 2026-11-16 — question
+> no need to fix past files, so is it fixed moving forward though?
+(says the saved files do not need to be fixed or swept again, and asks whether the break at the handover from the kernel's round to the cut region is fixed for new work; answered: for the three causes found, not proven for all)
