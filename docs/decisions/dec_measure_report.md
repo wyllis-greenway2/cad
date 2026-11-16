@@ -45,7 +45,7 @@ depends_on:
 - **Tests:** a block's centre is the middle of it and its volume from the mesh is the kernel's; two blocks together weigh by volume (27.5, 5, 5); a notch cut out moves the centre away from it (5.75, 5, 5.625 for the block with a 4 x 10 x 5 notch); a round post's centre is on its axis.
 - **Not done:** the centre of the part as printed (infill, walls), the moments of inertia, the centre of mass of the selected part of a body.
 
-**Not done (later, each needing its own approval):** the place of the nearest points; the centre of mass; the perimeter of a face; the length of a chain of edges in one go; wall thickness and overhang checks for printing; a copy of the report as text; the units in inches.
+**Not done (later, each needing its own approval):** the place of the nearest points; the perimeter of a face; the length of a chain of edges in one go; wall thickness and overhang checks for printing; a copy of the report as text; the units in inches.
 
 ## Rationale
 
