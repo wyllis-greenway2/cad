@@ -10,6 +10,7 @@ import {
   makeSphere,
   makeBox,
   makeCompound,
+  makeSolid,
   EdgeFinder,
   FaceFinder,
   measureVolume,
@@ -26,7 +27,7 @@ import {
   revolution,
   Wire,
 } from "replicad";
-import { facesOf, edgesOf } from "./topo.mjs";
+import { facesOf, edgesOf, shellsOf, solidsOf } from "./topo.mjs";
 import { reshape } from "./reshape.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
@@ -34,7 +35,29 @@ import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as 
 
 /** OCCT's own topology/geometry check. Operations can return garbage without throwing. */
 export function isValidSolid(shape) {
-  return new (getOC().BRepCheck_Analyzer)(shape.wrapped, true, false).IsValid();
+  return new (getOC().BRepCheck_Analyzer)(shape.wrapped, true, false).IsValid() && cavitiesInside(shape);
+}
+
+/**
+ * A hollow body's cavities lie inside its outer shell. The library's own check says a body is valid when its faces close up, even when a round or a bevel of a size larger than the wall has cut the
+ * outer skin away past a cavity's corner and left the cavity sticking out through it (a chamfer of 1.7 mm on the corner of a hollow body with 0.5 mm walls). Each cavity (a shell inside the outer one)
+ * must be wholly within the outer shell: the part of it that the outer shell holds is all of it.
+ */
+export function cavitiesInside(shape) {
+  for (const solid of solidsOf(shape)) {
+    const shells = shellsOf(solid);
+    if (shells.length < 2) continue;
+    let parts;
+    try { parts = shells.map((sh) => { const s = makeSolid(facesOf(sh)); return { s, v: Math.abs(measureVolume(s)) }; }); } catch { continue; } // (a shell that does not close into a solid on its own: the check above has the say)
+    const outer = parts.reduce((a, b) => (b.v > a.v ? b : a));
+    for (const inner of parts) {
+      if (inner === outer || !(inner.v > 1e-12)) continue;
+      let held;
+      try { held = Math.abs(measureVolume(outer.s.clone().intersect(inner.s.clone()))); } catch { continue; }
+      if (Math.abs(held - inner.v) > 1e-6 * Math.max(inner.v, 1e-9) + 1e-9) return false;
+    }
+  }
+  return true;
 }
 
 /** Resolve "$name" references against graph.params. Everything is a named parameter. */
