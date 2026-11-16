@@ -96,7 +96,7 @@ test("a heavy moving body is much quicker walked than moved whole (`in_479`)", (
   const r = shift([0, 0, 2]); // in the gap, touching nothing, the boxes still overlap
   assert.equal(collidesMoving(mine, r, stays), false);
   assert.equal(collides(moved(heavy, r), stays), false);
-  const time = (f: () => void) => { const t0 = performance.now(); for (let i = 0; i < 20; i++) f(); return performance.now() - t0; };
+  const time = (f: () => void) => { let best = Infinity; for (let k = 0; k < 6; k++) { const t0 = performance.now(); for (let i = 0; i < 4; i++) f(); best = Math.min(best, performance.now() - t0); } return best; }; // (the best of several, a busy machine slows a run, not every one)
   const whole = time(() => collides(moved(heavy, r), stays));
   const walked = time(() => collidesMoving(mine, r, stays));
   assert.ok(walked * 2 < whole, `walked ${walked.toFixed(1)} ms, whole ${whole.toFixed(1)} ms`);

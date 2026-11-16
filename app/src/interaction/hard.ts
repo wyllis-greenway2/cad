@@ -5,6 +5,8 @@ import type { Scene } from "../operation/scene.ts";
 import type { Rigid } from "../operation/frames.ts";
 import type { Op } from "./operations.ts";
 import { bodyMotion, valueOf, extrudeCap } from "./operations.ts";
+import { axisOf, advanceOf } from "./revolve.ts";
+import { sweepCarry } from "./sweep.ts";
 import { normalOfPlane } from "../operation/part.ts";
 import { patternValues } from "./pattern.ts";
 import { mirrorPlane } from "./mirror.ts";
@@ -121,6 +123,9 @@ export function limitedOp(scene: Scene, op: Op): { op: Op } | { why: string } | 
   // copies a repeat or a mirror would make: refused with the reason (`in_475`)
   const copies = hardCopies(scene, op);
   if (copies) return { why: copies.why };
+  // a sweep that would run into a hard body is refused with the reason (`in_482`)
+  const swept = sweepRuns(scene, op);
+  if (swept) return { why: swept.why };
   // a hard body's face pulled out into another hard body: taken as far as it goes, or refused when typed
   const grown = growth(scene, op);
   if (grown) {
@@ -128,7 +133,8 @@ export function limitedOp(scene: Scene, op: Op): { op: Op } | { why: string } | 
     if (op.typed !== "") return { why: `it would grow into ${names || "another hard body"}: hard bodies do not go into each other` };
     const d = valueOf(op) ?? 0; // (signed: a sketch is extruded either way)
     if (Math.abs(grown.t * d) < 1e-3) return { why: `it is against ${names || "another hard body"}: hard bodies do not go into each other` };
-    return { op: { ...op, value: Math.round(grown.t * d * 1e4) / 1e4 } };
+    const value = Math.round(grown.t * d * 1e4) / 1e4;
+    return { op: { ...op, value, ...(op.kind === "revolve" ? { advTyped: "", advValue: advanceOf(op) * grown.t } : {}) } }; // (a turn that stops short advances as far as the same part of its pitch)
   }
   const asked = bodyMotion(scene, op);
   const group = op.parts.filter((r) => scene.parts[r]?.kind === "body");
@@ -196,7 +202,7 @@ export function hardCopies(scene: Scene, op: Op): { why: string; hit: Ref[] } | 
 }
 
 /** A piece of surface that grows with the distance of the operation (`in_475`, `in_481`): `at(u)` is where its triangles are when u (0 to 1) of the distance is made. */
-interface Piece { at: (u: number) => ArrayLike<number>; tris: number[]; tree?: Tree; moves?: Vec3 }
+interface Piece { at: (u: number) => ArrayLike<number>; tris: number[]; tree?: Tree; /** a piece that is carried whole: the motion it has made at u (0 to 1) of the way */ rigid?: (u: number) => Rigid }
 
 /** Does a triangle of `a` have its middle in a triangle of `b`, the two lying in one plane? (a drawn figure on the face of a body) */
 function overlapsFlat(a: readonly number[], b: readonly number[]): boolean {
@@ -213,39 +219,55 @@ function overlapsFlat(a: readonly number[], b: readonly number[]): boolean {
 }
 
 /**
+ * The hard bodies that have a flat face the sketch `tris` lies on (and overlaps), with the sketch going away from the body when `dir` is given: what a sketch drawn on a face grows out of (`in_481`, `in_482`).
+ */
+function ownersOnFace(scene: Scene, tris: readonly number[], dir: Vec3 | null): Ref[] {
+  return Object.keys(scene.parts).filter((r) => {
+    const b = scene.parts[r];
+    if (b?.kind !== "body" || !isHard(scene, r as Ref) || !b.bbox) return false;
+    const mid: Vec3 = [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2];
+    return Object.values(scene.parts).some((f) => {
+      if (f.kind !== "plane" || f.origin !== "body" || f.of !== r || !f.mesh || f.curved || f.rounded) return false;
+      const n = normalOfPlane(f);
+      const c: Vec3 = [f.mesh[0]!, f.mesh[1]!, f.mesh[2]!];
+      const out = (n[0] * (c[0] - mid[0]) + n[1] * (c[1] - mid[1]) + n[2] * (c[2] - mid[2])) >= 0 ? 1 : -1;
+      const tilt = dir ? n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2] : 1;
+      if (dir && (Math.abs(tilt) < 0.999 || out * tilt <= 0)) return false; // (an extrusion goes away from the body; a turned figure goes both ways)
+      if (Math.abs(n[0] * (tris[0]! - c[0]) + n[1] * (tris[1]! - c[1]) + n[2] * (tris[2]! - c[2])) > 1e-3) return false; // (not the plane of the sketch)
+      return overlapsFlat(tris, f.mesh);
+    });
+  }) as Ref[];
+}
+
+/**
  * How far a hard body may grow before it meets another hard body: the part of the distance (0 to 1) and what it meets; null when nothing is in the way. A flat face pulled out is a piece of surface moved along its normal;
  * a round wall (a post or a hole) grows or shrinks about its axis (its radius changes by the distance, `in_481`); a sketch extruded off a hard body's face is the sketch moved along (its walls and top are the piece that
  * sweeps the new volume, `in_481`).
  */
 function growth(scene: Scene, op: Op): { t: number; hit: Ref[]; owners: Ref[] } | null {
-  if (op.kind !== "pushpull" && op.kind !== "extrude") return null;
+  if (op.kind !== "pushpull" && op.kind !== "extrude" && op.kind !== "revolve") return null;
   const d0 = valueOf(op);
-  if (d0 === null || (op.kind === "pushpull" && d0 <= 0) || d0 === 0) return null; // (pushed in, a body does not grow into anything; a sketch is extruded either way)
+  if (d0 === null || (op.kind === "pushpull" && d0 <= 0) || d0 === 0) return null; // (pushed in, a body does not grow into anything; a sketch is extruded, or turned, either way)
   const d = Math.abs(d0);
   const clearance = scene.clearance ?? 0;
   let owners: Ref[] = [];
   let pieces: Piece[] = [];
-  if (op.kind === "extrude") {
+  if (op.kind === "extrude" || op.kind === "revolve") {
     const cap = extrudeCap(scene, op);
     if (!cap) return null;
-    const dir = unit(d0 < 0 ? [-cap.normal[0], -cap.normal[1], -cap.normal[2]] : cap.normal);
-    // the hard bodies it grows out of: those with a flat face that the sketch lies on, the sketch going away from the body
-    owners = Object.keys(scene.parts).filter((r) => {
-      const b = scene.parts[r];
-      if (b?.kind !== "body" || !isHard(scene, r as Ref) || !b.bbox) return false;
-      const mid: Vec3 = [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2];
-      return Object.values(scene.parts).some((f) => {
-        if (f.kind !== "plane" || f.origin !== "body" || f.of !== r || !f.mesh || f.curved || f.rounded) return false;
-        const n = normalOfPlane(f);
-        const c: Vec3 = [f.mesh[0]!, f.mesh[1]!, f.mesh[2]!];
-        const out = (n[0] * (c[0] - mid[0]) + n[1] * (c[1] - mid[1]) + n[2] * (c[2] - mid[2])) >= 0 ? 1 : -1;
-        if (Math.abs(n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2]) < 0.999 || out * (n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2]) <= 0) return false;
-        if (Math.abs(n[0] * (cap.tris[0]! - c[0]) + n[1] * (cap.tris[1]! - c[1]) + n[2] * (cap.tris[2]! - c[2])) > 1e-3) return false; // (not the plane of the sketch)
-        return overlapsFlat(cap.tris, f.mesh);
-      });
-    }) as Ref[];
-    if (!owners.length) return null;
-    pieces = [{ tris: cap.tris, tree: buildTree(cap.tris), moves: dir, at: () => cap.tris }];
+    const dir = unit(op.kind === "revolve" || d0 >= 0 ? cap.normal : [-cap.normal[0], -cap.normal[1], -cap.normal[2]]);
+    owners = ownersOnFace(scene, cap.tris, op.kind === "extrude" ? dir : null);
+    const axis = op.kind === "revolve" ? axisOf(op) : null;
+    if (op.kind === "revolve" && !axis) return null;
+    const adv = op.kind === "revolve" ? advanceOf(op) : 0;
+    const rigid = (u: number): Rigid => {
+      if (!axis) return { turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift: [dir[0] * d * u, dir[1] * d * u, dir[2] * d * u], k: 1 };
+      const ad = unit(axis.d);
+      const R = aboutDir(ad, d0 * u), c = axis.p;
+      const rc: Vec3 = [R[0] * c[0] + R[1] * c[1] + R[2] * c[2], R[3] * c[0] + R[4] * c[1] + R[5] * c[2], R[6] * c[0] + R[7] * c[1] + R[8] * c[2]];
+      return { turn: R, shift: [c[0] - rc[0] + ad[0] * adv * u, c[1] - rc[1] + ad[1] * adv * u, c[2] - rc[2] + ad[2] * adv * u], k: 1 };
+    };
+    pieces = [{ tris: cap.tris, tree: buildTree(cap.tris), rigid, at: () => cap.tris }];
   } else {
     const faces = op.parts.map((r) => scene.parts[r]).filter((p) => p?.kind === "plane" && p.origin === "body" && !!p.mesh && !!p.of);
     owners = [...new Set(faces.map((p) => (p as { of: Ref }).of))].filter((b) => isHard(scene, b));
@@ -265,7 +287,7 @@ function growth(scene: Scene, op: Op): { t: number; hit: Ref[]; owners: Ref[] } 
         return [{ tris, at: (u: number) => radial(tris, c, axis, round.radius, sign * d * u) }];
       }
       const n = op.faces?.[i]?.normal ?? op.normal;
-      return n ? [{ tris, tree: buildTree(tris), moves: n, at: () => tris }] : [];
+      return n ? [{ tris, tree: buildTree(tris), rigid: (u: number): Rigid => ({ turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift: [n[0] * d * u, n[1] * d * u, n[2] * d * u], k: 1 }), at: () => tris }] : [];
     });
   }
   if (!owners.length) return null;
@@ -274,8 +296,8 @@ function growth(scene: Scene, op: Op): { t: number; hit: Ref[]; owners: Ref[] } 
   const pairs = pieces.flatMap((q) => stays.flatMap((s) => { const m = meshOf(scene, s); return m && !collides(q.tris, m.tree, clearance, true) ? [{ q, s, tree: m.tree }] : []; }));
   if (!pairs.length) return null;
   const hitAt = (u: number): Ref[] => [...new Set(pairs.filter((x) => {
-    const m = x.q.moves;
-    return m ? collidesMoving(x.q.tree!, { turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift: [m[0] * d * u, m[1] * d * u, m[2] * d * u], k: 1 }, x.tree, clearance, true) : collides(x.q.at(u), x.tree, clearance, true);
+    const r = x.q.rigid;
+    return r ? collidesMoving(x.q.tree!, r(u), x.tree, clearance, true) : collides(x.q.at(u), x.tree, clearance, true);
   }).map((x) => x.s))];
   const t = freePart((u) => hitAt(u).length > 0);
   return t >= 1 ? null : { t, hit: hitAt(Math.min(1, t + 5e-4)), owners };
@@ -295,11 +317,35 @@ function radial(tris: readonly number[], c: Vec3, axis: Vec3, radius: number, by
   return out;
 }
 
+/**
+ * What a sweep of a sketch that stands on a hard body would run into (`in_482`): the shape is taken along the path (stations along it), and the hard bodies it comes into are named. A sweep has no distance to take
+ * part of, so it is all or nothing. Null when the sketch is on no hard body's face, or nothing is in the way.
+ */
+function sweepRuns(scene: Scene, op: Op): { why: string; hit: Ref[] } | null {
+  if (op.kind !== "sweep" || !scene.hard?.length) return null;
+  const carry = sweepCarry(scene, op);
+  if (!carry) return null;
+  const owners = ownersOnFace(scene, carry.tris, null);
+  if (!owners.length) return null;
+  const clearance = scene.clearance ?? 0;
+  const tree = buildTree(carry.tris);
+  const hit = new Set<Ref>();
+  for (const s of Object.keys(scene.parts) as Ref[]) {
+    if (owners.includes(s) || !isHard(scene, s)) continue;
+    const m = meshOf(scene, s);
+    if (!m || collides(carry.tris, m.tree, clearance, true)) continue; // (already in it: not held to it)
+    if (carry.carries.some((r) => collidesMoving(tree, r, m.tree, clearance, true))) hit.add(s);
+  }
+  return hit.size ? { why: `it would run into ${[...hit].map((r) => nameOf(scene, r)).join(", ")}: hard bodies do not go into each other`, hit: [...hit] } : null;
+}
+
 /** What a repeat, a mirror or a push / pull that is open runs into, for the picture while it is set up (the body it is against flashes, and what is said): null when nothing. */
 export function hardNote(scene: Scene, op: Op): { why: string; hit: Ref[] } | null {
   if (!scene.hard?.length) return null;
   const copies = hardCopies(scene, op);
   if (copies) return copies;
+  const swept = sweepRuns(scene, op);
+  if (swept) return swept;
   const grown = growth(scene, op);
   return grown ? { why: `it can grow only as far as it meets ${grown.hit.map((r) => nameOf(scene, r)).join(", ")}`, hit: grown.hit } : null;
 }

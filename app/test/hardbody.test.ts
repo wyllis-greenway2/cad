@@ -254,7 +254,7 @@ test("when an earlier change makes hard bodies overlap on replay, they are found
 // ---- a round wall pulled out, and a sketch extruded off a hard body (`in_481`) ----
 import { drawCircle } from "../src/operation/build.ts";
 import { nextId } from "../src/operation/scene.ts";
-const bodiesOf = (s: Session) => Object.values(scene(s).parts).filter((p) => p.kind === "body" && p.ref !== "b/body/o") as unknown as { ref: Ref; id: string; bbox: { min: number[]; max: number[] } }[];
+const bodiesOf = (s: Session) => Object.values(scene(s).parts).filter((p) => p.kind === "body" && !!p.id) as unknown as { ref: Ref; id: string; bbox: { min: number[]; max: number[] } }[];
 const liftBody = (s: Session, ref: Ref, free: [number, number, number]): Session => {
   const st = startOp(scene(s), [ref] as never, "move", null);
   assert.ok(st.ok);
@@ -326,4 +326,84 @@ test("a round hole pulled smaller goes only as far as it meets a hard pin standi
   const pulled = limitedOp(scene(s), { ...op, value: 4 });
   assert.ok(pulled && "op" in pulled && Math.abs(pulled.op.value! - 3) < 0.05, `the pin is 3 from the wall: ${JSON.stringify(pulled && "op" in pulled ? pulled.op.value : pulled)}`);
   assert.equal(limitedOp(scene(s), { ...op, value: 2 }), null, "short of it: whole");
+});
+
+// ---- a revolve, a sweep and a loft against hard bodies (`in_482`) ----
+import { loopFaceRef } from "../src/operation/loops.ts";
+import { drawChain } from "../src/operation/build.ts";
+import { worldRef as wref, drawnRef } from "../src/shared/ref.ts";
+
+/** a 4 x 4 block below the plane z = 0 (z -10 .. 0) and another above it (z 10 .. 15), both hard, and nothing else */
+function belowAndAbove(): Session {
+  let s = createSession(kernel);
+  const mk = (s0: Session, _name: string, depth: number, lift: number): Session => {
+    const id = scene(s0).steps.some((q) => q.id === "s_100") ? "s_200" : "s_100"; // (the lifts take the ids after these)
+    const r = drawRectangle(scene(s0), XY, [-2, -2, 0], [2, 2, 0], [1, 0, 0], [0, 1, 0]);
+    const s1 = run(run(s0, r.command), { type: "addStep", step: { id, type: "extrude", parts: r.lines, params: { depth, ...(s0.history.scene.steps.length ? { mode: "new" } : {}) } } } as never);
+    return liftBody(s1, bodiesOf(s1).find((x) => x.id === `x_${id}`)!.ref, [0, 0, lift]);
+  };
+  s = mk(s, "s_100", 10, -10);
+  s = mk(s, "s_101", 5, 10);
+  return hardOf(s, bodiesOf(s).map((x) => x.ref));
+}
+
+test("a revolve is turned only as far as it can before it meets a hard body; typed too far is refused; what is made does not overlap (`in_482`)", () => {
+  const XZ = wref("XZ");
+  let s = createSession(kernel);
+  const hh = drawRectangle(scene(s), XZ, [6, 0, 0], [12, 0, 3], [1, 0, 0], [0, 0, 1]); s = run(s, hh.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: hh.lines, params: { depth: 5, mode: "new" } } } as never);
+  const cc = drawRectangle(scene(s), XY, [-11, -2, 0], [-7, 2, 0], [1, 0, 0], [0, 1, 0]); s = run(s, cc.command);
+  s = run(s, { type: "addStep", step: { id: "s_101", type: "extrude", parts: cc.lines, params: { depth: 3, mode: "new" } } } as never);
+  s = hardOf(s, bodiesOf(s).map((x) => x.ref));
+  assert.equal(bodiesOf(s).length, 2);
+  const prof = drawRectangle(scene(s), XZ, [8, 0, 0], [10, 0, 1.5], [1, 0, 0], [0, 0, 1]); s = run(s, prof.command);
+  const st = startOp(scene(s), [loopFaceRef(prof.lines)] as never, "revolve");
+  assert.ok(st.ok, st.ok ? "" : st.why);
+  const op: Op = { ...(st as { op: Op }).op, pivot: [0, 0, 0], frame: [[0, 0, 1], [1, 0, 0], [0, 1, 0]], axis: 0 }; // (about the Z axis)
+  const turned = limitedOp(scene(s), { ...op, value: 200 });
+  assert.ok(turned && "op" in turned, JSON.stringify(turned));
+  const angle = (turned as { op: Op }).op.value!;
+  assert.ok(angle > 150 && angle < 170, `the block is in the way at about 165 degrees, from 8 out at 2 either side of the X axis (${angle})`);
+  const typed = limitedOp(scene(s), { ...op, value: 200, typed: "200" });
+  assert.ok(typed && "why" in typed && /would grow into/.test(typed.why), JSON.stringify(typed));
+  assert.equal(limitedOp(scene(s), { ...op, value: 90 }), null, "short of it: whole");
+  const made = runOp(s, { ...op, value: 200 })!;
+  assert.deepEqual(hardOverlaps(scene(made.session)), [], `what was made does not overlap: ${made.session.message}`);
+  assert.ok(scene(made.session).steps.some((q) => q.type === "revolve"), "the revolve was made, to the angle it could go");
+});
+
+test("a sweep of a sketch that stands on a hard body, carried along a path through another hard body, is refused with the reason; one that stops short is made (`in_482`)", () => {
+  const XZ = wref("XZ");
+  let s = belowAndAbove();
+  const sq = drawRectangle(scene(s), XY, [-2, -2, 0], [2, 2, 0], [1, 0, 0], [0, 1, 0]); s = run(s, sq.command);
+  const face = loopFaceRef(sq.lines);
+  const tall = drawChain(scene(s), XZ, [[0, 0, 0], [0, 0, 20]]); s = run(s, tall.command);
+  const short = drawChain(scene(s), XZ, [[0, 0, 0], [0, 0, 6]]); s = run(s, short.command);
+  const sweep = (path: string[]): Op => { const st = startOp(scene(s), [face, ...path] as never, "sweep"); assert.ok(st.ok, st.ok ? "" : st.why); return (st as { op: Op }).op; };
+  const steps = scene(s).steps.length;
+  const into = runOp(s, sweep(tall.lines))!;
+  assert.match(into.session.message ?? "", /hard bodies do not go into each other/, `${into.session.message}`);
+  assert.equal(scene(into.session).steps.length, steps, "nothing was made");
+  const clear = runOp(s, sweep(short.lines))!;
+  assert.equal(clear.session.message, null, `${clear.session.message}`);
+  assert.ok(scene(clear.session).steps.length > steps, "stopping short of the block above it is made");
+  assert.deepEqual(hardOverlaps(scene(clear.session)), []);
+});
+
+import { sweepCarry } from "../src/interaction/sweep.ts";
+import { drawArc } from "../src/operation/build.ts";
+import { applyPoint } from "../src/operation/frames.ts";
+test("the shape of a sweep is carried along an arc path to its far end, turned with it (`in_482`)", () => {
+  const XZ = wref("XZ");
+  let s = createSession(kernel);
+  const sq = drawRectangle(scene(s), XY, [-2, -2, 0], [2, 2, 0], [1, 0, 0], [0, 1, 0]); s = run(s, sq.command);
+  const a = drawArc(scene(s), XZ, [0, 0, 0], [20 - 20 * Math.SQRT1_2, 0, 20 * Math.SQRT1_2], [20, 0, 20], [0, -1, 0])!; s = run(s, a.command);
+  const st = startOp(scene(s), [loopFaceRef(sq.lines), a.line] as never, "sweep", null);
+  assert.ok(st.ok, st.ok ? "" : st.why);
+  const c = sweepCarry(scene(s), (st as { op: Op }).op)!;
+  const end = applyPoint(c.carries.at(-1)!, [0, 0, 0]);
+  assert.ok(Math.hypot(end[0] - 20, end[1], end[2] - 20) < 1e-6, `the middle of the shape ends at the path's end: ${end}`);
+  const side = applyPoint(c.carries.at(-1)!, [2, 0, 0]); // a point 2 to the side of the middle, which was along X: it is now above the end, the shape turned a quarter
+  assert.ok(Math.abs(side[2]! - 20) > 1.9 || Math.abs(side[0]! - 20) > 1.9, `turned with the path: ${side}`);
+  assert.deepEqual(applyPoint(c.carries[0]!, [1, 2, 3]).map((v) => Math.round(v * 1e6) / 1e6), [1, 2, 3], "the first station is where it started");
 });

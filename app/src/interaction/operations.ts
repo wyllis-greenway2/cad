@@ -179,14 +179,19 @@ function drawnFaces(scene: Scene, parts: Part[]): Extract<Part, { kind: "face" }
   return all.length === parts.length && all.length > 0 && all.every((f) => f.plane === all[0]!.plane) ? all : [];
 }
 
-/** The triangles of the closed sketches an extrude is made from, and the way a positive depth goes (`in_481`): null for any other operation. */
+/** The triangles of the closed sketches an extrude or a revolve is made from, and the way a positive depth goes (`in_481`, `in_482`): null for any other operation. */
 export function extrudeCap(scene: Scene, op: Op): { tris: number[]; normal: Vec3 } | null {
-  if (op.kind !== "extrude" || !op.normal) return null;
-  const parts = op.parts.map((r) => scene.parts[r]).filter((p): p is Part => !!p);
+  if (op.kind !== "extrude" && op.kind !== "revolve" && op.kind !== "sweep") return null;
+  if (op.kind !== "sweep" && !op.normal) return null;
+  const refs = op.kind === "revolve" && op.revFigs?.length ? op.revFigs.flatMap((f) => f.fig.outer) : op.kind === "sweep" && op.sweepFig ? op.sweepFig.outer : op.parts;
+  const parts = refs.map((r) => scene.parts[r]).filter((p): p is Part => !!p);
   const get = lookup(scene);
   const faces = drawnFaces(scene, parts);
   const tris = faces.filter((f, i) => faces.indexOf(f) === i).flatMap((f) => surfaceTriangles(get, f) ?? []);
-  return tris.length ? { tris, normal: op.normal } : null;
+  if (!tris.length) return null;
+  const [a, b, c] = [0, 1, 2].map((k) => [tris[3 * k]!, tris[3 * k + 1]!, tris[3 * k + 2]!] as Vec3);
+  const n = cross(sub(b!, a!), sub(c!, a!));
+  return { tris, normal: op.normal ?? (Math.hypot(...n) > 1e-12 ? ([n[0] / Math.hypot(...n), n[1] / Math.hypot(...n), n[2] / Math.hypot(...n)] as Vec3) : ([0, 0, 1] as Vec3)) };
 }
 
 /** Can this thing be one of what an operation that is waiting is given (`in_465`)? A sweep takes a closed sketch (its shape) or a line that is no part of one (its path), a loft closed sketches; any other operation, what it can start from alone. */

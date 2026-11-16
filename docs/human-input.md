@@ -2252,3 +2252,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_481 — 2026-11-16 — directive
 > Do the round-face push/pull and extrude collisions next
 (asks for what `dec_hard_bodies` lists as untested or not built: push/pull of a round face, and extruding a sketch, against hard bodies)
+
+## in_482 — 2026-11-16 — directive
+> Do the revolve, loft and sweep collisions next
+(asks for what `dec_hard_bodies` lists as not built: revolve, loft and sweep against hard bodies)
