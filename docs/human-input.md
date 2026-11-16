@@ -2620,3 +2620,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_570 — 2026-11-16 — directive
 > Do the toolpath preview next
 (asks for what in_569 left unbuilt: the toolpath of a manufacturing route shown in the 3D view, the shared preview overlay)
+
+## in_571 — 2026-11-16 — directive
+> Do saved machines and settings next
+(asks for what in_569 left unbuilt: machines and settings that can be saved and used again, as planned in dec_manufacturing_definitions, instead of typing the work area every time)

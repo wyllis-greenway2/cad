@@ -42,6 +42,10 @@ export type Command =
   | { type: "setHard"; body: string; on: boolean }
   /** what a body is made of (`in_565`): `body` is the name it keeps through the history, `material` a material id (empty takes the tag off) */
   | { type: "setMaterial"; body: string; material: string }
+  /** a copy of a machine (or other definition) the project used, kept in its manufacturing section by `kind/id@version` (`in_571`) */
+  | { type: "useDefinition"; key: string; value: unknown }
+  /** a manufacturing plan, one for a part, route and machine: put in the project's manufacturing section, replacing the one with the same `id` (`in_571`, `in_546`) */
+  | { type: "setPlan"; plan: { id: string } }
   /** the clearance of the whole model, mm (`dec_hard_bodies`) */
   | { type: "setClearance"; value: number }
   /** break one group: what was in it stays, and a group inside it stays a group */
@@ -238,6 +242,15 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     }
     case "ungroup": return removeGroup(s, c.id);
     case "setHard": { const hard = (s.hard ?? []).filter((b) => b !== c.body); return ok({ ...s, ...(c.on ? { hard: [...hard, c.body] } : hard.length ? { hard } : { hard: undefined }) }); }
+    case "useDefinition": {
+      if (!c.key.trim()) return err("a definition needs a key");
+      return ok({ ...s, manufacturing: { ...s.manufacturing, definitions: { ...s.manufacturing?.definitions, [c.key]: c.value } } });
+    }
+    case "setPlan": {
+      if (typeof c.plan.id !== "string" || !c.plan.id) return err("a plan needs an id");
+      const rest = (s.manufacturing?.plans ?? []).filter((p) => (p as { id?: string }).id !== c.plan.id);
+      return ok({ ...s, manufacturing: { ...s.manufacturing, plans: [...rest, c.plan] } }); // (the newest is last: it is the one a dialog starts from)
+    }
     case "setMaterial": {
       const m = c.material.trim();
       if (m.length > MATERIAL_MAX || /[\u0000-\u001f]/.test(m)) return err(`a material name is plain text of at most ${MATERIAL_MAX} letters`);

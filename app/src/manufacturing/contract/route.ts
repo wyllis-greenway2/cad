@@ -65,6 +65,8 @@ export interface ManufacturingPlan {
   route: string;
   /** ids of the machine and the material, found in the project copy first (`dec_manufacturing_definitions` point 4) */
   machine: string;
+  /** the version of the machine the plan was made with: the project's copy of that one reproduces its output */
+  machineVersion?: number;
   material?: string;
   settings: Settings;
 }

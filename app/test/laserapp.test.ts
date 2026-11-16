@@ -72,7 +72,7 @@ test("marked lines carry their layer into the part; only what is selected is tak
 test("the dialog is made from the route's own settings: a field for each, with units and help; the machine's work area first", () => {
   const d = laserDialog(laserDefaults());
   const route = registry.get(LASER_ROUTE)!;
-  assert.deepEqual(d.fields.map((f) => f.id), ["bedWidth", "bedHeight", "powerMax", ...route.params.map((p) => p.id)]);
+  assert.deepEqual(d.fields.map((f) => f.id), ["machineName", "bedWidth", "bedHeight", "powerMax", "rapid", ...route.params.map((p) => p.id), "remember"]);
   assert.equal(d.fields.find((f) => f.id === "kerf")!.label, "Kerf (mm)");
   assert.equal(d.fields.find((f) => f.id === "toCorner")!.type, "check");
   assert.match(d.fields.find((f) => f.id === "cutPower")!.note!, /Test on a scrap/);
@@ -90,7 +90,7 @@ test("a run makes the file and a line about it; kerf, a hole first, G3 for the a
   assert.match(file, /M4 S128/, "half of a scale of 255");
   assert.match(file, /G3 X.* I.* J.*/);
   assert.match(file, /M5\nM2\n$/);
-  assert.match(r.value.summary, /^Drawing\.nc: 6 cut moves, about \d+ s$/);
+  assert.match(r.value.summary, /^Drawing\.nc: 6 cut moves, about \d+ s on My laser$/);
   assert.deepEqual(r.value.run.findings, []);
 });
 

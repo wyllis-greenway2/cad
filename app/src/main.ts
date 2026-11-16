@@ -11,7 +11,9 @@ import { createSession, openSession, saveText, run, scene, selection, refresh } 
 import type { Session } from "./interaction/session.ts";
 import { canExport } from "./interaction/exportstl.ts";
 import { canExportFlat } from "./interaction/exportsketch.ts";
-import { laserDefaults, laserDialog, runLaser, findingsDialog } from "./interaction/manufacture.ts";
+import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, startValues, projectMachines, recordCommands } from "./interaction/manufacture.ts";
+import { parseLibrary, libraryText, saveMachine, removeMachine } from "./interaction/library.ts";
+import { flatSnapshot } from "./interaction/partsnapshot.ts";
 import type { LaserValues } from "./interaction/manufacture.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
@@ -239,20 +241,39 @@ async function materialDialogFlow() {
   say(String(answers.material ?? "").trim() ? `material set: ${String(answers.material).trim()}` : "material tag taken off");
 }
 const LASER_KEY = "cad.laserOptions";
-/** Laser cut (`in_569`, `dec_laser_outline_route`): a dialog made from the route's own settings, the route run on the drawing (the selected sketch, or all that is drawn), the findings read before the file is saved. */
+const LIB_KEY = "cad.library";
+/** Laser cut (`in_569`, `in_571`, `dec_laser_outline_route`): which machine (the project's copy of the last one used, the user's own, or a new one), a dialog made from the route's own settings and started from the last plan for this drawing, the route run, the findings read before the file is saved; the project keeps a copy of the machine and the plan, the library keeps the machine. */
 async function laserDialogFlow() {
-  let saved: LaserValues = laserDefaults();
-  try { saved = { ...saved, ...JSON.parse(webStore.get(LASER_KEY) ?? "{}") }; } catch { /* not kept, or not readable: the usual */ }
-  const answers = await dialog.open((v) => laserDialog(v as LaserValues), saved as unknown as Values);
+  const part = flatSnapshot(state.session);
+  if (!part.ok) return say(part.error);
+  let lib = parseLibrary(webStore.get(LIB_KEY)).library;
+  const sc = scene(state.session);
+  const choices = machineChoices(sc, lib, part.value.id);
+  let choice = choices[0]!;
+  if (choices.length > 1) {
+    const which = await dialog.open((v) => machineDialog(choices, v as unknown as { machine: string; remove: boolean }), { machine: choice.id, remove: false } as unknown as Values);
+    if (!which) return;
+    choice = choices.find((c) => c.id === which.machine) ?? choice;
+    if (which.remove && choice.from === "library" && choice.machine) {
+      lib = removeMachine(lib, choice.machine.id);
+      webStore.set(LIB_KEY, libraryText(lib));
+      return say(`${choice.machine.name} is out of your library (projects that used it keep their copy)`);
+    }
+  }
+  let last: LaserValues = {};
+  try { last = JSON.parse(webStore.get(LASER_KEY) ?? "{}"); } catch { /* not kept, or not readable: the usual */ }
+  const answers = await dialog.open((v) => laserDialog(v as LaserValues), startValues(sc, part.value.id, choice, last) as unknown as Values);
   if (!answers) return;
   webStore.set(LASER_KEY, JSON.stringify(answers));
-  const r = runLaser(state.session, answers as LaserValues);
+  const r = runLaser(state.session, answers as LaserValues, [...lib.machines, ...projectMachines(sc)]);
   if (!r.ok) return say(r.error);
-  const { run, file, summary } = r.value;
-  if (!file) return say("nothing was planned: " + (run.findings[0]?.message ?? "no lines to cut"));
-  if (run.toolpath) { state = { ...state, preview: { toolpath: run.toolpath, at: 1 } }; dirty = true; } // (the toolpath is shown over the drawing while the findings are read and after the file is saved, `in_570`)
-  if (run.findings.length || run.warnings.length) {
-    const go = await dialog.open(() => findingsDialog(run.findings, summary), {});
+  const { run: ran, file, summary, machine } = r.value;
+  state = { ...state, session: run(state.session, { type: "batch", commands: recordCommands(r.value, answers as LaserValues) }) }; // (the project keeps the machine's copy and the plan)
+  if (answers.remember !== false) { const kept = saveMachine(lib, machine); if (kept.ok) webStore.set(LIB_KEY, libraryText(kept.value)); }
+  if (!file) return say("nothing was planned: " + (ran.findings[0]?.message ?? "no lines to cut"));
+  if (ran.toolpath) { state = { ...state, preview: { toolpath: ran.toolpath, at: 1 } }; dirty = true; } // (the toolpath is shown over the drawing while the findings are read and after the file is saved, `in_570`)
+  if (ran.findings.length || ran.warnings.length) {
+    const go = await dialog.open(() => findingsDialog(ran.findings, summary), {});
     if (!go) return say("the file was not saved");
   }
   webFiles.saveBytes(file.name, file.bytes, file.mime);

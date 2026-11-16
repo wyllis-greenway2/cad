@@ -3,7 +3,7 @@ id: dec_laser_outline_route
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_569, in_570
+human_input: in_569, in_570, in_571
 date: 2026-11-16
 depends_on:
   - dec_manufacturing_prep: this is its v1 beam outline cutting (profile with tabs and kerf, layers, G-code) as the first route
