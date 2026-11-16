@@ -2,10 +2,10 @@
 // version, so a project's copy of the one it used is never changed under it. Pure: text in, text out; checked before anything is kept.
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
-import type { MachineDefinition } from "../manufacturing/index.ts";
+import type { MachineDefinition, SettingsDefinition } from "../manufacturing/index.ts";
 
-export interface PersonalLibrary { machines: MachineDefinition[] }
-export const emptyLibrary = (): PersonalLibrary => ({ machines: [] });
+export interface PersonalLibrary { machines: MachineDefinition[]; /** the person's own settings table (`in_573`) */ settings: SettingsDefinition[] }
+export const emptyLibrary = (): PersonalLibrary => ({ machines: [], settings: [] });
 export const NAME_MAX = 60;
 
 /** Why a machine cannot be kept, or null: it needs a name, a work area and a speed that are real numbers above zero. */
@@ -27,21 +27,47 @@ export const slug = (name: string): string => name.toLowerCase().normalize("NFKD
 /** The library with this machine in it: a machine with the same id is replaced (it should have the next version, `nextVersion`). */
 export function saveMachine(lib: PersonalLibrary, m: MachineDefinition): Result<PersonalLibrary> {
   const why = whyBadMachine(m);
-  return why ? err(why) : ok({ machines: [...lib.machines.filter((x) => x.id !== m.id), m] });
+  return why ? err(why) : ok({ ...lib, machines: [...lib.machines.filter((x) => x.id !== m.id), m] });
 }
-export const removeMachine = (lib: PersonalLibrary, id: string): PersonalLibrary => ({ machines: lib.machines.filter((x) => x.id !== id) });
+export const removeMachine = (lib: PersonalLibrary, id: string): PersonalLibrary => ({ ...lib, machines: lib.machines.filter((x) => x.id !== id) });
 /** The version a changed machine gets: one more than the library's (or project's) latest of the same id; 1 for a new one. */
 export const nextVersion = (id: string, ...known: readonly (MachineDefinition | undefined)[]): number => Math.max(0, ...known.filter((k): k is MachineDefinition => !!k && k.id === id).map((k) => k.version)) + 1;
 
+// ---------- the settings table (`in_573`) ----------
+/** A material's name for comparing: lower case, spaces gathered. */
+export const materialKey = (name: string): string => name.toLowerCase().replace(/\s+/g, " ").trim();
+/** The same row: the same route, material (by `materialKey`), thickness (to within 0.05 mm) and machine (or none). */
+export const sameRow = (a: SettingsDefinition, b: SettingsDefinition): boolean => a.route === b.route && materialKey(a.material) === materialKey(b.material) && Math.abs(a.thickness - b.thickness) < 0.05 && (a.machine ?? "") === (b.machine ?? "");
+
+/** Why a settings row cannot be kept, or null: a material, a thickness of zero or more, and numbers for the route. */
+export function whyBadSettings(d: SettingsDefinition): string | null {
+  if (!d.material?.trim() || d.material.length > NAME_MAX) return `a material needs a name of up to ${NAME_MAX} letters`;
+  if (!(d.thickness >= 0) || !Number.isFinite(d.thickness) || d.thickness > 1000) return "the thickness is a number of millimetres from 0";
+  if (!d.route?.trim()) return "the numbers are for a route";
+  const v = Object.entries(d.values ?? {});
+  if (!v.length) return "there are no numbers in it";
+  if (v.some(([, x]) => typeof x === "number" && !Number.isFinite(x))) return "a number is not a number";
+  if (!Number.isInteger(d.version) || d.version < 1) return "a version is a whole number from 1";
+  return null;
+}
+/** The library with this row in it: a row for the same route, material, thickness and machine is replaced. */
+export function saveSettings(lib: PersonalLibrary, d: SettingsDefinition): Result<PersonalLibrary> {
+  const why = whyBadSettings(d);
+  return why ? err(why) : ok({ ...lib, settings: [...lib.settings.filter((x) => !sameRow(x, d)), d] });
+}
+export const removeSettings = (lib: PersonalLibrary, id: string): PersonalLibrary => ({ ...lib, settings: lib.settings.filter((x) => x.id !== id) });
+
 const FORMAT = "cad-library";
-export const libraryText = (lib: PersonalLibrary): string => JSON.stringify({ format: FORMAT, version: 1, machines: lib.machines });
+export const libraryText = (lib: PersonalLibrary): string => JSON.stringify({ format: FORMAT, version: 1, machines: lib.machines, ...(lib.settings.length ? { settings: lib.settings } : {}) });
 /** The library from stored text; a machine that is not valid is left out (and counted), the rest is kept. */
 export function parseLibrary(text: string | null | undefined): { library: PersonalLibrary; dropped: number } {
   if (!text) return { library: emptyLibrary(), dropped: 0 };
   try {
-    const j = JSON.parse(text) as { format?: string; machines?: unknown };
+    const j = JSON.parse(text) as { format?: string; machines?: unknown; settings?: unknown };
     if (j.format !== FORMAT || !Array.isArray(j.machines)) return { library: emptyLibrary(), dropped: 0 };
     const good = (j.machines as MachineDefinition[]).filter((m) => m && m.kind === "machine" && !whyBadMachine(m));
-    return { library: { machines: good }, dropped: j.machines.length - good.length };
+    const rows = Array.isArray(j.settings) ? (j.settings as SettingsDefinition[]) : [];
+    const goodRows = rows.filter((d) => d && d.kind === "settings" && !whyBadSettings(d));
+    return { library: { machines: good, settings: goodRows }, dropped: j.machines.length - good.length + rows.length - goodRows.length };
   } catch { return { library: emptyLibrary(), dropped: 0 }; }
 }

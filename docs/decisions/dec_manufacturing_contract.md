@@ -3,7 +3,7 @@ id: dec_manufacturing_contract
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_543, in_544, in_545, in_546, in_550, in_551, in_553, in_554, in_561, in_562, in_563, in_564, in_565, in_566, in_567, in_568, in_569, in_570, in_571, in_572
+human_input: in_543, in_544, in_545, in_546, in_550, in_551, in_553, in_554, in_561, in_562, in_563, in_564, in_565, in_566, in_567, in_568, in_569, in_570, in_571, in_572, in_573
 date: 2026-11-16
 depends_on:
   - inv_kernel_boundary: the contract hands modules mesh, STEP bytes and flat outlines (plain data), so a kernel swap changes nothing on the module side

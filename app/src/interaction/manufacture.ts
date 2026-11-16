@@ -4,7 +4,7 @@
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import { createRegistry, runRoute, builtInRoutes, defaultSettings } from "../manufacturing/index.ts";
-import type { Route, MachineDefinition, DialectDefinition, RouteRun, OutputFile, Finding, ParamSpec, PartSnapshot, ManufacturingPlan } from "../manufacturing/index.ts";
+import type { Route, MachineDefinition, DialectDefinition, RouteRun, OutputFile, Finding, ParamSpec, PartSnapshot, ManufacturingPlan, SettingsDefinition } from "../manufacturing/index.ts";
 import { CONTRACT_VERSION } from "../manufacturing/index.ts";
 import type { Command } from "../operation/commands.ts";
 import type { Scene } from "../operation/scene.ts";
@@ -12,7 +12,7 @@ import type { Dialog, Field, FieldValue } from "./transfer.ts";
 import type { Session } from "./session.ts";
 import { flatSnapshot } from "./partsnapshot.ts";
 import type { PersonalLibrary } from "./library.ts";
-import { whyBadMachine, slug, nextVersion, NAME_MAX } from "./library.ts";
+import { whyBadMachine, slug, nextVersion, NAME_MAX, sameRow, whyBadSettings } from "./library.ts";
 
 /** The registry the app holds: the routes that come with it. */
 export const registry = createRegistry();
@@ -84,6 +84,51 @@ export function machineDialog(choices: readonly MachineChoice[], values: { machi
   };
 }
 
+// ---------- the settings table (`in_573`) ----------
+/** The numbers of the laser route a table row holds: the cut, the score, the engraving and the kerf. */
+export const TABLE_KEYS = ["kerf", "cutPower", "cutSpeed", "cutPasses", "scorePower", "scoreSpeed", "engravePower", "engraveSpeed"] as const;
+export const NO_ROW = "none";
+/** The rows of the person's table that apply to a machine: those for any machine and those for this one, by material and thickness. */
+export function tableRows(rows: readonly SettingsDefinition[], machineId: string): SettingsDefinition[] {
+  return rows.filter((d) => d.route === LASER_ROUTE && (!d.machine || d.machine === machineId)).sort((a, b) => a.material.localeCompare(b.material) || a.thickness - b.thickness);
+}
+const t = (n: unknown): string => (typeof n === "number" ? String(Math.round(n * 100) / 100) : String(n));
+/** One row as a line to choose it by: "Birch plywood 3 mm: cut 80 % at 400 mm/min, 2 passes (this machine)". */
+export function rowLabel(d: SettingsDefinition): string {
+  const v = d.values;
+  const parts = [`cut ${t(v.cutPower)} % at ${t(v.cutSpeed)} mm/min${Number(v.cutPasses) > 1 ? `, ${t(v.cutPasses)} passes` : ""}`];
+  if (v.scorePower !== undefined) parts.push(`score ${t(v.scorePower)} % at ${t(v.scoreSpeed)}`);
+  return `${d.material}${d.thickness ? ` ${t(d.thickness)} mm` : ""}: ${parts.join("; ")}${d.machine ? " (this machine)" : ""}`;
+}
+/** The row the dialog's "save these numbers" asks for: the dialog's own numbers under the material and thickness it names (for this machine only, or any); the next version of a row it replaces. Null when no material is named. */
+export function rowFrom(values: LaserValues, machine: MachineDefinition, rows: readonly SettingsDefinition[]): Result<SettingsDefinition | null> {
+  const material = String(values.saveMaterial ?? "").trim();
+  if (!material) return ok(null);
+  const thickness = typeof values.saveThickness === "number" ? values.saveThickness : Number.NaN;
+  const only = values.saveForMachine !== false;
+  const vals = Object.fromEntries(TABLE_KEYS.filter((k) => values[k] !== undefined).map((k) => [k, values[k]!]));
+  const base: SettingsDefinition = {
+    kind: "settings", id: `${LASER_ROUTE}/${slug(material)}/${t(thickness)}${only ? `/${machine.id}` : ""}`, version: 1, name: `${material} ${t(thickness)} mm`, route: LASER_ROUTE, material, thickness, ...(only ? { machine: machine.id } : {}), values: vals,
+    ...(String(values.saveNote ?? "").trim() ? { note: String(values.saveNote).trim().slice(0, 200) } : {}),
+    provenance: { ...userProvenance, date: new Date().toISOString().slice(0, 10), origin: "measured" },
+  };
+  const why = whyBadSettings(base);
+  if (why) return err(why);
+  const old = rows.find((d) => sameRow(d, base));
+  return ok(old ? { ...base, id: old.id, version: old.version + 1 } : base);
+}
+/** The dialog for a table row to look at or take out. */
+export function tableDialog(rows: readonly SettingsDefinition[], values: { row: string; remove: boolean }): Dialog {
+  return {
+    title: "Your laser table",
+    ok: values.remove ? "Take it out" : "Done",
+    fields: [
+      { id: "row", label: "Row", type: "choice", choices: rows.map((d) => ({ value: d.id, label: rowLabel(d) })), value: values.row, note: undefined },
+      { id: "remove", label: "Take this row out of my table", type: "check", value: values.remove, note: "Take this row out of my table. The rows are your own numbers from your own tests: none come with the app." },
+    ],
+  };
+}
+
 // ---------- the laser dialog ----------
 /** One field of a dialog from one setting of a route: the schema is the whole description. */
 function fieldOf(p: ParamSpec, value: FieldValue): Field {
@@ -107,12 +152,12 @@ export function startValues(scene: Scene, part: string, choice: MachineChoice | 
   const plan = machine ? planFor(scene, part, LASER_ROUTE, machine.id) : undefined;
   const saved = plan?.settings ?? last;
   const settings = Object.fromEntries(route.params.map((p) => [p.id, typeof saved[p.id] === typeof p.default ? saved[p.id]! : p.default]));
-  return { ...(machine ? fieldsOf(machine) : MACHINE_DEFAULTS), ...settings, remember: true };
+  return { ...(machine ? fieldsOf(machine) : MACHINE_DEFAULTS), ...settings, tableRow: NO_ROW, saveMaterial: "", saveThickness: 3, saveNote: "", saveForMachine: true, remember: true };
 }
-export const laserDefaults = (): LaserValues => ({ ...MACHINE_DEFAULTS, ...defaultSettings(registry.get(LASER_ROUTE)!), remember: true });
+export const laserDefaults = (): LaserValues => ({ ...MACHINE_DEFAULTS, ...defaultSettings(registry.get(LASER_ROUTE)!), tableRow: NO_ROW, saveMaterial: "", saveThickness: 3, saveNote: "", saveForMachine: true, remember: true });
 
 /** The laser dialog: the machine's name, work area, power scale and rapid speed, then every setting the route declares, then whether to keep the machine. */
-export function laserDialog(values: LaserValues): Dialog {
+export function laserDialog(values: LaserValues, rows: readonly SettingsDefinition[] = []): Dialog {
   const route = registry.get(LASER_ROUTE)!;
   return {
     title: "Laser cut",
@@ -124,16 +169,23 @@ export function laserDialog(values: LaserValues): Dialog {
       { id: "powerMax", label: "Power scale (S)", type: "number", value: values.powerMax ?? MACHINE_DEFAULTS.powerMax, note: "The number your controller takes for full power (1000 for GRBL's usual setting). The file is plain GRBL-style G-code: read its first lines against your controller's manual before the first cut." },
       { id: "rapid", label: "Rapid speed (mm/min)", type: "number", value: values.rapid ?? MACHINE_DEFAULTS.rapid, note: "How fast the head travels with the beam off (used for the time estimate)." },
       ...route.params.map((p) => fieldOf(p, values[p.id] ?? p.default)),
+      ...(rows.length ? [{ id: "tableRow", label: "Numbers from your table", type: "choice" as const, choices: [{ value: NO_ROW, label: "The numbers above" }, ...rows.map((d) => ({ value: d.id, label: rowLabel(d) }))], value: values.tableRow ?? NO_ROW, note: "A row of your own table takes the place of the kerf, power, speed and passes above." }] : []),
+      { id: "saveMaterial", label: "Save these numbers as material", type: "text", value: values.saveMaterial ?? "", note: "Leave empty to save nothing. Otherwise the kerf, power, speed and passes above are kept in your table under this material and the thickness below, for next time: use numbers that you have tried on a scrap." },
+      { id: "saveThickness", label: "Thickness (mm)", type: "number", value: values.saveThickness ?? 3 },
+      { id: "saveNote", label: "Note", type: "text", value: values.saveNote ?? "", note: "Optional: what you used, what it did." },
+      { id: "saveForMachine", label: "Only for this machine", type: "check", value: values.saveForMachine !== false, note: "Only for this machine" },
       { id: "remember", label: "Keep this machine", type: "check", value: values.remember !== false, note: "Keep this machine" },
     ],
   };
 }
 
-export interface LaserRun { run: RouteRun; file: OutputFile | null; machine: MachineDefinition; part: PartSnapshot; summary: string }
+export interface LaserRun { run: RouteRun; file: OutputFile | null; machine: MachineDefinition; part: PartSnapshot; summary: string; /** the answers as the run used them: a row of the table in place of the numbers it holds */ values: LaserValues }
 const minutes = (s: number): string => (s < 90 ? `${Math.round(s)} s` : `${Math.round(s / 6) / 10} min`);
 
 /** Run the laser route on the drawing the selection stands for (or all that is drawn): the file, the findings and a line saying what was made. `known` are the machines already kept (the library's and the project's), so a machine that has not changed keeps its version. */
-export function runLaser(session: Session, values: LaserValues, known: readonly MachineDefinition[] = []): Result<LaserRun> {
+export function runLaser(session: Session, values0: LaserValues, known: readonly MachineDefinition[] = [], rows: readonly SettingsDefinition[] = []): Result<LaserRun> {
+  const row = rows.find((d) => d.id === values0.tableRow);
+  const values: LaserValues = row ? { ...values0, ...row.values } : values0; // (a row of the person's table takes the place of the numbers in the dialog)
   const part = flatSnapshot(session);
   if (!part.ok) return err(part.error);
   const route = registry.get(LASER_ROUTE) as Route;
@@ -144,14 +196,15 @@ export function runLaser(session: Session, values: LaserValues, known: readonly 
   if (why) return err(why);
   const settings = Object.fromEntries(route.params.map((p) => [p.id, values[p.id] ?? p.default]));
   const ran = runRoute(route, part.value, { machine, settings }, genericDialect(Number(machine.route.powerMax)));
-  const run: RouteRun = { ...ran, findings: [...ran.findings, ...ran.warnings.map((message, i): Finding => ({ id: `emit:${i}`, severity: "caution", message, refs: [] }))] }; // (what the file writer could not write is shown with the rest)
+  const run: RouteRun = { ...ran, findings: [...(row ? [{ id: "table", severity: "info" as const, message: `Using your table: ${rowLabel(row)}`, refs: [] }] : []), ...ran.findings, ...ran.warnings.map((message, i): Finding => ({ id: `emit:${i}`, severity: "caution", message, refs: [] }))] }; // (what the file writer could not write is shown with the rest)
   const file = run.files[0] ?? null;
   const cuts = run.toolpath?.operations.map((o) => `${o.moves.filter((m) => m.op === "cut" || m.op === "arc").length} ${o.label.toLowerCase()} moves`).join(", ") ?? "nothing planned";
-  return ok({ run, file, machine, part: part.value, summary: `${file?.name ?? "no file"}: ${cuts}${run.toolpath?.seconds ? `, about ${minutes(run.toolpath.seconds)}` : ""} on ${machine.name}` });
+  return ok({ run, file, machine, part: part.value, values, summary: `${file?.name ?? "no file"}: ${cuts}${run.toolpath?.seconds ? `, about ${minutes(run.toolpath.seconds)}` : ""} on ${machine.name}` });
 }
 
 /** What the project keeps of a run (`dec_manufacturing_definitions` point 4, `in_546`): a copy of the machine used, by its version, and the plan (part, route, machine and settings), which a later dialog for the same part starts from. */
-export function recordCommands(result: LaserRun, values: LaserValues): Command[] {
+export function recordCommands(result: LaserRun): Command[] {
+  const values = result.values;
   const route = registry.get(LASER_ROUTE)!;
   const plan: ManufacturingPlan = {
     contract: CONTRACT_VERSION, id: `${result.part.id}|${LASER_ROUTE}|${result.machine.id}`, part: result.part.id, route: LASER_ROUTE, machine: result.machine.id, machineVersion: result.machine.version,

@@ -2628,3 +2628,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_572 — 2026-11-16 — directive
 > Do nesting next
 (asks for what in_569 and in_560 left unbuilt: nesting several parts on a sheet for the laser route, as approved in in_560: manual layout and bounding-box packing, true-shape nesting later)
+
+## in_573 — 2026-11-16 — directive
+> Do the material power and speed table next
+(asks for what in_569 left unbuilt: a table of power and speed by material and thickness for the laser route, the "settings table" kind of dec_manufacturing_definitions)

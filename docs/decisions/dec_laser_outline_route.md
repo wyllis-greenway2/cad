@@ -3,7 +3,7 @@ id: dec_laser_outline_route
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_569, in_570, in_571, in_572
+human_input: in_569, in_570, in_571, in_572, in_573
 date: 2026-11-16
 depends_on:
   - dec_manufacturing_prep: this is its v1 beam outline cutting (profile with tabs and kerf, layers, G-code) as the first route
@@ -32,7 +32,9 @@ alternative_to:
 
 **Nesting (`in_572`, `in_560`, built):** several parts on a sheet, in two ways. **Manual layout** (nesting *off*, the usual): the parts stay where they are drawn, the person moves them with the tools they have, and the toolpath preview draws **the sheet's edge** (the machine's work area, or a sheet size given, from the toolpath's zero: with *part to the corner* off that is the drawing's own zero, so the layout can be arranged against it) and the route **checks the layout**: a part outside the sheet, two parts that overlap (a plate wholly inside another is a hole in it, not an overlap; two that only cross overlap), two parts closer than the *gap* (advice). **Packing** (nesting *on*): the drawing is split into parts (a closed outline with the holes in it and the score and engrave lines inside it; a loop inside a hole is a part of its own), each part and each of its *copies* is taken as its **bounding box**, and the boxes are packed in rows on the sheet (`core/nest.ts`: tallest first, the row with the least width left over, a new row if none, a gap between, a margin at the edge), each box turned a quarter turn when allowed and when that is what lets it in; a part that does not fit is left out and said. Packing is the plan's, not the model's: the drawing is not changed, and the preview shows the packed layout over it (the toolpath's frame is at the drawing's corner). Settings: nesting (off or pack), copies, gap, margin, turn to fit, sheet width and height (0: the work area). **Not built:** true-shape nesting (the parts' own outlines, `in_560`: later); moving parts on the sheet in the preview with the pointer; a part packed into the holes of another; keeping the same part orientation (grain) when turning is allowed; the order of cutting across parts (each part's holes are cut before its outside, nearest next, but the parts are cut in the order of the nearest, not part by part).
 
-**Not built:** the playing of the preview as a moving animation (only the slider); named settings presets; a power and speed table by material; lead-ins and lead-outs; cut order within a depth beyond nearest-next engrave fills and raster images; SVG or DXF written from the toolpath; a solid body or a body's face as the part's source for kerf (only a flat face's outline); a tool-radius offset for a router (the offset code is shared and ready); a check that a hole or a part is not inside a hole; features smaller than the offset on concave corners are caught only by a distance check, not repaired.
+**The power and speed table (`in_573`, built):** a table of the person's own rows by material and thickness, chosen in the dialog or kept from it (`dec_manufacturing_definitions` point 12); none comes with the app, and the defaults in the dialog stay places to start.
+
+**Not built:** the playing of the preview as a moving animation (only the slider); named settings presets; lead-ins and lead-outs; cut order within a depth beyond nearest-next engrave fills and raster images; SVG or DXF written from the toolpath; a solid body or a body's face as the part's source for kerf (only a flat face's outline); a tool-radius offset for a router (the offset code is shared and ready); a check that a hole or a part is not inside a hole; features smaller than the offset on concave corners are caught only by a distance check, not repaired.
 
 ## Rationale
 

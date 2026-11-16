@@ -54,6 +54,26 @@ export interface MachineDefinition extends DefinitionHeader {
   route: Record<string, ParamValue>;
 }
 
+/**
+ * A row of a settings table (`in_573`, `dec_manufacturing_definitions`): the numbers of a route that work for a material at a thickness, on a machine or on any. For a laser: power and speed and passes to cut, to score and to engrave, and the kerf.
+ * The numbers come from someone's own tests (`provenance.origin` "measured"); none come with the app (`in_558`: official ones need a cited source).
+ */
+export interface SettingsDefinition extends DefinitionHeader {
+  kind: "settings";
+  /** the route these numbers are for (its id) */
+  route: string;
+  /** the material's name, as the person wrote it; matched without regard to case or extra spaces */
+  material: string;
+  /** mm; 0 for a thing with no thickness that matters (an engraving on a surface) */
+  thickness: number;
+  /** a machine's id: these numbers are for that machine only; absent: any machine */
+  machine?: string;
+  /** the route's settings, by their ids (a number or a choice) */
+  values: Record<string, ParamValue>;
+  /** a line of the person's own: what they used, what it did */
+  note?: string;
+}
+
 /** A hazard of working a material one way (`in_558`): a short note and the source it came from. Guidance only; the material's own safety data sheet and the machine's manual come first. */
 export interface Hazard {
   /** the process it is about: a route family id */

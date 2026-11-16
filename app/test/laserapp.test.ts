@@ -72,7 +72,7 @@ test("marked lines carry their layer into the part; only what is selected is tak
 test("the dialog is made from the route's own settings: a field for each, with units and help; the machine's work area first", () => {
   const d = laserDialog(laserDefaults());
   const route = registry.get(LASER_ROUTE)!;
-  assert.deepEqual(d.fields.map((f) => f.id), ["machineName", "bedWidth", "bedHeight", "powerMax", "rapid", ...route.params.map((p) => p.id), "remember"]);
+  assert.deepEqual(d.fields.map((f) => f.id), ["machineName", "bedWidth", "bedHeight", "powerMax", "rapid", ...route.params.map((p) => p.id), "saveMaterial", "saveThickness", "saveNote", "saveForMachine", "remember"]);
   assert.equal(d.fields.find((f) => f.id === "kerf")!.label, "Kerf (mm)");
   assert.equal(d.fields.find((f) => f.id === "toCorner")!.type, "check");
   assert.match(d.fields.find((f) => f.id === "cutPower")!.note!, /Test on a scrap/);

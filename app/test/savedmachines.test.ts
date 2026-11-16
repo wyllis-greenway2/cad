@@ -67,7 +67,7 @@ test("a run records the project's copy of the machine and the plan; they come ba
   const r = runLaser(s0, values);
   assert.ok(r.ok);
   if (!r.ok) return;
-  const s1 = run(s0, { type: "batch", commands: recordCommands(r.value, values) });
+  const s1 = run(s0, { type: "batch", commands: recordCommands(r.value) });
   assert.deepEqual(projectMachines(scene(s1)).map((m) => [m.id, m.version]), [["bench-laser", 1]]);
   const plan = planFor(scene(s1), r.value.part.id, LASER_ROUTE, "bench-laser")!;
   assert.equal(plan.machineVersion, 1); assert.equal(plan.settings.kerf, 0.3); assert.equal(plan.settings.tabs, 2);
@@ -78,7 +78,7 @@ test("a run records the project's copy of the machine and the plan; they come ba
   assert.ok(again.ok);
   if (!again.ok) return;
   assert.equal(again.value.machine.version, 1, "the project's copy is the same: no new version");
-  const s2 = run(s1, { type: "batch", commands: recordCommands(again.value, { ...values, kerf: 0.1 }) });
+  const s2 = run(s1, { type: "batch", commands: recordCommands(again.value) });
   assert.equal((scene(s2).manufacturing!.plans as unknown[]).length, 1, "the plan for the same part, route and machine is replaced");
   assert.equal(planFor(scene(s2), r.value.part.id, LASER_ROUTE)!.settings.kerf, 0.1);
   assert.equal(planFor(scene(undoLast(s2)), r.value.part.id, LASER_ROUTE)!.settings.kerf, 0.3, "one undo takes the latest record back");
@@ -97,7 +97,7 @@ test("the machines offered: the last plan's project copy first, then the library
   const r = runLaser(s0, values);
   assert.ok(r.ok);
   if (!r.ok) return;
-  const s1 = run(s0, { type: "batch", commands: recordCommands(r.value, values) });
+  const s1 = run(s0, { type: "batch", commands: recordCommands(r.value) });
   const kept = saveMachine(l, r.value.machine);
   assert.ok(kept.ok);
   if (!kept.ok) return;
@@ -128,7 +128,7 @@ test("the dialog starts from the chosen machine and the plan's settings for this
   const r = runLaser(s0, values);
   assert.ok(r.ok);
   if (!r.ok) return;
-  const s1 = run(s0, { type: "batch", commands: recordCommands(r.value, values) });
+  const s1 = run(s0, { type: "batch", commands: recordCommands(r.value) });
   const fromPlan = startValues(scene(s1), part.value.id, { id: "library:bench-laser", label: "", machine, from: "library" }, { kerf: 0.4 });
   assert.equal(fromPlan.kerf, 0.25, "the plan for this drawing and machine wins over the last answers"); assert.equal(fromPlan.cutPasses, 3);
   const other = startValues(scene(s1), part.value.id, { id: "library:garage", label: "", machine: machineFrom({ ...fields, machineName: "Garage" }), from: "library" }, { kerf: 0.4 });
