@@ -3,7 +3,7 @@ id: dec_stable_reference_mechanism
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_546, in_558, in_559, in_560, in_561, in_564
+human_input: in_546, in_558, in_559, in_560, in_561, in_564, in_565
 date: 2026-11-16
 depends_on:
   - dec_stable_references: that entry decided the idea (names by how things were made, geometry as the fallback); this asks how it is built
@@ -56,7 +56,15 @@ alternative_to:
 - **Speed:** the first version read each flat face's centre of mass, which integrates over the outline (90 ms for each of the two faces of a 60-tooth gear); a point of the face from its box is used instead. The gear's extrusion now takes about 0.2 s more with names (0.4 to 0.63 s). The gear and the 144-post timing tests are timing-sensitive under the load of the whole suite; they passed in the last run and had failed in the one before.
 - **Not built:** a push or pull of a round wall (the radius change) still finds the wall by numbers; the faces a fillet or chamfer makes are named by rank (not by the edge they round); other curved faces (a cone, a sphere, a torus, a spline) and the edges beside them have no name.
 
-**Not built (next, in this order):** (1) roles for revolve, loft and sweep (rank names until then), and the faces a fillet or chamfer makes named for the edge they round; (2) hollow's faces, a repeat's, the sketch's plane when drawn on a face; (3) a push or pull of a round wall by name; (4) the kernel's own history (option A) where matching is wrong (a face that splits, two faces that swap).
+## The faces of a fillet, a chamfer and a revolve (`in_565`)
+
+- **A fillet or chamfer names its faces for the edges it rounds:** each edge the step names by a lasting name gives the role `<op id>:round:<edge name>` (the `|` of the edge's name written `+`) to the new flat or round face that holds the edge's middle in its box and runs along it (a round face along its axis, a flat one across the edge); an edge with no name gives none. So the edges beside the new face are named by it too, and are the same for any size and after a step put before. A fillet of a rim (a ring: a torus face) or a corner blend (a sphere or torus) is not named, as those surfaces have no names. Tested in the kernel: block fillet and chamfer.
+- **A plain revolve names its faces by the profile's own edges:** a profile edge parallel to the axis makes a round face (`side:<id>`), one across the axis a flat ring (`side:<id>`), and a turn of less than a whole one has `start` and `end` caps. A slanted or arc edge (a cone, a sphere, a torus), a spiral and a twist have no names. Holes of a figure are done the same.
+- **Not done:** **loft and sweep.** A loft's side faces lie between an edge of one section and the matching edge of the next (flat only when those are in one plane), and a sweep's between the profile's edge and the path; there is no one plane or axis from the sketch to name them by, so they keep rank names. Named, they would need the loft's matching of edges (`loftmatch.ts`) and the path to be read inside the kernel.
+- **Edge names are worked out when asked** (`facenames.mjs`: the answer, or the next step that names an edge), not for every step; round faces are looked up by their axis and radius in buckets (144 posts made the first version superlinear).
+- **Speed:** the gear's extrusion costs about 0.15 to 0.25 s more with names; the gear (60 teeth) and the 144-post timing tests are near their limits even without names (1.3 to 1.6 s of 2 s; ratio 7 to 10 of 14) and failed in some full runs, passed in others; the last full run passed.
+
+**Not built (next, in this order):** (1) roles for loft and sweep (rank names until then); (2) hollow's faces, a repeat's, the sketch's plane when drawn on a face; (3) a push or pull of a round wall by name; (4) the kernel's own history (option A) where matching is wrong (a face that splits, two faces that swap).
 
 ## Rationale
 

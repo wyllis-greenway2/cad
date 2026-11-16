@@ -236,3 +236,42 @@ test("in the model: the rim of a post is named, and a fillet of it follows when 
   assert.ok(Math.PI * 25 * 10 - v1 > 6 && Math.PI * 25 * 10 - v1 < 7, `round off a 5 mm post: ${Math.PI * 25 * 10 - v1}`);
   assert.ok(Math.PI * 64 * 10 - v2 > 10.4 && Math.PI * 64 * 10 - v2 < 11.5, `round off the 8 mm post: ${Math.PI * 64 * 10 - v2}`);
 });
+
+// ---- the faces a fillet or chamfer makes are named for the edge they round (`in_565`) ----
+test("a fillet's face is named for the edge it rounds, and so are the edges beside it, for any size and after a step put before", () => {
+  const sq = (w: number, depth: number) => [poly([[0, 0], [w, 0], [w, 10], [0, 10]], ["d/a", "d/b", "d/c", "d/d"]), { id: "x_a", type: "extrude", profile: "s_a", distance: depth }];
+  const base = evE(sq(10, 10));
+  const topFront = edgeAt(base, [5, 0, 10]);
+  const fillet = (target: string, e = topFront) => ({ id: "f", type: "edgeMod", target, mode: "fillet", value: 2, ref: [{ name: e.name, a: e.a, b: e.b, mid: e.mid }] });
+  const withFillet = evE([...sq(10, 10), fillet("x_a")]);
+  assert.equal(withFillet.ops.find((o) => o.id === "f")!.error, null);
+  const roundName = `f:round:${topFront.name.replaceAll("|", "+")}`;
+  assert.ok(withFillet.faceNames!.some((n) => n.name === roundName), `the round face is named: ${withFillet.faceNames!.map((n) => n.name).join(" ")}`);
+  const seamNames = (r: RE) => r.edgeNames!.filter((e) => e.name.includes(roundName)).map((e) => e.name).sort();
+  assert.equal(seamNames(withFillet).length, 4, "the round has four edges: two long seams and two ends");
+  // wider and taller: the edge the step names is the same one, so the same names come out
+  const bigger = evE([...sq(14, 25), fillet("x_a", edgeAt(evE(sq(14, 25)), [7, 0, 25]))]);
+  assert.deepEqual(seamNames(bigger), seamNames(withFillet));
+  assert.ok(bigger.faceNames!.some((n) => n.name === roundName));
+  // a step put before: the same names
+  const moved = evE([...sq(10, 10), { id: "m", type: "transform", mode: "move", target: "x_a", axis: 2, value: 7 }, fillet("m")]);
+  assert.equal(moved.ops.find((o) => o.id === "f")!.error, null);
+  assert.deepEqual(seamNames(moved), seamNames(withFillet));
+  // a chamfer is named the same way
+  const cham = evE([...sq(10, 10), { ...fillet("x_a"), id: "c", mode: "chamfer" }]);
+  assert.ok(cham.faceNames!.some((n) => n.name === `c:round:${topFront.name.replaceAll("|", "+")}`));
+});
+
+// ---- a revolve's faces are named by the profile's own edges (`in_565`) ----
+test("a turned tube: the walls and rings are named by the profile's edges, the same for any size, and a half turn has caps", () => {
+  const prof = (x0: number, x1: number, h: number) => ({ id: "s_a", type: "sketch", shape: "polygon", points: [[x0, 0], [x1, 0], [x1, h], [x0, h]], sides: ["d/a", "d/b", "d/c", "d/d"], plane: "XZ", origin: 0 });
+  const rev = (x0: number, x1: number, h: number, angle = 360) => evE([prof(x0, x1, h), { id: "x_r", type: "revolve", profile: "s_a", axis: { p: [0, 0, 0], d: [0, 0, 1] }, angle }]);
+  const names = (r: RE) => r.faceNames!.map((f) => f.name).sort();
+  const a = rev(3, 5, 10), b = rev(4, 7, 25);
+  assert.equal(a.ops.find((o) => o.id === "x_r")!.error, null);
+  for (const n of ["x_r:side:d/a", "x_r:side:d/c"]) assert.ok(names(a).includes(n), `${n} in ${names(a).join(" ")}`);
+  assert.ok(names(a).some((n) => n.startsWith("x_r:side:d/b")) && names(a).some((n) => n.startsWith("x_r:side:d/d")), names(a).join(" "));
+  assert.deepEqual(names(a), names(b));
+  const half = rev(3, 5, 10, 180);
+  assert.ok(names(half).includes("x_r:start") && names(half).includes("x_r:end"), names(half).join(" "));
+});

@@ -2592,3 +2592,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_564 — 2026-11-16 — directive
 > yes start on curved face names
 (approves the next item of `dec_stable_reference_mechanism`: lasting names for curved faces, which also gives the edges beside them a name)
+
+## in_565 — 2026-11-16 — directive
+> yes start on the first one
+(approves the first of the three options put in chat: name the faces a fillet or chamfer makes after the edge they round, and finish the names for revolve, loft and sweep)

@@ -35,7 +35,7 @@ import { reshape } from "./reshape.mjs";
 import { findCrossing } from "./selfcross.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
-import { nameFaces, refOfName, namedEdgeRefs, figureRoles, edgeEnds } from "./facenames.mjs";
+import { nameFaces, refOfName, namedEdgeRefs, figureRoles, edgeEnds, edgeRoles, revolveRoles } from "./facenames.mjs";
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
 
 /** The imported solids scaled about the origin by `op.scale` and then placed: `op.place` "center" brings the middle of their box to the origin, "floor" brings the middle of the box to the z axis and the bottom to z = 0 (a part that sits on the build plate). */
@@ -675,7 +675,12 @@ const OPS = {
     const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
     // the figure and the figures drawn inside it (holes), each a sketch in the same plane
-    const sketchOf = (id) => { const q = ctx.get(id, "sketch"); return q.drawing.sketchOnPlane(q.plane, q.origin); };
+    const sketchOf = (id) => {
+      const q = ctx.get(id, "sketch");
+      const sk = q.drawing.sketchOnPlane(q.plane, q.origin);
+      if (ctx.roleFigs && !ctx.roleFigs.has(id)) { try { ctx.roleFigs.set(id, revolveRoles(edgeEnds(sk), A, D, angle, advance, q.sides, id === op.profile)); } catch { ctx.roleFigs.set(id, []); } } // (the roles of its faces by the profile's own edges, read before the figure is made: `dec_stable_reference_mechanism`)
+      return sk;
+    };
     const outerSketch = sketchOf(op.profile);
     const face = outerSketch.face();
     const pn = face.normalAt();
@@ -2044,7 +2049,7 @@ export function compile(graph) {
     try {
       if (!OPS[op.type]) throw new Error(`unknown op type ${op.type}`);
       beginStages();
-      ctx.roleFigs = graph.names && op.type === "extrude" ? new Map() : null;
+      ctx.roleFigs = graph.names && (op.type === "extrude" || op.type === "revolve") ? new Map() : null;
       const value = run(op, ctx, results);
       const stagesOf = endStages();
       if (value.kind === "solid") {
@@ -2055,7 +2060,7 @@ export function compile(graph) {
         const tM = performance.now();
         value.markers = trackBodies(prev, value.shape, op.id);
         markMs = performance.now() - tM;
-        if (graph.names) { const named = nameFaces(from?.faceNames, value.tf, value.shape, op.id, op.type === "extrude" && ctx.roleFigs ? [...ctx.roleFigs.values()].flat() : null); value.faceNames = named.faces; value.edgeNames = named.edges; } // (the names of the flat faces, carried from the body it was made from)
+        if (graph.names) { const named = nameFaces(from?.faceNames, value.tf, value.shape, op.id, (op.type === "extrude" || op.type === "revolve") && ctx.roleFigs ? [...ctx.roleFigs.values()].flat() : op.type === "edgeMod" ? edgeRoles(op, from?.edgeNames) : null); value.faceNames = named.faces; Object.defineProperty(value, "edgeNames", { get: () => named.edges, enumerable: true, configurable: true }); } // (the names of the flat faces, carried from the body it was made from)
       }
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
       const tC = performance.now();

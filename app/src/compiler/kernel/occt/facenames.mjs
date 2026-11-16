@@ -88,14 +88,21 @@ export function nameFaces(prev, tf, shape, opId, roles) {
   // the names that match a face exactly, in the order they were made; the faces are looked up by their normal's main direction and the offset of their plane (a body of a thousand faces would otherwise be a million comparisons)
   const bucket = (n, d) => { const a = Math.abs(n[0]) >= Math.abs(n[1]) && Math.abs(n[0]) >= Math.abs(n[2]) ? 0 : Math.abs(n[1]) >= Math.abs(n[2]) ? 1 : 2; return `${a}${n[a] < 0 ? "-" : "+"}${Math.round(d / 0.05)}`; };
   const buckets = new Map();
-  const cyls = [];
-  faces.forEach((f, i) => { if (f.kind === "cyl") { cyls.push(i); return; } const k = bucket(f.n, dot(f.n, f.c)); buckets.set(k, [...(buckets.get(k) ?? []), i]); });
+  // round faces are looked up by their axis (when it runs along a world axis: which, and where it stands across it), and their radius: 144 posts would otherwise be twenty thousand comparisons for each step
+  const CELL = 0.5;
+  const axisOf = (n) => { const a = [0, 1, 2].find((k) => Math.abs(Math.abs(n[k]) - 1) < 1e-6); return a === undefined ? -1 : a; };
+  const cylKey = (a, o, r, dx, dy, dr) => { const [u, v] = a === 0 ? [1, 2] : a === 1 ? [0, 2] : [0, 1]; return `${a}|${Math.round(r / 0.05) + dr}|${Math.round(o[u] / CELL) + dx}|${Math.round(o[v] / CELL) + dy}`; };
+  const cylBuckets = new Map();
+  const cyls = []; // (the round faces whose axis is not along a world axis: looked through all)
+  faces.forEach((f, i) => { if (f.kind === "cyl") { const a = axisOf(f.n); if (a < 0) cyls.push(i); else { const k = cylKey(a, f.o, f.r, 0, 0, 0); cylBuckets.set(k, [...(cylBuckets.get(k) ?? []), i]); } return; } const k = bucket(f.n, dot(f.n, f.c)); buckets.set(k, [...(buckets.get(k) ?? []), i]); });
   // a round face is the same surface when its axis is the same line and its radius the same
   const sameCyl = (f, m) => Math.abs(Math.abs(dot(f.n, m.n)) - 1) < 1e-6 && Math.abs(f.r - m.r) <= tol && lineGap(f.o, f.n, m.o) <= tol && lineGap(m.o, m.n, f.o) <= tol;
   for (const m of old) {
     let best = -1, bestGap = Infinity;
     if (m.kind === "cyl") {
-      for (const i of cyls) {
+      const am = axisOf(m.n);
+      const pool = am < 0 ? [...cyls, ...[...cylBuckets.values()].flat()] : [...cyls, ...[-1, 0, 1].flatMap((dr) => [-1, 0, 1].flatMap((dx) => [-1, 0, 1].flatMap((dy) => cylBuckets.get(cylKey(am, m.o, m.r, dx, dy, dr)) ?? [])))];
+      for (const i of pool) {
         const f = faces[i];
         if (taken.has(i) || !sameCyl(f, m)) continue;
         const gap = Math.hypot(m.c[0] - f.c[0], m.c[1] - f.c[1], m.c[2] - f.c[2]);
@@ -126,13 +133,21 @@ export function nameFaces(prev, tf, shape, opId, roles) {
       const f = faces[i];
       let best = null, gap = Infinity;
       roles.forEach((r, k) => {
+        if (r.kind === "near") { // a face a fillet or chamfer made along a named edge: it holds the edge's middle in its box and runs along it (a round face: along its axis; a flat one: across it)
+          const along = Math.abs(dot(f.n, r.t));
+          if (!(f.kind === "cyl" ? along > 1 - 1e-6 : along < 1e-6) || !near(r.c, f.lo, f.hi, tol + (r.reach ?? 0))) return;
+          const g = Math.hypot(r.c[0] - f.c[0], r.c[1] - f.c[1], r.c[2] - f.c[2]);
+          if (g < gap) { gap = g; best = k; }
+          return;
+        }
         if ((r.kind === "cyl") !== (f.kind === "cyl")) return;
         if (f.kind === "cyl") { if (!sameCyl(f, r)) return; }
         else if (used.has(k) || Math.abs(Math.abs(dot(f.n, r.n)) - 1) > 1e-6 || Math.abs(dot(r.n, [r.c[0] - f.c[0], r.c[1] - f.c[1], r.c[2] - f.c[2]])) > tol) return;
         const g = Math.hypot(r.c[0] - f.c[0], r.c[1] - f.c[1], r.c[2] - f.c[2]);
         if (g < gap) { gap = g; best = k; }
       });
-      if (best !== null) { const n = used.get(best) ?? 0; used.set(best, n + 1); given[i] = `${opId}:${roles[best].role}${n ? `#${n}` : ""}`; }
+      if (best !== null && roles[best].kind === "near") given[i] = `${opId}:${roles[best].role}${(used.set(best, (used.get(best) ?? 0) + 1), used.get(best) > 1 ? `#${used.get(best) - 1}` : "")}`;
+      else if (best !== null) { const n = used.get(best) ?? 0; used.set(best, n + 1); given[i] = `${opId}:${roles[best].role}${n ? `#${n}` : ""}`; }
     }
   }
   // the faces no name matched: new, named by the operation and their order
@@ -141,7 +156,9 @@ export function nameFaces(prev, tf, shape, opId, roles) {
   fresh.sort((a, b) => { const ka = key(a.f), kb = key(b.f); for (let k = 0; k < ka.length; k++) if (ka[k] !== kb[k]) return ka[k] - kb[k]; return 0; });
   fresh.forEach((x, rank) => { given[x.i] = `${opId}:${rank}`; });
   const names = faces.map((f, i) => (f.kind === "cyl" ? { name: given[i], kind: "cyl", n: f.n, c: f.c, o: f.o, r: f.r } : { name: given[i], n: f.n, c: f.c }));
-  return { faces: names, edges: nameEdges(faces, given) };
+  // the edge names are worked out when somebody asks (the next step that names an edge, or the answer): most steps are followed by one that does not, and each takes a look at every face's edges
+  let edges = null;
+  return { faces: names, get edges() { return (edges ??= nameEdges(faces, given)); } };
 }
 
 /**
@@ -198,6 +215,24 @@ export function edgeEnds(sketch) {
   return { dir: [d.x, d.y, d.z], edges: sketch.wire.edges.map((e) => { const p = (v) => [v.x, v.y, v.z]; const line = e.geomType === "LINE"; return { a: p(e.startPoint), b: p(e.endPoint), line, ...(line ? {} : { mid: p(e.pointAt(0.5)), p1: p(e.pointAt(1 / 3)), p2: p(e.pointAt(2 / 3)) }) }; }) };
 }
 
+/**
+ * The roles of the faces a fillet or chamfer makes (`dec_stable_reference_mechanism`, `in_565`): each edge the step names by a lasting name, as the body has it before the step (`edgeNames`), gives the role
+ * `round:<the edge's name>` to the new face that holds its middle in its box and runs along it. The faces are matched in `nameFaces`; an edge with no name, or a curved one with no direction, gives none.
+ */
+export function edgeRoles(op, edgeNames, size) {
+  const roles = [];
+  for (const r of [].concat(op.ref ?? [])) {
+    if (!r?.name) continue;
+    const e = (edgeNames ?? []).find((x) => x.name === r.name);
+    if (!e) continue;
+    const t = [e.b[0] - e.a[0], e.b[1] - e.a[1], e.b[2] - e.a[2]];
+    const l = Math.hypot(...t);
+    if (l < 1e-9) continue; // (a closed edge: a circle has no one direction)
+    roles.push({ role: `round:${r.name.replaceAll("|", "+")}`, kind: "near", c: e.mid, t: t.map((v) => v / l), reach: 0 });
+  }
+  return roles;
+}
+
 /** The circle through three points in space: its centre and radius; null when they are on a line. */
 function circleOf(a, b, c) {
   const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], ac = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
@@ -246,6 +281,53 @@ export function figureRoles(ends, distance, sides, caps) {
     const l = Math.hypot(...n);
     if (l < 1e-9) return; // (an edge along the extrusion: no side)
     roles.push({ role: `side:${sides[i]}`, n: n.map((v) => v / l), c: [0, 1, 2].map((k) => (e.a[k] + e.b[k]) / 2 + half[k]) });
+  });
+  return roles;
+}
+
+/** A point turned about the axis through `a` along the unit vector `k` by `deg` degrees (the right-hand rule). */
+function turned(p, a, k, deg) {
+  const r = (deg * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r);
+  const d = [p[0] - a[0], p[1] - a[1], p[2] - a[2]];
+  const kd = dot(k, d);
+  const cr = [k[1] * d[2] - k[2] * d[1], k[2] * d[0] - k[0] * d[2], k[0] * d[1] - k[1] * d[0]];
+  return [0, 1, 2].map((m) => a[m] + d[m] * c + cr[m] * s + k[m] * kd * (1 - c));
+}
+
+/**
+ * The roles of the faces a plain revolve makes (`dec_stable_reference_mechanism`, `in_565`), by the profile's own edges: an edge parallel to the axis turns into a round face along it (`side:<id>`, a cylinder of
+ * the edge's distance from the axis), an edge across the axis into a flat ring (`side:<id>`), and, for a turn of less than a whole one, the profile's own plane is `start` and the plane it ends in `end` (the main
+ * figure only). Other edges (a slanted one: a cone; an arc: a sphere or a torus) make faces with no name yet, and so do a spiral and a twist (the axis along the plane's normal, or an advance). `A` is a point
+ * of the axis and `D` its direction.
+ */
+export function revolveRoles(ends, A, D, angle, advance, sides, caps) {
+  const roles = [];
+  if (!ends || !sides || !sides.length || ends.edges.length !== sides.length || Math.abs(advance) > 1e-9) return roles;
+  const dl = Math.hypot(...D) || 1;
+  const k = D.map((v) => v / dl);
+  const nl = Math.hypot(...ends.dir) || 1;
+  const N = ends.dir.map((v) => v / nl);
+  if (Math.abs(Math.abs(dot(N, k)) - 1) < 1e-6) return roles; // (the axis along the plane's normal: a twist)
+  if (caps && Math.abs(angle) < 360 - 1e-6) {
+    const pts = ends.edges.map((e) => e.a);
+    const c0 = [0, 1, 2].map((q) => pts.reduce((s, p) => s + p[q], 0) / pts.length);
+    const sgn = angle > 0 ? 1 : -1;
+    const n1 = turned([N[0] + A[0], N[1] + A[1], N[2] + A[2]], A, k, sgn * Math.abs(angle)).map((v, q) => v - A[q]);
+    roles.push({ role: "start", n: N, c: c0 }, { role: "end", n: n1, c: turned(c0, A, k, sgn * Math.abs(angle)) });
+  }
+  ends.edges.forEach((e, i) => {
+    if (!sides[i] || !e.line) return;
+    const t = [e.b[0] - e.a[0], e.b[1] - e.a[1], e.b[2] - e.a[2]];
+    const l = Math.hypot(...t);
+    if (l < 1e-9) return;
+    const along = Math.abs(dot(t, k)) / l;
+    const mid = [0, 1, 2].map((q) => (e.a[q] + e.b[q]) / 2);
+    if (along > 1 - 1e-6) { // parallel to the axis: a cylinder at its distance
+      const r = lineGap(A, k, mid);
+      if (r > 1e-6) roles.push({ role: `side:${sides[i]}`, kind: "cyl", n: k, o: A, r, c: mid });
+    } else if (along < 1e-6) { // across the axis: a flat ring
+      roles.push({ role: `side:${sides[i]}`, n: k, c: mid });
+    }
   });
   return roles;
 }
