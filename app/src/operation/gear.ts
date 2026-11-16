@@ -8,6 +8,7 @@ import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import { pulleyOutline } from "./pulley.ts";
 import { sprocketOutline } from "./sprocket.ts";
+import { cycloidalOutline } from "./cycloidal.ts";
 
 export interface GearSpec {
   teeth: number;
@@ -32,6 +33,8 @@ export interface GearSpec {
   pulley?: "2GT" | "3GT";
   /** a roller chain sprocket (`sprocket.ts`): `teeth` teeth for the ANSI chain number `chain` (40 if none), or for the `pitch` and `roller` diameter given (mm); a bore as for a gear */
   sprocket?: { chain?: number; pitch?: number; roller?: number };
+  /** a cycloidal (clock) gear (`cycloidal.ts`): the generating circle's radius, the addendum and the dedendum, in modules (3, 1 and 1.25 if none); the same circle for gears that are to mesh; backlash as for a gear */
+  cycloidal?: { circle?: number; addendum?: number; dedendum?: number };
 }
 export interface GearOutline {
   /** the corners of the outline in order, counter-clockwise */
@@ -95,6 +98,7 @@ export function gearOutline(spec: GearSpec): Result<GearOutline> {
   if (spec.rack) return rackOutline(spec);
   if (spec.pulley) return pulleyOutline(spec);
   if (spec.sprocket) return sprocketOutline(spec);
+  if (spec.cycloidal) return cycloidalOutline(spec);
   const z = Math.round(spec.teeth);
   const m = spec.module;
   if (!Number.isFinite(z) || z < 3 || z > 500) return err("a gear needs 3 to 500 teeth");

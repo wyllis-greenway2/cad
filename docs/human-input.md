@@ -2544,3 +2544,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_552 — 2026-11-16 — directive
 > Do the chain sprockets next
 (asks for the roller chain sprockets from dec_gear_tool's list, after the GT2 pulleys)
+
+## in_553 — 2026-11-16 — directive
+> Do the cycloidal clock gears next
+(asks for the cycloidal (clock) tooth profile from dec_gear_tool's list, after the chain sprockets)
