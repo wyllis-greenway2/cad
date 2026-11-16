@@ -2753,3 +2753,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_604 — 2026-11-16 — question
 > okay can you help look at something? this really didn't chamfer how I expected, why?
 (attaches a project file ("chamfer_not_as_expected_at_all") and a state snapshot: a rectangle swept along a path of two arcs, then a chamfer of 5.1 mm on eight of its long edges; asks why the chamfer did not come out as expected)
+
+## in_605 — 2026-11-16 — question
+> what is the root cause? why does it do one edge differently then four?
+(asks for the root cause of the chamfer coming out wrongly, and why a chamfer of one edge is made differently from a chamfer of four)
