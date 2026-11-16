@@ -2248,3 +2248,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_480 — 2026-11-16 — directive
 > Do the mate chains and joint drives next
 (asks for what `dec_hard_bodies` lists as untested: mate chains and joint drives against hard bodies)
+
+## in_481 — 2026-11-16 — directive
+> Do the round-face push/pull and extrude collisions next
+(asks for what `dec_hard_bodies` lists as untested or not built: push/pull of a round face, and extruding a sketch, against hard bodies)

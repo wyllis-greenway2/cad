@@ -250,3 +250,80 @@ test("when an earlier change makes hard bodies overlap on replay, they are found
   // soft bodies, or a model with nothing hard, say nothing
   assert.deepEqual(hardOverlaps(scene(run(later, { type: "setHard", body: "x_s_100", on: false }))), []);
 });
+
+// ---- a round wall pulled out, and a sketch extruded off a hard body (`in_481`) ----
+import { drawCircle } from "../src/operation/build.ts";
+import { nextId } from "../src/operation/scene.ts";
+const bodiesOf = (s: Session) => Object.values(scene(s).parts).filter((p) => p.kind === "body" && p.ref !== "b/body/o") as unknown as { ref: Ref; id: string; bbox: { min: number[]; max: number[] } }[];
+const liftBody = (s: Session, ref: Ref, free: [number, number, number]): Session => {
+  const st = startOp(scene(s), [ref] as never, "move", null);
+  assert.ok(st.ok);
+  return runOp(s, { ...(st as { op: Op }).op, free })!.session;
+};
+
+test("a round post pulled wider goes only as far as it meets a hard body; typed too far is refused; what is made does not overlap (`in_481`)", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 3);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: [c.circle], params: { depth: 10 } } } as never);
+  const b = drawRectangle(scene(s), XY, [8, -5, 0], [18, 5, 0], [1, 0, 0], [0, 1, 0]); s = run(s, b.command);
+  s = run(s, { type: "addStep", step: { id: "s_101", type: "extrude", parts: b.lines, params: { depth: 10, mode: "new" } } } as never);
+  const [post, wall] = [bodiesOf(s).find((x) => x.id === "x_s_100")!, bodiesOf(s).find((x) => x.id === "x_s_101")!];
+  s = hardOf(s, [post.ref, wall.ref]);
+  const face = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && (p as { of?: string }).of === post.ref && !!(p as { curved?: unknown }).curved)!;
+  assert.ok(face, "the round wall of the post");
+  const st = startOp(scene(s), [face.ref] as never, "pushpull", null);
+  assert.ok(st.ok, st.ok ? "" : st.why);
+  const op = (st as { op: Op }).op;
+  const pulled = limitedOp(scene(s), { ...op, value: 9 });
+  assert.ok(pulled && "op" in pulled && Math.abs(pulled.op.value! - 5) < 0.05, `the wall is 5 from the post: ${JSON.stringify(pulled && "op" in pulled ? pulled.op.value : pulled)}`);
+  const typed = limitedOp(scene(s), { ...op, value: 9, typed: "24" }); // (a number typed on a round face is the diameter it is to have: 24 is a radius of 12)
+  assert.ok(typed && "why" in typed && /would grow into x_s_101/.test(typed.why), JSON.stringify(typed));
+  assert.equal(limitedOp(scene(s), { ...op, value: 4 }), null, "short of it: whole");
+  assert.equal(limitedOp(scene(run(s, { type: "setHard", body: "x_s_101", on: false })), { ...op, value: 9 }), null, "the wall is soft: free");
+  const made = runOp(s, { ...op, value: 9 })!;
+  assert.deepEqual(hardOverlaps(scene(made.session)), [], "what was made does not overlap");
+  const grown = bodiesOf(made.session).find((x) => x.id === "x_s_100")!;
+  assert.ok(grown.bbox.max[0]! > 7.9 && grown.bbox.max[0]! <= 8.01, `the post now reaches the wall: ${grown.bbox.max[0]}`);
+});
+
+test("a sketch extruded off the face of a hard body goes only as far as another hard body; a body made new, or soft ones, go on (`in_481`)", () => {
+  let s = two(); // A at x 0..10, z 0..10, and B at x 30..40
+  const e = drawRectangle(scene(s), XY, [0, 0, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]); s = run(s, e.command);
+  s = run(s, { type: "addStep", step: { id: "s_102", type: "extrude", parts: e.lines, params: { depth: 5, mode: "new" } } } as never);
+  const under = bodiesOf(s).find((x) => x.id === "x_s_102")!;
+  s = liftBody(s, under.ref, [0, 0, -15]); // a block under the first one, z -15 .. -10
+  s = hardOf(s, [A, under.ref]);
+  const f = drawRectangle(scene(s), XY, [2, 2, 0], [8, 8, 0], [1, 0, 0], [0, 1, 0]); s = run(s, f.command);
+  const st = startOp(scene(s), f.lines as never, "extrude", null);
+  assert.ok(st.ok, st.ok ? "" : st.why);
+  const op = (st as { op: Op }).op;
+  const down = limitedOp(scene(s), { ...op, value: -25 });
+  assert.ok(down && "op" in down && Math.abs(down.op.value! + 10) < 0.05, `the block is 10 below: ${JSON.stringify(down && "op" in down ? down.op.value : down)}`);
+  const typed = limitedOp(scene(s), { ...op, value: -25, typed: "-25" });
+  assert.ok(typed && "why" in typed && /would grow into/.test(typed.why), JSON.stringify(typed));
+  assert.equal(limitedOp(scene(s), { ...op, value: 25 }), null, "up, into the body it stands on and away from the block: nothing in the way");
+  assert.equal(limitedOp(scene(s), { ...op, value: -5 }), null, "short of it");
+  assert.equal(limitedOp(scene(run(s, { type: "setHard", body: "x_s_100", on: false })), { ...op, value: -25 }), null, "the body it grows out of is soft");
+});
+
+test("a round hole pulled smaller goes only as far as it meets a hard pin standing in it (`in_481`)", () => {
+  let s = createSession(kernel);
+  const blockR = drawRectangle(scene(s), XY, [-10, -10, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]); s = run(s, blockR.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: blockR.lines, params: { depth: 10 } } } as never);
+  const hole = drawCircle(scene(s), XY, [0, 0, 0], 5); s = run(s, hole.command);
+  s = run(s, { type: "addStep", step: { id: "s_101", type: "extrude", parts: [hole.circle], params: { depth: 10, mode: "cut" } } } as never);
+  const pin = drawCircle(scene(s), XY, [0, 0, 0], 2); s = run(s, pin.command);
+  s = run(s, { type: "addStep", step: { id: "s_102", type: "extrude", parts: [pin.circle], params: { depth: 10, mode: "new" } } } as never);
+  const [block, post] = [bodiesOf(s).find((x) => x.id === "x_s_100")!, bodiesOf(s).find((x) => x.id !== "x_s_100")!];
+  assert.ok(block && post, "a block with a hole and a pin");
+  s = hardOf(s, [block.ref, post.ref]);
+  const wall = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && (p as { of?: string }).of === block.ref && !!(p as { curved?: unknown }).curved)!;
+  assert.ok(wall, "the wall of the hole");
+  const st = startOp(scene(s), [wall.ref] as never, "pushpull", null);
+  assert.ok(st.ok, st.ok ? "" : st.why);
+  const op = (st as { op: Op }).op;
+  const pulled = limitedOp(scene(s), { ...op, value: 4 });
+  assert.ok(pulled && "op" in pulled && Math.abs(pulled.op.value! - 3) < 0.05, `the pin is 3 from the wall: ${JSON.stringify(pulled && "op" in pulled ? pulled.op.value : pulled)}`);
+  assert.equal(limitedOp(scene(s), { ...op, value: 2 }), null, "short of it: whole");
+});

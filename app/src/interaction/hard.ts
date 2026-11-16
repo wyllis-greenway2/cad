@@ -4,7 +4,8 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Rigid } from "../operation/frames.ts";
 import type { Op } from "./operations.ts";
-import { bodyMotion, valueOf } from "./operations.ts";
+import { bodyMotion, valueOf, extrudeCap } from "./operations.ts";
+import { normalOfPlane } from "../operation/part.ts";
 import { patternValues } from "./pattern.ts";
 import { mirrorPlane } from "./mirror.ts";
 import { placements } from "../operation/repeat.ts";
@@ -125,8 +126,8 @@ export function limitedOp(scene: Scene, op: Op): { op: Op } | { why: string } | 
   if (grown) {
     const names = grown.hit.map((r) => nameOf(scene, r)).join(", ");
     if (op.typed !== "") return { why: `it would grow into ${names || "another hard body"}: hard bodies do not go into each other` };
-    const d = valueOf(op) ?? 0;
-    if (grown.t * d < 1e-3) return { why: `it is against ${names || "another hard body"}: hard bodies do not go into each other` };
+    const d = valueOf(op) ?? 0; // (signed: a sketch is extruded either way)
+    if (Math.abs(grown.t * d) < 1e-3) return { why: `it is against ${names || "another hard body"}: hard bodies do not go into each other` };
     return { op: { ...op, value: Math.round(grown.t * d * 1e4) / 1e4 } };
   }
   const asked = bodyMotion(scene, op);
@@ -194,29 +195,104 @@ export function hardCopies(scene: Scene, op: Op): { why: string; hit: Ref[] } | 
   return null;
 }
 
-/** How far a hard body's face may be pulled out before it meets another hard body: the part of the distance (0 to 1) and what it meets; null when nothing is in the way. */
+/** A piece of surface that grows with the distance of the operation (`in_475`, `in_481`): `at(u)` is where its triangles are when u (0 to 1) of the distance is made. */
+interface Piece { at: (u: number) => ArrayLike<number>; tris: number[]; tree?: Tree; moves?: Vec3 }
+
+/** Does a triangle of `a` have its middle in a triangle of `b`, the two lying in one plane? (a drawn figure on the face of a body) */
+function overlapsFlat(a: readonly number[], b: readonly number[]): boolean {
+  for (let i = 0; i + 8 < a.length; i += 9) {
+    const m: Vec3 = [(a[i]! + a[i + 3]! + a[i + 6]!) / 3, (a[i + 1]! + a[i + 4]! + a[i + 7]!) / 3, (a[i + 2]! + a[i + 5]! + a[i + 8]!) / 3];
+    for (let j = 0; j + 8 < b.length; j += 9) {
+      const p: Vec3 = [b[j]!, b[j + 1]!, b[j + 2]!], q: Vec3 = [b[j + 3]!, b[j + 4]!, b[j + 5]!], r: Vec3 = [b[j + 6]!, b[j + 7]!, b[j + 8]!];
+      const n: Vec3 = [(q[1] - p[1]) * (r[2] - p[2]) - (q[2] - p[2]) * (r[1] - p[1]), (q[2] - p[2]) * (r[0] - p[0]) - (q[0] - p[0]) * (r[2] - p[2]), (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])];
+      const side = (u: Vec3, v: Vec3): number => ((v[1] - u[1]) * (m[2] - u[2]) - (v[2] - u[2]) * (m[1] - u[1])) * n[0] + ((v[2] - u[2]) * (m[0] - u[0]) - (v[0] - u[0]) * (m[2] - u[2])) * n[1] + ((v[0] - u[0]) * (m[1] - u[1]) - (v[1] - u[1]) * (m[0] - u[0])) * n[2];
+      if (side(p, q) >= 0 && side(q, r) >= 0 && side(r, p) >= 0) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * How far a hard body may grow before it meets another hard body: the part of the distance (0 to 1) and what it meets; null when nothing is in the way. A flat face pulled out is a piece of surface moved along its normal;
+ * a round wall (a post or a hole) grows or shrinks about its axis (its radius changes by the distance, `in_481`); a sketch extruded off a hard body's face is the sketch moved along (its walls and top are the piece that
+ * sweeps the new volume, `in_481`).
+ */
 function growth(scene: Scene, op: Op): { t: number; hit: Ref[]; owners: Ref[] } | null {
-  if (op.kind !== "pushpull" || op.curved) return null;
-  const d = valueOf(op);
-  if (d === null || d <= 0) return null; // (pushed in, a body does not grow into anything)
-  const faces = op.parts.map((r) => scene.parts[r]).filter((p) => p?.kind === "plane" && p.origin === "body" && !!p.mesh && !!p.of);
-  const owners = [...new Set(faces.map((p) => (p as { of: Ref }).of))].filter((b) => isHard(scene, b));
+  if (op.kind !== "pushpull" && op.kind !== "extrude") return null;
+  const d0 = valueOf(op);
+  if (d0 === null || (op.kind === "pushpull" && d0 <= 0) || d0 === 0) return null; // (pushed in, a body does not grow into anything; a sketch is extruded either way)
+  const d = Math.abs(d0);
+  const clearance = scene.clearance ?? 0;
+  let owners: Ref[] = [];
+  let pieces: Piece[] = [];
+  if (op.kind === "extrude") {
+    const cap = extrudeCap(scene, op);
+    if (!cap) return null;
+    const dir = unit(d0 < 0 ? [-cap.normal[0], -cap.normal[1], -cap.normal[2]] : cap.normal);
+    // the hard bodies it grows out of: those with a flat face that the sketch lies on, the sketch going away from the body
+    owners = Object.keys(scene.parts).filter((r) => {
+      const b = scene.parts[r];
+      if (b?.kind !== "body" || !isHard(scene, r as Ref) || !b.bbox) return false;
+      const mid: Vec3 = [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2];
+      return Object.values(scene.parts).some((f) => {
+        if (f.kind !== "plane" || f.origin !== "body" || f.of !== r || !f.mesh || f.curved || f.rounded) return false;
+        const n = normalOfPlane(f);
+        const c: Vec3 = [f.mesh[0]!, f.mesh[1]!, f.mesh[2]!];
+        const out = (n[0] * (c[0] - mid[0]) + n[1] * (c[1] - mid[1]) + n[2] * (c[2] - mid[2])) >= 0 ? 1 : -1;
+        if (Math.abs(n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2]) < 0.999 || out * (n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2]) <= 0) return false;
+        if (Math.abs(n[0] * (cap.tris[0]! - c[0]) + n[1] * (cap.tris[1]! - c[1]) + n[2] * (cap.tris[2]! - c[2])) > 1e-3) return false; // (not the plane of the sketch)
+        return overlapsFlat(cap.tris, f.mesh);
+      });
+    }) as Ref[];
+    if (!owners.length) return null;
+    pieces = [{ tris: cap.tris, tree: buildTree(cap.tris), moves: dir, at: () => cap.tris }];
+  } else {
+    const faces = op.parts.map((r) => scene.parts[r]).filter((p) => p?.kind === "plane" && p.origin === "body" && !!p.mesh && !!p.of);
+    owners = [...new Set(faces.map((p) => (p as { of: Ref }).of))].filter((b) => isHard(scene, b));
+    const round = op.curved ? { center: op.curved.center, dir: op.curved.dir ?? ([0, 0, 0] as Vec3).map((_, i) => (i === op.curved!.axis ? 1 : 0)) as unknown as Vec3, radius: op.curved.radius } : op.rounded && op.roundAxis && op.dim ? { center: op.roundAxis.center, dir: op.roundAxis.dir, radius: op.dim.base / 2 } : null;
+    if (op.rounded && !round) return null; // (a fillet or chamfer face: its size changes, not where it is)
+    pieces = faces.flatMap((p, i) => {
+      const f = p as { of: Ref; mesh: readonly number[] };
+      if (!owners.includes(f.of)) return [];
+      const tris = Array.from(f.mesh);
+      if (round) {
+        const axis = unit(round.dir), c = round.center;
+        const o: Vec3 = [(op.origin ?? c)[0] - c[0], (op.origin ?? c)[1] - c[1], (op.origin ?? c)[2] - c[2]];
+        const al = o[0] * axis[0] + o[1] * axis[1] + o[2] * axis[2];
+        const out: Vec3 = [o[0] - axis[0] * al, o[1] - axis[1] * al, o[2] - axis[2] * al];
+        const convex = op.normal ? op.normal[0] * out[0] + op.normal[1] * out[1] + op.normal[2] * out[2] > 0 : true;
+        const sign = convex ? 1 : -1;
+        return [{ tris, at: (u: number) => radial(tris, c, axis, round.radius, sign * d * u) }];
+      }
+      const n = op.faces?.[i]?.normal ?? op.normal;
+      return n ? [{ tris, tree: buildTree(tris), moves: n, at: () => tris }] : [];
+    });
+  }
   if (!owners.length) return null;
   const stays = Object.keys(scene.parts).filter((r) => !owners.includes(r as Ref) && isHard(scene, r as Ref)) as Ref[];
   if (!stays.length) return null;
-  const clearance = scene.clearance ?? 0;
-  const pieces = faces.flatMap((p, i) => {
-    const f = p as { of: Ref; mesh: readonly number[] };
-    if (!owners.includes(f.of)) return [];
-    const n = op.faces?.[i]?.normal ?? op.normal;
-    const tris = Array.from(f.mesh);
-    return n ? [{ tris, n, tree: buildTree(tris) }] : [];
-  });
   const pairs = pieces.flatMap((q) => stays.flatMap((s) => { const m = meshOf(scene, s); return m && !collides(q.tris, m.tree, clearance, true) ? [{ q, s, tree: m.tree }] : []; }));
   if (!pairs.length) return null;
-  const hitAt = (u: number): Ref[] => [...new Set(pairs.filter((x) => collidesMoving(x.q.tree, { turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift: [x.q.n[0] * d * u, x.q.n[1] * d * u, x.q.n[2] * d * u], k: 1 }, x.tree, clearance, true)).map((x) => x.s))];
+  const hitAt = (u: number): Ref[] => [...new Set(pairs.filter((x) => {
+    const m = x.q.moves;
+    return m ? collidesMoving(x.q.tree!, { turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift: [m[0] * d * u, m[1] * d * u, m[2] * d * u], k: 1 }, x.tree, clearance, true) : collides(x.q.at(u), x.tree, clearance, true);
+  }).map((x) => x.s))];
   const t = freePart((u) => hitAt(u).length > 0);
   return t >= 1 ? null : { t, hit: hitAt(Math.min(1, t + 5e-4)), owners };
+}
+const unit = (v: Vec3): Vec3 => { const l = Math.hypot(...v) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+/** The triangles of a round wall with its radius made `by` bigger (smaller when negative): every point taken along the way out from the axis. */
+function radial(tris: readonly number[], c: Vec3, axis: Vec3, radius: number, by: number): number[] {
+  const out: number[] = new Array(tris.length);
+  for (let i = 0; i + 2 < tris.length; i += 3) {
+    const o: Vec3 = [tris[i]! - c[0], tris[i + 1]! - c[1], tris[i + 2]! - c[2]];
+    const al = o[0] * axis[0] + o[1] * axis[1] + o[2] * axis[2];
+    const r: Vec3 = [o[0] - axis[0] * al, o[1] - axis[1] * al, o[2] - axis[2] * al];
+    const l = Math.hypot(...r);
+    const k = l > 1e-9 ? Math.max(0, l + by * (l / Math.max(radius, 1e-9))) / l : 1; // (a point of the wall that is not on the circle (a piece of it, tilted) moves by its share)
+    out[i] = c[0] + axis[0] * al + r[0] * k; out[i + 1] = c[1] + axis[1] * al + r[1] * k; out[i + 2] = c[2] + axis[2] * al + r[2] * k;
+  }
+  return out;
 }
 
 /** What a repeat, a mirror or a push / pull that is open runs into, for the picture while it is set up (the body it is against flashes, and what is said): null when nothing. */

@@ -271,7 +271,7 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
   const op0 = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
   if (!op0) return null;
   const base = op0.made ? undone(s.session) : s.session; // a step already made for this operation is replaced by what is being dragged
-  const op = op0.kind === "pushpull" && sceneOf(base).hard?.length ? (() => { const l = limitedOp(sceneOf(base), op0); return l && "op" in l ? l.op : op0; })() : op0; // (a hard body's face is drawn pulled only as far as it can go, `in_475`)
+  const op = (op0.kind === "pushpull" || op0.kind === "extrude") && sceneOf(base).hard?.length ? (() => { const l = limitedOp(sceneOf(base), op0); return l && "op" in l ? l.op : op0; })() : op0; // (a hard body's face is drawn pulled only as far as it can go, `in_475`)
   const cmd: Command | null = opCommand(sceneOf(base), op, { preview: true });
   if (!cmd) return null;
   const key = JSON.stringify([cmd, op0.made]);

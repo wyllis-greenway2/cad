@@ -17,6 +17,7 @@ import { faceEdges } from "./offsetbody.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
+import { surfaceTriangles } from "./surfaces.ts";
 import { lookup, nextId, figureParams, figureRefs, figuresOf } from "../operation/scene.ts";
 import { rimRanks, edgeSignatures, facesOfEdge } from "../operation/rims.ts";
 import { consumed } from "../operation/ownership.ts";
@@ -176,6 +177,16 @@ function drawnFaces(scene: Scene, parts: Part[]): Extract<Part, { kind: "face" }
   const faces = parts.map((p) => drawnFace(scene, [p]));
   const all = faces.filter((f): f is Extract<Part, { kind: "face" }> => !!f);
   return all.length === parts.length && all.length > 0 && all.every((f) => f.plane === all[0]!.plane) ? all : [];
+}
+
+/** The triangles of the closed sketches an extrude is made from, and the way a positive depth goes (`in_481`): null for any other operation. */
+export function extrudeCap(scene: Scene, op: Op): { tris: number[]; normal: Vec3 } | null {
+  if (op.kind !== "extrude" || !op.normal) return null;
+  const parts = op.parts.map((r) => scene.parts[r]).filter((p): p is Part => !!p);
+  const get = lookup(scene);
+  const faces = drawnFaces(scene, parts);
+  const tris = faces.filter((f, i) => faces.indexOf(f) === i).flatMap((f) => surfaceTriangles(get, f) ?? []);
+  return tris.length ? { tris, normal: op.normal } : null;
 }
 
 /** Can this thing be one of what an operation that is waiting is given (`in_465`)? A sweep takes a closed sketch (its shape) or a line that is no part of one (its path), a loft closed sketches; any other operation, what it can start from alone. */
