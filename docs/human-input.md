@@ -2219,3 +2219,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_476 — 2026-11-16 — question
 > Okay this chamfer face push doesn't behave as I would expect. Normally i thought faces are pushes are almost like plane sweeps that cut flat as they continue, but at some point this seems to decide to be a short inserted cut?
 (two files were attached: `chamfer_continuation_collapses_into_a_weird_state.json` and its state snapshot; says a chamfer made on the face of an earlier chamfer, its size pushed larger, does not behave as expected: they thought pushing such a face is like a plane sweeping flat as it continues, but at some size it becomes a short inserted cut)
+
+## in_477 — 2026-11-16 — directive
+> yes build the continuity test first
+(approves building the continuity test for fillets and chamfers first: sweep the size across saved files and check the volume changes smoothly with no jumps or reversals where the kernel hands over to the cut-region method)
