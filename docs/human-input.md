@@ -2391,3 +2391,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_515 — 2026-11-16 — directive
 > yes check s_023 next
 (approves looking at the remaining reversal `circle-held-by-concentric-in_366.cad.json` `s_023`: +19.6 mm3 at 4.25 to 4.5, +82 at 5.75 to 6, +331 at 9.75 to 10 mm)
+
+## in_516 — 2026-11-16 — directive
+> can you merge in claude/adoring-dijkstra-u2w4om and claude/cool-einstein-odsxco next so I can deploy everything and test it?
+(asks to merge the branches claude/adoring-dijkstra-u2w4om and claude/cool-einstein-odsxco into this work so that everything can be deployed and tested)
