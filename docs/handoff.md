@@ -2400,3 +2400,6 @@ Six inputs of the last turns had not been recorded (`in_451` to `in_456`; record
 
 ## Handoff 457 — 2026-11-16 (in_488: import and export asked about; nothing built)
 `in_488`. Answered in chat and written as `q_import_export`: keep the full share-state snapshot separate (add a small `about` block to the project file); keep Save / Open for the app's own project and add Import… / Export… beside them; formats in order: export STL, 3MF, STEP, then SVG / DXF; import STEP, then STL / 3MF as mesh bodies (a new body kind), then SVG / DXF as sketches; standard options listed. Awaiting the human's choices.
+
+## Handoff 458 — 2026-11-16 (in_489: STEP in the kernel checked)
+`in_489`. Probed the loaded kernel (a scratch script, not kept): `STEPControl_Writer` / `Reader` and `STEPCAFControl_Writer` exist; `blobSTEP()` then `importSTEP()` of a filleted block with a hole gives the same solid (11 faces, volume 14840.177 mm3). `IGESControl_Reader` and `RWGltf_CafWriter` are absent. Written into `q_import_export`; nothing built. Not checked: a STEP from another CAD program, colours and names, and how an imported body would show in the app.
