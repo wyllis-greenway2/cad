@@ -95,3 +95,50 @@ test("while a hard body is dragged at another the picture stops where it meets i
   assert.ok(Math.abs(f.bodyMatrix![12]! - 20) < 0.05, `the body went 20, not 40: ${f.bodyMatrix![12]}`);
   assert.deepEqual(f.flash?.parts, [B], "the body it is against flashes");
 });
+
+
+test("a hard body pushed at the face of another slides along it: it goes the way the pointer went along the surface and no further into it (`in_474`)", () => {
+  const s = hardOf(two(), [A, B]);
+  const r = moveBy(s, [40, 5, 0])!;
+  assert.equal(r.session.message, null);
+  const b = box(r.session, A);
+  assert.ok(Math.abs(b.max[0]! - 30) < 0.05, `against the face: ${b.max[0]}`);
+  assert.ok(Math.abs(b.min[1]! - 5) < 0.05, `and along it, the 5 of the way across: ${b.min[1]}`);
+});
+
+test("a slide goes on round a corner and stops against the next hard body: a wall across its way along the face", () => {
+  let s = two();
+  const d = drawRectangle(scene(s), XY, [0, 12, 0], [30, 22, 0], [1, 0, 0], [0, 1, 0]); s = run(s, d.command);
+  s = run(s, { type: "addStep", step: { id: "s_102", type: "extrude", parts: d.lines, params: { depth: 10, mode: "new" } } } as never);
+  s = hardOf(s, [A, B, "b/x_s_102/o"]);
+  const r = moveBy(s, [40, 5, 0])!;
+  const b = box(r.session, A);
+  assert.ok(Math.abs(b.max[0]! - 30) < 0.05, `against the first face: ${b.max[0]}`);
+  assert.ok(Math.abs(b.max[1]! - 12) < 0.05, `and stopped by the second: ${b.max[1]}`);
+});
+
+test("with a clearance the slide keeps the gap: it runs along the face at the clearance from it", () => {
+  let s = hardOf(two(), [A, B]);
+  s = run(s, { type: "setClearance", value: 0.5 });
+  const b = box(moveBy(s, [40, 5, 0])!.session, A);
+  assert.ok(Math.abs(b.max[0]! - 29.5) < 0.05, `the gap: ${b.max[0]}`);
+  assert.ok(Math.abs(b.min[1]! - 5) < 0.1, `and along: ${b.min[1]}`);
+});
+
+test("a turn (or a move along an arrow) only stops: it does not slide off its axis", () => {
+  const s = hardOf(two(), [A, B]);
+  const st = startOp(scene(s), [A] as never, "move", null);
+  assert.ok(st.ok);
+  const r = runOp(s, { ...(st as { op: Op }).op, axis: 0, value: 40 })!; // along X by the arrow
+  assert.ok(Math.abs(box(r.session, A).max[0]! - 30) < 0.05);
+  assert.ok(Math.abs(box(r.session, A).min[1]!) < 1e-6, "no sideways");
+});
+
+test("the dragged picture slides too: the matrix on the graphics card is the slid place, not the place the pointer is at", () => {
+  const s = hardOf(two(), [A, B]);
+  let st = { ...createState({ ...s, click: { ...s.click, selection: [A] as never } }), cam: homeCamera() };
+  st = reduce(st, { type: "begin", name: "move" }, env);
+  st = { ...st, op: { ...st.op!, free: [40, 5, 0], grab: [5, 5, 5] } };
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok(Math.abs(f.bodyMatrix![12]! - 20) < 0.05 && Math.abs(f.bodyMatrix![13]! - 5) < 0.05, `${f.bodyMatrix![12]}, ${f.bodyMatrix![13]}`);
+});

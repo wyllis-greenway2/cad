@@ -157,6 +157,39 @@ export function collides(moving: ArrayLike<number>, fixed: Tree, clearance = 0):
   return inside([fixed.tris[0]!, fixed.tris[1]!, fixed.tris[2]!], moving);
 }
 
+/**
+ * The direction the surface of the body that stays faces where the moving triangles meet it (`in_474`): the unit normals of the triangles of the fixed body that the moving ones cross or come within the
+ * clearance of, added up, those that face against the motion `against` (the faces it is going into, not the ones it only brushes); null when there are none.
+ */
+export function contactNormal(moving: ArrayLike<number>, fixed: Tree, clearance = 0, against: Vec3 = [0, 0, 0]): Vec3 | null {
+  const nm = Math.floor(moving.length / 9);
+  const c = Math.max(0, clearance);
+  const sum: M3 = [0, 0, 0];
+  let any = false;
+  for (let i = 0; i < nm; i++) {
+    const a = tri(moving, i);
+    const alo: Vec3 = [Math.min(a[0][0], a[1][0], a[2][0]) - c, Math.min(a[0][1], a[1][1], a[2][1]) - c, Math.min(a[0][2], a[1][2], a[2][2]) - c];
+    const ahi: Vec3 = [Math.max(a[0][0], a[1][0], a[2][0]) + c, Math.max(a[0][1], a[1][1], a[2][1]) + c, Math.max(a[0][2], a[1][2], a[2][2]) + c];
+    const stack = fixed.nodes.length ? [0] : [];
+    while (stack.length) {
+      const nd = fixed.nodes[stack.pop()!]!;
+      if (ahi[0] < nd.lo[0] || alo[0] > nd.hi[0] || ahi[1] < nd.lo[1] || alo[1] > nd.hi[1] || ahi[2] < nd.lo[2] || alo[2] > nd.hi[2]) continue;
+      if (nd.l < 0) {
+        for (let j = nd.from; j < nd.to; j++) {
+          const b = tri(fixed.tris, fixed.order[j]!);
+          if (!(triCross(a, b) || (c > 0 && triDist(a, b) < c))) continue;
+          const n = cross(sub(b[1], b[0]), sub(b[2], b[0])); // (its length is twice its area: bigger triangles count more)
+          if (dot(n, against) >= -1e-9 * Math.hypot(...n) * Math.hypot(...against)) continue; // (a face that faces along the motion or across it is not what it is going into)
+          sum[0] += n[0]; sum[1] += n[1]; sum[2] += n[2];
+          any = true;
+        }
+      } else stack.push(nd.l, nd.r);
+    }
+  }
+  const l = Math.hypot(...sum);
+  return any && l > 1e-12 ? [sum[0] / l, sum[1] / l, sum[2] / l] : null;
+}
+
 // ---- the way a rigid motion goes: a screw, taken part of the way ----
 /** The motion from nothing (t = 0) to the whole of `r` (t = 1), as a turn about an axis with the slide along it, so a body on the way is where the motion would have it. */
 export function partOf(r: Rigid, t: number): Rigid {

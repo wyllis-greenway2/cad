@@ -3,7 +3,7 @@ id: dec_hard_bodies
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_472, in_473
+human_input: in_472, in_473, in_474
 date: 2026-11-16
 depends_on:
 alternative_to:
@@ -36,7 +36,8 @@ alternative_to:
 - *The flag and the clearance:* `Scene.hard` (the names of the hard bodies) and `Scene.clearance` (mm, 0 = only going into each other counts), saved, set by the commands `setHard` and `setClearance` (undoable); the ring's *Hard body* (Shape; every body selected, off again when all are hard) and the ⋯ list's *Hard bodies: clearance …* (goes round 0, 0.1, 0.2, 0.3, 0.5, 1 mm).
 - *The test (`operation/collide.ts`, pure):* triangle lists, a tree of boxes over the one that stays, proper crossings of a triangle by an edge (a face on a face, an edge or a corner on a surface are touches), the least triangle distance when there is a clearance (so a face resting on a face is a collision when the clearance is more than nothing), a body wholly inside another by a counted ray; the way a rigid motion goes (`partOf`: a turn about an axis with a slide, taken any part of the way) and `freePart` (24 steps along it so a thin wall is not stepped over, the last free one narrowed in 10 halvings).
 - *The rule (`interaction/hard.ts`):* `hardLimit` for a group moved by hand against every hard body that stays (a pair already overlapping is left out so bodies can be pulled out of each other); the triangles come from the face meshes of each body; `limitedOp` for what releasing makes: a drag's move or turn taken only as far as it can go, a number typed that would run into another is refused with the reason, a body already against another says so. While dragging, the picture stops where the bodies meet (`frame.ts` `gpuMotion`) and the body it is against flashes.
-- *Not built:* sliding along the contact (a body only stops), moves by a repeat, a mirror, a push / pull that grows a hard body, and the history is not tested again when it is replayed (the steps hold the poses reached); a mate that holds two hard bodies against the rule; a motion held by mates is limited as the mates leave it only in the picture, not at release; a tree of the moving body for very heavy models (each step moves its triangles); a mark on a hard body.
+- *Sliding along the contact (`in_474`):* a drag by hand (a move taken free, not along an arrow or typed) that meets a hard body goes on with the part of what is left of it that runs along the surface it is against (`hardMotion` in `interaction/hard.ts`): the surface's way is the sum of the normals of the triangles of the other body that the mover goes into (`contactNormal`: only those that face against the motion, not those it brushes), the part of the motion into it is taken out, the rest is made (a free-part search again, with the clearance less a hair so a body that is on the surface may run along it), and so on round a corner up to four times, stopping against the next hard body; the picture and the release (`limitedOp`) give the same place. A turn, a move along an arrow and a typed number still only stop (a slide off the axis of an arrow would not be the arrow's).
+- *Not built:* moves by a repeat, a mirror, a push / pull that grows a hard body, and the history is not tested again when it is replayed (the steps hold the poses reached); a mate that holds two hard bodies against the rule; a motion held by mates is limited as the mates leave it only in the picture, not at release; a tree of the moving body for very heavy models (each step moves its triangles); a mark on a hard body.
 
 ## Rationale
 It adds a property to bodies and a rule to every motion, so it is asked before it is built.

@@ -2220,3 +2220,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_473 — 2026-11-16 — directive
 > Go ahead with hard bodies, one tolerance for the whole model
 (approves `q_hard_bodies` as proposed, in its order, with one clearance for the whole model)
+
+## in_474 — 2026-11-16 — directive
+> Do the sliding along contacts next
+(asks for the step `dec_hard_bodies` left unbuilt: a hard body that meets another keeps the part of the motion along the surface and slides along the contact instead of only stopping)
