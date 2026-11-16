@@ -2256,3 +2256,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_482 — 2026-11-16 — directive
 > Do the revolve, loft and sweep collisions next
 (asks for what `dec_hard_bodies` lists as not built: revolve, loft and sweep against hard bodies)
+
+## in_483 — 2026-11-16 — directive
+> The two distance option on chamfer seems to immedeitly go away before you can select it? Why isn't it always an option like variable while you are in a chamfer or fillet operation?
+>
+> There seems to be an issue with scale. First off it should have arrows, line lines with orbs on the end. Second, it seems that if you scale in one direction, it still also scales in other directions as well? Also it is not very clear that the scale all arrow is pointing in a different direction on thin objects because it is connected to the object, instead lets just have an xyz style pointer with one extra arrow fully going 45 degrees to each, or on the opposite quadrent pointing away from each at a corner angle.
+(a bug report and a request: *Two distances* always offered with Variable; scale handles as arrows (not lines with balls); a stretch along one axis leaving the others alone; the all-together handle an arrow of its own, at the same angle to X, Y and Z, not joined to the body's corner)

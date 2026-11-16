@@ -568,8 +568,7 @@ function sizeKinds(s: AppState): Frame["sizeKinds"] {
   const op = s.op;
   if (!op || op.kind !== "edge" || !op.vary) return null;
   const on = !!op.variable;
-  const v = valueOf(op);
-  const faces = v !== null && v < 0 ? chamferFaces(sceneOf(s.session), op) : [];
+  const faces = chamferFaces(sceneOf(s.session), op); // (always offered, like Variable: it makes the operation a chamfer whatever way the arrow is pulled)
   return [
     { id: "constant", label: "Constant", title: "The same size all along the edge", on: !on && !op.twoDist },
     { id: "variable", label: "Variable", title: "A size at the start of the edge (the end shown in amber) and a size at its other end (Tab goes between them); the round grows or shrinks along the edge", on },

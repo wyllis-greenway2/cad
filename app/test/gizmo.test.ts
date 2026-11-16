@@ -307,14 +307,17 @@ test("a line of the body shows the fillet / chamfer double arrow by itself; seve
   near(done.session.outcome.kernel!.volume!, 16000 - 4 * (1 - Math.PI / 4) * 4 * 20, 0.2);
 });
 
-test("Scale has a handle: pull the ball at the corner out to make the body bigger", () => {
+test("Scale has an all-together arrow at the same angle to X, Y and Z: pull it out to make the body bigger", () => {
   let st = select(box(), [BODY_OBJECT]);
   st = reduce(st, { type: "begin", name: "scale" }, env);
   const g = gizmoOf(st)!;
   assert.deepEqual(g.handles.map((h) => h.id), ["scale:x", "scale:y", "scale:z", "scale"], "an arrow for each axis and the ball for all together (`in_387`)");
   const [c, corner] = g.handles.find((h) => h.id === "scale")!.points;
   nearV(c!, [20, 10, 10]);
-  nearV(corner!, [40, 20, 20]);
+  const dirs = g.handles.filter((h) => h.id !== "scale").map((h) => normalize(sub(h.points[1]!, h.points[0]!)));
+  const all = normalize(sub(corner!, c!));
+  for (const d of dirs) near(dot(d, all), 1 / Math.sqrt(3), 1e-6); // (45-degree-style: the same angle to each axis)
+  for (const h of g.handles) nearV(h.points[0]!, c!); // (every handle stands at the middle, none is tied to the body's corner)
   const out: Vec3 = add(c!, scale(sub(corner!, c!), 2)); // twice as far from the centre
   st = drag(st, corner!, out, 6);
   near(Number(scene(st.session).steps.at(-1)!.params.value), 2, 0.02);
@@ -331,6 +334,19 @@ test("pulling the X arrow of Scale stretches the body along X alone, as the reci
   const bb = bbox(st);
   near(bb.max[0] - bb.min[0], 80, 1);
   near(bb.max[1] - bb.min[1], 20, 0.01);
+  near(bb.max[2] - bb.min[2], 20, 0.01);
+});
+
+test("scaling X and then Y leaves each at its own factor and Z alone (`dec_scale_axes`)", () => {
+  let st = select(box(), [BODY_OBJECT]); // 40 x 20 x 20
+  st = reduce(st, { type: "begin", name: "scale" }, env);
+  const pull = (id: string, k: number) => { const [c, tip] = gizmoOf(st)!.handles.find((h) => h.id === id)!.points; st = drag(st, tip!, add(c!, scale(sub(tip!, c!), k)), 6); };
+  pull("scale:x", 2);
+  pull("scale:y", 1.5);
+  assert.equal(st.session.message, null);
+  const bb = bbox(st);
+  near(bb.max[0] - bb.min[0], 80, 1);
+  near(bb.max[1] - bb.min[1], 30, 1);
   near(bb.max[2] - bb.min[2], 20, 0.01);
 });
 
@@ -2129,13 +2145,12 @@ test("the mover put on a slanted face has an arrow normal to it; on a face acros
   nearV(r2.op.frame![2], n, 1e-6);
 });
 
-test("a chamfer can have a distance along each face: the chip offers it for a chamfer, the first face is lit, two numbers are typed, Swap takes the first distance to the other face, and the step names the face (`in_432`)", () => {
+test("a chamfer can have a distance along each face: the chip always offers it (like Variable), even before the size is a chamfer, and choosing it makes the operation a chamfer; the first face is lit, two numbers are typed, Swap takes the first distance to the other face, and the step names the face (`in_432`)", () => {
   const { st: st0 } = edgeSelected(); // the top front edge of the 40 x 20 x 20 block: between the top (z = 20) and the front (y = 0)
   let st = reduce(st0, { type: "begin", name: "edge" }, env);
-  assert.equal(frame(st).sizeKinds!.some((k) => k.id === "twoDistances"), false, "not offered before it is a chamfer");
-  st = reduce(st, { type: "typed", key: "-", shift: false }, env);
-  st = reduce(st, { type: "typed", key: "2", shift: false }, env);
-  assert.ok(frame(st).sizeKinds!.some((k) => k.id === "twoDistances"), "offered for a chamfer");
+  assert.ok(frame(st).sizeKinds!.some((k) => k.id === "twoDistances"), "offered before any size is set: it cannot go away while the pointer is on its way to it");
+  st = reduce(st, { type: "typed", key: "2", shift: false }, env); // (a positive size, which alone would be a fillet)
+  assert.ok(frame(st).sizeKinds!.some((k) => k.id === "twoDistances"), "and for a fillet size");
   st = reduce(st, { type: "sizeKind", kind: "twoDistances" }, env);
   assert.equal(frame(st).entry!.fields.length, 2, "two numbers");
   assert.equal(frame(st).highlight.selection.length, 2, "the face the first distance is along is lit with the edge");

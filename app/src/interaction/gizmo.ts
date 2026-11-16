@@ -226,7 +226,6 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
     return { centre: c, handles };
   }
   if (op.target === "shape" && op.kind === "scale" && op.pivot) {
-    // the ball on the figure's far corner (a circle: on its rim) pulled out for bigger
     const first = op.parts[0] ? scene.parts[op.parts[0]] : undefined;
     const pl = op.plane ? scene.parts[op.plane] : undefined;
     const far = first?.kind === "corner" ? first.at : first?.kind === "circle" && pl?.kind === "plane" ? add(op.pivot, scale(pl.u, first.radius)) : null;
@@ -237,7 +236,8 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
     const pts = cornersOf(scene, op.parts);
     const ext = (i: number) => (first?.kind === "circle" ? first.radius : pts.length ? Math.max(...pts.map((q) => Math.abs(q[i]! - op.pivot![i]!))) : 0);
     const arrows = c === undefined ? [] : AXES.flatMap((d, i): Handle[] => (i === c ? [] : [{ id: `scale:${"xyz"[i]}`, kind: "scale", axis: i as 0 | 1 | 2, points: [op.pivot!, add(op.pivot!, scale(d, ext(i) + 0.5 * L))] }]));
-    return { centre: op.pivot, handles: [...arrows, { id: "scale", kind: "scale", axis: null, points: [op.pivot, far] }] };
+    const across = c === undefined ? normalize(pl?.kind === "plane" ? pl.u : [1, 0, 0]) : normalize(AXES.reduce<Vec3>((a, d, i) => (i === c ? a : add(a, d)), [0, 0, 0])); // (the all-together arrow runs out at the same angle to the axes of the figure's plane)
+    return { centre: op.pivot, handles: [...arrows, { id: "scale", kind: "scale", axis: null, points: [op.pivot, add(op.pivot, scale(across, Math.max(...[0, 1, 2].map((i) => (i === c ? 0 : ext(i)))) + 0.5 * L))] }] };
   }
   if (op.target === "part" && op.sub) {
     // a corner, an edge or a face of the body: the same X Y Z arrows and rings as an object, at the middle of its corners (the pivot of a turn can be moved)
@@ -258,9 +258,10 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
   if (op.kind === "move" || op.kind === "rotate") return moverHandles(op.kind, centre, L, sphere, op.frame);
   if (op.kind === "scale") {
     // an arrow along each axis scales along that axis alone, the diagonal ball scales all together (`in_387`)
-    const half = [0, 1, 2].map((i) => (box.hi[i]! - box.lo[i]!) / 2);
-    const arrows = AXES.map((d, i): Handle => ({ id: `scale:${"xyz"[i]}`, kind: "scale", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, half[i]! + 0.8 * HALF * L))] }));
-    return { centre, handles: [...arrows, { id: "scale", kind: "scale", axis: null, points: [centre, box.hi] }] };
+    // (all of them stand at the middle and are as long as the mover's, not tied to the body's own size: on a thin body they stay apart and clear of it; the all-together arrow runs out at the same angle to the three)
+    const len = 2 * HALF * L;
+    const arrows = AXES.map((d, i): Handle => ({ id: `scale:${"xyz"[i]}`, kind: "scale", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, len))] }));
+    return { centre, handles: [...arrows, { id: "scale", kind: "scale", axis: null, points: [centre, add(centre, scale(normalize([1, 1, 1]), len))] }] };
   }
   return null;
 }
