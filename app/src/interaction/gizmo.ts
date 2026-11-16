@@ -16,7 +16,7 @@ import { jointOfBody } from "./mate.ts";
 import { axisOf, revolveCentre } from "./revolve.ts";
 import { mirrorCentre } from "./mirror.ts";
 
-/** THREE KINDS OF HANDLE (`in_550`, `q_ui_unification`): an arrow (pulled along a line), a ring (turned about an axis) and an orb (moved about). What used to be a double arrow is an arrow with `both`, and a scale handle an arrow with `ratio`. */
+/** THREE KINDS OF HANDLE (`in_550`, `dec_ui_unification`): an arrow (pulled along a line), a ring (turned about an axis) and an orb (moved about). What used to be a double arrow is an arrow with `both`, and a scale handle an arrow with `ratio`. */
 export type HandleKind = "arrow" | "ring" | "orb";
 export interface Handle {
   id: string;

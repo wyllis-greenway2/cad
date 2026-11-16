@@ -1,4 +1,4 @@
-// THE OPERATION BAR (`in_546`, `q_ui_unification`): the one place that says what is open, with its options and its apply and cancel. On a mouse it is a pill at the top; on a finger it is at the bottom, with undo and redo in it.
+// THE OPERATION BAR (`in_546`, `dec_ui_unification`): the one place that says what is open, with its options and its apply and cancel. On a mouse it is a pill at the top; on a finger it is at the bottom, with undo and redo in it.
 // The sketching tool that is on (`in_193`): a little pill at the top of the page with the tool's icon and a cross; the tool stays on until a right click or this cross puts it away. Once a figure has been made the cross becomes a check (the work is done, the check puts the tool away: it is not a cancel, `in_283`) and it flashes green, fading, at every figure and every operation that opens, to show it is there to press.
 import { iconSvg } from "./icons.ts";
 import { choiceRow, roundButton, onPress } from "./look.ts";

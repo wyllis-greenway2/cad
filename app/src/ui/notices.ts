@@ -1,4 +1,4 @@
-// THE ONE RENDERER OF NOTICES (`in_547`, `q_ui_unification`): draws the list `interaction/notice.ts` describes. Each kind has its place and look, but they are made here, by one code, and a notice with a button
+// THE ONE RENDERER OF NOTICES (`in_547`, `dec_ui_unification`): draws the list `interaction/notice.ts` describes. Each kind has its place and look, but they are made here, by one code, and a notice with a button
 // reports it the same way whichever kind it is. Nothing else in the page puts words on the screen for the person (a dialog and the settings page are pages, not notices).
 import { PILL, choiceRow } from "./look.ts";
 import type { Notice, NoticeAction } from "../interaction/notice.ts";

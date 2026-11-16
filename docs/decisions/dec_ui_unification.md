@@ -1,16 +1,16 @@
 ---
-id: q_ui_unification
-kind: question
-status: open
-origin: ai-unreviewed
-human_input: in_550, in_549, in_548, in_547, in_546, in_545, in_544
+id: dec_ui_unification
+kind: decision
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_551, in_550, in_549, in_548, in_547, in_546, in_545, in_544
 date: 2026-11-16
 depends_on:
 alternative_to:
 ---
-# One way to do each thing in the interface: an audit and a proposed order
+# One way to do each thing in the interface (the audit, and the six steps built)
 
-`in_544` asked how to make an operation's option buttons usable in game mode, and for an audit of what can be unified: notifications, refusal rules, buttons and bubbles, the menu, apply and cancel, the operation's options, the mobile bar, "Add more", and the many kinds of X Y Z orbs. **Nothing here is decided: this is the audit (what the code does today, read from the code, not tried in a browser) and the AI's proposal for the human to answer.**
+`in_544` asked how to make an operation's option buttons usable in game mode, and for an audit of what can be unified: notifications, refusal rules, buttons and bubbles, the menu, apply and cancel, the operation's options, the mobile bar, "Add more", and the many kinds of X Y Z orbs. The audit (what the code did, read from the code) and the AI's proposal; the human approved the order and each step (`in_545` to `in_550`) and then asked that this become a decision (`in_551`). All six steps are built (see Progress).
 
 ## What is there today
 - **Game mode:** the crosshair already presses whatever page element is under it (`dom-input.ts` `underCrosshair`, hover included), and Alt frees the real pointer. What cannot be pressed is what stands at a fixed place on the screen (the operation pill at the top, the option chips, the undo bar): the crosshair is always at the middle and the view moves, not the chip, so it can never be aimed at one.
@@ -21,7 +21,7 @@ alternative_to:
 - **Menus:** the ring's categories and operations are always there (dimmed); since `in_543` the relations that fit the selection stay too, but the relations that do not fit its kinds are absent, so the Constraints list is empty (one placeholder) until something is selected.
 - **X Y Z handles:** five handle kinds (`arrow`, `double`, `arc`, `ball`, `scale`) in about nine families: the mover (arrows `move:`, rings `rot:`, orb `pivot`, and the same with `piv:` when the orb is selected), the revolve's orb, rings, position arrows and spiral arrows (`rev:*`, `piv:*`), the mirror's orb and arrows, the linear repeat's count and distance arrows with an orb, the circular repeat's pivot arrows, the scale arrows, the push pull arrow, the fillet's double arrow, the section plane's arrows and rings and the sheet's own arrow, and the joint handles.
 
-## Proposed (for the human to answer)
+## Proposed (and approved, step by step)
 1. **Game mode:** do not put buttons in the world. Give the operation pill the options too (below), and make **Tab and Shift+Tab step through the options** of the open operation (each step chooses it, so the chip's choice is made without aiming), with Enter / right click / Esc as now. This works in game mode, on a keyboard alone, and needs one mechanism, not one per chip. Tab currently moves between typed number fields; the fields would take another key (for example the up and down arrows, which already change a value) or Tab would step options only when the operation has options.
 2. **One operation bar** (the top pill, drawn by one component): operation icon, its options (the chips that sit beside the number today), Apply (check) and Cancel (cross) **for every operation, tool, repeat, picking, cut and mover state**, on every device; on a phone it moves to the bottom, joined with undo and redo. Apply stays Enter, right click on blank space, or the check; cancel Esc or the cross; a sketch tool keeps "stays on until applied or put away".
 3. **One notification path:** every message and refusal goes through one `notify({text, kind, anchor?, action?})` in the interaction layer and one renderer (a line at the bottom, or a bubble at an anchor, with an optional button such as "Delete constraint to proceed"); the helper, hint and status line become kinds of it. **One refusal rule:** any change refused because of a constraint offers "Delete constraint to proceed", whichever tool made it.
@@ -39,4 +39,11 @@ alternative_to:
 - **Step 4 done (`in_548`):** the Constraints ring lists **every** constraint and mate (`interaction/constraintlist.ts`, built from the relations table; `actions.ts` `relationKinds`), in eleven sub-rings by what they apply to; the ring is the same shape whatever is selected; what does not fit is dimmed with "select two lines first" and the like. A constraint that fits several kinds (Distance, Tangent) is in each group and lit only in the one the selection is. Labels follow the two-word rule (Point-line, Faces axes, Axis-face).
 - **Step 5 done (`in_549`):** the shapes everything is made of are in `ui/look.ts`: `roundButton` (one round button: icon, size, tone light / dark / danger / accent, faded when not live, the same hover) with `onPress`, `bubbleCss` (the white number pill), `textButton` (words, for pages and dialogs), and the existing `PILL` and `choiceRow`. Now made from them: the ring's bubbles, the suggestion buttons, the sheet's four controls, the mode switch, the hint marks, the operation bar's check, cross, undo and redo, the constraint bubbles, the number bubble, the dialog's buttons and the settings page's buttons. **Not converted:** the X Y Z and ⋯ buttons (`controls.ts`: their colour and border change with the view), the Cut parts chips (a pill with a plus or minus and a letter) and the world orb; the pills that carry choices (`PILL`) were already one look. The look of each is as it was, except that every round light button now also lights its fill on hover, and the ring's did the edge only.
 - **Step 6 done (`in_550`), the last of the order:** **three kinds of handle, made one way** (`interaction/gizmo.ts`). `HandleKind` is now `arrow | ring | orb`: what was a double arrow is an arrow with `both` (a head at each end, pulled from its middle: the push / pull, the fillet's size, the sheet's normal) and what was a scale handle is an arrow with `ratio` (its value is how many times as far along it the pointer is as where it was taken). One constructor each (`arrowAlong`, `arrowBoth`, `axisArrows`, `orbAt`, `ring`) builds every handle of every family (the mover, the revolve's orb, rings, place and spiral arrows, the mirror, the two repeats, scale, the push / pull, the fillet, the sheet, the joint); one `startDrag` and one `dragTo` have one branch per kind (and the ratio of an arrow); the view draws the three kinds with one loop (`ui/view/gizmo.ts`). **Not changed, said plainly:** the families themselves (which ids a move, a turn, a size and a count have, and what a drag of each does in `control/handles.ts`) are as they were: they are chosen by the id (`move:x`, `rev:adv:z`, `cnt:y`), which the tests, the touch helper and the number bubbles all use, so merging them is a larger change that needs the human's word. **All six steps of the order are done.**
+- **Game mode check (`in_551`):** in Chromium with the pointer really locked (`pointerLockElement` set), Space starts game mode, Tab and Shift+Tab step Move, Extrude, Extend (each step chooses it), and a typed 3 with Enter applies the push / pull as an extend step: the options are reachable in game mode without aiming. The crosshair still cannot press a screen-fixed button, by design.
+- **Left unmerged (the human's word, `in_551`):** the handle families by id (`move:`, `piv:`, `rev:*`, `mir:`, `lin:`, `cnt:`, `scale:`): they are the ids the touch helper, the number bubbles and the tests use; revisit only if a new family is painful to add.
+- **Loose ends are their own questions:** `q_ui_mates_at_odds_button`, `q_ui_bar_chips`, `q_ui_round_controls`.
+
+## Rationale
+
+The interface had grown one way of doing each thing per feature (nine ways to show a message, fifteen pill files, four ways to finish an operation, a menu that changed shape). Each step puts one description and one renderer where there were several, so a new feature adds a description, not a widget; and each is reachable from the keyboard, which is the only way into the operation bar in game mode.
 

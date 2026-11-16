@@ -1,4 +1,4 @@
-// The options of the open operation (`in_546`, `q_ui_unification`): the choices that sit in the operation bar (what a push / pull of a face does, how a fillet's size runs, how a loft is joined), in one list, and Tab and
+// The options of the open operation (`in_546`, `dec_ui_unification`): the choices that sit in the operation bar (what a push / pull of a face does, how a fillet's size runs, how a loft is joined), in one list, and Tab and
 // Shift+Tab stepping through the ones that are a choice between ways (not the ones that are switches). A step chooses the option, so it needs no aiming: it works in game mode, with the keyboard alone, and on a phone with the bar's own buttons.
 import type { AppState } from "./control/state.ts";
 import type { Intent } from "../shared/input.ts";

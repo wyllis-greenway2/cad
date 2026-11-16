@@ -17,7 +17,7 @@ export function choiceRow(parent: HTMLElement, choices: { id: string; text: stri
   }));
 }
 
-// ---- THE ROUND BUTTON AND THE NUMBER PILL (`in_549`, `q_ui_unification`): the two shapes everything else is made of ----
+// ---- THE ROUND BUTTON AND THE NUMBER PILL (`in_549`, `dec_ui_unification`): the two shapes everything else is made of ----
 
 /** How a round button reads: `light` on the view (white), `dark` on a dark pill, `danger` for a way out (red), `accent` for a mark that is not pressed (teal edge). */
 export type Tone = "light" | "dark" | "danger" | "accent";

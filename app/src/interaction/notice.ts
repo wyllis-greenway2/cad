@@ -1,4 +1,4 @@
-// THE ONE NOTIFICATION DESCRIPTION (`in_547`, `q_ui_unification`): everything the app tells the person while they work, as one list that one renderer (`ui/notices.ts`) draws. A message of the status line, a refused
+// THE ONE NOTIFICATION DESCRIPTION (`in_547`, `dec_ui_unification`): everything the app tells the person while they work, as one list that one renderer (`ui/notices.ts`) draws. A message of the status line, a refused
 // change with its way through, the help on an arrow and the "working" sign are all `Notice`s: what each is (its kind), what it says, where it stands, and the button it offers (what it sends back is an intent).
 // The interaction layer makes them; nothing draws a message of its own any more.
 import type { Vec3 } from "../math/vec.ts";

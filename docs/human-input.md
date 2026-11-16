@@ -2519,24 +2519,28 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_545 — 2026-11-16 — directive
 > Go with that order, start with Add more
-(approves the order proposed in `q_ui_unification` (Add more, then the operation bar with Tab stepping, then notifications and the refusal rule, then the full constraint list, then the bubble and button types, then the handles) and asks for the first step: "Add more" moved into the finger menu as a mobile-only option)
+(approves the order proposed in `dec_ui_unification` (Add more, then the operation bar with Tab stepping, then notifications and the refusal rule, then the full constraint list, then the bubble and button types, then the handles) and asks for the first step: "Add more" moved into the finger menu as a mobile-only option)
 
 ## in_546 — 2026-11-16 — directive
 > Go with the operation bar and Tab stepping
-(approves and asks for step 2 of `q_ui_unification`: one operation bar with the operation's options, apply and cancel for every operation, tool, repeat, picking, cut and mover state on every device (at the bottom and joined with undo and redo on a phone), and Tab and Shift+Tab stepping through the options of the open operation)
+(approves and asks for step 2 of `dec_ui_unification`: one operation bar with the operation's options, apply and cancel for every operation, tool, repeat, picking, cut and mover state on every device (at the bottom and joined with undo and redo on a phone), and Tab and Shift+Tab stepping through the options of the open operation)
 
 ## in_547 — 2026-11-16 — directive
 > Go with the notification system next
-(approves and asks for step 3 of `q_ui_unification`: one notification path and renderer for every message, refusal, helper and hint, and one refusal rule: any change refused because of a constraint offers "Delete constraint to proceed")
+(approves and asks for step 3 of `dec_ui_unification`: one notification path and renderer for every message, refusal, helper and hint, and one refusal rule: any change refused because of a constraint offers "Delete constraint to proceed")
 
 ## in_548 — 2026-11-16 — directive
 > Go with the constraint list next
-(approves and asks for step 5 of `q_ui_unification` (the constraint list): every constraint and mate the table knows is always in the Constraints ring, dimmed unless it fits the selection)
+(approves and asks for step 5 of `dec_ui_unification` (the constraint list): every constraint and mate the table knows is always in the Constraints ring, dimmed unless it fits the selection)
 
 ## in_549 — 2026-11-16 — directive
 > Go with the bubble and button types next
-(approves and asks for step 5 of `q_ui_unification`: one bubble component and one round button look, so the many pill and chip files shrink to descriptions)
+(approves and asks for step 5 of `dec_ui_unification`: one bubble component and one round button look, so the many pill and chip files shrink to descriptions)
 
 ## in_550 — 2026-11-16 — directive
 > Go with the handles next
-(approves and asks for step 6, the last, of `q_ui_unification`: the X Y Z handles reduced to fewer kinds, with one family per job (move, turn, size, count) and one drawing and one drag code)
+(approves and asks for step 6, the last, of `dec_ui_unification`: the X Y Z handles reduced to fewer kinds, with one family per job (move, turn, size, count) and one drawing and one drag code)
+
+## in_551 — 2026-11-16 — directive
+> Go with your recommendations, start with the game mode check
+(approves the three recommendations given after step 6 of `dec_ui_unification`: check Tab stepping in game mode with the pointer locked first; leave the handle families by id unmerged; turn `dec_ui_unification` into an accepted decision with its loose ends as small open questions)
