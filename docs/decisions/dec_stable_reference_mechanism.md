@@ -1,15 +1,17 @@
 ---
-id: q_stable_reference_mechanism
-kind: question
-status: open
-origin: ai-unreviewed
-human_input: in_546, in_558
+id: dec_stable_reference_mechanism
+kind: decision
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_546, in_558, in_559
 date: 2026-11-16
 depends_on:
   - dec_stable_references: that entry decided the idea (names by how things were made, geometry as the fallback); this asks how it is built
 alternative_to:
 ---
-# How faces and edges get names that survive earlier edits (the mechanism for `dec_stable_references`)
+# Faces and edges get names that survive earlier edits: matching first, the kernel's history later (the mechanism for `dec_stable_references`)
+
+**Decided (`in_559`): option C.** The text below is the question as it was put; the build follows C.
 
 **Why now (`in_558`):** it is item 5 of the order of `in_546`, and inserting a step in the middle of the history, and a sketch that follows its face (`dec_sketch_recipe_synced`), both need it.
 
@@ -22,8 +24,16 @@ alternative_to:
 
 **Recommendation (not decided): C.** First: roles from the sketch-based operations (`extrude`, `revolve`, `loft`, `sweep`) and matching carried through the other steps; steps store the name next to the numbers they keep now; a test that puts a step between two others and one that changes an earlier number and checks that a later push and a later fillet stay on the same face and edge; then the insertion itself (a step added at the cursor, the later steps made again). Existing files keep working: a step with no name uses its numbers as it does now.
 
-**Asked of the human:** is C the way to go, or A (exact but large and tied to the kernel), or B alone?
+## Built so far (first slice, `in_559`)
+
+- **Kernel** (`compiler/kernel/occt/facenames.mjs`, called from `compile` in `interpreter.mjs` when the graph says `names`): every flat face of a solid has a name; a name is carried through each operation by matching (the same plane and the same place on it, after the motion of a move, turn or scale, which is known to the operation); a face no name matches is new and is named `<op id>:<rank>`, the rank by the order of its normal and its place, so a change of a size gives the same names. The final names go out as `KernelResult.faceNames`. Nothing of OCCT's own history is used.
+- **A step that names a face:** a push or pull keeps the name (`fname`) next to the numbers it kept before; the kernel finds the face by the name (`namedRef`): a name the body has lost is an error ("face not found ... is not a face of the body any more"), never another face; a step with no name, or a body with no names, uses the numbers as before.
+- **The app:** a flat face of the body is a `Plane` part with `stable` (the name, found by `body.ts` from the kernel's names); `operations.ts` copies it into a new push or pull. The graph always asks for names (`names: true`), so a face has its name before a step uses it.
+- **Cost:** 8 to 20 % more time in the kernel on the models measured (gear 2.2 to 2.4 s, hollow-pushed 0.9 to 1.0 s, face-edits 0.11 to 0.13 s).
+- **Tests:** `test/facenames.test.ts`: names the same for any size; a push by name follows the top when the extrusion is made taller; a step put between two others (a move) does not change what a later step names; a lost name is an error; the same through the model.
+
+**Not built (next, in this order):** (1) names for edges (the pair of faces an edge lies between, with a rank), so a fillet or chamfer keeps its edge; (2) curved faces (a round wall) and the faces made by a fillet or chamfer; (3) hollow's faces, a repeat's, the sketch's plane when drawn on a face; (4) the command that puts a step **in the middle** of the history (the later steps made again) and its place in the History panel; (5) the kernel's own history (option A) where matching is wrong (a face that splits, two faces that swap).
 
 ## Rationale
 
-Written so the choice is the human's: it changes a core part of the model (how every later step finds what it works on), the options differ much in size and risk, and the app works today for simple edits. Nothing is built for this yet.
+Put to the human as a choice because it changes a core part of the model (how every later step finds what it works on), the options differ much in size and risk, and the app works today for simple edits. Nothing is built for this yet.

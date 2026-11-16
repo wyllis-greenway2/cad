@@ -171,7 +171,7 @@ export function buildGraph(scene: Scene): GraphResult {
         }
         if (p.nx !== undefined && p.px !== undefined) {
           // the face as it was when the step was made (later steps move the body's named faces, this one still means its own)
-          ops.push({ id: xid, type: p.extend ? "faceExtend" : "faceExtrude", target: prev, ref: { n: [Number(p.nx), Number(p.ny), Number(p.nz)], d: Number(p.fd), point: [Number(p.px), Number(p.py), Number(p.pz)] }, distance: Number(p.depth ?? 0) });
+          ops.push({ id: xid, type: p.extend ? "faceExtend" : "faceExtrude", target: prev, ref: { n: [Number(p.nx), Number(p.ny), Number(p.nz)], d: Number(p.fd), point: [Number(p.px), Number(p.py), Number(p.pz)], ...(p.fname ? { name: String(p.fname) } : {}) }, distance: Number(p.depth ?? 0) });
           prev = xid;
           break;
         }
@@ -264,7 +264,7 @@ export function buildGraph(scene: Scene): GraphResult {
       }
     }
   }
-  return { graph: { params: {}, ops }, errors };
+  return { graph: { params: {}, ops, names: true }, errors };
 }
 
 /** The sizes along the edge of a fillet or chamfer that changes along it (`in_406`, `in_410`): [place from 0 at the start to 1 at the other end, size] at the start, at a quarter, the middle and three quarters when they are given, and at the end. */

@@ -2568,3 +2568,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_558 — 2026-11-16 — directive
 > yes start on stable references
 (approves starting the fifth item of the order of `in_546`: stable references, then inserting a step in the middle)
+
+## in_559 — 2026-11-16 — approval
+> C: matching first, kernel history later (Recommended)
+(answers the question of `q_stable_reference_mechanism`, choosing option C: names from the sketch-based steps carried by matching outside the kernel, kernel history added later where matching is not enough)

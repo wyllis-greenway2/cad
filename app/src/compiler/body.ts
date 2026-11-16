@@ -81,7 +81,21 @@ export function bodyParts(result: KernelResult): Part[] {
     const twin = pair && pair.length === 2 && ends.get(pair[0]!) === ends.get(pair[1]!) ? pair.find((r) => r !== name) : undefined;
     out.push({ ...base, ref: name, kind: "line", a: corner(e.a), b: corner(e.b), ...(straight ? {} : { mid: e.mid }), ...(!straight && !e.circle ? { path: pathOf(e.pts, e.a as Vec3, e.b as Vec3) } : {}), ...(e.circle ? { circle: e.circle as { center: Vec3; normal: Vec3; radius: number } } : {}), ...(twin ? { twin } : {}), ...(many && e.body !== undefined ? { of: bodyPart(e.body) } : {}) });
   }
-  const flats: { n: Vec3; d: number; u: Vec3; v: Vec3; mesh: number[]; body?: number }[] = [];
+  const flats: { n: Vec3; d: number; u: Vec3; v: Vec3; mesh: number[]; body?: number; stable?: string }[] = [];
+  /** The lasting name the kernel gave the flat face on this plane whose middle is nearest the middle of the triangles shown (`dec_stable_reference_mechanism`). */
+  const stableOf = (n: Vec3, d: number, mesh: number[]): string | undefined => {
+    const names = result.faceNames;
+    if (!names?.length || !mesh.length) return undefined;
+    let x = 0, y = 0, z = 0; const k = mesh.length / 3;
+    for (let i = 0; i < mesh.length; i += 3) { x += mesh[i]!; y += mesh[i + 1]!; z += mesh[i + 2]!; }
+    let best: string | undefined; let gap = Infinity;
+    for (const q of names) {
+      if (q.n[0] * n[0] + q.n[1] * n[1] + q.n[2] * n[2] < 1 - 1e-6 || Math.abs(q.n[0] * q.c[0] + q.n[1] * q.c[1] + q.n[2] * q.c[2] - d) > 1e-3) continue;
+      const g = Math.hypot(q.c[0] - x / k, q.c[1] - y / k, q.c[2] - z / k);
+      if (g < gap) { gap = g; best = q.name; }
+    }
+    return best;
+  };
   for (const f of result.faces ?? []) {
     if (f.type === "cyl") {
       // a full round face along a world axis: a part you can select and push / pull (its radius changes)
@@ -121,7 +135,7 @@ export function bodyParts(result: KernelResult): Part[] {
         mesh.push(m.vertices[ix * 3]!, m.vertices[ix * 3 + 1]!, m.vertices[ix * 3 + 2]!);
       }
     }
-    flats.push({ n, d: f.d, u, v, mesh, ...(many && f.body !== undefined ? { body: f.body } : {}) });
+    flats.push({ n, d: f.d, u, v, mesh, ...(stableOf(n, f.d, mesh) ? { stable: stableOf(n, f.d, mesh)! } : {}), ...(many && f.body !== undefined ? { body: f.body } : {}) });
   }
   // two separate faces in one plane (a block's end cut in two by a hole) must not share a name, or one hides the other: the ones that share are named by where they are as well
   const same = new Map<string, number>();
@@ -134,7 +148,7 @@ export function bodyParts(result: KernelResult): Part[] {
       for (let i = 0; i < f.mesh.length; i += 3) { x += f.mesh[i]!; y += f.mesh[i + 1]!; z += f.mesh[i + 2]!; }
       ref = faceName(f.n, f.d, [x / k, y / k, z / k]);
     }
-    out.push({ ...base, ref, kind: "plane", at: [f.n[0] * f.d, f.n[1] * f.d, f.n[2] * f.d], u: f.u, v: f.v, ...(f.mesh.length ? { mesh: f.mesh } : {}), ...(f.body !== undefined ? { of: bodyPart(f.body) } : {}) });
+    out.push({ ...base, ref, kind: "plane", at: [f.n[0] * f.d, f.n[1] * f.d, f.n[2] * f.d], u: f.u, v: f.v, ...(f.stable ? { stable: f.stable } : {}), ...(f.mesh.length ? { mesh: f.mesh } : {}), ...(f.body !== undefined ? { of: bodyPart(f.body) } : {}) });
   }
   return out;
 }

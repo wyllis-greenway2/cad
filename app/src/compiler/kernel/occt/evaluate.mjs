@@ -254,7 +254,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
       while (described.size > 6) described.delete(described.keys().next().value);
     }
   }
-  return { ops, finalId: present?.id ?? null, volume: vol, bbox, bodies, faces, edges, vertices, totalMs: performance.now() - t0, mesh, ...(describeInfo ? { describe: describeInfo } : {}), ...(vertexBodies ? { vertexBodies } : {}), perf: { ops: tCompile - t0, box: tBox, mesh: tMesh - tCompile - tBox, faces: tFaces - tMesh, edges: performance.now() - tFaces } };
+  return { ops, finalId: present?.id ?? null, ...(present?.faceNames ? { faceNames: present.faceNames.map((m) => ({ name: m.name, n: [...m.n], c: [...m.c] })) } : {}), volume: vol, bbox, bodies, faces, edges, vertices, totalMs: performance.now() - t0, mesh, ...(describeInfo ? { describe: describeInfo } : {}), ...(vertexBodies ? { vertexBodies } : {}), perf: { ops: tCompile - t0, box: tBox, mesh: tMesh - tCompile - tBox, faces: tFaces - tMesh, edges: performance.now() - tFaces } };
 }
 
 /**

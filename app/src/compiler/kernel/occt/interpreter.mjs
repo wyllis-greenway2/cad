@@ -35,6 +35,7 @@ import { reshape } from "./reshape.mjs";
 import { findCrossing } from "./selfcross.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
+import { nameFaces, refOfName } from "./facenames.mjs";
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
 
 /** The imported solids scaled about the origin by `op.scale` and then placed: `op.place` "center" brings the middle of their box to the origin, "floor" brings the middle of the box to the z axis and the bottom to z = 0 (a part that sits on the build plate). */
@@ -243,6 +244,17 @@ export function selectFaces(shape, query) {
     f = inQueryPlane(f, shape, query);
   }
   return f.find(shape);
+}
+
+/** The face an operation names (`dec_stable_reference_mechanism`): by the name it carries when the body has names, else by the numbers it carries; a name the body no longer has is an error, not another face. */
+function namedRef(op, ctx) {
+  const name = op.ref?.name;
+  if (!name) return op.ref;
+  const names = op.target ? ctx.peek(op.target, "solid").faceNames : undefined;
+  const found = refOfName(names, name);
+  if (found) return found;
+  if (!names) return op.ref; // (no names kept for this body: the numbers it carries)
+  throw new Error(`face not found (${name} is not a face of the body any more)`);
 }
 
 /** The plane of a face reference: unit normal n and offset d (n . p = d). A ref is { n, d, point } (any angle) or the older { axis, sign, offset, point }. */
@@ -732,7 +744,7 @@ const OPS = {
   faceExtrude(op, ctx) {
     const t = stage("copying the body it works on", () => ctx.get(op.target, "solid").shape);
     const dist = resolve(op.distance, ctx.params);
-    const best = stage("finding the face", () => findFace(t, op.ref));
+    const best = stage("finding the face", () => findFace(t, namedRef(op, ctx)));
     const fn = stage("the face's normal", () => best.normalAt()); // the face's own normal, exactly: a rounded one slants the prism and leaves slivers (an invalid solid)
     const fl = Math.hypot(fn.x, fn.y, fn.z);
     const n = [fn.x / fl, fn.y / fl, fn.z / fl];
@@ -772,7 +784,7 @@ const OPS = {
     const dist = resolve(op.distance, ctx.params);
     if (!Number.isFinite(dist)) throw new Error("bad distance");
     if (Math.abs(dist) < 1e-6) return { kind: "solid", shape: t };
-    const best = findFace(t, op.ref);
+    const best = findFace(t, namedRef(op, ctx));
     const fn = best.normalAt();
     const fl = Math.hypot(fn.x, fn.y, fn.z);
     const n = [fn.x / fl, fn.y / fl, fn.z / fl];
@@ -842,7 +854,7 @@ const OPS = {
    */
   faceTilt(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;
-    const best = findFace(t, op.ref);
+    const best = findFace(t, namedRef(op, ctx));
     const angle = resolve(op.angle, ctx.params);
     if (!Number.isFinite(angle)) throw new Error("bad angle");
     const { n } = refPlane(op.ref);
@@ -2010,7 +2022,7 @@ export function compile(graph) {
       return r.value;
     },
   };
-  const pj = JSON.stringify(params);
+  const pj = JSON.stringify([params, !!graph.names]);
   for (const op of graph.ops) {
     const t0 = performance.now();
     const key = fingerprint(JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes]), ...(op.sections ?? []).flatMap((s) => [s.profile, ...(s.holes ?? [])])].map((d) => (d ? keys.get(d) ?? null : null))]));
@@ -2036,6 +2048,7 @@ export function compile(graph) {
         const tM = performance.now();
         value.markers = trackBodies(prev, value.shape, op.id);
         markMs = performance.now() - tM;
+        if (graph.names) value.faceNames = nameFaces(from?.faceNames, value.tf, value.shape, op.id); // (the names of the flat faces, carried from the body it was made from)
       }
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
       const tC = performance.now();
@@ -2057,7 +2070,7 @@ export function finalSolid(graph, results) {
   for (let i = graph.ops.length - 1; i >= 0; i--) {
     const r = results.get(graph.ops[i].id);
     if (r && !r.error && r.value.kind === "empty") return null; // the body was deleted
-    if (r && !r.error && r.value.kind === "solid") return { id: graph.ops[i].id, shape: r.value.shape, key: r.key, markers: r.value.markers ?? [] };
+    if (r && !r.error && r.value.kind === "solid") return { id: graph.ops[i].id, shape: r.value.shape, key: r.key, markers: r.value.markers ?? [], ...(r.value.faceNames ? { faceNames: r.value.faceNames } : {}) };
   }
   return null;
 }

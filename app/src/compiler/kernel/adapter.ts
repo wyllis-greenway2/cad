@@ -3,13 +3,15 @@
 export type Vec = [number, number, number];
 
 export interface KernelOp { id: string; type: string; [key: string]: unknown }
-export interface KernelGraph { params: Record<string, number>; ops: KernelOp[] }
+export interface KernelGraph { params: Record<string, number>; ops: KernelOp[]; /** the flat faces of the body are given names that last through the steps (`dec_stable_reference_mechanism`) */ names?: boolean }
 
 export interface KernelEdge { type: string; body?: number; pts: Float32Array; a: Vec; b: Vec; mid: Vec; /** an edge that is (part of) a circle: its circle */ circle?: { center: Vec; normal: Vec; radius: number } }
 export interface KernelFace { start: number; count: number; body?: number; type?: string; n?: Vec; d?: number; axis?: number; [key: string]: unknown }
 export interface KernelResult {
   ops: { id: string; type: string; error: string | null; ms: number; /** a fillet or chamfer that could not be made: which of its edges (their places in the step) cannot take the size by themselves */ culprits?: number[]; /** something worth saying about a step that was made (a fillet made together with the edges at its corner, `in_379`) */ note?: string; /** an extrusion or revolve onto the body that did not say what it is: what it came to (a cut, a piece joined on, a piece of its own) */ used?: "cut" | "add" | "new"; /** a cut: the bodies it took material from (`in_436`) */ cutInto?: string[]; /** worked out before and kept (this evaluation did not make it again) */ cached?: boolean; /** ms of the validity check and of finding the bodies again, when they took a millisecond or more */ checkMs?: number; markMs?: number; /** where the step's own time went, by stage (ms), for the steps that say */ stages?: Record<string, number> }[];
   finalId: string | null;
+  /** with `graph.names`: the flat faces of the final body with the names they were given (`dec_stable_reference_mechanism`): a unit normal and a point of the face */
+  faceNames?: { name: string; n: Vec; c: Vec }[];
   volume: number | null;
   bbox: { min: Vec; max: Vec } | null;
   /** the bodies of the final shape, each with the name it keeps through the history (`dec_independent_bodies`); a face or an edge says which is its in `body` (its place in this list) when there are several */

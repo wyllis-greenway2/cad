@@ -627,6 +627,8 @@ export function typeOp(op: Op, key: string): Op {
 
 /** The step that does it (one command, one undo). Null while there is no number yet. */
 /** The face a push / pull works on, as numbers kept in the step: the body is changed by later steps (another push, a turn) so its named faces move, but this step always meant the face as it was. */
+/** The lasting name of a flat face of the body, kept in a push or pull so it finds the face again after an earlier step is changed or another is put before it (`dec_stable_reference_mechanism`). */
+const stableName = (scene: Scene, ref: Ref | undefined): Record<string, string> => { const p = ref ? scene.parts[ref] : undefined; return p?.kind === "plane" && p.stable ? { fname: p.stable } : {}; };
 const faceParams = (op: Op): Record<string, number> => {
   const n = op.normal;
   const p = op.origin;
@@ -752,10 +754,10 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   }
   if (op.kind === "pushpull" && op.faces && op.faces.length > 1) {
     if (v === 0) return null;
-    return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } })) };
+    return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }), ...stableName(scene, op.parts[k]), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } })) };
   }
   if (op.kind === "pushpull" && op.edit && !op.noEdit && (op.faceKind ?? "move") === "move") return v === 0 ? null : editCommand(scene, op.edit, v);
-  if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } };
+  if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op), ...stableName(scene, op.parts[0]), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
   if (op.kind === "edge" && op.twoDist && v !== 0) { // a chamfer with a distance along each face (`dec_chamfer_two_distances`)
     const face = chosenFace(scene, op);
