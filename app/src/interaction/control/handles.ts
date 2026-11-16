@@ -112,7 +112,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
       return { ...s, handleSel: h!.id, drag: { handle: d, base: 0, joint: { mate: j.mate, kind: h!.id === "joint:turn" ? "turn" : "slide", amount: 0 } }, gizmoHover: h!.id };
     }
     // an operation whose arrow showed up by itself stays up after the drag (like one you started): push / pull, extrude, fillet / chamfer go on until you click away; a body's move arrows end with the drag
-    if (s.moverSphere && (h!.id.startsWith("rot:") || h!.id.startsWith("piv:")) && moverOp(s)) { // an arrow or ring of the selected sphere: it puts or turns the mover itself, not what it works on (`in_416`, `in_417`, `in_440`)
+    if (((s.moverSphere && (h!.id.startsWith("rot:") || h!.id.startsWith("piv:"))) || (s.op?.kind === "revolve" && h!.id.startsWith("piv:"))) && moverOp(s)) { // (the revolve's orb has its position arrows up all the time, `in_484`) // an arrow or ring of the selected sphere: it puts or turns the mover itself, not what it works on (`in_416`, `in_417`, `in_440`)
       const started = moverOp(s)!;
       if (h!.id.startsWith("rot:")) return { ...putMover(s, { ...started, auto: false, axis: d.axis ?? started.axis }), drag: { handle: d, base: 0, frameTurn: started.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]] }, gizmoHover: h!.id };
       const g0 = gizmoOf(s);
@@ -123,8 +123,8 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
       return { ...s, handleSel: h!.id, repeat: { ...s.repeat, chosen: h!.id }, drag: { handle: d, base: patternBase(liveRepeat(sceneOf(s.session), s.repeat), h!.id), repeat: true }, gizmoHover: h!.id };
     }
     const started = s.op ?? activeOp(s)!;
-    const op: Op = started.kind === "revolve" && h!.id.startsWith("rev:turn:") ? { ...started, auto: false, axis: d.axis ?? started.axis } : started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" || started.kind === "revolve" ? { ...started, auto: false } : started;
-    const base = op.kind === "revolve" ? (h!.id === "rev:adv" ? advanceOf(op) : valueOf(op) ?? 0) : isLive(op) ? op.value ?? 0 : 0; // (a revolve has two numbers: the angle of its ring and the advance of its arrow)
+    const op: Op = started.kind === "revolve" && (h!.id.startsWith("rev:turn:") || h!.id.startsWith("rev:adv:")) ? { ...started, auto: false, axis: d.axis ?? started.axis } : started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" || started.kind === "revolve" ? { ...started, auto: false } : started;
+    const base = op.kind === "revolve" ? (h!.id.startsWith("rev:adv:") ? advanceOf(op) : valueOf(op) ?? 0) : isLive(op) ? op.value ?? 0 : 0; // (a revolve has two numbers: the angle of its ring and the advance of its arrow)
     s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base, ...(h!.id.startsWith("rev:turn") ? { turned: { last: 0, total: 0 } } : {}) }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
   }
   if ("handle" in s.drag! && s.drag.frameTurn && moverOp(s)) {
@@ -178,7 +178,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
   const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
   if (!r) return s;
   if ("value" in r && s.op.kind === "revolve") {
-    if (s.drag.handle.id === "rev:adv") return { ...s, op: { ...s.op, advValue: Math.round((s.drag.base + r.value) * 1e6) / 1e6, advTyped: "", revField: 1 } }; // (the arrow along the axis: the advance)
+    if (s.drag.handle.id.startsWith("rev:adv:")) return { ...s, op: { ...s.op, advValue: Math.round((s.drag.base + r.value) * 1e6) / 1e6, advTyped: "", revField: 1 } }; // (the arrow along the axis: the advance)
     // the ring: the turn goes on past one turn, by the change since the last move (each move is under half a turn)
     const t = s.drag.turned ?? { last: 0, total: 0 };
     let dv = r.value - t.last;

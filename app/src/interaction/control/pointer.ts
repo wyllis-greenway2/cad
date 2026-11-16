@@ -458,8 +458,8 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   }
   // a revolve takes a click on a line, a vertex or a face for the orb even before the sphere is selected: it puts the orb there, its axis along the line or across the face (`in_438`)
   // a click on one of the revolve's rings makes that the axis, with no drag needed (`in_468`)
-  if (hit && hit.id.startsWith("rev:turn:") && s.op?.kind === "revolve") return { ...base, op: { ...s.op, auto: false, axis: "xyz".indexOf(hit.id[9]!) as 0 | 1 | 2, revField: 0 }, gizmoHover: hit.id, handleSel: hit.id };
-  if ((!hit || (mover?.kind === "revolve" && hit.id === "rev:adv")) && (s.moverSphere || mover?.kind === "revolve") && canOrient) {
+  if (hit && (hit.id.startsWith("rev:turn:") || hit.id.startsWith("rev:adv:")) && s.op?.kind === "revolve") return { ...base, op: { ...s.op, auto: false, axis: "xyz".indexOf(hit.id[hit.id.startsWith("rev:adv:") ? 8 : 9]!) as 0 | 1 | 2, revField: hit.id.startsWith("rev:adv:") ? 1 : 0 }, gizmoHover: hit.id, handleSel: hit.id };
+  if (!hit && (s.moverSphere || mover?.kind === "revolve") && canOrient) {
     const at = moverPlace(sc, cands[0], pv, mover!);
     const turned = moverTurned(sc, cands[0]);
     if (at) {

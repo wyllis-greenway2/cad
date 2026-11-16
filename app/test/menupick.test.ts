@@ -91,3 +91,28 @@ test("while a sweep waits only a closed sketch and a line of an open path are li
 });
 
 const selectionOfState = (st: AppState): number => st.session.click.selection.length;
+
+test("a sweep chosen first, then its shape and path clicked, shows what it would make as a wireframe before Enter or the check (`in_484`)", () => {
+  const { s } = drawn();
+  let st = { ...createState(s), cam: homeCamera() };
+  st = reduce(st, { type: "runAction", id: "op:sweep" }, env);
+  const bodies = (f: ReturnType<typeof frameOf>) => Object.values(f.scene.parts).filter((p) => p.kind === "body").length;
+  assert.equal(bodies(frameOf(st, { w: 800, h: 600 })), 0, "nothing to show yet");
+  const [lx, ly] = px(st, [0, 0, 12]);
+  st = click(st, lx, ly);
+  assert.equal(bodies(frameOf(st, { w: 800, h: 600 })), 0, "the path alone makes nothing");
+  const [fx, fy] = px(st, [1.2, 1.2, 0]);
+  st = click(st, fx, fy);
+  assert.equal(st.picking?.kind, "sweep");
+  assert.equal(st.op, null, "still waiting");
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.equal(bodies(f), 1, "the body it would make is shown");
+  assert.equal(f.wireframe, true, "as a wireframe");
+  assert.equal(scene(st.session).steps.length, 0, "and nothing is made");
+  // chosen after both are selected: the same, once it is open
+  const open = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  const g = frameOf(open, { w: 800, h: 600 });
+  assert.equal(open.op?.kind, "sweep");
+  assert.equal(g.wireframe, true);
+  assert.equal(bodies(g), 1);
+});

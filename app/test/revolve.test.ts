@@ -83,7 +83,7 @@ test("the Revolve operation shows a ring and an arrow on the axis, takes the ang
   assert.equal(st.op?.kind, "revolve");
   st = { ...st, op: Z(st.op!) };
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id).sort(), ["rev:adv", "rev:orb", "rev:turn:x", "rev:turn:y", "rev:turn:z"]);
+  assert.deepEqual(g.handles.map((h) => h.id).sort(), ["piv:x", "piv:y", "piv:z", "rev:adv:x", "rev:adv:y", "rev:adv:z", "rev:orb", "rev:turn:x", "rev:turn:y", "rev:turn:z"]);
   for (const k of "900") st = reduce(st, { type: "typed", key: k, shift: false }, env);
   st = reduce(st, { type: "typed", key: "Tab", shift: false }, env);
   for (const k of "10") st = reduce(st, { type: "typed", key: k, shift: false }, env);
@@ -272,7 +272,7 @@ test("the revolve's handles are the rotate orb: a ring about each of the three a
   st = reduce(st, { type: "begin", name: "revolve" }, env);
   const axis0 = st.op!.axis;
   const g = gizmoOf(st)!;
-  const adv = g.handles.find((h) => h.id === "rev:adv")!;
+  const adv = g.handles.find((h) => h.id === `rev:adv:${"xyz"[axis0]}`)!;
   const along = (h: typeof adv) => { const d = [0, 1, 2].map((k) => h.points[1]![k]! - h.points[0]![k]!); const l = Math.hypot(...d); return d.map((v) => v / l); };
   const frame = st.op!.frame!;
   const dot = (a: readonly number[], b: readonly number[]) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
@@ -283,7 +283,7 @@ test("the revolve's handles are the rotate orb: a ring about each of the three a
   const [rx, ry] = projector(st.cam, 800, 600).project(ring.points[Math.floor(ring.points.length / 3)]!);
   st = reduce(st, { type: "click", x: rx, y: ry, count: 1, shift: false }, env);
   assert.equal(st.op!.axis, other, "the ring clicked is the axis");
-  const adv2 = gizmoOf(st)!.handles.find((h) => h.id === "rev:adv")!;
+  const adv2 = gizmoOf(st)!.handles.find((h) => h.id === `rev:adv:${"xyz"[other]}`)!;
   assert.ok(Math.abs(Math.abs(dot(along(adv2), frame[other]!)) - 1) < 1e-6, "and the spiral arrow follows it");
 });
 
@@ -303,3 +303,35 @@ test("the revolve's orb is dragged to move it, with no click on it first: the ca
   assert.equal(st.cam.azimuth, azimuth, "the view did not turn");
   assert.ok(Math.hypot(st.op!.pivot![0]! - was[0]!, st.op!.pivot![1]! - was[1]!, st.op!.pivot![2]! - was[2]!) > 0.5, "the orb moved");
 });
+
+test("the orb has an arrow on each axis to put it, and a second one past it that sets the spiral along that axis (`in_484`)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  st = { ...st, op: Z(st.op!) };
+  const pr = projector(st.cam, 800, 600);
+  const drag = (id: string, along: number) => {
+    const h = gizmoOf(st)!.handles.find((x) => x.id === id)!;
+    const a = pr.project(h.points[0]!), b = pr.project(h.points.at(-1)!);
+    const mid: [number, number] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const dx = (b[0] - a[0]) * along, dy = (b[1] - a[1]) * along;
+    st = reduce(st, { type: "orbit", dx: 1, dy: 0, x: mid[0] + 1, y: mid[1] } as never, env);
+    assert.ok(st.drag && "handle" in st.drag, `${id}: the drag began on the handle`);
+    st = reduce(st, { type: "orbit", dx, dy, x: mid[0] + dx, y: mid[1] + dy } as never, env);
+    st = reduce(st, { type: "dragEnd" } as never, env);
+  };
+  // the position arrow of the first axis (z, as the test turned it) moves the orb along it, and the figure is still being revolved
+  const before = st.op!.pivot!;
+  drag("piv:x", 1);
+  assert.ok(Math.abs(st.op!.pivot![2]! - before[2]) > 1e-3 && Math.abs(st.op!.pivot![0]! - before[0]) < 1e-9, `the orb moved along its first axis (here z): ${JSON.stringify(st.op!.pivot)}`);
+  assert.equal(st.op!.kind, "revolve");
+  // the spiral arrow of the z axis chooses z and gives an advance
+  st = { ...st, op: Z(st.op!) };
+  drag("rev:adv:z", 1);
+  assert.equal(st.op!.axis, 2);
+  assert.ok(Math.abs(advanceOfOp(st.op!)) > 1, `an advance was set: ${advanceOfOp(st.op!)}`);
+  // a turn of 900 with that advance (if it is wide enough) is a real spiral in the picture
+  const spiral = frameOf({ ...st, op: { ...st.op!, value: 900, advValue: 10, typed: "", advTyped: "" } }, { w: 800, h: 600 });
+  assert.ok(spiral.mesh && spiral.mesh.vertices.length > 0, "the preview is made");
+});
+import { advanceOf as advanceOfOp } from "../src/interaction/revolve.ts";

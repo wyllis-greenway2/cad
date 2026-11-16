@@ -2260,3 +2260,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_483 — 2026-11-16 — directive
 > Do the fillet and chamfer face collisions next
 (asks for what `dec_hard_bodies` lists as not built: fillet and chamfer faces, whose size and not whose place changes, against hard bodies)
+
+## in_484 — 2026-11-16 — directive
+> The rotate tool is still not right. It needs zyx arrows to carefully position the orb in space. It also doesn't spiral at all. I think the xyz arrows need extra arrows similar to the linear repeat and those second arrows indicate the spiral olong that rotation axis. 
+>
+> The sweep doesn't actually seem to have a proper preview? if I click a sketch, then click sweep, then click a sweep line, it doesn't preview anything, if I click the green checkmark it just makes it. If I select a sketch and a sweep line and then select then click sweep, then it does show a preview but not as an actual preview which would normally be wireframe, instead it looks like a normal model.
+(asks, for the revolve (the rotate orb): X Y Z arrows on the orb to place it exactly in space; a spiral that works; and a second arrow on each axis, as the linear repeat has a second arrow for the count, that sets the spiral along that rotation axis. For the sweep: a preview while its sketch and path are being clicked for it (after the sweep is chosen first, nothing shows until the check), and the preview drawn as a wireframe, as the revolve's is, not as a solid model)

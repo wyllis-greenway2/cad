@@ -256,6 +256,13 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
   return { matrix, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked } : {}), ...(blockedBodies.length ? { hardHit: blockedBodies } : {}), ...(went && centre ? { shownFree: sub(went, centre) as Vec3 } : {}), followers };
 }
 
+/** A sweep or a loft chosen before its things were clicked is already enough with what is selected: what it would make is shown while it waits for the check, as when it is open (`in_484`). */
+function pickingOp(s: AppState): Op | null {
+  if (!s.picking || s.op || s.tool || s.repeat || (s.picking.kind !== "sweep" && s.picking.kind !== "loft")) return null;
+  const r = startOp(sceneOf(s.session), selectionOf(s.session), s.picking.kind, null);
+  return r.ok ? r.op : null;
+}
+
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
   // the cut that is being set up shows what the parts kept would make
   if (s.cut) {
@@ -268,7 +275,7 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
     return value;
   }
   // the operation being set up, else the repeat being set up (what it would make shows while its numbers are set)
-  const op0 = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
+  const op0 = s.op ?? pickingOp(s) ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
   if (!op0) return null;
   const base = op0.made ? undone(s.session) : s.session; // a step already made for this operation is replaced by what is being dragged
   const op = (op0.kind === "pushpull" || op0.kind === "extrude" || op0.kind === "revolve") && sceneOf(base).hard?.length ? (() => { const l = limitedOp(sceneOf(base), op0); return l && "op" in l ? l.op : op0; })() : op0; // (a hard body's face is drawn pulled only as far as it can go, `in_475`)
@@ -368,7 +375,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     cut: s.cut ? { parts: cutParts(sceneOf(s.session), s.cut), join: s.cut.join } : null, // (the bodies as they are, not as the preview of the cut shows them)
     confirm: s.picking && !s.op && !s.tool && !s.repeat ? { kind: s.picking.kind, label: OPEN_LABELS[s.picking.kind] ?? s.picking.kind, text: "Click what it needs" } : s.moverSphere && moverOp(s) && !s.tool ? { kind: "orient", label: "Orient the mover", text: "Orient the mover" } : s.cut ? { kind: "subtract", label: "Cut" } : s.tool ? null : s.repeat && !s.op ? { kind: s.repeat.op.kind, label: OPEN_LABELS[s.repeat.op.kind] ?? s.repeat.op.kind } : s.op && s.op.kind !== "dimension" ? { kind: s.op.kind, label: OPEN_LABELS[s.op.kind] ?? s.op.kind } : null,
     tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", trim: "Trim" } as const)[s.tool.kind], made: s.tool.made ?? 0, drawing: s.tool.points.length > 0, done: (s.tool.made ?? 0) > 0 && s.tool.points.length === 0 } : null,
-    wireframe: s.wireframe || (s.moverSphere && !!moverOp(s)) || s.op?.kind === "revolve" || s.op?.kind === "mirror" || /* the object goes wireframe while the mover itself is oriented, `in_421` */ (s.op?.kind === "hollow" && !!s.drag && "handle" in s.drag), // (the body fades to wireframe while the wall is pulled, so the wall can be seen, `in_394`)
+    wireframe: s.wireframe || (s.moverSphere && !!moverOp(s)) || s.op?.kind === "revolve" || s.op?.kind === "mirror" || s.op?.kind === "sweep" || (s.picking?.kind === "sweep" && !!pickingOp(s)) /* (what a sweep would make is drawn as wireframe, not as a made body, `in_484`) */ || /* the object goes wireframe while the mover itself is oriented, `in_421` */ (s.op?.kind === "hollow" && !!s.drag && "handle" in s.drag), // (the body fades to wireframe while the wall is pulled, so the wall can be seen, `in_394`)
     sections: cutsNow(s).map((c) => ({ at: c.centre, n: c.n, corners: sectionQuad(c.centre, c.n, c.extent) })),
     sectionPlanes: [...Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, mode: modeOf(pl), hidden: !!pl.hidden, move: sheetMoveOf(s, pl.ref), corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }), ...mirrorGuide(s)],
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
