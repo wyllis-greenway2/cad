@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";
-import { createSession, scene, run } from "../src/interaction/session.ts";
+import { createSession, scene, run, undoLast } from "../src/interaction/session.ts";
 import { worldRef } from "../src/shared/ref.ts";
 import { drawRectangle } from "../src/operation/build.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
@@ -146,4 +146,32 @@ test("sketch statuses: unused until a step takes it; detached when the face it w
   rows = rowsOf(s);
   assert.match(rows[1]!.detail!, /detached: the face it was drawn on is gone/);
   assert.doesNotMatch(rows[0]!.detail!, /detached/);
+});
+
+import { saveText, openSession } from "../src/interaction/session.ts";
+test("sketch names are kept for good: given when drawn, not by the order of the steps; not reused; the same after a save and open", () => {
+  let s = createSession(kernel);
+  const a = drawRectangle(scene(s), XY, [0, 0, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]); s = run(s, a.command);
+  const b = drawRectangle(scene(s), XY, [30, 0, 0], [40, 10, 0], [1, 0, 0], [0, 1, 0]); s = run(s, b.command);
+  const rowsOf = (sess: typeof s) => panelOf("sketches", scene(sess), [], {}, null, sess.history, null)!.rows;
+  assert.deepEqual(rowsOf(s).map((r) => r.label), ["Sketch 1", "Sketch 2"]);
+  // B is extruded first, then A: the steps are in the other order, the names are not
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: b.lines, params: { depth: 10 } } } as never);
+  s = run(s, { type: "addStep", step: { id: "s_101", type: "extrude", parts: a.lines, params: { depth: 10, mode: "new" } } } as never);
+  let rows = rowsOf(s);
+  assert.deepEqual(rows.map((r) => [r.label, r.id]), [["Sketch 1", "s_101"], ["Sketch 2", "s_100"]], "A drawn first is Sketch 1 although its step is the second");
+  // the step of B is taken out: B is unused but is still Sketch 2; a new figure is Sketch 3, not 2 again
+  s = run(s, { type: "removeStep", id: "s_100" });
+  const c = drawRectangle(scene(s), XY, [60, 0, 0], [70, 10, 0], [1, 0, 0], [0, 1, 0]); s = run(s, c.command);
+  rows = rowsOf(s);
+  assert.deepEqual(rows.map((r) => r.label), ["Sketch 1", "Sketch 2", "Sketch 3"]);
+  assert.match(rows[1]!.detail!, /unused/);
+  assert.match(rows[0]!.detail!, /as drawn/);
+  // saved and opened again: the same
+  const back = openSession(kernel, saveText(s));
+  assert.ok(back.ok);
+  assert.deepEqual(rowsOf(back.value).map((r) => [r.label, /unused/.test(r.detail!)]), rows.map((r) => [r.label, /unused/.test(r.detail!)]));
+  // undone: the name goes with the figure that goes (and is given again if it is drawn again)
+  s = undoLast(s);
+  assert.deepEqual(rowsOf(s).map((r) => r.label), ["Sketch 1", "Sketch 2"]);
 });

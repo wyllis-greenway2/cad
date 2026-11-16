@@ -2616,3 +2616,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_570 — 2026-11-16 — directive
 > yes start on the sketch statuses
 (approves the next item of `dec_sketch_recipe_synced` / `dec_model_panel`: the sketch statuses unused and detached in the Model panel)
+
+## in_571 — 2026-11-16 — directive
+> yes start on names kept for good
+(approves the next item of `dec_sketch_recipe_synced` rule 5 / `dec_model_panel`: sketch names that are given when a figure is drawn and kept, instead of the order of the steps)

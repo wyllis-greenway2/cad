@@ -89,6 +89,9 @@ export interface Scene {
   parameters?: Readonly<Record<string, string>>;
   /** derived, not saved: for each cut step, the bodies (their names) it took material from, as the kernel found when it made them (`in_436`): deleting a body takes out the cuts made only in it */
   cutOf?: Readonly<Record<string, readonly string[]>>;
+  /** the number each drawn figure was given when it first appeared (`dec_sketch_recipe_synced`, `sketchnames.ts`): by the ref of its derived face; made again when commands are replayed, not saved */
+  sketchNames?: Readonly<Record<string, number>>;
+  sketchCount?: number;
   /** Id counter: ids are never reused, so replaying a command list gives the same names. */
   counter: number;
 }

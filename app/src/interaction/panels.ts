@@ -5,6 +5,7 @@ import { figuresOf, usesFigures, figureRefs } from "../operation/scene.ts";
 import { evaluateAll } from "../operation/parameters.ts";
 import { ROWS } from "./rows.ts";
 import { measureReport } from "./measure.ts";
+import { sketchNumberOf } from "../operation/sketchnames.ts";
 import type { History } from "../operation/history.ts";
 import type { Group } from "../operation/groups.ts";
 import { groupsOf, membersOf, parentOf } from "../operation/groups.ts";
@@ -63,9 +64,10 @@ function bodiesPanel(scene: Scene, selection: readonly Ref[]): Panel {
  * as drawn, or the last later step that carried it (a move, a turn, a scale), changed it (a push or pull) or changed the body it made (a fillet, a hollow, a cut, a reshape).
  */
 export function sketchRows(scene: Scene, shown: string | null): PanelRow[] {
-  const rows: PanelRow[] = [];
-  let k = 0;
+  const rows: (PanelRow & { n: number })[] = [];
+  let k = 0; // (a figure with no kept number, made before names were kept, is numbered after the others)
   const bodyOf = (r: string): string => (r.startsWith("b/") ? r.split("/")[1]! : "");
+  const unnumbered = 1e6;
   scene.steps.forEach((st, i) => {
     if (!usesFigures(st)) return;
     const body = `x_${st.id}`;
@@ -75,11 +77,12 @@ export function sketchRows(scene: Scene, shown: string | null): PanelRow[] {
     const status0 = !last ? "as drawn" : last.type === "move" || last.type === "rotate" || last.type === "scale" ? `carried by ${stepLabel(last)}` : last.type === "pushPull" ? `changed by ${stepLabel(last)}` : `the body has changed since: ${stepLabel(last)}`;
     for (let f = 0; f < figs.length; f++) {
       k++;
+      const num = sketchNumberOf(scene, figs[f]!.outer) ?? unnumbered + k;
       // detached: the sketch was drawn on a face of the body and that face is gone (a drawn plane that is not in the scene any more)
       const first = scene.parts[figs[f]!.outer[0] ?? ""];
       const plane = first && (first.kind === "line" || first.kind === "circle") ? first.plane : null;
       const status = plane && !scene.parts[plane] ? "detached: the face it was drawn on is gone" : status0;
-      rows.push({ id: st.id, label: `Sketch ${k}`, active: shown === st.id, removable: false, ...(st.type === "extrude" ? { sketch: shown === st.id } : {}), detail: `${stepLabel(st)} · ${status}` });
+      rows.push({ n: num, id: st.id, label: `Sketch ${num < unnumbered ? num : k}`, active: shown === st.id, removable: false, ...(st.type === "extrude" ? { sketch: shown === st.id } : {}), detail: `${stepLabel(st)} · ${status}` });
     }
   });
   // unused: a closed figure that is drawn and that no step has taken (`dec_sketch_recipe_synced`, rule 4); listed after the others, named on in the same order
@@ -88,9 +91,10 @@ export function sketchRows(scene: Scene, shown: string | null): PanelRow[] {
     if (p.kind !== "face" || p.origin !== "drawn") continue;
     if (used.has(p.ref) || p.loop.some((r) => used.has(r)) || (p.disk && used.has(p.disk))) continue;
     k++;
-    rows.push({ id: p.ref, label: `Sketch ${k}`, active: false, removable: false, pick: true, detail: `unused · drawn, not taken by a step yet` });
+    const num = scene.sketchNames?.[p.ref] ?? unnumbered + k;
+    rows.push({ n: num, id: p.ref, label: `Sketch ${num < unnumbered ? num : k}`, active: false, removable: false, pick: true, detail: `unused · drawn, not taken by a step yet` });
   }
-  return rows;
+  return rows.sort((a, b) => a.n - b.n).map(({ n: _n, ...r }) => r); // (in the order the figures were drawn)
 }
 function sketchesPanel(scene: Scene, shown: string | null): Panel {
   return { kind: "sketches", title: "Sketches", rows: sketchRows(scene, shown), note: "Each is the recipe of the step that took it, kept as drawn; a figure no step has taken is listed last as unused. The pencil shows the sketch of an extrusion in the picture." };
