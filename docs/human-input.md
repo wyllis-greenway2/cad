@@ -2556,3 +2556,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_554 — 2026-11-16 — approval
 > okay this sounds good. actually have an AI working stable references now, maybe we should get that code merged and then you can pull it to see it? Would that help you proceed?
 (approves, in principle, the answer to in_553: a manufacturing version of a part as a linked derived part, with geometry in the version and machine-run detail in the plan; says another AI is building stable references and offers to have it merged so it can be pulled and read)
+
+## in_555 — 2026-11-16 — question
+> Wouldn't it make sense to have potentially entirelly public machines and materials so even other users could use them?
+(answers question 2 of q_manufacturing_open with a further idea: machines and materials that are entirely public, usable by other users; nothing is decided)
