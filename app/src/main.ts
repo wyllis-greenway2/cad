@@ -9,27 +9,38 @@ import { createRecognizer } from "./interaction/recognizer.ts";
 import { mateStatus } from "./operation/mates.ts";
 import { createSession, openSession, saveText, run, scene, selection, refresh } from "./interaction/session.ts";
 import type { Session } from "./interaction/session.ts";
-import { exportStl, canExport, selectedBodies } from "./interaction/exportstl.ts";
+import { canExport } from "./interaction/exportstl.ts";
+import { canExportFlat } from "./interaction/exportsketch.ts";
+import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
+import type { ExportOptions } from "./interaction/transfer.ts";
+import type { ImportOptions } from "./interaction/importfile.ts";
+import { createDialog } from "./ui/dialog.ts";
+import type { Values } from "./ui/dialog.ts";
+import type { ExportFormat } from "./interaction/exportfile.ts";
+import { aboutOf } from "./operation/file.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
-import { createState, reduce, advance } from "./interaction/controller.ts";
+import { createState, reduce, advance, stopView } from "./interaction/controller.ts";
 import { frameOf } from "./interaction/frame.ts";
 import { appRows, nextScrollMode, isScrollMode, nextPanScale } from "./interaction/appmenu.ts";
 import { snapshotOf, logEntry } from "./interaction/snapshot.ts";
 import { createTiming } from "./interaction/timing.ts";
 import { buildStats } from "./ui/view/content.ts";
 import type { AppState } from "./interaction/controller.ts";
-import { projector } from "./interaction/camera.ts";
+import { projector, position, basis } from "./interaction/camera.ts";
 import { candidatesAt } from "./interaction/picking.ts";
 import { createAsyncKernel } from "./kernel-async.ts";
 import { openResultStore } from "./platform/result-store.ts";
-import type { Kernel } from "./compiler/kernel/adapter.ts";
+import type { Kernel, KernelResult } from "./compiler/kernel/adapter.ts";
 import { kernel, initKernelWeb, drawRectangle, nextId } from "./interaction/api.ts";
 import type { Ref, Command, Vec3 } from "./interaction/api.ts";
 import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
 import { createRing } from "./ui/ring.ts";
+import { createAddChip } from "./ui/addchip.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
+import { createWorldOrb } from "./ui/worldorb.ts";
+import { createHardMarks } from "./ui/hardmarks.ts";
 import { createPanel } from "./ui/panel.ts";
 import { createBodyChips } from "./ui/bodychips.ts";
 import { createHelper } from "./ui/helper.ts";
@@ -89,7 +100,7 @@ const panel = createPanel(document.body, {
 let state: AppState;
 let lastFrame: ReturnType<typeof frameOf> | null = null;
 const timing = createTiming();
-let drawnAt: number | null = null; // (when the last frame that drew was done: the next frame starts after the browser has handed it to the graphics card, `in_470`)
+let drawnAt: number | null = null; // (when the last frame that drew was done: the next frame starts after the browser has handed it to the graphics card, `in_498`)
 let staleSince: number | null = null; // (when the picture began to wait for the kernel's answer: the time until that answer is drawn is what an edit makes you wait)
 let engine: Kernel = kernel; // the kernel in use: on its own thread when that could start (`boot`), else the one in this page
 let dirty = true;
@@ -121,14 +132,14 @@ const menu = createMenu(document.body, (id) => {
     webStore.set(SCROLL_KEY, next);
   } else if (id === "constraints") dispatch({ type: "runAction", id: "constraints" });
   else if (id === "share") shareState();
-  else if (id === "exportStl") void exportModel();
+  else if (id === "export") void exportDialogFlow();
+  else if (id === "import") void importDialogFlow();
   else if (id === "clearAnswers") void resultStore?.clear();
-  else if (id === "exportBody") void exportModel(selectedBodies(state.session));
   else if (id === "save" || id === "open") dispatch({ type: id });
   else if (id === "bodies" || id === "history" || id === "groups") dispatch({ type: "panel", name: id });
   else if (id === "undo" || id === "redo") dispatch({ type: id });
   else dispatch({ type: "runAction", id });
-});
+}, (why) => dispatch({ type: "runAction", id: `say:${why}` }));
 
 /** The ring's items as rows of the ⋯ list: each category's items under it, one group each. */
 
@@ -136,7 +147,7 @@ const ring = createRing(document.body, (id) => {
   ring.hide();
   if (id === "view:game") { input.toggleGame(); return; }
   dispatch({ type: "runAction", id });
-});
+}, (id) => dispatch({ type: "runAction", id: `why:${id}` })); // (a dimmed option pressed: its reason is said and the ring stays, `in_538`)
 
 const hintIcons = createHints(document.body);
 let lastIcon: [number, number] | null = null;
@@ -148,6 +159,8 @@ const busySign = createBusy(document.body);
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
 const crosshair = createCrosshair(document.body);
+const hardMarks = createHardMarks(document.body, (id) => dispatch({ type: "runAction", id }));
+const worldOrb = createWorldOrb(document.body, () => dispatch({ type: "runAction", id: "world:toggle" }));
 const sheetChips = createSheetChips(document.body, (id) => dispatch({ type: "runAction", id }));
 const bodyChips = createBodyChips(document.body, (id) => dispatch({ type: "runAction", id }));
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
@@ -155,6 +168,7 @@ const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "ove
 const faceKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "faceKind", kind: id as "move" | "extrude" | "extend" }));
 const loftKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "loftKind", id }), "Loft:");
 const sizeKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "sizeKind", kind: id as "constant" | "variable" | "twoDistances" | "swap" }), "Size:");
+const addChip = createAddChip(document.body, () => dispatch({ type: "runAction", id: "select:add" }));
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "invert" ? { type: "runAction", id: "hollow:invert" } : to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
@@ -167,16 +181,11 @@ const controls = createControls(document.body, {
 });
 const env = () => ({ w: view.size().w, h: view.size().h, now: performance.now() });
 const FILE_NAME = "model.cad.json";
-/** The game mode's cursor over a ring: a small dot the mouse moves; it lights and clicks the bubbles like the page's own pointer. */
-const menuDot = document.createElement("div");
-menuDot.style.cssText = "position:fixed;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#1ab8b3;border:2px solid #fff;box-shadow:0 0 4px #000;pointer-events:none;z-index:2000;display:none";
-document.body.appendChild(menuDot);
-const menuCap = {
-  move: (x: number, y: number) => { menuDot.style.left = `${x}px`; menuDot.style.top = `${y}px`; ring.pointAt(x, y); },
-  click: (x: number, y: number) => { if (ring.activate(x, y)) dirty = true; },
-  close: () => { ring.hide(); input.captureMenu(null); dirty = true; },
-  show: (on: boolean) => { menuDot.style.display = on ? "block" : "none"; },
-};
+/** A ring opened in game mode is at the middle of the view and the view is fixed while it is open (`in_467`): the wheel lights one option after another, the mouse turns round it in clicks, a click chooses the lit one wherever the pointer is; a right click, or a click with none lit, closes it. */
+let wasGame = false; // (game mode was on at the last frame)
+let tilt: [number, number] = [0, 0]; // (how far the view has been tilted to look at a menu option, in swivel units)
+let ringAnchor: Vec3 | null = null; // (where a ring opened in game mode stands in the world)
+const inGame = (): boolean => recognizer.game && document.pointerLockElement !== null;
 let panesFading = false; // (the world panes are fading in or out: keep drawing, `in_442`)
 function adopt(session: Session) { state = { ...createState(session), cam: state.cam }; menu.hide(); ring.hide(); dirty = true; }
 // the last things done, kept so that a snapshot can show them (`in_200`): hovering is only kept as its last position
@@ -199,54 +208,93 @@ function shareState() {
   state = { ...state, session: { ...state.session, message: `saved ${name}: send that file` } };
   dirty = true;
 }
-/** Save the body as an STL file (`dec_export_stl`): the kernel makes the fine mesh (on its thread when it has one), then it is offered as a download; the result line says what was made. */
-async function exportModel(only?: string[]) {
-  const say = (message: string) => { state = { ...state, session: { ...state.session, message } }; dirty = true; };
-  say("making the STL file…");
-  const r = await exportStl(state.session, engine, only ? `model-${only.join("-")}.stl` : undefined, only);
+const EXPORT_KEY = "cad.exportOptions";
+const dialog = createDialog(document.body);
+const say = (message: string) => { state = { ...state, session: { ...state.session, message } }; dirty = true; };
+/** Export (`dec_export_stl`, `dec_export_formats`, `dec_export_flat`, `dec_import_export_menu`): a dialog asks the format and its options (the last choices are remembered), then the file is made (the kernel on its own thread for a mesh or an exact solid) and offered as a download; the result line says what was made. */
+async function exportDialogFlow() {
+  let saved = EXPORT_DEFAULTS;
+  try { saved = { ...EXPORT_DEFAULTS, ...JSON.parse(webStore.get(EXPORT_KEY) ?? "{}") }; } catch { /* not kept, or not readable: the usual */ }
+  const answers = await dialog.open((v) => exportDialog(state.session, v as unknown as ExportOptions), (({ name: _name, ...rest }) => rest)(fitExport(state.session, { ...saved, name: "" })) as unknown as Values); // (the file name is not asked as an answer to begin with: the dialog offers its own)
+  if (!answers) return;
+  const o = fitExport(state.session, answers as unknown as ExportOptions);
+  webStore.set(EXPORT_KEY, JSON.stringify({ format: o.format, units: o.units, quality: o.quality, what: "all", perBody: o.perBody, name: "" }));
+  say(`making the ${FLAT_OR_NOT(o.format)} file…`);
+  const r = await exportWith(state.session, engine, o);
   if (!r.ok) return say(r.error);
-  webFiles.saveBytes(r.name, r.bytes, "model/stl");
+  webFiles.saveBytes(r.name, r.bytes, r.mime);
   say(r.message);
+}
+const FLAT_OR_NOT = (f: string): string => (f === "3mf" ? "3MF" : f.toUpperCase());
+/** Import (`dec_import`, `dec_import_mesh`, `dec_import_export_menu`): choose a file, say how it is to come in (units, scale, where), and it is added as one step to undo. */
+async function importDialogFlow() {
+  const picked = await webFiles.pick(IMPORT_KINDS);
+  if (!picked) return;
+  if (!KIND_OF(picked.name)) return say("the app imports STEP (.step, .stp), STL, 3MF, SVG and DXF files");
+  const answers = await dialog.open((v) => importDialog(picked.name, v as unknown as ImportOptions), { ...IMPORT_DEFAULTS } as unknown as Values);
+  if (!answers) return;
+  say(`reading ${picked.name}…`);
+  const r = await importWith(state.session, picked.name, picked.bytes, answers as unknown as ImportOptions);
+  state = { ...state, session: r.ok ? { ...r.session, message: r.message } : { ...state.session, message: r.error } };
+  dirty = true;
 }
 function dispatch(i: Intent) {
   logIntent(i);
-  if (i.type === "save") { webFiles.save(FILE_NAME, saveText(state.session)); return; }
+  if (i.type === "save") { webFiles.save(FILE_NAME, saveText(state.session, { app: "CAD", build: typeof __BUILD__ === "string" ? __BUILD__ : "", saved: new Date().toISOString() })); return; } // (what made the file is written at its top, `in_528`)
   if (i.type === "open") {
     void webFiles.open().then((text) => {
       if (text === null) return;
       const r = openSession(engine, text);
-      if (r.ok) adopt(r.value);
+      if (r.ok) { adopt(r.value); const a = aboutOf(text); if (a) { state = { ...state, session: { ...state.session, message: `opened a project saved by ${a.app}${a.build ? ` build ${a.build}` : ""} on ${a.saved.slice(0, 10)}` } }; dirty = true; } }
       else state = { ...state, session: { ...state.session, message: r.error } }, (dirty = true);
     });
     return;
   }
+  if (i.type === "menuTurn") { if (ring.open) ring.turn(i.dx, i.dy); dirty = true; return; }
+  if (ring.open && recognizer.game) {
+    if (i.type === "click") { if (!ring.pickSelected()) ring.hide(); dirty = true; return; }
+    if (i.type === "menu" && !i.button) { ring.hide(); dirty = true; return; }
+  }
   // the ⋯ button again closes its menu (`in_294`)
   if (i.type === "menu" && i.button && menu.open) { menu.hide(); dirty = true; return; }
   state = reduce(state, i, env());
-  recognizer.setDrawing(!!state.tool);
+  recognizer.setDrawing(!!state.tool, state.cam.straight); // (with a sketch tool in hand a click that wanders is still a click: up to the drag that would leave a straight view, `in_463`)
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, exportStl: canExport(state.session), exportBody: !!selectedBodies(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale, settings.theme.outlines)); }
-    else { menu.hide(); if (state.menu) ring.show(i.x, i.y, state.menu.items); else ring.hide(); } // (no menu: a right click that applied the mover's orient mode, `in_439`)
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, settings.input.trackpadPanScale, settings.theme.outlines, scene(state.session).clearance ?? 0)); }
+    else {
+      menu.hide();
+      if (state.menu && inGame()) { // game mode: the ring stands in the world, ahead of the eye, where it was opened (`in_463`, `in_471`)
+        const pg = host.getBoundingClientRect();
+        const eye = position(state.cam);
+        const fwd = basis(state.cam).forward;
+        ringAnchor = [0, 1, 2].map((k) => eye[k]! + fwd[k]! * state.cam.distance * 0.6) as unknown as Vec3;
+        ring.show(pg.left + pg.width / 2, pg.top + pg.height / 2, state.menu.items, true);
+      } // game mode: the ring stands at the middle and the view is fixed (`in_467`)
+      else if (state.menu) ring.show(i.x, i.y, state.menu.items); else ring.hide();
+
+    } // (no menu: a right click that applied the mover's orient mode, `in_439`)
   } else {
     // pointing around does not close a menu; any other intent does
     if (menu.open && !["hover", "hoverEnd", "runAction"].includes(i.type)) menu.hide();
-    if (ring.open && !["hover", "hoverEnd", "runAction", "walk", "swivel"].includes(i.type)) ring.hide(); // (keys held in game mode do not close it, `in_441`)
+    if (ring.open && !recognizer.game && !["hover", "hoverEnd", "runAction"].includes(i.type)) ring.hide(); // (in game mode keys and the view do not close it, `in_441`, `in_467`)
   }
-  input.captureMenu(ring.open ? menuCap : null, ring.centre()); // (game mode keeps the pointer locked: the mouse moves a cursor over the ring and clicks its bubbles, `in_441`)
   dirty = true;
 }
 // which kind of device was used last: a laptop can have a mouse and a touch screen, so it is the event itself that says, not the machine (`in_160`)
 let lastDevice: "mouse" | "touch" | "pen" = "mouse";
 bus.on("input", (raw) => {
   if ("device" in raw && raw.device !== lastDevice) { lastDevice = raw.device; dirty = true; }
+  const escRing = raw.kind === "key" && raw.key === "Escape" && raw.down && ring.open;
   for (const i of recognizer.feed(raw)) dispatch(i);
+  // Esc ends the ring too: in game mode the key leaves the game and sends no intent of its own, so the ring would stay up (`in_542`)
+  if (escRing && ring.open) { ring.hide(); dispatch({ type: "escape" }); }
 });
 const input = attachInput(host, bus);
 
 /** The kernel's answers are kept between sessions in a built app, or with `?cache=1` while developing (the stamp of the kernel is found when the app is built: a change made after the dev server started would not be seen, `dec_description_cache`). `?cache=0` turns it off. */
-let resultStore: ReturnType<typeof openResultStore> = null;
+let resultStore: ReturnType<typeof openResultStore<KernelResult>> = null;
 const resultStoreOn = (): boolean => { const q = new URLSearchParams(location.search).get("cache"); return q === "1" || (q !== "0" && !import.meta.env.DEV); };
 
 async function boot() {
@@ -260,7 +308,7 @@ async function boot() {
       const c = session.conflict;
       state = { ...state, session, ...(session.history.cursor < before ? { op: null, drag: null } : {}), ...(c && c !== state.session.conflict ? { flash: { ...c, at: performance.now() } } : {}) }; // (a step taken back with its reason: what is the problem flashes red, `in_266`)
       dirty = true;
-    }, undefined, { store: (resultStore = resultStoreOn() ? openResultStore(typeof __KERNEL__ === "string" ? __KERNEL__ : "unstamped") : null) });
+    }, undefined, { store: (resultStore = resultStoreOn() ? openResultStore<KernelResult>(typeof __KERNEL__ === "string" ? __KERNEL__ : "unstamped") : null) });
     await worked.init();
     engine = worked;
   } catch {
@@ -323,16 +371,55 @@ function frame(now: number) {
     view.setWireframe(f.wireframe);
     view.setSectionPlanes(f.sectionPlanes);
     view.setSection(f.sections);
+    view.setWorldHidden(f.worldHidden);
+    { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); hardMarks.update(f.hardMarks, (q) => { const c = pr.project(q); return c && c[0] > -10 && c[1] > -10 && c[0] < size.w + 10 && c[1] < size.h + 10 ? [c[0] + pg.left, c[1] + pg.top] : null; }); }
+    { const pg = host.getBoundingClientRect(); const c = projector(state.cam, size.w, size.h).project([0, 0, 0]); worldOrb.update(c && c[0] > -20 && c[1] > -20 && c[0] < size.w + 20 && c[1] < size.h + 20 ? [c[0] + pg.left, c[1] + pg.top] : null, f.worldHidden); }
+    { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); sheetChips.update(f.sectionPlanes.filter((p) => !p.guide).map((p) => ({ ref: p.ref, mode: p.mode, hidden: p.hidden, move: p.move, selected: p.selected, corners: p.corners })), (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null); }
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); bodyChips.update(f.bodyEyes, (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null, f.eyesQuiet); }
-    { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); sheetChips.update(f.sectionPlanes.filter((p) => !p.guide).map((p) => ({ ref: p.ref, mode: p.mode, move: p.move, selected: p.selected, corners: p.corners })), (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null); }
     toolChip.update(f.tool, f.confirm, lastDevice === "touch");
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
     undoBar.update(lastDevice === "touch", f.undoRedo);
     similarChip.update(f.similar);
+    addChip.update(f.adding === "offer" && lastDevice !== "touch" ? null : f.adding);
     faceKindChip.update(f.faceKinds);
     sizeKindChip.update(f.sizeKinds);
     loftKindChip.update(f.loftKinds);
     resetView.update(f.resetView);
+    // game mode and the straight (orthographic) view, in and out, cleanly (`in_467`, `in_469`, `in_471`): going in while a straight view is on or on its way puts it away smoothly (the animation is given up
+    // properly, so no half-made view is left); a view that becomes straight or goes on its way to it while in game mode ends the game mode
+    if (recognizer.game && !wasGame) {
+      if (state.anim?.to.straight) state = stopView(state);
+      if (state.cam.straight) state = { ...state, cam: { ...state.cam, straight: false, mix: 0.03 }, mixT0: -1, mixBase: 0.03, orthoDebt: 0 };
+    } else if (recognizer.game && (state.cam.straight || state.anim?.to.straight)) input.toggleGame();
+    wasGame = recognizer.game;
+    recognizer.setMenu(ring.open && recognizer.game); // (a menu open in game mode fixes the view against the mouse and the keys: the mouse turns the selection round it, `in_467`)
+    // a ring opened in game mode stands where it was opened, in the world; the view tilts, just enough, to bring the lit option under the crosshair, and comes back when the menu goes (`in_471`)
+    {
+      const pg = host.getBoundingClientRect();
+      let want: [number, number] = [0, 0]; // (the tilt that is wanted, in swivel units)
+      if (ringAnchor && !ring.open) ringAnchor = null;
+      if (ringAnchor) {
+        const eye = position(state.cam);
+        const fwd = basis(state.cam).forward;
+        const ahead = [0, 1, 2].reduce((t, k) => t + (ringAnchor![k]! - eye[k]!) * fwd[k]!, 0);
+        const p = ahead > 0.05 ? projector(state.cam, size.w, size.h).project(ringAnchor) : null;
+        if (!p || p[0] < 0 || p[1] < 0 || p[0] > size.w || p[1] > size.h) { ring.hide(); ringAnchor = null; }
+        else {
+          ring.moveTo(pg.left + p[0], pg.top + p[1]);
+          // the view follows the mouse smoothly (the crosshair goes where the mouse's stick points, in no steps); which option is lit is decided from the same stick, in steps, and a click chooses it (`in_518`)
+          const stick = ring.stickOffset();
+          if (stick) {
+            const focal = size.h / 2 / Math.tan((settings.view.fovDeg * Math.PI) / 360); // (pixels from the eye to the picture, so a number of pixels is an angle)
+            const k = focal * settings.view.orbitRadPerPx;
+            want = [tilt[0] + (pg.left + p[0] + stick[0] - (pg.left + pg.width / 2)) / k, tilt[1] + (pg.top + p[1] + stick[1] - (pg.top + pg.height / 2)) / k];
+          } else want = tilt;
+        }
+      }
+      if (!ringAnchor) want = [0, 0]; // (the ring is gone: the view comes back)
+      const d: [number, number] = [(want[0] - tilt[0]) * 0.25, (want[1] - tilt[1]) * 0.25];
+      if (Math.abs(d[0]) > 0.02 || Math.abs(d[1]) > 0.02) { state = reduce(state, { type: "swivel", dx: d[0], dy: d[1] }, env()); tilt = [tilt[0] + d[0], tilt[1] + d[1]]; dirty = true; }
+      else if (!ringAnchor && (tilt[0] !== 0 || tilt[1] !== 0)) tilt = [0, 0];
+    }
     { const pg = host.getBoundingClientRect(); crosshair.update(recognizer.game && document.pointerLockElement !== null, { x: pg.left + pg.width / 2, y: pg.top + pg.height / 2 }); }
     toolCursor.update(f.tool ? f.tool.kind : null);
     const project = projector(state.cam, size.w, size.h).project;
@@ -340,7 +427,7 @@ function frame(now: number) {
     const inFront = [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), hintIcons.rect(), ...touchRects].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : []));
     if (bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid, inFront)) dirty = true; // (a bubble still sliding to its place: another frame)
     refusalChip.update(f.refusal, f.refusal ? bubbles.rectOf(f.refusal.beside) : null); // (beside the bubble of the constraint that stopped it, `in_367`)
-    view.setNotes(f.annotations.flatMap((a) => a.lines));
+    view.setNotes(f.annotations.flatMap((a) => a.lines), f.annotations.flatMap((a) => a.dashed ?? []), state.cam.distance * 0.012);
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
     // the icon stands at the upper left of the handles, out of the way of the arrows and rings (`in_215`)

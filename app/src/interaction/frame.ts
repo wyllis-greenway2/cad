@@ -23,6 +23,8 @@ import { seenIn } from "./picking.ts";
 import { tapeAnnotations } from "./tape.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
+import { axisAcross } from "./revolve.ts";
+import { hardMotion, hardNote, limitedOp, hardCollision, hardOverlaps, hardNames } from "./hard.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { withCorner } from "./runop.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, previewRefusal, undoLast } from "./session.ts";
@@ -34,7 +36,7 @@ import { sweepStart } from "./sweep.ts";
 import { moverOp } from "./control/pose.ts";
 import { mirrorPlane } from "./mirror.ts";
 import { startOp, opCommand, bodyMotion, valueOf, chamferFaces, chosenFace } from "./operations.ts";
-import { matrixOf, applyPoint } from "../operation/frames.ts";
+import { matrixOf, applyPoint, NONE } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
 import type { Command } from "../operation/commands.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
@@ -52,7 +54,7 @@ import { suggestionsFor } from "./suggest.ts";
 import type { Suggestions } from "./suggest.ts";
 import type { Annotation } from "./annotations.ts";
 import { sectionQuad, sectionNow, cutsNow, modeOf, sheetMoveOf } from "./control/section.ts";
-import { entryOf, previewFor, repeatEntries, moveEntries, moverPlaceEntries, mirrorEntries, scaleEntries, sectionEntries } from "./entry.ts";
+import { entryOf, revolveEntries, loftEntries, previewFor, repeatEntries, moveEntries, moverPlaceEntries, mirrorEntries, scaleEntries, sectionEntries } from "./entry.ts";
 import { helperOf } from "./pattern.ts";
 import type { Entry } from "./entry.ts";
 import type { Preview } from "./tools.ts";
@@ -123,7 +125,7 @@ export interface Frame {
   wireframe: boolean;
   /** the cross section plane (`in_392`) and, while it is being chosen, the three planes offered */
   /** every cross section plane in the part, faint when it is not selected (`in_396`) */
-  sectionPlanes: { ref: Ref; /** a guide drawn for a tool (the mirror's plane), not a sheet: no icons */ guide?: true; selected: boolean; cutting: boolean; /** the mode of its icon (`in_459`): 0 cuts the half its normal points to, 1 the other half, 2 no cut, 3 invisible */ mode: 0 | 1 | 2 | 3; /** the state of its move icon, for the one that is selected */ move: 0 | 1 | 2 | 3 | 4; corners: Vec3[] }[];
+  sectionPlanes: { ref: Ref; /** a guide drawn for a tool (the mirror's plane), not a sheet: no icons */ guide?: true; selected: boolean; cutting: boolean; /** the mode of its icon (`in_459`): 0 cuts the half its normal points to, 1 the other half, 2 no cut, 3 invisible */ mode: 0 | 1 | 2; /** invisible: it cannot be pointed at (`in_466`) */ hidden: boolean; /** the state of its move icon, for the one that is selected */ move: 0 | 1 | 2 | 3 | 4; corners: Vec3[] }[];
   /** the sheets that are cutting the view (`in_416`, any number: `in_459`); the normal points to the half cut away */
   sections: { at: Vec3; n: Vec3; corners: Vec3[] }[];
   /** the constraints that could be put on the selected parts, as buttons by them (`in_195`) */
@@ -140,15 +142,21 @@ export interface Frame {
   /** a revolve: the lines the figure can turn about, one chosen (`dec_spiral_extrude`) */
   loftKinds: { id: string; label: string; title: string; on: boolean }[] | null;
   sizeKinds: { id: "constant" | "variable" | "twoDistances" | "swap"; label: string; title: string; on: boolean }[] | null;
+  /** the pill of adding to the selection (`in_539`): on (every tap adds, Done leaves), an offer (something is selected: a finger can start it), or none */
+  adding: "on" | "offer" | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate" | "linear" | "circular" | "invert"; label: string } | null;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
-  tool: { kind: "rect" | "circle" | "line" | "arc" | "trim"; label: string; /** figures made while it has been on (the chip flashes at each) */ made: number; /** a figure is half drawn (the chip's cross then cancels it) */ drawing: boolean; /** something is made and nothing is half drawn: the chip shows a check that puts the tool away, in place of the cross (`in_283`) */ done: boolean } | null;
+  tool: { kind: "rect" | "circle" | "line" | "arc" | "trim" | "gear"; label: string; /** figures made while it has been on (the chip flashes at each) */ made: number; /** a figure is half drawn (the chip's cross then cancels it) */ drawing: boolean; /** something is made and nothing is half drawn: the chip shows a check that puts the tool away, in place of the cross (`in_283`) */ done: boolean } | null;
   /** a repeat or an operation that is open: the tick (Enter, a right click) and the cross (Esc) are shown for it (`in_244`) */
   confirm: { kind: string; label: string; /** words shown in the bubble beside the buttons */ text?: string } | null;
   /** a cut of bodies being set up: the parts they make, with where the control of each stands and whether it is kept; and whether what is kept is joined (`in_294`) */
   cut: { parts: { mask: number; at: Vec3; label: string; tip: string; kept: boolean }[]; join: boolean } | null;
   /** the little panes of the world planes beside the axes (`in_190`) */
+  /** a small mark on each hard body (`in_476`): the body and the point of it the mark stands at (the middle of its top) */
+  hardMarks: { ref: Ref; at: Vec3; /** the hard bodies it overlaps (the history put them together), `in_478` */ overlaps?: string; /** the hard body it is bumping into now, or that is bumping into it (`in_489`) */ bumps?: string }[];
+  /** the axes and the panes are put away (`in_463`) */
+  worldHidden: boolean;
   panes: { name: WorldName; corners: Vec3[]; active: boolean; hover: boolean }[];
   /** the helper handles of the running operation (arrows, a double arrow, curved arrows), or null */
   gizmo: GizmoFrame | null;
@@ -204,7 +212,7 @@ function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame[
 }
 
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
-function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[]; shown: { scene: Scene; outcome: CompileOutcome }; /** the mates that hold the dragged body back (`in_338`) */ blocked?: string[]; /** where the dragged body's middle actually went, held by its mates: the arrows and numbers show it, not the pointer (`in_347`) */ shownFree?: Vec3; /** the other bodies selected, dragged with it (`in_341`, `in_345`) */ followers?: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[] } | null {
+function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[]; shown: { scene: Scene; outcome: CompileOutcome }; /** the mates that hold the dragged body back (`in_338`) */ blocked?: string[]; /** the hard bodies the dragged one is against (`dec_hard_bodies`) */ hardHit?: Ref[]; /** the hard bodies bumping now: those that are dragged (with how far they have gone) and those they are against (`in_489`) */ bumping?: { movers: Ref[]; hit: Ref[]; shift: Vec3 }; /** where the dragged body's middle actually went, held by its mates: the arrows and numbers show it, not the pointer (`in_347`) */ shownFree?: Vec3; /** the other bodies selected, dragged with it (`in_341`, `in_345`) */ followers?: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[] } | null {
   if (s.drag && "handle" in s.drag && s.drag.joint) { // a joint's handle dragged: the body is drawn turned or slid by the amount so far (`in_323`)
     const jd = s.drag.joint;
     const sc0 = sceneOf(s.session);
@@ -216,7 +224,7 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
     const matrix = matrixOf(rigid);
     const split = bodySplitOf(sc0, s.session.outcome, fake.op);
     lastDrag = { split, matrix, steps: sc0.steps.length };
-    return { matrix, shown: gpuBase.value, split };
+    return { matrix, shown: gpuBase.value, split, ...(jd.hit?.length ? { hardHit: jd.hit } : {}), ...(jd.hit?.length && body ? { bumping: { movers: [body], hit: jd.hit, shift: rigid.shift } } : {}) };
   }
   const op = s.op;
   if (!op) return null;
@@ -226,9 +234,16 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
   if (!asked) return null;
   // the bodies selected move as one; the others stay where they are, mated to them or not, and the mates of the bodies that move hold them (`in_338`, `in_345`)
   const group = op.target === "body" ? op.parts.filter((r) => sceneOf(base).parts[r]?.kind === "body") : [];
-  const held = group.length ? constrainedMotion(sceneOf(base), group, asked, op.grab) : null;
-  const rigidOf = (b: Ref): Rigid | null => (held ? held.rigids.find((q) => q.body === b)?.rigid ?? null : asked);
+  // hard bodies (`dec_hard_bodies`): what is asked is taken only as far as a hard body can go before it meets another (the body it is against flashes), and then the mates settle it (`in_477`: the same order as at release)
+  const stopped = group.length && !op.typed && op.kind !== "scale" ? hardMotion(sceneOf(base), group, () => asked, op.kind === "move" && !!op.free, !!op.grab) : null;
+  const askedLimited: Rigid = stopped ? stopped.rigidOf(group[0]!) ?? asked : asked;
+  const held = group.length ? constrainedMotion(sceneOf(base), group, askedLimited, op.grab) : null;
+  const rigidOf1 = (b: Ref): Rigid | null => (held ? held.rigids.find((q) => q.body === b)?.rigid ?? null : askedLimited);
+  // the mates may leave a body in a hard one: then it stays where it was, and the body it would be in flashes
+  const mated = group.length && held && !op.typed ? hardCollision(sceneOf(base), group, rigidOf1) : [];
+  const rigidOf = (b: Ref): Rigid | null => (mated.length ? NONE : rigidOf1(b));
   const m = group.length ? rigidOf(group[0]!) : asked;
+  const blockedBodies = mated.length ? mated : []; // (a hard body that meets another stops, or slides, and does not flash: it is only that the mates left it in one that is shown, `in_484`)
   if (!m) return null;
   if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
   const matrix = matrixOf(m);
@@ -245,8 +260,15 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
   // the arrows and numbers of a drag the mates hold back show where the body went, not where the pointer is
   const first = group[0] ? sceneOf(base).parts[group[0]] : undefined;
   const centre: Vec3 | null = first?.kind === "body" && first.bbox ? [(first.bbox.min[0] + first.bbox.max[0]) / 2, (first.bbox.min[1] + first.bbox.max[1]) / 2, (first.bbox.min[2] + first.bbox.max[2]) / 2] : null;
-  const went = held && m && centre ? applyPoint(m, centre) : null;
-  return { matrix, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked } : {}), ...(went && centre ? { shownFree: sub(went, centre) as Vec3 } : {}), followers };
+  const went = (held || stopped) && m && centre ? applyPoint(m, centre) : null;
+  return { matrix, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked } : {}), ...(blockedBodies.length ? { hardHit: blockedBodies } : {}), ...(stopped && stopped.hit.length && m ? { bumping: { movers: [...group], hit: stopped.hit, shift: m.shift } } : {}), ...(went && centre ? { shownFree: sub(went, centre) as Vec3 } : {}), followers };
+}
+
+/** A sweep or a loft chosen before its things were clicked is already enough with what is selected: what it would make is shown while it waits for the check, as when it is open (`in_529`). */
+function pickingOp(s: AppState): Op | null {
+  if (!s.picking || s.op || s.tool || s.repeat || (s.picking.kind !== "sweep" && s.picking.kind !== "loft")) return null;
+  const r = startOp(sceneOf(s.session), selectionOf(s.session), s.picking.kind, null);
+  return r.ok ? r.op : null;
 }
 
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
@@ -261,12 +283,14 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
     return value;
   }
   // the operation being set up, else the repeat being set up (what it would make shows while its numbers are set)
-  const op = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
-  if (!op) return null;
-  const base = op.made ? undone(s.session) : s.session; // a step already made for this operation is replaced by what is being dragged
+  const op0 = s.op ?? pickingOp(s) ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
+  if (!op0) return null;
+  const base = op0.made ? undone(s.session) : s.session; // a step already made for this operation is replaced by what is being dragged
+  const op = (op0.kind === "pushpull" || op0.kind === "extrude" || op0.kind === "revolve") && sceneOf(base).hard?.length ? (() => { const l = limitedOp(sceneOf(base), op0); return l && "op" in l ? l.op : op0; })() : op0; // (a hard body's face is drawn pulled only as far as it can go, `in_475`)
+  if (op.kind === "revolve" && axisAcross(sceneOf(base), op)) { previewProblem = null; return null; } // (an axis across the figure is not drawn: what is there stays and the reason is said, `in_521`)
   const cmd: Command | null = opCommand(sceneOf(base), op, { preview: true });
   if (!cmd) return null;
-  const key = JSON.stringify([cmd, op.made]);
+  const key = JSON.stringify([cmd, op0.made]);
   if (memo && memo.history === s.session.history && memo.outcome === s.session.outcome && memo.key === key) return memo.value;
   let value = previewCommand(base, cmd);
   // a size that breaks a step is not shown as the broken body (it collapses into a weird shape): what is there stays, and why it cannot be made is said (`in_229`)
@@ -321,9 +345,11 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   // the number of an operation's arrow shows only when that arrow is selected (clicked or taken), or a number is being typed for it: the arrows alone stay clean (`in_238`)
   const armed = !!s.handleSel && !!gizmo && gizmo.handles.some((h) => h.id === s.handleSel);
   const typing = !!shownOp && (shownOp.typed !== "" || shownOp.rot.some((t) => t !== ""));
-  const numberShown = armed || typing || !!(s.drag && ("handle" in s.drag || "body" in s.drag));
+  const numberShown = armed || typing || !!(s.drag && "handle" in s.drag); // (a body dragged free shows no position bubbles while it is dragged: it is the picture that is moved, `in_489`)
   // a body dragged against its mates: they are red while it is held back, as a refused change shows what it would have broken (`in_338`)
-  const flash: FlashFrame | null = gpu?.blocked?.length ? { t: 0, victims: gpu.blocked, culprits: [], parts: flashParts(sc, gpu.blocked) } : flashOf(s, sc, now);
+  const noteOp = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
+  const hardWhy = noteOp && !gpu && sceneOf(s.session).hard?.length ? hardNote(sceneOf(s.session), noteOp) : null; // (what a repeat, a mirror or a pull that is open runs into, `in_475`)
+  const flash: FlashFrame | null = hardWhy?.hit.length ? { t: 0, victims: [], culprits: [], parts: hardWhy.hit } : gpu?.hardHit?.length ? { t: 0, victims: [], culprits: [], parts: gpu.hardHit } : gpu?.blocked?.length ? { t: 0, victims: gpu.blocked, culprits: [], parts: flashParts(sc, gpu.blocked) } : flashOf(s, sc, now);
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
   const gp = gridPlaneOf(s);
   const annotationsPresent = !busy; // (the bubbles are the only user of `avoid`: none are shown while a tool or operation runs)
@@ -338,11 +364,11 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     eyesQuiet: !!s.tool || !!s.op || !!s.drag || !!s.repeat,
     followers: gpu?.followers ?? [],
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
-    highlight: { hover: isSectionPlane(sc, s.session.hover) ? undefined : s.session.hover, hoverPoint: s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
+    highlight: { hover: s.session.hover, /* (a visible sheet lights the blue hover disc as every surface does, `in_470`) */ hoverPoint: s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
     amber: [...new Set([...(s.op?.kind === "loft" ? loftStarts(sceneOf(s.session), s.op) : []), ...(s.op?.kind === "sweep" ? sweepStart(sceneOf(s.session), s.op) : []), ...focusParts(sc, sel, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
     preview: withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
     entry: movingOp || (shownOp && !s.tool && hasGizmo(shownOp.kind) && !numberShown) ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp),
-    entries: s.moverSphere && moverOp(s) && !s.tool && gizmo ? moverPlaceEntries(gizmo, moverOp(s)!.frame, orbShow(s, now)) : sectionNow(s) && !s.op && !s.repeat && !s.tool && gizmo ? sectionEntries({ at: sectionNow(s)!.centre, n: sectionNow(s)!.n }, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : shownOp?.kind === "mirror" ? mirrorEntries(shownOp, gizmo)  : shownOp?.kind === "scale" && shownOp.axes ? scaleEntries(shownOp, gizmo) : s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
+    entries: s.moverSphere && moverOp(s) && !s.tool && gizmo ? moverPlaceEntries(gizmo, moverOp(s)!.frame, orbShow(s, now)) : sectionNow(s) && !s.op && !s.repeat && !s.tool && gizmo ? sectionEntries({ at: sectionNow(s)!.centre, n: sectionNow(s)!.n }, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : shownOp?.kind === "revolve" && !s.tool ? revolveEntries(shownOp, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : shownOp?.kind === "loft" && !s.tool ? loftEntries(sceneOf(s.session), shownOp) : shownOp?.kind === "mirror" ? mirrorEntries(shownOp, gizmo)  : shownOp?.kind === "scale" && shownOp.axes ? scaleEntries(shownOp, gizmo) : s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : [],
     helper: helperAt(s, gizmo),
     busy: !!s.session.outcome.kernel?.stale,
     lookHint: lookOf(sc, sel, s.cam, s.world).lookHint,
@@ -359,22 +385,34 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // on: the world plane that is on always has its grid (`in_190`)
     suggest: busy ? null : suggestionsFor(sc, sel, nearTolMm(s.cam), seenIn(s.cam, sc, size)),
     cut: s.cut ? { parts: cutParts(sceneOf(s.session), s.cut), join: s.cut.join } : null, // (the bodies as they are, not as the preview of the cut shows them)
-    confirm: s.moverSphere && moverOp(s) && !s.tool ? { kind: "orient", label: "Orient the mover", text: "Orient the mover" } : s.cut ? { kind: "subtract", label: "Cut" } : s.tool ? null : s.repeat && !s.op ? { kind: s.repeat.op.kind, label: OPEN_LABELS[s.repeat.op.kind] ?? s.repeat.op.kind } : s.op && s.op.kind !== "dimension" ? { kind: s.op.kind, label: OPEN_LABELS[s.op.kind] ?? s.op.kind } : null,
-    tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", trim: "Trim" } as const)[s.tool.kind], made: s.tool.made ?? 0, drawing: s.tool.points.length > 0, done: (s.tool.made ?? 0) > 0 && s.tool.points.length === 0 } : null,
-    wireframe: s.wireframe || (s.moverSphere && !!moverOp(s)) || s.op?.kind === "revolve" || s.op?.kind === "mirror" || /* the object goes wireframe while the mover itself is oriented, `in_421` */ (s.op?.kind === "hollow" && !!s.drag && "handle" in s.drag), // (the body fades to wireframe while the wall is pulled, so the wall can be seen, `in_394`)
+    confirm: s.picking && !s.op && !s.tool && !s.repeat ? { kind: s.picking.kind, label: OPEN_LABELS[s.picking.kind] ?? s.picking.kind, text: "Click what it needs" } : s.moverSphere && moverOp(s) && !s.tool ? { kind: "orient", label: "Orient the mover", text: "Orient the mover" } : s.cut ? { kind: "subtract", label: "Cut" } : s.tool ? null : s.repeat && !s.op ? { kind: s.repeat.op.kind, label: OPEN_LABELS[s.repeat.op.kind] ?? s.repeat.op.kind } : s.op && s.op.kind !== "dimension" ? { kind: s.op.kind, label: OPEN_LABELS[s.op.kind] ?? s.op.kind } : null,
+    tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", trim: "Trim", gear: "Gear" } as const)[s.tool.kind], made: s.tool.made ?? 0, drawing: s.tool.points.length > 0, done: (s.tool.made ?? 0) > 0 && s.tool.points.length === 0 } : null,
+    wireframe: s.wireframe || (s.moverSphere && !!moverOp(s)) || s.op?.kind === "revolve" || s.op?.kind === "mirror" || s.op?.kind === "sweep" || s.op?.kind === "loft" || ((s.picking?.kind === "sweep" || s.picking?.kind === "loft") && !!pickingOp(s)) /* (what a sweep would make is drawn as wireframe, not as a made body, `in_529`, `in_530`) */ || /* the object goes wireframe while the mover itself is oriented, `in_421` */ (s.op?.kind === "hollow" && !!s.drag && "handle" in s.drag), // (the body fades to wireframe while the wall is pulled, so the wall can be seen, `in_394`)
     sections: cutsNow(s).map((c) => ({ at: c.centre, n: c.n, corners: sectionQuad(c.centre, c.n, c.extent) })),
-    sectionPlanes: [...Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, mode: modeOf(pl), move: sheetMoveOf(s, pl.ref), corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }), ...mirrorGuide(s)],
+    sectionPlanes: [...Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, mode: modeOf(pl), hidden: !!pl.hidden, move: sheetMoveOf(s, pl.ref), corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }), ...mirrorGuide(s)],
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
-    panes: s.cam.straight ? [] : WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
-    gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
+    worldHidden: s.worldHidden,
+    hardMarks: sc.hard?.length ? Object.values(sc.parts).flatMap((p) => {
+      // hidden, like a constraint that holds: a mark shows (red) only while its body is violated, that is while it is bumping into another hard body, or the history has put it into one (`in_489`, `in_478`)
+      if (p.kind !== "body" || !p.id || !p.bbox || !sc.hard!.includes(p.id)) return [];
+      const bump = bumpNote(sc, gpu?.bumping, p.ref);
+      const over = overlapNote(sc, p.ref);
+      if (!bump && !over.overlaps) return [];
+      const at: Vec3 = [(p.bbox.min[0] + p.bbox.max[0]) / 2, (p.bbox.min[1] + p.bbox.max[1]) / 2, p.bbox.max[2]];
+      const sh = bump?.shift ?? [0, 0, 0];
+      return [{ ref: p.ref, at: [at[0] + sh[0], at[1] + sh[1], at[2] + sh[2]] as Vec3, ...over, ...(bump ? { bumps: bump.names } : {}) }];
+    }) : [],
+    panes: s.cam.straight || s.worldHidden ? [] : WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
+    gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "revolve" && !s.moverSphere ? `rev:turn:${"xyz"[s.op.axis]}` : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
     similar: similarChip(s),
+    adding: s.adding ? "on" : !s.tool && !s.op && !s.repeat && !s.cut && !s.picking && sel.length > 0 ? "offer" : null,
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
     modeSwitch: gizmo ? (s.repeat ? repeatSwitchOf(s.repeat, gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points))) : null,
     faceKinds: faceKinds(s),
     loftKinds: s.op?.kind === "loft" ? loftChips(sceneOf(s.session), s.op) : null,
     sizeKinds: sizeKinds(s),
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
-    message: s.session.message ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
+    message: (s.op?.kind === "revolve" ? axisAcross(sceneOf(s.op.made ? undone(s.session) : s.session), s.op) : null) ?? s.session.message ?? hardWhy?.why ?? hardOverlapMessage(sc) ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
   };
 }
 
@@ -394,7 +432,7 @@ function mirrorGuide(s: AppState): Frame["sectionPlanes"] {
   const pl = op && op.kind === "mirror" ? mirrorPlane(op) : null;
   if (!op || !pl || !op.mirrorBox) return [];
   const ext = Math.max(...[0, 1, 2].map((i) => op.mirrorBox!.hi[i]! - op.mirrorBox!.lo[i]!), 1) * 1.3;
-  return [{ ref: "mirror" as Ref, guide: true, mode: 2 as const, move: 0 as const, selected: true, cutting: false, corners: sectionQuad(pl.p, pl.n, ext) }];
+  return [{ ref: "mirror" as Ref, guide: true, mode: 2 as const, hidden: false, move: 0 as const, selected: true, cutting: false, corners: sectionQuad(pl.p, pl.n, ext) }];
 }
 /** What the orient mode's bubbles show (`in_439`): all three positions and turns while the whole orb is moved and a moment after (fading), else only the value of the arrow or ring that was clicked. */
 function orbShow(s: AppState, now: number | undefined): { all: false; handle: string | null } | { all: true; opacity: number } {
@@ -404,6 +442,23 @@ function orbShow(s: AppState, now: number | undefined): { all: false; handle: st
   return { all: false, handle: s.handleSel };
 }
 /** What flashes red with a constraint's bubble when it is violated (`in_436`): the parts it ties; for a mate the two faces it is between (not the two whole bodies, which would turn every surface red). */
+/** Which hard bodies this one is bumping now (when it is being dragged: the ones it is against; when it is the one being bumped: the ones dragged at it), and where its mark goes (`in_489`). */
+function bumpNote(sc: Scene, b: { movers: Ref[]; hit: Ref[]; shift: Vec3 } | undefined, ref: Ref): { names: string; shift?: Vec3 } | null {
+  if (!b) return null;
+  if (b.movers.includes(ref)) return { names: hardNames(sc, b.hit), shift: b.shift };
+  if (b.hit.includes(ref)) return { names: hardNames(sc, b.movers) };
+  return null;
+}
+/** Which hard bodies a hard body is in, for its mark (`in_478`). */
+function overlapNote(sc: Scene, ref: Ref): { overlaps?: string } {
+  const mine = hardOverlaps(sc).filter((o) => o.a === ref || o.b === ref).map((o) => (o.a === ref ? o.b : o.a));
+  return mine.length ? { overlaps: hardNames(sc, mine) } : {};
+}
+/** What is said while hard bodies overlap in the model as the history makes it (`in_478`); nothing when they do not. */
+function hardOverlapMessage(sc: Scene): string | undefined {
+  const o = hardOverlaps(sc);
+  return o.length ? `hard bodies overlap: ${o.map((q) => hardNames(sc, [q.a, q.b])).join("; ")} (the History list marks the step; moves that take them apart are allowed)` : undefined;
+}
 function flashParts(sc: Scene, victims: readonly string[]): Ref[] {
   const mates = victims.some((id) => sc.relations.find((r) => r.id === id)?.kind === "mate") ? mateStatus(sc) : [];
   return sc.relations.filter((r) => victims.includes(r.id)).flatMap((r) => {
@@ -549,8 +604,7 @@ function sizeKinds(s: AppState): Frame["sizeKinds"] {
   const op = s.op;
   if (!op || op.kind !== "edge" || !op.vary) return null;
   const on = !!op.variable;
-  const v = valueOf(op);
-  const faces = v !== null && v < 0 ? chamferFaces(sceneOf(s.session), op) : [];
+  const faces = chamferFaces(sceneOf(s.session), op); // (always offered, like Variable: it makes the operation a chamfer whatever way the arrow is pulled)
   return [
     { id: "constant", label: "Constant", title: "The same size all along the edge", on: !on && !op.twoDist },
     { id: "variable", label: "Variable", title: "A size at the start of the edge (the end shown in amber) and a size at its other end (Tab goes between them); the round grows or shrinks along the edge", on },

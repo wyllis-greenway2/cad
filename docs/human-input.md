@@ -2165,145 +2165,394 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (asks whether the branch `claude/hopeful-cannon-4` can be merged too)
 
 ## in_463 — 2026-11-15 — directive
+> On game mode right click still seperates the cursor and pops it out. I want right click to position a menu in space, and it should persist and you can just do game mode around it and click on the items. It should't make the menu stuck to the camera, it should just be in space and you should be able to navigate around it. It should go away when you click out of the menu, or when it goes out of camera view or of course when it normally closes after a successful selection. 
+>
+> When an arc is created, you should be able to both set the radius and also arc angle. Since there radial lines going to arc center we probably need to draw dashed ones on selection so that we can draw the corner angle thingie. 
+>
+> The sweep doesnt apply if you don't click the green checkmark button. I think generally operations shuold just apply if you click in outside space rather than cancel. 
+>
+> Can we make the world xyz and panes hide able? So lets put a little orb in the junction. If you click the orb, then shuold all hide, if you click the orb again they should all show, hovering on the orb should show a little eye or eye crossed icon to indicate what clicking on it does. 
+>
+> Can we try to make it so that any menu option is always selectable, instead of needing to select the correct things in advance to access the menu item, you just have the click the correct things after to get the operation completed? Would this work or would there be edge cases? 
+>
+> There seems to be a bug where a sketch click doesn't actually start the sketch unless the mouse is perfectly stationary, if there is any drag at all it doesn't start, if you have a sketch tool in hand, I think a click should just start it easier unless the drag movement at the same time is more significant, at least enough to pull you out of orthographic mode. You can always use the right click to rotate the world as well if thats what the user wants to do instead of start a sketch point.
+(asks: in game mode a right click to put the menu in the world where it was opened, staying there while you move about, clicked with the game mode cursor, closing on a click outside, when it leaves the view, or after a choice; an arc to have both a radius and an arc angle, with the radial lines drawn dashed when it is selected so the angle mark can be drawn; operations to apply, not cancel, on a click in empty space; the world axes and panes hideable with an orb at their junction (click hides all, again shows all, hover shows an eye or a crossed eye); whether every menu item can always be selectable with the things chosen after it, and what the edge cases are; and a sketch click that moves a little to still start the sketch with a tool in hand unless the drag is enough to leave orthographic view, right click being there to turn the view)
+
+## in_464 — 2026-11-15 — directive
+> Go ahead with the menu picking mode
+(approves `q_menu_always_selectable` as proposed: every operation of the menu can be chosen whatever is selected, and then what it needs is clicked)
+
+## in_465 — 2026-11-15 — directive
+> Light only the right kinds of thing while an operation is waiting
+(asks for the one thing `dec_menu_picking` left unbuilt: while an operation waits for what to click, only the kinds of thing it can use are lit (and picked))
+
+## in_466 — 2026-11-15 — directive
+> When a cross section cuts an object, can we have it so there is no ghost of the object left. 
+> Can we have the hidden plane view have just a slightly more visible plane edge? Can we make it so that when the plane is exactly on a surface is just does the hatch pattern instead of flickering betwene normal surface and hatch? Can we have seperate icon for making the plane visible or invisible and the cut types? When in the move orb mode that should replace the normal arrow instead of being included with the normal arrow. Can we make it so that the little blue circle cursor highlight shows up on the visible plane on hover just like it does on all surfaces? Lets have just one item in the menu for the  plane / cross section and it should be called that too.
+(asks: no ghost of the cut-away part; the invisible sheet's edge a little more visible; a plane exactly on a surface to show only the hatch, not flicker between surface and hatch; one icon for visible / invisible and another for the cut types; the move orb mode to replace the normal arrow, not add to it; the blue circle hover highlight on a visible plane as on every surface; a single menu item for the plane / cross section, called that)
+
+## in_467 — 2026-11-15 — directive
+> when in game mode the center circle cursor thing goes over the menu items not under them. Also this seems to be a generic problem where came mode center circle cursor cant actually interact with any bubbles or inputs like a normal mouse. Can we make it so that the game mode central circle cursor interacts exactly the same? Also lets make it so that in game mode the scroll wheel brings up the menu and cycles between the options instead of zooming. clicking here should select the option the scroll selected even if the cursor is not on it. Also can we have it so that when game mode is on, if you open the menu the camera fixes to it and the mouse can only rotate in a fixed circle through the icons in a slightly clicking fashion to help the user select the menu item they want. 
+>
+> Also there seems to be a serious bug when in game mode if you go orthographic, everything gets weird, you cannot control properly, then if you exit game mode, the mouse scroll appears to only zoom out, untill the world vanishes. I think it doesn't actually make sense to have game mode go into orthographic at all, so I think this should just exit game mode.
+(asks: the game mode crosshair to be under the menu items, not over them; the crosshair to interact with every bubble and input exactly as a normal mouse does; in game mode the scroll wheel to bring up the menu and cycle through its options instead of zooming, a click choosing the option the scroll is on wherever the cursor is; while the menu is open in game mode the camera to fix to it and the mouse to turn only round a fixed circle through the icons with a slight clicking feel; and a game mode that goes orthographic to simply end, because everything becomes uncontrollable there and the scroll zooms out until the world is gone after leaving)
+
+## in_468 — 2026-11-15 — directive
+> The rotate tool doesn't quite work like I had expected. I think it should always be the xyz rotate orb. The rotation chosen is the one to rotate through however it is oriented in space around the central orb point where ever it is positioned. Also for some reason then moving the orb seems to make it vanish while it live renders the curve sweep or rotate untill drag stop. The arrow perpendicular to the rotational circle should be the one that sets spiral amount.
+(asks, for the revolve: its handles to always be the xyz rotate orb (three rings and the sphere), the ring chosen being the axis it turns about, however the orb is turned and wherever it stands; the orb not to vanish while it is moved and the preview is drawn live until the drag ends; and the arrow perpendicular to the chosen ring to be the one that sets the spiral advance)
+
+## in_469 — 2026-11-15 — directive
+> okay lets get rid of the scroll weel changing menu items. Also lets have the actual camera tilt to view each menu item in the fixed selection thing, not just have it frozen. Can we have it so that a w d s enter game mode too? Can we have it so that if you enter game mode while in orthographic then it exits ortho graphic?
+(asks: the wheel no longer steps the menu in game mode; with the menu open in game mode the camera tilts to look at the option that is selected instead of being frozen; W A S D to begin game mode as well as Space; and entering game mode in a straight view to leave the straight view)
+
+## in_470 — 2026-11-15 — directive
+> It still doesn't really seem like the cursor hover blue circle shows up on cross section planes when they are in visible mode. Also can we have those planes have a delete icon?
+(reports that the blue hover circle still does not show on a visible plane; asks for a delete icon on the planes)
+
+## in_471 — 2026-11-15 — directive
+> About the camera tilting to the menu options, No I meant the menu should be stationary in space, not fixed to the camera, and the camera should tilt just enough to circle the menu options in the clicking fashion we already have so that the center circle curcor goes on each icon. Also it is still really bugging going in and out of game mode and into ortho graphic. The mode switch seems to fail half way all the time and get stuck in weird states. We need to cleanly and smoothly transition into and out of game mode and orthographic views. It seems like if I click w midway through orienting to orthographic then things break pretty badly.
+(asks: the game-mode menu to stand still in the world, not on the camera, with the camera tilting just enough to take the crosshair on to each option as the selection clicks round; and a clean, smooth way into and out of game mode and orthographic views, with no half-made switches or stuck states, in particular when W is pressed while the view is turning to orthographic)
+
+## in_472 — 2026-11-16 — question
+> Can we introduce hard bodies? These would be bodies that are collidable. So the idea is that a hard body would collide with any other body. It would be helpful because it would naturally set real world constraints for interlocking parts that fit together. is this possible and feasible? or would it basically require an entire physics engine?
+(asks whether bodies that collide (hard bodies) are feasible, as a natural real-world constraint for interlocking parts, and whether that needs a whole physics engine)
+
+## in_473 — 2026-11-16 — directive
+> Go ahead with hard bodies, one tolerance for the whole model
+(approves `q_hard_bodies` as proposed, in its order, with one clearance for the whole model)
+
+## in_474 — 2026-11-16 — directive
+> Do the sliding along contacts next
+(asks for the step `dec_hard_bodies` left unbuilt: a hard body that meets another keeps the part of the motion along the surface and slides along the contact instead of only stopping)
+
+## in_475 — 2026-11-16 — directive
+> Do the repeat, mirror and push/pull collisions next
+(asks for the collisions `dec_hard_bodies` left unbuilt: hard bodies made by a repeat or a mirror, and a hard body grown by push / pull, may not go into other hard bodies)
+
+## in_476 — 2026-11-16 — directive
+> Do the hard body mark next
+(asks for the mark on hard bodies that `dec_hard_bodies` left unbuilt)
+
+## in_477 — 2026-11-16 — directive
+> Do the mates against hard bodies next
+(asks for what `dec_hard_bodies` left unbuilt about mates: a mate that holds hard bodies against the rule, and a motion held by mates being limited by the rule at release as well as in the picture)
+
+## in_478 — 2026-11-16 — directive
+> Do the history replay test next
+(asks for what `dec_hard_bodies` left open: the hard-body rule is not tested again when the history is replayed, so an earlier change that makes hard bodies overlap goes unnoticed)
+
+## in_479 — 2026-11-16 — directive
+> Do the tree for heavy models next
+(asks for what `dec_hard_bodies` left unbuilt: a tree of the moving body so very heavy models are not slow, each step now moves all its triangles)
+
+## in_480 — 2026-11-16 — directive
+> Do the mate chains and joint drives next
+(asks for what `dec_hard_bodies` lists as untested: mate chains and joint drives against hard bodies)
+
+## in_481 — 2026-11-16 — directive
+> Do the round-face push/pull and extrude collisions next
+(asks for what `dec_hard_bodies` lists as untested or not built: push/pull of a round face, and extruding a sketch, against hard bodies)
+
+## in_482 — 2026-11-16 — directive
+> Do the revolve, loft and sweep collisions next
+(asks for what `dec_hard_bodies` lists as not built: revolve, loft and sweep against hard bodies)
+
+## in_483 — 2026-11-16 — directive
+> Do the fillet and chamfer face collisions next
+(asks for what `dec_hard_bodies` lists as not built: fillet and chamfer faces, whose size and not whose place changes, against hard bodies)
+
+## in_484 — 2026-11-16 — directive
+> on the hard bodies, first it seems like if I pull hard enough the hard bodies restrictions just breaks? Also I was expecting it would work similar to the constraints where I can just move a body and it could it a hard body but it just hits and in free form movement it could rotate or drag or slide in other directions.For example, in this file, I would expect I could just grab the pin and pull or push it around the hole, and maybe knock it up against other edges of the hole. But instead it seems to go into some sticky mode where it shows what would be invalid in red ghosts, and cancels and brings back to how it should be. I just want hard bodies to collide and slide.
+(with the attached project file hard_body.json: a block with a hole and a pin, both hard; reports that a hard pull makes the restriction break, and that dragging the pin freely against the hole's walls gets a red ghost and a cancel instead of colliding and sliding)
+
+## in_485 — 2026-11-16 — directive
+> Okay it still seems kind of buggy, try to pull this pin out of this block with freemove by double clicking and pulling without arrows with mouse.
+(with the project file hard_body.json again: the pin in the hole of the hard block; asks to try pulling the pin out of the block by hand with the free move, as a person would with the mouse, and fix what is still buggy)
+
+## in_486 — 2026-11-16 — directive
+> okay now it just freezes when I try to move the cylinder or block
+(reports that after the previous fix the app freezes when the pin (cylinder) or the block of the hard_body project is moved by hand)
+
+## in_487 — 2026-11-16 — directive
+> okay seems better, moving the cylinder is pretty smooth. If you grab the block and try to move, it is pretty shaky though. Even if you drag the mouse in a smooth straight direction, it seems to bounce back and forth across in that direction?
+(reports that dragging the pin is now smooth, but dragging the block (the pin standing in its hole) is shaky: along a smooth straight pointer drag the block bounces back and forth in that direction)
+
+## in_488 — 2026-11-16 — question
+> Okay it seems pretty good now. Should we have it so that if an object cant move in the xyz direction it is being pulled in, then it should see if it can move in rotational directions that are valid? Similar to how bodies work with body constraints such as a coaxial pin in a block? or do you think that could get very buggy and messy?
+(says the drag now seems pretty good; asks whether a hard body that cannot move in the pulled direction should try rotations that are valid, as bodies with mates do, or whether that would get buggy and messy; a question, no decision yet)
+
+## in_489 — 2026-11-16 — directive
+> lets not do it for now. Okay a few more things. Can we have the xyz position bubbles not show when moving an object in free flow? And can we have the hard body icons work like normal constraints? They are normally hidden, but flash red when they try to be violated, which I guess would be when a body is actively bumping into them.
+(answers in_488: no rotation on contact for now; asks that the x, y, z position bubbles are not shown while an object is moved in free flow, and that the hard body marks work like constraints: hidden normally, flashing red when they are being violated, which is when a body is actively bumping into them)
+
+## in_490 — 2026-11-16 — directive
+> the hard body should be categorized as a constraint and put under that section of the menu. Also I was thinking a hard body would treat any other body it encounters as a hard body too, not that you would have to declare two bodies as hard in order for it to react as hard with the hard body. Is that something we can do?
+(asks that the Hard body item be a constraint, in the constraints section of the menu; and asks whether a hard body can treat any other body it meets as hard too, so that only one body has to be declared hard for the two to collide)
+
+## in_491 — 2026-11-16 — directive
+> can you merge in branch claude/hopeful-cannon-5 please
+(asks to merge the branch claude/hopeful-cannon-5 into this work)
+
 > okay your branch is merged so we should start a new one
 (asks for a new branch now that `claude/hopeful-cannon-4` is merged: `claude/hopeful-cannon-5`)
 
-## in_464 — 2026-11-15 — question
+## in_492 — 2026-11-15 — question
 > For this one again, it seems like it is slightly faster, but why does it need to re render the non modified objects at all? Like when I change the cube, why do the lofts need to do anything at all?
 (a file, `really_slow.json`, was attached; asks why the unchanged lofts are worked on at all when the block is edited; answered from a measurement: their shapes are not rebuilt, but every body is still meshed again)
 
-## in_465 — 2026-11-15 — question
+## in_493 — 2026-11-15 — question
 > as I edit the cube, the non edited bodies go into coarse mode. How does this help? isn't this just more work because it is something to redraw from fine to coarse back to fine again?
 (asks why the bodies that are not edited are drawn roughly while a size is dragged; said it does not help for them, and changed)
 
-## in_466 — 2026-11-15 — directive
+## in_494 — 2026-11-15 — directive
 > yes add the timing
 (approves adding timing for the stages of one edit outside the kernel)
 
-## in_467 — 2026-11-15 — directive
+## in_495 — 2026-11-15 — directive
 > yes go ahead
 (approves the next step offered: splitting the page's 150 ms into what `buildContent` costs and what is the browser's own, then writing the decision entry for keeping each body's drawn geometry and asking before any code)
 
-## in_468 — 2026-11-15 — directive
+## in_496 — 2026-11-15 — directive
 > do step 1 now
 (approves step 1 of `dec_sharp_edges_once`: the sharp edges of a mesh are remembered by the mesh on the page; step 2 is not approved)
 
-## in_469 — 2026-11-15 — directive
+## in_497 — 2026-11-15 — directive
 > Do step 2 as well
 (approves step 2 of `dec_sharp_edges_once`: the sharp edges found once per body in the kernel's thread, kept with its description and sent in the answer)
 
-## in_470 — 2026-11-15 — directive
+## in_498 — 2026-11-15 — directive
 > find out what the long task after an edit is
 (asks to find what the page's long task of 120 to 160 ms after an edit is; measuring, nothing is to be built yet)
 
-## in_471 — 2026-11-16 — directive
+## in_499 — 2026-11-16 — directive
 > okay it seems to run alright for me. lets work on other stuff. Look at this bug, I was able to do an invalid chamfer and put this body into a bad state.
 (two files were attached: `invalid_chamfer_on_hollow.json` and its state snapshot; says the editing speed is fine on their machine and asks to look at a bug: an invalid chamfer on a hollowed body that left the body in a bad state)
 
-## in_472 — 2026-11-16 — question
+## in_500 — 2026-11-16 — question
 > Is this truly a generic fix though? What if someone made a hollow body via boolean subtract instead of using the hollow tool? shouldn't it just generically know when it is going into an invalid format?
-(asks whether the fix for `in_471` is generic, for example for a hollow made by a boolean subtract, and says the kernel should know in general when a result is going invalid; answered by testing: not generic enough, and a second check was added)
+(asks whether the fix for `in_499` is generic, for example for a hollow made by a boolean subtract, and says the kernel should know in general when a result is going invalid; answered by testing: not generic enough, and a second check was added)
 
-## in_473 — 2026-11-16 — directive
+## in_501 — 2026-11-16 — directive
 > yes build the mesh test
 (approves the mesh test for self-crossing bodies: a general check of the final mesh of a changed body for triangles that cross, whatever made it)
 
-## in_474 — 2026-11-16 — question
+## in_502 — 2026-11-16 — question
 > Okay here is another weird thing, maybe not a bug, but you can see what I tried to do if you use ctrl z, and you can see that pushing in this face at some point created these little ear like artifacts on the part? It seems like odd behavior
 (two files were attached: `face_shift_adding_weird_ear_things.json` and its state snapshot; says that pushing in a face at some point made small ear-like artifacts on the part, and asks whether this is expected)
 
-## in_475 — 2026-11-16 — directive
+## in_503 — 2026-11-16 — directive
 > no lets leave it, I just wanted to make sure it wasn't a bug
-(decides not to build the fix for the arc-end slivers of `in_474`: leave it as it is)
+(decides not to build the fix for the arc-end slivers of `in_502`: leave it as it is)
 
-## in_476 — 2026-11-16 — question
+## in_504 — 2026-11-16 — question
 > Okay this chamfer face push doesn't behave as I would expect. Normally i thought faces are pushes are almost like plane sweeps that cut flat as they continue, but at some point this seems to decide to be a short inserted cut?
 (two files were attached: `chamfer_continuation_collapses_into_a_weird_state.json` and its state snapshot; says a chamfer made on the face of an earlier chamfer, its size pushed larger, does not behave as expected: they thought pushing such a face is like a plane sweeping flat as it continues, but at some size it becomes a short inserted cut)
 
-## in_477 — 2026-11-16 — directive
+## in_505 — 2026-11-16 — directive
 > yes build the continuity test first
 (approves building the continuity test for fillets and chamfers first: sweep the size across saved files and check the volume changes smoothly with no jumps or reversals where the kernel hands over to the cut-region method)
 
-## in_478 — 2026-11-16 — directive
+## in_506 — 2026-11-16 — directive
 > yes start with the reach fix
 (approves building the reach fix for `q_chamfer_region_reach`: a chamfer or fillet made as a cut region reaches as far along its edge as the two faces beside the edge reach)
 
-## in_479 — 2026-11-16 — directive
+## in_507 — 2026-11-16 — directive
 > yes do the cylinder rim next
 (approves taking the next kind of break found by the continuity test: the fillet on a cylinder's rim, 907 to 987 mm3 at 4 to 4.5 mm in `cyl-fillet.cad.json`)
 
-## in_480 — 2026-11-16 — directive
+## in_508 — 2026-11-16 — directive
 > yes do the stadium chamfer next
 (approves taking the next break found by the continuity test: the stadium chamfer, 4981 to 5302 mm3 at 4 to 4.5 mm in `stadium-body.cad.json`)
 
-## in_481 — 2026-11-16 — question
+## in_509 — 2026-11-16 — question
 > no need to fix past files, so is it fixed moving forward though?
 (says the saved files do not need to be fixed or swept again, and asks whether the break at the handover from the kernel's round to the cut region is fixed for new work; answered: for the three causes found, not proven for all)
 
-## in_482 — 2026-11-16 — directive
+## in_510 — 2026-11-16 — directive
 > yes do the remaining four
 (approves taking the four remaining known breaks of the continuity test: `hollow-pushed` `s_022` and `s_026`, `thin-wall` `s_020`, `big-chamfer` `s_036`)
 
-## in_483 — 2026-11-16 — directive
+## in_511 — 2026-11-16 — directive
 > yes fix the concave fillet one too
 (approves fixing the last known break of the continuity test: the concave fillet of `hollow-pushed.cad.json` `s_026`, where the cut region fills about 1.6 % less than the kernel's round at the handover)
 
-## in_484 — 2026-11-16 — directive
+## in_512 — 2026-11-16 — directive
 > yes start on the gear hang
 (approves taking the gear fillet hang: the fillet of step `s_138` of the gear files at 9.25 mm does not come back in 300 seconds)
 
-## in_485 — 2026-11-16 — directive
+## in_513 — 2026-11-16 — directive
 > yes run the full sweep
-(approves running the full sweep over every saved file with a round step, to see which of the 26 breaks of `in_477` remain and whether the chain and tip rules introduced a new one)
+(approves running the full sweep over every saved file with a round step, to see which of the 26 breaks of `in_505` remain and whether the chain and tip rules introduced a new one)
 
-## in_486 — 2026-11-16 — directive
+## in_514 — 2026-11-16 — directive
 > yes look at s_045
 (approves looking at the last large reversal of the sweep: `group-then-new-body-in_426.cad.json` `s_045`, +358 mm3 of 4251 at 10.5 to 10.75 mm)
 
-## in_487 — 2026-11-16 — directive
+## in_515 — 2026-11-16 — directive
 > yes check s_023 next
 (approves looking at the remaining reversal `circle-held-by-concentric-in_366.cad.json` `s_023`: +19.6 mm3 at 4.25 to 4.5, +82 at 5.75 to 6, +331 at 9.75 to 10 mm)
 
-## in_488 — 2026-11-16 — question
+## in_516 — 2026-11-16 — directive
+> can you merge in claude/adoring-dijkstra-u2w4om and claude/cool-einstein-odsxco next so I can deploy everything and test it?
+(asks to merge the branches claude/adoring-dijkstra-u2w4om and claude/cool-einstein-odsxco into this work so that everything can be deployed and tested)
+
+> The two distance option on chamfer seems to immedeitly go away before you can select it? Why isn't it always an option like variable while you are in a chamfer or fillet operation?
+>
+> There seems to be an issue with scale. First off it should have arrows, line lines with orbs on the end. Second, it seems that if you scale in one direction, it still also scales in other directions as well? Also it is not very clear that the scale all arrow is pointing in a different direction on thin objects because it is connected to the object, instead lets just have an xyz style pointer with one extra arrow fully going 45 degrees to each, or on the opposite quadrent pointing away from each at a corner angle.
+(a bug report and a request: *Two distances* always offered with Variable; scale handles as arrows (not lines with balls); a stretch along one axis leaving the others alone; the all-together handle an arrow of its own, at the same angle to X, Y and Z, not joined to the body's corner)
+
+## in_518 — 2026-11-16 — directive
+> for the camera tilt on right click to select menu items, can we try having it not click? lets just try smooth motion but perhaps the actual icon in selection clicks. does that make sense? so the camera tilt and circle center cursor are purely smooth, but the actual selection based off position clicks?
+>
+> Why cant I treat a treat a surface as a sketch? it basically is a sketch with edges etc? If I select a surface, shouldn't I be able to rotate extrude it? by selecting one of its edges as the rotate, or setting the rotate orb out in space?
+(the first: the menu's view tilt and the crosshair move smoothly with the mouse, and only which option is lit and chosen steps; the second: a question, and a request, to revolve a face of a body about one of its edges or about the revolve's orb put out in space)
+
+## in_519 — 2026-11-16 — approval
+> Go with option 1 for the face revolve
+(approves option 1 of `q_revolve_body_face`: the face becomes a figure at the moment of the revolve, the axis an edge of it or the orb out in space)
+
+## in_520 — 2026-11-16 — directive
+> Refuse an axis that cuts across the face
+(asks for what `dec_revolve_body_face` lists as not built: a revolve whose axis cuts across the figure is refused beforehand, with the reason)
+
+## in_521 — 2026-11-16 — directive
+> Also refuse it in the live picture while dragging the orb
+(asks for what `dec_revolve_body_face` lists as not done: the live picture of a revolve is also refused while the orb is dragged to an axis that cuts across the figure)
+
+## in_522 — 2026-11-16 — question
+> Would it make sense to have the share state info just naturally be included in the save file? Instead of having save, open and export as stl, can we just have import and export? they should both have standardized options, but what should they be? What are the first few formats we should offer for import and export in order to make this tool as usable as possible for many cad users and makers?
+(a question about the file menu: share-state data inside the save file, Save / Open / Export STL folded into Import and Export, and which formats first)
+
+## in_523 — 2026-11-16 — directive
+> Check whether the kernel can read and write STEP
+(asks for the check that `q_import_export` leaves unconfirmed: whether the kernel's wasm build reads and writes STEP)
+
+## in_524 — 2026-11-16 — directive
+> Build STEP and 3MF export first
+(approves the first two steps of the order in `q_import_export` point 5 that follow STL: 3MF export and STEP export; the `about` block, the Import / Export menu restructure and the imports are not asked for yet)
+
+## in_525 — 2026-11-16 — directive
+> Build SVG and DXF export next
+(asks for the next step of `q_import_export` point 5: SVG and DXF export of a sketch or a flat face; imports and the Import / Export restructure are not asked for yet)
+
+## in_526 — 2026-11-16 — directive
+> Build STEP and SVG/DXF import next
+(asks for the next step of `q_import_export` point 5: STEP import as a body with no history, and SVG and DXF import as sketches; STL / 3MF import as mesh bodies and the rest of the menu restructure are not asked for yet)
+
+## in_527 — 2026-11-16 — directive
+> Build STL and 3MF import as mesh bodies next
+(asks for the next step of `q_import_export` point 5: STL and 3MF import as bodies made from meshes; the `about` block and the Import / Export menu restructure are not asked for yet)
+
+## in_528 — 2026-11-16 — directive
+> Build the about block and Import/Export menu next
+(asks for the last open parts of `q_import_export`: the small `about` block in every project file, and the Import / Export menu with standard options in place of the separate export rows)
+
+## in_529 — 2026-11-16 — directive
+> The rotate tool is still not right. It needs zyx arrows to carefully position the orb in space. It also doesn't spiral at all. I think the xyz arrows need extra arrows similar to the linear repeat and those second arrows indicate the spiral olong that rotation axis. 
+>
+> The sweep doesn't actually seem to have a proper preview? if I click a sketch, then click sweep, then click a sweep line, it doesn't preview anything, if I click the green checkmark it just makes it. If I select a sketch and a sweep line and then select then click sweep, then it does show a preview but not as an actual preview which would normally be wireframe, instead it looks like a normal model.
+(asks, for the revolve (the rotate orb): X Y Z arrows on the orb to place it exactly in space; a spiral that works; and a second arrow on each axis, as the linear repeat has a second arrow for the count, that sets the spiral along that rotation axis. For the sweep: a preview while its sketch and path are being clicked for it (after the sweep is chosen first, nothing shows until the check), and the preview drawn as a wireframe, as the revolve's is, not as a solid model)
+
+## in_530 — 2026-11-16 — directive
+> Do the loft wireframe preview next
+(asks for what in_529 left unbuilt: the loft's preview, open or waiting, drawn as a wireframe as the sweep's and the revolve's are)
+
+## in_531 — 2026-11-16 — directive
+> Do the number bubbles on the revolve arrows next
+(asks for what in_529 left unbuilt: number bubbles on the revolve's new position arrows and spiral arrows, to read and type the numbers)
+
+## in_532 — 2026-11-16 — directive
+> Do the turned-orb position bubbles next
+(asks for what in_531 left unbuilt: for a turned orb, the revolve's position bubbles giving the place along the turned axis, not the world coordinate)
+
+## in_533 — 2026-11-16 — directive
+> Do the loft's own number bubbles next
+(asks for number bubbles for the loft; what numbers a loft has is not said)
+
+## in_534 — 2026-11-16 — preference
+> Start point per sketch
+(answers which numbers the loft's bubbles should carry (asked after in_533): the start point of each sketch; not the distances between sketches)
+
+## in_535 — 2026-11-16 — directive
+> Do the loft's distance bubbles next
+(asks for what in_534 left unbuilt: the loft's bubbles for the distances between sketches)
+
+## in_536 — 2026-11-16 — directive
+> Do the loft's along-the-normal distance next
+(asks for what in_535 left unbuilt: the loft's distance between sketches measured along the normal of the sketch's plane, not along the straight line between their middles)
+
+## in_537 — 2026-11-16 — directive
+> Do the choice between the two distance measures next
+(asks for what in_536 left unbuilt: a choice, for the loft, between the distance along the normal of the sketch's plane and the straight distance between the sketches' middles)
+
+## in_538 — 2026-11-16 — directive
+> the paste icon in the menu needs a different icon. The extrude face icon needs a new one, simpler. Can we make the menu always navigable even if options arent selectable? Some of the tool tips are rediculous in the menu. Specifically offset, it should just say single word offset. Lets audit all the menu tool tips. They should all be one or two words only. I think the menu also needs a select all bodies option. Lets offer an undo redo option next to delete and turn the delete menu area into an actions area. Lets get rid of undo redo out of the ... menu. lets get rid of select several under the ... menu entirely
+(asks, for the ring menu and the ⋯ menu: a different icon for paste; a new, simpler icon for extrude face; every category and item always navigable even when its options cannot be used; tooltips of one or two words (offset: "Offset"), audited across the menu; a "select all bodies" option; undo and redo offered next to delete, the Delete area turned into an Actions area; undo and redo taken out of the ⋯ menu; "select several" taken out of the ⋯ menu entirely)
+
+## in_539 — 2026-11-16 — directive
+> Do the touch way to select several next
+(asks for what in_538 left open: with Select several taken out of the ⋯ menu, a way to select several things with a finger, where a tap adds to the selection; the form is left to the AI)
+
+## in_540 — 2026-11-16 — directive
+> Do the Esc ending add mode next
+(asks for what in_539 left unbuilt: Esc ending the add mode)
+
+## in_541 — 2026-11-16 — directive
+> Do the shorten ⋯ menu row labels next
+(asks for what in_538 left undone: the ⋯ menu's own row labels shortened, as the ring's tooltips were, to one or two words)
+
+## in_542 — 2026-11-16 — directive
+> Do the Esc ending the ring menu next
+(asks for Esc to end the ring menu)
+
+## in_543 — 2026-11-16 — question
+> Would it be possible and feasible to make a gear tool? it would help you make gears with real teeth profiles. If so what are some of the gear profiles we should support? and how should the tool actually work? Would you just specify the tooth count? or ratio? or diameter and thickness? how would it actually work? Should we support special pulleys that are not really gears but have similar profiles? like nema belt pulleys with teeth that interlock into a belt? Or perhaps gears designed to interlock with chains like bicycle chains? or how about gears designed for being made out of different materials such as wood etc for people to laser cut gears? possibly to make laser cut clock gears etc? I dont want to go too crazy at first, but I would like to lay solid foundations for a gear tool. Also should we think about different gear types? like planetary gears (they have special tooth interlocking requirements to prevent harmonic problems) and what about differential gears or right angle gears or spiral gears? Is there possibly already a gear library we could just let users load in models instead? I think offering a gear maker might be nice too so people can custom make and 3d print gears. Ca we make the gear teeth profiles real profiles like a hardened machined gear would have for rolling teeth that are efficient with low friction and wear? (I know that gear teeth have very special shapes)
+(asks whether a gear tool is feasible and how it should work: which profiles, which inputs, belt pulleys, chain sprockets, laser-cut gears, other gear types, an existing library, real machined tooth shapes; wants solid foundations first, not everything at once)
+
+## in_544 — 2026-11-16 — approval
+> I will take your recommendations on all. Except one point. I actually dont want to bake in special treatment for laser cut gears. As a matter of fact, I don't want to have special treatment per manufactured route at all, laser cut, machined, 3d printed etc. I want the modeling to be entirely manufacture route agnostic, and then we will build a separate specialized module for making a model actually manufacturable per manufacturing route. Lets build it
+(approves the proposal of in_543's answer: the profile order, a flat outline first with an optional thickness, a prototype first; except no treatment per manufacturing route anywhere in modeling, a separate module for that later; asks for the gear tool to be built)
+
+## in_545 — 2026-11-16 — question
 > What are some other key sketching of body operations you think we need to make this like a real usable cad program? What are some fundamentals that we are missing now?
 (asks which sketching and body operations are missing, and which fundamentals are still lacking, for this to be a really usable CAD program; answered in chat, nothing built)
 
-## in_489 — 2026-11-16 — directive
+## in_546 — 2026-11-16 — directive
 > okay so for all those points. 1 should we introduce this? perhaps as a thing that can be viewd similar to how you can view history or bodies? or integrate it into those things? perhaps as a constraints version of these things? or built into history in cosntraints? It seems like we are pretty close to the stable references with bodies list, we should make a sketches list too, and possibly a constraints one? what do you think? The history is not very usable. Can we have it so that you can move to different spots in the history? can we make it so that you can click on different operations in the history and modify them? Can we make it so that bodies can be set to invisible? Similar to how you can make a plane visible or invisible with a little icon that shows on hover. Invisible is still ever so slightly visible so you know it is there, the cursor doesn't interact aside from making the icon fade in on hover so you can bring the body back. The bodies list should be able to do this as well. The bodies list should also have an option to select all bodies or deselect all bodies and apply the hide or un-hide to all and should offer the ability to delete bodies. Should we have a sketches area? were original copies of actual sketches drawn with the sketching tools are saved? We would need a sketch ID system, probably similar to the body system where each closed sketch is considered its own sketch. This might help users who today could be confused if their sketch becomes modified via vody modifications. For measuring and checking, we have the measuring tool under the view part of the right click menu, maybe we should make that report more useful information? Also back to our original question about history and stable references, I am almost thinking we should just have a single unified system? So basically a history with filters? like every body, sketch, or constraint lives in the history, and that context also gives relational information about it, so maybe we should unify this all into one thing that has filters to isolate and work with only the sketches, or the bodies, or constraints etc. It seems like the named dimensions and formulas probably belong in there as well.
 (asks whether named dimensions and formulas should be their own view or part of the history / a constraints version of it; proposes a sketches list and a constraints list beside the bodies list, a usable history (move to any point, click an operation to modify it), hiding bodies with a hover icon like the planes (faint, no interaction), a bodies list with select all / deselect all / hide all / delete, a sketch identity system like the bodies, a more useful measure report, and finally one unified history with filters for bodies, sketches and constraints, holding the named dimensions too; asks what I think)
 
-## in_490 — 2026-11-16 — question
+## in_547 — 2026-11-16 — question
 > Yes except it seems like we need to resolve the sketch Identity issue. So originally I was thinking that a sketch moved and morphed with the object it produced, it literally turned into a part of the object. Do you think this is the right method to keep? or do you think we should consider the body and the sketch a separate thing and the body can morph away from the sketch that originally produced it?
-(agrees with the plan of `in_489` and the order and the single panel, but says the sketch identity question must be settled first: should a sketch move and morph with the body it made and become part of it, or are the sketch and the body separate things so that the body can morph away from the sketch that made it; asks what I think)
+(agrees with the plan of `in_546` and the order and the single panel, but says the sketch identity question must be settled first: should a sketch move and morph with the body it made and become part of it, or are the sketch and the body separate things so that the body can morph away from the sketch that made it; asks what I think)
 
-## in_491 — 2026-11-16 — question
+## in_548 — 2026-11-16 — question
 > I don't really see the difference though? because another way to look at is just where the sketch lives? either in its original drawn spot, or moves with the surface of the body it created?
-(says the two models of `in_490` do not look different to them, and offers another way to see it: only where the sketch lives, either in its original drawn place or moving with the surface of the body it made)
+(says the two models of `in_547` do not look different to them, and offers another way to see it: only where the sketch lives, either in its original drawn place or moving with the surface of the body it made)
 
-## in_492 — 2026-11-16 — question
+## in_549 — 2026-11-16 — question
 > but didn't we already solve the shape problem too? because I thought we integrated the sketch into the edges of the body, so if the body moves, then it is basically considered a sketch modification too? So arent they always synced?
 (asks whether the shape question is not already solved, since they thought the sketch had been integrated into the edges of the body so that a body change counts as a sketch modification, so that the two are always in sync)
 
-## in_493 — 2026-11-16 — question
+## in_550 — 2026-11-16 — question
 > okay so the decision is that sketches are part of the body, and stay synced with the body?
 (asks whether the decision is that sketches are part of the body and stay synced with it; not a recorded decision: answered that it is close but not what was proposed, and asked which of the options they mean)
 
-## in_494 — 2026-11-16 — question
+## in_551 — 2026-11-16 — question
 > what do you recommend? and does this mean if someone wants to see one of their original sketches, then it is a step in history they would go to?
 (asks what I recommend among the options for the sketch and the body, and whether, under it, someone who wants to see one of their original sketches would go to a step in the history)
 
-## in_495 — 2026-11-16 — directive
+## in_552 — 2026-11-16 — directive
 > yes write up the decision
-(asks me to write up, as one decision for approval, the recommendation of `in_494`: the sketch is the recipe of its step, synced with the body wherever the sketch can express the change, labelled where it cannot, with its rows under their steps; this is a request to write it up, not an approval of it: it is written as `dec_sketch_recipe_synced`, `provisional`)
+(asks me to write up, as one decision for approval, the recommendation of `in_551`: the sketch is the recipe of its step, synced with the body wherever the sketch can express the change, labelled where it cannot, with its rows under their steps; this is a request to write it up, not an approval of it: it is written as `dec_sketch_recipe_synced`, `provisional`)
 
-## in_496 — 2026-11-16 — approval
+## in_553 — 2026-11-16 — approval
 > yes approve it
 (approves `dec_sketch_recipe_synced` as written: a sketch is the recipe of its step, kept in step with the body wherever it can express the change and labelled where it cannot; it is `accepted` now)
 
-## in_497 — 2026-11-16 — directive
+## in_554 — 2026-11-16 — directive
 > yes start with hidden bodies
-(approves starting the build order of `in_489` with hidden bodies and the upgraded Bodies list: a body can be hidden, drawn very faintly and not interactive, with an eye icon that fades in on hover, in the Bodies list too, with select all and none, hide and show all, and delete)
+(approves starting the build order of `in_546` with hidden bodies and the upgraded Bodies list: a body can be hidden, drawn very faintly and not interactive, with an eye icon that fades in on hover, in the Bodies list too, with select all and none, hide and show all, and delete)
 
-## in_498 — 2026-11-16 — directive
+## in_555 — 2026-11-16 — directive
 > yes start on the history
-(approves starting the next item of the order of `in_489`: a usable History: click a step to edit its values, and view the model at a step)
+(approves starting the next item of the order of `in_546`: a usable History: click a step to edit its values, and view the model at a step)

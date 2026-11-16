@@ -31,7 +31,7 @@ function linePairs(s: Scene, skip: ReadonlySet<Ref>): number[] {
  * One look for every line (`in_115`): drawn lines and the body's outline are the same thin charcoal line, from the same material. Corners are not dotted anywhere:
  * a corner shows as a ball when you point at it or pick it, whatever it belongs to.
  */
-/** How long the last build took, and the part of it that found the body's sharp edges (`cornerEdges`): read by the page's timing (`in_466`). */
+/** How long the last build took, and the part of it that found the body's sharp edges (`cornerEdges`): read by the page's timing (`in_494`). */
 export const buildStats = { runs: 0, totalMs: 0, cornersMs: 0, triangles: 0 };
 export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group; /** the body's edges that lie behind a face, drawn faintly or not (`in_324`) */ ghost: (on: boolean) => void; split: (items: { tris: [number, number][]; box: { min: readonly number[]; max: readonly number[] } }[] | null) => void; mover: THREE.Group; /** the group of each body that moves on its own, in the order of the items last given to `split` */ movers: () => THREE.Group[]; /** the bodies that are hidden (`dec_hidden_bodies`): their triangles and outline lines are drawn very faintly in a group of their own and are left out of the body; null or none brings them back */ hide: (items: { tris: [number, number][] }[] | null) => void } | null {
   const tBuild = performance.now();

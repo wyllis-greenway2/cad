@@ -17,6 +17,7 @@ import { faceEdges } from "./offsetbody.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
+import { surfaceTriangles } from "./surfaces.ts";
 import { lookup, nextId, figureParams, figureRefs, figuresOf } from "../operation/scene.ts";
 import { rimRanks, edgeSignatures, facesOfEdge } from "../operation/rims.ts";
 import { consumed } from "../operation/ownership.ts";
@@ -105,6 +106,10 @@ export interface Op {
   loftRuled?: boolean;
   loftSplit?: boolean;
   loftShift?: number[];
+  /** the distance typed between sketch i and i + 1, as text (`in_535`) */
+  loftGaps?: string[];
+  /** the distances between sketches are along the straight line between their middles, not along the normal of the earlier sketch's plane (`in_537`) */
+  loftStraight?: boolean;
   loftRev?: boolean[];
   advTyped?: string;
   advValue?: number | null;
@@ -176,6 +181,30 @@ function drawnFaces(scene: Scene, parts: Part[]): Extract<Part, { kind: "face" }
   const faces = parts.map((p) => drawnFace(scene, [p]));
   const all = faces.filter((f): f is Extract<Part, { kind: "face" }> => !!f);
   return all.length === parts.length && all.length > 0 && all.every((f) => f.plane === all[0]!.plane) ? all : [];
+}
+
+/** The triangles of the closed sketches an extrude or a revolve is made from, and the way a positive depth goes (`in_481`, `in_482`): null for any other operation. */
+export function extrudeCap(scene: Scene, op: Op): { tris: number[]; normal: Vec3 } | null {
+  if (op.kind !== "extrude" && op.kind !== "revolve" && op.kind !== "sweep") return null;
+  if (op.kind !== "sweep" && !op.normal) return null;
+  const refs = op.kind === "revolve" && op.revFigs?.length ? op.revFigs.flatMap((f) => f.fig.outer) : op.kind === "sweep" && op.sweepFig ? op.sweepFig.outer : op.parts;
+  const parts = refs.map((r) => scene.parts[r]).filter((p): p is Part => !!p);
+  const get = lookup(scene);
+  const faces = drawnFaces(scene, parts);
+  const tris = faces.filter((f, i) => faces.indexOf(f) === i).flatMap((f) => surfaceTriangles(get, f) ?? []);
+  if (!tris.length) return null;
+  const [a, b, c] = [0, 1, 2].map((k) => [tris[3 * k]!, tris[3 * k + 1]!, tris[3 * k + 2]!] as Vec3);
+  const n = cross(sub(b!, a!), sub(c!, a!));
+  return { tris, normal: op.normal ?? (Math.hypot(...n) > 1e-12 ? ([n[0] / Math.hypot(...n), n[1] / Math.hypot(...n), n[2] / Math.hypot(...n)] as Vec3) : ([0, 0, 1] as Vec3)) };
+}
+
+/** Can this thing be one of what an operation that is waiting is given (`in_465`)? A sweep takes a closed sketch (its shape) or a line that is no part of one (its path), a loft closed sketches; any other operation, what it can start from alone. */
+export function canPickFor(scene: Scene, kind: OpKind, ref: Ref): boolean {
+  const p = scene.parts[ref];
+  if (!p) return false;
+  if (kind === "sweep") return !!drawnFace(scene, [p]) || (p.kind === "line" && p.origin === "drawn");
+  if (kind === "loft") return !!drawnFace(scene, [p]);
+  return startOp(scene, [ref], kind).ok;
 }
 
 function drawnFace(scene: Scene, parts: Part[]): Extract<Part, { kind: "face" }> | null {
@@ -728,7 +757,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   if (op.kind === "pushpull" && op.edit && !op.noEdit && (op.faceKind ?? "move") === "move") return v === 0 ? null : editCommand(scene, op.edit, v);
   if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
-  if (op.kind === "edge" && op.twoDist && v < 0) { // a chamfer with a distance along each face (`dec_chamfer_two_distances`)
+  if (op.kind === "edge" && op.twoDist && v !== 0) { // a chamfer with a distance along each face (`dec_chamfer_two_distances`)
     const face = chosenFace(scene, op);
     if (!face) return null;
     const second = typedNumber(op.endTyped ?? "");
@@ -881,7 +910,7 @@ function scaleShapeCommand(scene: Scene, op: Op, f: number): Command | null {
 }
 
 /** Operations that make one step and then change it as you drag or type again, until you click away: the value is the total since the operation began. */
-export const isLive = (op: Op): boolean => !op.auto && (op.kind === "extrude" || op.kind === "pushpull" || op.kind === "edge" || op.kind === "offset" || op.kind === "hollow" || op.kind === "revolve");
+export const isLive = (op: Op): boolean => !op.auto && (op.kind === "extrude" || op.kind === "pushpull" || op.kind === "edge" || op.kind === "offset" || op.kind === "hollow" || op.kind === "revolve" || (op.kind === "scale" && !!op.axes)); // (a stretch along axes: the factors are totals, so a later pull takes the earlier one out and makes it again, not on top of it)
 
 /** A face as the figure an extrude uses: its sides (or circle) and those of each figure drawn inside it. */
 function figureOf(scene: Scene, face: Extract<Part, { kind: "face" }>): Figure {

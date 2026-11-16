@@ -31,7 +31,7 @@ export interface Relation {
 /** A step of the history of building: extrude, round or bevel, move, rotate, scale, delete. It names the parts it uses by ref. */
 export interface Step {
   id: string;
-  type: "extrude" | "pushPull" | "edgeMod" | "move" | "rotate" | "scale" | "pattern" | "combine" | "hollow" | "reshape" | "revolve" | "loft" | "sweep" | "delete";
+  type: "extrude" | "pushPull" | "edgeMod" | "move" | "rotate" | "scale" | "pattern" | "combine" | "hollow" | "reshape" | "revolve" | "loft" | "sweep" | "delete" | "import" | "importMesh";
   parts: Ref[];
   params: Record<string, number | string>;
 }
@@ -71,6 +71,10 @@ export interface Scene {
   steps: readonly Step[];
   /** selection groups, layered (`in_257`, `groups.ts`); absent when there are none */
   groups?: readonly Group[];
+  /** the bodies (by the name they keep through the history) that are hard: they collide with each other while they are moved by hand (`dec_hard_bodies`, `in_473`) */
+  hard?: readonly string[];
+  /** how close hard bodies may come to each other, mm: nearer than this counts as a collision; 0 (absent): only going into each other does (`dec_hard_bodies`) */
+  clearance?: number;
   /** repeats of drawn figures that keep their numbers: their copies are made from these (`repeat.ts`) */
   patterns?: readonly PatternRecord[];
   /** the plane whose hidden sketch (what extrusions used up) is shown and snapped to while sketching in it (not part of the model, only of how it is looked at, `in_211`) */
@@ -130,6 +134,8 @@ export interface SceneJson {
   steps: Step[];
   groups?: Group[];
   patterns?: PatternRecord[];
+  hard?: string[];
+  clearance?: number;
   hiddenBodies?: Ref[];
 }
 export function toJSON(s: Scene): SceneJson {
@@ -141,6 +147,8 @@ export function toJSON(s: Scene): SceneJson {
     steps: [...s.steps],
     ...(s.groups?.length ? { groups: s.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}),
     ...(s.patterns?.length ? { patterns: s.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}),
+    ...(s.hard?.length ? { hard: [...s.hard] } : {}),
+    ...(s.clearance ? { clearance: s.clearance } : {}),
     ...(s.hiddenBodies?.length ? { hiddenBodies: [...s.hiddenBodies] } : {}),
   };
 }
@@ -149,7 +157,7 @@ export function fromJSON(j: SceneJson): Scene {
   const s = emptyScene();
   const parts: Record<string, Part> = { ...s.parts };
   for (const p of j.parts) parts[p.ref] = p;
-  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter, ...(j.groups?.length ? { groups: j.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}), ...(j.patterns?.length ? { patterns: j.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}), ...(j.hiddenBodies?.length ? { hiddenBodies: [...j.hiddenBodies] } : {}) };
+  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter, ...(j.hard?.length ? { hard: [...j.hard] } : {}), ...(j.clearance ? { clearance: j.clearance } : {}), ...(j.groups?.length ? { groups: j.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}), ...(j.patterns?.length ? { patterns: j.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}), ...(j.hiddenBodies?.length ? { hiddenBodies: [...j.hiddenBodies] } : {}) };
 }
 
 /** The scene with its body parts replaced by these (derived from the kernel result; never saved). */

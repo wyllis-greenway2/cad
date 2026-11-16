@@ -7,7 +7,7 @@ import { sub, dot, add, scale } from "../math/vec.ts";
 import type { Scene, Relation } from "../operation/scene.ts";
 import { lookup } from "../operation/scene.ts";
 import type { Plane, Lookup } from "../operation/part.ts";
-import { planeOfParts, pointOf, roundOf, relationKind, traceOfFace } from "../operation/part.ts";
+import { planeOfParts, pointOf, roundOf, relationKind, traceOfFace, curveMid } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
 import { consumed } from "../operation/ownership.ts";
@@ -167,6 +167,18 @@ function constraintFor(m: Model, rel: Relation): Omit<SolverConstraint, "id"> | 
       const ar = l1 ? m.get(l1) : null;
       const cen = c1 ? m.cornerId(c1) : null;
       return ar && cen && L1 ? { type: "equalLength", a: L1[0], b: cen, c: L1[1], d: cen } : null;
+    }
+    case "arcAngle": {
+      // how far round an arc goes: the angle from the line (centre, start) to the line (centre, end), taken the way the arc goes from where it is now (`in_463`)
+      const ar = l1 ? m.get(l1) : null;
+      const cen = ar && ar.kind === "line" && ar.center ? m.cornerId(ar.center) : null;
+      if (!ar || ar.kind !== "line" || !cen || !L1 || v === undefined) return null;
+      const mid = curveMid(m.get, ar);
+      const [o, a, b, q] = [m.points[cen], m.points[L1[0]], m.points[L1[1]], mid ? m.frame.to2d(mid) : null];
+      if (!o || !a || !b || !q) return null;
+      const turn = (p: [number, number], r: [number, number]): number => Math.atan2((p[0] - o[0]) * (r[1] - o[1]) - (p[1] - o[1]) * (r[0] - o[0]), (p[0] - o[0]) * (r[0] - o[0]) + (p[1] - o[1]) * (r[1] - o[1]));
+      const way = turn(a, q) + turn(q, b) >= 0 ? 1 : -1;
+      return { type: "angle", a: cen, b: L1[0], c: cen, d: L1[1], value: (way * v * Math.PI) / 180 };
     }
     case "radius": {
       // the radius of an arc: the distance from its centre to its start

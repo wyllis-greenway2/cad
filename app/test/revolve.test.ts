@@ -83,7 +83,7 @@ test("the Revolve operation shows a ring and an arrow on the axis, takes the ang
   assert.equal(st.op?.kind, "revolve");
   st = { ...st, op: Z(st.op!) };
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id).sort(), ["rev:adv", "rev:orb", "rev:turn"]);
+  assert.deepEqual(g.handles.map((h) => h.id).sort(), ["piv:x", "piv:y", "piv:z", "rev:adv:x", "rev:adv:y", "rev:adv:z", "rev:orb", "rev:turn:x", "rev:turn:y", "rev:turn:z"]);
   for (const k of "900") st = reduce(st, { type: "typed", key: k, shift: false }, env);
   st = reduce(st, { type: "typed", key: "Tab", shift: false }, env);
   for (const k of "10") st = reduce(st, { type: "typed", key: k, shift: false }, env);
@@ -102,7 +102,7 @@ test("dragging the ring round past one turn keeps counting (400 degrees), and th
   st = reduce(st, { type: "begin", name: "revolve" }, env);
   st = { ...st, op: Z(st.op!) };
   const g = gizmoOf(st)!;
-  const ring = g.handles.find((h) => h.id === "rev:turn")!;
+  const ring = g.handles.find((h) => h.id === `rev:turn:${"xyz"[st.op!.axis]}`)!;
   const pr = projector(st.cam, 800, 600);
   // press on the ring and go all the way round (each step under half a turn) and a little more
   const pts = ring.points;
@@ -264,4 +264,145 @@ test("the orb is the mover's: a click on it selects it (the orient mode with its
   const applied = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   assert.equal(applied.moverSphere, false);
   assert.equal(applied.op!.pivot![1], 5, "apply keeps it");
+});
+
+test("the revolve's handles are the rotate orb: a ring about each of the three axes, the ring taken is the axis (a click chooses it, the arrow through it sets the spiral), and the orb is dragged to move (`in_468`)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  const axis0 = st.op!.axis;
+  const g = gizmoOf(st)!;
+  const adv = g.handles.find((h) => h.id === `rev:adv:${"xyz"[axis0]}`)!;
+  const along = (h: typeof adv) => { const d = [0, 1, 2].map((k) => h.points[1]![k]! - h.points[0]![k]!); const l = Math.hypot(...d); return d.map((v) => v / l); };
+  const frame = st.op!.frame!;
+  const dot = (a: readonly number[], b: readonly number[]) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
+  assert.ok(Math.abs(Math.abs(dot(along(adv), frame[axis0]!)) - 1) < 1e-6, "the spiral arrow is along the chosen ring's axis");
+  // a click on another ring chooses that axis
+  const other = (axis0 + 1) % 3;
+  const ring = g.handles.find((h) => h.id === `rev:turn:${"xyz"[other]}`)!;
+  const [rx, ry] = projector(st.cam, 800, 600).project(ring.points[Math.floor(ring.points.length / 3)]!);
+  st = reduce(st, { type: "click", x: rx, y: ry, count: 1, shift: false }, env);
+  assert.equal(st.op!.axis, other, "the ring clicked is the axis");
+  const adv2 = gizmoOf(st)!.handles.find((h) => h.id === `rev:adv:${"xyz"[other]}`)!;
+  assert.ok(Math.abs(Math.abs(dot(along(adv2), frame[other]!)) - 1) < 1e-6, "and the spiral arrow follows it");
+});
+
+test("the revolve's orb is dragged to move it, with no click on it first: the camera does not turn, the orb and its rings stay in the picture and go where it is taken (`in_468`)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  const pr = projector(st.cam, 800, 600);
+  const was = [...st.op!.pivot!];
+  const azimuth = st.cam.azimuth;
+  const [x, y] = pr.project(gizmoOf(st)!.handles.find((h) => h.id === "rev:orb")!.points[0]!);
+  for (let k = 1; k <= 4; k++) {
+    st = reduce(st, { type: "orbit", dx: 12, dy: 0, x: x + 12 * k, y } as never, env);
+    const f = frameOf(st, { w: 800, h: 600 });
+    assert.ok(f.gizmo && f.gizmo.handles.some((h) => h.id === "rev:orb") && f.gizmo.handles.filter((h) => h.id.startsWith("rev:turn:")).length === 3, "the orb and its three rings are there while it is dragged");
+  }
+  assert.equal(st.cam.azimuth, azimuth, "the view did not turn");
+  assert.ok(Math.hypot(st.op!.pivot![0]! - was[0]!, st.op!.pivot![1]! - was[1]!, st.op!.pivot![2]! - was[2]!) > 0.5, "the orb moved");
+});
+
+test("an axis that cuts across the figure is refused beforehand with the reason; on an edge or beside the figure it is not (`in_520`)", () => {
+  const { s, face } = figure(); // 8 to 10 along X, 0 to 1.5 up
+  const op = begin(s, face);
+  const across = runOp(s, { ...along(op, [9, 0, 0], [0, 0, 1]), value: 90 })!;
+  assert.match(across.session.message ?? "", /cuts across the figure/);
+  assert.equal(scene(across.session).steps.length, scene(s).steps.length, "nothing is made");
+  const acrossX = runOp(s, { ...along(op, [9, 0, 0.75], [1, 0, 0]), value: 90 })!; // (along X through the middle of the height)
+  assert.match(acrossX.session.message ?? "", /cuts across the figure/);
+  const onEdge = runOp(s, { ...along(op, [8, 0, 0], [0, 0, 1]), value: 90 })!;
+  assert.equal(onEdge.session.message, null, "on its own edge");
+  const beside = runOp(s, { ...Z(op), value: 90 })!;
+  assert.equal(beside.session.message, null, "beside it");
+});
+
+test("while the orb is dragged across the figure the live picture is not drawn and the reason is said; back on an edge it is drawn again (`in_521`)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  const size = { w: 800, h: 600 };
+  const bodies = (f: ReturnType<typeof frameOf>) => f.mesh?.vertices.length ?? 0; // (nothing of a body is there until the turned figure is)
+  const edge = { ...st.op!, ...along(st.op!, [8, 0, 0], [0, 0, 1]) };
+  const good = frameOf({ ...st, op: edge }, size);
+  assert.ok(bodies(good) > 0, "an axis on an edge: the turned body is drawn");
+  assert.ok(!/cuts across/.test(good.message ?? ""));
+  const bad = frameOf({ ...st, op: { ...edge, ...along(edge, [9, 0, 0], [0, 0, 1]) } }, size);
+  assert.equal(bodies(bad), 0, "an axis across the figure: nothing drawn");
+  assert.match(bad.message ?? "", /cuts across the figure/);
+});
+
+test("the orb has an arrow on each axis to put it, and a second one past it that sets the spiral along that axis (`in_529`)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  st = { ...st, op: Z(st.op!) };
+  const pr = projector(st.cam, 800, 600);
+  const drag = (id: string, along: number) => {
+    const h = gizmoOf(st)!.handles.find((x) => x.id === id)!;
+    const a = pr.project(h.points[0]!), b = pr.project(h.points.at(-1)!);
+    const mid: [number, number] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const dx = (b[0] - a[0]) * along, dy = (b[1] - a[1]) * along;
+    st = reduce(st, { type: "orbit", dx: 1, dy: 0, x: mid[0] + 1, y: mid[1] } as never, env);
+    assert.ok(st.drag && "handle" in st.drag, `${id}: the drag began on the handle`);
+    st = reduce(st, { type: "orbit", dx, dy, x: mid[0] + dx, y: mid[1] + dy } as never, env);
+    st = reduce(st, { type: "dragEnd" } as never, env);
+  };
+  // the position arrow of the first axis (z, as the test turned it) moves the orb along it, and the figure is still being revolved
+  const before = st.op!.pivot!;
+  drag("piv:x", 1);
+  assert.ok(Math.abs(st.op!.pivot![2]! - before[2]) > 1e-3 && Math.abs(st.op!.pivot![0]! - before[0]) < 1e-9, `the orb moved along its first axis (here z): ${JSON.stringify(st.op!.pivot)}`);
+  assert.equal(st.op!.kind, "revolve");
+  // the spiral arrow of the z axis chooses z and gives an advance
+  st = { ...st, op: Z(st.op!) };
+  drag("rev:adv:z", 1);
+  assert.equal(st.op!.axis, 2);
+  assert.ok(Math.abs(advanceOfOp(st.op!)) > 1, `an advance was set: ${advanceOfOp(st.op!)}`);
+  // a turn of 900 with that advance (if it is wide enough) is a real spiral in the picture
+  const spiral = frameOf({ ...st, op: { ...st.op!, value: 900, advValue: 10, typed: "", advTyped: "" } }, { w: 800, h: 600 });
+  assert.ok(spiral.mesh && spiral.mesh.vertices.length > 0, "the preview is made");
+});
+import { advanceOf as advanceOfOp } from "../src/interaction/revolve.ts";
+
+test("an arrow of the orb that is taken has a number bubble: the orb's place on a position arrow (typed to put it), the advance on a spiral arrow (`in_531`)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  st = { ...st, op: Z(st.op!) }; // (the orb at the origin, its first axis along z)
+  const f0 = frameOf(st, { w: 800, h: 600 });
+  assert.equal(f0.entries.length, 0, "no bubble on arrows not taken");
+  const pr = projector(st.cam, 800, 600);
+  const tip = (id: string) => { const h = gizmoOf(st)!.handles.find((x) => x.id === id)!; const a = pr.project(h.points[0]!), b = pr.project(h.points.at(-1)!); return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] as const; };
+  const [px1, py1] = tip("piv:x");
+  st = reduce(st, { type: "click", x: px1, y: py1, count: 1, shift: false }, env);
+  st = { ...st, handleSel: "piv:x" };
+  const e = frameOf(st, { w: 800, h: 600 }).entries;
+  assert.equal(e.length, 1);
+  assert.equal(e[0]!.fields[0]!.index, 10);
+  st = reduce(st, { type: "entry", field: 10, text: "7" } as never, env);
+  assert.equal(st.op!.pivot![2], 7, "the number typed puts the orb 7 along its first axis (z here)");
+  st = { ...st, handleSel: "rev:adv:z" };
+  const a = frameOf(st, { w: 800, h: 600 }).entries;
+  assert.equal(a.length, 1);
+  assert.equal(a[0]!.fields[0]!.index, 1);
+  st = reduce(st, { type: "entry", field: 1, text: "12" } as never, env);
+  assert.equal(advanceOfOp(st.op!), 12);
+});
+
+test("the position bubble of a turned orb is the place along its own axis, and typing moves it along that axis only (`in_532`)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  const d: Vec3 = [0, 0.6, 0.8]; // a frame whose first axis is slanted
+  st = { ...st, op: along(st.op!, [1, 2, 3], d), handleSel: "piv:x" };
+  const e = frameOf(st, { w: 800, h: 600 }).entries;
+  assert.equal(e.length, 1);
+  assert.ok(Math.abs(Number(e[0]!.fields[0]!.value) - (2 * 0.6 + 3 * 0.8)) < 0.01, `the place along the slanted axis: ${e[0]!.fields[0]!.value}`);
+  st = reduce(st, { type: "entry", field: 10, text: "10" } as never, env);
+  const p = st.op!.pivot!;
+  assert.ok(Math.abs(p[1]! * 0.6 + p[2]! * 0.8 - 10) < 1e-9, "now 10 along it");
+  assert.equal(p[0], 1, "the part across it stays");
+  const u = [0, 0.8, -0.6]; // (across it, in the plane of y and z: unchanged)
+  assert.ok(Math.abs((p[1]! * u[1]! + p[2]! * u[2]!) - (2 * 0.8 - 3 * 0.6)) < 1e-9);
 });

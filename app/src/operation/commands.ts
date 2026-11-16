@@ -38,6 +38,10 @@ export type Command =
   | { type: "hideBodies"; refs: Ref[]; hidden: boolean }
   /** group things (parts, or groups made before) so that selecting one selects all; `id` is a new group id (`in_257`) */
   | { type: "group"; id: string; items: string[] }
+  /** a body made hard or soft (`dec_hard_bodies`): `body` is the name it keeps through the history */
+  | { type: "setHard"; body: string; on: boolean }
+  /** the clearance of the whole model, mm (`dec_hard_bodies`) */
+  | { type: "setClearance"; value: number }
   /** break one group: what was in it stays, and a group inside it stays a group */
   | { type: "ungroup"; id: string }
   /** repeat a drawn figure so that it keeps its numbers (`in_257`, `repeat.ts`): the copies are made from this record */
@@ -99,6 +103,15 @@ function goneWith(s: Scene, refs: readonly Ref[]): Set<Ref> {
   for (const r of refs) for (const d of dependentParts(s, r)) gone.add(d);
   for (const c of strandedCorners(s, gone)) for (const d of dependentParts(s, c)) gone.add(d);
   return gone;
+}
+
+/** The part as it will be added, or why it cannot be: its name is free, the plane it is on (by the name a move gave it, `in_372`, if need be) and the points it stands on are there. `parts` are the parts so far. */
+function checkedPart(s: Scene, parts: Record<Ref, Part>, part0: Part): Part | string {
+  if (part0.ref in parts) return `${part0.ref} already exists`;
+  const part = part0.plane && !(part0.plane in parts) && s.planeAlias?.[part0.plane] ? ({ ...part0, plane: s.planeAlias[part0.plane]! } as Part) : part0;
+  for (const a of anchorsOf(part)) if (a !== part.ref && !(a in parts)) return `${part.ref} uses ${a}, which does not exist`;
+  if (part.plane && !(part.plane in parts)) return `plane ${part.plane} does not exist`;
+  return part;
 }
 
 export function apply(s: Scene, c: Command): Result<Scene> {
@@ -216,16 +229,34 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       const { hiddenBodies: _old, ...rest } = s;
       return ok(now.size ? { ...rest, hiddenBodies: [...now].sort() } : rest);
     }
+    case "setHard": { const hard = (s.hard ?? []).filter((b) => b !== c.body); return ok({ ...s, ...(c.on ? { hard: [...hard, c.body] } : hard.length ? { hard } : { hard: undefined }) }); }
+    case "setClearance": return Number.isFinite(c.value) && c.value >= 0 ? ok({ ...s, clearance: c.value || undefined }) : err("the clearance is a distance of nothing or more");
     case "pattern": { const r = addPattern(s, { id: c.id, kind: c.kind, parts: c.parts, plane: c.plane, params: c.params }); return r.ok ? ok(bumpCounter(r.value, c.id)) : r; }
     case "setPattern": return setPattern(s, c.id, c.params);
     case "breakPattern": return breakPattern(s, c.id);
     case "batch": {
       let cur = s;
+      // a run of addPart commands adds to one private copy of the parts, made once: copying every part for each one added was quadratic (a drawing of 4,000 parts took 6 seconds to import)
+      let work: Record<Ref, Part> | null = null;
+      let counter = cur.counter;
+      const flush = (): void => { if (work) { cur = { ...cur, parts: work, counter }; work = null; } };
       for (const sub of c.commands) {
+        if (sub.type === "addPart") {
+          work ??= { ...cur.parts };
+          const part = checkedPart(cur, work, sub.part);
+          if (typeof part === "string") return err(part); // all or nothing: the scene is returned unchanged by the caller
+          work[part.ref] = part;
+          const n = Number(idOf(part.ref).slice(idOf(part.ref).lastIndexOf("_") + 1));
+          if (Number.isFinite(n) && n > counter) counter = n;
+          continue;
+        }
+        flush();
         const r = apply(cur, sub);
-        if (!r.ok) return r; // all or nothing: the scene is returned unchanged by the caller
+        if (!r.ok) return r;
         cur = r.value;
+        counter = cur.counter;
       }
+      flush();
       return ok(cur);
     }
   }

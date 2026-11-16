@@ -7,6 +7,8 @@ export interface FileService {
   saveBytes(name: string, bytes: Uint8Array, type: string): void;
   /** Let the user choose a file; resolves to its text, or null if they cancel. */
   open(): Promise<string | null>;
+  /** Let the user choose a file of the kinds in `accept` (extensions, comma separated); resolves to its name and bytes, or null if they cancel. */
+  pick(accept: string): Promise<{ name: string; bytes: Uint8Array } | null>;
 }
 export interface KeyValueStore {
   get(key: string): string | null;
@@ -25,6 +27,20 @@ const download = (name: string, blob: Blob) => {
 };
 
 export const webFiles: FileService = {
+  pick(accept) {
+    return new Promise((resolve) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = accept;
+      input.addEventListener("change", () => {
+        const f = input.files?.[0];
+        if (!f) return resolve(null);
+        void f.arrayBuffer().then((b) => resolve({ name: f.name, bytes: new Uint8Array(b) }), () => resolve(null));
+      });
+      input.addEventListener("cancel", () => resolve(null));
+      input.click();
+    });
+  },
   save(name, text) { download(name, new Blob([text], { type: "application/json" })); },
   saveBytes(name, bytes, type) { download(name, new Blob([bytes as BlobPart], { type })); },
   open() {

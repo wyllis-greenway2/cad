@@ -12,7 +12,7 @@ const TICK_MS = 50;
 const GAME_TICK_MS = 16;
 
 /** Report the device events of `el` (and the keyboard) on the bus. Returns a function that stops reporting. */
-export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { toggleGame(): void; captureMenu(cap: { move(x: number, y: number): void; click(x: number, y: number): void; close(): void; show(on: boolean): void } | null, at?: [number, number]): void } {
+export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { toggleGame(): void } {
   const now = () => performance.now();
   const at = (e: { clientX: number; clientY: number }) => {
     const r = el.getBoundingClientRect();
@@ -31,7 +31,7 @@ export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { to
   const endGame = () => { game = false; gameKeys.clear(); if (locked()) document.exitPointerLock(); ticking(); };
   const ticking = () => {
     const want = game ? GAME_TICK_MS : down.size ? TICK_MS : 0;
-    if (want !== tickMs) { if (timer) clearInterval(timer); timer = want ? setInterval(() => { bus.emit("input", { kind: "tick", t: now() }); ticking(); }, want) : null; tickMs = want; }
+    if (want !== tickMs) { if (timer) clearInterval(timer); timer = want ? setInterval(() => { bus.emit("input", { kind: "tick", t: now() }); if (game) syncHover(); ticking(); }, want) : null; tickMs = want; }
   };
   const listeners: [EventTarget, string, (e: never) => void, AddEventListenerOptions?][] = [];
   const on = <E extends Event>(t: EventTarget, type: string, fn: (e: E) => void, o?: AddEventListenerOptions) => {
@@ -39,16 +39,46 @@ export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { to
     listeners.push([t, type, fn as (e: never) => void, o]);
   };
 
-  // a menu is open in game mode (`in_441`): the pointer stays held at the middle and the mouse moves a cursor of its own over the menu; a click clicks what it is on, a right click closes the menu
-  type MenuCapture = { move(x: number, y: number): void; click(x: number, y: number): void; close(): void; show(on: boolean): void };
-  let menuCap: MenuCapture | null = null;
-  let [vx, vy] = [0, 0];
+  // game mode's crosshair works the bubbles, icons and fields of the page as a pointer does (`in_467`): what is under the middle of the view is hovered, pressed and clicked with the events a mouse would give it
+  let chain: Element[] = [];
+  let pressed: Element | null = null;
+  const underCrosshair = (): Element | null => {
+    const r = el.getBoundingClientRect();
+    const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return t && t !== el && !el.contains(t) && t !== document.body && t !== document.documentElement ? t : null;
+  };
+  const fire = (t: Element, type: string, extra: { bubbles?: boolean; button?: number } = {}): void => {
+    const r = el.getBoundingClientRect();
+    const init = { bubbles: extra.bubbles ?? true, cancelable: true, composed: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: extra.button ?? 0, buttons: type.endsWith("down") ? 1 << (extra.button ?? 0) : 0, view: window };
+    t.dispatchEvent(type.startsWith("pointer") ? new PointerEvent(type, { ...init, pointerId: 1, pointerType: "mouse", isPrimary: true }) : new MouseEvent(type, init));
+  };
+  const syncHover = (): void => {
+    if (!game || !locked()) { if (chain.length) { for (const a of chain) { fire(a, "pointerleave", { bubbles: false }); fire(a, "mouseleave", { bubbles: false }); } chain = []; } return; }
+    const t = underCrosshair();
+    const now: Element[] = [];
+    for (let a: Element | null = t; a && a !== document.body; a = a.parentElement) now.push(a);
+    for (const a of chain) if (!now.includes(a)) { fire(a, "pointerleave", { bubbles: false }); fire(a, "mouseleave", { bubbles: false }); }
+    for (const a of [...now].reverse()) if (!chain.includes(a)) { fire(a, "pointerenter", { bubbles: false }); fire(a, "mouseenter", { bubbles: false }); }
+    if (t) { fire(t, "pointermove"); fire(t, "mousemove"); }
+    chain = now;
+  };
   const centre = (): [number, number] => { const r = el.getBoundingClientRect(); return [r.width / 2, r.height / 2]; };
   const pointer = (kind: "down" | "move" | "up" | "cancel") => (e: PointerEvent) => {
-    if (menuCap && game && locked() && e.pointerType === "mouse") {
-      if (kind === "move") { vx = Math.max(0, Math.min(window.innerWidth, vx + e.movementX)); vy = Math.max(0, Math.min(window.innerHeight, vy + e.movementY)); menuCap.move(vx, vy); }
-      else if (kind === "down") { if (e.button === 2) menuCap.close(); else if (e.button === 0) menuCap.click(vx, vy); }
-      return; // (the menu has the mouse: the view does not turn and nothing is drawn or selected through it)
+    if (game && locked() && e.pointerType === "mouse" && !freed) { // (what the crosshair is over in the page takes the press, not the view, `in_467`)
+      if (kind === "move") syncHover();
+      const t = kind === "down" ? underCrosshair() : kind === "up" ? pressed : null;
+      if (kind === "down" && t) {
+        pressed = t;
+        fire(t, "pointerdown", { button: e.button }); fire(t, "mousedown", { button: e.button });
+        if (t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) t.focus();
+        return;
+      }
+      if (kind === "up" && t) {
+        pressed = null;
+        fire(t, "pointerup", { button: e.button }); fire(t, "mouseup", { button: e.button });
+        if (e.button === 0) fire(t, "click", { button: 0 });
+        return;
+      }
     }
     const held = game && locked() && e.pointerType === "mouse"; // (game mode: the pointer is held at the middle of the screen and only its movement counts, `in_304`)
     const [x, y] = held ? centre() : at(e);
@@ -98,6 +128,7 @@ export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { to
     if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "o" || e.key === "g")) e.preventDefault(); // save and open are ours, not the browser's
     if (e.key === " " || e.key === "Tab" || e.key === "Backspace" || e.key.startsWith("Arrow")) e.preventDefault(); // Space + drag pans, Tab moves between typed fields: the page must not scroll, change focus or go back
     if (e.key === " ") { if (down) { if (!spaceDown) spaceUsed = false; spaceDown = true; } else { spaceDown = false; if (!spaceUsed) { if (game) endGame(); else startGame(); } } }
+    if (!game && down && /^[wasd]$/i.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) startGame(); // (W A S D begin game mode as Space does, `in_469`)
     if (/^[wasd]$/i.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && game) { if (down) { gameKeys.add(e.key.toLowerCase()); ticking(); } else gameKeys.delete(e.key.toLowerCase()); }
     if (e.key === "Escape" && down && game) endGame();
     if (e.key === "Alt" && game) {
@@ -120,12 +151,5 @@ export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { to
     if (game) endGame(); else startGame();
     keyEvent(false);
   };
-  /** A menu is open (or not): in game mode the mouse then moves a cursor over it from `at` (the menu's middle) instead of turning the view (`in_441`). Outside game mode nothing changes. */
-  const captureMenu = (cap: MenuCapture | null, at: [number, number] = [0, 0]) => {
-    const want = cap && game && locked() ? cap : null;
-    if (want && !menuCap) { [vx, vy] = at; want.show(true); want.move(vx, vy); }
-    if (!want && menuCap) menuCap.show(false);
-    menuCap = want;
-  };
-  return Object.assign(stop, { toggleGame, captureMenu });
+  return Object.assign(stop, { toggleGame });
 }

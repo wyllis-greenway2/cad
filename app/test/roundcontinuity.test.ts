@@ -1,4 +1,4 @@
-// Is a fillet or chamfer the same kind of shape on both sides of the size at which the kernel's own round gives way to the cut region (`in_476`, `in_477`, `dec_edits_saturate`)? Each case is a round step
+// Is a fillet or chamfer the same kind of shape on both sides of the size at which the kernel's own round gives way to the cut region (`in_504`, `in_505`, `dec_edits_saturate`)? Each case is a round step
 // of a saved file taken as it was made (the steps after it are left off); the size is swept up and the volume of the body is read at each. A round of a bigger size on the same edges takes off (or, on
 // a concave edge, adds) more, so the volume must change one way and without a jump: where the region takes over and the volume goes back, or jumps by many times the steps before it, the two ways of
 // making a round do not agree.
@@ -63,13 +63,13 @@ const CASES: { file: string; step: string; known?: string; slow?: boolean }[] = 
   { file: "chamfered-block-in_405.cad.json", step: "s_014" },
   { file: "channel-block.cad.json", step: "s_021" },
   { file: "face-edits.cad.json", step: "s_018" },
-  { file: "face-shift-ears-in_474.cad.json", step: "s_022" },
-  { file: "chamfer-continuation-in_476.cad.json", step: "s_020" }, // (`in_476`: was a break, fixed by ending the region at the end faces, `dec_chamfer_region_reach`)
+  { file: "face-shift-ears-in_502.cad.json", step: "s_022" },
+  { file: "chamfer-continuation-in_504.cad.json", step: "s_020" }, // (`in_504`: was a break, fixed by ending the region at the end faces, `dec_chamfer_region_reach`)
   // breaks found by the sweep: the kernel's round gives way to the region and the volume goes back (a bigger round that leaves more of the body)
-  { file: "cyl-fillet.cad.json", step: "s_007" }, // (was a break: the region rounded the one half of the rim the step names, the kernel the whole rim; `in_479`)
-  { file: "stadium-body.cad.json", step: "s_020" }, // (was a break: the region chamfered the one straight side named, the kernel the whole outline of the slot; `in_480`)
+  { file: "cyl-fillet.cad.json", step: "s_007" }, // (was a break: the region rounded the one half of the rim the step names, the kernel the whole rim; `in_507`)
+  { file: "stadium-body.cad.json", step: "s_020" }, // (was a break: the region chamfered the one straight side named, the kernel the whole outline of the slot; `in_508`)
   { file: "hollow-pushed.cad.json", step: "s_022", slow: true },
-  { file: "hollow-pushed.cad.json", step: "s_026", slow: true }, // (was a break: the concave tip of a pocket rounded past its radius, `in_483`)
+  { file: "hollow-pushed.cad.json", step: "s_026", slow: true }, // (was a break: the concave tip of a pocket rounded past its radius, `in_511`)
   { file: "thin-wall.cad.json", step: "s_020", slow: true },
   { file: "big-chamfer.cad.json", step: "s_036", slow: true },
 ];
@@ -93,7 +93,7 @@ test("the check itself: a smooth growth passes, a step back and a jump are found
   assert.match(breaks(mk([1000, 990, 980, 995, 985], 3)).join(), /where the cut region takes over/);
 });
 
-test("a boolean that does nothing and says nothing does not leave the body bigger: at 10.75 mm the first cut of this round took off nothing (`in_486`)", () => {
+test("a boolean that does nothing and says nothing does not leave the body bigger: at 10.75 mm the first cut of this round took off nothing (`in_514`)", () => {
   // the volume at 10.5, 10.75 and 11 mm of the round: the middle one lies between the two
   const { points } = sweep("group-then-new-body-in_426.cad.json", "s_045", [10.5, 10.75, 11]);
   assert.equal(points.length, 3);

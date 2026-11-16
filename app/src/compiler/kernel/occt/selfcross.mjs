@@ -1,11 +1,11 @@
-// Does a mesh pass through itself? (`dec_self_crossing_check`, `in_472`, `in_473`.) The library's check says a body is valid when its faces close up, however the faces lie: a round that cuts the
+// Does a mesh pass through itself? (`dec_self_crossing_check`, `in_500`, `in_501`.) The library's check says a body is valid when its faces close up, however the faces lie: a round that cuts the
 // outer skin away past the corner of a hollow leaves the hollow sticking out through it, and the body is "valid". This looks at the triangles themselves, whatever made them.
 //
 // Two triangles that do not touch at a corner cross when each has corners on both sides of the other's plane, by more than `depth`, and the stretches of the line where the planes meet that lie in
 // them overlap by more than `depth`. `depth` is a few times the error of the meshing (a curved face is made of flat triangles that lie inside it by that much, so neighbours may overlap by that much
 // without the body being wrong). Triangles that share a corner are neighbours and are not compared. Triangles in one plane are not compared (a face lying on another face is a contact, not a crossing).
 // Returns the first crossing found, as the centre of the overlap and the two triangle numbers, or null; `null` too when the search would take too long (a mesh of tens of thousands of triangles all
-// stacked in one place, or a thin wide body such as a gear whose triangles all lie across each other's extent along the sweep) or when it has taken 1.5 s, so a check never holds the kernel up (`in_484`: it did,
+// stacked in one place, or a thin wide body such as a gear whose triangles all lie across each other's extent along the sweep) or when it has taken 1.5 s, so a check never holds the kernel up (`in_512`: it did,
 // for over five minutes, on a gear of 257 faces).
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -27,7 +27,7 @@ function stretch(p, d, dir) {
 }
 
 export function findCrossing(vertices, triangles, depth, budget = 3e7, ms = 1500) {
-  const t0 = performance.now(); // (the search gives up after `ms` milliseconds whatever it has not looked at: a check must never hold the kernel up, `in_484`)
+  const t0 = performance.now(); // (the search gives up after `ms` milliseconds whatever it has not looked at: a check must never hold the kernel up, `in_512`)
   const n = Math.floor(triangles.length / 3);
   if (n < 2) return null;
   // corners that are in one place are one corner (a mesh keeps one for each face it is a corner of)

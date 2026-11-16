@@ -4,6 +4,7 @@ import type { Scene, Step } from "../operation/scene.ts";
 import type { History } from "../operation/history.ts";
 import type { Group } from "../operation/groups.ts";
 import { groupsOf, membersOf, parentOf } from "../operation/groups.ts";
+import { hardOverlaps, overlapBlame, hardNames } from "./hard.ts";
 
 export type PanelKind = "bodies" | "history" | "groups";
 export interface PanelRow { id: string; label: string; /** selected (a body) */ active: boolean; /** can be taken out (a step) */ removable: boolean; /** a repeat of the body: it can be opened again to change its numbers (`in_257`) */ edit?: boolean; /** why this step could not be made, when it could not (it is shown in red) */ error?: string; /** an extrusion: its hidden sketch can be shown (`in_228`); true while it is shown */ sketch?: boolean; /** a body: the eye (`dec_hidden_bodies`): true when it is hidden, false when it is shown */ hidden?: boolean; /** a step that comes after the cursor (`dec_history_navigation`): faded, gone back to by choosing it */ future?: boolean; /** the step the cursor is at */ current?: boolean; /** the numbers of the step that can be changed (only at the last step), and whether they are open */ fields?: { key: string; label: string; value: number }[]; open?: boolean }
@@ -18,6 +19,8 @@ function stepLabel(st: Step): string {
     case "hollow": return `Hollow, ${n(p.thickness)} mm walls`;
     case "pattern": return p.mode === "mirror" ? "Mirror copy" : p.mode === "circular" ? `Circular repeat ${n(p.count)}` : `Linear repeat ${n(p.nx)} × ${n(p.ny)} × ${n(p.nz)}`;
     case "sweep": return "Sweep along a path";
+    case "importMesh": return `Import ${String(p.name ?? "mesh")} (mesh)`;
+    case "import": return `Import ${String(p.name ?? "STEP file")}`;
     case "loft": return `Loft through ${1 + String(p.also ?? "").split("|").filter(Boolean).length} sketches${p.ruled ? " (ruled)" : ""}`;
     case "revolve": return Number(p.advance ?? 0) ? `Spiral ${n(p.angle)}°, ${n(p.advance)} mm along the axis` : `Revolve ${n(p.angle)}°`;
     case "pushPull": return `Push / pull ${n(p.depth)} mm`;
@@ -82,8 +85,11 @@ function stepFields(st: Step): { key: string; label: string; value: number }[] {
  * The steps of the History (`dec_history_navigation`): those of the model at the cursor, then those that come after it (faded), each with its numbers when the cursor is at the last step; the step the cursor is at is
  * marked.
  */
-const historyPanel = (history: History, errors: Record<string, string>, shown: string | null, editing: string | null): Panel => {
+const historyPanel = (history: History, errors0: Record<string, string>, shown: string | null, editing: string | null): Panel => {
   const scene = history.scene;
+  // the hard bodies that overlap after the history is replayed: the step to look at is marked (`in_478`)
+  const errors: Record<string, string> = { ...errors0 };
+  for (const o of hardOverlaps(scene)) { const id = overlapBlame(scene, o); if (id && !errors[id]) errors[id] = `the hard bodies ${hardNames(scene, [o.a, o.b])} overlap here: move one of them clear`; }
   const end = history.snapshots[history.commands.length] ?? scene;
   const atEnd = history.cursor >= history.commands.length;
   const done = new Set(scene.steps.map((x) => x.id));

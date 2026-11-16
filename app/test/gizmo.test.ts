@@ -307,14 +307,17 @@ test("a line of the body shows the fillet / chamfer double arrow by itself; seve
   near(done.session.outcome.kernel!.volume!, 16000 - 4 * (1 - Math.PI / 4) * 4 * 20, 0.2);
 });
 
-test("Scale has a handle: pull the ball at the corner out to make the body bigger", () => {
+test("Scale has an all-together arrow at the same angle to X, Y and Z: pull it out to make the body bigger", () => {
   let st = select(box(), [BODY_OBJECT]);
   st = reduce(st, { type: "begin", name: "scale" }, env);
   const g = gizmoOf(st)!;
   assert.deepEqual(g.handles.map((h) => h.id), ["scale:x", "scale:y", "scale:z", "scale"], "an arrow for each axis and the ball for all together (`in_387`)");
   const [c, corner] = g.handles.find((h) => h.id === "scale")!.points;
   nearV(c!, [20, 10, 10]);
-  nearV(corner!, [40, 20, 20]);
+  const dirs = g.handles.filter((h) => h.id !== "scale").map((h) => normalize(sub(h.points[1]!, h.points[0]!)));
+  const all = normalize(sub(corner!, c!));
+  for (const d of dirs) near(dot(d, all), 1 / Math.sqrt(3), 1e-6); // (45-degree-style: the same angle to each axis)
+  for (const h of g.handles) nearV(h.points[0]!, c!); // (every handle stands at the middle, none is tied to the body's corner)
   const out: Vec3 = add(c!, scale(sub(corner!, c!), 2)); // twice as far from the centre
   st = drag(st, corner!, out, 6);
   near(Number(scene(st.session).steps.at(-1)!.params.value), 2, 0.02);
@@ -332,6 +335,60 @@ test("pulling the X arrow of Scale stretches the body along X alone, as the reci
   near(bb.max[0] - bb.min[0], 80, 1);
   near(bb.max[1] - bb.min[1], 20, 0.01);
   near(bb.max[2] - bb.min[2], 20, 0.01);
+});
+
+test("scaling X and then Y leaves each at its own factor and Z alone (`dec_scale_axes`)", () => {
+  let st = select(box(), [BODY_OBJECT]); // 40 x 20 x 20
+  st = reduce(st, { type: "begin", name: "scale" }, env);
+  const pull = (id: string, k: number) => { const [c, tip] = gizmoOf(st)!.handles.find((h) => h.id === id)!.points; st = drag(st, tip!, add(c!, scale(sub(tip!, c!), k)), 6); };
+  pull("scale:x", 2);
+  pull("scale:y", 1.5);
+  assert.equal(st.session.message, null);
+  const bb = bbox(st);
+  near(bb.max[0] - bb.min[0], 80, 1);
+  near(bb.max[1] - bb.min[1], 30, 1);
+  near(bb.max[2] - bb.min[2], 20, 0.01);
+});
+
+test("a flat face of a body can be revolved: Revolve first copies it as a sketch on its own plane, then turns that figure (`dec_revolve_body_face`)", () => {
+  let st = box(); // 40 x 20 x 20
+  const sc0 = scene(st.session);
+  const top = Object.values(sc0.parts).find((p) => p.kind === "plane" && p.origin === "body" && Math.abs(Math.abs(normalOfPlane(p)[2]!) - 1) < 1e-6 && Math.abs(p.at[2]! - 20) < 1e-6)!;
+  st = select(st, [top.ref]);
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  assert.equal(st.session.message?.startsWith("this face cannot") ?? false, false, st.session.message ?? "");
+  assert.equal(st.op?.kind, "revolve", "the revolve began");
+  const sc1 = scene(st.session);
+  const sketch = Object.values(sc1.parts).filter((p) => p.kind === "face" && p.origin === "drawn" && !(p.ref in sc0.parts));
+  assert.equal(sketch.length, 1, "the face is a figure now, a sketch on a plane of its own");
+  assert.equal(sc1.steps.length, sc0.steps.length, "the copy is a drawing, not a step");
+  const corners = Object.values(sc1.parts).filter((p) => p.kind === "corner" && p.origin === "drawn" && !(p.ref in sc0.parts)).map((p) => (p as { at: Vec3 }).at);
+  assert.equal(corners.length, 4, "the four corners of the face, none of the drawing the block was made from");
+  for (const c of corners) near(c[2], 20, 1e-6);
+  st = reduce(st, { type: "typed", key: "9", shift: false }, env);
+  st = reduce(st, { type: "typed", key: "0", shift: false }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  const step = scene(st.session).steps.at(-1)!;
+  assert.equal(step.type, "revolve");
+  assert.equal(step.params.angle, 90);
+});
+
+test("the round top of a post can be revolved too: its two half arcs are copied as one closed figure (`dec_revolve_body_face`)", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 5);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 10 } } });
+  let st: AppState = { ...createState(s), cam: homeCamera() };
+  const sc0 = scene(st.session);
+  const top = Object.values(sc0.parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && Math.abs(Math.abs(normalOfPlane(p)[2]!) - 1) < 1e-6 && Math.abs(p.at[2]! - 10) < 1e-6)!;
+  assert.ok(top, "the flat top");
+  st = select(st, [top.ref]);
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  assert.equal(st.op?.kind, "revolve", st.session.message ?? "");
+  const fresh = Object.values(scene(st.session).parts).filter((p) => p.origin === "drawn" && !(p.ref in sc0.parts));
+  assert.equal(fresh.filter((p) => p.kind === "face").length, 1, "one figure");
+  assert.equal(fresh.filter((p) => p.kind === "line" && p.center).length, 2, "of two arcs");
 });
 
 test("a drawn figure moves and turns like an object: X Y Z arrows, X Y Z rings and angle fields, taking its plane with it", () => {
@@ -1797,14 +1854,15 @@ test("the cross section is a plane put in the part: the menu inserts it through 
   const m2 = reduce(m1, { type: "runAction", id: `sheet:mode:${sec.ref}` }, env);
   assert.equal(modeOf(m2), 2);
   assert.equal(frame(m2).sections.length, 0, "not cutting");
-  const m3 = reduce(m2, { type: "runAction", id: `sheet:mode:${sec.ref}` }, env);
-  assert.equal(modeOf(m3), 3);
-  assert.equal(frame(m3).sections.length, 0);
-  assert.equal(modeOf(reduce(m3, { type: "runAction", id: `sheet:mode:${sec.ref}` }, env)), 0, "and round again");
+  assert.equal(modeOf(reduce(m2, { type: "runAction", id: `sheet:mode:${sec.ref}` }, env)), 0, "and round again");
+  // the eye is its own icon: invisible, the sheet cannot be pointed at (it may still cut)
+  const eye = reduce(st, { type: "runAction", id: `sheet:visible:${sec.ref}` }, env);
+  assert.equal(frame(eye).sectionPlanes[0]!.hidden, true);
+  assert.equal(frame(eye).sections.length, 1, "an invisible sheet still cuts");
   // by default the arrow along its normal; the move icon goes to the mover, then across X, Y, Z, then back to where it was
   assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["sheet:n"], "the push / pull arrow of a sheet");
   const free = reduce(st, { type: "runAction", id: "sheet:move" }, env);
-  assert.deepEqual(gizmoOf(free)!.handles.map((h) => h.id), ["sheet:n", "move:x", "move:y", "move:z", "rot:x", "rot:y", "rot:z", "pivot"], "the very mover a body has: arrows, rings and the sphere (`in_419`)");
+  assert.deepEqual(gizmoOf(free)!.handles.map((h) => h.id), ["move:x", "move:y", "move:z", "rot:x", "rot:y", "rot:z", "pivot"], "the very mover a body has: arrows, rings and the sphere (`in_419`), in place of the arrow along the normal (`in_466`)");
   // an arrow along its own axis moves it, as one step
   const k = sec.n.findIndex((v) => Math.abs(v) > 0.5);
   const [, tip] = gizmoOf(free)!.handles.find((h) => h.id === `move:${"xyz"[k]}`)!.points;
@@ -1822,11 +1880,11 @@ test("the cross section is a plane put in the part: the menu inserts it through 
   const off = doSectionClick(left, sec.ref);
   assert.equal(frame(off).sections.length, 1, "the click leaves the cut as it is");
   assert.ok(sectionNow(off), "and the plane is selected");
-  // the menu row with the plane selected puts it away for good (the plane goes)
+  // the menu row makes another plane, the first stays; the plane goes with the delete action
   const again = select(left, [sec.ref]);
   assert.ok(sectionNow(again));
-  const gone = reduce(again, { type: "runAction", id: "view:section" }, env);
-  assert.equal(frame(gone).sectionPlanes.length, 0);
+  assert.equal(frame(reduce(again, { type: "runAction", id: "view:section" }, env)).sectionPlanes.length, 2);
+  assert.equal(frame(reduce(again, { type: "runAction", id: "delete" }, env)).sectionPlanes.length, 0);
   // undo takes the plane out again: it was a step
   assert.equal(Object.values(scene(reduce(st, { type: "undo" }, env).session).parts).some((p) => p.kind === "plane" && !!p.section), false);
 });
@@ -2128,13 +2186,12 @@ test("the mover put on a slanted face has an arrow normal to it; on a face acros
   nearV(r2.op.frame![2], n, 1e-6);
 });
 
-test("a chamfer can have a distance along each face: the chip offers it for a chamfer, the first face is lit, two numbers are typed, Swap takes the first distance to the other face, and the step names the face (`in_432`)", () => {
+test("a chamfer can have a distance along each face: the chip always offers it (like Variable), even before the size is a chamfer, and choosing it makes the operation a chamfer; the first face is lit, two numbers are typed, Swap takes the first distance to the other face, and the step names the face (`in_432`)", () => {
   const { st: st0 } = edgeSelected(); // the top front edge of the 40 x 20 x 20 block: between the top (z = 20) and the front (y = 0)
   let st = reduce(st0, { type: "begin", name: "edge" }, env);
-  assert.equal(frame(st).sizeKinds!.some((k) => k.id === "twoDistances"), false, "not offered before it is a chamfer");
-  st = reduce(st, { type: "typed", key: "-", shift: false }, env);
-  st = reduce(st, { type: "typed", key: "2", shift: false }, env);
-  assert.ok(frame(st).sizeKinds!.some((k) => k.id === "twoDistances"), "offered for a chamfer");
+  assert.ok(frame(st).sizeKinds!.some((k) => k.id === "twoDistances"), "offered before any size is set: it cannot go away while the pointer is on its way to it");
+  st = reduce(st, { type: "typed", key: "2", shift: false }, env); // (a positive size, which alone would be a fillet)
+  assert.ok(frame(st).sizeKinds!.some((k) => k.id === "twoDistances"), "and for a fillet size");
   st = reduce(st, { type: "sizeKind", kind: "twoDistances" }, env);
   assert.equal(frame(st).entry!.fields.length, 2, "two numbers");
   assert.equal(frame(st).highlight.selection.length, 2, "the face the first distance is along is lit with the edge");

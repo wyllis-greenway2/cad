@@ -49,9 +49,9 @@ export function sectionNow(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; exte
 }
 
 /** A sheet: the planes of `in_459` (a cross section is one in a cutting mode). Its four modes, in the order its icon goes through them: it cuts away the half its normal points to, the other half, it does not cut, it is invisible. */
-export type SheetMode = 0 | 1 | 2 | 3;
-export const modeOf = (p: { cut?: boolean; flip?: boolean; hidden?: boolean }): SheetMode => (p.hidden ? 3 : !p.cut ? 2 : p.flip ? 1 : 0);
-const MODE_FLAGS: Record<SheetMode, { cut: boolean; flip: boolean; hidden: boolean }> = { 0: { cut: true, flip: false, hidden: false }, 1: { cut: true, flip: true, hidden: false }, 2: { cut: false, flip: false, hidden: false }, 3: { cut: false, flip: false, hidden: true } };
+export type SheetMode = 0 | 1 | 2;
+export const modeOf = (p: { cut?: boolean; flip?: boolean }): SheetMode => (!p.cut ? 2 : p.flip ? 1 : 0);
+const MODE_FLAGS: Record<SheetMode, { cut: boolean; flip: boolean }> = { 0: { cut: true, flip: false }, 1: { cut: true, flip: true }, 2: { cut: false, flip: false } };
 
 /** Every sheet that is cutting the view (`in_416`, `in_459`: any number at once): its middle, and the normal that points to the half cut away (the place a drag has taken it to while its handles are dragged). */
 export function cutsNow(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent: number }[] {
@@ -64,11 +64,27 @@ export function cutsNow(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent:
   });
 }
 
+/** A press on a sheet's delete icon (`in_470`): the plane goes (one step; what was drawn on it stays as it is). */
+export function doSheetDelete(s: AppState, ref: Ref): AppState {
+  const p = sceneOf(s.session).parts[ref];
+  if (p?.kind !== "plane" || !p.section) return s;
+  const session = run(s.session, { type: "deletePart", ref });
+  return select({ ...s, menu: null, sectionLive: null, sheetMove: s.sheetMove?.ref === ref ? null : s.sheetMove, session: { ...session, message: null } }, selectionOf(s.session).filter((r) => r !== ref));
+}
+
+/** A press on a sheet's eye icon: visible or invisible (an invisible sheet cannot be pointed at; it may still cut, `in_466`). */
+export function doSheetVisible(s: AppState, ref: Ref): AppState {
+  const p = sceneOf(s.session).parts[ref];
+  if (p?.kind !== "plane" || !p.section) return s;
+  const session = run(s.session, { type: "placePlane", ref, at: p.at, u: p.u, v: p.v, hidden: !p.hidden });
+  return { ...s, menu: null, session: { ...session, message: null } };
+}
+
 /** A press on a sheet's mode icon: the next mode (one step, so undo takes it back). */
 export function doSheetMode(s: AppState, ref: Ref): AppState {
   const p = sceneOf(s.session).parts[ref];
   if (p?.kind !== "plane" || !p.section) return s;
-  const next = ((modeOf(p) + 1) % 4) as SheetMode;
+  const next = ((modeOf(p) + 1) % 3) as SheetMode;
   const session = run(s.session, { type: "placePlane", ref, at: p.at, u: p.u, v: p.v, ...MODE_FLAGS[next] });
   return { ...s, menu: null, session: { ...session, message: null } };
 }
@@ -81,13 +97,6 @@ export function doSectionClick(s: AppState, ref: Ref): AppState {
 }
 
 const select = (s: AppState, refs: Ref[]): AppState => ({ ...s, session: { ...s.session, click: { ...s.session.click, selection: refs } } });
-
-/** The cross section from the menu: with one selected it is put away (the plane goes); else a plane is put through the middle of the part across the axis the camera looks along, the half nearer the camera cut away, and it is the only thing selected. */
-export function doSectionToggle(s: AppState): AppState {
-  const now = sectionNow(s);
-  if (now) return select({ ...s, menu: null, sectionLive: null, session: run(s.session, { type: "deletePart", ref: now.ref }) }, []);
-  return doPlaneNew(s, true);
-}
 
 /** A new sheet (`in_459`): a plane through the middle of the part across the axis the camera looks along, or lying on the flat surface selected; cutting (a cross section) or not. */
 export function doPlaneNew(s: AppState, cutting: boolean): AppState {

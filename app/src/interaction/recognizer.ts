@@ -15,6 +15,8 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   const I = opts.input ?? settings.input;
   const countClick = createClickCounter(I);
   const scroll = createScroll(I);
+  let straight = false;
+  let menuOn = false; // a menu is open in game mode: the view is fixed and the mouse and the wheel go round it (`in_467`)
   let drawing = false; // a drawing tool is armed: a click may wander more before it counts as turning the view
   const touch = createTouch(I, countClick, () => (drawing ? I.drawTouchSlopPx : I.touchSlopPx), () => drawing);
   let space = false;
@@ -33,7 +35,7 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
   let last: [number, number] | null = null;
   let buttons = 0;
   const ease = (dt: number, tau: number) => 1 - Math.exp(-dt / tau);
-  const mouse = createMouse(countClick, () => space, () => (drawing ? settings.view.drawClickMovePx : settings.view.clickMovePx));
+  const mouse = createMouse(countClick, () => space, () => (drawing ? (straight ? settings.view.leaveStraightPx : settings.view.drawClickMovePx) : settings.view.clickMovePx));
 
   function feed(e: RawInput): Intent[] {
     switch (e.kind) {
@@ -45,6 +47,7 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
           if (!spaceUsed) { if (game) { game = false; freed = false; gameDragged = false; fly.clear(); } else { game = true; flyAt = e.t; pend.x = pend.y = 0; } }
           return [];
         }
+        if (!game && e.down && /^[wasd]$/i.test(e.key) && !e.mods.ctrl && !e.mods.alt && !e.mods.shift) { game = true; flyAt = e.t; pend.x = pend.y = 0; fly.add(e.key.toLowerCase()); return []; } // (W A S D begin game mode as Space does, `in_469`)
         if (game && /^[wasd]$/i.test(e.key) && !e.mods.ctrl && !e.mods.alt) { const k = e.key.toLowerCase(); if (e.down) fly.add(k); else fly.delete(k); return []; }
         if (game && e.down && e.key === "Escape") { game = false; freed = false; gameDragged = false; fly.clear(); return []; }
         return e.down ? keyIntents(e, I) : [];
@@ -53,6 +56,7 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
       case "leave": return [{ type: "hoverEnd" }];
       case "tick": {
         const out: Intent[] = [];
+        if (menuOn && game) { fly.clear(); vel.f = vel.r = 0; pend.x = pend.y = 0; return [...touch.tick(e.t), ...mouse.tick(e.t)]; } // (the view is fixed while the menu is open, `in_467`)
         if (game || vel.f || vel.r) {
           const dt = Math.min(0.1, Math.max(0, (e.t - flyAt) / 1000));
           flyAt = e.t;
@@ -75,6 +79,7 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
         if (e.kind === "down" && space) spaceUsed = true;
         if (freed) { last = [e.x, e.y]; return mouse(e); } // (Alt: the pointer is free to use the bubbles and icons, `in_391`)
         if (e.kind === "down") buttons++; else if ((e.kind === "up" || e.kind === "cancel") && buttons > 0) buttons--;
+        if (e.kind === "move" && game && e.dx !== undefined && menuOn) return [{ type: "menuTurn", dx: e.dx, dy: e.dy! }]; // (the mouse turns the menu's selection, not the view, `in_467`)
         if (e.kind === "move" && game && e.dx !== undefined) { // (the pointer is held at the middle, `in_304`)
           centre = [e.x, e.y];
           { const g = fineGain(Math.hypot(e.dx, e.dy!)); pend.x += e.dx * I.flyLookScale * g; pend.y += e.dy! * I.flyLookScale * g; } // (the mouse turns the view, with a button down too: what is being worked follows the crosshair)
@@ -93,5 +98,5 @@ export function createRecognizer(opts: { input?: typeof settings.input } = {}) {
       }
     }
   }
-  return { feed, get game() { return game; }, setDrawing: (on: boolean) => { drawing = on; }, setTouchHelper: touch.setHelper, setScrollMode: scroll.setMode, get scrollMode() { return scroll.mode; } };
+  return { feed, get game() { return game; }, setDrawing: (on: boolean, flat = false) => { drawing = on; straight = flat; }, setMenu: (on: boolean) => { menuOn = on; }, setTouchHelper: touch.setHelper, setScrollMode: scroll.setMode, get scrollMode() { return scroll.mode; } };
 }

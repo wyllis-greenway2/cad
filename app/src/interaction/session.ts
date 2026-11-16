@@ -19,6 +19,7 @@ import type { Scene } from "../operation/scene.ts";
 import type { Result } from "../shared/result.ts";
 import { ok } from "../shared/result.ts";
 import { fromText, toText } from "../operation/file.ts";
+import type { About } from "../operation/file.ts";
 import { emptyScene } from "../operation/scene.ts";
 import type { Selection } from "./selection.ts";
 import { goIn, afterClick } from "./groupsel.ts";
@@ -80,7 +81,7 @@ export function openSession(kernel: Kernel, text: string): Result<Session> {
   const h = fromText(text, c.derive);
   return h.ok ? ok(wrap(h.value, c.outcomeOf, !!kernel.lagging)) : h;
 }
-export const saveText = (s: Session): string => toText(s.history);
+export const saveText = (s: Session, about?: About): string => toText(s.history, about);
 function withHistory(s: Session, h: History, message: string | null = null): Session {
   // the selection keeps only parts that still exist
   return { ...s, history: h, outcome: s.outcomeOf(h), message, conflict: null, click: { ...s.click, selection: s.click.selection.filter((r) => r in h.scene.parts) } };
@@ -107,18 +108,19 @@ const conflictsOf = (o: CompileOutcome): { planes: string[]; ids: string[] } => 
 
 /** The commands that put the standing mates back, one at a time (each may move what the next rests on); empty when none is off or one cannot be put back. */
 /** What is said when standing mates cannot all hold: which ones (`in_329`). */
-const atOddsMessage = (scene: Scene, ids: readonly string[], change: string): string => {
+const atOddsMessage = (scene: Scene, ids: readonly string[], change: string, hard?: string): string => {
   const names = mateStatus(scene).filter((m) => ids.includes(m.id)).map((m) => {
     const rel = scene.relations.find((r) => r.id === m.id);
     const bodies = (rel?.parts ?? []).filter((q) => scene.parts[q]?.kind === "body").map((q) => bodyLabel(scene, q));
     return `${m.mode.replace(/([A-Z])/g, " $1").toLowerCase()}${bodies.length === 2 ? ` between ${bodies[0]} and ${bodies[1]}` : ""}`;
   });
+  if (hard) return `${change[0]!.toUpperCase()}${change.slice(1)} would put the bodies of these standing mates into ${hard} where they hold: hard bodies do not go into each other. Take one of the mates away, or move the hard body first: ${names.join("; ")}`;
   return `${change[0]!.toUpperCase()}${change.slice(1)} would leave these standing mates unable to hold at once: ${names.join("; ")}. Take one of them away or change it first, or change something else`;
 };
-function standingFixes(h: History, stale: (h: History) => boolean): { fixes: Command[]; atOdds: string[] } {
+function standingFixes(h: History, stale: (h: History) => boolean): { fixes: Command[]; atOdds: string[]; hard?: string } {
   // all the standing mates solved together first (`in_329`); the ones put back one at a time (`in_321`) only if that did not hold
   const sol = solveStanding(h.scene);
-  if (sol.atOdds.length) return { fixes: [], atOdds: sol.atOdds };
+  if (sol.atOdds.length) return { fixes: [], atOdds: sol.atOdds, ...(sol.hard ? { hard: sol.hard } : {}) };
   if (sol.commands.length) {
     const batch: Command = { type: "batch", commands: sol.commands };
     const r = exec(h, batch);
@@ -224,12 +226,12 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   let odds: string[] = []; // (the standing mates that cannot all hold, `in_329`)
   // standing mates (`in_321`): the ones the change broke are put back in the same step, so one undo takes back the change and the corrections together
   if (!next.outcome.kernel?.stale) {
-    const { fixes, atOdds } = standingFixes(next.history, (q) => !!withHistory(s, q).outcome.kernel?.stale);
+    const { fixes, atOdds, hard } = standingFixes(next.history, (q) => !!withHistory(s, q).outcome.kernel?.stale);
     odds = atOdds;
     // a change that leaves mates that held with no placement where they all hold is refused, as one that breaks sketch constraints is: the mates are named and nothing is made (`in_330`, `in_331`); a conflict that was already there is not the change's
     const held = new Set(mateStatus(s.history.scene).filter((m) => m.state === "ok").map((m) => m.id));
     const brought = atOdds.filter((id) => held.has(id) || !s.history.scene.relations.some((r) => r.id === id));
-    if (brought.length) return { ...s, message: atOddsMessage(next.history.scene, atOdds, changeWords(s.history.scene, c)), conflict: { culprits: [], victims: atOdds } };
+    if (brought.length) return { ...s, message: atOddsMessage(next.history.scene, atOdds, changeWords(s.history.scene, c), hard), conflict: { culprits: [], victims: atOdds } };
     if (fixes.length) {
       const again = exec(s.history, { type: "batch", commands: [describedCommand(s.history.scene, c), ...fixes] });
       if (again.ok) return { ...withHistory(s, again.value), conflict: null, message: "the standing mates were put back with the change" };
@@ -293,7 +295,7 @@ export function refresh(s: Session): Session {
   }
   // the answer has come for a change made while it was awaited (the browser): the standing mates it broke are put back now, in the same step as the change (`in_321`, `in_328`: they were not before)
   if (fresh && s.outcome.kernel?.stale && h.cursor === h.commands.length && h.cursor > 0) {
-    const { fixes, atOdds } = standingFixes(now.history, (q) => !!withHistory(s, q).outcome.kernel?.stale);
+    const { fixes, atOdds, hard } = standingFixes(now.history, (q) => !!withHistory(s, q).outcome.kernel?.stale);
     if (fixes.length) {
       const again = exec(undo(now.history), { type: "batch", commands: [h.commands[h.cursor - 1]!, ...fixes] });
       if (again.ok) return { ...withHistory(now, again.value), checkSteps: undefined, fallback: undefined, message: "the standing mates were put back with the change" };
@@ -303,7 +305,7 @@ export function refresh(s: Session): Session {
     if (atOdds.some((id) => held.has(id) || !(h.snapshots[h.cursor - 1] ?? h.base).relations.some((r) => r.id === id))) {
       const undone = undo(h);
       const back = withHistory(s, { ...undone, commands: undone.commands.slice(0, undone.cursor), snapshots: undone.snapshots.slice(0, undone.cursor + 1) }); // (taken back, not kept to be done again with redo)
-      return { ...back, checkSteps: undefined, fallback: undefined, message: atOddsMessage(now.history.scene, atOdds, changeWords(h.snapshots[h.cursor - 1] ?? h.base, h.commands[h.cursor - 1]!)), conflict: { culprits: [], victims: atOdds } };
+      return { ...back, checkSteps: undefined, fallback: undefined, message: atOddsMessage(now.history.scene, atOdds, changeWords(h.snapshots[h.cursor - 1] ?? h.base, h.commands[h.cursor - 1]!), hard), conflict: { culprits: [], victims: atOdds } };
     }
   }
   // and a mate that is not true now, with nothing said when the change was made (the answer was awaited): said once the answer is here

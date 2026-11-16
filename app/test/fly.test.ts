@@ -84,10 +84,11 @@ test("the pointer held at the middle: the mouse's movement (dx, dy) turns the vi
   assert.equal(rec.game, false, "Esc ends it");
   const rec2 = createRecognizer();
   run(rec2, [key("a", true, 0)]);
-  assert.equal(rec2.game, false, "W A S D alone do not turn it on");
+  assert.equal(rec2.game, true, "W A S D turn it on too (`in_469`)");
   // Space used to pan is not a switch
-  run(rec2, [key(" ", true, 10), press("down", 20), press("up", 30), key(" ", false, 40)]);
-  assert.equal(rec2.game, false, "Space with a drag pans, it does not enter");
+  const rec3 = createRecognizer();
+  run(rec3, [key(" ", true, 10), press("down", 20), press("up", 30), key(" ", false, 40)]);
+  assert.equal(rec3.game, false, "Space with a drag pans, it does not enter");
 });
 
 test("with no key pressed the pointer only hovers", () => {

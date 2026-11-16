@@ -1,8 +1,9 @@
 // The kernel as the app sees it, but worked out on its own thread (`in_132`). `evaluate` stays the same call: it answers at once with the result for this graph if it is known
 // (the cache), else with the last result there was (the picture lags a little) and asks the worker, newest request first, one at a time. When an answer comes `onChange` is called
 // so the app compiles again and picks the new result up from the cache. A heavy model therefore never freezes the page; it just takes a moment to appear.
-import type { ExportQuality, ExportResult, Kernel, KernelGraph, KernelResult } from "./compiler/kernel/adapter.ts";
-import type { ResultStore } from "./platform/result-store.ts";
+import type { ExportQuality, ExportResult, Kernel, KernelGraph, KernelResult, StepResult } from "./compiler/kernel/adapter.ts";
+import type { ResultStore as Store } from "./platform/result-store.ts";
+type ResultStore = Store<KernelResult>; // (the store is made for the kernel's answer without knowing it: the platform layer does not import the compiler)
 
 const EMPTY: KernelResult = { ops: [], finalId: null, volume: null, bbox: null, mesh: null, faces: null, edges: null, vertices: null, totalMs: 0 };
 const KEEP = 24; // results kept, newest last
@@ -35,8 +36,8 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   let timer: ReturnType<typeof setTimeout> | null = null;
   const cache = new Map<string, KernelResult>();
   let last: KernelResult = EMPTY;
-  let busy: { id: number; key: string; graph: KernelGraph; asked?: { resolve: (r: ExportResult) => void }; at?: number; posted?: number } | null = null;
-  const exports: { graph: KernelGraph; quality: ExportQuality; resolve: (r: ExportResult) => void }[] = []; // (the exports waiting: each is answered, none is dropped for a newer one)
+  let busy: { id: number; key: string; graph: KernelGraph; asked?: { resolve: (r: ExportResult | StepResult) => void }; at?: number; posted?: number } | null = null;
+  const exports: { graph: KernelGraph; quality: ExportQuality; resolve: (r: ExportResult | StepResult) => void }[] = []; // (the exports waiting: each is answered, none is dropped for a newer one)
   let queued: { key: string; graph: KernelGraph; draft: boolean; lite: boolean; at: number } | null = null;
   let counter = 0;
   const pump = () => {
@@ -75,7 +76,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   let resolveReady: () => void = () => {};
   let rejectReady: (e: Error) => void = () => {};
   const ready = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
-  const onMessage = (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; result?: KernelResult; exported?: ExportResult; at?: { started: number; sent: number } }>) => {
+  const onMessage = (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; result?: KernelResult; exported?: ExportResult | StepResult; at?: { started: number; sent: number } }>) => {
     const received = performance.timeOrigin + performance.now();
     const m = e.data;
     if (m.ready) { up = true; resolveReady(); pump(); return; }
@@ -117,7 +118,11 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     init: () => ready,
     get pending() { return busy !== null || queued !== null || exports.length > 0; },
     exportMesh(graph: KernelGraph, quality: ExportQuality): Promise<ExportResult> {
-      return new Promise((resolve) => { exports.push({ graph, quality, resolve }); pump(); });
+      return new Promise((resolve) => { exports.push({ graph, quality, resolve: (r) => resolve(r as ExportResult) }); pump(); });
+    },
+    exportStep(graph: KernelGraph, bodies?: string[], unit?: "in"): Promise<StepResult> {
+      // the same queue as the mesh exports (one at a time, none dropped); the answer is a STEP result and is handed back as one
+      return new Promise((resolve) => { exports.push({ graph, quality: { tolerance: 0, angular: 0, step: true, ...(unit ? { unit } : {}), ...(bodies ? { bodies } : {}) }, resolve: (r) => resolve(r as StepResult) }); pump(); });
     },
     evaluate(graph: KernelGraph): KernelResult {
       const [draft, lite] = [self.draft, self.lite]; // (a rough mesh while a size is dragged, `in_216`, and with no faces and edges, `in_358`: asked for and kept apart from the fine and whole one)

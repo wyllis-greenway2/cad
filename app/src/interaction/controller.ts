@@ -29,13 +29,14 @@ import { add, sub, scale, dot } from "../math/vec.ts";
 export { createState } from "./control/state.ts";
 export type { AppState } from "./control/state.ts";
 export { advance, gridPlaneOf } from "./control/viewing.ts";
+export { stop as stopView } from "./control/state.ts";
 export { pivotOf, planeOf, objectOf } from "./objects.ts";
 
 const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit", "pan", "zoom", "dragEnd", "look", "typed", "entry"]);
 
 /** Apply one intent. A command that was refused for breaking constraints starts the flash. */
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
-  if (s.multiSelect && i.type === "click" && !i.shift && !s.tool && !s.op && !s.repeat && !s.cut) i = { ...i, shift: true }; // (select several: a tap is a Shift click, `in_300`)
+  if (s.adding && i.type === "click" && !i.shift && !s.tool && !s.op && !s.repeat && !s.cut && !s.picking) i = { ...i, shift: true }; // (adding: a tap is a Shift click, `in_539`)
   let next = apply(s, i, env);
   if (next.cam !== s.cam || next.session.history.scene !== s.session.history.scene || next.lastSeen === null) next = noteSeen(next, env.w, env.h, projector(next.cam, env.w, env.h).project as (p: Vec3) => [number, number]); // (what was last in view, for Reset camera, `in_303`)
   if (next.resume && !RESUMING.has(i.type)) next = { ...next, resume: null }; // only a click, or moving the view, keeps "sketching goes on" waiting for a vertex
@@ -123,6 +124,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "home": return doHome(s, env);
     case "runAction": return doRunAction(s, i.id, env.now);
     case "overrideRefusal": return overrideRefusal(s);
+    case "menuTurn": return s; // (game mode's: the menu is turned by the page, `in_467`)
     case "loftKind": return s.op?.kind === "loft" ? { ...s, op: loftChoice(sceneOf(s.session), s.op, i.id) } : s;
     case "sizeKind": {
       if (s.op?.kind !== "edge") return s;

@@ -162,8 +162,8 @@ test("a change that moves one of the bodies makes the mate not true, says so, an
 test("the menu offers 'put the mates back' only when one is not true, and doing it from the menu works (`in_315`)", () => {
   const { s, a } = matedBoxes();
   const env = { w: 800, h: 600, now: 0 };
-  assert.ok(!appRows("auto", "", { undo: true, redo: true, matesOff: 0 }).some((r) => r.id === "mate:reapply"));
-  assert.ok(appRows("auto", "", { undo: true, redo: true, matesOff: 1 }).some((r) => r.id === "mate:reapply"));
+  assert.ok(!appRows("auto", "", { matesOff: 0 }).some((r) => r.id === "mate:reapply"));
+  assert.ok(appRows("auto", "", { matesOff: 1 }).some((r) => r.id === "mate:reapply"));
   let wider = s;
   for (const ref of rightA) { const at = (scene(wider).parts[ref] as unknown as { at: number[] }).at; wider = run(wider, { type: "movePart", ref, to: [13, at[1]!, at[2]!] } as never); }
   assert.equal(mateStatus(scene(wider))[0]!.state, "off");
@@ -876,7 +876,7 @@ test("a free drag that the mates hold back is given rotation freedom: the point 
   assert.match(plain.session.message ?? "", /nowhere to go/);
 });
 
-test("while a drag is held back by its mates the arrows and numbers show where the body went, not where the pointer is (`in_347`)", () => {
+test("while a drag is held back by its mates the arrows show where the body went, not where the pointer is, and no numbers are shown (`in_347`, `in_489`)", () => {
   const env = { w: 800, h: 600, now: 0 };
   let s = box(box(createSession(kernel), 0, 0), 40, 0);
   const [a, b] = bodies(s);
@@ -885,7 +885,74 @@ test("while a drag is held back by its mates the arrows and numbers show where t
   const o = startOp(scene(s), [pin.ref], "move");
   assert.ok(o.ok);
   const fr = frameOf({ ...createState(s), cam: homeCamera(), op: { ...(o as unknown as { op: object }).op, free: [9, 4, 2] } as never, drag: { body: pin.ref, from: [0, 0, 0], centre: [0, 0, 0] } as never }, env);
-  assert.equal(fr.entries.length, 3);
-  const shown = fr.entries.map((e) => Number(e.fields[0]!.value));
-  assert.ok(Math.abs(shown[0]!) < 0.02 && Math.abs(shown[1]! - 4) < 0.02 && Math.abs(shown[2]! - 2) < 0.02, `X Y Z as the body went: ${shown}`);
+  assert.equal(fr.entries.length, 0, "no X Y Z numbers while it is dragged free");
+  const arrow = fr.gizmo!.handles.find((h) => h.id === "move:x")!.points[0]!;
+  const c = [(pin.bbox!.min[0] + pin.bbox!.max[0]) / 2, (pin.bbox!.min[1] + pin.bbox!.max[1]) / 2, (pin.bbox!.min[2] + pin.bbox!.max[2]) / 2];
+  assert.ok(Math.abs(arrow[0]! - c[0]!) < 0.5 && Math.abs(arrow[1]! - c[1]! - 4) < 0.5 && Math.abs(arrow[2]! - c[2]! - 2) < 0.5, `the arrows stand where the body went (0, 4, 2 from where it was), not at the pointer (9, 4, 2): ${arrow} vs ${c}`);
+});
+
+// ---- hard bodies and mates that move several bodies (`dec_hard_bodies`, `in_480`) ----
+import type { Op } from "../src/interaction/operations.ts";
+import { hardDrive } from "../src/interaction/mate.ts";
+const hardOn = (s: Session, ...ids: string[]) => ids.reduce((q, id) => run(q, { type: "setHard", body: id, on: true }), s);
+/** a block that is a body of its own, whatever it touches */
+function newBox(s: Session, x: number, y: number, w: number, h: number): Session {
+  const r = drawSquaredRectangle(scene(s), XY, [x, y, 0], [x + w, y + w, 0], [1, 0, 0], [0, 1, 0]);
+  return run(run(s, r.command), { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: r.lines, params: { depth: h, mode: "new" } } } as never);
+}
+const lift = (s: Session, body: Body, free: [number, number, number]): Session => {
+  const st = startOp(scene(s), [body.ref] as never, "move", null);
+  assert.ok(st.ok);
+  return runOp(s, { ...(st as { op: Op }).op, free })!.session;
+};
+
+/** a pin of 3 in a hole of 5, mated coaxially (a joint), and a cap 20 above the pin's end that nothing mates */
+function pinAndCap(): { s: Session; pin: string; cap: string; mate: string } {
+  let s = cylinder(cylinder(createSession(kernel), 0, 0, 5), 40, 0, 3, 8);
+  const [a, b] = bodies(s);
+  s = run(s, actionsFor(scene(s), [roundOfBody(s, b!), roundOfBody(s, a!)]).find((x) => x.id === "mate:coaxial")!.run());
+  s = newBox(s, -4, -4, 8, 2);
+  const cap = bodies(s).find((x) => x.id !== a!.id && x.id !== b!.id)!;
+  s = lift(s, cap, [0, 0, 20]);
+  return { s, pin: b!.id!, cap: cap.id!, mate: mateStatus(scene(s))[0]!.id };
+}
+
+test("a joint driven into a hard body stops against it, the amount it can make is what is made, and a soft one goes through (`in_480`)", () => {
+  const { s: soft, pin, cap, mate } = pinAndCap();
+  const z = (q: Session) => bodies(q).find((x) => x.id === pin)!.bbox!.min[2]!;
+  const capRef = bodies(soft).find((x) => x.id === cap)!.ref;
+  assert.equal(hardDrive(scene(soft), mate, "slide", 25).amount, 25, "nothing is hard: all of it");
+  const s = hardOn(soft, pin, cap);
+  const d = hardDrive(scene(s), mate, "slide", 25);
+  assert.ok(Math.abs(d.amount - 12) < 0.05, `the pin's end is 20 up and 8 long: it can go 12 (${d.amount})`);
+  assert.deepEqual(d.hit, [capRef], "the cap it is against");
+  const rows = actionsFor(scene(s), [bodies(s).find((x) => x.id === pin)!.ref]);
+  const z0 = z(s);
+  const slid = run(s, rows.find((x) => x.id === "joint:slide")!.run(25)); // typed 25: goes as far as it can
+  assert.ok(!slid.message, `${slid.message}`);
+  assert.ok(Math.abs(z(slid) - z0 - 12) < 0.05, `stopped at the cap (${z(slid) - z0})`);
+  assert.equal(mateStatus(scene(slid))[0]!.state, "ok", "still mated");
+  assert.equal(hardDrive(scene(s), mate, "slide", 5).amount, 5, "a slide that does not reach it is whole");
+  const through = run(soft, actionsFor(scene(soft), [bodies(soft).find((x) => x.id === pin)!.ref]).find((x) => x.id === "joint:slide")!.run(25));
+  assert.ok(Math.abs(z(through) - z0 - 25) < 1e-3, "a soft pin goes through the cap");
+});
+
+test("mates put back together after a change that would leave a body in a hard one: nothing is made and the hard body is named (`in_480`)", () => {
+  let s = box(box(createSession(kernel), 0, 0), 40, 0, 10, 5);
+  const [a, b] = bodies(s);
+  s = run(s, actionsFor(scene(s), [faceOf(s, b!, [0, 0, -1]), faceOf(s, a!, [0, 0, 1])]).find((x) => x.id === "mate:flush")!.run()); // the second body stands on the first
+  assert.equal(mateStatus(scene(s))[0]!.state, "ok");
+  s = newBox(s, 40, 0, 10, 5);
+  const c = bodies(s).find((x) => x.id !== a!.id && x.id !== b!.id)!;
+  s = lift(s, c, [0, 0, 20]); // above the second body: where it would be if the first were 10 higher
+  const first = scene(s).steps.find((st) => st.type === "extrude")!;
+  const taller = { type: "setStepParams", id: first.id, params: { depth: 20 } } as never;
+  const carried = run(s, taller);
+  assert.match(carried.message ?? "", /put back/, "the mate carries the second body up: fine while nothing is hard");
+  assert.ok(Math.abs(bodies(carried).find((x) => x.id === b!.id)!.bbox!.min[2]! - 20) < 1e-3, "it is 20 up now");
+  const h = hardOn(s, b!.id!, c.id!);
+  const refused = run(h, taller);
+  assert.match(refused.message ?? "", /hard bodies do not go into each other/, `${refused.message}`);
+  assert.equal(scene(refused).steps.length, scene(h).steps.length, "nothing was made");
+  assert.ok(solveStanding(scene(h)).commands.length === 0, "nothing was off yet");
 });

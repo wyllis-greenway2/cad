@@ -1,4 +1,4 @@
-// A chamfer larger than the wall of a hollow body (`in_471`): the kernel's own round came out as a "valid" body whose cavity stuck out through the outer skin at the corner; it is refused now and the
+// A chamfer larger than the wall of a hollow body (`in_499`): the kernel's own round came out as a "valid" body whose cavity stuck out through the outer skin at the corner; it is refused now and the
 // round is made as a region (`dec_edits_saturate`): the wall is cut through and the cavity is open there.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -8,7 +8,7 @@ import { openSession } from "../src/interaction/session.ts";
 
 await kernel.init();
 const open = (text: string) => { const r = openSession(kernel as never, text); assert.ok(r.ok); return r.ok ? r.value : (null as never); };
-const text = fs.readFileSync(new URL("./fixtures/invalid-chamfer-on-hollow-in_471.cad.json", import.meta.url), "utf8");
+const text = fs.readFileSync(new URL("./fixtures/invalid-chamfer-on-hollow-in_499.cad.json", import.meta.url), "utf8");
 type K = { volume: number; faces: unknown[]; ops: { id: string; error: string | null; note?: string }[]; mesh: { vertices: Float32Array; triangles: Uint32Array } };
 
 test("a chamfer wider than the wall of a hollow body takes the wall away and opens the cavity; the cavity does not stick out of the skin", () => {

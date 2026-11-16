@@ -14,6 +14,8 @@ alternative_to:
 
 **Built (`in_432`):** the chamfer's size chip gets *Two distances* once the size is a chamfer and the straight edges selected all lie on a flat face, and *Swap faces* beside it; two numbers (the first along the lit face, the second along the other; Tab goes between them; equal until the second is typed); the lit face is drawn selected; the step has `mode: chamfer`, `value` (d1), `d2` and `face` (`nx,ny,nz,d,px,py,pz`), and is never chamfered together with other steps. The kernel measures d1 along that face (`chamfer({distances, selectedFace})`); an edge that does not lie on it, a face that has gone, or distances the kernel cannot make is refused with the reason and nothing is approximated. **Not built:** choosing the face by clicking it (only the swap), curved faces for d1, edges on different faces in one step.
 
+**Changed (`in_517`):** the chip is offered whenever the edges lie on a flat face, as Variable is, not only while the size is negative: it used to vanish as the pointer left the arrow for the chip (the live size changed sign on the way). Choosing it makes the operation a chamfer whatever the sign of the arrow.
+
 ## Rationale
 
 The first face is the real choice: the kernel needs it, and a rule that is invisible (the face with the lower reference) would make d1 and d2 swap for no reason the person can see.

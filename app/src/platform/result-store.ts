@@ -1,12 +1,20 @@
 // The kernel's answers kept in the browser's own storage (IndexedDB), so that a model answered before is shown at once when it is opened again (`dec_description_cache`). Only this file knows IndexedDB; the kernel on its
 // thread (`kernel-async.ts`) is given a `ResultStore` and asks it. The key is made of the kernel's stamp and a SHA-256 of the graph's text: never a short hash, so that two graphs never share an answer.
-import type { KernelResult } from "../compiler/kernel/adapter.ts";
+/** The parts of the kernel's answer that are looked at here (the platform layer knows nothing of the compiler: the answer itself passes through, `KernelResult` fits it). */
+export interface KernelResult {
+  ops: unknown[];
+  totalMs: number;
+  mesh: { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array; sharp?: Float32Array; sharpDeg?: number } | null;
+  faces: unknown[] | null;
+  edges: { pts: Float32Array }[] | null;
+  vertices: unknown[] | null;
+}
 
-export interface ResultStore {
+export interface ResultStore<T extends KernelResult = KernelResult> {
   /** the answer kept for this graph text, or null (not there, or not what it should be) */
-  get(graphText: string): Promise<KernelResult | null>;
+  get(graphText: string): Promise<T | null>;
   /** keep the answer for this graph text; written a moment after the last one asked, so a run of answers writes only the newest */
-  put(graphText: string, result: KernelResult): void;
+  put(graphText: string, result: T): void;
   /** forget everything */
   clear(): Promise<void>;
 }
@@ -39,7 +47,7 @@ export function looksRight(r: unknown): r is KernelResult {
 const request = <T,>(r: IDBRequest<T>): Promise<T> => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 
 /** The store for this stamp of the kernel; null where the browser has no IndexedDB (or it is refused). */
-export function openResultStore(stamp: string): ResultStore | null {
+export function openResultStore<T extends KernelResult = KernelResult>(stamp: string): ResultStore<T> | null {
   if (typeof indexedDB === "undefined" || typeof crypto === "undefined" || !crypto.subtle) return null;
   let db: Promise<IDBDatabase> | null = null;
   const open = (): Promise<IDBDatabase> => db ??= new Promise((res, rej) => {
@@ -80,7 +88,7 @@ export function openResultStore(stamp: string): ResultStore | null {
       try {
         const [d, key] = [await open(), `${stamp}:${await sha256(text)}`];
         const found = await request(d.transaction(STORE, "readonly").objectStore(STORE).get(key) as IDBRequest<{ result: unknown } | undefined>);
-        return found && looksRight(found.result) ? (found.result as KernelResult) : null;
+        return found && looksRight(found.result) ? (found.result as T) : null;
       } catch { return null; }
     },
     put(text, result) {

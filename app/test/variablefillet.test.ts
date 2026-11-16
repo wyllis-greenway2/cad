@@ -49,7 +49,7 @@ test("the chip, the two numbers and Tab: Variable, 5, Tab, 12, Enter makes one s
   })())!;
   let st = createState({ ...s, click: { ...s.click, selection: [edge.ref] as never } });
   st = reduce(st, { type: "begin", name: "edge" }, env);
-  assert.deepEqual(frameOf(st, { w: 800, h: 600 }).sizeKinds?.map((k) => k.id), ["constant", "variable"]);
+  assert.deepEqual(frameOf(st, { w: 800, h: 600 }).sizeKinds?.map((k) => k.id), ["constant", "variable", "twoDistances"]);
   st = reduce(st, { type: "sizeKind", kind: "variable" }, env);
   st = type(st, "5");
   let fields = frameOf(st, { w: 800, h: 600 }).entry?.fields;

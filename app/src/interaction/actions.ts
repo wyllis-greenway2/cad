@@ -12,7 +12,7 @@ import type { Scene, Relation } from "../operation/scene.ts";
 import { lookup, nextId, figureRefs } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
 import { relationKind, planeOfParts, roundOf } from "../operation/part.ts";
-import { whyNotMate, mateCommand, driveCommand, limitCommand, unlimitCommand, jointOf } from "./mate.ts";
+import { whyNotMate, mateCommand, driveCommand, hardDrive, limitCommand, unlimitCommand, jointOf } from "./mate.ts";
 import type { MateMode } from "../operation/mates.ts";
 import { featureOf, existingMate, faceMiddle, isFlatMode, mateStatus } from "../operation/mates.ts";
 import { ordered } from "./selection.ts";
@@ -129,7 +129,7 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
     const mate = mateStatus(scene).find((m) => m.state === "ok" && m.mode === "coaxial" && m.mover?.body === sel[0]);
     if (mate) {
       for (const [kind, label, unit] of [["turn", "Turn about the mate's axis", "deg"], ["slide", "Slide along the mate's axis", "mm"]] as const) {
-        out.push({ id: `joint:${kind}`, label, group: "operation", dimensional: true, unit, parts: [...sel], enabled: true, why: null, measure: () => 0, spot: () => faceMiddle(scene, mate.mover!.ref), run: (value?: number): Command => driveCommand(scene, mate.id, kind, value ?? 0) ?? { type: "batch", commands: [] } });
+        out.push({ id: `joint:${kind}`, label, group: "operation", dimensional: true, unit, parts: [...sel], enabled: true, why: null, measure: () => 0, spot: () => faceMiddle(scene, mate.mover!.ref), run: (value?: number): Command => driveCommand(scene, mate.id, kind, hardDrive(scene, mate.id, kind, value ?? 0).amount) ?? { type: "batch", commands: [] } });
         const j = jointOf(scene, mate.id)![kind];
         const unitText = unit === "deg" ? "°" : " mm";
         for (const side of ["Min", "Max"] as const) { // the limits: where the joint stops (`in_322`); a limit typed in is where it is to stop, in the joint's own count from where the mate was made

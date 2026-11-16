@@ -1,6 +1,6 @@
 // Where to draw a thin line on the body (`in_164`): along the edges where the surface turns a corner. This looks at the kernel's smooth normals at the two ends of each edge shared by two
 // (the search itself is in the kernel's files: the kernel's thread finds the edges of each body once and sends them, `dec_sharp_edges_once`; this is for a mesh that came without them)
-import { cornerEdges } from "../../compiler/kernel/occt/sharp.mjs";
+import { cornerEdges } from "../../shared/sharp.mjs";
 export { cornerEdges };
 
 const kept = new WeakMap<Float32Array, { normals: Float32Array; triangles: Uint32Array; deg: number; edges: number[] }>();

@@ -40,6 +40,11 @@ function fillTriangles(s: Scene, ref: Ref, kind: Kind, body: { vertices: Float32
   const p = s.parts[ref];
   if (!p) return null;
   if (p.origin === "world" && kind === "select") return null; // a world plane is never filled blue when picked (`in_116`); the hover ring still shows
+  if (p.kind === "plane" && p.section && p.extent !== undefined) { // a sheet (`in_466`): the blue disc follows the pointer over it as on every surface; picked, it is not filled
+    if (kind !== "hover") return null;
+    const q = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, b]) => [p.at[0] + p.u[0] * a! * p.extent! + p.v[0] * b! * p.extent!, p.at[1] + p.u[1] * a! * p.extent! + p.v[1] * b! * p.extent!, p.at[2] + p.u[2] * a! * p.extent! + p.v[2] * b! * p.extent!]);
+    return [...q[0]!, ...q[1]!, ...q[2]!, ...q[0]!, ...q[2]!, ...q[3]!];
+  }
   if (p.kind === "body") {
     // one body of several: its own faces (`dec_independent_bodies`)
     const own = Object.values(s.parts).filter((q) => q.kind === "plane" && q.of === ref && q.mesh);

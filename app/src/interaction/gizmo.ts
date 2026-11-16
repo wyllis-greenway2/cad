@@ -89,8 +89,7 @@ export function sectionGizmo(at: Vec3, cam: Camera, n: Vec3 = [0, 0, 1], free = 
   const nn = normalize(n);
   const arrow: Handle = { id: "sheet:n", kind: "double", axis: null, points: [add(at, scale(nn, -HALF * L * 1.2)), add(at, scale(nn, HALF * L * 1.2))] };
   if (!free) return { centre: at, handles: [arrow] };
-  const m = moverHandles("both", at, L, false);
-  return { centre: at, handles: [arrow, ...m.handles] };
+  return moverHandles("both", at, L, false); // (the mover replaces the arrow along the normal while it is there, `in_466`)
 }
 
 /**
@@ -186,9 +185,14 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
     const a = axisOf(op);
     const c = revolveCentre(op);
     if (!a || !c) return null;
-    const start = add(c, scale(a.d, L * 0.55));
-    const orb: Handle = { id: "rev:orb", kind: "ball", axis: null, points: [c] }; // (the mover's orb on the line it turns about: it moves when another line is clicked, `in_436`)
-    return { centre: c, handles: [orb, ring("rev:turn", c, a.d, L * 0.5, null), { id: "rev:adv", kind: "double", axis: null, points: [add(start, scale(a.d, -HALF * L * 0.6)), add(start, scale(a.d, HALF * L * 0.6))] }] };
+    const orb: Handle = { id: "rev:orb", kind: "ball", axis: null, points: [c] }; // (the mover's orb: it moves when another line is clicked or when it is dragged, `in_436`, `in_468`)
+    // the rotate orb: a ring about each of the three axes, wherever the orb stands and however it is turned; the ring taken is the axis that is turned about (`in_468`). On each axis, as on the linear repeat, two arrows
+    // in line: the first (`piv:`) puts the orb along that axis, the second, past it (`rev:adv:`), sets the spiral along that axis (`in_529`)
+    const ax: readonly Vec3[] = op.frame ?? AXES;
+    const rings = ax.map((d, i) => ring(`rev:turn:${"xyz"[i]}`, c, d, L * 0.5, i as 0 | 1 | 2));
+    const place = ax.map((d, i): Handle => ({ id: `piv:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [c, add(c, scale(d, L * 0.8))] }));
+    const spiral = ax.map((d, i): Handle => { const at = add(c, scale(d, L * 0.95)); return { id: `rev:adv:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [at, add(at, scale(d, L * 0.35))] }; });
+    return { centre: c, handles: [orb, ...rings, ...place, ...spiral] };
   }
   if (op.kind === "edge") {
     // one double arrow, on the edge selected last, through its middle, along the way out of the corner; the size you drag applies to all the selected edges, so one arrow and one bubble are all there is to work with
@@ -225,7 +229,6 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
     return { centre: c, handles };
   }
   if (op.target === "shape" && op.kind === "scale" && op.pivot) {
-    // the ball on the figure's far corner (a circle: on its rim) pulled out for bigger
     const first = op.parts[0] ? scene.parts[op.parts[0]] : undefined;
     const pl = op.plane ? scene.parts[op.plane] : undefined;
     const far = first?.kind === "corner" ? first.at : first?.kind === "circle" && pl?.kind === "plane" ? add(op.pivot, scale(pl.u, first.radius)) : null;
@@ -236,7 +239,8 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
     const pts = cornersOf(scene, op.parts);
     const ext = (i: number) => (first?.kind === "circle" ? first.radius : pts.length ? Math.max(...pts.map((q) => Math.abs(q[i]! - op.pivot![i]!))) : 0);
     const arrows = c === undefined ? [] : AXES.flatMap((d, i): Handle[] => (i === c ? [] : [{ id: `scale:${"xyz"[i]}`, kind: "scale", axis: i as 0 | 1 | 2, points: [op.pivot!, add(op.pivot!, scale(d, ext(i) + 0.5 * L))] }]));
-    return { centre: op.pivot, handles: [...arrows, { id: "scale", kind: "scale", axis: null, points: [op.pivot, far] }] };
+    const across = c === undefined ? normalize(pl?.kind === "plane" ? pl.u : [1, 0, 0]) : normalize(AXES.reduce<Vec3>((a, d, i) => (i === c ? a : add(a, d)), [0, 0, 0])); // (the all-together arrow runs out at the same angle to the axes of the figure's plane)
+    return { centre: op.pivot, handles: [...arrows, { id: "scale", kind: "scale", axis: null, points: [op.pivot, add(op.pivot, scale(across, Math.max(...[0, 1, 2].map((i) => (i === c ? 0 : ext(i)))) + 0.5 * L))] }] };
   }
   if (op.target === "part" && op.sub) {
     // a corner, an edge or a face of the body: the same X Y Z arrows and rings as an object, at the middle of its corners (the pivot of a turn can be moved)
@@ -257,9 +261,10 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
   if (op.kind === "move" || op.kind === "rotate") return moverHandles(op.kind, centre, L, sphere, op.frame);
   if (op.kind === "scale") {
     // an arrow along each axis scales along that axis alone, the diagonal ball scales all together (`in_387`)
-    const half = [0, 1, 2].map((i) => (box.hi[i]! - box.lo[i]!) / 2);
-    const arrows = AXES.map((d, i): Handle => ({ id: `scale:${"xyz"[i]}`, kind: "scale", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, half[i]! + 0.8 * HALF * L))] }));
-    return { centre, handles: [...arrows, { id: "scale", kind: "scale", axis: null, points: [centre, box.hi] }] };
+    // (all of them stand at the middle and are as long as the mover's, not tied to the body's own size: on a thin body they stay apart and clear of it; the all-together arrow runs out at the same angle to the three)
+    const len = 2 * HALF * L;
+    const arrows = AXES.map((d, i): Handle => ({ id: `scale:${"xyz"[i]}`, kind: "scale", axis: i as 0 | 1 | 2, points: [centre, add(centre, scale(d, len))] }));
+    return { centre, handles: [...arrows, { id: "scale", kind: "scale", axis: null, points: [centre, add(centre, scale(normalize([1, 1, 1]), len))] }] };
   }
   return null;
 }

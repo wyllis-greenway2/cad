@@ -6,7 +6,7 @@ import type { Scene } from "../operation/scene.ts";
 import { lookup, nextId, figureParams } from "../operation/scene.ts";
 import { formatId } from "../shared/ref.ts";
 import type { Part } from "../operation/part.ts";
-import { pointOf } from "../operation/part.ts";
+import { pointOf, loopPoints } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
 import { typedNumber } from "../shared/numbers.ts";
 import type { Op } from "./operations.ts";
@@ -71,4 +71,37 @@ export function revolveCommand(scene: Scene, op: Op, angle: number): Command | n
     return { type: "addStep", step: { id: figs.length > 1 ? formatId("s", first + i) : id, type: "revolve", parts: f.fig.outer, params: { ...figureParams([f.fig]), angle, advance: advanceOf(op), ax: at[0], ay: at[1], az: at[2], dx: a.d[0], dy: a.d[1], dz: a.d[2] } } };
   };
   return figs.length > 1 ? { type: "batch", commands: figs.map(one) } : one(figs[0]!, 0);
+}
+
+/**
+ * Why the turn cannot be made when its axis cuts across a figure (`in_520`): the axis lies in the figure's plane and the figure has parts on both sides of it, so it would turn into itself. Null when the axis is on the
+ * figure's edge, outside it, across the plane (a twist) or not in the plane at all (the kernel judges those).
+ */
+export function axisAcross(scene: Scene, op: Op): string | null {
+  const a = axisOf(op);
+  if (!a || !op.normal) return null;
+  const get = lookup(scene);
+  const n = normalize(op.normal);
+  const d = normalize(a.d);
+  if (Math.abs(dot(d, n)) > 1e-6) return null; // (across the plane: a twist, or tilted)
+  const figs = op.revFigs?.length ? op.revFigs.map((f) => f.fig.outer) : [op.parts];
+  for (const outer of figs) {
+    const face = Object.values(scene.parts).find((q): q is Extract<Part, { kind: "face" }> => q.kind === "face" && q.origin === "drawn" && (q.disk ? outer.length === 1 && q.disk === outer[0] : q.loop.length === outer.length && outer.every((r) => q.loop.includes(r))));
+    if (!face) continue;
+    const pl = face.plane ? get(face.plane) : undefined;
+    if (!pl || pl.kind !== "plane" || Math.abs(dot(sub(a.p, pl.at), n)) > 1e-6) continue; // (an axis off the plane is not across the figure)
+    let pts: Vec3[];
+    const disk = face.disk ? get(face.disk) : undefined;
+    if (disk?.kind === "circle") {
+      const c = pointOf(get, disk.center);
+      if (!c) continue;
+      const [u, v] = [normalize(pl.u), normalize(pl.v)];
+      pts = Array.from({ length: 64 }, (_, i) => { const t = (i / 64) * Math.PI * 2; return add(c, add(scale(u, Math.cos(t) * disk.radius), scale(v, Math.sin(t) * disk.radius))); });
+    } else pts = loopPoints(get, face.loop, face.corners);
+    const across = cross3(n, d); // (in the plane, square to the axis)
+    const side = pts.map((q) => dot(sub(q, a.p), across));
+    const tol = 1e-6 * Math.max(1, ...side.map(Math.abs));
+    if (Math.max(...side) > tol && Math.min(...side) < -tol) return "the axis cuts across the figure, which would turn into itself: put the orb on one of its edges, or out beside it";
+  }
+  return null;
 }

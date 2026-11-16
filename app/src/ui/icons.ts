@@ -4,9 +4,11 @@ const svg = (inner: string): string => `<svg viewBox="0 0 16 16" width="15" heig
 const ICONS: Record<string, string> = {
   // change the numbers of a step in the History (`dec_history_navigation`)
   pencil: svg('<path d="M2.5 13.5l.8-3.2 7.6-7.6 2.4 2.4-7.6 7.6z"/><path d="M9.2 4.4l2.4 2.4"/>'),
-  // a body shown, and hidden (`dec_hidden_bodies`): an eye, open and crossed
-  eye: svg('<path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2.1"/>'),
-  eyeOff: svg('<path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z" opacity=".45"/><circle cx="8" cy="8" r="2.1" opacity=".45"/><path d="M2.5 2.5l11 11"/>'),
+  // a hard body (`in_473`): two blocks that stop against each other
+  hard: svg('<rect x="1.8" y="5" width="5.2" height="6" rx=".8"/><rect x="9" y="5" width="5.2" height="6" rx=".8"/><path d="M7.6 8h.8" stroke-width="2"/>'),
+  // the world orb (`in_463`): an eye (a click would show the world), a crossed eye (a click would put it away)
+  eye: svg('<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/>'),
+  eyeOff: svg('<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/><path d="M2.5 13.5l11-11"/>'),
   // the modes of a sheet's icon (`in_459`): the plane edge on, and the half that is cut away dashed (above, below), no cut, invisible
   sheetCutUp: svg('<path d="M2 10h12"/><path d="M3 6h10M3 3.5h10" stroke-dasharray="1.6 1.4" opacity=".7"/><path d="M8 8.4V7.6" />'),
   sheetCutDown: svg('<path d="M2 6h12"/><path d="M3 10h10M3 12.5h10" stroke-dasharray="1.6 1.4" opacity=".7"/>'),
@@ -63,16 +65,19 @@ Object.assign(ICONS, {
   tangent: svg('<circle cx="8" cy="10" r="4"/><path d="M1.5 6h13"/>'),
   rect: svg('<rect x="2.5" y="4" width="11" height="8" rx="0.6"/>'),
   circle: svg('<circle cx="8" cy="8" r="5.5"/>'),
+  gear: svg('<path d="M6.9 1.8h2.2l.4 1.9 1.3.6 1.6-1.1 1.5 1.5-1.1 1.6.6 1.3 1.9.4v2.2l-1.9.4-.6 1.3 1.1 1.6-1.5 1.5-1.6-1.1-1.3.6-.4 1.9H6.9l-.4-1.9-1.3-.6-1.6 1.1-1.5-1.5 1.1-1.6-.6-1.3-1.9-.4V6.9l1.9-.4.6-1.3-1.1-1.6 1.5-1.5 1.6 1.1 1.3-.6z"/><circle cx="8" cy="8" r="2.2"/>'), // (a toothed wheel with its bore: the gear tool, `dec_gear_tool`)
   line: svg('<path d="M3 13L13 3"/><circle cx="3" cy="13" r="1" /><circle cx="13" cy="3" r="1"/>'),
-  pushpull: svg('<path d="M2 14l3-2.4h9l-3 2.4z" fill="currentColor" fill-opacity=".2"/><path d="M2 7.4l3-2.4h9l-3 2.4z" stroke-dasharray="1.8 1.6"/><path d="M2 14V7.4M11 14V7.4M14 11.6V5" stroke-dasharray="1.8 1.6"/><path d="M6.5 11V3.2"/><path d="M4.6 5l1.9-1.9L8.4 5"/>'), // (a face pulled up into a block, `in_382`)
+  pushpull: svg('<path d="M2.5 11.5L8 8.7l5.5 2.8L8 14.3z"/><path d="M8 7V2"/><path d="M5.6 4.4L8 2l2.4 2.4"/>'), // (a face and one arrow up from it: simple, `in_538`)
   move: svg('<path d="M8 2v12M2 8h12"/><path d="M6 4l2-2 2 2M6 12l2 2 2-2M4 6L2 8l2 2M12 6l2 2-2 2"/>'),
   rotate: svg('<path d="M13 8a5 5 0 11-1.6-3.7"/><path d="M13.2 2.4v3h-3"/>'),
   scale: svg('<rect x="2.5" y="7.5" width="6" height="6" rx="0.6"/><path d="M8 8l5.5-5.5"/><path d="M9.5 2.5h4v4"/>'),
+  paste: svg('<rect x="3" y="3.2" width="10" height="11" rx="1.2"/><path d="M6 3.2V2.4a.9.9 0 01.9-.9h2.2a.9.9 0 01.9.9v.8"/><path d="M5.6 8h4.8M5.6 10.6h4.8"/>'), // (a clipboard, `in_538`)
+  selbodies: svg('<rect x="2" y="6" width="7" height="7" rx=".8"/><rect x="8" y="2.5" width="6" height="6" rx=".8"/>'), // (blocks: all the bodies, `in_538`)
+  seladd: svg('<rect x="2" y="6" width="7" height="7" rx=".8"/><path d="M11.5 2.5v5M9 5h5"/>'), // (a thing and a plus: add to the selection, `in_539`)
   copy: svg('<rect x="5.5" y="5.5" width="8" height="8" rx="1"/><path d="M10.5 3.5v-.5a1 1 0 00-1-1h-6a1 1 0 00-1 1v6a1 1 0 001 1h.5"/>'),
   linear: svg('<rect x="1.5" y="5.5" width="3.6" height="5" rx="0.5"/><rect x="6.2" y="5.5" width="3.6" height="5" rx="0.5"/><rect x="10.9" y="5.5" width="3.6" height="5" rx="0.5"/>'),
   circular: svg('<circle cx="8" cy="2.8" r="1.6"/><circle cx="13.2" cy="8" r="1.6"/><circle cx="8" cy="13.2" r="1.6"/><circle cx="2.8" cy="8" r="1.6"/>'),
   trash: svg('<path d="M3 4.5h10"/><path d="M6 4.5V3h4v1.5"/><path d="M4.5 4.5l.6 8.5h5.8l.6-8.5"/><path d="M7 7v4M9 7v4"/>'),
-  eye: svg('<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/>'),
   sketch: svg('<path d="M2.5 13.5l.8-3L11 2.8a1.4 1.4 0 012 2L5.5 12.7z"/><path d="M9.8 4l2.2 2.2"/>'),
   constraint: svg('<rect x="3.5" y="7.2" width="9" height="6.3" rx="1.3" fill="currentColor" fill-opacity=".18"/><path d="M5.5 7.2V5.4a2.5 2.5 0 0 1 5 0v1.8"/><circle cx="8" cy="10.3" r="0.9" fill="currentColor" stroke="none"/>'), // (just a lock, `in_386`)
   body: svg('<path d="M8 1.8l5.5 3v6.4l-5.5 3-5.5-3V4.8z"/><path d="M2.5 4.8L8 8l5.5-3.2"/><path d="M8 8v6.2"/>'),

@@ -1,4 +1,6 @@
 // Tools and operations that take typing: starting them, typed keys, finishing, cancelling; and the edits that do not depend on the pointer (delete, undo, relations).
+import { isHard, hardCopies } from "../hard.ts";
+import type { Command } from "../../operation/commands.ts";
 import type { Intent } from "../../shared/input.ts";
 import { scene as sceneOf, selection as selectionOf, run, undoLast, redoLast, clearSelection } from "../session.ts";
 import type { Session } from "../session.ts";
@@ -9,6 +11,7 @@ import { armTool, typeKey, finish, lineNext } from "../tools.ts";
 import type { OpKind } from "../operations.ts";
 import { startOp, typeOp, autoOp, drawnFigure } from "../operations.ts";
 import { pasteFigure, surfaceOf } from "../paste.ts";
+import { faceSketchCommand } from "../offsetbody.ts";
 import { placements } from "../../operation/repeat.ts";
 import type { Part } from "../../operation/part.ts";
 import { runOp } from "../runop.ts";
@@ -27,9 +30,10 @@ import { doBodyEye, doDeleteBody } from "./bodies.ts";
 import type { AppState } from "./state.ts";
 import { activeOp, movePivot, movePivotTo, gizmoOf } from "./handles.ts";
 import { withPose, orientApply, moverOp, putMover } from "./pose.ts";
-import { doSectionToggle, doPlaneNew, doSheetMode, doSheetMove, typedSection, placeSection, sectionNow } from "./section.ts";
+import { doPlaneNew, doSheetMode, doSheetVisible, doSheetDelete, doSheetMove, typedSection, placeSection, sectionNow } from "./section.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { sub } from "../../math/vec.ts";
+import { loftStartTyped } from "../loft.ts";
 import { frameAngles, frameOfAngles } from "../entry.ts";
 import { typedNumber } from "../../shared/numbers.ts";
 import { pivotCommands, patternCommand, patternValues, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
@@ -38,11 +42,11 @@ import type { Op } from "../operations.ts";
 import { BODY_OBJECT } from "../../compiler/body.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
-import { doSimilar, doSelectAll, doGroup, doUngroup, doCutBegin, applyCut } from "./select.ts";
+import { doSimilar, doSelectAll, doSelectBodies, doGroup, doUngroup, doCutBegin, applyCut } from "./select.ts";
 import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
-const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, line: true, arc: true, trim: true };
+const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, line: true, arc: true, trim: true, gear: true };
 const IS_SKETCH_OP: Record<OpKind, boolean> = { offset: true, extrude: false, pushpull: false, edge: false, move: false, rotate: false, scale: false, dimension: false, linear: false, circular: false, copy: false, hollow: false, revolve: false, loft: false, sweep: false, mirror: false };
 const isSketchTool = (name: string): name is ToolKind => name in IS_SKETCH_TOOL;
 
@@ -69,10 +73,35 @@ function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = 
   if (plane && onSketch) return animateTo({ ...armed, tool: { ...armTool(kind), plane: plane.ref, reveal: true } }, planeView(s.cam, plane, false), now);
   return facePlane(armed, over, now);
 }
-function beginOp(s: AppState, kind: OpKind, now = 0, over: Ref | null = null): AppState {
+/** The operations that take several things clicked one after another, so that they begin on Enter or the check and not on the first thing that would do (`in_464`). */
+const MANY = new Set<OpKind>(["loft", "sweep"]);
+export const picksMany = (kind: OpKind): boolean => MANY.has(kind);
+
+/** A flat face of the body selected for a revolve is first copied as a sketch on its own plane (the sketch stays, as a drawing of the face), and the revolve goes on from that figure (`dec_revolve_body_face`). */
+function faceToFigure(s: AppState): AppState | { why: string } | null {
+  const sc = sceneOf(s.session);
+  const parts = selectionOf(s.session).map((r) => sc.parts[r]).filter((p): p is Part => !!p);
+  const face = parts.length === 1 ? parts[0]! : null;
+  if (!face || face.kind !== "plane" || face.origin !== "body") return null;
+  const cmd = faceSketchCommand(sc, parts);
+  if (!cmd) return { why: "this face cannot be turned: it must be flat, with edges that are lines and arcs" };
+  const next = run(s.session, cmd);
+  if (next.message) return { why: next.message };
+  const made = Object.values(sceneOf(next).parts).filter((p) => p.kind === "face" && p.origin === "drawn" && !(p.ref in sc.parts)).map((p) => p.ref);
+  if (!made.length) return { why: "this face cannot be turned: its copy as a sketch is not a closed figure" };
+  return { ...s, session: { ...next, click: { ...next.click, selection: made } } };
+}
+function beginOp(s0: AppState, kind: OpKind, now = 0, over: Ref | null = null): AppState {
+  let s = s0;
+  if (kind === "revolve") {
+    const f = faceToFigure(s);
+    if (f && "why" in f) return { ...s, session: { ...s.session, message: f.why }, menu: null };
+    if (f) s = f;
+  }
   const r = startOp(sceneOf(s.session), selectionOf(s.session), kind, viewAxes(s.cam));
-  if (!r.ok) return { ...s, session: { ...s.session, message: r.why }, menu: null };
-  const started: AppState = { ...s, op: withPose(s, r.op), tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" ? "turning about the longest straight line: click another line, a point or a face to move the orb there, or click the orb to turn it any way" : null } };
+  // what it needs is not selected: it waits for what is clicked next, and says what that is (`in_464`)
+  if (!r.ok) return { ...s, picking: s.repeat ? null : { kind }, session: { ...s.session, message: s.repeat ? r.why : `${r.why}: click it now (Esc to leave)` }, menu: null };
+  const started: AppState = { ...s, picking: null, op: withPose(s, r.op), tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" ? "turning about the longest straight line: click another line, a point or a face to move the orb there, or click the orb to turn it any way" : null } };
   return IS_SKETCH_OP[kind] ? facePlane(started, over, now) : started;
 }
 export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["name"], now = 0): AppState {
@@ -121,6 +150,7 @@ function cancelOrient(s: AppState): AppState {
 }
 
 export function doTyped(s: AppState, key: string): AppState {
+  if (s.picking && !s.op && !s.tool && key === "Enter") return finishPicking(s); // (what is selected starts the operation that waits for it, `in_464`)
   if (s.moverSphere && key === "Enter") return orientApply(s); // (Apply: the mover stays as oriented, `in_421`, and while the part is selected, `in_439`)
   if (s.cut && key === "Enter") return applyCut(s);
   if (!s.op && !s.tool && /^[0-9.\-]$/.test(key)) {
@@ -191,6 +221,19 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     const off = mo.kind === "move" ? moveOffset(sceneOf(s.session), mo) : ([0, 0, 0] as Vec3);
     return putMover(s, { ...mo, auto: false, pivot: sub(at, off) });
   }
+  if (s.op?.kind === "revolve" && !s.moverSphere && field >= 10 && field < 13) { // the orb's place along one axis, typed on its arrow's bubble (`in_531`)
+    const n = typedNumber(text);
+    const g = gizmoOf(s);
+    if (n === null || !g || !s.op.pivot) return s;
+    const d = (s.op.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]])[field - 10]!; // (along the arrow as it stands: only that part of the place changes, `in_532`)
+    const more = n - (s.op.pivot[0] * d[0] + s.op.pivot[1] * d[1] + s.op.pivot[2] * d[2]);
+    return { ...s, op: { ...s.op, auto: false, pivot: [s.op.pivot[0] + more * d[0], s.op.pivot[1] + more * d[1], s.op.pivot[2] + more * d[2]] as Vec3 } };
+  }
+  if (s.op?.kind === "loft") { // the corner a sketch starts at, typed on its start dot's bubble (`in_533`)
+    if (field >= 10) { const gaps = [...(s.op.loftGaps ?? [])]; gaps[field - 10] = text; return { ...s, op: { ...s.op, auto: false, loftGaps: Array.from(gaps, (g) => g ?? "") } }; } // (the distance to the next sketch, `in_535`)
+    const n = typedNumber(text);
+    return n === null ? s : { ...s, op: loftStartTyped(sceneOf(s.session), s.op, field, n) };
+  }
   if (s.op?.kind === "mirror" && !s.moverSphere && s.op.mirrorAt && field >= 0 && field < 3) { // the number of the mirror plane's arrow: where the plane stands along that axis (`in_437`)
     const n = typedNumber(text);
     if (n === null) return s;
@@ -244,6 +287,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 /** Esc lets go in steps: the menu, then an open badge, then the tool or operation, then the selection. */
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
+  if (s.picking && !s.op) return { ...s, picking: null, session: { ...s.session, message: null } }; // (the operation that was waiting for what to click is given up, `in_464`)
   if (s.moverSphere) return cancelOrient(s); // (the mover is put back as it was, `in_421`)
   if (sectionNow(s) && !s.tool && !s.op && !s.repeat) return { ...s, sectionLive: null, session: { ...s.session, click: { ...s.session.click, selection: [] }, message: null } }; // (the plane is let go, as a tool is put away: it stays as a plane in the part, `in_394`, `in_396`)
   if (s.tape && !s.tool && !s.op && !s.repeat && !s.cut) return { ...s, tape: false, session: { ...s.session, message: null } }; // (the tape measure is put away first, `in_338`)
@@ -253,6 +297,7 @@ export function doEscape(s: AppState): AppState {
   if (s.repeat && !s.op) return doRepeatCancel(s); // (the repeat that is open is given up, as the pill's cross used to)
   if (s.op) return cancelOp(s);
   if (s.tool) return { ...s, tool: null, op: null, drag: null, gizmoHover: null };
+  if (s.adding) return { ...s, adding: false, session: { ...s.session, message: null } }; // (adding to the selection is left, what is selected stays; the next Esc clears it, `in_540`)
   return withSession(s, clearSelection(s.session));
 }
 
@@ -267,7 +312,16 @@ function cancelOp(s: AppState): AppState {
  * Enter, a right click, or the tick: accept what is open and leave it (`in_244`). A repeat makes its copies (with none to make it just leaves); an operation takes the number typed for it or, with none, leaves
  * what its drags made as it is; a tool that has a figure under way makes it, else it is put away.
  */
+/** What is selected now is given to the operation that was waiting for it: it begins if that is what it needed; else it says what is missing and goes on waiting. */
+export function finishPicking(s: AppState, now = 0): AppState {
+  if (!s.picking) return s;
+  const r = startOp(sceneOf(s.session), selectionOf(s.session), s.picking.kind, viewAxes(s.cam));
+  if (!r.ok) return { ...s, session: { ...s.session, message: `${r.why}: click it now (Esc to leave)` } };
+  return beginOp({ ...s, picking: null }, s.picking.kind, now);
+}
+
 export function doApply(s: AppState): AppState {
+  if (s.picking && !s.op && !s.tool) return finishPicking(s);
   if (s.repeat && !s.op) { const made = doRepeatApply(s); return made.repeat ? doRepeatCancel(made) : made; }
   if (s.op) {
     const c = commitOp(s); // (what was typed or dragged is made; a refusal keeps the operation open with its reason; with nothing to make, it only leaves)
@@ -279,6 +333,12 @@ export function doApply(s: AppState): AppState {
 }
 
 export function doRunAction(s: AppState, id: string, now = 0): AppState {
+  if (id.startsWith("say:")) return { ...s, session: { ...s.session, message: id.slice(4) } }; // (a dimmed row of the ⋯ list pressed: what is said, `in_541`)
+  if (id.startsWith("why:")) { // a dimmed option of the ring pressed: what it needs is said, the ring stays (`in_538`)
+    const find = (items: readonly { id: string; label: string; why: string | null; children?: readonly unknown[] }[]): { label: string; why: string | null } | undefined => { for (const it of items) { if (it.id === id.slice(4)) return it; const k = it.children ? find(it.children as never) : undefined; if (k) return k; } return undefined; };
+    const hit = s.menu ? find(s.menu.items) : undefined;
+    return hit?.why ? { ...s, session: { ...s.session, message: `${hit.label}: ${hit.why}` } } : s;
+  }
   const closed = { ...s, menu: null };
   if (id === "look") {
     const get = lookup(sceneOf(s.session));
@@ -289,18 +349,43 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   }
   if (id === "select:similar") return doSimilar(closed);
   if (id === "select:group") return doGroup(closed);
+  if (id === "select:add") return { ...closed, adding: !s.adding, session: { ...closed.session, message: s.adding ? "adding is off" : "adding is on: a tap adds to the selection, or takes out what is selected" } }; // (the way to select several with a finger, `in_539`)
+  if (id === "select:bodies") return doSelectBodies(closed);
+  if (id === "undo") return doUndo(closed); // (undo, redo and delete are the Actions of the ring, `in_538`)
+  if (id === "redo") return doRedo(closed);
   if (id === "select:faces" || id === "select:edges" || id === "select:vertices") return doSelectAll(closed, id.slice(7) as "faces" | "edges" | "vertices");
+  if (id.startsWith("body:hard:")) { // the mark of a hard body pressed: it is soft again (`in_476`)
+    const sc = sceneOf(closed.session);
+    const p = sc.parts[id.slice(10) as never] as { kind?: string; id?: string } | undefined;
+    return p?.kind === "body" && p.id ? { ...closed, session: { ...run(closed.session, { type: "setHard", body: p.id, on: false }), message: null } } : closed;
+  }
+  if (id === "body:hard") { // a body made hard or soft (`in_473`): all the bodies selected, to hard unless every one already is
+    const sc = sceneOf(closed.session);
+    const bodies = selectionOf(closed.session).filter((r) => sc.parts[r]?.kind === "body" && !!(sc.parts[r] as { id?: string }).id);
+    if (!bodies.length) return { ...closed, session: { ...closed.session, message: "select a body" } };
+    const on = !bodies.every((r) => isHard(sc, r));
+    const session = run(closed.session, { type: "batch", commands: bodies.map((r): Command => ({ type: "setHard", body: (sc.parts[r] as { id: string }).id, on })) });
+    return { ...closed, session: { ...session, message: on ? `hard: ${bodies.length === 1 ? "this body" : "these bodies"} will not go into other hard bodies when moved by hand` : null } };
+  }
+  if (id === "hard:clearance") { // the clearance of the whole model, round a few values (`in_473`)
+    const sc = sceneOf(closed.session);
+    const steps = [0, 0.1, 0.2, 0.3, 0.5, 1];
+    const now = sc.clearance ?? 0;
+    const next = steps.find((v) => v > now + 1e-9) ?? 0;
+    return { ...closed, session: run(closed.session, { type: "setClearance", value: next }) };
+  }
   if (id === "combine:parts") return doCutBegin(closed);
   if (id === "select:ungroup") return doUngroup(closed);
   if (id === "hollow:invert" && s.op?.kind === "hollow" && s.op.hollowMode && s.op.hollowMode !== "closed") return { ...s, op: { ...s.op, hollowMode: s.op.hollowMode === "keep" ? "open" : "keep" }, session: { ...s.session, message: null } };
-  if (id === "view:section") return doSectionToggle(closed);
-  if (id === "view:plane") return doPlaneNew(closed, false); // (a new plane that does not cut, `in_459`)
+  if (id === "view:section") return doPlaneNew(closed, true);
+  if (id === "world:toggle") return { ...closed, worldHidden: !s.worldHidden };
+  if (id.startsWith("sheet:delete:")) return doSheetDelete(closed, id.slice(13) as never);
+  if (id.startsWith("sheet:visible:")) return doSheetVisible(closed, id.slice(14) as never);
   if (id.startsWith("body:eye:")) return doBodyEye(closed, id.slice(9) as Ref); // (the eye on a body, `dec_hidden_bodies`)
   if (id.startsWith("sheet:mode:")) return doSheetMode(closed, id.slice(11) as never);
   if (id === "sheet:move") return doSheetMove(closed);
   if (id === "view:wireframe") return { ...closed, wireframe: !s.wireframe, session: { ...closed.session, message: s.wireframe ? "solid view" : "wireframe view: the faces of bodies are not drawn, to see what is inside" } };
   if (id === "tape:measure") return { ...closed, tape: !s.tape, session: { ...closed.session, message: s.tape ? "tape measure off" : "tape measure on: select a face, or two (Shift adds the second), to see what they are to each other" } };
-  if (id === "multiselect") return { ...closed, multiSelect: !s.multiSelect, session: { ...closed.session, message: s.multiSelect ? "select several is off" : "select several is on: a tap adds to the selection, a tap on what is selected takes it out" } };
   if (id.startsWith("mate:stand:")) { // a mate is made standing (it puts itself back after a change) or not (`in_321`)
     const rel = sceneOf(s.session).relations.find((r) => r.id === id.slice(11));
     if (!rel?.params) return closed;
@@ -369,7 +454,8 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
   }
   if (i.act === "measure") {
     const sel = selectionOf(s.session);
-    const a = measureAction(actionsFor(sc, sel), (x) => x.enabled);
+    const named = i.id && i.id.startsWith("measure:") ? i.id.slice(8) : null; // (the arc's angle, beside its radius: `in_463`)
+    const a = named ? actionsFor(sc, sel).find((x) => x.id === named && x.dimensional && x.enabled) : measureAction(actionsFor(sc, sel), (x) => x.enabled);
     if (a) return i.value !== undefined && i.value > 0 ? withSession(s, run(s.session, a.run(i.value), { watchAll: true })) : s; // (a sketch the body was made from: a size the steps cannot take is refused)
     // a line of the body: its length is made by pushing or pulling the face at its end
     const cmd = sel.length === 1 && i.value !== undefined ? setLineLength(sc, sel[0]!, i.value) : null;
@@ -524,6 +610,8 @@ function openRepeat(s: AppState, op: Op): AppState {
 }
 export function doRepeatApply(s: AppState): AppState {
   if (!s.repeat) return s;
+  const hard = hardCopies(sceneOf(s.session), liveRepeat(sceneOf(s.session), s.repeat)); // (copies of hard bodies that would run into hard bodies are refused, `in_475`)
+  if (hard) return { ...s, session: { ...s.session, message: hard.why } };
   const cmd = repeatApply(sceneOf(s.session), s.repeat);
   if (!cmd) return { ...s, session: { ...s.session, message: "there is nothing to repeat yet: more than one copy" } };
   const next = run(s.session, cmd);

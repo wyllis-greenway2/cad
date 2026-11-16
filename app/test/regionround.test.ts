@@ -224,7 +224,7 @@ test("all twelve edges of a cube rounded by more than half its side: the corners
   }
 });
 
-test("one half of a rim alone, rounded past what the kernel can: the round goes all the way round the rim, as the kernel's does at the sizes it can make (`in_479`)", () => {
+test("one half of a rim alone, rounded past what the kernel can: the round goes all the way round the rim, as the kernel's does at the sizes it can make (`in_507`)", () => {
   const { s, rim } = post();
   const halves = rim(20);
   assert.equal(halves.length, 2);

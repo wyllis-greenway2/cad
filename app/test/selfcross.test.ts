@@ -1,4 +1,4 @@
-// The mesh test for a body that passes through itself (`in_472`, `in_473`).
+// The mesh test for a body that passes through itself (`in_500`, `in_501`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { makeBox, makeCylinder } from "replicad";
@@ -55,7 +55,7 @@ test("the kernel's check: separate bodies that overlap are not one body crossing
   assert.ok(crossesItself(one), "a box with a hollow that goes through its wall, as one solid");
 });
 
-test("a thin wide mesh of many triangles that all lie across each other's extent does not hold the search up: it gives up at its time limit (`in_484`: a gear of 257 faces took over five minutes)", () => {
+test("a thin wide mesh of many triangles that all lie across each other's extent does not hold the search up: it gives up at its time limit (`in_512`: a gear of 257 faces took over five minutes)", () => {
   // two stacked flat sheets of 120 x 120 small squares, two triangles each: every triangle of the one is beside thousands of the other in the sweep, and none crosses
   const n = 120, vertices: number[] = [], triangles: number[] = [];
   for (const z of [0, 0.5]) {

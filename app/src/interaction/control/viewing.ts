@@ -37,7 +37,7 @@ export function doOrbit(s: AppState, i0: Extract<Intent, { type: "orbit" }>): Ap
     if (debt < settings.view.leaveStraightPx) return { ...s, orthoDebt: debt, menu: null };
     const k = Math.min(1, (debt - settings.view.leaveStraightPx) / Math.max(1e-9, Math.hypot(i.dx, i.dy))); // (only what is past the hold turns the view)
     const cam = orbit(s.cam, -i.dx * k * settings.view.orbitRadPerPx, i.dy * k * settings.view.orbitRadPerPx, pivot);
-    return { ...stop(s), cam: { ...cam, mix: 0.03 }, orthoDebt: 0, mixT0: -1, menu: null };
+    return { ...stop(s), cam: { ...cam, mix: 0.03 }, orthoDebt: 0, mixT0: -1, mixBase: 0.03, menu: null };
   }
   return { ...stop(s), cam: orbit(s.cam, -i.dx * settings.view.orbitRadPerPx, i.dy * settings.view.orbitRadPerPx, pivot), orthoDebt: 0, menu: null };
 }
@@ -102,7 +102,7 @@ export function advance(s: AppState, now: number): AppState {
     // the perspective coming in after a straight view was left
     const t0 = s.mixT0 < 0 ? now : s.mixT0;
     const k = Math.min(1, (now - t0) / settings.view.perspectiveMs);
-    s = k >= 1 ? { ...s, mixT0: null, cam: withoutMix(s.cam) } : { ...s, mixT0: t0, cam: { ...s.cam, mix: 0.03 + (1 - 0.03) * easeInOut(k) } };
+    s = k >= 1 ? { ...s, mixT0: null, cam: withoutMix(s.cam) } : { ...s, mixT0: t0, cam: { ...s.cam, mix: s.mixBase + (1 - s.mixBase) * easeInOut(k) } };
   }
   if (!s.anim) return s;
   const k = Math.min(1, (now - s.anim.t0) / settings.view.transitionMs);

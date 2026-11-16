@@ -10,6 +10,7 @@ import type { Command } from "../operation/commands.ts";
 import type { Part, Plane, Line } from "../operation/part.ts";
 import { pointOf, normalOfPlane, localOf, liftOf } from "../operation/part.ts";
 import { planeForDrawing } from "./tools.ts";
+import { apply } from "../operation/commands.ts";
 
 type V2 = [number, number];
 export type Edge2 =
@@ -244,10 +245,10 @@ function meetAt(a: ReturnType<typeof moved>, b: ReturnType<typeof moved>, guess:
 }
 
 /** The command that draws the outline moved `v` out (negative: in) as a sketch on the face, or null when it cannot be (an arc that has gone to nothing, edges that turn round). */
-export function outlineCommand(scene: Scene, src: Outline, v: number): Command | null {
+export function outlineCommand(scene: Scene, src: Outline, v: number, exact = false): Command | null {
   const pl = scene.parts[src.plane];
-  if (!pl || pl.kind !== "plane" || Math.abs(v) < 1e-9) return null;
-  const inward = -v;
+  if (!pl || pl.kind !== "plane" || (!exact && Math.abs(v) < 1e-9)) return null;
+  const inward = exact ? 0 : -v; // (exact: a copy of the outline as it is, `q_revolve_body_face`)
   const n = src.edges.length;
   // a whole rim on its own: a concentric circle
   if (n === 1 && src.closed && src.edges[0]!.k === "arc" && near2(src.edges[0]!.p, src.edges[0]!.q)) {
@@ -268,6 +269,7 @@ export function outlineCommand(scene: Scene, src: Outline, v: number): Command |
   for (let k = 0; k < count; k++) {
     const [ia, ib] = [(k + n - 1) % n, k % n];
     const open = !src.closed && (k === 0 || k === n);
+    if (exact) { joints.push(k < n ? src.edges[k]!.p : src.edges[n - 1]!.q); continue; } // (a copy keeps the ends the edges have)
     if (open) {
       const e = k === 0 ? src.edges[0]! : src.edges[n - 1]!;
       const tt = tangent(e, k === 0 ? 0 : 1);
@@ -372,4 +374,25 @@ export function outlineNear(scene: Scene, o: Outline, p: Vec3): { origin: Vec3; 
   const left: V2 = [-tangent(best.e, best.t)[1], tangent(best.e, best.t)[0]];
   const outward: V2 = [-o.side * left[0], -o.side * left[1]];
   return { origin: liftOf(pl, best.at), normal: add(scale(pl.u, outward[0]), scale(pl.v, outward[1])), dist: best.d };
+}
+
+/**
+ * A flat face of the body as a sketch of its own: every loop of its outline (the outer one and the holes) drawn exactly, on a drawn plane that goes with the body (`dec_revolve_body_face`), so what is made of a drawn figure
+ * (a revolve) can be made of the face. Null when the face is not flat or its edges are not lines and arcs.
+ */
+export function faceSketchCommand(scene: Scene, parts: Part[]): Command | null {
+  const multi = bodyOutlines(scene, parts);
+  const loops = multi ? multi.loops : [bodyOutline(scene, parts)];
+  if (!loops.length || loops.some((o) => !o || !o.closed)) return null;
+  let sc = scene;
+  const commands: Command[] = [];
+  for (const loop of loops as Outline[]) {
+    const c = outlineCommand(sc, loop, 0, true);
+    if (!c) return null;
+    const next = apply(sc, c);
+    if (!next.ok) return null;
+    commands.push(c);
+    sc = next.value;
+  }
+  return { type: "batch", commands };
 }

@@ -14,7 +14,7 @@ const near = (a: Vec3, b: Vec3): boolean => Math.hypot(a[0] - b[0], a[1] - b[1],
 const mean = (p: Vec3[]): Vec3 => [0, 1, 2].map((i) => p.reduce((s, q) => s + q[i]!, 0) / p.length) as unknown as Vec3;
 
 /** The moves a reshape step holds, as pairs. */
-export const movesOf = (text: unknown): { from: Vec3; to: Vec3 }[] =>
+const movesOf = (text: unknown): { from: Vec3; to: Vec3 }[] =>
   String(text ?? "").split(";").filter(Boolean).map((m) => { const [a, b] = m.split(">").map((q) => q.split(",").map(Number) as unknown as Vec3); return { from: a!, to: b! }; });
 const textOf = (moves: { from: Vec3; to: Vec3 }[]): string => moves.map((m) => `${m.from.join(",")}>${m.to.map((x) => Math.round(x * 1e9) / 1e9).join(",")}`).join(";");
 

@@ -12,7 +12,7 @@ import { lookup } from "../operation/scene.ts";
 import { buildMap, structuralRelations } from "../operation/ownership.ts";
 import { sketchOfEdge } from "../operation/edgesource.ts";
 import type { Lookup } from "../operation/part.ts";
-import { pointOf, segmentOf, roundOf, relationKind, curveMid, planeOfParts } from "../operation/part.ts";
+import { pointOf, segmentOf, roundOf, relationKind, curveMid, planeOfParts, normalOfPlane } from "../operation/part.ts";
 import { actionsFor, measureAction } from "./actions.ts";
 import type { MateMode } from "../operation/mates.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
@@ -49,6 +49,8 @@ export interface Annotation {
   others: Ref[];
   /** polylines drawn with it: the arc of an angle, the segment a distance measures */
   lines: Vec3[][];
+  /** polylines drawn dashed with it: the lines from an arc's centre to its ends, that the mark of its angle is drawn between (`in_463`) */
+  dashed?: Vec3[][];
 }
 
 const labelOf = (kind: string): string => ROWS.find((r) => r.id === kind)?.label ?? kind;
@@ -84,7 +86,7 @@ function arcBetween(v: Vec3, p: Vec3, q: Vec3): { points: Vec3[]; middle: Vec3 }
   return { points, middle: add(v, scale(bisector, r * 1.3)) };
 }
 
-interface Placed { at: Vec3; lines: Vec3[][] }
+interface Placed { at: Vec3; lines: Vec3[][]; dashed?: Vec3[][] }
 /** Where a constraint of this kind between these parts is shown, and the lines drawn with it. Null if its parts are gone. */
 function place(get: Lookup, kind: string, parts: readonly Ref[]): Placed | null {
   const pl = planeOfParts(get, [...parts]);
@@ -122,6 +124,7 @@ function place(get: Lookup, kind: string, parts: readonly Ref[]): Placed | null 
       const hit = closestOfLines(s1[0], normalize(sub(s1[1], s1[0])), s2[0], normalize(sub(s2[1], s2[0])));
       return { at: hit ? mid(hit[0], hit[1]) : mid(mid(s1[0], s1[1]), mid(s2[0], s2[1])), lines: [] }; // where they meet if extended
     }
+    case "arcAngle": return lines[0] ? arcAngleMarks(get, lines[0]) : null;
     case "angle": {
       if (!s1 || !s2) return null;
       const [la, lb] = [get(lines[0]!), get(lines[1]!)];
@@ -188,7 +191,7 @@ function annotationOf(scene: Scene, rel: Scene["relations"][number], sel: readon
     unit: rel.value === undefined ? null : action?.unit ?? (rel.kind === "angle" ? "deg" : "mm"),
     locked, editable: rel.value !== undefined, readOnly: false,
     broken: map.items.get(rel.id)?.broken ?? false, open: focus === rel.id,
-    others: rel.parts.filter((p) => !sel.includes(p)), lines: placed.lines,
+    others: rel.parts.filter((p) => !sel.includes(p)), lines: placed.lines, ...(placed.dashed ? { dashed: placed.dashed } : {}),
   };
 }
 
@@ -210,6 +213,35 @@ function arcRadius(scene: Scene, ref: Ref): Annotation[] {
   if (c?.kind !== "corner" || a?.kind !== "corner" || !m) return [];
   return [{ id: "radius", relationId: null, kind: "radius", label: "Radius", at: m, symbol: "R", value: Math.round(Math.hypot(...sub(a.at, c.at)) * 1e4) / 1e4, unit: "mm", locked: false, editable: false, readOnly: true, broken: false, open: false, others: [], lines: [] }];
 }
+/** The marks of how far an arc goes (`in_463`): the lines from its centre to its two ends, dashed, and a little arc between them on the way the arc goes; where the number stands. */
+function arcAngleMarks(get: Lookup, ref: Ref): { at: Vec3; lines: Vec3[][]; dashed: Vec3[][] } | null {
+  const l = get(ref);
+  if (l?.kind !== "line" || !l.center) return null;
+  const [o, a, b, m] = [pointOf(get, l.center), pointOf(get, l.a), pointOf(get, l.b), curveMid(get, l)];
+  const pl = planeOfParts(get, [ref]);
+  if (!o || !a || !b || !m || !pl) return null;
+  const n = normalOfPlane(pl);
+  const turn = (p: Vec3, q: Vec3): number => { const [u, v] = [sub(p, o), sub(q, o)]; return Math.atan2(dot(n, cross(u, v)), dot(u, v)); };
+  const sweep = turn(a, m) + turn(m, b); // (signed: the way the arc goes about its centre)
+  const ra = sub(a, o);
+  const r = Math.min(length(ra), length(sub(b, o))) * 0.3;
+  const at = (t: number): Vec3 => {
+    const th = sweep * t;
+    const [u, w] = [ra, cross(n, ra)];
+    return add(o, scale(add(scale(u, Math.cos(th)), scale(w, Math.sin(th))), r / (length(ra) || 1)));
+  };
+  const points = Array.from({ length: 33 }, (_, i) => at(i / 32));
+  const out = sub(at(0.5), o);
+  return { at: add(o, scale(out, 1.35)), lines: [points], dashed: [[o, a], [o, b]] };
+}
+/** The measure of an arc's angle as a number that can be typed over (it makes the arc's angle a constraint). */
+function arcAngleMeasure(scene: Scene, ref: Ref): Annotation | null {
+  const act = actionsFor(scene, [ref]).find((a) => a.id === "arcAngle" && a.dimensional);
+  const marks = arcAngleMarks(lookup(scene), ref);
+  const v = act?.measure();
+  if (!act || !marks || v === null || v === undefined) return null;
+  return { id: "measure:arcAngle", relationId: null, kind: "arcAngle", label: act.label, at: marks.at, symbol: "∠", value: v, unit: "deg", locked: false, editable: act.enabled, readOnly: !act.enabled, broken: false, open: false, others: [], lines: marks.lines, dashed: marks.dashed };
+}
 function annotationsOf0(scene: Scene, selection: readonly Ref[], focus: string | null, all: boolean): Annotation[] {
   const hidden = all ? new Set<string>() : structuralRelations(scene); // (the joins of a body's outline are not shown unless all are asked for, `in_239`)
   const sel = selection.filter((r) => isPart(scene, r)); // planes, faces and the body have no constraints of their own
@@ -221,10 +253,12 @@ function annotationsOf0(scene: Scene, selection: readonly Ref[], focus: string |
     if (p?.kind === "line") [p.a, p.b, ...(p.center ? [p.center] : [])].forEach((c) => scope.add(c));
     else if (p?.kind === "circle") scope.add(p.center);
   }
+  const arcs = sel.length === 1 ? scene.parts[sel[0]!] : undefined;
+  const arcAngle = arcs?.kind === "line" && arcs.center && !scene.relations.some((rel) => rel.kind === "arcAngle" && rel.parts.includes(arcs.ref)) ? arcAngleMeasure(scene, arcs.ref) : null; // (an arc says how far round it goes as well as its radius, `in_463`)
   const out = scene.relations.filter((rel) => rel.kind !== "arcEnds" && !hidden.has(rel.id) && rel.parts.some((p) => scope.has(p))).map((rel) => annotationOf(scene, rel, sel, focus, map)).filter((a): a is Annotation => !!a);
   const m = measureOf(scene, selection);
   const r = radiusOf(scene, selection);
-  return [...out, ...(m ? [m] : []), ...(r ? [r] : []), ...mateAnnotations(scene, selection, focus)];
+  return [...out, ...(m ? [m] : []), ...(r ? [r] : []), ...(arcAngle ? [arcAngle] : []), ...mateAnnotations(scene, selection, focus)];
 }
 
 /** The annotations of these relations whether or not their parts are selected (to show what a refused change would have broken). */

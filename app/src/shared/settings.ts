@@ -15,7 +15,7 @@ export const settings = {
     perspectiveMs: 350, // and how long the perspective takes to come in then
     normalToleranceRad: 0.02,
     clickMovePx: 4, // pointer movement below this is a click, not a drag
-    drawClickMovePx: 14, // and while a drawing tool is armed: a click that wanders this little is still a click (so the first point of a shape is not lost to turning the view)
+    drawClickMovePx: 30, // and while a drawing tool is armed: a click that wanders this little is still a click (so the first point of a shape is not lost to turning the view)
     nearFactor: 0.02,
     farFactor: 120,
   },

@@ -11,15 +11,17 @@ import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
 import type { Command } from "../operation/commands.ts";
-import { drawSquaredRectangle, drawCircle, drawChain, drawArc, joinedAtCorners } from "../operation/build.ts";
+import { drawSquaredRectangle, drawCircle, drawChain, drawArc, drawGear, joinedAtCorners } from "../operation/build.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt, visibleFrom } from "./picking.ts";
 import { anchorCorners, anchorLines, anchorCutCorners } from "../operation/anchors.ts";
 import { settings } from "../shared/settings.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Hint } from "./hints.ts";
+import { gearOutline, moduleForOutside } from "../operation/gear.ts";
+import type { GearOutline } from "../operation/gear.ts";
 
-export type ToolKind = "rect" | "circle" | "line" | "arc" | "trim";
+export type ToolKind = "rect" | "circle" | "line" | "arc" | "trim" | "gear";
 export interface Tool {
   kind: ToolKind;
   /** null while armed (waiting for the first click on a surface) */
@@ -51,7 +53,7 @@ export interface Tool {
 /** A tool that waits for its first click on a surface. */
 export const armTool = (kind: ToolKind): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0 });
 
-export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], trim: [] };
+export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], trim: [], gear: ["Teeth", "Module"] };
 
 // ---- points on a plane ----
 export function pointOnPlane(pv: PointerView, pl: Plane): Vec3 | null {
@@ -157,6 +159,23 @@ export function circleRadius(pl: Plane, t: Tool): number {
   const c = t.cursor;
   return a && c ? dist(a, c) : 0;
 }
+/** The teeth and module of the gear being drawn: the typed numbers; with no teeth typed 20; with no module typed the one that makes the outside as wide as the pointer is from the centre (to the nearest 0.05). */
+export function gearNumbers(t: Tool): { teeth: number; module: number } | null {
+  const [teeth0, module0] = typedValues(t);
+  const teeth = teeth0 !== null && teeth0 >= 1 ? Math.round(teeth0) : 20;
+  if (module0 !== null && module0 > 0) return { teeth, module: module0 };
+  const a = t.points[0], c = t.cursor;
+  const reach = a && c ? dist(a, c) : 0;
+  if (reach < 1e-6) return null;
+  return { teeth, module: Math.max(0.1, Math.round(moduleForOutside(teeth, 2 * reach) / 0.05) * 0.05) };
+}
+/** The outline of the gear being drawn, or null while it is not a gear (no size yet, or numbers that make none: the reason is for the message). */
+function gearOf(t: Tool): { outline: GearOutline } | { error: string } | null {
+  const n = gearNumbers(t);
+  if (!n) return null;
+  const o = gearOutline({ teeth: n.teeth, module: n.module });
+  return o.ok ? { outline: o.value } : { error: o.error };
+}
 /** The next corner of a line from the last one, the cursor and a typed length (along the cursor's direction). */
 export function lineNext(t: Tool): Vec3 | null {
   const a = t.points[t.points.length - 1];
@@ -214,6 +233,22 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
     return { segments: c.map((p, i): [Vec3, Vec3] => [p, c[(i + 1) % 4]!]), circle: null, cursor: t.cursor };
   }
   if (t.kind === "circle") return { segments: [], circle: { center: t.points[0]!, radius: circleRadius(pl, t), normal: n }, cursor: t.cursor };
+  if (t.kind === "gear") {
+    const g = gearOf(t);
+    if (!g || !("outline" in g)) return null;
+    const [cx, cy] = localOf(pl, t.points[0]!);
+    const at = (q: readonly [number, number]): Vec3 => liftOf(pl, [cx + q[0], cy + q[1]]);
+    const o = g.outline;
+    const segments: [Vec3, Vec3][] = [];
+    o.points.forEach((a, i) => { // (each side as two short lines through its middle: close enough to see the teeth)
+      const b = o.points[(i + 1) % o.points.length]!;
+      const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+      const k = o.bulges[i]!;
+      const m: [number, number] = [(a[0] + b[0]) / 2 - dy * k, (a[1] + b[1]) / 2 + dx * k];
+      segments.push([at(a), at(m)], [at(m), at(b)]);
+    });
+    return { segments, circle: null, cursor: t.cursor };
+  }
   if (t.kind === "arc") {
     const arc = t.points.length >= 2 ? arcOf(pl, t) : null;
     if (arc) { const pts = arcPoints(arc.a, arc.mid, arc.b); return { segments: pts.slice(1).map((p, i): [Vec3, Vec3] => [pts[i]!, p]), circle: null, cursor: t.cursor }; }
@@ -262,6 +297,12 @@ export function finish(scene: Scene, t: Tool): Finished | null {
     if (radius < 1e-6) return null;
     const c = drawCircle(scene, pl.ref, t.points[0]!, radius);
     return { command: joinedAtCorners(scene, pl.ref, c.command), select: [diskFaceRef(c.circle)] };
+  }
+  if (t.kind === "gear") {
+    const g = gearOf(t);
+    if (!g || !("outline" in g)) return null;
+    const d = drawGear(scene, pl.ref, t.points[0]!, pl.u, pl.v, g.outline);
+    return { command: d.command, select: [loopFaceRef(d.lines)] };
   }
   if (t.kind === "arc") {
     const arc = arcOf(pl, t);

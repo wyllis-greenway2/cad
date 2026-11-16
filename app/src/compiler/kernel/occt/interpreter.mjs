@@ -26,13 +26,83 @@ import {
   genericSweep,
   revolution,
   Wire,
+  localGC,
+  makePolygon,
 } from "replicad";
+import { decodeMesh } from "./meshdata.mjs";
 import { facesOf, edgesOf, shellsOf, solidsOf } from "./topo.mjs";
 import { reshape } from "./reshape.mjs";
 import { findCrossing } from "./selfcross.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
+
+/** The imported solids scaled about the origin by `op.scale` and then placed: `op.place` "center" brings the middle of their box to the origin, "floor" brings the middle of the box to the z axis and the bottom to z = 0 (a part that sits on the build plate). */
+function placedSolids(solids, op) {
+  const k = Number(op.scale ?? 1);
+  let out = solids;
+  if (k !== 1) { if (!(k > 1e-6 && k < 1e4)) throw new Error("the scale of the import must be more than nothing"); out = out.map((x) => x.scale(k, [0, 0, 0])); }
+  if (op.place === "center" || op.place === "floor") {
+    const boxes = out.map(bounds);
+    const [lo, hi] = [0, 1, 2].map((i) => [Math.min(...boxes.map((b) => b.min[i])), Math.max(...boxes.map((b) => b.max[i]))]).reduce((a, r) => [[...a[0], r[0]], [...a[1], r[1]]], [[], []]);
+    const by = [-(lo[0] + hi[0]) / 2, -(lo[1] + hi[1]) / 2, op.place === "floor" ? -lo[2] : -(lo[2] + hi[2]) / 2];
+    out = out.map((x) => x.translate(by));
+  }
+  return out;
+}
+
+/** What an import makes: the solids beside the bodies already there (as a piece of its own each), or alone. */
+function importedSolids(op, ctx, solids) {
+  const target = op.target ? ctx.peek(op.target, "solid") : null;
+  const all = [...(target ? target.shape.solids : []), ...solids];
+  return { kind: "solid", shape: all.length === 1 ? all[0] : makeCompound(all), checked: true };
+}
+
+/**
+ * A solid from a closed triangle mesh whose triangles all run the same way (counter-clockwise seen from outside): a face for each triangle, sewn into a shell and made a solid, then the neighbouring faces that lie in
+ * one plane (and edges that run on in one line) are joined, so a flat face of the part is one face again. Throws with the reason when it does not make a valid solid.
+ */
+export function solidOfMesh(mesh) {
+  const { vertices: v, triangles: t } = mesh;
+  const at = (i) => [v[3 * i], v[3 * i + 1], v[3 * i + 2]];
+  const faces = [];
+  for (let i = 0; i < t.length; i += 3) faces.push(makePolygon([at(t[i]), at(t[i + 1]), at(t[i + 2])]));
+  let solid = makeSolid(faces);
+  try {
+    const oc = getOC();
+    const [r, gc] = localGC();
+    const up = r(new oc.ShapeUpgrade_UnifySameDomain(solid.wrapped, true, true, false));
+    up.Build();
+    const joined = cast(up.Shape());
+    gc();
+    if ((joined.solids ?? []).length === 1 && isValidSolid(joined.solids[0])) solid = joined.solids[0];
+  } catch { /* the triangles stay as faces: still a solid */ }
+  if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("this mesh could not be made into a valid solid (its triangles do not close up cleanly)");
+  return solid;
+}
+
+/** The solids in the text of a STEP file, in millimetres (the reader converts the file's own units); each is checked. Throws with the reason when there is none or one is not a valid solid. */
+export function readStep(text) {
+  if (!/^\s*ISO-10303-21/.test(text)) throw new Error("this is not a STEP file (it does not start with ISO-10303-21)");
+  const oc = getOC();
+  const [r, gc] = localGC();
+  const file = `import-${Math.random().toString(36).slice(2)}.step`;
+  oc.FS.writeFile(`/${file}`, new TextEncoder().encode(text));
+  let shape;
+  try {
+    const reader = r(new oc.STEPControl_Reader());
+    if (!reader.ReadFile(file)) throw new Error("the STEP file could not be read (it may be damaged, or not a version the kernel knows)");
+    reader.TransferRoots();
+    shape = cast(r(reader.OneShape()));
+  } finally {
+    try { oc.FS.unlink(`/${file}`); } catch { /* it was not written */ }
+  }
+  const solids = shape.solids ?? [];
+  gc();
+  if (!solids.length) throw new Error("this STEP file has no solid bodies in it (only surfaces or curves): the app imports solids");
+  solids.forEach((sd, i) => { if (!isValidSolid(sd)) throw new Error(`body ${i + 1} of the STEP file is not a valid solid (it has gaps or folds)`); });
+  return solids;
+}
 
 /** OCCT's own topology/geometry check. Operations can return garbage without throwing. */
 export function isValidSolid(shape) {
@@ -85,7 +155,7 @@ export function roundIsSane(before, after, size, set) {
 }
 
 /**
- * Does a solid of `shape` that is not one of the solids of `before` pass through itself (`dec_self_crossing_check`, `in_472`)? The library's validity check does not say: a round larger than the wall of a hollow can leave the hollow sticking
+ * Does a solid of `shape` that is not one of the solids of `before` pass through itself (`dec_self_crossing_check`, `in_500`)? The library's validity check does not say: a round larger than the wall of a hollow can leave the hollow sticking
  * out through the outer skin and the body is "valid". Each solid is meshed coarsely and its triangles looked at (`selfcross.mjs`); the first crossing is returned, as where it is, or null. A body of
  * more than `MAX_FACES_CHECKED` faces is not looked at (a body that large is a lot of work for a check, and nothing is lost by it but the check).
  */
@@ -520,6 +590,14 @@ const OPS = {
     return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
   },
 
+  /** The solids of a STEP file, as bodies of their own beside the ones already there (`dec_import`): read here, on this thread, from the text kept in the step. A file with no solid in it (only surfaces or curves) is refused with that. */
+  import(op, ctx) {
+    return importedSolids(op, ctx, placedSolids(readStep(String(op.data)), op));
+  },
+  /** The closed meshes of a step (`dec_import_mesh`): each is sewn into a solid whose faces are its triangles, the flat ones that lie in one plane joined, as a body of its own beside the ones already there. */
+  importMesh(op, ctx) {
+    return importedSolids(op, ctx, String(op.data).split("|").filter(Boolean).map((m) => solidOfMesh(decodeMesh(m))));
+  },
   extrude(op, ctx) {
     const dist = resolve(op.distance, ctx.params);
     // a cut that starts on a face of the body (a figure drawn on the face and pushed in) has its tool begin a little behind that face, in the air: begun exactly on it, the kernel leaves the face as a skin over the pocket,
@@ -1407,7 +1485,7 @@ function rimTool(e, fs, size, mode, stations, whole = false) {
   const outlineFor = (sz) => {
     // a concave round (an inside corner that is filled) at a tip of radius R smaller than the size, the flat face running toward the axis (the tip of a pocket): the kernel's surface is the profile of the round turned
     // through the axis, which is the profile clipped at the axis (the union of the turned profile and of its mirror image across the axis lies in the circle): the region is made so, and joins the kernel's round
-    // where it takes over (`in_483`). A convex tip keeps the app's own rule, a dome at the tip's radius.
+    // where it takes over (`in_511`). A convex tip keeps the app's own rule, a dome at the tip's radius.
     if (!convex && sRho < 0 && !stations && sz > R + 1e-9 && Math.min(sz, wallH) > R + 1e-9) {
       const r = Math.min(sz, wallH);
       const h = Math.sqrt(Math.max(0, r * r - (r - R) * (r - R)));
@@ -1519,7 +1597,7 @@ const faceVertices = (f) => edgesOf(f).flatMap((e) => [e.startPoint, e.endPoint]
 /**
  * Is a rim of the selection (the named edges and the smooth chain they are on, a corner of the body or an inside corner that is filled) rounded by more than the face or the wall it runs on allows (`rimTool`'s reach is capped: the end of a post of a radius smaller
  * than the size)? The kernel's round of that size is some other surface than the dome the region makes there, and the two do not agree: the kernel's takes off more, so a bigger round took off less where the
- * region took over (`in_482`: a round tip of a teardrop-shaped post, a bigger round than the tip's radius). From that size the region's round is used, so there is one way of making it.
+ * region took over (`in_510`: a round tip of a teardrop-shaped post, a bigger round than the tip's radius). From that size the region's round is used, so there is one way of making it.
  */
 function rimCapped(t, set, size, mode) {
   const { edges, byEdge } = topoOf(t);
@@ -1620,7 +1698,7 @@ function smoothChain0(t, set, byEdge) {
 
 function regionRound(t, set0, size, mode, stations) {
   const { faces, byEdge } = topoOf(t);
-  // the kernel's round follows an edge on round the edges that carry it on smoothly (`in_480`: the chamfer of the one straight side of a stadium-shaped slot is the chamfer of the whole outline, two sides and two
+  // the kernel's round follows an edge on round the edges that carry it on smoothly (`in_508`: the chamfer of the one straight side of a stadium-shaped slot is the chamfer of the whole outline, two sides and two
   // arcs, for the kernel; the region of the one side took off a third, and a bigger chamfer took off less): the region does the same, when every edge it takes up is one it can make
   const set = stations ? set0 : smoothChain(t, set0, byEdge) ?? set0;
   const dir = (v) => { const l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; };
@@ -1629,7 +1707,7 @@ function regionRound(t, set0, size, mode, stations) {
   const tools = [];
   const straight = [];
   const rims = new Map();
-  // the kernel's round follows an edge round the rim: one half of a circle the kernel splits a rim into is rounded with the other half (`in_479`: a post's rim of which the step names one half went from the whole
+  // the kernel's round follows an edge round the rim: one half of a circle the kernel splits a rim into is rounded with the other half (`in_507`: a post's rim of which the step names one half went from the whole
   // rim to half of it where the region took over, and a bigger round took off less). Where the pieces between the same two faces on the same circle close it, the round goes all the way round, in one turn;
   // an arc that really ends (on a wall that cuts the round) is not one of them and ends in a flat cut.
   const wholeRim = new Map(); // hash code of the piece that makes the round -> true; the other pieces of its circle are in `skipped`
@@ -1689,7 +1767,7 @@ function regionRound(t, set0, size, mode, stations) {
     const ey = dir([a[1][0] - ex[0] * cosA, a[1][1] - ex[1] * cosA, a[1][2] - ex[2] * cosA]);
     const normal = crossp(ex, ey);
     // a region that is cut ends where the kernel's round does: at the faces that close the edge at its two ends (the third face at each end corner), not in a flat cut across the edge a millimetre past it. The prism
-    // is made long and cut off by the planes of those two faces, so a round bigger than the faces beside the edge are wide carries on, as a plane, across the corner (`in_476`: a prism that stopped a millimetre
+    // is made long and cut off by the planes of those two faces, so a round bigger than the faces beside the edge are wide carries on, as a plane, across the corner (`in_504`: a prism that stopped a millimetre
     // past the ends of the edge was a strip that stopped short of the corner, and a bigger round took off less). Where an end has no one flat face (or the size changes along the edge) the old flat cut is kept.
     // One that is added stops at the ends, or it would stand out.
     const endPlanes = convex && !stations ? [A, B].map((V) => {
@@ -1764,7 +1842,7 @@ function regionRound(t, set0, size, mode, stations) {
     const before = measureVolume(made);
     const toolVolume = measureVolume(tool);
     let next = convex ? made.cut(tool) : made.fuse(tool);
-    // a boolean can do nothing and say nothing (`in_486`: at 10.75 mm one cut of a round of 10 mm took off nothing, at 10.5 and 11 the same cut took off 413 and 454 mm3, so a bigger round left more of the body):
+    // a boolean can do nothing and say nothing (`in_514`: at 10.75 mm one cut of a round of 10 mm took off nothing, at 10.5 and 11 the same cut took off 413 and 454 mm3, so a bigger round left more of the body):
     // the result is a valid body, so no check sees it. A cut or a fill of a tool that has volume and changed nothing is made again with the tool moved a hair, along each axis in turn.
     if (toolVolume > 1e-6 && Math.abs(measureVolume(next) - before) < 1e-9 * Math.max(1, before)) {
       for (const shift of [[1, 0, 0], [0, 1, 0], [0, 0, 1], [-1, 0, 0], [0, -1, 0], [0, 0, -1]]) {
@@ -1935,7 +2013,7 @@ export function compile(graph) {
   const pj = JSON.stringify(params);
   for (const op of graph.ops) {
     const t0 = performance.now();
-    const key = fingerprint(JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes])].map((d) => (d ? keys.get(d) ?? null : null))]));
+    const key = fingerprint(JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes]), ...(op.sections ?? []).flatMap((s) => [s.profile, ...(s.holes ?? [])])].map((d) => (d ? keys.get(d) ?? null : null))]));
     keys.set(op.id, key);
     const kept = memo.get(key);
     if (kept) {
