@@ -1759,7 +1759,23 @@ function regionRound(t, set0, size, mode, stations) {
   }
   if (!tools.length) return null;
   let made = t;
-  for (const { tool, convex } of tools) made = convex ? made.cut(tool) : made.fuse(tool);
+  const diag = (() => { const bb = bounds(t); return Math.hypot(bb.max[0] - bb.min[0], bb.max[1] - bb.min[1], bb.max[2] - bb.min[2]); })();
+  for (const { tool, convex } of tools) {
+    const before = measureVolume(made);
+    const toolVolume = measureVolume(tool);
+    let next = convex ? made.cut(tool) : made.fuse(tool);
+    // a boolean can do nothing and say nothing (`in_486`: at 10.75 mm one cut of a round of 10 mm took off nothing, at 10.5 and 11 the same cut took off 413 and 454 mm3, so a bigger round left more of the body):
+    // the result is a valid body, so no check sees it. A cut or a fill of a tool that has volume and changed nothing is made again with the tool moved a hair, along each axis in turn.
+    if (toolVolume > 1e-6 && Math.abs(measureVolume(next) - before) < 1e-9 * Math.max(1, before)) {
+      for (const shift of [[1, 0, 0], [0, 1, 0], [0, 0, 1], [-1, 0, 0], [0, -1, 0], [0, 0, -1]]) {
+        let moved;
+        try { moved = tool.clone().translate(shift.map((x) => x * 1e-4 * Math.max(1, diag))); next = convex ? made.clone().cut(moved) : made.clone().fuse(moved); } catch { continue; }
+        if (Math.abs(measureVolume(next) - before) >= 1e-9 * Math.max(1, before) && isValidSolid(next)) break;
+        next = convex ? made.cut(tool) : made.fuse(tool); // (still nothing: the tool is perhaps not on the body; the first result stands)
+      }
+    }
+    made = next;
+  }
   // where three rounded edges meet at a corner of three faces at right angles (the corner of a block) and the size is small enough for the rounds not to meet, the corner is a piece of a sphere, as the kernel makes it
   // (the three regions leave the corner as the three rounds cross; the cube of the size at the corner without the ball is taken off)
   for (const corner of sphereCorners(straight, mode)) {

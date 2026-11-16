@@ -2255,3 +2255,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_485 — 2026-11-16 — directive
 > yes run the full sweep
 (approves running the full sweep over every saved file with a round step, to see which of the 26 breaks of `in_477` remain and whether the chain and tip rules introduced a new one)
+
+## in_486 — 2026-11-16 — directive
+> yes look at s_045
+(approves looking at the last large reversal of the sweep: `group-then-new-body-in_426.cad.json` `s_045`, +358 mm3 of 4251 at 10.5 to 10.75 mm)

@@ -16,7 +16,7 @@ const SIZES = Array.from({ length: 24 }, (_, k) => 0.5 + k * 0.5); // 0.5 to 12 
 type Point = { size: number; volume: number; region: boolean };
 
 /** The volume of the body after the round step `id` of the file, for each size, up to the first size the kernel gives up on (`ended`). */
-function sweep(file: string, id: string): { points: Point[]; ended: string | null } {
+function sweep(file: string, id: string, sizes: number[] = SIZES): { points: Point[]; ended: string | null } {
   const d = JSON.parse(fs.readFileSync(new URL(`./fixtures/${file}`, import.meta.url), "utf8"));
   const flat = (c: { type: string; commands?: unknown[] }): { type: string; step?: { id: string } }[] => (c.type === "batch" ? (c.commands as never[]).flatMap(flat) : [c as never]);
   const at = d.commands.findIndex((c: never) => flat(c).some((x) => x.type === "addStep" && x.step?.id === id));
@@ -25,13 +25,13 @@ function sweep(file: string, id: string): { points: Point[]; ended: string | nul
   assert.ok(opened.ok);
   let s = opened.ok ? opened.value : (null as never);
   const points: Point[] = [];
-  for (const size of SIZES) {
+  for (const size of sizes) {
     s = run(s, { type: "setStepParams", id, params: { value: size } } as never);
     const k = s.outcome.kernel as unknown as { volume: number; ops: { id: string; error: string | null; note?: string }[] };
     const op = k.ops.find((o) => o.id === `x_${id}`);
     if (op?.error) return { points, ended: op.error };
     points.push({ size, volume: k.volume, region: !!op?.note });
-    if (points.filter((p) => p.region).length >= 3) break; // (three sizes of the region are enough to see whether it joins on to the kernel's round: the rest takes time and shows nothing more)
+    if (sizes === SIZES && points.filter((p) => p.region).length >= 3) break; // (three sizes of the region are enough to see whether it joins on to the kernel's round: the rest takes time and shows nothing more)
   }
   return { points, ended: null };
 }
@@ -91,4 +91,12 @@ test("the check itself: a smooth growth passes, a step back and a jump are found
   assert.equal(breaks(mk([1000, 998, 994, 988, 996, 990], 4)).length, 1, "a step back");
   assert.ok(breaks(mk([1000, 998, 994, 988, 960, 950])).some((m) => /jumps/.test(m)), "a jump");
   assert.match(breaks(mk([1000, 990, 980, 995, 985], 3)).join(), /where the cut region takes over/);
+});
+
+test("a boolean that does nothing and says nothing does not leave the body bigger: at 10.75 mm the first cut of this round took off nothing (`in_486`)", () => {
+  // the volume at 10.5, 10.75 and 11 mm of the round: the middle one lies between the two
+  const { points } = sweep("group-then-new-body-in_426.cad.json", "s_045", [10.5, 10.75, 11]);
+  assert.equal(points.length, 3);
+  const [a, b, c] = points.map((p) => p.volume) as [number, number, number];
+  assert.ok(b < a && b > c, `${a.toFixed(1)}, ${b.toFixed(1)}, ${c.toFixed(1)}: a bigger round takes off more (before the fix: 4251, 4610, 4181)`);
 });
