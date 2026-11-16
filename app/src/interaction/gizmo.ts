@@ -185,11 +185,14 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
     const a = axisOf(op);
     const c = revolveCentre(op);
     if (!a || !c) return null;
-    const start = add(c, scale(a.d, L * 0.55));
     const orb: Handle = { id: "rev:orb", kind: "ball", axis: null, points: [c] }; // (the mover's orb: it moves when another line is clicked or when it is dragged, `in_436`, `in_468`)
-    // the rotate orb: a ring about each of the three axes, wherever the orb stands and however it is turned; the ring taken is the axis that is turned about, and the arrow through the middle of it, perpendicular to it, sets the spiral (`in_468`)
-    const rings = (op.frame ?? AXES).map((d, i) => ring(`rev:turn:${"xyz"[i]}`, c, d, L * 0.5, i as 0 | 1 | 2));
-    return { centre: c, handles: [orb, ...rings, { id: "rev:adv", kind: "double", axis: null, points: [add(start, scale(a.d, -HALF * L * 0.6)), add(start, scale(a.d, HALF * L * 0.6))] }] };
+    // the rotate orb: a ring about each of the three axes, wherever the orb stands and however it is turned; the ring taken is the axis that is turned about (`in_468`). On each axis, as on the linear repeat, two arrows
+    // in line: the first (`piv:`) puts the orb along that axis, the second, past it (`rev:adv:`), sets the spiral along that axis (`in_529`)
+    const ax: readonly Vec3[] = op.frame ?? AXES;
+    const rings = ax.map((d, i) => ring(`rev:turn:${"xyz"[i]}`, c, d, L * 0.5, i as 0 | 1 | 2));
+    const place = ax.map((d, i): Handle => ({ id: `piv:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [c, add(c, scale(d, L * 0.8))] }));
+    const spiral = ax.map((d, i): Handle => { const at = add(c, scale(d, L * 0.95)); return { id: `rev:adv:${"xyz"[i]}`, kind: "arrow", axis: i as 0 | 1 | 2, points: [at, add(at, scale(d, L * 0.35))] }; });
+    return { centre: c, handles: [orb, ...rings, ...place, ...spiral] };
   }
   if (op.kind === "edge") {
     // one double arrow, on the edge selected last, through its middle, along the way out of the corner; the size you drag applies to all the selected edges, so one arrow and one bubble are all there is to work with

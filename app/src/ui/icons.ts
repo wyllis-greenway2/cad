@@ -64,10 +64,13 @@ Object.assign(ICONS, {
   rect: svg('<rect x="2.5" y="4" width="11" height="8" rx="0.6"/>'),
   circle: svg('<circle cx="8" cy="8" r="5.5"/>'),
   line: svg('<path d="M3 13L13 3"/><circle cx="3" cy="13" r="1" /><circle cx="13" cy="3" r="1"/>'),
-  pushpull: svg('<path d="M2 14l3-2.4h9l-3 2.4z" fill="currentColor" fill-opacity=".2"/><path d="M2 7.4l3-2.4h9l-3 2.4z" stroke-dasharray="1.8 1.6"/><path d="M2 14V7.4M11 14V7.4M14 11.6V5" stroke-dasharray="1.8 1.6"/><path d="M6.5 11V3.2"/><path d="M4.6 5l1.9-1.9L8.4 5"/>'), // (a face pulled up into a block, `in_382`)
+  pushpull: svg('<path d="M2.5 11.5L8 8.7l5.5 2.8L8 14.3z"/><path d="M8 7V2"/><path d="M5.6 4.4L8 2l2.4 2.4"/>'), // (a face and one arrow up from it: simple, `in_538`)
   move: svg('<path d="M8 2v12M2 8h12"/><path d="M6 4l2-2 2 2M6 12l2 2 2-2M4 6L2 8l2 2M12 6l2 2-2 2"/>'),
   rotate: svg('<path d="M13 8a5 5 0 11-1.6-3.7"/><path d="M13.2 2.4v3h-3"/>'),
   scale: svg('<rect x="2.5" y="7.5" width="6" height="6" rx="0.6"/><path d="M8 8l5.5-5.5"/><path d="M9.5 2.5h4v4"/>'),
+  paste: svg('<rect x="3" y="3.2" width="10" height="11" rx="1.2"/><path d="M6 3.2V2.4a.9.9 0 01.9-.9h2.2a.9.9 0 01.9.9v.8"/><path d="M5.6 8h4.8M5.6 10.6h4.8"/>'), // (a clipboard, `in_538`)
+  selbodies: svg('<rect x="2" y="6" width="7" height="7" rx=".8"/><rect x="8" y="2.5" width="6" height="6" rx=".8"/>'), // (blocks: all the bodies, `in_538`)
+  seladd: svg('<rect x="2" y="6" width="7" height="7" rx=".8"/><path d="M11.5 2.5v5M9 5h5"/>'), // (a thing and a plus: add to the selection, `in_539`)
   copy: svg('<rect x="5.5" y="5.5" width="8" height="8" rx="1"/><path d="M10.5 3.5v-.5a1 1 0 00-1-1h-6a1 1 0 00-1 1v6a1 1 0 001 1h.5"/>'),
   linear: svg('<rect x="1.5" y="5.5" width="3.6" height="5" rx="0.5"/><rect x="6.2" y="5.5" width="3.6" height="5" rx="0.5"/><rect x="10.9" y="5.5" width="3.6" height="5" rx="0.5"/>'),
   circular: svg('<circle cx="8" cy="2.8" r="1.6"/><circle cx="13.2" cy="8" r="1.6"/><circle cx="8" cy="13.2" r="1.6"/><circle cx="2.8" cy="8" r="1.6"/>'),

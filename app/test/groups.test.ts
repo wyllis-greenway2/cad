@@ -160,16 +160,40 @@ test("Group and Ungroup are offered in the suggestion row like a suggested icon,
   assert.ok(!ids(select(st, [c[0]!])).includes("select:group"), "one thing is not several");
 });
 
-test("select several (the ⋯ menu): every tap adds to the selection and a tap on what is selected takes it out, as Shift does (`in_300`)", () => {
+test("the touch way to select several: Add mode (the ring's Select, or the pill) makes every tap add to the selection and a tap on what is selected take it out; the pill says so and Done leaves (`in_539`)", () => {
   const { s, c } = sketch();
-  let st = reduce({ ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 15, 0] } }, { type: "runAction", id: "multiselect" }, env);
-  assert.equal(st.multiSelect, true);
+  let st = reduce({ ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 15, 0] } }, { type: "runAction", id: "select:add" }, env);
+  assert.equal(st.adding, true);
   const mid = (ref: Ref): [number, number] => projector(st.cam, env.w, env.h).project((scene(st.session).parts[ref] as unknown as { at: [number, number, number] }).at) as [number, number];
   for (const r of [c[0]!, c[1]!]) { const [x, y] = mid(r); st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env); }
   assert.equal(selection(st.session).length, 2, "two taps: both selected");
+  assert.equal(frameOf(st, env).adding, "on", "the pill says it is on");
   const [x, y] = mid(c[0]!);
   st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env);
   assert.equal(selection(st.session).length, 1, "a tap on one that is selected takes it out");
-  st = reduce(st, { type: "runAction", id: "multiselect" }, env);
-  assert.equal(st.multiSelect, false);
+  st = reduce(st, { type: "runAction", id: "select:add" }, env); // Done
+  assert.equal(st.adding, false);
+  assert.equal(frameOf(st, env).adding, "offer", "with something selected the pill offers it again (on a touch screen)");
+  const menu = reduce(st, { type: "menu", x: 300, y: 300, button: true }, env).menu!.items.flatMap((i) => i.children ?? [i]);
+  assert.equal(menu.find((i) => i.id === "select:add")!.label, "Add mode");
+  const on = reduce(reduce(st, { type: "runAction", id: "select:add" }, env), { type: "menu", x: 300, y: 300, button: true }, env).menu!.items.flatMap((i) => i.children ?? [i]);
+  assert.equal(on.find((i) => i.id === "select:add")!.label, "Stop adding");
+});
+
+test("Esc ends Add mode and keeps what is selected; Esc again clears it; with a tool open Esc puts the tool away first (`in_540`)", () => {
+  const { s, c } = sketch();
+  let st = reduce({ ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 15, 0] } }, { type: "runAction", id: "select:add" }, env);
+  const mid = (ref: Ref): [number, number] => projector(st.cam, env.w, env.h).project((scene(st.session).parts[ref] as unknown as { at: [number, number, number] }).at) as [number, number];
+  for (const r of [c[0]!, c[1]!]) { const [x, y] = mid(r); st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env); }
+  st = reduce(st, { type: "escape" }, env);
+  assert.equal(st.adding, false, "adding is over");
+  assert.equal(selection(st.session).length, 2, "the selection stays");
+  st = reduce(st, { type: "escape" }, env);
+  assert.equal(selection(st.session).length, 0, "the next Esc clears it");
+  // adding with a tool open: the tool goes first, adding stays
+  st = reduce(st, { type: "runAction", id: "select:add" }, env);
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  st = reduce(st, { type: "escape" }, env);
+  assert.equal(st.tool, null);
+  assert.equal(st.adding, true);
 });

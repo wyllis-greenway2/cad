@@ -36,6 +36,7 @@ import type { Ref, Command, Vec3 } from "./interaction/api.ts";
 import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
 import { createRing } from "./ui/ring.ts";
+import { createAddChip } from "./ui/addchip.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
@@ -133,7 +134,7 @@ const menu = createMenu(document.body, (id) => {
   else if (id === "bodies" || id === "history" || id === "groups") dispatch({ type: "panel", name: id });
   else if (id === "undo" || id === "redo") dispatch({ type: id });
   else dispatch({ type: "runAction", id });
-});
+}, (why) => dispatch({ type: "runAction", id: `say:${why}` }));
 
 /** The ring's items as rows of the ⋯ list: each category's items under it, one group each. */
 
@@ -141,7 +142,7 @@ const ring = createRing(document.body, (id) => {
   ring.hide();
   if (id === "view:game") { input.toggleGame(); return; }
   dispatch({ type: "runAction", id });
-});
+}, (id) => dispatch({ type: "runAction", id: `why:${id}` })); // (a dimmed option pressed: its reason is said and the ring stays, `in_538`)
 
 const hintIcons = createHints(document.body);
 let lastIcon: [number, number] | null = null;
@@ -161,6 +162,7 @@ const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "ove
 const faceKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "faceKind", kind: id as "move" | "extrude" | "extend" }));
 const loftKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "loftKind", id }), "Loft:");
 const sizeKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "sizeKind", kind: id as "constant" | "variable" | "twoDistances" | "swap" }), "Size:");
+const addChip = createAddChip(document.body, () => dispatch({ type: "runAction", id: "select:add" }));
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "invert" ? { type: "runAction", id: "hollow:invert" } : to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
@@ -254,7 +256,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { undo: state.session.history.cursor > 0, redo: state.session.history.cursor < state.session.history.commands.length, export: canExport(state.session) || canExportFlat(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, state.multiSelect, settings.input.trackpadPanScale, settings.theme.outlines, scene(state.session).clearance ?? 0)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, settings.input.trackpadPanScale, settings.theme.outlines, scene(state.session).clearance ?? 0)); }
     else {
       menu.hide();
       if (state.menu && inGame()) { // game mode: the ring stands in the world, ahead of the eye, where it was opened (`in_463`, `in_471`)
@@ -278,7 +280,10 @@ function dispatch(i: Intent) {
 let lastDevice: "mouse" | "touch" | "pen" = "mouse";
 bus.on("input", (raw) => {
   if ("device" in raw && raw.device !== lastDevice) { lastDevice = raw.device; dirty = true; }
+  const escRing = raw.kind === "key" && raw.key === "Escape" && raw.down && ring.open;
   for (const i of recognizer.feed(raw)) dispatch(i);
+  // Esc ends the ring too: in game mode the key leaves the game and sends no intent of its own, so the ring would stay up (`in_542`)
+  if (escRing && ring.open) { ring.hide(); dispatch({ type: "escape" }); }
 });
 const input = attachInput(host, bus);
 
@@ -367,6 +372,7 @@ function frame(now: number) {
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
     undoBar.update(lastDevice === "touch", f.undoRedo);
     similarChip.update(f.similar);
+    addChip.update(f.adding === "offer" && lastDevice !== "touch" ? null : f.adding);
     faceKindChip.update(f.faceKinds);
     sizeKindChip.update(f.sizeKinds);
     loftKindChip.update(f.loftKinds);

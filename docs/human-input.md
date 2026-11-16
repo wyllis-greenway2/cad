@@ -2446,3 +2446,61 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_528 — 2026-11-16 — directive
 > Build the about block and Import/Export menu next
 (asks for the last open parts of `q_import_export`: the small `about` block in every project file, and the Import / Export menu with standard options in place of the separate export rows)
+
+## in_529 — 2026-11-16 — directive
+> The rotate tool is still not right. It needs zyx arrows to carefully position the orb in space. It also doesn't spiral at all. I think the xyz arrows need extra arrows similar to the linear repeat and those second arrows indicate the spiral olong that rotation axis. 
+>
+> The sweep doesn't actually seem to have a proper preview? if I click a sketch, then click sweep, then click a sweep line, it doesn't preview anything, if I click the green checkmark it just makes it. If I select a sketch and a sweep line and then select then click sweep, then it does show a preview but not as an actual preview which would normally be wireframe, instead it looks like a normal model.
+(asks, for the revolve (the rotate orb): X Y Z arrows on the orb to place it exactly in space; a spiral that works; and a second arrow on each axis, as the linear repeat has a second arrow for the count, that sets the spiral along that rotation axis. For the sweep: a preview while its sketch and path are being clicked for it (after the sweep is chosen first, nothing shows until the check), and the preview drawn as a wireframe, as the revolve's is, not as a solid model)
+
+## in_530 — 2026-11-16 — directive
+> Do the loft wireframe preview next
+(asks for what in_529 left unbuilt: the loft's preview, open or waiting, drawn as a wireframe as the sweep's and the revolve's are)
+
+## in_531 — 2026-11-16 — directive
+> Do the number bubbles on the revolve arrows next
+(asks for what in_529 left unbuilt: number bubbles on the revolve's new position arrows and spiral arrows, to read and type the numbers)
+
+## in_532 — 2026-11-16 — directive
+> Do the turned-orb position bubbles next
+(asks for what in_531 left unbuilt: for a turned orb, the revolve's position bubbles giving the place along the turned axis, not the world coordinate)
+
+## in_533 — 2026-11-16 — directive
+> Do the loft's own number bubbles next
+(asks for number bubbles for the loft; what numbers a loft has is not said)
+
+## in_534 — 2026-11-16 — preference
+> Start point per sketch
+(answers which numbers the loft's bubbles should carry (asked after in_533): the start point of each sketch; not the distances between sketches)
+
+## in_535 — 2026-11-16 — directive
+> Do the loft's distance bubbles next
+(asks for what in_534 left unbuilt: the loft's bubbles for the distances between sketches)
+
+## in_536 — 2026-11-16 — directive
+> Do the loft's along-the-normal distance next
+(asks for what in_535 left unbuilt: the loft's distance between sketches measured along the normal of the sketch's plane, not along the straight line between their middles)
+
+## in_537 — 2026-11-16 — directive
+> Do the choice between the two distance measures next
+(asks for what in_536 left unbuilt: a choice, for the loft, between the distance along the normal of the sketch's plane and the straight distance between the sketches' middles)
+
+## in_538 — 2026-11-16 — directive
+> the paste icon in the menu needs a different icon. The extrude face icon needs a new one, simpler. Can we make the menu always navigable even if options arent selectable? Some of the tool tips are rediculous in the menu. Specifically offset, it should just say single word offset. Lets audit all the menu tool tips. They should all be one or two words only. I think the menu also needs a select all bodies option. Lets offer an undo redo option next to delete and turn the delete menu area into an actions area. Lets get rid of undo redo out of the ... menu. lets get rid of select several under the ... menu entirely
+(asks, for the ring menu and the ⋯ menu: a different icon for paste; a new, simpler icon for extrude face; every category and item always navigable even when its options cannot be used; tooltips of one or two words (offset: "Offset"), audited across the menu; a "select all bodies" option; undo and redo offered next to delete, the Delete area turned into an Actions area; undo and redo taken out of the ⋯ menu; "select several" taken out of the ⋯ menu entirely)
+
+## in_539 — 2026-11-16 — directive
+> Do the touch way to select several next
+(asks for what in_538 left open: with Select several taken out of the ⋯ menu, a way to select several things with a finger, where a tap adds to the selection; the form is left to the AI)
+
+## in_540 — 2026-11-16 — directive
+> Do the Esc ending add mode next
+(asks for what in_539 left unbuilt: Esc ending the add mode)
+
+## in_541 — 2026-11-16 — directive
+> Do the shorten ⋯ menu row labels next
+(asks for what in_538 left undone: the ⋯ menu's own row labels shortened, as the ring's tooltips were, to one or two words)
+
+## in_542 — 2026-11-16 — directive
+> Do the Esc ending the ring menu next
+(asks for Esc to end the ring menu)

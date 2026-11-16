@@ -39,33 +39,35 @@ import { patternValues } from "../pattern.ts";
 import { hasGizmo, hitHandle, moveOffset } from "../gizmo.ts";
 
 /** The operations a right click offers (`in_133`), in categories (`in_143`): sketching, constraints, shape, moving and repeating, and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
-const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" | "combine" | "faces" | "edges" | "vertices" | "paste" | "hard" }[] = [
+const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" | "combine" | "faces" | "edges" | "vertices" | "paste" | "hard" | "bodies" | "add" }[] = [
   { id: "tool:rect", label: "Rectangle", icon: "rect", tool: "rect" },
   { id: "tool:circle", label: "Circle", icon: "circle", tool: "circle" },
   { id: "tool:line", label: "Line", icon: "line", tool: "line" },
   { id: "tool:arc", label: "Curve", icon: "arc", tool: "arc" },
   { id: "tool:trim", label: "Trim", icon: "scissors", tool: "trim" },
   { id: "op:offset", label: "Offset", icon: "offset", op: "offset" },
-  { id: "op:pushpull", label: "Push / pull", icon: "pushpull", op: "pushpull" },
-  { id: "op:edge", label: "Fillet / chamfer", icon: "edge", op: "edge" },
+  { id: "op:pushpull", label: "Push pull", icon: "pushpull", op: "pushpull" },
+  { id: "op:edge", label: "Fillet chamfer", icon: "edge", op: "edge" },
   { id: "op:hollow", label: "Hollow", icon: "hollow", op: "hollow" },
-  { id: "op:revolve", label: "Revolve / spiral", icon: "revolve", op: "revolve" },
+  { id: "op:revolve", label: "Revolve", icon: "revolve", op: "revolve" },
   { id: "op:loft", label: "Loft", icon: "loft", op: "loft" },
   { id: "op:sweep", label: "Sweep", icon: "sweep", op: "sweep" },
   { id: "op:mirror", label: "Mirror copy", icon: "mirror", op: "mirror" },
   { id: "op:scale", label: "Scale", icon: "scale", op: "scale" },
   { id: "op:move", label: "Move", icon: "move", op: "move" },
   { id: "op:rotate", label: "Rotate", icon: "rotate", op: "rotate" },
-  { id: "op:copy", label: "Copy (Ctrl+C)", icon: "copy", op: "copy" },
-  { id: "clipboard:paste", label: "Paste (Ctrl+V)", icon: "copy", select: "paste" },
-  { id: "op:linear", label: "Repeat in a line", icon: "linear", op: "linear" },
-  { id: "op:circular", label: "Repeat round a point", icon: "circular", op: "circular" },
+  { id: "op:copy", label: "Copy", icon: "copy", op: "copy" },
+  { id: "clipboard:paste", label: "Paste", icon: "paste", select: "paste" },
+  { id: "op:linear", label: "Line repeat", icon: "linear", op: "linear" },
+  { id: "op:circular", label: "Round repeat", icon: "circular", op: "circular" },
   { id: "body:hard", label: "Hard body", icon: "hard", select: "hard" }, // (a constraint: no other body goes into it while one or the other is moved by hand, `in_473`, `in_490`)
-  { id: "combine:parts", label: "Combine bodies…", icon: "subtract", select: "combine" }, // (add, cut and what is left of both: the parts the bodies make are each kept or tossed, `in_298`)
+  { id: "combine:parts", label: "Combine", icon: "subtract", select: "combine" }, // (add, cut and what is left of both: the parts the bodies make are each kept or tossed, `in_298`)
   { id: "select:similar", label: "Select similar", icon: "similar", select: "similar" },
-  { id: "select:faces", label: "Select all faces", icon: "selfaces", select: "faces" },
-  { id: "select:edges", label: "Select all edges", icon: "seledges", select: "edges" },
-  { id: "select:vertices", label: "Select all vertices", icon: "selvertices", select: "vertices" },
+  { id: "select:faces", label: "All faces", icon: "selfaces", select: "faces" },
+  { id: "select:edges", label: "All edges", icon: "seledges", select: "edges" },
+  { id: "select:vertices", label: "All vertices", icon: "selvertices", select: "vertices" },
+  { id: "select:bodies", label: "All bodies", icon: "selbodies", select: "bodies" },
+  { id: "select:add", label: "Add mode", icon: "seladd", select: "add" },
   { id: "select:group", label: "Group", icon: "group", select: "group" },
   { id: "select:ungroup", label: "Ungroup", icon: "ungroup", select: "ungroup" },
 ];
@@ -73,16 +75,20 @@ const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[]
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts"] },
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate"] },
-  { id: "repeat", label: "Copy and repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular"] },
-  { id: "select", label: "Select", icon: "pointer", items: ["select:similar", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
+  { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular"] },
+  { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
 const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:move", "op:rotate", "op:copy", "op:mirror", "op:linear", "op:circular"]);
+/** What a constraint or mate is called in the ring: one or two words (`in_538`). */
+const TIPS: Record<string, string> = { fixed: "Fix", onCircle: "On circle", sameAcross: "Same across", equalLength: "Equal", equalRadius: "Equal", "mate:flush": "Flush", "mate:parallel": "Parallel faces", "mate:perpendicular": "Perpendicular faces", "mate:angle": "Face angle", "mate:coaxial": "Coaxial", "mate:parallelAxes": "Parallel axes", "mate:perpendicularAxes": "Perpendicular axes", "mate:angleAxes": "Axis angle", "mate:axisToFace": "Axis to face" };
+const tipOf = (id: string, label: string): string => TIPS[id] ?? label;
 const category = (id: string, label: string, icon: string, kids: MenuItem[]): MenuItem => {
   const first = kids.find((k) => k.enabled);
-  return { id, label, icon, enabled: !!first, why: first ? null : kids[0]?.why ?? "nothing here applies", children: kids };
+  return { id, label, icon, enabled: true, why: null, children: kids, ...(first ? {} : { dim: true as const }) }; // (always opens, so every ring can be looked through: dimmed when nothing in it applies now, `in_538`)
 };
-function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean; clip?: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
+function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean; clip?: boolean; adding?: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
+  const adding = !!view.adding;
   const sc = sceneOf(session);
   const sel = selectionOf(session);
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
@@ -94,8 +100,10 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (r.select === "hard") {
       const bodies = sel.filter((x) => sc.parts[x]?.kind === "body" && !!(sc.parts[x] as { id?: string }).id);
       const every = bodies.length > 0 && bodies.every((x) => isHard(sc, x));
-      return [r.id, { ...base, label: every ? "Hard body: on (tap to make it soft)" : "Hard body (no other body goes into it)", enabled: bodies.length > 0, why: bodies.length ? null : "select a body" }];
+      return [r.id, { ...base, label: every ? "Soft body" : "Hard body", enabled: bodies.length > 0, why: bodies.length ? null : "select a body" }];
     }
+    if (r.select === "add") return [r.id, { ...base, label: adding ? "Stop adding" : "Add mode", enabled: true, why: null }];
+    if (r.select === "bodies") { const any = Object.values(sc.parts).some((q) => q.kind === "body"); return [r.id, { ...base, enabled: any, why: any ? null : "no bodies yet" }]; }
     if (r.select === "paste") return [r.id, { ...base, enabled: !!view.clip, why: view.clip ? null : "nothing is copied: select something and press Ctrl+C" }];
     if (r.select === "faces" || r.select === "edges" || r.select === "vertices") return [r.id, { ...base, enabled: true, why: null }];
     if (r.select) { const why = r.select === "group" ? whyNotGroup(session) : whyNotUngroup(session); return [r.id, { ...base, enabled: !why, why }]; }
@@ -103,7 +111,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     return [r.id, { ...base, enabled: true, why: st.ok ? null : st.why, ...(st.ok ? {} : { picks: true as const }) }]; // (not selected yet: it can be chosen and waits for what to click, `in_464`)
   }));
   const acts = actionsFor(sc, sel);
-  const rels: MenuItem[] = acts.filter((a) => a.group === "relation" && a.enabled).map((a) => ({ id: a.id, label: a.label, icon: a.id, enabled: true, why: null }));
+  const rels: MenuItem[] = acts.filter((a) => a.group === "relation" && a.enabled).map((a) => ({ id: a.id, label: tipOf(a.id, a.label), icon: a.id, enabled: true, why: null }));
   const del = acts.find((a) => a.id === "delete");
   // looking straight at the selected plane or face, or at the one the click was on (`in_171`: the eye lives here, not on the screen)
   const clicked = over ? planeOf(lookup(sc), over) : null; // (the surface the right click was on: a face, a sketch's plane, a world plane; a sketch tool chosen from the ring turns to it when the selection does not say which plane)
@@ -114,13 +122,18 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
     // the eye: how the model is looked at (`in_386`): straight at a surface, as wireframe, and the tape measure
     category("view", "View", "eye", [
-      { id: "look", label: "Look straight at it", icon: "look", enabled: !!target, why: target ? null : "select a plane or a face, or right-click on one" },
-      { id: "view:game", label: "Game mode (Space): fly with W A S D, hold Alt for the pointer", icon: "game", enabled: true, why: null },
-      { id: "view:section", label: "Plane / cross section", icon: "section", enabled: true, why: null }, // (one item: a new plane, cutting; its icons change that, `in_466`)
-      { id: "view:wireframe", label: view.wireframe ? "Wireframe view: on (tap for solid)" : "Wireframe view", icon: "wireframe", enabled: true, why: null },
-      { id: "tape:measure", label: view.tape ? "Tape measure: on (tap to put away)" : "Tape measure", icon: "dimension", enabled: true, why: null },
+      { id: "look", label: "Look at", icon: "look", enabled: !!target, why: target ? null : "select a plane or a face, or right-click on one" },
+      { id: "view:game", label: "Game mode", icon: "game", enabled: true, why: null },
+      { id: "view:section", label: "Section", icon: "section", enabled: true, why: null }, // (one item: a new plane, cutting; its icons change that, `in_466`)
+      { id: "view:wireframe", label: "Wireframe", icon: "wireframe", enabled: true, why: null },
+      { id: "tape:measure", label: "Tape measure", icon: "dimension", enabled: true, why: null },
     ]),
-    { id: "delete", label: "Delete", icon: "trash", enabled: !!del?.enabled, why: del?.why ?? "select something to delete" },
+    // the actions on what is there: undo and redo, and delete (`in_538`)
+    category("actions", "Actions", "trash", [
+      { id: "undo", label: "Undo", icon: "undo", enabled: session.history.cursor > 0, why: "nothing to undo" },
+      { id: "redo", label: "Redo", icon: "redo", enabled: session.history.cursor < session.history.commands.length, why: "nothing to redo" },
+      { id: "delete", label: "Delete", icon: "trash", enabled: !!del?.enabled, why: del?.why ?? "select something to delete" },
+    ]),
   ];
   return { x, y, items, plane: clicked ? clicked.ref : null };
 }
@@ -458,8 +471,8 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   }
   // a revolve takes a click on a line, a vertex or a face for the orb even before the sphere is selected: it puts the orb there, its axis along the line or across the face (`in_438`)
   // a click on one of the revolve's rings makes that the axis, with no drag needed (`in_468`)
-  if (hit && hit.id.startsWith("rev:turn:") && s.op?.kind === "revolve") return { ...base, op: { ...s.op, auto: false, axis: "xyz".indexOf(hit.id[9]!) as 0 | 1 | 2, revField: 0 }, gizmoHover: hit.id, handleSel: hit.id };
-  if ((!hit || (mover?.kind === "revolve" && hit.id === "rev:adv")) && (s.moverSphere || mover?.kind === "revolve") && canOrient) {
+  if (hit && (hit.id.startsWith("rev:turn:") || hit.id.startsWith("rev:adv:")) && s.op?.kind === "revolve") return { ...base, op: { ...s.op, auto: false, axis: "xyz".indexOf(hit.id[hit.id.startsWith("rev:adv:") ? 8 : 9]!) as 0 | 1 | 2, revField: hit.id.startsWith("rev:adv:") ? 1 : 0 }, gizmoHover: hit.id, handleSel: hit.id };
+  if (!hit && (s.moverSphere || mover?.kind === "revolve") && canOrient) {
     const at = moverPlace(sc, cands[0], pv, mover!);
     const turned = moverTurned(sc, cands[0]);
     if (at) {
@@ -560,7 +573,7 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   }
   // what is under the point (a finger has no hover: a long press must be told what is under it the same way a right click is, or a tool chosen from the ring would not turn the view straight to the plane there, `in_283`)
   const under = i.button ? null : candidatesAt(sceneOf(s.session), projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0]?.ref ?? null;
-  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!sectionNow(s), clip: !!s.clipboard?.length }) };
+  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!sectionNow(s), clip: !!s.clipboard?.length, adding: s.adding }) };
 }
 
 /**

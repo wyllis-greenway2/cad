@@ -48,10 +48,10 @@ test("the switch in the ⋯ list shows all constraints, and the History sketch b
   const s = open();
   let st = createState(s);
   const rows = appRows("auto", "", undefined, st.showAllConstraints);
-  assert.match(rows.find((r) => r.id === "constraints")!.label, /only the ones/);
+  assert.match(rows.find((r) => r.id === "constraints")!.label, /Key constraints/);
   st = reduce(st, { type: "runAction", id: "constraints" }, { w: 800, h: 600, now: 0 });
   assert.equal(st.showAllConstraints, true);
-  assert.match(appRows("auto", "", undefined, st.showAllConstraints).find((r) => r.id === "constraints")!.label, /all shown/);
+  assert.match(appRows("auto", "", undefined, st.showAllConstraints).find((r) => r.id === "constraints")!.label, /All constraints/);
   const line = "d/e_025.s0" as never;
   const withSel = (x: typeof st) => ({ ...x, session: { ...x.session, click: { ...x.session.click, selection: [line] } } });
   const few = frameOf(withSel({ ...st, showAllConstraints: false }), { w: 800, h: 600 }).annotations.length;

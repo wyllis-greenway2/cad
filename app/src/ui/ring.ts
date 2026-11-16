@@ -3,7 +3,7 @@
 // that closes them again); the rings are all the same size and share a centre. It displays what the interaction layer says and reports which was chosen.
 import { iconSvg, iconKey } from "./icons.ts";
 
-export interface RingItem { id: string; label: string; icon: string; enabled: boolean; why: string | null; children?: RingItem[] }
+export interface RingItem { id: string; label: string; icon: string; enabled: boolean; why: string | null; dim?: boolean; children?: RingItem[] }
 const SIZE = 36;
 const GAP = 8;
 const MS = 280; // the unfolding
@@ -12,7 +12,7 @@ const BACK: RingItem = { id: "back", label: "Back", icon: "cross", enabled: true
 
 const depthN = (items: RingItem[]): number => Math.max(items.length + 1, ...items.map((i) => (i.children ? depthN(i.children) : 0)));
 
-export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
+export function createRing(host: HTMLElement, onChoose: (id: string) => void, onBlocked: (id: string) => void = () => {}) {
   const root = document.createElement("div");
   root.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;display:none;z-index:10;user-select:none;-webkit-user-select:none";
   host.appendChild(root);
@@ -41,21 +41,22 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void) {
   const bubble = (it: RingItem, at: { left: number; top: number }, from: { left: number; top: number } | null, k: number, go: () => void) => {
     const b = document.createElement("div");
     b.innerHTML = iconSvg(iconKey(it.icon));
-    b.title = it.why ? `${it.label}: ${it.why}` : it.label;
+    b.title = it.label; // (one or two words: the reason an option cannot be used is said when it is pressed, `in_538`)
     const live = it.enabled;
+    const faint = !it.enabled || !!it.dim;
     const start = from ?? at;
     b.style.cssText = `position:absolute;left:${start.left}px;top:${start.top}px;width:${SIZE}px;height:${SIZE}px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#fff;border:1px solid ${it.id === "back" ? "#c0392b" : "#d6d7db"};color:${it.id === "back" ? "#c0392b" : "inherit"};box-shadow:0 1px 6px rgba(0,0,0,.14);cursor:${live ? "pointer" : "default"};opacity:${from ? 0 : live ? 1 : 0.38};transform:scale(${from ? 0.4 : 1})`;
     if (live) {
       b.addEventListener("pointerenter", () => { if (it.id !== "back") b.style.borderColor = "#1ab8b3"; });
       b.addEventListener("pointerleave", () => { b.style.borderColor = it.id === "back" ? "#c0392b" : "#d6d7db"; });
       b.addEventListener("pointerup", (e) => { e.stopPropagation(); go(); });
-    }
+    } else b.addEventListener("pointerup", (e) => { e.stopPropagation(); onBlocked(it.id); }); // (a dimmed option says why it cannot be used, and the ring stays open)
     acts.set(b, { live, id: it.id, go });
     root.appendChild(b);
     if (from) {
       void b.offsetWidth; // (so the start is drawn before the move)
       b.style.transition = `left ${MS}ms cubic-bezier(.2,.8,.2,1) ${k * STAGGER}ms,top ${MS}ms cubic-bezier(.2,.8,.2,1) ${k * STAGGER}ms,opacity ${MS}ms ${k * STAGGER}ms,transform ${MS}ms cubic-bezier(.2,.8,.2,1) ${k * STAGGER}ms`;
-      b.style.left = `${at.left}px`; b.style.top = `${at.top}px`; b.style.opacity = live ? "1" : "0.38"; b.style.transform = "scale(1)";
+      b.style.left = `${at.left}px`; b.style.top = `${at.top}px`; b.style.opacity = faint ? "0.38" : "1"; b.style.transform = "scale(1)";
     }
     return b;
   };

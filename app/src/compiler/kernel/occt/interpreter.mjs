@@ -2013,7 +2013,7 @@ export function compile(graph) {
   const pj = JSON.stringify(params);
   for (const op of graph.ops) {
     const t0 = performance.now();
-    const key = fingerprint(JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes])].map((d) => (d ? keys.get(d) ?? null : null))]));
+    const key = fingerprint(JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes]), ...(op.sections ?? []).flatMap((s) => [s.profile, ...(s.holes ?? [])])].map((d) => (d ? keys.get(d) ?? null : null))]));
     keys.set(op.id, key);
     const kept = memo.get(key);
     if (kept) {

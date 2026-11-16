@@ -3,17 +3,15 @@ export interface AppRow { id: string; label: string; enabled: boolean; why: stri
 export type ScrollMode = "auto" | "pan" | "zoom";
 
 const NEXT: Record<ScrollMode, ScrollMode> = { auto: "pan", pan: "zoom", zoom: "auto" };
-const LABEL: Record<ScrollMode, string> = { auto: "Scroll: trackpad pans, wheel zooms", pan: "Scroll: always pans", zoom: "Scroll: always zooms" };
+const LABEL: Record<ScrollMode, string> = { auto: "Scroll auto", pan: "Scroll pans", zoom: "Scroll zooms" }; // (the rows are one or two words, `in_541`)
 
 /** How much of a trackpad's scroll the view pans by (`in_303`): trackpads and their system settings differ a lot, so it is the user's choice. */
 const PAN_LEVELS = [{ name: "low", scale: 0.15 }, { name: "medium", scale: 0.3 }, { name: "high", scale: 0.5 }] as const;
 export const nextPanScale = (scale: number): number => { const i = PAN_LEVELS.findIndex((l) => Math.abs(l.scale - scale) < 1e-9); return PAN_LEVELS[(i + 1) % PAN_LEVELS.length]!.scale; };
 const panName = (scale: number): string => PAN_LEVELS.reduce((a, l) => (Math.abs(l.scale - scale) < Math.abs(a.scale - scale) ? l : a)).name;
 
-export const appRows = (mode: ScrollMode, build = "", can: { undo: boolean; redo: boolean; export?: boolean; /** how many mates are no longer true (`in_315`) */ matesOff?: number; /** the kernel's answers are kept between sessions (`dec_description_cache`): a row to forget them */ clearAnswers?: boolean } = { undo: true, redo: true }, allConstraints = false, multiSelect = false, panScale = 0.3, outlines = true, clearance = 0): AppRow[] => [
-  { id: "undo", label: "Undo", enabled: can.undo, why: "nothing to undo" },
-  { id: "redo", label: "Redo", enabled: can.redo, why: "nothing to redo" },
-  ...(can.matesOff ? [{ id: "mate:reapply", label: `Put the ${can.matesOff === 1 ? "mate" : `${can.matesOff} mates`} that ${can.matesOff === 1 ? "is" : "are"} no longer true back`, enabled: true, why: null }] : []),
+export const appRows = (mode: ScrollMode, build = "", can: { export?: boolean; /** how many mates are no longer true (`in_315`) */ matesOff?: number; /** the kernel's answers are kept between sessions (`dec_description_cache`): a row to forget them */ clearAnswers?: boolean } = {}, allConstraints = false, panScale = 0.3, outlines = true, clearance = 0): AppRow[] => [
+  ...(can.matesOff ? [{ id: "mate:reapply", label: "Reapply mates", enabled: true, why: null }] : []),
   { id: "bodies", label: "Bodies", enabled: true, why: null },
   { id: "history", label: "History", enabled: true, why: null },
   { id: "groups", label: "Groups", enabled: true, why: null },
@@ -21,13 +19,12 @@ export const appRows = (mode: ScrollMode, build = "", can: { undo: boolean; redo
   { id: "open", label: "Open…", enabled: true, why: null },
   { id: "import", label: "Import…", enabled: true, why: null },
   { id: "export", label: "Export…", enabled: can.export ?? true, why: "nothing to export yet: make a body, or draw something" },
-  ...(can.clearAnswers ? [{ id: "clearAnswers", label: "Forget the models kept for opening quickly", enabled: true, why: null }] : []),
-  { id: "share", label: "Share state (a file to send for a bug report)", enabled: true, why: null },
-  { id: "constraints", label: allConstraints ? "Constraints: all shown" : "Constraints: only the ones that can change the body", enabled: true, why: null },
-  { id: "multiselect", label: multiSelect ? "Select several: on (a tap adds or takes out)" : "Select several: off", enabled: true, why: null },
-  { id: "hard:clearance", label: `Hard bodies: clearance ${clearance} mm (tap to change)`, enabled: true, why: null },
-  { id: "outlines", label: outlines ? "Black edge lines: on" : "Black edge lines: off", enabled: true, why: null },
-  { id: "panSpeed", label: `Trackpad pan: ${panName(panScale)} (tap to change)`, enabled: true, why: null },
+  ...(can.clearAnswers ? [{ id: "clearAnswers", label: "Clear cache", enabled: true, why: null }] : []),
+  { id: "share", label: "Share state", enabled: true, why: null },
+  { id: "constraints", label: allConstraints ? "All constraints" : "Key constraints", enabled: true, why: null },
+  { id: "hard:clearance", label: `Clearance ${clearance}`, enabled: true, why: null },
+  { id: "outlines", label: outlines ? "✓ Edge lines" : "Edge lines", enabled: true, why: null },
+  { id: "panSpeed", label: `Pan ${panName(panScale)}`, enabled: true, why: null },
   { id: "scrollMode", label: LABEL[mode], enabled: true, why: null },
   ...(build ? [{ id: "build", label: `Build ${build}`, enabled: false, why: "which version of the app this page is running" }] : []),
 ];

@@ -99,7 +99,7 @@ test("the Loft operation: with two sketches selected it opens with its chips and
   st = reduce(st, { type: "begin", name: "loft" }, env);
   assert.equal(st.op?.kind, "loft");
   const f = frameOf(st, { w: 800, h: 600 });
-  assert.deepEqual(f.loftKinds!.map((k) => k.id), ["smooth", "ruled", "split", "start:0", "rev:0", "start:1", "rev:1"]);
+  assert.deepEqual(f.loftKinds!.map((k) => k.id), ["smooth", "ruled", "normal", "straight", "split", "start:0", "rev:0", "start:1", "rev:1"]);
   assert.equal(f.highlight.amber.length, 2, "a start dot on each sketch");
   st = reduce(st, { type: "loftKind", id: "start:1" }, env);
   st = reduce(st, { type: "loftKind", id: "ruled" }, env);
@@ -112,4 +112,100 @@ test("the Loft operation: with two sketches selected it opens with its chips and
   assert.equal(step.params.ruled, 1);
   assert.equal(step.params.shift, "0,1");
   assert.ok(volume(st.session) > 400, `the body: ${volume(st.session)}`);
+});
+
+test("each sketch's start dot has a number bubble (the corner it starts at); a number typed moves the start, and it goes round (`in_533`, `in_534`)", () => {
+  const { s, faces } = twoSquares(10, 4, 20);
+  let st = { ...createState({ ...s, click: { ...s.click, selection: faces as never } }), cam: homeCamera() };
+  st = reduce(st, { type: "begin", name: "loft" }, env);
+  const e0 = frameOf(st, { w: 800, h: 600 }).entries;
+  assert.deepEqual(e0.map((e) => [e.fields[0]!.index, e.fields[0]!.value]), [[0, "1"], [1, "1"], [10, "20"]], "a start on each sketch, at corner 1, and the distance between them");
+  assert.ok(e0.every((e) => !!e.at), "each stands at its dot");
+  st = reduce(st, { type: "entry", field: 1, text: "3" } as never, env);
+  assert.deepEqual(st.op!.loftShift, [0, 2], "corner 3 is two on");
+  assert.equal(frameOf(st, { w: 800, h: 600 }).entries[1]!.fields[0]!.value, "3");
+  st = reduce(st, { type: "entry", field: 1, text: "6" } as never, env);
+  assert.deepEqual(st.op!.loftShift, [0, 1], "6 of 4 sides goes round to corner 2");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(scene(st.session).steps.at(-1)!.params.shift, "0,1");
+});
+
+test("the distance between two sketches has a bubble; a number typed moves the later sketch along the line between their middles when the step is made, in one undo (`in_535`)", () => {
+  const { s, faces } = twoSquares(10, 4, 20);
+  let st = { ...createState({ ...s, click: { ...s.click, selection: faces as never } }), cam: homeCamera() };
+  st = reduce(st, { type: "begin", name: "loft" }, env);
+  st = reduce(st, { type: "entry", field: 10, text: "30" } as never, env);
+  const e = frameOf(st, { w: 800, h: 600 }).entries.find((x) => x.fields[0]!.index === 10)!;
+  assert.equal(e.fields[0]!.value, "30");
+  assert.ok(e.fields[0]!.typed);
+  assert.deepEqual(scene(st.session).steps, [], "nothing is made by typing");
+  
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  assert.deepEqual(st.session.outcome.errors, {});
+  assert.ok(Math.abs(volume(st.session) - (30 / 3) * (100 + 40 + 16)) < 1, `a frustum 30 high: ${volume(st.session)}`);
+  const top = Object.values(scene(st.session).parts).find((p) => p.kind === "corner" && p.origin === "drawn" && Math.abs(p.at[2] - 30) < 1e-6);
+  assert.ok(top, "the later sketch now stands at 30");
+  const undone = reduce(st, { type: "undo" }, env);
+  assert.equal(scene(undone.session).steps.length, 0, "one undo takes the step and the move");
+  assert.ok(Object.values(scene(undone.session).parts).some((p) => p.kind === "corner" && p.origin === "drawn" && Math.abs(p.at[2] - 20) < 1e-6), "the sketch is back at 20");
+});
+
+test("a loft whose sketches have moved is made again, not taken from what the kernel kept for the same step name (the key held the sketches' names, not where they were)", () => {
+  const a = twoSquares(10, 4, 20);
+  const r1 = runOp(a.s, begin(a.s, a.faces))!;
+  const b = twoSquares(10, 4, 30); // the same names, the second sketch higher
+  const r2 = runOp(b.s, begin(b.s, b.faces))!;
+  assert.ok(Math.abs(volume(r1.session) - (20 / 3) * 156) < 1);
+  assert.ok(Math.abs(volume(r2.session) - (30 / 3) * 156) < 1, `volume ${volume(r2.session)}`);
+});
+
+test("the distance is measured along the normal of the earlier sketch's plane, so a sketch off to the side is the height apart, and typing moves it straight along the normal (`in_536`)", () => {
+  let s = createSession(kernel);
+  const r1 = drawRectangle(scene(s), XY, [-5, -5, 0], [5, 5, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r1.command);
+  const up = planeAt(s, 20);
+  s = up.s;
+  const r2 = drawRectangle(scene(s), up.ref as never, [8, -2, 20], [12, 2, 20], [1, 0, 0], [0, 1, 0]); // 10 to the side, 20 up
+  s = run(s, r2.command);
+  const faces = [loopFaceRef(r1.lines), loopFaceRef(r2.lines)];
+  let st = { ...createState({ ...s, click: { ...s.click, selection: faces as never } }), cam: homeCamera() };
+  st = reduce(st, { type: "begin", name: "loft" }, env);
+  const gap = () => frameOf(st, { w: 800, h: 600 }).entries.find((x) => x.fields[0]!.index === 10)!.fields[0]!;
+  assert.equal(gap().value, "20", "the height apart, not the 22.36 between the middles");
+  st = reduce(st, { type: "entry", field: 10, text: "30" } as never, env);
+  assert.equal(gap().value, "30");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  const top = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn" && Math.abs(p.at[2] - 30) < 1e-6).map((p) => (p as unknown as { at: number[] }).at[0]!);
+  assert.equal(top.length, 4, "the second sketch is at 30");
+  assert.ok(Math.min(...top) > 7.99 && Math.max(...top) < 12.01, "and still off to the side where it was");
+});
+
+test("the distance can be measured along the straight line between the middles instead, by a chip; typing then moves the sketch along that line (`in_537`)", () => {
+  let s = createSession(kernel);
+  const r1 = drawRectangle(scene(s), XY, [-5, -5, 0], [5, 5, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r1.command);
+  const up = planeAt(s, 20);
+  s = up.s;
+  const r2 = drawRectangle(scene(s), up.ref as never, [8, -2, 20], [12, 2, 20], [1, 0, 0], [0, 1, 0]); // middle at (10, 0, 20)
+  s = run(s, r2.command);
+  const faces = [loopFaceRef(r1.lines), loopFaceRef(r2.lines)];
+  let st = { ...createState({ ...s, click: { ...s.click, selection: faces as never } }), cam: homeCamera() };
+  st = reduce(st, { type: "begin", name: "loft" }, env);
+  const gap = () => frameOf(st, { w: 800, h: 600 }).entries.find((x) => x.fields[0]!.index === 10)!.fields[0]!;
+  assert.equal(gap().value, "20");
+  st = reduce(st, { type: "loftKind", id: "straight" }, env);
+  assert.equal(st.op!.loftStraight, true);
+  assert.equal(gap().value, "22.36", "the straight distance between the middles");
+  st = reduce(st, { type: "entry", field: 10, text: "44.72" } as never, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  const xs = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn" && p.at[2] > 30).map((p) => (p as unknown as { at: number[] }).at);
+  assert.equal(xs.length, 4, "the second sketch went up the line: about 40 high");
+  assert.ok(Math.abs(Math.max(...xs.map((a) => a[2]!)) - 40) < 0.1 && Math.min(...xs.map((a) => a[0]!)) > 17, "and out along it, twice as far");
+  st = reduce(createState({ ...s, click: { ...s.click, selection: faces as never } }), { type: "begin", name: "loft" }, env);
+  st = reduce(st, { type: "loftKind", id: "straight" }, env);
+  st = reduce(st, { type: "loftKind", id: "normal" }, env);
+  assert.equal(st.op!.loftStraight, false, "and back");
 });

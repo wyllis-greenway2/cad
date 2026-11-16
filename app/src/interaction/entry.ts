@@ -16,6 +16,7 @@ import { add, sub, scale, dot } from "../math/vec.ts";
 import { anglesOf, fromAngles } from "../math/rotation.ts";
 import { OP_FIELD, OP_UNIT, valueOf, turnAngles, sizeShown } from "./operations.ts";
 import { advanceOf } from "./revolve.ts";
+import { loftNumbers, loftGapNumbers } from "./loft.ts";
 
 export interface EntryField { label: string; value: string; active: boolean; typed: boolean; /** a short name shown in front of the number when there are several (X Y Z) */ short?: string; /** which numbered field of its operation it is, when the operation has several bubbles */ index?: number; /** the unit of this field when it is not the entry's (a position and a rotation in one bubble) */ unit?: string }
 /** `at`: where in the scene the bubble sits (null: no place to attach it to) */
@@ -165,6 +166,33 @@ export function sectionEntries(sec: { at: Vec3; n: Vec3 }, g: Gizmo | null, chos
     const at = moving ? h.points.at(-1)! : add(g.centre, scale(sub(head, g.centre), 1.25)); // (the number of a ring stands a little further out than its arrowhead, `in_436`)
     return [{ fields: [{ label: moving ? `Where the plane is along ${"XYZ"[k]}` : `The angle of the plane about ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(moving ? sec.at[k]! : normalAngle(sec.n, k)), active: false, typed: false, index: moving ? k : 3 + k }], unit: moving ? "mm" : "°", at, ...(moving ? { from: g.centre } : {}) }];
   });
+}
+/**
+ * The number bubble of a revolve's arrow that is taken (`in_531`): at the tip of a position arrow (`piv:`) the orb's place along that axis (its distance from the origin along that arrow's axis, which is the world coordinate when the orb is not turned; typed to put it: field 10 + the axis), at the tip of a
+ * spiral arrow (`rev:adv:`) the advance (field 1, the same number as the chip's). Nothing for an arrow not taken.
+ */
+export function revolveEntries(op: Op, g: Gizmo | null, chosen: string | null): Entry[] {
+  if (!g || op.kind !== "revolve" || !chosen) return [];
+  const h = g.handles.find((x) => x.id === chosen);
+  if (!h) return [];
+  if (/^piv:[xyz]$/.test(chosen)) {
+    const k = "xyz".indexOf(chosen[4]!);
+    const along = dot(g.centre, (op.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]] as const)[k]!); // (measured along the arrow as it stands: the orb's own axis when it is turned, `in_532`)
+    return [{ fields: [{ label: `The orb's place along its ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(along), active: false, typed: false, index: 10 + k, unit: "mm" }], unit: "mm", at: h.points.at(-1)!, from: g.centre }];
+  }
+  if (/^rev:adv:[xyz]$/.test(chosen)) {
+    const typed = (op.advTyped ?? "") !== "";
+    return [{ fields: [{ label: `The spiral advance along ${"XYZ"["xyz".indexOf(chosen[8]!)]}`, short: "↔", value: typed ? op.advTyped! : roundedText(advanceOf(op)), active: false, typed, index: 1, unit: "mm" }], unit: "mm", at: h.points.at(-1)!, from: h.points[0]! }];
+  }
+  return [];
+}
+/** A loft's start numbers: a bubble at each sketch's start dot with the number of the corner it starts at (`in_533`). */
+export function loftEntries(scene: Scene, op: Op): Entry[] {
+  if (op.kind !== "loft") return [];
+  const starts = loftNumbers(scene, op).map((x): Entry => ({ fields: [{ label: `Where sketch ${x.sketch} starts (corner 1 to ${x.sides})`, short: `${x.sketch}`, value: String(x.value), active: false, typed: false, index: x.index }], unit: "", at: x.at }));
+  // and the distance from each sketch to the next, to type (`in_535`)
+  const gaps = loftGapNumbers(scene, op).map((x): Entry => { const typed = (op.loftGaps?.[x.sketch - 1] ?? "") !== ""; return { fields: [{ label: `Distance from sketch ${x.sketch} to sketch ${x.sketch + 1}, ${op.loftStraight ? "along the straight line between their middles" : "along the normal of the first one's plane"}`, short: "↔", value: typed ? op.loftGaps![x.sketch - 1]! : roundedText(x.distance), active: false, typed, index: x.index, unit: "mm" }], unit: "mm", at: x.at }; });
+  return [...starts, ...gaps];
 }
 /** The numbers of a scale along axes (`in_390`): one bubble at the tip of each axis arrow with the factor along it, to type. */
 export function scaleEntries(op: Op, g: Gizmo | null): Entry[] {

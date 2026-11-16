@@ -34,7 +34,7 @@ const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit",
 
 /** Apply one intent. A command that was refused for breaking constraints starts the flash. */
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
-  if (s.multiSelect && i.type === "click" && !i.shift && !s.tool && !s.op && !s.repeat && !s.cut) i = { ...i, shift: true }; // (select several: a tap is a Shift click, `in_300`)
+  if (s.adding && i.type === "click" && !i.shift && !s.tool && !s.op && !s.repeat && !s.cut && !s.picking) i = { ...i, shift: true }; // (adding: a tap is a Shift click, `in_539`)
   let next = apply(s, i, env);
   if (next.cam !== s.cam || next.session.history.scene !== s.session.history.scene || next.lastSeen === null) next = noteSeen(next, env.w, env.h, projector(next.cam, env.w, env.h).project as (p: Vec3) => [number, number]); // (what was last in view, for Reset camera, `in_303`)
   if (next.resume && !RESUMING.has(i.type)) next = { ...next, resume: null }; // only a click, or moving the view, keeps "sketching goes on" waiting for a vertex

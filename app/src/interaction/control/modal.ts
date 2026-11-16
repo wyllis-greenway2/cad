@@ -32,6 +32,7 @@ import { withPose, orientApply, moverOp, putMover } from "./pose.ts";
 import { doPlaneNew, doSheetMode, doSheetVisible, doSheetDelete, doSheetMove, typedSection, placeSection, sectionNow } from "./section.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { sub } from "../../math/vec.ts";
+import { loftStartTyped } from "../loft.ts";
 import { frameAngles, frameOfAngles } from "../entry.ts";
 import { typedNumber } from "../../shared/numbers.ts";
 import { pivotCommands, patternCommand, patternValues, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
@@ -40,7 +41,7 @@ import type { Op } from "../operations.ts";
 import { BODY_OBJECT } from "../../compiler/body.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
-import { doSimilar, doSelectAll, doGroup, doUngroup, doCutBegin, applyCut } from "./select.ts";
+import { doSimilar, doSelectAll, doSelectBodies, doGroup, doUngroup, doCutBegin, applyCut } from "./select.ts";
 import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
@@ -219,6 +220,19 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     const off = mo.kind === "move" ? moveOffset(sceneOf(s.session), mo) : ([0, 0, 0] as Vec3);
     return putMover(s, { ...mo, auto: false, pivot: sub(at, off) });
   }
+  if (s.op?.kind === "revolve" && !s.moverSphere && field >= 10 && field < 13) { // the orb's place along one axis, typed on its arrow's bubble (`in_531`)
+    const n = typedNumber(text);
+    const g = gizmoOf(s);
+    if (n === null || !g || !s.op.pivot) return s;
+    const d = (s.op.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]])[field - 10]!; // (along the arrow as it stands: only that part of the place changes, `in_532`)
+    const more = n - (s.op.pivot[0] * d[0] + s.op.pivot[1] * d[1] + s.op.pivot[2] * d[2]);
+    return { ...s, op: { ...s.op, auto: false, pivot: [s.op.pivot[0] + more * d[0], s.op.pivot[1] + more * d[1], s.op.pivot[2] + more * d[2]] as Vec3 } };
+  }
+  if (s.op?.kind === "loft") { // the corner a sketch starts at, typed on its start dot's bubble (`in_533`)
+    if (field >= 10) { const gaps = [...(s.op.loftGaps ?? [])]; gaps[field - 10] = text; return { ...s, op: { ...s.op, auto: false, loftGaps: Array.from(gaps, (g) => g ?? "") } }; } // (the distance to the next sketch, `in_535`)
+    const n = typedNumber(text);
+    return n === null ? s : { ...s, op: loftStartTyped(sceneOf(s.session), s.op, field, n) };
+  }
   if (s.op?.kind === "mirror" && !s.moverSphere && s.op.mirrorAt && field >= 0 && field < 3) { // the number of the mirror plane's arrow: where the plane stands along that axis (`in_437`)
     const n = typedNumber(text);
     if (n === null) return s;
@@ -282,6 +296,7 @@ export function doEscape(s: AppState): AppState {
   if (s.repeat && !s.op) return doRepeatCancel(s); // (the repeat that is open is given up, as the pill's cross used to)
   if (s.op) return cancelOp(s);
   if (s.tool) return { ...s, tool: null, op: null, drag: null, gizmoHover: null };
+  if (s.adding) return { ...s, adding: false, session: { ...s.session, message: null } }; // (adding to the selection is left, what is selected stays; the next Esc clears it, `in_540`)
   return withSession(s, clearSelection(s.session));
 }
 
@@ -317,6 +332,12 @@ export function doApply(s: AppState): AppState {
 }
 
 export function doRunAction(s: AppState, id: string, now = 0): AppState {
+  if (id.startsWith("say:")) return { ...s, session: { ...s.session, message: id.slice(4) } }; // (a dimmed row of the ⋯ list pressed: what is said, `in_541`)
+  if (id.startsWith("why:")) { // a dimmed option of the ring pressed: what it needs is said, the ring stays (`in_538`)
+    const find = (items: readonly { id: string; label: string; why: string | null; children?: readonly unknown[] }[]): { label: string; why: string | null } | undefined => { for (const it of items) { if (it.id === id.slice(4)) return it; const k = it.children ? find(it.children as never) : undefined; if (k) return k; } return undefined; };
+    const hit = s.menu ? find(s.menu.items) : undefined;
+    return hit?.why ? { ...s, session: { ...s.session, message: `${hit.label}: ${hit.why}` } } : s;
+  }
   const closed = { ...s, menu: null };
   if (id === "look") {
     const get = lookup(sceneOf(s.session));
@@ -327,6 +348,10 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   }
   if (id === "select:similar") return doSimilar(closed);
   if (id === "select:group") return doGroup(closed);
+  if (id === "select:add") return { ...closed, adding: !s.adding, session: { ...closed.session, message: s.adding ? "adding is off" : "adding is on: a tap adds to the selection, or takes out what is selected" } }; // (the way to select several with a finger, `in_539`)
+  if (id === "select:bodies") return doSelectBodies(closed);
+  if (id === "undo") return doUndo(closed); // (undo, redo and delete are the Actions of the ring, `in_538`)
+  if (id === "redo") return doRedo(closed);
   if (id === "select:faces" || id === "select:edges" || id === "select:vertices") return doSelectAll(closed, id.slice(7) as "faces" | "edges" | "vertices");
   if (id.startsWith("body:hard:")) { // the mark of a hard body pressed: it is soft again (`in_476`)
     const sc = sceneOf(closed.session);
@@ -359,7 +384,6 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "sheet:move") return doSheetMove(closed);
   if (id === "view:wireframe") return { ...closed, wireframe: !s.wireframe, session: { ...closed.session, message: s.wireframe ? "solid view" : "wireframe view: the faces of bodies are not drawn, to see what is inside" } };
   if (id === "tape:measure") return { ...closed, tape: !s.tape, session: { ...closed.session, message: s.tape ? "tape measure off" : "tape measure on: select a face, or two (Shift adds the second), to see what they are to each other" } };
-  if (id === "multiselect") return { ...closed, multiSelect: !s.multiSelect, session: { ...closed.session, message: s.multiSelect ? "select several is off" : "select several is on: a tap adds to the selection, a tap on what is selected takes it out" } };
   if (id.startsWith("mate:stand:")) { // a mate is made standing (it puts itself back after a change) or not (`in_321`)
     const rel = sceneOf(s.session).relations.find((r) => r.id === id.slice(11));
     if (!rel?.params) return closed;

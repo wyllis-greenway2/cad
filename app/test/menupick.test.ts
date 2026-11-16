@@ -6,6 +6,7 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, scene, run } from "../src/interaction/session.ts";
 import { drawRectangle, drawChain } from "../src/operation/build.ts";
 import { loopFaceRef } from "../src/operation/loops.ts";
+import { drawnRef } from "../src/shared/ref.ts";
 import { nextId } from "../src/operation/scene.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
 import type { AppState } from "../src/interaction/controller.ts";
@@ -91,3 +92,52 @@ test("while a sweep waits only a closed sketch and a line of an open path are li
 });
 
 const selectionOfState = (st: AppState): number => st.session.click.selection.length;
+
+test("a sweep chosen first, then its shape and path clicked, shows what it would make as a wireframe before Enter or the check (`in_529`)", () => {
+  const { s } = drawn();
+  let st = { ...createState(s), cam: homeCamera() };
+  st = reduce(st, { type: "runAction", id: "op:sweep" }, env);
+  const bodies = (f: ReturnType<typeof frameOf>) => Object.values(f.scene.parts).filter((p) => p.kind === "body").length;
+  assert.equal(bodies(frameOf(st, { w: 800, h: 600 })), 0, "nothing to show yet");
+  const [lx, ly] = px(st, [0, 0, 12]);
+  st = click(st, lx, ly);
+  assert.equal(bodies(frameOf(st, { w: 800, h: 600 })), 0, "the path alone makes nothing");
+  const [fx, fy] = px(st, [1.2, 1.2, 0]);
+  st = click(st, fx, fy);
+  assert.equal(st.picking?.kind, "sweep");
+  assert.equal(st.op, null, "still waiting");
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.equal(bodies(f), 1, "the body it would make is shown");
+  assert.equal(f.wireframe, true, "as a wireframe");
+  assert.equal(scene(st.session).steps.length, 0, "and nothing is made");
+  // chosen after both are selected: the same, once it is open
+  const open = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  const g = frameOf(open, { w: 800, h: 600 });
+  assert.equal(open.op?.kind, "sweep");
+  assert.equal(g.wireframe, true);
+  assert.equal(bodies(g), 1);
+});
+
+test("a loft chosen first, then two sketches clicked, shows what it would make as a wireframe before the check, and open as well (`in_530`)", () => {
+  let s = createSession(kernel);
+  const a = drawRectangle(scene(s), XY, [-6, -6, 0], [6, 6, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, a.command);
+  const ref = drawnRef(nextId(scene(s), "p"));
+  s = run(s, { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: true, at: [0, 0, 20], u: [1, 0, 0], v: [0, 1, 0] } } as never);
+  const b = drawRectangle(scene(s), ref as never, [-2, -2, 20], [2, 2, 20], [1, 0, 0], [0, 1, 0]);
+  s = run(s, b.command);
+  let st = { ...createState(s), cam: homeCamera() };
+  st = reduce(st, { type: "runAction", id: "op:loft" }, env);
+  const bodies = (f: ReturnType<typeof frameOf>) => Object.values(f.scene.parts).filter((p) => p.kind === "body").length;
+  st = click(st, ...px(st, [5, 5, 0]));
+  assert.equal(frameOf(st, { w: 800, h: 600 }).wireframe, false, "one sketch: nothing to show");
+  st = click(st, ...px(st, [1, 1, 20]));
+  assert.equal(st.picking?.kind, "loft");
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.equal(f.wireframe, true, "waiting: wireframe");
+  assert.equal(scene(st.session).steps.length, 0, "nothing made");
+  void bodies;
+  const open = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(open.op?.kind, "loft");
+  assert.equal(frameOf(open, { w: 800, h: 600 }).wireframe, true, "open: wireframe");
+});
