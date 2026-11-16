@@ -2745,3 +2745,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_602 — 2026-11-16 — approval
 > Twist about the figure's normal
 (answers which revolve is meant: the twist about the figure's own normal, where a turn of 0 degrees with an advance is a straight extrusion; the fallback is for that kind only)
+
+## in_603 — 2026-11-16 — directive
+> The rotational extrude orb is still kind of hard to position. Can we have it so that if you click on a plane, it just centers in that plane? Can we have it so that you can move it like any other xyz thing where you can shift select more than one axis to restrict its motion to that axis? so I could select xy and then it is restricted to that plane as I drag the orb? Also can we have it snap to suggested spots just like sketching does? so alignements, and center points coaxial points center point of bodies etc.
+(asks for three changes to the revolve's orb: a click on a plane puts the orb in that plane; shift-selecting more than one axis arrow restricts the drag of the orb to those axes (for example the XY plane); and the orb snaps to suggested places as sketching does: alignments, centre points, coaxial points, centres of bodies and the like)
