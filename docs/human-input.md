@@ -2274,3 +2274,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_486 — 2026-11-16 — directive
 > Do the number bubbles on the revolve arrows next
 (asks for what in_484 left unbuilt: number bubbles on the revolve's new position arrows and spiral arrows, to read and type the numbers)
+
+## in_487 — 2026-11-16 — directive
+> Do the turned-orb position bubbles next
+(asks for what in_486 left unbuilt: for a turned orb, the revolve's position bubbles giving the place along the turned axis, not the world coordinate)

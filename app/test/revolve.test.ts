@@ -352,11 +352,28 @@ test("an arrow of the orb that is taken has a number bubble: the orb's place on 
   assert.equal(e.length, 1);
   assert.equal(e[0]!.fields[0]!.index, 10);
   st = reduce(st, { type: "entry", field: 10, text: "7" } as never, env);
-  assert.equal(st.op!.pivot![0], 7, "the number typed puts the orb at x = 7");
+  assert.equal(st.op!.pivot![2], 7, "the number typed puts the orb 7 along its first axis (z here)");
   st = { ...st, handleSel: "rev:adv:z" };
   const a = frameOf(st, { w: 800, h: 600 }).entries;
   assert.equal(a.length, 1);
   assert.equal(a[0]!.fields[0]!.index, 1);
   st = reduce(st, { type: "entry", field: 1, text: "12" } as never, env);
   assert.equal(advanceOfOp(st.op!), 12);
+});
+
+test("the position bubble of a turned orb is the place along its own axis, and typing moves it along that axis only (`in_487`)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  const d: Vec3 = [0, 0.6, 0.8]; // a frame whose first axis is slanted
+  st = { ...st, op: along(st.op!, [1, 2, 3], d), handleSel: "piv:x" };
+  const e = frameOf(st, { w: 800, h: 600 }).entries;
+  assert.equal(e.length, 1);
+  assert.ok(Math.abs(Number(e[0]!.fields[0]!.value) - (2 * 0.6 + 3 * 0.8)) < 0.01, `the place along the slanted axis: ${e[0]!.fields[0]!.value}`);
+  st = reduce(st, { type: "entry", field: 10, text: "10" } as never, env);
+  const p = st.op!.pivot!;
+  assert.ok(Math.abs(p[1]! * 0.6 + p[2]! * 0.8 - 10) < 1e-9, "now 10 along it");
+  assert.equal(p[0], 1, "the part across it stays");
+  const u = [0, 0.8, -0.6]; // (across it, in the plane of y and z: unchanged)
+  assert.ok(Math.abs((p[1]! * u[1]! + p[2]! * u[2]!) - (2 * 0.8 - 3 * 0.6)) < 1e-9);
 });

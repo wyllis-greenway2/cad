@@ -202,7 +202,9 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     const n = typedNumber(text);
     const g = gizmoOf(s);
     if (n === null || !g || !s.op.pivot) return s;
-    return { ...s, op: { ...s.op, auto: false, pivot: s.op.pivot.map((c, j) => (j === field - 10 ? n : c)) as unknown as Vec3 } };
+    const d = (s.op.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]])[field - 10]!; // (along the arrow as it stands: only that part of the place changes, `in_487`)
+    const more = n - (s.op.pivot[0] * d[0] + s.op.pivot[1] * d[1] + s.op.pivot[2] * d[2]);
+    return { ...s, op: { ...s.op, auto: false, pivot: [s.op.pivot[0] + more * d[0], s.op.pivot[1] + more * d[1], s.op.pivot[2] + more * d[2]] as Vec3 } };
   }
   if (s.op?.kind === "mirror" && !s.moverSphere && s.op.mirrorAt && field >= 0 && field < 3) { // the number of the mirror plane's arrow: where the plane stands along that axis (`in_437`)
     const n = typedNumber(text);

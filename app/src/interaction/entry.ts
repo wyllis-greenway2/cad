@@ -167,7 +167,7 @@ export function sectionEntries(sec: { at: Vec3; n: Vec3 }, g: Gizmo | null, chos
   });
 }
 /**
- * The number bubble of a revolve's arrow that is taken (`in_486`): at the tip of a position arrow (`piv:`) the orb's place along that axis (world coordinate, typed to put it: field 10 + the axis), at the tip of a
+ * The number bubble of a revolve's arrow that is taken (`in_486`): at the tip of a position arrow (`piv:`) the orb's place along that axis (its distance from the origin along that arrow's axis, which is the world coordinate when the orb is not turned; typed to put it: field 10 + the axis), at the tip of a
  * spiral arrow (`rev:adv:`) the advance (field 1, the same number as the chip's). Nothing for an arrow not taken.
  */
 export function revolveEntries(op: Op, g: Gizmo | null, chosen: string | null): Entry[] {
@@ -176,7 +176,8 @@ export function revolveEntries(op: Op, g: Gizmo | null, chosen: string | null): 
   if (!h) return [];
   if (/^piv:[xyz]$/.test(chosen)) {
     const k = "xyz".indexOf(chosen[4]!);
-    return [{ fields: [{ label: `The orb's place along ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(g.centre[k]!), active: false, typed: false, index: 10 + k, unit: "mm" }], unit: "mm", at: h.points.at(-1)!, from: g.centre }];
+    const along = dot(g.centre, (op.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]] as const)[k]!); // (measured along the arrow as it stands: the orb's own axis when it is turned, `in_487`)
+    return [{ fields: [{ label: `The orb's place along its ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(along), active: false, typed: false, index: 10 + k, unit: "mm" }], unit: "mm", at: h.points.at(-1)!, from: g.centre }];
   }
   if (/^rev:adv:[xyz]$/.test(chosen)) {
     const typed = (op.advTyped ?? "") !== "";
