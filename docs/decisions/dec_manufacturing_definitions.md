@@ -3,7 +3,7 @@ id: dec_manufacturing_definitions
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_549, in_550, in_551, in_555, in_556, in_557, in_558, in_559, in_561, in_565
+human_input: in_549, in_550, in_551, in_555, in_556, in_557, in_558, in_559, in_561, in_565, in_567
 date: 2026-11-16
 depends_on:
   - dec_manufacturing_contract: routes use these definitions through the contract and declare which kinds and fields they need
@@ -27,6 +27,8 @@ alternative_to:
 8. **Tool library for the first milling version (`in_559`, approved):** the official library ships a **small starter set** of common cutters (a few flat end mills, a ball nose, a V-bit and a drill, in metric and imperial sizes hobbyists commonly own). Feeds and speeds are **advisory starting values, each with a source** (a tool maker's chart), clearly marked as a starting point; the user's own values always take priority. As with hazards, the AI does not write the numbers from memory. Users add their own cutters to their personal library. This is a promise about what ships with milling, which comes after the beam route.
 
 9. **The material tag (`in_565`, built):** a body carries the name of its material as plain text (`scene.materials`, body name to text; command `setMaterial`; at most 60 letters; saved with the project; one step to undo). It is set from the ⋯ menu's **Material…** row (a dialog with a text box; several bodies selected are all tagged; empty takes the tag off) and shown in the Bodies list (`Body 1 · PLA`). The libraries do not exist yet, so the name is not checked against any; once they do the dialog offers their materials and a name that is in none says so (a finding, not a block, `in_546`). A copy of a body does not carry the tag yet.
+
+10. **The dialect as data (`in_567`, built as a type and a writer):** `DialectDefinition` (`contract/definitions.ts`) says how a controller wants its file: the file's ending, decimals, comment style, line numbers, raw start and end lines, the words for rapid, linear and arcs, and, if the machine has them, a pause line, a tool-change line, beam power (on line, off line, full scale, off for travel) and an extruder axis (absolute or relative). The shared writer `manufacturing/core/gcode.ts` turns any toolpath into a file from it. **No official dialect is shipped yet:** G-code words differ between controllers and, as with hazards and feeds (`in_558`, `in_559`), official ones are made from a cited source and checked, not from memory; the tests use fixtures.
 
 ## Rationale
 

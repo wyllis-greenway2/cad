@@ -1,5 +1,6 @@
-// A route (`dec_manufacturing_contract` points 3, 4 and 7): a module for one process. It declares itself to a registry and implements the stages it can; a part goes through Fit, Check, Prepare, Plan and Emit,
-// and a route may stop at any of them (print readiness stops at Check). A route never edits the model and never imports the app, the kernel or the UI (`inv_manufacturing_boundary`).
+// A route (`dec_manufacturing_contract` points 3, 4 and 7): a module for one process. It declares itself to a registry and implements the stages that are its own, Fit, Check and Plan; a part goes through
+// those and then Emit, and a route may stop at any of them (print readiness stops at Check). **Emit is not a route's:** writing a toolpath as a file depends on the machine's dialect, not on the process,
+// so it is shared code (`manufacturing/core`, `in_566`, `in_567`) and every route gets it. A route never edits the model and never imports the app, the kernel or the UI (`inv_manufacturing_boundary`).
 import type { PartKind, PartSnapshot } from "./part.ts";
 import type { ParamSpec, ParamValue } from "./params.ts";
 import type { Finding } from "./findings.ts";
@@ -29,7 +30,13 @@ export interface OutputFile {
   bytes: Uint8Array;
 }
 
-/** One route. Only `id`, `name`, `process`, `accepts`, `uses` and `params` are required: a stage a route does not have is simply missing. Every stage is a pure function of its arguments. */
+/** What the shared Emit stage gives back: the files, and what it could not do (a move the machine's dialect has no word for): shown, never a stop (`in_546`). */
+export interface EmitResult {
+  files: OutputFile[];
+  warnings: string[];
+}
+
+/** One route. Only `id`, `name`, `process`, `family`, `accepts`, `uses` and `params` are required: a stage a route does not have is simply missing. Every stage is a pure function of its arguments. There is no `emit`: it is shared. */
 export interface Route {
   /** the contract version this route was written for (`CONTRACT_VERSION`) */
   contract: number;
@@ -47,7 +54,6 @@ export interface Route {
   fit?(part: PartSnapshot, ctx: RouteContext): FitReport;
   check?(part: PartSnapshot, ctx: RouteContext): Finding[];
   plan?(part: PartSnapshot, ctx: RouteContext): Toolpath;
-  emit?(toolpath: Toolpath, ctx: RouteContext): OutputFile[];
 }
 
 /** A plan (`in_546`): one per part and machine, in the project's `manufacturing` section, never inside the model graph. The part is a body's stable name; in practice a manufacturing version (`dec_manufacturing_version`). */

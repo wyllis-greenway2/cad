@@ -82,3 +82,29 @@ export interface ToolDefinition extends DefinitionHeader {
   diameter: number;
   route: Record<string, ParamValue>;
 }
+
+/**
+ * How a machine's controller wants its file (`dec_manufacturing_contract` point 4, `in_567`): data, not code, so one writer (`core/gcode.ts`) serves every route and a machine we never heard of needs only a new
+ * dialect. `start` and `end` are written as they are (the escape hatch: homing, heating, anything). In a template `{s}` is the power as the controller's number, `{tool}` the tool, `{sec}` and `{ms}` a pause.
+ */
+export interface DialectDefinition extends DefinitionHeader {
+  kind: "dialect";
+  /** the file's ending, without the dot */
+  extension: string;
+  /** digits after the point */
+  decimals: number;
+  /** how a comment is written: `;` or `(` and `)` */
+  comment: { open: string; close?: string };
+  lineNumbers: boolean;
+  start: string[];
+  end: string[];
+  words: { rapid: string; linear: string; arcCw: string; arcCcw: string };
+  /** a pause, as a line, for example `G4 P{sec}`; none: the writer says it cannot */
+  dwell?: string;
+  /** a tool change, for example `M6 T{tool}`; none: the writer leaves a comment */
+  toolChange?: string;
+  /** power for a beam (a laser, a plasma torch): the line that turns it on at a power, the line that turns it off, the controller's full scale, and whether it goes off for every travel move */
+  power?: { on: string; off: string; max: number; offOnTravel: boolean };
+  /** an extruder: the axis word, and whether its numbers add up (absolute) or each move says how much (relative) */
+  extrude?: { axis: string; absolute: boolean };
+}
