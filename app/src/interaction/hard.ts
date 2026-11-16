@@ -226,3 +226,28 @@ export function hardNote(scene: Scene, op: Op): { why: string; hit: Ref[] } | nu
   const grown = growth(scene, op);
   return grown ? { why: `it can grow only as far as it meets ${grown.hit.map((r) => nameOf(scene, r)).join(", ")}`, hit: grown.hit } : null;
 }
+
+/**
+ * The hard bodies that the bodies of `group`, each put where `rigidOf` puts it, are in (`in_477`): what a motion that the mates have settled, or a mate that is made, comes to, with no path taken to it. A pair that
+ * already overlaps is left out.
+ */
+export function hardCollision(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref) => Rigid | null): Ref[] {
+  const movers = group.filter((b) => isHard(scene, b));
+  if (!movers.length) return [];
+  const stays = Object.keys(scene.parts).filter((r) => !group.includes(r as Ref) && isHard(scene, r as Ref)) as Ref[];
+  const clearance = scene.clearance ?? 0;
+  const hits = new Set<Ref>();
+  for (const m of movers) {
+    const a = meshOf(scene, m);
+    const r = rigidOf(m);
+    if (!a || !r) continue;
+    const there = moved(a.tris, r);
+    for (const s of stays) {
+      const b = meshOf(scene, s);
+      if (!b || collides(a.tris, b.tree, clearance)) continue; // (already in each other)
+      if (collides(there, b.tree, clearance)) hits.add(s);
+    }
+  }
+  return [...hits];
+}
+export const hardNames = (scene: Scene, refs: readonly Ref[]): string => refs.map((r) => nameOf(scene, r)).join(", ");

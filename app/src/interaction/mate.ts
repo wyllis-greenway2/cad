@@ -18,6 +18,7 @@ import type { SolveMate, SolveBody, Pose } from "../operation/matesolve.ts";
 import { solvePoses, solveDriven, poseOfRigid, rigidOfPose, poseForBody } from "../operation/matesolve.ts";
 import type { Rigid } from "../operation/frames.ts";
 import { laterMotion } from "../operation/frames.ts";
+import { hardCollision, hardNames } from "./hard.ts";
 import type { Step } from "../operation/scene.ts";
 
 export type { MateMode };
@@ -106,6 +107,14 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
   const turns = eulerXYZ(R);
   const translate = r6(move);
   const own = turns.length + (length(translate) > 1e-9 ? 1 : 0); // (the steps the mate makes before it is recorded: it is true after them)
+  // a mate that would put a hard body into another (or, with a clearance, closer to it than that) is not made (`in_477`)
+  if (scene.hard?.length && (turns.length || length(translate) > 1e-9)) {
+    const R9 = [R[0][0], R[0][1], R[0][2], R[1][0], R[1][1], R[1][2], R[2][0], R[2][1], R[2][2]] as unknown as Rigid["turn"];
+    const rp: Vec3 = [R9[0] * pivot[0] + R9[1] * pivot[1] + R9[2] * pivot[2], R9[3] * pivot[0] + R9[4] * pivot[1] + R9[5] * pivot[2], R9[6] * pivot[0] + R9[7] * pivot[1] + R9[8] * pivot[2]];
+    const rigid: Rigid = { turn: R9, shift: [pivot[0] - rp[0] + translate[0], pivot[1] - rp[1] + translate[1], pivot[2] - rp[2] + translate[2]], k: 1 };
+    const into = hardCollision(scene, [a.body], () => rigid);
+    if (into.length) return { why: `the mate would put this body into ${hardNames(scene, into)}: hard bodies do not go into each other${(scene.clearance ?? 0) > 0 ? ` (or nearer than the clearance, ${scene.clearance} mm: give the mate a gap of at least that)` : ""}` };
+  }
   const made = mateRelation(again ?? nextId(scene, "r"), mode, gap, a, b, { mover: { point: moverWhenTrue, dir: turnOnly(mode) ? rotate(R, a.dir) : want }, other: { point: b.point, dir: b.dir } }, counts, standing, scene.steps.length + own);
   const kept = again ? scene.relations.find((r) => r.id === again)?.params : undefined; // (the drive values and limits of a joint stay when the mate is put back)
   if (kept) for (const k of JOINT_KEYS) if (k in kept) made.params![k] = kept[k]!;

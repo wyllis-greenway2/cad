@@ -1,5 +1,6 @@
 // Hard bodies (`dec_hard_bodies`, `in_473`): a body made hard stops against another hard body while it is moved by hand.
 import test from "node:test";
+import type { Ref } from "../src/shared/ref.ts";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";
 import { kernel } from "../src/compiler/kernel/index.ts";
@@ -196,4 +197,30 @@ test("each hard body has a mark at the middle of its top; pressing the mark make
   assert.equal(scene(st.session).hard, undefined, "soft again");
   assert.equal(frameOf(st, { w: 800, h: 600 }).hardMarks.length, 0);
   assert.equal(frameOf({ ...createState(two()), cam: homeCamera() }, { w: 800, h: 600 }).hardMarks.length, 0, "a model with no hard body has no marks");
+});
+
+import { mateCommand } from "../src/interaction/mate.ts";
+const faceAt = (s: Session, body: string, x: number): Ref => (Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && (p as { of?: string }).of === body && (p as unknown as { mesh?: number[] }).mesh && [0, 3, 6].every((i) => Math.abs((p as unknown as { mesh: number[] }).mesh[i]! - x) < 1e-6)))!.ref;
+
+test("a mate that would put a hard body into another, or nearer to it than the clearance, is not made (`in_477`)", () => {
+  const plain = two();
+  const fa = faceAt(plain, A, 10), fb = faceAt(plain, B, 30);
+  assert.ok("command" in mateCommand(scene(plain), "flush", fa, fb, 0), "soft bodies: made");
+  const hard = hardOf(plain, [A, B]);
+  assert.ok("command" in mateCommand(scene(hard), "flush", fa, fb, 0), "hard, flush with no clearance: they touch, which is allowed");
+  const gap = run(hard, { type: "setClearance", value: 0.5 });
+  const r = mateCommand(scene(gap), "flush", fa, fb, 0);
+  assert.ok("why" in r && /nearer than the clearance/.test(r.why), JSON.stringify(r));
+  assert.ok("command" in mateCommand(scene(gap), "flush", fa, fb, 0.6), "a gap of more than the clearance is allowed");
+});
+
+test("a mate that would take a body into a third hard body is refused with its name", () => {
+  let s = two();
+  const c = drawRectangle(scene(s), XY, [22, 0, 0], [28, 10, 0], [1, 0, 0], [0, 1, 0]); s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: "s_102", type: "extrude", parts: c.lines, params: { depth: 10, mode: "new" } } } as never);
+  const fa = faceAt(s, A, 10), fb = faceAt(s, B, 30);
+  assert.ok("command" in mateCommand(scene(s), "flush", fa, fb, 0), "soft: made");
+  const hard = hardOf(s, [A, B, "b/x_s_102/o"]);
+  const r = mateCommand(scene(hard), "flush", fa, fb, 0);
+  assert.ok("why" in r && /would put this body into x_s_102/.test(r.why), JSON.stringify(r));
 });

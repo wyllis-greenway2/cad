@@ -23,7 +23,7 @@ import { seenIn } from "./picking.ts";
 import { tapeAnnotations } from "./tape.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
-import { hardMotion, hardNote, limitedOp } from "./hard.ts";
+import { hardMotion, hardNote, limitedOp, hardCollision } from "./hard.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { withCorner } from "./runop.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, previewRefusal, undoLast } from "./session.ts";
@@ -35,7 +35,7 @@ import { sweepStart } from "./sweep.ts";
 import { moverOp } from "./control/pose.ts";
 import { mirrorPlane } from "./mirror.ts";
 import { startOp, opCommand, bodyMotion, valueOf, chamferFaces, chosenFace } from "./operations.ts";
-import { matrixOf, applyPoint } from "../operation/frames.ts";
+import { matrixOf, applyPoint, NONE } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
 import type { Command } from "../operation/commands.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
@@ -226,13 +226,16 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
   if (!asked) return null;
   // the bodies selected move as one; the others stay where they are, mated to them or not, and the mates of the bodies that move hold them (`in_338`, `in_345`)
   const group = op.target === "body" ? op.parts.filter((r) => sceneOf(base).parts[r]?.kind === "body") : [];
-  const held = group.length ? constrainedMotion(sceneOf(base), group, asked, op.grab) : null;
-  const rigidOf0 = (b: Ref): Rigid | null => (held ? held.rigids.find((q) => q.body === b)?.rigid ?? null : asked);
-  // hard bodies (`dec_hard_bodies`): a body that is hard goes only as far as it can before it meets another hard body; the body it is against flashes
-  const stopped = group.length && !op.typed && op.kind !== "scale" ? hardMotion(sceneOf(base), group, rigidOf0, op.kind === "move" && !!op.free) : null;
-  const rigidOf = (b: Ref): Rigid | null => (stopped ? stopped.rigidOf(b) : rigidOf0(b));
+  // hard bodies (`dec_hard_bodies`): what is asked is taken only as far as a hard body can go before it meets another (the body it is against flashes), and then the mates settle it (`in_477`: the same order as at release)
+  const stopped = group.length && !op.typed && op.kind !== "scale" ? hardMotion(sceneOf(base), group, () => asked, op.kind === "move" && !!op.free) : null;
+  const askedLimited: Rigid = stopped ? stopped.rigidOf(group[0]!) ?? asked : asked;
+  const held = group.length ? constrainedMotion(sceneOf(base), group, askedLimited, op.grab) : null;
+  const rigidOf1 = (b: Ref): Rigid | null => (held ? held.rigids.find((q) => q.body === b)?.rigid ?? null : askedLimited);
+  // the mates may leave a body in a hard one: then it stays where it was, and the body it would be in flashes
+  const mated = group.length && held && !op.typed ? hardCollision(sceneOf(base), group, rigidOf1) : [];
+  const rigidOf = (b: Ref): Rigid | null => (mated.length ? NONE : rigidOf1(b));
   const m = group.length ? rigidOf(group[0]!) : asked;
-  const blockedBodies = stopped?.hit ?? [];
+  const blockedBodies = mated.length ? mated : stopped?.hit ?? [];
   if (!m) return null;
   if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
   const matrix = matrixOf(m);

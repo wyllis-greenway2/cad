@@ -2232,3 +2232,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_476 — 2026-11-16 — directive
 > Do the hard body mark next
 (asks for the mark on hard bodies that `dec_hard_bodies` left unbuilt)
+
+## in_477 — 2026-11-16 — directive
+> Do the mates against hard bodies next
+(asks for what `dec_hard_bodies` left unbuilt about mates: a mate that holds hard bodies against the rule, and a motion held by mates being limited by the rule at release as well as in the picture)
