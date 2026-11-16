@@ -2613,3 +2613,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_569 — 2026-11-16 — question
 > well I guess the only reason why we would build the loft version is because the real version would be too slow? how long do you estimate the real version would be?
 (asks whether speed is the only reason to prefer the loft for a throated wheel, and for an estimate of the time the exact version, cutting the worm out of a blank, would take)
+
+## in_570 — 2026-11-16 — directive
+> yes run the benchmark
+(asks for the benchmark of cutting a worm out of a wheel blank at many positions, to replace the time estimate with a measured number)
