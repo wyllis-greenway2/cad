@@ -2256,3 +2256,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_482 — 2026-11-16 — directive
 > Do the revolve, loft and sweep collisions next
 (asks for what `dec_hard_bodies` lists as not built: revolve, loft and sweep against hard bodies)
+
+## in_483 — 2026-11-16 — directive
+> Do the fillet and chamfer face collisions next
+(asks for what `dec_hard_bodies` lists as not built: fillet and chamfer faces, whose size and not whose place changes, against hard bodies)

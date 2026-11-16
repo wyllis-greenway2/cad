@@ -7,6 +7,8 @@ import type { Op } from "./operations.ts";
 import { bodyMotion, valueOf, extrudeCap } from "./operations.ts";
 import { axisOf, advanceOf } from "./revolve.ts";
 import { sweepCarry } from "./sweep.ts";
+import { decodeEdge } from "../compiler/body.ts";
+import { laterMotion, applyPoint } from "../operation/frames.ts";
 import { normalOfPlane } from "../operation/part.ts";
 import { patternValues } from "./pattern.ts";
 import { mirrorPlane } from "./mirror.ts";
@@ -247,7 +249,8 @@ function ownersOnFace(scene: Scene, tris: readonly number[], dir: Vec3 | null): 
 function growth(scene: Scene, op: Op): { t: number; hit: Ref[]; owners: Ref[] } | null {
   if (op.kind !== "pushpull" && op.kind !== "extrude" && op.kind !== "revolve") return null;
   const d0 = valueOf(op);
-  if (d0 === null || (op.kind === "pushpull" && d0 <= 0) || d0 === 0) return null; // (pushed in, a body does not grow into anything; a sketch is extruded, or turned, either way)
+  const rounding = op.kind === "pushpull" && op.rounded && !op.roundAxis && op.edit?.kind === "edgeSize"; // (the face of a fillet or a chamfer: its size changes, either way)
+  if (d0 === null || (op.kind === "pushpull" && d0 <= 0 && !rounding) || d0 === 0) return null; // (pushed in, a body does not grow into anything; a sketch is extruded, or turned, either way)
   const d = Math.abs(d0);
   const clearance = scene.clearance ?? 0;
   let owners: Ref[] = [];
@@ -270,9 +273,11 @@ function growth(scene: Scene, op: Op): { t: number; hit: Ref[]; owners: Ref[] } 
     pieces = [{ tris: cap.tris, tree: buildTree(cap.tris), rigid, at: () => cap.tris }];
   } else {
     const faces = op.parts.map((r) => scene.parts[r]).filter((p) => p?.kind === "plane" && p.origin === "body" && !!p.mesh && !!p.of);
+    const edge = rounding ? sharpEdge(scene, op, faces) : null;
+    if (rounding && !edge) return null; // (a size that changes along the edge, a chamfer with two distances, or an edge that cannot be found: not looked ahead)
     owners = [...new Set(faces.map((p) => (p as { of: Ref }).of))].filter((b) => isHard(scene, b));
     const round = op.curved ? { center: op.curved.center, dir: op.curved.dir ?? ([0, 0, 0] as Vec3).map((_, i) => (i === op.curved!.axis ? 1 : 0)) as unknown as Vec3, radius: op.curved.radius } : op.rounded && op.roundAxis && op.dim ? { center: op.roundAxis.center, dir: op.roundAxis.dir, radius: op.dim.base / 2 } : null;
-    if (op.rounded && !round) return null; // (a fillet or chamfer face: its size changes, not where it is)
+    if (op.rounded && !round && !edge) return null;
     pieces = faces.flatMap((p, i) => {
       const f = p as { of: Ref; mesh: readonly number[] };
       if (!owners.includes(f.of)) return [];
@@ -285,6 +290,10 @@ function growth(scene: Scene, op: Op): { t: number; hit: Ref[]; owners: Ref[] } 
         const convex = op.normal ? op.normal[0] * out[0] + op.normal[1] * out[1] + op.normal[2] * out[2] > 0 : true;
         const sign = convex ? 1 : -1;
         return [{ tris, at: (u: number) => radial(tris, c, axis, round.radius, sign * d * u) }];
+      }
+      if (edge) { // the face is taken towards the sharp edge or away from it, about the edge, as much as the size changes: a fillet or a chamfer is the same shape at any size, seen from the edge
+        const size = op.edit!.kind === "edgeSize" ? op.edit!.value : 1;
+        return [{ tris, at: (u: number) => homothety(tris, edge, (size - d0 * u) / size) }];
       }
       const n = op.faces?.[i]?.normal ?? op.normal;
       return n ? [{ tris, tree: buildTree(tris), rigid: (u: number): Rigid => ({ turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift: [n[0] * d * u, n[1] * d * u, n[2] * d * u], k: 1 }), at: () => tris }] : [];
@@ -303,6 +312,45 @@ function growth(scene: Scene, op: Op): { t: number; hit: Ref[]; owners: Ref[] } 
   return t >= 1 ? null : { t, hit: hitAt(Math.min(1, t + 5e-4)), owners };
 }
 const unit = (v: Vec3): Vec3 => { const l = Math.hypot(...v) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+/** The sharp edge a fillet or a chamfer face rounds (`in_483`): the edge of its step nearest the face, brought to where the body stands now; null for a step the size of which is not one number along the whole edge. */
+function sharpEdge(scene: Scene, op: Op, faces: readonly unknown[]): { a: Vec3; b: Vec3 } | null {
+  if (op.edit?.kind !== "edgeSize") return null;
+  const i = scene.steps.findIndex((s) => s.id === (op.edit as { step: string }).step);
+  const st = scene.steps[i];
+  if (!st || st.type !== "edgeMod" || st.params.end !== undefined || st.params.d2 !== undefined) return null;
+  const here = laterMotion(scene.steps, i);
+  const mesh = (faces[0] as { mesh?: readonly number[] } | undefined)?.mesh;
+  if (!mesh || mesh.length < 9) return null;
+  const mid: [number, number, number] = [0, 0, 0];
+  for (let k = 0; k + 2 < mesh.length; k += 3) { mid[0] += mesh[k]!; mid[1] += mesh[k + 1]!; mid[2] += mesh[k + 2]!; }
+  const n = mesh.length / 3;
+  const c: Vec3 = [mid[0] / n, mid[1] / n, mid[2] / n];
+  let best: { a: Vec3; b: Vec3; d: number } | null = null;
+  for (const r of st.parts) {
+    const e = decodeEdge(r);
+    if (!e) continue;
+    const [a, b] = [applyPoint(here, e.a), applyPoint(here, e.b)];
+    const ab: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const l2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2];
+    if (l2 < 1e-12) continue;
+    const k = Math.max(0, Math.min(1, ((c[0] - a[0]) * ab[0] + (c[1] - a[1]) * ab[1] + (c[2] - a[2]) * ab[2]) / l2));
+    const d = Math.hypot(a[0] + ab[0] * k - c[0], a[1] + ab[1] * k - c[1], a[2] + ab[2] * k - c[2]);
+    if (!best || d < best.d) best = { a, b, d };
+  }
+  return best ? { a: best.a, b: best.b } : null;
+}
+/** The triangles seen from a line, every point taken along the way to the line (and past it) by `ratio` times: the cross section of a fillet or a chamfer at another size. */
+function homothety(tris: readonly number[], edge: { a: Vec3; b: Vec3 }, ratio: number): number[] {
+  const d = unit([edge.b[0] - edge.a[0], edge.b[1] - edge.a[1], edge.b[2] - edge.a[2]]);
+  const out: number[] = new Array(tris.length);
+  for (let i = 0; i + 2 < tris.length; i += 3) {
+    const o: Vec3 = [tris[i]! - edge.a[0], tris[i + 1]! - edge.a[1], tris[i + 2]! - edge.a[2]];
+    const al = o[0] * d[0] + o[1] * d[1] + o[2] * d[2];
+    const r: Vec3 = [o[0] - d[0] * al, o[1] - d[1] * al, o[2] - d[2] * al];
+    out[i] = edge.a[0] + d[0] * al + r[0] * ratio; out[i + 1] = edge.a[1] + d[1] * al + r[1] * ratio; out[i + 2] = edge.a[2] + d[2] * al + r[2] * ratio;
+  }
+  return out;
+}
 /** The triangles of a round wall with its radius made `by` bigger (smaller when negative): every point taken along the way out from the axis. */
 function radial(tris: readonly number[], c: Vec3, axis: Vec3, radius: number, by: number): number[] {
   const out: number[] = new Array(tris.length);

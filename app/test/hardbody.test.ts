@@ -407,3 +407,59 @@ test("the shape of a sweep is carried along an arc path to its far end, turned w
   assert.ok(Math.abs(side[2]! - 20) > 1.9 || Math.abs(side[0]! - 20) > 1.9, `turned with the path: ${side}`);
   assert.deepEqual(applyPoint(c.carries[0]!, [1, 2, 3]).map((v) => Math.round(v * 1e6) / 1e6), [1, 2, 3], "the first station is where it started");
 });
+
+// ---- the face of a fillet or a chamfer pulled against a hard body (`in_483`) ----
+test("the face of a chamfer pulled out (the chamfer made smaller, the corner filled in) stops where it meets a hard body standing in the notch; pushed in, or with the body soft, it is free (`in_483`)", () => {
+  let s = createSession(kernel);
+  const r = drawRectangle(scene(s), XY, [0, 0, 0], [20, 20, 0], [1, 0, 0], [0, 1, 0]); s = run(s, r.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: r.lines, params: { depth: 20 } } } as never);
+  const sc0 = scene(s);
+  const top = Object.values(sc0.parts).find((p) => p.kind === "line" && p.origin === "body" && [p.a, p.b].every((c) => { const q = (sc0.parts[c] as { at?: number[] }).at; return !!q && Math.abs(q[0]! - 20) < 1e-6 && Math.abs(q[2]! - 20) < 1e-6; }))!;
+  assert.ok(top, "the edge along the top at x = 20");
+  s = run(s, { type: "addStep", step: { id: "s_101", type: "edgeMod", parts: [top.ref], params: { mode: "chamfer", value: 4 } } } as never);
+  assert.equal(s.message, null, `${s.message}`);
+  const c = drawRectangle(scene(s), XY, [19, 0, 0], [21, 20, 0], [1, 0, 0], [0, 1, 0]); s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: "s_200", type: "extrude", parts: c.lines, params: { depth: 2, mode: "new" } } } as never);
+  const [h, cap] = [bodiesOf(s).find((x) => x.id === "x_s_100")!, bodiesOf(s).find((x) => x.id === "x_s_200")!];
+  s = liftBody(s, cap.ref, [0, 0, 19]); // z 19 .. 21: standing in the notch the chamfer left (x + z > 36 there)
+  s = hardOf(s, [h.ref, cap.ref]);
+  const face = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && (p as { of?: string }).of === h.ref && !!(p as unknown as { mesh?: number[] }).mesh && (() => { const m = (p as unknown as { mesh: number[] }).mesh; return Math.abs(m[0]! + m[2]! - 36) < 1e-6 && Math.abs(m[3]! + m[5]! - 36) < 1e-6; })())!;
+  assert.ok(face, "the face of the chamfer");
+  const st = startOp(scene(s), [face.ref] as never, "pushpull", null);
+  assert.ok(st.ok, st.ok ? "" : st.why);
+  const op = (st as { op: Op }).op;
+  assert.equal(op.edit?.kind, "edgeSize");
+  const pulled = limitedOp(scene(s), { ...op, value: 3 });
+  assert.ok(pulled && "op" in pulled && Math.abs(pulled.op.value! - 2) < 0.05, `the chamfer can shrink to 2 (pulled 2 of 3): ${JSON.stringify(pulled && "op" in pulled ? pulled.op.value : pulled)}`);
+  const typed = limitedOp(scene(s), { ...op, value: 3, typed: "1" });
+  assert.ok(typed && "why" in typed && /would grow into x_s_200/.test(typed.why), JSON.stringify(typed));
+  assert.equal(limitedOp(scene(s), { ...op, value: 1 }), null, "short of it: whole");
+  assert.equal(limitedOp(scene(s), { ...op, value: -2 }), null, "pushed in, the chamfer is bigger: it goes away from the body in the notch");
+  assert.equal(limitedOp(scene(run(s, { type: "setHard", body: "x_s_200", on: false })), { ...op, value: 3 }), null, "the body in the notch is soft");
+  const made = runOp(s, { ...op, value: 3 })!;
+  assert.equal(made.session.message, null, `${made.session.message}`);
+  assert.deepEqual(hardOverlaps(scene(made.session)), [], "what was made does not overlap");
+});
+
+test("the round face of a fillet pulled out stops where it meets a hard body standing in the notch: a radius of 4 can go down to 3.414 (`in_483`)", () => {
+  let s = createSession(kernel);
+  const r = drawRectangle(scene(s), XY, [0, 0, 0], [20, 20, 0], [1, 0, 0], [0, 1, 0]); s = run(s, r.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: r.lines, params: { depth: 20 } } } as never);
+  const sc0 = scene(s);
+  const top = Object.values(sc0.parts).find((p) => p.kind === "line" && p.origin === "body" && [p.a, p.b].every((c) => { const q = (sc0.parts[c] as { at?: number[] }).at; return !!q && Math.abs(q[0]! - 20) < 1e-6 && Math.abs(q[2]! - 20) < 1e-6; }))!;
+  s = run(s, { type: "addStep", step: { id: "s_101", type: "edgeMod", parts: [top.ref], params: { mode: "fillet", value: 4 } } } as never);
+  assert.equal(s.message, null, `${s.message}`);
+  const c = drawRectangle(scene(s), XY, [19, 0, 0], [21, 20, 0], [1, 0, 0], [0, 1, 0]); s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: "s_200", type: "extrude", parts: c.lines, params: { depth: 2, mode: "new" } } } as never);
+  const [h, cap] = [bodiesOf(s).find((x) => x.id === "x_s_100")!, bodiesOf(s).find((x) => x.id === "x_s_200")!];
+  s = hardOf(liftBody(s, cap.ref, [0, 0, 19]), [h.ref, cap.ref]);
+  const face = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && (p as { of?: string }).of === h.ref && !!(p as { rounded?: boolean }).rounded)!;
+  assert.ok(face, "the round face of the fillet");
+  const st = startOp(scene(s), [face.ref] as never, "pushpull", null);
+  assert.ok(st.ok, st.ok ? "" : st.why);
+  const op = (st as { op: Op }).op;
+  assert.equal(op.edit?.kind, "edgeSize");
+  const pulled = limitedOp(scene(s), { ...op, value: 3 });
+  assert.ok(pulled && "op" in pulled && Math.abs(pulled.op.value! - 0.586) < 0.05, `pulled 0.586 of 3 (the radius 4 down to 3.414): ${JSON.stringify(pulled && "op" in pulled ? pulled.op.value : pulled)}`);
+  assert.equal(limitedOp(scene(s), { ...op, value: 0.4 }), null, "short of it: whole");
+});
