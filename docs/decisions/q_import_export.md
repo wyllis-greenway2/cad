@@ -3,7 +3,7 @@ id: q_import_export
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_488, in_489
+human_input: in_488, in_489, in_490
 date: 2026-11-16
 depends_on:
 alternative_to:
@@ -19,6 +19,8 @@ alternative_to:
 5. **Order of work.** (a) the `about` block and the menu with Import / Export beside Save / Open (STL only at first); (b) 3MF export; (c) STEP export and import; (d) SVG / DXF; (e) STL / 3MF import as mesh bodies, which needs a body kind the app does not have yet and should be its own decision.
 
 **Checked (`in_489`):** the kernel build the app loads (`replicad-opencascadejs`, through `oc.mjs`) has `STEPControl_Writer`, `STEPControl_Reader` and `STEPCAFControl_Writer`, and replicad's `blobSTEP()` and `importSTEP()` work in it: a 40 x 20 x 20 block with its upright edges rounded (3 mm) and a hole through it, written to STEP and read back, comes back as one solid with the same 11 faces and the same volume (14840.177 mm3). So STEP export and import need no new kernel, only the file service for bytes (`dec_export_stl` already added it) and the app's own handling of what comes in. **Not in the build:** `IGESControl_Reader` and `RWGltf_CafWriter` are absent, so IGES and glTF would need other code (a further reason to leave them out). **Not checked:** colours and names through `STEPCAFControl`, a large assembly, a STEP from another program (their surfaces may be free-form or trimmed in ways the app's face editing does not know), and how an imported body is named and drawn in the app.
+
+**Built (`in_490`, `dec_export_formats`):** 3MF and STEP export (point 3, the first two after STL), as menu rows beside STL. The rest stays open: the `about` block, an Import / Export menu with options, SVG / DXF and all imports.
 
 ## Rationale
 

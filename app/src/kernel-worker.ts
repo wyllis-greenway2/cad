@@ -19,6 +19,10 @@ initWeb().then(
 );
 self.onmessage = (e: MessageEvent<{ id: number; graph: KernelGraph; draft?: boolean; lite?: boolean; export?: ExportQuality }>) => {
   try {
+    if (e.data.export?.step) {
+      void kernel.exportStep(e.data.graph, e.data.export.bodies).then((exported) => post({ id: e.data.id, exported }, exported.ok ? [exported.bytes.buffer] : []), (err: unknown) => post({ id: e.data.id, failed: String(err) }));
+      return;
+    }
     if (e.data.export) {
       void kernel.exportMesh(e.data.graph, e.data.export).then((exported) => post({ id: e.data.id, exported }, exported.ok ? [exported.vertices.buffer, exported.triangles.buffer] : []), (err: unknown) => post({ id: e.data.id, failed: String(err) }));
       return;

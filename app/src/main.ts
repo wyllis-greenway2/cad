@@ -9,7 +9,9 @@ import { createRecognizer } from "./interaction/recognizer.ts";
 import { mateStatus } from "./operation/mates.ts";
 import { createSession, openSession, saveText, run, scene, selection, refresh } from "./interaction/session.ts";
 import type { Session } from "./interaction/session.ts";
-import { exportStl, canExport, selectedBodies } from "./interaction/exportstl.ts";
+import { canExport, selectedBodies } from "./interaction/exportstl.ts";
+import { exportFile, fileName } from "./interaction/exportfile.ts";
+import type { ExportFormat } from "./interaction/exportfile.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
 import { createState, reduce, advance, stopView } from "./interaction/controller.ts";
 import { frameOf } from "./interaction/frame.ts";
@@ -115,9 +117,9 @@ const menu = createMenu(document.body, (id) => {
     webStore.set(SCROLL_KEY, next);
   } else if (id === "constraints") dispatch({ type: "runAction", id: "constraints" });
   else if (id === "share") shareState();
-  else if (id === "exportStl") void exportModel();
+  else if (id === "exportStl" || id === "export3mf" || id === "exportStep") void exportModel(id === "exportStl" ? "stl" : id === "export3mf" ? "3mf" : "step");
   else if (id === "clearAnswers") void resultStore?.clear();
-  else if (id === "exportBody") void exportModel(selectedBodies(state.session));
+  else if (id === "exportBody" || id === "exportBody3mf" || id === "exportBodyStep") void exportModel(id === "exportBody" ? "stl" : id === "exportBody3mf" ? "3mf" : "step", selectedBodies(state.session));
   else if (id === "save" || id === "open") dispatch({ type: id });
   else if (id === "bodies" || id === "history" || id === "groups") dispatch({ type: "panel", name: id });
   else if (id === "undo" || id === "redo") dispatch({ type: id });
@@ -189,13 +191,13 @@ function shareState() {
   state = { ...state, session: { ...state.session, message: `saved ${name}: send that file` } };
   dirty = true;
 }
-/** Save the body as an STL file (`dec_export_stl`): the kernel makes the fine mesh (on its thread when it has one), then it is offered as a download; the result line says what was made. */
-async function exportModel(only?: string[]) {
+/** Save the body as a file (`dec_export_stl`, `dec_export_formats`): the kernel makes the fine mesh (STL, 3MF) or the exact solid (STEP), on its thread when it has one, then it is offered as a download; the result line says what was made. */
+async function exportModel(format: ExportFormat, only?: string[]) {
   const say = (message: string) => { state = { ...state, session: { ...state.session, message } }; dirty = true; };
-  say("making the STL file…");
-  const r = await exportStl(state.session, engine, only ? `model-${only.join("-")}.stl` : undefined, only);
+  say(`making the ${format === "3mf" ? "3MF" : format.toUpperCase()} file…`);
+  const r = await exportFile(state.session, engine, format, only, fileName(format, only));
   if (!r.ok) return say(r.error);
-  webFiles.saveBytes(r.name, r.bytes, "model/stl");
+  webFiles.saveBytes(r.name, r.bytes, r.mime);
   say(r.message);
 }
 function dispatch(i: Intent) {

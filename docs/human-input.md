@@ -2288,3 +2288,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_489 — 2026-11-16 — directive
 > Check whether the kernel can read and write STEP
 (asks for the check that `q_import_export` leaves unconfirmed: whether the kernel's wasm build reads and writes STEP)
+
+## in_490 — 2026-11-16 — directive
+> Build STEP and 3MF export first
+(approves the first two steps of the order in `q_import_export` point 5 that follow STL: 3MF export and STEP export; the `about` block, the Import / Export menu restructure and the imports are not asked for yet)
