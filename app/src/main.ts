@@ -21,7 +21,11 @@ import { aboutOf } from "./operation/file.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
 import { createState, reduce, advance, stopView } from "./interaction/controller.ts";
 import { frameOf } from "./interaction/frame.ts";
-import { appRows, nextScrollMode, isScrollMode, nextPanScale } from "./interaction/appmenu.ts";
+import { appRows, isScrollMode } from "./interaction/appmenu.ts";
+import { createSettings } from "./ui/settings.ts";
+import type { Change } from "./ui/settings.ts";
+import { keysFromText, keysToText } from "./interaction/preferences.ts";
+import { units } from "./shared/units.ts";
 import { snapshotOf, logEntry } from "./interaction/snapshot.ts";
 import { createTiming } from "./interaction/timing.ts";
 import { buildStats } from "./ui/view/content.ts";
@@ -110,22 +114,27 @@ const PAN_KEY = "cad.panScale";
 const savedPan = Number(webStore.get(PAN_KEY));
 if (Number.isFinite(savedPan) && savedPan > 0) settings.input.trackpadPanScale = savedPan;
 
+const KEYS_KEY = "cad.keys";
+const UNITS_KEY = "cad.units";
+const USUAL_KEYS: Record<string, string[]> = JSON.parse(JSON.stringify(settings.input.keys));
+settings.input.keys = keysFromText(webStore.get(KEYS_KEY), USUAL_KEYS);
+if (webStore.get(UNITS_KEY) === "in") units.system = "in";
+
+/** The settings page (`dec_settings_page`, `in_543`): each change is made and kept as it is made. */
+const settingsPage = createSettings(document.body, () => ({ units: units.system, outlines: settings.theme.outlines, scrollMode: recognizer.scrollMode, panScale: settings.input.trackpadPanScale, keys: settings.input.keys, usualKeys: USUAL_KEYS }), (c: Change) => {
+  if (c.what === "units") { units.system = c.value; webStore.set(UNITS_KEY, c.value); }
+  else if (c.what === "outlines") { settings.theme.outlines = c.value; webStore.set(OUTLINE_KEY, c.value ? "1" : "0"); view.rebuild(); }
+  else if (c.what === "scrollMode") { recognizer.setScrollMode(c.value); webStore.set(SCROLL_KEY, c.value); }
+  else if (c.what === "panScale") { settings.input.trackpadPanScale = c.value; webStore.set(PAN_KEY, String(c.value)); }
+  else { settings.input.keys = c.value; webStore.set(KEYS_KEY, keysToText(c.value, USUAL_KEYS)); }
+  dirty = true;
+});
+
 const menu = createMenu(document.body, (id) => {
   menu.hide();
   if (id === "view:game") { input.toggleGame(); return; } // (game mode is the input's: it holds the pointer, `in_391`)
-  if (id === "outlines") {
-    settings.theme.outlines = !settings.theme.outlines;
-    webStore.set(OUTLINE_KEY, settings.theme.outlines ? "1" : "0");
-    view.rebuild();
-    dirty = true;
-  } else if (id === "panSpeed") {
-    settings.input.trackpadPanScale = nextPanScale(settings.input.trackpadPanScale);
-    webStore.set(PAN_KEY, String(settings.input.trackpadPanScale));
-  } else if (id === "scrollMode") {
-    const next = nextScrollMode(recognizer.scrollMode);
-    recognizer.setScrollMode(next);
-    webStore.set(SCROLL_KEY, next);
-  } else if (id === "constraints") dispatch({ type: "runAction", id: "constraints" });
+  if (id === "settings") settingsPage.open();
+  else if (id === "constraints") dispatch({ type: "runAction", id: "constraints" });
   else if (id === "share") shareState();
   else if (id === "export") void exportDialogFlow();
   else if (id === "import") void importDialogFlow();
@@ -256,7 +265,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, settings.input.trackpadPanScale, settings.theme.outlines, scene(state.session).clearance ?? 0)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, scene(state.session).clearance ?? 0)); }
     else {
       menu.hide();
       if (state.menu && inGame()) { // game mode: the ring stands in the world, ahead of the eye, where it was opened (`in_463`, `in_471`)

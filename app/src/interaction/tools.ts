@@ -2,6 +2,7 @@
 // sets the plane and the first point, and the figure is finished by a second click or by typing sizes (Enter). A tool draws ONE figure, selects it, and hands back
 // to normal selection. Pure: the controller feeds it points and keys; it returns the new tool state and, when a figure is done, the command and what to select.
 import { typedNumber } from "../shared/numbers.ts";
+import { typedLength } from "../shared/units.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, dist, cross } from "../math/vec.ts";
@@ -132,7 +133,7 @@ export function typeKey(t: Tool, key: string): Tool {
   const typed: [string, string] = t.field === 0 ? [next, t.typed[1]] : [t.typed[0], next];
   return { ...t, typed };
 }
-const typedValues = (t: Tool): [number | null, number | null] => [typedNumber(t.typed[0]), typedNumber(t.typed[1])];
+const typedValues = (t: Tool): [number | null, number | null] => [typedLength(t.typed[0]), typedLength(t.typed[1])];
 
 // ---- the figure being drawn ----
 /** The second corner of a rectangle from the first, the cursor and typed sizes (a typed size keeps the side the cursor is on). */
@@ -237,7 +238,7 @@ export function arcOf(pl: Plane, t: Tool): { a: Vec3; b: Vec3; mid: Vec3; bulge:
   const perp = cross(normalOfPlane(pl), scale(chord, 1 / len));
   const m = scale(add(a, b), 0.5);
   const side = dot(sub(c, m), perp);
-  const typed = typedNumber(t.typed[0]);
+  const typed = typedLength(t.typed[0]);
   const h = typed !== null ? Math.abs(typed) * (side < 0 ? -1 : 1) : side;
   return Math.abs(h) < 1e-9 ? null : { a, b, mid: add(m, scale(perp, h)), bulge: h / len };
 }

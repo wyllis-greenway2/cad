@@ -2504,3 +2504,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_542 — 2026-11-16 — directive
 > Do the Esc ending the ring menu next
 (asks for Esc to end the ring menu)
+
+## in_543 — 2026-11-16 — directive
+> The menu sometimes entirely hides icons when they arent available to apply, other times it just fades the icon and makes it unclickable. Can we have it so that the icons are always present, but only onclickable when they cannot be applied. 
+>
+> Can we have a settings option under the ... that brings you to a real settings page. That is where we will have special view options like view no black edges, and the trackpad, mouse pad, and keyboard settings. A person should be able to see key bindings and set their own there as well. The settings area should allow you to change the number system from inch to mm for now.
+(asks: every icon of the ring menu and every row of the ⋯ list always present, and only unclickable (dimmed) when it cannot be applied, none left out; a Settings entry in the ⋯ list that opens a real settings page, holding view options (such as no black edges), trackpad, mouse and keyboard settings, the key bindings listed with the person able to set their own, and the number system, inch or mm for now)

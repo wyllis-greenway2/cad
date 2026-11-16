@@ -111,7 +111,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     return [r.id, { ...base, enabled: true, why: st.ok ? null : st.why, ...(st.ok ? {} : { picks: true as const }) }]; // (not selected yet: it can be chosen and waits for what to click, `in_464`)
   }));
   const acts = actionsFor(sc, sel);
-  const rels: MenuItem[] = acts.filter((a) => a.group === "relation" && a.enabled).map((a) => ({ id: a.id, label: tipOf(a.id, a.label), icon: a.id, enabled: true, why: null }));
+  const rels: MenuItem[] = acts.filter((a) => a.group === "relation").map((a) => ({ id: a.id, label: tipOf(a.id, a.label), icon: a.id, enabled: a.enabled, why: a.why })); // (one that cannot be applied stays, dimmed, and says why when pressed: nothing is left out, `in_543`)
   const del = acts.find((a) => a.id === "delete");
   // looking straight at the selected plane or face, or at the one the click was on (`in_171`: the eye lives here, not on the screen)
   const clicked = over ? planeOf(lookup(sc), over) : null; // (the surface the right click was on: a face, a sketch's plane, a world plane; a sketch tool chosen from the ring turns to it when the selection does not say which plane)

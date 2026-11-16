@@ -11,6 +11,7 @@ import type { Vec3 } from "../math/vec.ts";
 import { add, sub, scale, dot } from "../math/vec.ts";
 import { pointOf, normalOfPlane } from "../operation/part.ts";
 import { typedNumber } from "../shared/numbers.ts";
+import { typedLength } from "../shared/units.ts";
 import { drawnRef } from "../shared/ref.ts";
 
 /** The step of a loft: the first sketch is the step's own figure, the others its siblings (the way figures are carried by an extrude), and how the outlines are joined and matched. */
@@ -87,7 +88,7 @@ function loftPlaced(scene: Scene, op: Op): { shift: Vec3[]; mids: Vec3[]; gaps: 
       const along = n ? dot(v, n) : 0;
       const dir: Vec3 = n && !op.loftStraight && Math.abs(along) > 1e-9 ? scale(n, Math.sign(along)) : Math.hypot(...v) > 1e-9 ? scale(v, 1 / Math.hypot(...v)) : [0, 0, 0];
       d = dot(v, dir);
-      const typed = typedNumber(op.loftGaps?.[i - 1] ?? "");
+      const typed = typedLength(op.loftGaps?.[i - 1] ?? "");
       if (typed !== null && typed >= 0 && Math.hypot(...dir) > 0) { t = add(t, scale(dir, typed - d)); d = typed; }
     }
     shift.push(t);

@@ -3,7 +3,7 @@ id: dec_menu_picking
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_542, in_541, in_540, in_539, in_538, in_463, in_464, in_465
+human_input: in_543, in_542, in_541, in_540, in_539, in_538, in_463, in_464, in_465
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -37,3 +37,5 @@ alternative_to:
 
 ## Rationale
 It changes how every operation of the menu starts; kept the select-first path so nothing gets slower, and the many-things operations wait for an explicit end because no count says when they are complete.
+
+**Nothing is left out (`in_543`):** an icon or a row that cannot be applied is dimmed and says why when pressed, never left out: the Constraints category lists every relation that fits the selection (dimmed when it cannot be applied), and the ⋯ list always has Reapply mates, Clear cache and Build. The Edge lines, Pan and Scroll rows moved to the settings page (`dec_settings_page`).

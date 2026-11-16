@@ -2,6 +2,7 @@
 // The numbers: linear is [nX, dX, nY, dY, nZ, dZ] (how many along each axis and how far apart), circular is [count, degrees, axis (0 X, 1 Y, 2 Z), x, y, z of the point].
 // A body is repeated by a step of the kernel (the copies are joined to it); a figure is repeated by new parts, copies of its corners, lines and circle with the relations among them.
 import { typedNumber } from "../shared/numbers.ts";
+import { typedLength } from "../shared/units.ts";
 import type { Ref } from "../shared/ref.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
@@ -55,7 +56,7 @@ export function patternStart(scene: Scene, kind: "linear" | "circular", figure: 
 }
 
 /** The numbers of a repeat: each field as typed, else as it started. */
-export const patternValues = (op: Op): number[] => (op.patStart ?? []).map((v, i) => typedNumber(op.pat[i] ?? "") ?? v);
+export const patternValues = (op: Op): number[] => (op.patStart ?? []).map((v, i) => (op.kind === "linear" && i % 2 === 1 ? typedLength(op.pat[i] ?? "") : typedNumber(op.pat[i] ?? "")) ?? v); // (the distance between copies is a length: typed in the number system in use, `in_543`)
 
 /** The middle of what is repeated (where the arrows of a linear repeat start). */
 export function patternCentre(scene: Scene, op: Op): Vec3 {

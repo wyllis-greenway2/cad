@@ -92,8 +92,8 @@ test("paste and push / pull have icons of their own (`in_538`)", () => {
 
 import { appRows } from "../src/interaction/appmenu.ts";
 test("every row of the ⋯ list is one or two words, with every optional row there and in each state (`in_541`)", () => {
-  for (const mode of ["auto", "pan", "zoom"] as const) for (const flag of [true, false]) {
-    for (const r of appRows(mode, "abc123", { export: flag, matesOff: 2, clearAnswers: true }, flag, 0.3, flag, 0.25)) {
+  for (const flag of [true, false]) {
+    for (const r of appRows("abc123", { export: flag, matesOff: 2, clearAnswers: true }, flag, 0.25)) {
       assert.ok(r.label.replace(/^✓ /, "").trim().split(/\s+/).length <= 2 && !/[():]/.test(r.label), `"${r.label}" (${r.id})`);
     }
   }
@@ -113,4 +113,20 @@ test("Esc ends the ring (and the ⋯ list): the menu is gone from the state and 
   assert.equal(closed.menu, null);
   assert.deepEqual(selection(closed.session), sel, "the first Esc only ends the menu");
   assert.equal(selection(reduce(closed, { type: "escape" }, env).session).length, 0, "the next clears the selection");
+});
+
+import { actionsFor } from "../src/interaction/actions.ts";
+test("nothing is left out of the ring: every relation that fits the selection is there, dimmed when it cannot be applied, with its reason (`in_543`)", () => {
+  let blocked = 0;
+  for (const { name, st } of states()) {
+    const items = reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as Item[];
+    const kids = items.find((i) => i.id === "constraints")!.children!;
+    for (const a of actionsFor(scene(st.session), selection(st.session)).filter((x) => x.group === "relation")) {
+      const k = kids.find((i) => i.id === a.id);
+      assert.ok(k, `${name}: ${a.id} is in the ring`);
+      assert.equal(k.enabled, a.enabled, `${name}: ${a.id} is clickable only when it can be applied`);
+      if (!a.enabled) { blocked++; assert.ok(k.why, `${name}: ${a.id} says why`); }
+    }
+  }
+  assert.ok(blocked > 0, "the test met a relation that cannot be applied");
 });

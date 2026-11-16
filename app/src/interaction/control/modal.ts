@@ -35,6 +35,7 @@ import { sub } from "../../math/vec.ts";
 import { loftStartTyped } from "../loft.ts";
 import { frameAngles, frameOfAngles } from "../entry.ts";
 import { typedNumber } from "../../shared/numbers.ts";
+import { typedLength } from "../../shared/units.ts";
 import { pivotCommands, patternCommand, patternValues, liveRepeat, repeatApply, repeatCancel, advanceHelp } from "../pattern.ts";
 import type { Repeat } from "../pattern.ts";
 import type { Op } from "../operations.ts";
@@ -212,7 +213,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     return putMover(s, { ...rest, auto: false, ...(turned ? { frame: frameOfAngles(angles) } : {}) } as Op);
   }
   if (mo && field >= 0 && field < 3) { // a number typed for the mover's place: its world x, y or z (`in_418`)
-    const n = typedNumber(text);
+    const n = typedLength(text);
     const g = gizmoOf(s);
     if (n === null || !g) return s;
     const at = g.centre.map((c, j) => (j === field ? n : c)) as unknown as Vec3;
@@ -221,7 +222,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     return putMover(s, { ...mo, auto: false, pivot: sub(at, off) });
   }
   if (s.op?.kind === "revolve" && !s.moverSphere && field >= 10 && field < 13) { // the orb's place along one axis, typed on its arrow's bubble (`in_531`)
-    const n = typedNumber(text);
+    const n = typedLength(text);
     const g = gizmoOf(s);
     if (n === null || !g || !s.op.pivot) return s;
     const d = (s.op.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]])[field - 10]!; // (along the arrow as it stands: only that part of the place changes, `in_532`)
@@ -234,7 +235,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     return n === null ? s : { ...s, op: loftStartTyped(sceneOf(s.session), s.op, field, n) };
   }
   if (s.op?.kind === "mirror" && !s.moverSphere && s.op.mirrorAt && field >= 0 && field < 3) { // the number of the mirror plane's arrow: where the plane stands along that axis (`in_437`)
-    const n = typedNumber(text);
+    const n = typedLength(text);
     if (n === null) return s;
     const at = [...s.op.mirrorAt] as unknown as [number, number, number];
     at[field] = n;
@@ -256,7 +257,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
   }
   const sec = sectionNow(s);
   if (sec && !s.op && !s.repeat && !s.tool && field >= 0 && field <= 6) { // a number typed for the cross section plane (`in_395`)
-    const n = typedNumber(text);
+    const n = field < 3 || field === 6 ? typedLength(text) : typedNumber(text); // (a place is a length, a turn is degrees)
     return n === null ? s : placeSection(s, ...(() => { const t = typedSection(sec, field, n); return [t.centre, t.n] as [Vec3, Vec3]; })());
   }
   if (s.op?.kind === "scale" && s.op.axes && field >= 0 && field <= 2) { // a number typed for one axis of a scale along axes (`in_390`)
@@ -268,7 +269,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
   }
   if (s.repeat && !s.op) {
     // a number of the repeat that is open (the count and the spacing, or the count and the degrees); a pivot's x, y or z moves the pivot point (`in_384`)
-    if (s.repeat.op.kind === "circular" && field >= 3 && field <= 5) { const n = typedNumber(text); return n === null ? s : movePivot({ ...s, repeat: { ...s.repeat, chosen: `piv:${"xyz"[field - 3]}` } }, field - 3, n); }
+    if (s.repeat.op.kind === "circular" && field >= 3 && field <= 5) { const n = typedLength(text); return n === null ? s : movePivot({ ...s, repeat: { ...s.repeat, chosen: `piv:${"xyz"[field - 3]}` } }, field - 3, n); }
     const pat = [...s.repeat.op.pat];
     if (field >= 0 && field < pat.length) pat[field] = text;
     const chosen = s.repeat.op.kind === "circular" ? null : field >= 0 && field < 6 ? `${field % 2 === 0 ? "cnt" : "lin"}:${"xyz"[field >> 1]}` : s.repeat.chosen ?? null; // (the arrow whose number it is)
