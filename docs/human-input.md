@@ -2648,3 +2648,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_578 — 2026-11-16 — question
 > okay so we are ready to merge? what is your branch called?
 (asks whether the work is ready to merge and what the branch is called; answered in chat)
+
+## in_579 — 2026-11-16 — question
+> why not just merge this branch into that? wouldn't it be the same amount of work? or would merging default into this be better?
+(asks whether to merge this branch into the default branch directly, or the default branch into this one first, and whether the work is the same; answered in chat)
