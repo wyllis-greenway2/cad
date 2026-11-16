@@ -179,3 +179,21 @@ test("the touch way to select several: Add mode (the ring's Select, or the pill)
   const on = reduce(reduce(st, { type: "runAction", id: "select:add" }, env), { type: "menu", x: 300, y: 300, button: true }, env).menu!.items.flatMap((i) => i.children ?? [i]);
   assert.equal(on.find((i) => i.id === "select:add")!.label, "Stop adding");
 });
+
+test("Esc ends Add mode and keeps what is selected; Esc again clears it; with a tool open Esc puts the tool away first (`in_495`)", () => {
+  const { s, c } = sketch();
+  let st = reduce({ ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 15, 0] } }, { type: "runAction", id: "select:add" }, env);
+  const mid = (ref: Ref): [number, number] => projector(st.cam, env.w, env.h).project((scene(st.session).parts[ref] as unknown as { at: [number, number, number] }).at) as [number, number];
+  for (const r of [c[0]!, c[1]!]) { const [x, y] = mid(r); st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env); }
+  st = reduce(st, { type: "escape" }, env);
+  assert.equal(st.adding, false, "adding is over");
+  assert.equal(selection(st.session).length, 2, "the selection stays");
+  st = reduce(st, { type: "escape" }, env);
+  assert.equal(selection(st.session).length, 0, "the next Esc clears it");
+  // adding with a tool open: the tool goes first, adding stays
+  st = reduce(st, { type: "runAction", id: "select:add" }, env);
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  st = reduce(st, { type: "escape" }, env);
+  assert.equal(st.tool, null);
+  assert.equal(st.adding, true);
+});

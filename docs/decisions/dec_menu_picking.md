@@ -3,7 +3,7 @@ id: dec_menu_picking
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_494, in_493, in_463, in_464, in_465
+human_input: in_495, in_494, in_493, in_463, in_464, in_465
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -29,7 +29,7 @@ alternative_to:
 
 **The ring's words and shape (`in_493`):** every tooltip is one or two words (the reasons are no longer in them: a dimmed bubble pressed says why, and the ring stays open); every category opens even when nothing in it applies now (it is only dimmed); the Delete bubble became the **Actions** category (Undo, Redo, Delete); **All bodies** joins the Select category; Paste has a clipboard icon and Push pull a simpler one (a face and an arrow). The ⋯ menu lost Undo, Redo and Select several (the state and its Shift-click on a tap are gone with it). `menutips.test.ts` checks every label of the ring in six states is at most two words.
 
-**Select several by touch (`in_494`):** *Select several* left the ⋯ menu (`in_493`); its place is **Add mode** in the ring's Select category ("Stop adding" while on), and a pill at the bottom left (`addchip.ts`): "+ Add more" offered on a touch screen while something is selected, "Adding: tap to add or remove · Done" while it is on. While on, every tap is a Shift click (`AppState.adding`, `controller.ts`), so a tap on what is selected takes it out; a tool, an operation, a repeat or a waiting operation keeps its own clicks. The form is the AI's reading (the human left it open).
+**Select several by touch (`in_494`):** *Select several* left the ⋯ menu (`in_493`); its place is **Add mode** in the ring's Select category ("Stop adding" while on), and a pill at the bottom left (`addchip.ts`): "+ Add more" offered on a touch screen while something is selected, "Adding: tap to add or remove · Done" while it is on. While on, every tap is a Shift click (`AppState.adding`, `controller.ts`), so a tap on what is selected takes it out; a tool, an operation, a repeat or a waiting operation keeps its own clicks. Esc ends it, keeping what is selected (the next Esc clears the selection; a tool, operation or repeat that is open takes the first Esc, `in_495`). The form is the AI's reading (the human left it open).
 
 ## Rationale
 It changes how every operation of the menu starts; kept the select-first path so nothing gets slower, and the many-things operations wait for an explicit end because no count says when they are complete.

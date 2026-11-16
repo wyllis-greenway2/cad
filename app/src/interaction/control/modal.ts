@@ -275,6 +275,7 @@ export function doEscape(s: AppState): AppState {
   if (s.repeat && !s.op) return doRepeatCancel(s); // (the repeat that is open is given up, as the pill's cross used to)
   if (s.op) return cancelOp(s);
   if (s.tool) return { ...s, tool: null, op: null, drag: null, gizmoHover: null };
+  if (s.adding) return { ...s, adding: false, session: { ...s.session, message: null } }; // (adding to the selection is left, what is selected stays; the next Esc clears it, `in_495`)
   return withSession(s, clearSelection(s.session));
 }
 

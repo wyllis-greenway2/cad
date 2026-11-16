@@ -2306,3 +2306,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_494 — 2026-11-16 — directive
 > Do the touch way to select several next
 (asks for what in_493 left open: with Select several taken out of the ⋯ menu, a way to select several things with a finger, where a tap adds to the selection; the form is left to the AI)
+
+## in_495 — 2026-11-16 — directive
+> Do the Esc ending add mode next
+(asks for what in_494 left unbuilt: Esc ending the add mode)
