@@ -7,6 +7,7 @@ import type { Kernel, KernelGraph, KernelResult } from "./kernel/adapter.ts";
 import { solveScene } from "./solve.ts";
 import type { SolveOutcome } from "./solve.ts";
 import { buildGraph } from "./graph.ts";
+import { cuttingSheets } from "../operation/cutface.ts";
 import { bodyParts } from "./body.ts";
 import { rebindAnchors } from "../operation/anchors.ts";
 
@@ -73,7 +74,7 @@ export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
     const step = solved.scene.steps.find((s) => `x_${s.id}` === op.id || `s_${s.id}` === op.id);
     if (step) { errors[step.id] ??= op.error; if (op.culprits?.length) problems[step.id] = op.culprits.flatMap((i) => (step.parts[i] ? [step.parts[i]!] : [])); }
   }
-  const placed = withBody(solved.scene, bodyParts(result));
+  const placed = withBody(solved.scene, bodyParts(result, cuttingSheets(solved.scene)));
   const bound = rebindAnchors(placed); // (a relation to an edge of the body that the change took away is moved to the edge that looks most like it, `in_309`)
   // the drawn parts held to such an edge are solved again against the edge as it is now (the first solve was made before the body was)
   const again = bound.scene !== placed ? solveScene(bound.scene) : null;

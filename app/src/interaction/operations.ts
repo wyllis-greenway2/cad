@@ -245,6 +245,8 @@ export function surfaceAxes(scene: Scene, part: Part | undefined): [Vec3, Vec3, 
 }
 /** The mover put on one flat face or plane has an arrow normal to it (`in_419`). */
 export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind, view: ViewAxes | null = null): StartResult {
+  // the cut face of a sheet is a face of the cut view (`in_574`): it is looked at, picked and sketched on; the body is changed through its own faces
+  if (selection.some((r) => { const p = scene.parts[r]; return p?.kind === "plane" && !!p.cap; })) return { ok: false, why: "the cut face is only a view of the cut: sketch on it or look at it; put the cutting sheet away to work on the body" };
   const r = startOpMoved(scene, selection, kind, view);
   if (!r.ok || (kind !== "move" && kind !== "rotate") || selection.length !== 1 || (r.op.target !== "body" && r.op.target !== "plane" && r.op.target !== "part")) return r;
   const f = surfaceAxes(scene, scene.parts[selection[0]!]);

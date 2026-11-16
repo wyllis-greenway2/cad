@@ -8,6 +8,8 @@ import type { Vec3 } from "../math/vec.ts";
 import { cross, normalize } from "../math/vec.ts";
 import type { Part } from "../operation/part.ts";
 import type { KernelResult, KernelEdge } from "./kernel/adapter.ts";
+import { sectionFaces, axesOf } from "../operation/cutface.ts";
+import type { Sheet } from "../operation/cutface.ts";
 
 const r4 = (v: number) => Math.round(v * 1e4) / 1e4;
 const key = (p: readonly number[]) => p.map((v) => String(r4(v) + 0)).join(",");
@@ -47,7 +49,7 @@ export function decodeFace(r: Ref): { n: Vec3; d: number } | null {
   return m ? { n: [Number(m[1]), Number(m[2]), Number(m[3])], d: Number(m[4]) } : null;
 }
 
-export function bodyParts(result: KernelResult): Part[] {
+export function bodyParts(result: KernelResult, sheets: Sheet[] = []): Part[] {
   const out: Part[] = [];
   const base = { origin: "body" as const, plane: null, movable: false };
   const corners = new Set<string>();
@@ -135,6 +137,25 @@ export function bodyParts(result: KernelResult): Part[] {
       ref = faceName(f.n, f.d, [x / k, y / k, z / k]);
     }
     out.push({ ...base, ref, kind: "plane", at: [f.n[0] * f.d, f.n[1] * f.d, f.n[2] * f.d], u: f.u, v: f.v, ...(f.mesh.length ? { mesh: f.mesh } : {}), ...(f.body !== undefined ? { of: bodyPart(f.body) } : {}) });
+  }
+  // where a sheet that is cutting passes through the body the cut is a face too, with its edges and corners (`in_574`): named by where they are, like the rest
+  if (sheets.length && result.mesh) {
+    const lines = new Set(out.filter((p) => p.kind === "line").map((p) => p.ref));
+    sheets.forEach((sheet, i) => {
+      for (const f of sectionFaces(result.mesh!, sheet, sheets.filter((_, j) => j !== i))) {
+        const k = f.mesh.length / 3;
+        const mid: Vec3 = [0, 1, 2].map((a) => { let t = 0; for (let j = 0; j < f.mesh.length; j += 3) t += f.mesh[j + a]!; return t / k; }) as unknown as Vec3;
+        const [u, v] = axesOf(f.n);
+        out.push({ ...base, ref: faceName(f.n, f.d, mid), kind: "plane", at: [f.n[0] * f.d, f.n[1] * f.d, f.n[2] * f.d], u, v, mesh: f.mesh, cap: true });
+        for (const loop of f.loops) loop.forEach((a, j) => {
+          const b = loop[(j + 1) % loop.length]!;
+          const name = edgeName(a, b, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]);
+          if (lines.has(name)) return;
+          lines.add(name);
+          out.push({ ...base, ref: name, kind: "line", a: corner(a), b: corner(b) });
+        });
+      }
+    });
   }
   return out;
 }
