@@ -208,8 +208,8 @@ test("the Gear tool is in the Sketch ring; click the centre, the pointer sets th
   st = move(st, [C[0] + 22, C[1], 0]);
   assert.ok(previewFor(scene(st.session), st.tool)!.segments.length > 100, "the teeth are shown while the size is set");
   const e = entryOf(scene(st.session), st.tool, st.op);
-  assert.deepEqual(e!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash"]);
-  assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2", "20", "0", "0"]);
+  assert.deepEqual(e!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Bore"]);
+  assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0"]);
   st = click(st, [C[0] + 22, C[1], 0]);
   assert.ok(Math.abs(reach(st) - 22) < 1e-6, `outside radius ${reach(st)}`);
   assert.ok(selection(st.session).length === 1, "the figure is selected");
@@ -330,7 +330,7 @@ test("Edit gear: the number box opens on the selected gear with its numbers; typ
   st = reduce(st, { type: "runAction", id: "gear:edit" }, env);
   assert.equal(st.tool!.gear!.editing, "g_001");
   const e = entryOf(scene(st.session), st.tool, st.op)!;
-  assert.deepEqual(e.fields.map((f) => f.value), ["20", "2", "20", "0", "0"], "its numbers as they are");
+  assert.deepEqual(e.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0"], "its numbers as they are");
   st = typeText(st, "30");
   st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab");
   st = typeText(st, "0.1");
@@ -382,4 +382,78 @@ test("Delete on a selected gear takes the gear whole (record and parts), and one
   assert.equal(scene(gone.session).gears, undefined);
   assert.equal(drawn(gone).length, 0);
   assert.equal(scene({ ...gone.session, history: undoLast(gone.session).history }).gears!.length, 1);
+});
+
+// ---- the bore and moving a gear (`in_546`) ----
+import { opCommand } from "../src/interaction/operations.ts";
+
+test("a bore is a number of the gear: the body made from it has the hole; a bore put in or taken out after the extrude follows; one too wide is refused", () => {
+  const g0 = must(gearOutline({ teeth: 20, module: 2 }));
+  const d = makeGear(createSession(kernel), { teeth: 20, module: 2, bore: 8 });
+  let s = extrude(d.s, loopFaceRef(d.lines), 5);
+  const v = (bore: number) => (areaOf(g0) - Math.PI * (bore / 2) ** 2) * 5;
+  assert.ok(Math.abs(bodyVolume(s) - v(8)) < 0.001 * v(0), `${bodyVolume(s)} against ${v(8)}`);
+  s = run(s, { type: "setGear", id: "g_001", spec: { teeth: 20, module: 2, bore: 12 } });
+  assert.ok(!s.message, s.message ?? "");
+  assert.ok(Math.abs(bodyVolume(s) - v(12)) < 0.001 * v(0), `${bodyVolume(s)} against ${v(12)}`);
+  s = run(s, { type: "setGear", id: "g_001", spec: { teeth: 20, module: 2 } });
+  assert.ok(Math.abs(bodyVolume(s) - v(0)) < 0.001 * v(0), "no bore: solid again");
+  s = run(s, { type: "setGear", id: "g_001", spec: { teeth: 20, module: 2, bore: 5 } });
+  assert.ok(Math.abs(bodyVolume(s) - v(5)) < 0.001 * v(0), "a bore put in after the extrude is a hole of it");
+  assert.match(run(s, { type: "setGear", id: "g_001", spec: { teeth: 20, module: 2, bore: 40 } }).message ?? "", /smaller than the gear's root/);
+});
+
+test("the Gear box has a Bore field; typing it in Edit gear applies it (a ring has no bore)", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "gear" }, env);
+  st = click(st, C);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Bore"]);
+  st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2");
+  for (let i = 0; i < 4; i++) st = key(st, "Tab");
+  st = typeText(st, "6");
+  st = key(st, "Enter");
+  assert.equal(scene(st.session).gears![0]!.spec.bore, 6);
+  assert.ok(Object.values(scene(st.session).parts).some((p) => p.kind === "circle" && p.ref === "d/g_001.b"));
+  const ring = reduce(top(), { type: "runAction", id: "tool:ring" }, env);
+  assert.equal(entryOf(scene(ring.session), { ...ring.tool!, plane: worldRef("XY"), points: [C] }, null)!.fields.length, 5);
+});
+
+test("Move on a gear moves it: its centre goes where the move takes it, as one command, and the body made from it follows; undo puts it back", () => {
+  const d = makeGear(createSession(kernel), { teeth: 20, module: 2, bore: 6 });
+  let s = extrude(d.s, loopFaceRef(d.lines), 5);
+  const face = loopFaceRef(d.lines);
+  const op = startOp(scene(s), [face as never], "move");
+  assert.ok(op.ok, op.ok ? "" : op.why);
+  const o = (op as { op: Op }).op;
+  const cmd = opCommand(scene(s), { ...o, axis: 0, value: 30 })!;
+  assert.ok(cmd, "a command is made");
+  const moved = run(s, cmd);
+  assert.ok(!moved.message, moved.message ?? "");
+  assert.deepEqual(scene(moved).gears![0]!.at.map((x) => Math.round(x * 1e6) / 1e6), [30, 0, 0]);
+  const bb = moved.outcome.kernel!.bbox!;
+  assert.ok(Math.abs(bb.min[0] - 8) < 1e-3 && Math.abs(bb.max[0] - 52) < 1e-3, `${bb.min[0]} .. ${bb.max[0]}`);
+  assert.deepEqual(scene(undoLast(moved)).gears![0]!.at, [0, 0, 0]);
+  // a move across the plane is not made
+  assert.equal(opCommand(scene(s), { ...o, axis: 2, value: 10 }), null);
+});
+
+test("Rotate on a gear about its plane's axis turns it (tooth 0 points another way); the outline repeats itself so the body is the same, a part of the outline is where the turn puts it", () => {
+  const d = makeGear(createSession(kernel), { teeth: 20, module: 2 }, "g_001", [10, 0, 0]);
+  const s = d.s;
+  const op = startOp(scene(s), [loopFaceRef(d.lines) as never], "rotate");
+  assert.ok(op.ok, op.ok ? "" : op.why);
+  const o = (op as { op: Op }).op;
+  const cmd = opCommand(scene(s), { ...o, axis: 2, value: 9 })!; // (degrees: half a pitch of 20 teeth)
+  assert.ok(cmd);
+  const turned = run(s, cmd);
+  assert.ok(!turned.message, turned.message ?? "");
+  const rec = scene(turned).gears![0]!;
+  assert.ok(Math.abs((rec.turn ?? 0) - Math.PI / 20) < 1e-9, `turn ${rec.turn}`);
+  // about the pivot (the middle of the corners, which is the centre): the centre stays
+  assert.ok(Math.hypot(rec.at[0] - 10, rec.at[1]) < 1e-6, `${rec.at}`);
+  // the first corner is turned half a pitch about the centre
+  const p0 = scene(turned).parts["d/g_001.p0" as never] as unknown as { at: number[] };
+  const q0 = scene(s).parts["d/g_001.p0" as never] as unknown as { at: number[] };
+  const a0 = Math.atan2(q0.at[1]! , q0.at[0]! - 10), a1 = Math.atan2(p0.at[1]!, p0.at[0]! - 10);
+  assert.ok(Math.abs(a1 - a0 - Math.PI / 20) < 1e-9, `${a1 - a0}`);
 });

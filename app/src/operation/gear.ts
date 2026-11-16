@@ -22,6 +22,8 @@ export interface GearSpec {
   /** a ring: the outline is the hole whose teeth point in (a wall of `rim` modules round it, 2 by default, is drawn as a circle by the caller) */
   internal?: boolean;
   rim?: number;
+  /** diameter of a round hole through the middle of an external gear, mm (0 or absent: none) */
+  bore?: number;
 }
 export interface GearOutline {
   /** the corners of the outline in order, counter-clockwise */
@@ -103,6 +105,7 @@ export function gearOutline(spec: GearSpec): Result<GearOutline> {
       warnings.push("the tips are pointed, so they are cut short");
     }
     if (z < (2 * (1 - x)) / Math.sin(alpha) ** 2 - 1e-9) warnings.push("few teeth: the root is not undercut, so this gear will bind against a gear that reaches it");
+    if ((spec.bore ?? 0) < 0 || (spec.bore ?? 0) >= 2 * rf * 0.95) return err("the bore must be smaller than the gear's root circle");
     const r0 = Math.max(rb, rf);
     if (half(r0) >= pitch / 2 - 1e-4) return err("the teeth meet at the root: raise the tooth count or lower the shift");
     for (let k = 0; k < z; k++) {

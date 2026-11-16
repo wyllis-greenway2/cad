@@ -2516,3 +2516,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_545 — 2026-11-16 — directive
 > Do the editable gear numbers and internal gears next
 (asks for what in_544's first slice left unbuilt: a gear's numbers kept so they can be changed later, and internal gears in the tool)
+
+## in_546 — 2026-11-16 — directive
+> Do moving a gear and the bore field next
+(asks for what in_545 left unbuilt: moving a gear, and a bore field in the gear's number box)

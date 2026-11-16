@@ -53,17 +53,18 @@ export interface Tool {
   /** a gear (`dec_gear_tool`): a ring or an outside gear, the numbers typed, the field being typed in, and, when its numbers are being changed, which gear and how it is now */
   gear?: GearState;
 }
-export interface GearState { internal: boolean; typed: string[]; field: number; editing?: string; base?: GearSpec }
+export interface GearState { internal: boolean; typed: string[]; field: number; editing?: string; base?: GearSpec; /** the turn the gear being changed has (radians), so its preview stands as it does */ turn?: number }
 /** The numbers of a gear in the order the number box shows them (a ring has a wall where a gear has a shift). */
-export const gearFields = (internal: boolean): { key: "teeth" | "module" | "pressure" | "shift" | "backlash" | "rim"; label: string }[] => [
+export const gearFields = (internal: boolean): { key: "teeth" | "module" | "pressure" | "shift" | "backlash" | "rim" | "bore"; label: string }[] => [
   { key: "teeth", label: "Teeth" }, { key: "module", label: "Module" }, { key: "pressure", label: "Pressure" },
   internal ? { key: "rim", label: "Wall" } : { key: "shift", label: "Shift" }, { key: "backlash", label: "Backlash" },
+  ...(internal ? [] : [{ key: "bore" as const, label: "Bore" }]),
 ];
 const gearState = (t: Tool): GearState => t.gear ?? { internal: false, typed: [], field: 0 };
 /** A tool that waits for its first click on a surface. */
-export const armTool = (kind: ToolKind, internal = false): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0, ...(kind === "gear" ? { gear: { internal, typed: ["", "", "", "", ""], field: 0 } } : {}) });
+export const armTool = (kind: ToolKind, internal = false): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0, ...(kind === "gear" ? { gear: { internal, typed: ["", "", "", "", "", ""], field: 0 } } : {}) });
 /** The tool opened on a gear that is already made, to change its numbers: its plane and centre, and its numbers as they are. */
-export const editGearTool = (rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec }): Tool => ({ ...armTool("gear", !!rec.spec.internal), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: !!rec.spec.internal, typed: ["", "", "", "", ""], field: 0, editing: rec.id, base: rec.spec } });
+export const editGearTool = (rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }): Tool => ({ ...armTool("gear", !!rec.spec.internal), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: !!rec.spec.internal, typed: ["", "", "", "", "", ""], field: 0, editing: rec.id, base: rec.spec, ...(rec.turn ? { turn: rec.turn } : {}) } });
 
 export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], trim: [], gear: ["Teeth", "Module"] };
 
@@ -138,7 +139,7 @@ export function typeKey(t: Tool, key: string): Tool {
     const g = gearState(t);
     if (key === "Tab") return { ...t, gear: { ...g, field: (g.field + 1) % gearFields(g.internal).length } };
     const typed = typeInto(g.typed[g.field] ?? "", key);
-    return typed === null ? t : { ...t, gear: { ...g, typed: Array.from({ length: 5 }, (_, i) => (i === g.field ? typed : g.typed[i] ?? "")) } };
+    return typed === null ? t : { ...t, gear: { ...g, typed: Array.from({ length: 6 }, (_, i) => (i === g.field ? typed : g.typed[i] ?? "")) } };
   }
   const n = FIELDS[t.kind].length;
   if (key === "Tab") return { ...t, field: n > 1 ? ((t.field === 0 ? 1 : 0) as 0 | 1) : 0 };
@@ -158,7 +159,7 @@ function typeInto(cur: string, key: string): string | null {
 /** The text of a field of a gear's number box changed (typed in the box itself). */
 export function gearTyped(t: Tool, field: number, text: string): Tool {
   const g = gearState(t);
-  return { ...t, gear: { ...g, field, typed: Array.from({ length: 5 }, (_, i) => (i === field ? text : g.typed[i] ?? "")) } };
+  return { ...t, gear: { ...g, field, typed: Array.from({ length: 6 }, (_, i) => (i === field ? text : g.typed[i] ?? "")) } };
 }
 const typedValues = (t: Tool): [number | null, number | null] => [typedNumber(t.typed[0]), typedNumber(t.typed[1])];
 
@@ -196,6 +197,7 @@ function gearSpecOf(t: Tool): GearSpec | null {
   const shift = g.internal ? undefined : typed("shift") ?? b?.shift;
   const backlash = typed("backlash") ?? b?.backlash;
   const rim = g.internal ? typed("rim") ?? b?.rim : undefined;
+  const bore = g.internal ? undefined : typed("bore") ?? b?.bore;
   const typedModule = typed("module");
   let module = typedModule !== null && typedModule > 0 ? typedModule : b?.module;
   if (module === undefined) {
@@ -204,12 +206,12 @@ function gearSpecOf(t: Tool): GearSpec | null {
     if (reach < 1e-6) return null;
     module = Math.max(0.1, Math.round((g.internal ? reach / (teeth / 2 + 1.25 + (rim ?? 2)) : moduleForOutside(teeth, 2 * reach, shift ?? 0)) / 0.05) * 0.05);
   }
-  return { teeth, module, ...(pressure !== undefined ? { pressure } : {}), ...(shift !== undefined ? { shift } : {}), ...(backlash !== undefined ? { backlash } : {}), ...(g.internal ? { internal: true as const } : {}), ...(rim !== undefined ? { rim } : {}) };
+  return { teeth, module, ...(pressure !== undefined ? { pressure } : {}), ...(shift !== undefined ? { shift } : {}), ...(backlash !== undefined ? { backlash } : {}), ...(g.internal ? { internal: true as const } : {}), ...(rim !== undefined ? { rim } : {}), ...(bore ? { bore } : {}) };
 }
 /** What each field of the number box says while nothing is typed in it: the numbers as they are now. */
 export function gearLive(t: Tool): number[] | null {
   const s = gearSpecOf(t);
-  return s ? gearFields(!!s.internal).map((f) => ({ teeth: s.teeth, module: s.module, pressure: s.pressure ?? 20, shift: s.shift ?? 0, backlash: s.backlash ?? 0, rim: s.rim ?? 2 })[f.key]) : null;
+  return s ? gearFields(!!s.internal).map((f) => ({ teeth: s.teeth, module: s.module, pressure: s.pressure ?? 20, shift: s.shift ?? 0, backlash: s.backlash ?? 0, rim: s.rim ?? 2, bore: s.bore ?? 0 })[f.key]) : null;
 }
 /** The outline of the gear being drawn, or null while it is not a gear (no size yet, or numbers that make none). */
 function gearOf(t: Tool): GearOutline | null {
@@ -278,7 +280,8 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
     const o = gearOf(t);
     if (!o) return null;
     const [cx, cy] = localOf(pl, t.points[0]!);
-    const at = (q: readonly [number, number]): Vec3 => liftOf(pl, [cx + q[0], cy + q[1]]);
+    const [ct, st] = [Math.cos(t.gear?.turn ?? 0), Math.sin(t.gear?.turn ?? 0)];
+    const at = (q: readonly [number, number]): Vec3 => liftOf(pl, [cx + q[0] * ct - q[1] * st, cy + q[0] * st + q[1] * ct]);
     const segments: [Vec3, Vec3][] = [];
     o.points.forEach((a, i) => { // (each side as two short lines through its middle: close enough to see the teeth)
       const b = o.points[(i + 1) % o.points.length]!;
@@ -287,7 +290,8 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
       const m: [number, number] = [(a[0] + b[0]) / 2 - dy * k, (a[1] + b[1]) / 2 + dx * k];
       segments.push([at(a), at(m)], [at(m), at(b)]);
     });
-    return { segments, circle: o.outerRadius !== undefined ? { center: t.points[0]!, radius: o.outerRadius, normal: n } : null, cursor: t.cursor };
+    const bore = gearSpecOf(t)?.bore ?? 0; // (a ring's wall, or a gear's bore, as the one circle of the preview)
+    return { segments, circle: o.outerRadius !== undefined ? { center: t.points[0]!, radius: o.outerRadius, normal: n } : bore > 0 ? { center: t.points[0]!, radius: bore / 2, normal: n } : null, cursor: t.cursor };
   }
   if (t.kind === "arc") {
     const arc = t.points.length >= 2 ? arcOf(pl, t) : null;

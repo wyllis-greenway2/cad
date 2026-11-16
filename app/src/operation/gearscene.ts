@@ -11,8 +11,8 @@ import type { Part } from "./part.ts";
 import { gearOutline } from "./gear.ts";
 import type { GearSpec, GearOutline } from "./gear.ts";
 
-/** `at`: the centre, in the world; `spec`: the numbers (`gear.ts`) */
-export interface GearRecord { id: string; plane: Ref; at: Vec3; spec: GearSpec }
+/** `at`: the centre, in the world; `turn`: how far the gear is turned about its centre in its plane, radians (tooth 0 points along the plane's first direction when 0); `spec`: the numbers (`gear.ts`) */
+export interface GearRecord { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }
 
 const gearsOf = (s: Scene): readonly GearRecord[] => s.gears ?? [];
 /** Whether this part is made by the gear `id`. */
@@ -32,11 +32,11 @@ function outlineOf(spec: GearSpec): Result<GearOutline> {
 }
 const cornerRef = (id: string, i: number): Ref => drawnRef(`${id}.p${i}`);
 const lineRef = (id: string, i: number): Ref => drawnRef(`${id}.s${i}`);
-/** The sides of a gear's outline, in order (what a step that extrudes it names), and, for a ring, the circle of its wall; empty if the numbers make no gear. */
-export function gearRefs(rec: GearRecord): { lines: Ref[]; wall?: Ref } {
+/** The sides of a gear's outline, in order (what a step that extrudes it names), the circle of its bore and, for a ring, the circle of its wall; empty if the numbers make no gear. */
+export function gearRefs(rec: GearRecord): { lines: Ref[]; wall?: Ref; bore?: Ref } {
   const o = outlineOf(rec.spec);
   if (!o.ok) return { lines: [] };
-  return { lines: o.value.points.map((_, i) => lineRef(rec.id, i)), ...(o.value.outerRadius !== undefined ? { wall: drawnRef(`${rec.id}.k`) } : {}) };
+  return { lines: o.value.points.map((_, i) => lineRef(rec.id, i)), ...(o.value.outerRadius !== undefined ? { wall: drawnRef(`${rec.id}.k`) } : {}), ...(!rec.spec.internal && (rec.spec.bore ?? 0) > 0 ? { bore: drawnRef(`${rec.id}.b`) } : {}) };
 }
 
 /** The parts of a gear: the corners and sides of its outline and, for a ring, its wall's circle. Locked. Empty if its plane is not there or the numbers make no gear. */
@@ -45,7 +45,8 @@ function partsOf(s: Scene, rec: GearRecord): Part[] {
   const o = outlineOf(rec.spec);
   if (!plane || plane.kind !== "plane" || !o.ok) return [];
   const g = o.value;
-  const at = (p: readonly [number, number]): Vec3 => [rec.at[0] + plane.u[0] * p[0] + plane.v[0] * p[1], rec.at[1] + plane.u[1] * p[0] + plane.v[1] * p[1], rec.at[2] + plane.u[2] * p[0] + plane.v[2] * p[1]];
+  const [ct, st] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0)];
+  const at = (q: readonly [number, number]): Vec3 => { const p = [q[0] * ct - q[1] * st, q[0] * st + q[1] * ct]; return [rec.at[0] + plane.u[0] * p[0]! + plane.v[0] * p[1]!, rec.at[1] + plane.u[1] * p[0]! + plane.v[1] * p[1]!, rec.at[2] + plane.u[2] * p[0]! + plane.v[2] * p[1]!]; };
   const base = { origin: "drawn" as const, plane: rec.plane, movable: false };
   const n = g.points.length;
   const out: Part[] = g.points.map((p, i): Part => ({ ...base, ref: cornerRef(rec.id, i), kind: "corner", at: at(p) }));
@@ -53,6 +54,10 @@ function partsOf(s: Scene, rec: GearRecord): Part[] {
   if (g.outerRadius !== undefined) {
     out.push({ ...base, ref: drawnRef(`${rec.id}.c`), kind: "corner", at: rec.at });
     out.push({ ...base, ref: drawnRef(`${rec.id}.k`), kind: "circle", center: drawnRef(`${rec.id}.c`), radius: g.outerRadius });
+  }
+  if (!g.outerRadius && (rec.spec.bore ?? 0) > 0) {
+    out.push({ ...base, ref: drawnRef(`${rec.id}.bc`), kind: "corner", at: rec.at });
+    out.push({ ...base, ref: drawnRef(`${rec.id}.b`), kind: "circle", center: drawnRef(`${rec.id}.bc`), radius: rec.spec.bore! / 2 });
   }
   return out;
 }
@@ -86,20 +91,29 @@ function swapRun(st: Step, from: readonly Ref[], to: readonly Ref[]): Step {
   if (typeof params.also === "string") params.also = params.also.split("|").map((f) => { const [o, h] = f.split(">"); return `${group(o ?? "", "\u0000")}${h === undefined ? "" : `>${group(h, ";")}`}`; }).join("|");
   return { ...st, parts: whole(st.parts) ? [...to] : st.parts, params };
 }
+/** A step that names the whole outline: the bore circle a hole of it, or not, as the gear has it now. */
+function swapBore(st: Step, lines: readonly Ref[], was: Ref | undefined, now: Ref | undefined): Step {
+  if (!["extrude", "revolve", "loft", "sweep"].includes(st.type) || st.parts.length !== lines.length || !st.parts.every((r) => lines.includes(r))) return st;
+  const groups = String(st.params.holes ?? "").split(";").filter(Boolean).filter((g) => g !== was);
+  if (now) groups.push(now);
+  const { holes: _h, ...rest } = st.params;
+  return { ...st, params: groups.length ? { ...rest, holes: groups.join(";") } : rest };
+}
 /** New numbers (and, if given, a new centre) for a gear. Refused if the numbers make no gear, or a constraint stands on a corner or side that would be gone. */
-export function setGear(s: Scene, id: string, spec: GearSpec, at?: Vec3): Result<Scene> {
+export function setGear(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: number): Result<Scene> {
   const rec = gearsOf(s).find((g) => g.id === id);
   if (!rec) return err(`gear ${id} does not exist`);
   const o = outlineOf(spec);
   if (!o.ok) return err(o.error);
-  const next: GearRecord = { ...rec, spec: { ...spec }, ...(at ? { at: [...at] as unknown as Vec3 } : {}) };
+  const next: GearRecord = { ...rec, spec: { ...spec }, ...(at ? { at: [...at] as unknown as Vec3 } : {}), ...(turn !== undefined ? (turn ? { turn } : { turn: undefined }) : {}) };
   const [was, now] = [gearRefs(rec), gearRefs(next)];
   const after = new Set(partsOf(s, next).map((p) => p.ref));
   const lost = new Set(Object.keys(s.parts).filter((r) => isMade(id, r as Ref) && !after.has(r as Ref)));
   const rel = s.relations.find((r) => r.parts.some((q) => lost.has(q)));
   if (rel) return err(`that would take away a corner or side that a constraint (${rel.kind}) stands on`);
   const same = was.lines.length === now.lines.length;
-  const steps = same ? s.steps : s.steps.map((st) => swapRun(st, was.lines, now.lines));
+  const swapped = same ? s.steps : s.steps.map((st) => swapRun(st, was.lines, now.lines));
+  const steps = was.bore === now.bore ? swapped : swapped.map((st) => swapBore(st, now.lines, was.bore, now.bore)); // (a bore put in or taken out is a hole of every figure that is the whole outline)
   return ok({ ...s, steps, gears: gearsOf(s).map((g) => (g === rec ? next : g)) });
 }
 /** A gear taken away: its record and its parts, and the constraints on them. A step made from it stays and is reported broken, as one made from a deleted figure is. */
