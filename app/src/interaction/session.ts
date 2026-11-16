@@ -231,7 +231,11 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
     // a change that leaves mates that held with no placement where they all hold is refused, as one that breaks sketch constraints is: the mates are named and nothing is made (`in_330`, `in_331`); a conflict that was already there is not the change's
     const held = new Set(mateStatus(s.history.scene).filter((m) => m.state === "ok").map((m) => m.id));
     const brought = atOdds.filter((id) => held.has(id) || !s.history.scene.relations.some((r) => r.id === id));
-    if (brought.length) return { ...s, message: atOddsMessage(next.history.scene, atOdds, changeWords(s.history.scene, c), hard), conflict: { culprits: [], victims: atOdds } };
+    if (brought.length) {
+      // the button "Delete constraint to proceed" takes away the standing mates that are there and makes the change: one refusal rule (`in_553`); not for an undo or a redo, which do not go through here
+      const there = atOdds.filter((id) => s.history.scene.relations.some((r) => r.id === id));
+      return { ...s, message: atOddsMessage(next.history.scene, atOdds, changeWords(s.history.scene, c), hard), conflict: { culprits: [], victims: atOdds, ...(there.length ? { retry: c } : {}) } };
+    }
     if (fixes.length) {
       const again = exec(s.history, { type: "batch", commands: [describedCommand(s.history.scene, c), ...fixes] });
       if (again.ok) return { ...withHistory(s, again.value), conflict: null, message: "the standing mates were put back with the change" };

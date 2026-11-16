@@ -2548,3 +2548,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_552 — 2026-11-16 — directive
 > Go with your recommendation on the bar chips
 (approves the recommendation of `q_ui_bar_chips`: Select similar and Cut join the operation bar; the sheet chips and the dimension operation stay where they are)
+
+## in_553 — 2026-11-16 — directive
+> Go with the mates at odds button
+(approves `q_ui_mates_at_odds_button`: offer "Delete constraint to proceed" for a change that would leave standing mates at odds; not for undo or redo)

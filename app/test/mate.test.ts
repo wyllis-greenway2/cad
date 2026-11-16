@@ -577,6 +577,20 @@ test("a change that leaves standing mates with no placement where they all hold 
 });
 
 
+test("a change refused for mates at odds offers the button: it deletes the standing mate that is there and makes the change, as one step (`in_553`)", () => {
+  let s = box(box(box(createSession(kernel), 0, 0), 40, 0), 25, 30);
+  const [a, b, c] = bodies(s);
+  const face = (q: Session, id: string | undefined, n: [number, number, number]) => faceOf(q, bodies(q).find((x) => x.id === id)!, n);
+  s = run(s, actionsFor(scene(s), [face(s, b!.id, [-1, 0, 0]), face(s, a!.id, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  const refused = run(s, actionsFor(scene(s), [face(s, b!.id, [1, 0, 0]), face(s, c!.id, [-1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  assert.ok(refused.conflict?.retry, "the refusal carries what to do once the mate is gone");
+  const st = reduce({ ...createState(refused), flash: { ...refused.conflict!, at: 0 } }, { type: "overrideRefusal" }, { w: 800, h: 600, now: 0 } as never);
+  assert.equal(st.session.message, null, "the change was made");
+  assert.equal(scene(st.session).relations.filter((r) => r.kind === "mate").length, 1, "the new mate stands, the old one is gone");
+  assert.equal(st.session.history.cursor, s.history.cursor + 1, "one step: one undo takes both back");
+});
+
+
 import { changeWords } from "../src/interaction/changewords.ts";
 test("the refusal says which change it is and which bodies the mates join (`in_335`)", () => {
   let s = box(box(box(createSession(kernel), 0, 0), 40, 0), 25, 30);
