@@ -17,7 +17,7 @@ const DEEPMODE: Mode = { eps: 0.015, edge: 1e-4 };
 const NUDGE: Vec3 = [1.3e-5, 2.1e-5, 0.7e-5];
 const nudged = (t: ArrayLike<number>): number[] => { const o: number[] = new Array(t.length); for (let i = 0; i < t.length; i++) o[i] = t[i]! + NUDGE[i % 3]!; return o; }; // mm: what lies this near a plane or a surface is on it, a touch, not a crossing
 
-export interface Tree { tris: ArrayLike<number>; nodes: { lo: Vec3; hi: Vec3; l: number; r: number; from: number; to: number }[]; order: number[]; lo: Vec3; hi: Vec3 }
+export interface Tree { /** the normal and its length for each triangle, made when first asked for (`normalsOf`) */ nrm?: Float64Array; tris: ArrayLike<number>; nodes: { lo: Vec3; hi: Vec3; l: number; r: number; from: number; to: number }[]; order: number[]; lo: Vec3; hi: Vec3 }
 
 /** The boxes over the triangles: halved at the middle of the longest side of the box of their centres, to leaves of a few triangles. */
 export function buildTree(tris: ArrayLike<number>): Tree {
@@ -53,20 +53,27 @@ const dot = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2
 const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const tri = (t: ArrayLike<number>, i: number): [Vec3, Vec3, Vec3] => [[t[9 * i]!, t[9 * i + 1]!, t[9 * i + 2]!], [t[9 * i + 3]!, t[9 * i + 4]!, t[9 * i + 5]!], [t[9 * i + 6]!, t[9 * i + 7]!, t[9 * i + 8]!]];
 
-/** Does the segment p-q cross the triangle (really cross it: both ends clear of its plane, on opposite sides)? */
+/** Does the segment p-q cross the triangle (really cross it: both ends clear of its plane, on opposite sides)? (scalars only: this is run for millions of pairs) */
 function crosses(p: Vec3, q: Vec3, t: [Vec3, Vec3, Vec3], mode: Mode = MOVE): boolean {
   const eps = mode.eps;
-  const n = cross(sub(t[1], t[0]), sub(t[2], t[0]));
-  const nl = Math.hypot(...n);
+  const [t0, t1, t2] = t;
+  const ux = t1[0] - t0[0], uy = t1[1] - t0[1], uz = t1[2] - t0[2], vx = t2[0] - t0[0], vy = t2[1] - t0[1], vz = t2[2] - t0[2];
+  const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+  const nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
   if (nl < 1e-12) return false;
-  const [dp, dq] = [dot(n, sub(p, t[0])) / nl, dot(n, sub(q, t[0])) / nl];
+  const dp = (nx * (p[0] - t0[0]) + ny * (p[1] - t0[1]) + nz * (p[2] - t0[2])) / nl;
+  const dq = (nx * (q[0] - t0[0]) + ny * (q[1] - t0[1]) + nz * (q[2] - t0[2])) / nl;
   if (!((dp > eps && dq < -eps) || (dp < -eps && dq > eps))) return false;
   const k = dp / (dp - dq);
-  const x: Vec3 = [p[0] + (q[0] - p[0]) * k, p[1] + (q[1] - p[1]) * k, p[2] + (q[2] - p[2]) * k];
-  const [e0, e1, e2] = [dot(n, cross(sub(t[1], t[0]), sub(x, t[0]))), dot(n, cross(sub(t[2], t[1]), sub(x, t[1]))), dot(n, cross(sub(t[0], t[2]), sub(x, t[2])))];
+  const xx = p[0] + (q[0] - p[0]) * k, xy = p[1] + (q[1] - p[1]) * k, xz = p[2] + (q[2] - p[2]) * k;
   // (inside the triangle, or within `mode.edge` of its edge: a crossing right on an edge counts for both triangles, or the answer would depend on which of two bodies is the one that moves, `in_484`)
   const slack = -mode.edge * nl;
-  return e0 > slack * Math.hypot(...sub(t[1], t[0])) && e1 > slack * Math.hypot(...sub(t[2], t[1])) && e2 > slack * Math.hypot(...sub(t[0], t[2])); // (the moving triangles are nudged by `NUDGE` first, so a crossing that falls exactly on the diagonal of a face is not missed)
+  const sideOf = (ax: number, ay: number, az: number, bx: number, by: number, bz: number): number => {
+    const ex = bx - ax, ey = by - ay, ez = bz - az, wx = xx - ax, wy = xy - ay, wz = xz - az;
+    const e = nx * (ey * wz - ez * wy) + ny * (ez * wx - ex * wz) + nz * (ex * wy - ey * wx);
+    return e - slack * Math.sqrt(ex * ex + ey * ey + ez * ez);
+  };
+  return sideOf(t0[0], t0[1], t0[2], t1[0], t1[1], t1[2]) > 0 && sideOf(t1[0], t1[1], t1[2], t2[0], t2[1], t2[2]) > 0 && sideOf(t2[0], t2[1], t2[2], t0[0], t0[1], t0[2]) > 0;
 }
 /**
  * Is every corner of `a` on one side of the plane of `b`, at least `gap` from it? Then `a` is that far from `b` and neither crosses it (`in_484`): most pairs of triangles that are tried are far apart in this way,
@@ -206,6 +213,20 @@ export function collides(moving: ArrayLike<number>, fixed: Tree, clearance = 0, 
   return false;
 }
 
+/** The normals of the triangles of a tree (x, y, z and the length, four numbers each), made once. */
+function normalsOf(tree: Tree): Float64Array {
+  if (tree.nrm) return tree.nrm;
+  const n = Math.floor(tree.tris.length / 9);
+  const out = new Float64Array(4 * n);
+  for (let i = 0; i < n; i++) {
+    const o = 9 * i, s = tree.tris;
+    const ux = s[o + 3]! - s[o]!, uy = s[o + 4]! - s[o + 1]!, uz = s[o + 5]! - s[o + 2]!, vx = s[o + 6]! - s[o]!, vy = s[o + 7]! - s[o + 1]!, vz = s[o + 8]! - s[o + 2]!;
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    out[4 * i] = nx; out[4 * i + 1] = ny; out[4 * i + 2] = nz; out[4 * i + 3] = Math.sqrt(nx * nx + ny * ny + nz * nz);
+  }
+  return (tree.nrm = out);
+}
+
 /**
  * `collides(moved(mover.tris, r), fixed, clearance, open)` without moving every triangle (`in_479`): the tree of the moving body is walked together with the tree of the body that stays, each box of the moving
  * body taken to where the motion puts it, and only the triangles of the leaves that meet are moved and tested. For a heavy body that has a few contacts this is a few triangles, not all of them, at every
@@ -216,38 +237,71 @@ export function collidesMoving(mover: Tree, r: Rigid, fixed: Tree, clearance = 0
   if (!mover.nodes.length || !fixed.nodes.length) return false;
   const c = Math.max(0, clearance);
   const pad = c + 1e-4; // (the boxes are padded a little: the triangles are nudged, and a box of a turned body is not exact)
-  const place = (p: Vec3): Vec3 => { const q = applyPoint(r, p); return [q[0] + NUDGE[0], q[1] + NUDGE[1], q[2] + NUDGE[2]]; };
-  const boxes: ({ lo: M3; hi: M3 } | undefined)[] = new Array(mover.nodes.length);
-  const boxOf = (i: number): { lo: M3; hi: M3 } => {
+  const R = r.turn, K = r.k, S = r.shift, N0 = NUDGE[0], N1 = NUDGE[1], N2 = NUDGE[2];
+  // (no arrays are made for a point: the motion is done with numbers, this runs for every step of a drag)
+  const boxes: (Float64Array | undefined)[] = new Array(mover.nodes.length);
+  const boxOf = (i: number): Float64Array => {
     const kept = boxes[i];
     if (kept) return kept;
     const nd = mover.nodes[i]!;
-    const lo: M3 = [Infinity, Infinity, Infinity], hi: M3 = [-Infinity, -Infinity, -Infinity];
+    const bx = new Float64Array([Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity]);
     for (let m = 0; m < 8; m++) {
-      const q = place([m & 1 ? nd.hi[0] : nd.lo[0], m & 2 ? nd.hi[1] : nd.lo[1], m & 4 ? nd.hi[2] : nd.lo[2]]);
-      for (let k = 0; k < 3; k++) { if (q[k]! < lo[k]!) lo[k] = q[k]!; if (q[k]! > hi[k]!) hi[k] = q[k]!; }
+      const x = m & 1 ? nd.hi[0] : nd.lo[0], y = m & 2 ? nd.hi[1] : nd.lo[1], z = m & 4 ? nd.hi[2] : nd.lo[2];
+      const qx = K * (R[0] * x + R[1] * y + R[2] * z) + S[0] + N0, qy = K * (R[3] * x + R[4] * y + R[5] * z) + S[1] + N1, qz = K * (R[6] * x + R[7] * y + R[8] * z) + S[2] + N2;
+      if (qx < bx[0]!) bx[0] = qx; if (qy < bx[1]!) bx[1] = qy; if (qz < bx[2]!) bx[2] = qz;
+      if (qx > bx[3]!) bx[3] = qx; if (qy > bx[4]!) bx[4] = qy; if (qz > bx[5]!) bx[5] = qz;
     }
-    return (boxes[i] = { lo, hi });
+    return (boxes[i] = bx);
   };
-  const placed = new Map<number, [Vec3, Vec3, Vec3]>();
-  const triOf = (i: number): [Vec3, Vec3, Vec3] => {
-    let a = placed.get(i);
-    if (!a) { const l = tri(mover.tris, i); a = [place(l[0]), place(l[1]), place(l[2])]; placed.set(i, a); }
+  interface Placed { p: Float64Array; n: [number, number, number]; nl: number; t?: [Vec3, Vec3, Vec3] }
+  const placed: (Placed | undefined)[] = new Array(Math.floor(mover.tris.length / 9));
+  const triOf = (i: number): Placed => {
+    let a = placed[i];
+    if (!a) {
+      const s = mover.tris, o = 9 * i, w = new Float64Array(9);
+      for (let v = 0; v < 3; v++) {
+        const x = s[o + 3 * v]!, y = s[o + 3 * v + 1]!, z = s[o + 3 * v + 2]!;
+        w[3 * v] = K * (R[0] * x + R[1] * y + R[2] * z) + S[0] + N0; w[3 * v + 1] = K * (R[3] * x + R[4] * y + R[5] * z) + S[1] + N1; w[3 * v + 2] = K * (R[6] * x + R[7] * y + R[8] * z) + S[2] + N2;
+      }
+      const ux = w[3]! - w[0]!, uy = w[4]! - w[1]!, uz = w[5]! - w[2]!, vx = w[6]! - w[0]!, vy = w[7]! - w[1]!, vz = w[8]! - w[2]!;
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      a = { p: w, n: [nx, ny, nz], nl: Math.sqrt(nx * nx + ny * ny + nz * nz) };
+      placed[i] = a;
+    }
     return a;
   };
+  const tuple = (a: Placed): [Vec3, Vec3, Vec3] => (a.t ??= [[a.p[0]!, a.p[1]!, a.p[2]!], [a.p[3]!, a.p[4]!, a.p[5]!], [a.p[6]!, a.p[7]!, a.p[8]!]]);
+  const fn4 = normalsOf(fixed), fts = fixed.tris, lim0 = mode.eps + c;
   const stack: [number, number][] = [[0, 0]];
   while (stack.length) {
     const [mi, fi] = stack.pop()!;
     const mn = mover.nodes[mi]!, fn = fixed.nodes[fi]!;
     const b = boxOf(mi);
-    if (b.hi[0] + pad < fn.lo[0] || b.lo[0] - pad > fn.hi[0] || b.hi[1] + pad < fn.lo[1] || b.lo[1] - pad > fn.hi[1] || b.hi[2] + pad < fn.lo[2] || b.lo[2] - pad > fn.hi[2]) continue;
+    if (b[3]! + pad < fn.lo[0] || b[0]! - pad > fn.hi[0] || b[4]! + pad < fn.lo[1] || b[1]! - pad > fn.hi[1] || b[5]! + pad < fn.lo[2] || b[2]! - pad > fn.hi[2]) continue;
     if (mn.l < 0 && fn.l < 0) {
       for (let i = mn.from; i < mn.to; i++) {
-        const a = triOf(mover.order[i]!);
+        const A = triOf(mover.order[i]!);
+        const ap = A.p;
         for (let j = fn.from; j < fn.to; j++) {
-          const f = tri(fixed.tris, fixed.order[j]!);
-          if (triCross(a, f, mode)) return true;
-          if (c > 0 && triDist(a, f) < c) return true;
+          const fidx = fixed.order[j]!, o = 9 * fidx;
+          // (most pairs are far apart: all of one on one side of the plane of the other, by more than they can cross or come near, is said with a few multiplications)
+          const nlf = fn4[4 * fidx + 3]!;
+          if (nlf > 1e-12) {
+            const nx = fn4[4 * fidx]!, ny = fn4[4 * fidx + 1]!, nz = fn4[4 * fidx + 2]!, lim = lim0 * nlf;
+            let pos = 0, neg = 0;
+            for (let v = 0; v < 3; v++) { const d = nx * (ap[3 * v]! - fts[o]!) + ny * (ap[3 * v + 1]! - fts[o + 1]!) + nz * (ap[3 * v + 2]! - fts[o + 2]!); if (d > lim) pos++; else if (d < -lim) neg++; }
+            if (pos === 3 || neg === 3) continue;
+          }
+          if (A.nl > 1e-12) {
+            const lim = lim0 * A.nl;
+            let pos = 0, neg = 0;
+            for (let v = 0; v < 3; v++) { const d = A.n[0] * (fts[o + 3 * v]! - ap[0]!) + A.n[1] * (fts[o + 3 * v + 1]! - ap[1]!) + A.n[2] * (fts[o + 3 * v + 2]! - ap[2]!); if (d > lim) pos++; else if (d < -lim) neg++; }
+            if (pos === 3 || neg === 3) continue;
+          }
+          const f = tri(fixed.tris, fidx);
+          const at = tuple(A);
+          if (triCross(at, f, mode)) return true;
+          if (c > 0 && triDist(at, f, c) < c) return true;
         }
       }
     } else if (mn.l < 0) stack.push([mi, fn.l], [mi, fn.r]);
@@ -356,6 +410,6 @@ export function freePart(hit: (t: number) => boolean, steps = 24): number {
 }
 function narrow(hit: (t: number) => boolean, free: number, bad: number): number {
   let [a, b] = [free, bad];
-  for (let i = 0; i < 10; i++) { const m = (a + b) / 2; if (hit(m)) b = m; else a = m; }
+  for (let i = 0; i < 8; i++) { const m = (a + b) / 2; if (hit(m)) b = m; else a = m; }
   return a;
 }

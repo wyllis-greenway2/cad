@@ -516,7 +516,9 @@ test("the pin pulled up out of its hole with the pointer wobbling sideways comes
   for (const lat of [2, 6]) for (const dir of [[1, 0], [0, 1], [-1, -1]] as const) {
     const lim = limitedOp(scene(s), { ...op(s), free: [dir[0] * lat, dir[1] * lat, 40] });
     assert.ok(lim && "op" in lim && Math.abs(lim.op.free![2]! - 40) < 0.01, `it went up the whole 40 with ${lat} of sideways push (${JSON.stringify(lim && "op" in lim ? lim.op.free : lim)})`);
-    assert.ok(Math.hypot(lim.op.free![0]!, lim.op.free![1]!) < 0.4, "and stayed inside the hole's width while it was in it");
+    const part = limitedOp(scene(s), { ...op(s), free: [dir[0] * lat * 0.25, dir[1] * lat * 0.25, 10] });
+    assert.ok(part && "op" in part && Math.abs(part.op.free![2]! - 10) < 0.01 && Math.hypot(part.op.free![0]!, part.op.free![1]!) < 0.4, `a pull of 10 only (the pin still in the hole) goes straight up, within the hole's width: ${JSON.stringify(part && "op" in part ? part.op.free : part)}`);
+    assert.ok(Math.hypot(lim.op.free![0]!, lim.op.free![1]!) <= lat + 0.01, "and once it is out it goes no further sideways than the pointer did");
   }
   s = runOp(s, { ...op(s), free: [0, 0, 48] })!.session; // out, above the block
   assert.deepEqual(hardOverlaps(scene(s)), []);
@@ -526,5 +528,26 @@ test("the pin pulled up out of its hole with the pointer wobbling sideways comes
     const f = (lim as { op: Op }).op.free!;
     assert.ok(Math.abs(f[2]! + 38.706) < 0.05, `it rests on the top face: ${f[2]}`);
     assert.ok(f[0]! > 0.3 * off && f[0]! < off + 0.05, `and went on the way the pointer did, not back the other way: ${f[0]} of ${off}`);
+  }
+});
+
+test("dragging the block or the pin of the pin-in-hole project never takes long enough to freeze the picture: every drag is worked out in well under a second (`in_485`)", () => {
+  const s = pinInHole();
+  let seed = 3;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  for (const id of ["x_s_013", "x_s_019"]) {
+    const b = bodiesOf(s).find((x) => x.id === id)!;
+    const st = startOp(scene(s), [b.ref] as never, "move", null);
+    assert.ok(st.ok);
+    let worst = 0, total = 0;
+    for (let i = 0; i < 16; i++) {
+      const mag = [2, 10, 40, 150][i % 4]!;
+      const free = [(rnd() - 0.5) * 2 * mag, (rnd() - 0.5) * 2 * mag, (rnd() - 0.5) * 2 * mag] as [number, number, number];
+      const t0 = performance.now();
+      limitedOp(scene(s), { ...(st as { op: Op }).op, free });
+      const ms = performance.now() - t0;
+      worst = Math.max(worst, ms); total += ms;
+    }
+    assert.ok(worst < 800 && total / 16 < 300, `${id}: worst ${Math.round(worst)} ms, average ${Math.round(total / 16)} ms`);
   }
 });

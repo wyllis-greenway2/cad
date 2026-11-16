@@ -78,7 +78,17 @@ function reachOf(scene: Scene, bodies: readonly Ref[]): number {
  * far as it can go; if it is a plain move (`slide`, a drag by hand) the part of what is left that runs along the surface it is against is made too, round a corner and on (`in_474`). A pair that already
  * overlaps is left out, so that bodies can be pulled out of each other.
  */
+const motionMemo = new WeakMap<Scene, { key: string; value: HardMotion | null }>();
 export function hardMotion(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref) => Rigid | null, slide = false): HardMotion | null {
+  // (the same motion asked again, as a picture is drawn again with the pointer where it was, is not worked out again)
+  const key = `${group.join(",")}|${slide}|${group.map((b) => { const r = rigidOf(b); return r ? [...r.turn, ...r.shift, r.k].join(",") : "-"; }).join(";")}`;
+  const kept = motionMemo.get(scene);
+  if (kept && kept.key === key) return kept.value;
+  const value = hardMotionNow(scene, group, rigidOf, slide);
+  motionMemo.set(scene, { key, value });
+  return value;
+}
+function hardMotionNow(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref) => Rigid | null, slide: boolean): HardMotion | null {
   const movers = group.filter((b) => isHard(scene, b));
   if (!movers.length) return null;
   const stays = Object.keys(scene.parts).filter((r) => !group.includes(r as Ref) && isHard(scene, r as Ref)) as Ref[];
@@ -100,7 +110,7 @@ export function hardMotion(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref
   const stepLen = stepLength(scene, movers, stays);
   const reach = reachOf(scene, movers);
   const travel = Math.max(...movers.map((b) => { const r = rigidOf(b); if (!r) return 0; const c = Math.hypot(...r.shift); const a = Math.acos(Math.max(-1, Math.min(1, (r.turn[0] + r.turn[4] + r.turn[8] - 1) / 2))); return c + a * reach; }), 0);
-  const t = freePart((p) => hitAt(part(p)).length > 0, Math.min(600, Math.max(24, Math.ceil(travel / stepLen)))); // (steps no longer than a fraction of the thinnest part, so a long pull does not jump over a wall)
+  const t = freePart((p) => hitAt(part(p)).length > 0, Math.min(600, Math.max(6, Math.ceil(travel / stepLen)))); // (steps no longer than a fraction of the thinnest part, so a long pull does not jump over a wall)
   if (t >= 1) return null;
   const hit = hitAt(part(Math.min(1, t + 5e-4)));
   const stop: HardMotion = { t, hit, rigidOf: part(t) };
@@ -110,15 +120,20 @@ export function hardMotion(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref
   let at: Vec3 = [first[0]!.shift[0] * t, first[0]!.shift[1] * t, first[0]!.shift[2] * t]; // (where it has got to)
   let left: Vec3 = [first[0]!.shift[0] * (1 - t), first[0]!.shift[1] * (1 - t), first[0]!.shift[2] * (1 - t)];
   const hits = new Set<Ref>(hit);
-  /** How far along `dir` from `from` the group can go (mm). */
-  const trial = (from: Vec3, dir: Vec3): number => {
+  /** How much of `dir`, from `from`, the group can go (0 to 1), by tests along it (counted: a drag has only so many to spend, or a heavy model would freeze the picture, `in_485`). */
+  let spent = 0;
+  const BUDGET = 350;
+  const deadline = performance.now() + 90; // (and not longer than this: a frame that takes a second is worse than a slide that stops short)
+  const canGo = (from: Vec3, dir: Vec3): number => {
     const len = Math.hypot(...dir);
+    if (len < 1e-4 || spent > BUDGET || performance.now() > deadline) return 0;
+    const steps = Math.min(120, Math.max(5, Math.ceil(len / stepLen)));
     const go = (u: number) => (b: Ref): Rigid | null => (movers.includes(b) ? slideOf([from[0] + dir[0] * u, from[1] + dir[1] * u, from[2] + dir[2] * u]) : null);
-    return len * freePart((p) => hitAt(go(p), true).length > 0, Math.min(300, Math.max(12, Math.ceil(len / stepLen))));
+    return freePart((p) => { spent++; return hitAt(go(p), true).length > 0; }, steps);
   };
   let idle = 0;
-  for (let k = 0; k < 40 && idle < 3; k++) { // (a wall that bends away from the way it is going is followed in many short legs; given up when three in a row get nowhere)
-    // the way the surface it is against faces, from the bodies it just went into
+  for (let k = 0; k < 10 && idle < 2 && spent <= BUDGET; k++) { // (a wall that bends away from the way it is going is followed in short legs; given up when two in a row get nowhere)
+    // the way the surfaces it is against face, from the bodies it just went into
     const probe = Math.hypot(...left) > 1e-9 ? Math.min(1, Math.max(2e-3 / Math.hypot(...left), 5e-4)) : 1;
     const into = (b: Ref): Rigid | null => (movers.includes(b) ? slideOf([at[0] + left[0] * probe, at[1] + left[1] * probe, at[2] + left[2] * probe]) : null);
     const normals: Vec3[] = [];
@@ -130,18 +145,19 @@ export function hardMotion(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref
       for (let pass = 0; pass < 3; pass++) for (const n of normals) { const d = n[0] * v[0] + n[1] * v[1] + n[2] * v[2]; if (d < 0) v = [v[0] - n[0] * d, v[1] - n[1] * d, v[2] - n[2] * d]; }
       slid = v;
     }
-    if (!slid || Math.hypot(...slid) < 1e-4 || trial(at, slid) < 2e-3) {
+    let u = slid ? canGo(at, slid) : 0;
+    if (!slid || Math.hypot(...slid) * u < 2e-3) {
       // the contact found does not say which way to go (a rim that faces along the motion, a bend): the motion is tried with each of its parts left out, and the one that gets furthest is taken
-      let best: { dir: Vec3; went: number } | null = null;
-      const parts: Vec3[] = [[0, left[1], left[2]], [left[0], 0, left[2]], [left[0], left[1], 0], [left[0], 0, 0], [0, left[1], 0], [0, 0, left[2]]];
-      for (const dir of parts) { const len = Math.hypot(...dir); if (len < 1e-4) continue; const went = trial(at, dir); if (!best || went > best.went) best = { dir, went }; }
-      if (!best || best.went < 2e-3) { if (!slid) break; } else slid = best.dir;
+      const found: { best: { dir: Vec3; u: number; went: number } | null } = { best: null };
+      const tryParts = (parts: Vec3[]): void => { for (const dir of parts) { const len = Math.hypot(...dir); if (len < 1e-4) continue; const uu = canGo(at, dir); if (!found.best || len * uu > found.best.went) found.best = { dir, u: uu, went: len * uu }; } };
+      tryParts([[0, left[1], left[2]], [left[0], 0, left[2]], [left[0], left[1], 0]]);
+      if (!found.best || found.best.went < 2e-3) tryParts([[left[0], 0, 0], [0, left[1], 0], [0, 0, left[2]]]);
+      const best = found.best;
+      if (best && best.went >= 2e-3) { slid = best.dir; u = best.u; }
     }
     if (!slid || Math.hypot(...slid) < 1e-4) break;
-    if (process.env.DBG) console.log("LEG", k, "at", at.map((v) => +v.toFixed(3)), "left", left.map((v) => +v.toFixed(3)), "slid", slid.map((v) => +v.toFixed(3)));
     const from = at;
-    const go = (u: number) => (b: Ref): Rigid | null => (movers.includes(b) ? slideOf([from[0] + slid[0] * u, from[1] + slid[1] * u, from[2] + slid[2] * u]) : null);
-    const u = freePart((p) => hitAt(go(p), true).length > 0, Math.min(300, Math.max(12, Math.ceil(Math.hypot(...slid) / stepLen))));
+    const go = (q: number) => (b: Ref): Rigid | null => (movers.includes(b) ? slideOf([from[0] + slid![0] * q, from[1] + slid![1] * q, from[2] + slid![2] * q]) : null);
     at = [from[0] + slid[0] * u, from[1] + slid[1] * u, from[2] + slid[2] * u];
     idle = u * Math.hypot(...slid) < 2e-3 ? idle + 1 : 0;
     for (const r of hitAt(go(Math.min(1, u + 5e-4)), true)) hits.add(r);

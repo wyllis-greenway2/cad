@@ -2268,3 +2268,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_485 — 2026-11-16 — directive
 > Okay it still seems kind of buggy, try to pull this pin out of this block with freemove by double clicking and pulling without arrows with mouse.
 (with the project file hard_body.json again: the pin in the hole of the hard block; asks to try pulling the pin out of the block by hand with the free move, as a person would with the mouse, and fix what is still buggy)
+
+## in_486 — 2026-11-16 — directive
+> okay now it just freezes when I try to move the cylinder or block
+(reports that after the previous fix the app freezes when the pin (cylinder) or the block of the hard_body project is moved by hand)
