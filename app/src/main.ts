@@ -367,6 +367,7 @@ function frame(now: number) {
     const buildsBefore = buildStats.runs;
     view.setScene(f.scene, f.mesh);
     view.setHiddenBodies(f.hiddenBodies);
+    view.setThin(f.thin);
     if (buildStats.runs !== buildsBefore) { timing.add("geometry: built again (buildContent)", buildStats.totalMs); timing.add("geometry: of it the sharp edges (cornerEdges)", buildStats.cornersMs); timing.add("geometry: triangles built", buildStats.triangles); }
     view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit, f.followers.map((q) => ({ matrix: q.matrix, only: q.split })));
     view.setHiddenEdges(f.hiddenEdges);

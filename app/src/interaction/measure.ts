@@ -63,7 +63,7 @@ function bodySection(scene: Scene, body: Extract<Part, { kind: "body" }>, title:
     if (walls) {
       lines.push({ label: "Thinnest wall", value: `${r2(walls.thinnest)} mm, near ${r2(walls.at[0])}, ${r2(walls.at[1])}, ${r2(walls.at[2])}` });
       const min = settings.measure.minWallMm;
-      lines.push({ label: `Under ${min} mm`, value: walls.thinShare > 0 ? `${r2(100 * walls.thinShare)} % of the surface has less than ${min} mm behind it: too thin to print well` : `none: every wall is at least ${min} mm${walls.all ? "" : " (sampled: the body is very detailed)"}` });
+      lines.push({ label: `Under ${min} mm`, value: walls.thinShare > 0 ? `${r2(100 * walls.thinShare)} % of the surface has less than ${min} mm behind it: too thin to print well (marked red in the picture)` : `none: every wall is at least ${min} mm${walls.all ? "" : " (sampled: the body is very detailed)"}` });
     }
     const mass = massOf(scene, body.ref);
     if (mass) lines.push({ label: "Centre of mass", value: `${r2(mass.centre[0])}, ${r2(mass.centre[1])}, ${r2(mass.centre[2])} mm (as solid all through)` });
@@ -111,6 +111,23 @@ function overlapLine(scene: Scene, a: Ref, b: Ref): MeasureLine {
   return { label: "Shared volume", value: o.mm3 > 1e-6 ? `${r2(o.mm3)} mm³ (${r2(o.mm3 / 1000)} cm³)${share}` : "none (they only touch)" };
 }
 const wallsKept = new WeakMap<Scene, Map<Ref, Walls | null>>();
+/**
+ * The triangles of the places too thin to print (`in_577`) of the bodies selected, or of all bodies when none is: one list, kept for the scene and the selection (the same list is returned while nothing changes, so the
+ * picture can tell that it need not be built again). Null when nothing is too thin.
+ */
+const thinKept = new WeakMap<Scene, Map<string, number[] | null>>();
+export function thinPlacesOf(scene: Scene, selection: readonly Ref[]): number[] | null {
+  const bodiesSel = selection.filter((r) => scene.parts[r]?.kind === "body");
+  const refs = bodiesSel.length ? bodiesSel : bodies(scene).map((b) => b.ref);
+  const key = refs.join("|");
+  let by = thinKept.get(scene);
+  if (!by) thinKept.set(scene, (by = new Map()));
+  if (!by.has(key)) {
+    const all = refs.flatMap((r) => wallsOf(scene, r)?.thinTris ?? []);
+    by.set(key, all.length ? all : null);
+  }
+  return by.get(key)!;
+}
 /** The wall thickness of a body, kept for the scene (the report is made again every frame). */
 function wallsOf(scene: Scene, body: Ref): Walls | null {
   let by = wallsKept.get(scene);

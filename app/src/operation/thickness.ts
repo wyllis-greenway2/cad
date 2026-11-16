@@ -14,6 +14,8 @@ export interface Walls {
   /** how many sample points were tried, and whether every triangle was (a very detailed body is sampled) */
   samples: number;
   all: boolean;
+  /** the triangles (nine numbers each) whose samples have less than `minMm` behind them: the places to mark */
+  thinTris: number[];
 }
 
 /** Where a ray (from `o` along the unit vector `d`) first meets the triangles of the tree beyond `eps`, or Infinity. */
@@ -68,6 +70,7 @@ export function wallThickness(tris: ArrayLike<number>, minMm: number, maxSamples
   const out = vol >= 0 ? 1 : -1;
   const stride = Math.max(1, Math.ceil((n * 4) / maxSamples));
   let thinnest = Infinity, at: Vec3 = [0, 0, 0], samples = 0, area = 0, thin = 0;
+  const thinTris: number[] = [];
   for (let i = 0; i < n; i += stride) {
     const o = 9 * i;
     const a: Vec3 = [tris[o]!, tris[o + 1]!, tris[o + 2]!], b: Vec3 = [tris[o + 3]!, tris[o + 4]!, tris[o + 5]!], c: Vec3 = [tris[o + 6]!, tris[o + 7]!, tris[o + 8]!];
@@ -86,7 +89,7 @@ export function wallThickness(tris: ArrayLike<number>, minMm: number, maxSamples
       if (d < here) here = d;
       if (d < thinnest) { thinnest = d; at = p; }
     }
-    if (Number.isFinite(here)) { const a2 = len / 2; area += a2; if (here < minMm) thin += a2; }
+    if (Number.isFinite(here)) { const a2 = len / 2; area += a2; if (here < minMm) { thin += a2; for (let k = 0; k < 9; k++) thinTris.push(tris[o + k]!); } }
   }
-  return Number.isFinite(thinnest) ? { thinnest, at, thinShare: area > 0 ? thin / area : 0, samples, all: stride === 1 } : null;
+  return Number.isFinite(thinnest) ? { thinnest, at, thinShare: area > 0 ? thin / area : 0, samples, all: stride === 1, thinTris } : null;
 }

@@ -21,6 +21,7 @@ import { apply } from "../operation/commands.ts";
 import { outlineOf } from "../operation/part.ts";
 import { seenIn } from "./picking.ts";
 import { tapeAnnotations } from "./tape.ts";
+import { thinPlacesOf } from "./measure.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
 import { axisAcross } from "./revolve.ts";
@@ -80,6 +81,8 @@ export interface Frame {
   bodySplit: { tris: [number, number][]; box: { min: Vec3; max: Vec3 } } | null;
   /** the bodies that are hidden (`dec_hidden_bodies`), each as its triangles (ranges of the mesh's index list): drawn very faintly, not part of the body that is drawn in full */
   hiddenBodies: { tris: [number, number][] }[] | null;
+  /** the triangles of the places too thin to print, marked in the picture while the Measure tab is open (`in_577`) */
+  thin: number[] | null;
   /** the eye on each body (`dec_hidden_bodies`): its box's corners and whether it is hidden; `eyesQuiet`: a tool or an operation is in use, so the eyes of shown bodies stay away */
   bodyEyes: { ref: string; hidden: boolean; corners: Vec3[] }[];
   eyesQuiet: boolean;
@@ -360,6 +363,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     hiddenEdges: !!s.tool && hasBody,
     bodySplit,
     hiddenBodies: hiddenItemsOf(sc, outcome),
+    thin: s.panel === "measure" && !outcome.kernel?.stale ? thinPlacesOf(sc, sel) : null,
     bodyEyes: Object.values(sc.parts).flatMap((p) => { if (p.kind !== "body" || !p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners }]; }),
     eyesQuiet: !!s.tool || !!s.op || !!s.drag || !!s.repeat,
     followers: gpu?.followers ?? [],

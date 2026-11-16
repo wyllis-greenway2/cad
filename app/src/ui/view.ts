@@ -39,7 +39,8 @@ export function createView(host: HTMLElement) {
   const preview = new THREE.Group();
   const gizmo = new THREE.Group();
   const notes = new THREE.Group();
-  scene3.add(content, overlay, marks, preview, gizmo, notes);
+  const thinGroup = new THREE.Group(); // (the places too thin to print, while the Measure tab is open: `in_577`)
+  scene3.add(content, overlay, marks, preview, gizmo, notes, thinGroup);
   const world = createWorld(scene3, host);
   const pen = createPen();
   const envMap = new THREE.PMREMGenerator(renderer).fromScene(studio(), 0.04).texture; // a soft studio, only reflected in the body
@@ -227,6 +228,20 @@ export function createView(host: HTMLElement) {
       notes.add(m);
     }
   }
+  let thinShown: number[] | null = null;
+  /** Mark the triangles (nine numbers each) that are too thin to print, in the colour of `settings.measure`; none to put the marks away. The same list is not built again. */
+  function setThin(tris: number[] | null): void {
+    if (tris === thinShown) return;
+    thinShown = tris;
+    clearGroup(thinGroup);
+    if (!tris || !tris.length) return;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(tris), 3));
+    const mat = new THREE.MeshBasicMaterial({ color: settings.measure.thinColor, transparent: true, opacity: settings.measure.thinOpacity, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 3;
+    thinGroup.add(mesh);
+  }
   const setWorldHidden = (on: boolean): void => world.setOff(on);
   const setPanes = (p: Parameters<typeof world.setPanes>[0]): boolean => world.setPanes(p);
   const setGizmo = (g: GizmoView | null, cam: Camera) => buildGizmo(gizmo, g, cam.distance, pen);
@@ -271,5 +286,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { rebuild, setWorldHidden, setScene, setHiddenBodies, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { rebuild, setWorldHidden, setScene, setHiddenBodies, setThin, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

@@ -248,3 +248,26 @@ test("the wall check on raw triangles: a cube of 10 is 10 thick, and a body too 
   const few = wallThickness(cube, 0.8, 8)!;
   assert.equal(few.all, false);
 });
+
+// ---- the thin places are marked in the picture (`in_577`) ----
+import { frameOf } from "../src/interaction/frame.ts";
+import { thinPlacesOf } from "../src/interaction/measure.ts";
+test("the places too thin to print are given as triangles to mark, only while the Measure tab is open", () => {
+  const plate = block(20, 20, 0.5);
+  const sc = scene(plate);
+  const thin = thinPlacesOf(sc, [])!;
+  assert.ok(thin && thin.length >= 9 * 4, `the two big faces: ${thin?.length}`);
+  // every triangle marked lies in the top or the bottom of the plate (z = 0 or 0.5), none in an edge face
+  for (let i = 0; i < thin.length; i += 9) for (let k = 0; k < 3; k++) assert.ok(Math.abs(thin[i + 3 * k + 2]!) < 1e-6 || Math.abs(thin[i + 3 * k + 2]! - 0.5) < 1e-6 );
+  for (let i = 0; i < thin.length; i += 9) assert.ok([0, 1, 2].every((k) => Math.abs(thin[i + 3 * k + 2]! - thin[i + 2]!) < 1e-6), "a marked triangle is flat on the top or the bottom");
+  assert.equal(thinPlacesOf(sc, []), thin, "the same list while nothing changes");
+  // a block that is thick all through has nothing to mark
+  assert.equal(thinPlacesOf(scene(block(10, 20, 30)), []), null);
+  // the frame carries it only while the Measure tab is open
+  let st = createState(plate);
+  assert.equal(frameOf(st, { w: 800, h: 600 }).thin, null);
+  st = reduce(st, { type: "panel", name: "measure" }, { w: 800, h: 600, now: 0 });
+  assert.equal(frameOf(st, { w: 800, h: 600 }).thin?.length, thin.length);
+  st = reduce(st, { type: "panel", name: "history" }, { w: 800, h: 600, now: 0 });
+  assert.equal(frameOf(st, { w: 800, h: 600 }).thin, null);
+});
