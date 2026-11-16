@@ -2582,3 +2582,6 @@ Six inputs of the last turns had not been recorded (`in_451` to `in_456`; record
 
 ## Handoff 517 — 2026-11-16 (the answered manufacturing questions entry deleted)
 All six questions of `q_manufacturing_open` are answered (`in_553` to `in_560`) and the answers live in `dec_manufacturing_contract`, `dec_manufacturing_definitions`, `dec_manufacturing_prep` and `dec_manufacturing_version`, so the entry is deleted (rule 7; git keeps it). `dec_manufacturing_version` no longer names it. Nothing else changed.
+
+## Handoff 518 — 2026-11-16 (in_561: the five manufacturing entries accepted)
+`in_561`. The human accepted `dec_manufacturing_contract`, `dec_manufacturing_definitions`, `dec_manufacturing_prep`, `dec_manufacturing_version` and `inv_manufacturing_boundary`. Status is now `accepted` and origin `ai-proposed-human-approved`; their lead-in lines say so. **Nothing is built.** The boundary invariant is accepted but has no check yet; rule 9 now allows groundwork code behind these entries. **Cheap groundwork, not started:** the contract types, `tools/check_manufacturing_boundary.py`, layers (cut, score, engrave) in SVG and DXF export, a material tag on bodies, the project's `manufacturing` section. **Waiting on:** stable references (another AI; the manufacturing version depends on them). **Next:** the human says which groundwork piece to start, if any.

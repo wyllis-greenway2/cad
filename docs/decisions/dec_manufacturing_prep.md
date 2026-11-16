@@ -1,9 +1,9 @@
 ---
 id: dec_manufacturing_prep
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_548, in_551, in_553, in_554, in_560
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_548, in_551, in_553, in_554, in_560, in_561
 date: 2026-11-16
 depends_on:
   - dec_manufacturing_contract: preparation is the Prepare and Check stages, and a split is a derivation step in the graph
@@ -13,7 +13,7 @@ alternative_to:
 ---
 # Preparing a part for manufacture, with or without an output file
 
-**AI proposal from `in_548`; not approved; nothing built.** The human likes a route that prepares a part even when it never writes a cut or print file, for example splitting a print with keys and allowances.
+**Accepted by the human (`in_561`) as proposed by the AI from `in_548`, with `in_553`, `in_554` and `in_560`. Nothing built.** The human likes a route that prepares a part even when it never writes a cut or print file, for example splitting a print with keys and allowances.
 
 1. **The line (`in_553`, `in_554`):** the geometry a part must have to be made by a process lives in a **manufacturing version** of the part (`dec_manufacturing_version`: split, connectors, shrink, draft, handles, fit compensation); what a machine does lives in the plan (tabs on a path, order, tool, feeds, orientation, kerf and tool compensation).
 2. **Splitting a part that does not fit the bed.** A finding compares the part with the machine's bed and offers split planes at sensible places (small cross-section, flat cut face, pieces that lie flat); the user can also place planes by hand with the plane tools. Each cut gets a **connector**: pin and socket, square key, dovetail, bolt hole with nut pocket, or a plain glue face. The connector's **clearance** comes from the printer's tolerance in the machine profile (for printing this is the "allowance"; kerf is the laser's word). The pieces are bodies of the manufacturing version, regenerate when the design part changes, and are mated at the cut faces.

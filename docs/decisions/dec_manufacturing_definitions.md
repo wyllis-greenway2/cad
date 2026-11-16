@@ -1,9 +1,9 @@
 ---
 id: dec_manufacturing_definitions
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_549, in_550, in_551, in_555, in_556, in_557, in_558, in_559
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_549, in_550, in_551, in_555, in_556, in_557, in_558, in_559, in_561
 date: 2026-11-16
 depends_on:
   - dec_manufacturing_contract: routes use these definitions through the contract and declare which kinds and fields they need
@@ -13,7 +13,7 @@ alternative_to:
 ---
 # Machines, materials and tools are shared, user-extensible data
 
-**AI proposal from `in_549` and `in_550`; not approved; nothing built.** The human asked how machines work, for a foundation where users can set up what is missing, and for machines and tools a user adds to be usable by others.
+**Accepted by the human (`in_561`) as proposed by the AI from `in_549` and `in_550`, with the choices of `in_556` to `in_559`. Nothing built.** The human asked how machines work, for a foundation where users can set up what is missing, and for machines and tools a user adds to be usable by others.
 
 1. **Data versus code.** A new machine *model*, material, tool or settings table is **data**: anyone adds it, no programming. A new *process* is a **route**, which is code and a reviewed plugin. User extensions are data and templates only; code from strangers is not run (security).
 2. **Definition kinds** (versioned JSON, validated, with units): *machine* (family, units, work envelope, origin, kinematics and axes, limits, G-code dialect, start and end snippets, controller capabilities, tolerance, plus route-specific fields), *material* (properties, hazards, per-process suitability, each with a source), *tool* (milling cutter, nozzle, beam: type, geometry), *settings table* (feeds and speeds; laser power and speed per thickness, keyed by machine class, material and thickness), *dialect template* (named hooks: start, end, tool change, power on and off, plus a raw custom-code escape hatch). Route-specific machine fields: FDM (nozzle, extruders, filament diameter, bed shape, chamber, maximum temperatures, volumetric flow, firmware, retraction, pressure advance); milling (spindle rpm and power, tool changer, collet, coolant, rapid rate, axes, fixtures); laser (type, power, wavelength, beam width, power scale, dynamic power, air assist, rotary); plasma, waterjet, vinyl (kerf, pierce, lead-ins). Routes ask a machine for **capabilities** ("has a 4th axis", "supports arcs"), never for its name.

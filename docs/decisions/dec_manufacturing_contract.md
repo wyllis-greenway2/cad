@@ -1,9 +1,9 @@
 ---
 id: dec_manufacturing_contract
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_543, in_544, in_545, in_546, in_550, in_551, in_553, in_554
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_543, in_544, in_545, in_546, in_550, in_551, in_553, in_554, in_561
 date: 2026-11-16
 depends_on:
   - inv_kernel_boundary: the contract hands modules mesh, STEP bytes and flat outlines (plain data), so a kernel swap changes nothing on the module side
@@ -16,7 +16,7 @@ alternative_to:
 ---
 # Manufacturing routes are modules behind a plain-data contract
 
-**AI proposal from the brainstorm `in_543` to `in_551`. Nothing here is built. The human decided (so these are not the AI's alone): a plan is per part and machine, and findings advise and never block (`in_546`); each manufacturing process is its own route, offered as a machine type to choose from (`in_550`). Everything else is the AI's proposal, not yet approved.** The human asked to lay groundwork, not to build slicers now (`in_543`).
+**Accepted by the human (`in_561`) as proposed by the AI in the brainstorm `in_543` to `in_551`. Nothing here is built.** The human decided directly: a plan is per part and machine, and findings advise and never block (`in_546`); each manufacturing process is its own route, offered as a machine type to choose from (`in_550`). The human asked to lay groundwork, not to build slicers now (`in_543`).
 
 1. **Modelling stays manufacturing-agnostic.** The model holds geometry and process-neutral intent only (material, tolerance, fit); it never knows a machine. Manufacturing never edits it silently. A part (or a drawing) goes through a flow that checks and prepares it.
 2. **Two kinds of route.** A *toolpath route* turns a part into machine instructions. A *derivation route* turns a part into new parts (mould cavity, sand mould, cast pattern with draft and shrink, sheet-metal flat pattern, print splitting). A derivation is a **step in the operation graph** (it regenerates when its source changes); the derived part is the *manufacturing version* (`dec_manufacturing_version`, `in_553`). A **plan** (`in_546`: one per part, in practice a manufacturing version, and machine) lives in a separate `manufacturing` section of the project, refers to bodies or drawings by stable ids, and names a route, a machine, a material and settings; it is never stored inside the model graph. Routes chain: source, derivation, toolpath route, machine.

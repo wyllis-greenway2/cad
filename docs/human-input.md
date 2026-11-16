@@ -2580,3 +2580,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_560 — 2026-11-16 — approval
 > Yes, manual layout and bounding-box packing
 (approves the answer to question 6 of q_manufacturing_open: the first laser route gets manual layout and bounding-box packing of several parts on a sheet; true-shape nesting comes later)
+
+## in_561 — 2026-11-16 — approval
+> Accept all five entries
+(accepts dec_manufacturing_contract, dec_manufacturing_definitions, dec_manufacturing_prep, dec_manufacturing_version and inv_manufacturing_boundary)
