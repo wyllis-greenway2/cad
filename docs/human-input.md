@@ -2532,3 +2532,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_548 — 2026-11-16 — preference
 > I don't really have a single specific user, I am just trying to make a really good cad program. Okay so I kind of like your idea about offering the 2d 2.5 d ones, because that seems to cover a lot of machine routes, and undserved people, what would that look like more specifically? I also really like your idea of a manufacturing route prepping a part even if it doesn't fully go all the way to a cut or print file. For example the 3d printer route breaking a part up with automatic key slots and kerf allowance etc. That is smart. Lets drill down a little further on some of these ideas and see if we can polish them
 (no single target user: the aim is a really good CAD program; likes the 2D and 2.5D cutting route and a route that only prepares a part, for example splitting a print with keys and allowances; asks for both to be worked out in more detail; nothing is decided)
+
+## in_549 — 2026-11-16 — question
+> and how will machines work? will we have presets for standard machine models? or let the user define their own? and what variables would we need to capture? Also does it really make sense to lump cnc mills in with 2d operations? because what happens when we expand them and they start to do 3d operations?
+(asks how machines are described: presets for standard models or user-defined, which variables to capture; and whether CNC mills belong in one family with 2D cutting given they will grow into 3D operations; nothing is decided)
