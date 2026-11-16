@@ -2579,3 +2579,6 @@ Six inputs of the last turns had not been recorded (`in_451` to `in_456`; record
 
 ## Handoff 516 — 2026-11-16 (in_560: question 6 answered, nesting)
 `in_560`. **Question 6:** the human approved manual layout and bounding-box packing in the first beam route, with true-shape nesting later. **Written:** `dec_manufacturing_prep` (point 5), `q_manufacturing_open` (question 6 answered). **All six questions are now answered;** `q_manufacturing_open` has no open question left and the human may want it deleted or kept as a record (rule 7: edit in place, git is the history). **Still provisional, none accepted:** `dec_manufacturing_contract`, `dec_manufacturing_definitions`, `dec_manufacturing_prep`, `dec_manufacturing_version`, `inv_manufacturing_boundary`. **Next:** the human accepts, corrects or rejects each; stable references (another AI is building them) come before the manufacturing version.
+
+## Handoff 517 — 2026-11-16 (the answered manufacturing questions entry deleted)
+All six questions of `q_manufacturing_open` are answered (`in_553` to `in_560`) and the answers live in `dec_manufacturing_contract`, `dec_manufacturing_definitions`, `dec_manufacturing_prep` and `dec_manufacturing_version`, so the entry is deleted (rule 7; git keeps it). `dec_manufacturing_version` no longer names it. Nothing else changed.

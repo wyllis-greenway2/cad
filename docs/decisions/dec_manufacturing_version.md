@@ -25,4 +25,4 @@ alternative_to:
 
 ## Rationale
 
-It answers question 1 of `q_manufacturing_open` more simply than a graph-versus-plan line: all geometry for a process lives in a visible, linked part, and the plan keeps only what a machine does. It follows how mould and casting work is done by hand (master model, working model) and keeps the design part clean. Regenerating from the parent is what the graph already does; the cost is in references, which is why stable references come first.
+It answers the first of the six manufacturing questions (graph or plan; `in_552` to `in_560`) more simply than a graph-versus-plan line: all geometry for a process lives in a visible, linked part, and the plan keeps only what a machine does. It follows how mould and casting work is done by hand (master model, working model) and keeps the design part clean. Regenerating from the parent is what the graph already does; the cost is in references, which is why stable references come first.
