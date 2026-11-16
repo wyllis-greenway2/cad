@@ -2609,3 +2609,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_568 — 2026-11-16 — question
 > I have an idea. what if we made a throated wheel by using the loft? so we could have three gear profiles in the twisted layers, and the middle one could be a smaller diameter, and the outer ones larger? or would that not work geometrically or feasibly?
 (asks whether a throated worm wheel can be made as a loft through three or so turned gear outlines, the middle one smaller and the outer ones larger)
+
+## in_569 — 2026-11-16 — question
+> well I guess the only reason why we would build the loft version is because the real version would be too slow? how long do you estimate the real version would be?
+(asks whether speed is the only reason to prefer the loft for a throated wheel, and for an estimate of the time the exact version, cutting the worm out of a blank, would take)
