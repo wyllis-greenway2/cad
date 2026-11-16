@@ -12,6 +12,7 @@ import { homeCamera } from "../src/interaction/camera.ts";
 import { startOp } from "../src/interaction/operations.ts";
 import type { Op } from "../src/interaction/operations.ts";
 import { runOp } from "../src/interaction/runop.ts";
+import type { AppState } from "../src/interaction/controller.ts";
 
 await kernel.init();
 const XY = worldRef("XY");
@@ -187,17 +188,23 @@ test("a hard body's face pulled out into another hard body goes only as far as i
   assert.equal(limitedOp(scene(hardOf(two(), [A])), { ...op, value: 25 }), null, "the other is soft");
 });
 
-test("each hard body has a mark at the middle of its top; pressing the mark makes the body soft again (`in_476`)", () => {
-  const s = hardOf(two(), [A]);
-  let st = { ...createState(s), cam: homeCamera() };
-  const f = frameOf(st, { w: 800, h: 600 });
-  assert.equal(f.hardMarks.length, 1, "only the hard one is marked");
-  assert.equal(f.hardMarks[0]!.ref, A);
-  assert.deepEqual(f.hardMarks[0]!.at, [5, 5, 10]);
-  st = reduce(st, { type: "runAction", id: `body:hard:${A}` }, env);
-  assert.equal(scene(st.session).hard, undefined, "soft again");
-  assert.equal(frameOf(st, { w: 800, h: 600 }).hardMarks.length, 0);
-  assert.equal(frameOf({ ...createState(two()), cam: homeCamera() }, { w: 800, h: 600 }).hardMarks.length, 0, "a model with no hard body has no marks");
+test("a hard body's mark is hidden, like a constraint that holds, and shows red only while the body is bumping into another hard body; pressing it makes the body soft (`in_476`, `in_489`)", () => {
+  const s = hardOf(two(), [A, B]);
+  let st = { ...createState({ ...s, click: { ...s.click, selection: [A] as never } }), cam: homeCamera() };
+  assert.equal(frameOf(st, { w: 800, h: 600 }).hardMarks.length, 0, "nothing shows while nothing is violated");
+  st = reduce(st, { type: "begin", name: "move" }, env);
+  // a drag that stops short of the other: nothing shows
+  const free = (v: number): AppState => ({ ...st, op: { ...st.op!, free: [v, 0, 0], grab: [5, 5, 5] } });
+  assert.equal(frameOf(free(10), { w: 800, h: 600 }).hardMarks.length, 0, "not against it yet");
+  // a drag at it: both bodies show, red, the one that is dragged where it has got to
+  const f = frameOf(free(40), { w: 800, h: 600 });
+  assert.deepEqual(f.hardMarks.map((m) => m.ref).sort(), [A, B].sort(), "the body dragged and the body it is against");
+  assert.ok(f.hardMarks.every((m) => !!m.bumps), "and each says what it is against");
+  const dragged = f.hardMarks.find((m) => m.ref === A)!;
+  assert.ok(Math.abs(dragged.at[0] - 25) < 0.1, `the mark goes with the body, which stopped 20 along: ${dragged.at}`);
+  // pressing a mark makes the body soft
+  st = reduce({ ...createState(s), cam: homeCamera() }, { type: "runAction", id: `body:hard:${A}` }, env);
+  assert.deepEqual(scene(st.session).hard, [B.replace("b/", "").replace("/o", "")], "A is soft again");
 });
 
 import { mateCommand } from "../src/interaction/mate.ts";

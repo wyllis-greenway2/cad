@@ -23,7 +23,7 @@ import { seenIn } from "./picking.ts";
 import { tapeAnnotations } from "./tape.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
-import { hardMotion, hardNote, limitedOp, hardCollision, hardOverlaps, hardNames } from "./hard.ts";
+import { hardMotion, hardNote, limitedOp, hardCollision, hardOverlaps, hardNames, isHard } from "./hard.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { withCorner } from "./runop.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, previewRefusal, undoLast } from "./session.ts";
@@ -146,7 +146,7 @@ export interface Frame {
   cut: { parts: { mask: number; at: Vec3; label: string; tip: string; kept: boolean }[]; join: boolean } | null;
   /** the little panes of the world planes beside the axes (`in_190`) */
   /** a small mark on each hard body (`in_476`): the body and the point of it the mark stands at (the middle of its top) */
-  hardMarks: { ref: Ref; at: Vec3; /** the hard bodies it overlaps (the history put them together), `in_478` */ overlaps?: string }[];
+  hardMarks: { ref: Ref; at: Vec3; /** the hard bodies it overlaps (the history put them together), `in_478` */ overlaps?: string; /** the hard body it is bumping into now, or that is bumping into it (`in_489`) */ bumps?: string }[];
   /** the axes and the panes are put away (`in_463`) */
   worldHidden: boolean;
   panes: { name: WorldName; corners: Vec3[]; active: boolean; hover: boolean }[];
@@ -204,7 +204,7 @@ function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame[
 }
 
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
-function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[]; shown: { scene: Scene; outcome: CompileOutcome }; /** the mates that hold the dragged body back (`in_338`) */ blocked?: string[]; /** the hard bodies the dragged one is against (`dec_hard_bodies`) */ hardHit?: Ref[]; /** where the dragged body's middle actually went, held by its mates: the arrows and numbers show it, not the pointer (`in_347`) */ shownFree?: Vec3; /** the other bodies selected, dragged with it (`in_341`, `in_345`) */ followers?: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[] } | null {
+function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[]; shown: { scene: Scene; outcome: CompileOutcome }; /** the mates that hold the dragged body back (`in_338`) */ blocked?: string[]; /** the hard bodies the dragged one is against (`dec_hard_bodies`) */ hardHit?: Ref[]; /** the hard bodies bumping now: those that are dragged (with how far they have gone) and those they are against (`in_489`) */ bumping?: { movers: Ref[]; hit: Ref[]; shift: Vec3 }; /** where the dragged body's middle actually went, held by its mates: the arrows and numbers show it, not the pointer (`in_347`) */ shownFree?: Vec3; /** the other bodies selected, dragged with it (`in_341`, `in_345`) */ followers?: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[] } | null {
   if (s.drag && "handle" in s.drag && s.drag.joint) { // a joint's handle dragged: the body is drawn turned or slid by the amount so far (`in_323`)
     const jd = s.drag.joint;
     const sc0 = sceneOf(s.session);
@@ -216,7 +216,7 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
     const matrix = matrixOf(rigid);
     const split = bodySplitOf(sc0, s.session.outcome, fake.op);
     lastDrag = { split, matrix, steps: sc0.steps.length };
-    return { matrix, shown: gpuBase.value, split, ...(jd.hit?.length ? { hardHit: jd.hit } : {}) };
+    return { matrix, shown: gpuBase.value, split, ...(jd.hit?.length ? { hardHit: jd.hit } : {}), ...(jd.hit?.length && body ? { bumping: { movers: [body], hit: jd.hit, shift: rigid.shift } } : {}) };
   }
   const op = s.op;
   if (!op) return null;
@@ -253,7 +253,7 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
   const first = group[0] ? sceneOf(base).parts[group[0]] : undefined;
   const centre: Vec3 | null = first?.kind === "body" && first.bbox ? [(first.bbox.min[0] + first.bbox.max[0]) / 2, (first.bbox.min[1] + first.bbox.max[1]) / 2, (first.bbox.min[2] + first.bbox.max[2]) / 2] : null;
   const went = (held || stopped) && m && centre ? applyPoint(m, centre) : null;
-  return { matrix, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked } : {}), ...(blockedBodies.length ? { hardHit: blockedBodies } : {}), ...(went && centre ? { shownFree: sub(went, centre) as Vec3 } : {}), followers };
+  return { matrix, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked } : {}), ...(blockedBodies.length ? { hardHit: blockedBodies } : {}), ...(stopped && stopped.hit.length && m ? { bumping: { movers: group.filter((b) => isHard(sceneOf(base), b)), hit: stopped.hit, shift: m.shift } } : {}), ...(went && centre ? { shownFree: sub(went, centre) as Vec3 } : {}), followers };
 }
 
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
@@ -329,7 +329,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
   // the number of an operation's arrow shows only when that arrow is selected (clicked or taken), or a number is being typed for it: the arrows alone stay clean (`in_238`)
   const armed = !!s.handleSel && !!gizmo && gizmo.handles.some((h) => h.id === s.handleSel);
   const typing = !!shownOp && (shownOp.typed !== "" || shownOp.rot.some((t) => t !== ""));
-  const numberShown = armed || typing || !!(s.drag && ("handle" in s.drag || "body" in s.drag));
+  const numberShown = armed || typing || !!(s.drag && "handle" in s.drag); // (a body dragged free shows no position bubbles while it is dragged: it is the picture that is moved, `in_489`)
   // a body dragged against its mates: they are red while it is held back, as a refused change shows what it would have broken (`in_338`)
   const noteOp = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
   const hardWhy = noteOp && !gpu && sceneOf(s.session).hard?.length ? hardNote(sceneOf(s.session), noteOp) : null; // (what a repeat, a mirror or a pull that is open runs into, `in_475`)
@@ -373,7 +373,16 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     sectionPlanes: [...Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, mode: modeOf(pl), hidden: !!pl.hidden, move: sheetMoveOf(s, pl.ref), corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }), ...mirrorGuide(s)],
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     worldHidden: s.worldHidden,
-    hardMarks: sc.hard?.length ? Object.values(sc.parts).flatMap((p) => (p.kind === "body" && p.id && p.bbox && sc.hard!.includes(p.id) ? [{ ref: p.ref, at: [(p.bbox.min[0] + p.bbox.max[0]) / 2, (p.bbox.min[1] + p.bbox.max[1]) / 2, p.bbox.max[2]] as Vec3, ...overlapNote(sc, p.ref) }] : [])) : [],
+    hardMarks: sc.hard?.length ? Object.values(sc.parts).flatMap((p) => {
+      // hidden, like a constraint that holds: a mark shows (red) only while its body is violated, that is while it is bumping into another hard body, or the history has put it into one (`in_489`, `in_478`)
+      if (p.kind !== "body" || !p.id || !p.bbox || !sc.hard!.includes(p.id)) return [];
+      const bump = bumpNote(sc, gpu?.bumping, p.ref);
+      const over = overlapNote(sc, p.ref);
+      if (!bump && !over.overlaps) return [];
+      const at: Vec3 = [(p.bbox.min[0] + p.bbox.max[0]) / 2, (p.bbox.min[1] + p.bbox.max[1]) / 2, p.bbox.max[2]];
+      const sh = bump?.shift ?? [0, 0, 0];
+      return [{ ref: p.ref, at: [at[0] + sh[0], at[1] + sh[1], at[2] + sh[2]] as Vec3, ...over, ...(bump ? { bumps: bump.names } : {}) }];
+    }) : [],
     panes: s.cam.straight || s.worldHidden ? [] : WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
     gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "revolve" && !s.moverSphere ? `rev:turn:${"xyz"[s.op.axis]}` : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
     similar: similarChip(s),
@@ -413,6 +422,13 @@ function orbShow(s: AppState, now: number | undefined): { all: false; handle: st
   return { all: false, handle: s.handleSel };
 }
 /** What flashes red with a constraint's bubble when it is violated (`in_436`): the parts it ties; for a mate the two faces it is between (not the two whole bodies, which would turn every surface red). */
+/** Which hard bodies this one is bumping now (when it is being dragged: the ones it is against; when it is the one being bumped: the ones dragged at it), and where its mark goes (`in_489`). */
+function bumpNote(sc: Scene, b: { movers: Ref[]; hit: Ref[]; shift: Vec3 } | undefined, ref: Ref): { names: string; shift?: Vec3 } | null {
+  if (!b) return null;
+  if (b.movers.includes(ref)) return { names: hardNames(sc, b.hit), shift: b.shift };
+  if (b.hit.includes(ref)) return { names: hardNames(sc, b.movers) };
+  return null;
+}
 /** Which hard bodies a hard body is in, for its mark (`in_478`). */
 function overlapNote(sc: Scene, ref: Ref): { overlaps?: string } {
   const mine = hardOverlaps(sc).filter((o) => o.a === ref || o.b === ref).map((o) => (o.a === ref ? o.b : o.a));

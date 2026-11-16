@@ -394,14 +394,12 @@ test("a body that is selected whole is dragged free by pressing on it: it moves 
   let [x, y] = on;
   for (const [dx, dy] of [[0, 0], [20, -10], [20, -10], [10, 0]] as [number, number][]) { x += dx; y += dy; st = reduce(st, { type: "orbit", dx, dy, x, y }, env); }
   assert.ok(st.op?.free, "the drag has taken hold of the body");
-  // while it is dragged the arrows go with it and all three numbers show (`in_293`)
+  // while it is dragged the arrows go with it, and no position numbers show (`in_293`; the numbers are not shown while a body is dragged free, `in_489`)
   const fr = frameOf(st, env);
   const c0 = bodyCentre(scene(st.session), a!.ref)!;
   const gc = fr.gizmo!.handles.find((h) => h.id === "move:x")!.points[0]!;
   assert.ok(Math.abs(gc[0] - (c0[0] + st.op!.free![0])) < 1e-6 && Math.abs(gc[1] - (c0[1] + st.op!.free![1])) < 1e-6, `the arrows stand on the body as it goes: ${gc} vs ${c0} + ${st.op!.free}`);
-  assert.equal(fr.entries.length, 3, "an X, a Y and a Z number");
-  assert.deepEqual(fr.entries.map((e) => e.fields[0]!.short), ["X", "Y", "Z"]);
-  assert.ok(Math.abs(Number(fr.entries[0]!.fields[0]!.value) - st.op!.free![0]) < 0.01);
+  assert.equal(fr.entries.length, 0, "no X, Y or Z number while it is dragged free");
   st = reduce(st, { type: "dragEnd" }, env);
   assert.equal(st.op, null);
   assert.equal(scene(st.session).steps.length, steps0 + 1, "one step");

@@ -2280,3 +2280,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_488 — 2026-11-16 — question
 > Okay it seems pretty good now. Should we have it so that if an object cant move in the xyz direction it is being pulled in, then it should see if it can move in rotational directions that are valid? Similar to how bodies work with body constraints such as a coaxial pin in a block? or do you think that could get very buggy and messy?
 (says the drag now seems pretty good; asks whether a hard body that cannot move in the pulled direction should try rotations that are valid, as bodies with mates do, or whether that would get buggy and messy; a question, no decision yet)
+
+## in_489 — 2026-11-16 — directive
+> lets not do it for now. Okay a few more things. Can we have the xyz position bubbles not show when moving an object in free flow? And can we have the hard body icons work like normal constraints? They are normally hidden, but flash red when they try to be violated, which I guess would be when a body is actively bumping into them.
+(answers in_488: no rotation on contact for now; asks that the x, y, z position bubbles are not shown while an object is moved in free flow, and that the hard body marks work like constraints: hidden normally, flashing red when they are being violated, which is when a body is actively bumping into them)

@@ -1,4 +1,4 @@
-// The mark on each hard body (`in_476`): a small round badge with the hard icon over the middle of the top of the body; pressing it makes the body soft again. Page elements over the picture, not parts of the model.
+// The mark of a hard body (`in_476`, `in_489`): a small round badge with the hard icon over the middle of the top of the body, shown only while the body is violated (red: it is bumping into another hard body, or an earlier change put it into one), as a constraint is; pressing it makes the body soft again. Page elements over the picture, not parts of the model.
 import { iconSvg } from "./icons.ts";
 import type { Vec3 } from "../interaction/api.ts";
 
@@ -18,7 +18,7 @@ export function createHardMarks(host: HTMLElement, run: (id: string) => void) {
   };
   return {
     /** The page position of each mark (null: it is not in view). */
-    update(marks: { ref: string; at: Vec3; overlaps?: string }[], screen: (q: Vec3) => [number, number] | null): void {
+    update(marks: { ref: string; at: Vec3; overlaps?: string; bumps?: string }[], screen: (q: Vec3) => [number, number] | null): void {
       const seen = new Set<string>();
       for (const m of marks) {
         const p = screen(m.at);
@@ -27,9 +27,9 @@ export function createHardMarks(host: HTMLElement, run: (id: string) => void) {
         const el = pool.get(m.ref) ?? make(m.ref);
         pool.set(m.ref, el);
         el.style.display = "flex";
-        el.style.background = m.overlaps ? "rgba(255,226,226,.96)" : "rgba(255,255,255,.92)";
-        el.style.borderColor = m.overlaps ? "#c0392b" : "#8a8f98";
-        el.title = m.overlaps ? `Hard body: it overlaps ${m.overlaps} (an earlier change put them together)` : "Hard body: it will not go into other hard bodies; tap to make it soft";
+        el.style.background = m.overlaps || m.bumps ? "rgba(255,226,226,.96)" : "rgba(255,255,255,.92)";
+        el.style.borderColor = m.overlaps || m.bumps ? "#c0392b" : "#8a8f98";
+        el.title = m.overlaps ? `Hard body: it overlaps ${m.overlaps} (an earlier change put them together)` : m.bumps ? `Hard body: it is against ${m.bumps} (hard bodies do not go into each other); tap to make it soft` : "Hard body: it will not go into other hard bodies; tap to make it soft";
         el.style.transform = `translate(${Math.round(p[0])}px, ${Math.round(p[1])}px)`;
       }
       for (const [ref, el] of pool) if (!seen.has(ref)) { el.remove(); pool.delete(ref); }

@@ -876,7 +876,7 @@ test("a free drag that the mates hold back is given rotation freedom: the point 
   assert.match(plain.session.message ?? "", /nowhere to go/);
 });
 
-test("while a drag is held back by its mates the arrows and numbers show where the body went, not where the pointer is (`in_347`)", () => {
+test("while a drag is held back by its mates the arrows show where the body went, not where the pointer is, and no numbers are shown (`in_347`, `in_489`)", () => {
   const env = { w: 800, h: 600, now: 0 };
   let s = box(box(createSession(kernel), 0, 0), 40, 0);
   const [a, b] = bodies(s);
@@ -885,9 +885,10 @@ test("while a drag is held back by its mates the arrows and numbers show where t
   const o = startOp(scene(s), [pin.ref], "move");
   assert.ok(o.ok);
   const fr = frameOf({ ...createState(s), cam: homeCamera(), op: { ...(o as unknown as { op: object }).op, free: [9, 4, 2] } as never, drag: { body: pin.ref, from: [0, 0, 0], centre: [0, 0, 0] } as never }, env);
-  assert.equal(fr.entries.length, 3);
-  const shown = fr.entries.map((e) => Number(e.fields[0]!.value));
-  assert.ok(Math.abs(shown[0]!) < 0.02 && Math.abs(shown[1]! - 4) < 0.02 && Math.abs(shown[2]! - 2) < 0.02, `X Y Z as the body went: ${shown}`);
+  assert.equal(fr.entries.length, 0, "no X Y Z numbers while it is dragged free");
+  const arrow = fr.gizmo!.handles.find((h) => h.id === "move:x")!.points[0]!;
+  const c = [(pin.bbox!.min[0] + pin.bbox!.max[0]) / 2, (pin.bbox!.min[1] + pin.bbox!.max[1]) / 2, (pin.bbox!.min[2] + pin.bbox!.max[2]) / 2];
+  assert.ok(Math.abs(arrow[0]! - c[0]!) < 0.5 && Math.abs(arrow[1]! - c[1]! - 4) < 0.5 && Math.abs(arrow[2]! - c[2]! - 2) < 0.5, `the arrows stand where the body went (0, 4, 2 from where it was), not at the pointer (9, 4, 2): ${arrow} vs ${c}`);
 });
 
 // ---- hard bodies and mates that move several bodies (`dec_hard_bodies`, `in_480`) ----
