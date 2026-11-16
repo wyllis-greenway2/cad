@@ -2636,3 +2636,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_575 — 2026-11-16 — directive
 > yes start on the wall thickness checks
 (approves the next item of `dec_measure_report`: wall thickness checks for printing)
+
+## in_576 — 2026-11-16 — question
+> which of these features do you think are most useful? I dont want to over complicate things
+(asks which of the remaining features (marking the thin places, overhang checks, the thinnest gap between parts, a text copy of the report, the place of the nearest points, the sweep faces along a bent path) are the most useful, and says the app should not be made more complicated; answered in chat, nothing built)
