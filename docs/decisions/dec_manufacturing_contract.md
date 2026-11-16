@@ -3,7 +3,7 @@ id: dec_manufacturing_contract
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_543, in_544, in_545, in_546, in_550, in_551, in_553, in_554, in_561, in_562, in_563, in_564, in_565
+human_input: in_543, in_544, in_545, in_546, in_550, in_551, in_553, in_554, in_561, in_562, in_563, in_564, in_565, in_566
 date: 2026-11-16
 depends_on:
   - inv_kernel_boundary: the contract hands modules mesh, STEP bytes and flat outlines (plain data), so a kernel swap changes nothing on the module side
@@ -33,3 +33,5 @@ alternative_to:
 ## Rationale
 
 The human wants modules that can be changed or replaced "without too much surgery and risk" and source models that can go down any number of routes (`in_543`). The kernel boundary already shows the method: one data format, one folder, a mechanical check. A plan per part and machine (`in_546`) lets one part have a print and a CNC version. One route per process (`in_550`) keeps differing physics (kerf, material limits, tools) from being squeezed into a shared model that fits none of them; sharing only the plumbing keeps the cost of a new route low. Putting derivations in the graph keeps a mould linked to the bust it came from; keeping plans outside the graph keeps machine choices out of the model's history.
+
+**What "modular" means here, in the human's words (`in_566`):** not entangled with the CAD system, so the kernel can be replaced and a part can be mesh based instead of face based; a clean cut point to add or remove a route; and routes that are **standardized and use generic reusable code wherever possible**, not bespoke, apart from each route's own special parameters. The contract's part (a mesh, STEP optional, flat outlines) assumes no faces; the registry is the cut point; the shared infrastructure of point 8 is where reuse lives.

@@ -2600,3 +2600,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_565 — 2026-11-16 — directive
 > Do the material tag on bodies next
 (asks for the fourth groundwork piece of the accepted manufacturing entries: a material tag on bodies)
+
+## in_566 — 2026-11-16 — preference
+> what I meant by modular is mostly that it isn't too entangled into the cad system, so for example we could replace the kernal with a different one, or maybe have mesh based objects instead of face geometry based ones etc, basically I wanted to prevent the system from locking up if we need to change kernals OCCT stuff, also I wanted a clean cut point if we want to add or remove a route, plus I want the routes standardized and use generic reusable code whenever possible, that is mostly what I meant when I said modular, I wanted to avoid each turning into a bespoke custom tailored thing as much as possible. or getting too entangled with other systems. I know each will need special parameters.
+(says what "modular" means for manufacturing: not entangled with the CAD system so the kernel can be replaced or parts can be mesh based instead of face based; a clean cut point to add or remove a route; routes standardized, using generic reusable code wherever possible, not bespoke, apart from their own special parameters)
