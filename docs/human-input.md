@@ -2624,3 +2624,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_571 — 2026-11-16 — directive
 > Go with your recommendation
 (approves the recommendation to have the parts that need real hardware tried by a person; since the AI cannot do that, the AI prepares the list of what to try)
+
+## in_572 — 2026-11-16 — directive
+> Go with your recommendation
+(repeats the approval of the recommendation to have the real-hardware checks done by a person; nothing further for the AI to build from it)
