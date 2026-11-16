@@ -106,6 +106,8 @@ export interface Op {
   loftRuled?: boolean;
   loftSplit?: boolean;
   loftShift?: number[];
+  /** the distance typed between sketch i and i + 1, as text (`in_490`) */
+  loftGaps?: string[];
   loftRev?: boolean[];
   advTyped?: string;
   advValue?: number | null;

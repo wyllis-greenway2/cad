@@ -3,7 +3,7 @@ id: dec_loft_sketches
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_489, in_488, in_485, in_431, in_432
+human_input: in_490, in_489, in_488, in_485, in_431, in_432
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -17,6 +17,8 @@ alternative_to:
 **Preview (`in_485`):** a loft's preview, open or waiting for the check (chosen before its sketches were clicked), is drawn as a wireframe, as the revolve's and the sweep's are (`frame.ts`).
 
 **Number bubbles (`in_488`, `in_489`):** the human chose the start point of each sketch as the loft's number (not the distances between sketches). A bubble at each sketch's start dot (`loftEntries`) shows the corner it starts at, 1 to its number of sides; a number typed moves the start there (`loftStartTyped`, going round past the last), as pressing Start k does. A circle has none. The Start / Reverse chips stay.
+
+**Distance bubbles (`in_490`):** on the line from each sketch's middle (the mean of its corners, a circle's centre) to the next, a bubble with the distance between them (`loftEntries`, `loftGapNumbers`); a number typed (field 10 + the gap, kept as text in `Op.loftGaps`) moves that sketch and every later one along that line, so the gaps after it stay. Nothing is made by typing: the preview shows the moved sketches, and Enter makes one command (the sketches moved by `transformFigure`, then the loft: one undo), `loftCommand` / `loftPlaced`. **Found and fixed:** the kernel's cache key for a loft held its sketches' names and not their places, so a loft whose sketches had moved (by this or by any edit) was answered with the old body; the key now includes them (`interpreter.mjs`, `loft.test.ts`).
 
 ## Rationale
 

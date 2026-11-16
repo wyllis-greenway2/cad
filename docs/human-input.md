@@ -2286,3 +2286,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_489 — 2026-11-16 — preference
 > Start point per sketch
 (answers which numbers the loft's bubbles should carry (asked after in_488): the start point of each sketch; not the distances between sketches)
+
+## in_490 — 2026-11-16 — directive
+> Do the loft's distance bubbles next
+(asks for what in_489 left unbuilt: the loft's bubbles for the distances between sketches)

@@ -208,6 +208,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
     return { ...s, op: { ...s.op, auto: false, pivot: [s.op.pivot[0] + more * d[0], s.op.pivot[1] + more * d[1], s.op.pivot[2] + more * d[2]] as Vec3 } };
   }
   if (s.op?.kind === "loft") { // the corner a sketch starts at, typed on its start dot's bubble (`in_488`)
+    if (field >= 10) { const gaps = [...(s.op.loftGaps ?? [])]; gaps[field - 10] = text; return { ...s, op: { ...s.op, auto: false, loftGaps: Array.from(gaps, (g) => g ?? "") } }; } // (the distance to the next sketch, `in_490`)
     const n = typedNumber(text);
     return n === null ? s : { ...s, op: loftStartTyped(sceneOf(s.session), s.op, field, n) };
   }

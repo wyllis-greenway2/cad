@@ -119,7 +119,7 @@ test("each sketch's start dot has a number bubble (the corner it starts at); a n
   let st = { ...createState({ ...s, click: { ...s.click, selection: faces as never } }), cam: homeCamera() };
   st = reduce(st, { type: "begin", name: "loft" }, env);
   const e0 = frameOf(st, { w: 800, h: 600 }).entries;
-  assert.deepEqual(e0.map((e) => [e.fields[0]!.index, e.fields[0]!.value]), [[0, "1"], [1, "1"]], "one on each sketch, at corner 1");
+  assert.deepEqual(e0.map((e) => [e.fields[0]!.index, e.fields[0]!.value]), [[0, "1"], [1, "1"], [10, "20"]], "a start on each sketch, at corner 1, and the distance between them");
   assert.ok(e0.every((e) => !!e.at), "each stands at its dot");
   st = reduce(st, { type: "entry", field: 1, text: "3" } as never, env);
   assert.deepEqual(st.op!.loftShift, [0, 2], "corner 3 is two on");
@@ -128,4 +128,34 @@ test("each sketch's start dot has a number bubble (the corner it starts at); a n
   assert.deepEqual(st.op!.loftShift, [0, 1], "6 of 4 sides goes round to corner 2");
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   assert.equal(scene(st.session).steps.at(-1)!.params.shift, "0,1");
+});
+
+test("the distance between two sketches has a bubble; a number typed moves the later sketch along the line between their middles when the step is made, in one undo (`in_490`)", () => {
+  const { s, faces } = twoSquares(10, 4, 20);
+  let st = { ...createState({ ...s, click: { ...s.click, selection: faces as never } }), cam: homeCamera() };
+  st = reduce(st, { type: "begin", name: "loft" }, env);
+  st = reduce(st, { type: "entry", field: 10, text: "30" } as never, env);
+  const e = frameOf(st, { w: 800, h: 600 }).entries.find((x) => x.fields[0]!.index === 10)!;
+  assert.equal(e.fields[0]!.value, "30");
+  assert.ok(e.fields[0]!.typed);
+  assert.deepEqual(scene(st.session).steps, [], "nothing is made by typing");
+  
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  assert.deepEqual(st.session.outcome.errors, {});
+  assert.ok(Math.abs(volume(st.session) - (30 / 3) * (100 + 40 + 16)) < 1, `a frustum 30 high: ${volume(st.session)}`);
+  const top = Object.values(scene(st.session).parts).find((p) => p.kind === "corner" && p.origin === "drawn" && Math.abs(p.at[2] - 30) < 1e-6);
+  assert.ok(top, "the later sketch now stands at 30");
+  const undone = reduce(st, { type: "undo" }, env);
+  assert.equal(scene(undone.session).steps.length, 0, "one undo takes the step and the move");
+  assert.ok(Object.values(scene(undone.session).parts).some((p) => p.kind === "corner" && p.origin === "drawn" && Math.abs(p.at[2] - 20) < 1e-6), "the sketch is back at 20");
+});
+
+test("a loft whose sketches have moved is made again, not taken from what the kernel kept for the same step name (the key held the sketches' names, not where they were)", () => {
+  const a = twoSquares(10, 4, 20);
+  const r1 = runOp(a.s, begin(a.s, a.faces))!;
+  const b = twoSquares(10, 4, 30); // the same names, the second sketch higher
+  const r2 = runOp(b.s, begin(b.s, b.faces))!;
+  assert.ok(Math.abs(volume(r1.session) - (20 / 3) * 156) < 1);
+  assert.ok(Math.abs(volume(r2.session) - (30 / 3) * 156) < 1, `volume ${volume(r2.session)}`);
 });
