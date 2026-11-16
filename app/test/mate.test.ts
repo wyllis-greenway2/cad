@@ -162,8 +162,8 @@ test("a change that moves one of the bodies makes the mate not true, says so, an
 test("the menu offers 'put the mates back' only when one is not true, and doing it from the menu works (`in_315`)", () => {
   const { s, a } = matedBoxes();
   const env = { w: 800, h: 600, now: 0 };
-  assert.ok(!appRows("auto", "", { undo: true, redo: true, matesOff: 0 }).some((r) => r.id === "mate:reapply"));
-  assert.ok(appRows("auto", "", { undo: true, redo: true, matesOff: 1 }).some((r) => r.id === "mate:reapply"));
+  assert.ok(!appRows("auto", "", { matesOff: 0 }).some((r) => r.id === "mate:reapply"));
+  assert.ok(appRows("auto", "", { matesOff: 1 }).some((r) => r.id === "mate:reapply"));
   let wider = s;
   for (const ref of rightA) { const at = (scene(wider).parts[ref] as unknown as { at: number[] }).at; wider = run(wider, { type: "movePart", ref, to: [13, at[1]!, at[2]!] } as never); }
   assert.equal(mateStatus(scene(wider))[0]!.state, "off");

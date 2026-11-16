@@ -40,7 +40,7 @@ import type { Op } from "../operations.ts";
 import { BODY_OBJECT } from "../../compiler/body.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
-import { doSimilar, doSelectAll, doGroup, doUngroup, doCutBegin, applyCut } from "./select.ts";
+import { doSimilar, doSelectAll, doSelectBodies, doGroup, doUngroup, doCutBegin, applyCut } from "./select.ts";
 import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
@@ -310,6 +310,11 @@ export function doApply(s: AppState): AppState {
 }
 
 export function doRunAction(s: AppState, id: string, now = 0): AppState {
+  if (id.startsWith("why:")) { // a dimmed option of the ring pressed: what it needs is said, the ring stays (`in_493`)
+    const find = (items: readonly { id: string; label: string; why: string | null; children?: readonly unknown[] }[]): { label: string; why: string | null } | undefined => { for (const it of items) { if (it.id === id.slice(4)) return it; const k = it.children ? find(it.children as never) : undefined; if (k) return k; } return undefined; };
+    const hit = s.menu ? find(s.menu.items) : undefined;
+    return hit?.why ? { ...s, session: { ...s.session, message: `${hit.label}: ${hit.why}` } } : s;
+  }
   const closed = { ...s, menu: null };
   if (id === "look") {
     const get = lookup(sceneOf(s.session));
@@ -320,6 +325,9 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   }
   if (id === "select:similar") return doSimilar(closed);
   if (id === "select:group") return doGroup(closed);
+  if (id === "select:bodies") return doSelectBodies(closed);
+  if (id === "undo") return doUndo(closed); // (undo, redo and delete are the Actions of the ring, `in_493`)
+  if (id === "redo") return doRedo(closed);
   if (id === "select:faces" || id === "select:edges" || id === "select:vertices") return doSelectAll(closed, id.slice(7) as "faces" | "edges" | "vertices");
   if (id.startsWith("body:hard:")) { // the mark of a hard body pressed: it is soft again (`in_476`)
     const sc = sceneOf(closed.session);
@@ -352,7 +360,6 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "sheet:move") return doSheetMove(closed);
   if (id === "view:wireframe") return { ...closed, wireframe: !s.wireframe, session: { ...closed.session, message: s.wireframe ? "solid view" : "wireframe view: the faces of bodies are not drawn, to see what is inside" } };
   if (id === "tape:measure") return { ...closed, tape: !s.tape, session: { ...closed.session, message: s.tape ? "tape measure off" : "tape measure on: select a face, or two (Shift adds the second), to see what they are to each other" } };
-  if (id === "multiselect") return { ...closed, multiSelect: !s.multiSelect, session: { ...closed.session, message: s.multiSelect ? "select several is off" : "select several is on: a tap adds to the selection, a tap on what is selected takes it out" } };
   if (id.startsWith("mate:stand:")) { // a mate is made standing (it puts itself back after a change) or not (`in_321`)
     const rel = sceneOf(s.session).relations.find((r) => r.id === id.slice(11));
     if (!rel?.params) return closed;

@@ -159,17 +159,3 @@ test("Group and Ungroup are offered in the suggestion row like a suggested icon,
   assert.ok(ids(st).includes("select:ungroup") && !ids(st).includes("select:group"));
   assert.ok(!ids(select(st, [c[0]!])).includes("select:group"), "one thing is not several");
 });
-
-test("select several (the ⋯ menu): every tap adds to the selection and a tap on what is selected takes it out, as Shift does (`in_300`)", () => {
-  const { s, c } = sketch();
-  let st = reduce({ ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 15, 0] } }, { type: "runAction", id: "multiselect" }, env);
-  assert.equal(st.multiSelect, true);
-  const mid = (ref: Ref): [number, number] => projector(st.cam, env.w, env.h).project((scene(st.session).parts[ref] as unknown as { at: [number, number, number] }).at) as [number, number];
-  for (const r of [c[0]!, c[1]!]) { const [x, y] = mid(r); st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env); }
-  assert.equal(selection(st.session).length, 2, "two taps: both selected");
-  const [x, y] = mid(c[0]!);
-  st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env);
-  assert.equal(selection(st.session).length, 1, "a tap on one that is selected takes it out");
-  st = reduce(st, { type: "runAction", id: "multiselect" }, env);
-  assert.equal(st.multiSelect, false);
-});

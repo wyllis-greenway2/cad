@@ -68,6 +68,13 @@ export function doSelectAll(s: AppState, what: "faces" | "edges" | "vertices"): 
   return { ...s, menu: null, similar: null, session: { ...s.session, click: { ...s.session.click, selection: refs }, message: `selected ${refs.length} ${what}` } };
 }
 
+/** The menu item "All bodies" (`in_493`): every body of the model selected. */
+export function doSelectBodies(s: AppState): AppState {
+  const refs = Object.values(sceneOf(s.session).parts).filter((q) => q.kind === "body").map((q) => q.ref);
+  if (!refs.length) return { ...s, menu: null, session: { ...s.session, message: "no bodies to select: make a body first" } };
+  return { ...s, menu: null, similar: null, session: { ...s.session, click: { ...s.session.click, selection: refs }, message: `selected ${refs.length} ${refs.length === 1 ? "body" : "bodies"}` } };
+}
+
 /** The menu item: everything like what is selected. */
 export function doSimilar(s: AppState): AppState {
   const base = selectionOf(s.session);

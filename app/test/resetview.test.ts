@@ -57,6 +57,6 @@ test("it goes to the body that was last in view; when that is gone, the last one
 
 test("an empty model offers no reset; the pan speed row cycles low, medium, high (`in_303`)", () => {
   assert.equal(frame({ ...createState(createSession(kernel)), cam: { ...homeCamera(), target: [9999, 0, 0] } }).resetView, false);
-  assert.match(appRows("auto", "", undefined, false, false, 0.3).find((r) => r.id === "panSpeed")!.label, /medium/);
+  assert.match(appRows("auto", "", undefined, false, 0.3).find((r) => r.id === "panSpeed")!.label, /medium/);
   assert.equal(nextPanScale(0.5), 0.15);
 });

@@ -71,7 +71,7 @@ function normalOfFigure(scene: Scene, fig: Figure): Vec3 | null {
  * toward the later one), from the earlier sketch's middle to the later's; typing it moves that sketch and all after it along that normal (their distances to each other stay). Where the later sketch lies in the
  * earlier one's plane there is no distance along the normal: the straight distance between the middles is used. `shift[i]` is how far sketch i is moved, `mids` where the middles end up, `gaps` the distances now.
  */
-export function loftPlaced(scene: Scene, op: Op): { shift: Vec3[]; mids: Vec3[]; gaps: number[] } {
+function loftPlaced(scene: Scene, op: Op): { shift: Vec3[]; mids: Vec3[]; gaps: number[] } {
   const figs = op.loftFigs ?? [];
   const base = figs.map((f) => middleOfFigure(scene, f));
   const shift: Vec3[] = [];

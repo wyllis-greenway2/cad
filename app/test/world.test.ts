@@ -145,7 +145,7 @@ test("delete the body: select the object, Delete: the body goes as one step you 
   assert.ok(st.session.outcome.kernel);
   st = select(st, [BODY_OBJECT]);
   const items = reduce(st, { type: "menu", x: 5, y: 5, button: true }, env).menu!.items;
-  assert.ok(items.find((i) => i.id === "delete")!.enabled);
+  assert.ok(items.flatMap((c) => c.children ?? [c]).find((i) => i.id === "delete")!.enabled);
   st = reduce(st, { type: "delete" }, env);
   assert.ok(!Object.values(scene(st.session).parts).some((p) => p.kind === "body"), "no body any more");
   assert.equal(consumed(scene(st.session)).size, 0, "nothing hidden is left behind");
@@ -195,7 +195,7 @@ test("the frame says what to draw: the cursor, the body, the selection; the smal
 });
 
 test("the menu always ends with the lists, save, open, export, share state and the scroll mode, which cycles", () => {
-  assert.deepEqual(appRows("auto").map((r) => r.id), ["undo", "redo", "bodies", "history", "groups", "save", "open", "exportStl", "share", "constraints", "multiselect", "hard:clearance", "outlines", "panSpeed", "scrollMode"]);
+  assert.deepEqual(appRows("auto").map((r) => r.id), ["bodies", "history", "groups", "save", "open", "exportStl", "share", "constraints", "hard:clearance", "outlines", "panSpeed", "scrollMode"]);
   assert.match(appRows("pan").find((r) => r.id === "scrollMode")!.label, /always pans/);
   assert.deepEqual(["auto", "pan", "zoom"].map((m) => nextScrollMode(m as never)), ["pan", "zoom", "auto"]);
   assert.ok(isScrollMode("zoom") && !isScrollMode("x") && !isScrollMode(null));
