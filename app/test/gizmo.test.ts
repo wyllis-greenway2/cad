@@ -704,7 +704,7 @@ test("the ⋯ menu opens a list of the bodies with their names and a list of the
   assert.deepEqual(selection(st.session), [BODY_OBJECT]);
   assert.equal(frame(st).panel!.rows[0]!.active, true);
   st = reduce(st, { type: "panel", name: "history" }, env);
-  assert.deepEqual(frame(st).panel!.rows.map((r) => r.label), ["Extrude 20 mm"]);
+  assert.deepEqual(frame(st).panel!.rows.filter((r) => !r.child).map((r) => r.label), ["Extrude 20 mm"]);
   st = reduce(st, { type: "panel", name: "history" }, env);
   assert.equal(frame(st).panel, null, "choosing it again closes it");
   st = reduce(st, { type: "panel", name: "history" }, env);

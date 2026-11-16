@@ -28,6 +28,7 @@ import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
 import { doBodyEye, doDeleteBody } from "./bodies.ts";
 import { doParamRemove } from "./history.ts";
+import { constraintOwners } from "../panels.ts";
 import type { AppState } from "./state.ts";
 import { activeOp, movePivot, movePivotTo, gizmoOf } from "./handles.ts";
 import { withPose, orientApply, moverOp, putMover } from "./pose.ts";
@@ -477,10 +478,17 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
 }
 
 /** The ⋯ menu's lists: choosing one opens it, choosing it again closes it. */
-export const doPanel = (s: AppState, name: "bodies" | "history" | "groups" | "sketches" | "parameters"): AppState => ({ ...s, panel: s.panel === name ? null : name, menu: null });
+export const doPanel = (s: AppState, name: "bodies" | "history" | "groups" | "sketches" | "parameters" | "constraints"): AppState => ({ ...s, panel: s.panel === name ? null : name, menu: null });
 /** A row of the open list: a body is selected, a step is taken out of the history. */
 export function doPanelRow(s: AppState, id: string, act: "select" | "remove" | "sketch" | "edit" | "hide"): AppState {
   if (act === "remove" && s.panel === "parameters") return doParamRemove(s, id); // (the cross of a parameter, `dec_named_parameters`)
+  if (act === "remove" && s.panel === "constraints") return withSession(s, run(s.session, { type: "removeRelation", id })); // (the cross of a constraint)
+  if (act === "select" && (s.panel === "constraints" || id.startsWith("rels:"))) { // (a constraint, or the constraints of a step: the parts they tie are selected)
+    const sc = sceneOf(s.session);
+    const rels = id.startsWith("rels:") ? sc.relations.filter((rel) => constraintOwners(sc).get(rel.id) === id.slice(5)) : sc.relations.filter((rel) => rel.id === id);
+    const parts = [...new Set(rels.flatMap((rel) => rel.parts))].filter((q) => q in sc.parts);
+    return withSession(s, { ...s.session, click: { ...s.session.click, selection: parts }, message: null });
+  }
   if (act === "hide") return doBodyEye(s, id as Ref); // (the eye of a row of the Bodies list, `dec_hidden_bodies`)
   if (act === "remove" && sceneOf(s.session).parts[id]?.kind === "body") return doDeleteBody(s, id as Ref); // (the cross of a row of the Bodies list: the body is deleted)
   if (act === "edit") return doRepeatEditStep(s, id); // (a step that is a repeat of the body: its numbers are set again, `in_257`)

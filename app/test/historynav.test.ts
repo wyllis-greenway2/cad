@@ -20,7 +20,7 @@ function three() {
   s = run(s, { type: "addStep", step: { id: "s_102", type: "move", parts: ["b/x_s_100/o"], params: { axis: 1, value: 5, body: "x_s_100" } } } as never);
   return createState(s);
 }
-const rows = (st: ReturnType<typeof three>) => panelOf("history", scene(st.session), [], st.session.outcome.errors, null, st.session.history, st.stepEdit)!;
+const rows = (st: ReturnType<typeof three>) => { const p = panelOf("history", scene(st.session), [], st.session.outcome.errors, null, st.session.history, st.stepEdit)!; return { ...p, rows: p.rows.filter((r) => !r.child) }; }; // (the steps: what a step owns is listed under it, `dec_model_panel`)
 const bodies = (st: ReturnType<typeof three>) => Object.values(scene(st.session).parts).filter((p) => p.kind === "body").length;
 
 test("go to a step shows the model as it was then; the later steps stay, faded, and redo goes back", () => {

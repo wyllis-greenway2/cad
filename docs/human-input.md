@@ -2596,3 +2596,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_565 — 2026-11-16 — directive
 > yes start on the first one
 (approves the first of the three options put in chat: name the faces a fillet or chamfer makes after the edge they round, and finish the names for revolve, loft and sweep)
+
+## in_566 — 2026-11-16 — directive
+> yes start on the model panel
+(approves the next item: the rest of the Model panel, with the rows of each kind shown under the step that owns them, and the Constraints filter)

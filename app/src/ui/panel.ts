@@ -1,12 +1,12 @@
 // The list card opened from the ⋯ menu (`in_132`): the bodies with their names, or the history of steps. It displays what the interaction layer says and reports which row was chosen.
 import { iconSvg } from "./icons.ts";
 
-export interface PanelData { kind: string; title: string; rows: { detail?: string; param?: { name: string; expr: string; value: number | null }; id: string; label: string; active: boolean; removable: boolean; edit?: boolean; error?: string; sketch?: boolean; hidden?: boolean; future?: boolean; current?: boolean; fields?: { key: string; label: string; value: number; expr?: string }[]; open?: boolean }[]; note?: string; actions?: { id: string; label: string; title: string }[]; tabs?: { id: string; label: string; on: boolean }[]; insert?: { on: boolean } }
+export interface PanelData { kind: string; title: string; rows: { child?: "select" | "sketch"; detail?: string; param?: { name: string; expr: string; value: number | null }; id: string; label: string; active: boolean; removable: boolean; edit?: boolean; error?: string; sketch?: boolean; hidden?: boolean; future?: boolean; current?: boolean; fields?: { key: string; label: string; value: number; expr?: string }[]; open?: boolean }[]; note?: string; actions?: { id: string; label: string; title: string }[]; tabs?: { id: string; label: string; on: boolean }[]; insert?: { on: boolean } }
 export interface PanelHandlers { row(id: string, act: "select" | "remove" | "sketch" | "edit" | "hide"): void; action(id: string): void; go(id: string): void; tab(id: string): void; insert(): void; edit(id: string): void; set(id: string, key: string, value: number): void; link(id: string, key: string, expr: string): void; param(name: string, expr: string): void; unparam(name: string): void; undo(): void; redo(): void; close(): void }
 
 export function createPanel(host: HTMLElement, h: PanelHandlers) {
   const el = document.createElement("div");
-  el.style.cssText = "position:fixed;left:14px;top:14px;display:none;min-width:200px;max-width:280px;max-height:60vh;overflow:auto;background:#fff;border:1px solid #cfd0d4;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.14);padding:6px;font:13px system-ui,sans-serif;color:#2b2b2d;z-index:9;user-select:none;-webkit-user-select:none";
+  el.style.cssText = "position:fixed;left:14px;top:14px;display:none;min-width:200px;max-width:340px;max-height:60vh;overflow:auto;background:#fff;border:1px solid #cfd0d4;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.14);padding:6px;font:13px system-ui,sans-serif;color:#2b2b2d;z-index:9;user-select:none;-webkit-user-select:none";
   host.appendChild(el);
   let sig = "";
   const btn = (text: string, title: string, on: () => void): HTMLElement => {
@@ -38,7 +38,7 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
       if (p.tabs?.length) {
         const bar = document.createElement("div");
         bar.style.cssText = "display:flex;gap:2px;padding:0 4px 6px";
-        for (const t of p.tabs) { const b = btn(t.label, "", () => { if (!t.on) h.tab(t.id); }); b.style.cssText += `;flex:1;padding:0 8px;font-size:12px;${t.on ? "background:#dff1f0;font-weight:600" : "border:1px solid #e1e2e5"}`; if (t.on) b.onpointerleave = () => (b.style.background = "#dff1f0"); bar.appendChild(b); }
+        for (const t of p.tabs) { const b = btn(t.label, "", () => { if (!t.on) h.tab(t.id); }); b.style.cssText += `;flex:1;padding:0 4px;font-size:11.5px;${t.on ? "background:#dff1f0;font-weight:600" : "border:1px solid #e1e2e5"}`; if (t.on) b.onpointerleave = () => (b.style.background = "#dff1f0"); bar.appendChild(b); }
         el.appendChild(bar);
       }
       if (p.actions?.length) {
@@ -58,7 +58,7 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
       if (p.note) { const note = document.createElement("div"); note.textContent = p.note; note.style.cssText = "padding:0 8px 6px;font-size:12px;color:#6b6e75"; el.appendChild(note); }
       for (const r of p.rows) {
         const row = document.createElement("div");
-        row.style.cssText = `display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;cursor:${p.kind === "bodies" || p.kind === "groups" || p.kind === "history" || p.kind === "sketches" ? "pointer" : "default"};background:${r.active || r.current ? "#dff1f0" : ""};opacity:${r.future ? ".45" : "1"}`;
+        row.style.cssText = `display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;cursor:${p.kind === "bodies" || p.kind === "groups" || p.kind === "history" || p.kind === "sketches" || p.kind === "constraints" ? "pointer" : "default"};background:${r.active || r.current ? "#dff1f0" : ""};opacity:${r.future ? ".45" : "1"}`;
         const label = document.createElement("span");
         label.textContent = r.label;
         label.style.flex = "1";
@@ -84,11 +84,13 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
         if (r.sketch !== undefined) { const b = btn(iconSvg("sketch"), r.sketch ? "Put the sketch away" : "Show the sketch this extrusion was made from", () => h.row(r.id, "sketch")); if (r.sketch) b.style.background = "#dff1f0"; row.appendChild(b); }
         if (r.edit) row.appendChild(btn(iconSvg("linear"), "Change the numbers of this repeat", () => h.row(r.id, "edit")));
         if (r.fields?.length) { const b = btn(iconSvg("pencil"), r.open ? "Close the numbers of this step" : "Change the numbers of this step", () => h.edit(r.id)); if (r.open) b.style.background = "#dff1f0"; row.appendChild(b); }
-        if (r.removable) row.appendChild(btn(iconSvg("cross"), p.kind === "parameters" ? "Take this parameter away (refused while something uses it)" : p.kind === "groups" ? "Break this group (what is inside it stays grouped)" : p.kind === "bodies" ? "Delete this body (with the steps and sketches that made it)" : "Take this step out", () => h.row(r.id, "remove")));
+        if (r.removable) row.appendChild(btn(iconSvg("cross"), p.kind === "constraints" ? "Take this constraint away" : p.kind === "parameters" ? "Take this parameter away (refused while something uses it)" : p.kind === "groups" ? "Break this group (what is inside it stays grouped)" : p.kind === "bodies" ? "Delete this body (with the steps and sketches that made it)" : "Take this step out", () => h.row(r.id, "remove")));
         if (p.kind === "bodies" || p.kind === "groups") row.addEventListener("click", () => h.row(r.id, "select"));
         if (p.kind === "sketches" && r.sketch !== undefined) row.addEventListener("click", () => h.row(r.id, "sketch"));
         if (p.kind === "parameters") row.style.cursor = "default";
-        if (p.kind === "history") { row.title = r.future ? "A step that comes after: go to it" : "Go to this step: the model as it was when it had been made"; row.addEventListener("click", () => h.go(r.id)); }
+        if (p.kind === "constraints") row.addEventListener("click", () => h.row(r.id, "select"));
+        if (r.child) { row.style.marginLeft = "20px"; row.style.padding = "3px 8px"; row.style.fontSize = "12px"; row.title = r.child === "sketch" ? "Show or put away this sketch in the picture" : "Select"; row.addEventListener("click", () => h.row(r.id, r.child!)); }
+        else if (p.kind === "history") { row.title = r.future ? "A step that comes after: go to it" : "Go to this step: the model as it was when it had been made"; row.addEventListener("click", () => h.go(r.id)); }
         if (r.current) label.style.fontWeight = "600";
         el.appendChild(row);
         if (r.open && r.fields) {

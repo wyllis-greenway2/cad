@@ -1,17 +1,18 @@
 // The two lists the ⋯ menu opens (`in_132`): the bodies (with their names) and the history of building steps. Pure: derived from the scene; the UI draws them.
 import type { Ref } from "../shared/ref.ts";
 import type { Scene, Step } from "../operation/scene.ts";
-import { figuresOf, usesFigures } from "../operation/scene.ts";
+import { figuresOf, usesFigures, figureRefs } from "../operation/scene.ts";
 import { evaluateAll } from "../operation/parameters.ts";
+import { ROWS } from "./rows.ts";
 import type { History } from "../operation/history.ts";
 import type { Group } from "../operation/groups.ts";
 import { groupsOf, membersOf, parentOf } from "../operation/groups.ts";
 import { hardOverlaps, overlapBlame, hardNames } from "./hard.ts";
 
-export type PanelKind = "bodies" | "history" | "groups" | "sketches" | "parameters";
+export type PanelKind = "bodies" | "history" | "groups" | "sketches" | "parameters" | "constraints";
 /** The lists that are the parts of the one Model panel, in the order of its tabs (`dec_model_panel`). */
-export const MODEL_TABS: readonly { id: PanelKind; label: string }[] = [{ id: "history", label: "Steps" }, { id: "bodies", label: "Bodies" }, { id: "sketches", label: "Sketches" }, { id: "parameters", label: "Parameters" }];
-export interface PanelRow { id: string; label: string; /** selected (a body) */ active: boolean; /** can be taken out (a step) */ removable: boolean; /** a repeat of the body: it can be opened again to change its numbers (`in_257`) */ edit?: boolean; /** why this step could not be made, when it could not (it is shown in red) */ error?: string; /** an extrusion: its hidden sketch can be shown (`in_228`); true while it is shown */ sketch?: boolean; /** a body: the eye (`dec_hidden_bodies`): true when it is hidden, false when it is shown */ hidden?: boolean; /** a step that comes after the cursor (`dec_history_navigation`): faded, gone back to by choosing it */ future?: boolean; /** the step the cursor is at */ current?: boolean; /** the numbers of the step that can be changed (only at the last step), and whether they are open */ fields?: { key: string; label: string; value: number; /** the formula it is tied to */ expr?: string }[]; open?: boolean; /** a parameter (`dec_named_parameters`): its formula, and its value (`null` when the formula cannot be made, `error` says why) */ param?: { name: string; expr: string; value: number | null }; /** a second, smaller line under the label (a sketch: its step, its body and its status) */ detail?: string }
+export const MODEL_TABS: readonly { id: PanelKind; label: string }[] = [{ id: "history", label: "Steps" }, { id: "bodies", label: "Bodies" }, { id: "sketches", label: "Sketches" }, { id: "constraints", label: "Constraints" }, { id: "parameters", label: "Parameters" }];
+export interface PanelRow { id: string; label: string; /** selected (a body) */ active: boolean; /** can be taken out (a step) */ removable: boolean; /** a repeat of the body: it can be opened again to change its numbers (`in_257`) */ edit?: boolean; /** why this step could not be made, when it could not (it is shown in red) */ error?: string; /** an extrusion: its hidden sketch can be shown (`in_228`); true while it is shown */ sketch?: boolean; /** a body: the eye (`dec_hidden_bodies`): true when it is hidden, false when it is shown */ hidden?: boolean; /** a step that comes after the cursor (`dec_history_navigation`): faded, gone back to by choosing it */ future?: boolean; /** the step the cursor is at */ current?: boolean; /** the numbers of the step that can be changed (only at the last step), and whether they are open */ fields?: { key: string; label: string; value: number; /** the formula it is tied to */ expr?: string }[]; open?: boolean; /** a parameter (`dec_named_parameters`): its formula, and its value (`null` when the formula cannot be made, `error` says why) */ param?: { name: string; expr: string; value: number | null }; /** a second, smaller line under the label (a sketch: its step, its body and its status) */ detail?: string; /** a row shown under the step that owns it (a sketch, a body, its constraints): what choosing it does */ child?: "select" | "sketch" }
 export interface Panel { kind: PanelKind; title: string; rows: PanelRow[]; /** the History: the cursor is at the last step (the numbers can be changed); else a line says where it is */ note?: string; /** buttons for the whole list (the Bodies list: select all and none, hide all and show all) */ actions?: { id: string; label: string; title: string }[]; /** the History, before its last step: the switch that makes what is done go in at the cursor (`dec_insert_step`) */ insert?: { on: boolean }; /** the Model panel's tabs; the one that is open is `on` */ tabs?: { id: PanelKind; label: string; on: boolean }[] }
 
 const n = (v: unknown): string => String(Math.round(Number(v) * 100) / 100);
@@ -81,6 +82,36 @@ export function sketchRows(scene: Scene, shown: string | null): PanelRow[] {
 function sketchesPanel(scene: Scene, shown: string | null): Panel {
   return { kind: "sketches", title: "Sketches", rows: sketchRows(scene, shown), note: "Each is the recipe of the step that took it, kept as drawn. The pencil shows the sketch of an extrusion in the picture." };
 }
+/**
+ * Which step each constraint belongs to (`dec_model_panel`): the first step whose drawn figures hold one of the constraint's parts, a part being a figure's line or circle, or a corner or centre one of them ends at.
+ * A constraint on parts no step has used yet belongs to none (it is on a sketch still being drawn), and one between the body and a sketch belongs to the step of the sketch.
+ */
+export function constraintOwners(scene: Scene): Map<string, string> {
+  const held = new Map<string, string>(); // part -> the id of the step whose figures hold it
+  for (const st of scene.steps) {
+    if (!usesFigures(st)) continue;
+    for (const r of figureRefs(st)) {
+      if (!held.has(r)) held.set(r, st.id);
+      const p = scene.parts[r];
+      if (p?.kind === "line") for (const e of [p.a, p.b, ...(p.center ? [p.center] : [])]) if (!held.has(e)) held.set(e, st.id);
+      if (p?.kind === "circle" && !held.has(p.center)) held.set(p.center, st.id);
+    }
+  }
+  const out = new Map<string, string>();
+  for (const rel of scene.relations) { const own = rel.parts.map((q) => held.get(q)).find((x) => x !== undefined); if (own) out.set(rel.id, own); }
+  return out;
+}
+const WORDS: Record<string, string> = { arcEnds: "Arc meets its ends" };
+const relationWord = (rel: Scene["relations"][number]): string => `${WORDS[rel.kind] ?? ROWS.find((r) => r.id === rel.kind)?.label ?? rel.kind}${rel.value !== undefined ? ` ${n(rel.value)}` : ""}`;
+function constraintsPanel(scene: Scene, selection: readonly Ref[]): Panel {
+  const owner = constraintOwners(scene);
+  const stepOf = (id: string | undefined) => scene.steps.find((s) => s.id === id);
+  return {
+    kind: "constraints", title: "Constraints",
+    rows: scene.relations.map((rel) => ({ id: rel.id, label: relationWord(rel), active: rel.parts.length > 0 && rel.parts.every((q) => selection.includes(q)), removable: true, detail: `${rel.locked === false ? "not locked · " : ""}${owner.has(rel.id) ? `on the sketch of ${stepLabel(stepOf(owner.get(rel.id))!)}` : "on a sketch not used by a step yet"}` })),
+    note: "Choosing one selects the parts it ties together; the cross takes it away.",
+  };
+}
 /** The named parameters (`dec_named_parameters`): each with its formula and its value, and the steps' numbers that are tied to it counted. */
 function parametersPanel(scene: Scene): Panel {
   const defs = scene.parameters ?? {};
@@ -125,7 +156,7 @@ function stepFields(st: Step): { key: string; label: string; value: number; expr
  * The steps of the History (`dec_history_navigation`): those of the model at the cursor, then those that come after it (faded), each with its numbers when the cursor is at the last step; the step the cursor is at is
  * marked.
  */
-const historyPanel = (history: History, errors0: Record<string, string>, shown: string | null, editing: string | null): Panel => {
+const historyPanel = (history: History, errors0: Record<string, string>, shown: string | null, editing: string | null, selection: readonly Ref[] = []): Panel => {
   const scene = history.scene;
   // the hard bodies that overlap after the history is replayed: the step to look at is marked (`in_478`)
   const errors: Record<string, string> = { ...errors0 };
@@ -135,19 +166,26 @@ const historyPanel = (history: History, errors0: Record<string, string>, shown: 
   const done = new Set(scene.steps.map((x) => x.id));
   const later = end.steps.filter((x) => !done.has(x.id));
   const rows: PanelRow[] = [
-    ...scene.steps.map((st, i): PanelRow => {
+    ...scene.steps.flatMap((st, i): PanelRow[] => {
       const fields = atEnd ? stepFields(st) : [];
-      return { id: st.id, label: stepLabel(st), active: false, removable: atEnd, current: !atEnd && i === scene.steps.length - 1, ...(st.type === "pattern" ? { edit: true } : {}), ...(st.type === "extrude" ? { sketch: shown === st.id } : {}), ...(errors[st.id] ? { error: errors[st.id] } : {}), ...(fields.length ? { fields, open: editing === st.id } : {}) };
+      const own = constraintOwners(scene);
+      const mine = scene.relations.filter((rel) => own.get(rel.id) === st.id);
+      const kids: PanelRow[] = [
+        ...sketchRows(scene, shown).filter((r) => r.id === st.id).map((r): PanelRow => ({ ...r, child: usesFigures(st) && st.type === "extrude" ? "sketch" : "select", detail: r.detail?.split(" · ").slice(1).join(" · ") })),
+        ...mine.length ? [{ id: `rels:${st.id}`, label: `${mine.length} constraint${mine.length === 1 ? "" : "s"}`, active: false, removable: false, child: "select" as const, detail: [...new Set(mine.map((rel) => WORDS[rel.kind] ?? ROWS.find((r) => r.id === rel.kind)?.label ?? rel.kind))].join(", ") }] : [],
+        ...Object.values(scene.parts).filter((p) => p.kind === "body" && typeof p.id === "string" && (p.id === `x_${st.id}` || p.id.startsWith(`x_${st.id}.`))).map((p): PanelRow => ({ id: p.ref, label: bodyLabel(scene, p.ref), active: selection.includes(p.ref), removable: false, child: "select" })),
+      ];
+      return [{ id: st.id, label: stepLabel(st), active: false, removable: atEnd, current: !atEnd && i === scene.steps.length - 1, ...(st.type === "pattern" ? { edit: true } : {}), ...(st.type === "extrude" ? { sketch: shown === st.id } : {}), ...(errors[st.id] ? { error: errors[st.id] } : {}), ...(fields.length ? { fields, open: editing === st.id } : {}) }, ...kids];
     }),
     ...later.map((st): PanelRow => ({ id: st.id, label: stepLabel(st), active: false, removable: false, future: true })),
   ];
   const inserting = !atEnd && !!history.inserting;
   return { kind: "history", title: "History", rows, ...(atEnd ? {} : { insert: { on: inserting }, note: inserting ? "Inserting after the marked step: what you make goes in here and the faded steps after it are made again." : "Looking at an earlier step. Doing something here drops the faded steps (or choose Insert here to put it in at this point); choose the last step to change numbers." }) };
 };
-const panelOf0 = (kind: PanelKind | null, scene: Scene, selection: readonly Ref[], errors: Record<string, string> = {}, shownSketch: string | null = null, history?: History, editing: string | null = null): Panel | null => (kind === "bodies" ? bodiesPanel(scene, selection) : kind === "history" ? historyPanel(history ?? ({ commands: [], cursor: 0, snapshots: [scene], scene } as unknown as History), errors, shownSketch, editing) : kind === "groups" ? groupsPanel(scene, selection) : null);
+const panelOf0 = (kind: PanelKind | null, scene: Scene, selection: readonly Ref[], errors: Record<string, string> = {}, shownSketch: string | null = null, history?: History, editing: string | null = null): Panel | null => (kind === "bodies" ? bodiesPanel(scene, selection) : kind === "history" ? historyPanel(history ?? ({ commands: [], cursor: 0, snapshots: [scene], scene } as unknown as History), errors, shownSketch, editing, selection) : kind === "groups" ? groupsPanel(scene, selection) : null);
 /** The panel for a kind, the three lists of the Model panel with its tabs (`dec_model_panel`). */
 export const panelOf = (kind: PanelKind | null, scene: Scene, selection: readonly Ref[], errors: Record<string, string> = {}, shownSketch: string | null = null, history?: History, editing: string | null = null): Panel | null => {
-  const p = kind === "sketches" ? sketchesPanel(scene, shownSketch) : kind === "parameters" ? parametersPanel(scene) : panelOf0(kind, scene, selection, errors, shownSketch, history, editing);
+  const p = kind === "sketches" ? sketchesPanel(scene, shownSketch) : kind === "parameters" ? parametersPanel(scene) : kind === "constraints" ? constraintsPanel(scene, selection) : panelOf0(kind, scene, selection, errors, shownSketch, history, editing);
   return p && p.kind !== "groups" ? { ...p, title: "Model", tabs: MODEL_TABS.map((t) => ({ ...t, on: t.id === p.kind })) } : p;
 };
 

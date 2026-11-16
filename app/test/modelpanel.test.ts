@@ -14,6 +14,8 @@ const env = { w: 800, h: 600, now: 0 };
 function three() {
   let s = createSession(kernel);
   const a = drawRectangle(scene(s), XY, [0, 0, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]); s = run(s, a.command);
+  s = run(s, { type: "addRelation", relation: { id: "r_900", kind: "horizontal", parts: [a.lines[0]!] } } as never);
+  s = run(s, { type: "addRelation", relation: { id: "r_901", kind: "vertical", parts: [a.lines[1]!] } } as never);
   s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: a.lines, params: { depth: 10 } } } as never);
   const b = drawRectangle(scene(s), XY, [30, 0, 0], [40, 10, 0], [1, 0, 0], [0, 1, 0]); s = run(s, b.command);
   s = run(s, { type: "addStep", step: { id: "s_101", type: "extrude", parts: b.lines, params: { depth: 10, mode: "new" } } } as never);
@@ -26,10 +28,10 @@ test("the lists are the tabs of one panel called Model", () => {
   let st = three();
   st = reduce(st, { type: "panel", name: "history" }, env);
   assert.equal(panel(st).title, "Model");
-  assert.deepEqual(panel(st).tabs!.map((t) => [t.label, t.on]), [["Steps", true], ["Bodies", false], ["Sketches", false], ["Parameters", false]]);
+  assert.deepEqual(panel(st).tabs!.map((t) => [t.label, t.on]), [["Steps", true], ["Bodies", false], ["Sketches", false], ["Constraints", false], ["Parameters", false]]);
   st = reduce(st, { type: "panel", name: "sketches" }, env);
   assert.equal(st.panel, "sketches");
-  assert.deepEqual(panel(st).tabs!.map((t) => t.on), [false, false, true, false]);
+  assert.deepEqual(panel(st).tabs!.map((t) => t.on), [false, false, true, false, false]);
 });
 
 test("each figure is a sketch, named in the order of its steps, with its step and its status", () => {
@@ -76,4 +78,42 @@ test("the Parameters tab: make, change, tie a step's number by typing a formula,
   st = reduce(st, { type: "panel", name: "parameters" }, env);
   st = reduce(st, { type: "panelRow", id: "twice", act: "remove" }, env);
   assert.match(st.session.message ?? "", /step s_100 uses twice/);
+});
+
+test("the Steps tab shows what each step owns under it: its sketch, its constraints and the body it made", () => {
+  let st = three();
+  st = reduce(st, { type: "panel", name: "history" }, env);
+  const rows = panel(st).rows;
+  const at = rows.findIndex((r) => r.id === "s_100" && !r.child);
+  assert.ok(at >= 0);
+  const kids = [];
+  for (let i = at + 1; i < rows.length && rows[i]!.child; i++) kids.push(rows[i]!);
+  assert.deepEqual(kids.map((r) => r.label.replace(/\d+ constraints?/, "N constraints")), ["Sketch 1", "N constraints", "Body 1"]);
+  assert.ok(kids.every((r) => r.child));
+  // a body row selects the body; the constraints row selects the parts they tie
+  const body = kids.find((r) => r.label === "Body 1")!;
+  st = reduce(st, { type: "panelRow", id: body.id, act: "select" }, env);
+  assert.deepEqual(st.session.click.selection, [body.id]);
+  const rel = kids.find((r) => r.id === "rels:s_100")!;
+  st = reduce(st, { type: "panelRow", id: rel.id, act: "select" }, env);
+  assert.equal(st.session.click.selection.length, 2, "the two lines the constraints are on are selected");
+  // a step with no sketch of its own (the move) has no children
+  const move = rows.findIndex((r) => r.id === "s_102");
+  assert.ok(move >= 0 && !rows[move + 1]?.child);
+});
+
+test("the Constraints tab lists every constraint with the step whose sketch it is on; choosing one selects its parts, the cross takes it away", () => {
+  let st = three();
+  const total = scene(st.session).relations.length;
+  assert.ok(total > 0);
+  st = reduce(st, { type: "panel", name: "constraints" }, env);
+  const rows = panel(st).rows;
+  assert.equal(rows.length, total);
+  assert.ok(rows.every((r) => /on the sketch of Extrude 10 mm|on the sketch of Extrude 10 mm|on a sketch/.test(r.detail!)), rows.map((r) => r.detail).join(" / "));
+  assert.ok(rows.some((r) => /on the sketch of Extrude 10 mm/.test(r.detail!)));
+  st = reduce(st, { type: "panelRow", id: rows[0]!.id, act: "select" }, env);
+  const rel = scene(st.session).relations.find((r) => r.id === rows[0]!.id)!;
+  assert.deepEqual([...st.session.click.selection].sort(), [...new Set(rel.parts)].sort());
+  st = reduce(st, { type: "panelRow", id: rows[0]!.id, act: "remove" }, env);
+  assert.equal(scene(st.session).relations.length, total - 1);
 });
