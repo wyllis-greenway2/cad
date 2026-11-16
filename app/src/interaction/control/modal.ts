@@ -418,6 +418,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     return { ...closed, session: { ...session, message: made ? `${made === 1 ? "the mate was" : `${made} mates were`} put back` : "every mate is true" } };
   }
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
+  if (id === "tool:helical") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "helical"); // (a gear that is twisted along its axis, `in_566`)
   if (id === "tool:ring") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "ring"); // (a gear with its teeth pointing in)
   if (id === "tool:rack") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "rack");
   if (id === "tool:clock" || id === "tool:clockring" || id === "tool:clockrack") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:clock" ? "clock" : id === "tool:clockring" ? "clockring" : "clockrack"); // (a cycloidal clock gear, `in_553`)

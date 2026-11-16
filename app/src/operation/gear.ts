@@ -31,6 +31,10 @@ export interface GearSpec {
   rim?: number;
   /** diameter of a round hole through the middle of an external gear, mm (0 or absent: none) */
   bore?: number;
+  /** a helical gear (`in_566`): the helix angle at the pitch circle in degrees (above 0 a right hand helix, below 0 a left hand one, 45 at the most) and the width of the gear along its axis, mm. The module, the pressure angle, the shift,
+   * the backlash and the clearance are the *normal* ones, measured square to the teeth; the outline is the transverse section (module / cos of the helix angle) that the body is then twisted from (`helixTwist`) */
+  helix?: number;
+  width?: number;
   /** arcs to each side of a tooth's flank (2 to 8; 4 by default): fewer is a rougher involute and a body with fewer faces, which is quicker to make (`dec_speed_rules`) */
   detail?: number;
   /** the corner radius of the rack cutter, in modules: the root is then shaped as that cutter makes it (a fillet, and the undercut when there are few teeth: `gearroot.ts`); none or 0: the root is the circle between the flanks */
@@ -106,6 +110,14 @@ function rackOutline(spec: GearSpec): Result<GearOutline> {
   return ok({ points, bulges: points.map(() => 0), pitchRadius: 0, baseRadius: 0, tipRadius: tip, rootRadius: root, length: L, warnings: [] });
 }
 
+/** How far the outline of a helical gear is turned while it is carried along its axis for its whole width, degrees (the sign is the hand), or null for a gear that is not helical: width x tan(helix) / transverse pitch radius. */
+export function helixTwist(spec: GearSpec): number | null {
+  if (spec.helix === undefined || !(spec.width! > 0) || !(spec.teeth > 0) || !(spec.module > 0)) return null;
+  const b = (spec.helix * Math.PI) / 180;
+  const rp = (spec.module * Math.round(spec.teeth)) / (2 * Math.cos(b));
+  return ((spec.width! * Math.tan(b)) / rp) * (180 / Math.PI);
+}
+
 /** The outline of a gear, or why there is none (and why its bore has no such flat or keyway). */
 export function gearOutline(spec: GearSpec): Result<GearOutline> {
   const r = outlineOf(spec);
@@ -120,16 +132,25 @@ function outlineOf(spec: GearSpec): Result<GearOutline> {
   if (spec.pulley) return pulleyOutline(spec);
   if (spec.sprocket) return sprocketOutline(spec);
   const z = Math.round(spec.teeth);
-  const m = spec.module;
+  const mn = spec.module; // (the normal module; the transverse one `m` is bigger for a helical gear)
   if (!Number.isFinite(z) || z < 3 || z > 500) return err("a gear needs 3 to 500 teeth");
-  if (!Number.isFinite(m) || m <= 0) return err("the module must be above zero");
-  const alpha = ((spec.pressure ?? 20) * Math.PI) / 180;
-  if (!(alpha > 0 && alpha < (35 * Math.PI) / 180)) return err("the pressure angle must be between 0 and 35 degrees");
+  if (!Number.isFinite(mn) || mn <= 0) return err("the module must be above zero");
+  const alphaN = ((spec.pressure ?? 20) * Math.PI) / 180;
+  if (!(alphaN > 0 && alphaN < (35 * Math.PI) / 180)) return err("the pressure angle must be between 0 and 35 degrees");
+  const helical = spec.helix !== undefined;
+  if (helical) {
+    if (spec.internal) return err("a helical ring is not made yet");
+    if (!(Math.abs(spec.helix!) > 0 && Math.abs(spec.helix!) <= 45)) return err("the helix angle must be from 1 to 45 degrees (a minus sign is a left hand helix); a gear with no helix is the plain gear tool");
+    if (!(spec.width! > 0)) return err("the width of a helical gear must be above zero");
+  }
+  const k = helical ? Math.cos((Math.abs(spec.helix!) * Math.PI) / 180) : 1; // (cosine of the helix angle: the section across the gear is a gear of the module mn / k, pressure angle atan(tan(alphaN) / k))
+  const m = mn / k;
+  const alpha = Math.atan(Math.tan(alphaN) / k);
   const ARCS = Math.round(spec.detail ?? DEFAULT_ARCS);
   if (!(ARCS >= 2 && ARCS <= 8)) return err("the detail (arcs to a flank) must be from 2 to 8");
-  const x = spec.internal ? 0 : spec.shift ?? 0;
-  const c = spec.clearance ?? 0.25;
-  const backlash = spec.backlash ?? 0;
+  const x = spec.internal ? 0 : (spec.shift ?? 0) * k; // (the shift is a distance, x mn, which is x k in transverse modules)
+  const c = k * (1 + (spec.clearance ?? 0.25)) - 1; // (the root is (1 + clearance) mn below the pitch circle: the same distance in the transverse section)
+  const backlash = (spec.backlash ?? 0) / k;
   const [rp, warnings] = [(m * z) / 2, [] as string[]];
   const rb = rp * Math.cos(alpha);
   const invP = inv(alpha);
@@ -157,7 +178,7 @@ function outlineOf(spec: GearSpec): Result<GearOutline> {
 
   if (!spec.internal) {
     const rf = rp - m * (1 + c - x);
-    let ra = rp + m * (1 + x);
+    let ra = rp + m * (k + x); // (the addendum is mn, which is k transverse modules)
     if (rf <= 0.2 * rp) return err("the teeth are too deep for this few: raise the tooth count or lower the module");
     const smallest = 0.02 * pitch; // a tip narrower than this (half angle) is a point
     if (half(ra) < smallest) {
@@ -173,7 +194,7 @@ function outlineOf(spec: GearSpec): Result<GearOutline> {
     if (half(r0) >= pitch / 2 - 1e-4) return err("the teeth meet at the root: raise the tooth count or lower the shift");
     if ((spec.fillet ?? 0) < 0) return err("the fillet cannot be below zero");
     if ((spec.fillet ?? 0) > 0) { // the root as the rack cutter makes it (`in_560`)
-      const g = gearRoot({ m, z, alpha, x, c, backlash, rho: spec.fillet! * m });
+      const g = gearRoot({ m, z, alpha, x, c, backlash, rho: spec.fillet! * mn });
       if (!g.ok) return err(g.error);
       const { pts, rLo } = g.value;
       if (!(rLo < ra) || rLo < rb - 1e-9) return err("the root's fillet would reach the tip: a smaller fillet");

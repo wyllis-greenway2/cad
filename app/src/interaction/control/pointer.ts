@@ -47,6 +47,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:arc", label: "Curve", icon: "arc", tool: "arc" },
   { id: "tool:trim", label: "Trim", icon: "scissors", tool: "trim" },
   { id: "tool:gear", label: "Spur gear", icon: "gear", tool: "gear" },
+  { id: "tool:helical", label: "Helical gear", icon: "gear", tool: "gear" },
   { id: "tool:ring", label: "Ring gear", icon: "gear", tool: "gear" },
   { id: "tool:rack", label: "Rack", icon: "rack", tool: "gear" },
   { id: "tool:gt2", label: "GT2 pulley", icon: "gear", tool: "gear" },
@@ -91,7 +92,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
 interface Group { id: string; label: string; icon: string; items: (string | Group)[] }
 const GEARS: Group = {
   id: "gears", label: "Gear", icon: "gear", items: [
-    "tool:gear", "tool:ring", "tool:rack",
+    "tool:gear", "tool:helical", "tool:ring", "tool:rack",
     { id: "clockgears", label: "Clock", icon: "gear", items: ["tool:clock", "tool:clockring", "tool:clockrack"] },
     { id: "pulleys", label: "Pulley", icon: "gear", items: ["tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8"] },
     { id: "sprockets", label: "Sprocket", icon: "gear", items: ["tool:sprocket", "tool:isosprocket"] },
@@ -106,7 +107,7 @@ const CATEGORIES: { id: string; label: string; icon: string; items: (string | Gr
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
-const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:gear", "tool:ring", "tool:rack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "tool:clock", "tool:clockring", "tool:clockrack", "tool:trim", "op:move", "op:rotate", "op:copy", "op:mirror", "op:linear", "op:circular"]);
+const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:gear", "tool:helical", "tool:ring", "tool:rack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "tool:clock", "tool:clockring", "tool:clockrack", "tool:trim", "op:move", "op:rotate", "op:copy", "op:mirror", "op:linear", "op:circular"]);
 /** What a constraint or mate is called in the ring: one or two words (`in_538`). */
 const TIPS: Record<string, string> = { fixed: "Fix", onCircle: "On circle", sameAcross: "Same across", equalLength: "Equal", equalRadius: "Equal", "mate:flush": "Flush", "mate:parallel": "Parallel faces", "mate:perpendicular": "Perpendicular faces", "mate:angle": "Face angle", "mate:coaxial": "Coaxial", "mate:parallelAxes": "Parallel axes", "mate:perpendicularAxes": "Perpendicular axes", "mate:angleAxes": "Axis angle", "mate:axisToFace": "Axis to face" };
 const tipOf = (id: string, label: string): string => TIPS[id] ?? label;

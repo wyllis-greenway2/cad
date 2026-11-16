@@ -2597,3 +2597,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_565 — 2026-11-16 — directive
 > Yes, do all of those and measure each
 (approves the whole list in the AI's last answer: skip the safety checks in previews, mesh to the screen with a finer mesh when settled, rough first and fine when settled, a load governor, the JS-computed exact wireframe preview of a twist (which extends dec_drag_preview_without_kernel), the bore in the profile, and a Detail setting; each to be measured)
+
+## in_566 — 2026-11-16 — directive
+> Yes, go ahead with the helical gear tool, I will take your recommendations on how to build it and on scope, I think we can skip herring bone because users can still manually create that just by stacking gears.
+(approves the helical gear tool as recommended: external helical spur gears with Helix angle and Width fields and a partner gear of opposite hand, the twisted body made from the flat outline by the existing twist; herringbone is not built, to be made by stacking)
