@@ -2524,3 +2524,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_547 — 2026-11-16 — directive
 > Do the rack and meshing helper next
 (asks for the next items from dec_gear_tool's list: the rack, and a helper that places a gear so that it meshes with another)
+
+## in_548 — 2026-11-16 — directive
+> Do the refusal messages and timing pulleys next
+(asks for what in_547 left: messages that say why a gear, rack or partner is not made, and the timing pulleys from dec_gear_tool's list)
+
+## in_549 — 2026-11-16 — approval
+> Let me ask for network access (Recommended)
+(answers the question how to get the belt tooth dimensions for the timing pulleys: the AI asks for network access to read the real tables, and builds from them)

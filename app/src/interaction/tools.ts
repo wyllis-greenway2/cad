@@ -19,7 +19,9 @@ import { settings } from "../shared/settings.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Hint } from "./hints.ts";
 import { gearOutline, moduleForOutside } from "../operation/gear.ts";
-import type { GearSpec, GearOutline } from "../operation/gear.ts";
+import type { GearSpec } from "../operation/gear.ts";
+import type { Result } from "../shared/result.ts";
+import { ok, err } from "../shared/result.ts";
 import { gearRefs } from "../operation/gearscene.ts";
 import type { GearRecord } from "../operation/gearscene.ts";
 import { meshWith } from "../operation/mesh.ts";
@@ -221,14 +223,18 @@ function gearSpecOf(t: Tool): GearSpec | null {
   }
   return { teeth, module, ...(pressure !== undefined ? { pressure } : {}), ...(shift !== undefined ? { shift } : {}), ...(backlash !== undefined ? { backlash } : {}), ...(g.internal ? { internal: true as const } : {}), ...(g.rack ? { rack: true as const } : {}), ...(rim !== undefined ? { rim } : {}), ...(bore ? { bore } : {}) };
 }
-/** The gear to be made (or changed) by the tool as it stands: its numbers, where it stands and how it is turned, and what each field of the box says while nothing is typed in it. A partner (`in_547`) is where the pointer says (a gear: the direction of it from the gear it meshes with; a gear on a rack: how far along the rack), or as typed. Null while there is none. */
-function gearTarget(scene: Scene, t: Tool): { spec: GearSpec; at: Vec3; turn: number; live: Partial<Record<GearKey, number>> } | null {
+type GearTarget = { spec: GearSpec; at: Vec3; turn: number; live: Partial<Record<GearKey, number>> };
+/** The gear the tool would make, or why it would make none (`in_548`: said when Enter or a click makes nothing); null while there is nothing to say yet (no size, no plane). */
+function gearMade(scene: Scene, t: Tool): Result<GearTarget> | null {
   const g = gearState(t);
   const pl = t.plane ? scene.parts[t.plane] : undefined;
   if (!g.mesh) {
     const spec = gearSpecOf(t);
     const at = t.points[0];
-    return spec && at ? { spec, at, turn: g.turn ?? 0, live: { teeth: spec.teeth, module: spec.module, pressure: spec.pressure ?? 20, shift: spec.shift ?? 0, backlash: spec.backlash ?? 0, rim: spec.rim ?? 2, bore: spec.bore ?? 0 } } : null;
+    if (!spec || !at) return null;
+    const o = gearOutline(spec);
+    if (!o.ok) return err(o.error);
+    return ok({ spec, at, turn: g.turn ?? 0, live: { teeth: spec.teeth, module: spec.module, pressure: spec.pressure ?? 20, shift: spec.shift ?? 0, backlash: spec.backlash ?? 0, rim: spec.rim ?? 2, bore: spec.bore ?? 0 } });
   }
   if (!pl || pl.kind !== "plane") return null;
   const { src, rack } = g.mesh;
@@ -248,8 +254,20 @@ function gearTarget(scene: Scene, t: Tool): { spec: GearSpec; at: Vec3; turn: nu
     where = a !== null ? (a * Math.PI) / 180 : Math.hypot(px - cx, py - cy) > 1e-6 ? Math.atan2(py - cy, px - cx) : 0;
   }
   const r = meshWith(src, pl.u, pl.v, { teeth, rack }, where);
-  if (!r.ok) return null;
-  return { ...r.value, live: { teeth, ratio: srcRack ? 0 : teeth / src.spec.teeth, angle: (where * 180) / Math.PI, offset: where } };
+  if (!r.ok) return err(r.error);
+  const o = gearOutline(r.value.spec);
+  if (!o.ok) return err(o.error);
+  return ok({ ...r.value, live: { teeth, ratio: srcRack ? 0 : teeth / src.spec.teeth, angle: (where * 180) / Math.PI, offset: where } });
+}
+/** The gear to be made (or changed) by the tool as it stands: its numbers, where it stands and how it is turned, and what each field of the box says while nothing is typed in it. A partner (`in_547`) is where the pointer says (a gear: the direction of it from the gear it meshes with; a gear on a rack: how far along the rack), or as typed. Null while there is none. */
+function gearTarget(scene: Scene, t: Tool): GearTarget | null {
+  const r = gearMade(scene, t);
+  return r && r.ok ? r.value : null;
+}
+/** Why the gear the tool stands at makes none (what Enter or a click says), or null. */
+export function gearProblem(scene: Scene, t: Tool): string | null {
+  const r = gearMade(scene, t);
+  return r && !r.ok ? r.error : null;
 }
 /** What each field of the number box says while nothing is typed in it: the numbers as they are now. */
 export function gearLive(scene: Scene, t: Tool): number[] | null {

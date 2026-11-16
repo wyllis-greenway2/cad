@@ -548,6 +548,8 @@ test("a gear that is profile shifted gets no partner (the tool stays for numbers
   m = move(m, [C[0], C[1] + 50, 0]);
   m = key(m, "Enter");
   assert.equal(gearsOfState(m).length, 1, "no partner is made for a shifted gear: the tool stays for a number that works");
+  assert.match(m.session.message ?? "", /profile shift/, "and it says why (`in_548`)");
+  assert.ok(m.tool, "the tool is still on");
 });
 
 test("Edit gear on a rack has the rack's own fields and changing the teeth changes its length; Move puts it somewhere else", () => {
@@ -567,4 +569,39 @@ test("Edit gear on a rack has the rack's own fields and changing the teeth chang
   const cmd = opCommand(scene(e.session), { ...(o as { op: Op }).op, axis: 1, value: 25 })!;
   const moved = run(e.session, cmd);
   assert.ok(Math.abs(scene(moved).gears![0]!.at[1] - (C[1] + 25)) < 1e-6);
+});
+
+test("a gear, a rack or a partner that is not made says why, and the tool stays on (`in_548`)", () => {
+  const say = (st: AppState) => st.session.message ?? "";
+  // too few teeth, by Enter and by a click
+  let st = top();
+  st = reduce(st, { type: "begin", name: "gear" }, env);
+  st = click(st, C); st = typeText(st, "2"); st = move(st, [C[0] + 10, C[1], 0]);
+  st = key(st, "Enter");
+  assert.match(say(st), /3 to 500 teeth/);
+  assert.equal(drawn(st).length, 0);
+  assert.ok(st.tool, "the tool is still on");
+  st = reduce(st, { type: "typed", key: "Backspace", shift: false }, env); st = typeText(st, "12"); // (12 teeth with a pressure angle that is no angle)
+  st = key(st, "Tab"); st = key(st, "Tab"); st = typeText(st, "0");
+  const clicked = click(st, [C[0] + 10, C[1], 0]);
+  assert.match(say(clicked), /pressure angle/);
+  // a rack too thin at its tips; backlash larger than the tooth
+  let r = reduce(top(), { type: "begin", name: "gear" }, env);
+  r = reduce(r, { type: "runAction", id: "tool:rack" }, env);
+  r = { ...r, tool: { ...r.tool!, plane: worldRef("XY") } };
+  r = click(r, C); r = typeText(r, "6"); r = key(r, "Tab"); r = typeText(r, "2"); r = key(r, "Tab"); r = key(r, "Tab"); r = typeText(r, "4");
+  r = key(r, "Enter");
+  assert.match(say(r), /pointed/);
+  // a gear as big as its ring
+  let ring = reduce(top(), { type: "begin", name: "gear" }, env);
+  ring = reduce(ring, { type: "runAction", id: "tool:ring" }, env);
+  ring = { ...ring, tool: { ...ring.tool!, plane: worldRef("XY") } };
+  ring = click(ring, C); ring = typeText(ring, "30"); ring = key(ring, "Tab"); ring = typeText(ring, "2"); ring = key(ring, "Enter");
+  let m = reduce(pick({ ...reduce(ring, { type: "escape" }, env), tool: null }, [faceOf(ring, "g_001").ref]), { type: "runAction", id: "gear:mesh" }, env);
+  m = move(m, [C[0], C[1] + 30, 0]); m = typeText(m, "30"); m = key(m, "Enter");
+  assert.match(say(m), /fewer teeth than the ring/);
+  // a rack on a ring
+  let rr = reduce(pick({ ...reduce(ring, { type: "escape" }, env), tool: null }, [faceOf(ring, "g_001").ref]), { type: "runAction", id: "gear:meshrack" }, env);
+  rr = move(rr, [C[0], C[1] + 30, 0]); rr = key(rr, "Enter");
+  assert.match(say(rr), /rack does not mesh with a ring/);
 });

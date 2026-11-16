@@ -7,7 +7,7 @@ import type { Session } from "../session.ts";
 import { nearCommand } from "../suggest.ts";
 import { actionsFor, measureAction } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
-import { armTool, typeKey, finish, lineNext, gearTyped, editGearTool, meshGearTool } from "../tools.ts";
+import { armTool, typeKey, finish, lineNext, gearTyped, editGearTool, meshGearTool, gearProblem } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
 import { gearOfPart } from "../../operation/gearscene.ts";
 import type { OpKind } from "../operations.ts";
@@ -114,7 +114,10 @@ export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["n
 const stays = (t: AppState["tool"]): AppState["tool"] => (t && !t.gear?.editing && !t.gear?.mesh ? { ...armTool(t.kind, t.gear?.internal ? "ring" : t.gear?.rack ? "rack" : "gear"), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
 
 export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppState {
-  if (!fin) return s;
+  if (!fin) {
+    const why = s.tool?.kind === "gear" ? gearProblem(sceneOf(s.session), s.tool) : null; // (a gear, a rack or a partner that is not made says why, `in_548`)
+    return why ? { ...s, session: { ...s.session, message: why } } : s;
+  }
   const next = run(s.session, fin.command);
   if (next.message) return { ...s, session: next };
   const sel = fin.select.filter((r) => r in sceneOf(next).parts);
