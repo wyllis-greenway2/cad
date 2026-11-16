@@ -245,7 +245,7 @@ export function surfaceAxes(scene: Scene, part: Part | undefined): [Vec3, Vec3, 
 }
 /** The mover put on one flat face or plane has an arrow normal to it (`in_419`). */
 export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind, view: ViewAxes | null = null): StartResult {
-  // the cut face of a sheet is a face of the cut view (`in_574`): it is looked at, picked and sketched on; the body is changed through its own faces
+  // the cut face of a sheet is a face of the cut view (`in_588`): it is looked at, picked and sketched on; the body is changed through its own faces
   if (selection.some((r) => { const p = scene.parts[r]; return p?.kind === "plane" && !!p.cap; })) return { ok: false, why: "the cut face is only a view of the cut: sketch on it or look at it; put the cutting sheet away to work on the body" };
   const r = startOpMoved(scene, selection, kind, view);
   if (!r.ok || (kind !== "move" && kind !== "rotate") || selection.length !== 1 || (r.op.target !== "body" && r.op.target !== "plane" && r.op.target !== "part")) return r;
@@ -609,7 +609,7 @@ function variableEnd(op: Op, v: number): number | null {
 }
 /** The number the operation will use: what was typed, else the pointer's or default value. */
 export const valueOf = (op: Op): number | null => {
-  const t = (op.unit ?? OP_UNIT[op.kind]) === "mm" ? typedLength(op.typed) : typedNumber(op.typed); // (a length is typed in the number system in use: the model keeps millimetres, `in_554`)
+  const t = (op.unit ?? OP_UNIT[op.kind]) === "mm" ? typedLength(op.typed) : typedNumber(op.typed); // (a length is typed in the number system in use: the model keeps millimetres, `in_568`)
   if (t !== null && op.kind === "move" && op.typedBase !== undefined) return t - op.typedBase; // (a typed position along the axis: the step is how far that is from where it is)
   // a typed size is the size you want: how far to move is what is missing from the size now
   return t !== null && op.dim ? (t - op.dim.base) / op.dim.scale : t ?? op.value;
@@ -624,7 +624,7 @@ export function typeOp(op: Op, key: string): Op {
   else if (key === "." && !t.includes(".")) t += t === "" ? "0." : ".";
   else if (key === "-" && t === "") t = "-";
   else if (key === "ArrowUp" || key === "ArrowDown") {
-    const inches = units.system === "in" && (op.unit ?? OP_UNIT[op.kind]) === "mm"; // (the same small step, in the system in use: a tenth of a millimetre, a hundredth of an inch, `in_554`)
+    const inches = units.system === "in" && (op.unit ?? OP_UNIT[op.kind]) === "mm"; // (the same small step, in the system in use: a tenth of a millimetre, a hundredth of an inch, `in_568`)
     const step = (op.kind === "edge" ? settings.op.sizeStep : settings.op.distanceStep) * (inches ? 2.54 : 1) * (key === "ArrowUp" ? 1 : -1);
     return { ...op, typed: "", value: Math.round(((valueOf(op) ?? 0) + step) * 1e6) / 1e6 };
   } else return op;

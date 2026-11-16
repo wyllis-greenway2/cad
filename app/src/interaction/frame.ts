@@ -95,7 +95,7 @@ export interface Frame {
   helper: { at: Vec3; text: string } | null;
   /** the kernel is still working the model out (a picture of it may be a moment old): a "working" sign shows if it takes a while */
   busy: boolean;
-  /** everything the person is told, as one list for one renderer (`in_558`) */
+  /** everything the person is told, as one list for one renderer (`in_572`) */
   notices: Notice[];
   /** the world axis the selected plane or face lies across and which end of it the camera must be at to see it (so that X Y Z button is lit, as + or −) */
   lookHint: { axis: "X" | "Y" | "Z"; sign: 1 | -1 } | null;
@@ -138,14 +138,14 @@ export interface Frame {
   /** a change refused for the constraints it would break, while it flashes: the button that deletes them and goes on (`in_366`) */
   refusal: { text: string; button: string; /** the constraint it stands beside */ beside: string } | null;
   /** push / pull of one flat face: what it does, to choose (`in_405`) */
-  /** every option of the operation bar, in order (`in_557`) */
+  /** every option of the operation bar, in order (`in_571`) */
   options: Option[];
   faceKinds: { id: "move" | "extrude" | "extend"; label: string; title: string; on: boolean }[] | null;
   /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
   /** a revolve: the lines the figure can turn about, one chosen (`dec_spiral_extrude`) */
   loftKinds: { id: string; label: string; title: string; on: boolean }[] | null;
   sizeKinds: { id: "constant" | "variable" | "twoDistances" | "swap"; label: string; title: string; on: boolean }[] | null;
-  /** the pill that says adding to the selection is on (`in_539`: every tap adds, Done leaves); it is started from a finger's menu, not offered (`in_556`) */
+  /** the pill that says adding to the selection is on (`in_539`: every tap adds, Done leaves); it is started from a finger's menu, not offered (`in_570`) */
   adding: "on" | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate" | "linear" | "circular" | "invert"; label: string } | null;

@@ -1,4 +1,4 @@
-// The settings page's logic and the menu keeping every icon (`in_554`, `dec_settings_page`).
+// The settings page's logic and the menu keeping every icon (`in_568`, `dec_settings_page`).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { chordOf, specText, rebind, unbind, takenBy, keysToText, keysFromText, KEY_ACTIONS } from "../src/interaction/preferences.ts";

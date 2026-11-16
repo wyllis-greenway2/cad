@@ -11,7 +11,7 @@ type Rgb = [number, number, number];
 const make = () => ({
   uOrbC: { value: new THREE.Vector3() }, uOrbR: { value: 1 }, uOrbA: { value: 0 }, uOrbRingA: { value: 0 }, uOrbSoft: { value: 2 }, uOrbFill: { value: 0 }, uRingPx: { value: 1.6 }, uOrbDisc: { value: 0 },
 });
-/** The sheets that are cutting the view (`in_573`): the teal of a selected face and the ring of the pointer stop at them, as the part does (up to eight; each a normal and a constant, a point is kept when dot(normal, p) + constant is not below nothing). Shared by every orb material. */
+/** The sheets that are cutting the view (`in_587`): the teal of a selected face and the ring of the pointer stop at them, as the part does (up to eight; each a normal and a constant, a point is kept when dot(normal, p) + constant is not below nothing). Shared by every orb material. */
 export const sectionClip = { clCount: { value: 0 }, clPlanes: { value: Array.from({ length: 8 }, () => new THREE.Vector4()) } };
 export const hoverOrb = make();
 export const selectOrb = make();

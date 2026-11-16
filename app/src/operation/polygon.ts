@@ -1,4 +1,4 @@
-// Polygons in 2D (`in_574`): ear clipping, joining holes that touch, and bridging holes into the outline. Pure; the faces of the drawing, the faces of the body and the cut face of a section all use them.
+// Polygons in 2D (`in_588`): ear clipping, joining holes that touch, and bridging holes into the outline. Pure; the faces of the drawing, the faces of the body and the cut face of a section all use them.
 
 const triangulated = new Map<string, number[]>();
 /**

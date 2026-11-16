@@ -66,7 +66,7 @@ export function runOp(sess: Session, op0: Op): { session: Session; cmd: Command 
     // a body moved, turned or scaled whole brings its sketches with it; a constraint that ties one of them to something that stays would pull it out of shape instead (`in_293`): that is refused, and the constraint is named
     if (op.target === "body" && (op.kind === "move" || op.kind === "rotate" || op.kind === "scale") && !done.message) {
       const held = heldBack(sceneOf(sess), sceneOf(done), cmd, op.kind === "scale" ? (valueOf(op) ?? 1) : 1);
-      if (held) return { session: { ...sess, message: `this body cannot ${op.kind === "move" ? "move" : op.kind === "rotate" ? "turn" : "scale"}: a constraint ties its sketch to something that stays (${held.names}): remove it, or move that too`, conflict: { culprits: held.ids, victims: held.ids, retry: cmd } }, cmd } // (the constraints are named, they flash, and the button deletes them and makes the move: one refusal rule, `in_558`);
+      if (held) return { session: { ...sess, message: `this body cannot ${op.kind === "move" ? "move" : op.kind === "rotate" ? "turn" : "scale"}: a constraint ties its sketch to something that stays (${held.names}): remove it, or move that too`, conflict: { culprits: held.ids, victims: held.ids, retry: cmd } }, cmd } // (the constraints are named, they flash, and the button deletes them and makes the move: one refusal rule, `in_572`);
     }
     return { session: done, cmd };
   }
@@ -82,7 +82,7 @@ export function runOp(sess: Session, op0: Op): { session: Session; cmd: Command 
   }
   if (!edited.message) return { session: edited, cmd };
   // the side of a sketch that cannot move: no prism is added in its place (`in_208`); the constraints that hold it flash and the sketch stays as it was
-  if (op.edit.kind === "side") return { session: { ...sess, message: `that side cannot move: ${edited.message}`, conflict: (() => { const held = holdingSide(sceneOf(sess), op.edit.corners); return { culprits: held, victims: held, ...(held.length ? { retry: cmd } : {}) }; })() }, cmd }; // (the same: the button deletes what holds it and moves the side, `in_558`)
+  if (op.edit.kind === "side") return { session: { ...sess, message: `that side cannot move: ${edited.message}`, conflict: (() => { const held = holdingSide(sceneOf(sess), op.edit.corners); return { culprits: held, victims: held, ...(held.length ? { retry: cmd } : {}) }; })() }, cmd }; // (the same: the button deletes what holds it and moves the side, `in_572`)
   if (op.rounded) return { session: { ...edited, message: `that size cannot be made: ${edited.message}` }, cmd }; // (a fillet or chamfer face has no prism to fall back on)
   // the wall of one arc of a circle (a tooth of a gear): a prism of its circle would be a ring round the whole circle, all the teeth, not that wall (`in_265`)
   if (ofCircle) return { session: { ...edited, message: `that size cannot be made: ${edited.message}` }, cmd };

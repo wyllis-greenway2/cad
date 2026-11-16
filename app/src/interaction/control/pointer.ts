@@ -123,7 +123,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   const acts = actionsFor(sc, sel);
   const live = acts.filter((a) => a.group === "relation");
   const selKinds = relationKinds(sc, sel);
-  // every constraint and mate there is, in groups by what they apply to: the ring never changes shape with the selection; one that does not fit it is dimmed and says what to select (`in_559`)
+  // every constraint and mate there is, in groups by what they apply to: the ring never changes shape with the selection; one that does not fit it is dimmed and says what to select (`in_573`)
   const groups: MenuItem[] = CONSTRAINT_GROUPS.map((g) => category(g.id, g.label, g.items[0]!.id, g.items.map((it): MenuItem => {
     const a = live.find((x) => x.id === it.id);
     const fit = fits(g, selKinds);

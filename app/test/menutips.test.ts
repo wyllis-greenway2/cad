@@ -116,11 +116,11 @@ test("Esc ends the ring (and the ⋯ list): the menu is gone from the state and 
 });
 
 import { actionsFor } from "../src/interaction/actions.ts";
-test("nothing is left out of the ring: every relation that fits the selection is there, dimmed when it cannot be applied, with its reason (`in_554`)", () => {
+test("nothing is left out of the ring: every relation that fits the selection is there, dimmed when it cannot be applied, with its reason (`in_568`)", () => {
   let blocked = 0;
   for (const { name, st } of states()) {
     const items = reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as Item[];
-    const kids = every(items.find((i) => i.id === "constraints")!.children!); // (in groups, `in_559`)
+    const kids = every(items.find((i) => i.id === "constraints")!.children!); // (in groups, `in_573`)
     for (const a of actionsFor(scene(st.session), selection(st.session)).filter((x) => x.group === "relation")) {
       const same = kids.filter((i) => i.id === a.id); // (a constraint that fits several kinds is in each group: only the group of the selection is lit)
       assert.ok(same.length, `${name}: ${a.id} is in the ring`);
@@ -132,7 +132,7 @@ test("nothing is left out of the ring: every relation that fits the selection is
 });
 
 import { CONSTRAINT_GROUPS } from "../src/interaction/constraintlist.ts";
-test("the Constraints ring is the same shape whatever is selected: every constraint and mate, in groups, dimmed unless the selection is what it is for, with what to select said (`in_559`)", () => {
+test("the Constraints ring is the same shape whatever is selected: every constraint and mate, in groups, dimmed unless the selection is what it is for, with what to select said (`in_573`)", () => {
   const shapes = states().map(({ st }) => JSON.stringify(every(reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.find((i) => i.id === "constraints")!.children!).map((i) => i.id)));
   assert.equal(new Set(shapes).size, 1, "no constraint comes or goes with the selection");
   const { st } = states().find((x) => x.name === "empty")!;

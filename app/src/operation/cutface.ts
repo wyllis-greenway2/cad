@@ -1,4 +1,4 @@
-// THE CUT FACE (`in_574`, `dec_cross_section`): where a sheet that is cutting passes through the body, the cut is a face like any other: this slices the body's triangles by the sheet's plane, chains the cut into outlines
+// THE CUT FACE (`in_588`, `dec_cross_section`): where a sheet that is cutting passes through the body, the cut is a face like any other: this slices the body's triangles by the sheet's plane, chains the cut into outlines
 // (an outline inside another is a hole), keeps what the other sheets leave of them, and fills them. The faces, their edges and their corners are named by where they are, as every part of the body is
 // (`compiler/body.ts`), so a constraint to a cut edge is found again when the sheet is put back where it was. Pure: numbers in, numbers out.
 import type { Vec3 } from "../math/vec.ts";

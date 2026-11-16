@@ -81,7 +81,7 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
   const tmin = real.reduce((m, x) => Math.min(m, x.t), Infinity);
   const flush = (t: number) => t <= tmin + 1e-3 + 1e-6 * tmin;
   let out: Candidate[] = real.filter((x) => flush(x.t)).map((x) => ({ ref: x.p.ref, kind: x.p.kind, rank: 2, score: x.t }));
-  // a sheet lies where its own cut face is: over the part, the cut face is what is under the pointer (the sheet is reached past the part's edge, `in_574`)
+  // a sheet lies where its own cut face is: over the part, the cut face is what is under the pointer (the sheet is reached past the part's edge, `in_588`)
   if (out.some((c) => { const q = scene.parts[c.ref]; return q?.kind === "plane" && !!q.cap; })) out = out.filter((c) => { const q = scene.parts[c.ref]; return !(q?.kind === "plane" && !!q.section); });
   const bgs = surfaces.filter((x) => isBackground(x.p));
   const bmin = bgs.reduce((m, x) => Math.min(m, x.t), Infinity);

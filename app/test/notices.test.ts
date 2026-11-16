@@ -1,4 +1,4 @@
-// The one notification description (`in_558`, `q_ui_unification`).
+// The one notification description (`in_572`, `q_ui_unification`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { noticesOf } from "../src/interaction/notice.ts";

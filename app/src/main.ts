@@ -115,7 +115,7 @@ const USUAL_KEYS: Record<string, string[]> = JSON.parse(JSON.stringify(settings.
 settings.input.keys = keysFromText(webStore.get(KEYS_KEY), USUAL_KEYS);
 if (webStore.get(UNITS_KEY) === "in") units.system = "in";
 
-/** The settings page (`dec_settings_page`, `in_554`): each change is made and kept as it is made. */
+/** The settings page (`dec_settings_page`, `in_568`): each change is made and kept as it is made. */
 const settingsPage = createSettings(document.body, () => ({ units: units.system, outlines: settings.theme.outlines, scrollMode: recognizer.scrollMode, panScale: settings.input.trackpadPanScale, keys: settings.input.keys, usualKeys: USUAL_KEYS }), (c: Change) => {
   if (c.what === "units") { units.system = c.value; webStore.set(UNITS_KEY, c.value); }
   else if (c.what === "outlines") { settings.theme.outlines = c.value; webStore.set(OUTLINE_KEY, c.value ? "1" : "0"); view.rebuild(); }
@@ -160,7 +160,7 @@ const hardMarks = createHardMarks(document.body, (id) => dispatch({ type: "runAc
 const worldOrb = createWorldOrb(document.body, () => dispatch({ type: "runAction", id: "world:toggle" }));
 const sheetChips = createSheetChips(document.body, (id) => dispatch({ type: "runAction", id }));
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
-const notices = createNotices(document.body, statusEl, (i) => dispatch(i)); // (every message, refusal, help and the working sign, `in_558`)
+const notices = createNotices(document.body, statusEl, (i) => dispatch(i)); // (every message, refusal, help and the working sign, `in_572`)
 const addChip = createAddChip(document.body, () => dispatch({ type: "runAction", id: "select:add" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "invert" ? { type: "runAction", id: "hollow:invert" } : to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
@@ -206,7 +206,7 @@ const say = (message: string) => { state = { ...state, session: { ...state.sessi
 async function exportDialogFlow() {
   let saved = EXPORT_DEFAULTS;
   try { saved = { ...EXPORT_DEFAULTS, ...JSON.parse(webStore.get(EXPORT_KEY) ?? "{}") }; } catch { /* not kept, or not readable: the usual */ }
-  saved = { ...saved, units: units.system }; // (the units start from the number system of the settings page; a different choice here is for this file only, `in_570`)
+  saved = { ...saved, units: units.system }; // (the units start from the number system of the settings page; a different choice here is for this file only, `in_584`)
   const answers = await dialog.open((v) => exportDialog(state.session, v as unknown as ExportOptions), (({ name: _name, ...rest }) => rest)(fitExport(state.session, { ...saved, name: "" })) as unknown as Values); // (the file name is not asked as an answer to begin with: the dialog offers its own)
   if (!answers) return;
   const o = fitExport(state.session, answers as unknown as ExportOptions);

@@ -37,7 +37,7 @@ const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit",
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (s.adding && i.type === "click" && !i.shift && !s.tool && !s.op && !s.repeat && !s.cut && !s.picking) i = { ...i, shift: true }; // (adding: a tap is a Shift click, `in_539`)
   let next = apply(s, i, env);
-  if (i.type === "faceKind" || i.type === "sizeKind" || i.type === "loftKind" || i.type === "similarRule" || i.type === "cut") next = { ...next, optionAt: null }; // (an option chosen by the pointer: the keyboard's place in the bar starts from there again, `in_557`)
+  if (i.type === "faceKind" || i.type === "sizeKind" || i.type === "loftKind" || i.type === "similarRule" || i.type === "cut") next = { ...next, optionAt: null }; // (an option chosen by the pointer: the keyboard's place in the bar starts from there again, `in_571`)
   if (next.cam !== s.cam || next.session.history.scene !== s.session.history.scene || next.lastSeen === null) next = noteSeen(next, env.w, env.h, projector(next.cam, env.w, env.h).project as (p: Vec3) => [number, number]); // (what was last in view, for Reset camera, `in_303`)
   if (next.resume && !RESUMING.has(i.type)) next = { ...next, resume: null }; // only a click, or moving the view, keeps "sketching goes on" waiting for a vertex
   // the hidden sketch of a plane is shown while a tool begun on the edge of a body sketches in it (`in_211`)
@@ -142,10 +142,10 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "escape": return doEscape(s);
     case "begin": return doBegin(s, i.name, env.now);
     case "typed": {
-      // Tab and Shift+Tab step through the options of the open operation, each step choosing it (`in_557`); the left and right arrows go between its numbers, which Tab does when it has no options or has several numbers to type
+      // Tab and Shift+Tab step through the options of the open operation, each step choosing it (`in_571`); the left and right arrows go between its numbers, which Tab does when it has no options or has several numbers to type
       const numbers = s.op?.kind === "edge" && !!(s.op.variable || s.op.twoDist) && !!s.op.vary; // (several numbers to type: Tab goes between them as it always did; Shift+Tab still steps the options)
       if (i.key === "Tab" && (i.shift || !numbers)) { const step = stepOption(s, i.shift ? -1 : 1); if (step) return { ...(step.intent ? reduce(s, step.intent, env) : s), optionAt: step.optionAt }; }
-      // Shift+Enter flips the switch the bar's focus is on (Enter applies; a switch is not a choice between ways: Tab only lands on it, `in_563`)
+      // Shift+Enter flips the switch the bar's focus is on (Enter applies; a switch is not a choice between ways: Tab only lands on it, `in_577`)
       if (i.key === "Enter" && i.shift) { const act = activateOption(s); if (act) return { ...reduce(s, act, env), optionAt: s.optionAt }; }
       // Enter closes the rules of a Select similar (what is selected stays): the bar's check
       if (i.key === "Enter" && !i.shift && similarOf(s) && !s.op && !s.tool && !s.repeat && !s.cut && !s.picking) return { ...s, similar: null };

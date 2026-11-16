@@ -1,4 +1,4 @@
-// The settings page's logic (`dec_settings_page`, `in_554`): which actions have keys and what they are called, turning a key press into the text of a binding ("mod+shift+z") and back into words,
+// The settings page's logic (`dec_settings_page`, `in_568`): which actions have keys and what they are called, turning a key press into the text of a binding ("mod+shift+z") and back into words,
 // changing a binding without two actions sharing one, and keeping the person's own bindings. Pure: no DOM.
 import type { Mods } from "../shared/input.ts";
 

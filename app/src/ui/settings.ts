@@ -1,4 +1,4 @@
-// The settings page (`dec_settings_page`, `in_554`): a page over the whole window, opened from the ⋯ list. Numbers (inch or mm), the view, the mouse and trackpad, and the keyboard with every key binding
+// The settings page (`dec_settings_page`, `in_568`): a page over the whole window, opened from the ⋯ list. Numbers (inch or mm), the view, the mouse and trackpad, and the keyboard with every key binding
 // shown and the person able to set their own. It shows what `read()` says and reports each change through `change`; it keeps nothing of its own.
 import { KEY_ACTIONS, KEY_GROUPS, chordOf, specText, rebind, unbind } from "../interaction/preferences.ts";
 import type { Keys } from "../interaction/preferences.ts";
@@ -15,7 +15,7 @@ export function createSettings(host: HTMLElement, read: () => Prefs, change: (c:
   const page = document.createElement("div");
   page.style.cssText = "position:fixed;inset:0;display:none;background:#f4f5f7;z-index:1100;overflow-y:auto;font:14px system-ui,sans-serif;color:#2b2b2d";
   host.appendChild(page);
-  const armed = guardOpenClicks(page); // (the press that opened the page must not click on it, `in_567`)
+  const armed = guardOpenClicks(page); // (the press that opened the page must not click on it, `in_581`)
   let capturing: { action: string; index: number } | null = null;
   let note = "";
   const el = (tag: string, css = "", text = ""): HTMLElement => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (text) e.textContent = text; return e; };

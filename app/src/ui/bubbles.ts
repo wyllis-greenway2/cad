@@ -5,7 +5,7 @@ import { roundedText } from "../shared/numbers.ts";
 import { bubbleCss } from "./look.ts";
 import { lengthIn, lengthText, areaText, unitName, units } from "../shared/units.ts";
 
-/** A bubble's number and unit as the person reads them in the number system in use (`in_554`): only a length changes. */
+/** A bubble's number and unit as the person reads them in the number system in use (`in_568`): only a length changes. */
 const shownNumber = (a: { value: number | null; unit: string | null }): string => (a.unit === "mm" ? lengthText(a.value ?? 0) : a.unit === "mm²" ? areaText(a.value ?? 0) : roundedText(a.value ?? 0));
 import type { Vec3 } from "../interaction/api.ts";
 import type { Annotation } from "../interaction/annotations.ts";

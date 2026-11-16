@@ -1,4 +1,4 @@
-// The cross section plane follows its drag live (`in_573`): the picture of the plane is where the drag has taken it, not where it was at the press.
+// The cross section plane follows its drag live (`in_587`): the picture of the plane is where the drag has taken it, not where it was at the press.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

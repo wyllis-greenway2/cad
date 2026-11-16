@@ -56,7 +56,7 @@ export function patternStart(scene: Scene, kind: "linear" | "circular", figure: 
 }
 
 /** The numbers of a repeat: each field as typed, else as it started. */
-export const patternValues = (op: Op): number[] => (op.patStart ?? []).map((v, i) => (op.kind === "linear" && i % 2 === 1 ? typedLength(op.pat[i] ?? "") : typedNumber(op.pat[i] ?? "")) ?? v); // (the distance between copies is a length: typed in the number system in use, `in_554`)
+export const patternValues = (op: Op): number[] => (op.patStart ?? []).map((v, i) => (op.kind === "linear" && i % 2 === 1 ? typedLength(op.pat[i] ?? "") : typedNumber(op.pat[i] ?? "")) ?? v); // (the distance between copies is a length: typed in the number system in use, `in_568`)
 
 /** The middle of what is repeated (where the arrows of a linear repeat start). */
 export function patternCentre(scene: Scene, op: Op): Vec3 {

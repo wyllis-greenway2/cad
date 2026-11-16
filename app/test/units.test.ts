@@ -1,4 +1,4 @@
-// The number system (`in_554`, `dec_settings_page`): the model is millimetres whatever is shown; what is typed and shown for a length is in the system in use, angles and counts are not.
+// The number system (`in_568`, `dec_settings_page`): the model is millimetres whatever is shown; what is typed and shown for a length is in the system in use, angles and counts are not.
 import test, { afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { units, lengthText, lengthIn, lengthOut, typedLength, unitName } from "../src/shared/units.ts";
@@ -72,7 +72,7 @@ import { importDialog } from "../src/interaction/transfer.ts";
 import { IMPORT_DEFAULTS } from "../src/interaction/importfile.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
 
-test("areas, the Clearance row and its steps and an STL's units follow the number system (`in_570`)", () => {
+test("areas, the Clearance row and its steps and an STL's units follow the number system (`in_584`)", () => {
   assert.equal(areaText(645.16), "645.16"); // millimetres: as it was
   units.system = "in";
   assert.equal(areaText(645.16), "1");

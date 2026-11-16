@@ -138,7 +138,7 @@ export function bodyParts(result: KernelResult, sheets: Sheet[] = []): Part[] {
     }
     out.push({ ...base, ref, kind: "plane", at: [f.n[0] * f.d, f.n[1] * f.d, f.n[2] * f.d], u: f.u, v: f.v, ...(f.mesh.length ? { mesh: f.mesh } : {}), ...(f.body !== undefined ? { of: bodyPart(f.body) } : {}) });
   }
-  // where a sheet that is cutting passes through the body the cut is a face too, with its edges and corners (`in_574`): named by where they are, like the rest
+  // where a sheet that is cutting passes through the body the cut is a face too, with its edges and corners (`in_588`): named by where they are, like the rest
   if (sheets.length && result.mesh) {
     const lines = new Set(out.filter((p) => p.kind === "line").map((p) => p.ref));
     // with several bodies each is cut on its own (only its own triangles), and its parts say which body they belong to

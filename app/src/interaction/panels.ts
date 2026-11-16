@@ -11,7 +11,7 @@ export interface PanelRow { id: string; label: string; /** selected (a body) */ 
 export interface Panel { kind: PanelKind; title: string; rows: PanelRow[] }
 
 const n = (v: unknown): string => String(Math.round(Number(v) * 100) / 100);
-/** A length of a step in the number system in use, with its unit (`in_554`). */
+/** A length of a step in the number system in use, with its unit (`in_568`). */
 const len = (v: unknown): string => `${lengthText(Number(v))} ${unitName("mm")}`;
 /** What a step says, in a few words. */
 function stepLabel(st: Step): string {

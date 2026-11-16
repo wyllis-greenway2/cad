@@ -1,4 +1,4 @@
-// THE OPERATION BAR (`in_557`, `dec_ui_unification`): the one place that says what is open, with its options and its apply and cancel. On a mouse it is a pill at the top; on a finger it is at the bottom, with undo and redo in it.
+// THE OPERATION BAR (`in_571`, `dec_ui_unification`): the one place that says what is open, with its options and its apply and cancel. On a mouse it is a pill at the top; on a finger it is at the bottom, with undo and redo in it.
 // The sketching tool that is on (`in_193`): a little pill at the top of the page with the tool's icon and a cross; the tool stays on until a right click or this cross puts it away. Once a figure has been made the cross becomes a check (the work is done, the check puts the tool away: it is not a cancel, `in_283`) and it flashes green, fading, at every figure and every operation that opens, to show it is there to press.
 import { iconSvg } from "./icons.ts";
 import { choiceRow, roundButton, onPress } from "./look.ts";
@@ -17,7 +17,7 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
   words.style.cssText = "display:none;font:600 13px system-ui,sans-serif;white-space:nowrap";
   const options = document.createElement("span");
   options.style.cssText = "display:none;gap:6px;align-items:center";
-  // undo and redo, for a finger: they are in the bar, which is at the bottom, where a thumb reaches (`in_557`)
+  // undo and redo, for a finger: they are in the bar, which is at the bottom, where a thumb reaches (`in_571`)
   const round = (name: string, title: string, fire: () => void): HTMLElement => { const b = roundButton({ icon: name, size: 36, tone: "dark", title }); onPress(b, fire); return b; };
   const undoB = round("undo", "Undo", undo);
   const redoB = round("redo", "Redo", redo);
@@ -49,7 +49,7 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
       if (!on) { madeSeen = 0; shown = ""; optionsShown = ""; icon.style.display = "none"; tick.style.display = x.style.display = "none"; options.style.display = "none"; words.style.display = "none"; return touch; } // (a finger always has the bar: undo and redo are in it)
       icon.style.display = "inline-flex";
       const done = !confirm && !!tool?.done; // (the interaction layer says: a figure is made and nothing is half drawn, so the tool can be put away with the check)
-      tick.style.display = confirm || done ? "inline-flex" : "none"; // (every operation has its check, on every device: a tap away from it still applies, like a right click, `in_557`)
+      tick.style.display = confirm || done ? "inline-flex" : "none"; // (every operation has its check, on every device: a tap away from it still applies, like a right click, `in_571`)
       tick.dataset.mode = confirm ? "apply" : "done";
       x.style.display = confirm || !done ? "inline-flex" : "none"; // (an operation: apply or cancel; a tool: the check once there is something done, else the cross)
       if (!confirm && tool && (tool.made ?? 0) > madeSeen) flash();

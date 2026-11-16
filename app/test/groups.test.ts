@@ -173,7 +173,7 @@ test("the touch way to select several: Add mode (in a finger's ring, Select) mak
   assert.equal(selection(st.session).length, 1, "a tap on one that is selected takes it out");
   st = reduce(st, { type: "runAction", id: "select:add" }, env); // Done
   assert.equal(st.adding, false);
-  assert.equal(frameOf(st, env).adding, null, "the pill is not offered: it only says adding is on (`in_556`)");
+  assert.equal(frameOf(st, env).adding, null, "the pill is not offered: it only says adding is on (`in_570`)");
   const items = (x: AppState, touch: boolean) => reduce(x, { type: "menu", x: 300, y: 300, ...(touch ? { touch: true } : { button: true }) }, env).menu!.items.flatMap((i) => i.children ?? [i]);
   assert.equal(items(st, true).find((i) => i.id === "select:add")!.label, "Add mode", "a finger's menu has it");
   assert.ok(!items(st, false).some((i) => i.id === "select:add"), "a mouse's menu does not (it has Shift)");

@@ -1,4 +1,4 @@
-// The cut face (`in_574`, `dec_cross_section`): where a sheet that is cutting passes through the body, the cut is a face with its edges and corners, named by where they are.
+// The cut face (`in_588`, `dec_cross_section`): where a sheet that is cutting passes through the body, the cut is a face with its edges and corners, named by where they are.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";
@@ -93,7 +93,7 @@ test("a cut face can be picked, looked at and sketched on, and a push / pull of 
   assert.ok(actionsFor(scene(sel.session), [face.ref]).length >= 0);
 });
 
-// ---- curved cuts (`in_575`) ----
+// ---- curved cuts (`in_589`) ----
 /** A cylinder along z as triangles: radius r, `sides` flat sides, z from 0 to h. */
 function cylinder(r: number, h: number, sides = 48) {
   const v: number[] = [];
@@ -147,7 +147,7 @@ test("in the app a cut across a cylinder has two half arcs that know each other,
   assert.ok(ids.includes("radius") || ids.includes("diameter"), `an arc of the cut can be measured: ${ids}`);
 });
 
-// ---- a plane through a corner, an edge or a face; several bodies (`in_576`) ----
+// ---- a plane through a corner, an edge or a face; several bodies (`in_590`) ----
 test("a plane that passes exactly through corners and edges of the body still cuts cleanly", () => {
   // x = y through the box's corner (0,0,0) and the edge from (0,0,0) to (0,0,10): the cut is a rectangle across it
   const s = Math.SQRT1_2;

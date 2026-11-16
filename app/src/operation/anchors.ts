@@ -56,7 +56,7 @@ export function anchorLines(scene: Scene, pl: Plane, opts: AnchorOpts = {}): Anc
 export function anchorCutCorners(scene: Scene, pl: Plane): { at: Vec3; refs: Ref[] }[] {
   const out: { at: Vec3; refs: Ref[] }[] = [];
   for (const l of anchorLines(scene, pl)) {
-    if (l.offset !== 0) continue; // (the cut of a flat face: its trace, or, with the cut face a real face of the body, the edge of it that is there: the real edge wins where both fall on one line, `in_574`)
+    if (l.offset !== 0) continue; // (the cut of a flat face: its trace, or, with the cut face a real face of the body, the edge of it that is there: the real edge wins where both fall on one line, `in_588`)
     for (const end of [l.a, l.b]) {
       const at = out.find((o) => near3(o.at, end));
       if (at) { if (!at.refs.includes(l.ref)) at.refs.push(l.ref); } else out.push({ at: end, refs: [l.ref] });

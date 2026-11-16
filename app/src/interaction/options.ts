@@ -1,4 +1,4 @@
-// The options of the open operation (`in_557`, `dec_ui_unification`): the choices that sit in the operation bar (what a push / pull of a face does, how a fillet's size runs, how a loft is joined), in one list, and Tab and
+// The options of the open operation (`in_571`, `dec_ui_unification`): the choices that sit in the operation bar (what a push / pull of a face does, how a fillet's size runs, how a loft is joined), in one list, and Tab and
 // Shift+Tab stepping through the ones that are a choice between ways (not the ones that are switches). A step chooses the option, so it needs no aiming: it works in game mode, with the keyboard alone, and on a phone with the bar's own buttons.
 import type { AppState } from "./control/state.ts";
 import type { Intent } from "../shared/input.ts";
@@ -54,7 +54,7 @@ export function similarOf(s: AppState): { rules: { id: SimilarRule; label: strin
   return { rules: SIMILAR_RULES.map((r) => ({ ...r, on: sim.rules.includes(r.id) })), count: sim.refs.length, noun: sim.noun };
 }
 
-/** Every option of the bar for the state, in order (empty when what is open has none): an operation's, a Cut's (each part kept or tossed, and joined or separate), a Select similar's rules (`in_563`). */
+/** Every option of the bar for the state, in order (empty when what is open has none): an operation's, a Cut's (each part kept or tossed, and joined or separate), a Select similar's rules (`in_577`). */
 export function optionsOf(s: AppState): Option[] {
   const op = s.op;
   let list: Omit<Option, "focus">[] = [];

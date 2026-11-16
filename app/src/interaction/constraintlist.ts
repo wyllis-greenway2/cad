@@ -1,4 +1,4 @@
-// The constraints and mates the ring always lists (`in_559`, `dec_ui_unification`): every one the relations table knows, grouped by what it applies to, so the ring's shape never depends on what is selected. A constraint
+// The constraints and mates the ring always lists (`in_573`, `dec_ui_unification`): every one the relations table knows, grouped by what it applies to, so the ring's shape never depends on what is selected. A constraint
 // fits the selection when the selection is of that group's kinds; the ring dims the rest and says what to select. Pure.
 import { ROWS } from "./rows.ts";
 import type { Kind } from "../operation/part.ts";
