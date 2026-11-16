@@ -2207,3 +2207,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_473 — 2026-11-16 — directive
 > yes build the mesh test
 (approves the mesh test for self-crossing bodies: a general check of the final mesh of a changed body for triangles that cross, whatever made it)
+
+## in_474 — 2026-11-16 — question
+> Okay here is another weird thing, maybe not a bug, but you can see what I tried to do if you use ctrl z, and you can see that pushing in this face at some point created these little ear like artifacts on the part? It seems like odd behavior
+(two files were attached: `face_shift_adding_weird_ear_things.json` and its state snapshot; says that pushing in a face at some point made small ear-like artifacts on the part, and asks whether this is expected)
