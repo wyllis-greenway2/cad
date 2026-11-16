@@ -3,7 +3,7 @@ id: dec_hard_bodies
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_472, in_473, in_474, in_475, in_476, in_477, in_478, in_479
+human_input: in_472, in_473, in_474, in_475, in_476, in_477, in_478, in_479, in_480
 date: 2026-11-16
 depends_on:
 alternative_to:
@@ -41,7 +41,8 @@ alternative_to:
 - *The mark (`in_476`):* each hard body has a small round badge with the hard icon over the middle of its top (`Frame.hardMarks`, `ui/hardmarks.ts`: page elements over the picture, not parts of the model); pointing at it says what it means and pressing it makes the body soft (`body:hard:<ref>`, one step). It is there whenever the body's mark is in view; a very crowded model may want fewer.
 - *Mates (`in_477`):* a mate that is made (`mateCommand`) is refused when the pose it puts the body in would be inside a hard body, or nearer to one than the clearance, with the body's name and, when there is a clearance, a reminder to give the mate a gap of at least that (two hard bodies a flush mate puts face to face are fine at clearance 0 and refused at any more). A drag of a body that standing mates hold: the order is now the same in the picture and at release: what is asked is first limited by the hard bodies (stop or slide), the mates then settle that, and if the pose they leave is in a hard body the move is refused (at release, with the reason) and the picture shows the body where it was with the body it would be in flashing (`hardCollision`). Not tested: mates that move other bodies along (a chain), a joint's drive.
 - *Heavy models (`in_479`):* the moving body has a tree of its own, and `collidesMoving` (`operation/collide.ts`) walks it together with the tree of the body that stays, each box taken to where the motion puts it, moving only the triangles of leaves that meet (a drag, a stop search, a pull of a face and the mate and history checks use it). It gives the same answers as moving every triangle (tested on random moves and turns, with and without a clearance). Where the boxes of the two bodies overlap but nothing touches it was about 3.5 times quicker on 19,200 moving triangles; a body far from the others is stopped at the first box as before.
-- *Not built:* the tree is not used for the contact normal of a slide (asked once a stop, not at every step); mate chains and joint drives against hard bodies, round-face push/pull and extrude onto hard bodies are untested.
+- *Joints and chains (`in_480`):* a joint (a pin in a hole) driven by its handle or by a typed number goes only as far as its body can before it meets a hard body (`hardDrive`, `interaction/mate.ts`: tested along the way, then narrowed; the body it is against flashes during the drag; a typed number that is too far goes as far as it can, with no message). Standing mates put back together after a change (`solveStanding`, a chain of bodies each resting on the one before) are tested at the poses they settle on: if any body of the chain would be in a hard body, nothing is made, the change is refused and the message names the hard body (`atOddsMessage`).
+- *Not built:* the tree is not used for the contact normal of a slide (asked once a stop, not at every step); round-face push/pull and extrude onto hard bodies are untested; a typed joint number that runs into a hard body is cut short without saying so.
 
 ## Rationale
 It adds a property to bodies and a rule to every motion, so it is asked before it is built.

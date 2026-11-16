@@ -216,7 +216,7 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
     const matrix = matrixOf(rigid);
     const split = bodySplitOf(sc0, s.session.outcome, fake.op);
     lastDrag = { split, matrix, steps: sc0.steps.length };
-    return { matrix, shown: gpuBase.value, split };
+    return { matrix, shown: gpuBase.value, split, ...(jd.hit?.length ? { hardHit: jd.hit } : {}) };
   }
   const op = s.op;
   if (!op) return null;

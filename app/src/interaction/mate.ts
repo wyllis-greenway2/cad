@@ -19,6 +19,7 @@ import { solvePoses, solveDriven, poseOfRigid, rigidOfPose, poseForBody } from "
 import type { Rigid } from "../operation/frames.ts";
 import { laterMotion } from "../operation/frames.ts";
 import { hardCollision, hardNames } from "./hard.ts";
+import { freePart } from "../operation/collide.ts";
 import type { Step } from "../operation/scene.ts";
 
 export type { MateMode };
@@ -197,6 +198,18 @@ export function driveCommand(scene: Scene, mateId: string, kind: "turn" | "slide
   return { type: "batch", commands: [...steps, ...carrySketches(scene, turns, [0, 0, 0], a.point, 1, body), ...record] };
 }
 
+/**
+ * How far driving a joint by `amount` may go before its body meets a hard body (`in_480`): the amount it can make, and the hard bodies it is against at the next step beyond (all of it, and none, when nothing is in the way).
+ * Tested along the way, so a thin wall is not stepped over; a pair already overlapping is left out, so a body can be driven out of another.
+ */
+export function hardDrive(scene: Scene, mateId: string, kind: "turn" | "slide", amount: number): { amount: number; hit: Ref[] } {
+  const body = mateStatus(scene).find((x) => x.id === mateId)?.mover?.body;
+  if (!body || !scene.hard?.length || !amount) return { amount, hit: [] };
+  const into = (a: number): Ref[] => hardCollision(scene, [body], () => jointRigid(scene, mateId, kind, a));
+  const t = freePart((u) => into(amount * u).length > 0);
+  return t >= 1 ? { amount, hit: [] } : { amount: amount * t, hit: into(amount * Math.min(1, t + 5e-3)) };
+}
+
 /** The joint of a body (`in_323`): the mate that leaves it free to turn and slide (it is the first body of a true coaxial mate), where its axis stands and which way it points; or null. */
 export function jointOfBody(scene: Scene, body: Ref): { mate: string; point: Vec3; dir: Vec3 } | null {
   const m = mateStatus(scene).find((x) => x.state === "ok" && x.mode === "coaxial" && x.mover?.body === body);
@@ -298,12 +311,18 @@ export function constrainedMotion(scene: Scene, group: readonly Ref[], asked: Ri
   return { rigids: members.map((b) => ({ body: b.id as Ref, rigid: rigidOfPose(poseForBody(solved.pose, solved.at, b.pivot), b.pivot) })), blocked: solved.reached ? [] : solved.blockedBy };
 }
 
-export function solveStanding(scene: Scene): { commands: Command[]; atOdds: string[] } {
+export function solveStanding(scene: Scene): { commands: Command[]; atOdds: string[]; /** the hard bodies the bodies would be in where the mates leave them (`in_480`) */ hard?: string } {
   const states = mateStatus(scene).filter((m) => m.standing && m.state !== "lost" && m.mover && m.other);
   if (!states.some((m) => m.state === "off")) return { commands: [], atOdds: [] };
   const { mates, bodies } = problemOf(scene, states);
   const solved = solvePoses(mates, bodies);
   if (!solved.ok) return { commands: [], atOdds: solved.atOdds };
+  // a chain of mates settled together may leave one of its bodies in a hard body: then none of it is made, and the mates stay off, with the reason (`in_480`)
+  if (scene.hard?.length) {
+    const rigid = (b: Ref): Rigid | null => { const pose = solved.poses.get(b); const body = bodies.find((q) => q.id === b); return pose && body ? rigidOfPose(pose, body.pivot) : null; };
+    const into = hardCollision(scene, [...solved.poses.keys()] as Ref[], rigid);
+    if (into.length) return { commands: [], atOdds: states.filter((m) => m.state === "off").map((m) => m.id), hard: hardNames(scene, into) };
+  }
   const commands = [...solved.poses].flatMap(([ref, pose], k) => { const body = bodies.find((b) => b.id === ref); return body ? poseCommands(scene, ref as Ref, body.pivot, pose, k) : []; });
   return { commands, atOdds: [] };
 }

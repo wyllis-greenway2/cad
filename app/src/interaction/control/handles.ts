@@ -26,7 +26,7 @@ import { withPose, hasOrb, moverOp, putMover } from "./pose.ts";
 import { patternBase, dragPattern, liveRepeat, advanceHelp } from "../pattern.ts";
 import type { Op } from "../operations.ts";
 import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed, jointHandles, moveOffset } from "../gizmo.ts";
-import { jointOfBody, jointRoom, driveCommand } from "../mate.ts";
+import { jointOfBody, jointRoom, driveCommand, hardDrive } from "../mate.ts";
 import type { Gizmo } from "../gizmo.ts";
 import { candidatesAt } from "../picking.ts";
 import { projector, basis, viewAxes, nearTolMm } from "../camera.ts";
@@ -162,7 +162,8 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
     if (!r || !("value" in r)) return s;
     const room = jointRoom(sceneOf(s.session), jd.mate, jd.kind);
-    return { ...s, drag: { ...s.drag, joint: { ...jd, amount: Math.min(room.up, Math.max(room.down, r.value)) } } };
+    const driven = hardDrive(sceneOf(s.session), jd.mate, jd.kind, Math.min(room.up, Math.max(room.down, r.value))); // (taken only as far as a hard body lets it, `in_480`)
+    return { ...s, drag: { ...s.drag, joint: { ...jd, amount: driven.amount, hit: driven.hit } } };
   }
   if ("corner" in s.drag!) return moveCorner(s, i, env);
   if ("line" in s.drag!) return moveLine(s, i, env);

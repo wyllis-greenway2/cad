@@ -2244,3 +2244,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_479 — 2026-11-16 — directive
 > Do the tree for heavy models next
 (asks for what `dec_hard_bodies` left unbuilt: a tree of the moving body so very heavy models are not slow, each step now moves all its triangles)
+
+## in_480 — 2026-11-16 — directive
+> Do the mate chains and joint drives next
+(asks for what `dec_hard_bodies` lists as untested: mate chains and joint drives against hard bodies)
