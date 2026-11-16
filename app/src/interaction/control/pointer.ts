@@ -21,7 +21,7 @@ import type { Command } from "../../operation/commands.ts";
 import type { OpKind, Op } from "../operations.ts";
 import { startOp, surfaceAxes, canPickFor } from "../operations.ts";
 import { similarTo } from "../similar.ts";
-import { whyNotGroup, whyNotUngroup, whyNotCombine, applyCut } from "./select.ts";
+import { whyNotGroup, whyNotUngroup, whyNotCombine, whyNotUse, applyCut } from "./select.ts";
 import { projector, nearTolMm } from "../camera.ts";
 import { settings } from "../../shared/settings.ts";
 import { planeOf, objectOf } from "../objects.ts";
@@ -39,7 +39,7 @@ import { patternValues } from "../pattern.ts";
 import { hasGizmo, hitHandle, moveOffset } from "../gizmo.ts";
 
 /** The operations a right click offers (`in_133`), in categories (`in_143`): sketching, constraints, shape, moving and repeating, and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
-const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" | "combine" | "faces" | "edges" | "vertices" | "paste" | "hard" | "bodies" | "add" }[] = [
+const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" | "combine" | "faces" | "edges" | "vertices" | "paste" | "hard" | "bodies" | "add" | "use" }[] = [
   { id: "tool:rect", label: "Rectangle", icon: "rect", tool: "rect" },
   { id: "tool:circle", label: "Circle", icon: "circle", tool: "circle" },
   { id: "tool:line", label: "Line", icon: "line", tool: "line" },
@@ -68,6 +68,9 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "select:vertices", label: "All vertices", icon: "selvertices", select: "vertices" },
   { id: "select:bodies", label: "All bodies", icon: "selbodies", select: "bodies" },
   { id: "select:add", label: "Add mode", icon: "seladd", select: "add" },
+  { id: "use:cut", label: "Cut", icon: "usecut", select: "use" }, // (what a drawn line is for in an exported SVG or DXF: the layer, `in_563`)
+  { id: "use:score", label: "Score", icon: "usescore", select: "use" },
+  { id: "use:engrave", label: "Engrave", icon: "useengrave", select: "use" },
   { id: "select:group", label: "Group", icon: "group", select: "group" },
   { id: "select:ungroup", label: "Ungroup", icon: "ungroup", select: "ungroup" },
 ];
@@ -76,6 +79,7 @@ const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[]
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts"] },
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular"] },
+  { id: "layer", label: "Layer", icon: "uselayer", items: ["use:cut", "use:score", "use:engrave"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
@@ -106,6 +110,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (r.select === "bodies") { const any = Object.values(sc.parts).some((q) => q.kind === "body"); return [r.id, { ...base, enabled: any, why: any ? null : "no bodies yet" }]; }
     if (r.select === "paste") return [r.id, { ...base, enabled: !!view.clip, why: view.clip ? null : "nothing is copied: select something and press Ctrl+C" }];
     if (r.select === "faces" || r.select === "edges" || r.select === "vertices") return [r.id, { ...base, enabled: true, why: null }];
+    if (r.select === "use") { const why = whyNotUse(session); return [r.id, { ...base, enabled: !why, why }]; }
     if (r.select) { const why = r.select === "group" ? whyNotGroup(session) : whyNotUngroup(session); return [r.id, { ...base, enabled: !why, why }]; }
     const st = startOp(sc, sel, r.op!);
     return [r.id, { ...base, enabled: true, why: st.ok ? null : st.why, ...(st.ok ? {} : { picks: true as const }) }]; // (not selected yet: it can be chosen and waits for what to click, `in_464`)

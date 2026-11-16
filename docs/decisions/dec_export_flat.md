@@ -3,7 +3,7 @@ id: dec_export_flat
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_522, in_525
+human_input: in_522, in_525, in_563
 date: 2026-11-16
 depends_on:
   - dec_export_formats: the same file service (`saveBytes`) and the same menu rows; this adds the two flat formats (SVG, DXF) that `dec_import_export_menu` point 3 puts after STEP
@@ -21,7 +21,7 @@ alternative_to:
 
 **Checked outside the tests (`ezdxf` and `svgpathtools`):** a block's top with a round hole gives a DXF and an SVG whose total lengths are both 145.1327 mm (the rectangle and the hole) and `ezdxf`'s audit finds no errors; a half circle gives 31.4159 mm both ways.
 
-**Not built:** layers, colours and line weights; text and dimensions; ellipses and splines (the app has none); a choice of what to export beyond the selection; units other than mm; DXF in a newer version with polylines; several sketches in one file.
+**Layers (`in_563`, groundwork of `dec_manufacturing_prep`):** a drawn line or circle can be marked **Cut, Score or Engrave** (the ring's *Layer* category; `use` on the part, command `setUse`, one step to undo; cut is the usual and is stored as nothing; a figure selected marks its lines and the holes in it). A file made from a drawing with anything marked carries layers: the SVG has one group for each (`id` and Inkscape layer name `cut`, `score`, `engrave`, in the usual colours red, blue and black), the DXF a layer table (`CUT` colour 1, `SCORE` 5, `ENGRAVE` 7, linetype CONTINUOUS) with each entity on its layer; what is not marked is cut; pieces that meet are joined only within a layer; a drawing with nothing marked exports exactly as before. Layers are not read back by the importer yet, and a marked line is not drawn differently on the screen yet. Faces of a body export as before (no layers).\n\n**Not built:** colours and line weights beyond the layer colours; text and dimensions; ellipses and splines (the app has none); a choice of what to export beyond the selection; units other than mm; DXF in a newer version with polylines; several sketches in one file.
 
 ## Rationale
 

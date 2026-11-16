@@ -28,8 +28,12 @@ export interface Line extends Base { kind: "line"; a: Ref; b: Ref; /** a point h
   /** a body edge that is (part of) a circle: the circle it lies on; the rim of a post or a hole */
   circle?: { center: Vec3; normal: Vec3; radius: number };
   /** a rim made of two half circles: the other half (picking one picks both) */
-  twin?: Ref }
-export interface Circle extends Base { kind: "circle"; center: Ref; radius: number }
+  twin?: Ref;
+  /** what a drawn line is for when the drawing goes to a laser or a cutter (`in_563`); absent means cut */
+  use?: Use }
+export interface Circle extends Base { kind: "circle"; center: Ref; radius: number; /** what it is for in the exported file; absent means cut */ use?: Use }
+/** Cut through, score (a shallow line, a fold) or engrave: the layers of the SVG and DXF files (`dec_export_flat`, `dec_manufacturing_prep`). */
+export type Use = "cut" | "score" | "engrave";
 /** A derived face of drawn lines: a closed loop (its lines and, in order, its corners), or a disk (a circle). Rebuilt from the lines; never saved. */
 export interface Face extends Base { kind: "face"; loop: Ref[]; corners: Ref[]; disk?: Ref; /** closed figures drawn inside this one (the nearest ones): the region is this figure without them, so each figure and each ring between them is picked and extruded by itself */ holes?: Ref[]; /** one of the pieces a circle is cut into by lines drawn across it */ pieces?: boolean }
 /** A plane you can look at, select and draw on. `infinite`: a world plane, hit anywhere on it (`in_116`). `extent`: a square pane from `at` to `at + extent` along u and v. `mesh`: a flat face of the body, as triangles (flat xyz). */

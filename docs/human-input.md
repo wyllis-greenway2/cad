@@ -2588,3 +2588,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_562 — 2026-11-16 — directive
 > Start with the contract types and check script
 (asks for the first two groundwork pieces of the accepted manufacturing entries: the contract types and the boundary check script)
+
+## in_563 — 2026-11-16 — directive
+> Do the SVG and DXF layers next
+(asks for the third groundwork piece of the accepted manufacturing entries: layers (cut, score, engrave) in the SVG and DXF export, which dec_export_flat lists as not built)
