@@ -257,7 +257,7 @@ export function moveEntries(op: Op, g: Gizmo | null, offset: Vec3): Entry[] {
   }];
 }
 
-/** An entry as the person reads it in the number system in use (`in_543`): a length that is the live value of the model (not what was typed: that is in the system already) is shown in inches, and the unit's name follows. Everything the model keeps is millimetres. */
+/** An entry as the person reads it in the number system in use (`in_554`): a length that is the live value of the model (not what was typed: that is in the system already) is shown in inches, and the unit's name follows. Everything the model keeps is millimetres. */
 export function inUnits<T extends Entry | null>(e: T): T {
   if (!e || units.system === "mm") return e;
   const fields = e.fields.map((f) => {

@@ -1303,7 +1303,7 @@ test("a rectangle with a locked width cannot be stretched from its side: it is r
   assert.ok(st.session.conflict && st.session.conflict.culprits.length > 0, "the constraint that holds it flashes");
 });
 
-test("a side that a locked length holds is refused like any other change: the notice offers to delete the constraint and make it, and one undo takes both back (`in_547`)", () => {
+test("a side that a locked length holds is refused like any other change: the notice offers to delete the constraint and make it, and one undo takes both back (`in_558`)", () => {
   let st = box();
   const lines = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn");
   const bottom = lines.find((l) => { if (l.kind !== "line") return false; const [a, b] = [scene(st.session).parts[l.a] as { at: Vec3 }, scene(st.session).parts[l.b] as { at: Vec3 }]; return a.at[1] === 0 && b.at[1] === 0; })!;

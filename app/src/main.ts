@@ -115,7 +115,7 @@ const USUAL_KEYS: Record<string, string[]> = JSON.parse(JSON.stringify(settings.
 settings.input.keys = keysFromText(webStore.get(KEYS_KEY), USUAL_KEYS);
 if (webStore.get(UNITS_KEY) === "in") units.system = "in";
 
-/** The settings page (`dec_settings_page`, `in_543`): each change is made and kept as it is made. */
+/** The settings page (`dec_settings_page`, `in_554`): each change is made and kept as it is made. */
 const settingsPage = createSettings(document.body, () => ({ units: units.system, outlines: settings.theme.outlines, scrollMode: recognizer.scrollMode, panScale: settings.input.trackpadPanScale, keys: settings.input.keys, usualKeys: USUAL_KEYS }), (c: Change) => {
   if (c.what === "units") { units.system = c.value; webStore.set(UNITS_KEY, c.value); }
   else if (c.what === "outlines") { settings.theme.outlines = c.value; webStore.set(OUTLINE_KEY, c.value ? "1" : "0"); view.rebuild(); }
@@ -160,7 +160,7 @@ const hardMarks = createHardMarks(document.body, (id) => dispatch({ type: "runAc
 const worldOrb = createWorldOrb(document.body, () => dispatch({ type: "runAction", id: "world:toggle" }));
 const sheetChips = createSheetChips(document.body, (id) => dispatch({ type: "runAction", id }));
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
-const notices = createNotices(document.body, statusEl, (i) => dispatch(i)); // (every message, refusal, help and the working sign, `in_547`)
+const notices = createNotices(document.body, statusEl, (i) => dispatch(i)); // (every message, refusal, help and the working sign, `in_558`)
 const addChip = createAddChip(document.body, () => dispatch({ type: "runAction", id: "select:add" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "invert" ? { type: "runAction", id: "hollow:invert" } : to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);

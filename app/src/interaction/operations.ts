@@ -605,7 +605,7 @@ function variableEnd(op: Op, v: number): number | null {
 }
 /** The number the operation will use: what was typed, else the pointer's or default value. */
 export const valueOf = (op: Op): number | null => {
-  const t = (op.unit ?? OP_UNIT[op.kind]) === "mm" ? typedLength(op.typed) : typedNumber(op.typed); // (a length is typed in the number system in use: the model keeps millimetres, `in_543`)
+  const t = (op.unit ?? OP_UNIT[op.kind]) === "mm" ? typedLength(op.typed) : typedNumber(op.typed); // (a length is typed in the number system in use: the model keeps millimetres, `in_554`)
   if (t !== null && op.kind === "move" && op.typedBase !== undefined) return t - op.typedBase; // (a typed position along the axis: the step is how far that is from where it is)
   // a typed size is the size you want: how far to move is what is missing from the size now
   return t !== null && op.dim ? (t - op.dim.base) / op.dim.scale : t ?? op.value;
@@ -620,7 +620,7 @@ export function typeOp(op: Op, key: string): Op {
   else if (key === "." && !t.includes(".")) t += t === "" ? "0." : ".";
   else if (key === "-" && t === "") t = "-";
   else if (key === "ArrowUp" || key === "ArrowDown") {
-    const inches = units.system === "in" && (op.unit ?? OP_UNIT[op.kind]) === "mm"; // (the same small step, in the system in use: a tenth of a millimetre, a hundredth of an inch, `in_543`)
+    const inches = units.system === "in" && (op.unit ?? OP_UNIT[op.kind]) === "mm"; // (the same small step, in the system in use: a tenth of a millimetre, a hundredth of an inch, `in_554`)
     const step = (op.kind === "edge" ? settings.op.sizeStep : settings.op.distanceStep) * (inches ? 2.54 : 1) * (key === "ArrowUp" ? 1 : -1);
     return { ...op, typed: "", value: Math.round(((valueOf(op) ?? 0) + step) * 1e6) / 1e6 };
   } else return op;

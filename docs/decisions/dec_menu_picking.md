@@ -3,7 +3,7 @@ id: dec_menu_picking
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_548, in_543, in_542, in_541, in_540, in_539, in_538, in_463, in_464, in_465
+human_input: in_559, in_554, in_542, in_541, in_540, in_539, in_538, in_463, in_464, in_465
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -38,6 +38,6 @@ alternative_to:
 ## Rationale
 It changes how every operation of the menu starts; kept the select-first path so nothing gets slower, and the many-things operations wait for an explicit end because no count says when they are complete.
 
-**Nothing is left out (`in_543`):** an icon or a row that cannot be applied is dimmed and says why when pressed, never left out: the Constraints category lists every relation that fits the selection (dimmed when it cannot be applied), and the ⋯ list always has Reapply mates, Clear cache and Build. The Edge lines, Pan and Scroll rows moved to the settings page (`dec_settings_page`).
+**Nothing is left out (`in_554`):** an icon or a row that cannot be applied is dimmed and says why when pressed, never left out: the Constraints category lists every relation that fits the selection (dimmed when it cannot be applied), and the ⋯ list always has Reapply mates, Clear cache and Build. The Edge lines, Pan and Scroll rows moved to the settings page (`dec_settings_page`).
 
-**The constraint list is whole (`in_548`):** the Constraints category lists every constraint and mate the relations table knows, in sub-rings by what they apply to (Point, Line, Circle, Two points, Point-line, Point-circle, Two lines, Line-circle, Two circles, Faces axes, Bodies), whatever is selected; one that the selection is not for is dimmed and says what to select ("select two lines first"). The ring never changes shape with the selection (`constraintlist.ts`).
+**The constraint list is whole (`in_559`):** the Constraints category lists every constraint and mate the relations table knows, in sub-rings by what they apply to (Point, Line, Circle, Two points, Point-line, Point-circle, Two lines, Line-circle, Two circles, Faces axes, Bodies), whatever is selected; one that the selection is not for is dimmed and says what to select ("select two lines first"). The ring never changes shape with the selection (`constraintlist.ts`).

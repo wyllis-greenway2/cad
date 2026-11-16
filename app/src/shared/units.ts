@@ -1,4 +1,4 @@
-// The number system lengths are shown and typed in (`dec_settings_page`, `in_543`). The model is always millimetres, exactly: only what the person reads and types is converted, here and nowhere else.
+// The number system lengths are shown and typed in (`dec_settings_page`, `in_554`). The model is always millimetres, exactly: only what the person reads and types is converted, here and nowhere else.
 import { roundedText, typedNumber } from "./numbers.ts";
 
 export type NumberSystem = "mm" | "in";

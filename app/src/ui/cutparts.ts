@@ -1,4 +1,4 @@
-// Cut (`in_294`): each part the selected bodies make has a round control with a plus (kept) or a minus (tossed) and its letter. Whether what is kept is joined or separate is a switch of the operation bar now (`in_552`).
+// Cut (`in_294`): each part the selected bodies make has a round control with a plus (kept) or a minus (tossed) and its letter. Whether what is kept is joined or separate is a switch of the operation bar now (`in_563`).
 // It only draws and reports clicks; which parts there are and what is kept is the interaction layer's.
 export function createCutParts(host: HTMLElement, toggle: (mask: number) => void) {
   const root = document.createElement("div");

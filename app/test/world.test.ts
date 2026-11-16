@@ -194,7 +194,7 @@ test("the frame says what to draw: the cursor, the body, the selection; the smal
   assert.deepEqual(frameOf(sel, { w: 800, h: 600 }).highlight.selection, [XY]);
 });
 
-test("the ⋯ list always has every row, dimmed when one cannot be used, and ends with the settings page (`in_543`)", () => {
+test("the ⋯ list always has every row, dimmed when one cannot be used, and ends with the settings page (`in_554`)", () => {
   assert.deepEqual(appRows().map((r) => r.id), ["mate:reapply", "bodies", "history", "groups", "save", "open", "import", "export", "clearAnswers", "share", "constraints", "hard:clearance", "settings", "build"]);
   assert.deepEqual(appRows().filter((r) => !r.enabled).map((r) => r.id), ["mate:reapply", "clearAnswers", "build"], "dimmed, not left out");
   assert.ok(appRows().filter((r) => !r.enabled).every((r) => r.why), "each dimmed row says why when it is pressed");

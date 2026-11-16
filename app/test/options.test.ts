@@ -1,4 +1,4 @@
-// The operation bar's options and Tab stepping (`in_546`, `q_ui_unification`).
+// The operation bar's options and Tab stepping (`in_557`, `q_ui_unification`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -110,7 +110,7 @@ const box = (ses: Session, x: number, w: number, h: number): Session => {
 };
 const bodiesOf = (ses: Session) => Object.values(scene(ses).parts).filter((p) => p.kind === "body");
 
-test("Select similar's rules are in the bar: Tab lands on each, Shift+Enter flips it, Enter closes them and keeps the selection (`in_552`)", () => {
+test("Select similar's rules are in the bar: Tab lands on each, Shift+Enter flips it, Enter closes them and keeps the selection (`in_563`)", () => {
   const ses = box(createSession(kernel), 0, 10, 10);
   const edges = (Object.values(scene(ses).parts) as Part[]).filter((p) => p.kind === "line" && p.origin === "body");
   let st = reduce({ ...createState({ ...ses, click: { ...ses.click, selection: [edges[0]!.ref] as never } }), cam: homeCamera() }, { type: "runAction", id: "select:similar" }, env);
@@ -131,7 +131,7 @@ test("Select similar's rules are in the bar: Tab lands on each, Shift+Enter flip
   assert.ok(selection(st.session).length >= 1, "what is selected stays");
 });
 
-test("Cut's parts and join are in the bar: Tab lands on each, Shift+Enter keeps or tosses a part, Enter makes the cut (`in_552`)", () => {
+test("Cut's parts and join are in the bar: Tab lands on each, Shift+Enter keeps or tosses a part, Enter makes the cut (`in_563`)", () => {
   let ses = box(box(createSession(kernel), 0, 10, 10), 40, 10, 10);
   const b = bodiesOf(ses)[1]!;
   const mv = startOp(scene(ses), [b.ref], "move");

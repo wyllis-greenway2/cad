@@ -75,7 +75,7 @@ export interface AppState {
   repeat: Repeat | null;
   /** the last "select similar": the parts it began from, the rules in force, and what it selected (the chip shows only while the selection is still that) */
   similar: { base: Ref[]; rules: SimilarRule[]; refs: Ref[]; noun: string } | null;
-  /** where the keyboard is in the operation bar (`in_546`, `in_552`): the place among its options, and which options these were (a place kept for other options is not this one's); a pointer choice forgets it */
+  /** where the keyboard is in the operation bar (`in_557`, `in_563`): the place among its options, and which options these were (a place kept for other options is not this one's); a pointer choice forgets it */
   optionAt: { index: number; sig: string } | null;
   /** the history cursor when the operation that is open began: Esc cancels back to it (`in_244`) */
   opBase: number | null;

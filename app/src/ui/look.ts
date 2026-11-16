@@ -5,7 +5,7 @@ export const PILL = "position:fixed;z-index:7;display:none;align-items:center;ga
 /** One choice in a pill: teal when on, pale when off. */
 const choiceCss = (on: boolean, live = true, focus = false): string => `${focus ? "outline:2px solid #fff;outline-offset:1px;" : ""}display:inline-flex;align-items:center;gap:3px;cursor:${live ? "pointer" : "default"};padding:3px 8px;border-radius:12px;opacity:${live ? 1 : 0.45};background:${on ? "#1ab8b3" : "rgba(255,255,255,.16)"};color:${on ? "#06312f" : "#fff"}`;
 /** A pill that is a row of choices: `onPick` is told which was clicked. Taps and presses on it do not reach the view. */
-export function choiceRow(parent: HTMLElement, choices: { id: string; text: string; title: string; on: boolean; live?: boolean; /** the one the keyboard is on (Tab, `in_546`) */ focus?: boolean }[], onPick: (id: string) => void): void {
+export function choiceRow(parent: HTMLElement, choices: { id: string; text: string; title: string; on: boolean; live?: boolean; /** the one the keyboard is on (Tab, `in_557`) */ focus?: boolean }[], onPick: (id: string) => void): void {
   parent.replaceChildren(...choices.map((c) => {
     const b = document.createElement("span");
     b.style.cssText = choiceCss(c.on, c.live !== false, !!c.focus);
@@ -17,7 +17,7 @@ export function choiceRow(parent: HTMLElement, choices: { id: string; text: stri
   }));
 }
 
-// ---- THE ROUND BUTTON AND THE NUMBER PILL (`in_549`, `dec_ui_unification`): the two shapes everything else is made of ----
+// ---- THE ROUND BUTTON AND THE NUMBER PILL (`in_560`, `dec_ui_unification`): the two shapes everything else is made of ----
 
 /** How a round button reads: `light` on the view (white), `dark` on a dark pill, `danger` for a way out (red), `accent` for a mark that is not pressed (teal edge). */
 export type Tone = "light" | "dark" | "danger" | "accent";

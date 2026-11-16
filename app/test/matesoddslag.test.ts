@@ -1,4 +1,4 @@
-// The button for mates at odds when the kernel answers later, as in the browser (`in_553`): the refusal is made when the answer comes (`refresh`), and it carries what to do once the mate is deleted. The browser pass found this path: the test with the answer at hand did not.
+// The button for mates at odds when the kernel answers later, as in the browser (`in_564`): the refusal is made when the answer comes (`refresh`), and it carries what to do once the mate is deleted. The browser pass found this path: the test with the answer at hand did not.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";

@@ -577,7 +577,7 @@ test("a change that leaves standing mates with no placement where they all hold 
 });
 
 
-test("a change refused for mates at odds offers the button: it deletes the standing mate that is there and makes the change, as one step (`in_553`)", () => {
+test("a change refused for mates at odds offers the button: it deletes the standing mate that is there and makes the change, as one step (`in_564`)", () => {
   let s = box(box(box(createSession(kernel), 0, 0), 40, 0), 25, 30);
   const [a, b, c] = bodies(s);
   const face = (q: Session, id: string | undefined, n: [number, number, number]) => faceOf(q, bodies(q).find((x) => x.id === id)!, n);

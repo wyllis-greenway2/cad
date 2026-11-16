@@ -16,7 +16,7 @@ import { jointOfBody } from "./mate.ts";
 import { axisOf, revolveCentre } from "./revolve.ts";
 import { mirrorCentre } from "./mirror.ts";
 
-/** THREE KINDS OF HANDLE (`in_550`, `dec_ui_unification`): an arrow (pulled along a line), a ring (turned about an axis) and an orb (moved about). What used to be a double arrow is an arrow with `both`, and a scale handle an arrow with `ratio`. */
+/** THREE KINDS OF HANDLE (`in_561`, `dec_ui_unification`): an arrow (pulled along a line), a ring (turned about an axis) and an orb (moved about). What used to be a double arrow is an arrow with `both`, and a scale handle an arrow with `ratio`. */
 export type HandleKind = "arrow" | "ring" | "orb";
 export interface Handle {
   id: string;
@@ -88,7 +88,7 @@ export function edgeDirection(scene: Scene, a: Vec3, b: Vec3, radial?: Vec3): Ve
 }
 
 /** The handles of the cross section plane (`in_392`, `in_394`): arrows along the axes move it, or rings about them turn it, as its chip says. */
-// ---- the three kinds, made one way (`in_550`) ----
+// ---- the three kinds, made one way (`in_561`) ----
 /** An arrow from `from` along the unit `dir`, `len` long (a negative length points the other way). `ratio`: its value is a factor (a scale handle). */
 const arrowAlong = (id: string, axis: 0 | 1 | 2 | null, from: Vec3, dir: Vec3, len: number, ratio?: true): Handle => ({ id, kind: "arrow", axis, points: [from, add(from, scale(dir, len))], ...(ratio ? { ratio } : {}) });
 /** An arrow through `mid` along `dir`, `half` each way, with a head at each end: pulled out or pushed in. */

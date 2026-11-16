@@ -1,4 +1,4 @@
-// The number system (`in_543`, `dec_settings_page`): the model is millimetres whatever is shown; what is typed and shown for a length is in the system in use, angles and counts are not.
+// The number system (`in_554`, `dec_settings_page`): the model is millimetres whatever is shown; what is typed and shown for a length is in the system in use, angles and counts are not.
 import test, { afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { units, lengthText, lengthIn, lengthOut, typedLength, unitName } from "../src/shared/units.ts";

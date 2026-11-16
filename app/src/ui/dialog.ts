@@ -11,7 +11,7 @@ export function createDialog(host: HTMLElement) {
   const card = document.createElement("div");
   card.style.cssText = "background:#fff;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:18px 20px;min-width:320px;max-width:min(520px,92vw);max-height:90vh;overflow:auto";
   veil.appendChild(card);
-  const armed = guardOpenClicks(veil); // (the press that opened the dialog must not click on it, `in_556`)
+  const armed = guardOpenClicks(veil); // (the press that opened the dialog must not click on it, `in_567`)
   host.appendChild(veil);
   let finish: ((v: Values | null) => void) | null = null;
   let current: Values = {};
