@@ -2287,3 +2287,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_493 — 2026-11-16 — question
 > okay so the decision is that sketches are part of the body, and stay synced with the body?
 (asks whether the decision is that sketches are part of the body and stay synced with it; not a recorded decision: answered that it is close but not what was proposed, and asked which of the options they mean)
+
+## in_494 — 2026-11-16 — question
+> what do you recommend? and does this mean if someone wants to see one of their original sketches, then it is a step in history they would go to?
+(asks what I recommend among the options for the sketch and the body, and whether, under it, someone who wants to see one of their original sketches would go to a step in the history)
+
+## in_495 — 2026-11-16 — directive
+> yes write up the decision
+(asks me to write up, as one decision for approval, the recommendation of `in_494`: the sketch is the recipe of its step, synced with the body wherever the sketch can express the change, labelled where it cannot, with its rows under their steps; this is a request to write it up, not an approval of it: it is written as `dec_sketch_recipe_synced`, `provisional`)
+
+## in_496 — 2026-11-16 — approval
+> yes approve it
+(approves `dec_sketch_recipe_synced` as written: a sketch is the recipe of its step, kept in step with the body wherever it can express the change and labelled where it cannot; it is `accepted` now)
