@@ -2215,3 +2215,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_475 — 2026-11-16 — directive
 > no lets leave it, I just wanted to make sure it wasn't a bug
 (decides not to build the fix for the arc-end slivers of `in_474`: leave it as it is)
+
+## in_476 — 2026-11-16 — question
+> Okay this chamfer face push doesn't behave as I would expect. Normally i thought faces are pushes are almost like plane sweeps that cut flat as they continue, but at some point this seems to decide to be a short inserted cut?
+(two files were attached: `chamfer_continuation_collapses_into_a_weird_state.json` and its state snapshot; says a chamfer made on the face of an earlier chamfer, its size pushed larger, does not behave as expected: they thought pushing such a face is like a plane sweeping flat as it continues, but at some size it becomes a short inserted cut)
