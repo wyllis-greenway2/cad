@@ -5,7 +5,8 @@
 // them overlap by more than `depth`. `depth` is a few times the error of the meshing (a curved face is made of flat triangles that lie inside it by that much, so neighbours may overlap by that much
 // without the body being wrong). Triangles that share a corner are neighbours and are not compared. Triangles in one plane are not compared (a face lying on another face is a contact, not a crossing).
 // Returns the first crossing found, as the centre of the overlap and the two triangle numbers, or null; `null` too when the search would take too long (a mesh of tens of thousands of triangles all
-// stacked in one place), so a check never holds the kernel up for good.
+// stacked in one place, or a thin wide body such as a gear whose triangles all lie across each other's extent along the sweep) or when it has taken 1.5 s, so a check never holds the kernel up (`in_484`: it did,
+// for over five minutes, on a gear of 257 faces).
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -25,7 +26,8 @@ function stretch(p, d, dir) {
   return ends.length >= 2 ? [Math.min(...ends), Math.max(...ends)] : null;
 }
 
-export function findCrossing(vertices, triangles, depth, budget = 3e7) {
+export function findCrossing(vertices, triangles, depth, budget = 3e7, ms = 1500) {
+  const t0 = performance.now(); // (the search gives up after `ms` milliseconds whatever it has not looked at: a check must never hold the kernel up, `in_484`)
   const n = Math.floor(triangles.length / 3);
   if (n < 2) return null;
   // corners that are in one place are one corner (a mesh keeps one for each face it is a corner of)
@@ -55,14 +57,16 @@ export function findCrossing(vertices, triangles, depth, budget = 3e7) {
       const B = tri[j];
       if (B.lo[ax] > A.hi[ax] + depth) break;
       if (++work > budget) return null;
+      if ((work & 4095) === 0 && performance.now() - t0 > ms) return null;
       let apart = true;
       for (let a = 0; a < 3 && apart; a++) if (B.lo[a] > A.hi[a] + depth || A.lo[a] > B.hi[a] + depth) apart = false;
       if (!apart) continue;
       if (A.ids.some((v) => B.ids.includes(v))) continue; // (neighbours)
-      const dB = B.p.map((x) => dot(A.u, x) - A.d0); // B's corners against A's plane
-      if (!(Math.min(...dB) < -depth && Math.max(...dB) > depth)) continue;
-      const dA = A.p.map((x) => dot(B.u, x) - B.d0);
-      if (!(Math.min(...dA) < -depth && Math.max(...dA) > depth)) continue;
+      const [b0, b1, b2] = [dot(A.u, B.p[0]) - A.d0, dot(A.u, B.p[1]) - A.d0, dot(A.u, B.p[2]) - A.d0]; // B's corners against A's plane
+      if (!(Math.min(b0, b1, b2) < -depth && Math.max(b0, b1, b2) > depth)) continue;
+      const [a0, a1, a2] = [dot(B.u, A.p[0]) - B.d0, dot(B.u, A.p[1]) - B.d0, dot(B.u, A.p[2]) - B.d0];
+      if (!(Math.min(a0, a1, a2) < -depth && Math.max(a0, a1, a2) > depth)) continue;
+      const dB = [b0, b1, b2], dA = [a0, a1, a2];
       const dir = cross(A.u, B.u);
       const l = len(dir);
       if (l < 1e-9) continue; // (planes that are one: a contact)

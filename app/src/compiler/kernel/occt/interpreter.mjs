@@ -1522,10 +1522,8 @@ const faceVertices = (f) => edgesOf(f).flatMap((e) => [e.startPoint, e.endPoint]
  * region took over (`in_482`: a round tip of a teardrop-shaped post, a bigger round than the tip's radius). From that size the region's round is used, so there is one way of making it.
  */
 function rimCapped(t, set, size, mode) {
-  const edges = edgesOf(t);
+  const { edges, byEdge } = topoOf(t);
   if (!edges.some((x) => x.geomType === "CIRCLE")) return false; // (a body with no round edge: nothing to look at; the smooth chain below may take one up)
-  const byEdge = new Map();
-  for (const f of facesOf(t)) for (const e of edgesOf(f)) byEdge.set(e.hashCode, [...(byEdge.get(e.hashCode) ?? []), f]);
   const chain = smoothChain(t, set, byEdge) ?? set;
   for (const e of edges.filter((x) => chain.has(x.hashCode))) {
     const fs = byEdge.get(e.hashCode) ?? [];
@@ -1535,15 +1533,39 @@ function rimCapped(t, set, size, mode) {
   }
   return false;
 }
+/** The faces, the edges and the faces of each edge of a body, found once for the body (`rimCapped` and `regionRound` both want them: for a gear of two hundred and fifty faces, a second each). */
+const topoMemo = new WeakMap();
+function topoOf(t) {
+  let m = topoMemo.get(t);
+  if (!m) {
+    const faces = facesOf(t);
+    const edges = edgesOf(t);
+    const byEdge = new Map();
+    for (const f of faces) for (const e of edgesOf(f)) byEdge.set(e.hashCode, [...(byEdge.get(e.hashCode) ?? []), f]);
+    m = { faces, edges, byEdge, chains: new Map() };
+    topoMemo.set(t, m);
+  }
+  return m;
+}
+
 /**
  * The edges the kernel's round would carry on to from the edges `set` (hash codes): an edge that meets one of them at a corner and goes on in the same direction there (a straight side into the arc that
  * turns it, an arc into the next), is on the same flat face (the one whose boundary the chain is) and has beside it a face that goes on smoothly from the one beside the edge it follows (the same normal at the
  * corner). Returns the set with them, or null when none are found or one of them is an edge the region cannot make (a spline, an edge between faces that are not flat and round about an axis across the flat one).
+ * The edges are found by their corners (one pass to put each end of each edge in a table, then a look at the edges at each corner), not by comparing every edge with every other: asking the kernel for the
+ * tangent of every end of every pair of edges took a second for the sixty edges of a gear.
  */
 function smoothChain(t, set, byEdge) {
-  const all = edgesOf(t);
-  const near = (p, q) => Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z) < 1e-6;
-  const ends = (e) => [{ at: e.startPoint, out: e.tangentAt(0) }, { at: e.endPoint, out: (() => { const v = e.tangentAt(1); return { x: -v.x, y: -v.y, z: -v.z }; })() }];
+  const memo = topoOf(t).chains;
+  const memoKey = [...set].sort().join(",");
+  if (memo.has(memoKey)) return memo.get(memoKey);
+  const out = smoothChain0(t, set, byEdge);
+  memo.set(memoKey, out);
+  return out;
+}
+function smoothChain0(t, set, byEdge) {
+  const all = topoOf(t).edges;
+  const key = (p) => `${Math.round(p.x * 1e5)},${Math.round(p.y * 1e5)},${Math.round(p.z * 1e5)}`;
   const unit = (v) => { const l = Math.hypot(v.x, v.y, v.z) || 1; return { x: v.x / l, y: v.y / l, z: v.z / l }; };
   const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
   const supported = (e) => {
@@ -1551,32 +1573,43 @@ function smoothChain(t, set, byEdge) {
     if (rimFaces(e, fs)) return true;
     return e.geomType === "LINE" && fs.length === 2 && fs.every((f) => f.geomType === "PLANE");
   };
+  // the corners: each end of each edge (with two faces beside it) in a table by its place; the tangent of an end is asked for only when another edge is at that corner
+  const atCorner = new Map();
+  for (const e of all) {
+    if ((byEdge.get(e.hashCode) ?? []).length !== 2) continue;
+    for (const which of [0, 1]) {
+      const at = which === 0 ? e.startPoint : e.endPoint;
+      const k = key(at);
+      const list = atCorner.get(k);
+      if (list) list.push({ e, which, at }); else atCorner.set(k, [{ e, which, at }]);
+    }
+  }
+  const outward = (end) => { if (end.out) return end.out; const v = end.e.tangentAt(end.which); end.out = unit(end.which === 0 ? v : { x: -v.x, y: -v.y, z: -v.z }); return end.out; };
   const chain = new Set(set);
   const added = [];
-  for (let again = true; again;) {
-    again = false;
-    for (const e of all.filter((x) => chain.has(x.hashCode))) {
-      const fe = byEdge.get(e.hashCode) ?? [];
-      if (fe.length !== 2) continue;
-      for (const end of ends(e)) {
-        for (const x of all) {
-          if (chain.has(x.hashCode) || x.hashCode === e.hashCode) continue;
-          const fx = byEdge.get(x.hashCode) ?? [];
-          if (fx.length !== 2) continue;
-          const there = ends(x).find((y) => near(y.at, end.at));
-          if (!there) continue;
-          const [a, b] = [unit(end.out), unit(there.out)];
-          if (dot(a, b) > -1 + 1e-6) continue; // (not the same direction on through the corner)
-          const shared = fe.find((f) => fx.some((g) => g.hashCode === f.hashCode)); // (the flat face both are on the boundary of)
-          if (!shared) continue;
-          const [oe, ox] = [fe.find((f) => f.hashCode !== shared.hashCode), fx.find((g) => g.hashCode !== shared.hashCode)];
-          if (!oe || !ox) continue;
-          const [ne, nx] = [oe.normalAt(end.at), ox.normalAt(end.at)];
-          if (dot(unit(ne), unit(nx)) < 1 - 1e-4) continue; // (the face beside it does not go on smoothly)
-          chain.add(x.hashCode);
-          added.push(x);
-          again = true;
-        }
+  const queue = all.filter((x) => chain.has(x.hashCode));
+  while (queue.length) {
+    const e = queue.pop();
+    const fe = byEdge.get(e.hashCode) ?? [];
+    if (fe.length !== 2) continue;
+    for (const which of [0, 1]) {
+      const here = atCorner.get(key(which === 0 ? e.startPoint : e.endPoint)) ?? [];
+      const mine = here.find((h) => h.e.hashCode === e.hashCode && h.which === which);
+      for (const there of here) {
+        const x = there.e;
+        if (!mine || chain.has(x.hashCode) || x.hashCode === e.hashCode) continue;
+        const [a, b] = [outward(mine), outward(there)];
+        if (dot(a, b) > -1 + 1e-6) continue; // (not the same direction on through the corner)
+        const fx = byEdge.get(x.hashCode) ?? [];
+        const shared = fe.find((f) => fx.some((g) => g.hashCode === f.hashCode)); // (the flat face both are on the boundary of)
+        if (!shared) continue;
+        const [oe, ox] = [fe.find((f) => f.hashCode !== shared.hashCode), fx.find((g) => g.hashCode !== shared.hashCode)];
+        if (!oe || !ox) continue;
+        const [ne, nx] = [oe.normalAt(mine.at), ox.normalAt(mine.at)];
+        if (dot(unit(ne), unit(nx)) < 1 - 1e-4) continue; // (the face beside it does not go on smoothly)
+        chain.add(x.hashCode);
+        added.push(x);
+        queue.push(x);
       }
     }
   }
@@ -1584,10 +1617,9 @@ function smoothChain(t, set, byEdge) {
   if (!added.every(supported)) return null; // (an edge the region cannot make: the round of the edges named is made as before)
   return chain;
 }
+
 function regionRound(t, set0, size, mode, stations) {
-  const faces = facesOf(t);
-  const byEdge = new Map();
-  for (const f of faces) for (const e of edgesOf(f)) byEdge.set(e.hashCode, [...(byEdge.get(e.hashCode) ?? []), f]);
+  const { faces, byEdge } = topoOf(t);
   // the kernel's round follows an edge on round the edges that carry it on smoothly (`in_480`: the chamfer of the one straight side of a stadium-shaped slot is the chamfer of the whole outline, two sides and two
   // arcs, for the kernel; the region of the one side took off a third, and a bigger chamfer took off less): the region does the same, when every edge it takes up is one it can make
   const set = stations ? set0 : smoothChain(t, set0, byEdge) ?? set0;

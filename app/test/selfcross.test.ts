@@ -54,3 +54,16 @@ test("the kernel's check: separate bodies that overlap are not one body crossing
   const one = cast(new oc.BRepBuilderAPI_MakeSolid(outer, inner).Solid() as never);
   assert.ok(crossesItself(one), "a box with a hollow that goes through its wall, as one solid");
 });
+
+test("a thin wide mesh of many triangles that all lie across each other's extent does not hold the search up: it gives up at its time limit (`in_484`: a gear of 257 faces took over five minutes)", () => {
+  // two stacked flat sheets of 120 x 120 small squares, two triangles each: every triangle of the one is beside thousands of the other in the sweep, and none crosses
+  const n = 120, vertices: number[] = [], triangles: number[] = [];
+  for (const z of [0, 0.5]) {
+    const o = vertices.length / 3;
+    for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) vertices.push(i * 0.1, j * 0.1, z);
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const a = o + j * (n + 1) + i; triangles.push(a, a + 1, a + n + 2, a, a + n + 2, a + n + 1); }
+  }
+  const t0 = performance.now();
+  assert.equal(find(vertices, triangles, 0.2, 3e9, 60), null, "nothing crosses, and it says nothing");
+  assert.ok(performance.now() - t0 < 1500, `it stopped at its limit: ${Math.round(performance.now() - t0)} ms`);
+});
