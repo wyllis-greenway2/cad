@@ -2279,3 +2279,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_491 — 2026-11-16 — question
 > I don't really see the difference though? because another way to look at is just where the sketch lives? either in its original drawn spot, or moves with the surface of the body it created?
 (says the two models of `in_490` do not look different to them, and offers another way to see it: only where the sketch lives, either in its original drawn place or moving with the surface of the body it made)
+
+## in_492 — 2026-11-16 — question
+> but didn't we already solve the shape problem too? because I thought we integrated the sketch into the edges of the body, so if the body moves, then it is basically considered a sketch modification too? So arent they always synced?
+(asks whether the shape question is not already solved, since they thought the sketch had been integrated into the edges of the body so that a body change counts as a sketch modification, so that the two are always in sync)
