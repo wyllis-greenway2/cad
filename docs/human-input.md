@@ -2524,3 +2524,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_546 — 2026-11-16 — preference
 > yes I think you have it roughly right. I think that the plan is per part and machine. I think we should advise not block. So lets talk about the 3d printer option. So my understanding is most 3d printer slicers all use basically the same program that is only slightly modified? the key part is machine variables and print setting variables for a specific machine and a specific filament. Aside from that, isn't most of this running on open source slicer software already?
 (answers the two questions after in_545: a manufacturing plan is per part and machine; findings advise and never block; then opens a discussion of the 3D printer route and how much of slicing is shared open-source software)
+
+## in_547 — 2026-11-16 — preference
+> no we don't want to relax our license rules, we want to avoid being tied down by licenses. Okay so what is a manufacturing route that would be most useful for hobbyist builders? it sounds like slicers are already widely available
+(confirms the licence rules stay as they are, with the aim of not being tied down by licences; asks which manufacturing route would help hobbyist builders most, since slicers are already available)
