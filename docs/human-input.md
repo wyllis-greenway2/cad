@@ -2601,3 +2601,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_566 — 2026-11-16 — directive
 > Yes, go ahead with the helical gear tool, I will take your recommendations on how to build it and on scope, I think we can skip herring bone because users can still manually create that just by stacking gears.
 (approves the helical gear tool as recommended: external helical spur gears with Helix angle and Width fields and a partner gear of opposite hand, the twisted body made from the flat outline by the existing twist; herringbone is not built, to be made by stacking)
+
+## in_567 — 2026-11-16 — question
+> okay now why cant we do worm gears? isn't that just a rotated rack gear?
+(asks why worm gears were left out of the helical gear tool and whether a worm is just a rotated rack)
