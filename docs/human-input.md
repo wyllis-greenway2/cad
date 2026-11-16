@@ -2652,3 +2652,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_579 — 2026-11-16 — question
 > why not just merge this branch into that? wouldn't it be the same amount of work? or would merging default into this be better?
 (asks whether to merge this branch into the default branch directly, or the default branch into this one first, and whether the work is the same; answered in chat)
+
+## in_580 — 2026-11-16 — question
+> can you merge into claude/inspiring-pascal-l342k7 which is the main branch even while that claude is still working on it?
+(asks whether I can merge this work into the default branch while another session is still working on it; answered in chat, nothing merged yet)
