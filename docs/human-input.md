@@ -2560,3 +2560,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_555 — 2026-11-16 — question
 > Wouldn't it make sense to have potentially entirelly public machines and materials so even other users could use them?
 (answers question 2 of q_manufacturing_open with a further idea: machines and materials that are entirely public, usable by other users; nothing is decided)
+
+## in_556 — 2026-11-16 — approval
+> Yes, three layers, public one later
+(approves the answer to in_555: machines, materials and tools are looked up in three layers (project copy, personal library, public library) with one schema, and the public layer is built later as a read-only source; answers question 2 of q_manufacturing_open)
