@@ -2572,3 +2572,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_559 — 2026-11-16 — approval
 > C: matching first, kernel history later (Recommended)
 (answers the question of `q_stable_reference_mechanism`, choosing option C: names from the sketch-based steps carried by matching outside the kernel, kernel history added later where matching is not enough)
+
+## in_560 — 2026-11-16 — directive
+> yes start on edge names
+(approves the next item of `dec_stable_reference_mechanism`: names for edges, so a fillet or chamfer keeps its edge)

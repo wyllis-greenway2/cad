@@ -1,7 +1,7 @@
 // Names for the flat faces of a body that last through the steps (`dec_stable_reference_mechanism`, option C, `in_559`): each flat face of a solid has a name made when an operation first made it (`<op id>:<rank>`)
 // and keeps it through the operations after, found again by matching (the same plane, and the same place on it) after the motion the operation is known to have made. Nothing here is OCCT's own history.
 // Plain numbers and replicad faces; nothing leaves the kernel folder.
-import { facesOf } from "./topo.mjs";
+import { facesOf, edgesOf } from "./topo.mjs";
 import { moveMarkers } from "./bodies.mjs";
 
 const TOL = 1e-3;
@@ -16,7 +16,7 @@ export function planesOf(shape) {
     const l = Math.hypot(q.x, q.y, q.z) || 1;
     const c = f.center;
     const [lo, hi] = f.boundingBox.bounds;
-    out.push({ n: [q.x / l, q.y / l, q.z / l], c: [c.x, c.y, c.z], lo: [...lo], hi: [...hi] });
+    out.push({ n: [q.x / l, q.y / l, q.z / l], c: [c.x, c.y, c.z], lo: [...lo], hi: [...hi], face: f });
   }
   return out;
 }
@@ -47,17 +47,23 @@ export function nameFaces(prev, tf, shape, opId) {
   const tol = TOL + 1e-6 * diag;
   const taken = new Set();
   const given = new Array(faces.length).fill(null);
-  // the names that match a face exactly, in the order they were made
+  // the names that match a face exactly, in the order they were made; the faces are looked up by their normal's main direction and the offset of their plane (a body of a thousand faces would otherwise be a million comparisons)
+  const bucket = (n, d) => { const a = Math.abs(n[0]) >= Math.abs(n[1]) && Math.abs(n[0]) >= Math.abs(n[2]) ? 0 : Math.abs(n[1]) >= Math.abs(n[2]) ? 1 : 2; return `${a}${n[a] < 0 ? "-" : "+"}${Math.round(d / 0.05)}`; };
+  const buckets = new Map();
+  faces.forEach((f, i) => { const k = bucket(f.n, dot(f.n, f.c)); buckets.set(k, [...(buckets.get(k) ?? []), i]); });
   for (const m of old) {
     let best = -1, bestGap = Infinity;
-    faces.forEach((f, i) => {
-      if (taken.has(i) || dot(f.n, m.n) < 1 - 1e-6) return;
-      if (Math.abs(dot(f.n, [m.c[0] - f.c[0], m.c[1] - f.c[1], m.c[2] - f.c[2]])) > tol) return; // not on its plane
+    const d0 = Math.round(dot(m.n, m.c) / 0.05);
+    const a0 = bucket(m.n, 0).slice(0, 2);
+    for (const dk of [d0 - 1, d0, d0 + 1]) for (const i of buckets.get(`${a0}${dk}`) ?? []) {
+      const f = faces[i];
+      if (taken.has(i) || dot(f.n, m.n) < 1 - 1e-6) continue;
+      if (Math.abs(dot(f.n, [m.c[0] - f.c[0], m.c[1] - f.c[1], m.c[2] - f.c[2]])) > tol) continue; // not on its plane
       const inBox = near(m.c, f.lo, f.hi, tol);
       const gap = Math.hypot(m.c[0] - f.c[0], m.c[1] - f.c[1], m.c[2] - f.c[2]);
       const score = inBox ? gap : gap + 1e6; // (a face the name's point is in, else the nearest on the plane: a face that was split, or grew round it)
       if (score < bestGap) { best = i; bestGap = score; }
-    });
+    }
     if (best >= 0) { taken.add(best); given[best] = m.name; }
   }
   // the faces no name matched: new, named by the operation and their order
@@ -65,7 +71,50 @@ export function nameFaces(prev, tf, shape, opId) {
   const key = (f) => [...f.n.map((v) => Math.round(v * 1e4)), Math.round(dot(f.n, f.c) * 1e3), ...f.c.map((v) => Math.round(v * 1e3))];
   fresh.sort((a, b) => { const ka = key(a.f), kb = key(b.f); for (let k = 0; k < ka.length; k++) if (ka[k] !== kb[k]) return ka[k] - kb[k]; return 0; });
   fresh.forEach((x, rank) => { given[x.i] = `${opId}:${rank}`; });
-  return faces.map((f, i) => ({ name: given[i], n: f.n, c: f.c }));
+  const names = faces.map((f, i) => ({ name: given[i], n: f.n, c: f.c }));
+  return { faces: names, edges: nameEdges(faces, given) };
+}
+
+/**
+ * The names of the straight and curved edges that lie between two flat faces (`dec_stable_reference_mechanism`): an edge is named by the names of its two faces, `<a>|<b>` (sorted); where several edges lie between the
+ * same two faces (a face cut in two by a hole), each also gets its rank by place, `#k`. An edge with a curved face beside it has no name yet. Each comes with its ends and middle as the shape has them now.
+ */
+function nameEdges(faces, given) {
+  const sides = new Map(); // edge hash -> { edge, names }
+  faces.forEach((f, i) => {
+    for (const e of edgesOf(f.face)) {
+      const h = e.hashCode;
+      const have = sides.get(h) ?? { edge: e, names: [] };
+      have.names.push(given[i]);
+      sides.set(h, have);
+    }
+  });
+  const groups = new Map();
+  for (const { edge, names } of sides.values()) {
+    if (names.length !== 2 || names[0] === names[1]) continue;
+    const key = [...names].sort().join("|");
+    const [a, b, m] = [edge.startPoint, edge.endPoint, edge.pointAt(0.5)];
+    const item = { a: [a.x, a.y, a.z], b: [b.x, b.y, b.z], mid: [m.x, m.y, m.z] };
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+  const out = [];
+  for (const [key, list] of groups) {
+    list.sort((p, q) => { for (let k = 0; k < 3; k++) { const d = Math.round(p.mid[k] * 1e3) - Math.round(q.mid[k] * 1e3); if (d) return d; } return 0; });
+    list.forEach((it, k) => out.push({ name: list.length > 1 ? `${key}#${k}` : key, ...it }));
+  }
+  return out;
+}
+
+/** The edges a step names, as the lines they are now (`dec_stable_reference_mechanism`): a reference with a `name` takes the ends and middle the body has for that name; a name the body has lost is an error, never another edge; a body with no names leaves the reference as it is. */
+export function namedEdgeRefs(names, refs) {
+  if (!names) return refs;
+  return refs.map((r) => {
+    if (!r?.name) return r;
+    const m = names.find((x) => x.name === r.name);
+    if (!m) throw new Error(`line not found (${r.name} is not an edge of the body any more)`);
+    const { rank: _rank, sig: _sig, ...rest } = r;
+    return { ...rest, a: m.a, b: m.b, mid: m.mid };
+  });
 }
 
 /** The place a name stands for in a shape now: the plane and a point of the face, as the face references of the operations take it ({ n, d, point }); null when the name is not there (it was cut away). */

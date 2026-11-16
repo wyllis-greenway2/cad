@@ -12,6 +12,8 @@ export interface KernelResult {
   finalId: string | null;
   /** with `graph.names`: the flat faces of the final body with the names they were given (`dec_stable_reference_mechanism`): a unit normal and a point of the face */
   faceNames?: { name: string; n: Vec; c: Vec }[];
+  /** with `graph.names`: the edges between two flat faces, named by the two (`dec_stable_reference_mechanism`), with their ends and middle */
+  edgeNames?: { name: string; a: Vec; b: Vec; mid: Vec }[];
   volume: number | null;
   bbox: { min: Vec; max: Vec } | null;
   /** the bodies of the final shape, each with the name it keeps through the history (`dec_independent_bodies`); a face or an edge says which is its in `body` (its place in this list) when there are several */

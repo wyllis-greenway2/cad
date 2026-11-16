@@ -188,7 +188,8 @@ export function buildGraph(scene: Scene): GraphResult {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const ranks = String(st.params.ranks ?? "").split(",");
         const sigs = String(st.params.sigs ?? "").split("|");
-        const refs = st.parts.map((r, i) => { const e = decodeEdge(r); return e ? { ...e, ...(ranks[i] && ranks[i] !== "-" ? { rank: ranks[i] } : {}), ...(sigs[i] ? { sig: sigs[i] } : {}) } : e; });
+        const enames = String(st.params.enames ?? "").split(";"); // (the lasting names of the edges, `dec_stable_reference_mechanism`)
+        const refs = st.parts.map((r, i) => { const e = decodeEdge(r); return e ? { ...e, ...(ranks[i] && ranks[i] !== "-" ? { rank: ranks[i] } : {}), ...(sigs[i] ? { sig: sigs[i] } : {}), ...(enames[i] ? { name: enames[i] } : {}) } : e; });
         if (refs.some((r) => !r)) { errors[st.id] = "select lines of the body"; break; }
         const mode = String(st.params.mode ?? "fillet");
         const value = Number(st.params.value ?? 0);

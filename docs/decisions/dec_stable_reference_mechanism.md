@@ -3,7 +3,7 @@ id: dec_stable_reference_mechanism
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_546, in_558, in_559
+human_input: in_546, in_558, in_559, in_560
 date: 2026-11-16
 depends_on:
   - dec_stable_references: that entry decided the idea (names by how things were made, geometry as the fallback); this asks how it is built
@@ -32,7 +32,15 @@ alternative_to:
 - **Cost:** 8 to 20 % more time in the kernel on the models measured (gear 2.2 to 2.4 s, hollow-pushed 0.9 to 1.0 s, face-edits 0.11 to 0.13 s).
 - **Tests:** `test/facenames.test.ts`: names the same for any size; a push by name follows the top when the extrusion is made taller; a step put between two others (a move) does not change what a later step names; a lost name is an error; the same through the model.
 
-**Not built (next, in this order):** (1) names for edges (the pair of faces an edge lies between, with a rank), so a fillet or chamfer keeps its edge; (2) curved faces (a round wall) and the faces made by a fillet or chamfer; (3) hollow's faces, a repeat's, the sketch's plane when drawn on a face; (4) the command that puts a step **in the middle** of the history (the later steps made again) and its place in the History panel; (5) the kernel's own history (option A) where matching is wrong (a face that splits, two faces that swap).
+## Edge names (`in_560`)
+
+- An edge **between two flat faces** is named by the names of the two, sorted: `<a>|<b>`; where several edges lie between the same two faces (a face cut in two), each also gets `#<rank>` by its place. The names come from the face names at each operation, so nothing more is carried. An edge with a curved face beside it has no name yet (it uses its numbers as before). `KernelResult.edgeNames` has each with its ends and middle; a body edge `Line` part has `stable`.
+- A fillet or chamfer keeps the names of its edges (`enames`, joined by `;`, in the order of its parts); the kernel finds the edges by name (`namedEdgeRefs`), also for the earlier steps it is made together with; a name the body has lost is an error (`line not found (... is not an edge of the body any more)`), never another edge.
+- Face names are looked up by bucket (the main direction of the normal and the plane's offset), since a body of a thousand faces made the first version quadratic (`test/scaling.test.ts` caught it).
+- **Tests:** the twelve edges of a block named the same for any size; a fillet by name follows the top edge when the extrusion is made taller and when a move is put before it; a lost name is an error; the same through the model.
+- **A known weakness, not fixed:** the name of a **new** face is its rank among the faces its step made (by normal, then place). A change of a sketch that adds or removes a side moves the ranks, and a later step that named a face by rank may then find another. The fix is a role from the sketch's own edge (the side that came from sketch edge 2), next in the list below.
+
+**Not built (next, in this order):** (1) roles from the sketch's edges for the faces of an extrusion, a revolve, a loft or a sweep (instead of the rank); (2) curved faces (a round wall) and the faces made by a fillet or chamfer, which also gives the edges beside them a name; (3) hollow's faces, a repeat's, the sketch's plane when drawn on a face; (4) the command that puts a step **in the middle** of the history (the later steps made again) and its place in the History panel; (5) the kernel's own history (option A) where matching is wrong (a face that splits, two faces that swap).
 
 ## Rationale
 

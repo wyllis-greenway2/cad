@@ -74,12 +74,16 @@ export function bodyParts(result: KernelResult): Part[] {
   const halves = new Map<string, Ref[]>();
   const circleKey = (c: NonNullable<KernelEdge["circle"]>) => `${c.center.map((v) => Math.round(v * 100)).join(",")}|${Math.round(c.radius * 100)}|${c.normal.map((v) => Math.abs(Math.round(v * 100))).join(",")}`;
   for (const e of result.edges ?? []) if (e.circle && e.a.some((v, i) => v !== e.b[i])) { const n = edgeName(e.a, e.b, e.mid); ends.set(n, [e.a, e.b].map((p) => p.map((v) => Math.round(v * 1e3)).join(",")).sort().join("|")); halves.set(circleKey(e.circle), [...(halves.get(circleKey(e.circle)) ?? []), n]); }
+  // the lasting name the kernel gave an edge between two flat faces, found by its ends and middle (`dec_stable_reference_mechanism`)
+  const at6 = (p: ArrayLike<number>) => [0, 1, 2].map((i) => Math.round(p[i]! * 1e4)).join(",");
+  const edgeKey = (a: ArrayLike<number>, b: ArrayLike<number>, m: ArrayLike<number>) => `${[at6(a), at6(b)].sort().join("~")}~${at6(m)}`;
+  const stableEdges = new Map<string, string>((result.edgeNames ?? []).map((e) => [edgeKey(e.a, e.b, e.mid), e.name]));
   for (const e of result.edges ?? []) {
     const straight = e.type === "LINE";
     const name = edgeName(e.a, e.b, e.mid);
     const pair = e.circle ? halves.get(circleKey(e.circle)) : undefined;
     const twin = pair && pair.length === 2 && ends.get(pair[0]!) === ends.get(pair[1]!) ? pair.find((r) => r !== name) : undefined;
-    out.push({ ...base, ref: name, kind: "line", a: corner(e.a), b: corner(e.b), ...(straight ? {} : { mid: e.mid }), ...(!straight && !e.circle ? { path: pathOf(e.pts, e.a as Vec3, e.b as Vec3) } : {}), ...(e.circle ? { circle: e.circle as { center: Vec3; normal: Vec3; radius: number } } : {}), ...(twin ? { twin } : {}), ...(many && e.body !== undefined ? { of: bodyPart(e.body) } : {}) });
+    out.push({ ...base, ref: name, kind: "line", ...(stableEdges.get(edgeKey(e.a, e.b, e.mid)) ? { stable: stableEdges.get(edgeKey(e.a, e.b, e.mid))! } : {}), a: corner(e.a), b: corner(e.b), ...(straight ? {} : { mid: e.mid }), ...(!straight && !e.circle ? { path: pathOf(e.pts, e.a as Vec3, e.b as Vec3) } : {}), ...(e.circle ? { circle: e.circle as { center: Vec3; normal: Vec3; radius: number } } : {}), ...(twin ? { twin } : {}), ...(many && e.body !== undefined ? { of: bodyPart(e.body) } : {}) });
   }
   const flats: { n: Vec3; d: number; u: Vec3; v: Vec3; mesh: number[]; body?: number; stable?: string }[] = [];
   /** The lasting name the kernel gave the flat face on this plane whose middle is nearest the middle of the triangles shown (`dec_stable_reference_mechanism`). */

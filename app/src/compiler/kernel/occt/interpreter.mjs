@@ -35,7 +35,7 @@ import { reshape } from "./reshape.mjs";
 import { findCrossing } from "./selfcross.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
-import { nameFaces, refOfName } from "./facenames.mjs";
+import { nameFaces, refOfName, namedEdgeRefs } from "./facenames.mjs";
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
 
 /** The imported solids scaled about the origin by `op.scale` and then placed: `op.place` "center" brings the middle of their box to the origin, "floor" brings the middle of the box to the z axis and the bottom to z = 0 (a part that sits on the build plate). */
@@ -916,7 +916,7 @@ const OPS = {
     const t = ctx.get(op.target, "solid").shape;
     const v = resolve(op.value, ctx.params);
     if (!(v > 1e-6)) throw new Error("the size must be positive");
-    const refs = [].concat(op.ref);
+    const refs = namedEdgeRefs(ctx.peek(op.target, "solid").edgeNames, [].concat(op.ref));
     const found = refs.length ? resolveEdges(t, refs) : null;
     // a fillet or chamfer that changes along its edges (`in_406`, `in_410`): sizes at places along each edge (0 its start, 1 its other end); smaller sizes keep the proportions
     const rel = op.stations && op.stations.length >= 2 ? op.stations.map(([x, s]) => [x, s / v]) : null;
@@ -978,7 +978,7 @@ const OPS = {
         const sizes = new Map();
         op.together.mods.forEach((m, i) => {
           const last = i === op.together.mods.length - 1; // (this step's own edges and size: the ones being tried)
-          const hit = resolveEdges(base, last ? list : [].concat(m.ref));
+          const hit = resolveEdges(base, last ? list : namedEdgeRefs(ctx.peek(op.together.base, "solid").edgeNames, [].concat(m.ref)));
           if (!hit) throw e;
           for (const h of hit) sizes.set(h, last ? size : resolve(m.value, ctx.params));
         });
@@ -2048,7 +2048,7 @@ export function compile(graph) {
         const tM = performance.now();
         value.markers = trackBodies(prev, value.shape, op.id);
         markMs = performance.now() - tM;
-        if (graph.names) value.faceNames = nameFaces(from?.faceNames, value.tf, value.shape, op.id); // (the names of the flat faces, carried from the body it was made from)
+        if (graph.names) { const named = nameFaces(from?.faceNames, value.tf, value.shape, op.id); value.faceNames = named.faces; value.edgeNames = named.edges; } // (the names of the flat faces, carried from the body it was made from)
       }
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
       const tC = performance.now();
@@ -2070,7 +2070,7 @@ export function finalSolid(graph, results) {
   for (let i = graph.ops.length - 1; i >= 0; i--) {
     const r = results.get(graph.ops[i].id);
     if (r && !r.error && r.value.kind === "empty") return null; // the body was deleted
-    if (r && !r.error && r.value.kind === "solid") return { id: graph.ops[i].id, shape: r.value.shape, key: r.key, markers: r.value.markers ?? [], ...(r.value.faceNames ? { faceNames: r.value.faceNames } : {}) };
+    if (r && !r.error && r.value.kind === "solid") return { id: graph.ops[i].id, shape: r.value.shape, key: r.key, markers: r.value.markers ?? [], ...(r.value.faceNames ? { faceNames: r.value.faceNames, edgeNames: r.value.edgeNames } : {}) };
   }
   return null;
 }

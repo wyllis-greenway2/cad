@@ -629,6 +629,8 @@ export function typeOp(op: Op, key: string): Op {
 /** The face a push / pull works on, as numbers kept in the step: the body is changed by later steps (another push, a turn) so its named faces move, but this step always meant the face as it was. */
 /** The lasting name of a flat face of the body, kept in a push or pull so it finds the face again after an earlier step is changed or another is put before it (`dec_stable_reference_mechanism`). */
 const stableName = (scene: Scene, ref: Ref | undefined): Record<string, string> => { const p = ref ? scene.parts[ref] : undefined; return p?.kind === "plane" && p.stable ? { fname: p.stable } : {}; };
+/** The lasting names of the edges of a fillet or chamfer, joined by `;` and in the order of its parts (empty where an edge has none): kept in the step so it finds its edges after an earlier step is changed. */
+const stableEdges = (scene: Scene, refs: readonly Ref[]): Record<string, string> => { const names = refs.map((r) => { const p = scene.parts[r]; return p?.kind === "line" && p.stable ? p.stable : ""; }); return names.some(Boolean) ? { enames: names.join(";") } : {}; };
 const faceParams = (op: Op): Record<string, number> => {
   const n = op.normal;
   const p = op.origin;
@@ -763,9 +765,9 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
     const face = chosenFace(scene, op);
     if (!face) return null;
     const second = typedNumber(op.endTyped ?? "");
-    return { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: "chamfer", value: Math.abs(v), d2: second !== null && second > 0 ? second : Math.abs(v), face: face.spec, ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
+    return { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: "chamfer", value: Math.abs(v), d2: second !== null && second > 0 ? second : Math.abs(v), face: face.spec, ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}), ...stableEdges(scene, op.parts) } } };
   }
-  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(variableEnd(op, v) !== null ? { end: variableEnd(op, v)! } : {}), ...(variableMid(op, v) !== null ? { mid: variableMid(op, v)! } : {}), ...variableQuarters(op, v), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
+  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(variableEnd(op, v) !== null ? { end: variableEnd(op, v)! } : {}), ...(variableMid(op, v) !== null ? { mid: variableMid(op, v)! } : {}), ...variableQuarters(op, v), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}), ...stableEdges(scene, op.parts) } } };
   if (op.kind === "scale" && op.target === "shape" && !op.axes) return v <= 0 ? null : scaleShapeCommand(scene, op, v);
   if (op.kind === "scale" && op.axes) {
     // factors along the axes alone (`dec_scale_axes`): the recipe is stretched, about the middle of the body

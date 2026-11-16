@@ -65,3 +65,54 @@ test("in the model: the faces of the body carry their lasting names, and a push 
   const vol = (s.outcome.kernel as { volume: number }).volume;
   assert.ok(Math.abs(vol - 2300) < 1e-3, `the taller block with its top pushed by 3: ${vol}`);
 });
+
+type RE = R & { edgeNames?: { name: string; a: number[]; b: number[]; mid: number[] }[] };
+const evE = (ops: unknown[]) => kernel.evaluate({ params: {}, names: true, ops } as never) as unknown as RE;
+const edgeAt = (r: RE, mid: number[]) => r.edgeNames!.find((e) => e.mid.every((v, i) => Math.abs(v - mid[i]!) < 1e-6))!;
+const block = (depth: number, w = 10) => [rect(w), { id: "x_a", type: "extrude", profile: "s_a", distance: depth }];
+
+test("the twelve edges of a block are named by their two faces, the same for any size", () => {
+  const a = evE(block(10)), b = evE(block(25, 14));
+  assert.equal(a.edgeNames!.length, 12);
+  assert.equal(new Set(a.edgeNames!.map((e) => e.name)).size, 12);
+  assert.deepEqual(a.edgeNames!.map((e) => e.name).sort(), b.edgeNames!.map((e) => e.name).sort());
+  assert.equal(edgeAt(a, [5, 0, 10]).name, edgeAt(b, [7, 0, 25]).name, "the top front edge is the same edge, wider and taller");
+});
+
+test("a fillet by an edge's name follows it when the extrusion is made taller, and when a step is put before it", () => {
+  const name = edgeAt(evE(block(10)), [5, 0, 10]).name;
+  const fillet = (target: string) => ({ id: "f", type: "edgeMod", target, mode: "fillet", value: 1, ref: [{ name, a: [0, 0, 10], b: [10, 0, 10], mid: [5, 0, 10] }] });
+  const vol = (r: RE) => r.volume;
+  const f10 = evE([...block(10), fillet("x_a")]);
+  assert.equal(f10.ops.find((o) => o.id === "f")!.error, null);
+  assert.ok(Math.abs(vol(f10) - (1000 - (1 - Math.PI / 4) * 10)) < 1e-3);
+  // taller: the old numbers (an edge at z = 10) would find nothing or the wrong edge; the name finds the top front edge, now at z = 25
+  const f25 = evE([...block(25), fillet("x_a")]);
+  assert.equal(f25.ops.find((o) => o.id === "f")!.error, null, f25.ops.map((o) => o.error).join());
+  assert.ok(Math.abs(vol(f25) - (2500 - (1 - Math.PI / 4) * 10)) < 1e-3);
+  // a step put before: the block is moved up by 7; the name still finds the edge
+  const moved = evE([...block(10), { id: "m", type: "transform", mode: "move", target: "x_a", axis: 2, value: 7 }, fillet("m")]);
+  assert.equal(moved.ops.find((o) => o.id === "f")!.error, null, moved.ops.map((o) => o.error).join());
+  // it was the top edge: the corner of the filleted top front edge is rounded, so the box's lowest corner edge is untouched
+  assert.ok(Math.abs(vol(moved) - (1000 - (1 - Math.PI / 4) * 10)) < 1e-3);
+  // a lost name is an error
+  const lost = evE([...block(10), { ...fillet("x_a"), ref: [{ name: "nothing|else", a: [0, 0, 10], b: [10, 0, 10], mid: [5, 0, 10] }] }]);
+  assert.match(lost.ops.find((o) => o.id === "f")!.error ?? "", /not an edge of the body/);
+});
+
+test("in the model: the edges between flat faces carry lasting names, and a fillet keeps its edge through a change of the depth", () => {
+  let s = createSession(kernel);
+  const a = drawRectangle(scene(s), worldRef("XY"), [0, 0, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]); s = run(s, a.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: a.lines, params: { depth: 10 } } } as never);
+  const lines = Object.values(scene(s).parts).filter((p) => p.kind === "line" && p.origin === "body") as unknown as { ref: string; stable?: string; a: string; b: string }[];
+  assert.equal(lines.length, 12);
+  assert.ok(lines.every((l) => l.stable), "every edge of the block has a lasting name");
+  const pt = (r: string) => (scene(s).parts[r] as unknown as { at: number[] }).at;
+  const top = lines.find((l) => pt(l.a)[2] === 10 && pt(l.b)[2] === 10 && pt(l.a)[1] === 0 && pt(l.b)[1] === 0)!;
+  s = run(s, { type: "addStep", step: { id: "s_101", type: "edgeMod", parts: [top.ref], params: { mode: "fillet", value: 1, enames: top.stable! } } } as never);
+  assert.deepEqual(s.outcome.errors, {});
+  s = run(s, { type: "setStepParams", id: "s_100", params: { depth: 25 } });
+  assert.deepEqual(s.outcome.errors, {});
+  const vol = (s.outcome.kernel as { volume: number }).volume;
+  assert.ok(Math.abs(vol - (2500 - (1 - Math.PI / 4) * 10)) < 1e-3, `the taller block, its top front edge rounded: ${vol}`);
+});
