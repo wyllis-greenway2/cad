@@ -67,7 +67,7 @@ const CASES: { file: string; step: string; known?: string; slow?: boolean }[] = 
   { file: "chamfer-continuation-in_476.cad.json", step: "s_020" }, // (`in_476`: was a break, fixed by ending the region at the end faces, `dec_chamfer_region_reach`)
   // breaks found by the sweep: the kernel's round gives way to the region and the volume goes back (a bigger round that leaves more of the body)
   { file: "cyl-fillet.cad.json", step: "s_007" }, // (was a break: the region rounded the one half of the rim the step names, the kernel the whole rim; `in_479`)
-  { file: "stadium-body.cad.json", step: "s_020", known: "4 to 4.5 mm: 4981 to 5302 mm3" },
+  { file: "stadium-body.cad.json", step: "s_020" }, // (was a break: the region chamfered the one straight side named, the kernel the whole outline of the slot; `in_480`)
   { file: "hollow-pushed.cad.json", step: "s_022", slow: true, known: "8 to 8.5 mm: 3786 to 4421 mm3" },
   { file: "hollow-pushed.cad.json", step: "s_026", slow: true, known: "5.5 to 6 mm: 2219 to 2018 mm3" },
   { file: "thin-wall.cad.json", step: "s_020", slow: true, known: "7.5 to 8 mm: 16261 to 17065 mm3" },

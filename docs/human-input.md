@@ -2231,3 +2231,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_479 — 2026-11-16 — directive
 > yes do the cylinder rim next
 (approves taking the next kind of break found by the continuity test: the fillet on a cylinder's rim, 907 to 987 mm3 at 4 to 4.5 mm in `cyl-fillet.cad.json`)
+
+## in_480 — 2026-11-16 — directive
+> yes do the stadium chamfer next
+(approves taking the next break found by the continuity test: the stadium chamfer, 4981 to 5302 mm3 at 4 to 4.5 mm in `stadium-body.cad.json`)

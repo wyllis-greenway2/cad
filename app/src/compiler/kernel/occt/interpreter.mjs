@@ -1497,10 +1497,62 @@ function sphereCorners(edges, mode) {
 }
 export { regionRound, approximateRound };
 const faceVertices = (f) => edgesOf(f).flatMap((e) => [e.startPoint, e.endPoint]);
-function regionRound(t, set, size, mode, stations) {
+/**
+ * The edges the kernel's round would carry on to from the edges `set` (hash codes): an edge that meets one of them at a corner and goes on in the same direction there (a straight side into the arc that
+ * turns it, an arc into the next), is on the same flat face (the one whose boundary the chain is) and has beside it a face that goes on smoothly from the one beside the edge it follows (the same normal at the
+ * corner). Returns the set with them, or null when none are found or one of them is an edge the region cannot make (a spline, an edge between faces that are not flat and round about an axis across the flat one).
+ */
+function smoothChain(t, set, byEdge) {
+  const all = edgesOf(t);
+  const near = (p, q) => Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z) < 1e-6;
+  const ends = (e) => [{ at: e.startPoint, out: e.tangentAt(0) }, { at: e.endPoint, out: (() => { const v = e.tangentAt(1); return { x: -v.x, y: -v.y, z: -v.z }; })() }];
+  const unit = (v) => { const l = Math.hypot(v.x, v.y, v.z) || 1; return { x: v.x / l, y: v.y / l, z: v.z / l }; };
+  const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
+  const supported = (e) => {
+    const fs = byEdge.get(e.hashCode) ?? [];
+    if (rimFaces(e, fs)) return true;
+    return e.geomType === "LINE" && fs.length === 2 && fs.every((f) => f.geomType === "PLANE");
+  };
+  const chain = new Set(set);
+  const added = [];
+  for (let again = true; again;) {
+    again = false;
+    for (const e of all.filter((x) => chain.has(x.hashCode))) {
+      const fe = byEdge.get(e.hashCode) ?? [];
+      if (fe.length !== 2) continue;
+      for (const end of ends(e)) {
+        for (const x of all) {
+          if (chain.has(x.hashCode) || x.hashCode === e.hashCode) continue;
+          const fx = byEdge.get(x.hashCode) ?? [];
+          if (fx.length !== 2) continue;
+          const there = ends(x).find((y) => near(y.at, end.at));
+          if (!there) continue;
+          const [a, b] = [unit(end.out), unit(there.out)];
+          if (dot(a, b) > -1 + 1e-6) continue; // (not the same direction on through the corner)
+          const shared = fe.find((f) => fx.some((g) => g.hashCode === f.hashCode)); // (the flat face both are on the boundary of)
+          if (!shared) continue;
+          const [oe, ox] = [fe.find((f) => f.hashCode !== shared.hashCode), fx.find((g) => g.hashCode !== shared.hashCode)];
+          if (!oe || !ox) continue;
+          const [ne, nx] = [oe.normalAt(end.at), ox.normalAt(end.at)];
+          if (dot(unit(ne), unit(nx)) < 1 - 1e-4) continue; // (the face beside it does not go on smoothly)
+          chain.add(x.hashCode);
+          added.push(x);
+          again = true;
+        }
+      }
+    }
+  }
+  if (!added.length) return null;
+  if (!added.every(supported)) return null; // (an edge the region cannot make: the round of the edges named is made as before)
+  return chain;
+}
+function regionRound(t, set0, size, mode, stations) {
   const faces = facesOf(t);
   const byEdge = new Map();
   for (const f of faces) for (const e of edgesOf(f)) byEdge.set(e.hashCode, [...(byEdge.get(e.hashCode) ?? []), f]);
+  // the kernel's round follows an edge on round the edges that carry it on smoothly (`in_480`: the chamfer of the one straight side of a stadium-shaped slot is the chamfer of the whole outline, two sides and two
+  // arcs, for the kernel; the region of the one side took off a third, and a bigger chamfer took off less): the region does the same, when every edge it takes up is one it can make
+  const set = stations ? set0 : smoothChain(t, set0, byEdge) ?? set0;
   const dir = (v) => { const l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; };
   const dotp = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   const crossp = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
