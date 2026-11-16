@@ -457,3 +457,38 @@ export function sweepRoles(ends, t, end, caps, sides, straight) {
   if (straight && sides && l > 1e-9) roles.push(...figureRoles({ dir: t, edges: ends.edges }, straight, sides, false));
   return roles;
 }
+
+/**
+ * How much the sides of a swept body crease where the path's curvature changes (`in_606`): a profile that is not square to the path is carried rigidly, so each of its corners goes along a curve whose direction jumps where the
+ * path's curvature does (a line into an arc, two arcs of different radius, an S bend). The jump in direction is the change of curvature times how far the corner stands off the path along the path's direction (its lever),
+ * about (change of curvature) x (lever). `segs` are the path's lines and arcs (`a`, `b`, and `m` for an arc), `points` the profile's points and `a0` where the path starts on it. Returns `{ deg, tilt }` (the crease in degrees
+ * at the worst joint and the angle by which the profile is off square to the path's start), or null for a path that is not flat (the curvature has no one sign), one segment, or a profile that is square to it.
+ */
+export function creaseOf(segs, points, a0) {
+  if (!segs || segs.length < 2) return null;
+  const unit = (v) => { const l = Math.hypot(v[0], v[1], v[2]); return l > 1e-12 ? [v[0] / l, v[1] / l, v[2] / l] : null; };
+  const info = segs.map((s) => {
+    if (!s.m) { const t = unit([s.b[0] - s.a[0], s.b[1] - s.a[1], s.b[2] - s.a[2]]); return t ? { t0: t, kappa: 0, n: null } : null; }
+    const k = circleOf(s.a, s.m, s.b);
+    if (!k || k.r < 1e-9) return null;
+    const u = [s.m[0] - s.a[0], s.m[1] - s.a[1], s.m[2] - s.a[2]], v = [s.b[0] - s.m[0], s.b[1] - s.m[1], s.b[2] - s.m[2]];
+    const n = unit([u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]);
+    if (!n) return null;
+    const r = [s.a[0] - k.o[0], s.a[1] - k.o[1], s.a[2] - k.o[2]];
+    const t0 = unit([n[1] * r[2] - n[2] * r[1], n[2] * r[0] - n[0] * r[2], n[0] * r[1] - n[1] * r[0]]); // (counter-clockwise about n, the way the arc goes)
+    return t0 ? { t0, kappa: 1 / k.r, n } : null;
+  });
+  if (info.some((x) => !x)) return null;
+  // a flat path: every arc's plane has the same normal, up to its sign; the curvature is signed by it
+  const ref = info.find((x) => x.n)?.n;
+  if (!ref) return null;
+  for (const x of info) if (x.n && Math.abs(Math.abs(dot(x.n, ref)) - 1) > 1e-3) return null;
+  const kap = info.map((x) => (x.n ? x.kappa * Math.sign(dot(x.n, ref)) : 0));
+  let dk = 0;
+  for (let i = 1; i < kap.length; i++) dk = Math.max(dk, Math.abs(kap[i] - kap[i - 1]));
+  const T0 = info[0].t0;
+  let lever = 0;
+  for (const p of points) lever = Math.max(lever, Math.abs(dot([p[0] - a0[0], p[1] - a0[1], p[2] - a0[2]], T0)));
+  const deg = (dk * lever * 180) / Math.PI;
+  return deg > 0 ? { deg, T0 } : null;
+}

@@ -35,7 +35,7 @@ import { reshape } from "./reshape.mjs";
 import { findCrossing } from "./selfcross.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
-import { nameFaces, refOfName, namedEdgeRefs, figureRoles, edgeEnds, edgeRoles, revolveRoles, loftRoles, sweepRoles, endTangent } from "./facenames.mjs";
+import { nameFaces, refOfName, namedEdgeRefs, figureRoles, edgeEnds, edgeRoles, revolveRoles, loftRoles, sweepRoles, endTangent, creaseOf } from "./facenames.mjs";
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
 
 /** The imported solids scaled about the origin by `op.scale` and then placed: `op.place` "center" brings the middle of their box to the origin, "floor" brings the middle of the box to the z axis and the bottom to z = 0 (a part that sits on the build plate). */
@@ -544,7 +544,8 @@ const OPS = {
   sweep(op, ctx) {
     const sketchOf = (id) => { const q = ctx.get(id, "sketch"); return q.drawing.sketchOnPlane(q.plane, q.origin); };
     const outer = sketchOf(op.profile);
-    const endsOuter = ctx.roleFigs ? edgeEnds(outer) : null; // (the profile's edges, read before the sweep uses it up, for the names of its faces)
+    const endsOuter0 = edgeEnds(outer);
+    const endsOuter = ctx.roleFigs ? endsOuter0 : null; // (the profile's edges, read before the sweep uses it up, for the names of its faces)
     const face = outer.face();
     const pn = face.normalAt();
     const N = [pn.x, pn.y, pn.z];
@@ -561,6 +562,17 @@ const OPS = {
     const tl = Math.hypot(...t0) || 1;
     if (Math.abs(t0[0] * N[0] + t0[1] * N[1] + t0[2] * N[2]) / tl < 0.05) throw new Error("the path runs along the shape's plane where it starts: the shape would be carried edge on (draw the path leaving the plane)");
     if (ctx.roleFigs) { try { const last = segs[segs.length - 1]; ctx.roleFigs.set("sweep", sweepRoles(endsOuter, endTangent(last), last.b, true, ctx.get(op.profile, "sketch").sides, segs.length === 1 && !last.m ? Math.hypot(last.b[0] - last.a[0], last.b[1] - last.a[1], last.b[2] - last.a[2]) : 0)); } catch { ctx.roleFigs.set("sweep", []); } } // (`dec_stable_reference_mechanism`: the start cap and the end cap)
+    // a profile that is not square to the path creases the sides where the path's curvature changes (`in_606`): said, with how much
+    if (ctx.sweepNote && endsOuter0) {
+      try {
+        const pts = endsOuter0.edges.flatMap((q) => [q.a, q.b, ...(q.mid ? [q.mid] : [])]);
+        const c = creaseOf(segs, pts, segs[0].a);
+        if (c && c.deg >= 2) {
+          const tilt = (Math.acos(Math.min(1, Math.abs(N[0] * c.T0[0] + N[1] * c.T0[1] + N[2] * c.T0[2]))) * 180) / Math.PI;
+          ctx.sweepNote.note = `the shape is ${Math.round(tilt)}° off square to the path, so the sides crease by about ${Math.round(c.deg)}° where the path's curvature changes (the joint of its arcs): draw the shape square to the path, or give the path a curvature that changes smoothly, for a smooth sweep`;
+        }
+      } catch { /* no note */ }
+    }
     const spine = assembleWire(segs.map((s) => (s.m ? makeThreePointArc(s.a, s.m, s.b) : makeLine(s.a, s.b))));
     const make = (sk) => {
       const solid = genericSweep(sk.wire, spine, { frenet: true, transitionMode: "right" });
@@ -2053,6 +2065,12 @@ const LOCAL = {
   cylDraft: (op) => [op.ref?.center],
   edgeMod: (op) => [].concat(op.ref ?? []).map((r) => r.mid),
 };
+// a sweep may say that its sides crease (`in_606`): the note goes with its result like the notes of a fillet
+{
+  const sweep0 = OPS.sweep;
+  OPS.sweep = (op, ctx) => { const sink = {}; ctx.sweepNote = sink; try { const v = sweep0(op, ctx); return sink.note && v?.kind === "solid" ? { ...v, note: sink.note } : v; } finally { ctx.sweepNote = null; } };
+}
+
 function run(op, ctx, results) {
   const probes = (LOCAL[op.type]?.(op) ?? []).filter(Boolean);
   const from = op.target ? results.get(op.target)?.value : null;
