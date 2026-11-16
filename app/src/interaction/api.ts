@@ -11,5 +11,6 @@ export { settings } from "../shared/settings.ts";
 export { kernel, initKernelWeb } from "../compiler/kernel/web.ts";
 export type { Grid } from "./grid.ts";
 export { consumed } from "../operation/ownership.ts";
+export { ringPoints } from "../math/ring.ts";
 export { faceEdges } from "./offsetbody.ts";
 export { edgeCentre, sketchOfEdge } from "../operation/edgesource.ts";

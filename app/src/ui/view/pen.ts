@@ -6,6 +6,7 @@ import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import type { Vec3 } from "../../interaction/api.ts";
+import { ringPoints } from "../../interaction/api.ts";
 
 export const rgb = (c: readonly [number, number, number]): THREE.Color => new THREE.Color().setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
 
@@ -23,18 +24,7 @@ export const trisMesh = (tris: number[], mat: THREE.Material): THREE.Mesh => {
   return new THREE.Mesh(g, mat);
 };
 /** The points of a circle in 3D (a closed polyline, flat xyz). */
-export const ringOf = (center: Vec3, radius: number, normal: Vec3): number[] => {
-  const n = new THREE.Vector3(...normal).normalize();
-  const a = Math.abs(n.z) < 0.9 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
-  const u = new THREE.Vector3().crossVectors(a, n).normalize();
-  const v = new THREE.Vector3().crossVectors(n, u);
-  const out: number[] = [];
-  for (let i = 0; i <= 96; i++) {
-    const t = (i / 96) * Math.PI * 2;
-    out.push(center[0] + (u.x * Math.cos(t) + v.x * Math.sin(t)) * radius, center[1] + (u.y * Math.cos(t) + v.y * Math.sin(t)) * radius, center[2] + (u.z * Math.cos(t) + v.z * Math.sin(t)) * radius);
-  }
-  return out;
-};
+export const ringOf = (center: Vec3, radius: number, normal: Vec3): number[] => ringPoints(center, radius, normal);
 export const sphereAt = (p: Vec3, radius: number, color: number, depthTest = false): THREE.Mesh => {
   const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), new THREE.MeshBasicMaterial({ color, depthTest, transparent: true, opacity: 0.95, ...(depthTest ? { polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 } : {}) }));
   ball.position.set(...p);

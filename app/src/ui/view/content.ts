@@ -3,29 +3,13 @@ import * as THREE from "three";
 import type { Scene, Ref } from "../../interaction/api.ts";
 import { outlineOf, lookup, settings, consumed } from "../../interaction/api.ts";
 import { surfaceTriangles } from "../../interaction/surfaces.ts";
+import { linePairs } from "../../interaction/linepairs.ts";
 import type { Pen } from "./pen.ts";
-import { clearGroup, trisMesh, ringOf, rgb } from "./pen.ts";
+import { clearGroup, trisMesh, rgb } from "./pen.ts";
 import { cornerEdgesOf } from "./edges.ts";
 import { ownSegments } from "./split.ts";
 
 export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array; /** the sharp edges found by the kernel (`dec_sharp_edges_once`) and the angle they were found for */ sharp?: Float32Array; sharpDeg?: number }
-
-/** Every straight line and circle of the scene, whatever its origin, as flat pairs of points: the one list that all the lines are drawn from. */
-function linePairs(s: Scene, skip: ReadonlySet<Ref>): number[] {
-  const get = lookup(s);
-  const out: number[] = [];
-  for (const p of Object.values(s.parts)) {
-    if (skip.has(p.ref) || p.origin === "world" || p.origin === "body") continue; // the world is drawn by ui/world.ts; the body's lines come from its mesh
-    const o = outlineOf(get, p);
-    if (o.shape === "segment") out.push(...o.a, ...o.b);
-    else if (o.shape === "polyline") for (let i = 0; i + 1 < o.pts.length; i++) out.push(...o.pts[i]!, ...o.pts[i + 1]!); // a drawn arc: the same black line as the others
-    else if (o.shape === "circle") {
-      const ring = ringOf(o.center, o.radius, o.normal);
-      for (let i = 0; i + 5 < ring.length; i += 3) out.push(ring[i]!, ring[i + 1]!, ring[i + 2]!, ring[i + 3]!, ring[i + 4]!, ring[i + 5]!);
-    }
-  }
-  return out;
-}
 
 /**
  * One look for every line (`in_115`): drawn lines and the body's outline are the same thin charcoal line, from the same material. Corners are not dotted anywhere:
@@ -46,6 +30,21 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
     g.setAttribute("position", new THREE.Float32BufferAttribute(pairs, 3));
     content.add(new THREE.LineSegments(g, edge));
   }
+  // the lines marked for a laser or a cutter (`in_564`): score is blue and dashed, engrave a thicker orange line, so a mark can be seen on the drawing; cut is the usual line
+  const score = linePairs(s, used, "score");
+  if (score.length) {
+    const xs = score.filter((_, i) => i % 3 === 0), ys = score.filter((_, i) => i % 3 === 1), zs = score.filter((_, i) => i % 3 === 2);
+    const size = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), Math.max(...zs) - Math.min(...zs));
+    const m = pen.segments(score, settings.theme.markScore, 2, false);
+    const mat = m.material as import("three/addons/lines/LineMaterial.js").LineMaterial;
+    mat.dashed = true; mat.dashSize = Math.max(size / 60, 0.3); mat.gapSize = mat.dashSize * 0.7; mat.needsUpdate = true;
+    m.computeLineDistances();
+    m.renderOrder = 3;
+    m.raycast = () => {}; // (a mark is not something to hide an axis label behind: the label test casts rays at this group, and a thick line cannot be cast without a camera)
+    content.add(m);
+  }
+  const engrave = linePairs(s, used, "engrave");
+  if (engrave.length) { const m = pen.segments(engrave, settings.theme.markEngrave, 2.6, false); m.renderOrder = 3; m.raycast = () => {}; content.add(m); }
   for (const p of Object.values(s.parts)) {
     if (p.kind !== "face" || p.origin !== "drawn" || used.has(p.ref)) continue;
     const tris = surfaceTriangles(get, p);
