@@ -271,7 +271,8 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
 
 /** The handles moved along with what they are dragging (the arrows of a move or a pull follow the object live). */
 export function followed(g: Gizmo, drag: { dir: Vec3; kind: HandleKind; id: string } | null, value: number | null): Gizmo {
-  if (!drag || value === null || (drag.kind !== "arrow" && drag.kind !== "double") || drag.id.startsWith("edge")) return g;
+  // (the orb's own arrows, `piv:` and the revolve's `rev:`, are built from where the orb is: the number a revolve holds is an angle, not a distance, and must not slide them along)
+  if (!drag || value === null || (drag.kind !== "arrow" && drag.kind !== "double") || drag.id.startsWith("edge") || drag.id.startsWith("piv:") || drag.id.startsWith("rev:")) return g;
   const by = scale(drag.dir, value);
   return { centre: add(g.centre, by), handles: g.handles.map((h) => ({ ...h, points: h.points.map((p) => add(p, by)) })) };
 }

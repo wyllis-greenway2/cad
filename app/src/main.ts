@@ -19,7 +19,7 @@ import type { Values } from "./ui/dialog.ts";
 import type { ExportFormat } from "./interaction/exportfile.ts";
 import { aboutOf } from "./operation/file.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
-import { createState, reduce, advance, stopView } from "./interaction/controller.ts";
+import { createState, reduce, advance, stopView, afterTakenBack } from "./interaction/controller.ts";
 import { frameOf } from "./interaction/frame.ts";
 import { requestOverlap } from "./interaction/overlap.ts";
 import { clearanceBetween } from "./interaction/clearance.ts";
@@ -313,7 +313,7 @@ async function boot() {
       const session = refresh(state.session);
       // the answer for the last step was an error and it was taken back: what was being worked on is over
       const c = session.conflict;
-      state = { ...state, session, ...(session.history.cursor < before ? { op: null, drag: null } : {}), ...(c && c !== state.session.conflict ? { flash: { ...c, at: performance.now() } } : {}) }; // (a step taken back with its reason: what is the problem flashes red, `in_266`)
+      state = { ...afterTakenBack({ ...state, session }, before), ...(c && c !== state.session.conflict ? { flash: { ...c, at: performance.now() } } : {}) }; // (a step taken back with its reason: what is the problem flashes red, `in_266`)
       dirty = true;
     }, undefined, { store: (resultStore = resultStoreOn() ? openResultStore<KernelResult>(typeof __KERNEL__ === "string" ? __KERNEL__ : "unstamped") : null) });
     await worked.init();

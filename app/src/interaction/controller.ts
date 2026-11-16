@@ -3,6 +3,7 @@
 // `viewing` (camera), `pointer` (hover, click, menu), `modal` (tools, operations, typing, edits).
 import type { Intent } from "../shared/input.ts";
 import { figureRefs } from "../operation/scene.ts";
+import { isLive } from "./operations.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { AppState, Env } from "./control/state.ts";
 import { doHover, doClick, doMenu, doHold, doTapAim, doMovePoint } from "./control/pointer.ts";
@@ -27,6 +28,14 @@ import { normalOfPlane } from "../operation/part.ts";
 import { add, sub, scale, dot } from "../math/vec.ts";
 
 export { createState } from "./control/state.ts";
+/**
+ * The kernel's answer for the last step was an error and the step was taken back (the cursor is before where it was): an operation that goes on after the drag (a pull, a revolve, a fillet) stays open, as it does
+ * when the step is refused at once, so the arrow can be taken again; anything else is over (`in_599`: a spiral arrow pulled a little made too small an advance and the whole revolve was dropped).
+ */
+export function afterTakenBack(s: AppState, before: number): AppState {
+  if (s.session.history.cursor >= before) return s;
+  return { ...s, drag: null, op: s.op && isLive(s.op) ? { ...s.op, made: false } : null };
+}
 export type { AppState } from "./control/state.ts";
 export { advance, gridPlaneOf } from "./control/viewing.ts";
 export { stop as stopView } from "./control/state.ts";

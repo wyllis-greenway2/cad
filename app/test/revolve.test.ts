@@ -406,3 +406,45 @@ test("the position bubble of a turned orb is the place along its own axis, and t
   const u = [0, 0.8, -0.6]; // (across it, in the plane of y and z: unchanged)
   assert.ok(Math.abs((p[1]! * u[1]! + p[2]! * u[2]!) - (2 * 0.8 - 3 * 0.6)) < 1e-9);
 });
+
+// ---- two faults found by hand (`in_599`) ----
+import { frameOf as frameOfRev } from "../src/interaction/frame.ts";
+import { afterTakenBack } from "../src/interaction/controller.ts";
+test("while a position arrow of the revolve's orb is dragged its number bubble stays at the arrow and goes with the orb (it was sent off the picture by the angle)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  const pr = projector(st.cam, 800, 600);
+  const h = gizmoOf(st)!.handles.find((x) => x.id === "piv:x")!;
+  const a = pr.project(h.points[0]!), b = pr.project(h.points.at(-1)!);
+  const mid: [number, number] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  st = reduce(st, { type: "orbit", dx: 1, dy: 0, x: mid[0] + 1, y: mid[1] } as never, env);
+  assert.ok(st.drag && "handle" in st.drag);
+  const seen: { at: number[]; centre: number[]; tip: number[]; value: string }[] = [];
+  for (let k = 1; k <= 5; k++) {
+    const dx = (b[0] - a[0]) * 0.1, dy = (b[1] - a[1]) * 0.1;
+    st = reduce(st, { type: "orbit", dx, dy, x: mid[0] + dx * k, y: mid[1] + dy * k } as never, env);
+    const f = frameOfRev(st, { w: 800, h: 600 });
+    const e = f.entries[0]!;
+    seen.push({ at: [...(e.at as readonly number[])], centre: [...st.op!.pivot!], tip: [...f.gizmo!.handles.find((x) => x.id === "piv:x")!.points.at(-1)!], value: e.fields[0]!.value });
+  }
+  for (const q of seen) {
+    assert.ok(Math.hypot(q.at[0]! - q.centre[0]!, q.at[1]! - q.centre[1]!, q.at[2]! - q.centre[2]!) < 40, `the bubble is by the orb (${JSON.stringify(q.at)} against ${JSON.stringify(q.centre)})`);
+    assert.deepEqual(q.at, q.tip, "at the tip of the arrow");
+  }
+  assert.ok(Number(seen.at(-1)!.value) > Number(seen[0]!.value), "and the number goes up as the orb is pulled");
+  assert.ok(seen.at(-1)!.centre[0]! > seen[0]!.centre[0]!, "the orb goes along");
+});
+
+test("a revolve whose last step the kernel could not make stays open for the arrow to be taken again; an operation that is not live is over", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  const open = { ...st, op: { ...st.op!, auto: false, made: true, advValue: 0.3 }, drag: null };
+  const kept = afterTakenBack(open, 5); // (the session is at cursor 0: before where it was)
+  assert.equal(kept.op?.kind, "revolve");
+  assert.equal(kept.op?.made, false);
+  assert.equal(kept.op?.advValue, 0.3, "the advance that was pulled is kept");
+  assert.equal(afterTakenBack({ ...open, op: { ...open.op, auto: true } }, 5).op, null, "an operation that started by itself and is not live is over");
+  assert.equal(afterTakenBack(open, 0), open, "nothing was taken back: nothing changes");
+});
