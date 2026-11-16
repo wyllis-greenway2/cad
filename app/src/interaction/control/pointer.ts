@@ -87,7 +87,7 @@ const category = (id: string, label: string, icon: string, kids: MenuItem[]): Me
   const first = kids.find((k) => k.enabled);
   return { id, label, icon, enabled: true, why: null, children: kids, ...(first ? {} : { dim: true as const }) }; // (always opens, so every ring can be looked through: dimmed when nothing in it applies now, `in_538`)
 };
-function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean; clip?: boolean; adding?: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
+function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean; clip?: boolean; adding?: boolean; touch?: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
   const adding = !!view.adding;
   const sc = sceneOf(session);
   const sel = selectionOf(session);
@@ -117,9 +117,9 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   const clicked = over ? planeOf(lookup(sc), over) : null; // (the surface the right click was on: a face, a sketch's plane, a world plane; a sketch tool chosen from the ring turns to it when the selection does not say which plane)
   const target = lookTarget(sc, sel, over);
   const items: MenuItem[] = [
-    ...CATEGORIES.slice(0, 1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
+    ...CATEGORIES.slice(0, 1).map((c) => category(c.id, c.label, c.icon, c.items.filter((i) => i !== "select:add" || view.touch || adding).map((i) => leaf.get(i)!))),
     category("constraints", "Constraints", "constraint", [...rels, leaf.get("body:hard")!].length > 1 || leaf.get("body:hard")!.enabled ? [...rels, leaf.get("body:hard")!] : [{ id: "none", label: "Constraints", icon: "constraint", enabled: false, why: "select the parts to constrain (a line, a corner, two lines …)" }]), // (a hard body is a constraint on every body that meets it, `in_490`)
-    ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
+    ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.filter((i) => i !== "select:add" || view.touch || adding).map((i) => leaf.get(i)!))),
     // the eye: how the model is looked at (`in_386`): straight at a surface, as wireframe, and the tape measure
     category("view", "View", "eye", [
       { id: "look", label: "Look at", icon: "look", enabled: !!target, why: target ? null : "select a plane or a face, or right-click on one" },
@@ -573,7 +573,7 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   }
   // what is under the point (a finger has no hover: a long press must be told what is under it the same way a right click is, or a tool chosen from the ring would not turn the view straight to the plane there, `in_283`)
   const under = i.button ? null : candidatesAt(sceneOf(s.session), projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0]?.ref ?? null;
-  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!sectionNow(s), clip: !!s.clipboard?.length, adding: s.adding }) };
+  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!sectionNow(s), clip: !!s.clipboard?.length, adding: s.adding, touch: i.touch }) };
 }
 
 /**

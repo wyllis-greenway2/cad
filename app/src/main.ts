@@ -381,7 +381,7 @@ function frame(now: number) {
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
     undoBar.update(lastDevice === "touch", f.undoRedo);
     similarChip.update(f.similar);
-    addChip.update(f.adding === "offer" && lastDevice !== "touch" ? null : f.adding);
+    addChip.update(f.adding);
     faceKindChip.update(f.faceKinds);
     sizeKindChip.update(f.sizeKinds);
     loftKindChip.update(f.loftKinds);

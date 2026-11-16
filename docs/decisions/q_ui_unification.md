@@ -3,7 +3,7 @@ id: q_ui_unification
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_544
+human_input: in_545, in_544
 date: 2026-11-16
 depends_on:
 alternative_to:
@@ -31,3 +31,7 @@ alternative_to:
 7. **Handles:** reduce to three kinds (an arrow with a tip, a ring, an orb), one family per job (move, turn, size, count), and one drawing and one drag code; the revolve, mirror, repeat and mover would be the same family with a different set of axes.
 
 **Suggested order (smallest first, each testable alone):** 6, then 2 with 1, then 3, then 5, then 4, then 7 (the handles are the most work and touch the picking and drag tests).
+
+## Progress
+- **Step 1 done (`in_545`, the human approved the order and asked to start with Add more):** the "+ Add more" offer is gone; **Add mode** is a bubble in the Select ring only when the menu was opened by a finger (a long press carries `touch`; a mouse has Shift), and while adding is on it stays in every menu (it reads "Stop adding"). The pill remains only to say adding is on ("Adding: tap to add or remove · Done"), which is the one thing a finger cannot otherwise see. Next: the operation bar with Tab stepping (2 and 1).
+
