@@ -1,14 +1,16 @@
 ---
-id: q_revolve_body_face
-kind: question
-status: open
-origin: ai-unreviewed
-human_input: in_484
+id: dec_revolve_body_face
+kind: decision
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_484, in_485
 date: 2026-11-16
 depends_on:
+  - dec_sketch_on_face_follows_body: the copy is a sketch on a drawn plane that goes with the body, as a sketch drawn on a face is
+  - dec_spiral_extrude: the revolve itself (angle, advance, the orb as the axis) is that decision's, unchanged
 alternative_to:
 ---
-# Revolve a face of a body, as if it were a sketch
+# Revolve a face of a body: the face becomes a figure at the moment of the revolve
 
 `in_484` asks why a surface (a flat face of a body) cannot be treated as a sketch and revolved, about one of its edges or about the revolve's orb put out in space. **Today:** Revolve (`startOp`, `kind === "revolve"`) takes only *drawn* figures (`drawnFaces`): a body's face has no sketch behind it and is refused ("select a closed figure first"). Push / pull of a body face and *Sketch on face* (`dec_sketch_on_face_follows_body`) already exist, so a face is used as a plane but not as a profile. `dec_spiral_extrude` said "a closed figure (or a selected face)" in its proposal but only the figure was built.
 
@@ -17,7 +19,9 @@ alternative_to:
 2. Only edges as the axis, no orb in space (smaller).
 3. Revolving a face in place as a *face edit* (the face swept round, as push / pull moves it): more exact for repairs, but the history step is different (`dec_face_edit_by_step`).
 
-An axis that cuts across the face (the figure would cross itself) is refused with the reason. **Awaiting the human's choice; nothing built.**
+An axis that cuts across the face (the figure would cross itself) is refused with the reason. **Approved: option 1 (`in_485`).**
+
+**Built (`in_485`):** beginning Revolve with one flat face of a body selected first draws the face's outline exactly (every loop: the outer one and the holes; lines and arcs) as a sketch on a drawn plane that goes with the body (`faceSketchCommand` in `offsetbody.ts`, the offset's own outline code with no offset), selects that figure, and goes on as for a drawn figure: the axis is the longest edge to start, another edge, a point or a face clicked, or the orb moved out in space (all as before); the angle, the advance, and the join / cut / new body are the revolve's own. The copy is a drawing, not a step, and stays if the revolve is cancelled (undo takes it away). A face that is round, or whose edges are not lines and arcs, is refused with the reason. **Not built:** an axis across the face is not refused beforehand (the kernel's refusal stands); revolve in place as a face edit (option 3).
 
 ## Rationale
 

@@ -350,6 +350,47 @@ test("scaling X and then Y leaves each at its own factor and Z alone (`dec_scale
   near(bb.max[2] - bb.min[2], 20, 0.01);
 });
 
+test("a flat face of a body can be revolved: Revolve first copies it as a sketch on its own plane, then turns that figure (`dec_revolve_body_face`)", () => {
+  let st = box(); // 40 x 20 x 20
+  const sc0 = scene(st.session);
+  const top = Object.values(sc0.parts).find((p) => p.kind === "plane" && p.origin === "body" && Math.abs(Math.abs(normalOfPlane(p)[2]!) - 1) < 1e-6 && Math.abs(p.at[2]! - 20) < 1e-6)!;
+  st = select(st, [top.ref]);
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  assert.equal(st.session.message?.startsWith("this face cannot") ?? false, false, st.session.message ?? "");
+  assert.equal(st.op?.kind, "revolve", "the revolve began");
+  const sc1 = scene(st.session);
+  const sketch = Object.values(sc1.parts).filter((p) => p.kind === "face" && p.origin === "drawn" && !(p.ref in sc0.parts));
+  assert.equal(sketch.length, 1, "the face is a figure now, a sketch on a plane of its own");
+  assert.equal(sc1.steps.length, sc0.steps.length, "the copy is a drawing, not a step");
+  const corners = Object.values(sc1.parts).filter((p) => p.kind === "corner" && p.origin === "drawn" && !(p.ref in sc0.parts)).map((p) => (p as { at: Vec3 }).at);
+  assert.equal(corners.length, 4, "the four corners of the face, none of the drawing the block was made from");
+  for (const c of corners) near(c[2], 20, 1e-6);
+  st = reduce(st, { type: "typed", key: "9", shift: false }, env);
+  st = reduce(st, { type: "typed", key: "0", shift: false }, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  const step = scene(st.session).steps.at(-1)!;
+  assert.equal(step.type, "revolve");
+  assert.equal(step.params.angle, 90);
+});
+
+test("the round top of a post can be revolved too: its two half arcs are copied as one closed figure (`dec_revolve_body_face`)", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 5);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 10 } } });
+  let st: AppState = { ...createState(s), cam: homeCamera() };
+  const sc0 = scene(st.session);
+  const top = Object.values(sc0.parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && Math.abs(Math.abs(normalOfPlane(p)[2]!) - 1) < 1e-6 && Math.abs(p.at[2]! - 10) < 1e-6)!;
+  assert.ok(top, "the flat top");
+  st = select(st, [top.ref]);
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  assert.equal(st.op?.kind, "revolve", st.session.message ?? "");
+  const fresh = Object.values(scene(st.session).parts).filter((p) => p.origin === "drawn" && !(p.ref in sc0.parts));
+  assert.equal(fresh.filter((p) => p.kind === "face").length, 1, "one figure");
+  assert.equal(fresh.filter((p) => p.kind === "line" && p.center).length, 2, "of two arcs");
+});
+
 test("a drawn figure moves and turns like an object: X Y Z arrows, X Y Z rings and angle fields, taking its plane with it", () => {
   let s = createSession(kernel);
   const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [40, 20, 0], [1, 0, 0], [0, 1, 0]);

@@ -2268,3 +2268,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 >
 > Why cant I treat a treat a surface as a sketch? it basically is a sketch with edges etc? If I select a surface, shouldn't I be able to rotate extrude it? by selecting one of its edges as the rotate, or setting the rotate orb out in space?
 (the first: the menu's view tilt and the crosshair move smoothly with the mouse, and only which option is lit and chosen steps; the second: a question, and a request, to revolve a face of a body about one of its edges or about the revolve's orb put out in space)
+
+## in_485 — 2026-11-16 — approval
+> Go with option 1 for the face revolve
+(approves option 1 of `q_revolve_body_face`: the face becomes a figure at the moment of the revolve, the axis an edge of it or the orb out in space)
