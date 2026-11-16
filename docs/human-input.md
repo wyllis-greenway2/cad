@@ -2276,3 +2276,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_487 — 2026-11-16 — directive
 > okay seems better, moving the cylinder is pretty smooth. If you grab the block and try to move, it is pretty shaky though. Even if you drag the mouse in a smooth straight direction, it seems to bounce back and forth across in that direction?
 (reports that dragging the pin is now smooth, but dragging the block (the pin standing in its hole) is shaky: along a smooth straight pointer drag the block bounces back and forth in that direction)
+
+## in_488 — 2026-11-16 — question
+> Okay it seems pretty good now. Should we have it so that if an object cant move in the xyz direction it is being pulled in, then it should see if it can move in rotational directions that are valid? Similar to how bodies work with body constraints such as a coaxial pin in a block? or do you think that could get very buggy and messy?
+(says the drag now seems pretty good; asks whether a hard body that cannot move in the pulled direction should try rotations that are valid, as bodies with mates do, or whether that would get buggy and messy; a question, no decision yet)
