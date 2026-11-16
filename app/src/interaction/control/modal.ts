@@ -15,7 +15,7 @@ import { faceSketchCommand } from "../offsetbody.ts";
 import { placements } from "../../operation/repeat.ts";
 import type { Part } from "../../operation/part.ts";
 import { runOp } from "../runop.ts";
-import { lookup, nextId } from "../../operation/scene.ts";
+import { lookup, nextId, figuresOf } from "../../operation/scene.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { planeOf } from "../objects.ts";
 import { sketchOfEdge } from "../../operation/edgesource.ts";
@@ -480,7 +480,28 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
 /** The ⋯ menu's lists: choosing one opens it, choosing it again closes it. */
 export const doPanel = (s: AppState, name: "bodies" | "history" | "groups" | "sketches" | "parameters" | "constraints" | "measure"): AppState => ({ ...s, panel: s.panel === name ? null : name, menu: null });
 /** A row of the open list: a body is selected, a step is taken out of the history. */
-export function doPanelRow(s: AppState, id: string, act: "select" | "remove" | "sketch" | "edit" | "hide"): AppState {
+/** Choose a sketch (`in_572`): its drawn parts (the outer lines or the circle, and the figures inside it) are selected and it is shown in the picture, so it can be looked at, measured and held by constraints as any drawn figure. `id` is `fig:<step>:<which figure of the step>`, or the face of a figure no step has taken. */
+function doSketchPick(s: AppState, id: string): AppState {
+  const sc = sceneOf(s.session);
+  let parts: Ref[] = [];
+  let show: string | null = null;
+  if (id.startsWith("fig:")) {
+    const [, stepId, k] = id.split(":");
+    const st = sc.steps.find((x) => x.id === stepId);
+    const fig = st ? figuresOf(st).filter((f) => f.outer.length)[Number(k)] : undefined;
+    if (!st || !fig) return s;
+    parts = [...fig.outer, ...fig.holes.flat()];
+    show = st.id;
+  } else {
+    const f = sc.parts[id];
+    if (f?.kind !== "face") return s;
+    parts = f.disk ? [f.disk, ...(f.holes ?? [])] : [...f.loop];
+  }
+  parts = parts.filter((q) => q in sc.parts);
+  return withSession({ ...s, showSketch: show ?? s.showSketch, menu: null }, { ...s.session, click: { ...s.session.click, selection: parts }, message: null });
+}
+export function doPanelRow(s: AppState, id: string, act: "select" | "remove" | "sketch" | "edit" | "hide" | "pick"): AppState {
+  if (act === "pick") return doSketchPick(s, id);
   if (act === "remove" && s.panel === "parameters") return doParamRemove(s, id); // (the cross of a parameter, `dec_named_parameters`)
   if (act === "remove" && s.panel === "constraints") return withSession(s, run(s.session, { type: "removeRelation", id })); // (the cross of a constraint)
   if (act === "select" && (s.panel === "constraints" || id.startsWith("rels:"))) { // (a constraint, or the constraints of a step: the parts they tie are selected)

@@ -2620,3 +2620,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_571 — 2026-11-16 — directive
 > yes start on names kept for good
 (approves the next item of `dec_sketch_recipe_synced` rule 5 / `dec_model_panel`: sketch names that are given when a figure is drawn and kept, instead of the order of the steps)
+
+## in_572 — 2026-11-16 — directive
+> yes start on selecting a sketch from a step's row
+(approves the next item of `dec_model_panel`: choosing a sketch's row selects the sketch in the model, so it can be looked at and worked on)

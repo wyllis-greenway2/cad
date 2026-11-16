@@ -3,7 +3,7 @@ id: dec_model_panel
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_546, in_547, in_556, in_566, in_570, in_571
+human_input: in_546, in_547, in_556, in_566, in_570, in_571, in_572
 date: 2026-11-16
 depends_on:
   - dec_history_navigation: the Steps tab is that History, unchanged
@@ -41,7 +41,13 @@ depends_on:
 - **A limit, said plainly:** a figure is known by the first of its lines (the oldest, as the ids count up), so a figure changed so that another line becomes its first (the first line taken away) is counted as a new figure and gets a new number; a figure cut by others into pieces (a region) is numbered for each piece.
 - **Test:** `test/modelpanel.test.ts`: A drawn then B, extruded B then A: A is Sketch 1 and B Sketch 2 although the steps are the other way; B's step taken out leaves B unused as Sketch 2 and a new figure is Sketch 3; the same after a save and open; an undo takes the numbers back.
 
-**Not done (each stays for later, with the rest of the order of `in_546`):** selecting or editing a sketch from a step's row; status that sees a push of a face that is not on the sketch's body by ref.
+## Choosing a sketch (`in_572`)
+
+- **A sketch's row selects the sketch and shows it:** choosing the row in the Sketches tab, or the sketch row under a step in the Steps tab, selects the figure's drawn parts (its outer lines or its circle, and the figures drawn inside it, which are its holes) and shows the sketch in the picture (`showSketch`, as the pencil does), so it can be looked at, measured (the Measure tab) and held by constraints as any drawn figure. For a figure no step has taken, the lines or the circle of its face are selected. The pencil on a row only shows or puts the sketch away, as before.
+- **How:** the row has `pickId` (`fig:<step>:<which figure of the step>`, or the figure's face ref); the intent `panelRow` act `pick`; `doSketchPick` in `control/modal.ts`.
+- **Said plainly:** showing a sketch shows all that is hidden on its plane (the way `in_211` shows the hidden drawing of a plane), not only this figure; and "editing" a sketch is what the drawing tools and constraints already do to the selected parts: a changed sketch makes the body again from it, as for any edit of a drawing. There is no separate editing mode.
+
+**Not done (each stays for later, with the rest of the order of `in_546`):** status that sees a push of a face that is not on the sketch's body by ref.
 
 ## Rationale
 

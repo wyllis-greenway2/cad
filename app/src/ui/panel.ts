@@ -1,8 +1,8 @@
 // The list card opened from the ⋯ menu (`in_132`): the bodies with their names, or the history of steps. It displays what the interaction layer says and reports which row was chosen.
 import { iconSvg } from "./icons.ts";
 
-export interface PanelData { kind: string; title: string; rows: { pick?: boolean; child?: "select" | "sketch"; detail?: string; param?: { name: string; expr: string; value: number | null }; id: string; label: string; active: boolean; removable: boolean; edit?: boolean; error?: string; sketch?: boolean; hidden?: boolean; future?: boolean; current?: boolean; fields?: { key: string; label: string; value: number; expr?: string }[]; open?: boolean }[]; note?: string; actions?: { id: string; label: string; title: string }[]; tabs?: { id: string; label: string; on: boolean }[]; insert?: { on: boolean }; sections?: { title: string; lines: { label: string; value: string }[] }[] }
-export interface PanelHandlers { row(id: string, act: "select" | "remove" | "sketch" | "edit" | "hide"): void; action(id: string): void; go(id: string): void; tab(id: string): void; insert(): void; edit(id: string): void; set(id: string, key: string, value: number): void; link(id: string, key: string, expr: string): void; param(name: string, expr: string): void; unparam(name: string): void; undo(): void; redo(): void; close(): void }
+export interface PanelData { kind: string; title: string; rows: { pickId?: string; child?: "select" | "sketch" | "pick"; detail?: string; param?: { name: string; expr: string; value: number | null }; id: string; label: string; active: boolean; removable: boolean; edit?: boolean; error?: string; sketch?: boolean; hidden?: boolean; future?: boolean; current?: boolean; fields?: { key: string; label: string; value: number; expr?: string }[]; open?: boolean }[]; note?: string; actions?: { id: string; label: string; title: string }[]; tabs?: { id: string; label: string; on: boolean }[]; insert?: { on: boolean }; sections?: { title: string; lines: { label: string; value: string }[] }[] }
+export interface PanelHandlers { row(id: string, act: "select" | "remove" | "sketch" | "edit" | "hide" | "pick"): void; action(id: string): void; go(id: string): void; tab(id: string): void; insert(): void; edit(id: string): void; set(id: string, key: string, value: number): void; link(id: string, key: string, expr: string): void; param(name: string, expr: string): void; unparam(name: string): void; undo(): void; redo(): void; close(): void }
 
 export function createPanel(host: HTMLElement, h: PanelHandlers) {
   const el = document.createElement("div");
@@ -100,11 +100,10 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
         if (r.fields?.length) { const b = btn(iconSvg("pencil"), r.open ? "Close the numbers of this step" : "Change the numbers of this step", () => h.edit(r.id)); if (r.open) b.style.background = "#dff1f0"; row.appendChild(b); }
         if (r.removable) row.appendChild(btn(iconSvg("cross"), p.kind === "constraints" ? "Take this constraint away" : p.kind === "parameters" ? "Take this parameter away (refused while something uses it)" : p.kind === "groups" ? "Break this group (what is inside it stays grouped)" : p.kind === "bodies" ? "Delete this body (with the steps and sketches that made it)" : "Take this step out", () => h.row(r.id, "remove")));
         if (p.kind === "bodies" || p.kind === "groups") row.addEventListener("click", () => h.row(r.id, "select"));
-        if (p.kind === "sketches" && r.sketch !== undefined) row.addEventListener("click", () => h.row(r.id, "sketch"));
-        if (p.kind === "sketches" && r.pick) row.addEventListener("click", () => h.row(r.id, "select"));
+        if (p.kind === "sketches" && r.pickId) row.addEventListener("click", () => h.row(r.pickId!, "pick"));
         if (p.kind === "parameters") row.style.cursor = "default";
         if (p.kind === "constraints") row.addEventListener("click", () => h.row(r.id, "select"));
-        if (r.child) { row.style.marginLeft = "20px"; row.style.padding = "3px 8px"; row.style.fontSize = "12px"; row.title = r.child === "sketch" ? "Show or put away this sketch in the picture" : "Select"; row.addEventListener("click", () => h.row(r.id, r.child!)); }
+        if (r.child) { row.style.marginLeft = "20px"; row.style.padding = "3px 8px"; row.style.fontSize = "12px"; row.title = r.child === "pick" ? "Select this sketch and show it" : "Select"; row.addEventListener("click", () => h.row(r.pickId ?? r.id, r.child!)); }
         else if (p.kind === "history") { row.title = r.future ? "A step that comes after: go to it" : "Go to this step: the model as it was when it had been made"; row.addEventListener("click", () => h.go(r.id)); }
         if (r.current) label.style.fontWeight = "600";
         el.appendChild(row);

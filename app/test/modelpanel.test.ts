@@ -124,12 +124,12 @@ test("sketch statuses: unused until a step takes it; detached when the face it w
   const rowsOf = (sess: typeof s) => panelOf("sketches", scene(sess), [], {}, null, sess.history, null)!.rows;
   let rows = rowsOf(s);
   assert.deepEqual(rows.map((r) => [r.label, r.detail]), [["Sketch 1", "unused · drawn, not taken by a step yet"]]);
-  assert.equal(rows[0]!.pick, true);
-  // choosing it selects its face
+  assert.ok(rows[0]!.pickId);
+  // choosing it selects the lines it is drawn with
   let st = createState(s);
   st = reduce(st, { type: "panel", name: "sketches" }, env);
-  st = reduce(st, { type: "panelRow", id: rows[0]!.id, act: "select" }, env);
-  assert.deepEqual(st.session.click.selection, [rows[0]!.id]);
+  st = reduce(st, { type: "panelRow", id: rows[0]!.pickId!, act: "pick" }, env);
+  assert.deepEqual([...st.session.click.selection].sort(), [...a.lines].sort());
   // a step takes it: no longer unused
   s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: a.lines, params: { depth: 10 } } } as never);
   rows = rowsOf(s);
@@ -174,4 +174,30 @@ test("sketch names are kept for good: given when drawn, not by the order of the 
   // undone: the name goes with the figure that goes (and is given again if it is drawn again)
   s = undoLast(s);
   assert.deepEqual(rowsOf(s).map((r) => r.label), ["Sketch 1", "Sketch 2"]);
+});
+
+test("choosing a sketch's row selects the sketch and shows it: from the Sketches tab and from under its step", () => {
+  let st = three();
+  st = reduce(st, { type: "panel", name: "sketches" }, env);
+  const rows = panel(st).rows;
+  assert.deepEqual(rows.map((r) => r.pickId), ["fig:s_100:0", "fig:s_101:0"]);
+  st = reduce(st, { type: "panelRow", id: rows[1]!.pickId!, act: "pick" }, env);
+  const lines = scene(st.session).steps.find((x) => x.id === "s_101")!.parts;
+  assert.deepEqual([...st.session.click.selection].sort(), [...lines].sort(), "the lines of the second sketch are selected");
+  assert.equal(st.showSketch, "s_101", "and it is shown");
+  // from under the step in the Steps tab
+  st = reduce(st, { type: "panel", name: "history" }, env);
+  const kid = panel(st).rows.find((r) => r.child === "pick" && r.id === "s_100")!;
+  assert.equal(kid.pickId, "fig:s_100:0");
+  st = reduce(st, { type: "panelRow", id: kid.pickId!, act: "pick" }, env);
+  assert.deepEqual([...st.session.click.selection].sort(), [...scene(st.session).steps.find((x) => x.id === "s_100")!.parts].sort());
+  assert.equal(st.showSketch, "s_100");
+  // a figure with a hole: the hole is selected with it
+  let s = createSession(kernel);
+  const outer = drawRectangle(scene(s), XY, [0, 0, 0], [20, 20, 0], [1, 0, 0], [0, 1, 0]); s = run(s, outer.command);
+  const hole = drawRectangle(scene(s), XY, [5, 5, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]); s = run(s, hole.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: outer.lines, params: { depth: 5, holes: hole.lines.join(",") } } } as never);
+  let st2 = createState(s);
+  st2 = reduce(st2, { type: "panelRow", id: "fig:s_100:0", act: "pick" }, env);
+  assert.deepEqual([...st2.session.click.selection].sort(), [...outer.lines, ...hole.lines].sort());
 });

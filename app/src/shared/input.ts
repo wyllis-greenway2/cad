@@ -76,7 +76,7 @@ export type Intent =
   /** open or close a list from the ⋯ menu (the bodies, the history) */
   | { type: "panel"; name: "bodies" | "history" | "groups" | "sketches" | "parameters" | "constraints" | "measure" }
   /** a row of the open list: select it (a body) or take it out (a step) */
-  | { type: "panelRow"; id: string; act: "select" | "remove" | "sketch" | "edit" | "hide" }
+  | { type: "panelRow"; id: string; act: "select" | "remove" | "sketch" | "edit" | "hide" | "pick" }
   | { type: "panelAction"; id: string }
   /** the History (`dec_history_navigation`): go to a step, open or close the numbers of a step, set one of them */
   | { type: "stepGo"; id: string }
