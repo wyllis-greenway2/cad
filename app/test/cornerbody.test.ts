@@ -54,3 +54,29 @@ test("an edge, a face and a turn of a face shape the body they are in", () => {
   assert.equal(scene(s2).steps.at(-1)!.type, "reshape");
   assert.equal(Math.round(bodyOf(s2, "b/x_s_100/o").volume), 1000);
 });
+
+test("while a size is dragged (a rough mesh), a body that did not change keeps its fine mesh", () => {
+  const cylinder = (s0: ReturnType<typeof two>) => s0;
+  let s = cylinder(two());
+  const tri = (x: ReturnType<typeof two>) => (x.outcome.kernel as unknown as { mesh: { triangles: unknown[] } }).mesh.triangles.length;
+  const before = tri(s);
+  kernel.draft = true;
+  try {
+    s = run(s, { type: "setStepParams", id: "s_101", params: { depth: 12 } } as never);
+    const d = (s.outcome.kernel as unknown as { describe?: { bodies: number; reused: number } }).describe;
+    assert.ok(d && d.reused >= 1, `the first body was not meshed again: ${JSON.stringify(d)}`);
+    assert.equal(tri(s), before, "boxes mesh the same either way: nothing changed in the count");
+  } finally { kernel.draft = false; }
+});
+
+test("the kernel's answer carries the sharp edges of each body, found once for each (`dec_sharp_edges_once`)", async () => {
+  const s = two();
+  const mesh = (s.outcome.kernel as unknown as { mesh: { sharp: Float32Array; sharpDeg: number; vertices: Float32Array; normals: Float32Array; triangles: Uint32Array } }).mesh;
+  assert.equal(mesh.sharpDeg, 30);
+  assert.equal(mesh.sharp.length, 2 * 12 * 6, "two boxes: twelve edges each, two ends of three numbers");
+  const { cornerEdgesOf } = await import("../src/ui/view/edges.ts");
+  const got = cornerEdgesOf(mesh, 30);
+  assert.equal(got.again, true, "the page takes them as they are");
+  assert.equal(got.edges.length, mesh.sharp.length);
+  assert.equal(cornerEdgesOf({ ...mesh, sharpDeg: 20 }, 30).again, false, "found again here when they were found for another angle");
+});

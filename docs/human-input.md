@@ -2292,3 +2292,102 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_491 — 2026-11-16 — directive
 > can you merge in branch claude/hopeful-cannon-5 please
 (asks to merge the branch claude/hopeful-cannon-5 into this work)
+
+> okay your branch is merged so we should start a new one
+(asks for a new branch now that `claude/hopeful-cannon-4` is merged: `claude/hopeful-cannon-5`)
+
+## in_492 — 2026-11-15 — question
+> For this one again, it seems like it is slightly faster, but why does it need to re render the non modified objects at all? Like when I change the cube, why do the lofts need to do anything at all?
+(a file, `really_slow.json`, was attached; asks why the unchanged lofts are worked on at all when the block is edited; answered from a measurement: their shapes are not rebuilt, but every body is still meshed again)
+
+## in_493 — 2026-11-15 — question
+> as I edit the cube, the non edited bodies go into coarse mode. How does this help? isn't this just more work because it is something to redraw from fine to coarse back to fine again?
+(asks why the bodies that are not edited are drawn roughly while a size is dragged; said it does not help for them, and changed)
+
+## in_494 — 2026-11-15 — directive
+> yes add the timing
+(approves adding timing for the stages of one edit outside the kernel)
+
+## in_495 — 2026-11-15 — directive
+> yes go ahead
+(approves the next step offered: splitting the page's 150 ms into what `buildContent` costs and what is the browser's own, then writing the decision entry for keeping each body's drawn geometry and asking before any code)
+
+## in_496 — 2026-11-15 — directive
+> do step 1 now
+(approves step 1 of `dec_sharp_edges_once`: the sharp edges of a mesh are remembered by the mesh on the page; step 2 is not approved)
+
+## in_497 — 2026-11-15 — directive
+> Do step 2 as well
+(approves step 2 of `dec_sharp_edges_once`: the sharp edges found once per body in the kernel's thread, kept with its description and sent in the answer)
+
+## in_498 — 2026-11-15 — directive
+> find out what the long task after an edit is
+(asks to find what the page's long task of 120 to 160 ms after an edit is; measuring, nothing is to be built yet)
+
+## in_499 — 2026-11-16 — directive
+> okay it seems to run alright for me. lets work on other stuff. Look at this bug, I was able to do an invalid chamfer and put this body into a bad state.
+(two files were attached: `invalid_chamfer_on_hollow.json` and its state snapshot; says the editing speed is fine on their machine and asks to look at a bug: an invalid chamfer on a hollowed body that left the body in a bad state)
+
+## in_500 — 2026-11-16 — question
+> Is this truly a generic fix though? What if someone made a hollow body via boolean subtract instead of using the hollow tool? shouldn't it just generically know when it is going into an invalid format?
+(asks whether the fix for `in_499` is generic, for example for a hollow made by a boolean subtract, and says the kernel should know in general when a result is going invalid; answered by testing: not generic enough, and a second check was added)
+
+## in_501 — 2026-11-16 — directive
+> yes build the mesh test
+(approves the mesh test for self-crossing bodies: a general check of the final mesh of a changed body for triangles that cross, whatever made it)
+
+## in_502 — 2026-11-16 — question
+> Okay here is another weird thing, maybe not a bug, but you can see what I tried to do if you use ctrl z, and you can see that pushing in this face at some point created these little ear like artifacts on the part? It seems like odd behavior
+(two files were attached: `face_shift_adding_weird_ear_things.json` and its state snapshot; says that pushing in a face at some point made small ear-like artifacts on the part, and asks whether this is expected)
+
+## in_503 — 2026-11-16 — directive
+> no lets leave it, I just wanted to make sure it wasn't a bug
+(decides not to build the fix for the arc-end slivers of `in_502`: leave it as it is)
+
+## in_504 — 2026-11-16 — question
+> Okay this chamfer face push doesn't behave as I would expect. Normally i thought faces are pushes are almost like plane sweeps that cut flat as they continue, but at some point this seems to decide to be a short inserted cut?
+(two files were attached: `chamfer_continuation_collapses_into_a_weird_state.json` and its state snapshot; says a chamfer made on the face of an earlier chamfer, its size pushed larger, does not behave as expected: they thought pushing such a face is like a plane sweeping flat as it continues, but at some size it becomes a short inserted cut)
+
+## in_505 — 2026-11-16 — directive
+> yes build the continuity test first
+(approves building the continuity test for fillets and chamfers first: sweep the size across saved files and check the volume changes smoothly with no jumps or reversals where the kernel hands over to the cut-region method)
+
+## in_506 — 2026-11-16 — directive
+> yes start with the reach fix
+(approves building the reach fix for `q_chamfer_region_reach`: a chamfer or fillet made as a cut region reaches as far along its edge as the two faces beside the edge reach)
+
+## in_507 — 2026-11-16 — directive
+> yes do the cylinder rim next
+(approves taking the next kind of break found by the continuity test: the fillet on a cylinder's rim, 907 to 987 mm3 at 4 to 4.5 mm in `cyl-fillet.cad.json`)
+
+## in_508 — 2026-11-16 — directive
+> yes do the stadium chamfer next
+(approves taking the next break found by the continuity test: the stadium chamfer, 4981 to 5302 mm3 at 4 to 4.5 mm in `stadium-body.cad.json`)
+
+## in_509 — 2026-11-16 — question
+> no need to fix past files, so is it fixed moving forward though?
+(says the saved files do not need to be fixed or swept again, and asks whether the break at the handover from the kernel's round to the cut region is fixed for new work; answered: for the three causes found, not proven for all)
+
+## in_510 — 2026-11-16 — directive
+> yes do the remaining four
+(approves taking the four remaining known breaks of the continuity test: `hollow-pushed` `s_022` and `s_026`, `thin-wall` `s_020`, `big-chamfer` `s_036`)
+
+## in_511 — 2026-11-16 — directive
+> yes fix the concave fillet one too
+(approves fixing the last known break of the continuity test: the concave fillet of `hollow-pushed.cad.json` `s_026`, where the cut region fills about 1.6 % less than the kernel's round at the handover)
+
+## in_512 — 2026-11-16 — directive
+> yes start on the gear hang
+(approves taking the gear fillet hang: the fillet of step `s_138` of the gear files at 9.25 mm does not come back in 300 seconds)
+
+## in_513 — 2026-11-16 — directive
+> yes run the full sweep
+(approves running the full sweep over every saved file with a round step, to see which of the 26 breaks of `in_505` remain and whether the chain and tip rules introduced a new one)
+
+## in_514 — 2026-11-16 — directive
+> yes look at s_045
+(approves looking at the last large reversal of the sweep: `group-then-new-body-in_426.cad.json` `s_045`, +358 mm3 of 4251 at 10.5 to 10.75 mm)
+
+## in_515 — 2026-11-16 — directive
+> yes check s_023 next
+(approves looking at the remaining reversal `circle-held-by-concentric-in_366.cad.json` `s_023`: +19.6 mm3 at 4.25 to 4.5, +82 at 5.75 to 6, +331 at 9.75 to 10 mm)

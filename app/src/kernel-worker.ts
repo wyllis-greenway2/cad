@@ -9,6 +9,7 @@ const post = (message: unknown, transfer: Transferable[] = []) => (self as unkno
 const buffers = (r: KernelResult): Transferable[] => {
   const out: Transferable[] = [];
   if (r.mesh) out.push(r.mesh.vertices.buffer, r.mesh.normals.buffer, r.mesh.triangles.buffer);
+  if (r.mesh?.sharp) out.push(r.mesh.sharp.buffer);
   for (const e of r.edges ?? []) out.push(e.pts.buffer);
   return out;
 };
@@ -23,10 +24,11 @@ self.onmessage = (e: MessageEvent<{ id: number; graph: KernelGraph; draft?: bool
       void kernel.exportMesh(e.data.graph, e.data.export).then((exported) => post({ id: e.data.id, exported }, exported.ok ? [exported.vertices.buffer, exported.triangles.buffer] : []), (err: unknown) => post({ id: e.data.id, failed: String(err) }));
       return;
     }
+    const started = performance.timeOrigin + performance.now(); // (the time on one clock for both threads, to tell where a trip's time went)
     kernel.draft = !!e.data.draft;
     kernel.lite = !!e.data.lite;
     const result = kernel.evaluate(e.data.graph);
-    post({ id: e.data.id, result }, buffers(result));
+    post({ id: e.data.id, result, at: { started, sent: performance.timeOrigin + performance.now() } }, buffers(result));
   } catch (err) {
     post({ id: e.data.id, failed: String(err) });
   }

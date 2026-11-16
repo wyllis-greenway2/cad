@@ -5,10 +5,10 @@ import { outlineOf, lookup, settings, consumed } from "../../interaction/api.ts"
 import { surfaceTriangles } from "../../interaction/surfaces.ts";
 import type { Pen } from "./pen.ts";
 import { clearGroup, trisMesh, ringOf, rgb } from "./pen.ts";
-import { cornerEdges } from "./edges.ts";
+import { cornerEdgesOf } from "./edges.ts";
 import { ownSegments } from "./split.ts";
 
-export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array }
+export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array; /** the sharp edges found by the kernel (`dec_sharp_edges_once`) and the angle they were found for */ sharp?: Float32Array; sharpDeg?: number }
 
 /** Every straight line and circle of the scene, whatever its origin, as flat pairs of points: the one list that all the lines are drawn from. */
 function linePairs(s: Scene, skip: ReadonlySet<Ref>): number[] {
@@ -31,7 +31,10 @@ function linePairs(s: Scene, skip: ReadonlySet<Ref>): number[] {
  * One look for every line (`in_115`): drawn lines and the body's outline are the same thin charcoal line, from the same material. Corners are not dotted anywhere:
  * a corner shows as a ball when you point at it or pick it, whatever it belongs to.
  */
+/** How long the last build took, and the part of it that found the body's sharp edges (`cornerEdges`): read by the page's timing (`in_494`). */
+export const buildStats = { runs: 0, totalMs: 0, cornersMs: 0, triangles: 0 };
 export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group; /** the body's edges that lie behind a face, drawn faintly or not (`in_324`) */ ghost: (on: boolean) => void; split: (items: { tris: [number, number][]; box: { min: readonly number[]; max: readonly number[] } }[] | null) => void; mover: THREE.Group; /** the group of each body that moves on its own, in the order of the items last given to `split` */ movers: () => THREE.Group[] } | null {
+  const tBuild = performance.now();
   clearGroup(content);
   pen.reset();
   const get = lookup(s);
@@ -60,7 +63,10 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
   g.setAttribute("position", new THREE.BufferAttribute(mesh.vertices, 3));
   g.setAttribute("normal", new THREE.BufferAttribute(mesh.normals, 3));
   g.setIndex(new THREE.BufferAttribute(mesh.triangles, 1));
-  const corners = cornerEdges(mesh.vertices, mesh.normals, mesh.triangles, settings.extrude.edgeAngleDeg); // where the surface turns by more than 30 degrees
+  const tCorners = performance.now();
+  const corners = cornerEdgesOf(mesh, settings.extrude.edgeAngleDeg).edges;
+  buildStats.cornersMs = performance.now() - tCorners;
+  buildStats.triangles = mesh.triangles.length / 3; // where the surface turns by more than 30 degrees
   let edgePos: THREE.BufferAttribute | null = null;
   let edgeLines: THREE.LineSegments | null = null;
   let ghostLines: THREE.LineSegments | null = null;
@@ -124,5 +130,6 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
     });
     if (edgeLines && edgePos) edgeLines.geometry.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(remaining), 3));
   };
+  buildStats.runs++; buildStats.totalMs = performance.now() - tBuild;
   return { material, body, split, mover, movers: () => kids, ghost: (on: boolean) => { if (ghostLines) ghostLines.visible = on; } };
 }

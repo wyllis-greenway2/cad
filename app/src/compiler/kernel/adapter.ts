@@ -14,17 +14,20 @@ export interface KernelResult {
   bbox: { min: Vec; max: Vec } | null;
   /** the bodies of the final shape, each with the name it keeps through the history (`dec_independent_bodies`); a face or an edge says which is its in `body` (its place in this list) when there are several */
   bodies?: { id: string; min: Vec; max: Vec; /** NaN in a lite answer with several bodies: it takes a while to work out, and a preview does not use it */ volume: number }[] | null;
-  mesh: { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array } | null;
+  /** `sharp`: the lines (two ends each, xyz) where the surface of each body turns a corner by more than `sharpDeg` degrees, found once for each body in the kernel's thread (`dec_sharp_edges_once`) */
+  mesh: { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array; sharp?: Float32Array; sharpDeg?: number } | null;
   faces: KernelFace[] | null;
   edges: KernelEdge[] | null;
   vertices: Vec[] | null;
+  /** the kernel's own thread (the browser): how long the request waited for the thread, and the round trip to the answer; what the thread's own work took is `totalMs`, the rest of the trip (`messageMs`) is the messages and the copies of the graph and the answer */
+  trip?: { waitMs: number; tripMs: number; messageMs: number; /** the request on its way to the thread (the graph copied, and the thread busy with something else), what the thread itself took from taking the request to sending the answer, and the answer on its way back (the copy, and the page's own thread busy drawing) */ toThreadMs?: number; threadMs?: number; backMs?: number };
   /** with several bodies: for each corner, the place of the body it is a corner of in `bodies` (the first, where two bodies share a place) */
   vertexBodies?: number[];
   totalMs: number;
   /** where the time went (ms): working the operations out, meshing the body, classifying its faces, its edges (`in_216`) */
   perf?: { ops: number; box?: number; mesh: number; faces: number; edges: number };
   /** the bodies of the final shape: how many, and how many were found as they were (not meshed and classified again) */
-  describe?: { bodies: number; reused: number };
+  describe?: { bodies: number; reused: number; fingerprintMs?: number; describedMs?: number };
   /** this answer was kept from an earlier session (`dec_description_cache`): the kernel's own answer for the same graph, shown while the thread works the model out */
   fromCache?: boolean;
   /** the kernel works on its own thread and has not answered this question yet: this is the last answer it gave, for an older model */
