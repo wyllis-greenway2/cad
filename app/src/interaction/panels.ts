@@ -13,7 +13,7 @@ import { hardOverlaps, overlapBlame, hardNames } from "./hard.ts";
 export type PanelKind = "bodies" | "history" | "groups" | "sketches" | "parameters" | "constraints" | "measure";
 /** The lists that are the parts of the one Model panel, in the order of its tabs (`dec_model_panel`). */
 export const MODEL_TABS: readonly { id: PanelKind; label: string }[] = [{ id: "history", label: "Steps" }, { id: "bodies", label: "Bodies" }, { id: "sketches", label: "Sketches" }, { id: "constraints", label: "Constraints" }, { id: "parameters", label: "Parameters" }, { id: "measure", label: "Measure" }];
-export interface PanelRow { id: string; label: string; /** selected (a body) */ active: boolean; /** can be taken out (a step) */ removable: boolean; /** a repeat of the body: it can be opened again to change its numbers (`in_257`) */ edit?: boolean; /** why this step could not be made, when it could not (it is shown in red) */ error?: string; /** an extrusion: its hidden sketch can be shown (`in_228`); true while it is shown */ sketch?: boolean; /** a body: the eye (`dec_hidden_bodies`): true when it is hidden, false when it is shown */ hidden?: boolean; /** a step that comes after the cursor (`dec_history_navigation`): faded, gone back to by choosing it */ future?: boolean; /** the step the cursor is at */ current?: boolean; /** the numbers of the step that can be changed (only at the last step), and whether they are open */ fields?: { key: string; label: string; value: number; /** the formula it is tied to */ expr?: string }[]; open?: boolean; /** a parameter (`dec_named_parameters`): its formula, and its value (`null` when the formula cannot be made, `error` says why) */ param?: { name: string; expr: string; value: number | null }; /** a second, smaller line under the label (a sketch: its step, its body and its status) */ detail?: string; /** a row shown under the step that owns it (a sketch, a body, its constraints): what choosing it does */ child?: "select" | "sketch" }
+export interface PanelRow { id: string; label: string; /** selected (a body) */ active: boolean; /** can be taken out (a step) */ removable: boolean; /** a repeat of the body: it can be opened again to change its numbers (`in_257`) */ edit?: boolean; /** why this step could not be made, when it could not (it is shown in red) */ error?: string; /** an extrusion: its hidden sketch can be shown (`in_228`); true while it is shown */ sketch?: boolean; /** a body: the eye (`dec_hidden_bodies`): true when it is hidden, false when it is shown */ hidden?: boolean; /** a step that comes after the cursor (`dec_history_navigation`): faded, gone back to by choosing it */ future?: boolean; /** the step the cursor is at */ current?: boolean; /** the numbers of the step that can be changed (only at the last step), and whether they are open */ fields?: { key: string; label: string; value: number; /** the formula it is tied to */ expr?: string }[]; open?: boolean; /** a parameter (`dec_named_parameters`): its formula, and its value (`null` when the formula cannot be made, `error` says why) */ param?: { name: string; expr: string; value: number | null }; /** a second, smaller line under the label (a sketch: its step, its body and its status) */ detail?: string; /** a sketch no step has taken yet: choosing the row selects its face (`dec_model_panel`) */ pick?: boolean; /** a row shown under the step that owns it (a sketch, a body, its constraints): what choosing it does */ child?: "select" | "sketch" }
 export interface Panel { kind: PanelKind; title: string; rows: PanelRow[]; /** the History: the cursor is at the last step (the numbers can be changed); else a line says where it is */ note?: string; /** buttons for the whole list (the Bodies list: select all and none, hide all and show all) */ actions?: { id: string; label: string; title: string }[]; /** the Measure tab: what the selection is, in numbers (`dec_measure_report`) */ sections?: { title: string; lines: { label: string; value: string }[] }[]; /** the History, before its last step: the switch that makes what is done go in at the cursor (`dec_insert_step`) */ insert?: { on: boolean }; /** the Model panel's tabs; the one that is open is `on` */ tabs?: { id: PanelKind; label: string; on: boolean }[] }
 
 const n = (v: unknown): string => String(Math.round(Number(v) * 100) / 100);
@@ -72,16 +72,28 @@ export function sketchRows(scene: Scene, shown: string | null): PanelRow[] {
     const figs = figuresOf(st).filter((f) => f.outer.length);
     const later = scene.steps.slice(i + 1).filter((x) => x.params.body === body || x.parts.some((r) => bodyOf(r) === body));
     const last = later[later.length - 1];
-    const status = !last ? "as drawn" : last.type === "move" || last.type === "rotate" || last.type === "scale" ? `carried by ${stepLabel(last)}` : last.type === "pushPull" ? `changed by ${stepLabel(last)}` : `the body has changed since: ${stepLabel(last)}`;
+    const status0 = !last ? "as drawn" : last.type === "move" || last.type === "rotate" || last.type === "scale" ? `carried by ${stepLabel(last)}` : last.type === "pushPull" ? `changed by ${stepLabel(last)}` : `the body has changed since: ${stepLabel(last)}`;
     for (let f = 0; f < figs.length; f++) {
       k++;
+      // detached: the sketch was drawn on a face of the body and that face is gone (a drawn plane that is not in the scene any more)
+      const first = scene.parts[figs[f]!.outer[0] ?? ""];
+      const plane = first && (first.kind === "line" || first.kind === "circle") ? first.plane : null;
+      const status = plane && !scene.parts[plane] ? "detached: the face it was drawn on is gone" : status0;
       rows.push({ id: st.id, label: `Sketch ${k}`, active: shown === st.id, removable: false, ...(st.type === "extrude" ? { sketch: shown === st.id } : {}), detail: `${stepLabel(st)} · ${status}` });
     }
   });
+  // unused: a closed figure that is drawn and that no step has taken (`dec_sketch_recipe_synced`, rule 4); listed after the others, named on in the same order
+  const used = new Set<string>(scene.steps.flatMap((st) => (usesFigures(st) ? figureRefs(st) : [])));
+  for (const p of Object.values(scene.parts)) {
+    if (p.kind !== "face" || p.origin !== "drawn") continue;
+    if (used.has(p.ref) || p.loop.some((r) => used.has(r)) || (p.disk && used.has(p.disk))) continue;
+    k++;
+    rows.push({ id: p.ref, label: `Sketch ${k}`, active: false, removable: false, pick: true, detail: `unused · drawn, not taken by a step yet` });
+  }
   return rows;
 }
 function sketchesPanel(scene: Scene, shown: string | null): Panel {
-  return { kind: "sketches", title: "Sketches", rows: sketchRows(scene, shown), note: "Each is the recipe of the step that took it, kept as drawn. The pencil shows the sketch of an extrusion in the picture." };
+  return { kind: "sketches", title: "Sketches", rows: sketchRows(scene, shown), note: "Each is the recipe of the step that took it, kept as drawn; a figure no step has taken is listed last as unused. The pencil shows the sketch of an extrusion in the picture." };
 }
 /**
  * Which step each constraint belongs to (`dec_model_panel`): the first step whose drawn figures hold one of the constraint's parts, a part being a figure's line or circle, or a corner or centre one of them ends at.

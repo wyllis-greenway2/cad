@@ -117,3 +117,33 @@ test("the Constraints tab lists every constraint with the step whose sketch it i
   st = reduce(st, { type: "panelRow", id: rows[0]!.id, act: "remove" }, env);
   assert.equal(scene(st.session).relations.length, total - 1);
 });
+
+test("sketch statuses: unused until a step takes it; detached when the face it was drawn on is gone", () => {
+  let s = createSession(kernel);
+  const a = drawRectangle(scene(s), XY, [0, 0, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]); s = run(s, a.command);
+  const rowsOf = (sess: typeof s) => panelOf("sketches", scene(sess), [], {}, null, sess.history, null)!.rows;
+  let rows = rowsOf(s);
+  assert.deepEqual(rows.map((r) => [r.label, r.detail]), [["Sketch 1", "unused · drawn, not taken by a step yet"]]);
+  assert.equal(rows[0]!.pick, true);
+  // choosing it selects its face
+  let st = createState(s);
+  st = reduce(st, { type: "panel", name: "sketches" }, env);
+  st = reduce(st, { type: "panelRow", id: rows[0]!.id, act: "select" }, env);
+  assert.deepEqual(st.session.click.selection, [rows[0]!.id]);
+  // a step takes it: no longer unused
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: a.lines, params: { depth: 10 } } } as never);
+  rows = rowsOf(s);
+  assert.deepEqual(rows.map((r) => r.label), ["Sketch 1"]);
+  assert.match(rows[0]!.detail!, /as drawn/);
+  // a second figure is drawn on the top face of the body, extruded; then the first body is made shorter: the face the second figure was drawn on is gone
+  const top = (Object.values(scene(s).parts).filter((p) => p.kind === "plane" && p.origin === "body") as unknown as { ref: string; at: number[] }[]).find((p) => Math.abs(p.at[2]! - 10) < 1e-6 && p.ref.includes("0,0,1"))!;
+  const b = drawRectangle(scene(s), top.ref as never, [2, 2, 10], [6, 6, 10], [1, 0, 0], [0, 1, 0]); s = run(s, b.command);
+  s = run(s, { type: "addStep", step: { id: "s_101", type: "extrude", parts: b.lines, params: { depth: 3 } } } as never);
+  rows = rowsOf(s);
+  assert.deepEqual(rows.map((r) => r.label), ["Sketch 1", "Sketch 2"]);
+  assert.doesNotMatch(rows[1]!.detail!, /detached/);
+  s = run(s, { type: "setStepParams", id: "s_100", params: { depth: 5 } });
+  rows = rowsOf(s);
+  assert.match(rows[1]!.detail!, /detached: the face it was drawn on is gone/);
+  assert.doesNotMatch(rows[0]!.detail!, /detached/);
+});

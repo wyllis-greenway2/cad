@@ -3,7 +3,7 @@ id: dec_model_panel
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_546, in_547, in_556, in_566
+human_input: in_546, in_547, in_556, in_566, in_570
 date: 2026-11-16
 depends_on:
   - dec_history_navigation: the Steps tab is that History, unchanged
@@ -27,7 +27,13 @@ depends_on:
 - **The tabs are now Steps, Bodies, Sketches, Constraints, Parameters;** the panel is a little wider (340 px at most) to hold them.
 - **Tests:** `test/modelpanel.test.ts` (the tabs; the rows under a step and what choosing them selects; a step with no sketch has none; the Constraints tab, selecting and removing). Three older tests that read the History's rows (`gizmo`, `import`, `importmesh`, `historynav`) now read the step rows only, since what a step owns is listed under it; what they check about the steps is unchanged.
 
-**Not done (each stays for later, with the rest of the order of `in_546`):** the status *unused* (a drawn figure no step has taken) and *detached*; names that are **kept for good** — the names here are the order of the steps now, so taking a step out renumbers the ones after it (that needs a stored name on the figure); a sketch's row selecting or editing the sketch; status that sees a push of a face that is not on the sketch's body by ref.
+## Sketch statuses unused and detached (`in_570`)
+
+- **Unused:** a closed figure that is drawn (a loop of lines or a circle on a plane: the derived faces of the drawing, `derivedFaces`) that no step's figures hold is listed in the Sketches tab after the others, as "unused · drawn, not taken by a step yet"; choosing its row selects its face. It is named in the same order as the rest ("Sketch 3"), so taking it into a step renumbers nothing before it but changes its own place in the list.
+- **Detached:** a sketch that was drawn on a face of the body whose plane is no longer in the model (a face named by where it is, gone after the body was changed) says "detached: the face it was drawn on is gone" in place of its status. The step it belongs to is shown red in the History as it is for any step that cannot be made.
+- **Tests:** `test/modelpanel.test.ts`: a drawn rectangle is unused and its row selects its face; a step takes it and it is "as drawn"; a figure drawn on the top face of a body is detached when the body is made shorter.
+
+**Not done (each stays for later, with the rest of the order of `in_546`):** names that are **kept for good** — the names here are the order of the steps now, and the unused ones after them, so taking a step out or using a figure renumbers the ones after (that needs a stored name on the figure); a sketch's row selecting or editing the sketch; status that sees a push of a face that is not on the sketch's body by ref.
 
 ## Rationale
 

@@ -2612,3 +2612,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_569 — 2026-11-16 — directive
 > yes start on loft and sweep names
 (approves the next item of `dec_stable_reference_mechanism`: lasting names for the faces of a loft and a sweep)
+
+## in_570 — 2026-11-16 — directive
+> yes start on the sketch statuses
+(approves the next item of `dec_sketch_recipe_synced` / `dec_model_panel`: the sketch statuses unused and detached in the Model panel)
