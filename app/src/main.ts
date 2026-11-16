@@ -11,6 +11,7 @@ import { createSession, openSession, saveText, run, scene, selection, refresh } 
 import type { Session } from "./interaction/session.ts";
 import { canExport, selectedBodies } from "./interaction/exportstl.ts";
 import { exportFile, fileName } from "./interaction/exportfile.ts";
+import { importFile, IMPORT_KINDS } from "./interaction/importfile.ts";
 import { exportFlat, canExportFlat } from "./interaction/exportsketch.ts";
 import type { FlatFormat } from "./interaction/exportsketch.ts";
 import type { ExportFormat } from "./interaction/exportfile.ts";
@@ -121,6 +122,7 @@ const menu = createMenu(document.body, (id) => {
   else if (id === "share") shareState();
   else if (id === "exportStl" || id === "export3mf" || id === "exportStep") void exportModel(id === "exportStl" ? "stl" : id === "export3mf" ? "3mf" : "step");
   else if (id === "exportSvg" || id === "exportDxf") exportSketch(id === "exportSvg" ? "svg" : "dxf");
+  else if (id === "import") void importPicked();
   else if (id === "clearAnswers") void resultStore?.clear();
   else if (id === "exportBody" || id === "exportBody3mf" || id === "exportBodyStep") void exportModel(id === "exportBody" ? "stl" : id === "exportBody3mf" ? "3mf" : "step", selectedBodies(state.session));
   else if (id === "save" || id === "open") dispatch({ type: id });
@@ -202,6 +204,14 @@ async function exportModel(format: ExportFormat, only?: string[]) {
   if (!r.ok) return say(r.error);
   webFiles.saveBytes(r.name, r.bytes, r.mime);
   say(r.message);
+}
+/** Choose a STEP, SVG or DXF file and bring it in (`dec_import`): a STEP is a body with no history, a drawing a sketch on the selected plane (else the XY plane); one step to undo. */
+async function importPicked() {
+  const picked = await webFiles.pick(IMPORT_KINDS);
+  if (!picked) return;
+  const r = importFile(state.session, picked.name, picked.text);
+  state = { ...state, session: r.ok ? { ...r.session, message: r.message } : { ...state.session, message: r.error } };
+  dirty = true;
 }
 /** Save a flat drawing (the selected sketch or flat face, else the whole drawing) as an SVG or a DXF file (`dec_export_flat`). */
 function exportSketch(format: FlatFormat) {

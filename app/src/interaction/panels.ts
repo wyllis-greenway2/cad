@@ -18,6 +18,7 @@ function stepLabel(st: Step): string {
     case "hollow": return `Hollow, ${n(p.thickness)} mm walls`;
     case "pattern": return p.mode === "mirror" ? "Mirror copy" : p.mode === "circular" ? `Circular repeat ${n(p.count)}` : `Linear repeat ${n(p.nx)} × ${n(p.ny)} × ${n(p.nz)}`;
     case "sweep": return "Sweep along a path";
+    case "import": return `Import ${String(p.name ?? "STEP file")}`;
     case "loft": return `Loft through ${1 + String(p.also ?? "").split("|").filter(Boolean).length} sketches${p.ruled ? " (ruled)" : ""}`;
     case "revolve": return Number(p.advance ?? 0) ? `Spiral ${n(p.angle)}°, ${n(p.advance)} mm along the axis` : `Revolve ${n(p.angle)}°`;
     case "pushPull": return `Push / pull ${n(p.depth)} mm`;

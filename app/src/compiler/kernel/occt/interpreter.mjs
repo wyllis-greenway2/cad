@@ -25,12 +25,36 @@ import {
   genericSweep,
   revolution,
   Wire,
+  localGC,
 } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
 import { reshape } from "./reshape.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
+
+/** The solids in the text of a STEP file, in millimetres (the reader converts the file's own units); each is checked. Throws with the reason when there is none or one is not a valid solid. */
+export function readStep(text) {
+  if (!/^\s*ISO-10303-21/.test(text)) throw new Error("this is not a STEP file (it does not start with ISO-10303-21)");
+  const oc = getOC();
+  const [r, gc] = localGC();
+  const file = `import-${Math.random().toString(36).slice(2)}.step`;
+  oc.FS.writeFile(`/${file}`, new TextEncoder().encode(text));
+  let shape;
+  try {
+    const reader = r(new oc.STEPControl_Reader());
+    if (!reader.ReadFile(file)) throw new Error("the STEP file could not be read (it may be damaged, or not a version the kernel knows)");
+    reader.TransferRoots();
+    shape = cast(r(reader.OneShape()));
+  } finally {
+    try { oc.FS.unlink(`/${file}`); } catch { /* it was not written */ }
+  }
+  const solids = shape.solids ?? [];
+  gc();
+  if (!solids.length) throw new Error("this STEP file has no solid bodies in it (only surfaces or curves): the app imports solids");
+  solids.forEach((sd, i) => { if (!isValidSolid(sd)) throw new Error(`body ${i + 1} of the STEP file is not a valid solid (it has gaps or folds)`); });
+  return solids;
+}
 
 /** OCCT's own topology/geometry check. Operations can return garbage without throwing. */
 export function isValidSolid(shape) {
@@ -450,6 +474,13 @@ const OPS = {
     return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
   },
 
+  /** The solids of a STEP file, as bodies of their own beside the ones already there (`dec_import`): read here, on this thread, from the text kept in the step. A file with no solid in it (only surfaces or curves) is refused with that. */
+  import(op, ctx) {
+    const solids = readStep(String(op.data));
+    const target = op.target ? ctx.peek(op.target, "solid") : null;
+    const all = [...(target ? target.shape.solids : []), ...solids];
+    return { kind: "solid", shape: all.length === 1 ? all[0] : makeCompound(all), checked: true };
+  },
   extrude(op, ctx) {
     const dist = resolve(op.distance, ctx.params);
     // a cut that starts on a face of the body (a figure drawn on the face and pushed in) has its tool begin a little behind that face, in the air: begun exactly on it, the kernel leaves the face as a skin over the pocket,
