@@ -47,6 +47,7 @@ import { createWorldOrb } from "./ui/worldorb.ts";
 import { createHardMarks } from "./ui/hardmarks.ts";
 import { createPanel } from "./ui/panel.ts";
 import { createControls } from "./ui/controls.ts";
+import { createGearBox } from "./ui/gearbox.ts";
 import { createToolChip } from "./ui/toolchip.ts";
 import { createToolCursor } from "./ui/toolcursor.ts";
 import { createNotices } from "./ui/notices.ts";
@@ -73,6 +74,7 @@ const chipHandlers = {
   },
   cancel: () => dispatch({ type: "escape" }),
 };
+const gearBox = createGearBox(document.body, chipHandlers); // (the gear tool's numbers: a labelled panel that stands still, `in_592`)
 const chips: ReturnType<typeof createChip>[] = []; // one value bubble, or several (a linear repeat has one on each axis)
 const chipAt = (i: number) => (chips[i] ??= createChip(document.body, chipHandlers));
 const bubbles = createBubbles(document.body, {
@@ -417,7 +419,8 @@ function frame(now: number) {
     // the icon stands at the upper left of the handles, out of the way of the arrows and rings (`in_215`)
     const corner = f.modeSwitch ? f.modeSwitch.pts.map((p) => onPage(p)!).reduce<[number, number]>((c, q) => [Math.min(c[0], q[0]), Math.min(c[1], q[1])], [Infinity, Infinity]) : null;
     suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null, [ring.rect(), ...chips.map((c) => c.rect()), notices.helpRect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));
-    const valueBubbles = f.entries.length ? f.entries : f.entry ? [f.entry] : [];
+    gearBox.update(f.entry?.panel ? f.entry : null);
+    const valueBubbles = (f.entries.length ? f.entries : f.entry ? [f.entry] : []).filter((e) => !e.panel);
     valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool && lastDevice !== "touch", lastDevice === "touch", !!e.constraint, e.opacity ?? 1)); // (a mouse draws through the bubble: a finger can tap into it to type a size, `in_289`)
     for (let i = valueBubbles.length; i < chips.length; i++) chips[i]!.update(null, "mm", null);
     modeSwitch.update(f.modeSwitch, corner && Number.isFinite(corner[0]) ? corner : null, chips.flatMap((c) => c.rect() ?? [])); // (after the bubbles: it keeps off them, `in_231`)

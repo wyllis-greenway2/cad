@@ -2705,3 +2705,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_591 — 2026-11-16 — directive
 > okay can you update to the latest from claude/inspiring-pascal-l342k7 so we can keep working without getting to far behind.
 (asks that the latest of `claude/inspiring-pascal-l342k7` be merged into this branch so it does not fall far behind)
+
+## in_592 — 2026-11-16 — directive
+> okay for the gear maker. It is unclear what all the fields do, and also they are very very hard to click on because they follow the cursor and fly away as you try to click on them. Also it is unclear how to make gears that will mesh together perfectly. Are they at infinite scales? what characteristics about the gear do I need to pay attention to in order to make a matching interlocking partner? Also are these standard with real world gears? What if I want to make a part to receive a real gear? for example a rack gear to ride on a gear I already have? Also what is a mesh gear and how do I use it?
+(asks, for the gear tool: that what each number does be made clear; that the numbers not follow the cursor and fly away from the click; and questions answered: how to make gears that mesh perfectly, whether they are at any scale, which characteristics a partner must match, whether they follow real world standards, how to make a part to receive a real gear (for example a rack for a gear one already has), and what Mesh gear is and how to use it)
