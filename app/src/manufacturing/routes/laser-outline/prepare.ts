@@ -1,7 +1,9 @@
 // Laser outline: from a flat part to the paths a beam follows (`in_569`, `dec_laser_outline_route`). The one place the route's geometry is worked out; `plan` turns it into moves and `check` into findings, so the two never
 // disagree. Cut lines get the kerf (outside edges offset out by half of it, holes in by half), tabs, an order that cuts inside before outside, and a start near the head; score and engrave lines are followed on the line, once.
 import type { PartSnapshot, Point2, Layer, Settings } from "../../contract/index.ts";
-import { loopsOf, polygonOf, depthsOf, boxOf, lengthOf } from "../../core/outline.ts";
+import { loopsOf, polygonOf, depthsOf, boxOf, lengthOf, insidePolygon, containedIn } from "../../core/outline.ts";
+import { groupParts } from "../../core/nest.ts";
+import { layoutLoops } from "./layout.ts";
 import type { Item } from "../../core/outline.ts";
 import { offsetPolygon } from "../../core/offset.ts";
 import { orderPaths } from "../../core/order.ts";
@@ -9,12 +11,20 @@ import { orderPaths } from "../../core/order.ts";
 /** A path to follow: its points, and the exact pieces when it still has them (no kerf, no tabs), so lines and arcs stay lines and arcs. For a closed loop piece `i` starts at point `i`. */
 export interface Prepared { points: Point2[]; closed: boolean; depth: number; items?: Item[]; layer: Layer }
 export interface Problem {
-  kind: "open" | "kerf" | "thin" | "tab" | "noCut" | "noOutside";
+  kind: "open" | "kerf" | "thin" | "tab" | "noCut" | "noOutside" | "unplaced" | "outside" | "overlap" | "close" | "copies";
   message: string;
   /** where, in the part's own plane coordinates (before the part is moved to the corner) */
   at?: Point2;
 }
-export interface Prepared2 { paths: Record<Layer, Prepared[]>; problems: Problem[]; /** what is added to every coordinate to bring the part to the corner */ shift: Point2 }
+export interface Prepared2 {
+  paths: Record<Layer, Prepared[]>; problems: Problem[];
+  /** the drawing's own point that the toolpath calls zero (for the preview's frame): the part's corner when it is moved to the corner, the drawing's zero when not, and when packing the drawing's corner too, so the sheet lies where the drawing is */
+  origin: Point2;
+  /** what is added to the layout's coordinates to get the toolpath's (the part moved to the corner); a problem's `at` is in the layout's coordinates */
+  shift: Point2;
+  /** the sheet the parts are laid on: its width and height from the toolpath's zero, or null when not known */
+  sheet: { w: number; h: number } | null;
+}
 
 const num = (s: Settings, id: string, fallback: number): number => (typeof s[id] === "number" ? (s[id] as number) : fallback);
 const dist = (a: Point2, b: Point2): number => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -60,14 +70,21 @@ export function runsWithTabs(poly: readonly Point2[], tabs: number, width: numbe
   return runs;
 }
 
-export function prepare(part: PartSnapshot, s: Settings): Prepared2 {
+export function prepare(part: PartSnapshot, s: Settings, machineSheet: { w: number; h: number } | null = null): Prepared2 {
   const problems: Problem[] = [];
   const paths: Record<Layer, Prepared[]> = { cut: [], score: [], engrave: [] };
-  const loops = loopsOf((part.outlines ?? []).flatMap((o) => o.pieces));
+  const loops0 = loopsOf((part.outlines ?? []).flatMap((o) => o.pieces));
   const kerf = num(s, "kerf", 0), tabs = Math.round(num(s, "tabs", 0)), tabWidth = num(s, "tabWidth", 1.5);
+  const sheetW = num(s, "sheetWidth", 0) > 0 ? num(s, "sheetWidth", 0) : machineSheet?.w, sheetH = num(s, "sheetHeight", 0) > 0 ? num(s, "sheetHeight", 0) : machineSheet?.h;
+  const sheet = sheetW && sheetH ? { w: sheetW, h: sheetH } : null;
+  const box0 = boxOf(loops0.map((l) => polygonOf(l)));
+  const layout = layoutLoops(loops0, s, sheet); // (nesting on: each part moved to its place on the sheet; off: as drawn, which is the manual layout)
+  const loops = layout.loops;
   const polys = loops.map((l) => polygonOf(l));
   const box = boxOf(polys);
-  const shift: Point2 = s.toCorner !== false && box ? [-box.min[0], -box.min[1]] : [0, 0];
+  const toCorner = s.toCorner !== false;
+  const shift: Point2 = !layout.packed && toCorner && box ? [-box.min[0], -box.min[1]] : [0, 0]; // (a packed layout is already in the sheet's own x and y)
+  const origin: Point2 = toCorner && (layout.packed ? box0 : box) ? ((layout.packed ? box0 : box)!.min as Point2) : [0, 0];
   const moved = (p: Point2): Point2 => [p[0] + shift[0], p[1] + shift[1]];
   const cutIdx = loops.map((l, i) => (l.layer === "cut" ? i : -1)).filter((i) => i >= 0);
   const depths = depthsOf(cutIdx.map((i) => polys[i]!), cutIdx.map((i) => loops[i]!.closed));
@@ -112,6 +129,32 @@ export function prepare(part: PartSnapshot, s: Settings): Prepared2 {
     }
   }
 
+  // the layout: parts that did not fit, copies that were not made, parts outside the sheet, parts that overlap or are closer than the gap
+  const copiesAsked = Math.round(num(s, "copies", 1));
+  if (layout.unplaced) problems.push({ kind: "unplaced", message: `${layout.unplaced} part${layout.unplaced === 1 ? "" : "s"} did not fit on the ${sheet!.w} × ${sheet!.h} mm sheet and ${layout.unplaced === 1 ? "was" : "were"} left out` });
+  if (copiesAsked > 1 && !layout.packed) problems.push({ kind: "copies", message: s.nest === "pack" ? "Copies need a sheet size to pack onto: none was made" : "Copies are made only when nesting is on: one of each part is cut" });
+  const parts = groupParts(loops, polys).filter((g) => g.some((i) => loops[i]!.layer === "cut" && loops[i]!.closed));
+  const outerOf = (g: number[]): number => g.find((i) => loops[i]!.layer === "cut" && loops[i]!.closed && !g.some((j) => j !== i && loops[j]!.layer === "cut" && loops[j]!.closed && containedIn(polys[i]!, polys[j]!)))!;
+  if (sheet) {
+    for (const g of parts) {
+      const b = boxOf(g.map((i) => polys[i]!))!;
+      if (b.min[0] + shift[0] < -1e-6 || b.min[1] + shift[1] < -1e-6 || b.max[0] + shift[0] > sheet.w + 1e-6 || b.max[1] + shift[1] > sheet.h + 1e-6) problems.push({ kind: "outside", at: b.min, message: `A part reaches outside the ${sheet.w} × ${sheet.h} mm sheet` });
+    }
+  }
+  const gap = Math.max(0, num(s, "gap", 2));
+  if (parts.length > 1 && parts.length <= 60 && polys.reduce((n, p) => n + p.length, 0) < 20000) {
+    for (let a = 0; a < parts.length; a++) for (let b = a + 1; b < parts.length; b++) {
+      const [oa, ob] = [polys[outerOf(parts[a]!)]!, polys[outerOf(parts[b]!)]!];
+      const [ba, bb] = [boxOf([oa])!, boxOf([ob])!];
+      if (ba.min[0] > bb.max[0] + gap || bb.min[0] > ba.max[0] + gap || ba.min[1] > bb.max[1] + gap || bb.min[1] > ba.max[1] + gap) continue; // (boxes far apart)
+      if (oa.some((p) => insidePolygon(p, ob)) || ob.some((p) => insidePolygon(p, oa))) { problems.push({ kind: "overlap", at: oa[0]!, message: "Two parts overlap: both would be cut where they cross" }); continue; }
+      let min = Infinity;
+      for (const p of oa) for (let j = 0; j < ob.length; j++) min = Math.min(min, nearSeg(p, ob[j]!, ob[(j + 1) % ob.length]!));
+      for (const p of ob) for (let j = 0; j < oa.length; j++) min = Math.min(min, nearSeg(p, oa[j]!, oa[(j + 1) % oa.length]!));
+      if (min < gap - 1e-6) problems.push({ kind: "close", at: oa[0]!, message: `Two parts are ${min.toFixed(2)} mm apart, closer than the ${gap} mm gap` });
+    }
+  }
+
   // inside before outside and the nearest next; a closed loop starts where the head is nearest, an open path from its nearer end
   for (const layer of ["cut", "score", "engrave"] as const) {
     const list = paths[layer];
@@ -121,5 +164,5 @@ export function prepare(part: PartSnapshot, s: Settings): Prepared2 {
       return v.reversed ? { ...p, points: [...p.points].reverse(), ...(p.items ? { items: [...p.items].reverse().map(turned) } : {}) } : p;
     });
   }
-  return { paths, problems, shift };
+  return { paths, problems, origin, shift, sheet };
 }

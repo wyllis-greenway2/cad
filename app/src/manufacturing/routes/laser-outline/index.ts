@@ -18,6 +18,13 @@ const PARAMS: ParamSpec[] = [
   { id: "scoreSpeed", label: "Score speed", kind: "number", unit: "mm/min", min: 1, max: 30000, default: 1500, group: "Score" },
   { id: "engravePower", label: "Engrave power", kind: "number", unit: "%", min: 1, max: 100, default: 10, group: "Engrave" },
   { id: "engraveSpeed", label: "Engrave speed", kind: "number", unit: "mm/min", min: 1, max: 30000, default: 3000, group: "Engrave" },
+  { id: "nest", label: "Nesting", kind: "choice", default: "off", choices: [{ value: "off", label: "Off: parts stay where they are drawn" }, { value: "pack", label: "Pack the parts on the sheet" }], group: "Layout", help: "Off is the manual layout: move the parts with the tools you have, and the sheet's edge is shown in the preview and the spacing checked. Pack lays the parts out in rows on the sheet by their bounding boxes (the shapes' own outlines are not used yet)." },
+  { id: "copies", label: "Copies", kind: "number", min: 1, max: 500, default: 1, group: "Layout", help: "How many of each part to cut. Only made when nesting is on." },
+  { id: "gap", label: "Gap between parts", kind: "number", unit: "mm", min: 0, max: 50, default: 2, group: "Layout", help: "The space left between parts when packing, and the closest two parts may be before you are told." },
+  { id: "margin", label: "Margin at the sheet's edge", kind: "number", unit: "mm", min: 0, max: 100, default: 0, group: "Layout" },
+  { id: "rotate", label: "Turn parts a quarter turn to fit", kind: "boolean", default: true, group: "Layout", help: "Allowed when packing." },
+  { id: "sheetWidth", label: "Sheet width", kind: "number", unit: "mm", min: 0, max: 100000, default: 0, group: "Layout", help: "0: the machine's work area." },
+  { id: "sheetHeight", label: "Sheet height", kind: "number", unit: "mm", min: 0, max: 100000, default: 0, group: "Layout" },
   { id: "toCorner", label: "Part to the corner", kind: "boolean", default: true, group: "Place", help: "Move the part so its lower left corner is at the machine's zero." },
 ];
 
@@ -27,7 +34,7 @@ const sizeOf = (p: PartSnapshot): { w: number; h: number } => { const b = boxOf(
 function fit(part: PartSnapshot, ctx?: RouteContext): FitReport {
   const reasons: string[] = [];
   if (part.kind !== "flat" || !part.outlines?.some((o) => o.pieces.length)) reasons.push("it needs a flat drawing with lines in it");
-  if (ctx) {
+  if (ctx && ctx.settings.nest !== "pack") { // (packing lays the parts out on the sheet, so the drawing as drawn may be any size: what does not fit is said when it is packed)
     const { w, h } = sizeOf(part);
     const [ew, eh] = [ctx.machine.envelope.max[0] - ctx.machine.envelope.min[0], ctx.machine.envelope.max[1] - ctx.machine.envelope.min[1]];
     if (w > ew + 1e-6 || h > eh + 1e-6) reasons.push(`the drawing is ${w.toFixed(1)} × ${h.toFixed(1)} mm and the machine's area is ${ew} × ${eh} mm`);
@@ -43,20 +50,22 @@ const world = (part: PartSnapshot, at: Point2): Point3 => {
 };
 
 function check(part: PartSnapshot, ctx: RouteContext): Finding[] {
-  const out = prepare(part, ctx.settings).problems.map((p, i): Finding => ({
+  const { problems, origin, shift } = prepare(part, ctx.settings, sheetOf(ctx));
+  const here = (at: Point2): Point3 => world(part, [origin[0] + shift[0] + at[0], origin[1] + shift[1] + at[1]]); // (the layout's point, in the toolpath's, then where the preview draws it)
+  return problems.map((p, i): Finding => ({
     id: `laser-outline:${p.kind}:${i}`,
-    severity: p.kind === "kerf" || p.kind === "thin" || p.kind === "open" ? "warning" : p.kind === "noCut" || p.kind === "noOutside" ? "info" : "caution",
+    severity: p.kind === "kerf" || p.kind === "thin" || p.kind === "open" || p.kind === "outside" || p.kind === "overlap" || p.kind === "unplaced" ? "warning" : p.kind === "noCut" || p.kind === "noOutside" ? "info" : "caution",
     message: p.message,
-    refs: p.at ? [{ kind: "point", at: world(part, p.at) }] : [],
+    refs: p.at ? [{ kind: "point", at: here(p.at) }] : [],
   }));
-  return out;
 }
 
+const sheetOf = (ctx: RouteContext): { w: number; h: number } => ({ w: ctx.machine.envelope.max[0] - ctx.machine.envelope.min[0], h: ctx.machine.envelope.max[1] - ctx.machine.envelope.min[1] });
 const percent = (ctx: RouteContext, id: string, d: number): number => (typeof ctx.settings[id] === "number" ? (ctx.settings[id] as number) : d) / 100;
 const value = (ctx: RouteContext, id: string, d: number): number => (typeof ctx.settings[id] === "number" ? (ctx.settings[id] as number) : d);
 
 function plan(part: PartSnapshot, ctx: RouteContext): Toolpath {
-  const { paths, shift } = prepare(part, ctx.settings);
+  const { paths, origin, sheet } = prepare(part, ctx.settings, sheetOf(ctx));
   const rapid = ctx.machine.limits.feed;
   const ops: ToolpathOperation[] = [];
   let seconds = 0;
@@ -96,8 +105,8 @@ function plan(part: PartSnapshot, ctx: RouteContext): Toolpath {
     ops.push({ id: layer, label, layer, moves });
   }
   const pl = part.outlines?.[0]?.plane;
-  // the toolpath is in the machine's x and y (the part moved to the corner): its zero is where the drawing's own point (-shift) is, so a preview can lay it over the drawing
-  return { units: "mm", operations: ops, seconds: Math.round(seconds), ...(pl ? { frame: { origin: world(part, [-shift[0], -shift[1]]), xDir: pl.xDir, normal: pl.normal } } : {}) };
+  // the toolpath is in the machine's x and y: its zero is the drawing's own point `origin`, so a preview can lay it over the drawing; the sheet is drawn from zero
+  return { units: "mm", operations: ops, seconds: Math.round(seconds), ...(sheet ? { stock: { min: [0, 0, 0] as Point3, max: [sheet.w, sheet.h, 0] as Point3 } } : {}), ...(pl ? { frame: { origin: world(part, origin), xDir: pl.xDir, normal: pl.normal } } : {}) };
 }
 
 export const laserOutline: Route = {

@@ -87,7 +87,7 @@ export function lengthOf(poly: readonly Point2[], closed: boolean): number {
   return closed && poly.length > 1 ? l + Math.hypot(poly[0]![0] - poly[poly.length - 1]![0], poly[0]![1] - poly[poly.length - 1]![1]) : l;
 }
 /** Is the point inside the polygon (the even-odd rule)? */
-function insidePolygon(p: Point2, poly: readonly Point2[]): boolean {
+export function insidePolygon(p: Point2, poly: readonly Point2[]): boolean {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
     const [a, b] = [poly[i]!, poly[j]!];
@@ -95,9 +95,11 @@ function insidePolygon(p: Point2, poly: readonly Point2[]): boolean {
   }
   return inside;
 }
-/** How many other closed loops each loop lies inside: 0 for an outside edge, 1 for a hole in it, 2 for an island in the hole, and so on. Open loops are depth 0 and are not counted as containers. */
+/** Is the whole of a polygon inside another (every one of its points)? A polygon that only crosses another is not inside it. */
+export const containedIn = (p: readonly Point2[], outer: readonly Point2[]): boolean => p.every((v) => insidePolygon(v, outer));
+/** How many other closed loops each loop lies wholly inside: 0 for an outside edge, 1 for a hole in it, 2 for an island in the hole, and so on. Open loops are depth 0 and are not counted as containers. Two loops that cross are neither inside the other. */
 export function depthsOf(polys: readonly Point2[][], closed: readonly boolean[]): number[] {
-  return polys.map((p, i) => (closed[i] ? polys.reduce((n, q, j) => (j !== i && closed[j] && insidePolygon(p[0]!, q) ? n + 1 : n), 0) : 0));
+  return polys.map((p, i) => (closed[i] ? polys.reduce((n, q, j) => (j !== i && closed[j] && containedIn(p, q) ? n + 1 : n), 0) : 0));
 }
 /** The smallest box round the points: its corners. */
 export function boxOf(polys: readonly (readonly Point2[])[]): { min: Point2; max: Point2 } | null {

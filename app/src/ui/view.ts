@@ -246,6 +246,7 @@ export function createView(host: HTMLElement) {
         toolpath.add(m);
       }
     }
+    if (v.stock.length) { const m = pen.segments(v.stock, settings.theme.previewSheet, 1.4, false); m.renderOrder = 2; m.raycast = () => {}; toolpath.add(m); } // (the sheet's edge, so a layout can be seen against it)
     if (v.head) { const dot = sphereAt(v.head, cam.distance * 0.006, settings.theme.previewCut, false); dot.raycast = () => {}; toolpath.add(dot); }
   };
 

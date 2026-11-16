@@ -34,7 +34,7 @@ test("the position splits the path by length: what is done, the segment the head
   assert.deepEqual(start.head, [0, 0, 0]);
   assert.deepEqual(viewOf(line, -3), start, "below 0 is 0");
   assert.deepEqual(viewOf(line, 7).head, [0, 10, 0], "above 1 is 1");
-  assert.deepEqual(viewOf({ units: "mm", operations: [] }, 0.5), { done: {}, rest: {}, head: null });
+  assert.deepEqual(viewOf({ units: "mm", operations: [] }, 0.5), { done: {}, rest: {}, head: null, stock: [] });
 });
 
 test("an arc is drawn in steps along its curve, the right way round; a whole circle comes back to its start", () => {

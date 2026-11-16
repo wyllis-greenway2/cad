@@ -9,13 +9,15 @@ export interface ToolpathView {
   rest: Record<string, number[]>;
   /** where the head is now; null for an empty toolpath */
   head: Point3 | null;
+  /** the sheet or stock the toolpath is cut from, as the four sides of its box (flat pairs of points in the world); empty when the route gave none */
+  stock: number[];
 }
 interface Seg { a: Point3; b: Point3; layer: string; len: number }
 
-const cache = new WeakMap<Toolpath, { segs: Seg[]; total: number }>();
+const cache = new WeakMap<Toolpath, { segs: Seg[]; total: number; world: (p: readonly [number, number, number]) => Point3 }>();
 const STEP = Math.PI / 36; // an arc is drawn in steps of five degrees
 
-function flatten(tp: Toolpath): { segs: Seg[]; total: number } {
+function flatten(tp: Toolpath): { segs: Seg[]; total: number; world: (p: readonly [number, number, number]) => Point3 } {
   const hit = cache.get(tp);
   if (hit) return hit;
   const f = tp.frame;
@@ -47,14 +49,14 @@ function flatten(tp: Toolpath): { segs: Seg[]; total: number } {
       } else if (m.op === "arc") add(m.to, op.layer);
     }
   }
-  const out = { segs, total: segs.reduce((n, s) => n + s.len, 0) };
+  const out = { segs, total: segs.reduce((n, s) => n + s.len, 0), world };
   cache.set(tp, out);
   return out;
 }
 
 /** How much of the toolpath is done at position `t` (0 to 1 of the length of all the moves, travel too), the rest, and where the head is. */
 export function viewOf(tp: Toolpath, t: number): ToolpathView {
-  const { segs, total } = flatten(tp);
+  const { segs, total, world } = flatten(tp);
   const done: Record<string, number[]> = {}, rest: Record<string, number[]> = {};
   const target = Math.min(1, Math.max(0, t)) * total;
   let run = 0;
@@ -70,5 +72,11 @@ export function viewOf(tp: Toolpath, t: number): ToolpathView {
     }
     run += s.len;
   }
-  return { done, rest, head };
+  const st = tp.stock;
+  const stock: number[] = [];
+  if (st) { // (the four sides of the sheet, from the toolpath's own zero)
+    const c = [[st.min[0], st.min[1]], [st.max[0], st.min[1]], [st.max[0], st.max[1]], [st.min[0], st.max[1]]].map(([x, y]) => world([x!, y!, st.min[2]]));
+    for (let i = 0; i < 4; i++) stock.push(...c[i]!, ...c[(i + 1) % 4]!);
+  }
+  return { done, rest, head, stock };
 }

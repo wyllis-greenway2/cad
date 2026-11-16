@@ -2624,3 +2624,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_571 — 2026-11-16 — directive
 > Do saved machines and settings next
 (asks for what in_569 left unbuilt: machines and settings that can be saved and used again, as planned in dec_manufacturing_definitions, instead of typing the work area every time)
+
+## in_572 — 2026-11-16 — directive
+> Do nesting next
+(asks for what in_569 and in_560 left unbuilt: nesting several parts on a sheet for the laser route, as approved in in_560: manual layout and bounding-box packing, true-shape nesting later)
