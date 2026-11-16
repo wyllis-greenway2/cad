@@ -2586,3 +2586,6 @@ Six inputs of the last turns had not been recorded (`in_451` to `in_456`; record
 ## Handoff 518 — 2026-11-16 (in_553: the button for mates at odds)
 `in_553`. **Built (`dec_ui_unification`):** `session.ts` `run`: a change refused because standing mates cannot all hold carries `retry` (the change) when some of those mates are in the drawing, so the refusal notice offers "Delete constraint to proceed" (the mates are relations, so the existing delete-and-retry does it, as one step). **Test (`mate.test.ts`):** a second flush mate that no placement holds with the first is refused with the retry; the button deletes the old mate, makes the new one, one step. **Not offered, on purpose:** undo and redo (they do not pass this refusal), a kernel step that cannot be made. `q_ui_mates_at_odds_button` is retired into the decision. **Not browser-checked** (the notice path is the one `in_547` built and checked).
 
+## Handoff 519 — 2026-11-16 (in_554: the round controls stay as they are)
+`in_554`. The human took the recommendation on `q_ui_round_controls`: the X Y Z, ⋯, Cut and world-orb controls keep their own looks. **Docs only:** the question is retired into `dec_ui_unification`, which now has no open loose end; no code changed.
+

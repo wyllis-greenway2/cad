@@ -3,7 +3,7 @@ id: dec_ui_unification
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_553, in_552, in_551, in_550, in_549, in_548, in_547, in_546, in_545, in_544
+human_input: in_554, in_553, in_552, in_551, in_550, in_549, in_548, in_547, in_546, in_545, in_544
 date: 2026-11-16
 depends_on:
 alternative_to:
@@ -41,11 +41,13 @@ alternative_to:
 - **Step 6 done (`in_550`), the last of the order:** **three kinds of handle, made one way** (`interaction/gizmo.ts`). `HandleKind` is now `arrow | ring | orb`: what was a double arrow is an arrow with `both` (a head at each end, pulled from its middle: the push / pull, the fillet's size, the sheet's normal) and what was a scale handle is an arrow with `ratio` (its value is how many times as far along it the pointer is as where it was taken). One constructor each (`arrowAlong`, `arrowBoth`, `axisArrows`, `orbAt`, `ring`) builds every handle of every family (the mover, the revolve's orb, rings, place and spiral arrows, the mirror, the two repeats, scale, the push / pull, the fillet, the sheet, the joint); one `startDrag` and one `dragTo` have one branch per kind (and the ratio of an arrow); the view draws the three kinds with one loop (`ui/view/gizmo.ts`). **Not changed, said plainly:** the families themselves (which ids a move, a turn, a size and a count have, and what a drag of each does in `control/handles.ts`) are as they were: they are chosen by the id (`move:x`, `rev:adv:z`, `cnt:y`), which the tests, the touch helper and the number bubbles all use, so merging them is a larger change that needs the human's word. **All six steps of the order are done.**
 - **Game mode check (`in_551`):** in Chromium with the pointer really locked (`pointerLockElement` set), Space starts game mode, Tab and Shift+Tab step Move, Extrude, Extend (each step chooses it), and a typed 3 with Enter applies the push / pull as an extend step: the options are reachable in game mode without aiming. The crosshair still cannot press a screen-fixed button, by design.
 - **Left unmerged (the human's word, `in_551`):** the handle families by id (`move:`, `piv:`, `rev:*`, `mir:`, `lin:`, `cnt:`, `scale:`): they are the ids the touch helper, the number bubbles and the tests use; revisit only if a new family is painful to add.
-- **Loose ends are their own questions:** `q_ui_round_controls`.
+- **No loose ends are left open.**
 
 - **The bar chips (`in_552`, the human took the recommendation):** **Select similar and Cut are in the operation bar.** Select similar's rules are switches in the bar (with a check that puts the rules away and keeps the selection; the separate chip is gone); Cut's parts (kept or tossed) and its join are switches in the bar (its letters at the parts in the scene stay). **Tab now lands on every option** (it chooses a way between ways as it lands on it, and only lights a switch or an action), **Shift+Enter flips the switch the bar's focus is on**, so both are reachable in game mode. The **sheet chips and the dimension operation stay where they are**: they belong to a thing in the scene, and the dimension operation opens on every selection of a drawn part.
 
 - **Mates at odds (`in_553`, the human took the recommendation):** a change refused because it would leave standing mates unable to hold at once now offers "Delete constraint to proceed": it deletes the standing mates that are there and makes the change, as one step. **Not for an undo or a redo** (they do not go through this refusal: deleting a mate would turn an undo into something else); **not for a kernel step that cannot be made** (deleting a constraint would not mend it), which keep naming what stopped them.
+
+- **The round controls (`in_554`, the human took the recommendation):** the X Y Z and ⋯ buttons (`controls.ts`), the Cut chips at the parts (`cutparts.ts`) and the world orb (`worldorb.ts`) **keep their own looks**: their colour and border change with the view (facing, the selection ring) or they carry a letter, a plus or a minus, so they are not a plain round button. Fold them in only if `roundButton` grows a state for what they show.
 
 ## Rationale
 

@@ -2552,3 +2552,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_553 — 2026-11-16 — directive
 > Go with the mates at odds button
 (approves `q_ui_mates_at_odds_button`: offer "Delete constraint to proceed" for a change that would leave standing mates at odds; not for undo or redo)
+
+## in_554 — 2026-11-16 — directive
+> Go with your recommendation on the round controls
+(approves `q_ui_round_controls`: leave the X Y Z, ⋯, Cut and world-orb controls with their own looks)
