@@ -76,6 +76,10 @@ export type Intent =
   /** a row of the open list: select it (a body) or take it out (a step) */
   | { type: "panelRow"; id: string; act: "select" | "remove" | "sketch" | "edit" | "hide" }
   | { type: "panelAction"; id: string }
+  /** the History (`dec_history_navigation`): go to a step, open or close the numbers of a step, set one of them */
+  | { type: "stepGo"; id: string }
+  | { type: "stepEdit"; id: string | null }
+  | { type: "stepSet"; id: string; key: string; value: number }
   /** the text of a field of the value box changed (a tool's field, or the operation's one number) */
   | { type: "entry"; field: number; text: string }
   /** the Apply and Cancel buttons of a repeat being set up (`in_141`) */

@@ -352,7 +352,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     box: s.box ? { ...s.box, touching: crossing(s.box) } : null,
     avoid: busy || !annotationsPresent ? { segs: [], pts: [] } : avoidOf(sc),
     hint: s.tool?.hints?.length && s.tool.cursor ? { kinds: s.tool.hints.map((h) => h.kind), at: s.tool.cursor } : s.dragHint ? { kinds: s.dragHint.hints.map((h) => h.kind), at: s.dragHint.at } : null,
-    panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors, s.showSketch),
+    panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors, s.showSketch, s.session.history, s.stepEdit),
     annotations: busy ? withFlashed([], sc, flash?.t === 0 && gpu?.blocked?.length ? flash : null) : [...withFlashed(annotationsFor(sc, sel, s.focus, s.showAllConstraints || !!s.showSketch), sc, flash), ...(s.tape ? tapeAnnotations(sc, sel) : [])],
     flash,
     refusal: flash && s.flash?.retry && s.flash.victims.length ? { text: s.session.message ?? "", beside: s.flash.victims[0]!, button: s.flash.victims.length === 1 ? "Delete constraint to proceed" : "Delete constraints to proceed" } : null,

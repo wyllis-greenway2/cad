@@ -2,6 +2,8 @@
 const svg = (inner: string): string => `<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 
 const ICONS: Record<string, string> = {
+  // change the numbers of a step in the History (`dec_history_navigation`)
+  pencil: svg('<path d="M2.5 13.5l.8-3.2 7.6-7.6 2.4 2.4-7.6 7.6z"/><path d="M9.2 4.4l2.4 2.4"/>'),
   // a body shown, and hidden (`dec_hidden_bodies`): an eye, open and crossed
   eye: svg('<path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2.1"/>'),
   eyeOff: svg('<path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z" opacity=".45"/><circle cx="8" cy="8" r="2.1" opacity=".45"/><path d="M2.5 2.5l11 11"/>'),

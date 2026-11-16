@@ -2303,3 +2303,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_497 — 2026-11-16 — directive
 > yes start with hidden bodies
 (approves starting the build order of `in_489` with hidden bodies and the upgraded Bodies list: a body can be hidden, drawn very faintly and not interactive, with an eye icon that fades in on hover, in the Bodies list too, with select all and none, hide and show all, and delete)
+
+## in_498 — 2026-11-16 — directive
+> yes start on the history
+(approves starting the next item of the order of `in_489`: a usable History: click a step to edit its values, and view the model at a step)

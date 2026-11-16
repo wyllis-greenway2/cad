@@ -14,7 +14,7 @@ import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { History } from "../operation/history.ts";
-import { newHistory, exec, undo, redo } from "../operation/history.ts";
+import { newHistory, exec, undo, redo, goTo } from "../operation/history.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Result } from "../shared/result.ts";
 import { ok } from "../shared/result.ts";
@@ -312,6 +312,8 @@ export function refresh(s: Session): Session {
   return { ...now, message: said, checkSteps: now.outcome.kernel?.stale ? s.checkSteps : undefined, fallback: now.outcome.kernel?.stale ? s.fallback : undefined, modeFrom: now.outcome.kernel?.stale ? s.modeFrom : undefined };
 }
 export const undoLast = (s: Session): Session => { const n = { ...withHistory(s, undo(s.history)), modeFrom: undefined }; return s.lagging ? refresh(n) : n; };
+/** Move the cursor of the history to any point (`dec_history_navigation`): the model is shown as it was then; the steps after it stay, to be gone back to. */
+export const goToCursor = (s: Session, cursor: number): Session => { const n = { ...withHistory(s, goTo(s.history, cursor)), modeFrom: undefined, message: null }; return s.lagging ? refresh(n) : n; };
 export const redoLast = (s: Session): Session => { const n = { ...withHistory(s, redo(s.history)), modeFrom: undefined }; return s.lagging ? refresh(n) : n; };
 
 /** A click on the candidates under the pointer (see `picking.refsAt`). */

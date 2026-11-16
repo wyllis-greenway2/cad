@@ -42,6 +42,9 @@ export const canRedo = (h: History) => h.cursor < h.commands.length;
 export const undo = (h: History): History => (canUndo(h) ? { ...h, cursor: h.cursor - 1, scene: h.snapshots[h.cursor - 1] ?? h.base } : h);
 export const redo = (h: History): History => (canRedo(h) ? { ...h, cursor: h.cursor + 1, scene: h.snapshots[h.cursor + 1] ?? h.scene } : h);
 
+/** The cursor moved to any point: the scene there is the one kept for it (`dec_history_navigation`); nothing is removed, so redo goes forward again. */
+export const goTo = (h: History, cursor: number): History => { const c = Math.max(0, Math.min(h.commands.length, Math.round(cursor))); return c === h.cursor ? h : { ...h, cursor: c, scene: h.snapshots[c] ?? h.base }; };
+
 /** Rebuild a history from its saved commands (the file format stores the base and the command list). */
 export function replay(base: Scene, commands: readonly Command[], cursor = commands.length, derive?: (s: Scene) => Scene): Result<History> {
   let h = newHistory(base, derive);

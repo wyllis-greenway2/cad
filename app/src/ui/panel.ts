@@ -1,8 +1,8 @@
 // The list card opened from the ⋯ menu (`in_132`): the bodies with their names, or the history of steps. It displays what the interaction layer says and reports which row was chosen.
 import { iconSvg } from "./icons.ts";
 
-export interface PanelData { kind: string; title: string; rows: { id: string; label: string; active: boolean; removable: boolean; edit?: boolean; error?: string; sketch?: boolean; hidden?: boolean }[]; actions?: { id: string; label: string; title: string }[] }
-export interface PanelHandlers { row(id: string, act: "select" | "remove" | "sketch" | "edit" | "hide"): void; action(id: string): void; undo(): void; redo(): void; close(): void }
+export interface PanelData { kind: string; title: string; rows: { id: string; label: string; active: boolean; removable: boolean; edit?: boolean; error?: string; sketch?: boolean; hidden?: boolean; future?: boolean; current?: boolean; fields?: { key: string; label: string; value: number }[]; open?: boolean }[]; note?: string; actions?: { id: string; label: string; title: string }[] }
+export interface PanelHandlers { row(id: string, act: "select" | "remove" | "sketch" | "edit" | "hide"): void; action(id: string): void; go(id: string): void; edit(id: string): void; set(id: string, key: string, value: number): void; undo(): void; redo(): void; close(): void }
 
 export function createPanel(host: HTMLElement, h: PanelHandlers) {
   const el = document.createElement("div");
@@ -41,9 +41,10 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
         for (const a of p.actions) { const b = btn(a.label, a.title, () => h.action(a.id)); b.style.cssText += ";padding:0 8px;font-size:12px;border:1px solid #cfd0d4"; bar.appendChild(b); }
         el.appendChild(bar);
       }
+      if (p.note) { const note = document.createElement("div"); note.textContent = p.note; note.style.cssText = "padding:0 8px 6px;font-size:12px;color:#6b6e75"; el.appendChild(note); }
       for (const r of p.rows) {
         const row = document.createElement("div");
-        row.style.cssText = `display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;cursor:${p.kind === "bodies" || p.kind === "groups" ? "pointer" : "default"};background:${r.active ? "#dff1f0" : ""}`;
+        row.style.cssText = `display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;cursor:${p.kind === "bodies" || p.kind === "groups" || p.kind === "history" ? "pointer" : "default"};background:${r.active || r.current ? "#dff1f0" : ""};opacity:${r.future ? ".45" : "1"}`;
         const label = document.createElement("span");
         label.textContent = r.label;
         label.style.flex = "1";
@@ -52,9 +53,31 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
         if (r.hidden !== undefined) { label.style.opacity = r.hidden ? ".45" : "1"; row.appendChild(btn(iconSvg(r.hidden ? "eyeOff" : "eye"), r.hidden ? "Hidden: show this body" : "Shown: hide this body", () => h.row(r.id, "hide"))); }
         if (r.sketch !== undefined) { const b = btn(iconSvg("sketch"), r.sketch ? "Put the sketch away" : "Show the sketch this extrusion was made from", () => h.row(r.id, "sketch")); if (r.sketch) b.style.background = "#dff1f0"; row.appendChild(b); }
         if (r.edit) row.appendChild(btn(iconSvg("linear"), "Change the numbers of this repeat", () => h.row(r.id, "edit")));
+        if (r.fields?.length) { const b = btn(iconSvg("pencil"), r.open ? "Close the numbers of this step" : "Change the numbers of this step", () => h.edit(r.id)); if (r.open) b.style.background = "#dff1f0"; row.appendChild(b); }
         if (r.removable) row.appendChild(btn(iconSvg("cross"), p.kind === "groups" ? "Break this group (what is inside it stays grouped)" : p.kind === "bodies" ? "Delete this body (with the steps and sketches that made it)" : "Take this step out", () => h.row(r.id, "remove")));
         if (p.kind === "bodies" || p.kind === "groups") row.addEventListener("click", () => h.row(r.id, "select"));
+        if (p.kind === "history") { row.title = r.future ? "A step that comes after: go to it" : "Go to this step: the model as it was when it had been made"; row.addEventListener("click", () => h.go(r.id)); }
+        if (r.current) label.style.fontWeight = "600";
         el.appendChild(row);
+        if (r.open && r.fields) {
+          const box = document.createElement("div");
+          box.style.cssText = "display:flex;flex-direction:column;gap:4px;padding:2px 8px 8px 20px";
+          for (const f of r.fields) {
+            const line = document.createElement("label");
+            line.style.cssText = "display:flex;align-items:center;gap:8px;font-size:12px";
+            const name = document.createElement("span"); name.textContent = f.label; name.style.flex = "1";
+            const input = document.createElement("input");
+            input.type = "number"; input.step = "any"; input.value = String(f.value);
+            input.style.cssText = "width:84px;padding:3px 6px;border:1px solid #cfd0d4;border-radius:6px;font:12px system-ui,sans-serif";
+            const commit = () => { const v = Number(input.value); if (input.value !== "" && Number.isFinite(v) && v !== f.value) h.set(r.id, f.key, v); };
+            input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") { commit(); input.blur(); } });
+            input.addEventListener("change", commit);
+            input.addEventListener("click", (e) => e.stopPropagation());
+            line.append(name, input);
+            box.appendChild(line);
+          }
+          el.appendChild(box);
+        }
       }
       if (!p.rows.length) { const none = document.createElement("div"); none.textContent = "—"; none.style.cssText = "padding:6px 8px;opacity:.5"; el.appendChild(none); }
       el.style.display = "block";

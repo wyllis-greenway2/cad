@@ -11,6 +11,7 @@ import { doPan, doWalk, doSwivel, doZoom, doLook, doHome, doResetView } from "./
 import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBodiesAction } from "./control/bodies.ts";
+import { doStepGo, doStepEdit, doStepSet } from "./control/history.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn, run, scene as sceneOf } from "./session.ts";
 import { loftChoice } from "./loft.ts";
@@ -145,6 +146,9 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "panel": return doPanel(s, i.name);
     case "panelRow": return doPanelRow(s, i.id, i.act);
     case "panelAction": return doBodiesAction(s, i.id);
+    case "stepGo": return doStepGo(s, i.id);
+    case "stepEdit": return doStepEdit(s, i.id);
+    case "stepSet": return doStepSet(s, i.id, i.key, i.value);
     case "relation": return doRelation(s, i);
     case "save":
     case "open":
