@@ -2203,3 +2203,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_472 — 2026-11-16 — question
 > Is this truly a generic fix though? What if someone made a hollow body via boolean subtract instead of using the hollow tool? shouldn't it just generically know when it is going into an invalid format?
 (asks whether the fix for `in_471` is generic, for example for a hollow made by a boolean subtract, and says the kernel should know in general when a result is going invalid; answered by testing: not generic enough, and a second check was added)
+
+## in_473 — 2026-11-16 — directive
+> yes build the mesh test
+(approves the mesh test for self-crossing bodies: a general check of the final mesh of a changed body for triangles that cross, whatever made it)

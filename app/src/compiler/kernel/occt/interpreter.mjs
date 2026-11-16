@@ -29,6 +29,7 @@ import {
 } from "replicad";
 import { facesOf, edgesOf, shellsOf, solidsOf } from "./topo.mjs";
 import { reshape } from "./reshape.mjs";
+import { findCrossing } from "./selfcross.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
@@ -81,6 +82,29 @@ export function roundIsSane(before, after, size, set) {
     for (const x of edges) if (!seen.has(x.hashCode)) { seen.add(x.hashCode); around += x.length; }
   }
   return change <= room(around);
+}
+
+/**
+ * Does a solid of `shape` that is not one of the solids of `before` pass through itself (`dec_self_crossing_check`, `in_472`)? The library's validity check does not say: a round larger than the wall of a hollow can leave the hollow sticking
+ * out through the outer skin and the body is "valid". Each solid is meshed coarsely and its triangles looked at (`selfcross.mjs`); the first crossing is returned, as where it is, or null. A body of
+ * more than `MAX_FACES_CHECKED` faces is not looked at (a body that large is a lot of work for a check, and nothing is lost by it but the check).
+ */
+const MAX_FACES_CHECKED = 600;
+export function crossesItself(shape, before) {
+  // (a solid the operation did not touch is the very same solid as before, copies of a shape share what they are made of: it was looked at when it was made, and a loft beside an edited block is not meshed again)
+  const known = new Set(before ? solidsOf(before).map((s) => s.hashCode) : []);
+  for (const solid of solidsOf(shape)) {
+    if (known.has(solid.hashCode)) continue;
+    if (facesOf(solid).length > MAX_FACES_CHECKED) continue;
+    const [lo, hi] = solid.boundingBox.bounds;
+    const diag = Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
+    const tol = Math.max(0.005, diag * 0.003);
+    const m = solid.mesh({ tolerance: tol, angularTolerance: 0.5 });
+    getOC().BRepTools.Clean(solid.wrapped, true); // (the meshing leaves its triangles on the faces, which the shape is then checked and worked on with: they are taken off)
+    const hit = findCrossing(m.vertices, m.triangles, 3 * tol + 1e-4 * diag);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 /** Resolve "$name" references against graph.params. Everything is a named parameter. */
@@ -834,6 +858,7 @@ const OPS = {
         const reach = Math.max(size, rel ? size * Math.max(...rel.map(([, r]) => r)) : 0);
         if (!stage("checking the round's size", () => roundIsSane(t, made, reach, set))) throw new Error("kernel returned an invalid solid"); // (more taken or added than a round of this size can: the hollow of a thin body gone)
         if (stage("checking the round's volume", () => Math.abs(measureVolume(made) - measureVolume(t)) < 1e-9 * measureVolume(t))) throw new Error("the kernel made nothing of it"); // (a size it cannot take can come out as the body unchanged)
+        if (stage("checking the round does not cross itself", () => crossesItself(made, t))) throw new Error("kernel returned an invalid solid"); // (the hollow of a thin body sticking out through the round)
         return made;
       } catch (e) {
         // two distances have no region to fall back on (`dec_chamfer_two_distances`): refused, with the reason
@@ -1754,6 +1779,7 @@ export function compile(graph) {
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
       const tC = performance.now();
       if (value.kind === "solid" && !rigid && !value.checked && !isValidSolid(value.shape)) throw new Error("kernel returned an invalid solid");
+      if (value.kind === "solid" && !rigid && crossesItself(value.shape, op.target && results.get(op.target)?.value?.kind === "solid" ? results.get(op.target).value.shape : null)) throw new Error("that would make the body pass through itself (one part of it goes through another)");
       checkMs = performance.now() - tC;
       results.set(op.id, { value, ms: performance.now() - t0, key, markMs, checkMs, ...(Object.keys(stagesOf).length ? { stages: Object.fromEntries(Object.entries(stagesOf).map(([n, v]) => [n, Math.round(v * 10) / 10])) } : {}) });
       remember(key, { value });
