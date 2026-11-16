@@ -5,8 +5,15 @@ import type { Rigid } from "./frames.ts";
 import { applyPoint } from "./frames.ts";
 
 type M3 = [number, number, number];
-const EPS = 1e-4;
-/** The moving triangles are moved by this much (a hundredth of a micron, far below `EPS`) before they are tested, so that nothing is exactly on a diagonal or an edge of the other body's triangles; touching stays touching. */
+/**
+ * Two ways of telling that triangles cross (`in_484`). A move is stopped by the first (`MOVE`): a crossing counts when the triangles are made a hundredth of a millimetre bigger, so that a body is stopped a hair short of
+ * a wall. Whether two bodies are in each other already (and the warning about it) is the second (`DEEP`): they must really go into each other, by a hundredth. So a body that a move has stopped at a wall is never one that
+ * is read as inside it, however the faces of the kernel come out when they are made again (a few thousandths of a millimetre) or whichever of the two bodies is taken to be the one that moves.
+ */
+interface Mode { /** how far from the plane of a triangle both ends of a segment must be to cross it */ eps: number; /** how far outside the edges of a triangle a crossing may still be inside it */ edge: number }
+const MOVE: Mode = { eps: 1e-4, edge: 0.02 };
+const DEEPMODE: Mode = { eps: 0.015, edge: 1e-4 };
+/** The moving triangles are moved by this much (a hundredth of a micron, far below `MOVE.eps`) before they are tested, so that nothing is exactly on a diagonal or an edge of the other body's triangles; touching stays touching. */
 const NUDGE: Vec3 = [1.3e-5, 2.1e-5, 0.7e-5];
 const nudged = (t: ArrayLike<number>): number[] => { const o: number[] = new Array(t.length); for (let i = 0; i < t.length; i++) o[i] = t[i]! + NUDGE[i % 3]!; return o; }; // mm: what lies this near a plane or a surface is on it, a touch, not a crossing
 
@@ -47,19 +54,38 @@ const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0
 const tri = (t: ArrayLike<number>, i: number): [Vec3, Vec3, Vec3] => [[t[9 * i]!, t[9 * i + 1]!, t[9 * i + 2]!], [t[9 * i + 3]!, t[9 * i + 4]!, t[9 * i + 5]!], [t[9 * i + 6]!, t[9 * i + 7]!, t[9 * i + 8]!]];
 
 /** Does the segment p-q cross the triangle (really cross it: both ends clear of its plane, on opposite sides)? */
-function crosses(p: Vec3, q: Vec3, t: [Vec3, Vec3, Vec3]): boolean {
+function crosses(p: Vec3, q: Vec3, t: [Vec3, Vec3, Vec3], mode: Mode = MOVE): boolean {
+  const eps = mode.eps;
   const n = cross(sub(t[1], t[0]), sub(t[2], t[0]));
   const nl = Math.hypot(...n);
   if (nl < 1e-12) return false;
   const [dp, dq] = [dot(n, sub(p, t[0])) / nl, dot(n, sub(q, t[0])) / nl];
-  if (!((dp > EPS && dq < -EPS) || (dp < -EPS && dq > EPS))) return false;
+  if (!((dp > eps && dq < -eps) || (dp < -eps && dq > eps))) return false;
   const k = dp / (dp - dq);
   const x: Vec3 = [p[0] + (q[0] - p[0]) * k, p[1] + (q[1] - p[1]) * k, p[2] + (q[2] - p[2]) * k];
   const [e0, e1, e2] = [dot(n, cross(sub(t[1], t[0]), sub(x, t[0]))), dot(n, cross(sub(t[2], t[1]), sub(x, t[1]))), dot(n, cross(sub(t[0], t[2]), sub(x, t[2])))];
-  return e0 > 0 && e1 > 0 && e2 > 0; // (strictly inside: a crossing through an edge or a corner is a touch; the moving triangles are nudged by `NUDGE` first, so a crossing that falls exactly on the diagonal of a face is not lost)
+  // (inside the triangle, or within `mode.edge` of its edge: a crossing right on an edge counts for both triangles, or the answer would depend on which of two bodies is the one that moves, `in_484`)
+  const slack = -mode.edge * nl;
+  return e0 > slack * Math.hypot(...sub(t[1], t[0])) && e1 > slack * Math.hypot(...sub(t[2], t[1])) && e2 > slack * Math.hypot(...sub(t[0], t[2])); // (the moving triangles are nudged by `NUDGE` first, so a crossing that falls exactly on the diagonal of a face is not missed)
 }
-const triCross = (a: [Vec3, Vec3, Vec3], b: [Vec3, Vec3, Vec3]): boolean =>
-  crosses(a[0], a[1], b) || crosses(a[1], a[2], b) || crosses(a[2], a[0], b) || crosses(b[0], b[1], a) || crosses(b[1], b[2], a) || crosses(b[2], b[0], a);
+/**
+ * Is every corner of `a` on one side of the plane of `b`, at least `gap` from it? Then `a` is that far from `b` and neither crosses it (`in_484`): most pairs of triangles that are tried are far apart in this way,
+ * and this is a few multiplications where the full test is many.
+ */
+function apart(a: [Vec3, Vec3, Vec3], b: [Vec3, Vec3, Vec3], gap: number, mode: Mode = MOVE): boolean {
+  const eps = mode.eps;
+  const [b0, b1, b2] = b;
+  const ux = b1[0] - b0[0], uy = b1[1] - b0[1], uz = b1[2] - b0[2], vx = b2[0] - b0[0], vy = b2[1] - b0[1], vz = b2[2] - b0[2];
+  const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+  const nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
+  if (nl < 1e-12) return false;
+  const lim = (eps + gap) * nl;
+  let pos = 0, neg = 0;
+  for (const p of a) { const d = nx * (p[0] - b0[0]) + ny * (p[1] - b0[1]) + nz * (p[2] - b0[2]); if (d > lim) pos++; else if (d < -lim) neg++; }
+  return pos === 3 || neg === 3;
+}
+const triCross = (a: [Vec3, Vec3, Vec3], b: [Vec3, Vec3, Vec3], mode: Mode = MOVE): boolean =>
+  !apart(a, b, 0, mode) && !apart(b, a, 0, mode) && (crosses(a[0], a[1], b, mode) || crosses(a[1], a[2], b, mode) || crosses(a[2], a[0], b, mode) || crosses(b[0], b[1], a, mode) || crosses(b[1], b[2], a, mode) || crosses(b[2], b[0], a, mode));
 
 function pointSeg(p: Vec3, a: Vec3, b: Vec3): number {
   const ab = sub(b, a);
@@ -98,7 +124,8 @@ function segSeg(p1: Vec3, q1: Vec3, p2: Vec3, q2: Vec3): number {
   return Math.hypot(...sub(x, y));
 }
 /** The least distance between two triangles that do not cross. */
-function triDist(a: [Vec3, Vec3, Vec3], b: [Vec3, Vec3, Vec3]): number {
+function triDist(a: [Vec3, Vec3, Vec3], b: [Vec3, Vec3, Vec3], within = Infinity): number {
+  if (within < Infinity && (apart(a, b, within) || apart(b, a, within))) return within; // (all of one is further than that from the plane of the other: no nearer than `within`)
   let m = Infinity;
   for (const p of a) m = Math.min(m, pointTri(p, b));
   for (const p of b) m = Math.min(m, pointTri(p, a));
@@ -146,7 +173,8 @@ function inside(p: Vec3, tris: ArrayLike<number>): boolean {
  * Do the moving triangles (already in their place) collide with the body that stays: do they cross its surface, or (with `clearance`) come nearer to it than that, or is one inside the other? `open`: the moving
  * triangles are a piece of surface and not a closed body (a face being pulled out): only a point of the piece itself is tested for being inside.
  */
-export function collides(moving: ArrayLike<number>, fixed: Tree, clearance = 0, open = false): boolean {
+export function collides(moving: ArrayLike<number>, fixed: Tree, clearance = 0, open = false, deep = false): boolean {
+  const mode = deep ? DEEPMODE : MOVE;
   const nm = Math.floor(moving.length / 9);
   if (!nm || !fixed.nodes.length) return false;
   const c = Math.max(0, clearance);
@@ -166,8 +194,8 @@ export function collides(moving: ArrayLike<number>, fixed: Tree, clearance = 0, 
       if (nd.l < 0) {
         for (let j = nd.from; j < nd.to; j++) {
           const b = tri(fixed.tris, fixed.order[j]!);
-          if (triCross(a, b)) return true;
-          if (c > 0 && triDist(a, b) < c) return true;
+          if (triCross(a, b, mode)) return true;
+          if (c > 0 && triDist(a, b, c) < c) return true;
         }
       } else stack.push(nd.l, nd.r);
     }
@@ -183,7 +211,8 @@ export function collides(moving: ArrayLike<number>, fixed: Tree, clearance = 0, 
  * body taken to where the motion puts it, and only the triangles of the leaves that meet are moved and tested. For a heavy body that has a few contacts this is a few triangles, not all of them, at every
  * step of a drag.
  */
-export function collidesMoving(mover: Tree, r: Rigid, fixed: Tree, clearance = 0, open = false): boolean {
+export function collidesMoving(mover: Tree, r: Rigid, fixed: Tree, clearance = 0, open = false, deep = false): boolean {
+  const mode = deep ? DEEPMODE : MOVE;
   if (!mover.nodes.length || !fixed.nodes.length) return false;
   const c = Math.max(0, clearance);
   const pad = c + 1e-4; // (the boxes are padded a little: the triangles are nudged, and a box of a turned body is not exact)
@@ -217,7 +246,7 @@ export function collidesMoving(mover: Tree, r: Rigid, fixed: Tree, clearance = 0
         const a = triOf(mover.order[i]!);
         for (let j = fn.from; j < fn.to; j++) {
           const f = tri(fixed.tris, fixed.order[j]!);
-          if (triCross(a, f)) return true;
+          if (triCross(a, f, mode)) return true;
           if (c > 0 && triDist(a, f) < c) return true;
         }
       }
@@ -264,7 +293,7 @@ export function contactNormal(moving: ArrayLike<number>, fixed: Tree, clearance 
       if (nd.l < 0) {
         for (let j = nd.from; j < nd.to; j++) {
           const b = tri(fixed.tris, fixed.order[j]!);
-          if (!(triCross(a, b) || (c > 0 && triDist(a, b) < c))) continue;
+          if (!(triCross(a, b) || (c > 0 && triDist(a, b, c) < c))) continue;
           const n = cross(sub(b[1], b[0]), sub(b[2], b[0])); // (its length is twice its area: bigger triangles count more)
           if (dot(n, against) >= -1e-9 * Math.hypot(...n) * Math.hypot(...against)) continue; // (a face that faces along the motion or across it is not what it is going into)
           sum[0] += n[0]; sum[1] += n[1]; sum[2] += n[2];

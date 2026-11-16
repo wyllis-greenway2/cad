@@ -56,6 +56,23 @@ export interface HardMotion {
 const isMove = (r: Rigid | null): r is Rigid => !!r && Math.abs(r.turn[0] - 1) + Math.abs(r.turn[4] - 1) + Math.abs(r.turn[8] - 1) + Math.abs(r.turn[1]) + Math.abs(r.turn[2]) + Math.abs(r.turn[3]) + Math.abs(r.turn[5]) + Math.abs(r.turn[6]) + Math.abs(r.turn[7]) < 1e-9;
 const slideOf = (shift: Vec3): Rigid => ({ turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift, k: 1 });
 
+/** How far a step of a drag may go (`in_484`): not more than half of the thinnest of the hard bodies, between 0.2 and 2 mm, so that a long pull cannot jump over a wall between two steps. */
+function stepLength(scene: Scene, movers: readonly Ref[], stays: readonly Ref[]): number {
+  let thin = Infinity;
+  for (const r of [...movers, ...stays]) {
+    const b = scene.parts[r];
+    if (b?.kind !== "body" || !b.bbox) continue;
+    thin = Math.min(thin, ...[0, 1, 2].map((k) => b.bbox!.max[k]! - b.bbox!.min[k]!).filter((v) => v > 1e-6));
+  }
+  return Math.max(0.2, Math.min(2, thin / 2));
+}
+/** The farthest a point of these bodies is from their middle (what a turn carries a point by, per radian). */
+function reachOf(scene: Scene, bodies: readonly Ref[]): number {
+  let far = 0;
+  for (const r of bodies) { const b = scene.parts[r]; if (b?.kind === "body" && b.bbox) far = Math.max(far, Math.hypot(...[0, 1, 2].map((k) => (b.bbox!.max[k]! - b.bbox!.min[k]!) / 2))); }
+  return far;
+}
+
 /**
  * What the motion `rigidOf` gives each body of `group` comes to when the hard bodies of it may not go into the hard bodies that stay: null when nothing is in the way (or nothing is hard). A motion is taken as
  * far as it can go; if it is a plain move (`slide`, a drag by hand) the part of what is left that runs along the surface it is against is made too, round a corner and on (`in_474`). A pair that already
@@ -67,22 +84,25 @@ export function hardMotion(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref
   const stays = Object.keys(scene.parts).filter((r) => !group.includes(r as Ref) && isHard(scene, r as Ref)) as Ref[];
   if (!stays.length) return null;
   const clearance = scene.clearance ?? 0;
-  const pairs: { m: Ref; s: Ref; fixed: Tree; tris: number[]; mover: Tree }[] = [];
+  const pairs: { m: Ref; s: Ref; fixed: Tree; tris: number[]; mover: Tree; c: number }[] = [];
   for (const m of movers) {
     const a = meshOf(scene, m);
     if (!a) continue;
     for (const s of stays) {
       const b = meshOf(scene, s);
-      if (!b || collides(a.tris, b.tree, clearance)) continue; // (already in each other: not held to it)
-      pairs.push({ m, s, fixed: b.tree, tris: a.tris, mover: a.tree });
+      if (!b || collides(a.tris, b.tree, clearance, false, true)) continue; // (already in each other, deeper than a move leaves two bodies: not held to it)
+      pairs.push({ m, s, fixed: b.tree, tris: a.tris, mover: a.tree, c: clearance });
     }
   }
   if (!pairs.length) return null;
-  const hitAt = (r: (b: Ref) => Rigid | null, c: number): Ref[] => [...new Set(pairs.filter((q) => collidesMoving(q.mover, r(q.m) ?? NONE, q.fixed, c)).map((q) => q.s))];
+  const hitAt = (r: (b: Ref) => Rigid | null, sliding = false): Ref[] => [...new Set(pairs.filter((q) => collidesMoving(q.mover, r(q.m) ?? NONE, q.fixed, Math.max(0, q.c - (sliding ? 5e-4 : 0)))).map((q) => q.s))]; // (sliding along a surface is tested a hair nearer, or a body on it would count as hitting it at every step)
   const part = (t: number) => (b: Ref): Rigid | null => { const r = rigidOf(b); return r ? partOf(r, t) : r; };
-  const t = freePart((p) => hitAt(part(p), clearance).length > 0);
+  const stepLen = stepLength(scene, movers, stays);
+  const reach = reachOf(scene, movers);
+  const travel = Math.max(...movers.map((b) => { const r = rigidOf(b); if (!r) return 0; const c = Math.hypot(...r.shift); const a = Math.acos(Math.max(-1, Math.min(1, (r.turn[0] + r.turn[4] + r.turn[8] - 1) / 2))); return c + a * reach; }), 0);
+  const t = freePart((p) => hitAt(part(p)).length > 0, Math.min(600, Math.max(24, Math.ceil(travel / stepLen)))); // (steps no longer than a fraction of the thinnest part, so a long pull does not jump over a wall)
   if (t >= 1) return null;
-  const hit = hitAt(part(Math.min(1, t + 5e-4)), clearance);
+  const hit = hitAt(part(Math.min(1, t + 5e-4)));
   const stop: HardMotion = { t, hit, rigidOf: part(t) };
   // sliding: only a plain move, the same for every body of the group
   const first = movers.map((b) => rigidOf(b));
@@ -90,13 +110,12 @@ export function hardMotion(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref
   let at: Vec3 = [first[0]!.shift[0] * t, first[0]!.shift[1] * t, first[0]!.shift[2] * t]; // (where it has got to)
   let left: Vec3 = [first[0]!.shift[0] * (1 - t), first[0]!.shift[1] * (1 - t), first[0]!.shift[2] * (1 - t)];
   const hits = new Set<Ref>(hit);
-  const slack = Math.max(0, clearance - 5e-4); // (a body that is on the surface it slides along is within a hair of the clearance already)
   for (let k = 0; k < 4; k++) {
     // the way the surface it is against faces, from the bodies it just went into
     const probe = Math.hypot(...left) > 1e-9 ? Math.min(1, Math.max(2e-3 / Math.hypot(...left), 5e-4)) : 1;
     const into = (b: Ref): Rigid | null => (movers.includes(b) ? slideOf([at[0] + left[0] * probe, at[1] + left[1] * probe, at[2] + left[2] * probe]) : null);
     let n: Vec3 | null = null;
-    for (const q of pairs) { const c = contactNormal(moved(q.tris, into(q.m) ?? NONE), q.fixed, slack, left); if (c) n = n ? [n[0] + c[0], n[1] + c[1], n[2] + c[2]] : c; }
+    for (const q of pairs) { const c = contactNormal(moved(q.tris, into(q.m) ?? NONE), q.fixed, Math.max(0, q.c - 5e-4), left); if (c) n = n ? [n[0] + c[0], n[1] + c[1], n[2] + c[2]] : c; }
     if (!n) break;
     const nl = Math.hypot(...n);
     n = [n[0] / nl, n[1] / nl, n[2] / nl];
@@ -107,9 +126,9 @@ export function hardMotion(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref
     if (Math.hypot(...slid) < 1e-4) break;
     const from = at;
     const go = (u: number) => (b: Ref): Rigid | null => (movers.includes(b) ? slideOf([from[0] + slid[0] * u, from[1] + slid[1] * u, from[2] + slid[2] * u]) : null);
-    const u = freePart((p) => hitAt(go(p), slack).length > 0, 12);
+    const u = freePart((p) => hitAt(go(p), true).length > 0, Math.min(300, Math.max(12, Math.ceil(Math.hypot(...slid) / stepLen))));
     at = [from[0] + slid[0] * u, from[1] + slid[1] * u, from[2] + slid[2] * u];
-    for (const r of hitAt(go(Math.min(1, u + 5e-4)), slack)) hits.add(r);
+    for (const r of hitAt(go(Math.min(1, u + 5e-4)), true)) hits.add(r);
     if (u >= 1) break;
     left = [slid[0] * (1 - u), slid[1] * (1 - u), slid[2] * (1 - u)];
   }
@@ -146,10 +165,28 @@ export function limitedOp(scene: Scene, op: Op): { op: Op } | { why: string } | 
   const names = lim.hit.map((r) => { const p = scene.parts[r]; return p?.kind === "body" && p.id ? p.id : r; }).join(", ");
   const typed = op.typed !== "" || op.rot.some((x) => x !== "");
   if (typed) return { why: `it would run into ${names || "another hard body"}: hard bodies do not go into each other (or take the clearance, ${scene.clearance ?? 0} mm, from it)` };
-  if (lim.shift ? Math.hypot(...lim.shift) < 1e-3 : lim.t < 1e-3) return { why: `it is against ${names || "another hard body"}: hard bodies do not go into each other` };
+  // (a drag is never refused: it goes as far as it can and slides, and against a wall it simply stays, `in_484`)
   const k = Math.round(lim.t * 1e6) / 1e6;
   const scaled: Op = op.kind === "move" && op.free && lim.shift ? { ...op, free: lim.shift.map((v) => Math.round(v * 1e3) / 1e3) as unknown as Vec3 } : op.kind === "move" && op.free ? { ...op, free: op.free.map((v) => Math.round(v * k * 1e3) / 1e3) as unknown as Vec3 } : { ...op, ...(op.value !== null && op.value !== undefined ? { value: Math.round(op.value * k * 1e4) / 1e4 } : {}) };
-  return { op: scaled };
+  return { op: settled(scene, group, scaled) };
+}
+
+/**
+ * The step is kept to a thousandth of a millimetre, and a pose that touches a wall may come out a hair inside it by that rounding: then the pair would count as already in each other and the rule would be
+ * off for it (`in_484`). The pose of a move is looked at as it will be kept, and moved by a thousandth to a neighbour that is clear when it is not.
+ */
+function settled(scene: Scene, group: readonly Ref[], op: Op): Op {
+  if (op.kind !== "move" || !op.free) return op;
+  const at = (f: readonly number[]): Rigid => ({ turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift: [f[0]!, f[1]!, f[2]!], k: 1 });
+  if (!hardCollision(scene, group, () => at(op.free!)).length) return op;
+  const best = op.free.map((v) => Math.round(v * 1e3) / 1e3);
+  for (const step of [1e-3, 2e-3, 4e-3]) {
+    for (let m = 1; m < 27; m++) {
+      const f = best.map((v, i) => v + (((Math.floor(m / 3 ** i) % 3) - 1) * step)); // (every neighbour of the rounded pose, nearest first for the small steps)
+      if (!hardCollision(scene, group, () => at(f)).length) return { ...op, free: f.map((v) => Math.round(v * 1e3) / 1e3) as unknown as Vec3 };
+    }
+  }
+  return { ...op, free: [0, 0, 0] as unknown as Vec3 }; // (nowhere clear to put it: it stays)
 }
 
 // ---- copies and growth (`in_475`) ----
@@ -302,7 +339,7 @@ function growth(scene: Scene, op: Op): { t: number; hit: Ref[]; owners: Ref[] } 
   if (!owners.length) return null;
   const stays = Object.keys(scene.parts).filter((r) => !owners.includes(r as Ref) && isHard(scene, r as Ref)) as Ref[];
   if (!stays.length) return null;
-  const pairs = pieces.flatMap((q) => stays.flatMap((s) => { const m = meshOf(scene, s); return m && !collides(q.tris, m.tree, clearance, true) ? [{ q, s, tree: m.tree }] : []; }));
+  const pairs = pieces.flatMap((q) => stays.flatMap((s) => { const m = meshOf(scene, s); return m && !collides(q.tris, m.tree, clearance, true, true) ? [{ q, s, tree: m.tree }] : []; }));
   if (!pairs.length) return null;
   const hitAt = (u: number): Ref[] => [...new Set(pairs.filter((x) => {
     const r = x.q.rigid;
@@ -381,7 +418,7 @@ function sweepRuns(scene: Scene, op: Op): { why: string; hit: Ref[] } | null {
   for (const s of Object.keys(scene.parts) as Ref[]) {
     if (owners.includes(s) || !isHard(scene, s)) continue;
     const m = meshOf(scene, s);
-    if (!m || collides(carry.tris, m.tree, clearance, true)) continue; // (already in it: not held to it)
+    if (!m || collides(carry.tris, m.tree, clearance, true, true)) continue; // (already in it: not held to it)
     if (carry.carries.some((r) => collidesMoving(tree, r, m.tree, clearance, true))) hit.add(s);
   }
   return hit.size ? { why: `it would run into ${[...hit].map((r) => nameOf(scene, r)).join(", ")}: hard bodies do not go into each other`, hit: [...hit] } : null;
@@ -414,7 +451,7 @@ export function hardCollision(scene: Scene, group: readonly Ref[], rigidOf: (b: 
     if (!a || !r) continue;
     for (const s of stays) {
       const b = meshOf(scene, s);
-      if (!b || collides(a.tris, b.tree, clearance)) continue; // (already in each other)
+      if (!b || collides(a.tris, b.tree, clearance, false, true)) continue; // (already in each other)
       if (collidesMoving(a.tree, r, b.tree, clearance)) hits.add(s);
     }
   }
@@ -436,7 +473,7 @@ export function hardOverlaps(scene: Scene): { a: Ref; b: Ref }[] {
   const out: { a: Ref; b: Ref }[] = [];
   for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
     const [ma, mb] = [meshOf(scene, bodies[i]!), meshOf(scene, bodies[j]!)];
-    if (ma && mb && collides(ma.tris, mb.tree, scene.clearance ?? 0)) out.push({ a: bodies[i]!, b: bodies[j]! });
+    if (ma && mb && collides(ma.tris, mb.tree, scene.clearance ?? 0, false, true)) out.push({ a: bodies[i]!, b: bodies[j]! });
   }
   overlapCache.set(scene, out);
   return out;

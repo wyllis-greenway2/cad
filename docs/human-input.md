@@ -2260,3 +2260,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_483 — 2026-11-16 — directive
 > Do the fillet and chamfer face collisions next
 (asks for what `dec_hard_bodies` lists as not built: fillet and chamfer faces, whose size and not whose place changes, against hard bodies)
+
+## in_484 — 2026-11-16 — directive
+> on the hard bodies, first it seems like if I pull hard enough the hard bodies restrictions just breaks? Also I was expecting it would work similar to the constraints where I can just move a body and it could it a hard body but it just hits and in free form movement it could rotate or drag or slide in other directions.For example, in this file, I would expect I could just grab the pin and pull or push it around the hole, and maybe knock it up against other edges of the hole. But instead it seems to go into some sticky mode where it shows what would be invalid in red ghosts, and cancels and brings back to how it should be. I just want hard bodies to collide and slide.
+(with the attached project file hard_body.json: a block with a hole and a pin, both hard; reports that a hard pull makes the restriction break, and that dragging the pin freely against the hole's walls gets a red ghost and a cancel instead of colliding and sliding)

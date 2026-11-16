@@ -86,7 +86,7 @@ test("a turn that would swing a hard block into another is taken as far as it ca
 });
 
 import { frameOf } from "../src/interaction/frame.ts";
-test("while a hard body is dragged at another the picture stops where it meets it and the other flashes", () => {
+test("while a hard body is dragged at another the picture stops where it meets it, with nothing flashing or said: it just collides (`in_484`)", () => {
   const s = hardOf(two(), [A, B]);
   let st = { ...createState({ ...s, click: { ...s.click, selection: [A] as never } }), cam: homeCamera() };
   st = reduce(st, { type: "begin", name: "move" }, env);
@@ -94,7 +94,8 @@ test("while a hard body is dragged at another the picture stops where it meets i
   const f = frameOf(st, { w: 800, h: 600 });
   assert.ok(f.bodyMatrix, "a matrix on the graphics card");
   assert.ok(Math.abs(f.bodyMatrix![12]! - 20) < 0.05, `the body went 20, not 40: ${f.bodyMatrix![12]}`);
-  assert.deepEqual(f.flash?.parts, [B], "the body it is against flashes");
+  assert.equal(f.flash, null, "no flash");
+  assert.ok(!f.message, "nothing said");
 });
 
 
@@ -462,4 +463,48 @@ test("the round face of a fillet pulled out stops where it meets a hard body sta
   const pulled = limitedOp(scene(s), { ...op, value: 3 });
   assert.ok(pulled && "op" in pulled && Math.abs(pulled.op.value! - 0.586) < 0.05, `pulled 0.586 of 3 (the radius 4 down to 3.414): ${JSON.stringify(pulled && "op" in pulled ? pulled.op.value : pulled)}`);
   assert.equal(limitedOp(scene(s), { ...op, value: 0.4 }), null, "short of it: whole");
+});
+
+// ---- a pin in a hole, dragged about by hand (`in_484`) ----
+import { readFileSync } from "node:fs";
+const pinInHole = (): Session => { const r = openSession(kernel, readFileSync(new URL("./fixtures/hard-body-pin-in-hole-in_484.json", import.meta.url), "utf8")); assert.ok(r.ok); return (r as { value: Session }).value; };
+
+test("a pin in a hole of the same size, dragged about for a long time: it collides and slides, never ends inside the wall, and a drag is never refused or flashed (`in_484`)", () => {
+  let s = pinInHole();
+  assert.deepEqual(hardOverlaps(scene(s)), [], "it starts clear");
+  let seed = 11;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  let moved = 0;
+  for (let i = 0; i < 60; i++) {
+    const pin = bodiesOf(s).find((x) => x.id === "x_s_019")!;
+    const st = startOp(scene(s), [pin.ref] as never, "move", null);
+    assert.ok(st.ok);
+    const mag = [1, 4, 20, 80][i % 4]!;
+    const free = [rnd() - 0.5, rnd() - 0.5, (rnd() - 0.5) * 0.6].map((v) => v * 2 * mag) as [number, number, number];
+    const lim = limitedOp(scene(s), { ...(st as { op: Op }).op, free });
+    assert.ok(!lim || "op" in lim, `a drag is cut short, not refused: ${JSON.stringify(lim)}`);
+    const made = runOp(s, { ...(st as { op: Op }).op, free });
+    if (!made) continue; // (against the wall: nothing to make)
+    assert.ok(!made.session.message, `${made.session.message}`);
+    s = made.session; moved++;
+    assert.deepEqual(hardOverlaps(scene(s)), [], `still clear after drag ${i}`);
+  }
+  assert.ok(moved > 20, `it did move about (${moved} drags made)`);
+});
+
+test("a long pull at a thin wall does not jump over it (`in_484`)", () => {
+  // a block 2 thick standing between a block that is pulled 300 mm at it and where it would end up
+  let s = createSession(kernel);
+  const mk = (s0: Session, id: string, a: [number, number], b: [number, number], depth: number, first: boolean): Session => {
+    const r = drawRectangle(scene(s0), XY, [a[0], a[1], 0], [b[0], b[1], 0], [1, 0, 0], [0, 1, 0]);
+    return run(run(s0, r.command), { type: "addStep", step: { id, type: "extrude", parts: r.lines, params: { depth, ...(first ? {} : { mode: "new" }) } } } as never);
+  };
+  s = mk(s, "s_100", [0, 0], [10, 10], 10, true);
+  s = mk(s, "s_101", [100, -5], [102, 15], 10, false); // a wall 2 thick, 100 away
+  s = hardOf(s, bodiesOf(s).map((x) => x.ref));
+  const a = bodiesOf(s).find((x) => x.id === "x_s_100")!;
+  const st = startOp(scene(s), [a.ref] as never, "move", null);
+  assert.ok(st.ok);
+  const lim = limitedOp(scene(s), { ...(st as { op: Op }).op, free: [300, 0, 0] });
+  assert.ok(lim && "op" in lim && lim.op.free![0]! > 85 && lim.op.free![0]! < 90.05, `stopped at the wall, 90 along, not carried through: ${JSON.stringify(lim && "op" in lim ? lim.op.free : lim)}`);
 });

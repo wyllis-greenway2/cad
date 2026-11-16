@@ -235,7 +235,7 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
   const mated = group.length && held && !op.typed ? hardCollision(sceneOf(base), group, rigidOf1) : [];
   const rigidOf = (b: Ref): Rigid | null => (mated.length ? NONE : rigidOf1(b));
   const m = group.length ? rigidOf(group[0]!) : asked;
-  const blockedBodies = mated.length ? mated : stopped?.hit ?? [];
+  const blockedBodies = mated.length ? mated : []; // (a hard body that meets another stops, or slides, and does not flash: it is only that the mates left it in one that is shown, `in_484`)
   if (!m) return null;
   if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === !!op.made)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: !!op.made, value: { scene: sceneOf(base), outcome: base.outcome } };
   const matrix = matrixOf(m);
