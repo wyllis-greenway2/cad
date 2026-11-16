@@ -28,7 +28,6 @@ export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: nu
   if (!Number.isFinite(z2) || z2 < 1) return err("the partner needs teeth");
   const m = s.module;
   const at = (c: Vec3, x: number, y: number): Vec3 => [c[0] + u[0] * x + v[0] * y, c[1] + u[1] * x + v[1] * y, c[2] + u[2] * x + v[2] * y];
-  if (s.cycloidal && (partner.rack || s.internal)) return err("a clock gear meshes with another clock gear of the same generating circle");
   const base: GearSpec = { teeth: z2, module: m, ...(s.cycloidal ? { cycloidal: { ...s.cycloidal } } : {}), ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), ...(s.clearance !== undefined ? { clearance: s.clearance } : {}) };
   const turn1 = src.turn ?? 0;
   if (s.rack) {

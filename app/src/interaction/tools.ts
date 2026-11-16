@@ -73,16 +73,16 @@ export const gearFields = (g: { internal: boolean; rack?: boolean; pulley?: "2GT
   const f = (key: GearKey, label: string) => ({ key, label });
   if (g.mesh) return g.mesh.src.spec.rack ? [f("teeth", "Teeth"), f("offset", "Offset")] : g.mesh.rack ? [f("teeth", "Teeth"), f("angle", "Angle")] : [f("teeth", "Teeth"), f("ratio", "Ratio"), f("angle", "Angle")];
   if (g.pulley) return [f("teeth", "Teeth"), f("clearance", "Clearance"), f("bore", "Bore")];
-  if (g.cycloidal) return [f("teeth", "Teeth"), f("module", "Module"), f("backlash", "Backlash"), f("circle", "Circle"), f("addendum", "Addendum"), f("dedendum", "Dedendum"), f("bore", "Bore")];
+  if (g.cycloidal) return [f("teeth", "Teeth"), f("module", "Module"), f("backlash", "Backlash"), f("circle", "Circle"), f("addendum", "Addendum"), f("dedendum", "Dedendum"), g.internal ? f("rim", "Wall") : g.rack ? f("rim", "Base") : f("bore", "Bore")];
   if (g.sprocket) return [f("teeth", "Teeth"), f("chain", "Chain"), f("pitch", "Pitch"), f("roller", "Roller"), f("bore", "Bore")];
   if (g.rack) return [f("teeth", "Teeth"), f("module", "Module"), f("pressure", "Pressure"), f("backlash", "Backlash"), f("rim", "Base")];
   return [f("teeth", "Teeth"), f("module", "Module"), f("pressure", "Pressure"), g.internal ? f("rim", "Wall") : f("shift", "Shift"), f("backlash", "Backlash"), ...(g.internal ? [] : [f("bore", "Bore")])];
 };
 const gearState = (t: Tool): GearState => t.gear ?? { internal: false, typed: [], field: 0 };
 /** A tool that waits for its first click on a surface. */
-export type GearVariant = "gear" | "ring" | "rack" | "gt2" | "gt3" | "sprocket" | "clock";
-export const variantOf = (g: { internal?: boolean; rack?: boolean; pulley?: "2GT" | "3GT"; sprocket?: unknown; cycloidal?: unknown } | undefined): GearVariant => (g?.cycloidal ? "clock" : g?.sprocket ? "sprocket" : g?.pulley === "2GT" ? "gt2" : g?.pulley === "3GT" ? "gt3" : g?.internal ? "ring" : g?.rack ? "rack" : "gear");
-export const armTool = (kind: ToolKind, variant: GearVariant = "gear"): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0, ...(kind === "gear" ? { gear: { internal: variant === "ring", typed: ["", "", "", "", "", "", "", ""], field: 0, ...(variant === "rack" ? { rack: true } : {}), ...(variant === "gt2" ? { pulley: "2GT" as const } : variant === "gt3" ? { pulley: "3GT" as const } : {}), ...(variant === "sprocket" ? { sprocket: true as const } : {}), ...(variant === "clock" ? { cycloidal: true as const } : {}) } } : {}) });
+export type GearVariant = "gear" | "ring" | "rack" | "gt2" | "gt3" | "sprocket" | "clock" | "clockring" | "clockrack";
+export const variantOf = (g: { internal?: boolean; rack?: boolean; pulley?: "2GT" | "3GT"; sprocket?: unknown; cycloidal?: unknown } | undefined): GearVariant => (g?.cycloidal ? (g.internal ? "clockring" : g.rack ? "clockrack" : "clock") : g?.sprocket ? "sprocket" : g?.pulley === "2GT" ? "gt2" : g?.pulley === "3GT" ? "gt3" : g?.internal ? "ring" : g?.rack ? "rack" : "gear");
+export const armTool = (kind: ToolKind, variant: GearVariant = "gear"): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0, ...(kind === "gear" ? { gear: { internal: variant === "ring" || variant === "clockring", typed: ["", "", "", "", "", "", "", ""], field: 0, ...(variant === "rack" || variant === "clockrack" ? { rack: true } : {}), ...(variant === "gt2" ? { pulley: "2GT" as const } : variant === "gt3" ? { pulley: "3GT" as const } : {}), ...(variant === "sprocket" ? { sprocket: true as const } : {}), ...(variant === "clock" || variant === "clockring" || variant === "clockrack" ? { cycloidal: true as const } : {}) } } : {}) });
 /** The tool opened to make a gear or a rack that meshes with `src`: its centre is the gear's, the pointer says where the partner goes. */
 export const meshGearTool = (src: GearRecord, rack: boolean): Tool => ({ ...armTool("gear"), plane: src.plane, points: [src.at], cursor: src.at, gear: { internal: false, typed: ["", "", "", "", "", "", "", ""], field: 0, mesh: { src, rack } } });
 /** The tool opened on a gear that is already made, to change its numbers: its plane and centre, and its numbers as they are. */
@@ -220,15 +220,18 @@ function gearSpecOf(t: Tool): GearSpec | null {
   }
   if (g.cycloidal) { // a clock gear: the generating circle (radius), addendum and dedendum in modules, the same circle for gears that are to mesh
     const [circle, addendum, dedendum] = [typed("circle") ?? b?.cycloidal?.circle, typed("addendum") ?? b?.cycloidal?.addendum, typed("dedendum") ?? b?.cycloidal?.dedendum];
-    const [teeth, backlash, bore, typedModule] = [Math.round(typed("teeth") ?? b?.teeth ?? 20), typed("backlash") ?? b?.backlash, typed("bore") ?? b?.bore, typed("module")];
+    const [teeth, backlash, typedModule] = [Math.round(typed("teeth") ?? b?.teeth ?? (g.rack ? 10 : 20)), typed("backlash") ?? b?.backlash, typed("module")];
+    const bore = g.internal || g.rack ? undefined : typed("bore") ?? b?.bore;
+    const rim = g.internal || g.rack ? typed("rim") ?? b?.rim : undefined;
     let module = typedModule !== null && typedModule > 0 ? typedModule : b?.module;
     if (module === undefined) {
       const [a, c] = [t.points[0], t.cursor];
       const reach = a && c ? dist(a, c) : 0;
       if (reach < 1e-6) return null;
-      module = Math.max(0.1, Math.round(moduleForOutside(teeth, 2 * reach, (addendum ?? 1) - 1) / 0.05) * 0.05);
+      const exact = g.rack ? (2 * reach) / (Math.PI * Math.max(1, teeth)) : g.internal ? reach / (teeth / 2 + (dedendum ?? 1.25) + (rim ?? 2)) : moduleForOutside(teeth, 2 * reach, (addendum ?? 1) - 1);
+      module = Math.max(0.1, Math.round(exact / 0.05) * 0.05);
     }
-    return { teeth, module, cycloidal: { ...(circle ? { circle } : {}), ...(addendum ? { addendum } : {}), ...(dedendum ? { dedendum } : {}) }, ...(backlash !== undefined ? { backlash } : {}), ...(bore ? { bore } : {}) };
+    return { teeth, module, ...(g.internal ? { internal: true as const } : {}), ...(g.rack ? { rack: true as const } : {}), ...(rim !== undefined ? { rim } : {}), cycloidal: { ...(circle ? { circle } : {}), ...(addendum ? { addendum } : {}), ...(dedendum ? { dedendum } : {}) }, ...(backlash !== undefined ? { backlash } : {}), ...(bore ? { bore } : {}) };
   }
   if (g.sprocket) { // a roller chain sprocket: its teeth, the chain by its ANSI number, or its own pitch and roller diameter (mm), and a bore
     const [chain, pitch, roller, bore] = [typed("chain") ?? b?.sprocket?.chain, typed("pitch") ?? b?.sprocket?.pitch, typed("roller") ?? b?.sprocket?.roller, typed("bore") ?? b?.bore];

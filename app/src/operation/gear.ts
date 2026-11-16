@@ -95,10 +95,10 @@ function rackOutline(spec: GearSpec): Result<GearOutline> {
 
 /** The outline of a gear, or why there is none. */
 export function gearOutline(spec: GearSpec): Result<GearOutline> {
+  if (spec.cycloidal) return cycloidalOutline(spec);
   if (spec.rack) return rackOutline(spec);
   if (spec.pulley) return pulleyOutline(spec);
   if (spec.sprocket) return sprocketOutline(spec);
-  if (spec.cycloidal) return cycloidalOutline(spec);
   const z = Math.round(spec.teeth);
   const m = spec.module;
   if (!Number.isFinite(z) || z < 3 || z > 500) return err("a gear needs 3 to 500 teeth");

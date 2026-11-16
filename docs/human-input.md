@@ -2548,3 +2548,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_553 — 2026-11-16 — directive
 > Do the cycloidal clock gears next
 (asks for the cycloidal (clock) tooth profile from dec_gear_tool's list, after the chain sprockets)
+
+## in_554 — 2026-11-16 — directive
+> Do the cycloidal racks and rings next
+(asks for the cycloidal rack and the cycloidal ring (internal) gear that dec_gear_tool left unbuilt, after the cycloidal clock gears)

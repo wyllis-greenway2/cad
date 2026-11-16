@@ -420,7 +420,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id === "tool:ring") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "ring"); // (a gear with its teeth pointing in)
   if (id === "tool:rack") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "rack");
-  if (id === "tool:clock") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "clock"); // (a cycloidal clock gear, `in_553`)
+  if (id === "tool:clock" || id === "tool:clockring" || id === "tool:clockrack") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:clock" ? "clock" : id === "tool:clockring" ? "clockring" : "clockrack"); // (a cycloidal clock gear, `in_553`)
   if (id === "tool:sprocket") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "sprocket"); // (a roller chain sprocket, `in_552`)
   if (id === "tool:gt2" || id === "tool:gt3") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:gt2" ? "gt2" : "gt3"); // (a timing pulley, `in_551`)
   if (id === "gear:mesh" || id === "gear:meshrack") { // a gear, or a rack, that meshes with the one selected (`in_547`)
