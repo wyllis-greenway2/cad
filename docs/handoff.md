@@ -2397,3 +2397,6 @@ Six inputs of the last turns had not been recorded (`in_451` to `in_456`; record
 
 ## Handoff 456 — 2026-11-16 (in_487: the live picture refuses an axis across the figure)
 `in_487`. **Built (`dec_revolve_body_face`):** `operationResult` (`frame.ts`) returns no picture for a revolve whose axis is across the figure (`axisAcross`, the same rule as `runOp`), and `frameOf`'s message puts that reason first (before the session's start hint, which would hide it). **Test (`revolve.test.ts`):** the frame of an axis on an edge has the turned body in its mesh and no message about it; an axis across the figure has no mesh and the reason. **Not browser-checked:** how it feels while the orb is dragged over the figure (the body vanishes and the message shows while the orb is across it).
+
+## Handoff 457 — 2026-11-16 (in_488: import and export asked about; nothing built)
+`in_488`. Answered in chat and written as `q_import_export`: keep the full share-state snapshot separate (add a small `about` block to the project file); keep Save / Open for the app's own project and add Import… / Export… beside them; formats in order: export STL, 3MF, STEP, then SVG / DXF; import STEP, then STL / 3MF as mesh bodies (a new body kind), then SVG / DXF as sketches; standard options listed. Awaiting the human's choices.

@@ -2280,3 +2280,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_487 — 2026-11-16 — directive
 > Also refuse it in the live picture while dragging the orb
 (asks for what `dec_revolve_body_face` lists as not done: the live picture of a revolve is also refused while the orb is dragged to an axis that cuts across the figure)
+
+## in_488 — 2026-11-16 — question
+> Would it make sense to have the share state info just naturally be included in the save file? Instead of having save, open and export as stl, can we just have import and export? they should both have standardized options, but what should they be? What are the first few formats we should offer for import and export in order to make this tool as usable as possible for many cad users and makers?
+(a question about the file menu: share-state data inside the save file, Save / Open / Export STL folded into Import and Export, and which formats first)
