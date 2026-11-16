@@ -76,6 +76,6 @@ export const settings = {
   world: { axisLengthMm: 24, axisWidthPx: 1.6, axisOpacity: 1, paneGapMm: 3, paneMm: 8, paneRound: 0.18, paneOpacity: 0.18, paneActiveOpacity: 0.4 }, // (the three little panes of the world planes: how far from the origin, how big, how see-through) // the small charcoal axes at the origin: their real length in mm (so they zoom with the model: was 8.4), line width, opacity
   buttons: { marginPx: 18, sizePx: 34 }, // the X Y Z buttons at the right edge, lower right
   light: { key: 1.7, fill: 0.12, ambient: 0.42, roughness: 0.4, sheen: 0.55, sheenRoughness: 0.25, reflect: 0.5 }, // lights ride with the camera; the body has a slight clear-coat sheen and a soft studio reflected in it
-  measure: { densityGramsPerCm3: 1.24 }, // (the measure report's weight of a body at full fill: PLA; `dec_measure_report`)
+  measure: { densityGramsPerCm3: 1.24, minWallMm: 0.8, wallSamples: 40000 }, // (the measure report's weight of a body at full fill: PLA; the thinnest wall that prints well, two lines of a 0.4 mm nozzle; the most points the wall check tries; `dec_measure_report`)
   extrude: { edgeAngleDeg: 30 }, // outline edges are drawn where faces meet at more than this angle
 };

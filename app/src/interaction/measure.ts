@@ -12,7 +12,9 @@ import { surfaceTriangles } from "./surfaces.ts";
 import { settings } from "../shared/settings.ts";
 import { clearanceBetween } from "./clearance.ts";
 import { overlapOf } from "./overlap.ts";
-import { massOf, massOfAll } from "./mass.ts";
+import { massOf, massOfAll, bodyTriangles } from "./mass.ts";
+import { wallThickness } from "../operation/thickness.ts";
+import type { Walls } from "../operation/thickness.ts";
 import type { Clearance } from "./clearance.ts";
 
 export interface MeasureLine { label: string; value: string }
@@ -57,6 +59,12 @@ function bodySection(scene: Scene, body: Extract<Part, { kind: "body" }>, title:
     const { min, max } = body.bbox;
     lines.push({ label: "Size", value: `${r2(max[0] - min[0])} × ${r2(max[1] - min[1])} × ${r2(max[2] - min[2])} mm (X × Y × Z)` });
     lines.push({ label: "Lowest, highest", value: `Z ${r2(min[2])} to ${r2(max[2])} mm` });
+    const walls = wallsOf(scene, body.ref);
+    if (walls) {
+      lines.push({ label: "Thinnest wall", value: `${r2(walls.thinnest)} mm, near ${r2(walls.at[0])}, ${r2(walls.at[1])}, ${r2(walls.at[2])}` });
+      const min = settings.measure.minWallMm;
+      lines.push({ label: `Under ${min} mm`, value: walls.thinShare > 0 ? `${r2(100 * walls.thinShare)} % of the surface has less than ${min} mm behind it: too thin to print well` : `none: every wall is at least ${min} mm${walls.all ? "" : " (sampled: the body is very detailed)"}` });
+    }
     const mass = massOf(scene, body.ref);
     if (mass) lines.push({ label: "Centre of mass", value: `${r2(mass.centre[0])}, ${r2(mass.centre[1])}, ${r2(mass.centre[2])} mm (as solid all through)` });
     lines.push({ label: "Middle of its box", value: `${r2((min[0] + max[0]) / 2)}, ${r2((min[1] + max[1]) / 2)}, ${r2((min[2] + max[2]) / 2)} mm` });
@@ -101,6 +109,14 @@ function overlapLine(scene: Scene, a: Ref, b: Ref): MeasureLine {
   const small = Math.min(...[pa, pb].map((p) => (p?.kind === "body" && p.volume ? p.volume : Infinity)));
   const share = Number.isFinite(small) && small > 0 && o.mm3 > 0 ? `, ${r2((100 * o.mm3) / small)} % of the smaller body` : "";
   return { label: "Shared volume", value: o.mm3 > 1e-6 ? `${r2(o.mm3)} mm³ (${r2(o.mm3 / 1000)} cm³)${share}` : "none (they only touch)" };
+}
+const wallsKept = new WeakMap<Scene, Map<Ref, Walls | null>>();
+/** The wall thickness of a body, kept for the scene (the report is made again every frame). */
+function wallsOf(scene: Scene, body: Ref): Walls | null {
+  let by = wallsKept.get(scene);
+  if (!by) wallsKept.set(scene, (by = new Map()));
+  if (!by.has(body)) by.set(body, wallThickness(bodyTriangles(scene, body), settings.measure.minWallMm, settings.measure.wallSamples));
+  return by.get(body)!;
 }
 const clearanceWords = (c: Clearance | null, scene: Scene): string => {
   if (!c) return "not known";

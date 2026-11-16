@@ -202,3 +202,49 @@ test("a notch cut out moves the centre of mass away from it, and a round post's 
   assert.ok(Math.abs(m.centre[0] - 3) < 0.01 && Math.abs(m.centre[1] - 4) < 0.01 && Math.abs(m.centre[2] - 5) < 0.01, m.centre.join(", "));
   assert.ok(Math.abs(m.volume - Math.PI * 25 * 10) < 0.01 * Math.PI * 25 * 10, `a post's volume from its mesh, a little under the true one: ${m.volume}`);
 });
+
+// ---- wall thickness (`in_575`) ----
+import { wallThickness } from "../src/operation/thickness.ts";
+test("wall thickness: a block's thinnest wall is its smallest size, a thin plate and a thin-walled hollow are said to be too thin, a thick-walled hollow is not", () => {
+  const body = (s: ReturnType<typeof block>) => (Object.values(scene(s).parts).find((p) => p.kind === "body") as unknown as { ref: Ref }).ref;
+  const s0 = block(10, 20, 30);
+  let r = lines(measureReport(scene(s0), [body(s0)]));
+  assert.match(r["Body 1|Thinnest wall"]!, /^10 mm, near /);
+  assert.match(r["Body 1|Under 0.8 mm"]!, /^none: every wall is at least 0\.8 mm/);
+  const plate = block(20, 20, 0.5);
+  r = lines(measureReport(scene(plate), [body(plate)]));
+  assert.match(r["Body 1|Thinnest wall"]!, /^0\.5 mm, near /);
+  assert.match(r["Body 1|Under 0.8 mm"]!, /^95\.24 % of the surface has less than 0\.8 mm behind it: too thin to print well/);
+  const hollow = (wall: number) => {
+    let s = block(20, 20, 20);
+    s = run(s, { type: "addStep", step: { id: "s_101", type: "hollow", parts: [], params: { thickness: wall, mode: "closed" } } } as never);
+    return s;
+  };
+  const thick = hollow(2);
+  assert.equal(thick.message ?? null, null);
+  r = lines(measureReport(scene(thick), [body(thick)]));
+  assert.match(r["Body 1|Thinnest wall"]!, /^(2|1\.99|2\.01) mm/);
+  assert.match(r["Body 1|Under 0.8 mm"]!, /^none/);
+  const thin = hollow(0.5);
+  r = lines(measureReport(scene(thin), [body(thin)]));
+  assert.match(r["Body 1|Thinnest wall"]!, /^0\.5 mm/);
+  assert.match(r["Body 1|Under 0.8 mm"]!, /% of the surface has less than 0\.8 mm/);
+});
+
+test("the wall check on raw triangles: a cube of 10 is 10 thick, and a body too detailed for the samples allowed is sampled and says so", () => {
+  const cube: number[] = [];
+  const quad = (a: number[], b: number[], c: number[], d: number[]) => cube.push(...a, ...b, ...c, ...a, ...c, ...d);
+  const P = (x: number, y: number, z: number) => [x * 10, y * 10, z * 10];
+  quad(P(0, 0, 0), P(0, 1, 0), P(1, 1, 0), P(1, 0, 0)); // bottom, outward = -z
+  quad(P(0, 0, 1), P(1, 0, 1), P(1, 1, 1), P(0, 1, 1));
+  quad(P(0, 0, 0), P(1, 0, 0), P(1, 0, 1), P(0, 0, 1));
+  quad(P(1, 0, 0), P(1, 1, 0), P(1, 1, 1), P(1, 0, 1));
+  quad(P(1, 1, 0), P(0, 1, 0), P(0, 1, 1), P(1, 1, 1));
+  quad(P(0, 1, 0), P(0, 0, 0), P(0, 0, 1), P(0, 1, 1));
+  const w = wallThickness(cube, 0.8)!;
+  assert.ok(Math.abs(w.thinnest - 10) < 1e-3, `${w.thinnest}`);
+  assert.equal(w.thinShare, 0);
+  assert.equal(w.all, true);
+  const few = wallThickness(cube, 0.8, 8)!;
+  assert.equal(few.all, false);
+});

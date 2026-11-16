@@ -44,3 +44,6 @@ export function massOfAll(scene: Scene, bodies: readonly Ref[]): Mass | null {
   for (const b of bodies) { const m = massOf(scene, b); if (!m) continue; vol += m.volume; x += m.centre[0] * m.volume; y += m.centre[1] * m.volume; z += m.centre[2] * m.volume; }
   return vol > 0 ? { volume: vol, centre: [x / vol, y / vol, z / vol] } : null;
 }
+
+/** The faces' triangles of a body (the same as the centre of mass is worked out from). */
+export const bodyTriangles = trianglesOf;

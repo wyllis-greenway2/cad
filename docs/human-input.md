@@ -2632,3 +2632,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_574 — 2026-11-16 — directive
 > yes start on the centre of mass
 (approves the next item of `dec_measure_report`: the centre of mass of a body and of the model)
+
+## in_575 — 2026-11-16 — directive
+> yes start on the wall thickness checks
+(approves the next item of `dec_measure_report`: wall thickness checks for printing)
