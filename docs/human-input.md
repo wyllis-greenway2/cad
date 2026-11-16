@@ -2564,3 +2564,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_556 — 2026-11-16 — approval
 > Yes, three layers, public one later
 (approves the answer to in_555: machines, materials and tools are looked up in three layers (project copy, personal library, public library) with one schema, and the public layer is built later as a read-only source; answers question 2 of q_manufacturing_open)
+
+## in_557 — 2026-11-16 — directive
+> actually lets keep it simple for now, only we create official machinery, tools, material library, in order to ensure quality, users can add their own though.
+(answers question 3 of q_manufacturing_open: for now the shared library is official only, made by us to ensure quality; users can add their own definitions; no community contribution and no learning from results for now)
