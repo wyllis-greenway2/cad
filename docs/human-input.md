@@ -2240,3 +2240,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_478 — 2026-11-16 — directive
 > Do the history replay test next
 (asks for what `dec_hard_bodies` left open: the hard-body rule is not tested again when the history is replayed, so an earlier change that makes hard bodies overlap goes unnoticed)
+
+## in_479 — 2026-11-16 — directive
+> Do the tree for heavy models next
+(asks for what `dec_hard_bodies` left unbuilt: a tree of the moving body so very heavy models are not slow, each step now moves all its triangles)

@@ -179,6 +179,71 @@ export function collides(moving: ArrayLike<number>, fixed: Tree, clearance = 0, 
 }
 
 /**
+ * `collides(moved(mover.tris, r), fixed, clearance, open)` without moving every triangle (`in_479`): the tree of the moving body is walked together with the tree of the body that stays, each box of the moving
+ * body taken to where the motion puts it, and only the triangles of the leaves that meet are moved and tested. For a heavy body that has a few contacts this is a few triangles, not all of them, at every
+ * step of a drag.
+ */
+export function collidesMoving(mover: Tree, r: Rigid, fixed: Tree, clearance = 0, open = false): boolean {
+  if (!mover.nodes.length || !fixed.nodes.length) return false;
+  const c = Math.max(0, clearance);
+  const pad = c + 1e-4; // (the boxes are padded a little: the triangles are nudged, and a box of a turned body is not exact)
+  const place = (p: Vec3): Vec3 => { const q = applyPoint(r, p); return [q[0] + NUDGE[0], q[1] + NUDGE[1], q[2] + NUDGE[2]]; };
+  const boxes: ({ lo: M3; hi: M3 } | undefined)[] = new Array(mover.nodes.length);
+  const boxOf = (i: number): { lo: M3; hi: M3 } => {
+    const kept = boxes[i];
+    if (kept) return kept;
+    const nd = mover.nodes[i]!;
+    const lo: M3 = [Infinity, Infinity, Infinity], hi: M3 = [-Infinity, -Infinity, -Infinity];
+    for (let m = 0; m < 8; m++) {
+      const q = place([m & 1 ? nd.hi[0] : nd.lo[0], m & 2 ? nd.hi[1] : nd.lo[1], m & 4 ? nd.hi[2] : nd.lo[2]]);
+      for (let k = 0; k < 3; k++) { if (q[k]! < lo[k]!) lo[k] = q[k]!; if (q[k]! > hi[k]!) hi[k] = q[k]!; }
+    }
+    return (boxes[i] = { lo, hi });
+  };
+  const placed = new Map<number, [Vec3, Vec3, Vec3]>();
+  const triOf = (i: number): [Vec3, Vec3, Vec3] => {
+    let a = placed.get(i);
+    if (!a) { const l = tri(mover.tris, i); a = [place(l[0]), place(l[1]), place(l[2])]; placed.set(i, a); }
+    return a;
+  };
+  const stack: [number, number][] = [[0, 0]];
+  while (stack.length) {
+    const [mi, fi] = stack.pop()!;
+    const mn = mover.nodes[mi]!, fn = fixed.nodes[fi]!;
+    const b = boxOf(mi);
+    if (b.hi[0] + pad < fn.lo[0] || b.lo[0] - pad > fn.hi[0] || b.hi[1] + pad < fn.lo[1] || b.lo[1] - pad > fn.hi[1] || b.hi[2] + pad < fn.lo[2] || b.lo[2] - pad > fn.hi[2]) continue;
+    if (mn.l < 0 && fn.l < 0) {
+      for (let i = mn.from; i < mn.to; i++) {
+        const a = triOf(mover.order[i]!);
+        for (let j = fn.from; j < fn.to; j++) {
+          const f = tri(fixed.tris, fixed.order[j]!);
+          if (triCross(a, f)) return true;
+          if (c > 0 && triDist(a, f) < c) return true;
+        }
+      }
+    } else if (mn.l < 0) stack.push([mi, fn.l], [mi, fn.r]);
+    else if (fn.l < 0) stack.push([mn.l, fi], [mn.r, fi]);
+    else {
+      const vol = (lo: Vec3, hi: Vec3): number => (hi[0] - lo[0]) * (hi[1] - lo[1]) * (hi[2] - lo[2]);
+      if (vol(mn.lo, mn.hi) >= vol(fn.lo, fn.hi)) stack.push([mn.l, fi], [mn.r, fi]);
+      else stack.push([mi, fn.l], [mi, fn.r]);
+    }
+  }
+  // no surface crosses: one may be wholly inside the other (as in `collides`; a point is only tried against a body whose box it is in)
+  const within = (q: Vec3, lo: Vec3, hi: Vec3): boolean => q[0] >= lo[0] && q[0] <= hi[0] && q[1] >= lo[1] && q[1] <= hi[1] && q[2] >= lo[2] && q[2] <= hi[2];
+  for (const q of probes(mover.tris, open)) { const p = applyPoint(r, q); if (within(p, fixed.lo, fixed.hi) && inside(p, fixed.tris)) return true; }
+  if (!open) {
+    const m = r.turn, k = r.k || 1;
+    for (const q of probes(fixed.tris, false)) { // (taken back into the frame of the moving body, where its triangles are)
+      const d: Vec3 = [(q[0] - r.shift[0]) / k, (q[1] - r.shift[1]) / k, (q[2] - r.shift[2]) / k];
+      const p: Vec3 = [m[0] * d[0] + m[3] * d[1] + m[6] * d[2], m[1] * d[0] + m[4] * d[1] + m[7] * d[2], m[2] * d[0] + m[5] * d[1] + m[8] * d[2]];
+      if (within(p, mover.lo, mover.hi) && inside(p, mover.tris)) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * The direction the surface of the body that stays faces where the moving triangles meet it (`in_474`): the unit normals of the triangles of the fixed body that the moving ones cross or come within the
  * clearance of, added up, those that face against the motion `against` (the faces it is going into, not the ones it only brushes); null when there are none.
  */

@@ -10,7 +10,7 @@ import { mirrorPlane } from "./mirror.ts";
 import { placements } from "../operation/repeat.ts";
 import { about, aboutDir } from "../math/rotation.ts";
 import { NONE } from "../operation/frames.ts";
-import { buildTree, collides, moved, partOf, freePart, contactNormal } from "../operation/collide.ts";
+import { buildTree, collides, collidesMoving, moved, partOf, freePart, contactNormal } from "../operation/collide.ts";
 import type { Tree } from "../operation/collide.ts";
 
 interface Mesh { tris: number[]; tree: Tree }
@@ -62,18 +62,18 @@ export function hardMotion(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref
   const stays = Object.keys(scene.parts).filter((r) => !group.includes(r as Ref) && isHard(scene, r as Ref)) as Ref[];
   if (!stays.length) return null;
   const clearance = scene.clearance ?? 0;
-  const pairs: { m: Ref; s: Ref; fixed: Tree; tris: number[] }[] = [];
+  const pairs: { m: Ref; s: Ref; fixed: Tree; tris: number[]; mover: Tree }[] = [];
   for (const m of movers) {
     const a = meshOf(scene, m);
     if (!a) continue;
     for (const s of stays) {
       const b = meshOf(scene, s);
       if (!b || collides(a.tris, b.tree, clearance)) continue; // (already in each other: not held to it)
-      pairs.push({ m, s, fixed: b.tree, tris: a.tris });
+      pairs.push({ m, s, fixed: b.tree, tris: a.tris, mover: a.tree });
     }
   }
   if (!pairs.length) return null;
-  const hitAt = (r: (b: Ref) => Rigid | null, c: number): Ref[] => [...new Set(pairs.filter((q) => collides(moved(q.tris, r(q.m) ?? NONE), q.fixed, c)).map((q) => q.s))];
+  const hitAt = (r: (b: Ref) => Rigid | null, c: number): Ref[] => [...new Set(pairs.filter((q) => collidesMoving(q.mover, r(q.m) ?? NONE, q.fixed, c)).map((q) => q.s))];
   const part = (t: number) => (b: Ref): Rigid | null => { const r = rigidOf(b); return r ? partOf(r, t) : r; };
   const t = freePart((p) => hitAt(part(p), clearance).length > 0);
   if (t >= 1) return null;
@@ -209,11 +209,12 @@ function growth(scene: Scene, op: Op): { t: number; hit: Ref[]; owners: Ref[] } 
     const f = p as { of: Ref; mesh: readonly number[] };
     if (!owners.includes(f.of)) return [];
     const n = op.faces?.[i]?.normal ?? op.normal;
-    return n ? [{ tris: Array.from(f.mesh), n }] : [];
+    const tris = Array.from(f.mesh);
+    return n ? [{ tris, n, tree: buildTree(tris) }] : [];
   });
   const pairs = pieces.flatMap((q) => stays.flatMap((s) => { const m = meshOf(scene, s); return m && !collides(q.tris, m.tree, clearance, true) ? [{ q, s, tree: m.tree }] : []; }));
   if (!pairs.length) return null;
-  const hitAt = (u: number): Ref[] => [...new Set(pairs.filter((x) => collides(moved(x.q.tris, { turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift: [x.q.n[0] * d * u, x.q.n[1] * d * u, x.q.n[2] * d * u], k: 1 }), x.tree, clearance, true)).map((x) => x.s))];
+  const hitAt = (u: number): Ref[] => [...new Set(pairs.filter((x) => collidesMoving(x.q.tree, { turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift: [x.q.n[0] * d * u, x.q.n[1] * d * u, x.q.n[2] * d * u], k: 1 }, x.tree, clearance, true)).map((x) => x.s))];
   const t = freePart((u) => hitAt(u).length > 0);
   return t >= 1 ? null : { t, hit: hitAt(Math.min(1, t + 5e-4)), owners };
 }
@@ -241,11 +242,10 @@ export function hardCollision(scene: Scene, group: readonly Ref[], rigidOf: (b: 
     const a = meshOf(scene, m);
     const r = rigidOf(m);
     if (!a || !r) continue;
-    const there = moved(a.tris, r);
     for (const s of stays) {
       const b = meshOf(scene, s);
       if (!b || collides(a.tris, b.tree, clearance)) continue; // (already in each other)
-      if (collides(there, b.tree, clearance)) hits.add(s);
+      if (collidesMoving(a.tree, r, b.tree, clearance)) hits.add(s);
     }
   }
   return [...hits];

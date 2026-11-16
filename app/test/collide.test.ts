@@ -1,7 +1,7 @@
 // Hard bodies' geometry (`dec_hard_bodies`): the collision of two triangle meshes and how far a motion may go.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildTree, collides, moved, partOf, freePart } from "../src/operation/collide.ts";
+import { buildTree, collides, collidesMoving, moved, partOf, freePart } from "../src/operation/collide.ts";
 import type { Rigid } from "../src/operation/frames.ts";
 import { applyPoint } from "../src/operation/frames.ts";
 import type { Vec3 } from "../src/math/vec.ts";
@@ -58,4 +58,46 @@ test("a part of a turn about a point is the turn of that part of the angle about
   const all = applyPoint(partOf(whole, 1), p);
   const exact = applyPoint(whole, p);
   assert.ok(Math.hypot(all[0] - exact[0], all[1] - exact[1], all[2] - exact[2]) < 1e-9);
+});
+
+/** a flat layer of n x n small cubes, each its own closed surface, 1 mm apart (a heavy body) */
+function lattice(n: number, at: Vec3): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) out.push(...box([at[0] + 2 * i, at[1] + 2 * j, at[2]], [at[0] + 2 * i + 1, at[1] + 2 * j + 1, at[2] + 1]));
+  return out;
+}
+
+test("walking the tree of the moving body gives what moving every triangle gives (`in_479`): moves, turns, clearances, inside and round", () => {
+  const stays = buildTree(box([0, 0, 0], [10, 10, 10]));
+  const body = box([0, 0, 0], [4, 3, 2]);
+  const mine = buildTree(body);
+  let seed = 7;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  let hits = 0;
+  for (let n = 0; n < 400; n++) {
+    const a = rnd() * 6.283, c = Math.cos(a), s = Math.sin(a);
+    const r: Rigid = n % 3 === 0 ? shift([rnd() * 24 - 12, rnd() * 24 - 12, rnd() * 24 - 12]) : { turn: [c, -s, 0, s, c, 0, 0, 0, 1], shift: [rnd() * 20 - 5, rnd() * 20 - 5, rnd() * 20 - 5], k: 1 };
+    for (const clearance of [0, 0.7]) {
+      const want = collides(moved(body, r), stays, clearance);
+      assert.equal(collidesMoving(mine, r, stays, clearance), want, `case ${n} clearance ${clearance}`);
+      if (want) hits++;
+    }
+  }
+  assert.ok(hits > 40 && hits < 700, `a mix of hits and misses (${hits})`);
+  // wholly inside, wholly round it, and the same open
+  assert.equal(collidesMoving(buildTree(box([0, 0, 0], [2, 2, 2])), shift([4, 4, 4]), stays), true, "inside");
+  assert.equal(collidesMoving(buildTree(box([0, 0, 0], [30, 30, 30])), shift([-10, -10, -10]), stays), true, "round");
+});
+
+test("a heavy moving body is much quicker walked than moved whole (`in_479`)", () => {
+  const stays = buildTree([...lattice(40, [0.5, 0.5, -1]), ...lattice(40, [0.5, 0.5, 4])]); // two layers of cubes with a gap between (as heavy as the moving one)
+  const heavy = lattice(40, [0, 0, 0]); // 1600 cubes, 19200 triangles
+  const mine = buildTree(heavy);
+  const r = shift([0, 0, 2]); // in the gap, touching nothing, the boxes still overlap
+  assert.equal(collidesMoving(mine, r, stays), false);
+  assert.equal(collides(moved(heavy, r), stays), false);
+  const time = (f: () => void) => { const t0 = performance.now(); for (let i = 0; i < 20; i++) f(); return performance.now() - t0; };
+  const whole = time(() => collides(moved(heavy, r), stays));
+  const walked = time(() => collidesMoving(mine, r, stays));
+  assert.ok(walked * 2 < whole, `walked ${walked.toFixed(1)} ms, whole ${whole.toFixed(1)} ms`);
 });
