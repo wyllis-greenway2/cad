@@ -448,3 +448,19 @@ test("a revolve whose last step the kernel could not make stays open for the arr
   assert.equal(afterTakenBack({ ...open, op: { ...open.op, auto: true } }, 5).op, null, "an operation that started by itself and is not live is over");
   assert.equal(afterTakenBack(open, 0), open, "nothing was taken back: nothing changes");
 });
+
+// ---- the message for a spiral the kernel cannot make (`in_600`) ----
+test("a spiral the kernel cannot make says so by the turn and the advance asked for, not that holes cut everything away", () => {
+  const { s, face } = figure();
+  const st = startOp(scene(s), [face as never], "revolve");
+  assert.ok(st.ok);
+  const op = (st as { op: Op }).op;
+  // 90 degrees with 0.7 mm of advance (a pitch of 2.8 mm a turn) is one the kernel makes nothing of; 360 at the same pitch it does make
+  const bad = runOp(s, { ...op, pivot: [9, 0, 0], value: 90, advValue: 0.7, auto: false });
+  assert.ok(bad);
+  assert.match(bad.session.message ?? "", /^the kernel could not make a spiral of 90° with an advance of 0\.7 mm/);
+  assert.doesNotMatch(bad.session.message ?? "", /holes/);
+  assert.match(bad.session.message ?? "", /a small change to either/);
+  const good = runOp(s, { ...op, pivot: [9, 0, 0], value: 360, advValue: 2.8, auto: false });
+  assert.ok(good && !good.session.message, good?.session.message ?? "");
+});

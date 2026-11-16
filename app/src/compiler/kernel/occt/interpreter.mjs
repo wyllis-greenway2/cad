@@ -736,6 +736,13 @@ const OPS = {
       }
     }
     let solid = make(outerSketch);
+    // (the figure itself came out empty or inside out: said by what was asked, not as if holes had cut it away, `in_600`)
+    if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) {
+      const r2 = (v) => Math.round(v * 100) / 100;
+      throw new Error(Math.abs(advance) > 1e-9
+        ? `the kernel could not make a spiral of ${r2(angle)}° with an advance of ${r2(advance)} mm: it fails for some pairs of turn and advance, and a small change to either (a little more advance, or a little more or less turn) usually makes it`
+        : `the kernel could not turn the figure ${r2(angle)}° about that line (a line that touches or cuts across the figure can do this: move the line off it, or change the angle)`);
+    }
     for (const h of op.holes ?? []) solid = solid.cut(make(sketchOf(h)));
     if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the figure when its holes were cut");
     const targetValue = op.target ? (op.mode === "new" ? ctx.peek(op.target, "solid") : ctx.get(op.target, "solid")) : null; // (a piece of its own stands beside the body: no copy of it is needed)

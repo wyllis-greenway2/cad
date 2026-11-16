@@ -2733,3 +2733,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_599 — 2026-11-16 — directive
 > When in rotate extrusion mode, the orb xyz position thing doesn't actually move live in preview if you grab a move arrow and pull, instead it vanishes, and only shows up at end position on drag end. Also the arrow to spiral doesn't seem to work, the whole operation cancels every time I pull it even a little. Maybe it is too senstive? Or something else?
 (reports two faults in the revolve operation ("rotate extrusion"): the orb that shows the position does not move with the preview while a move arrow is dragged, it vanishes and comes back at the end; and the spiral arrow cancels the whole operation at once when pulled, even a little; asks whether it is too sensitive or something else)
+
+## in_600 — 2026-11-16 — directive
+> yes make that error message clearer
+(approves making the message clearer for a revolve the kernel cannot make, the one that said "nothing was left of the figure when its holes were cut")
