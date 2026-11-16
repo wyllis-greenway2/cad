@@ -86,6 +86,8 @@ export function createDialog(host: HTMLElement) {
       current = values;
       draw(build, values);
       veil.style.display = "flex";
+      const first = card.querySelector("input"); // (a question that begins with a text to type, as the material's does, has the cursor in it: the others begin with a choice)
+      if (first && first.type === "text") { first.focus(); first.select(); }
       window.addEventListener("keydown", onKey, true);
       window.addEventListener("keyup", onKey, true);
       return new Promise((resolve) => { finish = resolve; });

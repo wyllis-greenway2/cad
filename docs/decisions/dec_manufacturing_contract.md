@@ -3,7 +3,7 @@ id: dec_manufacturing_contract
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_543, in_544, in_545, in_546, in_550, in_551, in_553, in_554, in_561
+human_input: in_543, in_544, in_545, in_546, in_550, in_551, in_553, in_554, in_561, in_562, in_563, in_564, in_565
 date: 2026-11-16
 depends_on:
   - inv_kernel_boundary: the contract hands modules mesh, STEP bytes and flat outlines (plain data), so a kernel swap changes nothing on the module side
@@ -27,7 +27,7 @@ alternative_to:
 7. **A route declares itself to a registry:** what it accepts, its parameter schema, the definition kinds it uses (`dec_manufacturing_definitions`), its menu rows, its preview. Removing a route removes its rows and nothing else. One shared preview overlay draws the toolpath in the existing camera and world (polylines coloured by operation, scrubber, stock box); the renderer needs an overlay hook and no route logic goes into the UI (`inv_no_logic_in_ui`).
 8. **Shared infrastructure, built once:** the contract, **analysis services** (wall thickness, overhang, minimum radius, draft, undercut, flatness, bounding box; our graph already knows holes, faces and fillets), the findings system, profiles and libraries (`dec_manufacturing_definitions`), the toolpath move list and preview overlay, a **job runner** (worker, progress, cancel), plan storage with stable references (`dec_stable_references`), 2D offset and ordering code, the file service. **Per route:** the strategies and the compensation model.
 9. **Libraries:** permissive ones for geometry primitives (Clipper2, Boost; Manifold, Apache-2.0), our own code for strategies and G-code. Slicer engines (AGPL) and potrace (GPL) are excluded by rule 10, and the human confirmed the licence rules stay: the aim is not to be tied down by licences (`in_547`). Each licence is recorded in `docs/licenses.md` before use. Kiri:Moto (possibly MIT) is only a candidate to check.
-10. **Groundwork that is cheap and safe now (none done):** this contract and `inv_manufacturing_boundary`; the definition schemas as types; a material tag on bodies; the reserved `manufacturing` project section; layers (cut, score, engrave) in SVG and DXF export (`dec_export_flat` lists them as not built).
+10. **Groundwork that is cheap and safe now (done so far: the contract types and the boundary check, `in_562`; layers in SVG and DXF export, `in_563`, `in_564`; the material tag, `in_565`; not yet: the definition schemas as data, the project's `manufacturing` section, the registry, the part snapshot builder):** this contract and `inv_manufacturing_boundary`; the definition schemas as types; a material tag on bodies; the reserved `manufacturing` project section; layers (cut, score, engrave) in SVG and DXF export (`dec_export_flat` lists them as not built).
 11. **Suggested order** (the human has no single target user, only a wish for a very good CAD program, `in_548`): groundwork; print preparation (`dec_manufacturing_prep`) and print readiness; the beam-cutting route (laser first) with reference-image tracing; the milling route in 2.5D (holes and pockets are already in our graph); more beam processes; derivation routes (moulds); our own FDM G-code last, if ever (slicers are widely available).
 
 ## Rationale

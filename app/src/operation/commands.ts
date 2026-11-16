@@ -40,6 +40,8 @@ export type Command =
   | { type: "group"; id: string; items: string[] }
   /** a body made hard or soft (`dec_hard_bodies`): `body` is the name it keeps through the history */
   | { type: "setHard"; body: string; on: boolean }
+  /** what a body is made of (`in_565`): `body` is the name it keeps through the history, `material` a material id (empty takes the tag off) */
+  | { type: "setMaterial"; body: string; material: string }
   /** the clearance of the whole model, mm (`dec_hard_bodies`) */
   | { type: "setClearance"; value: number }
   /** break one group: what was in it stays, and a group inside it stays a group */
@@ -52,6 +54,8 @@ export type Command =
   | { type: "stretch"; factors: Vec3; pivot: Vec3; /** only this body of several (its name), or only these drawn parts (`in_390`) */ body?: string; parts?: Ref[] }
   | { type: "batch"; commands: Command[] };
 
+/** The longest a material's name may be. */
+export const MATERIAL_MAX = 60;
 const idOf = (full: string): string => full.slice(full.indexOf("/") + 1).split(/[./]/)[0] ?? full;
 
 /** The parts that go when `ref` goes: itself and every part built on it (a corner takes the lines and circles that use it). */
@@ -234,6 +238,13 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     }
     case "ungroup": return removeGroup(s, c.id);
     case "setHard": { const hard = (s.hard ?? []).filter((b) => b !== c.body); return ok({ ...s, ...(c.on ? { hard: [...hard, c.body] } : hard.length ? { hard } : { hard: undefined }) }); }
+    case "setMaterial": {
+      const m = c.material.trim();
+      if (m.length > MATERIAL_MAX || /[\u0000-\u001f]/.test(m)) return err(`a material name is plain text of at most ${MATERIAL_MAX} letters`);
+      const { [c.body]: _old, ...rest } = s.materials ?? {};
+      const materials = m ? { ...rest, [c.body]: m } : rest;
+      return ok({ ...s, materials: Object.keys(materials).length ? materials : undefined });
+    }
     case "setClearance": return Number.isFinite(c.value) && c.value >= 0 ? ok({ ...s, clearance: c.value || undefined }) : err("the clearance is a distance of nothing or more");
     case "pattern": { const r = addPattern(s, { id: c.id, kind: c.kind, parts: c.parts, plane: c.plane, params: c.params }); return r.ok ? ok(bumpCounter(r.value, c.id)) : r; }
     case "setPattern": return setPattern(s, c.id, c.params);

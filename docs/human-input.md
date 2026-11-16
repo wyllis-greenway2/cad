@@ -2596,3 +2596,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_564 — 2026-11-16 — directive
 > Show the marked lines on screen next
 (asks for what in_563 left unbuilt: a line marked Cut, Score or Engrave drawn differently on the screen)
+
+## in_565 — 2026-11-16 — directive
+> Do the material tag on bodies next
+(asks for the fourth groundwork piece of the accepted manufacturing entries: a material tag on bodies)
