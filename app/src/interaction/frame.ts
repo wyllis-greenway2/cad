@@ -23,7 +23,7 @@ import { seenIn } from "./picking.ts";
 import { tapeAnnotations } from "./tape.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
-import { hardMotion, hardNote, limitedOp, hardCollision, hardOverlaps, hardNames, isHard } from "./hard.ts";
+import { hardMotion, hardNote, limitedOp, hardCollision, hardOverlaps, hardNames } from "./hard.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { withCorner } from "./runop.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, previewRefusal, undoLast } from "./session.ts";
@@ -253,7 +253,7 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
   const first = group[0] ? sceneOf(base).parts[group[0]] : undefined;
   const centre: Vec3 | null = first?.kind === "body" && first.bbox ? [(first.bbox.min[0] + first.bbox.max[0]) / 2, (first.bbox.min[1] + first.bbox.max[1]) / 2, (first.bbox.min[2] + first.bbox.max[2]) / 2] : null;
   const went = (held || stopped) && m && centre ? applyPoint(m, centre) : null;
-  return { matrix, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked } : {}), ...(blockedBodies.length ? { hardHit: blockedBodies } : {}), ...(stopped && stopped.hit.length && m ? { bumping: { movers: group.filter((b) => isHard(sceneOf(base), b)), hit: stopped.hit, shift: m.shift } } : {}), ...(went && centre ? { shownFree: sub(went, centre) as Vec3 } : {}), followers };
+  return { matrix, shown, split: lastDrag.split, ...(held ? { blocked: held.blocked } : {}), ...(blockedBodies.length ? { hardHit: blockedBodies } : {}), ...(stopped && stopped.hit.length && m ? { bumping: { movers: [...group], hit: stopped.hit, shift: m.shift } } : {}), ...(went && centre ? { shownFree: sub(went, centre) as Vec3 } : {}), followers };
 }
 
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {

@@ -55,14 +55,22 @@ test("hard bodies stop against each other: the block pushed at the other stops w
   assert.ok(Math.abs(box(r.session, B).min[0]! - 30) < 1e-6, "the other did not move");
 });
 
-test("one hard and one soft do not collide; a number typed that would go into the other is refused with the reason", () => {
+test("one hard body is enough: it treats the soft body it meets as hard, whichever of the two is moved; two soft bodies go through each other; a number typed that would go into the other is refused with the reason (`in_490`)", () => {
   const one = hardOf(two(), [A]);
-  assert.ok(Math.abs(box(moveBy(one, [40, 0, 0])!.session, A).min[0]! - 40) < 0.01, "only one is hard: through");
+  const r1 = moveBy(one, [40, 0, 0])!; // the hard one is moved at the soft one
+  assert.ok(Math.abs(box(r1.session, A).max[0]! - 30) < 0.05, `stopped against the soft body: ${box(r1.session, A).max[0]}`);
+  const st = startOp(scene(one), [B] as never, "move", null); // the soft one is moved at the hard one
+  assert.ok(st.ok);
+  const lim = limitedOp(scene(one), { ...(st as { op: Op }).op, free: [-40, 0, 0] });
+  assert.ok(lim && "op" in lim && Math.abs(lim.op.free![0]! + 20) < 0.05, `the soft body is stopped by the hard one: ${JSON.stringify(lim)}`);
   const s = hardOf(two(), [A, B]);
   const r = moveBy(s, [40, 0, 0], "40")!;
   assert.match(r.session.message ?? "", /would run into/);
   assert.ok(Math.abs(box(r.session, A).min[0]!) < 1e-6, "nothing was moved");
+  const typedOne = moveBy(one, [40, 0, 0], "40")!;
+  assert.match(typedOne.session.message ?? "", /would run into/, "with one hard it is the same");
 });
+
 
 test("the clearance of the model keeps hard bodies apart by that much; the hard flags and the clearance are saved and opened again", () => {
   let s = hardOf(two(), [A, B]);
@@ -157,7 +165,8 @@ test("copies of a hard body that would run into another hard body are refused wi
   assert.ok(bad && /copy 1 would run into x_s_101/.test(bad.why), String(bad?.why));
   assert.deepEqual(bad!.hit, [B]);
   assert.equal(hardCopies(scene(s), op("50")), null, "clear: at 50 it stands beyond the other");
-  assert.equal(hardCopies(scene(hardOf(two(), [A])), op("25")), null, "the other is soft: nothing to run into");
+  assert.ok(hardCopies(scene(hardOf(two(), [A])), op("25")), "one hard is enough: the soft body is run into");
+  assert.equal(hardCopies(scene(two()), op("25")), null, "both soft: nothing to run into");
   assert.ok(limitedOp(scene(s), op("25")) && "why" in limitedOp(scene(s), op("25"))!, "and the release refuses it");
 });
 
@@ -185,7 +194,8 @@ test("a hard body's face pulled out into another hard body goes only as far as i
   const typed = limitedOp(scene(s), { ...op, value: 25, typed: "75" });
   assert.ok(typed && "why" in typed && /would grow into x_s_101/.test(typed.why), JSON.stringify(typed));
   assert.equal(limitedOp(scene(s), { ...op, value: 15 }), null, "short of it: whole");
-  assert.equal(limitedOp(scene(hardOf(two(), [A])), { ...op, value: 25 }), null, "the other is soft");
+  assert.ok(limitedOp(scene(hardOf(two(), [A])), { ...op, value: 25 }), "one hard is enough: it stops at the soft one");
+  assert.equal(limitedOp(scene(two()), { ...op, value: 25 }), null, "both soft: free");
 });
 
 test("a hard body's mark is hidden, like a constraint that holds, and shows red only while the body is bumping into another hard body; pressing it makes the body soft (`in_476`, `in_489`)", () => {
@@ -256,7 +266,8 @@ test("when an earlier change makes hard bodies overlap on replay, they are found
   assert.ok(f.hardMarks.every((m) => !!m.overlaps), "both marks say what they overlap");
   assert.match(f.message ?? "", /hard bodies overlap/);
   // soft bodies, or a model with nothing hard, say nothing
-  assert.deepEqual(hardOverlaps(scene(run(later, { type: "setHard", body: "x_s_100", on: false }))), []);
+  assert.deepEqual(hardOverlaps(scene(run(run(later, { type: "setHard", body: "x_s_100", on: false }), { type: "setHard", body: "x_s_101", on: false }))), [], "both soft");
+  assert.equal(hardOverlaps(scene(run(later, { type: "setHard", body: "x_s_101", on: false }))).length, 1, "one hard is enough to be told");
 });
 
 // ---- a round wall pulled out, and a sketch extruded off a hard body (`in_481`) ----
@@ -288,7 +299,8 @@ test("a round post pulled wider goes only as far as it meets a hard body; typed 
   const typed = limitedOp(scene(s), { ...op, value: 9, typed: "24" }); // (a number typed on a round face is the diameter it is to have: 24 is a radius of 12)
   assert.ok(typed && "why" in typed && /would grow into x_s_101/.test(typed.why), JSON.stringify(typed));
   assert.equal(limitedOp(scene(s), { ...op, value: 4 }), null, "short of it: whole");
-  assert.equal(limitedOp(scene(run(s, { type: "setHard", body: "x_s_101", on: false })), { ...op, value: 9 }), null, "the wall is soft: free");
+  assert.ok(limitedOp(scene(run(s, { type: "setHard", body: "x_s_101", on: false })), { ...op, value: 9 }), "the wall soft, the post hard: still stopped");
+  assert.equal(limitedOp(scene(run(run(s, { type: "setHard", body: "x_s_101", on: false }), { type: "setHard", body: "x_s_100", on: false })), { ...op, value: 9 }), null, "both soft: free");
   const made = runOp(s, { ...op, value: 9 })!;
   assert.deepEqual(hardOverlaps(scene(made.session)), [], "what was made does not overlap");
   const grown = bodiesOf(made.session).find((x) => x.id === "x_s_100")!;
@@ -312,7 +324,7 @@ test("a sketch extruded off the face of a hard body goes only as far as another 
   assert.ok(typed && "why" in typed && /would grow into/.test(typed.why), JSON.stringify(typed));
   assert.equal(limitedOp(scene(s), { ...op, value: 25 }), null, "up, into the body it stands on and away from the block: nothing in the way");
   assert.equal(limitedOp(scene(s), { ...op, value: -5 }), null, "short of it");
-  assert.equal(limitedOp(scene(run(s, { type: "setHard", body: "x_s_100", on: false })), { ...op, value: -25 }), null, "the body it grows out of is soft");
+  assert.equal(limitedOp(scene(run(run(s, { type: "setHard", body: "x_s_100", on: false }), { type: "setHard", body: under.id, on: false })), { ...op, value: -25 }), null, "both soft");
 });
 
 test("a round hole pulled smaller goes only as far as it meets a hard pin standing in it (`in_481`)", () => {
@@ -443,7 +455,7 @@ test("the face of a chamfer pulled out (the chamfer made smaller, the corner fil
   assert.ok(typed && "why" in typed && /would grow into x_s_200/.test(typed.why), JSON.stringify(typed));
   assert.equal(limitedOp(scene(s), { ...op, value: 1 }), null, "short of it: whole");
   assert.equal(limitedOp(scene(s), { ...op, value: -2 }), null, "pushed in, the chamfer is bigger: it goes away from the body in the notch");
-  assert.equal(limitedOp(scene(run(s, { type: "setHard", body: "x_s_200", on: false })), { ...op, value: 3 }), null, "the body in the notch is soft");
+  assert.equal(limitedOp(scene(run(run(s, { type: "setHard", body: "x_s_200", on: false }), { type: "setHard", body: h.id ? "x_s_100" : "x_s_100", on: false })), { ...op, value: 3 }), null, "both soft");
   const made = runOp(s, { ...op, value: 3 })!;
   assert.equal(made.session.message, null, `${made.session.message}`);
   assert.deepEqual(hardOverlaps(scene(made.session)), [], "what was made does not overlap");
@@ -580,4 +592,16 @@ test("the block with the pin in its hole, dragged along a straight line by the p
     }
     assert.ok(travelled < 8, `and does not wander about: it went ${travelled.toFixed(2)} in all for a drag of 7.5 (${dir})`);
   }
+});
+
+test("the Hard body item is in the Constraints section of the menu, not under Shape, and it is offered for a selected body (`in_490`)", () => {
+  const s = two();
+  let st = { ...createState({ ...s, click: { ...s.click, selection: [A] as never } }), cam: homeCamera() };
+  const items = reduce(st, { type: "menu", x: 400, y: 300 }, env).menu!.items;
+  const section = (id: string) => items.find((c) => c.id === id)!;
+  assert.ok((section("constraints").children ?? []).some((c) => c.id === "body:hard" && c.enabled), "under Constraints, for a body that is selected");
+  assert.ok(!(section("shape").children ?? []).some((c) => c.id === "body:hard"), "and no longer under Shape");
+  st = { ...createState({ ...s, click: { ...s.click, selection: [] as never } }), cam: homeCamera() };
+  const none = reduce(st, { type: "menu", x: 400, y: 300 }, env).menu!.items.find((c) => c.id === "constraints")!;
+  assert.ok(!(none.children ?? []).some((c) => c.id === "body:hard" && c.enabled), "with nothing selected it is not offered");
 });

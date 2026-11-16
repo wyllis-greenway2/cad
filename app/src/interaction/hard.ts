@@ -21,7 +21,13 @@ import type { Tree } from "../operation/collide.ts";
 interface Mesh { tris: number[]; tree: Tree }
 const cache = new WeakMap<Scene, Map<Ref, Mesh>>();
 
-/** Is this body hard (it collides with the other hard bodies while it is moved by hand)? */
+/** A body of the model with a name of its own (the stand-in for a model of one body has none). */
+const isBody = (scene: Scene, ref: Ref): boolean => { const p = scene.parts[ref]; return p?.kind === "body" && !!p.id; };
+/** Every named body. */
+const bodiesIn = (scene: Scene): Ref[] => Object.keys(scene.parts).filter((r) => isBody(scene, r as Ref)) as Ref[];
+/** Do these two keep out of each other? One hard body is enough: it treats every body it meets as hard (`in_490`). */
+export const meets = (scene: Scene, a: Ref, b: Ref): boolean => isHard(scene, a) || isHard(scene, b);
+/** Is this body hard (no other body goes into it while it, or the other, is moved by hand)? */
 export const isHard = (scene: Scene, ref: Ref): boolean => { const p = scene.parts[ref]; return p?.kind === "body" && !!p.id && !!scene.hard?.includes(p.id); };
 
 /** The triangles of a body, from the meshes of its faces, and the tree over them (kept for the scene: a drag tests many places against the same bodies). */
@@ -111,9 +117,10 @@ export function hardMotion(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref
   return value;
 }
 function hardMotionNow(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref) => Rigid | null, slide: boolean, base: Vec3 = [0, 0, 0]): HardMotion | null {
-  const movers = group.filter((b) => isHard(scene, b));
+  if (!scene.hard?.length) return null;
+  const movers = group.filter((b) => isBody(scene, b));
   if (!movers.length) return null;
-  const stays = Object.keys(scene.parts).filter((r) => !group.includes(r as Ref) && isHard(scene, r as Ref)) as Ref[];
+  const stays = bodiesIn(scene).filter((r) => !group.includes(r));
   if (!stays.length) return null;
   const clearance = scene.clearance ?? 0;
   const pairs: { m: Ref; s: Ref; fixed: Tree; tris: number[]; mover: Tree; c: number }[] = [];
@@ -121,6 +128,7 @@ function hardMotionNow(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref) =>
     const a = meshOf(scene, m);
     if (!a) continue;
     for (const s of stays) {
+      if (!meets(scene, m, s)) continue; // (two soft bodies go through each other)
       const b = meshOf(scene, s);
       if (!b || collides(a.tris, b.tree, clearance, false, true)) continue; // (already in each other, deeper than a move leaves two bodies: not held to it)
       pairs.push({ m, s, fixed: b.tree, tris: a.tris, mover: a.tree, c: clearance });
@@ -299,13 +307,13 @@ const nameOf = (scene: Scene, r: Ref): string => { const p = scene.parts[r]; ret
  * source and the others), and the copies of one repeat against each other. Null when none does; else which copy it is and what it is against.
  */
 export function hardCopies(scene: Scene, op: Op): { why: string; hit: Ref[] } | null {
-  if (op.target !== "body") return null;
-  const sources = op.parts.filter((r) => isHard(scene, r));
+  if (op.target !== "body" || !scene.hard?.length) return null;
+  const sources = op.parts.filter((r) => isBody(scene, r));
   if (!sources.length) return null;
   const maps = copyMaps(op);
   if (!maps.length || maps.length > 60) return null;
   const clearance = scene.clearance ?? 0;
-  const others = Object.keys(scene.parts).filter((r) => isHard(scene, r as Ref)) as Ref[];
+  const others = bodiesIn(scene);
   const trees = others.flatMap((r) => { const m = meshOf(scene, r); return m ? [{ ref: r, tree: m.tree }] : []; });
   const copies: { k: number; src: Ref; tris: number[]; tree: Tree }[] = [];
   for (const src of sources) {
@@ -314,9 +322,9 @@ export function hardCopies(scene: Scene, op: Op): { why: string; hit: Ref[] } | 
     maps.forEach((f, k) => { const tris: number[] = new Array(a.tris.length); for (let i = 0; i < a.tris.length; i += 3) { const q = f([a.tris[i]!, a.tris[i + 1]!, a.tris[i + 2]!]); tris[i] = q[0]; tris[i + 1] = q[1]; tris[i + 2] = q[2]; } copies.push({ k, src, tris, tree: buildTree(tris) }); });
   }
   for (const c of copies) {
-    const hits = trees.filter((t) => collides(c.tris, t.tree, clearance));
+    const hits = trees.filter((t) => meets(scene, c.src, t.ref) && collides(c.tris, t.tree, clearance));
     if (hits.length) return { why: `copy ${c.k + 1} would run into ${hits.map((h) => nameOf(scene, h.ref)).join(", ")}: hard bodies do not go into each other`, hit: hits.map((h) => h.ref) };
-    const other = copies.find((d) => d !== c && d.src === c.src && d.k < c.k && collides(c.tris, d.tree, clearance));
+    const other = isHard(scene, c.src) ? copies.find((d) => d !== c && d.src === c.src && d.k < c.k && collides(c.tris, d.tree, clearance)) : undefined;
     if (other) return { why: `copy ${c.k + 1} would run into copy ${other.k + 1}: hard bodies do not go into each other`, hit: [c.src] };
   }
   return null;
@@ -345,7 +353,7 @@ function overlapsFlat(a: readonly number[], b: readonly number[]): boolean {
 function ownersOnFace(scene: Scene, tris: readonly number[], dir: Vec3 | null): Ref[] {
   return Object.keys(scene.parts).filter((r) => {
     const b = scene.parts[r];
-    if (b?.kind !== "body" || !isHard(scene, r as Ref) || !b.bbox) return false;
+    if (b?.kind !== "body" || !b.id || !b.bbox) return false;
     const mid: Vec3 = [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2];
     return Object.values(scene.parts).some((f) => {
       if (f.kind !== "plane" || f.origin !== "body" || f.of !== r || !f.mesh || f.curved || f.rounded) return false;
@@ -366,7 +374,7 @@ function ownersOnFace(scene: Scene, tris: readonly number[], dir: Vec3 | null): 
  * sweeps the new volume, `in_481`).
  */
 function growth(scene: Scene, op: Op): { t: number; hit: Ref[]; owners: Ref[] } | null {
-  if (op.kind !== "pushpull" && op.kind !== "extrude" && op.kind !== "revolve") return null;
+  if (!scene.hard?.length || (op.kind !== "pushpull" && op.kind !== "extrude" && op.kind !== "revolve")) return null;
   const d0 = valueOf(op);
   const rounding = op.kind === "pushpull" && op.rounded && !op.roundAxis && op.edit?.kind === "edgeSize"; // (the face of a fillet or a chamfer: its size changes, either way)
   if (d0 === null || (op.kind === "pushpull" && d0 <= 0 && !rounding) || d0 === 0) return null; // (pushed in, a body does not grow into anything; a sketch is extruded, or turned, either way)
@@ -394,7 +402,7 @@ function growth(scene: Scene, op: Op): { t: number; hit: Ref[]; owners: Ref[] } 
     const faces = op.parts.map((r) => scene.parts[r]).filter((p) => p?.kind === "plane" && p.origin === "body" && !!p.mesh && !!p.of);
     const edge = rounding ? sharpEdge(scene, op, faces) : null;
     if (rounding && !edge) return null; // (a size that changes along the edge, a chamfer with two distances, or an edge that cannot be found: not looked ahead)
-    owners = [...new Set(faces.map((p) => (p as { of: Ref }).of))].filter((b) => isHard(scene, b));
+    owners = [...new Set(faces.map((p) => (p as { of: Ref }).of))].filter((b) => isBody(scene, b));
     const round = op.curved ? { center: op.curved.center, dir: op.curved.dir ?? ([0, 0, 0] as Vec3).map((_, i) => (i === op.curved!.axis ? 1 : 0)) as unknown as Vec3, radius: op.curved.radius } : op.rounded && op.roundAxis && op.dim ? { center: op.roundAxis.center, dir: op.roundAxis.dir, radius: op.dim.base / 2 } : null;
     if (op.rounded && !round && !edge) return null;
     pieces = faces.flatMap((p, i) => {
@@ -419,7 +427,7 @@ function growth(scene: Scene, op: Op): { t: number; hit: Ref[]; owners: Ref[] } 
     });
   }
   if (!owners.length) return null;
-  const stays = Object.keys(scene.parts).filter((r) => !owners.includes(r as Ref) && isHard(scene, r as Ref)) as Ref[];
+  const stays = bodiesIn(scene).filter((r) => !owners.includes(r) && owners.some((o) => meets(scene, o, r)));
   if (!stays.length) return null;
   const pairs = pieces.flatMap((q) => stays.flatMap((s) => { const m = meshOf(scene, s); return m && !collides(q.tris, m.tree, clearance, true, true) ? [{ q, s, tree: m.tree }] : []; }));
   if (!pairs.length) return null;
@@ -497,8 +505,8 @@ function sweepRuns(scene: Scene, op: Op): { why: string; hit: Ref[] } | null {
   const clearance = scene.clearance ?? 0;
   const tree = buildTree(carry.tris);
   const hit = new Set<Ref>();
-  for (const s of Object.keys(scene.parts) as Ref[]) {
-    if (owners.includes(s) || !isHard(scene, s)) continue;
+  for (const s of bodiesIn(scene)) {
+    if (owners.includes(s) || !owners.some((o) => meets(scene, o, s))) continue;
     const m = meshOf(scene, s);
     if (!m || collides(carry.tris, m.tree, clearance, true, true)) continue; // (already in it: not held to it)
     if (carry.carries.some((r) => collidesMoving(tree, r, m.tree, clearance, true))) hit.add(s);
@@ -522,9 +530,10 @@ export function hardNote(scene: Scene, op: Op): { why: string; hit: Ref[] } | nu
  * already overlaps is left out.
  */
 export function hardCollision(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref) => Rigid | null): Ref[] {
-  const movers = group.filter((b) => isHard(scene, b));
+  if (!scene.hard?.length) return [];
+  const movers = group.filter((b) => isBody(scene, b));
   if (!movers.length) return [];
-  const stays = Object.keys(scene.parts).filter((r) => !group.includes(r as Ref) && isHard(scene, r as Ref)) as Ref[];
+  const stays = bodiesIn(scene).filter((r) => !group.includes(r));
   const clearance = scene.clearance ?? 0;
   const hits = new Set<Ref>();
   for (const m of movers) {
@@ -532,6 +541,7 @@ export function hardCollision(scene: Scene, group: readonly Ref[], rigidOf: (b: 
     const r = rigidOf(m);
     if (!a || !r) continue;
     for (const s of stays) {
+      if (!meets(scene, m, s)) continue;
       const b = meshOf(scene, s);
       if (!b || collides(a.tris, b.tree, clearance, false, true)) continue; // (already in each other)
       if (collidesMoving(a.tree, r, b.tree, clearance)) hits.add(s);
@@ -551,9 +561,10 @@ export function hardOverlaps(scene: Scene): { a: Ref; b: Ref }[] {
   if (!scene.hard?.length) return [];
   const known = overlapCache.get(scene);
   if (known) return known;
-  const bodies = Object.keys(scene.parts).filter((r) => isHard(scene, r as Ref)) as Ref[];
+  const bodies = bodiesIn(scene);
   const out: { a: Ref; b: Ref }[] = [];
   for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
+    if (!meets(scene, bodies[i]!, bodies[j]!)) continue;
     const [ma, mb] = [meshOf(scene, bodies[i]!), meshOf(scene, bodies[j]!)];
     if (ma && mb && collides(ma.tris, mb.tree, scene.clearance ?? 0, false, true)) out.push({ a: bodies[i]!, b: bodies[j]! });
   }

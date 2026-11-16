@@ -2284,3 +2284,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_489 — 2026-11-16 — directive
 > lets not do it for now. Okay a few more things. Can we have the xyz position bubbles not show when moving an object in free flow? And can we have the hard body icons work like normal constraints? They are normally hidden, but flash red when they try to be violated, which I guess would be when a body is actively bumping into them.
 (answers in_488: no rotation on contact for now; asks that the x, y, z position bubbles are not shown while an object is moved in free flow, and that the hard body marks work like constraints: hidden normally, flashing red when they are being violated, which is when a body is actively bumping into them)
+
+## in_490 — 2026-11-16 — directive
+> the hard body should be categorized as a constraint and put under that section of the menu. Also I was thinking a hard body would treat any other body it encounters as a hard body too, not that you would have to declare two bodies as hard in order for it to react as hard with the hard body. Is that something we can do?
+(asks that the Hard body item be a constraint, in the constraints section of the menu; and asks whether a hard body can treat any other body it meets as hard too, so that only one body has to be declared hard for the two to collide)

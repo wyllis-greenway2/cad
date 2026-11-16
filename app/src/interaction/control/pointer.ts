@@ -60,7 +60,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "clipboard:paste", label: "Paste (Ctrl+V)", icon: "copy", select: "paste" },
   { id: "op:linear", label: "Repeat in a line", icon: "linear", op: "linear" },
   { id: "op:circular", label: "Repeat round a point", icon: "circular", op: "circular" },
-  { id: "body:hard", label: "Hard body", icon: "hard", select: "hard" }, // (collides with the other hard bodies while it is moved by hand, `in_473`)
+  { id: "body:hard", label: "Hard body", icon: "hard", select: "hard" }, // (a constraint: no other body goes into it while one or the other is moved by hand, `in_473`, `in_490`)
   { id: "combine:parts", label: "Combine bodies…", icon: "subtract", select: "combine" }, // (add, cut and what is left of both: the parts the bodies make are each kept or tossed, `in_298`)
   { id: "select:similar", label: "Select similar", icon: "similar", select: "similar" },
   { id: "select:faces", label: "Select all faces", icon: "selfaces", select: "faces" },
@@ -71,7 +71,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
 ];
 const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:offset"] },
-  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "body:hard", "combine:parts"] },
+  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts"] },
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate"] },
   { id: "repeat", label: "Copy and repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:similar", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
@@ -94,7 +94,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (r.select === "hard") {
       const bodies = sel.filter((x) => sc.parts[x]?.kind === "body" && !!(sc.parts[x] as { id?: string }).id);
       const every = bodies.length > 0 && bodies.every((x) => isHard(sc, x));
-      return [r.id, { ...base, label: every ? "Hard body: on (tap to make it soft)" : "Hard body (it collides with other hard bodies)", enabled: bodies.length > 0, why: bodies.length ? null : "select a body" }];
+      return [r.id, { ...base, label: every ? "Hard body: on (tap to make it soft)" : "Hard body (no other body goes into it)", enabled: bodies.length > 0, why: bodies.length ? null : "select a body" }];
     }
     if (r.select === "paste") return [r.id, { ...base, enabled: !!view.clip, why: view.clip ? null : "nothing is copied: select something and press Ctrl+C" }];
     if (r.select === "faces" || r.select === "edges" || r.select === "vertices") return [r.id, { ...base, enabled: true, why: null }];
@@ -110,7 +110,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   const target = lookTarget(sc, sel, over);
   const items: MenuItem[] = [
     ...CATEGORIES.slice(0, 1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
-    category("constraints", "Constraints", "constraint", rels.length ? rels : [{ id: "none", label: "Constraints", icon: "constraint", enabled: false, why: "select the parts to constrain (a line, a corner, two lines …)" }]),
+    category("constraints", "Constraints", "constraint", [...rels, leaf.get("body:hard")!].length > 1 || leaf.get("body:hard")!.enabled ? [...rels, leaf.get("body:hard")!] : [{ id: "none", label: "Constraints", icon: "constraint", enabled: false, why: "select the parts to constrain (a line, a corner, two lines …)" }]), // (a hard body is a constraint on every body that meets it, `in_490`)
     ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
     // the eye: how the model is looked at (`in_386`): straight at a surface, as wireframe, and the tape measure
     category("view", "View", "eye", [
