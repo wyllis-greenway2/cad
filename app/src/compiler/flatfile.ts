@@ -4,11 +4,11 @@
 export type V2 = [number, number];
 /** a straight piece, an arc about a centre from `p` to `q` (counter-clockwise or not), or a whole circle */
 export type Piece =
-  | { k: "seg"; p: V2; q: V2; layer?: Layer }
-  | { k: "arc"; c: V2; r: number; p: V2; q: V2; ccw: boolean; layer?: Layer }
-  | { k: "circle"; c: V2; r: number; layer?: Layer };
+  | { k: "seg"; p: V2; q: V2; layer?: Layer; ref?: string }
+  | { k: "arc"; c: V2; r: number; p: V2; q: V2; ccw: boolean; layer?: Layer; ref?: string }
+  | { k: "circle"; c: V2; r: number; layer?: Layer; ref?: string };
 
-/** What a line is for when the file goes to a laser, a cutter or a router (`in_563`, `dec_manufacturing_prep`): cut through, score (a shallow line, a fold), or engrave. The programs tell them apart by layer or colour. */
+/** What a line is for when the file goes to a laser, a cutter or a router: cut through, score (a shallow line, a fold), or engrave. The programs tell them apart by layer or colour. The writers carry it when a piece has one (a route that writes such a file, or a file read with layers); the modeler's drawing has none (`prin_manufacture_agnostic`, `in_603`). `ref` is the name the app gives a line, kept for a caller's use and not written. */
 export type Layer = "cut" | "score" | "engrave";
 /** The layers in the order they are written, with the colour a laser program sorts them by (red cuts, blue scores, black engraves: the usual convention) and the DXF colour number that goes with it. */
 const LAYERS: { name: Layer; svg: string; aci: number }[] = [

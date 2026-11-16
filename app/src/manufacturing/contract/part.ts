@@ -13,14 +13,14 @@ export interface PartMesh {
   triangles: Uint32Array;
 }
 
-/** What a line is for (`in_563`): cut through, score (a shallow line, a fold) or engrave. A piece with no layer is cut. */
+/** What a line is for: cut through, score (a shallow line, a fold) or engrave. A piece with no layer is cut. The modeler does not say (`prin_manufacture_agnostic`); a route's own marks do (`RouteContext.marks`, `in_603`), or a file that carries layers. */
 export type Layer = "cut" | "score" | "engrave";
 
-/** One piece of a flat outline, as in the SVG and DXF files (`dec_export_flat`): a straight piece, an arc about a centre from `p` to `q`, or a whole circle. */
+/** One piece of a flat outline, as in the SVG and DXF files (`dec_export_flat`): a straight piece, an arc about a centre from `p` to `q`, or a whole circle. `ref` is the name the app gives the line, so a route's own marks can name it (`in_603`). */
 export type FlatPiece =
-  | { kind: "line"; p: Point2; q: Point2; layer?: Layer }
-  | { kind: "arc"; center: Point2; radius: number; p: Point2; q: Point2; ccw: boolean; layer?: Layer }
-  | { kind: "circle"; center: Point2; radius: number; layer?: Layer };
+  | { kind: "line"; p: Point2; q: Point2; layer?: Layer; ref?: string }
+  | { kind: "arc"; center: Point2; radius: number; p: Point2; q: Point2; ccw: boolean; layer?: Layer; ref?: string }
+  | { kind: "circle"; center: Point2; radius: number; layer?: Layer; ref?: string };
 
 /** The plane a flat outline lies on: a point on it, the direction of its x axis and its normal (a right-handed frame, y = normal x xDir). */
 export interface PlaneFrame {

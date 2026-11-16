@@ -50,7 +50,7 @@ const world = (part: PartSnapshot, at: Point2): Point3 => {
 };
 
 function check(part: PartSnapshot, ctx: RouteContext): Finding[] {
-  const { problems, origin, shift } = prepare(part, ctx.settings, sheetOf(ctx));
+  const { problems, origin, shift } = prepare(part, ctx.settings, sheetOf(ctx), ctx.marks);
   const here = (at: Point2): Point3 => world(part, [origin[0] + shift[0] + at[0], origin[1] + shift[1] + at[1]]); // (the layout's point, in the toolpath's, then where the preview draws it)
   return problems.map((p, i): Finding => ({
     id: `laser-outline:${p.kind}:${i}`,
@@ -65,7 +65,7 @@ const percent = (ctx: RouteContext, id: string, d: number): number => (typeof ct
 const value = (ctx: RouteContext, id: string, d: number): number => (typeof ctx.settings[id] === "number" ? (ctx.settings[id] as number) : d);
 
 function plan(part: PartSnapshot, ctx: RouteContext): Toolpath {
-  const { paths, origin, sheet } = prepare(part, ctx.settings, sheetOf(ctx));
+  const { paths, origin, sheet } = prepare(part, ctx.settings, sheetOf(ctx), ctx.marks);
   const rapid = ctx.machine.limits.feed;
   const ops: ToolpathOperation[] = [];
   let seconds = 0;

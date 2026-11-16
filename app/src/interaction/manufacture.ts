@@ -11,6 +11,9 @@ import type { Scene } from "../operation/scene.ts";
 import type { Dialog, Field, FieldValue } from "./transfer.ts";
 import type { Session } from "./session.ts";
 import { flatSnapshot } from "./partsnapshot.ts";
+import { drawnOf } from "./exportsketch.ts";
+import { scene as sceneOf, selection as selectionOf } from "./session.ts";
+import type { Ref } from "../shared/ref.ts";
 import type { PersonalLibrary } from "./library.ts";
 import { whyBadMachine, slug, nextVersion, NAME_MAX, sameRow, whyBadSettings } from "./library.ts";
 
@@ -82,6 +85,52 @@ export function machineDialog(choices: readonly MachineChoice[], values: { machi
       ...(chosen?.from === "library" ? [{ id: "remove", label: "Take this machine out of my library", type: "check" as const, value: values.remove, note: "Take this machine out of my library instead of cutting. Projects that used it keep their copy." }] : []),
     ],
   };
+}
+
+// ---------- the layers of a drawing: the laser route's own marks (`in_603`) ----------
+// The modeler knows nothing of how a part will be made (`prin_manufacture_agnostic`), so what a line is for (cut through, score, engrave) is not on the line: it is the laser route's mark, kept in the project's manufacturing section by
+// the line's ref and used only when the laser route runs.
+export const marksKey = (part: string): string => `${part}|${LASER_ROUTE}`;
+const ROLES = ["cut", "score", "engrave"] as const;
+/** The marks of a drawing: the refs of its lines and what each is for (a line with no mark is cut). */
+export const marksFor = (scene: Scene, part: string): Record<string, string> => ({ ...(scene.manufacturing?.marks?.[marksKey(part)] ?? {}) });
+/** The marks that still name a line of the drawing (a line that was deleted leaves its mark behind, unused), counted by what they are for: "2 lines score, 1 engrave". Empty when none. */
+export function marksSummary(scene: Scene, part: string): string {
+  const counts = new Map<string, number>();
+  for (const [ref, role] of Object.entries(marksFor(scene, part))) if (scene.parts[ref as Ref] && role !== "cut") counts.set(role, (counts.get(role) ?? 0) + 1);
+  return ROLES.filter((r) => counts.has(r)).map((r) => `${counts.get(r)} ${counts.get(r) === 1 ? "line" : "lines"} ${r}`).join(", ");
+}
+/** The drawn lines selected, and the drawing they are of (its plane): or why there are none to mark. */
+export function layersTarget(session: Session): Result<{ part: string; refs: Ref[] }> {
+  const sc = sceneOf(session);
+  const sel = selectionOf(session).map((r) => sc.parts[r]).filter((p): p is NonNullable<typeof p> => !!p);
+  if (!sel.length) return err("select the lines, or a figure, to mark first");
+  const refs = [...drawnOf(sc, sel)];
+  if (!refs.length) return err("select drawn lines or a figure of the drawing to mark");
+  const planes = new Set(refs.map((r) => (sc.parts[r] as { plane: Ref | null }).plane));
+  if (planes.size > 1 || planes.has(null)) return err("the lines are on more than one plane: select the lines of one sketch");
+  return ok({ part: `sketch/${[...planes][0]}`, refs });
+}
+export const whyNoLayers = (session: Session): string | null => { const t = layersTarget(session); return t.ok ? null : t.error; };
+/** The dialog that says what the selected lines are for in the laser route. */
+export function layersDialog(session: Session, values: { role: string }): Dialog {
+  const t = layersTarget(session);
+  const n = t.ok ? t.value.refs.length : 0;
+  return {
+    title: `Laser layers: ${n} ${n === 1 ? "line" : "lines"}`,
+    ok: "Set",
+    fields: [{ id: "role", label: "The selected lines are", type: "choice", value: values.role, choices: [{ value: "cut", label: "Cut through" }, { value: "score", label: "Scored (a shallow line)" }, { value: "engrave", label: "Engraved" }], note: undefined },
+      { id: "why", label: "Where it is kept", type: "text", readonly: true, value: "In this project, for the laser route only: the drawing itself does not change." }],
+  };
+}
+/** The command that marks the selected lines: cut takes a mark off. One step to undo. */
+export function layersCommand(session: Session, role: string): Result<Command> {
+  if (!ROLES.includes(role as (typeof ROLES)[number])) return err("a line is cut, scored or engraved");
+  const t = layersTarget(session);
+  if (!t.ok) return err(t.error);
+  const marks = marksFor(sceneOf(session), t.value.part);
+  for (const r of t.value.refs) { if (role === "cut") delete marks[r]; else marks[r] = role; }
+  return ok({ type: "setMarks", key: marksKey(t.value.part), marks });
 }
 
 // ---------- the settings table (`in_573`) ----------
@@ -157,12 +206,13 @@ export function startValues(scene: Scene, part: string, choice: MachineChoice | 
 export const laserDefaults = (): LaserValues => ({ ...MACHINE_DEFAULTS, ...defaultSettings(registry.get(LASER_ROUTE)!), tableRow: NO_ROW, saveMaterial: "", saveThickness: 3, saveNote: "", saveForMachine: true, remember: true });
 
 /** The laser dialog: the machine's name, work area, power scale and rapid speed, then every setting the route declares, then whether to keep the machine. */
-export function laserDialog(values: LaserValues, rows: readonly SettingsDefinition[] = []): Dialog {
+export function laserDialog(values: LaserValues, rows: readonly SettingsDefinition[] = [], layers = ""): Dialog {
   const route = registry.get(LASER_ROUTE)!;
   return {
     title: "Laser cut",
     ok: "Make the file",
     fields: [
+      ...(layers ? [{ id: "layers", label: "Layers", type: "text" as const, readonly: true, value: layers, note: undefined }] : []),
       { id: "machineName", label: "Machine name", type: "text", value: values.machineName ?? MACHINE_DEFAULTS.machineName, note: `Up to ${NAME_MAX} letters. A machine kept under a name is offered the next time, here and in other drawings; a changed one becomes the next version.` },
       { id: "bedWidth", label: "Work area width (mm)", type: "number", value: values.bedWidth ?? MACHINE_DEFAULTS.bedWidth, note: "Your machine's travel in x. The drawing is checked against it." },
       { id: "bedHeight", label: "Work area height (mm)", type: "number", value: values.bedHeight ?? MACHINE_DEFAULTS.bedHeight },
@@ -179,7 +229,7 @@ export function laserDialog(values: LaserValues, rows: readonly SettingsDefiniti
   };
 }
 
-export interface LaserRun { run: RouteRun; file: OutputFile | null; machine: MachineDefinition; part: PartSnapshot; summary: string; /** the answers as the run used them: a row of the table in place of the numbers it holds */ values: LaserValues }
+export interface LaserRun { /** the laser route's marks the run used (`in_603`) */ marks: Record<string, string>; run: RouteRun; file: OutputFile | null; machine: MachineDefinition; part: PartSnapshot; summary: string; /** the answers as the run used them: a row of the table in place of the numbers it holds */ values: LaserValues }
 const minutes = (s: number): string => (s < 90 ? `${Math.round(s)} s` : `${Math.round(s / 6) / 10} min`);
 
 /** Run the laser route on the drawing the selection stands for (or all that is drawn): the file, the findings and a line saying what was made. `known` are the machines already kept (the library's and the project's), so a machine that has not changed keeps its version. */
@@ -195,11 +245,12 @@ export function runLaser(session: Session, values0: LaserValues, known: readonly
   const why = whyBadMachine(machine);
   if (why) return err(why);
   const settings = Object.fromEntries(route.params.map((p) => [p.id, values[p.id] ?? p.default]));
-  const ran = runRoute(route, part.value, { machine, settings }, genericDialect(Number(machine.route.powerMax)));
+  const marks = marksFor(sceneOf(session), part.value.id);
+  const ran = runRoute(route, part.value, { machine, settings, marks }, genericDialect(Number(machine.route.powerMax)));
   const run: RouteRun = { ...ran, findings: [...(row ? [{ id: "table", severity: "info" as const, message: `Using your table: ${rowLabel(row)}`, refs: [] }] : []), ...ran.findings, ...ran.warnings.map((message, i): Finding => ({ id: `emit:${i}`, severity: "caution", message, refs: [] }))] }; // (what the file writer could not write is shown with the rest)
   const file = run.files[0] ?? null;
   const cuts = run.toolpath?.operations.map((o) => `${o.moves.filter((m) => m.op === "cut" || m.op === "arc").length} ${o.label.toLowerCase()} moves`).join(", ") ?? "nothing planned";
-  return ok({ run, file, machine, part: part.value, values, summary: `${file?.name ?? "no file"}: ${cuts}${run.toolpath?.seconds ? `, about ${minutes(run.toolpath.seconds)}` : ""} on ${machine.name}` });
+  return ok({ marks, run, file, machine, part: part.value, values, summary: `${file?.name ?? "no file"}: ${cuts}${run.toolpath?.seconds ? `, about ${minutes(run.toolpath.seconds)}` : ""} on ${machine.name}` });
 }
 
 /** What the project keeps of a run (`dec_manufacturing_definitions` point 4, `in_546`): a copy of the machine used, by its version, and the plan (part, route, machine and settings), which a later dialog for the same part starts from. */
@@ -209,6 +260,7 @@ export function recordCommands(result: LaserRun): Command[] {
   const plan: ManufacturingPlan = {
     contract: CONTRACT_VERSION, id: `${result.part.id}|${LASER_ROUTE}|${result.machine.id}`, part: result.part.id, route: LASER_ROUTE, machine: result.machine.id, machineVersion: result.machine.version,
     settings: Object.fromEntries(route.params.map((p) => [p.id, values[p.id] ?? p.default])),
+    ...(Object.keys(result.marks).length ? { marks: result.marks } : {}),
   };
   return [{ type: "useDefinition", key: keyOf(result.machine), value: result.machine }, { type: "setPlan", plan }];
 }

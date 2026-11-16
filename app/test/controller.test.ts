@@ -205,7 +205,7 @@ test("the menu: a right click offers the operations on what is selected and does
   assert.deepEqual(selection(st.session), [a.circle, b.circle]);
   const [x, y] = px(st, [63, 0, 0]);
   st = reduce(st, { type: "menu", x, y }, env);
-  assert.deepEqual(st.menu!.items.map((i) => i.label), ["Sketch", "Constraints", "Shape", "Move", "Repeat", "Layer", "Select", "View", "Actions"], "the right click offers the operations (constraints are on the left click)");
+  assert.deepEqual(st.menu!.items.map((i) => i.label), ["Sketch", "Constraints", "Shape", "Move", "Repeat", "Select", "View", "Actions"], "the right click offers the operations (constraints are on the left click)");
   assert.ok(flat(st.menu!.items).find((i) => i.id === "delete")!.enabled);
   assert.deepEqual(flat(st.menu!.items).map((i) => i.label).slice(0, 4), ["Rectangle", "Circle", "Line", "Curve"], "and the categories hold the tools");
   const radiusBefore = (scene(st.session).parts[b.circle] as { radius: number }).radius;

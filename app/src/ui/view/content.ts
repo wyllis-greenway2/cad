@@ -30,21 +30,6 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
     g.setAttribute("position", new THREE.Float32BufferAttribute(pairs, 3));
     content.add(new THREE.LineSegments(g, edge));
   }
-  // the lines marked for a laser or a cutter (`in_564`): score is blue and dashed, engrave a thicker orange line, so a mark can be seen on the drawing; cut is the usual line
-  const score = linePairs(s, used, "score");
-  if (score.length) {
-    const xs = score.filter((_, i) => i % 3 === 0), ys = score.filter((_, i) => i % 3 === 1), zs = score.filter((_, i) => i % 3 === 2);
-    const size = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), Math.max(...zs) - Math.min(...zs));
-    const m = pen.segments(score, settings.theme.markScore, 2, false);
-    const mat = m.material as import("three/addons/lines/LineMaterial.js").LineMaterial;
-    mat.dashed = true; mat.dashSize = Math.max(size / 60, 0.3); mat.gapSize = mat.dashSize * 0.7; mat.needsUpdate = true;
-    m.computeLineDistances();
-    m.renderOrder = 3;
-    m.raycast = () => {}; // (a mark is not something to hide an axis label behind: the label test casts rays at this group, and a thick line cannot be cast without a camera)
-    content.add(m);
-  }
-  const engrave = linePairs(s, used, "engrave");
-  if (engrave.length) { const m = pen.segments(engrave, settings.theme.markEngrave, 2.6, false); m.renderOrder = 3; m.raycast = () => {}; content.add(m); }
   for (const p of Object.values(s.parts)) {
     if (p.kind !== "face" || p.origin !== "drawn" || used.has(p.ref)) continue;
     const tris = surfaceTriangles(get, p);

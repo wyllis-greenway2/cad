@@ -15,6 +15,8 @@ export interface RouteContext {
   machine: MachineDefinition;
   material?: MaterialDefinition;
   settings: Settings;
+  /** the route's own roles for the drawing's lines, by their `ref`: a laser's cut, score or engrave (`in_603`). Not the model's: the modeler knows nothing of how a part will be made (`prin_manufacture_agnostic`); they are kept in the project's manufacturing section. */
+  marks?: Record<string, string>;
 }
 
 /** Whether a route suits a part: `fits` is about the kind and size, `reasons` says why not (shown, never enforced). */
@@ -67,6 +69,8 @@ export interface ManufacturingPlan {
   machine: string;
   /** the version of the machine the plan was made with: the project's copy of that one reproduces its output */
   machineVersion?: number;
+  /** the roles of the lines the plan was made with, by `ref` (`in_603`) */
+  marks?: Record<string, string>;
   material?: string;
   settings: Settings;
 }

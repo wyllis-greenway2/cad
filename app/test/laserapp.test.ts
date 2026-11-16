@@ -27,7 +27,7 @@ function plate(plane = XY, u: [number, number, number] = [1, 0, 0], v: [number, 
 }
 
 test("the snapshot of a drawing is the contract's flat part: its pieces in the plane's own coordinates, a frame, a box in the world, the contract's version; it survives structuredClone", () => {
-  const { s } = plate();
+  const { s, c } = plate();
   const p = flatSnapshot(s);
   assert.ok(p.ok);
   if (!p.ok) return;
@@ -37,7 +37,7 @@ test("the snapshot of a drawing is the contract's flat part: its pieces in the p
   assert.deepEqual(part.bbox, { min: [0, 0, 0], max: [40, 20, 0] });
   const pieces = part.outlines![0]!.pieces;
   assert.equal(pieces.filter((x) => x.kind === "line").length, 4);
-  assert.deepEqual(pieces.find((x) => x.kind === "circle"), { kind: "circle", center: [10, 10], radius: 4 });
+  assert.deepEqual(pieces.find((x) => x.kind === "circle"), { kind: "circle", center: [10, 10], radius: 4, ref: c.circle });
   assert.deepEqual(part.outlines![0]!.plane.normal, [0, 0, 1]);
   assert.deepEqual(structuredClone(part), part);
   assert.equal(registry.forPart(part).map((o) => o.route)[0], LASER_ROUTE, "and the registry offers the laser route for it");
@@ -58,12 +58,15 @@ test("a drawing on another plane is in that plane's own x and y, and the route m
   if (small.ok) assert.equal(small.value.run.fit.fits, false);
 });
 
-test("marked lines carry their layer into the part; only what is selected is taken; nothing drawn says what to do", () => {
+test("a drawing's part names its lines by ref and has no layers of its own (the modeler does not know what a line is for); only what is selected is taken; nothing drawn says what to do", () => {
   const { s, r, c } = plate();
-  const marked = run(run(s, { type: "setUse", refs: [c.circle], use: "engrave" }), { type: "setUse", refs: [r.lines[0]!], use: "score" });
-  const p = flatSnapshot(marked);
+  const p = flatSnapshot(s);
   assert.ok(p.ok);
-  if (p.ok) assert.deepEqual(p.value.outlines![0]!.pieces.map((x) => x.layer).sort(), ["cut", "cut", "cut", "engrave", "score"]);
+  if (p.ok) {
+    const pieces = p.value.outlines![0]!.pieces;
+    assert.deepEqual(pieces.map((x) => x.layer), pieces.map(() => undefined), "no layers");
+    assert.deepEqual(pieces.map((x) => x.ref).sort(), [...r.lines, c.circle].sort(), "each piece names its line");
+  }
   const only = flatSnapshot({ ...s, click: { ...s.click, selection: [loopFaceRef(r.lines)] as never } });
   assert.ok(only.ok);
   assert.deepEqual(flatSnapshot(createSession(kernel)), { ok: false, error: "nothing to export yet: draw something, or select a sketch or a flat face of a body" });

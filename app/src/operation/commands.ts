@@ -8,7 +8,7 @@ import type { Ref } from "../shared/ref.ts";
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import type { Vec3 } from "../math/vec.ts";
-import type { Part, Use } from "./part.ts";
+import type { Part } from "./part.ts";
 import { anchorsOf } from "./part.ts";
 import type { Scene, Relation, Step } from "./scene.ts";
 import { bumpCounter, figureRefs, usesFigures } from "./scene.ts";
@@ -24,8 +24,6 @@ export type Command =
   /** a plane put somewhere else (the cross section plane moved, turned or flipped, `in_396`) */
   | { type: "placePlane"; ref: Ref; at: Vec3; u: Vec3; v: Vec3; /** switches the cut on or off (left as it is when absent) */ cut?: boolean; /** the side cut away is the other one (left as it is when absent) */ flip?: boolean; /** the invisible mode (left as it is when absent) */ hidden?: boolean }
   | { type: "setRadius"; ref: Ref; radius: number }
-  /** what drawn lines and circles are for in an exported file (`in_563`): cut is the usual and is stored as nothing */
-  | { type: "setUse"; refs: Ref[]; use: Use }
   | { type: "deletePart"; ref: Ref }
   | { type: "deleteParts"; refs: Ref[] }
   | { type: "addRelation"; relation: Relation }
@@ -46,6 +44,10 @@ export type Command =
   | { type: "setMaterial"; body: string; material: string }
   /** a copy of a machine (or other definition) the project used, kept in its manufacturing section by `kind/id@version` (`in_571`) */
   | { type: "useDefinition"; key: string; value: unknown }
+  /** **Only to open projects saved before `in_603`** (when a drawn line carried what it was for): nothing makes it now. Replayed, it becomes the laser route's mark of those lines (`setMarks`), and the drawing is not touched. */
+  | { type: "setUse"; refs: Ref[]; use: "cut" | "score" | "engrave" }
+  /** a route's own roles for the lines of a drawing (`in_603`): `key` is `part|route`, `marks` the line refs and their roles; none left removes the key. Not the model's: it is kept in the project's manufacturing section */
+  | { type: "setMarks"; key: string; marks: Record<string, string> }
   /** a manufacturing plan, one for a part, route and machine: put in the project's manufacturing section, replacing the one with the same `id` (`in_571`, `in_546`) */
   | { type: "setPlan"; plan: { id: string } }
   /** the clearance of the whole model, mm (`dec_hard_bodies`) */
@@ -150,16 +152,6 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       if (p?.kind !== "plane" || !p.section) return err(`${c.ref} is not a cross section plane`);
       return ok({ ...s, parts: { ...s.parts, [c.ref]: { ...p, at: c.at, u: c.u, v: c.v, ...(c.cut === undefined ? {} : { cut: c.cut }), ...(c.flip === undefined ? {} : { flip: c.flip }), ...(c.hidden === undefined ? {} : { hidden: c.hidden }) } } });
     }
-    case "setUse": {
-      const parts = { ...s.parts };
-      for (const r of c.refs) {
-        const p = parts[r];
-        if (!p || (p.kind !== "line" && p.kind !== "circle") || !p.movable) return err(`${r} is not a drawn line or circle`);
-        const { use: _old, ...rest } = p;
-        parts[r] = (c.use === "cut" ? rest : { ...rest, use: c.use }) as Part;
-      }
-      return ok({ ...s, parts });
-    }
     case "setRadius": {
       const p = s.parts[c.ref];
       if (!p || p.kind !== "circle") return err(`${c.ref} is not a circle`);
@@ -251,6 +243,24 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     case "useDefinition": {
       if (!c.key.trim()) return err("a definition needs a key");
       return ok({ ...s, manufacturing: { ...s.manufacturing, definitions: { ...s.manufacturing?.definitions, [c.key]: c.value } } });
+    }
+    case "setUse": { // (migration: an old project\'s marks become the laser route\'s marks, by the plane the lines are on)
+      let cur: Scene = s;
+      const byKey = new Map<string, Ref[]>();
+      for (const r of c.refs) { const p = s.parts[r]; const plane = p && (p.kind === "line" || p.kind === "circle") ? p.plane : null; if (plane) byKey.set(`sketch/${plane}|laser-outline`, [...(byKey.get(`sketch/${plane}|laser-outline`) ?? []), r]); }
+      for (const [key, refs] of byKey) {
+        const marks = { ...(cur.manufacturing?.marks?.[key] ?? {}) };
+        for (const r of refs) { if (c.use === "cut") delete marks[r]; else marks[r] = c.use; }
+        const { [key]: _old, ...rest } = cur.manufacturing?.marks ?? {};
+        cur = { ...cur, manufacturing: { ...cur.manufacturing, marks: Object.keys(marks).length ? { ...rest, [key]: marks } : rest } };
+      }
+      return ok(cur);
+    }
+    case "setMarks": {
+      if (!c.key.trim()) return err("marks need a key");
+      const { [c.key]: _old, ...rest } = s.manufacturing?.marks ?? {};
+      const marks = Object.keys(c.marks).length ? { ...rest, [c.key]: { ...c.marks } } : rest;
+      return ok({ ...s, manufacturing: { ...s.manufacturing, marks } });
     }
     case "setPlan": {
       if (typeof c.plan.id !== "string" || !c.plan.id) return err("a plan needs an id");

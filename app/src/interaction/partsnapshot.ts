@@ -18,7 +18,7 @@ import { boundsOf } from "../compiler/flatfile.ts";
 import type { Piece } from "../compiler/flatfile.ts";
 
 const flatPiece = (p: Piece): FlatPiece => {
-  const layer = p.layer ? { layer: p.layer } : {};
+  const layer = { ...(p.layer ? { layer: p.layer } : {}), ...(p.ref ? { ref: p.ref } : {}) };
   return p.k === "seg" ? { kind: "line", p: p.p, q: p.q, ...layer } : p.k === "circle" ? { kind: "circle", center: p.c, radius: p.r, ...layer } : { kind: "arc", center: p.c, radius: p.r, p: p.p, q: p.q, ccw: p.ccw, ...layer };
 };
 

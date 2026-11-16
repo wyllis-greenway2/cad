@@ -11,7 +11,7 @@ import { createSession, openSession, saveText, run, scene, selection, refresh } 
 import type { Session } from "./interaction/session.ts";
 import { canExport } from "./interaction/exportstl.ts";
 import { canExportFlat } from "./interaction/exportsketch.ts";
-import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, startValues, projectMachines, recordCommands, tableRows, rowFrom, tableDialog } from "./interaction/manufacture.ts";
+import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, startValues, projectMachines, recordCommands, tableRows, rowFrom, tableDialog, layersDialog, layersCommand, whyNoLayers, marksSummary } from "./interaction/manufacture.ts";
 import { parseLibrary, libraryText, saveMachine, removeMachine, saveSettings, removeSettings } from "./interaction/library.ts";
 import { flatSnapshot } from "./interaction/partsnapshot.ts";
 import type { LaserValues } from "./interaction/manufacture.ts";
@@ -139,6 +139,7 @@ const menu = createMenu(document.body, (id) => {
   else if (id === "material") void materialDialogFlow();
   else if (id === "laser") void laserDialogFlow();
   else if (id === "laserTable") void laserTableFlow();
+  else if (id === "laserLayers") void laserLayersFlow();
   else if (id === "clearAnswers") void resultStore?.clear();
   else if (id === "save" || id === "open") dispatch({ type: id });
   else if (id === "bodies" || id === "history" || id === "groups") dispatch({ type: "panel", name: id });
@@ -264,7 +265,8 @@ async function laserDialogFlow() {
   let last: LaserValues = {};
   try { last = JSON.parse(webStore.get(LASER_KEY) ?? "{}"); } catch { /* not kept, or not readable: the usual */ }
   const rows = tableRows(lib.settings, choice.machine?.id ?? "");
-  const answers = await dialog.open((v) => laserDialog(v as LaserValues, rows), startValues(sc, part.value.id, choice, last) as unknown as Values);
+  const layers = marksSummary(sc, part.value.id);
+  const answers = await dialog.open((v) => laserDialog(v as LaserValues, rows, layers), startValues(sc, part.value.id, choice, last) as unknown as Values);
   if (!answers) return;
   webStore.set(LASER_KEY, JSON.stringify(answers));
   const r = runLaser(state.session, answers as LaserValues, [...lib.machines, ...projectMachines(sc)], lib.settings);
@@ -283,6 +285,17 @@ async function laserDialogFlow() {
   }
   webFiles.saveBytes(file.name, file.bytes, file.mime);
   say(`laser file saved: ${summary}`);
+}
+/** Laser layers (`in_603`): what the selected lines are for in the laser route (cut, scored, engraved). It is the route's own mark, kept in the project's manufacturing section: the drawing does not change (`prin_manufacture_agnostic`). */
+async function laserLayersFlow() {
+  const why = whyNoLayers(state.session);
+  if (why) return say(why);
+  const a = await dialog.open((v) => layersDialog(state.session, v as unknown as { role: string }), { role: "score" } as unknown as Values);
+  if (!a) return;
+  const c = layersCommand(state.session, String(a.role));
+  if (!c.ok) return say(c.error);
+  state = { ...state, session: run(state.session, c.value) };
+  say(a.role === "cut" ? "the selected lines are cut again (no mark)" : `the selected lines are ${a.role === "score" ? "scored" : "engraved"} in the laser route`);
 }
 /** The person's laser table (`in_573`): the rows of numbers they have kept, and a way to take one out. Rows are added from the laser dialog. */
 async function laserTableFlow() {
@@ -331,7 +344,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), material: !whyNoMaterial(state.session), laser: canExportFlat(state.session), laserTable: parseLibrary(webStore.get("cad.library")).library.settings.length > 0, clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, settings.input.trackpadPanScale, settings.theme.outlines, scene(state.session).clearance ?? 0)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), material: !whyNoMaterial(state.session), laser: canExportFlat(state.session), laserLayers: !whyNoLayers(state.session), laserTable: parseLibrary(webStore.get("cad.library")).library.settings.length > 0, clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, settings.input.trackpadPanScale, settings.theme.outlines, scene(state.session).clearance ?? 0)); }
     else {
       menu.hide();
       if (state.menu && inGame()) { // game mode: the ring stands in the world, ahead of the eye, where it was opened (`in_463`, `in_471`)

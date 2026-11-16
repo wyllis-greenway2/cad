@@ -1,6 +1,6 @@
 // Laser outline: from a flat part to the paths a beam follows (`in_569`, `dec_laser_outline_route`). The one place the route's geometry is worked out; `plan` turns it into moves and `check` into findings, so the two never
 // disagree. Cut lines get the kerf (outside edges offset out by half of it, holes in by half), tabs, an order that cuts inside before outside, and a start near the head; score and engrave lines are followed on the line, once.
-import type { PartSnapshot, Point2, Layer, Settings } from "../../contract/index.ts";
+import type { PartSnapshot, Point2, Layer, Settings, FlatPiece } from "../../contract/index.ts";
 import { loopsOf, polygonOf, depthsOf, boxOf, lengthOf, insidePolygon, containedIn } from "../../core/outline.ts";
 import { groupParts } from "../../core/nest.ts";
 import { layoutLoops } from "./layout.ts";
@@ -70,10 +70,13 @@ export function runsWithTabs(poly: readonly Point2[], tabs: number, width: numbe
   return runs;
 }
 
-export function prepare(part: PartSnapshot, s: Settings, machineSheet: { w: number; h: number } | null = null): Prepared2 {
+export function prepare(part: PartSnapshot, s: Settings, machineSheet: { w: number; h: number } | null = null, marks: Record<string, string> = {}): Prepared2 {
   const problems: Problem[] = [];
   const paths: Record<Layer, Prepared[]> = { cut: [], score: [], engrave: [] };
-  const loops0 = loopsOf((part.outlines ?? []).flatMap((o) => o.pieces));
+  // the route's own marks say what a line is for (`in_603`): a piece named in them is cut, scored or engraved as marked, else as the part says, else cut
+  const roleOf = (ref?: string): Layer | undefined => { const m = ref ? marks[ref] : undefined; return m === "cut" || m === "score" || m === "engrave" ? m : undefined; };
+  const marked = (part.outlines ?? []).flatMap((o) => o.pieces).map((p): FlatPiece => { const m = roleOf(p.ref); return m ? { ...p, layer: m } : p; });
+  const loops0 = loopsOf(marked);
   const kerf = num(s, "kerf", 0), tabs = Math.round(num(s, "tabs", 0)), tabWidth = num(s, "tabWidth", 1.5);
   const sheetW = num(s, "sheetWidth", 0) > 0 ? num(s, "sheetWidth", 0) : machineSheet?.w, sheetH = num(s, "sheetHeight", 0) > 0 ? num(s, "sheetHeight", 0) : machineSheet?.h;
   const sheet = sheetW && sheetH ? { w: sheetW, h: sheetH } : null;

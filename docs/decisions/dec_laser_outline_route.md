@@ -3,7 +3,7 @@ id: dec_laser_outline_route
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_569, in_570, in_571, in_572, in_573
+human_input: in_569, in_570, in_571, in_572, in_573, in_603
 date: 2026-11-16
 depends_on:
   - dec_manufacturing_prep: this is its v1 beam outline cutting (profile with tabs and kerf, layers, G-code) as the first route
@@ -16,7 +16,7 @@ alternative_to:
 
 `in_569` asked for the laser outline route, the first of `dec_manufacturing_prep`'s v1. **Built; the details are the AI's choices (provisional until the human accepts them).**
 
-- **What it takes:** a flat drawing (a sketch, or a flat face of a body) as the contract's part (`interaction/partsnapshot.ts`, the snapshot builder: the one place that knows the scene and turns it into plain data). The drawing's lines keep their layer (*cut*, *score*, *engrave*, `in_563`).
+- **What it takes:** a flat drawing (a sketch, or a flat face of a body) as the contract's part (`interaction/partsnapshot.ts`, the snapshot builder: the one place that knows the scene and turns it into plain data). Each line has a `ref` (the app's name for it); what a line is for (*cut*, *score*, *engrave*) is **the laser route's own mark** (`in_603`, `prin_manufacture_agnostic`), not the drawing's: the ⋯ menu's **Laser layers…** row sets it for the selected lines (a figure's lines and holes, a line, a circle), it is kept in the project's manufacturing section by the line's ref (`Scene.manufacturing.marks` by `part|route`, command `setMarks`, one undo step), the dialog says how many are marked, the route takes it in its context (`RouteContext.marks`) and the plan keeps it; a line with no mark is cut; a mark of a line that was deleted is left unused. The drawing is not changed, and the ring has no layer category. An old project's marks (the command `setUse` of `in_563`) are read as these marks, so it still opens.
 - **The route** (`manufacturing/routes/laser-outline/`): `fit` (a flat drawing with lines in it; its size in its own plane against the machine's work area), `check` (findings) and `plan` (the toolpath). It has no `emit`: the file is written by the shared stage from a dialect (`in_567`). The geometry is worked out once, in `prepare.ts`, so `plan` and `check` cannot disagree.
 - **Cut lines:** pieces that meet are joined into loops (`core/outline.ts`); a loop inside another is a hole (even-odd nesting); with a **kerf** the path of an outside edge is moved out by half of it and a hole's in by half (`core/offset.ts`: mitred corners, so the part's sharp corners stay sharp), so the part comes out the size it was drawn; with **no kerf and no tabs lines and arcs stay lines and arcs** (a circle is two half arcs); **tabs** are bridges left on each outside edge (a number and a width, evenly round it); everything is cut **inside before outside, nearest next**, a loop started at the vertex nearest the head (`core/order.ts`); **passes** repeat the cut.
 - **Score and engrave lines** are followed on the line, once, at their own power and speed.

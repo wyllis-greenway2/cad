@@ -3,8 +3,7 @@ import type { Intent } from "../../shared/input.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { objectOf } from "../objects.ts";
 import { faceEdges } from "../offsetbody.ts";
-import type { Part, Use } from "../../operation/part.ts";
-import { drawnOf } from "../exportsketch.ts";
+import type { Part } from "../../operation/part.ts";
 import { startCut, cutStep, cutParts } from "../cut.ts";
 import { scene as sceneOf, selection as selectionOf, run } from "../session.ts";
 import { nextId } from "../../operation/scene.ts";
@@ -147,20 +146,4 @@ export function applyCut(s: AppState): AppState {
   if (next.message) return say({ ...s, cut: null, session: next }, next.message);
   const after = sceneOf(next);
   return { ...withSession(s, { ...next, click: { ...next.click, selection: [] }, message: s.cut.keep.length > 1 && s.cut.join ? "the parts kept are joined where they touch" : null }), cut: null };
-}
-
-/** Why a layer cannot be marked now: it needs drawn lines or circles, selected, or a figure or a plane. */
-export function whyNotUse(session: Session): string | null {
-  const sc = sceneOf(session);
-  const sel = selectionOf(session).map((r) => sc.parts[r]).filter((p): p is NonNullable<typeof p> => !!p);
-  return sel.length && drawnOf(sc, sel).size ? null : "select a drawn figure, line or circle first";
-}
-/** Mark what is selected as cut, score or engrave (`in_563`): the layer of its lines in an exported SVG or DXF. One step to undo. */
-export function doUse(s: AppState, use: Use): AppState {
-  const why = whyNotUse(s.session);
-  if (why) return say({ ...s, menu: null }, why);
-  const sc = sceneOf(s.session);
-  const refs = [...drawnOf(sc, selectionOf(s.session).map((r) => sc.parts[r]!).filter(Boolean))];
-  const next = run(s.session, { type: "setUse", refs, use });
-  return next.message ? say({ ...s, menu: null }, next.message) : { ...withSession(s, { ...next, message: `${refs.length} ${refs.length === 1 ? "line" : "lines"} marked ${use}` }), menu: null };
 }

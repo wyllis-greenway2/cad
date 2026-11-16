@@ -2748,3 +2748,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_602 — 2026-11-16 — directive
 > can you update to the latest claude/inspiring-pascal-l342k7 so we dont get to far behind?
 (asks for this branch to be brought up to date with claude/inspiring-pascal-l342k7)
+
+## in_603 — 2026-11-16 — directive
+> Move the layer marks into the laser route
+(answers the question after in_602: the Cut, Score and Engrave marks, which sat on drawn lines in the modeler, move into the laser route, in line with prin_manufacture_agnostic)

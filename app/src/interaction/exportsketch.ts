@@ -1,7 +1,7 @@
 // Export a flat drawing as SVG or DXF (`dec_export_flat`): the lines, arcs and circles of a sketch, or the outline of a flat face of the body, as they lie on their plane (x along the plane's first direction, y along its second), millimetres.
 import type { Ref } from "../shared/ref.ts";
 import type { Scene } from "../operation/scene.ts";
-import type { Part, Plane, Line, Use } from "../operation/part.ts";
+import type { Part, Plane, Line } from "../operation/part.ts";
 import { pointOf, localOf, curveMid } from "../operation/part.ts";
 import { bodyOutline, bodyOutlines } from "./offsetbody.ts";
 import { svgText, dxfText, boundsOf } from "../compiler/flatfile.ts";
@@ -83,11 +83,8 @@ export function sketchPieces(scene: Scene, selection: readonly Ref[]): Pieces {
   if (planes.size > 1 || planes.has(null)) return { ok: false, error: `the drawing is on ${planes.size} planes: select the sketch to export (a figure, its lines, or its plane)` };
   const pl = scene.parts[[...planes][0]!];
   if (!pl || pl.kind !== "plane") return { ok: false, error: FLAT_NOTHING };
-  // when any of it is marked score or engrave the pieces carry their layer (what is not marked is cut); when none is, there are no layers, as before
-  const uses = [...drawn].map((r) => (scene.parts[r] as { use?: Use }).use);
-  const layered = uses.some((u) => u !== undefined);
-  const pieces = [...drawn].flatMap((r) => { const q = pieceOf(scene, pl, scene.parts[r]!); return q ? [layered ? { ...q, layer: (scene.parts[r] as { use?: Use }).use ?? "cut" } as Piece : q] : []; });
-  return pieces.length ? { ok: true, pieces, what: (sel.length ? "the selected sketch" : "the drawing") + (layered ? " in layers" : ""), plane: pl } : { ok: false, error: FLAT_NOTHING };
+  const pieces = [...drawn].flatMap((r) => { const q = pieceOf(scene, pl, scene.parts[r]!); return q ? [{ ...q, ref: r } as Piece] : []; }); // (each piece knows the line it is of, so a route's marks can name it, `in_603`)
+  return pieces.length ? { ok: true, pieces, what: (sel.length ? "the selected sketch" : "the drawing"), plane: pl } : { ok: false, error: FLAT_NOTHING };
 }
 
 /** Is there a flat drawing to export (for the menu items). */

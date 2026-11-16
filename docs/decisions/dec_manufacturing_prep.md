@@ -3,7 +3,7 @@ id: dec_manufacturing_prep
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_548, in_551, in_553, in_554, in_560, in_572, in_561
+human_input: in_548, in_551, in_553, in_554, in_560, in_572, in_603, in_561
 date: 2026-11-16
 depends_on:
   - dec_manufacturing_contract: preparation is the Prepare and Check stages, and a split is a derivation step in the graph

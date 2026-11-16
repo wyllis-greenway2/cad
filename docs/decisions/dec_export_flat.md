@@ -3,7 +3,7 @@ id: dec_export_flat
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_522, in_525, in_563, in_564
+human_input: in_522, in_525, in_563, in_564, in_603
 date: 2026-11-16
 depends_on:
   - dec_export_formats: the same file service (`saveBytes`) and the same menu rows; this adds the two flat formats (SVG, DXF) that `dec_import_export_menu` point 3 puts after STEP
@@ -21,7 +21,7 @@ alternative_to:
 
 **Checked outside the tests (`ezdxf` and `svgpathtools`):** a block's top with a round hole gives a DXF and an SVG whose total lengths are both 145.1327 mm (the rectangle and the hole) and `ezdxf`'s audit finds no errors; a half circle gives 31.4159 mm both ways.
 
-**Layers (`in_563`, groundwork of `dec_manufacturing_prep`):** a drawn line or circle can be marked **Cut, Score or Engrave** (the ring's *Layer* category; `use` on the part, command `setUse`, one step to undo; cut is the usual and is stored as nothing; a figure selected marks its lines and the holes in it). A file made from a drawing with anything marked carries layers: the SVG has one group for each (`id` and Inkscape layer name `cut`, `score`, `engrave`, in the usual colours red, blue and black), the DXF a layer table (`CUT` colour 1, `SCORE` 5, `ENGRAVE` 7, linetype CONTINUOUS) with each entity on its layer; what is not marked is cut; pieces that meet are joined only within a layer; a drawing with nothing marked exports exactly as before. **On the screen (`in_564`):** a line marked *score* is drawn as blue dashes and one marked *engrave* as a thicker orange line (`settings.theme.markScore`, `markEngrave`); cut, the usual, stays the thin charcoal line, so a drawing with nothing marked looks as before. The lists of lines are made by `interaction/linepairs.ts` (pure), the colours in `ui/view/content.ts`. Layers are not read back by the importer yet. Faces of a body export as before (no layers).\n\n**Not built:** colours and line weights beyond the layer colours; text and dimensions; ellipses and splines (the app has none); a choice of what to export beyond the selection; units other than mm; DXF in a newer version with polylines; several sketches in one file.
+**Layers (`in_563`, moved by `in_603`):** the writers can carry layers: a piece that says what it is for (*cut*, *score*, *engrave*, `Piece.layer`) is written in an SVG group of that name (`id` and Inkscape layer name, in the usual colours red, blue and black) and a DXF layer (`CUT` colour 1, `SCORE` 5, `ENGRAVE` 7, linetype CONTINUOUS), pieces that meet are joined only within a layer, and a drawing whose pieces have no layer is the old one-group, one-layer file. **The modeler's drawing has no layers any more:** the ring's Layer category, the mark on a drawn line, its drawing in blue dashes and orange on the screen, and the layers of the app's own SVG and DXF export (all `in_563` and `in_564`) were taken out by `in_603`, because what a line is for is route knowledge and the modeler knows nothing of how a part will be made (`prin_manufacture_agnostic`). The marks are now the laser route's own (`dec_laser_outline_route`), kept in the project's manufacturing section; a route that writes an SVG or DXF with layers (not built) will use these writers.
 
 ## Rationale
 

@@ -1,5 +1,4 @@
-// Lines marked Score or Engrave look different on the screen (`in_564`): they are in their own lists, which the view draws in blue dashes and thicker orange; cut is the usual charcoal list; a mark never changes what is drawn, only how.
-// (The colours themselves are in `ui/view/content.ts`, which is not run by the tests: nothing here is browser-checked.)
+// The lines the view draws from (`interaction/linepairs.ts`) and the circle's points (`math/ring.ts`). (Until `in_603` the lines marked score or engrave were drawn apart here; the modeler no longer knows what a line is for, `prin_manufacture_agnostic`.)
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";
@@ -11,42 +10,14 @@ import { linePairs } from "../src/interaction/linepairs.ts";
 import { ringPoints } from "../src/math/ring.ts";
 
 await kernel.init();
-const XY = worldRef("XY");
 
-function drawn() {
+test("every drawn line and circle is in the one list: four sides and a circle's many small pieces", () => {
   let s = createSession(kernel);
-  const r = drawRectangle(scene(s), XY, [0, 0, 0], [40, 20, 0], [1, 0, 0], [0, 1, 0]);
-  s = run(s, r.command);
-  const c = drawCircle(scene(s), XY, [10, 10, 0], 4);
-  s = run(s, c.command);
-  return { s, r, c };
-}
-
-test("nothing marked: every line is in the one charcoal list, as before", () => {
-  const { s } = drawn();
-  const sc = scene(s);
-  assert.ok(linePairs(sc, consumed(sc)).length > 24, "four sides and a circle");
-  assert.equal(linePairs(sc, consumed(sc), "score").length, 0);
-  assert.equal(linePairs(sc, consumed(sc), "engrave").length, 0);
-});
-
-test("a line marked score or engrave leaves the charcoal list and is in its own", () => {
-  const { s, r, c } = drawn();
-  const all = linePairs(scene(s), consumed(scene(s))).length;
-  const marked = run(run(s, { type: "setUse", refs: r.lines, use: "score" }), { type: "setUse", refs: [c.circle], use: "engrave" });
-  const sc = scene(marked);
-  const [cut, score, engrave] = (["cut", "score", "engrave"] as const).map((u) => linePairs(sc, consumed(sc), u));
-  assert.equal(cut!.length, 0, "everything is marked, nothing is left in the charcoal list");
-  assert.equal(score!.length, 4 * 6, "four sides, two points of three numbers each");
-  assert.equal(score!.length + engrave!.length, all, "the same lines, only sorted");
-  assert.ok(engrave!.length > 24, "the circle's many small pieces");
-});
-
-test("marking cut again puts the line back in the charcoal list", () => {
-  const { s, r } = drawn();
-  const back = run(run(s, { type: "setUse", refs: r.lines, use: "score" }), { type: "setUse", refs: r.lines, use: "cut" });
-  assert.equal(linePairs(scene(back), consumed(scene(back)), "score").length, 0);
-  assert.equal(linePairs(scene(back), consumed(scene(back))).length, linePairs(scene(s), consumed(scene(s))).length);
+  s = run(s, drawRectangle(scene(s), worldRef("XY"), [0, 0, 0], [40, 20, 0], [1, 0, 0], [0, 1, 0]).command);
+  const sides = linePairs(scene(s), consumed(scene(s)));
+  assert.equal(sides.length, 4 * 6, "four sides, two points of three numbers each");
+  s = run(s, drawCircle(scene(s), worldRef("XY"), [10, 10, 0], 4).command);
+  assert.ok(linePairs(scene(s), consumed(scene(s))).length > sides.length + 24, "and the circle");
 });
 
 test("a circle's points do not depend on how it is turned: the ring is closed and every point is a radius from the centre", () => {
