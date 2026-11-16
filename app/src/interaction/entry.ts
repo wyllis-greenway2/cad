@@ -191,7 +191,7 @@ export function loftEntries(scene: Scene, op: Op): Entry[] {
   if (op.kind !== "loft") return [];
   const starts = loftNumbers(scene, op).map((x): Entry => ({ fields: [{ label: `Where sketch ${x.sketch} starts (corner 1 to ${x.sides})`, short: `${x.sketch}`, value: String(x.value), active: false, typed: false, index: x.index }], unit: "", at: x.at }));
   // and the distance from each sketch to the next, to type (`in_490`)
-  const gaps = loftGapNumbers(scene, op).map((x): Entry => { const typed = (op.loftGaps?.[x.sketch - 1] ?? "") !== ""; return { fields: [{ label: `Distance from sketch ${x.sketch} to sketch ${x.sketch + 1}, along the normal of the first one's plane`, short: "↔", value: typed ? op.loftGaps![x.sketch - 1]! : roundedText(x.distance), active: false, typed, index: x.index, unit: "mm" }], unit: "mm", at: x.at }; });
+  const gaps = loftGapNumbers(scene, op).map((x): Entry => { const typed = (op.loftGaps?.[x.sketch - 1] ?? "") !== ""; return { fields: [{ label: `Distance from sketch ${x.sketch} to sketch ${x.sketch + 1}, ${op.loftStraight ? "along the straight line between their middles" : "along the normal of the first one's plane"}`, short: "↔", value: typed ? op.loftGaps![x.sketch - 1]! : roundedText(x.distance), active: false, typed, index: x.index, unit: "mm" }], unit: "mm", at: x.at }; });
   return [...starts, ...gaps];
 }
 /** The numbers of a scale along axes (`in_390`): one bubble at the tip of each axis arrow with the factor along it, to type. */

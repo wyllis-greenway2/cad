@@ -67,7 +67,7 @@ function normalOfFigure(scene: Scene, fig: Figure): Vec3 | null {
   return pl?.kind === "plane" ? normalOfPlane(pl) : null;
 }
 /**
- * Where the sketches stand with the distances typed between them (`in_490`, `in_491`): the distance from one sketch to the next is measured along the normal of the earlier sketch's plane (turned to point
+ * Where the sketches stand with the distances typed between them (`in_490`, `in_491`): the distance from one sketch to the next is measured (unless `loftStraight`) along the normal of the earlier sketch's plane (turned to point
  * toward the later one), from the earlier sketch's middle to the later's; typing it moves that sketch and all after it along that normal (their distances to each other stay). Where the later sketch lies in the
  * earlier one's plane there is no distance along the normal: the straight distance between the middles is used. `shift[i]` is how far sketch i is moved, `mids` where the middles end up, `gaps` the distances now.
  */
@@ -85,7 +85,7 @@ export function loftPlaced(scene: Scene, op: Op): { shift: Vec3[]; mids: Vec3[];
       const v = sub(add(c, t), mids[i - 1]!);
       const n = normalOfFigure(scene, figs[i - 1]!);
       const along = n ? dot(v, n) : 0;
-      const dir: Vec3 = n && Math.abs(along) > 1e-9 ? scale(n, Math.sign(along)) : Math.hypot(...v) > 1e-9 ? scale(v, 1 / Math.hypot(...v)) : [0, 0, 0];
+      const dir: Vec3 = n && !op.loftStraight && Math.abs(along) > 1e-9 ? scale(n, Math.sign(along)) : Math.hypot(...v) > 1e-9 ? scale(v, 1 / Math.hypot(...v)) : [0, 0, 0];
       d = dot(v, dir);
       const typed = typedNumber(op.loftGaps?.[i - 1] ?? "");
       if (typed !== null && typed >= 0 && Math.hypot(...dir) > 0) { t = add(t, scale(dir, typed - d)); d = typed; }
@@ -117,6 +117,8 @@ export function loftChips(scene: Scene, op: Op): LoftChip[] {
   const chips: LoftChip[] = [
     { id: "smooth", label: "Smooth", title: "Joined by a smooth surface through every sketch", on: !op.loftRuled },
     { id: "ruled", label: "Ruled", title: "Straight between each two sketches", on: !!op.loftRuled },
+    { id: "normal", label: "Along normal", title: "The distances between the sketches are measured along the normal of the earlier sketch's plane, so a sketch off to the side stays there when its distance is typed", on: !op.loftStraight },
+    { id: "straight", label: "Straight line", title: "The distances between the sketches are measured along the straight line between their middles, and typing one moves the sketch along that line", on: !!op.loftStraight },
     { id: "split", label: "Split to match", title: "Where the sketches have different numbers of sides, cut the ones with fewer (a side in two, a circle into arcs) so they match; the shapes do not change", on: !!op.loftSplit },
   ];
   figs.forEach((f, i) => {
@@ -131,6 +133,8 @@ export function loftChips(scene: Scene, op: Op): LoftChip[] {
 export function loftChoice(scene: Scene, op: Op, id: string): Op {
   if (id === "smooth") return { ...op, loftRuled: false };
   if (id === "ruled") return { ...op, loftRuled: true };
+  if (id === "normal") return { ...op, loftStraight: false };
+  if (id === "straight") return { ...op, loftStraight: true };
   if (id === "split") return { ...op, loftSplit: !op.loftSplit };
   const [what, k] = id.split(":");
   const i = Number(k);

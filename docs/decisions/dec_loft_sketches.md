@@ -3,7 +3,7 @@ id: dec_loft_sketches
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_491, in_490, in_489, in_488, in_485, in_431, in_432
+human_input: in_492, in_491, in_490, in_489, in_488, in_485, in_431, in_432
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -18,7 +18,9 @@ alternative_to:
 
 **Number bubbles (`in_488`, `in_489`):** the human chose the start point of each sketch as the loft's number (not the distances between sketches). A bubble at each sketch's start dot (`loftEntries`) shows the corner it starts at, 1 to its number of sides; a number typed moves the start there (`loftStartTyped`, going round past the last), as pressing Start k does. A circle has none. The Start / Reverse chips stay.
 
-**Distance bubbles (`in_490`):** on the line from each sketch's middle (the mean of its corners, a circle's centre) to the next, a bubble with the distance between them (`loftEntries`, `loftGapNumbers`), **measured along the normal of the earlier sketch's plane** (`in_491`; turned to point at the later sketch; the straight distance between the middles only where the later sketch lies in the earlier one's plane); a number typed (field 10 + the gap, kept as text in `Op.loftGaps`) moves that sketch and every later one straight along that normal, so a sketch off to the side stays there and the gaps after it stay. Nothing is made by typing: the preview shows the moved sketches, and Enter makes one command (the sketches moved by `transformFigure`, then the loft: one undo), `loftCommand` / `loftPlaced`. **Found and fixed:** the kernel's cache key for a loft held its sketches' names and not their places, so a loft whose sketches had moved (by this or by any edit) was answered with the old body; the key now includes them (`interpreter.mjs`, `loft.test.ts`).
+**Distance bubbles (`in_490`):** on the line from each sketch's middle (the mean of its corners, a circle's centre) to the next, a bubble with the distance between them (`loftEntries`, `loftGapNumbers`), **measured along the normal of the earlier sketch's plane** (`in_491`; the default; turned to point at the later sketch; the straight distance between the middles only where the later sketch lies in the earlier one's plane); a number typed (field 10 + the gap, kept as text in `Op.loftGaps`) moves that sketch and every later one straight along that normal, so a sketch off to the side stays there and the gaps after it stay. Nothing is made by typing: the preview shows the moved sketches, and Enter makes one command (the sketches moved by `transformFigure`, then the loft: one undo), `loftCommand` / `loftPlaced`. **Found and fixed:** the kernel's cache key for a loft held its sketches' names and not their places, so a loft whose sketches had moved (by this or by any edit) was answered with the old body; the key now includes them (`interpreter.mjs`, `loft.test.ts`).
+
+**Choice of measure (`in_492`):** two chips, *Along normal* (the default) and *Straight line* (`Op.loftStraight`), choose how the distances are measured and moved: along the earlier sketch's plane normal, or along the straight line between the sketches' middles.
 
 ## Rationale
 

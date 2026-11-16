@@ -2294,3 +2294,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_491 — 2026-11-16 — directive
 > Do the loft's along-the-normal distance next
 (asks for what in_490 left unbuilt: the loft's distance between sketches measured along the normal of the sketch's plane, not along the straight line between their middles)
+
+## in_492 — 2026-11-16 — directive
+> Do the choice between the two distance measures next
+(asks for what in_491 left unbuilt: a choice, for the loft, between the distance along the normal of the sketch's plane and the straight distance between the sketches' middles)

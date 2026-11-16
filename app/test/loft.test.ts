@@ -99,7 +99,7 @@ test("the Loft operation: with two sketches selected it opens with its chips and
   st = reduce(st, { type: "begin", name: "loft" }, env);
   assert.equal(st.op?.kind, "loft");
   const f = frameOf(st, { w: 800, h: 600 });
-  assert.deepEqual(f.loftKinds!.map((k) => k.id), ["smooth", "ruled", "split", "start:0", "rev:0", "start:1", "rev:1"]);
+  assert.deepEqual(f.loftKinds!.map((k) => k.id), ["smooth", "ruled", "normal", "straight", "split", "start:0", "rev:0", "start:1", "rev:1"]);
   assert.equal(f.highlight.amber.length, 2, "a start dot on each sketch");
   st = reduce(st, { type: "loftKind", id: "start:1" }, env);
   st = reduce(st, { type: "loftKind", id: "ruled" }, env);
@@ -180,4 +180,32 @@ test("the distance is measured along the normal of the earlier sketch's plane, s
   const top = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn" && Math.abs(p.at[2] - 30) < 1e-6).map((p) => (p as unknown as { at: number[] }).at[0]!);
   assert.equal(top.length, 4, "the second sketch is at 30");
   assert.ok(Math.min(...top) > 7.99 && Math.max(...top) < 12.01, "and still off to the side where it was");
+});
+
+test("the distance can be measured along the straight line between the middles instead, by a chip; typing then moves the sketch along that line (`in_492`)", () => {
+  let s = createSession(kernel);
+  const r1 = drawRectangle(scene(s), XY, [-5, -5, 0], [5, 5, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r1.command);
+  const up = planeAt(s, 20);
+  s = up.s;
+  const r2 = drawRectangle(scene(s), up.ref as never, [8, -2, 20], [12, 2, 20], [1, 0, 0], [0, 1, 0]); // middle at (10, 0, 20)
+  s = run(s, r2.command);
+  const faces = [loopFaceRef(r1.lines), loopFaceRef(r2.lines)];
+  let st = { ...createState({ ...s, click: { ...s.click, selection: faces as never } }), cam: homeCamera() };
+  st = reduce(st, { type: "begin", name: "loft" }, env);
+  const gap = () => frameOf(st, { w: 800, h: 600 }).entries.find((x) => x.fields[0]!.index === 10)!.fields[0]!;
+  assert.equal(gap().value, "20");
+  st = reduce(st, { type: "loftKind", id: "straight" }, env);
+  assert.equal(st.op!.loftStraight, true);
+  assert.equal(gap().value, "22.36", "the straight distance between the middles");
+  st = reduce(st, { type: "entry", field: 10, text: "44.72" } as never, env);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  const xs = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn" && p.at[2] > 30).map((p) => (p as unknown as { at: number[] }).at);
+  assert.equal(xs.length, 4, "the second sketch went up the line: about 40 high");
+  assert.ok(Math.abs(Math.max(...xs.map((a) => a[2]!)) - 40) < 0.1 && Math.min(...xs.map((a) => a[0]!)) > 17, "and out along it, twice as far");
+  st = reduce(createState({ ...s, click: { ...s.click, selection: faces as never } }), { type: "begin", name: "loft" }, env);
+  st = reduce(st, { type: "loftKind", id: "straight" }, env);
+  st = reduce(st, { type: "loftKind", id: "normal" }, env);
+  assert.equal(st.op!.loftStraight, false, "and back");
 });
