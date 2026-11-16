@@ -2605,3 +2605,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_567 — 2026-11-16 — question
 > okay now why cant we do worm gears? isn't that just a rotated rack gear?
 (asks why worm gears were left out of the helical gear tool and whether a worm is just a rotated rack)
+
+## in_568 — 2026-11-16 — question
+> I have an idea. what if we made a throated wheel by using the loft? so we could have three gear profiles in the twisted layers, and the middle one could be a smaller diameter, and the outer ones larger? or would that not work geometrically or feasibly?
+(asks whether a throated worm wheel can be made as a loft through three or so turned gear outlines, the middle one smaller and the outer ones larger)
