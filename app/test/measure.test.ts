@@ -100,3 +100,41 @@ test("the Measure tab, and the tape measure entry opens it", () => {
   assert.equal(st2.tape, true);
   assert.equal(st2.panel, "measure");
 });
+
+// ---- the clearance between two bodies (`in_568`) ----
+function two(gap: number, overlap = false) {
+  let s = createSession(kernel);
+  const a = drawRectangle(scene(s), XY, [0, 0, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]); s = run(s, a.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: a.lines, params: { depth: 10 } } } as never);
+  const x = overlap ? 5 : 10 + gap;
+  const b = drawRectangle(scene(s), XY, [x, 0, 0], [x + 10, 10, 0], [1, 0, 0], [0, 1, 0]); s = run(s, b.command);
+  s = run(s, { type: "addStep", step: { id: "s_101", type: "extrude", parts: b.lines, params: { depth: 10, mode: "new" } } } as never);
+  return s;
+}
+const bodyRefs = (s: ReturnType<typeof two>) => (Object.values(scene(s).parts).filter((p) => p.kind === "body") as unknown as { ref: Ref; id?: string }[]).map((b) => b.ref);
+
+test("two bodies: the nearest distance between their surfaces, touching, and inside each other", () => {
+  const apart = two(20);
+  const [a, b] = bodyRefs(apart);
+  assert.equal(bodyRefs(apart).length, 2);
+  let r = lines(measureReport(scene(apart), [a!, b!]));
+  const d = parseFloat(r["Between the two bodies|Nearest"]!);
+  assert.ok(Math.abs(d - 20) < 0.01, `20 mm apart: ${d}`);
+  assert.equal(r["Body 1|To Body 2"], r["Between the two bodies|Nearest"], "each body says how far the other is");
+  const touch = two(0);
+  r = lines(measureReport(scene(touch), bodyRefs(touch)));
+  assert.match(r["Between the two bodies|Nearest"]!, /touching|^0 mm|^0\.0/);
+  const into = two(0, true);
+  r = lines(measureReport(scene(into), bodyRefs(into)));
+  assert.equal(r["Between the two bodies|Overlap"], "they go into each other");
+});
+
+test("the clearance set for hard bodies is said to be met or not", () => {
+  let s = two(0.3);
+  s = run(s, { type: "setClearance", value: 0.5 } as never);
+  let r = lines(measureReport(scene(s), bodyRefs(s)));
+  assert.match(r["Between the two bodies|Nearest"]!, /less than the 0.5 mm clearance set/);
+  s = run(s, { type: "setClearance", value: 0.2 } as never);
+  r = lines(measureReport(scene(s), bodyRefs(s)));
+  assert.match(r["Between the two bodies|Nearest"]!, /at least the 0.2 mm clearance set/);
+});

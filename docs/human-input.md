@@ -2604,3 +2604,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_567 — 2026-11-16 — directive
 > yes start on the measure report
 (approves the last item of the order of `in_546`: a richer measure report)
+
+## in_568 — 2026-11-16 — directive
+> yes start on the clearance check
+(approves the next item: the nearest distance between two bodies and the overlap of two, the clearance a fit needs, in the measure report)

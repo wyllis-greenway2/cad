@@ -3,7 +3,7 @@ id: dec_measure_report
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_546, in_567
+human_input: in_546, in_567, in_568
 date: 2026-11-16
 depends_on:
   - dec_model_panel: the report is the Measure tab of that panel
@@ -22,7 +22,15 @@ depends_on:
 6. **Weight:** the solid's volume at `settings.measure.densityGramsPerCm3` (1.24, PLA). It says "solid" and the density it used: a printed part is lighter by its infill and walls, which the app does not know.
 7. **Left out, not guessed:** a number the model does not have is not shown.
 
-**Not done (later, each needing its own approval):** the nearest distance between two bodies and the overlap of two (the clearance a fit needs: it needs the meshes of two bodies tested against each other); the centre of mass; the perimeter of a face; the length of a chain of edges in one go; wall thickness and overhang checks for printing; a copy of the report as text; the units in inches.
+## The clearance between two bodies (`in_568`)
+
+- **Two bodies selected:** a section "Between the two bodies": **"they go into each other"** (their surfaces cross, or one is wholly in the other), **"touching"** (nearer than 0.01 mm), or **the nearest distance** between their surfaces in mm. If a clearance is set for hard bodies (`Scene.clearance`, `dec_hard_bodies`) it says whether the distance is at least that or less.
+- **Any body:** with more than one body each body's section has a line "To Body k" for up to five others, so the clearance of a part to its neighbours is seen without selecting two.
+- **How:** `interaction/clearance.ts`, from the triangles of the bodies as drawn (`hard.ts` keeps them; `meshOf` is exported) and the tests of the hard bodies (`collide.ts`): `collides(a, treeB, c)` says whether any two triangles come nearer than `c`, so the distance is found by growing a bound and then halving to a thousandth of a millimetre; crossing is the "deep" test; kept for the scene (the panel is made again every frame).
+- **Accuracy, said in the report:** a mesh of a round face lies inside its true surface by a few hundredths of a millimetre, so a distance between round faces reads that much larger than the true one; for flat faces it is exact to the halving.
+- **Not measured:** the volume of an overlap (it needs a boolean in the kernel), which place the nearest points are at, and wall thickness.
+
+**Not done (later, each needing its own approval):** the volume of an overlap and where the nearest points are; the centre of mass; the perimeter of a face; the length of a chain of edges in one go; wall thickness and overhang checks for printing; a copy of the report as text; the units in inches.
 
 ## Rationale
 

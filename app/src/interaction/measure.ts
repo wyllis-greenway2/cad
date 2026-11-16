@@ -10,6 +10,8 @@ import { pointOf, curvePoints } from "../operation/part.ts";
 import { readingsOf, readingsBetween } from "./tape.ts";
 import { surfaceTriangles } from "./surfaces.ts";
 import { settings } from "../shared/settings.ts";
+import { clearanceBetween } from "./clearance.ts";
+import type { Clearance } from "./clearance.ts";
 
 export interface MeasureLine { label: string; value: string }
 export interface MeasureSection { title: string; lines: MeasureLine[] }
@@ -55,6 +57,8 @@ function bodySection(scene: Scene, body: Extract<Part, { kind: "body" }>, title:
     lines.push({ label: "Lowest, highest", value: `Z ${r2(min[2])} to ${r2(max[2])} mm` });
     lines.push({ label: "Middle of its box", value: `${r2((min[0] + max[0]) / 2)}, ${r2((min[1] + max[1]) / 2)}, ${r2((min[2] + max[2]) / 2)} mm` });
   }
+  const others = bodies(scene).filter((o) => o.ref !== body.ref);
+  for (const o of others.slice(0, 5)) lines.push({ label: `To Body ${bodies(scene).findIndex((x) => x.ref === o.ref) + 1}`, value: clearanceWords(clearanceBetween(scene, body.ref, o.ref), scene) });
   lines.push({ label: "Made of", value: `${faces.length} faces, ${parts.filter((p) => p.kind === "line").length} edges, ${parts.filter((p) => p.kind === "corner").length} corners` });
   return { title, lines };
 }
@@ -84,6 +88,13 @@ const edgeSection = (scene: Scene, p: Line, title: string): MeasureSection => {
   return { title, lines };
 };
 
+const clearanceWords = (c: Clearance | null, scene: Scene): string => {
+  if (!c) return "not known";
+  if (c.kind === "overlap") return "they go into each other";
+  if (c.kind === "touching") return "touching (nearer than 0.01 mm)";
+  const need = scene.clearance;
+  return `${mm(c.mm)}${need ? (c.mm >= need ? `, at least the ${r2(need)} mm clearance set` : `, less than the ${r2(need)} mm clearance set`) : ""}`;
+};
 /** What the selection is, in numbers: sections of lines. With nothing selected, the whole model. */
 export function measureReport(scene: Scene, selection: readonly Ref[]): MeasureSection[] {
   const sel = selection.filter((r) => r in scene.parts);
@@ -107,6 +118,7 @@ export function measureReport(scene: Scene, selection: readonly Ref[]): MeasureS
   const faces = sel.filter((r) => scene.parts[r]!.kind === "plane" && scene.parts[r]!.origin === "body");
   const edges = picked("line");
   const corners = picked("corner").filter((r) => !(scene.parts[r] as { derived?: boolean }).derived);
+  if (bodyRefs.length === 2) { const c = clearanceBetween(scene, bodyRefs[0]!, bodyRefs[1]!); out.push({ title: "Between the two bodies", lines: [{ label: c?.kind === "overlap" ? "Overlap" : "Nearest", value: clearanceWords(c, scene) }, ...(c?.kind === "distance" ? [{ label: "Measured on", value: "the surfaces as drawn (the true surface of a round face is a few hundredths of a millimetre nearer than its mesh)" }] : [])] }); }
   bodyRefs.slice(0, 4).forEach((r) => out.push(bodySection(scene, scene.parts[r] as Extract<Part, { kind: "body" }>, `Body ${all.findIndex((b) => b.ref === r) + 1}`)));
   if (faces.length === 1 || faces.length === 2) {
     faces.forEach((r, i) => {
