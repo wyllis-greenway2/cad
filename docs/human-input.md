@@ -2275,3 +2275,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_490 — 2026-11-16 — question
 > Yes except it seems like we need to resolve the sketch Identity issue. So originally I was thinking that a sketch moved and morphed with the object it produced, it literally turned into a part of the object. Do you think this is the right method to keep? or do you think we should consider the body and the sketch a separate thing and the body can morph away from the sketch that originally produced it?
 (agrees with the plan of `in_489` and the order and the single panel, but says the sketch identity question must be settled first: should a sketch move and morph with the body it made and become part of it, or are the sketch and the body separate things so that the body can morph away from the sketch that made it; asks what I think)
+
+## in_491 — 2026-11-16 — question
+> I don't really see the difference though? because another way to look at is just where the sketch lives? either in its original drawn spot, or moves with the surface of the body it created?
+(says the two models of `in_490` do not look different to them, and offers another way to see it: only where the sketch lives, either in its original drawn place or moving with the surface of the body it made)
