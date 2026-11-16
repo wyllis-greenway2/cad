@@ -2556,3 +2556,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_554 — 2026-11-16 — directive
 > Go with your recommendation on the round controls
 (approves `q_ui_round_controls`: leave the X Y Z, ⋯, Cut and world-orb controls with their own looks)
+
+## in_555 — 2026-11-16 — directive
+> Go with the browser pass
+(asks for the browser check I offered of what only tests covered so far: the Cut chips in the operation bar, the mates-at-odds button and the refusal pill)

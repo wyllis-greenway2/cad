@@ -2589,3 +2589,6 @@ Six inputs of the last turns had not been recorded (`in_451` to `in_456`; record
 ## Handoff 519 — 2026-11-16 (in_554: the round controls stay as they are)
 `in_554`. The human took the recommendation on `q_ui_round_controls`: the X Y Z, ⋯, Cut and world-orb controls keep their own looks. **Docs only:** the question is retired into `dec_ui_unification`, which now has no open loose end; no code changed.
 
+## Handoff 520 — 2026-11-16 (in_555: the browser pass)
+`in_555`. **Done in Chromium (real app, saved scenes made by a script from the test helpers):** the Cut bar (options, Tab, Shift+Enter, Enter: one combine step, one body 5 to 15); the mates-at-odds refusal and its button; the refusal pill. **Found and fixed:** (1) the button did not appear in the browser because the kernel answers later and the refusal is made in `session.ts` `refresh`, not `run`: `refresh` now carries `retry` (`in_553`); (2) the old Joined / Separate pill of the Cut was still on the screen beside the bar's Joined switch: removed (`cutparts.ts`, `main.ts`). **Not covered by a test:** the late-answer path of the button (the browser showed it; the kernel in the tests answers at once). **Not looked at:** the locked-length refusal pill beside a single constraint's bubble in the browser (the notice test covers it).
+

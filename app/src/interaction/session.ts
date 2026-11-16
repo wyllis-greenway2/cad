@@ -309,7 +309,7 @@ export function refresh(s: Session): Session {
     if (atOdds.some((id) => held.has(id) || !(h.snapshots[h.cursor - 1] ?? h.base).relations.some((r) => r.id === id))) {
       const undone = undo(h);
       const back = withHistory(s, { ...undone, commands: undone.commands.slice(0, undone.cursor), snapshots: undone.snapshots.slice(0, undone.cursor + 1) }); // (taken back, not kept to be done again with redo)
-      return { ...back, checkSteps: undefined, fallback: undefined, message: atOddsMessage(now.history.scene, atOdds, changeWords(h.snapshots[h.cursor - 1] ?? h.base, h.commands[h.cursor - 1]!), hard), conflict: { culprits: [], victims: atOdds } };
+      return { ...back, checkSteps: undefined, fallback: undefined, message: atOddsMessage(now.history.scene, atOdds, changeWords(h.snapshots[h.cursor - 1] ?? h.base, h.commands[h.cursor - 1]!), hard), conflict: { culprits: [], victims: atOdds, ...(atOdds.some((id) => (h.snapshots[h.cursor - 1] ?? h.base).relations.some((r) => r.id === id)) ? { retry: h.commands[h.cursor - 1]! } : {}) } }; // (the button of the refusal, when the answer came late too, `in_553`)
     }
   }
   // and a mate that is not true now, with nothing said when the change was made (the answer was awaited): said once the answer is here

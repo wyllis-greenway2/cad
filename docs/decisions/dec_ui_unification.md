@@ -3,7 +3,7 @@ id: dec_ui_unification
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_554, in_553, in_552, in_551, in_550, in_549, in_548, in_547, in_546, in_545, in_544
+human_input: in_555, in_554, in_553, in_552, in_551, in_550, in_549, in_548, in_547, in_546, in_545, in_544
 date: 2026-11-16
 depends_on:
 alternative_to:
@@ -48,6 +48,8 @@ alternative_to:
 - **Mates at odds (`in_553`, the human took the recommendation):** a change refused because it would leave standing mates unable to hold at once now offers "Delete constraint to proceed": it deletes the standing mates that are there and makes the change, as one step. **Not for an undo or a redo** (they do not go through this refusal: deleting a mate would turn an undo into something else); **not for a kernel step that cannot be made** (deleting a constraint would not mend it), which keep naming what stopped them.
 
 - **The round controls (`in_554`, the human took the recommendation):** the X Y Z and ⋯ buttons (`controls.ts`), the Cut chips at the parts (`cutparts.ts`) and the world orb (`worldorb.ts`) **keep their own looks**: their colour and border change with the view (facing, the selection ring) or they carry a letter, a plus or a minus, so they are not a plain round button. Fold them in only if `roundButton` grows a state for what they show.
+
+- **The browser pass (`in_555`):** Chromium, the real app. *Cut:* the bar shows "A kept, B kept, A∩B kept, Joined"; Tab then Shift+Enter tossed A (the focus stayed on it); Enter made one `combine` step and one body (x 5 to 15, as it should be). It showed that **the old "Kept parts: Joined / Separate" pill was still there beside the bar's own Joined switch: the pill is gone** (`cutparts.ts` keeps only the plus / minus controls at the parts). *Mates at odds:* **the page found a gap the unit test could not:** in the browser the kernel answers later, and the refusal is made in `refresh`, not in `run`, so the first button never appeared; `refresh` now carries the retry too, and then "Delete constraints to proceed" showed beside the red mates and pressing it left one mate (the new one) and no message. *The refusal pill* is wide (it has no single bubble to stand beside when two mates are named) and cuts its words with an ellipsis; it works and I left it.
 
 ## Rationale
 

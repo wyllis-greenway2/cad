@@ -1,29 +1,15 @@
-import { PILL, choiceRow } from "./look.ts";
-// Cut (`in_294`): each part the selected bodies make has a round control with a plus (kept) or a minus (tossed) and its letter; one more says whether what is kept is joined where it touches or kept as separate bodies.
+// Cut (`in_294`): each part the selected bodies make has a round control with a plus (kept) or a minus (tossed) and its letter. Whether what is kept is joined or separate is a switch of the operation bar now (`in_552`).
 // It only draws and reports clicks; which parts there are and what is kept is the interaction layer's.
-export function createCutParts(host: HTMLElement, toggle: (mask: number) => void, join: () => void) {
+export function createCutParts(host: HTMLElement, toggle: (mask: number) => void) {
   const root = document.createElement("div");
   root.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;z-index:7;font:600 13px system-ui,sans-serif";
   host.appendChild(root);
-  const joinEl = document.createElement("div");
-  joinEl.style.cssText = PILL + ";left:50%;transform:translateX(-50%);top:64px"; // (the look of the Similar chip, `in_300`)
-  const joinLabel = document.createElement("span");
-  joinLabel.textContent = "Kept parts:";
-  const joinChoices = document.createElement("span");
-  joinChoices.style.cssText = "display:inline-flex;gap:6px";
-  joinEl.append(joinLabel, joinChoices);
-  host.appendChild(joinEl);
   const els = new Map<number, HTMLElement>();
   return {
     /** `parts`: where each control stands (page pixels), its letters and whether it is kept; null hides all. */
-    update(parts: { mask: number; at: [number, number]; label: string; tip: string; kept: boolean }[] | null, joined = true) {
-      if (!parts) { root.style.display = "none"; joinEl.style.display = "none"; return; }
+    update(parts: { mask: number; at: [number, number]; label: string; tip: string; kept: boolean }[] | null) {
+      if (!parts) { root.style.display = "none"; return; }
       root.style.display = "block";
-      joinEl.style.display = "flex";
-      choiceRow(joinChoices, [
-        { id: "joined", text: `${joined ? "\u2713" : "\u25CB"} Joined`, title: "The kept parts that touch become one body", on: joined },
-        { id: "separate", text: `${joined ? "\u25CB" : "\u2713"} Separate`, title: "Every kept part stays a body of its own", on: !joined },
-      ], (id) => { if ((id === "joined") !== joined) join(); });
       for (const p of parts) {
         let el = els.get(p.mask);
         if (!el) {
