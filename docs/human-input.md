@@ -2632,3 +2632,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_573 — 2026-11-16 — directive
 > Do the material power and speed table next
 (asks for what in_569 left unbuilt: a table of power and speed by material and thickness for the laser route, the "settings table" kind of dec_manufacturing_definitions)
+
+## in_574 — 2026-11-16 — directive
+> Do the solid body snapshot next
+(asks for what in_569 and in_565 left unbuilt: the part snapshot of a solid body for the manufacturing routes, with its mesh, STEP and material tag)
