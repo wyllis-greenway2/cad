@@ -274,13 +274,12 @@ export function collidesMoving(mover: Tree, r: Rigid, fixed: Tree, clearance = 0
 
 /**
  * The direction the surface of the body that stays faces where the moving triangles meet it (`in_474`): the unit normals of the triangles of the fixed body that the moving ones cross or come within the
- * clearance of, added up, those that face against the motion `against` (the faces it is going into, not the ones it only brushes); null when there are none.
+ * clearance of, those that face against the motion `against` (the faces it is going into, not the ones it only brushes), the faces that face alike taken together (`in_485`: one normal each, so a floor and a wall it also touches are not averaged into a ramp); none when there are none.
  */
-export function contactNormal(moving: ArrayLike<number>, fixed: Tree, clearance = 0, against: Vec3 = [0, 0, 0]): Vec3 | null {
+export function contactNormals(moving: ArrayLike<number>, fixed: Tree, clearance = 0, against: Vec3 = [0, 0, 0]): Vec3[] {
   const nm = Math.floor(moving.length / 9);
   const c = Math.max(0, clearance);
-  const sum: M3 = [0, 0, 0];
-  let any = false;
+  const groups: { sum: M3 }[] = []; // (the faces met, grouped by the way they face: a floor and a wall are two, the facets of one round wall are one)
   const mv = nudged(moving);
   for (let i = 0; i < nm; i++) {
     const a = tri(mv, i);
@@ -296,14 +295,15 @@ export function contactNormal(moving: ArrayLike<number>, fixed: Tree, clearance 
           if (!(triCross(a, b) || (c > 0 && triDist(a, b, c) < c))) continue;
           const n = cross(sub(b[1], b[0]), sub(b[2], b[0])); // (its length is twice its area: bigger triangles count more)
           if (dot(n, against) >= -1e-9 * Math.hypot(...n) * Math.hypot(...against)) continue; // (a face that faces along the motion or across it is not what it is going into)
-          sum[0] += n[0]; sum[1] += n[1]; sum[2] += n[2];
-          any = true;
+          const nl = Math.hypot(...n);
+          if (nl < 1e-12) continue;
+          const g = groups.find((q) => { const ql = Math.hypot(...q.sum); return (q.sum[0] * n[0] + q.sum[1] * n[1] + q.sum[2] * n[2]) / (ql * nl) > 0.97; });
+          if (g) { g.sum[0] += n[0]; g.sum[1] += n[1]; g.sum[2] += n[2]; } else groups.push({ sum: [n[0], n[1], n[2]] });
         }
       } else stack.push(nd.l, nd.r);
     }
   }
-  const l = Math.hypot(...sum);
-  return any && l > 1e-12 ? [sum[0] / l, sum[1] / l, sum[2] / l] : null;
+  return groups.map((g) => { const l = Math.hypot(...g.sum); return [g.sum[0] / l, g.sum[1] / l, g.sum[2] / l] as Vec3; });
 }
 
 // ---- the way a rigid motion goes: a screw, taken part of the way ----

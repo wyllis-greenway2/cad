@@ -15,7 +15,7 @@ import { mirrorPlane } from "./mirror.ts";
 import { placements } from "../operation/repeat.ts";
 import { about, aboutDir } from "../math/rotation.ts";
 import { NONE } from "../operation/frames.ts";
-import { buildTree, collides, collidesMoving, moved, partOf, freePart, contactNormal } from "../operation/collide.ts";
+import { buildTree, collides, collidesMoving, moved, partOf, freePart, contactNormals } from "../operation/collide.ts";
 import type { Tree } from "../operation/collide.ts";
 
 interface Mesh { tris: number[]; tree: Tree }
@@ -110,24 +110,40 @@ export function hardMotion(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref
   let at: Vec3 = [first[0]!.shift[0] * t, first[0]!.shift[1] * t, first[0]!.shift[2] * t]; // (where it has got to)
   let left: Vec3 = [first[0]!.shift[0] * (1 - t), first[0]!.shift[1] * (1 - t), first[0]!.shift[2] * (1 - t)];
   const hits = new Set<Ref>(hit);
-  for (let k = 0; k < 4; k++) {
+  /** How far along `dir` from `from` the group can go (mm). */
+  const trial = (from: Vec3, dir: Vec3): number => {
+    const len = Math.hypot(...dir);
+    const go = (u: number) => (b: Ref): Rigid | null => (movers.includes(b) ? slideOf([from[0] + dir[0] * u, from[1] + dir[1] * u, from[2] + dir[2] * u]) : null);
+    return len * freePart((p) => hitAt(go(p), true).length > 0, Math.min(300, Math.max(12, Math.ceil(len / stepLen))));
+  };
+  let idle = 0;
+  for (let k = 0; k < 40 && idle < 3; k++) { // (a wall that bends away from the way it is going is followed in many short legs; given up when three in a row get nowhere)
     // the way the surface it is against faces, from the bodies it just went into
     const probe = Math.hypot(...left) > 1e-9 ? Math.min(1, Math.max(2e-3 / Math.hypot(...left), 5e-4)) : 1;
     const into = (b: Ref): Rigid | null => (movers.includes(b) ? slideOf([at[0] + left[0] * probe, at[1] + left[1] * probe, at[2] + left[2] * probe]) : null);
-    let n: Vec3 | null = null;
-    for (const q of pairs) { const c = contactNormal(moved(q.tris, into(q.m) ?? NONE), q.fixed, Math.max(0, q.c - 5e-4), left); if (c) n = n ? [n[0] + c[0], n[1] + c[1], n[2] + c[2]] : c; }
-    if (!n) break;
-    const nl = Math.hypot(...n);
-    n = [n[0] / nl, n[1] / nl, n[2] / nl];
-    const into2 = n[0] * left[0] + n[1] * left[1] + n[2] * left[2];
-    if (into2 > 0) n = [-n[0], -n[1], -n[2]]; // (facing against the motion)
-    const d = Math.abs(into2);
-    const slid: Vec3 = [left[0] + n[0] * d, left[1] + n[1] * d, left[2] + n[2] * d]; // (what is left of the motion with what goes into the surface taken out)
-    if (Math.hypot(...slid) < 1e-4) break;
+    const normals: Vec3[] = [];
+    for (const q of pairs) for (const c of contactNormals(moved(q.tris, into(q.m) ?? NONE), q.fixed, Math.max(0, q.c - 5e-4), left)) normals.push(c);
+    let slid: Vec3 | null = null;
+    if (normals.length) {
+      // what is left of the motion with what goes into each surface taken out, one surface after another (a floor and a wall at once leave only what runs along both)
+      let v: Vec3 = [left[0], left[1], left[2]];
+      for (let pass = 0; pass < 3; pass++) for (const n of normals) { const d = n[0] * v[0] + n[1] * v[1] + n[2] * v[2]; if (d < 0) v = [v[0] - n[0] * d, v[1] - n[1] * d, v[2] - n[2] * d]; }
+      slid = v;
+    }
+    if (!slid || Math.hypot(...slid) < 1e-4 || trial(at, slid) < 2e-3) {
+      // the contact found does not say which way to go (a rim that faces along the motion, a bend): the motion is tried with each of its parts left out, and the one that gets furthest is taken
+      let best: { dir: Vec3; went: number } | null = null;
+      const parts: Vec3[] = [[0, left[1], left[2]], [left[0], 0, left[2]], [left[0], left[1], 0], [left[0], 0, 0], [0, left[1], 0], [0, 0, left[2]]];
+      for (const dir of parts) { const len = Math.hypot(...dir); if (len < 1e-4) continue; const went = trial(at, dir); if (!best || went > best.went) best = { dir, went }; }
+      if (!best || best.went < 2e-3) { if (!slid) break; } else slid = best.dir;
+    }
+    if (!slid || Math.hypot(...slid) < 1e-4) break;
+    if (process.env.DBG) console.log("LEG", k, "at", at.map((v) => +v.toFixed(3)), "left", left.map((v) => +v.toFixed(3)), "slid", slid.map((v) => +v.toFixed(3)));
     const from = at;
     const go = (u: number) => (b: Ref): Rigid | null => (movers.includes(b) ? slideOf([from[0] + slid[0] * u, from[1] + slid[1] * u, from[2] + slid[2] * u]) : null);
     const u = freePart((p) => hitAt(go(p), true).length > 0, Math.min(300, Math.max(12, Math.ceil(Math.hypot(...slid) / stepLen))));
     at = [from[0] + slid[0] * u, from[1] + slid[1] * u, from[2] + slid[2] * u];
+    idle = u * Math.hypot(...slid) < 2e-3 ? idle + 1 : 0;
     for (const r of hitAt(go(Math.min(1, u + 5e-4)), true)) hits.add(r);
     if (u >= 1) break;
     left = [slid[0] * (1 - u), slid[1] * (1 - u), slid[2] * (1 - u)];

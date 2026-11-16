@@ -508,3 +508,23 @@ test("a long pull at a thin wall does not jump over it (`in_484`)", () => {
   const lim = limitedOp(scene(s), { ...(st as { op: Op }).op, free: [300, 0, 0] });
   assert.ok(lim && "op" in lim && lim.op.free![0]! > 85 && lim.op.free![0]! < 90.05, `stopped at the wall, 90 along, not carried through: ${JSON.stringify(lim && "op" in lim ? lim.op.free : lim)}`);
 });
+
+test("the pin pulled up out of its hole with the pointer wobbling sideways comes out all the way, and set down on the block it rests on the top and slides along it, not down a ramp (`in_485`)", () => {
+  let s = pinInHole();
+  const pinOf = (q: Session) => bodiesOf(q).find((x) => x.id === "x_s_019")!;
+  const op = (q: Session): Op => { const st = startOp(scene(q), [pinOf(q).ref] as never, "move", null); assert.ok(st.ok); return (st as { op: Op }).op; };
+  for (const lat of [2, 6]) for (const dir of [[1, 0], [0, 1], [-1, -1]] as const) {
+    const lim = limitedOp(scene(s), { ...op(s), free: [dir[0] * lat, dir[1] * lat, 40] });
+    assert.ok(lim && "op" in lim && Math.abs(lim.op.free![2]! - 40) < 0.01, `it went up the whole 40 with ${lat} of sideways push (${JSON.stringify(lim && "op" in lim ? lim.op.free : lim)})`);
+    assert.ok(Math.hypot(lim.op.free![0]!, lim.op.free![1]!) < 0.4, "and stayed inside the hole's width while it was in it");
+  }
+  s = runOp(s, { ...op(s), free: [0, 0, 48] })!.session; // out, above the block
+  assert.deepEqual(hardOverlaps(scene(s)), []);
+  for (const off of [0.5, 1.5, 3]) {
+    const lim = limitedOp(scene(s), { ...op(s), free: [off, 0, -48] });
+    assert.ok(lim && "op" in lim, "set down beside the hole, it is stopped by the block");
+    const f = (lim as { op: Op }).op.free!;
+    assert.ok(Math.abs(f[2]! + 38.706) < 0.05, `it rests on the top face: ${f[2]}`);
+    assert.ok(f[0]! > 0.3 * off && f[0]! < off + 0.05, `and went on the way the pointer did, not back the other way: ${f[0]} of ${off}`);
+  }
+});
