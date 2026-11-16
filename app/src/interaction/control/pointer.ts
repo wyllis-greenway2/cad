@@ -5,6 +5,7 @@ import { dist, dot, sub, cross, normalize } from "../../math/vec.ts";
 import type { Plane } from "../../operation/part.ts";
 import { normalOfPlane, segmentOf, circleOf } from "../../operation/part.ts";
 import { lookup, nextId } from "../../operation/scene.ts";
+import { gearOfPart } from "../../operation/gearscene.ts";
 import type { Scene } from "../../operation/scene.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { scene as sceneOf, selection as selectionOf, clickOn, hoverOn, run } from "../session.ts";
@@ -45,6 +46,22 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:line", label: "Line", icon: "line", tool: "line" },
   { id: "tool:arc", label: "Curve", icon: "arc", tool: "arc" },
   { id: "tool:trim", label: "Trim", icon: "scissors", tool: "trim" },
+  { id: "tool:gear", label: "Spur gear", icon: "gear", tool: "gear" },
+  { id: "tool:helical", label: "Helical gear", icon: "gear", tool: "gear" },
+  { id: "tool:ring", label: "Ring gear", icon: "gear", tool: "gear" },
+  { id: "tool:rack", label: "Rack", icon: "rack", tool: "gear" },
+  { id: "tool:gt2", label: "GT2 pulley", icon: "gear", tool: "gear" },
+  { id: "tool:gt3", label: "3GT pulley", icon: "gear", tool: "gear" },
+  { id: "tool:htd5", label: "HTD 5M", icon: "gear", tool: "gear" },
+  { id: "tool:htd8", label: "HTD 8M", icon: "gear", tool: "gear" },
+  { id: "tool:sprocket", label: "ANSI sprocket", icon: "gear", tool: "gear" },
+  { id: "tool:isosprocket", label: "ISO sprocket", icon: "gear", tool: "gear" },
+  { id: "tool:clock", label: "Clock gear", icon: "gear", tool: "gear" },
+  { id: "tool:clockring", label: "Clock ring", icon: "gear", tool: "gear" },
+  { id: "tool:clockrack", label: "Clock rack", icon: "rack", tool: "gear" },
+  { id: "gear:edit", label: "Edit gear", icon: "gear" },
+  { id: "gear:mesh", label: "Mesh gear", icon: "gear" },
+  { id: "gear:meshrack", label: "Mesh rack", icon: "rack" },
   { id: "op:offset", label: "Offset", icon: "offset", op: "offset" },
   { id: "op:pushpull", label: "Push pull", icon: "pushpull", op: "pushpull" },
   { id: "op:edge", label: "Fillet chamfer", icon: "edge", op: "edge" },
@@ -74,8 +91,19 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "select:group", label: "Group", icon: "group", select: "group" },
   { id: "select:ungroup", label: "Ungroup", icon: "ungroup", select: "ungroup" },
 ];
-const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[] = [
-  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:offset"] },
+/** a submenu: its own icon in the ring that opens another ring of what is in it (`in_588`: every gear tool is in the Gear submenu of Sketch) */
+interface Group { id: string; label: string; icon: string; items: (string | Group)[] }
+const GEARS: Group = {
+  id: "gears", label: "Gear", icon: "gear", items: [
+    "tool:gear", "tool:helical", "tool:ring", "tool:rack",
+    { id: "clockgears", label: "Clock", icon: "gear", items: ["tool:clock", "tool:clockring", "tool:clockrack"] },
+    { id: "pulleys", label: "Pulley", icon: "gear", items: ["tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8"] },
+    { id: "sprockets", label: "Sprocket", icon: "gear", items: ["tool:sprocket", "tool:isosprocket"] },
+    "gear:edit", "gear:mesh", "gear:meshrack",
+  ],
+};
+const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
+  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", GEARS, "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts"] },
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular"] },
@@ -83,7 +111,7 @@ const CATEGORIES: { id: string; label: string; icon: string; items: string[] }[]
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
-const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:trim", "op:move", "op:rotate", "op:copy", "op:mirror", "op:linear", "op:circular"]);
+const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:gear", "tool:helical", "tool:ring", "tool:rack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "tool:clock", "tool:clockring", "tool:clockrack", "tool:trim", "op:move", "op:rotate", "op:copy", "op:mirror", "op:linear", "op:circular"]);
 /** What a constraint or mate is called in the ring: one or two words (`in_538`). */
 const TIPS: Record<string, string> = { fixed: "Fix", onCircle: "On circle", sameAcross: "Same across", equalLength: "Equal", equalRadius: "Equal", "mate:flush": "Flush", "mate:parallel": "Parallel faces", "mate:perpendicular": "Perpendicular faces", "mate:angle": "Face angle", "mate:coaxial": "Coaxial", "mate:parallelAxes": "Parallel axes", "mate:perpendicularAxes": "Perpendicular axes", "mate:angleAxes": "Axis angle", "mate:axisToFace": "Axis to face" };
 const tipOf = (id: string, label: string): string => TIPS[id] ?? label;
@@ -98,6 +126,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
     const base = { id: r.id, label: r.label, icon: r.icon };
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
+    if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack") { const has = sel.some((x) => !!gearOfPart(sc, x)); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
     if (r.select === "combine") { const why = whyNotCombine(session); return [r.id, { ...base, enabled: !why, why }]; }
@@ -115,6 +144,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     const st = startOp(sc, sel, r.op!);
     return [r.id, { ...base, enabled: true, why: st.ok ? null : st.why, ...(st.ok ? {} : { picks: true as const }) }]; // (not selected yet: it can be chosen and waits for what to click, `in_464`)
   }));
+  const build = (i: string | Group): MenuItem => (typeof i === "string" ? leaf.get(i)! : category(i.id, i.label, i.icon, i.items.map(build)));
   const acts = actionsFor(sc, sel);
   const rels: MenuItem[] = acts.filter((a) => a.group === "relation" && a.enabled).map((a) => ({ id: a.id, label: tipOf(a.id, a.label), icon: a.id, enabled: true, why: null }));
   const del = acts.find((a) => a.id === "delete");
@@ -122,9 +152,9 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   const clicked = over ? planeOf(lookup(sc), over) : null; // (the surface the right click was on: a face, a sketch's plane, a world plane; a sketch tool chosen from the ring turns to it when the selection does not say which plane)
   const target = lookTarget(sc, sel, over);
   const items: MenuItem[] = [
-    ...CATEGORIES.slice(0, 1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
+    ...CATEGORIES.slice(0, 1).map((c) => category(c.id, c.label, c.icon, c.items.map(build))),
     category("constraints", "Constraints", "constraint", [...rels, leaf.get("body:hard")!].length > 1 || leaf.get("body:hard")!.enabled ? [...rels, leaf.get("body:hard")!] : [{ id: "none", label: "Constraints", icon: "constraint", enabled: false, why: "select the parts to constrain (a line, a corner, two lines …)" }]), // (a hard body is a constraint on every body that meets it, `in_490`)
-    ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.map((i) => leaf.get(i)!))),
+    ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.map(build))),
     // the eye: how the model is looked at (`in_386`): straight at a surface, as wireframe, and the tape measure
     category("view", "View", "eye", [
       { id: "look", label: "Look at", icon: "look", enabled: !!target, why: target ? null : "select a plane or a face, or right-click on one" },
@@ -236,7 +266,7 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   // (and the line or circle itself is not lit as a whole: only the part that would go is, in the selected blue, and nothing at all where nothing crosses; `in_206`)
   if (s.tool?.kind === "trim") next = { ...withSession(next, hoverOn(next.session, undefined)), hoverPoint: null, tool: { ...s.tool, trimming: trimUnder(sc, pv) } };
   // a circle tool still armed (no plane yet): where the centre would go, and whether it is on another circle's centre; a line or an arc: whether its first end would be on a line or a circle
-  if (s.tool && !s.tool.plane && (s.tool.kind === "circle" || s.tool.kind === "arc" || s.tool.kind === "line" || s.tool.kind === "rect")) {
+  if (s.tool && !s.tool.plane && (s.tool.kind === "circle" || s.tool.kind === "arc" || s.tool.kind === "line" || s.tool.kind === "rect" || s.tool.kind === "gear")) {
     const planeRef = selectedSurface(sc, selectionOf(s.session)) ?? drawingPlane(sc, candidatesAt(sc, pv, pickOpts(s)).map((k) => k.ref)) ?? drawingPlane(sc, selectionOf(s.session));
     const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
     const at = pl ? snapOnPlane(sc, pv, pl) : null;
@@ -263,6 +293,7 @@ function hintFor(sc: Scene, t: Tool, pl: Plane, pv: ReturnType<ReturnType<typeof
   if (!t.points.length) return pointHint(sc, pl, pv, raw); // (a first point of any figure: on a line or a circle, `in_294`: a circle's centre and a rectangle's corner are points like a line's end)
   if (t.kind === "line") return lineHint(sc, pl, t.points[0]!, pv, raw);
   if (t.kind === "rect") return pointHint(sc, pl, pv, raw); // (the opposite corner)
+  if (t.kind === "gear") return null; // (the size: the pointer's distance from the centre, or the numbers typed)
   if (t.kind === "circle") return t.typed[0] === "" ? circleRadiusHint(sc, pl, t.points[0]!, pv, raw) : null; // (the size: a number, or a point on the edge that touches another circle, `in_296`)
   if (t.points.length < 2) return arcEndHint(sc, pl, t.points[0]!, pv, raw); // (an arc's other end: level or upright with the first, `in_381`)
   return t.typed[0] === "" ? arcBulgeHint(sc, pl, t.points[0]!, t.points[1]!, raw) : null;

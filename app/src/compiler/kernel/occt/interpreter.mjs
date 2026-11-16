@@ -28,6 +28,9 @@ import {
   Wire,
   localGC,
   makePolygon,
+  twistExtrude,
+  makeFace,
+  addHolesInFace,
 } from "replicad";
 import { decodeMesh } from "./meshdata.mjs";
 import { facesOf, edgesOf, shellsOf, solidsOf } from "./topo.mjs";
@@ -79,6 +82,19 @@ export function solidOfMesh(mesh) {
   } catch { /* the triangles stay as faces: still a solid */ }
   if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("this mesh could not be made into a valid solid (its triangles do not close up cleanly)");
   return solid;
+}
+
+/**
+ * A figure with figures inside it, carried along its normal by `h` while it turns `twist` degrees about the line through `origin`: one sweep for the figure and one for each hole, joined into a solid with the holes' walls turned
+ * to face into the hole (the library's own joining leaves them the way of the outer wall, which gives a solid that measures as more than the figure, and that the validity check does not catch).
+ */
+function twistedSolid(outer, holes, h, twist, origin) {
+  const sweep = (sk) => twistExtrude(sk.wire, twist, origin, new Vector(sk.defaultDirection).normalized().multiply(h), undefined, true);
+  const [shell, start, end] = sweep(outer);
+  const inner = holes.map(sweep);
+  const reversed = inner.map(([sh]) => cast(sh.wrapped.Reversed()));
+  const face = (outerWire, ws) => addHolesInFace(makeFace(outerWire), ws);
+  return makeSolid([face(start, inner.map((x) => x[1])), shell, ...reversed, face(end, inner.map((x) => x[2]))]);
 }
 
 /** The solids in the text of a STEP file, in millimetres (the reader converts the file's own units); each is checked. Throws with the reason when there is none or one is not a valid solid. */
@@ -668,7 +684,7 @@ const OPS = {
     const pts = [];
     for (const e of edgesOf(face)) for (const t of [0, 0.5, 1]) { const q = e.pointAt(t); pts.push([q.x, q.y, q.z]); }
     // what is made of one figure (the outer one, then each hole): the same turn for all, so the holes are cut from the figure
-    let make;
+    let make, twistAll = null, twisted = false;
     if (Math.abs(Math.abs(dot(N, D)) - 1) < 1e-6) {
       // the axis is the plane's normal: the figure is carried along it by `advance` while it turns about it, a twisted extrusion (a bar turned into an auger, a lobed section into a screw); the axis may stand off the figure (a coil)
       if (Math.abs(advance) < 1e-9) throw new Error("a twist needs a distance to be carried along the axis");
@@ -677,7 +693,10 @@ const OPS = {
       const o = sub(A, N.map((x) => x * dot(sub(A, v0), N))); // (the axis where it meets the figure's plane)
       const h = advance * sgn; // (the distance along the plane's normal)
       const twist = angle * sgn * (h > 0 ? 1 : -1); // (counter-clockwise about the axis whichever way it points and the figure is carried)
-      make = (sk) => { const solid = sk.extrude(h, { twistAngle: twist, origin: o }); if (!isValidSolid(solid)) throw new Error("the twist could not be made at this size"); return solid; };
+      make = (sk) => sk.extrude(h, { twistAngle: twist, origin: o });
+      // the figure and the figures inside it are one sweep (a hole is part of the profile, not a second sweep and a cut: `dec_speed_rules`); every layer is the figure turned at its own height, so the body cannot cross itself
+      twistAll = (outer, holes) => twistedSolid(outer, holes, h, twist, o);
+      twisted = true;
     } else {
       // the axis must lie in the plane of the figure, and the figure must be on one side of it
       if (Math.abs(dot(N, D)) > 1e-4) throw new Error("the axis must lie in the plane of the figure");
@@ -709,12 +728,13 @@ const OPS = {
         };
       }
     }
-    let solid = make(outerSketch);
-    for (const h of op.holes ?? []) solid = solid.cut(make(sketchOf(h)));
-    if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the figure when its holes were cut");
+    let solid;
+    if (twistAll) solid = twistAll(outerSketch, (op.holes ?? []).map(sketchOf));
+    else { solid = make(outerSketch); for (const h of op.holes ?? []) solid = solid.cut(make(sketchOf(h))); }
+    if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error(twisted && !op.holes?.length ? "the twist could not be made at this size" : "nothing was left of the figure when its holes were cut");
     const targetValue = op.target ? (op.mode === "new" ? ctx.peek(op.target, "solid") : ctx.get(op.target, "solid")) : null; // (a piece of its own stands beside the body: no copy of it is needed)
     const target = targetValue ? targetValue.shape : null;
-    if (!target) return { kind: "solid", shape: solid };
+    if (!target) return { kind: "solid", shape: solid, checked: true, ...(twisted ? { noCross: true } : {}) }; // (checked just above; a twist cannot cross itself)
     if (op.mode === "cutOrAdd") {
       const before = measureVolume(target);
       try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut, used: "cut", cutInto: cutInto(targetValue, solid) }; } catch { /* a join instead */ }
@@ -1988,7 +2008,8 @@ function run(op, ctx, results) {
 }
 
 /** Compile the whole graph. Returns per-op results; never throws for op-level failures. */
-export function compile(graph) {
+/** `quick`: a rough answer for a picture while a size is dragged (`dec_speed_rules`): the safety checks are left out, and what was made without them is kept as unchecked, so that a whole answer asked for later makes it again with them. */
+export function compile(graph, quick = false) {
   const params = graph.params ?? {};
   const results = new Map(); // id -> {value?, error?, ms}
   const keys = new Map(); // id -> what it was worked out from
@@ -2016,7 +2037,7 @@ export function compile(graph) {
     const key = fingerprint(JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes]), ...(op.sections ?? []).flatMap((s) => [s.profile, ...(s.holes ?? [])])].map((d) => (d ? keys.get(d) ?? null : null))]));
     keys.set(op.id, key);
     const kept = memo.get(key);
-    if (kept) {
+    if (kept && !(kept.unchecked && !quick)) {
       remember(key, kept);
       results.set(op.id, { value: kept.value, ms: 0, key, cached: true });
       continue;
@@ -2039,11 +2060,12 @@ export function compile(graph) {
       }
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
       const tC = performance.now();
-      if (value.kind === "solid" && !rigid && !value.checked && !isValidSolid(value.shape)) throw new Error("kernel returned an invalid solid");
-      if (value.kind === "solid" && !rigid && crossesItself(value.shape, op.target && results.get(op.target)?.value?.kind === "solid" ? results.get(op.target).value.shape : null)) throw new Error("that would make the body pass through itself (one part of it goes through another)");
+      const skipChecks = quick && value.kind === "solid" && !rigid;
+      if (value.kind === "solid" && !rigid && !skipChecks && !value.checked && !isValidSolid(value.shape)) throw new Error("kernel returned an invalid solid");
+      if (value.kind === "solid" && !rigid && !skipChecks && !value.noCross && crossesItself(value.shape, op.target && results.get(op.target)?.value?.kind === "solid" ? results.get(op.target).value.shape : null)) throw new Error("that would make the body pass through itself (one part of it goes through another)");
       checkMs = performance.now() - tC;
       results.set(op.id, { value, ms: performance.now() - t0, key, markMs, checkMs, ...(Object.keys(stagesOf).length ? { stages: Object.fromEntries(Object.entries(stagesOf).map(([n, v]) => [n, Math.round(v * 10) / 10])) } : {}) });
-      remember(key, { value });
+      remember(key, { value, ...(skipChecks && !value.checked ? { unchecked: true } : {}) });
     } catch (e) {
       endStages();
       results.set(op.id, { error: describeError(e, op), ms: performance.now() - t0, ...(e?.detail?.culprits?.length ? { culprits: e.detail.culprits } : {}) });

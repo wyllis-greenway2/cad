@@ -35,9 +35,19 @@ function roughBox(shape) {
   try { oc.BRepBndLib.Add(shape.wrapped, b, false); const [a, z] = [b.CornerMin(), b.CornerMax()]; const out = [a.X(), a.Y(), a.Z(), z.X(), z.Y(), z.Z()].map((v) => Math.round(v * 1e5)); a.delete(); z.delete(); return out; } finally { b.delete(); }
 }
 
-function describeSolid(shape, tess0, lite) {
+/** The faces made of an analytic surface (a plane, a cylinder, a sphere, a cone, a torus): their exact box is quick; that of a freeform face (a twisted wall, a loft) takes a millisecond each, so it is taken from the mesh (`dec_speed_rules`). */
+const ANALYTIC = new Set(["PLANE", "CYLINDRE", "SPHERE", "CONE", "TORUS"]);
+/** The box of the triangles `g` (a face's range of the mesh) as the corners lo and hi. */
+function meshBounds(m, g) {
+  const [lo, hi] = [[Infinity, Infinity, Infinity], [-Infinity, -Infinity, -Infinity]];
+  for (let k = g.start; k < g.start + g.count; k++) { const v = m.triangles[k] * 3; for (let a = 0; a < 3; a++) { const x = m.vertices[v + a]; if (x < lo[a]) lo[a] = x; if (x > hi[a]) hi[a] = x; } }
+  return [lo, hi];
+}
+function describeSolid(shape, tess0, lite, vol0) {
     // the finer the part, the finer the mesh: the deflection allowed is a small part of the part's own size (a 2 mm post must not be a 20-sided prism: `in_165`), never coarser than `tess.tolerance`
-    const [lo, hi] = shape.boundingBox.bounds;
+    const free = facesOf(shape).some((f) => !ANALYTIC.has(f.geomType));
+    const rb = roughBox(shape).map((v) => v / 1e5); // (a box that is quick to find: enough to size the mesh by; the exact one of a body with freeform faces is taken from the mesh)
+    let [lo, hi] = free ? [[rb[0], rb[1], rb[2]], [rb[3], rb[4], rb[5]]] : shape.boundingBox.bounds;
     const diag = Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
     // a draft (while a size is dragged, `in_216`): a rough mesh, quickly; the fine one is made when the pointer is let go
     const tess = tess0.draft ? { tolerance: Math.max(0.1, diag * 0.01), angular: 0.5 } : { tolerance: Math.min(tess0.tolerance, Math.max(0.002, diag * 0.002)), angular: Math.min(tess0.angular, 0.2) };
@@ -45,7 +55,8 @@ function describeSolid(shape, tess0, lite) {
     const mesh = { vertices: new Float32Array(m.vertices), normals: new Float32Array(m.normals), triangles: new Uint32Array(m.triangles) };
     mesh.sharp = Float32Array.from(cornerEdges(mesh.vertices, mesh.normals, mesh.triangles, EDGE_ANGLE_DEG)); // (once for each body, kept with its description: the page draws them and does not search the triangles, `dec_sharp_edges_once`)
     mesh.sharpDeg = EDGE_ANGLE_DEG;
-    const vol = volume(shape);
+    const vol = vol0 ?? volume(shape);
+    if (free) { const all = meshBounds(m, { start: 0, count: m.triangles.length }); [lo, hi] = all; }
     const bbox = { min: [...lo], max: [...hi] };
     if (lite) return { mesh, vol, bbox, faces: [], edges: [], vertices: [], lite: true };
     // flat faces at any angle, and full round faces: these can be hovered, selected and sketched on (start/count are index ranges into `triangles`)
@@ -114,7 +125,7 @@ function describeSolid(shape, tess0, lite) {
     for (const c of merged) faces.push({ type: "cyl", convex: c.convex, start: c.ranges[0].start, count: c.ranges[0].count, ranges: c.ranges, axis: c.axis, center: c.center, radius: c.radius, lo: c.lo, hi: c.hi });
     for (const f of other) {
       const g = ranges.get(f.hashCode);
-      const [lo, hi] = f.boundingBox.bounds;
+      const [lo, hi] = g && !ANALYTIC.has(f.geomType) ? meshBounds(m, g) : f.boundingBox.bounds;
       const r4s = (v) => Math.round(v * 1e3) / 1e3;
       // a cylinder or a sphere also says how round it is (the radius is shown when it is selected)
       let radius;
@@ -159,7 +170,7 @@ function describeSolid(shape, tess0, lite) {
  */
 export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
   const t0 = performance.now();
-  const results = compile(graph);
+  const results = compile(graph, !!tess.draft);
   const tCompile = performance.now();
   let tMesh = tCompile;
   let tFaces = tCompile;
@@ -206,17 +217,18 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     let reused = 0, fpMs = 0, meshMs = 0;
     const parts = lumps.map((l) => {
       const tF = performance.now();
-      const fp = JSON.stringify([Math.round(volume(l) * 1e6), roughBox(l), facesOf(l).length, edgesOf(l).length, tKey]);
+      const v = volume(l);
+      const fp = JSON.stringify([Math.round(v * 1e6), roughBox(l), facesOf(l).length, edgesOf(l).length, tKey]);
       fpMs += performance.now() - tF;
       let d = lumpDescribed.get(fp);
       if (!d && tess.draft) { // (while a size is dragged a body already meshed finely keeps that mesh: a rough one would only be more work, and a body that did not change would flicker from fine to rough and back)
         const { draft: _d, ...fine } = tess;
-        const fineFp = JSON.stringify([Math.round(volume(l) * 1e6), roughBox(l), facesOf(l).length, edgesOf(l).length, JSON.stringify([fine, lite])]);
+        const fineFp = JSON.stringify([Math.round(v * 1e6), roughBox(l), facesOf(l).length, edgesOf(l).length, JSON.stringify([fine, lite])]);
         d = lumpDescribed.get(fineFp);
         if (d) { lumpDescribed.delete(fineFp); lumpDescribed.set(fineFp, d); reused++; return d; }
       }
       const tD = performance.now();
-      if (d) { lumpDescribed.delete(fp); reused++; } else { d = describeSolid(l, tess, lite); meshMs += performance.now() - tD; }
+      if (d) { lumpDescribed.delete(fp); reused++; } else { d = describeSolid(l, tess, lite, v); meshMs += performance.now() - tD; }
       lumpDescribed.set(fp, d);
       while (lumpDescribed.size > 40) lumpDescribed.delete(lumpDescribed.keys().next().value);
       return d;
