@@ -2532,3 +2532,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_549 — 2026-11-16 — approval
 > Let me ask for network access (Recommended)
 (answers the question how to get the belt tooth dimensions for the timing pulleys: the AI asks for network access to read the real tables, and builds from them)
+
+## in_550 — 2026-11-16 — approval
+> Allow more sites for the drawings (Recommended)
+(answers the question what to do for the pulley grooves: the AI asks for more hosts to read the real groove drawings and builds from them, with the sources recorded)

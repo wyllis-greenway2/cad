@@ -3,7 +3,7 @@ id: q_timing_pulleys
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_548, in_549
+human_input: in_550, in_549, in_548
 date: 2026-11-16
 depends_on:
   - dec_gear_tool: pulleys are the next profile family of the one gear tool and share its record, box, edit and move
@@ -21,9 +21,11 @@ alternative_to:
 - The T2.5 and T5 charts do not follow PD = pitch × teeth / π (T2.5 10 teeth PD 8.05; T5 10 teeth PD 16.05), so their rule is not taken from this yet.
 - The York Industries page is the inch MXL / XL / L standard's text (its groove profile is "formed by the generating tool rack form" of its Table 3, which is an image or a download, not on the page).
 
+**Second try (`in_550`):** the human allowed more hosts; `www.ondrivesus.com`, `sitspa.com`, `www.optibelt.com` and `documents.mrosupply.com` were added to the environment. Read: Ondrives' GT2 pulley stock sheet, SIT's TOP DRIVE HTD catalogue and MRO's 60-groove 5M dimension sheet: all are stock tables (diameters, hubs, lengths, diameter tolerances), none draws the groove or gives its radii; Optibelt's host refuses the connection (403 through the proxy).
+
 **Missing:** the shape of the groove itself (depth, radii, width) for each belt. No source readable from here gave it (searches returned fragments; the community OpenSCAD generators' hosts are not allowed and are not authoritative). Nothing is written from memory: a belt that does not fit is a failed part.
 
-**Options:** allow more hosts for a manufacturer's drawing (Gates PowerGrip GT2 and HTD design manuals, ISO 13050 text), or the human pastes a table or drawing; or build the pulley outside diameter, pitch and pulley rules from the table above with a groove drawn from the belt's tooth height, marked unverified, to be checked against a real belt.
+**Options:** the groove drawings are in the belt makers' design manuals (Gates PowerGrip GT2 and HTD, the ISO 13050 standard), which are not on the hosts allowed so far; the human pastes a table or drawing, or names a host that has one; or build the pulley outside diameter, pitch and pulley rules from the table above with a groove drawn from the belt's tooth height, marked unverified, to be checked against a real belt.
 
 ## Rationale
 
