@@ -87,8 +87,8 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
   } else if (tool.kind === "circle") live.push(circleRadius(pl, tool) * 2);
   else if (tool.kind === "gear") {
     const g = tool.gear ?? { internal: false, typed: [] as string[], field: 0 };
-    const shown = gearLive(tool);
-    return { fields: gearFields(g.internal).map((f, i) => ({ label: f.label, value: (g.typed[i] ?? "") !== "" ? g.typed[i]! : shown ? roundedText(shown[i]!) : "", active: g.field === i, typed: (g.typed[i] ?? "") !== "", ...(f.key === "pressure" ? { unit: "°" } : {}) })), unit: "mm" };
+    const shown = gearLive(scene, tool);
+    return { fields: gearFields(g).map((f, i) => ({ label: f.label, value: (g.typed[i] ?? "") !== "" ? g.typed[i]! : shown ? roundedText(shown[i]!) : "", active: g.field === i, typed: (g.typed[i] ?? "") !== "", ...(f.key === "pressure" || f.key === "angle" ? { unit: "°" } : {}) })), unit: "mm" };
   }
   else if (tool.kind === "arc") {
     if (tool.points.length < 2) return null; // nothing to size until the arc has its two ends

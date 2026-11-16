@@ -24,6 +24,8 @@ export interface GearSpec {
   rim?: number;
   /** diameter of a round hole through the middle of an external gear, mm (0 or absent: none) */
   bore?: number;
+  /** a rack: a gear of endless radius, a straight bar with straight-sided teeth (`teeth` of them, `rim` modules of bar under the roots, 2 by default); its outline lies along x from the middle of its pitch line, teeth up */
+  rack?: boolean;
 }
 export interface GearOutline {
   /** the corners of the outline in order, counter-clockwise */
@@ -38,6 +40,8 @@ export interface GearOutline {
   rootRadius: number;
   /** an internal gear: the radius of the wall round the hole (the outer circle) */
   outerRadius?: number;
+  /** a rack: how long it is along its pitch line, mm */
+  length?: number;
   /** things worth saying that did not stop the outline (few teeth: undercut not shaped; teeth pointed; tip inside the base circle) */
   warnings: string[];
 }
@@ -56,8 +60,33 @@ export function bulgeOf(a: readonly [number, number], m: readonly [number, numbe
   return Math.abs(off) < 1e-12 ? 0 : off / len;
 }
 
+/** The outline of a rack: straight sides at the pressure angle, the pitch line along the x axis, the middle of it at the origin, teeth up. */
+function rackOutline(spec: GearSpec): Result<GearOutline> {
+  const n = Math.round(spec.teeth);
+  const m = spec.module;
+  if (!Number.isFinite(n) || n < 1 || n > 500) return err("a rack needs 1 to 500 teeth");
+  if (!Number.isFinite(m) || m <= 0) return err("the module must be above zero");
+  const alpha = ((spec.pressure ?? 20) * Math.PI) / 180;
+  if (!(alpha > 0 && alpha < (35 * Math.PI) / 180)) return err("the pressure angle must be between 0 and 35 degrees");
+  const [c, t] = [spec.clearance ?? 0.25, Math.tan(alpha)];
+  const p = Math.PI * m;
+  const s = p / 2 - (spec.backlash ?? 0); // (the tooth's thickness on the pitch line)
+  const [tip, root] = [m, -(1 + c) * m];
+  const [ht, hr] = [s / 2 - m * t, s / 2 + (1 + c) * m * t]; // (half the tooth at its tip and at its root)
+  if (s <= 0 || ht <= 1e-6) return err("the teeth would be pointed: less backlash is needed");
+  if (p - 2 * hr <= 1e-6) return err("the teeth meet at the root");
+  const bottom = root - (spec.rim ?? 2) * m;
+  const L = n * p;
+  const top: [number, number][] = [[0, root]]; // (the top edge from the left end to the right, a half gap at each end)
+  for (let k = 0; k < n; k++) { const xc = (k + 0.5) * p; top.push([xc - hr, root], [xc - ht, tip], [xc + ht, tip], [xc + hr, root]); }
+  top.push([L, root]);
+  const points = [[0, bottom], [L, bottom], ...top.slice().reverse()].map((q): [number, number] => [q[0]! - L / 2, q[1]!]); // (counter-clockwise: along the bottom, up the right end, back along the top)
+  return ok({ points, bulges: points.map(() => 0), pitchRadius: 0, baseRadius: 0, tipRadius: tip, rootRadius: root, length: L, warnings: [] });
+}
+
 /** The outline of a gear, or why there is none. */
 export function gearOutline(spec: GearSpec): Result<GearOutline> {
+  if (spec.rack) return rackOutline(spec);
   const z = Math.round(spec.teeth);
   const m = spec.module;
   if (!Number.isFinite(z) || z < 3 || z > 500) return err("a gear needs 3 to 500 teeth");

@@ -2520,3 +2520,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_546 — 2026-11-16 — directive
 > Do moving a gear and the bore field next
 (asks for what in_545 left unbuilt: moving a gear, and a bore field in the gear's number box)
+
+## in_547 — 2026-11-16 — directive
+> Do the rack and meshing helper next
+(asks for the next items from dec_gear_tool's list: the rack, and a helper that places a gear so that it meshes with another)

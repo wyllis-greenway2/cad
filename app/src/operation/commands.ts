@@ -49,7 +49,7 @@ export type Command =
   | { type: "setPattern"; id: string; params: number[] }
   | { type: "breakPattern"; id: string }
   /** a gear that keeps its numbers (`gearscene.ts`, `dec_gear_tool`): its parts are made from this record; `setGear` gives it new numbers (and a new centre), `deleteGear` takes it away */
-  | { type: "gear"; id: string; plane: Ref; at: Vec3; spec: GearSpec }
+  | { type: "gear"; id: string; plane: Ref; at: Vec3; spec: GearSpec; /** radians */ turn?: number }
   | { type: "setGear"; id: string; spec: GearSpec; at?: Vec3; /** the gear turned about its centre in its plane, radians (0 puts it back) */ turn?: number }
   | { type: "deleteGear"; id: string }
   /** the whole model stretched by a factor along each world axis about a point (`dec_scale_axes`): the drawing and the distances of the steps, so the extrusions stay exact */
@@ -232,7 +232,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     case "pattern": { const r = addPattern(s, { id: c.id, kind: c.kind, parts: c.parts, plane: c.plane, params: c.params }); return r.ok ? ok(bumpCounter(r.value, c.id)) : r; }
     case "setPattern": return setPattern(s, c.id, c.params);
     case "breakPattern": return breakPattern(s, c.id);
-    case "gear": { const r = addGear(s, { id: c.id, plane: c.plane, at: c.at, spec: c.spec }); return r.ok ? ok(bumpCounter(r.value, c.id)) : r; }
+    case "gear": { const r = addGear(s, { id: c.id, plane: c.plane, at: c.at, spec: c.spec, ...(c.turn ? { turn: c.turn } : {}) }); return r.ok ? ok(bumpCounter(r.value, c.id)) : r; }
     case "setGear": return setGear(s, c.id, c.spec, c.at, c.turn);
     case "deleteGear": return deleteGear(s, c.id);
     case "batch": {

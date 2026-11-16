@@ -457,3 +457,114 @@ test("Rotate on a gear about its plane's axis turns it (tooth 0 points another w
   const a0 = Math.atan2(q0.at[1]! , q0.at[0]! - 10), a1 = Math.atan2(p0.at[1]!, p0.at[0]! - 10);
   assert.ok(Math.abs(a1 - a0 - Math.PI / 20) < 1e-9, `${a1 - a0}`);
 });
+
+// ---- the rack and the meshing helper (`in_547`) ----
+const gearsOfState = (st: AppState) => scene(st.session).gears ?? [];
+const faceOf = (st: AppState, id: string) => { const r = gearRefs(gearsOfState(st).find((g) => g.id === id)!); return scene(st.session).parts[(r.wall ? diskFaceRef(r.wall) : loopFaceRef(r.lines)) as never]!; };
+
+test("Rack tool: click the middle of the pitch line, the pointer sets half its length; Teeth, Module, Pressure, Backlash and Base are typed; it extrudes to its area times the thickness", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "gear" }, env);
+  st = reduce(st, { type: "runAction", id: "tool:rack" }, env);
+  st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
+  st = click(st, C);
+  assert.deepEqual(entryOf(scene(st.session), { ...st.tool!, cursor: [C[0] + 30, C[1], 0] }, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Backlash", "Base"]);
+  st = typeText(st, "8"); st = key(st, "Tab"); st = typeText(st, "3");
+  st = key(st, "Enter");
+  const rec = gearsOfState(st)[0]!;
+  assert.deepEqual([rec.spec.rack, rec.spec.teeth, rec.spec.module], [true, 8, 3]);
+  assert.ok(Object.values(scene(st.session).parts).every((p) => p.kind !== "line" || !(p as { bulge?: number }).bulge), "all straight sides");
+  const o = must(gearOutline(rec.spec));
+  const solid = extrude(st.session, loopFaceRef(gearRefs(rec).lines), 4);
+  assert.ok(Math.abs(bodyVolume(solid) - areaOf(o) * 4) < 0.001 * areaOf(o) * 4, `${bodyVolume(solid)} against ${areaOf(o) * 4}`);
+  const bb = solid.outcome.kernel!.bbox!;
+  assert.ok(Math.abs(bb.max[0] - bb.min[0] - 8 * Math.PI * 3) < 1e-3, "n pi m long");
+});
+
+test("Mesh gear: with a gear selected, the pointer says which way the partner stands, Teeth and Ratio (and Angle) can be typed; it is made at the centre distance, turned to fit, selected, and one undo takes it away", () => {
+  let st = top();
+  const made = (st0: AppState) => { let s = reduce(st0, { type: "begin", name: "gear" }, env); s = click(s, C); s = typeText(s, "20"); s = key(s, "Tab"); s = typeText(s, "2"); s = key(s, "Enter"); return reduce(s, { type: "escape" }, env); };
+  st = made(st);
+  const face = faceOf(st, "g_001");
+  st = pick({ ...st, tool: null }, [face.ref]);
+  const items = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; enabled: boolean; children?: { id: string; enabled: boolean }[] }[]).flatMap((i) => [i, ...(i.children ?? [])]);
+  assert.ok(items.find((i) => i.id === "gear:mesh")!.enabled && items.find((i) => i.id === "gear:meshrack")!.enabled);
+  let m = reduce(st, { type: "runAction", id: "gear:mesh" }, env);
+  assert.equal(m.tool!.gear!.mesh!.rack, false);
+  m = move(m, [C[0], C[1] + 50, 0]); // (straight up from the gear)
+  assert.deepEqual(entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.label), ["Teeth", "Ratio", "Angle"]);
+  const shown = entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.value);
+  assert.deepEqual(shown.slice(0, 2), ["20", "1"], "the same teeth, a ratio of 1");
+  assert.ok(Math.abs(Number(shown[2]) - 90) < 2, `up is about 90 degrees: ${shown[2]}`);
+  m = key(m, "Tab"); m = typeText(m, "1.5"); // (a ratio of 1.5: 30 teeth)
+  m = key(m, "Enter");
+  const [a, b] = gearsOfState(m);
+  assert.equal(b!.spec.teeth, 30);
+  assert.ok(Math.abs(Math.hypot(b!.at[0] - a!.at[0], b!.at[1] - a!.at[1]) - 2 * (20 + 30) / 2) < 1e-6, "m (z1 + z2) / 2 apart");
+  assert.ok(Math.abs(b!.at[0] - a!.at[0]) < 2 && b!.at[1] > a!.at[1], "up");
+  assert.equal(m.tool, null, "the tool is put away");
+  assert.equal(selection(m.session).length, 1);
+  assert.equal(gearsOfState({ ...m, session: undoLast(m.session) }).length, 1);
+  // a typed angle: 180 degrees puts it to the left
+  let l = reduce(st, { type: "runAction", id: "gear:mesh" }, env);
+  l = move(l, [C[0] + 40, C[1], 0]);
+  l = key(l, "Tab"); l = key(l, "Tab"); l = typeText(l, "180");
+  l = key(l, "Enter");
+  assert.ok(gearsOfState(l)[1]!.at[0] < gearsOfState(l)[0]!.at[0], "to the left");
+});
+
+test("Mesh rack and a gear on a rack: the rack goes where the pointer is, tangent to the pitch circle; a gear goes on a selected rack where the pointer is along it", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "gear" }, env);
+  st = click(st, C); st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2"); st = key(st, "Enter");
+  st = pick({ ...reduce(st, { type: "escape" }, env), tool: null }, [faceOf(st, "g_001").ref]);
+  let m = reduce(st, { type: "runAction", id: "gear:meshrack" }, env);
+  assert.equal(m.tool!.gear!.mesh!.rack, true);
+  m = move(m, [C[0], C[1] - 40, 0]); // (below)
+  assert.deepEqual(entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.label), ["Teeth", "Angle"]);
+  m = typeText(m, "9"); m = key(m, "Enter");
+  const [g, r] = gearsOfState(m);
+  assert.equal(r!.spec.rack, true);
+  assert.ok(Math.abs(Math.abs(r!.at[1] - g!.at[1]) - 20) < 0.01 * 20 + 3, `the pitch line is a pitch radius (20) below: ${r!.at[1] - g!.at[1]}`);
+  // a gear on the rack, at a place along it
+  const rackFace = faceOf(m, "g_002");
+  let on = pick({ ...m, tool: null }, [rackFace.ref]);
+  on = reduce(on, { type: "runAction", id: "gear:mesh" }, env);
+  assert.deepEqual(entryOf(scene(on.session), on.tool, on.op)!.fields.map((f) => f.label), ["Teeth", "Offset"]);
+  on = typeText(on, "12"); on = key(on, "Tab"); on = typeText(on, "5");
+  on = key(on, "Enter");
+  const third = gearsOfState(on)[2]!;
+  assert.equal(third.spec.teeth, 12);
+  assert.ok(Math.abs(Math.hypot(third.at[0] - r!.at[0], third.at[1] - r!.at[1]) - Math.hypot(5, 12)) < 1e-6, "5 along, a pitch radius (12) off the pitch line");
+});
+
+test("a gear that is profile shifted gets no partner (the tool stays for numbers that work)", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "gear" }, env);
+  st = click(st, C); st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2"); st = key(st, "Tab"); st = key(st, "Tab"); st = typeText(st, "0.3");
+  st = key(st, "Enter");
+  assert.equal(gearsOfState(st)[0]!.spec.shift, 0.3);
+  let m = reduce(pick({ ...reduce(st, { type: "escape" }, env), tool: null }, [faceOf(st, "g_001").ref]), { type: "runAction", id: "gear:mesh" }, env);
+  m = move(m, [C[0], C[1] + 50, 0]);
+  m = key(m, "Enter");
+  assert.equal(gearsOfState(m).length, 1, "no partner is made for a shifted gear: the tool stays for a number that works");
+});
+
+test("Edit gear on a rack has the rack's own fields and changing the teeth changes its length; Move puts it somewhere else", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "gear" }, env);
+  st = reduce(st, { type: "runAction", id: "tool:rack" }, env);
+  st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
+  st = click(st, C); st = typeText(st, "6"); st = key(st, "Tab"); st = typeText(st, "2"); st = key(st, "Enter");
+  const sel = pick({ ...reduce(st, { type: "escape" }, env), tool: null }, [faceOf(st, "g_001").ref]);
+  let e = reduce(sel, { type: "runAction", id: "gear:edit" }, env);
+  assert.deepEqual(entryOf(scene(e.session), e.tool, e.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Backlash", "Base"]);
+  e = typeText(e, "9"); e = key(e, "Enter");
+  assert.equal(gearsOfState(e)[0]!.spec.teeth, 9);
+  assert.equal(gearsOfState(e)[0]!.spec.rack, true);
+  const o = startOp(scene(e.session), [faceOf(e, "g_001").ref as never], "move");
+  assert.ok(o.ok);
+  const cmd = opCommand(scene(e.session), { ...(o as { op: Op }).op, axis: 1, value: 25 })!;
+  const moved = run(e.session, cmd);
+  assert.ok(Math.abs(scene(moved).gears![0]!.at[1] - (C[1] + 25)) < 1e-6);
+});

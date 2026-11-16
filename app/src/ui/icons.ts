@@ -63,6 +63,7 @@ Object.assign(ICONS, {
   tangent: svg('<circle cx="8" cy="10" r="4"/><path d="M1.5 6h13"/>'),
   rect: svg('<rect x="2.5" y="4" width="11" height="8" rx="0.6"/>'),
   circle: svg('<circle cx="8" cy="8" r="5.5"/>'),
+  rack: svg('<path d="M1.5 12.5h13M1.5 12.5V8.5M14.5 12.5V8.5M1.5 8.5h1.6l.8-3.5h1.8l.8 3.5h1.2l.8-3.5h1.8l.8 3.5h1.2l.8-3.5h1.8l.8 3.5h.4"/>'), // (a bar with straight-sided teeth: the rack, `in_547`)
   gear: svg('<path d="M6.9 1.8h2.2l.4 1.9 1.3.6 1.6-1.1 1.5 1.5-1.1 1.6.6 1.3 1.9.4v2.2l-1.9.4-.6 1.3 1.1 1.6-1.5 1.5-1.6-1.1-1.3.6-.4 1.9H6.9l-.4-1.9-1.3-.6-1.6 1.1-1.5-1.5 1.1-1.6-.6-1.3-1.9-.4V6.9l1.9-.4.6-1.3-1.1-1.6 1.5-1.5 1.6 1.1 1.3-.6z"/><circle cx="8" cy="8" r="2.2"/>'), // (a toothed wheel with its bore: the gear tool, `dec_gear_tool`)
   line: svg('<path d="M3 13L13 3"/><circle cx="3" cy="13" r="1" /><circle cx="13" cy="3" r="1"/>'),
   pushpull: svg('<path d="M2.5 11.5L8 8.7l5.5 2.8L8 14.3z"/><path d="M8 7V2"/><path d="M5.6 4.4L8 2l2.4 2.4"/>'), // (a face and one arrow up from it: simple, `in_538`)
