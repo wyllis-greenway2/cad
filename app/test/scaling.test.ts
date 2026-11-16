@@ -37,7 +37,7 @@ test("a body of 144 posts (864 faces, 1728 edges) takes about seven times what 1
   assert.ok(opened.ok);
   assert.equal(opened.value.outcome.kernel!.faces!.length, 864);
   assert.equal(opened.value.outcome.kernel!.edges!.length, 1728);
-  const [a, b] = [best(() => openSession(kernel, small!)), best(() => openSession(kernel, big!), 2)];
+  const [a, b] = [best(() => openSession(kernel, small!), 8), best(() => openSession(kernel, big!), 6)];
   assert.ok(b / a < 14, `${a.toFixed(0)} ms for 16 and ${b.toFixed(0)} ms for 144: ${(b / a).toFixed(1)} times`);
 });
 

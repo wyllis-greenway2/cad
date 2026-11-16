@@ -275,3 +275,46 @@ test("a turned tube: the walls and rings are named by the profile's edges, the s
   const half = rev(3, 5, 10, 180);
   assert.ok(names(half).includes("x_r:start") && names(half).includes("x_r:end"), names(half).join(" "));
 });
+
+// ---- loft and sweep (`in_569`) ----
+test("a ruled loft's caps and flat sides are named by the sketches' edges, the same for any size and height", () => {
+  const sq = (id: string, w: number, z: number, sides: string[]) => ({ id, type: "sketch", shape: "polygon", points: [[0, 0], [w, 0], [w, w], [0, w]], sides, plane: "XY", origin: z });
+  const loft = (w1: number, w2: number, h: number) => evE([sq("s_a", w1, 0, ["d/a", "d/b", "d/c", "d/d"]), sq("s_b", w2, h, ["d/e", "d/f", "d/g", "d/h"]), { id: "x_l", type: "loft", sections: [{ profile: "s_a", holes: [] }, { profile: "s_b", holes: [] }], smooth: false }]);
+  const a = loft(20, 10, 15), b = loft(30, 8, 40);
+  assert.equal(a.ops.find((o) => o.id === "x_l")!.error, null, a.ops.map((o) => o.error).join());
+  const names = (r: RE) => r.faceNames!.map((f) => f.name).sort();
+  for (const n of ["x_l:start", "x_l:end", "x_l:side:d/a", "x_l:side:d/b", "x_l:side:d/c", "x_l:side:d/d"]) assert.ok(names(a).includes(n), `${n} in ${names(a).join(" ")}`);
+  assert.deepEqual(names(a), names(b));
+  assert.equal(new Set(names(a)).size, 6);
+});
+
+test("a loft made smooth still has its two caps named", () => {
+  const sq = (id: string, w: number, z: number, sides: string[]) => ({ id, type: "sketch", shape: "polygon", points: [[0, 0], [w, 0], [w, w], [0, w]], sides, plane: "XY", origin: z });
+  const r = evE([sq("s_a", 20, 0, ["d/a", "d/b", "d/c", "d/d"]), sq("s_b", 10, 15, ["d/e", "d/f", "d/g", "d/h"]), { id: "x_l", type: "loft", sections: [{ profile: "s_a", holes: [] }, { profile: "s_b", holes: [] }], smooth: true }]);
+  assert.equal(r.ops.find((o) => o.id === "x_l")!.error, null);
+  const names = r.faceNames!.map((f) => f.name);
+  assert.ok(names.includes("x_l:start") && names.includes("x_l:end"), names.join(" "));
+});
+
+test("a sweep along a straight path names its start and end caps", () => {
+  const prof = (w: number) => ({ id: "s_a", type: "sketch", shape: "polygon", points: [[0, 0], [w, 0], [w, w], [0, w]], sides: ["d/a", "d/b", "d/c", "d/d"], plane: "XY", origin: 0 });
+  const sweep = (w: number, len: number) => evE([prof(w), { id: "x_w", type: "sweep", profile: "s_a", path: [{ a: [0, 0, 0], b: [0, 0, len] }] }]);
+  const a = sweep(5, 30), b = sweep(8, 50);
+  assert.equal(a.ops.find((o) => o.id === "x_w")!.error, null, a.ops.map((o) => o.error).join());
+  for (const r of [a, b]) { const n = r.faceNames!.map((f) => f.name); assert.ok(n.includes("x_w:start") && n.includes("x_w:end"), n.join(" ")); }
+  const cap = (r: RE, name: string) => r.faceNames!.find((f) => f.name === name)!.c[2]!;
+  assert.ok(Math.abs(cap(a, "x_w:start")) < 1e-6 && Math.abs(cap(a, "x_w:end") - 30) < 1e-6);
+  assert.ok(Math.abs(cap(b, "x_w:end") - 50) < 1e-6, "the end cap is the one at the end of the longer path");
+  for (const r of [a, b]) { const n = r.faceNames!.map((f) => f.name).sort(); assert.deepEqual(n, ["x_w:end", "x_w:side:d/a", "x_w:side:d/b", "x_w:side:d/c", "x_w:side:d/d", "x_w:start"], "a straight path: the sides are named for the profile's edges, as in an extrusion"); }
+});
+
+test("a loft through three sections: ruled, each side of each pair is named; bent, one side for each edge, for any size", () => {
+  const sq = (id: string, w: number, z: number, sides: string[]) => ({ id, type: "sketch", shape: "polygon", points: [[0, 0], [w, 0], [w, w], [0, w]], sides, plane: "XY", origin: z });
+  const loft = (smooth: boolean, w: number, h: number) => evE([sq("s_a", w, 0, ["d/a", "d/b", "d/c", "d/d"]), sq("s_b", w / 2, h / 2, ["d/e", "d/f", "d/g", "d/h"]), sq("s_c", w * 0.7, h, ["d/i", "d/j", "d/k", "d/l"]), { id: "x_l", type: "loft", sections: [{ profile: "s_a", holes: [] }, { profile: "s_b", holes: [] }, { profile: "s_c", holes: [] }], smooth }]);
+  const names = (r: RE) => r.faceNames!.map((f) => f.name).sort();
+  const ruled = loft(false, 20, 30);
+  assert.deepEqual(names(ruled), ["x_l:end", "x_l:side:d/a", "x_l:side:d/b", "x_l:side:d/c", "x_l:side:d/d", "x_l:side:d/e", "x_l:side:d/f", "x_l:side:d/g", "x_l:side:d/h", "x_l:start"]);
+  const bent = loft(true, 20, 30), bent2 = loft(true, 26, 44);
+  assert.deepEqual(names(bent), ["x_l:end", "x_l:side:d/a", "x_l:side:d/b", "x_l:side:d/c", "x_l:side:d/d", "x_l:start"]);
+  assert.deepEqual(names(bent2), names(bent));
+});

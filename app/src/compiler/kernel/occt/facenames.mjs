@@ -50,6 +50,10 @@ export function surfacesOf(shape) {
       const l = Math.hypot(...d) || 1;
       out.push({ kind: "cyl", n: d.map((v) => v / l), o: [loc.X(), loc.Y(), loc.Z()], r: cyl.Radius(), c: [p.x, p.y, p.z], lo: [...lo], hi: [...hi], face: f });
       for (const x of [dir, loc, ax, cyl]) x.delete?.();
+    } else {
+      // any other surface (a cone, a sphere, a torus, a spline: the sides of a loft, the round of a rim): named by its kind of surface and the box it lies in
+      const [lo, hi] = f.boundingBox.bounds;
+      out.push({ kind: "surf", type: String(type), n: [0, 0, 1], c: [0, 1, 2].map((k) => (lo[k] + hi[k]) / 2), lo: [...lo], hi: [...hi], face: f });
     }
   }
   return out;
@@ -63,6 +67,11 @@ function carried(names, tf) {
   return names.map((m, i) => {
     const d = [tip[i].at[0] - at[i].at[0], tip[i].at[1] - at[i].at[1], tip[i].at[2] - at[i].at[2]];
     const l = Math.hypot(...d) || 1;
+    if (m.kind === "surf") { // (a surface of another kind is carried as its box: by a move or a scale it stays a box; by a turn it does not, and is not matched)
+      if (tf.mode !== "move" && tf.mode !== "scale") return { name: m.name, kind: "surf", type: m.type, n: m.n, c: at[i].at, lo: [NaN, NaN, NaN], hi: [NaN, NaN, NaN] };
+      const [a, b] = [moveMarkers([{ id: "lo", at: m.lo }], tf)[0].at, moveMarkers([{ id: "hi", at: m.hi }], tf)[0].at];
+      return { name: m.name, kind: "surf", type: m.type, n: m.n, c: at[i].at, lo: [0, 1, 2].map((k) => Math.min(a[k], b[k])), hi: [0, 1, 2].map((k) => Math.max(a[k], b[k])) };
+    }
     const q = { name: m.name, n: d.map((v) => v / l), c: at[i].at };
     if (m.kind === "cyl") { q.kind = "cyl"; q.o = moveMarkers([{ id: "o", at: m.o }], tf)[0].at; q.r = tf.mode === "scale" ? m.r * tf.v : m.r; }
     return q;
@@ -93,12 +102,23 @@ export function nameFaces(prev, tf, shape, opId, roles) {
   const axisOf = (n) => { const a = [0, 1, 2].find((k) => Math.abs(Math.abs(n[k]) - 1) < 1e-6); return a === undefined ? -1 : a; };
   const cylKey = (a, o, r, dx, dy, dr) => { const [u, v] = a === 0 ? [1, 2] : a === 1 ? [0, 2] : [0, 1]; return `${a}|${Math.round(r / 0.05) + dr}|${Math.round(o[u] / CELL) + dx}|${Math.round(o[v] / CELL) + dy}`; };
   const cylBuckets = new Map();
+  const surfs = faces.map((f, i) => (f.kind === "surf" ? i : -1)).filter((i) => i >= 0);
   const cyls = []; // (the round faces whose axis is not along a world axis: looked through all)
-  faces.forEach((f, i) => { if (f.kind === "cyl") { const a = axisOf(f.n); if (a < 0) cyls.push(i); else { const k = cylKey(a, f.o, f.r, 0, 0, 0); cylBuckets.set(k, [...(cylBuckets.get(k) ?? []), i]); } return; } const k = bucket(f.n, dot(f.n, f.c)); buckets.set(k, [...(buckets.get(k) ?? []), i]); });
+  faces.forEach((f, i) => { if (f.kind === "surf") return; if (f.kind === "cyl") { const a = axisOf(f.n); if (a < 0) cyls.push(i); else { const k = cylKey(a, f.o, f.r, 0, 0, 0); cylBuckets.set(k, [...(cylBuckets.get(k) ?? []), i]); } return; } const k = bucket(f.n, dot(f.n, f.c)); buckets.set(k, [...(buckets.get(k) ?? []), i]); });
   // a round face is the same surface when its axis is the same line and its radius the same
   const sameCyl = (f, m) => Math.abs(Math.abs(dot(f.n, m.n)) - 1) < 1e-6 && Math.abs(f.r - m.r) <= tol && lineGap(f.o, f.n, m.o) <= tol && lineGap(m.o, m.n, f.o) <= tol;
   for (const m of old) {
     let best = -1, bestGap = Infinity;
+    if (m.kind === "surf") {
+      for (const i of surfs) {
+        const f = faces[i];
+        if (taken.has(i) || f.type !== m.type) continue;
+        const gap = Math.max(...[0, 1, 2].flatMap((k) => [Math.abs(f.lo[k] - m.lo[k]), Math.abs(f.hi[k] - m.hi[k])]));
+        if (gap <= tol * 2 && gap < bestGap) { best = i; bestGap = gap; }
+      }
+      if (best >= 0) { taken.add(best); given[best] = m.name; }
+      continue;
+    }
     if (m.kind === "cyl") {
       const am = axisOf(m.n);
       const pool = am < 0 ? [...cyls, ...[...cylBuckets.values()].flat()] : [...cyls, ...[-1, 0, 1].flatMap((dr) => [-1, 0, 1].flatMap((dx) => [-1, 0, 1].flatMap((dy) => cylBuckets.get(cylKey(am, m.o, m.r, dx, dy, dr)) ?? [])))];
@@ -134,8 +154,22 @@ export function nameFaces(prev, tf, shape, opId, roles) {
       let best = null, gap = Infinity;
       roles.forEach((r, k) => {
         if (r.kind === "near") { // a face a fillet or chamfer made along a named edge: it holds the edge's middle in its box and runs along it (a round face: along its axis; a flat one: across it)
+          if (f.kind === "surf") return;
           const along = Math.abs(dot(f.n, r.t));
           if (!(f.kind === "cyl" ? along > 1 - 1e-6 : along < 1e-6) || !near(r.c, f.lo, f.hi, tol + (r.reach ?? 0))) return;
+          const g = Math.hypot(r.c[0] - f.c[0], r.c[1] - f.c[1], r.c[2] - f.c[2]);
+          if (g < gap) { gap = g; best = k; }
+          return;
+        }
+        if (r.kind === "box") { // a surface of another kind that lies in the box the corners of a side make (a loft's ruled side)
+          if (f.kind !== "surf" || used.has(k)) return;
+          const g = Math.max(...[0, 1, 2].flatMap((q) => [Math.abs(f.lo[q] - r.lo[q]), Math.abs(f.hi[q] - r.hi[q])]));
+          if (g <= tol * 4 + r.slack && g < gap) { gap = g; best = k; }
+          return;
+        }
+        if (f.kind === "surf") return;
+        if (r.kind === "dir") { // a flat face across a direction, the one nearest a point, that no other role has taken
+          if (f.kind === "cyl" || used.has(k) || Math.abs(Math.abs(dot(f.n, r.n)) - 1) > 1e-6) return;
           const g = Math.hypot(r.c[0] - f.c[0], r.c[1] - f.c[1], r.c[2] - f.c[2]);
           if (g < gap) { gap = g; best = k; }
           return;
@@ -152,10 +186,10 @@ export function nameFaces(prev, tf, shape, opId, roles) {
   }
   // the faces no name matched: new, named by the operation and their order
   const fresh = faces.map((f, i) => ({ f, i })).filter((x) => given[x.i] === null);
-  const key = (f) => [f.kind === "cyl" ? 1 : 0, ...f.n.map((v) => Math.round(v * 1e4)), Math.round((f.kind === "cyl" ? f.r : dot(f.n, f.c)) * 1e3), ...f.c.map((v) => Math.round(v * 1e3))];
+  const key = (f) => [f.kind === "surf" ? 2 : f.kind === "cyl" ? 1 : 0, ...f.n.map((v) => Math.round(v * 1e4)), Math.round((f.kind === "cyl" ? f.r : dot(f.n, f.c)) * 1e3), ...f.c.map((v) => Math.round(v * 1e3))];
   fresh.sort((a, b) => { const ka = key(a.f), kb = key(b.f); for (let k = 0; k < ka.length; k++) if (ka[k] !== kb[k]) return ka[k] - kb[k]; return 0; });
   fresh.forEach((x, rank) => { given[x.i] = `${opId}:${rank}`; });
-  const names = faces.map((f, i) => (f.kind === "cyl" ? { name: given[i], kind: "cyl", n: f.n, c: f.c, o: f.o, r: f.r } : { name: given[i], n: f.n, c: f.c }));
+  const names = faces.map((f, i) => (f.kind === "cyl" ? { name: given[i], kind: "cyl", n: f.n, c: f.c, o: f.o, r: f.r } : f.kind === "surf" ? { name: given[i], kind: "surf", type: f.type, n: f.n, c: f.c, lo: f.lo, hi: f.hi } : { name: given[i], n: f.n, c: f.c }));
   // the edge names are worked out when somebody asks (the next step that names an edge, or the answer): most steps are followed by one that does not, and each takes a look at every face's edges
   let edges = null;
   return { faces: names, get edges() { return (edges ??= nameEdges(faces, given)); } };
@@ -329,5 +363,97 @@ export function revolveRoles(ends, A, D, angle, advance, sides, caps) {
       roles.push({ role: `side:${sides[i]}`, n: k, c: mid });
     }
   });
+  return roles;
+}
+
+/** The plane through a section's corners (Newell's normal and their middle), or null when they are not in one plane. */
+function sectionPlane(edges) {
+  const pts = edges.map((e) => e.a);
+  if (pts.length < 3) return null;
+  const n = [0, 0, 0];
+  pts.forEach((p, i) => { const q = pts[(i + 1) % pts.length]; n[0] += (p[1] - q[1]) * (p[2] + q[2]); n[1] += (p[2] - q[2]) * (p[0] + q[0]); n[2] += (p[0] - q[0]) * (p[1] + q[1]); });
+  const l = Math.hypot(...n);
+  if (l < 1e-12) return null;
+  const u = n.map((v) => v / l);
+  const c = [0, 1, 2].map((k) => pts.reduce((s, p) => s + p[k], 0) / pts.length);
+  const scale = Math.max(1, ...pts.map((p) => Math.hypot(p[0] - c[0], p[1] - c[1], p[2] - c[2])));
+  return pts.every((p) => Math.abs(dot(u, [p[0] - c[0], p[1] - c[1], p[2] - c[2]])) < 1e-6 * scale) ? { n: u, c } : null;
+}
+
+/**
+ * The roles of the flat faces a loft makes (`dec_stable_reference_mechanism`, `in_569`), by the sketches' own edges: `sections` are the figures in order, each with its edges' ends (`edgeEnds`) and the id of each
+ * edge (`sides`, kept in step with the points by the matching of the sketches). The first and the last section's planes are `start` and `end` (the main figure only); a side between edge i of one section and the same edge
+ * of the next is `side:<the id of that edge in the earlier section>` when the four corners are in one plane (a ruled side of straight edges that are parallel or meet); a curved side has none. A loft that is
+ * not ruled bends between three or more sections and its sides are splines, which no name is made for.
+ */
+export function loftRoles(sections, caps, smooth = false) {
+  const roles = [];
+  if (!sections || sections.length < 2 || sections.some((s) => !s.ends || !s.sides)) return roles;
+  if (caps) {
+    const first = sectionPlane(sections[0].ends.edges), last = sectionPlane(sections[sections.length - 1].ends.edges);
+    if (first) roles.push({ role: "start", n: first.n, c: first.c });
+    if (last) roles.push({ role: "end", n: last.n, c: last.c });
+  }
+  if (smooth && sections.length > 2) { // a loft bent through three or more sections: one spline side for each edge, from the first section to the last, in the box of that edge's corners in every section
+    const first = sections[0];
+    if (first.sides.length === first.ends.edges.length && sections.every((s) => s.ends.edges.length === first.ends.edges.length)) {
+      first.sides.forEach((id, i) => {
+        if (!id) return;
+        const pts = sections.flatMap((s) => [s.ends.edges[i].a, s.ends.edges[i].b]);
+        const lo = [0, 1, 2].map((q) => Math.min(...pts.map((p) => p[q]))), hi = [0, 1, 2].map((q) => Math.max(...pts.map((p) => p[q])));
+        roles.push({ role: `side:${id}`, kind: "box", lo, hi, c: lo.map((v, q) => (v + hi[q]) / 2), slack: 0.1 * Math.max(1, Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2])) });
+      });
+    }
+    return roles;
+  }
+  for (let j = 0; j + 1 < sections.length; j++) {
+    const [A, B] = [sections[j], sections[j + 1]];
+    if (A.ends.edges.length !== B.ends.edges.length || A.sides.length !== A.ends.edges.length) continue;
+    A.ends.edges.forEach((e, i) => {
+      const f = B.ends.edges[i];
+      if (!A.sides[i] || !e.line || !f.line) return;
+      const u = [e.b[0] - e.a[0], e.b[1] - e.a[1], e.b[2] - e.a[2]], v = [f.a[0] - e.a[0], f.a[1] - e.a[1], f.a[2] - e.a[2]];
+      const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+      let l = Math.hypot(...n);
+      if (l < 1e-9) { // (the two edges' ends run along one line from the first corner: use the other corner)
+        const w = [f.b[0] - e.a[0], f.b[1] - e.a[1], f.b[2] - e.a[2]];
+        const n2 = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
+        l = Math.hypot(...n2);
+        if (l < 1e-9) return;
+        n[0] = n2[0]; n[1] = n2[1]; n[2] = n2[2];
+      }
+      const k = n.map((x) => x / l);
+      const size = Math.max(1, Math.hypot(...u), Math.hypot(...v));
+      const flat = Math.abs(dot(k, [f.b[0] - e.a[0], f.b[1] - e.a[1], f.b[2] - e.a[2]])) <= 1e-6 * size; // (not flat: a twisted side, a surface of another kind)
+      const pts = [e.a, e.b, f.a, f.b];
+      const lo = [0, 1, 2].map((q) => Math.min(...pts.map((p) => p[q]))), hi = [0, 1, 2].map((q) => Math.max(...pts.map((p) => p[q])));
+      const c = [0, 1, 2].map((q) => (e.a[q] + e.b[q] + f.a[q] + f.b[q]) / 4);
+      if (flat) roles.push({ role: `side:${A.sides[i]}`, n: k, c }); // (a flat side: the kernel may make it a plane)
+      roles.push({ role: `side:${A.sides[i]}`, kind: "box", lo, hi, c, slack: smooth ? 0.05 * Math.max(1, Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2])) : 0 }); // (else a surface of another kind in the box of its four corners)
+    });
+  }
+  return roles;
+}
+
+/** The roles of a sweep's flat faces that the sketch alone gives (`in_569`): the profile's own plane is `start`; the cap at the other end is the flat face standing across the path's last direction `t`, nearest the path's end `end` (a `dir` role). The sides depend on the path and are not named. */
+export function endTangent(seg) {
+  if (!seg.m) return [seg.b[0] - seg.a[0], seg.b[1] - seg.a[1], seg.b[2] - seg.a[2]];
+  const k = circleOf(seg.a, seg.m, seg.b);
+  if (!k) return [seg.b[0] - seg.a[0], seg.b[1] - seg.a[1], seg.b[2] - seg.a[2]];
+  const u = [seg.m[0] - seg.a[0], seg.m[1] - seg.a[1], seg.m[2] - seg.a[2]], v = [seg.b[0] - seg.m[0], seg.b[1] - seg.m[1], seg.b[2] - seg.m[2]];
+  const N = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+  const r = [seg.b[0] - k.o[0], seg.b[1] - k.o[1], seg.b[2] - k.o[2]];
+  const t = [N[1] * r[2] - N[2] * r[1], N[2] * r[0] - N[0] * r[2], N[0] * r[1] - N[1] * r[0]];
+  return dot(t, v) < 0 ? t.map((x) => -x) : t; // (the way the path is going at its end)
+}
+export function sweepRoles(ends, t, end, caps, sides, straight) {
+  const roles = [];
+  if (!ends || !caps) return roles;
+  const p = sectionPlane(ends.edges);
+  if (p) roles.push({ role: "start", n: p.n, c: p.c });
+  const l = Math.hypot(...t);
+  if (l > 1e-9) roles.push({ role: "end", kind: "dir", n: t.map((v) => v / l), c: end });
+  // a path of one straight line carries each straight side of the profile along it, as an extrusion does: the same roles (`side:<id>`)
+  if (straight && sides && l > 1e-9) roles.push(...figureRoles({ dir: t, edges: ends.edges }, straight, sides, false));
   return roles;
 }

@@ -35,7 +35,7 @@ import { reshape } from "./reshape.mjs";
 import { findCrossing } from "./selfcross.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
-import { nameFaces, refOfName, namedEdgeRefs, figureRoles, edgeEnds, edgeRoles, revolveRoles } from "./facenames.mjs";
+import { nameFaces, refOfName, namedEdgeRefs, figureRoles, edgeEnds, edgeRoles, revolveRoles, loftRoles, sweepRoles, endTangent } from "./facenames.mjs";
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
 
 /** The imported solids scaled about the origin by `op.scale` and then placed: `op.place` "center" brings the middle of their box to the origin, "floor" brings the middle of the box to the z axis and the bottom to z = 0 (a part that sits on the build plate). */
@@ -544,6 +544,7 @@ const OPS = {
   sweep(op, ctx) {
     const sketchOf = (id) => { const q = ctx.get(id, "sketch"); return q.drawing.sketchOnPlane(q.plane, q.origin); };
     const outer = sketchOf(op.profile);
+    const endsOuter = ctx.roleFigs ? edgeEnds(outer) : null; // (the profile's edges, read before the sweep uses it up, for the names of its faces)
     const face = outer.face();
     const pn = face.normalAt();
     const N = [pn.x, pn.y, pn.z];
@@ -559,6 +560,7 @@ const OPS = {
     const t0 = [segs[0].b[0] - segs[0].a[0], segs[0].b[1] - segs[0].a[1], segs[0].b[2] - segs[0].a[2]];
     const tl = Math.hypot(...t0) || 1;
     if (Math.abs(t0[0] * N[0] + t0[1] * N[1] + t0[2] * N[2]) / tl < 0.05) throw new Error("the path runs along the shape's plane where it starts: the shape would be carried edge on (draw the path leaving the plane)");
+    if (ctx.roleFigs) { try { const last = segs[segs.length - 1]; ctx.roleFigs.set("sweep", sweepRoles(endsOuter, endTangent(last), last.b, true, ctx.get(op.profile, "sketch").sides, segs.length === 1 && !last.m ? Math.hypot(last.b[0] - last.a[0], last.b[1] - last.a[1], last.b[2] - last.a[2]) : 0)); } catch { ctx.roleFigs.set("sweep", []); } } // (`dec_stable_reference_mechanism`: the start cap and the end cap)
     const spine = assembleWire(segs.map((s) => (s.m ? makeThreePointArc(s.a, s.m, s.b) : makeLine(s.a, s.b))));
     const make = (sk) => {
       const solid = genericSweep(sk.wire, spine, { frenet: true, transitionMode: "right" });
@@ -585,11 +587,15 @@ const OPS = {
       const q = ctx.get(h, "sketch");
       return typeof q.plane === "string" ? q.drawing.sketchOnPlane(q.plane, q.origin ?? 0) : q.drawing.sketchOnPlane(q.plane, q.origin);
     };
-    const through = (ids) => { const sk = ids.map(sketchOf); return sk[0].loftWith(sk.slice(1), { ruled: !op.smooth }); };
-    let solid = through(op.sections.map((s) => s.profile));
+    const through = (ids, key) => {
+      const sk = ids.map(sketchOf);
+      if (ctx.roleFigs) { try { ctx.roleFigs.set(key, loftRoles(ids.map((id, k) => ({ ends: edgeEnds(sk[k]), sides: ctx.get(id, "sketch").sides })), key === "main", !!op.smooth)); } catch { ctx.roleFigs.set(key, []); } } // (the roles of its faces by the sketches' own edges, read before they are used up: `dec_stable_reference_mechanism`)
+      return sk[0].loftWith(sk.slice(1), { ruled: !op.smooth });
+    };
+    let solid = through(op.sections.map((s) => s.profile), "main");
     if (!isValidSolid(solid)) throw new Error("the loft could not be made through those sketches (try turning an outline round with its start point, or reverse one)");
     const holes = op.sections[0].holes?.length ?? 0;
-    for (let i = 0; i < holes; i++) solid = solid.cut(through(op.sections.map((s) => s.holes[i])));
+    for (let i = 0; i < holes; i++) solid = solid.cut(through(op.sections.map((s) => s.holes[i]), `hole${i}`));
     if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the loft when its holes were cut");
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
@@ -2049,7 +2055,7 @@ export function compile(graph) {
     try {
       if (!OPS[op.type]) throw new Error(`unknown op type ${op.type}`);
       beginStages();
-      ctx.roleFigs = graph.names && (op.type === "extrude" || op.type === "revolve") ? new Map() : null;
+      ctx.roleFigs = graph.names && (op.type === "extrude" || op.type === "revolve" || op.type === "loft" || op.type === "sweep") ? new Map() : null;
       const value = run(op, ctx, results);
       const stagesOf = endStages();
       if (value.kind === "solid") {
@@ -2060,7 +2066,7 @@ export function compile(graph) {
         const tM = performance.now();
         value.markers = trackBodies(prev, value.shape, op.id);
         markMs = performance.now() - tM;
-        if (graph.names) { const named = nameFaces(from?.faceNames, value.tf, value.shape, op.id, (op.type === "extrude" || op.type === "revolve") && ctx.roleFigs ? [...ctx.roleFigs.values()].flat() : op.type === "edgeMod" ? edgeRoles(op, from?.edgeNames) : null); value.faceNames = named.faces; Object.defineProperty(value, "edgeNames", { get: () => named.edges, enumerable: true, configurable: true }); } // (the names of the flat faces, carried from the body it was made from)
+        if (graph.names) { const named = nameFaces(from?.faceNames, value.tf, value.shape, op.id, (op.type === "extrude" || op.type === "revolve" || op.type === "loft" || op.type === "sweep") && ctx.roleFigs ? [...ctx.roleFigs.values()].flat() : op.type === "edgeMod" ? edgeRoles(op, from?.edgeNames) : null); value.faceNames = named.faces; Object.defineProperty(value, "edgeNames", { get: () => named.edges, enumerable: true, configurable: true }); } // (the names of the flat faces, carried from the body it was made from)
       }
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
       const tC = performance.now();

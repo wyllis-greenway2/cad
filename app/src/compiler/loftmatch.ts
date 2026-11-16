@@ -22,7 +22,8 @@ function asPolygon(op: KernelOp, n: number): KernelOp {
     mids.push([cx + r * Math.cos(t1), cy + r * Math.sin(t1)]);
   }
   const { radius: _r, at: _a, ...rest } = op;
-  return { ...rest, shape: "polygon", points: pts, mids };
+  const id0 = (op.sides as string[] | undefined)?.[0];
+  return { ...rest, shape: "polygon", points: pts, mids, ...(id0 ? { sides: pts.map((_, k) => `${id0}.${k}`) } : {}) }; // (each arc of a circle turned into arcs is named for the circle and its place)
 }
 
 /** A straight side cut in two at its middle: the longest one, until the sketch has `n` parts. Null where there is no straight side left to cut. */
@@ -31,6 +32,7 @@ function split(op: KernelOp, n: number): KernelOp | null {
   if (!poly) return op;
   const { pts, mids } = poly;
   const at = (op.at as P | undefined) ?? [0, 0];
+  const sides = (op.sides as string[] | undefined) ? [...(op.sides as string[])] : null;
   while (pts.length < n) {
     let best = -1, len = 0;
     for (let i = 0; i < pts.length; i++) {
@@ -41,9 +43,10 @@ function split(op: KernelOp, n: number): KernelOp | null {
     if (best < 0) return null;
     pts.splice(best + 1, 0, mid2(pts[best]!, pts[(best + 1) % pts.length]!));
     mids.splice(best + 1, 0, null);
+    if (sides) sides.splice(best + 1, 0, `${sides[best]}+`); // (the second half of a side cut in two is the side's name and a +)
   }
   void at;
-  return { ...op, points: pts, mids: mids.some((m) => m) ? mids : undefined };
+  return { ...op, points: pts, mids: mids.some((m) => m) ? mids : undefined, ...(sides ? { sides } : {}) };
 }
 
 /** The sketch with its outline going the other way, and then starting `shift` parts further on. */
@@ -51,14 +54,17 @@ function reorder(op: KernelOp, shift: number, rev: boolean): KernelOp {
   const poly = polygonOf(op);
   if (!poly || (!shift && !rev)) return op;
   let { pts, mids } = poly;
+  let sides = (op.sides as string[] | undefined) ? [...(op.sides as string[])] : null;
   const n = pts.length;
   if (rev) {
     pts = pts.map((_, j) => pts[(n - j) % n]!);
     mids = mids.map((_, j) => mids[(n - j - 1 + n) % n] ?? null);
+    if (sides) { const was = sides; sides = sides.map((_, j) => was[(n - j - 1 + n) % n]!); }
   }
   const s = ((shift % n) + n) % n;
   const out = { pts: pts.map((_, j) => pts[(j + s) % n]!), mids: mids.map((_, j) => mids[(j + s) % n] ?? null) };
-  return { ...op, points: out.pts, mids: out.mids.some((m) => m) ? out.mids : undefined };
+  if (sides) { const was = sides; sides = sides.map((_, j) => was[(j + s) % n]!); }
+  return { ...op, points: out.pts, mids: out.mids.some((m) => m) ? out.mids : undefined, ...(sides ? { sides } : {}) };
 }
 
 /**

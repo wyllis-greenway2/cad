@@ -3,7 +3,7 @@ id: dec_stable_reference_mechanism
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_546, in_558, in_559, in_560, in_561, in_564, in_565
+human_input: in_546, in_558, in_559, in_560, in_561, in_564, in_565, in_569
 date: 2026-11-16
 depends_on:
   - dec_stable_references: that entry decided the idea (names by how things were made, geometry as the fallback); this asks how it is built
@@ -64,7 +64,15 @@ alternative_to:
 - **Edge names are worked out when asked** (`facenames.mjs`: the answer, or the next step that names an edge), not for every step; round faces are looked up by their axis and radius in buckets (144 posts made the first version superlinear).
 - **Speed:** the gear's extrusion costs about 0.15 to 0.25 s more with names; the gear (60 teeth) and the 144-post timing tests are near their limits even without names (1.3 to 1.6 s of 2 s; ratio 7 to 10 of 14) and failed in some full runs, passed in others; the last full run passed.
 
-**Not built (next, in this order):** (1) roles for loft and sweep (rank names until then); (2) hollow's faces, a repeat's, the sketch's plane when drawn on a face; (3) a push or pull of a round wall by name; (4) the kernel's own history (option A) where matching is wrong (a face that splits, two faces that swap).
+## Loft, sweep and the other surfaces (`in_569`)
+
+- **Surfaces of any other kind have names** (`surfacesOf`: kind `surf`): a cone, a sphere, a torus, a spline, such as the ruled side of a loft or the round of a rim, is named by its kind of surface and the box it lies in; a name is carried through a step by the same kind and the same box (after a move or a scale the box moves or scales with it; after a turn it is not matched, and the face is named again). So the edges beside them have names too.
+- **A loft names its faces by the sketches' own edges** (`loftRoles`): the first and the last section's planes are `start` and `end`; a side between an edge of one section and the same edge of the next is `side:<the id of that edge in the earlier section>`, found as the flat face on the plane of its four corners or as the surface in the box of them (a ruled side is a spline even when flat); a loft bent through three or more sections has one spline side for each edge, `side:<the id in the first section>`, in the box of that edge's corners in every section. The matching of the sketches (`loftmatch.ts`: split, start point, direction, a circle turned into arcs) now carries each side's id with the side (`sides`), a half of a split side being the id and a `+`, an arc of a circle the circle's id and its place.
+- **A sweep names its caps, and its sides along a straight path:** the profile's plane is `start`; the cap at the end is the flat face across the path's last direction nearest the path's end (`end`); a path of one straight line gives the sides the same names an extrusion's get (`side:<id>`). The sides along a path of several segments or an arc are surfaces named by rank (a path bends the profile's edges into surfaces no plane or axis of the sketch describes).
+- **Tests:** a ruled loft's caps and four sides the same for any size and height; a smooth one's caps; a loft through three sections ruled (eight sides) and bent (four); a sweep along a straight path (start, end, four sides, the end cap the one at the end of a longer path).
+- **Not done:** the faces of a sweep along a bent path by the profile's edges; a loft's round (circle to circle) sides, which the kernel makes as cylinders or cones and are named by rank when not the same circle twice; the sides of a loft with holes beyond the figure's own (done the same, not tested).
+
+**Not built (next, in this order):** (1) the faces of a sweep along a bent path by the profile's edges; (2) hollow's faces, a repeat's, the sketch's plane when drawn on a face; (3) a push or pull of a round wall by name; (4) the kernel's own history (option A) where matching is wrong (a face that splits, two faces that swap).
 
 ## Rationale
 
