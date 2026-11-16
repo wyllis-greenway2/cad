@@ -138,3 +138,27 @@ test("the clearance set for hard bodies is said to be met or not", () => {
   r = lines(measureReport(scene(s), bodyRefs(s)));
   assert.match(r["Between the two bodies|Nearest"]!, /at least the 0.2 mm clearance set/);
 });
+
+import { requestOverlap } from "../src/interaction/overlap.ts";
+test("the volume two bodies share, from the kernel: the common part of two blocks, none when they only touch", async () => {
+  // A is 0..10 in x, B is 5..15: they share 5 x 10 x 10 = 500 mm3
+  const into = two(0, true);
+  const [a, b] = bodyRefs(into);
+  const sc = scene(into);
+  let done = 0;
+  requestOverlap(kernel, sc, a!, b!, () => { done++; });
+  let r = lines(measureReport(sc, [a!, b!]));
+  assert.match(r["Between the two bodies|Shared volume"]!, /being worked out|mm³/);
+  await new Promise((res) => setTimeout(res, 50));
+  assert.equal(done, 1);
+  r = lines(measureReport(sc, [a!, b!]));
+  assert.match(r["Between the two bodies|Shared volume"]!, /^500 mm³ \(0\.5 cm³\), 50 % of the smaller body$/);
+  // asked again for the same scene and pair: not asked twice
+  requestOverlap(kernel, sc, b!, a!, () => { done++; });
+  await new Promise((res) => setTimeout(res, 20));
+  assert.equal(done, 1);
+  // two bodies that are apart have no shared-volume line at all
+  const apart = two(20);
+  r = lines(measureReport(scene(apart), bodyRefs(apart)));
+  assert.equal(r["Between the two bodies|Shared volume"], undefined);
+});

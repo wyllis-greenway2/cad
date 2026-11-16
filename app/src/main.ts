@@ -21,6 +21,8 @@ import { aboutOf } from "./operation/file.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
 import { createState, reduce, advance, stopView } from "./interaction/controller.ts";
 import { frameOf } from "./interaction/frame.ts";
+import { requestOverlap } from "./interaction/overlap.ts";
+import { clearanceBetween } from "./interaction/clearance.ts";
 import { appRows, nextScrollMode, isScrollMode, nextPanScale } from "./interaction/appmenu.ts";
 import { snapshotOf, logEntry } from "./interaction/snapshot.ts";
 import { createTiming } from "./interaction/timing.ts";
@@ -433,6 +435,11 @@ function frame(now: number) {
     if (bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid, inFront)) dirty = true; // (a bubble still sliding to its place: another frame)
     refusalChip.update(f.refusal, f.refusal ? bubbles.rectOf(f.refusal.beside) : null); // (beside the bubble of the constraint that stopped it, `in_367`)
     view.setNotes(f.annotations.flatMap((a) => a.lines), f.annotations.flatMap((a) => a.dashed ?? []), state.cam.distance * 0.012);
+    { // the Measure tab with two overlapping bodies selected asks the kernel for the volume they share, once; the answer is drawn when it comes (`dec_measure_report`, `in_573`)
+      const sc = scene(state.session);
+      const two = selection(state.session).filter((r) => sc.parts[r]?.kind === "body");
+      if (state.panel === "measure" && two.length === 2 && !state.session.outcome.kernel?.stale && clearanceBetween(sc, two[0]!, two[1]!)?.kind === "overlap") requestOverlap(engine, sc, two[0]!, two[1]!, () => { dirty = true; });
+    }
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
     // the icon stands at the upper left of the handles, out of the way of the arrows and rings (`in_215`)

@@ -11,6 +11,7 @@ import { readingsOf, readingsBetween } from "./tape.ts";
 import { surfaceTriangles } from "./surfaces.ts";
 import { settings } from "../shared/settings.ts";
 import { clearanceBetween } from "./clearance.ts";
+import { overlapOf } from "./overlap.ts";
 import type { Clearance } from "./clearance.ts";
 
 export interface MeasureLine { label: string; value: string }
@@ -88,6 +89,16 @@ const edgeSection = (scene: Scene, p: Line, title: string): MeasureSection => {
   return { title, lines };
 };
 
+/** The line of the volume two overlapping bodies share: the kernel's answer when it has come, else that it is being worked out (`overlap.ts`). */
+function overlapLine(scene: Scene, a: Ref, b: Ref): MeasureLine {
+  const o = overlapOf(scene, a, b);
+  if (!o || o === "working") return { label: "Shared volume", value: "being worked out…" };
+  if ("error" in o) return { label: "Shared volume", value: `not found (${o.error})` };
+  const [pa, pb] = [scene.parts[a], scene.parts[b]];
+  const small = Math.min(...[pa, pb].map((p) => (p?.kind === "body" && p.volume ? p.volume : Infinity)));
+  const share = Number.isFinite(small) && small > 0 && o.mm3 > 0 ? `, ${r2((100 * o.mm3) / small)} % of the smaller body` : "";
+  return { label: "Shared volume", value: o.mm3 > 1e-6 ? `${r2(o.mm3)} mm³ (${r2(o.mm3 / 1000)} cm³)${share}` : "none (they only touch)" };
+}
 const clearanceWords = (c: Clearance | null, scene: Scene): string => {
   if (!c) return "not known";
   if (c.kind === "overlap") return "they go into each other";
@@ -118,7 +129,7 @@ export function measureReport(scene: Scene, selection: readonly Ref[]): MeasureS
   const faces = sel.filter((r) => scene.parts[r]!.kind === "plane" && scene.parts[r]!.origin === "body");
   const edges = picked("line");
   const corners = picked("corner").filter((r) => !(scene.parts[r] as { derived?: boolean }).derived);
-  if (bodyRefs.length === 2) { const c = clearanceBetween(scene, bodyRefs[0]!, bodyRefs[1]!); out.push({ title: "Between the two bodies", lines: [{ label: c?.kind === "overlap" ? "Overlap" : "Nearest", value: clearanceWords(c, scene) }, ...(c?.kind === "distance" ? [{ label: "Measured on", value: "the surfaces as drawn (the true surface of a round face is a few hundredths of a millimetre nearer than its mesh)" }] : [])] }); }
+  if (bodyRefs.length === 2) { const c = clearanceBetween(scene, bodyRefs[0]!, bodyRefs[1]!); out.push({ title: "Between the two bodies", lines: [{ label: c?.kind === "overlap" ? "Overlap" : "Nearest", value: clearanceWords(c, scene) }, ...(c?.kind === "overlap" ? [overlapLine(scene, bodyRefs[0]!, bodyRefs[1]!)] : []), ...(c?.kind === "distance" ? [{ label: "Measured on", value: "the surfaces as drawn (the true surface of a round face is a few hundredths of a millimetre nearer than its mesh)" }] : [])] }); }
   bodyRefs.slice(0, 4).forEach((r) => out.push(bodySection(scene, scene.parts[r] as Extract<Part, { kind: "body" }>, `Body ${all.findIndex((b) => b.ref === r) + 1}`)));
   if (faces.length === 1 || faces.length === 2) {
     faces.forEach((r, i) => {

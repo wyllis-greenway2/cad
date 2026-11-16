@@ -2624,3 +2624,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_572 — 2026-11-16 — directive
 > yes start on selecting a sketch from a step's row
 (approves the next item of `dec_model_panel`: choosing a sketch's row selects the sketch in the model, so it can be looked at and worked on)
+
+## in_573 — 2026-11-16 — directive
+> yes start on the overlap volume
+(approves the next item of `dec_measure_report`: the volume two bodies share where they go into each other)

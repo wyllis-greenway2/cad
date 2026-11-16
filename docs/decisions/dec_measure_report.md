@@ -3,7 +3,7 @@ id: dec_measure_report
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_546, in_567, in_568
+human_input: in_546, in_567, in_568, in_573
 date: 2026-11-16
 depends_on:
   - dec_model_panel: the report is the Measure tab of that panel
@@ -30,7 +30,14 @@ depends_on:
 - **Accuracy, said in the report:** a mesh of a round face lies inside its true surface by a few hundredths of a millimetre, so a distance between round faces reads that much larger than the true one; for flat faces it is exact to the halving.
 - **Not measured:** the volume of an overlap (it needs a boolean in the kernel), which place the nearest points are at, and wall thickness.
 
-**Not done (later, each needing its own approval):** the volume of an overlap and where the nearest points are; the centre of mass; the perimeter of a face; the length of a chain of edges in one go; wall thickness and overhang checks for printing; a copy of the report as text; the units in inches.
+## The volume two bodies share (`in_573`)
+
+- **A line "Shared volume"** under "Between the two bodies" when the two overlap: the volume of the common part in mm³ and cm³ and its share of the smaller body ("500 mm³ (0.5 cm³), 50 % of the smaller body"); "none (they only touch)" when the common part is nothing; "being worked out…" until the kernel answers.
+- **How** (`interaction/overlap.ts`): the kernel makes the common part with the same boolean as the combine step's intersect (the scene's own graph and one more step after its last solid, the two bodies by the names they keep) and says its volume from the solid itself; the answer is asked through the kernel's export queue (`exportMesh` with the first body named, meshed coarsely, only its volume is used), so the kernel's thread needs nothing new and the model's own answer is not disturbed. It is asked once for the scene and the pair (kept for the scene) when the Measure tab is open with two overlapping bodies selected (`main.ts`); the panel shows it when it comes. A boolean that fails says why in the line.
+- **Tests:** two blocks overlapping by half share 500 mm³ and 50 %; asked twice, the kernel is asked once; bodies that are apart have no such line. Looked at in the browser, where the kernel runs on its own thread: the same.
+- **Not done:** the place of the nearest points; the overlap of more than two bodies; the overlap by regions of the combine step (it exists, `in_294`, in the Combine operation).
+
+**Not done (later, each needing its own approval):** the place of the nearest points; the centre of mass; the perimeter of a face; the length of a chain of edges in one go; wall thickness and overhang checks for printing; a copy of the report as text; the units in inches.
 
 ## Rationale
 
