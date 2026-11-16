@@ -6,7 +6,7 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Plane } from "../operation/part.ts";
 import type { Tool, Preview } from "./tools.ts";
-import { FIELDS, previewOf, rectEnd, circleRadius, lineNext, arcOf } from "./tools.ts";
+import { FIELDS, previewOf, rectEnd, circleRadius, lineNext, arcOf, gearNumbers } from "./tools.ts";
 import type { Op } from "./operations.ts";
 import type { Gizmo } from "./gizmo.ts";
 import type { Camera } from "./camera.ts";
@@ -85,6 +85,7 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
       live.push(Math.abs(ex - ax), Math.abs(ey - ay));
     }
   } else if (tool.kind === "circle") live.push(circleRadius(pl, tool) * 2);
+  else if (tool.kind === "gear") { const n = gearNumbers(tool); if (n) live.push(n.teeth, n.module); }
   else if (tool.kind === "arc") {
     if (tool.points.length < 2) return null; // nothing to size until the arc has its two ends
     const arc = arcOf(pl, tool);
