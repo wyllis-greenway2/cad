@@ -18,6 +18,8 @@ alternative_to:
 
 **Changed by `in_471`:** the ring **stands still in the world** again where it was opened (ahead of the eye; `main.ts` `ringAnchor`, `ring.moveTo`), and the view **tilts just enough to bring the lit option under the crosshair** as the selection clicks round (each frame the view is swivelled by the lit bubble's distance from the middle of the view, turned from pixels to an angle by the lens, a quarter of the way at a time; `ring.selectedCentre`); it comes back to where it was when the menu goes; the ring is closed when its middle leaves the view. **Cleaner switches:** a camera animation that is given up (the keys, the mouse, a walk) while the view is part way between perspective and straight no longer leaves a narrowed lens: `stop` starts the perspective coming back whole from where it is (`AppState.mixBase`, `advance`); game mode begun while a straight view is on or on its way gives it up properly; a view that becomes straight, or begins turning to it, while in game mode ends the game mode.
 
+**Changed by `in_518`:** the tilt no longer goes to the lit option in steps: the view follows the mouse's own stick smoothly (`ring.stickOffset`: the stick's place scaled so its cap is the ring's radius; `main.ts` swivels towards it as before, eased), so the view and the crosshair move with no clicks; which option is lit is still decided from the same stick, in steps, and a click chooses it. *Not browser-tried.*
+
 ## Rationale
 
 Recorded because production code needs an entry (`CLAUDE.md` rule 9); the form is the AI's reading and stays provisional.

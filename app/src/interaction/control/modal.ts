@@ -11,6 +11,7 @@ import { armTool, typeKey, finish, lineNext } from "../tools.ts";
 import type { OpKind } from "../operations.ts";
 import { startOp, typeOp, autoOp, drawnFigure } from "../operations.ts";
 import { pasteFigure, surfaceOf } from "../paste.ts";
+import { faceSketchCommand } from "../offsetbody.ts";
 import { placements } from "../../operation/repeat.ts";
 import type { Part } from "../../operation/part.ts";
 import { runOp } from "../runop.ts";
@@ -74,7 +75,27 @@ function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = 
 const MANY = new Set<OpKind>(["loft", "sweep"]);
 export const picksMany = (kind: OpKind): boolean => MANY.has(kind);
 
-function beginOp(s: AppState, kind: OpKind, now = 0, over: Ref | null = null): AppState {
+/** A flat face of the body selected for a revolve is first copied as a sketch on its own plane (the sketch stays, as a drawing of the face), and the revolve goes on from that figure (`dec_revolve_body_face`). */
+function faceToFigure(s: AppState): AppState | { why: string } | null {
+  const sc = sceneOf(s.session);
+  const parts = selectionOf(s.session).map((r) => sc.parts[r]).filter((p): p is Part => !!p);
+  const face = parts.length === 1 ? parts[0]! : null;
+  if (!face || face.kind !== "plane" || face.origin !== "body") return null;
+  const cmd = faceSketchCommand(sc, parts);
+  if (!cmd) return { why: "this face cannot be turned: it must be flat, with edges that are lines and arcs" };
+  const next = run(s.session, cmd);
+  if (next.message) return { why: next.message };
+  const made = Object.values(sceneOf(next).parts).filter((p) => p.kind === "face" && p.origin === "drawn" && !(p.ref in sc.parts)).map((p) => p.ref);
+  if (!made.length) return { why: "this face cannot be turned: its copy as a sketch is not a closed figure" };
+  return { ...s, session: { ...next, click: { ...next.click, selection: made } } };
+}
+function beginOp(s0: AppState, kind: OpKind, now = 0, over: Ref | null = null): AppState {
+  let s = s0;
+  if (kind === "revolve") {
+    const f = faceToFigure(s);
+    if (f && "why" in f) return { ...s, session: { ...s.session, message: f.why }, menu: null };
+    if (f) s = f;
+  }
   const r = startOp(sceneOf(s.session), selectionOf(s.session), kind, viewAxes(s.cam));
   // what it needs is not selected: it waits for what is clicked next, and says what that is (`in_464`)
   if (!r.ok) return { ...s, picking: s.repeat ? null : { kind }, session: { ...s.session, message: s.repeat ? r.why : `${r.why}: click it now (Esc to leave)` }, menu: null };

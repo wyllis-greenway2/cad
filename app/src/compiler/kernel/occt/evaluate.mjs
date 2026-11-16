@@ -2,7 +2,7 @@
 // Nothing outside src/kernel/occt/ may import OCCT or replicad (inv_kernel_boundary).
 import { loadOC } from "./oc.mjs";
 import { compile, finalSolid, volume } from "./interpreter.mjs";
-import { makeCompound, getOC } from "replicad";
+import { makeCompound, getOC, exportSTEP as writeStep } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
 import { lumpsOf, lumpsByName } from "./bodies.mjs";
 import { cornerEdges } from "../../../shared/sharp.mjs";
@@ -262,6 +262,30 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
  * Answers { ok: false, error } when there is nothing to export (no body, a step that failed, or a body with nothing in it).
  */
 export function exportMesh(graph, quality) {
+  const picked = exportShape(graph, quality.bodies);
+  if (!picked.ok) return picked;
+  const { shape, box } = picked;
+  const m = shape.mesh({ tolerance: quality.tolerance, angularTolerance: quality.angular });
+  return { ok: true, vertices: new Float32Array(m.vertices), triangles: new Uint32Array(m.triangles), volume: volume(shape), bbox: { min: [...box[0]], max: [...box[1]] } };
+}
+
+/** The final body of a graph (or only the bodies named) as a STEP file (`dec_export_formats`): the exact solid, as bytes; in millimetres or, with `unit` "in", inches. */
+export async function exportStep(graph, bodies, unit) {
+  const picked = exportShape(graph, bodies);
+  if (!picked.ok) return picked;
+  const { shape, box } = picked;
+  try {
+    // (the unit is a setting of the whole kernel that stays as it was left: it is set every time, millimetres too, or one export in inches would make all the next ones inches; the model is in millimetres either way)
+    const blob = writeStep([{ shape, name: "model" }], { unit: unit === "in" ? "INCH" : "MM", modelUnit: "MM" });
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    return { ok: true, bytes, volume: volume(shape), bbox: { min: [...box[0]], max: [...box[1]] } };
+  } catch (e) {
+    return { ok: false, error: `the kernel could not write the STEP file: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
+/** What an export is made of: the final solid of the graph, or the solids of the bodies named, and its box; or why there is nothing. */
+function exportShape(graph, only) {
   const results = compile(graph);
   const failed = graph.ops.map((o) => ({ id: o.id, error: results.get(o.id)?.error ?? null })).find((o) => o.error);
   const fin = finalSolid(graph, results);
@@ -270,13 +294,12 @@ export function exportMesh(graph, quality) {
   try { box = fin.shape.boundingBox.bounds; } catch { box = null; }
   if (!box) return { ok: false, error: "nothing to export: nothing is left of the body" };
   let shape = fin.shape;
-  if (quality.bodies?.length) {
+  if (only?.length) {
     // only some of the bodies: their solids, as one shape
-    const found = lumpsByName(shape, fin.markers ?? [], quality.bodies);
+    const found = lumpsByName(shape, fin.markers ?? [], only);
     if (!found) return { ok: false, error: "that body is not there any more" };
     shape = found.picked.length === 1 ? found.picked[0] : makeCompound(found.picked);
     box = shape.boundingBox.bounds;
   }
-  const m = shape.mesh({ tolerance: quality.tolerance, angularTolerance: quality.angular });
-  return { ok: true, vertices: new Float32Array(m.vertices), triangles: new Uint32Array(m.triangles), volume: volume(shape), bbox: { min: [...box[0]], max: [...box[1]] } };
+  return { ok: true, shape, box };
 }

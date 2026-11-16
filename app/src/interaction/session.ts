@@ -19,6 +19,7 @@ import type { Scene } from "../operation/scene.ts";
 import type { Result } from "../shared/result.ts";
 import { ok } from "../shared/result.ts";
 import { fromText, toText } from "../operation/file.ts";
+import type { About } from "../operation/file.ts";
 import { emptyScene } from "../operation/scene.ts";
 import type { Selection } from "./selection.ts";
 import { goIn, afterClick } from "./groupsel.ts";
@@ -80,7 +81,7 @@ export function openSession(kernel: Kernel, text: string): Result<Session> {
   const h = fromText(text, c.derive);
   return h.ok ? ok(wrap(h.value, c.outcomeOf, !!kernel.lagging)) : h;
 }
-export const saveText = (s: Session): string => toText(s.history);
+export const saveText = (s: Session, about?: About): string => toText(s.history, about);
 function withHistory(s: Session, h: History, message: string | null = null): Session {
   // the selection keeps only parts that still exist
   return { ...s, history: h, outcome: s.outcomeOf(h), message, conflict: null, click: { ...s.click, selection: s.click.selection.filter((r) => r in h.scene.parts) } };

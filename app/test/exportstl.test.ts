@@ -119,10 +119,10 @@ test("with no body it says so and makes no file; the menu item is greyed out wit
   assert.equal(canExport(s), false);
   const r = await exportStl(s, kernel);
   assert.deepEqual(r, { ok: false, error: EXPORT_NOTHING });
-  const row = appRows("auto", "", { undo: true, redo: true, exportStl: canExport(s) }).find((x) => x.id === "exportStl")!;
+  const row = appRows("auto", "", { undo: true, redo: true, export: canExport(s) }).find((x) => x.id === "export")!;
   assert.equal(row.enabled, false);
-  assert.equal(row.why, EXPORT_NOTHING);
-  assert.equal(appRows("auto", "", { undo: true, redo: true, exportStl: canExport(box()) }).find((x) => x.id === "exportStl")!.enabled, true);
+  assert.match(row.why ?? "", /nothing to export yet/);
+  assert.equal(appRows("auto", "", { undo: true, redo: true, export: canExport(box()) }).find((x) => x.id === "export")!.enabled, true);
   const empty = await kernel.exportMesh({ params: {}, ops: [] }, EXPORT_QUALITY);
   assert.deepEqual(empty, { ok: false, error: EXPORT_NOTHING });
 });

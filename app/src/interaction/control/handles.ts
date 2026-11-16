@@ -124,7 +124,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     }
     const started = s.op ?? activeOp(s)!;
     const op: Op = started.kind === "revolve" && h!.id.startsWith("rev:turn:") ? { ...started, auto: false, axis: d.axis ?? started.axis } : started.kind === "pushpull" || started.kind === "extrude" || started.kind === "edge" || started.kind === "offset" || started.kind === "hollow" || started.kind === "revolve" ? { ...started, auto: false } : started;
-    const base = op.kind === "revolve" ? (h!.id === "rev:adv" ? advanceOf(op) : valueOf(op) ?? 0) : isLive(op) ? op.value ?? 0 : 0; // (a revolve has two numbers: the angle of its ring and the advance of its arrow)
+    const base = op.kind === "revolve" ? (h!.id === "rev:adv" ? advanceOf(op) : valueOf(op) ?? 0) : isLive(op) && op.kind !== "scale" ? op.value ?? 0 : 0; // (a revolve has two numbers: the angle of its ring and the advance of its arrow)
     s = { ...s, handleSel: h!.id, op, drag: { handle: op.curved ? { ...d, step: settings.op.distanceStep / 5 } : d, base, ...(h!.id.startsWith("rev:turn") ? { turned: { last: 0, total: 0 } } : {}) }, gizmoHover: h!.id }; // (a round face changes by the radius, so the diameter moves twice as fast: a finer step, 0.02 mm of radius) // a handle that showed up by itself becomes the operation being worked
   }
   if ("handle" in s.drag! && s.drag.frameTurn && moverOp(s)) {

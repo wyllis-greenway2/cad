@@ -753,7 +753,7 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   if (op.kind === "pushpull" && op.edit && !op.noEdit && (op.faceKind ?? "move") === "move") return v === 0 ? null : editCommand(scene, op.edit, v);
   if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
-  if (op.kind === "edge" && op.twoDist && v < 0) { // a chamfer with a distance along each face (`dec_chamfer_two_distances`)
+  if (op.kind === "edge" && op.twoDist && v !== 0) { // a chamfer with a distance along each face (`dec_chamfer_two_distances`)
     const face = chosenFace(scene, op);
     if (!face) return null;
     const second = typedNumber(op.endTyped ?? "");
@@ -906,7 +906,7 @@ function scaleShapeCommand(scene: Scene, op: Op, f: number): Command | null {
 }
 
 /** Operations that make one step and then change it as you drag or type again, until you click away: the value is the total since the operation began. */
-export const isLive = (op: Op): boolean => !op.auto && (op.kind === "extrude" || op.kind === "pushpull" || op.kind === "edge" || op.kind === "offset" || op.kind === "hollow" || op.kind === "revolve");
+export const isLive = (op: Op): boolean => !op.auto && (op.kind === "extrude" || op.kind === "pushpull" || op.kind === "edge" || op.kind === "offset" || op.kind === "hollow" || op.kind === "revolve" || (op.kind === "scale" && !!op.axes)); // (a stretch along axes: the factors are totals, so a later pull takes the earlier one out and makes it again, not on top of it)
 
 /** A face as the figure an extrude uses: its sides (or circle) and those of each figure drawn inside it. */
 function figureOf(scene: Scene, face: Extract<Part, { kind: "face" }>): Figure {

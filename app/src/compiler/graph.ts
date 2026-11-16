@@ -240,6 +240,22 @@ export function buildGraph(scene: Scene): GraphResult {
         prev = xid;
         break;
       }
+      case "import": {
+        // a body (or several) read from a STEP file: it has no history of its own, only the file's text, kept in the step (`dec_import`); beside the bodies already there, as a piece of its own
+        const data = String(st.params.data ?? "");
+        if (!data) { errors[st.id] = "the file this step imported is gone"; break; }
+        ops.push({ id: xid, type: "import", data, name: String(st.params.name ?? ""), ...(st.params.scale !== undefined ? { scale: Number(st.params.scale) } : {}), ...(st.params.place ? { place: String(st.params.place) } : {}), ...(prev ? { target: prev, mode: "new" } : {}) });
+        prev = xid;
+        break;
+      }
+      case "importMesh": {
+        // closed triangle meshes (STL, 3MF), each a body made of faces that are its triangles (`dec_import_mesh`); the cleaned mesh is kept in the step as text
+        const data = String(st.params.data ?? "");
+        if (!data) { errors[st.id] = "the file this step imported is gone"; break; }
+        ops.push({ id: xid, type: "importMesh", data, name: String(st.params.name ?? ""), ...(prev ? { target: prev, mode: "new" } : {}) });
+        prev = xid;
+        break;
+      }
       case "delete": {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         ops.push({ id: xid, type: "clear" });

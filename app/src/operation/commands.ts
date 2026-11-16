@@ -103,6 +103,15 @@ function goneWith(s: Scene, refs: readonly Ref[]): Set<Ref> {
   return gone;
 }
 
+/** The part as it will be added, or why it cannot be: its name is free, the plane it is on (by the name a move gave it, `in_372`, if need be) and the points it stands on are there. `parts` are the parts so far. */
+function checkedPart(s: Scene, parts: Record<Ref, Part>, part0: Part): Part | string {
+  if (part0.ref in parts) return `${part0.ref} already exists`;
+  const part = part0.plane && !(part0.plane in parts) && s.planeAlias?.[part0.plane] ? ({ ...part0, plane: s.planeAlias[part0.plane]! } as Part) : part0;
+  for (const a of anchorsOf(part)) if (a !== part.ref && !(a in parts)) return `${part.ref} uses ${a}, which does not exist`;
+  if (part.plane && !(part.plane in parts)) return `plane ${part.plane} does not exist`;
+  return part;
+}
+
 export function apply(s: Scene, c: Command): Result<Scene> {
   switch (c.type) {
     case "addPart": {
@@ -219,11 +228,27 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     case "breakPattern": return breakPattern(s, c.id);
     case "batch": {
       let cur = s;
+      // a run of addPart commands adds to one private copy of the parts, made once: copying every part for each one added was quadratic (a drawing of 4,000 parts took 6 seconds to import)
+      let work: Record<Ref, Part> | null = null;
+      let counter = cur.counter;
+      const flush = (): void => { if (work) { cur = { ...cur, parts: work, counter }; work = null; } };
       for (const sub of c.commands) {
+        if (sub.type === "addPart") {
+          work ??= { ...cur.parts };
+          const part = checkedPart(cur, work, sub.part);
+          if (typeof part === "string") return err(part); // all or nothing: the scene is returned unchanged by the caller
+          work[part.ref] = part;
+          const n = Number(idOf(part.ref).slice(idOf(part.ref).lastIndexOf("_") + 1));
+          if (Number.isFinite(n) && n > counter) counter = n;
+          continue;
+        }
+        flush();
         const r = apply(cur, sub);
-        if (!r.ok) return r; // all or nothing: the scene is returned unchanged by the caller
+        if (!r.ok) return r;
         cur = r.value;
+        counter = cur.counter;
       }
+      flush();
       return ok(cur);
     }
   }

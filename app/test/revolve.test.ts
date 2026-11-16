@@ -303,3 +303,32 @@ test("the revolve's orb is dragged to move it, with no click on it first: the ca
   assert.equal(st.cam.azimuth, azimuth, "the view did not turn");
   assert.ok(Math.hypot(st.op!.pivot![0]! - was[0]!, st.op!.pivot![1]! - was[1]!, st.op!.pivot![2]! - was[2]!) > 0.5, "the orb moved");
 });
+
+test("an axis that cuts across the figure is refused beforehand with the reason; on an edge or beside the figure it is not (`in_520`)", () => {
+  const { s, face } = figure(); // 8 to 10 along X, 0 to 1.5 up
+  const op = begin(s, face);
+  const across = runOp(s, { ...along(op, [9, 0, 0], [0, 0, 1]), value: 90 })!;
+  assert.match(across.session.message ?? "", /cuts across the figure/);
+  assert.equal(scene(across.session).steps.length, scene(s).steps.length, "nothing is made");
+  const acrossX = runOp(s, { ...along(op, [9, 0, 0.75], [1, 0, 0]), value: 90 })!; // (along X through the middle of the height)
+  assert.match(acrossX.session.message ?? "", /cuts across the figure/);
+  const onEdge = runOp(s, { ...along(op, [8, 0, 0], [0, 0, 1]), value: 90 })!;
+  assert.equal(onEdge.session.message, null, "on its own edge");
+  const beside = runOp(s, { ...Z(op), value: 90 })!;
+  assert.equal(beside.session.message, null, "beside it");
+});
+
+test("while the orb is dragged across the figure the live picture is not drawn and the reason is said; back on an edge it is drawn again (`in_521`)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  const size = { w: 800, h: 600 };
+  const bodies = (f: ReturnType<typeof frameOf>) => f.mesh?.vertices.length ?? 0; // (nothing of a body is there until the turned figure is)
+  const edge = { ...st.op!, ...along(st.op!, [8, 0, 0], [0, 0, 1]) };
+  const good = frameOf({ ...st, op: edge }, size);
+  assert.ok(bodies(good) > 0, "an axis on an edge: the turned body is drawn");
+  assert.ok(!/cuts across/.test(good.message ?? ""));
+  const bad = frameOf({ ...st, op: { ...edge, ...along(edge, [9, 0, 0], [0, 0, 1]) } }, size);
+  assert.equal(bodies(bad), 0, "an axis across the figure: nothing drawn");
+  assert.match(bad.message ?? "", /cuts across the figure/);
+});

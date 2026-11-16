@@ -2395,3 +2395,54 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_516 — 2026-11-16 — directive
 > can you merge in claude/adoring-dijkstra-u2w4om and claude/cool-einstein-odsxco next so I can deploy everything and test it?
 (asks to merge the branches claude/adoring-dijkstra-u2w4om and claude/cool-einstein-odsxco into this work so that everything can be deployed and tested)
+
+> The two distance option on chamfer seems to immedeitly go away before you can select it? Why isn't it always an option like variable while you are in a chamfer or fillet operation?
+>
+> There seems to be an issue with scale. First off it should have arrows, line lines with orbs on the end. Second, it seems that if you scale in one direction, it still also scales in other directions as well? Also it is not very clear that the scale all arrow is pointing in a different direction on thin objects because it is connected to the object, instead lets just have an xyz style pointer with one extra arrow fully going 45 degrees to each, or on the opposite quadrent pointing away from each at a corner angle.
+(a bug report and a request: *Two distances* always offered with Variable; scale handles as arrows (not lines with balls); a stretch along one axis leaving the others alone; the all-together handle an arrow of its own, at the same angle to X, Y and Z, not joined to the body's corner)
+
+## in_518 — 2026-11-16 — directive
+> for the camera tilt on right click to select menu items, can we try having it not click? lets just try smooth motion but perhaps the actual icon in selection clicks. does that make sense? so the camera tilt and circle center cursor are purely smooth, but the actual selection based off position clicks?
+>
+> Why cant I treat a treat a surface as a sketch? it basically is a sketch with edges etc? If I select a surface, shouldn't I be able to rotate extrude it? by selecting one of its edges as the rotate, or setting the rotate orb out in space?
+(the first: the menu's view tilt and the crosshair move smoothly with the mouse, and only which option is lit and chosen steps; the second: a question, and a request, to revolve a face of a body about one of its edges or about the revolve's orb put out in space)
+
+## in_519 — 2026-11-16 — approval
+> Go with option 1 for the face revolve
+(approves option 1 of `q_revolve_body_face`: the face becomes a figure at the moment of the revolve, the axis an edge of it or the orb out in space)
+
+## in_520 — 2026-11-16 — directive
+> Refuse an axis that cuts across the face
+(asks for what `dec_revolve_body_face` lists as not built: a revolve whose axis cuts across the figure is refused beforehand, with the reason)
+
+## in_521 — 2026-11-16 — directive
+> Also refuse it in the live picture while dragging the orb
+(asks for what `dec_revolve_body_face` lists as not done: the live picture of a revolve is also refused while the orb is dragged to an axis that cuts across the figure)
+
+## in_522 — 2026-11-16 — question
+> Would it make sense to have the share state info just naturally be included in the save file? Instead of having save, open and export as stl, can we just have import and export? they should both have standardized options, but what should they be? What are the first few formats we should offer for import and export in order to make this tool as usable as possible for many cad users and makers?
+(a question about the file menu: share-state data inside the save file, Save / Open / Export STL folded into Import and Export, and which formats first)
+
+## in_523 — 2026-11-16 — directive
+> Check whether the kernel can read and write STEP
+(asks for the check that `q_import_export` leaves unconfirmed: whether the kernel's wasm build reads and writes STEP)
+
+## in_524 — 2026-11-16 — directive
+> Build STEP and 3MF export first
+(approves the first two steps of the order in `q_import_export` point 5 that follow STL: 3MF export and STEP export; the `about` block, the Import / Export menu restructure and the imports are not asked for yet)
+
+## in_525 — 2026-11-16 — directive
+> Build SVG and DXF export next
+(asks for the next step of `q_import_export` point 5: SVG and DXF export of a sketch or a flat face; imports and the Import / Export restructure are not asked for yet)
+
+## in_526 — 2026-11-16 — directive
+> Build STEP and SVG/DXF import next
+(asks for the next step of `q_import_export` point 5: STEP import as a body with no history, and SVG and DXF import as sketches; STL / 3MF import as mesh bodies and the rest of the menu restructure are not asked for yet)
+
+## in_527 — 2026-11-16 — directive
+> Build STL and 3MF import as mesh bodies next
+(asks for the next step of `q_import_export` point 5: STL and 3MF import as bodies made from meshes; the `about` block and the Import / Export menu restructure are not asked for yet)
+
+## in_528 — 2026-11-16 — directive
+> Build the about block and Import/Export menu next
+(asks for the last open parts of `q_import_export`: the small `about` block in every project file, and the Import / Export menu with standard options in place of the separate export rows)

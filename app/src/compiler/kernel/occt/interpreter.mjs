@@ -26,13 +26,83 @@ import {
   genericSweep,
   revolution,
   Wire,
+  localGC,
+  makePolygon,
 } from "replicad";
+import { decodeMesh } from "./meshdata.mjs";
 import { facesOf, edgesOf, shellsOf, solidsOf } from "./topo.mjs";
 import { reshape } from "./reshape.mjs";
 import { findCrossing } from "./selfcross.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
+
+/** The imported solids scaled about the origin by `op.scale` and then placed: `op.place` "center" brings the middle of their box to the origin, "floor" brings the middle of the box to the z axis and the bottom to z = 0 (a part that sits on the build plate). */
+function placedSolids(solids, op) {
+  const k = Number(op.scale ?? 1);
+  let out = solids;
+  if (k !== 1) { if (!(k > 1e-6 && k < 1e4)) throw new Error("the scale of the import must be more than nothing"); out = out.map((x) => x.scale(k, [0, 0, 0])); }
+  if (op.place === "center" || op.place === "floor") {
+    const boxes = out.map(bounds);
+    const [lo, hi] = [0, 1, 2].map((i) => [Math.min(...boxes.map((b) => b.min[i])), Math.max(...boxes.map((b) => b.max[i]))]).reduce((a, r) => [[...a[0], r[0]], [...a[1], r[1]]], [[], []]);
+    const by = [-(lo[0] + hi[0]) / 2, -(lo[1] + hi[1]) / 2, op.place === "floor" ? -lo[2] : -(lo[2] + hi[2]) / 2];
+    out = out.map((x) => x.translate(by));
+  }
+  return out;
+}
+
+/** What an import makes: the solids beside the bodies already there (as a piece of its own each), or alone. */
+function importedSolids(op, ctx, solids) {
+  const target = op.target ? ctx.peek(op.target, "solid") : null;
+  const all = [...(target ? target.shape.solids : []), ...solids];
+  return { kind: "solid", shape: all.length === 1 ? all[0] : makeCompound(all), checked: true };
+}
+
+/**
+ * A solid from a closed triangle mesh whose triangles all run the same way (counter-clockwise seen from outside): a face for each triangle, sewn into a shell and made a solid, then the neighbouring faces that lie in
+ * one plane (and edges that run on in one line) are joined, so a flat face of the part is one face again. Throws with the reason when it does not make a valid solid.
+ */
+export function solidOfMesh(mesh) {
+  const { vertices: v, triangles: t } = mesh;
+  const at = (i) => [v[3 * i], v[3 * i + 1], v[3 * i + 2]];
+  const faces = [];
+  for (let i = 0; i < t.length; i += 3) faces.push(makePolygon([at(t[i]), at(t[i + 1]), at(t[i + 2])]));
+  let solid = makeSolid(faces);
+  try {
+    const oc = getOC();
+    const [r, gc] = localGC();
+    const up = r(new oc.ShapeUpgrade_UnifySameDomain(solid.wrapped, true, true, false));
+    up.Build();
+    const joined = cast(up.Shape());
+    gc();
+    if ((joined.solids ?? []).length === 1 && isValidSolid(joined.solids[0])) solid = joined.solids[0];
+  } catch { /* the triangles stay as faces: still a solid */ }
+  if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("this mesh could not be made into a valid solid (its triangles do not close up cleanly)");
+  return solid;
+}
+
+/** The solids in the text of a STEP file, in millimetres (the reader converts the file's own units); each is checked. Throws with the reason when there is none or one is not a valid solid. */
+export function readStep(text) {
+  if (!/^\s*ISO-10303-21/.test(text)) throw new Error("this is not a STEP file (it does not start with ISO-10303-21)");
+  const oc = getOC();
+  const [r, gc] = localGC();
+  const file = `import-${Math.random().toString(36).slice(2)}.step`;
+  oc.FS.writeFile(`/${file}`, new TextEncoder().encode(text));
+  let shape;
+  try {
+    const reader = r(new oc.STEPControl_Reader());
+    if (!reader.ReadFile(file)) throw new Error("the STEP file could not be read (it may be damaged, or not a version the kernel knows)");
+    reader.TransferRoots();
+    shape = cast(r(reader.OneShape()));
+  } finally {
+    try { oc.FS.unlink(`/${file}`); } catch { /* it was not written */ }
+  }
+  const solids = shape.solids ?? [];
+  gc();
+  if (!solids.length) throw new Error("this STEP file has no solid bodies in it (only surfaces or curves): the app imports solids");
+  solids.forEach((sd, i) => { if (!isValidSolid(sd)) throw new Error(`body ${i + 1} of the STEP file is not a valid solid (it has gaps or folds)`); });
+  return solids;
+}
 
 /** OCCT's own topology/geometry check. Operations can return garbage without throwing. */
 export function isValidSolid(shape) {
@@ -520,6 +590,14 @@ const OPS = {
     return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
   },
 
+  /** The solids of a STEP file, as bodies of their own beside the ones already there (`dec_import`): read here, on this thread, from the text kept in the step. A file with no solid in it (only surfaces or curves) is refused with that. */
+  import(op, ctx) {
+    return importedSolids(op, ctx, placedSolids(readStep(String(op.data)), op));
+  },
+  /** The closed meshes of a step (`dec_import_mesh`): each is sewn into a solid whose faces are its triangles, the flat ones that lie in one plane joined, as a body of its own beside the ones already there. */
+  importMesh(op, ctx) {
+    return importedSolids(op, ctx, String(op.data).split("|").filter(Boolean).map((m) => solidOfMesh(decodeMesh(m))));
+  },
   extrude(op, ctx) {
     const dist = resolve(op.distance, ctx.params);
     // a cut that starts on a face of the body (a figure drawn on the face and pushed in) has its tool begin a little behind that face, in the air: begun exactly on it, the kernel leaves the face as a skin over the pocket,
