@@ -145,6 +145,8 @@ export interface Frame {
   /** a cut of bodies being set up: the parts they make, with where the control of each stands and whether it is kept; and whether what is kept is joined (`in_294`) */
   cut: { parts: { mask: number; at: Vec3; label: string; tip: string; kept: boolean }[]; join: boolean } | null;
   /** the little panes of the world planes beside the axes (`in_190`) */
+  /** a small mark on each hard body (`in_476`): the body and the point of it the mark stands at (the middle of its top) */
+  hardMarks: { ref: Ref; at: Vec3 }[];
   /** the axes and the panes are put away (`in_463`) */
   worldHidden: boolean;
   panes: { name: WorldName; corners: Vec3[]; active: boolean; hover: boolean }[];
@@ -368,6 +370,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     sectionPlanes: [...Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, mode: modeOf(pl), hidden: !!pl.hidden, move: sheetMoveOf(s, pl.ref), corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }), ...mirrorGuide(s)],
     fadeBody: fadeBodyOf(s, outcome.kernel?.mesh ?? null),
     worldHidden: s.worldHidden,
+    hardMarks: sc.hard?.length ? Object.values(sc.parts).flatMap((p) => (p.kind === "body" && p.id && p.bbox && sc.hard!.includes(p.id) ? [{ ref: p.ref, at: [(p.bbox.min[0] + p.bbox.max[0]) / 2, (p.bbox.min[1] + p.bbox.max[1]) / 2, p.bbox.max[2]] as Vec3 }] : [])) : [],
     panes: s.cam.straight || s.worldHidden ? [] : WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
     gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "revolve" && !s.moverSphere ? `rev:turn:${"xyz"[s.op.axis]}` : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
     similar: similarChip(s),

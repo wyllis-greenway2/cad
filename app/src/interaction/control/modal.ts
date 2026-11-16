@@ -307,6 +307,11 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "select:similar") return doSimilar(closed);
   if (id === "select:group") return doGroup(closed);
   if (id === "select:faces" || id === "select:edges" || id === "select:vertices") return doSelectAll(closed, id.slice(7) as "faces" | "edges" | "vertices");
+  if (id.startsWith("body:hard:")) { // the mark of a hard body pressed: it is soft again (`in_476`)
+    const sc = sceneOf(closed.session);
+    const p = sc.parts[id.slice(10) as never] as { kind?: string; id?: string } | undefined;
+    return p?.kind === "body" && p.id ? { ...closed, session: { ...run(closed.session, { type: "setHard", body: p.id, on: false }), message: null } } : closed;
+  }
   if (id === "body:hard") { // a body made hard or soft (`in_473`): all the bodies selected, to hard unless every one already is
     const sc = sceneOf(closed.session);
     const bodies = selectionOf(closed.session).filter((r) => sc.parts[r]?.kind === "body" && !!(sc.parts[r] as { id?: string }).id);

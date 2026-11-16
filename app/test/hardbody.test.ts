@@ -184,3 +184,16 @@ test("a hard body's face pulled out into another hard body goes only as far as i
   assert.equal(limitedOp(scene(s), { ...op, value: 15 }), null, "short of it: whole");
   assert.equal(limitedOp(scene(hardOf(two(), [A])), { ...op, value: 25 }), null, "the other is soft");
 });
+
+test("each hard body has a mark at the middle of its top; pressing the mark makes the body soft again (`in_476`)", () => {
+  const s = hardOf(two(), [A]);
+  let st = { ...createState(s), cam: homeCamera() };
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.equal(f.hardMarks.length, 1, "only the hard one is marked");
+  assert.equal(f.hardMarks[0]!.ref, A);
+  assert.deepEqual(f.hardMarks[0]!.at, [5, 5, 10]);
+  st = reduce(st, { type: "runAction", id: `body:hard:${A}` }, env);
+  assert.equal(scene(st.session).hard, undefined, "soft again");
+  assert.equal(frameOf(st, { w: 800, h: 600 }).hardMarks.length, 0);
+  assert.equal(frameOf({ ...createState(two()), cam: homeCamera() }, { w: 800, h: 600 }).hardMarks.length, 0, "a model with no hard body has no marks");
+});

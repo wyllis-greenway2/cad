@@ -30,6 +30,7 @@ import { createRing } from "./ui/ring.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
+import { createHardMarks } from "./ui/hardmarks.ts";
 import { createPanel } from "./ui/panel.ts";
 import { createHelper } from "./ui/helper.ts";
 import { createBusy } from "./ui/busy.ts";
@@ -141,6 +142,7 @@ const busySign = createBusy(document.body);
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
 const crosshair = createCrosshair(document.body);
+const hardMarks = createHardMarks(document.body, (id) => dispatch({ type: "runAction", id }));
 const worldOrb = createWorldOrb(document.body, () => dispatch({ type: "runAction", id: "world:toggle" }));
 const sheetChips = createSheetChips(document.body, (id) => dispatch({ type: "runAction", id }));
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
@@ -322,6 +324,7 @@ function frame(now: number) {
     view.setSectionPlanes(f.sectionPlanes);
     view.setSection(f.sections);
     view.setWorldHidden(f.worldHidden);
+    { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); hardMarks.update(f.hardMarks, (q) => { const c = pr.project(q); return c && c[0] > -10 && c[1] > -10 && c[0] < size.w + 10 && c[1] < size.h + 10 ? [c[0] + pg.left, c[1] + pg.top] : null; }); }
     { const pg = host.getBoundingClientRect(); const c = projector(state.cam, size.w, size.h).project([0, 0, 0]); worldOrb.update(c && c[0] > -20 && c[1] > -20 && c[0] < size.w + 20 && c[1] < size.h + 20 ? [c[0] + pg.left, c[1] + pg.top] : null, f.worldHidden); }
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); sheetChips.update(f.sectionPlanes.filter((p) => !p.guide).map((p) => ({ ref: p.ref, mode: p.mode, hidden: p.hidden, move: p.move, selected: p.selected, corners: p.corners })), (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null); }
     toolChip.update(f.tool, f.confirm, lastDevice === "touch");

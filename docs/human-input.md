@@ -2228,3 +2228,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_475 — 2026-11-16 — directive
 > Do the repeat, mirror and push/pull collisions next
 (asks for the collisions `dec_hard_bodies` left unbuilt: hard bodies made by a repeat or a mirror, and a hard body grown by push / pull, may not go into other hard bodies)
+
+## in_476 — 2026-11-16 — directive
+> Do the hard body mark next
+(asks for the mark on hard bodies that `dec_hard_bodies` left unbuilt)
