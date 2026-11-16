@@ -2644,3 +2644,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_577 — 2026-11-16 — directive
 > yes start on marking the thin places
 (approves marking the places the wall check finds too thin, in the picture, while the Measure tab is open)
+
+## in_578 — 2026-11-16 — question
+> okay so we are ready to merge? what is your branch called?
+(asks whether the work is ready to merge and what the branch is called; answered in chat)
