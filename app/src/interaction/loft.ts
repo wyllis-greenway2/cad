@@ -8,8 +8,8 @@ import type { Command } from "../operation/commands.ts";
 import { loopOf } from "../operation/loops.ts";
 import type { Op } from "./operations.ts";
 import type { Vec3 } from "../math/vec.ts";
-import { add, sub, scale } from "../math/vec.ts";
-import { pointOf } from "../operation/part.ts";
+import { add, sub, scale, dot } from "../math/vec.ts";
+import { pointOf, normalOfPlane } from "../operation/part.ts";
 import { typedNumber } from "../shared/numbers.ts";
 import { drawnRef } from "../shared/ref.ts";
 
@@ -60,27 +60,39 @@ function middleOfFigure(scene: Scene, fig: Figure): Vec3 | null {
   const pts = fig.outer.flatMap((r) => { const p = get(r); return p?.kind === "line" ? [pointOf(get, p.a), pointOf(get, p.b)] : p?.kind === "circle" ? [pointOf(get, p.center)] : []; }).filter((q): q is Vec3 => !!q);
   return pts.length ? scale(pts.reduce((a, q) => add(a, q), [0, 0, 0] as Vec3), 1 / pts.length) : null;
 }
+/** The normal of a sketch's plane, or null. */
+function normalOfFigure(scene: Scene, fig: Figure): Vec3 | null {
+  const first = scene.parts[fig.outer[0]!];
+  const pl = first?.plane ? scene.parts[first.plane] : undefined;
+  return pl?.kind === "plane" ? normalOfPlane(pl) : null;
+}
 /**
- * Where the sketches stand with the distances typed between them (`in_490`): the distance from one sketch's middle to the next, along the line between them; typing it moves that sketch and all after it
- * (their distances to each other stay). `shift[i]` is how far sketch i is moved, `mids` where the middles end up, `gaps` the distances between them now.
+ * Where the sketches stand with the distances typed between them (`in_490`, `in_491`): the distance from one sketch to the next is measured along the normal of the earlier sketch's plane (turned to point
+ * toward the later one), from the earlier sketch's middle to the later's; typing it moves that sketch and all after it along that normal (their distances to each other stay). Where the later sketch lies in the
+ * earlier one's plane there is no distance along the normal: the straight distance between the middles is used. `shift[i]` is how far sketch i is moved, `mids` where the middles end up, `gaps` the distances now.
  */
 export function loftPlaced(scene: Scene, op: Op): { shift: Vec3[]; mids: Vec3[]; gaps: number[] } {
-  const base = (op.loftFigs ?? []).map((f) => middleOfFigure(scene, f));
+  const figs = op.loftFigs ?? [];
+  const base = figs.map((f) => middleOfFigure(scene, f));
   const shift: Vec3[] = [];
   const mids: Vec3[] = [];
   const gaps: number[] = [];
   base.forEach((c, i) => {
     if (!c) { shift.push([0, 0, 0]); mids.push([0, 0, 0]); return; }
     let t: Vec3 = i ? shift[i - 1]! : [0, 0, 0];
+    let d = 0;
     if (i && base[i - 1]) {
       const v = sub(add(c, t), mids[i - 1]!);
-      const d = Math.hypot(...v);
-      const n = typedNumber(op.loftGaps?.[i - 1] ?? "");
-      if (n !== null && n >= 0 && d > 1e-9) t = add(t, scale(v, (n - d) / d));
+      const n = normalOfFigure(scene, figs[i - 1]!);
+      const along = n ? dot(v, n) : 0;
+      const dir: Vec3 = n && Math.abs(along) > 1e-9 ? scale(n, Math.sign(along)) : Math.hypot(...v) > 1e-9 ? scale(v, 1 / Math.hypot(...v)) : [0, 0, 0];
+      d = dot(v, dir);
+      const typed = typedNumber(op.loftGaps?.[i - 1] ?? "");
+      if (typed !== null && typed >= 0 && Math.hypot(...dir) > 0) { t = add(t, scale(dir, typed - d)); d = typed; }
     }
     shift.push(t);
     mids.push(add(c, t));
-    if (i) gaps.push(Math.hypot(...sub(mids[i]!, mids[i - 1]!)));
+    if (i) gaps.push(d);
   });
   return { shift, mids, gaps };
 }

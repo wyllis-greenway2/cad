@@ -159,3 +159,25 @@ test("a loft whose sketches have moved is made again, not taken from what the ke
   assert.ok(Math.abs(volume(r1.session) - (20 / 3) * 156) < 1);
   assert.ok(Math.abs(volume(r2.session) - (30 / 3) * 156) < 1, `volume ${volume(r2.session)}`);
 });
+
+test("the distance is measured along the normal of the earlier sketch's plane, so a sketch off to the side is the height apart, and typing moves it straight along the normal (`in_491`)", () => {
+  let s = createSession(kernel);
+  const r1 = drawRectangle(scene(s), XY, [-5, -5, 0], [5, 5, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r1.command);
+  const up = planeAt(s, 20);
+  s = up.s;
+  const r2 = drawRectangle(scene(s), up.ref as never, [8, -2, 20], [12, 2, 20], [1, 0, 0], [0, 1, 0]); // 10 to the side, 20 up
+  s = run(s, r2.command);
+  const faces = [loopFaceRef(r1.lines), loopFaceRef(r2.lines)];
+  let st = { ...createState({ ...s, click: { ...s.click, selection: faces as never } }), cam: homeCamera() };
+  st = reduce(st, { type: "begin", name: "loft" }, env);
+  const gap = () => frameOf(st, { w: 800, h: 600 }).entries.find((x) => x.fields[0]!.index === 10)!.fields[0]!;
+  assert.equal(gap().value, "20", "the height apart, not the 22.36 between the middles");
+  st = reduce(st, { type: "entry", field: 10, text: "30" } as never, env);
+  assert.equal(gap().value, "30");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  assert.equal(st.session.message, null);
+  const top = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn" && Math.abs(p.at[2] - 30) < 1e-6).map((p) => (p as unknown as { at: number[] }).at[0]!);
+  assert.equal(top.length, 4, "the second sketch is at 30");
+  assert.ok(Math.min(...top) > 7.99 && Math.max(...top) < 12.01, "and still off to the side where it was");
+});

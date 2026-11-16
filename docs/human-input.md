@@ -2290,3 +2290,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_490 — 2026-11-16 — directive
 > Do the loft's distance bubbles next
 (asks for what in_489 left unbuilt: the loft's bubbles for the distances between sketches)
+
+## in_491 — 2026-11-16 — directive
+> Do the loft's along-the-normal distance next
+(asks for what in_490 left unbuilt: the loft's distance between sketches measured along the normal of the sketch's plane, not along the straight line between their middles)
