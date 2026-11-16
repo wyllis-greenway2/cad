@@ -40,7 +40,7 @@ const near = (p, lo, hi, t) => [0, 1, 2].every((k) => p[k] >= lo[k] - t && p[k] 
  * point inside its box, is that name's (of two, the nearer); a face that matches none is new and is named `<opId>:<rank>`, the rank by the order of its normal and then of its place, so a change of a size makes the
  * same names. Returns the names in the order of the faces of `shape`, each with its normal and a point.
  */
-export function nameFaces(prev, tf, shape, opId) {
+export function nameFaces(prev, tf, shape, opId, roles) {
   const faces = planesOf(shape);
   const old = carried(prev ?? [], tf);
   const diag = (() => { let m = 0; for (const f of faces) m = Math.max(m, Math.hypot(f.hi[0] - f.lo[0], f.hi[1] - f.lo[1], f.hi[2] - f.lo[2])); return m || 1; })();
@@ -65,6 +65,21 @@ export function nameFaces(prev, tf, shape, opId) {
       if (score < bestGap) { best = i; bestGap = score; }
     }
     if (best >= 0) { taken.add(best); given[best] = m.name; }
+  }
+  // the faces no name matched that lie on the plane of a role (the sketch's own edge, a cap): named by the role
+  if (roles?.length) {
+    const used = new Set();
+    faces.forEach((f, i) => {
+      if (given[i] !== null) return;
+      let best = null, gap = Infinity;
+      roles.forEach((r, k) => {
+        if (used.has(k) || Math.abs(Math.abs(dot(f.n, r.n)) - 1) > 1e-6) return;
+        if (Math.abs(dot(r.n, [r.c[0] - f.c[0], r.c[1] - f.c[1], r.c[2] - f.c[2]])) > tol) return;
+        const g = Math.hypot(r.c[0] - f.c[0], r.c[1] - f.c[1], r.c[2] - f.c[2]);
+        if (g < gap) { gap = g; best = k; }
+      });
+      if (best !== null) { used.add(best); given[i] = `${opId}:${roles[best].role}`; }
+    });
   }
   // the faces no name matched: new, named by the operation and their order
   const fresh = faces.map((f, i) => ({ f, i })).filter((x) => given[x.i] === null);
@@ -121,4 +136,39 @@ export function namedEdgeRefs(names, refs) {
 export function refOfName(names, name) {
   const m = (names ?? []).find((x) => x.name === name);
   return m ? { n: m.n, d: dot(m.n, m.c), point: m.c } : null;
+}
+
+/** What the extrusion needs of a sketch to name its faces, as plain numbers, read before the extrusion uses the sketch up: its edges' ends in the order of its wire, and the direction it is extruded along. */
+export function edgeEnds(sketch) {
+  const d = sketch.defaultDirection;
+  return { dir: [d.x, d.y, d.z], edges: sketch.wire.edges.map((e) => ({ a: [e.startPoint.x, e.startPoint.y, e.startPoint.z], b: [e.endPoint.x, e.endPoint.y, e.endPoint.z], line: e.geomType === "LINE" })) };
+}
+
+/**
+ * The roles of the flat faces one figure of an extrusion makes, by the sketch's own edges (`dec_stable_reference_mechanism`, `in_561`), worked out from the sketch and the distance (no second prism): the start cap, the end
+ * cap and one side for each straight edge of the sketch. A side is `side:<the id of the sketch edge>` (the sketch op's `sides`, one for each corner: the line that runs from it to the next), so it is the same face when
+ * the sketch's other sides change or sides are added; it lies on the plane through the edge along the extrusion. Only the main figure's caps are named (`start`, `end`). Plain planes (`n`, `c`, `role`) for `nameFaces` to
+ * find among the new faces. Nothing is returned when the sketch does not say its sides or has not as many edges as sides.
+ */
+export function figureRoles(ends, distance, sides, caps) {
+  const roles = [];
+  if (!ends || !sides || !sides.length || ends.edges.length !== sides.length || !Number.isFinite(distance)) return roles;
+  const dir = ends.dir;
+  const dl = Math.hypot(...dir) || 1;
+  const u = dir.map((v) => v / dl);
+  const half = u.map((v) => (v * distance) / 2);
+  if (caps) {
+    const pts = ends.edges.map((e) => e.a);
+    const c0 = [0, 1, 2].map((k) => pts.reduce((s, p) => s + p[k], 0) / pts.length);
+    roles.push({ role: "start", n: u, c: c0 }, { role: "end", n: u, c: c0.map((v, k) => v + u[k] * distance) });
+  }
+  ends.edges.forEach((e, i) => {
+    if (!sides[i] || !e.line) return;
+    const tan = [e.b[0] - e.a[0], e.b[1] - e.a[1], e.b[2] - e.a[2]];
+    const n = [tan[1] * u[2] - tan[2] * u[1], tan[2] * u[0] - tan[0] * u[2], tan[0] * u[1] - tan[1] * u[0]];
+    const l = Math.hypot(...n);
+    if (l < 1e-9) return; // (an edge along the extrusion: no side)
+    roles.push({ role: `side:${sides[i]}`, n: n.map((v) => v / l), c: [0, 1, 2].map((k) => (e.a[k] + e.b[k]) / 2 + half[k]) });
+  });
+  return roles;
 }

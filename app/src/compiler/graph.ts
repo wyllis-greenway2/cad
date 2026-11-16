@@ -52,7 +52,7 @@ export function buildGraph(scene: Scene): GraphResult {
     if (!loop.ok) return loop.error;
     if (loop.corners.some((c) => !pointOf(get, c))) return "a corner of the shape is gone";
     const steps = loopSteps(get, refs, loop.corners); // (a side that is an arc has its middle point: the kernel draws a true arc through the two corners and it)
-    return { id, type: "sketch", shape: "polygon", points: steps.map((p) => to2d(plane, p.at, back.k)), ...(steps.some((p) => p.mid) ? { mids: steps.map((p) => (p.mid ? to2d(plane, p.mid, back.k) : null)) } : {}), plane: "XY", origin: 0, frame: frameOf(plane, back) };
+    return { id, type: "sketch", shape: "polygon", points: steps.map((p) => to2d(plane, p.at, back.k)), sides: steps.map((p) => p.line ?? ""), ...(steps.some((p) => p.mid) ? { mids: steps.map((p) => (p.mid ? to2d(plane, p.mid, back.k) : null)) } : {}), plane: "XY", origin: 0, frame: frameOf(plane, back) };
   };
 
   for (const st of scene.steps) {

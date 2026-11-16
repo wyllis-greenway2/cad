@@ -35,7 +35,7 @@ import { reshape } from "./reshape.mjs";
 import { findCrossing } from "./selfcross.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
-import { nameFaces, refOfName, namedEdgeRefs } from "./facenames.mjs";
+import { nameFaces, refOfName, namedEdgeRefs, figureRoles, edgeEnds } from "./facenames.mjs";
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
 
 /** The imported solids scaled about the origin by `op.scale` and then placed: `op.place` "center" brings the middle of their box to the origin, "floor" brings the middle of the box to the z axis and the bottom to z = 0 (a part that sits on the build plate). */
@@ -534,8 +534,8 @@ const OPS = {
       drawing = drawing.translate(x, y);
     }
     // op.frame = { origin, xDir, normal }: an explicit plane (e.g. a face of the body); otherwise the named base plane
-    if (op.frame) return { kind: "sketch", drawing, plane: new Plane(op.frame.origin, op.frame.xDir, op.frame.normal), origin: undefined };
-    return { kind: "sketch", drawing, plane: op.plane ?? "XY", origin: p("origin") ?? 0 };
+    if (op.frame) return { kind: "sketch", drawing, plane: new Plane(op.frame.origin, op.frame.xDir, op.frame.normal), origin: undefined, sides: op.sides };
+    return { kind: "sketch", drawing, plane: op.plane ?? "XY", origin: p("origin") ?? 0, sides: op.sides };
   },
 
   /**
@@ -624,8 +624,11 @@ const OPS = {
         const z = q.plane.zDir;
         return q.drawing.sketchOnPlane(back ? q.plane.translate(-dir * back * z.x, -dir * back * z.y, -dir * back * z.z) : q.plane, q.origin);
       };
-      let solid = sketch(profile).extrude(d + dir * back);
-      for (const h of holes ?? []) solid = solid.cut(sketch(h).extrude(d + dir * back)); // figures drawn inside this one are holes in it
+      const sk0 = sketch(profile);
+      const ends0 = ctx.roleFigs && !ctx.roleFigs.has(profile) ? edgeEnds(sk0) : null; // (the sketch is used up by the extrusion: its edges are read first)
+      let solid = sk0.extrude(d + dir * back);
+      if (ctx.roleFigs && !ctx.roleFigs.has(profile)) ctx.roleFigs.set(profile, safeRoles(ends0, d, ctx.get(profile, "sketch").sides, profile === op.profile)); // (the roles of its faces by the sketch's own edges, worked out from the prism made here: `dec_stable_reference_mechanism`)
+      for (const h of holes ?? []) { const skh = sketch(h); const endsH = ctx.roleFigs && !ctx.roleFigs.has(h) ? edgeEnds(skh) : null; const sh = skh.extrude(d + dir * back); if (endsH) ctx.roleFigs.set(h, safeRoles(endsH, d, ctx.get(h, "sketch").sides, false)); solid = solid.cut(sh); } // figures drawn inside this one are holes in it
       return solid;
     };
     const toolOf = (back) => {
@@ -1999,6 +2002,9 @@ function run(op, ctx, results) {
   return OPS[op.type](op, ctx);
 }
 
+/** The roles of a figure's faces; never fails the step (with none, its faces are named by their rank). */
+function safeRoles(...args) { try { return figureRoles(...args); } catch { return []; } }
+
 /** Compile the whole graph. Returns per-op results; never throws for op-level failures. */
 export function compile(graph) {
   const params = graph.params ?? {};
@@ -2038,6 +2044,7 @@ export function compile(graph) {
     try {
       if (!OPS[op.type]) throw new Error(`unknown op type ${op.type}`);
       beginStages();
+      ctx.roleFigs = graph.names && op.type === "extrude" ? new Map() : null;
       const value = run(op, ctx, results);
       const stagesOf = endStages();
       if (value.kind === "solid") {
@@ -2048,7 +2055,7 @@ export function compile(graph) {
         const tM = performance.now();
         value.markers = trackBodies(prev, value.shape, op.id);
         markMs = performance.now() - tM;
-        if (graph.names) { const named = nameFaces(from?.faceNames, value.tf, value.shape, op.id); value.faceNames = named.faces; value.edgeNames = named.edges; } // (the names of the flat faces, carried from the body it was made from)
+        if (graph.names) { const named = nameFaces(from?.faceNames, value.tf, value.shape, op.id, op.type === "extrude" && ctx.roleFigs ? [...ctx.roleFigs.values()].flat() : null); value.faceNames = named.faces; value.edgeNames = named.edges; } // (the names of the flat faces, carried from the body it was made from)
       }
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
       const tC = performance.now();

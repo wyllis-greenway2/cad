@@ -2576,3 +2576,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_560 — 2026-11-16 — directive
 > yes start on edge names
 (approves the next item of `dec_stable_reference_mechanism`: names for edges, so a fillet or chamfer keeps its edge)
+
+## in_561 — 2026-11-16 — directive
+> yes start on the sketch-edge names
+(approves the next item of `dec_stable_reference_mechanism`: roles from the sketch's own edges for the faces of an extrusion, a revolve, a loft and a sweep, instead of the rank)

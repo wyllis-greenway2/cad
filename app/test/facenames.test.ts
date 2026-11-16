@@ -116,3 +116,60 @@ test("in the model: the edges between flat faces carry lasting names, and a fill
   const vol = (s.outcome.kernel as { volume: number }).volume;
   assert.ok(Math.abs(vol - (2500 - (1 - Math.PI / 4) * 10)) < 1e-3, `the taller block, its top front edge rounded: ${vol}`);
 });
+
+// the sketch's own edges name the faces of an extrusion (`in_561`)
+const poly = (pts: number[][], ids: string[]) => ({ id: "s_a", type: "sketch", shape: "polygon", points: pts, sides: ids, plane: "XY", origin: 0 });
+const L = [[0, 0], [20, 0], [20, 10], [10, 10], [10, 20], [0, 20]];
+const LIDS = ["d/e1", "d/e2", "d/e3", "d/e4", "d/e5", "d/e6"];
+const ext = (pts: number[][], ids: string[], depth = 10) => evE([poly(pts, ids), { id: "x_a", type: "extrude", profile: "s_a", distance: depth }]);
+
+test("the sides of an extrusion are named by the sketch edge they came from, in any order of ranks", () => {
+  const r = ext(L, LIDS);
+  const names = r.faceNames!.map((f) => f.name).sort();
+  assert.deepEqual(names, ["x_a:end", "x_a:side:d/e1", "x_a:side:d/e2", "x_a:side:d/e3", "x_a:side:d/e4", "x_a:side:d/e5", "x_a:side:d/e6", "x_a:start"].sort());
+  const at = (name: string) => r.faceNames!.find((f) => f.name === name)!;
+  assert.deepEqual(at("x_a:side:d/e1").n.map((v) => Math.round(v) + 0), [0, -1, 0], "edge 1 runs along the front");
+  assert.deepEqual(at("x_a:side:d/e4").n.map((v) => Math.round(v) + 0), [1, 0, 0]);
+  assert.deepEqual(at("x_a:side:d/e6").n.map((v) => Math.round(v) + 0), [-1, 0, 0]);
+  assert.deepEqual(at("x_a:end").n.map((v) => Math.round(v) + 0), [0, 0, 1]);
+});
+
+test("a side is still the same side when another side is added to the sketch or the shape is changed", () => {
+  const before = ext(L, LIDS);
+  // a corner cut off the far end of the 20 wide arm: a new side e7 between e2 and e3 (a vertex is inserted)
+  const cut = [[0, 0], [20, 0], [20, 4], [16, 10], [10, 10], [10, 20], [0, 20]];
+  const after = ext(cut, ["d/e1", "d/e2", "d/e7", "d/e3", "d/e4", "d/e5", "d/e6"]);
+  const nameOf = (r: RE, n: number[], x: number, y: number) => r.faceNames!.find((f) => f.n.every((v, i) => Math.abs(v - n[i]!) < 1e-6) && Math.abs(f.c[0]! - x) < 1e-6 && Math.abs(f.c[1]! - y) < 1e-6)?.name;
+  assert.equal(nameOf(before, [0, -1, 0], 10, 0), "x_a:side:d/e1");
+  assert.equal(nameOf(after, [0, -1, 0], 10, 0), "x_a:side:d/e1");
+  assert.equal(nameOf(before, [-1, 0, 0], 0, 10), "x_a:side:d/e6");
+  assert.equal(nameOf(after, [-1, 0, 0], 0, 10), "x_a:side:d/e6", "the left side keeps its name when a side is added elsewhere");
+  assert.equal(nameOf(after, [0, 1, 0], 5, 20), "x_a:side:d/e5");
+  assert.ok(after.faceNames!.some((f) => f.name === "x_a:side:d/e7"), "the new side is named for its own sketch edge");
+  assert.equal(new Set(after.faceNames!.map((f) => f.name)).size, after.faceNames!.length);
+});
+
+test("a pocket cut by an extrusion names its walls and floor by the sketch edges, and the old names stay", () => {
+  const pocket = { ...poly([[5, 2], [15, 2], [15, 8], [5, 8]], ["d/p1", "d/p2", "d/p3", "d/p4"]), id: "s_b", origin: 10 };
+  const r = evE([rect(30), { id: "x_a", type: "extrude", profile: "s_a", distance: 10 }, pocket, { id: "x_b", type: "extrude", profile: "s_b", target: "x_a", mode: "cut", distance: -4 }]);
+  assert.equal(r.ops.find((o) => o.id === "x_b")!.error, null);
+  const names = r.faceNames!.map((f) => f.name);
+  for (const w of ["x_b:side:d/p1", "x_b:side:d/p2", "x_b:side:d/p3", "x_b:side:d/p4", "x_b:end"]) assert.ok(names.includes(w), `${w} in ${names.join(" ")}`);
+  assert.equal(names.filter((n) => n.startsWith("x_a:")).length, 6, "the block's six faces keep their names (the top, now with a hole, too)");
+  assert.equal(new Set(names).size, names.length);
+});
+
+test("in the model: the faces of an extruded drawing are named by the lines it was drawn with", () => {
+  let s = createSession(kernel);
+  const a = drawRectangle(scene(s), worldRef("XY"), [0, 0, 0], [10, 10, 0], [1, 0, 0], [0, 1, 0]); s = run(s, a.command);
+  s = run(s, { type: "addStep", step: { id: "s_100", type: "extrude", parts: a.lines, params: { depth: 10 } } } as never);
+  const stable = (Object.values(scene(s).parts).filter((p) => p.kind === "plane" && p.origin === "body") as unknown as { stable?: string }[]).map((p) => p.stable!).sort();
+  assert.ok(stable.every(Boolean));
+  assert.equal(stable.filter((n) => n.startsWith("x_s_100:side:d/")).length, 4, stable.join(" "));
+  for (const l of a.lines) assert.ok(stable.includes(`x_s_100:side:${l}`), `${l} names a side`);
+  assert.ok(stable.includes("x_s_100:start") && stable.includes("x_s_100:end"));
+  // the depth changed: the same names
+  s = run(s, { type: "setStepParams", id: "s_100", params: { depth: 25 } });
+  const after = (Object.values(scene(s).parts).filter((p) => p.kind === "plane" && p.origin === "body") as unknown as { stable?: string }[]).map((p) => p.stable!).sort();
+  assert.deepEqual(after, stable);
+});

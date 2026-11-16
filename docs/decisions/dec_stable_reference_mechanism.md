@@ -3,7 +3,7 @@ id: dec_stable_reference_mechanism
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_546, in_558, in_559, in_560
+human_input: in_546, in_558, in_559, in_560, in_561
 date: 2026-11-16
 depends_on:
   - dec_stable_references: that entry decided the idea (names by how things were made, geometry as the fallback); this asks how it is built
@@ -38,9 +38,17 @@ alternative_to:
 - A fillet or chamfer keeps the names of its edges (`enames`, joined by `;`, in the order of its parts); the kernel finds the edges by name (`namedEdgeRefs`), also for the earlier steps it is made together with; a name the body has lost is an error (`line not found (... is not an edge of the body any more)`), never another edge.
 - Face names are looked up by bucket (the main direction of the normal and the plane's offset), since a body of a thousand faces made the first version quadratic (`test/scaling.test.ts` caught it).
 - **Tests:** the twelve edges of a block named the same for any size; a fillet by name follows the top edge when the extrusion is made taller and when a move is put before it; a lost name is an error; the same through the model.
-- **A known weakness, not fixed:** the name of a **new** face is its rank among the faces its step made (by normal, then place). A change of a sketch that adds or removes a side moves the ranks, and a later step that named a face by rank may then find another. The fix is a role from the sketch's own edge (the side that came from sketch edge 2), next in the list below.
+- **The weakness above is fixed for extrusions (`in_561`, next section).**
 
-**Not built (next, in this order):** (1) roles from the sketch's edges for the faces of an extrusion, a revolve, a loft or a sweep (instead of the rank); (2) curved faces (a round wall) and the faces made by a fillet or chamfer, which also gives the edges beside them a name; (3) hollow's faces, a repeat's, the sketch's plane when drawn on a face; (4) the command that puts a step **in the middle** of the history (the later steps made again) and its place in the History panel; (5) the kernel's own history (option A) where matching is wrong (a face that splits, two faces that swap).
+## Roles from the sketch's edges, for extrusions (`in_561`)
+
+- The graph's polygon sketch op carries `sides`: for each corner, the id of the drawn line that runs from it to the next (`loopSteps`, `graph.ts`). While an extrusion makes its prism (`OPS.extrude`), `figureRoles` (`facenames.mjs`) works out, from the sketch's edge ends, the extrusion's direction and the distance (no second prism: the first version built one and doubled the time of a gear), the plane of each straight side and of the two caps: `start`, `end` (the main figure only) and `side:<line id>`. A face that is new after the step and lies on such a plane is named `<op id>:<role>`; a face with no role keeps the rank name. The roles never fail a step.
+- So a side is the same face when the sketch gains or loses a side elsewhere, or is resized; holes and sibling figures name their sides the same way. An arc side (a curved face) has no name yet.
+- **Tests:** an L-shaped extrusion's sides named by their sketch lines (and their directions); the left side keeps `side:d/e6` when a corner is cut off elsewhere and the new side is `side:d/e7`; a pocket names its walls `x_b:side:d/p1..4` and floor `x_b:end` and the block keeps its six names; through the model, a drawn rectangle's faces are named by its four lines and are the same after a change of the depth.
+- **Cost:** about 0.5 s more on a 60-tooth gear's extrusion (0.43 to about 0.8 s), most of it the matching of 250 faces; the gear's timing test (2 s) passes but with little room.
+- **Not done:** revolve, loft and sweep faces still get rank names (a revolve's faces are mostly curved; a loft's and a sweep's flat faces need the same idea with their own sketches); arc sides.
+
+**Not built (next, in this order):** (1) roles for revolve, loft and sweep (rank names until then); (2) curved faces (a round wall) and the faces made by a fillet or chamfer, which also gives the edges beside them a name; (3) hollow's faces, a repeat's, the sketch's plane when drawn on a face; (4) the command that puts a step **in the middle** of the history (the later steps made again) and its place in the History panel; (5) the kernel's own history (option A) where matching is wrong (a face that splits, two faces that swap).
 
 ## Rationale
 

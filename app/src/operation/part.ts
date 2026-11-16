@@ -245,8 +245,8 @@ export function curveMid(get: Lookup, part: Line): Vec3 | null {
   return add(scale(add(s[0], s[1]), 0.5), scale(perp, part.bulge * len));
 }
 /** The corners of a closed drawn shape in order, each with the middle point of the arc that runs from it to the next corner (null for a straight side). */
-export function loopSteps(get: Lookup, loop: readonly Ref[], corners: readonly Ref[]): { at: Vec3; mid: Vec3 | null }[] {
-  const out: { at: Vec3; mid: Vec3 | null }[] = [];
+export function loopSteps(get: Lookup, loop: readonly Ref[], corners: readonly Ref[]): { at: Vec3; mid: Vec3 | null; /** the line that runs from this corner to the next */ line?: Ref }[] {
+  const out: { at: Vec3; mid: Vec3 | null; line?: Ref }[] = [];
   const lines = loop.map((r) => get(r)).filter((p): p is Line => p?.kind === "line");
   const used = new Set<Ref>(); // (an arc and its chord join the same two corners: each line is walked once)
   corners.forEach((c, i) => {
@@ -255,7 +255,7 @@ export function loopSteps(get: Lookup, loop: readonly Ref[], corners: readonly R
     const next = corners[(i + 1) % corners.length]!;
     const line = lines.find((l) => !used.has(l.ref) && ((l.a === c && l.b === next) || (l.b === c && l.a === next)));
     if (line) used.add(line.ref);
-    out.push({ at: here, mid: line ? curveMid(get, line) : null });
+    out.push({ at: here, mid: line ? curveMid(get, line) : null, ...(line ? { line: line.ref } : {}) });
   });
   return out;
 }
