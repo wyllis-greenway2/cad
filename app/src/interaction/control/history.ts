@@ -1,5 +1,5 @@
 // The History panel's own actions (`dec_history_navigation`, `in_489`, `in_498`): go to a step, open the numbers of a step, change one of them.
-import { scene as sceneOf, run, goToCursor, clearSelection } from "../session.ts";
+import { scene as sceneOf, run, goToCursor, clearSelection, toggleInserting } from "../session.ts";
 import type { AppState } from "./state.ts";
 import { withSession } from "./state.ts";
 
@@ -49,4 +49,12 @@ export function doParamRemove(s: AppState, name: string): AppState {
   const h = s.session.history;
   if (h.cursor < h.commands.length) return { ...s, session: { ...s.session, message: "go to the last step to change parameters" } };
   return withSession({ ...s, menu: null }, run(s.session, { type: "removeParameter", name }));
+}
+
+/** Insert here, on or off (`dec_insert_step`): what is made while it is on goes in at the step the cursor is at, and the steps after it are made again. Only before the last step. */
+export function doStepInsert(s: AppState): AppState {
+  const h = s.session.history;
+  if (h.cursor >= h.commands.length) return { ...s, session: { ...s.session, message: "go to an earlier step first: a step made at the end is added there" } };
+  if (s.repeat || s.op || s.tool) return { ...s, session: { ...s.session, message: "finish what is open first" } };
+  return withSession({ ...s, menu: null }, toggleInserting(s.session));
 }

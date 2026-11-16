@@ -1,8 +1,8 @@
 // The list card opened from the ⋯ menu (`in_132`): the bodies with their names, or the history of steps. It displays what the interaction layer says and reports which row was chosen.
 import { iconSvg } from "./icons.ts";
 
-export interface PanelData { kind: string; title: string; rows: { detail?: string; param?: { name: string; expr: string; value: number | null }; id: string; label: string; active: boolean; removable: boolean; edit?: boolean; error?: string; sketch?: boolean; hidden?: boolean; future?: boolean; current?: boolean; fields?: { key: string; label: string; value: number; expr?: string }[]; open?: boolean }[]; note?: string; actions?: { id: string; label: string; title: string }[]; tabs?: { id: string; label: string; on: boolean }[] }
-export interface PanelHandlers { row(id: string, act: "select" | "remove" | "sketch" | "edit" | "hide"): void; action(id: string): void; go(id: string): void; tab(id: string): void; edit(id: string): void; set(id: string, key: string, value: number): void; link(id: string, key: string, expr: string): void; param(name: string, expr: string): void; unparam(name: string): void; undo(): void; redo(): void; close(): void }
+export interface PanelData { kind: string; title: string; rows: { detail?: string; param?: { name: string; expr: string; value: number | null }; id: string; label: string; active: boolean; removable: boolean; edit?: boolean; error?: string; sketch?: boolean; hidden?: boolean; future?: boolean; current?: boolean; fields?: { key: string; label: string; value: number; expr?: string }[]; open?: boolean }[]; note?: string; actions?: { id: string; label: string; title: string }[]; tabs?: { id: string; label: string; on: boolean }[]; insert?: { on: boolean } }
+export interface PanelHandlers { row(id: string, act: "select" | "remove" | "sketch" | "edit" | "hide"): void; action(id: string): void; go(id: string): void; tab(id: string): void; insert(): void; edit(id: string): void; set(id: string, key: string, value: number): void; link(id: string, key: string, expr: string): void; param(name: string, expr: string): void; unparam(name: string): void; undo(): void; redo(): void; close(): void }
 
 export function createPanel(host: HTMLElement, h: PanelHandlers) {
   const el = document.createElement("div");
@@ -45,6 +45,14 @@ export function createPanel(host: HTMLElement, h: PanelHandlers) {
         const bar = document.createElement("div");
         bar.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;padding:0 4px 6px";
         for (const a of p.actions) { const b = btn(a.label, a.title, () => h.action(a.id)); b.style.cssText += ";padding:0 8px;font-size:12px;border:1px solid #cfd0d4"; bar.appendChild(b); }
+        el.appendChild(bar);
+      }
+      if (p.insert) {
+        const bar = document.createElement("div");
+        bar.style.cssText = "display:flex;gap:4px;padding:0 4px 6px";
+        const b = btn(p.insert.on ? "Inserting here: stop" : "Insert here", p.insert.on ? "Go back to dropping the faded steps when something is made here" : "What is made now goes in at this step, and the faded steps after it are made again", h.insert);
+        b.style.cssText += `;padding:0 8px;font-size:12px;border:1px solid #cfd0d4;${p.insert.on ? "background:#dff1f0;font-weight:600" : ""}`;
+        bar.appendChild(b);
         el.appendChild(bar);
       }
       if (p.note) { const note = document.createElement("div"); note.textContent = p.note; note.style.cssText = "padding:0 8px 6px;font-size:12px;color:#6b6e75"; el.appendChild(note); }

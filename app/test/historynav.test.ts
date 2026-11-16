@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";
-import { createSession, scene, run } from "../src/interaction/session.ts";
+import { createSession, scene, run, undoLast } from "../src/interaction/session.ts";
 import { worldRef } from "../src/shared/ref.ts";
 import { drawRectangle } from "../src/operation/build.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
@@ -63,4 +63,51 @@ test("the steps a go-to leaves out are not lost: the commands after the cursor a
   st = reduce(st, { type: "stepGo", id: "s_101" }, env);
   assert.equal(st.session.history.commands.length > st.session.history.cursor, true, "the commands after the cursor are kept");
   assert.deepEqual(rows(st).rows.map((r) => !!r.future), [false, false, true]);
+});
+
+// ---- insert a step in the middle (`dec_insert_step`, `in_563`) ----
+const move = (id: string, value: number) => ({ type: "addStep", step: { id, type: "move", parts: ["b/x_s_100/o"], params: { axis: 0, value, body: "x_s_100" } } }) as never;
+const stepIds = (st: ReturnType<typeof three>, at?: number) => (at === undefined ? scene(st.session) : st.session.history.snapshots[at]!).steps.map((x) => x.id);
+
+test("insert here: a step made at an earlier point goes in there and the later steps are made again on top of it", () => {
+  let st = three();
+  st = reduce(st, { type: "stepGo", id: "s_100" }, env);
+  st = reduce(st, { type: "stepInsert" }, env);
+  assert.equal(st.session.history.inserting, true);
+  assert.equal(panelOf("history", scene(st.session), [], {}, null, st.session.history, null)!.insert!.on, true);
+  assert.ok(scene(st.session).counter >= st.session.history.snapshots[st.session.history.commands.length]!.counter, "ids are minted after every step of the history");
+  st.session = run(st.session, move("s_200", 3));
+  assert.equal(st.session.message, null);
+  const h = st.session.history;
+  assert.deepEqual(stepIds(st), ["s_100", "s_200"], "the model at the cursor: up to the inserted step");
+  assert.deepEqual(stepIds(st, h.commands.length), ["s_100", "s_200", "s_101", "s_102"], "the steps after it are still there, in order");
+  assert.ok(h.cursor < h.commands.length, "the cursor stays at the inserted step");
+  // the later move still moves the first body (and the inserted one moved it by 3 in X first)
+  const end = h.snapshots[h.commands.length]!;
+  assert.deepEqual(end.steps.filter((x) => x.type === "move").map((x) => [x.id, x.params.axis, x.params.value]), [["s_200", 0, 3], ["s_102", 1, 5]]);
+  // one undo takes the insertion back, the rest remain to be redone
+  st.session = undoLast(st.session);
+  assert.deepEqual(stepIds(st), ["s_100"]);
+});
+
+test("a step that the later steps cannot be made again on is refused and nothing changes; leaving the end switches inserting off", () => {
+  let st = three();
+  st = reduce(st, { type: "stepGo", id: "s_100" }, env);
+  st = reduce(st, { type: "stepInsert" }, env);
+  const before = st.session.history;
+  st.session = run(st.session, { type: "addStep", step: { id: "s_101", type: "move", parts: ["b/x_s_100/o"], params: { axis: 0, value: 1, body: "x_s_100" } } } as never); // (the id a later step has)
+  assert.match(st.session.message ?? "", /could not be made again/);
+  assert.equal(st.session.history.commands.length, before.commands.length, "the history is as it was");
+  st = reduce(st, { type: "stepGo", id: "s_102" }, env);
+  assert.equal(st.session.history.inserting, false, "at the last step things are added there");
+});
+
+test("without Insert here, doing something at an earlier point still drops the faded steps; at the end Insert here says why it does nothing", () => {
+  let st = three();
+  st = reduce(st, { type: "stepGo", id: "s_100" }, env);
+  st.session = run(st.session, move("s_200", 3));
+  assert.deepEqual(stepIds(st, st.session.history.commands.length), ["s_100", "s_200"]);
+  st = three();
+  st = reduce(st, { type: "stepInsert" }, env);
+  assert.match(st.session.message ?? "", /earlier step first/);
 });

@@ -2580,3 +2580,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_561 — 2026-11-16 — directive
 > yes start on the sketch-edge names
 (approves the next item of `dec_stable_reference_mechanism`: roles from the sketch's own edges for the faces of an extrusion, a revolve, a loft and a sweep, instead of the rank)
+
+## in_562 — 2026-11-16 — question
+> what do you reccomend?
+(asks which of the three next items to do: finish the names for revolve, loft and sweep, curved faces, or the insertion of a step in the middle; answered in chat with a recommendation of the insertion, nothing built)
+
+## in_563 — 2026-11-16 — directive
+> yes start on the insertion
+(approves the recommendation: build the insertion of a step in the middle of the history, the later steps made again)

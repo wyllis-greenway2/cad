@@ -81,6 +81,7 @@ export type Intent =
   /** the History (`dec_history_navigation`): go to a step, open or close the numbers of a step, set one of them */
   | { type: "stepGo"; id: string }
   | { type: "stepEdit"; id: string | null }
+  | { type: "stepInsert" }
   | { type: "stepSet"; id: string; key: string; value: number }
   | { type: "stepLink"; id: string; key: string; expr: string }
   | { type: "paramSet"; name: string; expr: string }
