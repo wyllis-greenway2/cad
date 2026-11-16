@@ -2276,3 +2276,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_486 — 2026-11-16 — directive
 > Refuse an axis that cuts across the face
 (asks for what `dec_revolve_body_face` lists as not built: a revolve whose axis cuts across the figure is refused beforehand, with the reason)
+
+## in_487 — 2026-11-16 — directive
+> Also refuse it in the live picture while dragging the orb
+(asks for what `dec_revolve_body_face` lists as not done: the live picture of a revolve is also refused while the orb is dragged to an axis that cuts across the figure)

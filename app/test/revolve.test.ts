@@ -317,3 +317,18 @@ test("an axis that cuts across the figure is refused beforehand with the reason;
   const beside = runOp(s, { ...Z(op), value: 90 })!;
   assert.equal(beside.session.message, null, "beside it");
 });
+
+test("while the orb is dragged across the figure the live picture is not drawn and the reason is said; back on an edge it is drawn again (`in_487`)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  const size = { w: 800, h: 600 };
+  const bodies = (f: ReturnType<typeof frameOf>) => f.mesh?.vertices.length ?? 0; // (nothing of a body is there until the turned figure is)
+  const edge = { ...st.op!, ...along(st.op!, [8, 0, 0], [0, 0, 1]) };
+  const good = frameOf({ ...st, op: edge }, size);
+  assert.ok(bodies(good) > 0, "an axis on an edge: the turned body is drawn");
+  assert.ok(!/cuts across/.test(good.message ?? ""));
+  const bad = frameOf({ ...st, op: { ...edge, ...along(edge, [9, 0, 0], [0, 0, 1]) } }, size);
+  assert.equal(bodies(bad), 0, "an axis across the figure: nothing drawn");
+  assert.match(bad.message ?? "", /cuts across the figure/);
+});

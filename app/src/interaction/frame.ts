@@ -23,6 +23,7 @@ import { seenIn } from "./picking.ts";
 import { tapeAnnotations } from "./tape.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
+import { axisAcross } from "./revolve.ts";
 import { hardMotion, hardNote, limitedOp, hardCollision, hardOverlaps, hardNames } from "./hard.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { withCorner } from "./runop.ts";
@@ -272,6 +273,7 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
   if (!op0) return null;
   const base = op0.made ? undone(s.session) : s.session; // a step already made for this operation is replaced by what is being dragged
   const op = (op0.kind === "pushpull" || op0.kind === "extrude" || op0.kind === "revolve") && sceneOf(base).hard?.length ? (() => { const l = limitedOp(sceneOf(base), op0); return l && "op" in l ? l.op : op0; })() : op0; // (a hard body's face is drawn pulled only as far as it can go, `in_475`)
+  if (op.kind === "revolve" && axisAcross(sceneOf(base), op)) { previewProblem = null; return null; } // (an axis across the figure is not drawn: what is there stays and the reason is said, `in_487`)
   const cmd: Command | null = opCommand(sceneOf(base), op, { preview: true });
   if (!cmd) return null;
   const key = JSON.stringify([cmd, op0.made]);
@@ -383,7 +385,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     loftKinds: s.op?.kind === "loft" ? loftChips(sceneOf(s.session), s.op) : null,
     sizeKinds: sizeKinds(s),
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
-    message: s.session.message ?? hardWhy?.why ?? hardOverlapMessage(sc) ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
+    message: (s.op?.kind === "revolve" ? axisAcross(sceneOf(s.op.made ? undone(s.session) : s.session), s.op) : null) ?? s.session.message ?? hardWhy?.why ?? hardOverlapMessage(sc) ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
   };
 }
 
