@@ -2512,3 +2512,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 >
 > What about the ability to convert drawings into actual 3d models automatically? is that something we can do? or if not automatic, maybe have a guided way to do it?
 (a brainstorm, not a build request: asks how to lay the groundwork for a slicer, CNC and laser toolpath generators and other manufacturing routes (mould, cast, stamping) as replaceable modules, how machine presets should work, how laser and image tracing should work, and whether drawings can become 3D models; nothing is decided)
+
+## in_544 — 2026-11-16 — directive
+> Draft those as provisional entries
+(asks for the manufacturing contract and its boundary rule, proposed in the answer to in_543, to be written as provisional entries)
