@@ -89,3 +89,17 @@ test("paste and push / pull have icons of their own (`in_493`)", () => {
   assert.notEqual(iconSvg("paste"), iconSvg("copy"));
   assert.ok(iconSvg("pushpull").split("<path").length <= 4, "simple: a face and an arrow");
 });
+
+import { appRows } from "../src/interaction/appmenu.ts";
+test("every row of the ⋯ list is one or two words, with every optional row there and in each state (`in_496`)", () => {
+  for (const mode of ["auto", "pan", "zoom"] as const) for (const flag of [true, false]) {
+    for (const r of appRows(mode, "abc123", { exportStl: flag, exportBody: true, matesOff: 2, clearAnswers: true }, flag, 0.3, flag, 0.25)) {
+      assert.ok(r.label.replace(/^✓ /, "").trim().split(/\s+/).length <= 2 && !/[():]/.test(r.label), `"${r.label}" (${r.id})`);
+    }
+  }
+});
+test("a dimmed row says why when pressed, and has no long tooltip (`in_496`)", () => {
+  const { st } = states()[0]!;
+  const said = reduce(st, { type: "runAction", id: "say:nothing to export yet: make a body" }, env);
+  assert.equal(said.session.message, "nothing to export yet: make a body");
+});

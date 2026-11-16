@@ -123,7 +123,7 @@ const menu = createMenu(document.body, (id) => {
   else if (id === "bodies" || id === "history" || id === "groups") dispatch({ type: "panel", name: id });
   else if (id === "undo" || id === "redo") dispatch({ type: id });
   else dispatch({ type: "runAction", id });
-});
+}, (why) => dispatch({ type: "runAction", id: `say:${why}` }));
 
 /** The ring's items as rows of the ⋯ list: each category's items under it, one group each. */
 

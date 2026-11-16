@@ -2310,3 +2310,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_495 — 2026-11-16 — directive
 > Do the Esc ending add mode next
 (asks for what in_494 left unbuilt: Esc ending the add mode)
+
+## in_496 — 2026-11-16 — directive
+> Do the shorten ⋯ menu row labels next
+(asks for what in_493 left undone: the ⋯ menu's own row labels shortened, as the ring's tooltips were, to one or two words)

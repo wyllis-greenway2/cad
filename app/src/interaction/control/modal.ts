@@ -311,6 +311,7 @@ export function doApply(s: AppState): AppState {
 }
 
 export function doRunAction(s: AppState, id: string, now = 0): AppState {
+  if (id.startsWith("say:")) return { ...s, session: { ...s.session, message: id.slice(4) } }; // (a dimmed row of the ⋯ list pressed: what is said, `in_496`)
   if (id.startsWith("why:")) { // a dimmed option of the ring pressed: what it needs is said, the ring stays (`in_493`)
     const find = (items: readonly { id: string; label: string; why: string | null; children?: readonly unknown[] }[]): { label: string; why: string | null } | undefined => { for (const it of items) { if (it.id === id.slice(4)) return it; const k = it.children ? find(it.children as never) : undefined; if (k) return k; } return undefined; };
     const hit = s.menu ? find(s.menu.items) : undefined;

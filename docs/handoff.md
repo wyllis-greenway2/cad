@@ -2418,3 +2418,6 @@ Six inputs of the last turns had not been recorded (`in_451` to `in_456`; record
 
 ## Handoff 463 — 2026-11-16 (in_495: Esc ends Add mode)
 `in_495`. **Built (`dec_menu_picking`):** `doEscape` (`modal.ts`): with nothing else open Esc ends Add mode and keeps the selection; the next Esc clears it; a tool, operation, repeat, cut and the rest still take the first Esc. **Test (`groups.test.ts`):** two taps, Esc (adding off, two selected), Esc (none), a tool open under adding: Esc puts the tool away and adding stays. (Handoff 462's "not built: Esc" no longer holds.) **Not browser-checked.**
+
+## Handoff 464 — 2026-11-16 (in_496: the ⋯ list's row labels shortened)
+`in_496`. **Built (`dec_menu_picking`):** the rows of `appRows` are one or two words (the state shows in the words: All constraints / Key constraints, ✓ Edge lines, Pan medium, Scroll auto / pans / zooms, Clearance 0.2); the long reasons left the tooltips: a dimmed row pressed says why (`ui/menu.ts` `onBlocked`, `say:` run action). **Tests:** `menutips.test.ts` (every row in every state, the say action); the all-shown and always-pans label tests changed. **Lost on purpose:** the mates row no longer says how many mates, the clearance no longer says "mm" or that a tap changes it. Not browser-checked. The suite's 144-posts timing test flaked again (passes alone).
