@@ -115,8 +115,6 @@ export interface Op {
   advTyped?: string;
   advValue?: number | null;
   revField?: 0 | 1;
-  /** the option of the operation bar that Tab last stepped to (`in_546`): the place among the choices between ways; a click on an option forgets it */
-  optionAt?: number;
   /** hollow: the faces left open, each as `nx,ny,nz,d,px,py,pz`, joined by `;` (`in_391`) */
   openFaces?: string;
   /** a move or a turn: the axes of the mover when it has been turned (`in_417`): the arrows pull along them and the rings turn about them; absent for the world axes */

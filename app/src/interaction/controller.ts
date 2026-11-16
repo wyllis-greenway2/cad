@@ -12,7 +12,7 @@ import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn, run, scene as sceneOf } from "./session.ts";
-import { stepOption } from "./options.ts";
+import { stepOption, activateOption, similarOf } from "./options.ts";
 import { loftChoice } from "./loft.ts";
 import { orientApply, storePose } from "./control/pose.ts";
 import { settings } from "../shared/settings.ts";
@@ -37,6 +37,7 @@ const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit",
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (s.adding && i.type === "click" && !i.shift && !s.tool && !s.op && !s.repeat && !s.cut && !s.picking) i = { ...i, shift: true }; // (adding: a tap is a Shift click, `in_539`)
   let next = apply(s, i, env);
+  if (i.type === "faceKind" || i.type === "sizeKind" || i.type === "loftKind" || i.type === "similarRule" || i.type === "cut") next = { ...next, optionAt: null }; // (an option chosen by the pointer: the keyboard's place in the bar starts from there again, `in_546`)
   if (next.cam !== s.cam || next.session.history.scene !== s.session.history.scene || next.lastSeen === null) next = noteSeen(next, env.w, env.h, projector(next.cam, env.w, env.h).project as (p: Vec3) => [number, number]); // (what was last in view, for Reset camera, `in_303`)
   if (next.resume && !RESUMING.has(i.type)) next = { ...next, resume: null }; // only a click, or moving the view, keeps "sketching goes on" waiting for a vertex
   // the hidden sketch of a plane is shown while a tool begun on the edge of a body sketches in it (`in_211`)
@@ -124,13 +125,13 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "runAction": return doRunAction(s, i.id, env.now);
     case "overrideRefusal": return overrideRefusal(s);
     case "menuTurn": return s; // (game mode's: the menu is turned by the page, `in_467`)
-    case "loftKind": return s.op?.kind === "loft" ? { ...s, op: { ...loftChoice(sceneOf(s.session), s.op, i.id), optionAt: undefined } } : s;
+    case "loftKind": return s.op?.kind === "loft" ? { ...s, op: { ...loftChoice(sceneOf(s.session), s.op, i.id) } } : s;
     case "sizeKind": {
       if (s.op?.kind !== "edge") return s;
-      if (i.kind === "swap") return { ...s, op: { ...s.op, dfaceIx: (s.op.dfaceIx ?? 0) + 1, optionAt: undefined } }; // (the first distance goes to the other face, `dec_chamfer_two_distances`)
-      return { ...s, op: { ...s.op, variable: i.kind === "variable", twoDist: i.kind === "twoDistances", varField: 0, optionAt: undefined } };
+      if (i.kind === "swap") return { ...s, op: { ...s.op, dfaceIx: (s.op.dfaceIx ?? 0) + 1 } }; // (the first distance goes to the other face, `dec_chamfer_two_distances`)
+      return { ...s, op: { ...s.op, variable: i.kind === "variable", twoDist: i.kind === "twoDistances", varField: 0 } };
     }
-    case "faceKind": return s.op?.kind === "pushpull" ? { ...s, op: { ...s.op, faceKind: i.kind, optionAt: undefined } } : s;
+    case "faceKind": return s.op?.kind === "pushpull" ? { ...s, op: { ...s.op, faceKind: i.kind } } : s;
     case "holdFlash": return s.flash ? { ...s, flash: { ...s.flash, at: env.now - settings.flash.holdMs } } : s;
     case "group": return doGroup(s);
     case "ungroup": return doUngroup(s);
@@ -143,7 +144,11 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "typed": {
       // Tab and Shift+Tab step through the options of the open operation, each step choosing it (`in_546`); the left and right arrows go between its numbers, which Tab does when it has no options or has several numbers to type
       const numbers = s.op?.kind === "edge" && !!(s.op.variable || s.op.twoDist) && !!s.op.vary; // (several numbers to type: Tab goes between them as it always did; Shift+Tab still steps the options)
-      if (i.key === "Tab" && (i.shift || !numbers)) { const step = stepOption(s, i.shift ? -1 : 1); if (step) { const next = reduce(s, step.intent, env); return next.op ? { ...next, op: { ...next.op, optionAt: step.index } } : next; } }
+      if (i.key === "Tab" && (i.shift || !numbers)) { const step = stepOption(s, i.shift ? -1 : 1); if (step) return { ...(step.intent ? reduce(s, step.intent, env) : s), optionAt: step.optionAt }; }
+      // Shift+Enter flips the switch the bar's focus is on (Enter applies; a switch is not a choice between ways: Tab only lands on it, `in_552`)
+      if (i.key === "Enter" && i.shift) { const act = activateOption(s); if (act) return { ...reduce(s, act, env), optionAt: s.optionAt }; }
+      // Enter closes the rules of a Select similar (what is selected stays): the bar's check
+      if (i.key === "Enter" && !i.shift && similarOf(s) && !s.op && !s.tool && !s.repeat && !s.cut && !s.picking) return { ...s, similar: null };
       return doTyped(s, i.key === "ArrowLeft" || i.key === "ArrowRight" ? "Tab" : i.key);
     }
     case "entry": return doEntry(s, i.field, i.text);

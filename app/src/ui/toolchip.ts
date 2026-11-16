@@ -62,7 +62,7 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
         optionsShown = osig;
         const list = confirm ? opts : [];
         options.style.display = list.length ? "inline-flex" : "none";
-        choiceRow(options, list.map((o) => ({ id: o.group + ":" + o.id, text: o.label, title: o.title, on: o.on, focus: o.focus })), (id) => { const o = list.find((q) => q.group + ":" + q.id === id); if (o) pick(o); });
+        choiceRow(options, list.map((o) => ({ id: o.group + ":" + o.id, text: o.radio || o.action ? o.label : `${o.on ? "✓" : "○"} ${o.label}`, title: o.title, on: o.on, focus: o.focus })), (id) => { const o = list.find((q) => q.group + ":" + q.id === id); if (o) pick(o); });
       }
       const key = `${confirm ? "c" : "t"}:${on.kind}:${confirm?.text ?? ""}:${done ? "done" : ""}:${touch ? "touch" : ""}`;
       if (key === shown) return true;
@@ -70,7 +70,7 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
       shown = key;
       icon.innerHTML = iconSvg(on.kind);
       if (confirm) {
-        chip.title = `${confirm.label}: Enter or a right click${touch ? " (or a tap away from it)" : ""} applies, Esc cancels${opts.length ? ", Tab steps through its options" : ""}`;
+        chip.title = `${confirm.label}: Enter or a right click${touch ? " (or a tap away from it)" : ""} applies, Esc cancels${opts.length ? ", Tab steps through its options, Shift+Enter flips a switch" : ""}`;
         tick.title = "Apply (Enter or right click)";
         x.title = "Cancel (Esc)";
       } else if (done) {

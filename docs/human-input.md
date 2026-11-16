@@ -2544,3 +2544,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_551 — 2026-11-16 — directive
 > Go with your recommendations, start with the game mode check
 (approves the three recommendations given after step 6 of `dec_ui_unification`: check Tab stepping in game mode with the pointer locked first; leave the handle families by id unmerged; turn `dec_ui_unification` into an accepted decision with its loose ends as small open questions)
+
+## in_552 — 2026-11-16 — directive
+> Go with your recommendation on the bar chips
+(approves the recommendation of `q_ui_bar_chips`: Select similar and Cut join the operation bar; the sheet chips and the dimension operation stay where they are)

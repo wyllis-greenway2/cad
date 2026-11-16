@@ -2,14 +2,17 @@
 // Shift+Tab stepping through the ones that are a choice between ways (not the ones that are switches). A step chooses the option, so it needs no aiming: it works in game mode, with the keyboard alone, and on a phone with the bar's own buttons.
 import type { AppState } from "./control/state.ts";
 import type { Intent } from "../shared/input.ts";
-import { scene as sceneOf } from "./session.ts";
+import { scene as sceneOf, selection as selectionOf } from "./session.ts";
+import { cutParts } from "./cut.ts";
+import { SIMILAR_RULES } from "./similar.ts";
+import type { SimilarRule } from "./similar.ts";
 import { chamferFaces } from "./operations.ts";
 import { loftChips } from "./loft.ts";
 
 export interface FaceKind { id: "move" | "extrude" | "extend"; label: string; title: string; on: boolean }
 export interface SizeKind { id: "constant" | "variable" | "twoDistances" | "swap"; label: string; title: string; on: boolean }
 /** One option of the bar: its group's name, what pressing it sends, and whether it is a way among ways (`radio`: Tab steps to it) or a switch or an action. */
-export interface Option { group: string; id: string; label: string; title: string; on: boolean; radio: boolean; /** the one Tab last stepped to */ focus: boolean; intent: Intent }
+export interface Option { group: string; id: string; label: string; title: string; on: boolean; radio: boolean; /** pressing it does something once, it is not on or off (swap the faces) */ action?: true; /** the one Tab last stepped to */ focus: boolean; intent: Intent }
 
 const FACE_KINDS: { id: "move" | "extrude" | "extend"; label: string; title: string }[] = [
   { id: "move", label: "Move", title: "Move the face by changing the step that made it: the height of what is attached grows or shrinks" },
@@ -39,29 +42,56 @@ export function sizeKinds(s: AppState): SizeKind[] | null {
   ];
 }
 
-/** The ways the choices run, for the Tab stepping: in the loft the first four (smooth or ruled, along the normal or straight) are choices between ways, the rest are switches. */
+/** The ways the choices run: in the loft the first four (smooth or ruled, along the normal or straight) are choices between ways (Tab chooses one by landing on it), the rest are switches (Tab lands on them, Shift+Enter flips one). */
 const LOFT_RADIO = new Set(["smooth", "ruled", "normal", "straight"]);
 
-/** Every option of the bar for the state, in order (empty when the operation has none). */
-export function optionsOf(s: AppState): Option[] {
-  const op = s.op;
-  if (!op) return [];
-  const at = op.optionAt ?? -1;
-  let list: Omit<Option, "focus">[] = [];
-  const face = faceKinds(s);
-  const size = sizeKinds(s);
-  if (face) list = face.map((k) => ({ group: "Face", id: k.id, label: k.label, title: k.title, on: k.on, radio: true, intent: { type: "faceKind", kind: k.id } }));
-  else if (size) list = size.map((k) => ({ group: "Size", id: k.id, label: k.label, title: k.title, on: k.on, radio: k.id !== "swap", intent: { type: "sizeKind", kind: k.id } }));
-  else if (op.kind === "loft") list = loftChips(sceneOf(s.session), op).map((k) => ({ group: "Loft", id: k.id, label: k.label, title: k.title, on: k.on, radio: LOFT_RADIO.has(k.id), intent: { type: "loftKind", id: k.id } }));
-  let r = -1;
-  return list.map((o) => ({ ...o, focus: o.radio && ++r === at }));
+/** The rules of the last Select similar while the selection is still what it selected (`in_257`): a switch each. */
+export function similarOf(s: AppState): { rules: { id: SimilarRule; label: string; title: string; on: boolean }[]; count: number; noun: string } | null {
+  const sim = s.similar;
+  if (!sim) return null;
+  const sel = selectionOf(s.session);
+  if (sel.length !== sim.refs.length || !sim.refs.every((r) => sel.includes(r))) return null;
+  return { rules: SIMILAR_RULES.map((r) => ({ ...r, on: sim.rules.includes(r.id) })), count: sim.refs.length, noun: sim.noun };
 }
 
-/** The option Tab (`dir` 1) or Shift+Tab (-1) steps to: where the last step stood (else the one that is on), the next choice between ways, round to the first. Null when there are fewer than two. */
-export function stepOption(s: AppState, dir: 1 | -1): { index: number; intent: Intent } | null {
-  const radios = optionsOf(s).filter((o) => o.radio);
-  if (radios.length < 2) return null;
-  const now = s.op?.optionAt ?? Math.max(0, radios.findIndex((o) => o.on));
-  const index = (now + dir + radios.length) % radios.length;
-  return { index, intent: radios[index]!.intent };
+/** Every option of the bar for the state, in order (empty when what is open has none): an operation's, a Cut's (each part kept or tossed, and joined or separate), a Select similar's rules (`in_552`). */
+export function optionsOf(s: AppState): Option[] {
+  const op = s.op;
+  let list: Omit<Option, "focus">[] = [];
+  if (op) {
+    const face = faceKinds(s);
+    const size = sizeKinds(s);
+    if (face) list = face.map((k) => ({ group: "Face", id: k.id, label: k.label, title: k.title, on: k.on, radio: true, intent: { type: "faceKind", kind: k.id } }));
+    else if (size) list = size.map((k) => ({ group: "Size", id: k.id, label: k.label, title: k.title, on: k.on, radio: k.id !== "swap", ...(k.id === "swap" ? { action: true as const } : {}), intent: { type: "sizeKind", kind: k.id } }));
+    else if (op.kind === "loft") list = loftChips(sceneOf(s.session), op).map((k) => ({ group: "Loft", id: k.id, label: k.label, title: k.title, on: k.on, radio: LOFT_RADIO.has(k.id), intent: { type: "loftKind", id: k.id } }));
+  } else if (s.cut && !s.tool && !s.repeat && !s.picking) {
+    const parts = cutParts(sceneOf(s.session), s.cut);
+    list = [
+      ...parts.map((p) => ({ group: "Cut", id: `cut:${p.mask}`, label: `${p.label} ${p.kept ? "kept" : "tossed"}`, title: p.tip, on: p.kept, radio: false, intent: { type: "cut", act: "toggle", mask: p.mask } as Intent })),
+      ...(parts.length ? [{ group: "Cut", id: "cut:join", label: s.cut.join ? "Joined" : "Separate", title: "Kept parts that touch become one body, or stay as the separate bodies they are", on: s.cut.join, radio: false, intent: { type: "cut", act: "join" } as Intent }] : []),
+    ];
+  } else if (!s.tool && !s.repeat && !s.picking) {
+    const sim = similarOf(s);
+    if (sim) list = sim.rules.map((r) => ({ group: "Similar", id: r.id, label: r.label, title: r.title, on: r.on, radio: false, intent: { type: "similarRule", rule: r.id } }));
+  }
+  const sig = list.map((o) => o.id).join(",");
+  const at = s.optionAt && s.optionAt.sig === sig ? s.optionAt.index : -1; // (a place kept for another set of options is not this one's)
+  return list.map((o, i) => ({ ...o, focus: i === at }));
+}
+
+/** Tab (`dir` 1) or Shift+Tab (-1): the option the focus goes to, round; choosing it when it is a choice between ways, only lighting it when it is a switch. Null when there are fewer than two options. */
+export function stepOption(s: AppState, dir: 1 | -1): { optionAt: NonNullable<AppState["optionAt"]>; intent: Intent | null } | null {
+  const all = optionsOf(s);
+  if (all.length < 2) return null;
+  const focus = all.findIndex((o) => o.focus);
+  const now = focus >= 0 ? focus : all.some((o) => o.radio) ? all.findIndex((o) => o.radio && o.on) : -1; // (from the one that is on, as a first Tab goes to the next)
+  const index = (now + dir + all.length) % all.length;
+  const o = all[index]!;
+  return { optionAt: { index, sig: all.map((q) => q.id).join(",") }, intent: o.radio ? o.intent : null };
+}
+
+/** Shift+Enter: what the option the focus is on does when it is a switch or an action (the choices between ways are chosen as the focus lands). Null when there is no such option. */
+export function activateOption(s: AppState): Intent | null {
+  const o = optionsOf(s).find((q) => q.focus);
+  return o && !o.radio ? o.intent : null;
 }
