@@ -2259,3 +2259,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_486 — 2026-11-16 — directive
 > yes look at s_045
 (approves looking at the last large reversal of the sweep: `group-then-new-body-in_426.cad.json` `s_045`, +358 mm3 of 4251 at 10.5 to 10.75 mm)
+
+## in_487 — 2026-11-16 — directive
+> yes check s_023 next
+(approves looking at the remaining reversal `circle-held-by-concentric-in_366.cad.json` `s_023`: +19.6 mm3 at 4.25 to 4.5, +82 at 5.75 to 6, +331 at 9.75 to 10 mm)
