@@ -33,3 +33,6 @@ The ring's prism (smooth loft, valid, sections simple polygons, volume 332287 mm
 
 ### More cone-end sets (`in_808`, `in_809`)
 Overlap at the place / rolled / half a pitch round (mm3): **22/34** m3 30 deg: 0.3 / 0.2 / 422.0. **25/25** m3 35 deg: 0.8 / 0.8 / 413.9. **18/36** m3 25 deg: 3.9 / 4.3 / 382.7 (ring cone 63.4 degrees). **30/45** m2.5: failed, "memory access out of bounds" in the ring's cone cut (75 teeth in all: probably a size limit; not tried with fewer sections or a larger module). So seven pairs work (20/30 x2, 24/24, 16/32, 22/34, 25/25, 18/36); 17/43 (ring cone 68 degrees) and 30/45 do not.
+
+### Where the size limit is (`in_817`)
+**28/42** m3 (70 teeth in all): the ring's cone cut ran the kernel out of memory. **25/50** m3 (75 in all, ring cone 63.4 degrees): the pinion's cone cut answered "nothing in common" at three shifts. With 30/45 (75, memory), these three fail where every pair of 56 teeth or fewer worked (22/34 is the largest that did). So the limit is between 56 and 70 teeth in all, on this kernel.

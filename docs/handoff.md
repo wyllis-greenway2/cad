@@ -3258,3 +3258,6 @@ No input. The full test suite was run on the code as of the engagement setting (
 
 ## Handoff 741 — 2026-11-17 (in_809: the spiral sets; a spiral tool proposed)
 `in_809`. **Measured:** 22/34, 25/25, 18/36 mesh (overlap 0.3 to 4.3 mm3 at the place, 382 to 422 half a pitch round); 30/45 ran the kernel out of memory in the ring's cone cut; 17/43 still fails (the steep ring cone). **Wrote** `dec_spiral_bevel_gears` as a **provisional** proposal (limits: ring cone under about 65 degrees, fewer than about 60 teeth in all, 90 degree shafts, no profile shift); nothing built in `app/`. Awaiting the human's approval. Hypoid not started.
+
+## Handoff 742 — 2026-11-17 (in_817: the spiral's size limit)
+`in_817`. 28/42 and 30/45 ran the kernel out of memory in the ring's cone cut; 25/50 failed in the pinion's ("nothing in common"). Every pair of 56 teeth or fewer worked (22/34 the largest). `dec_spiral_bevel_gears` (still **provisional**) now says: refuse more than 56 teeth in all, a ring cone over about 65 degrees. Waiting for the human's explicit approval to build it.
