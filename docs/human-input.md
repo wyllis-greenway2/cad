@@ -3490,9 +3490,37 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (decides: no approximate spiral bevel gear; wait until its tooth surfaces can be derived from the NASA papers and the other sources, and build it correctly)
 
 ## in_786 — 2026-11-17 — directive
+> what is the mating point design?
+(asks what the mating point design is)
+
+## in_787 — 2026-11-17 — approval
+> Yes, draft it with those defaults
+(asks for the insert fastener proposal to be drafted as a provisional entry, with the defaults of an automatic length, standing mates and the screw alone)
+
+## in_788 — 2026-11-17 — directive
+> Go with your recommendation, build the locking disc
+(asks for the Geneva drive's locking disc to be built: the wheel's locking arcs and the driver's notched disc that keeps the wheel from turning between engagements)
+
+## in_789 — 2026-11-17 — directive
+> Go with your recommendation, build the cheaper Geneva preview
+(asks for a cheaper preview of the Geneva drive while its numbers are typed, so typing is not slowed by the locking disc's long working out)
+
+## in_790 — 2026-11-17 — approval
+> Yes, build the toothed land cut by the worm's envelope
+(answers the open question of `q_gear_finishing`: the worm wheel's land is to keep the tooth section out to the face and be cut back by the worm's envelope, instead of the round shoulder)
+
+## in_791 — 2026-11-17 — approval
+> Yes, build the tooth chamfer
+(answers the open question of `q_gear_finishing`: the tooth tips of a gear are to be chamfered at the top and bottom faces, by one revolved cut as proposed there, not edge by edge)
+
+## in_792 — 2026-11-17 — approval
+> Yes, build the spline flank prototype
+(answers the last open option of `q_gear_finishing`: a prototype to measure a tooth flank made as one B-spline against the chain of arcs; a prototype under `prototypes/`, not production code)
+
+## in_793 — 2026-11-17 — directive
 > [the human attached five PDFs with no words: the NASA paper 19830024896 (59 pages), the NASA paper 19810017922 (23 pages), Stadtfeld "stadtfeld.pdf" (Gear Technology, Jan 2001), Gear Technology "chapter2.pdf" (Aug 2015), and "The intrinsic pitch cones in hypoid gears" (AGMA media)]
 (sends the papers asked for, to derive the spiral bevel surfaces from; the NASA paper 19820018805 and the Tredgold postprint were not among them)
 
-## in_787 — 2026-11-17 — directive
+## in_794 — 2026-11-17 — directive
 > [the human attached the NASA paper 19820018805 (20 pages)] build the flank sections and test the pair in the kernel. Also here is another doc that might be useful for you.
 (asks me to build the flank sections of the spiral bevel pair and test the pair in the kernel; sends the NASA paper 19820018805, the one the access attempts could not fetch)

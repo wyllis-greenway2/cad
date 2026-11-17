@@ -1273,7 +1273,7 @@ const OPS = {
     const drop = new Set(op.drop ?? []); // (tools that were kept but have been deleted since: the cut they made stays, they do not, `in_436`)
     const kept = op.keep && op.mode !== "add" ? others.filter((_, i) => !drop.has(op.bodies[i + 1])).map((o) => o.clone()) : []; // (a boolean uses up what it is given: the tools that stay are copied first)
     let made = first;
-    for (const o of others) made = op.mode === "subtract" ? made.cut(o) : op.mode === "intersect" ? made.intersect(o) : made.fuse(o);
+    for (const o of others) made = op.mode === "subtract" ? made.cut(o) : op.mode === "intersect" ? made.intersect(o) : made.fuse(o, op.glue && op.mode === "add" ? { optimisation: "commonFace" } : {});
     const parts = lumpsOf(made);
     if (!parts.length) throw new Error(op.mode === "intersect" ? "those bodies have nothing in common" : "nothing would be left of the body");
     if (op.mode === "add" && parts.length > 1) throw new Error("those bodies do not touch or overlap, so they cannot become one body");

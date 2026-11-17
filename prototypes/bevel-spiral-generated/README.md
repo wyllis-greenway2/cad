@@ -1,4 +1,4 @@
-# A spiral bevel tooth by the gearing law (a prototype, `in_786`)
+# A spiral bevel tooth by the gearing law (a prototype, `in_793`)
 
 **Meant to learn:** whether the tooth surfaces of a face-milled spiral bevel set can be derived from the sources the human sent (so they are built right, `in_785`) and checked against the one worked example that gives numbers.
 

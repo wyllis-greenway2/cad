@@ -1,4 +1,4 @@
-// The flank sections of a spiral bevel pair made by the gearing law (`in_787`, building on `generate.ts`): the pinion's tooth surfaces are the envelope of the crown tooth's flanks (`generate.ts`), the ring gear's the envelope of the pinion's
+// The flank sections of a spiral bevel pair made by the gearing law (`in_794`, building on `generate.ts`): the pinion's tooth surfaces are the envelope of the crown tooth's flanks (`generate.ts`), the ring gear's the envelope of the pinion's
 // (the two gears' axes at the shaft angle, the ratio of roll the ratio of the sines of the pitch angles), so the pair is conjugate by construction. Both are given in one frame (the crown's at its zero position: the pinion's axis a1 =
 // (0, -sin g1, cos g1), the ring gear's a2 = (0, sin g2, cos g2), the contact line z, the apex the origin), the gears at their meshing places: the pinion's slot 0 holds the ring gear's tooth 0.
 // A section is the curve of a flank in the plane across a gear's axis at the distance X from the apex; a gear's outline in that plane is z teeth of two such flank curves, a tip arc and a root arc (the tip and root cones are Stadtfeld's, the

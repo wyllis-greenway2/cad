@@ -9,7 +9,7 @@ import { ok, err } from "../shared/result.ts";
 import type { Scene, Step } from "./scene.ts";
 import { nextId, bumpCounter } from "./scene.ts";
 import type { Part } from "./part.ts";
-import { gearOutline, helixTwist, helixShear, hasBody } from "./gear.ts";
+import { gearOutline, helixTwist, helixShear, hasBody, chamferProfile } from "./gear.ts";
 import { boreLoop } from "./bore.ts";
 import type { GearSpec, GearOutline } from "./gear.ts";
 import { wormRefs, wormParts, wormSteps, wheelRefs, wheelParts, wheelSteps } from "./wormscene.ts";
@@ -86,7 +86,30 @@ function partsOf(s: Scene, rec: GearRecord): Part[] {
     out.push({ ...base, ref: drawnRef(`${rec.id}.bc`), kind: "corner", at: rec.at });
     out.push({ ...base, ref: drawnRef(`${rec.id}.b`), kind: "circle", center: drawnRef(`${rec.id}.bc`), radius: rec.spec.bore! / 2 });
   }
+  const cut = chamferProfile(rec.spec, g.tipRadius);
+  if (cut) { // the figure of the chamfer's cutter (`in_791`): drawn on a plane through the axis, along the plane's first direction and its normal
+    const nn = cross3(plane.u, plane.v), len = Math.hypot(...nn) || 1;
+    const q = drawnRef(`${rec.id}.xq`);
+    out.push({ ref: q, origin: "drawn", plane: null, movable: false, kind: "plane", at: rec.at, u: plane.u, v: [nn[0] / len, nn[1] / len, nn[2] / len] });
+    const b2 = { origin: "drawn" as const, plane: q, movable: false };
+    cut.forEach(([r, h], i) => out.push({ ...b2, ref: drawnRef(`${rec.id}.xp${i}`), kind: "corner", at: [rec.at[0] + plane.u[0] * r + (nn[0] / len) * h, rec.at[1] + plane.u[1] * r + (nn[1] / len) * h, rec.at[2] + plane.u[2] * r + (nn[2] / len) * h] }));
+    cut.forEach((_, i) => out.push({ ...b2, ref: drawnRef(`${rec.id}.xs${i}`), kind: "line", a: drawnRef(`${rec.id}.xp${i}`), b: drawnRef(`${rec.id}.xp${(i + 1) % cut.length}`) }));
+  }
   return out;
+}
+const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+/** The steps of a tooth chamfer (`in_791`): the cutter turned a full turn as a piece of its own, then cut from the gear's body (the body the gear's first step made, `@s0`); a cut acts on every body, so the neighbours are not asked. */
+function chamferSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] {
+  const plane = s.parts[rec.plane], o = outlineOf(rec.spec);
+  if (!plane || plane.kind !== "plane" || !o.ok) return [];
+  const cut = chamferProfile(rec.spec, o.value.tipRadius);
+  if (!cut) return [];
+  const n = cross3(plane.u, plane.v), len = Math.hypot(...n) || 1;
+  const lines = cut.map((_, i) => drawnRef(`${rec.id}.xs${i}`));
+  return [
+    { type: "revolve", parts: lines, params: { angle: 360, advance: 0, ax: rec.at[0], ay: rec.at[1], az: rec.at[2], dx: n[0] / len, dy: n[1] / len, dz: n[2] / len, mode: "new", gear: rec.id, tool: 1 } },
+    { type: "combine", parts: ["@s0", "@s1"] as Ref[], params: { mode: "subtract", gear: rec.id } },
+  ];
 }
 
 /** The scene with its gears' parts made again from the records as they are now (the old ones taken out first). */
@@ -143,7 +166,11 @@ function ownedSpecs(s: Scene, rec: GearRecord): Omit<Step, "id">[] {
   if (rec.spec.worm) return wormSteps(s, rec) ?? [];
   if (rec.spec.wheel) return wheelSteps(s, rec) ?? [];
   const body = bodyParams(s, rec);
-  return body ? [body.step] : [];
+  return body ? [body.step, ...chamferSteps(s, rec)] : [];
+}
+/** A gear's own steps that name each other's bodies (`@s0`: the body the gear's first step made, `@s1` the second's, as a worm wheel's land is joined): the names put in, now that the steps are named. */
+function resolveOwnRefs(steps: readonly Step[]): Step[] {
+  return steps.map((st) => st.parts.some((r) => /^@s\d+$/.test(r)) ? { ...st, parts: st.parts.map((r) => { const m = /^@s(\d+)$/.exec(r); return m ? (`b/x_${steps[Number(m[1])]!.id}/o` as Ref) : r; }) } : st);
 }
 /** A step made from a gear's record may name the steps before it of the same gear as `$0`, `$1`...: the names they were given, put in. */
 const named = (st: Step, before: readonly Step[]): Step => (st.parts.some((p) => p.includes("$")) ? { ...st, parts: st.parts.map((p) => p.replace(/\$(\d+)/g, (_, k: string) => before[Number(k)]?.id ?? "")) as Ref[] } : st);
@@ -153,6 +180,8 @@ export function ownedSteps(s: Scene, rec: GearRecord): { scene: Scene; steps: St
   let cur = s;
   const steps: Step[] = [];
   for (const spec of ownedSpecs(s, rec)) { const st: Step = named({ ...spec, id: nextId(cur, "s") }, steps); steps.push(st); cur = bumpCounter({ ...cur, steps: [...cur.steps, st] }, st.id); }
+  const resolved = resolveOwnRefs(steps);
+  if (resolved.some((st, i) => st !== steps[i])) { cur = { ...cur, steps: cur.steps.map((st) => resolved.find((n) => n.id === st.id) ?? st) }; resolved.forEach((st, i) => { steps[i] = st; }); }
   // a worm made for a wheel that is there already: its threads and cuts act on every piece that stands before them (a step that adds or cuts works on all the bodies made so far, and a thread touching the wheel's teeth would join it),
   // so its steps go in front of the wheel's, and the wheel (a piece of its own) comes after, as when the wheel is made for the worm (`in_708`)
   if (rec.spec.worm && steps.length) {
@@ -220,7 +249,8 @@ function setGearCore(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: num
   const made: Step[] = [];
   fresh.forEach((spec, i) => { const name = old[i]?.id ?? nextId(counter, "s"); const st: Step = named({ ...spec, id: name }, made); if (!old[i]) counter = bumpCounter({ ...counter, steps: [...counter.steps, st] }, name); made.push(st); });
   const place = at0 < 0 ? kept.length : steps.slice(0, at0).filter((st) => !own(st)).length;
-  const turned = [...kept.slice(0, place), ...made, ...kept.slice(place)];
+  const resolved = resolveOwnRefs(made);
+  const turned = [...kept.slice(0, place), ...resolved, ...kept.slice(place)];
   return ok({ ...counter, steps: turned, gears: gearsOf(s).map((g) => (g === rec ? next : g)) });
 }
 /**

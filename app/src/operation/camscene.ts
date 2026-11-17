@@ -14,7 +14,8 @@ import { splineStored } from "./part.ts";
 import { loopFaceRef, diskFaceRef } from "./loops.ts";
 
 const shapesOf = (rec: GearRecord): CamShapes | null => { const c = rec.spec.cam ? camShapes(rec.spec.cam) : null; return c && c.ok ? c.value : null; };
-const circleNames = (c: CamShapes["circles"][number]): { centre: string; ring: string } => (c.hole ? (Math.hypot(...c.c) < 1e-9 ? { centre: "bc", ring: "b" } : { centre: "qc", ring: "q" }) : { centre: "c", ring: "k" });
+/** the names of a circle's centre and its ring: the disc of an eccentric `c`, `k`; the hole at the shaft `bc`, `b`; other holes `qc`, `q` (the second `qc1`, `q1`, and so on) */
+const circleNames = (c: CamShapes["circles"][number], other: number): { centre: string; ring: string } => (c.hole ? (Math.hypot(...c.c) < 1e-9 ? { centre: "bc", ring: "b" } : { centre: `qc${other || ""}`, ring: `q${other || ""}` }) : { centre: "c", ring: "k" });
 /** The outline's sides in order (what a step that extrudes the cam names), the circle of an eccentric's disc, and the shaft's hole; empty if the numbers make no cam. */
 export function camRefs(rec: GearRecord): { lines: Ref[]; wall?: Ref; bore?: string } {
   const sh = shapesOf(rec);
@@ -60,8 +61,16 @@ export function camParts(s: Scene, rec: GearRecord): Part[] {
     poly.points.forEach((p, i) => corner(`${cn}${i}`, at(p)));
     poly.points.forEach((_, i) => out.push({ ...base, ref: ref(`${sn}${i}`), kind: "line", a: ref(`${cn}${i}`), b: ref(`${cn}${(i + 1) % poly.points.length}`), ...(poly.bulges[i] ? { bulge: poly.bulges[i]! } : {}) }));
   });
+  (sh.rings ?? []).forEach((ring, j) => { // more closed splines (a Geneva drive's locking disc): corners r, sides v
+    const sides = closedSides(ring.map(at), normal);
+    if (!sides) return;
+    corner(`r${j}a`, sides[0]!.from); corner(`r${j}b`, sides[0]!.to);
+    out.push({ ...base, ref: ref(`v${j}a`), kind: "line", a: ref(`r${j}a`), b: ref(`r${j}b`), spline: sides[0]!.spline, around: sides[0]!.around });
+    out.push({ ...base, ref: ref(`v${j}b`), kind: "line", a: ref(`r${j}b`), b: ref(`r${j}a`), spline: sides[1]!.spline, around: sides[1]!.around });
+  });
+  let others = 0;
   for (const c of sh.circles) {
-    const n = circleNames(c);
+    const n = circleNames(c, c.hole && Math.hypot(...c.c) >= 1e-9 ? others++ : 0);
     corner(n.centre, at(c.c));
     out.push({ ...base, ref: ref(n.ring), kind: "circle", center: ref(n.centre), radius: c.r });
   }

@@ -137,7 +137,7 @@ test("Helix is a number of every plain gear (`in_693`): 0 is a plain gear; typin
   assert.equal(st.tool!.gear!.editing, "g_001");
   assert.equal(st.tool!.gear!.field, 7, "the box starts at the Helix field");
   const fields = entryOf(scene(st.session), st.tool, st.op)!.fields;
-  assert.deepEqual(fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Thickness", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Thickness", "Bore", "Flat", "Key", "Key depth", "Chamfer"]);
   assert.equal(fields[7]!.value, "15", "no helix: the Helix item puts 15 degrees in (`in_771`); Esc would leave the gear plain");
   st = key(st, "Backspace"); st = key(st, "Backspace");
   st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "8");
