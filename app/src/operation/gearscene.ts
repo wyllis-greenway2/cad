@@ -17,6 +17,7 @@ import { wheelSections } from "./wheelsections.ts";
 import { bevelRefs, bevelParts, bevelSteps } from "./bevelscene.ts";
 import { camShapes } from "./cams.ts";
 import { camParts, camRefs } from "./camscene.ts";
+import { meshBevel } from "./mesh.ts";
 
 /** `at`: the centre, in the world; `turn`: how far the gear is turned about its centre in its plane, radians (tooth 0 points along the plane's first direction when 0); `spec`: the numbers (`gear.ts`) */
 export interface GearRecord { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }
@@ -139,12 +140,14 @@ function ownedSpecs(s: Scene, rec: GearRecord): Omit<Step, "id">[] {
   const body = bodyParams(s, rec);
   return body ? [body.step] : [];
 }
+/** A step made from a gear's record may name the steps before it of the same gear as `$0`, `$1`...: the names they were given, put in. */
+const named = (st: Step, before: readonly Step[]): Step => (st.parts.some((p) => p.includes("$")) ? { ...st, parts: st.parts.map((p) => p.replace(/\$(\d+)/g, (_, k: string) => before[Number(k)]?.id ?? "")) as Ref[] } : st);
 const ownedBy = (id: string) => (st: Step): boolean => st.params.gear === id;
 /** The steps that make the body of a gear, named (the scene's next names), with the scene they are added to: its counter is moved on past them. */
 export function ownedSteps(s: Scene, rec: GearRecord): { scene: Scene; steps: Step[] } {
   let cur = s;
   const steps: Step[] = [];
-  for (const spec of ownedSpecs(s, rec)) { const st: Step = { ...spec, id: nextId(cur, "s") }; steps.push(st); cur = bumpCounter({ ...cur, steps: [...cur.steps, st] }, st.id); }
+  for (const spec of ownedSpecs(s, rec)) { const st: Step = named({ ...spec, id: nextId(cur, "s") }, steps); steps.push(st); cur = bumpCounter({ ...cur, steps: [...cur.steps, st] }, st.id); }
   // a worm made for a wheel that is there already: its threads and cuts act on every piece that stands before them (a step that adds or cuts works on all the bodies made so far, and a thread touching the wheel's teeth would join it),
   // so its steps go in front of the wheel's, and the wheel (a piece of its own) comes after, as when the wheel is made for the worm (`in_708`)
   if (rec.spec.worm && steps.length) {
@@ -162,7 +165,11 @@ export function addGear(s: Scene, rec: GearRecord): Result<Scene> {
   const o = rec.spec.cam ? camShapes(rec.spec.cam) : outlineOf(rec.spec);
   if (!o.ok) return err(o.error);
   if (rec.spec.wheel) { const w = wheelSections(rec.spec); if (!w.ok) return err(w.error); }
-  return ok({ ...s, gears: [...gearsOf(s), { ...rec, at: [...rec.at] as unknown as Vec3, spec: { ...rec.spec } }] });
+  const added = { ...rec, at: [...rec.at] as unknown as Vec3, spec: { ...rec.spec } };
+  // a bevel gear made to mesh with another: that one learns of it (the two are put right together when either's teeth are changed, `in_776`)
+  const mate = rec.spec.bevel?.with ? gearsOf(s).find((g) => g.id === rec.spec.bevel!.with) : undefined;
+  const gears = gearsOf(s).map((g) => (g === mate && mate.spec.bevel && mate.spec.bevel.with === undefined ? { ...g, spec: { ...g.spec, bevel: { ...g.spec.bevel!, with: rec.id } } } : g));
+  return ok({ ...s, gears: [...gears, added] });
 }
 
 /** `from` replaced by `to` wherever a step names the whole run of them, in whatever order it has them (its figure, a hole of it, a sibling figure). */
@@ -184,7 +191,7 @@ function swapBore(st: Step, lines: readonly Ref[], was: string | undefined, now:
   return { ...st, params: groups.length ? { ...rest, holes: groups.join(";") } : rest };
 }
 /** New numbers (and, if given, a new centre) for a gear. Refused if the numbers make no gear, or a constraint stands on a corner or side that would be gone. */
-export function setGear(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: number): Result<Scene> {
+function setGearCore(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: number): Result<Scene> {
   const rec = gearsOf(s).find((g) => g.id === id);
   if (!rec) return err(`gear ${id} does not exist`);
   const o = spec.cam ? camShapes(spec.cam) : outlineOf(spec);
@@ -205,10 +212,34 @@ export function setGear(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: 
   const kept = steps.filter((st) => !own(st));
   const at0 = steps.findIndex(own);
   let counter: Scene = { ...s, steps };
-  const made: Step[] = fresh.map((spec, i) => { const name = old[i]?.id ?? nextId(counter, "s"); const st: Step = { ...spec, id: name }; if (!old[i]) counter = bumpCounter({ ...counter, steps: [...counter.steps, st] }, name); return st; });
+  const made: Step[] = [];
+  fresh.forEach((spec, i) => { const name = old[i]?.id ?? nextId(counter, "s"); const st: Step = named({ ...spec, id: name }, made); if (!old[i]) counter = bumpCounter({ ...counter, steps: [...counter.steps, st] }, name); made.push(st); });
   const place = at0 < 0 ? kept.length : steps.slice(0, at0).filter((st) => !own(st)).length;
   const turned = [...kept.slice(0, place), ...made, ...kept.slice(place)];
   return ok({ ...counter, steps: turned, gears: gearsOf(s).map((g) => (g === rec ? next : g)) });
+}
+/**
+ * New numbers for a gear, and, for a bevel gear made to mesh with another (`BevelSpec.with`), the other put right with it (`in_776`): the teeth of one are the other's mate teeth, they share the module, the pressure angle, the shaft angle and
+ * the face, and the one that stands across (the partner: it has a direction) is placed again from the other (the anchor), phase and all, as when it was made.
+ */
+export function setGear(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: number): Result<Scene> {
+  const rec = gearsOf(s).find((g) => g.id === id);
+  const bv = spec.bevel;
+  const other = rec && bv?.with ? gearsOf(s).find((g) => g.id === bv.with) : undefined;
+  if (!rec || !bv || !other || !other.spec.bevel || other.spec.bevel.with !== id) return setGearCore(s, id, spec, at, turn);
+  const edited: GearRecord = { ...rec, spec, ...(at ? { at } : {}), ...(turn !== undefined ? { turn } : {}) };
+  const follower = bv.dir !== undefined ? edited : other, anchor = bv.dir !== undefined ? other : edited;
+  const fresh = (g: GearRecord): GearSpec => ({ ...g.spec, teeth: g === edited ? spec.teeth : bv.mate, module: spec.module, ...(spec.pressure !== undefined ? { pressure: spec.pressure } : {}), bevel: { ...g.spec.bevel!, mate: g === edited ? bv.mate : spec.teeth, ...(bv.shaft !== undefined ? { shaft: bv.shaft } : {}), ...(bv.face !== undefined ? { face: bv.face } : {}) } });
+  const a2: GearRecord = { ...anchor, spec: fresh(anchor) };
+  const pl = s.parts[a2.plane];
+  if (!pl || pl.kind !== "plane") return setGearCore(s, id, spec, at, turn);
+  const f0 = fresh(follower);
+  const placed = meshBevel(a2, pl.u, pl.v, { teeth: f0.teeth }, follower.spec.bevel!.dir ?? 0);
+  if (!placed.ok) return err(placed.error);
+  const f2: GearRecord = { ...follower, at: placed.value.at, turn: placed.value.turn, spec: { ...f0, bevel: { ...f0.bevel!, ...(placed.value.spec.bevel!.frame ? { frame: placed.value.spec.bevel!.frame } : {}) } } };
+  const first = setGearCore(s, a2.id, a2.spec, anchor === edited ? at : undefined, anchor === edited ? turn : undefined);
+  if (!first.ok) return first;
+  return setGearCore(first.value, f2.id, f2.spec, f2.at, f2.turn);
 }
 /** A gear taken away: its record and its parts, and the constraints on them. A step made from it stays and is reported broken, as one made from a deleted figure is. */
 export function deleteGear(s: Scene, id: string): Result<Scene> {

@@ -3,7 +3,7 @@ id: dec_bevel_gears
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_755, in_735
+human_input: in_776, in_755, in_735
 date: 2026-11-17
 depends_on:
   - dec_gear_tool: a bevel gear is one more kind of gear record, its parts and body made from the record; a change to how a gear is a record changes it
@@ -14,6 +14,8 @@ alternative_to:
 # Straight bevel gear: built as an approximation, to be verified
 
 **Decided (`in_735`, the human approved my proposal):** build the straight bevel gear now, marked everywhere as an **approximation** of the standard, and keep a list of what has to be verified later (the roadmap's "To verify later" and the open `q_bevel_gears`).
+
+**Corrected (`in_776`):** the first body was a ruled loft between two sections across the axis, and that made the teeth look longer the more teeth the gear had: a section across the axis of the tooth cones is taller than the tooth by 1 / cos delta (6.2 mm for 3.1 at a 1:1 pair of module 2, 16.5 for 1.1 at 80:20). The real ends of a bevel gear are cones. **Now:** a prism of the tooth cones (a ruled loft of two sections, the outline scaled by `x / (R cos delta)` at the plane `x` from the apex, held as arcs: two to a flank) is intersected (`combine`) with a blank (a revolve: the heel's back cone, the toe's, flat hub discs inside the roots, `bevelLayout`); the three steps are the gear's (`$0`, `$1` in a step's parts are the names of the steps before it). Measured: no tooth reaches past the tip circle of the back cone (`test/bevel.test.ts`), the pairs still fit (with 0.1 mm backlash: with none the flanks touch along the line of contact and the kernel cannot tell touching from overlapping). It costs about 5 s a gear (the intersection is most of it), so the gear follows the speed rules of the others: the stand-in disc while it is made, a body of few parts (`gearshape.ts`), a wireframe preview of the true ends, and no solid draft while typing. **A pair stays a pair (`BevelSpec.with`, `dir`):** the teeth of either are the other's mate teeth; changing the teeth, the module, the pressure angle, the shaft angle or the face of either puts both right and the partner is placed again from the other, phase and all (`setGear`); one partner to a gear is linked.
 
 **What is built:** `GearSpec.bevel = { mate, shaft?, face? }` (`operation/bevel.ts`, `bevelscene.ts`). Menu: Sketch, Gear, Bevel gear (approx.). Numbers: teeth, mate teeth, module, pressure angle, shaft angle (90 default), face width as a fraction of the cone distance (a third), backlash (mm off the tooth on the pitch circle at the big end), bore (flat or key as for any gear). The tooth is the Tredgold back cone tooth (an involute tooth of the equivalent spur gear, developed on the back cone), proportions from KHK-USA (long and short addendum, whole depth 2.188 m); the body is a ruled loft of the big end and the same outline scaled toward the apex, a piece of its own. The gear's plane is the plane of the big end and the apex lies along its normal. The title of the box and the outline's warning say "approximation".
 

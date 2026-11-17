@@ -7,12 +7,18 @@ import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import type { GearSpec } from "./gear.ts";
 import type { Vec3 } from "../math/vec.ts";
+import { bulgeOf } from "./arcs.ts";
+import type { P } from "./arcs.ts";
 
 /** a bevel gear: the teeth of the gear it meshes with, the angle between the shafts (degrees, 90 if none) and the face width as a fraction of the cone distance (a third if none) */
 export interface BevelSpec {
   mate: number; shaft?: number; face?: number;
   /** a partner that stands across its mate's axis (`meshBevel`): its own first and second directions (unit vectors, the plane of the big end, its normal their cross product, along the axis towards the apex) in place of the plane's; none for a gear on its plane */
   frame?: [Vec3, Vec3];
+  /** the gear it was made to mesh with (and, for that gear, this one): editing the teeth of either puts the other right again (`in_776`) */
+  with?: string;
+  /** a partner: the direction it stands in from the gear it meshes with, radians from that gear's first direction (what the mesh was made with, so it can be made again) */
+  dir?: number;
 }
 export interface BevelGeometry {
   /** the pitch cone's half angle, radians */ delta: number;
@@ -26,7 +32,7 @@ export interface BevelGeometry {
 }
 const inv = (a: number) => Math.tan(a) - a;
 /** The number of the sides of a flank (the outline is straight sides: a tooth is about 2 sides x this + 3). */
-const PER_FLANK = 5;
+const PER_FLANK = 4; // (a flank is two arcs, through five points of the tooth)
 
 /** The pitch angle of a gear of `z` teeth meshing with one of `mate` teeth, the shafts `shaftDeg` apart: tan delta = sin S / (mate / z + cos S). */
 export const pitchAngle = (z: number, mate: number, shaftDeg = 90): number => { const s = (shaftDeg * Math.PI) / 180; return Math.atan2(Math.sin(s), mate / z + Math.cos(s)); };
@@ -61,8 +67,11 @@ export function bevelOf(spec: GearSpec): Result<BevelGeometry> {
   return ok(g);
 }
 
-/** The outline of the big end of the tooth ring: polar points (radius, angle), counter-clockwise, the first tooth centred on angle 0. */
-function bevelPolar(spec: GearSpec): Result<[number, number][]> {
+/**
+ * The tooth outline as points of the back cone before they are put on a plane: for each, its distance `x` from the apex along the axis, its radius `r` from the axis and its angle `th` (counter-clockwise, the first tooth
+ * centred on angle 0). The pitch point is at x = R cos delta, r = R sin delta.
+ */
+export function bevelRaw(spec: GearSpec): Result<{ x: number; r: number; th: number; /** the first point of a flank: the five points from here are two arcs */ flank?: true }[]> {
   const g = bevelOf(spec);
   if (!g.ok) return g;
   const { delta, R, addendum, dedendum, zv } = g.value;
@@ -75,29 +84,79 @@ function bevelPolar(spec: GearSpec): Result<[number, number][]> {
   const halfAt = (rho: number) => half0 + inv(alpha) - inv(Math.acos(Math.min(1, baseV / rho)));
   if (!(halfAt(tipV) > 0.002)) return err("the teeth come to a point at their tips: more teeth or a smaller pressure angle");
   const pitchV = (2 * Math.PI) / zv;
-  const to = (rho: number, phi: number): [number, number] => { const x = R / cd - rho * Math.sin(delta); return [(rho * cd * R * cd) / x, phi / cd]; }; // (developed point -> the plane's polar point)
+  const to = (rho: number, phi: number) => ({ x: R / cd - rho * Math.sin(delta), r: rho * cd, th: phi / cd }); // (a point of the developed gear on the back cone)
   const lo = Math.max(baseV, rootV);
-  const pts: [number, number][] = [];
+  const pts: { x: number; r: number; th: number; flank?: true }[] = [];
   for (let k = 0; k < z; k++) {
     const c = k * pitchV;
     const flank = (side: 1 | -1) => Array.from({ length: PER_FLANK + 1 }, (_, i) => { const rho = lo + ((tipV - lo) * i) / PER_FLANK; return to(rho, c + side * halfAt(rho)); });
     const right = flank(-1), left = flank(1);
     if (rootV < baseV) pts.push(to(rootV, c - halfAt(baseV)));
-    pts.push(...right, ...left.reverse());
+    pts.push(...right.map((q, i) => (i === 0 ? { ...q, flank: true as const } : q)), ...left.reverse().map((q, i) => (i === 0 ? { ...q, flank: true as const } : q)));
     if (rootV < baseV) pts.push(to(rootV, c + halfAt(baseV)));
     pts.push(to(rootV, c + pitchV / 2)); // (the root between this tooth and the next)
   }
-  // the teeth are spread over z / cos(delta) pitches of the developed gear: the last gap ends where the first tooth starts, by angle 2 pi (phi / cos delta, z pitches of 2 pi / zv = 2 pi cos(delta) / z each)
+  // the teeth are spread over z / cos(delta) pitches of the developed gear: the last gap ends where the first tooth starts (z pitches of 2 pi cos(delta) / z each, divided by cos(delta): a whole turn)
   return ok(pts);
 }
 
-/** The outline in the plane's x and y (counter-clockwise, the first tooth along +x) and its tip and root radii: what `gear.ts` gives for the gear. */
-export function bevelPoints(spec: GearSpec): Result<{ points: [number, number][]; geometry: BevelGeometry }> {
-  const g = bevelOf(spec);
+/** The outline as it is on the plane across the axis through the pitch point (x = R cos delta): each point of the back cone carried along its ray through the apex onto it. Polar points (radius, angle). */
+export function bevelPolar(spec: GearSpec): Result<[number, number][]> {
+  const raw = bevelRaw(spec), g = bevelOf(spec);
+  if (!raw.ok) return raw;
   if (!g.ok) return g;
-  const p = bevelPolar(spec);
-  if (!p.ok) return p;
-  return ok({ points: p.value.map(([r, th]): [number, number] => [r * Math.cos(th), r * Math.sin(th)]), geometry: g.value });
+  const Rcd = g.value.big;
+  return ok(raw.value.map((q): [number, number] => [(q.r * Rcd) / q.x, q.th]));
+}
+
+/** The outline in the plane's x and y (counter-clockwise, the first tooth along +x) as corners and, for each side, how far its middle stands out (a flank is two arcs): what `gear.ts` gives for the gear. */
+export function bevelPoints(spec: GearSpec): Result<{ points: [number, number][]; bulges: number[]; geometry: BevelGeometry }> {
+  const g = bevelOf(spec), raw = bevelRaw(spec), polar = bevelPolar(spec);
+  if (!g.ok) return g;
+  if (!raw.ok) return raw;
+  if (!polar.ok) return polar;
+  const xy = polar.value.map(([r, th]): P => [r * Math.cos(th), r * Math.sin(th)]);
+  const points: [number, number][] = [], bulges: number[] = [];
+  for (let i = 0; i < xy.length; i++) {
+    if (raw.value[i]!.flank) { // five points: two arcs, through (0, 1, 2) and (2, 3, 4)
+      points.push(xy[i]!, xy[i + 2]!);
+      bulges.push(bulgeOf(xy[i]!, xy[i + 1]!, xy[i + 2]!), bulgeOf(xy[i + 2]!, xy[i + 3]!, xy[i + 4]!));
+      i += 3; // (the loop adds one: the last point of the flank starts the next side)
+    } else { points.push(xy[i]!); bulges.push(0); }
+  }
+  return ok({ points, bulges, geometry: g.value });
+}
+
+/**
+ * How the body of a bevel gear is made (`in_776`): the real ends of a bevel gear are cones (the back cones, square to the pitch cone), not planes across the axis, and a plane section of the tooth is taller than the tooth by 1 / cos delta
+ * or more (the teeth looked longer the more teeth the gear had). So the body is a prism of the tooth cones, long enough to hold the whole tooth (a ruled loft between two sections through the apex's rays: the outline of the pitch
+ * plane scaled by `x / (R cos delta)` at the plane `x` from the apex), cut down to a blank: a revolved shape bounded by the heel's back cone (through the point `x0 = R / cos delta` of the axis, slope tan delta), the toe's (the heel's
+ * scaled by the face) and, inside the roots, flat discs for a hub. The two are intersected (`combine`). Coordinates of the blank are (radius a, height h along the axis towards the apex from the plane of the pitch point), counter-clockwise.
+ */
+export interface BevelLayout { geometry: BevelGeometry; /** the heel section: height and the scale of the outline */ heel: { h: number; scale: number }; toe: { h: number; scale: number }; blank: [number, number][] }
+export function bevelLayout(spec: GearSpec): Result<BevelLayout> {
+  const g = bevelOf(spec), polar = bevelPolar(spec);
+  if (!g.ok) return g;
+  if (!polar.ok) return polar;
+  const { delta, big: Rcd, k, R, addendum, dedendum } = g.value;
+  const m = spec.module, sd = Math.sin(delta), s = Math.tan(delta), x0 = R / Math.cos(delta);
+  const xB = Rcd + dedendum * sd + m, xS = k * (Rcd - addendum * sd - 0.5 * m);
+  if (!(xS > 0.1 * Rcd * k)) return err("the cone is too flat for this module and teeth: a smaller module or more teeth");
+  const rmax = 1.1 * Math.max(...polar.value.map((q) => q[0])) * (xB / Rcd) + m;
+  const xFar = xB + 0.25 * m;
+  const rA = (x0 - xFar) / s;
+  if (!(rA > 0.5)) return err("the heel cone is too flat for this module and teeth: more teeth or a smaller module");
+  const L = (r: number) => x0 - s * r, Lk = (r: number) => k * x0 - s * r;
+  // the hub's front: flat inside the radius `rT` (inside the roots), a hub two modules thick if the toe's cone allows it, else as thick as it can be
+  const rootK = k * g.value.rootRadius;
+  const rFor = (x: number) => (k * x0 - x) / s;
+  const rT = Math.min(0.97 * rootK, Math.max(0.8 * rootK, rFor(xFar - 2 * m)));
+  if (!(Lk(rT) < xFar - 0.3 * m && Lk(rT) > xS)) return err("the hub does not fit between the cones for this module and teeth");
+  const xy: [number, number][] = [[xFar, 0], [xFar, rA], [L(rmax), rmax], [Lk(rmax), rmax], [Lk(rT), rT], [Lk(rT), 0]];
+  let blank = xy.map(([x, r]): [number, number] => [r, Rcd - x]);
+  const area = blank.reduce((acc, p, i) => { const q = blank[(i + 1) % blank.length]!; return acc + (p[0] * q[1] - q[0] * p[1]); }, 0);
+  if (area < 0) blank = blank.slice().reverse();
+  return ok({ geometry: g.value, heel: { h: Rcd - xB, scale: xB / Rcd }, toe: { h: Rcd - xS, scale: xS / Rcd }, blank });
 }
 
 /** The frame of a bevel gear turned by `turn` (radians) about its axis: X and Y in the plane of its big end (tooth 0 along X) and n along the axis towards the apex, on the plane with directions `u` and `v` unless the gear stands across (`BevelSpec.frame`). */

@@ -7,6 +7,7 @@ import { gearOutline } from "./gear.ts";
 import type { GearRecord } from "./gearscene.ts";
 import { isMade } from "./gearscene.ts";
 import { wheelOf } from "./worm.ts";
+import { bevelLayout, bevelFrame } from "./bevel.ts";
 
 export interface GearShape {
   /** the step that makes the body; the body is named `x_` and this in the kernel's answer */
@@ -41,8 +42,19 @@ export function gearShapeOf(sc: Scene, st: Step): GearShape | null {
   const o = gearOutline(rec.spec);
   if (!plane || plane.kind !== "plane" || !o.ok) return null;
   const n = cross(plane.u, plane.v), len = Math.hypot(...n) || 1;
-  const normal: Vec3 = [n[0] / len, n[1] / len, n[2] / len];
+  let normal: Vec3 = [n[0] / len, n[1] / len, n[2] / len];
   const g = o.value;
+  if (rec.spec.bevel) { // a bevel gear (`in_776`): the loft is the body's first step (the blank and the combine are not shapes of their own); the body stands from the hub's back, behind the pitch plane, to the toe's tips, along its axis
+    if (st.type !== "loft") return null;
+    const lay = bevelLayout(rec.spec);
+    if (!lay.ok) return null;
+    const { heel, geometry: bg } = lay.value;
+    normal = bevelFrame(plane.u, plane.v, rec.spec, rec.turn ?? 0).n;
+    const toeTip = bg.big - bg.k * (bg.big - bg.addendum * Math.sin(bg.delta)); // (the height of the toe's tips: the lowest x of the body is k (R cos delta - addendum sin delta))
+    const depth0 = toeTip - heel.h;
+    const hole0 = (rec.spec.bore ?? 0) > 0 ? (rec.spec.bore as number) / 2 : 0;
+    return { step: st.id, gear: rec.id, centre: [0, 1, 2].map((k) => rec.at[k]! + normal[k]! * heel.h) as unknown as Vec3, normal, depth: depth0, radius: bg.tipRadius, rootRadius: bg.k * bg.rootRadius, ring: false, hole: hole0 };
+  }
   let radius = g.outerRadius ?? g.tipRadius, rootRadius = g.rootRadius;
   let depth: number;
   let centre: Vec3 = rec.at;
