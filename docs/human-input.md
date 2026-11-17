@@ -3097,3 +3097,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > 
 >  If you cut open a box that has been made hollow with a cross section plane, you can't really select internal edges of the box? but you can select internal planes? if you cut a box open with a regular cut extrusion, then you can select edges and planes normally.
 (reports two bugs: repeatedly entering game mode while moving the mouse leaves the game cursor off centre and the blue hover circle separated from the cursor; and in a cross section of a hollowed box the inside edges cannot be selected though the inside faces can, whereas a box cut open with a cut extrusion lets both be selected)
+
+## in_689 — 2026-11-17 — directive
+> Go with your recommendation, draft the decision entry
+(asks for a decision entry drafted for the proposal just made: a spline tool, curves turned to arcs only when the kernel needs them, and a cam helper that draws onto it; a draft, not an approval of the design)
