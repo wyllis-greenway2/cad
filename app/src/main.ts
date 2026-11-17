@@ -247,7 +247,7 @@ async function exportDialogFlow() {
   webFiles.saveBytes(r.name, r.bytes, r.mime);
   say(r.message);
 }
-/** Add part (`dec_parts_interface`, `in_698`): the family, size and length asked for; the part is drawn at the origin as ordinary steps (a hex nut, a countersunk screw), one step to undo. */
+/** Add part (`dec_parts_interface`, `in_745`): the family, size and length asked for; the part is drawn at the origin as ordinary steps (a hex nut, a countersunk screw), one step to undo. */
 async function addPartFlow() {
   const answers = await dialog.open((v) => addPartDialog(v as unknown as ReturnType<typeof addPartStart>), addPartStart() as unknown as Values);
   if (!answers) return;
@@ -257,7 +257,7 @@ async function addPartFlow() {
   dirty = true;
   say(`added: ${answers.size} ${familyName(String(answers.family))}, at the origin`);
 }
-/** Fastener hole (`in_699`): the receiver for a fastener (a clearance hole, a countersunk one, a hole to tap, a nut pocket) cut into the body whose flat face is selected, at the face's middle or as far from it as typed. */
+/** Fastener hole (`in_746`): the receiver for a fastener (a clearance hole, a countersunk one, a hole to tap, a nut pocket) cut into the body whose flat face is selected, at the face's middle or as far from it as typed. */
 async function fastenerHoleFlow() {
   const why = whyNoReceiver(state.session);
   if (why) return say(why);

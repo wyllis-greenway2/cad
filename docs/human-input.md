@@ -3129,34 +3129,34 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > Yes, draft that entry and find sources
 (asks for the first fastener and receiver subset to be drafted as one provisional entry, and for sources of its data to be found)
 
-## in_697 — 2026-11-17 — approval
+## in_744 — 2026-11-17 — approval
 > Yes, read the sources
 (asks for the candidate sources of the fastener pilot data to be read in full)
 
-## in_698 — 2026-11-17 — approval
+## in_745 — 2026-11-17 — approval
 > Yes, build those two families
 (approves building the hex nut family (ISO 4032) and the countersunk screw family (ISO 10642, the 1997 edition's figures) of the fastener pilot)
 
-## in_699 — 2026-11-17 — approval
+## in_746 — 2026-11-17 — approval
 > Yes, build the receivers into bodies
 (asks for the receivers of the fastener pilot (the clearance hole, the countersink, the hole to tap, the nut pocket) to be cut into bodies)
 
-## in_700 — 2026-11-17 — approval
+## in_747 — 2026-11-17 — approval
 > Yes, build the washer and socket head screw
 (asks for the flat washer (ISO 7089) and the socket head cap screw (ISO 4762) families to be built)
 
-## in_701 — 2026-11-17 — approval
+## in_748 — 2026-11-17 — approval
 > Yes, the counterbore rule is fine, use the 5.68 head
 (approves the counterbore rule (the head's largest width plus 0.5 mm, as deep as the head is high) and the larger 5.68 mm ISO 4762 head for M3, the head diameters of the CDE and omdl tables)
 
-## in_702 — 2026-11-17 — approval
+## in_749 — 2026-11-17 — approval
 > Yes, look for the 2019 edition
 (asks for the 2019 edition of ISO 10642 to be looked for)
 
-## in_703 — 2026-11-17 — approval
+## in_750 — 2026-11-17 — approval
 > Yes, look for those catalogs
 (asks for current maker or supplier catalogs that state their standard and edition to be looked for, for the ISO 4762 head, ISO 10642 and the clearance hole table)
 
-## in_704 — 2026-11-17 — approval
+## in_751 — 2026-11-17 — approval
 > Yes, add the smooth head option
 (asks for the smooth head option of the socket head cap screw, the smooth-head largest diameters of ISO 4762 as an alternative to the knurled head)
