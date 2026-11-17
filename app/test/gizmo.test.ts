@@ -2341,7 +2341,7 @@ test("the mover's arrow, with its axes turned, moves the mover along the arrow a
   near(g[0] - centre0[0], 0, 1e-6);
 });
 
-test("an edge behind a face the cross section cuts away is there to point at: the inside of an opened body (`in_688`)", () => {
+test("an edge behind a face the cross section cuts away is there to point at: the inside of an opened body (`in_718`)", () => {
   const st = box();
   const lines = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "body") as unknown as { ref: string; a: string; b: string }[];
   const corner = (r: string) => (scene(st.session).parts[r] as unknown as { at: Vec3 }).at;

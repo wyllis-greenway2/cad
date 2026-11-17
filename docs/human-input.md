@@ -3092,7 +3092,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge hopeful-cannon-3qzdtg next
 (asks for claude/hopeful-cannon-3qzdtg to be merged into this branch, after the others)
 
-## in_688 — 2026-11-17 — directive
+## in_718 — 2026-11-17 — directive
 > if you continually enter game mode while moving the mouse a lot, you can get it into a weird state where the game mode cursor isn't centered as usual, and also the blue hover circle and cursor get divorced. 
 > 
 >  If you cut open a box that has been made hollow with a cross section plane, you can't really select internal edges of the box? but you can select internal planes? if you cut a box open with a regular cut extrusion, then you can select edges and planes normally.
