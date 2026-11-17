@@ -20,6 +20,8 @@ alternative_to:
 
 **Plan (a prototype first, `prototypes/crown-gear`):** the tooth of a crown gear in the plane across its axis at the height `y` above the pitch plane; the body as a loft of those sections, an annulus with the teeth, as the spiral bevel's; the meshing pinion made by the gearing law (`generate.ts`), both measured in the kernel (the overlap of the pair at its place, rolled, and half a pitch round). Then a proposal (a decision entry) for the tool: its numbers (teeth, module, pressure angle, inner and outer radius, thickness), its place in the Gear menu, and how it is linked to its pinion. **Nothing outside `prototypes/` until the human accepts it.**
 
+**Prototype result (`prototypes/crown-gear`):** a straight crown (zc 40, module 2, 20 degrees) and a straight bevel pinion of 18 teeth made by the gearing law are conjugate in the kernel (overlap 0.7 to 1.3 mm3 at the place and rolled, 101 to 117 mm3 half a pitch round). A pinion of 14 teeth is undercut (virtual tooth count under about 17). Not tried: the spur pinion (face gear), spiral teeth.
+
 ## Rationale
 
 The flat end of the bevel family is a different object (a flat annulus with teeth on its face, no cone to cut) and is the generating member of the spiral bevel. Making it its own tool avoids pushing the bevel tool to a limit where its construction fails.

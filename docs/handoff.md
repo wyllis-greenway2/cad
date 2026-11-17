@@ -3214,3 +3214,6 @@ No input. The full test suite was run on the code as of the engagement setting (
 
 ## Handoff 726 — 2026-11-17 (in_800: the crown gear approved; sequencing)
 `in_800`. **The human approved making a crown gear** and asked whether to wait for the spiral bevel. **Decided with the human's question answered:** not to wait: the spiral prototype's sets run in the background and the rest of it is waiting (more tooth counts, then the hypoid, which needs reading), and the crown gear is the generating gear of the spiral bevel, so it helps it. **Recorded:** `q_crown_gears` (open: what it is, what it meshes with, what the human decides, the plan: a prototype first). Nothing in `app/`.
+
+## Handoff 727 — 2026-11-17 (the crown gear prototype)
+`in_800`. **Built (prototype only, `prototypes/crown-gear`):** the crown's flank planes, the straight pinion's flank by the gearing law, the bodies in the kernel. **Measured:** zc 40, z1 18, module 2, 20 degrees: overlap 0.7 to 1.3 mm3 at the place and rolled, 101 to 117 half a pitch round (cone shifts -2, 0.7, 2 work; -1.34 gives an invalid solid). z1 14 is undercut. **Spiral:** cone-end results recorded in its README (17/43 fails at every shift; 30/45 did not finish). **Next:** the human decides the pinion (straight bevel or spur), then a decision entry for the tool; nothing outside `prototypes/` yet; hypoid not started.
