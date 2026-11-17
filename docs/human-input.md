@@ -3576,3 +3576,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_807 — 2026-11-17 — directive
 > can you merge the code so I can try it?
 (asks for this branch's code to be merged so the human can try it)
+
+## in_808 — 2026-11-17 — directive
+> can you merge in claude/cool-einstein-odsxco-work please
+(asks for claude/cool-einstein-odsxco-work to be merged into the testing branch)
