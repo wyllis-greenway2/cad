@@ -3596,3 +3596,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_812 — 2026-11-17 — approval
 > Yes, make clicking a gear select the whole gear
 (approves that a click on a gear selects the whole gear, turning it blue all over, with the face of it selected by a second click, as the AI proposed after the user reported that gears do not turn fully blue when selected)
+
+## in_813 — 2026-11-17 — directive
+> hover doesn't make any part wholly blue, so gears shouldn't be special, I just want gears to be treated as regular parts in appearances, ( know they sides are treated special for speed and efficiency purposes and that is good)
+(says that hover lights no part wholly, so a gear should not be special either: gears are to look and be picked like any regular part, the speed shortcut of their sides staying; this undoes the click-selects-the-whole-gear change of in_812 and keeps its fix that a selected body is filled blue all over, teeth too, as any body)

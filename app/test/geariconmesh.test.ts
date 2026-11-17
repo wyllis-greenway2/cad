@@ -116,18 +116,14 @@ test("the icon of a gear that is only pointed at works: Edit, Helix and Mesh sel
   assert.equal(f.fields.find((x) => x.label === "Helix")!.value, "15");
 });
 
-test("a click on a gear selects the whole gear; a click on it again selects the face clicked (`in_812`)", () => {
+test("a gear is picked like any regular part: a click selects the face, a double click the whole body (`in_813`)", () => {
   const st = top();
   const p: Vec3 = [29, 3, 8]; // (the top of the gear)
   const one = click(move(st, p), p, 1);
-  assert.deepEqual(selection(one.session), [bodyOf(one)], "the whole gear");
-  const two = click(move(one, p), p, 1);
-  const face = selection(two.session)[0]!;
-  assert.equal(scene(two.session).parts[face]?.kind, "plane", "then the face");
-  assert.equal(scene(two.session).parts[face]?.origin, "body");
-  // a double click: the gear first, the face on the second click of the pair
-  const dbl = click(click(move(st, p), p, 1), p, 2);
-  assert.equal(scene(dbl.session).parts[selection(dbl.session)[0]!]?.kind, "plane");
+  const face = selection(one.session)[0]!;
+  assert.equal(scene(one.session).parts[face]?.kind, "plane", "the face");
+  const two = click(one, p, 2);
+  assert.deepEqual(selection(two.session), [bodyOf(two)], "the whole body on the double click");
 });
 
 test("a gear selected as a whole is filled all over: the frame names every triangle of its body, the teeth too (`in_812`)", () => {
