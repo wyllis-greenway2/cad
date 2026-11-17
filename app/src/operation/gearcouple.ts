@@ -79,7 +79,7 @@ export function genevaBodies(s: Scene, rec: GearRecord): { wheel?: Ref; disc?: R
   return out;
 }
 /** The crank's shaft: the second shaft of the drive, a line's length from the wheel's along the record's own first direction. */
-export function genevaShaft(s: Scene, rec: GearRecord): Vec3 | null {
+function genevaShaft(s: Scene, rec: GearRecord): Vec3 | null {
   const [cam, plane] = [rec.spec.cam, s.parts[rec.plane]];
   if (!cam || plane?.kind !== "plane") return null;
   const c = (cam.crank ?? 0) / Math.sin(Math.PI / Math.max(3, Math.round(cam.teeth ?? 0)));
@@ -173,7 +173,7 @@ export function followersOf(s: Scene, driver: GearRecord): { followers: Follower
 
 type V2 = readonly [number, number];
 /** The edge of a cam, in its own flat numbers (before it is turned): the circle of an eccentric, the spiral of a snail (the line that closes it is implied), a disc cam's curve. */
-export function camEdge(rec: GearRecord): V2[] | null {
+function camEdge(rec: GearRecord): V2[] | null {
   const c = rec.spec.cam ? camShapes(rec.spec.cam) : null;
   if (!c || !c.ok) return null;
   const sh = c.value;
