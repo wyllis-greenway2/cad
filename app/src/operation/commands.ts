@@ -72,7 +72,7 @@ export type Command =
   | { type: "breakPattern"; id: string }
   /** a gear that keeps its numbers (`gearscene.ts`, `dec_gear_tool`): its parts are made from this record; `setGear` gives it new numbers (and a new centre), `deleteGear` takes it away */
   | { type: "gear"; id: string; plane: Ref; at: Vec3; spec: GearSpec; /** radians */ turn?: number; /** the gear it was meshed with (`GearRecord.meshWith`) */ meshWith?: string }
-  | { type: "setGear"; id: string; spec: GearSpec; at?: Vec3; /** the gear turned about its centre in its plane, radians (0 puts it back) */ turn?: number }
+  | { type: "setGear"; id: string; spec: GearSpec; at?: Vec3; /** the gear turned about its centre in its plane, radians (0 puts it back) */ turn?: number; /** a cam's follower (null takes it away) */ follower?: { mate: string; side: 1 | -1 } | null }
   | { type: "deleteGear"; id: string }
   /** a planetary set that keeps its numbers (`planetary.ts`, `dec_planetary_gears`): a sun, planets and a ring (gear records of their own) and an optional carrier; `setPlanetary` gives it new numbers (and a new centre or turn), `deletePlanetary` takes it all away */
   | { type: "planetary"; id: string; plane: Ref; at: Vec3; spec: PlanetarySpec; /** radians */ turn?: number }
@@ -319,7 +319,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       const made = bumpCounter(r.value, c.id);
       return ok(ownedSteps(made, rec).scene); // (a gear that has a body made with it comes with the steps that make it, `in_598`, `in_608`)
     }
-    case "setGear": return setGear(s, c.id, c.spec, c.at, c.turn);
+    case "setGear": return setGear(s, c.id, c.spec, c.at, c.turn, c.follower);
     case "deleteGear": return deleteGear(s, c.id);
     case "planetary": return addPlanetary(s, { id: c.id, plane: c.plane, at: c.at, spec: c.spec, ...(c.turn ? { turn: c.turn } : {}) });
     case "setPlanetary": return setPlanetary(s, c.id, c.spec, c.at, c.turn);

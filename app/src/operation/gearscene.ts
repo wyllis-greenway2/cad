@@ -20,7 +20,7 @@ import { camParts, camRefs, camSteps } from "./camscene.ts";
 import { meshBevel } from "./mesh.ts";
 
 /** `at`: the centre, in the world; `turn`: how far the gear is turned about its centre in its plane, radians (tooth 0 points along the plane's first direction when 0); `spec`: the numbers (`gear.ts`) */
-export interface GearRecord { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number; /** the gear this one was meshed with when it was made (Mesh gear): they turn each other (`gearcouple.ts`, `dec_mechanism_motion`) */ meshWith?: string }
+export interface GearRecord { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number; /** a cam's follower: the slider mate whose body rides the cam's edge, and the side of the cam it is on along the slider's direction (`gearcouple.ts`, stage 3) */ follower?: { mate: string; side: 1 | -1 }; /** the gear this one was meshed with when it was made (Mesh gear): they turn each other (`gearcouple.ts`, `dec_mechanism_motion`) */ meshWith?: string }
 
 const gearsOf = (s: Scene): readonly GearRecord[] => s.gears ?? [];
 /** Whether this part is made by the gear `id`. */
@@ -226,13 +226,13 @@ function swapBore(st: Step, lines: readonly Ref[], was: string | undefined, now:
   return { ...st, params: groups.length ? { ...rest, holes: groups.join(";") } : rest };
 }
 /** New numbers (and, if given, a new centre) for a gear. Refused if the numbers make no gear, or a constraint stands on a corner or side that would be gone. */
-function setGearCore(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: number): Result<Scene> {
+function setGearCore(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: number, follower?: GearRecord["follower"] | null): Result<Scene> {
   const rec = gearsOf(s).find((g) => g.id === id);
   if (!rec) return err(`gear ${id} does not exist`);
   const o = spec.cam ? camShapes(spec.cam) : outlineOf(spec);
   if (!o.ok) return err(o.error);
   if (spec.wheel) { const w = wheelSections(spec); if (!w.ok) return err(w.error); }
-  const next: GearRecord = { ...rec, spec: { ...spec }, ...(at ? { at: [...at] as unknown as Vec3 } : {}), ...(turn !== undefined ? (turn ? { turn } : { turn: undefined }) : {}) };
+  const next: GearRecord = { ...rec, spec: { ...spec }, ...(at ? { at: [...at] as unknown as Vec3 } : {}), ...(turn !== undefined ? (turn ? { turn } : { turn: undefined }) : {}), ...(follower !== undefined ? { follower: follower ?? undefined } : {}) };
   const [was, now] = [gearRefs(rec), gearRefs(next)];
   const after = new Set(partsOf(s, next).map((p) => p.ref));
   const lost = new Set(Object.keys(s.parts).filter((r) => isMade(id, r as Ref) && !after.has(r as Ref)));
@@ -258,11 +258,11 @@ function setGearCore(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: num
  * New numbers for a gear, and, for a bevel gear made to mesh with another (`BevelSpec.with`), the other put right with it (`in_776`): the teeth of one are the other's mate teeth, they share the module, the pressure angle, the shaft angle and
  * the face, and the one that stands across (the partner: it has a direction) is placed again from the other (the anchor), phase and all, as when it was made.
  */
-export function setGear(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: number): Result<Scene> {
+export function setGear(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: number, link?: GearRecord["follower"] | null): Result<Scene> {
   const rec = gearsOf(s).find((g) => g.id === id);
   const bv = spec.bevel;
   const other = rec && bv?.with ? gearsOf(s).find((g) => g.id === bv.with) : undefined;
-  if (!rec || !bv || !other || !other.spec.bevel || other.spec.bevel.with !== id) return setGearCore(s, id, spec, at, turn);
+  if (!rec || !bv || !other || !other.spec.bevel || other.spec.bevel.with !== id) return setGearCore(s, id, spec, at, turn, link);
   const edited: GearRecord = { ...rec, spec, ...(at ? { at } : {}), ...(turn !== undefined ? { turn } : {}) };
   const follower = bv.dir !== undefined ? edited : other, anchor = bv.dir !== undefined ? other : edited;
   const fresh = (g: GearRecord): GearSpec => ({ ...g.spec, teeth: g === edited ? spec.teeth : bv.mate, module: spec.module, ...(spec.pressure !== undefined ? { pressure: spec.pressure } : {}), bevel: { ...g.spec.bevel!, mate: g === edited ? bv.mate : spec.teeth, ...(bv.shaft !== undefined ? { shaft: bv.shaft } : {}), ...(bv.face !== undefined ? { face: bv.face } : {}) } });

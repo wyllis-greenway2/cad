@@ -8,8 +8,9 @@ import type { Scene } from "../operation/scene.ts";
 import { mateStatus } from "../operation/mates.ts";
 import { jointRoom, driveCommand } from "./mate.ts";
 import type { Command } from "../operation/commands.ts";
-import { followersOf, gearAxis, gearOfBody } from "../operation/gearcouple.ts";
+import { followersOf, gearAxis, gearOfBody, genevaPlay } from "../operation/gearcouple.ts";
 import type { Follower } from "../operation/gearcouple.ts";
+import { followAmount } from "../operation/gearcouple.ts";
 
 export type JointKind = "turn" | "slide";
 export interface Motion {
@@ -37,6 +38,8 @@ export interface Motion {
   startedAt: number | null;
   /** degrees a second for a turn, mm a second for a slide */
   speed: number;
+  /** when the pose cannot be kept: why (a Geneva drive stays one drawing) */
+  noKeep?: string;
 }
 /** The span a joint with no stops is scrubbed and swung over: a turn goes right round either way, a slide as far as the body is wide again. */
 const FREE_TURN = 180, FREE_SLIDE = 30;
@@ -47,6 +50,8 @@ export function startMotion(scene: Scene, body: Ref, kind: JointKind = "turn"): 
   if (!m?.mover) { // not a pin or a rod: a gear that was made with its body, which turns (or a rack, which slides) and takes the gears meshed with it along
     const g = gearOfBody(scene, body);
     const ax = g ? gearAxis(scene, g) : null;
+    const gp = g ? genevaPlay(scene, g, body) : null;
+    if (gp) return "why" in gp ? { ok: false, why: gp.why } : { ok: true, motion: { mate: "", gear: g!.id, follows: gp.followers, kind: "turn", body, point: gp.driver.point, dir: gp.driver.dir, amount: 0, lo: -FREE_TURN, hi: FREE_TURN, free: true, playing: false, from: 0, startedAt: null, speed: 60, noKeep: "a Geneva drive is one drawing: turn it with Edit cam instead" } };
     if (!g || !ax) return { ok: false, why: "select a body that turns on a pin or slides on a rod (the first body of a coaxial mate), or a gear with its body" };
     const { followers, why } = followersOf(scene, g);
     const [lo, hi] = ax.kind === "turn" ? [-FREE_TURN, FREE_TURN] : [-FREE_SLIDE, FREE_SLIDE];
@@ -96,9 +101,9 @@ export function jointMatrix(m: Pick<Motion, "kind" | "point" | "dir">, amount: n
 
 /** The command that keeps the pose: a joint's drive step; or, for a gear played, each gear (and the racks) set to where it stands, as `setGear` does (the record's turn or its centre), in one batch so one undo. Null when there is nothing to keep. */
 export function keepCommand(scene: Scene, m: Motion): Command | null {
-  if (Math.abs(m.amount) < 1e-9) return null;
+  if (Math.abs(m.amount) < 1e-9 || m.noKeep) return null;
   if (!m.gear) return driveCommand(scene, m.mate, m.kind, m.amount);
-  const moves: { gear: string; kind: "turn" | "slide"; dir: Vec3; k: number }[] = [{ gear: m.gear, kind: m.kind, dir: m.dir, k: 1 }, ...m.follows.map((f) => ({ gear: f.gear, kind: f.kind, dir: f.dir, k: f.k }))];
+  const moves: { gear: string; kind: "turn" | "slide"; dir: Vec3; k: number }[] = [{ gear: m.gear, kind: m.kind, dir: m.dir, k: 1 }, ...m.follows.filter((f) => !f.mate).map((f) => ({ gear: f.gear, kind: f.kind, dir: f.dir, k: f.k }))];
   const commands: Command[] = [];
   for (const mv of moves) {
     const rec = scene.gears?.find((g) => g.id === mv.gear);
@@ -106,6 +111,11 @@ export function keepCommand(scene: Scene, m: Motion): Command | null {
     const by = mv.k * m.amount;
     if (mv.kind === "turn") commands.push({ type: "setGear", id: rec.id, spec: rec.spec, turn: (rec.turn ?? 0) + (by * Math.PI) / 180 });
     else commands.push({ type: "setGear", id: rec.id, spec: rec.spec, at: [rec.at[0] + mv.dir[0] * by, rec.at[1] + mv.dir[1] * by, rec.at[2] + mv.dir[2] * by] });
+  }
+  for (const f of m.follows) { // (a cam's follower: its slider mate is driven to where the cam's edge has put it)
+    if (!f.mate) continue;
+    const c = driveCommand(scene, f.mate, "slide", followAmount(f, m.amount));
+    if (c) commands.push(c);
   }
   return commands.length ? { type: "batch", commands } : null;
 }

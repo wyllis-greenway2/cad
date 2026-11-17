@@ -9,6 +9,8 @@ import type { GearRecord } from "./gearscene.ts";
 import { isMade } from "./gearscene.ts";
 import { gearOutline } from "./gear.ts";
 import { normalOfPlane } from "./part.ts";
+import { camShapes } from "./cams.ts";
+import { mateStatus } from "./mates.ts";
 
 export interface Follower {
   gear: string;
@@ -20,6 +22,33 @@ export interface Follower {
   dir: Vec3;
   /** how many degrees (a turn) or mm (a slide) it makes for each degree or mm the driver makes: a negative number goes the other way round the follower's own `dir` */
   k: number;
+  /** a cam's follower: a slide for each whole degree of the cam's turn (360 numbers, counted from where the cam stands), instead of `k` times the driver's amount */
+  table?: number[];
+  /** the slider's mate, for keeping the pose */
+  mate?: string;
+  /** a Geneva wheel: turned by its crank by the law of the drive (`genevaTurn`) instead of `k` times the driver's amount; `n` slots, `a` the crank's radius */
+  geneva?: { n: number; a: number };
+}
+/**
+ * How far a Geneva wheel has turned (degrees, the way round that the crank turns being positive) when the crank has turned `deg` degrees from the pose the drive is drawn in (the pin pointing away from the wheel, the wheel locked). The pin
+ * is in a slot while the crank is within `beta = 90 - 180/n` degrees either side of the line of centres; there the wheel follows the slot, outside it the wheel stands still: a step of 360/n degrees for each turn of the crank, the other way round.
+ */
+export function genevaTurn(n: number, a: number, deg: number): number {
+  const c = a / Math.sin(Math.PI / n), beta = Math.PI / 2 - Math.PI / n, step = (2 * Math.PI) / n;
+  const phi = (deg * Math.PI) / 180;
+  const turns = Math.floor(phi / (2 * Math.PI));
+  const al = Math.PI - (phi - turns * 2 * Math.PI); // (the crank's angle from the line of centres, 180 at the start)
+  const p = al > beta ? 0 : al < -beta ? step : Math.PI / n - Math.atan2(a * Math.sin(al), c - a * Math.cos(al));
+  return (-(turns * step + p) * 180) / Math.PI;
+}
+/** How much a follower makes when the driver is at `a` (degrees or mm): its ratio, or a cam follower's table, read between the whole degrees and round the turn. */
+export function followAmount(f: Pick<Follower, "k" | "table" | "geneva">, a: number): number {
+  if (f.geneva) return genevaTurn(f.geneva.n, f.geneva.a, a);
+  const t = f.table;
+  if (!t || t.length === 0) return f.k * a;
+  const x = ((a % t.length) + t.length) % t.length;
+  const i = Math.floor(x);
+  return t[i]! + (t[(i + 1) % t.length]! - t[i]!) * (x - i);
 }
 const gearsOf = (s: Scene): readonly GearRecord[] => s.gears ?? [];
 /** the plane's normal for a gear, or null when its plane is not there */
@@ -31,9 +60,44 @@ export function bodyOfGear(s: Scene, rec: GearRecord): Ref | null {
   const body = Object.values(s.parts).find((p) => p.kind === "body" && (p as { id?: string }).id === `x_${step.id}`);
   return body ? body.ref : null;
 }
-/** the gear whose body this is, if any */
+/** the gear whose body this is, if any (a Geneva drive made as a model has three: the wheel, the locking disc and the crank) */
 export function gearOfBody(s: Scene, body: Ref): GearRecord | undefined {
-  return gearsOf(s).find((g) => bodyOfGear(s, g) === body);
+  return gearsOf(s).find((g) => bodyOfGear(s, g) === body || (g.spec.cam?.kind === "geneva" && Object.values(genevaBodies(s, g)).includes(body)));
+}
+const bodyOfStep = (s: Scene, id: string): Ref | null => { const b = Object.values(s.parts).find((p) => p.kind === "body" && (p as { id?: string }).id === `x_${id}`); return b ? b.ref : null; };
+/** The bodies of a Geneva drive that comes as a model (`layout: "model"`): the wheel, the locking disc (when there is one) and the crank with its pin; empty for anything else. */
+export function genevaBodies(s: Scene, rec: GearRecord): { wheel?: Ref; disc?: Ref; crank?: Ref } {
+  if (rec.spec.cam?.kind !== "geneva" || rec.spec.cam.layout !== "model") return {};
+  const owned = s.steps.filter((st) => st.params.gear === rec.id);
+  const fresh = owned.filter((st) => st.params.mode === "new");
+  const [w, d, c] = [fresh[0], fresh.length === 3 ? fresh[1] : undefined, fresh[fresh.length - 1]]; // (the pin is added to the crank's body: the crank is the last new one)
+  const out: { wheel?: Ref; disc?: Ref; crank?: Ref } = {};
+  const [wb, db, cb] = [w ? bodyOfStep(s, w.id) : null, d ? bodyOfStep(s, d.id) : null, c ? bodyOfStep(s, c.id) : null];
+  if (wb) out.wheel = wb;
+  if (db) out.disc = db;
+  if (cb) out.crank = cb;
+  return out;
+}
+/** The crank's shaft: the second shaft of the drive, a line's length from the wheel's along the record's own first direction. */
+export function genevaShaft(s: Scene, rec: GearRecord): Vec3 | null {
+  const [cam, plane] = [rec.spec.cam, s.parts[rec.plane]];
+  if (!cam || plane?.kind !== "plane") return null;
+  const c = (cam.crank ?? 0) / Math.sin(Math.PI / Math.max(3, Math.round(cam.teeth ?? 0)));
+  const t = rec.turn ?? 0, [u, v] = [normalize(plane.u), normalize(plane.v)];
+  return add(rec.at, add(scale(u, c * Math.cos(t)), scale(v, c * Math.sin(t))));
+}
+/** The Geneva drive as it is played from its crank (or its disc): the disc and the crank turn together about the second shaft, and the wheel follows by the law of the drive. Null for anything else; `why` when it is the wheel. */
+export function genevaPlay(s: Scene, rec: GearRecord, body: Ref): { driver: { point: Vec3; dir: Vec3 }; followers: Follower[] } | { why: string } | null {
+  const b = genevaBodies(s, rec);
+  if (!b.wheel || !b.crank) return null;
+  if (body === b.wheel) return { why: "the wheel is turned by its crank: play the crank or the locking disc" };
+  const [shaft, n] = [genevaShaft(s, rec), normalOf(s, rec)];
+  if (!shaft || !n) return null;
+  const other = body === b.crank ? b.disc : b.crank;
+  const cam = rec.spec.cam!;
+  const followers: Follower[] = [{ gear: rec.id, body: b.wheel, kind: "turn", point: rec.at, dir: n, k: 0, geneva: { n: Math.round(cam.teeth ?? 0), a: cam.crank ?? 0 } }];
+  if (other) followers.push({ gear: rec.id, body: other, kind: "turn", point: shaft, dir: n, k: 1 });
+  return { driver: { point: shaft, dir: n }, followers };
 }
 /** whether a gear is a rack, and a ring */
 const isRack = (g: GearRecord): boolean => !!g.spec.rack;
@@ -101,7 +165,68 @@ export function followersOf(s: Scene, driver: GearRecord): { followers: Follower
       if (body && dir) out.push({ gear: id, body, kind: e.kind, point: b.at, dir, k });
     }
   }
+  const cam = camFollower(s, driver);
+  if ("why" in cam) why ??= cam.why;
+  else if (cam.follower) out.push(cam.follower);
   return { followers: out, ...(why ? { why } : {}) };
+}
+
+type V2 = readonly [number, number];
+/** The edge of a cam, in its own flat numbers (before it is turned): the circle of an eccentric, the spiral of a snail (the line that closes it is implied), a disc cam's curve. */
+export function camEdge(rec: GearRecord): V2[] | null {
+  const c = rec.spec.cam ? camShapes(rec.spec.cam) : null;
+  if (!c || !c.ok) return null;
+  const sh = c.value;
+  if (sh.closed) return sh.closed;
+  if (sh.spiral) return sh.spiral;
+  const disc = sh.circles.find((q) => !q.hole);
+  if (disc) return Array.from({ length: 180 }, (_, i) => [disc.c[0] + disc.r * Math.cos((i * Math.PI) / 90), disc.c[1] + disc.r * Math.sin((i * Math.PI) / 90)] as V2);
+  return null;
+}
+/** How far along the line `p0 + t e` the edge reaches on one side (the furthest `t` for side 1, the nearest for -1), or null when the line misses it. */
+function reach(poly: readonly V2[], p0: V2, e: V2, side: 1 | -1): number | null {
+  let best: number | null = null;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+    const [rx, ry] = [b[0] - a[0], b[1] - a[1]];
+    const den = e[0] * ry - e[1] * rx;
+    if (Math.abs(den) < 1e-12) continue;
+    const [qx, qy] = [a[0] - p0[0], a[1] - p0[1]];
+    const t = (qx * ry - qy * rx) / den;
+    const u = (qx * e[1] - qy * e[0]) / den;
+    if (u < -1e-9 || u > 1 + 1e-9) continue;
+    if (best === null || (side === 1 ? t > best : t < best)) best = t;
+  }
+  return best;
+}
+/**
+ * The follower of a cam: the body of the slider mate it was linked to (`GearRecord.follower`) rides the cam's edge along the slider's own line, which has to lie in the cam's plane. The table is the slide for each degree the cam turns, from the pose it stands in.
+ * `{}` when the cam has no follower; `why` when it has one that cannot be worked out.
+ */
+export function camFollower(s: Scene, rec: GearRecord): { follower?: Follower } | { why: string } {
+  const link = rec.follower;
+  if (!link) return {};
+  const m = mateStatus(s).find((x) => x.id === link.mate && x.state === "ok" && x.mode === "coaxial" && x.mover);
+  const [n, plane, edge] = [normalOf(s, rec), s.parts[rec.plane], camEdge(rec)];
+  if (!m?.mover || !n || plane?.kind !== "plane" || !edge) return { why: "the cam's follower is not a slider on a rod any more" };
+  const d = normalize(m.mover.dir);
+  if (Math.abs(dot(d, n)) > 1e-3) return { why: "the follower's rod does not lie in the cam's plane" };
+  const [u, v] = [normalize(plane.u), normalize(plane.v)];
+  const rel = sub(m.mover.point, rec.at);
+  const p0: V2 = [dot(rel, u), dot(rel, v)];
+  const e: V2 = [dot(d, u), dot(d, v)];
+  const table: number[] = [];
+  let first: number | null = null, prev = 0;
+  for (let deg = 0; deg < 360; deg++) {
+    const phi = -((rec.turn ?? 0) + (deg * Math.PI) / 180);
+    const [c, sn] = [Math.cos(phi), Math.sin(phi)];
+    const rot = (q: V2): V2 => [q[0] * c - q[1] * sn, q[0] * sn + q[1] * c];
+    const t = reach(edge, rot(p0), rot(e), link.side);
+    if (t !== null) { first ??= t; prev = t - first; }
+    table.push(prev);
+  }
+  if (first === null) return { why: "the follower's rod misses the cam" };
+  return { follower: { gear: rec.id, body: m.mover.body, kind: "slide", point: m.mover.point, dir: d, k: 0, table, mate: m.id } };
 }
 /** The axis a gear turns about (through its centre, along its plane's normal), or the line a rack slides along. */
 export function gearAxis(s: Scene, g: GearRecord): { kind: "turn" | "slide"; point: Vec3; dir: Vec3 } | null {

@@ -25,6 +25,7 @@ import { thinPlacesOf } from "./measure.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
 import { jointMatrix } from "./motion.ts";
+import { followAmount } from "../operation/gearcouple.ts";
 import { axisAcross } from "./revolve.ts";
 import { gearOfPart, gearOfSelection } from "../operation/gearscene.ts";
 import { planetaryOfGear } from "../operation/planetary.ts";
@@ -264,7 +265,7 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
     const followers = s.motion.follows.flatMap((fo) => {
       if (!followSplits.has(fo.body)) { const q = startOp(sc0, [fo.body], "move", null); followSplits.set(fo.body, q.ok ? bodySplitOf(sc0, s.session.outcome, q.op) : null); }
       const split = followSplits.get(fo.body);
-      return split ? [{ matrix: jointMatrix(fo, fo.k * s.motion!.amount), split }] : []; // (each by its own matrix: a gear turned about its own axis by the ratio of the teeth, a rack slid, `dec_mechanism_motion`)
+      return split ? [{ matrix: jointMatrix(fo, followAmount(fo, s.motion!.amount)), split }] : []; // (each by its own matrix: a gear turned about its own axis by the ratio of the teeth, a rack slid, `dec_mechanism_motion`)
     });
     return { matrix: jointMatrix(s.motion, s.motion.amount), shown: gpuBase.value, ...(motionSplitMemo.split ? { split: motionSplitMemo.split } : {}), ...(followers.length ? { followers } : {}) };
   }

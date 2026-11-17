@@ -3564,3 +3564,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_804 — 2026-11-17 — directive
 > Go with your recommendation, start stage 2
 (asks for stage 2 of `dec_mechanism_motion` to be started: gear ratio couplings, so one driven gear turns the gears and attached parts it drives)
+
+## in_805 — 2026-11-17 — directive
+> Go with your recommendation, start stage 3
+(asks for stage 3 of `dec_mechanism_motion` to be started: cam and follower contact, and the Geneva and the ratchet as couplings)
+
+## in_806 — 2026-11-17 — directive
+> Go with your recommendation, start on the Geneva coupling
+(asks for stage 3b of `dec_mechanism_motion` to be started: the Geneva drive as a coupling, the wheel driven by its crank)
