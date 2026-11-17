@@ -3172,3 +3172,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_707 — 2026-11-17 — approval
 > Yes, build picked-point placement
 (asks for the fastener hole to be placed at a picked point, a corner or the centre of a circle, instead of only the middle of the face plus a typed offset)
+
+## in_708 — 2026-11-17 — approval
+> Yes, run the suite and the browser check
+(asks for the full test suite and a browser check of picking a face and corners for the fastener hole to be run)
