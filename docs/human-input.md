@@ -3163,3 +3163,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_705 — 2026-11-17 — question
 > okay my local dev says its on claude/inspiring-pascal-l342k7 but it appears to have your work where the gears turn into circles only for speed? how is that possible?
 (asks how the stand-in disc work, which was done on claude/hopeful-cannon-7, appears in a checkout of claude/inspiring-pascal-l342k7)
+
+## in_706 — 2026-11-17 — directive
+> merge the remaining work into inspiring-pascal
+(asks for the work on claude/hopeful-cannon-7 that is not yet on claude/inspiring-pascal-l342k7 to be merged into it; this is the explicit permission to write to that branch)
