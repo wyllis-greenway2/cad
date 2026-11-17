@@ -3581,6 +3581,10 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > I will take your recommendations
 (approves the recommended order: make the spiral's cone cut robust and find why 17/43 fails, rerun 30/45 and more cases, then propose a spiral tool; hypoid after)
 
+## in_809 — 2026-11-17 — approval
+> I will take your recommendations
+(approves the recommended next step: wait for the 22/34, 25/25 and 18/36 results to tell a size limit from a general problem, then propose the spiral tool with its limits)
+
 ## in_810 — 2026-11-17 — directive
 > update from claude/inspiring-pascal-l342k7 all your edits should already be merged in there
 (asks for claude/inspiring-pascal-l342k7 to be merged into this branch, saying all of this branch's edits should already be in it)
