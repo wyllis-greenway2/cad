@@ -3103,3 +3103,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_690 — 2026-11-17 — question
 > what do you recommenced? should we do all those fixes? and how much would it help? also I am open to treating the gear as one feature, probably the only selectable parts might be the surface to adjust thickness, and the bore? what do you think? Also what if we had gears render just entirely as circles while things are overloaded and then settle back down into gears when they can? so like really really simplify them if needed for speed?
 (asks for a recommendation among the gear speed fixes and their benefit; says they are open to a gear being one feature with only the thickness surface and the bore selectable; proposes drawing gears as plain circles while the app is overloaded and settling back to real gears when it can)
+
+## in_691 — 2026-11-17 — question
+> okay do any of these actually reduce the final model quality though?
+(asks whether any of the proposed gear speed fixes reduce the quality of the final model)
