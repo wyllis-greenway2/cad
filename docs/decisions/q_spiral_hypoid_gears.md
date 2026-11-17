@@ -3,7 +3,7 @@ id: q_spiral_hypoid_gears
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_767, in_766
+human_input: in_768, in_767, in_766
 date: 2026-11-17
 depends_on:
   - dec_bevel_gears: a spiral bevel gear is the straight bevel gear with a curved tooth; the body, the pair linking and the speed rules are that decision's
@@ -20,7 +20,9 @@ alternative_to:
 
 **Decided by the human (`in_767`): no approximate spiral bevel gear; wait until the surfaces can be derived from the papers, "build it right".** Nothing is built until then. **Access (`in_767`):** `ntrs.nasa.gov`, `lirias.kuleuven.be` and `www.geartechnology.com` were added to the `cad` environment (the human approved the change); the shell's download was then refused by the automatic safety check (not worked around) and the web fetch tool could not resolve `ntrs.nasa.gov` ("getaddrinfo ENOTFOUND"): so the human sends the PDFs.
 
-**Needed to go on:** (1) the NASA circular-cut spiral bevel papers (Huston and Coy, and Litvin; open PDFs: https://ntrs.nasa.gov/api/citations/19820018805/downloads/19820018805.pdf, https://ntrs.nasa.gov/api/citations/19810017922/downloads/19810017922.pdf, https://ntrs.nasa.gov/api/citations/19830024896/downloads/19830024896.pdf) for the tooth surface equations; (2) Gear Technology "chapter2.pdf" (https://ik.imagekit.io/agmamedia/gt/issues/0815x/chapter2.pdf) for the worked example to check against; (3) ISO 23509 sections on the pitch cone, the cutter radius and the hypoid geometry (paid) or "The intrinsic pitch cones in hypoid gears" (AGMA media, https://ik.imagekit.io/agmamedia/2025/10/09/the-intrinsic-pitch-cones-in-hypoid-gears_rmx2WSkU4.pdf). **A decision for the human:** a spiral bevel as a clearly marked approximation (a curved tooth that looks right and is not conjugate), or only when its surfaces are derived from the sources above.
+**The human sent the papers (`in_768`): five PDFs.** **Read in full: Stadtfeld, "Gear Mathematics for Bevel & Hypoid Gears", Chapter 2 (Gear Technology, Aug 2015)**: it develops a face-milled conjugate spiral bevel set with every number (blank data, cutter head, machine settings, ratio of roll, the gearing law, the flank grid) for 13 / 35 teeth, 30 degrees, cutter radius 76.2 mm. **Derived and tested (`prototypes/bevel-spiral-generated`):** the gearing law code reproduces the spherical involute for a flat crown flank, and the model reproduces the example's cutter centre, blade tip radii, centre of roll, radial distance and ratios of roll. **Next:** the flank sections and the body in the kernel, and the measure that decides it: the pair overlaps nothing at its place and keeps fitting as it rolls. The hypoid after that (the offset, the pitch hyperboloids: Zarebski 2025, not yet read). **The NASA papers' later pages and Stadtfeld 2001 are not yet read** (the first pages only; the first is OCR of a scan).
+
+**Needed to go on (from before the papers came):** (1) the NASA circular-cut spiral bevel papers (Huston and Coy, and Litvin; open PDFs: https://ntrs.nasa.gov/api/citations/19820018805/downloads/19820018805.pdf, https://ntrs.nasa.gov/api/citations/19810017922/downloads/19810017922.pdf, https://ntrs.nasa.gov/api/citations/19830024896/downloads/19830024896.pdf) for the tooth surface equations; (2) Gear Technology "chapter2.pdf" (https://ik.imagekit.io/agmamedia/gt/issues/0815x/chapter2.pdf) for the worked example to check against; (3) ISO 23509 sections on the pitch cone, the cutter radius and the hypoid geometry (paid) or "The intrinsic pitch cones in hypoid gears" (AGMA media, https://ik.imagekit.io/agmamedia/2025/10/09/the-intrinsic-pitch-cones-in-hypoid-gears_rmx2WSkU4.pdf). **A decision for the human:** a spiral bevel as a clearly marked approximation (a curved tooth that looks right and is not conjugate), or only when its surfaces are derived from the sources above.
 
 ## Rationale
 

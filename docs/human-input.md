@@ -3416,3 +3416,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_767 — 2026-11-17 — directive
 > wait until its surfaces can be derived from those papers. Lets build it right
 (decides: no approximate spiral bevel gear; wait until its tooth surfaces can be derived from the NASA papers and the other sources, and build it correctly)
+
+## in_768 — 2026-11-17 — directive
+> [the human attached five PDFs with no words: the NASA paper 19830024896 (59 pages), the NASA paper 19810017922 (23 pages), Stadtfeld "stadtfeld.pdf" (Gear Technology, Jan 2001), Gear Technology "chapter2.pdf" (Aug 2015), and "The intrinsic pitch cones in hypoid gears" (AGMA media)]
+(sends the papers asked for, to derive the spiral bevel surfaces from; the NASA paper 19820018805 and the Tredgold postprint were not among them)
