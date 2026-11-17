@@ -82,7 +82,7 @@ test("the cam tool: the pointer's distance sets the diameter, typed numbers take
   assert.equal(finish(scene(s), bad), null);
 });
 
-// ---- the disc cam (`in_696`)
+// ---- the disc cam (`in_757`)
 import { splinePoints } from "../src/operation/spline.ts";
 import { loopPoints } from "../src/operation/part.ts";
 
@@ -176,7 +176,7 @@ test("a disc cam extrudes to a body of about the area of its outline less the ho
   assert.ok(Math.abs(v - area * T) / (area * T) < 0.01, `${v} vs ${area * T}`);
 });
 
-// ---- the cam box (`in_696`): a panel with every number named and explained; its lengths follow the number system, its angles do not
+// ---- the cam box (`in_757`): a panel with every number named and explained; its lengths follow the number system, its angles do not
 import { entryOf, inUnits } from "../src/interaction/entry.ts";
 import { CAM_HINTS } from "../src/interaction/gearhelp.ts";
 import { CAM_FIELDS } from "../src/interaction/tools.ts";
