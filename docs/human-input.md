@@ -3160,3 +3160,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_704 — 2026-11-17 — approval
 > Yes, add the smooth head option
 (asks for the smooth head option of the socket head cap screw, the smooth-head largest diameters of ISO 4762 as an alternative to the knurled head)
+
+## in_705 — 2026-11-17 — approval
+> Yes, build the tapped-hole engagement setting
+(asks for the hole to tap to have a thread engagement setting, in place of the single tap drill size)
