@@ -122,11 +122,11 @@ export interface GearState {
   /** a planetary set (`dec_planetary_gears`): the numbers of a sun, planets, ring and carrier; when its numbers are being changed, the set as it is now */ planetary?: true; planetaryBase?: PlanetarySpec;
   /** a gear or a rack made to mesh with `src` (`in_672`); `rack`: the partner is a rack */ mesh?: { src: GearRecord; rack: boolean; ring?: boolean };
 }
-export type GearKey = "teeth" | "module" | "pressure" | "shift" | "backlash" | "rim" | "bore" | "ratio" | "angle" | "offset" | "clearance" | "chain" | "pitch" | "roller" | "circle" | "addendum" | "dedendum" | "fit" | "flat" | "key" | "keydepth" | "fillet" | "helix" | "width" | "land" | "diameter" | "length" | "starts" | "journal" | "runout" | "mate" | "shaft" | "face" | "sun" | "planet" | "planets" | "pin" | "pingap" | "carrier" | "chamfer" | "plategap";
+export type GearKey = "teeth" | "module" | "pressure" | "shift" | "backlash" | "rim" | "bore" | "ratio" | "angle" | "offset" | "clearance" | "chain" | "pitch" | "roller" | "circle" | "addendum" | "dedendum" | "fit" | "flat" | "key" | "keydepth" | "fillet" | "helix" | "width" | "land" | "diameter" | "length" | "starts" | "journal" | "runout" | "mate" | "shaft" | "face" | "sun" | "planet" | "planets" | "pin" | "pingap" | "carrier" | "chamfer" | "plategap" | "spacing" | "housing" | "cap" | "housingfit";
 /** The numbers of a gear in the order the number box shows them (a ring has a wall where a gear has a shift; a rack has the bar under its teeth; a partner has its tooth count, ratio and the direction it stands in). */
 export const gearFields = (g: { planetary?: true; internal: boolean; worm?: true; wheel?: true; bevel?: true; rack?: boolean; pulley?: PulleyKind; sprocket?: true; iso?: true; cycloidal?: true; mesh?: { src: GearRecord; rack: boolean; ring?: boolean } }): { key: GearKey; label: string }[] => {
   const f = (key: GearKey, label: string) => ({ key, label });
-  if (g.planetary) return [f("sun", "Sun teeth"), f("planet", "Planet teeth"), f("planets", "Planets"), f("ratio", "Ratio"), f("module", "Module"), f("width", "Width"), f("helix", "Helix"), f("pressure", "Pressure"), f("backlash", "Backlash"), f("clearance", "Clearance"), f("bore", "Sun bore"), f("rim", "Wall"), f("pin", "Pin"), f("pingap", "Pin gap"), f("carrier", "Carrier"), f("plategap", "Plate gap")]; // (a planetary set, `dec_planetary_gears`)
+  if (g.planetary) return [f("sun", "Sun teeth"), f("planet", "Planet teeth"), f("planets", "Planets"), f("ratio", "Ratio"), f("module", "Module"), f("width", "Width"), f("helix", "Helix"), f("pressure", "Pressure"), f("backlash", "Backlash"), f("clearance", "Clearance"), f("bore", "Sun bore"), f("rim", "Wall"), f("pin", "Pin"), f("pingap", "Pin gap"), f("carrier", "Carrier"), f("plategap", "Plate gap"), f("spacing", "Spacing"), f("housing", "Housing"), f("cap", "Housing cap"), f("housingfit", "Housing fit")]; // (a planetary set, `dec_planetary_gears`)
   const fs = gearFieldsBase(g, f);
   const at = fs.findIndex((x) => x.key === "bore");
   const withBore = at < 0 ? fs : [...fs.slice(0, at + 1), f("flat", "Flat"), f("key", "Key"), f("keydepth", "Key depth"), ...fs.slice(at + 1)]; // (a bore can have a D flat or a keyway, `in_589`)
@@ -156,7 +156,7 @@ export const canHelix = (spec: GearSpec): boolean => !spec.bevel && !spec.pulley
 /** The tool opened to make a gear or a rack that meshes with `src`: its centre is the gear's, the pointer says where the partner goes. */
 export const meshGearTool = (src: GearRecord, rack: boolean, ring = false): Tool => ({ ...armTool("gear"), plane: src.plane, points: [src.at], cursor: src.at, gear: { internal: ring, typed: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], field: 0, mesh: { src, rack, ring } } });
 /** The tool opened on a planetary set that is already made, to change its numbers: the whole set, as it was when it was made (`dec_planetary_gears`). */
-export const editPlanetaryTool = (rec: PlanetaryRecord): Tool => ({ ...armTool("gear", "planetary"), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: false, planetary: true, typed: Array.from({ length: 16 }, () => ""), field: 0, editing: rec.id, planetaryBase: rec.spec, ...(rec.turn ? { turn: rec.turn } : {}) } });
+export const editPlanetaryTool = (rec: PlanetaryRecord): Tool => ({ ...armTool("gear", "planetary"), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: false, planetary: true, typed: Array.from({ length: 24 }, () => ""), field: 0, editing: rec.id, planetaryBase: rec.spec, ...(rec.turn ? { turn: rec.turn } : {}) } });
 /** The tool opened on a cam or a ratchet that is already made, to change its numbers: its plane and shaft, and its numbers as they are now (in the number system in use; the angles in degrees). */
 export function editCamTool(rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }): Tool {
   const c = rec.spec.cam!;
@@ -243,7 +243,7 @@ export function typeKey(t: Tool, key: string): Tool {
     const g = gearState(t);
     if (key === "Tab") return { ...t, gear: { ...g, field: (g.field + 1) % gearFields(g).length } };
     const typed = typeInto(g.typed[g.field] ?? "", key);
-    return typed === null ? t : { ...t, gear: { ...g, typed: Array.from({ length: 16 }, (_, i) => (i === g.field ? typed : g.typed[i] ?? "")) } };
+    return typed === null ? t : { ...t, gear: { ...g, typed: Array.from({ length: 24 }, (_, i) => (i === g.field ? typed : g.typed[i] ?? "")) } };
   }
   if (t.kind === "cam" && t.cam) {
     if (key === "Tab") return { ...t, cam: { ...t.cam, field: (t.cam.field + 1) % t.cam.typed.length } };
@@ -268,7 +268,7 @@ function typeInto(cur: string, key: string): string | null {
 /** The text of a field of a gear's number box changed (typed in the box itself). */
 export function gearTyped(t: Tool, field: number, text: string): Tool {
   const g = gearState(t);
-  return { ...t, gear: { ...g, field, typed: Array.from({ length: 16 }, (_, i) => (i === field ? text : g.typed[i] ?? "")) } };
+  return { ...t, gear: { ...g, field, typed: Array.from({ length: 24 }, (_, i) => (i === field ? text : g.typed[i] ?? "")) } };
 }
 const typedValues = (t: Tool): [number | null, number | null] => [typedLength(t.typed[0]), typedLength(t.typed[1])];
 
@@ -411,7 +411,7 @@ function planetaryMade(scene: Scene, t: Tool): Result<GearTarget> | null {
   const helixT = typed("helix") ?? b?.helix;
   const helix = helixT ? helixT : undefined;
   const pressure = typed("pressure") ?? b?.pressure;
-  const base = { planets, module, width, ...(helix ? { helix } : {}), ...(pressure !== undefined ? { pressure } : {}) };
+  const base = { planets, module, width, ...(helix ? { helix } : {}), ...(pressure !== undefined ? { pressure } : {}), ...(typed("spacing") ?? b?.spacing ? { spacing: 1 } : {}) };
   const [sunT, planetT, ratioT] = [typed("sun"), typed("planet"), typed("ratio")];
   let sun = Math.round(sunT ?? b?.sun ?? 24), planet = Math.round(planetT ?? b?.planet ?? 18);
   if (ratioT !== null && !(sunT !== null && planetT !== null)) { // the ratio is asked for: its teeth are worked out (what is typed of the teeth is kept)
@@ -427,7 +427,8 @@ function planetaryMade(scene: Scene, t: Tool): Result<GearTarget> | null {
     sun, planet, planets, module, width, ...(helix ? { helix } : {}), ...(pressure !== undefined ? { pressure } : {}),
     ...(num("backlash", b?.backlash) ? { backlash: num("backlash", b?.backlash)! } : {}), ...(num("clearance", b?.clearance) !== undefined ? { clearance: num("clearance", b?.clearance)! } : {}),
     ...(boreT !== null ? { bore: boreT } : b?.bore !== undefined ? { bore: b.bore } : {}), ...(num("rim", b?.rim) !== undefined ? { rim: num("rim", b?.rim)! } : {}),
-    ...(num("pin", b?.pin) !== undefined ? { pin: num("pin", b?.pin)! } : {}), ...(num("pingap", b?.pinGap) !== undefined ? { pinGap: num("pingap", b?.pinGap)! } : {}), ...(num("carrier", b?.carrier) ? { carrier: num("carrier", b?.carrier)! } : {}), ...(num("plategap", b?.plateGap) ? { plateGap: num("plategap", b?.plateGap)! } : {}),
+    ...(num("pin", b?.pin) !== undefined ? { pin: num("pin", b?.pin)! } : {}), ...(num("pingap", b?.pinGap) !== undefined ? { pinGap: num("pingap", b?.pinGap)! } : {}), ...(num("carrier", b?.carrier) ? { carrier: num("carrier", b?.carrier)! } : {}), ...(num("plategap", b?.plateGap) ? { plateGap: num("plategap", b?.plateGap)! } : {}), ...(num("spacing", b?.spacing) ? { spacing: 1 } : {}),
+    ...(num("housing", b?.housing) ? { housing: num("housing", b?.housing)! } : {}), ...(num("cap", b?.housingCap) ? { housingCap: num("cap", b?.housingCap)! } : {}), ...(num("housingfit", b?.housingFit) !== undefined ? { housingFit: num("housingfit", b?.housingFit)! } : {}),
   };
   const bad = problemsOf(spec).find((p) => p.fatal);
   if (bad) return err(bad.text);
@@ -436,7 +437,7 @@ function planetaryMade(scene: Scene, t: Tool): Result<GearTarget> | null {
   if (!lay.ok) return err(lay.error);
   for (const x of [lay.value.sun, lay.value.planets[0]!, lay.value.ring]) { const o = gearOutline(x.spec); if (!o.ok) return err(o.error); }
   const r = planetaryRatios(spec);
-  const live: Partial<Record<GearKey, number>> = { sun: spec.sun, planet: spec.planet, planets: spec.planets, ratio: r.ring, module, width, helix: helix ?? 0, pressure: pressure ?? 20, backlash: spec.backlash ?? 0, clearance: spec.clearance ?? 0.25, bore: lay.value.sun.spec.bore ?? 0, rim: spec.rim ?? 2, pin: spec.pin ?? defaultPin(spec), pingap: spec.pinGap ?? 0.2, carrier: spec.carrier ?? 0, plategap: spec.plateGap ?? 0 };
+  const live: Partial<Record<GearKey, number>> = { sun: spec.sun, planet: spec.planet, planets: spec.planets, ratio: r.ring, module, width, helix: helix ?? 0, pressure: pressure ?? 20, backlash: spec.backlash ?? 0, clearance: spec.clearance ?? 0.25, bore: lay.value.sun.spec.bore ?? 0, rim: spec.rim ?? 2, pin: spec.pin ?? defaultPin(spec), pingap: spec.pinGap ?? 0.2, carrier: spec.carrier ?? 0, plategap: spec.plateGap ?? 0, spacing: spec.spacing ?? 0, housing: spec.housing ?? 0, cap: spec.housingCap ?? 0, housingfit: spec.housingFit ?? 0.2 };
   return ok({ spec: lay.value.sun.spec, at, turn, live, planetary: { spec, ratios: r, warnings: problemsOf(spec).filter((p) => !p.fatal), ringTeeth: spec.sun + 2 * spec.planet } });
 }
 /** The ratios of the set the tool would make, as a line for the box (each part held, the ring's teeth), and what is worth a warning; null for a tool that is not a planetary set or makes none. */
@@ -446,7 +447,7 @@ export function planetaryInfo(scene: Scene, t: Tool): string | null {
   const p = r && r.ok ? r.value.planetary : null;
   if (!p) return null;
   const x = (v: number) => `${Math.abs(v) < 100 ? +v.toFixed(3) : Math.round(v)}:1`;
-  return [`Ring ${p.ringTeeth} teeth.`, `Ring held (sun in, carrier out): ${x(p.ratios.ring)}.`, `Carrier held (sun in, ring out, reversed): ${x(p.ratios.carrier)}.`, `Sun held (ring in, carrier out): ${x(p.ratios.sun)}.`, ...p.warnings.map((w) => w.text + ".")].join(" ");
+  return [`Ring ${p.ringTeeth} teeth.`, `Ring held (sun in, carrier out): ${x(p.ratios.ring)}.`, `Carrier held (sun in, ring out, reversed): ${x(p.ratios.carrier)}.`, `Sun held (ring in, carrier out): ${x(p.ratios.sun)}.`, ...p.warnings.map((w) => w.text.charAt(0).toUpperCase() + w.text.slice(1) + ".")].join(" ");
 }
 function gearMade(scene: Scene, t: Tool): Result<GearTarget> | null {
   const g = gearState(t);
@@ -670,6 +671,7 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
       if (!lay.ok) return null;
       const segments = [lay.value.sun, ...lay.value.planets, lay.value.ring].flatMap((x) => outlineSegments(pl, x.spec, x.at, x.turn));
       if (lay.value.carrier) { segments.push(...circleSegments(pl, target.at, lay.value.carrier.radius)); for (const p of lay.value.carrier.pins) segments.push(...circleSegments(pl, p.at, p.diameter / 2, 16)); }
+      if (lay.value.housing) segments.push(...circleSegments(pl, target.at, lay.value.housing.inner), ...circleSegments(pl, target.at, lay.value.housing.outer));
       return { segments, circle: null, cursor: t.cursor, ...(red ? { red: true as const } : {}) };
     }
     const [cx, cy] = localOf(pl, target.at);

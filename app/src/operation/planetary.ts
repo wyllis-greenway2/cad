@@ -8,6 +8,7 @@ import { ok, err } from "../shared/result.ts";
 import type { Scene, Step } from "./scene.ts";
 import { nextId, bumpCounter } from "./scene.ts";
 import type { Part } from "./part.ts";
+import { gearOutline } from "./gear.ts";
 import type { GearSpec } from "./gear.ts";
 import { meshWith } from "./mesh.ts";
 import { addGear, setGear, deleteGear, ownedSteps, gearOfPart } from "./gearscene.ts";
@@ -21,11 +22,13 @@ export interface PlanetarySpec {
   /** the ring's wall in modules */ rim?: number;
   pin?: number; pinGap?: number; carrier?: number;
   /** the room between the planets and the carrier's plate along the axis, mm (0: they touch); with some the carrier is made on a plane of its own that far below the gears' */ plateGap?: number;
+  /** 1: the planets stand at the meshing positions nearest to equal spacing, which works for any count of planets (each is a whole number of tooth steps `2 pi / (sun + ring)` from the first, so they all mesh) though the spacing is then not quite even; 0 or none: equal, which needs `(sun + ring) / planets` whole */ spacing?: number;
+  /** the housing: a tube round the ring, `housing` mm thick, a snug `housingFit` mm (0.2 if none) outside it, and an end cap `housingCap` mm thick on the side away from the carrier, a body each (0 or none: no housing) */ housing?: number; housingCap?: number; housingFit?: number;
 }
 export interface PlanetaryRecord {
   id: string; plane: Ref; at: Vec3; spec: PlanetarySpec; turn?: number;
   /** the gears it is made of (`gearscene.ts` records of their own) */ sunId: string; ringId: string; planetIds: string[];
-  /** the step that makes the carrier, if there is one */ carrierStep?: string;
+  /** the step that makes the carrier, if there is one */ carrierStep?: string; /** the steps that make the housing's tube and its end cap */ shellStep?: string; capStep?: string;
 }
 export type Hold = "ring" | "carrier" | "sun";
 export interface Problem { fatal: boolean; text: string }
@@ -46,9 +49,16 @@ export function problemsOf(s: PlanetarySpec): Problem[] {
   if (!(s.module > 0)) out.push({ fatal: true, text: "the module must be above zero" });
   if (!(s.width > 0)) out.push({ fatal: true, text: "the gears need a width above zero" });
   if (s.sun < 3 || s.planet < 3) out.push({ fatal: true, text: "a gear needs 3 or more teeth" });
-  if ((s.sun + ring) % s.planets !== 0) out.push({ fatal: true, text: `(sun + ring) / planets = ${((s.sun + ring) / s.planets).toFixed(2)} is not whole: ${s.planets} planets cannot be spaced evenly and all mesh (change a tooth count or the number of planets)` });
-  if (s.planets > 1) { // neighbouring planets: centres 2 a sin(pi / N) apart, a = (zs + zp) m / 2; a planet's tips reach zp m + 2 mn across
-    const apart = (s.sun + s.planet) * mt(s) * Math.sin(Math.PI / s.planets);
+  const nearest = s.spacing === 1;
+  if (!nearest && (s.sun + ring) % s.planets !== 0) out.push({ fatal: true, text: `(sun + ring) / planets = ${((s.sun + ring) / s.planets).toFixed(2)} is not whole: ${s.planets} planets cannot be spaced evenly and all mesh (change a tooth count or the number of planets, or set Spacing to 1 for the nearest meshing positions)` });
+  const steps = planetSteps(s);
+  if (nearest && s.planets > s.sun + ring) out.push({ fatal: true, text: "more planets than meshing positions" });
+  if (nearest && steps.some((t, i) => i > 0 && t === steps[i - 1])) out.push({ fatal: true, text: "two planets would stand in one place" });
+  if (nearest && (s.sun + ring) % s.planets !== 0) out.push({ fatal: false, text: "the planets are not evenly spaced (each is a whole number of tooth steps from the first, so they all mesh), so the load on them is not balanced" });
+  if (s.planets > 1) { // neighbouring planets: centres 2 a sin(angle / 2) apart for the nearest pair, a = (zs + zp) m / 2; a planet's tips reach zp m + 2 mn across
+    const total = s.sun + ring;
+    const closest = Math.min(...steps.map((t, i) => (i === 0 ? total - steps[steps.length - 1]! + t : t - steps[i - 1]!)));
+    const apart = (s.sun + s.planet) * mt(s) * Math.sin((Math.PI * closest) / total);
     const across = s.planet * mt(s) + 2 * s.module;
     if (apart <= across + 1e-9) out.push({ fatal: true, text: `neighbouring planets would touch: ${apart.toFixed(2)} mm apart, their tips need ${across.toFixed(2)} mm (fewer planets, or fewer teeth on the planets)` });
   }
@@ -56,8 +66,13 @@ export function problemsOf(s: PlanetarySpec): Problem[] {
   for (const [n, z] of [["sun", s.sun], ["planet", s.planet]] as const) if (z < below && !s.helix) out.push({ fatal: false, text: `the ${n} has ${z} teeth: under ${below} undercuts at ${s.pressure ?? 20} degrees` });
   return out;
 }
+/** Where each planet stands, in tooth steps (`2 pi / (sun + ring)`) from the first: equally spaced when `(sun + ring) / planets` is whole, else (with `spacing` 1) the nearest whole steps to equal spacing. */
+export function planetSteps(s: Pick<PlanetarySpec, "sun" | "planet" | "planets" | "spacing">): number[] {
+  const total = s.sun + 2 * s.planet + s.sun;
+  return Array.from({ length: s.planets }, (_, k) => Math.round((k * total) / s.planets));
+}
 /** Sets for a wanted ratio of the part held, nearest first (then fewer warnings, then fewer teeth): every sun and planet count in range with no fatal problem. */
-export function fromRatio(ratio: number, hold: Hold, base: Pick<PlanetarySpec, "planets" | "module" | "width" | "helix" | "pressure">, opt: { minSun?: number; minPlanet?: number; maxTeeth?: number } = {}): { sun: number; planet: number; ratio: number; error: number }[] {
+export function fromRatio(ratio: number, hold: Hold, base: Pick<PlanetarySpec, "planets" | "module" | "width" | "helix" | "pressure" | "spacing">, opt: { minSun?: number; minPlanet?: number; maxTeeth?: number } = {}): { sun: number; planet: number; ratio: number; error: number }[] {
   const [minSun, minPlanet, maxTeeth] = [opt.minSun ?? 12, opt.minPlanet ?? 8, opt.maxTeeth ?? 200];
   const found: { sun: number; planet: number; ratio: number; error: number; warn: number }[] = [];
   for (let sun = minSun; sun + 2 * minPlanet <= maxTeeth; sun++) for (let planet = minPlanet; sun + 2 * planet <= maxTeeth; planet++) {
@@ -78,6 +93,8 @@ export interface Layout {
   planets: { spec: GearSpec; at: Vec3; turn: number }[];
   ring: { spec: GearSpec; at: Vec3; turn: number };
   /** the carrier, in the plane's frame: the plate's radius, the hole for the sun's shaft (mm across, 0 none), and the pins (centre as a point in the world, diameter, length) */
+  /** the housing: the tube's inside and outside radius, its depth along the axis, and the end cap (its thickness, mm, 0 none, and the hole for the sun's shaft, mm across, 0 none) */
+  housing?: { inner: number; outer: number; depth: number; cap: number; hole: number };
   carrier?: { thickness: number; gap: number; radius: number; hole: number; pins: { at: Vec3; diameter: number }[] };
 }
 /** The gears and the carrier of a set, placed: the sun at the centre, the planets `360 / N` apart (the first in the direction `turn`), each turned to mesh the sun, the ring turned to mesh the planets; null with the reason when the set cannot be made. */
@@ -90,9 +107,11 @@ export function layoutOf(spec: PlanetarySpec, plane: { u: Vec3; v: Vec3 }, at: V
   const bore = spec.bore ?? defaultSunBore(spec);
   const sunSpec: GearSpec = { ...common, ...(bore > 0 ? { bore } : {}) };
   const sun: GearRecord = { id: "sun", plane: "" as Ref, at, spec: sunSpec, ...(turn ? { turn } : {}) };
+  const ring0 = spec.sun + 2 * spec.planet;
+  const steps = planetSteps(spec);
   const planets: Layout["planets"] = [];
   for (let k = 0; k < spec.planets; k++) {
-    const r = meshWith(sun, u, v, { teeth: spec.planet }, turn + (TAU * k) / spec.planets);
+    const r = meshWith(sun, u, v, { teeth: spec.planet }, turn + (TAU * steps[k]!) / (spec.sun + ring0));
     if (!r.ok) return err(r.error);
     planets.push({ spec: { ...r.value.spec, bore: pin + 2 * gap }, at: r.value.at, turn: r.value.turn });
   }
@@ -108,6 +127,13 @@ export function layoutOf(spec: PlanetarySpec, plane: { u: Vec3; v: Vec3 }, at: V
     if (pin <= 0) return err("the pin needs a diameter");
     if (!((spec.plateGap ?? 0) >= 0)) return err("the gap between the planets and the plate cannot be below zero");
   }
+  if ((spec.housing ?? 0) > 0) {
+    const o = gearOutline(ring.spec);
+    if (!o.ok || o.value.outerRadius === undefined) return err("the ring has no outer wall for a housing to go round");
+    const fit = spec.housingFit ?? 0.2;
+    if (!(fit >= 0)) return err("the housing's fit cannot be below zero");
+    out.housing = { inner: o.value.outerRadius + fit, outer: o.value.outerRadius + fit + spec.housing!, depth: spec.width + (spec.plateGap ?? 0), cap: spec.housingCap ?? 0, hole: bore > 0 ? bore + 2 * gap : 0 };
+  } else if ((spec.housingCap ?? 0) > 0) return err("an end cap needs a housing: type the housing's wall too");
   return ok(out);
 }
 
@@ -115,43 +141,73 @@ export function layoutOf(spec: PlanetarySpec, plane: { u: Vec3; v: Vec3 }, at: V
 const planetariesOf = (s: Scene): readonly PlanetaryRecord[] => s.planetaries ?? [];
 const gearIdsOf = (r: PlanetaryRecord): string[] => [r.sunId, ...r.planetIds, r.ringId];
 const planeOf = (s: Scene, ref: Ref): { u: Vec3; v: Vec3 } | null => { const p = s.parts[ref]; return p && p.kind === "plane" ? { u: p.u, v: p.v } : null; };
-const carrierRefs = (id: string, n: number): { centre: Ref; plate: Ref; hole: Ref; pins: { centre: Ref; circle: Ref }[] } => ({ centre: drawnRef(`${id}.c`), plate: drawnRef(`${id}.k`), hole: drawnRef(`${id}.h`), pins: Array.from({ length: n }, (_, i) => ({ centre: drawnRef(`${id}.pc${i}`), circle: drawnRef(`${id}.pk${i}`) })) });
 /** The parts of every carrier ever made under this id are those with this prefix (the plate's circle and centre, the hole, each pin's centre and circle). */
 const isCarrierPart = (id: string, ref: string): boolean => ref.startsWith(`d/${id}.`);
 
 /** The gears' ids for a set: derived from its own (`q_001` makes `q_001s`, `q_001r`, `q_001p1`...). */
 const idsFor = (id: string, planets: number): { sunId: string; ringId: string; planetIds: string[] } => ({ sunId: `${id}s`, ringId: `${id}r`, planetIds: Array.from({ length: planets }, (_, i) => `${id}p${i + 1}`) });
 
-function carrierScene(s: Scene, rec: PlanetaryRecord, lay: Layout["carrier"] | undefined, keep: string | undefined): { scene: Scene; step?: string } {
+/** The steps that make the carrier, the housing's tube and its cap: kept by name through edits. */
+interface Extras { carrierStep?: string; shellStep?: string; capStep?: string }
+/**
+ * The carrier and the housing made again (or taken away) for a layout: their drawn circles (named `d/<id>.*`, all taken out first) and one extrude each, in the places the old ones had, with the names they had. The carrier is one extrude with the plate below the gears' plane
+ * (negative) and the pins above it, each figure with its own depth; the housing's tube is an annulus up the gears' width; its cap a disc on a plane of its own above the gears. With a plate gap the carrier is on a plane of its own that far below.
+ */
+function extrasScene(s: Scene, rec: PlanetaryRecord, lay: Layout | undefined, old: Extras): { scene: Scene } & Extras {
   const parts: Record<string, Part> = {};
   for (const p of Object.values(s.parts)) if (!(p.origin === "drawn" && isCarrierPart(rec.id, p.ref))) parts[p.ref] = p;
-  const oldStep = keep ? s.steps.findIndex((x) => x.id === keep) : -1;
-  const steps = s.steps.filter((x) => x.id !== keep);
-  if (!lay) return { scene: { ...s, parts, steps } };
-  const r = carrierRefs(rec.id, lay.pins.length);
-  // with a gap the carrier is drawn on a plane of its own, that far below the gears' plane (the figures of an extrude start at their plane)
-  const base0 = s.parts[rec.plane];
-  const n: Vec3 = base0 && base0.kind === "plane" ? (() => { const c: Vec3 = [base0.u[1] * base0.v[2] - base0.u[2] * base0.v[1], base0.u[2] * base0.v[0] - base0.u[0] * base0.v[2], base0.u[0] * base0.v[1] - base0.u[1] * base0.v[0]]; const l = Math.hypot(...c) || 1; return [c[0] / l, c[1] / l, c[2] / l]; })() : [0, 0, 1];
-  const drop = (p: Vec3): Vec3 => [p[0] - n[0] * lay.gap, p[1] - n[1] * lay.gap, p[2] - n[2] * lay.gap];
-  const planeRef = lay.gap > 0 && base0 && base0.kind === "plane" ? drawnRef(`${rec.id}.pl`) : rec.plane;
-  if (planeRef !== rec.plane && base0 && base0.kind === "plane") parts[planeRef] = { ref: planeRef, kind: "plane", origin: "drawn", plane: null, movable: false, at: drop(base0.at), u: base0.u, v: base0.v };
-  const base = { origin: "drawn" as const, plane: planeRef, movable: false };
-  parts[r.centre] = { ...base, ref: r.centre, kind: "corner", at: drop(rec.at) };
-  parts[r.plate] = { ...base, ref: r.plate, kind: "circle", center: r.centre, radius: lay.radius };
-  if (lay.hole > 0) parts[r.hole] = { ...base, ref: r.hole, kind: "circle", center: r.centre, radius: lay.hole / 2 };
-  lay.pins.forEach((p, i) => {
-    parts[r.pins[i]!.centre] = { ...base, ref: r.pins[i]!.centre, kind: "corner", at: drop(p.at) };
-    parts[r.pins[i]!.circle] = { ...base, ref: r.pins[i]!.circle, kind: "circle", center: r.pins[i]!.centre, radius: p.diameter / 2 };
-  });
-  // one extrude: the plate below the plane (negative), the pins above it, each for the width of the planets (the figures of a step may each have their own depth)
-  const pinLen = rec.spec.width + lay.gap; // (from the plate's plane up to the gears' top)
-  const step: Step = {
-    id: keep ?? nextId(s, "s"), type: "extrude", parts: [r.plate],
-    params: { depth: -lay.thickness, ...(lay.hole > 0 ? { holes: r.hole } : {}), also: r.pins.map((p) => p.circle).join("|"), alsoDepth: r.pins.map(() => pinLen).join("|"), mode: "new", planetary: rec.id },
-  };
-  const next = [...steps];
-  next.splice(oldStep >= 0 ? Math.min(oldStep, next.length) : next.length, 0, step);
-  return { scene: bumpCounter({ ...s, parts, steps: next }, step.id), step: step.id };
+  const oldIds = [old.carrierStep, old.shellStep, old.capStep].filter((x): x is string => !!x);
+  const firstAt = Math.min(...oldIds.map((id) => s.steps.findIndex((x) => x.id === id)).filter((i) => i >= 0), Infinity);
+  const steps = s.steps.filter((x) => !oldIds.includes(x.id));
+  let cur: Scene = { ...s, parts, steps };
+  const made: Step[] = [];
+  const out: Extras = {};
+  if (lay && (lay.carrier || lay.housing)) {
+    const base0 = s.parts[rec.plane];
+    const n: Vec3 = base0 && base0.kind === "plane" ? (() => { const c: Vec3 = [base0.u[1] * base0.v[2] - base0.u[2] * base0.v[1], base0.u[2] * base0.v[0] - base0.u[0] * base0.v[2], base0.u[0] * base0.v[1] - base0.u[1] * base0.v[0]]; const l = Math.hypot(...c) || 1; return [c[0] / l, c[1] / l, c[2] / l]; })() : [0, 0, 1];
+    const shift = (p: Vec3, dz: number): Vec3 => [p[0] + n[0] * dz, p[1] + n[1] * dz, p[2] + n[2] * dz];
+    const planeAt = (tag: string, dz: number): Ref => {
+      if (dz === 0 || !base0 || base0.kind !== "plane") return rec.plane;
+      const ref = drawnRef(`${rec.id}.${tag}`);
+      parts[ref] = { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: shift(base0.at, dz), u: base0.u, v: base0.v };
+      return ref;
+    };
+    const circle = (plane: Ref, tag: string, c: Vec3, r: number, dz: number): Ref => { // a circle of its own with its centre, on `plane`, its centre `dz` along the normal from the gears' plane
+      const [cc, k] = [drawnRef(`${rec.id}.${tag}c`), drawnRef(`${rec.id}.${tag}k`)];
+      const base = { origin: "drawn" as const, plane, movable: false };
+      parts[cc] = { ...base, ref: cc, kind: "corner", at: shift(c, dz) };
+      parts[k] = { ...base, ref: k, kind: "circle", center: cc, radius: r };
+      return k;
+    };
+    const step = (kind: keyof Extras, params: Record<string, number | string>, partsOf: Ref[]): void => {
+      const id = old[kind] ?? nextId(cur, "s");
+      const st: Step = { id, type: "extrude", parts: partsOf, params: { ...params, mode: "new", planetary: rec.id } };
+      cur = bumpCounter(cur, id);
+      made.push(st); out[kind] = id;
+    };
+    const W = rec.spec.width;
+    if (lay.carrier) {
+      const c = lay.carrier, plane = planeAt("pl", -c.gap);
+      const plate = circle(plane, "pt", rec.at, c.radius, -c.gap);
+      const hole = c.hole > 0 ? circle(plane, "ph", rec.at, c.hole / 2, -c.gap) : null;
+      const pins = c.pins.map((p, i) => circle(plane, `pn${i}`, p.at, p.diameter / 2, -c.gap));
+      step("carrierStep", { depth: -c.thickness, ...(hole ? { holes: hole } : {}), also: pins.join("|"), alsoDepth: pins.map(() => W + c.gap).join("|") }, [plate]);
+    }
+    if (lay.housing) {
+      const h = lay.housing;
+      const outer = circle(rec.plane, "so", rec.at, h.outer, 0), inner = circle(rec.plane, "si", rec.at, h.inner, 0);
+      step("shellStep", { depth: h.depth, holes: inner }, [outer]);
+      if (h.cap > 0) {
+        const plane = planeAt("hp", h.depth);
+        const co = circle(plane, "co", rec.at, h.outer, h.depth);
+        const ch = h.hole > 0 ? circle(plane, "ch", rec.at, h.hole / 2, h.depth) : null;
+        step("capStep", { depth: h.cap, ...(ch ? { holes: ch } : {}) }, [co]);
+      }
+    }
+  }
+  const next = [...cur.steps];
+  next.splice(Number.isFinite(firstAt) ? Math.min(firstAt, next.length) : next.length, 0, ...made);
+  return { scene: { ...cur, steps: next }, ...out };
 }
 
 function gearRecord(id: string, plane: Ref, g: { spec: GearSpec; at: Vec3; turn: number }): GearRecord {
@@ -159,7 +215,7 @@ function gearRecord(id: string, plane: Ref, g: { spec: GearSpec; at: Vec3; turn:
 }
 
 /** A set made: its gears (each with the steps that make its body), its carrier if it has one, and its record. */
-export function addPlanetary(s: Scene, rec: Omit<PlanetaryRecord, "sunId" | "ringId" | "planetIds" | "carrierStep">): Result<Scene> {
+export function addPlanetary(s: Scene, rec: Omit<PlanetaryRecord, "sunId" | "ringId" | "planetIds" | "carrierStep" | "shellStep" | "capStep">): Result<Scene> {
   if (planetariesOf(s).some((p) => p.id === rec.id)) return err(`planetary set ${rec.id} already exists`);
   const plane = planeOf(s, rec.plane);
   if (!plane) return err(`plane ${rec.plane} does not exist`);
@@ -174,8 +230,8 @@ export function addPlanetary(s: Scene, rec: Omit<PlanetaryRecord, "sunId" | "rin
     if (!a.ok) return a;
     cur = ownedSteps(a.value, g).scene;
   }
-  const c = carrierScene(cur, full, lay.value.carrier, undefined);
-  return ok({ ...c.scene, planetaries: [...planetariesOf(s), { ...full, ...(c.step ? { carrierStep: c.step } : {}) }] });
+  const { scene: done, ...extras } = extrasScene(cur, full, lay.value, {});
+  return ok({ ...done, planetaries: [...planetariesOf(s), { ...full, ...extras }] });
 }
 
 /** New numbers (and, if given, a new centre or turn) for a set: every gear follows, planets are added or taken away when their number changes, and the carrier is made again (or taken away). Refused, with the reason, if the numbers make no set. */
@@ -201,9 +257,9 @@ export function setPlanetary(s: Scene, id: string, spec: PlanetarySpec, at?: Vec
   }
   for (let i = want; i < have; i++) { const r = deleteGear(cur, rec.planetIds[i]!); if (!r.ok) return r; cur = r.value; } // planets taken away
   const next: PlanetaryRecord = { ...rec, at: [...at2] as unknown as Vec3, spec: { ...spec }, ...(turn2 ? { turn: turn2 } : { turn: undefined }), ...ids };
-  const c = carrierScene(cur, next, lay.value.carrier, rec.carrierStep);
-  const { carrierStep: _c, ...bare } = next;
-  return ok({ ...c.scene, planetaries: planetariesOf(s).map((p) => (p === rec ? { ...bare, ...(c.step ? { carrierStep: c.step } : {}) } : p)) });
+  const { scene: done, ...extras } = extrasScene(cur, next, lay.value, { carrierStep: rec.carrierStep, shellStep: rec.shellStep, capStep: rec.capStep });
+  const { carrierStep: _c, shellStep: _h, capStep: _p, ...bare } = next;
+  return ok({ ...done, planetaries: planetariesOf(s).map((p) => (p === rec ? { ...bare, ...extras } : p)) });
 }
 
 /** A set taken away: its gears (with their bodies), its carrier and its record. */
@@ -212,7 +268,7 @@ export function deletePlanetary(s: Scene, id: string): Result<Scene> {
   if (!rec) return err(`planetary set ${id} does not exist`);
   let cur = s;
   for (const g of gearIdsOf(rec)) { const r = deleteGear(cur, g); if (!r.ok) return r; cur = r.value; }
-  cur = carrierScene(cur, rec, undefined, rec.carrierStep).scene;
+  cur = extrasScene(cur, rec, undefined, { carrierStep: rec.carrierStep, shellStep: rec.shellStep, capStep: rec.capStep }).scene;
   const rest = planetariesOf(s).filter((p) => p.id !== id);
   return ok({ ...cur, planetaries: rest.length ? rest : undefined });
 }
