@@ -3,7 +3,7 @@ id: dec_orb_positioning
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_603
+human_input: in_603, in_610
 date: 2026-11-16
 depends_on:
   - dec_spiral_extrude: the orb is the revolve's axis (and the mover's); this changes how it is put where it should be, not what it does
@@ -19,6 +19,8 @@ depends_on:
 4. **Tests:** `test/revolve.test.ts`: the places are found; held and free ways of moving; the corner, the lining up, and the held plane (a held drag keeps its height); Shift on the arrows (one, two, a second click frees); a click on the world XY plane puts the orb at z = 0 and leaves x and y. Looked at in the browser: Shift-click two arrows and drag the orb: the orb stays in the plane, and sticks to a corner.
 
 **Not done:** lines drawn in the picture to show what the orb lines up with (the message says it); snapping to the middle of a body's mass (the middle of its box is used); the orb's dragging **arrows** (`piv:`) do not snap (they move along one axis by a distance); the held axes are not drawn lit on the arrows.
+
+The number bubble that has no arrow tip to stand at (the revolve's angle and advance, at the middle of the handles) stands well off the orb, down and to the right, so it never covers an arrow or ring to be pulled (`in_610`).
 
 ## Rationale
 

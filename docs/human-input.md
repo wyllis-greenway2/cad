@@ -2773,3 +2773,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_609 — 2026-11-17 — approval
 > Middle of its box (Recommended) / Along the line (Recommended)
 (answers two questions put in chat about the sweep's new "along the line" mode: the point of the sketch placed on the path is the middle of its box, and a new sweep starts in the "along the line" mode; existing sweeps stay as they are)
+
+## in_610 — 2026-11-17 — directive
+> The input on the rotation extrusion can be really annoying and cover the arrows I need to pull on the orb. Can we have those input bubbles offset away from the orb such that it doesn't cover it?
