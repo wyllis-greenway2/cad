@@ -3,7 +3,7 @@ id: q_gear_finishing
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_800, in_799, in_798, in_797, in_792, in_791, in_790, in_783, in_770
+human_input: in_801, in_800, in_799, in_798, in_797, in_792, in_791, in_790, in_783, in_770
 date: 2026-11-17
 depends_on:
   - dec_gear_tool: the tooth outline is drawn as lines and arcs (4 arcs to a flank by default) and a helical body is a twist of it; a change to that changes each option here
@@ -34,3 +34,5 @@ alternative_to:
 The record keeps these as open questions because each is a choice of shape or cost the human has not decided, and none was measured.
 
 **Helical gears made faster: tried, little to gain (`in_800`, `prototypes/helical-fast`).** A plain helical gear is not slower than a spur gear of the same size (40 teeth 1.4 s against 1.8 s); its time is the twisted B-spline flanks (sweep, sewing, validity, volume, mesh: 100 teeth 4.7 s against 2.5 s for a spur gear). Sweeping one tooth and copying it round, and a shell built by hand with no sewing, gave no gain (the second was also invalid); keeping one volume measurement instead of two was lost in the noise. Nothing changed in the app. The one real gain found is a chamfered tooth made on one tooth block and copied round (the wedge cut on a fortieth of the gear), which needs the chamfer made part of the helical body's own step: not built, asked below.
+
+**Decided (`in_801`): accept the 4.4 s the chamfer adds to a helical gear; the chamfered tooth on one tooth block is not built.** The AI's recommendation, approved: the chamfer is off by default and built once, the change would touch the helical body's own step and the end faces built from copies' edges, and its gain (4.7 s to about 1 s) was only estimated. If it is wanted later, a prototype first (`prototypes/helical-fast` has the sewing numbers). **Next: look at the new gear features in the app** (the chamfer, the land, the helical rack, the orange mesh preview, the icon's Helix focus), none of which has been seen on screen or printed.

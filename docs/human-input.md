@@ -3548,3 +3548,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_800 — 2026-11-17 — directive
 > lets try making helical gears faster
 (asks to make helical gears faster to build, after the finding that a helical gear is the slow case, with and without the chamfer)
+
+## in_801 — 2026-11-17 — approval
+> Yes, record that as the decision
+(approves the AI's recommendation: accept the 4.4 s the chamfer adds to a helical gear, do not build the chamfered tooth on one tooth block copied round, and spend the next session looking at the new gear features in the app: the chamfer, the land, the helical rack, the orange mesh preview)
