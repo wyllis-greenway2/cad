@@ -3464,3 +3464,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_779 — 2026-11-17 — directive
 > lets work on Spiral bevel and hypoid
 (asks me to work on spiral bevel and hypoid gears next)
+
+## in_780 — 2026-11-17 — approval
+> Yes, run the suite and the browser check
+(asks for the full test suite and a browser check of picking a face and corners for the fastener hole to be run)
