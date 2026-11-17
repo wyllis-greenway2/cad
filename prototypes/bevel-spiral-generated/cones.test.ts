@@ -3,7 +3,7 @@ import test from "node:test";
 import { kernel } from "../../app/src/compiler/kernel/index.ts";
 import { pairFor, overlap } from "./cones.ts";
 
-const SETS: [number, number, number, number][] = [[20, 30, 3, 30], [24, 24, 3, 30], [16, 32, 3, 30], [20, 30, 3, 40], [17, 43, 3, 30], [30, 45, 2.5, 30]];
+const SETS: [number, number, number, number][] = [[20, 30, 3, 30], [24, 24, 3, 30], [16, 32, 3, 30], [20, 30, 3, 40], [17, 43, 3, 30], [30, 45, 2.5, 30], [22, 34, 3, 30], [25, 25, 3, 35], [18, 36, 3, 25]];
 for (const [z1, z2, mn, beta] of SETS) {
   test(`cone ends: ${z1} / ${z2} teeth, module ${mn}, ${beta} degrees: the pair fits at its place and rolling, not half a pitch round`, async () => {
     await kernel.init();

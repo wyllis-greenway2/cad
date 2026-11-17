@@ -3556,3 +3556,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_802 — 2026-11-17 — approval
 > Yes, build it as proposed
 (approves dec_crown_gears as proposed and asks for it to be built)
+
+## in_803 — 2026-11-17 — approval
+> I will take your recommendations
+(approves the recommended order: make the spiral's cone cut robust and find why 17/43 fails, rerun 30/45 and more cases, then propose a spiral tool; hypoid after)
