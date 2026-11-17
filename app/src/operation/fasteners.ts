@@ -16,7 +16,7 @@ export const FASTENER_SIZES: readonly FastenerSize[] = ["M3", "M4", "M5", "M6", 
 export type FastenerFamily = "nut" | "countersunk" | "washer" | "socketHead";
 export const FASTENER_FAMILIES: readonly { id: FastenerFamily; label: string; standard: string }[] = [
   { id: "nut", label: "Hex nut", standard: "ISO 4032" },
-  { id: "countersunk", label: "Countersunk socket screw", standard: "ISO 10642 (1997 figures)" },
+  { id: "countersunk", label: "Countersunk socket screw", standard: "ISO 10642 (the 1997 and 2004 tables)" },
   { id: "socketHead", label: "Socket head cap screw", standard: "ISO 4762" },
   { id: "washer", label: "Flat washer", standard: "ISO 7089" },
 ];
@@ -24,7 +24,7 @@ export const FASTENER_FAMILIES: readonly { id: FastenerFamily; label: string; st
 export const FASTENER_SOURCES = {
   clearance: "ISO 273 clearance holes: Albany County Fasteners chart and Optimas tapping sizes (the two agree)",
   nut: "ISO 4032 hexagon nut, style 1: H&B metric hex nut sheet and the omdl ISO 4032 table (the two agree)",
-  countersunk: "ISO 10642 countersunk head screw, the 1997 edition's figures: Westfield Fasteners sheet and the 1997 ISO 10642 sample (the two agree); the 2019 edition was not read",
+  countersunk: "ISO 10642 countersunk head screw, Table 1 of the 1997 and 2004 editions (read from the iTeh samples) and the Westfield Fasteners sheet, which all agree; the 2019 and 2026 editions' tables are not free to read, and their lists of changes do not touch these head dimensions",
   washer: "ISO 7089 plain washer, normal series: Westfield Fasteners sheet and the omdl ISO 7089 table (the two agree)",
   socketHead: "ISO 4762 socket head cap screw: CDE Fasteners sheet and the omdl ISO 4762 table (the two agree on the head diameter and the socket depth); the Misumi table gives smaller head diameters (5.50 for M3) and other socket depths, which are not used",
   tapDrill: "Optimas tapping sizes (coarse thread): the drill is the nominal diameter less the pitch",
@@ -39,7 +39,7 @@ const NUTS: Record<FastenerSize, NutDims> = {
   M6: { pitch: 1, acrossFlats: { max: 10, min: 9.78 }, acrossCorners: { min: 11.05 }, thickness: { max: 5.2, min: 4.9 } },
   M8: { pitch: 1.25, acrossFlats: { max: 13, min: 12.73 }, acrossCorners: { min: 14.38 }, thickness: { max: 6.8, min: 6.44 } },
 };
-/** Hexagon socket countersunk head screw, ISO 10642, 1997 figures (mm). `head`: the theoretical head diameter (the diameter of the cone at the top, 90 degrees) and the smallest the real head may be; `shank`: the body's diameter limits; `headHeight`: the cone's height; `socket`: across flats (nominal and smallest) and the smallest depth; `threadLength`: the reference thread length b. */
+/** Hexagon socket countersunk head screw, ISO 10642, Table 1 of the 1997 and 2004 editions (mm). `head`: the theoretical head diameter (the diameter of the cone at the top, 90 degrees) and the smallest the real head may be; `shank`: the body's diameter limits; `headHeight`: the cone's height; `socket`: across flats (nominal and smallest) and the smallest depth; `threadLength`: the reference thread length b. */
 export interface CountersunkDims {
   pitch: number; head: { theoretical: number; min: number }; shank: { max: number; min: number }; headHeight: number;
   socket: { acrossFlats: number; acrossFlatsMin: number; depthMin: number }; threadLength: number;
