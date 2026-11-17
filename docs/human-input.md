@@ -3137,3 +3137,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_698 — 2026-11-17 — directive
 > Go with your recommendation, give cams and ratchets a record
 (asks for cams and ratchets to keep their numbers as a record, as a gear does, so they can be changed by number after they are drawn)
+
+## in_699 — 2026-11-17 — directive
+> Go with your recommendation, source the ratchet numbers
+(asks for the ratchet's default numbers to be sourced, `q_ratchet_numbers`: look for where the tooth depth, hook angle, pawl pivot rule and pawl size come from, and write them in)
