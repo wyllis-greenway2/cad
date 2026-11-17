@@ -61,14 +61,13 @@ const inside = (poly: readonly V2[], q: V2): boolean => {
   return c;
 };
 /** the pawl's points and bulges for a nose resting on the face from `from` to `to` of its length, or null (no pawl of that kind): a hull of the nose and the boss, the boss one arc */
-function pawlFor(t: V2, g: V2, from: number, to: number, arm: number, boss: number, lift: number): { points: V2[]; bulges: number[]; pivot: V2 } | null {
+/** `dirs(foot, lift)`: the direction the arm runs from the foot of the nose, and the outer side of its line (what is outside the body the pawl rests on) */
+type Dirs = (foot: V2, lift: number) => { dir: V2; up: V2 };
+function pawlFor(t: V2, g: V2, from: number, to: number, arm: number, boss: number, lift: number, dirs: Dirs): { points: V2[]; bulges: number[]; pivot: V2 } | null {
   const [e1, e2] = [add(t, mul(sub(g, t), from)), add(t, mul(sub(g, t), to))];
-  // the arm runs from the foot of the nose in the direction of the tangent to the wheel there (counter-clockwise), turned outward by `lift` when the tangent would pass through the next tooth; its lower edge is on that line and
+  // the arm runs from the foot of the nose in the direction `dirs` gives (for a wheel, the tangent there, counter-clockwise, turned outward by `lift` when the tangent would pass through the next tooth); its lower edge is on that line and
   // the boss sits on it, its middle half a boss above, so the pawl lies on the outer side of the line
-  const tan: V2 = mul([-e2[1], e2[0]], 1 / len(e2));
-  const out0: V2 = mul(e2, 1 / len(e2));
-  const dir: V2 = add(mul(tan, Math.cos(lift)), mul(out0, Math.sin(lift)));
-  const up: V2 = [dir[1], -dir[0]]; // (clockwise from the arm's direction, which runs counter-clockwise round the wheel: the outer side of the line)
+  const { dir, up } = dirs(e2, lift);
   const pivot = add(add(e2, mul(dir, arm)), mul(up, boss));
   const N = 180;
   const ring = Array.from({ length: N }, (_, i): V2 => add(pivot, polar(boss, (i / N) * 2 * Math.PI)));
@@ -88,6 +87,58 @@ function pawlFor(t: V2, g: V2, from: number, to: number, arm: number, boss: numb
   [...h.slice(start), ...h.slice(0, start)].forEach((i) => { if (i >= 2) run.push(all[i]!); else { flush(); points.push(all[i]!); bulges.push(0); } });
   flush();
   return { points, bulges, pivot };
+}
+/** the arm along the tangent to a wheel at the foot of the nose (counter-clockwise), turned outward by `lift`; the outer side of its line is clockwise of it */
+const wheelDirs: Dirs = (foot, lift) => {
+  const tan: V2 = mul([-foot[1], foot[0]], 1 / len(foot));
+  const out: V2 = mul(foot, 1 / len(foot));
+  const dir: V2 = add(mul(tan, Math.cos(lift)), mul(out, Math.sin(lift)));
+  return { dir, up: [dir[1], -dir[0]] };
+};
+/** the arm along a straight bar's length (toward +x), turned up from it by `lift`; the outer side of its line (away from the bar, +y) is counter-clockwise of it */
+const barDirs: Dirs = (_foot, lift) => { const dir: V2 = [Math.cos(lift), Math.sin(lift)]; return { dir, up: [-dir[1], dir[0]] }; };
+/** the nose as deep along the face as the body's outline lets it: the arm along its tangent first, then turned further from it, the deepest nose first, until the pawl crosses nothing of the body and keeps a little off every corner of it */
+function findPawl(body: readonly V2[], t: V2, g: V2, arm: number, boss: number, dirs: Dirs): ReturnType<typeof pawlFor> {
+  for (let lift = 0; lift <= rad(40) + 1e-9; lift += rad(2.5)) for (let to = FACE_TO_MAX; to >= FACE_FROM + 0.1 - 1e-9; to -= 0.05) {
+    const p = pawlFor(t, g, FACE_FROM, to, arm, boss, lift, dirs);
+    if (!p) continue;
+    const clear = !body.some((q) => inside(p.points, q)) && !body.some((a, i) => { const b = body[(i + 1) % body.length]!; return p.points.some((c, j) => onSegments(a, b, c, p.points[(j + 1) % p.points.length]!)); });
+    if (clear && Math.min(...body.map((q) => edgeDistance(p.points, q))) >= CLEAR) return p;
+  }
+  return null;
+}
+/** The straight ratchet (`dec_ratchet`, `in_795`): a bar of `teeth` teeth `pitch` apart along +x, the tips on the line y = 0 and the roots `depth` below it, `base` of bar under the roots, the face of each tooth dropping to its root (leaning back `hook` degrees), and the pawl at the middle tooth's face; free to move toward -x, held against +x. */
+export function linearShapes(s: CamSpec): Result<RatchetShapes> {
+  const n = Math.round(s.teeth ?? 0);
+  const [pitch, depth, hook, base] = [s.pitch ?? 0, s.depth ?? 0, s.hook ?? 0, s.base ?? 0];
+  if (!(n >= 2 && n <= 200)) return err("a straight ratchet needs 2 to 200 teeth");
+  if (!(pitch > 0)) return err("the teeth need a pitch (the distance from one tip to the next)");
+  if (!(depth > 0) || depth >= pitch * 1.5) return err("the teeth need a depth, and not more than one and a half times the pitch");
+  if (hook < 0 || hook > 30) return err("the hook is from 0 to 30 degrees");
+  if (!(base > 0)) return err("the bar needs a base under the roots");
+  const behind = depth * Math.tan(rad(hook)); // how far behind its tip the face's root is
+  if (behind >= pitch * 0.9) return err("the face leans so far that it would cut into the tooth behind it: use a smaller hook angle or a shallower tooth");
+  // the bar, counter-clockwise: along the bottom, up the right end, and back along the top, tip by tip: the face of a tooth drops from its tip to the root behind it, the ramp climbs from that root to the next tip
+  const top: V2[] = [];
+  top.push([-behind, -depth]); // the left end's root
+  for (let k = 1; k <= n; k++) { top.push([k * pitch, 0]); top.push([k * pitch - behind, -depth]); }
+  const [x0, x1] = [-behind, n * pitch - behind];
+  const points: V2[] = [[x0, -depth - base], [x1, -depth - base], ...top.slice().reverse().slice(0)];
+  const bulges = points.map(() => 0);
+  const polys: RatchetShapes["polys"] = [{ points, bulges }];
+  const circles: CamShapes["circles"] = [];
+  const arm = s.pawl ?? 0;
+  if (arm > 0) {
+    const boss = (s.width ?? depth * 2) / 2;
+    if (!(boss > 0)) return err("the pawl needs a width");
+    const k = Math.ceil(n / 2); // the tooth the pawl rests on: the middle one
+    const [t, g]: [V2, V2] = [[k * pitch, 0], [k * pitch - behind, -depth]];
+    const found = findPawl(points, t, g, arm, boss, barDirs);
+    if (!found) return err("the pawl cannot be made to rest on the tooth without crossing the bar: make the arm longer or the width smaller");
+    polys.push({ points: found.points, bulges: found.bulges });
+    circles.push({ c: found.pivot, r: boss / 2, hole: true }); // (the pivot hole is half the boss's width)
+  }
+  return ok({ polys, circles });
 }
 export interface RatchetShapes { polys: { points: V2[]; bulges: number[] }[]; circles: CamShapes["circles"] }
 export function ratchetShapes(s: CamSpec): Result<RatchetShapes> {
@@ -109,15 +160,7 @@ export function ratchetShapes(s: CamSpec): Result<RatchetShapes> {
     const rr = ro - depth;
     const d = rootBehind(ro, rr, hook)!;
     const [t, g] = [polar(ro, 0), polar(rr, -d)];
-    // the nose as deep along the face as the wheel's outline lets it: the deepest first, then shallower, until the pawl clears every side of the wheel
-    let found: ReturnType<typeof pawlFor> = null;
-    for (let lift = 0; lift <= rad(40) + 1e-9 && !found; lift += rad(2.5)) for (let to = FACE_TO_MAX; to >= FACE_FROM + 0.1 - 1e-9 && !found; to -= 0.05) {
-      const p = pawlFor(t, g, FACE_FROM, to, arm, boss, lift);
-      if (!p) continue;
-      const clear = !wheel.value.some((q) => inside(p.points, q)) && !wheel.value.some((a, i) => { const b = wheel.value[(i + 1) % wheel.value.length]!; return p.points.some((c, j) => onSegments(a, b, c, p.points[(j + 1) % p.points.length]!)); });
-      const near = Math.min(...wheel.value.map((q) => edgeDistance(p.points, q))); // (and keeps a little off every corner of the wheel)
-      if (clear && near >= CLEAR) found = p;
-    }
+    const found = findPawl(wheel.value, t, g, arm, boss, wheelDirs);
     if (!found) return err("the pawl cannot be made to rest on the tooth without crossing the wheel: make the arm longer or the width smaller");
     polys.push({ points: found.points, bulges: found.bulges });
     circles.push({ c: found.pivot, r: boss / 2, hole: true });

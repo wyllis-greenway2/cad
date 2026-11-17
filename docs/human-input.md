@@ -3524,3 +3524,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_794 — 2026-11-17 — directive
 > [the human attached the NASA paper 19820018805 (20 pages)] build the flank sections and test the pair in the kernel. Also here is another doc that might be useful for you.
 (asks me to build the flank sections of the spiral bevel pair and test the pair in the kernel; sends the NASA paper 19820018805, the one the access attempts could not fetch)
+
+## in_795 — 2026-11-17 — directive
+> Go with your recommendation, build the linear ratchet
+(asks for the linear ratchet to be built: a straight bar of ratchet teeth with its pawl, the next shape after the Geneva drive)
