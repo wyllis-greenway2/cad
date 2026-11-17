@@ -3155,3 +3155,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_703 — 2026-11-17 — directive
 > yes merge in the cannon-6 work
 (approves merging claude/hopeful-cannon-6, the sweep modes and the orb bubble offset, into this branch)
+
+## in_704 — 2026-11-17 — question
+> Okay what is there left to work on?
+(asks what is left to work on)
