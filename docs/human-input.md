@@ -2752,3 +2752,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_603 — 2026-11-16 — directive
 > Move the layer marks into the laser route
 (answers the question after in_602: the Cut, Score and Engrave marks, which sat on drawn lines in the modeler, move into the laser route, in line with prin_manufacture_agnostic)
+
+## in_604 — 2026-11-17 — question
+> can you help me work on some other stuff? So what would be some really helpful other sketching or modeling tools similar to the gear options? To help users quickly draw or model complicated parts or just time consuming parts or parts that need specific real world specs that they would need to look up?
+(a brainstorm, not a build request: asks which other sketching or modelling tools, like the gear tool, would help users quickly make complicated or time-consuming parts or parts with real-world specs they would otherwise look up; nothing is decided)
