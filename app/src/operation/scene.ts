@@ -191,12 +191,27 @@ export function withBody(s: Scene, body: readonly Part[]): Scene {
   return { ...s, parts };
 }
 
+/**
+ * The faces derived from a scene's drawn parts, kept for the last few scenes (`in_726`): they depend on the parts and the steps only, and a change that leaves them as they were (a constraint, a number bubble, a body drawn again) had
+ * every loop of every gear grouped and traced again. The same objects and the same steps are the same answer.
+ */
+const derivedKept: { input: Map<string, Part>; steps: readonly Step[]; out: ReturnType<typeof derivedFaces> }[] = [];
+function derivedFor(s: Scene): ReturnType<typeof derivedFaces> {
+  const input = Object.values(s.parts);
+  const hit = derivedKept.find((k) => k.steps === s.steps && k.input.size === input.length && input.every((p) => k.input.get(p.ref) === p)); // (the same parts, in whatever order)
+  if (hit) return hit.out;
+  const out = derivedFaces(s);
+  derivedKept.unshift({ input: new Map(input.map((p) => [p.ref, p])), steps: s.steps, out });
+  if (derivedKept.length > 4) derivedKept.pop();
+  return out;
+}
+
 /** The scene with its derived faces (closed loops, disks) rebuilt. */
 export function withDerived(s0: Scene): Scene {
   const s = withGears(withPatterns(s0)); // (the copies of the repeats that keep their numbers, made from the originals as they are now, and the gears made from their numbers)
   const parts: Record<string, Part> = {};
   for (const p of Object.values(s.parts)) if (p.kind !== "face" && !((p.kind === "line" || p.kind === "corner") && p.derived)) parts[p.ref] = p;
-  const { faces, parts: made } = derivedFaces({ ...s, parts });
+  const { faces, parts: made } = derivedFor({ ...s, parts });
   for (const a of made) parts[a.ref] = a;
   for (const f of faces) parts[f.ref] = f;
   return { ...s, parts };

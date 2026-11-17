@@ -5,7 +5,15 @@ import { lookup } from "../operation/scene.ts";
 import { consumed } from "../operation/ownership.ts";
 import type { Ref } from "../shared/ref.ts";
 
+const kept = new WeakMap<Scene, Vec3[]>();
 export function centreDots(s: Scene): Vec3[] {
+  const known = kept.get(s); // (the dots of a scene do not change: asked for again at every move of the pointer)
+  if (known) return known;
+  const out = dotsOf(s);
+  kept.set(s, out);
+  return out;
+}
+function dotsOf(s: Scene): Vec3[] {
   const get = lookup(s);
   const spent = consumed(s);
   const centres = new Set<Ref>();

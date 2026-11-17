@@ -86,9 +86,24 @@ export function withGears(s: Scene): Scene {
   const recs = gearsOf(s);
   if (!recs.length) return s;
   const parts: Record<string, Part> = {};
-  for (const p of Object.values(s.parts)) if (!recs.some((r) => isMade(r.id, p.ref))) parts[p.ref] = p;
-  for (const r of recs) for (const p of partsOf({ ...s, parts }, r)) parts[p.ref] = p;
+  const prefixes = recs.map((r) => `d/${r.id}.`);
+  for (const p of Object.values(s.parts)) if (!(p.origin === "drawn" && prefixes.some((x) => p.ref.startsWith(x)))) parts[p.ref] = p;
+  for (const r of recs) for (const p of madeParts({ ...s, parts }, r)) parts[p.ref] = p;
   return { ...s, parts };
+}
+
+/**
+ * The parts of a gear, kept while its record and its plane are the same ones: made again for every change of the scene they were new objects each time, so that everything worked out from them (a loop's points, a face) was worked out
+ * again for every gear on every edit (`in_726`). A gear whose numbers change has a new record, and so new parts.
+ */
+const madeKept = new WeakMap<GearRecord, { plane: Part | undefined; parts: Part[] }>();
+function madeParts(s: Scene, rec: GearRecord): Part[] {
+  const plane = s.parts[rec.plane];
+  const kept = madeKept.get(rec);
+  if (kept && kept.plane === plane) return kept.parts;
+  const parts = partsOf(s, rec);
+  madeKept.set(rec, { plane, parts });
+  return parts;
 }
 
 /** The figure of the body of a plain gear or a ring: the outline and its bore, or, for a ring, the circle of its wall with the teeth as the hole. */
