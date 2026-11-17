@@ -3135,3 +3135,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_698 — 2026-11-17 — directive
 > yes do the gear sketch parts next
 (approves doing the gear's own sketch parts next: the sides and corners of a gear's outline that remain in the scene as parts after its body is made, about 20 a tooth)
+
+## in_699 — 2026-11-17 — directive
+> yes do the per-body checks next
+(approves doing the per-body checks next: the checks, names and fingerprints of a body worked out per body, so that adding a gear costs what that gear costs and not the whole model)

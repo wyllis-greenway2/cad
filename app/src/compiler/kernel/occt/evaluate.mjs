@@ -4,7 +4,7 @@ import { loadOC } from "./oc.mjs";
 import { compile, finalSolid, volume } from "./interpreter.mjs";
 import { makeCompound, getOC, exportSTEP as writeStep } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
-import { lumpsOf, lumpsByName } from "./bodies.mjs";
+import { lumpsOf, lumpsByName, solidKey } from "./bodies.mjs";
 import { cornerEdges } from "../../../shared/sharp.mjs";
 
 const described = new Map();
@@ -36,6 +36,7 @@ function roughBox(shape) {
 }
 
 /** The faces made of an analytic surface (a plane, a cylinder, a sphere, a cone, a torus): their exact box is quick; that of a freeform face (a twisted wall, a loft) takes a millisecond each, so it is taken from the mesh (`dec_speed_rules`). */
+const lumpFacts = new Map(); // (solid identity -> { volume, rough box, faces, edges })
 const ANALYTIC = new Set(["PLANE", "CYLINDRE", "SPHERE", "CONE", "TORUS"]);
 /** The box of the triangles `g` (a face's range of the mesh) as the corners lo and hi. */
 function meshBounds(m, g) {
@@ -217,13 +218,17 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
     let reused = 0, fpMs = 0, meshMs = 0;
     const parts = lumps.map((l) => {
       const tF = performance.now();
-      const v = volume(l);
-      const fp = JSON.stringify([Math.round(v * 1e6), roughBox(l), facesOf(l).length, edgesOf(l).length, tKey]);
+      // what a body looks like (its volume, box, number of faces and edges) is found once for the body, by its identity: a body that a change did not touch is not measured again, however many others are (`dec_per_body_checks`)
+      const key = solidKey(l);
+      let facts = lumpFacts.get(key);
+      if (!facts) { facts = { v: volume(l), box: roughBox(l), nf: facesOf(l).length, ne: edgesOf(l).length }; lumpFacts.set(key, facts); while (lumpFacts.size > 200) lumpFacts.delete(lumpFacts.keys().next().value); }
+      const v = facts.v;
+      const fp = JSON.stringify([Math.round(v * 1e6), facts.box, facts.nf, facts.ne, tKey]);
       fpMs += performance.now() - tF;
       let d = lumpDescribed.get(fp);
       if (!d && tess.draft) { // (while a size is dragged a body already meshed finely keeps that mesh: a rough one would only be more work, and a body that did not change would flicker from fine to rough and back)
         const { draft: _d, ...fine } = tess;
-        const fineFp = JSON.stringify([Math.round(v * 1e6), roughBox(l), facesOf(l).length, edgesOf(l).length, JSON.stringify([fine, lite])]);
+        const fineFp = JSON.stringify([Math.round(v * 1e6), facts.box, facts.nf, facts.ne, JSON.stringify([fine, lite])]);
         d = lumpDescribed.get(fineFp);
         if (d) { lumpDescribed.delete(fineFp); lumpDescribed.set(fineFp, d); reused++; return d; }
       }

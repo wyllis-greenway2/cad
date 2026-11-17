@@ -39,7 +39,7 @@ import { findCrossing } from "./selfcross.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
 import { nameFaces, refOfName, namedEdgeRefs, figureRoles, edgeEnds, edgeRoles, revolveRoles, loftRoles, sweepRoles, endTangent, creaseOf } from "./facenames.mjs";
-import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
+import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf, solidKey } from "./bodies.mjs";
 
 /** The imported solids scaled about the origin by `op.scale` and then placed: `op.place` "center" brings the middle of their box to the origin, "floor" brings the middle of the box to the z axis and the bottom to z = 0 (a part that sits on the build plate). */
 function placedSolids(solids, op) {
@@ -123,8 +123,26 @@ export function readStep(text) {
 
 /** OCCT's own topology/geometry check. Operations can return garbage without throwing. */
 export function isValidSolid(shape) {
-  return new (getOC().BRepCheck_Analyzer)(shape.wrapped, true, false).IsValid() && cavitiesInside(shape);
+  const oc = getOC();
+  const analyzed = (sh) => { const a = new oc.BRepCheck_Analyzer(sh.wrapped, true, false); try { return a.IsValid(); } finally { a.delete(); } };
+  // several bodies: a compound is valid when each of its solids is (the library checks each part of a compound on its own), so a solid that was found valid before (the same solid, found again by its identity) is not checked again,
+  // and a new body costs what it is, not what all the others are (`dec_per_body_checks`)
+  if (oc.TopAbs_ShapeEnum && shape.wrapped.ShapeType() === oc.TopAbs_ShapeEnum.TopAbs_COMPOUND) {
+    const solids = shape.solids;
+    if (solids.length > 1) {
+      for (const s of solids) {
+        const key = solidKey(s);
+        if (validSolids.has(key)) continue;
+        if (!(analyzed(s) && cavitiesInside(s))) return false;
+        validSolids.add(key);
+        while (validSolids.size > 200) validSolids.delete(validSolids.values().next().value);
+      }
+      return true;
+    }
+  }
+  return analyzed(shape) && cavitiesInside(shape);
 }
+const validSolids = new Set(); // (the identities of solids that have passed the check)
 
 /**
  * A hollow body's cavities lie inside its outer shell. The library's own check says a body is valid when its faces close up, even when a round or a bevel of a size larger than the wall has cut the
@@ -1304,6 +1322,13 @@ function cutInto(value, tool) {
 
 /** The body and a piece added to it, and what that was: a piece that stands apart is a body of its own (`new`), one that touches it joins it (`add`); said, so that a step that did not say can be made to (`in_436`). */
 function joined(target, solid) {
+  // a piece whose box meets none of the bodies is a body of its own: the compound of them, with no boolean on all the others (a gear put down beside five gears took the time of fusing with all five, `dec_per_body_checks`)
+  const lumps = target.solids;
+  if (lumps.length) {
+    const nb = boxOf(solid);
+    const apart = lumps.every((l) => { const b = boxOf(l); return [0, 1, 2].some((i) => nb.min[i] > b.max[i] + 1e-6 || nb.max[i] < b.min[i] - 1e-6); });
+    if (apart) return { kind: "solid", shape: makeCompound([...lumps, ...(solid.solids ?? [solid])]), used: "new" };
+  }
   const shape = target.fuse(solid);
   const used = (shape.solids?.length ?? 1) > (target.solids?.length ?? 1) ? "new" : "add";
   return { kind: "solid", shape, used };
