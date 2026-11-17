@@ -1,7 +1,9 @@
 // A straight bevel gear pair, the shape of its teeth worked out (a prototype, `dec_gear_tool`, `in_719`; nothing in `app/src` imports it).
 // The tooth is the Tredgold back cone tooth: an involute spur tooth of the equivalent gear (z / cos delta teeth, the module, the pressure angle) developed on the back cone, carried round the axis (angle / cos delta) and projected
 // through the pitch cone's apex onto a plane across the axis; the small end of the tooth is the same outline scaled toward the apex, so the faces of the tooth are ruled by lines through the apex (as those of a real straight bevel tooth are).
-// Formulas: Autodesk Inventor 2022 Help, "Basic Geometric Calculation for Bevel Gears" (a PDF of the page the human sent, `in_722`; CC BY-NC-SA 3.0): pitch angle tan delta = sin(sigma) / (u + cos(sigma)), outer cone distance R = d / (2 sin delta),
+// Proportions by default: KHK-USA, Gear Solutions, July 2019, "Standards in terminology for bevel gearing" (a PDF the human sent, `in_723`): addendum of the wheel ha = 0.54 m + 0.46 m / uv (uv: the equivalent teeth of the wheel over the pinion's, (z2 cos d1) / (z1 cos d2)), of the
+// pinion 2 m less that, dedendum 2.188 m less the addendum (the long and short addendum of the AGMA straight bevel system), tip diameter d + 2 ha cos d, face width at most R / 3 (and at least 10 m), the shaft angle other than 90: tan d1 = sin S / (z2/z1 + cos S).
+// Other formulas: Autodesk Inventor 2022 Help, "Basic Geometric Calculation for Bevel Gears" (a PDF of the page the human sent, `in_722`; CC BY-NC-SA 3.0): pitch angle tan delta = sin(sigma) / (u + cos(sigma)), outer cone distance R = d / (2 sin delta),
 // equivalent teeth z / cos(delta), dedendum reduction k = 0.02 (17 - zv) (when positive), addendum h_a = m (ha* + x - k), dedendum h_f = m (ha* + c* - x), outside diameter d + 2 h_a cos(delta), face angle delta + atan(h_a / R), root angle delta - atan(h_f / R),
 // tooth thickness s = m (pi/2 + 2 x tan(alpha) + xt). The page does not give the defaults of ha*, c* (used here: 1 and 0.2, UNVERIFIED), the unit correction x (the long and short addendum: 0 here) or the face width (its own pages, not sent). Boston Gear's stock
 // formulas (a maker's catalogue) agree to within 0.012 m of the dedendum: a = 1/P, hT = 2.188/P + 0.002 in. The standards (AGMA 2005, ISO 23509) were not read: previews only (contents and scope).
@@ -15,9 +17,20 @@ export const pitchAngle = (z: number, mate: number, shaftDeg = 90): number => { 
 export function bevelOf(sp: BevelSpec): Bevel {
   const delta = pitchAngle(sp.z, sp.mate, sp.shaft ?? 90);
   const R = (sp.module * sp.z) / (2 * Math.sin(delta));
-  const zv = sp.z / Math.cos(delta), k = Math.max(0, 0.02 * (17 - zv)); // (the dedendum reduction of a gear with few equivalent teeth)
-  const [ha, c, x] = [sp.ha ?? 1, sp.c ?? 0.2, sp.x ?? 0];
-  const [addendum, dedendum] = [sp.module * (ha + x - k), sp.module * (ha + c - x)];
+  const zv = sp.z / Math.cos(delta);
+  let addendum: number, dedendum: number;
+  if (sp.ha !== undefined || sp.x !== undefined || sp.c !== undefined) { // (the Autodesk page's form: unit addendum, clearance and correction)
+    const k = Math.max(0, 0.02 * (17 - zv)); // (the dedendum reduction of a gear with few equivalent teeth)
+    const [ha, c, x] = [sp.ha ?? 1, sp.c ?? 0.2, sp.x ?? 0];
+    [addendum, dedendum] = [sp.module * (ha + x - k), sp.module * (ha + c - x)];
+  } else { // (KHK-USA, Gear Solutions July 2019, "Standards in terminology for bevel gearing": the wheel (the gear with more teeth) has ha = 0.54 m + 0.46 m / uv, uv = (z cos delta mate) / (mate z cos delta) = the ratio of the equivalent teeth; the pinion has 2 m less that; whole depth 2.188 m)
+    const zvm = sp.mate / Math.cos((((sp.shaft ?? 90) * Math.PI) / 180) - delta);
+    const wheel = sp.z >= sp.mate;
+    const uv = wheel ? zv / zvm : zvm / zv; // (the equivalent teeth of the wheel over the pinion's, at least 1)
+    const haWheel = 0.54 * sp.module + (0.46 * sp.module) / uv;
+    addendum = wheel ? haWheel : 2 * sp.module - haWheel;
+    dedendum = 2.188 * sp.module - addendum;
+  }
   return { delta, coneDistance: R, face: R * (sp.face ?? 1 / 3), pitchRadius: R * Math.sin(delta), tipRadius: R * Math.sin(delta) + addendum * Math.cos(delta), rootRadius: R * Math.sin(delta) - dedendum * Math.cos(delta), addendum, dedendum };
 }
 

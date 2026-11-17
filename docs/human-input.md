@@ -3236,3 +3236,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_722 — 2026-11-17 — directive
 > (the human attached three files and wrote nothing else: the Autodesk Inventor 2022 Help page "Basic Geometric Calculation for Bevel Gears" as a PDF, the preview of ANSI/AGMA ISO 23509-B17, and the preview of AGMA 937-A12)
 (sends the sources asked for: the first has the bevel gear formulas, the other two are previews of the standards)
+
+## in_723 — 2026-11-17 — question
+> (the human attached the KHK-USA article "Standards in terminology for bevel gearing" as a PDF) Do you want to link me to any other place I might be able to get you what you need?
+(sends the KHK-USA article, and asks for links to other places where the missing data may be got)
