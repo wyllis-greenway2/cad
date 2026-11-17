@@ -62,8 +62,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:clockring", label: "Clock ring", icon: "clockring", tool: "gear" },
   { id: "tool:clockrack", label: "Clock rack", icon: "rack", tool: "gear" },
   { id: "gear:edit", label: "Edit gear", icon: "gear" },
-  { id: "gear:helix", label: "Add helix", icon: "helical" },
-  { id: "gear:unhelix", label: "Remove helix", icon: "gear" },
+  { id: "gear:helix", label: "Helix", icon: "helical" },
   { id: "gear:mesh", label: "Mesh gear", icon: "meshgear" },
   { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack" },
   { id: "gear:meshring", label: "Mesh ring", icon: "meshring" },
@@ -102,7 +101,7 @@ const GEARS: Group = {
     { id: "clockgears", label: "Clock", icon: "clockgear", items: ["tool:clock", "tool:clockring", "tool:clockrack"] },
     { id: "pulleys", label: "Pulley", icon: "pulley", items: ["tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8"] },
     { id: "sprockets", label: "Sprocket", icon: "sprocket", items: ["tool:sprocket", "tool:isosprocket"] },
-    "gear:edit", "gear:helix", "gear:unhelix", "gear:mesh", "gear:meshrack", "gear:meshring",
+    "gear:edit", "gear:helix", "gear:mesh", "gear:meshrack", "gear:meshring",
   ],
 };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
@@ -125,9 +124,9 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
     const base = { id: r.id, label: r.label, icon: r.icon };
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
-    if (r.id === "gear:helix" || r.id === "gear:unhelix") { // (a helix is put on a plain gear and taken off a helical one, `in_692`)
+    if (r.id === "gear:helix") { // (the helix is a number of a plain gear, `in_693`)
       const rec = sel.map((x) => gearOfPart(sc, x)).find((g) => !!g);
-      const why = !rec ? "select a gear" : !canHelix(rec.spec) ? "a helix goes on a plain gear (not yet a ring, rack, pulley, sprocket, clock gear or worm)" : r.id === "gear:unhelix" && rec.spec.helix === undefined ? "this gear has no helix" : null;
+      const why = !rec ? "select a gear" : !canHelix(rec.spec) ? "a helix goes on a plain gear (not yet a ring, rack, pulley, sprocket, clock gear or worm)" : null;
       return [r.id, { ...base, enabled: !why, why }];
     }
     if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfPart(sc, x)); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }

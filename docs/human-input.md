@@ -3111,3 +3111,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_692 — 2026-11-17 — approval
 > Yes, make helix a modifier on any gear
 (approves the AI's recommendation: a helix is a modification put on a gear that is selected, not a gear tool of its own kind; Mesh follows the source's 3D-ness)
+
+## in_693 — 2026-11-17 — directive
+> Can we have gears be special objects where if the sketch or 3d model is selected it offers a gear icon that allows you to edit, or make mesh gear? The edit menu should allow you to change the attributes of the gear like you could when you originally created it. In fact why don't we just put the helix field directly in the edit menu and it is always there, if someone clicks helix it just takes you right there. A gear with a helix value always just goes 3d.
+>
+> I think the worm gear builder needs a better interface. Shouldn't we just show a real profile of the tooth layout kind of like a rack gear? and also shouldn't we have all the same bore abilities as any gear? and should we just show wireframe 3d model in the preview instead of 2d?
+(asks for a gear icon beside a selected gear (sketch or body) offering Edit and Mesh; Helix as a field that is always in the gear box, 0 for a flat gear and any other value a 3D gear, the Helix item going straight to it; and for the worm: a rack-like tooth profile in the preview, the same bores as any gear, and a 3D wire frame preview)

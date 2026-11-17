@@ -11,6 +11,7 @@ import { figureParams } from "./scene.ts";
 import type { Part } from "./part.ts";
 import type { GearRecord } from "./gearscene.ts";
 import { wormOf, wormLayout, wheelOf } from "./worm.ts";
+import { boreLoop } from "./bore.ts";
 import { wheelSections, SECTIONS } from "./wheelsections.ts";
 
 const [cross, sub] = [(a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]]];
@@ -47,12 +48,19 @@ export function wormParts(s: Scene, rec: GearRecord): Part[] {
     for (let i = 0; i < 4; i++) out.push({ ...base, ref: ref(rec.id, `t${j}s${i}`), kind: "line", a: ref(rec.id, `t${j}p${i}`), b: ref(rec.id, `t${j}p${(i + 1) % 4}`) });
   }
   // the core: a rectangle (its inner side the bore's radius, or on the axis) drawn on a second plane through the axis, a quarter turn from the sheet, and turned about the axis: a cylinder (a tube with a bore)
-  const L = rec.spec.worm!.length, q = ref(rec.id, "cq"), r0 = (rec.spec.bore ?? 0) / 2;
+  const L = rec.spec.worm!.length, q = ref(rec.id, "cq"), loop = (rec.spec.bore ?? 0) > 0 ? boreLoop(rec.spec) : null, r0 = loop ? 0 : (rec.spec.bore ?? 0) / 2;
   out.push({ ref: q, origin: "drawn", plane: null, movable: false, kind: "plane", at: rec.at, u: f.X, v: f.n });
   const qb = { origin: "drawn" as const, plane: q, movable: false };
   const rect: [number, number][] = [[-L / 2, r0], [L / 2, r0], [L / 2, g.value.rRoot], [-L / 2, g.value.rRoot]];
   rect.forEach(([a, r], i) => out.push({ ...qb, ref: ref(rec.id, `c${i}p`), kind: "corner", at: along(rec.at, f, a, 0, r) }));
   for (let i = 0; i < 4; i++) out.push({ ...qb, ref: ref(rec.id, `c${i}s`), kind: "line", a: ref(rec.id, `c${i}p`), b: ref(rec.id, `c${(i + 1) % 4}p`) });
+  if (loop) { // a flat or a keyway: the loop of the bore on a plane across the axis, just before the worm's start, cut along the whole of it (a revolved core can only have a round bore)
+    const bq = ref(rec.id, "bq");
+    out.push({ ref: bq, origin: "drawn", plane: null, movable: false, kind: "plane", at: along(rec.at, f, -L / 2 - 1, 0, 0), u: f.Y, v: f.n });
+    const bb = { origin: "drawn" as const, plane: bq, movable: false };
+    loop.points.forEach((p, i) => out.push({ ...bb, ref: ref(rec.id, `bp${i}`), kind: "corner", at: along(rec.at, f, -L / 2 - 1, p[0], p[1]) }));
+    loop.points.forEach((_, i) => out.push({ ...bb, ref: ref(rec.id, `bs${i}`), kind: "line", a: ref(rec.id, `bp${i}`), b: ref(rec.id, `bp${(i + 1) % loop.points.length}`), ...(loop.bulges[i] ? { bulge: loop.bulges[i]! } : {}) }));
+  }
   return out;
 }
 export function wormSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] | null {
@@ -63,15 +71,17 @@ export function wormSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] | null 
   const axis = { ax: rec.at[0], ay: rec.at[1], az: rec.at[2], dx: f.X[0], dy: f.X[1], dz: f.X[2] };
   const steps: Omit<Step, "id">[] = [{ type: "revolve", parts: core, params: { angle: 360, advance: 0, ...axis, mode: "new", gear: rec.id } }]; // (a piece of its own: it stands beside the wheel it drives and does not cut or join it)
   for (const lines of threads) steps.push({ type: "revolve", parts: lines, params: { angle: (360 * lay.sweep) / g.value.lead, advance: lay.sweep, ...axis, mode: "add", gear: rec.id } });
+  const loop = (rec.spec.bore ?? 0) > 0 ? boreLoop(rec.spec) : null;
+  if (loop) steps.push({ type: "extrude", parts: loop.points.map((_, i) => ref(rec.id, `bs${i}`)), params: { depth: String(L + 2), mode: "cut", gear: rec.id } }); // (a flat or a keyway: cut along the axis after the threads are on)
   return steps;
 }
 
 // ---- the wheel ----
-export interface WheelRefs { sections: Ref[][]; planes: Ref[]; bores: Ref[] }
+export interface WheelRefs { sections: Ref[][]; planes: Ref[]; /** the hole of each section as the lines (or the circle) it is made of, joined by commas */ bores: string[] }
 export function wheelRefs(rec: GearRecord): WheelRefs {
   const w = wheelSections(rec.spec);
   const sides = w.ok ? w.value[0]!.points.length : 0;
-  return { sections: Array.from({ length: SECTIONS }, (_, q) => Array.from({ length: sides }, (_, i) => ref(rec.id, `w${q}s${i}`))), planes: Array.from({ length: SECTIONS }, (_, q) => ref(rec.id, `w${q}q`)), bores: (rec.spec.bore ?? 0) > 0 ? Array.from({ length: SECTIONS }, (_, q) => ref(rec.id, `w${q}b`)) : [] };
+  return { sections: Array.from({ length: SECTIONS }, (_, q) => Array.from({ length: sides }, (_, i) => ref(rec.id, `w${q}s${i}`))), planes: Array.from({ length: SECTIONS }, (_, q) => ref(rec.id, `w${q}q`)), bores: (rec.spec.bore ?? 0) > 0 ? Array.from({ length: SECTIONS }, (_, q) => { const l = boreLoop(rec.spec); return l ? l.points.map((_, k) => ref(rec.id, `w${q}bs${k}`)).join(",") : ref(rec.id, `w${q}b`); }): [] };
 }
 export function wheelParts(s: Scene, rec: GearRecord): Part[] {
   const f = frameOf(s, rec), g = wheelOf(rec.spec), w = wheelSections(rec.spec);
@@ -84,7 +94,11 @@ export function wheelParts(s: Scene, rec: GearRecord): Part[] {
     const n = sec.points.length;
     sec.points.forEach((p, i) => out.push({ ...base, ref: ref(rec.id, `w${q}p${i}`), kind: "corner", at: along(rec.at, f, p[0], p[1], sec.h) }));
     for (let i = 0; i < n; i++) out.push({ ...base, ref: ref(rec.id, `w${q}s${i}`), kind: "line", a: ref(rec.id, `w${q}p${i}`), b: ref(rec.id, `w${q}p${(i + 1) % n}`), ...(sec.bulges[i] ? { bulge: sec.bulges[i]! } : {}) });
-    if ((rec.spec.bore ?? 0) > 0) {
+    const loop = (rec.spec.bore ?? 0) > 0 ? boreLoop(rec.spec) : null;
+    if (loop) { // (a flat or a keyway: the bore is a loop of its own, as a plain gear's is)
+      loop.points.forEach((p, i) => out.push({ ...base, ref: ref(rec.id, `w${q}bp${i}`), kind: "corner", at: along(rec.at, f, p[0], p[1], sec.h) }));
+      loop.points.forEach((_, i) => out.push({ ...base, ref: ref(rec.id, `w${q}bs${i}`), kind: "line", a: ref(rec.id, `w${q}bp${i}`), b: ref(rec.id, `w${q}bp${(i + 1) % loop.points.length}`), ...(loop.bulges[i] ? { bulge: loop.bulges[i]! } : {}) }));
+    } else if ((rec.spec.bore ?? 0) > 0) {
       out.push({ ...base, ref: ref(rec.id, `w${q}c`), kind: "corner", at: along(rec.at, f, 0, 0, sec.h) });
       out.push({ ...base, ref: ref(rec.id, `w${q}b`), kind: "circle", center: ref(rec.id, `w${q}c`), radius: rec.spec.bore! / 2 });
     }
@@ -94,6 +108,6 @@ export function wheelParts(s: Scene, rec: GearRecord): Part[] {
 export function wheelSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] | null {
   if (!frameOf(s, rec) || !wheelOf(rec.spec).ok || !wheelSections(rec.spec).ok) return null;
   const { sections, bores } = wheelRefs(rec);
-  const figs: Figure[] = sections.map((lines, q) => ({ outer: lines, holes: bores[q] ? [[bores[q]!]] : [] }));
+  const figs: Figure[] = sections.map((lines, q) => ({ outer: lines, holes: bores[q] ? [bores[q]!.split(",") as Ref[]] : [] }));
   return [{ type: "loft", parts: sections[0]!, params: { ...figureParams(figs), mode: "new", gear: rec.id } }]; // (a piece of its own, beside the worm it meshes with)
 }

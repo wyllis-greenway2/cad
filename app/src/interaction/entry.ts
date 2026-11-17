@@ -90,7 +90,7 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
   else if (tool.kind === "gear") {
     const g = tool.gear ?? { internal: false, typed: [] as string[], field: 0 };
     const shown = gearLive(scene, tool);
-    return { panel: gearTitle(g), fields: gearFields(g).map((f, i) => ({ ...(g.bad?.field === i ? { bad: true } : {}), hint: [GEAR_HINTS[f.key], boreHint(f.key, boreNow(g, shown))].filter(Boolean).join(" "), label: f.label, value: (g.typed[i] ?? "") !== "" ? g.typed[i]! : shown ? roundedText(shown[i]!) : "", active: g.field === i, typed: (g.typed[i] ?? "") !== "", ...(f.key === "pressure" || f.key === "angle" ? { unit: "°" } : {}) })), unit: "mm" };
+    return { panel: gearTitle(g), fields: gearFields(g).map((f, i) => ({ ...(g.bad?.field === i ? { bad: true } : {}), hint: [g.worm && f.key === "teeth" ? GEAR_HINTS.starts : GEAR_HINTS[f.key], boreHint(f.key, boreNow(g, shown))].filter(Boolean).join(" "), label: f.label, value: (g.typed[i] ?? "") !== "" ? g.typed[i]! : shown ? roundedText(shown[i]!) : "", active: g.field === i, typed: (g.typed[i] ?? "") !== "", ...(f.key === "pressure" || f.key === "angle" ? { unit: "°" } : {}) })), unit: "mm" };
   }
   else if (tool.kind === "arc") {
     if (tool.points.length < 2) return null; // nothing to size until the arc has its two ends

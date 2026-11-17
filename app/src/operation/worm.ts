@@ -3,6 +3,7 @@
 //
 // The numbers: the axial module m (the thread's pitch along the axis is pi m), the axial pressure angle, the number of starts k (the lead is k pi m, so one turn carries the thread k pitches), the pitch diameter d (the
 // worm has no teeth to count: the diameter is free, and the lead angle atan(k m / d) follows from it), the length of the core. The thread stands out an addendum m beyond the pitch circle and goes a dedendum 1.25 m below it.
+import { boreProblem } from "./bore.ts";
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import type { GearSpec } from "./gear.ts";
@@ -47,7 +48,8 @@ export function wormOf(spec: GearSpec): Result<WormGeometry> {
   if (w.length > 40 * g.value.lead) return err("the worm is too long for its lead");
   const bore = spec.bore ?? 0;
   if (bore < 0 || bore >= 1.8 * g.value.rRoot) return err("the bore must be smaller than the worm's root diameter");
-  if (spec.flat || spec.key || spec.keyDepth !== undefined) return err("a worm has a round bore only");
+  const shape = boreProblem(spec, g.value.rRoot);
+  if (shape) return err(shape);
   return g;
 }
 
@@ -82,7 +84,8 @@ export function wheelOf(spec: GearSpec): Result<WheelGeometry> {
   if (!(w.width > 0 && w.width < 1.8 * throat * 0.7)) return err(`the width of the wheel must be from 0 to ${(1.26 * throat).toFixed(1)} mm for this worm`);
   const bore = spec.bore ?? 0;
   if (bore < 0 || bore >= 2 * (cd - worm.rTip) * 0.9) return err("the bore must be smaller than the wheel's root circle");
-  if (spec.flat || spec.key || spec.keyDepth !== undefined) return err("a worm wheel has a round bore only");
+  const shape = boreProblem(spec, cd - worm.rTip);
+  if (shape) return err(shape);
   const tipAt = (h: number) => cd - Math.sqrt(throat * throat - h * h);
   const rootAt = (h: number) => cd - Math.sqrt(worm.rTip * worm.rTip - h * h);
   return ok({ worm, z, rw, cd, throat, width: w.width, tipAt, rootAt });

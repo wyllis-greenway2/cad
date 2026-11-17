@@ -25,6 +25,8 @@ import { thinPlacesOf } from "./measure.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
 import { axisAcross } from "./revolve.ts";
+import { gearOfPart } from "../operation/gearscene.ts";
+import { canHelix } from "./tools.ts";
 import { hardMotion, hardNote, limitedOp, hardCollision, hardOverlaps, hardNames } from "./hard.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { withCorner } from "./runop.ts";
@@ -98,6 +100,8 @@ export interface Frame {
   /** the eye on each body (`dec_hidden_bodies`): its box's corners and whether it is hidden; `eyesQuiet`: a tool or an operation is in use, so the eyes of shown bodies stay away */
   bodyEyes: { ref: string; hidden: boolean; corners: Vec3[] }[];
   eyesQuiet: boolean;
+  /** the gear's own icon (`in_693`): a gear is selected (its sketch or its body): where it stands (the top of the gear) and what it offers */
+  gearChip: { at: Vec3; items: { id: string; label: string; icon: string; enabled: boolean; why: string | null }[] } | null;
   /** the bodies that move with the one being dragged, each by its own matrix, as its mates take them along (`in_341`) */
   followers: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[];
   /** what is selected is the body, so its highlight is moved by the same matrix */
@@ -390,6 +394,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     thin: s.panel === "measure" && !outcome.kernel?.stale ? thinPlacesOf(sc, sel) : null,
     bodyEyes: Object.values(sc.parts).flatMap((p) => { if (p.kind !== "body" || !p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners }]; }),
     eyesQuiet: !!s.tool || !!s.op || !!s.drag || !!s.repeat,
+    gearChip: s.tool || s.op || s.drag || s.repeat ? null : gearChipOf(sc, sel),
     followers: gpu?.followers ?? [],
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
     highlight: { hover: s.session.hover, /* (a visible sheet lights the blue hover disc as every surface does, `in_470`) */ hoverPoint: s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
@@ -655,4 +660,22 @@ function bodySplitOf(sc: Scene, outcome: CompileOutcome, op: Op): Frame["bodySpl
     for (const r of ranges) tris.push([r.start, r.count]);
   }
   return tris.length ? { tris, box: { min: body.bbox.min, max: body.bbox.max } } : null;
+}
+
+/** The gear's icon and what a click on it offers (`in_693`), for the first gear in the selection; null when none is selected. */
+function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
+  const rec = sel.map((r) => gearOfPart(sc, r)).find((g) => !!g);
+  const pl = rec ? sc.parts[rec.plane] : undefined;
+  if (!rec || !pl || pl.kind !== "plane") return null;
+  const r = rec.spec.worm ? rec.spec.worm.length / 2 : Math.max(5, rec.spec.module * (rec.spec.teeth / 2 + 2));
+  const at: Vec3 = [rec.at[0] + pl.v[0] * r, rec.at[1] + pl.v[1] * r, rec.at[2] + pl.v[2] * r];
+  const plain = canHelix(rec.spec);
+  const worm = !!rec.spec.worm;
+  return { at, items: [
+    { id: "gear:edit", label: "Edit gear", icon: "gear", enabled: true, why: null },
+    { id: "gear:helix", label: "Helix", icon: "helical", enabled: plain, why: plain ? null : "a helix goes on a plain gear (not yet a ring, rack, pulley, sprocket, clock gear or worm)" },
+    { id: "gear:mesh", label: "Mesh gear", icon: "meshgear", enabled: true, why: null },
+    { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack", enabled: !worm, why: worm ? "a rack does not mesh with a worm" : null },
+    { id: "gear:meshring", label: "Mesh ring", icon: "meshring", enabled: !worm, why: worm ? "a ring does not mesh with a worm" : null },
+  ] };
 }
