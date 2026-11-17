@@ -12,7 +12,8 @@ import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
 import type { Command } from "../operation/commands.ts";
-import { drawSquaredRectangle, drawCircle, drawChain, drawArc, joinedAtCorners } from "../operation/build.ts";
+import { drawSquaredRectangle, drawCircle, drawChain, drawArc, drawSpline, joinedAtCorners } from "../operation/build.ts";
+import { distinctPoints, splinePoints } from "../operation/spline.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt, visibleFrom } from "./picking.ts";
 import { anchorCorners, anchorLines, anchorCutCorners } from "../operation/anchors.ts";
@@ -29,7 +30,7 @@ import { chainOf } from "../operation/chains.ts";
 import type { GearRecord } from "../operation/gearscene.ts";
 import { meshWith } from "../operation/mesh.ts";
 
-export type ToolKind = "rect" | "circle" | "line" | "arc" | "trim" | "gear";
+export type ToolKind = "rect" | "circle" | "line" | "arc" | "spline" | "trim" | "gear";
 export interface Tool {
   kind: ToolKind;
   /** null while armed (waiting for the first click on a surface) */
@@ -102,7 +103,7 @@ export const meshGearTool = (src: GearRecord, rack: boolean, ring = false): Tool
 /** The tool opened on a gear that is already made, to change its numbers: its plane and centre, and its numbers as they are. */
 export const editGearTool = (rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }): Tool => ({ ...armTool("gear", variantOf(rec.spec)), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: !!rec.spec.internal, ...(rec.spec.helix !== undefined ? { helical: true as const } : {}), ...(rec.spec.worm ? { worm: true as const } : {}), ...(rec.spec.wheel ? { wheel: true as const } : {}), ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}), typed: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], field: 0, editing: rec.id, base: rec.spec, ...(rec.turn ? { turn: rec.turn } : {}) } });
 
-export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], trim: [], gear: ["Teeth", "Module"] };
+export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], spline: [], trim: [], gear: ["Teeth", "Module"] };
 
 // ---- points on a plane ----
 export function pointOnPlane(pv: PointerView, pl: Plane): Vec3 | null {
@@ -443,6 +444,11 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
     const [a, b] = [t.points[0]!, t.points[1] ?? t.cursor];
     return { segments: b ? [[a, b]] : [], circle: null, cursor: t.cursor };
   }
+  if (t.kind === "spline") { // a spline: the curve through the points placed and the pointer (`dec_spline_and_cams`); its points are the corners to hold it by
+    const through = distinctPoints(t.cursor ? [...t.points, t.cursor] : t.points);
+    const pts = through.length >= 3 ? splinePoints(through) : through;
+    return { segments: pts.slice(1).map((p, i): [Vec3, Vec3] => [pts[i]!, p]), circle: null, cursor: t.cursor };
+  }
   const pts = [...t.points];
   const nx = lineNext(t);
   if (nx) pts.push(nx);
@@ -499,6 +505,12 @@ export function finish(scene: Scene, t: Tool): Finished | null {
     const arc = arcOf(pl, t);
     if (!arc) return null;
     const d = drawArc(scene, pl.ref, arc.a, arc.mid, arc.b, normalOfPlane(pl));
+    return d ? { command: joinedAtCorners(scene, pl.ref, d.command), select: [d.line] } : null;
+  }
+  if (t.kind === "spline") {
+    const through = distinctPoints(t.points);
+    if (through.length < 3 || dist(through[0]!, through[through.length - 1]!) < 1e-6) return null; // (two points are a line; a curve that comes back to its start is not made yet)
+    const d = drawSpline(scene, pl.ref, through, normalOfPlane(pl));
     return d ? { command: joinedAtCorners(scene, pl.ref, d.command), select: [d.line] } : null;
   }
   const pts = [...t.points];
