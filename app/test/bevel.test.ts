@@ -41,7 +41,7 @@ test("refusals say why", () => {
   assert.ok(o.ok && o.value.warnings.some((w) => /approximation/.test(w)), "the outline says it is an approximation");
 });
 
-test("the gear command makes a bevel gear: one body (the tooth prism cut to the blank of cone ends), with a bore through it, and the tooth no taller than a bevel tooth is (`in_763`)", () => {
+test("the gear command makes a bevel gear: one body (the tooth prism cut to the blank of cone ends), with a bore through it, and the tooth no taller than a bevel tooth is (`in_776`)", () => {
   for (const [z, mate] of [[20, 30], [20, 20], [30, 20], [60, 15]] as const) {
     const sp: GearSpec = { teeth: z, module: 2, bevel: { mate }, bore: 5 };
     const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: sp });
@@ -107,7 +107,7 @@ for (const [z1, z2, shaft, where] of [[20, 30, 90, 0], [24, 24, 60, 1]] as const
   });
 }
 
-test("changing the teeth of a bevel gear that was made to mesh with another puts the pair right again: the mate teeth follow, and the partner is placed again to fit (`in_763`)", () => {
+test("changing the teeth of a bevel gear that was made to mesh with another puts the pair right again: the mate teeth follow, and the partner is placed again to fit (`in_776`)", () => {
   const spec: GearSpec = { teeth: 20, module: 2, backlash: 0.1, bevel: { mate: 30 } };
   const src: GearRecord = { id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], turn: 0.1, spec };
   const p = meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 30 }, 0.5);
@@ -130,7 +130,7 @@ test("changing the teeth of a bevel gear that was made to mesh with another puts
   assert.ok(overlap(edited) < 0.5, "and fits");
 });
 
-test("a bevel gear follows the speed rules of the other gears (`dec_gear_speed`, `dec_gear_feature`, `in_763`): a stand-in disc while the kernel works (one, for the prism, not for the blank or the combine) and a body of a few parts, not one for every arc of every tooth", () => {
+test("a bevel gear follows the speed rules of the other gears (`dec_gear_speed`, `dec_gear_feature`, `in_776`): a stand-in disc while the kernel works (one, for the prism, not for the blank or the combine) and a body of a few parts, not one for every arc of every tooth", () => {
   const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: { ...pinion, bore: 5 } });
   assert.ok(!s.message, s.message ?? "");
   const discs = standIns(scene(s), { stale: true, ops: [] });

@@ -5,8 +5,10 @@ import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { splineAt } from "./spline.ts";
+import { ratchetShapes } from "./ratchet.ts";
+import { genevaShapes } from "./geneva.ts";
 
-export type CamKind = "eccentric" | "snail" | "disc";
+export type CamKind = "eccentric" | "snail" | "disc" | "ratchet" | "geneva";
 /** how a disc cam's follower moves while it rises or returns: all three start and end at rest (no jump of speed, so the profile has no corner); the cycloidal law is the gentlest on the follower, the harmonic the simplest, the parabolic the one of steady push (an even acceleration, then an even braking) */
 export type CamLaw = "cycloidal" | "harmonic" | "parabolic";
 export interface CamSpec {
@@ -21,6 +23,12 @@ export interface CamSpec {
   law?: CamLaw; rise?: number; dwell?: number; ret?: number;
   /** a disc cam: the roller of the follower, its radius in mm (0: a point follower): the profile is the path of the roller's pitch curve taken in by this much */
   roller?: number;
+  /** a ratchet (`kind: "ratchet"`, `dec_ratchet`): the tooth count, the depth of a tooth (mm), the lean of the face (degrees from radial), the pawl's arm (mm from its contact to its pivot, 0 for none) and the width of its boss (mm) */
+  teeth?: number; depth?: number; hook?: number; pawl?: number; width?: number;
+  /** a Geneva drive (`kind: "geneva"`, `dec_geneva`): `teeth` is the slot count; the crank's pin circle radius, the pin's diameter and the clearance each side of the pin in a slot (mm) */
+  crank?: number; pin?: number; clearance?: number;
+  /** the whole drawing turned about the shaft, degrees counter-clockwise from +x (0 if absent) */
+  turn?: number;
 }
 export type V2 = [number, number];
 export interface CamShapes {
@@ -30,11 +38,13 @@ export interface CamShapes {
   spiral: V2[] | null;
   /** a disc cam's outline: points of a closed curve round the shaft, counter-clockwise */
   closed: V2[] | null;
+  /** closed outlines of straight sides and arcs (a ratchet's wheel and pawl): the corners, and the bulge of the side from each to the next (`Line.bulge`) */
+  polys?: { points: V2[]; bulges: number[] }[];
 }
 const SPIRAL_POINTS = 25;
 export function camProblem(s: CamSpec): string | null {
-  if (!(s.diameter > 0)) return "the cam needs a diameter";
-  if (!(s.lift > 0)) return s.kind === "eccentric" ? "the cam needs an offset (how far the shaft is from the middle of the disc)" : "the cam needs a lift (how far it rises over one turn)";
+  if (s.kind !== "geneva" && !(s.diameter > 0)) return "the cam needs a diameter";
+  if (s.kind !== "ratchet" && s.kind !== "geneva" && !(s.lift > 0)) return s.kind === "eccentric" ? "the cam needs an offset (how far the shaft is from the middle of the disc)" : "the cam needs a lift (how far it rises over one turn)";
   if (s.hole < 0) return "the shaft's hole cannot be less than nothing";
   const r = s.diameter / 2;
   if (s.kind === "eccentric" && s.hole / 2 + s.lift >= r - 1e-9) return "the shaft's hole would break through the edge of the disc: make the offset or the hole smaller, or the disc bigger";
@@ -52,6 +62,8 @@ export function camShapes(s: CamSpec): Result<CamShapes> {
   if (why) return err(why);
   const r = s.diameter / 2;
   const hole: CamShapes["circles"] = s.hole > 0 ? [{ c: [0, 0], r: s.hole / 2, hole: true }] : [];
+  if (s.kind === "geneva") { const g = genevaShapes(s); return g.ok ? ok({ circles: g.value.circles, spiral: null, closed: null, polys: g.value.polys }) : err(g.error); }
+  if (s.kind === "ratchet") { const r = ratchetShapes(s); return r.ok ? ok({ circles: r.value.circles, spiral: null, closed: null, polys: r.value.polys }) : err(r.error); }
   if (s.kind === "disc") return discShapes(s, hole);
   if (s.kind === "eccentric") return ok({ circles: [{ c: [s.lift, 0], r }, ...hole], spiral: null, closed: null });
   const spiral: V2[] = Array.from({ length: SPIRAL_POINTS }, (_, i) => { const t = (i / (SPIRAL_POINTS - 1)) * 2 * Math.PI; const rr = r + (s.lift * t) / (2 * Math.PI); return [rr * Math.cos(t), rr * Math.sin(t)]; });

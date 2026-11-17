@@ -284,7 +284,7 @@ function knotAt(sc: Scene, sel: readonly Ref[], project: (p: Vec3) => [number, n
   const found: { line: Ref; index: number; d: number }[] = [];
   for (const r of sel) {
     const p = sc.parts[r];
-    const w = p?.kind === "line" && p.spline ? splineWorld(get, p) : null;
+    const w = p?.kind === "line" && p.spline && p.movable ? splineWorld(get, p) : null;
     if (!w) continue;
     w.slice(1, -1).forEach((q, k) => { const [px, py] = project(q); const d = Math.hypot(px - x, py - y); if (d <= settings.pick.pointPx) found.push({ line: r, index: k, d }); });
   }

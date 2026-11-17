@@ -29,6 +29,21 @@ function halves(ring: readonly Vec3[]): { pts: Vec3[]; before: Vec3; after: Vec3
     { pts: [...ring.slice(k), ring[0]!], before: ring[k - 1]!, after: ring[1]! },
   ];
 }
+/** The two sides of a closed spline through a ring of points (three or more, not repeating the first): from the first point to the one half way round, and on round to the first again, each as its two ends, the points between
+ * them and the points of the closed curve either side (`Line.around`). The corners are the first point and the one half way round. */
+export function closedSides(ringPoints: readonly Vec3[], normal: Vec3): { from: Vec3; to: Vec3; spline: [number, number][]; around: Around }[] | null {
+  const ring = distinctPoints(ringPoints);
+  if (ring.length > 1 && dist(ring[0]!, ring[ring.length - 1]!) < 1e-9) ring.pop();
+  if (ring.length < 3) return null;
+  const out: { from: Vec3; to: Vec3; spline: [number, number][]; around: Around }[] = [];
+  for (const h of halves(ring)) {
+    const [a, b] = [h.pts[0]!, h.pts[h.pts.length - 1]!];
+    const spline = splineStored(h.pts, normal);
+    if (!spline) return null;
+    out.push({ from: a, to: b, spline, around: { before: inChord(a, b, h.before, normal), after: inChord(a, b, h.after, normal) } });
+  }
+  return out;
+}
 /** The command that draws a closed spline through these points (three or more, the curve coming back from the last to the first), and the face it makes. */
 export function drawClosedSpline(scene: Scene, plane: Ref, points: readonly Vec3[], normal: Vec3): Result<{ command: Command; lines: Ref[]; select: Ref[] }> {
   const ring = distinctPoints(points);

@@ -65,7 +65,7 @@ export function bevelSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] | null
   if (!blank.length) return null;
   const f = bevelFrame(pl.u, pl.v, rec.spec, rec.turn ?? 0);
   const figs: Figure[] = sections.map((lines, q) => ({ outer: lines, holes: bores[q] ? [bores[q]!.split(",") as Ref[]] : [] }));
-  // the prism of the tooth cones (a piece of its own), the blank (a piece of its own) and the two intersected: what is left is the gear (`in_763`); `$0` and `$1` are the names of the first two steps, put in when they are named
+  // the prism of the tooth cones (a piece of its own), the blank (a piece of its own) and the two intersected: what is left is the gear (`in_776`); `$0` and `$1` are the names of the first two steps, put in when they are named
   return [
     { type: "loft", parts: sections[0]!, params: { ...figureParams(figs), ruled: 1, mode: "new", gear: rec.id } },
     { type: "revolve", parts: blank, params: { angle: 360, advance: 0, ax: rec.at[0], ay: rec.at[1], az: rec.at[2], dx: f.n[0], dy: f.n[1], dz: f.n[2], mode: "new", gear: rec.id } },

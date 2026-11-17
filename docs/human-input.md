@@ -3398,25 +3398,97 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (approves the AI's three proposals in the chat after in_761: the carrier as a plate with a pin at each planet position with thickness, pin diameter and clearance set by the person; each planet its own body; for helical sets the sun and ring the same hand and the planets the opposite hand; and tells it to build the planetary feature)
 
 ## in_763 — 2026-11-17 — directive
+> yes do the revolve, loft and sweep solids next
+(approves doing the revolve, loft and sweep steps' own solids next: kept under a key that does not include the steps before them, as the extrude's is)
+
+## in_764 — 2026-11-17 — directive
+> yes do the joined and pushed-in extrudes next
+(approves doing the joined and pushed-in extrudes next: a step that adds to or cuts into the body works on the bodies it touches and not on the whole shape)
+
+## in_765 — 2026-11-17 — approval
+> Yes, build the standard length lists
+(asks for the standard length lists of the screws to be built, in place of a free length number)
+
+## in_766 — 2026-11-17 — approval
+> Yes, build picked-point placement
+(asks for the fastener hole to be placed at a picked point, a corner or the centre of a circle, instead of only the middle of the face plus a typed offset)
+
+## in_767 — 2026-11-17 — directive
+> Go with your recommendation, start on the ratchet wheel and pawl
+(asks for the ratchet wheel and pawl to be started; the recommendation was a decision entry first, then the generator)
+
+## in_768 — 2026-11-17 — directive
+> Go with your recommendation, give cams and ratchets a record
+(asks for cams and ratchets to keep their numbers as a record, as a gear does, so they can be changed by number after they are drawn)
+
+## in_769 — 2026-11-17 — directive
+> Go with your recommendation, source the ratchet numbers
+(asks for the ratchet's default numbers to be sourced, `q_ratchet_numbers`: look for where the tooth depth, hook angle, pawl pivot rule and pawl size come from, and write them in)
+
+## in_770 — 2026-11-17 — directive
+> Go ahead and start a new branch. Research how the gear system works. the meshing gear suggestion while drawing a gear next to another gear of the same type isn't obvious. It should turn orange and set the gear meshed in tooth and position after the first click and before the second click while setting the gear size.When you click on a gear and click mesh, it doesn't bring up the menu. Why not? How are you supposed to set the bore, or tooth count, or the position angle etc? Maybe the attributes that mesh it to the first one should not be there? or possible be there but froze? or turn red if typed? It does seem to offer this menu if you add a mesh gear to a spiral gear? The worm wheels seem pretty thin and sharp at the edges. Is this how real worm wheels are made I would imagine the top and the bottom go a little further straight. So almost as if it where a regular spiral gear that had a curved seet cut in the center to seat with the curved belly of the worm well. Almost as if that was cut out of a straight sided spiral gear? Should we offer to chamfer the gear teeth on top and bottom surfaces? Would that make it a whole bunch slower because now we are introducing even more edges? Also, would these gears be more accurate, and or render faster if we offered a more complex curve sketch option that could capture their shape without 4 (or more, however you are modeling the teeth) pieces of radial curves? Why cant I make a mesh rack for a helix gear? it doesn't work. Also the rack gear doesn't seem to have a helix option at all?
+(asks for a new branch (the session's branch claude/intelligent-hawking-8j1lyr already existed and was kept); for research on the gear system; that the meshing suggestion next to a same-type gear turn orange and set the meshed tooth count and position after the first click and before the second; why Mesh on a clicked gear shows no number box and how its bore, tooth count and angle are meant to be set (the attributes that mesh it to the first could be left out, frozen or turn red when typed); whether worm wheels are made like this (thin, sharp edges; the top and bottom straight, a curved seat cut into a straight sided gear); whether to offer a chamfer on the teeth of the top and bottom faces and what it costs in speed; whether a richer curve sketch element would make gears more exact or faster to draw than many arcs; why a mesh rack for a helical gear does not work; and why the rack has no helix option)
+
+## in_771 — 2026-11-17 — directive
+> can we remove helix, edit, and mesh from the menu, instead it will just be available on the gear icon on already existing gears. There seems to be a bug where after I add a ring gear with helix, then I can no longer select the bodies of gears on double click. Can we have it so that if you apply a helix to a gear from the gear menu on the gear, then it auto applies a 15 degree and scrolls and focuses on the helix field in the menu that pops up?
+(asks to take Helix, Edit and Mesh out of the Sketch ring's menu so they are on the gear icon of an existing gear only; reports that after adding a helical ring gear the bodies of gears can no longer be selected by double click; and asks that Helix from the gear icon apply 15 degrees at once and scroll to and focus the Helix field of the box that opens)
+
+## in_772 — 2026-11-17 — approval
+> Yes, shorten it to Bevel gear
+(approves shortening the menu label "Bevel gear (approx.)" to "Bevel gear", so the menu tooltip test passes)
+
+## in_773 — 2026-11-17 — directive
+> I have a lot of Claudes working in this repository, can I have you merge all their work into a main as we go so I can continually test their work regardless of which branch is making edits?
+(asks for the work of all the Claude branches to be merged into one branch as it goes, so it can be tested whichever branch is being edited)
+
+## in_774 — 2026-11-17 — directive
+> does main even have anything on it? I think we have basically been using claude/inspiring-pascal-l342k7 as main? We dont have production now, only localhost
+(asks whether a main branch has anything on it, and says claude/inspiring-pascal-l342k7 has been used as main, with no production, only localhost)
+
+## in_775 — 2026-11-17 — approval
+> yes, merge everything into it now
+(approves merging all the branches into claude/inspiring-pascal-l342k7 now, and pushing it)
+
+## in_776 — 2026-11-17 — directive
 > okay so I think there are a few problems. First off, it seems like the gear teeth get longer as the tooth count increases? Are you sure we got our tooth profiles working right see this small meshed gear and large meshed gear. Also changing the tooth count on a mesh seems to not realign the gear to socket into the meshed original gear properly. Also another problem is that we now have rules for handling gears with speed, the other gears follow these rules (see spur gear) but not the bevel gears.
 (reports three problems with the bevel gears: the teeth look longer as the tooth count goes up, changing the tooth count of a meshed gear does not re-seat it in its partner, and the bevel gears do not follow the speed rules the other gears follow; images may have been attached, which I cannot see)
 
-## in_764 — 2026-11-17 — directive
+## in_777 — 2026-11-17 — directive
 > okay can we try again to get the the standard octoid tooth ? lets keep researching. See what you can find and or give me links to help you get documentation
 (asks me to research again for the standard octoid tooth of the bevel gear, and to find or link documentation that would give me what I need)
 
-## in_765 — 2026-11-17 — approval
+## in_778 — 2026-11-17 — approval
 > yes set up the source index
 (approves setting up the source index: an entry for each source read or looked up so far)
 
-## in_766 — 2026-11-17 — directive
+## in_779 — 2026-11-17 — directive
 > lets work on Spiral bevel and hypoid
 (asks me to work on spiral bevel and hypoid gears next)
 
-## in_767 — 2026-11-17 — directive
+## in_780 — 2026-11-17 — approval
+> Yes, run the suite and the browser check
+(asks for the full test suite and a browser check of picking a face and corners for the fastener hole to be run)
+
+## in_781 — 2026-11-17 — directive
+> Go with your recommendation, leave the ratchet numbers as they are
+(asks for the ratchet's default numbers to be left as they are; they stay conventions, not sourced numbers)
+
+## in_782 — 2026-11-17 — directive
+> Go with your recommendation, start on the Geneva drive
+(asks for the Geneva drive to be started, the next shape after the ratchet)
+
+## in_783 — 2026-11-17 — approval
+> Yes, build the helical rack and the wheel land
+(approves building the helical rack (with the Helix field on a rack and meshing it with a helical gear) and the straight land at each face of the worm wheel, two of the four options of `q_gear_finishing`; the tooth chamfer and the spline flank are not answered)
+
+## in_784 — 2026-11-17 — directive
+> yes do the smaller per-edit and per-frame costs next
+(approves doing the smaller per-edit and per-frame costs next: grouping loops once per derive, copying the parts map twice per edit, picking against the body's triangles, and the axis-label check during an orbit)
+
+## in_785 — 2026-11-17 — directive
 > wait until its surfaces can be derived from those papers. Lets build it right
 (decides: no approximate spiral bevel gear; wait until its tooth surfaces can be derived from the NASA papers and the other sources, and build it correctly)
 
-## in_768 — 2026-11-17 — directive
+## in_786 — 2026-11-17 — directive
 > [the human attached five PDFs with no words: the NASA paper 19830024896 (59 pages), the NASA paper 19810017922 (23 pages), Stadtfeld "stadtfeld.pdf" (Gear Technology, Jan 2001), Gear Technology "chapter2.pdf" (Aug 2015), and "The intrinsic pitch cones in hypoid gears" (AGMA media)]
 (sends the papers asked for, to derive the spiral bevel surfaces from; the NASA paper 19820018805 and the Tredgold postprint were not among them)

@@ -4,17 +4,33 @@ import { KEYS, standardKey } from "../operation/bore.ts";
 
 /** What each number of a cam says, in a line (`dec_spline_and_cams`), by the label the box shows */
 export const CAM_HINTS: Record<string, string> = {
-  Diameter: "The base circle: the smallest the cam gets (the pointer's distance from the shaft sets it, or type it). For an eccentric, the whole disc.",
+  Diameter: "The size across: a cam's base circle (the smallest it gets), an eccentric's whole disc, a ratchet's outside circle at the tips of its teeth. The pointer's distance from the shaft sets it, or type it.",
   Offset: "How far the shaft is from the middle of the disc, mm. The follower moves twice this.",
   Lift: "How far the follower rises over the base circle, mm (a snail: over one turn).",
   Rise: "Degrees of the turn over which the follower rises, from the +x direction round counter-clockwise.",
   Dwell: "Degrees the follower stays at the top before it comes down. 0 for none.",
   Return: "Degrees of the turn over which the follower comes down. Rise + dwell + return is at most 360; what is left is the rest at the bottom.",
-  Hole: "The shaft's hole, diameter in mm. 0 for none (a fifth of the diameter if left).",
+  Hole: "The shaft's hole, diameter in mm. 0 for none. If left, a fifth of the diameter for a cam or a ratchet, a quarter of the crank radius for a Geneva wheel (the hole of the crank too).",
+  Slots: "How many slots the wheel has, 3 to 24. The wheel turns one slot's step (360 divided by this) for each turn of the crank. Few slots make a jerky drive.",
+  Crank: "The radius of the circle the crank's pin goes round, mm (the pointer's distance from the wheel's shaft sets it, or type it). With the slots it fixes how far apart the two shafts are: a divided by the sine of 180 over the slots (the title shows it).",
+  Pin: "The pin's diameter, mm (a quarter of the crank radius if left). The slots are this wide plus the clearance each side.",
+  Clearance: "Play between the pin and the slot, mm each side. 0.3 if left (a starting point for printing; set it for your printer).",
+  Teeth: "How many teeth (a whole number, 3 to 200). More teeth hold in finer steps.",
+  Depth: "From the tip of a tooth to its root, mm. A common start is 0.4 of the pitch (the circle's length divided by the teeth).",
+  Hook: "How far the holding face of each tooth leans from straight to the centre, degrees (0 to 30). 0 is a radial face; a lean holds the pawl in the gap.",
+  Pawl: "The pawl's arm: from where it rests on the tooth to its pivot, mm. 0 draws the wheel alone. The arm runs along the tangent at the contact (turned outward only as far as it must to clear the next tooth), so the load runs along it.",
+  Width: "The pawl's boss at the pivot, diameter mm (its pivot hole is half of it).",
+  Angle: "Turns the whole drawing about the shaft, degrees counter-clockwise from +x: where the engaged tooth and the pawl sit.",
   Roller: "Radius of the follower's roller, mm; 0 for a point follower. The outline is taken in by this much; a roller too big for a tight turn is refused.",
 };
-export const camTitle = (kind: string, law?: string): string => (kind === "eccentric" ? "Eccentric cam" : kind === "snail" ? "Snail cam" : `Disc cam, ${law ?? "cycloidal"}`);
+export const camTitle = (kind: string, law?: string, centres?: string): string => (kind === "geneva" ? `Geneva wheel and crank${centres ? `, shafts ${centres} apart` : ""}` : kind === "ratchet" ? "Ratchet wheel and pawl" : kind === "eccentric" ? "Eccentric cam" : kind === "snail" ? "Snail cam" : `Disc cam, ${law ?? "cycloidal"}`);
 export const GEAR_HINTS: Record<GearKey, string> = {
+  sun: "Teeth on the sun, the middle gear. Type the planet's teeth or a ratio and the rest follows.",
+  planet: "Teeth on each planet. The ring gets sun + 2 planets teeth. Leave empty to let a ratio choose.",
+  planets: "How many planets. They stand evenly round the sun; (sun + ring) divided by this must be a whole number, or they could not all mesh.",
+  pin: "Diameter of the pin each planet turns on, mm (the planet's bore is this plus the gap all round).",
+  pingap: "Room between a pin and its planet's bore, mm, all round. 0.2 is a loose fit; raise it to print in place.",
+  carrier: "Thickness of the carrier plate (mm): a plate with a pin at each planet, behind the gears. 0 (or empty) makes no carrier.",
   teeth: "How many teeth. A partner needs the same module and pressure angle; its teeth divided by yours is the speed ratio.",
   module: "Tooth size in mm: pitch diameter divided by teeth. Meshing gears must have the same module. Common: 0.5, 0.8, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5.",
   pressure: "Pressure angle in degrees, the slope of the tooth side. 20 is the modern standard (older gears use 14.5). Meshing gears must share it.",
@@ -37,7 +53,7 @@ export const GEAR_HINTS: Record<GearKey, string> = {
   addendum: "Clock gears: height of the tooth above the pitch circle, in modules.",
   dedendum: "Clock gears: depth of the gap below the pitch circle, in modules.",
   fit: "ISO sprocket: how loose the tooth form is, 0 (tight) to 1 (loose).",
-  helix: "Helix angle at the pitch circle in degrees: 0 is a straight tooth, anything else makes it a 3D helical gear (six modules thick unless you give a thickness). A minus sign makes a left hand gear; a partner needs the opposite hand (Mesh gear does that).",
+  helix: "Helix angle at the pitch circle in degrees: 0 is a straight tooth, anything else makes it a 3D helical gear (six modules thick unless you give a thickness). A minus sign makes a left hand gear; a partner needs the opposite hand (Mesh gear does that). On a rack the teeth lean along its length by this angle, and the gear that meshes with it has the same number (Mesh gear and Mesh rack make it so).",
   width: "How thick the gear is along its axis, in mm. 0 leaves a flat outline (a sketch); anything above makes it a 3D gear. With a helix and no thickness, six modules.",
   diameter: "A worm's pitch diameter in mm (a worm has no teeth to count). The wheel for it must be made for the same diameter. Ten times the module is usual; a thicker worm is stronger and has a smaller lead angle.",
   length: "How long the worm's core is, in mm. At least two leads (a lead is the starts times pi times the module).",
@@ -45,13 +61,26 @@ export const GEAR_HINTS: Record<GearKey, string> = {
   runout: "How long the thread takes to run out into the shaft at each end, in mm (a cone cut away from the tooth, so it does not stop in a square wall). 0 stops it square. Only for a worm with a journal; left alone: a pitch or two.",
   mate: "Bevel gear (an APPROXIMATION of the standard tooth, to be verified): how many teeth the gear it meshes with has. With the shaft angle it fixes this gear's cone angle; the pair share the module.",
   shaft: "Bevel gear: the angle between the two shafts in degrees (90 is the usual pair). From 30 to 150.",
+  land: "Worm wheel: a straight cylindrical land at each face, in mm (one module by default): the teeth keep their section out to the faces instead of ending in a thin wedge, as on a hobbed wheel. 0 is the throated part alone.",
   face: "Bevel gear: the width of the teeth along the cone as a fraction of the cone distance. A third is the usual limit (0.1 to 0.5).",
   starts: "How many threads the worm has (1 to 4). The wheel turns this many teeth for each turn of the worm, so more starts is a faster, steeper drive.",
 };
 
+/** What the numbers of a planetary set mean where it differs from a gear's (`dec_planetary_gears`). */
+export const PLANETARY_HINTS: Partial<Record<GearKey, string>> = {
+  ratio: "Speed ratio with the ring held, sun in, carrier out (the usual reduction). Type it and the teeth are chosen to be nearest; type the teeth and it is shown. Empty: shown as the teeth give it.",
+  module: "Tooth size in mm for the whole set: every gear has the same module.",
+  width: "How thick every gear is along its axis, in mm.",
+  helix: "Helix angle of the sun in degrees (0: straight teeth). The planets take the opposite hand and the ring the planets' hand, so they all mesh; a minus sign is a left hand sun.",
+  bore: "Hole through the sun for its shaft, in mm (0 for none).",
+  rim: "Thickness of the ring's wall round its teeth, in modules.",
+  backlash: "Play between meshed teeth in mm, for every mesh.",
+  clearance: "Gap between a tooth tip and the bottom of its partner's gap, in modules. 0.25 is standard.",
+};
 /** The name the box shows for the kind of gear being made. */
-export function gearTitle(g: { bevel?: true; internal?: boolean; rack?: boolean; pulley?: string; sprocket?: true; iso?: true; cycloidal?: true; mesh?: unknown }): string {
+export function gearTitle(g: { planetary?: true; bevel?: true; internal?: boolean; rack?: boolean; pulley?: string; sprocket?: true; iso?: true; cycloidal?: true; mesh?: unknown }): string {
   const what = g.bevel ? "Bevel gear (approximation)" : g.pulley ? `${g.pulley === "2GT" ? "GT2" : g.pulley === "3GT" ? "GT3" : g.pulley === "HTD5M" ? "HTD 5M" : "HTD 8M"} pulley` : g.sprocket ? (g.iso ? "ISO sprocket" : "Sprocket") : g.cycloidal ? (g.internal ? "Clock ring" : g.rack ? "Clock rack" : "Clock gear") : g.rack ? "Rack" : g.internal ? "Ring gear" : "Gear";
+  if (g.planetary) return "Planetary gear set";
   return g.mesh ? `${what} (meshing)` : what;
 }
 

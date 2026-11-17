@@ -44,7 +44,7 @@ export function gearShapeOf(sc: Scene, st: Step): GearShape | null {
   const n = cross(plane.u, plane.v), len = Math.hypot(...n) || 1;
   let normal: Vec3 = [n[0] / len, n[1] / len, n[2] / len];
   const g = o.value;
-  if (rec.spec.bevel) { // a bevel gear (`in_763`): the loft is the body's first step (the blank and the combine are not shapes of their own); the body stands from the hub's back, behind the pitch plane, to the toe's tips, along its axis
+  if (rec.spec.bevel) { // a bevel gear (`in_776`): the loft is the body's first step (the blank and the combine are not shapes of their own); the body stands from the hub's back, behind the pitch plane, to the toe's tips, along its axis
     if (st.type !== "loft") return null;
     const lay = bevelLayout(rec.spec);
     if (!lay.ok) return null;
@@ -61,7 +61,7 @@ export function gearShapeOf(sc: Scene, st: Step): GearShape | null {
   if (rec.spec.wheel) {
     const w = wheelOf(rec.spec);
     if (!w.ok) return null;
-    depth = rec.spec.wheel.width;
+    depth = rec.spec.wheel.width + 2 * (rec.spec.wheel.land ?? 0); // (the throated part and a land at each face, `in_783`)
     centre = [0, 1, 2].map((k) => rec.at[k]! - normal[k]! * depth / 2) as unknown as Vec3; // (its sections lie either side of its plane)
     radius = w.value.tipAt(depth / 2); // (the throat: the tip is widest at the faces)
     rootRadius = w.value.rootAt(0);

@@ -1,6 +1,6 @@
-# A spiral bevel tooth by the gearing law (a prototype, `in_768`)
+# A spiral bevel tooth by the gearing law (a prototype, `in_786`)
 
-**Meant to learn:** whether the tooth surfaces of a face-milled spiral bevel set can be derived from the sources the human sent (so they are built right, `in_767`) and checked against the one worked example that gives numbers.
+**Meant to learn:** whether the tooth surfaces of a face-milled spiral bevel set can be derived from the sources the human sent (so they are built right, `in_785`) and checked against the one worked example that gives numbers.
 
 **Sources read:** H. J. Stadtfeld, "Gear Mathematics for Bevel & Hypoid Gears", Chapter 2, *Gear Technology*, August 2015 (file `chapter2.pdf`, read in full: the example's inputs, blank data, cutter head radii, machine settings, the ratio of roll, the gearing law and how the flank grid is made); R. L. Huston and J. J. Coy, NASA TM 82622 (1981), and R. L. Huston, NASA CR 168226 (1983) (the first pages: the circular arc against the logarithmic spiral, the crown gear, the planes; the equations of the later pages not yet read); I. Zarebski, "The Intrinsic Pitch Cones in Hypoid Gears", *Gear Technology*, Sept / Oct 2025 (the first page: pitch cones of a hypoid are replaced by hyperboloids and depend on the offset and the tool; not yet read); Stadtfeld, "The Basics of Spiral Bevel Gears", *Gear Technology*, 2001 (the first page: the crown gear derives the flank form; the octoid is a straight lead with an octoid profile; the scan is poor, not yet read).
 

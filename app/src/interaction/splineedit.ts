@@ -15,6 +15,7 @@ export function splineEdit(sc: Scene, sel: readonly Ref[], project: (p: Vec3) =>
   for (const r of sel) {
     const line = sc.parts[r];
     if (line?.kind !== "line" || !line.spline) continue;
+    if (!line.movable) return "this curve is part of a cam or a ratchet: change it with its numbers (Edit cam), or move it as a whole";
     const pl = line.plane ? sc.parts[line.plane] : undefined;
     const w = splineWorld(get, line);
     if (!w || pl?.kind !== "plane") continue;

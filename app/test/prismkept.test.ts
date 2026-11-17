@@ -53,3 +53,54 @@ test("a solid that was found valid is found so again, and a compound is as befor
   assert.equal(isValidSolid(box), true);
   assert.equal(isValidSolid(box), true, "again, from what was kept");
 });
+
+const helicalSpec = { teeth: 14, module: 1, helix: 15, width: 8 };
+const helicals = (): Session => [0, 1, 2].reduce((s, i) => run(s, { type: "gear", id: `g_00${i}`, plane: worldRef("XY"), at: [i * 30, 0, 0], spec: helicalSpec }), createSession(kernel));
+const wormSpec = { teeth: 1, module: 2, worm: { diameter: 24, length: 24 } };
+const worms = (n: number): Session => Array.from({ length: n }, (_, i) => i).reduce((s, i) => run(s, { type: "gear", id: `g_00${i}`, plane: worldRef("XY"), at: [i * 40, 0, 0], spec: wormSpec }), createSession(kernel));
+
+test("a revolve (a helical gear's twist) is kept like an extrude: an early edit builds that body and finds the others' solids", () => {
+  const s = helicals();
+  const [built, reused] = [kernelStats.prismsBuilt, kernelStats.prismsReused];
+  const edited = run(s, { type: "setGear", id: "g_000", spec: helicalSpec, turn: 0.05 });
+  assert.equal(kernelStats.prismsBuilt - built, 1, "the gear that changed is built again, the others are not");
+  assert.ok(kernelStats.prismsReused - reused >= 2, `${kernelStats.prismsReused - reused} kept solids found again`);
+  assert.equal(Object.values(scene(edited).parts).filter((p) => p.kind === "body").length, 3);
+});
+
+test("a worm (its sweeps and its core) is kept too: an edit to the first of three builds only the first", () => {
+  const one = kernelStats.prismsBuilt;
+  worms(1);
+  const perWorm = kernelStats.prismsBuilt - one;
+  assert.ok(perWorm >= 1, `${perWorm} solids for a worm`);
+  const s = worms(3);
+  const [built, reused] = [kernelStats.prismsBuilt, kernelStats.prismsReused];
+  run(s, { type: "setGear", id: "g_000", spec: wormSpec, turn: 0.05 });
+  assert.ok(kernelStats.prismsBuilt - built <= perWorm, `${kernelStats.prismsBuilt - built} built for the worm that changed (a worm is ${perWorm})`);
+  assert.ok(kernelStats.prismsReused - reused >= perWorm, `${kernelStats.prismsReused - reused} kept solids found again`);
+});
+
+test("the answers of revolves and sweeps with kept solids are those worked out from nothing: volumes and the names of faces and edges", () => {
+  for (const s of [run(helicals(), { type: "setGear", id: "g_001", spec: helicalSpec, turn: 0.07 }), run(worms(3), { type: "setGear", id: "g_001", spec: wormSpec, turn: 0.07 })]) {
+    const graph = { ...graphOf(scene(s)), names: true } as Parameters<typeof kernel.evaluate>[0];
+    const kept = kernel.evaluate(graph, { tolerance: 0.05, angular: 0.3 });
+    clearKernelCaches();
+    const fresh = kernel.evaluate(graph, { tolerance: 0.06, angular: 0.35 });
+    assert.deepEqual(fresh.ops.map((o) => o.error), kept.ops.map((o) => o.error));
+    assert.deepEqual(fresh.bodies?.map((b) => [b.id, Math.round(b.volume * 1e3)]), kept.bodies?.map((b) => [b.id, Math.round(b.volume * 1e3)]));
+    assert.deepEqual(fresh.faceNames, kept.faceNames);
+    assert.deepEqual(fresh.edgeNames, kept.edgeNames);
+    assert.ok((kept.bodies?.length ?? 0) >= 3);
+  }
+});
+
+test("a worm wheel's loft is kept: an edit to the first of two wheels builds only the first", () => {
+  const spec = { teeth: 12, module: 2, wheel: { diameter: 24, starts: 1, width: 10 } };
+  const two = (): Session => [0, 1].reduce((s, i) => run(s, { type: "gear", id: `g_00${i}`, plane: worldRef("XY"), at: [i * 70, 0, 0], spec }), createSession(kernel));
+  const s = two();
+  const [built, reused] = [kernelStats.prismsBuilt, kernelStats.prismsReused];
+  const edited = run(s, { type: "setGear", id: "g_000", spec, turn: 0.05 });
+  assert.equal(kernelStats.prismsBuilt - built, 1, "the wheel that changed is built again");
+  assert.ok(kernelStats.prismsReused - reused >= 1, "the other wheel's solid is found again");
+  assert.equal(Object.values(scene(edited).parts).filter((p) => p.kind === "body").length, 2);
+});

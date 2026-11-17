@@ -1,4 +1,4 @@
-// The spherical involute tooth of a straight bevel gear (a prototype, `in_764`; nothing in `app/src` imports it). The exact conjugate tooth of a straight bevel gear is a cone through the apex whose section by a sphere about the apex
+// The spherical involute tooth of a straight bevel gear (a prototype, `in_777`; nothing in `app/src` imports it). The exact conjugate tooth of a straight bevel gear is a cone through the apex whose section by a sphere about the apex
 // is a spherical involute: the curve a great circle traces rolling on the base circle (the base cone has half angle gb, sin gb = sin(delta) cos(alpha)). The octoid of the generated gears (the envelope of the flat flank of a crown rack,
 // ANSI/AGMA 2005 and ISO 23509 name it) is close to it: the literature says the octoid is a little thicker at the root and thinner at the toe (see the README for the sources). Nothing here is read from a standard: it is derived.
 //

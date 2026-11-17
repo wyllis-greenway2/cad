@@ -8,19 +8,20 @@ import { startOp } from "../src/interaction/operations.ts";
 import { runOp } from "../src/interaction/runop.ts";
 import type { Op } from "../src/interaction/operations.ts";
 import { camShapes, camProblem } from "../src/operation/cams.ts";
-import { drawCam } from "../src/operation/camdraw.ts";
+import type { CamSpec } from "../src/operation/cams.ts";
+import { camFace } from "../src/operation/camscene.ts";
 
 await kernel.init();
 const XY = worldRef("XY");
 const volume = (s: ReturnType<typeof createSession>) => Object.values(scene(s).parts).filter((p) => p.kind === "body").reduce((t, p) => t + ((p as { volume?: number }).volume ?? 0), 0);
-const make = (spec: Parameters<typeof drawCam>[3], at: [number, number, number] = [0, 0, 0], turn = 0) => {
+const make = (sp: CamSpec, at: [number, number, number] = [0, 0, 0], turn = 0) => {
   const s = createSession(kernel);
-  const pl = scene(s).parts[XY] as Plane;
-  const d = drawCam(scene(s), pl, at, spec, turn);
-  assert.ok(d.ok, d.ok ? "" : d.error);
-  const made = run(s, d.value.command);
+  const { turn: deg, ...cam } = sp; // (the turn is the record's, in radians)
+  const t = turn + ((deg ?? 0) * Math.PI) / 180;
+  const rec = { id: "g_001", plane: XY, at, spec: { teeth: 1, module: 1, cam }, ...(t ? { turn: t } : {}) };
+  const made = run(s, { type: "gear", ...rec });
   assert.ok(!made.message, made.message ?? "");
-  return { s: made, select: d.value.select };
+  return { s: made, select: [camFace(rec)!] };
 };
 const extrude = (s: ReturnType<typeof createSession>, face: string, depth: number) => {
   const op = startOp(scene(s), [face as never], "extrude");
@@ -62,7 +63,7 @@ test("a cam that cannot be drawn says why", () => {
 });
 
 // ---- the tool (`in_742`)
-import { armCam, typeKey, finish, camSpecOf, previewOf } from "../src/interaction/tools.ts";
+import { armCam, typeKey, finish, camSpecOf, previewOf, editCamTool } from "../src/interaction/tools.ts";
 import type { Tool } from "../src/interaction/tools.ts";
 
 test("the cam tool: the pointer's distance sets the diameter, typed numbers take over, Tab goes between the three, Enter makes it", () => {
@@ -86,7 +87,7 @@ test("the cam tool: the pointer's distance sets the diameter, typed numbers take
 import { splinePoints } from "../src/operation/spline.ts";
 import { loopPoints } from "../src/operation/part.ts";
 
-const disc = (over: Partial<Parameters<typeof drawCam>[3]> = {}) => ({ kind: "disc" as const, law: "cycloidal" as const, diameter: 40, lift: 10, rise: 120, dwell: 40, ret: 100, hole: 8, roller: 0, ...over });
+const disc = (over: Partial<CamSpec> = {}) => ({ kind: "disc" as const, law: "cycloidal" as const, diameter: 40, lift: 10, rise: 120, dwell: 40, ret: 100, hole: 8, roller: 0, ...over });
 const radiusAt = (s: ReturnType<typeof createSession>, deg: number): number => {
   // the cam's drawn outline, where a ray from the shaft crosses it
   const face = Object.values(scene(s).parts).find((p) => p.kind === "face") as unknown as { loop: string[]; corners: string[] };
@@ -196,4 +197,54 @@ test("every number of every cam has a hint, and the box is a panel", () => {
     assert.equal(shown.fields[0]!.value, "1.5748"); // (a 40 mm base circle)
     assert.equal(shown.fields[2]!.value, "120"); // (degrees stay degrees)
   } finally { units.system = "mm"; }
+});
+
+// ---- a cam keeps its numbers (`in_768`): the parts are made from a record, as a gear's are
+test("changing the numbers of a cam that has a body made from it changes the body, with the same names; moving and deleting follow the record", () => {
+  const rec = (cam: CamSpec) => ({ teeth: 1, module: 1, cam });
+  let s = createSession(kernel);
+  s = run(s, { type: "gear", id: "g_001", plane: XY, at: [0, 0, 0], spec: rec(disc()) });
+  const face = camFace({ id: "g_001", plane: XY, at: [0, 0, 0], spec: rec(disc()) })!;
+  const op = startOp(scene(s), [face as never], "extrude");
+  assert.ok(op.ok, JSON.stringify(op));
+  s = runOp(s, { ...(op as { op: Op }).op, value: T })!.session;
+  const v0 = volume(s);
+  // a bigger lift: the same names, a bigger body
+  s = run(s, { type: "setGear", id: "g_001", spec: rec(disc({ lift: 14 })) });
+  assert.ok(!s.message, s.message ?? "");
+  assert.ok(volume(s) > v0 + 1, `${volume(s)} vs ${v0}`);
+  assert.equal(scene(s).steps.filter((st) => st.type === "extrude").length, 1, "still one extrude: the step was kept");
+  // a shaft hole as wide as the cam is refused with the reason, and nothing changes
+  const bad = run(s, { type: "setGear", id: "g_001", spec: rec(disc({ hole: 41 })) });
+  assert.match(bad.message ?? "", /hole/);
+  // moved: the centre goes with the record, the body follows
+  s = run(s, { type: "setGear", id: "g_001", spec: rec(disc({ lift: 14 })), at: [30, 10, 0], turn: Math.PI / 2 });
+  const holes = Object.values(scene(s).parts).filter((p) => p.kind === "corner" && p.ref.endsWith(".bc")) as unknown as { at: number[] }[];
+  assert.ok(Math.abs(holes[0]!.at[0]! - 30) < 1e-9 && Math.abs(holes[0]!.at[1]! - 10) < 1e-9);
+  // deleted: the parts go with it
+  s = run(s, { type: "deleteGear", id: "g_001" });
+  assert.equal(Object.values(scene(s).parts).filter((p) => p.ref.startsWith("d/g_001.")).length, 0);
+});
+
+test("a cam is edited from a selected part: Edit cam opens its numbers as they are, and Enter changes the record", async () => {
+  const { createState, reduce } = await import("../src/interaction/controller.ts");
+  const { homeCamera } = await import("../src/interaction/camera.ts");
+  const env = { w: 800, h: 600, now: 0 };
+  let s = createSession(kernel);
+  const rec = { id: "g_001", plane: XY, at: [0, 0, 0] as [number, number, number], spec: { teeth: 1, module: 1, cam: disc() } };
+  s = run(s, { type: "gear", ...rec });
+  let st = { ...createState(s), cam: homeCamera() };
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [camFace(rec)!] } } };
+  st = reduce(st, { type: "runAction", id: "cam:edit" }, env as never);
+  assert.ok(st.tool?.kind === "cam" && st.tool.cam?.editing === "g_001");
+  assert.deepEqual(st.tool.cam.typed, ["40", "10", "120", "40", "100", "8", "0"]);
+  for (const k of ["Backspace", "Backspace", "1", "5"]) st = { ...st, tool: typeKey(st.tool!, k) };
+  assert.equal(st.tool!.cam!.typed[0], "15");
+  const fin = finish(scene(st.session), st.tool!);
+  assert.ok(fin && (fin.command as { type: string }).type === "setGear");
+  // only the ratchet has an Angle: a cam that was turned keeps its turn when its numbers change
+  const turned = run(createSession(kernel), { type: "gear", ...rec, turn: 0.5 });
+  const t2 = editCamTool(scene(turned).gears![0]!);
+  const f2 = finish(scene(turned), t2)!;
+  assert.equal((f2.command as { turn?: number }).turn, 0.5);
 });

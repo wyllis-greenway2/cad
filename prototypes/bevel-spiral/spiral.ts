@@ -1,4 +1,4 @@
-// A circular-cut spiral bevel tooth as a twisted straight bevel tooth (a prototype, `in_766`; nothing in `app/src` imports it).
+// A circular-cut spiral bevel tooth as a twisted straight bevel tooth (a prototype, `in_779`; nothing in `app/src` imports it).
 // The tooth's lengthwise centre line is a circular arc (the cutter's radius `rc`) whose spiral angle (the angle between it and the cone's generator) is `bm` at the mean cone distance `Rm` and, at the cone distance `r`,
 //   sin b(r) = (2 Rm rc sin bm - Rm^2 + r^2) / (2 r rc)                      (the formula of the Gear Technology Ask the Expert on backlash, Sept / Oct 2017, p. 82, `in_734`, for the outer end Re)
 // Developing the pitch cone into a plane, the arc keeps its angle: with psi the developed angle round the apex, r dpsi = tan b dr, so  psi(r) = integral from Rm of tan b(r) / r dr; on the cone the azimuth about the axis is psi / sin(delta)

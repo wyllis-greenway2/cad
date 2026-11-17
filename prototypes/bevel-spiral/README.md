@@ -1,4 +1,4 @@
-# Spiral bevel tooth as a twisted straight bevel tooth (a prototype, `in_766`)
+# Spiral bevel tooth as a twisted straight bevel tooth (a prototype, `in_779`)
 
 **Meant to learn:** whether a circular-cut spiral bevel tooth can be made simply: the straight bevel tooth's sections, each turned about the axis by the developed angle of the cutter's circular arc, joined by a loft; and whether a pair of opposite hands then fits.
 

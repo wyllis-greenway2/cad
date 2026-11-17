@@ -15,7 +15,7 @@ export interface BevelSpec {
   mate: number; shaft?: number; face?: number;
   /** a partner that stands across its mate's axis (`meshBevel`): its own first and second directions (unit vectors, the plane of the big end, its normal their cross product, along the axis towards the apex) in place of the plane's; none for a gear on its plane */
   frame?: [Vec3, Vec3];
-  /** the gear it was made to mesh with (and, for that gear, this one): editing the teeth of either puts the other right again (`in_763`) */
+  /** the gear it was made to mesh with (and, for that gear, this one): editing the teeth of either puts the other right again (`in_776`) */
   with?: string;
   /** a partner: the direction it stands in from the gear it meshes with, radians from that gear's first direction (what the mesh was made with, so it can be made again) */
   dir?: number;
@@ -101,7 +101,7 @@ export function bevelRaw(spec: GearSpec): Result<{ x: number; r: number; th: num
 }
 
 /** The outline as it is on the plane across the axis through the pitch point (x = R cos delta): each point of the back cone carried along its ray through the apex onto it. Polar points (radius, angle). */
-export function bevelPolar(spec: GearSpec): Result<[number, number][]> {
+function bevelPolar(spec: GearSpec): Result<[number, number][]> {
   const raw = bevelRaw(spec), g = bevelOf(spec);
   if (!raw.ok) return raw;
   if (!g.ok) return g;
@@ -128,7 +128,7 @@ export function bevelPoints(spec: GearSpec): Result<{ points: [number, number][]
 }
 
 /**
- * How the body of a bevel gear is made (`in_763`): the real ends of a bevel gear are cones (the back cones, square to the pitch cone), not planes across the axis, and a plane section of the tooth is taller than the tooth by 1 / cos delta
+ * How the body of a bevel gear is made (`in_776`): the real ends of a bevel gear are cones (the back cones, square to the pitch cone), not planes across the axis, and a plane section of the tooth is taller than the tooth by 1 / cos delta
  * or more (the teeth looked longer the more teeth the gear had). So the body is a prism of the tooth cones, long enough to hold the whole tooth (a ruled loft between two sections through the apex's rays: the outline of the pitch
  * plane scaled by `x / (R cos delta)` at the plane `x` from the apex), cut down to a blank: a revolved shape bounded by the heel's back cone (through the point `x0 = R / cos delta` of the axis, slope tan delta), the toe's (the heel's
  * scaled by the face) and, inside the roots, flat discs for a hub. The two are intersected (`combine`). Coordinates of the blank are (radius a, height h along the axis towards the apex from the plane of the pitch point), counter-clockwise.
