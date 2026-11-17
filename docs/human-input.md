@@ -3240,3 +3240,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_723 — 2026-11-17 — question
 > (the human attached the KHK-USA article "Standards in terminology for bevel gearing" as a PDF) Do you want to link me to any other place I might be able to get you what you need?
 (sends the KHK-USA article, and asks for links to other places where the missing data may be got)
+
+## in_724 — 2026-11-17 — question
+> can try to find the remaining information and or link me to get you what you need?
+(asks me to look for the missing bevel gear data myself and, or, to link where to get it)
