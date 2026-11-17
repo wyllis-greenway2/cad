@@ -7,6 +7,7 @@ import type { Plane } from "../../operation/part.ts";
 import { normalOfPlane, segmentOf, circleOf } from "../../operation/part.ts";
 import { lookup, nextId } from "../../operation/scene.ts";
 import { gearOfPart } from "../../operation/gearscene.ts";
+import { planetaryOfPart } from "../../operation/planetary.ts";
 import type { Scene } from "../../operation/scene.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { scene as sceneOf, selection as selectionOf, clickOn, hoverOn, run } from "../session.ts";
@@ -59,6 +60,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:bevel", label: "Bevel gear", icon: "bevelgear", tool: "gear" },
   { id: "tool:worm", label: "Worm", icon: "worm", tool: "gear" },
   { id: "tool:wormwheel", label: "Worm wheel", icon: "wormwheel", tool: "gear" },
+  { id: "tool:planetary", label: "Planetary set", icon: "planetary", tool: "gear" },
   { id: "tool:ring", label: "Ring gear", icon: "ringgear", tool: "gear" },
   { id: "tool:rack", label: "Rack", icon: "rack", tool: "gear" },
   { id: "tool:gt2", label: "GT2 pulley", icon: "txtGT2", tool: "gear" },
@@ -105,7 +107,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
 interface Group { id: string; label: string; icon: string; items: (string | Group)[] }
 const GEARS: Group = {
   id: "gears", label: "Gear", icon: "gear", items: [
-    "tool:gear", "tool:ring", "tool:rack",
+    "tool:gear", "tool:ring", "tool:rack", "tool:planetary",
     "tool:bevel",
     { id: "worms", label: "Worm", icon: "worm", items: ["tool:worm", "tool:wormwheel"] },
     { id: "clockgears", label: "Clock", icon: "clockgear", items: ["tool:clock", "tool:clockring", "tool:clockrack"] },
@@ -140,7 +142,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
       const why = !rec ? "select a gear" : !canHelix(rec.spec) ? "a helix goes on a plain gear (not yet a rack, pulley, sprocket, clock gear or worm)" : null;
       return [r.id, { ...base, enabled: !why, why }];
     }
-    if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfPart(sc, x)); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
+    if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfPart(sc, x) || (r.id === "gear:edit" && !!planetaryOfPart(sc, x))); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
     if (r.select === "combine") { const why = whyNotCombine(session); return [r.id, { ...base, enabled: !why, why }]; }
@@ -430,7 +432,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     // a gear: the first click after its centre only sets the size and the number box stays open; the next click in space makes it and starts the next gear (`in_688`)
     const sug = !t.sized && !i.shift ? meshSuggestion(sc, t) : null; // (next to a gear it would mesh with: the click makes the gear that meshes, Shift leaves it, `in_709`)
     if (sug) return { ...base, tool: snapToMesh(sug, t), session: { ...sess, message: `meshed with ${sug.src.id}: ${sug.teeth} teeth` } };
-    if (!t.sized) return { ...base, tool: { ...t, cursor: at, sized: true } };
+    if (!t.sized && !t.gear?.planetary) return { ...base, tool: { ...t, cursor: at, sized: true } }; // (a planetary set has no size to set: the next click makes it)
     const done = commitFigure(base, finish(sc, t));
     return done.tool && !done.tool.points.length && !done.session.message ? clickWithTool(done, i, env, refs) : done;
   }

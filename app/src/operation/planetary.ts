@@ -8,10 +8,9 @@ import { ok, err } from "../shared/result.ts";
 import type { Scene, Step } from "./scene.ts";
 import { nextId, bumpCounter } from "./scene.ts";
 import type { Part } from "./part.ts";
-import { gearOutline } from "./gear.ts";
 import type { GearSpec } from "./gear.ts";
 import { meshWith } from "./mesh.ts";
-import { addGear, setGear, deleteGear, ownedSteps } from "./gearscene.ts";
+import { addGear, setGear, deleteGear, ownedSteps, gearOfPart } from "./gearscene.ts";
 import type { GearRecord } from "./gearscene.ts";
 
 /** The numbers of a set. The ring's teeth are the sun's and two planets' (`sun + 2 planet`); `width` is the thickness of every gear (mm) and `helix` the sun's (planets and ring take the hand that meshes). `pin` is the planets' pin (mm) and `pinGap` the room left round it (mm); a `carrier` (the plate's thickness, mm, 0 or none: no carrier) has a pin at each planet and a hole for the sun's shaft. */
@@ -119,7 +118,7 @@ const carrierRefs = (id: string, n: number): { centre: Ref; plate: Ref; hole: Re
 const isCarrierPart = (id: string, ref: string): boolean => ref.startsWith(`d/${id}.`);
 
 /** The gears' ids for a set: derived from its own (`q_001` makes `q_001s`, `q_001r`, `q_001p1`...). */
-export const idsFor = (id: string, planets: number): { sunId: string; ringId: string; planetIds: string[] } => ({ sunId: `${id}s`, ringId: `${id}r`, planetIds: Array.from({ length: planets }, (_, i) => `${id}p${i + 1}`) });
+const idsFor = (id: string, planets: number): { sunId: string; ringId: string; planetIds: string[] } => ({ sunId: `${id}s`, ringId: `${id}r`, planetIds: Array.from({ length: planets }, (_, i) => `${id}p${i + 1}`) });
 
 function carrierScene(s: Scene, rec: PlanetaryRecord, lay: Layout["carrier"] | undefined, keep: string | undefined): { scene: Scene; step?: string } {
   const parts: Record<string, Part> = {};
@@ -214,9 +213,16 @@ export function planetaryOfGear(s: Scene, gearId: string): PlanetaryRecord | und
   return planetariesOf(s).find((p) => gearIdsOf(p).includes(gearId));
 }
 /** The set whose carrier a step is, or whose gear a body made by a step is. */
-export function planetaryOfStep(s: Scene, step: { params: Record<string, number | string> }): PlanetaryRecord | undefined {
+function planetaryOfStep(s: Scene, step: { params: Record<string, number | string> }): PlanetaryRecord | undefined {
   const own = step.params.planetary;
   if (typeof own === "string") return planetariesOf(s).find((p) => p.id === own);
   return typeof step.params.gear === "string" ? planetaryOfGear(s, step.params.gear) : undefined;
 }
-export { gearOutline };
+/** The set a selected part belongs to: a gear's corner, side or body, or the carrier's body. */
+export function planetaryOfPart(s: Scene, ref: Ref): PlanetaryRecord | undefined {
+  const g = gearOfPart(s, ref);
+  if (g) return planetaryOfGear(s, g.id);
+  const p = s.parts[ref];
+  const step = p?.kind === "body" && p.id?.startsWith("x_") ? s.steps.find((st) => st.id === p.id!.slice(2)) : undefined;
+  return step ? planetaryOfStep(s, step) : undefined;
+}
