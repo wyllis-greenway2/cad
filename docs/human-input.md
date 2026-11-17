@@ -3540,3 +3540,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_798 — 2026-11-17 — directive
 > add the cone-ended blank and test more tooth counts
 (asks me to add the cone-ended blank (the heel and toe cones) to the spiral bevel pair made by the gearing law, and to test more tooth counts)
+
+## in_799 — 2026-11-17 — question
+> [the human attached a saved project, "bevel_long.json": a 20 tooth bevel gear, its 40 tooth partner, and a change of the first gear's mate teeth to 40] okay I have a few questions about bevels. So why to the angles stop being 45 degrees when you go from one tooth count to another tooth count? like this file for example. Is this how real bevel gears work? why?
+(asks why the cone angles of a bevel pair are no longer 45 degrees when the tooth counts differ, whether real bevel gears work that way, and why)
