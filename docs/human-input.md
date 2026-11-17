@@ -3292,3 +3292,31 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_736 — 2026-11-17 — directive
 > merge the latest changes into the preview and let me test
 (asks me to merge the latest work into the preview branch so they can test it)
+
+## in_737 — 2026-11-17 — directive
+> Go with your recommendation, draft the decision entry
+(asks for a decision entry drafted for the proposal just made: a spline tool, curves turned to arcs only when the kernel needs them, and a cam helper that draws onto it; a draft, not an approval of the design)
+
+## in_738 — 2026-11-17 — approval
+> Go with your recommendation on spline storage
+(approves the recommendation on `q_spline_storage`: a spline stores its control points and is made into arcs only when the kernel needs them)
+
+## in_739 — 2026-11-17 — directive
+> Go with your recommendation, start on the spline tool
+(asks for the spline tool to be started, the first step of `dec_spline_and_cams`)
+
+## in_740 — 2026-11-17 — directive
+> Go with your recommendation, start on editing spline points
+(asks for editing the points of a spline after it is drawn to be started, the next step after the spline tool)
+
+## in_741 — 2026-11-17 — directive
+> Go with your recommendation, add and remove spline points
+(asks for adding and taking away points of a spline to be built, the next step after moving them)
+
+## in_742 — 2026-11-17 — directive
+> Go with your recommendation, start on the eccentric and snail cams
+(asks for the eccentric cam and the snail (drop) cam to be started, the first cams of `dec_spline_and_cams`)
+
+## in_743 — 2026-11-17 — directive
+> Go with your recommendation, build the closed spline
+(asks for the closed spline to be built: a smooth curve that comes back to its start, the next step toward the cam helper)

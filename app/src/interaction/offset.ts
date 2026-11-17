@@ -48,7 +48,7 @@ export function offsetSource(scene: Scene, parts: Part[]): OffsetSource | null {
     const picked = lineRefs ? lineRefs.map((r) => get(r)).filter((l): l is Line => l?.kind === "line") : chain;
     const rest = !faces.length && parts.every((p) => p.kind === "line" || (p.kind === "corner" && chain.some((l) => l.a === p.ref || l.b === p.ref)));
     const curvy = picked.some((l) => l.center);
-    const usable = picked.length > 0 && (lineRefs || rest) && !picked.some((l) => l.bulge);
+    const usable = picked.length > 0 && (lineRefs || rest) && !picked.some((l) => l.bulge || l.spline);
     if (usable && curvy) return drawnOutline(scene, picked); // arcs in it
     if (usable && !lineRefs && picked.length > 1) return drawnOutline(scene, picked); // a chain of straight sides picked by its sides
     if (usable && lineRefs && parts.length > 1) return offsetSource(scene, [face!]); // a closed figure of straight sides picked with its sides and corners: as the face alone
@@ -65,7 +65,7 @@ export function offsetSource(scene: Scene, parts: Part[]): OffsetSource | null {
   }
   if (face) {
     const lines = face.loop.map((r) => get(r));
-    if (lines.some((l) => l?.kind !== "line" || l.center || l.bulge)) return null; // straight sides only
+    if (lines.some((l) => l?.kind !== "line" || l.center || l.bulge || l.spline)) return null; // straight sides only
     const pts = face.corners.map((c) => pointOf(get, c));
     if (pts.length < 3 || pts.some((p) => !p)) return null;
     const P = pts as Vec3[];
@@ -77,7 +77,7 @@ export function offsetSource(scene: Scene, parts: Part[]): OffsetSource | null {
     const out: V2 = [(s * d[1]) / len, (-s * d[0]) / len];
     return { kind: "loop", plane: planeRef, pts: P, origin: liftOf(pl, [(a0[0] + a1[0]) / 2, (a0[1] + a1[1]) / 2]), normal: add(scale(pl.u, out[0]), scale(pl.v, out[1])) };
   }
-  if (first.kind === "line" && !first.center && !first.bulge) {
+  if (first.kind === "line" && !first.center && !first.bulge && !first.spline) {
     const [a, b] = [pointOf(get, first.a), pointOf(get, first.b)];
     if (!a || !b) return null;
     const dir = normalize(sub(b, a));

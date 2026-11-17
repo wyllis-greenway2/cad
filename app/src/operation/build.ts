@@ -3,7 +3,7 @@ import type { Ref } from "../shared/ref.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { sub, dot, cross } from "../math/vec.ts";
-import { circumcentre } from "./part.ts";
+import { circumcentre, splineStored } from "./part.ts";
 import { anchorCorners } from "./anchors.ts";
 import type { Scene } from "./scene.ts";
 import { nextId } from "./scene.ts";
@@ -85,6 +85,16 @@ export function drawArc(s: Scene, plane: Ref, a: Vec3, m: Vec3, b: Vec3, normal:
   commands.unshift({ type: "addPart", part: { origin: "drawn", plane, movable: true, ref: centre, kind: "corner", at: c } });
   commands.push({ type: "addRelation", relation: { id: nextId(s, "r"), kind: "arcEnds", parts: [line, centre] } });
   return { command: { type: "batch", commands }, line, centre };
+}
+
+/** A spline through these points (the first and the last are its ends, corners like any line's, joined to a corner already there): one line that keeps the points between (`Line.spline`, `dec_spline_and_cams`). */
+export function drawSpline(s: Scene, plane: Ref, pts: readonly Vec3[], normal: Vec3): { command: Command; line: Ref } | null {
+  const inner = splineStored(pts, normal);
+  if (!inner) return null;
+  const d = drawChain(s, plane, [pts[0]!, pts[pts.length - 1]!], false, { reuse: true });
+  const commands: Command[] = [];
+  for (const c2 of (d.command as { type: "batch"; commands: Command[] }).commands) commands.push(c2.type === "addPart" && c2.part.kind === "line" ? { type: "addPart", part: { ...c2.part, spline: inner } } : c2);
+  return { command: { type: "batch", commands }, line: d.lines[0]! };
 }
 
 /**

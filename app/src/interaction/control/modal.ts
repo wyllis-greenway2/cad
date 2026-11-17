@@ -6,9 +6,10 @@ import { scene as sceneOf, selection as selectionOf, run, undoLast, redoLast, cl
 import type { Session } from "../session.ts";
 import { nearCommand } from "../suggest.ts";
 import { actionsFor, measureAction } from "../actions.ts";
-import type { ToolKind } from "../tools.ts";
-import { armTool, typeKey, finish, lineNext, gearTyped, editGearTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix } from "../tools.ts";
+import type { ToolKind, Tool } from "../tools.ts";
+import { armTool, typeKey, finish, lineNext, gearTyped, editGearTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
+import type { CamKind } from "../../operation/cams.ts";
 import { gearOfPart } from "../../operation/gearscene.ts";
 import type { OpKind } from "../operations.ts";
 import { startOp, typeOp, autoOp, drawnFigure } from "../operations.ts";
@@ -51,7 +52,7 @@ import { doSimilar, doSelectAll, doSelectBodies, doGroup, doUngroup, doCutBegin,
 import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
-const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, line: true, arc: true, trim: true, gear: true };
+const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, line: true, arc: true, spline: true, cam: true, trim: true, gear: true };
 const IS_SKETCH_OP: Record<OpKind, boolean> = { offset: true, extrude: false, pushpull: false, edge: false, move: false, rotate: false, scale: false, dimension: false, linear: false, circular: false, copy: false, hollow: false, revolve: false, loft: false, sweep: false, mirror: false };
 const isSketchTool = (name: string): name is ToolKind => name in IS_SKETCH_TOOL;
 
@@ -71,11 +72,12 @@ function facePlane(s: AppState, over: Ref | null, now: number): AppState {
   return plane && sideOf(s.cam, normalOfPlane(plane)) === 0 ? animateTo(s, planeView(s.cam, plane, false), now) : s;
 }
 
-function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = null, variant: GearVariant = "gear"): AppState {
-  if (s.tool?.kind === kind && !s.tool.plane && variantOf(s.tool.gear) === (kind === "gear" ? variant : "gear")) return { ...s, tool: null }; // pressing it again puts it away
-  const armed: AppState = { ...s, tool: armTool(kind, variant), op: null, menu: null };
+function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = null, variant: GearVariant = "gear", cam?: CamKind): AppState {
+  if (s.tool?.kind === kind && !s.tool.plane && variantOf(s.tool.gear) === (kind === "gear" ? variant : "gear") && s.tool.cam?.kind === cam) return { ...s, tool: null }; // pressing it again puts it away
+  const make = (): Tool => (cam ? armCam(cam) : armTool(kind, variant));
+  const armed: AppState = { ...s, tool: make(), op: null, menu: null };
   const { plane, onSketch } = sketchPlane(s, over);
-  if (plane && onSketch) return animateTo({ ...armed, tool: { ...armTool(kind, variant), plane: plane.ref, reveal: true } }, planeView(s.cam, plane, false), now);
+  if (plane && onSketch) return animateTo({ ...armed, tool: { ...make(), plane: plane.ref, reveal: true } }, planeView(s.cam, plane, false), now);
   return facePlane(armed, over, now);
 }
 /** The operations that take several things clicked one after another, so that they begin on Enter or the check and not on the first thing that would do (`in_464`). */
@@ -121,7 +123,7 @@ export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppSt
   if (!fin) {
     const fix = s.tool?.kind === "gear" ? gearFix(sceneOf(s.session), s.tool) : null; // (the number that spoils it is taken back to the nearest that makes a gear, and flashes, `in_690`)
     if (fix) return { ...s, tool: { ...fix.tool, gear: { ...fix.tool.gear!, bad: { field: fix.field, at: performance.now() } } }, session: { ...s.session, message: fix.message } };
-    const why = s.tool?.kind === "gear" ? gearProblem(sceneOf(s.session), s.tool) : null; // (a gear, a rack or a partner that is not made says why, `in_580`)
+    const why = s.tool?.kind === "gear" ? gearProblem(sceneOf(s.session), s.tool) : s.tool?.kind === "cam" ? camProblemOf(s.tool) : null; // (a gear, a rack or a partner that is not made says why, `in_580`)
     return why ? { ...s, session: { ...s.session, message: why } } : s;
   }
   const next = run(s.session, fin.command);
@@ -291,6 +293,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
   const t = s.tool;
   if (!t || !t.plane || !t.points.length) return s;
   if (t.kind === "gear") return { ...s, tool: gearTyped(t, field, text) };
+  if (t.kind === "cam" && t.cam) return { ...s, tool: camTyped(t, field, text) };
   const typed: [string, string] = field === 0 ? [text, t.typed[1]] : [t.typed[0], text];
   return { ...s, tool: { ...t, typed, field: (field === 0 ? 0 : 1) as 0 | 1 } };
 }
@@ -431,6 +434,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     return { ...closed, session: { ...session, message: made ? `${made === 1 ? "the mate was" : `${made} mates were`} put back` : "every mate is true" } };
   }
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
+  if (id === "tool:eccentric" || id === "tool:snail") return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", id === "tool:snail" ? "snail" : "eccentric"); // (an eccentric cam and a snail cam, `dec_spline_and_cams`)
   if (id === "tool:worm" || id === "tool:wormwheel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:worm" ? "worm" : "wormwheel"); // (a worm, and the wheel for one, `in_608`)
   if (id === "tool:bevel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "bevel"); // (a straight bevel gear, an approximation, `in_735`)
   if (id === "tool:ring") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "ring"); // (a gear with its teeth pointing in)

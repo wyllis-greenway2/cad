@@ -25,7 +25,7 @@ export function revolveStart(scene: Scene, faces: readonly Extract<Part, { kind:
   const pl = face?.plane ? get(face.plane) : undefined;
   if (!face || !pl || pl.kind !== "plane") return null;
   const n = normalize(cross3(pl.u, pl.v));
-  const straight = (l: Part | undefined): l is Extract<Part, { kind: "line" }> => l?.kind === "line" && !l.center && !l.bulge && !l.circle;
+  const straight = (l: Part | undefined): l is Extract<Part, { kind: "line" }> => l?.kind === "line" && !l.center && !l.bulge && !l.spline && !l.circle;
   const own = face.loop.map((r) => get(r)).filter(straight);
   const pool = chosen.filter(straight).length ? chosen.filter(straight) : own;
   let best: { a: Vec3; b: Vec3; len: number } | null = null;

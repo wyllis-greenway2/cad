@@ -2,7 +2,7 @@
 // balls for picked lines and corners, amber for what a relation ties the selection to.
 import * as THREE from "three";
 import type { Scene, Ref, Vec3, Plane } from "../../interaction/api.ts";
-import { outlineOf, lookup, settings, normalOfPlane, consumed, faceEdges, edgeCentre, sketchOfEdge } from "../../interaction/api.ts";
+import { outlineOf, lookup, settings, normalOfPlane, consumed, faceEdges, edgeCentre, sketchOfEdge, splineWorld } from "../../interaction/api.ts";
 import type { Camera } from "../../interaction/camera.ts";
 import { surfaceTriangles } from "../../interaction/surfaces.ts";
 import { centreDots } from "../../interaction/centredots.ts";
@@ -214,6 +214,8 @@ function buildParts(overlay: THREE.Group, marks: THREE.Group, s: Scene | null, b
   for (const r of h.selection) { const p = get(r); if (p && (p.kind === "circle" || (p.kind === "line" && p.center)) && p.center && !h.selection.includes(p.center)) mark(p.center, "hover"); }
   // a selected curved edge of the body shows its middle too, as the curve of a sketch does (`in_209`)
   for (const r of h.selection) { const p = get(r); const c = p && p.kind === "line" && p.origin === "body" ? edgeCentre(s, p) : null; if (c) overlay.add(sphereAt(c, unit * settings.pick.vertexScale * 0.7, 0x2b2b2d, false)); }
+  // a selected spline shows the points it passes through, to take hold of and move (`dec_spline_and_cams`)
+  for (const r of h.selection) { const p = get(r); const w = p && p.kind === "line" && p.spline ? splineWorld(get, p) : null; if (w) for (const q of w.slice(1, -1)) overlay.add(sphereAt(q, unit * settings.pick.vertexScale * 0.9, tealHex, false)); }
   // (a part a hint is about stays in the hint's amber: the hover blue would be drawn over it, and the circle or arc the line is tangent to would not look lit, `in_230`)
   if (h.hover && !h.selection.includes(h.hover) && !(h.amber ?? []).includes(h.hover)) {
     mark(h.hover, "hover");

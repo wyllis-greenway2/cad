@@ -96,7 +96,7 @@ function relationsOf(c: Command): string[] {
 }
 /** The parts a command changes or ties together. */
 function partsOf(c: Command): string[] {
-  if (c.type === "movePart" || c.type === "setRadius") return [c.ref];
+  if (c.type === "movePart" || c.type === "setRadius" || c.type === "setSpline") return [c.ref];
   if (c.type === "addRelation") return [...c.relation.parts];
   if (c.type === "batch") return c.commands.flatMap(partsOf);
   return [];
