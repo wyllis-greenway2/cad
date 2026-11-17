@@ -3255,3 +3255,6 @@ No input. The full test suite was run on the code as of the engagement setting (
 
 ## Handoff 740 — 2026-11-17 (in_816: the cool-einstein merge pushed to the testing branch)
 `in_816`. The testing branch had meanwhile merged the planetary work as `in_803` to `in_808` and Handoffs 730 to 735, the numbers used here for `claude/cool-einstein-odsxco-work` (fasteners in the ring, crown gear) and for the merge request. The testing branch's numbers stand: this side was renumbered first (`in_803` to `in_808` became `in_810` to `in_815`, Handoffs 730 to 733 became 736 to 739, in the code comments and decisions too), then the testing branch merged; docs only conflicted. **Check:** `npm run check` passes (1504 tests, types, layers, boundary, unused, docs).
+
+## Handoff 741 — 2026-11-17 (in_809: the spiral sets; a spiral tool proposed)
+`in_809`. **Measured:** 22/34, 25/25, 18/36 mesh (overlap 0.3 to 4.3 mm3 at the place, 382 to 422 half a pitch round); 30/45 ran the kernel out of memory in the ring's cone cut; 17/43 still fails (the steep ring cone). **Wrote** `dec_spiral_bevel_gears` as a **provisional** proposal (limits: ring cone under about 65 degrees, fewer than about 60 teeth in all, 90 degree shafts, no profile shift); nothing built in `app/`. Awaiting the human's approval. Hypoid not started.
