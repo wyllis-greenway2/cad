@@ -28,6 +28,7 @@ export function changeWords(scene: Scene, c: Command): string {
     case "hideBodies": return "that hiding of a body";
     case "movePart": return "that move of a point of a drawing";
     case "setRadius": return "that change of a radius";
+    case "setSpline": return "that change of a curve";
     case "setRelationValue": return "that change of a number";
     case "deletePart": case "deleteParts": return "that delete";
     case "addRelation": return c.relation.kind === "mate" ? "that mate" : "that constraint";

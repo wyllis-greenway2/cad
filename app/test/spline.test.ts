@@ -88,3 +88,48 @@ test("a shape with a spline side is a face, and extrudes to the volume the curve
 });
 
 const near = (a: number, b: number, tol = 1e-6) => assert.ok(Math.abs(a - b) <= tol, `${a} vs ${b}`);
+
+// ---- the points of a spline are moved by taking hold of them (`in_692`)
+import { createState, reduce } from "../src/interaction/controller.ts";
+import type { AppState } from "../src/interaction/controller.ts";
+import { projector, lookStraight, homeCamera } from "../src/interaction/camera.ts";
+import { undoLast } from "../src/interaction/session.ts";
+
+const env = { w: 800, h: 600, now: 0 };
+const view = (s: ReturnType<typeof createSession>): AppState => ({ ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 5, 0] } });
+const px = (st: AppState, p: Vec3) => projector(st.cam, env.w, env.h).project(p);
+const drag = (st: AppState, from: Vec3, to: Vec3): AppState => {
+  const [a, b] = [px(st, from), px(st, to)];
+  st = reduce(st, { type: "hover", x: a[0], y: a[1] }, env);
+  let [lx, ly] = a;
+  for (let k = 1; k <= 4; k++) { const x = a[0] + ((b[0] - a[0]) * k) / 4, y = a[1] + ((b[1] - a[1]) * k) / 4; st = reduce(st, { type: "orbit", dx: x - lx, dy: y - ly, x, y }, env); [lx, ly] = [x, y]; }
+  return reduce(st, { type: "dragEnd" }, env);
+};
+const select = (st: AppState, refs: string[]): AppState => ({ ...st, session: { ...st.session, click: { ...st.session.click, selection: refs as never } } });
+const knots = (st: AppState, ref: string) => splineWorld((r) => scene(st.session).parts[r], scene(st.session).parts[ref as never] as never)!;
+
+test("a point of a selected spline is dragged: the curve follows it, the ends stay, and the drag is one step", () => {
+  let s = createSession(kernel);
+  const d = drawSpline(scene(s), XY, through, N)!;
+  s = run(s, d.command);
+  let st = select(view(s), [d.line]);
+  const steps0 = st.session.history.scene.steps.length;
+  st = drag(st, [20, 2, 0], [20, 14, 0]);
+  assert.equal(st.session.message, null);
+  const w = knots(st, d.line);
+  near(w[2]![0], 20, 0.3); near(w[2]![1], 14, 0.3);
+  assert.deepEqual(w[0], through[0]); assert.deepEqual(w[4], through[4]);
+  near(w[1]![1], 8, 1e-6); // (the other points stay)
+  assert.equal(st.session.history.scene.steps.length, steps0);
+  void undoLast;
+});
+
+test("pressing on the curve between its points still moves the whole line, and an unselected spline's points are not taken", () => {
+  let s = createSession(kernel);
+  const d = drawSpline(scene(s), XY, through, N)!;
+  s = run(s, d.command);
+  const st = drag(view(s), [20, 2, 0], [20, 14, 0]); // (not selected: the point is not a handle)
+  const w = knots(st, d.line);
+  near(w[0]![1], 12, 0.3); // (the whole line went up by the drag)
+  near(w[2]![1] - w[0]![1], 2, 0.3); // (and the curve kept its shape)
+});

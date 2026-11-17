@@ -12,6 +12,7 @@ export { kernel, initKernelWeb } from "../compiler/kernel/web.ts";
 export type { Grid } from "./grid.ts";
 export type { ToolpathView } from "./toolpathview.ts";
 export { consumed } from "../operation/ownership.ts";
+export { splineWorld } from "../operation/part.ts";
 export { ringPoints } from "../math/ring.ts";
 export { faceEdges } from "./offsetbody.ts";
 export { edgeCentre, sketchOfEdge } from "../operation/edgesource.ts";

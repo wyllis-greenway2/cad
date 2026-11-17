@@ -3109,3 +3109,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_691 — 2026-11-17 — directive
 > Go with your recommendation, start on the spline tool
 (asks for the spline tool to be started, the first step of `dec_spline_and_cams`)
+
+## in_692 — 2026-11-17 — directive
+> Go with your recommendation, start on editing spline points
+(asks for editing the points of a spline after it is drawn to be started, the next step after the spline tool)
