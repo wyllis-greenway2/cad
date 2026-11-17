@@ -10,6 +10,7 @@ import type { ToolKind, Tool } from "../tools.ts";
 import { gearFields, armTool, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
 import type { CamKind, CamLaw, CamLayout } from "../../operation/cams.ts";
+import { doMotionPlay } from "./motion.ts";
 import { gearOfPart, gearOfSelection } from "../../operation/gearscene.ts";
 import { planetaryOfPart } from "../../operation/planetary.ts";
 import type { OpKind } from "../operations.ts";
@@ -302,6 +303,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 /** Esc lets go in steps: the menu, then an open badge, then the tool or operation, then the selection. */
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
+  if (s.motion) return { ...s, motion: null }; // (a joint that is being played goes back to rest)
   if (s.picking && !s.op) return { ...s, picking: null, session: { ...s.session, message: null } }; // (the operation that was waiting for what to click is given up, `in_464`)
   if (s.moverSphere) return cancelOrient(s); // (the mover is put back as it was, `in_421`)
   if (sectionNow(s) && !s.tool && !s.op && !s.repeat) return { ...s, sectionLive: null, session: { ...s.session, click: { ...s.session.click, selection: [] }, message: null } }; // (the plane is let go, as a tool is put away: it stays as a plane in the part, `in_394`, `in_396`)
@@ -451,6 +453,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     const rec = selectionOf(s.session).map((r) => gearOfSelection(sc, r)).find((g) => !!g);
     return rec ? { ...closed, tool: meshGearTool(rec, id === "gear:meshrack", id === "gear:meshring"), op: null } : { ...closed, session: { ...s.session, message: "select a gear first" } };
   }
+  if (id === "motion:play") return doMotionPlay(closed); // (the joint of the selected body played, `dec_mechanism_motion`)
   if (id === "cam:edit") { // the numbers of the cam or the ratchet that is selected, in the number box (`in_768`)
     const sc = sceneOf(s.session);
     const rec = selectionOf(s.session).map((r) => gearOfPart(sc, r)).find((g) => !!g?.spec.cam);

@@ -10,6 +10,7 @@ import { settings } from "../../shared/settings.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { Plane } from "../../operation/part.ts";
 import { normalOfPlane } from "../../operation/part.ts";
+import type { Motion } from "../motion.ts";
 import type { Toolpath } from "../../manufacturing/index.ts";
 import type { Session } from "../session.ts";
 import type { Tool, ToolKind } from "../tools.ts";
@@ -40,6 +41,8 @@ export interface AppState {
   adding: boolean;
   /** a manufacturing route's toolpath shown over the drawing (`in_570`): the toolpath and how far along it the head is (0 to 1); a scrubber moves it, Esc or the cross ends it */
   preview: { toolpath: Toolpath; at: number } | null;
+  /** a joint played or scrubbed (`dec_mechanism_motion`): the body is drawn moved by an amount that changes with time; nothing is written until the pose is kept */
+  motion: Motion | null;
   /** the arrow (or ring) of an operation that is selected (`in_238`): a click on it or taking it; only a selected arrow shows its number, so the arrows alone stay clean */
   handleSel: string | null;
   /** the selection mode of the ⋯ menu (`in_300`): every tap adds to the selection, and a tap on what is selected takes it out, as Shift does (a phone has no Shift) */
@@ -118,7 +121,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ stepEdit: null, similar: null, optionAt: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, adding: false, preview: null, handleSel: null, tape: false, wireframe: false, moverSphere: false, moverWas: null, moverPose: null, orbMovedAt: null, clipboard: null, sectionLive: null, sheetMove: null, worldHidden: false, picking: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, mixBase: 0.03, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ motion: null, stepEdit: null, similar: null, optionAt: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, adding: false, preview: null, handleSel: null, tape: false, wireframe: false, moverSphere: false, moverWas: null, moverPose: null, orbMovedAt: null, clipboard: null, sectionLive: null, sheetMove: null, worldHidden: false, picking: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, mixBase: 0.03, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.

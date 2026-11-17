@@ -58,6 +58,7 @@ Object.assign(ICONS, {
   intersect: svg('<circle cx="6" cy="8" r="4.2" stroke-dasharray="2 1.6"/><circle cx="10" cy="8" r="4.2" stroke-dasharray="2 1.6"/><path d="M8 4.5a4.2 4.2 0 0 1 0 7"/>'),
   edge: svg('<path d="M3 13V6.5C3 4.6 4.6 3 6.5 3H13"/><path d="M5.5 13.5L13.5 5.5"/>'),
   arc: svg('<path d="M3 12.5C3 6 8 2.5 13.5 3.5"/><circle cx="3" cy="12.5" r="1"/><circle cx="13.5" cy="3.5" r="1"/>'),
+  play: svg('<path d="M5 3.5v9l7.5-4.5z" fill="currentColor"/>'), // (play a joint, `dec_mechanism_motion`)
   cam: svg('<circle cx="7" cy="8" r="5"/><circle cx="7" cy="8" r="1.2"/><path d="M12 8h2.5"/>'), // (a cam: a disc turned about a point off its middle, `dec_spline_and_cams`)
   spline: svg('<path d="M2.5 11.5C5 3 7 14 9.5 7.5S12 4 13.5 4.5"/><circle cx="2.5" cy="11.5" r="1"/><circle cx="13.5" cy="4.5" r="1"/>'), // (a smooth curve through points, `dec_spline_and_cams`)
   offset: svg('<rect x="1.8" y="3.2" width="12.4" height="9.6" rx="1"/><rect x="4.6" y="5.8" width="6.8" height="4.4" rx=".6"/>'),

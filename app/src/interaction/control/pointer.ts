@@ -20,6 +20,7 @@ import { lineHint, arcEndHint, hintRelations, circleCentredAt, anchorCentreAt, p
 import type { Hint } from "../hints.ts";
 import { snapOnPlane, guidesOf, finish, planeForDrawing, armTool, pointOnPlane, canHelix, meshSuggestion, snapToMesh } from "../tools.ts";
 import { splineEdit } from "../splineedit.ts";
+import { startMotion } from "../motion.ts";
 import { trimAt } from "../../operation/trim.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { OpKind, Op } from "../operations.ts";
@@ -79,6 +80,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:clockrack", label: "Clock rack", icon: "rack", tool: "gear" },
   { id: "gear:edit", label: "Edit gear", icon: "gear" },
   { id: "cam:edit", label: "Edit cam", icon: "cam" },
+  { id: "motion:play", label: "Play", icon: "play" },
   { id: "gear:helix", label: "Helix", icon: "helical" },
   { id: "gear:mesh", label: "Mesh gear", icon: "meshgear" },
   { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack" },
@@ -125,7 +127,7 @@ const GEARS: Group = {
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", { id: "cams", label: "Cam", icon: "cam", items: ["tool:eccentric", "tool:snail", "tool:ratchet", "tool:linear", { id: "genevas", label: "Geneva", icon: "cam", items: ["tool:geneva", "tool:geneva:assembled", "tool:geneva:model"] }, { id: "disccams", label: "Disc cam", icon: "cam", items: ["tool:disc:cycloidal", "tool:disc:harmonic", "tool:disc:parabolic"] }, "cam:edit"] }, GEARS, "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts"] },
-  { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate"] },
+  { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
@@ -142,6 +144,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
     const base = { id: r.id, label: r.label, icon: r.icon };
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
+    if (r.id === "motion:play") { const body = sel.find((x) => sc.parts[x]?.kind === "body"); const m = body ? startMotion(sc, body, "turn") : null; return [r.id, { ...base, enabled: !!m?.ok, why: m?.ok ? null : "select a body on a pin or a rod (the first body of a coaxial mate)" }]; }
     if (r.id === "cam:edit") { const has = sel.some((x) => !!gearOfPart(sc, x)?.spec.cam); return [r.id, { ...base, enabled: has, why: has ? null : "select a cam" }]; }
     if (r.id === "gear:helix") { // (the helix is a number of a plain gear, `in_693`)
       const rec = sel.map((x) => gearOfSelection(sc, x)).find((g) => !!g);
