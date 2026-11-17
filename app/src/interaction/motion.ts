@@ -6,11 +6,18 @@ import type { Vec3 } from "../math/vec.ts";
 import { normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { mateStatus } from "../operation/mates.ts";
-import { jointRoom } from "./mate.ts";
+import { jointRoom, driveCommand } from "./mate.ts";
+import type { Command } from "../operation/commands.ts";
+import { followersOf, gearAxis, gearOfBody } from "../operation/gearcouple.ts";
+import type { Follower } from "../operation/gearcouple.ts";
 
 export type JointKind = "turn" | "slide";
 export interface Motion {
+  /** the joint's mate, or "" when it is a gear that is played (`gear`) */
   mate: string;
+  /** a gear played: the gears it turns (or racks it slides) each by its own matrix, from the meshes it was made with (`gearcouple.ts`, stage 2) */
+  gear?: string;
+  follows: Follower[];
   kind: JointKind;
   /** the body that moves (the first of the coaxial mate) */
   body: Ref;
@@ -37,12 +44,20 @@ const FREE_TURN = 180, FREE_SLIDE = 30;
 /** The motion of the joint that the body is the first of (a true coaxial mate), or the reason there is none. */
 export function startMotion(scene: Scene, body: Ref, kind: JointKind = "turn"): { ok: true; motion: Motion } | { ok: false; why: string } {
   const m = mateStatus(scene).find((x) => x.state === "ok" && x.mode === "coaxial" && x.mover?.body === body);
-  if (!m?.mover) return { ok: false, why: "select a body that turns on a pin or slides on a rod (the first body of a coaxial mate)" };
+  if (!m?.mover) { // not a pin or a rod: a gear that was made with its body, which turns (or a rack, which slides) and takes the gears meshed with it along
+    const g = gearOfBody(scene, body);
+    const ax = g ? gearAxis(scene, g) : null;
+    if (!g || !ax) return { ok: false, why: "select a body that turns on a pin or slides on a rod (the first body of a coaxial mate), or a gear with its body" };
+    const { followers, why } = followersOf(scene, g);
+    const [lo, hi] = ax.kind === "turn" ? [-FREE_TURN, FREE_TURN] : [-FREE_SLIDE, FREE_SLIDE];
+    void why;
+    return { ok: true, motion: { mate: "", gear: g.id, follows: followers, kind: ax.kind, body, point: ax.point, dir: ax.dir, amount: 0, lo, hi, free: true, playing: false, from: 0, startedAt: null, speed: ax.kind === "turn" ? 45 : 8 } };
+  }
   const room = jointRoom(scene, m.id, kind);
   const free = !Number.isFinite(room.down) || !Number.isFinite(room.up);
   const [lo, hi] = free ? (kind === "turn" ? [-FREE_TURN, FREE_TURN] : [-FREE_SLIDE, FREE_SLIDE]) : [room.down, room.up];
   if (hi - lo < 1e-9) return { ok: false, why: "the joint's stops leave it no room to move" };
-  return { ok: true, motion: { mate: m.id, kind, body, point: m.mover.point, dir: normalize(m.mover.dir), amount: 0, lo, hi, free, playing: false, from: 0, startedAt: null, speed: kind === "turn" ? 60 : 10 } };
+  return { ok: true, motion: { mate: m.id, follows: [], kind, body, point: m.mover.point, dir: normalize(m.mover.dir), amount: 0, lo, hi, free, playing: false, from: 0, startedAt: null, speed: kind === "turn" ? 60 : 10 } };
 }
 
 /** The amount at a time (ms): a joint with no stops that turns goes on turning; any other swings from stop to stop and back. */
@@ -77,4 +92,20 @@ export function jointMatrix(m: Pick<Motion, "kind" | "point" | "dir">, amount: n
   const p = m.point;
   const shift: Vec3 = [p[0] - (r[0]! * p[0] + r[1]! * p[1] + r[2]! * p[2]), p[1] - (r[3]! * p[0] + r[4]! * p[1] + r[5]! * p[2]), p[2] - (r[6]! * p[0] + r[7]! * p[1] + r[8]! * p[2])];
   return [r[0]!, r[3]!, r[6]!, 0, r[1]!, r[4]!, r[7]!, 0, r[2]!, r[5]!, r[8]!, 0, shift[0], shift[1], shift[2], 1];
+}
+
+/** The command that keeps the pose: a joint's drive step; or, for a gear played, each gear (and the racks) set to where it stands, as `setGear` does (the record's turn or its centre), in one batch so one undo. Null when there is nothing to keep. */
+export function keepCommand(scene: Scene, m: Motion): Command | null {
+  if (Math.abs(m.amount) < 1e-9) return null;
+  if (!m.gear) return driveCommand(scene, m.mate, m.kind, m.amount);
+  const moves: { gear: string; kind: "turn" | "slide"; dir: Vec3; k: number }[] = [{ gear: m.gear, kind: m.kind, dir: m.dir, k: 1 }, ...m.follows.map((f) => ({ gear: f.gear, kind: f.kind, dir: f.dir, k: f.k }))];
+  const commands: Command[] = [];
+  for (const mv of moves) {
+    const rec = scene.gears?.find((g) => g.id === mv.gear);
+    if (!rec) continue;
+    const by = mv.k * m.amount;
+    if (mv.kind === "turn") commands.push({ type: "setGear", id: rec.id, spec: rec.spec, turn: (rec.turn ?? 0) + (by * Math.PI) / 180 });
+    else commands.push({ type: "setGear", id: rec.id, spec: rec.spec, at: [rec.at[0] + mv.dir[0] * by, rec.at[1] + mv.dir[1] * by, rec.at[2] + mv.dir[2] * by] });
+  }
+  return commands.length ? { type: "batch", commands } : null;
 }

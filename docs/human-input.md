@@ -3560,3 +3560,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_803 — 2026-11-17 — approval
 > I approve
 (approves `dec_mechanism_motion` as drafted, with its five choices: a view-only pose, kinematic only, saved drivers and couplings, the first slice being stages 1 and 2, and couplings made by the generators)
+
+## in_804 — 2026-11-17 — directive
+> Go with your recommendation, start stage 2
+(asks for stage 2 of `dec_mechanism_motion` to be started: gear ratio couplings, so one driven gear turns the gears and attached parts it drives)

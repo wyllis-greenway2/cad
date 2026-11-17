@@ -1,9 +1,8 @@
 // A joint played and scrubbed (`dec_mechanism_motion`, stage 1): starting it from the selected body, changing what it turns or slides, and keeping the pose (the one thing that writes). The pure parts are in `../motion.ts`.
 import type { AppState } from "./state.ts";
 import { scene as sceneOf, selection as selectionOf, run } from "../session.ts";
-import { startMotion, setPlaying } from "../motion.ts";
+import { startMotion, setPlaying, keepCommand } from "../motion.ts";
 import type { JointKind } from "../motion.ts";
-import { driveCommand } from "../mate.ts";
 
 /** Play the joint of the selected body: it starts turning (a pin) at once; the bar has the scrubber, the turn or slide, keep and close. */
 export function doMotionPlay(s: AppState): AppState {
@@ -23,7 +22,7 @@ export function doMotionKind(s: AppState, kind: JointKind): AppState {
 export function doMotionKeep(s: AppState): AppState {
   const m = s.motion;
   if (!m) return s;
-  const c = Math.abs(m.amount) > 1e-9 ? driveCommand(sceneOf(s.session), m.mate, m.kind, m.amount) : null;
+  const c = keepCommand(sceneOf(s.session), m);
   if (!c) return { ...s, motion: null, session: { ...s.session, message: "the joint is at rest: there is no pose to keep" } };
   const next = run(s.session, c);
   return next.message ? { ...s, session: next } : { ...s, motion: null, session: next };

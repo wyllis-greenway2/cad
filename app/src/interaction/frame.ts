@@ -250,6 +250,8 @@ function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame[
 
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
 let motionSplitMemo: { outcome: unknown; body: string; split: Frame["bodySplit"] } | null = null;
+const followSplits = new Map<string, Frame["bodySplit"]>(); // (the triangles of each body that follows, kept for the kernel's answer they were found in)
+let followSplitsFor: unknown = null;
 function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[]; shown: { scene: Scene; outcome: CompileOutcome }; /** the mates that hold the dragged body back (`in_338`) */ blocked?: string[]; /** the hard bodies the dragged one is against (`dec_hard_bodies`) */ hardHit?: Ref[]; /** the hard bodies bumping now: those that are dragged (with how far they have gone) and those they are against (`in_489`) */ bumping?: { movers: Ref[]; hit: Ref[]; shift: Vec3 }; /** where the dragged body's middle actually went, held by its mates: the arrows and numbers show it, not the pointer (`in_347`) */ shownFree?: Vec3; /** the other bodies selected, dragged with it (`in_341`, `in_345`) */ followers?: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[] } | null {
   if (s.motion && !s.drag) { // a joint played or scrubbed (`dec_mechanism_motion`): the body is drawn moved by the amount it stands at; nothing is made
     const sc0 = sceneOf(s.session);
@@ -258,7 +260,13 @@ function gpuMotion(s: AppState): { split?: Frame["bodySplit"]; matrix: number[];
       motionSplitMemo = { outcome: s.session.outcome, body: s.motion.body, split: fake.ok ? bodySplitOf(sc0, s.session.outcome, fake.op) : null };
     }
     if (!(gpuBase && gpuBase.history === s.session.history && gpuBase.outcome === s.session.outcome && gpuBase.made === false)) gpuBase = { history: s.session.history, outcome: s.session.outcome, made: false, value: { scene: sc0, outcome: s.session.outcome } };
-    return { matrix: jointMatrix(s.motion, s.motion.amount), shown: gpuBase.value, ...(motionSplitMemo.split ? { split: motionSplitMemo.split } : {}) };
+    if (followSplitsFor !== s.session.outcome) { followSplits.clear(); followSplitsFor = s.session.outcome; }
+    const followers = s.motion.follows.flatMap((fo) => {
+      if (!followSplits.has(fo.body)) { const q = startOp(sc0, [fo.body], "move", null); followSplits.set(fo.body, q.ok ? bodySplitOf(sc0, s.session.outcome, q.op) : null); }
+      const split = followSplits.get(fo.body);
+      return split ? [{ matrix: jointMatrix(fo, fo.k * s.motion!.amount), split }] : []; // (each by its own matrix: a gear turned about its own axis by the ratio of the teeth, a rack slid, `dec_mechanism_motion`)
+    });
+    return { matrix: jointMatrix(s.motion, s.motion.amount), shown: gpuBase.value, ...(motionSplitMemo.split ? { split: motionSplitMemo.split } : {}), ...(followers.length ? { followers } : {}) };
   }
   if (s.drag && "handle" in s.drag && s.drag.joint) { // a joint's handle dragged: the body is drawn turned or slid by the amount so far (`in_323`)
     const jd = s.drag.joint;

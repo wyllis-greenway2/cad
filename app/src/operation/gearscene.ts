@@ -20,7 +20,7 @@ import { camParts, camRefs, camSteps } from "./camscene.ts";
 import { meshBevel } from "./mesh.ts";
 
 /** `at`: the centre, in the world; `turn`: how far the gear is turned about its centre in its plane, radians (tooth 0 points along the plane's first direction when 0); `spec`: the numbers (`gear.ts`) */
-export interface GearRecord { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }
+export interface GearRecord { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number; /** the gear this one was meshed with when it was made (Mesh gear): they turn each other (`gearcouple.ts`, `dec_mechanism_motion`) */ meshWith?: string }
 
 const gearsOf = (s: Scene): readonly GearRecord[] => s.gears ?? [];
 /** Whether this part is made by the gear `id`. */

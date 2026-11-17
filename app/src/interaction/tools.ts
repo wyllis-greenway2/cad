@@ -895,7 +895,7 @@ export function finish(scene: Scene, t: Tool): Finished | null {
     const made = hasBody(target.spec) || target.spec.worm || target.spec.wheel; // (hasBody: a bevel gear too) // (a helical gear, a worm and a wheel are made into their bodies at once, like an extrusion: nothing is left selected)
     const refs = made ? null : gearRefs({ id, plane: pl.ref, at: target.at, spec: target.spec });
     const select = refs ? [refs.wall ? diskFaceRef(refs.wall) : loopFaceRef(refs.lines)] : [];
-    return { command: t.gear?.editing ? { type: "setGear", id, spec: target.spec } : { type: "gear", id, plane: pl.ref, at: target.at, spec: target.spec, ...(target.turn ? { turn: target.turn } : {}) }, select };
+    return { command: t.gear?.editing ? { type: "setGear", id, spec: target.spec } : { type: "gear", id, plane: pl.ref, at: target.at, spec: target.spec, ...(target.turn ? { turn: target.turn } : {}), ...(t.gear?.mesh ? { meshWith: t.gear.mesh.src.id } : {}) }, select };
   }
   if (t.kind === "arc") {
     const arc = arcOf(pl, t);
