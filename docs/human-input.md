@@ -3087,3 +3087,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_686 — 2026-11-17 — directive
 > Yes, add the ring around a gear, also the mesh gear in a ring doesn't seem to actually work?
 (asks for a ring that meshes around a selected gear (Mesh gear on an outside gear making a ring), and reports that Mesh gear on a ring gear does not seem to work)
+
+## in_687 — 2026-11-17 — directive
+> merge hopeful-cannon-3qzdtg next
+(asks for claude/hopeful-cannon-3qzdtg to be merged into this branch, after the others)
