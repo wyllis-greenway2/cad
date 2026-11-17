@@ -1,0 +1,67 @@
+[
+ {
+  "copies": 1,
+  "mode": "matrix",
+  "bodies": 3,
+  "triangles": 3370,
+  "frames": 237,
+  "fps": 59.1,
+  "msMatrixPerFrame": 0.019,
+  "msRebuildPerFrame": 0,
+  "msRenderCallPerFrame": 0.4,
+  "frameGapMedianMs": 17,
+  "done": true
+ },
+ {
+  "copies": 10,
+  "mode": "matrix",
+  "bodies": 30,
+  "triangles": 33700,
+  "frames": 119,
+  "fps": 29.6,
+  "msMatrixPerFrame": 0.05,
+  "msRebuildPerFrame": 0,
+  "msRenderCallPerFrame": 0.5,
+  "frameGapMedianMs": 33,
+  "done": true
+ },
+ {
+  "copies": 50,
+  "mode": "matrix",
+  "bodies": 150,
+  "triangles": 168500,
+  "frames": 34,
+  "fps": 8.3,
+  "msMatrixPerFrame": 0.082,
+  "msRebuildPerFrame": 0,
+  "msRenderCallPerFrame": 1.5,
+  "frameGapMedianMs": 117,
+  "done": true
+ },
+ {
+  "copies": 1,
+  "mode": "rebuild",
+  "bodies": 3,
+  "triangles": 3370,
+  "frames": 237,
+  "fps": 59.1,
+  "msMatrixPerFrame": 0.02,
+  "msRebuildPerFrame": 0.23,
+  "msRenderCallPerFrame": 0.5,
+  "frameGapMedianMs": 17,
+  "done": true
+ },
+ {
+  "copies": 10,
+  "mode": "rebuild",
+  "bodies": 30,
+  "triangles": 33700,
+  "frames": 101,
+  "fps": 25.2,
+  "msMatrixPerFrame": 0.033,
+  "msRebuildPerFrame": 1.42,
+  "msRenderCallPerFrame": 2.3,
+  "frameGapMedianMs": 33,
+  "done": true
+ }
+]

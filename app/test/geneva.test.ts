@@ -268,7 +268,9 @@ test("assembled: the crank and the locking disc are on the crank's shaft, a cent
   assert.ok(!sh.value.circles.some((q) => !q.hole), "no pin circle in a sketch of the assembly");
   const { wheel, local } = drive(base5({ layout: "assembled" }));
   const placed = local.map(([x, y]): Pt => [x + c, y]); // (the disc in the pose the wheel is locked in: turned by nothing)
-  assert.ok(!overlap(turned(wheel, Math.PI / 5), placed), "locked: the wheel and the disc do not meet");
+  assert.ok(!overlap(wheel, placed), "locked: the wheel and the disc do not meet");
+  // and it is locked: a turn of the wheel either way runs it into the disc (the wheel is drawn in the pose it is locked in, a locking arc facing the disc)
+  for (const dt of [-0.05, 0.05]) assert.ok(overlap(turned(wheel, dt), placed), `a turn of ${dt} is blocked`);
   const { s } = make(base5({ layout: "assembled" }));
   assert.equal(Object.values(scene(s).steps).length, 0, "a sketch: no steps");
 });

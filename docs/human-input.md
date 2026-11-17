@@ -3548,3 +3548,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_800 — 2026-11-17 — directive
 > Okay I actually wanted to talk about this in general. Can we make it so that things in the app can move in general? So a gear could drive other gears or attached parts? cam shaft could drive a piston etc. And how could we make this work generally?
 (asks whether things in the app can move in general, a gear driving other gears or attached parts, a camshaft driving a piston, and how that could work in general; a discussion, not yet a build)
+
+## in_801 — 2026-11-17 — directive
+> Go with your recommendation, build the spike
+(asks for the spike to be built: per-body matrices driven by a timer turning the Geneva model's crank and wheel, with a frame-time readout, to measure the cost of moving parts on screen)

@@ -209,5 +209,7 @@ export function genevaShapes(s: CamSpec, quick = false): Result<{ polys: { point
   const crank = { points: [q2, t2, t1, q1], bulges: [0, bulgeOf(t2, [kx + a + rp, ky], t1), 0, bulgeOf(q1, [kx - rh, ky], q2)] };
   const circles: CamShapes["circles"] = hole > 0 ? [{ c: [0, 0], r: hole / 2, hole: true }, { c: crankAt, r: hole / 2, hole: true }, ...(lockOn ? [{ c: discAt, r: hole / 2, hole: true as const }] : [])] : [];
   if (layout === "model") circles.push({ c: [kx + a, ky], r: rp }); // (the pin: a body of its own, joined to the crank plate, that stands up into the wheel's slot)
-  return ok({ polys: [wheel, crank], circles, rings });
+  // assembled, the wheel stands in the pose it is locked in: turned half a step, so a locking arc, not a slot, faces the disc (the disc's notch was worked out with a slot toward it: the middle of the pin's visit)
+  const wheelOut = layout === "apart" ? wheel : { points: wheel.points.map(([x, y]): V2 => [x * Math.cos(half) - y * Math.sin(half), x * Math.sin(half) + y * Math.cos(half)]), bulges: wheel.bulges };
+  return ok({ polys: [wheelOut, crank], circles, rings });
 }
