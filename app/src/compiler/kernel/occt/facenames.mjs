@@ -2,9 +2,12 @@
 // and keeps it through the operations after, found again by matching (the same plane, and the same place on it) after the motion the operation is known to have made. Nothing here is OCCT's own history.
 // Plain numbers and replicad faces; nothing leaves the kernel folder.
 import { facesOf, edgesOf } from "./topo.mjs";
+import { getOC } from "replicad";
 import { moveMarkers } from "./bodies.mjs";
 
 const TOL = 1e-3;
+/** More freeform faces than this in a shape and their boxes are the quick ones. */
+export const QUICK_FROM = 64;
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
 /** The flat faces of a shape: unit normal, a point of the face's mass, and its box. */
@@ -21,13 +24,24 @@ export function planesOf(shape) {
   return out;
 }
 
+/** The quick (not tight) box of a face, as `bodies.mjs` takes it for a body. */
+function quickBounds(f) {
+  const oc = getOC();
+  const b = new oc.Bnd_Box();
+  try { oc.BRepBndLib.Add(f.wrapped, b, false); const a = b.CornerMin(), z = b.CornerMax(); const r = [[a.X(), a.Y(), a.Z()], [z.X(), z.Y(), z.Z()]]; a.delete(); z.delete(); return r; } finally { b.delete(); }
+}
+
 /**
  * The flat faces and the round (cylindrical) faces of a shape (`dec_stable_reference_mechanism`, `in_613`): a flat face has its unit normal `n`, a point of its mass `c` and its box; a round face its axis direction `n`,
  * a point `o` of the axis, its radius `r`, a point `c` on its surface and its box. Other surfaces (a cone, a sphere, a torus, a spline) have no name yet.
  */
-export function surfacesOf(shape) {
+export function surfacesOf(shape, quickFrom = QUICK_FROM) {
   const out = [];
-  for (const f of facesOf(shape)) {
+  const all = facesOf(shape);
+  // a body of many freeform faces (a worm wheel's loft has 760) is named by the quick box of each: the exact box of a freeform face takes 5 ms, 4 s for the wheel. A loft's own sides are named by comparing their box with the box of the
+  // sketch's corners, which asks for the exact one, so the few freeform faces of an ordinary body keep it.
+  const quick = all.filter((f) => f.geomType !== "PLANE" && f.geomType !== "CYLINDRE").length > quickFrom;
+  for (const f of all) {
     const type = f.geomType;
     if (type === "PLANE") {
       const q = f.normalAt();
@@ -52,7 +66,7 @@ export function surfacesOf(shape) {
       for (const x of [dir, loc, ax, cyl]) x.delete?.();
     } else {
       // any other surface (a cone, a sphere, a torus, a spline: the sides of a loft, the round of a rim): named by its kind of surface and the box it lies in
-      const [lo, hi] = f.boundingBox.bounds;
+      const [lo, hi] = quick ? quickBounds(f) : f.boundingBox.bounds;
       out.push({ kind: "surf", type: String(type), n: [0, 0, 1], c: [0, 1, 2].map((k) => (lo[k] + hi[k]) / 2), lo: [...lo], hi: [...hi], face: f });
     }
   }

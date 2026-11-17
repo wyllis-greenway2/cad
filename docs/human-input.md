@@ -3142,3 +3142,35 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_699 — 2026-11-17 — approval
 > Yes, accept all three
 (approves the three drafted parts library entries: dec_parts_library, dec_parts_sourcing and q_parts_open_sources)
+
+## in_700 — 2026-11-17 — directive
+> okay the next thing I want you to help me work on is how to speed up the app. Things can get really slow. And sometimes for non obvious reasons. for example, the same gear sketch is fast when not selected, and very slow when selected, but isn't it the same line, same rendering, same everything? So why so slow when sselected?
+(asks to work on the app's speed, starting with why a gear sketch is fast unselected and very slow selected; attached a project and a state snapshot of it, `fast_when_not_selected`)
+
+## in_701 — 2026-11-17 — directive
+> yes that sounds good, lets pin that idea though and keep looking and holistic fixes for slowness. Another thing that is really slow is just when there are too many gears, or gears with too many teeth, or worm gears and especially worm gear wheels. Those are so slow they basically just crash the app. Even with a single gear. So how can we make this better?
+(approves the highlight batching idea but pins it, not to be built yet; asks to keep looking for holistic speed fixes; reports that many gears, gears with many teeth, worm gears and especially worm wheels are so slow they nearly crash the app, even a single one)
+
+## in_702 — 2026-11-17 — question
+> what do you recommenced? should we do all those fixes? and how much would it help? also I am open to treating the gear as one feature, probably the only selectable parts might be the surface to adjust thickness, and the bore? what do you think? Also what if we had gears render just entirely as circles while things are overloaded and then settle back down into gears when they can? so like really really simplify them if needed for speed?
+(asks for a recommendation among the gear speed fixes and their benefit; says they are open to a gear being one feature with only the thickness surface and the bore selectable; proposes drawing gears as plain circles while the app is overloaded and settling back to real gears when it can)
+
+## in_703 — 2026-11-17 — question
+> okay do any of these actually reduce the final model quality though?
+(asks whether any of the proposed gear speed fixes reduce the quality of the final model)
+
+## in_704 — 2026-11-17 — directive
+> yes start with the worm wheel prototype
+(asks for the worm wheel speed prototype to be started, the first of the gear speed fixes)
+
+## in_705 — 2026-11-17 — directive
+> yes figure out why the loft gets rejected
+(asks to find out why the kernel's validity check rejects the smooth worm wheel loft)
+
+## in_706 — 2026-11-17 — directive
+> yes land those three changes with tests
+(approves landing the three worm wheel speed changes in the app: the quick box for naming a loft's faces, the faster wheel sections, and the same-parameter repair of a smooth loft, with tests)
+
+## in_707 — 2026-11-17 — directive
+> yes do the stand-in disc next
+(approves doing the stand-in disc next: gears drawn as plain discs while the kernel is busy, settling to the real gear when it is done)

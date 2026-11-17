@@ -78,6 +78,8 @@ import type { Op } from "./operations.ts";
 import { followed, moveOffset, hasGizmo, handleMiddle } from "./gizmo.ts";
 import { crossing } from "./boxselect.ts";
 import type { Handle } from "./gizmo.ts";
+import { standIns } from "./standin.ts";
+import type { StandIn } from "./standin.ts";
 
 /** A refused change, while it flashes: how far through it is (0 to 1), the constraints it would have broken (red, fading), the ones that tried (they shake), and the parts of the broken ones. */
 export interface FlashFrame { t: number; victims: string[]; culprits: string[]; parts: Ref[] }
@@ -115,6 +117,8 @@ export interface Frame {
   helper: { at: Vec3; text: string } | null;
   /** the kernel is still working the model out (a picture of it may be a moment old): a "working" sign shows if it takes a while */
   busy: boolean;
+  /** the discs that stand for gear bodies the kernel has not made yet (`dec_gear_standin`) */
+  standIns: StandIn[];
   /** everything the person is told, as one list for one renderer (`in_665`) */
   notices: Notice[];
   /** the world axis the selected plane or face lies across and which end of it the camera must be at to see it (so that X Y Z button is lit, as + or −) */
@@ -404,6 +408,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     entries: (s.moverSphere && moverOp(s) && !s.tool && gizmo ? moverPlaceEntries(gizmo, moverOp(s)!.frame, orbShow(s, now)) : sectionNow(s) && !s.op && !s.repeat && !s.tool && gizmo ? sectionEntries({ at: sectionNow(s)!.centre, n: sectionNow(s)!.n }, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : shownOp?.kind === "revolve" && !s.tool ? revolveEntries(shownOp, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : shownOp?.kind === "loft" && !s.tool ? loftEntries(sceneOf(s.session), shownOp) : shownOp?.kind === "mirror" ? mirrorEntries(shownOp, gizmo)  : shownOp?.kind === "scale" && shownOp.axes ? scaleEntries(shownOp, gizmo) : s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : []).map((e) => inUnits(e)),
     helper: helperAt(s, gizmo),
     busy: !!s.session.outcome.kernel?.stale,
+    standIns: standIns(sc, outcome.kernel),
     lookHint: lookOf(sc, sel, s.cam, s.world).lookHint,
     facing: facingOf(s.cam),
     touchHelper: touchHelperOf(s, gizmo),
