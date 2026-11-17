@@ -96,8 +96,14 @@ export function curveOf(pts: [number, number][], radii: number[], pitch: number)
   if (inside.length < 4) return null;
   const ref0 = inside[0]![1];
   const unw = inside.map(([r, f]): [number, number] => [r, f - ref0 - 2 * Math.PI * Math.round((f - ref0) / (2 * Math.PI))]);
-  const med = unw.map((q) => q[1]).sort((a, b) => a - b)[unw.length >> 1]!;
-  const q = unw.filter((p) => Math.abs(p[1] - med) < 0.6 * pitch).sort((a, b) => a[0] - b[0]);
+  // the branch of the contour that the flank is: from the point at the middle radius outward each way, a point is taken if its azimuth is within a quarter of a pitch of the last one taken (the whole surface's contour has other branches; the flank of a gear with
+  // small pitch and a steep spiral changes its azimuth by more than the pitch over its height, so the median would not do)
+  const sorted = unw.slice().sort((a, b) => a[0] - b[0]);
+  const rMid = (radii[0]! + radii[radii.length - 1]!) / 2;
+  let seed = 0; for (let i = 1; i < sorted.length; i++) if (Math.abs(sorted[i]![0] - rMid) < Math.abs(sorted[seed]![0] - rMid)) seed = i;
+  const taken: [number, number][] = [sorted[seed]!];
+  for (const dir of [1, -1]) { let last = sorted[seed]![1]; for (let i = seed + dir; i >= 0 && i < sorted.length; i += dir) { if (Math.abs(sorted[i]![1] - last) < 0.25 * pitch) { taken.push(sorted[i]!); last = sorted[i]![1]; } } }
+  const q = taken.sort((a, b) => a[0] - b[0]);
   if (q.length < 4 || q[q.length - 1]![0] < radii[radii.length - 1]! - 0.3) return null;
   return radii.map((r) => {
     if (r <= q[0]![0]) return q[0]![1] + ref0;
