@@ -38,7 +38,7 @@ import { reshape } from "./reshape.mjs";
 import { findCrossing } from "./selfcross.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
-import { nameFaces, refOfName, namedEdgeRefs, figureRoles, edgeEnds, edgeRoles, revolveRoles, loftRoles, sweepRoles, endTangent, creaseOf } from "./facenames.mjs";
+import { clearNameCaches, nameFaces, refOfName, namedEdgeRefs, figureRoles, edgeEnds, edgeRoles, revolveRoles, loftRoles, sweepRoles, endTangent, creaseOf } from "./facenames.mjs";
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf, solidKey } from "./bodies.mjs";
 
 /** The imported solids scaled about the origin by `op.scale` and then placed: `op.place` "center" brings the middle of their box to the origin, "floor" brings the middle of the box to the z axis and the bottom to z = 0 (a part that sits on the build plate). */
@@ -2113,7 +2113,7 @@ const prisms = new Map(); // a body's own solid by what it was made from, not wh
 /** How many bodies' own solids were built and how many were kept ones (read by the tests, `dec_per_body_checks`). */
 export const kernelStats = { prismsBuilt: 0, prismsReused: 0 };
 /** Forget what is kept of bodies, so that the next answer is worked out from nothing (for the tests: the kept and the worked-out answers are to be the same). */
-export function clearKernelCaches() { prisms.clear(); validSolids.clear(); uncrossed.clear(); memo.clear(); }
+export function clearKernelCaches() { prisms.clear(); validSolids.clear(); uncrossed.clear(); memo.clear(); clearNameCaches(); }
 const memo = new Map(); // key -> { value, ms }
 const remember = (key, entry) => {
   memo.delete(key);

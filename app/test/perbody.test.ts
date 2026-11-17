@@ -62,3 +62,12 @@ test("the surfaces of a shape are the same found again from what was kept, and a
   (a[0] as unknown as { n: number[] }).n[0] = 99;
   assert.notEqual((surfacesOf(box)[0] as unknown as { n: number[] }).n[0], 99);
 });
+
+test("the surfaces of several bodies are those of each body one after the other, and the names of the edges are those of each body's own faces", () => {
+  const strip = (l: object[]) => l.map((e) => { const { face: _f, owner: _o, ...rest } = e as { face?: unknown; owner?: unknown }; return rest; });
+  const [a, b] = [() => makeBox([0, 0, 0], [10, 20, 30]), () => makeBox([50, 0, 0], [60, 5, 5])]; // (a compound uses up the shapes it is made of: made again each time)
+  const both = surfacesOf(makeCompound([a(), b()]));
+  assert.deepEqual(strip(both), [...strip(surfacesOf(a())), ...strip(surfacesOf(b()))]);
+  assert.equal(both.length, 12);
+  assert.deepEqual(strip(surfacesOf(makeCompound([a(), b()]))), strip(both), "again, from what was kept");
+});

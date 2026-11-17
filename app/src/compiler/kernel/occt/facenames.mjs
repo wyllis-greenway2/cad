@@ -1,7 +1,7 @@
 // Names for the flat faces of a body that last through the steps (`dec_stable_reference_mechanism`, option C, `in_559`): each flat face of a solid has a name made when an operation first made it (`<op id>:<rank>`)
 // and keeps it through the operations after, found again by matching (the same plane, and the same place on it) after the motion the operation is known to have made. Nothing here is OCCT's own history.
 // Plain numbers and replicad faces; nothing leaves the kernel folder.
-import { facesOf, edgesOf } from "./topo.mjs";
+import { facesOf, edgesOf, solidsOf } from "./topo.mjs";
 import { getOC } from "replicad";
 import { moveMarkers } from "./bodies.mjs";
 
@@ -36,11 +36,43 @@ function quickBounds(f) {
  * a point `o` of the axis, its radius `r`, a point `c` on its surface and its box. Other surfaces (a cone, a sphere, a torus, a spline) have no name yet.
  */
 export function surfacesOf(shape, quickFrom = QUICK_FROM) {
-  const out = [];
-  const all = facesOf(shape);
+  const solids = solidsOf(shape);
+  // a shape that is not made of solids has its faces taken together, as they come
+  if (!solids.length) { const all = facesOf(shape); return surfacesOfFaces(all, all.filter(isFreeform).length > quickFrom); }
   // a body of many freeform faces (a worm wheel's loft has 760) is named by the quick box of each: the exact box of a freeform face takes 5 ms, 4 s for the wheel. A loft's own sides are named by comparing their box with the box of the
   // sketch's corners, which asks for the exact one, so the few freeform faces of an ordinary body keep it.
-  const quick = all.filter((f) => f.geomType !== "PLANE" && f.geomType !== "CYLINDRE").length > quickFrom;
+  const infos = solids.map(infoOf);
+  const quick = infos.reduce((a, i) => a + i.freeform, 0) > quickFrom;
+  const out = [];
+  for (const info of infos) {
+    // the faces of a body, with what each is, found once for the body (`dec_per_body_checks`): a step that adds or changes another body leaves this one's faces as they were
+    const list = (info.lists[quick] ??= surfacesOfFaces(info.faces, quick));
+    for (const e of list) out.push({ ...cloneFacts(e), owner: info });
+  }
+  return out;
+}
+
+const isFreeform = (f) => f.geomType !== "PLANE" && f.geomType !== "CYLINDRE";
+const solidInfos = new Map(); // solid hash -> [{ solid, faces, freeform, lists, edgeNames }]
+let infosKept = 0;
+/** What is kept of a body (a solid) for naming: its faces, how many are freeform, the list of what each face is, and the names of its edges for the names its faces were given. Found again by identity, and only for the same solid. */
+function infoOf(solid) {
+  const h = solid.hashCode;
+  const list = solidInfos.get(h);
+  const hit = list?.find((x) => x.solid.wrapped.IsSame(solid.wrapped));
+  if (hit) return hit;
+  if (infosKept > 400) { solidInfos.clear(); infosKept = 0; }
+  const faces = facesOf(solid);
+  const info = { solid, faces, freeform: faces.filter(isFreeform).length, lists: {}, edgeNames: new Map() };
+  if (list) list.push(info); else solidInfos.set(h, [info]);
+  infosKept++;
+  return info;
+}
+/** Forget what is kept for naming (for the tests: the kept and the worked-out answers are to be the same). */
+export function clearNameCaches() { solidInfos.clear(); faceFactCache.clear(); faceEdgeCache.clear(); edgePointCache.clear(); infosKept = 0; factsKept = 0; cached = 0; }
+
+function surfacesOfFaces(all, quick) {
+  const out = [];
   for (const f of all) {
     // what a face is (its kind, direction, place and box) is found once for the face, by its identity: a body that a step did not touch has the same faces in the next answer (`dec_per_body_checks`)
     const known = factsOf(f, quick);
@@ -264,6 +296,20 @@ function itemOfEdge(edge) {
   return item;
 }
 function nameEdges(faces, given) {
+  // each body's edges are named from its own faces' names (an edge lies between two faces of one body), and what was found for a body with the names its faces had is kept: a body a step did not touch is not looked through again
+  const byOwner = new Map();
+  faces.forEach((f, i) => { const list = byOwner.get(f.owner ?? null); if (list) list.push(i); else byOwner.set(f.owner ?? null, [i]); });
+  const out = [];
+  for (const [owner, idx] of byOwner) {
+    const key = idx.map((i) => given[i]).join("\u0001");
+    const kept = owner?.edgeNames.get(key);
+    const made = kept ?? namedEdgesOf(idx.map((i) => faces[i]), idx.map((i) => given[i]));
+    if (owner && !kept) { if (owner.edgeNames.size > 4) owner.edgeNames.clear(); owner.edgeNames.set(key, made); }
+    for (const e of made) out.push({ name: e.name, a: [...e.a], b: [...e.b], mid: [...e.mid] });
+  }
+  return out;
+}
+function namedEdgesOf(faces, given) {
   const sides = new Map(); // edge hash -> { edge, names }
   faces.forEach((f, i) => {
     for (const e of edgesOfFace(f.face)) {
