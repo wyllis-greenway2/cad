@@ -3352,3 +3352,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_751 — 2026-11-17 — approval
 > Yes, add the smooth head option
 (asks for the smooth head option of the socket head cap screw, the smooth-head largest diameters of ISO 4762 as an alternative to the knurled head)
+
+## in_752 — 2026-11-17 — directive
+> okay now lets keep working
+(asks to keep working, without saying on what)
