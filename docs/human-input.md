@@ -3484,3 +3484,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_784 — 2026-11-17 — directive
 > yes do the smaller per-edit and per-frame costs next
 (approves doing the smaller per-edit and per-frame costs next: grouping loops once per derive, copying the parts map twice per edit, picking against the body's triangles, and the axis-label check during an orbit)
+
+## in_785 — 2026-11-17 — directive
+> wait until its surfaces can be derived from those papers. Lets build it right
+(decides: no approximate spiral bevel gear; wait until its tooth surfaces can be derived from the NASA papers and the other sources, and build it correctly)
