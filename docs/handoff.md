@@ -3256,6 +3256,9 @@ No input. The full test suite was run on the code as of the engagement setting (
 ## Handoff 740 — 2026-11-17 (in_816: the cool-einstein merge pushed to the testing branch)
 `in_816`. The testing branch had meanwhile merged the planetary work as `in_803` to `in_808` and Handoffs 730 to 735, the numbers used here for `claude/cool-einstein-odsxco-work` (fasteners in the ring, crown gear) and for the merge request. The testing branch's numbers stand: this side was renumbered first (`in_803` to `in_808` became `in_810` to `in_815`, Handoffs 730 to 733 became 736 to 739, in the code comments and decisions too), then the testing branch merged; docs only conflicted. **Check:** `npm run check` passes (1504 tests, types, layers, boundary, unused, docs).
 
+## Handoff 741 — 2026-11-17 (in_809: the spiral sets; a spiral tool proposed)
+`in_809`. **Measured:** 22/34, 25/25, 18/36 mesh (overlap 0.3 to 4.3 mm3 at the place, 382 to 422 half a pitch round); 30/45 ran the kernel out of memory in the ring's cone cut; 17/43 still fails (the steep ring cone). **Wrote** `dec_spiral_bevel_gears` as a **provisional** proposal (limits: ring cone under about 65 degrees, fewer than about 60 teeth in all, 90 degree shafts, no profile shift); nothing built in `app/`. Awaiting the human's approval. Hypoid not started.
+
 ## Handoff 742 — 2026-11-17 (in_818: this branch brought up to date with claude/inspiring-pascal-l342k7)
 `in_818`. `claude/inspiring-pascal-l342k7` already contained every commit of this branch (the other Claude had merged it up to and including the linear ratchet, renumbering this branch's `in_696` to `in_704` as `in_788` to `in_795` and its Handoffs 626 to 634 as 707 to 721), so the update was a fast-forward of `claude/adoring-dijkstra-next-pascal` to pascal's `d34df4a`, no conflicts, nothing of this branch lost. New inputs and handoffs on this branch continue from `in_818` and Handoff 742. Docs check OK (137 entries, 796 human inputs).
 
