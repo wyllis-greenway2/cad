@@ -53,7 +53,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:snail", label: "Snail cam", icon: "cam", tool: "cam" },
   { id: "tool:trim", label: "Trim", icon: "scissors", tool: "trim" },
   { id: "tool:gear", label: "Spur gear", icon: "gear", tool: "gear" },
-  { id: "tool:bevel", label: "Bevel gear (approx.)", icon: "bevelgear", tool: "gear" },
+  { id: "tool:bevel", label: "Bevel gear", icon: "bevelgear", tool: "gear" },
   { id: "tool:worm", label: "Worm", icon: "worm", tool: "gear" },
   { id: "tool:wormwheel", label: "Worm wheel", icon: "wormwheel", tool: "gear" },
   { id: "tool:ring", label: "Ring gear", icon: "ringgear", tool: "gear" },

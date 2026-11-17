@@ -3372,3 +3372,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_756 — 2026-11-17 — directive
 > can we remove helix, edit, and mesh from the menu, instead it will just be available on the gear icon on already existing gears. There seems to be a bug where after I add a ring gear with helix, then I can no longer select the bodies of gears on double click. Can we have it so that if you apply a helix to a gear from the gear menu on the gear, then it auto applies a 15 degree and scrolls and focuses on the helix field in the menu that pops up?
 (asks to take Helix, Edit and Mesh out of the Sketch ring's menu so they are on the gear icon of an existing gear only; reports that after adding a helical ring gear the bodies of gears can no longer be selected by double click; and asks that Helix from the gear icon apply 15 degrees at once and scroll to and focus the Helix field of the box that opens)
+
+## in_757 — 2026-11-17 — approval
+> Yes, shorten it to Bevel gear
+(approves shortening the menu label "Bevel gear (approx.)" to "Bevel gear", so the menu tooltip test passes)
