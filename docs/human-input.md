@@ -3104,3 +3104,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_690 — 2026-11-17 — approval
 > Yes, accept all three
 (approves the three drafted parts library entries: dec_parts_library, dec_parts_sourcing and q_parts_open_sources)
+
+## in_691 — 2026-11-17 — directive
+> Okay lets not build all of this now. Lets build only a few specific parts. So first off, what did we decide? that it would be much better to create things on the fly instead of store then? like for fasteners for example?
+(asks what was decided about the parts library, and whether standard parts like fasteners are generated on the fly rather than stored; says to build only a few specific parts for now, not all of it)
+
+## in_692 — 2026-11-17 — directive
+> How can we offer an interface that produces all standard parts as an output? and how do we know or handle situations where nominal is actually slightly different then the listed or standardized part feature listed size
+(asks how one interface could produce all standard parts, and how to handle a real part whose size differs slightly from the listed nominal)
+
+## in_693 — 2026-11-17 — approval
+> Yes, draft those two entries
+(asks for the add-part interface and the tolerance and fit proposals to be drafted as two entries)
