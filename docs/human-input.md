@@ -3404,3 +3404,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_764 — 2026-11-17 — directive
 > okay can we try again to get the the standard octoid tooth ? lets keep researching. See what you can find and or give me links to help you get documentation
 (asks me to research again for the standard octoid tooth of the bevel gear, and to find or link documentation that would give me what I need)
+
+## in_765 — 2026-11-17 — approval
+> yes set up the source index
+(approves setting up the source index: an entry for each source read or looked up so far)
