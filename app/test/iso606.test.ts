@@ -137,7 +137,7 @@ type Item = { id: string; label: string; icon: string; enabled: boolean; childre
 test("the Sketch ring holds one Gear icon that opens a submenu with every gear tool (Spur gear, Ring gear, Rack, Clock, Pulley and Sprocket submenus, Edit gear, Mesh gear, Mesh rack); none of them is in the Sketch ring itself", () => {
   const items = reduce(top(), { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as Item[];
   const sketch = items.find((i) => i.id === "sketch")!;
-  assert.deepEqual(sketch.children!.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "tool:arc", "gears", "tool:trim", "op:offset"]);
+  assert.deepEqual(sketch.children!.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "gears", "tool:trim", "op:offset"]);
   const gears = sketch.children!.find((i) => i.id === "gears")!;
   assert.equal(gears.label, "Gear");
   assert.deepEqual(gears.children!.map((i) => i.id), ["tool:gear", "tool:helical", "tool:ring", "tool:rack", "worms", "clockgears", "pulleys", "sprockets", "gear:edit", "gear:mesh", "gear:meshrack", "gear:meshring"]);
