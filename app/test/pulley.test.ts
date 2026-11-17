@@ -1,4 +1,4 @@
-// The GT2 pulley (`dec_gear_tool`, `in_551`): the belt table's numbers, the arcs that touch each other, the outline, and what the kernel makes of it.
+// The GT2 pulley (`dec_gear_tool`, `in_583`): the belt table's numbers, the arcs that touch each other, the outline, and what the kernel makes of it.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gearOutline } from "../src/operation/gear.ts";
@@ -131,7 +131,7 @@ test("GT2 pulley tool: Teeth, Clearance and Bore are its numbers; click the cent
   assert.match(few.session.message ?? "", /12 to 400 teeth/);
 });
 
-// ---- HTD 5M (`in_555`) ----
+// ---- HTD 5M (`in_587`) ----
 function arcCentre(g: GearOutline, i: number): { c: P; r: number } | null {
   const [a, b, k] = [g.points[i]!, g.points[(i + 1) % g.points.length]!, g.bulges[i]!];
   if (!k) return null;
@@ -205,7 +205,7 @@ test("HTD 5M tool: the Sketch ring has it; Teeth, Clearance (0.07 shown) and Bor
   assert.match(few.session.message ?? "", /13 to 400 teeth/);
 });
 
-// ---- HTD 8M (`in_558`) ----
+// ---- HTD 8M (`in_590`) ----
 test("an HTD 8M pulley of 20 grooves: outside diameter 49.56 mm (Pfeifer's chart), grooves 3.38 mm deep, the tip arc 2.46 and the corners 0.70 (ProTorque's datasheet), no clearance by default", () => {
   const t = HTD_TOOTH.HTD8M;
   const g = must({ teeth: 20, module: 8, pulley: "HTD8M" });

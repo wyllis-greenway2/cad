@@ -3,7 +3,7 @@ id: dec_worm_gears
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_573, in_572, in_571, in_570, in_569, in_568, in_567
+human_input: in_608, in_607, in_606, in_605, in_601, in_600, in_599
 date: 2026-11-17
 depends_on:
   - dec_gear_tool: a worm and its wheel are gear records of the same kind (a record, parts made from it each derive, steps it owns); a change to how a gear is a record changes them
@@ -13,7 +13,7 @@ depends_on:
 ---
 # Worm gears: a worm, and a throated wheel as a loft through five sections
 
-**Asked and approved (`in_567` to `in_573`):** a worm is a rack wound round an axis (the tooth of its axial section is a rack tooth, carried along a helix); the exact wheel (cutting the worm out of a blank at 24 turns) took 153 s for one window of a 30-tooth wheel (`prototypes/worm-hobbing`), so the wheel is a loft through sections worked out from the worm, which a prototype showed follows the exact wheel to 0.05 mm with five (`prototypes/worm-wheel-loft`). Built as proposed: single hand (right), 90 degree shafts, one to four starts.
+**Asked and approved (`in_599` to `in_608`):** a worm is a rack wound round an axis (the tooth of its axial section is a rack tooth, carried along a helix); the exact wheel (cutting the worm out of a blank at 24 turns) took 153 s for one window of a 30-tooth wheel (`prototypes/worm-hobbing`), so the wheel is a loft through sections worked out from the worm, which a prototype showed follows the exact wheel to 0.05 mm with five (`prototypes/worm-wheel-loft`). Built as proposed: single hand (right), 90 degree shafts, one to four starts.
 
 **The worm** (`GearSpec.worm = { diameter, length }`; `teeth` is its starts, `module` its axial module, `pressure` its axial pressure angle; `operation/worm.ts`, `wormscene.ts`). Thread: the rack tooth at the pitch (thick pi m / 4 either side of the middle at the pitch circle, flanks at the pressure angle, a module above and 1.25 modules below the pitch circle, the foot reaching half a module into the core), one figure for each start; the lead is the starts x pi x the module. Core: a rectangle on a second plane through the axis, revolved 360 degrees (a cylinder; extruding a circle gave a cylinder the kernel's join with the thread could not make). Steps (named by the gear in `params.gear`): the core revolve as a piece of its own (`mode: "new"`: it stands beside its wheel, which overlaps it by tooth clearance and must not cut it), then each start's thread as a revolve with advance, joined (`mode: "add"`). The thread stays half a millimetre inside the core's ends (a thread that touches an end face exactly makes the join fail). The default Diameter is ten modules, Length 15 modules (2.5 leads at least); the figure is drawn counter-clockwise (a thread swept from a clockwise one is a solid turned inside out).
 

@@ -1,4 +1,4 @@
-// The parts and steps of a worm and of its wheel (`dec_worm_gears`, `in_573`), made from a gear record by `gearscene.ts` as those of any gear are.
+// The parts and steps of a worm and of its wheel (`dec_worm_gears`, `in_608`), made from a gear record by `gearscene.ts` as those of any gear are.
 // The gear's frame: X along the plane's first direction turned by the record's turn, Y at right angles to it in the plane, n the plane's normal.
 //  - A worm lies along X through the record's centre. Its thread's figure, one trapezoid for each start, is drawn in the plane at the +Y side of the axis (the section through the axis); its core is a circle on a plane across the axis at
 //    the worm's start. Steps: the core extruded along the axis, then each start's figure carried along a helix about the axis (`dec_spiral_extrude`) and joined to it.

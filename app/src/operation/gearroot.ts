@@ -1,4 +1,4 @@
-// The root of an external involute gear as a cutter makes it (`dec_gear_tool`, `in_560`): the rack cutter's tooth is the straight flank at the pressure angle, ending at its tip in a corner of radius rho. Rolling the cutter on the
+// The root of an external involute gear as a cutter makes it (`dec_gear_tool`, `in_592`): the rack cutter's tooth is the straight flank at the pressure angle, ending at its tip in a corner of radius rho. Rolling the cutter on the
 // pitch circle, its straight flank makes the involute and its corner the root fillet (a trochoid); with few teeth the corner cuts below the involute's start, which is the undercut. Pure maths in the gear's own x and y.
 // The meshing condition makes it explicit: a point of the cutter's outline with outward normal (cos b, sin b) in the cutter's own (u along its pitch line, n toward the gear's middle) touches the gear when the normal passes
 // through the pitch point, which gives the roll angle psi = (u - n cos b / sin b) / rp, and the gear's point is then (rp - n) e_r(psi) + (u - rp psi) e_t(psi).

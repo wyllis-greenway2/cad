@@ -73,6 +73,9 @@ export type Intent =
   | { type: "relation"; act: "focus" | "remove" | "lock" | "set" | "measure"; id: string | null; value?: number }
   /** a key for the number being typed (digits, ".", "-", Backspace, Tab, Enter, the arrows) */
   | { type: "typed"; key: string; shift: boolean }
+  /** move the head of the toolpath preview (0 to 1), or end the preview (`in_570`) */
+  | { type: "previewAt"; at: number }
+  | { type: "previewClose" }
   /** open or close a list from the ⋯ menu (the bodies, the history) */
   | { type: "panel"; name: "bodies" | "history" | "groups" }
   /** a row of the open list: select it (a body) or take it out (a step) */

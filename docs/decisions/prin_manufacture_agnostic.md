@@ -3,7 +3,7 @@ id: prin_manufacture_agnostic
 kind: principle
 status: accepted
 origin: human
-human_input: in_544
+human_input: in_576
 date: 2026-11-16
 depends_on:
 alternative_to:
@@ -14,4 +14,4 @@ No tool, setting or default in the modeler is shaped by a manufacturing route (l
 
 ## Rationale
 
-Stated by the human (`in_544`). It keeps one model usable for every route, and keeps route knowledge in one place instead of spread through the tools. Numbers that are plain geometry (a gear's backlash, a fit's clearance as a size the person types) are not route knowledge as long as their defaults are the nominal ones and the tool does not know why they are typed.
+Stated by the human (`in_576`). It keeps one model usable for every route, and keeps route knowledge in one place instead of spread through the tools. Numbers that are plain geometry (a gear's backlash, a fit's clearance as a size the person types) are not route knowledge as long as their defaults are the nominal ones and the tool does not know why they are typed.

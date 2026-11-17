@@ -11,6 +11,11 @@ import { createSession, openSession, saveText, run, scene, selection, refresh } 
 import type { Session } from "./interaction/session.ts";
 import { canExport } from "./interaction/exportstl.ts";
 import { canExportFlat } from "./interaction/exportsketch.ts";
+import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, startValues, projectMachines, recordCommands, tableRows, rowFrom, tableDialog, layersDialog, layersCommand, whyNoLayers, marksSummary } from "./interaction/manufacture.ts";
+import { parseLibrary, libraryText, saveMachine, removeMachine, saveSettings, removeSettings } from "./interaction/library.ts";
+import { flatSnapshot } from "./interaction/partsnapshot.ts";
+import type { LaserValues } from "./interaction/manufacture.ts";
+import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
 import type { ImportOptions } from "./interaction/importfile.ts";
@@ -37,6 +42,7 @@ import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
 import { createRing } from "./ui/ring.ts";
 import { createAddChip } from "./ui/addchip.ts";
+import { createPreviewBar } from "./ui/previewbar.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
@@ -112,6 +118,7 @@ if (Number.isFinite(savedPan) && savedPan > 0) settings.input.trackpadPanScale =
 
 const menu = createMenu(document.body, (id) => {
   menu.hide();
+  if (state.menu) { state = { ...state, menu: null }; dirty = true; } // (a row that opens a dialog or sets something does not close the ⋯ menu's state on its own: the first Esc afterwards would only have closed that)
   if (id === "view:game") { input.toggleGame(); return; } // (game mode is the input's: it holds the pointer, `in_391`)
   if (id === "outlines") {
     settings.theme.outlines = !settings.theme.outlines;
@@ -129,6 +136,10 @@ const menu = createMenu(document.body, (id) => {
   else if (id === "share") shareState();
   else if (id === "export") void exportDialogFlow();
   else if (id === "import") void importDialogFlow();
+  else if (id === "material") void materialDialogFlow();
+  else if (id === "laser") void laserDialogFlow();
+  else if (id === "laserTable") void laserTableFlow();
+  else if (id === "laserLayers") void laserLayersFlow();
   else if (id === "clearAnswers") void resultStore?.clear();
   else if (id === "save" || id === "open") dispatch({ type: id });
   else if (id === "bodies" || id === "history" || id === "groups") dispatch({ type: "panel", name: id });
@@ -163,6 +174,7 @@ const faceKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: 
 const loftKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "loftKind", id }), "Loft:");
 const sizeKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "sizeKind", kind: id as "constant" | "variable" | "twoDistances" | "swap" }), "Size:");
 const addChip = createAddChip(document.body, () => dispatch({ type: "runAction", id: "select:add" }));
+const previewBar = createPreviewBar(document.body, (at) => dispatch({ type: "previewAt", at }), () => dispatch({ type: "previewClose" }));
 const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "invert" ? { type: "runAction", id: "hollow:invert" } : to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
@@ -219,6 +231,82 @@ async function exportDialogFlow() {
   webFiles.saveBytes(r.name, r.bytes, r.mime);
   say(r.message);
 }
+/** What a body is made of (`in_565`): a dialog asks for the name, and the selected bodies are tagged with it (one step to undo). */
+async function materialDialogFlow() {
+  const why = whyNoMaterial(state.session);
+  if (why) return say(why);
+  const answers = await dialog.open((v) => materialDialog(state.session, v as unknown as { material: string }), materialStart(state.session) as unknown as Values);
+  if (!answers) return;
+  const c = materialCommand(state.session, String(answers.material ?? ""));
+  if (!c.ok) return say(c.error);
+  state = { ...state, session: run(state.session, c.value) };
+  say(String(answers.material ?? "").trim() ? `material set: ${String(answers.material).trim()}` : "material tag taken off");
+}
+const LASER_KEY = "cad.laserOptions";
+const LIB_KEY = "cad.library";
+/** Laser cut (`in_569`, `in_571`, `dec_laser_outline_route`): which machine (the project's copy of the last one used, the user's own, or a new one), a dialog made from the route's own settings and started from the last plan for this drawing, the route run, the findings read before the file is saved; the project keeps a copy of the machine and the plan, the library keeps the machine. */
+async function laserDialogFlow() {
+  const part = flatSnapshot(state.session);
+  if (!part.ok) return say(part.error);
+  let lib = parseLibrary(webStore.get(LIB_KEY)).library;
+  const sc = scene(state.session);
+  const choices = machineChoices(sc, lib, part.value.id);
+  let choice = choices[0]!;
+  if (choices.length > 1) {
+    const which = await dialog.open((v) => machineDialog(choices, v as unknown as { machine: string; remove: boolean }), { machine: choice.id, remove: false } as unknown as Values);
+    if (!which) return;
+    choice = choices.find((c) => c.id === which.machine) ?? choice;
+    if (which.remove && choice.from === "library" && choice.machine) {
+      lib = removeMachine(lib, choice.machine.id);
+      webStore.set(LIB_KEY, libraryText(lib));
+      return say(`${choice.machine.name} is out of your library (projects that used it keep their copy)`);
+    }
+  }
+  let last: LaserValues = {};
+  try { last = JSON.parse(webStore.get(LASER_KEY) ?? "{}"); } catch { /* not kept, or not readable: the usual */ }
+  const rows = tableRows(lib.settings, choice.machine?.id ?? "");
+  const layers = marksSummary(sc, part.value.id);
+  const answers = await dialog.open((v) => laserDialog(v as LaserValues, rows, layers), startValues(sc, part.value.id, choice, last) as unknown as Values);
+  if (!answers) return;
+  webStore.set(LASER_KEY, JSON.stringify(answers));
+  const r = runLaser(state.session, answers as LaserValues, [...lib.machines, ...projectMachines(sc)], lib.settings);
+  if (!r.ok) return say(r.error);
+  const { run: ran, file, summary, machine } = r.value;
+  state = { ...state, session: run(state.session, { type: "batch", commands: recordCommands(r.value) }) }; // (the project keeps the machine's copy and the plan)
+  if (answers.remember !== false) { const kept = saveMachine(lib, machine); if (kept.ok) { lib = kept.value; webStore.set(LIB_KEY, libraryText(lib)); } }
+  const row = rowFrom(answers as LaserValues, machine, lib.settings); // (the person's own numbers, kept under a material and a thickness, `in_573`)
+  if (!row.ok) say(row.error);
+  else if (row.value) { const kept = saveSettings(lib, row.value); if (kept.ok) { lib = kept.value; webStore.set(LIB_KEY, libraryText(lib)); } }
+  if (!file) return say("nothing was planned: " + (ran.findings[0]?.message ?? "no lines to cut"));
+  if (ran.toolpath) { state = { ...state, preview: { toolpath: ran.toolpath, at: 1 } }; dirty = true; } // (the toolpath is shown over the drawing while the findings are read and after the file is saved, `in_570`)
+  if (ran.findings.length || ran.warnings.length) {
+    const go = await dialog.open(() => findingsDialog(ran.findings, summary), {});
+    if (!go) return say("the file was not saved");
+  }
+  webFiles.saveBytes(file.name, file.bytes, file.mime);
+  say(`laser file saved: ${summary}`);
+}
+/** Laser layers (`in_603`): what the selected lines are for in the laser route (cut, scored, engraved). It is the route's own mark, kept in the project's manufacturing section: the drawing does not change (`prin_manufacture_agnostic`). */
+async function laserLayersFlow() {
+  const why = whyNoLayers(state.session);
+  if (why) return say(why);
+  const a = await dialog.open((v) => layersDialog(state.session, v as unknown as { role: string }), { role: "score" } as unknown as Values);
+  if (!a) return;
+  const c = layersCommand(state.session, String(a.role));
+  if (!c.ok) return say(c.error);
+  state = { ...state, session: run(state.session, c.value) };
+  say(a.role === "cut" ? "the selected lines are cut again (no mark)" : `the selected lines are ${a.role === "score" ? "scored" : "engraved"} in the laser route`);
+}
+/** The person's laser table (`in_573`): the rows of numbers they have kept, and a way to take one out. Rows are added from the laser dialog. */
+async function laserTableFlow() {
+  let lib = parseLibrary(webStore.get(LIB_KEY)).library;
+  if (!lib.settings.length) return say("your table has no rows yet: keep one from the laser cut dialog (\"Save these numbers as material\")");
+  const a = await dialog.open((v) => tableDialog(lib.settings, v as unknown as { row: string; remove: boolean }), { row: lib.settings[0]!.id, remove: false } as unknown as Values);
+  if (!a || !a.remove) return;
+  lib = removeSettings(lib, String(a.row));
+  webStore.set(LIB_KEY, libraryText(lib));
+  say("the row is out of your table");
+}
 const FLAT_OR_NOT = (f: string): string => (f === "3mf" ? "3MF" : f.toUpperCase());
 /** Import (`dec_import`, `dec_import_mesh`, `dec_import_export_menu`): choose a file, say how it is to come in (units, scale, where), and it is added as one step to undo. */
 async function importDialogFlow() {
@@ -256,7 +344,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, settings.input.trackpadPanScale, settings.theme.outlines, scene(state.session).clearance ?? 0)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), material: !whyNoMaterial(state.session), laser: canExportFlat(state.session), laserLayers: !whyNoLayers(state.session), laserTable: parseLibrary(webStore.get("cad.library")).library.settings.length > 0, clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, settings.input.trackpadPanScale, settings.theme.outlines, scene(state.session).clearance ?? 0)); }
     else {
       menu.hide();
       if (state.menu && inGame()) { // game mode: the ring stands in the world, ahead of the eye, where it was opened (`in_463`, `in_471`)
@@ -372,6 +460,8 @@ function frame(now: number) {
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
     undoBar.update(lastDevice === "touch", f.undoRedo);
     similarChip.update(f.similar);
+    view.setToolpath(f.toolpath, state.cam);
+    previewBar.update(f.previewBar);
     addChip.update(f.adding === "offer" && lastDevice !== "touch" ? null : f.adding);
     faceKindChip.update(f.faceKinds);
     sizeKindChip.update(f.sizeKinds);

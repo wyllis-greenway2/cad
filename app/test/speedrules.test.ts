@@ -1,4 +1,4 @@
-// The speed rules (`dec_speed_rules`, `in_565`): what was made cheaper is still right.
+// The speed rules (`dec_speed_rules`, `in_597`): what was made cheaper is still right.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

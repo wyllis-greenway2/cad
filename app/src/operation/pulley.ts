@@ -1,4 +1,4 @@
-// Timing pulleys with the GT2 tooth (`dec_gear_tool`, `in_551`): the outline of a pulley as points and bulges, like a gear's (`gear.ts`), from the belt tooth's published numbers.
+// Timing pulleys with the GT2 tooth (`dec_gear_tool`, `in_583`): the outline of a pulley as points and bulges, like a gear's (`gear.ts`), from the belt tooth's published numbers.
 //
 // The numbers (a Misumi table of the Gates belts, read from a page the human sent, `q_timing_pulleys`): pitch P, the radii R1 (where the tooth meets the belt's flat), R2 (the sides) and R3 (the tip), `b` (how far the
 // centre of R2 stands off the tooth's middle along the pitch line), the tooth height h, and the pitch line differential PLD (the pulley's outside radius is the pitch radius less PLD). The tooth of 2GT is made of three
@@ -19,7 +19,7 @@ export const GT_TOOTH = {
 } as const;
 
 /**
- * The HTD 5 mm belt (`in_555`): the belt tooth of Gates' drawing as SDP/SI, Chief Delphi and Capolight give it (pitch 5, tooth height 2.06 to 2.08, belt 3.80 to 3.81 thick, tooth radius R1 = 1.49, root radius R2 = 0.43;
+ * The HTD 5 mm belt (`in_587`): the belt tooth of Gates' drawing as SDP/SI, Chief Delphi and Capolight give it (pitch 5, tooth height 2.06 to 2.08, belt 3.80 to 3.81 thick, tooth radius R1 = 1.49, root radius R2 = 0.43;
  * the pitch line differential 0.572 is from Pfeifer's charts, the 13 grooves of the least from the same). The tooth is the arc of R1 about a point h - R1 below the flat, straight sides tangent to it, and R2 rounding the
  * corner where each side meets the flat. The groove is that tooth made `clearance` mm bigger all round; the default 0.07 mm is the difference between the 1.56 mm groove radius a machinist's forum gives for this belt and
  * the belt's 1.49, which was not read at its source, and HTD is cut with a good deal of clearance (SDP/SI says so). Not the pulley makers' own groove drawing, and the 3.05 mm tooth width and 0.74 mm flat that some of those
@@ -27,7 +27,7 @@ export const GT_TOOTH = {
  */
 export const HTD_TOOTH = {
   "HTD5M": { pitch: 5, R1: 1.49, R2: 0.43, h: 2.06, pld: 0.572, minTeeth: 13, clearance: 0.07, name: "HTD 5M" },
-  /** HTD 8M (`in_558`): ProTorque's HTD datasheet (https://www.protorque.net/en/products/belts/htd-timing-belts/): pitch 8, tooth height 3.38, head radius 2.46, foot radius 0.70, belt 6.00 thick, 14 degree flank; the pitch line differential is Pfeifer's 8 mm HTD chart (20 grooves: PD 50.93, OD 49.56, 0.686 mm). No groove drawing was found, so the groove is the belt tooth with no clearance unless one is typed. */
+  /** HTD 8M (`in_590`): ProTorque's HTD datasheet (https://www.protorque.net/en/products/belts/htd-timing-belts/): pitch 8, tooth height 3.38, head radius 2.46, foot radius 0.70, belt 6.00 thick, 14 degree flank; the pitch line differential is Pfeifer's 8 mm HTD chart (20 grooves: PD 50.93, OD 49.56, 0.686 mm). No groove drawing was found, so the groove is the belt tooth with no clearance unless one is typed. */
   "HTD8M": { pitch: 8, R1: 2.46, R2: 0.70, h: 3.38, pld: 0.686, minTeeth: 14, clearance: 0, name: "HTD 8M" },
 } as const;
 

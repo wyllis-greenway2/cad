@@ -13,6 +13,7 @@ import { buildContent } from "./view/content.ts";
 import type { BodyMesh } from "./view/content.ts";
 import { buildHighlight, TEAL } from "./view/highlight.ts";
 import { buildGizmo } from "./view/gizmo.ts";
+import type { ToolpathView } from "../interaction/api.ts";
 import type { GizmoView } from "./view/gizmo.ts";
 import type { Highlight } from "./view/highlight.ts";
 
@@ -39,7 +40,8 @@ export function createView(host: HTMLElement) {
   const preview = new THREE.Group();
   const gizmo = new THREE.Group();
   const notes = new THREE.Group();
-  scene3.add(content, overlay, marks, preview, gizmo, notes);
+  const toolpath = new THREE.Group(); // (a manufacturing route's toolpath over the drawing, `in_570`)
+  scene3.add(content, overlay, marks, preview, gizmo, notes, toolpath);
   const world = createWorld(scene3, host);
   const pen = createPen();
   const envMap = new THREE.PMREMGenerator(renderer).fromScene(studio(), 0.04).texture; // a soft studio, only reflected in the body
@@ -224,6 +226,29 @@ export function createView(host: HTMLElement) {
   const setWorldHidden = (on: boolean): void => world.setOff(on);
   const setPanes = (p: Parameters<typeof world.setPanes>[0]): boolean => world.setPanes(p);
   const setGizmo = (g: GizmoView | null, cam: Camera) => buildGizmo(gizmo, g, cam.distance, pen);
+  /** The toolpath preview (`in_570`): what is done in full colour, what is still to come faint, travel pale grey, the head a dot. Drawn again only when the view of it changes. */
+  let lastToolpath: ToolpathView | null = null;
+  let lastToolpathDistance = 0;
+  const setToolpath = (v: ToolpathView | null, cam: Camera) => {
+    if (v === lastToolpath && (v === null || cam.distance === lastToolpathDistance)) return; // (the head's dot is sized by the zoom, so a zoom draws it again)
+    lastToolpath = v;
+    lastToolpathDistance = cam.distance;
+    clearGroup(toolpath);
+    if (!v) return;
+    const colourOf = (layer: string): number => (layer === "travel" ? settings.theme.previewTravel : layer === "score" ? settings.theme.markScore : layer === "engrave" ? settings.theme.markEngrave : settings.theme.previewCut);
+    for (const [lines, faint] of [[v.rest, true], [v.done, false]] as const) {
+      for (const [layer, pairs] of Object.entries(lines)) {
+        if (!pairs.length) continue;
+        const m = pen.segments(pairs, colourOf(layer), layer === "travel" ? 1 : 2.2, false);
+        m.renderOrder = faint ? 3 : 4;
+        m.raycast = () => {}; // (not something the axis labels hide behind)
+        if (faint) { const mat = m.material as import("three/addons/lines/LineMaterial.js").LineMaterial; mat.transparent = true; mat.opacity = layer === "travel" ? 0.35 : 0.28; }
+        toolpath.add(m);
+      }
+    }
+    if (v.stock.length) { const m = pen.segments(v.stock, settings.theme.previewSheet, 1.4, false); m.renderOrder = 2; m.raycast = () => {}; toolpath.add(m); } // (the sheet's edge, so a layout can be seen against it)
+    if (v.head) { const dot = sphereAt(v.head, cam.distance * 0.006, settings.theme.previewCut, false); dot.raycast = () => {}; toolpath.add(dot); }
+  };
 
   function resize() {
     const w = host.clientWidth || 1;
@@ -265,5 +290,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { rebuild, setWorldHidden, setScene, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { rebuild, setWorldHidden, setScene, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

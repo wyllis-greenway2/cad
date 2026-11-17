@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_570`): how long does it take to make a throated worm wheel the exact way, by cutting a worm out of a blank at many positions?
+// Prototype (thrown away, `in_605`): how long does it take to make a throated worm wheel the exact way, by cutting a worm out of a blank at many positions?
 // Run (from app/): node ../prototypes/worm-hobbing/bench.mjs [positions] [teeth]
 import { makeCylinder, makePolygon, genericSweep, makeAx3, getOC, Wire, measureVolume } from "../../app/node_modules/replicad/dist/replicad.js";
 import { init } from "../../app/src/compiler/kernel/occt/evaluate.mjs";

@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_572`): a throated worm wheel as a loft through sections worked out from the worm, and how well it fits the worm.
+// Prototype (thrown away, `in_607`): a throated worm wheel as a loft through sections worked out from the worm, and how well it fits the worm.
 // Run (from app/): K=5 node ../prototypes/worm-wheel-loft/wheel.mjs
 //
 // The wheel is what the worm leaves of a blank. A point of the wheel is cut when, at some turn of the worm, it is inside the worm's solid; so the boundary of the wheel at a height h and a wheel angle psi is the smallest radius

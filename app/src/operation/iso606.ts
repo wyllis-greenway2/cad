@@ -1,4 +1,4 @@
-// Roller chain sprockets with the ISO 606 tooth form (`dec_gear_tool`, `in_556`): the outline of a sprocket as points and bulges like a gear's (`gear.ts`).
+// Roller chain sprockets with the ISO 606 tooth form (`dec_gear_tool`, `in_588`): the outline of a sprocket as points and bulges like a gear's (`gear.ts`).
 //
 // The standard gives limits, not one curve: ISO 606:1994 (as the patent US 7128673 prints its expressions) for the roller chain's pitch p, roller diameter d1 and the tooth count z: the pitch diameter d = p / sin(180/z),
 // the root diameter df = d - d1; the roller seating radius ri from 0.505 d1 to 0.505 d1 + 0.069 d1^(1/3); the tooth flank radius re between 0.12 d1 (z + 2) and 0.008 d1 (z^2 + 180) (the patent's text names the two the other

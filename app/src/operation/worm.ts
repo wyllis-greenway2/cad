@@ -1,4 +1,4 @@
-// Worm gears (`dec_worm_gears`, `in_573`): the worm and the numbers it shares with its wheel. A worm is a screw whose section through its axis is the tooth of a rack (the ZA worm: straight flanks in the axial section): its
+// Worm gears (`dec_worm_gears`, `in_608`): the worm and the numbers it shares with its wheel. A worm is a screw whose section through its axis is the tooth of a rack (the ZA worm: straight flanks in the axial section): its
 // thread is that tooth carried along a helix (`dec_spiral_extrude`) on a core. Pure maths: the axial coordinate a runs along the axis from the middle of the worm and the radius rho from the axis.
 //
 // The numbers: the axial module m (the thread's pitch along the axis is pi m), the axial pressure angle, the number of starts k (the lead is k pi m, so one turn carries the thread k pitches), the pitch diameter d (the

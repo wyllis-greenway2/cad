@@ -1,4 +1,4 @@
-// Helical gears (`in_566`): the outline is the transverse section, the body is the twist of it, and both follow the numbers.
+// Helical gears (`in_598`): the outline is the transverse section, the body is the twist of it, and both follow the numbers.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gearOutline, helixTwist } from "../src/operation/gear.ts";

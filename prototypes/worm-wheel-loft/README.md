@@ -1,4 +1,4 @@
-# worm-wheel-loft (prototype, `in_572`)
+# worm-wheel-loft (prototype, `in_607`)
 
 **Meant to learn:** whether a throated worm wheel made as a **loft through a few sections** is accurate enough to be a usable gear, against the exact wheel (what the worm leaves of a blank), and how the time compares with hobbing (`prototypes/worm-hobbing`: 153 s for one window).
 

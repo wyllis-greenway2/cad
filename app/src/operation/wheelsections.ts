@@ -1,4 +1,4 @@
-// The sections of a throated worm wheel (`dec_worm_gears`, `in_573`): the wheel is what the worm leaves of a blank, and a loft through a few of its sections follows it to about 0.05 mm (`prototypes/worm-wheel-loft`).
+// The sections of a throated worm wheel (`dec_worm_gears`, `in_608`): the wheel is what the worm leaves of a blank, and a loft through a few of its sections follows it to about 0.05 mm (`prototypes/worm-wheel-loft`).
 // A point of the wheel is cut if at some turn of the worm (the wheel turning k / z as much, k the starts) it is inside the worm's thread; so a section at height h is the gap between two teeth, found as the curve where
 // that test changes, by marching squares over two pitches in (angle, radius) with every crossing of a grid edge put exactly by bisection (a flank that is nearly radial is no trouble). The gap is cut into pieces of equal
 // length, each an arc through its ends and its middle, and the top of the tooth is one more arc. Every section has the same pieces, so they loft. Pure maths in the wheel's own x and y: the worm's axis along x at y = -cd.

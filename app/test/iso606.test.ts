@@ -1,4 +1,4 @@
-// ISO 606 sprockets (`dec_gear_tool`, `in_556`): the chain table, the limits of the tooth form, a roller in every gap, the kernel, the tool, and the menu that holds the gear tools.
+// ISO 606 sprockets (`dec_gear_tool`, `in_588`): the chain table, the limits of the tooth form, a roller in every gap, the kernel, the tool, and the menu that holds the gear tools.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gearOutline } from "../src/operation/gear.ts";
@@ -169,7 +169,7 @@ test("ISO sprocket tool: Teeth, Chain (the B series number), Pitch, Roller, Fit 
   assert.match(bad.session.message ?? "", /no chain numbered 7/);
 });
 
-test("a gear made by Mesh gear can have its bore at once (a Bore field after Angle); a rack partner has none; Edit gear still changes it (`in_556`)", () => {
+test("a gear made by Mesh gear can have its bore at once (a Bore field after Angle); a rack partner has none; Edit gear still changes it (`in_588`)", () => {
   let st = reduce(top(), { type: "begin", name: "gear" }, env);
   st = click(st, C); st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2"); st = key(st, "Enter");
   const rec0 = scene(st.session).gears![0]!;

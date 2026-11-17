@@ -3,29 +3,13 @@ import * as THREE from "three";
 import type { Scene, Ref } from "../../interaction/api.ts";
 import { outlineOf, lookup, settings, consumed } from "../../interaction/api.ts";
 import { surfaceTriangles } from "../../interaction/surfaces.ts";
+import { linePairs } from "../../interaction/linepairs.ts";
 import type { Pen } from "./pen.ts";
-import { clearGroup, trisMesh, ringOf, rgb } from "./pen.ts";
+import { clearGroup, trisMesh, rgb } from "./pen.ts";
 import { cornerEdgesOf } from "./edges.ts";
 import { ownSegments } from "./split.ts";
 
 export interface BodyMesh { vertices: Float32Array; normals: Float32Array; triangles: Uint32Array; /** the sharp edges found by the kernel (`dec_sharp_edges_once`) and the angle they were found for */ sharp?: Float32Array; sharpDeg?: number }
-
-/** Every straight line and circle of the scene, whatever its origin, as flat pairs of points: the one list that all the lines are drawn from. */
-function linePairs(s: Scene, skip: ReadonlySet<Ref>): number[] {
-  const get = lookup(s);
-  const out: number[] = [];
-  for (const p of Object.values(s.parts)) {
-    if (skip.has(p.ref) || p.origin === "world" || p.origin === "body") continue; // the world is drawn by ui/world.ts; the body's lines come from its mesh
-    const o = outlineOf(get, p);
-    if (o.shape === "segment") out.push(...o.a, ...o.b);
-    else if (o.shape === "polyline") for (let i = 0; i + 1 < o.pts.length; i++) out.push(...o.pts[i]!, ...o.pts[i + 1]!); // a drawn arc: the same black line as the others
-    else if (o.shape === "circle") {
-      const ring = ringOf(o.center, o.radius, o.normal);
-      for (let i = 0; i + 5 < ring.length; i += 3) out.push(ring[i]!, ring[i + 1]!, ring[i + 2]!, ring[i + 3]!, ring[i + 4]!, ring[i + 5]!);
-    }
-  }
-  return out;
-}
 
 /**
  * One look for every line (`in_115`): drawn lines and the body's outline are the same thin charcoal line, from the same material. Corners are not dotted anywhere:

@@ -1,4 +1,4 @@
-// Meshing gears (`dec_gear_tool`, `in_547`): where another gear or a rack goes so that its teeth fit between the teeth of a gear that is there, and how it must be turned. Pure maths in the plane's own x and y.
+// Meshing gears (`dec_gear_tool`, `in_579`): where another gear or a rack goes so that its teeth fit between the teeth of a gear that is there, and how it must be turned. Pure maths in the plane's own x and y.
 //
 // Pitch circles roll on each other: two outside gears touch at a distance of r1 + r2 (m (z1 + z2) / 2), a gear inside a ring at r1 - r2, a gear on a rack at its pitch radius from the rack's pitch line. The teeth of the two
 // must alternate where the pitch circles touch: a tooth of one is in the gap of the other. With the angle `psi` of the way to the other gear measured in a gear's own frame (from its tooth 0, which stands on its x
@@ -70,7 +70,7 @@ export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: nu
 }
 
 /**
- * The worm wheel for a worm (`in_573`): beside the worm, its axis across the worm's axis in the plane's normal, at the centre distance (the wheel's pitch radius and the worm's), on the side of the worm's axis the pointer is on, `partner.offset` mm along the
+ * The worm wheel for a worm (`in_608`): beside the worm, its axis across the worm's axis in the plane's normal, at the centre distance (the wheel's pitch radius and the worm's), on the side of the worm's axis the pointer is on, `partner.offset` mm along the
  * worm from its middle. It is turned so that its teeth meet the thread: in the wheel's own frame (x along the worm's axis, y from the worm to the wheel's centre) the sections of the wheel (`wheelsections.ts`) are for a worm whose thread stands at x = lead / 4
  * on the line of contact (mod the pitch of the thread); the thread of this worm stands at x_c, so the wheel is turned by the difference over its pitch radius.
  */

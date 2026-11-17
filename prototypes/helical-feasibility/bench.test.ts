@@ -1,4 +1,4 @@
-// Prototype benchmark (`in_565`): the time of making a twisted gear, by stage, as the kernel reports it. Run from app/: node --test ../prototypes/helical-feasibility/bench.test.ts
+// Prototype benchmark (`in_597`): the time of making a twisted gear, by stage, as the kernel reports it. Run from app/: node --test ../prototypes/helical-feasibility/bench.test.ts
 import test from "node:test";
 import { kernel } from "../../app/src/compiler/kernel/index.ts";
 import { worldRef } from "../../app/src/shared/ref.ts";

@@ -1,4 +1,4 @@
-// D flat and keyway bores (`dec_gear_tool`, `in_557`).
+// D flat and keyway bores (`dec_gear_tool`, `in_589`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gearOutline } from "../src/operation/gear.ts";

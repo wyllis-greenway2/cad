@@ -40,6 +40,16 @@ export type Command =
   | { type: "group"; id: string; items: string[] }
   /** a body made hard or soft (`dec_hard_bodies`): `body` is the name it keeps through the history */
   | { type: "setHard"; body: string; on: boolean }
+  /** what a body is made of (`in_565`): `body` is the name it keeps through the history, `material` a material id (empty takes the tag off) */
+  | { type: "setMaterial"; body: string; material: string }
+  /** a copy of a machine (or other definition) the project used, kept in its manufacturing section by `kind/id@version` (`in_571`) */
+  | { type: "useDefinition"; key: string; value: unknown }
+  /** **Only to open projects saved before `in_603`** (when a drawn line carried what it was for): nothing makes it now. Replayed, it becomes the laser route's mark of those lines (`setMarks`), and the drawing is not touched. */
+  | { type: "setUse"; refs: Ref[]; use: "cut" | "score" | "engrave" }
+  /** a route's own roles for the lines of a drawing (`in_603`): `key` is `part|route`, `marks` the line refs and their roles; none left removes the key. Not the model's: it is kept in the project's manufacturing section */
+  | { type: "setMarks"; key: string; marks: Record<string, string> }
+  /** a manufacturing plan, one for a part, route and machine: put in the project's manufacturing section, replacing the one with the same `id` (`in_571`, `in_546`) */
+  | { type: "setPlan"; plan: { id: string } }
   /** the clearance of the whole model, mm (`dec_hard_bodies`) */
   | { type: "setClearance"; value: number }
   /** break one group: what was in it stays, and a group inside it stays a group */
@@ -56,6 +66,8 @@ export type Command =
   | { type: "stretch"; factors: Vec3; pivot: Vec3; /** only this body of several (its name), or only these drawn parts (`in_390`) */ body?: string; parts?: Ref[] }
   | { type: "batch"; commands: Command[] };
 
+/** The longest a material's name may be. */
+export const MATERIAL_MAX = 60;
 const idOf = (full: string): string => full.slice(full.indexOf("/") + 1).split(/[./]/)[0] ?? full;
 
 /** The parts that go when `ref` goes: itself and every part built on it (a corner takes the lines and circles that use it). */
@@ -228,6 +240,40 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     }
     case "ungroup": return removeGroup(s, c.id);
     case "setHard": { const hard = (s.hard ?? []).filter((b) => b !== c.body); return ok({ ...s, ...(c.on ? { hard: [...hard, c.body] } : hard.length ? { hard } : { hard: undefined }) }); }
+    case "useDefinition": {
+      if (!c.key.trim()) return err("a definition needs a key");
+      return ok({ ...s, manufacturing: { ...s.manufacturing, definitions: { ...s.manufacturing?.definitions, [c.key]: c.value } } });
+    }
+    case "setUse": { // (migration: an old project\'s marks become the laser route\'s marks, by the plane the lines are on)
+      let cur: Scene = s;
+      const byKey = new Map<string, Ref[]>();
+      for (const r of c.refs) { const p = s.parts[r]; const plane = p && (p.kind === "line" || p.kind === "circle") ? p.plane : null; if (plane) byKey.set(`sketch/${plane}|laser-outline`, [...(byKey.get(`sketch/${plane}|laser-outline`) ?? []), r]); }
+      for (const [key, refs] of byKey) {
+        const marks = { ...(cur.manufacturing?.marks?.[key] ?? {}) };
+        for (const r of refs) { if (c.use === "cut") delete marks[r]; else marks[r] = c.use; }
+        const { [key]: _old, ...rest } = cur.manufacturing?.marks ?? {};
+        cur = { ...cur, manufacturing: { ...cur.manufacturing, marks: Object.keys(marks).length ? { ...rest, [key]: marks } : rest } };
+      }
+      return ok(cur);
+    }
+    case "setMarks": {
+      if (!c.key.trim()) return err("marks need a key");
+      const { [c.key]: _old, ...rest } = s.manufacturing?.marks ?? {};
+      const marks = Object.keys(c.marks).length ? { ...rest, [c.key]: { ...c.marks } } : rest;
+      return ok({ ...s, manufacturing: { ...s.manufacturing, marks } });
+    }
+    case "setPlan": {
+      if (typeof c.plan.id !== "string" || !c.plan.id) return err("a plan needs an id");
+      const rest = (s.manufacturing?.plans ?? []).filter((p) => (p as { id?: string }).id !== c.plan.id);
+      return ok({ ...s, manufacturing: { ...s.manufacturing, plans: [...rest, c.plan] } }); // (the newest is last: it is the one a dialog starts from)
+    }
+    case "setMaterial": {
+      const m = c.material.trim();
+      if (m.length > MATERIAL_MAX || /[\u0000-\u001f]/.test(m)) return err(`a material name is plain text of at most ${MATERIAL_MAX} letters`);
+      const { [c.body]: _old, ...rest } = s.materials ?? {};
+      const materials = m ? { ...rest, [c.body]: m } : rest;
+      return ok({ ...s, materials: Object.keys(materials).length ? materials : undefined });
+    }
     case "setClearance": return Number.isFinite(c.value) && c.value >= 0 ? ok({ ...s, clearance: c.value || undefined }) : err("the clearance is a distance of nothing or more");
     case "pattern": { const r = addPattern(s, { id: c.id, kind: c.kind, parts: c.parts, plane: c.plane, params: c.params }); return r.ok ? ok(bumpCounter(r.value, c.id)) : r; }
     case "setPattern": return setPattern(s, c.id, c.params);
@@ -237,7 +283,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       const r = addGear(s, rec);
       if (!r.ok) return r;
       const made = bumpCounter(r.value, c.id);
-      return ok(ownedSteps(made, rec).scene); // (a gear that has a body made with it comes with the steps that make it, `in_566`, `in_573`)
+      return ok(ownedSteps(made, rec).scene); // (a gear that has a body made with it comes with the steps that make it, `in_598`, `in_608`)
     }
     case "setGear": return setGear(s, c.id, c.spec, c.at, c.turn);
     case "deleteGear": return deleteGear(s, c.id);

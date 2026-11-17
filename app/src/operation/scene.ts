@@ -75,6 +75,10 @@ export interface Scene {
   groups?: readonly Group[];
   /** the bodies (by the name they keep through the history) that are hard: they collide with each other while they are moved by hand (`dec_hard_bodies`, `in_473`) */
   hard?: readonly string[];
+  /** what each body is made of (`in_565`, `dec_manufacturing_definitions`): body name (as for `hard`) to a material id, which the material libraries will check; a body with nothing here has no material */
+  materials?: Readonly<Record<string, string>>;
+  /** the project's manufacturing section (`in_571`, `dec_manufacturing_definitions` point 4): copies of the machines (and later materials) the project used, by `kind/id@version`, so it reproduces its output when the library changes, and the plans (one per part, route and machine). Plain data; the manufacturing contract's types are not the operation layer's, so the interaction layer checks them. */
+  manufacturing?: { definitions?: Readonly<Record<string, unknown>>; plans?: readonly unknown[]; /** a route's own roles for the lines of a drawing, by `part|route` and then by the line's ref (`in_603`): not the model's, which knows nothing of how a part will be made */ marks?: Readonly<Record<string, Readonly<Record<string, string>>>> };
   /** how close hard bodies may come to each other, mm: nearer than this counts as a collision; 0 (absent): only going into each other does (`dec_hard_bodies`) */
   clearance?: number;
   /** repeats of drawn figures that keep their numbers: their copies are made from these (`repeat.ts`) */
@@ -138,6 +142,8 @@ export interface SceneJson {
   patterns?: PatternRecord[];
   gears?: GearRecord[];
   hard?: string[];
+  materials?: Record<string, string>;
+  manufacturing?: { definitions?: Record<string, unknown>; plans?: unknown[]; marks?: Record<string, Record<string, string>> };
   clearance?: number;
 }
 export function toJSON(s: Scene): SceneJson {
@@ -151,6 +157,8 @@ export function toJSON(s: Scene): SceneJson {
     ...(s.patterns?.length ? { patterns: s.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}),
     ...(s.gears?.length ? { gears: s.gears.map((g) => ({ ...g, at: [...g.at] as unknown as Vec3, spec: { ...g.spec } })) } : {}),
     ...(s.hard?.length ? { hard: [...s.hard] } : {}),
+    ...(s.materials && Object.keys(s.materials).length ? { materials: { ...s.materials } } : {}),
+    ...(s.manufacturing && (Object.keys(s.manufacturing.definitions ?? {}).length || s.manufacturing.plans?.length || Object.keys(s.manufacturing.marks ?? {}).length) ? { manufacturing: { ...(s.manufacturing.definitions ? { definitions: { ...s.manufacturing.definitions } } : {}), ...(s.manufacturing.plans ? { plans: [...s.manufacturing.plans] } : {}), ...(s.manufacturing.marks && Object.keys(s.manufacturing.marks).length ? { marks: Object.fromEntries(Object.entries(s.manufacturing.marks).map(([k, v]) => [k, { ...v }])) } : {}) } } : {}),
     ...(s.clearance ? { clearance: s.clearance } : {}),
   };
 }
@@ -159,7 +167,7 @@ export function fromJSON(j: SceneJson): Scene {
   const s = emptyScene();
   const parts: Record<string, Part> = { ...s.parts };
   for (const p of j.parts) parts[p.ref] = p;
-  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter, ...(j.hard?.length ? { hard: [...j.hard] } : {}), ...(j.clearance ? { clearance: j.clearance } : {}), ...(j.groups?.length ? { groups: j.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}), ...(j.patterns?.length ? { patterns: j.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}), ...(j.gears?.length ? { gears: j.gears.map((g) => ({ ...g, at: [...g.at] as unknown as Vec3, spec: { ...g.spec } })) } : {}) };
+  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter, ...(j.hard?.length ? { hard: [...j.hard] } : {}), ...(j.materials && Object.keys(j.materials).length ? { materials: { ...j.materials } } : {}), ...(j.manufacturing ? { manufacturing: { ...(j.manufacturing.definitions ? { definitions: { ...j.manufacturing.definitions } } : {}), ...(j.manufacturing.plans ? { plans: [...j.manufacturing.plans] } : {}), ...(j.manufacturing.marks ? { marks: Object.fromEntries(Object.entries(j.manufacturing.marks).map(([k, v]) => [k, { ...v }])) } : {}) } } : {}), ...(j.clearance ? { clearance: j.clearance } : {}), ...(j.groups?.length ? { groups: j.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}), ...(j.patterns?.length ? { patterns: j.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}), ...(j.gears?.length ? { gears: j.gears.map((g) => ({ ...g, at: [...g.at] as unknown as Vec3, spec: { ...g.spec } })) } : {}) };
 }
 
 /** The scene with its body parts replaced by these (derived from the kernel result; never saved). */

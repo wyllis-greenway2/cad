@@ -1,4 +1,4 @@
-// Cycloidal gears, the profile of clock wheels (`dec_gear_tool`, `in_553`): the outline of a spur gear whose teeth are cycloids, as points and bulges like a gear's (`gear.ts`).
+// Cycloidal gears, the profile of clock wheels (`dec_gear_tool`, `in_585`): the outline of a spur gear whose teeth are cycloids, as points and bulges like a gear's (`gear.ts`).
 //
 // The geometry (the textbook one): the part of a flank outside the pitch circle (the addendum) is an epicycloid, the curve a point on a circle of radius r traces as it rolls on the outside of the pitch circle (radius R);
 // the part inside (the dedendum) is a hypocycloid, rolling on the inside. The tooth's flank at the pitch point is radial. Two gears mesh when the circle that makes the addendum of one is the circle that makes the
@@ -77,7 +77,7 @@ export function cycloidalOutline(spec: GearSpec): Result<GearOutline> {
 const spacedAt = (n: number, last: number): number[] => Array.from({ length: n + 1 }, (_, i) => last * Math.pow(i / n, 1.7));
 
 /**
- * A ring (an internal gear) of this tooth (`in_554`). The ring's teeth point in; a gear inside it has its addendum conjugate to the ring's dedendum, which is outside the ring's pitch circle: an epicycloid of the generating
+ * A ring (an internal gear) of this tooth (`in_586`). The ring's teeth point in; a gear inside it has its addendum conjugate to the ring's dedendum, which is outside the ring's pitch circle: an epicycloid of the generating
  * circle rolling on the outside; and its dedendum conjugate to the ring's addendum, which is inside: a hypocycloid of the circle rolling on the inside. The hole is drawn going round counter-clockwise (the teeth's
  * narrow ends, the tips, are the nearest the middle) and the wall round it is a circle of `rim` modules (2 if none) outside the roots, as for an involute ring.
  */
@@ -131,7 +131,7 @@ function cycloidalRing(spec: GearSpec): Result<GearOutline> {
 const RING_H = -1, RING_E = -1;
 
 /**
- * A rack of this tooth (`in_554`): a gear of endless radius. The generating circle rolls on the straight pitch line: from above for the addendum (the cycloid x = r (t - sin t), y = r (1 - cos t)), from below for the dedendum;
+ * A rack of this tooth (`in_586`): a gear of endless radius. The generating circle rolls on the straight pitch line: from above for the addendum (the cycloid x = r (t - sin t), y = r (1 - cos t)), from below for the dedendum;
  * the flank leans toward the middle of the tooth above the line and away from it below, as a gear's does. The pitch line is the x axis with the middle of its length at the origin, teeth up, a space (not a tooth) at the
  * left end, as `rackOutline` has it, so a gear meshes with it by the same rules.
  */

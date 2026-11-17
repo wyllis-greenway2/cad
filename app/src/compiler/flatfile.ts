@@ -4,9 +4,20 @@
 export type V2 = [number, number];
 /** a straight piece, an arc about a centre from `p` to `q` (counter-clockwise or not), or a whole circle */
 export type Piece =
-  | { k: "seg"; p: V2; q: V2 }
-  | { k: "arc"; c: V2; r: number; p: V2; q: V2; ccw: boolean }
-  | { k: "circle"; c: V2; r: number };
+  | { k: "seg"; p: V2; q: V2; layer?: Layer; ref?: string }
+  | { k: "arc"; c: V2; r: number; p: V2; q: V2; ccw: boolean; layer?: Layer; ref?: string }
+  | { k: "circle"; c: V2; r: number; layer?: Layer; ref?: string };
+
+/** What a line is for when the file goes to a laser, a cutter or a router: cut through, score (a shallow line, a fold), or engrave. The programs tell them apart by layer or colour. The writers carry it when a piece has one (a route that writes such a file, or a file read with layers); the modeler's drawing has none (`prin_manufacture_agnostic`, `in_603`). `ref` is the name the app gives a line, kept for a caller's use and not written. */
+export type Layer = "cut" | "score" | "engrave";
+/** The layers in the order they are written, with the colour a laser program sorts them by (red cuts, blue scores, black engraves: the usual convention) and the DXF colour number that goes with it. */
+const LAYERS: { name: Layer; svg: string; aci: number }[] = [
+  { name: "cut", svg: "#ff0000", aci: 1 },
+  { name: "score", svg: "#0000ff", aci: 5 },
+  { name: "engrave", svg: "#000000", aci: 7 },
+];
+/** Do any of the pieces say what they are for? (If none does the file has no layers, as before.) */
+export const hasLayers = (pieces: readonly Piece[]): boolean => pieces.some((p) => p.layer !== undefined);
 
 const TAU = Math.PI * 2;
 const num = (v: number): string => String(Math.round(v * 1e5) / 1e5 + 0); // (a hundred-thousandth of a mm; no "-0")
@@ -20,7 +31,7 @@ export function sweepOf(a: Extract<Piece, { k: "arc" }>): number {
   return Math.abs(s) < 1e-9 ? (a.ccw ? TAU : -TAU) : s;
 }
 /** An arc that comes back to where it began is a circle. */
-const asCircle = (a: Extract<Piece, { k: "arc" }>, tol: number): Piece => (same(a.p, a.q, tol) ? { k: "circle", c: a.c, r: a.r } : a);
+const asCircle = (a: Extract<Piece, { k: "arc" }>, tol: number): Piece => (same(a.p, a.q, tol) ? { k: "circle", c: a.c, r: a.r, ...(a.layer ? { layer: a.layer } : {}) } : a);
 
 /** The pieces joined end to end into runs (each piece turned the way the run goes), closed when a run comes back to its start; circles stand alone. Pieces that meet within `tol` are joined. */
 export function runsOf(pieces: readonly Piece[], tol = 1e-4): { items: Exclude<Piece, { k: "circle" }>[]; closed: boolean }[] {
@@ -71,13 +82,13 @@ export function boundsOf(pieces: readonly Piece[]): { min: V2; max: V2 } | null 
 /** The pieces in other units: every length times `k` (a millimetre drawing in inches is `1 / 25.4`). */
 export function scaledPieces(pieces: readonly Piece[], k: number): Piece[] {
   const v = (p: V2): V2 => [p[0] * k, p[1] * k];
-  return pieces.map((p): Piece => (p.k === "seg" ? { k: "seg", p: v(p.p), q: v(p.q) } : p.k === "circle" ? { k: "circle", c: v(p.c), r: p.r * k } : { ...p, c: v(p.c), r: p.r * k, p: v(p.p), q: v(p.q) }));
+  return pieces.map((p): Piece => (p.k === "seg" ? { ...p, p: v(p.p), q: v(p.q) } : p.k === "circle" ? { ...p, c: v(p.c), r: p.r * k } : { ...p, c: v(p.c), r: p.r * k, p: v(p.p), q: v(p.q) }));
 }
 
 /** The pieces moved by `by`. */
 export function movedPieces(pieces: readonly Piece[], by: V2): Piece[] {
   const v = (p: V2): V2 => [p[0] + by[0], p[1] + by[1]];
-  return pieces.map((p): Piece => (p.k === "seg" ? { k: "seg", p: v(p.p), q: v(p.q) } : p.k === "circle" ? { k: "circle", c: v(p.c), r: p.r } : { ...p, c: v(p.c), p: v(p.p), q: v(p.q) }));
+  return pieces.map((p): Piece => (p.k === "seg" ? { ...p, p: v(p.p), q: v(p.q) } : p.k === "circle" ? { ...p, c: v(p.c) } : { ...p, c: v(p.c), p: v(p.p), q: v(p.q) }));
 }
 
 /** The SVG: millimetres (the file's width and height are in mm so a laser or vinyl program sizes it right), no fill, a thin black line, one path for each run and a circle for each circle. */
@@ -88,21 +99,30 @@ export function svgText(pieces0: readonly Piece[], title: string, units: "mm" | 
   const pad = k; // (a millimetre of margin so the line at the edge is not cut)
   const [x0, y0, w, h] = [b.min[0] - pad, -b.max[1] - pad, b.max[0] - b.min[0] + 2 * pad, b.max[1] - b.min[1] + 2 * pad];
   const P = (q: V2): string => `${num(q[0])} ${num(-q[1])}`;
-  const els: string[] = [];
-  for (const run of runsOf(pieces)) {
-    let d = `M ${P(run.items[0]!.p)}`;
-    for (const it of run.items) {
-      if (it.k === "seg") d += ` L ${P(it.q)}`;
-      else { const s = sweepOf(it); d += ` A ${num(it.r)} ${num(it.r)} 0 ${Math.abs(s) > Math.PI ? 1 : 0} ${s > 0 ? 0 : 1} ${P(it.q)}`; } // (y turned over: counter-clockwise is sweep 0)
+  const elements = (ps: readonly Piece[]): string[] => {
+    const els: string[] = [];
+    for (const run of runsOf(ps)) {
+      let d = `M ${P(run.items[0]!.p)}`;
+      for (const it of run.items) {
+        if (it.k === "seg") d += ` L ${P(it.q)}`;
+        else { const s = sweepOf(it); d += ` A ${num(it.r)} ${num(it.r)} 0 ${Math.abs(s) > Math.PI ? 1 : 0} ${s > 0 ? 0 : 1} ${P(it.q)}`; } // (y turned over: counter-clockwise is sweep 0)
+      }
+      els.push(`<path d="${d}${run.closed ? " Z" : ""}"/>`);
     }
-    els.push(`<path d="${d}${run.closed ? " Z" : ""}"/>`);
-  }
-  for (const p of pieces) {
-    const c = p.k === "circle" ? p : p.k === "arc" ? asCircle(p, 1e-4) : null;
-    if (c && c.k === "circle") els.push(`<circle cx="${num(c.c[0])}" cy="${num(-c.c[1])}" r="${num(c.r)}"/>`);
-  }
+    for (const p of ps) {
+      const c = p.k === "circle" ? p : p.k === "arc" ? asCircle(p, 1e-4) : null;
+      if (c && c.k === "circle") els.push(`<circle cx="${num(c.c[0])}" cy="${num(-c.c[1])}" r="${num(c.r)}"/>`);
+    }
+    return els;
+  };
+  const stroke = `fill="none" stroke-width="${num(0.1 * k)}" stroke-linecap="round" stroke-linejoin="round"`;
+  // with layers: a group for each, named for the layer (Inkscape reads the id as the layer's name with `inkscape:groupmode`) and drawn in its colour; without, one black group as before
+  const body = hasLayers(pieces)
+    ? LAYERS.flatMap((l) => { const ps = pieces.filter((p) => (p.layer ?? "cut") === l.name); return ps.length ? [`<g id="${l.name}" inkscape:groupmode="layer" inkscape:label="${l.name}" stroke="${l.svg}" ${stroke}>\n${elements(ps).join("\n")}\n</g>`] : []; }).join("\n")
+    : `<g stroke="#000000" ${stroke}>\n${elements(pieces).join("\n")}\n</g>`;
   const esc = title.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${num(w)}${units === "in" ? "in" : "mm"}" height="${num(h)}${units === "in" ? "in" : "mm"}" viewBox="${num(x0)} ${num(y0)} ${num(w)} ${num(h)}">\n<title>${esc}</title>\n<g fill="none" stroke="#000000" stroke-width="${num(0.1 * k)}" stroke-linecap="round" stroke-linejoin="round">\n${els.join("\n")}\n</g>\n</svg>\n`;
+  const ns = hasLayers(pieces) ? ` xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"` : "";
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg"${ns} width="${num(w)}${units === "in" ? "in" : "mm"}" height="${num(h)}${units === "in" ? "in" : "mm"}" viewBox="${num(x0)} ${num(y0)} ${num(w)} ${num(h)}">\n<title>${esc}</title>\n${body}\n</svg>\n`;
 }
 
 /** The DXF: the old plain form (AC1009) that every program reads, millimetres, one LINE, ARC or CIRCLE for each piece; an arc always runs counter-clockwise in DXF, so a clockwise one is written from its other end. */
@@ -111,11 +131,20 @@ export function dxfText(pieces0: readonly Piece[], units: "mm" | "in" = "mm"): s
   const g: string[] = [];
   const add = (code: number, value: string | number) => { g.push(String(code), typeof value === "number" ? num(value) : value); };
   add(0, "SECTION"); add(2, "HEADER"); add(9, "$ACADVER"); add(1, "AC1009"); add(9, "$INSUNITS"); add(70, units === "in" ? 1 : 4); add(0, "ENDSEC");
+  const layered = hasLayers(pieces);
+  if (layered) { // (a table of the layers, each in its colour: the names are the ones the SVG uses)
+    const used = LAYERS.filter((l) => pieces.some((p) => (p.layer ?? "cut") === l.name));
+    add(0, "SECTION"); add(2, "TABLES");
+    add(0, "TABLE"); add(2, "LTYPE"); add(70, 1); add(0, "LTYPE"); add(2, "CONTINUOUS"); add(70, 0); add(3, "Solid line"); add(72, 65); add(73, 0); add(40, 0); add(0, "ENDTAB");
+    add(0, "TABLE"); add(2, "LAYER"); add(70, used.length);
+    for (const l of used) { add(0, "LAYER"); add(2, l.name.toUpperCase()); add(70, 0); add(62, l.aci); add(6, "CONTINUOUS"); }
+    add(0, "ENDTAB"); add(0, "ENDSEC");
+  }
   add(0, "SECTION"); add(2, "ENTITIES");
   const deg = (r: number): number => ((r * 180) / Math.PI + 360) % 360;
   for (const raw of pieces) {
     const p = raw.k === "arc" ? asCircle(raw, 1e-4) : raw;
-    add(0, p.k === "seg" ? "LINE" : p.k === "circle" ? "CIRCLE" : "ARC"); add(8, "0");
+    add(0, p.k === "seg" ? "LINE" : p.k === "circle" ? "CIRCLE" : "ARC"); add(8, layered ? (p.layer ?? "cut").toUpperCase() : "0");
     if (p.k === "seg") { add(10, p.p[0]); add(20, p.p[1]); add(30, 0); add(11, p.q[0]); add(21, p.q[1]); add(31, 0); }
     else if (p.k === "circle") { add(10, p.c[0]); add(20, p.c[1]); add(30, 0); add(40, p.r); }
     else {

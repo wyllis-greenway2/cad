@@ -1,4 +1,4 @@
-// Worm gears (`dec_worm_gears`, `in_573`): the worm, the throated wheel as a loft through sections, and how they fit.
+// Worm gears (`dec_worm_gears`, `in_608`): the worm, the throated wheel as a loft through sections, and how they fit.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gearOutline } from "../src/operation/gear.ts";

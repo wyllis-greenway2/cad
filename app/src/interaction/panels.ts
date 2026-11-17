@@ -38,7 +38,7 @@ function stepLabel(st: Step): string {
 export const bodyLabel = (scene: Scene, ref: Ref): string => `Body ${Object.values(scene.parts).filter((p) => p.kind === "body").findIndex((b) => b.ref === ref) + 1}`;
 function bodiesPanel(scene: Scene, selection: readonly Ref[]): Panel {
   const bodies = Object.values(scene.parts).filter((p) => p.kind === "body");
-  return { kind: "bodies", title: "Bodies", rows: bodies.map((b, i) => ({ id: b.ref, label: `Body ${i + 1}`, active: selection.includes(b.ref), removable: false })) };
+  return { kind: "bodies", title: "Bodies", rows: bodies.map((b, i) => ({ id: b.ref, label: `Body ${i + 1}${b.kind === "body" && b.id && scene.materials?.[b.id] ? ` · ${scene.materials[b.id]}` : ""}`, active: selection.includes(b.ref), removable: false })) };
 }
 /** The selection groups as a tree (`in_257`): a row for each group, the ones inside it under it, so any group (the outer one or one inside) can be selected or broken without picking it in the picture. */
 function groupsPanel(scene: Scene, selection: readonly Ref[]): Panel {

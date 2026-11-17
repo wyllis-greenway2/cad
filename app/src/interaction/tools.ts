@@ -62,14 +62,14 @@ export interface Tool {
 export interface GearState {
   internal: boolean; typed: string[]; field: number; editing?: string; base?: GearSpec;
   /** the turn the gear being changed has (radians), so its preview stands as it does */ turn?: number;
-  /** a rack (`in_547`) */ rack?: boolean;
-  /** a helical gear (`in_566`): the twisted body is made with it */ helical?: true;
-  /** a worm (`in_573`) and the wheel for a worm */ worm?: true; wheel?: true;
-  /** a timing pulley for this belt (`in_551`) */ pulley?: PulleyKind;
-  /** a roller chain sprocket (`in_552`) */ sprocket?: true;
-  /** the ISO 606 tooth form of it (`in_556`) */ iso?: true;
-  /** a cycloidal (clock) gear (`in_553`) */ cycloidal?: true;
-  /** a gear or a rack made to mesh with `src` (`in_547`); `rack`: the partner is a rack */ mesh?: { src: GearRecord; rack: boolean };
+  /** a rack (`in_579`) */ rack?: boolean;
+  /** a helical gear (`in_598`): the twisted body is made with it */ helical?: true;
+  /** a worm (`in_608`) and the wheel for a worm */ worm?: true; wheel?: true;
+  /** a timing pulley for this belt (`in_583`) */ pulley?: PulleyKind;
+  /** a roller chain sprocket (`in_584`) */ sprocket?: true;
+  /** the ISO 606 tooth form of it (`in_588`) */ iso?: true;
+  /** a cycloidal (clock) gear (`in_585`) */ cycloidal?: true;
+  /** a gear or a rack made to mesh with `src` (`in_579`); `rack`: the partner is a rack */ mesh?: { src: GearRecord; rack: boolean };
 }
 export type GearKey = "teeth" | "module" | "pressure" | "shift" | "backlash" | "rim" | "bore" | "ratio" | "angle" | "offset" | "clearance" | "chain" | "pitch" | "roller" | "circle" | "addendum" | "dedendum" | "fit" | "flat" | "key" | "keydepth" | "fillet" | "detail" | "helix" | "width" | "diameter" | "length" | "starts";
 /** The numbers of a gear in the order the number box shows them (a ring has a wall where a gear has a shift; a rack has the bar under its teeth; a partner has its tooth count, ratio and the direction it stands in). */
@@ -78,18 +78,18 @@ export const gearFields = (g: { internal: boolean; helical?: true; worm?: true; 
   const fs = gearFieldsBase(g, f);
   const at = fs.findIndex((x) => x.key === "bore");
   const round = g.worm || g.wheel || !!g.mesh?.src.spec.worm; // (a worm, its wheel and a wheel made to mesh with a worm have a round bore only)
-  return at < 0 || round ? fs : [...fs.slice(0, at + 1), f("flat", "Flat"), f("key", "Key"), f("keydepth", "Key depth"), ...fs.slice(at + 1)]; // (a bore can have a D flat or a keyway, `in_557`)
+  return at < 0 || round ? fs : [...fs.slice(0, at + 1), f("flat", "Flat"), f("key", "Key"), f("keydepth", "Key depth"), ...fs.slice(at + 1)]; // (a bore can have a D flat or a keyway, `in_589`)
 };
 const gearFieldsBase = (g: { internal: boolean; helical?: true; worm?: true; wheel?: true; rack?: boolean; pulley?: PulleyKind; sprocket?: true; iso?: true; cycloidal?: true; mesh?: { src: GearRecord; rack: boolean } }, f: (key: GearKey, label: string) => { key: GearKey; label: string }): { key: GearKey; label: string }[] => {
   if (g.worm) return [f("teeth", "Starts"), f("module", "Module"), f("pressure", "Pressure"), f("diameter", "Diameter"), f("length", "Length"), f("bore", "Bore")];
   if (g.wheel) return [f("teeth", "Teeth"), f("starts", "Starts"), f("module", "Module"), f("pressure", "Pressure"), f("diameter", "Worm diameter"), f("width", "Width"), f("bore", "Bore")];
   if (g.mesh?.src.spec.worm) return [f("teeth", "Teeth"), f("offset", "Offset"), f("width", "Width"), f("bore", "Bore")]; // (the wheel for a worm: how many teeth, how far along the worm, how wide)
-  if (g.mesh) return g.mesh.src.spec.rack ? [f("teeth", "Teeth"), f("offset", "Offset"), f("bore", "Bore")] : g.mesh.rack ? [f("teeth", "Teeth"), f("angle", "Angle")] : [f("teeth", "Teeth"), f("ratio", "Ratio"), f("angle", "Angle"), f("bore", "Bore")]; // (a gear made to mesh can have its bore at once, `in_556`)
+  if (g.mesh) return g.mesh.src.spec.rack ? [f("teeth", "Teeth"), f("offset", "Offset"), f("bore", "Bore")] : g.mesh.rack ? [f("teeth", "Teeth"), f("angle", "Angle")] : [f("teeth", "Teeth"), f("ratio", "Ratio"), f("angle", "Angle"), f("bore", "Bore")]; // (a gear made to mesh can have its bore at once, `in_588`)
   if (g.pulley) return [f("teeth", "Teeth"), f("clearance", "Clearance"), f("bore", "Bore")];
   if (g.cycloidal) return [f("teeth", "Teeth"), f("module", "Module"), f("backlash", "Backlash"), f("circle", "Circle"), f("addendum", "Addendum"), f("dedendum", "Dedendum"), g.internal ? f("rim", "Wall") : g.rack ? f("rim", "Base") : f("bore", "Bore")];
   if (g.sprocket) return [f("teeth", "Teeth"), f("chain", "Chain"), f("pitch", "Pitch"), f("roller", "Roller"), ...(g.iso ? [f("fit", "Fit")] : []), f("bore", "Bore")];
   if (g.rack) return [f("teeth", "Teeth"), f("module", "Module"), f("pressure", "Pressure"), f("backlash", "Backlash"), f("rim", "Base"), f("clearance", "Clearance")];
-  return [f("teeth", "Teeth"), f("module", "Module"), f("pressure", "Pressure"), g.internal ? f("rim", "Wall") : f("shift", "Shift"), f("backlash", "Backlash"), f("clearance", "Clearance"), ...(g.internal ? [] : [f("fillet", "Fillet"), f("detail", "Detail"), ...(g.helical ? [f("helix", "Helix"), f("width", "Width")] : []), f("bore", "Bore")])]; // (the root as the cutter leaves it, `in_560`)
+  return [f("teeth", "Teeth"), f("module", "Module"), f("pressure", "Pressure"), g.internal ? f("rim", "Wall") : f("shift", "Shift"), f("backlash", "Backlash"), f("clearance", "Clearance"), ...(g.internal ? [] : [f("fillet", "Fillet"), f("detail", "Detail"), ...(g.helical ? [f("helix", "Helix"), f("width", "Width")] : []), f("bore", "Bore")])]; // (the root as the cutter leaves it, `in_592`)
 };
 const gearState = (t: Tool): GearState => t.gear ?? { internal: false, typed: [], field: 0 };
 /** A tool that waits for its first click on a surface. */
@@ -232,7 +232,7 @@ function gearSpecOf(t: Tool): GearSpec | null {
   const fields = gearFields(g);
   const typed = (k: string) => { const i = fields.findIndex((f) => f.key === k); return i < 0 ? null : typedNumber(g.typed[i] ?? ""); };
   const b = g.base;
-  if (g.worm || g.wheel) { // a worm or a worm wheel (`in_573`): the module is 2 unless another is typed, the worm's pitch diameter ten modules, its length 15 (or 2.5 leads, if more)
+  if (g.worm || g.wheel) { // a worm or a worm wheel (`in_608`): the module is 2 unless another is typed, the worm's pitch diameter ten modules, its length 15 (or 2.5 leads, if more)
     const module = typed("module") ?? b?.module ?? 2;
     const pressure = typed("pressure") ?? b?.pressure;
     const bore = typed("bore") ?? b?.bore;
@@ -293,7 +293,7 @@ function gearSpecOf(t: Tool): GearSpec | null {
   return { teeth, module, ...(pressure !== undefined ? { pressure } : {}), ...(shift !== undefined ? { shift } : {}), ...(backlash !== undefined ? { backlash } : {}), ...(clearance !== undefined ? { clearance } : {}), ...(g.internal ? { internal: true as const } : {}), ...(g.rack ? { rack: true as const } : {}), ...(rim !== undefined ? { rim } : {}), ...(fillet ? { fillet } : {}), ...(detail ? { detail } : {}), ...(helix !== undefined ? { helix, width: width ?? 6 * module } : {}), ...(bore ? { bore, ...shapeOf(typed, b) } : {}) };
 }
 type GearTarget = { spec: GearSpec; at: Vec3; turn: number; live: Partial<Record<GearKey, number>> };
-/** The gear the tool would make, or why it would make none (`in_548`: said when Enter or a click makes nothing); null while there is nothing to say yet (no size, no plane). */
+/** The gear the tool would make, or why it would make none (`in_580`: said when Enter or a click makes nothing); null while there is nothing to say yet (no size, no plane). */
 function gearMade(scene: Scene, t: Tool): Result<GearTarget> | null {
   const g = gearState(t);
   const pl = t.plane ? scene.parts[t.plane] : undefined;
@@ -331,7 +331,7 @@ function gearMade(scene: Scene, t: Tool): Result<GearTarget> | null {
   if (!o.ok) return err(o.error);
   return ok({ ...r.value, spec, live: { teeth, ratio: srcRack ? 0 : teeth / src.spec.teeth, angle: (where * 180) / Math.PI, offset: src.spec.worm ? wOff : where, width: r.value.spec.wheel?.width ?? 0, bore: 0 } });
 }
-/** The gear to be made (or changed) by the tool as it stands: its numbers, where it stands and how it is turned, and what each field of the box says while nothing is typed in it. A partner (`in_547`) is where the pointer says (a gear: the direction of it from the gear it meshes with; a gear on a rack: how far along the rack), or as typed. Null while there is none. */
+/** The gear to be made (or changed) by the tool as it stands: its numbers, where it stands and how it is turned, and what each field of the box says while nothing is typed in it. A partner (`in_579`) is where the pointer says (a gear: the direction of it from the gear it meshes with; a gear on a rack: how far along the rack), or as typed. Null while there is none. */
 function gearTarget(scene: Scene, t: Tool): GearTarget | null {
   const r = gearMade(scene, t);
   return r && r.ok ? r.value : null;
@@ -411,7 +411,7 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
     const [ct, st] = [Math.cos(target.turn), Math.sin(target.turn)];
     const at = (q: readonly [number, number]): Vec3 => liftOf(pl, [cx + q[0] * ct - q[1] * st, cy + q[0] * st + q[1] * ct]);
     const segments: [Vec3, Vec3][] = [];
-    if (target.spec.worm) { // a worm (`in_573`): its core and the tips of its thread as the long sides of a box along its axis
+    if (target.spec.worm) { // a worm (`in_608`): its core and the tips of its thread as the long sides of a box along its axis
       const [L, rr, rt] = [target.spec.worm.length / 2, o.value.rootRadius, o.value.tipRadius];
       for (const r of [rr, -rr, rt, -rt]) segments.push([at([-L, r]), at([L, r])]);
       for (const x of [-L, L]) segments.push([at([x, -rt]), at([x, rt])]);
@@ -426,7 +426,7 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
       segments.push([at(a), at(m)], [at(m), at(b)]);
     });
     const twist = helixTwist(target.spec);
-    if (twist !== null) { // a helical gear (`in_566`): the outline again at the far end, turned by the twist, and one edge of each tooth carried between the two, as a screw motion (worked out here, the kernel is not asked)
+    if (twist !== null) { // a helical gear (`in_598`): the outline again at the far end, turned by the twist, and one edge of each tooth carried between the two, as a screw motion (worked out here, the kernel is not asked)
       const turned = (q: readonly [number, number], f: number): Vec3 => { const a = (twist * Math.PI) / 180 * f; const [c, s] = [Math.cos(a), Math.sin(a)]; const p = at([q[0] * c - q[1] * s, q[0] * s + q[1] * c]); return [p[0] + n[0] * target.spec.width! * f, p[1] + n[1] * target.spec.width! * f, p[2] + n[2] * target.spec.width! * f]; };
       const pts = o.value.points;
       const per = pts.length / Math.max(1, Math.round(target.spec.teeth));

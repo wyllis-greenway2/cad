@@ -1,6 +1,6 @@
-# worm-hobbing (prototype, `in_570`)
+# worm-hobbing (prototype, `in_605`)
 
-**Meant to learn:** how long a throated worm wheel takes the exact way, by cutting the worm out of a blank at many positions (hobbing), so the estimate given at `in_569` is a number.
+**Meant to learn:** how long a throated worm wheel takes the exact way, by cutting the worm out of a blank at many positions (hobbing), so the estimate given at `in_601` is a number.
 
 **Run (from `app/`):** `node ../prototypes/worm-hobbing/bench.mjs [positions a tooth] [teeth]` (replicad directly, so it is the kernel's cost without the app's own checks).
 
