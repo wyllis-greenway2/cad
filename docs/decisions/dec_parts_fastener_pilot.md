@@ -3,7 +3,7 @@ id: dec_parts_fastener_pilot
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_691, in_695, in_696
+human_input: in_691, in_695, in_696, in_697
 date: 2026-11-17
 depends_on:
   - dec_parts_library: the pilot is the first generated family of that library
@@ -26,17 +26,21 @@ alternative_to:
 4. **Tolerances:** every dimension is stored with its minimum and maximum where a source gives them; the receiver shows the hole at the nominal and the gap at the part's extremes (`dec_parts_tolerance`, points 1 and 4).
 5. **Data rule:** a value enters a table only when read from at least two independent sources that agree (the standard's number and the sources named in the entry's data note); a disagreement leaves the value marked unverified and out of the build until the human decides. No value is written from memory or from a summary of a search.
 
-## Data status (found 2026-11-17, **none of it read or accepted**)
+## Data status (read 2026-11-17; **no value is in the program yet**)
 
-Candidate sources found by a web search, whose short summaries are not data and **must be read in full** before any number is used. The search already showed what to watch for:
-- **ISO 273 clearance holes:** the standard itself is paywalled ([ISO](https://www.iso.org/standard/4183.html)); charts to read: [Albany County Fasteners](https://www.albanycountyfasteners.com/media/6b/b8/g0/1764944339/clearance-hole-chart.pdf), [Loughborough chart](https://lbas.lboro.ac.uk/chart/metric-clearance-hole-chart.html), [Engineers Edge](https://ns2.engineersedge.com/calculators/asme-metric-clearance-holes/asme-metric-clearance-holes.htm). A first look gave M4 to M8 values but **no M3 value** and no table headers: M3 is open.
-- **ISO 4762 screws:** [fasten.it](https://fasten.it/norms/norm/din_en_iso_4762), [Misumi](https://us.misumi-ec.com/blog/metric-socket-head-cap-screws-dimensions/), [Engineers Edge](https://engineersedge.com/iso_socket_head_screw.htm), [CDE Fasteners](https://cdefasteners.com/sites/default/files/product-specs/metsocketcap.pdf). **A first look found disagreements** in the head diameter limits of M4 and M5 between sources.
-- **ISO 10642 countersunk:** [Westfield](https://westfieldfasteners.co.uk/Standards/ScrewBolt-SHCsk-M.pdf), [Böllhoff](https://eshop-cz.boellhoff.com/out/media/pdf/ISO_10642_Stahl_8.8___en.pdf), [Engineers Edge](https://engineersedge.com/hardware/bs_en_iso_10642_14583.htm), a sample of the 1997 standard ([iTeh](https://cdn.standards.iteh.ai/samples/18737/3f421aa0f7854e96b2815a241b29a69a/ISO-10642-1997.pdf)). **The standard was revised in 2019 and head dimensions partly changed, and two suppliers disagree on the M3 head diameter:** which edition the pilot follows must be settled first.
-- **ISO 4032 nuts:** [hbbolt datasheet](https://www.hbbolt.com/_Product_Cut_Sheets/HexNutMetricCL8.pdf), [wermac](https://wermac.org/bolts/dimensions_hex-nuts_across-flats-and-heights_din-iso.html), [Westfield](https://www.westfieldfasteners.co.uk/Standards/Nut_Hex_M.html), [ssmalloys PDF](https://ssmalloys.com/wp-content/uploads/2024/10/ISO-4032.pdf). Several sources appear to agree; older DIN 934 tables differ and must not be mixed in.
-- **ISO 7089 washers:** [Westfield](https://westfieldfasteners.co.uk/Standards/Washer-ISO7089-M.pdf), [Böllhoff](https://eshop-pl.boellhoff.com/out/media/pdf/ISO_7089_Stahl_HV2___en.pdf), [fasten.it](https://fasten.it/norms/norm/din_en_iso_7089). The search returned no usable M3 to M8 rows yet.
-- **Tap drills:** [Optimas](https://optimas.com/technical-resources/tapping-sizes/) and the derived rule (nominal less pitch); to be read and compared.
-- **Counterbore sizes:** no source found yet; counterbore diameters differ between sources and are not part of ISO 4762 itself.
-- **The omdl OpenSCAD database** ([ISO 4032](https://royasutton.github.io/omdl-snapshot/docs/html/omdl-v1.0/group__database__component__fastener__iso__4032.html), [ISO 7089](https://royasutton.github.io/omdl-snapshot/docs/html/omdl-v1.0/group__database__component__fastener__iso__7089.html)) holds tables as data; its licence is **not yet read** and belongs to `q_parts_open_sources`.
+The sources were read in full with the table's own headers (downloaded and parsed as text, not from search summaries). The session first moved to the saved `cad` environment, and the human approved adding the hosts the sources are on. **Read:** Albany County Fasteners (ISO 273 chart, PDF), Optimas (tap and clearance drills, page), CDE Fasteners (ISO 4762 sheet, PDF), Misumi (socket head cap screw table, page), Westfield Fasteners (ISO 10642, ISO 7089 and DIN 934 / ISO 4032 sheets), H&B (ISO 4032 sheet, PDF), the 1997 sample of ISO 10642 (iTeh; scanned text, read with errors), and the omdl ISO 4032 table. **Not reachable (no data seen):** fasten.it, lbas.lboro.ac.uk, wermac.org, eshop-pl.boellhoff.com (no answer); engineersedge.com and eshop-cz.boellhoff.com (refused, 403).
+
+Where each table stands against the two-source rule (point 5):
+- **Clearance holes, ISO 273 (fine / medium / coarse, mm):** M3 3.2 / 3.4 / 3.6; M4 4.3 / 4.5 / 4.8; M5 5.3 / 5.5 / 5.8; M6 6.4 / 6.6 / 7.0; M8 8.4 / 9.0 / 10.0. Albany (named ISO 273, classes H12 / H13 / H14) and Optimas give the same numbers. **Two sources agree.** (A search summary had said M3 was missing; it is there.)
+- **Tap drill, coarse thread:** M3 2.5, M4 3.3, M5 4.2, M6 5.0, M8 6.75 (Optimas). These equal nominal less pitch, so the rule agrees; **only one source for the numbers**, the rule is the second.
+- **ISO 10642 countersunk (M3 / M4 / M5 / M6 / M8):** theoretical head diameter max 6.72 / 8.96 / 11.20 / 13.44 / 17.92; actual head diameter min 5.54 / 7.53 / 9.43 / 11.34 / 15.24; head height max 1.86 / 2.48 / 3.1 / 3.72 / 4.96; socket nom 2 / 2.5 / 3 / 4 / 5; socket depth min 1.1 / 1.5 / 1.9 / 2.2 / 3 (Westfield, as ISO 10642). The 1997 sample of the standard, read with scan errors, shows the same head diameters and heights. **Two sources agree, but both are the 1997 edition's figures as far as can be told: the 2019 edition, which partly changed head dimensions, has not been read, and the human decides which edition the pilot follows.** The head angle is 90 degrees to 92 degrees in the 1997 figure (the Westfield sheet's "60 degree" note is unexplained and is not used).
+- **ISO 4762 socket head (M3 / M4 / M5 / M6 / M8):** body diameter max 3 / 4 / 5 / 6 / 8; head height max 3 / 4 / 5 / 6 / 8; hex socket 2.5 / 3 / 4 / 5 / 6; head diameter **differs between sources:** Misumi 5.50 / 7.00 / 8.50 / 10.00 / 13.00 max (min 5.32 / 6.81 / 8.29 / 9.78 / 12.73) and CDE 5.68 / 7.22 / 8.72 / 10.22 / 13.27 max (min 5.32 / 6.78 / 8.28 / 9.78 / 12.73). The larger CDE values may be the figures for a knurled head against a smooth head, but **no source read says so, so this is a guess and the head diameter stays unverified.**
+- **ISO 4032 hex nut (M3 / M4 / M5 / M6 / M8):** across flats max 5.5 / 7 / 8 / 10 / 13 (min 5.32 / 6.78 / 7.78 / 9.78 / 12.73); thickness max 2.4 / 3.2 / 4.7 / 5.2 / 6.8 (min 2.15 / 2.9 / 4.4 / 4.9 / 6.44); across corners min 6.01 / 7.66 / 8.79 / 11.05 / 14.38 (the H&B sheet headed ISO 4032 and the omdl table agree). **Two sources agree.** The Westfield sheet is **DIN 934** and has other thicknesses for M5 to M8 (4.0 / 5.0 / 6.5 max): it must not be mixed in.
+- **ISO 7089 washer (M3 / M4 / M5 / M6 / M8):** inner diameter nom 3.2 / 4.3 / 5.3 / 6.4 / 8.4 (max 3.38 / 4.48 / 5.48 / 6.62 / 8.62), outer diameter nom 7 / 9 / 10 / 12 / 16 (min 6.64 / 8.64 / 9.64 / 11.57 / 15.57), thickness nom 0.5 / 0.8 / 1 / 1.6 / 1.6 (Westfield). **Only one source read:** a second is needed.
+- **Counterbore sizes:** the Misumi page gives none. **No source yet.**
+- **omdl licence:** the page read states none; its repository was not read. Not used; the check stays with `q_parts_open_sources`.
+
+**Left to decide:** which ISO 10642 edition to follow; whether to accept the ISO 4762 head diameter with a source that settles knurled against smooth; a second source for the washers and for counterbores.
 
 ## Rationale
 

@@ -3128,3 +3128,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_696 — 2026-11-17 — approval
 > Yes, draft that entry and find sources
 (asks for the first fastener and receiver subset to be drafted as one provisional entry, and for sources of its data to be found)
+
+## in_697 — 2026-11-17 — approval
+> Yes, read the sources
+(asks for the candidate sources of the fastener pilot data to be read in full)
