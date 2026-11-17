@@ -2,7 +2,7 @@
 const svg = (inner: string): string => `<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 
 const ICONS: Record<string, string> = {
-  // Shape, Models (`in_805`): a ready-made part, a block with a hexagon on its face; Fasteners: a countersunk screw; Fastener Holes: a block cut across with a hole and a countersink
+  // Shape, Models (`in_811`): a ready-made part, a block with a hexagon on its face; Fasteners: a countersunk screw; Fastener Holes: a block cut across with a hole and a countersink
   models: svg('<path d="M8 1.8l5.5 3v6.4l-5.5 3-5.5-3V4.8z"/><path d="M8 5.2l2.4 1.4v2.8L8 10.8 5.6 9.4V6.6z" stroke-width="1.2"/>'),
   fastener: svg('<path d="M3 2.5h10l-3.2 2.2h-3.6z" fill="currentColor" fill-opacity=".18"/><path d="M6.2 4.7v8.8L8 15l1.8-1.5V4.7"/><path d="M6.2 7.2h3.6M6.2 9.6h3.6M6.2 12h3.6" stroke-width="1"/>'),
   fastenerHole: svg('<path d="M1.8 4h3.4L7 6.2v7.3M14.2 4h-3.4L9 6.2v7.3"/><path d="M1.8 4v9.5h5.2M14.2 4v9.5H9" stroke-width="1.2"/>'),

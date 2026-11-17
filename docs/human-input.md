@@ -3557,26 +3557,26 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > Yes, build it as proposed
 (approves dec_crown_gears as proposed and asks for it to be built)
 
-## in_803 — 2026-11-17 — directive
+## in_809 — 2026-11-17 — directive
 > update from claude/inspiring-pascal-l342k7 all your edits should already be merged in there
 (asks for claude/inspiring-pascal-l342k7 to be merged into this branch, saying all of this branch's edits should already be in it)
 
-## in_804 — 2026-11-17 — directive
+## in_810 — 2026-11-17 — directive
 > oh no I have it, it wasn't where I expected it. Okay can we put it in the right click menu and take it out of the ... menu. lets put it under bodies menu. Lets make a generic models area there that will contain more than just hardware, this will go there as a sub menu. Can we make the menu to select the hardware more visual?
 (asks for Add part to move out of the ⋯ menu into the right click menu, under the bodies menu, as a submenu of a new generic models area that will hold more than hardware; and for the menu that selects the hardware to be more visual)
 
-## in_805 — 2026-11-17 — directive
+## in_811 — 2026-11-17 — directive
 > No I want it under "Shape" as a "Models" and then as "Fasteners"
 (answers where the Models area goes in the right click menu: under Shape, as "Models", and then as "Fasteners")
 
-## in_806 — 2026-11-17 — directive
+## in_812 — 2026-11-17 — directive
 > In the same place next to Fasteners called "Fastener Holes"
 (answers where the fastener hole goes: in the same place, next to Fasteners, called "Fastener Holes")
 
-## in_807 — 2026-11-17 — directive
+## in_813 — 2026-11-17 — directive
 > can you merge the code so I can try it?
 (asks for this branch's code to be merged so the human can try it)
 
-## in_808 — 2026-11-17 — directive
+## in_814 — 2026-11-17 — directive
 > can you merge in claude/cool-einstein-odsxco-work please
 (asks for claude/cool-einstein-odsxco-work to be merged into the testing branch)
