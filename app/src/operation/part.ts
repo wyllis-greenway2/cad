@@ -247,16 +247,46 @@ export function curveMid(get: Lookup, part: Line): Vec3 | null {
   const perp = cross(normalOfPlane(pl), scale(chord, 1 / len));
   return add(scale(add(s[0], s[1]), 0.5), scale(perp, part.bulge * len));
 }
+/**
+ * What is worked out of a loop of lines is kept while the parts it was made from are the very same objects (`in_727`): a scene is changed one part at a time, and the loop of a gear that was not touched (400 sides, an arc
+ * each, 64 points to the arc) was worked out again for every gear on every change. The parts it read are noted as it is worked out; a part that is another object now, or gone, makes it work again.
+ */
+const loopKept = new Map<string, { deps: [Ref, Part | undefined][]; value: unknown; weight: number }>();
+let loopWeight = 0; // (how many points and steps are kept in all: a gear's loop is 25 thousand points, so the kept ones are bounded by that and not by how many)
+const LOOP_WEIGHT_MAX = 600_000;
+function keptFor<T>(kind: string, loop: readonly Ref[], corners: readonly Ref[], get: Lookup, make: (g: Lookup) => T): T {
+  const key = `${kind}|${loop.join(",")}|${corners.join(",")}`;
+  const hit = loopKept.get(key);
+  if (hit && hit.deps.every(([r, p]) => get(r) === p)) return hit.value as T;
+  const deps: [Ref, Part | undefined][] = [];
+  const seen = new Set<Ref>();
+  const noting: Lookup = (r) => { const p = get(r); if (!seen.has(r)) { seen.add(r); deps.push([r, p]); } return p; };
+  const value = make(noting);
+  const weight = Array.isArray(value) ? value.length : 1;
+  const old = loopKept.get(key);
+  if (old) loopWeight -= old.weight;
+  if (loopWeight + weight > LOOP_WEIGHT_MAX) { loopKept.clear(); loopWeight = 0; }
+  loopKept.set(key, { deps, value, weight });
+  loopWeight += weight;
+  return value;
+}
+
 /** The corners of a closed drawn shape in order, each with the middle point of the arc that runs from it to the next corner (null for a straight side). */
 export function loopSteps(get: Lookup, loop: readonly Ref[], corners: readonly Ref[]): { at: Vec3; mid: Vec3 | null; /** the line that runs from this corner to the next */ line?: Ref }[] {
+  return keptFor("steps", loop, corners, get, (g) => stepsOf(g, loop, corners));
+}
+function stepsOf(get: Lookup, loop: readonly Ref[], corners: readonly Ref[]): { at: Vec3; mid: Vec3 | null; line?: Ref }[] {
   const out: { at: Vec3; mid: Vec3 | null; line?: Ref }[] = [];
   const lines = loop.map((r) => get(r)).filter((p): p is Line => p?.kind === "line");
+  // the lines that join each two corners, in their order (a side is found by its ends, not by looking through all the lines for each corner)
+  const between = new Map<string, Line[]>();
+  for (const l of lines) { const k = l.a < l.b ? `${l.a}|${l.b}` : `${l.b}|${l.a}`; const list = between.get(k); if (list) list.push(l); else between.set(k, [l]); }
   const used = new Set<Ref>(); // (an arc and its chord join the same two corners: each line is walked once)
   corners.forEach((c, i) => {
     const here = pointOf(get, c);
     if (!here) return;
     const next = corners[(i + 1) % corners.length]!;
-    const line = lines.find((l) => !used.has(l.ref) && ((l.a === c && l.b === next) || (l.b === c && l.a === next)));
+    const line = between.get(c < next ? `${c}|${next}` : `${next}|${c}`)?.find((l) => !used.has(l.ref));
     if (line) used.add(line.ref);
     out.push({ at: here, mid: line ? curveMid(get, line) : null, ...(line ? { line: line.ref } : {}) });
   });
@@ -264,7 +294,10 @@ export function loopSteps(get: Lookup, loop: readonly Ref[], corners: readonly R
 }
 /** The corners of a closed drawn shape in order, with the points of any arcs between them (so the outline and the fill follow the curves). */
 export function loopPoints(get: Lookup, loop: readonly Ref[], corners: readonly Ref[]): Vec3[] {
-  const steps = loopSteps(get, loop, corners);
+  return keptFor("points", loop, corners, get, (g) => pointsOf(g, loop, corners)).slice(); // (a copy of the list: the points in it are shared)
+}
+function pointsOf(get: Lookup, loop: readonly Ref[], corners: readonly Ref[]): Vec3[] {
+  const steps = stepsOf(get, loop, corners);
   const out: Vec3[] = [];
   steps.forEach((st, i) => {
     out.push(st.at);

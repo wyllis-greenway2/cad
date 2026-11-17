@@ -567,7 +567,16 @@ function lookOf(sc: Scene, sel: readonly Ref[], cam: Camera, world: AppState["wo
 }
 
 /** The drawn lines, arcs and circles as short straight pieces, and the drawn corners: the places a bubble should not sit on. */
+const avoided = new WeakMap<Scene, Frame["avoid"]>();
 function avoidOf(sc: Scene): Frame["avoid"] {
+  // the same scene gives the same places, and a picture is made of it many times (every move of the pointer): worked out once for a scene (a gear's outline is 400 arcs, 64 points each)
+  const kept = avoided.get(sc);
+  if (kept) return kept;
+  const out = avoidFor(sc);
+  avoided.set(sc, out);
+  return out;
+}
+function avoidFor(sc: Scene): Frame["avoid"] {
   const get = lookup(sc);
   const segs: [Vec3, Vec3][] = [];
   const pts: Vec3[] = [];

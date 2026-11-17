@@ -11,6 +11,8 @@ function roughKey(s) {
   const b = new oc.Bnd_Box();
   try { oc.BRepBndLib.Add(s.wrapped, b, false); const [a, z] = [b.CornerMin(), b.CornerMax()]; const k = [a.X(), a.Y(), a.Z(), z.X(), z.Y(), z.Z()].map((v) => Math.round(v * 1e6)).join(","); a.delete(); z.delete(); return k; } finally { b.delete(); }
 }
+/** What tells one solid from another and the same solid found again: its identity number and a quick box (as the exact box is kept below): for what is worked out of a body once and kept (`dec_per_body_checks`). */
+export const solidKey = (s) => `${s.hashCode}|${roughKey(s)}`;
 export const box = (s) => {
   const key = `${s.hashCode}|${roughKey(s)}`;
   const kept = boxes.get(key);

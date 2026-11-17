@@ -39,7 +39,7 @@ import { findCrossing } from "./selfcross.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
 import { nameFaces, refOfName, namedEdgeRefs, figureRoles, edgeEnds, edgeRoles, revolveRoles, loftRoles, sweepRoles, endTangent, creaseOf } from "./facenames.mjs";
-import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
+import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf, solidKey } from "./bodies.mjs";
 
 /** The imported solids scaled about the origin by `op.scale` and then placed: `op.place` "center" brings the middle of their box to the origin, "floor" brings the middle of the box to the z axis and the bottom to z = 0 (a part that sits on the build plate). */
 function placedSolids(solids, op) {
@@ -123,8 +123,27 @@ export function readStep(text) {
 
 /** OCCT's own topology/geometry check. Operations can return garbage without throwing. */
 export function isValidSolid(shape) {
-  return new (getOC().BRepCheck_Analyzer)(shape.wrapped, true, false).IsValid() && cavitiesInside(shape);
+  const oc = getOC();
+  const analyzed = (sh) => { const a = new oc.BRepCheck_Analyzer(sh.wrapped, true, false); try { return a.IsValid(); } finally { a.delete(); } };
+  // several bodies: a compound is valid when each of its solids is (the library checks each part of a compound on its own), so a solid that was found valid before (the same solid, found again by its identity) is not checked again,
+  // and a new body costs what it is, not what all the others are (`dec_per_body_checks`)
+  const type = oc.TopAbs_ShapeEnum ? shape.wrapped.ShapeType() : null;
+  if (type === oc.TopAbs_ShapeEnum?.TopAbs_COMPOUND || type === oc.TopAbs_ShapeEnum?.TopAbs_SOLID) {
+    const solids = shape.solids;
+    if (solids.length > 1 || (solids.length === 1 && type === oc.TopAbs_ShapeEnum.TopAbs_SOLID)) {
+      for (const s of solids) {
+        const key = solidKey(s);
+        if (validSolids.has(key)) continue;
+        if (!(analyzed(s) && cavitiesInside(s))) return false;
+        validSolids.add(key);
+        while (validSolids.size > 200) validSolids.delete(validSolids.values().next().value);
+      }
+      return true;
+    }
+  }
+  return analyzed(shape) && cavitiesInside(shape);
 }
+const validSolids = new Set(); // (the identities of solids that have passed the check)
 
 /**
  * A hollow body's cavities lie inside its outer shell. The library's own check says a body is valid when its faces close up, even when a round or a bevel of a size larger than the wall has cut the
@@ -182,6 +201,8 @@ export function crossesItself(shape, before) {
   const known = new Set(before ? solidsOf(before).map((s) => s.hashCode) : []);
   for (const solid of solidsOf(shape)) {
     if (known.has(solid.hashCode)) continue;
+    const kept = solidKey(solid); // (a solid found to cross itself nowhere is not looked at again, however the steps round it change: a body rebuilt after an earlier step changed is the same solid)
+    if (uncrossed.has(kept)) continue;
     if (facesOf(solid).length > MAX_FACES_CHECKED) continue;
     const [lo, hi] = solid.boundingBox.bounds;
     const diag = Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
@@ -190,9 +211,12 @@ export function crossesItself(shape, before) {
     getOC().BRepTools.Clean(solid.wrapped, true); // (the meshing leaves its triangles on the faces, which the shape is then checked and worked on with: they are taken off)
     const hit = findCrossing(m.vertices, m.triangles, 3 * tol + 1e-4 * diag);
     if (hit) return hit;
+    uncrossed.add(kept);
+    while (uncrossed.size > 200) uncrossed.delete(uncrossed.values().next().value);
   }
   return null;
 }
+const uncrossed = new Set(); // (the identities of solids that were looked at and cross themselves nowhere)
 
 /** Resolve "$name" references against graph.params. Everything is a named parameter. */
 function resolve(value, params) {
@@ -670,8 +694,25 @@ const OPS = {
       return solid;
     };
     const toolOf = (back) => {
+      // the body's own solid, kept under a key that is its sketches' and its depth, not the steps before it: a change to an earlier step (another gear) leaves this body the very same solid, so everything that is kept for a solid
+      // (its validity, its mesh, the details of its faces) is found again, and it is not built again (`dec_per_body_checks`). The roles of its faces by its sketches' own edges are kept with it.
+      const ids = [op.profile, ...(op.holes ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...(f.holes ?? [])])];
+      const ownKey = ids.every((i) => ctx.keyOf?.(i)) ? fingerprint(JSON.stringify(["prism", back, dist, ctx.params, op.profile, op.holes ?? [], op.also ?? [], ids.map((i) => ctx.keyOf(i))])) : null;
+      const kept = ownKey ? prisms.get(ownKey) : null;
+      if (kept && (!ctx.roleFigs || kept.roles)) {
+        prisms.delete(ownKey); prisms.set(ownKey, kept);
+        if (ctx.roleFigs) for (const [k, v] of kept.roles) if (!ctx.roleFigs.has(k)) ctx.roleFigs.set(k, v);
+        kernelStats.prismsReused++;
+        return kept.solid;
+      }
+      kernelStats.prismsBuilt++;
+      const had = new Set(ctx.roleFigs ? ctx.roleFigs.keys() : []);
       let sld = prism(op.profile, op.holes, dist, back);
       for (const f of op.also ?? []) sld = sld.fuse(prism(f.profile, f.holes, f.distance === undefined ? dist : resolve(f.distance, ctx.params), back)); // siblings extruded together (each may have a depth of its own, `in_351`)
+      if (ownKey) {
+        prisms.set(ownKey, { solid: sld, roles: ctx.roleFigs ? [...ctx.roleFigs.entries()].filter(([k]) => !had.has(k)) : null });
+        while (prisms.size > 64) prisms.delete(prisms.keys().next().value);
+      }
       return sld;
     };
     let solid = toolOf(0);
@@ -1305,6 +1346,13 @@ function cutInto(value, tool) {
 
 /** The body and a piece added to it, and what that was: a piece that stands apart is a body of its own (`new`), one that touches it joins it (`add`); said, so that a step that did not say can be made to (`in_436`). */
 function joined(target, solid) {
+  // a piece whose box meets none of the bodies is a body of its own: the compound of them, with no boolean on all the others (a gear put down beside five gears took the time of fusing with all five, `dec_per_body_checks`)
+  const lumps = target.solids;
+  if (lumps.length) {
+    const nb = boxOf(solid);
+    const apart = lumps.every((l) => { const b = boxOf(l); return [0, 1, 2].some((i) => nb.min[i] > b.max[i] + 1e-6 || nb.max[i] < b.min[i] - 1e-6); });
+    if (apart) return { kind: "solid", shape: makeCompound([...lumps, ...(solid.solids ?? [solid])]), used: "new" };
+  }
   const shape = target.fuse(solid);
   const used = (shape.solids?.length ?? 1) > (target.solids?.length ?? 1) ? "new" : "add";
   return { kind: "solid", shape, used };
@@ -2061,6 +2109,11 @@ function describeError(e, op) {
  * model therefore only redoes the move. Kept: the newest ones. (Booleans use up what they are given, so an op is handed a copy of its input, never the kept one.)
  */
 const KEEP = 96;
+const prisms = new Map(); // a body's own solid by what it was made from, not what came before it: key -> { solid, roles }
+/** How many bodies' own solids were built and how many were kept ones (read by the tests, `dec_per_body_checks`). */
+export const kernelStats = { prismsBuilt: 0, prismsReused: 0 };
+/** Forget what is kept of bodies, so that the next answer is worked out from nothing (for the tests: the kept and the worked-out answers are to be the same). */
+export function clearKernelCaches() { prisms.clear(); validSolids.clear(); uncrossed.clear(); memo.clear(); }
 const memo = new Map(); // key -> { value, ms }
 const remember = (key, entry) => {
   memo.delete(key);
@@ -2126,6 +2179,8 @@ export function compile(graph, quick = false) {
   const keys = new Map(); // id -> what it was worked out from
   const ctx = {
     params,
+    /** What a step was worked out from (its kept answer's key), for a step that keeps part of its own work under a key of its own. */
+    keyOf: (id) => keys.get(id) ?? null,
     get(id, kind) {
       const r = results.get(id);
       if (!r) throw new Error(`${id} not found (ops must be ordered after their dependencies)`);

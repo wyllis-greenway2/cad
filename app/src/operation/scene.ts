@@ -11,7 +11,7 @@ import { withPatterns } from "./repeat.ts";
 import type { GearRecord } from "./gearscene.ts";
 import { withGears, madeByAGear } from "./gearscene.ts";
 
-/** A relation between parts. `parts` are listed mover first, then the references (held in place): the part selected FIRST moves and the ones selected before it stay (`in_196`, which reversed `in_090`). `kind` is a row id of the actions table. */
+/** A relation between parts. `parts` are listed mover first, then the references (held in place): the part selected FIRST moves and the ones selected before it stay (`in_196`, which reversed `in_90`). `kind` is a row id of the actions table. */
 /** How a circular edge of the body looked when a relation was made to it (`in_309`): its centre, radius and facing, and how far along its facing it stood in the body's box (0 bottom, 1 top). The relation names the edge by where it was; if the body changes and that edge is gone, the edge that looks most like this one now is taken (`anchors.ts`). */
 export interface EdgeAnchor {
   /** a circular edge (the default), a straight edge (`center` is its middle, `radius` half its length, `normal` its direction), a corner (`radius` 0) or a flat face (`center` its middle, `normal` which way it faces; `in_313`); the last two are judged across `axis`, the facing of the sketch's plane (`in_310`) */
@@ -191,12 +191,27 @@ export function withBody(s: Scene, body: readonly Part[]): Scene {
   return { ...s, parts };
 }
 
+/**
+ * The faces derived from a scene's drawn parts, kept for the last few scenes (`in_727`): they depend on the parts and the steps only, and a change that leaves them as they were (a constraint, a number bubble, a body drawn again) had
+ * every loop of every gear grouped and traced again. The same objects and the same steps are the same answer.
+ */
+const derivedKept: { input: Map<string, Part>; steps: readonly Step[]; out: ReturnType<typeof derivedFaces> }[] = [];
+function derivedFor(s: Scene): ReturnType<typeof derivedFaces> {
+  const input = Object.values(s.parts);
+  const hit = derivedKept.find((k) => k.steps === s.steps && k.input.size === input.length && input.every((p) => k.input.get(p.ref) === p)); // (the same parts, in whatever order)
+  if (hit) return hit.out;
+  const out = derivedFaces(s);
+  derivedKept.unshift({ input: new Map(input.map((p) => [p.ref, p])), steps: s.steps, out });
+  if (derivedKept.length > 4) derivedKept.pop();
+  return out;
+}
+
 /** The scene with its derived faces (closed loops, disks) rebuilt. */
 export function withDerived(s0: Scene): Scene {
   const s = withGears(withPatterns(s0)); // (the copies of the repeats that keep their numbers, made from the originals as they are now, and the gears made from their numbers)
   const parts: Record<string, Part> = {};
   for (const p of Object.values(s.parts)) if (p.kind !== "face" && !((p.kind === "line" || p.kind === "corner") && p.derived)) parts[p.ref] = p;
-  const { faces, parts: made } = derivedFaces({ ...s, parts });
+  const { faces, parts: made } = derivedFor({ ...s, parts });
   for (const a of made) parts[a.ref] = a;
   for (const f of faces) parts[f.ref] = f;
   return { ...s, parts };

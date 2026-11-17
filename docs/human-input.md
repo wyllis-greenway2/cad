@@ -3245,6 +3245,42 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > can try to find the remaining information and or link me to get you what you need?
 (asks me to look for the missing bevel gear data myself and, or, to link where to get it)
 
-## in_725 — 2026-11-17 — question
+## in_725 — 2026-11-17 — directive
+> yes do the gear sketch parts next
+(approves doing the gear's own sketch parts next: the sides and corners of a gear's outline that remain in the scene as parts after its body is made, about 20 a tooth)
+
+## in_726 — 2026-11-17 — directive
+> yes do the per-body checks next
+(approves doing the per-body checks next: the checks, names and fingerprints of a body worked out per body, so that adding a gear costs what that gear costs and not the whole model)
+
+## in_727 — 2026-11-17 — directive
+> yes do the page's per-edit scene derivation next
+(approves doing the page's per-edit scene derivation next: the work the page does on the whole scene at every edit, which grows with the number of parts and bodies)
+
+## in_728 — 2026-11-17 — question
+> What do you reccomend?
+(asks which of the remaining speed items to do next)
+
+## in_729 — 2026-11-17 — directive
+> yes start on number 1
+(approves starting on the kernel's rebuild of every later body when an earlier step changes: a body's own work kept under a key that does not include the steps before it)
+
+## in_730 — 2026-11-17 — directive
+> yes merge in the cannon-6 work
+(approves merging claude/hopeful-cannon-6, the sweep modes and the orb bubble offset, into this branch)
+
+## in_731 — 2026-11-17 — question
+> Okay what is there left to work on?
+(asks what is left to work on)
+
+## in_732 — 2026-11-17 — question
+> okay my local dev says its on claude/inspiring-pascal-l342k7 but it appears to have your work where the gears turn into circles only for speed? how is that possible?
+(asks how the stand-in disc work, which was done on claude/hopeful-cannon-7, appears in a checkout of claude/inspiring-pascal-l342k7)
+
+## in_733 — 2026-11-17 — directive
+> merge the remaining work into inspiring-pascal
+(asks for the work on claude/hopeful-cannon-7 that is not yet on claude/inspiring-pascal-l342k7 to be merged into it; this is the explicit permission to write to that branch)
+
+## in_734 — 2026-11-17 — question
 > (the human attached three pages of the Gleason "Gear Technology Solutions" book as PDFs and the Gear Technology "Ask the expert: Backlash and Axial Movement" article, Sept/Oct 2017) Hey while we are here, is there anything else you need? Maybe to verify our other gears?
 (sends the backlash article and three Gleason pages; asks whether anything else is needed, for example to verify the other gears)

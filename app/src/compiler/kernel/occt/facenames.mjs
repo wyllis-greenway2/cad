@@ -42,6 +42,10 @@ export function surfacesOf(shape, quickFrom = QUICK_FROM) {
   // sketch's corners, which asks for the exact one, so the few freeform faces of an ordinary body keep it.
   const quick = all.filter((f) => f.geomType !== "PLANE" && f.geomType !== "CYLINDRE").length > quickFrom;
   for (const f of all) {
+    // what a face is (its kind, direction, place and box) is found once for the face, by its identity: a body that a step did not touch has the same faces in the next answer (`dec_per_body_checks`)
+    const known = factsOf(f, quick);
+    if (known) { out.push({ ...cloneFacts(known), face: f }); continue; }
+    const before = out.length;
     const type = f.geomType;
     if (type === "PLANE") {
       const q = f.normalAt();
@@ -69,9 +73,27 @@ export function surfacesOf(shape, quickFrom = QUICK_FROM) {
       const [lo, hi] = quick ? quickBounds(f) : f.boundingBox.bounds;
       out.push({ kind: "surf", type: String(type), n: [0, 0, 1], c: [0, 1, 2].map((k) => (lo[k] + hi[k]) / 2), lo: [...lo], hi: [...hi], face: f });
     }
+    if (out.length > before) keepFacts(f, quick, out[out.length - 1]);
   }
   return out;
 }
+
+const faceFactCache = new Map(); // `${quick}|${face hash}` -> [{ face, facts }]
+let factsKept = 0;
+function factsOf(f, quick) {
+  const list = faceFactCache.get(`${quick}|${f.hashCode}`);
+  return list?.find((x) => x.face.wrapped.IsSame(f.wrapped))?.facts ?? null;
+}
+function keepFacts(f, quick, entry) {
+  if (factsKept > 12000) { faceFactCache.clear(); factsKept = 0; }
+  const { face: _f, ...rest } = entry;
+  const facts = cloneFacts(rest); // (a copy: the answer that was just given is the caller's to change)
+  const key = `${quick}|${f.hashCode}`;
+  const list = faceFactCache.get(key);
+  if (list) list.push({ face: f, facts }); else faceFactCache.set(key, [{ face: f, facts }]);
+  factsKept++;
+}
+const cloneFacts = (e) => Object.fromEntries(Object.entries(e).map(([k, v]) => [k, Array.isArray(v) ? [...v] : v]));
 
 /** A name moved with the body: the point and the end of its normal are carried by the same motion (`tf`, as `moveMarkers` takes it). */
 function carried(names, tf) {
@@ -213,10 +235,38 @@ export function nameFaces(prev, tf, shape, opId, roles) {
  * The names of the straight and curved edges that lie between two flat faces (`dec_stable_reference_mechanism`): an edge is named by the names of its two faces, `<a>|<b>` (sorted); where several edges lie between the
  * same two faces (a face cut in two by a hole), each also gets its rank by place, `#k`. An edge with a face beside it that has no name (a cone, a sphere, a spline) has no name. Each comes with its ends and middle as the shape has them now.
  */
+/**
+ * The edges of a face, and the ends and middle of an edge, are found once for the face or edge (`dec_per_body_checks`): a body that a step did not touch has the same faces and edges in the next answer, and listing the edges of a thousand
+ * faces is most of what naming the edges costs. Found again by identity number, and only taken for the same when the kernel says it is the same shape (identity numbers can be shared by two shapes).
+ */
+const faceEdgeCache = new Map(); // face hash -> [{ face, edges }]
+const edgePointCache = new Map(); // edge hash -> [{ edge, item }]
+let cached = 0;
+function edgesOfFace(face) {
+  const h = face.hashCode;
+  const list = faceEdgeCache.get(h);
+  const hit = list?.find((x) => x.face.wrapped.IsSame(face.wrapped));
+  if (hit) return hit.edges;
+  if (cached > 12000) { faceEdgeCache.clear(); edgePointCache.clear(); cached = 0; }
+  const edges = edgesOf(face);
+  if (list) list.push({ face, edges }); else faceEdgeCache.set(h, [{ face, edges }]);
+  cached++;
+  return edges;
+}
+function itemOfEdge(edge) {
+  const h = edge.hashCode;
+  const list = edgePointCache.get(h);
+  const hit = list?.find((x) => x.edge.wrapped.IsSame(edge.wrapped));
+  if (hit) return hit.item;
+  const [a, b, m] = [edge.startPoint, edge.endPoint, edge.pointAt(0.5)];
+  const item = { a: [a.x, a.y, a.z], b: [b.x, b.y, b.z], mid: [m.x, m.y, m.z] };
+  if (list) list.push({ edge, item }); else edgePointCache.set(h, [{ edge, item }]);
+  return item;
+}
 function nameEdges(faces, given) {
   const sides = new Map(); // edge hash -> { edge, names }
   faces.forEach((f, i) => {
-    for (const e of edgesOf(f.face)) {
+    for (const e of edgesOfFace(f.face)) {
       const h = e.hashCode;
       const have = sides.get(h) ?? { edge: e, names: [] };
       have.names.push(given[i]);
@@ -227,14 +277,13 @@ function nameEdges(faces, given) {
   for (const { edge, names } of sides.values()) {
     if (names.length !== 2 || names[0] === names[1]) continue;
     const key = [...names].sort().join("|");
-    const [a, b, m] = [edge.startPoint, edge.endPoint, edge.pointAt(0.5)];
-    const item = { a: [a.x, a.y, a.z], b: [b.x, b.y, b.z], mid: [m.x, m.y, m.z] };
+    const item = itemOfEdge(edge);
     groups.set(key, [...(groups.get(key) ?? []), item]);
   }
   const out = [];
   for (const [key, list] of groups) {
     list.sort((p, q) => { for (let k = 0; k < 3; k++) { const d = Math.round(p.mid[k] * 1e3) - Math.round(q.mid[k] * 1e3); if (d) return d; } return 0; });
-    list.forEach((it, k) => out.push({ name: list.length > 1 ? `${key}#${k}` : key, ...it }));
+    list.forEach((it, k) => out.push({ name: list.length > 1 ? `${key}#${k}` : key, a: [...it.a], b: [...it.b], mid: [...it.mid] }));
   }
   return out;
 }
