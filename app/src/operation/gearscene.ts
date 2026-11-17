@@ -14,6 +14,7 @@ import { boreLoop } from "./bore.ts";
 import type { GearSpec, GearOutline } from "./gear.ts";
 import { wormRefs, wormParts, wormSteps, wheelRefs, wheelParts, wheelSteps } from "./wormscene.ts";
 import { wheelSections } from "./wheelsections.ts";
+import { bevelRefs, bevelParts, bevelSteps } from "./bevelscene.ts";
 
 /** `at`: the centre, in the world; `turn`: how far the gear is turned about its centre in its plane, radians (tooth 0 points along the plane's first direction when 0); `spec`: the numbers (`gear.ts`) */
 export interface GearRecord { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }
@@ -40,6 +41,7 @@ const lineRef = (id: string, i: number): Ref => drawnRef(`${id}.s${i}`);
 export function gearRefs(rec: GearRecord): { lines: Ref[]; wall?: Ref; bore?: string } {
   const o = outlineOf(rec.spec);
   if (!o.ok) return { lines: [] };
+  if (rec.spec.bevel) { const b = bevelRefs(rec); return { lines: b.sections[0]!, ...(b.bores[0] ? { bore: b.bores[0] } : {}) }; } // (the big end)
   if (rec.spec.worm) return { lines: wormRefs(rec).threads[0]! }; // (the thread's figure)
   if (rec.spec.wheel) { const w = wheelRefs(rec); return { lines: w.sections[Math.floor(w.sections.length / 2)]!, ...(w.bores[0] ? { bore: w.bores[Math.floor(w.bores.length / 2)]! } : {}) }; } // (the middle section)
   return { lines: o.value.points.map((_, i) => lineRef(rec.id, i)), ...(o.value.outerRadius !== undefined ? { wall: drawnRef(`${rec.id}.k`) } : {}), ...(!rec.spec.internal && (rec.spec.bore ?? 0) > 0 ? { bore: boreGroup(rec) } : {}) };
@@ -53,6 +55,7 @@ function boreGroup(rec: GearRecord): string {
 
 /** The parts of a gear: the corners and sides of its outline and, for a ring, its wall's circle. Locked. Empty if its plane is not there or the numbers make no gear. */
 function partsOf(s: Scene, rec: GearRecord): Part[] {
+  if (rec.spec.bevel) return bevelParts(s, rec);
   if (rec.spec.worm) return wormParts(s, rec);
   if (rec.spec.wheel) return wheelParts(s, rec);
   const plane = s.parts[rec.plane];
@@ -126,6 +129,7 @@ function bodyParams(s: Scene, rec: GearRecord): { step: Omit<Step, "id"> } | nul
 }
 /** The steps that make the body of a gear that has one made with it (a helical gear's twist, a worm's core and threads, a worm wheel's loft), without their names; none for a plain gear. */
 function ownedSpecs(s: Scene, rec: GearRecord): Omit<Step, "id">[] {
+  if (rec.spec.bevel) return bevelSteps(s, rec) ?? [];
   if (rec.spec.worm) return wormSteps(s, rec) ?? [];
   if (rec.spec.wheel) return wheelSteps(s, rec) ?? [];
   const body = bodyParams(s, rec);

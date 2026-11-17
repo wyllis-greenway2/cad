@@ -12,7 +12,7 @@ import { worldRef } from "../src/shared/ref.ts";
 
 await kernel.init();
 
-const VARIANTS: GearVariant[] = ["gear", "ring", "rack", "gt2", "gt3", "htd5", "htd8", "sprocket", "isosprocket", "clock", "clockring", "clockrack"];
+const VARIANTS: GearVariant[] = ["gear", "bevel", "ring", "rack", "gt2", "gt3", "htd5", "htd8", "sprocket", "isosprocket", "clock", "clockring", "clockrack"];
 
 test("every number of every kind of gear has a hint, and each kind has a title", () => {
   for (const v of VARIANTS) {
@@ -52,4 +52,19 @@ test("a partner made with nothing typed is one that meshes: a gear in a ring has
   assert.equal(gearLive(sc, at(meshGearTool(gear, false, true)))![0], 40, "twice the gear's teeth");
   assert.equal(gearProblem(sc, at(meshGearTool(gear, false))), null, "a gear beside a gear: the same number of teeth, as before");
   assert.equal(gearLive(sc, at(meshGearTool(gear, false)))![0], 20);
+});
+
+import { finishTool } from "../src/interaction/tools.ts";
+test("the bevel gear tool: its numbers, its title that says it is an approximation, and the gear it makes with nothing typed (a pair-ready 20 tooth gear, module 2, a bore)", () => {
+  const sc = scene(createSession(kernel));
+  const t = { ...armTool("gear", "bevel"), plane: worldRef("XY"), points: [[0, 0, 0] as [number, number, number]], cursor: [10, 0, 0] as [number, number, number] };
+  assert.deepEqual(gearFields(t.gear!).map((f) => f.key), ["teeth", "mate", "module", "pressure", "shaft", "face", "backlash", "bore", "flat", "key", "keydepth"]);
+  assert.match(gearTitle(t.gear!), /approximation/);
+  const cmd = finishTool(sc, t)?.command;
+  assert.ok(cmd && cmd.type === "gear", "makes a gear");
+  const spec = (cmd as { spec: { teeth: number; module: number; bevel?: { mate: number }; bore?: number } }).spec;
+  assert.equal(spec.teeth, 20);
+  assert.equal(spec.module, 2);
+  assert.equal(spec.bevel?.mate, 20, "its mate has as many teeth unless typed");
+  assert.ok((spec.bore ?? 0) > 0, "a bore, as any new gear has");
 });

@@ -33,3 +33,9 @@ Waiting for a decision or a bigger piece of work (each has a handoff entry that 
 
 
 Done (`in_143`): double click selects the object, triple click looks at the plane, lit axis button and eye button, centre vertex of a selected curve, layered ring menu (Sketch, Constraints, Shape, Move and repeat, Delete), new push / pull icon. Not done: remember the open category; show inapplicable constraints dimmed with the reason; check the animation on a phone.
+
+
+## To verify later (`in_735`)
+- **Straight bevel gear is an approximation** (`dec_bevel_gears`): the tooth is the Tredgold back cone tooth, not the octoid / spherical involute of ISO 23509 and AGMA 2005. To verify against the standards (or a maker's drawing of a real pair): the tooth form; the thickness split between pinion and wheel (Autodesk "Unit Correction Distribution"); the face width rule (KHK's "at least 10 m" against "at most R/3"); recommended backlash (ANSI/AGMA 2008-D11, AGMA / ISO tables); undercut limits and suggested pinion teeth (AGMA 937); pressure angles other than 20. Details in `q_bevel_gears`.
+- Not built yet: the mate placed at the shaft angle with its phase (Mesh bevel gear); spiral bevel and hypoid.
+- **Other gears with second-hand or missing data:** timing pulley grooves (GT2, GT3, HTD 5M, HTD 8M: from a Misumi / Gates table, not a groove drawing or ISO 13050; HTD 3M, MXL, XL, T have no data), the ISO 606 sprocket outside diameter limits, the worm geometry (DIN 3975, ISO 14521, AGMA 6022), the clock gear standards (DIN 58400 / 58405), the ISO 53 basic rack, keyway tables beyond DIN 6885.

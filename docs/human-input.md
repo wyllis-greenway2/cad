@@ -3284,3 +3284,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_734 — 2026-11-17 — question
 > (the human attached three pages of the Gleason "Gear Technology Solutions" book as PDFs and the Gear Technology "Ask the expert: Backlash and Axial Movement" article, Sept/Oct 2017) Hey while we are here, is there anything else you need? Maybe to verify our other gears?
 (sends the backlash article and three Gleason pages; asks whether anything else is needed, for example to verify the other gears)
+
+## in_735 — 2026-11-17 — approval
+> yes build the straight bevel and mark it as an approximation, lets mark in our to do list that we will need to verify this stuff later.
+(approves building the straight bevel gear as an approximation, and asks for a to-do list item to verify the bevel data later)
