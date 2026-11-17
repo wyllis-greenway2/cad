@@ -304,3 +304,37 @@ test("the dialog has the engagement for a hole to tap only, and says what hole i
   assert.ok(t("x").fields[2]!.note?.includes("number of percent"));
   assert.ok(!receiverDialog(receiverStart()).fields.some((f) => f.id === "engagement"));
 });
+
+// ---- the standard lengths ----
+import { STANDARD_LENGTHS, AVOID_LENGTHS, lengthStatus, nearbyLengths, lengthAdvice } from "../src/operation/fasteners.ts";
+import { lengthAdviceOf } from "../src/interaction/addpart.ts";
+
+test("the standard lengths are ISO 888 Table 1 without the bracketed ones, in order", () => {
+  assert.deepEqual(STANDARD_LENGTHS.slice(0, 22), [2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90]);
+  assert.equal(STANDARD_LENGTHS.at(-1), 500);
+  assert.deepEqual([...STANDARD_LENGTHS].sort((a, b) => a - b), [...STANDARD_LENGTHS]);
+  assert.equal(AVOID_LENGTHS.length, 18);
+  assert.ok(!AVOID_LENGTHS.some((l) => STANDARD_LENGTHS.includes(l)), "a length is one or the other");
+  assert.deepEqual([lengthStatus(16), lengthStatus(14), lengthStatus(13), lengthStatus(125), lengthStatus(100)], ["standard", "avoid", "other", "avoid", "standard"]);
+});
+test("the advice names the status and the nearest standard lengths, and is advice only", () => {
+  assert.equal(lengthAdvice(16), "16 mm is a standard length (ISO 888)");
+  assert.ok(lengthAdvice(14).includes("in brackets"));
+  assert.equal(lengthAdvice(13), "13 mm is not a standard length: the standard lengths nearest are 12 and 16 mm");
+  assert.deepEqual(nearbyLengths(13), [12, 16]);
+  assert.deepEqual(nearbyLengths(1), [2]);
+  assert.deepEqual(nearbyLengths(600), [500]);
+  assert.equal(lengthAdvice(NaN), "");
+  const r = addPart(createSession(kernel), { family: "socketHead", size: "M4", length: "13" });
+  assert.ok(r.ok, "a length that is not a standard one is still made");
+  assert.equal(lengthAdviceOf({ family: "socketHead", size: "M4", length: "13" }), lengthAdvice(13));
+  assert.equal(lengthAdviceOf({ family: "socketHead", size: "M4", length: "12" }), "");
+  assert.equal(lengthAdviceOf({ family: "nut", size: "M4", length: "13" }), "");
+});
+test("the length note in the dialog says what the number typed is and lists the standard lengths", () => {
+  const note = (length: string) => addPartDialog({ family: "countersunk", size: "M5", length }).fields.find((f) => f.id === "length")!.note!;
+  assert.ok(note("13").startsWith("13 mm is not a standard length: the standard lengths nearest are 12 and 16 mm."));
+  assert.ok(note("20").startsWith("20 mm is a standard length (ISO 888)."));
+  assert.ok(note("").startsWith("standard lengths (ISO 888): 2, 3, 4, 5, 6, 8, 10"), "no advice for an empty box");
+  assert.ok(note("20").includes("100 mm and longer") && note("20").includes("were not read"));
+});

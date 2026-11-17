@@ -84,6 +84,29 @@ const CLEARANCE: Record<FastenerSize, Record<ClearanceFit, number>> = {
 };
 const round3 = (x: number): number => Math.round(x * 1000) / 1000;
 
+// ---- the standard lengths ----
+/** The nominal lengths of ISO 888:2012, Table 1 (mm), for metric bolts, screws and studs: the ones to use (read in full from the iTeh sample, the English text). */
+export const STANDARD_LENGTHS: readonly number[] = [2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180, 200, 220, 240, 260, 280, 300, 320, 340, 360, 380, 400, 420, 440, 460, 480, 500];
+/** The lengths the same table prints in brackets: "should be avoided, if possible". */
+export const AVOID_LENGTHS: readonly number[] = [2.5, 7, 9, 11, 14, 18, 22, 28, 32, 38, 75, 85, 95, 105, 115, 125, 170, 190];
+export type LengthStatus = "standard" | "avoid" | "other";
+export const lengthStatus = (length: number): LengthStatus => (STANDARD_LENGTHS.includes(length) ? "standard" : AVOID_LENGTHS.includes(length) ? "avoid" : "other");
+/** The standard lengths just below and just above a length (the length itself if it is one), nearest first. */
+export function nearbyLengths(length: number): number[] {
+  const below = [...STANDARD_LENGTHS].reverse().find((l) => l < length);
+  const above = STANDARD_LENGTHS.find((l) => l > length);
+  return [below, above].filter((l): l is number => l !== undefined).sort((a, b) => Math.abs(a - length) - Math.abs(b - length));
+}
+/** What ISO 888 says of a length, in a line. It does not say which lengths a screw of this size is made in (the product standards give that range per size in a drawn table that was not read): a standard length may still not be made for a size. */
+export function lengthAdvice(length: number): string {
+  const l = Number.isFinite(length) ? length : NaN;
+  if (Number.isNaN(l)) return "";
+  const status = lengthStatus(l);
+  if (status === "standard") return `${l} mm is a standard length (ISO 888)`;
+  if (status === "avoid") return `${l} mm is in ISO 888's table, but in brackets: to be avoided if possible`;
+  const near = nearbyLengths(l);
+  return `${l} mm is not a standard length${near.length ? `: the standard lengths nearest are ${near.join(" and ")} mm` : ""}`;
+}
 export const isFastenerSize = (s: string): s is FastenerSize => (FASTENER_SIZES as readonly string[]).includes(s);
 const nominalDiameter = (size: FastenerSize): number => Number(size.slice(1));
 export const nutDims = (size: FastenerSize): NutDims => NUTS[size];

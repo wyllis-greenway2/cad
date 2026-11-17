@@ -11,7 +11,7 @@ import { ok, err } from "../shared/result.ts";
 import { typedLength } from "../shared/units.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { dot } from "../math/vec.ts";
-import { FASTENER_FAMILIES, FASTENER_SIZES, FASTENER_SOURCES, CLEARANCE_FIT_LIST as CLEARANCE_FITS, RECEIVER_KINDS, isFastenerSize, receiversText, makeNut, makeCountersunk, makeWasher, makeSocketHead, countersunkDims, socketHeadDims, clearanceHole, tapHole, chartEngagement, nutTrap, receiverProblem, receiverSteps } from "../operation/fasteners.ts";
+import { FASTENER_FAMILIES, FASTENER_SIZES, FASTENER_SOURCES, CLEARANCE_FIT_LIST as CLEARANCE_FITS, RECEIVER_KINDS, isFastenerSize, receiversText, makeNut, makeCountersunk, makeWasher, makeSocketHead, lengthAdvice, STANDARD_LENGTHS, countersunkDims, socketHeadDims, clearanceHole, tapHole, chartEngagement, nutTrap, receiverProblem, receiverSteps } from "../operation/fasteners.ts";
 import type { FastenerFamily, FastenerSize, PartSteps, ReceiverKind, ClearanceFit, FaceSpot } from "../operation/fasteners.ts";
 
 export interface AddPartValues { family: string; size: string; length: string; /** a socket head screw's head: "knurled" (the default) or "smooth" */ head?: string }
@@ -29,10 +29,25 @@ export function addPartDialog(v: AddPartValues): Dialog {
     fields: [
       { id: "family", label: "Family", type: "choice", value: family, choices: FASTENER_FAMILIES.map((f) => ({ value: f.id, label: `${f.label} (${f.standard})` })), note: `numbers from: ${FASTENER_SOURCES[family]}; placed at the origin, drawn at its nominal size` },
       { id: "size", label: "Size (coarse thread)", type: "choice", value: size, choices: FASTENER_SIZES.map((s) => ({ value: s, label: s })), note: `matches: ${receiversText(size, family)}` },
-      ...(family === "countersunk" || family === "socketHead" ? [{ id: "length", label: family === "socketHead" ? "Length under the head (mm)" : "Length from the top of the head (mm)", type: "text" as const, value: v.length, note: family === "socketHead" ? "the standard's length list was not read: any length over 0.5 mm; the part is made at the largest body size" : `the standard's length list was not read: any length over ${Math.round((countersunkDims(size).headHeight + 0.5) * 1000) / 1000} mm; the part is made at nominal size` }] : []),
+      ...(family === "countersunk" || family === "socketHead" ? [{ id: "length", label: family === "socketHead" ? "Length under the head (mm)" : "Length from the top of the head (mm)", type: "text" as const, value: v.length, note: lengthNote(family, size, v.length) }] : []),
       ...(family === "socketHead" ? [{ id: "head", label: "Head", type: "choice" as const, value: v.head === "smooth" ? "smooth" : "knurled", choices: [{ value: "knurled", label: `knurled, largest ${socketHeadDims(size).head.max} mm across` }, { value: "smooth", label: `smooth, largest ${socketHeadDims(size).head.smooth} mm across` }], note: "both are in ISO 4762; the counterbore is cut for the wider (knurled) head" }] : []),
     ],
   };
+}
+
+/** The line under the length: what ISO 888 says of the number typed, the standard lengths, and what the part is made at. A length that is not a standard one is advised, never refused. */
+function lengthNote(family: FastenerFamily, size: FastenerSize, text: string): string {
+  const n = typedLength(text);
+  const own = family === "socketHead" ? "counted under the head, any length over 0.5 mm is made" : `counted from the top of the head, any length over ${Math.round((countersunkDims(size).headHeight + 0.5) * 1000) / 1000} mm is made`;
+  const standard = `standard lengths (ISO 888): ${STANDARD_LENGTHS.filter((l) => l <= 100).join(", ")} mm and longer`;
+  return `${n === null ? "" : lengthAdvice(n) + ". "}${standard}. ${own}; the lengths each size is made in were not read. The part is made at ${family === "socketHead" ? "the largest body size" : "nominal size"}`;
+}
+/** The advice on the length of the answers, for the message after the part is added ("" for a part with no length or a standard length). */
+export function lengthAdviceOf(v: AddPartValues): string {
+  const family = familyOf(v.family);
+  if (family !== "socketHead" && family !== "countersunk") return "";
+  const n = typedLength(v.length);
+  return n !== null && !STANDARD_LENGTHS.includes(n) ? lengthAdvice(n) : "";
 }
 
 /** The steps for the answers, or why not. */

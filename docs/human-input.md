@@ -3164,3 +3164,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_705 — 2026-11-17 — approval
 > Yes, build the tapped-hole engagement setting
 (asks for the hole to tap to have a thread engagement setting, in place of the single tap drill size)
+
+## in_706 — 2026-11-17 — approval
+> Yes, build the standard length lists
+(asks for the standard length lists of the screws to be built, in place of a free length number)
