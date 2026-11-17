@@ -15,6 +15,7 @@ import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, s
 import { parseLibrary, libraryText, saveMachine, removeMachine, saveSettings, removeSettings } from "./interaction/library.ts";
 import { flatSnapshot } from "./interaction/partsnapshot.ts";
 import type { LaserValues } from "./interaction/manufacture.ts";
+import { addPartStart, addPartDialog, addPart, familyName, receiverStart, receiverDialog, cutReceiver, whyNoReceiver } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
@@ -155,6 +156,8 @@ const menu = createMenu(document.body, (id) => {
   else if (id === "share") shareState();
   else if (id === "export") void exportDialogFlow();
   else if (id === "import") void importDialogFlow();
+  else if (id === "addPart") void addPartFlow();
+  else if (id === "fastenerHole") void fastenerHoleFlow();
   else if (id === "material") void materialDialogFlow();
   else if (id === "laser") void laserDialogFlow();
   else if (id === "laserTable") void laserTableFlow();
@@ -245,6 +248,28 @@ async function exportDialogFlow() {
   if (!r.ok) return say(r.error);
   webFiles.saveBytes(r.name, r.bytes, r.mime);
   say(r.message);
+}
+/** Add part (`dec_parts_interface`, `in_745`): the family, size and length asked for; the part is drawn at the origin as ordinary steps (a hex nut, a countersunk screw), one step to undo. */
+async function addPartFlow() {
+  const answers = await dialog.open((v) => addPartDialog(v as unknown as ReturnType<typeof addPartStart>), addPartStart() as unknown as Values);
+  if (!answers) return;
+  const r = addPart(state.session, answers as unknown as ReturnType<typeof addPartStart>);
+  if (!r.ok) return say(r.error);
+  state = { ...state, session: r.value };
+  dirty = true;
+  say(`added: ${answers.size} ${familyName(String(answers.family))}, at the origin`);
+}
+/** Fastener hole (`in_746`): the receiver for a fastener (a clearance hole, a countersunk one, a hole to tap, a nut pocket) cut into the body whose flat face is selected, at the face's middle or as far from it as typed. */
+async function fastenerHoleFlow() {
+  const why = whyNoReceiver(state.session);
+  if (why) return say(why);
+  const answers = await dialog.open((v) => receiverDialog(v as unknown as ReturnType<typeof receiverStart>), receiverStart() as unknown as Values);
+  if (!answers) return;
+  const r = cutReceiver(state.session, answers as unknown as ReturnType<typeof receiverStart>);
+  if (!r.ok) return say(r.error);
+  state = { ...state, session: r.value };
+  dirty = true;
+  say(`cut: ${answers.size} ${String(answers.kind)}`);
 }
 /** What a body is made of (`in_565`): a dialog asks for the name, and the selected bodies are tagged with it (one step to undo). */
 async function materialDialogFlow() {
@@ -359,7 +384,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), material: !whyNoMaterial(state.session), laser: canExportFlat(state.session), laserLayers: !whyNoLayers(state.session), laserTable: parseLibrary(webStore.get("cad.library")).library.settings.length > 0, clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, scene(state.session).clearance ?? 0)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), fastenerHole: !whyNoReceiver(state.session), material: !whyNoMaterial(state.session), laser: canExportFlat(state.session), laserLayers: !whyNoLayers(state.session), laserTable: parseLibrary(webStore.get("cad.library")).library.settings.length > 0, clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, scene(state.session).clearance ?? 0)); }
     else {
       menu.hide();
       if (state.menu && inGame()) { // game mode: the ring stands in the world, ahead of the eye, where it was opened (`in_463`, `in_471`)
