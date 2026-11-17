@@ -3480,3 +3480,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_783 — 2026-11-17 — approval
 > Yes, build the helical rack and the wheel land
 (approves building the helical rack (with the Helix field on a rack and meshing it with a helical gear) and the straight land at each face of the worm wheel, two of the four options of `q_gear_finishing`; the tooth chamfer and the spline flank are not answered)
+
+## in_784 — 2026-11-17 — directive
+> yes do the smaller per-edit and per-frame costs next
+(approves doing the smaller per-edit and per-frame costs next: grouping loops once per derive, copying the parts map twice per edit, picking against the body's triangles, and the axis-label check during an orbit)
