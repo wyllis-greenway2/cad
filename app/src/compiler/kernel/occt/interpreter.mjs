@@ -582,6 +582,7 @@ const OPS = {
    * A figure carried along a path of lines and arcs (`dec_sweep`, `in_444`): the profile (and the figures drawn inside it, cut out) stays as it is and is carried along the path's shape, wherever the path is (`in_459`); added to the body, cut from it, or a body of its own, as an extrusion is (`mode`).
    */
   sweep(op, ctx) {
+    const { solid } = ownSolid(ctx, op, "sweep", [op.profile, ...(op.holes ?? [])], () => {
     const sketchOf = (id) => { const q = ctx.get(id, "sketch"); return q.drawing.sketchOnPlane(q.plane, q.origin); };
     const outer = sketchOf(op.profile);
     const endsOuter0 = edgeEnds(outer);
@@ -622,6 +623,8 @@ const OPS = {
     let solid = make(outer);
     for (const h of op.holes ?? []) solid = solid.cut(make(sketchOf(h)));
     if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the sweep when its holes were cut");
+      return { solid };
+    });
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
     if (op.mode === "cutOrAdd") {
@@ -635,6 +638,7 @@ const OPS = {
 
   /** Sketches joined side to side (`dec_loft_sketches`): smooth through all of them, or ruled (straight between each two); holes are lofted the same way and cut out. */
   loft(op, ctx) {
+    const { solid } = ownSolid(ctx, op, "loft", op.sections.flatMap((q) => [q.profile, ...(q.holes ?? [])]), () => {
     const sketchOf = (h) => {
       const q = ctx.get(h, "sketch");
       return typeof q.plane === "string" ? q.drawing.sketchOnPlane(q.plane, q.origin ?? 0) : q.drawing.sketchOnPlane(q.plane, q.origin);
@@ -653,6 +657,8 @@ const OPS = {
     const holes = op.sections[0].holes?.length ?? 0;
     for (let i = 0; i < holes; i++) solid = solid.cut(through(op.sections.map((s) => s.holes[i]), `hole${i}`));
     if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the loft when its holes were cut");
+      return { solid };
+    });
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
     if (op.mode === "cutOrAdd") {
@@ -746,7 +752,7 @@ const OPS = {
    * a ring or a bowl with no advance (at most one turn: more would lie on itself), a screw thread or a spring with one. Added to the body, cut from it, or a body of its own, as an extrusion is (`mode`).
    */
   revolve(op, ctx) {
-    const angle = resolve(op.angle, ctx.params);
+    const { solid, twisted } = ownSolid(ctx, op, "revolve", [op.profile, ...(op.holes ?? [])], () => {    const angle = resolve(op.angle, ctx.params);
     const advance = resolve(op.advance ?? 0, ctx.params);
     if (!Number.isFinite(angle) || Math.abs(angle) < 1e-6) throw new Error("the turn must be more than nothing");
     const A = op.axis.p;
@@ -827,6 +833,8 @@ const OPS = {
       for (const h of op.holes ?? []) solid = solid.cut(make(sketchOf(h)));
       if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the figure when its holes were cut");
     }
+      return { solid, twisted };
+    });
     const targetValue = op.target ? (op.mode === "new" ? ctx.peek(op.target, "solid") : ctx.get(op.target, "solid")) : null; // (a piece of its own stands beside the body: no copy of it is needed)
     const target = targetValue ? targetValue.shape : null;
     if (!target) return { kind: "solid", shape: solid, checked: true, ...(twisted ? { noCross: true } : {}) }; // (checked just above; a twist cannot cross itself)
@@ -2110,6 +2118,31 @@ function describeError(e, op) {
  */
 const KEEP = 96;
 const prisms = new Map(); // a body's own solid by what it was made from, not what came before it: key -> { solid, roles }
+/**
+ * The solid a revolve, loft or sweep makes of its own sketches, kept under a key made of those sketches' answers and its own settings, and not of the steps before it (as the extrude's is): a change to an earlier step leaves this body
+ * the very same solid, so everything kept for a solid is found again and it is not built again (`dec_per_body_checks`). The roles of its faces by its sketches' own edges, and a sweep's note about a crease, are kept with it and replayed.
+ */
+function ownSolid(ctx, op, kind, ids, build) {
+  const { id: _i, target: _t, mode: _m, together: _g, ...own } = op;
+  const ownKey = ids.every((i) => ctx.keyOf?.(i)) ? fingerprint(JSON.stringify([kind, ctx.params, own, ids.map((i) => ctx.keyOf(i))])) : null;
+  const kept = ownKey ? prisms.get(ownKey) : null;
+  if (kept && (!ctx.roleFigs || kept.roles) && (!ctx.sweepNote || kept.note !== undefined)) {
+    prisms.delete(ownKey); prisms.set(ownKey, kept);
+    if (ctx.roleFigs) for (const [k, v] of kept.roles) if (!ctx.roleFigs.has(k)) ctx.roleFigs.set(k, v);
+    if (ctx.sweepNote && kept.note) ctx.sweepNote.note = kept.note;
+    kernelStats.prismsReused++;
+    return kept.value;
+  }
+  kernelStats.prismsBuilt++;
+  const had = new Set(ctx.roleFigs ? ctx.roleFigs.keys() : []);
+  const value = build();
+  if (ownKey) {
+    prisms.set(ownKey, { value, solid: value.solid, roles: ctx.roleFigs ? [...ctx.roleFigs.entries()].filter(([k]) => !had.has(k)) : null, note: ctx.sweepNote ? ctx.sweepNote.note ?? null : undefined });
+    while (prisms.size > 64) prisms.delete(prisms.keys().next().value);
+  }
+  return value;
+}
+
 /** How many bodies' own solids were built and how many were kept ones (read by the tests, `dec_per_body_checks`). */
 export const kernelStats = { prismsBuilt: 0, prismsReused: 0 };
 /** Forget what is kept of bodies, so that the next answer is worked out from nothing (for the tests: the kept and the worked-out answers are to be the same). */

@@ -3296,3 +3296,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_737 — 2026-11-17 — directive
 > Lets pick up where we left off. I believe some of the items were "Speed work, roughly by payoff ... Face and edge naming that still grows with model size ... Revolve, loft and sweep steps, and the worm wheel's loft ... An extrude pushed into or joined to a body ... Smaller per-edit and per-frame costs ... Worm wheels ... A label on the stand-in disc, and discs for other heavy bodies ... Memory in the kernel worker."
 (asks to pick up the list of remaining speed work, in that order, starting with the face and edge naming; the list is the one given in the assistant's answer to in_704, quoted by the human)
+
+## in_738 — 2026-11-17 — directive
+> yes do the revolve, loft and sweep solids next
+(approves doing the revolve, loft and sweep steps' own solids next: kept under a key that does not include the steps before them, as the extrude's is)
