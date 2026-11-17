@@ -3368,3 +3368,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_755 — 2026-11-17 — directive
 > build the mesh bevel gear partner
 (asks me to build the partner that meshes with a bevel gear: placed at the shaft angle, with its phase)
+
+## in_756 — 2026-11-17 — directive
+> merge the latest changes into the preview and let me test
+(asks me again to merge the latest work into the preview branch so they can test it)
