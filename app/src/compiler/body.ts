@@ -10,6 +10,8 @@ import type { Part } from "../operation/part.ts";
 import type { KernelResult, KernelEdge } from "./kernel/adapter.ts";
 import { sectionFaces, axesOf } from "../operation/cutface.ts";
 import type { Sheet } from "../operation/cutface.ts";
+import type { GearShape } from "../operation/gearshape.ts";
+import { reducedGearBodies, keepsGearFace, keepsGearEdge } from "./gearfeature.ts";
 
 const r4 = (v: number) => Math.round(v * 1e4) / 1e4;
 const key = (p: readonly number[]) => p.map((v) => String(r4(v) + 0)).join(",");
@@ -49,7 +51,8 @@ export function decodeFace(r: Ref): { n: Vec3; d: number } | null {
   return m ? { n: [Number(m[1]), Number(m[2]), Number(m[3])], d: Number(m[4]) } : null;
 }
 
-export function bodyParts(result: KernelResult, sheets: Sheet[] = []): Part[] {
+/** `gears`: the gear bodies the scene makes (`dec_gear_feature`): a body that is wholly a gear has only the parts a person would pick (its two faces, its bore, the whole body), not a face and edges for every arc of every tooth. */
+export function bodyParts(result: KernelResult, sheets: Sheet[] = [], gears: GearShape[] = []): Part[] {
   const out: Part[] = [];
   const base = { origin: "body" as const, plane: null, movable: false };
   const corners = new Set<string>();
@@ -69,7 +72,8 @@ export function bodyParts(result: KernelResult, sheets: Sheet[] = []): Part[] {
     if (many) bodies.forEach((b, i) => out.push({ ...base, ref: bodyPart(i), kind: "body", id: b.id, volume: b.volume, bbox: { min: b.min as Vec3, max: b.max as Vec3 } }));
     else out.push({ ...base, ref: BODY_OBJECT, kind: "body", ...(bodies[0] ? { id: bodies[0].id, volume: bodies[0].volume } : {}), ...(result.bbox ? { bbox: { min: result.bbox.min as Vec3, max: result.bbox.max as Vec3 } } : {}) });
   }
-  (result.vertices ?? []).forEach((v, i) => corner(v, many ? result.vertexBodies?.[i] : undefined)); // (a corner of one of several bodies says which)
+  const reduced = reducedGearBodies(result, gears); // (body index -> its gear, for the bodies that are only a gear)
+  (result.vertices ?? []).forEach((v, i) => { if (reduced.has(many ? result.vertexBodies?.[i] ?? 0 : 0)) return; corner(v, many ? result.vertexBodies?.[i] : undefined); }); // (a corner of one of several bodies says which; a gear's teeth have none: the corners of the edges it keeps are made with them)
   // a rim that the kernel made of two half circles: each half knows the other, so picking one picks both
   // (two arcs of one circle that do not meet at both ends, such as the tips of two teeth, are not halves of a rim)
   const ends = new Map<Ref, string>();
@@ -81,6 +85,8 @@ export function bodyParts(result: KernelResult, sheets: Sheet[] = []): Part[] {
   const edgeKey = (a: ArrayLike<number>, b: ArrayLike<number>, m: ArrayLike<number>) => `${[at6(a), at6(b)].sort().join("~")}~${at6(m)}`;
   const stableEdges = new Map<string, string>((result.edgeNames ?? []).map((e) => [edgeKey(e.a, e.b, e.mid), e.name]));
   for (const e of result.edges ?? []) {
+    const gear = reduced.get(e.body ?? 0);
+    if (gear && !keepsGearEdge(e, gear)) continue;
     const straight = e.type === "LINE";
     const name = edgeName(e.a, e.b, e.mid);
     const pair = e.circle ? halves.get(circleKey(e.circle)) : undefined;
@@ -103,6 +109,8 @@ export function bodyParts(result: KernelResult, sheets: Sheet[] = []): Part[] {
     return best;
   };
   for (const f of result.faces ?? []) {
+    const gear = reduced.get((f.body as number | undefined) ?? 0);
+    if (gear && !keepsGearFace(f, gear, result.mesh)) continue;
     if (f.type === "cyl") {
       // a full round face along a world axis: a part you can select and push / pull (its radius changes)
       const axis = f.axis as 0 | 1 | 2;
