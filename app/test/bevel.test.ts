@@ -76,7 +76,7 @@ test("two bevel gears are two bodies, one for each gear", () => {
 function overlap(s: Session): number {
   const b = bodies(s);
   assert.equal(b.length, 2);
-  const done = run(s, { type: "addStep", step: { id: "s_900", type: "combine", parts: b.map((x) => x.ref) as never, params: { mode: "intersect", keep: 1 } } });
+  const done = run(s, { type: "addStep", step: { id: "s_900", type: "combine", parts: b.map((x) => x.ref) as never, params: { mode: "intersect" } } });
   if (/nothing in common/.test(done.message ?? "") || Object.values(done.outcome.errors).some((e) => /nothing in common/.test(e))) return 0;
   return bodies(done).map((x) => x.volume).sort((x, y) => y - x)[0] ?? 0;
 }

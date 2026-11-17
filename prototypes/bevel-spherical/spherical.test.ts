@@ -61,7 +61,7 @@ function overlapAt(z1: number, z2: number, eps: number, extra: number, section: 
   const b = bodies(s);
   assert.equal(b.length, 2);
   console.log(`VOL ${eps} ${extra} ${b.map((x) => x.volume.toFixed(0)).join(' ')}`);
-  const done = run(s, { type: "addStep", step: { id: "s_900", type: "combine", parts: b.map((x) => x.ref) as never, params: { mode: "intersect", keep: 1 } } } as never);
+  const done = run(s, { type: "addStep", step: { id: "s_900", type: "combine", parts: b.map((x) => x.ref) as never, params: { mode: "intersect" } } } as never);
   if (/nothing in common/.test(done.message ?? "")) return 0;
   return bodies(done).map((x) => x.volume).sort((x, y) => y - x)[0] ?? 0;
 }
