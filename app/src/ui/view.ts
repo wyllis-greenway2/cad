@@ -264,6 +264,14 @@ export function createView(host: HTMLElement) {
     clearGroup(standGroup);
     if (!show) return;
     for (const d of list) {
+      if (d.path) { // a swept body: a tube along its path (`in_807`)
+        const curve = new THREE.CatmullRomCurve3(d.path.map((q) => new THREE.Vector3(...q)), false, "centripetal");
+        const geo = new THREE.TubeGeometry(curve, Math.min(400, d.path.length * 6), d.radius, 16, false);
+        const body = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x9aa0a6, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false }));
+        body.renderOrder = 2;
+        standGroup.add(body);
+        continue;
+      }
       const shape = new THREE.Shape();
       shape.absarc(0, 0, d.radius, 0, Math.PI * 2, false);
       if (d.hole > 0) { const h = new THREE.Path(); h.absarc(0, 0, d.hole, 0, Math.PI * 2, true); shape.holes.push(h); }

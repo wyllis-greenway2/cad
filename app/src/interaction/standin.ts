@@ -4,6 +4,9 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Scene, Step } from "../operation/scene.ts";
 import { gearShapeOf } from "../operation/gearshape.ts";
 import { wormOf } from "../operation/worm.ts";
+import { figuresOf, lookup } from "../operation/scene.ts";
+import { walkPath } from "../operation/path.ts";
+import { pointOf, curveMid } from "../operation/part.ts";
 
 /** How long the kernel has been working before a disc is drawn for a gear it has not made (ms): a gear that comes at once is not preceded by a flash. */
 export const STANDIN_MS = 250;
@@ -14,14 +17,15 @@ export function standInWords(seconds: number): string {
 }
 
 /** A disc: its middle, the way it faces, how thick it is (along the normal, from the middle's plane; negative goes the other way), its outside radius and, if it is a ring, the radius of its hole. */
-export interface StandIn { step: string; centre: Vec3; normal: Vec3; depth: number; radius: number; hole: number }
+export interface StandIn { step: string; centre: Vec3; normal: Vec3; depth: number; radius: number; hole: number;
+  /** a swept body (`in_807`): the points of its path, which the stand-in is a tube along (then `centre` is the path's middle, `depth` 0 and `radius` the tube's) */ path?: Vec3[] }
 
 /** What of the kernel's last answer matters here: whether it is still being worked out, and the steps it has made. */
 export interface KernelSeen { stale?: boolean; ops: readonly { id: string }[] }
 
-/** The discs to draw: one for each step that makes a gear's body (not a worm's) while the kernel is working and has not made that step yet. */
+/** The stand-ins to draw: a disc for each step that makes a gear's body, a tube for a sweep while the kernel is working and has not made that step yet. */
 export function standIns(sc: Scene, kernel: KernelSeen | null | undefined): StandIn[] {
-  if (!kernel?.stale || !sc.gears?.length) return [];
+  if (!kernel?.stale) return [];
   const made = new Set(kernel.ops.map((o) => o.id));
   const out: StandIn[] = [];
   for (const st of sc.steps) {
@@ -34,7 +38,7 @@ export function standIns(sc: Scene, kernel: KernelSeen | null | undefined): Stan
 
 function standInOf(sc: Scene, st: Step): StandIn | null {
   const g = gearShapeOf(sc, st);
-  if (!g) return wormStandInOf(sc, st);
+  if (!g) return st.type === "sweep" ? sweepStandInOf(sc, st) : wormStandInOf(sc, st);
   return { step: g.step, centre: g.centre, normal: g.normal, depth: g.depth, radius: g.radius, hole: g.hole };
 }
 
@@ -52,4 +56,56 @@ function wormStandInOf(sc: Scene, st: Step): StandIn | null {
   const len = rec.spec.worm.length, hole = (rec.spec.bore ?? 0) / 2;
   const radius = g.value.rTip;
   return { step: st.id, centre: [0, 1, 2].map((k) => rec.at[k]! - x[k]! * len / 2) as unknown as Vec3, normal: x, depth: len, radius, hole: hole < radius ? hole : 0 };
+}
+
+/** The points along a path's sides: a line is its two ends, an arc eight points on the circle through its ends and its middle. */
+function pathPoints(sides: readonly { a: Vec3; b: Vec3; m: Vec3 | null }[]): Vec3[] {
+  const out: Vec3[] = [sides[0]!.a];
+  for (const sd of sides) {
+    if (sd.m) out.push(...arcBetween(sd.a, sd.m, sd.b));
+    out.push(sd.b);
+  }
+  return out;
+}
+const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const dot = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const crs = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+/** The points strictly between `a` and `b` on the circular arc through `a`, `m` and `b` (none if they are in a line). */
+function arcBetween(a: Vec3, m: Vec3, b: Vec3): Vec3[] {
+  const p = sub(m, a), q = sub(b, a), w = crs(p, q), w2 = dot(w, w);
+  if (w2 < 1e-18) return [];
+  const t = crs([0, 1, 2].map((i) => dot(p, p) * q[i]! - dot(q, q) * p[i]!) as unknown as Vec3, w);
+  const c: Vec3 = [0, 1, 2].map((i) => a[i]! + t[i]! / (2 * w2)) as unknown as Vec3;
+  const ra = sub(a, c), rb = sub(b, c), axis = unit(w); // (a, m, b run counter-clockwise about `w`)
+  let total = Math.atan2(dot(axis, crs(ra, rb)), dot(ra, rb));
+  if (total <= 0) total += 2 * Math.PI;
+  const out: Vec3[] = [];
+  const N = 8, cr = crs(axis, ra), d = dot(axis, ra);
+  for (let i = 1; i < N; i++) {
+    const th = total * i / N, co = Math.cos(th), si = Math.sin(th);
+    out.push([0, 1, 2].map((k) => c[k]! + ra[k]! * co + cr[k]! * si + axis[k]! * d * (1 - co)) as unknown as Vec3);
+  }
+  return out;
+}
+const unit = (a: Vec3): Vec3 => { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+
+/** A sweep that the kernel has not made yet is a tube along its path (`in_807`), as thick as the shape is (a tube of the same area as the shape's box). */
+function sweepStandInOf(sc: Scene, st: Step): StandIn | null {
+  const get = lookup(sc);
+  const walked = walkPath(get, String(st.params.path ?? "").split(",").filter(Boolean) as never);
+  const fig = figuresOf(st)[0];
+  if (!walked.ok || !fig) return null;
+  const pts: Vec3[] = [];
+  let circle = 0;
+  for (const r of fig.outer) {
+    const p = get(r);
+    if (p?.kind === "circle") circle = p.radius;
+    else if (p?.kind === "line") { const a = pointOf(get, p.a), b = pointOf(get, p.b), m = curveMid(get, p); for (const q of [a, b, m]) if (q) pts.push(q); }
+  }
+  const ext = [0, 1, 2].map((i) => pts.length ? Math.max(...pts.map((q) => q[i]!)) - Math.min(...pts.map((q) => q[i]!)) : 0).sort((x, y) => y - x);
+  const radius = circle > 0 ? circle : 0.5 * Math.sqrt(ext[0]! * ext[1]!);
+  const path = pathPoints(walked.sides);
+  const mid = path[Math.floor(path.length / 2)]!;
+  if (!(radius > 0) || !path.every((q) => q.every(Number.isFinite))) return null;
+  return { step: st.id, centre: mid, normal: [0, 0, 1], depth: 0, radius, hole: 0, path };
 }

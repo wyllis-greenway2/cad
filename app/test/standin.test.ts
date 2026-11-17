@@ -87,3 +87,32 @@ test("the label on a disc says it is being made, and for how long once that is m
   assert.equal(standInWords(2), "Building… 2 s");
   assert.equal(standInWords(37), "Building… 37 s");
 });
+
+test("a sweep the kernel has not made yet is a tube along its path, as thick as the shape", async () => {
+  const { drawRectangle, drawChain, drawArc } = await import("../src/operation/build.ts");
+  const [XY, XZ] = [worldRef("XY"), worldRef("XZ")];
+  let s = createSession(kernel);
+  const r = drawRectangle(scene(s), XY, [-2, -2, 0], [2, 2, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  const straight = drawChain(scene(s), XZ, [[0, 0, 0], [0, 0, 20]]);
+  s = run(s, straight.command);
+  const st = startOp(scene(s), [loopFaceRef(r.lines), ...straight.lines] as never, "sweep");
+  assert.ok(st.ok);
+  const done = runOp(s, (st as { op: Op }).op)!.session;
+  const d = standIns(scene(done), waiting);
+  assert.equal(d.length, 1);
+  assert.ok(d[0]!.path && d[0]!.path.length === 2, "a straight path is its two ends");
+  assert.ok(Math.abs(d[0]!.radius - 2) < 1e-9, "a 4 x 4 box: radius 2 (the same area, a little less than the square's own half-diagonal)");
+  assert.deepEqual(standIns(scene(done), { stale: true, ops: [{ id: `x_${scene(done).steps.at(-1)!.id}` }] }), [], "none once the kernel has made it");
+  // an arc: points on the circle of the arc
+  s = createSession(kernel);
+  const r2 = drawRectangle(scene(s), XY, [-2, -2, 0], [2, 2, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r2.command);
+  const a = drawArc(scene(s), XZ, [0, 0, 0], [20 - 20 * Math.SQRT1_2, 0, 20 * Math.SQRT1_2], [20, 0, 20], [0, -1, 0])!;
+  s = run(s, a.command);
+  const st2 = startOp(scene(s), [loopFaceRef(r2.lines), a.line] as never, "sweep");
+  assert.ok(st2.ok);
+  const bent = standIns(scene(runOp(s, (st2 as { op: Op }).op)!.session), waiting)[0]!;
+  assert.equal(bent.path!.length, 9, "two ends and seven between, eight pieces: 1 + 7 + 1");
+  for (const q of bent.path!) assert.ok(Math.abs(Math.hypot(q[0]! - 20, q[2]!) - 20) < 1e-6, "on the circle of radius 20");
+});

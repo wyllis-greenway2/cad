@@ -3572,3 +3572,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_806 — 2026-11-17 — directive
 > yes do the discs for other heavy bodies next
 (approves doing the stand-in discs for other heavy bodies next: cylinders, sweeps, worms)
+
+## in_807 — 2026-11-17 — directive
+> yes do the tube stand-in for sweeps next
+(approves the tube stand-in for sweeps: a tube along the sweep's path drawn while the kernel makes the body)
