@@ -3211,3 +3211,6 @@ No input. The full test suite was run on the code as of the engagement setting (
 
 ## Handoff 725 — 2026-11-17 (in_797: this branch brought up to date with claude/inspiring-pascal-l342k7)
 `in_797`. `claude/inspiring-pascal-l342k7` already contained every commit of this branch (the other Claude had merged it up to and including the linear ratchet, renumbering this branch's `in_696` to `in_704` as `in_788` to `in_795` and its Handoffs 626 to 634 as 707 to 721), so the update was a fast-forward of `claude/adoring-dijkstra-next-pascal` to pascal's `d34df4a`, no conflicts, nothing of this branch lost. New inputs and handoffs on this branch continue from `in_797` and Handoff 725. Docs check OK (137 entries, 796 human inputs).
+
+## Handoff 726 — 2026-11-17 (the source index: ratchets and the Geneva drive)
+No steering input. The new `docs/sources/README.md` (CLAUDE.md, source index rule) had no rows for the sources searched for the ratchet's numbers (`in_699`, `in_700`) or for the Geneva derivation: added a **Ratchets** section (the Handbook page, engineersedge and the globalspec chapter as `searched`, could not be fetched; the vendor blogs as not used; the patents as not used) and a **Geneva drive** row (our own derivation, tested by simulation). No code changed.
