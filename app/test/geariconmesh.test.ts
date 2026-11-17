@@ -115,3 +115,28 @@ test("the icon of a gear that is only pointed at works: Edit, Helix and Mesh sel
   assert.ok(f.focus);
   assert.equal(f.fields.find((x) => x.label === "Helix")!.value, "15");
 });
+
+test("a click on a gear selects the whole gear; a click on it again selects the face clicked (`in_812`)", () => {
+  const st = top();
+  const p: Vec3 = [29, 3, 8]; // (the top of the gear)
+  const one = click(move(st, p), p, 1);
+  assert.deepEqual(selection(one.session), [bodyOf(one)], "the whole gear");
+  const two = click(move(one, p), p, 1);
+  const face = selection(two.session)[0]!;
+  assert.equal(scene(two.session).parts[face]?.kind, "plane", "then the face");
+  assert.equal(scene(two.session).parts[face]?.origin, "body");
+  // a double click: the gear first, the face on the second click of the pair
+  const dbl = click(click(move(st, p), p, 1), p, 2);
+  assert.equal(scene(dbl.session).parts[selection(dbl.session)[0]!]?.kind, "plane");
+});
+
+test("a gear selected as a whole is filled all over: the frame names every triangle of its body, the teeth too (`in_812`)", () => {
+  const s = run(extruded(), { type: "gear", id: "g_002", plane: worldRef("XY"), at: [60, 0, 0], spec: { teeth: 20, module: 2, bore: 5, width: 8 } }); // (a second body: a body of several)
+  const body = Object.values(scene(s).parts).filter((p) => p.kind === "body").map((p) => p.ref);
+  assert.equal(body.length, 2);
+  const st = select({ ...top(s) }, [body[0]!]);
+  const tris = frameOf(st, env).highlight.bodyTris?.[body[0]!];
+  assert.ok(tris && tris.length > 50, `ranges ${tris?.length}`);
+  const total = tris!.reduce((t, [, c]) => t + c, 0);
+  assert.ok(total / 3 > 1000, `${total / 3} triangles: a whole 20 tooth gear, not its two faces`);
+});

@@ -3592,3 +3592,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_811 — 2026-11-17 — approval
 > Yes, build the perimeter chamfer
 (approves building the perimeter chamfer into the app, as proposed after the prototype: a field of spur and ring gears, made by its own body step from the full and the inset outline)
+
+## in_812 — 2026-11-17 — approval
+> Yes, make clicking a gear select the whole gear
+(approves that a click on a gear selects the whole gear, turning it blue all over, with the face of it selected by a second click, as the AI proposed after the user reported that gears do not turn fully blue when selected)

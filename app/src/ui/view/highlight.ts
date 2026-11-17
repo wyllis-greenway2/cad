@@ -11,6 +11,8 @@ import type { Pen } from "./pen.ts";
 import { clearGroup, trisMesh, ringOf, sphereAt, spheresAt, rgb } from "./pen.ts";
 
 export interface Highlight {
+  /** the triangles of the bodies of several that are selected or pointed at (ranges of the index list of the mesh): the fill of a body is all of them, not only the faces that are parts (`in_812`) */
+  bodyTris?: Record<string, [number, number][]>;
   hover: Ref | undefined;
   /** the point under the pointer on the hovered surface, for the ring */
   hoverPoint: Vec3 | null;
@@ -36,7 +38,7 @@ const tealHex = rgb(teal).getHex();
 export const TEAL = tealHex;
 
 /** The triangles a part is made of for a fill (a surface, or the whole body), or null for a line or a corner. */
-function fillTriangles(s: Scene, ref: Ref, kind: Kind, body: { vertices: Float32Array; triangles: Uint32Array } | null): number[] | null {
+function fillTriangles(s: Scene, ref: Ref, kind: Kind, body: { vertices: Float32Array; triangles: Uint32Array } | null, ranges?: [number, number][]): number[] | null {
   const p = s.parts[ref];
   if (!p) return null;
   if (p.origin === "world" && kind === "select") return null; // a world plane is never filled blue when picked (`in_116`); the hover ring still shows
@@ -44,6 +46,11 @@ function fillTriangles(s: Scene, ref: Ref, kind: Kind, body: { vertices: Float32
     if (kind !== "hover") return null;
     const q = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, b]) => [p.at[0] + p.u[0] * a! * p.extent! + p.v[0] * b! * p.extent!, p.at[1] + p.u[1] * a! * p.extent! + p.v[1] * b! * p.extent!, p.at[2] + p.u[2] * a! * p.extent! + p.v[2] * b! * p.extent!]);
     return [...q[0]!, ...q[1]!, ...q[2]!, ...q[0]!, ...q[2]!, ...q[3]!];
+  }
+  if (p.kind === "body" && body && ranges) { // one body of several: all its triangles, from the kernel's faces of it
+    const tris: number[] = [];
+    for (const [start, count] of ranges) for (let k = start; k < start + count; k++) { const ix = body.triangles[k]!; tris.push(body.vertices[ix * 3]!, body.vertices[ix * 3 + 1]!, body.vertices[ix * 3 + 2]!); }
+    if (tris.length) return tris;
   }
   if (p.kind === "body") {
     // one body of several: its own faces (`dec_independent_bodies`)
@@ -169,14 +176,14 @@ function buildParts(overlay: THREE.Group, marks: THREE.Group, s: Scene | null, b
     }
     if (kind === "red" && (p.kind === "face" || p.kind === "body" || (p.kind === "plane" && p.origin !== "world"))) {
       // a surface a refused change would have broken flashes red all over, as an edge does, with its constraint's bubble (`in_434`)
-      const ft = fillTriangles(s, ref, "select", body);
+      const ft = fillTriangles(s, ref, "select", body, h.bodyTris?.[ref]);
       if (ft && ft.length) {
         const a = h.red?.alpha ?? 1;
         overlay.add(trisMesh(ft, new THREE.MeshBasicMaterial({ color: RED, transparent: true, opacity: 0.5 * a, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })));
         return;
       }
     }
-    const tris = kind === "amber" || kind === "red" || kind === "temp" ? null : fillTriangles(s, ref, kind, body);
+    const tris = kind === "amber" || kind === "red" || kind === "temp" ? null : fillTriangles(s, ref, kind, body, h.bodyTris?.[ref]);
     if (!tris && p.origin === "world" && p.kind === "plane") return; // nothing to draw for a picked world plane (its tint is the pulse below)
     if (tris && kind === "hover" && p.kind === "face" && p.origin === "drawn") {
       // a closed sketch under the pointer fills with teal all over: it is closed and can be extruded (`in_194`); the ring still follows the pointer on it

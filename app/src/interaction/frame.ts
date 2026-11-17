@@ -111,7 +111,7 @@ export interface Frame {
   followers: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[];
   /** what is selected is the body, so its highlight is moved by the same matrix */
   selectionMoves: boolean;
-  highlight: { hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; /** the parts of constraints a refused change would have broken, and how red they still are */ red: { refs: readonly Ref[]; alpha: number }; /** the copies a repeat that is open would make, drawn pulsing (`in_244`) */ temp: readonly Ref[]; spread: AppState["spread"]; };
+  highlight: { /** the triangles of a body of several that is selected or pointed at, as ranges of the mesh's index list: every face of it, the teeth of a gear too, which are not parts (`in_812`) */ bodyTris?: Record<string, [number, number][]>; hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; /** the parts of constraints a refused change would have broken, and how red they still are */ red: { refs: readonly Ref[]; alpha: number }; /** the copies a repeat that is open would make, drawn pulsing (`in_244`) */ temp: readonly Ref[]; spread: AppState["spread"]; };
   preview: Preview | null;
   entry: Entry | null;
   /** the several value bubbles of a repeat being set up (one on each axis, or one by the rings) */
@@ -418,7 +418,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     gearChip: s.tool || s.op || s.drag || s.repeat ? null : gearChipOf(sc, s.session.hover ? [...sel, s.session.hover] : sel),
     followers: gpu?.followers ?? [],
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
-    highlight: { hover: s.session.hover, /* (a visible sheet lights the blue hover disc as every surface does, `in_470`) */ hoverPoint: s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
+    highlight: { bodyTris: bodyTrisOf(sc, s.session.outcome, [s.session.hover, ...sel]), hover: s.session.hover, /* (a visible sheet lights the blue hover disc as every surface does, `in_470`) */ hoverPoint: s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
     amber: [...new Set([...(s.op?.kind === "loft" ? loftStarts(sceneOf(s.session), s.op) : []), ...(s.op?.kind === "sweep" ? sweepStart(sceneOf(s.session), s.op) : []), ...focusParts(sc, sel, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
     preview: withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
     entry: inUnits(movingOp || (shownOp && !s.tool && hasGizmo(shownOp.kind) && !numberShown) ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp)),
@@ -677,6 +677,25 @@ function hiddenItemsOf(sc: Scene, outcome: CompileOutcome): { tris: [number, num
   return out.length ? out : null;
 }
 
+/** The triangles of each body of several among `refs` (a body of one has no need: the whole mesh is its own), as ranges of the mesh's index list, from the faces the kernel says are the body's (`in_812`). */
+function bodyTrisOf(sc: Scene, outcome: CompileOutcome, refs: readonly (Ref | undefined)[]): Record<string, [number, number][]> | undefined {
+  const k = outcome.kernel;
+  if (!k?.bodies || k.bodies.length < 2) return undefined;
+  const out: Record<string, [number, number][]> = {};
+  for (const r of refs) {
+    const b = r ? sc.parts[r] : undefined;
+    if (!r || b?.kind !== "body" || !b.id || out[r]) continue;
+    const index = k.bodies.findIndex((x) => x.id === b.id);
+    if (index < 0) continue;
+    const tris: [number, number][] = [];
+    for (const f of k.faces ?? []) {
+      if (f.body !== index) continue;
+      for (const g of (f.ranges as { start: number; count: number }[] | undefined) ?? [{ start: f.start, count: f.count }]) tris.push([g.start, g.count]);
+    }
+    if (tris.length) out[r] = tris;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
 /** The part of the mesh that is one body of several, for a move, turn or scale of that body (null for the whole body): its triangles, from the faces the kernel says are its, and its box (`in_273`). */
 function bodySplitOf(sc: Scene, outcome: CompileOutcome, op: Op): Frame["bodySplit"] {
   const body = sc.parts[op.parts[0]!];
