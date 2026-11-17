@@ -35,6 +35,7 @@ function stepLabel(st: Step): string {
     case "revolve": return Number(p.advance ?? 0) ? `Spiral ${n(p.angle)}°, ${len(p.advance)} along the axis` : `Revolve ${n(p.angle)}°`;
     case "pushPull": return `Push / pull ${len(p.depth)}`;
     case "edgeMod": return `${p.mode === "chamfer" ? "Chamfer" : "Fillet"} ${len(p.value)}`;
+    case "toothChamfer": return `Tooth chamfer ${len(p.depth)}`;
     case "combine": return `${p.mode === "subtract" ? "Subtract" : p.mode === "intersect" ? "Intersect" : "Add"} bodies${Number(p.keep) === 1 ? " (tools kept)" : ""}`;
     case "rotate": return `Rotate ${"XYZ"[Number(p.axis ?? 0)]} ${n(p.value)}°`;
     case "move": return `Move ${"XYZ"[Number(p.axis ?? 0)]} ${len(p.value)}`;

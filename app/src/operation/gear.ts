@@ -50,7 +50,7 @@ export interface GearSpec {
   detail?: number;
   /** the corner radius of the rack cutter, in modules: the root is then shaped as that cutter makes it (a fillet, and the undercut when there are few teeth: `gearroot.ts`); none or 0: the root is the circle between the flanks */
   fillet?: number;
-  /** the tips of the teeth broken at the two faces of a gear that has a thickness (`in_791`): a 45 degree cone this many modules deep, cut by one turned profile (`chamferProfile`); none or 0: sharp */
+  /** the tips of the teeth broken at the two faces of a gear that has a thickness (`in_791`): a flat 45 degree bevel this many modules deep on each tooth tip at each face, cut by the kernel in one step (`chamferOf`, `toothChamfer`); none or 0: sharp */
   chamfer?: number;
   /** a flat cut this deep (mm) into the bore, on its +x side: a D bore (`bore.ts`) */
   flat?: number;
@@ -136,16 +136,13 @@ function rackOutline(spec: GearSpec): Result<GearOutline> {
 /** Whether a gear has a body made with it (`in_697`): a helix, or a thickness above zero (a flat gear has neither). */
 export const hasBody = (spec: GearSpec): boolean => spec.helix !== undefined || (spec.width ?? 0) > 0 || !!spec.bevel;
 /**
- * The cutter of a tooth chamfer (`in_791`) as points (radius, height) of one closed figure turned about the axis: a triangle at each face, as wide at the face as the chamfer is deep and ending at the tip radius, joined by a strip beyond the tips
- * (outside them for an outside gear, inside for a ring), so that one turned cut breaks every tooth tip at both faces. Null when there is no chamfer or no thickness.
+ * What a tooth chamfer is (`in_760`, `in_798`): how deep it is (mm), which way is out of the material at the tooth tips (+1 outside a gear, -1 inside a ring) and the thickness; null when there is no chamfer or no thickness, or for a kind of gear
+ * that has none. The kernel cuts one flat wedge off each tooth tip at each face (`toothChamfer`).
  */
-export function chamferProfile(spec: GearSpec, tipRadius: number): [number, number][] | null {
+export function chamferOf(spec: GearSpec): { depth: number; side: 1 | -1; width: number } | null {
   const [c, w] = [(spec.chamfer ?? 0) * spec.module, spec.width ?? 0];
   if (!(c > 0) || !(w > 0) || spec.rack || spec.pulley || spec.sprocket || spec.cycloidal || spec.worm || spec.wheel || spec.bevel) return null;
-  const s = spec.internal ? -1 : 1; // (the way out from the teeth: away from the axis for an outside gear, towards it for a ring)
-  // (it reaches below the bottom face, in the air, so that its box does not have the body's middle: the kernel tells the two apart by the middle of their boxes)
-  const low = -Math.max(4, w);
-  return [[tipRadius - s * c, low], [tipRadius + s, low], [tipRadius + s, w], [tipRadius - s * c, w], [tipRadius, w - c], [tipRadius, c], [tipRadius - s * c, 0]];
+  return { depth: c, side: spec.internal ? -1 : 1, width: w };
 }
 /** How far each layer of a helical rack is slid along the rack for each mm of its thickness (tan of the helix angle, with the sign of the hand), or null for anything that is not a helical rack (`in_783`). */
 export const helixShear = (spec: GearSpec): number | null => spec.rack && spec.helix !== undefined && spec.width! > 0 ? Math.tan((spec.helix * Math.PI) / 180) : null;

@@ -1280,6 +1280,37 @@ const OPS = {
     return { kind: "solid", shape: makeCompound([...found.rest, ...parts, ...kept]), first: op.bodies[0] };
   },
 
+  /**
+   * The tips of a gear's teeth broken at its two faces (`in_798`): at each tooth and each face one flat wedge is cut off, a plane at 45 degrees from `depth` inside the tip circle at the face to the tip circle `depth` in. The wedges are
+   * made in one go and cut in one boolean; a flat cut meets a flank (a cylinder) in a curve the kernel knows exactly, where the turned cone it replaces had to be found by marching, which took 10 times as long. `first` is the direction of
+   * tooth 0, `axis` the gear's axis from its first face (at `centre`) towards its second, `twist` how far the teeth at the second face are turned from those at the first (a helical gear), `side` +1 for an outside gear and -1 for a ring.
+   */
+  toothChamfer(op, ctx) {
+    const t = ctx.get(op.target, "solid");
+    const found = (t.markers?.length ?? 0) > 1 ? lumpsByName(t.shape, t.markers, [op.body]) : null;
+    const body = found ? found.picked[0] : t.shape;
+    const norm = (v) => { const l = Math.hypot(...v) || 1; return v.map((x) => x / l); };
+    const n = norm(op.axis), u0 = norm(op.first);
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const turn = (v, a) => { const c = Math.cos(a), s = Math.sin(a), w = cross(n, v), d = n[0] * v[0] + n[1] * v[1] + n[2] * v[2]; return [0, 1, 2].map((i) => v[i] * c + w[i] * s + n[i] * d * (1 - c)); };
+    const [z, tip, c, W, s] = [op.teeth, op.tip, op.depth, op.width, op.side];
+    const wt = (Math.PI * tip) / z; // (half a pitch at the tip circle: the wedges of neighbours meet and no more)
+    const pieces = [];
+    for (let k = 0; k < z; k++) {
+      for (const top of [false, true]) {
+        const x = turn(u0, (2 * Math.PI * k) / z + (top ? op.twist : 0)); // (the tooth's direction at this face)
+        const tang = cross(x, n);
+        const o = [0, 1, 2].map((i) => op.centre[i] - wt * tang[i]);
+        const r = (v) => tip + s * v; // (v from the tip, away from the material)
+        const h = (v) => (top ? W - v : v);
+        const wedge = draw([r(-c - 1), h(-1)]).lineTo([r(1), h(c + 1)]).lineTo([r(1), h(-1)]).close();
+        pieces.push(wedge.sketchOnPlane(new Plane(o, x, tang)).extrude(2 * wt));
+      }
+    }
+    const made = body.cut(makeCompound(pieces));
+    return { kind: "solid", shape: found ? makeCompound([...found.rest, ...lumpsOf(made)]) : made, first: op.body };
+  },
+
   /** Cylindrical hole cut from the top of the target, at (x, y). depth omitted = through. */
   hole(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;

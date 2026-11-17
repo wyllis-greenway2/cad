@@ -3536,3 +3536,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_797 — 2026-11-17 — approval
 > Yes, leave the arcs as they are, but first update from claude/inspiring-pascal-l342k7, all your edits should have been pushed there
 (answers the spline flank question: no spline option, the tooth flanks stay chains of arcs; and asks that this branch first be brought up to date from claude/inspiring-pascal-l342k7, which already held all of this branch's work: a fast-forward of 79 commits)
+
+## in_798 — 2026-11-17 — directive
+> lets try to speed it up
+(asks to make the tooth chamfer faster, after being told it adds about 4.5 to 10 s to the build of a gear)

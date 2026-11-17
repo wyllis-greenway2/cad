@@ -267,6 +267,15 @@ export function buildGraph(scene: Scene): GraphResult {
         prev = xid;
         break;
       }
+      case "toothChamfer": {
+        // the tips of a gear's teeth broken at its two faces (`in_760`, `in_798`): one flat wedge cut from each tooth at each face, made and cut by the kernel in one step; the body is named by the step that made it
+        const body = (st.parts[0] ?? "").startsWith("b/") ? st.parts[0]!.split("/")[1] : "";
+        if (!prev || !body || body === "body") { errors[st.id] = "there is no body to chamfer"; break; }
+        const p = st.params;
+        ops.push({ id: xid, type: "toothChamfer", target: prev, body, teeth: Number(p.teeth), tip: Number(p.tip), depth: Number(p.depth), width: Number(p.width), side: Number(p.side), twist: Number(p.twist ?? 0), centre: [Number(p.cx), Number(p.cy), Number(p.cz)], axis: [Number(p.dx), Number(p.dy), Number(p.dz)], first: [Number(p.ux), Number(p.uy), Number(p.uz)] });
+        prev = xid;
+        break;
+      }
       case "import": {
         // a body (or several) read from a STEP file: it has no history of its own, only the file's text, kept in the step (`dec_import`); beside the bodies already there, as a piece of its own
         const data = String(st.params.data ?? "");
