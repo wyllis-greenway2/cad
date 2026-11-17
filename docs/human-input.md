@@ -3141,3 +3141,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_699 — 2026-11-17 — directive
 > Go with your recommendation, source the ratchet numbers
 (asks for the ratchet's default numbers to be sourced, `q_ratchet_numbers`: look for where the tooth depth, hook angle, pawl pivot rule and pawl size come from, and write them in)
+
+## in_700 — 2026-11-17 — directive
+> Go with your recommendation, leave the ratchet numbers as they are
+(asks for the ratchet's default numbers to be left as they are; they stay conventions, not sourced numbers)
