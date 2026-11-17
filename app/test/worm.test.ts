@@ -198,3 +198,23 @@ test("the ends of a worm (`in_696`): journals with the thread running out into t
   assert.match(err({ ...worm, worm: { diameter: 24, length: 30, runout: 99 } }), /run-out/);
   assert.match(err({ ...worm, worm: { diameter: 24, length: 13, journal: 3 } }), /too short|journal/);
 });
+
+test("a worm for a worm wheel (`in_697`): placed by the helper on either side of the wheel, the two overlap by under a cubic millimetre; it has the starts the wheel was made for; a rack and a ring are refused", () => {
+  for (const [dir, off] of [[-Math.PI / 2, 0], [Math.PI / 2, 0], [-Math.PI / 2, 3]] as const) {
+    const w: GearSpec = { teeth: 20, module: 2, wheel: { starts: 1, diameter: 24, width: 12 } };
+    const base = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: w });
+    const src: GearRecord = { id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: w };
+    const r = meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 1, offset: off }, dir);
+    assert.ok(r.ok, r.ok ? "" : r.error);
+    const p = (r as { value: { at: Vec3; turn: number; spec: GearSpec } }).value;
+    assert.ok(p.spec.worm && p.spec.worm.diameter === 24 && p.spec.teeth === 1);
+    const s = run(base, { type: "gear", id: "g_002", plane: worldRef("XY"), at: p.at, spec: p.spec, turn: p.turn });
+    assert.ok(!s.message, s.message ?? "");
+    const o = overlap(s);
+    assert.ok(o < 1, `direction ${dir}, offset ${off}: overlap ${o} mm3`);
+  }
+  const src: GearRecord = { id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: { teeth: 20, module: 2, wheel: { starts: 1, diameter: 24, width: 12 } } };
+  assert.match((meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 2 }, 0) as { error: string }).error, /start/);
+  assert.ok(!meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 1, rack: true }, 0).ok);
+  assert.ok(!meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 1, ring: true }, 0).ok);
+});

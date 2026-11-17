@@ -28,7 +28,7 @@ import { mateStatus } from "../../operation/mates.ts";
 import { moveOffset } from "../gizmo.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
-import { doBodyEye, doDeleteBody } from "./bodies.ts";
+import { doBodyEye, doDeleteBody, doHideBodies, selectedBodies } from "./bodies.ts";
 import { doParamRemove } from "./history.ts";
 import { constraintOwners } from "../panels.ts";
 import type { AppState } from "./state.ts";
@@ -396,6 +396,11 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id.startsWith("body:eye:")) return doBodyEye(closed, id.slice(9) as Ref); // (the eye on a body, `dec_hidden_bodies`)
   if (id.startsWith("sheet:mode:")) return doSheetMode(closed, id.slice(11) as never);
   if (id === "sheet:move") return doSheetMove(closed);
+  if (id === "view:hide") { // the selected bodies are hidden (the eye of a body is in the View menu, `in_697`)
+    const sc = sceneOf(s.session);
+    const refs = selectedBodies(sc, selectionOf(s.session));
+    return refs.length ? doHideBodies(closed, refs, true) : { ...closed, session: { ...s.session, message: "select a body to hide" } };
+  }
   if (id === "view:wireframe") return { ...closed, wireframe: !s.wireframe, session: { ...closed.session, message: s.wireframe ? "solid view" : "wireframe view: the faces of bodies are not drawn, to see what is inside" } };
   if (id === "tape:measure") return { ...closed, tape: !s.tape, panel: s.tape ? (s.panel === "measure" ? null : s.panel) : "measure", session: { ...closed.session, message: s.tape ? "tape measure off" : "tape measure on: select a face, or two (Shift adds the second), to see what they are to each other" } };
   if (id.startsWith("mate:stand:")) { // a mate is made standing (it puts itself back after a change) or not (`in_321`)
@@ -441,7 +446,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     const sc = sceneOf(s.session);
     const rec = selectionOf(s.session).map((r) => gearOfPart(sc, r)).find((g) => !!g);
     if (!rec) return { ...closed, session: { ...s.session, message: "select a gear first" } };
-    if (!canHelix(rec.spec)) return { ...closed, session: { ...s.session, message: "a helix can be put on a plain gear (not yet on a ring, a rack, a pulley, a sprocket, a clock gear or a worm)" } };
+    if (!canHelix(rec.spec)) return { ...closed, session: { ...s.session, message: "a helix can be put on a plain gear (not yet on a rack, a pulley, a sprocket, a clock gear or a worm)" } };
     return { ...closed, tool: editGearTool(rec, "helix"), op: null };
   }
   if (id === "gear:edit") { // the numbers of the gear that is selected, in the number box (`in_577`)

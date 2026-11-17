@@ -25,8 +25,8 @@ export const GEAR_HINTS: Record<GearKey, string> = {
   addendum: "Clock gears: height of the tooth above the pitch circle, in modules.",
   dedendum: "Clock gears: depth of the gap below the pitch circle, in modules.",
   fit: "ISO sprocket: how loose the tooth form is, 0 (tight) to 1 (loose).",
-  helix: "Helix angle at the pitch circle in degrees: 0 is a plain flat gear, anything else makes it a 3D helical gear. A minus sign makes a left hand gear; a partner needs the opposite hand (Mesh gear does that).",
-  width: "Width of the gear along its axis, in mm; only used with a helix (a plain gear is a flat outline). Six modules if left alone.",
+  helix: "Helix angle at the pitch circle in degrees: 0 is a straight tooth, anything else makes it a 3D helical gear (six modules thick unless you give a thickness). A minus sign makes a left hand gear; a partner needs the opposite hand (Mesh gear does that).",
+  width: "How thick the gear is along its axis, in mm. 0 leaves a flat outline (a sketch); anything above makes it a 3D gear. With a helix and no thickness, six modules.",
   diameter: "A worm's pitch diameter in mm (a worm has no teeth to count). The wheel for it must be made for the same diameter. Ten times the module is usual; a thicker worm is stronger and has a smaller lead angle.",
   length: "How long the worm's core is, in mm. At least two leads (a lead is the starts times pi times the module).",
   journal: "The plain shaft left at each end of the worm, in mm, for a bearing or a coupling. 0 makes the thread run the whole length and be cut flat at the ends (no shaft). Left alone: two modules (less on a short worm).",
@@ -36,7 +36,7 @@ export const GEAR_HINTS: Record<GearKey, string> = {
 
 /** The name the box shows for the kind of gear being made. */
 export function gearTitle(g: { internal?: boolean; rack?: boolean; pulley?: string; sprocket?: true; iso?: true; cycloidal?: true; mesh?: unknown }): string {
-  const what = g.pulley ? `${g.pulley === "2GT" ? "GT2" : g.pulley === "3GT" ? "3GT" : g.pulley === "HTD5M" ? "HTD 5M" : "HTD 8M"} pulley` : g.sprocket ? (g.iso ? "ISO sprocket" : "Sprocket") : g.cycloidal ? (g.internal ? "Clock ring" : g.rack ? "Clock rack" : "Clock gear") : g.rack ? "Rack" : g.internal ? "Ring gear" : "Gear";
+  const what = g.pulley ? `${g.pulley === "2GT" ? "GT2" : g.pulley === "3GT" ? "GT3" : g.pulley === "HTD5M" ? "HTD 5M" : "HTD 8M"} pulley` : g.sprocket ? (g.iso ? "ISO sprocket" : "Sprocket") : g.cycloidal ? (g.internal ? "Clock ring" : g.rack ? "Clock rack" : "Clock gear") : g.rack ? "Rack" : g.internal ? "Ring gear" : "Gear";
   return g.mesh ? `${what} (meshing)` : what;
 }
 

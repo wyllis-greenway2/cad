@@ -34,6 +34,7 @@ import { isHard } from "../hard.ts";
 import { doLook, selectedSurface } from "./viewing.ts";
 import { sectionNow, doSectionClick } from "./section.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
+import { selectedBodies } from "./bodies.ts";
 import { commitFigure, commitOp, setRepeatAxis, doApply, finishPicking, picksMany } from "./modal.ts";
 import { doGizmoHover, gizmoOf, chosenId, activeOp, movePivotTo } from "./handles.ts";
 import { orientApply, hasOrb, putMover } from "./pose.ts";
@@ -53,7 +54,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:ring", label: "Ring gear", icon: "ringgear", tool: "gear" },
   { id: "tool:rack", label: "Rack", icon: "rack", tool: "gear" },
   { id: "tool:gt2", label: "GT2 pulley", icon: "pulley", tool: "gear" },
-  { id: "tool:gt3", label: "3GT pulley", icon: "pulley", tool: "gear" },
+  { id: "tool:gt3", label: "GT3 pulley", icon: "pulley", tool: "gear" },
   { id: "tool:htd5", label: "HTD 5M", icon: "pulley", tool: "gear" },
   { id: "tool:htd8", label: "HTD 8M", icon: "pulley", tool: "gear" },
   { id: "tool:sprocket", label: "ANSI sprocket", icon: "sprocket", tool: "gear" },
@@ -127,7 +128,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
     if (r.id === "gear:helix") { // (the helix is a number of a plain gear, `in_693`)
       const rec = sel.map((x) => gearOfPart(sc, x)).find((g) => !!g);
-      const why = !rec ? "select a gear" : !canHelix(rec.spec) ? "a helix goes on a plain gear (not yet a ring, rack, pulley, sprocket, clock gear or worm)" : null;
+      const why = !rec ? "select a gear" : !canHelix(rec.spec) ? "a helix goes on a plain gear (not yet a rack, pulley, sprocket, clock gear or worm)" : null;
       return [r.id, { ...base, enabled: !why, why }];
     }
     if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfPart(sc, x)); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
@@ -171,6 +172,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
       { id: "look", label: "Look at", icon: "look", enabled: !!target, why: target ? null : "select a plane or a face, or right-click on one" },
       { id: "view:game", label: "Game mode", icon: "game", enabled: true, why: null },
       { id: "view:section", label: "Section", icon: "section", enabled: true, why: null }, // (one item: a new plane, cutting; its icons change that, `in_466`)
+      { id: "view:hide", label: "Hide body", icon: "eyeOff", enabled: selectedBodies(sc, sel).length > 0, why: "select a body to hide (a hidden body comes back with its eye or from the Bodies list)" }, // (the eye that hovered on a body is here now, `in_697`)
       { id: "view:wireframe", label: "Wireframe", icon: "wireframe", enabled: true, why: null },
       { id: "tape:measure", label: "Tape measure", icon: "dimension", enabled: true, why: null },
     ]),

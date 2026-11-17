@@ -37,7 +37,7 @@ test("limits: no helix angle, too steep, no width, a ring are refused with the r
   assert.match(err({ teeth: 20, module: 2, helix: 0, width: 10 }), /helix angle must be from 1 to 45/);
   assert.match(err({ teeth: 20, module: 2, helix: 50, width: 10 }), /helix angle must be from 1 to 45/);
   assert.match(err({ teeth: 20, module: 2, helix: 15, width: 0 }), /width/);
-  assert.match(err({ teeth: 20, module: 2, helix: 15, width: 10, internal: true }), /ring/);
+  assert.equal(err({ teeth: 20, module: 2, helix: 15, width: 10, internal: true }), "", "a ring can have a helix (`in_697`)");
   assert.equal(err({ teeth: 20, module: 2, helix: 15, width: 10 }), "");
 });
 
@@ -135,7 +135,7 @@ test("Helix is a number of every plain gear (`in_693`): 0 is a plain gear; typin
   assert.equal(st.tool!.gear!.editing, "g_001");
   assert.equal(st.tool!.gear!.field, 7, "the box starts at the Helix field");
   const fields = entryOf(scene(st.session), st.tool, st.op)!.fields;
-  assert.deepEqual(fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Width", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Thickness", "Bore", "Flat", "Key", "Key depth"]);
   assert.equal(fields[7]!.value, "0", "no helix: a plain gear");
   st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "8");
   const preview = previewFor(scene(st.session), st.tool)!;
@@ -165,17 +165,33 @@ test("a helix typed when the gear is made makes it 3D at once", () => {
   assert.equal(scene(st.session).steps.filter((x) => x.type === "revolve").length, 1);
 });
 
-test("a helix is put on a plain gear only: not on a ring (the item says why)", () => {
-  let st = reduce(top(), { type: "begin", name: "gear" }, env);
-  st = reduce(st, { type: "runAction", id: "tool:ring" }, env);
-  st = click(st, C);
-  st = typeText(st, "40"); st = key(st, "Tab"); st = typeText(st, "2");
-  st = key(st, "Enter");
-  const made = Object.values(scene(st.session).parts).find((p) => p.kind === "face" && p.ref.includes("g_"))!;
-  st = { ...st, tool: null, session: { ...st.session, click: { ...st.session.click, selection: [made.ref] } } };
-  const items = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; enabled: boolean; why?: string | null; children?: any[] }[]).flatMap(function walk(i: any): any[] { return [i, ...(i.children ?? []).flatMap(walk)]; });
-  const it = items.find((i) => i.id === "gear:helix")!;
-  assert.ok(!it.enabled && /plain gear/.test(it.why ?? ""));
+test("a helix goes on a ring too, and a ring round a helical gear has its hand (`in_697`); a gear in a helical ring has the ring's hand; a rack still takes none", () => {
+  const spec: GearSpec = { teeth: 20, module: 2, helix: 15, width: 10 };
+  const src: GearRecord = { id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec };
+  const ring = meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 40, ring: true }, 0);
+  assert.ok(ring.ok, ring.ok ? "" : ring.error);
+  const rs = (ring as { value: { spec: GearSpec } }).value.spec;
+  assert.deepEqual([rs.internal, rs.helix, rs.width], [true, 15, 10], "the same hand: an internal pair turns the same way");
+  const inside = meshWith({ id: "g_002", plane: worldRef("XY"), at: [0, 0, 0], spec: rs }, [1, 0, 0], [0, 1, 0], { teeth: 20 }, 0);
+  assert.ok(inside.ok, inside.ok ? "" : inside.error);
+  assert.equal((inside as { value: { spec: GearSpec } }).value.spec.helix, 15);
+  const ringBody = make({ teeth: 40, module: 2, internal: true, helix: 15, width: 8 });
+  assert.ok(!ringBody.message, ringBody.message ?? "");
+  assert.deepEqual(ringBody.outcome.errors, {});
+  const b = Object.values(scene(ringBody).parts).find((p) => p.kind === "body") as { bbox: { min: Vec3; max: Vec3 } };
+  assert.ok(Math.abs(b.bbox.min[2]) < 1e-6 && Math.abs(b.bbox.max[2] - 8) < 1e-6, `the ring body stands from the plane up (${b.bbox.min[2]} to ${b.bbox.max[2]})`);
+});
+
+test("a thickness makes a flat gear 3D with no helix: a straight extrusion; 0 leaves the sketch (`in_697`)", () => {
+  const flat = make({ teeth: 20, module: 2 });
+  assert.equal(scene(flat).steps.length, 0, "no thickness, no helix: a flat outline");
+  const thick = make({ teeth: 20, module: 2, bore: 5, width: 8 });
+  assert.ok(!thick.message, thick.message ?? "");
+  assert.deepEqual(scene(thick).steps.map((x) => x.type), ["extrude"]);
+  const b = Object.values(scene(thick).parts).find((p) => p.kind === "body") as { volume: number; bbox: { min: Vec3; max: Vec3 } };
+  assert.ok(Math.abs(b.bbox.max[2] - 8) < 1e-6 && b.volume > 5000);
+  const twisted = make({ teeth: 20, module: 2, bore: 5, width: 8, helix: 15 });
+  assert.deepEqual(scene(twisted).steps.map((x) => x.type), ["revolve"]);
 });
 
 test("a partner of a helical gear has the opposite hand, the same module and width, and stands at the centre distance of the transverse sections; a rack is refused", () => {

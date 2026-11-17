@@ -24,7 +24,7 @@ const norm = (a: number): number => { const t = ((a % TAU) + TAU) % TAU; return 
 export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; offset?: number; width?: number; /** a ring that goes round the gear (`in_686`) */ ring?: boolean }, where: number): Result<Placement> {
   const s = src.spec;
   if (s.worm) return meshWormWheel(src, u, v, partner, where);
-  if (s.wheel) return err("a worm wheel is meshed by selecting the worm, not the wheel");
+  if (s.wheel) return meshWheelWorm(src, u, v, partner, where);
   const z2 = Math.round(partner.teeth);
   if (s.pulley || s.sprocket) return err("a pulley or a sprocket meshes with a belt or a chain, not with a gear");
   if ((s.shift ?? 0) !== 0) return err("a gear with a profile shift is not meshed yet");
@@ -33,7 +33,8 @@ export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: nu
   if (helical && partner.rack) return err("a helical gear does not mesh with a rack yet");
   const m = helical ? s.module / Math.cos((Math.abs(s.helix!) * Math.PI) / 180) : s.module; // (a helical gear's pitch circles are those of its transverse section)
   const at = (c: Vec3, x: number, y: number): Vec3 => [c[0] + u[0] * x + v[0] * y, c[1] + u[1] * x + v[1] * y, c[2] + u[2] * x + v[2] * y];
-  const base: GearSpec = { teeth: z2, module: s.module, ...(helical ? { helix: -s.helix!, width: s.width } : {}), ...(s.cycloidal ? { cycloidal: { ...s.cycloidal } } : {}), ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), ...(s.clearance !== undefined ? { clearance: s.clearance } : {}) };
+  const base: GearSpec = { teeth: z2, module: s.module, ...(helical ? { helix: (partner.ring || s.internal ? 1 : -1) * s.helix! } : {}), ...(s.width ? { width: s.width } : {}), // (a helical pair outside has opposite hands, a gear in a ring the ring's own)
+     ...(s.cycloidal ? { cycloidal: { ...s.cycloidal } } : {}), ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), ...(s.clearance !== undefined ? { clearance: s.clearance } : {}) };
   const turn1 = src.turn ?? 0;
   if (s.rack) {
     if (partner.rack) return err("a rack does not mesh with a rack");
@@ -113,4 +114,33 @@ function meshWormWheel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: numb
   const delta = ((((xc - lead / 4) % px2) + px2 + px2 / 2) % px2) - px2 / 2;
   const turn = norm(t + (side > 0 ? 0 : Math.PI) + delta / w.value.rw);
   return ok({ at, turn, spec });
+}
+
+/**
+ * The worm for a worm wheel (`in_697`), the other way round from `meshWormWheel`: the worm lies along the wheel's own x at the centre distance on the side of the wheel's middle the pointer is on (its length `partner.width`, its starts `partner.teeth`, `partner.offset`
+ * along the wheel's x from the wheel's middle); the wheel keeps its turn and the worm is turned about its axis' direction so that its thread meets the wheel's teeth (the same fit as the wheel for a worm, solved for the worm's turn).
+ */
+function meshWheelWorm(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; offset?: number; width?: number; ring?: boolean }, where: number): Result<Placement> {
+  const s = src.spec, w = wheelOf(s);
+  if (!w.ok) return w;
+  if (partner.rack || partner.ring) return err("only a worm meshes with a worm wheel");
+  const starts = Math.round(partner.teeth);
+  if (starts !== s.wheel!.starts) return err(`the worm for this wheel has ${s.wheel!.starts} start${s.wheel!.starts === 1 ? "" : "s"}: it was made for that many (type Starts)`);
+  const length = partner.width && partner.width > 0 ? partner.width : Math.max(15, 2.5 * Math.PI * Math.max(1, starts)) * s.module;
+  const spec: GearSpec = { teeth: starts, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), worm: { diameter: s.wheel!.diameter, length } };
+  const g = wormOf(spec);
+  if (!g.ok) return g;
+  const tw = src.turn ?? 0;
+  const side = Math.sin(where - tw) <= 0 ? 1 : -1; // (the worm is on the wheel's -Y side in the usual way round: `side` is the worm's own convention, as in `meshWormWheel`)
+  const lead = g.value.lead, px2 = g.value.px;
+  const a0 = wormLayout(g.value, spec.worm!).a0;
+  const aC = a0 + (side > 0 ? 0 : lead / 2);
+  // the wheel's teeth are fixed where they are, so the worm is fitted by sliding it along its own axis (its thread is a screw: a turn about its axis is a slide): the places that fit are a pitch apart, and the one nearest the offset asked for is taken
+  const base0 = aC - side * (lead / 4);
+  const off = base0 + Math.round(((partner.offset ?? 0) - base0) / px2) * px2;
+  const t = norm(tw - (side > 0 ? 0 : Math.PI)); // (the wheel's turn is the worm's, plus the half turn of the other side)
+  const [cx, sx] = [Math.cos(t), Math.sin(t)];
+  const [qx, qy] = [cx * off - sx * side * w.value.cd, sx * off + cx * side * w.value.cd];
+  const at: Vec3 = [src.at[0] - (u[0] * qx + v[0] * qy), src.at[1] - (u[1] * qx + v[1] * qy), src.at[2] - (u[2] * qx + v[2] * qy)];
+  return ok({ at, turn: t, spec });
 }

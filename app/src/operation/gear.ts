@@ -117,6 +117,8 @@ function rackOutline(spec: GearSpec): Result<GearOutline> {
 }
 
 /** How far the outline of a helical gear is turned while it is carried along its axis for its whole width, degrees (the sign is the hand), or null for a gear that is not helical: width x tan(helix) / transverse pitch radius. */
+/** Whether a gear has a body made with it (`in_697`): a helix, or a thickness above zero (a flat gear has neither). */
+export const hasBody = (spec: GearSpec): boolean => spec.helix !== undefined || (spec.width ?? 0) > 0;
 export function helixTwist(spec: GearSpec): number | null {
   if (spec.helix === undefined || !(spec.width! > 0) || !(spec.teeth > 0) || !(spec.module > 0)) return null;
   const b = (spec.helix * Math.PI) / 180;
@@ -166,7 +168,6 @@ function outlineOf(spec: GearSpec): Result<GearOutline> {
   if (!(alphaN > 0 && alphaN < (35 * Math.PI) / 180)) return err("the pressure angle must be between 0 and 35 degrees");
   const helical = spec.helix !== undefined;
   if (helical) {
-    if (spec.internal) return err("a helical ring is not made yet");
     if (!(Math.abs(spec.helix!) > 0 && Math.abs(spec.helix!) <= 45)) return err("the helix angle must be from 1 to 45 degrees (a minus sign is a left hand helix); a gear with no helix is the plain gear tool");
     if (!(spec.width! > 0)) return err("the width of a helical gear must be above zero");
   }

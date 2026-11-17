@@ -9,7 +9,7 @@ import { ok, err } from "../shared/result.ts";
 import type { Scene, Step } from "./scene.ts";
 import { nextId, bumpCounter } from "./scene.ts";
 import type { Part } from "./part.ts";
-import { gearOutline, helixTwist } from "./gear.ts";
+import { gearOutline, helixTwist, hasBody } from "./gear.ts";
 import { boreLoop } from "./bore.ts";
 import type { GearSpec, GearOutline } from "./gear.ts";
 import { wormRefs, wormParts, wormSteps, wheelRefs, wheelParts, wheelSteps } from "./wormscene.ts";
@@ -91,23 +91,30 @@ export function withGears(s: Scene): Scene {
   return { ...s, parts };
 }
 
-/** The numbers of the twist step of a helical gear: the whole outline carried along the plane's normal through the centre for the width while it turns (`dec_spiral_extrude`, the twist about the normal), and which gear it is of. */
-function twistParams(s: Scene, rec: GearRecord): Record<string, number | string> | null {
-  const turn = helixTwist(rec.spec);
+/** The figure of the body of a plain gear or a ring: the outline and its bore, or, for a ring, the circle of its wall with the teeth as the hole. */
+function bodyFigure(rec: GearRecord): { parts: Ref[]; holes?: string } {
+  const r = gearRefs(rec);
+  if (rec.spec.internal && r.wall) return { parts: [r.wall as Ref], holes: r.lines.join(",") };
+  return { parts: r.lines, ...(r.bore ? { holes: r.bore } : {}) };
+}
+/** The numbers of the step that makes the body of a gear with a helix or a thickness (`in_697`): the whole outline carried along the plane's normal through the centre for the thickness, turning for a helix (`dec_spiral_extrude`, the twist about the normal), and which gear it is of. */
+function bodyParams(s: Scene, rec: GearRecord): { step: Omit<Step, "id"> } | null {
   const plane = s.parts[rec.plane];
-  if (turn === null || !plane || plane.kind !== "plane") return null;
+  if (!hasBody(rec.spec) || !plane || plane.kind !== "plane") return null;
+  const fig = bodyFigure(rec);
+  const turn = helixTwist(rec.spec);
+  if (turn === null) return rec.spec.width ? { step: { type: "extrude", parts: fig.parts, params: { depth: rec.spec.width, ...(fig.holes ? { holes: fig.holes } : {}), mode: "new", gear: rec.id } } } : null; // (a thickness and no helix: a straight extrusion)
   const [u, v] = [plane.u, plane.v];
   const n: Vec3 = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
   const len = Math.hypot(...n) || 1;
-  const bore = gearRefs(rec).bore;
-  return { ...(bore ? { holes: bore } : {}), angle: turn, advance: rec.spec.width!, ax: rec.at[0], ay: rec.at[1], az: rec.at[2], dx: n[0] / len, dy: n[1] / len, dz: n[2] / len, mode: "new", gear: rec.id };
+  return { step: { type: "revolve", parts: fig.parts, params: { ...(fig.holes ? { holes: fig.holes } : {}), angle: turn, advance: rec.spec.width!, ax: rec.at[0], ay: rec.at[1], az: rec.at[2], dx: n[0] / len, dy: n[1] / len, dz: n[2] / len, mode: "new", gear: rec.id } } };
 }
 /** The steps that make the body of a gear that has one made with it (a helical gear's twist, a worm's core and threads, a worm wheel's loft), without their names; none for a plain gear. */
 function ownedSpecs(s: Scene, rec: GearRecord): Omit<Step, "id">[] {
   if (rec.spec.worm) return wormSteps(s, rec) ?? [];
   if (rec.spec.wheel) return wheelSteps(s, rec) ?? [];
-  const params = twistParams(s, rec);
-  return params ? [{ type: "revolve", parts: gearRefs(rec).lines, params }] : [];
+  const body = bodyParams(s, rec);
+  return body ? [body.step] : [];
 }
 const ownedBy = (id: string) => (st: Step): boolean => st.params.gear === id;
 /** The steps that make the body of a gear, named (the scene's next names), with the scene they are added to: its counter is moved on past them. */
@@ -115,6 +122,13 @@ export function ownedSteps(s: Scene, rec: GearRecord): { scene: Scene; steps: St
   let cur = s;
   const steps: Step[] = [];
   for (const spec of ownedSpecs(s, rec)) { const st: Step = { ...spec, id: nextId(cur, "s") }; steps.push(st); cur = bumpCounter({ ...cur, steps: [...cur.steps, st] }, st.id); }
+  // a worm made for a wheel that is there already: its threads and cuts act on every piece that stands before them (a step that adds or cuts works on all the bodies made so far, and a thread touching the wheel's teeth would join it),
+  // so its steps go in front of the wheel's, and the wheel (a piece of its own) comes after, as when the wheel is made for the worm (`in_708`)
+  if (rec.spec.worm && steps.length) {
+    const wheels = new Set(gearsOf(s).filter((g) => g.spec.wheel).map((g) => g.id));
+    const at = s.steps.findIndex((st) => wheels.has(String(st.params.gear)));
+    if (at >= 0) cur = { ...cur, steps: [...s.steps.slice(0, at), ...steps, ...s.steps.slice(at)] };
+  }
   return { scene: cur, steps };
 }
 

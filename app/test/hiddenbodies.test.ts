@@ -107,7 +107,7 @@ test("the frame says which triangles are hidden, and gives each body an eye", ()
   let st = state();
   const quiet = frameOf(st, { w: 800, h: 600 });
   assert.equal(quiet.hiddenBodies, null, "none hidden");
-  assert.equal(quiet.eyesQuiet, false, "nothing is in use");
+  assert.equal(quiet.eyesQuiet, true, "a body that is shown has no eye of its own now: Hide body is in the View menu (`in_708`); a hidden body keeps its eye");
   assert.deepEqual(quiet.bodyEyes.map((e) => [e.ref, e.hidden, e.corners.length]), [[A, false, 8], [B, false, 8]]);
   st = reduce(st, { type: "panelRow", id: B, act: "hide" }, env);
   const f = frameOf(st, { w: 800, h: 600 });

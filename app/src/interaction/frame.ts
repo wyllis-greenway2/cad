@@ -397,8 +397,8 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     hiddenBodies: hiddenItemsOf(sc, outcome),
     thin: s.panel === "measure" && !outcome.kernel?.stale ? thinPlacesOf(sc, sel) : null,
     bodyEyes: Object.values(sc.parts).flatMap((p) => { if (p.kind !== "body" || !p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners }]; }),
-    eyesQuiet: !!s.tool || !!s.op || !!s.drag || !!s.repeat,
-    gearChip: s.tool || s.op || s.drag || s.repeat ? null : gearChipOf(sc, sel),
+    eyesQuiet: true, // (a body that is shown has no eye of its own now: Hide body is in the View menu, `in_697`; a hidden body keeps its eye)
+    gearChip: s.tool || s.op || s.drag || s.repeat ? null : gearChipOf(sc, s.session.hover ? [...sel, s.session.hover] : sel),
     followers: gpu?.followers ?? [],
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
     highlight: { hover: s.session.hover, /* (a visible sheet lights the blue hover disc as every surface does, `in_470`) */ hoverPoint: s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
@@ -675,12 +675,12 @@ function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
   const r = rec.spec.worm ? rec.spec.worm.length / 2 : Math.max(5, rec.spec.module * (rec.spec.teeth / 2 + 2));
   const at: Vec3 = [rec.at[0] + pl.v[0] * r, rec.at[1] + pl.v[1] * r, rec.at[2] + pl.v[2] * r];
   const plain = canHelix(rec.spec);
-  const worm = !!rec.spec.worm;
+  const worm = !!rec.spec.worm || !!rec.spec.wheel;
   return { at, items: [
     { id: "gear:edit", label: "Edit gear", icon: "gear", enabled: true, why: null },
-    { id: "gear:helix", label: "Helix", icon: "helical", enabled: plain, why: plain ? null : "a helix goes on a plain gear (not yet a ring, rack, pulley, sprocket, clock gear or worm)" },
+    { id: "gear:helix", label: "Helix", icon: "helical", enabled: plain, why: plain ? null : "a helix goes on a plain gear (not yet a rack, pulley, sprocket, clock gear or worm)" },
     { id: "gear:mesh", label: "Mesh gear", icon: "meshgear", enabled: true, why: null },
-    { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack", enabled: !worm, why: worm ? "a rack does not mesh with a worm" : null },
-    { id: "gear:meshring", label: "Mesh ring", icon: "meshring", enabled: !worm, why: worm ? "a ring does not mesh with a worm" : null },
+    { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack", enabled: !worm, why: worm ? "a rack does not mesh with a worm or its wheel" : null },
+    { id: "gear:meshring", label: "Mesh ring", icon: "meshring", enabled: !worm, why: worm ? "a ring does not mesh with a worm or its wheel" : null },
   ] };
 }

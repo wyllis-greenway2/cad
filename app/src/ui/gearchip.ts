@@ -1,4 +1,4 @@
-// The gear's own icon (`in_693`): when a gear (its sketch or its 3D body) is selected, a small gear button stands by it; a click opens a short list (edit its numbers, the helix, a gear, rack or ring that meshes with it).
+// The gear's own icon (`in_693`, `in_697`): when a gear (its sketch or its 3D body) is selected or the pointer is over it, a small gear button stands by it; a click opens a short list (edit its numbers, the helix, a gear, rack or ring that meshes with it).
 // Like the eye on a body (`bodychips.ts`) it only shows and reports the click: the actions are the ring's (`gear:edit`, `gear:helix`, `gear:mesh`, ...).
 import { iconSvg } from "./icons.ts";
 import type { Vec3 } from "../interaction/api.ts";
@@ -17,15 +17,18 @@ export function createGearChip(host: HTMLElement, run: (id: string) => void) {
   box.append(button, list);
   for (const t of ["pointerdown", "pointerup", "wheel", "contextmenu"]) box.addEventListener(t, (e) => { e.stopPropagation(); if (t === "contextmenu") e.preventDefault(); });
   host.appendChild(box);
-  let open = false, sig = "";
+  let open = false, sig = "", last: GearChip | null = null;
+  document.addEventListener("pointerdown", (e) => { if (open && !box.contains(e.target as Node)) { open = false; list.style.display = "none"; } }); // (a click elsewhere closes the list)
   const show = () => { list.style.display = open ? "flex" : "none"; };
   button.addEventListener("click", (e) => { e.stopPropagation(); open = !open; show(); });
   return {
     rect(): DOMRect | null { return box.style.display === "none" ? null : box.getBoundingClientRect(); },
     /** `chip` null when no gear is selected (or something is in use); `screen` puts a point of the scene on the page. */
-    update(chip: GearChip | null, screen: (q: Vec3) => [number, number] | null): void {
+    update(chip0: GearChip | null, screen: (q: Vec3) => [number, number] | null): void {
+      const chip = chip0 ?? (last && (open || box.matches(":hover")) ? last : null); // (the pointer going from the gear to its icon, or the list being open, keeps it)
+      if (chip0) last = chip0;
       const at = chip ? screen(chip.at) : null;
-      if (!chip || !at) { box.style.display = "none"; open = false; sig = ""; return; }
+      if (!chip || !at) { box.style.display = "none"; open = false; sig = ""; last = null; return; }
       const now = JSON.stringify(chip.items);
       if (now !== sig) {
         sig = now;

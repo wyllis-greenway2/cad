@@ -10,7 +10,7 @@ import { withSession } from "./state.ts";
 export const bodyRefs = (sc: ReturnType<typeof sceneOf>): Ref[] => Object.values(sc.parts).filter((p) => p.kind === "body").map((p) => p.ref);
 
 /** Hide bodies or show them again: the command is made, and what is selected of a body that is now hidden is taken out of the selection (it cannot be reached). */
-function doHideBodies(s: AppState, refs: readonly Ref[], hidden: boolean): AppState {
+export function doHideBodies(s: AppState, refs: readonly Ref[], hidden: boolean): AppState {
   const real = refs.filter((r) => sceneOf(s.session).parts[r]?.kind === "body");
   if (!real.length) return s;
   const session = run(s.session, { type: "hideBodies", refs: [...real], hidden });
@@ -46,4 +46,10 @@ export function doDeleteBody(s: AppState, ref: Ref): AppState {
   if (!a) return s;
   const session = run({ ...s.session, click: { ...s.session.click, selection: [ref] } }, a.run());
   return withSession({ ...s, menu: null }, { ...session, click: { ...session.click, selection: [] } });
+}
+
+/** The bodies a selection is, or its faces, edges and corners are in (the ones Hide body hides): a part says its body, or, with one body only, it is that one's (`in_697`). */
+export function selectedBodies(sc: ReturnType<typeof sceneOf>, sel: readonly Ref[]): Ref[] {
+  const all = bodyRefs(sc);
+  return [...new Set(sel.flatMap((r) => { const p = sc.parts[r]; return !p ? [] : p.kind === "body" ? [r] : p.origin === "body" ? (p.of && sc.parts[p.of] ? [p.of] : all.length === 1 ? all : []) : []; }))];
 }

@@ -730,7 +730,8 @@ const OPS = {
     if (Math.abs(Math.abs(dot(N, D)) - 1) < 1e-6) {
       // the axis is the plane's normal: the figure is carried along it by `advance` while it turns about it, a twisted extrusion (a bar turned into an auger, a lobed section into a screw); the axis may stand off the figure (a coil)
       if (Math.abs(advance) < 1e-9) throw new Error("a twist needs a distance to be carried along the axis");
-      const sgn = dot(N, D) > 0 ? 1 : -1;
+      const dd = outerSketch.defaultDirection; // (the way the sketch is carried: a circle's is not always its face's normal, so a ring's wall would be carried the wrong way, `in_697`)
+      const sgn = dot([dd.x, dd.y, dd.z], D) > 0 ? 1 : -1;
       const v0 = pts[0];
       const o = sub(A, N.map((x) => x * dot(sub(A, v0), N))); // (the axis where it meets the figure's plane)
       const h = advance * sgn; // (the distance along the plane's normal)
