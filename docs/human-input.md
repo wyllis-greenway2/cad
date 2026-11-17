@@ -3540,3 +3540,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_798 — 2026-11-17 — directive
 > lets try to speed it up
 (asks to make the tooth chamfer faster, after being told it adds about 4.5 to 10 s to the build of a gear)
+
+## in_799 — 2026-11-17 — approval
+> Yes, make the helical wedges follow the helix
+(approves making the tooth chamfer's wedges on a helical gear follow the helix, to cut the 4.4 s it adds to a helical gear)
