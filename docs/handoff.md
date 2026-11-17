@@ -2896,3 +2896,6 @@ The default branch `claude/inspiring-pascal-l342k7` (gear tool, hard bodies, lof
 
 ## Handoff 622 — 2026-11-17 (in_694: parts interface and tolerance accepted)
 `in_694`. `dec_parts_interface` and `dec_parts_tolerance` are **accepted** (`ai-proposed-human-approved`). Nothing built. **Next:** build the first fastener family; its dimension tables need a cited source read first (no values from memory).
+
+## Handoff 623 — 2026-11-17 (in_695: a first fastener and receiver subset, discussed)
+`in_695`. Discussed, **nothing decided, no code:** a matching receiver for each fastener (clearance hole, counterbore, countersink, tap drill, nut trap) is mostly standardized or derived from the fastener's own row (ISO 273 clearance, ISO 10642 countersink; tap drill is nominal minus pitch at about 75% engagement; nut trap clearance is the printer's fit offset); only the tap drill's engagement depends on material, as a parameter with a default; inserts and self-tapping are not standardized and left out. Proposed first subset: M3, M4, M5, M6, M8 coarse; ISO 4762, ISO 10642, ISO 4032, ISO 7089; those receivers. All numbers were from memory and **must be read from at least two cited sources** before use. **Next:** the human decides whether to draft the subset as one provisional entry and find sources.
