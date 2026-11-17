@@ -3492,3 +3492,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_786 — 2026-11-17 — directive
 > [the human attached five PDFs with no words: the NASA paper 19830024896 (59 pages), the NASA paper 19810017922 (23 pages), Stadtfeld "stadtfeld.pdf" (Gear Technology, Jan 2001), Gear Technology "chapter2.pdf" (Aug 2015), and "The intrinsic pitch cones in hypoid gears" (AGMA media)]
 (sends the papers asked for, to derive the spiral bevel surfaces from; the NASA paper 19820018805 and the Tredgold postprint were not among them)
+
+## in_787 — 2026-11-17 — directive
+> [the human attached the NASA paper 19820018805 (20 pages)] build the flank sections and test the pair in the kernel. Also here is another doc that might be useful for you.
+(asks me to build the flank sections of the spiral bevel pair and test the pair in the kernel; sends the NASA paper 19820018805, the one the access attempts could not fetch)
