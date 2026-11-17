@@ -3408,3 +3408,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_765 — 2026-11-17 — approval
 > yes set up the source index
 (approves setting up the source index: an entry for each source read or looked up so far)
+
+## in_766 — 2026-11-17 — directive
+> lets work on Spiral bevel and hypoid
+(asks me to work on spiral bevel and hypoid gears next)
