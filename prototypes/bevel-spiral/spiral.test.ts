@@ -42,7 +42,7 @@ function gearBody(s: Session, sp: SpiralSpec, axis: V, toward: V, turn: number):
     secs.push(ch.lines as string[]);
   }
   const id = nextId(scene(s), "s");
-  const done = run(s, { type: "addStep", step: { id, type: "loft", parts: secs[secs.length - 1] as never, params: { ...figureParams(secs.map((l) => ({ outer: l as never, holes: [] }))), ruled: 1, mode: "new" } } } as never);
+  const done = run(s, { type: "addStep", step: { id, type: "loft", parts: secs[0] as never, params: { ...figureParams(secs.map((l) => ({ outer: l as never, holes: [] }))), ruled: 1, mode: "new" } } } as never);
   if (done.message) throw new Error(done.message);
   return done;
 }
