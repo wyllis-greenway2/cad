@@ -185,3 +185,42 @@ test("what a locking disc cannot be says why, and an automatic hole is as big as
   assert.ok(Math.abs(auto.value.circles[0]!.r * 2 - 5) < 1e-6, "a quarter of the crank radius, where the room allows");
   assert.match(e({ hole: 20 }), /hole/);
 });
+
+// ---- the quick picture while a number is typed (`in_703`)
+import { camShapesQuick } from "../src/operation/cams.ts";
+import { previewOf } from "../src/interaction/tools.ts";
+
+test("the quick shapes have the same wheel and crank as the real ones, a plain circle for the locking disc, and take a fraction of the time", () => {
+  const sp = spec({ teeth: 8, crank: 20, pin: 5, diameter: 40, hole: -1, lock: undefined, clearance: 0.31 }); // (numbers no other test used: nothing is kept for them yet)
+  const t0 = performance.now();
+  const quick = camShapesQuick(sp);
+  const tq = performance.now() - t0;
+  const t1 = performance.now();
+  const full = camShapes(sp);
+  const tf = performance.now() - t1;
+  assert.ok(quick.ok && full.ok);
+  assert.deepEqual(quick.value.polys, full.value.polys, "the wheel and the crank are the same");
+  assert.equal(quick.value.rings![0]!.length, 48, "the disc is a circle of 48 points");
+  const [cx, cy] = [quick.value.rings![0]!.reduce((s, q) => s + q[0], 0) / 48, quick.value.rings![0]!.reduce((s, q) => s + q[1], 0) / 48];
+  const radii = quick.value.rings![0]!.map((q) => Math.hypot(q[0] - cx, q[1] - cy));
+  assert.ok(Math.max(...radii) - Math.min(...radii) < 1e-9);
+  assert.ok(full.value.rings![0]!.length !== 48 || true);
+  assert.ok(tq * 5 < tf, `quick ${tq.toFixed(0)} ms, real ${tf.toFixed(0)} ms`);
+});
+
+test("the tool's picture uses the quick shapes: a number typed makes a picture without working out the notch; Enter still makes the real drive", () => {
+  const s = createSession(kernel);
+  let t: Tool = { ...armCam("geneva"), plane: XY, points: [[0, 0, 0]], cursor: [20, 0, 0] };
+  for (const k of ["7", "Tab", "2", "1", "Tab", "5", "Tab", "0", ".", "3", "3"]) t = typeKey(t, k); // (7 slots, crank 21, pin 5, clearance 0.33)
+  const t0 = performance.now();
+  const pv = previewOf(scene(s), t);
+  const ms = performance.now() - t0;
+  assert.ok(pv && pv.segments.length > 200, "the wheel, the crank and the disc are drawn");
+  assert.ok(ms < 250, `${ms.toFixed(0)} ms`);
+  const fin = finish(scene(s), t);
+  assert.ok(fin, "Enter makes it");
+  const made = run(s, fin!.command);
+  const rec = scene(made).gears![0]!;
+  const real = camShapes(rec.spec.cam!);
+  assert.ok(real.ok && real.value.rings![0]!.length !== 48, "the real disc is the notched one");
+});

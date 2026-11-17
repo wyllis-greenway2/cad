@@ -107,7 +107,11 @@ function discRadii(wheel: readonly V2[], c: number, a: number, beta: number, cle
   return out;
 }
 
-export function genevaShapes(s: CamSpec): Result<{ polys: { points: V2[]; bulges: number[] }[]; circles: CamShapes["circles"]; rings: V2[][] }> {
+/**
+ * The shapes of a Geneva drive. With `quick` the locking disc's notch, which takes most of the time (`discRadii`), is not worked out: the disc is a plain circle of its radius, and the checks that need the notch (the hole against it)
+ * are left to the real thing: for the picture while the numbers are typed (`cams.ts` `camShapesQuick`); the wheel and the crank are the same.
+ */
+export function genevaShapes(s: CamSpec, quick = false): Result<{ polys: { points: V2[]; bulges: number[] }[]; circles: CamShapes["circles"]; rings: V2[][] }> {
   const n = Math.round(s.teeth ?? 0);
   const [a, p, clr] = [s.crank ?? 0, s.pin ?? 0, s.clearance ?? 0];
   if (!(n >= 3 && n <= 24)) return err("a Geneva wheel has 3 to 24 slots");
@@ -161,7 +165,9 @@ export function genevaShapes(s: CamSpec): Result<{ polys: { points: V2[]; bulges
   let discOutline: ((t: number) => V2) | null = null;
   let radii: number[] | null = null;
   const COUNT = 720;
-  if (lockOn) {
+  if (lockOn && quick) {
+    if (hole < 0) hole = Math.max(0, Math.min(a / 4, 2 * (sc - w / 2 - MIN_WALL)));
+  } else if (lockOn) {
     radii = discRadii(outlinePoints(wheel.points, wheel.bulges), c, a, Math.PI / 2 - half, clr, rl, COUNT);
     const smallest = Math.min(...radii);
     if (hole < 0) hole = Math.max(0, Math.min(a / 4, 2 * (smallest - MIN_WALL), 2 * (sc - w / 2 - MIN_WALL)));
@@ -169,7 +175,10 @@ export function genevaShapes(s: CamSpec): Result<{ polys: { points: V2[]; bulges
   } else if (hole < 0) hole = Math.max(0, Math.min(a / 4, 2 * (sc - w / 2 - MIN_WALL)));
   if (hole / 2 > sc - w / 2 - MIN_WALL + 1e-9) return err("a slot would reach the shaft's hole: use more slots, a smaller pin or clearance, or a smaller hole");
   const rh = Math.max(hole / 2 + 1.5, p);
-  if (radii) {
+  if (lockOn && quick) { // (a plain circle in the notch's place: close enough to see the disc's size and where it goes)
+    discAt = [a + p / 2 + 4 + rl + rh, hy];
+    rings = [Array.from({ length: 48 }, (_, i): V2 => [discAt[0] + rl * Math.cos((2 * Math.PI * i) / 48), discAt[1] + rl * Math.sin((2 * Math.PI * i) / 48)])];
+  } else if (radii) {
     const f = (t: number): number => { const x = ((t / (2 * Math.PI)) % 1 + 1) % 1 * COUNT; const i = Math.floor(x); const u = x - i; return radii![i % COUNT]! * (1 - u) + radii![(i + 1) % COUNT]! * u; };
     discAt = [a + p / 2 + 4 + rl + rh, hy]; // (beside the crank, its notch toward +x like the crank's pin)
     discOutline = (t) => [discAt[0] + f(t) * Math.cos(t), discAt[1] + f(t) * Math.sin(t)];

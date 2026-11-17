@@ -69,6 +69,21 @@ export function camShapes(s: CamSpec): Result<CamShapes> {
   if (!r) { r = shapesOfSpec(s); if (shapeCache.size > 64) shapeCache.clear(); shapeCache.set(key, r); }
   return r;
 }
+/** The same shapes, quickly: a Geneva drive's locking disc is a plain circle (`genevaShapes` with `quick`), for the picture while a number is typed; everything else is as `camShapes`. */
+const quickCache = new Map<string, Result<CamShapes>>();
+export function camShapesQuick(s: CamSpec): Result<CamShapes> {
+  if (s.kind !== "geneva") return camShapes(s);
+  const key = JSON.stringify(s);
+  let r = quickCache.get(key) ?? shapeCache.get(key); // (the real ones, if they are already worked out, are better)
+  if (!r) {
+    const why = camProblem(s);
+    const g = why ? null : genevaShapes(s, true);
+    r = why ? err(why) : g!.ok ? ok({ circles: g!.value.circles, spiral: null, closed: null, polys: g!.value.polys, ...(g!.value.rings.length ? { rings: g!.value.rings } : {}) }) : err(g!.error);
+    if (quickCache.size > 64) quickCache.clear();
+    quickCache.set(key, r);
+  }
+  return r;
+}
 function shapesOfSpec(s: CamSpec): Result<CamShapes> {
   const why = camProblem(s);
   if (why) return err(why);

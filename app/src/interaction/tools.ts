@@ -16,7 +16,7 @@ import { drawSquaredRectangle, drawCircle, drawChain, drawArc, drawSpline, joine
 import { distinctPoints, splinePoints } from "../operation/spline.ts";
 import { drawClosedSpline } from "../operation/splinering.ts";
 import type { CamKind, CamLaw, CamSpec } from "../operation/cams.ts";
-import { camShapes } from "../operation/cams.ts";
+import { camShapes, camShapesQuick } from "../operation/cams.ts";
 import { camFace } from "../operation/camscene.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt, visibleFrom } from "./picking.ts";
@@ -497,7 +497,7 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
   }
   if (t.kind === "cam") { // a cam (`dec_spline_and_cams`): what it is made of, in the plane, round the shaft the first click placed
     const spec = camSpecOf(t);
-    const shapes = spec ? camShapes(spec) : null;
+    const shapes = spec ? camShapesQuick(spec) : null; // (the picture is the quick one: a number typed does not wait for the locking disc's notch)
     if (!spec || !shapes || !shapes.ok) return { segments: [], circle: t.cursor && t.points[0] ? { center: t.points[0], radius: dist(t.points[0], t.cursor), normal: n } : null, cursor: t.cursor };
     const [ox, oy] = localOf(pl, t.points[0]!);
     const [ct, st] = [Math.cos(((spec.turn ?? 0) * Math.PI) / 180), Math.sin(((spec.turn ?? 0) * Math.PI) / 180)];
