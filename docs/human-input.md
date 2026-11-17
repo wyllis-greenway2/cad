@@ -3544,3 +3544,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_799 — 2026-11-17 — approval
 > Yes, make the helical wedges follow the helix
 (approves making the tooth chamfer's wedges on a helical gear follow the helix, to cut the 4.4 s it adds to a helical gear)
+
+## in_800 — 2026-11-17 — directive
+> lets try making helical gears faster
+(asks to make helical gears faster to build, after the finding that a helical gear is the slow case, with and without the chamfer)

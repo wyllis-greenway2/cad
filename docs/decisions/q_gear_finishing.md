@@ -3,7 +3,7 @@ id: q_gear_finishing
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_799, in_798, in_797, in_792, in_791, in_790, in_783, in_770
+human_input: in_800, in_799, in_798, in_797, in_792, in_791, in_790, in_783, in_770
 date: 2026-11-17
 depends_on:
   - dec_gear_tool: the tooth outline is drawn as lines and arcs (4 arcs to a flank by default) and a helical body is a twist of it; a change to that changes each option here
@@ -27,8 +27,10 @@ alternative_to:
 
 **A helical rack, and a rack with a helix field.** `meshWith` refuses a helical gear against a rack ("a helical gear does not mesh with a rack yet") and `canHelix` excludes racks, so the rack has no Helix field. A helical rack is the rack's section (transverse module mn / cos(helix), the same trapezoid) **sheared** along the rack as it is extruded: each layer slid sideways by height x tan(helix). The body is an oblique extrusion (the kernel's prism along a slanted vector) rather than the twist used for a gear, so it needs a step that takes a direction not along the normal, then Helix on the rack (opposite hand to the gear it meshes with), and the mesh placement shifted by the shear. Medium work; not started.
 
-**Answered (`in_797`): leave the arcs as they are** ("Yes, leave the arcs as they are", to the recommendation not to build a spline option); the prototype stays as the record. **Question for the human, still open:** the helical gear's chamfer still adds 4.4 s: wedges following the helix were asked for (`in_799`) and tried in the form of narrower wedges, which changed nothing (the cost is a plane meeting a twisted flank by marching, not how many faces the wedge reaches; `prototypes/chamfer-cut`), so nothing was built; is 4.4 s acceptable, or should a twisted-sweep tool or a chamfered end built into the helical body be tried? (3) is the wheel land worth a default of one module at about four times the build time (now off)?
+**Answered (`in_797`): leave the arcs as they are** ("Yes, leave the arcs as they are", to the recommendation not to build a spline option); the prototype stays as the record. **Question for the human, still open:** the helical gear's chamfer still adds 4.4 s: wedges following the helix were asked for (`in_799`) and tried in the form of narrower wedges, which changed nothing (the cost is a plane meeting a twisted flank by marching, not how many faces the wedge reaches; `prototypes/chamfer-cut`), so nothing was built; is 4.4 s acceptable, or should the chamfered tooth be built on one tooth block and copied round (see the end of this entry), which is a larger change? (3) is the wheel land worth a default of one module at about four times the build time (now off)?
 
 ## Rationale
 
 The record keeps these as open questions because each is a choice of shape or cost the human has not decided, and none was measured.
+
+**Helical gears made faster: tried, little to gain (`in_800`, `prototypes/helical-fast`).** A plain helical gear is not slower than a spur gear of the same size (40 teeth 1.4 s against 1.8 s); its time is the twisted B-spline flanks (sweep, sewing, validity, volume, mesh: 100 teeth 4.7 s against 2.5 s for a spur gear). Sweeping one tooth and copying it round, and a shell built by hand with no sewing, gave no gain (the second was also invalid); keeping one volume measurement instead of two was lost in the noise. Nothing changed in the app. The one real gain found is a chamfered tooth made on one tooth block and copied round (the wedge cut on a fortieth of the gear), which needs the chamfer made part of the helical body's own step: not built, asked below.
