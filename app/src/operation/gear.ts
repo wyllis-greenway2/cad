@@ -13,7 +13,7 @@ import { boreProblem } from "./bore.ts";
 import { gearRoot } from "./gearroot.ts";
 import { wormOf, wheelOf } from "./worm.ts";
 import type { WormSpec, WheelSpec } from "./worm.ts";
-import { bevelPoints } from "./bevel.ts";
+import { bevelPoints, bevelLayout } from "./bevel.ts";
 import type { BevelSpec } from "./bevel.ts";
 
 /** the belts there are timing pulleys for (`pulley.ts`) */
@@ -149,12 +149,14 @@ function wheelOutline(spec: GearSpec): Result<GearOutline> {
   return ok({ points, bulges: points.map(() => 0), pitchRadius: rw, baseRadius: 0, tipRadius: tipAt(0), rootRadius: rootAt(0), warnings: [] });
 }
 
-/** A straight bevel gear's outline: the big end of the toothed cone (`bevel.ts`), as straight sides. */
+/** A straight bevel gear's outline: the big end of the toothed cone (`bevel.ts`), as corners and arcs. */
 function bevelOutline(spec: GearSpec): Result<GearOutline> {
   const b = bevelPoints(spec);
   if (!b.ok) return b;
-  const { geometry: g, points } = b.value;
-  return ok({ points, bulges: points.map(() => 0), pitchRadius: g.pitchRadius, baseRadius: g.pitchRadius * Math.cos(((spec.pressure ?? 20) * Math.PI) / 180), tipRadius: g.tipRadius, rootRadius: g.rootRadius, warnings: ["an approximation of the standard bevel tooth (Tredgold back cone), not the octoid form of ISO 23509"] });
+  const lay = bevelLayout(spec); // (the body is made from it: the numbers that cannot are refused here, with why)
+  if (!lay.ok) return lay;
+  const { geometry: g, points, bulges } = b.value;
+  return ok({ points, bulges, pitchRadius: g.pitchRadius, baseRadius: g.pitchRadius * Math.cos(((spec.pressure ?? 20) * Math.PI) / 180), tipRadius: g.tipRadius, rootRadius: g.rootRadius, warnings: ["an approximation of the standard bevel tooth (Tredgold back cone), not the octoid form of ISO 23509"] });
 }
 
 /** The outline of a gear, or why there is none (and why its bore has no such flat or keyway). */
