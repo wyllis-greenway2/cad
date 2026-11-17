@@ -106,3 +106,12 @@ test("a wheel's loft is not checked for matching sections (`in_823`): the same v
     assert.ok(r.volume > 1000 && r.volume < 2000, `matched ${matched}: ${r.volume}`);
   }
 });
+
+test("a wheel's two end faces keep the names of their roles and every flank face has a name of its own (`in_825`: the roles of the thousand sides are not worked out)", () => {
+  const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: wheel(30) });
+  const k = (s.outcome as unknown as { kernel: { faceNames: { name: string }[]; faces: unknown[] | null } }).kernel;
+  const names = k.faceNames.map((f) => f.name);
+  assert.ok(names.some((n) => /:start$/.test(n)), names.slice(0, 5).join());
+  assert.ok(names.some((n) => /:end$/.test(n)));
+  assert.equal(new Set(names).size, names.length, "no two faces share a name");
+});

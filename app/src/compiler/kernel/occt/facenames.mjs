@@ -495,7 +495,7 @@ function sectionPlane(edges) {
  * of the next is `side:<the id of that edge in the earlier section>` when the four corners are in one plane (a ruled side of straight edges that are parallel or meet); a curved side has none. A loft that is
  * not ruled bends between three or more sections and its sides are splines, which no name is made for.
  */
-export function loftRoles(sections, caps, smooth = false) {
+export function loftRoles(sections, caps, smooth = false, capsOnly = false) {
   const roles = [];
   if (!sections || sections.length < 2 || sections.some((s) => !s.ends || !s.sides)) return roles;
   if (caps) {
@@ -503,6 +503,7 @@ export function loftRoles(sections, caps, smooth = false) {
     if (first) roles.push({ role: "start", n: first.n, c: first.c });
     if (last) roles.push({ role: "end", n: last.n, c: last.c });
   }
+  if (capsOnly) return roles; // (a wheel: the end faces only)
   if (smooth && sections.length > 2) { // a loft bent through three or more sections: one spline side for each edge, from the first section to the last, in the box of that edge's corners in every section
     const first = sections[0];
     if (first.sides.length === first.ends.edges.length && sections.every((s) => s.ends.edges.length === first.ends.edges.length)) {

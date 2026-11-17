@@ -643,7 +643,8 @@ const OPS = {
     };
     const through = (ids, key, as = op) => {
       const sk = ids.map(sketchOf);
-      if (ctx.roleFigs) { try { ctx.roleFigs.set(key, loftRoles(ids.map((id, k) => ({ ends: edgeEnds(sk[k]), sides: ctx.get(id, "sketch").sides })), key === "main", !!op.smooth)); } catch { ctx.roleFigs.set(key, []); } } // (the roles of its faces by the sketches' own edges, read before they are used up: `dec_stable_reference_mechanism`)
+      // a worm wheel (`op.matched`): only its two end faces are named by their roles; its thousand flank faces get the names of new faces (the gear is one feature, `dec_gear_feature`, and the roles of a thousand sides cost 1 s of a 100 tooth wheel: a box for each side, every face looked against every box)
+      if (ctx.roleFigs) { try { ctx.roleFigs.set(key, op.matched ? loftRoles([0, ids.length - 1].map((k) => ({ ends: edgeEnds(sk[k]), sides: [] })), key === "main", false, true) : loftRoles(ids.map((id, k) => ({ ends: edgeEnds(sk[k]), sides: ctx.get(id, "sketch").sides })), key === "main", !!op.smooth)); } catch { ctx.roleFigs.set(key, []); } } // (the roles of its faces by the sketches' own edges, read before they are used up: `dec_stable_reference_mechanism`)
       // sections that are known to match edge for edge (a worm wheel's: one gap turned, `op.matched`) need not be checked for it: that check is the larger half of the loft's time (100 teeth: 7.3 s to 3.7 s, the same solid to every digit)
       const made = as.matched && as.smooth ? matchedLoft(sk) : sk[0].loftWith(sk.slice(1), { ruled: !as.smooth });
       // a smooth loft through many sections can leave an edge whose 3D curve and whose curves on its two faces do not run at the same pace; the validity check refuses the whole solid for that (a wheel of 24 teeth was refused, one of 40 was not), though the
@@ -652,11 +653,12 @@ const OPS = {
       return made;
     };
     let solid = through(op.sections.map((s) => s.profile), "main");
-    if (op.matched && !isValidSolid(solid)) { const plain = { ...op, matched: false }; solid = through.call(null, op.sections.map((s) => s.profile), "main", plain); } // (the sections were not as matched as said: the checked loft)
-    if (!isValidSolid(solid)) throw new Error("the loft could not be made through those sketches (try turning an outline round with its start point, or reverse one)");
+    let whole = isValidSolid(solid);
+    if (!whole && op.matched) { solid = through(op.sections.map((s) => s.profile), "main", { ...op, matched: false }); whole = isValidSolid(solid); } // (the sections were not as matched as said: the checked loft)
+    if (!whole) throw new Error("the loft could not be made through those sketches (try turning an outline round with its start point, or reverse one)");
     const holes = op.sections[0].holes?.length ?? 0;
     for (let i = 0; i < holes; i++) solid = solid.cut(through(op.sections.map((s) => s.holes[i]), `hole${i}`));
-    if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the loft when its holes were cut");
+    if (holes && (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9))) throw new Error("nothing was left of the loft when its holes were cut"); // (a loft without holes was found valid just above, and its volume is measured when it is described: measuring it here too was 0.35 s of a 100 tooth wheel)
       return { solid };
     });
     const target = op.target ? ctx.get(op.target, "solid").shape : null;

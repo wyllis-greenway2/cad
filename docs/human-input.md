@@ -3646,3 +3646,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_824 — 2026-11-17 — directive
 > yes try lofting one tooth and turning it
 (approves trying to loft one tooth of the worm wheel and turn it round, instead of lofting the whole wheel)
+
+## in_825 — 2026-11-17 — directive
+> yes do the caps and the other costs next
+(approves working on the other costs of the worm wheel: the caps, and the sections, mesh, names and checks)
